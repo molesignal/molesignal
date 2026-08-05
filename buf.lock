@@ -1,0 +1,3 @@
+# Locked by `buf dep update`. Empty until external deps are added.
+version: v2
+deps: []

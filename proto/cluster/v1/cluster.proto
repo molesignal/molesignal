@@ -1,0 +1,135 @@
+syntax = "proto3";
+
+package cluster.v1;
+
+// 集群节点心跳与发现。
+// 节点（ingester / querier / compactor / alert_manager）周期 Heartbeat，
+// router 调 List 取健康节点表。
+service NodeService {
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+  rpc List(ListNodesRequest) returns (ListNodesResponse);
+}
+
+// 集群内部 CanonicalSpan 候选传输。producer 按 trace_id rendezvous 选定一个
+// sampler owner 后调用；服务端必须校验集群 bearer，不能暴露为公共 OTLP 接口。
+service TraceCandidateService {
+  rpc Submit(SubmitTraceCandidateRequest) returns (SubmitTraceCandidateResponse);
+}
+
+enum TraceForceKeep {
+  TRACE_FORCE_KEEP_UNSPECIFIED = 0;
+  TRACE_FORCE_KEEP_TRUSTED_INTERNAL = 1;
+  TRACE_FORCE_KEEP_DEBUG_TOKEN = 2;
+}
+
+enum TraceCandidateDisposition {
+  TRACE_CANDIDATE_DISPOSITION_UNSPECIFIED = 0;
+  TRACE_CANDIDATE_DISPOSITION_ACCEPTED = 1;
+  TRACE_CANDIDATE_DISPOSITION_OVERLOADED = 2;
+  TRACE_CANDIDATE_DISPOSITION_STOPPED = 3;
+}
+
+message SubmitTraceCandidateRequest {
+  string org_id = 1;
+  // system_self_trace=true 时 stream 必须为空，owner 将其写入 _sys/_molesignal；
+  // 否则 stream 是租户 Trace stream。
+  string stream = 2;
+  bool system_self_trace = 3;
+  // 完整且有界的 CanonicalSpan JSON。Resource/Scope 由 producer 生成，owner 不重写。
+  bytes canonical_span_json = 4;
+  TraceForceKeep force_keep = 5;
+  string producer_node_id = 6;
+  int64 produced_at_micros = 7;
+}
+
+message SubmitTraceCandidateResponse {
+  TraceCandidateDisposition disposition = 1;
+}
+
+enum NodeRole {
+  NODE_ROLE_UNSPECIFIED = 0;
+  NODE_ROLE_STANDALONE = 1;
+  NODE_ROLE_ROUTER = 2;
+  NODE_ROLE_INGESTER = 3;
+  NODE_ROLE_QUERIER = 4;
+  NODE_ROLE_COMPACTOR = 5;
+  NODE_ROLE_ALERT_MANAGER = 6;
+}
+
+message NodeInfo {
+  string node_id = 1;
+  string advertise_addr = 2; // host:port，用于 grpc / arrow flight
+  repeated NodeRole roles = 3;
+  string version = 4;
+}
+
+message HeartbeatRequest {
+  NodeInfo node = 1;
+  int64 ts_micros = 2;
+}
+
+message HeartbeatResponse {
+  int64 server_ts_micros = 1;
+}
+
+message ListNodesRequest {
+  // 可选过滤：只列指定角色的节点。空表示返回全部。
+  repeated NodeRole roles = 1;
+}
+
+message ListNodesResponse {
+  repeated NodeInfo nodes = 1;
+}
+
+// 跨集群事件总线：把一个集群对 org 维度资源（alert rule / dashboard /
+// regex pattern …）的 CUD 变更推到配了 org 映射的远端集群。
+// 接收端按 org 映射 + per-org token 鉴权 + Lamport 版本去重/冲突解决后应用。
+service EventService {
+  rpc PushEvents(PushEventsRequest) returns (PushEventsResponse);
+  // 跨集群查询取消（super-cluster leader）：coordinator 取消联邦查询时，按下发的
+  // federation_query_id 通知曾参与的远端集群中断本地子查询（best-effort，软降级）。
+  rpc CancelQuery(CancelQueryRequest) returns (CancelQueryResponse);
+  // gossip 节点发现：与已知 peer 交换"已知集群"拓扑（仅 id/name/addr，不含 token/org_map）。
+  // 收到未知集群 → 入库为 discovered=true、enabled=false（不自动信任，待 admin 启用）。
+  rpc GossipClusters(GossipRequest) returns (GossipResponse);
+}
+
+// 集群引用（gossip 仅传播这三项；token / org 映射绝不出网）。
+message ClusterRef {
+  string id = 1;
+  string name = 2;
+  string advertise_addr = 3;
+}
+
+message GossipRequest {
+  repeated ClusterRef known = 1;
+}
+
+message GossipResponse {
+  repeated ClusterRef known = 1;
+}
+
+message CancelQueryRequest {
+  string federation_query_id = 1;
+}
+
+message CancelQueryResponse {
+  // 本节点是否找到并取消了该 id 的在跑查询。
+  bool cancelled = 1;
+}
+
+message PushEventsRequest {
+  // 发源集群 id（接收端据此查 org 映射 / 投递游标）。
+  string source_cluster_id = 1;
+  // 每条是一个序列化的 CloudEvent（JSON bytes）。
+  repeated bytes events_json = 2;
+}
+
+message PushEventsResponse {
+  // 已应用（或幂等跳过）的事件 id。
+  repeated string accepted_ids = 1;
+  // 终态拒绝（未映射 org / 鉴权失败 / 解析失败 —— 重试也不会成功）的事件 id。
+  repeated string rejected_ids = 2;
+  // 瞬时失败（DB 抖动等）应**重试**的事件 id：发送端不推进游标过这些事件，下 tick 重投。
+  repeated string retry_ids = 3;
+}

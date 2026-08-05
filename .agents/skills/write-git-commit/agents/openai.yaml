@@ -1,0 +1,4 @@
+interface:
+  display_name: "编写 Git 提交信息"
+  short_description: "按项目 Conventional Commits 规范生成英文提交信息"
+  default_prompt: "使用 $write-git-commit 为当前改动生成符合项目规范的 Git 提交信息。"

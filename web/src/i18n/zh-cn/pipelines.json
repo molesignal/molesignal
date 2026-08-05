@@ -1,0 +1,338 @@
+{
+  "title": "流水线",
+  "subtitle": "按计划把事件从来源转换并路由到目标的处理链路。",
+  "actions": {
+    "streams": "数据流",
+    "sources": "来源",
+    "new_pipeline": "新建流水线",
+    "connectors": "连接器",
+    "refresh": "刷新",
+    "pause": "暂停",
+    "resume": "恢复",
+    "edit": "编辑",
+    "logs": "日志"
+  },
+  "filters": {
+    "search_placeholder": "过滤流水线…",
+    "all_types": "全部",
+    "logs": "日志",
+    "metrics": "指标",
+    "traces": "链路"
+  },
+  "states": {
+    "empty_title": "尚无计划流水线",
+    "empty_description": "创建流水线来转换、丰富并路由进入系统的事件。"
+  },
+  "kpis": {
+    "total": "流水线",
+    "visible": "显示 {{count}} 条",
+    "enabled": "启用",
+    "logs": "日志",
+    "metrics": "指标",
+    "traces": "链路"
+  },
+  "overview": {
+    "subtitle": "查看流水线运行健康、最近执行结果和失败趋势。",
+    "related_resources": "相关资源",
+    "view_sources": "查看数据源",
+    "view_streams": "查看数据流",
+    "view_connectors": "查看连接器",
+    "no_matches": "没有符合当前筛选条件的流水线。",
+    "kpis": {
+      "running": "运行中",
+      "running_hint": "已启用且无最近失败",
+      "error": "异常",
+      "error_hint": "最近一次运行失败",
+      "paused": "已暂停",
+      "paused_hint": "当前不会按计划执行",
+      "failed_24h": "24h 失败运行",
+      "failed_24h_hint": "过去 24 小时真实运行记录"
+    },
+    "filters": {
+      "all_statuses": "全部状态"
+    },
+    "health": {
+      "healthy": "正常",
+      "running": "运行中",
+      "error": "异常",
+      "paused": "已暂停",
+      "unknown": "状态未知",
+      "never": "尚未运行"
+    },
+    "run_states": {
+      "succeeded": "成功",
+      "failed": "失败",
+      "running": "运行中",
+      "cancelled": "已取消"
+    },
+    "columns": {
+      "name": "名称",
+      "type": "类型",
+      "schedule": "调度",
+      "status": "状态",
+      "last_run": "最近运行",
+      "success_rate": "24h 成功率",
+      "rows": "最近处理行数"
+    }
+  },
+  "list": {
+    "summary": "{{count}} 条流水线 · {{enabled}} 条启用",
+    "cron": "cron: {{value}}",
+    "unknown": "-"
+  },
+  "detail": {
+    "subtitle": "流水线运行概览、拓扑、历史与配置。",
+    "enabled": "已启用",
+    "paused": "已暂停",
+    "toast_resumed": "流水线已恢复",
+    "toast_paused": "流水线已暂停",
+    "metadata": {
+      "schedule": "调度",
+      "lookback": "回看窗口",
+      "last_run": "最近运行"
+    },
+    "tabs": {
+      "overview": "概览",
+      "topology": "拓扑",
+      "runs": "运行历史",
+      "configuration": "配置"
+    },
+    "overview": {
+      "last_run": "最近运行",
+      "success_rate": "成功率",
+      "processed_rows": "处理行数",
+      "average_duration": "平均耗时",
+      "window_24h": "过去 24 小时 · {{count}} 次运行",
+      "completed_runs": "{{count}} 次已完成运行"
+    },
+    "view_full_topology": "查看完整拓扑",
+    "view_all_runs": "查看全部运行",
+    "config_views": {
+      "structured": "结构化",
+      "json": "JSON"
+    },
+    "stats": {
+      "cron": "Cron",
+      "status": "状态",
+      "lookback": "回看窗口",
+      "last_run": "最近运行"
+    },
+    "flow": "流水线流程",
+    "graph": "流水线拓扑",
+    "stages": {
+      "sources": "来源",
+      "transform": "转换",
+      "sinks": "目标"
+    },
+    "configuration": "配置（原始）",
+    "show_raw": "展开原始配置",
+    "hide_raw": "收起原始配置",
+    "recent_runs": "最近运行",
+    "runs_empty_title": "暂无运行记录",
+    "runs_empty_description": "调度器执行该流水线或提交 backfill 后，运行记录会显示在这里。",
+    "run_columns": {
+      "state": "状态",
+      "started": "开始时间",
+      "finished": "结束时间",
+      "rows": "行数",
+      "error": "错误"
+    }
+  },
+  "flows": {
+    "add": {
+      "title": "新建流水线",
+      "cancel": "取消",
+      "saving": "保存中…",
+      "submit": "创建流水线",
+      "toast_created": "流水线已创建"
+    },
+    "edit": {
+      "back": "返回",
+      "history": "运行历史",
+      "backfill": "回填",
+      "delete": "删除",
+      "saving": "保存中…",
+      "save": "保存",
+      "not_found": "未找到流水线。",
+      "toast_updated": "流水线已更新",
+      "toast_deleted": "流水线已删除",
+      "delete_confirm_title": "删除此流水线？",
+      "delete_confirm_description": "此操作将永久移除该流水线及其调度。",
+      "delete_confirm_label": "删除"
+    },
+    "import": {
+      "title": "导入流水线",
+      "cancel": "取消",
+      "submit": "导入流水线",
+      "importing": "导入中…",
+      "definition_title": "流水线定义",
+      "definition_description": "粘贴 Vector 兼容的 JSON 或简单的 key: value YAML。",
+      "definition_label": "定义",
+      "definition_placeholder": "{\n  \"name\": \"prod-app-logs\",\n  \"source_stream\": \"app-logs\",\n  \"target_stream\": \"enriched-logs\",\n  \"function_steps\": [],\n  \"cron\": \"every:5m\"\n}",
+      "definition_aria": "流水线定义",
+      "import_label": "导入",
+      "validation_empty": "流水线定义不能为空",
+      "toast_imported": "流水线已导入"
+    },
+    "backfill": {
+      "title": "回填",
+      "back_to_edit": "← 编辑流水线",
+      "window_title": "时间窗口",
+      "from_label": "起始",
+      "from_hint": "ISO 8601 / RFC3339",
+      "from_placeholder": "2026-05-20T00:00:00Z",
+      "to_label": "结束",
+      "to_hint": "窗口 ≤ 31 天",
+      "to_placeholder": "2026-05-25T00:00:00Z",
+      "submit": "监控任务",
+      "submit_backfill": "提交回填",
+      "submitting": "提交中…",
+      "toast_invalid": "两个时间字段需为合法的 RFC3339。",
+      "toast_to_before_from": "`to` 必须大于 `from`。",
+      "toast_queued": "回填已排队（{{jobIdShort}}）",
+      "monitor_link": "查看任务 {{jobIdShort}} ↗"
+    },
+    "history": {
+      "title": "运行历史",
+      "back_to_edit": "← 编辑流水线",
+      "empty_title": "暂无运行记录",
+      "empty_description": "调度器尚未触发该流水线。",
+      "columns": {
+        "run_id": "运行 id",
+        "state": "状态",
+        "started": "开始时间",
+        "duration": "时长",
+        "scanned": "扫描行数",
+        "error": "错误"
+      }
+    },
+    "form": {
+      "identity_title": "身份信息",
+      "name_label": "名称",
+      "source_label": "源数据流",
+      "target_label": "目标数据流",
+      "schedule_title": "调度",
+      "cron_label": "Cron",
+      "cron_hint": "every:Ns / Nm / Nh",
+      "lookback_label": "回溯（秒）",
+      "enabled_label": "启用",
+      "run_on_schedule": "按计划运行",
+      "steps_title": "函数步骤（JSON）",
+      "steps_description": "按顺序应用的 VRL 转换数组。",
+      "steps_label": "步骤"
+    }
+  },
+  "workspace": {
+    "subtitle": "定义数据来源、编排处理节点，并在校验后保存启用。",
+    "validate": "校验流程",
+    "more_actions": "更多",
+    "stage_identity": "基本信息",
+    "stage_graph": "流程编排",
+    "stage_validate": "测试与启用",
+    "autosave_hint": "更改仅在保存后生效",
+    "graph_stats": "{{nodes}} 个节点 · {{edges}} 条连接",
+    "add_node": "添加节点",
+    "auto_layout": "自动布局",
+    "node_configuration": "节点配置",
+    "validation_results": "校验结果",
+    "code_editor": "VRL 编辑器",
+    "open_editor": "打开编辑器",
+    "close_panel": "收起底部面板",
+    "validation_clean": "流程校验通过",
+    "validation_clean_hint": "来源、转换与目标连接完整，可以保存流水线。"
+  },
+  "graph": {
+    "title": "Graph 编排",
+    "description": "通过图形方式编排来源、转换和目标。第一个来源和目标会保存为流水线的流字段。",
+    "add_source": "添加来源",
+    "add_transform": "添加处理",
+    "add_sink": "添加目标",
+    "sources": "来源",
+    "transform": "转换",
+    "sinks": "目标",
+    "select_node": "选择节点后进行编辑。",
+    "source_name": "源数据流",
+    "sink_name": "目标数据流",
+    "sink_target": "投递目标",
+    "sink_target_hint": "投递到数据流或外部 connector。",
+    "sink_stream_option": "数据流",
+    "new_connector": "新建 connector",
+    "stream_select_placeholder": "选择数据流…",
+    "stream_loading": "正在加载数据流…",
+    "stream_empty": "当前信号类型下没有可用的数据流。",
+    "stream_load_error": "数据流目录加载失败，已保留当前值。",
+    "stream_current_value": "{{name}}（当前值）",
+    "transform_name": "转换名称",
+    "vrl_script": "VRL 脚本",
+    "vrl_function_hint": "选用内置预设或已保存的 VRL 函数作为此转换。",
+    "vrl_function_placeholder": "选择 VRL 函数…",
+    "preset_label": "内置：{{name}}",
+    "new_vrl_function": "新建 VRL 函数",
+    "retry_policy": "重试策略",
+    "delete_node": "删除节点",
+    "show_inspector": "展开面板",
+    "hide_inspector": "收起面板",
+    "node_count": "{{sources}} 个来源 · {{sinks}} 个目标",
+    "node_kinds": {
+      "source": "来源",
+      "transform": "处理",
+      "sink": "目标"
+    },
+    "node_subtitles": {
+      "stream_input": "数据流输入",
+      "vrl_transform": "VRL 转换",
+      "connector_sink": "Connector 投递",
+      "stream_output": "数据流输出"
+    },
+    "validation": {
+      "ok": "校验通过",
+      "summary": "{{count}} 处问题",
+      "no_source": "至少需要一个来源。",
+      "no_sink": "至少需要一个目标。",
+      "no_transform": "至少需要一个转换步骤。",
+      "duplicate_source": "来源重复：{{name}}",
+      "duplicate_sink": "目标重复：{{name}}",
+      "source_is_sink": "来源与目标同名会形成回环：{{name}}",
+      "transform_name_missing": "第 {{index}} 个转换缺少名称。",
+      "transform_script_missing": "转换「{{name}}」缺少 VRL 脚本。",
+      "connector_missing": "引用的 connector 不存在：{{id}}"
+    }
+  },
+  "drawer": {
+    "edit_title": "编辑流水线 · {{name}}",
+    "subtitle": "sources → VRL transforms → sinks。保存后触发热重载。",
+    "save_changes": "保存更改",
+    "create_pipeline": "创建流水线",
+    "toast_created": "流水线已创建",
+    "toast_updated": "流水线已更新",
+    "sections": {
+      "identity": "标识",
+      "sources": "来源",
+      "transform": "转换 (VRL)",
+      "sinks": "目标",
+      "reliability": "可靠性"
+    },
+    "fields": {
+      "name": "名称",
+      "signal_type": "信号类型",
+      "vrl_script": "VRL 脚本",
+      "retry_policy": "重试策略",
+      "disk_buffer": "磁盘缓冲"
+    },
+    "source_hints": {
+      "fluent_bit": "k8s DaemonSet",
+      "otel_collector": "OTLP gRPC :4317",
+      "http_bulk": "通用 HTTP 数据源"
+    },
+    "transform_description": "Vector Remap Language · 在路径中改写、丰富、过滤事件。",
+    "sink_hints": {
+      "s3_logs": "parquet + zstd · 90d",
+      "object_store": "冷存储 1y"
+    },
+    "retry_options": {
+      "exponential": "指数退避",
+      "fixed": "固定 5s × 3",
+      "none": "不重试（丢弃）"
+    }
+  }
+}

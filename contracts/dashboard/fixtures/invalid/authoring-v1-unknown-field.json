@@ -1,0 +1,8 @@
+{
+  "authoringVersion": 1,
+  "title": "Unknown field",
+  "organizationId": "must-not-be-accepted",
+  "elements": [
+    { "kind": "text", "content": "Unknown fields are rejected.", "mode": "plain" }
+  ]
+}

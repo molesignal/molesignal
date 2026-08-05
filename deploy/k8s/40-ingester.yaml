@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ingester
+  namespace: molesignal
+spec:
+  serviceName: ingester
+  replicas: 2
+  selector:
+    matchLabels: { app: molesignal, role: ingester }
+  template:
+    metadata:
+      labels: { app: molesignal, role: ingester }
+    spec:
+      containers:
+        - name: molesignal
+          image: molesignal:dev
+          imagePullPolicy: IfNotPresent
+          args: ["--config", "/app/conf/config.toml"]
+          env:
+            - name: RELEASE_CHANNEL
+              valueFrom: { configMapKeyRef: { name: molesignal-config, key: release_channel } }
+            - name: MS_NODE_ROLES
+              value: '["ingester"]'
+            - name: POD_IP
+              valueFrom: { fieldRef: { fieldPath: status.podIP } }
+            - name: MS_CLUSTER_ADVERTISE_ADDR
+              value: "$(POD_IP):5082"
+            # JWT signing secret 默认 DB 自动 bootstrap；如需多副本锁定同一 secret，
+            # 设 jwt_secret_override 字段（kubectl edit secret/molesignal-secret）。
+            - name: MS_AUTH_JWT_SECRET_OVERRIDE
+              valueFrom: { secretKeyRef: { name: molesignal-secret, key: jwt_secret_override, optional: true } }
+            - name: MS_OBJECT_STORE_SECRET_KEY
+              valueFrom: { secretKeyRef: { name: molesignal-secret, key: object_store_secret_key } }
+            - name: MS_CIPHER_KEY
+              valueFrom: { secretKeyRef: { name: molesignal-secret, key: cipher_key } }
+            - name: MS_LICENSE_FILE
+              value: "/etc/molesignal/license.json"
+          ports:
+            - { name: http, containerPort: 5080 }
+            - { name: grpc, containerPort: 5082 }
+          readinessProbe:
+            httpGet: { path: /api/v1/healthz, port: http }
+            initialDelaySeconds: 10   # ingester replay 期间会 503
+            periodSeconds: 5
+            failureThreshold: 12
+          volumeMounts:
+            - { name: cfg, mountPath: /app/conf }
+            - { name: data, mountPath: /data }
+            - { name: license, mountPath: /etc/molesignal, readOnly: true }
+      volumes:
+        - name: cfg
+          configMap: { name: molesignal-config }
+        - name: license
+          secret: { secretName: molesignal-license, optional: true }
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources: { requests: { storage: 20Gi } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingester
+  namespace: molesignal
+spec:
+  clusterIP: None
+  selector: { app: molesignal, role: ingester }
+  ports:
+    - { name: http, port: 5080, targetPort: http }
+    - { name: grpc, port: 5082, targetPort: grpc }

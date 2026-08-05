@@ -1,0 +1,330 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  CARGO_TERM_COLOR: always
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  BUILD_ID: gha-${{ github.run_id }}-${{ github.run_attempt }}
+  GIT_SHA: ${{ github.sha }}
+
+jobs:
+  # 0. 通道闸：tag 所在 commit 必须至少在 main/rc/beta/alpha 之一上。
+  # 通道判定 + 衍生字段（title/float_tag/versioned_tag/prerelease）的逻辑
+  # 抽到 .github/scripts/detect-release-channel.sh，便于本地测试与单点维护。
+  detect-channel:
+    name: detect channel
+    runs-on: ubuntu-latest
+    outputs:
+      channel: ${{ steps.detect.outputs.channel }}
+      version: ${{ steps.detect.outputs.version }}
+      prerelease: ${{ steps.detect.outputs.prerelease }}
+      title: ${{ steps.detect.outputs.title }}
+      float_tag: ${{ steps.detect.outputs.float_tag }}
+      versioned_tag: ${{ steps.detect.outputs.versioned_tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: fetch release-channel branches
+        run: |
+          for branch in main rc beta alpha; do
+            git fetch origin "+refs/heads/${branch}:refs/remotes/origin/${branch}" --quiet || true
+          done
+
+      - name: detect channel
+        id: detect
+        run: .github/scripts/detect-release-channel.sh
+
+  # 1. 质量门禁：和 ci.yml 同一套 fmt + clippy + 单测，release 路径上再跑一遍兜底。
+  quality-gate:
+    name: quality gate
+    needs: detect-channel
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ca-certificates curl protobuf-compiler libcurl4-openssl-dev pkg-config
+
+      - name: install Buf CLI
+        run: |
+          sudo curl -sSL "https://github.com/bufbuild/buf/releases/latest/download/buf-$(uname -s)-$(uname -m)" \
+            -o /usr/local/bin/buf
+          sudo chmod +x /usr/local/bin/buf
+          buf --version
+
+      - name: generate protobuf code
+        run: make proto
+
+      - name: install rust toolchain
+        # 跟随仓库根 `rust-toolchain.toml`（1.96）。
+        uses: dtolnay/rust-toolchain@1.96
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release-quality
+
+      - name: fmt-check
+        run: cargo fmt --all -- --check
+
+      - name: clippy (-D warnings)
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: unit + bin tests
+        run: cargo test --workspace --lib --bins
+
+  # 2. 多平台原生编译：每个 target 在对应架构 runner 上原生 build，避免 cross-compile。
+  build:
+    name: build (${{ matrix.target }})
+    needs: [detect-channel, quality-gate]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # glibc(gnu) Linux：jemalloc 全功能（含 background_thread）。musl 不用，
+          # 因为 jemalloc-sys 在 musl 上编不过且 background_thread 不受支持。
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-24.04-arm
+          # macOS：jemalloc 关闭（cfg 到 glibc），系统分配器。
+          - target: aarch64-apple-darwin
+            os: macos-14
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install system dependencies (linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          # build-essential 提供 gcc/make，jemalloc-sys 在 gnu target 上原生编 C 源需要。
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake pkg-config file ca-certificates curl \
+            protobuf-compiler
+
+      - name: install system dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install protobuf
+
+      - name: install Buf CLI
+        run: |
+          sudo curl -sSL "https://github.com/bufbuild/buf/releases/latest/download/buf-$(uname -s)-$(uname -m)" \
+            -o /usr/local/bin/buf
+          sudo chmod +x /usr/local/bin/buf
+          buf --version
+
+      - name: generate protobuf code
+        run: make proto
+
+      - name: install rust toolchain
+        # 跟随仓库根 `rust-toolchain.toml`（1.96）。
+        uses: dtolnay/rust-toolchain@1.96
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-${{ matrix.target }}
+
+      - name: build release binary once
+        env:
+          # 所有交付阶段共用这一套参数；pprof 需要可回溯栈帧与符号。
+          RUSTFLAGS: "-C force-frame-pointers=yes"
+        run: cargo build --release --locked --target ${{ matrix.target }} -p molesignal
+
+      - name: package artifact (binary + conf)
+        shell: bash
+        env:
+          CHANNEL: ${{ needs.detect-channel.outputs.channel }}
+          VERSION: ${{ needs.detect-channel.outputs.version }}
+        run: |
+          # stable:        molesignal-<ver>-<target>
+          # rc/beta/alpha: molesignal-<ver>-<channel>-<target>
+          if [ "$CHANNEL" = "stable" ]; then
+            ARCHIVE="molesignal-${VERSION}-${{ matrix.target }}"
+          else
+            ARCHIVE="molesignal-${VERSION}-${CHANNEL}-${{ matrix.target }}"
+          fi
+          mkdir -p "dist/${ARCHIVE}/bin" "dist/${ARCHIVE}/conf"
+          cp "target/${{ matrix.target }}/release/molesignal" "dist/${ARCHIVE}/bin/"
+          cp -R conf/. "dist/${ARCHIVE}/conf/"
+          printf '{"build_id":"%s","git_sha":"%s"}\n' "$BUILD_ID" "$GITHUB_SHA" \
+            > "dist/${ARCHIVE}/build-info.json"
+          cd dist && tar czf "${ARCHIVE}.tar.gz" "${ARCHIVE}"
+
+      - name: upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}-${{ github.ref_name }}
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+      # Docker 镜像直接复用上面已经验证并打包的同一个 Linux 二进制，不再重新 cargo build。
+      - name: upload docker binary
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-binary-${{ matrix.target }}-${{ github.run_id }}
+          path: target/${{ matrix.target }}/release/molesignal
+          if-no-files-found: error
+
+  # 3. Docker 多平台镜像：把 step 2 的原生 release 二进制原样封装进镜像。
+  docker:
+    name: docker image
+    needs: [detect-channel, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: download release binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: docker-binary-*-${{ github.run_id }}
+          path: .release-artifacts
+
+      - name: stage release binaries for buildx
+        env:
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          mkdir -p .release-binaries/amd64 .release-binaries/arm64
+          cp ".release-artifacts/docker-binary-x86_64-unknown-linux-gnu-${RUN_ID}/molesignal" ".release-binaries/amd64/molesignal"
+          cp ".release-artifacts/docker-binary-aarch64-unknown-linux-gnu-${RUN_ID}/molesignal" ".release-binaries/arm64/molesignal"
+          chmod 0755 .release-binaries/amd64/molesignal .release-binaries/arm64/molesignal
+
+      - name: set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # 关掉 metadata-action 默认的 latest 自动行为；下面按 channel 显式控制。
+          flavor: |
+            latest=false
+          # stable: <version> + latest
+          # rc:     <version>-rc + rc
+          # beta:   <version>-beta + beta
+          # alpha:  <version>-alpha + alpha
+          tags: |
+            type=raw,value=build-${{ env.BUILD_ID }}
+            type=sha,format=long,prefix=sha-
+            type=match,pattern=v(.*),group=1,enable=${{ needs.detect-channel.outputs.channel == 'stable' }}
+            type=match,pattern=v(.*),group=1,suffix=-rc,enable=${{ needs.detect-channel.outputs.channel == 'rc' }}
+            type=match,pattern=v(.*),group=1,suffix=-beta,enable=${{ needs.detect-channel.outputs.channel == 'beta' }}
+            type=match,pattern=v(.*),group=1,suffix=-alpha,enable=${{ needs.detect-channel.outputs.channel == 'alpha' }}
+            type=raw,value=latest,enable=${{ needs.detect-channel.outputs.channel == 'stable' }}
+            type=raw,value=rc,enable=${{ needs.detect-channel.outputs.channel == 'rc' }}
+            type=raw,value=beta,enable=${{ needs.detect-channel.outputs.channel == 'beta' }}
+            type=raw,value=alpha,enable=${{ needs.detect-channel.outputs.channel == 'alpha' }}
+          labels: |
+            io.molesignal.build-id=${{ env.BUILD_ID }}
+
+      - name: package and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: deploy/docker/Dockerfile.release
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # 4. GitHub Release：cliff 生成 changelog + 上传所有 target 的 tar.gz。
+  release:
+    name: github release
+    needs: [detect-channel, build, docker]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: generate changelog
+        uses: orhun/git-cliff-action@v4
+        id: changelog
+        with:
+          config: cliff.toml
+          args: --latest --strip header
+        env:
+          OUTPUT: CHANGELOG.md
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: append docker image info to changelog
+        env:
+          VERSIONED_TAG: ${{ needs.detect-channel.outputs.versioned_tag }}
+          FLOAT_TAG: ${{ needs.detect-channel.outputs.float_tag }}
+        run: |
+          cat >> CHANGELOG.md << EOF
+
+          ---
+
+          ### Artifact identity
+
+          | Field | Value |
+          |-------|-------|
+          | Build ID | \`${BUILD_ID}\` |
+          | Git SHA | \`${GITHUB_SHA}\` |
+
+          ### Docker
+
+          \`\`\`bash
+          # Pull the image (multi-arch: linux/amd64, linux/arm64)
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSIONED_TAG}
+          \`\`\`
+
+          | Tag | Image |
+          |-----|-------|
+          | \`${VERSIONED_TAG}\` | \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSIONED_TAG}\` |
+          | \`${FLOAT_TAG}\` | \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${FLOAT_TAG}\` |
+          EOF
+
+      - name: download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: '*-${{ github.ref_name }}'
+          merge-multiple: true
+
+      - name: create release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ needs.detect-channel.outputs.title }}
+          prerelease: ${{ needs.detect-channel.outputs.prerelease == 'true' }}
+          body_path: CHANGELOG.md
+          files: artifacts/*.tar.gz

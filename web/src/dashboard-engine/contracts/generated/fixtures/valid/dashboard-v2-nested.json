@@ -1,0 +1,110 @@
+{
+  "engine": "molesignal-dashboard",
+  "schemaVersion": 2,
+  "uid": "dashboard-contract-valid",
+  "title": "Service health",
+  "description": "Contract fixture with recursive elements and typed query payloads.",
+  "tags": ["service", "golden"],
+  "editable": true,
+  "defaultDashboard": false,
+  "timeSettings": {
+    "defaultFrom": "now-6h",
+    "defaultTo": "now",
+    "timezone": "browser"
+  },
+  "refreshSettings": {
+    "enabled": true,
+    "mode": "interval",
+    "defaultInterval": "30s",
+    "allowedIntervals": ["off", "30s", "1m", "5m"]
+  },
+  "interactionSettings": {
+    "cursorSync": "shared_crosshair"
+  },
+  "variables": [
+    {
+      "id": "variable-service",
+      "name": "service",
+      "label": "Service",
+      "type": "custom",
+      "options": [
+        { "label": "api", "value": "api", "selected": true },
+        { "label": "worker", "value": "worker" }
+      ],
+      "defaultValue": "api",
+      "currentValue": "api",
+      "multi": false,
+      "includeAll": false,
+      "hide": "none",
+      "refresh": "never"
+    }
+  ],
+  "annotations": [],
+  "links": [],
+  "layout": {
+    "type": "grid",
+    "columns": 24,
+    "rowHeight": 8,
+    "gap": 8
+  },
+  "elements": [
+    {
+      "kind": "panel",
+      "id": "panel-request-rate",
+      "title": "Request rate",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 10 },
+      "queryOptions": { "timeoutMs": 10000 },
+      "queries": [
+        {
+          "refId": "A",
+          "enabled": true,
+          "dataSourceType": "metrics",
+          "query": {
+            "kind": "promql",
+            "expression": "sum(rate(http_requests_total{service=\"$service\"}[5m]))"
+          },
+          "legend": "requests/s",
+          "format": "time_series"
+        }
+      ],
+      "transformations": [],
+      "visualization": {
+        "type": "time_series",
+        "schemaVersion": 1,
+        "options": {
+          "drawStyle": "line",
+          "lineInterpolation": "linear",
+          "lineWidth": 1.5,
+          "fillOpacity": 0,
+          "showPoints": "auto",
+          "stackMode": "none",
+          "tooltipMode": "all",
+          "legendMode": "table",
+          "legendPlacement": "bottom",
+          "legendStats": ["last", "min", "max", "mean"]
+        }
+      },
+      "fieldConfig": { "unit": "requests_per_second" },
+      "overrides": [],
+      "links": []
+    },
+    {
+      "kind": "group",
+      "id": "group-notes",
+      "title": "Notes",
+      "gridPos": { "x": 0, "y": 10, "w": 24, "h": 8 },
+      "collapsed": false,
+      "elements": [
+        {
+          "kind": "text",
+          "id": "text-runbook",
+          "title": "Runbook",
+          "gridPos": { "x": 0, "y": 0, "w": 24, "h": 8 },
+          "content": "Investigate sustained error-rate changes.",
+          "mode": "markdown",
+          "transparent": false
+        }
+      ]
+    }
+  ]
+}

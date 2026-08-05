@@ -1,0 +1,33 @@
+{
+  "engine": "molesignal-dashboard",
+  "schemaVersion": 2,
+  "uid": "dashboard-invalid-duplicate",
+  "title": "Duplicate element IDs",
+  "tags": [],
+  "editable": true,
+  "defaultDashboard": false,
+  "timeSettings": { "defaultFrom": "now-1h", "defaultTo": "now", "timezone": "browser" },
+  "refreshSettings": { "enabled": false, "mode": "off", "allowedIntervals": ["off"] },
+  "variables": [],
+  "annotations": [],
+  "links": [],
+  "layout": { "type": "grid", "columns": 24, "rowHeight": 8, "gap": 8 },
+  "elements": [
+    {
+      "kind": "text",
+      "id": "duplicate",
+      "title": "One",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "content": "one",
+      "mode": "plain"
+    },
+    {
+      "kind": "text",
+      "id": "duplicate",
+      "title": "Two",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "content": "two",
+      "mode": "plain"
+    }
+  ]
+}

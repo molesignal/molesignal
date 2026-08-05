@@ -1,0 +1,82 @@
+{
+  "title": "Semantic groups",
+  "subtitle": "Group related incidents by label values (Alertmanager-style group_by).",
+  "actions": {
+    "new": "New group",
+    "import": "Import",
+    "delete": "Delete",
+    "edit_named": "Edit {{name}}",
+    "delete_named": "Delete {{name}}"
+  },
+  "states": {
+    "empty_title": "No semantic groups yet",
+    "empty_description": "Define a group to collapse related incidents by shared labels."
+  },
+  "list": {
+    "columns": {
+      "name": "Name",
+      "matchers": "Matchers",
+      "group_by": "Group by",
+      "enabled": "Enabled",
+      "actions": "Actions"
+    }
+  },
+  "enabled": {
+    "yes": "Enabled",
+    "no": "Disabled"
+  },
+  "toast": {
+    "saved": "Group “{{name}}” saved",
+    "deleted": "Group deleted"
+  },
+  "confirm": {
+    "delete_title": "Delete semantic group?",
+    "delete": "Delete this group? Incidents stay; only the grouping rule is removed.",
+    "cancel": "Cancel"
+  },
+  "errors": {
+    "name_required": "Name is required."
+  },
+  "drawer": {
+    "edit_title": "Edit {{name}}",
+    "subtitle": "Matchers select which incidents this group applies to; group_by sets the grouping key.",
+    "save": "Save changes",
+    "create": "Create group",
+    "add_matcher": "Add matcher",
+    "remove_matcher": "Remove matcher",
+    "matchers_description": "All matchers must match an incident's labels for this group to apply. No matchers = matches every incident.",
+    "group_by_description": "Incidents sharing the same values for these label keys collapse into one group.",
+    "sections": {
+      "identity": "Identity",
+      "matchers": "Matchers",
+      "group_by": "Group by"
+    },
+    "fields": {
+      "name": "Name",
+      "enabled": "Enabled",
+      "matcher_label": "Matcher label",
+      "matcher_value": "Matcher value",
+      "group_by": "Group-by labels"
+    },
+    "hints": {
+      "enabled": "Disabled groups are skipped during grouping.",
+      "group_by": "Comma-separated label keys, e.g. service, region."
+    },
+    "placeholders": {
+      "name": "critical-by-service",
+      "matcher_label": "severity",
+      "matcher_value": "critical",
+      "group_by": "service, region"
+    }
+  },
+  "import": {
+    "title": "Import semantic groups",
+    "subtitle": "Paste a JSON array of groups (or { groups: [...] }).",
+    "submit": "Import",
+    "editor_label": "Groups JSON",
+    "placeholder": "[{ \"name\": \"crit-by-service\", \"enabled\": true, \"matchers\": [{ \"label\": \"severity\", \"op\": \"eq\", \"value\": \"critical\" }], \"group_by\": [\"service\"] }]",
+    "toast_imported": "Imported {{count}} group(s)",
+    "invalid_json": "Invalid JSON: {{message}}",
+    "expects_array": "Expected a non-empty array of groups."
+  }
+}

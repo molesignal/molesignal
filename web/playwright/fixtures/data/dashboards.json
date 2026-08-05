@@ -1,0 +1,148 @@
+{
+  "items": [
+    {
+      "id": "d1",
+      "org_id": "acme-prod",
+      "uid": "web-overview",
+      "title": "Web overview",
+      "tags": ["frontend"],
+      "version": 1,
+      "created_at": 1785062832000000,
+      "updated_at": 1785062832000000,
+      "created_by": "frontend",
+      "updated_by": "frontend",
+      "model": {
+        "engine": "molesignal-dashboard",
+        "schemaVersion": 2,
+        "id": "d1",
+        "uid": "web-overview",
+        "title": "Web overview",
+        "tags": ["frontend"],
+        "editable": true,
+        "defaultDashboard": false,
+        "timeSettings": {
+          "defaultFrom": "now-6h",
+          "defaultTo": "now",
+          "timezone": "browser"
+        },
+        "refreshSettings": {
+          "enabled": true,
+          "mode": "interval",
+          "defaultInterval": "30s",
+          "allowedIntervals": ["off", "5s", "10s", "30s", "1m", "5m"]
+        },
+        "variables": [],
+        "annotations": [],
+        "links": [],
+        "layout": {
+          "type": "grid",
+          "columns": 24,
+          "rowHeight": 8,
+          "gap": 8
+        },
+        "elements": [],
+        "version": 1,
+        "createdAt": "2026-07-26T02:47:12.000Z",
+        "updatedAt": "2026-07-26T02:47:12.000Z",
+        "createdBy": "frontend",
+        "updatedBy": "frontend"
+      }
+    },
+    {
+      "id": "d2",
+      "org_id": "acme-prod",
+      "uid": "api-latency",
+      "title": "API latency",
+      "tags": ["platform"],
+      "version": 1,
+      "created_at": 1785062832000000,
+      "updated_at": 1785062832000000,
+      "created_by": "platform",
+      "updated_by": "platform",
+      "model": {
+        "engine": "molesignal-dashboard",
+        "schemaVersion": 2,
+        "id": "d2",
+        "uid": "api-latency",
+        "title": "API latency",
+        "tags": ["platform"],
+        "editable": true,
+        "defaultDashboard": false,
+        "timeSettings": {
+          "defaultFrom": "now-6h",
+          "defaultTo": "now",
+          "timezone": "browser"
+        },
+        "refreshSettings": {
+          "enabled": true,
+          "mode": "interval",
+          "defaultInterval": "30s",
+          "allowedIntervals": ["off", "5s", "10s", "30s", "1m", "5m"]
+        },
+        "variables": [],
+        "annotations": [],
+        "links": [],
+        "layout": {
+          "type": "grid",
+          "columns": 24,
+          "rowHeight": 8,
+          "gap": 8
+        },
+        "elements": [],
+        "version": 1,
+        "createdAt": "2026-07-26T02:47:12.000Z",
+        "updatedAt": "2026-07-26T02:47:12.000Z",
+        "createdBy": "platform",
+        "updatedBy": "platform"
+      }
+    },
+    {
+      "id": "d3",
+      "org_id": "acme-prod",
+      "uid": "db-connection-pool",
+      "title": "DB connection pool",
+      "tags": ["data"],
+      "version": 1,
+      "created_at": 1785062832000000,
+      "updated_at": 1785062832000000,
+      "created_by": "data",
+      "updated_by": "data",
+      "model": {
+        "engine": "molesignal-dashboard",
+        "schemaVersion": 2,
+        "id": "d3",
+        "uid": "db-connection-pool",
+        "title": "DB connection pool",
+        "tags": ["data"],
+        "editable": true,
+        "defaultDashboard": false,
+        "timeSettings": {
+          "defaultFrom": "now-6h",
+          "defaultTo": "now",
+          "timezone": "browser"
+        },
+        "refreshSettings": {
+          "enabled": true,
+          "mode": "interval",
+          "defaultInterval": "30s",
+          "allowedIntervals": ["off", "5s", "10s", "30s", "1m", "5m"]
+        },
+        "variables": [],
+        "annotations": [],
+        "links": [],
+        "layout": {
+          "type": "grid",
+          "columns": 24,
+          "rowHeight": 8,
+          "gap": 8
+        },
+        "elements": [],
+        "version": 1,
+        "createdAt": "2026-07-26T02:47:12.000Z",
+        "updatedAt": "2026-07-26T02:47:12.000Z",
+        "createdBy": "data",
+        "updatedBy": "data"
+      }
+    }
+  ]
+}

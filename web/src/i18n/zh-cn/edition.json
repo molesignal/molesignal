@@ -1,0 +1,50 @@
+{
+  "features": {
+    "intelligence": "AI 运维",
+    "domain_management": "域名管理",
+    "federated_search": "联邦节点",
+    "saas_billing": "账单",
+    "saas_support": "支持",
+    "profiling_enhanced": "差分性能分析"
+  },
+  "badges": {
+    "available": "可用",
+    "checking": "检查中",
+    "loading": "检查中",
+    "backend-pending": "等待后端",
+    "permission-denied": "无权限",
+    "pro-required": "付费版",
+    "saas-only": "SaaS",
+    "trial-available": "试用"
+  },
+  "gates": {
+    "loading": {
+      "title": "检查访问权限",
+      "description": "正在加载 {{feature}} 的许可证和账号元数据。"
+    },
+    "allowed": {
+      "title": "{{feature}} 可用",
+      "description": "当前组织可以使用该工作流。"
+    },
+    "backend-pending": {
+      "title": "{{feature}} 等待后端",
+      "description": "产品界面已就绪，但对应后端端点尚不可用。"
+    },
+    "permission-denied": {
+      "title": "需要权限",
+      "description": "当前角色无法管理 {{feature}}。"
+    },
+    "pro-required": {
+      "title": "需要付费版",
+      "description": "{{feature}} 需要付费版许可证或 SaaS 套餐。"
+    },
+    "saas-only": {
+      "title": "需要 SaaS 账号",
+      "description": "{{feature}} 仅在 MoleSignal Cloud 账号中可用。"
+    },
+    "trial-available": {
+      "title": "{{feature}} 可在试用期启用",
+      "description": "当前组织处于试用模式；请在试用套餐中启用该功能后继续。"
+    }
+  }
+}

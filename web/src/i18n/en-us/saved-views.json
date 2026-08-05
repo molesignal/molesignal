@@ -1,0 +1,64 @@
+{
+  "title": "Saved views",
+  "subtitle": "Reusable SQL / PromQL queries, shared across your org.",
+  "actions": {
+    "new": "New saved view",
+    "open": "Open",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "edit": "Edit",
+    "delete": "Delete"
+  },
+  "kpis": {
+    "total": "Saved views",
+    "pinned": "Pinned"
+  },
+  "list": {
+    "columns": {
+      "name": "Name",
+      "language": "Language",
+      "stream": "Stream",
+      "tags": "Tags",
+      "range": "Window",
+      "updated": "Updated",
+      "actions": "Actions"
+    }
+  },
+  "states": {
+    "empty_title": "No saved views yet",
+    "empty_description": "Save a SQL or PromQL query to reuse it across investigations."
+  },
+  "confirm": {
+    "delete_title": "Delete saved view?",
+    "delete": "Delete this saved view? This cannot be undone.",
+    "cancel": "Cancel"
+  },
+  "toast": {
+    "saved": "Saved view “{{name}}” saved",
+    "deleted": "Saved view deleted"
+  },
+  "drawer": {
+    "edit_title": "Edit saved view",
+    "subtitle": "Name a SQL or PromQL query to reuse it later.",
+    "save": "Save changes",
+    "create": "Create",
+    "sections": {
+      "identity": "Identity",
+      "query": "Query",
+      "organize": "Organize"
+    },
+    "fields": {
+      "name": "Name",
+      "language": "Language",
+      "range": "Default window",
+      "statement": "Statement",
+      "stream": "Stream (optional)",
+      "tags": "Tags",
+      "pinned": "Pin to top"
+    },
+    "hints": {
+      "stream": "Limits partition pruning when the view is opened.",
+      "tags": "Comma-separated."
+    }
+  }
+}

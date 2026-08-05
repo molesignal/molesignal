@@ -1,0 +1,186 @@
+{
+  "detail": {
+    "title": "Trace detail",
+    "back": "Traces",
+    "trace_id": "trace_id",
+    "copy_trace_id": "Copy trace ID",
+    "copy_span_id": "Copy span ID",
+    "total_duration": "total",
+    "span_count": "{{count}} spans",
+    "service_count": "{{count}} services",
+    "error_count": "{{count}} errors",
+    "related_logs": "Related logs",
+    "service_metrics": "Service metrics",
+    "search_logs": "Search around in logs",
+    "view_user_session": "View user session",
+    "missing_title": "No trace id",
+    "missing_description": "Open trace detail from a trace row so the trace id and time context are preserved.",
+    "not_found_title": "Trace not found",
+    "not_found_description": "No spans for this trace id in the selected range. Logs and traces are stored separately, so a trace id from a log line may not exist as a trace.",
+    "load_error_title": "Couldn't load trace",
+    "malformed_title": "Trace can't be displayed",
+    "malformed_multiple_roots": "This trace has {{count}} root spans; a single root is required to render the waterfall.",
+    "malformed_no_root": "This trace has no root span; a single root is required to render the waterfall.",
+    "malformed_empty": "This trace has no spans."
+  },
+  "session": {
+    "title": "Session traces",
+    "back": "Traces",
+    "session_id": "session_id",
+    "empty_title": "No traces in this session",
+    "empty_description": "This session id has no matching traces in the last seven days.",
+    "result_count": "{{count}} traces",
+    "columns": {
+      "trace_id": "trace_id",
+      "service": "service",
+      "operation": "operation",
+      "duration_ms": "duration_ms"
+    }
+  },
+  "explore": {
+    "title": "Traces",
+    "subtitle": "explorer",
+    "toolbar": {
+      "refresh": "Refresh"
+    },
+    "tabs": {
+      "spans": "Spans",
+      "traces": "Traces",
+      "service_graph": "Service Graph",
+      "service_catalog": "Service Catalog"
+    },
+    "service_graph": {
+      "title": "Service Graph",
+      "search_placeholder": "Search services",
+      "search_aria": "Search services in the graph",
+      "clear_search": "Clear service search",
+      "layout_aria": "Service graph layout",
+      "tree_view": "Tree view",
+      "graph_view": "Graph view",
+      "direction_aria": "Service graph direction",
+      "horizontal": "Horizontal",
+      "vertical": "Vertical",
+      "loading": "Loading service graph…",
+      "health_legend": "Service health legend",
+      "border_color": "Border color",
+      "health": {
+        "healthy": "Healthy <1%",
+        "degraded": "Degraded 1–5%",
+        "warning": "Warning 5–10%",
+        "critical": "Critical >10%"
+      },
+      "entity_count": "{{count}} services",
+      "match_count": "{{visible}} / {{total}} services",
+      "show_types": "Type icons",
+      "hide_types": "Hide type icons",
+      "no_match": "No services match “{{query}}”.",
+      "compact_map_title": "Compact map",
+      "empty": "No service-graph data in the last hour.",
+      "latency_distribution": "Latency distribution · service-edge p95 buckets",
+      "kpis": {
+        "total_rps": "total rps",
+        "max_p95": "max p95",
+        "err_rate": "err rate"
+      },
+      "latency_buckets": {
+        "under_50ms": "<50ms",
+        "over_500ms": "500ms+"
+      },
+      "bucket_aria": "{{label}}: {{count}} service edges",
+      "edge_count": "{{count}} service edges",
+      "no_latency": "No latency data for the selected range.",
+      "slowest_edges": "Slowest edges"
+    },
+    "query": {
+      "editor_label": "Query editor",
+      "mode_aria": "Trace query mode",
+      "modes": {
+        "fields": "Fields",
+        "sql": "SQL"
+      },
+      "sql_hint": "Run SQL against the traces stream.",
+      "field_hint_full": "Use field statements such as trace_id = \"...\" / service_name contains \"checkout\"",
+      "clear": "Clear",
+      "clear_query": "Clear query",
+      "run": "Query",
+      "running": "Querying…",
+      "free_text_label": "free text:",
+      "empty_summary": "All traces",
+      "collapse_editor": "Collapse query",
+      "expand_editor": "Expand query"
+    },
+    "results": {
+      "no_match": "No traces match the selected query.",
+      "no_traces": "No traces in the selected time range.",
+      "loaded_count": "{{count}} traces loaded",
+      "select_prompt": "Select a trace to inspect summary.",
+      "select_description": "Inspect service calls, span duration, errors, and attributes without leaving the result list.",
+      "select_trace_aria": "Inspect trace {{operation}}",
+      "span_count": "{{count}} spans",
+      "error_count": "{{count}} errors",
+      "open_detail": "Trace details >>",
+      "inspect_hint": "click to inspect summary",
+      "view_spans": "View spans",
+      "visible_labels": "Visible fields",
+      "close_summary": "Close trace details",
+      "summary_drawer_aria": "Trace details drawer"
+    },
+    "sort": {
+      "aria": "Sort traces",
+      "latest": "Newest first",
+      "earliest": "Oldest first",
+      "duration_desc": "Longest duration",
+      "duration_asc": "Shortest duration",
+      "span_count_desc": "Most spans",
+      "errors_desc": "Errors first"
+    },
+    "pagination": {
+      "aria": "Trace results pagination",
+      "page_summary": "{{page}} / {{pages}}",
+      "page_size_aria": "Traces per page",
+      "previous": "Previous",
+      "next": "Next",
+      "first_aria": "First trace page",
+      "previous_aria": "Previous page",
+      "next_aria": "Next page",
+      "last_aria": "Last trace page"
+    },
+    "table": {
+      "trace": "Trace",
+      "service": "Service",
+      "operation": "Operation",
+      "spans": "Spans",
+      "errors": "Errors",
+      "duration": "Duration",
+      "start": "Start"
+    },
+    "labels": {
+      "title": "Fields",
+      "collapse": "Collapse fields",
+      "expand": "Expand fields",
+      "resize": "Drag to resize fields; double-click to reset",
+      "filter_placeholder": "Search fields",
+      "filter_aria": "Filter trace fields",
+      "common_fields": "Common fields",
+      "other_fields": "Other fields",
+      "json_query_required": "{{name}} requires a JSON path query in SQL mode",
+      "direct_query_unavailable": "{{name}} cannot be queried directly",
+      "fields_summary": "{{shown}} / {{total}} fields"
+    },
+    "field_hints": {
+      "service": "service name",
+      "operation": "span operation",
+      "trace_id": "trace identifier",
+      "span_id": "span identifier",
+      "parent_span": "parent span",
+      "duration_ms": "trace duration",
+      "span_count": "span count",
+      "error_count": "error span count"
+    },
+    "service_catalog": {
+      "title": "Service catalog",
+      "empty": "No service catalog entries in the selected range.",
+      "slowest_operations": "Slowest operations"
+    }
+  }
+}

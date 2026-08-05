@@ -1,0 +1,60 @@
+{
+  "authoringVersion": 1,
+  "title": "Cross-signal investigation",
+  "folderId": "folder-observability",
+  "timeRange": { "from": "now-1h", "to": "now" },
+  "refresh": { "mode": "off" },
+  "elements": [
+    {
+      "kind": "section",
+      "title": "Signals",
+      "collapsed": false,
+      "elements": [
+        {
+          "kind": "panel",
+          "title": "Slow requests",
+          "size": "full",
+          "visualization": { "type": "table", "unit": "milliseconds" },
+          "queries": [
+            {
+              "kind": "sql",
+              "stream": "application_logs",
+              "statement": "SELECT timestamp, service, duration_ms FROM application_logs WHERE timestamp BETWEEN $__from AND $__to ORDER BY duration_ms DESC LIMIT 100",
+              "timeColumn": "timestamp",
+              "format": "table"
+            }
+          ]
+        },
+        {
+          "kind": "panel",
+          "title": "Recent traces",
+          "size": "wide",
+          "visualization": { "type": "state_timeline" },
+          "queries": [
+            {
+              "kind": "trace",
+              "stream": "application_traces",
+              "query": "service.name = 'api' && duration > 500ms",
+              "limit": 100
+            }
+          ]
+        },
+        {
+          "kind": "panel",
+          "title": "CPU profile",
+          "size": "medium",
+          "visualization": { "type": "table", "unit": "percentunit", "reducer": "sum" },
+          "queries": [
+            {
+              "kind": "profile",
+              "stream": "application_profiles",
+              "query": "service.name = 'api'",
+              "profileType": "cpu",
+              "aggregate": "sum"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

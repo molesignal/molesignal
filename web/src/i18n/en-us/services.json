@@ -1,0 +1,31 @@
+{
+  "title": "Services",
+  "subtitle": "Service catalog derived from trace topology.",
+  "kpis": {
+    "services": "Services",
+    "rps": "Total RPS",
+    "degraded": "Degraded (≥1% err)"
+  },
+  "list": {
+    "columns": {
+      "name": "Service",
+      "rps": "RPS",
+      "error_rate": "Error rate",
+      "p95": "p95",
+      "spans": "Spans"
+    }
+  },
+  "states": {
+    "empty_title": "No services seen",
+    "empty_description": "Services appear once traced spans arrive in the selected time range."
+  },
+  "detail": {
+    "not_found_title": "No traffic for this service",
+    "not_found_description": "This service has no traced spans in the selected time range.",
+    "upstream": "Upstream (callers)",
+    "downstream": "Downstream (dependencies)",
+    "no_upstream": "No callers in range.",
+    "no_downstream": "No dependencies in range.",
+    "edge_rps": "{{rps}} rps"
+  }
+}

@@ -1,0 +1,215 @@
+{
+  "title": "Continuous Profiling",
+  "subtitle": "Flame graphs for CPU, memory and lock contention across your services.",
+  "refresh": "Refresh",
+  "live": {
+    "label": "Live",
+    "hint": "Auto-refresh every 10s"
+  },
+  "filters": {
+    "service": "Service",
+    "service_all": "All services",
+    "type": "Profile type",
+    "type_all": "All types",
+    "range": "Time range",
+    "label": "Label filter",
+    "label_placeholder": "key:value",
+    "apply": "Apply",
+    "ranges": {
+      "m15": "Last 15 min",
+      "h1": "Last 1 hour",
+      "h6": "Last 6 hours",
+      "h24": "Last 24 hours",
+      "d7": "Last 7 days"
+    }
+  },
+  "profile_types": {
+    "cpu": "CPU",
+    "wall": "Wall time",
+    "alloc_space": "Allocated memory",
+    "alloc_objects": "Allocated objects",
+    "inuse_space": "In-use memory",
+    "inuse_objects": "In-use objects",
+    "goroutines": "Goroutines",
+    "lock": "Lock contention",
+    "samples": "Samples"
+  },
+  "analysis": {
+    "filter_bar_aria": "Profile analysis filters",
+    "clear_trace": "Clear Trace filter",
+    "total_value": "Analysis total",
+    "mixed_types": "All profile types",
+    "samples": "{{count}} samples",
+    "merged_profiles": "Merged profiles",
+    "exact_selection": "Exact merge from current selection",
+    "services": "Services",
+    "active_selection": "Current analysis scope",
+    "duration": "Analysis duration",
+    "capture_duration": "Combined selected capture duration",
+    "hotspot": "Hot function",
+    "hot_self": "Self",
+    "hot_total": "Cumulative",
+    "no_hotspot": "No hot function",
+    "workspace_aria": "Profile analysis workbench",
+    "loading_flamegraph": "Merging the selected profiles…",
+    "no_selection_title": "No profiles selected for analysis",
+    "no_selection_description": "Expand the list below and select at least one profile.",
+    "selection_summary": "{{selected}} / {{total}} profiles in analysis"
+  },
+  "selection": {
+    "title": "Profiles in this analysis",
+    "selected_summary": "{{selected}} / {{total}} selected",
+    "expand": "Expand list",
+    "collapse": "Collapse list",
+    "description": "The selection directly controls the merged flame graph above. Click a row to open that profile.",
+    "select_all": "Select all profiles",
+    "select_none": "Deselect all profiles",
+    "row_aria": "Toggle profile {{id}} in analysis"
+  },
+  "units": {
+    "nanoseconds": "ns",
+    "bytes": "bytes",
+    "count": "count",
+    "samples": "samples"
+  },
+  "list": {
+    "title": "Profiles",
+    "kpi": {
+      "total_value": "Total",
+      "samples": "Samples",
+      "services": "Services",
+      "hot_function": "Hot function"
+    },
+    "columns": {
+      "service": "Service",
+      "type": "Type",
+      "timestamp": "Captured",
+      "duration": "Duration",
+      "samples": "Samples",
+      "total_value": "Total",
+      "trace": "Trace"
+    },
+    "tooltip": {
+      "duration": "Wall-clock duration of the capture",
+      "total": "Cumulative on-CPU time (sum of sample values)"
+    },
+    "view_flamegraph": "View flame graph",
+    "open_profile": "Open profile",
+    "empty_title": "No profiles in this window",
+    "empty_description": "Set up ingestion from Datasource (OTLP / Pyroscope / pprof), or use Upload to send a pprof file directly."
+  },
+  "flamegraph": {
+    "title": "Flame graph",
+    "search_placeholder": "Highlight frames…",
+    "reset_zoom": "Reset zoom",
+    "fit_canvas": "Reset view",
+    "fullscreen": "Fullscreen analysis",
+    "exit_fullscreen": "Exit fullscreen",
+    "resize": "Drag to resize the analysis area; double-click to reset",
+    "value_type": "Value",
+    "no_data_title": "No samples to render",
+    "no_data_description": "No profiles matched the selected service, type and time range.",
+    "truncated_notice": "Showing a representative sample of the matching profiles — the window exceeded the merge limit.",
+    "frame_aria": "Analyze function {{name}}",
+    "frame_self": "self",
+    "frame_total": "total",
+    "frame_share": "of total",
+    "self_help": "Cost in this function, excluding child calls",
+    "total_help": "Cumulative cost including every child call",
+    "profiles_merged": "merged {{count}} profiles",
+    "view": {
+      "flame": "Flame",
+      "tree": "Call tree",
+      "top": "Top functions"
+    },
+    "top": {
+      "function": "Function",
+      "self": "Self",
+      "self_pct": "Self %",
+      "cum": "Total",
+      "cum_pct": "Total %",
+      "sort_label": "Sort",
+      "select_hint": "Select this function and inspect its details",
+      "jump_hint": "Click to highlight this function in the flame graph"
+    },
+    "tree": {
+      "expand": "Expand child calls",
+      "collapse": "Collapse child calls"
+    },
+    "details": {
+      "title": "Function details",
+      "focus": "Focus flame graph",
+      "call_tree": "View in call tree",
+      "compare": "Compare",
+      "occurrences": "Occurrences",
+      "service": "Service",
+      "all_services": "All services",
+      "call_path": "Call path",
+      "children": "Direct child calls",
+      "no_children": "No direct child calls",
+      "depth": "Call depth"
+    },
+    "tooltip": {
+      "focus_hint": "Click to focus this frame and inspect the function."
+    },
+    "legend": {
+      "width": "Width",
+      "cumulative": "cumulative cost",
+      "color": "Color",
+      "self": "self cost",
+      "cold": "cold",
+      "hot": "hot"
+    }
+  },
+  "compare": {
+    "title": "Compare profiles",
+    "subtitle": "Diff a baseline window against a comparison window to see what got hotter.",
+    "baseline": "Baseline window",
+    "comparison": "Comparison window",
+    "run": "Run diff",
+    "legend_increase": "Increase",
+    "legend_decrease": "Decrease",
+    "legend_neutral": "Unchanged",
+    "empty_title": "Pick two windows to diff",
+    "empty_description": "Select a baseline and a comparison range, then run the diff to highlight regressions.",
+    "baseline_count": "{{count}} baseline profiles",
+    "comparison_count": "{{count}} comparison profiles"
+  },
+  "detail": {
+    "title": "Profile",
+    "back": "Back to profiles",
+    "download": "Download pprof",
+    "downloading": "Downloading…",
+    "open_trace": "Open correlated trace",
+    "view_span_flamegraph": "View flame graph for this span",
+    "metadata": {
+      "service": "Service",
+      "type": "Type",
+      "captured": "Captured",
+      "duration": "Duration",
+      "samples": "Samples",
+      "trace": "Trace",
+      "span": "Span"
+    },
+    "unsymbolized": "Contains unsymbolized frames"
+  },
+  "upload": {
+    "button": "Upload",
+    "title": "Upload a profile",
+    "description": "Upload a gzip-compressed or raw pprof profile. For OTLP / Pyroscope setup, see Datasource.",
+    "service": "Service",
+    "service_placeholder": "my-service",
+    "type": "Profile type",
+    "file": "pprof file",
+    "choose_file": "Choose file…",
+    "submit": "Upload",
+    "uploading": "Uploading…",
+    "success": "Profile uploaded",
+    "error": "Upload failed",
+    "datasource_link": "Set up OTLP / Pyroscope"
+  },
+  "errors": {
+    "load_failed": "Failed to load profiles",
+    "flamegraph_failed": "Failed to build the flame graph"
+  }
+}

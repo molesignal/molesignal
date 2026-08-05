@@ -1,0 +1,118 @@
+// Vendored pprof profile format (Profile.proto).
+//
+// Source: https://github.com/google/pprof/blob/main/proto/profile.proto
+// Pinned: google/pprof @ 2024-12 line schema (Profile fields 1..15, Line.column).
+//
+// This is the canonical, stable on-the-wire representation for continuous
+// profiling. All three ingest protocols normalize through pprof semantics and
+// the archived blob is gzip+zstd pprof, so external pprof tooling can consume
+// it directly. Kept package name `perftools.profiles` to match the ecosystem.
+//
+// IMPORTANT: this file is vendored and version-pinned on purpose. Do not edit
+// the message numbers; only sync forward from upstream and bump the pin note.
+
+syntax = "proto3";
+
+package perftools.profiles;
+
+option java_package = "com.google.perftools.profiles";
+option java_outer_classname = "ProfileProto";
+
+message Profile {
+  // A description of the samples associated with each Sample.value.
+  repeated ValueType sample_type = 1;
+  // The set of samples recorded in this profile.
+  repeated Sample sample = 2;
+  // Mapping from address ranges to the image/binary/library mapped into it.
+  repeated Mapping mapping = 3;
+  // Locations referenced by samples.
+  repeated Location location = 4;
+  // Functions referenced by locations.
+  repeated Function function = 5;
+  // A common table for strings referenced by various messages.
+  // string_table[0] must always be "".
+  repeated string string_table = 6;
+  // frames with Function.function_name fully matching the following
+  // regexp will be dropped from the samples, along with their successors.
+  int64 drop_frames = 7;
+  // frames with Function.function_name fully matching the following
+  // regexp will be kept, even if it matches drop_frames.
+  int64 keep_frames = 8;
+  // Time of collection (UTC) represented as nanoseconds past the epoch.
+  int64 time_nanos = 9;
+  // Duration of the profile, if a duration makes sense.
+  int64 duration_nanos = 10;
+  // The kind of events between sampled occurrences.
+  ValueType period_type = 11;
+  // The number of events between sampled occurrences.
+  int64 period = 12;
+  // Free-form text associated with the profile (indices into string_table).
+  repeated int64 comment = 13;
+  // Index into the string table of the type of the preferred sample value.
+  int64 default_sample_type = 14;
+  // Documentation link for this profile type (index into string_table).
+  int64 doc_url = 15;
+}
+
+message ValueType {
+  int64 type = 1; // index into string_table
+  int64 unit = 2; // index into string_table
+}
+
+message Sample {
+  // The ids recorded here correspond to a Profile.location.id.
+  // The leaf is at location_id[0].
+  repeated uint64 location_id = 1;
+  // The type and unit of each value is defined by the corresponding
+  // entry in Profile.sample_type.
+  repeated int64 value = 2;
+  // label includes additional context for this sample.
+  repeated Label label = 3;
+}
+
+message Label {
+  int64 key = 1; // index into string_table
+  // At most one of the following must be present.
+  int64 str = 2; // index into string_table
+  int64 num = 3;
+  // Should only be present when num is present.
+  int64 num_unit = 4; // index into string_table
+}
+
+message Mapping {
+  uint64 id = 1;
+  uint64 memory_start = 2;
+  uint64 memory_limit = 3;
+  uint64 file_offset = 4;
+  int64 filename = 5; // index into string_table
+  int64 build_id = 6; // index into string_table
+  bool has_functions = 7;
+  bool has_filenames = 8;
+  bool has_line_numbers = 9;
+  bool has_inline_frames = 10;
+}
+
+message Location {
+  uint64 id = 1;
+  uint64 mapping_id = 2;
+  uint64 address = 3;
+  // Multiple line indicates this location has inlined functions,
+  // where the last entry represents the caller into which the
+  // preceding entries were inlined.
+  repeated Line line = 4;
+  bool is_folded = 5;
+}
+
+message Line {
+  uint64 function_id = 1;
+  int64 line = 2;
+  int64 column = 3;
+}
+
+message Function {
+  uint64 id = 1;
+  int64 name = 2;        // index into string_table
+  int64 system_name = 3; // index into string_table
+  int64 filename = 4;    // index into string_table
+  int64 start_line = 5;
+}

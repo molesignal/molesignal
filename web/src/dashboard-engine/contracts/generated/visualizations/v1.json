@@ -1,0 +1,199 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://molesignal.dev/contracts/dashboard/visualizations/v1.json",
+  "manifestVersion": 1,
+  "dashboardModelVersion": 2,
+  "authoringVersions": [1],
+  "compilerVersion": "dashboard-authoring-1",
+  "grid": {
+    "columns": 24,
+    "rowHeight": 8,
+    "gap": 8,
+    "sizes": {
+      "small": { "w": 6, "h": 8 },
+      "medium": { "w": 12, "h": 10 },
+      "wide": { "w": 18, "h": 10 },
+      "full": { "w": 24, "h": 12 }
+    }
+  },
+  "limits": {
+    "maxPanels": 64,
+    "maxElements": 128,
+    "maxQueriesPerPanel": 12,
+    "maxVariables": 32,
+    "maxQueryLength": 32768,
+    "maxLookbackSeconds": 2592000,
+    "preflightTimeoutMs": 10000,
+    "preflightMaxRows": 1000,
+    "preflightMaxBytes": 4194304
+  },
+  "queryKinds": ["promql", "sql", "trace", "profile"],
+  "units": [
+    "none",
+    "short",
+    "percent",
+    "percentunit",
+    "bytes",
+    "decbytes",
+    "bytes_per_second",
+    "seconds",
+    "milliseconds",
+    "microseconds",
+    "nanoseconds",
+    "requests_per_second",
+    "operations_per_second"
+  ],
+  "reducers": ["last", "last_not_null", "min", "max", "mean", "sum", "count"],
+  "visualizations": [
+    {
+      "type": "time_series",
+      "optionSchemaVersion": 1,
+      "defaultSize": "medium",
+      "defaultOptions": {
+        "drawStyle": "line",
+        "lineInterpolation": "linear",
+        "lineWidth": 1.5,
+        "fillOpacity": 0,
+        "showPoints": "auto",
+        "stackMode": "none",
+        "tooltipMode": "all",
+        "legendMode": "table",
+        "legendPlacement": "bottom",
+        "legendStats": ["last", "min", "max", "mean"]
+      },
+      "compatibleQueryKinds": ["promql", "sql"],
+      "compatibleDataShapes": ["time_series"],
+      "allowedUnits": ["none", "short", "percent", "percentunit", "bytes", "decbytes", "bytes_per_second", "seconds", "milliseconds", "microseconds", "nanoseconds", "requests_per_second", "operations_per_second"],
+      "allowedReducers": ["last", "last_not_null", "min", "max", "mean", "sum", "count"]
+    },
+    {
+      "type": "table",
+      "optionSchemaVersion": 1,
+      "defaultSize": "full",
+      "defaultOptions": {
+        "showHeader": true,
+        "striped": false,
+        "pageSize": 100
+      },
+      "compatibleQueryKinds": ["promql", "sql", "trace", "profile"],
+      "compatibleDataShapes": ["table", "time_series", "logs", "traces", "profiles"],
+      "allowedUnits": ["none", "short", "percent", "percentunit", "bytes", "decbytes", "bytes_per_second", "seconds", "milliseconds", "microseconds", "nanoseconds", "requests_per_second", "operations_per_second"],
+      "allowedReducers": ["last", "last_not_null", "min", "max", "mean", "sum", "count"]
+    },
+    {
+      "type": "logs",
+      "optionSchemaVersion": 1,
+      "defaultSize": "full",
+      "defaultOptions": {
+        "showTime": true,
+        "showLevel": true,
+        "wrapLines": false,
+        "prettifyJson": true,
+        "sortOrder": "desc",
+        "deduplication": "none"
+      },
+      "compatibleQueryKinds": ["sql"],
+      "compatibleDataShapes": ["logs"],
+      "allowedUnits": ["none"],
+      "allowedReducers": []
+    },
+    {
+      "type": "stat",
+      "optionSchemaVersion": 1,
+      "defaultSize": "small",
+      "defaultOptions": {
+        "calculation": "last",
+        "textMode": "value_and_name",
+        "graphMode": "none",
+        "colorMode": "value",
+        "showPercentChange": false
+      },
+      "compatibleQueryKinds": ["promql", "sql", "profile"],
+      "compatibleDataShapes": ["scalar", "time_series", "table", "profiles"],
+      "allowedUnits": ["none", "short", "percent", "percentunit", "bytes", "decbytes", "bytes_per_second", "seconds", "milliseconds", "microseconds", "nanoseconds", "requests_per_second", "operations_per_second"],
+      "allowedReducers": ["last", "last_not_null", "min", "max", "mean", "sum", "count"]
+    },
+    {
+      "type": "gauge",
+      "optionSchemaVersion": 1,
+      "defaultSize": "small",
+      "defaultOptions": {
+        "calculation": "last",
+        "showThresholdMarkers": true,
+        "showThresholdLabels": false
+      },
+      "compatibleQueryKinds": ["promql", "sql"],
+      "compatibleDataShapes": ["scalar", "time_series", "table"],
+      "allowedUnits": ["none", "short", "percent", "percentunit", "bytes", "decbytes", "bytes_per_second", "seconds", "milliseconds", "microseconds", "nanoseconds", "requests_per_second", "operations_per_second"],
+      "allowedReducers": ["last", "last_not_null", "min", "max", "mean", "sum", "count"]
+    },
+    {
+      "type": "bar_gauge",
+      "optionSchemaVersion": 1,
+      "defaultSize": "medium",
+      "defaultOptions": {
+        "orientation": "horizontal",
+        "calculation": "last",
+        "displayMode": "basic",
+        "showThresholdMarkers": true
+      },
+      "compatibleQueryKinds": ["promql", "sql"],
+      "compatibleDataShapes": ["scalar", "time_series", "table"],
+      "allowedUnits": ["none", "short", "percent", "percentunit", "bytes", "decbytes", "bytes_per_second", "seconds", "milliseconds", "microseconds", "nanoseconds", "requests_per_second", "operations_per_second"],
+      "allowedReducers": ["last", "last_not_null", "min", "max", "mean", "sum", "count"]
+    },
+    {
+      "type": "bar_chart",
+      "optionSchemaVersion": 1,
+      "defaultSize": "medium",
+      "defaultOptions": {
+        "orientation": "vertical",
+        "groupWidth": 0.7,
+        "calculation": "last",
+        "showValues": "auto"
+      },
+      "compatibleQueryKinds": ["promql", "sql"],
+      "compatibleDataShapes": ["time_series", "table"],
+      "allowedUnits": ["none", "short", "percent", "percentunit", "bytes", "decbytes", "bytes_per_second", "seconds", "milliseconds", "microseconds", "nanoseconds", "requests_per_second", "operations_per_second"],
+      "allowedReducers": ["last", "last_not_null", "min", "max", "mean", "sum", "count"]
+    },
+    {
+      "type": "heatmap",
+      "optionSchemaVersion": 1,
+      "defaultSize": "full",
+      "defaultOptions": {
+        "colorScheme": "blues"
+      },
+      "compatibleQueryKinds": ["promql", "sql"],
+      "compatibleDataShapes": ["heatmap", "time_series", "table"],
+      "allowedUnits": ["none", "short", "percent", "percentunit", "bytes", "decbytes", "seconds", "milliseconds", "microseconds", "nanoseconds"],
+      "allowedReducers": ["last", "last_not_null", "min", "max", "mean", "sum", "count"]
+    },
+    {
+      "type": "state_timeline",
+      "optionSchemaVersion": 1,
+      "defaultSize": "full",
+      "defaultOptions": {
+        "mergeEqual": true,
+        "showValues": "auto"
+      },
+      "compatibleQueryKinds": ["promql", "sql", "trace"],
+      "compatibleDataShapes": ["states", "time_series", "table", "traces"],
+      "allowedUnits": ["none", "short", "percent", "percentunit", "seconds", "milliseconds"],
+      "allowedReducers": ["last", "last_not_null", "min", "max", "mean", "sum", "count"]
+    },
+    {
+      "type": "text",
+      "optionSchemaVersion": 1,
+      "defaultSize": "full",
+      "defaultOptions": {
+        "mode": "markdown",
+        "content": ""
+      },
+      "compatibleQueryKinds": [],
+      "compatibleDataShapes": ["text"],
+      "allowedUnits": ["none"],
+      "allowedReducers": []
+    }
+  ]
+}

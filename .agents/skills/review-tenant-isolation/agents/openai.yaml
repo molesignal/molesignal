@@ -1,0 +1,4 @@
+interface:
+  display_name: "审查租户隔离"
+  short_description: "全面检查组织上下文、SQL、缓存与对象路径中的租户隔离"
+  default_prompt: "使用 $review-tenant-isolation 审查当前改动中的多租户隔离风险。"

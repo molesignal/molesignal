@@ -1,0 +1,849 @@
+{
+  "title": "Alerts",
+  "subtitle": "Rules, active incidents, and Notify lifecycle.",
+  "incident_detail": {
+    "loading": "Incident",
+    "not_found_title": "Incident not found",
+    "not_found_description": "This incident may have been purged or belongs to another organization.",
+    "meta": {
+      "status": "Status",
+      "severity": "Severity",
+      "created": "Created",
+      "fingerprint": "Fingerprint"
+    }
+  },
+  "actions": {
+    "silences": "Silence policies",
+    "new_rule": "New rule",
+    "edit_rule": "Edit {{name}}",
+    "new_anomaly": "Anomaly detection rule",
+    "new_anomaly_description": "Detect deviations with a dynamic MAD or EWMA baseline.",
+    "new_threshold_rule": "Threshold rule",
+    "new_threshold_rule_description": "Fire when a query stays beyond a fixed threshold.",
+    "silence_incident": "Silence incident {{name}}"
+  },
+  "silence_incident": {
+    "title": "Silence this incident",
+    "description": "Pause further notifications and escalation only for “{{name}}”. The incident remains recorded.",
+    "default_name": "this incident",
+    "duration": "Silence duration",
+    "reason": "Reason (optional)",
+    "reason_placeholder": "e.g. Investigation in progress; no further pages needed",
+    "scope_hint": "This affects only this firing incident. It does not disable the rule or silence other incidents from the same service.",
+    "confirm": "Silence incident",
+    "silencing": "Silencing…",
+    "cancel": "Cancel",
+    "success": "Incident “{{name}}” silenced",
+    "durations": {
+      "one_hour": "1 hour",
+      "four_hours": "4 hours",
+      "one_day": "24 hours",
+      "one_week": "7 days"
+    }
+  },
+  "kpis": {
+    "critical_firing": "Critical firing",
+    "warning_firing": "Warning firing",
+    "pending": "Pending",
+    "resolved_24h": "Resolved (24h)",
+    "total_rules": "Total rules",
+    "incidents_open": "Incidents open"
+  },
+  "tabs": {
+    "firing": "Firing",
+    "pending": "Pending",
+    "resolved": "Resolved",
+    "disabled": "Disabled",
+    "all": "All rules"
+  },
+  "subnav": {
+    "label": "Alerts views",
+    "incidents": "Incidents",
+    "rules": "Rules",
+    "history": "History",
+    "insights": "Insights",
+    "groups": "Groups",
+    "escalations": "Escalations",
+    "schedules": "On-call schedules",
+    "silences": "Silence policies"
+  },
+  "history": {
+    "title": "Alert history",
+    "subtitle": "Review the timeline of recovered and closed incidents.",
+    "error_title": "Cannot load alert history",
+    "empty_title": "No recovered incidents",
+    "empty_description": "After an alert fires and recovers, its timing, duration, and incident details appear here.",
+    "columns": {
+      "summary": "Incident",
+      "severity": "Severity",
+      "created": "Fired",
+      "resolved": "Recovered",
+      "duration": "Duration"
+    },
+    "severity": {
+      "info": "Info",
+      "warning": "Warning",
+      "error": "Error",
+      "critical": "Critical"
+    }
+  },
+  "center": {
+    "incidents": {
+      "title": "Alert incidents",
+      "subtitle": "Find current failures, understand impact, and drive incidents to recovery.",
+      "load_error": "Cannot load alert incidents",
+      "unassigned": "Unacknowledged",
+      "kpis": {
+        "active": "Firing incidents",
+        "services": "Affected services",
+        "services_sub": "Unique across active incidents",
+        "waiting": "Waiting for acknowledgement",
+        "waiting_sub": "No owner yet",
+        "recovered": "Recovered (24h)",
+        "last_recovery": "Last recovery {{time}} ago",
+        "no_recovery": "No recovery in the last 24 hours",
+        "no_active": "No active incidents"
+      },
+      "tabs": {
+        "active": "Firing",
+        "unacknowledged": "Waiting",
+        "resolved": "Recovered"
+      },
+      "columns": {
+        "severity": "Severity",
+        "incident": "Incident / service",
+        "status": "Status",
+        "duration": "Duration",
+        "owner": "Owner",
+        "actions": "Next step"
+      },
+      "status": {
+        "open": "Waiting",
+        "acknowledged": "In progress",
+        "resolved": "Recovered",
+        "closed": "Closed"
+      },
+      "actions": {
+        "ack": "Acknowledge",
+        "silence": "Silence",
+        "runbook": "Runbook",
+        "details": "Details"
+      },
+      "healthy": {
+        "title": "No alerts are firing",
+        "with_recovery": "{{count}} incidents recovered in the last 24 hours; the latest was {{time}} ago.",
+        "no_recovery": "All configured rules currently have no active incidents.",
+        "view_recovered": "View recovered incidents",
+        "view_rules": "View all rules"
+      },
+      "no_rules": {
+        "title": "No alert rules yet",
+        "description": "Create a rule to continuously evaluate metrics, logs, or traces and open incidents here.",
+        "action": "Create first rule"
+      },
+      "empty": {
+        "active": {
+          "title": "No active incidents",
+          "description": "Every enabled rule is currently healthy."
+        },
+        "unacknowledged": {
+          "title": "Nothing is waiting for acknowledgement",
+          "description": "Every active incident already has an owner."
+        },
+        "resolved": {
+          "title": "No recently recovered incidents",
+          "description": "Recovered incidents will remain visible here."
+        }
+      }
+    },
+    "rules": {
+      "title": "Alert rules",
+      "subtitle": "Define the queries and thresholds the system evaluates continuously.",
+      "load_error": "Cannot load alert rules",
+      "search": "Search rules, services, or sources",
+      "tabs": {
+        "all": "All",
+        "enabled": "Enabled",
+        "disabled": "Disabled"
+      },
+      "summary": {
+        "total": "{{count}} rules",
+        "enabled": "{{count}} enabled",
+        "disabled": "{{count}} disabled"
+      },
+      "columns": {
+        "rule": "Rule",
+        "source": "Data source",
+        "condition": "Trigger condition",
+        "state": "State",
+        "last_evaluation": "Last evaluation",
+        "actions": "Actions"
+      },
+      "state": {
+        "healthy": "Healthy",
+        "pending": "Waiting duration",
+        "firing": "Firing",
+        "disabled": "Disabled"
+      },
+      "kinds": {
+        "scheduled": "Threshold rule",
+        "real_time": "Real-time rule",
+        "anomaly": "Anomaly detection"
+      },
+      "never_evaluated": "Never evaluated",
+      "empty": {
+        "title": "No alert rules yet",
+        "description": "Create a rule to continuously evaluate a query and open incidents when its threshold is met."
+      },
+      "no_match": {
+        "title": "No matching rules",
+        "description": "Try another keyword or status filter."
+      }
+    }
+  },
+  "workbench": {
+    "new_title": "New alert rule",
+    "edit_title": "Edit alert rule",
+    "edit_named": "Edit rule · {{name}}",
+    "subtitle": "Write the query, validate thresholds, then connect Notify routing and response guidance.",
+    "steps": {
+      "identity": "Basic information",
+      "condition": "Query and condition",
+      "delivery": "Notify and response"
+    },
+    "actions": {
+      "cancel": "Cancel",
+      "save_draft": "Save draft",
+      "test": "Test rule",
+      "testing": "Testing…",
+      "save": "Save and enable",
+      "create": "Create rule",
+      "add_threshold": "Add severity",
+      "remove_threshold": "Remove threshold"
+    },
+    "sections": {
+      "identity": "Basic information",
+      "identity_description": "Used for incident titles, search, and service ownership.",
+      "condition": "Query and trigger condition",
+      "condition_description": "Validate the query, threshold, and duration in one context.",
+      "delivery": "Notify and response",
+      "delivery_description": "Alert lifecycle events are routed by Notify policies; keep the responder guidance with the rule."
+    },
+    "fields": {
+      "name": "Rule name",
+      "service": "Service",
+      "description": "Description",
+      "signal": "Rule type",
+      "stream": "Target stream",
+      "interval": "Evaluation interval",
+      "query": "Query",
+      "query_language": "Query language",
+      "thresholds": "Trigger conditions",
+      "runbook": "Response guide / Runbook URL"
+    },
+    "placeholders": {
+      "name": "e.g. api_high_error_rate",
+      "service": "e.g. api-gateway",
+      "description": "Describe the user path or system capability this protects",
+      "stream": "e.g. app_metrics"
+    },
+    "hints": {
+      "query": "Test rule runs this query against real data from the last six hours.",
+      "thresholds": "The highest matching severity wins; duration is converted to evaluation periods.",
+      "runbook": "Optional. Responders can open it directly from the incident list."
+    },
+    "signals": {
+      "metrics": "Metric alert",
+      "logs": "Log alert",
+      "traces": "Trace alert"
+    },
+    "quick_start": "Quick start",
+    "presets": {
+      "error_rate": {
+        "title": "High error rate",
+        "description": "HTTP 5xx ratio stays above a threshold"
+      },
+      "latency": {
+        "title": "High P95 latency",
+        "description": "Request latency percentile stays elevated"
+      },
+      "cpu": {
+        "title": "High CPU usage",
+        "description": "Average process CPU exceeds its safe level"
+      },
+      "log_errors": {
+        "title": "Error log spike",
+        "description": "Error-level log count exceeds a threshold"
+      },
+      "no_data": {
+        "title": "No data",
+        "description": "The stream has no records in the evaluation window"
+      },
+      "trace_errors": {
+        "title": "Trace error spike",
+        "description": "Failed trace count exceeds a threshold"
+      },
+      "trace_latency": {
+        "title": "High trace latency",
+        "description": "Average trace duration stays elevated"
+      }
+    },
+    "intervals": {
+      "1m": "Every minute",
+      "5m": "Every 5 minutes",
+      "10m": "Every 10 minutes"
+    },
+    "threshold": {
+      "severity": "Severity",
+      "operator": "When result",
+      "value": "Threshold",
+      "duration": "And for",
+      "minutes": "minutes"
+    },
+    "operators": {
+      "gt": "> (gt)",
+      "gte": "≥ (gte)",
+      "lt": "< (lt)",
+      "lte": "≤ (lte)",
+      "eq": "= (eq)",
+      "neq": "≠ (neq)"
+    },
+    "notify": {
+      "title": "Notify routing",
+      "description": "Alert lifecycle events are delivered through matching Notify policies, recipients, and fallback routes.",
+      "manage_policies": "Manage policies",
+      "manage_connectors": "Manage connectors"
+    },
+    "preview": {
+      "title": "Query preview",
+      "window": "Real data · last 6 hours",
+      "not_run": "Test has not run",
+      "not_run_description": "Run it to see the query curve, threshold line, and estimated historical triggers.",
+      "failed": "Query failed",
+      "no_data": "Query succeeded but returned no numeric data",
+      "no_data_description": "Check the time range, target stream, and returned columns.",
+      "query_value": "Query result",
+      "threshold": "Threshold",
+      "current": "Current value",
+      "estimated": "Estimated triggers",
+      "cost": "Scanned rows · latency"
+    },
+    "validation": {
+      "title": "Pre-create checks",
+      "query": "Query ran and returned numeric data",
+      "thresholds": "Thresholds are valid and non-conflicting",
+      "runbook": "Runbook URL format is valid",
+      "ready": "Ready",
+      "pending": "Pending"
+    },
+    "errors": {
+      "load_rule": "Cannot load alert rule",
+      "org_required": "The current organization is unavailable.",
+      "name_required": "Rule name is required.",
+      "stream_required": "Target stream is required.",
+      "query_required": "Query is required.",
+      "threshold_required": "At least one valid threshold is required.",
+      "threshold_conflict": "A higher severity cannot be easier to trigger than a lower severity.",
+      "runbook_invalid": "Enter a valid http or https URL."
+    },
+    "toast": {
+      "saved": "Rule “{{name}}” saved and enabled",
+      "draft_saved": "Rule draft “{{name}}” saved"
+    }
+  },
+  "drawer": {
+    "title_loading": "Incident",
+    "error_title": "Cannot load incident",
+    "actions": {
+      "ack": "Acknowledge",
+      "ack_success": "Incident acknowledged",
+      "silence": "Silence",
+      "resolve": "Resolve",
+      "resolve_success": "Incident resolved"
+    },
+    "incident_sections": {
+      "timeline": "Timeline",
+      "rca": "AI root cause",
+      "signals": "Cross-signal handles",
+      "metadata": "Metadata",
+      "triggering_query": "Triggering query",
+      "assignees": "Assignees"
+    },
+    "rca": {
+      "generate": "Generate",
+      "regenerate": "Regenerate",
+      "generating": "Generating…",
+      "generated": "Root-cause analysis generated",
+      "empty": "No analysis yet — generate one or wait for the background pass."
+    },
+    "signals": {
+      "services": "Services",
+      "traces": "Trace IDs",
+      "hosts": "Hosts"
+    },
+    "labels": {
+      "title": "Labels"
+    },
+    "annotations": {
+      "title": "Annotations"
+    },
+    "timeline": {
+      "created": "Created",
+      "acknowledged": "Acknowledged",
+      "resolved": "Resolved"
+    },
+    "triggering_query": {
+      "sample_count": "{{count}} sample rows",
+      "sample_count_one": "1 sample row",
+      "show_samples": "Show sample values"
+    },
+    "assignees_none": "No one assigned yet."
+  },
+  "insights": {
+    "title": "Alert insights",
+    "subtitle": "Aggregate view over recent incidents",
+    "error_title": "Cannot compute insights",
+    "empty_title": "No incidents yet",
+    "empty_description": "Insights summarize MTTR, noise, busiest hours, and which rules and services fire most. They populate as alerts fire and resolve.",
+    "kpis": {
+      "total": "Total incidents",
+      "mttr": "MTTR",
+      "mttr_sub": "mean across resolved",
+      "active": "Active",
+      "active_sub": "open + acknowledged",
+      "closed": "Closed",
+      "closed_sub": "resolved + closed",
+      "noise": "Noise rate",
+      "noise_sub": "resolved < 60s"
+    },
+    "heatmap_title": "Incidents by hour of day (UTC)",
+    "top_services": "Top affected services",
+    "no_services": "No services attributed.",
+    "top_rules": "Top firing rules",
+    "no_rules": "No rules attributed.",
+    "by_severity": "By severity"
+  },
+  "anomaly": {
+    "new_title": "New anomaly rule",
+    "edit_title": "Edit anomaly rule",
+    "subtitle": "Detect outliers against a same-time-of-day baseline (MAD).",
+    "detection_description": "Each interval the query's first numeric value is compared against the baseline.",
+    "detector_description": "Median Absolute Deviation builds a robust baseline from recent same-time history.",
+    "sections": {
+      "identity": "Identity",
+      "detection": "Detection query",
+      "detector": "Detector"
+    },
+    "fields": {
+      "name": "Rule name",
+      "severity": "Severity",
+      "service": "Service",
+      "stream_name": "Stream",
+      "stream_type": "Stream type",
+      "language": "Query language",
+      "window": "Evaluation window",
+      "query": "Query",
+      "algorithm": "Algorithm",
+      "lookback_days": "Lookback (days)",
+      "k": "Sensitivity (k·σ)",
+      "alpha": "Smoothing (α)",
+      "for_periods": "Trigger after (intervals)",
+      "weekly_seasonality": "Weekly seasonality"
+    },
+    "hints": {
+      "name": "Shown on incidents this rule opens.",
+      "service": "Optional label used for cross-signal context.",
+      "stream_name": "Table the query runs against.",
+      "window": "Length of each evaluation window.",
+      "query": "Return a single numeric value (e.g. avg / p95 / count).",
+      "algorithm": "MAD (robust median) or EWMA (tracks recent drift).",
+      "lookback_days": "Days of same-time-of-day history for the baseline (1-30).",
+      "k": "Higher = less sensitive. Fires when |value - baseline| > k·σ.",
+      "alpha": "EWMA only: higher = weights recent samples more (0-1).",
+      "for_periods": "Consecutive anomalous intervals before an incident opens.",
+      "weekly_seasonality": "Compare only the same weekday's history — cuts weekday/weekend false positives. Needs lookback >= 7 (28+ recommended)."
+    },
+    "placeholders": {
+      "name": "checkout_latency_anomaly",
+      "service": "checkout",
+      "stream_name": "app_metrics"
+    },
+    "actions": {
+      "create": "Create rule",
+      "save": "Save changes",
+      "saving": "Saving…"
+    },
+    "errors": {
+      "name_required": "Rule name is required.",
+      "stream_required": "Stream is required."
+    },
+    "toast_saved": "Anomaly rule “{{name}}” saved",
+    "weekly": {
+      "off": "Off (daily)",
+      "on": "On (same weekday)"
+    }
+  },
+  "severity": {
+    "info": "Info",
+    "warning": "Warning",
+    "error": "Error",
+    "critical": "Critical"
+  },
+  "matchers": {
+    "title": "Label matchers",
+    "add": "Add matcher",
+    "remove": "Remove matcher",
+    "label_placeholder": "label (e.g. service)",
+    "label_aria": "Matcher label",
+    "value_placeholder": "value",
+    "value_aria": "Matcher value",
+    "hint": "All matchers must hit (AND). =~ / ≠~ are regular expressions."
+  },
+  "escalations": {
+    "title": "Escalation policies",
+    "subtitle": "Multi-step routing for unacknowledged incidents",
+    "new_policy": "New policy",
+    "empty_title": "No escalation policies",
+    "empty_description": "Route unacknowledged incidents to on-call users, schedules and teams.",
+    "columns": {
+      "name": "Name",
+      "steps": "Steps",
+      "repeat": "Repeat",
+      "actions": "Actions"
+    },
+    "repeat_n": "×{{n}}",
+    "delete_title": "Delete escalation policy",
+    "edit_title": "Edit escalation policy",
+    "drawer_title": "New escalation policy",
+    "drawer_subtitle": "Steps fire in order until the incident is acknowledged.",
+    "save": "Save policy",
+    "create": "Create policy",
+    "toast_updated": "Policy updated",
+    "toast_created": "Policy created",
+    "errors": {
+      "name_required": "Name is required.",
+      "target_required": "Add at least one target."
+    },
+    "sections": {
+      "identity": "Identity",
+      "steps": "Escalation steps",
+      "steps_description": "Each step emits one Notify event per target, then waits for acknowledgement before advancing."
+    },
+    "fields": {
+      "name": "Policy name",
+      "repeat": "Repeat the whole policy until acknowledged",
+      "max_loops": "Max loops",
+      "min_severity": "Applies from severity",
+      "ack_timeout": "Ack timeout",
+      "targets": "Targets",
+      "notify_routing": "Connector selection and fallback routing are configured in Settings → Notify → Policies."
+    },
+    "hints": {
+      "max_loops": "How many times to repeat before giving up."
+    },
+    "add_step": "Add step",
+    "remove_step": "Remove step",
+    "step_n": "Step {{n}}",
+    "add_target": "Add target",
+    "remove_target": "Remove target",
+    "any_severity": "Any severity",
+    "pick_ref": "— select —",
+    "target_kinds": {
+      "user": "User",
+      "schedule": "Schedule",
+      "team": "Team"
+    }
+  },
+  "schedules": {
+    "title": "On-call schedules",
+    "subtitle": "Manage rotations and temporary coverage used by alert escalation.",
+    "new_schedule": "New schedule",
+    "empty_title": "No on-call schedules",
+    "empty_description": "Rotate on-call responsibility across your team on a daily, weekly or custom cadence.",
+    "columns": {
+      "name": "Name",
+      "timezone": "Timezone",
+      "rotations": "Rotations",
+      "members": "People",
+      "current_on_call": "On call now",
+      "rotation": "Rotation",
+      "next_switch": "Next handoff",
+      "coverage": "Coverage",
+      "recent_change": "Recent change",
+      "status": "Status"
+    },
+    "delete_title": "Delete schedule",
+    "edit_title": "Edit schedule",
+    "drawer_title": "New schedule",
+    "drawer_subtitle": "Configure the schedule and verify the next seven days before creating it.",
+    "save": "Save schedule",
+    "save_draft": "Save draft",
+    "create": "Create schedule",
+    "toast_updated": "Schedule updated",
+    "toast_created": "Schedule created",
+    "toast_draft_saved": "Schedule draft saved",
+    "toast_paused": "Schedule paused",
+    "toast_resumed": "Schedule resumed",
+    "toast_copied": "Schedule copy created and paused",
+    "copy_name": "{{name}} copy",
+    "errors": {
+      "name_required": "Name is required.",
+      "members_required": "Add at least one rotation member.",
+      "override_user": "Pick a user.",
+      "override_reason": "Enter a coverage reason.",
+      "override_window": "End must be after start.",
+      "override_conflict": "This window conflicts with existing temporary coverage."
+    },
+    "sections": {
+      "identity": "Basic information",
+      "rotations": "Rotation rules",
+      "rotations_description": "Each rotation cycles its members; overrides are managed on the schedule detail page.",
+      "overrides": "Overrides"
+    },
+    "fields": {
+      "name": "Schedule name",
+      "description": "Description",
+      "timezone": "Timezone",
+      "team": "Team",
+      "cadence": "Rotation cadence",
+      "period_hours": "Period (hours)",
+      "start_at": "Start date and time",
+      "handoff_time": "Handoff time",
+      "members": "Members (rotate in order)",
+      "restrict_window": "Restrict to specific days / hours",
+      "hour_start": "Hour start (0–24)",
+      "hour_end": "Hour end (0–24)"
+    },
+    "hints": {
+      "timezone": "e.g. UTC, America/New_York, Asia/Shanghai"
+    },
+    "add_rotation": "Add rotation",
+    "remove_rotation": "Remove rotation",
+    "rotation_name_placeholder": "For example: primary",
+    "rotation_kinds": {
+      "daily": "Daily",
+      "weekly": "Weekly",
+      "workdays": "Workdays",
+      "custom": "Custom period"
+    },
+    "no_users": "No users found.",
+    "unknown_user": "Unknown member",
+    "on_call_now": "On call now",
+    "nobody_on_call": "Nobody on call",
+    "currently_on_call": "Currently on call",
+    "detail_loading": "Schedule",
+    "detail_error": "Cannot load schedule",
+    "no_rotations": "No rotations yet.",
+    "rotation_untitled": "Rotation {{n}}",
+    "no_members": "No members",
+    "overrides_hint": "Temporarily hand on-call to a specific person for a fixed window.",
+    "override_added": "Override added",
+    "override_updated": "Override updated",
+    "override_deleted": "Override deleted",
+    "override_ended": "Override ended",
+    "override_delete_title": "Delete temporary coverage?",
+    "override_fields": {
+      "user": "Covering person",
+      "reason": "Reason",
+      "start": "Start time",
+      "end": "End time"
+    },
+    "pick_user": "Select a person",
+    "add_override": "Add override",
+    "every_n_hours": "Every {{n}}h",
+    "update_override": "Update override",
+    "cancel_edit": "Cancel edit",
+    "end_override": "End coverage",
+    "override_person": "Covering person",
+    "override_badge": "Temporary",
+    "override_summary": "{{user}} will cover from {{start}} to {{end}}.",
+    "no_overrides": "No active or upcoming temporary coverage",
+    "view_history": "View history",
+    "hide_history": "Hide history",
+    "no_switch": "No planned handoff",
+    "people_count": "{{count}} people",
+    "people_rotation": "{{count}} people rotating",
+    "rotation_count": "{{count}} rotations",
+    "total_count": "{{count}} total",
+    "system_actor": "System",
+    "description_fallback": "On-call routing for alert escalation",
+    "team_prefix": "Team: {{team}}",
+    "team_unassigned": "No team",
+    "warnings": {
+      "other_schedule": "This person is on call for another schedule when coverage starts.",
+      "immediate": "The start is in the past. Coverage will become active immediately."
+    },
+    "placeholders": {
+      "name": "For example: production primary on-call",
+      "description": "Describe the services, environment and escalation scope.",
+      "override_reason": "For example: PTO, incident response, shift swap"
+    },
+    "summary": {
+      "schedules": "Schedules",
+      "schedule_count": "{{count}} schedules",
+      "team_count": "Covers {{count}} teams",
+      "on_call": "On call now",
+      "active_count": "{{count}} schedules active",
+      "people_on_call": "{{count}} people currently on call",
+      "this_week": "This week",
+      "rotation_count": "{{count}} handoffs",
+      "next_switch": "Next: {{value}}",
+      "no_switch": "No handoffs this week",
+      "overrides": "Temporary coverage",
+      "override_count": "{{count}} schedules covered",
+      "override_people": "{{count}} covering people"
+    },
+    "filters": {
+      "search": "Search schedule, team or owner…",
+      "team": "Team",
+      "timezone": "Timezone",
+      "status": "Status",
+      "all": "All",
+      "mine": "Only schedules I participate in",
+      "refresh": "Refresh",
+      "reset": "Reset filters",
+      "list_settings": "List settings",
+      "no_results": "No schedules match these filters"
+    },
+    "roles": {
+      "primary": "Primary",
+      "secondary": "Secondary"
+    },
+    "status": {
+      "active": "Active",
+      "switching": "Handoff soon",
+      "not_started": "Not started",
+      "paused": "Paused",
+      "gap": "Coverage gap"
+    },
+    "actions": {
+      "open_menu": "Open actions for {{name}}",
+      "view": "View details",
+      "edit": "Edit schedule",
+      "add_override": "Add temporary coverage",
+      "pause": "Pause schedule",
+      "resume": "Resume schedule",
+      "copy": "Copy schedule",
+      "export_calendar": "Export calendar",
+      "delete": "Delete schedule",
+      "more": "More actions"
+    },
+    "pagination": {
+      "label": "On-call schedule pagination",
+      "page": "{{page}} / {{count}}",
+      "page_size": "Rows per page",
+      "first": "First schedules page",
+      "previous": "Previous page",
+      "next": "Next page",
+      "last": "Last schedules page"
+    },
+    "preview": {
+      "title": "Next 7 days",
+      "description": "Verify rotation order, handoff time and coverage before creating.",
+      "empty": "Select rotation members to see a preview",
+      "member_count": "People covered",
+      "timezone": "Schedule timezone",
+      "then": "Then"
+    },
+    "detail": {
+      "current": "On call now",
+      "started_at": "Started {{value}}",
+      "no_active_shift": "No shift is currently active",
+      "next_rotation": "Next handoff",
+      "rotation_people": "Rotation people",
+      "rotation_rule": "Rotation: {{value}}",
+      "overrides": "Temporary coverage",
+      "active_override_count": "{{count}} active",
+      "coverage_window": "Window: {{start}} – {{end}}",
+      "no_override": "No temporary coverage is active",
+      "rotation_rule_title": "Rotation rule",
+      "view_rule": "View details",
+      "rotation_name": "Rotation name",
+      "rotation_members": "Rotation members",
+      "handoff_time": "Handoff time",
+      "handoff_value": "{{cadence}} at {{time}} ({{timezone}})"
+    },
+    "timeline": {
+      "title": "Next 7 days",
+      "current": "On call now",
+      "upcoming": "Up next",
+      "view_calendar": "View calendar",
+      "empty": "This schedule has no shifts to display"
+    },
+    "activity": {
+      "title": "Change history",
+      "view_all": "View all",
+      "collapse": "Collapse",
+      "empty": "No changes recorded",
+      "columns": {
+        "time": "Time",
+        "actor": "Actor",
+        "type": "Type",
+        "content": "Change"
+      },
+      "types": {
+        "create": "Created",
+        "edit": "Edited",
+        "override": "Coverage",
+        "pause": "Paused",
+        "resume": "Resumed",
+        "delete": "Deleted"
+      },
+      "descriptions": {
+        "create": "Created schedule {{name}}",
+        "edit": "Updated schedule {{name}}",
+        "override": "Temporary coverage for {{user}} changed. Reason: {{reason}}",
+        "pause": "Paused schedule {{name}}",
+        "resume": "Resumed schedule {{name}}",
+        "delete": "Deleted schedule {{name}}"
+      }
+    }
+  },
+  "silences": {
+    "title": "Silence policies",
+    "subtitle": "Pause notifications in bulk by labels and time window",
+    "new_silence": "New silence policy",
+    "empty_title": "No silence policies",
+    "empty_description": "Suppress notifications for matching incidents during maintenance or known noise.",
+    "columns": {
+      "name": "Name",
+      "status": "Status",
+      "window": "Window"
+    },
+    "delete_title": "Delete silence",
+    "edit_title": "Edit silence",
+    "drawer_title": "New silence",
+    "drawer_subtitle": "Incidents are still recorded; only delivery is paused.",
+    "save": "Save silence",
+    "create": "Create silence",
+    "toast_updated": "Silence updated",
+    "toast_created": "Silence created",
+    "errors": {
+      "name_required": "Name is required.",
+      "matcher_required": "Add at least one matcher.",
+      "window_range": "End must be after start."
+    },
+    "sections": {
+      "identity": "Identity",
+      "matchers": "Match",
+      "window": "Window",
+      "comment": "Comment"
+    },
+    "fields": {
+      "name": "Name",
+      "enabled": "Enabled",
+      "window_type": "Window type",
+      "start": "Start",
+      "end": "End",
+      "timezone": "Timezone (IANA)",
+      "hour_start": "Hour start (0–24)",
+      "hour_end": "Hour end (0–24)",
+      "comment": "Reason"
+    },
+    "window_kinds": {
+      "fixed": "Fixed range",
+      "recurring": "Recurring"
+    },
+    "comment_placeholder": "Why is this muted?"
+  }
+}

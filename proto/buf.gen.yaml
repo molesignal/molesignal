@@ -1,0 +1,10 @@
+version: v1
+
+plugins:
+  - plugin: buf.build/community/neoeinstein-prost
+    out: ../src/protocol
+    opt:
+      - bytes=.
+
+  - plugin: buf.build/community/neoeinstein-tonic
+    out: ../src/protocol

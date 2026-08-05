@@ -1,0 +1,40 @@
+/target
+crates/*/target/
+**/*.rs.bk
+Cargo.lock.bak
+
+# runtime data
+/data
+/dist
+/.release-artifacts
+/.release-binaries
+# 本地覆盖配置不入库；conf/config.toml 是仓库默认配置，是入库的
+/conf/molesignal.local.toml
+*.db
+*.db-journal
+*.sqlite
+*.sqlite-journal
+
+# logs
+*.log
+
+# Python caches
+__pycache__/
+*.pyc
+
+# Generated protobuf bindings are committed under /src/protocol/.
+
+# editor
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# frontend
+web/node_modules
+web/dist
+web/.vite
+web/coverage
+web/.env.local
+.design/
+crates/bootstrap/data/wal/

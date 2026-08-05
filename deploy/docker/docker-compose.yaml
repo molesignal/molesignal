@@ -1,0 +1,157 @@
+# MoleSignal docker-compose
+#
+# 两种部署形态（用 profile 区分；默认 standalone 单进程）：
+#   docker compose up                          → 默认 + standalone profile（一个进程跑所有 role）
+#   docker compose --profile multirole up      → 拆分模式（router/ingester/querier/compactor/alert-manager/connector）
+#
+# postgres + minio 总是启动；molesignal 容器走哪个 profile 由 docker compose --profile 选。
+
+x-molesignal-base: &molesignal-base
+  build:
+    context: ../..
+    dockerfile: deploy/docker/Dockerfile
+    args:
+      BUILD_ID: ${BUILD_ID:-local-compose}
+      GIT_SHA: ${GIT_SHA:-unknown}
+  image: molesignal:dev
+  depends_on:
+    postgres:
+      condition: service_healthy
+    minio:
+      condition: service_healthy
+  volumes:
+    - ../../conf/config.toml:/app/conf/config.toml:ro
+  environment: &molesignal-env
+    RELEASE_CHANNEL: ${RELEASE_CHANNEL:-alpha}
+    MS_TELEMETRY_LOG_LEVEL: info
+    MS_STORE_META_BACKEND: postgres
+    MS_STORE_META_DSN: "postgres://molesignal:molesignal@postgres:5432/molesignal"
+    MS_STORE_OBJECT_BACKEND: s3
+    MS_STORE_OBJECT_BUCKET: molesignal
+    MS_STORE_OBJECT_REGION: us-east-1
+    MS_STORE_OBJECT_ENDPOINT: "http://minio:9000"
+    MS_STORE_OBJECT_ACCESS_KEY: minioadmin
+    MS_STORE_OBJECT_SECRET_KEY: minioadmin
+    # JWT signing secret 默认由 DB 自动 bootstrap（auth-hardening）；
+    # 想 deterministic 锁定可设 MS_AUTH_JWT_SECRET_OVERRIDE。
+    # 32B base64 cipher root key；dev 全零，生产换 openssl rand -base64 32
+    MS_CIPHER_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: molesignal
+      POSTGRES_PASSWORD: molesignal
+      POSTGRES_DB: molesignal
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "molesignal"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # web console
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin &&
+      (mc mb -p local/molesignal || true) &&
+      mc anonymous set download local/molesignal &&
+      echo 'bucket ready'
+      "
+    restart: "no"
+
+  # ============================================================
+  # standalone profile（默认）：一个进程跑所有 role
+  # ============================================================
+  molesignal:
+    <<: *molesignal-base
+    profiles: ["standalone"]
+    ports:
+      - "5080:5080"
+      - "5082:5082"
+    volumes:
+      - ../../conf/config.toml:/app/conf/config.toml:ro
+      - obs-wal:/data/wal
+    environment:
+      <<: *molesignal-env
+      MS_NODE_ROLES: '["standalone"]'
+
+  # ============================================================
+  # multirole profile：拆 6 个 role；共享 image，靠 MS_NODE_ROLES 区分
+  # ============================================================
+  molesignal-router:
+    <<: *molesignal-base
+    profiles: ["multirole"]
+    ports:
+      - "5080:5080"
+    environment:
+      <<: *molesignal-env
+      MS_NODE_ROLES: '["router"]'
+
+  molesignal-ingester:
+    <<: *molesignal-base
+    profiles: ["multirole"]
+    volumes:
+      - ../../conf/config.toml:/app/conf/config.toml:ro
+      - obs-wal:/data/wal
+    environment:
+      <<: *molesignal-env
+      MS_NODE_ROLES: '["ingester"]'
+
+  molesignal-querier:
+    <<: *molesignal-base
+    profiles: ["multirole"]
+    environment:
+      <<: *molesignal-env
+      MS_NODE_ROLES: '["querier"]'
+
+  molesignal-compactor:
+    <<: *molesignal-base
+    profiles: ["multirole"]
+    environment:
+      <<: *molesignal-env
+      MS_NODE_ROLES: '["compactor"]'
+
+  molesignal-alert-manager:
+    <<: *molesignal-base
+    profiles: ["multirole"]
+    environment:
+      <<: *molesignal-env
+      MS_NODE_ROLES: '["alert_manager"]'
+
+  molesignal-connector:
+    <<: *molesignal-base
+    profiles: ["multirole"]
+    environment:
+      <<: *molesignal-env
+      MS_NODE_ROLES: '["connector"]'
+
+volumes:
+  pgdata:
+  miniodata:
+  obs-wal:

@@ -1,0 +1,41 @@
+# Standalone web image — used when frontend is deployed separately from the
+# Rust backend (k8s split-pod setup). When deploying as one binary, use the
+# existing top-level `Dockerfile`.
+
+############### Stage 1: build web ###############
+FROM node:20-alpine AS web-builder
+WORKDIR /web
+
+# Enable corepack so we get the exact pnpm major used in CI.
+RUN corepack enable
+
+# Copy manifest bits before sources so the deps layer caches well.
+COPY web/package.json web/pnpm-lock.yaml ./
+
+RUN pnpm install --frozen-lockfile
+
+# Bring in sources and build.
+COPY web/ ./
+RUN pnpm run build
+
+############### Stage 2: nginx runtime ###############
+FROM nginx:1.27-alpine
+
+# Drop the default vhost.
+RUN rm /etc/nginx/conf.d/default.conf
+
+# Mount our config as a template — nginx:alpine's entrypoint envsubsts
+# $MS_BACKEND into the final conf at container start.
+COPY deploy/docker/nginx.conf /etc/nginx/templates/molesignal-web.conf.template
+
+# Static SPA bundle.
+COPY --from=web-builder /web/dist /usr/share/nginx/html
+
+# Sensible default; override via MS_BACKEND env var.
+ENV MS_BACKEND=molesignal:5080
+ENV NGINX_ENVSUBST_TEMPLATE_SUFFIX=.template
+
+EXPOSE 8080
+HEALTHCHECK --interval=10s --timeout=3s --retries=3 CMD wget -qO- http://127.0.0.1:8080/healthz || exit 1
+
+# CMD inherited from nginx:alpine.

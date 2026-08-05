@@ -1,0 +1,29 @@
+{
+  "help_title": "Keyboard shortcuts",
+  "categories": {
+    "general": "General",
+    "navigation": "Navigation",
+    "investigation": "Investigation",
+    "time": "Time"
+  },
+  "bindings": {
+    "open_palette": "Open command palette",
+    "show_help": "Show keyboard help",
+    "open_time_picker": "Open time window picker",
+    "stack_back": "Investigation stack: back",
+    "stack_forward": "Investigation stack: forward",
+    "goto_services": "Go to Services",
+    "goto_apm_services": "Go to APM Services",
+    "goto_incidents": "Go to Incidents",
+    "goto_dashboards": "Go to Dashboards",
+    "goto_investigate_trace": "Go to Investigate (traces)",
+    "goto_investigate_log": "Go to Investigate (logs)",
+    "goto_rum": "Go to User Experience",
+    "goto_user_experience": "Go to RUM User Experience",
+    "goto_functions": "Go to Functions",
+    "goto_iam": "Go to IAM",
+    "pin_anchor": "Pin / unpin time anchor",
+    "copy_link": "Copy investigation link",
+    "dismiss_overlay": "Dismiss top overlay"
+  }
+}

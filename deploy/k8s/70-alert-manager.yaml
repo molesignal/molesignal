@@ -1,0 +1,71 @@
+# alert-manager pod 同时承担 scheduled_reports tick（change `scheduled-reports-headless`）。
+#  build 启用 headless renderer 时本镜像必须含 chromium —— 仓库 Dockerfile
+# 已 `apt-get install chromium`，并设 `CHROME_PATH=/usr/bin/chromium`。
+# 自定义 image 的 ops 务必同步装包，否则 png/pdf 报告退化到 SVG fallback。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alert-manager
+  namespace: molesignal
+spec:
+  replicas: 1  # 单实例（避免重复评估 / 派发）；后续上 lease 表锁后再加副本
+  selector:
+    matchLabels: { app: molesignal, role: alert-manager }
+  template:
+    metadata:
+      labels: { app: molesignal, role: alert-manager }
+      annotations:
+        # 自定义镜像未装 chromium 时，把 enabled 设 false 走 SVG fallback。
+        molesignal.io/scheduled-reports-renderer: "requires-chromium"
+    spec:
+      containers:
+        - name: molesignal
+          image: molesignal:dev
+          imagePullPolicy: IfNotPresent
+          args: ["--config", "/app/conf/config.toml"]
+          env:
+            - name: RELEASE_CHANNEL
+              valueFrom: { configMapKeyRef: { name: molesignal-config, key: release_channel } }
+            - name: MS_NODE_ROLES
+              value: '["alert_manager"]'
+            - name: POD_IP
+              valueFrom: { fieldRef: { fieldPath: status.podIP } }
+            - name: MS_CLUSTER_ADVERTISE_ADDR
+              value: "$(POD_IP):5082"
+            # JWT signing secret 默认 DB 自动 bootstrap；如需多副本锁定同一 secret，
+            # 设 jwt_secret_override 字段（kubectl edit secret/molesignal-secret）。
+            - name: MS_AUTH_JWT_SECRET_OVERRIDE
+              valueFrom: { secretKeyRef: { name: molesignal-secret, key: jwt_secret_override, optional: true } }
+            - name: MS_OBJECT_STORE_SECRET_KEY
+              valueFrom: { secretKeyRef: { name: molesignal-secret, key: object_store_secret_key } }
+            - name: MS_CIPHER_KEY
+              valueFrom: { secretKeyRef: { name: molesignal-secret, key: cipher_key } }
+            - name: MS_LICENSE_FILE
+              value: "/etc/molesignal/license.json"
+          ports:
+            - { name: http, containerPort: 5080 }
+            - { name: grpc, containerPort: 5082 }
+          readinessProbe:
+            httpGet: { path: /api/v1/healthz, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - { name: cfg, mountPath: /app/conf }
+            - { name: license, mountPath: /etc/molesignal, readOnly: true }
+      volumes:
+        - name: cfg
+          configMap: { name: molesignal-config }
+        - name: license
+          secret: { secretName: molesignal-license, optional: true }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alert-manager
+  namespace: molesignal
+spec:
+  selector: { app: molesignal, role: alert-manager }
+  ports:
+    - { name: http, port: 5080, targetPort: http }
+    - { name: grpc, port: 5082, targetPort: grpc }
+  type: ClusterIP

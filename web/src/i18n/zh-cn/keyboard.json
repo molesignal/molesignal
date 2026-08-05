@@ -1,0 +1,29 @@
+{
+  "help_title": "键盘快捷键",
+  "categories": {
+    "general": "通用",
+    "navigation": "导航",
+    "investigation": "调查",
+    "time": "时间"
+  },
+  "bindings": {
+    "open_palette": "打开命令面板",
+    "show_help": "显示键盘帮助",
+    "open_time_picker": "打开时间选择器",
+    "stack_back": "调查栈：后退",
+    "stack_forward": "调查栈：前进",
+    "goto_services": "跳转到 Services",
+    "goto_apm_services": "跳转到 APM 服务",
+    "goto_incidents": "跳转到 Incidents",
+    "goto_dashboards": "跳转到 Dashboards",
+    "goto_investigate_trace": "跳转到 Investigate（traces）",
+    "goto_investigate_log": "跳转到 Investigate（logs）",
+    "goto_rum": "跳转到用户体验",
+    "goto_user_experience": "跳转到 RUM 用户体验",
+    "goto_functions": "跳转到 Functions",
+    "goto_iam": "跳转到 IAM",
+    "pin_anchor": "钉住 / 取消钉住时间锚点",
+    "copy_link": "复制调查链接",
+    "dismiss_overlay": "关闭顶层浮层"
+  }
+}

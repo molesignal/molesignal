@@ -1,0 +1,4 @@
+interface:
+  display_name: "审查 License 门禁"
+  short_description: "检查运行时 License feature 门禁及社区版兜底"
+  default_prompt: "使用 $review-license-gates 审查当前改动中的 License feature 门禁。"

@@ -1,0 +1,12 @@
+{
+  "items": [
+    { "kind": "service", "id": "web", "label": "web", "subtitle": "frontend service" },
+    { "kind": "service", "id": "api", "label": "api", "subtitle": "backend service" },
+    { "kind": "stream", "id": "logs", "label": "logs", "subtitle": "log stream" },
+    { "kind": "stream", "id": "access_logs", "label": "access_logs", "subtitle": "nginx access" },
+    { "kind": "dashboard", "id": "d1", "label": "Web overview", "subtitle": "frontend SLO" },
+    { "kind": "saved_view", "id": "sv1", "label": "Yesterday errors", "subtitle": "web 5xx" },
+    { "kind": "alert", "id": "a1", "label": "High p95 latency", "subtitle": "warning" },
+    { "kind": "incident", "id": "i1", "label": "INC-42 web latency", "subtitle": "open" }
+  ]
+}

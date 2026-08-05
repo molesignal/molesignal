@@ -1,0 +1,4 @@
+{
+  "$comment": "Known WCAG AA contrast failures that pre-date the a11y CI gate. Empty after web-ui-polish lifted the 5 light-theme color pairs (tx-2 / red / green / yellow / orange on bg-0). Any new failure here must fail CI; web-ui-polish (this change) zeroed the historical list.",
+  "knownFailures": []
+}

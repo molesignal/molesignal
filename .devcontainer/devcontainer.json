@@ -1,0 +1,89 @@
+{
+  "name": "molesignal dev",
+  "dockerComposeFile": ["docker-compose.yml"],
+  "service": "workspace",
+  "workspaceFolder": "/workspace",
+  "shutdownAction": "stopCompose",
+
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+      "moby": false,
+      "installDockerBuildx": true
+    }
+  },
+
+  "forwardPorts": [
+    5080, 5082, 5173, 5432, 9000, 9001
+  ],
+  "portsAttributes": {
+    "5080": { "label": "molesignal HTTP", "onAutoForward": "notify" },
+    "5082": { "label": "molesignal gRPC", "onAutoForward": "ignore" },
+    "5173": { "label": "vite dev (web)", "onAutoForward": "openBrowser" },
+    "5432": { "label": "postgres", "onAutoForward": "silent" },
+    "9000": { "label": "minio S3", "onAutoForward": "silent" },
+    "9001": { "label": "minio console", "onAutoForward": "openBrowserOnce" }
+  },
+
+  "remoteUser": "vscode",
+  "containerEnv": {
+    "RUST_LOG": "molesignal=debug,info",
+    "MS_STORE_META_DSN": "postgres://molesignal:molesignal@postgres:5432/molesignal",
+    "MS_STORE_OBJECT_BACKEND": "s3",
+    "MS_STORE_OBJECT_BUCKET": "molesignal",
+    "MS_STORE_OBJECT_REGION": "us-east-1",
+    "MS_STORE_OBJECT_ENDPOINT": "http://minio:9000",
+    "MS_STORE_OBJECT_ACCESS_KEY": "minioadmin",
+    "MS_STORE_OBJECT_SECRET_KEY": "minioadmin",
+    "MS_CIPHER_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+  },
+  // JWT signing secret: NOT set —— 让进程首启动从 DB auto-bootstrap（auth-hardening）。
+  // 如需 dev 容器多次重建保持同一 JWT secret，可设 MS_AUTH_JWT_SECRET_OVERRIDE。
+
+  "mounts": [
+    "source=molesignal-cargo-cache,target=/usr/local/cargo/registry,type=volume",
+    "source=molesignal-target,target=/workspace/target,type=volume",
+    "source=molesignal-pnpm-cache,target=/home/vscode/.local/share/pnpm/store,type=volume"
+  ],
+
+  "postCreateCommand": ".devcontainer/post-create.sh",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "tamasfe.even-better-toml",
+        "vadimcn.vscode-lldb",
+        "serayuzgur.crates",
+        "fill-labs.dependi",
+        "bufbuild.vscode-buf",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "Vue.volar",
+        "bradlc.vscode-tailwindcss",
+        "GitHub.copilot",
+        "GitHub.copilot-chat",
+        "eamodio.gitlens",
+        "yzhang.markdown-all-in-one"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "[rust]": {
+          "editor.defaultFormatter": "rust-lang.rust-analyzer",
+          "editor.formatOnSave": true
+        },
+        "rust-analyzer.cargo.allTargets": true,
+        "rust-analyzer.check.command": "clippy",
+        "rust-analyzer.checkOnSave": true,
+        "rust-analyzer.cargo.features": [],
+        "rust-analyzer.linkedProjects": ["Cargo.toml", "/Cargo.toml"],
+        "files.watcherExclude": {
+          "**/target/**": true,
+          "**/node_modules/**": true
+        },
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  }
+}

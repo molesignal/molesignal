@@ -1,0 +1,539 @@
+@import './fonts.css';
+
+/*
+ * Single palette: default. Warm and high-contrast palette files were
+ * removed in Phase 4 — the cool-indigo default palette is the only one
+ * we ship. The [data-palette] selector is kept for future expansion.
+ */
+@import './tokens-palette-default.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Molesignal token system. Three-layer cascade:
+ *
+ *   1. Physical palette tokens (--bg-0..bg-4, --bd-0..bd-2, --tx-0..tx-4,
+ *      --indigo, --orange/--blue/--green/--yellow/--red/--purple,
+ *      --chart-1..chart-8) — live in tokens-palette-default.css.
+ *
+ *   2. Semantic aliases (--bg, --surface, --primary, --accent, --fg, …)
+ *      reference layer 1 by name. Swapping palette retunes everything.
+ *
+ *   3. shadcn-compatible aliases (--background, --foreground, --card, …)
+ *      live in tailwind.config.ts color mapping and reference layer 2.
+ *
+ * Phase 4 brand: --primary and --accent both point to --indigo to unify
+ * brand expression. --blue is strictly informational/link, --indigo is
+ * brand.
+ */
+
+:root,
+[data-theme='dark'] {
+  /* layer 2 — semantic aliases over the active palette */
+  --bg:              var(--bg-0);
+  --surface:         var(--bg-1);
+  --surface-muted:   var(--bg-3);
+  --fg:              var(--tx-0);
+  --fg-muted:        var(--tx-2);
+  --border:          var(--bd-0);
+
+  /* primary = brand indigo (Phase 4) */
+  --primary:         var(--indigo);
+  --primary-bg:      var(--indigo-dim);
+  --primary-muted:   var(--indigo-soft);
+  --primary-fg:      #ffffff;
+
+  /* accent shares the brand — single brand expression */
+  --accent:          var(--indigo);
+  --accent-bg:       var(--indigo-dim);
+  --accent-muted:    var(--indigo-soft);
+  --accent-fg:       #ffffff;
+
+  --red-bg:          var(--red-dim);
+  --red-muted:       var(--red-soft);
+  --red-fg:          #ffffff;
+
+  --green-bg:        var(--green-dim);
+  --green-muted:     var(--green-soft);
+  --green-fg:        #ffffff;
+
+  --yellow-bg:       var(--yellow-dim);
+  --yellow-muted:    var(--yellow-soft);
+  --yellow-fg:       #1a1300;
+
+  --blue-bg:         var(--blue-dim);
+  --blue-muted:      var(--blue-soft);
+  --blue-fg:         #ffffff;
+
+  --purple-bg:       var(--purple-dim);
+  --purple-muted:    var(--purple-soft);
+  --purple-fg:       #ffffff;
+
+  --orange-bg:       var(--orange-dim);
+  --orange-muted:    var(--orange-soft);
+  --orange-fg:       #1a0d00;
+
+  /* modal / sheet overlay — token so a palette swap doesn't leak black */
+  --overlay:         rgba(8, 10, 16, 0.72);
+  --overlay-soft:    rgba(8, 10, 16, 0.40);
+
+  /* shadow tokens — dark uses darker, more diffuse shadows */
+  --shadow-sm:       0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-md:       0 4px 12px rgba(0, 0, 0, 0.50), 0 0 0 1px rgba(0, 0, 0, 0.25);
+  --shadow-lg:       0 12px 32px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.40);
+  --shadow-drawer:   -2px 0 16px rgba(0, 0, 0, 0.45);
+  --shadow-popup:    0 12px 32px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.40);
+  --shadow-login:    0 20px 60px rgba(0, 0, 0, 0.50);
+}
+
+[data-theme='light'] {
+  --primary-fg:  #ffffff;
+  --accent-fg:   #ffffff;
+  --red-fg:      #ffffff;
+  --green-fg:    #ffffff;
+  --yellow-fg:   #ffffff;
+  --blue-fg:     #ffffff;
+  --purple-fg:   #ffffff;
+  --orange-fg:   #ffffff;
+
+  --overlay:         rgba(19, 24, 37, 0.50);
+  --overlay-soft:    rgba(19, 24, 37, 0.20);
+
+  /* lighter, more diffuse shadows on light bg */
+  --shadow-sm:       0 1px 2px rgba(19, 24, 37, 0.08);
+  --shadow-md:       0 4px 12px rgba(19, 24, 37, 0.10), 0 0 0 1px rgba(19, 24, 37, 0.04);
+  --shadow-lg:       0 12px 32px rgba(19, 24, 37, 0.14), 0 0 0 1px rgba(19, 24, 37, 0.06);
+  --shadow-drawer:   -2px 0 16px rgba(19, 24, 37, 0.10);
+  --shadow-popup:    0 12px 32px rgba(19, 24, 37, 0.18), 0 0 0 1px rgba(19, 24, 37, 0.06);
+  --shadow-login:    0 20px 60px rgba(19, 24, 37, 0.12);
+}
+
+.auth-primary-button {
+  background: linear-gradient(
+    90deg,
+    var(--indigo) 0%,
+    var(--blue) 50%,
+    var(--green) 100%
+  );
+}
+
+.auth-primary-button:is(:hover, :focus-visible) {
+  filter: brightness(0.92) saturate(1.06);
+}
+
+.auth-primary-button:disabled {
+  filter: none;
+}
+
+/* layout sizing — chrome heights / sidebar widths / radii / motion */
+:root {
+  --topbar-h:            52px;
+  --sidebar-w:           240px;
+  --sidebar-w-collapsed: 64px;
+  --subsidebar-w:        224px;  /* Settings / IAM sub-sidebar */
+  --pageheader-h:        0px;    /* live PageHeader height — written by PageHeader on mount, read by page bodies */
+  --contextbar-h:        0px;    /* live InvestigationContextBar height — 0 when no active investigation stack */
+
+  --radius-sm:   6px;
+  --radius:      8px;
+  --radius-lg:   12px;
+  --radius-full: 9999px;
+
+  /* semantic component sizing — stable across density modes */
+  --control-h:        36px;
+  --control-h-sm:     32px;
+  --icon-button-size: 32px;
+  --panel-header-h:   44px;
+  --page-pad:         24px;
+
+  /* type weight scale */
+  --fw-body:           500;
+  --fw-strong:         600;
+  --fw-display:        600;
+  --fw-display-strong: 700;
+
+  /* semantic type scale — stable across density modes */
+  --font-page-title:    22px;
+  --font-section-title: 15px;
+  --font-data:          13px;
+  --font-label:         12.5px;
+  --font-caption:       12px;
+  --font-micro:         11px;
+  --font-kpi:           32px;
+
+  --font-alibaba-puhuiti: 'Alibaba PuHuiTi 3.0', 'PingFang SC', 'Microsoft YaHei', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-alibaba-puhuiti);
+  --font-sidebar: var(--font-alibaba-puhuiti);
+  --font-mono: var(--font-alibaba-puhuiti);
+
+  /* motion tokens — no bounce (Confident quiet) */
+  --duration-instant:  80ms;
+  --duration-fast:     120ms;   /* fade-in, toggle, hover */
+  --duration-normal:   200ms;   /* drawer slide, sheet, popover */
+  --duration-slow:     320ms;   /* page transitions, sidebar fold */
+  --duration-slower:   480ms;
+
+  --easing-default:    cubic-bezier(0.4, 0, 0.2, 1);
+  --easing-in:         cubic-bezier(0.4, 0, 1, 1);
+  --easing-out:        cubic-bezier(0, 0, 0.2, 1);
+}
+
+/* Density belongs to data surfaces. It must not shrink shell chrome or root type. */
+:root,
+[data-density='normal'] {
+  --row-height: 36px;
+  --row-pad-y:  8px;
+  --row-pad-x:  12px;
+  --font-body:  13.5px;
+  --topbar-h:   52px;
+  --sidebar-item-h: 32px;
+}
+
+[data-density='compact'] {
+  --row-height: 30px;
+  --row-pad-y:  5px;
+  --row-pad-x:  10px;
+  --font-body:  13.5px;
+  --topbar-h:   52px;
+  --sidebar-item-h: 32px;
+}
+
+[data-density='comfortable'] {
+  --row-height: 42px;
+  --row-pad-y:  10px;
+  --row-pad-x:  14px;
+  --font-body:  13.5px;
+  --topbar-h:   52px;
+  --sidebar-item-h: 32px;
+}
+
+/* base */
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-0);
+  color: var(--tx-0);
+  font-family: var(--font-sans);
+  font-size: var(--font-body);
+  font-weight: var(--fw-body);
+  /* Keep numeric columns aligned where the selected face supports tnum. */
+  font-feature-settings: 'tnum' on, 'ss01' on;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Semantic typography roles use non-Tailwind class names so tailwind-merge
+ * never mistakes a custom font-size utility for a text color utility. */
+.type-page-title {
+  font-size: var(--font-page-title);
+  line-height: 1.2;
+}
+
+.type-section-title {
+  font-size: var(--font-section-title);
+  line-height: 1.45;
+}
+
+.type-data {
+  font-size: var(--font-data);
+  line-height: 1.45;
+}
+
+.type-label {
+  font-size: var(--font-label);
+  line-height: 1.45;
+}
+
+.type-caption {
+  font-size: var(--font-caption);
+  line-height: 1.45;
+}
+
+.type-micro {
+  font-size: var(--font-micro);
+  line-height: 1.4;
+}
+
+.font-sidebar-face {
+  font-family: var(--font-sidebar);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+input::placeholder,
+textarea::placeholder,
+.placeholder\:text-tx-3::placeholder,
+.placeholder\:text-muted-foreground::placeholder {
+  color: var(--tx-3) !important;
+  opacity: 1 !important;
+}
+
+[data-placeholder] {
+  color: var(--tx-3) !important;
+}
+
+/* Monaco editor — fixed code metrics and quiet IDE chrome. */
+.monaco-editor,
+.monaco-editor .view-line,
+.monaco-editor .view-line span,
+.monaco-editor .lines-content,
+.monaco-editor .margin,
+.monaco-editor .line-numbers,
+.monaco-editor .editorPlaceholder,
+.monaco-editor .monaco-mouse-cursor-text,
+.monaco-editor textarea.inputarea {
+  font-family: var(--font-mono) !important;
+  font-feature-settings: 'liga' 1, 'calt' 1 !important;
+  font-kerning: normal;
+  font-variant-ligatures: common-ligatures contextual !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+}
+
+.monaco-editor .editorPlaceholder {
+  font-style: italic;
+  font-weight: 400 !important;
+  opacity: 0.78;
+}
+
+.monaco-editor .margin {
+  border-right: 1px solid var(--bd-0);
+}
+
+.monaco-editor .line-numbers {
+  font-size: 11px !important;
+  font-weight: 450 !important;
+  letter-spacing: 0 !important;
+}
+
+.monaco-editor .active-line-number {
+  font-weight: 650 !important;
+}
+
+.monaco-editor .current-line {
+  border-radius: 0 !important;
+}
+
+.code-editor-shell {
+  transition:
+    border-color var(--duration-fast) var(--easing-default),
+    box-shadow var(--duration-fast) var(--easing-default);
+}
+
+.code-editor-shell:focus-within {
+  box-shadow: none;
+}
+
+.code-editor-shell.code-editor-embedded:focus-within {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.code-editor-shell .monaco-editor .suggest-widget,
+.code-editor-shell .monaco-editor .monaco-hover {
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-popup);
+}
+
+/*
+ * Project-wide focus policy: no browser outline, Tailwind ring, focus shadow,
+ * or high-contrast focus frame. Selection remains visible through the
+ * component's background, text, or icon state.
+ */
+*:focus,
+*:focus-visible {
+  outline: none !important;
+  outline-offset: 0 !important;
+  --tw-ring-color: transparent !important;
+  --tw-ring-offset-width: 0px !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+}
+
+*:focus-within {
+  --tw-ring-color: transparent !important;
+  --tw-ring-offset-width: 0px !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+}
+
+/*
+ * Global form-control focus treatment. This overrides both native browser
+ * focus outlines and Tailwind ring utilities. The border remains at the
+ * standard control color instead of becoming a focus highlight frame.
+ */
+:where(
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']),
+  textarea,
+  select,
+  [role='combobox'],
+  [contenteditable='true']
+):is(:focus, :focus-visible) {
+  outline: none !important;
+  outline-offset: 0 !important;
+  --tw-ring-offset-width: 0px !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+}
+
+:where(
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']),
+  textarea,
+  select,
+  [role='combobox'],
+  [contenteditable='true']
+):is(:focus, :focus-visible):not([aria-invalid='true']):not(:invalid) {
+  border-color: var(--bd-1) !important;
+}
+
+/* 下拉选项（select / command 等 listbox option）：聚焦/选中态不显示蓝色描边——保留勾选
+   图标与背景表达选中即可。比全局 *:focus-visible 更具体，故对所有下拉统一生效。 */
+[role='option']:focus,
+[role='option']:focus-visible {
+  outline: none;
+  box-shadow: none;
+  border-color: transparent;
+}
+
+/* Dashboard editors use caret and selection as focus feedback. */
+.dashboard-editor input:focus,
+.dashboard-editor input:focus-visible,
+.dashboard-editor textarea:focus,
+.dashboard-editor textarea:focus-visible,
+.dashboard-editor select:focus,
+.dashboard-editor select:focus-visible {
+  outline: none;
+  outline-offset: 0;
+  box-shadow: none;
+}
+
+.dashboard-editor textarea[aria-invalid='true']:focus,
+.dashboard-editor textarea[aria-invalid='true']:focus-visible {
+  border-color: var(--red);
+}
+
+.dashboard-editor .code-editor-shell:focus-within {
+  box-shadow: none;
+}
+
+.dashboard-editor .code-editor-shell :focus-visible {
+  outline: none;
+}
+
+/* Respect OS reduced-motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+::selection {
+  background: var(--indigo-dim);
+  color: var(--tx-0);
+}
+
+/* scrollbar — minimal, Datadog-style */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--bd-1);
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--bd-2);
+  background-clip: padding-box;
+}
+
+/* NOC mode — force dark color-scheme regardless of user theme choice */
+[data-mode='noc'] {
+  color-scheme: dark;
+}
+
+/* ── Mole Agent presentation utils (pure CSS, no JS, no data coupling) ──────
+ * .text-shimmer  — sweeping highlight for live-status text ("thinking…").
+ * .scroll-fade-y — soft top/bottom mask so a scroll region fades into the
+ *                  chrome edges instead of hard-cutting at the box.
+ * The global prefers-reduced-motion rule above halts the sweep; the block
+ * below also restores a solid color so a frozen label stays legible. */
+@keyframes ms-text-shimmer {
+  0% {
+    background-position: 150% center;
+  }
+  100% {
+    background-position: -50% center;
+  }
+}
+
+.text-shimmer {
+  background-image: linear-gradient(100deg, var(--tx-3) 36%, var(--tx-0) 50%, var(--tx-3) 64%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: ms-text-shimmer 2.2s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .text-shimmer {
+    animation: none;
+    color: var(--tx-2);
+  }
+}
+
+/* Registered so the edge sizes can transition (mask length isn't animatable
+ * via a plain custom property). Unsupported browsers ignore @property and
+ * still get correct — just non-animated — edges. */
+@property --fade-top {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 20px;
+}
+@property --fade-bottom {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 20px;
+}
+
+.scroll-fade-y {
+  /* Defaults; JS retracts a side to 0px (via inline style) when the transcript
+   * is parked at that edge, so a pinned first/last row isn't dimmed. */
+  --fade-top: var(--scroll-fade-size, 20px);
+  --fade-bottom: var(--scroll-fade-size, 20px);
+  transition:
+    --fade-top var(--duration-fast, 120ms) linear,
+    --fade-bottom var(--duration-fast, 120ms) linear;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--fade-top),
+    #000 calc(100% - var(--fade-bottom)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--fade-top),
+    #000 calc(100% - var(--fade-bottom)),
+    transparent 100%
+  );
+}

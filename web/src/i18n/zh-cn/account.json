@@ -1,0 +1,81 @@
+{
+  "title": "账号设置",
+  "subtitle": "管理个人资料、安全、通知、使用偏好和工作区身份。",
+  "nav": {
+    "groups": {
+      "personal": "个人设置",
+      "access": "安全与访问",
+      "workspace": "工作区"
+    },
+    "items": {
+      "profile": "个人资料",
+      "preferences": "偏好设置",
+      "notify": "通知设置",
+      "security": "安全与登录",
+      "sessions": "活跃会话",
+      "workspace_identity": "工作区与身份"
+    }
+  },
+  "profile": {
+    "title": "个人资料",
+    "subtitle": "这些信息用于 MoleSignal 中的个人身份展示。",
+    "display_name": "显示名称",
+    "email": "登录邮箱",
+    "email_hint": "邮箱由管理员或身份提供商管理，无法在此修改。",
+    "bio": "个人说明（可选）",
+    "bio_hint": "简要说明你的职责或团队，最多 500 个字符。",
+    "change_avatar": "更换头像",
+    "remove_avatar": "移除",
+    "avatar_hint": "支持 PNG、JPEG、WebP，最大 2 MB。",
+    "avatar_too_large": "头像文件不能超过 2 MB。",
+    "save": "保存修改"
+  },
+  "preferences": {
+    "title": "偏好设置",
+    "subtitle": "保存到个人账号，优先于工作区默认值；查询页面可以临时覆盖时间显示。"
+  },
+  "security": {
+    "title": "安全与登录",
+    "subtitle": "管理当前账号的登录与安全能力。",
+    "password": "密码",
+    "password_description": "通过登录邮箱接收安全的密码重置链接。",
+    "change_password": "修改密码",
+    "reset_sent": "如果该邮箱可用，密码重置邮件已发送。",
+    "mfa": "多因素认证",
+    "mfa_description": "当前部署尚未配置多因素认证。",
+    "passkeys": "Passkey",
+    "passkeys_description": "当前部署尚未配置 Passkey 登录。",
+    "not_configured": "未配置"
+  },
+  "sessions": {
+    "title": "活跃会话",
+    "subtitle": "查看和管理当前设备上的登录状态。",
+    "current": "当前会话",
+    "current_device_description": "当前浏览器 · 刚刚活跃",
+    "current_only": "目前只能管理当前设备上的登录状态；启用服务端会话存储后可查看并注销其他设备。",
+    "sign_out": "退出当前设备"
+  },
+  "workspace": {
+    "title": "工作区与身份",
+    "subtitle": "查看你所属的工作区、角色和用于自动化引用的高级标识。",
+    "columns": {
+      "workspace": "工作区",
+      "role": "角色",
+      "status": "状态"
+    },
+    "current": "当前",
+    "current_disabled": "当前已在使用此工作区。",
+    "organization_disabled": "此组织已被平台管理员停用。",
+    "switch": "切换",
+    "switching": "切换中…",
+    "switching_disabled": "工作区切换仍在进行中。",
+    "advanced": "高级信息",
+    "user_id": "用户 ID",
+    "org_id": "组织 ID",
+    "org_slug": "组织标识",
+    "org_slug_hint": "用于 API、资源路径和自动化引用。",
+    "copy": "复制",
+    "copied": "已复制",
+    "api_tokens": "管理工作区 API Tokens"
+  }
+}

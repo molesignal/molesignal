@@ -1,0 +1,4 @@
+# pprof 的低开销回溯器直接沿 frame pointer 取栈；所有受支持的原生构建
+# 都必须保留它，否则 release profile 会退化为不完整栈。
+[target.'cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "riscv64", target_arch = "loongarch64"))']
+rustflags = ["-C", "force-frame-pointers=yes"]

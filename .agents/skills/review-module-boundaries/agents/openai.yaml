@@ -1,0 +1,4 @@
+interface:
+  display_name: "审查模块边界"
+  short_description: "检查单 crate 分层、依赖方向及 bootstrap 装配"
+  default_prompt: "使用 $review-module-boundaries 检查当前改动是否破坏模块边界或遗漏装配。"

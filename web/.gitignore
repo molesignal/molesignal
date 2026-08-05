@@ -1,0 +1,11 @@
+node_modules
+dist
+.vite
+.eslintcache
+*.tsbuildinfo
+.env.local
+
+# Playwright run artifacts (never commit — `.last-run.json` was tracked by mistake).
+test-results
+playwright-report
+blob-report

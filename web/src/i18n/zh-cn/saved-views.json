@@ -1,0 +1,64 @@
+{
+  "title": "保存的视图",
+  "subtitle": "可复用的 SQL / PromQL 查询，组织内共享。",
+  "actions": {
+    "new": "新建保存视图",
+    "open": "打开",
+    "pin": "置顶",
+    "unpin": "取消置顶",
+    "edit": "编辑",
+    "delete": "删除"
+  },
+  "kpis": {
+    "total": "保存视图",
+    "pinned": "已置顶"
+  },
+  "list": {
+    "columns": {
+      "name": "名称",
+      "language": "语言",
+      "stream": "数据流",
+      "tags": "标签",
+      "range": "时间窗",
+      "updated": "更新时间",
+      "actions": "操作"
+    }
+  },
+  "states": {
+    "empty_title": "还没有保存的视图",
+    "empty_description": "保存一个 SQL 或 PromQL 查询，便于在排查中复用。"
+  },
+  "confirm": {
+    "delete_title": "删除保存视图？",
+    "delete": "确定删除此保存视图？此操作不可撤销。",
+    "cancel": "取消"
+  },
+  "toast": {
+    "saved": "已保存视图“{{name}}”",
+    "deleted": "保存视图已删除"
+  },
+  "drawer": {
+    "edit_title": "编辑保存视图",
+    "subtitle": "为一个 SQL 或 PromQL 查询命名以便复用。",
+    "save": "保存更改",
+    "create": "创建",
+    "sections": {
+      "identity": "标识",
+      "query": "查询",
+      "organize": "整理"
+    },
+    "fields": {
+      "name": "名称",
+      "language": "语言",
+      "range": "默认时间窗",
+      "statement": "查询语句",
+      "stream": "数据流（可选）",
+      "tags": "标签",
+      "pinned": "置顶"
+    },
+    "hints": {
+      "stream": "打开视图时用于分区裁剪。",
+      "tags": "用逗号分隔。"
+    }
+  }
+}

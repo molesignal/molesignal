@@ -1,0 +1,16 @@
+{
+  "engine": "molesignal-dashboard",
+  "schemaVersion": 3,
+  "uid": "dashboard-unsupported-version",
+  "title": "Unsupported version",
+  "tags": [],
+  "editable": true,
+  "defaultDashboard": false,
+  "timeSettings": { "defaultFrom": "now-1h", "defaultTo": "now", "timezone": "browser" },
+  "refreshSettings": { "enabled": false, "mode": "off", "allowedIntervals": ["off"] },
+  "variables": [],
+  "annotations": [],
+  "links": [],
+  "layout": { "type": "grid", "columns": 24, "rowHeight": 8, "gap": 8 },
+  "elements": []
+}

@@ -1,0 +1,284 @@
+{
+  "title": "报告中心",
+  "subtitle": "统一管理报告计划、生成记录与投递结果。",
+  "actions": {
+    "instant_export": "立即导出",
+    "new_report": "新建报表",
+    "share": "分享",
+    "export": "导出",
+    "edit": "编辑",
+    "enable": "启用",
+    "pause": "暂停",
+    "delete": "删除计划",
+    "cancel": "取消",
+    "add": "添加",
+    "save_and_enable": "保存并启用",
+    "save_changes": "保存更改",
+    "use_template": "使用模板",
+    "view_error": "查看错误",
+    "close": "关闭",
+    "remove": "移除"
+  },
+  "tabs": {
+    "schedules": "报表计划",
+    "history": "生成历史",
+    "templates": "模板库"
+  },
+  "kpis": {
+    "running": "运行中",
+    "next_24h": "未来 24h 投递",
+    "success_rate": "30 天成功率",
+    "failed": "待处理失败"
+  },
+  "filters": {
+    "search_schedules": "搜索报告名称或来源…",
+    "search_history": "搜索报告或接收方…",
+    "all_statuses": "全部状态",
+    "all_sources": "全部来源",
+    "all_results": "全部结果",
+    "enabled": "运行中",
+    "paused": "已暂停",
+    "dashboard": "仪表盘",
+    "saved_view": "保存的视图",
+    "sent": "成功",
+    "failed": "失败",
+    "pending": "处理中"
+  },
+  "empty": {
+    "title": "从一个常用报告开始",
+    "description": "选择模板后只需指定数据来源与接收方；也可以从空白报告开始。",
+    "custom_title": "自定义报告",
+    "custom_description": "从空白配置内容、计划和投递方式。",
+    "no_results_title": "没有匹配的报告",
+    "no_results_description": "调整搜索词或筛选条件后重试。"
+  },
+  "table": {
+    "name_source": "报告与来源",
+    "schedule": "生成计划",
+    "next_run": "下次生成",
+    "last_result": "最近结果",
+    "recipients": "接收方",
+    "status": "状态",
+    "actions": "操作",
+    "never": "尚未生成",
+    "first_run": "等待首次生成",
+    "recipient_more": "另有 {{count}} 个"
+  },
+  "status": {
+    "enabled": "运行中",
+    "paused": "已暂停",
+    "sent": "成功",
+    "failed": "失败",
+    "pending": "处理中",
+    "unknown": "未知"
+  },
+  "schedule": {
+    "hourly": "每小时",
+    "every_6_hours": "每 6 小时",
+    "every_12_hours": "每 12 小时",
+    "daily": "每 24 小时",
+    "weekly": "每 7 天",
+    "custom": "高级 Cron",
+    "custom_summary": "Cron：{{value}}",
+    "timezone_suffix": "{{schedule}} · {{timezone}}",
+    "advanced_hint": "高级 Cron 当前按调度器的 24 小时回退策略执行；建议优先使用上方间隔计划。"
+  },
+  "source": {
+    "dashboard": "仪表盘",
+    "saved_view": "保存的视图",
+    "missing": "未选择来源",
+    "unavailable": "来源不可用"
+  },
+  "history": {
+    "empty_title": "暂无生成记录",
+    "empty_description": "报告首次运行后，格式、接收方和投递结果会显示在这里。",
+    "partial_error": "部分报告的投递记录暂时无法加载。",
+    "columns": {
+      "report": "报告",
+      "generated_at": "生成时间",
+      "recipient": "投递目标",
+      "attempt": "尝试",
+      "result": "结果",
+      "details": "详情"
+    },
+    "error_title": "投递失败详情",
+    "error_description": "该接收方最近一次投递未成功。",
+    "error_report": "报告",
+    "error_recipient": "接收方",
+    "error_time": "发生时间",
+    "error_message": "错误信息",
+    "no_error_message": "后端未返回具体错误信息。"
+  },
+  "templates": {
+    "api_warning": "自定义模板暂时无法加载，内置模板仍可使用。",
+    "source_badge": "{{source}} 模板",
+    "builtin_badge": "内置",
+    "custom_badge": "自定义",
+    "new_template": "新建模板",
+    "new_title": "新建报告模板",
+    "edit_title": "编辑报告模板",
+    "editor_description": "定义可复用的内容来源和默认输出设置。",
+    "basic_information": "基本信息",
+    "default_output": "默认输出",
+    "source_hint": "选择使用模板时允许绑定的内容类型。",
+    "source_binding_hint": "模板只定义来源类型；创建报告计划时再选择具体仪表盘或保存的视图。",
+    "dashboard_format_hint": "仪表盘包含图表与布局，因此模板固定输出为 PDF。",
+    "custom_range_hint": "选择“自定义”后，在创建报告计划时确定具体数据范围。",
+    "source_descriptions": {
+      "dashboard": "包含图表和布局，适合可阅读的 PDF 报告",
+      "saved_view": "包含查询结果，适合明细数据和审计清单"
+    },
+    "format_descriptions": {
+      "pdf": "适合阅读和分享",
+      "csv": "适合表格分析",
+      "json": "适合自动化处理"
+    },
+    "create_template": "创建模板",
+    "save_changes": "保存更改",
+    "delete_template": "删除模板",
+    "toast_created": "自定义模板已创建",
+    "toast_updated": "自定义模板已更新",
+    "toast_deleted": "自定义模板已删除",
+    "confirm_delete": "确定删除模板“{{name}}”吗？使用该模板创建的既有报告不会受影响。",
+    "fields": {
+      "name": "模板名称",
+      "description": "模板说明",
+      "description_optional": "模板说明（可选）",
+      "source_type": "来源类型",
+      "format": "默认格式",
+      "time_range": "默认数据范围"
+    },
+    "placeholders": {
+      "name": "例如：核心服务月报",
+      "description": "说明适用场景、包含内容和目标读者。"
+    },
+    "errors": {
+      "name_required": "请填写模板名称。"
+    },
+    "platform_health": {
+      "name": "平台健康周报",
+      "description": "汇总核心服务可用性、延迟、错误与容量趋势。"
+    },
+    "rum_experience": {
+      "name": "用户体验日报",
+      "description": "聚合 Web 性能、错误率与关键页面体验变化。"
+    },
+    "alert_review": {
+      "name": "告警复盘报告",
+      "description": "整理告警数量、恢复时长、受影响服务与高频规则。"
+    },
+    "sla_compliance": {
+      "name": "SLA 服务水平月报",
+      "description": "汇总服务可用性、SLA 达标率、错误预算消耗与违约风险。"
+    },
+    "saved_query": {
+      "name": "查询结果快照",
+      "description": "定期导出一个保存的视图，适合明细数据与审计清单。"
+    }
+  },
+  "workbench": {
+    "new_title": "新建报告",
+    "edit_title": "编辑报告",
+    "subtitle": "配置内容、生成计划与投递目标，右侧会同步预览报告结构。",
+    "steps": {
+      "content": "内容与范围",
+      "schedule": "生成计划",
+      "delivery": "投递设置"
+    },
+    "step_descriptions": {
+      "content": "选择报告的数据来源与覆盖范围。",
+      "schedule": "使用易读的间隔计划；仅在必要时填写 Cron。",
+      "delivery": "添加接收方并选择生成格式。"
+    },
+    "fields": {
+      "name": "报告名称",
+      "description": "用途说明",
+      "source_type": "来源类型",
+      "source": "数据来源",
+      "time_range": "数据范围",
+      "frequency": "生成频率",
+      "cron": "Cron 表达式",
+      "timezone": "报告时区",
+      "recipients": "投递目标",
+      "format": "生成格式",
+      "enabled": "保存后启用"
+    },
+    "placeholders": {
+      "name": "例如：平台健康周报",
+      "description": "说明这份报告的读者与用途…",
+      "source": "选择仪表盘或保存的视图",
+      "cron": "0 9 * * 1",
+      "recipient": "邮箱、Webhook URL 或 S3 路径"
+    },
+    "hints": {
+      "source_empty": "当前没有可用来源，请先创建仪表盘或保存的视图。",
+      "recipients": "支持邮箱、HTTPS Webhook 和 S3 路径；每个目标会单独记录投递结果。",
+      "enabled": "关闭后保存为暂停状态，不会按计划投递。"
+    },
+    "ranges": {
+      "previous_1_hour": "过去 1 小时",
+      "previous_24_hours": "过去 24 小时",
+      "previous_7_days": "过去 7 天",
+      "previous_30_days": "过去 30 天",
+      "previous_calendar_day": "上一个自然日",
+      "previous_calendar_week": "上一个自然周",
+      "previous_calendar_month": "上一个自然月",
+      "custom": "自定义"
+    },
+    "recipient_kinds": {
+      "email": "邮件",
+      "webhook": "Webhook",
+      "s3": "S3",
+      "slack": "Slack"
+    },
+    "formats": {
+      "pdf_description": "适合阅读与归档",
+      "png_description": "适合粘贴到协作工具",
+      "csv_description": "适合明细分析",
+      "json_description": "适合系统集成"
+    },
+    "preview": {
+      "title": "实时预览",
+      "sample_badge": "示意数据",
+      "report_label": "MoleSignal Report",
+      "range_label": "数据范围",
+      "source_label": "数据来源",
+      "availability": "可用性",
+      "latency": "P95 延迟",
+      "alerts": "告警",
+      "trend": "关键趋势",
+      "footer": "{{format}} · {{schedule}}"
+    }
+  },
+  "export_dialog": {
+    "title": "立即导出",
+    "description": "选择一个已保存的报告，使用其当前内容与格式生成下载文件。",
+    "report": "报告",
+    "format": "格式",
+    "range": "数据范围",
+    "download": "生成并下载",
+    "empty": "需要先创建并保存一份报告计划。"
+  },
+  "toast": {
+    "created": "报告计划已创建",
+    "updated": "报告计划已更新",
+    "enabled": "报告计划已启用",
+    "paused": "报告计划已暂停",
+    "deleted": "报告计划已删除",
+    "exported": "报告预览已生成",
+    "link_copied": "“{{name}}”的报告短链接已复制",
+    "recipient_exists": "该投递目标已存在"
+  },
+  "confirm": {
+    "delete": "确定删除“{{name}}”吗？已有生成历史不会从当前存储中恢复。"
+  },
+  "errors": {
+    "name_required": "请填写报告名称。",
+    "source_required": "请选择数据来源。",
+    "recipient_required": "请至少添加一个投递目标。",
+    "recipient_empty": "请输入投递目标。",
+    "recipient_unsupported": "当前后端尚未接入 Slack 投递，请使用邮箱、Webhook 或 S3。",
+    "recipient_invalid_email": "请输入有效邮箱、HTTPS Webhook URL 或 S3 路径。",
+    "share_failed": "无法生成或复制报告短链接"
+  }
+}

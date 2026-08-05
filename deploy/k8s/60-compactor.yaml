@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: compactor
+  namespace: molesignal
+spec:
+  replicas: 1  # 单实例（避免合并冲突），未来上 lease 表锁后再加副本
+  selector:
+    matchLabels: { app: molesignal, role: compactor }
+  template:
+    metadata:
+      labels: { app: molesignal, role: compactor }
+    spec:
+      containers:
+        - name: molesignal
+          image: molesignal:dev
+          imagePullPolicy: IfNotPresent
+          args: ["--config", "/app/conf/config.toml"]
+          env:
+            - name: RELEASE_CHANNEL
+              valueFrom: { configMapKeyRef: { name: molesignal-config, key: release_channel } }
+            - name: MS_NODE_ROLES
+              value: '["compactor"]'
+            - name: POD_IP
+              valueFrom: { fieldRef: { fieldPath: status.podIP } }
+            - name: MS_CLUSTER_ADVERTISE_ADDR
+              value: "$(POD_IP):5082"
+            # JWT signing secret 默认 DB 自动 bootstrap；如需多副本锁定同一 secret，
+            # 设 jwt_secret_override 字段（kubectl edit secret/molesignal-secret）。
+            - name: MS_AUTH_JWT_SECRET_OVERRIDE
+              valueFrom: { secretKeyRef: { name: molesignal-secret, key: jwt_secret_override, optional: true } }
+            - name: MS_OBJECT_STORE_SECRET_KEY
+              valueFrom: { secretKeyRef: { name: molesignal-secret, key: object_store_secret_key } }
+            - name: MS_CIPHER_KEY
+              valueFrom: { secretKeyRef: { name: molesignal-secret, key: cipher_key } }
+          ports:
+            - { name: http, containerPort: 5080 }
+            - { name: grpc, containerPort: 5082 }
+          readinessProbe:
+            httpGet: { path: /api/v1/healthz, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - { name: cfg, mountPath: /app/conf }
+      volumes:
+        - name: cfg
+          configMap: { name: molesignal-config }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: compactor
+  namespace: molesignal
+spec:
+  selector: { app: molesignal, role: compactor }
+  ports:
+    - { name: http, port: 5080, targetPort: http }
+    - { name: grpc, port: 5082, targetPort: grpc }
+  type: ClusterIP

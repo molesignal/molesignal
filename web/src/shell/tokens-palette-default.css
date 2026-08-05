@@ -1,0 +1,153 @@
+/*
+ * Default palette — molesignal redesign (Phase 4)
+ *
+ * Philosophy: Datadog × Linear × Apple Pro Software, Confident quiet.
+ * Brand color: Indigo #4F60E0 (dark) / #3742C7 (light).
+ *
+ * Layer 1 (--bg-*, --bd-*, --tx-*, --indigo / --orange / etc.) holds
+ * physical OKLCH-calibrated hex values. Layer 2 (semantic aliases) and
+ * Layer 3 (shadcn aliases) live in tokens.css.
+ *
+ * Ramp design: hue ≈ 265deg (cool indigo bias), tiny chroma (0.012-0.018)
+ * in neutrals so surfaces read cool-neutral, not pure grey (cheap) or
+ * warm grey (casual).
+ */
+
+:root,
+:root[data-palette='default'],
+[data-palette='default'] [data-theme='dark'],
+[data-palette='default'][data-theme='dark'] {
+  /* layer 1 — background ramp (cool indigo-tinted dark) */
+  --bg-0: #0d101a;        /* oklch(0.17 0.012 265) — page root, deepest */
+  --bg-1: #131725;        /* oklch(0.20 0.013 265) — card / topbar / sidebar */
+  --bg-2: #1a1f30;        /* oklch(0.23 0.014 265) — input / button rest */
+  --bg-3: #232839;        /* oklch(0.27 0.015 265) — hover */
+  --bg-4: #2c3247;        /* oklch(0.31 0.016 265) — selected / active strong */
+  --bg-hover: #1d2335;    /* oklch(0.25 0.014 265) — neutral hover */
+
+  /* layer 1 — borders */
+  --bd-0: #20253a;        /* oklch(0.25 0.018 265) — table dividers, subtle */
+  --bd-1: #2c324b;        /* oklch(0.30 0.020 265) — button borders */
+  --bd-2: #3a4263;        /* oklch(0.37 0.022 265) — emphatic borders */
+
+  /* layer 1 — text */
+  --tx-0: #ecedf3;        /* oklch(0.94 0.006 265) — primary text (not pure white) */
+  --tx-1: #b9bdcb;        /* oklch(0.78 0.012 265) — secondary text */
+  --tx-2: #888da0;        /* oklch(0.62 0.014 265) — muted / auxiliary */
+  --tx-3: #5b6077;        /* oklch(0.45 0.014 265) — placeholder / dim */
+  --tx-4: #383d52;        /* oklch(0.32 0.012 265) — weakest, rarely used */
+
+  /* layer 1 — Indigo: new primary brand (was --blue in legacy) */
+  --indigo:      #4f60e0;  /* oklch(0.58 0.18 265) — primary brand */
+  --indigo-soft: #7682eb;  /* oklch(0.68 0.16 265) — lighter on dark */
+  --indigo-dim:  rgba(79, 96, 224, 0.16);
+
+  /* layer 1 — status palette (re-tuned, names conserved) */
+
+  /* red — error / firing — bumped near-AAA on bg-0 */
+  --red:         #f25b56;  /* oklch(0.66 0.20 22) — 6.8:1 on bg-0 */
+  --red-soft:    #f78784;
+  --red-dim:     rgba(242, 91, 86, 0.16);
+
+  /* green — success / healthy */
+  --green:       #3dc26e;  /* oklch(0.70 0.18 150) — 6.3:1 on bg-0 */
+  --green-soft:  #66d28e;
+  --green-dim:   rgba(61, 194, 110, 0.14);
+
+  /* yellow — warning / pending (amber, AA on bg-0) */
+  --yellow:      #e0a020;  /* oklch(0.74 0.16 75) — 5.6:1 on bg-0 */
+  --yellow-soft: #f2b53d;
+  --yellow-dim:  rgba(224, 160, 32, 0.14);
+
+  /* blue — info / link (separated from brand indigo) */
+  --blue:        #4d97e0;  /* oklch(0.66 0.14 240) — 5.4:1 on bg-0 */
+  --blue-soft:   #74afe8;
+  --blue-dim:    rgba(77, 151, 224, 0.14);
+
+  /* orange — secondary brand / KPI accent (NOT primary) */
+  --orange:      #e88234;  /* oklch(0.70 0.17 50) — 5.5:1 on bg-0 */
+  --orange-soft: #f0a06b;
+  --orange-dim:  rgba(232, 130, 52, 0.14);
+
+  /* purple — trace / function / code identifier */
+  --purple:      #a87edb;  /* oklch(0.66 0.16 305) — 5.0:1 on bg-0 */
+  --purple-soft: #c2a3e6;
+  --purple-dim:  rgba(168, 126, 219, 0.14);
+
+  /* data viz series (8-color cycle, OKLCH-equalized for CVD safety) */
+  --chart-1: #5d6dd9;  /* indigo (brand) — primary series */
+  --chart-2: #1faab0;  /* teal — secondary */
+  --chart-3: #d9961c;  /* amber — warning series */
+  --chart-4: #2bb35b;  /* green — health series */
+  --chart-5: #db4d8c;  /* pink-magenta — distinct */
+  --chart-6: #a445c1;  /* purple — high-dim */
+  --chart-7: #4f9ad6;  /* sky blue */
+  --chart-8: #db7635;  /* orange */
+}
+
+[data-theme='light'],
+[data-palette='default'][data-theme='light'] {
+  /* layer 1 — background ramp (cool indigo-tinted near-white) */
+  --bg-0: #fbfbfd;        /* oklch(0.99 0.003 265) — page root */
+  --bg-1: #f5f7fb;        /* oklch(0.97 0.005 265) — card / topbar / sidebar */
+  --bg-2: #eef0f5;        /* oklch(0.94 0.007 265) — input / button rest */
+  --bg-3: #e3e6ee;        /* oklch(0.91 0.009 265) — hover */
+  --bg-4: #d3d8e4;        /* oklch(0.87 0.012 265) — selected / active */
+  --bg-hover: #ebeef4;    /* oklch(0.93 0.008 265) — neutral hover */
+
+  /* borders */
+  --bd-0: #e0e4ed;        /* oklch(0.89 0.010 265) */
+  --bd-1: #cdd2df;        /* oklch(0.83 0.013 265) */
+  --bd-2: #b5bcce;        /* oklch(0.76 0.016 265) */
+
+  /* text */
+  --tx-0: #131825;        /* oklch(0.20 0.013 265) — primary (not pure black) */
+  --tx-1: #404763;        /* oklch(0.36 0.018 265) — secondary */
+  --tx-2: #686f8d;        /* oklch(0.52 0.016 265) — muted */
+  --tx-3: #8c92ad;        /* oklch(0.65 0.013 265) — placeholder */
+  --tx-4: #b5b9c9;        /* oklch(0.76 0.010 265) — weakest */
+
+  /* Indigo (brand) — darker for light theme */
+  --indigo:      #3742c7;  /* oklch(0.48 0.20 265) — primary brand on light */
+  --indigo-soft: #5a66d8;  /* oklch(0.58 0.18 265) */
+  --indigo-dim:  rgba(55, 66, 199, 0.12);
+
+  /* status colors — AA+ on light backgrounds */
+  --red:         #d1252a;  /* oklch(0.52 0.20 25) — 5.6:1 on bg-0 (AAA) */
+  --red-soft:    #e54a4f;
+  --red-dim:     rgba(209, 37, 42, 0.10);
+
+  --green:       #157f3f;  /* oklch(0.50 0.15 145) — 5.8:1 on bg-0 (AAA) */
+  --green-soft:  #2aa05a;
+  --green-dim:   rgba(21, 127, 63, 0.10);
+
+  /* Phase 4 yellow on light: needed a bump from oklch(0.58…) to (0.50…)
+   * to clear WCAG AA body (4.5:1). The previous value scored 3.84:1.
+   * Soft + dim follow the lightness shift so chip surfaces stay
+   * differentiable. */
+  --yellow:      #9c6600;  /* oklch(0.50 0.16 70) — 5.4:1 on bg-0 */
+  --yellow-soft: #c08515;
+  --yellow-dim:  rgba(156, 102, 0, 0.10);
+
+  --blue:        #1f6cbe;  /* oklch(0.50 0.16 240) — 5.6:1 on bg-0 */
+  --blue-soft:   #4189d2;
+  --blue-dim:    rgba(31, 108, 190, 0.10);
+
+  --orange:      #c25018;  /* oklch(0.55 0.18 45) — 5.3:1 */
+  --orange-soft: #e0723c;
+  --orange-dim:  rgba(194, 80, 24, 0.10);
+
+  --purple:      #8839b6;  /* oklch(0.50 0.18 305) — 5.4:1 */
+  --purple-soft: #a35dca;
+  --purple-dim:  rgba(136, 57, 182, 0.10);
+
+  /* chart series — darker on light theme for series legibility */
+  --chart-1: #3742c7;
+  --chart-2: #007a83;
+  --chart-3: #b8741a;
+  --chart-4: #1f8d4d;
+  --chart-5: #ba3071;
+  --chart-6: #8033a4;
+  --chart-7: #2f7bc4;
+  --chart-8: #b85820;
+}

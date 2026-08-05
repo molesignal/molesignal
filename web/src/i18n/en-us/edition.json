@@ -1,0 +1,50 @@
+{
+  "features": {
+    "intelligence": "Mole Intelligence",
+    "domain_management": "Domain management",
+    "federated_search": "Federated nodes",
+    "saas_billing": "Billing",
+    "saas_support": "Support",
+    "profiling_enhanced": "Differential profiling"
+  },
+  "badges": {
+    "available": "Available",
+    "checking": "Checking",
+    "loading": "Checking",
+    "backend-pending": "Backend pending",
+    "permission-denied": "No access",
+    "pro-required": "Pro",
+    "saas-only": "SaaS",
+    "trial-available": "Trial"
+  },
+  "gates": {
+    "loading": {
+      "title": "Checking access",
+      "description": "Loading license and account metadata for {{feature}}."
+    },
+    "allowed": {
+      "title": "{{feature}} is available",
+      "description": "Your current organization can use this workflow."
+    },
+    "backend-pending": {
+      "title": "{{feature}} is awaiting backend",
+      "description": "The product surface is ready, but the backing endpoint is not available yet."
+    },
+    "permission-denied": {
+      "title": "Permission required",
+      "description": "Your current role cannot manage {{feature}}."
+    },
+    "pro-required": {
+      "title": "Pro required",
+      "description": "{{feature}} requires a Pro license or SaaS plan."
+    },
+    "saas-only": {
+      "title": "SaaS account required",
+      "description": "{{feature}} is available only in MoleSignal Cloud accounts."
+    },
+    "trial-available": {
+      "title": "Trial can enable {{feature}}",
+      "description": "This organization is in trial mode; enable the feature in the trial plan to continue."
+    }
+  }
+}

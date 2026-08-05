@@ -1,0 +1,33 @@
+# syntax=docker/dockerfile:1
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 MoleSignal Authors
+
+# CI 已在原生 runner 上完成一次 release 构建；这里只把同一二进制封装进多架构镜像。
+ARG TARGETARCH
+
+FROM scratch AS binary-amd64
+COPY .release-binaries/amd64/molesignal /molesignal
+
+FROM scratch AS binary-arm64
+COPY .release-binaries/arm64/molesignal /molesignal
+
+FROM binary-${TARGETARCH} AS binary
+
+FROM debian:bookworm-slim
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+        ca-certificates curl \
+        chromium fonts-liberation libnss3 libfreetype6 libharfbuzz0b \
+ && rm -rf /var/lib/apt/lists/*
+ENV CHROME_PATH=/usr/bin/chromium
+WORKDIR /app
+COPY --from=binary /molesignal /usr/local/bin/molesignal
+RUN chmod 0755 /usr/local/bin/molesignal \
+ && mkdir -p /usr/share/molesignal/mmdb
+COPY assets/mmdb/GeoLite2-City.mmdb /usr/share/molesignal/mmdb/GeoLite2-City.mmdb
+COPY conf/config.toml /app/conf/config.toml
+EXPOSE 5080 5082
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD curl -fsS http://localhost:5080/api/v1/healthz || exit 1
+ENTRYPOINT ["molesignal"]
+CMD ["--config", "/app/conf/config.toml"]

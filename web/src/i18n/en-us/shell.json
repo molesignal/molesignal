@@ -1,0 +1,332 @@
+{
+  "chrome": {
+    "org_switcher": "Switch organization",
+    "user_menu": "User menu",
+    "command_palette": "Open command palette",
+    "toggle_theme": "Toggle theme",
+    "workspace_settings": "Workspace settings",
+    "cycle_palette": "Cycle color palette (current: {{current}})",
+    "select_palette": "Select color palette (current: {{current}})",
+    "cycle_language": "Cycle language (current: {{current}})",
+    "time_picker": "Open time window picker",
+    "anchor_label": "Pinned anchor: {{time}}",
+    "close_navigation": "Close navigation"
+  },
+  "topbar": {
+    "toggle_sidebar": "Toggle sidebar",
+    "search_placeholder": "Search across logs · metrics · traces · dashboards…",
+    "open_noc": "Open NOC wallboard mode",
+    "noc": "NOC Wallboard",
+    "notifications": "Notifications",
+    "help": "Help",
+    "docs": "Docs",
+    "keyboard_shortcuts": "Keyboard shortcuts",
+    "mole_agent": "Open Mole Agent (⌘J)",
+    "agent": "Mole Agent",
+    "membership_required": "Membership required",
+    "about": "About"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "empty": "No notifications",
+    "pending_user": "New user awaiting approval",
+    "view_all": "View all approvals"
+  },
+  "user_menu": {
+    "current_workspace": "Current workspace",
+    "switch_workspace": "Switch"
+  },
+  "account_settings": {
+    "title": "Account settings",
+    "subtitle": "Manage your user profile and current workspace context.",
+    "profile_title": "Profile",
+    "context_title": "Current context",
+    "avatar_hint": "Use an http(s) image URL. Leave blank to show initials.",
+    "avatar_upload": "Upload avatar",
+    "avatar_uploading": "Uploading…",
+    "avatar_upload_hint": "PNG, JPEG, WEBP or GIF, up to 2 MB.",
+    "email_immutable_hint": "Email is your sign-in identity and can't be changed.",
+    "fields": {
+      "username": "Username",
+      "email": "Email",
+      "avatar_url": "Avatar URL",
+      "user_id": "User ID",
+      "org_name": "Organization",
+      "org_slug": "Organization slug",
+      "role": "Role"
+    }
+  },
+  "theme": {
+    "dark": "Dark",
+    "light": "Light"
+  },
+  "palette": {
+    "default": "Default",
+    "high_contrast": "High contrast",
+    "warm": "Warm"
+  },
+  "palette_description": {
+    "default": "Balanced dark operations UI",
+    "high-contrast": "Stronger text and border contrast",
+    "warm": "Warmer low-blue-light workspace"
+  },
+  "density": {
+    "compact": "Compact",
+    "normal": "Normal",
+    "comfortable": "Comfortable"
+  },
+  "language": {
+    "en_us": "en-us",
+    "zh_cn": "zh-cn"
+  },
+  "pages": {
+    "investigate": {
+      "empty_title": "Press <kbd>⌘K</kbd> to start an investigation",
+      "empty_more": "Try <kbd>⌘⌥E</kbd> for time, <kbdSm>⌘/</kbdSm> for the full keyboard map"
+    },
+    "service_graph": {
+      "subtitle": "Last hour"
+    },
+    "placeholder": {
+      "navigate_hint": "Press <kbd>⌘K</kbd> to navigate."
+    },
+    "noc": {
+      "title": "NOC Wallboard mode",
+      "status_line": "production · live · last hour",
+      "utc_label": "UTC+8",
+      "return_console": "Return to console",
+      "esc_to_exit": "Esc to return",
+      "edit": {
+        "configure": "Configure layout",
+        "done": "Done",
+        "reset": "Reset",
+        "presets": "Presets",
+        "preset_platform": "Platform Ops",
+        "preset_sre": "SRE",
+        "preset_executive": "Executive",
+        "wide": "Toggle wide / narrow",
+        "show_hide": "Show / hide",
+        "move_left": "Move earlier",
+        "move_right": "Move later"
+      },
+      "panel_names": {
+        "traffic": "Traffic",
+        "incidents": "Incidents",
+        "topology": "Topology",
+        "health": "Health"
+      },
+      "kpis": {
+        "req_per_sec": "REQ / SEC (sum)",
+        "p95": "P95 (max edge)",
+        "err_rate": "ERROR RATE",
+        "edges": "EDGES",
+        "connecting": "Connecting",
+        "unavailable": "Data issue",
+        "no_traffic": "No traffic"
+      },
+      "panels": {
+        "traffic_title": "Traffic · top services · last 60m",
+        "traffic_pending": "Traffic chart awaiting per-tier `/query` wiring.",
+        "traffic_empty": "No traffic. The query succeeded, but no service calls arrived in the last hour.",
+        "traffic_rate": "{{value}} req/s",
+        "data_connecting": "Connecting to live data…",
+        "data_unavailable": "Telemetry is unavailable. Check the query service and data source.",
+        "incidents_title": "Live incidents · {{count}} active",
+        "incidents_connecting": "Connecting to alert data…",
+        "incidents_empty": "No incidents are currently active.",
+        "incidents_unavailable": "Alert data is unavailable. Check the alert service.",
+        "topology_title": "Service topology · last hour",
+        "topology_empty": "The query succeeded; no service calls were found in the last hour.",
+        "health_title": "Service health",
+        "health_empty": "No service traffic; the data query succeeded."
+      },
+      "table": {
+        "service": "SERVICE",
+        "qps": "QPS",
+        "p95": "P95",
+        "err_pct": "ERR%"
+      },
+      "status_bar": {
+        "incidents_active": "INCIDENTS ACTIVE",
+        "incidents_connecting": "CONNECTING TO ALERT DATA",
+        "incidents_unavailable": "ALERT DATA ISSUE",
+        "no_active_incidents": "NO ACTIVE INCIDENTS",
+        "nominal": "NOMINAL",
+        "data_connecting": "CONNECTING TO LIVE DATA",
+        "data_unavailable": "TELEMETRY UNAVAILABLE",
+        "no_traffic": "QUERY OK · NO TRAFFIC",
+        "data_ok": "LIVE DATA HEALTHY",
+        "services": "{{count}} SERVICES",
+        "req_per_sec_format": "{{value}} REQ/S",
+        "req_per_sec_empty": "NO TRAFFIC",
+        "p95_format": "P95 {{value}}",
+        "p95_empty": "NO TRAFFIC",
+        "crit": "{{count}} CRIT",
+        "warn": "{{count}} WARN",
+        "live": "LIVE"
+      },
+      "dashboard_wallboard": {
+        "title": "Dashboard Wallboard",
+        "subtitle_suffix": "· live · configured dashboard",
+        "no_panels": "No panels are defined on this dashboard yet.",
+        "panels_count": "{{count}} PANELS",
+        "version": "VERSION {{version}}",
+        "panel_index": "Panel {{index}}",
+        "render_pending": "render adapter pending",
+        "live": "live"
+      }
+    }
+  },
+  "signin": {
+    "subtitle": "Sign in to your workspace",
+    "tagline_a": "All signals,",
+    "tagline_b": "one query,",
+    "tagline_c": "one timeline.",
+    "promise": "Observe everything. Understand what matters.",
+    "blurb_a": "Logs, metrics, traces, profiles, APM, and RUM—",
+    "blurb_b": "unified in one query plane.",
+    "forgot_password": "Forgot password?",
+    "forgot_title": "Reset password",
+    "forgot_subtitle": "Enter your account email and we’ll send you a password reset link.",
+    "forgot_privacy_hint": "To protect your account, we show the same result whether or not the email exists.",
+    "send_reset": "Send reset link",
+    "sending_reset": "Sending…",
+    "forgot_sent_title": "Check your email",
+    "forgot_sent_subtitle": "If {{email}} belongs to an active account, a reset link will arrive shortly.",
+    "forgot_sent_detail": "The link expires in 30 minutes and can only be used once. Check your spam folder if it does not arrive.",
+    "forgot_failed": "Could not submit reset request",
+    "reset_title": "Choose a new password",
+    "reset_subtitle": "Set a new sign-in password for your MoleSignal account.",
+    "new_password": "New password",
+    "confirm_password": "Confirm new password",
+    "password_hint": "Use at least 8 characters.",
+    "password_mismatch": "The passwords do not match.",
+    "reset_password": "Update password",
+    "resetting_password": "Updating…",
+    "reset_success": "Password updated. Sign in with your new password.",
+    "reset_failed": "Password reset failed",
+    "reset_invalid": "This reset link is invalid, expired, or already used. Request a new one.",
+    "back_to_signin": "Back to sign in",
+    "signing_in": "Signing in…",
+    "email_or_username": "Email or directory username",
+    "ldap_credentials_required": "Enter your username and password first",
+    "or": "OR",
+    "no_account": "No account yet?",
+    "request_trial": "Request trial →",
+    "version_line": "v{{version}} · {{channel}}",
+    "sso_button_aria": "Sign in with {{name}}",
+    "sso_loading": "Loading SSO providers…",
+    "sso_none": "No SSO providers configured",
+    "signup_link": "Sign up →"
+  },
+  "signup": {
+    "title": "Create your account",
+    "subtitle": "Sign up to get access to your workspace.",
+    "display_name": "Display name",
+    "submit": "Sign up →",
+    "submitting": "Signing up…",
+    "back_to_signin": "← Back to sign in",
+    "pending_title": "Registration submitted",
+    "pending_desc": "Your account is awaiting administrator approval.",
+    "failed": "Sign-up failed"
+  },
+  "unsupported": {
+    "title": "Molesignal is built for wide screens",
+    "body": "This console is designed for desktop SRE workflows and needs at least 1024px of width. Switch to a wider display or maximize your window.",
+    "width": "Current width {{width}}px · minimum 1024px"
+  },
+  "signal_reference": {
+    "types": {
+      "trace": "Trace",
+      "span": "Span",
+      "service": "Service",
+      "host": "Host",
+      "stream": "Stream"
+    },
+    "actions": {
+      "add_filter": "Add to filters",
+      "filtered": "Added to filters",
+      "exclude_value": "Exclude this value",
+      "excluded": "Value excluded",
+      "copy_value": "Copy value",
+      "copy_service": "Copy service name",
+      "copy_span_id": "Copy span ID",
+      "copy_trace_id": "Copy trace ID",
+      "copied": "Copied"
+    },
+    "relations": {
+      "exact": "Exact match",
+      "context": "Context match"
+    },
+    "jumps": {
+      "open_trace": "Open current trace",
+      "open_traces": "Open traces",
+      "trace_logs": "View trace logs",
+      "span_logs": "View span logs",
+      "service_metrics": "View service metrics",
+      "similar_traces": "View similar traces",
+      "service_traces": "View traces for this service",
+      "service_logs": "View logs for this service",
+      "host_metrics": "View metrics for this host",
+      "matching_logs": "View logs for matching labels",
+      "open_stream": "Open stream",
+      "stream_metrics": "View metrics from this stream",
+      "stream_traces": "View traces from this stream",
+      "stream_profiles": "View profiles from this stream",
+      "stream_logs": "View logs from this stream"
+    }
+  },
+  "context_bar": {
+    "label": "Investigation",
+    "frames": "frames",
+    "resume": "Resume investigation",
+    "clear": "Clear",
+    "remove_filter": "Remove filter",
+    "from_trace": "From Trace {{id}}",
+    "back_to_trace": "Back to trace details"
+  },
+  "subnav": {
+    "collapse": "Collapse menu",
+    "expand": "Expand menu"
+  },
+  "agent_panel": {
+    "title": "Mole Agent",
+    "close": "Close",
+    "open_full": "Open full chat",
+    "context_label": "Context",
+    "loading": "Loading Mole Agent…"
+  },
+  "system_status": {
+    "healthy": "System healthy / Data ingestion healthy / Connected",
+    "degraded": "Some services are degraded",
+    "disconnected": "Connection error"
+  },
+  "about": {
+    "title": "About",
+    "accessible_title": "About MoleSignal",
+    "subtitle": "An observability platform for logs, metrics, traces, and performance analysis.",
+    "version": "Version",
+    "edition": "Edition type",
+    "commit": "Commit Hash",
+    "build_id": "Build ID",
+    "release_channel": "Release channel",
+    "branch": "Build branch",
+    "built": "Build time",
+    "time_with_zone": "{{time}} ({{zone}})",
+    "copy_diagnostics": "Copy diagnostic info",
+    "diagnostics_copied": "Diagnostic info copied",
+    "copied": "Copied",
+    "editions": {
+      "community": "OpenSource Edition",
+      "enterprise": "Enterprise Edition",
+      "oss": "OpenSource Edition",
+      "pro": "Enterprise Edition",
+      "saas": "Enterprise Edition"
+    }
+  },
+  "not_found": {
+    "title": "Page not found",
+    "description": "The page you're looking for doesn't exist or may have moved.",
+    "back_home": "Back to home"
+  }
+}

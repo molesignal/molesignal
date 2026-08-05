@@ -1,0 +1,38 @@
+{
+  "templates": {
+    "overview": "概览",
+    "list": "列表",
+    "detail": "详情",
+    "builder": "构建器",
+    "settings": "设置",
+    "gate": "访问门禁",
+    "fixture_title": "模板示例",
+    "fixture_subtitle": "使用本地示例数据的可复用页面壳"
+  },
+  "actions": {
+    "create": "创建",
+    "refresh": "刷新",
+    "review_license": "查看许可证"
+  },
+  "fixture": {
+    "alerts": "告警",
+    "cost": "成本",
+    "dashboards": "仪表盘",
+    "errors": "错误",
+    "filters": "筛选",
+    "general": "通用",
+    "healthy": "健康",
+    "datasource": "数据源",
+    "last_24h": "最近 24 小时",
+    "latency": "延迟",
+    "license": "许可证",
+    "month_to_date": "本月至今",
+    "name": "名称",
+    "organization": "组织",
+    "owner": "负责人",
+    "search": "搜索",
+    "selected": "已选择 {{count}} 项",
+    "state": "状态",
+    "updated": "更新时间"
+  }
+}

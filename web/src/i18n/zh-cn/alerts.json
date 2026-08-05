@@ -1,0 +1,849 @@
+{
+  "title": "告警",
+  "subtitle": "告警规则、活跃事件与 Notify 生命周期。",
+  "incident_detail": {
+    "loading": "事件",
+    "not_found_title": "未找到事件",
+    "not_found_description": "该事件可能已被清除，或属于其他组织。",
+    "meta": {
+      "status": "状态",
+      "severity": "严重程度",
+      "created": "创建时间",
+      "fingerprint": "指纹"
+    }
+  },
+  "actions": {
+    "silences": "静默策略",
+    "new_rule": "新建规则",
+    "edit_rule": "编辑 {{name}}",
+    "new_anomaly": "异常检测规则",
+    "new_anomaly_description": "使用 MAD 或 EWMA 动态基线识别偏离。",
+    "new_threshold_rule": "阈值规则",
+    "new_threshold_rule_description": "查询结果持续超过固定阈值时触发。",
+    "silence_incident": "静默事件 {{name}}"
+  },
+  "silence_incident": {
+    "title": "静默此事件",
+    "description": "仅暂停「{{name}}」的后续通知与升级，事件仍会继续记录。",
+    "default_name": "当前事件",
+    "duration": "静默时长",
+    "reason": "原因（可选）",
+    "reason_placeholder": "例如：正在处理，暂时无需继续通知",
+    "scope_hint": "该操作只作用于这一次已触发事件，不会停用规则，也不会影响相同服务的其他事件。",
+    "confirm": "确认静默",
+    "silencing": "正在静默…",
+    "cancel": "取消",
+    "success": "事件「{{name}}」已静默",
+    "durations": {
+      "one_hour": "1 小时",
+      "four_hours": "4 小时",
+      "one_day": "24 小时",
+      "one_week": "7 天"
+    }
+  },
+  "kpis": {
+    "critical_firing": "严重触发",
+    "warning_firing": "警告触发",
+    "pending": "等待中",
+    "resolved_24h": "24 小时已恢复",
+    "total_rules": "规则总数",
+    "incidents_open": "打开事件"
+  },
+  "tabs": {
+    "firing": "触发中",
+    "pending": "等待中",
+    "resolved": "已恢复",
+    "disabled": "已停用",
+    "all": "全部规则"
+  },
+  "subnav": {
+    "label": "告警视图",
+    "incidents": "告警事件",
+    "rules": "规则",
+    "history": "历史",
+    "insights": "洞察",
+    "groups": "分组",
+    "escalations": "升级",
+    "schedules": "值班排班",
+    "silences": "静默策略"
+  },
+  "history": {
+    "title": "告警历史",
+    "subtitle": "查看已恢复和已关闭事件的时间线。",
+    "error_title": "无法加载告警历史",
+    "empty_title": "暂无已恢复事件",
+    "empty_description": "告警触发并恢复后，会在这里保留时间、持续时长和事件详情。",
+    "columns": {
+      "summary": "事件",
+      "severity": "级别",
+      "created": "触发时间",
+      "resolved": "恢复时间",
+      "duration": "持续时间"
+    },
+    "severity": {
+      "info": "信息",
+      "warning": "警告",
+      "error": "错误",
+      "critical": "严重"
+    }
+  },
+  "center": {
+    "incidents": {
+      "title": "告警事件",
+      "subtitle": "发现当前异常、确认影响并推动事件恢复。",
+      "load_error": "无法加载告警事件",
+      "unassigned": "未确认",
+      "kpis": {
+        "active": "触发中的事件",
+        "services": "受影响服务",
+        "services_sub": "按当前活跃事件去重",
+        "waiting": "等待确认",
+        "waiting_sub": "尚未有人接手",
+        "recovered": "24h 已恢复",
+        "last_recovery": "最近一次 {{time}} 前",
+        "no_recovery": "最近 24 小时无恢复记录",
+        "no_active": "当前无活跃事件"
+      },
+      "tabs": {
+        "active": "触发中",
+        "unacknowledged": "等待确认",
+        "resolved": "已恢复"
+      },
+      "columns": {
+        "severity": "级别",
+        "incident": "事件 / 服务",
+        "status": "状态",
+        "duration": "持续时间",
+        "owner": "负责人",
+        "actions": "下一步"
+      },
+      "status": {
+        "open": "等待确认",
+        "acknowledged": "处理中",
+        "resolved": "已恢复",
+        "closed": "已关闭"
+      },
+      "actions": {
+        "ack": "确认",
+        "silence": "静默",
+        "runbook": "Runbook",
+        "details": "详情"
+      },
+      "healthy": {
+        "title": "当前没有触发中的告警",
+        "with_recovery": "过去 24 小时有 {{count}} 个事件恢复，最近一次发生在 {{time}} 前。",
+        "no_recovery": "所有已配置规则当前均未产生活跃事件。",
+        "view_recovered": "查看已恢复事件",
+        "view_rules": "查看全部规则"
+      },
+      "no_rules": {
+        "title": "尚未创建告警规则",
+        "description": "创建规则后，系统会持续评估指标、日志和链路数据，并在这里生成告警事件。",
+        "action": "创建第一条规则"
+      },
+      "empty": {
+        "active": {
+          "title": "当前没有活跃事件",
+          "description": "所有启用规则均处于正常状态。"
+        },
+        "unacknowledged": {
+          "title": "没有等待确认的事件",
+          "description": "当前活跃事件都已经有人接手。"
+        },
+        "resolved": {
+          "title": "近期没有已恢复事件",
+          "description": "事件恢复后会在这里保留最近记录。"
+        }
+      }
+    },
+    "rules": {
+      "title": "告警规则",
+      "subtitle": "定义系统应持续评估的查询与阈值。",
+      "load_error": "无法加载告警规则",
+      "search": "搜索规则、服务或数据源",
+      "tabs": {
+        "all": "全部",
+        "enabled": "已启用",
+        "disabled": "已停用"
+      },
+      "summary": {
+        "total": "{{count}} 条规则",
+        "enabled": "{{count}} 条启用",
+        "disabled": "{{count}} 条停用"
+      },
+      "columns": {
+        "rule": "规则",
+        "source": "数据源",
+        "condition": "触发条件",
+        "state": "状态",
+        "last_evaluation": "最近评估",
+        "actions": "操作"
+      },
+      "state": {
+        "healthy": "正常",
+        "pending": "等待持续",
+        "firing": "触发中",
+        "disabled": "已停用"
+      },
+      "kinds": {
+        "scheduled": "阈值规则",
+        "real_time": "实时规则",
+        "anomaly": "异常检测"
+      },
+      "never_evaluated": "尚未评估",
+      "empty": {
+        "title": "尚未创建告警规则",
+        "description": "创建规则后，系统会持续验证查询并在阈值满足时生成事件。"
+      },
+      "no_match": {
+        "title": "没有匹配的规则",
+        "description": "尝试调整关键词或状态筛选。"
+      }
+    }
+  },
+  "workbench": {
+    "new_title": "新建告警规则",
+    "edit_title": "编辑告警规则",
+    "edit_named": "编辑规则 · {{name}}",
+    "subtitle": "编写查询、验证阈值，再连接 Notify 路由与处理指南。",
+    "steps": {
+      "identity": "基本信息",
+      "condition": "查询与条件",
+      "delivery": "Notify 与处理"
+    },
+    "actions": {
+      "cancel": "取消",
+      "save_draft": "保存草稿",
+      "test": "测试规则",
+      "testing": "测试中…",
+      "save": "保存并启用",
+      "create": "创建规则",
+      "add_threshold": "添加级别",
+      "remove_threshold": "删除阈值"
+    },
+    "sections": {
+      "identity": "基本信息",
+      "identity_description": "用于事件标题、搜索和服务归属。",
+      "condition": "查询与触发条件",
+      "condition_description": "查询、阈值和持续时间在同一上下文中验证。",
+      "delivery": "Notify 与处理",
+      "delivery_description": "告警生命周期事件由 Notify 策略路由，规则中只保留处理指南。"
+    },
+    "fields": {
+      "name": "规则名称",
+      "service": "服务",
+      "description": "说明",
+      "signal": "规则类型",
+      "stream": "目标数据流",
+      "interval": "评估间隔",
+      "query": "查询",
+      "query_language": "查询语言",
+      "thresholds": "触发条件",
+      "runbook": "处理指南 / Runbook URL"
+    },
+    "placeholders": {
+      "name": "例如 api_high_error_rate",
+      "service": "例如 api-gateway",
+      "description": "说明该规则保护的用户路径或系统能力",
+      "stream": "例如 app_metrics"
+    },
+    "hints": {
+      "query": "测试规则会使用最近 6 小时真实数据执行此查询。",
+      "thresholds": "最高命中的严重度生效；持续时间会自动换算为评估周期。",
+      "runbook": "可选。事件处理人员可以从事件列表直接打开。"
+    },
+    "signals": {
+      "metrics": "指标告警",
+      "logs": "日志告警",
+      "traces": "链路告警"
+    },
+    "quick_start": "快速开始",
+    "presets": {
+      "error_rate": {
+        "title": "错误率过高",
+        "description": "HTTP 5xx 占比持续超过阈值"
+      },
+      "latency": {
+        "title": "P95 延迟过高",
+        "description": "请求延迟分位数持续升高"
+      },
+      "cpu": {
+        "title": "CPU 使用率过高",
+        "description": "进程平均 CPU 超过安全水位"
+      },
+      "log_errors": {
+        "title": "错误日志激增",
+        "description": "错误级别日志数量超过阈值"
+      },
+      "no_data": {
+        "title": "无数据告警",
+        "description": "数据流在评估窗口内没有记录"
+      },
+      "trace_errors": {
+        "title": "错误链路激增",
+        "description": "失败 Trace 数量超过阈值"
+      },
+      "trace_latency": {
+        "title": "链路耗时过高",
+        "description": "平均 Trace 耗时持续升高"
+      }
+    },
+    "intervals": {
+      "1m": "每 1 分钟",
+      "5m": "每 5 分钟",
+      "10m": "每 10 分钟"
+    },
+    "threshold": {
+      "severity": "严重度",
+      "operator": "当结果",
+      "value": "阈值",
+      "duration": "并持续",
+      "minutes": "分钟"
+    },
+    "operators": {
+      "gt": "> (大于)",
+      "gte": "≥ (大于等于)",
+      "lt": "< (小于)",
+      "lte": "≤ (小于等于)",
+      "eq": "= (等于)",
+      "neq": "≠ (不等于)"
+    },
+    "notify": {
+      "title": "Notify 路由",
+      "description": "告警生命周期事件通过匹配的 Notify 策略、接收人和兜底路由完成投递。",
+      "manage_policies": "管理策略",
+      "manage_connectors": "管理连接器"
+    },
+    "preview": {
+      "title": "查询预览",
+      "window": "最近 6 小时真实数据",
+      "not_run": "尚未运行测试",
+      "not_run_description": "运行后会显示查询曲线、阈值线和历史预计触发次数。",
+      "failed": "查询执行失败",
+      "no_data": "查询成功，但没有数值数据",
+      "no_data_description": "请检查时间范围、数据流名称与查询返回列。",
+      "query_value": "查询结果",
+      "threshold": "阈值",
+      "current": "当前值",
+      "estimated": "预计触发次数",
+      "cost": "扫描行 · 耗时"
+    },
+    "validation": {
+      "title": "创建前检查",
+      "query": "查询已运行且返回数值",
+      "thresholds": "阈值配置有效且无冲突",
+      "runbook": "Runbook URL 格式有效",
+      "ready": "通过",
+      "pending": "待完成"
+    },
+    "errors": {
+      "load_rule": "无法加载告警规则",
+      "org_required": "当前组织不可用。",
+      "name_required": "规则名称必填。",
+      "stream_required": "目标数据流必填。",
+      "query_required": "查询语句必填。",
+      "threshold_required": "至少需要一个有效阈值。",
+      "threshold_conflict": "高严重度阈值不能比低严重度阈值更容易命中。",
+      "runbook_invalid": "请输入有效的 http 或 https 地址。"
+    },
+    "toast": {
+      "saved": "规则「{{name}}」已保存并启用",
+      "draft_saved": "规则草稿「{{name}}」已保存"
+    }
+  },
+  "drawer": {
+    "title_loading": "事件",
+    "error_title": "无法加载事件",
+    "actions": {
+      "ack": "确认",
+      "ack_success": "已确认事件",
+      "silence": "静默",
+      "resolve": "解决",
+      "resolve_success": "事件已解决"
+    },
+    "incident_sections": {
+      "timeline": "时间线",
+      "rca": "AI 根因",
+      "signals": "跨信号引用",
+      "metadata": "元数据",
+      "triggering_query": "触发查询",
+      "assignees": "负责人"
+    },
+    "rca": {
+      "generate": "生成",
+      "regenerate": "重新生成",
+      "generating": "生成中…",
+      "generated": "根因分析已生成",
+      "empty": "暂无分析 - 可手动生成，或等待后台自动分析。"
+    },
+    "signals": {
+      "services": "服务",
+      "traces": "Trace ID",
+      "hosts": "主机"
+    },
+    "labels": {
+      "title": "标签"
+    },
+    "annotations": {
+      "title": "注释"
+    },
+    "timeline": {
+      "created": "创建",
+      "acknowledged": "已确认",
+      "resolved": "已解决"
+    },
+    "triggering_query": {
+      "sample_count": "{{count}} 条样本",
+      "sample_count_one": "1 条样本",
+      "show_samples": "展开样本值"
+    },
+    "assignees_none": "暂无负责人。"
+  },
+  "insights": {
+    "title": "告警洞察",
+    "subtitle": "近期事件的聚合视图",
+    "error_title": "无法计算洞察",
+    "empty_title": "还没有事件",
+    "empty_description": "洞察汇总 MTTR、噪声、最繁忙的时段，以及触发最多的规则与服务。告警触发并解决后会逐步填充。",
+    "kpis": {
+      "total": "事件总数",
+      "mttr": "MTTR",
+      "mttr_sub": "已解决事件均值",
+      "active": "活跃",
+      "active_sub": "打开 + 已确认",
+      "closed": "已关闭",
+      "closed_sub": "已解决 + 已关闭",
+      "noise": "噪声率",
+      "noise_sub": "60 秒内解决"
+    },
+    "heatmap_title": "按一天中的小时（UTC）分布",
+    "top_services": "受影响最多的服务",
+    "no_services": "无归因服务。",
+    "top_rules": "触发最多的规则",
+    "no_rules": "无归因规则。",
+    "by_severity": "按严重程度"
+  },
+  "anomaly": {
+    "new_title": "新建异常检测规则",
+    "edit_title": "编辑异常检测规则",
+    "subtitle": "基于同时段历史基线（MAD）检测离群值。",
+    "detection_description": "每个周期取查询结果的首个数值与基线比较。",
+    "detector_description": "中位数绝对偏差（MAD）用近期同时段历史构建鲁棒基线。",
+    "sections": {
+      "identity": "标识",
+      "detection": "检测查询",
+      "detector": "检测器"
+    },
+    "fields": {
+      "name": "规则名称",
+      "severity": "级别",
+      "service": "服务",
+      "stream_name": "数据流",
+      "stream_type": "数据流类型",
+      "language": "查询语言",
+      "window": "评估窗口",
+      "query": "查询",
+      "algorithm": "算法",
+      "lookback_days": "回看天数",
+      "k": "灵敏度（k·σ）",
+      "alpha": "平滑系数（α）",
+      "for_periods": "触发所需连续周期",
+      "weekly_seasonality": "周季节性"
+    },
+    "hints": {
+      "name": "会显示在该规则触发的事件上。",
+      "service": "可选标签，用于跨信号上下文。",
+      "stream_name": "查询运行的目标表。",
+      "window": "每个评估窗口的时长。",
+      "query": "返回单个数值（如 avg / p95 / count）。",
+      "algorithm": "MAD（鲁棒中位数）或 EWMA（跟踪近期漂移）。",
+      "lookback_days": "构建基线的同时段历史天数（1-30）。",
+      "k": "越大越不敏感。当 |当前值 - 基线| > k·σ 时触发。",
+      "alpha": "仅 EWMA：越大越看重近期样本（0-1）。",
+      "for_periods": "开事件前需连续异常的周期数。",
+      "weekly_seasonality": "只比较相同星期几的历史，降低工作日/周末模式的误报。需 lookback ≥ 7（建议 28+）。"
+    },
+    "placeholders": {
+      "name": "checkout_latency_anomaly",
+      "service": "checkout",
+      "stream_name": "app_metrics"
+    },
+    "actions": {
+      "create": "创建规则",
+      "save": "保存修改",
+      "saving": "保存中…"
+    },
+    "errors": {
+      "name_required": "规则名称必填。",
+      "stream_required": "数据流必填。"
+    },
+    "toast_saved": "异常检测规则「{{name}}」已保存",
+    "weekly": {
+      "off": "关（逐日）",
+      "on": "开（同星期几）"
+    }
+  },
+  "severity": {
+    "info": "信息",
+    "warning": "警告",
+    "error": "错误",
+    "critical": "严重"
+  },
+  "matchers": {
+    "title": "标签匹配器",
+    "add": "添加匹配器",
+    "remove": "删除匹配器",
+    "label_placeholder": "标签（如 service）",
+    "label_aria": "匹配器标签",
+    "value_placeholder": "值",
+    "value_aria": "匹配器值",
+    "hint": "所有匹配器需全部命中（AND）。=~ / ≠~ 为正则表达式。"
+  },
+  "escalations": {
+    "title": "升级策略",
+    "subtitle": "未确认事件的多级路由",
+    "new_policy": "新建策略",
+    "empty_title": "暂无升级策略",
+    "empty_description": "将未确认的事件路由给值班人员、排班与团队。",
+    "columns": {
+      "name": "名称",
+      "steps": "级数",
+      "repeat": "重复",
+      "actions": "操作"
+    },
+    "repeat_n": "×{{n}}",
+    "delete_title": "删除升级策略",
+    "edit_title": "编辑升级策略",
+    "drawer_title": "新建升级策略",
+    "drawer_subtitle": "各级按顺序触发，直到事件被确认。",
+    "save": "保存策略",
+    "create": "创建策略",
+    "toast_updated": "策略已更新",
+    "toast_created": "策略已创建",
+    "errors": {
+      "name_required": "名称必填。",
+      "target_required": "至少添加一个目标。"
+    },
+    "sections": {
+      "identity": "标识",
+      "steps": "升级级别",
+      "steps_description": "每一级为各目标写入 Notify 事件，等待确认超时后进入下一级。"
+    },
+    "fields": {
+      "name": "策略名称",
+      "repeat": "循环整个策略直到被确认",
+      "max_loops": "最大循环次数",
+      "min_severity": "生效起始严重度",
+      "ack_timeout": "确认超时",
+      "targets": "目标",
+      "notify_routing": "连接器选择和兜底路由在「设置 → Notify → 策略」中配置。"
+    },
+    "hints": {
+      "max_loops": "放弃前重复的次数。"
+    },
+    "add_step": "添加级别",
+    "remove_step": "删除级别",
+    "step_n": "第 {{n}} 级",
+    "add_target": "添加目标",
+    "remove_target": "删除目标",
+    "any_severity": "任意严重度",
+    "pick_ref": "— 选择 —",
+    "target_kinds": {
+      "user": "用户",
+      "schedule": "排班",
+      "team": "团队"
+    }
+  },
+  "schedules": {
+    "title": "值班排班",
+    "subtitle": "用于管理告警升级链路中的轮值与临时替班。",
+    "new_schedule": "新建排班",
+    "empty_title": "暂无值班排班",
+    "empty_description": "按每日、每周或自定义周期在团队中轮换值班责任。",
+    "columns": {
+      "name": "名称",
+      "timezone": "时区",
+      "rotations": "轮值",
+      "members": "人数",
+      "current_on_call": "当前值班",
+      "rotation": "轮值",
+      "next_switch": "下次切换",
+      "coverage": "覆盖人数",
+      "recent_change": "最近变更",
+      "status": "状态"
+    },
+    "delete_title": "删除排班",
+    "edit_title": "编辑排班",
+    "drawer_title": "新建排班",
+    "drawer_subtitle": "配置基本信息、轮值规则，并在创建前确认未来 7 天值班顺序。",
+    "save": "保存排班",
+    "save_draft": "保存草稿",
+    "create": "创建排班",
+    "toast_updated": "排班已更新",
+    "toast_created": "排班已创建",
+    "toast_draft_saved": "排班草稿已保存",
+    "toast_paused": "排班已暂停",
+    "toast_resumed": "排班已恢复",
+    "toast_copied": "排班副本已创建并暂停",
+    "copy_name": "{{name}} 副本",
+    "errors": {
+      "name_required": "名称必填。",
+      "members_required": "至少添加一个轮值成员。",
+      "override_user": "请选择用户。",
+      "override_reason": "请填写替班原因。",
+      "override_window": "结束时间必须晚于开始时间。",
+      "override_conflict": "该时间段与已有临时替班冲突，请调整开始或结束时间。"
+    },
+    "sections": {
+      "identity": "基本信息",
+      "rotations": "轮值规则",
+      "rotations_description": "每个轮值循环其成员；临时替班在排班详情页管理。",
+      "overrides": "临时替班"
+    },
+    "fields": {
+      "name": "排班名称",
+      "description": "说明",
+      "timezone": "时区",
+      "team": "关联团队",
+      "cadence": "轮换方式",
+      "period_hours": "周期（小时）",
+      "start_at": "开始日期与时间",
+      "handoff_time": "交接时间",
+      "members": "轮值成员（按顺序轮换）",
+      "restrict_window": "限定具体日期 / 时段",
+      "hour_start": "起始小时（0–24）",
+      "hour_end": "结束小时（0–24）"
+    },
+    "hints": {
+      "timezone": "如 UTC、America/New_York、Asia/Shanghai"
+    },
+    "add_rotation": "添加轮值",
+    "remove_rotation": "删除轮值",
+    "rotation_name_placeholder": "例如：primary",
+    "rotation_kinds": {
+      "daily": "每日",
+      "weekly": "每周",
+      "workdays": "工作日",
+      "custom": "自定义周期"
+    },
+    "no_users": "未找到用户。",
+    "unknown_user": "未知成员",
+    "on_call_now": "当前值班",
+    "nobody_on_call": "暂无值班",
+    "currently_on_call": "正在值班",
+    "detail_loading": "值班排班",
+    "detail_error": "无法加载排班",
+    "no_rotations": "暂无轮值。",
+    "rotation_untitled": "轮值 {{n}}",
+    "no_members": "无成员",
+    "overrides_hint": "在固定时段内临时把值班交给指定人员。",
+    "override_added": "替班已添加",
+    "override_updated": "替班已更新",
+    "override_deleted": "替班已删除",
+    "override_ended": "替班已结束",
+    "override_delete_title": "删除临时替班？",
+    "override_fields": {
+      "user": "替班人",
+      "reason": "原因",
+      "start": "开始时间",
+      "end": "结束时间"
+    },
+    "pick_user": "选择值班人",
+    "add_override": "添加替班",
+    "every_n_hours": "每 {{n}} 小时",
+    "update_override": "更新替班",
+    "cancel_edit": "取消编辑",
+    "end_override": "结束替班",
+    "override_person": "替班人",
+    "override_badge": "临时替班",
+    "override_summary": "{{user}} 将在 {{start}} 至 {{end}} 替代当前值班人。",
+    "no_overrides": "当前没有生效中或未来的临时替班",
+    "view_history": "查看历史",
+    "hide_history": "隐藏历史",
+    "no_switch": "暂无计划切换",
+    "people_count": "{{count}} 人",
+    "people_rotation": "{{count}} 人轮值",
+    "rotation_count": "{{count}} 个轮值",
+    "total_count": "共 {{count}} 条",
+    "system_actor": "系统",
+    "description_fallback": "告警升级链路的值班路由",
+    "team_prefix": "团队：{{team}}",
+    "team_unassigned": "未关联团队",
+    "warnings": {
+      "other_schedule": "该成员在替班开始时已参与其他排班，请确认不会造成值班冲突。",
+      "immediate": "开始时间早于当前时间，保存后将立即生效。"
+    },
+    "placeholders": {
+      "name": "例如：production primary on-call",
+      "description": "说明排班负责的服务、环境和升级范围。",
+      "override_reason": "例如：请假、故障处理、临时换班"
+    },
+    "summary": {
+      "schedules": "值班表",
+      "schedule_count": "{{count}} 个排班",
+      "team_count": "覆盖 {{count}} 个团队",
+      "on_call": "当前值班",
+      "active_count": "{{count}} 个排班正在值班",
+      "people_on_call": "{{count}} 位成员正在值班",
+      "this_week": "本周轮换",
+      "rotation_count": "{{count}} 次轮换",
+      "next_switch": "下次切换：{{value}}",
+      "no_switch": "本周暂无切换",
+      "overrides": "临时替班",
+      "override_count": "{{count}} 个排班有替班",
+      "override_people": "涉及 {{count}} 位替班人员"
+    },
+    "filters": {
+      "search": "搜索排班名称、团队或负责人…",
+      "team": "团队",
+      "timezone": "时区",
+      "status": "状态",
+      "all": "全部",
+      "mine": "仅看我参与的排班",
+      "refresh": "刷新",
+      "reset": "重置筛选",
+      "list_settings": "列表设置",
+      "no_results": "没有符合筛选条件的排班"
+    },
+    "roles": {
+      "primary": "主要",
+      "secondary": "备用"
+    },
+    "status": {
+      "active": "进行中",
+      "switching": "即将切换",
+      "not_started": "未开始",
+      "paused": "已暂停",
+      "gap": "存在空班"
+    },
+    "actions": {
+      "open_menu": "打开 {{name}} 的操作菜单",
+      "view": "查看详情",
+      "edit": "编辑排班",
+      "add_override": "添加临时替班",
+      "pause": "暂停排班",
+      "resume": "恢复排班",
+      "copy": "复制排班",
+      "export_calendar": "导出日历",
+      "delete": "删除排班",
+      "more": "更多操作"
+    },
+    "pagination": {
+      "label": "值班排班分页",
+      "page": "{{page}} / {{count}}",
+      "page_size": "每页条数",
+      "first": "值班表首页",
+      "previous": "上一页",
+      "next": "下一页",
+      "last": "值班表尾页"
+    },
+    "preview": {
+      "title": "未来 7 天预览",
+      "description": "创建前确认轮值顺序、交接时间和覆盖情况。",
+      "empty": "选择轮值成员后显示预览",
+      "member_count": "覆盖成员",
+      "timezone": "排班时区",
+      "then": "随后"
+    },
+    "detail": {
+      "current": "当前值班",
+      "started_at": "开始于 {{value}}",
+      "no_active_shift": "当前没有生效中的班次",
+      "next_rotation": "下次轮换",
+      "rotation_people": "轮值人数",
+      "rotation_rule": "轮值规则：{{value}}",
+      "overrides": "临时替班",
+      "active_override_count": "{{count}} 条生效中",
+      "coverage_window": "覆盖时间：{{start}} – {{end}}",
+      "no_override": "当前没有生效中的替班",
+      "rotation_rule_title": "轮值规则",
+      "view_rule": "查看详情",
+      "rotation_name": "轮值名称",
+      "rotation_members": "轮值人员",
+      "handoff_time": "交接时间",
+      "handoff_value": "{{cadence}} {{time}}（{{timezone}}）"
+    },
+    "timeline": {
+      "title": "未来 7 天时间线",
+      "current": "当前值班",
+      "upcoming": "即将接班",
+      "view_calendar": "查看日历",
+      "empty": "当前排班没有可展示的值班计划"
+    },
+    "activity": {
+      "title": "变更记录",
+      "view_all": "查看全部",
+      "collapse": "收起",
+      "empty": "暂无变更记录",
+      "columns": {
+        "time": "时间",
+        "actor": "操作者",
+        "type": "类型",
+        "content": "变更内容"
+      },
+      "types": {
+        "create": "创建",
+        "edit": "编辑",
+        "override": "替班",
+        "pause": "暂停",
+        "resume": "恢复",
+        "delete": "删除"
+      },
+      "descriptions": {
+        "create": "创建排班 {{name}}",
+        "edit": "更新排班配置 {{name}}",
+        "override": "{{user}} 的临时替班发生变化，原因：{{reason}}",
+        "pause": "暂停排班 {{name}}",
+        "resume": "恢复排班 {{name}}",
+        "delete": "删除排班 {{name}}"
+      }
+    }
+  },
+  "silences": {
+    "title": "静默策略",
+    "subtitle": "按标签与时间窗批量暂停通知",
+    "new_silence": "新建静默策略",
+    "empty_title": "暂无静默策略",
+    "empty_description": "在维护期或已知噪声期间抑制匹配事件的通知。",
+    "columns": {
+      "name": "名称",
+      "status": "状态",
+      "window": "时间窗"
+    },
+    "delete_title": "删除静默",
+    "edit_title": "编辑静默",
+    "drawer_title": "新建静默",
+    "drawer_subtitle": "事件仍会记录，仅暂停投递。",
+    "save": "保存静默",
+    "create": "创建静默",
+    "toast_updated": "静默已更新",
+    "toast_created": "静默已创建",
+    "errors": {
+      "name_required": "名称必填。",
+      "matcher_required": "至少添加一个匹配器。",
+      "window_range": "结束时间必须晚于开始时间。"
+    },
+    "sections": {
+      "identity": "标识",
+      "matchers": "匹配",
+      "window": "时间窗",
+      "comment": "备注"
+    },
+    "fields": {
+      "name": "名称",
+      "enabled": "启用",
+      "window_type": "窗口类型",
+      "start": "开始",
+      "end": "结束",
+      "timezone": "时区（IANA）",
+      "hour_start": "起始小时（0–24）",
+      "hour_end": "结束小时（0–24）",
+      "comment": "原因"
+    },
+    "window_kinds": {
+      "fixed": "固定区间",
+      "recurring": "周期重复"
+    },
+    "comment_placeholder": "为什么静默？"
+  }
+}

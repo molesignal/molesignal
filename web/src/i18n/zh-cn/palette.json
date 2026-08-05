@@ -1,0 +1,43 @@
+{
+  "placeholder": "搜索命令和资源…",
+  "no_results": "无匹配结果。",
+  "groups": {
+    "results": "结果",
+    "actions": "操作"
+  },
+  "footer": {
+    "open": "打开",
+    "open_new_stack": "在新栈打开",
+    "stack_on_top": "叠加到栈顶",
+    "close": "关闭"
+  },
+  "actions": {
+    "goto_investigate": "跳转到 Investigate",
+    "goto_services": "跳转到 Services",
+    "goto_apm": "跳转到 APM 服务",
+    "goto_dashboards": "跳转到 Dashboards",
+    "goto_incidents": "跳转到 Incidents",
+    "goto_saved_views": "跳转到 Saved views",
+    "run_sql": "运行 SQL…",
+    "run_promql": "运行 PromQL…",
+    "time_last_5m": "时间：最近 5 分钟",
+    "time_last_15m": "时间：最近 15 分钟",
+    "time_last_1h": "时间：最近 1 小时",
+    "time_last_6h": "时间：最近 6 小时",
+    "time_last_24h": "时间：最近 24 小时",
+    "time_last_7d": "时间：最近 7 天",
+    "pin_anchor": "钉住当前时间",
+    "copy_link": "复制调查链接",
+    "toggle_theme": "切换主题",
+    "toggle_density": "切换密度",
+    "help": "显示键盘帮助",
+    "sign_out": "退出登录",
+    "open_settings": "打开设置",
+    "create_dashboard": "创建仪表盘",
+    "create_alert": "创建告警",
+    "create_pipeline": "创建流水线",
+    "connect_source": "接入数据源",
+    "open_billing": "打开账单",
+    "open_support": "打开支持"
+  }
+}

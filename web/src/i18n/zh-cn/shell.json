@@ -1,0 +1,332 @@
+{
+  "chrome": {
+    "org_switcher": "切换组织",
+    "user_menu": "用户菜单",
+    "command_palette": "打开命令面板",
+    "toggle_theme": "切换主题",
+    "workspace_settings": "工作区设置",
+    "cycle_palette": "切换配色（当前：{{current}}）",
+    "select_palette": "选择配色（当前：{{current}}）",
+    "cycle_language": "切换语言（当前：{{current}}）",
+    "time_picker": "打开时间选择器",
+    "anchor_label": "已钉住的锚点：{{time}}",
+    "close_navigation": "关闭导航"
+  },
+  "topbar": {
+    "toggle_sidebar": "切换侧栏",
+    "search_placeholder": "跨日志 · 指标 · 链路 · 仪表盘搜索…",
+    "open_noc": "进入 NOC 大屏模式",
+    "noc": "NOC 大屏",
+    "notifications": "通知",
+    "help": "帮助",
+    "docs": "文档",
+    "keyboard_shortcuts": "键盘快捷键",
+    "mole_agent": "打开 Mole Agent（⌘J）",
+    "agent": "Mole Agent",
+    "membership_required": "需要组织成员身份",
+    "about": "关于"
+  },
+  "notifications": {
+    "title": "通知",
+    "empty": "暂无通知",
+    "pending_user": "有新用户待审批",
+    "view_all": "查看全部审批"
+  },
+  "user_menu": {
+    "current_workspace": "当前工作区",
+    "switch_workspace": "切换"
+  },
+  "account_settings": {
+    "title": "账号设置",
+    "subtitle": "管理你的用户资料和当前工作区上下文。",
+    "profile_title": "个人资料",
+    "context_title": "当前上下文",
+    "avatar_hint": "使用 http(s) 图片 URL。留空时显示用户名首字母。",
+    "avatar_upload": "上传头像",
+    "avatar_uploading": "上传中…",
+    "avatar_upload_hint": "支持 PNG / JPEG / WEBP / GIF，不超过 2 MB。",
+    "email_immutable_hint": "邮箱是登录身份标识，不可修改。",
+    "fields": {
+      "username": "用户名",
+      "email": "邮箱",
+      "avatar_url": "头像 URL",
+      "user_id": "用户 ID",
+      "org_name": "组织",
+      "org_slug": "组织标识",
+      "role": "角色"
+    }
+  },
+  "theme": {
+    "dark": "深色",
+    "light": "浅色"
+  },
+  "palette": {
+    "default": "默认",
+    "high_contrast": "高对比度",
+    "warm": "暖色"
+  },
+  "palette_description": {
+    "default": "均衡的深色运维界面",
+    "high-contrast": "更强文字与边界对比",
+    "warm": "低蓝光的暖色工作区"
+  },
+  "density": {
+    "compact": "紧凑",
+    "normal": "标准",
+    "comfortable": "宽松"
+  },
+  "language": {
+    "en_us": "en-us",
+    "zh_cn": "zh-cn"
+  },
+  "pages": {
+    "investigate": {
+      "empty_title": "按 <kbd>⌘K</kbd> 开始一次调查",
+      "empty_more": "按 <kbd>⌘⌥E</kbd> 切换时间窗，按 <kbdSm>⌘/</kbdSm> 查看完整快捷键映射"
+    },
+    "service_graph": {
+      "subtitle": "最近一小时"
+    },
+    "placeholder": {
+      "navigate_hint": "按 <kbd>⌘K</kbd> 跳转。"
+    },
+    "noc": {
+      "title": "NOC 大屏模式",
+      "status_line": "生产环境 · 实时 · 最近一小时",
+      "utc_label": "UTC+8",
+      "return_console": "返回控制台",
+      "esc_to_exit": "Esc 返回控制台",
+      "edit": {
+        "configure": "配置布局",
+        "done": "完成",
+        "reset": "重置",
+        "presets": "预设",
+        "preset_platform": "平台运维",
+        "preset_sre": "SRE",
+        "preset_executive": "高管视图",
+        "wide": "切换宽 / 窄",
+        "show_hide": "显示 / 隐藏",
+        "move_left": "前移",
+        "move_right": "后移"
+      },
+      "panel_names": {
+        "traffic": "流量",
+        "incidents": "事件",
+        "topology": "拓扑",
+        "health": "健康"
+      },
+      "kpis": {
+        "req_per_sec": "请求 / 秒（合计）",
+        "p95": "P95（最大边）",
+        "err_rate": "错误率",
+        "edges": "边数",
+        "connecting": "连接中",
+        "unavailable": "数据异常",
+        "no_traffic": "暂无流量"
+      },
+      "panels": {
+        "traffic_title": "流量 · 前 N 服务 · 近 60 分钟",
+        "traffic_pending": "流量图等待 per-tier `/query` 接入。",
+        "traffic_empty": "暂无流量。数据查询正常，最近一小时未收到服务调用。",
+        "traffic_rate": "{{value}} req/s",
+        "data_connecting": "正在连接实时数据…",
+        "data_unavailable": "数据接收异常，请检查查询服务与数据源。",
+        "incidents_title": "实时事件 · {{count}} 个进行中",
+        "incidents_connecting": "正在连接告警数据…",
+        "incidents_empty": "当前无进行中事件。",
+        "incidents_unavailable": "告警数据暂不可用，请检查告警服务。",
+        "topology_title": "服务拓扑 · 最近一小时",
+        "topology_empty": "数据查询正常，最近一小时暂无服务调用。",
+        "health_title": "服务健康",
+        "health_empty": "暂无服务流量；数据查询正常。"
+      },
+      "table": {
+        "service": "服务",
+        "qps": "QPS",
+        "p95": "P95",
+        "err_pct": "错误率"
+      },
+      "status_bar": {
+        "incidents_active": "存在事件",
+        "incidents_connecting": "正在连接告警数据",
+        "incidents_unavailable": "告警数据异常",
+        "no_active_incidents": "当前无进行中事件",
+        "nominal": "正常",
+        "data_connecting": "正在连接实时数据",
+        "data_unavailable": "数据接收异常",
+        "no_traffic": "数据查询正常，当前暂无流量",
+        "data_ok": "实时数据正常",
+        "services": "{{count}} 个服务",
+        "req_per_sec_format": "{{value}} REQ/S",
+        "req_per_sec_empty": "暂无流量",
+        "p95_format": "P95 {{value}}",
+        "p95_empty": "暂无流量",
+        "crit": "{{count}} 严重",
+        "warn": "{{count}} 警告",
+        "live": "实时"
+      },
+      "dashboard_wallboard": {
+        "title": "仪表盘大屏",
+        "subtitle_suffix": "· 实时 · 已配置仪表盘",
+        "no_panels": "此仪表盘尚未定义任何面板。",
+        "panels_count": "{{count}} 个面板",
+        "version": "版本 {{version}}",
+        "panel_index": "面板 {{index}}",
+        "render_pending": "渲染适配器待接入",
+        "live": "实时"
+      }
+    }
+  },
+  "signin": {
+    "subtitle": "登录到你的工作区",
+    "tagline_a": "所有信号，",
+    "tagline_b": "一次查询，",
+    "tagline_c": "一条时间线。",
+    "promise": "观察一切，洞悉关键所在。",
+    "blurb_a": "日志、指标、追踪、分析、APM 和 RUM",
+    "blurb_b": "统一于单一查询平台之下。",
+    "forgot_password": "忘记密码？",
+    "forgot_title": "重置密码",
+    "forgot_subtitle": "输入你的注册邮箱，我们会发送一封密码重置邮件。",
+    "forgot_privacy_hint": "为保护账号安全，无论邮箱是否存在，我们都会显示相同的结果。",
+    "send_reset": "发送重置链接",
+    "sending_reset": "正在发送…",
+    "forgot_sent_title": "检查你的邮箱",
+    "forgot_sent_subtitle": "如果 {{email}} 对应有效账号，你会很快收到重置链接。",
+    "forgot_sent_detail": "链接将在 30 分钟后失效，且只能使用一次。没有收到邮件时，请检查垃圾邮件目录。",
+    "forgot_failed": "暂时无法提交重置请求",
+    "reset_title": "设置新密码",
+    "reset_subtitle": "为你的 MoleSignal 账号设置一个新的登录密码。",
+    "new_password": "新密码",
+    "confirm_password": "确认新密码",
+    "password_hint": "至少 8 个字符。",
+    "password_mismatch": "两次输入的密码不一致。",
+    "reset_password": "更新密码",
+    "resetting_password": "正在更新…",
+    "reset_success": "密码已更新，请使用新密码登录",
+    "reset_failed": "密码重置失败",
+    "reset_invalid": "重置链接无效、已过期或已被使用，请重新申请。",
+    "back_to_signin": "返回登录",
+    "signing_in": "登录中…",
+    "email_or_username": "邮箱或目录用户名",
+    "ldap_credentials_required": "请先输入用户名和密码",
+    "or": "或",
+    "no_account": "还没有账号？",
+    "request_trial": "申请试用 →",
+    "version_line": "v{{version}} · {{channel}}",
+    "sso_button_aria": "通过 {{name}} 登录",
+    "sso_loading": "正在加载 SSO 服务…",
+    "sso_none": "未配置任何 SSO 服务商",
+    "signup_link": "注册 →"
+  },
+  "signup": {
+    "title": "创建账号",
+    "subtitle": "注册以访问你的工作区。",
+    "display_name": "显示名",
+    "submit": "注册 →",
+    "submitting": "注册中…",
+    "back_to_signin": "← 返回登录",
+    "pending_title": "注册已提交",
+    "pending_desc": "你的账号正在等待管理员审批。",
+    "failed": "注册失败"
+  },
+  "unsupported": {
+    "title": "Molesignal 专为宽屏工作流设计",
+    "body": "该控制台面向桌面端 SRE 工作流，至少需要 1024px 宽度。请使用更宽的显示器或最大化窗口。",
+    "width": "当前宽度 {{width}}px · 最小 1024px"
+  },
+  "signal_reference": {
+    "types": {
+      "trace": "链路",
+      "span": "Span",
+      "service": "服务",
+      "host": "主机",
+      "stream": "数据流"
+    },
+    "actions": {
+      "add_filter": "添加到筛选",
+      "filtered": "已添加到筛选",
+      "exclude_value": "排除该值",
+      "excluded": "已排除该值",
+      "copy_value": "复制值",
+      "copy_service": "复制服务名称",
+      "copy_span_id": "复制 Span ID",
+      "copy_trace_id": "复制 Trace ID",
+      "copied": "已复制"
+    },
+    "relations": {
+      "exact": "精确关联",
+      "context": "上下文关联"
+    },
+    "jumps": {
+      "open_trace": "打开当前链路",
+      "open_traces": "打开链路",
+      "trace_logs": "查看 Trace 日志",
+      "span_logs": "查看 Span 日志",
+      "service_metrics": "查看服务指标",
+      "similar_traces": "查看同类链路",
+      "service_traces": "查看该服务的链路",
+      "service_logs": "查看该服务的日志",
+      "host_metrics": "查看该主机的指标",
+      "matching_logs": "查看匹配标签的日志",
+      "open_stream": "打开数据流",
+      "stream_metrics": "查看该数据流的指标",
+      "stream_traces": "查看该数据流的链路",
+      "stream_profiles": "查看该数据流的 Profiles",
+      "stream_logs": "查看该数据流的日志"
+    }
+  },
+  "context_bar": {
+    "label": "调查",
+    "frames": "个调查帧",
+    "resume": "回到调查工作台",
+    "clear": "清除",
+    "remove_filter": "移除过滤器",
+    "from_trace": "来自 Trace {{id}}",
+    "back_to_trace": "返回链路详情"
+  },
+  "subnav": {
+    "collapse": "收起菜单",
+    "expand": "展开菜单"
+  },
+  "agent_panel": {
+    "title": "Mole Agent",
+    "close": "关闭",
+    "open_full": "打开完整对话",
+    "context_label": "上下文",
+    "loading": "正在加载 Mole Agent…"
+  },
+  "system_status": {
+    "healthy": "系统正常 / 数据接入正常 / 已连接",
+    "degraded": "部分服务异常",
+    "disconnected": "连接异常"
+  },
+  "about": {
+    "title": "关于",
+    "accessible_title": "关于 MoleSignal",
+    "subtitle": "面向日志、指标、链路和性能分析的可观测性平台。",
+    "version": "版本",
+    "edition": "版本类型",
+    "commit": "Commit Hash",
+    "build_id": "构建 ID",
+    "release_channel": "发布通道",
+    "branch": "构建分支",
+    "built": "构建时间",
+    "time_with_zone": "{{time}}（{{zone}}）",
+    "copy_diagnostics": "复制诊断信息",
+    "diagnostics_copied": "诊断信息已复制",
+    "copied": "已复制",
+    "editions": {
+      "community": "OpenSource Edition",
+      "enterprise": "Enterprise Edition",
+      "oss": "OpenSource Edition",
+      "pro": "Enterprise Edition",
+      "saas": "Enterprise Edition"
+    }
+  },
+  "not_found": {
+    "title": "页面不存在",
+    "description": "你访问的页面不存在，或可能已被移动。",
+    "back_home": "返回首页"
+  }
+}

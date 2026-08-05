@@ -1,0 +1,82 @@
+{
+  "title": "语义分组",
+  "subtitle": "按标签取值把相关 incident 收成一组（Alertmanager group_by 风格）。",
+  "actions": {
+    "new": "新建分组",
+    "import": "导入",
+    "delete": "删除",
+    "edit_named": "编辑 {{name}}",
+    "delete_named": "删除 {{name}}"
+  },
+  "states": {
+    "empty_title": "还没有语义分组",
+    "empty_description": "定义一个分组，把共享标签的相关 incident 收拢到一起。"
+  },
+  "list": {
+    "columns": {
+      "name": "名称",
+      "matchers": "匹配条件",
+      "group_by": "分组键",
+      "enabled": "启用",
+      "actions": "操作"
+    }
+  },
+  "enabled": {
+    "yes": "已启用",
+    "no": "已禁用"
+  },
+  "toast": {
+    "saved": "分组「{{name}}」已保存",
+    "deleted": "分组已删除"
+  },
+  "confirm": {
+    "delete_title": "删除语义分组？",
+    "delete": "删除该分组？incident 保留，仅移除分组规则。",
+    "cancel": "取消"
+  },
+  "errors": {
+    "name_required": "名称必填。"
+  },
+  "drawer": {
+    "edit_title": "编辑 {{name}}",
+    "subtitle": "匹配条件决定该分组适用于哪些 incident；分组键决定分组方式。",
+    "save": "保存修改",
+    "create": "创建分组",
+    "add_matcher": "添加匹配条件",
+    "remove_matcher": "移除匹配条件",
+    "matchers_description": "全部匹配条件命中 incident 标签才适用该分组。无条件 = 匹配所有 incident。",
+    "group_by_description": "这些标签键取值相同的 incident 会被收成同一组。",
+    "sections": {
+      "identity": "标识",
+      "matchers": "匹配条件",
+      "group_by": "分组键"
+    },
+    "fields": {
+      "name": "名称",
+      "enabled": "启用",
+      "matcher_label": "条件标签",
+      "matcher_value": "条件取值",
+      "group_by": "分组标签键"
+    },
+    "hints": {
+      "enabled": "已禁用的分组在分组时会被跳过。",
+      "group_by": "逗号分隔的标签键，如 service, region。"
+    },
+    "placeholders": {
+      "name": "critical-by-service",
+      "matcher_label": "severity",
+      "matcher_value": "critical",
+      "group_by": "service, region"
+    }
+  },
+  "import": {
+    "title": "导入语义分组",
+    "subtitle": "粘贴分组的 JSON 数组（或 { groups: [...] }）。",
+    "submit": "导入",
+    "editor_label": "分组 JSON",
+    "placeholder": "[{ \"name\": \"crit-by-service\", \"enabled\": true, \"matchers\": [{ \"label\": \"severity\", \"op\": \"eq\", \"value\": \"critical\" }], \"group_by\": [\"service\"] }]",
+    "toast_imported": "已导入 {{count}} 个分组",
+    "invalid_json": "JSON 非法：{{message}}",
+    "expects_array": "需要一个非空的分组数组。"
+  }
+}

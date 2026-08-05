@@ -1,0 +1,7 @@
+{
+  "items": [
+    { "id": "logs", "name": "logs", "retention_days": 7, "rows_per_day": 1500000 },
+    { "id": "access_logs", "name": "access_logs", "retention_days": 30, "rows_per_day": 8000000 },
+    { "id": "audit", "name": "audit", "retention_days": 365, "rows_per_day": 12000 }
+  ]
+}

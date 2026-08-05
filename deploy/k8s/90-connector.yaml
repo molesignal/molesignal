@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: connector
+  namespace: molesignal
+spec:
+  replicas: 1  # 单实例足以驱动所有 pull connector；并发上限走 ConnectorRunner 内部 semaphore
+  selector:
+    matchLabels: { app: molesignal, role: connector }
+  template:
+    metadata:
+      labels: { app: molesignal, role: connector }
+    spec:
+      containers:
+        - name: molesignal
+          image: molesignal:dev
+          imagePullPolicy: IfNotPresent
+          args: ["--config", "/app/conf/config.toml"]
+          env:
+            - name: RELEASE_CHANNEL
+              valueFrom: { configMapKeyRef: { name: molesignal-config, key: release_channel } }
+            - name: MS_NODE_ROLES
+              value: '["connector"]'
+            - name: POD_IP
+              valueFrom: { fieldRef: { fieldPath: status.podIP } }
+            - name: MS_CLUSTER_ADVERTISE_ADDR
+              value: "$(POD_IP):5082"
+            # JWT signing secret 默认 DB 自动 bootstrap；如需多副本锁定同一 secret，
+            # 设 jwt_secret_override 字段（kubectl edit secret/molesignal-secret）。
+            - name: MS_AUTH_JWT_SECRET_OVERRIDE
+              valueFrom: { secretKeyRef: { name: molesignal-secret, key: jwt_secret_override, optional: true } }
+            - name: MS_OBJECT_STORE_SECRET_KEY
+              valueFrom: { secretKeyRef: { name: molesignal-secret, key: object_store_secret_key } }
+            - name: MS_CIPHER_KEY
+              valueFrom: { secretKeyRef: { name: molesignal-secret, key: cipher_key } }
+            - name: MS_LICENSE_FILE
+              value: "/etc/molesignal/license.json"
+          ports:
+            - { name: http, containerPort: 5080 }
+            # push 类 connector 用 HTTP 接收（Cloudflare logpush / Heroku drain / Kinesis Firehose）
+          readinessProbe:
+            httpGet: { path: /api/v1/healthz, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - { name: cfg, mountPath: /app/conf }
+            - { name: license, mountPath: /etc/molesignal, readOnly: true }
+      volumes:
+        - name: cfg
+          configMap: { name: molesignal-config }
+        - name: license
+          secret: { secretName: molesignal-license, optional: true }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: connector
+  namespace: molesignal
+spec:
+  selector: { app: molesignal, role: connector }
+  ports:
+    - { name: http, port: 5080, targetPort: http }
+  type: ClusterIP

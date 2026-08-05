@@ -1,0 +1,344 @@
+{
+  "activation": {
+    "title": "快速开始",
+    "drawer_description": "完成当前工作区的基础配置步骤。",
+    "complete_title": "快速开始已完成",
+    "progress": "已完成 {{completed}}/{{total}}",
+    "progress_short": "{{completed}}/{{total}}",
+    "ready": "核心工作流已激活",
+    "empty": "完成前三步即可让该组织进入可运营状态。",
+    "open": "打开",
+    "steps": {
+      "datasource": {
+        "title": "接入数据源",
+        "description": "发送第一条日志、指标或链路数据流。"
+      },
+      "dashboard": {
+        "title": "创建仪表盘",
+        "description": "为团队固定一个运营视图。"
+      },
+      "alert": {
+        "title": "创建告警",
+        "description": "定义第一个服务或平台信号。"
+      },
+      "pipeline": {
+        "title": "自动化流水线",
+        "description": "调度数据移动或回填工作流。"
+      },
+      "sample_data": {
+        "title": "加载示例数据",
+        "description": "使用 HTTP JSON 指南加载一条小型预览流。"
+      }
+    },
+    "load": "加载",
+    "loading": "加载中…",
+    "load_success": "已加载 {{rows}} 行样例数据（日志 / 指标 / 链路）",
+    "done": "已完成"
+  },
+  "home": {
+    "title": "首页",
+    "subtitle": "系统状态、异常与下一步操作",
+    "loading": "加载中…",
+    "view_all": "查看全部",
+    "sidebar_label": "运维上下文",
+    "status": {
+      "healthy": "正常",
+      "degraded": "异常",
+      "delayed": "延迟",
+      "no_data": "无数据",
+      "unknown": "未知"
+    },
+    "critical": {
+      "title": "严重 · {{count}} 个触发中"
+    },
+    "toolbar": {
+      "quick_start": "快速开始",
+      "refresh": "刷新",
+      "new": "新建",
+      "window_24h": "最近 24 小时",
+      "window_7d": "最近 7 天",
+      "new_dashboard": "新建仪表盘",
+      "new_alert": "新建告警规则",
+      "new_stream": "新建数据流",
+      "new_pipeline": "新建流水线",
+      "new_function": "新建函数"
+    },
+    "kpis": {
+      "label": "系统关键指标",
+      "ingest_status": "数据接入状态",
+      "last_received": "最后接收：{{when}}",
+      "active_alerts": "当前告警",
+      "alert_detail": "{{firing}} 个触发中 · {{acknowledged}} 个已确认",
+      "ingested_bytes": "原始摄入量",
+      "ingest_detail": "{{rate}} · {{rows}} 个事件",
+      "stored_bytes": "压缩后数据量",
+      "compression_pending": "等待原始摄入计量",
+      "compression_saved": "较原始体积减少 {{percent}}%",
+      "compression_overhead": "小批量存储开销 +{{percent}}%",
+      "attention_streams": "需关注数据流",
+      "attention_detail": "共 {{total}} 个可观测数据流",
+      "active_sources": "活跃数据源",
+      "probe_detail": "{{succeeded}} / {{total}} 个元数据探测成功"
+    },
+    "health": {
+      "title": "系统健康概览",
+      "total": "所选时段合计",
+      "signals": "信号状态",
+      "empty": "尚未注册可观测数据流。",
+      "no_window_data": "所选时段暂无数据",
+      "metrics": {
+        "ingested": "原始摄入",
+        "stored": "压缩存储",
+        "events": "事件数"
+      }
+    },
+    "resources": {
+      "title": "资源",
+      "functions": "函数",
+      "alerts": "告警",
+      "pipelines": "流水线",
+      "dashboards": "仪表盘"
+    },
+    "streams": {
+      "title": "重点数据流",
+      "empty": "尚未注册数据流。",
+      "columns": {
+        "stream": "数据流名称",
+        "type": "类型",
+        "status": "状态",
+        "rate": "摄入速率",
+        "last_received": "最后接收",
+        "action": "操作"
+      }
+    },
+    "activity": {
+      "title": "最近活动",
+      "empty_title": "暂无最近活动",
+      "empty_description": "创建仪表盘、告警或流水线后，相关操作会显示在这里。",
+      "create_alert": "创建告警"
+    },
+    "on_call": {
+      "title": "当前值班",
+      "mine_title": "我的值班",
+      "active_title": "正在值班",
+      "active_badge": "值班中",
+      "coverage_gap_badge": "需要补位",
+      "override_title": "临时替班生效中",
+      "gap_title": "值班覆盖异常",
+      "view": "查看",
+      "arrange": "立即安排",
+      "empty_title": "尚未配置值班排班",
+      "empty_description": "配置排班后可在首页查看当前负责人。",
+      "gap_description": "当前无人值班，需要立即补齐覆盖。",
+      "no_current": "当前暂无值班人",
+      "unknown_member": "未知成员",
+      "unassigned_team": "未关联团队",
+      "you_are_on_call": "你当前正在值班",
+      "currently_on_call": "正在值班",
+      "override_description": "{{current}} 正在替代 {{original}}",
+      "override_until_label": "替班截至",
+      "next_handoff": "下次交接",
+      "next_label": "下一位",
+      "remaining_label": "剩余时间",
+      "remaining": "剩余 {{duration}}",
+      "shift_progress": "本次值班进度",
+      "overview_title": "本次值班概览",
+      "elapsed_label": "已值班",
+      "shift_incidents": "本班事件",
+      "acknowledged_label": "已确认",
+      "escalated_label": "已升级",
+      "no_escalation_policy": "未关联升级策略",
+      "more_escalation_policies": "{{name}} +{{count}}",
+      "started_at": "{{time}} 开始",
+      "no_handoff": "暂无计划交接",
+      "today_at": "今天 {{time}}",
+      "tomorrow_at": "明天 {{time}}",
+      "pending_label": "待确认",
+      "pending_incidents": "个事件待确认",
+      "no_pending": "没有待确认事件",
+      "pending_summary_one": "{{count}} 个事件需要确认",
+      "pending_summary_other": "{{count}} 个事件需要确认",
+      "open_incidents": "打开事件",
+      "view_schedule": "查看排班"
+    },
+    "dashboards": {
+      "title": "常用仪表盘",
+      "empty_title": "还没有仪表盘",
+      "empty_description": "创建一个仪表盘，固定团队最常查看的运营视图。",
+      "panel_count": "{{count}} 个面板"
+    }
+  },
+  "datasource": {
+    "endpoint": "端点",
+    "copy_endpoint": "复制端点",
+    "ingestion_token": "接入 Token",
+    "rum_client_token": "RUM Client Token",
+    "copy_token": "复制 Token",
+    "token_loading": "加载中…",
+    "token_description": "默认接入 token - 粘贴到上面的 Authorization: Bearer 头里即可。可在 API Token 页管理或新建。",
+    "validation": "验证",
+    "endpoint_description": "用下方 token 把遥测数据 POST 到此端点即可接入。",
+    "test_event": "发送测试事件",
+    "test_event_sending": "发送中…",
+    "test_event_sent": "已发送 · {{accepted}} 接收 · {{rejected}} 拒绝"
+  },
+  "datasource_page": {
+    "title": "数据源接入中心",
+    "subtitle": "选择数据源、部署采集器并验证真实数据接收",
+    "search_placeholder": "搜索数据源、平台或接入方式…",
+    "api_tokens": "API Token",
+    "custom_source": "自定义接入",
+    "matching": "{{count}} 个匹配项",
+    "sources_summary": "{{count}} 个数据源 · {{category}}",
+    "no_match": "没有数据源匹配 \"{{search}}\"",
+    "no_match_filter": "当前筛选下没有数据源。",
+    "method_filter": "接入方式",
+    "status_auto_refresh": "接收状态每 30 秒刷新",
+    "category_navigation": "数据源分类",
+    "categories": {
+      "recommended": "推荐",
+      "infrastructure": "基础设施",
+      "cloud": "云服务",
+      "databases": "数据库",
+      "queues": "消息队列",
+      "applications": "应用与语言",
+      "security": "安全",
+      "custom": "自定义"
+    },
+    "methods": {
+      "all": "全部方式",
+      "native": "原生集成",
+      "otel": "OpenTelemetry",
+      "collector": "OTel Collector",
+      "api": "HTTP / API"
+    },
+    "signals": {
+      "all": "全部",
+      "logs": "日志",
+      "metrics": "指标",
+      "traces": "链路",
+      "profiles": "Profiles"
+    },
+    "source_status": {
+      "verified": "已验证",
+      "signal_active": "信号活跃",
+      "delayed": "接收延迟",
+      "attention": "需关注",
+      "unverified": "未验证"
+    },
+    "group_protocol": "协议接入",
+    "group_source": "集成来源",
+    "category": "分类: {{category}}",
+    "docs": "文档 ↗",
+    "connect_title": "接入 {{source}}",
+    "view_receive_status": "查看接收状态",
+    "verify_connection": "验证接入",
+    "setup_progress": "接入进度",
+    "progress_count": "已完成 {{completed}}/{{total}} · 当前第 {{current}} 步",
+    "steps": {
+      "prepare": {
+        "title": "准备接入信息",
+        "description": "确认写入端点、应用标识与当前接入场景对应的 Token。"
+      },
+      "deploy": {
+        "title": "部署采集器",
+        "description": "按步骤安装并配置采集器；命令中的端点和 Token 已替换为当前环境的真实值。"
+      },
+      "verify": {
+        "title": "验证数据接收",
+        "description": "检查 MoleSignal 接收端，并读取最近 1 小时真实数据确认数据是否到达。"
+      },
+      "complete": {
+        "title": "完成接入",
+        "description": "验证成功后完成配置，并进入查询或流水线继续处理数据。"
+      }
+    },
+    "step_status": {
+      "complete": "已完成",
+      "active": "进行中",
+      "pending": "未开始"
+    },
+    "ready": "已就绪",
+    "required": "必填",
+    "create_dedicated_token": "生成独立 Token",
+    "manage_tokens": "管理 Token",
+    "show_token": "显示 Token",
+    "hide_token": "隐藏 Token",
+    "token_permission": "角色",
+    "token_workspace": "工作区",
+    "token_expiry": "有效期",
+    "token_never_expires": "永久",
+    "token_load_failed": "无法加载接入 Token，请确认拥有 API Token 管理权限。",
+    "rum_application_id": "RUM 应用 ID",
+    "rum_application_hint": "稳定标识一个移动端应用；同一应用的事件、Token 和调试产物必须使用相同值。",
+    "rum_application_invalid": "仅支持 1–128 位字母、数字、点、下划线、冒号或连字符。",
+    "rum_application_required": "先填写有效的 RUM 应用 ID，系统才会签发该应用专属 Token。",
+    "rum_application_confirm": "使用此应用",
+    "rum_application_confirmed": "应用已确认",
+    "rum_application_confirm_hint": "确认后才会签发或复用该应用专属的 RUM Client Token。",
+    "deployment_confirm": "我已完成以上部署和配置",
+    "deployment_confirm_hint": "勾选只记录当前操作进度；真实接入状态仍以第三步检测结果为准。",
+    "validation_overview_unavailable": "暂时无法读取接收概览。",
+    "validation_endpoint_failed": "接收端健康检查失败。",
+    "validating": "检测中…",
+    "recheck": "重新检测",
+    "validation_state": {
+      "idle": {
+        "title": "等待验证接入",
+        "description": "点击验证后，将检查接收端并读取最近 1 小时的真实信号数据。"
+      },
+      "success": {
+        "title": "已检测到数据",
+        "description": "{{active}} / {{total}} 个支持的信号最近有数据，可继续完成接入。"
+      },
+      "warning": {
+        "title": "接收端正常，但数据状态需要确认",
+        "description": "最近 1 小时检测到 {{active}} / {{total}} 个支持信号；请检查部署或等待下一批数据。"
+      },
+      "error": {
+        "title": "验证失败",
+        "description": "无法完成接收端与数据状态检查。"
+      }
+    },
+    "validation_metrics": {
+      "receiver": "接收端状态",
+      "last_received": "最后收到数据",
+      "streams": "活跃数据流",
+      "volume": "最近 1 小时"
+    },
+    "receiver_healthy": "正常 · {{ms}} ms",
+    "receiver_failed": "异常",
+    "not_checked": "未检测",
+    "validation_volume": "{{rate}} · {{rows}} 行 · {{bytes}}",
+    "possible_causes": "可能原因",
+    "cause_collector": "采集器尚未启动，或当前配置没有产生遥测数据。",
+    "cause_token": "Token 无效、已过期，或写入角色与当前配置不匹配。",
+    "cause_network": "采集器无法访问接入端点，或代理 / 防火墙阻断请求。",
+    "troubleshooting_command": "本地排查命令",
+    "receiver_scope_note": "当前验证基于 MoleSignal 接收端和真实数据流；采集器 Pod / Agent 的进程状态需在部署环境中通过上方命令确认。",
+    "ready_to_complete": "真实数据已经到达，可以完成本次接入。",
+    "complete_requires_validation": "完成配置前需要先通过数据接收验证。",
+    "complete_hint": "完成后可直接查看数据，或创建流水线进行清洗、转换和路由。",
+    "complete_setup": "完成配置",
+    "connection_complete": "{{source}} 接入已完成",
+    "connection_complete_hint": "接收验证已通过。下一步可以检查字段质量，或建立处理流水线。",
+    "view_received_data": "查看已接收数据",
+    "create_pipeline": "创建流水线",
+    "catalogue_meta": "接入目录：{{category}}",
+    "validation_prefix": "数据通常会在 30-60 秒内出现。打开",
+    "validation_or": "或",
+    "validation_suffix": "页面，确认对应的 Stream 已经开始有数据。如果一直没有数据，参考",
+    "validation_doc_suffix": "文档。",
+    "logs": "Logs",
+    "streams": "Streams",
+    "troubleshooting": "故障排查",
+    "health_check": "检查后端健康",
+    "health_checking": "检查中…",
+    "health_ok": "OK · {{ms}} ms",
+    "copied": "已复制",
+    "copy": "复制",
+    "expand_code": "展开代码",
+    "collapse_code": "收起代码",
+    "empty_select_source": "从左侧选择数据源以查看接入指南。"
+  }
+}

@@ -1,0 +1,81 @@
+{
+  "title": "Account settings",
+  "subtitle": "Manage your profile, security, notify preferences, and workspace identity.",
+  "nav": {
+    "groups": {
+      "personal": "Personal settings",
+      "access": "Security & access",
+      "workspace": "Workspace"
+    },
+    "items": {
+      "profile": "Profile",
+      "preferences": "Preferences",
+      "notify": "Notify",
+      "security": "Security & sign-in",
+      "sessions": "Active sessions",
+      "workspace_identity": "Workspace & identity"
+    }
+  },
+  "profile": {
+    "title": "Profile",
+    "subtitle": "This information represents you throughout MoleSignal.",
+    "display_name": "Display name",
+    "email": "Sign-in email",
+    "email_hint": "Your email is managed by an administrator or identity provider and cannot be changed here.",
+    "bio": "About you (optional)",
+    "bio_hint": "Briefly describe your responsibilities or team, up to 500 characters.",
+    "change_avatar": "Change avatar",
+    "remove_avatar": "Remove",
+    "avatar_hint": "PNG, JPEG, or WebP, up to 2 MB.",
+    "avatar_too_large": "The avatar must be no larger than 2 MB.",
+    "save": "Save changes"
+  },
+  "preferences": {
+    "title": "Preferences",
+    "subtitle": "Saved to your account and used above workspace defaults; query pages may temporarily override time display."
+  },
+  "security": {
+    "title": "Security & sign-in",
+    "subtitle": "Manage the sign-in and security capabilities of this account.",
+    "password": "Password",
+    "password_description": "Receive a secure password reset link at your sign-in email.",
+    "change_password": "Change password",
+    "reset_sent": "If this email can receive mail, a password reset message has been sent.",
+    "mfa": "Multi-factor authentication",
+    "mfa_description": "Multi-factor authentication is not configured for this deployment.",
+    "passkeys": "Passkeys",
+    "passkeys_description": "Passkey sign-in is not configured for this deployment.",
+    "not_configured": "Not configured"
+  },
+  "sessions": {
+    "title": "Active sessions",
+    "subtitle": "View and manage the sign-in state on this device.",
+    "current": "Current session",
+    "current_device_description": "Current browser · active now",
+    "current_only": "Only the current device can be managed today. Other devices will appear when server-side session storage is enabled.",
+    "sign_out": "Sign out this device"
+  },
+  "workspace": {
+    "title": "Workspace & identity",
+    "subtitle": "View your workspaces, roles, and advanced identifiers used by automation.",
+    "columns": {
+      "workspace": "Workspace",
+      "role": "Role",
+      "status": "Status"
+    },
+    "current": "Current",
+    "current_disabled": "You are already using this workspace.",
+    "organization_disabled": "This organization is disabled by a platform administrator.",
+    "switch": "Switch",
+    "switching": "Switching…",
+    "switching_disabled": "A workspace switch is already in progress.",
+    "advanced": "Advanced information",
+    "user_id": "User ID",
+    "org_id": "Organization ID",
+    "org_slug": "Organization slug",
+    "org_slug_hint": "Used in APIs, resource paths, and automation references.",
+    "copy": "Copy",
+    "copied": "Copied",
+    "api_tokens": "Manage workspace API tokens"
+  }
+}

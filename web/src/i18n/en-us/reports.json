@@ -1,0 +1,284 @@
+{
+  "title": "Reports",
+  "subtitle": "Manage report schedules, generations, and delivery results in one place.",
+  "actions": {
+    "instant_export": "Export now",
+    "new_report": "New report",
+    "share": "Share",
+    "export": "Export",
+    "edit": "Edit",
+    "enable": "Enable",
+    "pause": "Pause",
+    "delete": "Delete schedule",
+    "cancel": "Cancel",
+    "add": "Add",
+    "save_and_enable": "Save and enable",
+    "save_changes": "Save changes",
+    "use_template": "Use template",
+    "view_error": "View error",
+    "close": "Close",
+    "remove": "Remove"
+  },
+  "tabs": {
+    "schedules": "Schedules",
+    "history": "Generation history",
+    "templates": "Template library"
+  },
+  "kpis": {
+    "running": "Running",
+    "next_24h": "Deliveries in 24h",
+    "success_rate": "30-day success rate",
+    "failed": "Unresolved failures"
+  },
+  "filters": {
+    "search_schedules": "Search reports or sources…",
+    "search_history": "Search reports or recipients…",
+    "all_statuses": "All statuses",
+    "all_sources": "All sources",
+    "all_results": "All results",
+    "enabled": "Running",
+    "paused": "Paused",
+    "dashboard": "Dashboard",
+    "saved_view": "Saved view",
+    "sent": "Successful",
+    "failed": "Failed",
+    "pending": "Processing"
+  },
+  "empty": {
+    "title": "Start with a common report",
+    "description": "Choose a template, then select a data source and recipients — or begin with a blank report.",
+    "custom_title": "Custom report",
+    "custom_description": "Configure content, schedule, and delivery from scratch.",
+    "no_results_title": "No matching reports",
+    "no_results_description": "Try a different search term or filter."
+  },
+  "table": {
+    "name_source": "Report and source",
+    "schedule": "Schedule",
+    "next_run": "Next generation",
+    "last_result": "Latest result",
+    "recipients": "Recipients",
+    "status": "Status",
+    "actions": "Actions",
+    "never": "Never generated",
+    "first_run": "Waiting for first run",
+    "recipient_more": "{{count}} more"
+  },
+  "status": {
+    "enabled": "Running",
+    "paused": "Paused",
+    "sent": "Successful",
+    "failed": "Failed",
+    "pending": "Processing",
+    "unknown": "Unknown"
+  },
+  "schedule": {
+    "hourly": "Every hour",
+    "every_6_hours": "Every 6 hours",
+    "every_12_hours": "Every 12 hours",
+    "daily": "Every 24 hours",
+    "weekly": "Every 7 days",
+    "custom": "Advanced cron",
+    "custom_summary": "Cron: {{value}}",
+    "timezone_suffix": "{{schedule}} · {{timezone}}",
+    "advanced_hint": "Advanced cron currently follows the scheduler's 24-hour fallback. Prefer an interval above when possible."
+  },
+  "source": {
+    "dashboard": "Dashboard",
+    "saved_view": "Saved view",
+    "missing": "No source selected",
+    "unavailable": "Source unavailable"
+  },
+  "history": {
+    "empty_title": "No generations yet",
+    "empty_description": "Format, recipient, and delivery results appear here after a report first runs.",
+    "partial_error": "Delivery history for some reports is temporarily unavailable.",
+    "columns": {
+      "report": "Report",
+      "generated_at": "Generated",
+      "recipient": "Delivery target",
+      "attempt": "Attempt",
+      "result": "Result",
+      "details": "Details"
+    },
+    "error_title": "Delivery failure details",
+    "error_description": "The latest delivery to this recipient did not succeed.",
+    "error_report": "Report",
+    "error_recipient": "Recipient",
+    "error_time": "Occurred",
+    "error_message": "Error message",
+    "no_error_message": "The backend did not return a detailed error."
+  },
+  "templates": {
+    "api_warning": "Custom templates could not be loaded. Built-in templates are still available.",
+    "source_badge": "{{source}} template",
+    "builtin_badge": "Built-in",
+    "custom_badge": "Custom",
+    "new_template": "New template",
+    "new_title": "New report template",
+    "edit_title": "Edit report template",
+    "editor_description": "Define reusable content sources and default output settings.",
+    "basic_information": "Basic information",
+    "default_output": "Default output",
+    "source_hint": "Choose the content type that can be bound when this template is used.",
+    "source_binding_hint": "The template stores only the source type. Choose a specific dashboard or saved view when creating a report schedule.",
+    "dashboard_format_hint": "Dashboards include charts and layout, so their templates always generate PDF.",
+    "custom_range_hint": "Choose the specific data range when creating a report schedule.",
+    "source_descriptions": {
+      "dashboard": "Includes charts and layout for readable PDF reports",
+      "saved_view": "Includes query results for detailed data and audit lists"
+    },
+    "format_descriptions": {
+      "pdf": "Best for reading and sharing",
+      "csv": "Best for spreadsheet analysis",
+      "json": "Best for automation"
+    },
+    "create_template": "Create template",
+    "save_changes": "Save changes",
+    "delete_template": "Delete template",
+    "toast_created": "Custom template created",
+    "toast_updated": "Custom template updated",
+    "toast_deleted": "Custom template deleted",
+    "confirm_delete": "Delete “{{name}}”? Existing reports created from it will not be affected.",
+    "fields": {
+      "name": "Template name",
+      "description": "Description",
+      "description_optional": "Description (optional)",
+      "source_type": "Source type",
+      "format": "Default format",
+      "time_range": "Default data range"
+    },
+    "placeholders": {
+      "name": "For example: Core services monthly",
+      "description": "Describe the use case, included content, and intended audience."
+    },
+    "errors": {
+      "name_required": "Enter a template name."
+    },
+    "platform_health": {
+      "name": "Platform health weekly",
+      "description": "Summarize availability, latency, errors, and capacity trends for core services."
+    },
+    "rum_experience": {
+      "name": "User experience daily",
+      "description": "Aggregate web performance, error rate, and key-page experience changes."
+    },
+    "alert_review": {
+      "name": "Alert review",
+      "description": "Review alert volume, recovery time, affected services, and noisy rules."
+    },
+    "sla_compliance": {
+      "name": "SLA compliance monthly",
+      "description": "Summarize service availability, SLA attainment, error-budget burn, and breach risk."
+    },
+    "saved_query": {
+      "name": "Query result snapshot",
+      "description": "Export a saved view on a schedule for detailed analysis or audit lists."
+    }
+  },
+  "workbench": {
+    "new_title": "New report",
+    "edit_title": "Edit report",
+    "subtitle": "Configure content, generation, and delivery while the report structure updates on the right.",
+    "steps": {
+      "content": "Content and scope",
+      "schedule": "Generation schedule",
+      "delivery": "Delivery"
+    },
+    "step_descriptions": {
+      "content": "Choose the report's data source and coverage.",
+      "schedule": "Use a readable interval, and only enter cron when necessary.",
+      "delivery": "Add recipients and choose a generated format."
+    },
+    "fields": {
+      "name": "Report name",
+      "description": "Purpose",
+      "source_type": "Source type",
+      "source": "Data source",
+      "time_range": "Data range",
+      "frequency": "Generation frequency",
+      "cron": "Cron expression",
+      "timezone": "Report timezone",
+      "recipients": "Delivery targets",
+      "format": "Generated format",
+      "enabled": "Enable after saving"
+    },
+    "placeholders": {
+      "name": "For example: Platform health weekly",
+      "description": "Describe the audience and purpose of this report…",
+      "source": "Choose a dashboard or saved view",
+      "cron": "0 9 * * 1",
+      "recipient": "Email, webhook URL, or S3 path"
+    },
+    "hints": {
+      "source_empty": "There are no available sources. Create a dashboard or saved view first.",
+      "recipients": "Supports email, HTTPS webhooks, and S3 paths. Each target gets its own delivery result.",
+      "enabled": "Turn this off to save the report in a paused state."
+    },
+    "ranges": {
+      "previous_1_hour": "Previous 1 hour",
+      "previous_24_hours": "Previous 24 hours",
+      "previous_7_days": "Previous 7 days",
+      "previous_30_days": "Previous 30 days",
+      "previous_calendar_day": "Previous calendar day",
+      "previous_calendar_week": "Previous calendar week",
+      "previous_calendar_month": "Previous calendar month",
+      "custom": "Custom"
+    },
+    "recipient_kinds": {
+      "email": "Email",
+      "webhook": "Webhook",
+      "s3": "S3",
+      "slack": "Slack"
+    },
+    "formats": {
+      "pdf_description": "Best for reading and archiving",
+      "png_description": "Best for collaboration tools",
+      "csv_description": "Best for detailed analysis",
+      "json_description": "Best for system integrations"
+    },
+    "preview": {
+      "title": "Live preview",
+      "sample_badge": "Sample data",
+      "report_label": "MoleSignal Report",
+      "range_label": "Data range",
+      "source_label": "Data source",
+      "availability": "Availability",
+      "latency": "P95 latency",
+      "alerts": "Alerts",
+      "trend": "Key trend",
+      "footer": "{{format}} · {{schedule}}"
+    }
+  },
+  "export_dialog": {
+    "title": "Export now",
+    "description": "Choose a saved report and generate a download using its current content and format.",
+    "report": "Report",
+    "format": "Format",
+    "range": "Data range",
+    "download": "Generate and download",
+    "empty": "Create and save a report schedule first."
+  },
+  "toast": {
+    "created": "Report schedule created",
+    "updated": "Report schedule updated",
+    "enabled": "Report schedule enabled",
+    "paused": "Report schedule paused",
+    "deleted": "Report schedule deleted",
+    "exported": "Report preview generated",
+    "link_copied": "Report short link copied: {{name}}",
+    "recipient_exists": "That delivery target already exists"
+  },
+  "confirm": {
+    "delete": "Delete “{{name}}”? Existing generation history cannot be restored from this storage."
+  },
+  "errors": {
+    "name_required": "Enter a report name.",
+    "source_required": "Choose a data source.",
+    "recipient_required": "Add at least one delivery target.",
+    "recipient_empty": "Enter a delivery target.",
+    "recipient_unsupported": "Slack delivery is not connected to the backend yet. Use email, webhook, or S3.",
+    "recipient_invalid_email": "Enter a valid email, HTTPS webhook URL, or S3 path.",
+    "share_failed": "Could not create or copy the report short link"
+  }
+}

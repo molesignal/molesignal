@@ -1,0 +1,643 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://molesignal.dev/contracts/dashboard/model/v2.schema.json",
+  "title": "MoleSignal Dashboard model v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "engine",
+    "schemaVersion",
+    "uid",
+    "title",
+    "tags",
+    "editable",
+    "defaultDashboard",
+    "timeSettings",
+    "refreshSettings",
+    "variables",
+    "annotations",
+    "links",
+    "layout",
+    "elements"
+  ],
+  "properties": {
+    "engine": { "const": "molesignal-dashboard" },
+    "schemaVersion": { "const": 2 },
+    "id": { "type": "string", "maxLength": 512 },
+    "uid": { "$ref": "#/$defs/nonEmptyString" },
+    "title": { "$ref": "#/$defs/nonEmptyString" },
+    "description": { "type": "string", "maxLength": 4096 },
+    "folderId": { "$ref": "#/$defs/nonEmptyString" },
+    "tags": {
+      "type": "array",
+      "maxItems": 64,
+      "items": { "type": "string", "minLength": 1, "maxLength": 128 }
+    },
+    "editable": { "type": "boolean" },
+    "defaultDashboard": { "type": "boolean" },
+    "timeSettings": { "$ref": "#/$defs/timeSettings" },
+    "refreshSettings": { "$ref": "#/$defs/refreshSettings" },
+    "interactionSettings": { "$ref": "#/$defs/interactionSettings" },
+    "variables": {
+      "type": "array",
+      "maxItems": 64,
+      "items": { "$ref": "#/$defs/variable" }
+    },
+    "annotations": {
+      "type": "array",
+      "maxItems": 64,
+      "items": { "$ref": "#/$defs/annotation" }
+    },
+    "links": {
+      "type": "array",
+      "maxItems": 64,
+      "items": { "$ref": "#/$defs/dashboardLink" }
+    },
+    "layout": { "$ref": "#/$defs/layout" },
+    "elements": {
+      "type": "array",
+      "maxItems": 256,
+      "items": { "$ref": "#/$defs/element" }
+    },
+    "version": { "type": "integer", "minimum": 1 },
+    "createdAt": { "type": "string", "maxLength": 128 },
+    "updatedAt": { "type": "string", "maxLength": 128 },
+    "createdBy": { "type": "string", "maxLength": 512 },
+    "updatedBy": { "type": "string", "maxLength": 512 },
+    "extensions": { "$ref": "#/$defs/extensions" }
+  },
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "extensions": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "timeSettings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["defaultFrom", "defaultTo", "timezone"],
+      "properties": {
+        "defaultFrom": { "$ref": "#/$defs/nonEmptyString" },
+        "defaultTo": { "$ref": "#/$defs/nonEmptyString" },
+        "timezone": { "$ref": "#/$defs/nonEmptyString" },
+        "hideTimePicker": { "type": "boolean" },
+        "fiscalYearStartMonth": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 11
+        },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "refreshSettings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "mode", "allowedIntervals"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "mode": { "enum": ["off", "interval", "live"] },
+        "defaultInterval": { "$ref": "#/$defs/nonEmptyString" },
+        "allowedIntervals": {
+          "type": "array",
+          "maxItems": 32,
+          "items": { "$ref": "#/$defs/nonEmptyString" }
+        },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "interactionSettings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cursorSync"],
+      "properties": {
+        "cursorSync": { "enum": ["off", "shared_crosshair"] },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "columns", "rowHeight", "gap"],
+      "properties": {
+        "type": { "const": "grid" },
+        "columns": { "type": "integer", "minimum": 1, "maximum": 48 },
+        "rowHeight": { "type": "number", "minimum": 2, "maximum": 64 },
+        "gap": { "type": "number", "minimum": 0, "maximum": 64 },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "gridPosition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "w", "h"],
+      "properties": {
+        "x": { "type": "integer", "minimum": 0 },
+        "y": { "type": "integer", "minimum": 0 },
+        "w": { "type": "integer", "minimum": 1 },
+        "h": { "type": "integer", "minimum": 1 },
+        "minW": { "type": "integer", "minimum": 1 },
+        "minH": { "type": "integer", "minimum": 1 },
+        "maxW": { "type": "integer", "minimum": 1 },
+        "maxH": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "queryOptions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "maxDataPoints": { "type": "integer", "minimum": 1, "maximum": 100000 },
+        "minInterval": { "$ref": "#/$defs/nonEmptyString" },
+        "cacheTimeout": { "$ref": "#/$defs/nonEmptyString" },
+        "timeoutMs": { "type": "integer", "minimum": 1, "maximum": 120000 },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "sharedQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourcePanelId", "sourceRefId"],
+      "properties": {
+        "sourcePanelId": { "$ref": "#/$defs/nonEmptyString" },
+        "sourceRefId": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "query": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["refId", "enabled", "dataSourceType", "query"],
+      "properties": {
+        "refId": { "$ref": "#/$defs/nonEmptyString" },
+        "enabled": { "type": "boolean" },
+        "dataSourceType": {
+          "enum": ["metrics", "logs", "traces", "profiles", "sql"]
+        },
+        "dataSourceId": { "$ref": "#/$defs/nonEmptyString" },
+        "query": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "legend": { "type": "string", "maxLength": 512 },
+        "format": { "type": "string", "maxLength": 64 },
+        "sharedQuery": { "$ref": "#/$defs/sharedQuery" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "transformation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "options"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "type": {
+          "enum": [
+            "filter_fields",
+            "rename_fields",
+            "organize_fields",
+            "calculate_field",
+            "reduce",
+            "group_by",
+            "sort_by",
+            "limit",
+            "join",
+            "merge",
+            "labels_to_fields",
+            "rows_to_fields",
+            "time_series_to_table"
+          ]
+        },
+        "disabled": { "type": "boolean" },
+        "options": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "visualization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "schemaVersion", "options"],
+      "properties": {
+        "type": {
+          "enum": [
+            "time_series",
+            "table",
+            "logs",
+            "stat",
+            "gauge",
+            "bar_gauge",
+            "bar_chart",
+            "heatmap",
+            "state_timeline",
+            "text"
+          ]
+        },
+        "schemaVersion": { "const": 1 },
+        "options": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "colorConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": { "enum": ["fixed", "palette", "thresholds", "continuous"] },
+        "value": { "type": "string" },
+        "scheme": { "type": "string" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "thresholdStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "color"],
+      "properties": {
+        "value": { "type": ["number", "null"] },
+        "color": { "$ref": "#/$defs/nonEmptyString" },
+        "label": { "type": "string" }
+      }
+    },
+    "thresholdConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "steps"],
+      "properties": {
+        "mode": { "enum": ["absolute", "percentage"] },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": { "$ref": "#/$defs/thresholdStep" }
+        }
+      }
+    },
+    "mappingResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "text": { "type": "string" },
+        "color": { "type": "string" },
+        "icon": { "type": "string" }
+      }
+    },
+    "valueMapping": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "value", "result"],
+          "properties": {
+            "type": { "const": "value" },
+            "value": true,
+            "result": { "$ref": "#/$defs/mappingResult" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "result"],
+          "properties": {
+            "type": { "const": "range" },
+            "from": { "type": "number" },
+            "to": { "type": "number" },
+            "result": { "$ref": "#/$defs/mappingResult" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "pattern", "result"],
+          "properties": {
+            "type": { "const": "regex" },
+            "pattern": { "type": "string" },
+            "result": { "$ref": "#/$defs/mappingResult" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "match", "result"],
+          "properties": {
+            "type": { "const": "special" },
+            "match": { "enum": ["null", "nan", "true", "false", "empty"] },
+            "result": { "$ref": "#/$defs/mappingResult" }
+          }
+        }
+      ]
+    },
+    "fieldConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "displayName": { "type": "string" },
+        "unit": { "type": "string" },
+        "decimals": { "type": "integer", "minimum": 0, "maximum": 20 },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "softMin": { "type": "number" },
+        "softMax": { "type": "number" },
+        "color": { "$ref": "#/$defs/colorConfig" },
+        "thresholds": { "$ref": "#/$defs/thresholdConfig" },
+        "mappings": {
+          "type": "array",
+          "maxItems": 128,
+          "items": { "$ref": "#/$defs/valueMapping" }
+        },
+        "noValue": { "type": "string" },
+        "custom": { "$ref": "#/$defs/extensions" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "overrideMatcher": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "value"],
+      "properties": {
+        "type": { "enum": ["field_name", "field_regex", "field_type", "query_ref"] },
+        "value": {}
+      }
+    },
+    "fieldOverride": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "matcher", "properties"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "matcher": { "$ref": "#/$defs/overrideMatcher" },
+        "properties": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "value"],
+            "properties": {
+              "id": { "$ref": "#/$defs/nonEmptyString" },
+              "value": {}
+            }
+          }
+        },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "dataLink": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "target", "variables", "includeTimeRange", "includeDashboardVariables", "openInNewTab"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "title": { "$ref": "#/$defs/nonEmptyString" },
+        "target": { "enum": ["logs", "metrics", "traces", "profiles", "dashboard", "external"] },
+        "url": { "type": "string" },
+        "variables": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "includeTimeRange": { "type": "boolean" },
+        "includeDashboardVariables": { "type": "boolean" },
+        "openInNewTab": { "type": "boolean" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "repeat": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["variable", "direction"],
+      "properties": {
+        "variable": { "$ref": "#/$defs/nonEmptyString" },
+        "direction": { "enum": ["horizontal", "vertical", "grid"] },
+        "maxPerRow": { "type": "integer", "minimum": 1, "maximum": 24 }
+      }
+    },
+    "timeOverride": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "relativeTime": { "$ref": "#/$defs/nonEmptyString" },
+        "timeShift": { "$ref": "#/$defs/nonEmptyString" },
+        "hideTimeInfo": { "type": "boolean" }
+      }
+    },
+    "panel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id", "title", "gridPos", "queryOptions", "queries", "transformations", "visualization", "fieldConfig", "overrides", "links"],
+      "properties": {
+        "kind": { "const": "panel" },
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "title": { "$ref": "#/$defs/nonEmptyString" },
+        "description": { "type": "string" },
+        "gridPos": { "$ref": "#/$defs/gridPosition" },
+        "queryOptions": { "$ref": "#/$defs/queryOptions" },
+        "queries": {
+          "type": "array",
+          "maxItems": 26,
+          "items": { "$ref": "#/$defs/query" }
+        },
+        "transformations": {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "$ref": "#/$defs/transformation" }
+        },
+        "visualization": { "$ref": "#/$defs/visualization" },
+        "fieldConfig": { "$ref": "#/$defs/fieldConfig" },
+        "overrides": {
+          "type": "array",
+          "maxItems": 128,
+          "items": { "$ref": "#/$defs/fieldOverride" }
+        },
+        "links": {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "$ref": "#/$defs/dataLink" }
+        },
+        "repeat": { "$ref": "#/$defs/repeat" },
+        "timeOverride": { "$ref": "#/$defs/timeOverride" },
+        "transparent": { "type": "boolean" },
+        "collapsed": { "type": "boolean" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "textElement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id", "title", "gridPos", "content", "mode"],
+      "properties": {
+        "kind": { "const": "text" },
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "gridPos": { "$ref": "#/$defs/gridPosition" },
+        "content": { "type": "string", "maxLength": 65536 },
+        "mode": { "enum": ["markdown", "plain"] },
+        "transparent": { "type": "boolean" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "groupElement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id", "title", "gridPos", "elements"],
+      "properties": {
+        "kind": { "const": "group" },
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "title": { "$ref": "#/$defs/nonEmptyString" },
+        "description": { "type": "string" },
+        "gridPos": { "$ref": "#/$defs/gridPosition" },
+        "collapsed": { "type": "boolean" },
+        "repeat": { "$ref": "#/$defs/repeat" },
+        "elements": {
+          "type": "array",
+          "maxItems": 256,
+          "items": { "$ref": "#/$defs/element" }
+        },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "rowElement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id", "title", "gridPos", "collapsed", "elements"],
+      "properties": {
+        "kind": { "const": "row" },
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "title": { "$ref": "#/$defs/nonEmptyString" },
+        "description": { "type": "string" },
+        "gridPos": { "$ref": "#/$defs/gridPosition" },
+        "collapsed": { "type": "boolean" },
+        "elements": {
+          "type": "array",
+          "maxItems": 256,
+          "items": { "$ref": "#/$defs/element" }
+        },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "tabItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "elements"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "title": { "$ref": "#/$defs/nonEmptyString" },
+        "elements": {
+          "type": "array",
+          "maxItems": 256,
+          "items": { "$ref": "#/$defs/element" }
+        },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "tabElement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id", "title", "gridPos", "tabs"],
+      "properties": {
+        "kind": { "const": "tab" },
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "title": { "$ref": "#/$defs/nonEmptyString" },
+        "description": { "type": "string" },
+        "gridPos": { "$ref": "#/$defs/gridPosition" },
+        "defaultTabId": { "$ref": "#/$defs/nonEmptyString" },
+        "tabs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": { "$ref": "#/$defs/tabItem" }
+        },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "element": {
+      "oneOf": [
+        { "$ref": "#/$defs/panel" },
+        { "$ref": "#/$defs/textElement" },
+        { "$ref": "#/$defs/groupElement" },
+        { "$ref": "#/$defs/rowElement" },
+        { "$ref": "#/$defs/tabElement" }
+      ]
+    },
+    "variableOption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "value"],
+      "properties": {
+        "label": { "type": "string" },
+        "value": {},
+        "selected": { "type": "boolean" }
+      }
+    },
+    "variable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "label", "type", "multi", "includeAll", "hide", "refresh"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "name": { "$ref": "#/$defs/nonEmptyString" },
+        "label": { "type": "string" },
+        "type": { "enum": ["query", "custom", "constant", "text", "interval", "data_source"] },
+        "query": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "options": {
+          "type": "array",
+          "maxItems": 256,
+          "items": { "$ref": "#/$defs/variableOption" }
+        },
+        "defaultValue": {},
+        "currentValue": {},
+        "multi": { "type": "boolean" },
+        "includeAll": { "type": "boolean" },
+        "hide": { "enum": ["none", "label", "variable"] },
+        "refresh": { "enum": ["never", "dashboard_load", "time_range_change"] },
+        "dependsOn": {
+          "type": "array",
+          "maxItems": 32,
+          "items": { "$ref": "#/$defs/nonEmptyString" }
+        },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "annotation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "enabled", "source", "display"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "name": { "$ref": "#/$defs/nonEmptyString" },
+        "enabled": { "type": "boolean" },
+        "source": { "enum": ["alerts", "deployments", "incidents", "maintenance", "custom"] },
+        "query": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "color": { "type": "string" },
+        "display": { "enum": ["line", "region", "marker"] },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "dashboardLink": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "type", "url", "includeTimeRange", "includeVariables", "openInNewTab"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "title": { "$ref": "#/$defs/nonEmptyString" },
+        "type": { "enum": ["dashboard", "external"] },
+        "url": { "type": "string" },
+        "includeTimeRange": { "type": "boolean" },
+        "includeVariables": { "type": "boolean" },
+        "openInNewTab": { "type": "boolean" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    }
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "states": {
+    "loading": {
+      "title": "Loading",
+      "description": "Fetching the latest data."
+    },
+    "empty": {
+      "title": "No data yet",
+      "description": "Create the first item or adjust the current filters."
+    },
+    "error": {
+      "title": "Request failed",
+      "description": "The backend returned an error."
+    },
+    "backend-pending": {
+      "title": "Awaiting backend",
+      "description": "This UI is ready, but the backing endpoint is not available yet."
+    },
+    "permission-denied": {
+      "title": "Permission required",
+      "description": "Your current role cannot access this workflow."
+    },
+    "license-gated": {
+      "title": "Pro feature",
+      "description": "This workflow requires an Pro license or SaaS plan."
+    },
+    "pro-required": {
+      "title": "Pro required",
+      "description": "This workflow requires an Pro license or SaaS plan."
+    },
+    "saas-only": {
+      "title": "SaaS only",
+      "description": "This workflow is available only in MoleSignal Cloud."
+    },
+    "trial-available": {
+      "title": "Trial available",
+      "description": "This workflow can be enabled during an active trial."
+    }
+  }
+}

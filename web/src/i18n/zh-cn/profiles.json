@@ -1,0 +1,215 @@
+{
+  "title": "持续性能分析",
+  "subtitle": "跨服务的 CPU、内存与锁竞争火焰图。",
+  "refresh": "刷新",
+  "live": {
+    "label": "实时",
+    "hint": "每 10 秒自动刷新"
+  },
+  "filters": {
+    "service": "服务",
+    "service_all": "全部服务",
+    "type": "Profile 类型",
+    "type_all": "全部类型",
+    "range": "时间范围",
+    "label": "标签筛选",
+    "label_placeholder": "key:value",
+    "apply": "应用",
+    "ranges": {
+      "m15": "最近 15 分钟",
+      "h1": "最近 1 小时",
+      "h6": "最近 6 小时",
+      "h24": "最近 24 小时",
+      "d7": "最近 7 天"
+    }
+  },
+  "profile_types": {
+    "cpu": "CPU",
+    "wall": "墙钟时间",
+    "alloc_space": "已分配内存",
+    "alloc_objects": "已分配对象",
+    "inuse_space": "在用内存",
+    "inuse_objects": "在用对象",
+    "goroutines": "Goroutine",
+    "lock": "锁竞争",
+    "samples": "样本"
+  },
+  "analysis": {
+    "filter_bar_aria": "性能分析筛选",
+    "clear_trace": "清除 Trace 筛选",
+    "total_value": "分析总量",
+    "mixed_types": "全部 Profile 类型",
+    "samples": "{{count}} 个样本",
+    "merged_profiles": "合并 Profiles",
+    "exact_selection": "按当前勾选精确合并",
+    "services": "服务",
+    "active_selection": "当前分析范围",
+    "duration": "分析时长",
+    "capture_duration": "所选采集窗口累计",
+    "hotspot": "热点函数",
+    "hot_self": "自身",
+    "hot_total": "累计",
+    "no_hotspot": "暂无热点函数",
+    "workspace_aria": "Profile 分析工作区",
+    "loading_flamegraph": "正在合并选中的 Profiles…",
+    "no_selection_title": "尚未选择参与分析的 Profile",
+    "no_selection_description": "展开下方列表并勾选至少一个 Profile。",
+    "selection_summary": "{{selected}} / {{total}} 个 Profile 参与分析"
+  },
+  "selection": {
+    "title": "参与分析的 Profiles",
+    "selected_summary": "已选择 {{selected}} / {{total}}",
+    "expand": "展开列表",
+    "collapse": "收起列表",
+    "description": "勾选项会直接控制上方合并火焰图；点击行可打开单个 Profile 详情。",
+    "select_all": "选择全部 Profiles",
+    "select_none": "取消选择全部 Profiles",
+    "row_aria": "切换 Profile {{id}} 是否参与分析"
+  },
+  "units": {
+    "nanoseconds": "纳秒",
+    "bytes": "字节",
+    "count": "次",
+    "samples": "样本"
+  },
+  "list": {
+    "title": "Profiles",
+    "kpi": {
+      "total_value": "总量",
+      "samples": "样本数",
+      "services": "服务数",
+      "hot_function": "热点函数"
+    },
+    "columns": {
+      "service": "服务",
+      "type": "类型",
+      "timestamp": "采集时间",
+      "duration": "时长",
+      "samples": "样本数",
+      "total_value": "合计",
+      "trace": "Trace"
+    },
+    "tooltip": {
+      "duration": "采集的墙钟时长（wall-clock）",
+      "total": "累计 on-CPU 时间（样本值之和）"
+    },
+    "view_flamegraph": "查看火焰图",
+    "open_profile": "打开 profile",
+    "empty_title": "当前窗口没有 profile",
+    "empty_description": "在 Datasource 配置接入（OTLP / Pyroscope / pprof），或用「上传」直接发送一个 pprof 文件。"
+  },
+  "flamegraph": {
+    "title": "火焰图",
+    "search_placeholder": "高亮帧…",
+    "reset_zoom": "重置缩放",
+    "fit_canvas": "重置视图",
+    "fullscreen": "全屏分析",
+    "exit_fullscreen": "退出全屏",
+    "resize": "拖动调整分析区高度，双击恢复默认高度",
+    "value_type": "取值",
+    "no_data_title": "没有可渲染的样本",
+    "no_data_description": "所选服务、类型与时间范围内没有匹配的 profile。",
+    "truncated_notice": "窗口内 profile 数超过合并上限，已展示均匀采样后的代表性结果。",
+    "frame_aria": "分析函数 {{name}}",
+    "frame_self": "自身",
+    "frame_total": "累计",
+    "frame_share": "占总量",
+    "self_help": "函数自身消耗，不包含子调用",
+    "total_help": "函数累计消耗，包含全部子调用",
+    "profiles_merged": "已合并 {{count}} 个 profile",
+    "view": {
+      "flame": "火焰图",
+      "tree": "调用树",
+      "top": "Top 函数"
+    },
+    "top": {
+      "function": "函数",
+      "self": "自身",
+      "self_pct": "自身占比",
+      "cum": "累计",
+      "cum_pct": "累计占比",
+      "sort_label": "排序",
+      "select_hint": "选择函数并查看详情",
+      "jump_hint": "点击在火焰图中高亮该函数"
+    },
+    "tree": {
+      "expand": "展开子调用",
+      "collapse": "收起子调用"
+    },
+    "details": {
+      "title": "函数详情",
+      "focus": "聚焦火焰图",
+      "call_tree": "在调用树中查看",
+      "compare": "对比",
+      "occurrences": "出现次数",
+      "service": "服务",
+      "all_services": "全部服务",
+      "call_path": "调用路径",
+      "children": "直接子调用",
+      "no_children": "没有直接子调用",
+      "depth": "调用深度"
+    },
+    "tooltip": {
+      "focus_hint": "点击可聚焦该调用帧并查看函数详情。"
+    },
+    "legend": {
+      "width": "宽度",
+      "cumulative": "累计耗时",
+      "color": "颜色",
+      "self": "自身耗时",
+      "cold": "冷",
+      "hot": "热"
+    }
+  },
+  "compare": {
+    "title": "对比 profile",
+    "subtitle": "用基线窗口对比目标窗口，看清哪里变热了。",
+    "baseline": "基线窗口",
+    "comparison": "对比窗口",
+    "run": "运行差分",
+    "legend_increase": "增加",
+    "legend_decrease": "减少",
+    "legend_neutral": "无变化",
+    "empty_title": "选择两个窗口进行差分",
+    "empty_description": "选好基线与对比时间范围后运行差分，即可高亮回归。",
+    "baseline_count": "基线 {{count}} 个 profile",
+    "comparison_count": "对比 {{count}} 个 profile"
+  },
+  "detail": {
+    "title": "Profile",
+    "back": "返回 profiles",
+    "download": "下载 pprof",
+    "downloading": "下载中…",
+    "open_trace": "打开关联 trace",
+    "view_span_flamegraph": "查看该 span 的火焰图",
+    "metadata": {
+      "service": "服务",
+      "type": "类型",
+      "captured": "采集时间",
+      "duration": "时长",
+      "samples": "样本数",
+      "trace": "Trace",
+      "span": "Span"
+    },
+    "unsymbolized": "包含未符号化的帧"
+  },
+  "upload": {
+    "button": "上传",
+    "title": "上传 profile",
+    "description": "上传 gzip 压缩或原始 pprof；OTLP / Pyroscope 接入请见 Datasource。",
+    "service": "服务",
+    "service_placeholder": "my-service",
+    "type": "Profile 类型",
+    "file": "pprof 文件",
+    "choose_file": "选择文件…",
+    "submit": "上传",
+    "uploading": "上传中…",
+    "success": "profile 已上传",
+    "error": "上传失败",
+    "datasource_link": "配置 OTLP / Pyroscope"
+  },
+  "errors": {
+    "load_failed": "加载 profiles 失败",
+    "flamegraph_failed": "构建火焰图失败"
+  }
+}

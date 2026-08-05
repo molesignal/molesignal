@@ -1,0 +1,80 @@
+name: integration tests
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'build.rs'
+      - 'src/sqlx-shim/**'
+      - 'proto/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'Makefile'
+      - '.github/workflows/it.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  # 关掉 debug info：默认 debug=2 让 binary 几 GB，rust-lld link 时把磁盘/内存
+  # 吃满 → SIGBUS。CI 不需要本地级 backtrace 精度。
+  # 关键：集成测试二进制走 `test` profile，不继承这里的 dev override，所以必须
+  # 单独关掉 test profile 的 debug，否则 it_* 二进制仍带 debug=2 → 链接 SIGBUS
+  # （这正是此前只设 DEV_DEBUG 仍偶发 SIGBUS 的原因）。
+  CARGO_PROFILE_DEV_DEBUG: "0"
+  CARGO_PROFILE_TEST_DEBUG: "0"
+  # 限制并发 link：默认会同时 link 多个 test binary，runner 内存峰值打满。
+  CARGO_BUILD_JOBS: "2"
+
+jobs:
+  it:
+    name: it
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      docker:
+        image: docker:24-dind
+    steps:
+      - uses: actions/checkout@v4
+
+      # ubuntu-latest 只有 ~14GB 空闲磁盘；本 workspace（datafusion/arrow/tantivy +
+      # 几十个 it_* 测试二进制）的 target 目录会撑爆 → rust-lld mmap 写输出失败报
+      # SIGBUS。先清掉用不到的预装 SDK 腾出 ~20GB+。
+      - name: free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
+            /usr/local/lib/android /usr/local/share/boost "$AGENT_TOOLSDIRECTORY" || true
+          df -h /
+
+      - name: install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ca-certificates curl protobuf-compiler
+
+      - name: install Buf CLI
+        run: |
+          sudo curl -sSL "https://github.com/bufbuild/buf/releases/latest/download/buf-$(uname -s)-$(uname -m)" \
+            -o /usr/local/bin/buf
+          sudo chmod +x /usr/local/bin/buf
+          buf --version
+
+      - name: generate protobuf code
+        run: make proto
+
+      - name: install rust toolchain
+        # 跟随仓库根 `rust-toolchain.toml`（1.96）。
+        uses: dtolnay/rust-toolchain@1.96
+
+      - name: cache cargo registry + target
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: it
+
+      - name: compile integration tests (no-run)
+        run: cargo test -p molesignal --tests --no-run
+
+      - name: run integration tests
+        env:
+          MS_RUN_IT: '1'
+        run: |
+          cargo test -p molesignal --tests -- --test-threads=1

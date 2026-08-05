@@ -1,0 +1,364 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://molesignal.dev/contracts/dashboard/authoring/v1.schema.json",
+  "title": "MoleSignal Dashboard authoring specification v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["authoringVersion", "title", "elements"],
+  "properties": {
+    "authoringVersion": { "const": 1 },
+    "title": { "$ref": "#/$defs/title" },
+    "description": { "type": "string", "maxLength": 4096 },
+    "tags": {
+      "type": "array",
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 128 }
+    },
+    "folderId": { "$ref": "#/$defs/name" },
+    "timeRange": { "$ref": "#/$defs/timeRange" },
+    "refresh": { "$ref": "#/$defs/refresh" },
+    "variables": {
+      "type": "array",
+      "maxItems": 32,
+      "items": { "$ref": "#/$defs/variable" }
+    },
+    "elements": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": { "$ref": "#/$defs/element" }
+    }
+  },
+  "$defs": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "timeRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to"],
+      "properties": {
+        "from": { "$ref": "#/$defs/name" },
+        "to": { "$ref": "#/$defs/name" },
+        "timezone": { "$ref": "#/$defs/name" }
+      }
+    },
+    "refresh": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode"],
+          "properties": {
+            "mode": { "const": "off" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "interval"],
+          "properties": {
+            "mode": { "const": "interval" },
+            "interval": { "$ref": "#/$defs/name" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode"],
+          "properties": {
+            "mode": { "const": "live" }
+          }
+        }
+      ]
+    },
+    "size": {
+      "enum": ["small", "medium", "wide", "full"]
+    },
+    "legend": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "enum": ["hidden", "list", "table"] },
+        "placement": { "enum": ["bottom", "right"] },
+        "stats": {
+          "type": "array",
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": { "enum": ["last", "min", "max", "mean", "sum", "count"] }
+        }
+      }
+    },
+    "threshold": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "color"],
+      "properties": {
+        "value": { "type": ["number", "null"] },
+        "color": { "$ref": "#/$defs/name" },
+        "label": { "type": "string", "maxLength": 128 }
+      }
+    },
+    "visualization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "enum": [
+            "time_series",
+            "table",
+            "logs",
+            "stat",
+            "gauge",
+            "bar_gauge",
+            "bar_chart",
+            "heatmap",
+            "state_timeline"
+          ]
+        },
+        "unit": {
+          "enum": [
+            "none",
+            "short",
+            "percent",
+            "percentunit",
+            "bytes",
+            "decbytes",
+            "bytes_per_second",
+            "seconds",
+            "milliseconds",
+            "microseconds",
+            "nanoseconds",
+            "requests_per_second",
+            "operations_per_second"
+          ]
+        },
+        "reducer": { "enum": ["last", "last_not_null", "min", "max", "mean", "sum", "count"] },
+        "decimals": { "type": "integer", "minimum": 0, "maximum": 12 },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "thresholdMode": { "enum": ["absolute", "percentage"] },
+        "thresholds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/threshold" }
+        },
+        "legend": { "$ref": "#/$defs/legend" }
+      }
+    },
+    "promqlQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "expression"],
+      "properties": {
+        "kind": { "const": "promql" },
+        "expression": { "type": "string", "minLength": 1, "maxLength": 16384 },
+        "stream": { "$ref": "#/$defs/name" },
+        "legend": { "type": "string", "maxLength": 512 },
+        "format": { "enum": ["time_series", "table"] },
+        "step": { "$ref": "#/$defs/name" }
+      }
+    },
+    "sqlQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "stream", "statement"],
+      "properties": {
+        "kind": { "const": "sql" },
+        "stream": { "$ref": "#/$defs/name" },
+        "statement": { "type": "string", "minLength": 1, "maxLength": 32768 },
+        "timeColumn": { "$ref": "#/$defs/name" },
+        "legend": { "type": "string", "maxLength": 512 },
+        "format": { "enum": ["time_series", "table", "logs"] }
+      }
+    },
+    "traceQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "stream", "query"],
+      "properties": {
+        "kind": { "const": "trace" },
+        "stream": { "$ref": "#/$defs/name" },
+        "query": { "type": "string", "minLength": 1, "maxLength": 16384 },
+        "limit": { "type": "integer", "minimum": 1, "maximum": 1000 },
+        "legend": { "type": "string", "maxLength": 512 }
+      }
+    },
+    "profileQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "stream", "query", "profileType"],
+      "properties": {
+        "kind": { "const": "profile" },
+        "stream": { "$ref": "#/$defs/name" },
+        "query": { "type": "string", "minLength": 1, "maxLength": 16384 },
+        "profileType": { "$ref": "#/$defs/name" },
+        "aggregate": { "enum": ["sum", "mean", "max"] },
+        "legend": { "type": "string", "maxLength": 512 }
+      }
+    },
+    "query": {
+      "oneOf": [
+        { "$ref": "#/$defs/promqlQuery" },
+        { "$ref": "#/$defs/sqlQuery" },
+        { "$ref": "#/$defs/traceQuery" },
+        { "$ref": "#/$defs/profileQuery" }
+      ]
+    },
+    "panel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "title", "visualization", "queries"],
+      "properties": {
+        "kind": { "const": "panel" },
+        "title": { "$ref": "#/$defs/title" },
+        "description": { "type": "string", "maxLength": 2048 },
+        "size": { "$ref": "#/$defs/size" },
+        "visualization": { "$ref": "#/$defs/visualization" },
+        "queries": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": { "$ref": "#/$defs/query" }
+        },
+        "transparent": { "type": "boolean" }
+      }
+    },
+    "textBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "content"],
+      "properties": {
+        "kind": { "const": "text" },
+        "title": { "type": "string", "maxLength": 512 },
+        "content": { "type": "string", "minLength": 1, "maxLength": 65536 },
+        "mode": { "enum": ["markdown", "plain"] },
+        "size": { "$ref": "#/$defs/size" },
+        "transparent": { "type": "boolean" }
+      }
+    },
+    "section": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "title", "elements"],
+      "properties": {
+        "kind": { "const": "section" },
+        "title": { "$ref": "#/$defs/title" },
+        "description": { "type": "string", "maxLength": 2048 },
+        "collapsed": { "type": "boolean" },
+        "elements": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "oneOf": [
+              { "$ref": "#/$defs/panel" },
+              { "$ref": "#/$defs/textBlock" }
+            ]
+          }
+        }
+      }
+    },
+    "element": {
+      "oneOf": [
+        { "$ref": "#/$defs/panel" },
+        { "$ref": "#/$defs/textBlock" },
+        { "$ref": "#/$defs/section" }
+      ]
+    },
+    "customVariable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name", "values"],
+      "properties": {
+        "kind": { "const": "custom" },
+        "name": { "$ref": "#/$defs/name" },
+        "label": { "type": "string", "maxLength": 256 },
+        "values": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": { "type": ["string", "number", "boolean"] }
+        },
+        "defaultValue": { "type": ["string", "number", "boolean"] },
+        "multi": { "type": "boolean" },
+        "includeAll": { "type": "boolean" }
+      }
+    },
+    "queryVariable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name", "query"],
+      "properties": {
+        "kind": { "const": "query" },
+        "name": { "$ref": "#/$defs/name" },
+        "label": { "type": "string", "maxLength": 256 },
+        "query": { "$ref": "#/$defs/query" },
+        "defaultValue": { "type": ["string", "number", "boolean"] },
+        "multi": { "type": "boolean" },
+        "includeAll": { "type": "boolean" },
+        "refresh": { "enum": ["dashboard_load", "time_range_change"] }
+      }
+    },
+    "scalarVariable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name", "value"],
+      "properties": {
+        "kind": { "enum": ["constant", "text"] },
+        "name": { "$ref": "#/$defs/name" },
+        "label": { "type": "string", "maxLength": 256 },
+        "value": { "type": ["string", "number", "boolean"] },
+        "hidden": { "type": "boolean" }
+      }
+    },
+    "intervalVariable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name", "values"],
+      "properties": {
+        "kind": { "const": "interval" },
+        "name": { "$ref": "#/$defs/name" },
+        "label": { "type": "string", "maxLength": 256 },
+        "values": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": { "$ref": "#/$defs/name" }
+        },
+        "defaultValue": { "$ref": "#/$defs/name" }
+      }
+    },
+    "dataSourceVariable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name", "dataSourceType"],
+      "properties": {
+        "kind": { "const": "data_source" },
+        "name": { "$ref": "#/$defs/name" },
+        "label": { "type": "string", "maxLength": 256 },
+        "dataSourceType": { "enum": ["metrics", "logs", "traces", "profiles", "sql"] },
+        "defaultValue": { "$ref": "#/$defs/name" }
+      }
+    },
+    "variable": {
+      "oneOf": [
+        { "$ref": "#/$defs/customVariable" },
+        { "$ref": "#/$defs/queryVariable" },
+        { "$ref": "#/$defs/scalarVariable" },
+        { "$ref": "#/$defs/intervalVariable" },
+        { "$ref": "#/$defs/dataSourceVariable" }
+      ]
+    }
+  }
+}

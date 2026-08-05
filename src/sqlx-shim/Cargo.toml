@@ -1,0 +1,30 @@
+[package]
+name = "sqlx"
+version = "0.8.6"
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lib]
+name = "sqlx"
+path = "src/lib.rs"
+
+[dependencies]
+hmac = "0.12"
+sha2 = "0.10"
+sqlx-core = { version = "=0.8.6", default-features = false }
+sqlx-postgres = { version = "=0.8.6", default-features = false }
+tracing = "0.1"
+
+[features]
+default = []
+postgres = []
+chrono = ["sqlx-core/chrono", "sqlx-postgres/chrono"]
+json = ["sqlx-core/json", "sqlx-postgres/json"]
+migrate = ["sqlx-core/migrate", "sqlx-postgres/migrate"]
+runtime-tokio = ["sqlx-core/_rt-tokio"]
+runtime-tokio-rustls = ["runtime-tokio", "tls-rustls-ring"]
+tls-rustls = ["tls-rustls-ring"]
+tls-rustls-ring = ["tls-rustls-ring-webpki"]
+tls-rustls-ring-webpki = ["sqlx-core/_tls-rustls-ring-webpki"]
+tls-rustls-ring-native-roots = ["sqlx-core/_tls-rustls-ring-native-roots"]

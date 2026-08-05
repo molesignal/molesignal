@@ -1,0 +1,59 @@
+# Devcontainer compose：复用主仓 deploy/docker/docker-compose.yaml 的 postgres + minio
+# 作为 dev 依赖，再叠加一个 `workspace` 服务跑 IDE / cargo / pnpm。
+#
+# 用法：VS Code "Reopen in Container" 自动起这套；命令行 `docker compose -f
+# .devcontainer/docker-compose.yml up workspace` 也行。
+
+services:
+  # ---- 复用主仓库 docker-compose 的依赖服务（postgres + minio + minio-init） ----
+  # 注意：路径是 .devcontainer/ → ../deploy/docker/docker-compose.yaml
+  postgres:
+    extends:
+      file: ../deploy/docker/docker-compose.yaml
+      service: postgres
+    # 不暴露端口到 host；workspace 内通过 hostname `postgres` 直连
+    ports: []
+
+  minio:
+    extends:
+      file: ../deploy/docker/docker-compose.yaml
+      service: minio
+    ports: []
+    # workspace 内通过 hostname `minio` 直连；console 由 devcontainer.json 端口转发
+
+  minio-init:
+    extends:
+      file: ../deploy/docker/docker-compose.yaml
+      service: minio-init
+
+  # ---- IDE / 开发环境主容器 ----
+  workspace:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: molesignal-dev:latest
+    # init: true 让 PID 1 是 tini，能正确转发 SIGTERM 给子进程
+    init: true
+    # 挂代码到 /workspace；vscode 启动后 cwd 就是这里
+    volumes:
+      - ..:/workspace:cached
+      # docker-outside-of-docker feature 走 /var/run/docker.sock
+      - /var/run/docker.sock:/var/run/docker.sock
+    # 让 IDE 长驻；命令本身不重要，VS Code 进容器后接管
+    command: sleep infinity
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    environment:
+      RUST_BACKTRACE: "1"
+      CARGO_INCREMENTAL: "1"
+      # cargo 注册表缓存挂在 named volume（见 devcontainer.json mounts）
+      CARGO_HOME: /usr/local/cargo
+
+volumes:
+  pgdata: {}
+  miniodata: {}

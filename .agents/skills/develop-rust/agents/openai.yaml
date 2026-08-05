@@ -1,0 +1,4 @@
+interface:
+  display_name: "开发 Rust 后端"
+  short_description: "按当前项目架构实现修改并统一完成 Rust 后端验证"
+  default_prompt: "使用 $develop-rust 实现这项 Rust 后端修改，并在全部完成后统一验证一次。"

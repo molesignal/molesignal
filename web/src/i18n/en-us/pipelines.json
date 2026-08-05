@@ -1,0 +1,338 @@
+{
+  "title": "Pipelines",
+  "subtitle": "Scheduled transforms that move events from sources to sinks.",
+  "actions": {
+    "streams": "Streams",
+    "sources": "Sources",
+    "new_pipeline": "New pipeline",
+    "connectors": "Connectors",
+    "refresh": "Refresh",
+    "pause": "Pause",
+    "resume": "Resume",
+    "edit": "Edit",
+    "logs": "Logs"
+  },
+  "filters": {
+    "search_placeholder": "Filter pipelines…",
+    "all_types": "All",
+    "logs": "Logs",
+    "metrics": "Metrics",
+    "traces": "Traces"
+  },
+  "states": {
+    "empty_title": "No scheduled pipelines yet",
+    "empty_description": "Create a pipeline to transform, enrich, and route incoming events."
+  },
+  "kpis": {
+    "total": "Pipelines",
+    "visible": "{{count}} visible",
+    "enabled": "Enabled",
+    "logs": "Logs",
+    "metrics": "Metrics",
+    "traces": "Traces"
+  },
+  "overview": {
+    "subtitle": "Review pipeline health, recent execution results, and failure trends.",
+    "related_resources": "Related resources",
+    "view_sources": "View datasources",
+    "view_streams": "View streams",
+    "view_connectors": "View connectors",
+    "no_matches": "No pipelines match the current filters.",
+    "kpis": {
+      "running": "Running",
+      "running_hint": "Enabled with no recent failure",
+      "error": "Errors",
+      "error_hint": "Latest run failed",
+      "paused": "Paused",
+      "paused_hint": "Not executing on schedule",
+      "failed_24h": "24h failed runs",
+      "failed_24h_hint": "Real runs from the past 24 hours"
+    },
+    "filters": {
+      "all_statuses": "All statuses"
+    },
+    "health": {
+      "healthy": "Healthy",
+      "running": "Running",
+      "error": "Error",
+      "paused": "Paused",
+      "unknown": "Unknown",
+      "never": "Never run"
+    },
+    "run_states": {
+      "succeeded": "Succeeded",
+      "failed": "Failed",
+      "running": "Running",
+      "cancelled": "Cancelled"
+    },
+    "columns": {
+      "name": "Name",
+      "type": "Type",
+      "schedule": "Schedule",
+      "status": "Status",
+      "last_run": "Last run",
+      "success_rate": "24h success rate",
+      "rows": "Last processed rows"
+    }
+  },
+  "list": {
+    "summary": "{{count}} pipelines · {{enabled}} enabled",
+    "cron": "cron: {{value}}",
+    "unknown": "-"
+  },
+  "detail": {
+    "subtitle": "Pipeline runtime overview, topology, history, and configuration.",
+    "enabled": "enabled",
+    "paused": "paused",
+    "toast_resumed": "Pipeline resumed",
+    "toast_paused": "Pipeline paused",
+    "metadata": {
+      "schedule": "Schedule",
+      "lookback": "Lookback",
+      "last_run": "Last run"
+    },
+    "tabs": {
+      "overview": "Overview",
+      "topology": "Topology",
+      "runs": "Run history",
+      "configuration": "Configuration"
+    },
+    "overview": {
+      "last_run": "Last run",
+      "success_rate": "Success rate",
+      "processed_rows": "Processed rows",
+      "average_duration": "Average duration",
+      "window_24h": "Past 24 hours · {{count}} runs",
+      "completed_runs": "{{count}} completed runs"
+    },
+    "view_full_topology": "View full topology",
+    "view_all_runs": "View all runs",
+    "config_views": {
+      "structured": "Structured",
+      "json": "JSON"
+    },
+    "stats": {
+      "cron": "Cron",
+      "status": "Status",
+      "lookback": "Lookback",
+      "last_run": "Last run"
+    },
+    "flow": "Pipeline flow",
+    "graph": "Pipeline graph",
+    "stages": {
+      "sources": "Sources",
+      "transform": "Transform",
+      "sinks": "Sinks"
+    },
+    "configuration": "Configuration (raw)",
+    "show_raw": "Show raw",
+    "hide_raw": "Hide raw",
+    "recent_runs": "Recent runs",
+    "runs_empty_title": "No runs yet",
+    "runs_empty_description": "Runs will appear after the scheduler executes this pipeline or a backfill is submitted.",
+    "run_columns": {
+      "state": "State",
+      "started": "Started",
+      "finished": "Finished",
+      "rows": "Rows",
+      "error": "Error"
+    }
+  },
+  "flows": {
+    "add": {
+      "title": "New pipeline",
+      "cancel": "Cancel",
+      "saving": "Saving…",
+      "submit": "Create pipeline",
+      "toast_created": "Pipeline created"
+    },
+    "edit": {
+      "back": "Back",
+      "history": "History",
+      "backfill": "Backfill",
+      "delete": "Delete",
+      "saving": "Saving…",
+      "save": "Save",
+      "not_found": "Pipeline not found.",
+      "toast_updated": "Pipeline updated",
+      "toast_deleted": "Pipeline deleted",
+      "delete_confirm_title": "Delete this pipeline?",
+      "delete_confirm_description": "This permanently removes the pipeline and its schedule.",
+      "delete_confirm_label": "Delete"
+    },
+    "import": {
+      "title": "Import pipeline",
+      "cancel": "Cancel",
+      "submit": "Import pipeline",
+      "importing": "Importing…",
+      "definition_title": "Pipeline definition",
+      "definition_description": "Paste Vector-compatible JSON, or simple key: value YAML.",
+      "definition_label": "Definition",
+      "definition_placeholder": "{\n  \"name\": \"prod-app-logs\",\n  \"source_stream\": \"app-logs\",\n  \"target_stream\": \"enriched-logs\",\n  \"function_steps\": [],\n  \"cron\": \"every:5m\"\n}",
+      "definition_aria": "Pipeline definition",
+      "import_label": "Import",
+      "validation_empty": "Pipeline definition is required",
+      "toast_imported": "Pipeline imported"
+    },
+    "backfill": {
+      "title": "Backfill",
+      "back_to_edit": "← Edit pipeline",
+      "window_title": "Window",
+      "from_label": "From",
+      "from_hint": "ISO 8601 / RFC3339",
+      "from_placeholder": "2026-05-20T00:00:00Z",
+      "to_label": "To",
+      "to_hint": "Window ≤ 31 days",
+      "to_placeholder": "2026-05-25T00:00:00Z",
+      "submit": "Monitor job",
+      "submit_backfill": "Submit backfill",
+      "submitting": "Submitting…",
+      "toast_invalid": "Provide valid RFC3339 timestamps for both fields.",
+      "toast_to_before_from": "`to` must be greater than `from`.",
+      "toast_queued": "Backfill queued ({{jobIdShort}})",
+      "monitor_link": "Monitor job {{jobIdShort}} ↗"
+    },
+    "history": {
+      "title": "Run history",
+      "back_to_edit": "← Edit pipeline",
+      "empty_title": "No runs yet",
+      "empty_description": "The scheduler hasn't fired this pipeline yet.",
+      "columns": {
+        "run_id": "Run id",
+        "state": "State",
+        "started": "Started",
+        "duration": "Duration",
+        "scanned": "Scanned rows",
+        "error": "Error"
+      }
+    },
+    "form": {
+      "identity_title": "Identity",
+      "name_label": "Name",
+      "source_label": "Source stream",
+      "target_label": "Target stream",
+      "schedule_title": "Schedule",
+      "cron_label": "Cron",
+      "cron_hint": "every:Ns / Nm / Nh",
+      "lookback_label": "Lookback (seconds)",
+      "enabled_label": "Enabled",
+      "run_on_schedule": "Run on schedule",
+      "steps_title": "Function steps (JSON)",
+      "steps_description": "Array of VRL transforms applied in order.",
+      "steps_label": "Steps"
+    }
+  },
+  "workspace": {
+    "subtitle": "Define data sources, orchestrate processing nodes, then validate and save.",
+    "validate": "Validate flow",
+    "more_actions": "More",
+    "stage_identity": "Basic info",
+    "stage_graph": "Flow orchestration",
+    "stage_validate": "Test & enable",
+    "autosave_hint": "Changes take effect after saving",
+    "graph_stats": "{{nodes}} nodes · {{edges}} connections",
+    "add_node": "Add node",
+    "auto_layout": "Auto layout",
+    "node_configuration": "Node configuration",
+    "validation_results": "Validation",
+    "code_editor": "VRL editor",
+    "open_editor": "Open editor",
+    "close_panel": "Close bottom panel",
+    "validation_clean": "Flow is valid",
+    "validation_clean_hint": "Sources, transforms, and sinks are connected. The pipeline is ready to save."
+  },
+  "graph": {
+    "title": "Graph orchestration",
+    "description": "Arrange sources, transform, and sinks visually. The first source and sink are saved as the pipeline stream fields.",
+    "add_source": "Add source",
+    "add_transform": "Add transform",
+    "add_sink": "Add sink",
+    "sources": "Sources",
+    "transform": "Transform",
+    "sinks": "Sinks",
+    "select_node": "Select a node to edit it.",
+    "source_name": "Source stream",
+    "sink_name": "Sink stream",
+    "sink_target": "Sink target",
+    "sink_target_hint": "Deliver to a data stream or an external connector.",
+    "sink_stream_option": "Data stream",
+    "new_connector": "New connector",
+    "stream_select_placeholder": "Select a data stream…",
+    "stream_loading": "Loading data streams…",
+    "stream_empty": "No data streams are available for this signal type.",
+    "stream_load_error": "Failed to load the data stream catalog. The current value is preserved.",
+    "stream_current_value": "{{name}} (current value)",
+    "transform_name": "Transform name",
+    "vrl_script": "VRL script",
+    "vrl_function_hint": "Pick a built-in preset or a saved VRL function as this transform.",
+    "vrl_function_placeholder": "Select a VRL function…",
+    "preset_label": "Built-in: {{name}}",
+    "new_vrl_function": "New VRL function",
+    "retry_policy": "Retry policy",
+    "delete_node": "Delete node",
+    "show_inspector": "Show panel",
+    "hide_inspector": "Hide panel",
+    "node_count": "{{sources}} sources · {{sinks}} sinks",
+    "node_kinds": {
+      "source": "Source",
+      "transform": "Transform",
+      "sink": "Sink"
+    },
+    "node_subtitles": {
+      "stream_input": "Stream input",
+      "vrl_transform": "VRL transform",
+      "connector_sink": "Connector delivery",
+      "stream_output": "Stream output"
+    },
+    "validation": {
+      "ok": "Valid",
+      "summary": "{{count}} issue(s)",
+      "no_source": "At least one source is required.",
+      "no_sink": "At least one sink is required.",
+      "no_transform": "At least one transform step is required.",
+      "duplicate_source": "Duplicate source: {{name}}",
+      "duplicate_sink": "Duplicate sink: {{name}}",
+      "source_is_sink": "A source and sink share a name, forming a loop: {{name}}",
+      "transform_name_missing": "Transform #{{index}} is missing a name.",
+      "transform_script_missing": "Transform \"{{name}}\" is missing a VRL script.",
+      "connector_missing": "Referenced connector not found: {{id}}"
+    }
+  },
+  "drawer": {
+    "edit_title": "Edit pipeline · {{name}}",
+    "subtitle": "sources → VRL transforms → sinks. Saving triggers a hot reload.",
+    "save_changes": "Save changes",
+    "create_pipeline": "Create pipeline",
+    "toast_created": "Pipeline created",
+    "toast_updated": "Pipeline updated",
+    "sections": {
+      "identity": "Identity",
+      "sources": "Sources",
+      "transform": "Transform (VRL)",
+      "sinks": "Sinks",
+      "reliability": "Reliability"
+    },
+    "fields": {
+      "name": "Name",
+      "signal_type": "Signal type",
+      "vrl_script": "VRL script",
+      "retry_policy": "Retry policy",
+      "disk_buffer": "Disk buffer"
+    },
+    "source_hints": {
+      "fluent_bit": "k8s DaemonSet",
+      "otel_collector": "OTLP gRPC :4317",
+      "http_bulk": "Generic HTTP datasource"
+    },
+    "transform_description": "Vector Remap Language · rewrite, enrich, and filter events in-path.",
+    "sink_hints": {
+      "s3_logs": "parquet + zstd · 90d",
+      "object_store": "cold storage 1y"
+    },
+    "retry_options": {
+      "exponential": "Exponential backoff",
+      "fixed": "Fixed 5s × 3",
+      "none": "No retry (drop)"
+    }
+  }
+}

@@ -1,0 +1,87 @@
+name: ci
+
+on:
+  push:
+    paths:
+      - 'src/**'
+      - 'build.rs'
+      - 'src/sqlx-shim/**'
+      - 'proto/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'rust-toolchain.toml'
+      - 'Makefile'
+      - '.github/workflows/ci.yml'
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'build.rs'
+      - 'src/sqlx-shim/**'
+      - 'proto/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'rust-toolchain.toml'
+      - 'Makefile'
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  # 与 it.yml 一致：debug binary 太大会触发 rust-lld link 阶段 SIGBUS。
+  CARGO_PROFILE_DEV_DEBUG: "0"
+  CARGO_BUILD_JOBS: "2"
+
+# 一个 PR 只跑最新的一份；推新 commit 自动取消旧 run。
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Rust 质量门禁：fmt-check + clippy（-D warnings）+ unit/bin tests。
+  # 不跑 integration tests（it.yml 单独负责），不动 web 前端（web.yml 单独负责）。
+  rust-quality:
+    name: rust quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ca-certificates curl protobuf-compiler libcurl4-openssl-dev pkg-config
+
+      - name: install Buf CLI
+        run: |
+          sudo curl -sSL "https://github.com/bufbuild/buf/releases/latest/download/buf-$(uname -s)-$(uname -m)" \
+            -o /usr/local/bin/buf
+          sudo chmod +x /usr/local/bin/buf
+          buf --version
+
+      - name: generate protobuf code
+        run: make proto
+
+      - name: install rust toolchain
+        # 跟随仓库根 `rust-toolchain.toml` 锁定 1.96；deno_core 0.403 需要
+        # const TypeId::of（1.96+）。改 rust-toolchain.toml 时记得同步这里。
+        uses: dtolnay/rust-toolchain@1.96
+        with:
+          components: rustfmt, clippy
+
+      - name: install nightly rustfmt
+        # rustfmt.toml 含 nightly-only 选项 (imports_granularity / group_imports)；
+        # 这里仅装 nightly 的 rustfmt 组件，不切换默认 toolchain。
+        run: rustup toolchain install nightly --profile minimal --component rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: ci
+
+      - name: fmt-check
+        run: cargo +nightly fmt --all -- --check
+
+      - name: clippy (-D warnings)
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: unit + bin tests
+        run: cargo test --workspace --lib --bins

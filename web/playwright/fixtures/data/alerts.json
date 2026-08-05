@@ -1,0 +1,10 @@
+{
+  "rules": [
+    { "id": "a1", "name": "High p95 latency", "severity": "warning", "stream": "logs", "expr": "p95_ms > 500", "enabled": true },
+    { "id": "a2", "name": "Error budget exhausted", "severity": "critical", "stream": "logs", "expr": "err_rate > 0.05", "enabled": true }
+  ],
+  "incidents": [
+    { "id": "i1", "rule_id": "a1", "summary": "INC-42 web latency", "status": "open", "started_at": "2026-05-23T09:42:00.000Z" }
+  ],
+  "escalations": []
+}

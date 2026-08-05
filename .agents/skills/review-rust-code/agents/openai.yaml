@@ -1,0 +1,4 @@
+interface:
+  display_name: "审查 Rust 代码"
+  short_description: "审查 Rust 改动的正确性、架构、安全性与测试覆盖"
+  default_prompt: "使用 $review-rust-code 审查当前 Rust 代码变更并列出可操作问题。"

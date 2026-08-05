@@ -1,0 +1,55 @@
+{
+  "authoringVersion": 1,
+  "title": "API request overview",
+  "description": "Request throughput and error ratio for the API service.",
+  "tags": ["api", "slo"],
+  "timeRange": {
+    "from": "now-6h",
+    "to": "now",
+    "timezone": "browser"
+  },
+  "refresh": {
+    "mode": "interval",
+    "interval": "30s"
+  },
+  "variables": [
+    {
+      "kind": "custom",
+      "name": "service",
+      "label": "Service",
+      "values": ["api", "worker"],
+      "defaultValue": "api"
+    }
+  ],
+  "elements": [
+    {
+      "kind": "text",
+      "title": "About",
+      "content": "This dashboard is generated from a reviewed AI draft.",
+      "mode": "markdown",
+      "size": "full"
+    },
+    {
+      "kind": "panel",
+      "title": "Request rate",
+      "size": "medium",
+      "visualization": {
+        "type": "time_series",
+        "unit": "requests_per_second",
+        "legend": {
+          "mode": "table",
+          "placement": "bottom",
+          "stats": ["last", "min", "max", "mean"]
+        }
+      },
+      "queries": [
+        {
+          "kind": "promql",
+          "expression": "sum(rate(http_requests_total{service=\"$service\"}[5m]))",
+          "legend": "requests/s",
+          "format": "time_series"
+        }
+      ]
+    }
+  ]
+}

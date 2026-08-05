@@ -1,0 +1,299 @@
+{
+  "title": "数据流",
+  "subtitle": "查看数据是否持续流入、占用多少存储，以及查询与保留配置是否合理。",
+  "list": {
+    "refresh": "刷新",
+    "create": "创建数据流",
+    "search_placeholder": "搜索名称或描述…",
+    "status_filter": "筛选运行状态",
+    "result_count": "{{count}} 条数据流",
+    "updated_at": "统计更新于{{time}}",
+    "stats_unavailable": "运行统计暂不可用",
+    "retention_days": "{{days}} 天",
+    "query": "查询",
+    "view_detail": "查看详情",
+    "copy_id": "复制数据流 ID",
+    "id_copied": "数据流 ID 已复制",
+    "more_actions": "{{name}} 的更多操作",
+    "kpis": {
+      "healthy": "正常接收",
+      "healthy_sub": "共 {{total}} 条数据流",
+      "attention": "需要关注",
+      "attention_sub": "接收延迟、断流或统计异常",
+      "compressed_24h": "24h 压缩数据",
+      "rows_24h": "{{count}} 行已写入",
+      "current_storage": "当前存储",
+      "current_storage_sub": "已持久化数据"
+    },
+    "status": {
+      "all": "全部状态",
+      "healthy": "正常",
+      "idle": "空闲",
+      "delayed": "接收延迟",
+      "interrupted": "断流",
+      "unused": "未使用",
+      "unknown": "统计异常"
+    },
+    "tabs": {
+      "all": "全部",
+      "logs": "日志",
+      "metrics": "指标",
+      "traces": "链路",
+      "profiles": "Profiles",
+      "extend": "扩展表"
+    },
+    "columns": {
+      "stream": "数据流",
+      "type": "类型",
+      "status": "状态",
+      "rate": "接收速率",
+      "last_received": "最后接收",
+      "volume_24h": "24h 压缩数据",
+      "storage": "当前存储",
+      "retention": "保留期",
+      "actions": "操作"
+    },
+    "explore": "探索",
+    "not_queryable": "不可查询",
+    "empty_title": "尚无数据流",
+    "empty_description": "创建一个数据流，或通过数据源发送事件来注册第一条数据流。"
+  },
+  "drawer": {
+    "title": "创建数据流",
+    "subtitle": "创建一个数据源入口，然后配置发送端。",
+    "identity": "身份信息",
+    "stream_name": "数据流名称",
+    "stream_name_hint": "snake_case · 长度 ≤ 64",
+    "stream_name_placeholder": "my-app-logs",
+    "description": "描述（可选）",
+    "description_placeholder": "这条数据流承载什么数据？",
+    "signal_type": "信号类型",
+    "signal_type_description": "决定存储行为与查询语言。",
+    "types": {
+      "logs": {
+        "label": "日志",
+        "hint": "SQL 查询，全文索引与列式 Parquet 存储"
+      },
+      "metrics": {
+        "label": "指标",
+        "hint": "PromQL 兼容的 TSDB 存储"
+      },
+      "traces": {
+        "label": "链路",
+        "hint": "OTLP spans、火焰图与服务拓扑"
+      }
+    },
+    "storage": "存储",
+    "retention": "保留期（天）",
+    "retention_hint": "超过保留期后归档到对象存储。",
+    "shards": "分片数",
+    "shards_hint": "并行数据源写入通道数，建议不低于写入节点数。",
+    "indexed_fields": "索引字段",
+    "indexed_fields_hint": "逗号分隔字段，用于加速等值与前缀查询。",
+    "encrypted_fields": "加密字段",
+    "encrypted_fields_hint": "逗号分隔字段，落盘前加密、查询用 decrypt(字段) 还原；创建后不可再切换。",
+    "queryable": "可查询",
+    "queryable_hint": "关闭后，该数据流照常采集并保留数据，但会从查询选择器中隐藏、且查询/搜索会被拒绝——适用于「仅作入口、由 pipeline 把记录分流到其它数据流」的源数据流。创建后仍可在设置里调整。"
+  },
+  "toast": {
+    "create_pending": "数据流 {{name}} 会在数据源首次写入时注册；当前还没有 /streams 创建接口。"
+  },
+  "detail": {
+    "back": "数据流",
+    "fallback_title": "数据流",
+    "subtitle": "数据流详情",
+    "query_logs": "在日志中查询",
+    "not_found_title": "未找到数据流",
+    "not_found_description": "该数据流可能还没有被数据源注册。",
+    "fields": {
+      "id": "id",
+      "label": "label",
+      "subtitle": "subtitle"
+    }
+  },
+  "explore": {
+    "subtitle": "运行状态、查询效率、存储与保留策略",
+    "toolbar": {
+      "refresh": "刷新",
+      "query_data": "查询数据",
+      "more": "更多操作",
+      "copy_id": "复制数据流 ID",
+      "id_copied": "数据流 ID 已复制",
+      "delete": "删除数据流",
+      "discard": "放弃更改",
+      "save": "保存并应用",
+      "saving": "应用中…"
+    },
+    "metadata": {
+      "type": "类型",
+      "status": "运行状态",
+      "last_received": "最后接收",
+      "retention": "默认保留",
+      "active_type": "当前类型：{{type}}",
+      "switch_type": "切换到{{type}}数据流",
+      "switch_blocked": "请先保存或放弃当前类型的更改，再切换类型。"
+    },
+    "tabs": {
+      "overview": "概览",
+      "schema": "字段与索引",
+      "retention": "保留策略",
+      "usage": "使用位置",
+      "settings": "设置"
+    },
+    "index_options": {
+      "none": "未索引",
+      "full_text": "全文搜索",
+      "exact": "精确匹配",
+      "bloom": "Bloom 过滤器",
+      "skip": "跳过索引"
+    },
+    "kpis": {
+      "events_24h": "24h 写入行数",
+      "receive_rate": "平均接收速率",
+      "compressed_24h": "24h 压缩数据",
+      "current_storage": "当前存储",
+      "index_coverage": "索引字段覆盖",
+      "from_parquet_file_meta": "来自实际存储文件元数据",
+      "average_24h": "按最近 24 小时计算",
+      "compressed_note": "压缩后 Parquet 数据",
+      "live_parquet": "现存且未删除的文件",
+      "index_coverage_note": "按字段计数，非索引字节"
+    },
+    "overview": {
+      "stats_unavailable": "运行统计暂不可用。配置仍可查看和编辑，刷新后会重新探测存储元数据。",
+      "no_data_title": "还没有收到数据",
+      "no_data_description": "请让数据源写入“{{stream}}”，或发送一条测试数据验证接入链路。",
+      "configure_source": "配置数据源",
+      "send_test": "发送测试数据",
+      "sending_test": "发送中…",
+      "test_sent": "测试数据已提交：接收 {{accepted}}，拒绝 {{rejected}}",
+      "operational_state": "运行状态",
+      "first_received": "首次接收",
+      "queryability": "查询能力",
+      "queryable": "可查询",
+      "not_queryable": "仅接收，不可查询",
+      "trend_title": "接收与存储趋势",
+      "trend_subtitle": "最近 24 小时 · 来自真实 Parquet 文件",
+      "metric_rows": "写入行数",
+      "metric_storage": "压缩数据",
+      "no_chart_data": "当前时间范围内没有可绘制的数据",
+      "now": "现在"
+    },
+    "schema": {
+      "summary": "{{fields}} 个字段 · {{indexed}} 个已索引 · {{encrypted}} 个已加密",
+      "readonly_hint": "默认只读。点击字段右侧编辑按钮修改索引与提取规则。",
+      "search_placeholder": "搜索字段",
+      "fts_title": "全文检索由字段级索引决定",
+      "fts_description": "为 message、body 等文本字段启用全文索引，可加速 MATCH 查询；历史数据不会自动重建索引。",
+      "configure_index": "配置字段索引",
+      "storage_type": "存储类型：{{type}}",
+      "field_types": {
+        "boolean": "布尔值",
+        "integer": "整数",
+        "decimal": "浮点数",
+        "string": "字符串",
+        "timestamp": "时间戳",
+        "json": "JSON"
+      },
+      "columns": {
+        "name": "字段名称",
+        "type": "字段类型",
+        "index_type": "索引类型",
+        "condition": "索引条件",
+        "extraction": "提取规则",
+        "encryption": "加密"
+      },
+      "condition_placeholder": "env = 'prod'",
+      "condition_hint": "仅对匹配表达式的数据构建该字段索引；留空表示始终启用。",
+      "index_type_hint": "精确匹配适合 ID；全文搜索适合自然语言文本。",
+      "pattern_placeholder": "每行一个正则表达式",
+      "pattern_count": "{{count}} 条规则",
+      "extraction_rules": "字段提取规则",
+      "extraction_hint": "写入时按顺序尝试匹配；每行一个正则表达式。",
+      "encrypted": "已加密",
+      "encrypted_hint": "该字段在落盘前加密。为避免已有数据不可读，此开关不能在这里修改。",
+      "edit_field": "编辑字段 {{name}}",
+      "drawer_title": "编辑字段 · {{name}}",
+      "drawer_fallback": "编辑字段",
+      "drawer_subtitle": "配置查询索引与写入时字段提取，不改变字段类型。",
+      "cancel": "取消",
+      "apply": "应用到草稿",
+      "no_schema": "该数据流还没有 schema。写入第一批数据后会自动展示字段。",
+      "no_match": "没有匹配字段。"
+    },
+    "retention": {
+      "default_policy": "默认保留策略",
+      "data_retention_days": "数据保留期（天）",
+      "days_default_hint": "留空时使用全局保留期 {{days}} 天。",
+      "days_placeholder": "全局 {{days}} 天",
+      "default_explanation": "未命中例外规则的数据按默认保留期清理。缩短保留期后，超期数据可能在下一次清理任务中被删除。",
+      "exception_rules": "例外保留规则",
+      "exception_rules_hint": "按优先级匹配，为重要或低价值数据设置不同保留时间。",
+      "add_rule": "添加规则",
+      "priority": "优先级",
+      "enabled": "启用",
+      "rule_name": "规则名称",
+      "condition": "匹配条件",
+      "condition_placeholder": "level = 'error'",
+      "retention_days": "保留天数",
+      "estimated_share": "影响数据",
+      "follow_default": "跟随默认",
+      "evaluate_after_save": "保存后评估",
+      "delete_rule": "删除规则 {{name}}",
+      "no_rules": "暂无例外规则，所有数据按默认保留期处理。",
+      "advanced_filter": "高级：默认保留筛选",
+      "keep_condition": "默认保留筛选表达式",
+      "keep_condition_hint": "表达式为真时保留；为空表示所有未命中例外规则的数据都按默认保留期处理。",
+      "keep_condition_placeholder": "level != 'debug'"
+    },
+    "usage": {
+      "loading": "正在检查使用位置…",
+      "write_source": "写入来源",
+      "write_source_hint": "接收该 stream name 的数据接入端点",
+      "ingest_endpoint": "数据接入端点",
+      "pipelines": "关联流水线",
+      "pipelines_hint": "以该数据流作为来源或目标",
+      "saved_queries": "保存查询",
+      "saved_queries_hint": "明确绑定到该数据流的查询",
+      "alert_rules": "告警规则",
+      "alert_rules_hint": "以该数据流作为评估目标",
+      "enabled": "已启用",
+      "disabled": "已停用",
+      "none": "暂无关联项",
+      "partial_unavailable": "部分依赖服务暂不可用，当前结果可能不完整。"
+    },
+    "runtime": {
+      "basic": "基础信息",
+      "basic_hint": "说明该数据流承载的业务数据与用途。",
+      "description_label": "描述",
+      "description_placeholder": "这条数据流承载什么数据？",
+      "query_capabilities": "查询能力",
+      "query_capabilities_hint": "控制能否查询以及查询范围，关闭能力不会停止数据接收。",
+      "max_query_range": "最大查询窗口（小时）",
+      "max_query_range_hint": "0 或空表示不限制。",
+      "flatten_level": "扁平层级",
+      "flatten_level_hint": "JSON flatten 最大层级。",
+      "storage_behavior": "存储行为",
+      "storage_behavior_hint": "影响新写入数据的落盘与分区策略。",
+      "advanced": "高级设置",
+      "queryable": "可查询",
+      "queryable_hint": "关闭后，该数据流照常采集并保留数据，但会从查询选择器中隐藏、且查询/搜索会被拒绝。适用于「源数据流仅作入口、由 pipeline 把记录分流到其它数据流」的场景。",
+      "use_stats": "使用 stream stats 进行分区",
+      "store_original": "保留原始数据",
+      "enable_distinct_values": "启用 distinct 计算"
+    },
+    "changes": {
+      "unsaved": "有未保存的更改",
+      "review": "保存后新配置会立即应用。",
+      "index_risk": "索引与提取规则只影响新写入数据，历史数据不会自动重建。",
+      "retention_risk": "保留期将缩短为 {{days}} 天，超期数据可能被删除。",
+      "query_risk": "关闭查询后，该数据流仍接收数据，但查询和搜索会被拒绝。"
+    },
+    "delete_confirm_title": "删除该数据流？",
+    "delete_confirm_description": "将删除“{{stream}}”及其配置，此操作无法撤销。",
+    "toast": {
+      "updated": "数据流配置已更新",
+      "deleted": "数据流已删除"
+    }
+  }
+}

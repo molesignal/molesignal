@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package ingest.v1;
+
+// router → ingester 的内部写入 RPC。
+// 客户端走 HTTP，router 按 (org, stream) 一致性哈希转发到对应 ingester。
+service IngestService {
+  rpc Push(PushRequest) returns (PushResponse);
+}
+
+enum StreamType {
+  STREAM_TYPE_UNSPECIFIED = 0;
+  STREAM_TYPE_LOGS = 1;
+  STREAM_TYPE_METRICS = 2;
+  STREAM_TYPE_TRACES = 3;
+  STREAM_TYPE_PROFILES = 4;
+}
+
+// 镜像 domain::ingestion::IngestBatch 的字段集。
+message PushRequest {
+  string batch_id = 1;
+  string org_id = 2;
+  string stream = 3;
+  StreamType stream_type = 4;
+  // 客户端原始 NDJSON / JSON array / OTLP payload 的 bytes，由 ingester 解析
+  bytes payload = 5;
+  int64 received_at_micros = 6;
+}
+
+message PushResponse {
+  uint32 accepted = 1;
+  uint32 rejected = 2;
+  repeated IngestError errors = 3;
+}
+
+message IngestError {
+  uint32 index = 1;
+  string reason = 2;
+}

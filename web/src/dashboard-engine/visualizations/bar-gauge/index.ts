@@ -1,0 +1,1 @@
+export { BarGaugeVisualization } from './BarGaugeVisualization';

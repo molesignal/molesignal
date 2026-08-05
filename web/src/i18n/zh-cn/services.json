@@ -1,0 +1,31 @@
+{
+  "title": "服务",
+  "subtitle": "由链路拓扑聚合出的服务目录。",
+  "kpis": {
+    "services": "服务数",
+    "rps": "总 RPS",
+    "degraded": "降级（≥1% 错误）"
+  },
+  "list": {
+    "columns": {
+      "name": "服务",
+      "rps": "RPS",
+      "error_rate": "错误率",
+      "p95": "p95",
+      "spans": "Span 数"
+    }
+  },
+  "states": {
+    "empty_title": "未发现服务",
+    "empty_description": "所选时间范围内有链路 span 上报后，服务即会出现。"
+  },
+  "detail": {
+    "not_found_title": "该服务暂无流量",
+    "not_found_description": "所选时间范围内该服务没有链路 span。",
+    "upstream": "上游（调用方）",
+    "downstream": "下游（依赖）",
+    "no_upstream": "范围内无调用方。",
+    "no_downstream": "范围内无依赖。",
+    "edge_rps": "{{rps}} rps"
+  }
+}

@@ -1,0 +1,6 @@
+{"_timestamp":1779897600000000,"level":"info","service":"web","message":"GET / 200 in 18ms"}
+{"_timestamp":1779897601000000,"level":"info","service":"web","message":"GET /api/health 200 in 4ms"}
+{"_timestamp":1779897602000000,"level":"warn","service":"api","message":"upstream latency: 412ms (p95 budget 300ms)"}
+{"_timestamp":1779897603000000,"level":"error","service":"api","message":"DB connection refused: pool exhausted"}
+{"_timestamp":1779897604000000,"level":"info","service":"web","message":"POST /investigation/blob 200"}
+{"__meta__":{"rows":5,"took_ms":3}}

@@ -1,0 +1,140 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: molesignal-config
+  namespace: molesignal
+data:
+  # 部署晋升时只修改运行时通道，不重新构建镜像。
+  release_channel: alpha
+  # 同一份配置喂给所有 role；具体角色由 MS_NODE_ROLES 环境变量覆盖。
+  # 凡敏感字段（object_store_secret_key / cipher_key / jwt_secret_override）都从
+  # molesignal-secret 注入，不放本文件。jwt_secret 由进程首启动自动生成 + DB 持久化，
+  # 通常不需要手工预置（auth-hardening）。
+  config.toml: |
+    [http]
+    bind = "0.0.0.0"
+    port = 5080
+
+    [grpc]
+    bind = "0.0.0.0"
+    port = 5082
+
+    [telemetry]
+    log_level = "info"
+    log_format = "json"
+
+    [store.meta]
+    backend = "postgres"
+    dsn = "postgres://molesignal:molesignal@postgres:5432/molesignal"
+    min_connections = 2
+    max_connections = 16
+
+    [store.object]
+    backend = "s3"
+    bucket = "molesignal"
+    region = "us-east-1"
+    endpoint = "http://minio:9000"
+    multipart_threshold_mb = 32
+    multipart_part_size_mb = 8
+    range_threshold_mb = 16
+    range_chunk_mb = 8
+    max_concurrency = 8
+    op_timeout_secs = 30
+    health_probe_interval_secs = 30
+
+    [store.object.retry]
+    max_attempts = 4
+    base_backoff_ms = 100
+    max_backoff_ms = 5000
+    jitter_ratio = 0.2
+
+    [wal]
+    dir = "/data/wal"
+    segment_size_mb = 256
+    flush_strategy = "batch"
+    sync_level = "data"
+    batch_max_pending = 64
+    batch_max_delay_ms = 50
+
+    [ingester]
+    buffer_max_mb = 256
+    max_buffer_memory_mb = 1024
+    flush_interval_secs = 30
+    flush_parallelism = 4
+
+    [ingester.rotation]
+    adaptive_enabled = true
+    target_file_size_mb = 128
+    min_buffer_mb = 16
+    ewma_alpha = 0.2
+
+    [ingester.prometheus]
+    max_labels_per_series = 64
+    max_label_name_bytes = 128
+    max_label_value_bytes = 2048
+    max_samples_per_batch = 16384
+
+    [ingester.prometheus.cardinality]
+    enabled = true
+    max_active_series_per_process = 1000000
+    max_active_series_per_org = 200000
+    max_active_series_per_metric = 100000
+    max_new_series_per_minute = 20000
+    idle_ttl_secs = 900
+
+    [querier]
+    concurrency = 0
+    max_scan_rows = 100000000
+    auto_async_threshold_rows = 50000000
+    estimate_throughput_per_sec = 1000
+
+    [compactor]
+    interval_secs = 300
+    target_mb = 512
+    max_concurrent_groups = 4
+    retention_days = 30
+
+    [alert_manager]
+    eval_interval_secs = 30
+    dispatch_interval_secs = 10
+    eval_timeout_secs = 15
+
+    [scheduled_reports.renderer]
+    base_url = "http://web"
+    concurrent_renders = 2
+    render_timeout_secs = 30
+    viewport_width = 1280
+    viewport_height = 800
+
+    [notify.smtp]
+    host = ""
+
+    [cache.parquet_file_meta]
+    capacity = 10000
+    ttl_secs = 60
+
+    [cache.parquet_meta]
+    capacity = 2000
+    ttl_secs = 300
+
+    [cache.query_result]
+    capacity = 1000
+    ttl_secs = 60
+
+    [auth]
+    token_ttl_secs = 86400
+    # jwt secret 默认由 DB 自动 bootstrap；显式锁定时从 Secret 注入 MS_AUTH_JWT_SECRET_OVERRIDE
+
+    # OIDC / SAML / LDAP provider 配置存于 sso_providers 表，
+    # 通过 IAM → SSO 管理页或 /api/v1/sso/providers API 维护。
+
+    [cluster]
+    heartbeat_interval_secs = 5
+    peer_timeout_secs = 15
+    # 节点发现结果由进程缓存 2 秒，并发刷新只查询一次 PostgreSQL。
+    # advertise_addr 由各 role Deployment 的 env 注入（POD_IP）
+
+    [router.rate_limit]
+    ingest_qps = 1000
+    query_qps = 100
+    burst_multiplier = 2

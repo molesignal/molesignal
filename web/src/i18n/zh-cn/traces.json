@@ -1,0 +1,186 @@
+{
+  "detail": {
+    "title": "链路详情",
+    "back": "链路",
+    "trace_id": "trace_id",
+    "copy_trace_id": "复制 Trace ID",
+    "copy_span_id": "复制 Span ID",
+    "total_duration": "总耗时",
+    "span_count": "{{count}} 个 Span",
+    "service_count": "{{count}} 个服务",
+    "error_count": "{{count}} 个错误",
+    "related_logs": "关联日志",
+    "service_metrics": "服务指标",
+    "search_logs": "在日志中检索上下文",
+    "view_user_session": "查看用户会话",
+    "missing_title": "缺少 trace id",
+    "missing_description": "请从链路列表打开详情页，以保留 trace id 和时间上下文。",
+    "not_found_title": "未找到链路",
+    "not_found_description": "所选时间范围内没有该 trace id 的 span。日志与链路分开存储，日志行里的 trace id 不一定存在对应链路。",
+    "load_error_title": "链路加载失败",
+    "malformed_title": "无法显示该链路",
+    "malformed_multiple_roots": "该链路有 {{count}} 个根 span；渲染瀑布图需要唯一根 span。",
+    "malformed_no_root": "该链路没有根 span；渲染瀑布图需要唯一根 span。",
+    "malformed_empty": "该链路没有 span。"
+  },
+  "session": {
+    "title": "会话链路",
+    "back": "链路",
+    "session_id": "session_id",
+    "empty_title": "该会话没有链路",
+    "empty_description": "最近七天内没有找到匹配该 session id 的链路。",
+    "result_count": "{{count}} 条链路",
+    "columns": {
+      "trace_id": "trace_id",
+      "service": "service",
+      "operation": "operation",
+      "duration_ms": "duration_ms"
+    }
+  },
+  "explore": {
+    "title": "链路",
+    "subtitle": "查询器",
+    "toolbar": {
+      "refresh": "刷新"
+    },
+    "tabs": {
+      "spans": "Span",
+      "traces": "链路",
+      "service_graph": "服务图",
+      "service_catalog": "服务目录"
+    },
+    "service_graph": {
+      "title": "服务图",
+      "search_placeholder": "搜索服务",
+      "search_aria": "在服务图中搜索服务",
+      "clear_search": "清空服务搜索",
+      "layout_aria": "服务图布局",
+      "tree_view": "树形视图",
+      "graph_view": "图形视图",
+      "direction_aria": "服务图方向",
+      "horizontal": "横向",
+      "vertical": "纵向",
+      "loading": "正在加载服务图…",
+      "health_legend": "服务健康状态图例",
+      "border_color": "边框颜色",
+      "health": {
+        "healthy": "健康 <1%",
+        "degraded": "降级 1–5%",
+        "warning": "警告 5–10%",
+        "critical": "严重 >10%"
+      },
+      "entity_count": "{{count}} 个服务",
+      "match_count": "{{visible}} / {{total}} 个服务",
+      "show_types": "类型图标",
+      "hide_types": "隐藏类型图标",
+      "no_match": "没有匹配“{{query}}”的服务。",
+      "compact_map_title": "紧凑视图",
+      "empty": "最近一小时无服务图数据。",
+      "latency_distribution": "时延分布 · 服务边 p95 分桶",
+      "kpis": {
+        "total_rps": "总 RPS",
+        "max_p95": "最大 p95",
+        "err_rate": "错误率"
+      },
+      "latency_buckets": {
+        "under_50ms": "<50ms",
+        "over_500ms": "500ms+"
+      },
+      "bucket_aria": "{{label}}：{{count}} 条服务边",
+      "edge_count": "{{count}} 条服务边",
+      "no_latency": "所选时间范围内没有时延数据。",
+      "slowest_edges": "最慢的边"
+    },
+    "query": {
+      "editor_label": "查询编辑器",
+      "mode_aria": "链路查询模式",
+      "modes": {
+        "fields": "字段",
+        "sql": "SQL"
+      },
+      "sql_hint": "在 traces 数据流上执行 SQL。",
+      "field_hint_full": "可使用字段语句，例如 trace_id = \"...\" / service_name contains \"checkout\"",
+      "clear": "清空",
+      "clear_query": "清空查询",
+      "run": "查询",
+      "running": "查询中…",
+      "free_text_label": "自由文本：",
+      "empty_summary": "全部链路",
+      "collapse_editor": "收起查询",
+      "expand_editor": "展开查询"
+    },
+    "results": {
+      "no_match": "没有匹配查询条件的链路。",
+      "no_traces": "所选时间范围内没有链路。",
+      "loaded_count": "已加载 {{count}} 条链路",
+      "select_prompt": "选择一条链路以查看摘要。",
+      "select_description": "无需离开结果列表，即可查看服务调用、Span 耗时、错误和属性。",
+      "select_trace_aria": "查看链路 {{operation}}",
+      "span_count": "{{count}} 个 Span",
+      "error_count": "{{count}} 个错误",
+      "open_detail": "链路详情 >>",
+      "inspect_hint": "点击查看摘要",
+      "view_spans": "查看 spans",
+      "visible_labels": "可见字段",
+      "close_summary": "关闭链路详情",
+      "summary_drawer_aria": "链路详情面板"
+    },
+    "sort": {
+      "aria": "链路排序",
+      "latest": "最新优先",
+      "earliest": "最早优先",
+      "duration_desc": "耗时最长",
+      "duration_asc": "耗时最短",
+      "span_count_desc": "Span 数最多",
+      "errors_desc": "错误优先"
+    },
+    "pagination": {
+      "aria": "链路结果分页",
+      "page_summary": "{{page}} / {{pages}}",
+      "page_size_aria": "每页链路数",
+      "previous": "上一页",
+      "next": "下一页",
+      "first_aria": "链路首页",
+      "previous_aria": "上一页",
+      "next_aria": "下一页",
+      "last_aria": "链路尾页"
+    },
+    "table": {
+      "trace": "链路",
+      "service": "服务",
+      "operation": "操作",
+      "spans": "Span 数",
+      "errors": "错误数",
+      "duration": "时长",
+      "start": "开始"
+    },
+    "labels": {
+      "title": "字段",
+      "collapse": "收起字段",
+      "expand": "展开字段",
+      "resize": "拖动调整字段宽度，双击恢复默认宽度",
+      "filter_placeholder": "搜索字段",
+      "filter_aria": "过滤链路字段",
+      "common_fields": "常用字段",
+      "other_fields": "其他字段",
+      "json_query_required": "{{name}} 需要在 SQL 模式中使用 JSON 路径查询",
+      "direct_query_unavailable": "{{name}} 不能直接查询",
+      "fields_summary": "{{shown}} / {{total}} 字段"
+    },
+    "field_hints": {
+      "service": "服务名",
+      "operation": "Span 操作",
+      "trace_id": "Trace 标识",
+      "span_id": "Span 标识",
+      "parent_span": "父 Span",
+      "duration_ms": "链路时长",
+      "span_count": "Span 数量",
+      "error_count": "错误 Span 数量"
+    },
+    "service_catalog": {
+      "title": "服务目录",
+      "empty": "所选时间范围内没有服务目录条目。",
+      "slowest_operations": "最慢操作"
+    }
+  }
+}

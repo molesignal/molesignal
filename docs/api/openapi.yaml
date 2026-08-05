@@ -1,0 +1,1133 @@
+# MoleSignal HTTP API v1
+# OpenAPI 3.0 描述。当前覆盖 ingest / query / streams / alerts / dashboards / 派生查询 /
+# 付费版 (sso/clusters/cipher_keys/connectors/intelligence)。
+# 完整 endpoint 索引见各 handler 文件 `src/api/http/routes/*.rs`。
+
+openapi: 3.0.3
+info:
+  title: MoleSignal API
+  version: 1.0.0
+  description: |
+    MoleSignal 是可观测平台核心引擎。所有 endpoint 默认走 `Authorization: Bearer <jwt>` 鉴权；
+    `/api/v1/healthz` / `/api/v1/auth/signin` / `/api/v1/auth/sso/*` / `/metrics`
+    在白名单内免鉴权。
+
+    错误统一返 `{ "error": "<message>" }` body；状态码：
+    - 400 invalid argument
+    - 401 unauthorized (token 校验失败)
+    - 403 forbidden (IAM permission / license 不足)
+    - 404 not found / 跨 org lookup
+    - 409 conflict (unique 约束 / 状态冲突)
+    - 501 profiling kind unavailable on this build
+    - 413 quota exhausted
+    - 429 rate limited
+
+    精确流名 `_molesignal` 保留给服务自身遥测。所有公共 ingest 与 stream mutation
+    对该名称返回 403；`_sys` system scope 中的 IAM 查询仍然可用。
+servers:
+  - url: https://molesignal.example.com
+  - url: http://localhost:5080
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+    IngestResult:
+      type: object
+      properties:
+        accepted: { type: integer }
+        rejected: { type: integer }
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              index: { type: integer }
+              reason: { type: string }
+    ApmResponseMeta:
+      type: object
+      required: [range, resolution, data_quality, activation_boundary]
+      properties:
+        range:
+          type: object
+          properties:
+            from: { type: integer, format: int64, description: epoch micros }
+            to: { type: integer, format: int64, description: epoch micros }
+        resolution: { type: string, enum: [minute, hour] }
+        projection_started_at: { type: integer, format: int64, nullable: true }
+        last_complete_bucket_at: { type: integer, format: int64, nullable: true }
+        activation_boundary: { type: boolean }
+        data_quality:
+          type: object
+          required: [partial, gaps, overflow_dimensions]
+          properties:
+            partial: { type: boolean }
+            gaps: { type: array, items: { type: object } }
+            overflow_dimensions: { type: array, items: { type: string } }
+
+security:
+  - bearerAuth: []
+
+paths:
+  /api/v1/healthz:
+    get:
+      summary: Liveness + readiness probe
+      security: []
+      responses:
+        '200': { description: ready }
+        '503': { description: degraded (ingester replay / object_store probe failing) }
+
+  /metrics:
+    get:
+      summary: Prometheus exposition
+      security: []
+      responses:
+        '200':
+          description: text/plain; version=0.0.4
+          content:
+            text/plain: {}
+
+  /api/v1/iam/permissions:
+    get:
+      summary: Read the database-backed IAM permission catalog
+      description: Requires `iam.roles.read` or `iam.policies.read`.
+      responses:
+        '200': { description: Versioned permissions, role mappings, relation mappings, and bundles }
+        '403': { description: Missing IAM catalog read permission }
+
+  /api/v1/iam/capabilities:
+    get:
+      summary: Resolve capabilities for the signed active organization
+      responses:
+        '200': { description: Organization, scope, display role, permissions, features, policy version, and database-resolved route/navigation decisions }
+
+  /api/v1/iam/share-targets:
+    get:
+      summary: List non-system organizations eligible as explicit share targets
+      description: Requires `iam.policies.manage`.
+      responses:
+        '200': { description: Sorted organization id/name options }
+
+  /api/v1/iam/role-bindings:
+    get: { summary: List IAM role bindings }
+    post: { summary: Create a validated organization/resource role binding }
+  /api/v1/iam/role-bindings/{id}:
+    delete:
+      summary: Delete an IAM role binding and increment the policy version
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+
+  /api/v1/iam/relationships:
+    get: { summary: List direct IAM resource relationships }
+    post: { summary: Create a bounded direct resource relationship }
+  /api/v1/iam/relationships/{id}:
+    delete:
+      summary: Delete an IAM resource relationship
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+
+  /api/v1/iam/cross-org-grants:
+    get: { summary: List incoming and outgoing explicit cross-organization grants }
+    post: { summary: Create a non-transitive pending cross-organization grant }
+  /api/v1/iam/cross-org-grants/{id}/accept:
+    post:
+      summary: Accept a pending grant from its target organization
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+  /api/v1/iam/cross-org-grants/{id}/revoke:
+    post:
+      summary: Revoke a grant from its source or target organization
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+
+  /api/v1/iam/evaluate-batch:
+    post:
+      summary: Evaluate up to 100 ordered IAM permission/resource requests
+      responses:
+        '200': { description: Ordered IAM decisions with reasons and matched ids }
+        '400': { description: Unknown permission, invalid target, or oversized batch }
+
+  /api/v1/system/platform-admins:
+    get:
+      summary: Read the configured root platform-administrator assignment
+      description: Requires a system-scoped JWT with sys.administrators.manage. The assignment is reconciled at startup and cannot be granted or revoked through the API.
+      responses:
+        '200': { description: The single active root assignment }
+        '404': { description: Hidden from tenant scope }
+
+  /api/v1/system/telemetry:
+    get:
+      summary: Read effective distributed Trace policy and detailed health
+      description: |
+        Requires SystemTelemetryRead in system scope. Includes deployment/runtime precedence,
+        tail-sampler/router/sink metrics, and fixed exporter/capacity/drop/system-load alerts.
+      responses:
+        '200': { description: Effective policy and non-fatal detailed health }
+        '404': { description: Hidden from tenant scope }
+    put:
+      summary: Atomically publish a runtime Trace policy
+      description: |
+        Requires SystemTelemetryManage. Static endpoint, protocol, TLS/mTLS, authentication,
+        compression, and Resource identity remain deployment configuration.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200': { description: Newly active policy }
+        '400': { description: Invalid bounded policy }
+        '404': { description: Hidden from tenant scope }
+
+  /api/v1/system/telemetry/policies:
+    get:
+      summary: List immutable Trace policy history
+      responses:
+        '200': { description: Version history with active marker }
+        '404': { description: Hidden from tenant scope }
+
+  /api/v1/system/telemetry/debug-tokens:
+    get:
+      summary: List Trace debug-token metadata
+      description: Plaintext token values are never returned after issuance.
+      responses:
+        '200': { description: Token metadata }
+        '404': { description: Hidden from tenant scope }
+    post:
+      summary: Issue a bounded one-time-visible Trace debug token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ttl_seconds]
+              properties:
+                organization_id: { type: string, nullable: true }
+                route_pattern: { type: string, nullable: true }
+                ttl_seconds: { type: integer, minimum: 1, maximum: 3600 }
+                max_uses: { type: integer, minimum: 1, maximum: 10000, default: 100 }
+      responses:
+        '201': { description: Metadata plus the plaintext token exactly once }
+        '404': { description: Hidden from tenant scope }
+
+  /api/v1/system/telemetry/debug-tokens/{id}:
+    delete:
+      summary: Revoke a Trace debug token
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { description: Revoked }
+        '404': { description: Hidden or token not found }
+
+  /api/v1/system/license:
+    get:
+      summary: Read the active system License snapshot
+      description: Requires LicenseRead in system scope. The former /api/v1/license route is removed.
+      responses:
+        '200': { description: Verified active License summary }
+        '404': { description: Hidden from tenant scope }
+
+  /api/v1/system/license/versions:
+    get:
+      summary: List immutable License versions
+      responses:
+        '200': { description: Redacted version summaries and active marker }
+        '404': { description: Hidden from tenant scope }
+    post:
+      summary: Verify, persist, and activate a new License version
+      description: Requires LicenseWrite. Signed package contents are never returned by list APIs.
+      responses:
+        '201': { description: New active immutable version }
+        '400': { description: Invalid signature, package, or expiration }
+        '404': { description: Hidden from tenant scope }
+
+  /api/v1/system/license/versions/{id}/activate:
+    post:
+      summary: Re-verify and atomically reactivate a historical License version
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Version activated and runtime License replaced }
+        '400': { description: Version no longer verifies or is expired }
+        '404': { description: Hidden or version not found }
+
+  /api/v1/auth/signin:
+    post:
+      summary: Email + password login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string }
+                password: { type: string }
+      responses:
+        '200':
+          description: JWT issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string }
+                  user_id: { type: string }
+                  org_id: { type: string }
+                  display_role: { type: string }
+                  roles:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, key, name, builtin]
+                      properties:
+                        id: { type: string }
+                        key: { type: string }
+                        name: { type: string }
+                        builtin: { type: boolean }
+        '401': { $ref: '#/components/schemas/Error' }
+
+  /api/v1/auth/sso/login:
+    get:
+      summary: SSO OIDC login redirect (license-gated)
+      security: []
+      responses:
+        '302': { description: redirect to IdP /authorize }
+        '403': { description: sso feature not licensed }
+
+  /api/v1/auth/sso/callback:
+    get:
+      summary: SSO OIDC callback (license-gated)
+      security: []
+      parameters:
+        - { in: query, name: code, required: true, schema: { type: string } }
+        - { in: query, name: state, schema: { type: string } }
+      responses:
+        '200': { description: JWT issued }
+        '401': { description: IdP error / id_token invalid }
+        '403': { description: sso feature not licensed }
+
+  /api/v1/auth/sso/providers:
+    get:
+      summary: List enabled external login providers without secret configuration
+      security: []
+      responses:
+        '200':
+          description: Empty in community mode; otherwise enabled OIDC, SAML, and LDAP providers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [id, name, kind]
+                  properties:
+                    id: { type: string }
+                    name: { type: string }
+                    kind: { type: string, enum: [oidc, saml, ldap] }
+
+  /api/v1/auth/sso/ldap/login:
+    post:
+      summary: LDAP search and user simple-bind login (license-gated)
+      description: |
+        Resolves exactly one user DN with the configured escaped search filter, binds as that
+        user over LDAPS or StartTLS, applies the configured identity-field and group-to-role
+        mappings, provisions the local membership, and issues a local JWT.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [provider_id, username, password]
+              properties:
+                provider_id: { type: string }
+                username: { type: string, maxLength: 320 }
+                password: { type: string, format: password, maxLength: 1024 }
+      responses:
+        '200': { description: Local JWT and organization context issued }
+        '401': { description: Provider, user, or credentials invalid }
+        '403': { description: sso feature not licensed }
+        '503': { description: LDAP directory unavailable }
+
+  /api/v1/sso/providers:
+    get:
+      summary: List organization SSO providers (secrets redacted)
+    post:
+      summary: Create an OIDC, SAML, or LDAP provider
+      description: |
+        Each provider config accepts `field_mapping` with `subject`, `email`, `display_name`,
+        and `groups`. It also accepts `group_role_mapping` (external group value to organization
+        role id) and an optional `default_role_id`. Every referenced role must belong to the
+        provider organization.
+
+  /api/v1/sso/providers/roles:
+    get:
+      summary: List organization roles assignable by SSO mappings
+      description: Returns only role ids and names and uses the SSO settings read permission.
+
+  /api/v1/sso/providers/{id}:
+    get: { summary: Read one organization SSO provider with secrets redacted }
+    put:
+      summary: Update one provider; omitted secrets retain their saved values
+      description: Identity-field and role mappings replace the previously saved mappings.
+    delete: { summary: Delete one provider }
+
+  /api/v1/ingest/logs/{stream}:
+    post:
+      summary: HTTP JSON ingest (logs)
+      parameters:
+        - { in: path, name: stream, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - { type: object }
+                - { type: array, items: { type: object } }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/IngestResult' }
+        '413': { description: storage quota exceeded }
+        '429': { description: rate limited }
+
+  /api/v1/ingest/metrics/{stream}: { $ref: '#/paths/~1api~1v1~1ingest~1logs~1{stream}' }
+  /api/v1/ingest/traces/{stream}: { $ref: '#/paths/~1api~1v1~1ingest~1logs~1{stream}' }
+
+  /api/v1/_bulk:
+    post:
+      summary: Elasticsearch _bulk-compatible ingest (NDJSON)
+      requestBody:
+        required: true
+        content:
+          application/x-ndjson: {}
+      responses:
+        '200':
+          description: per-record status array (ES-compatible items[])
+
+  /api/v1/prometheus/api/v1/write:
+    post:
+      summary: Prometheus remote_write samples and native Exemplars (snappy + protobuf)
+      requestBody:
+        required: true
+        content:
+          application/x-protobuf: {}
+      responses:
+        '204': { description: accepted }
+
+  /api/v1/prometheus/api/v1/query_exemplars:
+    get:
+      summary: Query Prometheus-native Exemplars
+      parameters:
+        - { in: query, name: query, required: true, schema: { type: string } }
+        - { in: query, name: start, required: true, schema: { type: string }, description: Epoch seconds or RFC3339 }
+        - { in: query, name: end, required: true, schema: { type: string }, description: Epoch seconds or RFC3339 }
+      responses:
+        '200':
+          description: Prometheus-compatible Exemplar response
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, data]
+                properties:
+                  status: { type: string, enum: [success] }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required: [seriesLabels, exemplars]
+                      properties:
+                        seriesLabels:
+                          type: object
+                          additionalProperties: { type: string }
+                        exemplars:
+                          type: array
+                          items:
+                            type: object
+                            required: [labels, value, timestamp]
+                            properties:
+                              labels:
+                                type: object
+                                additionalProperties: { type: string }
+                              value: { type: number, format: double }
+                              timestamp: { type: number, format: double }
+                  warnings:
+                    type: array
+                    items: { type: string }
+    post:
+      summary: Query Prometheus-native Exemplars using form parameters
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [query, start, end]
+              properties:
+                query: { type: string }
+                start: { type: string, description: Epoch seconds or RFC3339 }
+                end: { type: string, description: Epoch seconds or RFC3339 }
+      responses:
+        '200': { description: Prometheus-compatible Exemplar response }
+
+  /api/v1/loki/api/v1/push:
+    post:
+      summary: Loki push (snappy-protobuf or JSON)
+      responses:
+        '204': { description: accepted }
+
+  /api/v1/_kinesis_firehose:
+    post:
+      summary: AWS Kinesis Firehose push
+      responses:
+        '200': { description: firehose-compatible ack }
+
+  /api/v1/_cloudflare:
+    post:
+      summary: Cloudflare Logpush push (NDJSON)
+      parameters:
+        - { in: header, name: X-Connector-Token, required: true, schema: { type: string } }
+      responses:
+        '204': { description: accepted }
+
+  /api/v1/_heroku:
+    post:
+      summary: Heroku log drain push (text)
+      parameters:
+        - { in: header, name: X-Connector-Token, required: true, schema: { type: string } }
+      responses:
+        '204': { description: accepted }
+
+  /api/v1/query:
+    post:
+      summary: Execute SQL or PromQL query
+      parameters:
+        - in: header
+          name: Accept
+          description: '`application/x-ndjson` 走 streaming（bypass query_result cache）'
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [org_id, language, statement, time_range]
+              properties:
+                org_id: { type: string }
+                language: { type: string, enum: [sql, promql] }
+                statement: { type: string }
+                time_range:
+                  type: object
+                  properties:
+                    start: { type: integer }
+                    end: { type: integer }
+                stream:
+                  type: object
+                  properties:
+                    name: { type: string }
+                    stream_type: { type: string, enum: [logs, metrics, traces, enrichment] }
+                limit: { type: integer }
+      responses:
+        '200':
+          description: query result (rows + columns + scanned_rows + took_ms + cache_hit)
+
+  /api/v1/query/search_around:
+    post:
+      summary: 前后 N 条上下文
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [event_timestamp_us, stream, stream_type]
+              properties:
+                event_timestamp_us: { type: integer }
+                event_fingerprint: { type: string }
+                stream: { type: string }
+                stream_type: { type: string }
+                before: { type: integer, default: 50 }
+                after: { type: integer, default: 50 }
+      responses:
+        '200': { description: before + after blocks }
+
+  /api/v1/streams:
+    get: { summary: List streams }
+    post:
+      summary: Create stream (`_molesignal` is reserved; returns 403)
+
+  /api/v1/streams/{id}:
+    get: { summary: Get one }
+    delete: { summary: Delete }
+  /api/v1/streams/{id}/schema:
+    put: { summary: Edit schema }
+  /api/v1/streams/{id}/retention:
+    put: { summary: Edit retention }
+
+  /api/v1/debug/profile/cpu:
+    get:
+      summary: Download a canonical gzip CPU pprof profile (Owner/Admin)
+      parameters:
+        - { in: query, name: seconds, schema: { type: integer, minimum: 1, maximum: 120, default: 30 } }
+      responses:
+        '200':
+          description: gzip perftools.profiles.Profile
+          content:
+            application/octet-stream: {}
+        '400': { description: duration outside 1..120 }
+        '404': { description: profiling disabled }
+        '409': { description: another CPU capture is running; includes Retry-After }
+        '501': { description: CPU profiling unavailable in this build }
+
+  /api/v1/debug/profile/heap:
+    get:
+      summary: Download a canonical gzip heap pprof profile (Owner/Admin)
+      responses:
+        '200':
+          description: gzip perftools.profiles.Profile
+          content:
+            application/octet-stream: {}
+        '404': { description: profiling disabled }
+        '501': { description: heap profiling unavailable in this build/platform }
+
+  /api/v1/dashboards: { post: { summary: Create dashboard } }
+  /api/v1/folders: { post: { summary: Create folder } }
+
+  /api/v1/alerts/rules:
+    get: { summary: List }
+    post: { summary: 'Create alert rule (kind: scheduled | realtime | anomaly)' }
+  /api/v1/alerts/rules/{id}:
+    put: { summary: Update (rule threshold change resets consecutive counter) }
+    delete: { summary: Delete }
+  /api/v1/alerts/escalations: { post: { summary: Create escalation policy } }
+  /api/v1/alerts/incidents: { get: { summary: List incidents } }
+  /api/v1/alerts/incidents/{id}/ack: { post: { summary: Ack } }
+  /api/v1/alerts/incidents/{id}/resolve: { post: { summary: Resolve } }
+
+  /api/v1/notify/connector-types:
+    get: { summary: List registered notify connector adapters and capabilities }
+  /api/v1/notify/connectors:
+    get: { summary: List encrypted enterprise notify connectors }
+    post: { summary: Create an enterprise notify connector (alerts.manage) }
+  /api/v1/notify/connectors/{id}:
+    get: { summary: Read a connector with sensitive configuration fields masked }
+    put: { summary: Update a connector; masked secrets preserve their stored values }
+    delete: { summary: Delete an unreferenced connector }
+  /api/v1/notify/connectors/{id}/test:
+    post: { summary: Send a connector test and persist its result and delivery log }
+  /api/v1/notify/templates:
+    get: { summary: List Notify templates }
+    post: { summary: Create a Notify template }
+  /api/v1/notify/template-fields:
+    get: { summary: List category-specific template placeholders, dynamic keys, and presets }
+  /api/v1/notify/templates/{id}:
+    get: { summary: Read a Notify template }
+    put: { summary: Update a Notify template }
+    delete: { summary: Delete an unreferenced Notify template }
+  /api/v1/notify/users:
+    get: { summary: List organization users with notify endpoints and preferences }
+  /api/v1/users/{user_id}/notify-endpoints:
+    get: { summary: List a user's notify identities }
+    post: { summary: Bind a notify identity to an enterprise connector }
+  /api/v1/users/{user_id}/notify-endpoints/{id}:
+    get: { summary: Read a user notify identity }
+    put: { summary: Update, enable, or disable a user notify identity }
+    delete: { summary: Delete a user notify identity }
+  /api/v1/users/{user_id}/notify-endpoints/{id}/test:
+    post: { summary: Send and log a test to a user notify identity }
+  /api/v1/users/{user_id}/notify-endpoints/{id}/verify:
+    post: { summary: Administratively attest a notify identity (org.members.manage) }
+  /api/v1/users/{user_id}/notify-preferences:
+    get: { summary: List category-specific user notify preferences }
+  /api/v1/users/{user_id}/notify-preferences/{category}:
+    put: { summary: Replace the ordered endpoint preference for a notify category }
+  /api/v1/notify/recipient-resolver-types:
+    get: { summary: List registered notify recipient resolvers }
+  /api/v1/notify/policies:
+    get: { summary: List notify policies in priority order }
+    post:
+      summary: Create a notify policy using prefer_user, force_connector, or multi_connector
+  /api/v1/notify/policies/preview:
+    post: { summary: Preview an unsaved notify policy without sending }
+  /api/v1/notify/policies/{id}:
+    get: { summary: Read a notify policy }
+    put: { summary: Replace a notify policy }
+    delete: { summary: Delete a notify policy }
+  /api/v1/notify/policies/{id}/test:
+    post: { summary: Preview matching recipients and fallback routes without sending }
+  /api/v1/notify/team-defaults/{team_id}:
+    get: { summary: List a team's category-specific fallback routes }
+  /api/v1/notify/team-defaults/{team_id}/{category}:
+    get: { summary: Read a team fallback route }
+    put: { summary: Replace a team fallback route }
+    delete: { summary: Delete a team fallback route }
+  /api/v1/notify/organization-defaults:
+    get: { summary: List organization fallback routes }
+  /api/v1/notify/organization-defaults/{category}:
+    get: { summary: Read an organization fallback route }
+    put: { summary: Replace an organization fallback route }
+    delete: { summary: Delete an organization fallback route }
+  /api/v1/notify/deliveries:
+    get: { summary: Filter Notify delivery attempts }
+  /api/v1/notify/deliveries/{id}:
+    get: { summary: Read one Notify delivery attempt }
+  /api/v1/notify/deliveries/{id}/ack:
+    post: { summary: Acknowledge every delivery for the same notify event }
+  /api/v1/notify/deliveries/{id}/retry:
+    post: { summary: Re-run the persisted notify event through current policy routing }
+
+  /api/v1/saved_views:
+    get: { summary: 'List (?pinned=true)' }
+    post: { summary: Create }
+  /api/v1/saved_views/{id}/run: { post: { summary: Run saved query } }
+
+  /api/v1/functions:
+    post: { summary: Create function (VRL compile on create) }
+  /api/v1/pipelines:
+    post: { summary: Create pipeline (stream + enabled 唯一约束) }
+  /api/v1/scheduled_pipelines:
+    get: { summary: List }
+    post:
+      summary: 'Create scheduled pipeline (cron: `every:Ns/m/h`, DataPlaneAdmin)'
+
+  /api/v1/auth/tokens:
+    post: { summary: 'Issue a personal API token (`ms_<prefix>_<secret>`)' }
+    get: { summary: List }
+  /api/v1/auth/tokens/default:
+    get:
+      summary: Get or create the workspace default ingestion token
+      description: 'Requires `api_tokens.manage`; returns a sealed-at-rest `ms_` token with the write-only ingest role and `Cache-Control: private, no-store`.'
+  /api/v1/auth/tokens/rum:
+    get:
+      summary: Get or create an application-bound RUM client token
+      description: 'Requires `api_tokens.manage`; returns a sealed-at-rest `msrum_` token that only grants `rum.write` for the requested application, with `Cache-Control: private, no-store`.'
+      parameters:
+        - { in: query, name: application_id, required: true, schema: { type: string, minLength: 1, maxLength: 128, pattern: '^[A-Za-z0-9._:-]+$' } }
+  /api/v1/auth/tokens/{id}:
+    delete: { summary: Revoke }
+
+  /api/v1/debug-artifacts:
+    get:
+      summary: List tenant-scoped RUM debug artifacts
+      description: Requires `streams.read`.
+      parameters:
+        - { in: query, name: application_id, schema: { type: string } }
+        - { in: query, name: service, schema: { type: string } }
+        - { in: query, name: kind, schema: { type: string, enum: [javascript_sourcemap, flutter_symbols, android_mapping, android_native_symbols, apple_dsym] } }
+        - { in: query, name: platform, schema: { type: string, enum: [web, flutter, android, ios] } }
+    post:
+      summary: Upload a RUM Source Map or mobile symbol artifact
+      description: Requires `streams.configure`; multipart body is limited to 50 MiB per artifact.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [application_id, service, release, kind, platform, file]
+              properties:
+                application_id: { type: string, maxLength: 128 }
+                service: { type: string, maxLength: 255 }
+                release: { type: string, maxLength: 64 }
+                kind: { type: string, enum: [javascript_sourcemap, flutter_symbols, android_mapping, android_native_symbols, apple_dsym] }
+                platform: { type: string, enum: [web, flutter, android, ios] }
+                architecture: { type: string, maxLength: 32, description: 'Common ABI aliases such as arm64-v8a and aarch64 are canonicalized.' }
+                debug_id: { type: string, maxLength: 128, description: 'UUID or ELF build ID; hex identifiers are compared case-insensitively without punctuation.' }
+                file: { type: string, format: binary, description: 'Raw artifact or gzip-compressed artifact.' }
+  /api/v1/debug-artifacts/{id}:
+    delete:
+      summary: Delete one tenant-scoped RUM debug artifact
+      description: Requires `streams.configure`.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+
+  /api/v1/auth/jwt/rotate:
+    post: { summary: 'Rotate JWT signing secret (Owner-only; retires current + inserts new; 24h grace for in-flight tokens; auth-hardening)' }
+  /api/v1/auth/jwt/secrets:
+    get: { summary: 'List JWT signing secret metadata (Owner-only; never returns secret bytes)' }
+
+  /api/v1/audit:
+    get: { summary: 'Audit log (?from&to&actor&action&page=, Admin+)' }
+
+  /api/v1/orgs/{id}/quota:
+    get: { summary: Read quota (Owner-only) }
+    put: { summary: Set quota }
+
+  /api/v1/traces/service_graph:
+    get:
+      summary: Service graph edges
+      parameters:
+        - { in: query, name: from, required: true, schema: { type: integer } }
+        - { in: query, name: to, required: true, schema: { type: integer } }
+        - { in: query, name: service, schema: { type: string } }
+      responses: { '200': { description: 'edges[] + count' } }
+
+  /api/v1/apm/overview:
+    get:
+      summary: Organization-scoped APM RED overview
+      description: Requires `streams.query` or `sys.telemetry.read`. Metrics are projected before Trace sampling.
+      parameters: &apmQueryParameters
+        - { in: query, name: from, schema: { type: integer, format: int64 }, description: "epoch micros; defaults to 24h ago" }
+        - { in: query, name: to, schema: { type: integer, format: int64 }, description: "epoch micros; defaults to now" }
+        - { in: query, name: namespace, schema: { type: string } }
+        - { in: query, name: service, schema: { type: string } }
+        - { in: query, name: environment, schema: { type: string } }
+        - { in: query, name: version, schema: { type: string } }
+        - { in: query, name: resolution, schema: { type: string, enum: [auto, minute, hour] } }
+        - { in: query, name: sort, schema: { type: string } }
+        - { in: query, name: direction, schema: { type: string, enum: [asc, desc] } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 200 } }
+        - { in: query, name: cursor, schema: { type: string }, description: opaque stable cursor }
+      responses:
+        '200': { description: RED summary/trend, service health, service/transaction/dependency/error impact rankings, recent versions, and data quality }
+        '400': { description: Invalid range, filter, sort, or cursor }
+        '403': { description: Missing APM read permission }
+
+  /api/v1/apm/services:
+    get:
+      summary: Paginated APM service catalog
+      parameters: *apmQueryParameters
+      responses: { '200': { description: "Service catalog page with items, previous_cursor, next_cursor, and has_more; no exact total is calculated" } }
+  /api/v1/apm/services/{service}:
+    get:
+      summary: Consistently filtered APM service workbench
+      parameters:
+        - { in: path, name: service, required: true, schema: { type: string } }
+        - { in: query, name: from, schema: { type: integer, format: int64 } }
+        - { in: query, name: to, schema: { type: integer, format: int64 } }
+        - { in: query, name: namespace, schema: { type: string } }
+        - { in: query, name: environment, schema: { type: string } }
+        - { in: query, name: version, schema: { type: string } }
+      responses:
+        '200': { description: Service RED, trend, Transactions, dependencies, errors, versions, exemplars and data quality }
+        '404': { description: Service absent in the active organization }
+  /api/v1/apm/transactions:
+    get:
+      summary: Paginated Transaction performance ranking
+      parameters: *apmQueryParameters
+      responses: { '200': { description: "Cursor page of request/error counts, merged percentiles, total time, and Trace filter handles" } }
+  /api/v1/apm/transactions/{transaction}:
+    get:
+      summary: Transaction performance workbench
+      parameters:
+        - { in: path, name: transaction, required: true, schema: { type: string } }
+        - { in: query, name: from, schema: { type: integer, format: int64 } }
+        - { in: query, name: to, schema: { type: integer, format: int64 } }
+        - { in: query, name: namespace, schema: { type: string } }
+        - { in: query, name: service, schema: { type: string } }
+        - { in: query, name: environment, schema: { type: string } }
+        - { in: query, name: version, schema: { type: string } }
+        - { in: query, name: kind, schema: { type: string, enum: [http, rpc, messaging, span, other] } }
+        - { in: query, name: resolution, schema: { type: string, enum: [auto, minute, hour] } }
+      responses:
+        '200': { description: Transaction RED summary/trend, representative Traces, errors, versions, and cross-signal filter handles }
+        '400': { description: Transaction identity is ambiguous without enough service or kind context }
+        '404': { description: Transaction absent in the active organization }
+  /api/v1/apm/dependencies:
+    get:
+      summary: Paginated dependency performance ranking
+      parameters: *apmQueryParameters
+      responses: { '200': { description: "Cursor page of caller-scoped dependency RED and safe drilldown handles" } }
+  /api/v1/apm/errors:
+    get:
+      summary: Paginated backend error groups
+      parameters: *apmQueryParameters
+      responses: { '200': { description: "Cursor page of sanitized backend error groups and occurrence trends" } }
+  /api/v1/apm/errors/{fingerprint}:
+    get:
+      summary: Backend error detail
+      parameters:
+        - { in: path, name: fingerprint, required: true, schema: { type: string } }
+        - { in: query, name: from, schema: { type: integer, format: int64 } }
+        - { in: query, name: to, schema: { type: integer, format: int64 } }
+      responses:
+        '200': { description: Sanitized representative stack/message and explicit Trace availability }
+        '404': { description: Error group absent in the active organization }
+  /api/v1/apm/versions/compare:
+    get:
+      summary: Compare baseline and candidate service versions
+      parameters:
+        - { in: query, name: service, required: true, schema: { type: string } }
+        - { in: query, name: baseline, required: true, schema: { type: string } }
+        - { in: query, name: candidate, required: true, schema: { type: string } }
+        - { in: query, name: from, schema: { type: integer, format: int64 } }
+        - { in: query, name: to, schema: { type: integer, format: int64 } }
+        - { in: query, name: namespace, schema: { type: string } }
+        - { in: query, name: environment, schema: { type: string } }
+      responses: { '200': { description: Sample counts, sufficiency, RED deltas, and regression breakdown } }
+  /api/v1/apm/health:
+    get:
+      summary: Tenant APM projection health and data-quality boundary
+      parameters: *apmQueryParameters
+      responses:
+        '200': { description: Non-readiness APM runtime health, projection start, completion and gaps }
+
+  /api/v1/rum/sessions:
+    post: { summary: RUM session ingest (`rum.write`; app-bound tokens enforce application identity) }
+    get:
+      summary: Cursor-paginated RUM sessions
+      description: The signed cursor freezes the absolute time window and active filters.
+      parameters:
+        - { in: query, name: from, schema: { type: integer, format: int64 } }
+        - { in: query, name: to, schema: { type: integer, format: int64 } }
+        - { in: query, name: q, schema: { type: string } }
+        - { in: query, name: country, schema: { type: string } }
+        - { in: query, name: browser, schema: { type: string } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { in: query, name: cursor, schema: { type: string } }
+      responses: { '200': { description: "items, previous_cursor, next_cursor, and has_more" } }
+
+  /api/v1/rum/actions:
+    post: { summary: RUM action ingest }
+
+  /api/v1/rum/errors:
+    post: { summary: RUM error ingest with best-effort Source Map / native symbol translation }
+    get:
+      summary: Cursor-paginated RUM error groups
+      description: Sorting and aggregation happen on the server before page trimming.
+      parameters:
+        - { in: query, name: from, schema: { type: integer, format: int64 } }
+        - { in: query, name: to, schema: { type: integer, format: int64 } }
+        - { in: query, name: q, schema: { type: string } }
+        - { in: query, name: status, schema: { type: string, enum: [new, ongoing] } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { in: query, name: cursor, schema: { type: string } }
+      responses: { '200': { description: "items, previous_cursor, next_cursor, and has_more" } }
+
+  /api/v1/rum/replay:
+    post:
+      summary: RUM replay event upload → object_store + rum_replay_events row
+
+  /api/v1/rum/replay/{session_id}:
+    get:
+      summary: Read ordered replay segments for a RUM session
+      parameters:
+        - { in: path, name: session_id, required: true, schema: { type: string } }
+      responses: { '200': { description: Ordered replay segments for the session } }
+
+  /api/v1/metrics/catalog:
+    get:
+      summary: Cursor-paginated metric catalog
+      parameters:
+        - { in: query, name: q, schema: { type: string } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { in: query, name: cursor, schema: { type: string } }
+      responses: { '200': { description: "items, previous_cursor, next_cursor, and has_more" } }
+
+  /api/v1/web/traces:
+    get:
+      summary: Cursor-paginated Trace summaries
+      description: Defaults to the frozen last 24 hours, latest first, 20 rows per page. The list reads the write-time one-row-per-Trace summary projection and never falls back to span aggregation.
+      parameters:
+        - { in: query, name: from, schema: { type: integer, format: int64 } }
+        - { in: query, name: to, schema: { type: integer, format: int64 } }
+        - { in: query, name: sort, schema: { type: string, enum: [latest, earliest, duration_desc, duration_asc, span_count_desc, errors_desc] } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { in: query, name: cursor, schema: { type: string } }
+      responses: { '200': { description: "items, previous_cursor, next_cursor, and has_more" } }
+
+  /api/v1/web/logs:
+    post:
+      summary: Cursor-paginated structured log search
+      description: The first request supplies a stream, absolute time range, and filters; continuations use the signed cursor.
+      responses: { '200': { description: "items, previous_cursor, next_cursor, and has_more" } }
+
+  /api/v1/intelligence/stats:
+    get: { summary: Intelligence LLM overall stats (license-gated) }
+  /api/v1/intelligence/top_models:
+    get: { summary: Top models by call count }
+  /api/v1/intelligence/top_users:
+    get: { summary: Top users by call count }
+  /api/v1/intelligence/chat:
+    get: { summary: List the current user's Mole Intelligence chats }
+    post: { summary: Create a Mole Intelligence chat }
+  /api/v1/intelligence/chat/{id}:
+    delete: { summary: Archive and soft-delete a chat }
+  /api/v1/intelligence/chat/{id}/messages:
+    get: { summary: List chat messages }
+    post: { summary: Send or regenerate a message with context, Agent Profile, Prompt, and execution policy; stream Mole Agent events over SSE }
+  /api/v1/intelligence/chat/{id}/archive:
+    post: { summary: Archive the chat transcript to object storage }
+  /api/v1/intelligence/dashboard-authoring/capabilities:
+    get:
+      summary: Discover the server-owned Dashboard authoring contract, visualizations, query kinds, limits, and workflow
+      description: Requires `intelligence.use`, `dashboards.create`, and the `intelligence` license feature. The response is derived from the deployed compiler manifest.
+  /api/v1/intelligence/dashboard-drafts/{id}:
+    get:
+      summary: Read an organization-scoped persisted Dashboard draft for restricted preview
+      description: Returns the server-compiled model, hash, expiry, preflight results, and current operation state. Cross-organization lookup is non-enumerating.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+  /api/v1/intelligence/dashboard-drafts/{id}/propose:
+    post:
+      summary: Propose controlled creation of a previously prepared Dashboard draft
+      description: Accepts only the expected draft hash plus human-readable reason and impact. It never accepts a compiled model or trusted identity fields and never creates a Dashboard directly.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [expected_hash, reason, impact]
+              properties:
+                expected_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+                reason: { type: string, minLength: 1, maxLength: 2000 }
+                impact: { type: string, minLength: 1, maxLength: 2000 }
+  /api/v1/intelligence/overview:
+    get: { summary: Mole Intelligence operational overview }
+  /api/v1/intelligence/investigations:
+    get: { summary: List investigation tasks }
+    post: { summary: Create an investigation task }
+  /api/v1/intelligence/investigations/{id}:
+    get: { summary: Get investigation steps, evidence, and hypotheses }
+    put: { summary: Update investigation state and conclusion }
+  /api/v1/intelligence/investigations/{id}/steps:
+    post: { summary: Append a traceable investigation step }
+  /api/v1/intelligence/investigations/{id}/evidence:
+    post: { summary: Append evidence with fact status and source reference }
+  /api/v1/intelligence/investigations/{id}/hypotheses:
+    post: { summary: Create or update a root-cause hypothesis }
+  /api/v1/intelligence/automations:
+    get: { summary: List constrained Mole Agent automations }
+    post: { summary: Create an automation from registered tools }
+  /api/v1/intelligence/automations/{id}:
+    get: { summary: Get an automation }
+    put: { summary: Update an automation }
+  /api/v1/intelligence/automations/{id}/dry-run:
+    post: { summary: Resolve a no-side-effect automation dry run }
+  /api/v1/intelligence/approvals:
+    get: { summary: List Mole Agent operation approvals }
+    post: { summary: Propose a registered operation for approval }
+  /api/v1/intelligence/approvals/{id}:
+    get: { summary: Get an approval record }
+  /api/v1/intelligence/approvals/{id}/review:
+    post: { summary: Approve or reject an operation }
+  /api/v1/intelligence/approvals/{id}/execute:
+    post: { summary: Execute an approved registered operation idempotently }
+  /api/v1/intelligence/executions:
+    get: { summary: List approved operation executions }
+  /api/v1/intelligence/executions/{id}:
+    get: { summary: Get execution parameters, result, and verification }
+  /api/v1/intelligence/settings/agent-profiles:
+    get: { summary: List constrained Mole Agent profiles }
+    post: { summary: Create a Mole Agent profile }
+  /api/v1/intelligence/settings/agent-profiles/{id}:
+    get: { summary: Get a Mole Agent profile }
+    put: { summary: Update a Mole Agent profile }
+  /api/v1/intelligence/settings/prompts:
+    get: { summary: List visible built-in, organization, and personal Mole Agent Prompts }
+    post: { summary: Create an organization or personal Prompt override }
+  /api/v1/intelligence/settings/prompts/{id}:
+    put: { summary: Update and version a non-built-in Prompt }
+    delete: { summary: Delete a non-built-in Prompt }
+  /api/v1/intelligence/settings/prompts/{id}/set-default:
+    post: { summary: Set the effective default Prompt for its scope and purpose }
+  /api/v1/intelligence/settings/prompts/{id}/restore:
+    post: { summary: Restore an override body and variable schema from its built-in parent }
+  /api/v1/intelligence/tools:
+    get: { summary: List the compile-time Mole Agent tool allowlist and runtime capabilities }
+  /api/v1/intelligence/audit/chat/{id}:
+    get: { summary: Read an audited chat transcript (Admin or Owner) }
+
+  /api/v1/clusters:
+    get: { summary: List remote clusters (Owner-only + federated_search license) }
+    post: { summary: Register remote cluster }
+  /api/v1/clusters/{id}:
+    put: { summary: Update }
+    delete: { summary: Delete }
+
+  /api/v1/cipher_keys:
+    get: { summary: List cipher keys (Owner-only; raw_key never returned) }
+    post: { summary: Create (32-byte base64 raw key) }
+  /api/v1/cipher_keys/{name}:
+    get: { summary: Get latest version }
+    delete: { summary: Delete }
+  /api/v1/cipher_keys/{name}/rotate:
+    post: { summary: Rotate (inserts new version, keeps prior) }
+
+  /api/v1/connectors:
+    get: { summary: List connectors (sensitive fields masked) }
+    post: { summary: Create (kind ∈ aws_cloudwatch_logs / aws_kinesis_firehose / cloudflare_logpush / heroku_drain) }
+  /api/v1/connectors/{id}:
+    put: { summary: Update }
+    delete: { summary: Delete }
+
+  # ---- web-investigation-shell (frontend ⌘K / 调查栈 / 跨信号联动) ----
+  /api/v1/web/search:
+    get:
+      summary: Cross-entity ⌘K aggregated search (streams / dashboards / saved_views / alerts / incidents / services)
+      description: |
+        Returns up to `limit` (default 20, max 50) hits ranked by pg_trgm similarity.
+        Requires `Permission::WebSearch` (all authenticated users by default).
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string } }
+        - { name: types, in: query, required: false, schema: { type: string },
+            description: "Comma-separated subset of {stream,dashboard,saved_view,alert,incident,service}" }
+        - { name: limit, in: query, required: false, schema: { type: integer, default: 20, maximum: 50 } }
+  /api/v1/web/topology:
+    get:
+      summary: Aggregate service_graph_edges into nodes / edges within (from, to)
+      parameters:
+        - { name: from, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: to,   in: query, required: true, schema: { type: string, format: date-time } }
+  /api/v1/web/trace/{trace_id}:
+    get:
+      summary: Full span tree for a trace_id (≤ 100k spans, 32 MiB hard cap → truncated=true)
+      parameters:
+        - { name: trace_id, in: path, required: true, schema: { type: string } }
+  /api/v1/web/correlation/{from_kind}/{to_kind}:
+    get:
+      summary: Server-side prefill of filters/time/prefill for metric ↔ trace ↔ log ↔ host jumps
+      parameters:
+        - { name: from_kind, in: path, required: true, schema: { type: string, enum: [trace, metric, log, host] } }
+        - { name: to_kind,   in: path, required: true, schema: { type: string, enum: [trace, metric, log, host] } }
+        - { name: ctx,       in: query, required: true, schema: { type: string },
+            description: "base64-url JSON blob of source signal context" }
+  /api/v1/web/investigation/blob:
+    post:
+      summary: Store ephemeral investigation-stack payload (returns blob_id, 7d retention)
+  /api/v1/web/investigation/blob/{id}:
+    get:
+      summary: Fetch ephemeral payload by blob_id
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+
+  /api/v1/query/stream:
+    get:
+      summary: NDJSON streamed query response (chunked; ingress proxy_buffering must be off)
+      parameters:
+        - { name: sql,         in: query, required: true,  schema: { type: string } }
+        - { name: stream,      in: query, required: true,  schema: { type: string } }
+        - { name: stream_type, in: query, required: false, schema: { type: string, enum: [logs, metrics, traces] } }
+        - { name: from,        in: query, required: true,  schema: { type: integer, format: int64, description: "epoch micros" } }
+        - { name: to,          in: query, required: true,  schema: { type: integer, format: int64 } }
+        - { name: limit,       in: query, required: false, schema: { type: integer } }
+    post:
+      summary: Same shape as POST /query but always returns NDJSON chunked response

@@ -1,0 +1,43 @@
+{
+  "trace_id": "demo-trace",
+  "root_span_id": "r1",
+  "truncated": false,
+  "spans": [
+    {
+      "span_id": "r1",
+      "parent_span_id": null,
+      "service": "web",
+      "operation": "GET /",
+      "start_ns": 0,
+      "end_ns": 50000000,
+      "status": "OK",
+      "resource": { "attributes": {} },
+      "attributes": { "http.method": "GET", "http.status_code": 200 },
+      "events": []
+    },
+    {
+      "span_id": "s2",
+      "parent_span_id": "r1",
+      "service": "api",
+      "operation": "GET /users",
+      "start_ns": 2000000,
+      "end_ns": 30000000,
+      "status": "OK",
+      "resource": { "attributes": {} },
+      "attributes": { "http.method": "GET", "http.status_code": 200 },
+      "events": []
+    },
+    {
+      "span_id": "s3",
+      "parent_span_id": "s2",
+      "service": "db",
+      "operation": "SELECT users",
+      "start_ns": 4000000,
+      "end_ns": 12000000,
+      "status": "OK",
+      "resource": { "attributes": {} },
+      "attributes": { "db.system": "postgres" },
+      "events": []
+    }
+  ]
+}

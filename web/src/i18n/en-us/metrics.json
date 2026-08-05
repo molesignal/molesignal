@@ -1,0 +1,242 @@
+{
+  "explore": {
+    "title": "Metrics",
+    "subtitle": "explorer",
+    "toolbar": {
+      "refresh": "Refresh",
+      "running": "Running…",
+      "add_to_dashboard": "Add to dashboard",
+      "clear_query": "Clear query",
+      "collapse_editor": "Collapse query",
+      "expand_editor": "Expand query",
+      "empty_query_summary": "Choose a metric or enter PromQL"
+    },
+    "editor": {
+      "label": "PromQL",
+      "aria": "PromQL editor",
+      "placeholder": "rate(metric_name{...}[5m])",
+      "run": "Run",
+      "running_promql": "Running PromQL…"
+    },
+    "function_hint": {
+      "aria": "Open PromQL function help",
+      "title": "Common PromQL functions",
+      "description": "Common functions and aggregations supported by the query backend.",
+      "functions": {
+        "rate": "Calculate the per-second average rate over a range vector.",
+        "increase": "Calculate the accumulated increase over a range.",
+        "sum": "Aggregate multiple time series by summing them.",
+        "avg": "Aggregate multiple time series by averaging them."
+      },
+      "docs": "All functions",
+      "docs_aria": "Open PromQL function documentation"
+    },
+    "query": {
+      "datasource": "Data source",
+      "metrics_browser": "Metrics browser",
+      "code": "Code",
+      "builder": "Builder",
+      "mode_aria": "Query editor mode",
+      "options": "Options",
+      "legend": "Legend",
+      "auto": "Auto",
+      "verbose": "Verbose",
+      "custom": "Custom",
+      "format": "Format",
+      "time_series": "Time series",
+      "table": "Table",
+      "step": "Step",
+      "step_placeholder": "auto, 30s, 1m…",
+      "step_invalid": "Use auto or a duration such as 30s or 5m.",
+      "type": "Type",
+      "range": "Range",
+      "instant": "Instant",
+      "exemplars": "Exemplars",
+      "on": "On",
+      "off": "Off"
+    },
+    "catalog": {
+      "title": "Metrics",
+      "browser_title": "Metrics browser",
+      "search_trigger": "Search metrics",
+      "search_description": "Search by metric name, then select a metric to insert it into Query A.",
+      "search_aria": "Search metric names",
+      "result_count": "{{count}} results",
+      "collapse": "Collapse metrics",
+      "expand": "Expand metrics",
+      "resize": "Drag to resize metrics; double-click to reset",
+      "filter_placeholder": "filter metrics...",
+      "loading": "Loading catalog…",
+      "load_error": "Failed to load metric catalog: {{error}}",
+      "unknown_error": "unknown error",
+      "no_filter_match": "No metrics match this filter.",
+      "empty": "No metrics defined yet. Create a stream with stream_type = metrics.",
+      "no_indexed_labels": "no labels",
+      "metric_meta": "{{labels}} labels · {{fields}} fields",
+      "select": "Select",
+      "selected": "Selected",
+      "pagination": {
+        "page_summary": "{{page}} / {{pages}}",
+        "aria": "Metric catalog pagination",
+        "page_size_aria": "Metrics per page",
+        "first_aria": "First metric page",
+        "previous_aria": "Previous metric page",
+        "next_aria": "Next metric page",
+        "previous": "Previous",
+        "next": "Next",
+        "last_aria": "Last metric page"
+      }
+    },
+    "types": {
+      "counter": "counter",
+      "histogram": "histogram",
+      "gauge": "gauge"
+    },
+    "chart": {
+      "mode_line": "line",
+      "mode_bar": "bar",
+      "mode_points": "points",
+      "draw_style": "Draw style",
+      "stack_mode": "Stack",
+      "stack_none": "Off",
+      "stack_normal": "Normal",
+      "stack_percent": "Percent",
+      "stack_requires_multiple_series": "Stacking requires at least two series",
+      "http_request_rate": "HTTP request rate",
+      "query_result": "Metric query result",
+      "generic_rate": "{{metric}} rate",
+      "zoom_hint": "Drag to select · drag the X-axis to pan · double-click to zoom out",
+      "zoom_aria": "Metrics time series. Drag horizontally to select a range; drag the X-axis to pan in real time; double-click the plot to double the current time range.",
+      "reset_zoom": "Reset time range",
+      "reset_zoom_hint": "Restore the time range used before chart interactions",
+      "awaiting_query": "Awaiting a PromQL query",
+      "select_prompt": "Enter PromQL above or search for a metric, then run the query.",
+      "empty": "No data points for this query / range."
+    },
+    "exemplars": {
+      "title": "Exemplars",
+      "count": "{{count}} exemplars",
+      "open_trace": "Open trace {{traceId}}",
+      "no_trace": "Exemplar has no trace ID",
+      "hint": "Select a diamond to inspect the correlated trace.",
+      "query_error": "Exemplars unavailable"
+    },
+    "series": {
+      "title": "Series overview · {{count}}",
+      "empty": "No series.",
+      "collapse": "Collapse",
+      "show_all": "Show all {{count}} series",
+      "columns": {
+        "name": "Name",
+        "current": "Current",
+        "average": "Average",
+        "max": "Max"
+      }
+    },
+    "query_stats": {
+      "title": "Query statistics",
+      "empty": "No query statistics.",
+      "series": "Series",
+      "points": "Data points",
+      "scanned": "Rows scanned",
+      "duration": "Query time",
+      "range": "Time range",
+      "step": "Step"
+    },
+    "results": {
+      "graph": "Graph",
+      "table": "Table",
+      "inspector": "Query inspector",
+      "series_count": "{{count}} series",
+      "query_time": "{{ms}} ms",
+      "no_table": "Run a query to inspect its rows.",
+      "table_limit": "Showing {{shown}} of {{total}} rows.",
+      "query": "Query"
+    },
+    "quality": {
+      "title": "Data quality",
+      "healthy": "No obvious anomalies detected",
+      "attention": "Some data needs attention",
+      "distinguishes_missing": "Missing, real zero and negative values are counted separately.",
+      "negative_points": "Negative points",
+      "missing_data": "Missing data",
+      "timestamp_anomalies": "Timestamp anomalies",
+      "negative_rate_title": "Negative Counter rate detected",
+      "negative_rate_description": "This metric is declared as a Counter, but the result contains {{count}} negative points. The Counter may have regressed, arrived out of order, or been typed incorrectly.",
+      "view_raw": "View raw data",
+      "view_anomalies": "View anomalies",
+      "inspect_type": "Inspect metric type"
+    },
+    "top_labels": {
+      "title": "Top labels",
+      "empty": "—",
+      "value": "Value",
+      "avg": "Avg"
+    },
+    "summary": {
+      "title": "Statistical summary",
+      "empty": "—"
+    },
+    "cardinality": {
+      "title": "Cardinality",
+      "active_series": "active series · {{rows}} rows scanned · {{ms}} ms"
+    },
+    "schema": {
+      "title": "Result schema",
+      "empty": "—",
+      "columns": {
+        "name": "Column",
+        "kind": "Kind",
+        "rows": "Rows"
+      },
+      "kinds": {
+        "time": "time",
+        "value": "value",
+        "label": "label"
+      }
+    },
+    "scan": {
+      "title": "Scan stats",
+      "label": "scanned rows · {{ms}} ms"
+    }
+  },
+  "builder": {
+    "metric_label": "Metric",
+    "metric_select_aria": "Metric name",
+    "metric_select_placeholder": "Select a metric",
+    "label_matchers": "Label matchers",
+    "matcher_name_aria": "matcher {{index}} name",
+    "matcher_name_placeholder": "status",
+    "matcher_op_aria": "matcher {{index}} op",
+    "matcher_value_aria": "matcher {{index}} value",
+    "matcher_value_placeholder": "200",
+    "add_matcher": "Add label filter",
+    "remove_matcher_aria": "Remove label filter {{index}}",
+    "no_matchers": "No label filters. Add one to narrow the selected metric.",
+    "no_labels": "This metric does not expose selectable labels.",
+    "function": "Function",
+    "function_select_aria": "PromQL function",
+    "available_functions": "Available in Builder",
+    "code_only_functions": "Additional parameters · use Code",
+    "functions": {
+      "none": "Raw metric",
+      "rate": "Rate",
+      "irate": "Instant rate",
+      "increase": "Increase"
+    },
+    "aggregation": "Aggregation",
+    "aggregation_select_aria": "PromQL aggregation",
+    "aggregations": {
+      "none": "None",
+      "sum": "Sum",
+      "avg": "Average",
+      "max": "Maximum",
+      "min": "Minimum"
+    },
+    "range": "Range",
+    "range_select_aria": "Range window",
+    "editor_label": "PromQL",
+    "preview_empty": "Select a metric to compose PromQL",
+    "unsupported_expression": "This PromQL expression cannot be represented safely in Builder. It is preserved until you change a builder field."
+  }
+}

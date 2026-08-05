@@ -1,0 +1,299 @@
+{
+  "title": "Streams",
+  "subtitle": "See whether data is still flowing, what it costs to store, and how query and retention settings affect it.",
+  "list": {
+    "refresh": "Refresh",
+    "create": "Create stream",
+    "search_placeholder": "Search name or description…",
+    "status_filter": "Filter runtime status",
+    "result_count": "{{count}} streams",
+    "updated_at": "Stats updated {{time}}",
+    "stats_unavailable": "Runtime stats unavailable",
+    "retention_days": "{{days}} days",
+    "query": "Query",
+    "view_detail": "View details",
+    "copy_id": "Copy stream ID",
+    "id_copied": "Stream ID copied",
+    "more_actions": "More actions for {{name}}",
+    "kpis": {
+      "healthy": "Receiving normally",
+      "healthy_sub": "{{total}} streams total",
+      "attention": "Needs attention",
+      "attention_sub": "Delayed, interrupted, or unavailable stats",
+      "compressed_24h": "24h compressed data",
+      "rows_24h": "{{count}} rows written",
+      "current_storage": "Current storage",
+      "current_storage_sub": "Persisted data"
+    },
+    "status": {
+      "all": "All statuses",
+      "healthy": "Healthy",
+      "idle": "Idle",
+      "delayed": "Delayed",
+      "interrupted": "Interrupted",
+      "unused": "Unused",
+      "unknown": "Stats unavailable"
+    },
+    "tabs": {
+      "all": "All",
+      "logs": "Logs",
+      "metrics": "Metrics",
+      "traces": "Traces",
+      "profiles": "Profiles",
+      "extend": "Lookup table"
+    },
+    "columns": {
+      "stream": "Stream",
+      "type": "Type",
+      "status": "Status",
+      "rate": "Receive rate",
+      "last_received": "Last received",
+      "volume_24h": "24h compressed",
+      "storage": "Current storage",
+      "retention": "Retention",
+      "actions": "Actions"
+    },
+    "explore": "Explore",
+    "not_queryable": "Not queryable",
+    "empty_title": "No streams yet",
+    "empty_description": "Create one or send events through a datasource to register the first stream."
+  },
+  "drawer": {
+    "title": "Create stream",
+    "subtitle": "Create a datasource entry, then configure a sender.",
+    "identity": "Identity",
+    "stream_name": "Stream name",
+    "stream_name_hint": "snake_case · length ≤ 64",
+    "stream_name_placeholder": "my-app-logs",
+    "description": "Description (optional)",
+    "description_placeholder": "What flows through this stream?",
+    "signal_type": "Signal type",
+    "signal_type_description": "Controls storage behavior and the query language.",
+    "types": {
+      "logs": {
+        "label": "Logs",
+        "hint": "SQL queries, full-text index and columnar Parquet storage"
+      },
+      "metrics": {
+        "label": "Metrics",
+        "hint": "PromQL-compatible TSDB storage"
+      },
+      "traces": {
+        "label": "Traces",
+        "hint": "OTLP spans, flame graphs and service maps"
+      }
+    },
+    "storage": "Storage",
+    "retention": "Retention (days)",
+    "retention_hint": "Archive to object storage after this period.",
+    "shards": "Shards",
+    "shards_hint": "Parallel datasource write lanes; keep this at least as high as write nodes.",
+    "indexed_fields": "Indexed fields",
+    "indexed_fields_hint": "Comma-separated fields for fast equality and prefix searches.",
+    "encrypted_fields": "Encrypted fields",
+    "encrypted_fields_hint": "Comma-separated fields encrypted at rest; read back with decrypt(field). Cannot be toggled later.",
+    "queryable": "Queryable",
+    "queryable_hint": "When off, this stream still ingests and retains data but is hidden from query selectors and rejected by search — use it for a source stream that only feeds a routing pipeline. You can change this later in settings."
+  },
+  "toast": {
+    "create_pending": "Stream {{name}} is registered on first datasource write; no /streams create endpoint yet."
+  },
+  "detail": {
+    "back": "Streams",
+    "fallback_title": "Stream",
+    "subtitle": "Stream details",
+    "query_logs": "Query in logs",
+    "not_found_title": "Stream not found",
+    "not_found_description": "The stream may not have been registered by a datasource yet.",
+    "fields": {
+      "id": "id",
+      "label": "label",
+      "subtitle": "subtitle"
+    }
+  },
+  "explore": {
+    "subtitle": "Runtime health, query efficiency, storage, and retention",
+    "toolbar": {
+      "refresh": "Refresh",
+      "query_data": "Query data",
+      "more": "More actions",
+      "copy_id": "Copy stream ID",
+      "id_copied": "Stream ID copied",
+      "delete": "Delete stream",
+      "discard": "Discard changes",
+      "save": "Save and apply",
+      "saving": "Applying…"
+    },
+    "metadata": {
+      "type": "Type",
+      "status": "Runtime status",
+      "last_received": "Last received",
+      "retention": "Default retention",
+      "active_type": "Current type: {{type}}",
+      "switch_type": "Switch to the {{type}} stream",
+      "switch_blocked": "Save or discard the current type's changes before switching types."
+    },
+    "tabs": {
+      "overview": "Overview",
+      "schema": "Fields & indexes",
+      "retention": "Retention",
+      "usage": "Usage",
+      "settings": "Settings"
+    },
+    "index_options": {
+      "none": "Not indexed",
+      "full_text": "Full text search",
+      "exact": "Exact match",
+      "bloom": "Bloom filter",
+      "skip": "Skip index"
+    },
+    "kpis": {
+      "events_24h": "Rows written in 24h",
+      "receive_rate": "Average receive rate",
+      "compressed_24h": "24h compressed data",
+      "current_storage": "Current storage",
+      "index_coverage": "Indexed field coverage",
+      "from_parquet_file_meta": "From live storage metadata",
+      "average_24h": "Calculated over the last 24 hours",
+      "compressed_note": "Compressed Parquet data",
+      "live_parquet": "Live, non-deleted files",
+      "index_coverage_note": "Field count, not index bytes"
+    },
+    "overview": {
+      "stats_unavailable": "Runtime stats are unavailable. Configuration remains editable; refresh to probe storage metadata again.",
+      "no_data_title": "No data received yet",
+      "no_data_description": "Send datasource traffic to “{{stream}}”, or submit a test event to verify the ingest path.",
+      "configure_source": "Configure datasource",
+      "send_test": "Send test data",
+      "sending_test": "Sending…",
+      "test_sent": "Test data submitted: {{accepted}} accepted, {{rejected}} rejected",
+      "operational_state": "Runtime state",
+      "first_received": "First received",
+      "queryability": "Query capability",
+      "queryable": "Queryable",
+      "not_queryable": "Ingest only",
+      "trend_title": "Receive and storage trend",
+      "trend_subtitle": "Last 24 hours · real Parquet files",
+      "metric_rows": "Rows written",
+      "metric_storage": "Compressed data",
+      "no_chart_data": "No chartable data in this time range",
+      "now": "Now"
+    },
+    "schema": {
+      "summary": "{{fields}} fields · {{indexed}} indexed · {{encrypted}} encrypted",
+      "readonly_hint": "Read-only by default. Use the edit action to change indexing and extraction.",
+      "search_placeholder": "Search fields",
+      "fts_title": "Full-text search is configured per field",
+      "fts_description": "Enable full-text indexing on fields such as message or body to speed up MATCH queries. Existing data is not reindexed automatically.",
+      "configure_index": "Configure field index",
+      "storage_type": "Storage type: {{type}}",
+      "field_types": {
+        "boolean": "Boolean",
+        "integer": "Integer",
+        "decimal": "Decimal",
+        "string": "String",
+        "timestamp": "Timestamp",
+        "json": "JSON"
+      },
+      "columns": {
+        "name": "Field name",
+        "type": "Type",
+        "index_type": "Index type",
+        "condition": "Index condition",
+        "extraction": "Extraction rules",
+        "encryption": "Encryption"
+      },
+      "condition_placeholder": "env = 'prod'",
+      "condition_hint": "Build this field index only when the expression matches; leave empty to always enable it.",
+      "index_type_hint": "Exact matching suits IDs; full text suits natural language.",
+      "pattern_placeholder": "One regular expression per line",
+      "pattern_count": "{{count}} rules",
+      "extraction_rules": "Field extraction rules",
+      "extraction_hint": "Patterns run in order during ingest; enter one regular expression per line.",
+      "encrypted": "Encrypted",
+      "encrypted_hint": "This field is encrypted before storage. It cannot be toggled here without making existing data unreadable.",
+      "edit_field": "Edit field {{name}}",
+      "drawer_title": "Edit field · {{name}}",
+      "drawer_fallback": "Edit field",
+      "drawer_subtitle": "Configure query indexing and ingest-time extraction without changing the field type.",
+      "cancel": "Cancel",
+      "apply": "Apply to draft",
+      "no_schema": "This stream has no schema yet. Fields appear after the first datasource write.",
+      "no_match": "No matching fields."
+    },
+    "retention": {
+      "default_policy": "Default retention",
+      "data_retention_days": "Data retention (days)",
+      "days_default_hint": "Leave blank to use the global retention of {{days}} days.",
+      "days_placeholder": "Global {{days}} days",
+      "default_explanation": "Data that does not match an exception rule follows the default retention. Reducing it may delete expired data in the next cleanup run.",
+      "exception_rules": "Retention exceptions",
+      "exception_rules_hint": "Match in priority order to retain high-value and low-value data for different periods.",
+      "add_rule": "Add rule",
+      "priority": "Priority",
+      "enabled": "Enabled",
+      "rule_name": "Rule name",
+      "condition": "Condition",
+      "condition_placeholder": "level = 'error'",
+      "retention_days": "Retention",
+      "estimated_share": "Affected data",
+      "follow_default": "Use default",
+      "evaluate_after_save": "Evaluate after save",
+      "delete_rule": "Delete rule {{name}}",
+      "no_rules": "No exception rules. All data follows the default retention.",
+      "advanced_filter": "Advanced: default retention filter",
+      "keep_condition": "Default retention filter expression",
+      "keep_condition_hint": "Matching records are retained; empty means all data not matching an exception follows the default period.",
+      "keep_condition_placeholder": "level != 'debug'"
+    },
+    "usage": {
+      "loading": "Checking usage…",
+      "write_source": "Write source",
+      "write_source_hint": "Ingest endpoint receiving this stream name",
+      "ingest_endpoint": "Ingest endpoint",
+      "pipelines": "Pipelines",
+      "pipelines_hint": "Use this stream as a source or target",
+      "saved_queries": "Saved queries",
+      "saved_queries_hint": "Explicitly bound to this stream",
+      "alert_rules": "Alert rules",
+      "alert_rules_hint": "Evaluate against this stream",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "none": "No linked items",
+      "partial_unavailable": "Some dependency services are unavailable; this result may be incomplete."
+    },
+    "runtime": {
+      "basic": "Basic information",
+      "basic_hint": "Explain the business data and purpose of this stream.",
+      "description_label": "Description",
+      "description_placeholder": "What does this stream carry?",
+      "query_capabilities": "Query capability",
+      "query_capabilities_hint": "Control query access and range. Disabling query access does not stop ingest.",
+      "max_query_range": "Max query range (hours)",
+      "max_query_range_hint": "0 or empty means unlimited.",
+      "flatten_level": "Flatten level",
+      "flatten_level_hint": "Max JSON flatten depth.",
+      "storage_behavior": "Storage behavior",
+      "storage_behavior_hint": "Affects storage and partitioning for newly ingested data.",
+      "advanced": "Advanced settings",
+      "queryable": "Queryable",
+      "queryable_hint": "When off, this stream keeps ingesting and retaining data but is hidden from query selectors and rejected by search. Use it for a source stream that only feeds a routing pipeline.",
+      "use_stats": "Use stream stats for partitioning",
+      "store_original": "Store original data",
+      "enable_distinct_values": "Enable distinct values"
+    },
+    "changes": {
+      "unsaved": "You have unsaved changes",
+      "review": "The new configuration takes effect immediately after saving.",
+      "index_risk": "Index and extraction changes affect only new data; existing data is not reindexed automatically.",
+      "retention_risk": "Retention will be reduced to {{days}} days and expired data may be deleted.",
+      "query_risk": "After query access is disabled, this stream still ingests data but queries and searches are rejected."
+    },
+    "delete_confirm_title": "Delete this stream?",
+    "delete_confirm_description": "“{{stream}}” and its configuration will be deleted. This cannot be undone.",
+    "toast": {
+      "updated": "Stream configuration updated",
+      "deleted": "Stream deleted"
+    }
+  }
+}

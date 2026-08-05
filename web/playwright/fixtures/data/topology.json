@@ -1,0 +1,11 @@
+{
+  "nodes": [
+    { "id": "web", "name": "web", "error_rate": 0.07, "p95_ms": 120, "rps": 50, "span_count": 3000 },
+    { "id": "api", "name": "api", "error_rate": 0.01, "p95_ms": 80, "rps": 50, "span_count": 3000 },
+    { "id": "db", "name": "db", "error_rate": 0.001, "p95_ms": 12, "rps": 80, "span_count": 1200 }
+  ],
+  "edges": [
+    { "source": "web", "target": "api", "rps": 50, "err_rate": 0.07, "p95_ms": 120 },
+    { "source": "api", "target": "db", "rps": 70, "err_rate": 0.001, "p95_ms": 18 }
+  ]
+}

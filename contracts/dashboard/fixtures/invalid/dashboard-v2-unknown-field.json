@@ -1,0 +1,17 @@
+{
+  "engine": "molesignal-dashboard",
+  "schemaVersion": 2,
+  "uid": "dashboard-invalid-unknown",
+  "title": "Unknown field",
+  "tags": [],
+  "editable": true,
+  "defaultDashboard": false,
+  "timeSettings": { "defaultFrom": "now-1h", "defaultTo": "now", "timezone": "browser" },
+  "refreshSettings": { "enabled": false, "mode": "off", "allowedIntervals": ["off"] },
+  "variables": [],
+  "annotations": [],
+  "links": [],
+  "layout": { "type": "grid", "columns": 24, "rowHeight": 8, "gap": 8 },
+  "elements": [],
+  "modelSuppliedOrganizationId": "must-not-be-accepted"
+}

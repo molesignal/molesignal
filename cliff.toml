@@ -1,0 +1,60 @@
+# git-cliff 配置：release.yml 在 GitHub Release 路径上调用 cliff 生成 changelog。
+# tag pattern: vX.Y.Z[-...]；commit pattern: Conventional Commits（feat/fix/...）。
+# 不规范的 commit 落到 "Other Changes" 分组里，不会丢。
+
+[changelog]
+header = ""
+body = """
+{%- macro remote_url() -%}
+  https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}
+{%- endmacro -%}
+
+{% if version -%}
+  ## {{ version | trim_start_matches(pat="v") }}
+{% else -%}
+  ## Unreleased
+{% endif -%}
+
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | striptags | trim | upper_first }}
+{% for commit in commits %}
+  - {% if commit.scope %}**{{ commit.scope }}**: {% endif %}{{ commit.message | upper_first }} \
+    ([{{ commit.id | truncate(length=7, end="") }}]({{ self::remote_url() }}/commit/{{ commit.id }}))\
+    {%- if commit.remote.username %} [@{{ commit.remote.username }}](https://github.com/{{ commit.remote.username }}){% endif -%}
+{%- endfor %}
+{% endfor %}
+"""
+trim = true
+footer = ""
+
+[git]
+conventional_commits = true
+filter_unconventional = false
+split_commits = false
+commit_parsers = [
+  { message = "^feat", group = "Features" },
+  { message = "^fix", group = "Bug Fixes" },
+  { message = "^doc", group = "Documentation" },
+  { message = "^perf", group = "Performance" },
+  { message = "^refactor", group = "Refactor" },
+  { message = "^style", group = "Style" },
+  { message = "^test", group = "Tests" },
+  { message = "^chore\\(release\\)", skip = true },
+  { message = "^chore\\(deps\\)", group = "Dependencies" },
+  { message = "^chore|^ci", group = "Maintenance" },
+  { message = "^revert", group = "Reverts" },
+  { body = ".*security", group = "Security" },
+  { message = ".*", group = "Other Changes" },
+]
+protect_breaking_commits = false
+filter_commits = false
+tag_pattern = "v[0-9].*"
+skip_tags = ""
+ignore_tags = ""
+topo_order = false
+sort_commits = "newest"
+
+# remote.github 段：cliff 用来 enrich commit metadata（PR 链接、@author 等）。
+[remote.github]
+owner = "molesignal"
+repo = "molesignal"

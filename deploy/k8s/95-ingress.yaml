@@ -1,0 +1,36 @@
+---
+# NDJSON 流式查询要求 ingress 关闭缓冲。
+# - proxy-buffering: off  → nginx 不缓存上游响应（保证 chunked 实时刷下去）
+# - proxy_read_timeout: 600s → live tail 长连接不被 60s 默认超时切断
+# 其它 path 默认 buffering 即可，少量长连接独立 location 处理。
+#
+# scheduled-reports-headless change：PDF/PNG 渲染走 alert-manager pod 内的 headless
+# Chrome（见 70-alert-manager.yaml 的 CHROME_PATH env + image 标注）；ingress 本身
+# 不参与，但 embed 端点 `/dashboards/:id/embed` 走默认 `/` 路径。
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: molesignal-router
+  namespace: molesignal
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/server-snippets: |
+      location /api/v1/query/stream {
+        proxy_buffering off;
+        proxy_read_timeout 600s;
+        proxy_pass http://upstream_balancer;
+      }
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: molesignal.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: molesignal-router
+                port:
+                  number: 80

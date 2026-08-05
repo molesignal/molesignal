@@ -1,0 +1,79 @@
+syntax = "proto3";
+
+package query.v1;
+
+// querier 之间的分布式查询调度协议。
+//
+// 真正的数据流复用 [Arrow Flight](https://arrow.apache.org/docs/format/Flight.html)：
+// coordinator 把 [QueryShard] 编码为 Arrow Flight Ticket（prost-encoded bytes），
+// 通过 `do_get` 流式拉回 `RecordBatch`，最终在 coordinator 上 UNION ALL 再跑完整 SQL。
+service QueryShardService {
+  rpc Execute(QueryShardRequest) returns (stream QueryShardResponse);
+}
+
+message QueryShardRequest {
+  string org_id = 1;
+  string stream = 2;
+  string sql = 3;
+  int64 time_start_micros = 4;
+  int64 time_end_micros = 5;
+  // 本分片需要扫描的 parquet 文件元数据 ID 列表
+  repeated string file_ids = 6;
+  // arrow flight ticket 的前缀，便于本分片对应回 FlightService::DoGet 的 ticket
+  string flight_ticket_prefix = 7;
+}
+
+message QueryShardResponse {
+  bytes arrow_ipc = 1;
+  uint64 scanned_rows = 2;
+  string flight_ticket = 3;
+}
+
+// Arrow Flight Ticket 序列化结构：
+// coordinator 切分 parquet_file_metas → 每个 peer 一个 QueryShard → prost::encode_to_vec
+// → arrow_flight::Ticket{ticket: bytes}。
+message QueryShard {
+  string org_id = 1;
+  string stream = 2;
+  // peer 端跑的 SQL（仅 scan + projection + WHERE，跳过最终聚合）
+  string sql = 3;
+  // 每条对应 parquet_file_meta 行的精简版（避免每次再去 PG 查）。
+  //
+  // 集群内分片：coordinator 预解析并填好这里。
+  // 跨集群联邦（spec federated-search）：coordinator 不知道远端的
+  // parquet_file_meta，故 parquet_file_metas 留空 —— 远端 Flight server 收到空 parquet_file_metas 时
+  // 用 (org_id, stream, stream_type, time_range) 自行 `ParquetFileMetaRepository::find`
+  // 解析本集群的 parquet_file_meta 再扫描。集群内路径永不发空分片，故空＝自解析无歧义。
+  repeated ParquetFileMetaRef parquet_file_metas = 4;
+  // SELECT 列投影；空表示 SELECT *
+  repeated string projection = 5;
+  int64 time_start_micros = 6;
+  int64 time_end_micros = 7;
+  // 联邦自解析所需的 stream 类型（"logs"/"metrics"/"traces"/"extend"）。
+  // 集群内分片可留空（parquet_file_metas 已直接给出对象）。
+  string stream_type = 8;
+  // 跨集群查询 id（coordinator 下发，远端据此把本地查询登记进可取消表）。
+  // 集群内分片留空。空＝不可经 CancelQuery 远程取消（仍可经 gRPC 流断开兜底）。
+  string federation_query_id = 9;
+}
+
+// Flight SQL statement ticket（spec flight-sql）：
+// `get_flight_info_statement` 把 {sql, org_id} prost::encode_to_vec 后塞进
+// `TicketStatementQuery.statement_handle`；`do_get` 解出后必须校验 bearer
+// 所属 org 与 ticket org 一致（防跨 org 重放），再交给 QueryService 执行。
+message FlightSqlTicket {
+  string sql = 1;
+  string org_id = 2;
+}
+
+message ParquetFileMetaRef {
+  string id = 1;
+  string org_id = 2;
+  string stream = 3;
+  string stream_type = 4;
+  string object_key = 5;
+  int64 time_start_micros = 6;
+  int64 time_end_micros = 7;
+  uint64 rows = 8;
+  uint64 size_bytes = 9;
+}

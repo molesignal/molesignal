@@ -1,0 +1,18 @@
+{
+  "authoringVersion": 1,
+  "title": "Incompatible visualization",
+  "elements": [
+    {
+      "kind": "panel",
+      "title": "PromQL cannot produce log rows",
+      "visualization": { "type": "logs" },
+      "queries": [
+        {
+          "kind": "promql",
+          "expression": "up",
+          "format": "time_series"
+        }
+      ]
+    }
+  ]
+}

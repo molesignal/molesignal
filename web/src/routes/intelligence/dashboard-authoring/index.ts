@@ -1,0 +1,1 @@
+export { DashboardDraftPage } from './Page';

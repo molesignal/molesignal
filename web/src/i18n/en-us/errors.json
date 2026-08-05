@@ -1,0 +1,8 @@
+{
+  "sign_in_failed": "Sign-in failed",
+  "switch_org_success": "Switched to {{name}}",
+  "switch_org_failure": "Could not switch org: {{message}}",
+  "request_failed": "Request failed",
+  "link_copied": "Link copied",
+  "generic": "Something went wrong"
+}

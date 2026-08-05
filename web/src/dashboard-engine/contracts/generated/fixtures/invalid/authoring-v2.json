@@ -1,0 +1,7 @@
+{
+  "authoringVersion": 2,
+  "title": "Unsupported authoring version",
+  "elements": [
+    { "kind": "text", "content": "Unsupported", "mode": "plain" }
+  ]
+}

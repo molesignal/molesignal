@@ -1,0 +1,43 @@
+{
+  "placeholder": "Search commands and resources…",
+  "no_results": "No results.",
+  "groups": {
+    "results": "Results",
+    "actions": "Actions"
+  },
+  "footer": {
+    "open": "open",
+    "open_new_stack": "open in new stack",
+    "stack_on_top": "stack on top",
+    "close": "close"
+  },
+  "actions": {
+    "goto_investigate": "Go to Investigate",
+    "goto_services": "Go to Services",
+    "goto_apm": "Go to APM Services",
+    "goto_dashboards": "Go to Dashboards",
+    "goto_incidents": "Go to Incidents",
+    "goto_saved_views": "Go to Saved views",
+    "run_sql": "Run SQL…",
+    "run_promql": "Run PromQL…",
+    "time_last_5m": "Time: last 5m",
+    "time_last_15m": "Time: last 15m",
+    "time_last_1h": "Time: last 1h",
+    "time_last_6h": "Time: last 6h",
+    "time_last_24h": "Time: last 24h",
+    "time_last_7d": "Time: last 7d",
+    "pin_anchor": "Pin current time",
+    "copy_link": "Copy investigation link",
+    "toggle_theme": "Toggle theme",
+    "toggle_density": "Toggle density",
+    "help": "Show keyboard help",
+    "sign_out": "Sign out",
+    "open_settings": "Open settings",
+    "create_dashboard": "Create dashboard",
+    "create_alert": "Create alert",
+    "create_pipeline": "Create pipeline",
+    "connect_source": "Connect data source",
+    "open_billing": "Open billing",
+    "open_support": "Open support"
+  }
+}

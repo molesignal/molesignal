@@ -1,0 +1,4 @@
+interface:
+  display_name: "审查 SQL 迁移"
+  short_description: "检查 PostgreSQL 迁移、注册、索引及 sqlx 查询安全"
+  default_prompt: "使用 $review-sql-migrations 审查当前 migration 与 sqlx 查询改动。"

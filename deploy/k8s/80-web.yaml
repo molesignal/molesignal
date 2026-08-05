@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: molesignal
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: molesignal, role: web }
+  template:
+    metadata:
+      labels: { app: molesignal, role: web }
+    spec:
+      containers:
+        - name: web
+          image: molesignal-web:dev
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: MS_BACKEND
+              value: "router:5080"
+          ports:
+            - { name: http, containerPort: 8080 }
+          readinessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests: { cpu: "50m", memory: "64Mi" }
+            limits:   { cpu: "500m", memory: "256Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  namespace: molesignal
+spec:
+  selector: { app: molesignal, role: web }
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web
+  namespace: molesignal
+  annotations:
+    # Streaming endpoints must not be buffered, or live-tail latency spikes
+    # to ~8 KB worth of rows.
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+    # HTML must always be revalidated; assets are content-hashed and use
+    # immutable caching set in our nginx config behind /assets.
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      location = /index.html { add_header Cache-Control "no-store, max-age=0"; }
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: molesignal.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port:
+                  number: 80

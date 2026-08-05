@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: router
+  namespace: molesignal
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: molesignal, role: router }
+  template:
+    metadata:
+      labels: { app: molesignal, role: router }
+    spec:
+      containers:
+        - name: molesignal
+          image: molesignal:dev
+          imagePullPolicy: IfNotPresent
+          args: ["--config", "/app/conf/config.toml"]
+          env:
+            - name: RELEASE_CHANNEL
+              valueFrom: { configMapKeyRef: { name: molesignal-config, key: release_channel } }
+            - name: MS_NODE_ROLES
+              value: '["router"]'
+            - name: MS_AUTH_JWT_SECRET_OVERRIDE
+              valueFrom: { secretKeyRef: { name: molesignal-secret, key: jwt_secret_override, optional: true } }
+          ports:
+            - { name: http, containerPort: 5080 }
+            - { name: grpc, containerPort: 5082 }
+          volumeMounts:
+            - { name: cfg, mountPath: /app/conf }
+          readinessProbe:
+            httpGet: { path: /api/v1/healthz, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: cfg
+          configMap: { name: molesignal-config }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: router
+  namespace: molesignal
+spec:
+  selector: { app: molesignal, role: router }
+  ports:
+    - { name: http, port: 5080, targetPort: http }
+    - { name: grpc, port: 5082, targetPort: grpc }
+  type: ClusterIP

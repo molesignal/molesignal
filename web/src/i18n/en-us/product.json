@@ -1,0 +1,38 @@
+{
+  "templates": {
+    "overview": "Overview",
+    "list": "List",
+    "detail": "Detail",
+    "builder": "Builder",
+    "settings": "Settings",
+    "gate": "Gate",
+    "fixture_title": "Template fixtures",
+    "fixture_subtitle": "Reusable page shells with local sample data"
+  },
+  "actions": {
+    "create": "Create",
+    "refresh": "Refresh",
+    "review_license": "Review license"
+  },
+  "fixture": {
+    "alerts": "Alerts",
+    "cost": "Cost",
+    "dashboards": "Dashboards",
+    "errors": "Errors",
+    "filters": "Filters",
+    "general": "General",
+    "healthy": "Healthy",
+    "datasource": "Datasource",
+    "last_24h": "Last 24h",
+    "latency": "Latency",
+    "license": "License",
+    "month_to_date": "Month to date",
+    "name": "Name",
+    "organization": "Organization",
+    "owner": "Owner",
+    "search": "Search",
+    "selected": "{{count}} selected",
+    "state": "State",
+    "updated": "Updated"
+  }
+}

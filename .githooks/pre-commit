@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+echo "==> pre-commit: license headers"
+if ! "$REPO_ROOT/scripts/license-headers.sh" --check; then
+    echo ""
+    echo "版权头检查未通过，请运行 'make add-license-headers' 自动补齐。"
+    exit 1
+fi
+
+echo "==> pre-commit: cargo +nightly fmt --check"
+if ! rustup run nightly rustfmt --version >/dev/null 2>&1; then
+    echo ""
+    echo "未检测到 nightly rustfmt（rustfmt.toml 含 nightly-only 选项）。请先运行:"
+    echo "  rustup toolchain install nightly --profile minimal --component rustfmt"
+    exit 1
+fi
+if ! cargo +nightly fmt --all -- --check; then
+    echo ""
+    echo "格式检查未通过，请先运行 'make fmt' 再提交。"
+    exit 1
+fi
+
+echo "==> pre-commit: cargo clippy"
+if ! cargo clippy --workspace --all-targets -- -D warnings; then
+    echo ""
+    echo "Clippy 检查未通过，请修复警告后再提交（可尝试 'make lint-fix'）。"
+    exit 1
+fi

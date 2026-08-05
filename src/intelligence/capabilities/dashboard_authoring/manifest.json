@@ -1,0 +1,19 @@
+{
+  "id": "dashboard-authoring",
+  "version": 1,
+  "purpose": "dashboard_authoring",
+  "instructionTemplateKey": "dashboard.authoring.v1",
+  "authoringContractVersions": [1],
+  "requiredTools": ["get_dashboard_capabilities", "prepare_dashboard"],
+  "optionalTools": ["propose_dashboard_creation"],
+  "triggerSummaries": [
+    "Create or build a Dashboard from observability data",
+    "创建、生成或搭建可观测性仪表盘"
+  ],
+  "negativeExamples": [
+    "Explain an existing Dashboard",
+    "Query data without creating a Dashboard",
+    "编辑或解释已有仪表盘"
+  ],
+  "maxRepairAttempts": 1
+}

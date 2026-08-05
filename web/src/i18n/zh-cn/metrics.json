@@ -1,0 +1,242 @@
+{
+  "explore": {
+    "title": "指标",
+    "subtitle": "查询器",
+    "toolbar": {
+      "refresh": "刷新",
+      "running": "查询中…",
+      "add_to_dashboard": "添加到仪表盘",
+      "clear_query": "清空查询",
+      "collapse_editor": "收起查询",
+      "expand_editor": "展开查询",
+      "empty_query_summary": "选择指标或输入 PromQL"
+    },
+    "editor": {
+      "label": "PromQL",
+      "aria": "PromQL 编辑器",
+      "placeholder": "rate(metric_name{...}[5m])",
+      "run": "查询",
+      "running_promql": "正在执行 PromQL…"
+    },
+    "function_hint": {
+      "aria": "打开 PromQL 函数提示",
+      "title": "常用 PromQL 函数",
+      "description": "当前查询后端支持的常用函数与聚合。",
+      "functions": {
+        "rate": "计算区间向量的每秒平均增长率。",
+        "increase": "计算区间内的累计增量。",
+        "sum": "对多个时间序列进行求和聚合。",
+        "avg": "对多个时间序列进行平均值聚合。"
+      },
+      "docs": "全部函数",
+      "docs_aria": "打开 PromQL 函数文档"
+    },
+    "query": {
+      "datasource": "数据源",
+      "metrics_browser": "指标浏览器",
+      "code": "代码",
+      "builder": "构造器",
+      "mode_aria": "查询编辑模式",
+      "options": "选项",
+      "legend": "图例",
+      "auto": "自动",
+      "verbose": "详细",
+      "custom": "自定义",
+      "format": "格式",
+      "time_series": "时间序列",
+      "table": "表格",
+      "step": "步长",
+      "step_placeholder": "auto、30s、1m…",
+      "step_invalid": "请输入 auto，或 30s、5m 这类时长。",
+      "type": "类型",
+      "range": "范围查询",
+      "instant": "即时查询",
+      "exemplars": "Exemplar",
+      "on": "开启",
+      "off": "关闭"
+    },
+    "catalog": {
+      "title": "指标",
+      "browser_title": "指标浏览器",
+      "search_trigger": "搜索指标",
+      "search_description": "按指标名称搜索，选择后会写入查询 A 并立即执行。",
+      "search_aria": "搜索指标名称",
+      "result_count": "{{count}} 个结果",
+      "collapse": "收起指标",
+      "expand": "展开指标",
+      "resize": "拖动调整指标宽度，双击恢复默认宽度",
+      "filter_placeholder": "过滤指标…",
+      "loading": "正在加载指标目录…",
+      "load_error": "加载指标目录失败：{{error}}",
+      "unknown_error": "未知错误",
+      "no_filter_match": "没有匹配此过滤条件的指标。",
+      "empty": "尚未定义任何指标。请创建一条 stream_type = metrics 的数据流。",
+      "no_indexed_labels": "无标签",
+      "metric_meta": "{{labels}} 个标签 · {{fields}} 个字段",
+      "select": "选择",
+      "selected": "已选择",
+      "pagination": {
+        "page_summary": "{{page}} / {{pages}}",
+        "aria": "指标目录分页",
+        "page_size_aria": "每页指标数",
+        "first_aria": "指标首页",
+        "previous_aria": "上一页指标",
+        "next_aria": "下一页指标",
+        "previous": "上一页",
+        "next": "下一页",
+        "last_aria": "指标尾页"
+      }
+    },
+    "types": {
+      "counter": "计数器",
+      "histogram": "直方图",
+      "gauge": "仪表"
+    },
+    "chart": {
+      "mode_line": "折线",
+      "mode_bar": "柱状",
+      "mode_points": "点",
+      "draw_style": "绘制样式",
+      "stack_mode": "堆叠",
+      "stack_none": "关闭",
+      "stack_normal": "普通",
+      "stack_percent": "百分比",
+      "stack_requires_multiple_series": "至少需要两个序列才能使用堆叠",
+      "http_request_rate": "HTTP 请求速率",
+      "query_result": "指标查询结果",
+      "generic_rate": "{{metric}} 速率",
+      "zoom_hint": "拖拽框选 · 拖动 X 轴平移 · 双击缩小",
+      "zoom_aria": "指标时序图。横向拖拽选择时间范围；拖动 X 轴可实时平移；双击图表可将当前时间范围扩大一倍。",
+      "reset_zoom": "恢复时间范围",
+      "reset_zoom_hint": "恢复图表交互前的时间范围",
+      "awaiting_query": "等待输入 PromQL 查询",
+      "select_prompt": "请在上方输入 PromQL，或搜索一个指标，然后执行查询。",
+      "empty": "该查询 / 时间范围内没有数据点。"
+    },
+    "exemplars": {
+      "title": "Exemplar",
+      "count": "{{count}} 条",
+      "open_trace": "查看 Trace {{traceId}}",
+      "no_trace": "该 Exemplar 没有 Trace ID",
+      "hint": "点击菱形标记查看关联 Trace。",
+      "query_error": "Exemplar 暂不可用"
+    },
+    "series": {
+      "title": "序列概览 · {{count}}",
+      "empty": "暂无序列。",
+      "collapse": "收起",
+      "show_all": "显示全部 {{count}} 条序列",
+      "columns": {
+        "name": "名称",
+        "current": "当前",
+        "average": "平均",
+        "max": "最大"
+      }
+    },
+    "query_stats": {
+      "title": "查询统计",
+      "empty": "暂无查询统计。",
+      "series": "序列数",
+      "points": "数据点",
+      "scanned": "扫描行数",
+      "duration": "查询耗时",
+      "range": "时间范围",
+      "step": "步长"
+    },
+    "results": {
+      "graph": "图表",
+      "table": "表格",
+      "inspector": "查询检查器",
+      "series_count": "{{count}} 条序列",
+      "query_time": "{{ms}} ms",
+      "no_table": "执行查询后可查看原始行数据。",
+      "table_limit": "当前显示 {{total}} 行中的 {{shown}} 行。",
+      "query": "查询"
+    },
+    "quality": {
+      "title": "数据质量",
+      "healthy": "未检测到明显异常",
+      "attention": "存在需要关注的数据",
+      "distinguishes_missing": "空值、真实零值与负值分别统计。",
+      "negative_points": "负值点",
+      "missing_data": "缺失数据",
+      "timestamp_anomalies": "时间戳异常",
+      "negative_rate_title": "检测到 Counter 负速率",
+      "negative_rate_description": "该指标声明为 Counter，但查询结果包含 {{count}} 个负值点，可能存在回退、乱序或类型配置错误。",
+      "view_raw": "查看原始数据",
+      "view_anomalies": "查看异常点",
+      "inspect_type": "检查指标类型"
+    },
+    "top_labels": {
+      "title": "主要标签",
+      "empty": "—",
+      "value": "标签值",
+      "avg": "平均值"
+    },
+    "summary": {
+      "title": "统计摘要",
+      "empty": "—"
+    },
+    "cardinality": {
+      "title": "基数",
+      "active_series": "活跃序列 · 扫描 {{rows}} 行 · {{ms}} ms"
+    },
+    "schema": {
+      "title": "结果 schema",
+      "empty": "—",
+      "columns": {
+        "name": "字段",
+        "kind": "类型",
+        "rows": "行数"
+      },
+      "kinds": {
+        "time": "时间",
+        "value": "数值",
+        "label": "标签"
+      }
+    },
+    "scan": {
+      "title": "扫描统计",
+      "label": "扫描行数 · {{ms}} ms"
+    }
+  },
+  "builder": {
+    "metric_label": "指标",
+    "metric_select_aria": "指标名称",
+    "metric_select_placeholder": "选择指标",
+    "label_matchers": "标签匹配器",
+    "matcher_name_aria": "第 {{index}} 个匹配器名称",
+    "matcher_name_placeholder": "status",
+    "matcher_op_aria": "第 {{index}} 个匹配器运算符",
+    "matcher_value_aria": "第 {{index}} 个匹配器值",
+    "matcher_value_placeholder": "200",
+    "add_matcher": "添加标签过滤",
+    "remove_matcher_aria": "删除第 {{index}} 个标签过滤",
+    "no_matchers": "暂无标签过滤，可添加过滤条件缩小指标范围。",
+    "no_labels": "该指标没有可选择的标签。",
+    "function": "函数",
+    "function_select_aria": "PromQL 函数",
+    "available_functions": "构造器可用",
+    "code_only_functions": "需要额外参数 · 请使用代码模式",
+    "functions": {
+      "none": "原始指标",
+      "rate": "速率",
+      "irate": "瞬时速率",
+      "increase": "增量"
+    },
+    "aggregation": "聚合",
+    "aggregation_select_aria": "PromQL 聚合方式",
+    "aggregations": {
+      "none": "不聚合",
+      "sum": "求和",
+      "avg": "平均值",
+      "max": "最大值",
+      "min": "最小值"
+    },
+    "range": "时间窗口",
+    "range_select_aria": "时间窗口",
+    "editor_label": "PromQL",
+    "preview_empty": "请选择指标以生成 PromQL",
+    "unsupported_expression": "当前 PromQL 无法安全转换为构造器控件；在修改任一构造器字段前会保留原表达式。"
+  }
+}

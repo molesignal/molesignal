@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <style>
+    .s0 { stop-color: #3742c7; }
+    .s1 { stop-color: #1f6cbe; }
+    .s2 { stop-color: #157f3f; }
+    @media (prefers-color-scheme: dark) {
+      .s0 { stop-color: #4f60e0; }
+      .s1 { stop-color: #4d97e0; }
+      .s2 { stop-color: #3dc26e; }
+    }
+  </style>
+  <defs>
+    <linearGradient id="ecg" x1="0" y1="16" x2="32" y2="16" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   class="s0"/>
+      <stop offset="50%"  class="s1"/>
+      <stop offset="100%" class="s2"/>
+    </linearGradient>
+  </defs>
+  <path d="M0 16 H8 L10 17.5 L13 4 L18 28 L21.5 13 L23 16 H32"
+        stroke="url(#ecg)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>

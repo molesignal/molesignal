@@ -1,0 +1,38 @@
+/*
+ * Alibaba PuHuiTi 3.0 is self-hosted for every product surface: UI copy,
+ * navigation, data, inline code, charts, and Monaco. The four static weights
+ * match the product's existing 400/500/600/700 typography roles.
+ *
+ * No font CDN is used at runtime.
+ */
+@font-face {
+  font-family: 'Alibaba PuHuiTi 3.0';
+  src: url('./fonts/alibaba-puhuiti-3-regular.woff') format('woff');
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: 'Alibaba PuHuiTi 3.0';
+  src: url('./fonts/alibaba-puhuiti-3-medium.woff') format('woff');
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+}
+
+@font-face {
+  font-family: 'Alibaba PuHuiTi 3.0';
+  src: url('./fonts/alibaba-puhuiti-3-semibold.woff') format('woff');
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+}
+
+@font-face {
+  font-family: 'Alibaba PuHuiTi 3.0';
+  src: url('./fonts/alibaba-puhuiti-3-bold.woff') format('woff');
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+}
