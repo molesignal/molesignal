@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -12,6 +12,7 @@ import {
 describe.sequential('DateTimePicker', () => {
   afterEach(async () => {
     cleanup();
+    vi.useRealTimers();
     await i18n.changeLanguage('en-us');
   });
 
@@ -27,7 +28,8 @@ describe.sequential('DateTimePicker', () => {
 
   it('renders the panel in the application language, not the browser language', async () => {
     await i18n.changeLanguage('zh-cn');
-    const user = userEvent.setup();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 6, 28, 12));
 
     render(
       <DateTimePicker
@@ -41,7 +43,7 @@ describe.sequential('DateTimePicker', () => {
     });
     expect(trigger.textContent).toContain('2026年7月28日');
 
-    await user.click(trigger);
+    fireEvent.click(trigger);
 
     expect(
       document.querySelector('[data-slot="date-time-picker-content"]')

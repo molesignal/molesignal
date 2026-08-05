@@ -22,20 +22,20 @@ function chat(id: string, title: string, updatedAt: string): Chat {
 }
 
 describe('Mole Intelligence chat presentation', () => {
-  const now = new Date('2026-07-26T15:30:00+08:00');
+  const now = new Date(2026, 6, 26, 15, 30);
 
   it('groups chats by local calendar day', () => {
     expect(
-      chatDateGroup(Date.parse('2026-07-26T09:00:00+08:00') * 1000, now),
+      chatDateGroup(Date.parse('2026-07-26T09:00:00') * 1000, now),
     ).toBe('today');
     expect(
-      chatDateGroup(Date.parse('2026-07-25T09:00:00+08:00') * 1000, now),
+      chatDateGroup(Date.parse('2026-07-25T09:00:00') * 1000, now),
     ).toBe('yesterday');
     expect(
       groupChats(
         [
-          chat('today', 'Today', '2026-07-26T09:00:00+08:00'),
-          chat('older', 'Older', '2026-06-01T09:00:00+08:00'),
+          chat('today', 'Today', '2026-07-26T09:00:00'),
+          chat('older', 'Older', '2026-06-01T09:00:00'),
         ],
         now,
       ).map((group) => group.key),
@@ -47,7 +47,7 @@ describe('Mole Intelligence chat presentation', () => {
       chat(
         'existing',
         'Why is checkout failing?',
-        '2026-07-26T09:00:00+08:00',
+        '2026-07-26T09:00:00',
       ),
     ];
     expect(titleForNewChat('Why is checkout failing?', existing, now)).toBe(

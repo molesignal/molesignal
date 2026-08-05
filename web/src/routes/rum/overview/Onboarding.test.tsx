@@ -13,11 +13,17 @@ describe('RUM onboarding navigation', () => {
       </MemoryRouter>,
     );
 
-    const setupLinks = container.querySelectorAll(
-      'a[href^="/datasource/recommended/rum"]',
+    const setupHrefs = Array.from(
+      container.querySelectorAll<HTMLAnchorElement>('a[href^="/datasource"]'),
+      (link) => link.getAttribute('href'),
     );
-    expect(setupLinks).toHaveLength(4);
-    expect(container.querySelector('a[href^="/datasource?"]')).toBeNull();
+    expect(setupHrefs).toEqual([
+      '/datasource/recommended/rum',
+      '/datasource/recommended/rum-flutter',
+      '/datasource/recommended/rum-android',
+      '/datasource/recommended/rum-ios',
+      '/datasource/recommended/rum?test=1',
+    ]);
   });
 
   it('keeps the SDK settings tab inside RUM settings', () => {
