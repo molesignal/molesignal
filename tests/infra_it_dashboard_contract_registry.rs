@@ -4,9 +4,7 @@
 use std::sync::Arc;
 
 use molesignal::{
-    app::dashboard::contract_registry::{
-        DashboardContractRegistryService, DashboardContractResolver,
-    },
+    app::dashboard::contract_registry::DashboardContractRegistryService,
     config::MetaStoreSettings,
     domain::dashboard::contract_registry::{
         DASHBOARD_AUTHORING_CAPABILITY, DashboardContractRepository,

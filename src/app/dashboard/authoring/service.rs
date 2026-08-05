@@ -18,7 +18,8 @@ use crate::{
     domain::dashboard::authoring::{
         AuthoringElement, DashboardAuthoringCapabilities, DashboardAuthoringSpec, DashboardDraft,
         DashboardDraftRepository, DashboardDraftStatus, DashboardQueryPreflight, DraftConsumption,
-        PreflightWarningRecord, PreparedDashboardDraft, SectionElement, VisualizationManifest,
+        PreflightReport, PreflightWarningRecord, PreparedDashboardDraft, SectionElement,
+        VisualizationManifest,
     },
     shared::{Error, Result, contracts::ContractIssue, ids::Id, time::TimestampMicros},
 };
@@ -33,6 +34,15 @@ pub struct DashboardAuthoringService {
     dashboard: Arc<DashboardService>,
     contracts: Arc<dyn DashboardContractResolver>,
     draft_ttl: Duration,
+}
+
+struct ReadyDraftInput {
+    org_id: Id,
+    actor: Id,
+    folder_id: Option<Id>,
+    spec: DashboardAuthoringSpec,
+    compiled: CompiledDashboard,
+    preflight: PreflightReport,
 }
 
 impl DashboardAuthoringService {
@@ -60,7 +70,6 @@ impl DashboardAuthoringService {
         self
     }
 
-    #[must_use]
     pub async fn capabilities(&self) -> Result<DashboardAuthoringCapabilities> {
         let contracts = self.contracts.active().await?;
         let manifest = &contracts.manifest;
@@ -127,7 +136,15 @@ impl DashboardAuthoringService {
             ));
         }
         self.persist_ready_draft(
-            org_id, actor, folder_id, spec, compiled, preflight, &contracts,
+            ReadyDraftInput {
+                org_id,
+                actor,
+                folder_id,
+                spec,
+                compiled,
+                preflight,
+            },
+            &contracts,
         )
         .await
     }
@@ -199,14 +216,17 @@ impl DashboardAuthoringService {
 
     async fn persist_ready_draft(
         &self,
-        org_id: Id,
-        actor: Id,
-        folder_id: Option<Id>,
-        spec: DashboardAuthoringSpec,
-        compiled: CompiledDashboard,
-        preflight: crate::domain::dashboard::authoring::PreflightReport,
+        input: ReadyDraftInput,
         contracts: &ResolvedDashboardContracts,
     ) -> Result<PreparedDashboardDraft> {
+        let ReadyDraftInput {
+            org_id,
+            actor,
+            folder_id,
+            spec,
+            compiled,
+            preflight,
+        } = input;
         let now = TimestampMicros::now();
         let ttl_micros = i64::try_from(self.draft_ttl.as_micros()).unwrap_or(i64::MAX);
         let expires_at = TimestampMicros(now.0.saturating_add(ttl_micros));

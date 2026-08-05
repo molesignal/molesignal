@@ -277,9 +277,9 @@ fn row_to_binding(row: &PgRow) -> Result<DashboardContractBinding> {
     Ok(DashboardContractBinding {
         selection: DashboardContractSelection {
             capability_key: row.try_get("capability_key").map_err(sqlx_err)?,
-            model: contract_ref(&row, "model")?,
-            authoring: contract_ref(&row, "authoring")?,
-            visualization: contract_ref(&row, "visualization")?,
+            model: contract_ref(row, "model")?,
+            authoring: contract_ref(row, "authoring")?,
+            visualization: contract_ref(row, "visualization")?,
             compiler_version: row.try_get("compiler_version").map_err(sqlx_err)?,
             enabled: row.try_get("enabled").map_err(sqlx_err)?,
         },
