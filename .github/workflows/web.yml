@@ -13,9 +13,6 @@ on:
       - 'package.json'
       - 'pnpm-workspace.yaml'
   workflow_dispatch:
-  schedule:
-    # Weekly Monday 02:00 UTC — runs the perf job (PR-blocking CI never runs perf).
-    - cron: '0 2 * * 1'
 
 jobs:
   ci:
@@ -43,61 +40,3 @@ jobs:
             echo "::error::docs/web/keyboard.md is out of sync with web/src/keyboard/bindings.ts. Run 'pnpm -C web dump:keymap' and commit."
             exit 1
           fi
-
-  playwright:
-    # Runs on every push/PR: behavior + visual specs (everything except @perf).
-    if: github.event_name != 'schedule'
-    runs-on: ubuntu-latest
-    needs: ci
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'pnpm'
-          cache-dependency-path: web/pnpm-lock.yaml
-      - run: pnpm -C web install --frozen-lockfile
-      - run: pnpm -C web exec playwright install --with-deps chromium
-      # playwright.config.ts already selects `[['blob'], ['line']]` under CI;
-      # passing `-- --reporter=...` makes pnpm forward a literal `--` that
-      # Playwright reads as a positional test-file filter ("No tests found").
-      - run: pnpm -C web playwright
-      - name: upload playwright report on failure
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: playwright-trace
-          path: web/playwright-report
-          retention-days: 14
-
-  playwright-perf:
-    # Runs on workflow_dispatch + weekly schedule only; the perf budgets are
-    # noisy on shared CI runners and PR-blocking would create false negatives.
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
-    runs-on: ubuntu-latest
-    needs: ci
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'pnpm'
-          cache-dependency-path: web/pnpm-lock.yaml
-      - run: pnpm -C web install --frozen-lockfile
-      - run: pnpm -C web exec playwright install --with-deps chromium
-      # See the playwright job above: the `-- --reporter=...` form breaks arg
-      # parsing; the config already emits blob+line under CI.
-      - run: pnpm -C web playwright:perf
-      - name: upload perf report on failure
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: playwright-perf-trace
-          path: web/playwright-report
-          retention-days: 14

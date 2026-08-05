@@ -113,7 +113,7 @@ web/src/
 | 200 节点 service topology layout    | < 600ms     |
 | Frame push（drawer 打开）            | < 100ms     |
 
-CI 跑 `pnpm -C web playwright:perf` 验证。
+性能预算可在本地运行 `pnpm -C web playwright:perf` 验证。
 
 ## 测试
 
@@ -121,7 +121,7 @@ CI 跑 `pnpm -C web playwright:perf` 验证。
 pnpm -C web test                       # vitest（unit + integration）
 pnpm -C web test:coverage              # v8 coverage
 pnpm -C web playwright                 # Playwright 端到端 + a11y
-pnpm -C web playwright:perf            # 性能套件（不每次 CI 跑）
+pnpm -C web playwright:perf            # 本地性能套件
 ```
 
 ## 部署
