@@ -34,7 +34,7 @@ jobs:
       docker:
         image: docker:24-dind
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # ubuntu-latest 只有 ~14GB 空闲磁盘；本 workspace（datafusion/arrow/tantivy +
       # 几十个 it_* 测试二进制）的 target 目录会撑爆 → rust-lld mmap 写输出失败报
