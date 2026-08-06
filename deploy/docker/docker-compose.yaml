@@ -13,7 +13,7 @@ x-molesignal-base: &molesignal-base
     args:
       BUILD_ID: ${BUILD_ID:-local-compose}
       GIT_SHA: ${GIT_SHA:-unknown}
-  image: molesignal:dev
+  image: ghcr.io/molesignal/molesignal:latest
   depends_on:
     postgres:
       condition: service_healthy
