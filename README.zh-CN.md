@@ -129,6 +129,21 @@ Vector / Fluent Bit / OTel Collector / Prometheus remote_write 等完整对接�
 - 调查栈（最多 6 帧）—— 下钻时压栈；`⌘[` / `⌘]` 前后切；pin 帧锁定上下文
 - 任何可点击操作都可键盘到达
 
+### 🧩 Pipeline 函数（VRL + 可选 JS + LLM）
+
+函数是挂在 pipeline 步骤上的可复用转换逻辑。有三种类型，运行在 ingest 热路径上：
+
+- **VRL** — 始终可用。按 `(function_id, updated_at)` 编译，基于上游 `vrl::compiler` stdlib（`del` / `parse_json` / `to_int` / `match` / `encrypt` / `decrypt` 等）。
+- **JavaScript** — 可选，基于 `deno_core`（V8）。默认关闭，因为引入 `deno_core` 会将干净构建从 ~1.5 分钟拉到 ~5 分钟。通过编译时 feature `--features js-runtime` 开启（无运行时开关——二进制要么带 V8 要么不带）。feature 关闭时，JS 函数 POST 返回 `400 javascript runtime not enabled`。
+- **LLM** — 可选，将事件 JSON 交给配置好的 AI provider（intelligence）评估，模型输出写回事件的可配置字段（默认 `_llm_eval`）。由运行时开关控制：
+
+  ```toml
+  [functions]
+  llm_eval_enabled = true
+  ```
+
+  关闭时 pipeline 拒绝 `language=llm` 的步骤。
+
 ### ☸️ 运维
 
 - **6 个无状态 role** —— `router` / `ingester(SF + PVC)` / `querier` / `compactor` / `alert-manager` / `connector`，只 ingester 有本地状态（WAL，≤ flush_interval 窗口）
