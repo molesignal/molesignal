@@ -2,10 +2,9 @@
 
 # MoleSignal
 
-**One place for logs, metrics, profiles and traces - your bill is just the S3 cost.**
+**Go from metric to trace to log without losing context.**
 
-Self-hosted, OpenTelemetry-native. Three signals share one storage layer and one query engine,
-so a trace, its logs, and the host metric of the same minute are *actually* connected — not stitched together by hand.
+Self-hosted and OpenTelemetry-native, MoleSignal puts logs, metrics, and traces on one storage layer and one query engine—so a trace, its logs, and the host metrics around it are connected by design, not stitched together by hand.
 
 [Why](#why-molesignal) · [Quick start](#quick-start) · [Features](#features) · [Architecture](#architecture) · [Status](#status) · [Chinese](README.zh-CN.md)
 
