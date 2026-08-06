@@ -170,6 +170,8 @@
       "name_placeholder": "collector-production",
       "role": "角色",
       "default_role": "默认接入角色（仅写入）",
+      "rum_client_disabled": "RUM client（请前往数据源 → RUM 创建）",
+      "rum_client_disabled_hint": "请前往数据源 → RUM 创建应用专属 Token。",
       "expires_in_days": "有效天数",
       "expires_hint": "留空表示永不过期，最大 1825 天。"
     }

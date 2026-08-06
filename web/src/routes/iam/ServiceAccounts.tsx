@@ -316,10 +316,17 @@ function CreateApiTokenDrawer({
                 options={[
                   { value: '', label: t('service_accounts.fields.default_role') },
                   ...(rolesQuery.data ?? [])
-                    .filter((role) => role.key !== 'rum_client')
                     .map((role) => ({
                       value: role.id,
-                      label: role.name,
+                      label:
+                        role.key === 'rum_client'
+                          ? t('service_accounts.fields.rum_client_disabled')
+                          : role.name,
+                      disabled: role.key === 'rum_client',
+                      disabledReason:
+                        role.key === 'rum_client'
+                          ? t('service_accounts.fields.rum_client_disabled_hint')
+                          : undefined,
                     })),
                 ]}
               />

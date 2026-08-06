@@ -170,6 +170,8 @@
       "name_placeholder": "collector-production",
       "role": "Role",
       "default_role": "Default ingestion (write only)",
+      "rum_client_disabled": "RUM client (go to Data sources → RUM to create)",
+      "rum_client_disabled_hint": "Go to Data sources → RUM to create an application-bound token.",
       "expires_in_days": "Expires in days",
       "expires_hint": "Leave blank for no expiration. Max 1825 days."
     }
