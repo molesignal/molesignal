@@ -355,6 +355,7 @@ export function PreferencesFields({
             </span>
           }
           surface={surface}
+          controlClassName={cn(surface === 'page' && 'flex justify-end')}
         >
           <DisabledControl
             disabled={controlsDisabled}
@@ -427,7 +428,7 @@ function PreferenceRow({
       className={cn(
         'min-h-[52px]',
         surface === 'page'
-          ? 'flex flex-col items-stretch gap-2'
+          ? 'grid grid-cols-1 items-start gap-3 min-[1100px]:grid-cols-[260px_minmax(420px,1fr)] min-[1100px]:gap-8'
           : 'grid grid-cols-1 gap-2 sm:grid-cols-[minmax(150px,1fr)_minmax(240px,320px)] sm:items-center sm:gap-6',
       )}
     >
@@ -444,7 +445,7 @@ function PreferenceRow({
       <div
         className={cn(
           'min-w-0',
-          surface === 'page' && 'w-full max-w-2xl',
+          surface === 'page' && 'w-full',
           controlClassName,
         )}
       >

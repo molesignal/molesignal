@@ -153,6 +153,7 @@ export function SsoProviders() {
       <PageHeader
         title={t('sso_providers.title')}
         subtitle={t('sso_providers.subtitle') as string}
+        className="bg-transparent"
         actions={
           <ChromeButton
             variant="primary"

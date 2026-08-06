@@ -127,10 +127,12 @@ export function AppShell(_props: AppShellProps) {
     setCollapsed((v) => !v);
   };
 
-  // Molesignal is desktop-only; narrow viewports get an interstitial rather
-  // than a degraded layout. Hooks above run unconditionally so this early
-  // return doesn't violate the rules of hooks.
-  if (viewportWidth < DESKTOP_MIN_WIDTH) {
+  // Dense investigation surfaces remain desktop-only. Management routes have
+  // their own narrow-screen navigation drawers and responsive content, so they
+  // can bypass the interstitial without claiming mobile support for the whole
+  // console.
+  // Hooks above run unconditionally so this early return stays hook-safe.
+  if (viewportWidth < DESKTOP_MIN_WIDTH && !isManagementRoute) {
     return <UnsupportedScreen width={viewportWidth} />;
   }
 

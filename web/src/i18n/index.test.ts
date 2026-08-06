@@ -21,7 +21,7 @@ describe('i18n', () => {
     expect(i18n.t('traces:detail.title')).toBe('Trace detail');
     expect(i18n.t('logs:inspector.title')).toBe('Log inspector');
     expect(i18n.t('settings-admin:subtitle')).toBe(
-      'Manage workspace, security, data plane, and automation capabilities.',
+      'Manage organization, security, data plane, and automation capabilities.',
     );
     expect(i18n.t('settings-admin:license.labels.max_ingest_bytes_per_day')).toBe(
       'Max ingest per day (bytes)',
@@ -48,7 +48,7 @@ describe('i18n', () => {
     expect(i18n.t('traces:detail.title')).toBe('链路详情');
     expect(i18n.t('logs:inspector.title')).toBe('日志检查器');
     expect(i18n.t('settings-admin:subtitle')).toBe(
-      '管理工作区、安全、数据面和自动化能力。',
+      '管理组织、安全、数据面和自动化能力。',
     );
     expect(i18n.t('settings-admin:license.labels.edition')).toBe('版本');
     expect(i18n.t('settings-admin:license.labels.verified')).toBe('已验证');

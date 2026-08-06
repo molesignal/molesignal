@@ -1,6 +1,6 @@
 {
   "title": "Settings",
-  "subtitle": "Manage workspace, security, data plane, and automation capabilities.",
+  "subtitle": "Manage organization, security, data plane, and automation capabilities.",
   "save_status": {
     "saved": "All changes saved",
     "dirty": "Unsaved changes",
@@ -13,18 +13,24 @@
   },
   "nav": {
     "group_account": "ACCOUNT",
+    "group_organization": "CURRENT ORGANIZATION",
     "group_notify": "NOTIFY",
     "group_data_plane": "DATA PLANE",
     "group_security": "SECURITY",
     "group_ml_ops": "AI & ML",
+    "group_platform": "PLATFORM",
     "search_placeholder": "Search settings, permissions, or features…",
     "search_aria": "Search settings",
     "no_results": "No matching settings.",
+    "open_navigation": "Open settings navigation",
+    "collapse_navigation": "Collapse settings navigation",
+    "expand_navigation": "Expand settings navigation",
     "expand_group": "Expand {{group}}",
     "collapse_group": "Collapse {{group}}",
     "general": "General",
+    "account_billing": "Plans & billing",
     "license": "License",
-    "billing": "Billing",
+    "billing_integration": "Stripe integration",
     "notify_connectors": "Connectors",
     "notify_users": "User routing",
     "notify_policies": "Policies",
@@ -49,20 +55,37 @@
   },
   "general": {
     "title": "General",
-    "subtitle": "Workspace and access defaults.",
-    "workspace_title": "Workspace information",
-    "workspace_description": "Manage the current workspace display name and stable identifiers.",
-    "organization_name": "Workspace name",
-    "organization_name_hint": "Shown in the top-bar switcher and page titles. Saves automatically on blur.",
-    "organization_slug": "Workspace slug",
+    "subtitle": "Manage the current organization's basic information, stable identifiers, and access policies.",
+    "organization_information": {
+      "title": "Organization information",
+      "subtitle": "Manage the organization's display name and immutable system identifiers."
+    },
+    "basic_information": {
+      "title": "Basic information",
+      "subtitle": "Configure how this organization appears in MoleSignal."
+    },
+    "system_identity": {
+      "title": "System identity",
+      "subtitle": "Used by APIs, audit records, and support. These values cannot be changed after creation."
+    },
+    "auto_save": {
+      "modified": "Modified",
+      "undo": "Undo",
+      "error": "Save failed",
+      "retry": "Retry"
+    },
+    "organization_name": "Organization name",
+    "organization_name_hint": "Shown in the organization switcher, page titles, and invitations. Saves automatically after you stop typing.",
+    "organization_name_required": "Organization name is required.",
+    "organization_slug": "Organization slug",
     "organization_slug_hint": "Kept stable after creation and used by APIs and resource identifiers.",
-    "organization_id": "Workspace ID",
+    "organization_id": "Organization ID",
     "organization_id_hint": "Used by APIs, audit records, and support diagnostics.",
     "copy": "Copy",
     "copied": "Copied",
-    "empty_description": "No workspace metadata was returned by the backend.",
+    "empty_description": "No organization metadata was returned by the backend.",
     "preference_defaults": {
-      "title": "Workspace preference defaults",
+      "title": "Organization preference defaults",
       "subtitle": "Applied when a user has not saved personal preferences. Personal preferences and current-page overrides take priority."
     },
     "interface": {
@@ -72,21 +95,25 @@
       "language_hint": "Changes the MoleSignal interface language.",
       "default_home_hint": "The page opened after sign-in or when you select the brand mark."
     },
+    "access_control": {
+      "title": "Access control",
+      "subtitle": "Manage how members join and how organization resources may be accessed publicly."
+    },
     "signup": {
       "title": "Registration and access",
-      "subtitle": "Control whether new users can register themselves. New accounts join the default organization with the Viewer role.",
-      "enabled": "Allow self-service signup",
-      "enabled_hint": "New users can create an account and join the current workspace.",
+      "subtitle": "Control how new members join this organization and which access they receive.",
+      "enabled": "Allow self-service joining",
+      "enabled_hint": "Users who meet the platform signup requirements can join this organization.",
       "require_approval": "Require admin approval",
-      "require_approval_hint": "An administrator must approve registrations before users can access the workspace.",
-      "default_role": "Default signup role",
+      "require_approval_hint": "An administrator must approve join requests before users can access the organization.",
+      "default_role": "Default organization role",
       "default_role_value": "IAM catalog default",
-      "default_role_hint": "New members receive the role configured for the self-service signup purpose in the IAM catalog.",
+      "default_role_hint": "Members who join through self-service receive the default role configured in the IAM catalog.",
       "saved": "Signup policy saved"
     },
     "sharing": {
       "title": "Sharing and public access",
-      "subtitle": "Control restricted share credentials. Workspace and cross-org sharing still require sign-in.",
+      "subtitle": "Control restricted share credentials. Organization and cross-organization sharing still require sign-in.",
       "allow_public_links": "Allow public links",
       "allow_public_links_hint": "Members may create restricted bearer links that do not require account sign-in for allowed resources.",
       "public_links_required": "Enable public links before configuring this option.",
@@ -103,6 +130,13 @@
       "deny_production_hint": "Reject public links for resources tagged production or prod.",
       "allow_csv_download": "Allow public CSV downloads",
       "allow_csv_download_hint": "When off, CSV reports can only be previewed in the restricted page."
+    },
+    "danger": {
+      "title": "Organization lifecycle",
+      "subtitle": "Manage irreversible actions that affect the organization and its data lifecycle.",
+      "delete_title": "Delete organization",
+      "delete_description": "The backend prevents deleting the organization used by the current session. Switch organizations first, then complete deletion from Organization management.",
+      "manage_delete": "Open organization management"
     }
   },
   "preferences": {
@@ -183,8 +217,8 @@
     "edit_drawer_title": "Edit organization"
   },
   "billing": {
-    "title": "Billing",
-    "subtitle": "Stripe billing integration. When enabled, suspended/cancelled subscriptions and daily ingest quota block ingestion (402).",
+    "title": "Stripe integration",
+    "subtitle": "Configure platform-level Stripe subscription and quota enforcement. Customer plans and invoices are managed in Account settings.",
     "section_stripe": "Stripe",
     "save": "Save",
     "saving": "Saving…",

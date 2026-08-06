@@ -14,7 +14,7 @@ export function SectionBody({
   children: React.ReactNode;
   className?: string;
 }) {
-  return <div className={cn('p-6', className)}>{children}</div>;
+  return <div className={cn('p-4 lg:p-6', className)}>{children}</div>;
 }
 
 /**
@@ -32,7 +32,7 @@ export function SettingsGroupStack({
   return (
     <div
       data-settings-layout="single-column"
-      className={cn('flex w-full min-w-0 flex-col gap-8', className)}
+      className={cn('flex w-full min-w-0 flex-col gap-4', className)}
     >
       {children}
     </div>
@@ -40,37 +40,96 @@ export function SettingsGroupStack({
 }
 
 /**
- * A Settings topic uses rules and spacing instead of a surrounding card.
- * This keeps dense admin forms readable without stacking borders.
+ * A Settings topic is one light card. Fields stay flat inside it so the page
+ * gains hierarchy without turning every control into another nested panel.
  */
 export function SettingsSection({
   title,
   description,
   children,
+  tone = 'default',
   className,
+  contentClassName,
 }: {
   title: React.ReactNode;
+  description?: React.ReactNode;
+  children: React.ReactNode;
+  tone?: 'default' | 'danger';
+  className?: string;
+  contentClassName?: string;
+}) {
+  return (
+    <section
+      data-settings-section
+      className={cn(
+        'w-full min-w-0 rounded-lg border bg-bg-1 px-5 py-5 lg:px-6',
+        tone === 'danger' ? 'border-red/30 bg-red-dim/30' : 'border-bd-0',
+        className,
+      )}
+    >
+      <header>
+        <div className="type-section-title font-sans font-display-strong text-tx-0">
+          {title}
+        </div>
+        {description && (
+          <div className="mt-1 max-w-3xl font-sans text-base leading-relaxed text-tx-2 lg:text-sm">
+            {description}
+          </div>
+        )}
+      </header>
+      <div className={cn('mt-5 flex min-w-0 flex-col gap-5', contentClassName)}>
+        {children}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * A named topic inside a Settings card. Adjacent topics use one deliberately
+ * weak divider so related controls stay grouped without becoming nested cards.
+ */
+export function SettingsSubsection({
+  title,
+  description,
+  children,
+  className,
+}: {
+  title?: React.ReactNode;
   description?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
 }) {
   return (
-    <section
-      data-settings-section
-      className={cn('w-full min-w-0 border-t border-bd-1', className)}
+    <div
+      data-settings-subsection
+      className={cn(
+        'min-w-0 [&+&]:mt-4 [&+&]:border-t [&+&]:border-bd-0 [&+&]:pt-4',
+        className,
+      )}
     >
-      <header className="border-b border-bd-0 py-4">
-        <div className="type-section-title font-sans font-display-strong text-tx-0">
-          {title}
-        </div>
-        {description && (
-          <div className="mt-1 max-w-3xl font-sans text-xs leading-relaxed text-tx-2">
-            {description}
-          </div>
+      {(title || description) && (
+        <header>
+          {title && (
+            <div className="font-sans text-base font-strong text-tx-0 lg:text-sm">
+              {title}
+            </div>
+          )}
+          {description && (
+            <div className="mt-1 max-w-3xl font-sans text-base leading-relaxed text-tx-2 lg:text-sm">
+              {description}
+            </div>
+          )}
+        </header>
+      )}
+      <div
+        className={cn(
+          'flex min-w-0 flex-col gap-5',
+          (title || description) && 'mt-5',
         )}
-      </header>
-      <div>{children}</div>
-    </section>
+      >
+        {children}
+      </div>
+    </div>
   );
 }
 
@@ -91,21 +150,21 @@ export function SettingsRow({
     <div
       data-settings-row
       className={cn(
-        'flex min-h-20 w-full min-w-0 flex-col items-stretch gap-3 border-b border-bd-0 py-4 last:border-b-0',
+        'grid w-full min-w-0 grid-cols-1 items-start gap-3 min-[1100px]:grid-cols-[260px_minmax(420px,1fr)] min-[1100px]:gap-8',
         className,
       )}
     >
       <div className="min-w-0">
-        <div className="font-sans text-sm font-strong text-tx-0">{label}</div>
+        <div className="font-sans text-base font-strong text-tx-0 lg:text-sm">{label}</div>
         {description && (
-          <div className="mt-1 max-w-2xl font-sans text-xs leading-relaxed text-tx-2">
+          <div className="mt-1 max-w-[260px] font-sans text-base leading-relaxed text-tx-2 lg:text-sm">
             {description}
           </div>
         )}
       </div>
       <div
         className={cn(
-          'flex w-full min-w-0 max-w-2xl items-center',
+          'flex min-h-11 w-full min-w-0 items-center lg:min-h-9',
           controlClassName,
         )}
       >
@@ -147,20 +206,74 @@ export function CopyableValue({
   }, [value]);
 
   return (
-    <div className="flex min-h-9 w-full min-w-0 items-center rounded-md border border-bd-0 bg-bg-1 pl-3">
-      <code className="min-w-0 flex-1 truncate font-mono text-xs text-tx-1">{value}</code>
+    <div className="flex min-h-11 w-full min-w-0 items-center rounded-md border border-bd-0 bg-bg-2 pl-3 lg:min-h-9">
+      <code className="min-w-0 flex-1 truncate font-mono text-base text-tx-1 lg:text-xs">{value}</code>
       <CopyIconButton
         onClick={() => void copy()}
         disabled={!value || value === '—'}
         label={copyLabel}
         copied={copied}
         copiedLabel={copiedLabel}
+        className="h-11 w-11 lg:h-8 lg:w-8"
       />
     </div>
   );
 }
 
-/** Read-only metadata follows the same single-column rhythm as form rows. */
+export function SettingsDraftStatus({
+  dirty,
+  error,
+  modifiedLabel,
+  undoLabel,
+  errorLabel,
+  retryLabel,
+  onUndo,
+  onRetry,
+}: {
+  dirty: boolean;
+  error: boolean;
+  modifiedLabel: string;
+  undoLabel: string;
+  errorLabel: string;
+  retryLabel: string;
+  onUndo: () => void;
+  onRetry: () => void;
+}) {
+  if (!dirty && !error) return null;
+  return (
+    <div
+      aria-live="polite"
+      className={cn(
+        'flex min-h-8 flex-wrap items-center justify-end gap-1 font-sans text-sm',
+        error ? 'text-red-soft' : 'text-tx-3',
+      )}
+    >
+      <span>{error ? errorLabel : modifiedLabel}</span>
+      <span aria-hidden>·</span>
+      {error && (
+        <>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="inline-flex min-h-11 items-center rounded px-1 font-strong text-red-soft hover:bg-red-dim lg:min-h-8"
+          >
+            {retryLabel}
+          </button>
+          <span aria-hidden>·</span>
+        </>
+      )}
+      <button
+        type="button"
+        onClick={onUndo}
+        className="inline-flex min-h-11 items-center rounded px-1 font-strong text-tx-2 hover:bg-bg-3 hover:text-tx-0 lg:min-h-8"
+      >
+        {undoLabel}
+      </button>
+    </div>
+  );
+}
+
+/** Read-only metadata follows the same responsive field grid as forms. */
 export function KvRow({
   label,
   hint,
@@ -173,13 +286,13 @@ export function KvRow({
   return (
     <div
       data-settings-row
-      className="flex min-h-16 flex-col gap-2 border-b border-bd-0 py-3 last:border-b-0"
+      className="grid min-h-11 grid-cols-1 items-start gap-2 min-[1100px]:grid-cols-[260px_minmax(420px,1fr)] min-[1100px]:gap-8"
     >
       <div>
-        <div className="font-sans text-xs font-strong text-tx-1">{label}</div>
-        {hint && <div className="mt-1 text-xs text-tx-3">{hint}</div>}
+        <div className="font-sans text-base font-strong text-tx-1 lg:text-sm">{label}</div>
+        {hint && <div className="mt-1 text-base text-tx-3 lg:text-sm">{hint}</div>}
       </div>
-      <div className="font-sans text-xs text-tx-0">{children}</div>
+      <div className="font-sans text-base text-tx-0 lg:text-sm">{children}</div>
     </div>
   );
 }

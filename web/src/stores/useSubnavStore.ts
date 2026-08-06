@@ -2,9 +2,9 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 /**
- * Collapse state for the second-level sub-nav shared by every `SettingsPage`
- * (Settings, IAM, …). One process-wide flag, persisted to localStorage, so
- * collapsing the menu on one admin page keeps it collapsed across them all.
+ * Collapse state for generic management sub-navigation (account, …).
+ * Settings and IAM use independent fully-hidden sidebar preferences because
+ * they have dedicated narrow-screen drawers and must not become icon rails.
  */
 interface SubnavState {
   collapsed: boolean;

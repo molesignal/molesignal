@@ -1,6 +1,6 @@
 {
   "title": "设置",
-  "subtitle": "管理工作区、安全、数据面和自动化能力。",
+  "subtitle": "管理组织、安全、数据面和自动化能力。",
   "save_status": {
     "saved": "所有更改已保存",
     "dirty": "有未保存的更改",
@@ -13,18 +13,24 @@
   },
   "nav": {
     "group_account": "账户",
+    "group_organization": "当前组织",
     "group_notify": "通知",
     "group_data_plane": "数据面",
     "group_security": "安全",
     "group_ml_ops": "AI 与 ML",
+    "group_platform": "平台",
     "search_placeholder": "搜索设置、权限或功能…",
     "search_aria": "搜索设置",
     "no_results": "没有匹配的设置项。",
+    "open_navigation": "打开设置导航",
+    "collapse_navigation": "收起设置导航",
+    "expand_navigation": "展开设置导航",
     "expand_group": "展开{{group}}",
     "collapse_group": "收起{{group}}",
     "general": "通用",
+    "account_billing": "套餐与账单",
     "license": "许可证",
-    "billing": "计费",
+    "billing_integration": "Stripe 集成",
     "notify_connectors": "连接器",
     "notify_users": "用户通知",
     "notify_policies": "通知策略",
@@ -49,20 +55,37 @@
   },
   "general": {
     "title": "通用",
-    "subtitle": "工作区和访问默认配置。",
-    "workspace_title": "工作区信息",
-    "workspace_description": "管理当前工作区的显示名称和稳定标识。",
-    "organization_name": "工作区名称",
-    "organization_name_hint": "用于顶部切换器和页面标题，失焦后自动保存。",
-    "organization_slug": "工作区标识",
+    "subtitle": "管理当前组织的基本信息、稳定标识和访问策略。",
+    "organization_information": {
+      "title": "组织信息",
+      "subtitle": "管理组织的显示名称和不可变系统标识。"
+    },
+    "basic_information": {
+      "title": "基本信息",
+      "subtitle": "配置组织在 MoleSignal 中的显示名称。"
+    },
+    "system_identity": {
+      "title": "系统标识",
+      "subtitle": "用于 API、审计记录和技术支持，创建后不可修改。"
+    },
+    "auto_save": {
+      "modified": "已修改",
+      "undo": "撤销",
+      "error": "保存失败",
+      "retry": "重试"
+    },
+    "organization_name": "组织名称",
+    "organization_name_hint": "显示在顶部组织切换器、页面标题和邀请信息中。停止输入后自动保存。",
+    "organization_name_required": "组织名称不能为空。",
+    "organization_slug": "组织标识",
     "organization_slug_hint": "创建后保持稳定，用于 API 和资源标识。",
-    "organization_id": "工作区 ID",
+    "organization_id": "组织 ID",
     "organization_id_hint": "用于 API、审计记录和技术支持定位。",
     "copy": "复制",
     "copied": "已复制",
-    "empty_description": "后端未返回工作区元数据。",
+    "empty_description": "后端未返回组织元数据。",
     "preference_defaults": {
-      "title": "工作区偏好默认值",
+      "title": "组织偏好默认值",
       "subtitle": "用户尚未保存个人偏好时使用。个人偏好和当前页面临时设置的优先级更高。"
     },
     "interface": {
@@ -72,21 +95,25 @@
       "language_hint": "切换 MoleSignal 的界面语言。",
       "default_home_hint": "登录后或点击品牌标识时默认打开的页面路径。"
     },
+    "access_control": {
+      "title": "访问控制",
+      "subtitle": "管理成员加入方式以及组织资源的公开访问策略。"
+    },
     "signup": {
       "title": "注册与访问",
-      "subtitle": "控制是否允许新用户自助注册。新账号加入默认组织并授予 Viewer 角色。",
-      "enabled": "允许自助注册",
-      "enabled_hint": "新用户可以自行创建账户并加入当前工作区。",
+      "subtitle": "控制新成员如何加入当前组织以及加入后的默认权限。",
+      "enabled": "允许自助加入",
+      "enabled_hint": "符合平台注册条件的用户可以自行加入当前组织。",
       "require_approval": "需要管理员审批",
-      "require_approval_hint": "注册后必须由管理员审核，通过后才能访问工作区。",
-      "default_role": "默认注册角色",
+      "require_approval_hint": "用户提交加入请求后，必须由管理员审核才能访问组织。",
+      "default_role": "默认组织角色",
       "default_role_value": "IAM 目录默认角色",
-      "default_role_hint": "新成员将获得 IAM 目录中为自助注册用途配置的角色。",
+      "default_role_hint": "自助加入的成员将获得 IAM 目录中配置的默认角色。",
       "saved": "注册策略已保存"
     },
     "sharing": {
       "title": "共享与公开访问",
-      "subtitle": "控制受限分享凭证的创建范围。工作区内分享和跨组织分享仍然要求登录。",
+      "subtitle": "控制受限分享凭证的创建范围。组织内分享和跨组织分享仍然要求登录。",
       "allow_public_links": "允许创建公开链接",
       "allow_public_links_hint": "开启后，成员可为允许的资源创建免账号登录的受限 Bearer 链接。",
       "public_links_required": "请先开启公开链接，再配置此选项。",
@@ -103,6 +130,13 @@
       "deny_production_hint": "资源带有 production 或 prod 标签时拒绝创建公开链接。",
       "allow_csv_download": "允许公开下载 CSV",
       "allow_csv_download_hint": "关闭后 CSV 报告只能在受限页面中预览。"
+    },
+    "danger": {
+      "title": "组织生命周期",
+      "subtitle": "管理影响组织及其数据生命周期的不可逆操作。",
+      "delete_title": "删除组织",
+      "delete_description": "后端禁止删除当前会话所在组织。请先切换到其他组织，再从组织管理中完成删除。",
+      "manage_delete": "前往组织管理"
     }
   },
   "preferences": {
@@ -183,8 +217,8 @@
     "edit_drawer_title": "编辑组织"
   },
   "billing": {
-    "title": "计费",
-    "subtitle": "Stripe 计费集成。启用后，订阅停服/取消及每日 ingest 配额会拦截写入（402）。",
+    "title": "Stripe 集成",
+    "subtitle": "配置平台级 Stripe 订阅与配额门禁；客户套餐和账单在账户设置中管理。",
     "section_stripe": "Stripe",
     "save": "保存",
     "saving": "保存中…",

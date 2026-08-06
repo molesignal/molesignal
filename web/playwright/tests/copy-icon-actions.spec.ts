@@ -8,14 +8,15 @@ test.describe('copy icon actions', () => {
   test('keeps settings copy actions to one visible icon', async ({ page }) => {
     await page.goto('/settings/general');
 
-    const workspaceSection = page
+    const identitySection = page
       .locator('[data-settings-section]')
-      .filter({ hasText: 'Workspace information' })
+      .filter({ hasText: 'System identity' })
       .first();
-    const buttons = workspaceSection.getByRole('button', {
+    const buttons = identitySection.getByRole('button', {
       name: 'Copy',
       exact: true,
     });
+    await expect(identitySection).toContainText('Basic information');
     await expect(buttons).toHaveCount(2);
 
     for (let index = 0; index < 2; index += 1) {
@@ -24,6 +25,27 @@ test.describe('copy icon actions', () => {
       await expect(button).toHaveText('');
       await expect(button.locator('svg')).toHaveCount(1);
     }
+
+    const accessSection = page
+      .locator('[data-settings-section]')
+      .filter({ hasText: 'Access control' });
+    await expect(accessSection).toContainText('Registration and access');
+    await expect(accessSection).toContainText('Sharing and public access');
+    await expect(page.locator('[data-settings-section]')).toHaveCount(4);
+  });
+
+  test('separates account billing from platform Stripe configuration', async ({
+    page,
+  }) => {
+    await page.goto('/settings/general');
+
+    await expect(page.getByText('ACCOUNT', { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: 'Plans & billing' }),
+    ).toHaveAttribute('href', '/account/billing');
+    await expect(
+      page.getByRole('link', { name: 'Stripe integration' }),
+    ).toHaveAttribute('href', '/settings/billing');
   });
 
   test('keeps only the page divider above the billing section', async ({

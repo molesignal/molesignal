@@ -8,6 +8,7 @@ import {
 import { ManagementPage } from '@/product/templates';
 import { cn } from '@/shell/lib/cn';
 import { ManagementNav } from '@/shell/ManagementNav';
+import { useSettingsSidebarStore } from '@/stores/useSettingsSidebarStore';
 
 import {
   SettingsSaveStatusIndicator,
@@ -23,10 +24,12 @@ interface Section {
 interface SectionGroup {
   key:
     | 'group_account'
+    | 'group_organization'
     | 'group_notify'
     | 'group_data_plane'
     | 'group_security'
-    | 'group_ml_ops';
+    | 'group_ml_ops'
+    | 'group_platform';
   sections: Section[];
 }
 
@@ -34,14 +37,17 @@ const GROUPS: SectionGroup[] = [
   {
     key: 'group_account',
     sections: [
-      { to: '/settings/general', key: 'general', contentWidth: 'form' },
       {
-        to: '/settings/organization_management',
-        key: 'organization_management',
-        contentWidth: 'table',
+        to: '/account/billing',
+        key: 'account_billing',
+        contentWidth: 'page',
       },
-      { to: '/settings/license', key: 'license', contentWidth: 'form' },
-      { to: '/settings/billing', key: 'billing', contentWidth: 'form' },
+    ],
+  },
+  {
+    key: 'group_organization',
+    sections: [
+      { to: '/settings/general', key: 'general', contentWidth: 'form' },
     ],
   },
   {
@@ -115,11 +121,27 @@ const GROUPS: SectionGroup[] = [
       },
     ],
   },
+  {
+    key: 'group_platform',
+    sections: [
+      {
+        to: '/settings/organization_management',
+        key: 'organization_management',
+        contentWidth: 'table',
+      },
+      { to: '/settings/license', key: 'license', contentWidth: 'form' },
+      {
+        to: '/settings/billing',
+        key: 'billing_integration',
+        contentWidth: 'form',
+      },
+    ],
+  },
 ];
 
 const CONTENT_WIDTH_CLASS: Record<Section['contentWidth'], string> = {
-  page: 'max-w-[1280px]',
-  form: 'max-w-[1280px]',
+  page: 'max-w-[1120px]',
+  form: 'max-w-[1120px]',
   list: 'max-w-[1080px]',
   table: 'max-w-[1440px]',
 };
@@ -141,6 +163,8 @@ function SettingsLayoutFrame() {
   const { t } = useTranslation('settings-admin');
   const { pathname } = useLocation();
   const access = useProductAccess();
+  const sidebarCollapsed = useSettingsSidebarStore((state) => state.collapsed);
+  const toggleSidebar = useSettingsSidebarStore((state) => state.toggle);
   // 子页面包屑：从已有的 GROUPS 定义推导「设置 > 当前页 + 返回」，统一所有子页的层级
   // 感（此前只有 ia.ts 里登记过的 license/organization 才有面包屑）。general 是设置
   // 入口，自身不加面包屑。
@@ -163,13 +187,20 @@ function SettingsLayoutFrame() {
       toolbar={<SettingsSaveStatusIndicator />}
       breadcrumbs={crumbs}
       backTo={crumbs ? '/settings/general' : null}
-      sections={<SettingsNav />}
+      sections={<SettingsNav onCollapse={toggleSidebar} />}
+      sectionNavigation={{
+        collapsed: sidebarCollapsed,
+        onExpand: toggleSidebar,
+        expandLabel: t('nav.expand_navigation'),
+      }}
+      headerClassName="gap-2 py-3.5"
+      bodyClassName="mx-auto w-full max-w-[1440px] gap-8"
     >
       <div className="min-w-0">
         <div
           data-settings-content-width={contentWidth}
           className={cn(
-            'ml-0 mr-auto w-full min-w-0',
+            'mx-auto w-full min-w-0',
             CONTENT_WIDTH_CLASS[contentWidth],
           )}
         >
@@ -180,7 +211,7 @@ function SettingsLayoutFrame() {
   );
 }
 
-function SettingsNav() {
+function SettingsNav({ onCollapse }: { onCollapse: () => void }) {
   const { t } = useTranslation('settings-admin');
   const { pathname } = useLocation();
   const access = useProductAccess();
@@ -205,6 +236,11 @@ function SettingsNav() {
       noResultsLabel={t('nav.no_results')}
       collapseGroupLabel={(group) => t('nav.collapse_group', { group })}
       expandGroupLabel={(group) => t('nav.expand_group', { group })}
+      collapsibleGroups={false}
+      onCollapse={onCollapse}
+      collapseNavigationLabel={t('nav.collapse_navigation')}
+      mobilePresentation="drawer"
+      mobileTriggerLabel={t('nav.open_navigation')}
     />
   );
 }

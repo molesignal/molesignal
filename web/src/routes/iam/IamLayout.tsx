@@ -9,46 +9,76 @@ import {
 } from '@/product/access';
 import { ProductState, type ProductStateProps } from '@/product/states';
 import { ManagementPage } from '@/product/templates';
+import { cn } from '@/shell/lib/cn';
 import { ManagementNav } from '@/shell/ManagementNav';
+import { useIamSidebarStore } from '@/stores/useIamSidebarStore';
 
-const IAM_GROUPS = [
+interface IamSection {
+  to: string;
+  key: string;
+  contentWidth: 'page' | 'form' | 'list' | 'table';
+}
+
+interface IamSectionGroup {
+  key: string;
+  sections: IamSection[];
+}
+
+const IAM_GROUPS: IamSectionGroup[] = [
   {
     key: 'group_members',
     sections: [
-      { to: '/iam/users', key: 'users' },
-      { to: '/iam/invitations', key: 'invitations' },
-      { to: '/iam/approvals', key: 'approvals' },
+      { to: '/iam/users', key: 'users', contentWidth: 'table' },
+      { to: '/iam/invitations', key: 'invitations', contentWidth: 'table' },
+      { to: '/iam/approvals', key: 'approvals', contentWidth: 'table' },
     ],
   },
   {
     key: 'group_organization',
     sections: [
-      { to: '/iam/organizations', key: 'organizations' },
-      { to: '/iam/teams', key: 'teams' },
+      { to: '/iam/organizations', key: 'organizations', contentWidth: 'table' },
+      { to: '/iam/teams', key: 'teams', contentWidth: 'table' },
     ],
   },
   {
     key: 'group_permissions',
     sections: [
-      { to: '/iam/roles', key: 'roles' },
-      { to: '/iam/groups', key: 'groups' },
-      { to: '/iam/quota', key: 'quota' },
+      { to: '/iam/roles', key: 'roles', contentWidth: 'table' },
+      { to: '/iam/groups', key: 'groups', contentWidth: 'table' },
+      { to: '/iam/quota', key: 'quota', contentWidth: 'list' },
     ],
   },
   {
     key: 'group_authentication',
     sections: [
-      { to: '/iam/service-accounts', key: 'service_accounts' },
-      { to: '/iam/sso', key: 'sso' },
-      { to: '/iam/email-domains', key: 'email_domains' },
+      {
+        to: '/iam/service-accounts',
+        key: 'service_accounts',
+        contentWidth: 'table',
+      },
+      { to: '/iam/sso', key: 'sso', contentWidth: 'table' },
+      {
+        to: '/iam/email-domains',
+        key: 'email_domains',
+        contentWidth: 'table',
+      },
     ],
   },
 ];
+
+const CONTENT_WIDTH_CLASS: Record<IamSection['contentWidth'], string> = {
+  page: 'max-w-[1120px]',
+  form: 'max-w-[1120px]',
+  list: 'max-w-[1080px]',
+  table: 'max-w-[1440px]',
+};
 
 export function IamLayout() {
   const { t } = useTranslation('iam');
   const { pathname } = useLocation();
   const access = useProductAccess();
+  const sidebarCollapsed = useIamSidebarStore((state) => state.collapsed);
+  const toggleSidebar = useIamSidebarStore((state) => state.toggle);
   const iamSections = IAM_GROUPS.flatMap((group) => group.sections);
   const landingPath =
     iamSections.find((section) => canAccessProductPath(section.to, access))
@@ -63,16 +93,32 @@ export function IamLayout() {
           { labelKey: current.key, label: t(`nav.${current.key}`) },
         ]
       : null;
+  const contentWidth = current?.contentWidth ?? 'page';
   return (
     <ManagementPage
       title={t('title')}
       subtitle={t('subtitle') as string}
       breadcrumbs={crumbs}
       backTo={crumbs ? landingPath : null}
-      sections={<IamNav />}
+      sections={<IamNav onCollapse={toggleSidebar} />}
+      sectionNavigation={{
+        collapsed: sidebarCollapsed,
+        onExpand: toggleSidebar,
+        expandLabel: t('nav.expand_navigation'),
+      }}
+      headerClassName="gap-2 py-3.5"
+      bodyClassName="mx-auto w-full max-w-[1440px] gap-8"
     >
-      <div className="ml-0 mr-auto w-full min-w-0 max-w-[1440px]">
-        <Outlet />
+      <div className="min-w-0">
+        <div
+          data-iam-content-width={contentWidth}
+          className={cn(
+            'mx-auto w-full min-w-0',
+            CONTENT_WIDTH_CLASS[contentWidth],
+          )}
+        >
+          <Outlet />
+        </div>
       </div>
     </ManagementPage>
   );
@@ -91,7 +137,7 @@ export function IamIndexRedirect() {
   );
 }
 
-function IamNav() {
+function IamNav({ onCollapse }: { onCollapse: () => void }) {
   const { t } = useTranslation('iam');
   const { pathname } = useLocation();
   const access = useProductAccess();
@@ -116,6 +162,11 @@ function IamNav() {
       noResultsLabel={t('nav.no_results')}
       collapseGroupLabel={(group) => t('nav.collapse_group', { group })}
       expandGroupLabel={(group) => t('nav.expand_group', { group })}
+      collapsibleGroups={false}
+      onCollapse={onCollapse}
+      collapseNavigationLabel={t('nav.collapse_navigation')}
+      mobilePresentation="drawer"
+      mobileTriggerLabel={t('nav.open_navigation')}
     />
   );
 }
@@ -135,7 +186,12 @@ export function IamListPage({
 }) {
   return (
     <>
-      <AdminPageHeader title={title} subtitle={subtitle} actions={toolbar} />
+      <AdminPageHeader
+        title={title}
+        subtitle={subtitle}
+        actions={toolbar}
+        className="bg-transparent"
+      />
       <div className="p-4 lg:p-6">
         {state ? <ProductState {...state} /> : children}
       </div>

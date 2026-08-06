@@ -4,13 +4,18 @@ import type * as instanceApi from '@/api/instance';
 import type * as meApi from '@/api/me';
 import type * as resourceSharesApi from '@/api/resourceShares';
 import { ProductState } from '@/product/states';
-import { ChromeButton, Pill } from '@/shell/chrome';
+import { Pill } from '@/shell/chrome';
 import { FormSelect } from '@/shell/FormDrawer';
 import { PreferencesFields } from '@/shell/PreferencesFields';
 import { Switch } from '@/shell/ui/switch';
 import type { Dashboard } from '@/types/dashboard';
 
-import { SettingsRow, SettingsSection } from '../_atoms';
+import {
+  SettingsDraftStatus,
+  SettingsRow,
+  SettingsSection,
+  SettingsSubsection,
+} from '../_atoms';
 
 interface AccessProps {
   canManage: boolean;
@@ -23,6 +28,7 @@ export function SignupPolicySection({
   isError,
   error,
   pending,
+  saveError,
   dirty,
   canManage,
   disabledReason,
@@ -35,6 +41,7 @@ export function SignupPolicySection({
   isError: boolean;
   error: unknown;
   pending: boolean;
+  saveError: boolean;
   dirty: boolean;
   onChange: (patch: Partial<instanceApi.SignupPolicy>) => void;
   onReset: () => void;
@@ -48,7 +55,7 @@ export function SignupPolicySection({
       : undefined;
 
   return (
-    <SettingsSection
+    <SettingsSubsection
       title={t('general.signup.title')}
       description={t('general.signup.subtitle')}
     >
@@ -65,8 +72,10 @@ export function SignupPolicySection({
           <SettingsRow
             label={t('general.signup.enabled')}
             description={t('general.signup.enabled_hint')}
+            controlClassName="justify-start min-[1100px]:justify-end"
           >
             <Switch
+              className="relative before:absolute before:-inset-x-2 before:-inset-y-3 before:content-['']"
               checked={policy.signup_enabled}
               disabled={!canManage || pending}
               disabledReason={controlsDisabledReason}
@@ -80,8 +89,10 @@ export function SignupPolicySection({
             <SettingsRow
               label={t('general.signup.require_approval')}
               description={t('general.signup.require_approval_hint')}
+              controlClassName="justify-start min-[1100px]:justify-end"
             >
               <Switch
+                className="relative before:absolute before:-inset-x-2 before:-inset-y-3 before:content-['']"
                 checked={policy.signup_require_approval}
                 disabled={!canManage || pending}
                 disabledReason={controlsDisabledReason}
@@ -92,23 +103,27 @@ export function SignupPolicySection({
               />
             </SettingsRow>
           )}
-          <SettingsRow
-            label={t('general.signup.default_role')}
-            description={t('general.signup.default_role_hint')}
-          >
-            <Pill tone="dim">{t('general.signup.default_role_value')}</Pill>
-          </SettingsRow>
-          <SettingsActions
-            dirty={dirty}
-            pending={pending}
-            canManage={canManage}
-            disabledReason={disabledReason}
-            onReset={onReset}
-            onSave={onSave}
+          {policy.signup_enabled && (
+            <SettingsRow
+              label={t('general.signup.default_role')}
+              description={t('general.signup.default_role_hint')}
+            >
+              <Pill tone="dim">{t('general.signup.default_role_value')}</Pill>
+            </SettingsRow>
+          )}
+          <SettingsDraftStatus
+            dirty={dirty || pending}
+            error={saveError}
+            modifiedLabel={t('general.auto_save.modified')}
+            undoLabel={t('general.auto_save.undo')}
+            errorLabel={t('general.auto_save.error')}
+            retryLabel={t('general.auto_save.retry')}
+            onUndo={onReset}
+            onRetry={onSave}
           />
         </>
       )}
-    </SettingsSection>
+    </SettingsSubsection>
   );
 }
 
@@ -118,6 +133,7 @@ export function SharingPolicySection({
   isError,
   error,
   pending,
+  saveError,
   dirty,
   canManage,
   disabledReason,
@@ -130,6 +146,7 @@ export function SharingPolicySection({
   isError: boolean;
   error: unknown;
   pending: boolean;
+  saveError: boolean;
   dirty: boolean;
   onChange: (
     patch: Partial<
@@ -154,7 +171,7 @@ export function SharingPolicySection({
     : controlsDisabledReason;
 
   return (
-    <SettingsSection
+    <SettingsSubsection
       title={t('general.sharing.title')}
       description={t('general.sharing.subtitle')}
     >
@@ -171,8 +188,10 @@ export function SharingPolicySection({
           <SettingsRow
             label={t('general.sharing.allow_public_links')}
             description={t('general.sharing.allow_public_links_hint')}
+            controlClassName="justify-start min-[1100px]:justify-end"
           >
             <Switch
+              className="relative before:absolute before:-inset-x-2 before:-inset-y-3 before:content-['']"
               checked={policy.allow_public_links}
               disabled={!canManage || pending}
               disabledReason={controlsDisabledReason}
@@ -185,8 +204,10 @@ export function SharingPolicySection({
           <SettingsRow
             label={t('general.sharing.allow_public_dashboards')}
             description={t('general.sharing.allow_public_dashboards_hint')}
+            controlClassName="justify-start min-[1100px]:justify-end"
           >
             <Switch
+              className="relative before:absolute before:-inset-x-2 before:-inset-y-3 before:content-['']"
               checked={policy.allow_public_dashboards}
               disabled={!policy.allow_public_links || !canManage || pending}
               disabledReason={dependentDisabledReason}
@@ -199,10 +220,12 @@ export function SharingPolicySection({
           <SettingsRow
             label={t('general.sharing.max_expiry')}
             description={t('general.sharing.max_expiry_hint')}
-            controlClassName="w-full md:w-44"
+            controlClassName="w-full min-[1100px]:w-48"
           >
             <FormSelect
               value={String(policy.max_public_expiry_secs)}
+              ariaLabel={t('general.sharing.max_expiry')}
+              className="h-11 text-base lg:h-9 lg:text-sm"
               disabled={!policy.allow_public_links || !canManage || pending}
               disabledReason={dependentDisabledReason}
               onChange={(value) =>
@@ -227,8 +250,10 @@ export function SharingPolicySection({
           <SettingsRow
             label={t('general.sharing.report_password')}
             description={t('general.sharing.report_password_hint')}
+            controlClassName="justify-start min-[1100px]:justify-end"
           >
             <Switch
+              className="relative before:absolute before:-inset-x-2 before:-inset-y-3 before:content-['']"
               checked={policy.require_public_report_password}
               disabled={!policy.allow_public_links || !canManage || pending}
               disabledReason={dependentDisabledReason}
@@ -241,8 +266,10 @@ export function SharingPolicySection({
           <SettingsRow
             label={t('general.sharing.deny_production')}
             description={t('general.sharing.deny_production_hint')}
+            controlClassName="justify-start min-[1100px]:justify-end"
           >
             <Switch
+              className="relative before:absolute before:-inset-x-2 before:-inset-y-3 before:content-['']"
               checked={policy.deny_production_public_shares}
               disabled={!canManage || pending}
               disabledReason={controlsDisabledReason}
@@ -255,8 +282,10 @@ export function SharingPolicySection({
           <SettingsRow
             label={t('general.sharing.allow_csv_download')}
             description={t('general.sharing.allow_csv_download_hint')}
+            controlClassName="justify-start min-[1100px]:justify-end"
           >
             <Switch
+              className="relative before:absolute before:-inset-x-2 before:-inset-y-3 before:content-['']"
               checked={policy.allow_public_csv_download}
               disabled={!policy.allow_public_links || !canManage || pending}
               disabledReason={dependentDisabledReason}
@@ -266,67 +295,19 @@ export function SharingPolicySection({
               }
             />
           </SettingsRow>
-          <SettingsActions
-            dirty={dirty}
-            pending={pending}
-            canManage={canManage}
-            disabledReason={disabledReason}
-            onReset={onReset}
-            onSave={onSave}
+          <SettingsDraftStatus
+            dirty={dirty || pending}
+            error={saveError}
+            modifiedLabel={t('general.auto_save.modified')}
+            undoLabel={t('general.auto_save.undo')}
+            errorLabel={t('general.auto_save.error')}
+            retryLabel={t('general.auto_save.retry')}
+            onUndo={onReset}
+            onRetry={onSave}
           />
         </>
       )}
-    </SettingsSection>
-  );
-}
-
-function SettingsActions({
-  dirty,
-  pending,
-  canManage,
-  disabledReason,
-  onReset,
-  onSave,
-}: AccessProps & {
-  dirty: boolean;
-  pending: boolean;
-  onReset: () => void;
-  onSave: () => void;
-}) {
-  const { t } = useTranslation(['settings-admin', 'common']);
-  const reason = !canManage
-    ? disabledReason
-    : pending
-        ? t('common:access.operation_pending')
-        : !dirty
-          ? t('common:access.no_changes')
-          : undefined;
-
-  return (
-    <div className="flex min-h-16 flex-wrap items-center justify-between gap-3 py-3">
-      <span aria-live="polite" className="font-sans text-xs text-tx-3">
-        {dirty ? t('preferences.unsaved') : ''}
-      </span>
-      <div className="flex items-center gap-2">
-        <ChromeButton
-          type="button"
-          disabled={!canManage || !dirty || pending}
-          disabledReason={reason}
-          onClick={onReset}
-        >
-          {t('common:actions.reset')}
-        </ChromeButton>
-        <ChromeButton
-          type="button"
-          variant="primary"
-          disabled={!canManage || !dirty || pending}
-          disabledReason={reason}
-          onClick={onSave}
-        >
-          {pending ? t('common:status.saving') : t('common:actions.save')}
-        </ChromeButton>
-      </div>
-    </div>
+    </SettingsSubsection>
   );
 }
 
@@ -338,6 +319,7 @@ export function PreferenceDefaultsSection({
   isError,
   error,
   pending,
+  saveError,
   canManage,
   disabledReason,
   onChange,
@@ -351,12 +333,12 @@ export function PreferenceDefaultsSection({
   isError: boolean;
   error: unknown;
   pending: boolean;
+  saveError: boolean;
   onChange: (patch: Partial<meApi.UserPreferences>) => void;
   onReset: () => void;
   onSave: () => void;
 }) {
   const { t } = useTranslation(['settings-admin', 'common']);
-  const noChangesReason = t('common:access.no_changes');
 
   return (
     <SettingsSection
@@ -372,13 +354,7 @@ export function PreferenceDefaultsSection({
           <ProductState variant="error" error={error} compact />
         </div>
       ) : (
-        <form
-          className="max-w-[920px] py-5"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (canManage && dirty && !pending) onSave();
-          }}
-        >
+        <div className="w-full">
           <PreferencesFields
             value={value}
             dashboards={dashboards}
@@ -395,51 +371,19 @@ export function PreferenceDefaultsSection({
                   : undefined
             }
           />
-          <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-            <span
-              aria-live="polite"
-              className="font-sans text-xs text-tx-3"
-            >
-              {dirty ? t('preferences.unsaved') : ''}
-            </span>
-            <div className="flex items-center gap-2">
-              <ChromeButton
-                type="button"
-                disabled={!canManage || !dirty || pending}
-                disabledReason={
-                  !canManage
-                    ? disabledReason
-                    : !dirty
-                      ? noChangesReason
-                      : pending
-                        ? t('common:access.operation_pending')
-                        : undefined
-                }
-                onClick={onReset}
-              >
-                {t('common:actions.reset')}
-              </ChromeButton>
-              <ChromeButton
-                type="submit"
-                variant="primary"
-                disabled={!canManage || !dirty || pending}
-                disabledReason={
-                  !canManage
-                    ? disabledReason
-                    : !dirty
-                      ? noChangesReason
-                      : pending
-                        ? t('common:access.operation_pending')
-                        : undefined
-                }
-              >
-                {pending
-                  ? t('preferences.actions.saving')
-                  : t('preferences.actions.save')}
-              </ChromeButton>
-            </div>
+          <div className="mt-5">
+            <SettingsDraftStatus
+              dirty={dirty || pending}
+              error={saveError}
+              modifiedLabel={t('general.auto_save.modified')}
+              undoLabel={t('general.auto_save.undo')}
+              errorLabel={t('general.auto_save.error')}
+              retryLabel={t('general.auto_save.retry')}
+              onUndo={onReset}
+              onRetry={onSave}
+            />
           </div>
-        </form>
+        </div>
       )}
     </SettingsSection>
   );

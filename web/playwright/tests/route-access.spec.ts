@@ -32,7 +32,7 @@ test.describe('dynamic route access', () => {
     await page.goto('/settings/organization');
 
     await expect(page).toHaveURL(/\/settings\/general(?:[?#]|$)/);
-    await expect(page.getByLabel('Workspace name')).toBeVisible();
+    await expect(page.getByLabel('Organization name')).toBeVisible();
     await expect(
       page.getByRole('link', { name: 'Organization', exact: true }),
     ).toHaveCount(0);

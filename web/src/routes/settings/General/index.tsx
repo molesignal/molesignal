@@ -18,15 +18,20 @@ import {
   userPreferencesEqual,
 } from '@/shell/PreferencesFields';
 import { toast } from '@/shell/ui/sonner';
-import { normalizeRole } from '@/stores/auth';
 import { useOrgStore } from '@/stores/useOrgStore';
 
-import { SectionBody, SettingsGroupStack } from '../_atoms';
+import {
+  SectionBody,
+  SettingsGroupStack,
+  SettingsSection,
+} from '../_atoms';
+import { DangerZone } from './DangerZone';
 import {
   PreferenceDefaultsSection,
   SharingPolicySection,
   SignupPolicySection,
 } from './sections';
+import { useAutoSave } from './useAutoSave';
 import { WorkspaceSection } from './WorkspaceSection';
 import { useSettingsSaveStatus } from '../SettingsSaveStatus';
 
@@ -49,11 +54,13 @@ export function General() {
     queryFn: () => meApi.profile(),
   });
   const profile = profileQuery.data;
-  const role = profile ? normalizeRole(profile.display_role) : '—';
   const access = useProductAccess();
   const canReadSettings = hasPermission('org.settings.read', access);
   const manageAccess = useActionAccess({
     permission: 'org.settings.manage',
+  });
+  const organizationManagementAccess = useActionAccess({
+    permission: 'sys.organizations.manage',
   });
   const canManageSettings = manageAccess.allowed;
   const [workspaceName, setWorkspaceName] = React.useState('');
@@ -107,21 +114,10 @@ export function General() {
       saveStatus.completeSave();
     },
     onError: (error) => {
-      setWorkspaceName(profile?.org_name ?? '');
       saveStatus.failSave();
       toast.error(toApiError(error).message);
     },
   });
-
-  const saveWorkspaceName = React.useCallback(() => {
-    if (!canManageSettings || !profile || updateWorkspaceName.isPending) return;
-    const next = workspaceName.trim();
-    if (!next) {
-      setWorkspaceName(profile.org_name);
-      return;
-    }
-    if (next !== profile.org_name) updateWorkspaceName.mutate(next);
-  }, [canManageSettings, profile, updateWorkspaceName, workspaceName]);
 
   const policyQuery = useQuery({
     queryKey: ['settings', 'signup'],
@@ -263,6 +259,7 @@ export function General() {
 
   const setPolicy = (patch: Partial<instanceApi.SignupPolicy>) => {
     if (!canManageSettings || !policy || updatePolicy.isPending) return;
+    updatePolicy.reset();
     setSignupPolicyDraft({ ...policy, ...patch });
   };
   const setSharePolicy = (
@@ -274,6 +271,7 @@ export function General() {
     >,
   ) => {
     if (!canManageSettings || !sharePolicy || updateSharePolicy.isPending) return;
+    updateSharePolicy.reset();
     setSharePolicyDraft({
       ...sharePolicy,
       allow_public_links: sharePolicy.allow_public_links,
@@ -288,38 +286,56 @@ export function General() {
     });
   };
 
-  const saveSignupPolicy = () => {
-    if (
-      !canManageSettings ||
-      !policy ||
-      !signupPolicyDirty ||
-      updatePolicy.isPending
-    ) {
-      return;
-    }
-    updatePolicy.mutate(policy);
-  };
+  const retryWorkspaceName = useAutoSave({
+    fingerprint: workspaceName.trim(),
+    enabled:
+      canManageSettings &&
+      Boolean(profile) &&
+      workspaceNameDirty &&
+      !workspaceNameInvalid,
+    busy: updateWorkspaceName.isPending,
+    save: () => updateWorkspaceName.mutateAsync(workspaceName.trim()),
+  });
 
-  const saveSharePolicy = () => {
-    if (
-      !canManageSettings ||
-      !sharePolicy ||
-      !sharePolicyDirty ||
-      updateSharePolicy.isPending
-    ) {
-      return;
-    }
-    updateSharePolicy.mutate({
-      allow_public_links: sharePolicy.allow_public_links,
-      allow_public_dashboards: sharePolicy.allow_public_dashboards,
-      max_public_expiry_secs: sharePolicy.max_public_expiry_secs,
-      require_public_report_password:
-        sharePolicy.require_public_report_password,
-      deny_production_public_shares:
-        sharePolicy.deny_production_public_shares,
-      allow_public_csv_download: sharePolicy.allow_public_csv_download,
-    });
-  };
+  const retrySignupPolicy = useAutoSave({
+    fingerprint: policy
+      ? `${policy.signup_enabled}:${policy.signup_require_approval}`
+      : '',
+    enabled: canManageSettings && Boolean(policy) && signupPolicyDirty,
+    busy: updatePolicy.isPending,
+    save: () => {
+      if (!policy) return Promise.resolve();
+      return updatePolicy.mutateAsync(policy);
+    },
+  });
+
+  const retrySharePolicy = useAutoSave({
+    fingerprint: sharePolicy
+      ? JSON.stringify(SHARE_POLICY_FIELDS.map((field) => sharePolicy[field]))
+      : '',
+    enabled: canManageSettings && Boolean(sharePolicy) && sharePolicyDirty,
+    busy: updateSharePolicy.isPending,
+    save: () => {
+      if (!sharePolicy) return Promise.resolve();
+      return updateSharePolicy.mutateAsync({
+        allow_public_links: sharePolicy.allow_public_links,
+        allow_public_dashboards: sharePolicy.allow_public_dashboards,
+        max_public_expiry_secs: sharePolicy.max_public_expiry_secs,
+        require_public_report_password:
+          sharePolicy.require_public_report_password,
+        deny_production_public_shares:
+          sharePolicy.deny_production_public_shares,
+        allow_public_csv_download: sharePolicy.allow_public_csv_download,
+      });
+    },
+  });
+
+  const retryPreferenceDefaults = useAutoSave({
+    fingerprint: JSON.stringify(preferenceDefaults),
+    enabled: canManageSettings && preferenceDefaultsDirty,
+    busy: updatePreferenceDefaults.isPending,
+    save: () => updatePreferenceDefaults.mutateAsync(),
+  });
 
   const resetPreferenceDefaults = () => {
     setPreferenceDefaults(preferenceDefaultsBaseline);
@@ -339,52 +355,74 @@ export function General() {
 
   return (
     <>
-      <PageHeader title={t('general.title')} subtitle={t('general.subtitle')} />
-      <SectionBody className="pb-10">
+      <PageHeader
+        title={t('general.title')}
+        subtitle={t('general.subtitle')}
+        className="min-h-0 border-b-0 bg-transparent px-0 py-0"
+      />
+      <SectionBody className="px-0 pb-10 pt-6 lg:px-0 lg:pb-10 lg:pt-6">
         <SettingsGroupStack>
           <WorkspaceSection
             profile={profile}
-            role={role}
             state={pageState}
             name={workspaceName}
             dirty={workspaceNameDirty}
             invalid={workspaceNameInvalid}
             access={manageAccess}
             pending={updateWorkspaceName.isPending}
-            onNameChange={setWorkspaceName}
-            onReset={() => setWorkspaceName(profile?.org_name ?? '')}
-            onSave={saveWorkspaceName}
+            error={updateWorkspaceName.isError}
+            onNameChange={(name) => {
+              updateWorkspaceName.reset();
+              setWorkspaceName(name);
+            }}
+            onReset={() => {
+              updateWorkspaceName.reset();
+              setWorkspaceName(profile?.org_name ?? '');
+            }}
+            onSave={retryWorkspaceName}
           />
 
-          <SignupPolicySection
-            policy={policy}
-            isLoading={policyQuery.isLoading}
-            isError={policyQuery.isError}
-            error={policyQuery.error}
-            pending={updatePolicy.isPending}
-            dirty={signupPolicyDirty}
-            canManage={canManageSettings}
-            disabledReason={manageAccess.reason}
-            onChange={setPolicy}
-            onReset={() => setSignupPolicyDraft(policyQuery.data ?? null)}
-            onSave={saveSignupPolicy}
-          />
+          <SettingsSection
+            title={t('general.access_control.title')}
+            description={t('general.access_control.subtitle')}
+            contentClassName="gap-0"
+          >
+            <SignupPolicySection
+              policy={policy}
+              isLoading={policyQuery.isLoading}
+              isError={policyQuery.isError}
+              error={policyQuery.error}
+              pending={updatePolicy.isPending}
+              saveError={updatePolicy.isError}
+              dirty={signupPolicyDirty}
+              canManage={canManageSettings}
+              disabledReason={manageAccess.reason}
+              onChange={setPolicy}
+              onReset={() => {
+                updatePolicy.reset();
+                setSignupPolicyDraft(policyQuery.data ?? null);
+              }}
+              onSave={retrySignupPolicy}
+            />
 
-          <SharingPolicySection
-            policy={sharePolicy}
-            isLoading={sharePolicyQuery.isLoading}
-            isError={sharePolicyQuery.isError}
-            error={sharePolicyQuery.error}
-            pending={updateSharePolicy.isPending}
-            dirty={sharePolicyDirty}
-            canManage={canManageSettings}
-            disabledReason={manageAccess.reason}
-            onChange={setSharePolicy}
-            onReset={() =>
-              setSharePolicyDraft(sharePolicyQuery.data ?? null)
-            }
-            onSave={saveSharePolicy}
-          />
+            <SharingPolicySection
+              policy={sharePolicy}
+              isLoading={sharePolicyQuery.isLoading}
+              isError={sharePolicyQuery.isError}
+              error={sharePolicyQuery.error}
+              pending={updateSharePolicy.isPending}
+              saveError={updateSharePolicy.isError}
+              dirty={sharePolicyDirty}
+              canManage={canManageSettings}
+              disabledReason={manageAccess.reason}
+              onChange={setSharePolicy}
+              onReset={() => {
+                updateSharePolicy.reset();
+                setSharePolicyDraft(sharePolicyQuery.data ?? null);
+              }}
+              onSave={retrySharePolicy}
+            />
+          </SettingsSection>
 
           <PreferenceDefaultsSection
             value={preferenceDefaults}
@@ -394,17 +432,24 @@ export function General() {
             isError={preferenceDefaultsQuery.isError}
             error={preferenceDefaultsQuery.error}
             pending={updatePreferenceDefaults.isPending}
+            saveError={updatePreferenceDefaults.isError}
             canManage={canManageSettings}
             disabledReason={manageAccess.reason}
-            onChange={(patch) =>
+            onChange={(patch) => {
+              updatePreferenceDefaults.reset();
               setPreferenceDefaults((current) => ({
                 ...current,
                 ...patch,
-              }))
-            }
-            onReset={resetPreferenceDefaults}
-            onSave={() => updatePreferenceDefaults.mutate()}
+              }));
+            }}
+            onReset={() => {
+              updatePreferenceDefaults.reset();
+              resetPreferenceDefaults();
+            }}
+            onSave={retryPreferenceDefaults}
           />
+
+          <DangerZone access={organizationManagementAccess} />
         </SettingsGroupStack>
       </SectionBody>
     </>

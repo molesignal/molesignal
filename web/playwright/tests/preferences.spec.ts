@@ -233,7 +233,7 @@ test.describe('workspace preference defaults', () => {
     await page.goto('/settings/general');
 
     const section = page
-      .getByText('Workspace preference defaults', { exact: true })
+      .getByText('Organization preference defaults', { exact: true })
       .locator('xpath=ancestor::section[1]');
     await expect(
       section.getByText(
@@ -241,14 +241,12 @@ test.describe('workspace preference defaults', () => {
         { exact: false },
       ),
     ).toBeVisible();
-    await section.getByRole('radio', { name: 'Dark' }).click();
-
     const responsePromise = page.waitForResponse(
       (response) =>
         response.url().includes('/api/v1/workspace/preferences') &&
         response.request().method() === 'PUT',
     );
-    await section.getByRole('button', { name: 'Save settings' }).click();
+    await section.getByRole('radio', { name: 'Dark' }).click();
     const response = await responsePromise;
     expect(response.request().postDataJSON()).toMatchObject({
       theme: 'dark',
