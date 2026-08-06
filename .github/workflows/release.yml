@@ -144,16 +144,18 @@ jobs:
           RUSTFLAGS: "-C force-frame-pointers=yes"
         run: cargo build --release --locked --target ${{ matrix.target }} -p molesignal
 
-      - name: package artifact (binary + conf)
+      - name: package artifact (binary + conf + systemd)
         shell: bash
         env:
           VERSION: ${{ needs.detect-channel.outputs.version }}
         run: |
           # VERSION already carries any prerelease suffix from the Git tag.
           ARCHIVE="molesignal-${VERSION}-${{ matrix.target }}"
-          mkdir -p "dist/${ARCHIVE}/bin" "dist/${ARCHIVE}/conf"
+          mkdir -p "dist/${ARCHIVE}/bin" "dist/${ARCHIVE}/conf" \
+            "dist/${ARCHIVE}/deploy/systemd"
           cp "target/${{ matrix.target }}/release/molesignal" "dist/${ARCHIVE}/bin/"
           cp -R conf/. "dist/${ARCHIVE}/conf/"
+          cp -R deploy/systemd/. "dist/${ARCHIVE}/deploy/systemd/"
           printf '{"build_id":"%s","git_sha":"%s"}\n' "$BUILD_ID" "$GITHUB_SHA" \
             > "dist/${ARCHIVE}/build-info.json"
           cd dist && tar czf "${ARCHIVE}.tar.gz" "${ARCHIVE}"

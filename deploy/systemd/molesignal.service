@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 MoleSignal Authors
+
+[Unit]
+Description=MoleSignal observability platform
+Documentation=https://github.com/molesignal/molesignal
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=molesignal
+Group=molesignal
+WorkingDirectory=/var/lib/molesignal
+EnvironmentFile=-/etc/molesignal/molesignal.env
+ExecStart=/usr/local/bin/molesignal --config /etc/molesignal/config.toml
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=45s
+StateDirectory=molesignal
+StateDirectoryMode=0750
+LogsDirectory=molesignal
+LogsDirectoryMode=0750
+UMask=0027
+LimitNOFILE=1048576
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ProtectControlGroups=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+[Install]
+WantedBy=multi-user.target
