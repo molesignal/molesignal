@@ -32,6 +32,7 @@ set -euo pipefail
 TAG="$GITHUB_REF_NAME"
 SHA="$GITHUB_SHA"
 VERSION="${TAG#v}"
+VERSIONED_TAG="$VERSION"
 
 # Branches must already be fetched as remote-tracking refs by the caller
 # (the workflow does this in a preceding step).
@@ -42,13 +43,13 @@ on_branch() {
 }
 
 if   on_branch main;  then
-    CHANNEL=stable; PRERELEASE=false; FLOAT_TAG=latest; VERSIONED_TAG="$VERSION";          TITLE="$TAG"
+    CHANNEL=stable; PRERELEASE=false; FLOAT_TAG=latest; TITLE="$TAG"
 elif on_branch rc;    then
-    CHANNEL=rc;     PRERELEASE=true;  FLOAT_TAG=rc;     VERSIONED_TAG="${VERSION}-rc";     TITLE="$TAG (rc)"
+    CHANNEL=rc;     PRERELEASE=true;  FLOAT_TAG=rc;     TITLE="$TAG (rc)"
 elif on_branch beta;  then
-    CHANNEL=beta;   PRERELEASE=true;  FLOAT_TAG=beta;   VERSIONED_TAG="${VERSION}-beta";   TITLE="$TAG (beta)"
+    CHANNEL=beta;   PRERELEASE=true;  FLOAT_TAG=beta;   TITLE="$TAG (beta)"
 elif on_branch alpha; then
-    CHANNEL=alpha;  PRERELEASE=true;  FLOAT_TAG=alpha;  VERSIONED_TAG="${VERSION}-alpha";  TITLE="$TAG (alpha)"
+    CHANNEL=alpha;  PRERELEASE=true;  FLOAT_TAG=alpha;  TITLE="$TAG (alpha)"
 else
     echo "::error::tag ${TAG} (sha ${SHA}) is not reachable from origin/main, origin/rc, origin/beta, or origin/alpha; release only allowed from these branches" >&2
     echo "branches containing this sha:" >&2

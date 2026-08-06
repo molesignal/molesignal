@@ -105,9 +105,6 @@ jobs:
             os: ubuntu-latest
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-24.04-arm
-          # macOS：jemalloc 关闭（cfg 到 glibc），系统分配器。
-          - target: aarch64-apple-darwin
-            os: macos-14
 
     steps:
       - uses: actions/checkout@v6
@@ -120,10 +117,6 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             build-essential cmake pkg-config file ca-certificates curl \
             protobuf-compiler libcurl4-openssl-dev
-
-      - name: install system dependencies (macOS)
-        if: runner.os == 'macOS'
-        run: brew install protobuf
 
       - name: install Buf CLI
         run: |
@@ -154,16 +147,10 @@ jobs:
       - name: package artifact (binary + conf)
         shell: bash
         env:
-          CHANNEL: ${{ needs.detect-channel.outputs.channel }}
           VERSION: ${{ needs.detect-channel.outputs.version }}
         run: |
-          # stable:        molesignal-<ver>-<target>
-          # rc/beta/alpha: molesignal-<ver>-<channel>-<target>
-          if [ "$CHANNEL" = "stable" ]; then
-            ARCHIVE="molesignal-${VERSION}-${{ matrix.target }}"
-          else
-            ARCHIVE="molesignal-${VERSION}-${CHANNEL}-${{ matrix.target }}"
-          fi
+          # VERSION already carries any prerelease suffix from the Git tag.
+          ARCHIVE="molesignal-${VERSION}-${{ matrix.target }}"
           mkdir -p "dist/${ARCHIVE}/bin" "dist/${ARCHIVE}/conf"
           cp "target/${{ matrix.target }}/release/molesignal" "dist/${ARCHIVE}/bin/"
           cp -R conf/. "dist/${ARCHIVE}/conf/"
@@ -232,17 +219,11 @@ jobs:
           # 关掉 metadata-action 默认的 latest 自动行为；下面按 channel 显式控制。
           flavor: |
             latest=false
-          # stable: <version> + latest
-          # rc:     <version>-rc + rc
-          # beta:   <version>-beta + beta
-          # alpha:  <version>-alpha + alpha
+          # Keep the exact version from the Git tag and add one floating channel tag.
           tags: |
             type=raw,value=build-${{ env.BUILD_ID }}
             type=sha,format=long,prefix=sha-
-            type=match,pattern=v(.*),group=1,enable=${{ needs.detect-channel.outputs.channel == 'stable' }}
-            type=match,pattern=v(.*),group=1,suffix=-rc,enable=${{ needs.detect-channel.outputs.channel == 'rc' }}
-            type=match,pattern=v(.*),group=1,suffix=-beta,enable=${{ needs.detect-channel.outputs.channel == 'beta' }}
-            type=match,pattern=v(.*),group=1,suffix=-alpha,enable=${{ needs.detect-channel.outputs.channel == 'alpha' }}
+            type=match,pattern=v(.*),group=1
             type=raw,value=latest,enable=${{ needs.detect-channel.outputs.channel == 'stable' }}
             type=raw,value=rc,enable=${{ needs.detect-channel.outputs.channel == 'rc' }}
             type=raw,value=beta,enable=${{ needs.detect-channel.outputs.channel == 'beta' }}
