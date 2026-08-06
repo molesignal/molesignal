@@ -99,15 +99,30 @@ Vector / Fluent Bit / OTel Collector / Prometheus remote_write 等完整对接�
 | Heroku log drain | `POST /api/v1/_heroku` | Heroku |
 | 原生 HTTP JSON | `POST /api/v1/ingest/{type}/:stream` | curl / 应用 SDK |
 
-### 🗃️ 存储与查询 —— 一个引擎搞定全部
+### 🌐 RUM & APM
+
+- **RUM** — Datadog 兼容接收端，支持 session / action / error / replay；JavaScript 与 native stack 的 sourcemap 符号化
+- **APM** — 从 trace 派生 service graph、RED metrics 与依赖视图；service/endpoint 逐级下钻
+
+### 🗃️ 存储与查询 — 一个引擎搞定全部
 
 - **列式存储** —— Parquet on S3 / GCS / Azure / MinIO；Postgres 存元数据
 - **Tantivy 倒排索引** —— 查询时文件级裁剪（典型 ~99% 减少扫描）
-- **DataFusion 查询引擎** —— 完整 SQL，含 join / CTE / window function，跨 logs / metrics / traces
+- **查询引擎** —— 完整 SQL，含 join / CTE / window function，跨 logs / metrics / traces
 - **PromQL 子集** —— `rate` / `increase` / `sum/avg/min/max/count by/without` / `histogram_quantile`（[路线图](docs/promql_subset.md)）
 - **Arrow Flight 分布式查询** —— coordinator 按一致性哈希分片，peer 流式回传 `RecordBatch`
 - **3 级缓存** —— `parquet_file_meta` / `parquet_meta` / `query_result`，外加默认开启的 parquet 磁盘缓存（`./data/cache/parquet`，10 GB LRU；通过 `[cache.disk_cache]` 调整或关闭）
 - **ParquetFileMeta 冷分层** —— 超过 `[storage.parquet_file_meta_dump].cold_after_days`（默认 30 天）的分区被序列化下沉到 object_store，主元数据表始终保持小；查询路径自动跨冷热合并
+
+### 📊 仪表盘
+
+- 自定义仪表盘，支持图表变量，time-series / stat / table / topology 等面板类型
+- Dashboard contracts 支持版本化部署与同步
+
+### 🌍 联邦搜索
+
+- 跨集群资源同步（CloudEvents 1.0）
+- Dashboards、告警规则、regex patterns 跨集群共享，Lamport 版本号做冲突解决
 
 ### 🚨 告警
 
@@ -115,13 +130,21 @@ Vector / Fluent Bit / OTel Collector / Prometheus remote_write 等完整对接�
 - **升级策略** —— 多步 + ack 超时 + 排班轮值 + override
 - **Notify 管理** —— 加密 Connector、用户 Endpoint/Preference、策略匹配、三级兜底、确认升级与幂等投递
 
-### 🏢 多租户与安全
+### 🛡️ 平台
 
-- **planner 层 org 隔离** —— 所有 SQL plan 强制 `org_id` rewrite，跨 org 数据零泄漏可能
-- **API token**（`ms_<prefix>_<secret>`）与 JWT 并存；每个 token 引用数据库 IAM `role_id`，并记录 expiry / last-used
-- **审计日志** 覆盖所有写操作
-- **字段级加密** —— `cipher_keys` 用 AES-256-GCM + master-key envelope；VRL `encrypt()` / `decrypt()` 内置
-- **per-org 配额** —— ingest QPS / query QPS / 存储 cap（超限 429 / 413 + 审计 + 告警）
+- **SSO** — OIDC / SAML / LDAP，支持身份字段映射与用户组角色绑定
+- **RBAC** — API token（`ms_<prefix>_<secret>`）与 JWT 并存；per-token 角色、过期、last-used
+- **多租户** — planner 层 `org_id` 强制 rewrite，跨 org 数据零泄漏可能
+- **审计日志** — 覆盖所有写操作
+- **字段级加密** — AES-256-GCM + cipher root key envelope；VRL `encrypt()` / `decrypt()` 内置
+- **per-org 配额** — ingest QPS / query QPS / 存储 cap
+
+### 🤖 Mole Intelligence
+
+- 基于遥测数据的自然语言对话（SSE 流式）
+- MCP server 对接 AI 助手
+- 按 org 配置 model provider / toolset / prompt
+- 从对话生成仪表盘草稿
 
 ### ⌨️ 键盘友好的 Web UI
 
@@ -178,8 +201,6 @@ Vector / Fluent Bit / OTel Collector / Prometheus remote_write 等完整对接�
 
 **关键点：** logs、metrics、traces 全部落到**同一批** Parquet 文件里（不同 stream，相同物理存储）。一条 SQL 查询可以原生 join 三种信号——不需要跨 store 联邦，不需要人肉对 trace_id。
 
-完整设计见 [ARCHITECTURE.md](ARCHITECTURE.md)（含缓存层 / 分布式查询 / 对象存储生产化 / pipeline / 10 个采集协议 / 实时与异常告警 / 联邦查询 / license 模型 —— 约 10 节设计笔记）。
-
 ---
 
 ## 现状
@@ -189,15 +210,15 @@ Pre-1.0，**早期项目**。发布日期 YYYY-MM-DD。
 | 领域 | 状态 |
 |---|---|
 | 采集链路（WAL + buffer + flush） | ✅ 已通 |
-| 10 个采集协议 | ✅ receiver 已建；待真实流量打磨 |
+| 10 个采集协议 | ✅ 已通 |
 | Arrow Flight 分布式查询 | ✅ 已通 |
 | 3 级缓存 + 磁盘缓存 | ✅ 已通 |
 | 多租户 planner rewrite | ✅ 已通 |
-| realtime + scheduled + anomaly 告警 | ✅ 逻辑完整；需生产小时数 |
+| realtime + scheduled + anomaly 告警 | ✅ 已通 |
 | Cipher keys + audit + quotas | ✅ 已通 |
-| 跨信号关联 API | ✅ spec 完整；Web 集成进行中 |
-| Web shell（⌘K + 调查栈） | 🚧 spec 完整；集成进行中 |
-| SSO（OIDC / SAML / LDAP） | ✅ 已实现，受 License 门禁控制 |
+| 跨信号关联 API | ✅ 已通 |
+| Web shell（⌘K + 调查栈） | ✅ 已通 |
+| SSO（OIDC / SAML / LDAP） | ✅ 已通 |
 | 首启动 demo 数据集 | ⏳ 待做 |
 | 生产硬化 | ⏳ 需真实负载验证 |
 
@@ -220,13 +241,11 @@ RELEASE_CHANNEL=alpha ./target/release/molesignal --config conf/config.toml
 
 所有可交付制品统一使用 Cargo `release` profile。`BUILD_ID` 与 Git SHA 标识构建制品；运行时 `RELEASE_CHANNEL`（`alpha`、`beta`、`rc`、`stable`）表示部署成熟度。通道晋升复用同一个二进制或不可变镜像，不重新编译。
 
-模块布局与 license gating 模型见 [ARCHITECTURE.md](ARCHITECTURE.md)。
-
 ---
 
 ## 参与贡献
 
-欢迎 PR —— 从架构文档与 `openspec/changes/*/tasks.md` 开始读。约定：
+欢迎 PR —— 从 `openspec/changes/*/tasks.md` 开始读。约定：
 
 - DDD 分层：不要把 infra 关注点塞进 `domain/`
 - 每个 public 类型用一句 doc comment 说明*为什么*存在

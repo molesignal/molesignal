@@ -102,6 +102,11 @@ A trace, its logs, and the host's metric for the same minute share **the same st
 | Heroku log drain | `POST /api/v1/_heroku` | Heroku |
 | Native HTTP JSON | `POST /api/v1/ingest/{type}/:stream` | curl / app SDK |
 
+### 🌐 RUM & APM
+
+- **RUM** — Datadog-compatible receiver for sessions, actions, errors, and replay; sourcemap symbolication for JavaScript and native stacks
+- **APM** — service graph, RED metrics, and dependency views derived from traces; service/endpoint drill-down
+
 ### 🗃️ Storage & query — one engine for everything
 
 - **Columnar storage** — Parquet on S3 / GCS / Azure / MinIO; Postgres for metadata
@@ -112,20 +117,37 @@ A trace, its logs, and the host's metric for the same minute share **the same st
 - **3-level cache** — `parquet_file_meta` / `parquet_meta` / `query_result` plus a parquet disk cache enabled by default (`./data/cache/parquet`, 10 GB LRU; tune or turn off via `[cache.disk_cache]`)
 - **ParquetFileMeta cold-tier spillover** — partitions older than `[storage.parquet_file_meta_dump].cold_after_days` (default 30) are serialized to object storage so the main metadata table stays small; queries transparently merge hot + cold sources
 
+### 📊 Dashboards
+
+- Custom dashboards with chart variables, time-series / stat / table / topology panels
+- Dashboard contracts for version-controlled provisioning and sync
+
+### 🌍 Federated Search
+
+- Cross-cluster resource sync via CloudEvents 1.0
+- Dashboards, alert rules, and regex patterns shared across clusters with Lamport-versioned conflict resolution
+
 ### 🚨 Alerting
 
 - **Three rule kinds**: `scheduled` (periodic SQL eval), `realtime` (in-ingest predicate match, fires <1s), `anomaly` (MAD + EWMA detectors; daily baseline with opt-in weekly seasonality; 0–1 score + human-readable reason)
 - **Escalation policies** — multi-step with ack timeout, on-call rotations, overrides
 - **Channels** — Slack, email, and webhooks: generic + Lark/Feishu/WeCom/DingTalk group robots + PagerDuty / OpsGenie / Microsoft Teams; template variables
 
-### 🏢 Multi-tenant & secure
+### 🛡️ Platform
 
-- **Planner-level org isolation** — `org_id` rewrite forced into every SQL plan; impossible to leak across orgs
-- **API tokens** (`ms_<prefix>_<secret>`) alongside JWTs; per-token role + expiry + last-used
-- **Audit log** of every mutating op
-- **Field-level encryption** — `cipher_keys` (AES-256-GCM + cipher root key envelope; `MS_CIPHER_KEY` 32B base64); VRL `encrypt()` / `decrypt()` builtins
-- **JWT signing secret** auto-bootstrapped to DB on first start (no config-file secret); Owner can rotate via `POST /api/v1/auth/jwt/rotate` with 24h grace for in-flight tokens
-- **Per-org quotas** — ingest QPS / query QPS / storage cap (429 / 413 + audit + alert)
+- **SSO** — OIDC / SAML / LDAP with field mapping and group-role binding
+- **RBAC** — API tokens (`ms_<prefix>_<secret>`) and JWT; per-token role, expiry, last-used tracking
+- **Multi-tenant** — planner-level `org_id` rewrite; cross-org data leak impossible by construction
+- **Audit log** — every mutating operation recorded
+- **Field-level encryption** — AES-256-GCM + cipher root key envelope; VRL `encrypt()` / `decrypt()` builtins
+- **Per-org quotas** — ingest QPS / query QPS / storage cap
+
+### 🤖 Mole Intelligence
+
+- Natural-language chat interface over your telemetry data (SSE streaming)
+- MCP server for integrating with AI assistants
+- Configurable model providers, toolsets, and prompts per org
+- Dashboard draft generation from conversation
 
 ### ⌨️ Keyboard-friendly web UI
 
@@ -201,20 +223,7 @@ molesignal.del("pw");
 
 **The crucial point:** logs, metrics, and traces all land in the **same** Parquet files (different streams, same physical storage). A SQL query can join across them natively — no cross-store federation, no manual trace_id reconciliation.
 
-Drill into [ARCHITECTURE.md](ARCHITECTURE.md) for the full design (caching layers / distributed query / object store production layer / pipeline / 10 ingest protocols / real-time + anomaly alerting / federated search / license model — ~10 sections of design notes).
-
 ---
-
-## Tech stack
-
-| Layer | What |
-|---|---|
-| Backend | Rust 1.96 (edition 2024), single crate under `src/` with DDD modules: `domain / app / infra / api` |
-| Storage | Parquet 59 + `object_store` 0.13 + Postgres (`src/sqlx-shim`, package `sqlx` 0.8) + Tantivy 0.26 |
-| Query | DataFusion 54 + Arrow Flight 59 + `promql-parser` 0.9 |
-| Web | React 18 + Vite 6 + Radix/Tailwind + Zustand + TanStack Query |
-| RPC | tonic 0.14 + axum 0.8 |
-| Deploy | Docker Compose + Kubernetes |
 
 ---
 
@@ -225,16 +234,16 @@ Pre-1.0, **early**. Released YYYY-MM-DD.
 | Area | State |
 |---|---|
 | Ingest path (WAL + buffer + flush) | ✅ working |
-| 10 ingest protocols | ✅ receivers built; battle-testing wanted |
+| 10 ingest protocols | ✅ working |
 | Distributed query (Arrow Flight) | ✅ working |
 | 3-level cache + disk cache | ✅ working |
 | Multi-tenant planner rewrite | ✅ working |
-| Real-time + scheduled + anomaly alerts | ✅ working — MAD + EWMA, daily + opt-in weekly seasonality |
+| Real-time + scheduled + anomaly alerts | ✅ working |
 | Cipher keys + audit + quotas | ✅ working |
-| Cross-signal correlation API | ✅ working — server-side join + investigation stack |
+| Cross-signal correlation API | ✅ working |
 | Web shell (⌘K + investigation stack) | ✅ working |
-| SSO — OIDC + SAML + LDAP（身份字段映射 + 用户组角色绑定） | ✅ implemented |
-| One-click sample data (first-run) | ✅ working |
+| SSO — OIDC / SAML / LDAP | ✅ working |
+| One-click sample data (first-run) | ⏳ pending |
 | Production hardening | ⏳ needs real workloads |
 
 **If you try it, please [open an issue](https://github.com/molesignal/molesignal/issues) — every report shapes the next release.** Especially valued: install friction, missing protocol fields, cross-signal correlation gaps.
@@ -256,13 +265,11 @@ RELEASE_CHANNEL=alpha ./target/release/molesignal --config conf/config.toml
 
 All deliverable artifacts use the single Cargo `release` profile. `BUILD_ID` and the Git SHA identify the artifact; runtime `RELEASE_CHANNEL` (`alpha`, `beta`, `rc`, or `stable`) identifies its deployment maturity. Promote the same binary or immutable image between channels instead of rebuilding it.
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the module layout and license-gating model.
-
 ---
 
 ## Contributing
 
-PRs welcome — start with the architecture doc + the `tasks.md` files in `openspec/changes/*`. Conventions:
+PRs welcome — start with the `tasks.md` files in `openspec/changes/*`. Conventions:
 
 - DDD layering: don't push infra concerns into `domain/`
 - Every public type has a 1-sentence doc explaining *why* it exists
