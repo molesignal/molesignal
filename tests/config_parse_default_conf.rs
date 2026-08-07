@@ -71,4 +71,3 @@ fn extract_configmap_toml(raw: &str) -> String {
     assert!(!out.is_empty(), "config.toml block must exist");
     out
 }
-
