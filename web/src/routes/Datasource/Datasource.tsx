@@ -121,7 +121,6 @@ const SOURCE_ICONS: Record<string, LucideIcon> = {
   'bulk-ndjson': FileJson,
   opentelemetry: Activity,
   'otel-collector': Router,
-  syslog: RadioTower,
   nginx: ServerCog,
   apache: ServerCog,
   haproxy: Router,

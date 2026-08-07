@@ -29,7 +29,7 @@ MoleSignal 走第三条路：**一个存储层（对象存储上的 Parquet）+ 
 | 跨信号关联 | ✅（付费） | ⚠️ 手动 copy-paste trace_id | **✅ 原生（`/web/correlation/*`）** |
 | 数据归属 | 他们的云 | 自托管 | **自托管** |
 | 起步时间 | 5 分钟（配 agent） | 6 小时+（5 个组件 + Grafana） | **`docker compose up` 一行** |
-| OpenTelemetry 原生 | 是 | 部分 | **是（10 个采集协议）** |
+| OpenTelemetry 原生 | 是 | 部分 | **是（9 个采集协议）** |
 | 实时告警（<1s） | 是 | 否（评估周期 ≥ 抓取周期） | **是（`kind: realtime`）** |
 | 原生多租户 | 是（按账户） | 否 | **是（planner 层 org rewrite）** |
 
@@ -84,7 +84,7 @@ Vector / Fluent Bit / OTel Collector / Prometheus remote_write 等完整对接�
 - 时间锚点同步所有面板（一次 zoom 自动广播）
 - 调查栈：从 `metric → trace → log → host` 来回钻而不丢上下文
 
-### 📡 采集（10 个协议，drop-in 替代）
+### 📡 采集（9 个协议，drop-in 替代）
 
 | 协议 | Endpoint | 直接替代 |
 |---|---|---|
@@ -93,7 +93,6 @@ Vector / Fluent Bit / OTel Collector / Prometheus remote_write 等完整对接�
 | Prometheus remote_write | `POST /api/v1/prometheus/api/v1/write` | Prometheus / VictoriaMetrics |
 | Elasticsearch `_bulk` | `POST /api/v1/_bulk` | Filebeat / Vector ES sink / Logstash |
 | Loki push | `POST /api/v1/loki/api/v1/push` | Promtail / Vector Loki sink |
-| Syslog UDP/TCP | `[syslog].udp_bind` / `tcp_bind` | rsyslog / syslog-ng |
 | Kinesis Firehose | `POST /api/v1/_kinesis_firehose` | AWS Firehose |
 | Cloudflare Logpush | `POST /api/v1/_cloudflare` | Cloudflare Logpush |
 | Heroku log drain | `POST /api/v1/_heroku` | Heroku |
@@ -210,7 +209,7 @@ Pre-1.0，**早期项目**。发布日期 YYYY-MM-DD。
 | 领域 | 状态 |
 |---|---|
 | 采集链路（WAL + buffer + flush） | ✅ 已通 |
-| 10 个采集协议 | ✅ 已通 |
+| 9 个采集协议 | ✅ 已通 |
 | Arrow Flight 分布式查询 | ✅ 已通 |
 | 3 级缓存 + 磁盘缓存 | ✅ 已通 |
 | 多租户 planner rewrite | ✅ 已通 |

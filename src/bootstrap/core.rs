@@ -56,7 +56,6 @@ use crate::{
 
 #[derive(Debug, Clone, Copy)]
 pub(super) struct RolePlan {
-    pub(super) is_standalone: bool,
     pub(super) run_ingester: bool,
     pub(super) run_compactor: bool,
     pub(super) run_alert_manager: bool,
@@ -241,7 +240,6 @@ impl Core {
         };
         let is_standalone = settings.node.roles.contains(&Role::Standalone);
         let roles = RolePlan {
-            is_standalone,
             run_ingester: is_standalone || settings.node.roles.contains(&Role::Ingester),
             run_compactor: is_standalone || settings.node.roles.contains(&Role::Compactor),
             run_alert_manager: is_standalone || settings.node.roles.contains(&Role::AlertManager),

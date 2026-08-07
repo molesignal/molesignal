@@ -203,35 +203,6 @@ impl StorageRuntime {
         ));
         let profiling_service = ProfilingService::new();
 
-        let syslog = &settings.syslog;
-        if (core.roles.is_standalone || core.roles.run_ingester)
-            && (!syslog.udp_bind.trim().is_empty() || !syslog.tcp_bind.trim().is_empty())
-        {
-            if syslog.org.trim().is_empty() {
-                tracing::warn!(
-                    "[syslog] configured but `org` is empty; skipping (syslog has no auth/org context)"
-                );
-            } else {
-                match core.orgs.get_by_slug(syslog.org.trim()).await {
-                    Ok(org) => {
-                        let _syslog = crate::bootstrap::syslog::SyslogListener::new(
-                            ingestion.clone(),
-                            org.id,
-                            syslog.stream.clone(),
-                            syslog.udp_bind.clone(),
-                            syslog.tcp_bind.clone(),
-                        )
-                        .spawn();
-                    }
-                    Err(error) => tracing::warn!(
-                        error = %error,
-                        slug = %syslog.org,
-                        "[syslog].org slug not found; skipping syslog"
-                    ),
-                }
-            }
-        }
-
         let compactor = Arc::new(Compactor::new(
             core.parquet_file_meta.clone(),
             parquet_reader,

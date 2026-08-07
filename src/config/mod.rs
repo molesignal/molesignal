@@ -78,8 +78,6 @@ pub struct Settings {
     #[serde(default)]
     pub grpc: GrpcSettings,
     #[serde(default)]
-    pub syslog: SyslogSettings,
-    #[serde(default)]
     pub telemetry: TelemetrySettings,
     /// `[profiling]`：节点本地 pprof listener，默认关闭。
     #[serde(default)]

@@ -149,7 +149,7 @@ spec:
     name: 'Linux 主机',
     category: 'recommended',
     glyph: 'LX',
-    description: '使用 Vector 在 Linux 主机上采集 journald / syslog。',
+    description: '使用 Vector 在 Linux 主机上采集 journald。',
     signals: ['logs', 'metrics'],
     steps: [
       {
@@ -491,25 +491,6 @@ service:
       },
     ],
   },
-  {
-    id: 'syslog',
-    name: 'Syslog RFC 5424',
-    category: 'custom',
-    glyph: 'CLI',
-    description: '原生 syslog TCP/UDP 推送。',
-    signals: ['logs'],
-    steps: [
-      {
-        title: 'rsyslog → forward',
-        description: '端口取决于部署的 [syslog] tcp_bind 配置，下例用常见的 6514。',
-        code: {
-          lang: 'text',
-          content: `*.* @@${ENDPOINT_HOST}:6514;RSYSLOG_SyslogProtocol23Format`,
-        },
-      },
-    ],
-  },
-
   /* ───────── Servers ───────── */
   {
     id: 'nginx',

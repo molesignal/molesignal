@@ -51,18 +51,6 @@ port = 5082
 # gRPC 单条收发消息允许的最大大小，单位 MiB。
 max_message_size_mb = 32
 
-# 裸 syslog 接入（RFC3164 / RFC5424）。无鉴权、无 org 上下文 → 必须显式绑定 org（slug）。
-# 全空（默认）= 禁用。启用：设 udp_bind 和/或 tcp_bind，并填 org。
-[syslog]
-# UDP Syslog 监听地址，如 `0.0.0.0:5514`；留空表示不启动 UDP listener。
-udp_bind = ""
-# TCP Syslog 监听地址，如 `0.0.0.0:5514`；按换行分帧，留空表示不启动 TCP listener。
-tcp_bind = ""
-# Syslog 写入目标组织的 slug；启用任一 listener 时必须填写。
-org = ""
-# Syslog 写入目标流名；留空时回退为 `syslog`。
-stream = "syslog"
-
 # 对外 Arrow Flight SQL 端口（DBeaver / JDBC / ADBC 直连查询）。
 # 与 [grpc]（集群内可信网络）分端口；每个 RPC 强制 API token 鉴权。
 [flight_sql]

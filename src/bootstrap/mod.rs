@@ -16,7 +16,6 @@ mod platform;
 mod query;
 pub mod roles;
 mod storage;
-pub mod syslog;
 mod tracing;
 pub mod workers;
 

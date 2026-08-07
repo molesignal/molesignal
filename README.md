@@ -28,7 +28,7 @@ molesignal takes the third path: **one storage layer (Parquet on object store), 
 | Cross-signal correlation | ✅ (paid) | ⚠️ manual trace_id copy-paste | **✅ native (`/web/correlation/*`)** |
 | Data ownership | their cloud | self-hosted | **self-hosted** |
 | Setup time | 5 min (agents) | 6 hours+ (5 components + Grafana) | **1 cmd `docker compose up`** |
-| OpenTelemetry-native | yes | partial | **yes (10 ingest protocols)** |
+| OpenTelemetry-native | yes | partial | **yes (9 ingest protocols)** |
 | Real-time alerts (<1s) | yes | no (eval interval ≥ scrape interval) | **yes (`kind: realtime`)** |
 | Multi-tenant out-of-box | yes (per-account) | no | **yes (planner-level org rewrite)** |
 
@@ -87,7 +87,7 @@ A trace, its logs, and the host's metric for the same minute share **the same st
 - Time anchor synchronizes all panels (one click to zoom + propagate)
 - Investigation stack: drill `metric → trace → log → host` and back without losing context
 
-### 📡 Ingest (10 protocols, drop-in replacements)
+### 📡 Ingest (9 protocols, drop-in replacements)
 
 | Protocol | Endpoint | Drop-in for |
 |---|---|---|
@@ -96,7 +96,6 @@ A trace, its logs, and the host's metric for the same minute share **the same st
 | Prometheus remote_write | `POST /api/v1/prometheus/api/v1/write` | Prometheus / VictoriaMetrics |
 | Elasticsearch `_bulk` | `POST /api/v1/_bulk` | Filebeat, Vector ES sink, Logstash |
 | Loki push | `POST /api/v1/loki/api/v1/push` | Promtail, Vector Loki sink |
-| Syslog UDP/TCP | `[syslog].udp_bind` / `tcp_bind` | rsyslog, syslog-ng |
 | Kinesis Firehose | `POST /api/v1/_kinesis_firehose` | AWS Firehose |
 | Cloudflare Logpush | `POST /api/v1/_cloudflare` | Cloudflare Logpush |
 | Heroku log drain | `POST /api/v1/_heroku` | Heroku |
@@ -234,7 +233,7 @@ Pre-1.0, **early**. Released YYYY-MM-DD.
 | Area | State |
 |---|---|
 | Ingest path (WAL + buffer + flush) | ✅ working |
-| 10 ingest protocols | ✅ working |
+| 9 ingest protocols | ✅ working |
 | Distributed query (Arrow Flight) | ✅ working |
 | 3-level cache + disk cache | ✅ working |
 | Multi-tenant planner rewrite | ✅ working |

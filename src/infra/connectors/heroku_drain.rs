@@ -3,8 +3,8 @@
 
 //! Heroku log drain HTTP push。
 //!
-//! Heroku 推 syslog-like 文本，每行一条；HTTP POST `/api/v1/_heroku`，鉴权头同。
-//! 一并支持以 `<priority>...` 开头的 syslog 行；解析失败时 fallback 原文 message。
+//! Heroku 推 log drain 文本，每行一条；HTTP POST `/api/v1/_heroku`，鉴权头同。
+//! 解析失败时 fallback 原文 message。
 
 use serde_json::{Map, Value};
 

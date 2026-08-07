@@ -40,10 +40,6 @@ pub const WORKER_COVERAGE: &[WorkerCoverage] = &[
         policy: WorkerTracePolicy::RootPerRun,
     },
     WorkerCoverage {
-        source: "src/bootstrap/syslog.rs",
-        policy: WorkerTracePolicy::ChildOfActiveRun,
-    },
-    WorkerCoverage {
         source: "src/bootstrap/workers/acme.rs",
         policy: WorkerTracePolicy::RootPerRun,
     },
@@ -211,9 +207,6 @@ mod tests {
         let mut discovered = BTreeSet::new();
         rust_files_with_spawn(&root().join("src/bootstrap/workers"), &mut discovered);
         rust_files_with_spawn(&root().join("src/bootstrap/roles"), &mut discovered);
-        if read("src/bootstrap/syslog.rs").contains("tokio::spawn(") {
-            discovered.insert("src/bootstrap/syslog.rs".into());
-        }
         let registered = WORKER_COVERAGE
             .iter()
             .map(|entry| entry.source.to_string())

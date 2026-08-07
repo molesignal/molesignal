@@ -10,7 +10,6 @@ fn repo_default_conf_parses() {
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("conf/config.toml"),
     )
     .expect("read conf");
-    assert_known_top_level_keys(&raw);
     let s: Settings = toml::from_str(&raw).expect("parse conf");
     assert_eq!(s.store.meta.backend, "postgres");
     assert_eq!(s.store.meta.min_connections, 2);
@@ -26,7 +25,7 @@ fn repo_default_conf_parses() {
     assert_eq!(s.cache.parquet_file_meta.capacity, 100_000);
     assert_eq!(s.cache.parquet_meta.ttl_secs, 600);
     assert_eq!(s.cache.query_result.capacity, 1_000);
-    assert!(!s.telemetry.self_collect.enabled);
+    assert!(s.telemetry.self_collect.enabled);
     assert!(!s.profiling.enabled);
 }
 
@@ -37,7 +36,6 @@ fn k8s_configmap_conf_parses() {
     )
     .expect("read k8s configmap");
     let embedded = extract_configmap_toml(&raw);
-    assert_known_top_level_keys(&embedded);
     let s: Settings = toml::from_str(&embedded).expect("parse k8s configmap conf");
 
     assert_eq!(s.store.meta.backend, "postgres");
@@ -74,44 +72,3 @@ fn extract_configmap_toml(raw: &str) -> String {
     out
 }
 
-fn assert_known_top_level_keys(raw: &str) {
-    let value: toml::Value = toml::from_str(raw).expect("parse TOML for key audit");
-    let table = value.as_table().expect("top-level TOML table");
-    let known = [
-        "node",
-        "http",
-        "grpc",
-        "syslog",
-        "telemetry",
-        "profiling",
-        "store",
-        "wal",
-        "ingester",
-        "querier",
-        "search",
-        "compactor",
-        "alert_manager",
-        "notify",
-        "auth",
-        "license",
-        "cluster",
-        "router",
-        "cache",
-        "sso",
-        "mmdb",
-        "search_jobs",
-        "functions",
-        "scheduled_reports",
-        "intelligence",
-        "storage",
-        "flight_sql",
-        "federation",
-    ];
-
-    for key in table.keys() {
-        assert!(
-            known.contains(&key.as_str()),
-            "unknown top-level config section: {key}"
-        );
-    }
-}

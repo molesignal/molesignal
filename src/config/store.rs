@@ -66,6 +66,8 @@ pub struct ObjectStoreSettings {
     pub access_key: String,
     #[serde(default)]
     pub secret_key: String,
+    #[serde(default)]
+    pub path_style: bool,
     /// 三层凭据来源优先级：env > credentials_file > inline TOML
     #[serde(default)]
     pub credentials_file: Option<std::path::PathBuf>,
@@ -161,6 +163,7 @@ impl Default for ObjectStoreSettings {
             endpoint: String::new(),
             access_key: String::new(),
             secret_key: String::new(),
+            path_style: false,
             credentials_file: None,
             multipart_threshold_mb: default_multipart_threshold_mb(),
             multipart_part_size_mb: default_multipart_part_size_mb(),

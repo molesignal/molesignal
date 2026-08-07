@@ -55,6 +55,9 @@ fn build_s3(cfg: &ObjectStoreSettings) -> Result<Arc<dyn ObjectStore>> {
     if !cfg.secret_key.is_empty() {
         b = b.with_secret_access_key(&cfg.secret_key);
     }
+    if cfg.path_style {
+        b = b.with_virtual_hosted_style_request(false)
+    }
     let store = b
         .build()
         .map_err(|e| Error::internal(format!("s3 object_store build: {e}")))?;

@@ -219,20 +219,3 @@ impl Default for OtlpGrpcSettings {
     }
 }
 
-/// `[syslog]`：裸 UDP/TCP syslog 接入（RFC3164 / RFC5424）。**无鉴权** —— 必须显式绑定 org。
-/// 全部字段默认空 → 整段禁用（OSS / 现状零行为）。
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct SyslogSettings {
-    /// UDP 监听地址（如 `0.0.0.0:5514`）；空 = 不起 UDP。
-    #[serde(default)]
-    pub udp_bind: String,
-    /// TCP 监听地址（如 `0.0.0.0:5514`，换行分帧）；空 = 不起 TCP。
-    #[serde(default)]
-    pub tcp_bind: String,
-    /// 写入目标 org 的 slug。syslog 无鉴权、无 org 上下文，必须显式绑定；空 = 整段禁用。
-    #[serde(default)]
-    pub org: String,
-    /// 目标 stream 名（空回退到 `syslog`）。
-    #[serde(default)]
-    pub stream: String,
-}
