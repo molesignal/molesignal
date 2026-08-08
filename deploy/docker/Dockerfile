@@ -6,8 +6,9 @@ FROM rust:1.96-bullseye AS rust-builder
 ARG BUILD_ID=unknown
 ARG GIT_SHA=unknown
 # protobuf binding 已提交到 src/protocol；make proto 仍可手动刷新。
+# cmake：rdkafka-sys 用 cmake-build 编 librdkafka 必需（rust 官方镜像不含 cmake）。
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates curl protobuf-compiler \
+ && apt-get install -y --no-install-recommends ca-certificates curl protobuf-compiler cmake \
  && rm -rf /var/lib/apt/lists/*
 RUN curl -fsSL "https://github.com/bufbuild/buf/releases/latest/download/buf-Linux-$(uname -m)" \
       -o /usr/local/bin/buf \
