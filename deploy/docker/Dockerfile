@@ -20,6 +20,8 @@ COPY .cargo ./.cargo
 COPY build.rs ./
 COPY proto ./proto
 COPY src ./src
+# Cargo.toml 的 [[bench]] 引用 benches/；不 COPY 则 manifest 解析失败。
+COPY benches ./benches
 RUN BUILD_ID="$BUILD_ID" GIT_SHA="$GIT_SHA" cargo build --release --locked --bin molesignal
 
 ################ Stage 2: runtime ################
