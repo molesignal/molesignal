@@ -3,6 +3,8 @@
 # Copyright (c) 2026 MoleSignal Authors
 
 # CI 已在原生 runner 上完成一次 release 构建；这里只把同一二进制封装进多架构镜像。
+# runtime 用 bullseye-slim（glibc 2.31）：CI 产物地板也是 2.31（rust:1.96-bullseye），
+# 低于目标机地板 2.34（Alma 9 / Ubuntu 22.04）。勿用 bookworm/trixie，glibc 会超地板。
 ARG TARGETARCH
 
 FROM scratch AS binary-amd64
@@ -13,7 +15,7 @@ COPY .release-binaries/arm64/molesignal /molesignal
 
 FROM binary-${TARGETARCH} AS binary
 
-FROM debian:bookworm-slim
+FROM debian:bullseye-slim
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
         ca-certificates curl \

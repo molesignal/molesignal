@@ -94,6 +94,12 @@ jobs:
     name: build (${{ matrix.target }})
     needs: [detect-channel, quality-gate]
     runs-on: ${{ matrix.os }}
+    # 构建在 rust:1.96-bullseye 容器（Debian 11, glibc 2.31）内进行，产物 glibc
+    # 地板 2.31，低于目标机地板 2.34（Alma 9 / Ubuntu 22.04）；runtime 镜像
+    # debian:bullseye-slim（glibc 2.31）与其一致。runner 仅提供 native 架构，
+    # 其自身的 glibc 版本不再影响产物。
+    container:
+      image: rust:1.96-bullseye
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -101,6 +107,9 @@ jobs:
         include:
           # glibc(gnu) Linux：jemalloc 全功能（含 background_thread）。musl 不用，
           # 因为 jemalloc-sys 在 musl 上编不过且 background_thread 不受支持。
+          # glibc 地板：构建容器 rust:1.96-bullseye 的 glibc 是 2.31，覆盖目标机
+          # 地板 2.34（Alma 9）与 Ubuntu 22.04（2.35）；runtime debian:bullseye-slim
+          # 同为 2.31；下方 assert 步骤守护该地板不被漂移。
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
           - target: aarch64-unknown-linux-gnu
@@ -109,40 +118,69 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: install system dependencies (linux)
-        if: runner.os == 'Linux'
+      - name: install system dependencies
+        # rust:1.96-bullseye 已含 build-essential/git/ca-certificates/curl/pkg-config；
+        # cmake 供 rdkafka cmake-build 编 librdkafka，protobuf-compiler 保险
+        #（make proto 实际走 buf 自带 protoc，不依赖系统 protoc）。容器默认 root。
         run: |
-          sudo apt-get update
-          # build-essential 提供 gcc/make，jemalloc-sys 在 gnu target 上原生编 C 源需要。
-          sudo apt-get install -y --no-install-recommends \
-            build-essential cmake pkg-config file ca-certificates curl \
-            protobuf-compiler libcurl4-openssl-dev
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            cmake protobuf-compiler
+          rm -rf /var/lib/apt/lists/*
 
       - name: install Buf CLI
         run: |
-          sudo curl -sSL "https://github.com/bufbuild/buf/releases/latest/download/buf-$(uname -s)-$(uname -m)" \
+          curl -fsSL "https://github.com/bufbuild/buf/releases/latest/download/buf-$(uname -s)-$(uname -m)" \
             -o /usr/local/bin/buf
-          sudo chmod +x /usr/local/bin/buf
+          chmod +x /usr/local/bin/buf
           buf --version
 
       - name: generate protobuf code
         run: make proto
 
       - name: install rust toolchain
-        # 跟随仓库根 `rust-toolchain.toml`（1.96）。
+        # 容器已是 rust:1.96-bullseye（channel 与仓库 rust-toolchain.toml 一致）；
+        # 这里幂等补齐目标 target。
         uses: dtolnay/rust-toolchain@1.96
         with:
           targets: ${{ matrix.target }}
 
       - uses: Swatinem/rust-cache@v2
         with:
-          key: release-${{ matrix.target }}
+          # 按构建容器变体隔离缓存：bookworm 编译的 C 依赖产物（jemalloc/rdkafka）
+          # 与 bullseye 不应混用，避免 glibc 版本串扰。
+          key: release-${{ matrix.target }}-bullseye
 
       - name: build release binary once
         env:
           # 所有交付阶段共用这一套参数；pprof 需要可回溯栈帧与符号。
           RUSTFLAGS: "-C force-frame-pointers=yes"
         run: cargo build --release --locked --target ${{ matrix.target }} -p molesignal
+
+      # glibc 地板守护：确认二进制要求的最高 GLIBC 符号版本 ≤ 2.31（bullseye runtime，
+      # glibc 2.31），低于目标机地板 2.34（Alma 9 / Ubuntu 22.04）。若未来构建容器
+      # /runner 漂移到更高 glibc，发布产物会在目标机或镜像内回退报 "GLIBC_2.x not
+      # found"，此步骤直接拦截。objdump 来自容器 build-essential。
+      - name: assert glibc floor <= 2.31
+        shell: bash
+        run: |
+          bin="target/${{ matrix.target }}/release/molesignal"
+          max_ver="$(objdump -T "$bin" \
+            | awk '/GLIBC_/ { for (i=1;i<=NF;i++) if ($i ~ /^GLIBC_[0-9]+\.[0-9]+$/) print $i }' \
+            | sed 's/^GLIBC_//' | sort -V | tail -n1)"
+          echo "binary max GLIBC symbol: ${max_ver:-<none>}"
+          if [ -z "$max_ver" ]; then
+            echo "OK: no GLIBC symbols (static build, no glibc floor)"
+            exit 0
+          fi
+          IFS=. read -r major minor <<< "${max_ver}"
+          if [ "${major}" -eq 2 ] && [ "${minor}" -le 31 ]; then
+            echo "OK: glibc floor ${max_ver} <= bullseye runtime (2.31)"
+          else
+            echo "ERROR: binary requires GLIBC_${max_ver}, newer than bullseye runtime (2.31)" >&2
+            echo "      fix: 构建环境（容器/runner）glibc 需 <= 2.31，如 rust:1.96-bullseye" >&2
+            exit 1
+          fi
 
       - name: package artifact (binary + conf + systemd)
         shell: bash
