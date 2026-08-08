@@ -112,8 +112,12 @@ jobs:
           # 同为 2.31；下方 assert 步骤守护该地板不被漂移。
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
+            archive_arch: x86_64
+            archive_os: linux
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-24.04-arm
+            archive_arch: aarch64
+            archive_os: linux
 
     steps:
       - uses: actions/checkout@v6
@@ -185,10 +189,13 @@ jobs:
       - name: package artifact (binary + conf + systemd)
         shell: bash
         env:
-          VERSION: ${{ needs.detect-channel.outputs.version }}
+          VERSION: ${{ github.ref_name }}
+          ARCH: ${{ matrix.archive_arch }}
+          OS: ${{ matrix.archive_os }}
         run: |
-          # VERSION already carries any prerelease suffix from the Git tag.
-          ARCHIVE="molesignal-${VERSION}-${{ matrix.target }}"
+          # Release archive: molesignal-{version}-{arch}-{os}.tar.gz.
+          # VERSION is the original Git tag and therefore keeps its leading "v".
+          ARCHIVE="molesignal-${VERSION}-${ARCH}-${OS}"
           mkdir -p "dist/${ARCHIVE}/bin" "dist/${ARCHIVE}/conf" \
             "dist/${ARCHIVE}/deploy/systemd"
           cp "target/${{ matrix.target }}/release/molesignal" "dist/${ARCHIVE}/bin/"
