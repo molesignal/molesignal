@@ -4,7 +4,6 @@ import {
   Activity,
   ArrowRight,
   Braces,
-  CheckCircle2,
   Clock3,
   Copy,
   Database,
@@ -26,12 +25,14 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { ConfirmDialog } from '@/admin';
 import * as alertsApi from '@/api/alerts';
+import * as fieldMaskingApi from '@/api/fieldMasking';
 import * as ingestionApi from '@/api/ingestion';
 import * as pipelinesApi from '@/api/pipelines';
 import * as savedViewsApi from '@/api/savedViews';
 import * as streamsApi from '@/api/streams';
 import { formatMicrosActive } from '@/lib/time';
 import {
+  restrictActionAccess,
   type ActionAccess,
   useActionAccess,
 } from '@/product/actionAccess';
@@ -48,10 +49,8 @@ import {
   uiTableHeaderClass,
 } from '@/shell/chrome';
 import {
-  FormDrawer,
   FormField,
   FormInput,
-  FormSelect,
   FormTextarea,
 } from '@/shell/FormDrawer';
 import { cn } from '@/shell/lib/cn';
@@ -72,15 +71,13 @@ import {
   ingestPathForSignal,
   isIngestSignal,
 } from './datasourceLink';
+import { FieldEditDrawer } from './fieldEditor/FieldEditDrawer';
+import { INDEX_OPTIONS, toFieldDrafts, type FieldDraft } from './fieldEditor/model';
 import { logicalFieldType, streamVariantsForDetail } from './model';
 
 type DetailTab = 'overview' | 'schema' | 'retention' | 'usage' | 'settings';
 
-type FieldDraft = streamsApi.StreamField & {
-  index_type: streamsApi.StreamIndexType;
-  condition: string;
-  extraction_patterns_text: string;
-};
+const MOLESIGNAL_SYSTEM_STREAM = '_molesignal';
 
 interface RetentionRuleDraft {
   id: string;
@@ -117,14 +114,6 @@ const DETAIL_TABS: Array<{ id: DetailTab; labelKey: string; icon: React.ElementT
   { id: 'retention', labelKey: 'explore.tabs.retention', icon: Clock3 },
   { id: 'usage', labelKey: 'explore.tabs.usage', icon: Workflow },
   { id: 'settings', labelKey: 'explore.tabs.settings', icon: Settings2 },
-];
-
-const INDEX_OPTIONS: Array<{ value: streamsApi.StreamIndexType; labelKey: string }> = [
-  { value: 'none', labelKey: 'explore.index_options.none' },
-  { value: 'full_text', labelKey: 'explore.index_options.full_text' },
-  { value: 'exact', labelKey: 'explore.index_options.exact' },
-  { value: 'bloom', labelKey: 'explore.index_options.bloom' },
-  { value: 'skip', labelKey: 'explore.index_options.skip' },
 ];
 
 const STATUS_TONE: Record<streamsApi.StreamRuntimeStatus, PillTone> = {
@@ -174,25 +163,6 @@ function streamTypeLabel(
   return t(`list.tabs.${type}`);
 }
 
-function ruleFor(
-  settings: streamsApi.StreamSettings,
-  field: string,
-): streamsApi.FieldIndexRule | undefined {
-  return settings.index_rules.find((rule) => rule.field === field);
-}
-
-function toFieldDrafts(stream: streamsApi.StreamSummary): FieldDraft[] {
-  return stream.schema.fields.map((field) => {
-    const rule = ruleFor(stream.settings, field.name);
-    return {
-      ...field,
-      index_type: rule?.index_type ?? (field.indexed ? 'full_text' : 'none'),
-      condition: rule?.condition ?? '',
-      extraction_patterns_text: rule?.sdr_patterns.join('\n') ?? '',
-    };
-  });
-}
-
 function toDraft(stream: streamsApi.StreamSummary): StreamDraft {
   return {
     fields: toFieldDrafts(stream),
@@ -223,7 +193,10 @@ function parseOptionalNumber(value: string): number | null {
   return Number.isFinite(number) && number >= 0 ? number : null;
 }
 
-function payloadForDraft(draft: StreamDraft): streamsApi.UpdateStreamSettingsRequest {
+function payloadForDraft(
+  draft: StreamDraft,
+  systemStream = false,
+): streamsApi.UpdateStreamSettingsRequest {
   const settings: streamsApi.StreamSettings = {
     description: draft.description.trim() || null,
     index_rules: draft.fields.map((field) => ({
@@ -249,9 +222,22 @@ function payloadForDraft(draft: StreamDraft): streamsApi.UpdateStreamSettingsReq
     store_original_data: draft.storeOriginal,
     enable_distinct_values: draft.distinctValues,
     queryable: draft.queryable,
+    field_masking: draft.fields.flatMap((field) => {
+      if (field.masking_mode === 'inherit') return [];
+      return [{
+        field: field.name,
+        algorithm: field.masking_mode === 'custom' ? field.masking_algorithm : null,
+      }];
+    }),
   };
   return {
-    retention_days: draft.retentionDays.trim() ? Number(draft.retentionDays) : null,
+    ...(systemStream
+      ? {}
+      : {
+          retention_days: draft.retentionDays.trim()
+            ? Number(draft.retentionDays)
+            : null,
+        }),
     fields: draft.fields.map((field) => ({
       name: field.name,
       indexed: field.indexed,
@@ -266,8 +252,8 @@ function payloadForDraft(draft: StreamDraft): streamsApi.UpdateStreamSettingsReq
   };
 }
 
-function draftSignature(draft: StreamDraft | null): string {
-  return draft ? JSON.stringify(payloadForDraft(draft)) : '';
+function draftSignature(draft: StreamDraft | null, systemStream = false): string {
+  return draft ? JSON.stringify(payloadForDraft(draft, systemStream)) : '';
 }
 
 function formatBytes(value: number | null | undefined): string {
@@ -434,12 +420,6 @@ export function StreamExplore() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const configureAccess = useActionAccess({
-    permission: 'streams.configure',
-  });
-  const deleteAccess = useActionAccess({
-    permission: 'streams.delete',
-  });
   const [tab, setTab] = React.useState<DetailTab>('overview');
   const [draft, setDraft] = React.useState<StreamDraft | null>(null);
   const [editingField, setEditingField] = React.useState<FieldDraft | null>(null);
@@ -461,6 +441,27 @@ export function StreamExplore() {
     refetchInterval: 60_000,
   });
   const stream = streamQuery.data;
+  const systemStream = stream?.name === MOLESIGNAL_SYSTEM_STREAM;
+  const configureAccess = useActionAccess({
+    permission: systemStream ? 'sys.telemetry.manage' : 'streams.configure',
+  });
+  const baseDeleteAccess = useActionAccess({ permission: 'streams.delete' });
+  const systemImmutableReason = t('explore.system_stream_immutable');
+  const deleteAccess = restrictActionAccess(
+    baseDeleteAccess,
+    !systemStream,
+    systemImmutableReason,
+  );
+  const mutableSettingsAccess = restrictActionAccess(
+    configureAccess,
+    !systemStream,
+    systemImmutableReason,
+  );
+  const fieldMaskingQuery = useQuery({
+    queryKey: ['field-masking-effective', stream?.id],
+    queryFn: () => fieldMaskingApi.effectiveForStream(stream?.id ?? ''),
+    enabled: Boolean(stream?.id) && stream?.stream_type !== 'metrics',
+  });
   const streamVariants = React.useMemo(
     () => (stream ? streamVariantsForDetail(stream, streamListQuery.data ?? []) : []),
     [stream, streamListQuery.data],
@@ -480,10 +481,13 @@ export function StreamExplore() {
   }, [stream]);
 
   const baselineSignature = React.useMemo(
-    () => (stream ? draftSignature(toDraft(stream)) : ''),
-    [stream],
+    () => (stream ? draftSignature(toDraft(stream), systemStream) : ''),
+    [stream, systemStream],
   );
-  const currentSignature = React.useMemo(() => draftSignature(draft), [draft]);
+  const currentSignature = React.useMemo(
+    () => draftSignature(draft, systemStream),
+    [draft, systemStream],
+  );
   const dirty = Boolean(draft && stream && currentSignature !== baselineSignature);
 
   React.useEffect(() => {
@@ -504,12 +508,16 @@ export function StreamExplore() {
       if (!stream || !draft) throw new Error('stream not loaded');
       const validation = validateDraft(draft);
       if (validation) throw new Error(validation);
-      return streamsApi.updateSettings(stream.id, payloadForDraft(draft));
+      return streamsApi.updateSettings(
+        stream.id,
+        payloadForDraft(draft, systemStream),
+      );
     },
     onSuccess: (updated) => {
       queryClient.setQueryData(['streams', 'detail', updated.id], updated);
       setDraft(toDraft(updated));
       void queryClient.invalidateQueries({ queryKey: ['streams', 'list'] });
+      void queryClient.invalidateQueries({ queryKey: ['field-masking-effective', updated.id] });
       toast.success(t('explore.toast.updated'));
     },
     onError: (error) => {
@@ -778,12 +786,12 @@ export function StreamExplore() {
             )}
 
             {tab === 'retention' && (
-              <PermissionFieldset access={configureAccess}>
+              <PermissionFieldset access={mutableSettingsAccess}>
                 <RetentionPanel
                   draft={draft}
                   effectiveRetentionDays={stream.effective_retention.days}
                   onChange={(patch) => {
-                    if (!configureAccess.allowed) return;
+                    if (!mutableSettingsAccess.allowed) return;
                     setDraft((current) =>
                       current ? { ...current, ...patch } : current,
                     );
@@ -802,11 +810,11 @@ export function StreamExplore() {
             )}
 
             {tab === 'settings' && (
-              <PermissionFieldset access={configureAccess}>
+              <PermissionFieldset access={mutableSettingsAccess}>
                 <SettingsPanel
                   draft={draft}
                   onChange={(patch) => {
-                    if (!configureAccess.allowed) return;
+                    if (!mutableSettingsAccess.allowed) return;
                     setDraft((current) =>
                       current ? { ...current, ...patch } : current,
                     );
@@ -821,6 +829,10 @@ export function StreamExplore() {
       <FieldEditDrawer
         access={configureAccess}
         field={editingField}
+        effectiveMasking={
+          fieldMaskingQuery.data?.fields.find((field) => field.field === editingField?.name) ?? null
+        }
+        maskingSupported={stream?.stream_type !== 'metrics'}
         onClose={() => setEditingField(null)}
         onApply={(updated) => {
           if (!configureAccess.allowed) return;
@@ -1367,149 +1379,6 @@ function SchemaPanel({
         </div>
       </div>
     </div>
-  );
-}
-
-function FieldEditDrawer({
-  access,
-  field,
-  onClose,
-  onApply,
-}: {
-  access: ActionAccess;
-  field: FieldDraft | null;
-  onClose: () => void;
-  onApply: (field: FieldDraft) => void;
-}) {
-  const { t } = useTranslation('streams');
-  const [editing, setEditing] = React.useState<FieldDraft | null>(field);
-
-  React.useEffect(() => setEditing(field), [field]);
-
-  return (
-    <FormDrawer
-      open={field !== null}
-      onOpenChange={(open) => !open && onClose()}
-      width={600}
-      title={
-        field
-          ? t('explore.schema.drawer_title', { name: field.name })
-          : t('explore.schema.drawer_fallback')
-      }
-      subtitle={t('explore.schema.drawer_subtitle')}
-      footer={
-        <>
-          <ChromeButton onClick={onClose}>{t('explore.schema.cancel')}</ChromeButton>
-          <ChromeButton
-            variant="primary"
-            onClick={() => access.allowed && editing && onApply(editing)}
-            disabled={access.disabled || !editing}
-            disabledReason={access.reason}
-          >
-            {t('explore.schema.apply')}
-          </ChromeButton>
-        </>
-      }
-    >
-      {editing && (
-        <fieldset
-          disabled={access.disabled}
-          aria-disabled={access.disabled || undefined}
-          title={access.reason}
-          className="contents disabled:cursor-not-allowed"
-        >
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-3 rounded-lg border border-bd-0 bg-bg-2 p-4">
-            <OverviewRow label={t('explore.schema.columns.name')} value={editing.name} />
-            <OverviewRow
-              label={t('explore.schema.columns.type')}
-              value={
-                <span title={t('explore.schema.storage_type', { type: editing.data_type })}>
-                  {t(`explore.schema.field_types.${logicalFieldType(editing.data_type)}`)}
-                </span>
-              }
-            />
-          </div>
-
-          <div className="rounded-lg border border-yellow/30 bg-yellow-dim px-4 py-3 font-sans text-xs leading-relaxed text-tx-1">
-            {t('explore.changes.index_risk')}
-          </div>
-
-          <FormField
-            label={t('explore.schema.columns.index_type')}
-            hint={t('explore.schema.index_type_hint')}
-          >
-            <FormSelect
-              value={editing.index_type}
-              onChange={(value) =>
-                setEditing((current) =>
-                  current
-                    ? {
-                        ...current,
-                        index_type: value as streamsApi.StreamIndexType,
-                        indexed: value !== 'none',
-                      }
-                    : current,
-                )
-              }
-              options={INDEX_OPTIONS.map((option) => ({
-                value: option.value,
-                label: t(option.labelKey),
-              }))}
-            />
-          </FormField>
-
-          <FormField
-            label={t('explore.schema.columns.condition')}
-            hint={t('explore.schema.condition_hint')}
-          >
-            <FormInput
-              value={editing.condition}
-              onChange={(event) =>
-                setEditing((current) =>
-                  current ? { ...current, condition: event.target.value } : current,
-                )
-              }
-              placeholder={t('explore.schema.condition_placeholder')}
-            />
-          </FormField>
-
-          <FormField
-            label={t('explore.schema.extraction_rules')}
-            hint={t('explore.schema.extraction_hint')}
-          >
-            <FormTextarea
-              value={editing.extraction_patterns_text}
-              onChange={(event) =>
-                setEditing((current) =>
-                  current
-                    ? { ...current, extraction_patterns_text: event.target.value }
-                    : current,
-                )
-              }
-              rows={6}
-              className="font-mono"
-              placeholder={t('explore.schema.pattern_placeholder')}
-            />
-          </FormField>
-
-          {editing.encrypted && (
-            <div className="flex items-start gap-3 rounded-lg border border-green/25 bg-green-dim px-4 py-3">
-              <CheckCircle2 className="mt-0.5 h-4 w-4 text-green-soft" />
-              <div>
-                <div className="font-sans text-sm font-semibold text-tx-0">
-                  {t('explore.schema.encrypted')}
-                </div>
-                <div className="mt-1 font-sans text-xs text-tx-2">
-                  {t('explore.schema.encrypted_hint')}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-        </fieldset>
-      )}
-    </FormDrawer>
   );
 }
 

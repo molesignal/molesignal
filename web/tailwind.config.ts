@@ -128,6 +128,8 @@ const config: Config = {
         sans: ['var(--font-sans)'],
         /* Code/data utilities intentionally share the global product family. */
         mono: ['var(--font-mono)'],
+        /* Editors and query expressions use the dedicated code stack. */
+        code: ['var(--font-code)'],
       },
       fontSize: {
         body: 'var(--font-body, 13.5px)',

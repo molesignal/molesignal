@@ -81,6 +81,20 @@ fn invalidate_stream_cache(
 const COLS: &str =
     "id, org_id, name, stream_type, schema, retention, created_at_micros, updated_at_micros";
 
+fn system_schema_settings_only(current: &Schema, proposed: &Schema) -> bool {
+    current.fields.len() == proposed.fields.len()
+        && current
+            .fields
+            .iter()
+            .zip(&proposed.fields)
+            .all(|(left, right)| {
+                left.name == right.name
+                    && left.data_type == right.data_type
+                    && left.nullable == right.nullable
+                    && left.encrypted == right.encrypted
+            })
+}
+
 #[async_trait]
 impl StreamRepository for PgStreamRepository {
     async fn create(&self, def: StreamDefinition) -> Result<StreamDefinition> {
@@ -130,35 +144,53 @@ impl StreamRepository for PgStreamRepository {
     async fn update_schema(&self, id: &Id, schema: Schema) -> Result<()> {
         let now = TimestampMicros::now().0;
         // 先读出 (org, name, stream_type) 供 cache invalidate（在 UPDATE 之前以拿当前 schema）
-        let row =
-            sqlx::query("SELECT org_id, name, stream_type, system FROM streams WHERE id = $1")
-                .bind(&id.0)
-                .fetch_optional(&self.pool)
+        let row = sqlx::query(
+            "SELECT org_id, name, stream_type, schema, system FROM streams WHERE id = $1",
+        )
+        .bind(&id.0)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(sqlx_err)?
+        .ok_or_else(|| Error::not_found(format!("stream {}", id.0)))?;
+
+        let system = row.try_get::<bool, _>("system").map_err(sqlx_err)?;
+        if system {
+            let current: Json<Schema> = row.try_get("schema").map_err(sqlx_err)?;
+            if !system_schema_settings_only(&current.0, &schema) {
+                return Err(Error::forbidden(
+                    "system stream field names, types, nullability and encryption are immutable",
+                ));
+            }
+        }
+
+        if system {
+            let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+            sqlx::query("SELECT set_config('molesignal.internal_system_mutation', 'true', true)")
+                .execute(&mut *tx)
                 .await
                 .map_err(sqlx_err)?;
-
-        if row
-            .as_ref()
-            .and_then(|value| value.try_get::<bool, _>("system").ok())
-            .unwrap_or(false)
-        {
-            return Err(Error::forbidden("system stream schema is immutable"));
+            sqlx::query("UPDATE streams SET schema = $2, updated_at_micros = $3 WHERE id = $1")
+                .bind(&id.0)
+                .bind(Json(&schema))
+                .bind(now)
+                .execute(&mut *tx)
+                .await
+                .map_err(sqlx_err)?;
+            tx.commit().await.map_err(sqlx_err)?;
+        } else {
+            sqlx::query("UPDATE streams SET schema = $2, updated_at_micros = $3 WHERE id = $1")
+                .bind(&id.0)
+                .bind(Json(&schema))
+                .bind(now)
+                .execute(&self.pool)
+                .await
+                .map_err(sqlx_err)?;
         }
 
-        sqlx::query("UPDATE streams SET schema = $2, updated_at_micros = $3 WHERE id = $1")
-            .bind(&id.0)
-            .bind(Json(&schema))
-            .bind(now)
-            .execute(&self.pool)
-            .await
-            .map_err(sqlx_err)?;
-
-        if let Some(r) = row {
-            let org_id: String = r.try_get("org_id").unwrap_or_default();
-            let name: String = r.try_get("name").unwrap_or_default();
-            let st: String = r.try_get("stream_type").unwrap_or_default();
-            invalidate_stream_cache(&self.cache, &org_id, &name, &st);
-        }
+        let org_id: String = row.try_get("org_id").unwrap_or_default();
+        let name: String = row.try_get("name").unwrap_or_default();
+        let st: String = row.try_get("stream_type").unwrap_or_default();
+        invalidate_stream_cache(&self.cache, &org_id, &name, &st);
         Ok(())
     }
 

@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { cn } from '@/shell/lib/cn';
 import { QueryRecommendations } from '@/shell/query/Recommendations';
 
 import { GraphView } from './GraphView';
@@ -34,7 +35,12 @@ export function MetricsExploreResults({
       className="flex min-h-0 flex-1 flex-col overflow-auto bg-bg-0 px-3 pb-3 pt-2"
       data-testid="metrics-workspace"
     >
-      <section className="flex min-h-[480px] flex-1 flex-col overflow-hidden rounded-md border border-bd-0 bg-bg-1">
+      <section
+        className={cn(
+          'flex min-h-[480px] flex-col overflow-hidden rounded-md border border-bd-0 bg-bg-1',
+          activeView === 'graph' ? 'shrink-0' : 'flex-1',
+        )}
+      >
         <div className="flex min-h-11 shrink-0 flex-wrap items-center border-b border-bd-0 bg-bg-2/50">
           <div className="flex min-w-0 flex-1 overflow-x-auto" role="tablist">
             {(

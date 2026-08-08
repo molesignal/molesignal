@@ -102,6 +102,7 @@ const GROUPS: SectionGroup[] = [
     sections: [
       { to: '/settings/cipher_keys', key: 'cipher_keys', contentWidth: 'table' },
       { to: '/settings/regex_patterns', key: 'regex_patterns', contentWidth: 'table' },
+      { to: '/settings/field_masking', key: 'field_masking', contentWidth: 'table' },
       {
         to: '/settings/domain_management',
         key: 'domain_management',

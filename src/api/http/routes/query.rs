@@ -42,6 +42,7 @@ pub fn routes() -> Router<AppState> {
         .route("/query/inspect", post(inspect_query))
         .route("/query/recommendations", post(query_recommendations))
         .route("/query/promql/capabilities", get(promql_capabilities))
+        .route("/query/sql/capabilities", get(sql_capabilities))
         .route("/query/slow", get(list_slow_queries))
         .route(
             "/query/admission",
@@ -59,6 +60,14 @@ pub fn routes() -> Router<AppState> {
 async fn promql_capabilities() -> Json<crate::infra::query::promql::capabilities::PromqlCapabilities>
 {
     Json(crate::infra::query::promql::capabilities::capabilities())
+}
+
+/// Returns the static SQL text-search functions (`MATCH` / `MATCH_TEXT`) the
+/// engine rewrites in `extract_match_predicates`. Same contract as the PromQL
+/// capabilities endpoint: it contains no organization data and therefore does
+/// not require an additional product permission beyond the API auth boundary.
+async fn sql_capabilities() -> Json<crate::infra::query::sql_functions::SqlQueryCapabilities> {
+    Json(crate::infra::query::sql_functions::sql_query_capabilities())
 }
 
 /// 查询优化建议：对给定查询画像（语句 + 上一次执行统计）做启发式分析，返回顾问性建议。

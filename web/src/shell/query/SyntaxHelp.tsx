@@ -49,7 +49,8 @@ const SQL_EXAMPLES: Record<FieldSqlScope, SyntaxExample[]> = {
   logs: [
     { label: '基础查询', expression: `SELECT * FROM "app_logs" ORDER BY _timestamp DESC LIMIT 200`, description: '按时间倒序读取日志。' },
     { label: '字段过滤', expression: `WHERE "level" = 'error'`, description: '字段精确匹配。' },
-    { label: '模糊匹配', expression: `WHERE "message" LIKE '%timeout%'`, description: '字段文本包含关键字。' },
+    { label: '全文检索', expression: `WHERE MATCH_TEXT(message, 'timeout disk')`, description: '全文检索：多词 AND、短语、通配符（message 需配置 full_text 索引）。' },
+    { label: '子串匹配', expression: `WHERE MATCH(message, 'timeout')`, description: '任意字段子串匹配，大小写不敏感。' },
     { label: '数值过滤', expression: `WHERE "status_code" >= 500`, description: '用于状态码、耗时等数值字段。' },
   ],
   traces: [

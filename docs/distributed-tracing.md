@@ -244,7 +244,7 @@ drain.
 
 The standalone acceptance path starts PostgreSQL with testcontainers and follows
 one correlated request through HTTP, a business Span, SQL, object storage,
-self-ingest, and `_sys` queries for both traces and logs. It also exercises
+self-ingest, and `_sys` trace queries. It also exercises
 system-scope switching, tenant-facing `404` boundaries, permanent system
 resources, immutable License history, and final-platform-administrator
 protection:

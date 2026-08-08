@@ -20,6 +20,7 @@ pub mod dashboards;
 pub mod debug_artifacts;
 pub mod email_domains;
 pub mod extend_tables;
+pub mod field_masking;
 pub mod files;
 pub mod folders;
 pub mod functions;
@@ -108,6 +109,7 @@ pub fn api_v1(state: AppState) -> Router<AppState> {
         .merge(metrics::api_routes())
         .merge(me::routes())
         .merge(files::routes())
+        .merge(field_masking::routes())
         .merge(profiles::routes())
         .merge(profiling::routes())
         .merge(api_tokens::routes())

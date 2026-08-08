@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query';
 import {
   ArrowLeft,
   ArrowRight,
-  BarChart3,
   Braces,
   ChevronRight,
   Clipboard,
@@ -29,6 +28,7 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
+import * as fieldMaskingApi from '@/api/fieldMasking';
 import * as queryApi from '@/api/query';
 import * as streamsApi from '@/api/streams';
 import type { LogListResponse } from '@/api/web';
@@ -49,6 +49,7 @@ import { QueryEditorFrame } from '@/shell/query/EditorFrame';
 import { QueryRecommendations } from '@/shell/query/Recommendations';
 import { QueryState } from '@/shell/query/State';
 import { QuerySyntaxHelp } from '@/shell/query/SyntaxHelp';
+import { useSqlFunctionCompletions } from '@/shell/query/useSqlFunctionCompletions';
 import { QueryToolbarButton, QueryToolbarGroup, QueryWorkbench } from '@/shell/query/Workbench';
 import { ResultPagination } from '@/shell/ResultPagination';
 import { detectSignalTypeForLabel, SignalReference } from '@/shell/SignalReference';
@@ -100,6 +101,7 @@ import {
   isLogFieldFilterable,
   type LogFieldDef,
 } from './fieldQueryModel';
+import { HistogramToggle } from './HistogramToggle';
 import { levelToneClass, LogListResults } from './ResultViews';
 import {
   defaultLogTableFields,
@@ -196,7 +198,11 @@ function quotedCompletion(value: string): string {
   return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }
 
-function logQueryCompletions(fields: LogFieldDef[], rows: LogEntry[]): CodeCompletionItem[] {
+function logQueryCompletions(
+  fields: LogFieldDef[],
+  rows: LogEntry[],
+  maskedFields: ReadonlySet<string> | null,
+): CodeCompletionItem[] {
   const fieldNames = new Set([
     'level',
     'message',
@@ -211,13 +217,29 @@ function logQueryCompletions(fields: LogFieldDef[], rows: LogEntry[]): CodeCompl
     'duration_ms',
     ...fields.map((field) => field.name),
   ]);
-  const values = new Set<string>(['INFO', 'WARN', 'ERROR', 'DEBUG', 'TRACE', 'checkout', 'api', 'web']);
-  for (const row of rows.slice(0, 200)) {
-    values.add(row.level);
-    for (const key of ['service', 'service_name', 'status', 'status_code', 'method', 'route']) {
-      const value = row.raw[key];
-      if (typeof value === 'string' && value.length > 0 && value.length <= 80) values.add(value);
-      if (typeof value === 'number' || typeof value === 'boolean') values.add(String(value));
+  const values = new Map<string, Set<string>>([
+    ['level', new Set(['INFO', 'WARN', 'ERROR', 'DEBUG', 'TRACE'])],
+    ['service', new Set(['checkout', 'api', 'web'])],
+    ['service_name', new Set(['checkout', 'api', 'web'])],
+  ]);
+  // Until masking metadata is known, expose only the static, non-sensitive
+  // fallbacks above. Observed log values are added only for confirmed
+  // unmasked fields so autocomplete cannot become a masking side channel.
+  if (maskedFields !== null) {
+    for (const row of rows.slice(0, 200)) {
+      if (!maskedFields.has('level')) values.get('level')?.add(row.level);
+      for (const [key, value] of Object.entries(row.raw)) {
+        if (!fieldNames.has(key) || maskedFields.has(key.toLowerCase())) continue;
+        const bucket = values.get(key) ?? new Set<string>();
+        values.set(key, bucket);
+        if (bucket.size >= 50) continue;
+        if (typeof value === 'string' && value.length > 0 && value.length <= 80) {
+          bucket.add(value);
+        }
+        if (typeof value === 'number' || typeof value === 'boolean') {
+          bucket.add(String(value));
+        }
+      }
     }
   }
   return [
@@ -231,10 +253,19 @@ function logQueryCompletions(fields: LogFieldDef[], rows: LogEntry[]): CodeCompl
     { label: 'contains', insertText: 'contains ', kind: 'operator', detail: 'operator' },
     { label: 'AND', insertText: 'AND ', kind: 'operator', detail: 'operator' },
     { label: 'OR', insertText: 'OR ', kind: 'operator', detail: 'operator' },
-    ...Array.from(values).sort().map((value) => {
-      const quoted = quotedCompletion(value);
-      return { label: quoted, insertText: quoted, kind: 'value' as const, detail: 'value' };
-    }),
+    ...Array.from(values.entries()).flatMap(([field, fieldValues]) => (
+      Array.from(fieldValues).sort().map((value) => {
+        const quoted = quotedCompletion(value);
+        return {
+          label: quoted,
+          insertText: quoted,
+          kind: 'value' as const,
+          detail: `${field} value`,
+          field,
+          value,
+        };
+      })
+    )),
   ];
 }
 
@@ -590,9 +621,8 @@ function buildHisto(rows: LogEntry[], range: LogHistogramRange | null): LogHisto
 }
 
 const MODE_OPTIONS = [
-  { id: 'search', icon: Search, ariaKey: 'explore.toolbar.mode_search_aria' },
-  { id: 'chart', icon: BarChart3, ariaKey: 'explore.toolbar.mode_chart_aria' },
-  { id: 'patterns', icon: SlidersHorizontal, ariaKey: 'explore.toolbar.mode_patterns_aria' },
+  { id: 'search', ariaKey: 'explore.toolbar.mode_search_aria' },
+  { id: 'patterns', ariaKey: 'explore.toolbar.mode_patterns_aria' },
 ] as const;
 
 const LOG_QUERY_MODES: Array<{ id: LogQueryMode; labelKey: string }> = [
@@ -636,7 +666,7 @@ export function Logs() {
   // `?sql=<statement>` seeds the raw-SQL editor (used by Saved Views "Open" for
   // SQL-language views, which can't round-trip through the `?q=` field DSL).
   const requestedSql = searchParams.get('sql')?.trim() ?? '';
-  const [mode, setMode] = React.useState<'search' | 'chart' | 'patterns'>('search');
+  const [mode, setMode] = React.useState<'search' | 'patterns'>('search');
   const [queryMode, setQueryMode] = React.useState<LogQueryMode>(requestedSql ? 'sql' : 'fields');
   const [stream, setStream] = React.useState(requestedStream);
   const [query, setQuery] = React.useState(() =>
@@ -781,7 +811,6 @@ export function Logs() {
       setResultPage(1);
       setLastExecutedQueryKey(queryKey);
       setFunctionPanelOpen(false);
-      setQueryEditorCollapsed(true);
     } catch (err) {
       setQueryError(err);
     } finally {
@@ -925,9 +954,28 @@ export function Logs() {
     [setTimeWindow],
   );
 
-  const selectedStreamFields = React.useMemo(
-    () => streams.find((candidate) => candidate.name === stream)?.schema.fields ?? [],
+  const selectedStream = React.useMemo(
+    () => streams.find((candidate) => candidate.name === stream && candidate.stream_type === 'logs'),
     [stream, streams],
+  );
+  const selectedStreamFields = React.useMemo(
+    () => selectedStream?.schema.fields ?? [],
+    [selectedStream],
+  );
+  const fieldMaskingQuery = useQuery({
+    queryKey: ['field-masking-effective', selectedStream?.id],
+    queryFn: () => fieldMaskingApi.effectiveForStream(selectedStream?.id ?? ''),
+    enabled: Boolean(selectedStream?.id),
+  });
+  const maskedFields = React.useMemo(
+    () => fieldMaskingQuery.data
+      ? new Set(
+          fieldMaskingQuery.data.fields
+            .filter((field) => field.masked)
+            .map((field) => field.field.toLowerCase()),
+        )
+      : null,
+    [fieldMaskingQuery.data],
   );
   const fields = React.useMemo(
     () => deriveLogFields(selectedStreamFields, queryResult),
@@ -956,7 +1004,12 @@ export function Logs() {
     )),
     [filteredFields, visibleLogFields],
   );
-  const completionItems = React.useMemo(() => logQueryCompletions(fields, rows), [fields, rows]);
+  // SQL 检索函数（MATCH / MATCH_TEXT）由后端能力接口驱动；Fields 与 SQL 模式都注入。
+  const sqlFunctions = useSqlFunctionCompletions();
+  const completionItems = React.useMemo(
+    () => [...sqlFunctions, ...logQueryCompletions(fields, rows, maskedFields)],
+    [sqlFunctions, fields, maskedFields, rows],
+  );
 
   React.useEffect(() => {
     const names = fields.map((field) => field.name);
@@ -1169,22 +1222,30 @@ export function Logs() {
         toolbar={
           <>
             <QueryToolbarGroup>
-              {MODE_OPTIONS.map(({ id, icon: Icon, ariaKey }) => (
-                <QueryToolbarButton
-                  key={id}
-                  active={mode === id}
-                  tone="blue"
-                  onClick={() => setMode(id)}
-                  className="w-9 px-0"
-                  aria-label={t(ariaKey)}
-                >
-                  <Icon className="h-4 w-4" />
-                </QueryToolbarButton>
-              ))}
+              <QueryToolbarButton
+                active={mode === MODE_OPTIONS[0].id}
+                tone="blue"
+                onClick={() => setMode(MODE_OPTIONS[0].id)}
+                className="w-9 px-0"
+                aria-label={t(MODE_OPTIONS[0].ariaKey)}
+              >
+                <Search aria-hidden="true" className="h-4 w-4" />
+              </QueryToolbarButton>
+              <HistogramToggle
+                visible={showHistogram}
+                label={t('explore.toolbar.histogram')}
+                onVisibleChange={setShowHistogram}
+              />
+              <QueryToolbarButton
+                active={mode === MODE_OPTIONS[1].id}
+                tone="blue"
+                onClick={() => setMode(MODE_OPTIONS[1].id)}
+                className="w-9 px-0"
+                aria-label={t(MODE_OPTIONS[1].ariaKey)}
+              >
+                <SlidersHorizontal aria-hidden="true" className="h-4 w-4" />
+              </QueryToolbarButton>
             </QueryToolbarGroup>
-            <QueryToolbarButton active={showHistogram} onClick={() => setShowHistogram(!showHistogram)} tone="blue">
-              {t('explore.toolbar.histogram')}
-            </QueryToolbarButton>
             <QueryToolbarGroup aria-label={t('explore.toolbar.query_mode_aria')}>
               {LOG_QUERY_MODES.map((item) => (
                 <QueryToolbarButton
@@ -1320,11 +1381,9 @@ export function Logs() {
           collapseLabel={t('explore.toolbar.collapse_editor')}
           expandLabel={t('explore.toolbar.expand_editor')}
           summary={activeQueryText || t('explore.toolbar.empty_query_summary')}
-          {...(queryMode === 'fields' ? { completionItems } : {})}
+          completionItems={queryMode === 'fields' ? completionItems : sqlFunctions}
           minHeight={queryMode === 'sql' ? 240 : 180}
           maxHeight={queryMode === 'sql' ? 420 : 320}
-          fontSize={13}
-          lineHeight={20}
           lineNumbers
           resizable
         />

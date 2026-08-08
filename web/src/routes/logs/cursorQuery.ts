@@ -46,6 +46,9 @@ function firstPageRequest(
   pageSize: number,
 ): Parameters<typeof webApi.logs>[0] {
   const parsed = parseLogFieldStatement(statement);
+  if (parsed.rejected.length > 0) {
+    throw new Error(`Invalid Fields query: ${parsed.rejected.join(', ')}`);
+  }
   const filters: webApi.LogListFilter[] = parsed.filters.map((filter) => ({
     field: filter.field,
     op: filter.op,

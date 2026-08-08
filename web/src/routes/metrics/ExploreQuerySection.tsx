@@ -241,7 +241,7 @@ export function ExploreQuerySection({
             onClick={() => onCollapsedChange(false)}
             className="flex min-h-12 w-full min-w-0 items-center gap-3 px-3 text-left hover:bg-bg-2 focus-visible:bg-bg-2"
           >
-            <code className="min-w-0 flex-1 truncate font-mono text-xs text-tx-2">
+            <code className="min-w-0 flex-1 truncate font-code text-[14px] font-medium text-tx-2">
               {promql || t('explore.toolbar.empty_query_summary')}
             </code>
             <span className="shrink-0 font-sans text-xs font-semibold text-blue-soft">
@@ -278,8 +278,8 @@ export function ExploreQuerySection({
                   completionItems={completionItems}
                   minHeight={112}
                   maxHeight={240}
-                  fontSize={13}
-                  lineHeight={20}
+                  fontSize={14}
+                  fontWeight={500}
                   lineNumbers
                   resizable
                   showHeader={false}

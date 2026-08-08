@@ -52,7 +52,6 @@ async fn main() -> anyhow::Result<()> {
             .join(",");
         SelfTelemetryInit {
             queue_capacity: settings.telemetry.self_collect.queue_capacity,
-            logs_enabled: self_telemetry_enabled,
             traces_enabled: trace_capture_enabled,
             resource: ResourceIdentity::new(
                 "molesignal",

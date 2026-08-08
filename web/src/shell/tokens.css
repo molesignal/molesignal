@@ -167,6 +167,7 @@
   --font-sans: var(--font-alibaba-puhuiti);
   --font-sidebar: var(--font-alibaba-puhuiti);
   --font-mono: var(--font-alibaba-puhuiti);
+  --font-code: 'JetBrains Mono', 'SFMono-Regular', 'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
 
   /* motion tokens — no bounce (Confident quiet) */
   --duration-instant:  80ms;
@@ -290,11 +291,11 @@ textarea::placeholder,
 .monaco-editor .editorPlaceholder,
 .monaco-editor .monaco-mouse-cursor-text,
 .monaco-editor textarea.inputarea {
-  font-family: var(--font-mono) !important;
+  font-family: var(--font-code) !important;
   font-feature-settings: 'liga' 1, 'calt' 1 !important;
   font-kerning: normal;
   font-variant-ligatures: common-ligatures contextual !important;
-  font-weight: 600 !important;
+  font-weight: var(--code-editor-font-weight, 600) !important;
   letter-spacing: 0 !important;
 }
 

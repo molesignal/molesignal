@@ -55,10 +55,12 @@ describe('CollapsibleSidePanel', () => {
     render(<UtilityPanelHarness />);
 
     const panel = screen.getByText('Fields').closest('aside');
+    const sectionItems = screen.getByText('level').parentElement;
     expect(panel?.getAttribute('data-variant')).toBe('utility');
     expect(panel?.className).toContain('w-[240px]');
     expect(screen.getByText('Common fields')).not.toBeNull();
     expect(screen.getByText('2')).not.toBeNull();
+    expect(sectionItems?.className).toContain('[&>*:last-child]:border-b-0');
   });
 
   it('collapses to a narrow rail and can be expanded again', () => {

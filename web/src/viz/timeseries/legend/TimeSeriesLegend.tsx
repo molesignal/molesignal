@@ -3,21 +3,18 @@ import * as React from 'react';
 import { cn } from '@/shell/lib/cn';
 
 import { calculateTimeSeriesStats } from '../data';
-import { formatTimeSeriesValue } from '../formatters';
 import type {
   TimeSeriesChartOptions,
   TimeSeriesLegendStat,
-  TimeSeriesSeries,
-  TimeSeriesStats,
 } from '../types';
 import { LegendViewport } from './LegendViewport';
-
-export interface TimeSeriesLegendSeries extends TimeSeriesSeries {
-  id: string;
-  color: string;
-}
-
-export type TimeSeriesLegendSelectionMode = 'isolate' | 'append';
+import type {
+  LegendRow,
+  TimeSeriesLegendSelectionMode,
+  TimeSeriesLegendSeries,
+} from './model';
+import type { SeriesIdentityConfig } from './SeriesIdentifier';
+import { TimeSeriesLegendTable } from './TimeSeriesLegendTable';
 
 interface TimeSeriesLegendProps {
   series: ReadonlyArray<TimeSeriesLegendSeries>;
@@ -27,37 +24,13 @@ interface TimeSeriesLegendProps {
   density: 'default' | 'compact';
   hiddenIds: ReadonlySet<string>;
   focusedSeriesId: string | null;
+  seriesIdentity?: SeriesIdentityConfig;
   onSelect: (
     id: string,
     mode: TimeSeriesLegendSelectionMode,
   ) => void;
   onFocusSeries: (id: string | null) => void;
 }
-
-interface LegendRow {
-  series: TimeSeriesLegendSeries;
-  stats: TimeSeriesStats;
-}
-
-type SortColumn = 'name' | TimeSeriesLegendStat;
-
-interface SortState {
-  column: SortColumn;
-  descending: boolean;
-}
-
-const naturalCompare = new Intl.Collator(undefined, {
-  numeric: true,
-  sensitivity: 'base',
-}).compare;
-
-const STAT_TITLES: Record<TimeSeriesLegendStat, string> = {
-  last: 'Last',
-  min: 'Min',
-  max: 'Max',
-  mean: 'Mean',
-  sum: 'Total',
-};
 
 /**
  * Grafana-compatible legend.
@@ -74,24 +47,16 @@ export function TimeSeriesLegend({
   density,
   hiddenIds,
   focusedSeriesId,
+  seriesIdentity,
   onSelect,
   onFocusSeries,
 }: TimeSeriesLegendProps) {
-  const [sort, setSort] = React.useState<SortState | null>(null);
-  const resolvedSort =
-    sort && sort.column !== 'name' && !stats.includes(sort.column)
-      ? null
-      : sort;
   const rows = React.useMemo(
-    () =>
-      sortLegendRows(
-        series.map((item) => ({
-          series: item,
-          stats: calculateTimeSeriesStats(item.data),
-        })),
-        resolvedSort,
-      ),
-    [resolvedSort, series],
+    () => series.map((item) => ({
+      series: item,
+      stats: calculateTimeSeriesStats(item.data),
+    })),
+    [series],
   );
 
   if (mode === 'list') {
@@ -110,89 +75,21 @@ export function TimeSeriesLegend({
   }
 
   return (
-    <LegendViewport mode="table" placement={placement}>
-      <table
-        aria-label="Series legend"
-        className={cn(
-          'grid w-full whitespace-nowrap text-right font-sans text-xs text-tx-2',
-          density === 'compact' && 'type-micro',
-        )}
-        data-testid="time-series-legend-table"
-        style={{ gridTemplateColumns: legendColumns(stats) }}
-      >
-        <thead
-          className="sticky top-0 z-10 grid bg-bg-1 text-tx-1"
-          style={subgridStyle}
-        >
-          <tr className="grid border-b border-bd-0" style={subgridStyle}>
-            <th className={legendCellClass(density, 'icon')}>
-              <span className="sr-only">Series color</span>
-            </th>
-            <SortableHeader
-              label="Name"
-              column="name"
-              sort={resolvedSort}
-              density={density}
-              onSort={setSort}
-            />
-            {stats.map((stat) => (
-              <SortableHeader
-                key={stat}
-                label={STAT_TITLES[stat]}
-                column={stat}
-                sort={resolvedSort}
-                density={density}
-                align="right"
-                onSort={setSort}
-              />
-            ))}
-          </tr>
-        </thead>
-        <tbody className="grid" style={subgridStyle}>
-          {rows.map(({ series: item, stats: itemStats }) => {
-            const hidden = hiddenIds.has(item.id);
-            const dimmed = Boolean(
-              focusedSeriesId && focusedSeriesId !== item.id,
-            );
-            return (
-              <tr
-                key={item.id}
-                className={cn(
-                  'grid border-b border-bd-0 transition-colors last:border-b-0 hover:bg-bg-2',
-                  dimmed && 'opacity-35',
-                )}
-                style={subgridStyle}
-                onMouseEnter={() => onFocusSeries(item.id)}
-                onMouseLeave={() => onFocusSeries(null)}
-              >
-                <td className={legendCellClass(density, 'icon')}>
-                  <SeriesIcon color={item.color} />
-                </td>
-                <td className={legendCellClass(density, 'name')}>
-                  <LegendLabel
-                    item={item}
-                    hidden={hidden}
-                    wrap
-                    onSelect={onSelect}
-                    onFocusSeries={onFocusSeries}
-                  />
-                </td>
-                {stats.map((stat) => (
-                  <td
-                    key={stat}
-                    className={cn(
-                      legendCellClass(density, 'stat'),
-                      'tabular-nums',
-                    )}
-                  >
-                    {formatLegendStat(itemStats, stat, item.unit)}
-                  </td>
-                ))}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+    <LegendViewport
+      mode="table"
+      placement={placement}
+      seriesIdentity={Boolean(seriesIdentity)}
+    >
+      <TimeSeriesLegendTable
+        series={series}
+        stats={stats}
+        density={density}
+        hiddenIds={hiddenIds}
+        focusedSeriesId={focusedSeriesId}
+        {...(seriesIdentity ? { seriesIdentity } : {})}
+        onSelect={onSelect}
+        onFocusSeries={onFocusSeries}
+      />
     </LegendViewport>
   );
 }
@@ -357,107 +254,4 @@ function SeriesIcon({ color }: { color: string }) {
       style={{ background: color }}
     />
   );
-}
-
-function SortableHeader({
-  label,
-  column,
-  sort,
-  density,
-  align = 'left',
-  onSort,
-}: {
-  label: string;
-  column: SortColumn;
-  sort: SortState | null;
-  density: TimeSeriesLegendProps['density'];
-  align?: 'left' | 'right';
-  onSort: React.Dispatch<React.SetStateAction<SortState | null>>;
-}) {
-  const active = sort?.column === column;
-  return (
-    <th
-      className={legendCellClass(
-        density,
-        align === 'right' ? 'stat' : 'name',
-      )}
-      aria-sort={
-        active ? (sort.descending ? 'descending' : 'ascending') : 'none'
-      }
-    >
-      <button
-        type="button"
-        className={cn(
-          'flex w-full items-center gap-0.5 bg-transparent p-0 font-medium text-tx-1',
-          align === 'right' ? 'justify-end text-right' : 'text-left',
-          'focus-visible:bg-bg-2 focus-visible:text-tx-0',
-        )}
-        onClick={() =>
-          onSort((current) =>
-            current?.column === column
-              ? { column, descending: !current.descending }
-              : { column, descending: false },
-          )
-        }
-      >
-        {label}
-        {active && <span aria-hidden>{sort.descending ? '▾' : '▴'}</span>}
-      </button>
-    </th>
-  );
-}
-
-function sortLegendRows(
-  rows: LegendRow[],
-  sort: SortState | null,
-): LegendRow[] {
-  if (!sort) return rows;
-  const direction = sort.descending ? -1 : 1;
-  return rows.sort((left, right) => {
-    if (sort.column === 'name') {
-      return direction * naturalCompare(left.series.name, right.series.name);
-    }
-    const leftValue = left.stats[sort.column];
-    const rightValue = right.stats[sort.column];
-    if (leftValue === null) return rightValue === null ? 0 : 1;
-    if (rightValue === null) return -1;
-    return direction * (leftValue - rightValue);
-  });
-}
-
-function legendColumns(
-  stats: ReadonlyArray<TimeSeriesLegendStat>,
-): string {
-  return `min-content minmax(55px, auto) ${'min-content '.repeat(stats.length)}`.trim();
-}
-
-const subgridStyle: React.CSSProperties = {
-  gridColumn: '1 / -1',
-  gridTemplateColumns: 'subgrid',
-};
-
-function legendCellClass(
-  density: TimeSeriesLegendProps['density'],
-  kind: 'icon' | 'name' | 'stat',
-): string {
-  return cn(
-    'px-2',
-    density === 'compact' ? 'py-0' : 'py-0.5',
-    kind === 'icon' && 'flex self-stretch items-center pl-2',
-    kind === 'name' &&
-      'block min-w-0 content-center whitespace-normal text-left',
-    kind === 'stat' &&
-      'block content-center whitespace-nowrap text-right',
-  );
-}
-
-function formatLegendStat(
-  stats: TimeSeriesStats,
-  stat: TimeSeriesLegendStat,
-  unit: string | undefined,
-): string {
-  const value = stats[stat];
-  return typeof value === 'number'
-    ? formatTimeSeriesValue(value, unit)
-    : '—';
 }

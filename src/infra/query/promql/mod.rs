@@ -172,6 +172,65 @@ fn collect_metric_names(expr: &Expr, out: &mut std::collections::BTreeSet<String
     }
 }
 
+pub(crate) fn referenced_metric_names(
+    statement: &str,
+) -> Result<std::collections::BTreeSet<String>> {
+    let expression = parser::parse(statement)
+        .map_err(|error| Error::invalid(format!("promql parse: {error}")))?;
+    let mut names = std::collections::BTreeSet::new();
+    collect_metric_names(&expression, &mut names);
+    Ok(names)
+}
+
+fn collect_derived_label_dependencies(
+    expression: &Expr,
+    output: &mut Vec<(String, Vec<String>)>,
+) -> Result<()> {
+    match expression {
+        Expr::Paren(paren) => collect_derived_label_dependencies(&paren.expr, output)?,
+        Expr::Unary(unary) => collect_derived_label_dependencies(&unary.expr, output)?,
+        Expr::Binary(binary) => {
+            collect_derived_label_dependencies(&binary.lhs, output)?;
+            collect_derived_label_dependencies(&binary.rhs, output)?;
+        }
+        Expr::Aggregate(aggregate) => {
+            collect_derived_label_dependencies(&aggregate.expr, output)?;
+            if let Some(parameter) = &aggregate.param {
+                collect_derived_label_dependencies(parameter, output)?;
+            }
+        }
+        Expr::Subquery(subquery) => {
+            collect_derived_label_dependencies(&subquery.expr, output)?;
+        }
+        Expr::Call(call) => {
+            match call.func.name {
+                "label_replace" => {
+                    let args = label_replace_args(&call.args)?;
+                    output.push((args.dst_label, vec![args.src_label]));
+                }
+                "label_join" => {
+                    let args = label_join_args(&call.args)?;
+                    output.push((args.dst_label, args.src_labels));
+                }
+                _ => {}
+            }
+            for argument in &call.args.args {
+                collect_derived_label_dependencies(argument, output)?;
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+pub(crate) fn derived_label_dependencies(statement: &str) -> Result<Vec<(String, Vec<String>)>> {
+    let expression = parser::parse(statement)
+        .map_err(|error| Error::invalid(format!("promql parse: {error}")))?;
+    let mut dependencies = Vec::new();
+    collect_derived_label_dependencies(&expression, &mut dependencies)?;
+    Ok(dependencies)
+}
+
 pub struct PromQLEngine {
     files: Arc<dyn ParquetFileMetaRepository>,
     object_store: Arc<dyn ObjectStore>,

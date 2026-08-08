@@ -14,14 +14,14 @@ use crate::{
         masking::Masker,
         query::{QueryRequest, QueryResult, StreamHint},
         storage::PhysicalDatasetKind,
-        stream::StreamType as StreamTypeEnum,
+        stream::{StreamRepository, StreamType as StreamTypeEnum},
     },
     infra::{
         query::{
             parquet_table::PrunedParquetTable,
             parser::{extract_equality_predicates, extract_referenced_tables, parse_sample_hint},
             planner::ensure_stream_in_org,
-            tantivy_pruner::{MatchPredicate, extract_match_predicates},
+            tantivy_pruner::{MatchPredicate, extract_match_predicates, match_text_fields},
             udfs::{build_extract_pattern_udf, build_mask_udf, compile_patterns},
         },
         storage::parquet::reader::ParquetReader,
@@ -44,6 +44,14 @@ pub(super) async fn run(
     }
 
     let (sample_cap, statement) = parse_sample_hint(&req.statement);
+    validate_match_text_fields(
+        engine.streams.as_deref(),
+        &req,
+        &name,
+        stream_type,
+        &statement,
+    )
+    .await?;
     let (mut predicates, rewritten_sql) = extract_match_predicates(&statement);
     add_exact_predicates(
         engine,
@@ -179,6 +187,45 @@ pub(super) async fn run(
         took_ms: started.elapsed().as_millis() as u64,
         federation: None,
     })
+}
+
+/// 校验 SQL 中所有 `MATCH_TEXT(field, ...)` 调用的字段前提（设计 D2/D3、spec
+/// text-match-functions）：字段必须存在且配置了 full_text 索引（`indexed && !exact`），
+/// 否则查询失败并指明该字段未配置全文索引。
+///
+/// 校验落在 schema 上下文层（本函数由 `run` / `explain` 在 rewrite 前调用）；`streams` 为
+/// None（引擎未注入 stream repo）时跳过——与既有无 schema 上下文的行为一致。
+pub(super) async fn validate_match_text_fields(
+    streams: Option<&dyn StreamRepository>,
+    req: &QueryRequest,
+    stream: &str,
+    stream_type: StreamTypeEnum,
+    sql: &str,
+) -> Result<()> {
+    let fields = match_text_fields(sql);
+    if fields.is_empty() {
+        return Ok(());
+    }
+    let Some(streams) = streams else {
+        return Ok(());
+    };
+    let Ok(definition) = streams.get(&req.org_id, stream, stream_type).await else {
+        return Ok(());
+    };
+    for field in fields {
+        let configured = definition
+            .schema
+            .fields
+            .iter()
+            .any(|def| def.name == field && def.indexed && !def.exact);
+        if !configured {
+            return Err(Error::invalid(format!(
+                "MATCH_TEXT: field `{field}` has no full-text index configured; \
+                 configure `index_type = full_text` on a string field to enable full-text search"
+            )));
+        }
+    }
+    Ok(())
 }
 
 async fn add_exact_predicates(

@@ -292,6 +292,33 @@ mod tests {
         assert!(TantivyArchiveBuilder::try_new(&s).unwrap().is_none());
     }
 
+    /// 存量 json 全文索引不受影响：builder 仍为 `indexed=true && Json` 字段建 TEXT 索引
+    /// （spec stream-index-config「存量全文索引兼容」——新配置已由 API 层 400 拦下，写侧
+    /// 保持 `Utf8 | Json` 原状，json full_text 检索与裁剪行为不变）。
+    #[tokio::test]
+    async fn json_full_text_field_still_builds_text_index() {
+        use object_store::{ObjectStoreExt, memory::InMemory, path::Path as ObjectPath};
+
+        let mut s = stream_with_indexed_message();
+        s.schema.fields[1].data_type = FieldType::Json; // message: indexed=true + Json
+        let mut b = TantivyArchiveBuilder::try_new(&s)
+            .unwrap()
+            .expect("json full_text 仍应建 TEXT 索引");
+        let mut v = HashMap::new();
+        v.insert("message", r#"{"error": "panic at line 1"}"#);
+        b.add_doc(&v).unwrap();
+        let bytes = b.commit_and_archive().unwrap();
+
+        let store: Arc<dyn ObjectStore> = Arc::new(InMemory::new());
+        let path = ObjectPath::from("json.ttv");
+        store.put(&path, bytes.clone().into()).await.expect("put");
+        let size = bytes.len() as u64;
+        let handle = TantivyArchiveOpener::open_from_object_store(store, path, size)
+            .await
+            .expect("open");
+        assert_eq!(handle.count_term("message", "panic").unwrap(), 1);
+    }
+
     #[tokio::test]
     async fn build_and_count_via_puffin_round_trip() {
         use object_store::{ObjectStoreExt, memory::InMemory, path::Path as ObjectPath};

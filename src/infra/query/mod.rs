@@ -19,6 +19,7 @@ pub mod parser;
 pub mod planner;
 pub mod promql;
 pub mod rewrite;
+pub mod sql_functions;
 pub mod tantivy_pruner;
 pub mod udafs;
 pub mod udfs;

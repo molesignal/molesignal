@@ -194,9 +194,6 @@ impl LoggerBuilder {
                     let self_trace_layer = subscriber_self_telemetry
                         .clone()
                         .map(|hub| SelfTelemetryLayer::traces(hub).with_filter(span_filter()));
-                    let self_log_layer = subscriber_self_telemetry
-                        .clone()
-                        .map(|hub| SelfTelemetryLayer::logs_filtered(hub, log_filter()));
                     install_global_subscriber(
                         tracing_subscriber::registry()
                             .with(SqlxPoolAcquireMetricsLayer.with_filter(
@@ -205,7 +202,6 @@ impl LoggerBuilder {
                                 }),
                             ))
                             .with(self_trace_layer)
-                            .with(self_log_layer)
                             .with(
                                 fmt::layer()
                                     .with_writer(writer)
@@ -223,9 +219,6 @@ impl LoggerBuilder {
                     let self_trace_layer = subscriber_self_telemetry
                         .clone()
                         .map(|hub| SelfTelemetryLayer::traces(hub).with_filter(span_filter()));
-                    let self_log_layer = subscriber_self_telemetry
-                        .clone()
-                        .map(|hub| SelfTelemetryLayer::logs_filtered(hub, log_filter()));
                     install_global_subscriber(
                         tracing_subscriber::registry()
                             .with(SqlxPoolAcquireMetricsLayer.with_filter(
@@ -234,7 +227,6 @@ impl LoggerBuilder {
                                 }),
                             ))
                             .with(self_trace_layer)
-                            .with(self_log_layer)
                             .with(
                                 fmt::layer()
                                     .json()

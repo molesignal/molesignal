@@ -477,4 +477,60 @@ mod tests {
 
         assert_eq!(batches.iter().map(RecordBatch::num_rows).sum::<usize>(), 1);
     }
+
+    #[tokio::test]
+    async fn list_sql_match_filter_excludes_non_matching_log_levels() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new(
+                "_timestamp",
+                DataType::Timestamp(TimeUnit::Microsecond, Some("UTC".into())),
+                false,
+            ),
+            Field::new(EVENT_ID_FIELD, DataType::Utf8, false),
+            Field::new("level", DataType::Utf8, false),
+        ]));
+        let batch = RecordBatch::try_new(
+            Arc::clone(&schema),
+            vec![
+                Arc::new(
+                    TimestampMicrosecondArray::from(vec![150_i64, 160_i64]).with_timezone("UTC"),
+                ),
+                Arc::new(StringArray::from(vec!["event-1", "event-2"])),
+                Arc::new(StringArray::from(vec!["INFO", "ERROR"])),
+            ],
+        )
+        .expect("record batch");
+        let table = MemTable::try_new(schema, vec![vec![batch]]).expect("mem table");
+        let session = SessionContext::new();
+        session
+            .register_table("app_logs", Arc::new(table))
+            .expect("register table");
+
+        let mut context = context();
+        context.filters = vec![LogFilter {
+            field: "level".into(),
+            op: "match".into(),
+            value: "info".into(),
+            quoted: true,
+        }];
+        context.free_text.clear();
+        let fields = [crate::domain::stream::FieldDef {
+            name: "level".into(),
+            data_type: crate::domain::stream::FieldType::Utf8,
+            nullable: false,
+            indexed: false,
+            encrypted: false,
+            exact: false,
+        }];
+        let sql = list_sql(&context, 21, &fields).expect("sql");
+        let batches = session
+            .sql(&sql)
+            .await
+            .expect("MATCH filter should plan")
+            .collect()
+            .await
+            .expect("MATCH filter should execute");
+
+        assert_eq!(batches.iter().map(RecordBatch::num_rows).sum::<usize>(), 1);
+    }
 }

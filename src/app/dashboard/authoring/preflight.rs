@@ -114,7 +114,7 @@ impl RuntimeDashboardQueryPreflight {
             if request.language == QueryLanguage::Sql {
                 self.query.explain(request.clone()).await?;
             }
-            self.query.run(request).await
+            self.query.run_raw(request).await
         })
         .await
         .map_err(|_| {

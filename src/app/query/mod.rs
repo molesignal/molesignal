@@ -23,6 +23,7 @@ use serde::Serialize;
 use crate::{
     app::search::AdmissionController,
     domain::{
+        masking::FieldMaskingProvider,
         metrics::PrometheusExemplarQueryResult,
         query::{
             PromqlEngine, QueryEngine, QueryLanguage, QueryRequest, QueryResult,
@@ -132,6 +133,7 @@ pub struct QueryService {
     /// 整结果级缓存；只在 [`Self::run_tracked`] 生效——缓存键含角色，而只有那条路径
     /// 拿得到 `Role`。未注入时全部直通。
     result_cache: Option<Arc<dyn QueryResultCachePort>>,
+    field_masking: Option<Arc<dyn FieldMaskingProvider>>,
 }
 
 impl QueryService {
@@ -146,6 +148,7 @@ impl QueryService {
             registry: Arc::new(QueryRegistry::new()),
             admission,
             result_cache: None,
+            field_masking: None,
         }
     }
 
@@ -153,6 +156,11 @@ impl QueryService {
     /// 所以不会让实时面板读到陈旧数据。
     pub fn with_result_cache(mut self, cache: Arc<dyn QueryResultCachePort>) -> Self {
         self.result_cache = Some(cache);
+        self
+    }
+
+    pub fn with_field_masking(mut self, masking: Arc<dyn FieldMaskingProvider>) -> Self {
+        self.field_masking = Some(masking);
         self
     }
 
@@ -166,6 +174,13 @@ impl QueryService {
     }
 
     pub async fn run(&self, req: QueryRequest) -> Result<QueryResult> {
+        let mut result = self.run_raw(req.clone()).await?;
+        self.mask_result(&req, &mut result).await?;
+        Ok(result)
+    }
+
+    /// 可信内部计算入口：返回原始值。仅供需要继续聚合或派生数据的 worker 使用。
+    pub(crate) async fn run_raw(&self, req: QueryRequest) -> Result<QueryResult> {
         match req.language {
             QueryLanguage::Sql => self.sql.execute(req).await,
             QueryLanguage::Promql => self.promql.execute(req).await,
@@ -183,7 +198,9 @@ impl QueryService {
                 "physical dataset selection is only available for SQL",
             ));
         }
-        self.sql.execute_dataset(req, dataset_kind).await
+        let mut result = self.sql.execute_dataset(req.clone(), dataset_kind).await?;
+        self.mask_result(&req, &mut result).await?;
+        Ok(result)
     }
 
     /// Prometheus `query_exemplars` 使用同一查询准入池，但不进入整结果缓存。
@@ -200,7 +217,11 @@ impl QueryService {
                 "search admission: too many concurrent queries for your work group; retry shortly",
             )
         })?;
-        self.promql.query_exemplars(req).await
+        let mut result = self.promql.query_exemplars(req.clone()).await?;
+        if let Some(masking) = &self.field_masking {
+            masking.mask_exemplars(&req, &mut result).await?;
+        }
+        Ok(result)
     }
 
     /// 规划并返回优化后逻辑计划文本（search inspector 用，不执行）。仅 SQL 支持。
@@ -271,18 +292,23 @@ impl QueryService {
         };
 
         let Some(cache) = self.result_cache.clone() else {
-            return self.run_cancellable(req, &cancel, fed_id).await;
+            let mut result = self.run_cancellable(req.clone(), &cancel, fed_id).await?;
+            self.mask_result(&req, &mut result).await?;
+            return Ok(result);
         };
         // 角色进缓存键：不同角色可见的数据范围不同，不能共用一份结果。
         // 时间窗未封闭时 get/put 都是 no-op，实时查询照常直通。
         let role_filter = role_key.to_string();
         let now = TimestampMicros::now().0;
-        if let Some(hit) = cache.get(&req, &role_filter, now).await {
+        if let Some(mut hit) = cache.get(&req, &role_filter, now).await {
+            self.mask_result(&req, &mut hit).await?;
             return Ok(hit);
         }
-        let res = self.run_cancellable(req.clone(), &cancel, fed_id).await?;
-        cache.put(&req, &role_filter, now, res.clone()).await;
-        Ok(res)
+        let raw = self.run_cancellable(req.clone(), &cancel, fed_id).await?;
+        cache.put(&req, &role_filter, now, raw.clone()).await;
+        let mut result = raw;
+        self.mask_result(&req, &mut result).await?;
+        Ok(result)
     }
 
     /// 按 language 派发，SQL 路径带上 `fed_id`（联邦引擎据此让远端子查询可被 CancelQuery 取消）。
@@ -316,6 +342,13 @@ impl QueryService {
                 }
             }
         }
+    }
+
+    async fn mask_result(&self, req: &QueryRequest, result: &mut QueryResult) -> Result<()> {
+        if let Some(masking) = &self.field_masking {
+            masking.mask_result(req, result).await?;
+        }
+        Ok(())
     }
 }
 

@@ -183,7 +183,7 @@ impl ServiceGraphRecomputer {
             limit: Some(self.cfg.max_rows),
             federation_clusters: Vec::new(),
         };
-        let result = self.query.run(req).await?;
+        let result = self.query.run_raw(req).await?;
         for row in &result.rows {
             if row.len() < 9 {
                 continue;

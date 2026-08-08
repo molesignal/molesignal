@@ -81,14 +81,12 @@ log_output = "console"
 # 文件日志最多保留的轮转文件数。
 # log_max_files = 7
 
-# Logs、Metrics、Traces 和 Profiles 由 Self Telemetry 总开关管理。
+# Metrics、Traces 和 Profiles 由 Self Telemetry 总开关管理。
 [telemetry.self_collect]
 # 服务自身遥测总开关；Trace 还要求 telemetry.trace.enabled 有效。
 enabled = true
 # 自遥测数据的通用保留天数，范围 1..3650。
 retention_days = 7
-# 自回灌日志的保留天数，范围 1..3650。
-logs_retention_days = 7
 # 自回灌指标的保留天数，范围 1..3650。
 metrics_retention_days = 7
 # 自回灌 Trace 的保留天数，范围 1..3650。

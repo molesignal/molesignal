@@ -234,7 +234,6 @@ async fn default_trace_capture_stays_within_cpu_and_p95_budgets() {
     let baseline = Dispatch::new(tracing::subscriber::NoSubscriber::default());
     let hub = SelfTelemetryHub::new(SelfTelemetryInit {
         queue_capacity: samples.saturating_mul(32),
-        logs_enabled: false,
         traces_enabled: true,
         resource: ResourceIdentity::new(
             "molesignal",

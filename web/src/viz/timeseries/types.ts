@@ -12,6 +12,8 @@ export type TimeSeriesScale = 'linear' | 'log2' | 'log10' | 'symlog';
 export interface TimeSeriesSeries {
   /** Stable identity used for color assignment and legend state. */
   id?: string;
+  /** Metric identifier shown separately from its label set in Explore views. */
+  metricName?: string;
   name: string;
   data: ReadonlyArray<number | null>;
   /**

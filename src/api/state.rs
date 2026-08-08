@@ -43,7 +43,7 @@ use crate::{
         cluster::{ClusterSecretRepository, RemoteClustersRepository},
         connectors::ConnectorRepository,
         ingester::PrometheusSeriesAdmission,
-        masking::MaskingService,
+        masking::{FieldMaskingService, MaskingService},
         notify::EmailSender,
         persistence::repositories::{
             annotations::AnnotationRepository,
@@ -208,6 +208,8 @@ pub struct StorageState {
     pub pipeline_runs: Arc<dyn PipelineRunRepository>,
     pub regex_patterns: Arc<dyn RegexPatternRepository>,
     pub masking: Arc<MaskingService>,
+    pub field_masking_rules: Arc<dyn crate::domain::masking::FieldMaskingRuleRepository>,
+    pub field_masking: Arc<FieldMaskingService>,
 }
 
 #[derive(Clone)]

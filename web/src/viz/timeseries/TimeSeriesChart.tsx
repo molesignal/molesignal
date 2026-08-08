@@ -7,6 +7,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 
@@ -43,11 +44,12 @@ import {
   formatTimeSeriesTimestamp,
   formatTimeSeriesValue,
 } from './formatters';
-import {
-  TimeSeriesLegend,
-  type TimeSeriesLegendSelectionMode,
-  type TimeSeriesLegendSeries,
-} from './legend/TimeSeriesLegend';
+import type {
+  TimeSeriesLegendSelectionMode,
+  TimeSeriesLegendSeries,
+} from './legend/model';
+import type { SeriesIdentityConfig } from './legend/SeriesIdentifier';
+import { TimeSeriesLegend } from './legend/TimeSeriesLegend';
 import { useThemePalette } from './themeAdapter';
 import {
   DEFAULT_TIME_SERIES_OPTIONS,
@@ -73,6 +75,7 @@ interface TooltipItem {
 interface TooltipState {
   timestamp: number;
   inputTimestamp: number;
+  /** Cursor position in viewport coordinates. */
   left: number;
   top: number;
   items: TooltipItem[];
@@ -89,6 +92,8 @@ export interface TimeSeriesChartProps {
   showLegend?: boolean;
   /** Keeps dense embedded charts readable without changing global legend sizing. */
   legendDensity?: 'default' | 'compact';
+  /** Optional compact metric-name + expandable-label identity for Explore. */
+  seriesIdentity?: SeriesIdentityConfig;
   loading?: boolean;
   error?: Error | null;
   loadingLabel?: string;
@@ -126,6 +131,7 @@ export const TimeSeriesChart = React.memo(function TimeSeriesChart({
   options: optionsInput,
   showLegend,
   legendDensity = 'default',
+  seriesIdentity,
   loading = false,
   error = null,
   loadingLabel = 'Loading chart…',
@@ -389,7 +395,11 @@ export const TimeSeriesChart = React.memo(function TimeSeriesChart({
             setScale: false,
           },
           focus: { prox: 12 },
-          points: { size: 7, width: 2 },
+          points: {
+            show: options.drawStyle !== 'bar',
+            size: 7,
+            width: 2,
+          },
         },
         hooks: {
           setCursor: [
@@ -413,7 +423,6 @@ export const TimeSeriesChart = React.memo(function TimeSeriesChart({
                     preparedRef.current!,
                     resolvedSeriesRef.current,
                     options,
-                    rootRef.current,
                   ),
                 setTooltip,
               );
@@ -571,12 +580,16 @@ export const TimeSeriesChart = React.memo(function TimeSeriesChart({
 
   const legendVisible = options.legendMode !== 'hidden' && resolvedSeries.length > 0;
   const showResolvedLegend = legendVisible && !loading && !error && hasData;
+  const adaptiveSeriesLayout = Boolean(
+    seriesIdentity && options.legendPlacement === 'bottom',
+  );
 
   return (
     <div
       ref={rootRef}
       className={cn(
-        'relative flex min-h-0 min-w-0 flex-col overflow-hidden font-sans text-tx-1',
+        'relative flex min-h-0 min-w-0 flex-col font-sans text-tx-1',
+        adaptiveSeriesLayout ? 'overflow-visible' : 'overflow-hidden',
         className,
       )}
       style={{ height }}
@@ -596,7 +609,8 @@ export const TimeSeriesChart = React.memo(function TimeSeriesChart({
       )}
       <div
         className={cn(
-          'flex min-h-0 min-w-0 flex-1',
+          'flex min-h-0 min-w-0',
+          adaptiveSeriesLayout ? 'flex-none' : 'flex-1',
           showResolvedLegend && options.legendPlacement === 'right'
             ? 'flex-row'
             : 'flex-col',
@@ -618,7 +632,10 @@ export const TimeSeriesChart = React.memo(function TimeSeriesChart({
             aria-label={ariaLabel ?? rangeSelectionAriaLabel ?? title ?? 'Time series chart'}
             tabIndex={0}
             className={cn(
-              'min-h-0 min-w-0 flex-1 overflow-hidden rounded-sm outline-none',
+              'min-w-0 overflow-hidden rounded-sm outline-none',
+              adaptiveSeriesLayout
+                ? 'h-[clamp(320px,42vh,460px)] flex-none'
+                : 'min-h-0 flex-1',
               '[&_.u-wrap]:font-sans [&_.u-over]:cursor-crosshair [&_.u-over.zoom-drag]:!cursor-zoom-in',
             )}
           />
@@ -630,6 +647,7 @@ export const TimeSeriesChart = React.memo(function TimeSeriesChart({
             placement={options.legendPlacement}
             stats={options.legendStats}
             density={legendDensity}
+            {...(seriesIdentity ? { seriesIdentity } : {})}
             hiddenIds={hiddenIds}
             focusedSeriesId={effectiveFocusedSeriesId}
             onFocusSeries={setLegendFocusedSeriesId}
@@ -646,22 +664,25 @@ export const TimeSeriesChart = React.memo(function TimeSeriesChart({
           />
         )}
       </div>
-      {tooltip && (
-        <TimeSeriesTooltip
-          state={tooltip}
-          pinned={pinned}
-          onUnpin={() => {
-            pinnedRef.current = false;
-            setPinned(false);
-            setTooltip(null);
-          }}
-          {...(onSeriesFilter ? { onSeriesFilter } : {})}
-          {...(onOpenLogs ? { onOpenLogs } : {})}
-          {...(onOpenMetrics ? { onOpenMetrics } : {})}
-          {...(onOpenTraces ? { onOpenTraces } : {})}
-          {...(timezone ? { timezone } : {})}
-        />
-      )}
+      {tooltip && typeof document !== 'undefined'
+        ? createPortal(
+            <TimeSeriesTooltip
+              state={tooltip}
+              pinned={pinned}
+              onUnpin={() => {
+                pinnedRef.current = false;
+                setPinned(false);
+                setTooltip(null);
+              }}
+              {...(onSeriesFilter ? { onSeriesFilter } : {})}
+              {...(onOpenLogs ? { onOpenLogs } : {})}
+              {...(onOpenMetrics ? { onOpenMetrics } : {})}
+              {...(onOpenTraces ? { onOpenTraces } : {})}
+              {...(timezone ? { timezone } : {})}
+            />,
+            document.body,
+          )
+        : null}
       <div className="sr-only" aria-live="polite">
         {tooltip
           ? `${formatTimeSeriesTimestamp(tooltip.timestamp, true, timezone)}. ${tooltip.items
@@ -929,7 +950,6 @@ function buildTooltipState(
   prepared: ReturnType<typeof prepareTimeSeriesData>,
   series: ReadonlyArray<ResolvedSeries>,
   options: TimeSeriesChartOptions,
-  root: HTMLDivElement | null,
 ): TooltipState | null {
   const timestamp = Number(prepared.rawData[0]?.[idx]);
   if (!Number.isFinite(timestamp)) return null;
@@ -975,16 +995,12 @@ function buildTooltipState(
   items = items.slice(0, Math.max(1, options.tooltipMaxItems));
   if (items.length === 0) return null;
 
-  const hostLeft = plot.root.offsetLeft;
-  const hostTop = plot.root.offsetTop;
-  const desiredLeft = hostLeft + plot.over.offsetLeft + (plot.cursor.left ?? 0) + 14;
-  const desiredTop = hostTop + plot.over.offsetTop + Math.max(8, (plot.cursor.top ?? 0) - 20);
-  const rootWidth = root?.clientWidth ?? plot.width;
+  const plotBounds = plot.over.getBoundingClientRect();
   return {
     timestamp,
     inputTimestamp: toInputTimestamp(timestamp, prepared.inputTimestampScale),
-    left: Math.max(8, Math.min(desiredLeft, Math.max(8, rootWidth - 294))),
-    top: Math.max(8, desiredTop),
+    left: plotBounds.left + (plot.cursor.left ?? 0),
+    top: plotBounds.top + (plot.cursor.top ?? 0),
     items,
   };
 }
@@ -1020,20 +1036,59 @@ function TimeSeriesTooltip({
   onOpenTraces?: TimeSeriesChartProps['onOpenTraces'];
   timezone?: string;
 }) {
+  const tooltipRef = React.useRef<HTMLDivElement>(null);
+  const [position, setPosition] = React.useState(() => ({
+    left: state.left + 14,
+    top: state.top - 20,
+  }));
   const primary = state.items[0]!;
   const context = contextForTooltip(state, primary);
   const hasActions = Boolean(
     onSeriesFilter || onOpenLogs || onOpenMetrics || onOpenTraces,
   );
+
+  React.useLayoutEffect(() => {
+    const element = tooltipRef.current;
+    if (!element) return;
+
+    const viewportMargin = 8;
+    const cursorGap = 14;
+    const { offsetWidth: width, offsetHeight: height } = element;
+    let left = state.left + cursorGap;
+    let top = state.top - 20;
+
+    if (left + width > window.innerWidth - viewportMargin) {
+      left = state.left - width - cursorGap;
+    }
+    if (top + height > window.innerHeight - viewportMargin) {
+      top = state.top - height - cursorGap;
+    }
+    if (top < viewportMargin) {
+      top = state.top + cursorGap;
+    }
+
+    setPosition({
+      left: Math.max(
+        viewportMargin,
+        Math.min(left, window.innerWidth - width - viewportMargin),
+      ),
+      top: Math.max(
+        viewportMargin,
+        Math.min(top, window.innerHeight - height - viewportMargin),
+      ),
+    });
+  }, [pinned, state]);
+
   return (
     <div
+      ref={tooltipRef}
       role="tooltip"
       data-testid="time-series-tooltip"
       className={cn(
-        'absolute z-30 w-[286px] overflow-hidden rounded-md border border-border bg-surface text-foreground shadow-popup',
+        'fixed z-[70] w-[286px] overflow-hidden rounded-md border border-border bg-surface text-foreground shadow-popup',
         pinned ? 'pointer-events-auto' : 'pointer-events-none',
       )}
-      style={{ left: state.left, top: state.top }}
+      style={position}
     >
       <div className="flex items-center justify-between gap-2 border-b border-bd-0 px-3 py-2">
         <span className="truncate font-sans text-xs font-semibold tabular-nums text-tx-0">

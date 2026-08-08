@@ -260,7 +260,7 @@ export function SidePanelSection({ title, count, children, className }: SidePane
         <span className="min-w-0 flex-1 truncate">{title}</span>
         {count !== undefined ? <span className="font-mono text-xs font-normal">{count}</span> : null}
       </div>
-      <div>{children}</div>
+      <div className="[&>*:last-child]:border-b-0">{children}</div>
     </section>
   );
 }

@@ -138,7 +138,8 @@ impl QueryRuntime {
         ));
         let query_result_cache =
             Arc::new(QueryResultCache::new(settings.cache.query_result.clone()));
-        let mut query_service = QueryService::new(federated_engine, promql_engine, admission);
+        let mut query_service = QueryService::new(federated_engine, promql_engine, admission)
+            .with_field_masking(core.field_masking_service.clone());
         if settings.cache.query_result.capacity > 0 {
             query_service = query_service.with_result_cache(query_result_cache);
         }

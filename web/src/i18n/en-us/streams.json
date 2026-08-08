@@ -113,6 +113,7 @@
   },
   "explore": {
     "subtitle": "Runtime health, query efficiency, storage, and retention",
+    "system_stream_immutable": "System streams only allow field indexing, extraction, and masking configuration. Identity, encryption, retention, and deletion are system-managed.",
     "toolbar": {
       "refresh": "Refresh",
       "query_data": "Query data",
@@ -181,7 +182,7 @@
     },
     "schema": {
       "summary": "{{fields}} fields · {{indexed}} indexed · {{encrypted}} encrypted",
-      "readonly_hint": "Read-only by default. Use the edit action to change indexing and extraction.",
+      "readonly_hint": "Read-only by default. Use the edit action to change indexing, extraction, and masking.",
       "search_placeholder": "Search fields",
       "fts_title": "Full-text search is configured per field",
       "fts_description": "Enable full-text indexing on fields such as message or body to speed up MATCH queries. Existing data is not reindexed automatically.",
@@ -215,11 +216,21 @@
       "edit_field": "Edit field {{name}}",
       "drawer_title": "Edit field · {{name}}",
       "drawer_fallback": "Edit field",
-      "drawer_subtitle": "Configure query indexing and ingest-time extraction without changing the field type.",
+      "drawer_subtitle": "Configure query indexing, ingest-time extraction, and result masking without changing the field type.",
       "cancel": "Cancel",
       "apply": "Apply to draft",
       "no_schema": "This stream has no schema yet. Fields appear after the first datasource write.",
-      "no_match": "No matching fields."
+      "no_match": "No matching fields.",
+      "masking": {
+        "title": "Result field masking",
+        "description": "The backend masks final query results, exports, and API responses. Filtering, sorting, and aggregation still use raw values.",
+        "mode": "Stream-level policy",
+        "modes": { "inherit": "Inherit global rule", "custom": "Custom stream rule", "none": "Explicitly unmasked for stream" },
+        "no_global_rule": "No global rule currently matches",
+        "no_global_rule_hint": "The field is currently unmasked while inheriting. A future matching global rule will apply automatically.",
+        "explicit_none_hint": "This field explicitly bypasses global masking for this stream. Select inherit to restore global behavior.",
+        "metrics_disabled": "Metrics streams do not participate in field masking. Metric values and labels remain unchanged; indexing and extraction stay configurable."
+      }
     },
     "retention": {
       "default_policy": "Default retention",

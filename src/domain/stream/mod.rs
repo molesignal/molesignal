@@ -9,7 +9,10 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
+use crate::{
+    domain::masking::FieldMaskingOverride,
+    shared::{Error, Result, ids::Id, time::TimestampMicros},
+};
 
 /// MoleSignal 自身遥测使用的精确保留流名。仅该名字保留，其他 `_` 前缀不受影响。
 pub const MOLESIGNAL_SYSTEM_STREAM: &str = "_molesignal";
@@ -213,6 +216,9 @@ pub struct StreamSettings {
     /// 默认 `true`（保持既有 stream 可查询）。
     #[serde(default = "default_true")]
     pub queryable: bool,
+    /// 流级字段遮掩覆盖；同字段存在条目时优先于全局规则。
+    #[serde(default)]
+    pub field_masking: Vec<FieldMaskingOverride>,
 }
 
 impl Default for StreamSettings {
@@ -228,6 +234,7 @@ impl Default for StreamSettings {
             store_original_data: false,
             enable_distinct_values: true,
             queryable: true,
+            field_masking: Vec::new(),
         }
     }
 }

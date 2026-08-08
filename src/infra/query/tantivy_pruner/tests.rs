@@ -286,7 +286,11 @@ fn extract_single_match() {
     assert_eq!(preds.len(), 1);
     assert_eq!(preds[0].field, "message");
     assert_eq!(preds[0].term, "panic");
-    assert_eq!(rewritten, "SELECT * FROM logs WHERE message LIKE '%panic%'");
+    // MATCH 语义定稿为 ILIKE（大小写不敏感）。
+    assert_eq!(
+        rewritten,
+        "SELECT * FROM logs WHERE message ILIKE '%panic%'"
+    );
 }
 
 #[test]
@@ -295,8 +299,8 @@ fn extract_multiple_match_predicates() {
         "SELECT * FROM logs WHERE MATCH(message,'fatal') AND MATCH(level,'error')",
     );
     assert_eq!(preds.len(), 2);
-    assert!(rewritten.contains("message LIKE '%fatal%'"));
-    assert!(rewritten.contains("level LIKE '%error%'"));
+    assert!(rewritten.contains("message ILIKE '%fatal%'"));
+    assert!(rewritten.contains("level ILIKE '%error%'"));
 }
 
 #[test]
@@ -307,7 +311,7 @@ fn match_inside_or_is_rewritten_but_never_prunes_files() {
     assert!(preds.is_empty());
     assert_eq!(
         rewritten,
-        "SELECT * FROM logs WHERE message LIKE '%panic%' OR level = 'error'"
+        "SELECT * FROM logs WHERE message ILIKE '%panic%' OR level = 'error'"
     );
 
     let (preds, _) = extract_match_predicates(
@@ -334,8 +338,8 @@ fn match_term_with_uppercase_or_punctuation_is_not_used_for_pruning() {
         extract_match_predicates("SELECT * FROM logs WHERE MATCH(message, 'FAILED')");
     assert!(preds.is_empty(), "大写 term 不得进裁剪谓词，实得 {preds:?}");
     assert_eq!(
-        rewritten, "SELECT * FROM logs WHERE message LIKE '%FAILED%'",
-        "LIKE rewrite 必须保留原样（大小写不变），由 DataFusion 兜底执行"
+        rewritten, "SELECT * FROM logs WHERE message ILIKE '%FAILED%'",
+        "ILIKE rewrite 必须保留原样（大小写不变），由 DataFusion 兜底执行"
     );
 
     // 标点：索引里被切成 `my`/`api`，原串 `my-api` count_term 会假命中 0。
@@ -360,4 +364,303 @@ fn plain_lowercase_term_still_prunes() {
 
     let (preds, _) = extract_match_predicates("SELECT * FROM logs WHERE MATCH(trace, 'a1b2c3d4')");
     assert_eq!(preds.len(), 1, "hex 串（trace_id 形态）应仍可裁剪");
+}
+
+// ===== MATCH_TEXT 查询语法解析（D4）与 ILIKE rewrite =====
+
+#[test]
+fn match_text_token_and_rewrites_to_parenthesized_iliike() {
+    let (preds, rewritten) =
+        extract_match_predicates("SELECT * FROM logs WHERE MATCH_TEXT(message, 'panic disk')");
+    assert_eq!(
+        rewritten,
+        "SELECT * FROM logs WHERE (message ILIKE '%panic%' AND message ILIKE '%disk%')"
+    );
+    // 纯 AND 树 + 两个无通配符单 token → 每个都生成裁剪谓词。
+    assert_eq!(preds.len(), 2);
+    assert_eq!(preds[0].term, "panic");
+    assert_eq!(preds[1].term, "disk");
+}
+
+#[test]
+fn match_text_phrase_is_contiguous_substring() {
+    let (_, rewritten) =
+        extract_match_predicates("SELECT * FROM logs WHERE MATCH_TEXT(message, '\"disk full\"')");
+    assert_eq!(
+        rewritten,
+        "SELECT * FROM logs WHERE message ILIKE '%disk full%'"
+    );
+}
+
+#[test]
+fn match_text_mixed_token_and_phrase() {
+    let (_, rewritten) = extract_match_predicates(
+        "SELECT * FROM logs WHERE MATCH_TEXT(message, 'panic \"disk full\"')",
+    );
+    assert_eq!(
+        rewritten,
+        "SELECT * FROM logs WHERE (message ILIKE '%panic%' AND message ILIKE '%disk full%')"
+    );
+}
+
+#[test]
+fn match_text_or_rewrites_to_or_expression() {
+    let (preds, rewritten) = extract_match_predicates(
+        "SELECT * FROM logs WHERE MATCH_TEXT(message, 'panic OR timeout')",
+    );
+    assert_eq!(
+        rewritten,
+        "SELECT * FROM logs WHERE (message ILIKE '%panic%' OR message ILIKE '%timeout%')"
+    );
+    assert!(preds.is_empty(), "含 OR 不生成裁剪谓词，实得 {preds:?}");
+}
+
+#[test]
+fn match_text_not_rewrites_to_not_expression() {
+    let (preds, rewritten) =
+        extract_match_predicates("SELECT * FROM logs WHERE MATCH_TEXT(message, 'panic -debug')");
+    assert_eq!(
+        rewritten,
+        "SELECT * FROM logs WHERE (message ILIKE '%panic%' AND NOT (message ILIKE '%debug%'))"
+    );
+    assert!(preds.is_empty(), "含 NOT 不生成裁剪谓词，实得 {preds:?}");
+}
+
+#[test]
+fn match_text_wildcard_prefix_suffix_contains() {
+    let (_, rewritten) =
+        extract_match_predicates("SELECT * FROM logs WHERE MATCH_TEXT(message, 'error*')");
+    assert_eq!(rewritten, "SELECT * FROM logs WHERE message ILIKE 'error%'");
+
+    let (_, rewritten) =
+        extract_match_predicates("SELECT * FROM logs WHERE MATCH_TEXT(message, '*error')");
+    assert_eq!(rewritten, "SELECT * FROM logs WHERE message ILIKE '%error'");
+
+    let (_, rewritten) =
+        extract_match_predicates("SELECT * FROM logs WHERE MATCH_TEXT(message, '*error*')");
+    assert_eq!(
+        rewritten,
+        "SELECT * FROM logs WHERE message ILIKE '%error%'"
+    );
+}
+
+#[test]
+fn match_text_wildcard_inside_phrase() {
+    let (_, rewritten) =
+        extract_match_predicates("SELECT * FROM logs WHERE MATCH_TEXT(message, '\"api v*\"')");
+    assert_eq!(rewritten, "SELECT * FROM logs WHERE message ILIKE 'api v%'");
+}
+
+#[test]
+fn match_text_escaped_asterisk_is_literal() {
+    // `\*` → 字面星号；LIKE 里 `*` 不是通配符，保持原样即可。
+    let (_, rewritten) =
+        extract_match_predicates("SELECT * FROM logs WHERE MATCH_TEXT(message, '100\\*')");
+    assert_eq!(rewritten, "SELECT * FROM logs WHERE message ILIKE '%100*%'");
+}
+
+#[test]
+fn match_text_percent_is_literal_not_wildcard() {
+    // `100%`：裸 `%` 按字面量转义（spec：`usage 100%` 命中、`usage 1000` 不命中）。
+    let (_, rewritten) =
+        extract_match_predicates("SELECT * FROM logs WHERE MATCH_TEXT(message, '100%')");
+    assert_eq!(
+        rewritten,
+        "SELECT * FROM logs WHERE message ILIKE '%100\\%%'"
+    );
+
+    // `100\%`（显式转义）与裸 `%` 行为一致。
+    let (_, rewritten) =
+        extract_match_predicates("SELECT * FROM logs WHERE MATCH_TEXT(message, '100\\%')");
+    assert_eq!(
+        rewritten,
+        "SELECT * FROM logs WHERE message ILIKE '%100\\%%'"
+    );
+}
+
+#[test]
+fn match_text_underscore_is_literal_not_wildcard() {
+    let (_, rewritten) =
+        extract_match_predicates("SELECT * FROM logs WHERE MATCH_TEXT(message, 'a_b')");
+    assert_eq!(
+        rewritten,
+        "SELECT * FROM logs WHERE message ILIKE '%a\\_b%'"
+    );
+}
+
+#[test]
+fn match_text_empty_query_is_always_false() {
+    let (preds, rewritten) =
+        extract_match_predicates("SELECT * FROM logs WHERE MATCH_TEXT(message, '')");
+    assert_eq!(rewritten, "SELECT * FROM logs WHERE FALSE");
+    assert!(preds.is_empty());
+
+    let (_, rewritten) =
+        extract_match_predicates("SELECT * FROM logs WHERE MATCH_TEXT(message, '   ')");
+    assert_eq!(rewritten, "SELECT * FROM logs WHERE FALSE");
+}
+
+#[test]
+fn match_text_case_insensitive_rewrite_preserves_case() {
+    // 大小写不敏感由 ILIKE 保证；rewrite 保留原样交给执行层。
+    let (preds, rewritten) =
+        extract_match_predicates("SELECT * FROM logs WHERE MATCH_TEXT(message, 'FAILED')");
+    assert_eq!(
+        rewritten,
+        "SELECT * FROM logs WHERE message ILIKE '%FAILED%'"
+    );
+    // 但裁剪谓词先小写化（D7）：`FAILED` 小写化后与 TEXT 索引内容一致，可裁剪。
+    assert_eq!(preds.len(), 1);
+    assert_eq!(preds[0].term, "failed");
+}
+
+#[test]
+fn match_text_lowercase_call_is_accepted() {
+    let (_, rewritten) =
+        extract_match_predicates("SELECT * FROM logs WHERE match_text(message, 'panic')");
+    assert_eq!(
+        rewritten,
+        "SELECT * FROM logs WHERE message ILIKE '%panic%'"
+    );
+}
+
+#[test]
+fn match_text_single_token_equivalent_to_match() {
+    // 单 token 的 MATCH_TEXT 退化为 MATCH 语义（spec text-match-functions）。
+    let (_, match_text) =
+        extract_match_predicates("SELECT * FROM logs WHERE MATCH_TEXT(message, 'failed')");
+    let (_, plain_match) =
+        extract_match_predicates("SELECT * FROM logs WHERE MATCH(message, 'failed')");
+    assert_eq!(match_text, plain_match);
+}
+
+#[test]
+fn match_text_or_keyword_does_not_swallow_plain_words() {
+    // `orange` 以 `or` 开头但不是关键字；`a_or_b` 同理。
+    let (_, rewritten) =
+        extract_match_predicates("SELECT * FROM logs WHERE MATCH_TEXT(message, 'orange')");
+    assert_eq!(
+        rewritten,
+        "SELECT * FROM logs WHERE message ILIKE '%orange%'"
+    );
+
+    let (_, rewritten) =
+        extract_match_predicates("SELECT * FROM logs WHERE MATCH_TEXT(message, 'a_or_b')");
+    assert_eq!(
+        rewritten,
+        "SELECT * FROM logs WHERE message ILIKE '%a\\_or\\_b%'"
+    );
+}
+
+// ===== MATCH_TEXT 裁剪谓词边界（D6） =====
+
+#[test]
+fn match_text_pure_and_single_token_prunes() {
+    let (preds, _) = extract_match_predicates(
+        "SELECT * FROM logs WHERE MATCH_TEXT(message, 'failed') AND _timestamp > '2026-01-01'",
+    );
+    assert_eq!(preds.len(), 1);
+    assert_eq!(preds[0].field, "message");
+    assert_eq!(preds[0].term, "failed");
+}
+
+#[test]
+fn match_text_phrase_never_prunes() {
+    let (preds, _) =
+        extract_match_predicates("SELECT * FROM logs WHERE MATCH_TEXT(message, '\"disk full\"')");
+    assert!(preds.is_empty(), "短语不裁剪，实得 {preds:?}");
+}
+
+#[test]
+fn match_text_wildcard_never_prunes() {
+    let (preds, _) =
+        extract_match_predicates("SELECT * FROM logs WHERE MATCH_TEXT(message, 'error*')");
+    assert!(preds.is_empty(), "通配符不裁剪，实得 {preds:?}");
+}
+
+#[test]
+fn match_text_mixed_with_phrase_prunes_nothing() {
+    // 纯 AND 树但含短语叶子 → 整次调用不裁剪（D6 严格条件）。
+    let (preds, _) = extract_match_predicates(
+        "SELECT * FROM logs WHERE MATCH_TEXT(message, 'panic \"disk full\"')",
+    );
+    assert!(preds.is_empty(), "含短语的调用不裁剪，实得 {preds:?}");
+}
+
+#[test]
+fn match_text_not_at_top_level_conjunct_never_prunes() {
+    let (preds, _) = extract_match_predicates(
+        "SELECT * FROM logs WHERE MATCH_TEXT(message, 'panic') OR level = 'info'",
+    );
+    assert!(preds.is_empty(), "非顶层合取项不裁剪，实得 {preds:?}");
+
+    let (preds, _) = extract_match_predicates(
+        "SELECT * FROM logs WHERE service = 'api' AND (MATCH_TEXT(message, 'panic') OR level = 'info')",
+    );
+    assert!(preds.is_empty(), "OR 分支内不裁剪，实得 {preds:?}");
+}
+
+#[test]
+fn match_text_multiple_top_level_conjuncts_all_prune() {
+    let (preds, _) = extract_match_predicates(
+        "SELECT * FROM logs WHERE MATCH_TEXT(message, 'panic') AND MATCH_TEXT(level, 'info')",
+    );
+    assert_eq!(preds.len(), 2);
+    assert_eq!(preds[0].term, "panic");
+    assert_eq!(preds[1].term, "info");
+}
+
+// ===== 与 TEXT 索引 token 形态一致性（防止重开分词不匹配漏数据缺口） =====
+
+#[test]
+fn match_text_prune_token_must_match_indexed_token_shape() {
+    // `cats` 与 `cat` 都是 SimpleTokenizer 的合法 token，可裁剪。
+    let (preds, _) =
+        extract_match_predicates("SELECT * FROM logs WHERE MATCH_TEXT(message, 'cats')");
+    assert_eq!(preds.len(), 1);
+    let (preds, _) =
+        extract_match_predicates("SELECT * FROM logs WHERE MATCH_TEXT(message, 'cat')");
+    assert_eq!(preds.len(), 1);
+
+    // `my-api` 在索引里被切成 `my`/`api`，原串 count_term 假命中 0 → 不裁剪。
+    let (preds, _) =
+        extract_match_predicates("SELECT * FROM logs WHERE MATCH_TEXT(path, 'my-api')");
+    assert!(preds.is_empty(), "带连字符 token 不裁剪，实得 {preds:?}");
+
+    // 超过 tantivy 40 字节 token 上限 → 索引丢弃 → 不裁剪。
+    let long = "a".repeat(41);
+    let (preds, _) = extract_match_predicates(&format!(
+        "SELECT * FROM logs WHERE MATCH_TEXT(message, '{long}')"
+    ));
+    assert!(preds.is_empty(), "超长 token 不裁剪，实得 {preds:?}");
+}
+
+// ===== MATCH_TEXT 字段提取（门槛校验用） =====
+
+#[test]
+fn match_text_fields_extracts_field_names_only_from_real_calls() {
+    assert_eq!(
+        match_text_fields("SELECT * FROM logs WHERE MATCH_TEXT(message, 'panic')"),
+        vec!["message"]
+    );
+    assert_eq!(
+        match_text_fields("SELECT * FROM logs WHERE MATCH_TEXT(a, 'x') OR MATCH_TEXT(b, 'y')"),
+        vec!["a", "b"]
+    );
+    // MATCH 不是 MATCH_TEXT，不提取。
+    assert_eq!(
+        match_text_fields("SELECT * FROM logs WHERE MATCH(message, 'panic')"),
+        Vec::<String>::new()
+    );
+    // 注释 / 字符串字面量里的伪调用不提取（AST 遍历）。
+    assert_eq!(
+        match_text_fields("SELECT * FROM logs -- MATCH_TEXT(foo, 'x')\nWHERE level = 'info'"),
+        Vec::<String>::new()
+    );
+    assert_eq!(
+        match_text_fields("SELECT 'MATCH_TEXT(foo, x)'"),
+        Vec::<String>::new()
+    );
+    // 解析失败 → 空。
+    assert_eq!(match_text_fields("SELECT * FROM"), Vec::<String>::new());
 }

@@ -244,6 +244,17 @@ mod tests {
     }
 
     #[test]
+    fn initial_schema_owns_field_masking_and_dashboard_seed_omits_self_logs() {
+        assert!(INITIAL_SQL.contains("CREATE TABLE IF NOT EXISTS field_masking_rules"));
+        assert!(INITIAL_SQL.contains("chk_field_masking_stream_type"));
+        assert!(INITIAL_SQL.contains("uq_field_masking_rule_org_priority"));
+        assert!(
+            !BUILTIN_DASHBOARDS_SQL.contains("overview-warning-error-logs"),
+            "self logs are no longer part of the built-in system dashboard"
+        );
+    }
+
+    #[test]
     fn seeded_resource_ids_do_not_encode_builtin_semantics() {
         let semantic_id =
             regex::Regex::new(r"(?m)^\s*\('([^']*builtin[^']*)'\s*,").expect("valid seed id regex");
@@ -326,7 +337,7 @@ mod tests {
         on_disk.sort_unstable();
         assert_eq!(
             on_disk,
-            vec![20260101000001, 20260101000002, 20260101000003],
+            vec![20260101000001, 20260101000002, 20260101000003,],
             "schema and seed catalogs must use the registered embedded migrations"
         );
 

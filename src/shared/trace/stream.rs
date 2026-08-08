@@ -252,7 +252,6 @@ mod tests {
     ) {
         let hub = SelfTelemetryHub::new(SelfTelemetryInit {
             queue_capacity: 16,
-            logs_enabled: false,
             traces_enabled: true,
             resource: ResourceIdentity::new("molesignal", "test", "test", "router", "node"),
         });

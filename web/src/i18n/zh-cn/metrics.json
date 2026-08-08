@@ -122,12 +122,16 @@
       "query_error": "Exemplar 暂不可用"
     },
     "series": {
-      "title": "序列概览 · {{count}}",
+      "title": "序列",
       "empty": "暂无序列。",
       "collapse": "收起",
       "show_all": "显示全部 {{count}} 条序列",
+      "label_count": "{{count}} 个标签",
+      "expand_labels": "展开 {{metric}} 的标签",
+      "collapse_labels": "收起 {{metric}} 的标签",
       "columns": {
         "name": "名称",
+        "last": "最后值",
         "current": "当前",
         "average": "平均",
         "max": "最大"

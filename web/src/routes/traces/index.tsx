@@ -36,6 +36,7 @@ import { PageHeader } from '@/shell/PageHeader';
 import { QueryEditorFrame } from '@/shell/query/EditorFrame';
 import { QueryState, queryStateFor } from '@/shell/query/State';
 import { QuerySyntaxHelp } from '@/shell/query/SyntaxHelp';
+import { useSqlFunctionCompletions } from '@/shell/query/useSqlFunctionCompletions';
 import {
   QueryToolbarButton,
   QueryToolbarGroup,
@@ -906,6 +907,8 @@ function TraceQueryPanel({
   const { t } = useTranslation('traces');
   const activeDraft = queryMode === 'sql' ? sqlDraft : queryDraft;
   const isQueryTab = tab === 'spans' || tab === 'traces';
+  // SQL 检索函数（MATCH / MATCH_TEXT）由后端能力驱动，仅 SQL 模式注入（fields 走 q 全文搜索）。
+  const sqlFunctions = useSqlFunctionCompletions();
   return (
     <QueryWorkbench
       className="shrink-0"
@@ -972,11 +975,9 @@ function TraceQueryPanel({
             collapseLabel={t('explore.query.collapse_editor')}
             expandLabel={t('explore.query.expand_editor')}
             summary={activeDraft || t('explore.query.empty_summary')}
-            {...(queryMode === 'fields' ? { completionItems } : {})}
+            completionItems={queryMode === 'fields' ? completionItems : sqlFunctions}
             minHeight={160}
             maxHeight={320}
-            fontSize={13}
-            lineHeight={20}
             lineNumbers
             resizable
           />

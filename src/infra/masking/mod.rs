@@ -22,6 +22,10 @@ use crate::{
     shared::{Result, ids::Id},
 };
 
+mod field;
+
+pub use field::FieldMaskingService;
+
 /// 解析缓存 TTL（秒）：规则增删改在此窗口内对所有读者最终一致（本进程内由 invalidate 即时生效）。
 const CACHE_TTL_SECS: u64 = 60;
 

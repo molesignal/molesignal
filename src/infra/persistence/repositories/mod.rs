@@ -19,6 +19,7 @@ pub mod debug_artifacts;
 pub mod domains;
 pub mod email_domains;
 pub mod escalation_policies;
+pub mod field_masking_rules;
 pub mod file_download_tokens;
 pub mod folders;
 pub mod functions;

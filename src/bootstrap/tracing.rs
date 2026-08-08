@@ -379,11 +379,6 @@ pub(super) async fn prepare_self_telemetry_streams(
 
     let enabled_types = [
         (
-            settings.enabled,
-            StreamType::Logs,
-            settings.logs_retention_days,
-        ),
-        (
             settings.enabled && settings.metrics_enabled,
             StreamType::Metrics,
             settings.metrics_retention_days,

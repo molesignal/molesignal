@@ -218,7 +218,7 @@ impl PipelineExecutor for BootstrapPipelineExecutor {
             limit: None,
             federation_clusters: Vec::new(),
         };
-        let result = self.query.run(req).await?;
+        let result = self.query.run_raw(req).await?;
         let source_rows = rows_to_objects(&result);
         let vrl = VrlRuntime::new();
         let outcome = transform_and_sink(

@@ -1,3 +1,4 @@
+import type { FieldMaskingAlgorithm } from '@/api/fieldMasking';
 import { http } from '@/lib/http';
 
 export type StreamType = 'logs' | 'metrics' | 'traces' | 'profiles' | 'extend';
@@ -28,6 +29,12 @@ export interface StreamCondition {
   retention_days?: number | null;
 }
 
+export interface FieldMaskingOverride {
+  field: string;
+  /** null explicitly disables masking for this stream field; no entry means inherit. */
+  algorithm: FieldMaskingAlgorithm | null;
+}
+
 export interface StreamSettings {
   description?: string | null;
   index_rules: FieldIndexRule[];
@@ -43,6 +50,7 @@ export interface StreamSettings {
    * 用于「源 stream 仅作入口、数据经 pipeline 分流到下游 stream」的场景。默认 true。
    */
   queryable: boolean;
+  field_masking?: FieldMaskingOverride[];
 }
 
 export interface StreamSchema {
@@ -151,6 +159,7 @@ export function defaultStreamSettings(settings?: Partial<StreamSettings> | null)
     store_original_data: settings?.store_original_data ?? false,
     enable_distinct_values: settings?.enable_distinct_values ?? true,
     queryable: settings?.queryable ?? true,
+    field_masking: settings?.field_masking ?? [],
   };
 }
 

@@ -412,7 +412,7 @@ struct TestServer {
 }
 
 /// 铸一个 viewer token（viewer 具备 StreamRead）写进 repo，返回明文。
-async fn mint_token(repo: &MemApiTokenRepo, org: &Id) -> String {
+async fn mint_token(repo: &MemApiTokenRepo, org: &Id, user_id: &Id) -> String {
     let (prefix, secret) = generate_token_parts();
     let plaintext = assemble_token(&prefix, &secret);
     let now = TimestampMicros::now();
@@ -421,7 +421,7 @@ async fn mint_token(repo: &MemApiTokenRepo, org: &Id) -> String {
         prefix,
         secret_hash: hash_secret(&secret).unwrap(),
         org_id: org.clone(),
-        user_id: Id::new(),
+        user_id: user_id.clone(),
         role_id: Id::from_string("role-flight-sql"),
         name: "it-flight-sql".into(),
         expires_at: None,
@@ -465,7 +465,6 @@ async fn start_server(engine_override: Option<Arc<dyn QueryEngine>>) -> TestServ
     let tokens = MemApiTokenRepo {
         tokens: Mutex::new(Vec::new()),
     };
-    let token = mint_token(&tokens, &org).await;
 
     // 第二个 org：仅元数据（stream `other`），用于 org 选择子测试。
     let org2 = Id::from_string("org-second");
@@ -533,6 +532,9 @@ async fn start_server(engine_override: Option<Arc<dyn QueryEngine>>) -> TestServ
         AuthSettings::default(),
         vec![b"it-flight-sql-secret".to_vec()],
     ));
+
+    // token 归属 alice（ensure_user_access 会按 token.user_id 反查用户，必须是真实存在的用户）。
+    let token = mint_token(&tokens, &org, &alice.id).await;
 
     let settings = FlightSqlSettings {
         enabled: true,

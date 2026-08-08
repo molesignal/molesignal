@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 /// 服务自身遥测配置。
 ///
-/// `enabled` 固定控制 Logs、Profiles 和 Trace 回灌；Metrics 可通过
+/// `enabled` 固定控制 Profiles 和 Trace 回灌；Metrics 可通过
 /// `metrics_enabled` 单独关闭。Trace 捕获还受 `telemetry.trace` 控制。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -14,8 +14,6 @@ pub struct SelfCollectSettings {
     pub enabled: bool,
     #[serde(default = "default_retention_days")]
     pub retention_days: u32,
-    #[serde(default = "default_retention_days")]
-    pub logs_retention_days: u32,
     #[serde(default = "default_retention_days")]
     pub metrics_retention_days: u32,
     #[serde(default = "default_retention_days")]
@@ -47,7 +45,6 @@ impl Default for SelfCollectSettings {
         Self {
             enabled: false,
             retention_days: default_retention_days(),
-            logs_retention_days: default_retention_days(),
             metrics_retention_days: default_retention_days(),
             traces_retention_days: default_retention_days(),
             profiles_retention_days: default_retention_days(),
@@ -70,7 +67,6 @@ impl SelfCollectSettings {
             anyhow::bail!("telemetry.self_collect.retention_days must be between 1 and 3650");
         }
         for (signal, days) in [
-            ("logs", self.logs_retention_days),
             ("metrics", self.metrics_retention_days),
             ("traces", self.traces_retention_days),
             ("profiles", self.profiles_retention_days),
@@ -107,7 +103,6 @@ impl SelfCollectSettings {
         signal: crate::shared::self_telemetry::SelfTelemetrySignal,
     ) -> u32 {
         match signal {
-            crate::shared::self_telemetry::SelfTelemetrySignal::Logs => self.logs_retention_days,
             crate::shared::self_telemetry::SelfTelemetrySignal::Metrics => {
                 self.metrics_retention_days
             }

@@ -76,7 +76,6 @@
       "expand_editor": "Expand query",
       "editor": "EDITOR",
       "mode_search_aria": "Search mode",
-      "mode_chart_aria": "Chart mode",
       "mode_patterns_aria": "Patterns mode"
     },
     "left_panel": {

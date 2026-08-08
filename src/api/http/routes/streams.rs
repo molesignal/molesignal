@@ -28,6 +28,10 @@ use crate::{
     },
 };
 
+mod field_settings;
+
+use field_settings::{validate_field_masking, validate_system_settings_update};
+
 const DEFAULT_RUNTIME_WINDOW_SECS: i64 = 24 * 60 * 60;
 const MIN_RUNTIME_WINDOW_SECS: i64 = 60 * 60;
 const MAX_RUNTIME_WINDOW_SECS: i64 = 7 * 24 * 60 * 60;
@@ -249,6 +253,23 @@ fn validate_days(days: u32) -> Result<()> {
     Ok(())
 }
 
+/// full_text 索引类型仅限 string（utf8）字段（spec stream-index-config）。create 与
+/// update_settings 对 `index_type == FullText && data_type != Utf8` 的新配置返回 400；
+/// 存量 json full_text 配置不受影响（写侧 builder 保持 `Utf8 | Json`，仅拦新提交）。
+fn validate_full_text_data_type(
+    field_name: &str,
+    data_type: FieldType,
+    index_type: StreamIndexType,
+) -> Result<()> {
+    if index_type == StreamIndexType::FullText && data_type != FieldType::Utf8 {
+        return Err(Error::invalid(format!(
+            "full_text index type is only supported on string (utf8) fields; \
+             field `{field_name}` has type `{data_type:?}`"
+        )));
+    }
+    Ok(())
+}
+
 fn validate_settings(settings: &StreamSettings) -> Result<()> {
     for condition in &settings.keep_conditions {
         if let Some(days) = condition.retention_days {
@@ -432,21 +453,26 @@ async fn create(
             fields: req
                 .fields
                 .into_iter()
-                .map(|field| FieldDef {
-                    name: field.name,
-                    // exact 索引对高基数字段（trace_id 等）有意义，隐含 indexed。
-                    exact: field.indexed && field.index_type == StreamIndexType::Exact,
-                    data_type: field.data_type,
-                    nullable: field.nullable,
-                    indexed: field.indexed,
-                    encrypted: field.encrypted,
+                .map(|field| {
+                    let index_type = field.index_type;
+                    validate_full_text_data_type(&field.name, field.data_type, index_type.clone())?;
+                    Ok(FieldDef {
+                        name: field.name,
+                        // exact 索引对高基数字段（trace_id 等）有意义，隐含 indexed。
+                        exact: field.indexed && index_type == StreamIndexType::Exact,
+                        data_type: field.data_type,
+                        nullable: field.nullable,
+                        indexed: field.indexed,
+                        encrypted: field.encrypted,
+                    })
                 })
-                .collect(),
+                .collect::<Result<Vec<_>>>()?,
         },
         retention,
         created_at: now,
         updated_at: now,
     };
+    validate_field_masking(&settings, &def.schema, def.stream_type)?;
     let created = state.telemetry.streams.create(def).await?;
     let settings = state
         .telemetry
@@ -461,7 +487,7 @@ async fn create(
 }
 
 #[resource_permission(
-    action = "streams.configure",
+    action = any("streams.configure", "sys.telemetry.manage"),
     resource = StreamDefinition,
     id = Id::from_string(id),
     bind = stream
@@ -474,7 +500,14 @@ async fn update_settings(
 ) -> Result<Json<StreamResponse>> {
     let id = stream.id.clone();
     let mut def = stream;
-    ensure_stream_mutable(&def)?;
+    let system_stream = is_reserved_system_stream(&def.name);
+    let current_settings = state.telemetry.streams.get_settings(&id).await?;
+
+    if system_stream && req.retention_days.is_some() {
+        return Err(Error::forbidden(
+            "system stream retention is managed by self telemetry settings",
+        ));
+    }
 
     if let Some(retention_days) = req.retention_days {
         let retention = match retention_days {
@@ -492,11 +525,10 @@ async fn update_settings(
         def.retention = retention;
     }
 
-    let mut settings = req
-        .settings
-        .unwrap_or(state.telemetry.streams.get_settings(&id).await?);
+    let mut settings = req.settings.unwrap_or_else(|| current_settings.clone());
     validate_settings(&settings)?;
 
+    let schema_changed = req.fields.is_some();
     if let Some(field_settings) = req.fields {
         for setting in &field_settings {
             if let Some(field) = def
@@ -505,6 +537,11 @@ async fn update_settings(
                 .iter_mut()
                 .find(|f| f.name == setting.name)
             {
+                validate_full_text_data_type(
+                    &field.name,
+                    field.data_type,
+                    setting.index_type.clone(),
+                )?;
                 field.indexed = setting.indexed && setting.index_type != StreamIndexType::None;
                 // Exact → 未分词 STRING 索引（等值裁剪）；其余索引类型走分词 TEXT（全文）。
                 field.exact = field.indexed && setting.index_type == StreamIndexType::Exact;
@@ -525,6 +562,13 @@ async fn update_settings(
                     .collect(),
             })
             .collect();
+    }
+
+    validate_field_masking(&settings, &def.schema, def.stream_type)?;
+    if system_stream {
+        validate_system_settings_update(&current_settings, &settings)?;
+    }
+    if schema_changed {
         state
             .telemetry
             .streams
@@ -846,5 +890,67 @@ mod runtime_tests {
             Err(Error::Forbidden(_))
         ));
         assert!(validate_public_stream_name("_custom").is_ok());
+    }
+}
+
+#[cfg(test)]
+mod full_text_type_tests {
+    use super::*;
+
+    /// full_text 索引类型仅限 string 字段（spec stream-index-config）。
+    /// create 与 update_settings 两条路径共用 `validate_full_text_data_type`，这里
+    /// 覆盖该唯一校验入口的全部分支。
+    #[test]
+    fn full_text_rejected_on_non_string_fields() {
+        // create 路径：提交 {name: "count", data_type: "int64", index_type: "full_text"}。
+        let err =
+            validate_full_text_data_type("count", FieldType::Int64, StreamIndexType::FullText)
+                .expect_err("int64 + full_text must be rejected");
+        assert!(matches!(err, Error::InvalidArgument(_)));
+        assert!(err.to_string().contains("full_text"));
+
+        // update_settings 路径：json 字段提交 full_text → 400（新建配置被拒）。
+        let err =
+            validate_full_text_data_type("payload", FieldType::Json, StreamIndexType::FullText)
+                .expect_err("json + full_text must be rejected");
+        assert!(matches!(err, Error::InvalidArgument(_)));
+
+        // bool / float / timestamp 同属非 string。
+        for data_type in [FieldType::Bool, FieldType::Float64, FieldType::Timestamp] {
+            assert!(
+                validate_full_text_data_type("f", data_type, StreamIndexType::FullText).is_err(),
+                "{data_type:?} + full_text 必须被拒"
+            );
+        }
+    }
+
+    #[test]
+    fn full_text_allowed_on_utf8_field() {
+        assert!(
+            validate_full_text_data_type("message", FieldType::Utf8, StreamIndexType::FullText)
+                .is_ok(),
+            "utf8 + full_text 应放行"
+        );
+    }
+
+    #[test]
+    fn non_full_text_index_types_are_not_affected() {
+        // 非 string 字段的其他索引类型不受影响（spec：none / exact / bloom / skip）。
+        for index_type in [
+            StreamIndexType::None,
+            StreamIndexType::Exact,
+            StreamIndexType::Bloom,
+            StreamIndexType::Skip,
+        ] {
+            assert!(
+                validate_full_text_data_type("count", FieldType::Int64, index_type.clone()).is_ok(),
+                "int64 + {index_type:?} 应放行"
+            );
+        }
+        assert!(
+            validate_full_text_data_type("trace_id", FieldType::Utf8, StreamIndexType::Exact)
+                .is_ok(),
+            "utf8 + exact 应放行"
+        );
     }
 }

@@ -1,5 +1,6 @@
 import * as monaco from 'monaco-editor/editor/editor.api.js';
 import EditorWorker from 'monaco-editor/editor/editor.worker.js?worker';
+import 'monaco-editor/editor/contrib/suggest/browser/suggestController.js';
 import JsonWorker from 'monaco-editor/language/json/json.worker.js?worker';
 import 'monaco-editor/language/json/monaco.contribution.js';
 import 'monaco-editor/languages/definitions/javascript/register.js';
@@ -10,6 +11,11 @@ import * as React from 'react';
 import { cn } from '@/shell/lib/cn';
 
 import { CodeEditorHeader, CodeEditorStatus } from './Chrome';
+import {
+  filterFieldQueryCompletionItems,
+  presentFieldQueryCompletion,
+  resolveFieldQueryCompletionContext,
+} from './fieldQueryCompletion';
 import type {
   CodeCompletionItem,
   CodeCompletionKind,
@@ -18,6 +24,12 @@ import type {
   CodeEditorProps,
   CodeLanguage,
 } from './types';
+import {
+  CODE_EDITOR_FONT_FAMILY,
+  CODE_EDITOR_FONT_SIZE,
+  CODE_EDITOR_FONT_WEIGHT,
+  CODE_EDITOR_LINE_HEIGHT,
+} from './typography';
 
 type MonacoGlobal = typeof globalThis & {
   MonacoEnvironment?: {
@@ -27,7 +39,6 @@ type MonacoGlobal = typeof globalThis & {
 };
 
 const MONACO_THEME = 'molesignal-shell';
-const CODE_FONT = '"Alibaba PuHuiTi 3.0", "PingFang SC", "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif';
 const CODE_LETTER_SPACING = 0;
 const CODE_FRAME_HORIZONTAL_PADDING = 4;
 const CODE_LEFT_INSET = 14;
@@ -71,10 +82,6 @@ const DEFAULT_FIELD_QUERY_COMPLETIONS: CodeCompletionItem[] = [
   { label: 'contains', insertText: 'contains ', kind: 'operator', detail: 'operator' },
   { label: 'AND', insertText: 'AND ', kind: 'operator', detail: 'operator' },
   { label: 'OR', insertText: 'OR ', kind: 'operator', detail: 'operator' },
-  { label: '"checkout"', insertText: '"checkout"', kind: 'value', detail: 'value' },
-  { label: '"api"', insertText: '"api"', kind: 'value', detail: 'value' },
-  { label: '"ERROR"', insertText: '"ERROR"', kind: 'value', detail: 'value' },
-  { label: '"OK"', insertText: '"OK"', kind: 'value', detail: 'value' },
 ];
 
 const DEFAULT_SQL_COMPLETIONS: CodeCompletionItem[] = [
@@ -115,6 +122,7 @@ function MonacoCodeEditor({
   minHeight = 96,
   maxHeight = 320,
   fontSize,
+  fontWeight = CODE_EDITOR_FONT_WEIGHT,
   lineHeight,
   lineNumbers = true,
   highlightCurrentLine = true,
@@ -145,6 +153,7 @@ function MonacoCodeEditor({
     ariaLabel,
     compact,
     fontSize,
+    fontWeight,
     highlightCurrentLine,
     label,
     language,
@@ -278,10 +287,10 @@ function MonacoCodeEditor({
       foldingHighlight: true,
       foldingStrategy: 'auto',
       formatOnPaste: true,
-      fontFamily: CODE_FONT,
+      fontFamily: CODE_EDITOR_FONT_FAMILY,
       fontLigatures: true,
       fontSize: initialMetrics.fontSize,
-      fontWeight: '600',
+      fontWeight: String(initialOptions.fontWeight),
       letterSpacing: CODE_LETTER_SPACING,
       guides: {
         bracketPairs: 'active',
@@ -452,9 +461,9 @@ function MonacoCodeEditor({
     editor.updateOptions({
       ariaLabel: ariaLabel ?? label ?? `${language.toUpperCase()} editor`,
       domReadOnly: readOnly,
-      fontFamily: CODE_FONT,
+      fontFamily: CODE_EDITOR_FONT_FAMILY,
       fontSize: nextMetrics.fontSize,
-      fontWeight: '600',
+      fontWeight: String(fontWeight),
       fontLigatures: true,
       letterSpacing: CODE_LETTER_SPACING,
       cursorWidth: 2,
@@ -486,7 +495,7 @@ function MonacoCodeEditor({
       suggestOnTriggerCharacters: suggestionsEnabled(language, readOnly),
     });
     updateHeight();
-  }, [ariaLabel, compact, fontSize, highlightCurrentLine, label, language, lineHeight, lineNumbers, minHeight, placeholder, readOnly, updateHeight]);
+  }, [ariaLabel, compact, fontSize, fontWeight, highlightCurrentLine, label, language, lineHeight, lineNumbers, minHeight, placeholder, readOnly, updateHeight]);
 
   React.useEffect(() => {
     updateHeight();
@@ -528,6 +537,7 @@ function MonacoCodeEditor({
         readOnly && 'bg-bg-2',
         className,
       )}
+      style={{ '--code-editor-font-weight': fontWeight } as React.CSSProperties}
     >
       {showHeader && (
         <CodeEditorHeader
@@ -550,9 +560,11 @@ function MonacoCodeEditor({
         {effectivePlaceholder && isEmpty ? (
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 right-3 z-10 overflow-hidden whitespace-pre-wrap font-mono font-normal italic tracking-normal text-tx-3"
+            className="pointer-events-none absolute inset-y-0 right-3 z-10 overflow-hidden whitespace-pre-wrap font-normal italic tracking-normal text-tx-3"
             style={{
+              fontFamily: CODE_EDITOR_FONT_FAMILY,
               fontSize: metrics.fontSize,
+              fontWeight,
               left: placeholderLeft,
               lineHeight: `${metrics.lineHeight}px`,
               paddingTop: metrics.paddingTop,
@@ -650,6 +662,8 @@ function registerSql() {
       'join',
       'left',
       'limit',
+      'match',
+      'match_text',
       'not',
       'null',
       'on',
@@ -1148,23 +1162,47 @@ function registerCompletionProvider(
       const word = model.getWordUntilPosition(position);
       const range = completionRange(model, position, language, word);
       const configured = completionItemsByModel.get(model.uri.toString()) ?? [];
-      const items = mergeCompletionItems(configured, defaults);
+      const merged = mergeCompletionItems(configured, defaults);
+      const fieldQueryContext = language === FIELD_QUERY_LANGUAGE
+        ? resolveFieldQueryCompletionContext(model.getValueInRange({
+            startLineNumber: 1,
+            startColumn: 1,
+            endLineNumber: position.lineNumber,
+            endColumn: position.column,
+          }))
+        : null;
+      const items = fieldQueryContext
+        ? filterFieldQueryCompletionItems(merged, fieldQueryContext)
+        : merged;
       return {
-        suggestions: items.map((item) => ({
-          label: item.label,
-          kind: completionKind(item.kind),
-          insertText: item.insertText ?? item.label,
-          range,
-          ...(item.detail ? { detail: item.detail } : {}),
-          ...(item.documentation ? { documentation: item.documentation } : {}),
-          ...(item.insertTextFormat === 'snippet'
-            ? {
-                insertTextRules:
-                  monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-              }
-            : {}),
-          ...(item.sortText ? { sortText: item.sortText } : {}),
-        })),
+        suggestions: items.map((item) => {
+          const presentation = fieldQueryContext
+            ? presentFieldQueryCompletion(item, fieldQueryContext)
+            : { label: item.label, insertText: item.insertText ?? item.label, advanceSnippet: false };
+          return {
+            label: presentation.label,
+            kind: completionKind(item.kind),
+            insertText: presentation.insertText,
+            range,
+            ...(presentation.advanceSnippet
+              ? {
+                  command: {
+                    id: 'jumpToNextSnippetPlaceholder',
+                    title: 'Go to next function argument',
+                  },
+                }
+              : {}),
+            ...(item.detail ? { detail: item.detail } : {}),
+            ...(item.documentation ? { documentation: item.documentation } : {}),
+            ...(item.insertTextFormat === 'snippet'
+              ? {
+                  insertTextRules:
+                    monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                }
+              : {}),
+            ...(item.sortText ? { sortText: item.sortText } : {}),
+          };
+        }),
       };
     },
   });
@@ -1178,7 +1216,7 @@ function mergeCompletionItems(...groups: CodeCompletionItem[][]): CodeCompletion
   const merged: CodeCompletionItem[] = [];
   for (const group of groups) {
     for (const item of group) {
-      const key = `${item.kind ?? 'keyword'}:${item.label}`;
+      const key = `${item.kind ?? 'keyword'}:${item.field ?? ''}:${item.label}`;
       if (seen.has(key)) continue;
       seen.add(key);
       merged.push(item);
@@ -1341,8 +1379,8 @@ function estimateHeight(
 
 function editorMetrics(compact: boolean, fontSize?: number, lineHeight?: number) {
   return {
-    fontSize: fontSize ?? 13,
-    lineHeight: lineHeight ?? 20,
+    fontSize: fontSize ?? CODE_EDITOR_FONT_SIZE,
+    lineHeight: lineHeight ?? CODE_EDITOR_LINE_HEIGHT,
     paddingBottom: compact ? 6 : 8,
     paddingTop: compact ? 6 : 8,
   };

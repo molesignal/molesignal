@@ -108,6 +108,8 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         field_key_service,
         regex_patterns,
         masking_service,
+        field_masking_rules,
+        field_masking_service,
         cluster_repo,
         registry,
         drain_controller,
@@ -307,6 +309,8 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
             pipeline_runs,
             regex_patterns,
             masking: masking_service,
+            field_masking_rules,
+            field_masking: field_masking_service,
         },
         cluster: ClusterState {
             node_id,
@@ -551,7 +555,6 @@ mod tests {
         SelfCollectSettings {
             enabled: true,
             retention_days: 3,
-            logs_retention_days: 3,
             metrics_retention_days: 3,
             traces_retention_days: 7,
             profiles_retention_days: 3,
@@ -622,9 +625,8 @@ mod tests {
                 .unwrap()
                 .unwrap();
         let definitions = streams.list(&org_id).await.unwrap();
-        assert_eq!(definitions.len(), 4);
+        assert_eq!(definitions.len(), 3);
         for (stream_type, retention_days) in [
-            (StreamType::Logs, 3),
             (StreamType::Metrics, 3),
             (StreamType::Traces, 7),
             (StreamType::Profiles, 3),
@@ -639,7 +641,6 @@ mod tests {
 
         let settings = SelfCollectSettings {
             retention_days: 9,
-            logs_retention_days: 9,
             metrics_retention_days: 10,
             traces_retention_days: 11,
             profiles_retention_days: 12,
@@ -650,7 +651,6 @@ mod tests {
             .unwrap();
         let definitions = streams.list(&org_id).await.unwrap();
         for (stream_type, retention_days) in [
-            (StreamType::Logs, 9),
             (StreamType::Metrics, 10),
             (StreamType::Traces, 11),
             (StreamType::Profiles, 12),
@@ -683,8 +683,7 @@ mod tests {
             .into_iter()
             .map(|definition| definition.stream_type)
             .collect::<Vec<_>>();
-        assert_eq!(ordinary.len(), 2);
-        assert!(ordinary.contains(&StreamType::Logs));
+        assert_eq!(ordinary.len(), 1);
         assert!(ordinary.contains(&StreamType::Profiles));
 
         let external_only_streams = TestStreams::default();

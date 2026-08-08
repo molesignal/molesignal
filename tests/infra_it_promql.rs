@@ -421,6 +421,31 @@ fn build_counter_batch(
     .unwrap()
 }
 
+/// `ParquetWriter` 强制单个文件不得跨 UTC 小时边界（tantivy 按小时映射 `.ttv` sidecar），
+/// 因此把 `[data_start, data_end]` 的采样按小时切段、逐段落独立文件，保持序列连续无间隙。
+#[allow(clippy::too_many_arguments)]
+async fn flush_counter_range(
+    writer: &ParquetWriter,
+    stream: &StreamDefinition,
+    repo: &Arc<InMemParquetFileMeta>,
+    data_start: i64,
+    data_end: i64,
+    sample_step_us: i64,
+    method: &str,
+    code: &str,
+) {
+    const HOUR_US: i64 = 3_600_000_000;
+    let mut segment_start = data_start;
+    while segment_start <= data_end {
+        let hour_start = (segment_start / HOUR_US) * HOUR_US;
+        let segment_end = (hour_start + HOUR_US - 1).min(data_end);
+        let batch = build_counter_batch(segment_start, segment_end, sample_step_us, method, code);
+        let meta = writer.flush(stream, batch).await.unwrap();
+        repo.insert(meta).await.unwrap();
+        segment_start = segment_end + sample_step_us;
+    }
+}
+
 /// range 窗口聚合增量缓存：同一 range 查询连续两次（仪表盘刷新），
 /// 第二次稳定桶全部命中缓存、跳过 parquet 扫描，且结果与无缓存路径逐行一致。
 ///
@@ -446,9 +471,17 @@ async fn streaming_agg_cache_reuses_stable_buckets_across_refresh() {
     // 数据覆盖 [start - 5m, end + 1m]，15s 一个样本：每个 [5m] 窗口都有足够样本；
     // 数据右端 > 查询右端 → 查询窗口内全部桶 <= 水位（稳定）。
     for (method, code) in &[("GET", "200"), ("POST", "200")] {
-        let batch = build_counter_batch(start - range_us, end + step_us, 15_000_000, method, code);
-        let meta = writer.flush(&stream, batch).await.unwrap();
-        repo.insert(meta).await.unwrap();
+        flush_counter_range(
+            &writer,
+            &stream,
+            &repo,
+            start - range_us,
+            end + step_us,
+            15_000_000,
+            method,
+            code,
+        )
+        .await;
     }
 
     let mk_req = || QueryRequest {
@@ -500,14 +533,16 @@ async fn streaming_agg_cache_reuses_stable_buckets_across_refresh() {
     // 暖查：恰好命中冷查封存的全部桶点，且没有任何稳定桶被重算。
     assert_eq!(h2 - h1, m1, "run2 serves exactly what run1 sealed");
     assert_eq!(m2, m1, "run2 recomputes no stable bucket");
-    // 扫描缩减：run2 比 run1 少 parquet_file_meta find —— load 被跳过，仅剩水位探测一次 find。
+    // 扫描缩减：run2 比 run1 少 parquet_file_meta find —— load 被跳过，仅剩水位探测。
     assert!(
         finds2 < finds1,
         "run2 must issue fewer file finds (scan skipped): {finds2} vs {finds1}"
     );
+    // 水位探测对 metrics 的 raw + rollup 两个数据集各做一次 find，恰好 2 次；多出的
+    // find 意味着又发生了矩阵加载，缓存未生效。
     assert_eq!(
-        finds2, 1,
-        "run2 only probes ingest watermark, no matrix load"
+        finds2, 2,
+        "run2 only probes ingest watermark (raw + rollup), no matrix load: {finds2}"
     );
     // 正确性：缓存路径与无缓存路径逐行一致（start 对齐 → 步点重合）。
     assert_eq!(res1.columns, res_nocache.columns);
@@ -534,15 +569,17 @@ async fn streaming_agg_cache_slide_recomputes_only_new_bucket() {
 
     // 数据覆盖到 end + 2*step（> 滑动后查询右端 end+step）→ 滑动后新桶仍 <= 水位（稳定）。
     for (method, code) in &[("GET", "200"), ("POST", "200")] {
-        let batch = build_counter_batch(
+        flush_counter_range(
+            &writer,
+            &stream,
+            &repo,
             start - range_us,
             end + 2 * step_us,
             15_000_000,
             method,
             code,
-        );
-        let meta = writer.flush(&stream, batch).await.unwrap();
-        repo.insert(meta).await.unwrap();
+        )
+        .await;
     }
 
     let mk_req = |s: i64, e: i64| QueryRequest {

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 服务自身四信号回灌的 standalone 端到端测试。默认跳过；设置 `MS_RUN_IT=1`
+//! 服务自身三信号回灌的 standalone 端到端测试。默认跳过；设置 `MS_RUN_IT=1`
 //! 后使用 Postgres testcontainer 与本地 object store 执行。
 
 mod common;
@@ -132,7 +132,7 @@ mod enabled {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-    async fn all_four_self_signals_are_archived_and_queryable() {
+    async fn all_three_self_signals_are_archived_and_queryable() {
         if skip_unless_enabled() {
             eprintln!("skipped (set MS_RUN_IT=1 to enable)");
             return;
@@ -293,18 +293,18 @@ mod enabled {
             .await
             .unwrap();
         assert_eq!(response.status(), 403, "stream create must be forbidden");
-        let system_log = server
+        let system_trace = server
             .state
             .telemetry
             .streams
-            .get(&system_org_id, MOLESIGNAL_SYSTEM_STREAM, StreamType::Logs)
+            .get(&system_org_id, MOLESIGNAL_SYSTEM_STREAM, StreamType::Traces)
             .await
             .unwrap();
         let response = server
             .client
             .put(format!(
                 "{}/api/v1/streams/{}/settings",
-                server.base_url, system_log.id.0
+                server.base_url, system_trace.id.0
             ))
             .header(auth().0, auth().1)
             .json(&json!({"retention_days": 3}))
@@ -320,7 +320,7 @@ mod enabled {
             .client
             .delete(format!(
                 "{}/api/v1/streams/{}",
-                server.base_url, system_log.id.0
+                server.base_url, system_trace.id.0
             ))
             .header(auth().0, auth().1)
             .send()
@@ -335,7 +335,7 @@ mod enabled {
             .client
             .get(format!(
                 "{}/api/v1/streams/{}",
-                server.base_url, system_log.id.0
+                server.base_url, system_trace.id.0
             ))
             .header(auth().0, auth().1)
             .send()
@@ -350,7 +350,7 @@ mod enabled {
             .client
             .get(format!(
                 "{}/api/v1/streams/{}",
-                server.base_url, system_log.id.0
+                server.base_url, system_trace.id.0
             ))
             .bearer_auth(&system_token)
             .send()
@@ -383,11 +383,7 @@ mod enabled {
             signal = "traces"
         );
         span.in_scope(|| {
-            tracing::info!(
-                target: "molesignal::it::self_telemetry",
-                signal = "logs",
-                "self telemetry integration event"
-            );
+            tracing::info!(target: "molesignal::it::self_telemetry", "span event");
         });
         drop(span);
         register_int_counter(
@@ -449,15 +445,14 @@ mod enabled {
                     .fetch_one(&pool)
                     .await
                     .unwrap_or((0,));
-                    row.0 >= 4
+                    row.0 >= 3
                 }
             })
             .await,
-            "four typed system streams did not flush within timeout"
+            "three typed system streams did not flush within timeout"
         );
 
         for stream_type in [
-            StreamType::Logs,
             StreamType::Metrics,
             StreamType::Traces,
             StreamType::Profiles,

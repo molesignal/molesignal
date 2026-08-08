@@ -139,18 +139,10 @@ export function metricChartTitle(
   t: TFunction<'metrics'>,
 ): string {
   const rate = isRateQuery(expression);
-  if (rate && metricName === 'http_requests_total') {
-    return t('explore.chart.http_request_rate');
-  }
   if (!metricName) return t('explore.chart.query_result');
-  const readable = metricName
-    .replace(/^_+/, '')
-    .replace(/_+/g, ' ')
-    .replace(/\bhttp\b/gi, 'HTTP')
-    .replace(/\bapi\b/gi, 'API');
   return rate
-    ? t('explore.chart.generic_rate', { metric: readable })
-    : readable;
+    ? t('explore.chart.generic_rate', { metric: metricName })
+    : metricName;
 }
 
 export function metricQueryUnit(

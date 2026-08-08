@@ -95,6 +95,8 @@ pub(super) struct Core {
     pub(super) regex_patterns:
         Arc<dyn crate::infra::persistence::repositories::regex_patterns::RegexPatternRepository>,
     pub(super) masking_service: Arc<MaskingService>,
+    pub(super) field_masking_rules: Arc<dyn crate::domain::masking::FieldMaskingRuleRepository>,
+    pub(super) field_masking_service: Arc<crate::infra::masking::FieldMaskingService>,
     pub(super) cluster_repo: Arc<dyn ClusterNodesRepository>,
     pub(super) registry: Arc<dyn ClusterRegistry>,
     pub(super) drain_controller: Arc<DrainController>,
@@ -224,6 +226,17 @@ impl Core {
             ),
         );
         let masking_service = Arc::new(MaskingService::new(regex_patterns.clone()));
+        let field_masking_rules: Arc<dyn crate::domain::masking::FieldMaskingRuleRepository> =
+            Arc::new(
+                crate::infra::persistence::repositories::field_masking_rules::PgFieldMaskingRuleRepository::new(
+                    pool.clone(),
+                ),
+            );
+        let field_masking_service = Arc::new(crate::infra::masking::FieldMaskingService::new(
+            field_masking_rules.clone(),
+            streams.clone(),
+            cipher_root_key.clone(),
+        ));
 
         let cluster_repo: Arc<dyn ClusterNodesRepository> =
             Arc::new(PgClusterNodesRepository::new(pool.clone()));
@@ -278,6 +291,8 @@ impl Core {
             field_key_service,
             regex_patterns,
             masking_service,
+            field_masking_rules,
+            field_masking_service,
             cluster_repo,
             registry,
             drain_controller,

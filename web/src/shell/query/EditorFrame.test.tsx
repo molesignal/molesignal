@@ -5,8 +5,25 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { QueryEditorFrame } from '@/shell/query/EditorFrame';
 
 vi.mock('@/shell/codeEditor', () => ({
-  CodeEditor: ({ value }: { value: string }) => (
-    <div data-testid="query-editor-value">{value}</div>
+  CodeEditor: ({
+    value,
+    fontSize,
+    fontWeight,
+    lineHeight,
+  }: {
+    value: string;
+    fontSize?: number;
+    fontWeight?: number;
+    lineHeight?: number;
+  }) => (
+    <div
+      data-testid="query-editor-value"
+      data-font-size={fontSize}
+      data-font-weight={fontWeight}
+      data-line-height={lineHeight}
+    >
+      {value}
+    </div>
   ),
 }));
 
@@ -14,7 +31,15 @@ afterEach(() => {
   cleanup();
 });
 
-function QueryEditorHarness({ initialValue }: { initialValue: string }) {
+function QueryEditorHarness({
+  initialValue,
+  fontSize,
+  fontWeight,
+}: {
+  initialValue: string;
+  fontSize?: number;
+  fontWeight?: number;
+}) {
   const [value, setValue] = React.useState(initialValue);
 
   return (
@@ -26,11 +51,36 @@ function QueryEditorHarness({ initialValue }: { initialValue: string }) {
       onModEnter={() => undefined}
       onCollapsedChange={() => undefined}
       collapseLabel="Collapse query"
+      {...(fontSize !== undefined ? { fontSize } : {})}
+      {...(fontWeight !== undefined ? { fontWeight } : {})}
     />
   );
 }
 
 describe('QueryEditorFrame clear action', () => {
+  it('uses the shared code editor typography defaults', () => {
+    render(<QueryEditorHarness initialValue="service = 'checkout'" />);
+
+    const editor = screen.getByTestId('query-editor-value');
+    expect(editor.getAttribute('data-font-size')).toBe('12');
+    expect(editor.getAttribute('data-font-weight')).toBe('600');
+    expect(editor.getAttribute('data-line-height')).toBe('20');
+  });
+
+  it('supports page-specific code editor typography', () => {
+    render(
+      <QueryEditorHarness
+        initialValue="rate(http_requests_total[5m])"
+        fontSize={14}
+        fontWeight={500}
+      />,
+    );
+
+    const editor = screen.getByTestId('query-editor-value');
+    expect(editor.getAttribute('data-font-size')).toBe('14');
+    expect(editor.getAttribute('data-font-weight')).toBe('500');
+  });
+
   it('clears only the current editor value', () => {
     render(<QueryEditorHarness initialValue="service = 'checkout'" />);
 

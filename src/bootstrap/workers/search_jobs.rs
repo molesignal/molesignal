@@ -166,7 +166,14 @@ impl SearchJobScheduler {
             .and_then(Value::as_str)
             .map(str::to_string);
 
-        let result = match self.query.run(req).await {
+        let query_result = if pipeline_id.is_some() {
+            // Backfill 仍要继续执行 VRL、写入目标流并触发 egress，必须使用原始值；
+            // 普通异步搜索则在持久化结果前完成最终返回边界遮掩。
+            self.query.run_raw(req).await
+        } else {
+            self.query.run(req).await
+        };
+        let result = match query_result {
             Ok(r) => r,
             Err(e) => {
                 self.repo

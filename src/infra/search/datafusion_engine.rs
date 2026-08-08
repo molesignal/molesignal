@@ -159,6 +159,14 @@ impl QueryEngine for DataFusionEngine {
             ensure_stream_in_org(streams.as_ref(), &req.org_id, &name, stream_type).await?;
         }
         let (_sample, statement) = parse_sample_hint(&req.statement);
+        execute::validate_match_text_fields(
+            self.streams.as_deref(),
+            &req,
+            &name,
+            stream_type,
+            &statement,
+        )
+        .await?;
         let (_preds, rewritten_sql) = extract_match_predicates(&statement);
 
         let ctx = crate::infra::query::analyzer::session_context_with_guard(self.max_result_rows);

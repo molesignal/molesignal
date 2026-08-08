@@ -122,7 +122,6 @@ impl TestServer {
                     trace_filter: &settings.telemetry.trace.filter,
                     self_telemetry: Some(SelfTelemetryInit {
                         queue_capacity: settings.telemetry.self_collect.queue_capacity,
-                        logs_enabled: true,
                         traces_enabled: true,
                         resource: ResourceIdentity::new(
                             "molesignal",

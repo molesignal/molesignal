@@ -50,17 +50,21 @@ interface QueryToolbarButtonProps extends React.ButtonHTMLAttributes<HTMLButtonE
   tone?: QueryToolbarTone;
 }
 
-export function QueryToolbarButton({
+export const QueryToolbarButton = React.forwardRef<
+  HTMLButtonElement,
+  QueryToolbarButtonProps
+>(function QueryToolbarButton({
   active = false,
   tone = 'blue',
   className,
   children,
   type = 'button',
   ...props
-}: QueryToolbarButtonProps) {
+}, ref) {
   return (
     <button
       {...props}
+      ref={ref}
       type={type}
       className={cn(
         'inline-flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded px-3 font-sans text-xs font-strong text-tx-2 transition-colors hover:bg-bg-3 hover:text-tx-0 disabled:cursor-not-allowed disabled:opacity-50',
@@ -71,7 +75,7 @@ export function QueryToolbarButton({
       {children}
     </button>
   );
-}
+});
 
 export interface QueryToolbarTab<T extends string> {
   id: T;

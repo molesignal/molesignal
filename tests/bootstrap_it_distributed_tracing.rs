@@ -788,53 +788,19 @@ async fn http_sql_object_store_business_spans_and_logs_are_queryable_in_system_s
         "HTTP/SQL/object-store/business spans were not queryable from `_sys/traces/_molesignal`"
     );
 
-    let log_statement =
-        format!("SELECT trace_id, span_id FROM _molesignal WHERE trace_id = '{trace_id}'");
-    let logs_ready = wait_until_async(30, {
-        let client = server.client.clone();
-        let base_url = server.base_url.clone();
-        let token = system_token.clone();
-        let system_org_id = server.state.iam.system_org_id.0.clone();
-        move || {
-            let client = client.clone();
-            let base_url = base_url.clone();
-            let token = token.clone();
-            let system_org_id = system_org_id.clone();
-            let statement = log_statement.clone();
-            async move {
-                query_system_stream(
-                    &client,
-                    &base_url,
-                    &token,
-                    &system_org_id,
-                    "logs",
-                    &statement,
-                )
-                .await
-                .is_some_and(|result| !result["rows"].as_array().is_none_or(Vec::is_empty))
-            }
-        }
-    })
-    .await;
-    assert!(
-        logs_ready,
-        "correlated log was not queryable from `_sys/logs/_molesignal`"
-    );
-    for stream_type in ["traces", "logs"] {
-        let result = query_system_stream(
-            &server.client,
-            &server.base_url,
-            &system_token,
-            server.state.iam.system_org_id.as_str(),
-            stream_type,
-            &format!("SELECT * FROM _molesignal WHERE trace_id = '{trace_id}'"),
-        )
-        .await
-        .unwrap_or_else(|| panic!("query privacy rows from system {stream_type} stream"));
-        let encoded = serde_json::to_string(&result).expect("encode system telemetry query");
-        assert!(!encoded.contains("trace-e2e-forbidden-token"));
-        assert!(!encoded.contains("trace-e2e-private@example.invalid"));
-    }
+    let result = query_system_stream(
+        &server.client,
+        &server.base_url,
+        &system_token,
+        server.state.iam.system_org_id.as_str(),
+        "traces",
+        &format!("SELECT * FROM _molesignal WHERE trace_id = '{trace_id}'"),
+    )
+    .await
+    .expect("query privacy rows from system traces stream");
+    let encoded = serde_json::to_string(&result).expect("encode system telemetry query");
+    assert!(!encoded.contains("trace-e2e-forbidden-token"));
+    assert!(!encoded.contains("trace-e2e-private@example.invalid"));
 
     server
         .state

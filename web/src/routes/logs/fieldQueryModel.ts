@@ -20,7 +20,7 @@ export interface LogFieldDef {
 
 export interface ParsedLogFieldClause {
   field: string;
-  op: '=' | '!=' | '>' | '>=' | '<' | '<=' | 'contains';
+  op: '=' | '!=' | '>' | '>=' | '<' | '<=' | 'contains' | 'match' | 'match_text';
   value: string;
   quoted: boolean;
 }
@@ -204,6 +204,29 @@ export function parseLogFieldStatement(input: string): ParsedLogFieldStatement {
   for (const rawPart of splitLogFieldStatement(trimmed)) {
     const part = rawPart.trim();
     if (!part) continue;
+    // Functions are converted to structured filters before crossing the API
+    // boundary. Raw function text must never be interpolated into backend SQL.
+    const functionMatch = part.match(
+      /^(MATCH_TEXT|MATCH)\s*\(\s*([a-zA-Z_][\w.]*)\s*,\s*([\s\S]*?)\s*\)$/i,
+    );
+    if (functionMatch) {
+      const { value, quoted } = unquoteLogFieldValue(functionMatch[3]!);
+      if (!quoted) {
+        rejected.push(part);
+        continue;
+      }
+      filters.push({
+        field: functionMatch[2]!,
+        op: functionMatch[1]!.toLowerCase() as 'match' | 'match_text',
+        value,
+        quoted: true,
+      });
+      continue;
+    }
+    if (/^(MATCH_TEXT|MATCH)\b/i.test(part)) {
+      rejected.push(part);
+      continue;
+    }
     const match = part.match(
       /^([a-zA-Z_][\w.]*)\s*(>=|<=|!=|=|>|<|eq\b|ne\b|contains\b|like\b)\s*([\s\S]+)$/i,
     );
@@ -246,6 +269,14 @@ function normalizedWhitespaceValue(value: string): string {
 
 export function logFieldClauseToSql(clause: ParsedLogFieldClause): string {
   const field = `"${escapeSqlIdentifier(clause.field)}"`;
+  if (clause.op === 'match' || clause.op === 'match_text') {
+    if (clause.op === 'match' && clause.value.length === 0) return 'FALSE';
+    const functionName = clause.op === 'match' ? 'MATCH' : 'MATCH_TEXT';
+    const functionField = /^[a-zA-Z_][\w]*$/.test(clause.field)
+      ? clause.field
+      : field;
+    return `${functionName}(${functionField}, '${escapeSqlString(clause.value)}')`;
+  }
   const normalizeRenderedWhitespace = clause.quoted && /\s/.test(clause.value);
 
   if (clause.op === 'contains') {

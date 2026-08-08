@@ -1,10 +1,9 @@
 # 服务自身遥测回灌
 
-MoleSignal 可以把进程自身的 logs、metrics、traces 和 profiles 写回不可变系统组织 `_sys`。启用后，每种信号使用各自的 `StreamType`，但流名统一为精确名称 `_molesignal`：
+MoleSignal 可以把进程自身的 metrics、traces 和 profiles 写回不可变系统组织 `_sys`。进程日志只输出到配置的终端或日志文件，不再回灌；升级前已经写入 `logs/_molesignal` 的历史数据不会被迁移或删除，仍按原有保留策略自然过期。启用后，每种自遥测信号使用各自的 `StreamType`，但流名统一为精确名称 `_molesignal`：
 
 | 信号 | typed stream | 主要内容 |
 |---|---|---|
-| logs | `logs/_molesignal` | `tracing::Event`、级别、target、源码位置、结构化字段、trace/span ID |
 | metrics | `metrics/_molesignal` | counter、gauge、histogram bucket/count/sum、summary quantile/count/sum |
 | traces | `traces/_molesignal` | 已完成 span，字段契约与公共 OTLP trace 一致 |
 | profiles | `profiles/_molesignal` | profile metadata；canonical pprof blob 仍归档到 object store |
@@ -32,7 +31,7 @@ profile_interval_secs = 600
 profile_duration_secs = 10
 ```
 
-配置中不接受旧的 `[telemetry.self_ingest]`、`telemetry.trace.self_ingest_enabled`，也不接受 `org_slug`、`logs_enabled`、`traces_enabled` 或 `profiles_enabled`；出现这些字段会被当作未知字段拒绝。运行时始终通过常量 `SYSTEM_ORG_SLUG = "_sys"` 解析系统组织。开启 `telemetry.self_collect.enabled` 后固定启动 logs 和 profiles；metrics 仍可通过 `metrics_enabled` 单独关闭。Trace 只有在该总开关开启且 `telemetry.trace.enabled` 的有效策略允许捕获时才写入 `_sys/traces/_molesignal`；关闭 self telemetry 不影响独立配置的外部 OTLP Trace 导出。
+配置中不接受旧的 `[telemetry.self_ingest]`、`telemetry.trace.self_ingest_enabled`，也不接受 `org_slug`、`logs_enabled`、`logs_retention_days`、`traces_enabled` 或 `profiles_enabled`；出现这些字段会被当作未知字段拒绝。运行时始终通过常量 `SYSTEM_ORG_SLUG = "_sys"` 解析系统组织。开启 `telemetry.self_collect.enabled` 后固定启动 profiles；metrics 仍可通过 `metrics_enabled` 单独关闭。Trace 只有在该总开关开启且 `telemetry.trace.enabled` 的有效策略允许捕获时才写入 `_sys/traces/_molesignal`；关闭 self telemetry 不影响独立配置的外部 OTLP Trace 导出。
 
 ## 权限和写保护
 
@@ -40,7 +39,7 @@ profile_duration_secs = 10
 
 - 公共 HTTP、OTLP、Prometheus、兼容协议、connector、profile 和 gRPC 写入不能选择 `_molesignal`。
 - 可信 self-telemetry 写入入口同时校验 bootstrap 注入的 `_sys` 组织 ID 与精确流名 `_molesignal`；即使内部调用方传错组织，也不会落入普通租户。
-- Stream CRUD 不能创建、修改或删除 `_molesignal`，pipeline 也不能把它设为目标。
+- Stream CRUD 不能创建或删除 `_molesignal`，pipeline 也不能把它设为目标；现有系统流允许修改安全的字段索引、提取和遮掩设置。
 - 只有切换到 `_sys` 的 `system_scope` 且具有系统遥测读取权限的平台管理员能列出和查询这些流；普通租户不可见。
 - split-role 内部 RPC 需要各节点设置相同的 `MS_SELF_TELEMETRY_CLUSTER_TOKEN`。该值只从环境读取，不写入日志或遥测字段。
 
@@ -52,7 +51,7 @@ router、querier、compactor 和 alert-manager 节点从 cluster registry 选择
 
 ## 背压、递归和关闭
 
-logs 与 traces 各有独立有界队列。`tracing` callback 只执行 `try_send`，队列满时直接丢弃，不阻塞业务请求。metrics 和 profiles 是定时 producer。
+traces 使用独立有界队列。`tracing` callback 只执行 `try_send`，队列满时直接丢弃，不阻塞业务请求。metrics 和 profiles 是定时 producer。
 
 内部 worker、远程路由和 profile 归档运行在 suppression scope 中；self-telemetry 模块自身的 tracing target 也被过滤，因此写入产生的日志不会再次回灌。正常关闭时先停止 producer 并在 `flush_timeout_secs` 内冲刷队列，再进入节点 drain；超时只丢弃尚未落入 WAL 的记录，不阻塞进程退出。
 
@@ -74,17 +73,11 @@ logs 与 traces 各有独立有界队列。`tracing` callback 只执行 `try_sen
 
 ## 存储成本与查询示例
 
-默认保留 7 天。日志量、指标 family 数量和 profile duty cycle 会直接影响存储；建议先在单节点或较短 retention 下观察 `accepted`、`dropped` 与实际 object-store 增长。profile blob 使用现有 `profiles/<org>/<service>/<type>/<date>/<id>.pprof.zst` 布局。
+默认保留 7 天。指标 family 数量和 profile duty cycle 会直接影响存储；建议先在单节点或较短 retention 下观察 `accepted`、`dropped` 与实际 object-store 增长。profile blob 使用现有 `profiles/<org>/<service>/<type>/<date>/<id>.pprof.zst` 布局。
 
-SQL 查询时同时传递 stream hint，区分四个同名 typed streams。例如：
+SQL 查询时同时传递 stream hint，区分三个同名 typed streams。例如：
 
 ```sql
--- logs
-SELECT "_timestamp", level, target, message, trace_id
-FROM "_molesignal"
-ORDER BY "_timestamp" DESC
-LIMIT 100;
-
 -- metrics
 SELECT metric_name, metric_kind, value, "service.role", "node.id"
 FROM "_molesignal"
@@ -102,4 +95,4 @@ FROM "_molesignal"
 ORDER BY "_timestamp" DESC;
 ```
 
-对应的 query request 中分别设置 `stream.stream_type` 为 `logs`、`metrics`、`traces` 或 `profiles`，并设置 `stream.name` 为 `_molesignal`。
+对应的 query request 中分别设置 `stream.stream_type` 为 `metrics`、`traces` 或 `profiles`，并设置 `stream.name` 为 `_molesignal`。

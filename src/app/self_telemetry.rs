@@ -224,7 +224,6 @@ fn retry_reason(error: &str) -> &'static str {
 
 fn proto_stream_type(signal: SelfTelemetrySignal) -> ProtoStreamType {
     match signal {
-        SelfTelemetrySignal::Logs => ProtoStreamType::Logs,
         SelfTelemetrySignal::Metrics => ProtoStreamType::Metrics,
         SelfTelemetrySignal::Traces => ProtoStreamType::Traces,
         SelfTelemetrySignal::Profiles => ProtoStreamType::Profiles,
@@ -233,7 +232,6 @@ fn proto_stream_type(signal: SelfTelemetrySignal) -> ProtoStreamType {
 
 fn stream_type(signal: SelfTelemetrySignal) -> StreamType {
     match signal {
-        SelfTelemetrySignal::Logs => StreamType::Logs,
         SelfTelemetrySignal::Metrics => StreamType::Metrics,
         SelfTelemetrySignal::Traces => StreamType::Traces,
         SelfTelemetrySignal::Profiles => StreamType::Profiles,
@@ -384,19 +382,17 @@ impl SelfTelemetryRuntime {
             trace_candidates,
         };
 
-        for signal in [SelfTelemetrySignal::Logs, SelfTelemetrySignal::Traces] {
-            if let Some(receiver) = hub.take_receiver(signal) {
-                handles.push(tokio::spawn(with_suppression(run_signal_worker(
-                    worker_context.clone(),
-                    SignalWorkerSettings {
-                        signal,
-                        max_events: settings.batch_max_events,
-                        max_delay: Duration::from_millis(settings.batch_max_delay_ms),
-                    },
-                    receiver,
-                    stop_rx.clone(),
-                ))));
-            }
+        if let Some(receiver) = hub.take_receiver(SelfTelemetrySignal::Traces) {
+            handles.push(tokio::spawn(with_suppression(run_signal_worker(
+                worker_context.clone(),
+                SignalWorkerSettings {
+                    signal: SelfTelemetrySignal::Traces,
+                    max_events: settings.batch_max_events,
+                    max_delay: Duration::from_millis(settings.batch_max_delay_ms),
+                },
+                receiver,
+                stop_rx.clone(),
+            ))));
         }
 
         if settings.enabled && settings.metrics_enabled {
@@ -462,11 +458,9 @@ impl SelfTelemetryRuntime {
             for handle in handles {
                 handle.abort();
             }
-            for signal in [SelfTelemetrySignal::Logs, SelfTelemetrySignal::Traces] {
-                let pending = self.hub.pending_depth(signal);
-                if pending > 0 {
-                    record_drop(signal, "flush_timeout", pending as u64);
-                }
+            let pending = self.hub.pending_depth(SelfTelemetrySignal::Traces);
+            if pending > 0 {
+                record_drop(SelfTelemetrySignal::Traces, "flush_timeout", pending as u64);
             }
             tracing::warn!(
                 target: "molesignal::app::self_telemetry",
@@ -849,20 +843,19 @@ mod tests {
     async fn batches_and_flushes_without_recursive_enqueue() {
         let hub = SelfTelemetryHub::new(SelfTelemetryInit {
             queue_capacity: 8,
-            logs_enabled: true,
-            traces_enabled: false,
+            traces_enabled: true,
             resource: ResourceIdentity::new("molesignal", "test", "test", "test", "node"),
         });
         let delivery = Arc::new(RecordingDelivery {
             calls: AtomicUsize::new(0),
             events: AtomicUsize::new(0),
         });
-        let logs = hub.take_receiver(SelfTelemetrySignal::Logs).unwrap();
+        let traces = hub.take_receiver(SelfTelemetrySignal::Traces).unwrap();
         // Put the receiver back through the worker test seam: run it directly so the
         // suppression scope covers diagnostics emitted by delivery.
         for _ in 0..3 {
             assert!(hub.try_send(
-                SelfTelemetrySignal::Logs,
+                SelfTelemetrySignal::Traces,
                 RawEvent {
                     timestamp: TimestampMicros::now(),
                     fields: Map::new(),
@@ -878,11 +871,11 @@ mod tests {
                 trace_candidates: None,
             },
             SignalWorkerSettings {
-                signal: SelfTelemetrySignal::Logs,
+                signal: SelfTelemetrySignal::Traces,
                 max_events: 2,
                 max_delay: Duration::from_millis(10),
             },
-            logs,
+            traces,
             stop_rx,
         )));
         tokio::time::sleep(Duration::from_millis(30)).await;
@@ -890,15 +883,14 @@ mod tests {
         stop_tx.send(true).unwrap();
         worker.await.unwrap();
         assert_eq!(delivery.events.load(Ordering::Relaxed), 3);
-        assert_eq!(hub.pending_depth(SelfTelemetrySignal::Logs), 0);
+        assert_eq!(hub.pending_depth(SelfTelemetrySignal::Traces), 0);
     }
 
     #[tokio::test]
     async fn runtime_stop_flushes_pending_records_before_returning() {
         let hub = SelfTelemetryHub::new(SelfTelemetryInit {
             queue_capacity: 8,
-            logs_enabled: true,
-            traces_enabled: false,
+            traces_enabled: true,
             resource: ResourceIdentity::new("molesignal", "test", "test", "test", "node"),
         });
         let delivery = Arc::new(RecordingDelivery {
@@ -915,7 +907,7 @@ mod tests {
         );
         for _ in 0..3 {
             assert!(hub.try_send(
-                SelfTelemetrySignal::Logs,
+                SelfTelemetrySignal::Traces,
                 RawEvent {
                     timestamp: TimestampMicros::now(),
                     fields: Map::new(),
@@ -924,15 +916,14 @@ mod tests {
         }
         runtime.stop_and_flush().await;
         assert_eq!(delivery.events.load(Ordering::Relaxed), 3);
-        assert_eq!(hub.pending_depth(SelfTelemetrySignal::Logs), 0);
+        assert_eq!(hub.pending_depth(SelfTelemetrySignal::Traces), 0);
     }
 
     #[tokio::test]
     async fn runtime_flush_timeout_is_bounded() {
         let hub = SelfTelemetryHub::new(SelfTelemetryInit {
             queue_capacity: 1,
-            logs_enabled: true,
-            traces_enabled: false,
+            traces_enabled: true,
             resource: ResourceIdentity::new("molesignal", "test", "test", "test", "node"),
         });
         let runtime = SelfTelemetryRuntime::start(
@@ -944,7 +935,7 @@ mod tests {
             None,
         );
         assert!(hub.try_send(
-            SelfTelemetrySignal::Logs,
+            SelfTelemetrySignal::Traces,
             RawEvent {
                 timestamp: TimestampMicros::now(),
                 fields: Map::new(),
@@ -998,7 +989,7 @@ mod tests {
         let result = delivery
             .deliver(
                 &Id::new(),
-                SelfTelemetrySignal::Logs,
+                SelfTelemetrySignal::Traces,
                 vec![RawEvent {
                     timestamp: TimestampMicros::now(),
                     fields: Map::new(),
@@ -1077,7 +1068,7 @@ mod tests {
             )]),
         };
         delivery
-            .deliver(&Id::new(), SelfTelemetrySignal::Logs, vec![event])
+            .deliver(&Id::new(), SelfTelemetrySignal::Traces, vec![event])
             .await
             .unwrap();
         assert_eq!(

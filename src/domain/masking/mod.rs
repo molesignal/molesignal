@@ -21,6 +21,13 @@ use regex::Regex;
 
 use crate::shared::{Result, ids::Id};
 
+mod field;
+
+pub use field::{
+    EffectiveFieldMasking, EffectiveFieldMaskingEntry, FieldMaskingAlgorithm, FieldMaskingOverride,
+    FieldMaskingProvider, FieldMaskingRule, FieldMaskingRuleRepository, FieldMaskingSource,
+};
+
 /// 一条编译好的脱敏规则。
 struct MaskRule {
     regex: Regex,

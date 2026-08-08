@@ -4,6 +4,12 @@ import { cn } from '@/shell/lib/cn';
 
 import { CodeEditorHeader, CodeEditorStatus } from './Chrome';
 import type { CodeEditorHandle, CodeEditorProps, CodeLanguage } from './types';
+import {
+  CODE_EDITOR_FONT_FAMILY,
+  CODE_EDITOR_FONT_SIZE,
+  CODE_EDITOR_FONT_WEIGHT,
+  CODE_EDITOR_LINE_HEIGHT,
+} from './typography';
 
 export type {
   CodeEditorHandle,
@@ -37,6 +43,7 @@ function CodeEditorFallback({
   placeholder,
   minHeight = 96,
   fontSize,
+  fontWeight = CODE_EDITOR_FONT_WEIGHT,
   lineHeight,
   lineNumbers = true,
   readOnly = false,
@@ -68,10 +75,12 @@ function CodeEditorFallback({
         />
       )}
       <div
-        className="flex items-start bg-bg-0 font-mono font-normal tracking-normal text-tx-3"
+        className="flex items-start bg-bg-0 font-normal tracking-normal text-tx-3"
         style={{
+          fontFamily: CODE_EDITOR_FONT_FAMILY,
           height: minHeight,
           fontSize: metrics.fontSize,
+          fontWeight,
           lineHeight: `${metrics.lineHeight}px`,
           paddingBottom: metrics.paddingBottom,
           paddingLeft: (lineNumbers ? FALLBACK_LEFT_INSET_WITH_LINE_NUMBERS : FALLBACK_LEFT_INSET) + FALLBACK_FRAME_HORIZONTAL_PADDING,
@@ -105,8 +114,8 @@ function defaultPlaceholder(language: CodeLanguage): string | undefined {
 
 function editorMetrics(compact: boolean, fontSize?: number, lineHeight?: number) {
   return {
-    fontSize: fontSize ?? 13,
-    lineHeight: lineHeight ?? 20,
+    fontSize: fontSize ?? CODE_EDITOR_FONT_SIZE,
+    lineHeight: lineHeight ?? CODE_EDITOR_LINE_HEIGHT,
     paddingBottom: compact ? 6 : 8,
     paddingTop: compact ? 6 : 8,
   };

@@ -113,6 +113,7 @@
   },
   "explore": {
     "subtitle": "运行状态、查询效率、存储与保留策略",
+    "system_stream_immutable": "系统数据流仅允许配置字段索引、提取与遮掩。名称、类型、加密、保留策略和删除操作均由系统管理。",
     "toolbar": {
       "refresh": "刷新",
       "query_data": "查询数据",
@@ -181,7 +182,7 @@
     },
     "schema": {
       "summary": "{{fields}} 个字段 · {{indexed}} 个已索引 · {{encrypted}} 个已加密",
-      "readonly_hint": "默认只读。点击字段右侧编辑按钮修改索引与提取规则。",
+      "readonly_hint": "默认只读。点击字段右侧编辑按钮修改索引、提取与遮掩规则。",
       "search_placeholder": "搜索字段",
       "fts_title": "全文检索由字段级索引决定",
       "fts_description": "为 message、body 等文本字段启用全文索引，可加速 MATCH 查询；历史数据不会自动重建索引。",
@@ -215,11 +216,21 @@
       "edit_field": "编辑字段 {{name}}",
       "drawer_title": "编辑字段 · {{name}}",
       "drawer_fallback": "编辑字段",
-      "drawer_subtitle": "配置查询索引与写入时字段提取，不改变字段类型。",
+      "drawer_subtitle": "配置查询索引、写入时字段提取与返回时遮掩，不改变字段类型。",
       "cancel": "取消",
       "apply": "应用到草稿",
       "no_schema": "该数据流还没有 schema。写入第一批数据后会自动展示字段。",
-      "no_match": "没有匹配字段。"
+      "no_match": "没有匹配字段。",
+      "masking": {
+        "title": "返回时字段遮掩",
+        "description": "遮掩由后端在最终查询结果、导出与 API 响应返回前执行；过滤、排序和聚合仍使用原值。",
+        "mode": "流级策略",
+        "modes": { "inherit": "继承全局规则", "custom": "流级自定义", "none": "流级明确不遮掩" },
+        "no_global_rule": "当前没有命中的全局规则",
+        "no_global_rule_hint": "保持继承后，该字段当前不会被遮掩；未来新增匹配规则会自动生效。",
+        "explicit_none_hint": "此流的该字段将明确跳过全局遮掩规则。恢复“继承全局规则”后才会重新使用全局配置。",
+        "metrics_disabled": "Metrics 指标流不参与字段遮掩；指标值和标签保持原样，字段索引与提取仍可配置。"
+      }
     },
     "retention": {
       "default_policy": "默认保留策略",

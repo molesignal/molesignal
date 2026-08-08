@@ -588,8 +588,6 @@ export function AlertRuleWorkbench() {
                   ariaLabel={t('workbench.fields.query')}
                   minHeight={180}
                   maxHeight={360}
-                  fontSize={12}
-                  lineHeight={18}
                   compact
                   resizable
                   showHeader

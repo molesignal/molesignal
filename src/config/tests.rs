@@ -286,6 +286,7 @@ fn removed_service_switches_are_rejected() {
         "[telemetry.self]\nenabled = true\n",
         "[telemetry.trace]\nself_ingest_enabled = true\n",
         "[telemetry.self_collect]\nlogs_enabled = false\n",
+        "[telemetry.self_collect]\nlogs_retention_days = 7\n",
         "[telemetry.self_collect]\ntraces_enabled = false\n",
         "[telemetry.self_collect]\nprofiles_enabled = false\n",
     ] {

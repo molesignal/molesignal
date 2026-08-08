@@ -29,7 +29,7 @@ export function GraphView({
   const effectiveStackMode = canStack ? chart.stackMode : 'none';
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 flex-none flex-col">
       <div className="flex min-h-12 shrink-0 flex-wrap items-center gap-3 border-b border-bd-0 px-3 py-2">
         <div className="min-w-[12rem] flex-1">
           <div
@@ -42,9 +42,14 @@ export function GraphView({
               : t('explore.chart.awaiting_query')}
           </div>
           {query.promql.trim() ? (
-            <code className="type-micro mt-0.5 block truncate font-mono text-tx-3">
-              {query.executedPromql ?? query.promql}
-            </code>
+            <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
+              <span className="type-micro shrink-0 font-sans font-medium text-tx-3">
+                {t('explore.results.query')}:
+              </span>
+              <code className="type-micro min-w-0 truncate font-code text-tx-2">
+                {query.executedPromql ?? query.promql}
+              </code>
+            </div>
           ) : null}
         </div>
 
@@ -79,7 +84,7 @@ export function GraphView({
         />
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col p-3">
+      <div className="flex min-h-0 flex-none flex-col p-3">
         {query.error ? (
           <QueryState state="error" error={query.error} />
         ) : query.pending && !query.result ? (
@@ -105,10 +110,23 @@ export function GraphView({
               />
             ) : null}
             <TimeSeriesChart
-              height="100%"
-              className="min-h-[360px] flex-1"
+              height="auto"
+              className="min-h-[480px] flex-none"
               series={series.chartSeries}
               xDomain={chart.xDomain}
+              seriesIdentity={{
+                title: t('explore.series.title'),
+                countLabel: t('explore.results.series_count', {
+                  count: series.metricSeries.length,
+                }),
+                nameLabel: t('explore.series.columns.name'),
+                labelCountLabel: (count) => t('explore.series.label_count', { count }),
+                expandLabel: (metricName) => t('explore.series.expand_labels', { metric: metricName }),
+                collapseLabel: (metricName) => t('explore.series.collapse_labels', { metric: metricName }),
+                statLabels: {
+                  last: t('explore.series.columns.last'),
+                },
+              }}
               options={{
                 drawStyle: chart.drawStyle,
                 fillOpacity: 0,
@@ -117,7 +135,7 @@ export function GraphView({
                 showPoints: 'auto',
                 legendMode: 'table',
                 legendPlacement: 'bottom',
-                legendStats: ['last', 'min', 'max', 'mean'],
+                legendStats: ['last'],
                 leftAxis: {
                   ...(series.unit ? { unit: series.unit } : {}),
                   ...(series.counterRateQuery ? { softMin: 0 } : {}),

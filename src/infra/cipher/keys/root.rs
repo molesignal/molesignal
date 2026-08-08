@@ -27,6 +27,7 @@ pub enum CipherRootKeyError {
 #[derive(Clone)]
 pub struct CipherRootKey {
     cipher: Aes256Gcm,
+    hmac_key: [u8; 32],
 }
 
 impl CipherRootKey {
@@ -44,9 +45,14 @@ impl CipherRootKey {
         if bytes.len() != 32 {
             return Err(CipherRootKeyError::BadLen(bytes.len()));
         }
-        let key = aes_gcm::Key::<Aes256Gcm>::from_slice(&bytes);
+        let hmac_key: [u8; 32] = bytes
+            .as_slice()
+            .try_into()
+            .map_err(|_| CipherRootKeyError::BadLen(bytes.len()))?;
+        let key = aes_gcm::Key::<Aes256Gcm>::from_slice(&hmac_key);
         Ok(Self {
             cipher: Aes256Gcm::new(key),
+            hmac_key,
         })
     }
 
@@ -77,6 +83,18 @@ impl CipherRootKey {
             .decrypt(nonce, ciphertext)
             .map_err(|e| CipherRootKeyError::Aead(e.to_string()))
     }
+
+    /// 生成组织隔离的确定性 HMAC-SHA-256；根密钥不会离开后端进程。
+    pub fn org_hmac_sha256(&self, org_id: &str, value: &[u8]) -> String {
+        use aws_lc_rs::hmac;
+
+        let root = hmac::Key::new(hmac::HMAC_SHA256, &self.hmac_key);
+        let mut context = b"molesignal/field-masking/v1\0".to_vec();
+        context.extend_from_slice(org_id.as_bytes());
+        let derived = hmac::sign(&root, &context);
+        let organization_key = hmac::Key::new(hmac::HMAC_SHA256, derived.as_ref());
+        hex::encode(hmac::sign(&organization_key, value).as_ref())
+    }
 }
 
 #[cfg(test)]
@@ -103,5 +121,14 @@ mod tests {
         let b64 = base64::engine::general_purpose::STANDARD.encode([1u8; 16]);
         let r = CipherRootKey::from_base64(&b64);
         assert!(matches!(r, Err(CipherRootKeyError::BadLen(16))));
+    }
+
+    #[test]
+    fn org_hmac_is_stable_and_tenant_scoped() {
+        let key = CipherRootKey::from_base64(&random_b64_key()).unwrap();
+        let first = key.org_hmac_sha256("org-a", b"alice@example.com");
+        assert_eq!(first.len(), 64);
+        assert_eq!(first, key.org_hmac_sha256("org-a", b"alice@example.com"));
+        assert_ne!(first, key.org_hmac_sha256("org-b", b"alice@example.com"));
     }
 }

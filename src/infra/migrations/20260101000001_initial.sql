@@ -678,6 +678,29 @@ CREATE TABLE IF NOT EXISTS regex_patterns (
 CREATE UNIQUE INDEX IF NOT EXISTS uq_regex_pattern_org_name
     ON regex_patterns(org_id, name);
 
+-- Organization-level dynamic field masking rules. Raw values remain stored and
+-- query execution uses raw data; masking is applied at the response boundary.
+CREATE TABLE IF NOT EXISTS field_masking_rules (
+    id                VARCHAR(64)  PRIMARY KEY,
+    org_id            VARCHAR(64)  NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    name              VARCHAR(255) NOT NULL,
+    priority          INTEGER      NOT NULL,
+    enabled           BOOLEAN      NOT NULL DEFAULT true,
+    field_pattern     VARCHAR(255) NOT NULL,
+    stream_pattern    VARCHAR(255),
+    stream_type       VARCHAR(16),
+    algorithm         JSONB        NOT NULL,
+    created_at_micros BIGINT       NOT NULL,
+    updated_at_micros BIGINT       NOT NULL,
+    CONSTRAINT chk_field_masking_priority CHECK (priority >= 0),
+    CONSTRAINT chk_field_masking_stream_type
+        CHECK (stream_type IS NULL OR stream_type IN ('logs', 'traces', 'profiles', 'extend'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_field_masking_rule_org_name
+    ON field_masking_rules(org_id, name);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_field_masking_rule_org_priority
+    ON field_masking_rules(org_id, priority);
+
 -- ============================================================
 -- Functions / pipelines / scheduled pipelines / pipeline runs
 -- ============================================================

@@ -122,12 +122,16 @@
       "query_error": "Exemplars unavailable"
     },
     "series": {
-      "title": "Series overview · {{count}}",
+      "title": "Series",
       "empty": "No series.",
       "collapse": "Collapse",
       "show_all": "Show all {{count}} series",
+      "label_count": "{{count}} labels",
+      "expand_labels": "Show labels for {{metric}}",
+      "collapse_labels": "Hide labels for {{metric}}",
       "columns": {
         "name": "Name",
+        "last": "Last",
         "current": "Current",
         "average": "Average",
         "max": "Max"
