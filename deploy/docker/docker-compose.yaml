@@ -4,7 +4,7 @@
 #   docker compose up                          → 默认 + standalone profile（一个进程跑所有 role）
 #   docker compose --profile multirole up      → 拆分模式（router/ingester/querier/compactor/alert-manager/connector）
 #
-# postgres + minio 总是启动；molesignal 容器走哪个 profile 由 docker compose --profile 选。
+# postgresql + minio 总是启动；molesignal 容器走哪个 profile 由 docker compose --profile 选。
 
 x-molesignal-base: &molesignal-base
   build:
@@ -15,7 +15,7 @@ x-molesignal-base: &molesignal-base
       GIT_SHA: ${GIT_SHA:-unknown}
   image: ghcr.io/molesignal/molesignal:latest
   depends_on:
-    postgres:
+    postgresql:
       condition: service_healthy
     minio:
       condition: service_healthy
@@ -25,7 +25,7 @@ x-molesignal-base: &molesignal-base
     RELEASE_CHANNEL: ${RELEASE_CHANNEL:-alpha}
     MS_TELEMETRY_LOG_LEVEL: info
     MS_STORE_META_BACKEND: postgres
-    MS_STORE_META_DSN: "postgres://molesignal:molesignal@postgres:5432/molesignal"
+    MS_STORE_META_DSN: "postgres://molesignal:molesignal@postgresql:5432/molesignal"
     MS_STORE_OBJECT_BACKEND: s3
     MS_STORE_OBJECT_BUCKET: molesignal
     MS_STORE_OBJECT_REGION: us-east-1
@@ -35,10 +35,10 @@ x-molesignal-base: &molesignal-base
     # JWT signing secret 默认由 DB 自动 bootstrap（auth-hardening）；
     # 想 deterministic 锁定可设 MS_AUTH_JWT_SECRET_OVERRIDE。
     # 32B base64 cipher root key；dev 全零，生产换 openssl rand -base64 32
-    MS_CIPHER_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+    MS_CIPHER_KEY: "Ahh6n0ilIjohKjrfNZNj/YnFU8476KGnYwjoRsuAtpE="
 
 services:
-  postgres:
+  postgresql:
     image: postgres:17
     environment:
       POSTGRES_USER: molesignal
