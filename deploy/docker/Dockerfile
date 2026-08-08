@@ -23,6 +23,9 @@ COPY proto ./proto
 COPY src ./src
 # Cargo.toml 的 [[bench]] 引用 benches/；不 COPY 则 manifest 解析失败。
 COPY benches ./benches
+# src/shared/contracts/validator.rs 用 include_str!(CARGO_MANIFEST_DIR/contracts/...)
+# 内嵌 dashboard schema；不 COPY 则编译失败。
+COPY contracts ./contracts
 RUN BUILD_ID="$BUILD_ID" GIT_SHA="$GIT_SHA" cargo build --release --locked --bin molesignal
 
 ################ Stage 2: runtime ################
