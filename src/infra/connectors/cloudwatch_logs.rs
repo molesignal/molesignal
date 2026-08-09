@@ -14,7 +14,7 @@ use serde_json::{Map, Value};
 
 use super::{PullConnector, PullContext, sigv4};
 use crate::{
-    domain::ingestion::RawEvent,
+    domain::intake::RawEvent,
     shared::{Error, Result, time::TimestampMicros},
 };
 

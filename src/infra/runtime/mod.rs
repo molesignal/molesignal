@@ -5,7 +5,7 @@
 //!
 //! - [`vrl::runtime::VrlRuntime`]：编译 + 执行 VRL 源码，把 `serde_json::Value` 当作
 //!   target，stdlib 函数（`parse_json` / `to_int` / `del` / `match` 等）默认可用。
-//! - [`vrl::executor::VrlFunctionExecutor`]：实现 `app::ingestion::FunctionExecutor`，
+//! - [`vrl::executor::VrlFunctionExecutor`]：实现 `app::intake::FunctionExecutor`，
 //!   包装 `VrlRuntime` + per-function compile cache。
 //! - [`chained_executor::ChainedFunctionExecutor`]：把 VRL + 可选 JS 组合成单一
 //!   `FunctionExecutor`，按 `function.language` 路由。

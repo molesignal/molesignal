@@ -28,7 +28,7 @@ description: Review MoleSignal changes for cross-organization data exposure or m
 7. object store key 是否带组织前缀；公开分享的 snapshot/session token 是否仍绑定 share 与授权策略。
 8. worker 扫描多组织数据时，是否逐组织加载配置、license、权限与 repository 查询。
 9. SSO/SAML、API token、gRPC cluster token 和 resource share 是否能被替换组织参数绕过。
-10. 日志、trace、审计和 intelligence tool context 是否不会把一个组织的数据传到另一个组织。
+10. 日志、trace、审计和 agent tool context 是否不会把一个组织的数据传到另一个组织。
 
 ## 禁止建议
 

@@ -649,7 +649,7 @@ function StreamDrawer({
       name: name.trim(),
       stream_type: type,
       retention_days: Number(retention),
-      // 加密字段以密文（Utf8）落盘；显式声明 FieldDef(encrypted=true)，其余字段仍由 ingest 推断。
+      // 加密字段以密文（Utf8）落盘；显式声明 FieldDef(encrypted=true)，其余字段仍由 intake 推断。
       fields: encrypted.map((field) => ({
         name: field,
         data_type: 'utf8' as const,

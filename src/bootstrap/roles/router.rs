@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Router 角色：把 `/api/v1/ingest/*` 与 `/api/v1/query` 反代到
+//! Router 角色：把 `/api/v1/intake/*` 与 `/api/v1/query` 反代到
 //! 由 [`ClusterRegistry`] 选出的下游节点；用 `governor` 按 `(org_id, route_class)`
 //! 限流，超限返 `429 Too Many Requests` + `Retry-After`。
 //!
 //! 当前简化：
 //! - 非流式 body（用 `axum::body::to_bytes` 收完转发）
 //! - `org_id` 提取：HTTP header `X-Org-Id`（生产应由 auth middleware 注入）
-//! - 选下游：`pick_ingester(org_id, "default")` / `pick_querier()`
+//! - 选下游：`pick_intake(org_id, "default")` / `pick_querier()`
 
 use std::{collections::HashMap, num::NonZeroU32, sync::Arc, time::Duration};
 
@@ -38,7 +38,7 @@ type Limiter = RateLimiter<NotKeyed, InMemoryState, DefaultClock>;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 enum RouteClass {
-    Ingest,
+    Intake,
     Query,
 }
 
@@ -53,7 +53,7 @@ struct RouterState {
 impl RouterState {
     fn limiter(&self, key: LimiterKey) -> Option<Arc<Limiter>> {
         let qps = match key.1 {
-            RouteClass::Ingest => self.rate.ingest_qps,
+            RouteClass::Intake => self.rate.intake_qps,
             RouteClass::Query => self.rate.query_qps,
         };
         if qps == 0 {
@@ -92,25 +92,25 @@ pub fn build_router(state: AppState, rate: RouterRateLimit) -> anyhow::Result<Ro
             .build()?,
     };
     Ok(Router::new()
-        .route("/api/v1/ingest/{*rest}", any(proxy_ingest))
+        .route("/api/v1/intake/{*rest}", any(proxy_intake))
         .route("/api/v1/query", any(proxy_query))
         .with_state(rs))
 }
 
-async fn proxy_ingest(State(rs): State<RouterState>, req: Request) -> Response {
+async fn proxy_intake(State(rs): State<RouterState>, req: Request) -> Response {
     let org_id = extract_org(req.headers());
-    if let Some(retry_after) = rate_check(&rs, (org_id.clone(), RouteClass::Ingest)) {
+    if let Some(retry_after) = rate_check(&rs, (org_id.clone(), RouteClass::Intake)) {
         return rate_limited_response(retry_after);
     }
     let peer = match rs
         .app
         .cluster
         .registry
-        .pick_ingester(&Id::from_string(org_id), "default")
+        .pick_intake(&Id::from_string(org_id), "default")
         .await
     {
         Some(p) => p,
-        None => return (StatusCode::SERVICE_UNAVAILABLE, "no ingester available").into_response(),
+        None => return (StatusCode::SERVICE_UNAVAILABLE, "no intake available").into_response(),
     };
     forward(&rs, &peer.advertise_addr, req).await
 }

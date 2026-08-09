@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Parsed debug artifacts reused across every matching frame in one ingest request.
+//! Parsed debug artifacts reused across every matching frame in one intake request.
 
 use super::frame::FramePlan;
 use crate::{

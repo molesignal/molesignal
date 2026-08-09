@@ -48,7 +48,8 @@ function useViewportWidth(): number {
  */
 export function AppShell(_props: AppShellProps) {
   const { t } = useTranslation('shell');
-  const [collapsed, setCollapsed] = React.useState(false);
+  const [collapsed, setCollapsed] = React.useState(true);
+  const [temporarilyExpanded, setTemporarilyExpanded] = React.useState(false);
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
   const location = useLocation();
   const [autoCollapsedSidebarExpanded, setAutoCollapsedSidebarExpanded] = React.useState(false);
@@ -64,12 +65,14 @@ export function AppShell(_props: AppShellProps) {
   const primarySidebarCollapsed = isAutoCollapsedRoute
     ? !autoCollapsedSidebarExpanded
     : collapsed;
+  const sidebarVisuallyCollapsed =
+    primarySidebarCollapsed && !temporarilyExpanded;
   const nav = useNavigate();
   const viewportWidth = useViewportWidth();
   const recordVisit = useSidebarStore((s) => s.recordVisit);
   const toggleMoleAgent = useMoleAgentStore((s) => s.toggle);
   const access = useProductAccess();
-  const canUseMoleAgent = canAccessProductPath('/intelligence', access);
+  const canUseMoleAgent = canAccessProductPath('/agent', access);
 
   React.useEffect(() => {
     setMobileNavOpen(false);
@@ -78,6 +81,10 @@ export function AppShell(_props: AppShellProps) {
   React.useEffect(() => {
     if (!isAutoCollapsedRoute) setAutoCollapsedSidebarExpanded(false);
   }, [isAutoCollapsedRoute]);
+
+  React.useEffect(() => {
+    if (!primarySidebarCollapsed) setTemporarilyExpanded(false);
+  }, [primarySidebarCollapsed]);
 
   // Feed the sidebar "Recent" list with real destinations that DON'T already
   // have a permanent home in a fixed nav group — nav items live in their group,
@@ -120,6 +127,7 @@ export function AppShell(_props: AppShellProps) {
       setMobileNavOpen((v) => !v);
       return;
     }
+    setTemporarilyExpanded(false);
     if (isAutoCollapsedRoute) {
       setAutoCollapsedSidebarExpanded((v) => !v);
       return;
@@ -161,9 +169,12 @@ export function AppShell(_props: AppShellProps) {
       )}
 
       <Sidebar
-        collapsed={primarySidebarCollapsed}
+        collapsed={sidebarVisuallyCollapsed}
         mobileOpen={mobileNavOpen}
         onNavigate={() => setMobileNavOpen(false)}
+        onHoverChange={(hovered) =>
+          setTemporarilyExpanded(primarySidebarCollapsed && hovered)
+        }
       />
 
       <main

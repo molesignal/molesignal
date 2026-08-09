@@ -8,8 +8,8 @@
 //! 当字面量。一条值按规则顺序依次 `replace_all`，前一条的输出喂给后一条。
 //!
 //! 两条用途共用 [`Masker`]：
-//! - **写入端**：[`MaskingProvider::ingest_masker`] 返回该 org「写入即脱敏」规则编译出的
-//!   masker，`IngestService` 在 pipeline 之后、落盘之前对事件字符串值就地脱敏（不可逆）。
+//! - **写入端**：[`MaskingProvider::intake_masker`] 返回该 org「写入即脱敏」规则编译出的
+//!   masker，`IntakeService` 在 pipeline 之后、落盘之前对事件字符串值就地脱敏（不可逆）。
 //! - **查询端**：把全部规则编译进 `mask(col)` UDF，对列即时脱敏（原值仍在底层）。
 //!
 //! 非法 regex 在编译期静默跳过（写入路径的规则在落库前已校验，这里只是兜底）。
@@ -121,10 +121,10 @@ impl Masker {
 
 /// 写入端口：按 org 返回「写入即脱敏」规则编译出的 [`Masker`]。
 ///
-/// 由 infra 实装（带缓存）；空规则集返回空 masker，`IngestService` 据此跳过。
+/// 由 infra 实装（带缓存）；空规则集返回空 masker，`IntakeService` 据此跳过。
 #[async_trait]
 pub trait MaskingProvider: Send + Sync {
-    async fn ingest_masker(&self, org_id: &Id) -> Result<Arc<Masker>>;
+    async fn intake_masker(&self, org_id: &Id) -> Result<Arc<Masker>>;
 }
 
 #[cfg(test)]

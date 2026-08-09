@@ -17,7 +17,7 @@ export async function seedProfiles(api) {
       `runtime.main;http.server;orders.Handler.Create;inventory.Client.Reserve;json.Marshal ${255 + index * 9}`,
       `runtime.main;tokio.runtime;task.poll ${190 + index * 7}`,
     ].join('\n');
-    const response = await fetch(`${api.base}/profiles/ingest?${query}`, {
+    const response = await fetch(`${api.base}/profiles/intake?${query}`, {
       method: 'POST',
       headers: {
         authorization: `Bearer ${api.token}`,
@@ -27,7 +27,7 @@ export async function seedProfiles(api) {
     });
     if (!response.ok) {
       throw new Error(
-        `POST /profiles/ingest -> ${response.status} ${await response.text()}`,
+        `POST /profiles/intake -> ${response.status} ${await response.text()}`,
       );
     }
   }

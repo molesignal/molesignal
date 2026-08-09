@@ -34,7 +34,7 @@ impl PgDashboardContractRepository {
     async fn load_binding(&self, capability_key: &str) -> Result<DashboardContractBinding> {
         let row = sqlx::query(&format!(
             "SELECT {BINDING_COLUMNS}
-             FROM intelligence_capability_contract_bindings
+             FROM agent_capability_contract_bindings
              WHERE capability_key = $1"
         ))
         .bind(capability_key)
@@ -52,7 +52,7 @@ impl PgDashboardContractRepository {
         let row = sqlx::query(
             "SELECT contract_key, version, kind, dialect, document, schema_hash,
                     status, published_at_micros
-             FROM intelligence_contract_versions
+             FROM agent_contract_versions
              WHERE contract_key = $1 AND version = $2 AND schema_hash = $3",
         )
         .bind(&reference.contract_key)
@@ -77,7 +77,7 @@ impl DashboardContractRepository for PgDashboardContractRepository {
         let mut transaction = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
         for version in versions {
             sqlx::query(
-                "INSERT INTO intelligence_contract_versions
+                "INSERT INTO agent_contract_versions
                  (contract_key, version, kind, dialect, document, schema_hash, status,
                   published_at_micros)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -97,7 +97,7 @@ impl DashboardContractRepository for PgDashboardContractRepository {
 
             let stored = sqlx::query(
                 "SELECT kind, dialect, document, schema_hash, status
-                 FROM intelligence_contract_versions
+                 FROM agent_contract_versions
                  WHERE contract_key = $1 AND version = $2",
             )
             .bind(&version.contract_key)
@@ -152,15 +152,15 @@ impl DashboardContractRepository for PgDashboardContractRepository {
                v.schema_hash AS visualization_version_schema_hash,
                v.status AS visualization_version_status,
                v.published_at_micros AS visualization_version_published_at_micros
-             FROM intelligence_capability_contract_bindings b
-             JOIN intelligence_contract_versions m
+             FROM agent_capability_contract_bindings b
+             JOIN agent_contract_versions m
                ON (m.contract_key, m.version, m.schema_hash) =
                   (b.model_contract_key, b.model_contract_version, b.model_schema_hash)
-             JOIN intelligence_contract_versions a
+             JOIN agent_contract_versions a
                ON (a.contract_key, a.version, a.schema_hash) =
                   (b.authoring_contract_key, b.authoring_contract_version,
                    b.authoring_schema_hash)
-             JOIN intelligence_contract_versions v
+             JOIN agent_contract_versions v
                ON (v.contract_key, v.version, v.schema_hash) =
                   (b.visualization_contract_key, b.visualization_contract_version,
                    b.visualization_schema_hash)
@@ -198,11 +198,11 @@ impl DashboardContractRepository for PgDashboardContractRepository {
     ) -> Result<DashboardContractBinding> {
         let mut transaction = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
         let row = sqlx::query(&format!(
-            "INSERT INTO intelligence_capability_contract_bindings
+            "INSERT INTO agent_capability_contract_bindings
              ({BINDING_COLUMNS})
              VALUES ($1, 1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
              ON CONFLICT (capability_key) DO UPDATE SET
-               revision = intelligence_capability_contract_bindings.revision + 1,
+               revision = agent_capability_contract_bindings.revision + 1,
                model_contract_key = EXCLUDED.model_contract_key,
                model_contract_version = EXCLUDED.model_contract_version,
                model_schema_hash = EXCLUDED.model_schema_hash,
@@ -245,7 +245,7 @@ async fn insert_default_binding(
     now: TimestampMicros,
 ) -> Result<()> {
     sqlx::query(
-        "INSERT INTO intelligence_capability_contract_bindings
+        "INSERT INTO agent_capability_contract_bindings
          (capability_key, revision,
           model_contract_key, model_contract_version, model_schema_hash,
           authoring_contract_key, authoring_contract_version, authoring_schema_hash,

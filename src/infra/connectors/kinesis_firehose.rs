@@ -11,14 +11,14 @@
 //! ```
 //! 把每条 `data` base64 解 → 按 newline 切 → 每行作为一条事件（JSON or text）。
 //!
-//! HTTP receiver 在 `src/api/http/routes/ingest_kinesis.rs` 里调本模块的
+//! HTTP receiver 在 `src/api/http/routes/intake_kinesis.rs` 里调本模块的
 //! [`parse_firehose_request`]。
 
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
 use crate::{
-    domain::ingestion::RawEvent,
+    domain::intake::RawEvent,
     shared::{Error, Result, time::TimestampMicros},
 };
 

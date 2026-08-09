@@ -5,7 +5,7 @@
 //!
 //! happy: 合法 trace_id 但 traces 流为空 → 404 not_found
 //! sad:   非法 trace_id（含 `;` / 空格） → 400 invalid
-//! e2e:   按标准 OTEL 列名 ingest 一条 trace（自动建流）→ /web/traces 列表 + 详情都出数据
+//! e2e:   按标准 OTEL 列名 intake 一条 trace（自动建流）→ /web/traces 列表 + 详情都出数据
 
 mod common;
 
@@ -58,7 +58,7 @@ async fn trace_invalid_id_returns_400() {
 }
 
 #[tokio::test]
-async fn trace_ingest_auto_creates_stream_then_list_and_detail_return_data() {
+async fn trace_intake_auto_creates_stream_then_list_and_detail_return_data() {
     if common::skip_unless_enabled() {
         return;
     }
@@ -70,11 +70,11 @@ async fn trace_ingest_auto_creates_stream_then_list_and_detail_return_data() {
     let child_span = "2222222222222222";
 
     // 撤掉预 seed 后没有任何 traces 流；按标准 OTEL 列名（operation=`name`，
-    // service 带点 `service.name`，时间 `*_unix_nano`，status_code 字符串）ingest 到
+    // service 带点 `service.name`，时间 `*_unix_nano`，status_code 字符串）intake 到
     // `default` 应触发 schema-on-write 自动建流。
     let resp = s
         .client
-        .post(format!("{}/api/v1/ingest/traces/default", s.base_url))
+        .post(format!("{}/api/v1/intake/traces/default", s.base_url))
         .header(hk, &hv)
         .json(&serde_json::json!([
             {
@@ -107,7 +107,7 @@ async fn trace_ingest_auto_creates_stream_then_list_and_detail_return_data() {
     assert_eq!(
         resp.status(),
         200,
-        "ingest to a non-existent stream must auto-create it"
+        "intake to a non-existent stream must auto-create it"
     );
     let body: serde_json::Value = resp.json().await.unwrap();
     assert_eq!(body["accepted"], 2, "both spans accepted");
@@ -138,7 +138,7 @@ async fn trace_ingest_auto_creates_stream_then_list_and_detail_return_data() {
         }
     })
     .await;
-    assert!(found, "ingested trace never surfaced in /web/traces");
+    assert!(found, "received trace never surfaced in /web/traces");
 
     // 列表内容：聚合出 service / span_count / error_count。
     let v: serde_json::Value = s

@@ -17,7 +17,7 @@
 
 现有可观测工具逼你二选一：
 
-- **商业 SaaS**（Datadog / New Relic / Splunk）—— 三种信号确实串得通，但账单跟流量线性增长。一个中等规模的团队，100 GB/天 一个月轻松 **2k–10k 美元**；想省钱只能砍 ingest，砍 ingest 又看不到东西。
+- **商业 SaaS**（Datadog / New Relic / Splunk）—— 三种信号确实串得通，但账单跟流量线性增长。一个中等规模的团队，100 GB/天 一个月轻松 **2k–10k 美元**；想省钱只能砍 intake，砍 intake 又看不到东西。
 - **开源拼装**（Loki + Mimir + Tempo + Grafana，或 ELK + Prometheus + Jaeger）—— 不要钱，但**日志 / 指标 / trace 在三个独立的存储里、用三种不同的查询语言**。排障时人人都需要的"trace ↔ log ↔ 主机 metric"那一跳必须人肉拼：复制一个 trace_id、切 tab、粘进去、再粘一次时间范围、祈祷两边时钟对得上。
 
 MoleSignal 走第三条路：**一个存储层（对象存储上的 Parquet）+ 一个查询引擎（DataFusion + Arrow）+ 一个元数据层（Postgres）**——三种信号在**数据层**就是串通的，不是靠 dashboard 拼出来的。自托管，所以你的账单就是 S3 的成本。
@@ -54,7 +54,7 @@ docker compose -f deploy/docker/docker-compose.yaml --profile standalone up
 
 ```bash
 # OTLP HTTP（OpenTelemetry Collector / SDK / Vector / Fluent Bit 直接对接）
-curl -X POST http://localhost:5080/api/v1/ingest/logs/app \
+curl -X POST http://localhost:5080/api/v1/intake/logs/app \
   -H 'content-type: application/json' \
   -H 'authorization: Bearer <jwt>' \
   -d '[{"_timestamp":1700000000000000,"level":"error","msg":"db pool exhausted","trace_id":"abc123"}]'
@@ -96,7 +96,7 @@ Vector / Fluent Bit / OTel Collector / Prometheus remote_write 等完整对接�
 | Kinesis Firehose | `POST /api/v1/_kinesis_firehose` | AWS Firehose |
 | Cloudflare Logpush | `POST /api/v1/_cloudflare` | Cloudflare Logpush |
 | Heroku log drain | `POST /api/v1/_heroku` | Heroku |
-| 原生 HTTP JSON | `POST /api/v1/ingest/{type}/:stream` | curl / 应用 SDK |
+| 原生 HTTP JSON | `POST /api/v1/intake/{type}/:stream` | curl / 应用 SDK |
 
 ### 🌐 RUM & APM
 
@@ -136,9 +136,9 @@ Vector / Fluent Bit / OTel Collector / Prometheus remote_write 等完整对接�
 - **多租户** — planner 层 `org_id` 强制 rewrite，跨 org 数据零泄漏可能
 - **审计日志** — 覆盖所有写操作
 - **字段级加密** — AES-256-GCM + cipher root key envelope；VRL `encrypt()` / `decrypt()` 内置
-- **per-org 配额** — ingest QPS / query QPS / 存储 cap
+- **per-org 配额** — intake QPS / query QPS / 存储 cap
 
-### 🤖 Mole Intelligence
+### 🤖 Mole Agent
 
 - 基于遥测数据的自然语言对话（SSE 流式）
 - MCP server 对接 AI 助手
@@ -153,11 +153,11 @@ Vector / Fluent Bit / OTel Collector / Prometheus remote_write 等完整对接�
 
 ### 🧩 Pipeline 函数（VRL + 可选 JS + LLM）
 
-函数是挂在 pipeline 步骤上的可复用转换逻辑。有三种类型，运行在 ingest 热路径上：
+函数是挂在 pipeline 步骤上的可复用转换逻辑。有三种类型，运行在 intake 热路径上：
 
 - **VRL** — 始终可用。按 `(function_id, updated_at)` 编译，基于上游 `vrl::compiler` stdlib（`del` / `parse_json` / `to_int` / `match` / `encrypt` / `decrypt` 等）。
 - **JavaScript** — 可选，基于 `deno_core`（V8）。默认关闭，因为引入 `deno_core` 会将干净构建从 ~1.5 分钟拉到 ~5 分钟。通过编译时 feature `--features js-runtime` 开启（无运行时开关——二进制要么带 V8 要么不带）。feature 关闭时，JS 函数 POST 返回 `400 javascript runtime not enabled`。
-- **LLM** — 可选，将事件 JSON 交给配置好的 AI provider（intelligence）评估，模型输出写回事件的可配置字段（默认 `_llm_eval`）。由运行时开关控制：
+- **LLM** — 可选，将事件 JSON 交给配置好的 AI provider（agent）评估，模型输出写回事件的可配置字段（默认 `_llm_eval`）。由运行时开关控制：
 
   ```toml
   [functions]
@@ -168,11 +168,11 @@ Vector / Fluent Bit / OTel Collector / Prometheus remote_write 等完整对接�
 
 ### ☸️ 运维
 
-- **6 个无状态 role** —— `router` / `ingester(SF + PVC)` / `querier` / `compactor` / `alert-manager` / `connector`，只 ingester 有本地状态（WAL，≤ flush_interval 窗口）
+- **6 个无状态 role** —— `router` / `intake(SF + PVC)` / `querier` / `compactor` / `alert-manager` / `connector`，只 intake 有本地状态（WAL，≤ flush_interval 窗口）
 - **单二进制** —— 同一镜像跑所有 role，靠 `MS_NODE_ROLES` 区分
 - **Kubernetes manifest** 见 [deploy/k8s/](deploy/k8s/)，Docker Compose 提供 `standalone` 与 `multirole` 双 profile
-- **Prometheus `/metrics`** 默认暴露，含 cache / object_store / ingester / compactor 各层指标
-- **健康探针** —— readiness 由 ingester WAL replay 完成 + object_store round-trip 探活共同决定
+- **Prometheus `/metrics`** 默认暴露，含 cache / object_store / intake / compactor 各层指标
+- **健康探针** —— readiness 由 intake WAL replay 完成 + object_store round-trip 探活共同决定
 
 ---
 
@@ -180,11 +180,11 @@ Vector / Fluent Bit / OTel Collector / Prometheus remote_write 等完整对接�
 
 ```
                           ┌──────────┐
-   OTel / Vector / ...  ─►│  router  │─► 一致性哈希(org,stream) ─► ingester(s)
+   OTel / Vector / ...  ─►│  router  │─► 一致性哈希(org,stream) ─► intake(s)
                           └──────────┘                              │
                                │                                    ▼
                                ▼                            WAL + Arrow buffer
-                       /api/v1/{ingest,query,...}                   │
+                       /api/v1/{intake,query,...}                   │
                                │                          flush → Parquet + Tantivy
                                ▼                          上传 S3
                        ┌──────────────┐                             │
@@ -230,9 +230,6 @@ Pre-1.0，**早期项目**。发布日期 YYYY-MM-DD。
 ```bash
 # 开源生产制品
 BUILD_ID=local-001 cargo build --release --locked -p molesignal
-
-# 付费版（需 SSH key 拉私有仓 git@github.com:molesignal/molesignal-.git）
-BUILD_ID=local-001 cargo build --release --locked -p molesignal --features <features>
 
 # 晋升时只修改运行时部署元数据，复用同一个二进制。
 RELEASE_CHANNEL=alpha ./target/release/molesignal --config conf/config.toml

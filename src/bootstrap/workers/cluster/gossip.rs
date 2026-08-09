@@ -26,7 +26,9 @@ use crate::{
         persistence::repositories::cluster::events::ClusterOrgLinkRepository,
         secret::resolve_cluster_control_token,
     },
-    protocol::cluster::v1::{ClusterRef, GossipRequest, event_service_client::EventServiceClient},
+    protocol::cluster::v1::{
+        ClusterRef, EventServiceGossipClustersRequest, event_service_client::EventServiceClient,
+    },
     shared::ids::Id,
 };
 
@@ -124,7 +126,7 @@ impl ClusterGossip {
             else {
                 continue;
             };
-            let mut req = tonic::Request::new(GossipRequest {
+            let mut req = tonic::Request::new(EventServiceGossipClustersRequest {
                 known: known_refs.clone(),
             });
             if grpc_channel::with_bearer(&mut req, &token).is_err() {

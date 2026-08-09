@@ -12,7 +12,7 @@ use async_trait::async_trait;
 use dashmap::DashMap;
 
 use crate::{
-    app::ingestion::FunctionExecutor,
+    app::intake::FunctionExecutor,
     domain::function::{Function, FunctionLanguage},
     infra::runtime::vrl::runtime::{CompiledProgram, VrlRuntime},
     shared::{Error, Result},

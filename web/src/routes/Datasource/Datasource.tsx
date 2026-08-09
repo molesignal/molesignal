@@ -40,8 +40,8 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import * as homeApi from '@/api/home';
-import * as ingestionApi from '@/api/ingestion';
-import * as rumIngestApi from '@/api/rumIngest';
+import * as intakeApi from '@/api/intake';
+import * as rumIntakeApi from '@/api/rumIntake';
 import { toApiError } from '@/lib/http';
 import { useActionAccess } from '@/product/actionAccess';
 import { ChromeButton, Pill, type PillTone, uiLabelClass } from '@/shell/chrome';
@@ -69,11 +69,11 @@ import {
   type SourceSignalSummary,
 } from './datasourceModel';
 import {
-  type IngestContext,
+  type IntakeContext,
   isValidRumApplicationId,
   substitute,
-  useIngestContext,
-} from './ingestContext';
+  useIntakeContext,
+} from './intakeContext';
 import { ApplicationPanel } from './mobileRum/ApplicationPanel';
 import {
   CATEGORIES,
@@ -84,8 +84,8 @@ import {
   type Source,
 } from './sources';
 import {
-  ingestPathForSignal,
-  isIngestSignal,
+  intakePathForSignal,
+  isIntakeSignal,
 } from '../streams/datasourceLink';
 
 const SIGNAL_TONE: Record<Signal, PillTone> = {
@@ -204,7 +204,7 @@ export function Datasource() {
   const [search, setSearch] = React.useState('');
   const [method, setMethod] = React.useState<IntegrationMethod>('all');
   const signalParam = searchParams.get('signal');
-  const requestedSignal = isIngestSignal(signalParam) ? signalParam : null;
+  const requestedSignal = isIntakeSignal(signalParam) ? signalParam : null;
   const requestedStream = searchParams.get('stream')?.trim() || DEFAULT_STREAM;
   const [signal, setSignal] = React.useState<SignalFilter>(requestedSignal ?? 'all');
   const [verifiedSources, setVerifiedSources] = React.useState<Set<string>>(new Set());
@@ -631,7 +631,7 @@ function Guide({
   const [configuredApplicationId, setConfiguredApplicationId] = React.useState(
     initialApplicationId,
   );
-  const context = useIngestContext({
+  const context = useIntakeContext({
     isRum,
     applicationId: configuredApplicationId,
   });
@@ -661,7 +661,7 @@ function Guide({
       const [health, summary] = await Promise.all([
         probeHealth(),
         isRum
-          ? rumIngestApi
+          ? rumIntakeApi
               .recentErrorSummary({
                 orgId: context.orgId,
                 applicationId: context.applicationId,
@@ -1008,18 +1008,18 @@ function endpointForSource(
     return '/api/v1/rum/errors';
   }
   if (signal && source.signals.includes(signal)) {
-    return ingestPathForSignal(signal, streamName);
+    return intakePathForSignal(signal, streamName);
   }
   if (source.signals.includes('profiles')) {
-    return ingestPathForSignal('profiles', streamName);
+    return intakePathForSignal('profiles', streamName);
   }
   if (source.signals.includes('traces')) {
-    return ingestPathForSignal('traces', streamName);
+    return intakePathForSignal('traces', streamName);
   }
   if (source.signals.includes('metrics')) {
-    return ingestPathForSignal('metrics', streamName);
+    return intakePathForSignal('metrics', streamName);
   }
-  return ingestPathForSignal('logs', streamName);
+  return intakePathForSignal('logs', streamName);
 }
 
 function categoryLabel(category: Category): string {
@@ -1071,7 +1071,7 @@ function Step({
 }: {
   index: number;
   step: GuideStep;
-  context: IngestContext;
+  context: IntakeContext;
 }) {
   const title = step.title.replace(/^\s*\d+[.)、]\s*/, '');
   return (
@@ -1117,7 +1117,7 @@ function ValidationPanel({
   validation: ValidationState;
   passiveSummary: SourceSignalSummary;
   verificationSteps: GuideStep[];
-  context: IngestContext;
+  context: IntakeContext;
   onValidate: () => void;
 }) {
   const { t, i18n } = useTranslation('onboarding');
@@ -1330,7 +1330,7 @@ function TestEventButton({
   context,
 }: {
   source: Source;
-  context: IngestContext;
+  context: IntakeContext;
 }) {
   const { t } = useTranslation('onboarding');
   const supportedSignals = source.signals.filter((signal) => signal !== 'profiles');
@@ -1389,10 +1389,10 @@ function TestEventButton({
 
 async function sendTestEvent(
   source: Source,
-  context: IngestContext,
-): Promise<ingestionApi.IngestResult> {
+  context: IntakeContext,
+): Promise<intakeApi.IntakeResult> {
   if (source.rumPlatform) {
-    return rumIngestApi.sendTestError({
+    return rumIntakeApi.sendTestError({
       token: context.token,
       applicationId: context.applicationId,
       platform: source.rumPlatform,
@@ -1404,15 +1404,15 @@ async function sendTestEvent(
   );
   const calls = signals.map((signal) => {
     if (signal === 'traces') {
-      return ingestionApi.ingestTraces(DEFAULT_STREAM, [testTraceEvent(source)]);
+      return intakeApi.intakeTraces(DEFAULT_STREAM, [testTraceEvent(source)]);
     }
     if (signal === 'metrics') {
-      return ingestionApi.ingestMetrics(DEFAULT_STREAM, [testMetricEvent(source)]);
+      return intakeApi.intakeMetrics(DEFAULT_STREAM, [testMetricEvent(source)]);
     }
-    return ingestionApi.ingestLogs(DEFAULT_STREAM, [testLogEvent(source)]);
+    return intakeApi.intakeLogs(DEFAULT_STREAM, [testLogEvent(source)]);
   });
   const results = await Promise.all(calls);
-  return results.reduce<ingestionApi.IngestResult>(
+  return results.reduce<intakeApi.IntakeResult>(
     (accumulator, result) => ({
       accepted: accumulator.accepted + result.accepted,
       rejected: accumulator.rejected + result.rejected,
@@ -1460,7 +1460,7 @@ function testLogEvent(source: Source): Record<string, unknown> {
 }
 
 function rumSourceSummary(
-  receipt: rumIngestApi.RumReceiptSummary = {
+  receipt: rumIntakeApi.RumReceiptSummary = {
     rows: 0,
     lastReceivedAtMicros: null,
   },

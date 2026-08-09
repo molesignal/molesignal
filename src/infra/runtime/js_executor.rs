@@ -30,7 +30,7 @@ use deno_core::{JsRuntime, RuntimeOptions, v8};
 use tokio::sync::oneshot;
 
 use crate::{
-    app::ingestion::FunctionExecutor,
+    app::intake::FunctionExecutor,
     domain::function::{Function, FunctionLanguage},
     shared::{Error, Result},
 };

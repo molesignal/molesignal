@@ -26,7 +26,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ConfirmDialog } from '@/admin';
 import * as alertsApi from '@/api/alerts';
 import * as fieldMaskingApi from '@/api/fieldMasking';
-import * as ingestionApi from '@/api/ingestion';
+import * as intakeApi from '@/api/intake';
 import * as pipelinesApi from '@/api/pipelines';
 import * as savedViewsApi from '@/api/savedViews';
 import * as streamsApi from '@/api/streams';
@@ -68,8 +68,8 @@ import { TimeSeriesChart } from '@/viz/timeseries/TimeSeriesChart';
 
 import {
   datasourceLinkForStream,
-  ingestPathForSignal,
-  isIngestSignal,
+  intakePathForSignal,
+  isIntakeSignal,
 } from './datasourceLink';
 import { FieldEditDrawer } from './fieldEditor/FieldEditDrawer';
 import { INDEX_OPTIONS, toFieldDrafts, type FieldDraft } from './fieldEditor/model';
@@ -357,10 +357,10 @@ async function loadUsage(streamName: string): Promise<UsageSummary> {
 
 async function sendTestEvent(
   stream: streamsApi.StreamSummary,
-): Promise<ingestionApi.IngestResult> {
+): Promise<intakeApi.IntakeResult> {
   if (stream.stream_type === 'traces') {
     const startNs = Date.now() * 1_000_000;
-    return ingestionApi.ingestTraces(stream.name, [
+    return intakeApi.intakeTraces(stream.name, [
       {
         _timestamp: Math.floor(startNs / 1000),
         trace_id: crypto.randomUUID().replace(/-/g, ''),
@@ -377,7 +377,7 @@ async function sendTestEvent(
     ]);
   }
   if (stream.stream_type === 'metrics') {
-    return ingestionApi.ingestMetrics(stream.name, [
+    return intakeApi.intakeMetrics(stream.name, [
       {
         name: 'molesignal_stream_test_total',
         value: 1,
@@ -387,7 +387,7 @@ async function sendTestEvent(
     ]);
   }
   if (stream.stream_type === 'logs') {
-    return ingestionApi.ingestLogs(stream.name, [
+    return intakeApi.intakeLogs(stream.name, [
       {
         timestamp: new Date().toISOString(),
         level: 'info',
@@ -1590,10 +1590,10 @@ function UsagePanel({
         subtitle={t('explore.usage.write_source_hint')}
         items={[
           {
-            id: 'ingest',
-            title: t('explore.usage.ingest_endpoint'),
-            description: isIngestSignal(stream.stream_type)
-              ? ingestPathForSignal(stream.stream_type, stream.name)
+            id: 'intake',
+            title: t('explore.usage.intake_endpoint'),
+            description: isIntakeSignal(stream.stream_type)
+              ? intakePathForSignal(stream.stream_type, stream.name)
               : '—',
             to: datasourceLinkForStream(stream),
           },

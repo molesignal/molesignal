@@ -37,7 +37,7 @@ bootstrap -> api/app/infra/domain/shared
 5. 新后台循环或长期 `tokio::spawn` 是否由 `src/bootstrap/roles/` 或 `src/bootstrap/workers/` 管理生命周期。
 6. `src/bootstrap/bootstrap.rs` 及对应功能装配文件是否实例化并注入了新
    repository、service、worker 和配置。
-7. 顶层产品模块 `intelligence`、`license`、`cloud_marketplace`、`domain_management`、`model_pricing`、`report_renderer` 是否复用现有 shared/domain 边界。
+7. 顶层产品模块 `agent`、`license`、`cloud_marketplace`、`domain_management`、`model_pricing`、`report_renderer` 是否复用现有 shared/domain 边界。
 8. 是否误用已删除的 `crates/*` 路径、旧 package 名或旧 `protoc` 模块名。
 9. 同一功能在某一层拆成多个实现文件时，是否建立对应的专属目录，而不是把文件散落在该层父目录；目录聚合是否仍保持跨层依赖方向。
 

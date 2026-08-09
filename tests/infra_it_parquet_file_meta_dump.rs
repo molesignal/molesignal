@@ -288,7 +288,7 @@ async fn service_delete_by_time_range_drops_full_overlap_dump() {
         return;
     }
     let (meta_store, obj) = boot().await;
-    // 1) ingest one cold row → dump
+    // 1) intake one cold row → dump
     let org_id = Id::from_string("orgA");
     let now_us = TimestampMicros::now().0;
     let cold_us = now_us - 40 * 24 * 3600 * 1_000_000_i64;

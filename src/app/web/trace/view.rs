@@ -5,7 +5,7 @@
 //!
 //! 同源数据来自 traces 流（DataFusion 查 `SELECT ... FROM traces WHERE trace_id=...`）；
 //! - web handler (`src/api/http/routes/web/trace.rs`) 调它生成 `/api/v1/web/trace/{id}` 响应；
-//! - intelligence MCP `get_trace` tool（ dispatcher）调它把行转 span 树后 wrap 成 `ToolContent::Json`。
+//! - agent MCP `get_trace` tool（ dispatcher）调它把行转 span 树后 wrap 成 `ToolContent::Json`。
 //!
 //! 阈值（与原 handler 保持一致）：
 //! - `SPAN_LIMIT = 100_000`：DataFusion LIMIT + 1 探测溢出；溢出 → `truncated: true`

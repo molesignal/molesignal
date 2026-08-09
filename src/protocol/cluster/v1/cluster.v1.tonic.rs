@@ -116,9 +116,9 @@ pub mod node_service_client {
         }
         pub async fn list(
             &mut self,
-            request: impl tonic::IntoRequest<super::ListNodesRequest>,
+            request: impl tonic::IntoRequest<super::NodeServiceListRequest>,
         ) -> std::result::Result<
-            tonic::Response<super::ListNodesResponse>,
+            tonic::Response<super::NodeServiceListResponse>,
             tonic::Status,
         > {
             self.inner
@@ -162,9 +162,9 @@ pub mod node_service_server {
         >;
         async fn list(
             &self,
-            request: tonic::Request<super::ListNodesRequest>,
+            request: tonic::Request<super::NodeServiceListRequest>,
         ) -> std::result::Result<
-            tonic::Response<super::ListNodesResponse>,
+            tonic::Response<super::NodeServiceListResponse>,
             tonic::Status,
         >;
     }
@@ -294,16 +294,16 @@ pub mod node_service_server {
                     struct ListSvc<T: NodeService>(pub Arc<T>);
                     impl<
                         T: NodeService,
-                    > tonic::server::UnaryService<super::ListNodesRequest>
+                    > tonic::server::UnaryService<super::NodeServiceListRequest>
                     for ListSvc<T> {
-                        type Response = super::ListNodesResponse;
+                        type Response = super::NodeServiceListResponse;
                         type Future = BoxFuture<
                             tonic::Response<Self::Response>,
                             tonic::Status,
                         >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::ListNodesRequest>,
+                            request: tonic::Request<super::NodeServiceListRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
@@ -467,9 +467,9 @@ pub mod trace_candidate_service_client {
         }
         pub async fn submit(
             &mut self,
-            request: impl tonic::IntoRequest<super::SubmitTraceCandidateRequest>,
+            request: impl tonic::IntoRequest<super::TraceCandidateServiceSubmitRequest>,
         ) -> std::result::Result<
-            tonic::Response<super::SubmitTraceCandidateResponse>,
+            tonic::Response<super::TraceCandidateServiceSubmitResponse>,
             tonic::Status,
         > {
             self.inner
@@ -506,9 +506,9 @@ pub mod trace_candidate_service_server {
     pub trait TraceCandidateService: std::marker::Send + std::marker::Sync + 'static {
         async fn submit(
             &self,
-            request: tonic::Request<super::SubmitTraceCandidateRequest>,
+            request: tonic::Request<super::TraceCandidateServiceSubmitRequest>,
         ) -> std::result::Result<
-            tonic::Response<super::SubmitTraceCandidateResponse>,
+            tonic::Response<super::TraceCandidateServiceSubmitResponse>,
             tonic::Status,
         >;
     }
@@ -594,16 +594,19 @@ pub mod trace_candidate_service_server {
                     struct SubmitSvc<T: TraceCandidateService>(pub Arc<T>);
                     impl<
                         T: TraceCandidateService,
-                    > tonic::server::UnaryService<super::SubmitTraceCandidateRequest>
-                    for SubmitSvc<T> {
-                        type Response = super::SubmitTraceCandidateResponse;
+                    > tonic::server::UnaryService<
+                        super::TraceCandidateServiceSubmitRequest,
+                    > for SubmitSvc<T> {
+                        type Response = super::TraceCandidateServiceSubmitResponse;
                         type Future = BoxFuture<
                             tonic::Response<Self::Response>,
                             tonic::Status,
                         >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::SubmitTraceCandidateRequest>,
+                            request: tonic::Request<
+                                super::TraceCandidateServiceSubmitRequest,
+                            >,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
@@ -815,8 +818,11 @@ pub mod event_service_client {
         }
         pub async fn gossip_clusters(
             &mut self,
-            request: impl tonic::IntoRequest<super::GossipRequest>,
-        ) -> std::result::Result<tonic::Response<super::GossipResponse>, tonic::Status> {
+            request: impl tonic::IntoRequest<super::EventServiceGossipClustersRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::EventServiceGossipClustersResponse>,
+            tonic::Status,
+        > {
             self.inner
                 .ready()
                 .await
@@ -865,8 +871,11 @@ pub mod event_service_server {
         >;
         async fn gossip_clusters(
             &self,
-            request: tonic::Request<super::GossipRequest>,
-        ) -> std::result::Result<tonic::Response<super::GossipResponse>, tonic::Status>;
+            request: tonic::Request<super::EventServiceGossipClustersRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::EventServiceGossipClustersResponse>,
+            tonic::Status,
+        >;
     }
     #[derive(Debug)]
     pub struct EventServiceServer<T> {
@@ -1039,16 +1048,19 @@ pub mod event_service_server {
                     struct GossipClustersSvc<T: EventService>(pub Arc<T>);
                     impl<
                         T: EventService,
-                    > tonic::server::UnaryService<super::GossipRequest>
-                    for GossipClustersSvc<T> {
-                        type Response = super::GossipResponse;
+                    > tonic::server::UnaryService<
+                        super::EventServiceGossipClustersRequest,
+                    > for GossipClustersSvc<T> {
+                        type Response = super::EventServiceGossipClustersResponse;
                         type Future = BoxFuture<
                             tonic::Response<Self::Response>,
                             tonic::Status,
                         >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::GossipRequest>,
+                            request: tonic::Request<
+                                super::EventServiceGossipClustersRequest,
+                            >,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {

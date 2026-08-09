@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 字段级静态加密端到端（per-org DEK）：ingester（RecordBuilder + org DEK）把标 `encrypted`
+//! 字段级静态加密端到端（per-org DEK）：intake（RecordBuilder + org DEK）把标 `encrypted`
 //! 的字段加密落 parquet（载荷 `kid:<key_id>:v<n>:...`）；查询端 `SELECT col` 拿密文、
 //! `SELECT decrypt(col)` 经 FieldKeyService 预载 org DEK 还原明文。
 //!
@@ -12,14 +12,14 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use molesignal::{
     domain::{
-        ingestion::RawEvent,
+        intake::RawEvent,
         query::{QueryEngine, QueryLanguage, QueryRequest, StreamHint},
         storage::{ParquetFileMeta, ParquetFileMetaRepository},
         stream::{FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamType},
     },
     infra::{
         cipher::{CipherKey, CipherKeyRepository, FieldKeyService},
-        ingester::RecordBuilder,
+        intake::RecordBuilder,
         search::datafusion_engine::DataFusionEngine,
         storage::parquet::writer::ParquetWriter,
     },
@@ -218,7 +218,7 @@ fn req(sql: &str, org: &Id) -> QueryRequest {
 }
 
 #[tokio::test]
-async fn encrypted_field_round_trips_through_ingest_and_query() {
+async fn encrypted_field_round_trips_through_intake_and_query() {
     let tmp = tempfile::tempdir().unwrap();
     let store: Arc<dyn ObjectStore> =
         Arc::new(LocalFileSystem::new_with_prefix(tmp.path()).unwrap());
@@ -228,7 +228,7 @@ async fn encrypted_field_round_trips_through_ingest_and_query() {
     let key_repo: Arc<dyn CipherKeyRepository> = Arc::new(MemCipherKeys::default());
     let field_keys = Arc::new(FieldKeyService::new(key_repo.clone()));
 
-    // ingest：解析 org DEK（首次自动 provision）→ 注入 RecordBuilder → 加密 email。
+    // intake：解析 org DEK（首次自动 provision）→ 注入 RecordBuilder → 加密 email。
     let dek = field_keys.current(&org).await.expect("provision DEK");
     let mut rb = RecordBuilder::new(&stream);
     rb.set_field_key(dek);

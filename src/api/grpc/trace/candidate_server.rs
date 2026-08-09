@@ -14,8 +14,8 @@ use tonic::{Request, Response, Status};
 use crate::{
     app::trace::{TracePipeline, TraceSubmitError},
     protocol::cluster::v1::{
-        SubmitTraceCandidateRequest, SubmitTraceCandidateResponse, TraceCandidateDisposition,
-        TraceForceKeep,
+        TraceCandidateDisposition, TraceCandidateServiceSubmitRequest,
+        TraceCandidateServiceSubmitResponse, TraceForceKeep,
         trace_candidate_service_server::{TraceCandidateService, TraceCandidateServiceServer},
     },
     shared::{
@@ -50,8 +50,8 @@ impl TraceCandidateGrpc {
 impl TraceCandidateService for TraceCandidateGrpc {
     async fn submit(
         &self,
-        request: Request<SubmitTraceCandidateRequest>,
-    ) -> Result<Response<SubmitTraceCandidateResponse>, Status> {
+        request: Request<TraceCandidateServiceSubmitRequest>,
+    ) -> Result<Response<TraceCandidateServiceSubmitResponse>, Status> {
         authenticate_cluster_candidate(&request, self.cluster_token.as_deref())?;
         let candidate = decode_candidate(request.into_inner())?;
         let disposition = match self.pipeline.try_submit(candidate) {
@@ -59,7 +59,7 @@ impl TraceCandidateService for TraceCandidateGrpc {
             Err(TraceSubmitError::Full) => TraceCandidateDisposition::Overloaded,
             Err(TraceSubmitError::Stopped) => TraceCandidateDisposition::Stopped,
         };
-        Ok(Response::new(SubmitTraceCandidateResponse {
+        Ok(Response::new(TraceCandidateServiceSubmitResponse {
             disposition: disposition as i32,
         }))
     }
@@ -92,7 +92,7 @@ fn authenticate_cluster_candidate<T>(
     Ok(())
 }
 
-fn decode_candidate(request: SubmitTraceCandidateRequest) -> Result<TraceCandidate, Status> {
+fn decode_candidate(request: TraceCandidateServiceSubmitRequest) -> Result<TraceCandidate, Status> {
     if request.org_id.is_empty() || request.org_id.len() > 256 {
         return Err(Status::invalid_argument("invalid org_id"));
     }
@@ -200,7 +200,7 @@ mod tests {
             .attributes
             .insert("molesignal.node.id".into(), serde_json::json!("producer-a"));
         span.scope.name = "producer.instrumentation".into();
-        let decoded = decode_candidate(SubmitTraceCandidateRequest {
+        let decoded = decode_candidate(TraceCandidateServiceSubmitRequest {
             org_id: "org-a".into(),
             stream: "default".into(),
             system_self_trace: false,

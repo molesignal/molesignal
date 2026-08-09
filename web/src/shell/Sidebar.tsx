@@ -23,9 +23,15 @@ interface SidebarProps {
   collapsed: boolean;
   mobileOpen?: boolean | undefined;
   onNavigate?: (() => void) | undefined;
+  onHoverChange?: ((hovered: boolean) => void) | undefined;
 }
 
-export function Sidebar({ collapsed, mobileOpen = false, onNavigate }: SidebarProps) {
+export function Sidebar({
+  collapsed,
+  mobileOpen = false,
+  onNavigate,
+  onHoverChange,
+}: SidebarProps) {
   const { t } = useTranslation('nav');
   const visuallyCollapsed = collapsed && !mobileOpen;
   const access = useProductAccess();
@@ -104,6 +110,9 @@ export function Sidebar({ collapsed, mobileOpen = false, onNavigate }: SidebarPr
   return (
     <aside
       aria-label={t('primary_navigation')}
+      data-testid="primary-sidebar"
+      onMouseEnter={() => onHoverChange?.(true)}
+      onMouseLeave={() => onHoverChange?.(false)}
       className={cn(
         'fixed bottom-0 left-0 top-topbar z-40 flex w-sidebar flex-col border-r border-bd-0 bg-bg-1',
         'transition-[transform,width] duration-normal ease-out-default',
@@ -333,6 +342,7 @@ function NavRow({
       to={item.path}
       end={item.exact === true}
       onClick={onNavigate}
+      aria-label={collapsed ? label : undefined}
       className={({ isActive }) =>
         `${cn(
           // Shell navigation stays stable across density modes; lighter,

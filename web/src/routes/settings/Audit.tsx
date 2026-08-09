@@ -7,7 +7,7 @@ import * as auditApi from '@/api/audit';
 import * as usersApi from '@/api/users';
 import { type ApiError, toApiError } from '@/lib/http';
 import { ProductState } from '@/product/states';
-import { MarkdownMessage } from '@/routes/intelligence/markdown';
+import { MarkdownMessage } from '@/routes/agent/markdown';
 import { ChromeButton } from '@/shell/chrome';
 import { CopyIconButton } from '@/shell/CopyIconButton';
 import { FormDrawer, FormField, FormInput, FormSelect } from '@/shell/FormDrawer';
@@ -67,8 +67,8 @@ export function Audit() {
     [selected],
   );
   const chatTranscriptQ = useQuery({
-    queryKey: ['audit', 'intelligence-chat-transcript', selectedChatId],
-    queryFn: () => auditApi.getIntelligenceChatTranscript(selectedChatId as string),
+    queryKey: ['audit', 'agent-chat-transcript', selectedChatId],
+    queryFn: () => auditApi.getAgentChatTranscript(selectedChatId as string),
     enabled: !!selectedChatId,
     retry: false,
   });
@@ -280,7 +280,7 @@ export function Audit() {
 }
 
 function auditChatId(event: auditApi.AuditEvent): string | null {
-  if (event.target_kind === 'intelligence_chat' && event.target_id) return event.target_id;
+  if (event.target_kind === 'agent_chat' && event.target_id) return event.target_id;
   const payload = recordOf(event.payload);
   const direct = stringValue(payload.chat_id);
   if (direct) return direct;

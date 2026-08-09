@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Real-time alert matcher cache + IngestService 集成。
+//! Real-time alert matcher cache + IntakeService 集成。
 //!
 //! - [`RealtimeMatcherCache`]：`tokio::sync::watch` 推 `Arc<HashMap<(org, stream_type, stream), Vec<CompiledRule>>>`。
 //!   alert_manager 启动时 init；rule CRUD 后调 `reload`。
-//! - `IngestService::ingest` 在 WAL append 之后调 [`RealtimeMatcherCache::matches`]
+//! - `IntakeService::intake` 在 WAL append 之后调 [`RealtimeMatcherCache::matches`]
 //!   对每条 record 跑判定；命中 emit `IncidentEvent` 到 broadcast channel。
 //!
 //! 当前简化：matcher 只支持 `field == value` 的 equality 形态；正则 / SQL WHERE 留扩展位。
@@ -16,7 +16,7 @@ use parking_lot::RwLock;
 use tokio::sync::broadcast;
 
 use crate::{
-    domain::{ingestion::RawEvent, stream::StreamType},
+    domain::{intake::RawEvent, stream::StreamType},
     shared::{ids::Id, time::TimestampMicros},
 };
 

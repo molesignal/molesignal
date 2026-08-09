@@ -38,7 +38,7 @@ pub struct LicenseSnapshot {
     pub expired: bool,
     pub issued_to: String,
     pub features: Vec<String>,
-    pub max_ingest_bytes_per_day: Option<u64>,
+    pub max_intake_bytes_per_day: Option<u64>,
     pub expires_at_micros: Option<i64>,
     pub active_version_id: Option<String>,
 }
@@ -51,7 +51,7 @@ fn snapshot_of(state: &AppState, active_version_id: Option<String>) -> LicenseSn
         expired: state.platform.license.expired(now),
         issued_to: state.platform.license.issued_to().to_string(),
         features: state.platform.license.features(),
-        max_ingest_bytes_per_day: state.platform.license.max_ingest_bytes_per_day(),
+        max_intake_bytes_per_day: state.platform.license.max_intake_bytes_per_day(),
         expires_at_micros: state.platform.license.expires_at_micros(),
         active_version_id,
     }
@@ -163,7 +163,7 @@ async fn upload(
         summary: json!({
             "expires_at_micros": verified.expires_at_micros(),
             "feature_count": verified.features().len(),
-            "max_ingest_bytes_per_day": verified.max_ingest_bytes_per_day(),
+            "max_intake_bytes_per_day": verified.max_intake_bytes_per_day(),
         }),
         created_by: Some(context.user_id.clone()),
         created_at: now,

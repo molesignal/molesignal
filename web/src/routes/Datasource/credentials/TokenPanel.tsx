@@ -10,9 +10,9 @@ import { DisabledControl } from '@/shell/DisabledControl';
 import { cn } from '@/shell/lib/cn';
 
 import { maskToken } from '../datasourceModel';
-import type { IngestContext } from '../ingestContext';
+import type { IntakeContext } from '../intakeContext';
 
-export function TokenPanel({ context }: { context: IngestContext }) {
+export function TokenPanel({ context }: { context: IntakeContext }) {
   const { t, i18n } = useTranslation('onboarding');
   const navigate = useNavigate();
   const tokenManageAccess = useActionAccess({ permission: 'api_tokens.manage' });
@@ -41,7 +41,7 @@ export function TokenPanel({ context }: { context: IngestContext }) {
         <span className={uiLabelClass}>
           {context.isRum
             ? t('datasource.rum_client_token')
-            : t('datasource.ingestion_token')}
+            : t('datasource.intake_token')}
         </span>
         <DisabledControl disabled={tokenManageAccess.disabled} reason={tokenManageAccess.reason}>
           <button

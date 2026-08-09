@@ -205,8 +205,8 @@ pub struct InstanceSettings {
     pub signup_enabled: bool,
     /// 注册是否需审批：true → 新用户 pending、Owner/Admin 通过后激活；false → 注册即 active。
     pub signup_require_approval: bool,
-    /// 服务图数据来源模式：`ingest`（各进程内存配对 + flush，低延迟）或 `storage`
-    /// （单例 worker 从存储重算，跨节点正确）。默认 `ingest`。
+    /// 服务图数据来源模式：`intake`（各进程内存配对 + flush，低延迟）或 `storage`
+    /// （单例 worker 从存储重算，跨节点正确）。默认 `intake`。
     pub service_graph_source: String,
     /// 跨集群联邦：本集群稳定唯一 id（事件 source/writer，联邦内唯一、跨重启稳定）。
     /// 非空即启用联邦；留空 = 关闭（不发不收、零开销）。

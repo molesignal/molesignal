@@ -37,8 +37,8 @@ export function Quota() {
         {
           key: 'datasource',
           label: t('quota.labels.datasource'),
-          used: data.ingest_bytes,
-          limit: data.ingest_limit_bytes,
+          used: data.intake_bytes,
+          limit: data.intake_limit_bytes,
           kind: 'bytes',
         },
         {

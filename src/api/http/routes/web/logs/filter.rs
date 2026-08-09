@@ -8,7 +8,7 @@ use chrono::DateTime;
 use super::{LogFilter, clean_required, sql_literal};
 use crate::{
     domain::{
-        ingestion::EVENT_ID_FIELD,
+        intake::EVENT_ID_FIELD,
         stream::{FieldDef, FieldType},
     },
     infra::query::escape_sql_ident,

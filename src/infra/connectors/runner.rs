@@ -6,7 +6,7 @@
 //! 周期调度 pull 类 connector（当前：CloudWatch Logs）：
 //! - 每个 tick 从 `ConnectorRepository::list_enabled` 拉所有 enabled connector；
 //! - 对 pull 类调 `PullConnector::run_once`（拉 `[last_run, now]` 窗口事件），
-//!   把事件经 [`IngestService`] 写入 connector 的 `target_stream`，成功后 `touch_last_run`；
+//!   把事件经 [`IntakeService`] 写入 connector 的 `target_stream`，成功后 `touch_last_run`；
 //! - push 类不进 runner，由 HTTP layer 直接 dispatch。
 //!
 //! **单点运行**：应作为单例起（如 alert_manager 角色），避免多节点重复拉取同一外部源。
@@ -21,33 +21,33 @@ use super::{
     repo::{Connector, ConnectorRepository},
 };
 use crate::{
-    app::ingestion::IngestService,
-    domain::{ingestion::IngestBatch, stream::StreamType},
+    app::intake::IntakeService,
+    domain::{intake::IntakeBatch, stream::StreamType},
     shared::{ids::Id, time::TimestampMicros},
 };
 
 pub struct ConnectorRunner {
     repo: Arc<dyn ConnectorRepository>,
-    ingest: Arc<IngestService>,
+    intake: Arc<IntakeService>,
     pull_interval: Duration,
 }
 
 impl ConnectorRunner {
     pub fn new(
         repo: Arc<dyn ConnectorRepository>,
-        ingest: Arc<IngestService>,
+        intake: Arc<IntakeService>,
         pull_interval_secs: u64,
     ) -> Self {
         Self {
             repo,
-            ingest,
+            intake,
             pull_interval: Duration::from_secs(pull_interval_secs.max(5)),
         }
     }
 
     pub fn spawn(self) -> JoinHandle<()> {
         let repo = self.repo.clone();
-        let ingest = self.ingest.clone();
+        let intake = self.intake.clone();
         let interval = self.pull_interval;
         tokio::spawn(async move {
             let mut tick = tokio::time::interval(interval);
@@ -76,7 +76,7 @@ impl ConnectorRunner {
                     match pull.run_once(&ctx).await {
                         Ok(events) => {
                             if !events.is_empty() {
-                                let batch = IngestBatch {
+                                let batch = IntakeBatch {
                                     batch_id: Id::new(),
                                     org_id: c.org_id.clone(),
                                     stream: target_stream(&c),
@@ -84,9 +84,9 @@ impl ConnectorRunner {
                                     events,
                                     received_at: TimestampMicros::now(),
                                 };
-                                if let Err(e) = ingest.ingest(batch).await {
+                                if let Err(e) = intake.intake(batch).await {
                                     // 不推进 last_run → 下个 tick 重试同窗口，不丢数据。
-                                    tracing::warn!(error = %e, connector_id = %c.id.0, "connector ingest failed");
+                                    tracing::warn!(error = %e, connector_id = %c.id.0, "connector intake failed");
                                     continue;
                                 }
                             }

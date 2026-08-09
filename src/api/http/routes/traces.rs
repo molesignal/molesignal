@@ -4,7 +4,7 @@
 //! traces 派生查询路由。
 //!
 //! 仅暴露 `GET /api/v1/traces/service_graph?from=&to=&service=` 一个查询接口。
-//! 真正的 traces ingest 走通用 `/api/v1/ingest/traces/:stream`。
+//! 真正的 traces intake 走通用 `/api/v1/intake/traces/:stream`。
 
 use axum::{
     Extension, Json, Router,

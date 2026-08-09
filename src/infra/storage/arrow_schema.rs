@@ -4,7 +4,7 @@
 //! domain Stream Schema → Arrow Schema 的映射。
 //!
 //! 隐式列：`_timestamp` 始终作为第一列（`Timestamp(Microsecond, UTC)`），
-//! 由 ingester 从事件的 `timestamp` 字段填入。
+//! 由 intake 从事件的 `timestamp` 字段填入。
 
 use std::sync::Arc;
 
@@ -27,7 +27,7 @@ pub fn to_arrow(schema: &DomainSchema) -> Arc<ArrowSchema> {
         false,
     ));
     for f in &schema.fields {
-        // 加密字段以密文（Utf8）落盘，列类型固定 Utf8，与 ingester 写时一致；
+        // 加密字段以密文（Utf8）落盘，列类型固定 Utf8，与 intake 写时一致；
         // 查询端 decrypt(col) 还原明文。
         let dt = if f.encrypted {
             DataType::Utf8

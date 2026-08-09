@@ -2,7 +2,7 @@
 
 > English version: [SECURITY.md](SECURITY.md)
 
-感谢你关注 MoleSignal 的安全状况。项目当前处于 1.0 前阶段，自托管部署；它涉及不少安全敏感特性（多租户查询改写、cipher key 信封加密、JWT 签名密钥轮换、审计日志、ingest 配额等），所有安全报告我们都会严肃对待。
+感谢你关注 MoleSignal 的安全状况。项目当前处于 1.0 前阶段，自托管部署；它涉及不少安全敏感特性（多租户查询改写、cipher key 信封加密、JWT 签名密钥轮换、审计日志、intake 配额等），所有安全报告我们都会严肃对待。
 
 ## 支持的版本
 
@@ -38,7 +38,7 @@
 - MoleSignal 服务端（`crates/bootstrap`、`crates/api`、`crates/app`、`crates/infra`、`crates/domain`、`crates/shared`）
 - `web/` 下的前端
 - `deploy/` 下的官方 Docker 镜像与 Compose / Kubernetes manifest
-- 跨租户数据泄露、认证 / 授权绕过、签名密钥 / cipher key 泄露、ingest 注入，以及任何与"文档承诺的多租户隔离保证"不一致的行为
+- 跨租户数据泄露、认证 / 授权绕过、签名密钥 / cipher key 泄露、intake 注入，以及任何与"文档承诺的多租户隔离保证"不一致的行为
 
 不属于范围（请不要作为漏洞上报）：
 
@@ -64,7 +64,7 @@
 - 首次启动后 **轮换 JWT bootstrap 签名密钥**（`POST /api/v1/auth/jwt/rotate`）。
 - 在 ingress 层 **限制 `/api/v1/_*` 与 `/metrics`** 只对内部调用方开放——它们是管理面。
 - 改 query 代码时，**在你的 fork 跑 planner-rewrite 测试**；`it_multitenant.rs` 是租户隔离的契约测试。
-- 共享 ingest 时务必 **开启 per-org 配额**，让失控的 producer 在 413/429 上自停，而不是把邻居拖死。
+- 共享 intake 时务必 **开启 per-org 配额**，让失控的 producer 在 413/429 上自停，而不是把邻居拖死。
 
 加固部署时遇到的问题，恰恰是我们最想收到的报告。
 

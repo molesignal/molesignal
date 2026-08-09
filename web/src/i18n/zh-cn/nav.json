@@ -13,7 +13,7 @@
   "profiles": "Profiles",
   "dashboards": "仪表盘",
   "alerts": "告警",
-  "intelligence": "AI智能体",
+  "agent": "AI助手",
   "saved_views": "保存的视图",
   "streams": "数据流",
   "pipelines": "流水线",

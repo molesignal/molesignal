@@ -266,19 +266,19 @@ mod tests {
     #[test]
     fn metering_aggregator_accumulates_and_drains() {
         let agg = MeteringAggregator::new();
-        agg.record("sub-1", "ingest_gib", 5);
-        agg.record("sub-1", "ingest_gib", 3);
+        agg.record("sub-1", "intake_gib", 5);
+        agg.record("sub-1", "intake_gib", 3);
         agg.record("sub-1", "query_count", 100);
-        agg.record("sub-2", "ingest_gib", 10);
+        agg.record("sub-2", "intake_gib", 10);
 
         let mut drained = agg.drain();
         drained.sort();
         assert_eq!(
             drained,
             vec![
-                ("sub-1".into(), "ingest_gib".into(), 8),
+                ("sub-1".into(), "intake_gib".into(), 8),
                 ("sub-1".into(), "query_count".into(), 100),
-                ("sub-2".into(), "ingest_gib".into(), 10),
+                ("sub-2".into(), "intake_gib".into(), 10),
             ]
         );
         assert_eq!(agg.pending_count(), 0); // drained

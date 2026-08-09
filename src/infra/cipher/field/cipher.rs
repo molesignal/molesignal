@@ -3,7 +3,7 @@
 
 //! 字段级静态加密的载荷编解码 + per-org DEK 句柄。
 //!
-//! schema 标 `encrypted` 的字段在 ingest 用 **org 的字段 DEK**（data encryption key）加密，
+//! schema 标 `encrypted` 的字段在 intake 用 **org 的字段 DEK**（data encryption key）加密，
 //! 密文复用 [`super::super::payload`] 的自描述格式
 //! `kid:<key_id>:v<version>:<base64(nonce||ct)>`
 //! （与 VRL `encrypt(value, key_id)` 同格式 → `decrypt(col)` 对两者都管用）。DEK 由 KEK

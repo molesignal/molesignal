@@ -14,7 +14,7 @@ pub mod apm;
 pub mod cluster;
 pub mod dashboard;
 pub mod iam;
-pub mod ingestion;
+pub mod intake;
 pub mod notify;
 pub mod profile_storage;
 pub mod profiling;

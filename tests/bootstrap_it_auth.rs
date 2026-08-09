@@ -88,7 +88,7 @@ async fn login_returns_token_and_protected_routes_require_it() {
 }
 
 #[tokio::test]
-async fn default_ingestion_token_is_redisplayable_and_usable() {
+async fn default_intake_token_is_redisplayable_and_usable() {
     if skip_unless_enabled() {
         eprintln!("skipped (set MS_RUN_IT=1 to enable)");
         return;
@@ -164,7 +164,7 @@ async fn default_ingestion_token_is_redisplayable_and_usable() {
         .send()
         .await
         .unwrap();
-    assert_eq!(dashboards.status(), 403, "ingestion token is write-only");
+    assert_eq!(dashboards.status(), 403, "intake token is write-only");
 }
 
 #[tokio::test]

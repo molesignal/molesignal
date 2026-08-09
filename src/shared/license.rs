@@ -7,8 +7,8 @@
 //! - 主仓库（开源版）总是有一份 [`LicenseGate`] 实现 [`CommunityLicense`]，所有
 //!   `has_feature(...)` 返 false，所有上限不强制。
 //! - 付费版 license 模块提供 `SignedLicense`：Ed25519 验签 +
-//!   feature gating + daily ingest cap。它实现同一个 trait，无侵入替换。
-//! - handler 一律调 `state.platform.license.has_feature("sso" | "federated_search" | "intelligence")`，
+//!   feature gating + daily intake cap。它实现同一个 trait，无侵入替换。
+//! - handler 一律调 `state.platform.license.has_feature("sso" | "federated_search" | "agent")`，
 //!   不关心运行时是社区版还是付费版。
 
 use std::sync::{
@@ -22,8 +22,8 @@ use std::sync::{
 /// 不要直接 import 具体 License 类型——后续付费版 / 开源版可互换。
 pub trait LicenseGate: Send + Sync {
     fn has_feature(&self, name: &str) -> bool;
-    /// 当日累计 ingest 字节数检查；返 false 表示超额，调用方应 413。
-    fn add_ingest_bytes(&self, n: u64) -> bool;
+    /// 当日累计 intake 字节数检查；返 false 表示超额，调用方应 413。
+    fn add_intake_bytes(&self, n: u64) -> bool;
     fn expired(&self, now_micros: i64) -> bool;
     fn issued_to(&self) -> &str;
     /// 24h 边界时由 scheduler 调用，重置当日累计。
@@ -40,8 +40,8 @@ pub trait LicenseGate: Send + Sync {
     fn verified(&self) -> bool {
         false
     }
-    /// 每日 ingest 上限（字节）；None 表示无上限。
-    fn max_ingest_bytes_per_day(&self) -> Option<u64> {
+    /// 每日 intake 上限（字节）；None 表示无上限。
+    fn max_intake_bytes_per_day(&self) -> Option<u64> {
         None
     }
     /// license 过期时间（micros since epoch）；None 表示无过期。
@@ -53,17 +53,17 @@ pub trait LicenseGate: Send + Sync {
 /// 开源版默认 license。
 ///
 /// - `has_feature` 永远返 false（ feature 不可用）
-/// - `add_ingest_bytes` 永远返 true（无 cap）
+/// - `add_intake_bytes` 永远返 true（无 cap）
 /// - `expired` 永远返 false
 pub struct CommunityLicense {
-    /// 仍记录 ingest 字节数（仅观测用，不强制）
-    ingest_today: AtomicI64,
+    /// 仍记录 intake 字节数（仅观测用，不强制）
+    intake_today: AtomicI64,
 }
 
 impl CommunityLicense {
     pub const fn new() -> Self {
         Self {
-            ingest_today: AtomicI64::new(0),
+            intake_today: AtomicI64::new(0),
         }
     }
 }
@@ -78,8 +78,8 @@ impl LicenseGate for CommunityLicense {
     fn has_feature(&self, _name: &str) -> bool {
         false
     }
-    fn add_ingest_bytes(&self, n: u64) -> bool {
-        self.ingest_today.fetch_add(n as i64, Ordering::Relaxed);
+    fn add_intake_bytes(&self, n: u64) -> bool {
+        self.intake_today.fetch_add(n as i64, Ordering::Relaxed);
         true
     }
     fn expired(&self, _now_micros: i64) -> bool {
@@ -89,7 +89,7 @@ impl LicenseGate for CommunityLicense {
         "community"
     }
     fn reset_daily(&self) {
-        self.ingest_today.store(0, Ordering::Relaxed);
+        self.intake_today.store(0, Ordering::Relaxed);
     }
     fn features(&self) -> Vec<String> {
         Vec::new()
@@ -100,7 +100,7 @@ impl LicenseGate for CommunityLicense {
     fn verified(&self) -> bool {
         false
     }
-    fn max_ingest_bytes_per_day(&self) -> Option<u64> {
+    fn max_intake_bytes_per_day(&self) -> Option<u64> {
         None
     }
     fn expires_at_micros(&self) -> Option<i64> {
@@ -139,8 +139,8 @@ impl LicenseGate for LicenseHolder {
     fn has_feature(&self, name: &str) -> bool {
         self.current().has_feature(name)
     }
-    fn add_ingest_bytes(&self, n: u64) -> bool {
-        self.current().add_ingest_bytes(n)
+    fn add_intake_bytes(&self, n: u64) -> bool {
+        self.current().add_intake_bytes(n)
     }
     fn expired(&self, now_micros: i64) -> bool {
         self.current().expired(now_micros)
@@ -167,8 +167,8 @@ impl LicenseGate for LicenseHolder {
     fn verified(&self) -> bool {
         self.current().verified()
     }
-    fn max_ingest_bytes_per_day(&self) -> Option<u64> {
-        self.current().max_ingest_bytes_per_day()
+    fn max_intake_bytes_per_day(&self) -> Option<u64> {
+        self.current().max_intake_bytes_per_day()
     }
     fn expires_at_micros(&self) -> Option<i64> {
         self.current().expires_at_micros()
@@ -184,14 +184,14 @@ mod tests {
         let l = CommunityLicense::new();
         assert!(!l.has_feature("sso"));
         assert!(!l.has_feature("federated_search"));
-        assert!(!l.has_feature("intelligence"));
-        assert!(l.add_ingest_bytes(1_000_000_000));
+        assert!(!l.has_feature("agent"));
+        assert!(l.add_intake_bytes(1_000_000_000));
         assert!(!l.expired(i64::MAX));
         assert_eq!(l.issued_to(), "community");
         assert!(l.features().is_empty());
         assert_eq!(l.edition(), "community");
         assert!(!l.verified());
-        assert!(l.max_ingest_bytes_per_day().is_none());
+        assert!(l.max_intake_bytes_per_day().is_none());
         assert!(l.expires_at_micros().is_none());
     }
 }

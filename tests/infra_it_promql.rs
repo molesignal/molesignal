@@ -542,7 +542,7 @@ async fn streaming_agg_cache_reuses_stable_buckets_across_refresh() {
     // find 意味着又发生了矩阵加载，缓存未生效。
     assert_eq!(
         finds2, 2,
-        "run2 only probes ingest watermark (raw + rollup), no matrix load: {finds2}"
+        "run2 only probes intake watermark (raw + rollup), no matrix load: {finds2}"
     );
     // 正确性：缓存路径与无缓存路径逐行一致（start 对齐 → 步点重合）。
     assert_eq!(res1.columns, res_nocache.columns);

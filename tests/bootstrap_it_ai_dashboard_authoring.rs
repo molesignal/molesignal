@@ -11,6 +11,10 @@ use std::sync::{
 };
 
 use molesignal::{
+    agent::{
+        model::{AgentProfile, NetworkAccess},
+        tool_control::{ToolExecutionMode, ToolPolicy},
+    },
     app::dashboard::{
         authoring::DashboardAuthoringCompiler,
         contract_registry::{
@@ -28,13 +32,8 @@ use molesignal::{
         stream::StreamType,
     },
     infra::persistence::repositories::{
-        dashboard_authoring::PgDashboardDraftRepository,
+        agent::toolsets::AgentToolset, dashboard_authoring::PgDashboardDraftRepository,
         dashboard_contract_registry::PgDashboardContractRepository,
-        intelligence::toolsets::AgentToolset,
-    },
-    intelligence::{
-        model::{AgentProfile, NetworkAccess},
-        tool_control::{ToolExecutionMode, ToolPolicy},
     },
     shared::{LicenseGate, ids::Id, time::TimestampMicros},
 };
@@ -50,14 +49,14 @@ const VALID_AUTHORING: &str = include_str!(concat!(
     "/contracts/dashboard/fixtures/valid/authoring-v1-promql.json"
 ));
 
-struct IntelligenceLicense;
+struct AgentLicense;
 
-impl LicenseGate for IntelligenceLicense {
+impl LicenseGate for AgentLicense {
     fn has_feature(&self, name: &str) -> bool {
-        name == "intelligence"
+        name == "agent"
     }
 
-    fn add_ingest_bytes(&self, _n: u64) -> bool {
+    fn add_intake_bytes(&self, _n: u64) -> bool {
         true
     }
 
@@ -72,7 +71,7 @@ impl LicenseGate for IntelligenceLicense {
     fn reset_daily(&self) {}
 
     fn features(&self) -> Vec<String> {
-        vec!["intelligence".into()]
+        vec!["agent".into()]
     }
 }
 
@@ -137,7 +136,7 @@ async fn propose(server: &common::TestServer, draft: &DashboardDraft) -> reqwest
     server
         .client
         .post(format!(
-            "{}/api/v1/intelligence/dashboard-drafts/{}/propose",
+            "{}/api/v1/agent/dashboard-drafts/{}/propose",
             server.base_url, draft.id.0
         ))
         .header(server.auth_header().0, server.auth_header().1)
@@ -159,7 +158,7 @@ async fn execute(
     server
         .client
         .post(format!(
-            "{}/api/v1/intelligence/approvals/{approval_id}/execute",
+            "{}/api/v1/agent/approvals/{approval_id}/execute",
             server.base_url
         ))
         .header(server.auth_header().0, server.auth_header().1)
@@ -172,7 +171,7 @@ async fn execute(
 async fn set_policy(server: &common::TestServer, mode: ToolExecutionMode, enabled: bool) {
     server
         .state
-        .intelligence
+        .agent
         .tool_control
         .upsert_policy(policy(server, mode, enabled))
         .await
@@ -269,7 +268,7 @@ async fn dashboard_authoring_control_plane_is_tenant_safe_and_exactly_once() {
         .state
         .platform
         .license_holder
-        .replace(Arc::new(IntelligenceLicense));
+        .replace(Arc::new(AgentLicense));
     let pool = PgPool::connect(&server.settings.store.meta.dsn)
         .await
         .unwrap();
@@ -293,7 +292,7 @@ async fn dashboard_authoring_control_plane_is_tenant_safe_and_exactly_once() {
     let profile_now = TimestampMicros::now();
     let mut profile = server
         .state
-        .intelligence
+        .agent
         .repository
         .create_profile(AgentProfile {
             id: Id::new(),
@@ -322,7 +321,7 @@ async fn dashboard_authoring_control_plane_is_tenant_safe_and_exactly_once() {
     profile.updated_at = TimestampMicros::now();
     server
         .state
-        .intelligence
+        .agent
         .repository
         .update_profile(profile)
         .await
@@ -330,7 +329,7 @@ async fn dashboard_authoring_control_plane_is_tenant_safe_and_exactly_once() {
 
     let toolset = server
         .state
-        .intelligence
+        .agent
         .toolsets
         .create(AgentToolset {
             id: Id::new(),
@@ -346,7 +345,7 @@ async fn dashboard_authoring_control_plane_is_tenant_safe_and_exactly_once() {
     assert_eq!(propose(&server, &profile_draft).await.status(), 403);
     server
         .state
-        .intelligence
+        .agent
         .toolsets
         .delete(&server.root_org_id, &toolset.id)
         .await
@@ -465,7 +464,7 @@ async fn dashboard_authoring_control_plane_is_tenant_safe_and_exactly_once() {
     let preview = server
         .client
         .get(format!(
-            "{}/api/v1/intelligence/dashboard-drafts/{}",
+            "{}/api/v1/agent/dashboard-drafts/{}",
             server.base_url, ready.id.0
         ))
         .header(server.auth_header().0, server.auth_header().1)
@@ -490,7 +489,7 @@ async fn dashboard_authoring_control_plane_is_tenant_safe_and_exactly_once() {
     let fetched = server
         .client
         .get(format!(
-            "{}/api/v1/intelligence/executions/{execution_id}",
+            "{}/api/v1/agent/executions/{execution_id}",
             server.base_url
         ))
         .header(server.auth_header().0, server.auth_header().1)
@@ -524,7 +523,7 @@ async fn dashboard_authoring_control_plane_is_tenant_safe_and_exactly_once() {
     assert_eq!(response.status(), 200, "route {dashboard_route}");
 
     let execution_count = sqlx::query(
-        "SELECT COUNT(*) AS count FROM intelligence_executions
+        "SELECT COUNT(*) AS count FROM agent_executions
          WHERE org_id = $1 AND approval_request_id = $2",
     )
     .bind(&server.root_org_id.0)
@@ -553,7 +552,7 @@ async fn dashboard_authoring_control_plane_is_tenant_safe_and_exactly_once() {
         "SELECT action, payload FROM audit_events
          WHERE org_id = $1 AND (
            (action = 'dashboard.created_from_ai_draft' AND payload->>'draft_id' = $2)
-           OR (action = 'intelligence.execution.completed' AND payload->>'target' = $2)
+           OR (action = 'agent.execution.completed' AND payload->>'target' = $2)
          )
          ORDER BY action",
     )
@@ -585,7 +584,7 @@ async fn dashboard_authoring_runs_from_chat_intent_to_renderable_dashboard() {
         .state
         .platform
         .license_holder
-        .replace(Arc::new(IntelligenceLicense));
+        .replace(Arc::new(AgentLicense));
     set_policy(&server, ToolExecutionMode::Confirmation, true).await;
 
     common::seed_stream(
@@ -597,7 +596,7 @@ async fn dashboard_authoring_runs_from_chat_intent_to_renderable_dashboard() {
     .await;
     let response = server
         .client
-        .post(format!("{}/api/v1/ingest/logs/app_errors", server.base_url))
+        .post(format!("{}/api/v1/intake/logs/app_errors", server.base_url))
         .header(server.auth_header().0, server.auth_header().1)
         .json(&json!([{
             "_timestamp": TimestampMicros::now().0,
@@ -630,7 +629,7 @@ async fn dashboard_authoring_runs_from_chat_intent_to_renderable_dashboard() {
             }
         })
         .await,
-        "ingested stream did not flush in time"
+        "received stream did not flush in time"
     );
 
     let provider_calls = Arc::new(AtomicUsize::new(0));
@@ -696,10 +695,10 @@ async fn dashboard_authoring_runs_from_chat_intent_to_renderable_dashboard() {
 
     let provider = server
         .state
-        .intelligence
+        .agent
         .model_providers
         .create(
-            molesignal::infra::persistence::repositories::intelligence::model_providers::ModelProviderInput {
+            molesignal::infra::persistence::repositories::agent::model_providers::ModelProviderInput {
                 id: Id::new(),
                 org_id: server.root_org_id.clone(),
                 provider: "openai".into(),
@@ -716,7 +715,7 @@ async fn dashboard_authoring_runs_from_chat_intent_to_renderable_dashboard() {
         .unwrap();
     let chat: Value = server
         .client
-        .post(format!("{}/api/v1/intelligence/chat", server.base_url))
+        .post(format!("{}/api/v1/agent/chat", server.base_url))
         .header(server.auth_header().0, server.auth_header().1)
         .json(&json!({
             "provider": "openai",
@@ -737,7 +736,7 @@ async fn dashboard_authoring_runs_from_chat_intent_to_renderable_dashboard() {
     let first_sse = server
         .client
         .post(format!(
-            "{}/api/v1/intelligence/chat/{chat_id}/messages",
+            "{}/api/v1/agent/chat/{chat_id}/messages",
             server.base_url
         ))
         .header(server.auth_header().0, server.auth_header().1)
@@ -776,7 +775,7 @@ async fn dashboard_authoring_runs_from_chat_intent_to_renderable_dashboard() {
     let preview: Value = server
         .client
         .get(format!(
-            "{}/api/v1/intelligence/dashboard-drafts/{draft_id}",
+            "{}/api/v1/agent/dashboard-drafts/{draft_id}",
             server.base_url
         ))
         .header(server.auth_header().0, server.auth_header().1)
@@ -793,7 +792,7 @@ async fn dashboard_authoring_runs_from_chat_intent_to_renderable_dashboard() {
     let second_sse = server
         .client
         .post(format!(
-            "{}/api/v1/intelligence/chat/{chat_id}/messages",
+            "{}/api/v1/agent/chat/{chat_id}/messages",
             server.base_url
         ))
         .header(server.auth_header().0, server.auth_header().1)

@@ -8,19 +8,18 @@ use std::sync::Arc;
 use super::core::Core;
 use crate::{
     app::{
-        ingestion::IngestService, profile_storage::ProfileStorageService,
-        profiling::ProfilingService,
+        intake::IntakeService, profile_storage::ProfileStorageService, profiling::ProfilingService,
     },
-    bootstrap::roles::{compactor::spawn_compactor_loop, ingester::IngesterWorker},
+    bootstrap::roles::{compactor::spawn_compactor_loop, intake::IntakeWorker},
     config::{Settings, WalFlushStrategy, WalSettings, WalSyncLevel},
     domain::{iam::OrganizationRepository, stream::StreamRepository},
     infra::{
         caching::{
             DiskCacheSettings as InfraDiskCacheSettings, ParquetDiskCache, ParquetFileMetaCache,
         },
-        ingester::{BufferPool, PrometheusSeriesAdmission, WalPool},
+        intake::{BufferPool, PrometheusSeriesAdmission, WalPool},
         persistence::repositories::{
-            intelligence::model_providers::ModelProviderRepository,
+            agent::model_providers::ModelProviderRepository,
             usage::{PgUsageRepository, UsageRepository},
         },
         segment_wal::{FsyncPolicy, StaticTermSource, SyncLevel, TermSource},
@@ -34,9 +33,9 @@ use crate::{
 };
 
 pub(super) struct StorageRuntime {
-    pub(super) worker: Arc<IngesterWorker>,
+    pub(super) worker: Arc<IntakeWorker>,
     pub(super) probe: Arc<Probe>,
-    pub(super) ingestion: Arc<IngestService>,
+    pub(super) intake: Arc<IntakeService>,
     pub(super) profile_storage: Arc<ProfileStorageService>,
     pub(super) profiling_service: Arc<ProfilingService>,
     pub(super) prometheus_series_admission: Arc<PrometheusSeriesAdmission>,
@@ -81,10 +80,10 @@ impl StorageRuntime {
             Arc::new(pool)
         };
         let buffer_pool = Arc::new(BufferPool::with_memory_limit_bytes(
-            (settings.ingester.max_buffer_memory_mb as usize).saturating_mul(1024 * 1024),
+            (settings.intake.max_buffer_memory_mb as usize).saturating_mul(1024 * 1024),
         ));
         let prometheus_series_admission = Arc::new(PrometheusSeriesAdmission::new(
-            settings.ingester.prometheus.cardinality.clone(),
+            settings.intake.prometheus.cardinality.clone(),
         ));
         let parquet_writer = Arc::new(ParquetWriter::new(core.store.clone()));
         let parquet_reader = Arc::new(ParquetReader::new(core.store.clone()));
@@ -94,7 +93,7 @@ impl StorageRuntime {
         let probe = Arc::new(Probe::new());
 
         let worker = Arc::new(
-            IngesterWorker::new(
+            IntakeWorker::new(
                 wal_pool,
                 buffer_pool,
                 core.streams.clone(),
@@ -102,7 +101,7 @@ impl StorageRuntime {
                 parquet_writer.clone(),
                 Some(parquet_file_meta_cache),
                 probe.clone(),
-                settings.ingester.clone(),
+                settings.intake.clone(),
             )
             .with_field_keys(core.field_key_service.clone())
             .with_drain(core.drain_controller.clone()),
@@ -110,7 +109,7 @@ impl StorageRuntime {
         worker.recover_and_replay().await?;
         let _flush_handle = core
             .roles
-            .run_ingester
+            .run_intake
             .then(|| worker.clone().spawn_flush_loop());
         let _probe_handle = crate::bootstrap::roles::health_probe::spawn_probe(
             core.store.clone(),
@@ -129,7 +128,7 @@ impl StorageRuntime {
             ),
         );
         let vrl_executor = Arc::new(crate::infra::runtime::VrlFunctionExecutor::new());
-        let js_executor: Option<Arc<dyn crate::app::ingestion::FunctionExecutor>> = {
+        let js_executor: Option<Arc<dyn crate::app::intake::FunctionExecutor>> = {
             #[cfg(feature = "js-runtime")]
             {
                 tracing::info!(
@@ -144,7 +143,7 @@ impl StorageRuntime {
                 None
             }
         };
-        let llm_executor: Option<Arc<dyn crate::app::ingestion::FunctionExecutor>> =
+        let llm_executor: Option<Arc<dyn crate::app::intake::FunctionExecutor>> =
             if settings.functions.llm_eval_enabled {
                 tracing::info!("LLM eval function runtime enabled");
                 Some(Arc::new(
@@ -153,13 +152,13 @@ impl StorageRuntime {
             } else {
                 None
             };
-        let function_executor: Arc<dyn crate::app::ingestion::FunctionExecutor> =
+        let function_executor: Arc<dyn crate::app::intake::FunctionExecutor> =
             Arc::new(crate::infra::runtime::ChainedFunctionExecutor::new(
                 vrl_executor,
                 js_executor,
                 llm_executor,
             ));
-        let pipeline_engine = Arc::new(crate::app::ingestion::PipelineEngine::new(
+        let pipeline_engine = Arc::new(crate::app::intake::PipelineEngine::new(
             pipelines,
             functions,
             function_executor,
@@ -174,20 +173,20 @@ impl StorageRuntime {
                 let usage = internal_usage.clone();
                 tokio::spawn(async move {
                     if let Err(error) = usage
-                        .add_hourly_ingest_bytes(&org_id, received_at.0, bytes as i64)
+                        .add_hourly_intake_bytes(&org_id, received_at.0, bytes as i64)
                         .await
                     {
                         tracing::warn!(
                             org_id = %org_id.0,
                             error = %error,
-                            "failed to record internal hourly ingest usage"
+                            "failed to record internal hourly intake usage"
                         );
                     }
                 });
             },
         );
-        let ingestion = Arc::new(
-            IngestService::new(worker.clone(), core.streams.clone())
+        let intake = Arc::new(
+            IntakeService::new(worker.clone(), core.streams.clone())
                 .with_system_org_id(core.system_org.id.clone())
                 .with_pipeline(pipeline_engine)
                 .with_masking(core.masking_service.clone())
@@ -199,7 +198,7 @@ impl StorageRuntime {
         );
         let profile_storage = Arc::new(ProfileStorageService::new(
             core.store.clone(),
-            ingestion.clone(),
+            intake.clone(),
         ));
         let profiling_service = ProfilingService::new();
 
@@ -246,7 +245,7 @@ impl StorageRuntime {
         Ok(Self {
             worker,
             probe,
-            ingestion,
+            intake,
             profile_storage,
             profiling_service,
             prometheus_series_admission,

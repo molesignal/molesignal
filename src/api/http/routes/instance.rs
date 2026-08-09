@@ -4,7 +4,7 @@
 //! Instance info HTTP：暴露部署级（非用户级）配置给前端。
 //!
 //! - `GET /api/v1/instance` → `{ external_url, signup_enabled, version, release_channel }`
-//!   数据源/RUM 接入页用它拼真实 ingest URL（留空时前端按访问来源推导）。
+//!   数据源/RUM 接入页用它拼真实 intake URL（留空时前端按访问来源推导）。
 
 use axum::{Extension, Json, Router, extract::State, routing::get};
 use serde::{Deserialize, Serialize};
@@ -101,7 +101,7 @@ async fn put_signup_policy(
 /// 服务图数据来源模式：`org.settings.read` 读取，`org.settings.manage` 写入。
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ServiceGraphSettings {
-    /// `ingest`（各进程内存配对 + flush）或 `storage`（单例 worker 从存储重算，跨节点正确）。
+    /// `intake`（各进程内存配对 + flush）或 `storage`（单例 worker 从存储重算，跨节点正确）。
     pub source: String,
 }
 
@@ -122,8 +122,8 @@ async fn put_service_graph(
     axum::Extension(ctx): axum::Extension<IamContext>,
     Json(req): Json<ServiceGraphSettings>,
 ) -> Result<Json<ServiceGraphSettings>> {
-    if req.source != "ingest" && req.source != "storage" {
-        return Err(Error::invalid("source must be 'ingest' or 'storage'"));
+    if req.source != "intake" && req.source != "storage" {
+        return Err(Error::invalid("source must be 'intake' or 'storage'"));
     }
     // read-modify-write：保留 signup 等其它实例设置。
     let mut s = state.iam.instance_settings.get().await?;

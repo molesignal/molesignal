@@ -62,7 +62,7 @@ test.describe('global focus treatment', () => {
       ),
     );
 
-    await page.goto('/intelligence/chat');
+    await page.goto('/agent/chat');
     expectQuietFocus(
       await focusDecoration(
         page.getByRole('combobox', { name: 'Time' }),

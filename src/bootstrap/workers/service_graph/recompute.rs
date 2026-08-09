@@ -4,13 +4,13 @@
 //! Service graph 存储重算 worker（`[service_graph].source = storage` 模式）。
 //!
 //! 跨节点正确性方案：路由层无法按 trace_id 分片（批量转发不解析、一批混多 trace），故同一 trace
-//! 的父子 span 可能落到不同 ingest 节点、各自的内存聚合器配不上对。本 worker 作为**单例**
+//! 的父子 span 可能落到不同 intake 节点、各自的内存聚合器配不上对。本 worker 作为**单例**
 //! （alert_manager 角色）周期从**共享存储**重算——查询近窗口的 trace span（此时见到完整集合，
 //! 无视哪个节点接入），复用 [`ServiceGraphAggregator`] 配对出 caller→callee 边，**先删后插**
 //! 窗口内的边实现幂等（重算覆盖、含晚到 span）。
 //!
 //! 是否启用由 DB 实例设置 `service_graph_source` 决定（前端设置-通用页可改，运行时生效）：
-//! `storage` 才工作；`ingest` 时本 worker 空转、由各进程的 flush worker 落库。
+//! `storage` 才工作；`intake` 时本 worker 空转、由各进程的 flush worker 落库。
 
 use std::{sync::Arc, time::Duration};
 
@@ -100,7 +100,7 @@ impl ServiceGraphRecomputer {
         fields(otel.kind = "internal", molesignal.worker.name = "service_graph_recompute")
     )]
     async fn recompute_once(&self) -> Result<()> {
-        // 仅 storage 模式工作；ingest 模式由各进程 flush worker 落库。
+        // 仅 storage 模式工作；intake 模式由各进程 flush worker 落库。
         let storage = self
             .instance_settings
             .get()

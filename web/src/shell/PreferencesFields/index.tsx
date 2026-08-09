@@ -117,8 +117,8 @@ export function PreferencesFields({
       t('preferences.values.home_alerts'),
     ),
     homeOption(
-      '/intelligence/chat',
-      t('preferences.values.home_intelligence'),
+      '/agent/chat',
+      t('preferences.values.home_agent'),
     ),
   ];
   const canReadDashboards = hasPermission('dashboards.read', access);

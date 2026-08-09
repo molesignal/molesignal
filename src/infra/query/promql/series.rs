@@ -32,7 +32,7 @@ pub(super) fn batches_to_series(
             .column(ts_idx)
             .as_any()
             .downcast_ref::<TimestampMicrosecondArray>();
-        // `value` 列约定是 Float64，但整数值 metric（例如 JSON ingest `value: 1` 被
+        // `value` 列约定是 Float64，但整数值 metric（例如 JSON intake `value: 1` 被
         // 推断成 Int64，或 OTLP 整数 sum/gauge）会落成 Int64/其它数值类型。用 arrow
         // cast 统一转 Float64，避免非 Float64 的 value 列被整批跳过导致图表空白。
         let value_f64 = arrow::compute::cast(b.column(value_idx), &DataType::Float64).ok();
@@ -137,7 +137,7 @@ pub(super) fn batches_to_series(
     for s in &mut series {
         s.samples.sort_by_key(|&(t, _)| t);
         // Multiple batches can contain the same series/timestamp (for example
-        // retrying an ingest). Keep the most recently materialized value so a
+        // retrying an intake). Keep the most recently materialized value so a
         // duplicate point cannot create a zero-duration or artificial reset.
         let mut deduplicated: Vec<(i64, f64)> = Vec::with_capacity(s.samples.len());
         for sample in s.samples.drain(..) {

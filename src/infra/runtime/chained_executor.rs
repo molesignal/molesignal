@@ -5,11 +5,11 @@
 //!
 //! Wire 层始终注入此结构：
 //! - `feature = "js-runtime"` 关 → `js = None`，所有 `language = Js` 的 row
-//!   被拒（`IngestError { reason: "javascript runtime disabled" }`）。
+//!   被拒（`IntakeError { reason: "javascript runtime disabled" }`）。
 //! - `feature = "js-runtime"` 开 + `[functions].js_runtime_enabled = true` →
 //!   `js = Some(JsFunctionExecutor)`，分发到 V8 isolate。
 //! - `[functions].llm_eval_enabled = true` → `llm = Some(...)`（bootstrap 注入，含
-//!   intelligence provider），`language = Llm` 的 row 调模型评估；否则被拒。
+//!   agent provider），`language = Llm` 的 row 调模型评估；否则被拒。
 //!
 //! 这层故意不缓存任何东西；compile cache 在底层 executor 里。
 
@@ -18,7 +18,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use crate::{
-    app::ingestion::FunctionExecutor,
+    app::intake::FunctionExecutor,
     domain::function::{Function, FunctionLanguage},
     infra::runtime::vrl::executor::VrlFunctionExecutor,
     shared::{Error, Result},
@@ -28,7 +28,7 @@ pub struct ChainedFunctionExecutor {
     vrl: Arc<VrlFunctionExecutor>,
     /// 用 trait object 让 OSS / 付费版可以注入不同后端；feature off 时永远 None。
     js: Option<Arc<dyn FunctionExecutor>>,
-    /// LLM 评估执行器（bootstrap 注入，需 intelligence provider）；关闭时 None。
+    /// LLM 评估执行器（bootstrap 注入，需 agent provider）；关闭时 None。
     llm: Option<Arc<dyn FunctionExecutor>>,
 }
 

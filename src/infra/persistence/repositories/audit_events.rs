@@ -3,7 +3,7 @@
 
 //! `audit_events` 表 Pg 实装。
 //!
-//! 用于 IAM deny 路径 + 后续 ingest/query/管控类操作写审计。
+//! 用于 IAM deny 路径 + 后续 intake/query/管控类操作写审计。
 
 use async_trait::async_trait;
 use serde::Serialize;

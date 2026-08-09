@@ -6,12 +6,13 @@ use std::sync::Arc;
 use object_store::ObjectStore;
 
 use crate::{
+    agent::{model::AgentRepository, tool_control::ToolControlRepository},
     app::{
         alerting::AlertingService,
         cluster::ClusterRegistry,
         dashboard::{DashboardService, authoring::DashboardAuthoringService},
         iam::{IamAccessService, IamService},
-        ingestion::IngestService,
+        intake::IntakeService,
         notify::{NotifyEngine, NotifyService},
         profile_storage::ProfileStorageService,
         profiling::ProfilingService,
@@ -42,10 +43,15 @@ use crate::{
         cipher::{CipherKeyRepository, FieldKeyService},
         cluster::{ClusterSecretRepository, RemoteClustersRepository},
         connectors::ConnectorRepository,
-        ingester::PrometheusSeriesAdmission,
+        intake::PrometheusSeriesAdmission,
         masking::{FieldMaskingService, MaskingService},
         notify::EmailSender,
         persistence::repositories::{
+            agent::{
+                chat_archives::ChatArchiveRepository, chats::ChatRepository,
+                model_providers::ModelProviderRepository, prompts::AgentPromptRepository,
+                toolsets::AgentToolsetRepository,
+            },
             annotations::AnnotationRepository,
             audit_events::AuditEventRepository,
             billing_settings::BillingSettingsRepository,
@@ -60,11 +66,6 @@ use crate::{
             email_domains::EmailDomainRepository,
             file_download_tokens::FileDownloadTokenRepository,
             iam::roles::IamRoleRepository,
-            intelligence::{
-                chat_archives::ChatArchiveRepository, chats::ChatRepository,
-                model_providers::ModelProviderRepository, prompts::AgentPromptRepository,
-                toolsets::AgentToolsetRepository,
-            },
             investigation_blobs::InvestigationBlobRepository,
             invitations::InvitationRepository,
             log_patterns::LogPatternRepository,
@@ -92,7 +93,6 @@ use crate::{
         sso::{JwksCache, SsoSessionRepository, SsoStateStore},
         traces::ServiceGraphRepository,
     },
-    intelligence::{model::IntelligenceRepository, tool_control::ToolControlRepository},
     shared::{
         LicenseGate, LicenseHolder, ReportRenderer, drain::DrainController, health::Probe, ids::Id,
         tail_sampling::TailSampler,
@@ -110,7 +110,7 @@ pub struct TraceSystemLoadHealth {
 /// 具体 repository 不再平铺为全局字段。
 #[derive(Clone)]
 pub struct AppState {
-    pub ingestion: Arc<IngestService>,
+    pub intake: Arc<IntakeService>,
     pub query: Arc<QueryService>,
     pub dashboard: Arc<DashboardService>,
     pub alerting: AlertingState,
@@ -119,7 +119,7 @@ pub struct AppState {
     pub storage: StorageState,
     pub cluster: ClusterState,
     pub platform: PlatformState,
-    pub intelligence: IntelligenceState,
+    pub agent: AgentState,
 }
 
 #[derive(Clone)]
@@ -250,10 +250,10 @@ pub struct PlatformState {
 }
 
 #[derive(Clone)]
-pub struct IntelligenceState {
+pub struct AgentState {
     pub dashboard_authoring: Arc<DashboardAuthoringService>,
     pub chats: Arc<dyn ChatRepository>,
-    pub repository: Arc<dyn IntelligenceRepository>,
+    pub repository: Arc<dyn AgentRepository>,
     pub toolsets: Arc<dyn AgentToolsetRepository>,
     pub tool_control: Arc<dyn ToolControlRepository>,
     pub model_providers: Arc<dyn ModelProviderRepository>,

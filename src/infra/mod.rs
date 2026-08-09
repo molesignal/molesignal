@@ -11,7 +11,7 @@
 //! - [`segment_wal`]   分段 Write-Ahead-Log，落地到本地磁盘
 //! - [`notify`]        邮件 / Slack / Webhook 通知发送
 //! - [`messaging`]     节点间或进程内消息总线
-//! - [`ingest_sink`]   `IngestSink` 的 当前内存实现
+//! - [`intake_sink`]   `IntakeSink` 的 当前内存实现
 
 pub mod alerting;
 pub mod apm;
@@ -20,8 +20,8 @@ pub mod cipher;
 pub mod cluster;
 pub mod connectors;
 pub mod enrichment;
-pub mod ingest_sink;
-pub mod ingester;
+pub mod intake;
+pub mod intake_sink;
 pub mod masking;
 pub mod messaging;
 pub mod notify;

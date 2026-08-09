@@ -79,7 +79,7 @@ fn builtins() -> Vec<Resp> {
         Resp {
             id: "monthly-capacity-review".to_owned(),
             name: "Monthly capacity review".to_owned(),
-            description: "JSON export for storage, ingest, and query usage review.".to_owned(),
+            description: "JSON export for storage, intake, and query usage review.".to_owned(),
             target_type: "saved_view".to_owned(),
             format: "json".to_owned(),
             time_range_preset: "previous-calendar-month".to_owned(),

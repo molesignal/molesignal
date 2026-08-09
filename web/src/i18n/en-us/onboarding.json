@@ -65,14 +65,14 @@
     },
     "kpis": {
       "label": "System key metrics",
-      "ingest_status": "Ingest status",
+      "intake_status": "Intake status",
       "last_received": "Last received: {{when}}",
       "active_alerts": "Active alerts",
       "alert_detail": "{{firing}} firing · {{acknowledged}} acknowledged",
-      "ingested_bytes": "Raw ingest volume",
-      "ingest_detail": "{{rate}} · {{rows}} events",
+      "intake_bytes": "Raw intake volume",
+      "intake_detail": "{{rate}} · {{rows}} events",
       "stored_bytes": "Compressed data size",
-      "compression_pending": "Waiting for raw ingest metering",
+      "compression_pending": "Waiting for raw intake metering",
       "compression_saved": "{{percent}}% smaller than raw",
       "compression_overhead": "Small-batch storage overhead +{{percent}}%",
       "attention_streams": "Streams needing attention",
@@ -87,7 +87,7 @@
       "empty": "No observable streams registered yet.",
       "no_window_data": "No data in the selected period",
       "metrics": {
-        "ingested": "Raw ingest",
+        "intake": "Raw intake",
         "stored": "Compressed",
         "events": "Events"
       }
@@ -106,7 +106,7 @@
         "stream": "Stream name",
         "type": "Type",
         "status": "Status",
-        "rate": "Ingest rate",
+        "rate": "Intake rate",
         "last_received": "Last received",
         "action": "Action"
       }
@@ -171,13 +171,13 @@
   "datasource": {
     "endpoint": "Endpoint",
     "copy_endpoint": "Copy endpoint",
-    "ingestion_token": "Ingestion token",
+    "intake_token": "Intake token",
     "rum_client_token": "RUM client token",
     "copy_token": "Copy token",
     "token_loading": "Loading…",
-    "token_description": "Default ingestion token — paste it into the Authorization: Bearer header above. Manage or create more under API tokens.",
+    "token_description": "Default intake token — paste it into the Authorization: Bearer header above. Manage or create more under API tokens.",
     "validation": "Validation",
-    "endpoint_description": "POST your telemetry to this endpoint with the token below to start ingesting.",
+    "endpoint_description": "POST your telemetry to this endpoint with the token below to start sending data.",
     "test_event": "Send test event",
     "test_event_sending": "Sending…",
     "test_event_sent": "Sent · {{accepted}} accepted · {{rejected}} rejected"
@@ -268,7 +268,7 @@
     "token_workspace": "Workspace",
     "token_expiry": "Expires",
     "token_never_expires": "Never",
-    "token_load_failed": "Unable to load an ingestion token. Confirm that you can manage API tokens.",
+    "token_load_failed": "Unable to load an intake token. Confirm that you can manage API tokens.",
     "rum_application_id": "RUM application ID",
     "rum_application_hint": "A stable mobile-app identifier. Events, tokens, and debug artifacts for one app must use the same value.",
     "rum_application_invalid": "Use 1–128 letters, numbers, periods, underscores, colons, or hyphens.",

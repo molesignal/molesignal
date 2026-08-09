@@ -3,7 +3,7 @@
 
 //! 非阻塞 CanonicalSpan producer 路由。
 //!
-//! 每个进程只向有界本地 channel 写入候选。后台 worker 从活跃的 ingester/querier/
+//! 每个进程只向有界本地 channel 写入候选。后台 worker 从活跃的 intake/querier/
 //! standalone 节点中按 `trace_id` rendezvous 选一个 sampler owner；本机 owner 直接
 //! 投递本地 pipeline，远端 owner 使用集群认证 RPC。传输没有复制或 Trace WAL。
 
@@ -34,7 +34,7 @@ use crate::{
     },
     infra::cluster::grpc_channel,
     protocol::cluster::v1::{
-        SubmitTraceCandidateRequest, TraceCandidateDisposition, TraceForceKeep,
+        TraceCandidateDisposition, TraceCandidateServiceSubmitRequest, TraceForceKeep,
         trace_candidate_service_client::TraceCandidateServiceClient,
     },
     shared::{
@@ -472,7 +472,7 @@ async fn sampler_peers(context: &RouterWorkerContext) -> Vec<PeerInfo> {
             peer.roles.iter().any(|role| {
                 matches!(
                     role,
-                    PeerRole::Standalone | PeerRole::Ingester | PeerRole::Querier
+                    PeerRole::Standalone | PeerRole::Intake | PeerRole::Querier
                 )
             })
         })
@@ -506,13 +506,13 @@ fn build_request(
     candidate: &TraceCandidate,
     canonical_json: Vec<u8>,
     token: &str,
-) -> tonic::Request<SubmitTraceCandidateRequest> {
+) -> tonic::Request<TraceCandidateServiceSubmitRequest> {
     let force_keep = match candidate.force_keep {
         ForceKeep::None => TraceForceKeep::Unspecified,
         ForceKeep::TrustedInternal => TraceForceKeep::TrustedInternal,
         ForceKeep::DebugToken => TraceForceKeep::DebugToken,
     };
-    let mut request = tonic::Request::new(SubmitTraceCandidateRequest {
+    let mut request = tonic::Request::new(TraceCandidateServiceSubmitRequest {
         org_id: candidate.org_id.clone(),
         stream: candidate.stream.clone().unwrap_or_default(),
         system_self_trace: candidate.stream.is_none(),
@@ -541,7 +541,7 @@ mod tests {
     use crate::{
         api::grpc::trace::candidate_server::TraceCandidateGrpc,
         app::trace::{MemoryTraceSink, TracePipelineConfig, TraceSinkWorkerConfig},
-        domain::ingestion::ServiceGraphObserver,
+        domain::intake::ServiceGraphObserver,
         infra::traces::{ServiceGraphAggregator, ServiceGraphObserverImpl},
         shared::trace_normalization::CanonicalSpan,
     };
@@ -595,7 +595,7 @@ mod tests {
             candidate_capacity: 32,
             decision_tick: Duration::from_millis(2),
             shutdown_timeout: Duration::from_secs(2),
-            self_ingest: sink,
+            self_intake: sink,
             external: sink,
         }
     }
@@ -664,7 +664,7 @@ mod tests {
             registry: Arc::new(FixedRegistry(vec![
                 peer("router", PeerRole::Router),
                 peer("worker", PeerRole::Compactor),
-                peer("ingester", PeerRole::Ingester),
+                peer("intake", PeerRole::Intake),
                 peer("querier", PeerRole::Querier),
             ])),
             local_node_id: "router".into(),
@@ -681,13 +681,13 @@ mod tests {
                 .iter()
                 .map(|peer| peer.node_id.as_str())
                 .collect::<Vec<_>>(),
-            vec!["ingester", "querier"]
+            vec!["intake", "querier"]
         );
     }
 
     #[test]
     fn rendezvous_choice_does_not_depend_on_org_or_stream() {
-        let peers = [peer("a", PeerRole::Ingester), peer("b", PeerRole::Querier)];
+        let peers = [peer("a", PeerRole::Intake), peer("b", PeerRole::Querier)];
         let nodes = peers.iter().map(peer_to_sampler_node).collect::<Vec<_>>();
         let first = rendezvous_owner("0123456789abcdef0123456789abcdef", &nodes)
             .unwrap()
@@ -748,7 +748,7 @@ mod tests {
 
     #[tokio::test]
     async fn split_role_candidates_reach_one_remote_owner_and_both_sinks() {
-        let self_ingest = Arc::new(MemoryTraceSink::default());
+        let self_intake = Arc::new(MemoryTraceSink::default());
         let external = Arc::new(MemoryTraceSink::default());
         let sampler = Arc::new(
             crate::shared::tail_sampling::TailSampler::new(
@@ -764,7 +764,7 @@ mod tests {
         );
         let owner_pipeline = TracePipeline::start(
             sampler,
-            Some(self_ingest.clone()),
+            Some(self_intake.clone()),
             Some(external.clone()),
             fast_pipeline_config(),
             TraceLimits::default(),
@@ -784,9 +784,9 @@ mod tests {
                 .serve_with_incoming(TcpListenerStream::new(listener)),
         );
         let registry: Arc<dyn ClusterRegistry> = Arc::new(FixedRegistry(vec![PeerInfo {
-            node_id: "tail-owner-ingester".into(),
+            node_id: "tail-owner-intake".into(),
             advertise_addr: owner_addr.to_string(),
-            roles: vec![PeerRole::Ingester],
+            roles: vec![PeerRole::Intake],
         }]));
         let router = remote_router(
             registry.clone(),
@@ -800,30 +800,30 @@ mod tests {
             token.clone(),
             owner_pipeline.clone(),
         );
-        let ingester = remote_router(registry, "ingester-producer", token, owner_pipeline.clone());
+        let intake = remote_router(registry, "intake-producer", token, owner_pipeline.clone());
 
         let trace_id = "0123456789abcdef0123456789abcdef";
         let candidates = [
             (
-                &ingester,
+                &intake,
                 role_span(
                     trace_id,
                     "0000000000000005",
                     Some("0000000000000004"),
                     "object_store.operation",
-                    "ingester",
-                    "ingester-a",
+                    "intake",
+                    "intake-a",
                 ),
             ),
             (
-                &ingester,
+                &intake,
                 role_span(
                     trace_id,
                     "0000000000000004",
                     Some("0000000000000003"),
-                    "ingest.batch",
-                    "ingester",
-                    "ingester-a",
+                    "intake.batch",
+                    "intake",
+                    "intake-a",
                 ),
             ),
             (
@@ -861,8 +861,7 @@ mod tests {
         }
         timeout(Duration::from_secs(3), async {
             loop {
-                if querier.health().delivered_remote == 2 && ingester.health().delivered_remote == 2
-                {
+                if querier.health().delivered_remote == 2 && intake.health().delivered_remote == 2 {
                     break;
                 }
                 sleep(Duration::from_millis(2)).await;
@@ -898,11 +897,11 @@ mod tests {
 
         router.shutdown().await;
         querier.shutdown().await;
-        ingester.shutdown().await;
+        intake.shutdown().await;
         owner_pipeline.shutdown().await;
         owner_server.abort();
 
-        let internal = self_ingest.traces("system-org").await;
+        let internal = self_intake.traces("system-org").await;
         let exported = external.traces("system-org").await;
         assert_eq!(internal.len(), 1);
         assert_eq!(exported.len(), 1);
@@ -925,7 +924,7 @@ mod tests {
         }));
         assert!(edges.iter().any(|edge| {
             edge.client_service == "molesignal-querier"
-                && edge.server_service == "molesignal-ingester"
+                && edge.server_service == "molesignal-intake"
         }));
         assert!(edges.iter().all(|edge| {
             !edge.client_service.contains('+') && !edge.server_service.contains('+')
@@ -948,7 +947,7 @@ mod tests {
             .collect::<HashSet<_>>();
         assert!(identities.contains(&("router".into(), "router-a".into())));
         assert!(identities.contains(&("querier".into(), "querier-a".into())));
-        assert!(identities.contains(&("ingester".into(), "ingester-a".into())));
+        assert!(identities.contains(&("intake".into(), "intake-a".into())));
     }
 
     #[tokio::test]
@@ -1000,7 +999,7 @@ mod tests {
             PeerInfo {
                 node_id: "live-owner".into(),
                 advertise_addr: live_addr.to_string(),
-                roles: vec![PeerRole::Ingester],
+                roles: vec![PeerRole::Intake],
             },
         ];
         let nodes = peers.iter().map(peer_to_sampler_node).collect::<Vec<_>>();

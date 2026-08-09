@@ -13,7 +13,7 @@ use arrow::{
 
 use crate::{
     domain::{
-        ingestion::EVENT_ID_FIELD,
+        intake::EVENT_ID_FIELD,
         storage::{PhysicalDatasetKind, hour_start_micros},
     },
     infra::storage::arrow_schema::TS_COL,

@@ -3,7 +3,11 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation } from 'react-router-dom';
 
-import { findProductRoute, type ProductBreadcrumbItem } from '@/product/ia';
+import {
+  findProductRoute,
+  PRODUCT_NAV_ITEMS,
+  type ProductBreadcrumbItem,
+} from '@/product/ia';
 import { cn } from '@/shell/lib/cn';
 
 interface PageHeaderProps {
@@ -48,6 +52,21 @@ export function PageHeader({
   const { t } = useTranslation('nav');
   const location = useLocation();
   const route = React.useMemo(() => findProductRoute(location.pathname), [location.pathname]);
+  const iconRoute = React.useMemo(() => {
+    const ownerRoute = PRODUCT_NAV_ITEMS.find(
+      (candidate) =>
+        candidate.group === 'investigate' && candidate.owner === route?.owner,
+    );
+    if (ownerRoute) return ownerRoute;
+    const parentRoute = PRODUCT_NAV_ITEMS.find(
+      (candidate) =>
+        candidate.group === 'investigate' &&
+        (location.pathname === candidate.path ||
+          location.pathname.startsWith(`${candidate.path}/`)),
+    );
+    return parentRoute ?? (route?.group === 'investigate' ? route : undefined);
+  }, [location.pathname, route]);
+  const HeaderIcon = iconRoute?.icon;
 
   // Resolve breadcrumbs: explicit prop > route metadata > none.
   const resolvedCrumbs: readonly ProductBreadcrumbItem[] | undefined =
@@ -85,8 +104,10 @@ export function PageHeader({
   return (
     <div
       ref={headerRef}
+      data-testid="page-header"
       className={cn(
-        'flex flex-col gap-3 border-b border-bd-0 bg-bg-1 px-6 py-5',
+        'flex flex-col border-b border-bd-0 bg-bg-1 px-6',
+        HeaderIcon ? 'gap-1.5 py-1.5' : 'gap-2 py-2.5',
         className,
       )}
     >
@@ -110,13 +131,50 @@ export function PageHeader({
           {hasCrumbs && <Breadcrumbs items={resolvedCrumbs!} />}
         </div>
       )}
-      <div className="flex min-w-0 flex-wrap items-end gap-4 xl:flex-nowrap xl:gap-5">
-        <div className="min-w-[240px] flex-1">
-          <div className="type-page-title font-sans font-display-strong tracking-[-0.025em] text-tx-0">{title}</div>
-          {subtitle && <div className="mt-1 max-w-3xl truncate text-sm text-tx-2">{subtitle}</div>}
+      {HeaderIcon ? (
+        <div className="flex min-w-0 flex-nowrap items-center gap-2">
+          <span
+            aria-hidden
+            data-testid="page-header-module-icon"
+            className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-indigo/10 text-indigo"
+          >
+            <HeaderIcon className="h-3.5 w-3.5" strokeWidth={1.8} />
+          </span>
+          <div className="flex min-w-0 flex-1 items-baseline gap-2 overflow-hidden whitespace-nowrap">
+            <div className="max-w-[45%] shrink-0 truncate type-page-title font-sans font-display-strong tracking-[-0.025em] text-tx-0">
+              {title}
+            </div>
+            {subtitle && (
+              <>
+                <span aria-hidden className="shrink-0 text-tx-3">
+                  ·
+                </span>
+                <div className="min-w-0 truncate type-caption text-tx-2">
+                  {subtitle}
+                </div>
+              </>
+            )}
+          </div>
+          {toolbar && (
+            <>
+              <span aria-hidden className="h-5 w-px shrink-0 bg-bd-1" />
+              <div className="flex max-w-[60%] shrink-0 items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {toolbar}
+              </div>
+            </>
+          )}
         </div>
-        {toolbar && <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2">{toolbar}</div>}
-      </div>
+      ) : (
+        <div className="flex min-w-0 flex-wrap items-center gap-4 xl:flex-nowrap xl:gap-5">
+          <div className="flex min-w-[240px] flex-1 items-center gap-2.5">
+            <div className="min-w-0 flex-1">
+              <div className="type-page-title font-sans font-display-strong tracking-[-0.025em] text-tx-0">{title}</div>
+              {subtitle && <div className="mt-0.5 max-w-3xl truncate type-caption text-tx-2">{subtitle}</div>}
+            </div>
+          </div>
+          {toolbar && <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2">{toolbar}</div>}
+        </div>
+      )}
     </div>
   );
 }

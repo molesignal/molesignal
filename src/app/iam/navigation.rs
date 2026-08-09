@@ -67,12 +67,12 @@ mod tests {
         let catalog = IamRouteCatalog {
             version: 1,
             routes: vec![IamRouteDefinition {
-                id: "intelligence".into(),
-                path_pattern: "/intelligence".into(),
+                id: "agent".into(),
+                path_pattern: "/agent".into(),
                 scope: IamRouteScope::Organization,
                 permission_mode: IamRoutePermissionMode::All,
-                permissions: vec!["intelligence.use".into()],
-                required_features: vec!["intelligence".into()],
+                permissions: vec!["agent.use".into()],
+                required_features: vec!["agent".into()],
                 navigation_group: Some("investigate".into()),
                 navigation_position: Some(50),
                 enabled: true,
@@ -81,15 +81,15 @@ mod tests {
         let allowed = resolve_route_access(
             &catalog,
             IamScope::Organization,
-            &BTreeSet::from(["intelligence.use".into()]),
-            &BTreeSet::from(["intelligence".into()]),
+            &BTreeSet::from(["agent.use".into()]),
+            &BTreeSet::from(["agent".into()]),
         );
         assert!(allowed[0].allowed);
         let denied = resolve_route_access(
             &catalog,
             IamScope::System,
-            &BTreeSet::from(["intelligence.use".into()]),
-            &BTreeSet::from(["intelligence".into()]),
+            &BTreeSet::from(["agent.use".into()]),
+            &BTreeSet::from(["agent".into()]),
         );
         assert!(!denied[0].allowed);
     }

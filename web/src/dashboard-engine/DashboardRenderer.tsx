@@ -164,7 +164,7 @@ export function DashboardRenderer({
     productAccess,
   );
   const canUseMoleAgent = canAccessProductPath(
-    '/intelligence/chat',
+    '/agent/chat',
     productAccess,
   );
   const configuredRefreshCadence = refreshCadenceFromSettings(
@@ -709,7 +709,7 @@ function DashboardPanelCard({
                       <DropdownMenuItem
                         onSelect={() =>
                           nav(
-                            `/intelligence/chat?dashboard=${encodeURIComponent(context.dashboard.uid)}&panel=${encodeURIComponent(baseElementId(panel.id))}`,
+                            `/agent/chat?dashboard=${encodeURIComponent(context.dashboard.uid)}&panel=${encodeURIComponent(baseElementId(panel.id))}`,
                           )
                         }
                       >

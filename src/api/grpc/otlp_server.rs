@@ -4,15 +4,15 @@
 //! 对外**标准 OTLP gRPC** receiver：`opentelemetry.proto.collector.{trace,logs,
 //! metrics,profiles}.v1*` 四个 `Export` service。
 //!
-//! 与内部 `ingest.v1.IngestService`（[`super::ingest_server`]，router↔ingester
+//! 与内部 `intake.v1.IntakeService`（[`super::intake_server`]，router↔intake
 //! 私有分发、可信网络免鉴权）**不同协议、分端口**部署：本 server 由
 //! [`super::serve_otlp_grpc`] 挂在 `otlp_grpc.bind:port`（默认 4317），可暴露给
 //! 用户网络 —— 每个 `export` RPC 都要求 `authorization: Bearer`（与 HTTP 中间件
 //! 同一套前缀分发：`ms_` → API token，其余 → JWT）+ `StreamWrite` 权限。
 //!
-//! 传输层之外的语义与 OTLP/HTTP（[`crate::api::http::routes::ingest::otlp`]）完全
+//! 传输层之外的语义与 OTLP/HTTP（[`crate::api::http::routes::intake::otlp`]）完全
 //! 一致：复用同一批 `*_to_events` 转换 + `normalize_otlp_profiles` + 计费门禁 +
-//! `IngestService::ingest`，只是 payload 由 tonic 解码而非手动 protobuf/JSON 解码。
+//! `IntakeService::intake`，只是 payload 由 tonic 解码而非手动 protobuf/JSON 解码。
 
 use opentelemetry_proto::tonic::collector::{
     logs::v1::{
@@ -39,15 +39,15 @@ use crate::{
         http::{
             middleware::{Permission, auth::authenticate_bearer},
             routes::{
-                ingest::otlp::{
-                    ingest, logs_to_events, metrics_to_events, submit_traces, traces_to_canonical,
+                intake::otlp::{
+                    intake, logs_to_events, metrics_to_events, submit_traces, traces_to_canonical,
                 },
                 profiles::{normalize_otlp_profiles, store_profile},
             },
         },
     },
     app::iam::IamContext,
-    domain::{ingestion::RawEvent, stream::StreamType},
+    domain::{intake::RawEvent, stream::StreamType},
     infra::persistence::repositories::audit_events::AuditEvent,
     shared::{
         Error as MsError,
@@ -97,8 +97,8 @@ impl OtlpGrpc {
         Ok(ctx)
     }
 
-    /// 计费门禁 + ingest（复用 OTLP/HTTP 的同名 helper）。
-    async fn ingest_events(
+    /// 计费门禁 + intake（复用 OTLP/HTTP 的同名 helper）。
+    async fn intake_events(
         &self,
         ctx: &IamContext,
         stream_type: StreamType,
@@ -106,7 +106,7 @@ impl OtlpGrpc {
         events: Vec<RawEvent>,
         bytes: usize,
     ) -> Result<(), Status> {
-        ingest(
+        intake(
             &self.state,
             stream_type,
             ctx.org_id.clone(),
@@ -254,7 +254,7 @@ impl LogsService for OtlpGrpc {
         let req = request.into_inner();
         let bytes = req.encoded_len();
         let events = logs_to_events(req);
-        self.ingest_events(&ctx, StreamType::Logs, stream, events, bytes)
+        self.intake_events(&ctx, StreamType::Logs, stream, events, bytes)
             .await?;
         Ok(Response::new(ExportLogsServiceResponse::default()))
     }
@@ -271,7 +271,7 @@ impl MetricsService for OtlpGrpc {
         let req = request.into_inner();
         let bytes = req.encoded_len();
         let events = metrics_to_events(req);
-        self.ingest_events(&ctx, StreamType::Metrics, stream, events, bytes)
+        self.intake_events(&ctx, StreamType::Metrics, stream, events, bytes)
             .await?;
         Ok(Response::new(ExportMetricsServiceResponse::default()))
     }

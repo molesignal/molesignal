@@ -16,7 +16,7 @@ Self-hosted and OpenTelemetry-native, MoleSignal puts logs, metrics, and traces 
 
 Today's telemetry tools force a bad trade-off:
 
-- **Commercial SaaS** (Datadog, New Relic, Splunk) — three signals are correlated, but the bill grows linearly with traffic. A mid-size team easily pays **US$2k–10k/month** for 100 GB/day, and reducing ingest means losing visibility.
+- **Commercial SaaS** (Datadog, New Relic, Splunk) — three signals are correlated, but the bill grows linearly with traffic. A mid-size team easily pays **US$2k–10k/month** for 100 GB/day, and reducing intake means losing visibility.
 - **Open-source stacks** (Loki + Mimir + Tempo + Grafana, or ELK + Prometheus + Jaeger) — free, but **logs / metrics / traces live in three separate stores with three query languages**. The "trace ↔ log ↔ host metric" jump everyone needs during an incident has to be stitched by hand: copy a trace_id, switch tab, paste, repaste a time range, hope the clocks agree.
 
 molesignal takes the third path: **one storage layer (Parquet on object store), one query engine (DataFusion + Arrow), one metadata layer (Postgres)** — so the three signals are correlated at the data plane, not at the dashboard plane. Self-hosted, so your bill is the S3 cost.
@@ -28,7 +28,7 @@ molesignal takes the third path: **one storage layer (Parquet on object store), 
 | Cross-signal correlation | ✅ (paid) | ⚠️ manual trace_id copy-paste | **✅ native (`/web/correlation/*`)** |
 | Data ownership | their cloud | self-hosted | **self-hosted** |
 | Setup time | 5 min (agents) | 6 hours+ (5 components + Grafana) | **1 cmd `docker compose up`** |
-| OpenTelemetry-native | yes | partial | **yes (9 ingest protocols)** |
+| OpenTelemetry-native | yes | partial | **yes (9 intake protocols)** |
 | Real-time alerts (<1s) | yes | no (eval interval ≥ scrape interval) | **yes (`kind: realtime`)** |
 | Multi-tenant out-of-box | yes (per-account) | no | **yes (planner-level org rewrite)** |
 
@@ -53,7 +53,7 @@ Send your first data:
 
 ```bash
 # OTLP HTTP (works with OpenTelemetry Collector / SDK / Vector / Fluent Bit out of the box)
-curl -X POST http://localhost:5080/api/v1/ingest/logs/app \
+curl -X POST http://localhost:5080/api/v1/intake/logs/app \
   -H 'content-type: application/json' \
   -H 'authorization: Bearer <jwt>' \
   -d '[{"_timestamp":1700000000000000,"level":"error","msg":"db pool exhausted","trace_id":"abc123"}]'
@@ -68,7 +68,7 @@ curl -X POST http://localhost:5080/api/v1/query \
        "stream":{"name":"app","stream_type":"logs"}}'
 ```
 
-**No data yet?** Open the UI Home page and click **Load sample data** — it ingests a
+**No data yet?** Open the UI Home page and click **Load sample data** — it loads a
 built-in cross-signal demo (logs + metrics + traces sharing trace_ids) so you can try a
 `metric → trace → log` drill-down in seconds.
 
@@ -87,7 +87,7 @@ A trace, its logs, and the host's metric for the same minute share **the same st
 - Time anchor synchronizes all panels (one click to zoom + propagate)
 - Investigation stack: drill `metric → trace → log → host` and back without losing context
 
-### 📡 Ingest (9 protocols, drop-in replacements)
+### 📡 Intake (9 protocols, drop-in replacements)
 
 | Protocol | Endpoint | Drop-in for |
 |---|---|---|
@@ -99,7 +99,7 @@ A trace, its logs, and the host's metric for the same minute share **the same st
 | Kinesis Firehose | `POST /api/v1/_kinesis_firehose` | AWS Firehose |
 | Cloudflare Logpush | `POST /api/v1/_cloudflare` | Cloudflare Logpush |
 | Heroku log drain | `POST /api/v1/_heroku` | Heroku |
-| Native HTTP JSON | `POST /api/v1/ingest/{type}/:stream` | curl / app SDK |
+| Native HTTP JSON | `POST /api/v1/intake/{type}/:stream` | curl / app SDK |
 
 ### 🌐 RUM & APM
 
@@ -128,7 +128,7 @@ A trace, its logs, and the host's metric for the same minute share **the same st
 
 ### 🚨 Alerting
 
-- **Three rule kinds**: `scheduled` (periodic SQL eval), `realtime` (in-ingest predicate match, fires <1s), `anomaly` (MAD + EWMA detectors; daily baseline with opt-in weekly seasonality; 0–1 score + human-readable reason)
+- **Three rule kinds**: `scheduled` (periodic SQL eval), `realtime` (in-intake predicate match, fires <1s), `anomaly` (MAD + EWMA detectors; daily baseline with opt-in weekly seasonality; 0–1 score + human-readable reason)
 - **Escalation policies** — multi-step with ack timeout, on-call rotations, overrides
 - **Channels** — Slack, email, and webhooks: generic + Lark/Feishu/WeCom/DingTalk group robots + PagerDuty / OpsGenie / Microsoft Teams; template variables
 
@@ -139,9 +139,9 @@ A trace, its logs, and the host's metric for the same minute share **the same st
 - **Multi-tenant** — planner-level `org_id` rewrite; cross-org data leak impossible by construction
 - **Audit log** — every mutating operation recorded
 - **Field-level encryption** — AES-256-GCM + cipher root key envelope; VRL `encrypt()` / `decrypt()` builtins
-- **Per-org quotas** — ingest QPS / query QPS / storage cap
+- **Per-org quotas** — intake QPS / query QPS / storage cap
 
-### 🤖 Mole Intelligence
+### 🤖 Mole Agent
 
 - Natural-language chat interface over your telemetry data (SSE streaming)
 - MCP server for integrating with AI assistants
@@ -156,11 +156,11 @@ A trace, its logs, and the host's metric for the same minute share **the same st
 
 ### 🧩 Pipeline functions (VRL + optional JS + LLM)
 
-Functions are reusable transforms attached to a pipeline step. Three kinds are supported on the ingest hot path:
+Functions are reusable transforms attached to a pipeline step. Three kinds are supported on the intake hot path:
 
 - **VRL** — always available. Compiled per `(function_id, updated_at)`, evaluated with the upstream `vrl::compiler` stdlib (`del`, `parse_json`, `to_int`, `match`, `encrypt` / `decrypt`, …).
-- **JavaScript** — opt-in, built on `deno_core` (V8). Disabled by default because adding `deno_core` pushes a clean workspace build from ~1.5 min to ~5 min. Enable at compile time with `--features js-runtime` (no runtime toggle needed — the binary either has V8 or it doesn't). If the feature is off, a JS function POST returns `400 javascript runtime not enabled`, and any existing JS row reaching the pipeline fails with `IngestError { reason: "javascript runtime disabled" }`.
-- **LLM** — opt-in, passes the event JSON through a configured AI provider (intelligence) and writes the model output back into a configurable field (default `_llm_eval`). Gated by the runtime config toggle:
+- **JavaScript** — opt-in, built on `deno_core` (V8). Disabled by default because adding `deno_core` pushes a clean workspace build from ~1.5 min to ~5 min. Enable at compile time with `--features js-runtime` (no runtime toggle needed — the binary either has V8 or it doesn't). If the feature is off, a JS function POST returns `400 javascript runtime not enabled`, and any existing JS row reaching the pipeline fails with `IntakeError { reason: "javascript runtime disabled" }`.
+- **LLM** — opt-in, passes the event JSON through a configured AI provider (agent) and writes the model output back into a configurable field (default `_llm_eval`). Gated by the runtime config toggle:
 
   ```toml
   [functions]
@@ -190,11 +190,11 @@ molesignal.del("pw");
 
 ### ☸️ Operations
 
-- **6 stateless roles** — `router` / `ingester(SF + PVC)` / `querier` / `compactor` / `alert-manager` / `connector`; only ingester has local state (WAL, ≤ flush_interval window)
+- **6 stateless roles** — `router` / `intake(SF + PVC)` / `querier` / `compactor` / `alert-manager` / `connector`; only intake has local state (WAL, ≤ flush_interval window)
 - **Single binary** — same image serves all roles, selected by `MS_NODE_ROLES`
 - **Kubernetes manifests** in [deploy/k8s/](deploy/k8s/), Docker Compose with `standalone` + `multirole` profiles
-- **Prometheus `/metrics`** with rich cache / object_store / ingester / compactor metrics
-- **Health probes** — readiness gated by ingester WAL replay + object_store round-trip probe
+- **Prometheus `/metrics`** with rich cache / object_store / intake / compactor metrics
+- **Health probes** — readiness gated by intake WAL replay + object_store round-trip probe
 
 ---
 
@@ -202,11 +202,11 @@ molesignal.del("pw");
 
 ```
                           ┌──────────┐
-   OTel / Vector / ...  ─►│  router  │─► consistent hash(org, stream) ─► ingester(s)
+   OTel / Vector / ...  ─►│  router  │─► consistent hash(org, stream) ─► intake(s)
                           └──────────┘                                      │
                                │                                            ▼
                                ▼                                       WAL + Arrow buffer
-                       /api/v1/{ingest,query,...}                           │
+                       /api/v1/{intake,query,...}                           │
                                │                                  flush → Parquet + Tantivy
                                ▼                                  upload to S3
                        ┌──────────────┐                                     │
@@ -224,16 +224,14 @@ molesignal.del("pw");
 
 ---
 
----
-
 ## Status
 
 Pre-1.0, **early**. Released YYYY-MM-DD.
 
 | Area | State |
 |---|---|
-| Ingest path (WAL + buffer + flush) | ✅ working |
-| 9 ingest protocols | ✅ working |
+| Intake path (WAL + buffer + flush) | ✅ working |
+| 9 intake protocols | ✅ working |
 | Distributed query (Arrow Flight) | ✅ working |
 | 3-level cache + disk cache | ✅ working |
 | Multi-tenant planner rewrite | ✅ working |
@@ -254,9 +252,6 @@ Pre-1.0, **early**. Released YYYY-MM-DD.
 ```bash
 # Open-source production artifact
 BUILD_ID=local-001 cargo build --release --locked -p molesignal
-
-# Paid build (needs access to the private feature dependencies)
-BUILD_ID=local-001 cargo build --release --locked -p molesignal --features <features>
 
 # The same binary is promoted by changing runtime deployment metadata only.
 RELEASE_CHANNEL=alpha ./target/release/molesignal --config conf/config.toml

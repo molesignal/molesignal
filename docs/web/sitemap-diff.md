@@ -1,7 +1,7 @@
 # Web sitemap diff: molesignal ↔ openobserve
 
 > Reference: `/Users/gagral/code/openobserve/web/src/composables/shared/router.ts`
-> + `useManagementRoutes.ts` + `useProRoutes.ts` + `useIngestionRoutes.ts`.
+> + `useManagementRoutes.ts` + `useProRoutes.ts` + `useIntakeRoutes.ts`.
 >
 > Each row notes the backend endpoint(s) the route depends on and whether
 > they exist in `src/api/http/routes/`. Priorities follow the
@@ -36,7 +36,7 @@
 | `/reports` | `/reports` | ✓¹ | 🔌 `routes/scheduled_reports.rs` |
 | `/pipeline/pipelines` | `/pipelines` | ✓¹ | 🔌 `routes/scheduled_pipelines.rs` |
 | `/settings` (root) | `/settings` | ✓¹ | mixed |
-| `/ingest/*` (legacy) | `/ingest/:category/:source` | ✓¹ | — (docs only) |
+| `/intake/*` (legacy) | `/intake/:category/:source` | ✓¹ | — (docs only) |
 
 ## P0 — APM and User Experience
 
@@ -59,7 +59,7 @@ RUM remains an independent canonical product:
 | --- | --- | --- | --- |
 | `/rum` | `/rum/overview` | ✓ | 🚧 (queries RUM streams) |
 | `/rum/applications` | `/rum/applications` | ✓ | 🚧 (aggregates `rum_sessions`) |
-| `/rum/sessions` | `/rum/sessions` | ✓ | 🚧 (`POST /rum/sessions` ingests; `GET /rum/sessions` lists `rum_sessions`) |
+| `/rum/sessions` | `/rum/sessions` | ✓ | 🚧 (`POST /rum/sessions` accepts data; `GET /rum/sessions` lists `rum_sessions`) |
 | `/rum/sessions/view/:id` | `/rum/sessions/view/:id` | ✓ | 🚧 (queries `rum_sessions` + `rum_actions` streams) |
 | `/rum/pages` | `/rum/pages` | ✓ | 🚧 (aggregates `rum_actions`) |
 | `/rum/errors` | `/rum/errors` | ✓ | 🚧 (queries `rum_errors` stream) |
@@ -69,7 +69,7 @@ RUM remains an independent canonical product:
 | `/rum/source-maps` | `/rum/settings/source-maps` | ✓ | 🔌 `GET /debug-artifacts` |
 | `/rum/upload-source-maps` | `/rum/settings/source-maps/upload` | ✓ | 🔌 `POST /debug-artifacts` (multipart) |
 
-Note: backend RUM ingestion uses
+Note: backend RUM intake uses
 `POST /rum/{sessions,actions,errors,replay}`. The browser pages query the
 `rum_sessions` / `rum_actions` / `rum_errors` Logs streams and degrade gracefully
 when those streams have no data. `/apm/user-experience/*` remains a compatibility entry and
@@ -147,7 +147,7 @@ redirecting to canonical RUM. `/services*` similarly redirects to
 | `/alerts/import-semantic-groups` | `/alerts/import-semantic-groups` | ☐ | 🚧 (deferred to a future change) |
 | `/alerts/anomaly/{add,edit/:id}` | `/alerts/anomaly/*` | ☐ | 🚧 (deferred to a future change) |
 | resource-scoped share | `/s/:token` → `/shared` | ✓ | 🔌 `routes/resource_shares.rs` (受限 Share Principal) |
-| `/ingestion/*` (per-vendor real pages) | `/ingest/:category/:source` | ✓ | 🔌 `routes/Ingest/sources.ts` vendor catalog + `/healthz` smoke check |
+| `/intake/*` (per-vendor real pages) | `/intake/:category/:source` | ✓ | 🔌 `routes/Intake/sources.ts` vendor catalog + `/healthz` smoke check |
 
 ## Routes intentionally not mirrored
 

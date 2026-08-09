@@ -204,7 +204,7 @@ async fn create(
 }
 
 /// 取或建当前用户的默认接入 token，返完整明文（可重复回显）。非 RUM
-/// 数据源接入页用它直接展示一个开箱即用的 ingestion token，免去手动创建。
+/// 数据源接入页用它直接展示一个开箱即用的 intake token，免去手动创建。
 async fn get_default(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
@@ -384,9 +384,9 @@ mod tests {
             prefix: "0123456789abcdef".into(),
             token: "ms_0123456789abcdef_0123456789abcdef0123456789abcdef".into(),
             role_id: "role-id".into(),
-            role_key: "ingest".into(),
-            role_name: "Ingestion token".into(),
-            token_kind: "default_ingestion".into(),
+            role_key: "intake".into(),
+            role_name: "Intake token".into(),
+            token_kind: "default_intake".into(),
             application_id: None,
             expires_at_micros: None,
             created_at_micros: 1,

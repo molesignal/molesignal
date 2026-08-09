@@ -324,7 +324,7 @@ fn maybe_record_slow_query(
     if out.took_ms < SLOW_QUERY_CAPTURE_MS {
         return;
     }
-    let repo = state.intelligence.slow_queries.clone();
+    let repo = state.agent.slow_queries.clone();
     let now = TimestampMicros::now();
     let row = crate::domain::query::SlowQuery {
         id: Id::new(),
@@ -400,7 +400,7 @@ async fn list_slow_queries(
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Value>> {
     let rows = state
-        .intelligence
+        .agent
         .slow_queries
         .list_recent(&ctx.org_id, 50)
         .await?;

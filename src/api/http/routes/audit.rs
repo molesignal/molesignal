@@ -27,10 +27,7 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/audit", get(query_audit))
         .route("/system/audit", get(query_system_audit))
-        .route(
-            "/intelligence/audit/chat/{id}",
-            get(get_intelligence_chat_transcript),
-        )
+        .route("/agent/audit/chat/{id}", get(get_agent_chat_transcript))
 }
 
 const DEFAULT_LIMIT: i64 = 50;
@@ -266,18 +263,18 @@ async fn query_audit_for_org(
 }
 
 #[permission("audit.read")]
-async fn get_intelligence_chat_transcript(
+async fn get_agent_chat_transcript(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<AuditChatTranscriptResp>> {
     let chat_id = Id(id);
     let chat = state
-        .intelligence
+        .agent
         .chats
         .get_chat_any(&ctx.org_id, &chat_id)
         .await?;
-    let messages = state.intelligence.chats.list_messages(&chat.id).await?;
+    let messages = state.agent.chats.list_messages(&chat.id).await?;
 
     Ok(Json(AuditChatTranscriptResp {
         chat: AuditChatResp {

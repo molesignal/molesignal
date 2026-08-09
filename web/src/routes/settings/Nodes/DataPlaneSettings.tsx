@@ -84,7 +84,7 @@ function ServiceGraphSettingsSection({ access }: { access: ActionAccess }) {
         description={
           storageMode
             ? t('nodes.service_graph.storage_hint')
-            : t('nodes.service_graph.ingest_hint')
+            : t('nodes.service_graph.intake_hint')
         }
       >
         <Switch
@@ -93,7 +93,7 @@ function ServiceGraphSettingsSection({ access }: { access: ActionAccess }) {
           disabledReason={controlsDisabledReason}
           onCheckedChange={(checked) => {
             if (!controlsDisabled) {
-              update.mutate({ source: checked ? 'storage' : 'ingest' });
+              update.mutate({ source: checked ? 'storage' : 'intake' });
             }
           }}
           aria-label={t('nodes.service_graph.storage_mode')}

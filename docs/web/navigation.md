@@ -11,7 +11,7 @@ route breadcrumb/back metadata.
 | --- | --- | --- |
 | Home | Activation, operational summary, and next best actions. | Home |
 | Observe | Daily signal investigation and monitoring. | Dashboards, Metrics, Logs, Traces, APM, RUM, Profiles, Alerts |
-| Data | Collection, shaping, enrichment, and scheduled outputs. | Ingest, Streams, Pipelines, Functions, Enrichment tables, Reports |
+| Data | Collection, shaping, enrichment, and scheduled outputs. | Intake, Streams, Pipelines, Functions, Enrichment tables, Reports |
 | Automate | Scheduled operational workflows. | Pipeline backfill metadata |
 | Admin | Governance, access, org, license, and platform settings. | IAM, Settings |
 
@@ -31,7 +31,7 @@ route breadcrumb/back metadata.
 
 The initial breadcrumb set covers dashboard create/import/edit/panel pages,
 trace detail and session detail, stream explore, logs inspector,
-ingest source drilldowns, pipeline create/import/edit/history/backfill,
+intake source drilldowns, pipeline create/import/edit/history/backfill,
 APM overview/service/Transaction/dependency/backend-error/deployment pages,
 independent RUM application/session/page/error/performance/replay/settings flows, Notify management under system settings
 (`/settings/notify/{connectors,users,policies,templates,defaults,deliveries}`), personal

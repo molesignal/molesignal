@@ -35,7 +35,7 @@ pub struct LicensePayload {
     #[serde(default)]
     pub expires_at_micros: i64,
     #[serde(default)]
-    pub max_ingest_bytes_per_day: i64,
+    pub max_intake_bytes_per_day: i64,
     #[serde(default)]
     pub max_users: i32,
     #[serde(default)]
@@ -51,7 +51,7 @@ pub struct LicenseFile {
 pub struct SignedLicense {
     payload: LicensePayload,
     feature_set: HashSet<String>,
-    ingest_today: AtomicI64,
+    intake_today: AtomicI64,
 }
 
 impl SignedLicense {
@@ -82,7 +82,7 @@ impl SignedLicense {
         Ok(Self {
             payload,
             feature_set,
-            ingest_today: AtomicI64::new(0),
+            intake_today: AtomicI64::new(0),
         })
     }
 
@@ -122,12 +122,12 @@ impl LicenseGate for SignedLicense {
         }
         self.feature_set.contains(name)
     }
-    fn add_ingest_bytes(&self, n: u64) -> bool {
-        if self.payload.max_ingest_bytes_per_day <= 0 {
+    fn add_intake_bytes(&self, n: u64) -> bool {
+        if self.payload.max_intake_bytes_per_day <= 0 {
             return true;
         }
-        let new = self.ingest_today.fetch_add(n as i64, Ordering::Relaxed) + n as i64;
-        new <= self.payload.max_ingest_bytes_per_day
+        let new = self.intake_today.fetch_add(n as i64, Ordering::Relaxed) + n as i64;
+        new <= self.payload.max_intake_bytes_per_day
     }
     fn expired(&self, now_micros: i64) -> bool {
         self.payload.expires_at_micros > 0 && now_micros >= self.payload.expires_at_micros
@@ -136,7 +136,7 @@ impl LicenseGate for SignedLicense {
         &self.payload.issued_to
     }
     fn reset_daily(&self) {
-        self.ingest_today.store(0, Ordering::Relaxed);
+        self.intake_today.store(0, Ordering::Relaxed);
     }
     fn features(&self) -> Vec<String> {
         self.payload.features.clone()
@@ -147,9 +147,9 @@ impl LicenseGate for SignedLicense {
     fn verified(&self) -> bool {
         true
     }
-    fn max_ingest_bytes_per_day(&self) -> Option<u64> {
-        if self.payload.max_ingest_bytes_per_day > 0 {
-            Some(self.payload.max_ingest_bytes_per_day as u64)
+    fn max_intake_bytes_per_day(&self) -> Option<u64> {
+        if self.payload.max_intake_bytes_per_day > 0 {
+            Some(self.payload.max_intake_bytes_per_day as u64)
         } else {
             None
         }
@@ -194,7 +194,7 @@ mod tests {
         let payload = LicensePayload {
             issued_to: "fixture".into(),
             expires_at_micros,
-            max_ingest_bytes_per_day: 1_000,
+            max_intake_bytes_per_day: 1_000,
             max_users: 10,
             features: vec!["sso".into()],
         };
@@ -236,22 +236,22 @@ mod tests {
         let payload = LicensePayload {
             issued_to: "a".into(),
             expires_at_micros: 0,
-            max_ingest_bytes_per_day: 100,
+            max_intake_bytes_per_day: 100,
             max_users: 0,
             features: vec!["sso".into()],
         };
         let l = SignedLicense {
             payload,
             feature_set: ["sso".to_string()].into_iter().collect(),
-            ingest_today: AtomicI64::new(0),
+            intake_today: AtomicI64::new(0),
         };
         assert!(l.has_feature("sso"));
         assert!(!l.has_feature("federated_search"));
-        assert!(l.add_ingest_bytes(50));
-        assert!(l.add_ingest_bytes(50));
-        assert!(!l.add_ingest_bytes(1));
+        assert!(l.add_intake_bytes(50));
+        assert!(l.add_intake_bytes(50));
+        assert!(!l.add_intake_bytes(1));
         l.reset_daily();
-        assert!(l.add_ingest_bytes(50));
+        assert!(l.add_intake_bytes(50));
     }
 
     #[test]
@@ -259,14 +259,14 @@ mod tests {
         let payload = LicensePayload {
             issued_to: "a".into(),
             expires_at_micros: 1000,
-            max_ingest_bytes_per_day: 0,
+            max_intake_bytes_per_day: 0,
             max_users: 0,
             features: vec![],
         };
         let l = SignedLicense {
             payload,
             feature_set: HashSet::new(),
-            ingest_today: AtomicI64::new(0),
+            intake_today: AtomicI64::new(0),
         };
         assert!(!l.expired(500));
         assert!(l.expired(1000));

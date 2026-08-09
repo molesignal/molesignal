@@ -655,23 +655,23 @@ async function seedTelemetry(api) {
     ...gaugeSeries('payments', 'payments-1', 834, 11),
   ];
 
-  await api.post('/ingest/logs/app_logs', logs);
-  await api.post('/ingest/logs/app_logs_enriched', enriched);
-  await api.post('/ingest/metrics/http_requests_total', [
+  await api.post('/intake/logs/app_logs', logs);
+  await api.post('/intake/logs/app_logs_enriched', enriched);
+  await api.post('/intake/metrics/http_requests_total', [
     ...requestMetrics,
     ...requestExemplars,
   ]);
-  await api.post('/ingest/metrics/http_request_duration_ms', durations);
-  await api.post('/ingest/metrics/process_cpu_usage', cpu);
-  await api.post('/ingest/metrics/memory_usage_mb', memory);
+  await api.post('/intake/metrics/http_request_duration_ms', durations);
+  await api.post('/intake/metrics/process_cpu_usage', cpu);
+  await api.post('/intake/metrics/memory_usage_mb', memory);
   await api.post(
-    '/ingest/metrics/http_requests_total_5m',
+    '/intake/metrics/http_requests_total_5m',
     requestMetrics.slice(-12).map((row) => ({ ...row, window: '5m', rollup: 'rate' })),
   );
-  await api.post('/ingest/traces/traces', traces);
-  await api.post('/ingest/traces/topology_traces', topologyTraces);
+  await api.post('/intake/traces/traces', traces);
+  await api.post('/intake/traces/topology_traces', topologyTraces);
   await api.post(
-    '/ingest/traces/traces_enriched',
+    '/intake/traces/traces_enriched',
     traces.slice(0, 12).map((row) => ({
       ...row,
       attributes: {
@@ -720,7 +720,7 @@ async function seedProfiles(api) {
       from: String(profile.start),
       until: String(profile.until),
     });
-    const resp = await fetch(`${api.base}/profiles/ingest?${query}`, {
+    const resp = await fetch(`${api.base}/profiles/intake?${query}`, {
       method: 'POST',
       headers: {
         authorization: `Bearer ${api.token}`,
@@ -729,7 +729,7 @@ async function seedProfiles(api) {
       body: profile.body,
     });
     if (!resp.ok) {
-      throw new Error(`POST /profiles/ingest -> ${resp.status} ${await resp.text()}`);
+      throw new Error(`POST /profiles/intake -> ${resp.status} ${await resp.text()}`);
     }
   }
 
@@ -1450,7 +1450,7 @@ async function main() {
 
   if (ARGS.has('--topology-only')) {
     const topologyTraces = makeTopologyTraces();
-    await api.post('/ingest/traces/topology_traces', topologyTraces);
+    await api.post('/intake/traces/topology_traces', topologyTraces);
     console.log(
       JSON.stringify(
         {
@@ -1469,7 +1469,7 @@ async function main() {
 
   if (ARGS.has('--rum-only')) {
     const linkedTraces = makeTraces();
-    await api.post('/ingest/traces/traces', linkedTraces);
+    await api.post('/intake/traces/traces', linkedTraces);
     const created = [
       `traces: ${linkedTraces.length} spans linked from RUM actions`,
       ...(await seedRum(api)),
@@ -1511,7 +1511,7 @@ async function main() {
 
   const created = [];
   if (API_ONLY) {
-    created.push('streams: schema-on-write through ingest APIs');
+    created.push('streams: schema-on-write through intake APIs');
   } else {
     created.push(seedStreams(api.orgId));
     resetSeedParquetFileMeta(api.orgId);
@@ -1520,7 +1520,7 @@ async function main() {
   created.push(...(await seedProfiles(api)));
   created.push(...(await seedRum(api)));
   if (API_ONLY) {
-    created.push('service_graph_edges: derived from ingested traces');
+    created.push('service_graph_edges: derived from received traces');
   } else {
     created.push(seedServiceGraph(api.orgId));
   }

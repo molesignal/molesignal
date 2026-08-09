@@ -3,10 +3,10 @@
 
 //! Org-level quotas。
 //!
-//! - [`QuotaLimiter`]：`DashMap<org_id, Arc<governor::RateLimiter>>` 两套（ingest / query）。
-//!   ingest entry 在权限校验后调 `acquire_async`；超限 → 429 + Retry-After。
+//! - [`QuotaLimiter`]：`DashMap<org_id, Arc<governor::RateLimiter>>` 两套（intake / query）。
+//!   intake entry 在权限校验后调 `acquire_async`；超限 → 429 + Retry-After。
 //! - storage cap：compactor 每 5min 计算 `(org → sum(parquet_file_meta.size_bytes))` 进内存；
-//!   ingest entry 在 acquire 之后检查，超 → 413。
+//!   intake entry 在 acquire 之后检查，超 → 413。
 
 use std::{collections::HashMap, num::NonZeroU32, sync::Arc};
 
@@ -24,13 +24,13 @@ type Limiter = RateLimiter<NotKeyed, InMemoryState, DefaultClock>;
 
 #[derive(Debug, Clone, Copy)]
 pub enum QuotaDim {
-    Ingest,
+    Intake,
     Query,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct OrgQuota {
-    pub max_ingest_qps: u32,
+    pub max_intake_qps: u32,
     pub max_query_qps: u32,
     pub max_storage_bytes: u64,
     pub max_streams: u32,
@@ -38,7 +38,7 @@ pub struct OrgQuota {
 
 pub struct QuotaLimiter {
     quotas: RwLock<HashMap<Id, OrgQuota>>,
-    ingest_limiters: DashMap<Id, Arc<Limiter>>,
+    intake_limiters: DashMap<Id, Arc<Limiter>>,
     query_limiters: DashMap<Id, Arc<Limiter>>,
     storage_usage: DashMap<Id, u64>,
 }
@@ -53,7 +53,7 @@ impl QuotaLimiter {
     pub fn new() -> Self {
         Self {
             quotas: RwLock::new(HashMap::new()),
-            ingest_limiters: DashMap::new(),
+            intake_limiters: DashMap::new(),
             query_limiters: DashMap::new(),
             storage_usage: DashMap::new(),
         }
@@ -78,7 +78,7 @@ impl QuotaLimiter {
     pub fn acquire(&self, org_id: &Id, dim: QuotaDim) -> Option<u64> {
         let q = self.quotas.read().get(org_id).copied().unwrap_or_default();
         let (qps, map) = match dim {
-            QuotaDim::Ingest => (q.max_ingest_qps, &self.ingest_limiters),
+            QuotaDim::Intake => (q.max_intake_qps, &self.intake_limiters),
             QuotaDim::Query => (q.max_query_qps, &self.query_limiters),
         };
         if qps == 0 {
@@ -122,7 +122,7 @@ mod tests {
     fn zero_qps_is_unbounded() {
         let l = QuotaLimiter::new();
         let org = Id::from_string("orga");
-        assert!(l.acquire(&org, QuotaDim::Ingest).is_none());
+        assert!(l.acquire(&org, QuotaDim::Intake).is_none());
     }
 
     #[test]
@@ -133,17 +133,17 @@ mod tests {
         quotas.insert(
             org.clone(),
             OrgQuota {
-                max_ingest_qps: 2,
+                max_intake_qps: 2,
                 max_query_qps: 0,
                 max_storage_bytes: 0,
                 max_streams: 0,
             },
         );
         l.refresh(quotas);
-        assert!(l.acquire(&org, QuotaDim::Ingest).is_none());
-        assert!(l.acquire(&org, QuotaDim::Ingest).is_none());
+        assert!(l.acquire(&org, QuotaDim::Intake).is_none());
+        assert!(l.acquire(&org, QuotaDim::Intake).is_none());
         // 第三次 burst 用尽
-        assert!(l.acquire(&org, QuotaDim::Ingest).is_some());
+        assert!(l.acquire(&org, QuotaDim::Intake).is_some());
     }
 
     #[test]

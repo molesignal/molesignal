@@ -193,7 +193,7 @@
       "home_metrics": "指标",
       "home_traces": "链路",
       "home_alerts": "告警事件",
-      "home_intelligence": "AI 智能体",
+      "home_agent": "AI 智能体",
       "home_custom_dashboard": "指定仪表盘…",
       "home_dashboard_unavailable": "不可用的仪表盘"
     },
@@ -253,7 +253,7 @@
       "expired": "已过期",
       "issued_to": "授权对象",
       "features": "功能",
-      "max_ingest_bytes_per_day": "每日最大写入量（字节）",
+      "max_intake_bytes_per_day": "每日最大写入量（字节）",
       "expires_at": "到期时间"
     },
     "upload": {
@@ -496,9 +496,9 @@
     "field_pattern_hint": "服务端通过 regex::Regex::new 校验",
     "field_replacement": "替换为",
     "field_replacement_hint": "命中片段替换成此串。支持 $1 捕获组；留空则删除命中片段。",
-    "field_apply_on_ingest": "写入时脱敏",
-    "field_apply_on_ingest_hint": "写入时不可逆地脱敏命中片段。关闭时仅查询函数 mask(col) 应用此规则。",
-    "scope_ingest": "写入时",
+    "field_apply_on_intake": "写入时脱敏",
+    "field_apply_on_intake_hint": "写入时不可逆地脱敏命中片段。关闭时仅查询函数 mask(col) 应用此规则。",
+    "scope_intake": "写入时",
     "scope_query": "仅查询",
     "edit_title": "编辑正则模式",
     "field_description": "描述"
@@ -563,10 +563,10 @@
     "remote_clusters_description": "联邦查询目标；添加集群需要 federated_search 许可证。",
     "service_graph": {
       "title": "服务数据来源",
-      "subtitle": "控制服务图如何从 Trace 构建，适配单节点或多 ingest 节点部署。",
+      "subtitle": "控制服务图如何从 Trace 构建，适配单节点或多 intake 节点部署。",
       "storage_mode": "从存储重算（多节点）",
       "storage_hint": "由单个节点周期性从存储中的 Trace 重建服务图；跨节点结果正确，约有 1–2 分钟延迟。",
-      "ingest_hint": "每个 ingest 进程在内存中配对 Span 并 flush；延迟低，但跨节点分散的 Span 可能少算。"
+      "intake_hint": "每个 intake 进程在内存中配对 Span 并 flush；延迟低，但跨节点分散的 Span 可能少算。"
     },
     "client_ip": {
       "title": "RUM 客户端 IP 识别",
@@ -706,7 +706,7 @@
     "empty_title": "暂无 AI 工具集",
     "empty_description": "启用 AI 运维后，注册受约束的 Mole Agent 工具。",
     "new_toolset": "新建工具集",
-    "license_hint": "需要启用 intelligence 功能",
+    "license_hint": "需要启用 agent 功能",
     "delete_title": "确认删除该工具集?",
     "columns": {
       "name": "名称",
@@ -815,7 +815,7 @@
     "copy_id": "复制 ID",
     "copied": "已复制",
     "chat": {
-      "title": "Mole Intelligence 对话历史",
+      "title": "Mole Agent 对话历史",
       "loading": "正在加载对话历史……",
       "load_failed": "加载对话历史失败",
       "empty": "该会话没有消息。",
@@ -838,7 +838,7 @@
     "title": "AI 模型服务",
     "subtitle": "AI 调查使用的模型服务及加密 API key。",
     "empty_title": "暂无 AI 模型服务",
-    "empty_description": "添加经授权的模型服务以启用 Mole Intelligence 对话。",
+    "empty_description": "添加经授权的模型服务以启用 Mole Agent 对话。",
     "new_provider": "新建服务",
     "edit_provider": "编辑服务",
     "delete_title": "删除服务？",

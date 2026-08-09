@@ -157,7 +157,7 @@ async fn distributed_count_star_via_flight_loopback() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn distributed_query_handles_stream_name_needing_quotes() {
-    // 生产 ingest 会拒绝空格，但查询引擎仍应正确处理内部/测试仓库提供的 quoted name。
+    // 生产 intake 会拒绝空格，但查询引擎仍应正确处理内部/测试仓库提供的 quoted name。
     // coordinator 发给 peer 的 scan SQL 若不给流名加引号，`SELECT * FROM my stream`
     // 会被解析成 `my AS stream` 而找不到表。
     let (scanned, n) = distributed_count_star("my stream", "\"my stream\"").await;

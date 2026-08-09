@@ -248,7 +248,7 @@ mod tests {
 
     fn telemetry() -> (
         Arc<SelfTelemetryHub>,
-        tokio::sync::mpsc::Receiver<crate::domain::ingestion::RawEvent>,
+        tokio::sync::mpsc::Receiver<crate::domain::intake::RawEvent>,
     ) {
         let hub = SelfTelemetryHub::new(SelfTelemetryInit {
             queue_capacity: 16,

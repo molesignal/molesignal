@@ -10,6 +10,7 @@ use futures::{StreamExt, future::try_join_all, stream};
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    agent::telemetry::AGENT_STREAM,
     api::{AppState, http::middleware::ProtectedResource},
     app::iam::IamContext,
     domain::{
@@ -20,7 +21,6 @@ use crate::{
             StreamIndexType, StreamSettings, StreamType, is_reserved_system_stream,
         },
     },
-    intelligence::telemetry::INTELLIGENCE_STREAM,
     shared::{
         Error, Result,
         ids::Id,
@@ -692,9 +692,9 @@ fn runtime_status(
         Some(last) if last >= generated_at_micros.saturating_sub(HEALTHY_LAG_MICROS) => {
             RuntimeStatus::Healthy
         }
-        // Intelligence traces are emitted once per completed agent response. A quiet
+        // Agent traces are emitted once per completed agent response. A quiet
         // period is expected and must not be reported as a broken continuous feed.
-        Some(_) if stream_name == INTELLIGENCE_STREAM => RuntimeStatus::Idle,
+        Some(_) if stream_name == AGENT_STREAM => RuntimeStatus::Idle,
         Some(last) if last >= generated_at_micros.saturating_sub(INTERRUPTED_LAG_MICROS) => {
             RuntimeStatus::Delayed
         }
@@ -864,14 +864,14 @@ mod runtime_tests {
     }
 
     #[test]
-    fn event_driven_intelligence_stream_becomes_idle_instead_of_interrupted() {
+    fn event_driven_agent_stream_becomes_idle_instead_of_interrupted() {
         let now = 10 * INTERRUPTED_LAG_MICROS;
         assert_eq!(
-            runtime_status(INTELLIGENCE_STREAM, Some(now - HEALTHY_LAG_MICROS - 1), now),
+            runtime_status(AGENT_STREAM, Some(now - HEALTHY_LAG_MICROS - 1), now),
             RuntimeStatus::Idle
         );
         assert_eq!(
-            runtime_status(INTELLIGENCE_STREAM, None, now),
+            runtime_status(AGENT_STREAM, None, now),
             RuntimeStatus::Unused
         );
     }

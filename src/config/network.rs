@@ -191,7 +191,7 @@ impl Default for FlightSqlSettings {
 
 /// `[otlp_grpc]`：对外**标准 OTLP gRPC** receiver（traces/logs/metrics/profiles）。
 ///
-/// 与 `[grpc]`（集群内可信网络、`ingest.v1` 私有分发协议）分端口：本端口挂标准 OTLP
+/// 与 `[grpc]`（集群内可信网络、`intake.v1` 私有分发协议）分端口：本端口挂标准 OTLP
 /// collector service，每个 RPC 强制 Bearer 鉴权 + `StreamWrite`，可暴露给用户网络；
 /// 始终监听标准 `:4317`。这是对外端口，生产请配 TLS。
 #[derive(Debug, Clone, Serialize, Deserialize)]

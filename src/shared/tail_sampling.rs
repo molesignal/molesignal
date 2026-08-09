@@ -119,7 +119,7 @@ impl From<&crate::config::TraceSettings> for TraceRuntimePolicy {
             slow_thresholds_ms: SlowThresholds {
                 http: settings.slow_thresholds.http_ms,
                 query: settings.slow_thresholds.query_ms,
-                batch_ingest: settings.slow_thresholds.batch_ingest_ms,
+                batch_intake: settings.slow_thresholds.batch_intake_ms,
                 database: settings.slow_thresholds.database_ms,
                 object_store: settings.slow_thresholds.object_store_ms,
                 external: settings.slow_thresholds.external_ms,
@@ -138,8 +138,8 @@ pub struct SlowThresholds {
     pub http: u64,
     #[serde(default = "default_query_ms")]
     pub query: u64,
-    #[serde(default = "default_ingest_ms")]
-    pub batch_ingest: u64,
+    #[serde(default = "default_intake_ms")]
+    pub batch_intake: u64,
     #[serde(default = "default_database_ms")]
     pub database: u64,
     #[serde(default = "default_object_store_ms")]
@@ -157,7 +157,7 @@ impl Default for SlowThresholds {
         Self {
             http: default_http_ms(),
             query: default_query_ms(),
-            batch_ingest: default_ingest_ms(),
+            batch_intake: default_intake_ms(),
             database: default_database_ms(),
             object_store: default_object_store_ms(),
             external: default_external_ms(),
@@ -172,7 +172,7 @@ impl SlowThresholds {
         if [
             self.http,
             self.query,
-            self.batch_ingest,
+            self.batch_intake,
             self.database,
             self.object_store,
             self.external,
@@ -190,7 +190,7 @@ impl SlowThresholds {
         match span_category(span) {
             SpanCategory::Http | SpanCategory::Rpc => self.http,
             SpanCategory::Query => self.query,
-            SpanCategory::BatchIngest => self.batch_ingest,
+            SpanCategory::BatchIntake => self.batch_intake,
             SpanCategory::Database => self.database,
             SpanCategory::ObjectStore => self.object_store,
             SpanCategory::External => self.external,
@@ -836,7 +836,7 @@ enum SpanCategory {
     Http,
     Rpc,
     Query,
-    BatchIngest,
+    BatchIntake,
     Database,
     ObjectStore,
     External,
@@ -853,7 +853,7 @@ fn span_category(span: &CanonicalSpan) -> SpanCategory {
         Some("http") => SpanCategory::Http,
         Some("rpc") => SpanCategory::Rpc,
         Some("query") => SpanCategory::Query,
-        Some("batch_ingest") => SpanCategory::BatchIngest,
+        Some("batch_intake") => SpanCategory::BatchIntake,
         Some("database") => SpanCategory::Database,
         Some("object_store") => SpanCategory::ObjectStore,
         Some("external") => SpanCategory::External,
@@ -1016,7 +1016,7 @@ fn default_http_ms() -> u64 {
 fn default_query_ms() -> u64 {
     5_000
 }
-fn default_ingest_ms() -> u64 {
+fn default_intake_ms() -> u64 {
     2_000
 }
 fn default_database_ms() -> u64 {

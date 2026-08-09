@@ -3,7 +3,7 @@
 
 //! 订阅门禁判定缓存（热路径优化）。
 //!
-//! 计费启用时，ingest gate 每批本应查一次 `marketplace_subscriptions` 算出"该 org 的
+//! 计费启用时，intake gate 每批本应查一次 `marketplace_subscriptions` 算出"该 org 的
 //! 订阅是否拦截写入"。本缓存把它降到**每 org 每 TTL 一次**：
 //!
 //! - `org_id → blocked(bool)`，moka `time_to_live` 兜底陈旧（TTL 内状态变更最多延迟生效）；

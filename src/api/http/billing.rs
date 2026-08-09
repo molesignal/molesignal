@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 计费/订阅门禁（usage-gating：ingest 入口超额返 402）。
+//! 计费/订阅门禁（usage-gating：intake 入口超额返 402）。
 //!
-//! 写入路径门禁 [`ensure_ingest_allowed`] 依次判定：
+//! 写入路径门禁 [`ensure_intake_allowed`] 依次判定：
 //! 1. **license 过期** → 402；
 //! 2. **订阅 / 试用门禁**：计费启用时（Stripe `billing_enabled` 或 marketplace 授权），
 //!    订阅全部 suspended/cancelled，或无可服务订阅且试用到期 → 402（见 [`org_blocked`]）；
-//! 3. **每日 ingest 配额**：`license.add_ingest_bytes` 超 cap → 402；
-//! 4. 记录 per-org 每日用量到 `license_usage_daily`（仅计费部署，失败不阻断 ingest）。
+//! 3. **每日 intake 配额**：`license.add_intake_bytes` 超 cap → 402；
+//! 4. 记录 per-org 每日用量到 `license_usage_daily`（仅计费部署，失败不阻断 intake）。
 //!
 //! 对 OSS / 未接计费的部署：`billing_enabled=false` 且无 marketplace feature →
 //! 跳过订阅查询与用量持久化；社区版 license 永不过期、无 cap → 零行为变化。
@@ -30,7 +30,7 @@ use crate::{
 fn ensure_not_expired(license: &dyn LicenseGate, now_micros: i64) -> Result<()> {
     if license.expired(now_micros) {
         return Err(Error::payment_required(
-            "subscription expired; ingestion is paused until the license is renewed",
+            "subscription expired; intake is paused until the license is renewed",
         ));
     }
     Ok(())
@@ -122,7 +122,7 @@ pub(crate) async fn org_blocked_cached(
 }
 
 /// 写入路径计费门禁 + 计量。`bytes` 为本批原始字节数（计量与 cap 用）。
-pub(crate) async fn ensure_ingest_allowed(
+pub(crate) async fn ensure_intake_allowed(
     state: &AppState,
     org_id: &Id,
     bytes: u64,
@@ -138,12 +138,12 @@ pub(crate) async fn ensure_ingest_allowed(
         ));
     }
 
-    // per-org 配额：所有信号摄取共用此门禁。`max_ingest_qps` 超 →
+    // per-org 配额：所有信号摄取共用此门禁。`max_intake_qps` 超 →
     // 429 + 重试秒数；`max_storage_bytes` 超 → 413（调用方据此不写对象）。无 `quotas`
     // 记录的 org 上限为 0 → 视作无限制，直接放行（不影响 OSS / 未配额 org）。
-    if let Some(retry_secs) = state.platform.quotas.acquire(org_id, QuotaDim::Ingest) {
+    if let Some(retry_secs) = state.platform.quotas.acquire(org_id, QuotaDim::Intake) {
         return Err(Error::resource_exhausted(format!(
-            "ingest rate limit exceeded; retry after {retry_secs}s"
+            "intake rate limit exceeded; retry after {retry_secs}s"
         )));
     }
     if !state.platform.quotas.check_storage_cap(org_id, bytes) {
@@ -152,10 +152,10 @@ pub(crate) async fn ensure_ingest_allowed(
         ));
     }
 
-    // 每日 ingest 配额（license 进程内累计；社区版无 cap → 永远 true）。
-    let under_cap = license.add_ingest_bytes(bytes);
+    // 每日 intake 配额（license 进程内累计；社区版无 cap → 永远 true）。
+    let under_cap = license.add_intake_bytes(bytes);
     if !under_cap {
-        return Err(Error::payment_required("daily ingest quota exceeded"));
+        return Err(Error::payment_required("daily intake quota exceeded"));
     }
 
     // 首页运营视图需要按时间窗区分「原始摄入量」与「压缩后落盘量」。小时桶只做
@@ -165,28 +165,28 @@ pub(crate) async fn ensure_ingest_allowed(
         let usage_org_id = org_id.clone();
         crate::shared::trace_context::spawn_with_current_trace_context(async move {
             if let Err(e) = usage
-                .add_hourly_ingest_bytes(&usage_org_id, now_micros, bytes as i64)
+                .add_hourly_intake_bytes(&usage_org_id, now_micros, bytes as i64)
                 .await
             {
                 tracing::warn!(
                     org_id = %usage_org_id.0,
                     error = %e,
-                    "failed to record hourly ingest usage"
+                    "failed to record hourly intake usage"
                 );
             }
         });
     }
 
-    // 记录 per-org 每日用量（仅计费部署；best-effort，不阻断 ingest）。
+    // 记录 per-org 每日用量（仅计费部署；best-effort，不阻断 intake）。
     if billing_on(state) && bytes > 0 {
         let day = utc_day(now_micros);
         if let Err(e) = state
             .platform
             .usage
-            .add_ingest_bytes(org_id, &day, bytes as i64)
+            .add_intake_bytes(org_id, &day, bytes as i64)
             .await
         {
-            tracing::warn!(org_id = %org_id.0, error = %e, "failed to record daily ingest usage");
+            tracing::warn!(org_id = %org_id.0, error = %e, "failed to record daily intake usage");
         }
     }
     Ok(())
@@ -230,7 +230,7 @@ mod tests {
         fn has_feature(&self, _: &str) -> bool {
             false
         }
-        fn add_ingest_bytes(&self, _: u64) -> bool {
+        fn add_intake_bytes(&self, _: u64) -> bool {
             true
         }
         fn expired(&self, now_micros: i64) -> bool {

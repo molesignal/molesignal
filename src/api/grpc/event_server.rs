@@ -32,8 +32,8 @@ use crate::{
     },
     infra::persistence::repositories::{log_patterns::LogPattern, regex_patterns::RegexPattern},
     protocol::cluster::v1::{
-        CancelQueryRequest, CancelQueryResponse, ClusterRef, GossipRequest, GossipResponse,
-        PushEventsRequest, PushEventsResponse,
+        CancelQueryRequest, CancelQueryResponse, ClusterRef, EventServiceGossipClustersRequest,
+        EventServiceGossipClustersResponse, PushEventsRequest, PushEventsResponse,
         event_service_server::{EventService, EventServiceServer},
     },
     shared::{Error, Result, ids::Id},
@@ -197,8 +197,8 @@ impl EventService for EventServiceGrpc {
     /// 回传本端拓扑。仅传播 id/name/addr —— token / org 映射绝不出网。
     async fn gossip_clusters(
         &self,
-        request: Request<GossipRequest>,
-    ) -> std::result::Result<Response<GossipResponse>, Status> {
+        request: Request<EventServiceGossipClustersRequest>,
+    ) -> std::result::Result<Response<EventServiceGossipClustersResponse>, Status> {
         let bearer = request
             .metadata()
             .get("authorization")
@@ -214,7 +214,7 @@ impl EventService for EventServiceGrpc {
         .map_err(|e| Status::unauthenticated(e.to_string()))?;
         let incoming = request.into_inner().known;
         let known = merge_gossip(&self.state, &incoming).await;
-        Ok(Response::new(GossipResponse { known }))
+        Ok(Response::new(EventServiceGossipClustersResponse { known }))
     }
 }
 

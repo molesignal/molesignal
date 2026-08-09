@@ -8,10 +8,10 @@ package query.v1;
 // coordinator 把 [QueryShard] 编码为 Arrow Flight Ticket（prost-encoded bytes），
 // 通过 `do_get` 流式拉回 `RecordBatch`，最终在 coordinator 上 UNION ALL 再跑完整 SQL。
 service QueryShardService {
-  rpc Execute(QueryShardRequest) returns (stream QueryShardResponse);
+  rpc Execute(QueryShardServiceExecuteRequest) returns (stream QueryShardServiceExecuteResponse);
 }
 
-message QueryShardRequest {
+message QueryShardServiceExecuteRequest {
   string org_id = 1;
   string stream = 2;
   string sql = 3;
@@ -23,7 +23,7 @@ message QueryShardRequest {
   string flight_ticket_prefix = 7;
 }
 
-message QueryShardResponse {
+message QueryShardServiceExecuteResponse {
   bytes arrow_ipc = 1;
   uint64 scanned_rows = 2;
   string flight_ticket = 3;

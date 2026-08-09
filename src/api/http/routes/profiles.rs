@@ -5,7 +5,7 @@
 //!
 //! 摄取：
 //! - `POST /profiles/upload`   pprof 直传（JFR 待实现，task 2.6）
-//! - `POST /profiles/ingest`   Pyroscope 兼容：`name{labels}` + `format=pprof|folded|lines`
+//! - `POST /profiles/intake`   Pyroscope 兼容：`name{labels}` + `format=pprof|folded|lines`
 //! - `POST /profiles/otlp`     OTLP Profiles 适配器（Alpha，proto 待 vendoring，task 2.5）
 //!
 //! 查询 / 聚合：
@@ -17,7 +17,7 @@
 //!
 //! 与自诊断 `profiling`（`/debug/profile/*`，本服务运维）相互独立：本模块面向**被
 //! 观测的用户应用**。三协议归一化后统一双路落盘：规范 pprof + zstd 旁路归档 object
-//! store，元数据行经 `IngestService` 进 `StreamType::Profiles` 流。
+//! store，元数据行经 `IntakeService` 进 `StreamType::Profiles` 流。
 
 use std::collections::BTreeMap;
 
@@ -40,7 +40,7 @@ use serde_json::Value;
 use crate::{
     api::{
         AppState,
-        http::routes::ingest::otlp::{any_value_to_json, decode_otlp, detect_encoding, hex},
+        http::routes::intake::otlp::{any_value_to_json, decode_otlp, detect_encoding, hex},
     },
     app::iam::IamContext,
     domain::{
@@ -75,7 +75,7 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/profiles", get(list_profiles))
         .route("/profiles/upload", post(upload))
-        .route("/profiles/ingest", post(pyroscope_ingest))
+        .route("/profiles/intake", post(pyroscope_intake))
         .route("/profiles/otlp", post(otlp_profiles))
         .route("/profiles/flamegraph", get(flamegraph))
         .route("/profiles/flamegraph/selection", post(flamegraph_selection))
@@ -86,7 +86,7 @@ pub fn routes() -> Router<AppState> {
 // ===== 通用 helper =====
 
 #[derive(Debug, Serialize)]
-struct IngestAck {
+struct IntakeAck {
     accepted: usize,
 }
 
@@ -219,7 +219,7 @@ fn empty_query_result() -> QueryResult {
     }
 }
 
-/// 双路落盘：归档 zstd pprof → object store；元数据 RawEvent → `IngestService`。
+/// 双路落盘：归档 zstd pprof → object store；元数据 RawEvent → `IntakeService`。
 /// `pub(crate)`：OTLP profiles 的 gRPC 入口（`grpc::otlp_server`）也走这条落盘管道。
 pub(crate) async fn store_profile(
     state: &AppState,
@@ -229,7 +229,7 @@ pub(crate) async fn store_profile(
     request_bytes: usize,
 ) -> Result<()> {
     // 计费 / 配额门禁（与 OTLP / native 摄取同源）。
-    crate::api::http::billing::ensure_ingest_allowed(
+    crate::api::http::billing::ensure_intake_allowed(
         state,
         org_id,
         request_bytes as u64,
@@ -295,7 +295,7 @@ async fn upload(
     }
 
     store_profile(&state, &ctx.org_id, &normalized, &raw, body.len()).await?;
-    Ok((StatusCode::ACCEPTED, Json(IngestAck { accepted: 1 })).into_response())
+    Ok((StatusCode::ACCEPTED, Json(IntakeAck { accepted: 1 })).into_response())
 }
 
 #[derive(Debug, Deserialize)]
@@ -306,9 +306,9 @@ struct PyroscopeParams {
     format: Option<String>,
 }
 
-/// `POST /profiles/ingest`：Pyroscope 兼容摄取（task 2.3）。
+/// `POST /profiles/intake`：Pyroscope 兼容摄取（task 2.3）。
 #[permission("streams.write")]
-async fn pyroscope_ingest(
+async fn pyroscope_intake(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
     Query(params): Query<PyroscopeParams>,
@@ -344,7 +344,7 @@ async fn pyroscope_ingest(
         }
         "jfr" => {
             return Err(Error::invalid(
-                "JFR ingest not yet implemented; use pprof/folded (task 2.6)",
+                "JFR intake not yet implemented; use pprof/folded (task 2.6)",
             ));
         }
         other => {
@@ -365,7 +365,7 @@ async fn pyroscope_ingest(
     }
 
     store_profile(&state, &ctx.org_id, &normalized, &raw, body.len()).await?;
-    Ok((StatusCode::OK, Json(IngestAck { accepted: 1 })).into_response())
+    Ok((StatusCode::OK, Json(IntakeAck { accepted: 1 })).into_response())
 }
 
 /// `POST /profiles/otlp`：OTLP Profiles 摄取（OTLP/HTTP，protobuf 或 OTLP/JSON）。
@@ -389,7 +389,7 @@ async fn otlp_profiles(
         store_profile(&state, &ctx.org_id, profile, &raw, body.len()).await?;
         accepted += 1;
     }
-    Ok((StatusCode::OK, Json(IngestAck { accepted })).into_response())
+    Ok((StatusCode::OK, Json(IntakeAck { accepted })).into_response())
 }
 
 /// OTLP `ExportProfilesServiceRequest` → 多个 [`NormalizedProfile`]（每个

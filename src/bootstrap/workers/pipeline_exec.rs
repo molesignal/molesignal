@@ -3,13 +3,13 @@
 
 //! Scheduled-pipeline 执行编排（pipeline-runs-and-backfill）。
 //!
-//! 端到端链路：**读源 stream → 逐步 VRL 变换 → 写目标 stream（标准 ingest）→ connector egress**。
+//! 端到端链路：**读源 stream → 逐步 VRL 变换 → 写目标 stream（标准 intake）→ connector egress**。
 //! 「读源」一环由调用方（持 [`crate::app::query::QueryService`]，app 层）完成后，把行喂进
 //! [`transform_and_sink`]；本模块只承担 infra 侧的「变换 + 写目标 + egress」，因此可脱离 HTTP /
 //! 调度时序单测。backfill worker（[`super::search_jobs`]）即调用此核心；未来的 cron runner 可复用。
 //!
 //! 与 [`crate::infra::pipeline::exec`] 的分工：后者是纯计算（解析 steps + 串行 VRL），本模块
-//! 把它接到真实的 `IngestSink` 与 connector egress 上。
+//! 把它接到真实的 `IntakeSink` 与 connector egress 上。
 
 use std::sync::Arc;
 
@@ -20,7 +20,7 @@ use tokio::task::JoinHandle;
 use crate::{
     app::query::QueryService,
     domain::{
-        ingestion::{IngestBatch, IngestSink, RawEvent},
+        intake::{IntakeBatch, IntakeSink, RawEvent},
         query::{QueryLanguage, QueryRequest, QueryResult, StreamHint},
         stream::StreamType,
     },
@@ -70,7 +70,7 @@ pub fn rows_to_objects(result: &QueryResult) -> Vec<Value> {
         .collect()
 }
 
-/// 把读到的源行串行应用 `function_steps`（VRL）→ 写 `target_stream`（标准 ingest）→ 按
+/// 把读到的源行串行应用 `function_steps`（VRL）→ 写 `target_stream`（标准 intake）→ 按
 /// `sink_connectors` 向外部 connector egress。
 ///
 /// 失败语义：任一步 VRL **编译**失败 = pipeline 配置错误 → 整批失败（返 `Err`，调用方 mark_failed）。
@@ -88,7 +88,7 @@ pub fn rows_to_objects(result: &QueryResult) -> Vec<Value> {
 )]
 pub async fn transform_and_sink(
     vrl: &VrlRuntime,
-    sink: &dyn IngestSink,
+    sink: &dyn IntakeSink,
     connectors: &dyn ConnectorRepository,
     dispatcher: &dyn ConnectorDispatcher,
     org_id: &Id,
@@ -108,12 +108,12 @@ pub async fn transform_and_sink(
 
     let (transformed, mut errors) = apply_steps(vrl, &steps, source_rows);
 
-    // 写目标 stream（标准 ingest 端口）。
+    // 写目标 stream（标准 intake 端口）。
     let now = TimestampMicros::now();
     let events: Vec<RawEvent> = transformed.iter().map(|v| to_raw_event(v, now)).collect();
     let written = events.len();
     if written > 0 {
-        sink.write(IngestBatch {
+        sink.write(IntakeBatch {
             batch_id: Id::new(),
             org_id: org_id.clone(),
             stream: target_stream.to_string(),
@@ -168,7 +168,7 @@ fn to_raw_event(value: &Value, fallback: TimestampMicros) -> RawEvent {
 /// cron runner（`ScheduledPipelineRunner`）与 backfill worker 共用同一编排核心。
 pub struct BootstrapPipelineExecutor {
     query: Arc<QueryService>,
-    sink: Arc<dyn IngestSink>,
+    sink: Arc<dyn IntakeSink>,
     connectors: Arc<dyn ConnectorRepository>,
     dispatcher: Arc<dyn ConnectorDispatcher>,
 }
@@ -176,7 +176,7 @@ pub struct BootstrapPipelineExecutor {
 impl BootstrapPipelineExecutor {
     pub fn new(
         query: Arc<QueryService>,
-        sink: Arc<dyn IngestSink>,
+        sink: Arc<dyn IntakeSink>,
         connectors: Arc<dyn ConnectorRepository>,
         dispatcher: Arc<dyn ConnectorDispatcher>,
     ) -> Self {
@@ -260,7 +260,7 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    use crate::infra::{connectors::Connector, ingest_sink::MemoryIngestSink};
+    use crate::infra::{connectors::Connector, intake_sink::MemoryIntakeSink};
 
     /// 只实现 `get`（egress 路径用到的唯一方法）；其余方法测试不触达。
     struct OneConnectorRepo(Connector);
@@ -328,7 +328,7 @@ mod tests {
     #[tokio::test]
     async fn transforms_then_writes_to_sink() {
         let vrl = VrlRuntime::new();
-        let sink = MemoryIngestSink::new();
+        let sink = MemoryIntakeSink::new();
         let dispatcher = CapturingDispatcher::default();
         let connectors = never_called_repo();
         let steps = json!({ "steps": [{ "transform_name": "tag", "script": ".count = 1" }] });
@@ -365,7 +365,7 @@ mod tests {
     #[tokio::test]
     async fn egresses_to_declared_connectors() {
         let vrl = VrlRuntime::new();
-        let sink = MemoryIngestSink::new();
+        let sink = MemoryIntakeSink::new();
         let dispatcher = CapturingDispatcher::default();
         let connectors = OneConnectorRepo(sample_connector());
         let steps = json!({
@@ -399,7 +399,7 @@ mod tests {
     #[tokio::test]
     async fn compile_error_fails_whole_batch() {
         let vrl = VrlRuntime::new();
-        let sink = MemoryIngestSink::new();
+        let sink = MemoryIntakeSink::new();
         let dispatcher = CapturingDispatcher::default();
         let connectors = never_called_repo();
         let steps = json!({ "steps": [{ "transform_name": "bad", "script": "this ((" }] });
@@ -426,7 +426,7 @@ mod tests {
     #[tokio::test]
     async fn passthrough_when_no_steps() {
         let vrl = VrlRuntime::new();
-        let sink = MemoryIngestSink::new();
+        let sink = MemoryIntakeSink::new();
         let dispatcher = CapturingDispatcher::default();
         let connectors = never_called_repo();
 

@@ -39,7 +39,7 @@ async fn main() -> anyhow::Result<()> {
     let settings = molesignal::config::load(cli.config.as_deref())?;
 
     // LoggerGuard 必须保活到 main 退出，否则后台非阻塞写线程被 drop、文件日志会丢。
-    // Capture is shared by both retained-trace sinks. Disabling self-ingest must
+    // Capture is shared by both retained-trace sinks. Disabling self-intake must
     // not silently disable an independently configured external OTLP exporter.
     let trace_capture_enabled = settings.telemetry.trace.effective_enabled();
     let self_telemetry_enabled = settings.telemetry.self_collect.enabled;
@@ -172,7 +172,7 @@ fn role_str(r: &molesignal::config::Role) -> &'static str {
     match r {
         Standalone => "standalone",
         Router => "router",
-        Ingester => "ingester",
+        Intake => "intake",
         Querier => "querier",
         Compactor => "compactor",
         AlertManager => "alert_manager",

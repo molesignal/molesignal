@@ -6,6 +6,10 @@ lint:
     - STANDARD
   except:
     - PACKAGE_VERSION_SUFFIX
+  ignore_only:
+    # Vendored google/pprof schema intentionally keeps its upstream package name.
+    PACKAGE_DIRECTORY_MATCH:
+      - proto/pprof/v1/profile.proto
 breaking:
   use:
     - FILE

@@ -14,8 +14,8 @@ use crate::{
     app::cluster::PeerRole,
     infra::persistence::repositories::cluster::nodes::ClusterNodesRepository,
     protocol::cluster::v1::{
-        HeartbeatRequest, HeartbeatResponse, ListNodesRequest, ListNodesResponse, NodeInfo,
-        NodeRole,
+        HeartbeatRequest, HeartbeatResponse, NodeInfo, NodeRole, NodeServiceListRequest,
+        NodeServiceListResponse,
         node_service_server::{NodeService, NodeServiceServer},
     },
     shared::time::TimestampMicros,
@@ -42,7 +42,7 @@ impl ClusterGrpc {
 fn proto_role_to_app(v: i32) -> PeerRole {
     match NodeRole::try_from(v).unwrap_or(NodeRole::Unspecified) {
         NodeRole::Router => PeerRole::Router,
-        NodeRole::Ingester => PeerRole::Ingester,
+        NodeRole::Intake => PeerRole::Intake,
         NodeRole::Querier => PeerRole::Querier,
         NodeRole::Compactor => PeerRole::Compactor,
         NodeRole::AlertManager => PeerRole::AlertManager,
@@ -54,7 +54,7 @@ fn app_role_to_proto(r: PeerRole) -> NodeRole {
     match r {
         PeerRole::Standalone => NodeRole::Standalone,
         PeerRole::Router => NodeRole::Router,
-        PeerRole::Ingester => NodeRole::Ingester,
+        PeerRole::Intake => NodeRole::Intake,
         PeerRole::Querier => NodeRole::Querier,
         PeerRole::Compactor => NodeRole::Compactor,
         PeerRole::AlertManager => NodeRole::AlertManager,
@@ -90,9 +90,9 @@ impl NodeService for ClusterGrpc {
 
     async fn list(
         &self,
-        req: Request<ListNodesRequest>,
-    ) -> Result<Response<ListNodesResponse>, Status> {
-        let ListNodesRequest { roles } = req.into_inner();
+        req: Request<NodeServiceListRequest>,
+    ) -> Result<Response<NodeServiceListResponse>, Status> {
+        let NodeServiceListRequest { roles } = req.into_inner();
         let since = TimestampMicros(TimestampMicros::now().0 - self.alive_window_secs * 1_000_000);
         let rows = self
             .repo
@@ -123,6 +123,6 @@ impl NodeService for ClusterGrpc {
                 version: env!("CARGO_PKG_VERSION").to_string(),
             })
             .collect();
-        Ok(Response::new(ListNodesResponse { nodes }))
+        Ok(Response::new(NodeServiceListResponse { nodes }))
     }
 }

@@ -10,7 +10,7 @@ const proLicense: LicenseSnapshot = {
   expired: false,
   issued_to: 'Example',
   features: ['federated_search'],
-  max_ingest_bytes_per_day: null,
+  max_intake_bytes_per_day: null,
   expires_at_micros: null,
   active_version_id: 'license-version-1',
 };
@@ -62,11 +62,11 @@ describe('edition metadata', () => {
       deploymentMode: 'pro',
       trialState: 'active',
       licenseLoaded: true,
-      permissions: ['intelligence.manage'],
+      permissions: ['agent.manage'],
     });
 
     expect(selectFeatureGate(selfHostedMetadata, 'saas-billing').status).toBe('saas-only');
     expect(selectFeatureGate(saasMetadata, 'saas-billing').status).toBe('allowed');
-    expect(selectFeatureGate(trialMetadata, 'intelligence').status).toBe('allowed');
+    expect(selectFeatureGate(trialMetadata, 'agent').status).toBe('allowed');
   });
 });

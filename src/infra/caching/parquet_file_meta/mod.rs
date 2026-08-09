@@ -8,11 +8,11 @@
 //!
 //! # 现状：已实现，但**未接入查询路径**
 //!
-//! 生产代码从不 `get` / `insert` 本缓存；唯一的调用是 ingester flush 后的
+//! 生产代码从不 `get` / `insert` 本缓存；唯一的调用是 intake flush 后的
 //! [`ParquetFileMetaCache::invalidate_prefix`]，即对一个永远为空的 map 做删除。这不是接线遗漏，
 //! 下面两点都不是"补失效钩子"能绕过的：
 //!
-//! 1. **失效是进程内的，跨不了角色。** `Ingester` / `Querier` / `Compactor` 是可分离部署的
+//! 1. **失效是进程内的，跨不了角色。** `Intake` / `Querier` / `Compactor` 是可分离部署的
 //!    独立角色（见 [`crate::config::Role`]，默认 `Standalone` 才同进程）。compactor 合并
 //!    完会 `store.delete` 掉旧对象，但它的 `invalidate_prefix` 只作用于自己那个进程 ——
 //!    querier 节点会在整个 TTL 内继续列出已被删掉的对象，查询随即读到 404。
@@ -134,7 +134,7 @@ impl ParquetFileMetaCache {
 
     /// 把 (org, stream, stream_type) 整组 entry 一次失效。
     ///
-    /// **注意**：生产路径里只有 ingester flush 成功后会调它，`ParquetFileMetaRepository` 的
+    /// **注意**：生产路径里只有 intake flush 成功后会调它，`ParquetFileMetaRepository` 的
     /// `insert` / `replace` / `mark_deleted` 写路径**并没有**接（compactor 的合并、
     /// retention 标删都不会触发失效）。由于本缓存至今未被 `insert` 填充，这目前是对空 map
     /// 做删除、无实际效果。接线前必读模块文档里的两条前提。

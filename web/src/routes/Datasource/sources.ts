@@ -5,8 +5,8 @@
  * carries a multi-step guide (description + optional code snippet) so the
  * detail pane can render them uniformly.
  *
- * Every access snippet below targets the REAL backend ingest contract
- * (`crates/api/src/http/routes/*`): native JSON on `/api/v1/ingest/{signal}/{stream}`,
+ * Every access snippet below targets the REAL backend intake contract
+ * (`crates/api/src/http/routes/*`): native JSON on `/api/v1/intake/{signal}/{stream}`,
  * OTLP/HTTP on `/api/v1/{logs,metrics,traces}` (there is NO OTLP gRPC :4317),
  * ES bulk on `/api/v1/_bulk`, Prometheus on `/api/v1/prometheus/api/v1/write`,
  * push connectors on `/api/v1/_kinesis_firehose|_cloudflare|_heroku`. Auth is
@@ -71,7 +71,7 @@ export const CATEGORIES: Array<{ id: Category; label: string; group: CategoryGro
 ];
 
 // Rendered placeholders. `Datasource.tsx` substitutes the live access URL,
-// host / port / tls flag, and the user's default ingestion token at render
+// host / port / tls flag, and the user's default intake token at render
 // time (see `substitute`). They are intentionally NOT real values here so the
 // catalogue stays a pure static module. Org never appears in a path.
 const ENDPOINT = '{{ENDPOINT}}'; // full origin, e.g. https://obs.example.com
@@ -123,7 +123,7 @@ spec:
         image: fluent/fluent-bit:3.0
         env:
         - name: MS_ENDPOINT
-          value: "${ENDPOINT}/api/v1/ingest/logs/default"
+          value: "${ENDPOINT}/api/v1/intake/logs/default"
         - name: MS_TOKEN
           valueFrom:
             secretKeyRef: { name: molesignal-token, key: token }
@@ -176,7 +176,7 @@ sinks:
   molesignal_logs:
     type: http
     inputs: [host_journald]
-    uri: ${ENDPOINT}/api/v1/ingest/logs/default
+    uri: ${ENDPOINT}/api/v1/intake/logs/default
     encoding: { codec: json }
     auth: { strategy: bearer, token: ${TOKEN} }`,
         },
@@ -210,7 +210,7 @@ Expand-Archive wb.zip -DestinationPath C:\\Program Files\\winlogbeat`,
   - name: Security
 
 output.http:
-  hosts: ["${ENDPOINT}/api/v1/ingest/logs/default"]
+  hosts: ["${ENDPOINT}/api/v1/intake/logs/default"]
   headers:
     Authorization: "Bearer ${TOKEN}"`,
         },
@@ -271,7 +271,7 @@ output.http:
       },
       {
         title: '订阅 + 转发到 MoleSignal',
-        description: `用 Cloud Run 函数读取 Pub/Sub，POST 到 ${ENDPOINT}/api/v1/ingest/logs/default，带 Authorization: Bearer ${TOKEN}。`,
+        description: `用 Cloud Run 函数读取 Pub/Sub，POST 到 ${ENDPOINT}/api/v1/intake/logs/default，带 Authorization: Bearer ${TOKEN}。`,
       },
     ],
   },
@@ -286,7 +286,7 @@ output.http:
     steps: [
       {
         title: '在 Azure Portal 配置 Diagnostic Settings',
-        description: `Target Event Hub，再部署 Azure Function 消费 Event Hub 并 POST 到 ${ENDPOINT}/api/v1/ingest/logs/default（带 Authorization: Bearer ${TOKEN}）。`,
+        description: `Target Event Hub，再部署 Azure Function 消费 Event Hub 并 POST 到 ${ENDPOINT}/api/v1/intake/logs/default（带 Authorization: Bearer ${TOKEN}）。`,
       },
     ],
   },
@@ -311,10 +311,10 @@ output.http:
       },
       {
         title: 'Pyroscope SDK',
-        description: '现有 Pyroscope agent 可直接对接兼容 ingest 端点（format=pprof|folded|lines）。',
+        description: '现有 Pyroscope agent 可直接对接兼容 intake 端点（format=pprof|folded|lines）。',
         code: {
           lang: 'bash',
-          content: `curl -X POST "${ENDPOINT}/api/v1/profiles/ingest?name=my-service&format=pprof" \\
+          content: `curl -X POST "${ENDPOINT}/api/v1/profiles/intake?name=my-service&format=pprof" \\
   -H "Authorization: Bearer ${TOKEN}" \\
   --data-binary @profile.pprof`,
         },
@@ -338,14 +338,14 @@ output.http:
     name: 'curl（原始 JSON）',
     category: 'custom',
     glyph: '$',
-    description: '最简单：HTTP POST 一个 JSON 数组到 ingest endpoint。',
+    description: '最简单：HTTP POST 一个 JSON 数组到 intake endpoint。',
     signals: ['logs'],
     steps: [
       {
         title: '发送事件',
         code: {
           lang: 'bash',
-          content: `curl -X POST ${ENDPOINT}/api/v1/ingest/logs/default \\
+          content: `curl -X POST ${ENDPOINT}/api/v1/intake/logs/default \\
   -H "Authorization: Bearer ${TOKEN}" \\
   -H "Content-Type: application/json" \\
   -d '[{"level":"info","service":"my-app","message":"hello MoleSignal"}]'`,
@@ -362,7 +362,7 @@ output.http:
     name: '批量 NDJSON',
     category: 'custom',
     glyph: 'NX',
-    description: '批量推送：Elasticsearch 兼容 _bulk，或原生 ingest 直接收 JSON 数组。',
+    description: '批量推送：Elasticsearch 兼容 _bulk，或原生 intake 直接收 JSON 数组。',
     signals: ['logs'],
     steps: [
       {
@@ -382,10 +382,10 @@ output.http:
       },
       {
         title: '原生批量（JSON 数组）',
-        description: '不需要 ES 格式时，直接 POST 一个 JSON 数组到 ingest endpoint，单次最多 5 MB。',
+        description: '不需要 ES 格式时，直接 POST 一个 JSON 数组到 intake endpoint，单次最多 5 MB。',
         code: {
           lang: 'bash',
-          content: `curl -X POST ${ENDPOINT}/api/v1/ingest/logs/default \\
+          content: `curl -X POST ${ENDPOINT}/api/v1/intake/logs/default \\
   -H "Authorization: Bearer ${TOKEN}" \\
   -H "Content-Type: application/json" \\
   -d '[{"level":"info","message":"a"},{"level":"warn","message":"b"}]'`,
@@ -516,7 +516,7 @@ service:
     Match       nginx.*
     Host        ${ENDPOINT_HOST}
     Port        ${ENDPOINT_PORT}
-    URI         /api/v1/ingest/logs/default
+    URI         /api/v1/intake/logs/default
     Format      json
     Header      Authorization Bearer ${TOKEN}
     tls         ${ENDPOINT_TLS}`,
@@ -669,7 +669,7 @@ FORMAT JSONEachRow`,
         description: 'Falco 原生 http_output 不能加自定义请求头，用 falcosidekick 注入 Bearer。',
         code: {
           lang: 'yaml',
-          content: `webhook:\n  address: ${ENDPOINT}/api/v1/ingest/logs/security\n  customHeaders: "Authorization: Bearer ${TOKEN}"`,
+          content: `webhook:\n  address: ${ENDPOINT}/api/v1/intake/logs/security\n  customHeaders: "Authorization: Bearer ${TOKEN}"`,
         },
       },
     ],
@@ -813,7 +813,7 @@ FORMAT JSONEachRow`,
   "config": {
     "connector.class": "io.confluent.connect.http.HttpSinkConnector",
     "topics": "app-events",
-    "http.api.url": "${ENDPOINT}/api/v1/ingest/logs/default",
+    "http.api.url": "${ENDPOINT}/api/v1/intake/logs/default",
     "headers": "Authorization:Bearer ${TOKEN}",
     "request.method": "POST"
   }
@@ -1074,10 +1074,10 @@ chain = LLMChain(...).with_config({"callbacks": [MoleSignalCallback()]})`,
     steps: [
       {
         title: '端点',
-        description: '把 <stream-name> 换成目标 stream 名；不存在时由 ingestion 按需建流。',
+        description: '把 <stream-name> 换成目标 stream 名；不存在时由 intake 按需建流。',
         code: {
           lang: 'bash',
-          content: `curl -X POST ${ENDPOINT}/api/v1/ingest/logs/<stream-name> \\
+          content: `curl -X POST ${ENDPOINT}/api/v1/intake/logs/<stream-name> \\
   -H "Authorization: Bearer ${TOKEN}" \\
   -H "Content-Type: application/json" \\
   -d '[{"event":"deploy","status":"ok"}]'`,

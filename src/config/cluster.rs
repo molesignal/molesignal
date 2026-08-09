@@ -44,9 +44,9 @@ pub struct RouterSettings {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RouterRateLimit {
-    /// 每 org 每秒 ingest 请求上限；0 = 不限。
-    #[serde(default = "default_ingest_qps")]
-    pub ingest_qps: u32,
+    /// 每 org 每秒 intake 请求上限；0 = 不限。
+    #[serde(default = "default_intake_qps")]
+    pub intake_qps: u32,
     /// 每 org 每秒查询请求上限；0 = 不限。
     #[serde(default = "default_query_qps")]
     pub query_qps: u32,
@@ -55,7 +55,7 @@ pub struct RouterRateLimit {
     pub burst_multiplier: u32,
 }
 
-fn default_ingest_qps() -> u32 {
+fn default_intake_qps() -> u32 {
     1000
 }
 fn default_query_qps() -> u32 {
@@ -68,7 +68,7 @@ fn default_rate_burst() -> u32 {
 impl Default for RouterRateLimit {
     fn default() -> Self {
         Self {
-            ingest_qps: default_ingest_qps(),
+            intake_qps: default_intake_qps(),
             query_qps: default_query_qps(),
             burst_multiplier: default_rate_burst(),
         }

@@ -98,7 +98,7 @@ impl TestServer {
             settings.apm.flush_interval_ms = 100;
         }
         if capture_traces {
-            settings.ingester.flush_interval_secs = 1;
+            settings.intake.flush_interval_secs = 1;
             settings.telemetry.log_level = "info".into();
             settings.telemetry.trace.filter = "info".into();
             settings.telemetry.trace.deployment_environment = "test".into();
@@ -317,7 +317,7 @@ where
 }
 
 /// 创建一个 `StreamDefinition` 写入 `state.telemetry.streams` 仓库，返回 stream 元数据。
-/// 用法：测试用例需要先有 stream 才能 ingest 时调它。
+/// 用法：测试用例需要先有 stream 才能 intake 时调它。
 #[allow(dead_code)]
 pub async fn seed_stream(
     state: &molesignal::api::AppState,

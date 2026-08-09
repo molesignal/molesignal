@@ -3,7 +3,7 @@
 
 //! Regex pattern CRUD（backend-settings-endpoints）。
 //!
-//! 兼作敏感数据脱敏规则：`replacement`（命中替换串，支持 `$1` 捕获组）+ `apply_on_ingest`
+//! 兼作敏感数据脱敏规则：`replacement`（命中替换串，支持 `$1` 捕获组）+ `apply_on_intake`
 //! （写入即脱敏）。查询端 `mask(col)` 应用本表全部规则。CUD 后失效写入端 masker 缓存。
 //!
 //! `GET    /regex_patterns`       list（per-org）
@@ -49,7 +49,7 @@ pub struct CreateReq {
     pub replacement: Option<String>,
     /// 写入前对所有字符串值做不可逆脱敏；缺省 false（仅查询端 `mask(col)` 应用）。
     #[serde(default)]
-    pub apply_on_ingest: Option<bool>,
+    pub apply_on_intake: Option<bool>,
 }
 
 fn replacement_or_default(r: Option<String>) -> String {
@@ -87,7 +87,7 @@ async fn create(
         pattern: req.pattern,
         description: req.description.unwrap_or_default(),
         replacement: replacement_or_default(req.replacement),
-        apply_on_ingest: req.apply_on_ingest.unwrap_or(false),
+        apply_on_intake: req.apply_on_intake.unwrap_or(false),
         created_at: now,
         updated_at: now,
     };
@@ -133,7 +133,7 @@ async fn update(
         pattern: req.pattern,
         description: req.description.unwrap_or_default(),
         replacement: replacement_or_default(req.replacement),
-        apply_on_ingest: req.apply_on_ingest.unwrap_or(false),
+        apply_on_intake: req.apply_on_intake.unwrap_or(false),
         created_at,
         updated_at: TimestampMicros::now(),
     };

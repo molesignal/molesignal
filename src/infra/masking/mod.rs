@@ -3,9 +3,9 @@
 
 //! Per-org 脱敏规则解析 + 缓存（写入端热路径用）。
 //!
-//! [`MaskingService`] 包 [`RegexPatternRepository`]，把该 org 标了 `apply_on_ingest` 的
+//! [`MaskingService`] 包 [`RegexPatternRepository`]，把该 org 标了 `apply_on_intake` 的
 //! regex pattern 编译成 [`Masker`]（domain 纯逻辑）并按 org 进 moka 缓存（短 TTL）。
-//! `IngestService` 每批调 [`MaskingService::ingest_masker`]：空规则集返回空 masker，
+//! `IntakeService` 每批调 [`MaskingService::intake_masker`]：空规则集返回空 masker，
 //! 据此零开销跳过；规则增删改后路由层调 [`MaskingService::invalidate`] 即时失效。
 //!
 //! 查询端 `mask(col)` UDF 不走本服务（仅 SQL 命中 `mask(` 时按 org 现取规则编译，
@@ -46,7 +46,7 @@ impl MaskingService {
         }
     }
 
-    /// 失效该 org 的缓存：regex pattern 增删改后调用，使下次 `ingest_masker` 立刻重读。
+    /// 失效该 org 的缓存：regex pattern 增删改后调用，使下次 `intake_masker` 立刻重读。
     pub async fn invalidate(&self, org: &Id) {
         self.cache.invalidate(&org.0).await;
     }
@@ -54,14 +54,14 @@ impl MaskingService {
 
 #[async_trait]
 impl MaskingProvider for MaskingService {
-    async fn ingest_masker(&self, org_id: &Id) -> Result<Arc<Masker>> {
+    async fn intake_masker(&self, org_id: &Id) -> Result<Arc<Masker>> {
         if let Some(m) = self.cache.get(&org_id.0).await {
             return Ok(m);
         }
         let rows = self.patterns.list(org_id).await?;
         let masker = Arc::new(Masker::compile(
             rows.into_iter()
-                .filter(|p| p.apply_on_ingest)
+                .filter(|p| p.apply_on_intake)
                 .map(|p| (p.pattern, p.replacement)),
         ));
         self.cache.insert(org_id.0.clone(), masker.clone()).await;
@@ -122,7 +122,7 @@ mod tests {
         }
     }
 
-    fn pat(org: &Id, name: &str, pattern: &str, apply_on_ingest: bool) -> RegexPattern {
+    fn pat(org: &Id, name: &str, pattern: &str, apply_on_intake: bool) -> RegexPattern {
         RegexPattern {
             id: Id::new(),
             org_id: org.clone(),
@@ -130,14 +130,14 @@ mod tests {
             pattern: pattern.into(),
             description: String::new(),
             replacement: "[X]".into(),
-            apply_on_ingest,
+            apply_on_intake,
             created_at: TimestampMicros(0),
             updated_at: TimestampMicros(0),
         }
     }
 
     #[tokio::test]
-    async fn ingest_masker_only_includes_ingest_flagged() {
+    async fn intake_masker_only_includes_intake_flagged() {
         let repo = Arc::new(InMemPatterns::default());
         let org = Id::from_string("org-1");
         repo.create(pat(&org, "ssn", r"\d{3}-\d{2}-\d{4}", true))
@@ -149,21 +149,21 @@ mod tests {
             .unwrap();
         let svc = MaskingService::new(repo);
 
-        let m = svc.ingest_masker(&org).await.unwrap();
+        let m = svc.intake_masker(&org).await.unwrap();
         assert_eq!(m.mask_str("ssn 123-45-6789"), "ssn [X]");
         // email 规则未启用写入脱敏 → 原样保留。
         assert_eq!(m.mask_str("a@b"), "a@b");
     }
 
     #[tokio::test]
-    async fn no_ingest_rules_yields_empty_masker() {
+    async fn no_intake_rules_yields_empty_masker() {
         let repo = Arc::new(InMemPatterns::default());
         let org = Id::from_string("org-1");
         repo.create(pat(&org, "email", r"\w+@\w+", false))
             .await
             .unwrap();
         let svc = MaskingService::new(repo);
-        assert!(svc.ingest_masker(&org).await.unwrap().is_empty());
+        assert!(svc.intake_masker(&org).await.unwrap().is_empty());
     }
 
     #[tokio::test]
@@ -173,16 +173,16 @@ mod tests {
         let svc = MaskingService::new(repo.clone());
 
         // 首次：无规则 → 空 masker（已缓存）。
-        assert!(svc.ingest_masker(&org).await.unwrap().is_empty());
+        assert!(svc.intake_masker(&org).await.unwrap().is_empty());
         repo.create(pat(&org, "ssn", r"\d{3}-\d{2}-\d{4}", true))
             .await
             .unwrap();
         // 不失效仍读到旧的空 masker。
-        assert!(svc.ingest_masker(&org).await.unwrap().is_empty());
+        assert!(svc.intake_masker(&org).await.unwrap().is_empty());
         // 失效后立刻反映新规则。
         svc.invalidate(&org).await;
         assert_eq!(
-            svc.ingest_masker(&org)
+            svc.intake_masker(&org)
                 .await
                 .unwrap()
                 .mask_str("123-45-6789"),

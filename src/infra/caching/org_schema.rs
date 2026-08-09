@@ -3,7 +3,7 @@
 
 //! Per-org schema 缓存。
 //!
-//! ingest / query 路径需要快速查 `(org_id, stream_name, stream_type) → StreamDefinition`，
+//! intake / query 路径需要快速查 `(org_id, stream_name, stream_type) → StreamDefinition`，
 //! 否则每条事件 / 每条查询都跑一次 Pg query。本缓存：
 //!
 //! - `Arc<RwLock<HashMap<key, Arc<StreamDefinition>>>>`：读写比 ≫ 1，写仅在 schema

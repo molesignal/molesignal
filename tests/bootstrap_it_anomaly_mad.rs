@@ -3,7 +3,7 @@
 
 //! MAD anomaly detector 单元 + 集成冒烟。
 //!
-//! 由于 detector 直接在 datafusion 上跑 SQL 聚合，full e2e 需要先 ingest 100 行
+//! 由于 detector 直接在 datafusion 上跑 SQL 聚合，full e2e 需要先 intake 100 行
 //! baseline + 5 行 outlier。这里走 in-memory unit-style：用一个 slice 喂给纯
 //! 函数 MAD 算法，验证 outlier 命中率，跟 spec scenario "5 outlier reported"
 //! 对齐。完整 HTTP 链路下的 detector 接入由 anomaly-detection capability 的

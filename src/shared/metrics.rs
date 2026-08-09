@@ -41,7 +41,7 @@ pub fn gather_text() -> Result<String, prometheus::Error> {
     encoder.encode_to_string(&mf)
 }
 
-/// Prometheus registry 的结构化快照。self-ingest 直接消费此表示，避免 scrape/解析
+/// Prometheus registry 的结构化快照。self-intake 直接消费此表示，避免 scrape/解析
 /// 自己的 `/metrics` 文本端点。
 #[allow(deprecated)]
 pub fn gather_structured() -> Vec<MetricSample> {

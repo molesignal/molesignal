@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Microbenchmarks for the ingest schema-on-write hot paths (no server, no IO):
+//! Microbenchmarks for the intake schema-on-write hot paths (no server, no IO):
 //! per-batch schema inference and per-event type validation.
 
 use std::hint::black_box;
 
 use criterion::{Criterion, criterion_group, criterion_main};
 use molesignal::{
-    app::ingestion::{check_event_types, infer_schema_extension},
+    app::intake::{check_event_types, infer_schema_extension},
     domain::{
-        ingestion::RawEvent,
+        intake::RawEvent,
         stream::{FieldDef, FieldType, Schema, StreamType},
     },
     shared::time::TimestampMicros,

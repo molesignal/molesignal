@@ -193,7 +193,7 @@
       "home_metrics": "Metrics",
       "home_traces": "Traces",
       "home_alerts": "Alert incidents",
-      "home_intelligence": "Mole Intelligence",
+      "home_agent": "Mole Agent",
       "home_custom_dashboard": "Specific dashboard…",
       "home_dashboard_unavailable": "Unavailable dashboard"
     },
@@ -235,7 +235,7 @@
       "tolerance": "Signature tolerance (seconds)"
     },
     "hints": {
-      "enabled": "Gate ingestion on subscription state and daily quota.",
+      "enabled": "Gate intake on subscription state and daily quota.",
       "webhook_secret": "Stripe `whsec_…`; used to verify webhook signatures. Blank keeps the current value.",
       "api_key": "Stripe `sk_…`; stored encrypted. Blank keeps the current value.",
       "tolerance": "Reject webhooks whose timestamp is older than this (replay protection)."
@@ -253,7 +253,7 @@
       "expired": "Expired",
       "issued_to": "Issued to",
       "features": "Features",
-      "max_ingest_bytes_per_day": "Max ingest per day (bytes)",
+      "max_intake_bytes_per_day": "Max intake per day (bytes)",
       "expires_at": "Expires at"
     },
     "upload": {
@@ -438,7 +438,7 @@
     "hints": {
       "region": "AWS region the log group lives in.",
       "log_group": "CloudWatch log group to pull events from.",
-      "target_stream": "Stream that ingested records are written to.",
+      "target_stream": "Stream that received records are written to.",
       "credentials": "Optional — stored encrypted and masked after saving.",
       "bucket": "Destination bucket objects are written to.",
       "prefix": "Optional key prefix for written objects.",
@@ -496,9 +496,9 @@
     "field_pattern_hint": "Validated server-side via regex::Regex::new",
     "field_replacement": "Replacement",
     "field_replacement_hint": "Matched text is replaced with this. Supports $1 capture groups; leave empty to delete the match.",
-    "field_apply_on_ingest": "Redact on ingest",
-    "field_apply_on_ingest_hint": "Permanently redact matches at write time. When off, only the mask(col) query function applies this rule.",
-    "scope_ingest": "On ingest",
+    "field_apply_on_intake": "Redact on intake",
+    "field_apply_on_intake_hint": "Permanently redact matches at write time. When off, only the mask(col) query function applies this rule.",
+    "scope_intake": "On intake",
     "scope_query": "Query-only",
     "edit_title": "Edit regex pattern",
     "field_description": "Description"
@@ -563,14 +563,14 @@
     "remote_clusters_description": "Federated query targets. Adding a cluster requires the federated_search license.",
     "service_graph": {
       "title": "Service data source",
-      "subtitle": "Control how the service map is built from traces for single-node or multi-ingest deployments.",
+      "subtitle": "Control how the service map is built from traces for single-node or multi-intake deployments.",
       "storage_mode": "Recompute from storage (multi-node)",
       "storage_hint": "A single node periodically rebuilds the service map from stored traces. Results are correct across nodes with a 1–2 minute delay.",
-      "ingest_hint": "Each ingest process pairs spans in memory and flushes them. Latency is low, but spans split across nodes may be undercounted."
+      "intake_hint": "Each intake process pairs spans in memory and flushes them. Latency is low, but spans split across nodes may be undercounted."
     },
     "client_ip": {
       "title": "RUM client IP recognition",
-      "subtitle": "Choose how this deployment identifies client addresses at the RUM ingest boundary. Proxy headers are trusted only when the TCP peer matches an approved CIDR.",
+      "subtitle": "Choose how this deployment identifies client addresses at the RUM intake boundary. Proxy headers are trusted only when the TCP peer matches an approved CIDR.",
       "resolver_title": "Client IP resolver",
       "resolver_subtitle": "This database-backed setting is shared by the deployment and refreshes across collector nodes without restarting them.",
       "mode": "Address source",
@@ -704,9 +704,9 @@
     "title": "AI toolsets",
     "subtitle": "Registered tools Mole Agent can call.",
     "empty_title": "No AI toolsets",
-    "empty_description": "Register constrained Mole Agent tools when Mole Intelligence is enabled.",
+    "empty_description": "Register constrained tools when Mole Agent is enabled.",
     "new_toolset": "New toolset",
-    "license_hint": "Requires the intelligence feature",
+    "license_hint": "Requires the agent feature",
     "delete_title": "Delete toolset?",
     "columns": {
       "name": "Name",
@@ -815,7 +815,7 @@
     "copy_id": "Copy id",
     "copied": "Copied",
     "chat": {
-      "title": "Mole Intelligence chat history",
+      "title": "Mole Agent chat history",
       "loading": "Loading chat history...",
       "load_failed": "Failed to load chat history",
       "empty": "This session has no messages.",
@@ -838,7 +838,7 @@
     "title": "AI providers",
     "subtitle": "Model providers and encrypted API keys for AI investigation.",
     "empty_title": "No AI providers",
-    "empty_description": "Add an approved model provider to enable Mole Intelligence chat.",
+    "empty_description": "Add an approved model provider to enable Mole Agent chat.",
     "new_provider": "New provider",
     "edit_provider": "Edit provider",
     "delete_title": "Delete provider?",

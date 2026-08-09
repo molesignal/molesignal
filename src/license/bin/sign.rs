@@ -200,8 +200,8 @@ fn cmd_verify(
     println!("issued_to               = {}", payload.issued_to);
     println!("expires_at_micros       = {}", payload.expires_at_micros);
     println!(
-        "max_ingest_bytes_per_day = {}",
-        payload.max_ingest_bytes_per_day
+        "max_intake_bytes_per_day = {}",
+        payload.max_intake_bytes_per_day
     );
     println!("max_users               = {}", payload.max_users);
     println!("features                = {:?}", payload.features);

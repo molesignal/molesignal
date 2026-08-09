@@ -9,9 +9,9 @@ use object_store::ObjectStore;
 use serde_json::Value;
 
 use crate::{
-    app::ingestion::IngestService,
+    app::intake::IntakeService,
     domain::{
-        ingestion::IngestBatch,
+        intake::IntakeBatch,
         stream::{DEFAULT_PROFILE_STREAM, StreamType},
     },
     infra::profiles::{self, NormalizedProfile},
@@ -20,14 +20,14 @@ use crate::{
 
 pub struct ProfileStorageService {
     object_store: Arc<dyn ObjectStore>,
-    ingestion: Arc<IngestService>,
+    intake: Arc<IntakeService>,
 }
 
 impl ProfileStorageService {
-    pub fn new(object_store: Arc<dyn ObjectStore>, ingestion: Arc<IngestService>) -> Self {
+    pub fn new(object_store: Arc<dyn ObjectStore>, intake: Arc<IntakeService>) -> Self {
         Self {
             object_store,
-            ingestion,
+            intake,
         }
     }
 
@@ -41,7 +41,7 @@ impl ProfileStorageService {
         let event = self
             .archive_metadata_event(org_id, normalized, raw_pprof)
             .await?;
-        let batch = IngestBatch {
+        let batch = IntakeBatch {
             batch_id: Id::new(),
             org_id: org_id.clone(),
             stream: DEFAULT_PROFILE_STREAM.into(),
@@ -49,18 +49,18 @@ impl ProfileStorageService {
             events: vec![event],
             received_at: TimestampMicros::now(),
         };
-        self.ingestion.ingest(batch).await?;
+        self.intake.intake(batch).await?;
         Ok(())
     }
 
-    /// 归档 profile blob 并构造 metadata 行，但不选择 ingestion origin。split-role
+    /// 归档 profile blob 并构造 metadata 行，但不选择 intake origin。split-role
     /// self telemetry 用它归档后交给 role-aware delivery。
     pub(crate) async fn archive_metadata_event(
         &self,
         org_id: &Id,
         normalized: &NormalizedProfile,
         raw_pprof: &[u8],
-    ) -> Result<crate::domain::ingestion::RawEvent> {
+    ) -> Result<crate::domain::intake::RawEvent> {
         let timestamp = if normalized.start_time_micros > 0 {
             TimestampMicros(normalized.start_time_micros)
         } else {

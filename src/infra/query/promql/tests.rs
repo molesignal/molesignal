@@ -39,7 +39,7 @@ fn batches_to_series_accepts_int64_value_column() {
         datatypes::{DataType, Field, Schema, TimeUnit},
     };
 
-    // 整数值 metric（JSON ingest `value: 1` 推断成 Int64）也要能出 series。
+    // 整数值 metric（JSON intake `value: 1` 推断成 Int64）也要能出 series。
     let schema = Arc::new(Schema::new(vec![
         Field::new(
             "_timestamp",

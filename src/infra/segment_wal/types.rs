@@ -139,7 +139,7 @@ pub struct SegmentWalConfig {
 /// WAL 记录类型（低 7 位）。
 ///
 /// molesignal 用法：
-/// - `Normal`       — ingest 批次的二进制 payload
+/// - `Normal`       — intake 批次的二进制 payload
 /// - `Config`       — stream schema / 配置变更
 /// - `SnapshotMark` — parquet flush 边界标记，payload = snapshot_index (8B LE)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

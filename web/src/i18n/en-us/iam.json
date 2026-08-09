@@ -160,7 +160,7 @@
     "status_revoked": "revoked",
     "kinds": {
       "personal": "Personal API token",
-      "default_ingestion": "Default ingestion token",
+      "default_intake": "Default intake token",
       "rum_client": "RUM client token"
     },
     "already_revoked": "This API token has already been revoked.",
@@ -172,7 +172,7 @@
       "name": "Name",
       "name_placeholder": "collector-production",
       "role": "Role",
-      "default_role": "Default ingestion (write only)",
+      "default_role": "Default intake (write only)",
       "rum_client_disabled": "RUM client (go to Data sources → RUM to create)",
       "rum_client_disabled_hint": "Go to Data sources → RUM to create an application-bound token.",
       "expires_in_days": "Expires in days",
@@ -343,7 +343,7 @@
     "alerts": "Alerts and schedules",
     "pipelines": "Pipelines and functions",
     "reports": "Reports and audit",
-    "intelligence": "Intelligence"
+    "agent": "Agent"
   },
   "permissions": {
     "sys_organizations_manage": "Manage platform organizations",
@@ -407,9 +407,9 @@
     "reports_share": "Share reports",
     "reports_delete": "Delete reports",
     "audit_read": "View audit events",
-    "intelligence_use": "Use intelligence",
-    "intelligence_manage": "Manage intelligence",
-    "intelligence_approve": "Approve intelligence actions"
+    "agent_use": "Use agent",
+    "agent_manage": "Manage agent",
+    "agent_approve": "Approve agent actions"
   },
   "permissions_hint": {
     "sys_organizations_manage": "Create, update, and administer organizations across the platform.",
@@ -435,7 +435,7 @@
     "api_tokens_manage": "Create and revoke API tokens.",
     "streams_read": "View stream definitions, schemas, and runtime status.",
     "streams_query": "Query logs, metrics, traces, APM User Experience, and profiles stored in streams.",
-    "streams_write": "Ingest data into existing streams.",
+    "streams_write": "Intake data into existing streams.",
     "rum_write": "Write only to RUM session, action, error, and replay receivers.",
     "streams_create": "Create new data streams.",
     "streams_configure": "Change stream schema, index, and retention settings.",
@@ -455,12 +455,12 @@
     "saved_views_create": "Create saved query views.",
     "saved_views_edit": "Update existing saved query views.",
     "saved_views_delete": "Delete saved query views.",
-    "pipelines_read": "View ingestion pipelines and their runs.",
-    "pipelines_create": "Create ingestion pipelines.",
+    "pipelines_read": "View intake pipelines and their runs.",
+    "pipelines_create": "Create intake pipelines.",
     "pipelines_edit": "Change pipeline definitions and schedules.",
     "pipelines_run": "Run pipelines manually.",
     "pipelines_pause": "Pause or resume scheduled pipelines.",
-    "pipelines_delete": "Delete ingestion pipelines.",
+    "pipelines_delete": "Delete intake pipelines.",
     "functions_read": "View processing and enrichment functions.",
     "functions_create": "Create processing and enrichment functions.",
     "functions_edit": "Change existing processing functions.",
@@ -473,9 +473,9 @@
     "reports_share": "Create, rotate, and revoke restricted report share credentials.",
     "reports_delete": "Delete report definitions and schedules.",
     "audit_read": "View security and administrative audit events.",
-    "intelligence_use": "Use assisted investigation and analysis features.",
-    "intelligence_manage": "Configure intelligence providers, tools, and policies.",
-    "intelligence_approve": "Approve protected actions proposed by intelligence workflows."
+    "agent_use": "Use assisted investigation and analysis features.",
+    "agent_manage": "Configure agent providers, tools, and policies.",
+    "agent_approve": "Approve protected actions proposed by agent workflows."
   },
   "roles": {
     "title": "Roles",

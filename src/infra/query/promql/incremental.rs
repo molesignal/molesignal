@@ -172,7 +172,7 @@ impl PromQLEngine {
         }
     }
 
-    /// 该 metric 在查询窗口内的 ingest 水位 ≈
+    /// 该 metric 在查询窗口内的 intake 水位 ≈
     /// `max(parquet_file_meta.time_range.end)`；无文件返回
     /// `i64::MIN`（→ 全活跃、无可封存桶）。
     ///
@@ -180,7 +180,7 @@ impl PromQLEngine {
     /// （那层至今未接入查询路径，原因见 [`crate::infra::caching`] 的 `parquet_file_meta` 模块文档）。
     /// 开销可接受的真实原因是 `idx_parquet_file_meta_scan` 覆盖了本查询的全部谓词，
     /// 走的是索引区间扫描、只返回该 metric 在窗口内的那几十行 —— 不是因为有缓存。
-    async fn ingest_watermark(&self, vs: &VectorSelector, req: &QueryRequest) -> Result<i64> {
+    async fn intake_watermark(&self, vs: &VectorSelector, req: &QueryRequest) -> Result<i64> {
         let Some(metric) = vs.name.as_deref() else {
             return Ok(i64::MIN);
         };
@@ -219,11 +219,11 @@ impl PromQLEngine {
         let q_lo = grid_ceil(req.time_range.start.0, step_us);
         let q_hi = grid_floor(req.time_range.end.0, step_us);
 
-        // 水位 = min(now - safe_lookback, ingest 水位)。
-        let ingest_wm = self.ingest_watermark(vs, req).await?;
+        // 水位 = min(now - safe_lookback, intake 水位)。
+        let intake_wm = self.intake_watermark(vs, req).await?;
         let watermark = now_micros()
             .saturating_sub(agg.safe_lookback_us)
-            .min(ingest_wm);
+            .min(intake_wm);
 
         let fp = selector_fingerprint(req.org_id.0.as_str(), func_key, vs, range_us, step_us);
         let entry = cache.get(&fp).await;

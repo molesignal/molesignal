@@ -63,13 +63,13 @@ retained Trace then enters one fan-out stage:
 
 ```text
 instrumentation -> candidate queue -> rendezvous owner -> tail sampler
-                                                     -> self-ingest queue
+                                                     -> self-intake queue
                                                      -> external OTLP queue
 ```
 
 The two sink queues have independent batching, timeout, retry, drop, and health
 state. Failure of either sink never blocks the other sink or the application.
-Self-ingest is recursion-suppressed and writes to `_sys/traces/_molesignal`.
+Self-intake is recursion-suppressed and writes to `_sys/traces/_molesignal`.
 
 ## Span catalog
 
@@ -81,10 +81,10 @@ Span names and dimensions are intentionally low-cardinality:
 | gRPC and Flight | `rpc.server`, `rpc.client`, `stream.session` | service, method, status, bounded segment/message counts |
 | SQL | `db.transaction`, `db.query` | operation, normalized collection, keyed fingerprint, rows |
 | Object storage | `object_store.operation`, multipart session | backend, operation, object category, bytes, retry Events |
-| Ingestion | `ingest.batch`, pipeline/mask/WAL/buffer/flush stages | protocol, stream type, counts and bytes |
+| Intake | `intake.batch`, pipeline/mask/WAL/buffer/flush stages | protocol, stream type, counts and bytes |
 | Query | planning/DataFusion/PromQL/distributed/shard spans | language, stage, bounded shard role, row/byte counts |
 | Background | compaction, reports, search jobs, service graph, replay, sync | static worker/operation names and result counts |
-| Intelligence | provider/tool stages and linked stream segments | provider, model, stage, tool name, token counts |
+| Agent | provider/tool stages and linked stream segments | provider, model, stage, tool name, token counts |
 
 Parallel shards are sibling spans. Retry attempts and multipart parts are
 bounded Events on one logical Span. SSE, streaming HTTP, AI provider streams,
@@ -121,7 +121,7 @@ Decision order is fixed:
 6. deterministic normal ratio.
 
 Production defaults to a 10% normal ratio; development/test defaults to 100%.
-Slow thresholds are typed for HTTP, query, batch ingestion, database, object
+Slow thresholds are typed for HTTP, query, batch intake, database, object
 storage, external calls, and background work. Under pressure, ordinary traces
 are decided first while observed error/slow traces remain preferred. Late Spans
 reuse the decision cache and can never resurrect a dropped Trace. Identical
@@ -147,7 +147,7 @@ occupancy is the default alert threshold.
 One recursive sanitizer is shared by Span normalization, process logs, and
 audit persistence. It removes forbidden nested keys and replaces credential,
 email, private-key, and complete-URL patterns before enqueue. The Trace sink
-performs a second non-mutating invariant check before self-ingest or external
+performs a second non-mutating invariant check before self-intake or external
 export. SQL values, raw paths/query strings, full object keys, notification
 recipients/content, License packages/signatures, prompts/responses, and Tool
 arguments/results are never attributes.
@@ -184,7 +184,7 @@ the detailed system view but do not fail otherwise healthy `/healthz` or
 `_sys` is a single permanent system organization. Its typed `_molesignal`
 streams are system-owned and protected by domain, repository, and PostgreSQL
 guards. They cannot be renamed, moved, deleted, assigned memberships, or
-mutated through public ingest/stream APIs. Per-signal retention remains an
+mutated through public intake/stream APIs. Per-signal retention remains an
 approved capacity update; Trace retention defaults to seven days.
 
 The configured root user is the only platform administrator. Startup
@@ -197,7 +197,7 @@ ordinary users remain bound to their organization Membership and role grants.
 Only a system-scoped interactive root JWT (maximum one hour) can discover or
 select `_sys` and call the APIs below. Tenant JWTs and `ms_*` API tokens receive
 `404`, without leaking system metadata. Ordinary organization mutation, public
-ingest, remote profiling, and `ms_*` API-token creation remain unavailable in
+intake, remote profiling, and `ms_*` API-token creation remain unavailable in
 system scope.
 
 - `GET /api/v1/system/platform-admins`
@@ -218,7 +218,7 @@ does not exist.
 
 ## Configuration and failure semantics
 
-Trace instrumentation and self-ingest are enabled by code default. Effective
+Trace instrumentation and self-intake are enabled by code default. Effective
 enablement precedence is:
 
 1. deployment `telemetry.trace.force_disabled`;
@@ -237,14 +237,14 @@ Invalid static exporter/security configuration fails startup. Runtime collector
 failure, owner loss, full queues, sanitizer rejection, and shutdown timeout are
 fail-open for business traffic and visible in bounded metrics/health. Graceful
 shutdown stops candidates, resolves the tail cache, drains both sink queues for
-up to ten seconds, records residue on timeout, then proceeds to normal ingestion
+up to ten seconds, records residue on timeout, then proceeds to normal intake
 drain.
 
 ## Validation and performance gates
 
 The standalone acceptance path starts PostgreSQL with testcontainers and follows
 one correlated request through HTTP, a business Span, SQL, object storage,
-self-ingest, and `_sys` trace queries. It also exercises
+self-intake, and `_sys` trace queries. It also exercises
 system-scope switching, tenant-facing `404` boundaries, permanent system
 resources, immutable License history, and final-platform-administrator
 protection:
@@ -253,7 +253,7 @@ protection:
 MS_RUN_IT=1 cargo test --test bootstrap_it_distributed_tracing
 ```
 
-The release performance gate measures a 100,000-event ingestion batch, 100,000
+The release performance gate measures a 100,000-event intake batch, 100,000
 PromQL samples, and an 8 MiB object-store put/get with default Trace capture
 disabled and enabled in alternating order. It fails above 5% process CPU
 overhead or 3% P95 wall-latency overhead:

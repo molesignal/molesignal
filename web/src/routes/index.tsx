@@ -15,6 +15,17 @@ import { AccountProfile } from './account/Profile';
 import { AccountSecurity } from './account/Security';
 import { AccountSessions } from './account/Sessions';
 import { AccountWorkspaceIdentity } from './account/WorkspaceIdentity';
+import {
+  AgentSettingsPage,
+  ApprovalsPage as AgentApprovalsPage,
+  AutomationsPage as AgentAutomationsPage,
+  ExecutionsPage as AgentExecutionsPage,
+  AgentChat,
+  AgentLayout,
+  DashboardDraftPage,
+  InvestigationDetailPage,
+  InvestigationsPage,
+} from './agent';
 import { Alerts } from './alerts';
 import { AlertsAnomaly } from './alerts/Anomaly';
 import { AlertsEscalations } from './alerts/Escalations';
@@ -70,17 +81,6 @@ import {
   Approvals as IamApprovals,
 } from './iam';
 import { IncidentDetail } from './IncidentDetail';
-import {
-  AgentSettingsPage,
-  ApprovalsPage as IntelligenceApprovalsPage,
-  AutomationsPage as IntelligenceAutomationsPage,
-  ExecutionsPage as IntelligenceExecutionsPage,
-  IntelligenceChat,
-  IntelligenceLayout,
-  DashboardDraftPage,
-  InvestigationDetailPage,
-  InvestigationsPage,
-} from './intelligence';
 import { Investigate } from './Investigate';
 import { Logs } from './logs';
 import { LogsInspector } from './logs/Inspector';
@@ -244,22 +244,22 @@ export const router = createBrowserRouter([
       { path: 'datasource/:category', element: <Datasource /> },
       { path: 'datasource/:category/:source', element: <Datasource /> },
       { path: 'datasources', element: <Navigate to="/datasource" replace /> },
-      { path: 'ingest', element: <Navigate to="/datasource" replace /> },
-      { path: 'ingest/:category', element: <DatasourceRedirect /> },
-      { path: 'ingest/:category/:source', element: <DatasourceRedirect /> },
+      { path: 'intake', element: <Navigate to="/datasource" replace /> },
+      { path: 'intake/:category', element: <DatasourceRedirect /> },
+      { path: 'intake/:category/:source', element: <DatasourceRedirect /> },
 
       /* OBSERVE */
       {
-        path: 'intelligence',
-        element: <IntelligenceLayout />,
+        path: 'agent',
+        element: <AgentLayout />,
         children: [
-          { index: true, element: <Navigate to="/intelligence/chat" replace /> },
-          { path: 'chat', element: <IntelligenceChat /> },
+          { index: true, element: <Navigate to="/agent/chat" replace /> },
+          { path: 'chat', element: <AgentChat /> },
           { path: 'investigations', element: <InvestigationsPage /> },
           { path: 'investigations/:id', element: <InvestigationDetailPage /> },
-          { path: 'automations', element: <IntelligenceAutomationsPage /> },
-          { path: 'approvals', element: <IntelligenceApprovalsPage /> },
-          { path: 'executions', element: <IntelligenceExecutionsPage /> },
+          { path: 'automations', element: <AgentAutomationsPage /> },
+          { path: 'approvals', element: <AgentApprovalsPage /> },
+          { path: 'executions', element: <AgentExecutionsPage /> },
           {
             path: 'settings',
             element: <AgentSettingsPage />,

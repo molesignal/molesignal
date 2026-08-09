@@ -29,7 +29,7 @@ use super::pipeline_exec::{rows_to_objects, transform_and_sink};
 use crate::{
     app::query::QueryService,
     domain::{
-        ingestion::IngestSink,
+        intake::IntakeSink,
         query::{QueryRequest, QueryResult},
     },
     infra::{
@@ -71,7 +71,7 @@ pub struct SearchJobScheduler {
     /// backfill 任务（request_json 带 `pipeline_id`）执行编排需要的依赖：取 pipeline 定义、
     /// 写目标 stream、egress connector。
     scheduled_pipelines: Arc<dyn ScheduledPipelineRepository>,
-    ingest_sink: Arc<dyn IngestSink>,
+    intake_sink: Arc<dyn IntakeSink>,
     connectors: Arc<dyn ConnectorRepository>,
     dispatcher: Arc<dyn ConnectorDispatcher>,
     cfg: SearchJobSchedulerConfig,
@@ -84,7 +84,7 @@ impl SearchJobScheduler {
         query: Arc<QueryService>,
         object_store: Arc<dyn ObjectStore>,
         scheduled_pipelines: Arc<dyn ScheduledPipelineRepository>,
-        ingest_sink: Arc<dyn IngestSink>,
+        intake_sink: Arc<dyn IntakeSink>,
         connectors: Arc<dyn ConnectorRepository>,
         dispatcher: Arc<dyn ConnectorDispatcher>,
         cfg: SearchJobSchedulerConfig,
@@ -94,7 +94,7 @@ impl SearchJobScheduler {
             query,
             object_store,
             scheduled_pipelines,
-            ingest_sink,
+            intake_sink,
             connectors,
             dispatcher,
             cfg,
@@ -207,7 +207,7 @@ impl SearchJobScheduler {
         Ok(())
     }
 
-    /// backfill 端到端：读源结果 → pipeline 的 VRL 步骤链 → 写目标 stream（标准 ingest）→
+    /// backfill 端到端：读源结果 → pipeline 的 VRL 步骤链 → 写目标 stream（标准 intake）→
     /// egress。变换后的产出同样落 NDJSON 供 monitor 拉取；`mark_done` 记写入目标的行数。
     async fn run_backfill(
         &self,
@@ -249,7 +249,7 @@ impl SearchJobScheduler {
         let vrl = VrlRuntime::new();
         let outcome = match transform_and_sink(
             &vrl,
-            self.ingest_sink.as_ref(),
+            self.intake_sink.as_ref(),
             self.connectors.as_ref(),
             self.dispatcher.as_ref(),
             &job.org_id,

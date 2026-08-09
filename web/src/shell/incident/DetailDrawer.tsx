@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import * as incidentsApi from '@/api/incidents';
 import { toApiError } from '@/lib/http';
 import { restrictActionAccess, useActionAccess } from '@/product/actionAccess';
-import { MarkdownMessage } from '@/routes/intelligence/markdown';
+import { MarkdownMessage } from '@/routes/agent/markdown';
 import { ChromeButton, Pill, type PillTone } from '@/shell/chrome';
 import { ErrorState } from '@/shell/ErrorState';
 import { FormDrawer } from '@/shell/FormDrawer';

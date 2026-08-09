@@ -1,6 +1,6 @@
 ---
 name: review-license-gates
-description: Review MoleSignal commercial capability gating through LicenseGate, LicenseHolder, CommunityLicense, SignedLicense, handler entry checks, worker checks, and development-only unlocks. Use when changes touch licensed routes, workers, license persistence or verification, intelligence, SSO, federated search, domain management, cloud marketplace, enhanced profiling, or edition behavior.
+description: Review MoleSignal commercial capability gating through LicenseGate, LicenseHolder, CommunityLicense, SignedLicense, handler entry checks, worker checks, and development-only unlocks. Use when changes touch licensed routes, workers, license persistence or verification, agent, SSO, federated search, domain management, cloud marketplace, enhanced profiling, or edition behavior.
 ---
 
 # 审查 License 门禁
@@ -12,7 +12,7 @@ description: Review MoleSignal commercial capability gating through LicenseGate,
 - `src/shared/license.rs` 定义 `LicenseGate`、`CommunityLicense` 和可热替换的 `LicenseHolder`。
 - `src/license/mod.rs` 实现 Ed25519 验签后的 `SignedLicense`。
 - `src/bootstrap/license.rs::build_license` 加载持久化 license；失败降级为 `CommunityLicense`。
-- `MS_DEV_UNLOCK_FEATURES` 和 `[intelligence].enabled = true` 只能作为明确的本地开发解锁路径。
+- `MS_DEV_UNLOCK_FEATURES` 和 `[agent].enabled = true` 只能作为明确的本地开发解锁路径。
 - `enterprise` 是 edition/build 标记；`ws`、`jemalloc`、`profiling-pprof`、`js-runtime` 是技术性 Cargo feature，不等同于商业授权。
 - 顶层产品模块当前通常无条件编译，授权在 HTTP/gRPC 入口或 worker 周期边界检查。
 
@@ -20,7 +20,7 @@ description: Review MoleSignal commercial capability gating through LicenseGate,
 
 - `sso`
 - `federated_search`
-- `intelligence`
+- `agent`
 - `domain_management`
 - `cloud_marketplace`
 - `profiling_enhanced`

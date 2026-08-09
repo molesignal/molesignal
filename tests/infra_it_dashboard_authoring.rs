@@ -191,7 +191,7 @@ async fn dashboard_draft_repository_scopes_expires_consumes_and_replays_atomical
     let raced = draft("draft-binding-race", &org, &actor, 10_000, &contracts);
     repository.create(raced.clone()).await.unwrap();
     sqlx::query(
-        "UPDATE intelligence_capability_contract_bindings
+        "UPDATE agent_capability_contract_bindings
          SET revision = revision + 1, updated_at_micros = updated_at_micros + 1
          WHERE capability_key = $1",
     )

@@ -129,7 +129,7 @@ pub(super) fn session_seek(boundary: &SessionBoundary, timestamp: &str) -> Strin
                 CursorSortDirection::Desc,
             ),
             (
-                crate::domain::ingestion::EVENT_ID_FIELD,
+                crate::domain::intake::EVENT_ID_FIELD,
                 CursorValue::Text(boundary.event_id.clone()),
                 CursorSortDirection::Desc,
             ),

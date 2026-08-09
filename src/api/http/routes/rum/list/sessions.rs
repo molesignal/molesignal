@@ -21,7 +21,7 @@ use crate::{
     app::iam::IamContext,
     domain::{
         iam::permission,
-        ingestion::EVENT_ID_FIELD,
+        intake::EVENT_ID_FIELD,
         storage::PhysicalDatasetKind,
         stream::{FieldDef, StreamDefinition},
     },

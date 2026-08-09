@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! ingester buffer → parquet → object_store。
+//! intake buffer → parquet → object_store。
 //!
 //! 入口 [`ParquetWriter::flush`]：拿一个 `RecordBatch`（schema 已经包含 `_timestamp` 列），
 //! 序列化成 parquet 字节流上传到 object_store，并产出 [`ParquetFileMeta`]（含 time range +

@@ -134,7 +134,7 @@ pub(super) async fn run(
         let schema: Arc<ArrowSchema> = match stream_definition {
             Some(definition) => {
                 let definition = selected_dataset
-                    .map(|kind| crate::infra::ingester::physical_schema::project(&definition, kind))
+                    .map(|kind| crate::infra::intake::physical_schema::project(&definition, kind))
                     .unwrap_or(definition);
                 crate::infra::storage::arrow_schema::to_arrow(&definition.schema)
             }

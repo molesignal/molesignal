@@ -23,8 +23,8 @@ describe('i18n', () => {
     expect(i18n.t('settings-admin:subtitle')).toBe(
       'Manage organization, security, data plane, and automation capabilities.',
     );
-    expect(i18n.t('settings-admin:license.labels.max_ingest_bytes_per_day')).toBe(
-      'Max ingest per day (bytes)',
+    expect(i18n.t('settings-admin:license.labels.max_intake_bytes_per_day')).toBe(
+      'Max intake per day (bytes)',
     );
     expect(i18n.t('iam:users.toast_removed')).toBe(
       'Member removed from the current workspace',
@@ -55,7 +55,7 @@ describe('i18n', () => {
     expect(i18n.t('settings-admin:license.labels.expired')).toBe('已过期');
     expect(i18n.t('settings-admin:license.labels.issued_to')).toBe('授权对象');
     expect(i18n.t('settings-admin:license.labels.features')).toBe('功能');
-    expect(i18n.t('settings-admin:license.labels.max_ingest_bytes_per_day')).toBe(
+    expect(i18n.t('settings-admin:license.labels.max_intake_bytes_per_day')).toBe(
       '每日最大写入量（字节）',
     );
     expect(i18n.t('settings-admin:license.labels.expires_at')).toBe('到期时间');

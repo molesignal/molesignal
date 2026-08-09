@@ -570,7 +570,7 @@ mod tests {
         let external = ExternalOtlpTraceSink::new(&settings, &[])
             .expect("build HTTP exporter")
             .expect("enabled HTTP exporter");
-        let self_ingest = Arc::new(MemoryTraceSink::default());
+        let self_intake = Arc::new(MemoryTraceSink::default());
         let sampler = Arc::new(
             TailSampler::new(
                 TraceRuntimePolicy {
@@ -593,13 +593,13 @@ mod tests {
         };
         let pipeline = TracePipeline::start(
             sampler,
-            Some(self_ingest.clone()),
+            Some(self_intake.clone()),
             Some(external),
             TracePipelineConfig {
                 candidate_capacity: 8,
                 decision_tick: Duration::from_millis(1),
                 shutdown_timeout: Duration::from_secs(2),
-                self_ingest: sink,
+                self_intake: sink,
                 external: sink,
             },
             TraceLimits::default(),
@@ -627,7 +627,7 @@ mod tests {
             .unwrap();
         pipeline.shutdown().await;
 
-        let stored_traces = self_ingest.traces("org").await;
+        let stored_traces = self_intake.traces("org").await;
         let stored_spans = stored_traces
             .iter()
             .flat_map(|trace| trace.spans.iter())

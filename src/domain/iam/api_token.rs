@@ -10,7 +10,7 @@ use crate::shared::{Result, ids::Id, time::TimestampMicros};
 #[serde(rename_all = "snake_case")]
 pub enum ApiTokenKind {
     Personal,
-    DefaultIngestion,
+    DefaultIntake,
     RumClient,
 }
 
@@ -18,7 +18,7 @@ impl ApiTokenKind {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Personal => "personal",
-            Self::DefaultIngestion => "default_ingestion",
+            Self::DefaultIntake => "default_intake",
             Self::RumClient => "rum_client",
         }
     }
@@ -26,7 +26,7 @@ impl ApiTokenKind {
     pub fn parse(value: &str) -> Option<Self> {
         match value {
             "personal" => Some(Self::Personal),
-            "default_ingestion" => Some(Self::DefaultIngestion),
+            "default_intake" => Some(Self::DefaultIntake),
             "rum_client" => Some(Self::RumClient),
             _ => None,
         }

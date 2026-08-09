@@ -133,9 +133,9 @@ export function RegexPatterns() {
                 header: t('regex_patterns.columns.scope'),
                 width: 130,
                 cell: (r) => (
-                  <span className={r.apply_on_ingest ? 'text-tx-1' : 'text-tx-3'}>
-                    {r.apply_on_ingest
-                      ? t('regex_patterns.scope_ingest')
+                  <span className={r.apply_on_intake ? 'text-tx-1' : 'text-tx-3'}>
+                    {r.apply_on_intake
+                      ? t('regex_patterns.scope_intake')
                       : t('regex_patterns.scope_query')}
                   </span>
                 ),
@@ -209,7 +209,7 @@ function PatternDrawer({
   const [pattern, setPattern] = React.useState('');
   const [description, setDescription] = React.useState('');
   const [replacement, setReplacement] = React.useState('');
-  const [applyOnIngest, setApplyOnIngest] = React.useState(false);
+  const [applyOnIntake, setApplyOnIntake] = React.useState(false);
 
   React.useEffect(() => {
     if (open) {
@@ -217,7 +217,7 @@ function PatternDrawer({
       setPattern(editing?.pattern ?? '');
       setDescription(editing?.description ?? '');
       setReplacement(editing?.replacement ?? '[REDACTED]');
-      setApplyOnIngest(editing?.apply_on_ingest ?? false);
+      setApplyOnIntake(editing?.apply_on_intake ?? false);
     }
   }, [open, editing]);
 
@@ -228,7 +228,7 @@ function PatternDrawer({
         pattern,
         description,
         replacement,
-        apply_on_ingest: applyOnIngest,
+        apply_on_intake: applyOnIntake,
       };
       return editing ? patternsApi.update(editing.id, input) : patternsApi.create(input);
     },
@@ -246,7 +246,7 @@ function PatternDrawer({
     pattern !== editing.pattern ||
     description !== editing.description ||
     replacement !== editing.replacement ||
-    applyOnIngest !== editing.apply_on_ingest;
+    applyOnIntake !== editing.apply_on_intake;
   const submitDisabled = access.disabled || !dirty;
 
   return (
@@ -319,12 +319,12 @@ function PatternDrawer({
             />
           </FormField>
           <FormField
-            label={t('regex_patterns.field_apply_on_ingest')}
-            hint={t('regex_patterns.field_apply_on_ingest_hint')}
+            label={t('regex_patterns.field_apply_on_intake')}
+            hint={t('regex_patterns.field_apply_on_intake_hint')}
           >
             <Switch
-              checked={applyOnIngest}
-              onCheckedChange={setApplyOnIngest}
+              checked={applyOnIntake}
+              onCheckedChange={setApplyOnIntake}
               disabled={access.disabled || save.isPending}
               disabledReason={access.reason}
             />

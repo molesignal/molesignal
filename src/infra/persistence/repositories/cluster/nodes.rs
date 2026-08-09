@@ -63,7 +63,7 @@ fn peer_role_to_str(r: PeerRole) -> &'static str {
     match r {
         PeerRole::Standalone => "standalone",
         PeerRole::Router => "router",
-        PeerRole::Ingester => "ingester",
+        PeerRole::Intake => "intake",
         PeerRole::Querier => "querier",
         PeerRole::Compactor => "compactor",
         PeerRole::AlertManager => "alert_manager",
@@ -73,7 +73,7 @@ fn peer_role_to_str(r: PeerRole) -> &'static str {
 fn peer_role_from_str(s: &str) -> PeerRole {
     match s {
         "router" => PeerRole::Router,
-        "ingester" => PeerRole::Ingester,
+        "intake" => PeerRole::Intake,
         "querier" => PeerRole::Querier,
         "compactor" => PeerRole::Compactor,
         "alert_manager" => PeerRole::AlertManager,
@@ -262,9 +262,9 @@ impl ClusterRegistry for PgClusterRegistry {
             .collect()
     }
 
-    async fn pick_ingester(&self, org_id: &Id, stream: &str) -> Option<PeerInfo> {
-        // FNV-1a 一致性哈希按 (org_id, stream) 选 ingester
-        let peers = self.list_role(PeerRole::Ingester).await;
+    async fn pick_intake(&self, org_id: &Id, stream: &str) -> Option<PeerInfo> {
+        // FNV-1a 一致性哈希按 (org_id, stream) 选 intake
+        let peers = self.list_role(PeerRole::Intake).await;
         if peers.is_empty() {
             return None;
         }
@@ -313,17 +313,17 @@ mod tests {
     #[test]
     fn roles_csv_round_trip() {
         assert_eq!(
-            roles_to_csv(&[PeerRole::Ingester, PeerRole::Querier]),
-            "ingester,querier"
+            roles_to_csv(&[PeerRole::Intake, PeerRole::Querier]),
+            "intake,querier"
         );
         assert_eq!(
-            roles_from_csv("ingester,querier"),
-            vec![PeerRole::Ingester, PeerRole::Querier]
+            roles_from_csv("intake,querier"),
+            vec![PeerRole::Intake, PeerRole::Querier]
         );
         // 空段忽略；空集兜底 standalone。
         assert_eq!(
-            roles_from_csv(" ingester , , querier "),
-            vec![PeerRole::Ingester, PeerRole::Querier]
+            roles_from_csv(" intake , , querier "),
+            vec![PeerRole::Intake, PeerRole::Querier]
         );
         assert_eq!(roles_from_csv(""), vec![PeerRole::Standalone]);
     }
@@ -397,7 +397,7 @@ mod tests {
     #[tokio::test]
     async fn list_role_matches_multi_role_membership() {
         let rows = vec![
-            row("a", vec![PeerRole::Ingester, PeerRole::Querier]),
+            row("a", vec![PeerRole::Intake, PeerRole::Querier]),
             row("b", vec![PeerRole::Compactor]),
         ];
         let reg = PgClusterRegistry::new(std::sync::Arc::new(FixedRepo(rows)), "self:1".into(), 15);
@@ -405,15 +405,12 @@ mod tests {
         let queriers = reg.list_role(PeerRole::Querier).await;
         assert_eq!(queriers.len(), 1);
         assert_eq!(queriers[0].node_id, "a");
-        assert_eq!(
-            queriers[0].roles,
-            vec![PeerRole::Ingester, PeerRole::Querier]
-        );
+        assert_eq!(queriers[0].roles, vec![PeerRole::Intake, PeerRole::Querier]);
 
-        // 同一多角色节点也作为 ingester 被发现。
-        let ingesters = reg.list_role(PeerRole::Ingester).await;
-        assert_eq!(ingesters.len(), 1);
-        assert_eq!(ingesters[0].node_id, "a");
+        // 同一多角色节点也作为 intake 被发现。
+        let intake_nodes = reg.list_role(PeerRole::Intake).await;
+        assert_eq!(intake_nodes.len(), 1);
+        assert_eq!(intake_nodes[0].node_id, "a");
 
         let compactors = reg.list_role(PeerRole::Compactor).await;
         assert_eq!(compactors.len(), 1);
@@ -426,20 +423,20 @@ mod tests {
         let repo = Arc::new(CountingRepo {
             rows: vec![row(
                 "a",
-                vec![PeerRole::Ingester, PeerRole::Querier, PeerRole::Compactor],
+                vec![PeerRole::Intake, PeerRole::Querier, PeerRole::Compactor],
             )],
             list_calls: Arc::clone(&list_calls),
         });
         let registry =
             PgClusterRegistry::with_cache_ttl(repo, "self:1".into(), 15, Duration::from_secs(2));
 
-        let (ingesters, queriers, compactors) = tokio::join!(
-            registry.list_role(PeerRole::Ingester),
+        let (intake_nodes, queriers, compactors) = tokio::join!(
+            registry.list_role(PeerRole::Intake),
             registry.list_role(PeerRole::Querier),
             registry.list_role(PeerRole::Compactor),
         );
 
-        assert_eq!(ingesters.len(), 1);
+        assert_eq!(intake_nodes.len(), 1);
         assert_eq!(queriers.len(), 1);
         assert_eq!(compactors.len(), 1);
         assert_eq!(list_calls.load(Ordering::Relaxed), 1);
@@ -449,13 +446,13 @@ mod tests {
     async fn expired_discovery_cache_refreshes_again() {
         let list_calls = Arc::new(AtomicUsize::new(0));
         let repo = Arc::new(CountingRepo {
-            rows: vec![row("a", vec![PeerRole::Ingester])],
+            rows: vec![row("a", vec![PeerRole::Intake])],
             list_calls: Arc::clone(&list_calls),
         });
         let registry = PgClusterRegistry::with_cache_ttl(repo, "self:1".into(), 15, Duration::ZERO);
 
-        registry.list_role(PeerRole::Ingester).await;
-        registry.list_role(PeerRole::Ingester).await;
+        registry.list_role(PeerRole::Intake).await;
+        registry.list_role(PeerRole::Intake).await;
 
         assert_eq!(list_calls.load(Ordering::Relaxed), 2);
     }

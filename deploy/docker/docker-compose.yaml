@@ -2,7 +2,7 @@
 #
 # 两种部署形态（用 profile 区分；默认 standalone 单进程）：
 #   docker compose up                          → 默认 + standalone profile（一个进程跑所有 role）
-#   docker compose --profile multirole up      → 拆分模式（router/ingester/querier/compactor/alert-manager/connector）
+#   docker compose --profile multirole up      → 拆分模式（router/intake/querier/compactor/alert-manager/connector）
 #
 # postgresql + minio 总是启动；molesignal 容器走哪个 profile 由 docker compose --profile 选。
 
@@ -113,7 +113,7 @@ services:
       <<: *molesignal-env
       MS_NODE_ROLES: '["router"]'
 
-  molesignal-ingester:
+  molesignal-intake:
     <<: *molesignal-base
     profiles: ["multirole"]
     volumes:
@@ -121,7 +121,7 @@ services:
       - obs-wal:/data/wal
     environment:
       <<: *molesignal-env
-      MS_NODE_ROLES: '["ingester"]'
+      MS_NODE_ROLES: '["intake"]'
 
   molesignal-querier:
     <<: *molesignal-base

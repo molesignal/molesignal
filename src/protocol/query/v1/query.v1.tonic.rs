@@ -92,9 +92,11 @@ pub mod query_shard_service_client {
         }
         pub async fn execute(
             &mut self,
-            request: impl tonic::IntoRequest<super::QueryShardRequest>,
+            request: impl tonic::IntoRequest<super::QueryShardServiceExecuteRequest>,
         ) -> std::result::Result<
-            tonic::Response<tonic::codec::Streaming<super::QueryShardResponse>>,
+            tonic::Response<
+                tonic::codec::Streaming<super::QueryShardServiceExecuteResponse>,
+            >,
             tonic::Status,
         > {
             self.inner
@@ -131,13 +133,16 @@ pub mod query_shard_service_server {
     pub trait QueryShardService: std::marker::Send + std::marker::Sync + 'static {
         /// Server streaming response type for the Execute method.
         type ExecuteStream: tonic::codegen::tokio_stream::Stream<
-                Item = std::result::Result<super::QueryShardResponse, tonic::Status>,
+                Item = std::result::Result<
+                    super::QueryShardServiceExecuteResponse,
+                    tonic::Status,
+                >,
             >
             + std::marker::Send
             + 'static;
         async fn execute(
             &self,
-            request: tonic::Request<super::QueryShardRequest>,
+            request: tonic::Request<super::QueryShardServiceExecuteRequest>,
         ) -> std::result::Result<tonic::Response<Self::ExecuteStream>, tonic::Status>;
     }
     #[derive(Debug)]
@@ -221,9 +226,10 @@ pub mod query_shard_service_server {
                     struct ExecuteSvc<T: QueryShardService>(pub Arc<T>);
                     impl<
                         T: QueryShardService,
-                    > tonic::server::ServerStreamingService<super::QueryShardRequest>
-                    for ExecuteSvc<T> {
-                        type Response = super::QueryShardResponse;
+                    > tonic::server::ServerStreamingService<
+                        super::QueryShardServiceExecuteRequest,
+                    > for ExecuteSvc<T> {
+                        type Response = super::QueryShardServiceExecuteResponse;
                         type ResponseStream = T::ExecuteStream;
                         type Future = BoxFuture<
                             tonic::Response<Self::ResponseStream>,
@@ -231,7 +237,9 @@ pub mod query_shard_service_server {
                         >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::QueryShardRequest>,
+                            request: tonic::Request<
+                                super::QueryShardServiceExecuteRequest,
+                            >,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {

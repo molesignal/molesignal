@@ -23,7 +23,7 @@ use super::summary::{
 };
 use crate::{
     domain::{
-        ingestion::RawEvent,
+        intake::RawEvent,
         stream::{FieldDef, FieldType, Schema},
     },
     shared::{Error, Result, time::TimestampMicros},
@@ -470,7 +470,7 @@ pub fn effective_service_name(
         .filter(|role| {
             matches!(
                 role.as_str(),
-                "router" | "querier" | "ingester" | "compactor" | "alert_manager" | "standalone"
+                "router" | "querier" | "intake" | "compactor" | "alert_manager" | "standalone"
             )
         })
         .filter(|_| {

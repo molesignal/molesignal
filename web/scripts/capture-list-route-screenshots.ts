@@ -31,7 +31,7 @@ async function mockListBackends(page: Page) {
         expired: false,
         issued_to: 'visual-qa',
         features: [],
-        max_ingest_bytes_per_day: null,
+        max_intake_bytes_per_day: null,
         expires_at_micros: null,
         active_version_id: 'license-visual-qa',
       },

@@ -140,4 +140,4 @@ bash scripts/dev-up.sh
 cargo run -p molesignal -- --config ./conf/config.toml
 ```
 
-k8s manifests：`deploy/k8s/{30-router,40-ingester,50-querier,60-compactor,70-alert-manager,80-web}.yaml`。
+k8s manifests：`deploy/k8s/{30-router,40-intake,50-querier,60-compactor,70-alert-manager,80-web}.yaml`。

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Pipeline bounded context：ingest-time 多步 function 链。
+//! Pipeline bounded context：intake-time 多步 function 链。
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};

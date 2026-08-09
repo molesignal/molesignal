@@ -140,7 +140,7 @@ const EMPTY_STRATEGIES: ReadonlyArray<{
   },
   {
     strategy: 'license-gated',
-    title: 'Mole Intelligence is a Pro feature',
+    title: 'Mole Agent is a Pro feature',
     description: 'Investigate incidents with assisted analysis and controlled operations.',
     primaryAction: { label: 'Upgrade', onClick: () => alert('upgrade') },
     secondaryAction: { label: 'Compare editions', onClick: () => alert('compare') },

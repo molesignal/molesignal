@@ -85,7 +85,7 @@ fn row_to_draft(row: sqlx::postgres::PgRow) -> Result<DashboardDraft> {
 impl DashboardDraftRepository for PgDashboardDraftRepository {
     async fn create(&self, draft: DashboardDraft) -> Result<DashboardDraft> {
         sqlx::query(
-            "INSERT INTO intelligence_dashboard_drafts
+            "INSERT INTO agent_dashboard_drafts
              (id, org_id, created_by, authoring_version, model_schema_version,
               compiler_version, contract_binding_revision, authoring_schema_hash,
               model_schema_hash, visualization_schema_hash, authoring_spec, compiled_model,
@@ -128,7 +128,7 @@ impl DashboardDraftRepository for PgDashboardDraftRepository {
         now: TimestampMicros,
     ) -> Result<DashboardDraft> {
         sqlx::query(
-            "UPDATE intelligence_dashboard_drafts
+            "UPDATE agent_dashboard_drafts
              SET status = 'expired'
              WHERE id = $1 AND org_id = $2 AND status = 'ready'
                AND expires_at_micros <= $3",
@@ -140,7 +140,7 @@ impl DashboardDraftRepository for PgDashboardDraftRepository {
         .await
         .map_err(sqlx_err)?;
         let row = sqlx::query(&format!(
-            "SELECT {DRAFT_COLS} FROM intelligence_dashboard_drafts
+            "SELECT {DRAFT_COLS} FROM agent_dashboard_drafts
              WHERE id = $1 AND org_id = $2"
         ))
         .bind(&draft_id.0)
@@ -155,7 +155,7 @@ impl DashboardDraftRepository for PgDashboardDraftRepository {
     async fn consume_and_create(&self, request: ConsumeDashboardDraft) -> Result<DraftConsumption> {
         let mut transaction = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
         let row = sqlx::query(&format!(
-            "SELECT {DRAFT_COLS} FROM intelligence_dashboard_drafts
+            "SELECT {DRAFT_COLS} FROM agent_dashboard_drafts
              WHERE id = $1 AND org_id = $2 FOR UPDATE"
         ))
         .bind(&request.draft_id.0)
@@ -186,7 +186,7 @@ impl DashboardDraftRepository for PgDashboardDraftRepository {
         }
         if draft.status == DashboardDraftStatus::Expired || draft.expires_at <= request.now {
             sqlx::query(
-                "UPDATE intelligence_dashboard_drafts SET status = 'expired'
+                "UPDATE agent_dashboard_drafts SET status = 'expired'
                  WHERE id = $1 AND org_id = $2 AND status = 'ready'",
             )
             .bind(&request.draft_id.0)
@@ -216,7 +216,7 @@ impl DashboardDraftRepository for PgDashboardDraftRepository {
         validate_candidate(&request)?;
         insert_dashboard(&mut transaction, &request.dashboard).await?;
         sqlx::query(
-            "UPDATE intelligence_dashboard_drafts
+            "UPDATE agent_dashboard_drafts
              SET status = 'consumed', dashboard_id = $3, consumed_at_micros = $4
              WHERE id = $1 AND org_id = $2 AND status = 'ready'",
         )
@@ -239,7 +239,7 @@ async fn ensure_active_contract_binding(
     let row = sqlx::query(
         "SELECT revision, authoring_schema_hash, model_schema_hash,
                 visualization_schema_hash, compiler_version, enabled
-         FROM intelligence_capability_contract_bindings
+         FROM agent_capability_contract_bindings
          WHERE capability_key = $1
          FOR SHARE",
     )

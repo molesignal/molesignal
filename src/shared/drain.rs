@@ -7,10 +7,10 @@
 //!
 //! 三相单调推进，不可回退：
 //! - `Running`  —— 正常服务，接受写入。
-//! - `Draining` —— 停接新写入；ingester flush loop 把全部 buffer 落盘后推进到 Drained。
+//! - `Draining` —— 停接新写入；intake flush loop 把全部 buffer 落盘后推进到 Drained。
 //! - `Drained`  —— pending 数据已全部 flush，可安全下线该节点。
 //!
-//! 无 ingester 角色的节点（如纯 querier）没有待 flush 的 buffer，停在 `Draining` 即「可下线」
+//! 无 intake 角色的节点（如纯 querier）没有待 flush 的 buffer，停在 `Draining` 即「可下线」
 //! 语义（无人推进到 Drained）。
 
 use std::sync::atomic::{AtomicU8, Ordering};
@@ -36,7 +36,7 @@ impl DrainPhase {
     }
 }
 
-/// 进程级 drain 状态。`Arc` 共享给 ingest 用例、ingester flush loop、compactor loop、admin 路由。
+/// 进程级 drain 状态。`Arc` 共享给 intake 用例、intake flush loop、compactor loop、admin 路由。
 #[derive(Debug)]
 pub struct DrainController {
     phase: AtomicU8,
@@ -64,7 +64,7 @@ impl DrainController {
             .is_ok()
     }
 
-    /// ingester 把 buffer 全部 flush 完后调用：`Draining → Drained`。非 draining 时 no-op。
+    /// intake 把 buffer 全部 flush 完后调用：`Draining → Drained`。非 draining 时 no-op。
     pub fn mark_drained(&self) {
         let _ = self
             .phase

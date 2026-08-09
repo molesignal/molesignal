@@ -218,7 +218,7 @@ mod tests {
     #[test]
     fn separately_consumed_ms_variables_are_not_treated_as_settings() {
         let paths = paths();
-        assert_eq!(paths.resolve("INTELLIGENCE_OPENAI_API_KEY"), None);
+        assert_eq!(paths.resolve("AGENT_OPENAI_API_KEY"), None);
         assert_eq!(paths.resolve("AUTH_JWT_SECRET_OVERRIDE"), None);
         assert_eq!(paths.resolve("LICENSE_FILE"), None);
         assert_eq!(paths.resolve("OBJECT_STORE_SECRET_KEY"), None);

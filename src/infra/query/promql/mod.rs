@@ -29,7 +29,7 @@
 //! 个点，与原始采样密度无关；单 selector 物化样本数受 [`MAX_MATRIX_SAMPLES`] 约束。
 //!
 //! 列布局约定：metrics stream schema 必须含 `value Float64`；其余字段通常视为 labels。
-//! 由 `IngestService::ingest` 写入时，每行的 `_timestamp` 由 RawEvent.timestamp 决定，
+//! 由 `IntakeService::intake` 写入时，每行的 `_timestamp` 由 RawEvent.timestamp 决定，
 //! `value` / labels 由 RawEvent.fields 提供。Prometheus Exemplar 旁路行不含 `value`，
 //! 因此 sample evaluator 会跳过它们，`query_exemplars` 走独立读取路径。系统指标的
 //! `metric_name` / `metric_kind` 是容器存储元数据，不暴露成逻辑指标的 labels。
@@ -255,7 +255,7 @@ impl PromQLEngine {
     }
 
     /// 注入 StreamRepository：metric stream 标记为不可查询（`settings.queryable == false`，
-    /// 仅作 ingest 入口 / pipeline 源）时拒绝查询。缺省（不调用）则不做该校验。
+    /// 仅作 intake 入口 / pipeline 源）时拒绝查询。缺省（不调用）则不做该校验。
     pub fn with_streams(mut self, streams: Arc<dyn StreamRepository>) -> Self {
         self.streams = Some(streams);
         self

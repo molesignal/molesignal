@@ -5,7 +5,7 @@
 | 资源 | Kind | 副本 | 说明 |
 |---|---|---|---|
 | `router`        | Deployment  | 2 | 无状态、HPA 横向扩 |
-| `ingester`      | StatefulSet | 2 | 需本地盘存 WAL（每副本 20Gi） |
+| `intake`      | StatefulSet | 2 | 需本地盘存 WAL（每副本 20Gi） |
 | `querier`       | Deployment  | 2 | 无状态、HPA |
 | `compactor`     | Deployment  | 1 | 单实例避免合并冲突；后续上 lease 表锁再加副本 |
 | `alert-manager` | Deployment  | 1 | 同上 |
@@ -37,7 +37,7 @@ kubectl create secret generic molesignal-secret -n molesignal \
   --from-literal=cipher_key="$(openssl rand -base64 32)" \
   --dry-run=client -o yaml | kubectl apply -f -
 # 或 dev 临时用 20-secret.yaml
-kubectl apply -f 30-router.yaml -f 40-ingester.yaml -f 50-querier.yaml \
+kubectl apply -f 30-router.yaml -f 40-intake.yaml -f 50-querier.yaml \
               -f 60-compactor.yaml -f 70-alert-manager.yaml
 ```
 

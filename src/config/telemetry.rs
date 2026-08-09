@@ -184,8 +184,8 @@ pub struct TraceSlowThresholds {
     pub http_ms: u64,
     #[serde(default = "default_query_slow_ms")]
     pub query_ms: u64,
-    #[serde(default = "default_ingest_slow_ms")]
-    pub batch_ingest_ms: u64,
+    #[serde(default = "default_intake_slow_ms")]
+    pub batch_intake_ms: u64,
     #[serde(default = "default_database_slow_ms")]
     pub database_ms: u64,
     #[serde(default = "default_object_store_slow_ms")]
@@ -201,7 +201,7 @@ impl Default for TraceSlowThresholds {
         Self {
             http_ms: default_http_slow_ms(),
             query_ms: default_query_slow_ms(),
-            batch_ingest_ms: default_ingest_slow_ms(),
+            batch_intake_ms: default_intake_slow_ms(),
             database_ms: default_database_slow_ms(),
             object_store_ms: default_object_store_slow_ms(),
             external_ms: default_external_slow_ms(),
@@ -215,7 +215,7 @@ impl TraceSlowThresholds {
         if [
             self.http_ms,
             self.query_ms,
-            self.batch_ingest_ms,
+            self.batch_intake_ms,
             self.database_ms,
             self.object_store_ms,
             self.external_ms,
@@ -405,7 +405,7 @@ fn default_http_slow_ms() -> u64 {
 fn default_query_slow_ms() -> u64 {
     5_000
 }
-fn default_ingest_slow_ms() -> u64 {
+fn default_intake_slow_ms() -> u64 {
     2_000
 }
 fn default_database_slow_ms() -> u64 {

@@ -16,7 +16,7 @@ use crate::{
     app::iam::IamContext,
     domain::{
         iam::permission,
-        ingestion::EVENT_ID_FIELD,
+        intake::EVENT_ID_FIELD,
         query::{QueryLanguage, QueryRequest, StreamHint},
         stream::StreamType,
     },

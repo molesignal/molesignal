@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Service graph flush worker：把 ingest 路径累计的分钟桶边周期落 `service_graph_edges`。
+//! Service graph flush worker：把 intake 路径累计的分钟桶边周期落 `service_graph_edges`。
 //!
-//! [`ServiceGraphAggregator`] 是单进程内存态：`IngestService` 在 Traces 批上旁路喂 span，
+//! [`ServiceGraphAggregator`] 是单进程内存态：`IntakeService` 在 Traces 批上旁路喂 span，
 //! 配对出 caller→callee 边累计进分钟桶。本 worker 每个 tick：
 //! 1. `flush_due(cutoff)` drain 出**已完成分钟**的桶 → `insert_many` 落库；
 //! 2. `prune` 清掉超 TTL 仍未配对的 span（防内存累积）。
 //!
-//! 必须与聚合器**同进程**运行（内存态不跨节点），故按"本进程是否接 ingest"起，不做
-//! 单点 role gate。分布式下各 ingest 进程各自 flush；查询侧按 (client,server) 求和汇总。
+//! 必须与聚合器**同进程**运行（内存态不跨节点），故按"本进程是否接 intake"起，不做
+//! 单点 role gate。分布式下各 intake 进程各自 flush；查询侧按 (client,server) 求和汇总。
 
 use std::{sync::Arc, time::Duration};
 

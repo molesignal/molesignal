@@ -217,7 +217,7 @@ impl ApiTokenRepository for PgApiTokenRepository {
         role_id: &Id,
     ) -> Result<ManagedApiToken> {
         let cipher = self.cipher()?;
-        let lock_key = format!("default-ingestion-token:{}:{}", org_id.0, user_id.0);
+        let lock_key = format!("default-intake-token:{}:{}", org_id.0, user_id.0);
         let mut transaction = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
         sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))")
             .bind(lock_key)
@@ -228,7 +228,7 @@ impl ApiTokenRepository for PgApiTokenRepository {
             "SELECT id, prefix, role_id, created_at_micros, plaintext_sealed, plaintext_nonce
              FROM api_tokens
              WHERE org_id = $1 AND user_id = $2
-               AND token_kind = 'default_ingestion' AND NOT revoked
+               AND token_kind = 'default_intake' AND NOT revoked
              LIMIT 1",
         )
         .bind(&org_id.0)
@@ -238,7 +238,7 @@ impl ApiTokenRepository for PgApiTokenRepository {
         .map_err(sqlx_err)?;
         if let Some(row) = existing
             && let Some(token) =
-                open_managed_token(cipher, row, role_id, ApiTokenKind::DefaultIngestion, None)?
+                open_managed_token(cipher, row, role_id, ApiTokenKind::DefaultIntake, None)?
         {
             sqlx::query("UPDATE api_tokens SET role_id = $2 WHERE id = $1")
                 .bind(&token.id.0)
@@ -256,13 +256,13 @@ impl ApiTokenRepository for PgApiTokenRepository {
         let secret_hash = hash_secret(&secret)?;
         let (nonce, sealed) = cipher
             .seal(plaintext.as_bytes())
-            .map_err(|error| Error::internal(format!("default ingestion token seal: {error}")))?;
+            .map_err(|error| Error::internal(format!("default intake token seal: {error}")))?;
         let id = Id::new();
         let now = TimestampMicros::now();
         let revoked_prefixes = sqlx::query_scalar::<String>(
             "UPDATE api_tokens SET revoked = TRUE
              WHERE org_id = $1 AND user_id = $2
-               AND token_kind = 'default_ingestion' AND NOT revoked
+               AND token_kind = 'default_intake' AND NOT revoked
              RETURNING prefix",
         )
         .bind(&org_id.0)
@@ -275,8 +275,8 @@ impl ApiTokenRepository for PgApiTokenRepository {
                 (id, prefix, secret_hash, org_id, user_id, role_id, name,
                  expires_at_micros, last_used_at_micros, revoked, created_at_micros,
                  is_default, plaintext_sealed, plaintext_nonce, token_kind, application_id)
-             VALUES ($1, $2, $3, $4, $5, $6, 'Default ingestion token',
-                     NULL, NULL, FALSE, $7, TRUE, $8, $9, 'default_ingestion', NULL)",
+             VALUES ($1, $2, $3, $4, $5, $6, 'Default intake token',
+                     NULL, NULL, FALSE, $7, TRUE, $8, $9, 'default_intake', NULL)",
         )
         .bind(&id.0)
         .bind(&prefix)
@@ -297,7 +297,7 @@ impl ApiTokenRepository for PgApiTokenRepository {
             prefix,
             token: plaintext,
             role_id: role_id.clone(),
-            token_kind: ApiTokenKind::DefaultIngestion,
+            token_kind: ApiTokenKind::DefaultIntake,
             application_id: None,
             created_at: now,
         })

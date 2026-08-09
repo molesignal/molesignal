@@ -56,7 +56,7 @@ use crate::{
 
 #[derive(Debug, Clone, Copy)]
 pub(super) struct RolePlan {
-    pub(super) run_ingester: bool,
+    pub(super) run_intake: bool,
     pub(super) run_compactor: bool,
     pub(super) run_alert_manager: bool,
     pub(super) run_querier: bool,
@@ -246,14 +246,10 @@ impl Core {
             settings.cluster.peer_timeout_secs as i64,
         ));
         let drain_controller = Arc::new(DrainController::new());
-        let node_id = if settings.node.id.is_empty() {
-            crate::shared::ids::Id::new().0
-        } else {
-            settings.node.id.clone()
-        };
+        let node_id = settings.node.resolved_id();
         let is_standalone = settings.node.roles.contains(&Role::Standalone);
         let roles = RolePlan {
-            run_ingester: is_standalone || settings.node.roles.contains(&Role::Ingester),
+            run_intake: is_standalone || settings.node.roles.contains(&Role::Intake),
             run_compactor: is_standalone || settings.node.roles.contains(&Role::Compactor),
             run_alert_manager: is_standalone || settings.node.roles.contains(&Role::AlertManager),
             run_querier: is_standalone || settings.node.roles.contains(&Role::Querier),
@@ -308,7 +304,7 @@ impl Core {
             .iter()
             .map(|role| match role {
                 Role::Router => PeerRole::Router,
-                Role::Ingester => PeerRole::Ingester,
+                Role::Intake => PeerRole::Intake,
                 Role::Querier => PeerRole::Querier,
                 Role::Compactor => PeerRole::Compactor,
                 Role::AlertManager => PeerRole::AlertManager,

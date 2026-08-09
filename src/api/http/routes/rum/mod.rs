@@ -3,7 +3,7 @@
 
 //! RUM receivers。
 //!
-//! Datadog-RUM 兼容 JSON 入口。Sessions / actions / errors 走通用 ingest 路径
+//! Datadog-RUM 兼容 JSON 入口。Sessions / actions / errors 走通用 intake 路径
 //! （`rum_sessions / rum_actions / rum_errors` 三个 stream，stream_type = Logs）；
 //! replay 单独走 `RumReplayWriter`（object_store + `rum_replay_events` 元数据）。
 //!
@@ -25,7 +25,7 @@ use crate::{
     app::iam::IamContext,
     domain::{
         iam::permission,
-        ingestion::{IngestBatch, IngestResult},
+        intake::{IntakeBatch, IntakeResult},
         rum::validate_application_id,
         stream::StreamType,
     },
@@ -53,14 +53,14 @@ pub fn routes() -> Router<AppState> {
         .merge(query::routes())
 }
 
-async fn ingest_stream(
+async fn intake_stream(
     state: &AppState,
     ctx: &IamContext,
     stream: &str,
     payload: Value,
-) -> Result<IngestResult> {
+) -> Result<IntakeResult> {
     let events = normalize::flatten(payload)?;
-    let batch = IngestBatch {
+    let batch = IntakeBatch {
         batch_id: Id::new(),
         org_id: ctx.org_id.clone(),
         stream: stream.to_string(),
@@ -68,7 +68,7 @@ async fn ingest_stream(
         events,
         received_at: TimestampMicros::now(),
     };
-    state.ingestion.ingest(batch).await
+    state.intake.intake(batch).await
 }
 
 #[permission("rum.write")]
@@ -79,11 +79,11 @@ async fn receive_sessions(
     peer: Option<Extension<ConnectInfo<SocketAddr>>>,
     headers: HeaderMap,
     Json(mut body): Json<Value>,
-) -> Result<Json<IngestResult>> {
+) -> Result<Json<IntakeResult>> {
     bind_application(&mut body, &ctx)?;
     overwrite_client_ip_fields(&mut body, resolve_client_ip(&resolver, &headers, peer));
     Ok(Json(
-        ingest_stream(&state, &ctx, "rum_sessions", body).await?,
+        intake_stream(&state, &ctx, "rum_sessions", body).await?,
     ))
 }
 
@@ -95,11 +95,11 @@ async fn receive_actions(
     peer: Option<Extension<ConnectInfo<SocketAddr>>>,
     headers: HeaderMap,
     Json(mut body): Json<Value>,
-) -> Result<Json<IngestResult>> {
+) -> Result<Json<IntakeResult>> {
     bind_application(&mut body, &ctx)?;
     overwrite_client_ip_fields(&mut body, resolve_client_ip(&resolver, &headers, peer));
     Ok(Json(
-        ingest_stream(&state, &ctx, "rum_actions", body).await?,
+        intake_stream(&state, &ctx, "rum_actions", body).await?,
     ))
 }
 
@@ -111,12 +111,12 @@ async fn receive_errors(
     peer: Option<Extension<ConnectInfo<SocketAddr>>>,
     headers: HeaderMap,
     Json(mut body): Json<Value>,
-) -> Result<Json<IngestResult>> {
+) -> Result<Json<IntakeResult>> {
     bind_application(&mut body, &ctx)?;
     overwrite_client_ip_fields(&mut body, resolve_client_ip(&resolver, &headers, peer));
     let translated = symbolication::translate_body(&state, &ctx, body).await;
     Ok(Json(
-        ingest_stream(&state, &ctx, "rum_errors", translated).await?,
+        intake_stream(&state, &ctx, "rum_errors", translated).await?,
     ))
 }
 

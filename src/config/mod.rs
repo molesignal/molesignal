@@ -30,7 +30,7 @@ mod cache;
 mod cluster;
 mod env;
 mod features;
-mod ingester;
+mod intake;
 mod license;
 mod network;
 mod node;
@@ -53,7 +53,7 @@ use figment::{
     Figment,
     providers::{Format, Serialized, Toml},
 };
-pub use ingester::*;
+pub use intake::*;
 pub use license::*;
 pub use network::*;
 pub use node::*;
@@ -88,7 +88,7 @@ pub struct Settings {
     #[serde(default)]
     pub wal: WalSettings,
     #[serde(default)]
-    pub ingester: IngesterSettings,
+    pub intake: IntakeSettings,
     #[serde(default)]
     pub querier: QuerierSettings,
     #[serde(default)]
@@ -123,11 +123,11 @@ pub struct Settings {
     /// Chrome PDF/PNG 渲染资源。
     #[serde(default)]
     pub scheduled_reports: ScheduledReportsSettings,
-    /// Intelligence chat（`[intelligence]`）：提供默认 provider 提示。功能可用性由
+    /// Agent chat（`[agent]`）：提供默认 provider 提示。功能可用性由
     /// License 决定。API key / base URL 走 env var
-    /// （`MS_INTELLIGENCE_<PROVIDER>_API_KEY` / `_BASE_URL`），不进 TOML。
+    /// （`MS_AGENT_<PROVIDER>_API_KEY` / `_BASE_URL`），不进 TOML。
     #[serde(default)]
-    pub intelligence: IntelligenceSettings,
+    pub agent: AgentSettings,
     /// `[storage]` 段：与 [`store`] 解耦的存储层子能力（spec `storage` capability）。
     /// 目前仅含 `parquet_file_meta_dump` 子段（ParquetFileMeta 冷分区下沉到 object_store）。
     #[serde(default)]
@@ -162,7 +162,8 @@ pub fn load(path: Option<&Path>) -> anyhow::Result<&'static Settings> {
     }
     fig = fig.merge(env);
 
-    let settings: Settings = fig.extract()?;
+    let mut settings: Settings = fig.extract()?;
+    settings.node.id = settings.node.resolved_id();
     settings.validate()?;
     SETTINGS
         .set(settings)
@@ -172,12 +173,13 @@ pub fn load(path: Option<&Path>) -> anyhow::Result<&'static Settings> {
 
 impl Settings {
     pub fn validate(&self) -> anyhow::Result<()> {
+        self.node.validate()?;
         self.apm.validate()?;
         self.telemetry.self_collect.validate()?;
         self.telemetry.trace.validate()?;
         self.profiling.validate()?;
         self.scheduled_reports.renderer.validate()?;
-        self.ingester.validate()?;
+        self.intake.validate()?;
         Ok(())
     }
 }

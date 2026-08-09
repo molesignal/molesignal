@@ -69,7 +69,7 @@ HTTP/gRPC 可以接收字符串，但应尽早解析成领域 enum 或 ID。
 - 只读优先借用，修改使用 `&mut`。
 - 只有跨 task/channel 或确需独立 ownership 时 clone 大对象。
 - `Arc<dyn Trait>` 的 `Arc::clone` 可以用于依赖共享，不要把它与深拷贝混淆。
-- 避免在 ingest/query 热路径复制完整 event、record batch、JSON 或 buffer。
+- 避免在 intake/query 热路径复制完整 event、record batch、JSON 或 buffer。
 
 ## Async 与并发
 
@@ -93,7 +93,7 @@ tracing::info!(
 ```
 
 - `%` 用于 `Display`，`?` 用于受控的 `Debug`。
-- 不在 ingest/query 热路径逐条记录 debug/info。
+- 不在 intake/query 热路径逐条记录 debug/info。
 - 不记录 access token、API key、密码、cookie、license signed package、模型 secret 或完整敏感 payload。
 - 删除临时 `println!`、`eprintln!` 与 `dbg!`。
 

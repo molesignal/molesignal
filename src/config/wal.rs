@@ -5,7 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 
-/// fsync 触发模式（spec `ingestion / Write-Ahead Log Durability`）。
+/// fsync 触发模式（spec `intake / Write-Ahead Log Durability`）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum WalFlushStrategy {

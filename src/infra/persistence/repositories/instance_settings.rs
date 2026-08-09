@@ -79,11 +79,11 @@ impl InstanceSettingsRepository for PgInstanceSettingsRepository {
                 },
                 updated_at: TimestampMicros(r.try_get("updated_at_micros").map_err(sqlx_err)?),
             }),
-            // 行缺失（迁移未 seed）时回落保守默认：关闭注册、服务图走 ingest。
+            // 行缺失（迁移未 seed）时回落保守默认：关闭注册、服务图走 intake。
             None => Ok(InstanceSettings {
                 signup_enabled: false,
                 signup_require_approval: true,
-                service_graph_source: "ingest".to_string(),
+                service_graph_source: "intake".to_string(),
                 federation_cluster_id: String::new(),
                 federation_drain_interval_secs: 10,
                 federation_push_batch_size: 100,

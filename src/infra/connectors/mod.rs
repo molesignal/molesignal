@@ -5,7 +5,7 @@
 //!
 //! 统一 `Connector` trait + 4 个 initial impl：
 //! - [`cloudwatch_logs::CloudWatchLogsConnector`]：每 30s pull AWS CloudWatch Logs
-//! - [`kinesis_firehose`]：push 类共享 HTTP receiver（参考 `api/src/http/routes/ingest_kinesis.rs`）
+//! - [`kinesis_firehose`]：push 类共享 HTTP receiver（参考 `api/src/http/routes/intake_kinesis.rs`）
 //! - [`cloudflare_logpush`]：HTTP `/api/v1/_cloudflare` receiver（Connector trait 内仅暴露 accept_push）
 //! - [`heroku_drain`]：HTTP `/api/v1/_heroku` receiver
 //!
@@ -17,7 +17,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    domain::ingestion::RawEvent,
+    domain::intake::RawEvent,
     shared::{Error, Result, ids::Id},
 };
 
@@ -74,7 +74,7 @@ impl std::str::FromStr for ConnectorKind {
     }
 }
 
-/// pull 型 connector：`run_once` 由 ConnectorRunner 周期调拉取事件（ingest 由 runner 统一做）；
+/// pull 型 connector：`run_once` 由 ConnectorRunner 周期调拉取事件（intake 由 runner 统一做）；
 /// push 型 connector 不实现。
 #[async_trait]
 pub trait PullConnector: Send + Sync {

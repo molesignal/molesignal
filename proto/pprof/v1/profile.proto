@@ -4,7 +4,7 @@
 // Pinned: google/pprof @ 2024-12 line schema (Profile fields 1..15, Line.column).
 //
 // This is the canonical, stable on-the-wire representation for continuous
-// profiling. All three ingest protocols normalize through pprof semantics and
+// profiling. All three intake protocols normalize through pprof semantics and
 // the archived blob is gzip+zstd pprof, so external pprof tooling can consume
 // it directly. Kept package name `perftools.profiles` to match the ecosystem.
 //

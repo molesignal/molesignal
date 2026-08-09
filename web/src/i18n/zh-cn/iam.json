@@ -160,7 +160,7 @@
     "status_revoked": "revoked",
     "kinds": {
       "personal": "个人 API Token",
-      "default_ingestion": "默认接入 Token",
+      "default_intake": "默认接入 Token",
       "rum_client": "RUM Client Token"
     },
     "already_revoked": "该 API token 已撤销。",
@@ -343,7 +343,7 @@
     "alerts": "告警与排班",
     "pipelines": "流水线与函数",
     "reports": "报告与审计",
-    "intelligence": "AI能力"
+    "agent": "AI能力"
   },
   "permissions": {
     "sys_organizations_manage": "管理平台组织",
@@ -407,9 +407,9 @@
     "reports_share": "共享报告",
     "reports_delete": "删除报告",
     "audit_read": "查看审计事件",
-    "intelligence_use": "使用智能能力",
-    "intelligence_manage": "管理智能能力",
-    "intelligence_approve": "审批智能操作"
+    "agent_use": "使用智能能力",
+    "agent_manage": "管理智能能力",
+    "agent_approve": "审批智能操作"
   },
   "permissions_hint": {
     "sys_organizations_manage": "创建、更新和管理平台内的组织。",
@@ -473,9 +473,9 @@
     "reports_share": "创建、轮换和停用报告的受限分享凭证。",
     "reports_delete": "删除报告定义和调度。",
     "audit_read": "查看安全与管理审计事件。",
-    "intelligence_use": "使用辅助调查与分析功能。",
-    "intelligence_manage": "配置智能服务商、工具与策略。",
-    "intelligence_approve": "审批智能工作流提出的受保护操作。"
+    "agent_use": "使用辅助调查与分析功能。",
+    "agent_manage": "配置智能服务商、工具与策略。",
+    "agent_approve": "审批智能工作流提出的受保护操作。"
   },
   "roles": {
     "title": "角色",

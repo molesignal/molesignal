@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! VRL runtime and ingestion executor.
+//! VRL runtime and intake executor.
 
 pub mod executor;
 pub mod runtime;

@@ -5,7 +5,7 @@
 //! 对尚无 RCA 的，调 LLM 产出根因摘要写回 `incident_rca`。生成逻辑复用
 //! [`crate::api::rca::RcaGenerator`]（与 HTTP 按需触发同源，不漂移）。
 //!
-//! 单点周期任务（与告警后台同属 alert_manager 角色，只起一份）。RCA 是 intelligence 能力 ——
+//! 单点周期任务（与告警后台同属 alert_manager 角色，只起一份）。RCA 是 agent 能力 ——
 //! 无对应 license feature 时整体跳过。成本护栏：每 tick 全局至多 `max_per_tick` 次生成；
 //! 无可用 provider 的 org 直接跳过；已有 RCA 的 incident 不重复生成。失败仅 warn、下个
 //! tick 自然重试（不落失败行）。
@@ -15,13 +15,13 @@ use std::{sync::Arc, time::Duration};
 use tokio::task::JoinHandle;
 
 use crate::{
+    agent::FEATURE,
     api::rca::{RcaGenerator, RcaOutputLocale},
     domain::{
         alerting::repositories::IncidentRepository,
         iam::{IamMembershipRepository, OrganizationRepository},
     },
     infra::persistence::repositories::user_preferences::UserPreferencesRepository,
-    intelligence::FEATURE,
     shared::{LicenseGate, Result, time::TimestampMicros},
 };
 
@@ -93,7 +93,7 @@ impl RcaSweeper {
         fields(otel.kind = "internal", molesignal.worker.name = "rca_sweeper")
     )]
     async fn sweep_once(&self) -> Result<()> {
-        // RCA 是 intelligence 能力：无 license feature 时整体跳过。
+        // RCA 是 agent 能力：无 license feature 时整体跳过。
         if !self.license.has_feature(FEATURE) {
             return Ok(());
         }

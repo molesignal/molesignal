@@ -179,7 +179,7 @@ fn trace_default_alerts(
     system: crate::api::state::TraceSystemLoadHealth,
 ) -> Vec<TraceDefaultAlertView> {
     let exporter_failure = pipeline
-        .self_ingest
+        .self_intake
         .iter()
         .chain(pipeline.external.iter())
         .any(|sink| sink.degraded && sink.failed_batches > 0);
@@ -189,7 +189,7 @@ fn trace_default_alerts(
             pipeline.candidate_queue_capacity,
         ) > 0.8
         || pipeline
-            .self_ingest
+            .self_intake
             .iter()
             .chain(pipeline.external.iter())
             .any(|sink| occupancy(sink.queue_depth, sink.queue_capacity) > 0.8)
@@ -208,7 +208,7 @@ fn trace_default_alerts(
         .saturating_add(pipeline.candidate_drops)
         .saturating_add(
             pipeline
-                .self_ingest
+                .self_intake
                 .iter()
                 .chain(pipeline.external.iter())
                 .map(|sink| sink.dropped_spans)
@@ -595,7 +595,7 @@ mod tests {
             candidate_queue_depth: 0,
             candidate_queue_capacity: 100,
             candidate_drops: 0,
-            self_ingest: None,
+            self_intake: None,
             external: Some(failed_sink),
         };
         let alerts = trace_default_alerts(
@@ -647,7 +647,7 @@ mod tests {
             candidate_queue_depth: 80,
             candidate_queue_capacity: 100,
             candidate_drops: 0,
-            self_ingest: None,
+            self_intake: None,
             external: None,
         };
         let alerts = trace_default_alerts(

@@ -13,7 +13,7 @@
   "profiles": "Profiles",
   "dashboards": "Dashboards",
   "alerts": "Alerts",
-  "intelligence": "Mole Intelligence",
+  "agent": "Mole Agent",
   "saved_views": "Saved views",
   "streams": "Streams",
   "pipelines": "Pipelines",

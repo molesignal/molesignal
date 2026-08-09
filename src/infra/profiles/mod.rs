@@ -3,7 +3,7 @@
 
 //! Continuous Profiling 的内部规范表示与编解码。
 //!
-//! 三种摄取来源——pprof / JFR 直传、Pyroscope 兼容 `/ingest`、OTLP Profiles
+//! 三种摄取来源——pprof / JFR 直传、Pyroscope 兼容 `/intake`、OTLP Profiles
 //! ——都先归一化到 [`NormalizedProfile`]（语义贴近 pprof，便于无损往返），再走
 //! 统一的双路落盘：规范 pprof + zstd 归档到 object store，元数据行进
 //! `StreamType::Profiles` 流。
@@ -21,7 +21,7 @@ use prost::Message;
 use serde_json::{Map, Value};
 
 use crate::{
-    domain::ingestion::RawEvent,
+    domain::intake::RawEvent,
     protocol::pprof::profiles as pb,
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };

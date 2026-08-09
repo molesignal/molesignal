@@ -7,7 +7,7 @@
 //! - `state.platform.license` 是 `CommunityLicense`
 //! - SSO 端点 → 403 "sso feature not licensed"
 //! - remote_clusters 端点 → 403 "federated_search feature not licensed"
-//! - Intelligence 路由不注册 → 404
+//! - Agent 路由不注册 → 404
 
 mod common;
 
@@ -81,17 +81,17 @@ async fn federated_query_returns_403_in_oss() {
 }
 
 #[tokio::test]
-async fn intelligence_endpoints_404_in_oss_build() {
+async fn agent_endpoints_404_in_oss_build() {
     if common::skip_unless_enabled() {
         return;
     }
     let s = common::TestServer::start().await;
     let (hk, hv) = s.auth_header();
-    // 当前架构：intelligence 路由永远编译，由 handler 内 `license.has_feature("intelligence")` 拦截。
-    // OSS CommunityLicense 触发 403；与 it_intelligence_fanout / oss_premium_routes_return_404 一致。
+    // 当前架构：agent 路由永远编译，由 handler 内 `license.has_feature("agent")` 拦截。
+    // OSS CommunityLicense 触发 403；与 it_agent_fanout / oss_premium_routes_return_404 一致。
     let resp = s
         .client
-        .get(format!("{}/api/v1/intelligence/stats", s.base_url))
+        .get(format!("{}/api/v1/agent/stats", s.base_url))
         .header(hk, &hv)
         .send()
         .await
@@ -99,7 +99,7 @@ async fn intelligence_endpoints_404_in_oss_build() {
     let code = resp.status().as_u16();
     assert!(
         code == 403 || code == 404,
-        "OSS intelligence route must be unregistered or license-gated, got {code}"
+        "OSS agent route must be unregistered or license-gated, got {code}"
     );
 }
 
@@ -113,8 +113,8 @@ async fn oss_premium_routes_return_404() {
     let s = common::TestServer::start().await;
     let (hk, hv) = s.auth_header();
     let routes = [
-        "/api/v1/intelligence/mcp",
-        "/api/v1/intelligence/chat",
+        "/api/v1/agent/mcp",
+        "/api/v1/agent/chat",
         "/api/v1/marketplace/subscriptions",
         "/api/v1/domains",
     ];

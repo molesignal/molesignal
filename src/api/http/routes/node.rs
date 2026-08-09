@@ -3,10 +3,10 @@
 
 //! 节点优雅退役（drain）HTTP（读取与修改权限分离；非免鉴权白名单）。
 //!
-//! - `POST /node/drain` → 触发退役：停接新写入（ingest 返 503），ingester 把 pending buffer
+//! - `POST /node/drain` → 触发退役：停接新写入（intake 返 503），intake 把 pending buffer
 //!   flush 干净后转 `drained`，compactor 停活。幂等（已 draining/drained 时 `newly_started=false`）。
 //! - `GET  /node/drain` → 查询退役状态。`phase=drained` 表示 pending 数据已全部落盘，可安全下线。
-//!   纯 querier 等无 ingester 角色的节点停在 `draining`（无待 flush 数据）即「可下线」。
+//!   纯 querier 等无 intake 角色的节点停在 `draining`（无待 flush 数据）即「可下线」。
 
 use axum::{Extension, Json, Router, extract::State, routing::post};
 use serde::Serialize;

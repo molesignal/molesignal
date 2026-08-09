@@ -4,12 +4,12 @@
 //! Server bootstrap lib 入口；`molesignal` 二进制和集成测试共用这里的
 //! [`build_state`] 与 role 启动函数。
 
+mod agent;
 mod alerting;
 #[path = "bootstrap.rs"]
 mod composition;
 mod core;
 mod iam;
-mod intelligence;
 mod license;
 pub mod llm_executor;
 mod platform;

@@ -297,7 +297,7 @@
     "loading": "Loading Mole Agent…"
   },
   "system_status": {
-    "healthy": "System healthy / Data ingestion healthy / Connected",
+    "healthy": "System healthy / Data intake healthy / Connected",
     "degraded": "Some services are degraded",
     "disconnected": "Connection error"
   },

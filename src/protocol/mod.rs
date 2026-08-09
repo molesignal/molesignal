@@ -4,7 +4,7 @@
 //! MoleSignal 协议绑定（Rust）。
 //!
 //! 源 `.proto` 文件位于项目根 `/proto/<pkg>/v1/*.proto`，每个 package 形如
-//! `cluster.v1` / `ingest.v1` / `query.v1`。Rust 代码通过 `make proto`
+//! `cluster.v1` / `intake.v1` / `query.v1`。Rust 代码通过 `make proto`
 //! 手动生成到 `src/protocol/`，生成产物随源码提交。
 //!
 //! 手动生成方式与 `match-engine-fabric` 保持一致：
@@ -23,11 +23,11 @@ pub mod cluster {
     }
 }
 
-pub mod ingest {
+pub mod intake {
     #[allow(clippy::all)]
     #[rustfmt::skip]
     pub mod v1 {
-        include!("ingest/v1/ingest.v1.rs");
+        include!("intake/v1/intake.v1.rs");
     }
 }
 

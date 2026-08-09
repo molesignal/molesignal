@@ -4,7 +4,7 @@
 //! gRPC server 装配入口。
 //!
 //! 当前挂载的 services：
-//! - `ingest.v1.IngestService`（5.x） — 已上线
+//! - `intake.v1.IntakeService`（5.x） — 已上线
 //! - `arrow_flight.FlightService`（9.x） — 已上线（do_get 实装，其余 RPC 返 Unimplemented）
 //! - `cluster.v1.NodeService`（11.x） — 已上线（Heartbeat / List）
 //!
@@ -14,7 +14,7 @@
 pub mod cluster_server;
 pub mod event_server;
 pub mod flight;
-pub mod ingest_server;
+pub mod intake_server;
 pub mod otlp_server;
 pub mod trace;
 
@@ -29,7 +29,7 @@ use crate::{
             cluster_server::ClusterGrpc,
             event_server::EventServiceGrpc,
             flight::{FlightGrpc, sql::server::FlightSqlGrpc},
-            ingest_server::IngestGrpc,
+            intake_server::IntakeGrpc,
         },
     },
     config::{FlightSqlSettings, GrpcSettings, OtlpGrpcSettings},
@@ -47,7 +47,7 @@ pub async fn serve_grpc(
     let addr: SocketAddr = format!("{}:{}", grpc.bind, grpc.port).parse()?;
     let max_recv = (grpc.max_message_size_mb as usize).saturating_mul(1024 * 1024);
 
-    let ingest = IngestGrpc::new(state.ingestion.clone())
+    let intake = IntakeGrpc::new(state.intake.clone())
         .with_self_telemetry_token(state.telemetry.self_telemetry_cluster_token.clone())
         .into_server()
         .max_decoding_message_size(max_recv);
@@ -75,7 +75,7 @@ pub async fn serve_grpc(
     tracing::info!(addr = %addr, "grpc server listening");
     Server::builder()
         .layer(trace::layer::GrpcTraceLayer)
-        .add_service(ingest)
+        .add_service(intake)
         .add_service(flight)
         .add_service(cluster)
         .add_service(trace_candidates)
@@ -87,9 +87,9 @@ pub async fn serve_grpc(
 
 /// 起对外**标准 OTLP gRPC** server（traces/logs/metrics/profiles 四 service）。
 ///
-/// 与 [`serve_grpc`]（内部可信网络：`ingest.v1` shard 协议 + NodeService）分端口 ——
+/// 与 [`serve_grpc`]（内部可信网络：`intake.v1` shard 协议 + NodeService）分端口 ——
 /// 本端口只挂 OTLP collector service，每个 `export` RPC 强制 Bearer 鉴权 + `StreamWrite`，
-/// 可暴露给用户网络，并由包含 HTTP 或 Ingester 能力的节点始终启动。
+/// 可暴露给用户网络，并由包含 HTTP 或 Intake 能力的节点始终启动。
 pub async fn serve_otlp_grpc(state: AppState, settings: &OtlpGrpcSettings) -> anyhow::Result<()> {
     use opentelemetry_proto::tonic::collector::{
         logs::v1::logs_service_server::LogsServiceServer,

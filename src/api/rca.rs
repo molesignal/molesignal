@@ -8,24 +8,22 @@
 //! - `POST /alerts/incidents/{id}/rca`（HTTP）按需手动触发。
 //!
 //! provider key 解密即用即弃，绝不落库/日志；provider/model/token/prompt_hash 一并写
-//! `incident_rca` 可审计。RCA 是 intelligence 能力，是否启用由调用方按 license feature 决定。
+//! `incident_rca` 可审计。RCA 是 agent 能力，是否启用由调用方按 license feature 决定。
 
 use std::sync::Arc;
 
 use serde_json::{Map, Value};
 
 use crate::{
+    agent::chat::{ChatMessage, CompletionRequest, MessageRole, Provider, adapter_from_parts},
     api::AppState,
     domain::alerting::{
         incident::{Incident, IncidentRca},
         repositories::IncidentRcaRepository,
     },
-    infra::persistence::repositories::intelligence::{
+    infra::persistence::repositories::agent::{
         model_providers::{ModelProvider, ModelProviderRepository},
         prompts::{AgentPromptRepository, prompt_hash, render_prompt},
-    },
-    intelligence::chat::{
-        ChatMessage, CompletionRequest, MessageRole, Provider, adapter_from_parts,
     },
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
@@ -116,22 +114,22 @@ impl Default for RcaGenConfig {
 
 /// RCA 生成器：持 provider/prompt/rca repos，封装"选 provider → 调 LLM → 写回"。
 pub struct RcaGenerator {
-    intelligence_model_providers: Arc<dyn ModelProviderRepository>,
-    intelligence_prompts: Arc<dyn AgentPromptRepository>,
+    agent_model_providers: Arc<dyn ModelProviderRepository>,
+    agent_prompts: Arc<dyn AgentPromptRepository>,
     incident_rca: Arc<dyn IncidentRcaRepository>,
     cfg: RcaGenConfig,
 }
 
 impl RcaGenerator {
     pub fn new(
-        intelligence_model_providers: Arc<dyn ModelProviderRepository>,
-        intelligence_prompts: Arc<dyn AgentPromptRepository>,
+        agent_model_providers: Arc<dyn ModelProviderRepository>,
+        agent_prompts: Arc<dyn AgentPromptRepository>,
         incident_rca: Arc<dyn IncidentRcaRepository>,
         cfg: RcaGenConfig,
     ) -> Self {
         Self {
-            intelligence_model_providers,
-            intelligence_prompts,
+            agent_model_providers,
+            agent_prompts,
             incident_rca,
             cfg,
         }
@@ -140,16 +138,16 @@ impl RcaGenerator {
     /// 从 [`AppState`] 装配（HTTP 按需触发用）。
     pub fn from_state(state: &AppState) -> Self {
         Self::new(
-            state.intelligence.model_providers.clone(),
-            state.intelligence.prompts.clone(),
-            state.intelligence.incident_rca.clone(),
+            state.agent.model_providers.clone(),
+            state.agent.prompts.clone(),
+            state.agent.incident_rca.clone(),
             RcaGenConfig::default(),
         )
     }
 
     /// 列出并选 org 可用 provider（enabled + key_set，取最近更新的一个）。
     pub async fn pick_provider_for(&self, org_id: &Id) -> Result<Option<ModelProvider>> {
-        let providers = self.intelligence_model_providers.list(org_id).await?;
+        let providers = self.agent_model_providers.list(org_id).await?;
         Ok(pick_provider(&providers))
     }
 
@@ -213,7 +211,7 @@ impl RcaGenerator {
     ) -> Result<IncidentRca> {
         // 解密 key → 构造 adapter（明文即用即弃，绝不落库/日志）。
         let key = self
-            .intelligence_model_providers
+            .agent_model_providers
             .get_plaintext_key(org_id, &provider.id)
             .await?
             .ok_or_else(|| Error::invalid("provider key not set"))?;
@@ -225,7 +223,7 @@ impl RcaGenerator {
 
         // 解析 root_cause prompt（user→org→builtin）作系统消息；哨兵 user 落 org/builtin 默认。
         let tmpl = self
-            .intelligence_prompts
+            .agent_prompts
             .resolve(org_id, &system_user_id(), RCA_PURPOSE)
             .await?;
         let rendered = render_prompt(&tmpl.body, &render_vars(incident, locale));
@@ -240,7 +238,7 @@ impl RcaGenerator {
             model: provider.default_model.clone(),
             messages,
             tools: None,
-            tool_choice: crate::intelligence::chat::ToolChoice::None,
+            tool_choice: crate::agent::chat::ToolChoice::None,
             max_tokens: provider
                 .max_tokens
                 .map(|m| m as i32)

@@ -17,7 +17,7 @@ use object_store::{ObjectStore, ObjectStoreExt, PutPayload, path::Path};
 use tokio::task::JoinHandle;
 
 use crate::{
-    bootstrap::roles::ingester::IngesterWorker,
+    bootstrap::roles::intake::IntakeWorker,
     shared::{Error, Result, health::Probe},
 }; // unused import to keep file compile
 
@@ -103,5 +103,5 @@ pub fn spawn_probe(
 
 // 避免 unused import 警告
 const _: fn() = || {
-    let _ = std::any::TypeId::of::<IngesterWorker>;
+    let _ = std::any::TypeId::of::<IntakeWorker>;
 };

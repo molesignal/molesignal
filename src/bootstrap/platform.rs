@@ -84,7 +84,7 @@ impl PlatformRuntime {
         let _connector_runner = core.roles.run_alert_manager.then(|| {
             crate::infra::connectors::ConnectorRunner::new(
                 connectors.clone(),
-                storage.ingestion.clone(),
+                storage.intake.clone(),
                 30,
             )
             .spawn()

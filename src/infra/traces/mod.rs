@@ -5,7 +5,7 @@
 //!
 //! - [`service_graph::ServiceGraphAggregator`]：DashMap 分钟桶聚合器，按
 //!   `(org, client, server, bucket_minute)` 累计 request_count / error_count /
-//!   p50/p95/p99 us；满桶后由 ingester flush 触发 [`flush_one`] 落 DB。
+//!   p50/p95/p99 us；满桶后由 intake flush 触发 [`flush_one`] 落 DB。
 //! - [`service_graph::ServiceGraphRepository`]：service_graph_edges 表的 trait + Pg 实装。
 
 pub mod service_graph;

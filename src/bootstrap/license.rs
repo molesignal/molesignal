@@ -41,7 +41,7 @@ impl LicenseRuntime {
 /// Dev-only license：通过 `MS_DEV_UNLOCK_FEATURES` 在本地无签名 license 时放开 feature gate。
 ///
 /// 值约定：`1` / `all` / `*` 放开**全部** feature；否则按逗号分隔的 feature 名放开
-/// （如 `intelligence` 或 `intelligence,sso`）。**生产环境请勿设置此 env。**
+/// （如 `agent` 或 `agent,sso`）。**生产环境请勿设置此 env。**
 struct DevLicense {
     all: bool,
     features: Vec<String>,
@@ -52,7 +52,7 @@ impl LicenseGate for DevLicense {
         self.all || self.features.iter().any(|feature| feature == name)
     }
 
-    fn add_ingest_bytes(&self, _bytes: u64) -> bool {
+    fn add_intake_bytes(&self, _bytes: u64) -> bool {
         true
     }
 

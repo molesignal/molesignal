@@ -289,7 +289,7 @@ fn role_name(v: i32) -> String {
     use crate::protocol::cluster::v1::NodeRole;
     match NodeRole::try_from(v).unwrap_or(NodeRole::Unspecified) {
         NodeRole::Router => "router",
-        NodeRole::Ingester => "ingester",
+        NodeRole::Intake => "intake",
         NodeRole::Querier => "querier",
         NodeRole::Compactor => "compactor",
         NodeRole::AlertManager => "alert_manager",
@@ -307,7 +307,7 @@ async fn list_nodes(
 ) -> Result<Json<Vec<RemoteNodeResp>>> {
     use crate::{
         infra::{cluster::grpc_channel, secret::resolve_secret_ref},
-        protocol::cluster::v1::{ListNodesRequest, node_service_client::NodeServiceClient},
+        protocol::cluster::v1::{NodeServiceListRequest, node_service_client::NodeServiceClient},
     };
 
     require_federation_license(&state)?;
@@ -315,7 +315,7 @@ async fn list_nodes(
     let channel = grpc_channel::connect(&c.advertise_addr, c.tls_verify)
         .await
         .map_err(|e| Error::internal(format!("connect remote cluster: {e}")))?;
-    let mut req = tonic::Request::new(ListNodesRequest { roles: vec![] });
+    let mut req = tonic::Request::new(NodeServiceListRequest { roles: vec![] });
     // token best-effort（NodeService 在可信端口不强校验；解析失败则不带 bearer）。
     if let Ok(token) = resolve_secret_ref(
         &c.token_secret_ref,

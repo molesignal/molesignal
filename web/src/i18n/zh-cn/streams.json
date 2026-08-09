@@ -261,7 +261,7 @@
       "loading": "正在检查使用位置…",
       "write_source": "写入来源",
       "write_source_hint": "接收该 stream name 的数据接入端点",
-      "ingest_endpoint": "数据接入端点",
+      "intake_endpoint": "数据接入端点",
       "pipelines": "关联流水线",
       "pipelines_hint": "以该数据流作为来源或目标",
       "saved_queries": "保存查询",

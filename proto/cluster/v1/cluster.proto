@@ -3,17 +3,17 @@ syntax = "proto3";
 package cluster.v1;
 
 // 集群节点心跳与发现。
-// 节点（ingester / querier / compactor / alert_manager）周期 Heartbeat，
+// 节点（intake / querier / compactor / alert_manager）周期 Heartbeat，
 // router 调 List 取健康节点表。
 service NodeService {
   rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
-  rpc List(ListNodesRequest) returns (ListNodesResponse);
+  rpc List(NodeServiceListRequest) returns (NodeServiceListResponse);
 }
 
 // 集群内部 CanonicalSpan 候选传输。producer 按 trace_id rendezvous 选定一个
 // sampler owner 后调用；服务端必须校验集群 bearer，不能暴露为公共 OTLP 接口。
 service TraceCandidateService {
-  rpc Submit(SubmitTraceCandidateRequest) returns (SubmitTraceCandidateResponse);
+  rpc Submit(TraceCandidateServiceSubmitRequest) returns (TraceCandidateServiceSubmitResponse);
 }
 
 enum TraceForceKeep {
@@ -29,7 +29,7 @@ enum TraceCandidateDisposition {
   TRACE_CANDIDATE_DISPOSITION_STOPPED = 3;
 }
 
-message SubmitTraceCandidateRequest {
+message TraceCandidateServiceSubmitRequest {
   string org_id = 1;
   // system_self_trace=true 时 stream 必须为空，owner 将其写入 _sys/_molesignal；
   // 否则 stream 是租户 Trace stream。
@@ -42,7 +42,7 @@ message SubmitTraceCandidateRequest {
   int64 produced_at_micros = 7;
 }
 
-message SubmitTraceCandidateResponse {
+message TraceCandidateServiceSubmitResponse {
   TraceCandidateDisposition disposition = 1;
 }
 
@@ -50,7 +50,7 @@ enum NodeRole {
   NODE_ROLE_UNSPECIFIED = 0;
   NODE_ROLE_STANDALONE = 1;
   NODE_ROLE_ROUTER = 2;
-  NODE_ROLE_INGESTER = 3;
+  NODE_ROLE_INTAKE = 3;
   NODE_ROLE_QUERIER = 4;
   NODE_ROLE_COMPACTOR = 5;
   NODE_ROLE_ALERT_MANAGER = 6;
@@ -72,12 +72,12 @@ message HeartbeatResponse {
   int64 server_ts_micros = 1;
 }
 
-message ListNodesRequest {
+message NodeServiceListRequest {
   // 可选过滤：只列指定角色的节点。空表示返回全部。
   repeated NodeRole roles = 1;
 }
 
-message ListNodesResponse {
+message NodeServiceListResponse {
   repeated NodeInfo nodes = 1;
 }
 
@@ -91,7 +91,7 @@ service EventService {
   rpc CancelQuery(CancelQueryRequest) returns (CancelQueryResponse);
   // gossip 节点发现：与已知 peer 交换"已知集群"拓扑（仅 id/name/addr，不含 token/org_map）。
   // 收到未知集群 → 入库为 discovered=true、enabled=false（不自动信任，待 admin 启用）。
-  rpc GossipClusters(GossipRequest) returns (GossipResponse);
+  rpc GossipClusters(EventServiceGossipClustersRequest) returns (EventServiceGossipClustersResponse);
 }
 
 // 集群引用（gossip 仅传播这三项；token / org 映射绝不出网）。
@@ -101,11 +101,11 @@ message ClusterRef {
   string advertise_addr = 3;
 }
 
-message GossipRequest {
+message EventServiceGossipClustersRequest {
   repeated ClusterRef known = 1;
 }
 
-message GossipResponse {
+message EventServiceGossipClustersResponse {
   repeated ClusterRef known = 1;
 }
 

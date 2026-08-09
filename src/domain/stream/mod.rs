@@ -23,7 +23,7 @@ pub fn is_reserved_system_stream(name: &str) -> bool {
     name == MOLESIGNAL_SYSTEM_STREAM
 }
 
-/// Validate the path-safe stream identifier shared by management and every ingest protocol.
+/// Validate the path-safe stream identifier shared by management and every intake protocol.
 pub fn validate_stream_name(name: &str) -> Result<()> {
     if name.is_empty() || name.len() > 255 {
         return Err(Error::invalid("stream name must be 1..255 characters"));
@@ -54,7 +54,7 @@ pub enum StreamType {
     Profiles,
     /// extend table（静态 KV）。
     /// 不参与 parquet 落盘 + 不能作为 pipeline target；
-    /// ingester 把行内容直接 fan-out 到 [`crate::domain::stream`] 外的内存表（infra: `ExtendTable`）。
+    /// intake 把行内容直接 fan-out 到 [`crate::domain::stream`] 外的内存表（infra: `ExtendTable`）。
     Extend,
 }
 
@@ -210,7 +210,7 @@ pub struct StreamSettings {
     pub store_original_data: bool,
     #[serde(default = "default_true")]
     pub enable_distinct_values: bool,
-    /// 是否允许被查询。`false` 时该 stream 照常 ingest 与保留，但查询/搜索端拒绝访问，
+    /// 是否允许被查询。`false` 时该 stream 照常 intake 与保留，但查询/搜索端拒绝访问，
     /// 并从查询选择器中隐藏。用于「源 stream 仅作入口、数据经 pipeline 分流到下游
     /// stream」的场景：源 stream 不应被直接查询（避免重复计数 / 暴露未分流的原始数据）。
     /// 默认 `true`（保持既有 stream 可查询）。
@@ -247,7 +247,7 @@ fn default_true() -> bool {
 pub trait StreamRepository: Send + Sync {
     async fn create(&self, def: StreamDefinition) -> Result<StreamDefinition>;
     async fn update_schema(&self, id: &Id, schema: Schema) -> Result<()>;
-    /// 可信内部 ingest 的 schema 演化入口。公共 API 不得调用。
+    /// 可信内部 intake 的 schema 演化入口。公共 API 不得调用。
     async fn update_schema_internal(&self, id: &Id, schema: Schema) -> Result<()> {
         self.update_schema(id, schema).await
     }

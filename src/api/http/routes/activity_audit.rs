@@ -19,7 +19,7 @@ use crate::{
 /// 审计 payload 大小软上限（字节）；超限字段（如完整 prompt body）应替换为 hash/摘要。
 pub const AUDIT_PAYLOAD_LIMIT: usize = 8 * 1024;
 
-/// best-effort 写一条 Intelligence lifecycle 审计事件；失败仅 warn，不阻塞主流程。
+/// best-effort 写一条 Agent lifecycle 审计事件；失败仅 warn，不阻塞主流程。
 pub async fn record(
     state: &AppState,
     ctx: &IamContext,
@@ -42,7 +42,7 @@ pub async fn record(
         ts: TimestampMicros::now(),
     };
     if let Err(err) = state.iam.audit_events.record(e).await {
-        tracing::warn!(action, target_id, error = %err, "failed to record intelligence audit event");
+        tracing::warn!(action, target_id, error = %err, "failed to record agent audit event");
     }
 }
 

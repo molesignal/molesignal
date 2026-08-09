@@ -127,7 +127,7 @@ pub fn canonical_streaming_trace() -> Vec<CanonicalSpan> {
 }
 
 pub fn canonical_error_trace() -> Vec<CanonicalSpan> {
-    let mut span = base(9, 1, "POST /api/v1/ingest", 12_000_000);
+    let mut span = base(9, 1, "POST /api/v1/intake", 12_000_000);
     span.status_code = "ERROR".into();
     span.status_message = Some("storage unavailable".into());
     span.attributes

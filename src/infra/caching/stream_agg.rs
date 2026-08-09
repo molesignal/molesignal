@@ -8,7 +8,7 @@
 //! 缓存键 = `blake3(org + 函数 + 选择器 + step + window)`（指纹），值 = 该指纹下「已封存
 //! 桶集合」[`SealedSeries`]。时间窗前移刷新时，与上次重叠的稳定桶直接命中，仅活跃区重算。
 //!
-//! 「已封存」= 窗口右端早于水位（`min(now - safe_lookback, ingest 水位)`）。封存桶值不再
+//! 「已封存」= 窗口右端早于水位（`min(now - safe_lookback, intake 水位)`）。封存桶值不再
 //! 变化，可跨刷新复用；近段（活跃）桶每次重算、不入缓存，以天然规避多数晚到数据。
 //!
 //! 容量上限按「指纹条目数」计（moka `max_capacity`）；单条目内再以 `max_series_per_query`

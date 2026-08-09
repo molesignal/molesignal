@@ -95,7 +95,7 @@ pub(super) async fn run(
     ctx.register_table(TableReference::bare(RAW_TABLE), Arc::new(raw_table))
         .map_err(|error| Error::internal(format!("register trace Span table: {error}")))?;
 
-    let summary_definition = crate::infra::ingester::physical_schema::project(
+    let summary_definition = crate::infra::intake::physical_schema::project(
         definition,
         PhysicalDatasetKind::TraceSummary,
     );

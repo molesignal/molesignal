@@ -15,7 +15,7 @@ src/
   bootstrap/
   protocol/
   config/
-  intelligence/
+  agent/
   license/
   cloud_marketplace/
   domain_management/
@@ -48,7 +48,7 @@ workspace member 只有：
 | `src/protocol` | buf 生成的 prost/tonic 类型 | 生成文件，不手工维护 |
 | `src/bootstrap` | 进程角色、worker 生命周期、依赖装配 | `bootstrap.rs` 是总 composition root |
 
-顶层的 `intelligence`、`license`、`cloud_marketplace`、`domain_management`、`model_pricing`、`report_renderer` 是已合并进主 crate 的产品模块，不再是私有或独立商业 crate。
+顶层的 `agent`、`license`、`cloud_marketplace`、`domain_management`、`model_pricing`、`report_renderer` 是已合并进主 crate 的产品模块，不再是私有或独立商业 crate。
 
 ## Repository 与装配
 
@@ -58,7 +58,7 @@ workspace member 只有：
 - service/use case 位于 `src/app/`。
 - axum/tonic 入口位于 `src/api/http/` 与 `src/api/grpc/`。
 - `src/bootstrap/bootstrap.rs` 只保留 `build_state` 总编排；repository、service 与 worker
-  按功能在 `src/bootstrap/{core,storage,iam,intelligence,tracing,...}.rs` 实例化。
+  按功能在 `src/bootstrap/{core,storage,iam,agent,tracing,...}.rs` 实例化。
 - 后台 loop 放在 `src/bootstrap/roles/` 或 `src/bootstrap/workers/`，由 bootstrap 管理生命周期。
 
 ## Protocol

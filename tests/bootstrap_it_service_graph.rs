@@ -3,7 +3,7 @@
 
 //! service_graph 端到端冒烟。
 //!
-//! happy: ingest 一批含 client/server 字段的 trace → wait_until 边出现 →
+//! happy: intake 一批含 client/server 字段的 trace → wait_until 边出现 →
 //! GET `/api/v1/traces/service_graph` 返非空 edges。
 //! sad: 时间窗错位 → 200 + 空 edges（不算 5xx）。
 
@@ -12,7 +12,7 @@ mod common;
 use serde_json::Value;
 
 #[tokio::test]
-async fn service_graph_edges_appear_after_ingest() {
+async fn service_graph_edges_appear_after_intake() {
     if common::skip_unless_enabled() {
         return;
     }

@@ -5,7 +5,7 @@
 //!
 //! 按 DDD 划分为以下限界上下文，每个上下文都是一个独立子模块：
 //!
-//! - [`ingestion`]  采集上下文：日志/指标/Trace 的写入领域模型
+//! - [`intake`]  采集上下文：日志/指标/Trace 的写入领域模型
 //! - [`query`]      查询上下文：查询请求、结果、查询计划元数据
 //! - [`alerting`]   告警上下文：告警规则、事件、排班、升级策略
 //! - [`dashboard`]  仪表盘上下文：MoleSignal 原生 Dashboard 模型
@@ -23,7 +23,7 @@ pub mod dashboard;
 pub mod federation;
 pub mod function;
 pub mod iam;
-pub mod ingestion;
+pub mod intake;
 pub mod license;
 pub mod masking;
 pub mod metrics;

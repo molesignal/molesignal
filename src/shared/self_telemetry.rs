@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! tracing callback 与异步 self-ingest worker 之间的无阻塞桥。
+//! tracing callback 与异步 self-intake worker 之间的无阻塞桥。
 
 use std::{
     cell::Cell,
@@ -27,7 +27,7 @@ use tracing_subscriber::{Layer, layer::Context, registry::LookupSpan};
 
 use crate::{
     domain::{
-        ingestion::RawEvent,
+        intake::RawEvent,
         metrics::{METRIC_KIND_FIELD, METRIC_NAME_FIELD},
     },
     shared::{
@@ -118,6 +118,16 @@ impl ResourceIdentity {
     }
 
     pub fn enrich(&self, fields: &mut Map<String, Value>) {
+        self.enrich_fields(fields, true);
+    }
+
+    /// Metrics keep node/role dimensions but omit the process-scoped instance id so a restart
+    /// does not create a new series for every metric family.
+    pub fn enrich_metric(&self, fields: &mut Map<String, Value>) {
+        self.enrich_fields(fields, false);
+    }
+
+    fn enrich_fields(&self, fields: &mut Map<String, Value>, include_instance_id: bool) {
         fields.insert(
             "service.namespace".into(),
             Value::String("molesignal".into()),
@@ -134,10 +144,12 @@ impl ResourceIdentity {
             "deployment.environment.name".into(),
             Value::String(self.deployment_environment.clone()),
         );
-        fields.insert(
-            "service.instance.id".into(),
-            Value::String(self.service_instance_id.clone()),
-        );
+        if include_instance_id {
+            fields.insert(
+                "service.instance.id".into(),
+                Value::String(self.service_instance_id.clone()),
+            );
+        }
         fields.insert(
             "service.role".into(),
             Value::String(self.service_role.clone()),
@@ -314,12 +326,12 @@ fn health() -> &'static SelfTelemetryHealth {
         ),
         dropped: register_int_counter_vec(
             "self_telemetry_dropped_total",
-            "Self telemetry records dropped before durable ingestion.",
+            "Self telemetry records dropped before durable intake.",
             &["signal", "reason"],
         ),
         batches: register_int_counter_vec(
             "self_telemetry_batches_total",
-            "Self telemetry ingest batch attempts by outcome.",
+            "Self telemetry intake batch attempts by outcome.",
             &["signal", "outcome"],
         ),
         retries: register_int_counter_vec(
@@ -457,7 +469,7 @@ fn normalize_execution_role(role: &str) -> Option<&'static str> {
     match role.trim().to_ascii_lowercase().replace('-', "_").as_str() {
         "router" => Some("router"),
         "querier" => Some("querier"),
-        "ingester" => Some("ingester"),
+        "intake" => Some("intake"),
         "compactor" => Some("compactor"),
         "alert_manager" => Some("alert_manager"),
         "standalone" => Some("standalone"),
@@ -483,13 +495,13 @@ fn classify_execution_role(name: &str, target: &str) -> Option<&'static str> {
         || name.starts_with("federation.")
     {
         Some("querier")
-    } else if target.contains("ingest")
+    } else if target.contains("intake")
         || target.contains("::wal")
-        || name.starts_with("ingest.")
+        || name.starts_with("intake.")
         || name.starts_with("wal.")
         || name.starts_with("parquet.")
     {
-        Some("ingester")
+        Some("intake")
     } else if target.contains("api::http") || name == "http.server" {
         Some("router")
     } else {
@@ -798,7 +810,7 @@ pub fn metric_samples_to_events(
             for (key, value) in sample.labels {
                 fields.insert(key, Value::String(value));
             }
-            resource.enrich(&mut fields);
+            resource.enrich_metric(&mut fields);
             RawEvent { timestamp, fields }
         })
         .collect()
@@ -900,10 +912,10 @@ mod tests {
                 "object_store.operation",
                 "molesignal::infra::storage",
                 &Map::new(),
-                Some("ingester"),
+                Some("intake"),
                 "standalone"
             ),
-            "ingester"
+            "intake"
         );
     }
 
@@ -949,8 +961,8 @@ mod tests {
     }
 
     #[test]
-    fn metric_conversion_includes_resource_identity() {
-        let resource = ResourceIdentity::new("molesignal", "1", "test", "ingester", "node-1");
+    fn metric_conversion_omits_process_instance_dimension() {
+        let resource = ResourceIdentity::new("molesignal", "1", "test", "intake", "node-1");
         let events = metric_samples_to_events(
             [crate::shared::metrics::MetricSample {
                 metric_name: "requests_total".into(),
@@ -964,6 +976,8 @@ mod tests {
         assert_eq!(events[0].fields["service.name"], "molesignal");
         assert_eq!(events[0].fields["deployment.environment.name"], "test");
         assert_eq!(events[0].fields["telemetry.sdk.language"], "rust");
+        assert_eq!(events[0].fields["node.id"], "node-1");
         assert_eq!(events[0].fields["method"], "GET");
+        assert!(!events[0].fields.contains_key("service.instance.id"));
     }
 }

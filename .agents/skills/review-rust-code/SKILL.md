@@ -30,7 +30,7 @@ description: Review MoleSignal Rust diffs, pull requests, or working-tree change
 - 租户：`org_id` / `organization_id` 从入口贯穿 SQL、缓存、对象路径和事件。
 - License：商业能力在入口或 worker 周期边界调用 `LicenseGate::has_feature`。
 - Async：不持有同步锁跨 `.await`，不在热路径引入阻塞 IO 或无界并发。
-- 性能：ingest/query 热路径避免逐条 `format!`、JSON 序列化、大对象 clone 或高频日志。
+- 性能：intake/query 热路径避免逐条 `format!`、JSON 序列化、大对象 clone 或高频日志。
 - 可观测性：使用结构化 `tracing`，不记录 token、密钥、签名包或敏感原文。
 - 时间：内部统一微秒，外部协议单位在 `api` 边界转换。
 - 产物：proto 生成结果、migration 注册、SPDX 头和必要测试是否同步。

@@ -11,9 +11,9 @@ mod enabled {
     use std::{fs, path::Path};
 
     use molesignal::{
-        api::grpc::ingest_server::IngestGrpc,
+        api::grpc::intake_server::IntakeGrpc,
         domain::{
-            ingestion::RawEvent,
+            intake::RawEvent,
             stream::{MOLESIGNAL_SYSTEM_STREAM, StreamType},
         },
         shared::{metrics::register_int_counter, time::TimestampMicros},
@@ -157,7 +157,7 @@ mod enabled {
         let response = server
             .client
             .post(format!(
-                "{}/api/v1/ingest/logs/{}",
+                "{}/api/v1/intake/logs/{}",
                 server.base_url, MOLESIGNAL_SYSTEM_STREAM
             ))
             .header(auth().0, auth().1)
@@ -165,7 +165,7 @@ mod enabled {
             .send()
             .await
             .unwrap();
-        assert_eq!(response.status(), 403, "native ingest must be forbidden");
+        assert_eq!(response.status(), 403, "native intake must be forbidden");
 
         let record = LogRecord {
             time_unix_nano: TimestampMicros::now().0 as u64 * 1_000,
@@ -253,16 +253,16 @@ mod enabled {
             assert_eq!(
                 response.status(),
                 403,
-                "compatibility ingest {path} must be forbidden"
+                "compatibility intake {path} must be forbidden"
             );
         }
 
-        use molesignal::protocol::ingest::v1::{
+        use molesignal::protocol::intake::v1::{
             PushRequest, StreamType as ProtoStreamType,
-            ingest_service_server::IngestService as IngestRpc,
+            intake_service_server::IntakeService as IntakeRpc,
         };
-        let grpc_error = IngestRpc::push(
-            &IngestGrpc::new(server.state.ingestion.clone()),
+        let grpc_error = IntakeRpc::push(
+            &IntakeGrpc::new(server.state.intake.clone()),
             Request::new(PushRequest {
                 batch_id: String::new(),
                 org_id: server.root_org_id.0.clone(),
@@ -388,7 +388,7 @@ mod enabled {
         drop(span);
         register_int_counter(
             "self_telemetry_integration_counter",
-            "Integration-test metric for self ingestion.",
+            "Integration-test metric for self intake.",
         )
         .inc();
 

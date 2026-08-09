@@ -40,7 +40,7 @@ pub fn spawn_alert_manager_loops(
         let evaluator = evaluator.clone();
         tokio::spawn(async move {
             let mut ticker = tokio::time::interval(eval_interval);
-            ticker.tick().await; // skip 首次（与 ingester/compactor 一致）
+            ticker.tick().await; // skip 首次（与 intake/compactor 一致）
             loop {
                 ticker.tick().await;
                 if let Err(e) = evaluator.tick(TimestampMicros::now()).await {

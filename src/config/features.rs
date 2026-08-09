@@ -2,7 +2,7 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 //! 可选功能与集成：`[functions]`（VRL/JS/LLM 运行时）、`[mmdb]`（GeoIP）、
-//! `[scheduled_reports]`（headless 渲染）、`[intelligence]`（AI chat 默认配置）。
+//! `[scheduled_reports]`（headless 渲染）、`[agent]`（AI chat 默认配置）。
 
 use serde::{Deserialize, Serialize};
 
@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 pub struct FunctionsSettings {
     /// LLM 评估节点开关。默认 false：`language = llm` 的 pipeline 步骤会被拒
     /// （`llm eval runtime disabled`）。开启后，每条命中事件都会触发一次模型调用 ——
-    /// **成本与延迟随 ingest 量线性放大**，请仅在低吞吐流上启用，并先配好 org 的 AI provider。
+    /// **成本与延迟随 intake 量线性放大**，请仅在低吞吐流上启用，并先配好 org 的 AI provider。
     #[serde(default)]
     pub llm_eval_enabled: bool,
 }
@@ -113,20 +113,20 @@ impl RendererSettings {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct IntelligenceSettings {
+pub struct AgentSettings {
     /// session.provider 为空时的 fallback；未来可用，当前仅文档化。
-    #[serde(default = "default_intelligence_provider")]
+    #[serde(default = "default_agent_provider")]
     pub default_provider: String,
 }
 
-fn default_intelligence_provider() -> String {
+fn default_agent_provider() -> String {
     "openai".into()
 }
 
-impl Default for IntelligenceSettings {
+impl Default for AgentSettings {
     fn default() -> Self {
         Self {
-            default_provider: default_intelligence_provider(),
+            default_provider: default_agent_provider(),
         }
     }
 }

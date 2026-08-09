@@ -80,7 +80,7 @@ fn metrics() -> &'static TraceMetrics {
 
 fn bounded_stage(value: &'static str) -> &'static str {
     match value {
-        "generated" | "candidate" | "routing" | "sampler" | "self_ingest" | "external" => value,
+        "generated" | "candidate" | "routing" | "sampler" | "self_intake" | "external" => value,
         _ => "unknown",
     }
 }
@@ -95,7 +95,7 @@ fn bounded_result(value: &'static str) -> &'static str {
 
 fn bounded_sink(value: &str) -> &'static str {
     match value {
-        "self_ingest" | "self-ingest" => "self_ingest",
+        "self_intake" | "self-intake" => "self_intake",
         "external" | "external_otlp" | "otlp" => "external",
         "routing" => "routing",
         _ => "unknown",
@@ -104,7 +104,7 @@ fn bounded_sink(value: &str) -> &'static str {
 
 fn bounded_queue(value: &'static str) -> &'static str {
     match value {
-        "routing" | "candidate" | "self_ingest" | "external" => value,
+        "routing" | "candidate" | "self_intake" | "external" => value,
         _ => "unknown",
     }
 }
@@ -151,8 +151,8 @@ pub fn record_export(sink: &str, result: &'static str, span_count: u64, latency:
         .with_label_values(&["export", sink])
         .observe(latency.as_secs_f64());
     record_spans(
-        if sink == "self_ingest" {
-            "self_ingest"
+        if sink == "self_intake" {
+            "self_intake"
         } else if sink == "routing" {
             "routing"
         } else {

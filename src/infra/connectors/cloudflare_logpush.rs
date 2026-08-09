@@ -9,7 +9,7 @@
 use serde_json::{Map, Value};
 
 use crate::{
-    domain::ingestion::RawEvent,
+    domain::intake::RawEvent,
     shared::{Result, time::TimestampMicros},
 };
 

@@ -28,8 +28,8 @@ pub mod health;
 pub mod home;
 pub mod iam;
 pub mod incident_groups;
-pub mod ingest;
 pub mod instance;
+pub mod intake;
 pub mod invitations;
 pub mod jwt_secrets;
 pub mod license;
@@ -62,8 +62,8 @@ pub mod traces;
 pub mod web;
 
 // 付费版路由集合。
+pub mod agent;
 pub mod domains;
-pub mod intelligence;
 pub mod marketplace;
 
 pub fn api_v1(state: AppState) -> Router<AppState> {
@@ -77,7 +77,7 @@ pub fn api_v1(state: AppState) -> Router<AppState> {
         .merge(invitations::routes())
         .merge(email_domains::routes())
         .merge(billing::routes())
-        .merge(ingest::routes())
+        .merge(intake::routes())
         .merge(onboarding::routes())
         .merge(query::routes())
         .merge(dashboards::routes())
@@ -124,7 +124,7 @@ pub fn api_v1(state: AppState) -> Router<AppState> {
         .merge(web::routes());
 
     let r = r
-        .merge(intelligence::routes())
+        .merge(agent::routes())
         .merge(marketplace::routes())
         .merge(domains::routes());
 

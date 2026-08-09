@@ -124,7 +124,7 @@ function queryParams(params: Record<string, string | number | undefined>): Recor
   return out;
 }
 
-/** The profiles stream is created on first ingest (schema-on-write); before
+/** The profiles stream is created on first intake (schema-on-write); before
  *  that the query planner returns "stream not found". Empty instances should
  *  render the onboarding empty state, not an error — so callers treat that one
  *  message as "no data yet". */

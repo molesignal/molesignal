@@ -166,7 +166,7 @@ async fn put_settings(
             api_key: req.api_key,
         })
         .await?;
-    // 刷新热路径缓存：ingest gate 读这个 atomic 决定是否查订阅态。
+    // 刷新热路径缓存：intake gate 读这个 atomic 决定是否查订阅态。
     state
         .platform
         .billing_enabled
@@ -244,7 +244,7 @@ async fn stripe_webhook(
         updated_at: now,
     };
     let saved = state.platform.marketplace.upsert_by_external(row).await?;
-    // 订阅状态变了：撤销该 org 的门禁缓存，让 ingest gate 立刻看到新状态（不等 TTL）。
+    // 订阅状态变了：撤销该 org 的门禁缓存，让 intake gate 立刻看到新状态（不等 TTL）。
     state
         .platform
         .billing_state_cache

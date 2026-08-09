@@ -4,7 +4,7 @@
 //! Per-org 字段加密 DEK 解析 + 缓存（schema 驱动的字段级加密用）。
 //!
 //! - **写入**：[`FieldKeyService::current`] 返回该 org 的当前字段 DEK（首次自动 provision
-//!   一把保留名 [`FIELD_DEFAULT_KEY_NAME`] 的 DEK）；ingester 用它加密 `encrypted` 字段。
+//!   一把保留名 [`FIELD_DEFAULT_KEY_NAME`] 的 DEK）；intake 用它加密 `encrypted` 字段。
 //! - **查询**：[`FieldKeyService::decrypt_map`] 返回该 org 全部 DEK 的 `id→raw` 映射（含历史
 //!   版本 + VRL 命名 key），供 `decrypt(col)` UDF 还原。
 //!

@@ -13,7 +13,7 @@ use serde_json::Value;
 
 use crate::{
     api::{AppState, http::middleware::ProtectedResource},
-    app::{iam::IamContext, ingestion::FunctionExecutor},
+    app::{iam::IamContext, intake::FunctionExecutor},
     domain::{
         function::{Function, FunctionLanguage},
         iam::{permission, resource_permission},

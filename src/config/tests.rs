@@ -17,7 +17,7 @@ fn example_config_file_parses_all_sections() {
     assert_eq!(s.http.tls.port, 443);
     assert_eq!(s.http.tls.key_storage_dir, "/var/lib/molesignal/acme");
     assert_eq!(s.store.object.retry.max_attempts, 4);
-    assert_eq!(s.intelligence.default_provider, "openai");
+    assert_eq!(s.agent.default_provider, "openai");
     assert_eq!(s.search_jobs.workers, 2);
     assert_eq!(s.querier.auto_async_threshold_rows, 50_000_000);
     assert_eq!(s.querier.estimate_throughput_per_sec, 1_000);
@@ -37,13 +37,13 @@ fn example_config_file_parses_all_sections() {
     assert!(!s.profiling.enabled);
     assert_eq!(s.profiling.bind, "127.0.0.1");
     assert_eq!(s.profiling.port, 5084);
-    assert_eq!(s.ingester.prometheus.max_labels_per_series, 64);
-    assert_eq!(s.ingester.prometheus.max_samples_per_batch, 16_384);
-    assert_eq!(s.ingester.max_buffer_memory_mb, 1024);
-    assert!(s.ingester.rotation.adaptive_enabled);
-    assert_eq!(s.ingester.rotation.target_file_size_mb, 128);
+    assert_eq!(s.intake.prometheus.max_labels_per_series, 64);
+    assert_eq!(s.intake.prometheus.max_samples_per_batch, 16_384);
+    assert_eq!(s.intake.max_buffer_memory_mb, 1024);
+    assert!(s.intake.rotation.adaptive_enabled);
+    assert_eq!(s.intake.rotation.target_file_size_mb, 128);
     assert_eq!(
-        s.ingester.prometheus.cardinality.max_active_series_per_org,
+        s.intake.prometheus.cardinality.max_active_series_per_org,
         200_000
     );
     assert_eq!(s.apm.queue_capacity, 65_536);
@@ -110,16 +110,16 @@ boundaries_ms = [1, 4, 4]
 }
 
 #[test]
-fn prometheus_ingest_limits_are_bounded_and_validated() {
+fn prometheus_intake_limits_are_bounded_and_validated() {
     let defaults: Settings = toml::from_str("").expect("defaults parse");
-    assert_eq!(defaults.ingester.prometheus.max_labels_per_series, 64);
-    assert_eq!(defaults.ingester.prometheus.max_label_name_bytes, 128);
-    assert_eq!(defaults.ingester.prometheus.max_label_value_bytes, 2048);
-    assert_eq!(defaults.ingester.prometheus.max_samples_per_batch, 16_384);
+    assert_eq!(defaults.intake.prometheus.max_labels_per_series, 64);
+    assert_eq!(defaults.intake.prometheus.max_label_name_bytes, 128);
+    assert_eq!(defaults.intake.prometheus.max_label_value_bytes, 2048);
+    assert_eq!(defaults.intake.prometheus.max_samples_per_batch, 16_384);
     defaults.validate().expect("defaults validate");
 
     let mut invalid = defaults;
-    invalid.ingester.prometheus.max_samples_per_batch = 0;
+    invalid.intake.prometheus.max_samples_per_batch = 0;
     assert!(
         invalid
             .validate()
@@ -129,7 +129,7 @@ fn prometheus_ingest_limits_are_bounded_and_validated() {
     );
 
     let mut invalid = Settings::default();
-    invalid.ingester.flush_parallelism = 0;
+    invalid.intake.flush_parallelism = 0;
     assert!(
         invalid
             .validate()
@@ -140,17 +140,17 @@ fn prometheus_ingest_limits_are_bounded_and_validated() {
 }
 
 #[test]
-fn ingest_resource_control_defaults_are_bounded_and_validated() {
+fn intake_resource_control_defaults_are_bounded_and_validated() {
     let defaults: Settings = toml::from_str("").expect("defaults parse");
-    assert_eq!(defaults.ingester.max_buffer_memory_mb, 1024);
-    assert_eq!(defaults.ingester.rotation.min_buffer_mb, 16);
-    assert_eq!(defaults.ingester.rotation.ewma_alpha, 0.2);
-    assert!(defaults.ingester.prometheus.cardinality.enabled);
+    assert_eq!(defaults.intake.max_buffer_memory_mb, 1024);
+    assert_eq!(defaults.intake.rotation.min_buffer_mb, 16);
+    assert_eq!(defaults.intake.rotation.ewma_alpha, 0.2);
+    assert!(defaults.intake.prometheus.cardinality.enabled);
     defaults.validate().expect("defaults validate");
 
     let invalid_rotation: Settings = toml::from_str(
         r#"
-[ingester.rotation]
+[intake.rotation]
 ewma_alpha = 0.0
 "#,
     )
@@ -165,7 +165,7 @@ ewma_alpha = 0.0
 
     let invalid_cardinality: Settings = toml::from_str(
         r#"
-[ingester.prometheus.cardinality]
+[intake.prometheus.cardinality]
 max_active_series_per_process = 10
 max_active_series_per_org = 20
 "#,
@@ -180,7 +180,7 @@ max_active_series_per_org = 20
     );
 
     let mut invalid_ttl = Settings::default();
-    invalid_ttl.ingester.prometheus.cardinality.idle_ttl_secs = 366 * 24 * 60 * 60;
+    invalid_ttl.intake.prometheus.cardinality.idle_ttl_secs = 366 * 24 * 60 * 60;
     assert!(
         invalid_ttl
             .validate()
@@ -280,11 +280,11 @@ fn removed_service_switches_are_rejected() {
     for removed in [
         "[notify]\nenabled = false\n",
         "[scheduled_reports.renderer]\nenabled = false\n",
-        "[intelligence]\nenabled = true\n",
+        "[agent]\nenabled = true\n",
         "[otlp_grpc]\nenabled = false\n",
-        "[telemetry.self_ingest]\nenabled = true\n",
+        "[telemetry.self_intake]\nenabled = true\n",
         "[telemetry.self]\nenabled = true\n",
-        "[telemetry.trace]\nself_ingest_enabled = true\n",
+        "[telemetry.trace]\nself_intake_enabled = true\n",
         "[telemetry.self_collect]\nlogs_enabled = false\n",
         "[telemetry.self_collect]\nlogs_retention_days = 7\n",
         "[telemetry.self_collect]\ntraces_enabled = false\n",
@@ -311,7 +311,7 @@ fn defaults_roundtrip_through_toml() {
     assert_eq!(s.cluster.advertise_addr, "127.0.0.1:5082");
     assert_eq!(s.compactor.target_mb, 512);
     assert_eq!(s.compactor.max_concurrent_groups, 4);
-    assert_eq!(s.router.rate_limit.ingest_qps, 1000);
+    assert_eq!(s.router.rate_limit.intake_qps, 1000);
     assert_eq!(s.cache.parquet_file_meta.capacity, 100_000);
     assert_eq!(s.cache.parquet_file_meta.ttl_secs, 60);
     assert_eq!(s.cache.parquet_meta.capacity, 10_000);

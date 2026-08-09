@@ -95,7 +95,7 @@ const HOME_WINDOWS = [
 const HOME_RECENT_ACTIVITY_LIMIT = 8;
 const HOME_PRIMARY_PANEL_HEIGHT_CLASS = 'xl:h-[340px] xl:flex-none';
 
-type ChartMetric = 'ingested' | 'stored' | 'rows';
+type ChartMetric = 'intake' | 'stored' | 'rows';
 
 const STATUS_TONE: Record<homeApi.HomeHealthStatus, PillTone> = {
   healthy: 'green',
@@ -252,7 +252,7 @@ export function Home() {
   );
   const users = useUsers();
   const [windowSecs, setWindowSecs] = React.useState<number>(HOME_WINDOWS[0].seconds);
-  const [chartMetric, setChartMetric] = React.useState<ChartMetric>('ingested');
+  const [chartMetric, setChartMetric] = React.useState<ChartMetric>('intake');
   const [quickStartOpen, setQuickStartOpen] = React.useState(false);
   const [nowMicros, setNowMicros] = React.useState(
     () => Date.now() * 1000,
@@ -426,7 +426,7 @@ export function Home() {
   );
 
   React.useEffect(() => {
-    if (overview && overview.ingested_bytes == null && chartMetric === 'ingested') {
+    if (overview && overview.intake_bytes == null && chartMetric === 'intake') {
       setChartMetric('stored');
     }
   }, [chartMetric, overview]);
@@ -576,8 +576,8 @@ export function Home() {
           className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6"
         >
           <HomeKpiCard
-            label={t('home.kpis.ingest_status')}
-            value={overview ? t(`home.status.${overview.ingest_status}`) : '—'}
+            label={t('home.kpis.intake_status')}
+            value={overview ? t(`home.status.${overview.intake_status}`) : '—'}
             detail={
               overview
                 ? t('home.kpis.last_received', {
@@ -590,7 +590,7 @@ export function Home() {
                 : t('home.loading')
             }
             icon={<RadioTower className="h-4 w-4" />}
-            status={overview?.ingest_status}
+            status={overview?.intake_status}
             onClick={() => nav('/streams')}
           />
           <HomeKpiCard
@@ -602,12 +602,12 @@ export function Home() {
             onClick={() => nav('/alerts')}
           />
           <HomeKpiCard
-            label={t('home.kpis.ingested_bytes')}
-            value={formatBytesCompact(overview?.ingested_bytes)}
+            label={t('home.kpis.intake_bytes')}
+            value={formatBytesCompact(overview?.intake_bytes)}
             detail={
               overview
-                ? t('home.kpis.ingest_detail', {
-                    rate: formatByteRate(overview.ingested_bytes, overview.window.window_secs),
+                ? t('home.kpis.intake_detail', {
+                    rate: formatByteRate(overview.intake_bytes, overview.window.window_secs),
                     rows: formatCount(overview.rows),
                   })
                 : t('home.loading')
@@ -866,19 +866,19 @@ function SystemHealthOverview({
 }) {
   const { t, i18n } = useTranslation('onboarding');
   const metricOptions: Array<{ id: ChartMetric; label: string }> = [
-    { id: 'ingested', label: t('home.health.metrics.ingested') },
+    { id: 'intake', label: t('home.health.metrics.intake') },
     { id: 'stored', label: t('home.health.metrics.stored') },
     { id: 'rows', label: t('home.health.metrics.events') },
   ];
   const chartData =
     overview?.buckets.map((bucket) => {
-      if (metric === 'ingested') return bucket.ingested_bytes ?? 0;
+      if (metric === 'intake') return bucket.intake_bytes ?? 0;
       if (metric === 'stored') return bucket.stored_bytes;
       return bucket.rows;
     }) ?? [];
   const chartTotal =
-    metric === 'ingested'
-      ? overview?.ingested_bytes
+    metric === 'intake'
+      ? overview?.intake_bytes
       : metric === 'stored'
         ? overview?.stored_bytes
         : overview?.rows;
@@ -928,7 +928,7 @@ function SystemHealthOverview({
                   <button
                     key={item.id}
                     type="button"
-                    disabled={item.id === 'ingested' && overview?.ingested_bytes == null}
+                    disabled={item.id === 'intake' && overview?.intake_bytes == null}
                     aria-pressed={metric === item.id}
                     onClick={() => onMetricChange(item.id)}
                     className={cn(
@@ -950,7 +950,7 @@ function SystemHealthOverview({
                     {
                       name: metricOptions.find((item) => item.id === metric)?.label ?? metric,
                       color:
-                        metric === 'ingested'
+                        metric === 'intake'
                           ? 'var(--chart-1)'
                           : metric === 'stored'
                             ? 'var(--chart-2)'

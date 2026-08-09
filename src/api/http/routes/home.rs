@@ -5,7 +5,7 @@
 //!
 //! The endpoint intentionally aggregates operational metadata instead of
 //! executing one SQL query per stream:
-//! - raw ingest bytes come from `ingest_usage_hourly`;
+//! - raw intake bytes come from `intake_usage_hourly`;
 //! - compressed storage bytes, rows and receive timestamps come from
 //!   `ParquetFileMetaRepository`;
 //! - process health comes from the same probe as `/healthz`.
@@ -26,7 +26,7 @@ use crate::{
         storage::{ParquetFileMeta, logical_query_datasets},
         stream::{StreamDefinition, StreamType},
     },
-    infra::persistence::repositories::usage::{HOUR_MICROS, IngestUsageBucket},
+    infra::persistence::repositories::usage::{HOUR_MICROS, IntakeUsageBucket},
     shared::{
         Result,
         time::{TimeRange, TimestampMicros},
@@ -102,7 +102,7 @@ struct SignalOverview {
 struct OverviewBucket {
     start_micros: i64,
     end_micros: i64,
-    ingested_bytes: Option<u64>,
+    intake_bytes: Option<u64>,
     stored_bytes: u64,
     rows: u64,
 }
@@ -111,9 +111,9 @@ struct OverviewBucket {
 struct HomeOverviewResponse {
     generated_at_micros: i64,
     window: OverviewWindow,
-    ingest_status: HealthStatus,
+    intake_status: HealthStatus,
     probe_reason: Option<String>,
-    ingested_bytes: Option<u64>,
+    intake_bytes: Option<u64>,
     stored_bytes: u64,
     rows: u64,
     compression_savings_ratio: Option<f64>,
@@ -168,7 +168,7 @@ async fn overview(
         state
             .platform
             .usage
-            .hourly_ingest_bytes(&ctx.org_id, range.start.0, range.end.0),
+            .hourly_intake_bytes(&ctx.org_id, range.start.0, range.end.0),
     );
     let stream_defs = stream_defs?
         .into_iter()
@@ -181,7 +181,7 @@ async fn overview(
             tracing::warn!(
                 org_id = %ctx.org_id.0,
                 error = %error,
-                "home overview raw-ingest usage unavailable"
+                "home overview raw-intake usage unavailable"
             );
             Vec::new()
         }
@@ -261,12 +261,12 @@ async fn overview(
     let stored_bytes = streams
         .iter()
         .fold(0_u64, |sum, item| sum.saturating_add(item.stored_bytes));
-    let ingested_bytes = raw_usage_available.then(|| {
+    let intake_bytes = raw_usage_available.then(|| {
         usage.iter().fold(0_u64, |sum, item| {
-            sum.saturating_add(item.ingest_bytes.max(0) as u64)
+            sum.saturating_add(item.intake_bytes.max(0) as u64)
         })
     });
-    let compression_savings_ratio = ingested_bytes
+    let compression_savings_ratio = intake_bytes
         .filter(|raw| *raw > 0)
         .map(|raw| 1.0 - stored_bytes as f64 / raw as f64);
     let active_streams = streams.iter().filter(|item| item.rows > 0).count();
@@ -281,7 +281,7 @@ async fn overview(
     let stats_succeeded = scans.iter().filter(|scan| scan.stats_ok).count();
     let signals = signal_overviews(&streams);
     let (probe_healthy, probe_reason) = state.telemetry.probe.snapshot();
-    let ingest_status = if !probe_healthy {
+    let intake_status = if !probe_healthy {
         HealthStatus::Degraded
     } else if active_streams == 0 {
         HealthStatus::NoData
@@ -296,9 +296,9 @@ async fn overview(
             end_micros: range.end.0,
             window_secs,
         },
-        ingest_status,
+        intake_status,
         probe_reason: probe_reason.map(str::to_owned),
-        ingested_bytes,
+        intake_bytes,
         stored_bytes,
         rows,
         compression_savings_ratio,
@@ -485,7 +485,7 @@ fn signal_overviews(streams: &[StreamOverview]) -> Vec<SignalOverview> {
 }
 
 fn bucket_raw_usage(
-    usage: &[IngestUsageBucket],
+    usage: &[IntakeUsageBucket],
     window: TimeRange,
     bucket_count: usize,
 ) -> Vec<u64> {
@@ -493,7 +493,7 @@ fn bucket_raw_usage(
     for item in usage {
         let midpoint = item.bucket_start_micros.saturating_add(HOUR_MICROS / 2);
         let index = bucket_index(window, bucket_count, midpoint);
-        output[index] = output[index].saturating_add(item.ingest_bytes.max(0) as u64);
+        output[index] = output[index].saturating_add(item.intake_bytes.max(0) as u64);
     }
     output
 }
@@ -521,7 +521,7 @@ fn build_buckets(
             OverviewBucket {
                 start_micros: start,
                 end_micros: end,
-                ingested_bytes: raw.and_then(|values| values.get(index).copied()),
+                intake_bytes: raw.and_then(|values| values.get(index).copied()),
                 stored_bytes: totals[index].stored_bytes,
                 rows: totals[index].rows,
             }
@@ -628,13 +628,13 @@ mod tests {
     fn raw_usage_is_placed_in_matching_visual_bucket() {
         let window = TimeRange::new(TimestampMicros(0), TimestampMicros(4 * HOUR_MICROS));
         let usage = vec![
-            IngestUsageBucket {
+            IntakeUsageBucket {
                 bucket_start_micros: 0,
-                ingest_bytes: 10,
+                intake_bytes: 10,
             },
-            IngestUsageBucket {
+            IntakeUsageBucket {
                 bucket_start_micros: 2 * HOUR_MICROS,
-                ingest_bytes: 30,
+                intake_bytes: 30,
             },
         ];
         assert_eq!(bucket_raw_usage(&usage, window, 4), vec![10, 0, 30, 0]);

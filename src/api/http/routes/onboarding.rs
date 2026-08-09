@@ -5,7 +5,7 @@
 //! 让新实例 Home/activation 的「sample data」步骤从 backend-pending 变为可用——新用户
 //! 无需先跑外部 seed 脚本就能在几秒内复现一次跨信号下钻。
 //!
-//! - `POST /onboarding/sample-data`：在当前 org ingest 一批内置样例（复用 IngestService
+//! - `POST /onboarding/sample-data`：在当前 org intake 一批内置样例（复用 IntakeService
 //!   的 schema-on-write 自动建流），返回写入的流与行数。
 //! - `GET  /onboarding/sample-data`：探测样例流是否已存在，供前端 activation 判定 completed。
 //!
@@ -22,7 +22,7 @@ use crate::{
     app::iam::IamContext,
     domain::{
         iam::permission,
-        ingestion::{IngestBatch, RawEvent},
+        intake::{IntakeBatch, RawEvent},
         stream::StreamType,
     },
     shared::{Result, ids::Id, time::TimestampMicros},
@@ -80,7 +80,7 @@ async fn sample_data_status(
     Ok(Json(SampleDataStatus { loaded }))
 }
 
-/// 一键加载样例数据：三个流各 ingest 一批。计费门禁特意跳过——样例数据量小、属
+/// 一键加载样例数据：三个流各 intake 一批。计费门禁特意跳过——样例数据量小、属
 /// onboarding 便利，不应占用租户配额，也避免新实例尚未配 billing 时被 402 挡住。
 #[permission("streams.write")]
 async fn load_sample_data(
@@ -93,7 +93,7 @@ async fn load_sample_data(
     let mut total_rows = 0;
     for (stream_type, name, events) in sample_batches(now_us) {
         let rows = events.len();
-        let batch = IngestBatch {
+        let batch = IntakeBatch {
             batch_id: Id::new(),
             org_id: ctx.org_id.clone(),
             stream: name.to_string(),
@@ -101,7 +101,7 @@ async fn load_sample_data(
             events,
             received_at: TimestampMicros::now(),
         };
-        state.ingestion.ingest(batch).await?;
+        state.intake.intake(batch).await?;
         total_rows += rows;
         streams.push(LoadedStream {
             stream: name.to_string(),

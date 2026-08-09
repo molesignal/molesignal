@@ -20,9 +20,9 @@ pub mod shared;
 pub mod tantivy;
 
 // Former premium / add-on crates, now unconditional modules.
+pub mod agent;
 pub mod cloud_marketplace;
 pub mod domain_management;
-pub mod intelligence;
 pub mod license;
 pub mod model_pricing;
 pub mod report_renderer;

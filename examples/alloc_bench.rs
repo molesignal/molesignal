@@ -44,7 +44,7 @@ const ALLOC_NAME: &str = if cfg!(feature = "jemalloc") {
 };
 
 const SERVICES: [&str; 10] = [
-    "api", "db", "cache", "auth", "queue", "web", "worker", "ingest", "query", "alert",
+    "api", "db", "cache", "auth", "queue", "web", "worker", "intake", "query", "alert",
 ];
 const LEVELS: [&str; 5] = ["INFO", "WARN", "ERROR", "DEBUG", "TRACE"];
 

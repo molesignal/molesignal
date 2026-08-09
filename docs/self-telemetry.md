@@ -8,7 +8,7 @@ MoleSignal 可以把进程自身的 metrics、traces 和 profiles 写回不可�
 | traces | `traces/_molesignal` | 已完成 span，字段契约与公共 OTLP trace 一致 |
 | profiles | `profiles/_molesignal` | profile metadata；canonical pprof blob 仍归档到 object store |
 
-所有事件共享稳定的进程资源字段：`service.name=molesignal`、`service.version`、`service.instance.id`、`service.role` 和 `node.id`。`service.instance.id` 在进程生命周期内不变，重启后重新生成。
+所有事件共享 `service.name=molesignal`、`service.version`、`service.role` 和 `node.id`。`node.id` 优先取显式 `[node].id` / `MS_NODE_ID`，留空时使用 OS hostname，只有 hostname 不可用时才回退到随机 KSUID；同一 hostname 上运行多个进程时必须显式配置不同的 ID。traces 与 profiles 还包含进程级 `service.instance.id`，该值在进程生命周期内不变、重启后重新生成；metrics 刻意不写入这个字段，避免每次重启都为所有指标族创建一批新时序。服务自身指标按 `node.id` 和 `service.role` 区分节点与角色。
 
 本地兜底生成的根 `trace_id` 使用 UUIDv7 的 32 位小写十六进制无横线格式；`span_id` 使用操作系统随机源生成 8 字节，并编码为 16 位小写十六进制。有效的上游 Trace Context 保持不变。
 
@@ -31,7 +31,7 @@ profile_interval_secs = 600
 profile_duration_secs = 10
 ```
 
-配置中不接受旧的 `[telemetry.self_ingest]`、`telemetry.trace.self_ingest_enabled`，也不接受 `org_slug`、`logs_enabled`、`logs_retention_days`、`traces_enabled` 或 `profiles_enabled`；出现这些字段会被当作未知字段拒绝。运行时始终通过常量 `SYSTEM_ORG_SLUG = "_sys"` 解析系统组织。开启 `telemetry.self_collect.enabled` 后固定启动 profiles；metrics 仍可通过 `metrics_enabled` 单独关闭。Trace 只有在该总开关开启且 `telemetry.trace.enabled` 的有效策略允许捕获时才写入 `_sys/traces/_molesignal`；关闭 self telemetry 不影响独立配置的外部 OTLP Trace 导出。
+配置中不接受旧的 `[telemetry.self_intake]`、`telemetry.trace.self_intake_enabled`，也不接受 `org_slug`、`logs_enabled`、`logs_retention_days`、`traces_enabled` 或 `profiles_enabled`；出现这些字段会被当作未知字段拒绝。运行时始终通过常量 `SYSTEM_ORG_SLUG = "_sys"` 解析系统组织。开启 `telemetry.self_collect.enabled` 后固定启动 profiles；metrics 仍可通过 `metrics_enabled` 单独关闭。Trace 只有在该总开关开启且 `telemetry.trace.enabled` 的有效策略允许捕获时才写入 `_sys/traces/_molesignal`；关闭 self telemetry 不影响独立配置的外部 OTLP Trace 导出。
 
 ## 权限和写保护
 
@@ -45,9 +45,9 @@ profile_duration_secs = 10
 
 ## standalone 与 split-role
 
-standalone/ingester 节点直接调用可信内部 ingestion，继续经过 schema evolution、masking、WAL 和 drain gate，但跳过用户 pipeline。
+standalone/intake 节点直接调用可信内部 intake，继续经过 schema evolution、masking、WAL 和 drain gate，但跳过用户 pipeline。
 
-router、querier、compactor 和 alert-manager 节点从 cluster registry 选择 ingester，通过带内部 origin 和 bearer 的 gRPC 发送。批次中的 resource identity 来自生产节点，不会被接收 ingester 改写。远程发送最多尝试 3 次，并受 10 秒队列年龄上限约束。
+router、querier、compactor 和 alert-manager 节点从 cluster registry 选择 intake，通过带内部 origin 和 bearer 的 gRPC 发送。批次中的 resource identity 来自生产节点，不会被接收 intake 改写。远程发送最多尝试 3 次，并受 10 秒队列年龄上限约束。
 
 ## 背压、递归和关闭
 

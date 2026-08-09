@@ -93,7 +93,7 @@ function gaugeSeries(service, base, jitter, count = 72) {
 
 export async function seedSignals(api) {
   const logs = makeLogs();
-  await api.post('/ingest/logs/app_logs', logs);
+  await api.post('/intake/logs/app_logs', logs);
 
   const requestMetrics = [
     ...metricSeries('api-gateway', '/api/orders', '201', 1_240_000, 610),
@@ -132,10 +132,10 @@ export async function seedSignals(api) {
   const memory = SERVICE_NAMES.flatMap((service, index) =>
     gaugeSeries(service, 420 + index * 115, 55),
   );
-  await api.post('/ingest/metrics/http_requests_total', requestMetrics);
-  await api.post('/ingest/metrics/http_request_duration_ms', durations);
-  await api.post('/ingest/metrics/process_cpu_usage', cpu);
-  await api.post('/ingest/metrics/memory_usage_mb', memory);
+  await api.post('/intake/metrics/http_requests_total', requestMetrics);
+  await api.post('/intake/metrics/http_request_duration_ms', durations);
+  await api.post('/intake/metrics/process_cpu_usage', cpu);
+  await api.post('/intake/metrics/memory_usage_mb', memory);
   return {
     logs: logs.length,
     metricSamples:

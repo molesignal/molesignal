@@ -140,7 +140,7 @@ async fn upsert_subscription(
         updated_at: now,
     };
     let saved = state.platform.marketplace.upsert_by_external(row).await?;
-    // 订阅状态变更后撤销门禁缓存（热路径），让 ingest gate 立即生效。
+    // 订阅状态变更后撤销门禁缓存（热路径），让 intake gate 立即生效。
     state
         .platform
         .billing_state_cache

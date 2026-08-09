@@ -93,7 +93,7 @@
     "encrypted_fields": "Encrypted fields",
     "encrypted_fields_hint": "Comma-separated fields encrypted at rest; read back with decrypt(field). Cannot be toggled later.",
     "queryable": "Queryable",
-    "queryable_hint": "When off, this stream still ingests and retains data but is hidden from query selectors and rejected by search — use it for a source stream that only feeds a routing pipeline. You can change this later in settings."
+    "queryable_hint": "When off, this stream still accepts and retains data but is hidden from query selectors and rejected by search — use it for a source stream that only feeds a routing pipeline. You can change this later in settings."
   },
   "toast": {
     "create_pending": "Stream {{name}} is registered on first datasource write; no /streams create endpoint yet."
@@ -163,7 +163,7 @@
     "overview": {
       "stats_unavailable": "Runtime stats are unavailable. Configuration remains editable; refresh to probe storage metadata again.",
       "no_data_title": "No data received yet",
-      "no_data_description": "Send datasource traffic to “{{stream}}”, or submit a test event to verify the ingest path.",
+      "no_data_description": "Send datasource traffic to “{{stream}}”, or submit a test event to verify the intake path.",
       "configure_source": "Configure datasource",
       "send_test": "Send test data",
       "sending_test": "Sending…",
@@ -172,7 +172,7 @@
       "first_received": "First received",
       "queryability": "Query capability",
       "queryable": "Queryable",
-      "not_queryable": "Ingest only",
+      "not_queryable": "Intake only",
       "trend_title": "Receive and storage trend",
       "trend_subtitle": "Last 24 hours · real Parquet files",
       "metric_rows": "Rows written",
@@ -210,13 +210,13 @@
       "pattern_placeholder": "One regular expression per line",
       "pattern_count": "{{count}} rules",
       "extraction_rules": "Field extraction rules",
-      "extraction_hint": "Patterns run in order during ingest; enter one regular expression per line.",
+      "extraction_hint": "Patterns run in order during intake; enter one regular expression per line.",
       "encrypted": "Encrypted",
       "encrypted_hint": "This field is encrypted before storage. It cannot be toggled here without making existing data unreadable.",
       "edit_field": "Edit field {{name}}",
       "drawer_title": "Edit field · {{name}}",
       "drawer_fallback": "Edit field",
-      "drawer_subtitle": "Configure query indexing, ingest-time extraction, and result masking without changing the field type.",
+      "drawer_subtitle": "Configure query indexing, intake-time extraction, and result masking without changing the field type.",
       "cancel": "Cancel",
       "apply": "Apply to draft",
       "no_schema": "This stream has no schema yet. Fields appear after the first datasource write.",
@@ -260,8 +260,8 @@
     "usage": {
       "loading": "Checking usage…",
       "write_source": "Write source",
-      "write_source_hint": "Ingest endpoint receiving this stream name",
-      "ingest_endpoint": "Ingest endpoint",
+      "write_source_hint": "Intake endpoint receiving this stream name",
+      "intake_endpoint": "Intake endpoint",
       "pipelines": "Pipelines",
       "pipelines_hint": "Use this stream as a source or target",
       "saved_queries": "Saved queries",
@@ -279,16 +279,16 @@
       "description_label": "Description",
       "description_placeholder": "What does this stream carry?",
       "query_capabilities": "Query capability",
-      "query_capabilities_hint": "Control query access and range. Disabling query access does not stop ingest.",
+      "query_capabilities_hint": "Control query access and range. Disabling query access does not stop intake.",
       "max_query_range": "Max query range (hours)",
       "max_query_range_hint": "0 or empty means unlimited.",
       "flatten_level": "Flatten level",
       "flatten_level_hint": "Max JSON flatten depth.",
       "storage_behavior": "Storage behavior",
-      "storage_behavior_hint": "Affects storage and partitioning for newly ingested data.",
+      "storage_behavior_hint": "Affects storage and partitioning for newly received data.",
       "advanced": "Advanced settings",
       "queryable": "Queryable",
-      "queryable_hint": "When off, this stream keeps ingesting and retaining data but is hidden from query selectors and rejected by search. Use it for a source stream that only feeds a routing pipeline.",
+      "queryable_hint": "When off, this stream keeps receiving and retaining data but is hidden from query selectors and rejected by search. Use it for a source stream that only feeds a routing pipeline.",
       "use_stats": "Use stream stats for partitioning",
       "store_original": "Store original data",
       "enable_distinct_values": "Enable distinct values"
@@ -298,7 +298,7 @@
       "review": "The new configuration takes effect immediately after saving.",
       "index_risk": "Index and extraction changes affect only new data; existing data is not reindexed automatically.",
       "retention_risk": "Retention will be reduced to {{days}} days and expired data may be deleted.",
-      "query_risk": "After query access is disabled, this stream still ingests data but queries and searches are rejected."
+      "query_risk": "After query access is disabled, this stream still accepts data but queries and searches are rejected."
     },
     "delete_confirm_title": "Delete this stream?",
     "delete_confirm_description": "“{{stream}}” and its configuration will be deleted. This cannot be undone.",

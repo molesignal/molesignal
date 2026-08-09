@@ -4,7 +4,7 @@
 //! MoleSignal 表现层：HTTP + gRPC。
 //!
 //! HTTP 用 axum，按 domain 上下文拆 router：
-//! - `/api/v1/ingest/*`     -> ingestion
+//! - `/api/v1/intake/*`     -> intake
 //! - `/api/v1/query`        -> query
 //! - `/api/v1/streams/*`    -> stream
 //! - `/api/v1/dashboards/*` -> dashboard

@@ -5,7 +5,7 @@
 //!
 //! 通用的 segment 文件管理 + 记录编码 + mmap 读取 + 尾部截断容错。
 //! molesignal 用法：
-//! - `Normal`       — ingest 批次的二进制 payload
+//! - `Normal`       — intake 批次的二进制 payload
 //! - `Config`       — stream schema / 配置变更
 //! - `SnapshotMark` — parquet flush 边界标记
 //!

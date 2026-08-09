@@ -69,7 +69,7 @@ export function ServiceAccounts() {
           queryKey:
             token.token_kind === 'rum_client'
               ? ['rum-client-token']
-              : ['default-ingestion-token'],
+              : ['default-intake-token'],
         }),
       ]);
     },

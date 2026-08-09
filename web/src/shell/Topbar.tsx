@@ -98,7 +98,7 @@ export function Topbar({ onToggleSidebar, onPaletteOpen, onNocOpen }: TopbarProp
   const currentOrgName = profile?.org_name ?? ctx?.org_name ?? orgLabel;
   const role = normalizeRole(profile?.display_role ?? ctx?.display_role);
   const access = useProductAccess();
-  const canUseMoleAgent = canAccessProductPath('/intelligence', access);
+  const canUseMoleAgent = canAccessProductPath('/agent', access);
   const editionMetadata = useEditionMetadata();
   const billingGate = selectFeatureGate(
     editionMetadata,
@@ -201,7 +201,11 @@ export function Topbar({ onToggleSidebar, onPaletteOpen, onNocOpen }: TopbarProp
         </span>
       </button>
 
-      <IconBtn onClick={onToggleSidebar} title={t('shell:topbar.toggle_sidebar')}>
+      <IconBtn
+        onClick={onToggleSidebar}
+        title={t('shell:topbar.toggle_sidebar')}
+        testid="sidebar-toggle"
+      >
         <PanelLeft className="h-3.5 w-3.5" />
       </IconBtn>
 

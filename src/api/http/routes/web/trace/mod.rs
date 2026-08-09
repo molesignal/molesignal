@@ -4,8 +4,8 @@
 //! `GET /api/v1/web/trace/:trace_id` —— 返回完整 span 树（web-investigation-shell）。
 //!
 //! 走现有 `QueryService` 在 `traces` 流上执行 SQL；行映射到 `Span` 结构。
-//! 行映射 + 截断逻辑提到 `crate::app::web::trace::view`，与 intelligence MCP `get_trace`
-//! tool 共用同一份实现（intelligence-mcp-dispatcher）。
+//! 行映射 + 截断逻辑提到 `crate::app::web::trace::view`，与 agent MCP `get_trace`
+//! tool 共用同一份实现（agent-mcp-dispatcher）。
 
 use axum::{
     Extension, Router,
@@ -127,7 +127,7 @@ async fn trace(
     let Some(stream) = resolve_traces_stream(&state, &ctx.org_id).await else {
         return Err(Error::not_found(format!("trace {trace_id} not found")));
     };
-    // `SELECT *`：OTLP ingest 把 span/resource 属性扁平成各自的带点列（无单独的
+    // `SELECT *`：OTLP intake 把 span/resource 属性扁平成各自的带点列（无单独的
     // `attributes`/`events` JSON 列），所以取全列让 `rows_to_spans` 按 canonical 名
     // 提取核心字段、把其余扁平列聚成 attributes。按 `_timestamp`（恒在）排序做 LIMIT 裁剪。
     let sql = format!(

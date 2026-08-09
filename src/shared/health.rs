@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 进程级 health probe：被 `/api/v1/healthz` 端点读，被 ingester / object_store probe 写。
+//! 进程级 health probe：被 `/api/v1/healthz` 端点读，被 intake / object_store probe 写。
 //!
 //! 当前覆盖：
-//! - `replay_done`：ingester WAL replay 完成前，整进程对外返 503。
+//! - `replay_done`：intake WAL replay 完成前，整进程对外返 503。
 //! - `object_store_degraded`：连续 N 次对象存储 round-trip 失败时 set（design / spec 16.9）。
 
 use std::sync::{
@@ -32,7 +32,7 @@ impl Probe {
         }
     }
 
-    /// 没有 ingester role 的进程（如 standalone querier-only）启动即 ready：
+    /// 没有 intake role 的进程（如 standalone querier-only）启动即 ready：
     /// 此 helper 直接构造一个 `replay_done=true` 的 probe。
     pub fn ready() -> Self {
         let p = Self::new();
@@ -68,7 +68,7 @@ impl Probe {
     /// 返回 (healthy, reason)：reason 在 unhealthy 时给出主因。
     pub fn snapshot(&self) -> (bool, Option<&'static str>) {
         if !self.is_replay_done() {
-            return (false, Some("ingester wal replay in progress"));
+            return (false, Some("intake wal replay in progress"));
         }
         if self.is_object_store_degraded() {
             return (false, Some("object store unreachable"));

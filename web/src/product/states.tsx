@@ -133,7 +133,7 @@ export function ProductState({
  * ```tsx
  * const licenseGate = useLicenseErrorGate();
  * const pageState = q.isError
- *   ? (licenseGate(q.error, 'features.intelligence') ?? { variant: 'error', error: q.error })
+ *   ? (licenseGate(q.error, 'features.agent') ?? { variant: 'error', error: q.error })
  *   : productStateFor(state, { ... });
  * ```
  */

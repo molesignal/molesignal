@@ -337,8 +337,7 @@ impl Compactor {
         if all_batches.is_empty() {
             return Err(Error::internal("compactor group produced 0 batches"));
         }
-        let physical_stream =
-            crate::infra::ingester::physical_schema::project(stream, dataset_kind);
+        let physical_stream = crate::infra::intake::physical_schema::project(stream, dataset_kind);
         let schema = crate::infra::storage::arrow_schema::to_arrow(&physical_stream.schema);
         let aligned = all_batches
             .iter()

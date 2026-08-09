@@ -4,7 +4,7 @@
 //! /metrics 端点单元测试（spec 简化版，无 docker）：
 //!
 //! 在全局 registry 上注册一个 counter + inc 后调 `gather_text`，验文本含 metric line。
-//! 真正的端到端（ingest → query → /metrics HTTP）由 it_ingest_query 类的 fixture 覆盖。
+//! 真正的端到端（intake → query → /metrics HTTP）由 it_intake_query 类的 fixture 覆盖。
 
 use molesignal::shared::metrics::{gather_text, register_int_counter};
 

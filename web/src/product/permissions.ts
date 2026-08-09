@@ -9,7 +9,7 @@ export type PermissionDomain =
   | 'alerts'
   | 'pipelines'
   | 'reports'
-  | 'intelligence';
+  | 'agent';
 
 export interface PermissionDefinition {
   key: PermissionKey;

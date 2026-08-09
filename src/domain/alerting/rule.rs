@@ -11,7 +11,7 @@ use crate::{
 
 /// 规则求值类型。不同 kind 分派到不同评估管线：
 /// - [`Scheduled`](AlertRuleKind::Scheduled)：周期性阈值评估（默认，向后兼容）。
-/// - [`RealTime`](AlertRuleKind::RealTime)：ingester 内逐事件匹配（当前 evaluator 仍按
+/// - [`RealTime`](AlertRuleKind::RealTime)：intake 内逐事件匹配（当前 evaluator 仍按
 ///   scheduled 周期跑，realtime matcher 接入是单独 follow-up）。
 /// - [`Anomaly`](AlertRuleKind::Anomaly)：基线对比，携带 [`AnomalyParams`]。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]

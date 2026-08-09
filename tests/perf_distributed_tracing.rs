@@ -18,11 +18,11 @@ use bytes::Bytes;
 use molesignal::{
     config::ObjectStoreSettings,
     domain::{
-        ingestion::RawEvent,
+        intake::RawEvent,
         stream::{FieldDef, FieldType, Schema, StreamDefinition, StreamType},
     },
     infra::{
-        ingester::RecordBuilder,
+        intake::RecordBuilder,
         query::promql::{LabelSet, Series, apply_rate_like},
         storage::object::production::ProductionObjectStore,
     },
@@ -68,14 +68,14 @@ impl Workload {
             updated_at: TimestampMicros(0),
         };
         // The tracing contract explicitly requires bounded instrumentation for a
-        // 100,000-event ingest batch. Keep that production-sized batch here so
+        // 100,000-event intake batch. Keep that production-sized batch here so
         // fixed per-request Span costs are measured against representative work.
         let events = (0..100_000)
             .map(|index| RawEvent {
                 timestamp: TimestampMicros(index * 1_000),
                 fields: json!({
                     "level": "info",
-                    "message": "representative ingest payload",
+                    "message": "representative intake payload",
                     "latency_ms": 12.5,
                     "status": 200,
                 })
@@ -109,10 +109,10 @@ impl Workload {
     }
 
     async fn execute(&self) {
-        let ingest = tracing::info_span!(
-            "ingest.batch",
+        let intake = tracing::info_span!(
+            "intake.batch",
             otel.kind = "internal",
-            molesignal.ingest.protocol = "benchmark",
+            molesignal.intake.protocol = "benchmark",
         );
         async {
             let mut builder = RecordBuilder::new(&self.stream);
@@ -123,7 +123,7 @@ impl Workload {
             }
             std::hint::black_box(builder.finish_and_clear().expect("benchmark record batch"));
         }
-        .instrument(ingest)
+        .instrument(intake)
         .await;
 
         let query = tracing::info_span!(

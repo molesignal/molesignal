@@ -71,7 +71,7 @@ impl HeartbeatTask {
             loop {
                 ticker.tick().await;
                 // 退役中：注销自己的 cluster_nodes 行 + 停止心跳，使 coordinator 的
-                // `list_alive` 在短缓存过期后不再把本节点选为 querier/ingester。
+                // `list_alive` 在短缓存过期后不再把本节点选为 querier/intake。
                 if let Some(drain) = &self.drain
                     && drain.is_draining()
                 {

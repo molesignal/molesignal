@@ -184,7 +184,7 @@ test.describe('Flow 4 — connect a data source', () => {
     await mountMockRoutes(page, mockServer.port);
   });
 
-  test('datasource catalog auto-selects a source and shows ingest + health check', async ({ page }) => {
+  test('datasource catalog auto-selects a source and shows intake + health check', async ({ page }) => {
     await page.goto('/datasource');
 
     // The catalog redirects to the first source of the active category, landing
@@ -206,22 +206,22 @@ test.describe('Flow 4 — connect a data source', () => {
       {
         route: '/datasource/custom/curl?signal=logs&stream=app_logs',
         signal: 'Logs',
-        endpoint: '/api/v1/ingest/logs/app_logs',
+        endpoint: '/api/v1/intake/logs/app_logs',
       },
       {
         route: '/datasource/applications/opentelemetry?signal=metrics&stream=app_metrics',
         signal: 'Metrics',
-        endpoint: '/api/v1/ingest/metrics/app_metrics',
+        endpoint: '/api/v1/intake/metrics/app_metrics',
       },
       {
         route: '/datasource/applications/opentelemetry?signal=traces&stream=app_traces',
         signal: 'Traces',
-        endpoint: '/api/v1/ingest/traces/app_traces',
+        endpoint: '/api/v1/intake/traces/app_traces',
       },
       {
         route: '/datasource/recommended/continuous-profiling?signal=profiles&stream=default',
         signal: 'Profiles',
-        endpoint: '/api/v1/profiles/ingest',
+        endpoint: '/api/v1/profiles/intake',
       },
     ] as const;
 

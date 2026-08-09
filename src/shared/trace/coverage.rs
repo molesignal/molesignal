@@ -36,7 +36,7 @@ pub const WORKER_COVERAGE: &[WorkerCoverage] = &[
         policy: WorkerTracePolicy::TransportBoundary,
     },
     WorkerCoverage {
-        source: "src/bootstrap/roles/ingester.rs",
+        source: "src/bootstrap/roles/intake.rs",
         policy: WorkerTracePolicy::RootPerRun,
     },
     WorkerCoverage {
@@ -98,7 +98,7 @@ pub const WORKER_COVERAGE: &[WorkerCoverage] = &[
 ];
 
 pub const HTTP_CLIENT_COVERAGE: &[&str] = &[
-    "src/api/http/routes/intelligence/mcp/runtime.rs",
+    "src/api/http/routes/agent/mcp/runtime.rs",
     "src/app/trace/export.rs",
     "src/bootstrap/roles/router.rs",
     "src/bootstrap/workers/scheduled_reports.rs",
@@ -109,8 +109,8 @@ pub const HTTP_CLIENT_COVERAGE: &[&str] = &[
     "src/infra/notify/adapters/webhook.rs",
     "src/infra/sso/jwks.rs",
     "src/infra/sso/oidc.rs",
-    "src/intelligence/chat/providers/anthropic.rs",
-    "src/intelligence/chat/providers/openai.rs",
+    "src/agent/chat/providers/anthropic.rs",
+    "src/agent/chat/providers/openai.rs",
 ];
 
 pub const GRPC_CLIENT_COVERAGE: &[&str] = &[

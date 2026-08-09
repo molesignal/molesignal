@@ -6,7 +6,7 @@
 use serde_json::Value;
 
 use crate::{
-    domain::ingestion::RawEvent,
+    domain::intake::RawEvent,
     shared::{
         tail_sampling::DecidedTrace,
         time::TimestampMicros,

@@ -4,7 +4,7 @@
 //! Service graph aggregator + repository。
 //!
 //! 工作流：
-//! 1. ingester 在 flush traces stream 的 RecordBatch 之前，遍历每个 span，
+//! 1. intake 在 flush traces stream 的 RecordBatch 之前，遍历每个 span，
 //!    经 [`ServiceGraphAggregator::record`] 把 client→server 这条边的样本累计到
 //!    `DashMap<EdgeKey, Bucket>`。
 //! 2. 每分钟边界（`bucket_at_micros = floor(now / 60s)` 变化时）由
@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, Row};
 
 use crate::{
-    domain::ingestion::{RawEvent, ServiceGraphObserver},
+    domain::intake::{RawEvent, ServiceGraphObserver},
     shared::{
         Result, ids::Id, time::TimestampMicros,
         trace_normalization::effective_service_name as canonical_effective_service_name,
@@ -125,7 +125,7 @@ impl ServiceGraphAggregator {
     /// 错误取**子 span**（被调端视角的 RED 指标）。同一服务内部的父子 span 不连边。
     ///
     /// 注：配对状态是单进程内存态——分布式部署下同一 trace 的父子 span 若落到不同
-    /// ingest 进程则无法配对（边会偏少，但不会出现错误的边）。
+    /// intake 进程则无法配对（边会偏少，但不会出现错误的边）。
     #[allow(clippy::too_many_arguments)]
     pub fn observe_span(
         &self,

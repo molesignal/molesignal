@@ -186,7 +186,7 @@ async function runRumQuery(req: QueryRequest): Promise<QueryResult> {
     });
     return data;
   } catch (err) {
-    // 空实例：RUM stream（rum_sessions / rum_actions / rum_errors）由首次 ingest 才按需建出
+    // 空实例：RUM stream（rum_sessions / rum_actions / rum_errors）由首次 intake 才按需建出
     // （schema-on-write）；未建时 query planner 返 forbidden("stream not found: …")。视作空
     // 结果，让 RUM 页面渲染空态而非报错 - RUM 流名是固定隐式的，没有数据≠查询出错。
     if (toApiError(err).message.includes('stream not found')) {

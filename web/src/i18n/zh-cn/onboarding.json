@@ -65,12 +65,12 @@
     },
     "kpis": {
       "label": "系统关键指标",
-      "ingest_status": "数据接入状态",
+      "intake_status": "数据接入状态",
       "last_received": "最后接收：{{when}}",
       "active_alerts": "当前告警",
       "alert_detail": "{{firing}} 个触发中 · {{acknowledged}} 个已确认",
-      "ingested_bytes": "原始摄入量",
-      "ingest_detail": "{{rate}} · {{rows}} 个事件",
+      "intake_bytes": "原始摄入量",
+      "intake_detail": "{{rate}} · {{rows}} 个事件",
       "stored_bytes": "压缩后数据量",
       "compression_pending": "等待原始摄入计量",
       "compression_saved": "较原始体积减少 {{percent}}%",
@@ -87,7 +87,7 @@
       "empty": "尚未注册可观测数据流。",
       "no_window_data": "所选时段暂无数据",
       "metrics": {
-        "ingested": "原始摄入",
+        "intake": "原始摄入",
         "stored": "压缩存储",
         "events": "事件数"
       }
@@ -171,7 +171,7 @@
   "datasource": {
     "endpoint": "端点",
     "copy_endpoint": "复制端点",
-    "ingestion_token": "接入 Token",
+    "intake_token": "接入 Token",
     "rum_client_token": "RUM Client Token",
     "copy_token": "复制 Token",
     "token_loading": "加载中…",

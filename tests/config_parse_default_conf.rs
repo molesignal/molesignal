@@ -17,7 +17,7 @@ fn repo_default_conf_parses() {
     assert_eq!(s.store.object.backend, "local");
     assert_eq!(s.alert_manager.dispatch_interval_secs, 10);
     assert_eq!(s.alert_manager.eval_timeout_secs, 10);
-    assert_eq!(s.router.rate_limit.ingest_qps, 1000);
+    assert_eq!(s.router.rate_limit.intake_qps, 1000);
     assert_eq!(s.cluster.heartbeat_interval_secs, 5);
     assert_eq!(s.cluster.advertise_addr, "127.0.0.1:5082");
     assert_eq!(s.compactor.target_mb, 512);

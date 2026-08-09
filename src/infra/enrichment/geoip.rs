@@ -4,7 +4,7 @@
 //! GeoIP lookup。
 //!
 //! `GeoIp::open(path)` 加载 MaxMind GeoLite2-City.mmdb；`lookup(ip) -> Option<GeoLocation>`。
-//! 缺文件 / 解析失败 → `GeoIp::noop()` 永远返 None（不阻塞 ingest）。
+//! 缺文件 / 解析失败 → `GeoIp::noop()` 永远返 None（不阻塞 intake）。
 
 use std::{net::IpAddr, path::Path, sync::Arc};
 

@@ -39,8 +39,8 @@ CREATE TABLE IF NOT EXISTS instance_settings (
     id                      SMALLINT PRIMARY KEY DEFAULT 1,
     signup_enabled          BOOLEAN  NOT NULL DEFAULT FALSE,
     signup_require_approval BOOLEAN  NOT NULL DEFAULT TRUE,
-    -- 服务图数据来源：ingest（进程内配对，低延迟）| storage（单例 worker 重算，跨节点正确）。
-    service_graph_source            TEXT   NOT NULL DEFAULT 'ingest',
+    -- 服务图数据来源：intake（进程内配对，低延迟）| storage（单例 worker 重算，跨节点正确）。
+    service_graph_source            TEXT   NOT NULL DEFAULT 'intake',
     -- 跨集群联邦：cluster_id 非空即启用（事件 source/writer，联邦内唯一）；其余为后台 worker 调优参数。
     federation_cluster_id           TEXT   NOT NULL DEFAULT '',
     federation_drain_interval_secs  BIGINT NOT NULL DEFAULT 10,
@@ -192,7 +192,7 @@ CREATE TABLE IF NOT EXISTS api_tokens (
     plaintext_sealed    BYTEA,
     plaintext_nonce     BYTEA,
     CONSTRAINT chk_api_token_kind
-        CHECK (token_kind IN ('personal', 'default_ingestion', 'rum_client')),
+        CHECK (token_kind IN ('personal', 'default_intake', 'rum_client')),
     CONSTRAINT chk_api_token_application
         CHECK (
             (token_kind = 'rum_client'
@@ -201,12 +201,12 @@ CREATE TABLE IF NOT EXISTS api_tokens (
             OR (token_kind <> 'rum_client' AND application_id IS NULL)
         ),
     CONSTRAINT chk_api_token_default_kind
-        CHECK (is_default = (token_kind = 'default_ingestion')),
+        CHECK (is_default = (token_kind = 'default_intake')),
     CONSTRAINT chk_api_token_plaintext_envelope
         CHECK (
             (token_kind = 'personal'
                 AND plaintext_sealed IS NULL AND plaintext_nonce IS NULL)
-            OR (token_kind IN ('default_ingestion', 'rum_client')
+            OR (token_kind IN ('default_intake', 'rum_client')
                 AND plaintext_sealed IS NOT NULL AND plaintext_nonce IS NOT NULL)
         )
 );
@@ -238,7 +238,7 @@ CREATE INDEX IF NOT EXISTS idx_audit_org_ts ON audit_events(org_id, ts_micros DE
 
 CREATE TABLE IF NOT EXISTS quotas (
     org_id              VARCHAR(64)  PRIMARY KEY,
-    max_ingest_qps      INTEGER      NOT NULL DEFAULT 0,
+    max_intake_qps      INTEGER      NOT NULL DEFAULT 0,
     max_query_qps       INTEGER      NOT NULL DEFAULT 0,
     max_storage_bytes   BIGINT       NOT NULL DEFAULT 0,
     max_streams         INTEGER      NOT NULL DEFAULT 0,
@@ -248,7 +248,7 @@ CREATE TABLE IF NOT EXISTS quotas (
 CREATE TABLE IF NOT EXISTS license_usage_daily (
     day                 VARCHAR(10)  NOT NULL,    -- 'YYYY-MM-DD'
     org_id              VARCHAR(64)  NOT NULL,
-    ingest_bytes        BIGINT       NOT NULL DEFAULT 0,
+    intake_bytes        BIGINT       NOT NULL DEFAULT 0,
     user_count          INTEGER      NOT NULL DEFAULT 0,
     PRIMARY KEY (day, org_id)
 );
@@ -671,7 +671,7 @@ CREATE TABLE IF NOT EXISTS regex_patterns (
     -- 命中片段替换串（支持 $1 捕获组回引）。
     replacement       TEXT         NOT NULL DEFAULT '[REDACTED]',
     -- 写入前对所有字符串值做不可逆脱敏（off 时仅查询端 mask(col) 可用）。
-    apply_on_ingest   BOOLEAN      NOT NULL DEFAULT false,
+    apply_on_intake   BOOLEAN      NOT NULL DEFAULT false,
     created_at_micros BIGINT       NOT NULL,
     updated_at_micros BIGINT       NOT NULL
 );
@@ -897,7 +897,7 @@ CREATE INDEX IF NOT EXISTS idx_rum_replay_available
 
 CREATE TABLE IF NOT EXISTS cluster_nodes (
     node_id                     VARCHAR(64)  PRIMARY KEY,
-    -- 多角色节点用逗号拼接的角色集（如 "ingester,querier"），加宽以容纳多个角色。
+    -- 多角色节点用逗号拼接的角色集（如 "intake,querier"），加宽以容纳多个角色。
     role                        VARCHAR(128) NOT NULL,
     advertise_addr              VARCHAR(255) NOT NULL,
     started_at_micros           BIGINT       NOT NULL,
@@ -1471,7 +1471,7 @@ if exists(.trace_id) {
     r'[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}',
     "[redacted-email]"
 )$vrl$, '{"description":"把 message 中的邮箱地址替换为占位符（脱敏）。"}'::jsonb, 0, 0),
-('a9b0a9f6-274b-48b6-9d6d-f122003e69c4', '__builtin__', 'add-ingest-time', 'vrl', $vrl$.ingested_at = to_unix_timestamp(now())$vrl$, '{"description":"附加摄取时间戳字段，便于排查端到端延迟。"}'::jsonb, 0, 0)
+('a9b0a9f6-274b-48b6-9d6d-f122003e69c4', '__builtin__', 'add-intake-time', 'vrl', $vrl$.intake_at = to_unix_timestamp(now())$vrl$, '{"description":"附加摄取时间戳字段，便于排查端到端延迟。"}'::jsonb, 0, 0)
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================
@@ -1498,23 +1498,23 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_password_reset_tokens_user_active
     WHERE used_at_micros IS NULL;
 
 -- ============================================================
--- Hourly ingest usage
+-- Hourly intake usage
 -- ============================================================
 
--- Per-org hourly raw ingest volume for operational overview pages.
+-- Per-org hourly raw intake volume for operational overview pages.
 --
 -- `license_usage_daily` remains the billing ledger. This table is deliberately
 -- narrower and time-bucketed so the Home page can answer "how much data was
--- ingested in this window?" without scanning telemetry payloads.
-CREATE TABLE IF NOT EXISTS ingest_usage_hourly (
+-- received in this window?" without scanning telemetry payloads.
+CREATE TABLE IF NOT EXISTS intake_usage_hourly (
     org_id                 VARCHAR(64) NOT NULL,
     bucket_start_micros    BIGINT      NOT NULL,
-    ingest_bytes           BIGINT      NOT NULL DEFAULT 0,
+    intake_bytes           BIGINT      NOT NULL DEFAULT 0,
     PRIMARY KEY (org_id, bucket_start_micros)
 );
 
-CREATE INDEX IF NOT EXISTS idx_ingest_usage_hourly_org_bucket
-    ON ingest_usage_hourly(org_id, bucket_start_micros DESC);
+CREATE INDEX IF NOT EXISTS idx_intake_usage_hourly_org_bucket
+    ON intake_usage_hourly(org_id, bucket_start_micros DESC);
 
 -- ============================================================
 -- Extend table definitions
@@ -1624,8 +1624,8 @@ SET params_schema = COALESCE(params_schema, '{}'::JSONB) ||
                 THEN 'Parses a logfmt / key=value message into fields and merges them back into the event.'
             WHEN 'redact-email'
                 THEN 'Replaces email addresses in message with a placeholder for redaction.'
-            WHEN 'add-ingest-time'
-                THEN 'Adds an ingestion timestamp to help diagnose end-to-end latency.'
+            WHEN 'add-intake-time'
+                THEN 'Adds an intake timestamp to help diagnose end-to-end latency.'
         END
     )
 WHERE org_id = '__builtin__'
@@ -1634,62 +1634,62 @@ WHERE org_id = '__builtin__'
       'route-by-service',
       'parse-key-value',
       'redact-email',
-      'add-ingest-time'
+      'add-intake-time'
   );
 
 -- ============================================================
--- Mole Intelligence schema
+-- Mole Agent schema
 -- ============================================================
 
--- Canonicalize Intelligence table names before creating the remaining schema.
+-- Canonicalize Agent table names before creating the remaining schema.
 
-ALTER TABLE chat_sessions RENAME TO intelligence_chats;
+ALTER TABLE chat_sessions RENAME TO agent_chats;
 ALTER INDEX IF EXISTS idx_chat_sessions_org_user
-    RENAME TO idx_intelligence_chats_org_user;
+    RENAME TO idx_agent_chats_org_user;
 ALTER INDEX IF EXISTS idx_chat_sessions_org_user_active
-    RENAME TO idx_intelligence_chats_org_user_active;
+    RENAME TO idx_agent_chats_org_user_active;
 
-ALTER TABLE chat_messages RENAME TO intelligence_messages;
-ALTER TABLE intelligence_messages RENAME COLUMN session_id TO chat_id;
+ALTER TABLE chat_messages RENAME TO agent_messages;
+ALTER TABLE agent_messages RENAME COLUMN session_id TO chat_id;
 ALTER INDEX IF EXISTS idx_chat_messages_session
-    RENAME TO idx_intelligence_messages_chat;
+    RENAME TO idx_agent_messages_chat;
 
-ALTER TABLE ai_toolsets RENAME TO intelligence_toolsets;
+ALTER TABLE ai_toolsets RENAME TO agent_toolsets;
 ALTER INDEX IF EXISTS uq_ai_toolsets_org_name
-    RENAME TO uq_intelligence_toolsets_org_name;
+    RENAME TO uq_agent_toolsets_org_name;
 ALTER INDEX IF EXISTS idx_ai_toolsets_org_updated
-    RENAME TO idx_intelligence_toolsets_org_updated;
+    RENAME TO idx_agent_toolsets_org_updated;
 
-ALTER TABLE ai_model_providers RENAME TO intelligence_model_providers;
+ALTER TABLE ai_model_providers RENAME TO agent_model_providers;
 ALTER INDEX IF EXISTS idx_ai_providers_org
-    RENAME TO idx_intelligence_providers_org;
+    RENAME TO idx_agent_providers_org;
 
 ALTER TABLE ai_model_provider_secrets
-    RENAME TO intelligence_model_provider_secrets;
+    RENAME TO agent_model_provider_secrets;
 
-ALTER TABLE ai_prompt_templates RENAME TO intelligence_prompt_templates;
+ALTER TABLE ai_prompt_templates RENAME TO agent_prompt_templates;
 ALTER INDEX IF EXISTS idx_ai_prompts_org_purpose
-    RENAME TO idx_intelligence_prompts_org_purpose;
+    RENAME TO idx_agent_prompts_org_purpose;
 ALTER INDEX IF EXISTS idx_ai_prompts_builtin_key
-    RENAME TO idx_intelligence_prompts_builtin_key;
+    RENAME TO idx_agent_prompts_builtin_key;
 ALTER INDEX IF EXISTS uniq_ai_prompts_builtin
-    RENAME TO uniq_intelligence_prompts_builtin;
+    RENAME TO uniq_agent_prompts_builtin;
 
-ALTER TABLE ai_chat_archives RENAME TO intelligence_chat_archives;
-ALTER TABLE intelligence_chat_archives RENAME COLUMN session_id TO chat_id;
+ALTER TABLE ai_chat_archives RENAME TO agent_chat_archives;
+ALTER TABLE agent_chat_archives RENAME COLUMN session_id TO chat_id;
 ALTER INDEX IF EXISTS idx_ai_archives_session
-    RENAME TO idx_intelligence_chat_archives_chat;
+    RENAME TO idx_agent_chat_archives_chat;
 ALTER INDEX IF EXISTS idx_ai_archives_org
-    RENAME TO idx_intelligence_chat_archives_org;
+    RENAME TO idx_agent_chat_archives_org;
 
-UPDATE intelligence_prompt_templates
-SET body = 'You are Mole Agent, the operations agent for Mole Intelligence. You help engineers query observability data, analyze alerts, locate root causes, generate queries, inspect current on-call ownership, and propose remediation within the organization "{{org_name}}". Use only registered backend tools and authorized tenant data. Never fabricate evidence, access the public internet, invoke arbitrary HTTP, shell, browser, or open MCP tools, or execute a write without an approved operation. Cite the evidence and time range behind each claim. Distinguish verified facts, inferences, and suggestions; when evidence is insufficient, say so. The current time is {{current_time}}.',
+UPDATE agent_prompt_templates
+SET body = 'You are Mole Agent, MoleSignal''s operations agent. You help engineers query observability data, analyze alerts, locate root causes, generate queries, inspect current on-call ownership, and propose remediation within the organization "{{org_name}}". Use only registered backend tools and authorized tenant data. Never fabricate evidence, access the public internet, invoke arbitrary HTTP, shell, browser, or open MCP tools, or execute a write without an approved operation. Cite the evidence and time range behind each claim. Distinguish verified facts, inferences, and suggestions; when evidence is insufficient, say so. The current time is {{current_time}}.',
     updated_by = 'system',
     updated_at_micros = GREATEST(updated_at_micros, 1)
 WHERE scope = 'builtin'
   AND builtin_key = 'system.default';
 
-CREATE TABLE IF NOT EXISTS intelligence_investigations (
+CREATE TABLE IF NOT EXISTS agent_investigations (
     id                    VARCHAR(64) PRIMARY KEY,
     org_id                VARCHAR(64) NOT NULL,
     created_by            VARCHAR(64) NOT NULL,
@@ -1705,12 +1705,12 @@ CREATE TABLE IF NOT EXISTS intelligence_investigations (
     created_at_micros     BIGINT NOT NULL,
     updated_at_micros     BIGINT NOT NULL
 );
-CREATE INDEX IF NOT EXISTS idx_intelligence_investigations_org_updated
-    ON intelligence_investigations(org_id, updated_at_micros DESC);
-CREATE INDEX IF NOT EXISTS idx_intelligence_investigations_status
-    ON intelligence_investigations(org_id, status, updated_at_micros DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_investigations_org_updated
+    ON agent_investigations(org_id, updated_at_micros DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_investigations_status
+    ON agent_investigations(org_id, status, updated_at_micros DESC);
 
-CREATE TABLE IF NOT EXISTS intelligence_investigation_steps (
+CREATE TABLE IF NOT EXISTS agent_investigation_steps (
     id                    VARCHAR(64) PRIMARY KEY,
     investigation_id      VARCHAR(64) NOT NULL,
     org_id                VARCHAR(64) NOT NULL,
@@ -1726,10 +1726,10 @@ CREATE TABLE IF NOT EXISTS intelligence_investigation_steps (
     ended_at_micros       BIGINT,
     created_at_micros     BIGINT NOT NULL
 );
-CREATE UNIQUE INDEX IF NOT EXISTS uq_intelligence_investigation_step_position
-    ON intelligence_investigation_steps(investigation_id, position);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_agent_investigation_step_position
+    ON agent_investigation_steps(investigation_id, position);
 
-CREATE TABLE IF NOT EXISTS intelligence_investigation_evidence (
+CREATE TABLE IF NOT EXISTS agent_investigation_evidence (
     id                    VARCHAR(64) PRIMARY KEY,
     investigation_id      VARCHAR(64) NOT NULL,
     step_id               VARCHAR(64),
@@ -1743,10 +1743,10 @@ CREATE TABLE IF NOT EXISTS intelligence_investigation_evidence (
     summary               TEXT NOT NULL,
     created_at_micros     BIGINT NOT NULL
 );
-CREATE INDEX IF NOT EXISTS idx_intelligence_evidence_investigation
-    ON intelligence_investigation_evidence(investigation_id, created_at_micros);
+CREATE INDEX IF NOT EXISTS idx_agent_evidence_investigation
+    ON agent_investigation_evidence(investigation_id, created_at_micros);
 
-CREATE TABLE IF NOT EXISTS intelligence_investigation_hypotheses (
+CREATE TABLE IF NOT EXISTS agent_investigation_hypotheses (
     id                    VARCHAR(64) PRIMARY KEY,
     investigation_id      VARCHAR(64) NOT NULL,
     org_id                VARCHAR(64) NOT NULL,
@@ -1757,10 +1757,10 @@ CREATE TABLE IF NOT EXISTS intelligence_investigation_hypotheses (
     created_at_micros     BIGINT NOT NULL,
     updated_at_micros     BIGINT NOT NULL
 );
-CREATE INDEX IF NOT EXISTS idx_intelligence_hypotheses_investigation
-    ON intelligence_investigation_hypotheses(investigation_id, updated_at_micros);
+CREATE INDEX IF NOT EXISTS idx_agent_hypotheses_investigation
+    ON agent_investigation_hypotheses(investigation_id, updated_at_micros);
 
-CREATE TABLE IF NOT EXISTS intelligence_automations (
+CREATE TABLE IF NOT EXISTS agent_automations (
     id                    VARCHAR(64) PRIMARY KEY,
     org_id                VARCHAR(64) NOT NULL,
     name                  VARCHAR(255) NOT NULL,
@@ -1778,10 +1778,10 @@ CREATE TABLE IF NOT EXISTS intelligence_automations (
     created_at_micros     BIGINT NOT NULL,
     updated_at_micros     BIGINT NOT NULL
 );
-CREATE UNIQUE INDEX IF NOT EXISTS uq_intelligence_automations_org_name
-    ON intelligence_automations(org_id, name);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_agent_automations_org_name
+    ON agent_automations(org_id, name);
 
-CREATE TABLE IF NOT EXISTS intelligence_approval_requests (
+CREATE TABLE IF NOT EXISTS agent_approval_requests (
     id                    VARCHAR(64) PRIMARY KEY,
     org_id                VARCHAR(64) NOT NULL,
     investigation_id      VARCHAR(64),
@@ -1800,10 +1800,10 @@ CREATE TABLE IF NOT EXISTS intelligence_approval_requests (
     created_at_micros     BIGINT NOT NULL,
     updated_at_micros     BIGINT NOT NULL
 );
-CREATE INDEX IF NOT EXISTS idx_intelligence_approvals_org_status
-    ON intelligence_approval_requests(org_id, status, created_at_micros DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_approvals_org_status
+    ON agent_approval_requests(org_id, status, created_at_micros DESC);
 
-CREATE TABLE IF NOT EXISTS intelligence_executions (
+CREATE TABLE IF NOT EXISTS agent_executions (
     id                    VARCHAR(64) PRIMARY KEY,
     org_id                VARCHAR(64) NOT NULL,
     approval_request_id   VARCHAR(64) NOT NULL,
@@ -1823,14 +1823,14 @@ CREATE TABLE IF NOT EXISTS intelligence_executions (
     created_at_micros     BIGINT NOT NULL,
     updated_at_micros     BIGINT NOT NULL
 );
-CREATE UNIQUE INDEX IF NOT EXISTS uq_intelligence_executions_idempotency
-    ON intelligence_executions(org_id, idempotency_key);
-CREATE UNIQUE INDEX IF NOT EXISTS uq_intelligence_executions_approval
-    ON intelligence_executions(org_id, approval_request_id);
-CREATE INDEX IF NOT EXISTS idx_intelligence_executions_org_created
-    ON intelligence_executions(org_id, created_at_micros DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_agent_executions_idempotency
+    ON agent_executions(org_id, idempotency_key);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_agent_executions_approval
+    ON agent_executions(org_id, approval_request_id);
+CREATE INDEX IF NOT EXISTS idx_agent_executions_org_created
+    ON agent_executions(org_id, created_at_micros DESC);
 
-CREATE TABLE IF NOT EXISTS intelligence_tool_calls (
+CREATE TABLE IF NOT EXISTS agent_tool_calls (
     id                    VARCHAR(64) PRIMARY KEY,
     org_id                VARCHAR(64) NOT NULL,
     chat_id       VARCHAR(64),
@@ -1846,12 +1846,12 @@ CREATE TABLE IF NOT EXISTS intelligence_tool_calls (
     called_by             VARCHAR(64) NOT NULL,
     created_at_micros     BIGINT NOT NULL
 );
-CREATE INDEX IF NOT EXISTS idx_intelligence_tool_calls_org_created
-    ON intelligence_tool_calls(org_id, created_at_micros DESC);
-CREATE INDEX IF NOT EXISTS idx_intelligence_tool_calls_investigation
-    ON intelligence_tool_calls(investigation_id, created_at_micros);
+CREATE INDEX IF NOT EXISTS idx_agent_tool_calls_org_created
+    ON agent_tool_calls(org_id, created_at_micros DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_tool_calls_investigation
+    ON agent_tool_calls(investigation_id, created_at_micros);
 
-CREATE TABLE IF NOT EXISTS intelligence_contract_versions (
+CREATE TABLE IF NOT EXISTS agent_contract_versions (
     contract_key          VARCHAR(128) NOT NULL,
     version               INTEGER NOT NULL,
     kind                  VARCHAR(32) NOT NULL,
@@ -1861,19 +1861,19 @@ CREATE TABLE IF NOT EXISTS intelligence_contract_versions (
     status                VARCHAR(16) NOT NULL,
     published_at_micros   BIGINT NOT NULL,
     PRIMARY KEY (contract_key, version),
-    CONSTRAINT intelligence_contract_versions_version_check
+    CONSTRAINT agent_contract_versions_version_check
         CHECK (version > 0),
-    CONSTRAINT intelligence_contract_versions_kind_check
+    CONSTRAINT agent_contract_versions_kind_check
         CHECK (kind IN ('dashboard_model', 'dashboard_authoring', 'visualization_manifest')),
-    CONSTRAINT intelligence_contract_versions_status_check
+    CONSTRAINT agent_contract_versions_status_check
         CHECK (status IN ('published', 'disabled')),
-    CONSTRAINT intelligence_contract_versions_hash_check
+    CONSTRAINT agent_contract_versions_hash_check
         CHECK (char_length(schema_hash) = 64),
-    CONSTRAINT uq_intelligence_contract_versions_hash
+    CONSTRAINT uq_agent_contract_versions_hash
         UNIQUE (contract_key, version, schema_hash)
 );
 
-CREATE TABLE IF NOT EXISTS intelligence_capability_contract_bindings (
+CREATE TABLE IF NOT EXISTS agent_capability_contract_bindings (
     capability_key             VARCHAR(128) PRIMARY KEY,
     revision                   BIGINT NOT NULL,
     model_contract_key         VARCHAR(128) NOT NULL,
@@ -1888,30 +1888,30 @@ CREATE TABLE IF NOT EXISTS intelligence_capability_contract_bindings (
     compiler_version           VARCHAR(128) NOT NULL,
     enabled                    BOOLEAN NOT NULL DEFAULT TRUE,
     updated_at_micros          BIGINT NOT NULL,
-    CONSTRAINT intelligence_capability_bindings_revision_check
+    CONSTRAINT agent_capability_bindings_revision_check
         CHECK (revision > 0),
-    CONSTRAINT intelligence_capability_bindings_hash_check
+    CONSTRAINT agent_capability_bindings_hash_check
         CHECK (
             char_length(model_schema_hash) = 64
             AND char_length(authoring_schema_hash) = 64
             AND char_length(visualization_schema_hash) = 64
         ),
-    CONSTRAINT intelligence_capability_bindings_model_fk
+    CONSTRAINT agent_capability_bindings_model_fk
         FOREIGN KEY (model_contract_key, model_contract_version, model_schema_hash)
-        REFERENCES intelligence_contract_versions (contract_key, version, schema_hash),
-    CONSTRAINT intelligence_capability_bindings_authoring_fk
+        REFERENCES agent_contract_versions (contract_key, version, schema_hash),
+    CONSTRAINT agent_capability_bindings_authoring_fk
         FOREIGN KEY (authoring_contract_key, authoring_contract_version, authoring_schema_hash)
-        REFERENCES intelligence_contract_versions (contract_key, version, schema_hash),
-    CONSTRAINT intelligence_capability_bindings_visualization_fk
+        REFERENCES agent_contract_versions (contract_key, version, schema_hash),
+    CONSTRAINT agent_capability_bindings_visualization_fk
         FOREIGN KEY (
             visualization_contract_key,
             visualization_contract_version,
             visualization_schema_hash
         )
-        REFERENCES intelligence_contract_versions (contract_key, version, schema_hash)
+        REFERENCES agent_contract_versions (contract_key, version, schema_hash)
 );
 
-CREATE TABLE IF NOT EXISTS intelligence_dashboard_drafts (
+CREATE TABLE IF NOT EXISTS agent_dashboard_drafts (
     id                       VARCHAR(64) PRIMARY KEY,
     org_id                   VARCHAR(64) NOT NULL,
     created_by               VARCHAR(64) NOT NULL,
@@ -1933,31 +1933,31 @@ CREATE TABLE IF NOT EXISTS intelligence_dashboard_drafts (
     created_at_micros        BIGINT NOT NULL,
     expires_at_micros        BIGINT NOT NULL,
     consumed_at_micros       BIGINT,
-    CONSTRAINT intelligence_dashboard_drafts_contract_revision_check
+    CONSTRAINT agent_dashboard_drafts_contract_revision_check
         CHECK (contract_binding_revision > 0),
-    CONSTRAINT intelligence_dashboard_drafts_contract_hash_check
+    CONSTRAINT agent_dashboard_drafts_contract_hash_check
         CHECK (
             char_length(authoring_schema_hash) = 64
             AND char_length(model_schema_hash) = 64
             AND char_length(visualization_schema_hash) = 64
         ),
-    CONSTRAINT intelligence_dashboard_drafts_status_check
+    CONSTRAINT agent_dashboard_drafts_status_check
         CHECK (status IN ('ready', 'consumed', 'expired')),
-    CONSTRAINT intelligence_dashboard_drafts_consumption_check
+    CONSTRAINT agent_dashboard_drafts_consumption_check
         CHECK (
             (status = 'consumed' AND dashboard_id IS NOT NULL AND consumed_at_micros IS NOT NULL)
             OR (status <> 'consumed' AND dashboard_id IS NULL AND consumed_at_micros IS NULL)
         )
 );
-CREATE INDEX IF NOT EXISTS idx_intelligence_dashboard_drafts_org_status_expiry
-    ON intelligence_dashboard_drafts(org_id, status, expires_at_micros);
-CREATE INDEX IF NOT EXISTS idx_intelligence_dashboard_drafts_creator_created
-    ON intelligence_dashboard_drafts(org_id, created_by, created_at_micros DESC);
-CREATE UNIQUE INDEX IF NOT EXISTS uq_intelligence_dashboard_drafts_dashboard
-    ON intelligence_dashboard_drafts(dashboard_id)
+CREATE INDEX IF NOT EXISTS idx_agent_dashboard_drafts_org_status_expiry
+    ON agent_dashboard_drafts(org_id, status, expires_at_micros);
+CREATE INDEX IF NOT EXISTS idx_agent_dashboard_drafts_creator_created
+    ON agent_dashboard_drafts(org_id, created_by, created_at_micros DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_agent_dashboard_drafts_dashboard
+    ON agent_dashboard_drafts(dashboard_id)
     WHERE dashboard_id IS NOT NULL;
 
-CREATE TABLE IF NOT EXISTS intelligence_agent_profiles (
+CREATE TABLE IF NOT EXISTS agent_profiles (
     id                         VARCHAR(64) PRIMARY KEY,
     org_id                     VARCHAR(64) NOT NULL,
     name                       VARCHAR(255) NOT NULL,
@@ -1976,33 +1976,33 @@ CREATE TABLE IF NOT EXISTS intelligence_agent_profiles (
     created_by                 VARCHAR(64) NOT NULL,
     created_at_micros          BIGINT NOT NULL,
     updated_at_micros          BIGINT NOT NULL,
-    CONSTRAINT intelligence_agent_network_blocked
+    CONSTRAINT agent_profile_network_blocked
         CHECK (network_access = 'blocked')
 );
-CREATE UNIQUE INDEX IF NOT EXISTS uq_intelligence_profiles_org_name
-    ON intelligence_agent_profiles(org_id, name);
-CREATE UNIQUE INDEX IF NOT EXISTS uq_intelligence_profiles_org_default
-    ON intelligence_agent_profiles(org_id)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_agent_profiles_org_name
+    ON agent_profiles(org_id, name);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_agent_profiles_org_default
+    ON agent_profiles(org_id)
     WHERE is_default = TRUE;
 
 -- ============================================================
--- Mole Intelligence network policy
+-- Mole Agent network policy
 -- ============================================================
 
-ALTER TABLE intelligence_agent_profiles
-    DROP CONSTRAINT IF EXISTS intelligence_agent_network_blocked;
+ALTER TABLE agent_profiles
+    DROP CONSTRAINT IF EXISTS agent_profile_network_blocked;
 
-ALTER TABLE intelligence_agent_profiles
-    ADD CONSTRAINT intelligence_agent_network_access_check
+ALTER TABLE agent_profiles
+    ADD CONSTRAINT agent_profile_network_access_check
     CHECK (network_access IN ('blocked', 'allowed'));
 
 -- ============================================================
--- Mole Intelligence tool control
+-- Mole Agent tool control
 -- ============================================================
 
--- Mole Intelligence tool policy, MCP management, and call-audit control plane.
+-- Mole Agent tool policy, MCP management, and call-audit control plane.
 
-CREATE TABLE IF NOT EXISTS intelligence_tool_policies (
+CREATE TABLE IF NOT EXISTS agent_tool_policies (
     org_id                 VARCHAR(64) NOT NULL,
     tool_name              VARCHAR(192) NOT NULL,
     enabled                BOOLEAN NOT NULL DEFAULT TRUE,
@@ -2016,10 +2016,10 @@ CREATE TABLE IF NOT EXISTS intelligence_tool_policies (
     updated_at_micros      BIGINT NOT NULL,
     PRIMARY KEY (org_id, tool_name)
 );
-CREATE INDEX IF NOT EXISTS idx_intelligence_tool_policies_org_updated
-    ON intelligence_tool_policies(org_id, updated_at_micros DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_tool_policies_org_updated
+    ON agent_tool_policies(org_id, updated_at_micros DESC);
 
-CREATE TABLE IF NOT EXISTS intelligence_tool_policy_defaults (
+CREATE TABLE IF NOT EXISTS agent_tool_policy_defaults (
     org_id                 VARCHAR(64) PRIMARY KEY,
     risk_modes             JSONB NOT NULL DEFAULT '{
         "l0":"automatic",
@@ -2034,7 +2034,7 @@ CREATE TABLE IF NOT EXISTS intelligence_tool_policy_defaults (
     updated_at_micros      BIGINT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS intelligence_mcp_servers (
+CREATE TABLE IF NOT EXISTS agent_mcp_servers (
     id                     VARCHAR(64) PRIMARY KEY,
     org_id                 VARCHAR(64) NOT NULL,
     name                   VARCHAR(255) NOT NULL,
@@ -2061,12 +2061,12 @@ CREATE TABLE IF NOT EXISTS intelligence_mcp_servers (
     created_at_micros      BIGINT NOT NULL,
     updated_at_micros      BIGINT NOT NULL
 );
-CREATE UNIQUE INDEX IF NOT EXISTS uq_intelligence_mcp_servers_org_name
-    ON intelligence_mcp_servers(org_id, name);
-CREATE INDEX IF NOT EXISTS idx_intelligence_mcp_servers_org_updated
-    ON intelligence_mcp_servers(org_id, updated_at_micros DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_agent_mcp_servers_org_name
+    ON agent_mcp_servers(org_id, name);
+CREATE INDEX IF NOT EXISTS idx_agent_mcp_servers_org_updated
+    ON agent_mcp_servers(org_id, updated_at_micros DESC);
 
-CREATE TABLE IF NOT EXISTS intelligence_mcp_server_secrets (
+CREATE TABLE IF NOT EXISTS agent_mcp_server_secrets (
     server_id              VARCHAR(64) PRIMARY KEY,
     org_id                 VARCHAR(64) NOT NULL,
     ciphertext             BYTEA NOT NULL,
@@ -2074,10 +2074,10 @@ CREATE TABLE IF NOT EXISTS intelligence_mcp_server_secrets (
     created_at_micros      BIGINT NOT NULL,
     updated_at_micros      BIGINT NOT NULL
 );
-CREATE INDEX IF NOT EXISTS idx_intelligence_mcp_server_secrets_org
-    ON intelligence_mcp_server_secrets(org_id);
+CREATE INDEX IF NOT EXISTS idx_agent_mcp_server_secrets_org
+    ON agent_mcp_server_secrets(org_id);
 
-CREATE TABLE IF NOT EXISTS intelligence_mcp_tools (
+CREATE TABLE IF NOT EXISTS agent_mcp_tools (
     id                     VARCHAR(64) PRIMARY KEY,
     org_id                 VARCHAR(64) NOT NULL,
     server_id              VARCHAR(64) NOT NULL,
@@ -2103,14 +2103,14 @@ CREATE TABLE IF NOT EXISTS intelligence_mcp_tools (
     created_at_micros      BIGINT NOT NULL,
     updated_at_micros      BIGINT NOT NULL
 );
-CREATE UNIQUE INDEX IF NOT EXISTS uq_intelligence_mcp_tools_server_remote
-    ON intelligence_mcp_tools(server_id, remote_name);
-CREATE UNIQUE INDEX IF NOT EXISTS uq_intelligence_mcp_tools_org_name
-    ON intelligence_mcp_tools(org_id, name);
-CREATE INDEX IF NOT EXISTS idx_intelligence_mcp_tools_org_server
-    ON intelligence_mcp_tools(org_id, server_id, updated_at_micros DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_agent_mcp_tools_server_remote
+    ON agent_mcp_tools(server_id, remote_name);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_agent_mcp_tools_org_name
+    ON agent_mcp_tools(org_id, name);
+CREATE INDEX IF NOT EXISTS idx_agent_mcp_tools_org_server
+    ON agent_mcp_tools(org_id, server_id, updated_at_micros DESC);
 
-ALTER TABLE intelligence_tool_calls
+ALTER TABLE agent_tool_calls
     ADD COLUMN IF NOT EXISTS call_source VARCHAR(32) NOT NULL DEFAULT 'chat',
     ADD COLUMN IF NOT EXISTS profile_id VARCHAR(64),
     ADD COLUMN IF NOT EXISTS approval_id VARCHAR(64),
@@ -2450,7 +2450,7 @@ BEGIN
                 current_setting('molesignal.internal_system_mutation', TRUE),
                 'false'
             ) <> 'true' THEN
-            RAISE EXCEPTION 'system stream schema may only evolve through internal ingestion';
+            RAISE EXCEPTION 'system stream schema may only evolve through internal intake';
         END IF;
     END IF;
     RETURN NEW;
@@ -2674,7 +2674,7 @@ VALUES
     ('admin', 'Admin', 'Administrative access for day-to-day operations.', 'organization', 'organization', 20),
     ('editor', 'Editor', 'Can operate and change product resources.', 'organization', 'organization', 30),
     ('viewer', 'Viewer', 'Read-only product access.', 'organization', 'organization', 40),
-    ('ingest', 'Ingestion token', 'Write-only access for telemetry ingestion.', 'organization', 'organization', 80),
+    ('intake', 'Intake token', 'Write-only access for telemetry intake.', 'organization', 'organization', 80),
     ('rum_client', 'RUM client', 'Application-bound write-only access for RUM clients.', 'organization', 'organization', 90)
 ON CONFLICT (role_key) DO UPDATE
 SET name = EXCLUDED.name,
@@ -2694,7 +2694,7 @@ VALUES
     ('platform_administrator', 'platform_owner'),
     ('organization_bootstrap', 'owner'),
     ('self_service_signup', 'viewer'),
-    ('default_api_token', 'ingest'),
+    ('default_api_token', 'intake'),
     ('rum_client_token', 'rum_client')
 ON CONFLICT (purpose) DO UPDATE
 SET role_key = EXCLUDED.role_key;
@@ -3156,7 +3156,7 @@ VALUES
     ('api_tokens.manage', 'organization', 'iam', 'permissions.api_tokens_manage', 'permissions_hint.api_tokens_manage', NULL, ARRAY['owner', 'admin']::TEXT[]),
     ('streams.read', 'organization', 'observability', 'permissions.streams_read', 'permissions_hint.streams_read', NULL, ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
     ('streams.query', 'organization', 'observability', 'permissions.streams_query', 'permissions_hint.streams_query', NULL, ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
-    ('streams.write', 'organization', 'observability', 'permissions.streams_write', 'permissions_hint.streams_write', NULL, ARRAY['owner', 'admin', 'editor', 'ingest']::TEXT[]),
+    ('streams.write', 'organization', 'observability', 'permissions.streams_write', 'permissions_hint.streams_write', NULL, ARRAY['owner', 'admin', 'editor', 'intake']::TEXT[]),
     ('rum.write', 'organization', 'observability', 'permissions.rum_write', 'permissions_hint.rum_write', NULL, ARRAY['owner', 'admin', 'editor', 'rum_client']::TEXT[]),
     ('streams.create', 'organization', 'observability', 'permissions.streams_create', 'permissions_hint.streams_create', NULL, ARRAY['owner', 'admin', 'editor']::TEXT[]),
     ('streams.configure', 'organization', 'observability', 'permissions.streams_configure', 'permissions_hint.streams_configure', NULL, ARRAY['owner', 'admin', 'editor']::TEXT[]),
@@ -3193,9 +3193,9 @@ VALUES
     ('reports.schedule', 'organization', 'reports', 'permissions.reports_schedule', 'permissions_hint.reports_schedule', NULL, ARRAY['owner', 'admin', 'editor']::TEXT[]),
     ('reports.delete', 'organization', 'reports', 'permissions.reports_delete', 'permissions_hint.reports_delete', NULL, ARRAY['owner', 'admin', 'editor']::TEXT[]),
     ('audit.read', 'organization', 'iam', 'permissions.audit_read', 'permissions_hint.audit_read', NULL, ARRAY['owner', 'admin']::TEXT[]),
-    ('intelligence.use', 'organization', 'intelligence', 'permissions.intelligence_use', 'permissions_hint.intelligence_use', 'intelligence', ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
-    ('intelligence.manage', 'organization', 'intelligence', 'permissions.intelligence_manage', 'permissions_hint.intelligence_manage', 'intelligence', ARRAY['owner', 'admin']::TEXT[]),
-    ('intelligence.approve', 'organization', 'intelligence', 'permissions.intelligence_approve', 'permissions_hint.intelligence_approve', 'intelligence', ARRAY['owner', 'admin']::TEXT[]);
+    ('agent.use', 'organization', 'agent', 'permissions.agent_use', 'permissions_hint.agent_use', 'agent', ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
+    ('agent.manage', 'organization', 'agent', 'permissions.agent_manage', 'permissions_hint.agent_manage', 'agent', ARRAY['owner', 'admin']::TEXT[]),
+    ('agent.approve', 'organization', 'agent', 'permissions.agent_approve', 'permissions_hint.agent_approve', 'agent', ARRAY['owner', 'admin']::TEXT[]);
 
 INSERT INTO iam_permissions (
     permission_key,

@@ -6,6 +6,7 @@
 //! 每个模块只覆盖 happy-path CRUD；按时间窗、按 fingerprint 等查询走原生 SQL，
 //! JSON 列经 `sqlx::types::Json` / `serde_json::Value` 中转到 domain 结构。
 
+pub mod agent;
 pub mod alert_rules;
 pub mod annotations;
 pub mod api_tokens;
@@ -26,7 +27,6 @@ pub mod functions;
 pub mod iam;
 pub mod incidents;
 pub mod instance_settings;
-pub mod intelligence;
 pub mod investigation_blobs;
 pub mod invitations;
 pub mod license_versions;

@@ -4,7 +4,7 @@
 //! MoleSignal 服务自身遥测的异步批处理与 role-aware delivery。
 //!
 //! `tracing` callback 永远只写 bounded channel；本模块在 bootstrap 完成后取得
-//! receiver，按事件数/延迟成批，并在 suppression scope 内直接调用可信 ingestion
+//! receiver，按事件数/延迟成批，并在 suppression scope 内直接调用可信 intake
 //! 或集群内部 gRPC。任何失败都只影响 self telemetry，不反压业务请求。
 
 use std::{
@@ -25,19 +25,19 @@ use tokio::{
 use crate::{
     app::{
         cluster::ClusterRegistry,
-        ingestion::IngestService,
+        intake::IntakeService,
         profile_storage::ProfileStorageService,
         profiling::{CaptureError, CapturedProfile, ProfilingService},
         trace::candidate_router::TraceCandidateRouter,
     },
     config::SelfCollectSettings,
     domain::{
-        ingestion::{IngestBatch, RawEvent},
+        intake::{IntakeBatch, RawEvent},
         stream::{MOLESIGNAL_SYSTEM_STREAM, StreamType},
     },
     infra::cluster::grpc_channel,
-    protocol::ingest::v1::{
-        PushRequest, StreamType as ProtoStreamType, ingest_service_client::IngestServiceClient,
+    protocol::intake::v1::{
+        PushRequest, StreamType as ProtoStreamType, intake_service_client::IntakeServiceClient,
     },
     shared::{
         Error, Result,
@@ -97,7 +97,7 @@ trait Delivery: Send + Sync {
 }
 
 struct LocalDelivery {
-    ingestion: Arc<IngestService>,
+    intake: Arc<IntakeService>,
 }
 
 #[async_trait]
@@ -109,8 +109,8 @@ impl Delivery for LocalDelivery {
         events: Vec<RawEvent>,
     ) -> std::result::Result<(), String> {
         let result = self
-            .ingestion
-            .ingest_self_telemetry(make_batch(org_id, signal, events))
+            .intake
+            .intake_self_telemetry(make_batch(org_id, signal, events))
             .await
             .map_err(|error| error.to_string())?;
         if result.rejected == 0 {
@@ -140,7 +140,7 @@ impl Delivery for RemoteDelivery {
         let started = Instant::now();
         let payload =
             serde_json::to_vec(&events).map_err(|error| format!("encode failed: {error}"))?;
-        let mut last_error = "no ingester available".to_string();
+        let mut last_error = "no intake available".to_string();
         for attempt in 0..MAX_REMOTE_ATTEMPTS {
             if attempt > 0 {
                 record_retry(signal, retry_reason(&last_error));
@@ -158,9 +158,9 @@ impl Delivery for RemoteDelivery {
             let attempt_result = timeout(remaining, async {
                 let peer = self
                     .registry
-                    .pick_ingester(org_id, MOLESIGNAL_SYSTEM_STREAM)
+                    .pick_intake(org_id, MOLESIGNAL_SYSTEM_STREAM)
                     .await
-                    .ok_or_else(|| "no ingester available".to_string())?;
+                    .ok_or_else(|| "no intake available".to_string())?;
                 let channel = grpc_channel::connect(&peer.advertise_addr, false)
                     .await
                     .map_err(|error| format!("connect failed: {error}"))?;
@@ -179,10 +179,10 @@ impl Delivery for RemoteDelivery {
                         .parse()
                         .map_err(|_| "invalid internal origin metadata".to_string())?,
                 );
-                let mut client = IngestServiceClient::new(channel);
+                let mut client = IntakeServiceClient::new(channel);
                 let response = crate::shared::grpc_trace::call(
                     request,
-                    "ingest.v1.IngestService",
+                    "intake.v1.IntakeService",
                     "Push",
                     crate::shared::grpc_trace::GrpcTarget::Internal,
                     |request| client.push(request),
@@ -193,7 +193,7 @@ impl Delivery for RemoteDelivery {
                     Ok(())
                 } else {
                     Err(format!(
-                        "ingester rejected {} records",
+                        "intake rejected {} records",
                         response.get_ref().rejected
                     ))
                 }
@@ -213,8 +213,8 @@ impl Delivery for RemoteDelivery {
 }
 
 fn retry_reason(error: &str) -> &'static str {
-    if error.starts_with("no ingester") {
-        "no_ingester"
+    if error.starts_with("no intake") {
+        "no_intake"
     } else if error.starts_with("connect") {
         "connect"
     } else {
@@ -238,8 +238,8 @@ fn stream_type(signal: SelfTelemetrySignal) -> StreamType {
     }
 }
 
-fn make_batch(org_id: &Id, signal: SelfTelemetrySignal, events: Vec<RawEvent>) -> IngestBatch {
-    IngestBatch {
+fn make_batch(org_id: &Id, signal: SelfTelemetrySignal, events: Vec<RawEvent>) -> IntakeBatch {
+    IntakeBatch {
         batch_id: Id::new(),
         org_id: org_id.clone(),
         stream: MOLESIGNAL_SYSTEM_STREAM.into(),
@@ -287,14 +287,14 @@ impl SelfTelemetryRuntime {
         hub: Arc<SelfTelemetryHub>,
         org_id: Id,
         settings: SelfCollectSettings,
-        ingestion: Arc<IngestService>,
+        intake: Arc<IntakeService>,
         profile_context: Option<SelfProfileContext>,
     ) -> Arc<Self> {
         Self::start(
             hub,
             org_id,
             settings,
-            Arc::new(LocalDelivery { ingestion }),
+            Arc::new(LocalDelivery { intake }),
             profile_context,
             None,
         )
@@ -304,7 +304,7 @@ impl SelfTelemetryRuntime {
         hub: Arc<SelfTelemetryHub>,
         org_id: Id,
         settings: SelfCollectSettings,
-        ingestion: Arc<IngestService>,
+        intake: Arc<IntakeService>,
         profile_context: Option<SelfProfileContext>,
         trace_candidates: Arc<TraceCandidateRouter>,
     ) -> Arc<Self> {
@@ -312,7 +312,7 @@ impl SelfTelemetryRuntime {
             hub,
             org_id,
             settings,
-            Arc::new(LocalDelivery { ingestion }),
+            Arc::new(LocalDelivery { intake }),
             profile_context,
             Some(trace_candidates),
         )
@@ -328,7 +328,7 @@ impl SelfTelemetryRuntime {
     ) -> Result<Arc<Self>> {
         if token.trim().is_empty() {
             return Err(Error::invalid(format!(
-                "{CLUSTER_TOKEN_ENV} must be set on split-role nodes when self ingestion is enabled"
+                "{CLUSTER_TOKEN_ENV} must be set on split-role nodes when self intake is enabled"
             )));
         }
         Ok(Self::start(
@@ -352,7 +352,7 @@ impl SelfTelemetryRuntime {
     ) -> Result<Arc<Self>> {
         if token.trim().is_empty() {
             return Err(Error::invalid(format!(
-                "{CLUSTER_TOKEN_ENV} must be set on split-role nodes when self ingestion is enabled"
+                "{CLUSTER_TOKEN_ENV} must be set on split-role nodes when self intake is enabled"
             )));
         }
         Ok(Self::start(
@@ -786,9 +786,9 @@ mod tests {
     use super::*;
     use crate::{
         app::cluster::{PeerInfo, PeerRole},
-        protocol::ingest::v1::{
+        protocol::intake::v1::{
             PushResponse,
-            ingest_service_server::{IngestService as ProtoIngestService, IngestServiceServer},
+            intake_service_server::{IntakeService as ProtoIntakeService, IntakeServiceServer},
         },
         shared::self_telemetry::{ResourceIdentity, SelfTelemetryInit},
     };
@@ -1002,12 +1002,12 @@ mod tests {
     }
 
     #[derive(Clone)]
-    struct CapturingIngest {
+    struct CapturingIntake {
         seen: Arc<Mutex<Vec<RawEvent>>>,
     }
 
     #[tonic::async_trait]
-    impl ProtoIngestService for CapturingIngest {
+    impl ProtoIntakeService for CapturingIntake {
         async fn push(
             &self,
             request: Request<PushRequest>,
@@ -1042,10 +1042,10 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
         let seen = Arc::new(Mutex::new(Vec::new()));
-        let service = CapturingIngest { seen: seen.clone() };
+        let service = CapturingIntake { seen: seen.clone() };
         let server = tokio::spawn(async move {
             Server::builder()
-                .add_service(IngestServiceServer::new(service))
+                .add_service(IntakeServiceServer::new(service))
                 .serve_with_incoming(TcpListenerStream::new(listener))
                 .await
                 .unwrap();
@@ -1053,9 +1053,9 @@ mod tests {
         let delivery = RemoteDelivery {
             registry: Arc::new(FixedRegistry {
                 peer: PeerInfo {
-                    node_id: "ingester".into(),
+                    node_id: "intake".into(),
                     advertise_addr: address.to_string(),
-                    roles: vec![PeerRole::Ingester],
+                    roles: vec![PeerRole::Intake],
                 },
             }),
             token: "secret".into(),

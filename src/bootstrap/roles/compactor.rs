@@ -45,7 +45,7 @@ pub fn spawn_compactor_loop(
     let interval = Duration::from_secs(settings.interval_secs.max(1) as u64);
     tokio::spawn(async move {
         let mut ticker = tokio::time::interval(interval);
-        // 第一次 tick 立刻触发（spec 没强制 skip），但为避免与 ingester replay 抢资源稍微 delay 一下
+        // 第一次 tick 立刻触发（spec 没强制 skip），但为避免与 intake replay 抢资源稍微 delay 一下
         ticker.tick().await;
         let mut blob_sweep_at = TimestampMicros::now().0;
         loop {

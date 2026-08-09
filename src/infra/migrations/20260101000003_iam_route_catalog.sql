@@ -220,9 +220,9 @@ INSERT INTO iam_route_seed VALUES
     ('datasource.category', '/datasource/:category', 'organization', 'all', ARRAY[]::TEXT[], NULL, NULL, TRUE, ARRAY['streams.query']::TEXT[]),
     ('datasource.source', '/datasource/:category/:source', 'organization', 'all', ARRAY[]::TEXT[], NULL, NULL, TRUE, ARRAY['streams.query']::TEXT[]),
     ('datasources.legacy', '/datasources', 'organization', 'all', ARRAY[]::TEXT[], NULL, NULL, TRUE, ARRAY['streams.query']::TEXT[]),
-    ('ingest', '/ingest', 'organization', 'all', ARRAY[]::TEXT[], NULL, NULL, TRUE, ARRAY['streams.query']::TEXT[]),
-    ('ingest.category', '/ingest/:category', 'organization', 'all', ARRAY[]::TEXT[], NULL, NULL, TRUE, ARRAY['streams.query']::TEXT[]),
-    ('ingest.source', '/ingest/:category/:source', 'organization', 'all', ARRAY[]::TEXT[], NULL, NULL, TRUE, ARRAY['streams.query']::TEXT[]),
+    ('intake', '/intake', 'organization', 'all', ARRAY[]::TEXT[], NULL, NULL, TRUE, ARRAY['streams.query']::TEXT[]),
+    ('intake.category', '/intake/:category', 'organization', 'all', ARRAY[]::TEXT[], NULL, NULL, TRUE, ARRAY['streams.query']::TEXT[]),
+    ('intake.source', '/intake/:category/:source', 'organization', 'all', ARRAY[]::TEXT[], NULL, NULL, TRUE, ARRAY['streams.query']::TEXT[]),
     ('alerts', '/alerts', 'organization', 'all', ARRAY[]::TEXT[], 'investigate', 80, TRUE, ARRAY['alerts.read']::TEXT[]),
     ('alert.incidents', '/alerts/incidents', 'organization', 'all', ARRAY[]::TEXT[], NULL, NULL, TRUE, ARRAY['alerts.read']::TEXT[]),
     ('alert.rules', '/alerts/rules', 'organization', 'all', ARRAY[]::TEXT[], NULL, NULL, TRUE, ARRAY['alerts.read']::TEXT[]),
@@ -252,10 +252,10 @@ INSERT INTO iam_route_seed VALUES
     ('reports', '/reports', 'organization', 'all', ARRAY[]::TEXT[], 'pipeline', 60, TRUE, ARRAY['reports.read']::TEXT[]),
     ('investigate', '/investigate', 'organization', 'all', ARRAY[]::TEXT[], NULL, NULL, TRUE, ARRAY['streams.query']::TEXT[]),
 
-    -- Intelligence is permission- and license-gated in the database catalog.
-    ('intelligence', '/intelligence', 'organization', 'all', ARRAY['intelligence']::TEXT[], 'investigate', 90, TRUE, ARRAY['intelligence.use']::TEXT[]),
-    ('intelligence.section', '/intelligence/:section', 'organization', 'all', ARRAY['intelligence']::TEXT[], NULL, NULL, TRUE, ARRAY['intelligence.use']::TEXT[]),
-    ('intelligence.detail', '/intelligence/:section/:id', 'organization', 'all', ARRAY['intelligence']::TEXT[], NULL, NULL, TRUE, ARRAY['intelligence.use']::TEXT[]),
+    -- Agent is permission- and license-gated in the database catalog.
+    ('agent', '/agent', 'organization', 'all', ARRAY['agent']::TEXT[], 'investigate', 90, TRUE, ARRAY['agent.use']::TEXT[]),
+    ('agent.section', '/agent/:section', 'organization', 'all', ARRAY['agent']::TEXT[], NULL, NULL, TRUE, ARRAY['agent.use']::TEXT[]),
+    ('agent.detail', '/agent/:section/:id', 'organization', 'all', ARRAY['agent']::TEXT[], NULL, NULL, TRUE, ARRAY['agent.use']::TEXT[]),
 
     -- Organization IAM and settings.
     ('iam', '/iam', 'any', 'any', ARRAY[]::TEXT[], NULL, NULL, TRUE, ARRAY['org.members.read', 'sys.organizations.manage']::TEXT[]),

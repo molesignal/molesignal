@@ -78,7 +78,7 @@ export function normalizeRcaLocale(locale?: string): RcaLocale {
 
 /**
  * Trigger on-demand RCA generation (synchronous: blocks while the LLM
- * runs, then returns the stored analysis). Requires the intelligence feature.
+ * runs, then returns the stored analysis). Requires the agent feature.
  */
 export async function generateRca(id: string, locale?: string): Promise<IncidentRca> {
   const { data } = await http.post<IncidentRca>(

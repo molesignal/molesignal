@@ -1,6 +1,6 @@
 import { http } from '@/lib/http';
 
-export type ApiTokenKind = 'personal' | 'default_ingestion' | 'rum_client';
+export type ApiTokenKind = 'personal' | 'default_intake' | 'rum_client';
 
 export interface ApiToken {
   id: string;
@@ -52,7 +52,7 @@ export async function revoke(id: string): Promise<void> {
 }
 
 /**
- * The current user's default ingestion token, in full. The backend
+ * The current user's default intake token, in full. The backend
  * auto-creates it on first call and can re-display it (its plaintext is
  * sealed at rest), so non-RUM datasource pages can show a ready-to-use token
  * without the user creating one by hand. RUM uses getRumClient instead.

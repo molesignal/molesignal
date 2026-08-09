@@ -419,7 +419,7 @@ async fn get_incident_rca(
     Path(id): Path<String>,
 ) -> Result<Json<Value>> {
     let rca = state
-        .intelligence
+        .agent
         .incident_rca
         .get(&incident.id)
         .await?
@@ -433,7 +433,7 @@ struct IncidentRcaGenerateQuery {
     locale: Option<String>,
 }
 
-/// 按需手动触发 RCA 生成（同步调 LLM，返回生成结果）。需 AlertWrite + intelligence feature。
+/// 按需手动触发 RCA 生成（同步调 LLM，返回生成结果）。需 AlertWrite + agent feature。
 #[resource_permission(
     action = "alerts.manage",
     resource = Incident,
@@ -446,13 +446,9 @@ async fn generate_incident_rca(
     Path(id): Path<String>,
     Query(query): Query<IncidentRcaGenerateQuery>,
 ) -> Result<Json<Value>> {
-    if !state
-        .platform
-        .license
-        .has_feature(crate::intelligence::FEATURE)
-    {
+    if !state.platform.license.has_feature(crate::agent::FEATURE) {
         return Err(Error::forbidden(
-            "AI intelligence is not enabled for this deployment",
+            "AI agent is not enabled for this deployment",
         ));
     }
     let language = match query.locale {

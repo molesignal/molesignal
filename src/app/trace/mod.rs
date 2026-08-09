@@ -23,9 +23,9 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 
 use crate::{
-    app::ingestion::IngestService,
+    app::intake::IntakeService,
     domain::{
-        ingestion::IngestBatch,
+        intake::IntakeBatch,
         storage::PhysicalDatasetKind,
         stream::{MOLESIGNAL_SYSTEM_STREAM, StreamType},
     },
@@ -87,7 +87,7 @@ pub struct TracePipelineConfig {
     pub candidate_capacity: usize,
     pub decision_tick: Duration,
     pub shutdown_timeout: Duration,
-    pub self_ingest: TraceSinkWorkerConfig,
+    pub self_intake: TraceSinkWorkerConfig,
     pub external: TraceSinkWorkerConfig,
 }
 
@@ -97,7 +97,7 @@ impl Default for TracePipelineConfig {
             candidate_capacity: 16_384,
             decision_tick: Duration::from_millis(100),
             shutdown_timeout: Duration::from_secs(10),
-            self_ingest: TraceSinkWorkerConfig::default(),
+            self_intake: TraceSinkWorkerConfig::default(),
             external: TraceSinkWorkerConfig::default(),
         }
     }
@@ -111,7 +111,7 @@ impl TracePipelineConfig {
         {
             return Err("Trace pipeline capacity/timeouts must be non-zero".into());
         }
-        self.self_ingest.validate()?;
+        self.self_intake.validate()?;
         self.external.validate()?;
         Ok(self)
     }
@@ -181,7 +181,7 @@ pub struct TracePipelineHealthSnapshot {
     pub candidate_queue_depth: usize,
     pub candidate_queue_capacity: usize,
     pub candidate_drops: u64,
-    pub self_ingest: Option<TraceSinkHealthSnapshot>,
+    pub self_intake: Option<TraceSinkHealthSnapshot>,
     pub external: Option<TraceSinkHealthSnapshot>,
 }
 
@@ -198,7 +198,7 @@ pub struct TracePipeline {
     candidate_capacity: usize,
     candidate_drops: AtomicU64,
     accepting: Arc<AtomicBool>,
-    self_ingest_health: Option<Arc<TraceSinkHealth>>,
+    self_intake_health: Option<Arc<TraceSinkHealth>>,
     external_health: Option<Arc<TraceSinkHealth>>,
     cancel: CancellationToken,
     joins: Mutex<Option<Vec<JoinHandle<()>>>>,
@@ -209,7 +209,7 @@ pub struct TracePipeline {
 impl TracePipeline {
     pub fn start(
         sampler: Arc<TailSampler>,
-        self_ingest_sink: Option<Arc<dyn TraceSink>>,
+        self_intake_sink: Option<Arc<dyn TraceSink>>,
         external_sink: Option<Arc<dyn TraceSink>>,
         config: TracePipelineConfig,
         limits: TraceLimits,
@@ -217,7 +217,7 @@ impl TracePipeline {
         Self::start_with_apm(
             sampler,
             None,
-            self_ingest_sink,
+            self_intake_sink,
             external_sink,
             config,
             limits,
@@ -227,7 +227,7 @@ impl TracePipeline {
     pub fn start_with_apm(
         sampler: Arc<TailSampler>,
         apm_projector: Option<Arc<dyn crate::app::apm::ApmCandidateProjector>>,
-        self_ingest_sink: Option<Arc<dyn TraceSink>>,
+        self_intake_sink: Option<Arc<dyn TraceSink>>,
         external_sink: Option<Arc<dyn TraceSink>>,
         config: TracePipelineConfig,
         limits: TraceLimits,
@@ -239,7 +239,7 @@ impl TracePipeline {
         let accepting = Arc::new(AtomicBool::new(true));
         let cancel = CancellationToken::new();
         let (self_endpoint, self_health, self_join) =
-            make_sink_worker(self_ingest_sink, config.self_ingest, limits);
+            make_sink_worker(self_intake_sink, config.self_intake, limits);
         let (external_endpoint, external_health, external_join) =
             make_sink_worker(external_sink, config.external, limits);
 
@@ -268,7 +268,7 @@ impl TracePipeline {
             candidate_capacity: config.candidate_capacity,
             candidate_drops: AtomicU64::new(0),
             accepting,
-            self_ingest_health: self_health,
+            self_intake_health: self_health,
             external_health,
             cancel,
             joins: Mutex::new(Some(joins)),
@@ -333,8 +333,8 @@ impl TracePipeline {
             candidate_queue_depth: self.candidate_depth.load(Ordering::Relaxed),
             candidate_queue_capacity: self.candidate_capacity,
             candidate_drops: self.candidate_drops.load(Ordering::Relaxed),
-            self_ingest: self
-                .self_ingest_health
+            self_intake: self
+                .self_intake_health
                 .as_ref()
                 .map(|health| health.snapshot()),
             external: self
@@ -369,14 +369,14 @@ impl TracePipeline {
                 .fetch_add(candidate_residue as u64, Ordering::Relaxed);
             trace_metrics::set_queue("candidate", 0, self.candidate_capacity);
             trace_metrics::record_spans("candidate", "shutdown_timeout", candidate_residue as u64);
-            let self_ingest_residue =
-                record_shutdown_residue("self_ingest", self.self_ingest_health.as_ref());
+            let self_intake_residue =
+                record_shutdown_residue("self_intake", self.self_intake_health.as_ref());
             let external_residue =
                 record_shutdown_residue("external", self.external_health.as_ref());
             tracing::warn!(
                 target: "molesignal::app::trace",
                 candidate_residue,
-                self_ingest_residue,
+                self_intake_residue,
                 external_residue,
                 "Trace pipeline shutdown timed out"
             );
@@ -427,11 +427,11 @@ fn make_sink_worker(
 
 fn fanout(
     traces: Vec<DecidedTrace>,
-    self_ingest: Option<&SinkEndpoint>,
+    self_intake: Option<&SinkEndpoint>,
     external: Option<&SinkEndpoint>,
 ) {
     for trace in traces.into_iter().filter(|trace| trace.kept) {
-        enqueue_sink(self_ingest, trace.clone());
+        enqueue_sink(self_intake, trace.clone());
         let suppress_external = trace.spans.iter().any(|span| {
             span.attributes
                 .get("molesignal.trace.suppress_external")
@@ -645,24 +645,24 @@ fn span_count(traces: &[DecidedTrace]) -> usize {
     traces.iter().map(|trace| trace.spans.len()).sum()
 }
 
-pub struct SelfIngestTraceSink {
-    ingestion: Arc<IngestService>,
+pub struct SelfIntakeTraceSink {
+    intake: Arc<IntakeService>,
     system_org_id: Id,
 }
 
-impl SelfIngestTraceSink {
-    pub fn new(ingestion: Arc<IngestService>, system_org_id: Id) -> Self {
+impl SelfIntakeTraceSink {
+    pub fn new(intake: Arc<IntakeService>, system_org_id: Id) -> Self {
         Self {
-            ingestion,
+            intake,
             system_org_id,
         }
     }
 }
 
 #[async_trait]
-impl TraceSink for SelfIngestTraceSink {
+impl TraceSink for SelfIntakeTraceSink {
     fn name(&self) -> &'static str {
-        "self_ingest"
+        "self_intake"
     }
 
     async fn export(&self, traces: &[DecidedTrace]) -> Result<(), String> {
@@ -684,7 +684,7 @@ impl TraceSink for SelfIngestTraceSink {
             if spans.is_empty() {
                 continue;
             }
-            let batch = IngestBatch {
+            let batch = IntakeBatch {
                 batch_id: Id::new(),
                 org_id: Id(org_id.clone()),
                 stream: stream.clone(),
@@ -693,9 +693,9 @@ impl TraceSink for SelfIngestTraceSink {
                 received_at: TimestampMicros::now(),
             };
             let result = if internal {
-                with_suppression(self.ingestion.ingest_self_telemetry(batch)).await
+                with_suppression(self.intake.intake_self_telemetry(batch)).await
             } else {
-                with_suppression(self.ingestion.ingest(batch)).await
+                with_suppression(self.intake.intake(batch)).await
             }
             .map_err(|error| error.to_string())?;
             if result.rejected != 0 {
@@ -704,7 +704,7 @@ impl TraceSink for SelfIngestTraceSink {
             if summaries.is_empty() {
                 continue;
             }
-            let summary_batch = IngestBatch {
+            let summary_batch = IntakeBatch {
                 batch_id: Id::new(),
                 org_id: Id(org_id),
                 stream,
@@ -713,15 +713,15 @@ impl TraceSink for SelfIngestTraceSink {
                 received_at: TimestampMicros::now(),
             };
             let result = if internal {
-                with_suppression(self.ingestion.ingest_self_telemetry_dataset(
+                with_suppression(self.intake.intake_self_telemetry_dataset(
                     summary_batch,
                     PhysicalDatasetKind::TraceSummary,
                 ))
                 .await
             } else {
                 with_suppression(
-                    self.ingestion
-                        .ingest_derived_dataset(summary_batch, PhysicalDatasetKind::TraceSummary),
+                    self.intake
+                        .intake_derived_dataset(summary_batch, PhysicalDatasetKind::TraceSummary),
                 )
                 .await
             }
@@ -815,7 +815,7 @@ mod tests {
     #[async_trait]
     impl TraceSink for BlockingTraceSink {
         fn name(&self) -> &'static str {
-            "self_ingest"
+            "self_intake"
         }
 
         async fn export(&self, _traces: &[DecidedTrace]) -> Result<(), String> {
@@ -837,7 +837,7 @@ mod tests {
             candidate_capacity: 4,
             decision_tick: Duration::from_millis(2),
             shutdown_timeout: Duration::from_secs(1),
-            self_ingest: sink,
+            self_intake: sink,
             external: sink,
         }
     }
@@ -907,7 +907,7 @@ mod tests {
         let health = pipeline.health();
         pipeline.shutdown().await;
         assert_eq!(healthy.traces("org").await.len(), 1);
-        assert!(health.self_ingest.unwrap().degraded);
+        assert!(health.self_intake.unwrap().degraded);
         assert!(!health.external.unwrap().degraded);
     }
 
@@ -978,7 +978,7 @@ mod tests {
         });
         let mut config = fast_config();
         config.shutdown_timeout = Duration::from_millis(20);
-        config.self_ingest.export_timeout = Duration::from_secs(10);
+        config.self_intake.export_timeout = Duration::from_secs(10);
         let pipeline = TracePipeline::start(
             test_sampler(),
             Some(sink),
@@ -1002,7 +1002,7 @@ mod tests {
         let shutdown_started = Instant::now();
         pipeline.shutdown().await;
         assert!(shutdown_started.elapsed() < Duration::from_secs(1));
-        let health = pipeline.health().self_ingest.unwrap();
+        let health = pipeline.health().self_intake.unwrap();
         assert!(health.degraded);
         assert!(health.dropped_spans >= 1);
         assert_eq!(health.in_flight_spans, 0);

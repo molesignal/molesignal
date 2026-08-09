@@ -5,10 +5,10 @@
 //! OTLP `TraceServiceClient` export →
 //! 1. 无 `authorization` metadata → `Unauthenticated`；
 //! 2. 带 Bearer（root JWT，Owner → StreamWrite）→ ok；
-//! 3. 等 IngesterWorker flush → `/api/v1/query` 验证 span 落到 traces 流。
+//! 3. 等 IntakeWorker flush → `/api/v1/query` 验证 span 落到 traces 流。
 //!
-//! 与 `it_grpc_ingest`（内部 ingest.v1，免鉴权、绕过 AppState）不同：OTLP gRPC 走完整
-//! `AppState`（鉴权 + 计费门禁 + ingestion），故复用 `common::TestServer` 的真实栈。
+//! 与 `it_grpc_intake`（内部 intake.v1，免鉴权、绕过 AppState）不同：OTLP gRPC 走完整
+//! `AppState`（鉴权 + 计费门禁 + intake），故复用 `common::TestServer` 的真实栈。
 //! 需 `MS_RUN_IT=1` + docker（postgres testcontainer）才跑。
 
 mod common;

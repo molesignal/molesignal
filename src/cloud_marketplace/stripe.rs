@@ -9,7 +9,7 @@
 //! - [`parse_subscription_event`]：从 webhook 事件提取订阅快照。
 //!
 //! webhook 入口（api crate）验签后调 [`parse_subscription_event`]，把状态 upsert 进
-//! `marketplace_subscriptions`（provider="stripe"），供 ingest 计费门禁读取。
+//! `marketplace_subscriptions`（provider="stripe"），供 intake 计费门禁读取。
 
 use sha2::{Digest, Sha256};
 

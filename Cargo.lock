@@ -5042,6 +5042,7 @@ dependencies = [
  "hashbrown 0.17.1",
  "headless_chrome",
  "hex",
+ "hostname",
  "http",
  "hyper",
  "instant-acme",

@@ -10,10 +10,10 @@ use std::sync::Arc;
 
 pub use super::tracing::activate_self_telemetry;
 use super::{
+    agent::{AgentRuntime, build_model_providers},
     alerting::AlertingRuntime,
     core::Core,
     iam::IamRuntime,
-    intelligence::{IntelligenceRuntime, build_model_providers},
     license::LicenseRuntime,
     platform::PlatformRuntime,
     query::QueryRuntime,
@@ -22,8 +22,8 @@ use super::{
 };
 use crate::{
     api::state::{
-        AlertingState, AppState, ClusterState, IamState, IntelligenceState, PlatformState,
-        StorageState, TelemetryState, TraceSystemLoadHealth,
+        AgentState, AlertingState, AppState, ClusterState, IamState, PlatformState, StorageState,
+        TelemetryState, TraceSystemLoadHealth,
     },
     app::dashboard::{
         authoring::{DashboardAuthoringService, RuntimeDashboardQueryPreflight},
@@ -50,9 +50,9 @@ pub async fn rewrap_kek(settings: &Settings, old_key_b64: &str) -> Result<Vec<(S
 pub async fn build_state(settings: &Settings) -> Result<AppState> {
     let core = Core::build(settings).await?;
     let query_runtime = QueryRuntime::build(settings, &core).await;
-    let intelligence_model_providers = build_model_providers(&core);
+    let agent_model_providers = build_model_providers(&core);
     let storage_runtime =
-        StorageRuntime::build(settings, &core, intelligence_model_providers.clone()).await?;
+        StorageRuntime::build(settings, &core, agent_model_providers.clone()).await?;
     let dashboard_contract_registry = Arc::new(DashboardContractRegistryService::new(
         core.dashboard_contracts.clone(),
     ));
@@ -72,11 +72,11 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
     .await?;
     let platform_runtime =
         PlatformRuntime::build(settings, &core, &query_runtime, &storage_runtime).await?;
-    let intelligence_runtime = IntelligenceRuntime::build(
+    let agent_runtime = AgentRuntime::build(
         &core,
         &iam_runtime,
         &license_runtime,
-        intelligence_model_providers.clone(),
+        agent_model_providers.clone(),
     );
     let dashboard_authoring = Arc::new(
         DashboardAuthoringService::new(
@@ -129,7 +129,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
     } = query_runtime;
     let StorageRuntime {
         probe,
-        ingestion,
+        intake,
         profile_storage,
         profiling_service,
         prometheus_series_admission,
@@ -211,19 +211,19 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         pipeline_runs,
         quotas,
     } = platform_runtime;
-    let IntelligenceRuntime {
-        chats: intelligence_chats,
-        intelligence,
-        toolsets: intelligence_toolsets,
-        tool_control: intelligence_tool_control,
-        prompts: intelligence_prompts,
-        chat_archives: intelligence_chat_archives,
+    let AgentRuntime {
+        chats: agent_chats,
+        agent,
+        toolsets: agent_toolsets,
+        tool_control: agent_tool_control,
+        prompts: agent_prompts,
+        chat_archives: agent_chat_archives,
         incident_rca,
         slow_queries,
-    } = intelligence_runtime;
+    } = agent_runtime;
 
     Ok(AppState {
-        ingestion,
+        intake,
         query,
         dashboard,
         alerting: AlertingState {
@@ -345,15 +345,15 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
             model_prices,
             domains,
         },
-        intelligence: IntelligenceState {
+        agent: AgentState {
             dashboard_authoring,
-            chats: intelligence_chats,
-            repository: intelligence,
-            toolsets: intelligence_toolsets,
-            tool_control: intelligence_tool_control,
-            model_providers: intelligence_model_providers,
-            prompts: intelligence_prompts,
-            chat_archives: intelligence_chat_archives,
+            chats: agent_chats,
+            repository: agent,
+            toolsets: agent_toolsets,
+            tool_control: agent_tool_control,
+            model_providers: agent_model_providers,
+            prompts: agent_prompts,
+            chat_archives: agent_chat_archives,
             incident_rca,
             slow_queries,
         },

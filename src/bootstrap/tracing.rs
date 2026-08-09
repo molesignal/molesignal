@@ -11,7 +11,7 @@ use crate::{
     app::{
         apm::{ApmQueryConfig, ApmQueryService, ApmRuntime},
         trace::{
-            SelfIngestTraceSink, TracePipeline, TracePipelineConfig, TraceSink,
+            SelfIntakeTraceSink, TracePipeline, TracePipelineConfig, TraceSink,
             TraceSinkWorkerConfig,
             candidate_router::{TraceCandidateRouter, TraceCandidateRouterConfig},
             export::ExternalOtlpTraceSink,
@@ -121,8 +121,8 @@ impl TracingRuntime {
         );
         let self_trace_sink: Option<Arc<dyn TraceSink>> =
             settings.telemetry.self_collect.enabled.then(|| {
-                Arc::new(SelfIngestTraceSink::new(
-                    storage.ingestion.clone(),
+                Arc::new(SelfIntakeTraceSink::new(
+                    storage.intake.clone(),
                     core.system_org.id.clone(),
                 )) as Arc<dyn TraceSink>
             });
@@ -146,7 +146,7 @@ impl TracingRuntime {
             apm_repository.clone() as Arc<dyn crate::domain::apm::ApmQueryRepository>,
             ApmQueryConfig::from_settings(&settings.apm),
         ));
-        let owns_trace_candidates = core.roles.run_ingester || core.roles.run_querier;
+        let owns_trace_candidates = core.roles.run_intake || core.roles.run_querier;
         let runs_apm_rollup = core.roles.run_alert_manager;
         let apm_runtime = (owns_trace_candidates || runs_apm_rollup)
             .then(|| {
@@ -170,7 +170,7 @@ impl TracingRuntime {
                 shutdown_timeout: std::time::Duration::from_secs(
                     settings.telemetry.trace.shutdown_timeout_secs,
                 ),
-                self_ingest: TraceSinkWorkerConfig {
+                self_intake: TraceSinkWorkerConfig {
                     queue_capacity: settings.telemetry.self_collect.queue_capacity,
                     batch_size: settings.telemetry.self_collect.batch_max_events,
                     batch_delay: std::time::Duration::from_millis(
@@ -199,7 +199,7 @@ impl TracingRuntime {
             core.registry.clone(),
             core.node_id.clone(),
             settings.cluster.advertise_addr.clone(),
-            core.roles.run_ingester || core.roles.run_querier,
+            core.roles.run_intake || core.roles.run_querier,
             cluster_token.clone(),
             pipeline.clone(),
             TraceCandidateRouterConfig {
@@ -270,7 +270,7 @@ impl TracingRuntime {
     }
 }
 
-/// `_sys`、typed `_molesignal` streams 与 ingestion 均准备完成后，才把启动早期
+/// `_sys`、typed `_molesignal` streams 与 intake 均准备完成后，才把启动早期
 /// bounded callback queues 绑定到异步 runtime。
 pub fn activate_self_telemetry(
     state: &mut AppState,
@@ -296,22 +296,22 @@ pub fn activate_self_telemetry(
     hub.resource().set_node_id(state.cluster.node_id.clone());
     state.telemetry.self_telemetry_resource = Some(hub.resource().clone());
 
-    let has_local_ingester = settings
+    let has_local_intake = settings
         .node
         .roles
         .contains(&crate::config::Role::Standalone)
-        || settings.node.roles.contains(&crate::config::Role::Ingester);
+        || settings.node.roles.contains(&crate::config::Role::Intake);
     let profile_context =
         self_telemetry_enabled.then(|| crate::app::self_telemetry::SelfProfileContext {
             profiling: state.telemetry.profiling_service.clone(),
             storage: state.telemetry.profile_storage.clone(),
         });
-    let runtime = if has_local_ingester {
+    let runtime = if has_local_intake {
         crate::app::self_telemetry::SelfTelemetryRuntime::start_local_with_trace_candidates(
             hub,
             org_id,
             settings.telemetry.self_collect.clone(),
-            state.ingestion.clone(),
+            state.intake.clone(),
             profile_context,
             state.telemetry.trace_candidates.clone(),
         )
@@ -323,7 +323,7 @@ pub fn activate_self_telemetry(
             .map(str::to_owned)
             .ok_or_else(|| {
                 Error::invalid(format!(
-                    "{} must be set when split-role self ingestion is enabled",
+                    "{} must be set when split-role self intake is enabled",
                     crate::app::self_telemetry::CLUSTER_TOKEN_ENV
                 ))
             })?;
@@ -339,11 +339,7 @@ pub fn activate_self_telemetry(
     };
     state.telemetry.self_telemetry_runtime = Some(runtime);
     tracing::info!(
-        delivery = if has_local_ingester {
-            "local"
-        } else {
-            "cluster"
-        },
+        delivery = if has_local_intake { "local" } else { "cluster" },
         "self telemetry runtime activated"
     );
     Ok(())

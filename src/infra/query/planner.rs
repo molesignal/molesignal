@@ -44,7 +44,7 @@ pub fn parse_from_tables(stmt: &str) -> Vec<String> {
 
 /// 校验 streamHint 在当前 org 下可被查询。
 /// - stream 不存在或属其它 org → `Error::Forbidden("stream not found: <name>")`。
-/// - stream 存在但被标记为不可查询（`settings.queryable == false`，仅作 ingest 入口 /
+/// - stream 存在但被标记为不可查询（`settings.queryable == false`，仅作 intake 入口 /
 ///   pipeline 源）→ `Error::Forbidden("stream is not queryable: <name>")`——与「不存在」
 ///   分开返回，便于调用方/前端区分原因。
 pub async fn ensure_stream_in_org(

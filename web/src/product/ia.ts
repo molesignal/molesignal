@@ -72,7 +72,7 @@ export type ProductOwnerModule =
   | 'iam'
   | 'settings'
   | 'account'
-  | 'intelligence'
+  | 'agent'
   | 'legacy';
 
 export interface ProductNavGroupMeta {
@@ -353,12 +353,12 @@ export const PRODUCT_ROUTES = [
     backTo: '/alerts/rules',
   }),
   route({
-    id: 'intelligence',
-    path: '/intelligence',
-    labelKey: 'intelligence',
+    id: 'agent',
+    path: '/agent',
+    labelKey: 'agent',
     group: 'investigate',
     icon: Bot,
-    owner: 'intelligence',
+    owner: 'agent',
     emptyStateStrategy: 'none',
     nav: true,
   }),

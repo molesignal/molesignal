@@ -6,7 +6,7 @@
 //! 这是 app 层的端口（trait）。具体存储（cluster_nodes 表）+ gRPC 客户端实现在 infra。
 //! 当前提供：
 //! - [`PeerRole`] / [`PeerInfo`]：节点元信息（与 protocol::cluster::v1 同构但不直接依赖 proto）
-//! - [`ClusterRegistry`] trait：`list_role` / `pick_querier` / `pick_ingester`
+//! - [`ClusterRegistry`] trait：`list_role` / `pick_querier` / `pick_intake`
 //! - [`StandaloneRegistry`]：standalone 模式的 trivial 实现，仅返回 self（permits Distributed
 //!   engine 在单进程下的 fallback 路径）
 
@@ -22,7 +22,7 @@ pub mod registry;
 pub enum PeerRole {
     Standalone,
     Router,
-    Ingester,
+    Intake,
     Querier,
     Compactor,
     AlertManager,
@@ -46,12 +46,12 @@ pub trait ClusterRegistry: Send + Sync {
         self.list_role(PeerRole::Standalone).await
     }
 
-    /// 一致性哈希挑选 ingester（spec 8 / 11）。当前 standalone 直接返回 self。
-    async fn pick_ingester(&self, _org_id: &Id, _stream: &str) -> Option<PeerInfo> {
-        self.list_role(PeerRole::Ingester).await.into_iter().next()
+    /// 一致性哈希挑选 intake（spec 8 / 11）。当前 standalone 直接返回 self。
+    async fn pick_intake(&self, _org_id: &Id, _stream: &str) -> Option<PeerInfo> {
+        self.list_role(PeerRole::Intake).await.into_iter().next()
     }
 
-    /// 轮询挑选 querier；当前同 pick_ingester 简化。
+    /// 轮询挑选 querier；当前同 pick_intake 简化。
     async fn pick_querier(&self) -> Option<PeerInfo> {
         self.list_role(PeerRole::Querier).await.into_iter().next()
     }
@@ -71,7 +71,7 @@ impl StandaloneRegistry {
                 roles: vec![
                     PeerRole::Standalone,
                     PeerRole::Router,
-                    PeerRole::Ingester,
+                    PeerRole::Intake,
                     PeerRole::Querier,
                     PeerRole::Compactor,
                     PeerRole::AlertManager,

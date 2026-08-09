@@ -7,15 +7,15 @@ import { cn } from '@/shell/lib/cn';
 import { useMoleAgentStore } from '@/stores/useMoleAgentStore';
 import { formatWindowSummary, useTimeStore } from '@/stores/useTimeStore';
 
-// Lazy so the Mole Intelligence chat module stays out of the shell bundle until
+// Lazy so the Mole Agent chat module stays out of the shell bundle until
 // the operator first opens Mole Agent.
 const LazyAgentChat = React.lazy(() =>
-  import('@/routes/intelligence').then((module) => ({ default: module.IntelligenceChat })),
+  import('@/routes/agent').then((module) => ({ default: module.AgentChat })),
 );
 
 /**
  * Shell-level Mole Agent — a right-side slide-out that hosts the full chat
- * experience (reused from `/intelligence/chat` in embedded single-column mode) so
+ * experience (reused from `/agent/chat` in embedded single-column mode) so
  * an operator can ask a question without navigating away from the alert /
  * trace / dashboard they're looking at. Toggled by the Topbar ✨ button or ⌘J;
  * ESC closes. It overlays the content (no backdrop) so the page underneath
@@ -40,7 +40,7 @@ export function MoleAgentPanel() {
 
   const openFull = () => {
     close();
-    nav('/intelligence/chat');
+    nav('/agent/chat');
   };
 
   return (

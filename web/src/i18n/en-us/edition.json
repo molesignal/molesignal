@@ -1,6 +1,6 @@
 {
   "features": {
-    "intelligence": "Mole Intelligence",
+    "agent": "Mole Agent",
     "domain_management": "Domain management",
     "federated_search": "Federated nodes",
     "saas_billing": "Billing",

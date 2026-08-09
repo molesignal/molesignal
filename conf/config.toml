@@ -4,10 +4,11 @@
 # 例如 MS_HTTP_PORT=5081 / MS_STORE_META_DSN=...
 
 [node]
-# 可选角色（可组合）：standalone / router / ingester / querier / compactor / alert_manager
+# 可选角色（可组合）：standalone / router / intake / querier / compactor / alert_manager
 # standalone 表示同进程内启用全部角色
 roles = ["standalone"]
-# 节点唯一标识，留空则启动时自动生成 KSUID
+# 节点唯一标识；留空默认使用 OS hostname，hostname 不可用时才生成 KSUID。
+# 同一 hostname 上运行多个 MoleSignal 进程时，必须为每个进程显式设置不同的 id。
 id = ""
 # 收到 SIGTERM/SIGINT 后等待 pending 数据 flush 完（drain）的上限秒数，超时强制退出
 drain_timeout_secs = 30
@@ -21,7 +22,7 @@ port = 5080
 gzip = true
 # 对外访问 URL；留空 = 前端按当前访问来源（window.location.origin）推导。
 # 反代 / 公网部署填真实对外地址，如 https://obs.example.com
-# （数据源接入页 snippet 用它拼 ingest URL）。env 覆盖：MS_HTTP_EXTERNAL_URL
+# （数据源接入页 snippet 用它拼 intake URL）。env 覆盖：MS_HTTP_EXTERNAL_URL
 external_url = ""
 
 # === TLS + ACME 自动证书 ===
@@ -153,7 +154,7 @@ http_ms = 1000
 # 查询 Span 判定为慢查询的耗时阈值，单位毫秒。
 query_ms = 5000
 # 批量摄取 Span 判定为慢操作的耗时阈值，单位毫秒。
-batch_ingest_ms = 2000
+batch_intake_ms = 2000
 # 数据库 Span 判定为慢操作的耗时阈值，单位毫秒。
 database_ms = 200
 # 对象存储 Span 判定为慢操作的耗时阈值，单位毫秒。
@@ -340,7 +341,7 @@ batch_max_pending = 64
 batch_max_delay_ms = 50
 # 回归旧版"永不 fsync"行为：flush_strategy = "none" 且 sync_level = "none"
 
-[ingester]
+[intake]
 # 每个 stream 原始内存 buffer 硬上限（自适应阈值不会超过它）
 buffer_max_mb = 256
 # 当前进程 active + detached flush generation 的总 reservation 上限
@@ -350,7 +351,7 @@ flush_interval_secs = 30
 # 同时刷盘并发
 flush_parallelism = 4
 
-[ingester.rotation]
+[intake.rotation]
 # 根据成功 Parquet 的 encoded/raw 比率调整每个 stream 的下次原始阈值
 adaptive_enabled = true
 # 希望生成的 Parquet encoded 大小
@@ -360,18 +361,18 @@ min_buffer_mb = 16
 # encoded/raw 比率的 EWMA 平滑系数，范围 (0, 1]
 ewma_alpha = 0.2
 
-[ingester.prometheus]
+[intake.prometheus]
 # 单个 series 除 __name__ 外最多允许的 label 数
 max_labels_per_series = 64
 # label name / value 的最大 UTF-8 字节数
 max_label_name_bytes = 128
 # 单个 label value 允许的最大 UTF-8 字节数。
 max_label_value_bytes = 2048
-# 单个内部 IngestBatch / WAL seq 最多承载的 sample 数
+# 单个内部 IntakeBatch / WAL seq 最多承载的 sample 数
 max_samples_per_batch = 16384
 
-[ingester.prometheus.cardinality]
-# 当前一致性路由 ingester 上的 active-series / new-series 准入
+[intake.prometheus.cardinality]
+# 当前一致性路由 intake 上的 active-series / new-series 准入
 enabled = true
 # 当前进程允许同时保持活跃的 Prometheus series 总数；必须不小于组织级上限。
 max_active_series_per_process = 1000000
@@ -455,8 +456,8 @@ peer_timeout_secs = 15
 # 节点发现结果在每个进程内缓存 2 秒，并发刷新合并为一次数据库查询。
 
 [router.rate_limit]
-# 每 org 每秒 ingest 请求上限；0 = 不限
-ingest_qps = 1000
+# 每 org 每秒 intake 请求上限；0 = 不限
+intake_qps = 1000
 # 每 org 每秒查询请求上限；0 = 不限
 query_qps = 100
 # 令牌桶突发倍数（容量 = qps * burst_multiplier）
@@ -604,7 +605,7 @@ max_partitions_per_tick = 100
 # 同 stream 允许混合粒度共存（切换粒度时已有 daily dump 不重写）。
 partition_level = "daily"
 
-# === Intelligence ===
-[intelligence]
+# === Agent ===
+[agent]
 # session.provider 为空时的 fallback；未来可用，当前仅文档化
 default_provider = "openai"
