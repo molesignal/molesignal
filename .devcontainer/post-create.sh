@@ -28,7 +28,7 @@ fi
 echo
 echo "==> sqlx migrate run（如有 DATABASE_URL 且 sqlx-cli 在）"
 if command -v sqlx >/dev/null 2>&1; then
-  export DATABASE_URL="${DATABASE_URL:-postgres://molesignal:molesignal@postgres:5432/molesignal}"
+  export DATABASE_URL="${DATABASE_URL:-postgres://molesignal:molesignal@postgresql:5432/molesignal}"
   ( cd crates/infra && sqlx migrate run --source migrations ) || \
     echo "  (sqlx migrate skipped or failed; DB may not be ready yet)"
 else

@@ -19,18 +19,22 @@
 
 ## 依赖
 
-清单不包含 postgres / minio；自行部署或换托管：
-- Postgres 17，DSN 写到 `molesignal-config` ConfigMap 的 `meta_store.dsn`
-- 任意 S3 兼容对象存储；endpoint / access_key / secret_key 写到 `object_store`
+清单不包含 PostgreSQL / MinIO；自行部署或换托管：
+- PostgreSQL 17，默认 Service/DNS 名为 `postgresql`；DSN 写到
+  `molesignal-config` ConfigMap 的 `store.meta.dsn`
+- 任意 S3 兼容对象存储；endpoint / bucket / region 写到 `store.object`，
+  Access Key 与 Secret Key 通过 `molesignal-secret` 注入。
 
 ## 部署顺序
 
 ```bash
 kubectl apply -f 00-namespace.yaml
 kubectl apply -f 10-configmap.yaml
-# JWT secret 生产环境用随机值（推荐）
+# 生产环境替换对象存储凭据和 cipher root key；JWT secret 默认由 DB 自动 bootstrap。
 kubectl create secret generic molesignal-secret -n molesignal \
-  --from-literal=jwt_secret="$(openssl rand -hex 32)" \
+  --from-literal=object_store_access_key="<access-key>" \
+  --from-literal=object_store_secret_key="<secret-key>" \
+  --from-literal=cipher_key="$(openssl rand -base64 32)" \
   --dry-run=client -o yaml | kubectl apply -f -
 # 或 dev 临时用 20-secret.yaml
 kubectl apply -f 30-router.yaml -f 40-ingester.yaml -f 50-querier.yaml \

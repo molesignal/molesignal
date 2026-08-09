@@ -74,8 +74,6 @@ log_format = "text"
 log_output = "console"
 # 文件日志目录，仅当 log_output = "file" 时生效。
 # log_directory = "logs"
-# 文件日志名称前缀，仅当 log_output = "file" 时生效。
-# log_file_prefix = "molesignal"
 # 文件日志轮转周期：minutely | hourly | daily | never。
 # log_rotation = "daily"
 # 文件日志最多保留的轮转文件数。

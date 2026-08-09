@@ -7,7 +7,8 @@ data:
   # 部署晋升时只修改运行时通道，不重新构建镜像。
   release_channel: alpha
   # 同一份配置喂给所有 role；具体角色由 MS_NODE_ROLES 环境变量覆盖。
-  # 凡敏感字段（object_store_secret_key / cipher_key / jwt_secret_override）都从
+  # 凡敏感字段（object_store_access_key / object_store_secret_key / cipher_key /
+  # jwt_secret_override）都从
   # molesignal-secret 注入，不放本文件。jwt_secret 由进程首启动自动生成 + DB 持久化，
   # 通常不需要手工预置（auth-hardening）。
   config.toml: |
@@ -20,12 +21,12 @@ data:
     port = 5082
 
     [telemetry]
-    log_level = "info"
+    log_level = "info,tantivy=warn"
     log_format = "json"
 
     [store.meta]
     backend = "postgres"
-    dsn = "postgres://molesignal:molesignal@postgres:5432/molesignal"
+    dsn = "postgres://molesignal:molesignal@postgresql:5432/molesignal"
     min_connections = 2
     max_connections = 16
 
@@ -97,7 +98,7 @@ data:
     [alert_manager]
     eval_interval_secs = 30
     dispatch_interval_secs = 10
-    eval_timeout_secs = 15
+    eval_timeout_secs = 10
 
     [scheduled_reports.renderer]
     base_url = "http://web"
@@ -110,12 +111,12 @@ data:
     host = ""
 
     [cache.parquet_file_meta]
-    capacity = 10000
+    capacity = 100000
     ttl_secs = 60
 
     [cache.parquet_meta]
-    capacity = 2000
-    ttl_secs = 300
+    capacity = 10000
+    ttl_secs = 600
 
     [cache.query_result]
     capacity = 1000

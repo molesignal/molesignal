@@ -23,8 +23,6 @@ pub struct TelemetrySettings {
     #[serde(default)]
     pub log_directory: Option<String>,
     #[serde(default)]
-    pub log_file_prefix: Option<String>,
-    #[serde(default)]
     pub log_rotation: Option<String>,
     #[serde(default)]
     pub log_max_files: Option<usize>,
@@ -51,7 +49,6 @@ impl Default for TelemetrySettings {
             log_format: default_log_format(),
             log_output: default_log_output(),
             log_directory: None,
-            log_file_prefix: None,
             log_rotation: None,
             log_max_files: None,
             self_collect: SelfCollectSettings::default(),

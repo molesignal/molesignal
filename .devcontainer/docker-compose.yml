@@ -1,17 +1,17 @@
-# Devcontainer compose：复用主仓 deploy/docker/docker-compose.yaml 的 postgres + minio
+# Devcontainer compose：复用主仓 deploy/docker/docker-compose.yaml 的 postgresql + minio
 # 作为 dev 依赖，再叠加一个 `workspace` 服务跑 IDE / cargo / pnpm。
 #
 # 用法：VS Code "Reopen in Container" 自动起这套；命令行 `docker compose -f
 # .devcontainer/docker-compose.yml up workspace` 也行。
 
 services:
-  # ---- 复用主仓库 docker-compose 的依赖服务（postgres + minio + minio-init） ----
+  # ---- 复用主仓库 docker-compose 的依赖服务（postgresql + minio + minio-init） ----
   # 注意：路径是 .devcontainer/ → ../deploy/docker/docker-compose.yaml
-  postgres:
+  postgresql:
     extends:
       file: ../deploy/docker/docker-compose.yaml
-      service: postgres
-    # 不暴露端口到 host；workspace 内通过 hostname `postgres` 直连
+      service: postgresql
+    # 不暴露端口到 host；workspace 内通过 hostname `postgresql` 直连
     ports: []
 
   minio:
@@ -42,7 +42,7 @@ services:
     # 让 IDE 长驻；命令本身不重要，VS Code 进容器后接管
     command: sleep infinity
     depends_on:
-      postgres:
+      postgresql:
         condition: service_healthy
       minio:
         condition: service_healthy

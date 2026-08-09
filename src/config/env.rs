@@ -125,7 +125,6 @@ fn environment_schema(defaults: &Settings) -> Settings {
     schema.auth.deprecated_jwt_secret = Some(String::new());
     schema.store.object.credentials_file = Some(std::path::PathBuf::new());
     schema.telemetry.log_directory = Some(String::new());
-    schema.telemetry.log_file_prefix = Some(String::new());
     schema.telemetry.log_rotation = Some(String::new());
     schema.telemetry.log_max_files = Some(0);
     schema.telemetry.trace.external.custom_ca_file = Some(String::new());

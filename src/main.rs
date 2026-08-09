@@ -6,6 +6,8 @@ use std::path::PathBuf;
 use clap::{Parser, Subcommand};
 use molesignal::bootstrap::{activate_self_telemetry, build_state, rewrap_kek, roles};
 
+const LOG_FILE_NAME_PREFIX: &str = "molesignal";
+
 #[derive(Parser, Debug)]
 #[command(name = "molesignal", version, about = "MoleSignal server")]
 struct Cli {
@@ -152,10 +154,7 @@ fn build_log_output(
     match t.log_output.as_str() {
         "file" => LogOutput::File {
             directory: t.log_directory.clone().unwrap_or_else(|| "logs".into()),
-            file_name_prefix: t
-                .log_file_prefix
-                .clone()
-                .unwrap_or_else(|| "molesignal".into()),
+            file_name_prefix: LOG_FILE_NAME_PREFIX.into(),
             rotation: match t.log_rotation.as_deref() {
                 Some("minutely") => FileRotation::Minutely,
                 Some("hourly") => FileRotation::Hourly,

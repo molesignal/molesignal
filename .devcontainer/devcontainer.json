@@ -6,7 +6,7 @@
   "shutdownAction": "stopCompose",
 
   "features": {
-    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/git:1.3.8": {},
     "ghcr.io/devcontainers/features/github-cli:1": {},
     "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
       "moby": false,
@@ -21,7 +21,7 @@
     "5080": { "label": "molesignal HTTP", "onAutoForward": "notify" },
     "5082": { "label": "molesignal gRPC", "onAutoForward": "ignore" },
     "5173": { "label": "vite dev (web)", "onAutoForward": "openBrowser" },
-    "5432": { "label": "postgres", "onAutoForward": "silent" },
+    "5432": { "label": "postgresql", "onAutoForward": "silent" },
     "9000": { "label": "minio S3", "onAutoForward": "silent" },
     "9001": { "label": "minio console", "onAutoForward": "openBrowserOnce" }
   },
@@ -29,7 +29,7 @@
   "remoteUser": "vscode",
   "containerEnv": {
     "RUST_LOG": "molesignal=debug,info",
-    "MS_STORE_META_DSN": "postgres://molesignal:molesignal@postgres:5432/molesignal",
+    "MS_STORE_META_DSN": "postgres://molesignal:molesignal@postgresql:5432/molesignal",
     "MS_STORE_OBJECT_BACKEND": "s3",
     "MS_STORE_OBJECT_BUCKET": "molesignal",
     "MS_STORE_OBJECT_REGION": "us-east-1",
