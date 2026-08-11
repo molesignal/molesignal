@@ -31,6 +31,7 @@ import enSettingsAdmin from './en-us/settings-admin.json';
 import enShell from './en-us/shell.json';
 import enStatusPages from './en-us/status-pages.json';
 import enStreams from './en-us/streams.json';
+import enSynthetics from './en-us/synthetics.json';
 import enTraces from './en-us/traces.json';
 import zhAccount from './zh-cn/account.json';
 import zhAgent from './zh-cn/agent.json';
@@ -62,6 +63,7 @@ import zhSettingsAdmin from './zh-cn/settings-admin.json';
 import zhShell from './zh-cn/shell.json';
 import zhStatusPages from './zh-cn/status-pages.json';
 import zhStreams from './zh-cn/streams.json';
+import zhSynthetics from './zh-cn/synthetics.json';
 import zhTraces from './zh-cn/traces.json';
 
 export const SUPPORTED_LOCALES = ['en-us', 'zh-cn'] as const;
@@ -111,6 +113,7 @@ const NAMESPACES = [
   'services',
   'settings-admin',
   'status-pages',
+  'synthetics',
 ] as const;
 
 const resources = {
@@ -146,6 +149,7 @@ const resources = {
     services: enServices,
     'settings-admin': enSettingsAdmin,
     'status-pages': enStatusPages,
+    synthetics: enSynthetics,
   },
   'zh-cn': {
     account: zhAccount,
@@ -179,6 +183,7 @@ const resources = {
     services: zhServices,
     'settings-admin': zhSettingsAdmin,
     'status-pages': zhStatusPages,
+    synthetics: zhSynthetics,
   },
 } as const;
 

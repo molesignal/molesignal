@@ -1,6 +1,17 @@
 import { http } from '@/lib/http';
 
 import type {
+  ActiveAutomationRule,
+  AutomationApprovalInput,
+  AutomationCandidate,
+  AutomationCandidateDetail,
+  AutomationCandidateState,
+  AutomationRule,
+  AutomationRuleInput,
+  AutomationRuleLifecycle,
+  AutomationRevision,
+  AutomationSimulation,
+  AutomationSimulationInput,
   StatusPage,
   StatusPageAccessRule,
   StatusPageAccessRuleKind,
@@ -289,4 +300,155 @@ export async function revokeAccessSession(pageId: string, sessionId: string): Pr
 export async function revokeAllAccessSessions(pageId: string): Promise<number> {
   const { data } = await http.delete<{ revoked: number }>(`${pagePath(pageId)}/access-sessions`);
   return data.revoked;
+}
+
+export async function listAutomationRules(pageId: string): Promise<ActiveAutomationRule[]> {
+  const { data } = await http.get<ActiveAutomationRule[]>(`${pagePath(pageId)}/automation/rules`);
+  return data;
+}
+
+export async function createAutomationRule(
+  pageId: string,
+  input: AutomationRuleInput,
+): Promise<ActiveAutomationRule> {
+  const { data } = await http.post<ActiveAutomationRule>(
+    `${pagePath(pageId)}/automation/rules`,
+    input,
+  );
+  return data;
+}
+
+export async function reorderAutomationRules(
+  pageId: string,
+  ruleIds: string[],
+): Promise<ActiveAutomationRule[]> {
+  const { data } = await http.put<ActiveAutomationRule[]>(
+    `${pagePath(pageId)}/automation/rules/order`,
+    { rule_ids: ruleIds },
+  );
+  return data;
+}
+
+export async function createAutomationRevision(
+  pageId: string,
+  ruleId: string,
+  input: AutomationRuleInput,
+): Promise<AutomationRevision> {
+  const { data } = await http.post<AutomationRevision>(
+    `${pagePath(pageId)}/automation/rules/${encodeURIComponent(ruleId)}/revisions`,
+    input,
+  );
+  return data;
+}
+
+export async function activateAutomationRevision(
+  pageId: string,
+  ruleId: string,
+  revisionId: string,
+): Promise<ActiveAutomationRule> {
+  const { data } = await http.post<ActiveAutomationRule>(
+    `${pagePath(pageId)}/automation/rules/${encodeURIComponent(ruleId)}/revisions/${encodeURIComponent(revisionId)}/activate`,
+  );
+  return data;
+}
+
+export async function setAutomationRuleLifecycle(
+  pageId: string,
+  ruleId: string,
+  lifecycle: AutomationRuleLifecycle,
+): Promise<AutomationRule> {
+  const { data } = await http.put<AutomationRule>(
+    `${pagePath(pageId)}/automation/rules/${encodeURIComponent(ruleId)}/lifecycle`,
+    { lifecycle },
+  );
+  return data;
+}
+
+export async function simulateAutomation(
+  pageId: string,
+  input: AutomationSimulationInput,
+): Promise<AutomationSimulation> {
+  const { data } = await http.post<AutomationSimulation>(
+    `${pagePath(pageId)}/automation/simulate`,
+    input,
+  );
+  return data;
+}
+
+export async function listAutomationCandidates(
+  pageId: string,
+  state?: AutomationCandidateState,
+): Promise<AutomationCandidate[]> {
+  const { data } = await http.get<AutomationCandidate[]>(
+    `${pagePath(pageId)}/automation/candidates`,
+    { params: { state, limit: 100 } },
+  );
+  return data;
+}
+
+export async function listPendingAutomationCandidates(): Promise<AutomationCandidate[]> {
+  const { data } = await http.get<AutomationCandidate[]>(
+    '/status-pages/automation/candidates/pending',
+  );
+  return data;
+}
+
+export async function getAutomationCandidateDetail(
+  pageId: string,
+  candidateId: string,
+): Promise<AutomationCandidateDetail> {
+  const { data } = await http.get<AutomationCandidateDetail>(
+    `${pagePath(pageId)}/automation/candidates/${encodeURIComponent(candidateId)}`,
+  );
+  return data;
+}
+
+export async function approveAutomationCandidate(
+  pageId: string,
+  candidateId: string,
+  input: AutomationApprovalInput,
+): Promise<AutomationCandidate> {
+  const { data } = await http.post<AutomationCandidate>(
+    `${pagePath(pageId)}/automation/candidates/${encodeURIComponent(candidateId)}/approve`,
+    input,
+  );
+  return data;
+}
+
+export async function rejectAutomationCandidate(
+  pageId: string,
+  candidateId: string,
+  note?: string,
+): Promise<AutomationCandidate> {
+  const { data } = await http.post<AutomationCandidate>(
+    `${pagePath(pageId)}/automation/candidates/${encodeURIComponent(candidateId)}/reject`,
+    { note },
+  );
+  return data;
+}
+
+export async function retryAutomationCandidate(
+  pageId: string,
+  candidateId: string,
+): Promise<AutomationCandidate> {
+  const { data } = await http.post<AutomationCandidate>(
+    `${pagePath(pageId)}/automation/candidates/${encodeURIComponent(candidateId)}/retry`,
+  );
+  return data;
+}
+
+export async function getAutomationSettings(pageId: string): Promise<{ paused: boolean }> {
+  const { data } = await http.get<{ paused: boolean }>(`${pagePath(pageId)}/automation/settings`);
+  return data;
+}
+
+export async function setAutomationSettings(
+  pageId: string,
+  paused: boolean,
+): Promise<{ paused: boolean }> {
+  const { data } = await http.put<{ paused: boolean }>(
+    `${pagePath(pageId)}/automation/settings`,
+    { paused },
+  );
+  return data;
 }

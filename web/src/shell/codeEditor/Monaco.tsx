@@ -734,7 +734,7 @@ function registerPromql() {
   });
   monaco.languages.setMonarchTokensProvider('promql', {
     // Keep in sync with the engine's supported set
-    // (crates/infra/src/query/promql). Function calls are also highlighted by
+    // (bin/molesignal/src/infra/query/promql). Function calls are also highlighted by
     // the `identifier(` rule below; bare operators (and/or/unless/by/...) rely
     // on this list.
     keywords: [

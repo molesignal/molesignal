@@ -1,0 +1,22 @@
+[package]
+name = "kernel"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+axum = { workspace = true, optional = true }
+chrono.workspace = true
+contracts = { path = "../contracts" }
+serde.workspace = true
+serde_json = { workspace = true, optional = true }
+svix-ksuid.workspace = true
+thiserror.workspace = true
+tracing = { workspace = true, optional = true }
+uuid.workspace = true
+
+[features]
+default = []
+http = ["dep:axum", "dep:serde_json", "dep:tracing"]

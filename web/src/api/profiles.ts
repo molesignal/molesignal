@@ -2,7 +2,7 @@ import { http, toApiError } from '@/lib/http';
 
 /**
  * Continuous Profiling client. Talks to the backend profiles routes
- * (crates/api/src/http/routes/profiles.rs):
+ * (`bin/molesignal/src/api/http/routes/profiles.rs`):
  *
  *  - `GET /profiles`            metadata list / filter
  *  - `GET /profiles/flamegraph` window-merged flamebearer (+ trace correlation)

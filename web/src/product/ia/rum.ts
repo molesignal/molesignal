@@ -16,7 +16,7 @@ const RUM_ACCESS = {
   edition: 'any',
   owner: 'rum',
   emptyStateStrategy: 'query-first',
-  group: 'investigate',
+  group: 'observe',
 } as const;
 
 const rumCrumb = { labelKey: 'rum', to: '/rum/overview' } as const;

@@ -56,9 +56,9 @@ export CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16
 : "${CARGO_BUILD_JOBS:=4}"; export CARGO_BUILD_JOBS
 
 echo ">>> 构建两个变体（release, lto=off cu=16 -j${CARGO_BUILD_JOBS}）..."
-cargo build --release -q -p molesignal-infra --example alloc_bench
+cargo build --release -q -p molesignal --example alloc_bench
 cp "$TGT/release/examples/alloc_bench" /tmp/alloc_bench_system
-cargo build --release -q -p molesignal-infra --example alloc_bench --features jemalloc
+cargo build --release -q -p molesignal --example alloc_bench --features jemalloc
 cp "$TGT/release/examples/alloc_bench" /tmp/alloc_bench_jemalloc
 
 # 传给 bench 的 env（BENCH_THREADS 为空则不传，让 bench 用 CPU 数）

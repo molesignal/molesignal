@@ -1,6 +1,16 @@
 [workspace]
 resolver = "2"
-members = [".", "src/domain/iam/permission_macro", "src/sqlx-shim"]
+members = [
+    "bin/molesignal",
+    "bin/probe-agent",
+    "crates/core/*",
+    "crates/engines/*",
+    "crates/modules/*",
+    "crates/transport/*",
+    "crates/support/*",
+    "tools/*",
+]
+default-members = ["bin/molesignal"]
 
 [workspace.package]
 version = "0.1.0"
@@ -34,18 +44,20 @@ rustls-pemfile = "2"
 tokio-rustls = "0.26"
 axum-server = { version = "0.8", features = ["tls-rustls"] }
 instant-acme = "0.8"
-rcgen = "0.14"
+rcgen = { version = "0.14", features = ["x509-parser"] }
 pem = "3"
 quick-xml = "0.40"
 roxmltree = "0.21"
 aws-lc-rs = "1"
 sha2 = "0.11"
 x509-cert = { version = "0.2", features = ["std", "pem"] }
+x509-parser = "0.18"
+webpki-roots = "1"
 tonic = { version = "0.14", features = ["gzip", "tls-webpki-roots"] }
 tonic-prost = "0.14"
 tonic-prost-build = "0.14"
 prost = "0.14"
-prost-build = "0.14"
+tonic-health = "0.14"
 
 # serialization
 serde = { version = "1", features = ["derive"] }
@@ -75,7 +87,7 @@ promql-parser = "0.9"
 
 # persistence
 # 直接用 sqlx，不引 ORM；只支持 postgres。
-sqlx = { path = "src/sqlx-shim", features = [
+sqlx = { path = "crates/support/sqlx-shim", features = [
     "runtime-tokio-rustls",
     "postgres",
     "chrono",
@@ -114,6 +126,7 @@ addr2line = "0.25"
 thiserror = "2.0"
 chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
 chrono-tz = "0.10"
+time = "0.3"
 uuid = { version = "1", features = ["v7", "serde"] }
 svix-ksuid = { version = "0.10", features = ["serde"] }
 dashmap = { version = "6.2", features = ["serde"] }
@@ -190,149 +203,6 @@ serde_yaml = "0.9"
 testcontainers = "0.27"
 testcontainers-modules = { version = "0.15", features = ["postgres"] }
 
-
-[package]
-name = "molesignal"
-version.workspace = true
-edition.workspace = true
-publish.workspace = true
-rust-version.workspace = true
-
-[lib]
-name = "molesignal"
-path = "src/lib.rs"
-
-[[bin]]
-name = "molesignal"
-path = "src/main.rs"
-
-[dependencies]
-aes-gcm.workspace = true
-addr2line.workspace = true
-anyhow.workspace = true
-argon2 = { workspace = true, features = ["std"] }
-arrow.workspace = true
-arrow-flight.workspace = true
-arrow-schema.workspace = true
-async-trait.workspace = true
-aws-lc-rs.workspace = true
-axum.workspace = true
-axum-extra.workspace = true
-axum-server.workspace = true
-base64.workspace = true
-bitflags = "2"
-blake3.workspace = true
-bytes.workspace = true
-chrono.workspace = true
-chrono-tz.workspace = true
-clap.workspace = true
-crc32c.workspace = true
-cron.workspace = true
-dashmap.workspace = true
-datafusion.workspace = true
-deno_core = { workspace = true, optional = true }
-ed25519-dalek.workspace = true
-eventsource-stream.workspace = true
-figment.workspace = true
-flate2.workspace = true
-futures.workspace = true
-governor.workspace = true
-hashbrown = "0.17"
-headless_chrome = "1"
-hex.workspace = true
-http = "1"
-hostname.workspace = true
-hyper.workspace = true
-instant-acme.workspace = true
-jsonschema.workspace = true
-jsonwebtoken.workspace = true
-ldap3.workspace = true
-lettre.workspace = true
-log.workspace = true
-lz4_flex.workspace = true
-maxminddb.workspace = true
-memmap2.workspace = true
-moka.workspace = true
-molesignal-permission-macro = { path = "src/domain/iam/permission_macro" }
-notify.workspace = true
-object_store.workspace = true
-once_cell.workspace = true
-opentelemetry-proto.workspace = true
-parking_lot.workspace = true
-parquet.workspace = true
-pem.workspace = true
-prometheus.workspace = true
-promql-parser.workspace = true
-pprof = { version = "0.15", default-features = false, features = ["cpp", "frame-pointer", "prost-codec"], optional = true }
-pprof_util = { version = "0.8.2", features = ["symbolize"], optional = true }
-prost.workspace = true
-quick-xml.workspace = true
-rand.workspace = true
-rcgen.workspace = true
-rdkafka.workspace = true
-regex.workspace = true
-reqwest.workspace = true
-roxmltree.workspace = true
-rustls.workspace = true
-rustls-pemfile.workspace = true
-serde.workspace = true
-serde_json.workspace = true
-sha2.workspace = true
-snap.workspace = true
-sourcemap.workspace = true
-sqlparser.workspace = true
-sqlx.workspace = true
-svix-ksuid.workspace = true
-tantivy.workspace = true
-tar.workspace = true
-tempfile = "3"
-thiserror.workspace = true
-tikv-jemalloc-ctl = { version = "0.6", optional = true, features = ["use_std"] }
-tikv-jemallocator = { version = "0.6", optional = true, features = ["profiling"] }
-tokio.workspace = true
-tokio-rustls.workspace = true
-tokio-stream.workspace = true
-tokio-util.workspace = true
-toml.workspace = true
-tonic.workspace = true
-tonic-prost.workspace = true
-tower.workspace = true
-tower-http.workspace = true
-tracing.workspace = true
-tracing-appender.workspace = true
-tracing-log.workspace = true
-tracing-subscriber.workspace = true
-url.workspace = true
-ipnet.workspace = true
-uuid.workspace = true
-vrl.workspace = true
-x509-cert.workspace = true
-zstd.workspace = true
-
-[features]
-default = ["jemalloc", "profiling-pprof", "ws"]
-ws = ["axum/ws"]
-enterprise = []
-jemalloc = ["dep:tikv-jemallocator", "dep:tikv-jemalloc-ctl"]
-profiling-pprof = ["dep:pprof", "dep:pprof_util"]
-js-runtime = ["dep:deno_core"]
-
-[dev-dependencies]
-criterion = "0.8"
-libc = "0.2"
-rcgen = "0.14"
-testcontainers.workspace = true
-testcontainers-modules.workspace = true
-tokio-tungstenite = "0.29"
-wiremock = "0.6"
-
-[[bench]]
-name = "schema_infer"
-harness = false
-
-[[bench]]
-name = "intake_hotpath"
-harness = false
 
 [profile.release]
 debug = 1

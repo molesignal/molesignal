@@ -6,7 +6,7 @@
  * detail pane can render them uniformly.
  *
  * Every access snippet below targets the REAL backend intake contract
- * (`crates/api/src/http/routes/*`): native JSON on `/api/v1/intake/{signal}/{stream}`,
+ * (`bin/molesignal/src/api/http/routes/*`): native JSON on `/api/v1/intake/{signal}/{stream}`,
  * OTLP/HTTP on `/api/v1/{logs,metrics,traces}` (there is NO OTLP gRPC :4317),
  * ES bulk on `/api/v1/_bulk`, Prometheus on `/api/v1/prometheus/api/v1/write`,
  * push connectors on `/api/v1/_kinesis_firehose|_cloudflare|_heroku`. Auth is

@@ -144,6 +144,7 @@ import { PublicStatusPage } from './status-pages/PublicStatusPage';
 import { STATUS_PAGE_MANAGEMENT_ROUTES } from './status-pages/routes';
 import { Streams } from './streams';
 import { StreamExplore } from './streams/Explore';
+import { SYNTHETICS_ROUTES } from './synthetics/routes';
 import { Traces } from './traces';
 import { TraceDetail } from './traces/Detail';
 import { TraceSessionDetail } from './traces/SessionDetail';
@@ -393,6 +394,7 @@ export const router = createBrowserRouter([
       { path: 'alerts/semantic-groups', element: <SemanticGroups /> },
       // sitemap parity alias for the planned /alerts/import-semantic-groups route.
       { path: 'alerts/import-semantic-groups', element: <SemanticGroups /> },
+      ...SYNTHETICS_ROUTES,
 
       /* DATA */
       { path: 'streams', element: <Streams /> },

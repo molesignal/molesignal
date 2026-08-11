@@ -52,7 +52,8 @@
     "revoke_all": "Revoke all",
     "resend_confirmation": "Resend confirmation",
     "move_up": "Move up",
-    "move_down": "Move down"
+    "move_down": "Move down",
+    "cancel": "Cancel"
   },
   "kpis": {
     "pages": "Status pages",
@@ -137,7 +138,8 @@
     "duration_hours_one": "{{count}} hr",
     "duration_hours_other": "{{count}} hr",
     "duration_minutes_one": "{{count}} min",
-    "duration_minutes_other": "{{count}} min"
+    "duration_minutes_other": "{{count}} min",
+    "any": "Any"
   },
   "sections": {
     "components": "Components",
@@ -350,7 +352,8 @@
       "general": "General",
       "branding": "Branding",
       "localization": "Localization & history",
-      "domain-access": "Domain & access"
+      "domain-access": "Domain & access",
+      "automation": "Automation"
     },
     "general": {
       "title": "General",
@@ -383,6 +386,180 @@
       "sessions": "Active sessions",
       "sessions_description": "Sessions are bound to the status-page origin and can be revoked at any time.",
       "expires": "Expires {{date}}"
+    }
+  },
+  "automation": {
+    "title": "Publication automation",
+    "description": "Turn sustained Alert or Synthetic failures into controlled customer communication.",
+    "pause": {
+      "title": "Pause all automation",
+      "description": "Stops new matches without changing existing public incidents."
+    },
+    "rules": {
+      "count_one": "{{count}} ordered rule",
+      "count_other": "{{count}} ordered rules",
+      "empty": "No automation rules yet. The first complete match wins.",
+      "delay_one": "{{count}} minute delay",
+      "delay_other": "{{count}} minute delay"
+    },
+    "actions": {
+      "add_rule": "Add rule",
+      "save_activate": "Save and activate",
+      "pause": "Pause",
+      "resume": "Resume",
+      "approve": "Approve",
+      "approve_publish": "Approve and publish",
+      "reject": "Reject",
+      "retry": "Retry delivery",
+      "simulate": "Run simulation"
+    },
+    "editor": {
+      "create_title": "Create automation rule",
+      "edit_title": "Edit automation rule",
+      "subtitle": "Rules are immutable revisions and activate atomically.",
+      "match_title": "Match source",
+      "match_hint": "Rules run in order; every configured condition must match.",
+      "publication_title": "Publication policy",
+      "publication_hint": "Delay requires the source to remain active for the full window.",
+      "copy_title": "Customer copy",
+      "copy_hint": "Templates are deterministic and expose only the listed safe tokens."
+    },
+    "fields": {
+      "source_kind": "Source",
+      "minimum_severity": "Minimum severity",
+      "labels": "Required labels",
+      "labels_hint": "Comma-separated key=value pairs; every pair must match.",
+      "mode": "Publication mode",
+      "delay_minutes": "Sustained delay (minutes)",
+      "degraded_impact": "Degraded impact",
+      "failing_impact": "Failing impact",
+      "title_template": "Public title template",
+      "investigating_template": "Investigating update",
+      "update_template": "Impact-change update",
+      "resolved_template": "Resolved update",
+      "correlation_template": "Correlation key",
+      "template_hint": "Allowed: {{source.id}}, {{source.kind}}, {{severity}}, and {{labels.key}}."
+    },
+    "source": {
+      "alert_incident": "Alert incident",
+      "synthetic_monitor": "Synthetic check"
+    },
+    "source_picker": {
+      "alert_rule": "Alert rule",
+      "synthetic_monitor": "Synthetic check",
+      "alert_rule_hint": "Choose one alert rule, or select All alert rules to match every rule in this organization.",
+      "alert_rule_required_hint": "Choose the alert rule to use in this simulation.",
+      "synthetic_monitor_hint": "Only published, unarchived checks are shown. Targets come from the check configuration; choose All synthetic checks to match every check.",
+      "synthetic_monitor_required_hint": "Choose a published synthetic check for this simulation; its target comes from the check configuration.",
+      "all_alert_rule": "All alert rules",
+      "all_synthetic_monitor": "All synthetic checks",
+      "select_alert_rule": "Select an alert rule",
+      "select_synthetic_monitor": "Select a synthetic check",
+      "empty_alert_rule": "No alert rules available",
+      "empty_synthetic_monitor": "No published synthetic checks available",
+      "loading": "Loading sources…",
+      "load_error": "The source list could not be loaded. Try again shortly.",
+      "unavailable": "Unavailable source · {{id}}",
+      "enabled": "Enabled",
+      "disabled": "Disabled"
+    },
+    "mode": {
+      "approval": "Draft for approval",
+      "automatic": "Automatic publish"
+    },
+    "severity": {
+      "info": "Info",
+      "warning": "Warning",
+      "error": "Error",
+      "critical": "Critical"
+    },
+    "lifecycle": {
+      "draft": "Draft",
+      "active": "Active",
+      "paused": "Paused",
+      "archived": "Archived"
+    },
+    "candidate": {
+      "delayed": "Waiting for sustained delay",
+      "pending_approval": "Pending approval",
+      "approved": "Approved · publishing",
+      "published": "Published",
+      "rejected": "Rejected",
+      "cancelled": "Cancelled",
+      "resolved": "Resolved",
+      "failed": "Needs attention"
+    },
+    "notification": {
+      "pending_approval": "Status Page draft needs approval",
+      "failed": "Status Page automation needs attention"
+    },
+    "overlap": {
+      "title": "This rule can overlap another rule",
+      "description": "Potential overlap with {{rules}}. Because the first complete match wins, review the order before activating ({{count}} overlap(s))."
+    },
+    "simulator": {
+      "title": "Rule simulator",
+      "description": "Test the active ordered rules without creating a draft or publishing an incident.",
+      "incident": "Use an active alert incident",
+      "manual": "Enter source data manually",
+      "matched": "Matched",
+      "no_match": "No match"
+    },
+    "review": {
+      "title": "Publication candidate",
+      "subtitle": "Review customer copy, source evidence, and delivery activity.",
+      "due_at": "Eligible at",
+      "public_copy": "Customer-facing copy",
+      "public_copy_hint": "Human edits are saved to the draft before publication and are not overwritten by later source updates.",
+      "missing_draft": "This candidate has no linked draft incident. Regenerate it through the automation flow before approving.",
+      "draft_load_failed": "The linked draft incident could not be loaded. Refresh the page or regenerate the candidate before approving.",
+      "draft_loading": "Loading the linked draft incident…",
+      "complete_required_fields": "Complete the title, customer update, and affected components before approving.",
+      "rejection_note_required": "Enter a review note before rejecting this candidate.",
+      "decision_pending": "The approval decision is being saved.",
+      "note": "Review note",
+      "note_hint": "Required when rejecting. Approval notes are optional.",
+      "failure": "Last failure",
+      "sources": "Source evidence",
+      "sources_hint": "Private source metadata is visible here only and is never included on the public Status Page.",
+      "active": "Active",
+      "inactive": "Recovered or muted",
+      "activity": "Automation activity",
+      "attempts_one": "{{count}} attempt",
+      "attempts_other": "{{count}} attempts"
+    },
+    "action": {
+      "created": "Candidate created",
+      "pending_approval": "Draft ready for approval",
+      "approved": "Publication approved",
+      "published": "Incident published",
+      "rejected": "Candidate rejected",
+      "cancelled": "Candidate cancelled",
+      "resolved": "Incident resolved",
+      "failed": "Delivery moved to dead letter",
+      "retried": "Dead-letter delivery retried"
+    },
+    "work_status": {
+      "pending": "Pending",
+      "processing": "Processing",
+      "completed": "Completed",
+      "dead_letter": "Dead letter"
+    },
+    "work_kind": {
+      "publish": "Publish incident",
+      "resolve": "Resolve incident",
+      "notify_publisher": "Notify publisher"
+    },
+    "approvals": {
+      "title": "Pending publication",
+      "description": "Review generated drafts and automation failures before they reach customers.",
+      "empty": "No publication candidates need attention."
+    },
+    "toast": {
+      "saved": "Automation rule activated",
+      "approved": "Candidate approved for publication",
+      "rejected": "Candidate rejected",
+      "retried": "Dead-letter delivery queued for retry"
     }
   },
   "public": {

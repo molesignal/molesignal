@@ -1,0 +1,161 @@
+[package]
+name = "molesignal"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "molesignal"
+path = "src/lib.rs"
+
+[[bin]]
+name = "molesignal"
+path = "src/main.rs"
+
+[dependencies]
+aes-gcm.workspace = true
+addr2line.workspace = true
+agent = { path = "../../crates/modules/agent" }
+anyhow.workspace = true
+argon2 = { workspace = true, features = ["std"] }
+arrow.workspace = true
+arrow-flight.workspace = true
+arrow-schema.workspace = true
+async-trait.workspace = true
+aws-lc-rs.workspace = true
+axum.workspace = true
+axum-extra.workspace = true
+axum-server.workspace = true
+base64.workspace = true
+bitflags = "2"
+blake3.workspace = true
+bytes.workspace = true
+chrono.workspace = true
+chrono-tz.workspace = true
+cloud-marketplace = { path = "../../crates/modules/cloud-marketplace" }
+contracts = { path = "../../crates/core/contracts" }
+clap.workspace = true
+crc32c.workspace = true
+cron.workspace = true
+dashmap.workspace = true
+datafusion.workspace = true
+domain-management = { path = "../../crates/modules/domain-management" }
+domain = { path = "../../crates/core/domain" }
+ed25519-dalek.workspace = true
+eventsource-stream.workspace = true
+figment.workspace = true
+flate2.workspace = true
+futures.workspace = true
+function-runtime = { path = "../../crates/engines/function-runtime" }
+governor.workspace = true
+grpc-client = { path = "../../crates/transport/grpc-client" }
+hashbrown = "0.17"
+hex.workspace = true
+http = "1"
+hostname.workspace = true
+hyper.workspace = true
+instant-acme.workspace = true
+index-format = { path = "../../crates/engines/index-format" }
+jsonschema.workspace = true
+jsonwebtoken.workspace = true
+kernel = { path = "../../crates/core/kernel", features = ["http"] }
+ldap3.workspace = true
+lettre.workspace = true
+license = { path = "../../crates/modules/license" }
+log.workspace = true
+lz4_flex.workspace = true
+maxminddb.workspace = true
+memmap2.workspace = true
+moka.workspace = true
+model-pricing = { path = "../../crates/modules/model-pricing" }
+permission-macro = { path = "../../crates/support/permission-macro" }
+notify.workspace = true
+object_store.workspace = true
+once_cell.workspace = true
+opentelemetry-proto.workspace = true
+parking_lot.workspace = true
+parquet.workspace = true
+pem.workspace = true
+prometheus.workspace = true
+promql-parser.workspace = true
+profiles = { path = "../../crates/engines/profiles" }
+postgres = { path = "../../crates/engines/postgres" }
+probe-agent = { path = "../probe-agent" }
+pprof = { version = "0.15", default-features = false, features = ["cpp", "frame-pointer", "prost-codec"], optional = true }
+pprof_util = { version = "0.8.2", features = ["symbolize"], optional = true }
+prost.workspace = true
+protocol = { path = "../../crates/core/protocol" }
+quick-xml.workspace = true
+rand.workspace = true
+rcgen.workspace = true
+rdkafka.workspace = true
+regex.workspace = true
+reqwest.workspace = true
+report-renderer = { path = "../../crates/support/report-renderer" }
+roxmltree.workspace = true
+rustls.workspace = true
+rustls-pemfile.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+service-graph = { path = "../../crates/engines/service-graph" }
+settings = { path = "../../crates/core/settings" }
+sha2.workspace = true
+signals = { path = "../../crates/support/signals" }
+snap.workspace = true
+sourcemap.workspace = true
+sqlparser.workspace = true
+sqlx.workspace = true
+svix-ksuid.workspace = true
+tantivy.workspace = true
+tar.workspace = true
+tempfile = "3"
+thiserror.workspace = true
+tikv-jemalloc-ctl = { version = "0.6", optional = true, features = ["use_std"] }
+tikv-jemallocator = { version = "0.6", optional = true, features = ["profiling"] }
+tokio.workspace = true
+tokio-rustls.workspace = true
+tokio-stream.workspace = true
+tokio-util.workspace = true
+time.workspace = true
+toml.workspace = true
+tonic.workspace = true
+tonic-prost.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+tracing.workspace = true
+tracing-appender.workspace = true
+tracing-log.workspace = true
+tracing-subscriber.workspace = true
+url.workspace = true
+ipnet.workspace = true
+uuid.workspace = true
+vrl.workspace = true
+x509-cert.workspace = true
+zstd.workspace = true
+query-language = { path = "../../crates/engines/query-language" }
+
+[features]
+default = ["jemalloc", "profiling-pprof", "ws"]
+ws = ["axum/ws"]
+enterprise = []
+jemalloc = ["dep:tikv-jemallocator", "dep:tikv-jemalloc-ctl"]
+profiling-pprof = ["dep:pprof", "dep:pprof_util"]
+js-runtime = ["function-runtime/js-runtime", "postgres/js-runtime"]
+
+[dev-dependencies]
+criterion = "0.8"
+libc = "0.2"
+rcgen = "0.14"
+testcontainers.workspace = true
+testcontainers-modules.workspace = true
+tokio-tungstenite = "0.29"
+wiremock = "0.6"
+
+[[bench]]
+name = "schema_infer"
+harness = false
+
+[[bench]]
+name = "intake_hotpath"
+harness = false

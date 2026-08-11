@@ -3,25 +3,26 @@ name: ci
 on:
   push:
     paths:
-      - 'src/**'
-      - 'build.rs'
-      - 'src/sqlx-shim/**'
+      - 'bin/**'
+      - 'crates/**'
+      - 'tools/**'
       - 'proto/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
       - 'rust-toolchain.toml'
       - 'Makefile'
-      - '.github/workflows/ci.yml'
+      - '.github/workflows/rust.yml'
   pull_request:
     paths:
-      - 'src/**'
-      - 'build.rs'
-      - 'src/sqlx-shim/**'
+      - 'bin/**'
+      - 'crates/**'
+      - 'tools/**'
       - 'proto/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
       - 'rust-toolchain.toml'
       - 'Makefile'
+      - '.github/workflows/rust.yml'
 
 env:
   CARGO_TERM_COLOR: always
@@ -58,8 +59,8 @@ jobs:
           sudo chmod +x /usr/local/bin/buf
           buf --version
 
-      - name: generate protobuf code
-        run: make proto
+      - name: lint protobuf schemas
+        run: make proto-lint
 
       - name: install rust toolchain
         # 跟随仓库根 `rust-toolchain.toml` 锁定 1.96；deno_core 0.403 需要

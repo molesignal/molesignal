@@ -5,23 +5,19 @@
 FROM rust:1.96-bullseye AS rust-builder
 ARG BUILD_ID=unknown
 ARG GIT_SHA=unknown
-# protobuf binding 已提交到 src/protocol；make proto 仍可手动刷新。
+# protobuf binding 由各 crate build.rs 生成到 Cargo OUT_DIR；protobuf-compiler 提供 protoc。
 # cmake：rdkafka-sys 用 cmake-build 编 librdkafka 必需（rust 官方镜像不含 cmake）。
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl protobuf-compiler cmake \
  && rm -rf /var/lib/apt/lists/*
-RUN curl -fsSL "https://github.com/bufbuild/buf/releases/latest/download/buf-Linux-$(uname -m)" \
-      -o /usr/local/bin/buf \
- && chmod +x /usr/local/bin/buf \
- && buf --version
 
 WORKDIR /src
 COPY Cargo.toml Cargo.lock* rust-toolchain.toml ./
 COPY .cargo ./.cargo
-COPY build.rs ./
+COPY bin ./bin
+COPY crates ./crates
+COPY tools ./tools
 COPY proto ./proto
-COPY src ./src
-COPY benches ./benches
 COPY contracts ./contracts
 RUN BUILD_ID="$BUILD_ID" GIT_SHA="$GIT_SHA" cargo build --release --locked --bin molesignal
 

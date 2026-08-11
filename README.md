@@ -200,6 +200,9 @@ molesignal.del("pw");
 
 ## Architecture
 
+The source workspace layout and dependency rules are documented in
+[ARCHITECTURE.md](ARCHITECTURE.md).
+
 ```
                           ┌──────────┐
    OTel / Vector / ...  ─►│  router  │─► consistent hash(org, stream) ─► intake(s)
@@ -267,7 +270,7 @@ PRs welcome — start with the `tasks.md` files in `openspec/changes/*`. Convent
 
 - DDD layering: don't push infra concerns into `domain/`
 - Every public type has a 1-sentence doc explaining *why* it exists
-- Integration tests live in `tests/*_it_*.rs`; gate behind `MS_RUN_IT=1` if they need Docker
+- Integration tests live in `bin/molesignal/tests/*_it_*.rs`; gate behind `MS_RUN_IT=1` if they need Docker
 - `cargo fmt --all` + `cargo clippy --workspace --all-targets` before pushing
 
 Issues, RFCs, design discussions: all on GitHub. No Discord/Slack yet — we'll set one up after the first batch of users.

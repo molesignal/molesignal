@@ -35,7 +35,7 @@
 
 属于范围内的：
 
-- MoleSignal 服务端（`crates/bootstrap`、`crates/api`、`crates/app`、`crates/infra`、`crates/domain`、`crates/shared`）
+- MoleSignal Rust workspace（`bin/molesignal`、`bin/probe-agent` 与 `crates/`）
 - `web/` 下的前端
 - `deploy/` 下的官方 Docker 镜像与 Compose / Kubernetes manifest
 - 跨租户数据泄露、认证 / 授权绕过、签名密钥 / cipher key 泄露、intake 注入，以及任何与"文档承诺的多租户隔离保证"不一致的行为

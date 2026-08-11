@@ -54,6 +54,19 @@ port = 5082
 # gRPC 单条收发消息允许的最大大小，单位 MiB。
 max_message_size_mb = 32
 
+# Probe Agent register/control plane starts automatically on standalone and alert_manager nodes.
+# Register uses server-authenticated TLS; the control stream uses short-lived mTLS identities.
+[probe]
+bind = "0.0.0.0"
+register_port = 5084
+control_port = 5085
+# Public URLs printed in the one-time register command. Set these behind a proxy/LB.
+register_endpoint = "https://localhost:5084"
+control_endpoint = "https://localhost:5085"
+server_names = ["localhost", "127.0.0.1"]
+certificate_days = 30
+max_message_size_mb = 32
+
 # 对外 Arrow Flight SQL 端口（DBeaver / JDBC / ADBC 直连查询）。
 # 与 [grpc]（集群内可信网络）分端口；每个 RPC 强制 API token 鉴权。
 [flight_sql]

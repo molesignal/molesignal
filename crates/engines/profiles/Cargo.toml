@@ -1,0 +1,22 @@
+[package]
+name = "profiles"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+bytes.workspace = true
+domain = { path = "../../core/domain" }
+flate2.workspace = true
+futures.workspace = true
+kernel = { path = "../../core/kernel" }
+object_store.workspace = true
+prost.workspace = true
+protocol = { path = "../../core/protocol" }
+serde.workspace = true
+serde_json.workspace = true
+zstd.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true

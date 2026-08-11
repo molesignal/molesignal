@@ -1,0 +1,18 @@
+[package]
+name = "protocol"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+arrow-flight.workspace = true
+bytes.workspace = true
+http = "1"
+prost.workspace = true
+tokio-stream.workspace = true
+tonic.workspace = true
+tonic-prost.workspace = true
+
+[build-dependencies]
+tonic-prost-build.workspace = true

@@ -35,7 +35,7 @@ Include:
 
 In scope:
 
-- The MoleSignal server (`crates/bootstrap`, `crates/api`, `crates/app`, `crates/infra`, `crates/domain`, `crates/shared`).
+- The MoleSignal Rust workspace (`bin/molesignal`, `bin/probe-agent`, and `crates/`).
 - The web client under `web/`.
 - The reference Docker images and Compose / Kubernetes manifests under `deploy/`.
 - Cross-tenant data leaks, authentication / authorisation bypass, signing-secret / cipher-key exposure, intake-side injection, and any deviation between the documented multi-tenant isolation guarantees and observed behaviour.

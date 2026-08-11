@@ -14,7 +14,7 @@ const BACKEND_ACCESS = {
   edition: 'any',
   owner: 'apm',
   emptyStateStrategy: 'query-first',
-  group: 'investigate',
+  group: 'observe',
 } as const;
 
 const apmCrumb = { labelKey: 'apm', to: '/apm/overview' } as const;

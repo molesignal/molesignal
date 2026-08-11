@@ -82,16 +82,20 @@ describe('database-backed product route access', () => {
       routePatternMatches('/settings/notify/*', '/settings/notify/connectors'),
     ).toBe(true);
     expect(routePatternMatches('/', '/')).toBe(true);
+    expect(routePatternMatches('/synthetics/*', '/synthetics')).toBe(true);
+    expect(
+      routePatternMatches('/synthetics/*', '/synthetics/checks/check-a'),
+    ).toBe(true);
   });
 
   it('renders navigation groups and ordering from the server catalog', () => {
     const snapshot = access([
-      decision('metrics', '/metrics', true, 'investigate', 20),
-      decision('dashboards', '/dashboards', true, 'investigate', 10),
-      decision('logs', '/logs', false, 'investigate', 30),
+      decision('metrics', '/metrics', true, 'observe', 20),
+      decision('dashboards', '/dashboards', true, 'observe', 10),
+      decision('logs', '/logs', false, 'observe', 30),
     ]);
     expect(
-      accessibleProductNavigation(snapshot, 'investigate').map(
+      accessibleProductNavigation(snapshot, 'observe').map(
         (route) => route.id,
       ),
     ).toEqual(['dashboards', 'metrics']);
@@ -116,7 +120,7 @@ describe('database-backed product route access', () => {
         'admin',
         10,
       ),
-      decision('traces', '/traces', true, 'investigate', 40),
+      decision('traces', '/traces', true, 'observe', 40),
     ]);
     expect(deniedProductRouteFallback('/settings/license', snapshot)).toBe(
       '/traces',
@@ -148,7 +152,7 @@ describe('database-backed product route access', () => {
     expect(legacyAccess.routeCatalogVersion).toBe(0);
     expect(legacyAccess.routes).toEqual([]);
     expect(canAccessProductPath('/dashboards', legacyAccess)).toBe(false);
-    expect(accessibleProductNavigation(legacyAccess, 'investigate')).toEqual(
+    expect(accessibleProductNavigation(legacyAccess, 'observe')).toEqual(
       [],
     );
     expect(deniedProductRouteFallback('/dashboards', legacyAccess)).toBe(

@@ -1,0 +1,22 @@
+[package]
+name = "function-runtime"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+base64.workspace = true
+dashmap.workspace = true
+deno_core = { workspace = true, optional = true }
+domain = { path = "../../core/domain" }
+kernel = { path = "../../core/kernel" }
+parking_lot.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+vrl.workspace = true
+
+[features]
+default = []
+js-runtime = ["dep:deno_core"]

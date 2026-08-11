@@ -1,0 +1,16 @@
+[package]
+name = "license-sign"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+base64.workspace = true
+clap.workspace = true
+ed25519-dalek.workspace = true
+hex.workspace = true
+license = { path = "../../crates/modules/license" }
+rand.workspace = true
+serde_json.workspace = true

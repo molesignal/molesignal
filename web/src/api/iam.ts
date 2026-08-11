@@ -20,7 +20,14 @@ export interface IamRouteAccess {
   id: string;
   path_pattern: string;
   allowed: boolean;
-  navigation_group?: 'home' | 'investigate' | 'pipeline' | 'admin';
+  navigation_group?:
+    | 'home'
+    | 'observe'
+    | 'reliability'
+    | 'ai_ops'
+    | 'data'
+    | 'collaboration'
+    | 'admin';
   navigation_position?: number;
 }
 

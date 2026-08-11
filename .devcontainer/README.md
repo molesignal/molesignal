@@ -28,20 +28,19 @@ docker compose -f .devcontainer/docker-compose.yml exec workspace bash
 
 ```bash
 # 主服务（standalone 模式，HTTP 5080 / gRPC 5082）
-cargo run -p molesignal-bootstrap -- --config conf/config.toml
+cargo run -p molesignal -- --config conf/config.toml
 
 # 单测
 cargo test --workspace --lib
-cd  && cargo test --workspace
 
 # 启付费版构建
-cargo build -p molesignal-bootstrap --features 
+cargo build -p molesignal --features enterprise
 
 # 前端 dev server（vite，端口 5173 已转发）
 cd web && pnpm dev
 
 # 集成测试（需要 docker-out-of-docker，已启用）
-MS_RUN_IT=1 cargo test --workspace --test 'it_*'
+MS_RUN_IT=1 cargo test -p molesignal --tests -- --test-threads=1
 
 # openspec 工作流
 openspec list

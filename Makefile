@@ -1,6 +1,6 @@
 # molesignal Makefile
 # ============================================================================
-# Rust workspace (单二进制 molesignal) + Web 前端 (pnpm/Vite) + buf proto +
+# Rust workspace（最终二进制位于 bin/）+ Web 前端 (pnpm/Vite) + buf proto +
 # docker/k8s 部署。
 # ============================================================================
 
@@ -199,11 +199,11 @@ check:
 check-all:
 	cargo check --workspace --all-targets $(CARGO_FEATURE_FLAGS)
 
-# === Proto 代码生成 ===
-# 注：proto 代码生成现为手动执行（build.rs 不再自动触发 buf），输出到 src/protocol/。
+# === Proto schema ===
+# Rust binding 由 protocol / probe-agent 各自的 build.rs 自动生成到 Cargo OUT_DIR；
+# make proto 仅保留为兼容入口，用于校验仓库中的 .proto 源文件。
 .PHONY: proto proto-lint proto-breaking
-proto:
-	cd proto && buf generate
+proto: proto-lint
 
 proto-lint:
 	buf lint
@@ -360,7 +360,8 @@ help:
 	@echo "  make ci / ci-fast               - 组合门禁"
 	@echo ""
 	@echo "Proto:"
-	@echo "  make proto / proto-lint / proto-breaking"
+	@echo "  make proto / proto-lint              - 校验 .proto（Rust binding 构建时生成）"
+	@echo "  make proto-breaking                  - 检查协议兼容性"
 	@echo ""
 	@echo "Docker:"
 	@echo "  make docker-build / docker-build-web"

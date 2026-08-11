@@ -13,6 +13,7 @@
   "profiles": "Profiles",
   "dashboards": "Dashboards",
   "alerts": "Alerts",
+  "synthetics": "Synthetics",
   "agent": "Mole Agent",
   "saved_views": "Saved views",
   "streams": "Streams",
@@ -46,7 +47,9 @@
   "drag_handle": "Drag to reorder",
   "groups": {
     "home": "HOME",
-    "investigate": "INVESTIGATE",
+    "observe": "OBSERVE",
+    "reliability": "RELIABILITY",
+    "ai_ops": "AI OPS",
     "data": "DATA",
     "collaboration": "COLLABORATION",
     "admin": "ADMIN"

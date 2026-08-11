@@ -107,7 +107,7 @@ export interface VariableResolveResponse {
 
 /**
  * Resolves a dashboard template variable against the backend.
- * Backend route: `crates/api/src/http/routes/dashboard_variables.rs`.
+ * Backend route: `bin/molesignal/src/api/http/routes/dashboards/variables.rs`.
  *
  * - `kind === 'query'`: backend translates `label_values(<metric>, <label>)`
  *   to `SELECT DISTINCT <label> FROM <metric>`. The backend infers the

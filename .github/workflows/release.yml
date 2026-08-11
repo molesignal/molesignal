@@ -67,8 +67,8 @@ jobs:
           sudo chmod +x /usr/local/bin/buf
           buf --version
 
-      - name: generate protobuf code
-        run: make proto
+      - name: lint protobuf schemas
+        run: make proto-lint
 
       - name: install rust toolchain
         # 跟随仓库根 `rust-toolchain.toml`（1.96）。
@@ -124,23 +124,13 @@ jobs:
 
       - name: install system dependencies
         # rust:1.96-bullseye 已含 build-essential/git/ca-certificates/curl/pkg-config；
-        # cmake 供 rdkafka cmake-build 编 librdkafka，protobuf-compiler 保险
-        #（make proto 实际走 buf 自带 protoc，不依赖系统 protoc）。容器默认 root。
+        # cmake 供 rdkafka cmake-build 编 librdkafka；protobuf-compiler 供各 crate 的
+        # build.rs 在 Cargo OUT_DIR 生成协议 binding。容器默认 root。
         run: |
           apt-get update
           apt-get install -y --no-install-recommends \
             cmake protobuf-compiler
           rm -rf /var/lib/apt/lists/*
-
-      - name: install Buf CLI
-        run: |
-          curl -fsSL "https://github.com/bufbuild/buf/releases/latest/download/buf-$(uname -s)-$(uname -m)" \
-            -o /usr/local/bin/buf
-          chmod +x /usr/local/bin/buf
-          buf --version
-
-      - name: generate protobuf code
-        run: make proto
 
       - name: install rust toolchain
         # 容器已是 rust:1.96-bullseye（channel 与仓库 rust-toolchain.toml 一致）；

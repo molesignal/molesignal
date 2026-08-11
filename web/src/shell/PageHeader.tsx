@@ -55,16 +55,16 @@ export function PageHeader({
   const iconRoute = React.useMemo(() => {
     const ownerRoute = PRODUCT_NAV_ITEMS.find(
       (candidate) =>
-        candidate.group === 'investigate' && candidate.owner === route?.owner,
+        candidate.group === 'observe' && candidate.owner === route?.owner,
     );
     if (ownerRoute) return ownerRoute;
     const parentRoute = PRODUCT_NAV_ITEMS.find(
       (candidate) =>
-        candidate.group === 'investigate' &&
+        candidate.group === 'observe' &&
         (location.pathname === candidate.path ||
           location.pathname.startsWith(`${candidate.path}/`)),
     );
-    return parentRoute ?? (route?.group === 'investigate' ? route : undefined);
+    return parentRoute ?? (route?.group === 'observe' ? route : undefined);
   }, [location.pathname, route]);
   const HeaderIcon = iconRoute?.icon;
 
@@ -119,7 +119,7 @@ export function PageHeader({
               className={cn(
                 'flex items-center gap-1 rounded text-tx-2 hover:text-tx-0',
                 'transition-colors duration-fast ease-default',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo',
+                'focus-visible:bg-bg-2 focus-visible:text-tx-0',
               )}
               aria-label={t('breadcrumbs.back', { defaultValue: 'Back' })}
             >
@@ -196,7 +196,7 @@ function Breadcrumbs({ items }: { items: readonly ProductBreadcrumbItem[] }) {
                     className={cn(
                       'rounded text-tx-2 hover:text-tx-0',
                       'transition-colors duration-fast ease-default',
-                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo',
+                      'focus-visible:bg-bg-2 focus-visible:text-tx-0',
                     )}
                   >
                     {label}

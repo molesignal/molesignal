@@ -9,7 +9,7 @@ interface EmptyStateProps {
   /**
    * Mark as "awaiting backend" — used by pages whose listed backend
    * endpoint does not exist yet. Pages render this when the corresponding
-   * `crates/api/src/http/routes/*.rs` route is not implemented; once it
+   * `bin/molesignal/src/api/http/routes/*.rs` route is not implemented; once it
    * lands the same component flips to the real list automatically.
    */
   awaitingBackend?: boolean;

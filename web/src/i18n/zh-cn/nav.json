@@ -13,7 +13,8 @@
   "profiles": "Profiles",
   "dashboards": "仪表盘",
   "alerts": "告警",
-  "agent": "AI助手",
+  "synthetics": "拨测",
+  "agent": "Mole Agent",
   "saved_views": "保存的视图",
   "streams": "数据流",
   "pipelines": "流水线",
@@ -46,7 +47,9 @@
   "drag_handle": "拖动重排序",
   "groups": {
     "home": "首页",
-    "investigate": "分析",
+    "observe": "观察",
+    "reliability": "可靠性",
+    "ai_ops": "AI 运维",
     "data": "数据",
     "collaboration": "协作",
     "admin": "管理"

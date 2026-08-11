@@ -6,6 +6,8 @@ import { StatusPageEvents } from './workspace/EventsPage';
 import { StatusPageHistory } from './workspace/History';
 import { StatusPageWorkspaceLayout } from './workspace/Layout';
 import { StatusPageOverview } from './workspace/Overview';
+import { StatusPageAutomationSettings } from './workspace/settings/automation';
+import { StatusPageAutomationReview } from './workspace/settings/automation/ReviewPage';
 import { StatusPageBrandingSettings } from './workspace/settings/Branding';
 import { StatusPageDomainAccessSettings } from './workspace/settings/DomainAccess';
 import { StatusPageGeneralSettings } from './workspace/settings/General';
@@ -29,6 +31,7 @@ export const STATUS_PAGE_MANAGEMENT_ROUTES: RouteObject[] = [
       { path: 'maintenance/:eventId', element: <StatusPageEvents kind="maintenance" /> },
       { path: 'history', element: <StatusPageHistory /> },
       { path: 'history/:eventId', element: <StatusPageHistory /> },
+      { path: 'automation/:candidateId', element: <StatusPageAutomationReview /> },
       { path: 'subscribers', element: <Navigate to="list" replace /> },
       { path: 'subscribers/list', element: <StatusPageSubscribers view="list" /> },
       { path: 'subscribers/deliveries', element: <StatusPageSubscribers view="deliveries" /> },
@@ -41,6 +44,7 @@ export const STATUS_PAGE_MANAGEMENT_ROUTES: RouteObject[] = [
           { path: 'branding', element: <StatusPageBrandingSettings /> },
           { path: 'localization', element: <StatusPageLocalizationSettings /> },
           { path: 'domain-access', element: <StatusPageDomainAccessSettings /> },
+          { path: 'automation', element: <StatusPageAutomationSettings /> },
         ],
       },
     ],

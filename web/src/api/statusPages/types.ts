@@ -39,6 +39,19 @@ export type StatusPageDomainState =
   | 'failed'
   | 'degraded';
 export type StatusPageAccessRuleKind = 'email' | 'domain';
+export type AutomationSourceKind = 'alert_incident' | 'synthetic_monitor';
+export type AutomationRuleLifecycle = 'draft' | 'active' | 'paused' | 'archived';
+export type AutomationPublicationMode = 'approval' | 'automatic';
+export type AutomationCandidateState =
+  | 'delayed'
+  | 'pending_approval'
+  | 'approved'
+  | 'published'
+  | 'rejected'
+  | 'cancelled'
+  | 'resolved'
+  | 'failed';
+export type AlertSeverity = 'info' | 'warning' | 'error' | 'critical';
 
 export interface StatusPage {
   id: string;
@@ -273,6 +286,147 @@ export interface StatusPageAccessSession {
 export interface StatusPageSubscriptionOutcome {
   accepted: boolean;
   confirmation_required: boolean;
+}
+
+export interface AutomationMatchers {
+  source_kind: AutomationSourceKind;
+  source_id: string | null;
+  labels: Record<string, string>;
+  minimum_severity: AlertSeverity | null;
+}
+
+export interface AutomationAction {
+  component_ids: string[];
+  publication_mode: AutomationPublicationMode;
+  sustained_delay_seconds: number;
+  impact_map: { degraded: IncidentImpact; failing: IncidentImpact };
+  templates: {
+    title: string;
+    investigating: string;
+    update: string;
+    resolved: string;
+  };
+  correlation_key_template: string;
+}
+
+export interface AutomationRuleInput {
+  name: string;
+  position?: number;
+  matchers: AutomationMatchers;
+  action: AutomationAction;
+}
+
+export interface AutomationApprovalInput {
+  title: string;
+  impact: IncidentImpact;
+  message: string;
+  component_ids: string[];
+  note?: string;
+}
+
+export interface AutomationRule {
+  id: string;
+  organization_id: string;
+  status_page_id: string;
+  name: string;
+  position: number;
+  lifecycle: AutomationRuleLifecycle;
+  active_revision_id: string | null;
+  draft_revision_id: string | null;
+  created_by: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface AutomationRevision {
+  id: string;
+  organization_id: string;
+  status_page_id: string;
+  rule_id: string;
+  number: number;
+  matchers: AutomationMatchers;
+  action: AutomationAction;
+  content_hash: string;
+  created_by: string;
+  created_at: number;
+}
+
+export interface ActiveAutomationRule {
+  rule: AutomationRule;
+  revision: AutomationRevision;
+}
+
+export interface AutomationCandidate {
+  id: string;
+  organization_id: string;
+  status_page_id: string;
+  rule_revision_id: string;
+  correlation_key: string;
+  state: AutomationCandidateState;
+  title: string;
+  message: string;
+  resolved_message: string;
+  impact: IncidentImpact;
+  component_ids: string[];
+  automatic: boolean;
+  status_incident_id: string | null;
+  due_at: number;
+  created_at: number;
+  updated_at: number;
+  last_error: string | null;
+}
+
+export interface AutomationCandidateSource {
+  source_kind: AutomationSourceKind;
+  source_id: string;
+  source_instance_id: string;
+  severity: AlertSeverity;
+  labels: Record<string, string>;
+  active: boolean;
+  muted: boolean;
+  observed_at: number;
+  updated_at: number;
+}
+
+export interface AutomationCandidateAction {
+  id: string;
+  action: string;
+  actor_id: string | null;
+  note: string | null;
+  created_at: number;
+}
+
+export interface AutomationWorkItem {
+  id: string;
+  kind: string;
+  status: 'pending' | 'processing' | 'completed' | 'dead_letter';
+  attempts: number;
+  available_at: number;
+  last_error: string | null;
+  completed_at: number | null;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface AutomationCandidateDetail {
+  candidate: AutomationCandidate;
+  sources: AutomationCandidateSource[];
+  actions: AutomationCandidateAction[];
+  work_items: AutomationWorkItem[];
+}
+
+export interface AutomationSimulationInput {
+  source_kind: AutomationSourceKind;
+  source_id: string;
+  source_instance_id?: string;
+  severity: AlertSeverity;
+  labels?: Record<string, string>;
+}
+
+export interface AutomationSimulation {
+  matched_rule_id: string | null;
+  matched_revision_id: string | null;
+  reason: string;
 }
 
 export interface PublicStatusPage {

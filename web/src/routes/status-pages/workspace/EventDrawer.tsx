@@ -54,6 +54,7 @@ export function StatusPageEventDrawer({
   const { t } = useTranslation('status-pages');
   const queryClient = useQueryClient();
   const { pageId, snapshot, manageAccess, refresh } = useStatusPageWorkspace();
+  const publishAccess = useActionAccess({ permission: 'status_pages.publish' });
   const isNew = eventId === 'new';
   const eventQuery = useQuery({
     queryKey: ['status-pages', pageId, 'event', eventId],
@@ -110,20 +111,34 @@ export function StatusPageEventDrawer({
       queryClient.invalidateQueries({ queryKey: ['status-pages', pageId, 'event'] }),
       queryClient.invalidateQueries({ queryKey: ['status-pages', pageId, 'events'] }),
       queryClient.invalidateQueries({ queryKey: ['status-pages', pageId, 'history'] }),
+      queryClient.invalidateQueries({ queryKey: ['status-pages', pageId, 'automation'] }),
+      queryClient.invalidateQueries({ queryKey: ['status-pages', 'automation', 'pending'] }),
     ]);
   };
 
-  const canMutate = manageAccess.allowed && snapshot.page.lifecycle === 'active';
+  const pageActive = snapshot.page.lifecycle === 'active';
+  const canManage = manageAccess.allowed && pageActive;
+  const canPublish = publishAccess.allowed && pageActive;
   const editable =
     isNew ||
     event?.publication_state === 'draft' ||
     (event?.kind === 'maintenance' && event.status === 'scheduled');
+  const canEditForm = isNew
+    ? canManage
+    : event?.publication_state === 'draft'
+      ? canManage || canPublish
+      : canManage;
   const publicationInvalid =
     !draft.title.trim() || !draft.message.trim() || draft.componentIds.length === 0;
   const draftInvalid = draft.title.length > 200 || draft.message.length > 4_000;
   const startedAtInvalid =
     kind === 'maintenance' && !Number.isFinite(new Date(draft.startedAt).getTime());
   const primaryAction = primaryEventSubmitAction(event);
+  const canSubmitPrimary = primaryAction.mode === 'publish'
+    ? event
+      ? canPublish
+      : canManage
+    : canManage;
 
   return (
     <FormDrawer
@@ -136,9 +151,9 @@ export function StatusPageEventDrawer({
       }
       subtitle={t(`forms.event.${kind}_subtitle`)}
       footer={
-        editable && canMutate ? (
+        editable && canEditForm ? (
           <>
-            {(isNew || event?.publication_state === 'draft') && (
+            {(isNew || event?.publication_state === 'draft') && canManage && (
               <ChromeButton
                 disabled={draftInvalid || eventMutation.isPending}
                 onClick={() => eventMutation.mutate('draft')}
@@ -148,7 +163,12 @@ export function StatusPageEventDrawer({
             )}
             <ChromeButton
               variant="primary"
-              disabled={publicationInvalid || startedAtInvalid || eventMutation.isPending}
+              disabled={
+                !canSubmitPrimary
+                || publicationInvalid
+                || startedAtInvalid
+                || eventMutation.isPending
+              }
               onClick={() => eventMutation.mutate(primaryAction.mode)}
             >
               <Send className="h-3.5 w-3.5" />
@@ -166,7 +186,7 @@ export function StatusPageEventDrawer({
           event={event}
           draft={draft}
           setDraft={setDraft}
-          disabled={!canMutate}
+          disabled={!canEditForm}
         />
       ) : event ? (
         <EventDetail event={event} />
@@ -174,7 +194,7 @@ export function StatusPageEventDrawer({
         <div className="py-16 text-center text-sm text-red-soft">{t('states.event_unavailable')}</div>
       )}
 
-      {event && !editable && !isTerminal(event) && canMutate && (
+      {event && !editable && !isTerminal(event) && canPublish && (
         <FormSection title={t('forms.update.title')} description={t('forms.update.hint')}>
           <FormField label={t('fields.incident_status')}>
             <FormSelect

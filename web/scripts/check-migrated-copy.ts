@@ -227,7 +227,7 @@ function auditFile(file: string): Violation[] {
 // the route-file scan so this signal isn't masked by the in-flight copy
 // migration backlog. If this fails, either the IA was reverted (fix the
 // IA, not this list) or someone copy-pasted from an old branch.
-const RETIRED_NAV_GROUPS = ['observe', 'pipeline', 'automate'] as const;
+const RETIRED_NAV_GROUPS = ['investigate', 'pipeline', 'automate'] as const;
 const NAV_JSON_PATHS = ['src/i18n/zh-cn/nav.json', 'src/i18n/en-us/nav.json'] as const;
 const navViolations: { file: string; key: string }[] = [];
 for (const navPath of NAV_JSON_PATHS) {
@@ -248,7 +248,7 @@ if (navViolations.length > 0) {
   for (const v of navViolations) {
     console.error(`${v.file}  retired i18n key reappeared: "${v.key}"`);
   }
-  console.error(`\ncheck-migrated-copy: ${navViolations.length} retired nav group key(s). Current IA uses home/investigate/data/collaboration/admin; these keys must stay removed.`);
+  console.error(`\ncheck-migrated-copy: ${navViolations.length} retired nav group key(s). Current IA uses home/observe/reliability/ai_ops/data/collaboration/admin; these keys must stay removed.`);
   process.exit(1);
 }
 

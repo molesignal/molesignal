@@ -10,6 +10,9 @@ export type PermissionDomain =
   | 'pipelines'
   | 'reports'
   | 'status_pages'
+  | 'synthetics'
+  | 'service_levels'
+  | 'postmortems'
   | 'agent';
 
 export interface PermissionDefinition {

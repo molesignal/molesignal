@@ -29,7 +29,7 @@ echo
 echo "==> sqlx migrate run（如有 DATABASE_URL 且 sqlx-cli 在）"
 if command -v sqlx >/dev/null 2>&1; then
   export DATABASE_URL="${DATABASE_URL:-postgres://molesignal:molesignal@postgresql:5432/molesignal}"
-  ( cd crates/infra && sqlx migrate run --source migrations ) || \
+  sqlx migrate run --source crates/engines/postgres/src/migrations || \
     echo "  (sqlx migrate skipped or failed; DB may not be ready yet)"
 else
   echo "  (sqlx-cli not installed, skip)"
@@ -45,12 +45,12 @@ cat <<'EOF'
   MinIO Web:  http://localhost:9001  (port-forwarded)
 
  常用命令：
-   cargo run -p molesignal-bootstrap -- --config conf/config.toml
+   cargo run -p molesignal -- --config conf/config.toml
    cargo test --workspace --lib
    ( cd web && pnpm dev )                # vite on :5173
 
  集成测试（已编译；需 docker-out-of-docker）：
-   MS_RUN_IT=1 cargo test --workspace --test 'it_*'
+   MS_RUN_IT=1 cargo test -p molesignal --tests -- --test-threads=1
 
 ==============================================================
 EOF

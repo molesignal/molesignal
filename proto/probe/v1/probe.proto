@@ -1,0 +1,440 @@
+syntax = "proto3";
+
+package probe.v1;
+
+service ProbeService {
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+  rpc ControlStream(stream AgentFrame) returns (stream ControlFrame);
+}
+
+message RegisterRequest {
+  string register_token = 1;
+  bytes public_key_der = 2;
+  string agent_version = 3;
+  uint32 protocol_version = 4;
+  string hostname = 5;
+  repeated Capability capabilities = 6;
+  map<string, string> labels = 7;
+}
+
+message RegisterResponse {
+  string agent_id = 1;
+  string location_id = 2;
+  bytes certificate_chain_pem = 3;
+  bytes ca_certificate_pem = 4;
+  int64 certificate_expires_at_micros = 5;
+  string control_endpoint = 6;
+  uint32 protocol_version = 7;
+}
+
+message AgentFrame {
+  string frame_id = 1;
+  oneof payload {
+    AgentHello hello = 10;
+    AgentHeartbeat heartbeat = 11;
+    TaskAck task_ack = 12;
+    LeaseRenewal lease_renewal = 13;
+    ProbeResult result = 14;
+    AgentDrain drain = 15;
+    CertificateRotationRequest certificate_rotation = 16;
+  }
+}
+
+message ControlFrame {
+  string frame_id = 1;
+  oneof payload {
+    HelloAck hello_ack = 10;
+    ProbeTask task = 11;
+    CancelTask cancel_task = 12;
+    ResultAck result_ack = 13;
+    RotateCertificate rotate_certificate = 14;
+    DrainAgent drain_agent = 15;
+  }
+}
+
+message AgentHello {
+  string agent_id = 1;
+  string agent_version = 2;
+  uint32 protocol_version = 3;
+  repeated Capability capabilities = 4;
+  AgentCapacity capacity = 5;
+  uint64 last_acked_result_sequence = 6;
+}
+
+message HelloAck {
+  uint32 protocol_version = 1;
+  int64 server_time_micros = 2;
+  uint32 heartbeat_interval_secs = 3;
+  uint32 lease_renewal_interval_secs = 4;
+  uint32 max_in_flight = 5;
+}
+
+message AgentHeartbeat {
+  int64 observed_at_micros = 1;
+  AgentCapacity capacity = 2;
+  uint32 active_tasks = 3;
+  uint64 result_spool_bytes = 4;
+  bool draining = 5;
+}
+
+message AgentCapacity {
+  uint32 max_concurrent = 1;
+  uint32 max_browser_concurrent = 2;
+  uint32 available = 3;
+  uint32 available_browser = 4;
+}
+
+enum Capability {
+  CAPABILITY_UNSPECIFIED = 0;
+  CAPABILITY_HTTP = 1;
+  CAPABILITY_TCP = 2;
+  CAPABILITY_DNS = 3;
+  CAPABILITY_ICMP = 4;
+  CAPABILITY_TLS = 5;
+  CAPABILITY_GRPC = 6;
+  CAPABILITY_BROWSER = 7;
+}
+
+message TaskAck {
+  string task_id = 1;
+  string lease_token = 2;
+  bool accepted = 3;
+  string rejection_code = 4;
+}
+
+message LeaseRenewal {
+  string task_id = 1;
+  string lease_token = 2;
+  int64 requested_until_micros = 3;
+}
+
+message AgentDrain {
+  string reason = 1;
+}
+
+message CertificateRotationRequest {
+  bytes public_key_der = 1;
+}
+
+message RotateCertificate {
+  bytes certificate_chain_pem = 1;
+  bytes ca_certificate_pem = 2;
+  int64 expires_at_micros = 3;
+}
+
+message DrainAgent {
+  string reason = 1;
+  int64 deadline_micros = 2;
+}
+
+message CancelTask {
+  string task_id = 1;
+  string lease_token = 2;
+  string reason = 3;
+}
+
+message ResultAck {
+  string task_id = 1;
+  uint64 result_sequence = 2;
+}
+
+message ProbeTask {
+  string task_id = 1;
+  string organization_id = 2;
+  string monitor_id = 3;
+  string monitor_revision_id = 4;
+  string location_id = 5;
+  string lease_token = 6;
+  int64 leased_until_micros = 7;
+  int64 scheduled_at_micros = 8;
+  int64 deadline_micros = 9;
+  uint32 timeout_millis = 10;
+  uint32 max_attempts = 11;
+  EgressPolicy egress_policy = 12;
+  repeated ResolvedSecret secrets = 13;
+  bool test_run = 14;
+  repeated ArtifactUploadTarget artifact_uploads = 15;
+
+  oneof spec {
+    HttpJourneySpec http = 20;
+    TcpSpec tcp = 21;
+    DnsSpec dns = 22;
+    IcmpSpec icmp = 23;
+    TlsSpec tls = 24;
+    GrpcSpec grpc = 25;
+    BrowserJourneySpec browser = 26;
+  }
+}
+
+message EgressPolicy {
+  repeated string allowed_cidrs = 1;
+  repeated string denied_cidrs = 2;
+  repeated string allowed_domains = 3;
+  repeated string denied_domains = 4;
+  repeated uint32 allowed_ports = 5;
+  bool allow_private_networks = 6;
+  bool allow_loopback = 7;
+}
+
+message ResolvedSecret {
+  string reference = 1;
+  string secret_id = 2;
+  uint32 version = 3;
+  bytes value = 4;
+}
+
+message ArtifactUploadTarget {
+  string artifact_id = 1;
+  string kind = 2;
+  string upload_url = 3;
+  map<string, string> upload_headers = 4;
+  int64 expires_at_micros = 5;
+  uint64 max_bytes = 6;
+}
+
+message HeaderValue {
+  string name = 1;
+  Value value = 2;
+}
+
+message Value {
+  oneof source {
+    string literal = 1;
+    string secret_reference = 2;
+    string variable_reference = 3;
+  }
+}
+
+message HttpJourneySpec {
+  repeated HttpStep steps = 1;
+  bool follow_redirects = 2;
+  uint32 max_redirects = 3;
+  bool verify_tls = 4;
+}
+
+message HttpStep {
+  string id = 1;
+  string name = 2;
+  string method = 3;
+  Value url = 4;
+  repeated HeaderValue headers = 5;
+  repeated HeaderValue query = 6;
+  Value body = 7;
+  repeated Extraction extractions = 8;
+  repeated Assertion assertions = 9;
+}
+
+message TcpSpec {
+  Value host = 1;
+  uint32 port = 2;
+  bool use_tls = 3;
+  string server_name = 4;
+  Value send = 5;
+  optional string expect_regex = 6;
+  repeated Assertion assertions = 7;
+}
+
+message DnsSpec {
+  string name = 1;
+  string record_type = 2;
+  optional string resolver = 3;
+  bool require_dnssec = 4;
+  repeated string expected_values = 5;
+  optional string expected_rcode = 6;
+  repeated Assertion assertions = 7;
+}
+
+message IcmpSpec {
+  string host = 1;
+  uint32 count = 2;
+  uint32 interval_millis = 3;
+  double max_packet_loss_ratio = 4;
+  optional uint32 max_mean_rtt_millis = 5;
+}
+
+message TlsSpec {
+  string host = 1;
+  uint32 port = 2;
+  optional string server_name = 3;
+  uint32 minimum_days_remaining = 4;
+  repeated string expected_sans = 5;
+  optional string expected_issuer_regex = 6;
+  optional string minimum_protocol = 7;
+}
+
+message GrpcSpec {
+  string endpoint = 1;
+  bool use_tls = 2;
+  optional string server_name = 3;
+  repeated HeaderValue metadata = 4;
+  oneof call {
+    GrpcHealthCall health = 10;
+    GrpcUnaryCall unary = 11;
+  }
+  repeated Assertion assertions = 12;
+}
+
+message GrpcHealthCall {
+  string service = 1;
+}
+
+message GrpcUnaryCall {
+  string service = 1;
+  string method = 2;
+  optional bytes descriptor_set = 3;
+  bool use_reflection = 4;
+  string request_json = 5;
+}
+
+message BrowserJourneySpec {
+  repeated BrowserStep steps = 1;
+  Viewport viewport = 2;
+  string user_agent = 3;
+  bool capture_screenshot_on_failure = 4;
+  bool capture_har_on_failure = 5;
+}
+
+message Viewport {
+  uint32 width = 1;
+  uint32 height = 2;
+}
+
+message BrowserStep {
+  string id = 1;
+  string name = 2;
+  oneof action {
+    BrowserNavigate navigate = 10;
+    BrowserClick click = 11;
+    BrowserFill fill = 12;
+    BrowserSelect select = 13;
+    BrowserWait wait = 14;
+    BrowserExtract extract = 15;
+    BrowserAssert assertion = 16;
+    BrowserScreenshot screenshot = 17;
+  }
+}
+
+message BrowserNavigate {
+  Value url = 1;
+  string wait_until = 2;
+}
+
+message BrowserClick {
+  string selector = 1;
+}
+
+message BrowserFill {
+  string selector = 1;
+  Value value = 2;
+}
+
+message BrowserSelect {
+  string selector = 1;
+  Value value = 2;
+}
+
+message BrowserWait {
+  oneof condition {
+    uint32 duration_millis = 1;
+    string selector = 2;
+    string page_expression = 3;
+  }
+}
+
+message BrowserExtract {
+  string variable = 1;
+  string selector = 2;
+  string source = 3;
+}
+
+message BrowserAssert {
+  Assertion assertion = 1;
+  optional string selector = 2;
+  optional string page_expression = 3;
+}
+
+message BrowserScreenshot {
+  string name = 1;
+  bool full_page = 2;
+}
+
+message Extraction {
+  string variable = 1;
+  string source = 2;
+  string expression = 3;
+  bool required = 4;
+}
+
+message Assertion {
+  string id = 1;
+  string name = 2;
+  AssertionSeverity severity = 3;
+  string source = 4;
+  string operator = 5;
+  Value expected = 6;
+}
+
+enum AssertionSeverity {
+  ASSERTION_SEVERITY_UNSPECIFIED = 0;
+  ASSERTION_SEVERITY_WARNING = 1;
+  ASSERTION_SEVERITY_CRITICAL = 2;
+}
+
+message ProbeResult {
+  string task_id = 1;
+  string lease_token = 2;
+  uint64 result_sequence = 3;
+  int64 started_at_micros = 4;
+  int64 finished_at_micros = 5;
+  ProbeOutcome outcome = 6;
+  repeated ProbeAttempt attempts = 7;
+  repeated AssertionResult assertions = 8;
+  repeated Artifact artifacts = 9;
+  map<string, string> metadata = 10;
+  map<string, uint32> secret_versions = 11;
+}
+
+enum ProbeOutcome {
+  PROBE_OUTCOME_UNSPECIFIED = 0;
+  PROBE_OUTCOME_HEALTHY = 1;
+  PROBE_OUTCOME_DEGRADED = 2;
+  PROBE_OUTCOME_FAILING = 3;
+  PROBE_OUTCOME_UNKNOWN = 4;
+  PROBE_OUTCOME_SKIPPED = 5;
+}
+
+message ProbeAttempt {
+  uint32 number = 1;
+  int64 started_at_micros = 2;
+  int64 finished_at_micros = 3;
+  ProbeOutcome outcome = 4;
+  TimingBreakdown timing = 5;
+  string error_category = 6;
+  string error_message = 7;
+  bytes bounded_response_excerpt = 8;
+  map<string, string> metadata = 9;
+}
+
+message TimingBreakdown {
+  optional uint64 dns_micros = 1;
+  optional uint64 connect_micros = 2;
+  optional uint64 tls_micros = 3;
+  optional uint64 first_byte_micros = 4;
+  optional uint64 total_micros = 5;
+}
+
+message AssertionResult {
+  string assertion_id = 1;
+  AssertionSeverity severity = 2;
+  bool passed = 3;
+  string actual = 4;
+  string message = 5;
+}
+
+message Artifact {
+  string artifact_id = 1;
+  string kind = 2;
+  uint64 content_length = 3;
+  bytes sha256 = 4;
+  bool uploaded = 5;
+}

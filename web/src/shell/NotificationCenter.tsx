@@ -3,6 +3,7 @@ import { Bell } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
+import * as statusPagesApi from '@/api/statusPages';
 import * as usersApi from '@/api/users';
 import { hasPermission, useProductAccess } from '@/product/access';
 import { cn } from '@/shell/lib/cn';
@@ -56,11 +57,32 @@ function useApprovalNotifications(): AppNotification[] {
     }));
 }
 
+function useStatusPageAutomationNotifications(): AppNotification[] {
+  const { t } = useTranslation('status-pages');
+  const ctx = useAuthStore((s) => s.ctx);
+  const access = useProductAccess();
+  const canPublish = hasPermission('status_pages.publish', access);
+  const q = useQuery({
+    queryKey: ['status-pages', 'automation', 'pending'],
+    queryFn: statusPagesApi.listPendingAutomationCandidates,
+    enabled: canPublish && !!ctx,
+    refetchInterval: 30_000,
+  });
+
+  return (q.data ?? []).map((candidate) => ({
+    id: `status-page-automation:${candidate.id}`,
+    kind: 'status-page-automation',
+    title: t(`automation.notification.${candidate.state}`),
+    description: candidate.title,
+    to: `/status-pages/${encodeURIComponent(candidate.status_page_id)}/automation/${encodeURIComponent(candidate.id)}`,
+  }));
+}
+
 /** 聚合所有来源的通知。新增类型在此 push 一个新 source hook 的结果。 */
 function useAppNotifications(): AppNotification[] {
   const approvals = useApprovalNotifications();
-  // 将来：const alerts = useAlertNotifications(); return [...approvals, ...alerts];
-  return [...approvals];
+  const statusPageAutomation = useStatusPageAutomationNotifications();
+  return [...approvals, ...statusPageAutomation];
 }
 
 export function NotificationCenter() {
@@ -77,7 +99,7 @@ export function NotificationCenter() {
         className={cn(
           'relative flex h-8 w-8 items-center justify-center rounded-md text-tx-2',
           'hover:bg-bg-3 hover:text-tx-0',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo',
+          'focus-visible:bg-bg-3 focus-visible:text-tx-0 focus-visible:outline-none',
         )}
       >
         <Bell className="h-3.5 w-3.5" />

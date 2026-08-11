@@ -6,7 +6,7 @@
 - 默认将组织隔离视为硬约束；repository、service、缓存、对象路径和事件携带 `org_id` 或 `organization_id`。
 - 使用 `crate::shared::{Error, Result}`，不要把 `Result<T, String>` 作为长期接口。
 - handler/service/repository 不因外部输入 `panic!`；优先返回带语义的 `Error`。
-- 外部协议的解析、认证与时间单位归一尽量在 `src/api` 边界完成。
+- 外部协议的解析、认证与时间单位归一尽量在 `bin/molesignal/src/api` 边界完成。
 - 先查找并复用现有抽象，不创建同义的第二套领域类型或 repository。
 
 ## 文件长度与模块组织
@@ -53,7 +53,7 @@ HTTP/gRPC 可以接收字符串，但应尽早解析成领域 enum 或 ID。
 - `Error::unavailable`
 - `Error::internal`
 
-数据库错误通过 `src/infra/persistence/mod.rs::sqlx_err` 统一处理常见 `RowNotFound` 与 SQLSTATE `23505`，或在确需特殊语义时显式映射。
+数据库错误通过 `crates/engines/postgres/src/persistence/mod.rs::sqlx_err` 统一处理常见 `RowNotFound` 与 SQLSTATE `23505`，或在确需特殊语义时显式映射。
 
 不要把内部错误文本、SQL、token、license 签名包或密钥返回给客户端。`Error` 的 5xx 响应会隐藏内部详情。
 
@@ -131,7 +131,8 @@ if !state.platform.license.has_feature(FEATURE) {
 ## Protocol 与序列化
 
 - HTTP：Serde JSON。
-- gRPC/内部协议：prost/tonic，生成代码位于 `src/protocol/`。
+- gRPC/内部协议：prost/tonic；各 protocol crate 的 `build.rs` 将生成代码写入 Cargo
+  `OUT_DIR`，源码树只保留 module 声明和 `.proto` 源文件。
 - 配置：TOML/Figment。
 - 列式数据：Arrow/Parquet，复用现有 schema 转换。
 - hot path 避免重复 `serde_json::to_string` 或动态 `format!`。
@@ -146,7 +147,7 @@ if !state.platform.license.has_feature(FEATURE) {
 // Copyright (c) 2026 MoleSignal Authors
 ```
 
-`src/sqlx-shim` 保留上游版权，脚本会排除该目录；生成文件带 `@generated` 或 `DO NOT EDIT` 时也会跳过。
+`crates/support/sqlx-shim` 保留上游版权，脚本会排除该目录；生成文件带 `@generated` 或 `DO NOT EDIT` 时也会跳过。
 
 ## 注释与文档
 
@@ -157,7 +158,7 @@ if !state.platform.license.has_feature(FEATURE) {
 ## 测试
 
 - 小范围逻辑优先源码内 unit test。
-- 跨模块行为放在根 `tests/`。
+- 主服务跨模块行为放在 `bin/molesignal/tests/`。
 - 优先 in-memory fake；真实 PostgreSQL 路径使用 testcontainers。
 - 测试名描述行为和预期结果。
 - 修复 bug 时补能在修复前失败的回归测试。

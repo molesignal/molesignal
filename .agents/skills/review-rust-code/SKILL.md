@@ -9,10 +9,10 @@ description: Review MoleSignal Rust diffs, pull requests, or working-tree change
 
 ## 当前项目背景
 
-- 后端是根 package `molesignal` 的单 crate，源码位于 `src/`。
-- 唯一子 crate 是 `src/sqlx-shim`，用于提供受控的 `sqlx` facade。
-- 逻辑分层为 `shared`、`domain`、`app`、`infra`、`api`、`bootstrap`。
-- integration test 位于根 `tests/`，很多 Docker 测试受 `MS_RUN_IT=1` 控制。
+- 后端是 virtual workspace；最终 package 位于 `bin/`，库位于分类后的 `crates/`，开发工具位于 `tools/`。
+- `crates/support/sqlx-shim` 提供受控的 `sqlx` facade。
+- 核心分类为 `core`、`engines`、`modules`、`transport`、`support`；应用 composition root 是 `bin/molesignal`。
+- integration test 位于 `bin/molesignal/tests/`，很多 Docker 测试受 `MS_RUN_IT=1` 控制。
 
 ## 审查流程
 

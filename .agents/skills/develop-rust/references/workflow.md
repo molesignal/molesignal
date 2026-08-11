@@ -43,7 +43,7 @@ cargo clippy --workspace --all-targets -- -D warnings
 
 ## Integration Tests
 
-integration test 位于根 `tests/`。CI 使用：
+主服务 integration test 位于 `bin/molesignal/tests/`。CI 使用：
 
 ```bash
 MS_RUN_IT=1 cargo test -p molesignal --tests -- --test-threads=1
@@ -70,30 +70,34 @@ make install-hooks
 修改 `proto/**/*.proto` 后执行一次：
 
 ```bash
-make proto
+make proto-lint
 ```
 
-该命令通过 `proto/buf.gen.yaml` 生成 `src/protocol/`。`build.rs` 不会自动生成 protobuf，普通 `cargo build` 也不会刷新产物。
+该命令通过 Buf 校验 schema。`crates/core/protocol/build.rs` 与
+`bin/probe-agent/build.rs` 会在 Cargo 构建时调用 `tonic-prost-build`，将 Rust binding
+写入各自的 `OUT_DIR`。
 
-生成后检查：
+检查：
 
-- `src/protocol/mod.rs` 是否仍导出正确模块。
+- `crates/core/protocol/src/lib.rs` 与 Probe module 是否仍导出正确模块。
 - API/gRPC adapter 是否适配字段或 service 变化。
-- 生成文件随源码提交。
+- 生成 `.rs` 不得进入源码树或 Git。
 
 ## Database Migration
 
-项目首次发布前把 schema 与内置 Dashboard 数据分别维护：
+项目首次发布前只维护三个职责明确的基线 migration：
 
 ```text
-src/infra/migrations/20260101000001_initial.sql
-src/infra/migrations/20260101000002_builtin_dashboards.sql
+crates/engines/postgres/src/migrations/20260101000001_initial.sql
+crates/engines/postgres/src/migrations/20260101000002_builtin_dashboards.sql
+crates/engines/postgres/src/migrations/20260101000003_iam_route_catalog.sql
 ```
 
 开发期 schema 变更继续折叠进 `20260101000001_initial.sql`。内置 Dashboard
-记录和完整指标目录只修改 `20260101000002_builtin_dashboards.sql`，不要重新塞回
-基线文件。`src/infra/persistence/pool.rs::embedded_migrator()` 必须显式注册这两项；
-运行时不会自动扫描目录。
+记录和完整指标目录只修改 `20260101000002_builtin_dashboards.sql`；Route、导航分组与
+Route Permission seed 只修改 `20260101000003_iam_route_catalog.sql`。不要在首次发布前
+继续拆出增量 migration。`crates/engines/postgres/src/persistence/pool.rs::embedded_migrator()`
+必须显式注册这三个文件；运行时不会自动扫描目录。
 
 首次正式发布后不得再修改已发布 migration，届时改为新增
 `YYYYMMDDHHMMSS_<name>.sql` 并同步注册。需要非事务执行时，文件必须以
@@ -103,8 +107,8 @@ src/infra/migrations/20260101000002_builtin_dashboards.sql
 
 ## CI 对应关系
 
-- `.github/workflows/ci.yml`：proto、fmt-check、clippy、unit/bin tests
-- `.github/workflows/it.yml`：编译并运行根 `tests/` integration tests
+- `.github/workflows/rust.yml`：proto、fmt-check、clippy、unit/bin tests
+- `.github/workflows/it.yml`：编译并运行 `bin/molesignal/tests/` integration tests
 - `Makefile`：本地统一入口
 
 更新 Rust 版本、proto 生成、测试命令或目录结构时，同步这些文件和本参考。

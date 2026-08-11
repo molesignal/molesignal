@@ -10,6 +10,12 @@ lint:
     # Vendored google/pprof schema intentionally keeps its upstream package name.
     PACKAGE_DIRECTORY_MATCH:
       - proto/pprof/v1/profile.proto
+    # ControlStream is bidirectional: these messages describe wire direction across the stream,
+    # rather than acting as one-shot RPC request/response wrappers.
+    RPC_REQUEST_STANDARD_NAME:
+      - proto/probe/v1/probe.proto
+    RPC_RESPONSE_STANDARD_NAME:
+      - proto/probe/v1/probe.proto
 breaking:
   use:
     - FILE

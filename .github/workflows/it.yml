@@ -3,9 +3,9 @@ name: integration tests
 on:
   pull_request:
     paths:
-      - 'src/**'
-      - 'build.rs'
-      - 'src/sqlx-shim/**'
+      - 'bin/**'
+      - 'crates/**'
+      - 'tools/**'
       - 'proto/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
@@ -58,8 +58,8 @@ jobs:
           sudo chmod +x /usr/local/bin/buf
           buf --version
 
-      - name: generate protobuf code
-        run: make proto
+      - name: lint protobuf schemas
+        run: make proto-lint
 
       - name: install rust toolchain
         # 跟随仓库根 `rust-toolchain.toml`（1.96）。

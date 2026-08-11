@@ -7,7 +7,7 @@ export const STATUS_PAGE_PRODUCT_ROUTES = [
     id: 'status.pages',
     path: '/status-pages',
     labelKey: 'status_pages',
-    group: 'collaboration',
+    group: 'reliability',
     icon: RadioTower,
     edition: 'any',
     owner: 'status_pages',

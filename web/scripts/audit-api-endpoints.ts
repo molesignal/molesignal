@@ -1,5 +1,5 @@
 /**
- * Endpoint reality audit: walk `crates/api/src/http/routes/*.rs` for axum
+ * Endpoint reality audit: walk `bin/molesignal/src/api/http/routes/*.rs` for axum
  * `.route("/path", get/post/put/delete(...))` declarations and walk
  * `web/src/api/*.ts` for `http.<verb>('/literal-path', ...)` calls. Any
  * frontend literal whose path-template (with `${id}` collapsed to `{}`)
@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = resolve(HERE, '..');
 const REPO = resolve(WEB, '..');
-const BACKEND_ROUTES_DIR = join(REPO, 'crates/api/src/http/routes');
+const BACKEND_ROUTES_DIR = join(REPO, 'bin/molesignal/src/api/http/routes');
 const FRONTEND_API_DIR = join(WEB, 'src/api');
 
 type Verb = 'GET' | 'POST' | 'PUT' | 'DELETE';

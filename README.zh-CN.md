@@ -178,6 +178,8 @@ Vector / Fluent Bit / OTel Collector / Prometheus remote_write 等完整对接�
 
 ## 架构
 
+源码 workspace 的完整目录与依赖规则见 [ARCHITECTURE.md](ARCHITECTURE.md)。
+
 ```
                           ┌──────────┐
    OTel / Vector / ...  ─►│  router  │─► 一致性哈希(org,stream) ─► intake(s)
@@ -245,7 +247,7 @@ RELEASE_CHANNEL=alpha ./target/release/molesignal --config conf/config.toml
 
 - DDD 分层：不要把 infra 关注点塞进 `domain/`
 - 每个 public 类型用一句 doc comment 说明*为什么*存在
-- 集成测试放在 `tests/*_it_*.rs`；依赖 Docker 的用 `MS_RUN_IT=1` 门控
+- 集成测试放在 `bin/molesignal/tests/*_it_*.rs`；依赖 Docker 的用 `MS_RUN_IT=1` 门控
 - push 前跑 `cargo fmt --all` + `cargo clippy --workspace --all-targets`
 
 Issue / RFC / 设计讨论都在 GitHub 上。Discord / Slack 暂未建，等第一批用户到位后再开。

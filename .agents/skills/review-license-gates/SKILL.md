@@ -9,9 +9,9 @@ description: Review MoleSignal commercial capability gating through LicenseGate,
 
 ## 当前模型
 
-- `src/shared/license.rs` 定义 `LicenseGate`、`CommunityLicense` 和可热替换的 `LicenseHolder`。
-- `src/license/mod.rs` 实现 Ed25519 验签后的 `SignedLicense`。
-- `src/bootstrap/license.rs::build_license` 加载持久化 license；失败降级为 `CommunityLicense`。
+- `crates/core/kernel/src/license.rs` 定义 `LicenseGate`、`CommunityLicense` 和可热替换的 `LicenseHolder`。
+- `crates/modules/license/src/lib.rs` 实现 Ed25519 验签后的 `SignedLicense`。
+- `bin/molesignal/src/bootstrap/license.rs::build_license` 加载持久化 license；失败降级为 `CommunityLicense`。
 - `MS_DEV_UNLOCK_FEATURES` 和 `[agent].enabled = true` 只能作为明确的本地开发解锁路径。
 - `enterprise` 是 edition/build 标记；`ws`、`jemalloc`、`profiling-pprof`、`js-runtime` 是技术性 Cargo feature，不等同于商业授权。
 - 顶层产品模块当前通常无条件编译，授权在 HTTP/gRPC 入口或 worker 周期边界检查。

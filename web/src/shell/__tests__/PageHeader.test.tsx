@@ -7,7 +7,7 @@ import { PageHeader } from '@/shell/PageHeader';
 afterEach(cleanup);
 
 describe('PageHeader module identity', () => {
-  it('uses the current analysis route icon and compact title spacing', () => {
+  it('uses the current observation route icon and compact title spacing', () => {
     render(
       <MemoryRouter initialEntries={['/metrics']}>
         <PageHeader title="Metrics" subtitle="Explore service metrics" />
@@ -23,17 +23,17 @@ describe('PageHeader module identity', () => {
     expect(screen.getByText('·')).not.toBeNull();
   });
 
-  it('falls back to the owning analysis module for unregistered subpages', () => {
+  it('falls back to the owning observation module for unregistered subpages', () => {
     render(
-      <MemoryRouter initialEntries={['/alerts/history']}>
-        <PageHeader title="Alert history" />
+      <MemoryRouter initialEntries={['/metrics/history']}>
+        <PageHeader title="Metric history" />
       </MemoryRouter>,
     );
 
     expect(screen.getByTestId('page-header-module-icon')).not.toBeNull();
   });
 
-  it('does not add module icons outside the analysis navigation group', () => {
+  it('does not add module icons outside the observation navigation group', () => {
     render(
       <MemoryRouter initialEntries={['/settings/general']}>
         <PageHeader title="Settings" />

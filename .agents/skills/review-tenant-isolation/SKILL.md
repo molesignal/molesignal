@@ -9,8 +9,8 @@ description: Review MoleSignal changes for cross-organization data exposure or m
 
 ## 当前隔离链路
 
-1. HTTP 认证在 `src/api/http/middleware/auth.rs` 建立 `IamContext`。
-2. 权限检查由 `src/api/http/middleware/permission.rs` 和 `src/app/iam/access.rs` 处理。
+1. HTTP 认证在 `bin/molesignal/src/api/http/middleware/auth.rs` 建立 `IamContext`。
+2. 权限检查由 `bin/molesignal/src/api/http/middleware/permission.rs` 和 `bin/molesignal/src/app/iam/access.rs` 处理。
 3. handler 将 `org_id` 或 `organization_id` 传给 service/repository。
 4. PostgreSQL 查询、缓存 key、对象存储 path 和异步事件继续携带组织维度。
 5. `system_org_id`、platform administrator、公开分享和显式 cross-org grant 是受控例外，不代表可以省略边界检查。

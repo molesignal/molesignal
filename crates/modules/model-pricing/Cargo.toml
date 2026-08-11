@@ -1,0 +1,12 @@
+[package]
+name = "model-pricing"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+kernel = { path = "../../core/kernel" }
+parking_lot.workspace = true
+serde.workspace = true

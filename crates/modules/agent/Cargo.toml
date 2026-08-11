@@ -1,0 +1,27 @@
+[package]
+name = "agent"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+bytes.workspace = true
+contracts = { path = "../../core/contracts" }
+domain = { path = "../../core/domain" }
+eventsource-stream.workspace = true
+futures.workspace = true
+kernel = { path = "../../core/kernel" }
+once_cell.workspace = true
+regex.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+signals = { path = "../../support/signals" }
+tokio.workspace = true
+tokio-stream.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+wiremock = "0.6"

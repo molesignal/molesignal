@@ -52,7 +52,8 @@
     "revoke_all": "全部撤销",
     "resend_confirmation": "重新发送确认",
     "move_up": "上移",
-    "move_down": "下移"
+    "move_down": "下移",
+    "cancel": "取消"
   },
   "kpis": {
     "pages": "状态页",
@@ -137,7 +138,8 @@
     "duration_hours_one": "{{count}} 小时",
     "duration_hours_other": "{{count}} 小时",
     "duration_minutes_one": "{{count}} 分钟",
-    "duration_minutes_other": "{{count}} 分钟"
+    "duration_minutes_other": "{{count}} 分钟",
+    "any": "任意"
   },
   "sections": {
     "components": "组件",
@@ -350,7 +352,8 @@
       "general": "通用",
       "branding": "品牌",
       "localization": "本地化与历史",
-      "domain-access": "域名与访问"
+      "domain-access": "域名与访问",
+      "automation": "自动化"
     },
     "general": {
       "title": "通用",
@@ -383,6 +386,180 @@
       "sessions": "有效会话",
       "sessions_description": "会话绑定状态页来源域名，可随时撤销。",
       "expires": "{{date}} 到期"
+    }
+  },
+  "automation": {
+    "title": "发布自动化",
+    "description": "将持续发生的告警或合成监控故障转换为受控的客户沟通。",
+    "pause": {
+      "title": "暂停全部自动化",
+      "description": "停止新的规则匹配，不会更改已经公开的事件。"
+    },
+    "rules": {
+      "count_one": "{{count}} 条有序规则",
+      "count_other": "{{count}} 条有序规则",
+      "empty": "暂无自动化规则；第一条完整匹配的规则生效。",
+      "delay_one": "延迟 {{count}} 分钟",
+      "delay_other": "延迟 {{count}} 分钟"
+    },
+    "actions": {
+      "add_rule": "添加规则",
+      "save_activate": "保存并启用",
+      "pause": "暂停",
+      "resume": "恢复",
+      "approve": "批准",
+      "approve_publish": "批准并发布",
+      "reject": "拒绝",
+      "retry": "重试投递",
+      "simulate": "运行模拟"
+    },
+    "editor": {
+      "create_title": "创建自动化规则",
+      "edit_title": "编辑自动化规则",
+      "subtitle": "规则使用不可变版本，并以原子方式启用。",
+      "match_title": "匹配来源",
+      "match_hint": "规则按顺序执行，配置的每一项条件都必须匹配。",
+      "publication_title": "发布策略",
+      "publication_hint": "来源必须在整个延迟窗口持续异常，候选才会进入发布流程。",
+      "copy_title": "客户文案",
+      "copy_hint": "模板是确定性的，仅开放下列安全字段。"
+    },
+    "fields": {
+      "source_kind": "来源",
+      "minimum_severity": "最低严重度",
+      "labels": "必需标签",
+      "labels_hint": "使用逗号分隔 key=value，所有标签都必须匹配。",
+      "mode": "发布模式",
+      "delay_minutes": "持续延迟（分钟）",
+      "degraded_impact": "性能下降影响",
+      "failing_impact": "故障影响",
+      "title_template": "公开标题模板",
+      "investigating_template": "调查中更新",
+      "update_template": "影响变化更新",
+      "resolved_template": "已解决更新",
+      "correlation_template": "关联键",
+      "template_hint": "允许使用：{{source.id}}、{{source.kind}}、{{severity}} 和 {{labels.key}}。"
+    },
+    "source": {
+      "alert_incident": "告警事件",
+      "synthetic_monitor": "拨测检查"
+    },
+    "source_picker": {
+      "alert_rule": "告警规则",
+      "synthetic_monitor": "拨测检查",
+      "alert_rule_hint": "选择一条告警规则；选择“全部告警规则”会匹配当前组织的所有规则。",
+      "alert_rule_required_hint": "选择用于模拟的告警规则。",
+      "synthetic_monitor_hint": "只显示已发布且未归档的拨测检查；目标地址来自拨测配置。选择“全部拨测检查”会匹配全部。",
+      "synthetic_monitor_required_hint": "选择用于模拟的已发布拨测检查；目标地址来自拨测配置。",
+      "all_alert_rule": "全部告警规则",
+      "all_synthetic_monitor": "全部拨测检查",
+      "select_alert_rule": "请选择告警规则",
+      "select_synthetic_monitor": "请选择拨测检查",
+      "empty_alert_rule": "暂无告警规则",
+      "empty_synthetic_monitor": "暂无已发布的拨测检查",
+      "loading": "正在加载来源…",
+      "load_error": "无法加载来源列表，请稍后重试。",
+      "unavailable": "不可用的来源 · {{id}}",
+      "enabled": "已启用",
+      "disabled": "已停用"
+    },
+    "mode": {
+      "approval": "生成草稿并审批",
+      "automatic": "自动发布"
+    },
+    "severity": {
+      "info": "信息",
+      "warning": "警告",
+      "error": "错误",
+      "critical": "严重"
+    },
+    "lifecycle": {
+      "draft": "草稿",
+      "active": "已启用",
+      "paused": "已暂停",
+      "archived": "已归档"
+    },
+    "candidate": {
+      "delayed": "等待持续延迟",
+      "pending_approval": "等待批准",
+      "approved": "已批准 · 发布中",
+      "published": "已发布",
+      "rejected": "已拒绝",
+      "cancelled": "已取消",
+      "resolved": "已解决",
+      "failed": "需要处理"
+    },
+    "notification": {
+      "pending_approval": "状态页草稿等待批准",
+      "failed": "状态页自动化需要处理"
+    },
+    "overlap": {
+      "title": "这条规则可能与其他规则重叠",
+      "description": "可能与 {{rules}} 重叠。系统只采用第一条完整匹配的规则，启用前请检查顺序（共 {{count}} 条）。"
+    },
+    "simulator": {
+      "title": "规则模拟器",
+      "description": "使用当前已启用的规则进行无副作用测试，不会创建草稿或发布事件。",
+      "incident": "使用进行中的告警事件",
+      "manual": "手动输入来源数据",
+      "matched": "已匹配",
+      "no_match": "未匹配"
+    },
+    "review": {
+      "title": "发布候选",
+      "subtitle": "审核客户文案、来源证据和投递活动。",
+      "due_at": "可处理时间",
+      "public_copy": "面向客户的文案",
+      "public_copy_hint": "人工修改会先保存到草稿，后续来源更新不会覆盖这些修改。",
+      "missing_draft": "该候选没有关联的草稿事件。请通过自动化流程重新生成候选后再批准。",
+      "draft_load_failed": "无法加载关联的草稿事件。请刷新页面或重新生成候选后再批准。",
+      "draft_loading": "正在加载关联的草稿事件…",
+      "complete_required_fields": "请补全标题、客户更新和受影响组件后再批准。",
+      "rejection_note_required": "拒绝候选前需要填写审核备注。",
+      "decision_pending": "正在保存审批结果。",
+      "note": "审核备注",
+      "note_hint": "拒绝时必填；批准时可选。",
+      "failure": "最近一次失败",
+      "sources": "来源证据",
+      "sources_hint": "这些内部来源信息只在管理后台可见，不会出现在公开状态页。",
+      "active": "仍在异常",
+      "inactive": "已恢复或已静默",
+      "activity": "自动化活动",
+      "attempts_one": "已尝试 {{count}} 次",
+      "attempts_other": "已尝试 {{count}} 次"
+    },
+    "action": {
+      "created": "已创建候选",
+      "pending_approval": "草稿等待批准",
+      "approved": "已批准发布",
+      "published": "已发布事件",
+      "rejected": "已拒绝候选",
+      "cancelled": "已取消候选",
+      "resolved": "已解决事件",
+      "failed": "投递已进入 Dead Letter",
+      "retried": "已重试 Dead Letter 投递"
+    },
+    "work_status": {
+      "pending": "等待处理",
+      "processing": "处理中",
+      "completed": "已完成",
+      "dead_letter": "Dead Letter"
+    },
+    "work_kind": {
+      "publish": "发布事件",
+      "resolve": "解决事件",
+      "notify_publisher": "通知发布人"
+    },
+    "approvals": {
+      "title": "待发布内容",
+      "description": "在客户看到之前审核自动生成的草稿和失败任务。",
+      "empty": "当前没有需要处理的发布候选。"
+    },
+    "toast": {
+      "saved": "自动化规则已启用",
+      "approved": "候选已批准并进入发布队列",
+      "rejected": "候选已拒绝",
+      "retried": "Dead Letter 投递已重新排队"
     }
   },
   "public": {

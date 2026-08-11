@@ -16,7 +16,7 @@ HEADER_LINE_1="// SPDX-License-Identifier: Apache-2.0"
 HEADER_LINE_2="// Copyright (c) 2026 MoleSignal Authors"
 
 EXCLUDE_DIRS=(
-    "src/sqlx-shim"
+    "crates/support/sqlx-shim"
 )
 
 cd "$(git rev-parse --show-toplevel)"
@@ -60,7 +60,7 @@ while IFS= read -r f; do
     cat "$f" >> "$tmp"
     mv "$tmp" "$f"
     added=$((added + 1))
-done < <(find src tests benches examples -name '*.rs' -type f | sort)
+done < <(find bin crates tools -name '*.rs' -type f | sort)
 
 if [[ "$MODE" == "--check" ]]; then
     if [[ ${#missing[@]} -gt 0 ]]; then
