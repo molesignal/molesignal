@@ -51,6 +51,7 @@ pub mod semantic_groups;
 pub mod signing_secrets;
 pub mod slow_queries;
 pub mod sso_providers;
+pub mod status_pages;
 pub mod streams;
 pub mod teams;
 pub mod trace_policies;

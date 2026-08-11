@@ -11,7 +11,8 @@
 //! `/api/v1/healthz` /
 //! `/metrics` / `/s/*` /
 //! `/api/v1/public/share*` /
-//! `/api/v1/files/stream/*` / `/api/v1/public/avatars/*`）放行。
+//! `/api/v1/files/stream/*` / `/api/v1/public/avatars/*` /
+//! `/api/v1/public/status-pages/*`）放行。
 
 use axum::{
     extract::{Request, State},
@@ -48,6 +49,7 @@ const WHITELIST_PREFIXES: &[&str] = &[
     "/api/v1/public/share",           // HttpOnly share session 自鉴权
     "/api/v1/files/stream/",          // 文件下载 token 自带授权
     "/api/v1/public/avatars/",        // 头像公开读：<img src> 不带 Bearer
+    "/api/v1/public/status-pages/",   // 客户状态页公开快照
     "/api/v1/billing/stripe/webhook", // Stripe webhook：无 JWT，靠 HMAC 验签
     // Push 型 connector 接入：外部平台带不了 Bearer，由 handler 用 X-Connector-Token 自鉴权。
     "/api/v1/_kinesis_firehose",
@@ -395,6 +397,12 @@ mod tests {
     #[test]
     fn promql_capabilities_requires_authentication() {
         assert!(!is_whitelisted_path("/api/v1/query/promql/capabilities"));
+        assert!(is_whitelisted_path(
+            "/api/v1/public/status-pages/acme-cloud"
+        ));
+        assert!(is_whitelisted_path(
+            "/api/v1/public/status-pages/by-domain/current"
+        ));
         assert!(is_whitelisted_path("/api/v1/healthz"));
         assert!(is_whitelisted_path("/api/v1/auth/sso/providers"));
         assert!(is_whitelisted_path("/api/v1/auth/sso/ldap/login"));

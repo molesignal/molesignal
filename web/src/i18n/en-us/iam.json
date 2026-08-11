@@ -343,6 +343,7 @@
     "alerts": "Alerts and schedules",
     "pipelines": "Pipelines and functions",
     "reports": "Reports and audit",
+    "status_pages": "Status pages",
     "agent": "Agent"
   },
   "permissions": {
@@ -383,6 +384,8 @@
     "alerts_manage": "Manage alerts",
     "alerts_acknowledge": "Acknowledge alerts",
     "alerts_silence": "Silence alerts",
+    "status_pages_read": "View status pages",
+    "status_pages_manage": "Manage status pages",
     "schedules_read": "View schedules",
     "schedules_manage": "Manage schedules",
     "saved_views_read": "View saved views",
@@ -449,6 +452,8 @@
     "alerts_manage": "Create, edit, mute, and delete alert rules.",
     "alerts_acknowledge": "Acknowledge and resolve alert incidents.",
     "alerts_silence": "Silence active incidents and manage mute windows.",
+    "status_pages_read": "View status page configuration, components, events, and history.",
+    "status_pages_manage": "Create and manage status pages, events, subscribers, domains, and private access.",
     "schedules_read": "View notification and on-call schedules.",
     "schedules_manage": "Create and edit notification and on-call schedules.",
     "saved_views_read": "Open saved query views.",

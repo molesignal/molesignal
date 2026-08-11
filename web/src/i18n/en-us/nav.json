@@ -20,6 +20,7 @@
   "functions": "Functions",
   "extend_tables": "Extend tables",
   "reports": "Reports",
+  "status_pages": "Status pages",
   "datasource": "Datasource",
   "iam": "Identity & Access",
   "iam_users": "Users",
@@ -46,7 +47,8 @@
   "groups": {
     "home": "HOME",
     "investigate": "INVESTIGATE",
-    "pipeline": "PIPELINE",
+    "data": "DATA",
+    "collaboration": "COLLABORATION",
     "admin": "ADMIN"
   },
   "breadcrumbs": {
@@ -90,6 +92,7 @@
     "rum_upload_source_maps": "Upload source maps",
     "alert_incidents": "Alert incidents",
     "alert_rules": "Alert rules",
+    "status_pages": "Status pages",
     "alert_rule_new": "New alert rule",
     "alert_rule_edit": "Edit alert rule",
     "incident_detail": "Incident",

@@ -32,6 +32,7 @@ pub mod pipeline;
 pub mod query;
 pub mod rum;
 pub mod saved_view;
+pub mod status_page;
 pub mod storage;
 pub mod stream;
 pub mod trace_policy;

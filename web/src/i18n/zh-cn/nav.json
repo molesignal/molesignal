@@ -19,7 +19,8 @@
   "pipelines": "流水线",
   "functions": "函数",
   "extend_tables": "扩展表",
-  "reports": "报告中心",
+  "reports": "报告",
+  "status_pages": "状态页",
   "datasource": "数据源",
   "iam": "身份与访问",
   "iam_users": "用户",
@@ -46,7 +47,8 @@
   "groups": {
     "home": "首页",
     "investigate": "分析",
-    "pipeline": "流水线",
+    "data": "数据",
+    "collaboration": "协作",
     "admin": "管理"
   },
   "breadcrumbs": {
@@ -90,6 +92,7 @@
     "rum_upload_source_maps": "上传 Source maps",
     "alert_incidents": "告警事件",
     "alert_rules": "告警规则",
+    "status_pages": "状态页",
     "alert_rule_new": "新建告警规则",
     "alert_rule_edit": "编辑告警规则",
     "incident_detail": "事件",

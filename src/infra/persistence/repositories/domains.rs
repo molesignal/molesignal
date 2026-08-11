@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, Row};
 
 use super::sqlx_err;
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
+use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DomainRow {
@@ -102,6 +102,26 @@ fn ch_row(r: sqlx::postgres::PgRow) -> AcmeChallenge {
 #[async_trait]
 impl DomainRepository for PgDomainRepository {
     async fn create(&self, d: DomainRow) -> Result<DomainRow> {
+        let mut transaction = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))")
+            .bind(format!("custom-domain:{}", d.hostname))
+            .execute(&mut *transaction)
+            .await
+            .map_err(sqlx_err)?;
+        let reserved_by_status_page: bool = sqlx::query_scalar(
+            "SELECT EXISTS (
+                 SELECT 1 FROM status_page_domain_configs WHERE hostname = $1
+             )",
+        )
+        .bind(&d.hostname)
+        .fetch_one(&mut *transaction)
+        .await
+        .map_err(sqlx_err)?;
+        if reserved_by_status_page {
+            return Err(Error::conflict(
+                "domain is already reserved by a status page",
+            ));
+        }
         sqlx::query(
             "INSERT INTO domains
                 (id, org_id, hostname, state, cert_pem, cert_not_after_micros, last_error,
@@ -117,9 +137,10 @@ impl DomainRepository for PgDomainRepository {
         .bind(&d.last_error)
         .bind(d.created_at.0)
         .bind(d.updated_at.0)
-        .execute(&self.pool)
+        .execute(&mut *transaction)
         .await
         .map_err(sqlx_err)?;
+        transaction.commit().await.map_err(sqlx_err)?;
         Ok(d)
     }
 

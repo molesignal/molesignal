@@ -22,5 +22,6 @@ pub mod query;
 pub mod recommendations;
 pub mod search;
 pub mod self_telemetry;
+pub mod status_page;
 pub mod trace;
 pub mod web;

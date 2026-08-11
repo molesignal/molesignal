@@ -343,6 +343,7 @@
     "alerts": "告警与排班",
     "pipelines": "流水线与函数",
     "reports": "报告与审计",
+    "status_pages": "状态页",
     "agent": "AI能力"
   },
   "permissions": {
@@ -383,6 +384,8 @@
     "alerts_manage": "管理告警",
     "alerts_acknowledge": "确认告警",
     "alerts_silence": "静默告警",
+    "status_pages_read": "查看状态页",
+    "status_pages_manage": "管理状态页",
     "schedules_read": "查看排班",
     "schedules_manage": "管理排班",
     "saved_views_read": "查看已保存视图",
@@ -449,6 +452,8 @@
     "alerts_manage": "创建、编辑、静默和删除告警规则。",
     "alerts_acknowledge": "确认并解决告警事件。",
     "alerts_silence": "静默活跃事件并管理静默窗口。",
+    "status_pages_read": "查看状态页配置、组件、事件和历史。",
+    "status_pages_manage": "创建和管理状态页、事件、订阅者、域名与私有访问。",
     "schedules_read": "查看通知与值班排班。",
     "schedules_manage": "创建和编辑通知与值班排班。",
     "saved_views_read": "打开已保存的查询视图。",

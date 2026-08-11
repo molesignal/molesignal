@@ -143,6 +143,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         notify,
         notify_engine,
         dashboard,
+        status_pages,
         notify_templates,
         mute_rules,
         incident_groups,
@@ -226,6 +227,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         intake,
         query,
         dashboard,
+        status_pages,
         alerting: AlertingState {
             service: alerting,
             notify,

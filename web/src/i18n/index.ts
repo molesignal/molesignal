@@ -29,6 +29,7 @@ import enSemanticGroups from './en-us/semantic-groups.json';
 import enServices from './en-us/services.json';
 import enSettingsAdmin from './en-us/settings-admin.json';
 import enShell from './en-us/shell.json';
+import enStatusPages from './en-us/status-pages.json';
 import enStreams from './en-us/streams.json';
 import enTraces from './en-us/traces.json';
 import zhAccount from './zh-cn/account.json';
@@ -59,6 +60,7 @@ import zhSemanticGroups from './zh-cn/semantic-groups.json';
 import zhServices from './zh-cn/services.json';
 import zhSettingsAdmin from './zh-cn/settings-admin.json';
 import zhShell from './zh-cn/shell.json';
+import zhStatusPages from './zh-cn/status-pages.json';
 import zhStreams from './zh-cn/streams.json';
 import zhTraces from './zh-cn/traces.json';
 
@@ -108,6 +110,7 @@ const NAMESPACES = [
   'semantic-groups',
   'services',
   'settings-admin',
+  'status-pages',
 ] as const;
 
 const resources = {
@@ -142,6 +145,7 @@ const resources = {
     'semantic-groups': enSemanticGroups,
     services: enServices,
     'settings-admin': enSettingsAdmin,
+    'status-pages': enStatusPages,
   },
   'zh-cn': {
     account: zhAccount,
@@ -174,6 +178,7 @@ const resources = {
     'semantic-groups': zhSemanticGroups,
     services: zhServices,
     'settings-admin': zhSettingsAdmin,
+    'status-pages': zhStatusPages,
   },
 } as const;
 

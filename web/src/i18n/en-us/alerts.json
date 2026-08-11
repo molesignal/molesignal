@@ -60,6 +60,7 @@
     "label": "Alerts views",
     "incidents": "Incidents",
     "rules": "Rules",
+    "status_pages": "Status pages",
     "history": "History",
     "insights": "Insights",
     "groups": "Groups",

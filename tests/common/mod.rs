@@ -94,6 +94,7 @@ impl TestServer {
         settings.notify = NotifySettings::default();
         settings.http.bind = "127.0.0.1".into();
         settings.http.port = 0; // 随机端口
+        settings.http.external_url = "http://127.0.0.1".into();
         if accelerate_apm_flush {
             settings.apm.flush_interval_ms = 100;
         }

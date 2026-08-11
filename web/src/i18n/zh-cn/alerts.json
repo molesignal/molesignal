@@ -60,6 +60,7 @@
     "label": "告警视图",
     "incidents": "告警事件",
     "rules": "规则",
+    "status_pages": "状态页",
     "history": "历史",
     "insights": "洞察",
     "groups": "分组",

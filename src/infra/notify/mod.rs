@@ -5,5 +5,7 @@
 
 pub mod adapters;
 mod email;
+mod status_page;
 
 pub use email::EmailSender;
+pub use status_page::StatusPageNotifyAdapter;

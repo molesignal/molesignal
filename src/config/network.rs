@@ -20,7 +20,8 @@ pub struct HttpSettings {
     #[serde(default)]
     pub tls: TlsSettings,
     /// 对外访问 URL（如反代后的 `https://obs.example.com`）。留空时前端按当前
-    /// 访问来源（`window.location.origin`）推导；非空时数据源接入页等展示用它。
+    /// 访问来源（`window.location.origin`）推导；非空时数据源接入页等展示用它，
+    /// 同时作为 Status Page 自定义域名验证的 CNAME 路由目标。
     /// env 覆盖：`MS_HTTP_EXTERNAL_URL`。
     #[serde(default)]
     pub external_url: String,

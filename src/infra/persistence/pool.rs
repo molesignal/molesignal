@@ -177,6 +177,36 @@ fn embedded_migrator() -> Migrator {
                 "iam route catalog",
                 include_str!("../migrations/20260101000003_iam_route_catalog.sql"),
             ),
+            migration(
+                20260810000005,
+                "customer status pages",
+                include_str!("../migrations/20260810000005_status_pages.sql"),
+            ),
+            migration(
+                20260810000006,
+                "status page languages",
+                include_str!("../migrations/20260810000006_status_page_languages.sql"),
+            ),
+            migration(
+                20260810000007,
+                "status page history days",
+                include_str!("../migrations/20260810000007_status_page_history_days.sql"),
+            ),
+            migration(
+                20260810000008,
+                "status page component history",
+                include_str!("../migrations/20260810000008_status_page_component_history.sql"),
+            ),
+            migration(
+                20260810000009,
+                "status page subscriptions",
+                include_str!("../migrations/20260810000009_status_page_subscriptions.sql"),
+            ),
+            migration(
+                20260810000010,
+                "status page management",
+                include_str!("../migrations/20260810000010_status_page_management.sql"),
+            ),
         ]),
         ..Migrator::DEFAULT
     }
@@ -203,6 +233,17 @@ mod tests {
         include_str!("../migrations/20260101000002_builtin_dashboards.sql");
     const IAM_ROUTE_CATALOG_SQL: &str =
         include_str!("../migrations/20260101000003_iam_route_catalog.sql");
+    const STATUS_PAGES_SQL: &str = include_str!("../migrations/20260810000005_status_pages.sql");
+    const STATUS_PAGE_LANGUAGES_SQL: &str =
+        include_str!("../migrations/20260810000006_status_page_languages.sql");
+    const STATUS_PAGE_HISTORY_DAYS_SQL: &str =
+        include_str!("../migrations/20260810000007_status_page_history_days.sql");
+    const STATUS_PAGE_COMPONENT_HISTORY_SQL: &str =
+        include_str!("../migrations/20260810000008_status_page_component_history.sql");
+    const STATUS_PAGE_SUBSCRIPTIONS_SQL: &str =
+        include_str!("../migrations/20260810000009_status_page_subscriptions.sql");
+    const STATUS_PAGE_MANAGEMENT_SQL: &str =
+        include_str!("../migrations/20260810000010_status_page_management.sql");
 
     #[test]
     fn pool_options_prewarms_the_configured_minimum() {
@@ -234,13 +275,34 @@ mod tests {
     #[test]
     fn embedded_migrations_keep_large_seed_catalogs_separate() {
         let migrator = embedded_migrator();
-        assert_eq!(migrator.migrations.len(), 3);
+        assert_eq!(migrator.migrations.len(), 9);
         assert_eq!(migrator.migrations[0].version, 20260101000001);
         assert_eq!(migrator.migrations[0].description, "initial");
         assert_eq!(migrator.migrations[1].version, 20260101000002);
         assert_eq!(migrator.migrations[1].description, "builtin dashboards");
         assert_eq!(migrator.migrations[2].version, 20260101000003);
         assert_eq!(migrator.migrations[2].description, "iam route catalog");
+        assert_eq!(migrator.migrations[3].version, 20260810000005);
+        assert_eq!(migrator.migrations[3].description, "customer status pages");
+        assert_eq!(migrator.migrations[4].version, 20260810000006);
+        assert_eq!(migrator.migrations[4].description, "status page languages");
+        assert_eq!(migrator.migrations[5].version, 20260810000007);
+        assert_eq!(
+            migrator.migrations[5].description,
+            "status page history days"
+        );
+        assert_eq!(migrator.migrations[6].version, 20260810000008);
+        assert_eq!(
+            migrator.migrations[6].description,
+            "status page component history"
+        );
+        assert_eq!(migrator.migrations[7].version, 20260810000009);
+        assert_eq!(
+            migrator.migrations[7].description,
+            "status page subscriptions"
+        );
+        assert_eq!(migrator.migrations[8].version, 20260810000010);
+        assert_eq!(migrator.migrations[8].description, "status page management");
     }
 
     #[test]
@@ -255,11 +317,71 @@ mod tests {
     }
 
     #[test]
+    fn status_page_migration_owns_publication_history_and_route() {
+        for table in [
+            "status_pages",
+            "status_page_components",
+            "status_page_incidents",
+            "status_page_incident_components",
+            "status_page_incident_updates",
+        ] {
+            assert!(
+                STATUS_PAGES_SQL.contains(&format!("CREATE TABLE {table}")),
+                "missing status-page table {table}"
+            );
+        }
+        assert!(STATUS_PAGES_SQL.contains("fk_status_page_incidents_source"));
+        assert!(!STATUS_PAGES_SQL.contains("'alert.status.pages'"));
+        assert!(STATUS_PAGE_LANGUAGES_SQL.contains("ADD COLUMN languages TEXT[]"));
+        assert!(STATUS_PAGE_LANGUAGES_SQL.contains("chk_status_pages_languages"));
+        assert!(STATUS_PAGE_HISTORY_DAYS_SQL.contains("ADD COLUMN history_days INTEGER"));
+        assert!(STATUS_PAGE_HISTORY_DAYS_SQL.contains("chk_status_pages_history_days"));
+        assert!(
+            STATUS_PAGE_COMPONENT_HISTORY_SQL
+                .contains("CREATE TABLE status_page_component_status_events")
+        );
+        assert!(
+            STATUS_PAGE_COMPONENT_HISTORY_SQL
+                .contains("uq_status_page_component_status_events_open")
+        );
+        assert!(STATUS_PAGE_SUBSCRIPTIONS_SQL.contains("CREATE TABLE status_page_subscribers"));
+        assert!(STATUS_PAGE_SUBSCRIPTIONS_SQL.contains("target_ciphertext"));
+        assert!(STATUS_PAGE_SUBSCRIPTIONS_SQL.contains("target_hash"));
+        assert!(
+            STATUS_PAGE_SUBSCRIPTIONS_SQL
+                .contains("CREATE TABLE status_page_notification_deliveries")
+        );
+        assert!(STATUS_PAGE_SUBSCRIPTIONS_SQL.contains("trg_status_page_incident_notification"));
+        assert!(STATUS_PAGE_SUBSCRIPTIONS_SQL.contains("page.visibility = 'public'"));
+        assert!(STATUS_PAGE_MANAGEMENT_SQL.contains("status_pages.read"));
+        assert!(STATUS_PAGE_MANAGEMENT_SQL.contains("'status.pages', '/status-pages'"));
+        assert!(STATUS_PAGE_MANAGEMENT_SQL.contains("status_page_domain_configs"));
+        assert!(STATUS_PAGE_MANAGEMENT_SQL.contains("status_page_access_sessions"));
+        assert!(STATUS_PAGE_MANAGEMENT_SQL.contains("delivery_retention_days"));
+
+        let normalize_navigation = STATUS_PAGE_MANAGEMENT_SQL
+            .find("UPDATE iam_routes SET navigation_group = 'data'")
+            .expect("status-page migration normalizes the previous navigation group");
+        let install_navigation_constraint = STATUS_PAGE_MANAGEMENT_SQL
+            .find("ADD CONSTRAINT chk_iam_routes_navigation")
+            .expect("status-page migration installs the final navigation constraint");
+        assert!(
+            normalize_navigation < install_navigation_constraint,
+            "navigation rows must satisfy the final values before the constraint is installed"
+        );
+    }
+
+    #[test]
     fn seeded_resource_ids_do_not_encode_builtin_semantics() {
         let semantic_id =
             regex::Regex::new(r"(?m)^\s*\('([^']*builtin[^']*)'\s*,").expect("valid seed id regex");
 
-        for sql in [INITIAL_SQL, BUILTIN_DASHBOARDS_SQL, IAM_ROUTE_CATALOG_SQL] {
+        for sql in [
+            INITIAL_SQL,
+            BUILTIN_DASHBOARDS_SQL,
+            IAM_ROUTE_CATALOG_SQL,
+            STATUS_PAGES_SQL,
+        ] {
             let ids: Vec<&str> = semantic_id
                 .captures_iter(sql)
                 .map(|capture| capture.get(1).expect("id capture").as_str())
@@ -337,7 +459,17 @@ mod tests {
         on_disk.sort_unstable();
         assert_eq!(
             on_disk,
-            vec![20260101000001, 20260101000002, 20260101000003,],
+            vec![
+                20260101000001,
+                20260101000002,
+                20260101000003,
+                20260810000005,
+                20260810000006,
+                20260810000007,
+                20260810000008,
+                20260810000009,
+                20260810000010,
+            ],
             "schema and seed catalogs must use the registered embedded migrations"
         );
 

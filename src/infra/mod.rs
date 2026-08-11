@@ -37,5 +37,6 @@ pub mod search;
 pub mod secret;
 pub mod segment_wal;
 pub mod sso;
+pub mod status_page;
 pub mod storage;
 pub mod traces;

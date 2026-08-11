@@ -16,6 +16,7 @@ use crate::{
             NotifyService, OncallEventProducer, RecipientResolverRegistry, ScheduleMembersResolver,
             TeamLeadResolver, TeamMembersResolver,
         },
+        status_page::StatusPageService,
     },
     config::Settings,
     domain::{
@@ -36,9 +37,12 @@ use crate::{
         },
     },
     infra::{
-        notify::adapters::{
-            EmailSmtpConnectorAdapter, LarkAppConnectorAdapter, LarkWebhookConnectorAdapter,
-            SlackAppConnectorAdapter, SlackWebhookConnectorAdapter, WebhookConnectorAdapter,
+        notify::{
+            StatusPageNotifyAdapter,
+            adapters::{
+                EmailSmtpConnectorAdapter, LarkAppConnectorAdapter, LarkWebhookConnectorAdapter,
+                SlackAppConnectorAdapter, SlackWebhookConnectorAdapter, WebhookConnectorAdapter,
+            },
         },
         persistence::repositories::{
             alert_rules::evaluation_state::PgAlertRuleEvalStateRepository,
@@ -52,6 +56,10 @@ use crate::{
                 PgUserNotifyEndpointRepository, PgUserNotifyPreferenceRepository,
             },
             semantic_groups::PgSemanticGroupRepository,
+            status_pages::PgStatusPageRepository,
+        },
+        status_page::{
+            DnsStatusPageDomainVerifier, StatusPageAdminEmailNotifier, StatusPageAssetCleaner,
         },
     },
     shared::Result,
@@ -62,6 +70,7 @@ pub(super) struct AlertingRuntime {
     pub(super) notify: Arc<NotifyService>,
     pub(super) notify_engine: Arc<NotifyEngine>,
     pub(super) dashboard: Arc<DashboardService>,
+    pub(super) status_pages: Arc<StatusPageService>,
     pub(super) notify_templates: Arc<dyn NotifyTemplateManagementRepository>,
     pub(super) mute_rules: Arc<dyn MuteRuleRepository>,
     pub(super) incident_groups: Arc<dyn IncidentGroupRepository>,
@@ -198,12 +207,66 @@ impl AlertingRuntime {
                 .with_draft_repository(core.dashboard_drafts.clone())
                 .with_contract_resolver(dashboard_contracts),
         );
+        let mut status_page_service = StatusPageService::new(
+            Arc::new(PgStatusPageRepository::new(
+                core.pool.clone(),
+                core.cipher_root_key.clone(),
+            )),
+            core.incidents.clone(),
+        )
+        .with_notifications(
+            Arc::new(StatusPageNotifyAdapter::new(core.email_sender.clone())),
+            settings.http.external_url.clone(),
+        )
+        .with_managed_domain_tls(
+            settings.http.tls.enabled
+                && !settings.http.tls.account_email.trim().is_empty()
+                && settings
+                    .http
+                    .external_url
+                    .trim()
+                    .to_ascii_lowercase()
+                    .starts_with("https://"),
+        );
+        match DnsStatusPageDomainVerifier::new(&settings.http.external_url) {
+            Ok(verifier) => {
+                status_page_service = status_page_service.with_domain_verifier(Arc::new(verifier));
+            }
+            Err(error) => tracing::warn!(
+                error = %error,
+                "status-page custom domains are disabled until http.external_url is configured"
+            ),
+        }
+        if let Some(email_sender) = core.email_sender.clone() {
+            status_page_service = status_page_service.with_domain_health_notifier(Arc::new(
+                StatusPageAdminEmailNotifier::new(
+                    core.pool.clone(),
+                    email_sender,
+                    settings.http.external_url.clone(),
+                ),
+            ));
+        }
+        let status_pages = Arc::new(status_page_service);
+        let _status_page_notification_worker = core.roles.run_alert_manager.then(|| {
+            crate::bootstrap::workers::status_page_notifications::StatusPageNotificationWorker::new(
+                status_pages.clone(),
+            )
+            .spawn()
+        });
+        let _status_page_maintenance_worker = core.roles.run_alert_manager.then(|| {
+            crate::bootstrap::workers::status_page_maintenance::StatusPageMaintenanceWorker::new(
+                status_pages.clone(),
+                Arc::new(StatusPageAssetCleaner::new(core.store.clone())),
+            )
+            .spawn()
+        });
 
         Ok(Self {
             alerting,
             notify,
             notify_engine,
             dashboard,
+            status_pages,
             notify_templates,
             mute_rules,
             incident_groups,

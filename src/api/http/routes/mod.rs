@@ -55,6 +55,7 @@ pub mod schedules;
 pub mod search_jobs;
 pub mod semantic_groups;
 pub mod sso;
+pub mod status_pages;
 pub mod streams;
 pub mod system;
 pub mod teams;
@@ -106,6 +107,7 @@ pub fn api_v1(state: AppState) -> Router<AppState> {
         .merge(saved_views::routes())
         .merge(reports::routes())
         .merge(streams::routes())
+        .merge(status_pages::routes())
         .merge(metrics::api_routes())
         .merge(me::routes())
         .merge(files::routes())

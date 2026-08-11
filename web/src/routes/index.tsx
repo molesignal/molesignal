@@ -135,6 +135,13 @@ import {
 import { ShellRoot } from './ShellRoot';
 import { Signin } from './Signin';
 import { Signup } from './Signup';
+import {
+  PublicStatusHistoryPage,
+  PublicStatusUptimePage,
+} from './status-pages/PublicStatusArchivePage';
+import { PublicStatusIncidentPage } from './status-pages/PublicStatusIncidentPage';
+import { PublicStatusPage } from './status-pages/PublicStatusPage';
+import { STATUS_PAGE_MANAGEMENT_ROUTES } from './status-pages/routes';
 import { Streams } from './streams';
 import { StreamExplore } from './streams/Explore';
 import { Traces } from './traces';
@@ -211,10 +218,65 @@ function LegacyServicesRedirect() {
   );
 }
 
+function AuthenticatedShell() {
+  return (
+    <RequireAuth>
+      <ShellRoot />
+    </RequireAuth>
+  );
+}
+
+function RootShellRoute() {
+  const location = useLocation();
+  if (location.pathname === '/') {
+    return (
+      <PublicStatusPage
+        source="domain"
+        unmatchedDomain={<AuthenticatedShell />}
+      />
+    );
+  }
+  return <AuthenticatedShell />;
+}
+
 export const router = createBrowserRouter([
   { path: '/signin', element: <Signin /> },
   { path: '/signup', element: <Signup /> },
   { path: '/shared', element: <PublicShare /> },
+  {
+    path: '/history',
+    element: (
+      <PublicStatusHistoryPage
+        source="domain"
+        unmatchedDomain={<Navigate to="/home" replace />}
+      />
+    ),
+  },
+  {
+    path: '/uptime',
+    element: (
+      <PublicStatusUptimePage
+        source="domain"
+        unmatchedDomain={<Navigate to="/home" replace />}
+      />
+    ),
+  },
+  {
+    path: '/incidents/:incidentId',
+    element: (
+      <PublicStatusIncidentPage
+        source="domain"
+        unmatchedDomain={<Navigate to="/home" replace />}
+      />
+    ),
+  },
+  {
+    path: '/status/:slug/incidents/:incidentId',
+    element: <PublicStatusIncidentPage />,
+  },
+  { path: '/status/:slug/history', element: <PublicStatusHistoryPage /> },
+  { path: '/status/:slug/uptime', element: <PublicStatusUptimePage /> },
+  { path: '/status/:slug', element: <PublicStatusPage /> },
   ...DEMO_ROUTES,
 
   {
@@ -228,11 +290,7 @@ export const router = createBrowserRouter([
 
   {
     path: '/',
-    element: (
-      <RequireAuth>
-        <ShellRoot />
-      </RequireAuth>
-    ),
+    element: <RootShellRoute />,
     children: [
       { index: true, element: <DefaultHomeRedirect /> },
 
@@ -348,6 +406,7 @@ export const router = createBrowserRouter([
       { path: 'pipelines/:id/history', element: <PipelineHistory /> },
       { path: 'pipelines/:id/backfill', element: <PipelineBackfill /> },
       { path: 'reports', element: <Reports /> },
+      ...STATUS_PAGE_MANAGEMENT_ROUTES,
       { path: 'functions', element: <FunctionsList /> },
       { path: 'functions/new', element: <FunctionsEdit /> },
       { path: 'functions/:id', element: <FunctionsEdit /> },

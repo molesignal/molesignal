@@ -16,6 +16,8 @@ pub mod scheduled_reports;
 pub mod search_jobs;
 pub mod service_graph;
 pub mod slow_query_analyzer;
+pub mod status_page_maintenance;
+pub mod status_page_notifications;
 pub mod trial_sweeper;
 
 pub mod acme;

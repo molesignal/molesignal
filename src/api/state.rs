@@ -18,6 +18,7 @@ use crate::{
         profiling::ProfilingService,
         query::QueryService,
         self_telemetry::SelfTelemetryRuntime,
+        status_page::StatusPageService,
         trace::{TracePipeline, candidate_router::TraceCandidateRouter},
     },
     domain::{
@@ -113,6 +114,7 @@ pub struct AppState {
     pub intake: Arc<IntakeService>,
     pub query: Arc<QueryService>,
     pub dashboard: Arc<DashboardService>,
+    pub status_pages: Arc<StatusPageService>,
     pub alerting: AlertingState,
     pub iam: IamState,
     pub telemetry: TelemetryState,

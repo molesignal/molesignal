@@ -21,7 +21,9 @@ port = 5080
 # 反向代理后建议关闭
 gzip = true
 # 对外访问 URL；留空 = 前端按当前访问来源（window.location.origin）推导。
-# 反代 / 公网部署填真实对外地址，如 https://obs.example.com
+# 反代 / 公网部署填真实对外地址，如 https://molesignal.example.com
+# 状态页自定义域名验证也依赖此地址生成 CNAME 目标；修改后需重启服务。
+# 如需状态页托管 TLS，还必须启用下方 `[http.tls]` 并填写 `account_email`。
 # （数据源接入页 snippet 用它拼 intake URL）。env 覆盖：MS_HTTP_EXTERNAL_URL
 external_url = ""
 
