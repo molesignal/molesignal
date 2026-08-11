@@ -30,6 +30,7 @@ x-molesignal-base: &molesignal-base
     MS_STORE_OBJECT_BUCKET: molesignal
     MS_STORE_OBJECT_REGION: us-east-1
     MS_STORE_OBJECT_ENDPOINT: "http://minio:9000"
+    MS_STORE_OBJECT_PATH_STYLE: "true"
     MS_STORE_OBJECT_ACCESS_KEY: minioadmin
     MS_STORE_OBJECT_SECRET_KEY: minioadmin
     # JWT signing secret 默认由 DB 自动 bootstrap（auth-hardening）；

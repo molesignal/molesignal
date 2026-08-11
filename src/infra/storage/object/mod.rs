@@ -7,6 +7,7 @@ use object_store::{
     ObjectStore, aws::AmazonS3Builder, azure::MicrosoftAzureBuilder,
     gcp::GoogleCloudStorageBuilder, local::LocalFileSystem,
 };
+use url::Url;
 
 use crate::{
     config::ObjectStoreSettings,
@@ -39,15 +40,22 @@ fn build_local(cfg: &ObjectStoreSettings) -> Result<Arc<dyn ObjectStore>> {
 }
 
 fn build_s3(cfg: &ObjectStoreSettings) -> Result<Arc<dyn ObjectStore>> {
-    if cfg.bucket.is_empty() {
+    let bucket = cfg.bucket.trim();
+    if bucket.is_empty() {
         return Err(Error::invalid("object_store.bucket required for s3"));
     }
-    let mut b = AmazonS3Builder::new().with_bucket_name(&cfg.bucket);
-    if !cfg.region.is_empty() {
-        b = b.with_region(&cfg.region);
+
+    let mut b = AmazonS3Builder::new()
+        .with_bucket_name(bucket)
+        .with_virtual_hosted_style_request(!cfg.path_style);
+    if !cfg.region.trim().is_empty() {
+        b = b.with_region(cfg.region.trim());
     }
-    if !cfg.endpoint.is_empty() {
-        b = b.with_endpoint(&cfg.endpoint).with_allow_http(true);
+    if let Some(endpoint) = prepare_s3_endpoint(cfg, bucket)? {
+        b = b.with_endpoint(endpoint.url);
+        if endpoint.allow_http {
+            b = b.with_allow_http(true);
+        }
     }
     if !cfg.access_key.is_empty() {
         b = b.with_access_key_id(&cfg.access_key);
@@ -55,13 +63,81 @@ fn build_s3(cfg: &ObjectStoreSettings) -> Result<Arc<dyn ObjectStore>> {
     if !cfg.secret_key.is_empty() {
         b = b.with_secret_access_key(&cfg.secret_key);
     }
-    if cfg.path_style {
-        b = b.with_virtual_hosted_style_request(false)
-    }
     let store = b
         .build()
         .map_err(|e| Error::internal(format!("s3 object_store build: {e}")))?;
     Ok(Arc::new(store))
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct PreparedS3Endpoint {
+    url: String,
+    allow_http: bool,
+}
+
+/// `object_store` requires a bucket-specific endpoint for virtual-hosted requests.
+/// Validate and normalize it here so malformed configuration is rejected before
+/// the upstream SigV4 signer attempts to unwrap an invalid HTTP request.
+fn prepare_s3_endpoint(
+    cfg: &ObjectStoreSettings,
+    bucket: &str,
+) -> Result<Option<PreparedS3Endpoint>> {
+    let raw = cfg.endpoint.trim();
+    if raw.is_empty() {
+        return Ok(None);
+    }
+
+    let mut endpoint = Url::parse(raw).map_err(|e| {
+        Error::invalid(format!(
+            "object_store.endpoint must be an absolute HTTP(S) URL: {e}"
+        ))
+    })?;
+    if !matches!(endpoint.scheme(), "http" | "https") {
+        return Err(Error::invalid(
+            "object_store.endpoint scheme must be http or https",
+        ));
+    }
+    let host = endpoint
+        .host_str()
+        .ok_or_else(|| Error::invalid("object_store.endpoint must include a host"))?
+        .to_owned();
+    if !endpoint.username().is_empty() || endpoint.password().is_some() {
+        return Err(Error::invalid(
+            "object_store.endpoint must not include credentials",
+        ));
+    }
+    if endpoint.query().is_some() || endpoint.fragment().is_some() {
+        return Err(Error::invalid(
+            "object_store.endpoint must not include a query or fragment",
+        ));
+    }
+
+    if !cfg.path_style {
+        let expected_prefix = format!("{}.", bucket.to_ascii_lowercase());
+        if !host.to_ascii_lowercase().starts_with(&expected_prefix) {
+            let virtual_host = format!("{bucket}.{host}");
+            endpoint.set_host(Some(&virtual_host)).map_err(|e| {
+                Error::invalid(format!(
+                    "object_store bucket cannot be used in a virtual-hosted endpoint: {e}"
+                ))
+            })?;
+        }
+    }
+
+    let allow_http = endpoint.scheme() == "http";
+    let url = endpoint.as_str().trim_end_matches('/').to_owned();
+    let request_url = if cfg.path_style {
+        format!("{url}/{bucket}/_health/probe")
+    } else {
+        format!("{url}/_health/probe")
+    };
+    request_url.parse::<http::Uri>().map_err(|e| {
+        Error::invalid(format!(
+            "object_store endpoint produces an invalid request URI: {e}"
+        ))
+    })?;
+
+    Ok(Some(PreparedS3Endpoint { url, allow_http }))
 }
 
 fn build_azure(cfg: &ObjectStoreSettings) -> Result<Arc<dyn ObjectStore>> {
@@ -124,5 +200,63 @@ mod tests {
             ..Default::default()
         };
         assert!(build(&cfg).is_err());
+    }
+
+    #[test]
+    fn s3_virtual_hosted_endpoint_includes_bucket() {
+        let cfg = ObjectStoreSettings {
+            backend: "s3".into(),
+            bucket: "molesignal".into(),
+            endpoint: "https://obs.ap-southeast-3.myhuaweicloud.com/".into(),
+            ..Default::default()
+        };
+
+        let endpoint = prepare_s3_endpoint(&cfg, &cfg.bucket)
+            .expect("valid endpoint")
+            .expect("custom endpoint");
+
+        assert_eq!(
+            endpoint,
+            PreparedS3Endpoint {
+                url: "https://molesignal.obs.ap-southeast-3.myhuaweicloud.com".into(),
+                allow_http: false,
+            }
+        );
+    }
+
+    #[test]
+    fn s3_path_style_endpoint_keeps_service_host() {
+        let cfg = ObjectStoreSettings {
+            backend: "s3".into(),
+            bucket: "molesignal".into(),
+            endpoint: "http://minio:9000/".into(),
+            path_style: true,
+            ..Default::default()
+        };
+
+        let endpoint = prepare_s3_endpoint(&cfg, &cfg.bucket)
+            .expect("valid endpoint")
+            .expect("custom endpoint");
+
+        assert_eq!(
+            endpoint,
+            PreparedS3Endpoint {
+                url: "http://minio:9000".into(),
+                allow_http: true,
+            }
+        );
+    }
+
+    #[test]
+    fn s3_malformed_endpoint_is_rejected_without_panicking() {
+        let cfg = ObjectStoreSettings {
+            backend: "s3".into(),
+            bucket: "molesignal".into(),
+            endpoint: "\"https://obs.example.com\"".into(),
+            ..Default::default()
+        };
+
+        let err = build(&cfg).expect_err("quoted endpoint must be rejected");
+        assert!(err.to_string().contains("absolute HTTP(S) URL"));
     }
 }

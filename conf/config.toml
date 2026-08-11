@@ -278,6 +278,8 @@ root = "./data/objects"
 # region = "us-east-1"
 # 自定义 S3 endpoint；AWS S3 可留空，MinIO 示例为 `http://localhost:9000`。
 # endpoint = ""
+# 默认 false，使用虚拟主机模式（适用于 AWS S3、华为云 OBS）；MinIO 等仅支持路径模式的服务设为 true。
+# path_style = false
 # 内联 access key；优先使用环境变量或 credentials_file。
 # access_key = ""
 # 内联 secret key；不要把生产凭据提交到配置仓库。

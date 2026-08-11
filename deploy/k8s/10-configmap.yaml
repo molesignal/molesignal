@@ -35,6 +35,7 @@ data:
     bucket = "molesignal"
     region = "us-east-1"
     endpoint = "http://minio:9000"
+    path_style = true
     multipart_threshold_mb = 32
     multipart_part_size_mb = 8
     range_threshold_mb = 16
