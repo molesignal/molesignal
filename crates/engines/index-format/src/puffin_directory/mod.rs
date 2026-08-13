@@ -43,19 +43,22 @@ pub const ALLOWED_FILE_EXT: &[&str] = &[
 /// `tantivy::meta.json` 的固定文件名。
 pub const META_JSON: &str = "meta.json";
 
+/// `tantivy::ManagedDirectory` 的固定元数据文件名。
+pub const MANAGED_JSON: &str = ".managed.json";
+
 /// 我们自己写入 puffin 的 segment-meta cache blob 的 `blob_tag`（不是真实 tantivy 文件）。
 /// reader 端识别后从 footer cache 复用而非作为虚拟文件返。
 pub const FOOTER_CACHE_BLOB_TAG: &str = "__o2_footer_cache__";
 
 /// Tantivy 归档的 cache value：包含解析后的 [`PuffinMeta`] + 原始 footer payload bytes
-/// + 解析后的 tantivy schema + sync atomic_read 目标文件预物化字节（通常含
-///   `meta.json`，~几 KB）。**不包含** archive 整体 bytes —— 这是与旧 footer cache
-///   的核心区别。`size_bytes` 用作 cache eviction 估算。
+/// + 解析后的 tantivy schema + sync atomic_read 目标文件预物化字节（`meta.json`
+///   与 `.managed.json`，~几 KB）。**不包含** archive 整体 bytes —— 这是与旧 footer
+///   cache 的核心区别。`size_bytes` 用作 cache eviction 估算。
 ///
-/// `atomic_files` 设计：tantivy 0.25 的 `Index::open(Directory)` 走 sync
-/// `Directory::atomic_read` 读 `meta.json`；reader 是 read-only 不能发 async IO
-/// 兜底，所以构造期就 async 预物化 `meta.json` 等 atomic_read 目标到此 map。
-/// Cache 命中路径（`PuffinDirReader::from_cached_meta`）复用同一份字节，避免
+/// `atomic_files` 设计：tantivy 的 `Index::open(Directory)` 走 sync
+/// `Directory::atomic_read` 读 `meta.json` 与 `.managed.json`；reader 是 read-only
+/// 不能发 async IO 兜底，所以构造期就 async 预物化这些目标到此 map。
+/// Cache 命中路径（`PuffinDirReader::from_cached_footer`）复用同一份字节，避免
 /// 任何 IO。
 #[derive(Clone, Debug)]
 pub struct TantivyFooter {
@@ -71,7 +74,7 @@ pub struct TantivyFooter {
 
 /// 已知 tantivy sync `atomic_read` 触碰的 puffin blob_tag。构造 reader 时按这个
 /// 列表把 blob 内容一次性预下载到 `atomic_files`。
-pub const SYNC_ATOMIC_READ_TARGETS: &[&str] = &[META_JSON];
+pub const SYNC_ATOMIC_READ_TARGETS: &[&str] = &[META_JSON, MANAGED_JSON];
 
 impl TantivyFooter {
     pub fn size_bytes(&self) -> usize {

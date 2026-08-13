@@ -31,9 +31,9 @@ use crate::puffin::{BlobMetadata, reader::PuffinBytesReader};
 pub struct PuffinDirReader {
     source: Arc<PuffinBytesReader>,
     blobs: Arc<HashMap<PathBuf, Arc<BlobMetadata>>>,
-    /// 预物化的 sync `atomic_read` 目标字节（典型为 `meta.json`）。
+    /// 预物化的 sync `atomic_read` 目标字节（`meta.json` 与 `.managed.json`）。
     /// 构造 reader 时一次性 async 拉取，sync `Directory::atomic_read` 直接 map 查询；
-    /// miss 返 `FileDoesNotExist`（已被 17 个 tantivy 测试 + IT 验证覆盖到位）。
+    /// miss 返 `FileDoesNotExist`（由 Tantivy round-trip tests + IT 覆盖）。
     atomic_files: Arc<HashMap<PathBuf, Bytes>>,
 }
 
@@ -320,5 +320,50 @@ impl Directory for PuffinDirReader {
         // read-only 不真持锁，返回 noop 包装。tantivy::Directory 内部对 DirectoryLock
         // 仅用 Drop 释放，所以传一个空 Box 即可。
         Ok(tantivy::directory::DirectoryLock::from(Box::new(())))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{collections::HashSet, path::PathBuf, sync::Arc};
+
+    use object_store::{ObjectStore, ObjectStoreExt, memory::InMemory, path::Path as ObjectPath};
+    use tantivy::{
+        Index,
+        directory::Directory,
+        schema::{STRING, Schema},
+    };
+
+    use super::*;
+    use crate::puffin_directory::{MANAGED_JSON, META_JSON, PuffinDirWriter};
+
+    #[tokio::test]
+    async fn materializes_both_tantivy_metadata_files() {
+        let dir = PuffinDirWriter::new().unwrap();
+        let mut schema = Schema::builder();
+        schema.add_text_field("message", STRING);
+        let index = Index::create(
+            dir.clone(),
+            schema.build(),
+            tantivy::IndexSettings::default(),
+        )
+        .unwrap();
+        drop(index);
+
+        let bytes = dir.to_puffin_bytes().unwrap();
+        let size = bytes.len() as u64;
+        let store: Arc<dyn ObjectStore> = Arc::new(InMemory::new());
+        let location = ObjectPath::from("metadata.ttv");
+        store.put(&location, bytes.into()).await.unwrap();
+
+        let reader = PuffinDirReader::from_object_store(store, location, size)
+            .await
+            .unwrap();
+        assert!(reader.atomic_files.contains_key(Path::new(META_JSON)));
+        assert!(reader.atomic_files.contains_key(Path::new(MANAGED_JSON)));
+
+        let managed = reader.atomic_read(Path::new(MANAGED_JSON)).unwrap();
+        let _: HashSet<PathBuf> = serde_json::from_slice(&managed).unwrap();
+        Index::open(reader).unwrap();
     }
 }
