@@ -25,6 +25,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tonic_prost_build::configure()
         .bytes(".")
+        // Debian bullseye ships protoc 3.12, which requires this compatibility
+        // flag for the proto3 optional fields used by probe.proto.
+        .protoc_arg("--experimental_allow_proto3_optional")
         .compile_protos(&protos, std::slice::from_ref(&proto_root))?;
     Ok(())
 }
