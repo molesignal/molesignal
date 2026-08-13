@@ -72,7 +72,7 @@ Catalog 不包含 `description_zh` 等 locale 专用字段，也不根据请求�
 `web/src/i18n/en-us/agent.json` 和 `web/src/i18n/zh-cn/agent.json`。不存在翻译时回退到
 服务端的 canonical metadata；外部 MCP 工具继续使用 MCP Server 返回的 metadata。
 新增或删除内置工具时必须同步两种 locale，并通过 `pnpm -C web i18n:check` 检查 key
-对齐。
+集合一致性。
 
 ## 工具颗粒度
 

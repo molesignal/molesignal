@@ -60,7 +60,7 @@ pub struct SearchSettings {
 
 /// range PromQL 窗口聚合增量缓存设置。
 ///
-/// 对 `rate(metric[range])` / `*_over_time` 等 range 查询，把按 step 网格对齐的
+/// 对 `rate(metric[range])` / `*_over_time` 等 range 查询，把按 step 网格归一后的
 /// 已封存窗口桶（窗口右端 < 水位）缓存起来；仪表盘刷新（时间窗前移）时稳定桶直接
 /// 命中缓存、仅活跃区扫描重算。`enabled = false`（默认）时整条路径短路，行为与
 /// 未接缓存完全一致。

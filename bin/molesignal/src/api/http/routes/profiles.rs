@@ -59,7 +59,7 @@ use crate::{
     },
 };
 
-/// `_timestamp` 隐式时间列（与存储 `arrow_schema::TS_COL` 对齐）。
+/// `_timestamp` 隐式时间列（匹配存储层 `arrow_schema::TS_COL`）。
 const TS_COL: &str = "_timestamp";
 /// 火焰图窗口内合并 profile 数默认上限；超限均匀采样 + `truncated`。
 const DEFAULT_MAX_MERGE: usize = 1_000;

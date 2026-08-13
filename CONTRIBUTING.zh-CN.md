@@ -56,7 +56,7 @@ git commit -s -m "your message"
 
 ```bash
 make proto-lint                                     # 校验 Proto；binding 由 Cargo 自动生成
-cargo +nightly fmt --all                            # 跟 rustfmt 配置对齐
+cargo +nightly fmt --all                            # 使用仓库 rustfmt 配置
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace --lib --bins                 # 快：仅单元 + bin 测试
 
@@ -130,7 +130,7 @@ pnpm -C web dev          # vite dev server
 
 ## Pull request 流程
 
-1. 非微小变更先开 issue / discussion 对齐方向 —— 不希望你周末写完一个大重构才发现方向有分歧。
+1. 非微小变更先开 issue / discussion 确认方向 —— 不希望你周末写完一个大重构才发现方向有分歧。
 2. 从目标通道 fork 分支，PR 保持小而聚焦，一个 PR 只做一件逻辑事。
 3. 行为面有变更时同步更新相关文档（`README.md`、`ARCHITECTURE.md`、crate 内 doc comment）。
 4. push 前确保 CI 必跑项本地全绿：

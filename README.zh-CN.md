@@ -84,9 +84,9 @@ Vector / Fluent Bit / OTel Collector / Prometheus remote_write 等完整对接�
 - 时间锚点同步所有面板（一次 zoom 自动广播）
 - 调查栈：从 `metric → trace → log → host` 来回钻而不丢上下文
 
-### 📡 采集（9 个协议，drop-in 替代）
+### 📡 采集（兼容 9 种协议）
 
-| 协议 | Endpoint | 直接替代 |
+| 协议 | Endpoint | 兼容客户端 / 服务 |
 |---|---|---|
 | OTLP gRPC | `:5082` | OpenTelemetry SDK / Collector |
 | OTLP HTTP | `POST /api/v1/{logs,metrics,traces}` | OTel HTTP exporter |

@@ -1,5 +1,5 @@
 /**
- * Activation / Home e2e (P2-T3).
+ * Activation / Home e2e.
  *
  * The Home page derives an ActivationState from how much the org has set up
  * (streams / dashboards / alerts / pipelines). Previously only vitest unit

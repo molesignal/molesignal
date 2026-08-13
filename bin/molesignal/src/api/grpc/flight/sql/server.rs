@@ -94,8 +94,8 @@ static XDBC_TYPE_INFO_DATA: std::sync::LazyLock<XdbcTypeInfoData> =
             .expect("empty xdbc type info")
     });
 
-/// `CommandGetPrimaryKeys` 结果 schema（Flight SQL 规范；与 Java
-/// `FlightSqlProducer.Schemas.GET_PRIMARY_KEYS_SCHEMA` 对齐）。stream 没有
+/// `CommandGetPrimaryKeys` 结果 schema（Flight SQL 规范；字段布局遵循 Java
+/// `FlightSqlProducer.Schemas.GET_PRIMARY_KEYS_SCHEMA`）。stream 没有
 /// 主键概念，永远返回 0 行 —— 但 RPC 必须实现：DBeaver 打开表时会查约束，
 /// Unimplemented 会直接弹错。
 static PRIMARY_KEYS_SCHEMA: std::sync::LazyLock<Arc<ArrowSchema>> =
@@ -346,7 +346,7 @@ fn empty_stream(schema: Arc<ArrowSchema>) -> Response<DoGetStream> {
     ))
 }
 
-/// [`MsError`] → gRPC [`Status`]：语义对齐 HTTP 映射（`http_status_code`）。
+/// [`MsError`] → gRPC [`Status`]：语义与 HTTP 映射（`http_status_code`）一致。
 /// 5xx 详情只进服务端日志，客户端拿泛化文案（与 HTTP `IntoResponse` 同策略）。
 fn error_to_status(e: MsError) -> Status {
     match &e {

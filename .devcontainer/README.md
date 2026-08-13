@@ -7,7 +7,7 @@ VS Code / Cursor / 任何 [Dev Containers spec](https://containers.dev) 兼容�
 | Layer | What |
 |---|---|
 | Base image | `mcr.microsoft.com/devcontainers/rust:1-1-bookworm` |
-| Rust | 1.90（与 `rust-toolchain.toml` 对齐）+ rustfmt + clippy + rust-src |
+| Rust | 1.90（由 `rust-toolchain.toml` 统一指定）+ rustfmt + clippy + rust-src |
 | Node | 20 + pnpm 9（`web/` 前端用） |
 | Proto | `protoc` + `buf` 1.50 |
 | DB tools | `psql` + `sqlx-cli`（postgres feature） |

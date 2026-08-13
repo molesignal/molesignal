@@ -166,7 +166,7 @@ impl WalEntryType {
 #[derive(Debug, Clone, Copy)]
 pub enum FsyncPolicy {
     /// `flush_strategy = none`：每条记录后 **flush**，不调用 `sync_*`
-    /// （`sync_level` 字段保留供配置对齐，此策略下不参与落盘屏障）。
+    /// （`sync_level` 字段保留以稳定配置结构，此策略下不参与落盘屏障）。
     None { sync_level: SyncLevel },
     /// 每条记录 **flush** 后按 `sync_level` 调用 `sync_file`。
     EveryWrite { sync_level: SyncLevel },

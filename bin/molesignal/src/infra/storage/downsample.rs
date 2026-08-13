@@ -158,7 +158,7 @@ async fn downsample_samples(batch: RecordBatch, bucket_secs: u32) -> Result<Reco
     let out_schema = out[0].schema();
     let merged = concat_batches(&out_schema, &out)
         .map_err(|e| Error::internal(format!("downsample concat: {e}")))?;
-    // 把聚合产物对齐回输入 schema（列序 + nullability 归一；类型已由 cast 对齐）。
+    // 按输入 schema 重新组织聚合产物（列序 + nullability 归一；类型已由 cast 统一）。
     align_batch_to_schema(&merged, &input_schema)
         .map_err(|e| Error::internal(format!("downsample align to schema: {e}")))
 }

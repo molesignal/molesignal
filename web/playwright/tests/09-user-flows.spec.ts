@@ -1,5 +1,5 @@
 /**
- * User-flow e2e specs — Flows 2–5 (P2-T1).
+ * User-flow e2e specs — Flows 2–5.
  *
  * Flow 1 (SRE pager → alert → trace cross-signal jump) lives in
  * `06-alerts-flow-1`. This file covers the remaining four named flows from

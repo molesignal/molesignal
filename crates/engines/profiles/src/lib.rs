@@ -108,7 +108,7 @@ impl Frame {
 pub struct Sample {
     /// 根在前（`stack[0]` 最外层）的调用栈。
     pub stack: Vec<Frame>,
-    /// 与 [`NormalizedProfile::sample_types`] 对齐的值向量。
+    /// 与 [`NormalizedProfile::sample_types`] 一一对应的值向量。
     pub values: Vec<i64>,
     /// 样本级标签（pprof `Label`）；trace 关联常以 `trace_id` / `span_id` 出现于此。
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -184,7 +184,7 @@ pub struct NormalizedProfile {
     pub service: String,
     /// profile 语义类型。
     pub profile_type: ProfileType,
-    /// 各路采样值的类型与单位（与每个 `Sample.values` 对齐）。
+    /// 各路采样值的类型与单位（与每个 `Sample.values` 一一对应）。
     pub sample_types: Vec<ValueType>,
     /// 用于火焰图聚合的主采样值下标（pprof `default_sample_type`）。
     pub default_value_index: usize,

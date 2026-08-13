@@ -567,7 +567,7 @@ idle_poll_secs = 2
 cleanup_interval_secs = 3600
 
 # === range PromQL 窗口聚合增量缓存 ===
-# 实时仪表盘的 rate(metric[range]) / *_over_time 等 range 查询：把按 step 网格对齐、
+# 实时仪表盘的 rate(metric[range]) / *_over_time 等 range 查询：把按 step 网格归一后、
 # 已封存（窗口右端早于水位）的窗口桶缓存起来。时间窗前移刷新时稳定桶直接命中、仅活跃区
 # 重扫重算。默认关闭 → range 路径行为与现状完全一致。
 [search.stream_agg_cache]

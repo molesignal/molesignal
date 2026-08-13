@@ -122,7 +122,7 @@ pub fn wins(incoming: (u64, &str), local: (u64, &str)) -> bool {
     incoming > local
 }
 
-/// CloudEvents 1.0 兼容信封（JSON 字段名严格对齐 spec；`xms*` 为合法扩展属性）。
+/// CloudEvents 1.0 兼容信封（JSON 字段名严格遵循 spec；`xms*` 为合法扩展属性）。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CloudEvent {
     pub specversion: String,

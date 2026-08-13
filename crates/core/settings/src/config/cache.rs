@@ -81,7 +81,7 @@ impl Default for CacheSettings {
 ///
 /// Key = `(org, stream, stream_type, partition_level, partition_key)`、
 /// Value = `Arc<Vec<ParquetFileMeta>>`。`capacity = 0` 视为整层关闭：每次冷查都重新
-/// GET + parse dump parquet。新加字段，与 `tantivy_result/tantivy_footer` 同款形态。
+/// GET + parse dump parquet。新加字段，采用 `tantivy_result/tantivy_footer` 相同的配置结构。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ParquetFileMetaDumpCacheSettings {
     #[serde(default = "default_parquet_file_meta_dump_cache_capacity")]

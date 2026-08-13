@@ -64,7 +64,7 @@ describe('i18n', () => {
   });
 });
 
-/* ─── completeness + en-us ↔ zh-cn parity (P2-T4) ─────────────────────────── */
+/* ─── completeness + en-us ↔ zh-cn consistency ───────────────────────────── */
 
 type Bundle = Record<string, unknown>;
 
@@ -123,7 +123,7 @@ describe('builtin tool catalog translations', () => {
   });
 });
 
-describe('i18n resource parity', () => {
+describe('i18n resource consistency', () => {
   const namespaces = Object.keys(EN);
 
   it('bundles the same namespaces for both locales', () => {

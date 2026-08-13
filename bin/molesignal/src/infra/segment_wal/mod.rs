@@ -20,7 +20,7 @@
 //! - magic: `0xCA 0xFE`
 //! - version: 见 [`WAL_VERSION`]
 //! - flag: 记录类型（低 7 位）+ `FLAG_LZ4_BIT`（bit7 = payload 为 lz4 压缩）
-//! - reserved: 填 0，预留对齐 / 扩展
+//! - reserved: 填 0，用于布局填充和后续扩展
 //! - CRC32C（Castagnoli）覆盖 **头的前 28 字节** + **payload**（与头内 crc 槽位无关）
 
 mod cleanup;

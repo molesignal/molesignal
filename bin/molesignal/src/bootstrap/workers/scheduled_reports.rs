@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! feature-parity follow-up：scheduled-reports render / deliver / cron tick。
+//! scheduled-reports render / deliver / cron tick worker。
 //!
 //! 设计：
 //! - tick 周期 60s；每次扫 `list_enabled_all`，对到期的 report 调 `run_once`。

@@ -856,8 +856,8 @@ export function Logs() {
     initialRunStreamRef.current = null;
   }, [requestedFieldQuery]);
 
-  // Mirror of the field-query effect for the raw-SQL seed (`?sql=`): drop into
-  // SQL mode with the statement verbatim and let the auto-run effect fire.
+  // Apply the raw-SQL seed (`?sql=`) with the same state reset as a field query,
+  // then enter SQL mode with the statement verbatim and let auto-run fire.
   React.useEffect(() => {
     if (!requestedSql || requestedSql === appliedSqlRef.current) return;
     appliedSqlRef.current = requestedSql;

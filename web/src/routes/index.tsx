@@ -402,7 +402,7 @@ export const router = createBrowserRouter([
       { path: 'alerts/schedules/:id', element: <AlertsScheduleDetail /> },
       { path: 'alerts/silences', element: <AlertsSilences /> },
       { path: 'alerts/semantic-groups', element: <SemanticGroups /> },
-      // sitemap parity alias for the planned /alerts/import-semantic-groups route.
+      // Alias for the planned /alerts/import-semantic-groups route.
       { path: 'alerts/import-semantic-groups', element: <SemanticGroups /> },
       ...SYNTHETICS_ROUTES,
 
@@ -510,7 +510,7 @@ export const router = createBrowserRouter([
       { path: 'account/billing', element: <AccountBilling /> },
       { path: 'account/support', element: <AccountSupport /> },
 
-      /* legacy / keyboard nav parity */
+      /* Legacy and keyboard navigation routes. */
       { path: 'investigate', element: <Investigate /> },
       { path: 'alerts/incidents/:id', element: <IncidentDetail /> },
       { path: 'saved-views', element: <SavedViews /> },

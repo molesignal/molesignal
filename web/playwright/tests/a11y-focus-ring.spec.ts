@@ -13,14 +13,14 @@
  */
 import { expect, mountMockRoutes, test } from '../fixtures/mockBackend';
 
-// QUARANTINE (follow-up: P2-T6): the committed focus-ring baselines are
+// QUARANTINE: the committed focus-ring baselines are
 // `*-chromium-darwin.png` only, so this suite cannot pass on the linux CI
 // runner. Skip on linux until linux baselines are regenerated; still runs
 // locally on darwin.
 test.beforeEach(() => {
   test.skip(
     process.platform === 'linux',
-    'Focus-ring baselines are darwin-only; linux baselines are a follow-up (P2-T6).',
+    'Focus-ring baselines are darwin-only; linux baselines have not been generated.',
   );
 });
 

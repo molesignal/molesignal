@@ -355,7 +355,7 @@ impl RecordBuilder {
             .map(|_| RotationReason::Age)
     }
 
-    /// 在 schema 演化后追加一个新字段：补 null 到当前 row_count，使新列与历史行对齐。
+    /// 在 schema 演化后追加一个新字段：补 null 到当前 row_count，使新列覆盖已有行。
     pub fn extend_schema(&mut self, field: &FieldDef) {
         if self.columns.contains_key(&field.name) {
             return;
@@ -444,7 +444,7 @@ impl RecordBuilder {
     }
 }
 
-/// 把暂存的历史 batch 对齐到当前 schema：缺的列整列补 null。
+/// 把暂存的历史 batch 转换为当前 schema：缺的列整列补 null。
 ///
 /// `extend_schema` 只追加新列、不改已有列的类型，所以按列名取列即可；对不上的一定是
 /// 暂存之后才演化出来的新列。
@@ -611,7 +611,7 @@ mod tests {
         assert_eq!(after.num_rows(), 0, "同一批数据不得被交出第二次");
     }
 
-    /// flush 失败后 schema 又演化了：暂存 batch 比当前 schema 少列，concat 前必须补 null 对齐。
+    /// flush 失败后 schema 又演化了：暂存 batch 比当前 schema 少列，concat 前必须补齐 null 列。
     #[test]
     fn restore_batch_aligns_to_schema_evolved_after_the_failed_flush() {
         let s = stream_def();

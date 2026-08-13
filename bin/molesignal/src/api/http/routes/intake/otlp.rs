@@ -53,7 +53,7 @@ use crate::{
 };
 
 /// 无 `stream-name` 头时 OTLP 各信号类型落入的默认流名（默认约定）；
-/// 与前端 explore / send-test-event 的 `default` 流对齐，不存在时 intake 自动建流。
+/// 使用前端 explore / send-test-event 相同的 `default` 流，不存在时 intake 自动建流。
 const DEFAULT_STREAM: &str = "default";
 
 pub fn routes() -> Router<AppState> {

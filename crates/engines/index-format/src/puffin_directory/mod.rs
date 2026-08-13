@@ -46,9 +46,9 @@ pub const META_JSON: &str = "meta.json";
 /// `tantivy::ManagedDirectory` 的固定元数据文件名。
 pub const MANAGED_JSON: &str = ".managed.json";
 
-/// 我们自己写入 puffin 的 segment-meta cache blob 的 `blob_tag`（不是真实 tantivy 文件）。
+/// MoleSignal 写入 puffin 的 segment-meta cache blob 的 `blob_tag`（不是真实 tantivy 文件）。
 /// reader 端识别后从 footer cache 复用而非作为虚拟文件返。
-pub const FOOTER_CACHE_BLOB_TAG: &str = "__o2_footer_cache__";
+pub const FOOTER_CACHE_BLOB_TAG: &str = "__molesignal_footer_cache__";
 
 /// Tantivy 归档的 cache value：包含解析后的 [`PuffinMeta`] + 原始 footer payload bytes
 /// + 解析后的 tantivy schema + sync atomic_read 目标文件预物化字节（`meta.json`

@@ -3,8 +3,8 @@
 
 //! 启动期装配全局 tracing subscriber。
 //!
-//! 日志层风格对齐 `match-engine-fabric/src/infra/logger`：通过 [`LoggerBuilder`]
-//! 流式构造，支持 Text / JSON 两种 formatter 与 Console / File（按时间轮转）
+//! 日志层通过 [`LoggerBuilder`] 流式构造，支持 Text / JSON 两种 formatter
+//! 与 Console / File（按时间轮转）
 //! 两种 sink；写入路径走 `tracing-appender` 的 non-blocking writer，因此返回的
 //! [`LoggerGuard`] 必须在应用生命周期内保活，否则后台写线程被 drop、日志会丢。
 //!

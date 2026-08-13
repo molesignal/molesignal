@@ -4,7 +4,7 @@
 //! range PromQL 的按窗口分桶增量缓存接入层（缓存类型见
 //! [`crate::infra::caching::streaming_agg`]）。
 //!
-//! 思路：把 range 求值点对齐到 **step 绝对网格**（`floor(t/step)*step`），让仪表盘
+//! 思路：把 range 求值点归一到 **step 绝对网格**（`floor(t/step)*step`），让仪表盘
 //! 滑动刷新时相邻两次查询的步点落在同一批 grid 桶上 → 可跨刷新复用。每个 grid 桶按
 //! 「窗口右端 vs 水位」分稳定 / 活跃：
 //! - **稳定**（`t <= watermark`）：值已封存，入缓存、跨刷新命中。
@@ -197,7 +197,7 @@ impl PromQLEngine {
 
     /// range 函数（rate / `*_over_time` / delta 等）的增量缓存求值。`compute` 是纯窗口
     /// 求值（`(step_ts, 窗口样本) -> Option<value>`），与未缓存路径共用同一份逻辑，保证
-    /// 同一 (step_ts, 窗口) 取值一致——仅输出步点对齐到 step 网格。
+    /// 同一 (step_ts, 窗口) 取值一致——仅输出落在 step 网格上的步点。
     pub(super) async fn eval_windowed_cached<F>(
         &self,
         vs: &VectorSelector,

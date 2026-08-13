@@ -1,5 +1,5 @@
 /**
- * Mobile (375px) shell visual baselines (P2-T2).
+ * Mobile (375px) shell visual baselines.
  *
  * The visual config only ever exercised 1440×900; there were no mobile
  * screenshots. This captures the shell at a 375px phone width (login +
@@ -18,12 +18,11 @@ import { expect, test } from '@playwright/test';
 import { installMockSession } from '../fixtures/mockSession';
 
 // Baselines are darwin-only (committed `*-chromium-darwin.png`); skip on the
-// linux CI runner until linux baselines are regenerated (shared P2-T6
-// follow-up with 05-visual / a11y-focus-ring).
+// linux CI runner until linux baselines are regenerated for all visual suites.
 test.beforeEach(() => {
   test.skip(
     process.platform === 'linux',
-    'Visual baselines are darwin-only; linux baselines are a follow-up (P2-T6).',
+    'Visual baselines are darwin-only; linux baselines have not been generated.',
   );
 });
 

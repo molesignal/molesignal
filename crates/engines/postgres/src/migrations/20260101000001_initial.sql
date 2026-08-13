@@ -1420,7 +1420,7 @@ CREATE INDEX IF NOT EXISTS idx_marketplace_subscriptions_org
 -- Seed data
 -- ============================================================
 
--- model_prices seed（与 src/model_pricing::default_seed 对齐）
+-- model_prices seed（使用 src/model_pricing::default_seed 的值）
 INSERT INTO model_prices (provider, model, prompt_usd_per_1k, completion_usd_per_1k, updated_at_micros)
 VALUES
     ('openai',    'gpt-4o',             0.005,   0.015,   0),

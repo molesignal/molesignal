@@ -460,11 +460,11 @@ async fn streaming_agg_cache_reuses_stable_buckets_across_refresh() {
     let repo: Arc<InMemParquetFileMeta> = Arc::new(InMemParquetFileMeta::default());
     let stream = metric_stream();
 
-    // step = span / limit = 60s；start 对齐到 step 网格 → 无缓存（start 锚定）与
-    // 缓存（grid 对齐）两路步点重合，可逐行比对。
+    // step = span / limit = 60s；start 落在 step 网格上 → 无缓存（start 锚定）与
+    // 缓存（grid 归一）两路步点重合，可逐行比对。
     let step_us: i64 = 60_000_000;
     let span_us: i64 = 60 * step_us; // 1h
-    let start: i64 = (1_700_000_000_000_000 / step_us) * step_us; // 对齐
+    let start: i64 = (1_700_000_000_000_000 / step_us) * step_us; // 落在网格上
     let end: i64 = start + span_us;
     let range_us: i64 = 300_000_000; // [5m] 窗口
 
@@ -544,7 +544,7 @@ async fn streaming_agg_cache_reuses_stable_buckets_across_refresh() {
         finds2, 2,
         "run2 only probes intake watermark (raw + rollup), no matrix load: {finds2}"
     );
-    // 正确性：缓存路径与无缓存路径逐行一致（start 对齐 → 步点重合）。
+    // 正确性：缓存路径与无缓存路径逐行一致（start 在网格上 → 步点重合）。
     assert_eq!(res1.columns, res_nocache.columns);
     assert_eq!(res1.rows, res_nocache.rows, "cold cached == no-cache");
     assert_eq!(res2.rows, res_nocache.rows, "warm cached == no-cache");
@@ -624,7 +624,7 @@ async fn streaming_agg_cache_slide_recomputes_only_new_bucket() {
     // 其余重叠桶全部命中缓存。
     assert!(h2 > 0, "overlapping buckets served from cache (hits={h2})");
 
-    // 与无缓存路径逐行一致（start+step 仍对齐 step 网格）。
+    // 与无缓存路径逐行一致（start+step 仍落在 step 网格上）。
     let nocache = PromQLEngine::new(
         repo.clone() as Arc<dyn ParquetFileMetaRepository>,
         store.clone(),

@@ -87,9 +87,9 @@ A trace, its logs, and the host's metric for the same minute share **the same st
 - Time anchor synchronizes all panels (one click to zoom + propagate)
 - Investigation stack: drill `metric → trace → log → host` and back without losing context
 
-### 📡 Intake (9 protocols, drop-in replacements)
+### 📡 Intake (9 compatible protocols)
 
-| Protocol | Endpoint | Drop-in for |
+| Protocol | Endpoint | Compatible clients / services |
 |---|---|---|
 | OTLP gRPC | `:5082` | OpenTelemetry SDK / Collector |
 | OTLP HTTP | `POST /api/v1/{logs,metrics,traces}` | OTel HTTP exporter |

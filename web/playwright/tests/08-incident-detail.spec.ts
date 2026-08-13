@@ -1,8 +1,8 @@
 /**
  * Incident detail — full-page deep link (`/alerts/incidents/:id`).
  *
- * Covers P1·F2: the route used to be a `PagePlaceholder`; it now renders
- * the real {@link IncidentDetail} page, which reuses the drawer's
+ * The route used to be a `PagePlaceholder`; it now renders the real
+ * {@link IncidentDetail} page, which reuses the drawer's
  * `IncidentBody` renderer and wires ack / resolve against the existing
  * backend. This spec walks the bookmarkable / keyboard-nav path that the
  * drawer-based Flow 1 spec does not exercise:

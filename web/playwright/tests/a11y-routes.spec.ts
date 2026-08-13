@@ -99,7 +99,7 @@ const ROUTES: Array<{ path: string; label: string }> = [
   { path: '/settings/notify/defaults', label: 'settings-notify-defaults' },
   { path: '/settings/notify/deliveries', label: 'settings-notify-deliveries' },
 
-  // Misc P2 secondary routes (web-feature-parity-misc)
+  // Secondary application routes.
   { path: '/logs/inspector', label: 'logs-inspector' },
   { path: '/traces/sample-trace-id', label: 'traces-detail' },
   { path: '/traces/session/sample-session', label: 'traces-session-detail' },

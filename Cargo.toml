@@ -158,7 +158,7 @@ base64 = "0.22"
 aes-gcm = { version = "0.10", features = ["std"] }
 ed25519-dalek = { version = "2", features = ["std", "pkcs8"] }
 
-# feature-parity M1
+# source-map、GeoIP 与通知能力
 sourcemap = "9"
 maxminddb = "0.28"
 notify = "8"
