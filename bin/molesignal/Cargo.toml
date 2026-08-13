@@ -17,6 +17,7 @@ path = "src/main.rs"
 aes-gcm.workspace = true
 addr2line.workspace = true
 agent = { path = "../../crates/modules/agent" }
+tool-runtime = { path = "../../crates/modules/tool-runtime" }
 anyhow.workspace = true
 argon2 = { workspace = true, features = ["std"] }
 arrow.workspace = true
@@ -93,6 +94,7 @@ rdkafka.workspace = true
 regex.workspace = true
 reqwest.workspace = true
 report-renderer = { path = "../../crates/support/report-renderer" }
+rmcp.workspace = true
 roxmltree.workspace = true
 rustls.workspace = true
 rustls-pemfile.workspace = true
@@ -128,6 +130,7 @@ tracing-appender.workspace = true
 tracing-log.workspace = true
 tracing-subscriber.workspace = true
 url.workspace = true
+percent-encoding.workspace = true
 ipnet.workspace = true
 uuid.workspace = true
 vrl.workspace = true

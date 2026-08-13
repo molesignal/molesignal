@@ -14,8 +14,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     config::AuthSettings,
     domain::iam::{
-        IamAssignedRole, IamMembershipRepository, IamScope, OrganizationRepository, User,
-        UserRepository, UserStatus,
+        IamMembershipRepository, IamScope, OrganizationRepository, User, UserRepository, UserStatus,
     },
     shared::{Error, Result, ids::Id},
 };
@@ -30,6 +29,8 @@ pub use access::{
     IamDecision, IamDecisionReason, IamSubject, IamTarget, validate_iam_conditions,
 };
 pub use navigation::resolve_route_access;
+
+pub use crate::domain::iam::IamContext;
 
 pub struct IamService {
     pub users: Arc<dyn UserRepository>,
@@ -53,47 +54,6 @@ pub struct Claims {
     pub iat: usize,
     pub exp: usize,
     pub iss: String,
-}
-
-/// 被注入到 axum 请求扩展的认证上下文。
-#[derive(Debug, Clone)]
-pub struct IamContext {
-    pub user_id: Id,
-    pub org_id: Id,
-    /// Server-resolved display metadata. Authorization never reads this field.
-    pub display_role: String,
-    pub roles: Vec<IamAssignedRole>,
-    /// API tokens are directly scoped to one database IAM role.
-    pub credential_role_id: Option<Id>,
-    /// Public RUM credentials are bound to one application and never inherit user access.
-    pub credential_application_id: Option<String>,
-    pub scope: IamScope,
-    /// Canonical, server-resolved capability keys for this request.
-    pub permissions: BTreeSet<String>,
-    /// Active product features included in the capability snapshot.
-    pub features: BTreeSet<String>,
-    /// Monotonic organization policy version used to resolve `permissions`.
-    pub policy_version: u64,
-}
-
-impl IamContext {
-    pub fn is_system_scope(&self) -> bool {
-        self.scope == IamScope::System
-    }
-
-    pub fn has_permission(&self, permission: &str) -> bool {
-        self.permissions.contains(permission)
-    }
-
-    /// Dynamic role key used only for query admission work-group selection.
-    /// Authorization itself is based on `permissions`.
-    pub fn organization_role_key(&self) -> &str {
-        if self.is_system_scope() {
-            ""
-        } else {
-            self.roles.first().map_or("", |role| role.key.as_str())
-        }
-    }
 }
 
 impl IamService {
@@ -196,6 +156,7 @@ impl IamService {
                         roles: Vec::new(),
                         credential_role_id: None,
                         credential_application_id: None,
+                        credential_service_account_id: None,
                         scope: data.claims.scope,
                         permissions: BTreeSet::new(),
                         features: BTreeSet::new(),
@@ -441,6 +402,7 @@ pub fn verify_password(plain: &str, hash: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::iam::IamAssignedRole;
 
     #[test]
     fn hash_verify_roundtrip() {
@@ -464,6 +426,7 @@ mod tests {
             }],
             credential_role_id: None,
             credential_application_id: None,
+            credential_service_account_id: None,
             scope: IamScope::System,
             permissions: ["sys.telemetry.read".to_string()].into_iter().collect(),
             features: BTreeSet::new(),

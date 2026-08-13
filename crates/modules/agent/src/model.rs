@@ -6,6 +6,7 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+pub use tool_runtime::RiskLevel;
 
 use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
@@ -62,31 +63,11 @@ pub enum HypothesisStatus {
     Rejected,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum RiskLevel {
-    L0,
-    L1,
-    L2,
-    L3,
-    L4,
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum NetworkAccess {
     Blocked,
     Allowed,
-}
-
-impl RiskLevel {
-    pub fn required_approvals(self) -> i32 {
-        match self {
-            Self::L0 | Self::L1 => 0,
-            Self::L2 => 1,
-            Self::L3 | Self::L4 => 2,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

@@ -16,7 +16,7 @@ use crate::{
     agent::{
         model::{NetworkAccess, RiskLevel},
         tool_control::{McpServer, McpTool, ToolExecutionMode, ToolPolicy, ToolPolicyDefaults},
-        tools::{is_builtin_tool, risk_for_tool},
+        tools::{is_builtin_tool, is_meta_tool, risk_for_tool},
     },
     api::AppState,
     shared::{Error, Result, ids::Id},
@@ -54,10 +54,11 @@ pub struct ToolsetResolution {
 impl ToolsetResolution {
     pub fn builtin_enabled(&self, name: &str) -> bool {
         is_builtin_tool(name)
-            && self
-                .builtin_allowed
-                .as_ref()
-                .is_none_or(|allowed| allowed.contains(name))
+            && (is_meta_tool(name)
+                || self
+                    .builtin_allowed
+                    .as_ref()
+                    .is_none_or(|allowed| allowed.contains(name)))
             && self.execution_mode_for_builtin(name) != ToolExecutionMode::Disabled
             && self
                 .builtin_policies
@@ -194,6 +195,38 @@ pub(crate) fn validate_toolset_schema(value: &serde_json::Value) -> Result<()> {
 
 pub async fn resolve_toolsets(state: &AppState, org_id: &Id) -> Result<ToolsetResolution> {
     resolve_toolsets_for_profile(state, org_id, None).await
+}
+
+/// Resolve only organization Tool Policy for the Inbound MCP surface.
+///
+/// Agent Profiles, Mole Agent toolsets, data-scope environments, and registered outbound MCP
+/// servers deliberately do not participate in this resolution.
+pub async fn resolve_inbound_tool_policies(
+    state: &AppState,
+    org_id: &Id,
+) -> Result<ToolsetResolution> {
+    let policies = state
+        .agent
+        .tool_control
+        .list_policies(org_id)
+        .await?
+        .into_iter()
+        .map(|policy| (policy.tool_name.clone(), policy))
+        .collect();
+    let defaults = state
+        .agent
+        .tool_control
+        .get_policy_defaults(org_id)
+        .await?
+        .unwrap_or_else(|| {
+            ToolPolicyDefaults::system_defaults(org_id.clone(), Id::from_string("system"))
+        });
+    Ok(ToolsetResolution {
+        builtin_policies: policies,
+        default_risk_modes: defaults.risk_modes,
+        default_environment_overrides: defaults.environment_overrides,
+        ..ToolsetResolution::default()
+    })
 }
 
 pub async fn resolve_toolsets_for_profile(

@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 
 /// 服务自身遥测配置。
 ///
-/// `enabled` 固定控制 Profiles 和 Trace 回灌；Metrics 可通过
-/// `metrics_enabled` 单独关闭。Trace 捕获还受 `telemetry.trace` 控制。
+/// `enabled` is the master switch. Metrics and Profiles can be disabled independently through
+/// `metrics_enabled` and `profiles_enabled`; Trace capture also follows `telemetry.trace`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SelfCollectSettings {
@@ -32,6 +32,8 @@ pub struct SelfCollectSettings {
     pub batch_max_delay_ms: u64,
     #[serde(default = "default_flush_timeout_secs")]
     pub flush_timeout_secs: u64,
+    #[serde(default)]
+    pub profiles_enabled: bool,
     #[serde(default = "default_profile_kinds")]
     pub profile_kinds: Vec<String>,
     #[serde(default = "default_profile_interval_secs")]
@@ -54,6 +56,7 @@ impl Default for SelfCollectSettings {
             batch_max_events: default_batch_max_events(),
             batch_max_delay_ms: default_batch_max_delay_ms(),
             flush_timeout_secs: default_flush_timeout_secs(),
+            profiles_enabled: false,
             profile_kinds: default_profile_kinds(),
             profile_interval_secs: default_profile_interval_secs(),
             profile_duration_secs: default_profile_duration_secs(),
@@ -92,7 +95,7 @@ impl SelfCollectSettings {
         if self.flush_timeout_secs == 0 {
             anyhow::bail!("telemetry.self_collect.flush_timeout_secs must be greater than zero");
         }
-        if self.enabled {
+        if self.enabled && self.profiles_enabled {
             self.validate_profiles()?;
         }
         Ok(())

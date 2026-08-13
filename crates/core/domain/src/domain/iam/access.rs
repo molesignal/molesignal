@@ -87,6 +87,17 @@ pub struct ResolvedIamResourceRelationship {
     pub permissions: Vec<String>,
 }
 
+#[derive(Debug, Clone)]
+pub struct IamRelationshipQuery {
+    pub organization_id: Id,
+    pub principal_type: IamPrincipalType,
+    pub principal_id: Id,
+    pub resource_type: String,
+    pub resource_id: String,
+    pub container_type: Option<String>,
+    pub container_id: Option<String>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum IamCrossOrgGrantStatus {
@@ -132,7 +143,8 @@ pub struct IamCrossOrgGrant {
 pub struct IamCrossOrgGrantQuery {
     pub source_organization_id: Id,
     pub target_organization_id: Id,
-    pub user_id: Id,
+    pub principal_type: IamPrincipalType,
+    pub principal_id: Id,
     pub resource_type: String,
     pub resource_id: String,
     pub permission: String,
@@ -152,6 +164,15 @@ pub trait IamRepository: Send + Sync {
         organization_id: &Id,
         role_id: &Id,
     ) -> Result<Option<IamAssignedRole>>;
+    /// Resolve multiple role summaries in one organization-scoped query.
+    ///
+    /// Unknown IDs are omitted. Callers that persist a role reference must still treat an omitted
+    /// value as an integrity error instead of silently crossing organization boundaries.
+    async fn role_summaries(
+        &self,
+        organization_id: &Id,
+        role_ids: &[Id],
+    ) -> Result<Vec<IamAssignedRole>>;
     async fn role_for_purpose(
         &self,
         organization_id: &Id,
@@ -168,7 +189,8 @@ pub trait IamRepository: Send + Sync {
     async fn active_role_bindings(
         &self,
         organization_id: &Id,
-        user_id: &Id,
+        principal_type: IamPrincipalType,
+        principal_id: &Id,
         now: TimestampMicros,
     ) -> Result<Vec<ResolvedIamRoleBinding>>;
     async fn list_role_bindings(&self, organization_id: &Id) -> Result<Vec<IamRoleBinding>>;
@@ -181,12 +203,7 @@ pub trait IamRepository: Send + Sync {
     ) -> Result<Vec<IamResourceRelationship>>;
     async fn matching_relationships(
         &self,
-        organization_id: &Id,
-        user_id: &Id,
-        resource_type: &str,
-        resource_id: &str,
-        container_type: Option<&str>,
-        container_id: Option<&str>,
+        query: &IamRelationshipQuery,
     ) -> Result<Vec<ResolvedIamResourceRelationship>>;
     async fn create_relationship(
         &self,

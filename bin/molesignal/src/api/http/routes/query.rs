@@ -234,27 +234,16 @@ async fn execute_query(
         !prefer_sync_explicit && should_auto_async(&req, &state) && !prefer_async_explicit;
     let prefer_async = prefer_async_explicit || auto_async;
     if prefer_async {
-        use crate::infra::persistence::repositories::search::jobs::{SearchJob, SearchJobState};
-        let now = TimestampMicros::now();
-        let ttl_secs: i64 = 7 * 86400;
-        let job = SearchJob {
-            id: Id::new(),
-            org_id: ctx.org_id.clone(),
-            user_id: ctx.user_id.clone(),
-            request_json: serde_json::to_value(&req)
-                .map_err(|e| Error::internal(format!("request json: {e}")))?,
-            trace_link: crate::shared::trace_context::current_trace_context()
-                .map(|context| context.serialized_link()),
-            state: SearchJobState::Pending,
-            result_object_key: None,
-            result_rows: None,
-            error: None,
-            submitted_at: now,
-            started_at: None,
-            finished_at: None,
-            expires_at: TimestampMicros(now.0 + ttl_secs * 1_000_000),
-        };
-        let job = state.storage.search_jobs.create(job).await?;
+        let job = state
+            .search_jobs
+            .submit(
+                ctx.org_id.clone(),
+                ctx.user_id.clone(),
+                ctx.organization_role_key().to_string(),
+                req,
+                None,
+            )
+            .await?;
         let body = serde_json::json!({
             "job_id": job.id.0,
             "monitor": format!("/api/v1/query/jobs/{}", job.id.0),

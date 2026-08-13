@@ -431,6 +431,7 @@ async fn mint_token(repo: &MemApiTokenRepo, org: &Id, user_id: &Id) -> String {
         is_default: false,
         token_kind: molesignal::domain::iam::api_token::ApiTokenKind::Personal,
         application_id: None,
+        service_account_id: None,
     })
     .await
     .unwrap();

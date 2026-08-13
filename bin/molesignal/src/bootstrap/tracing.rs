@@ -257,7 +257,8 @@ impl TracingRuntime {
             candidates,
             pipeline,
             cluster_token,
-            self_telemetry_profiles_enabled: settings.telemetry.self_collect.enabled,
+            self_telemetry_profiles_enabled: settings.telemetry.self_collect.enabled
+                && settings.telemetry.self_collect.profiles_enabled,
             self_telemetry_org_id,
             service_graph,
             rum_replay,
@@ -298,8 +299,9 @@ pub fn activate_self_telemetry(
         .roles
         .contains(&crate::config::Role::Standalone)
         || settings.node.roles.contains(&crate::config::Role::Intake);
-    let profile_context =
-        self_telemetry_enabled.then(|| crate::app::self_telemetry::SelfProfileContext {
+    let profile_context = (self_telemetry_enabled
+        && settings.telemetry.self_collect.profiles_enabled)
+        .then(|| crate::app::self_telemetry::SelfProfileContext {
             profiling: state.telemetry.profiling_service.clone(),
             storage: state.telemetry.profile_storage.clone(),
         });
@@ -382,7 +384,7 @@ pub(super) async fn prepare_self_telemetry_streams(
             settings.traces_retention_days,
         ),
         (
-            settings.enabled,
+            settings.enabled && settings.profiles_enabled,
             StreamType::Profiles,
             settings.profiles_retention_days,
         ),

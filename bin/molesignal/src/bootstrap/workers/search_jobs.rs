@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! feature-parity follow-up：SearchJob worker pool。
+//! Search Job single-poller scheduler with bounded execution concurrency.
 //!
 //! 模型：
-//! 1. `claim_next_pending` 走 PG `FOR UPDATE SKIP LOCKED` 多 worker 安全抢占；
-//! 2. 命中 → 反序列化 `request_json` → `QueryService::run`；
-//! 3. 成功 → 结果以 NDJSON 形态落 object_store，路径 `<org>/search_jobs/<job_id>.ndjson`，
-//!    `mark_done(object_key, rows, finished_at)`；
-//! 4. 失败 → `mark_failed(error, finished_at)`；
-//! 5. cleanup task 每小时一次：扫 `expires_at < now` 的 job → 删 object → 删 row。
+//! 1. 每个进程只有一个 poller，`claim_next_pending` 走 PG `FOR UPDATE SKIP LOCKED`；
+//! 2. PostgreSQL NOTIFY / 进程内 Notify 唤醒空闲 poller，退避 poll 只做丢通知兜底；
+//! 3. poller 抢到任务后放入有界 JoinSet 并发执行，不产生重复轮询；
+//! 4. 命中 → 反序列化 `request_json` → `QueryService::run`；
+//! 5. 成功 → 结果以 NDJSON 形态落 object_store，路径 `<org>/search_jobs/<job_id>.ndjson`，
+//!    `mark_done(attempt, object_key, rows, finished_at)`；
+//! 6. 失败 → `mark_failed(attempt, error, finished_at)`；
+//! 7. cleanup task 周期扫描 `expires_at < now` 的 job → 删 object → 删 row。
 //!
 //! Parquet 输出 / DataFusion `WriterCommand` 留 follow-up；NDJSON 一是简单，
 //! 二是 `result_object_key` 客户端可直接拉走解码。
@@ -22,10 +24,13 @@ use std::{sync::Arc, time::Duration};
 use bytes::Bytes;
 use object_store::{ObjectStore, ObjectStoreExt, PutPayload, path::Path};
 use serde_json::Value;
-use tokio::task::JoinHandle;
+use tokio::task::{JoinHandle, JoinSet};
 use tracing::Instrument;
 
-use super::pipeline_exec::{rows_to_objects, transform_and_sink};
+use super::{
+    pipeline_exec::{rows_to_objects, transform_and_sink},
+    polling::PollingBackoff,
+};
 use crate::{
     app::query::QueryService,
     domain::{
@@ -46,9 +51,9 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub struct SearchJobSchedulerConfig {
-    /// worker 数量（建议 = querier 节点数 × 1~2）
-    pub workers: usize,
-    /// 无 pending job 时的轮询间隔
+    /// Per-process maximum number of Search Jobs executing concurrently.
+    pub max_concurrent_jobs: usize,
+    /// Initial fallback poll delay when no enqueue notification is received.
     pub idle_poll_secs: u64,
     /// cleanup 周期
     pub cleanup_interval_secs: u64,
@@ -57,7 +62,7 @@ pub struct SearchJobSchedulerConfig {
 impl Default for SearchJobSchedulerConfig {
     fn default() -> Self {
         Self {
-            workers: 2,
+            max_concurrent_jobs: 2,
             idle_poll_secs: 2,
             cleanup_interval_secs: 3600,
         }
@@ -101,34 +106,69 @@ impl SearchJobScheduler {
         }
     }
 
-    /// spawn worker pool + cleanup loop；返回所有 handle。
+    /// Spawn one claim poller plus one cleanup loop.
     pub fn spawn(self: Arc<Self>) -> Vec<JoinHandle<()>> {
-        let n = self.cfg.workers.max(1);
-        let mut handles = Vec::with_capacity(n + 1);
-        for i in 0..n {
-            let me = self.clone();
-            handles.push(tokio::spawn(async move { me.run_worker(i).await }));
-        }
+        let mut handles = Vec::with_capacity(2);
+        let me = self.clone();
+        handles.push(tokio::spawn(async move { me.run_poller().await }));
         let me = self.clone();
         handles.push(tokio::spawn(async move { me.run_cleanup().await }));
         handles
     }
 
-    async fn run_worker(self: Arc<Self>, worker_id: usize) {
-        let idle = Duration::from_secs(self.cfg.idle_poll_secs.max(1));
+    async fn run_poller(self: Arc<Self>) {
+        let max_concurrent = self.cfg.max_concurrent_jobs.max(1);
+        let base_idle = Duration::from_secs(self.cfg.idle_poll_secs.max(1));
+        let max_idle = base_idle.saturating_mul(16).min(Duration::from_secs(60));
+        let mut backoff = PollingBackoff::new(base_idle, max_idle, "search-jobs-poller");
+        let mut running = JoinSet::new();
+        tracing::info!(max_concurrent, "search job scheduler started");
+
         loop {
-            match self.repo.claim_next_pending().await {
-                Ok(Some(job)) => {
-                    let job_id = job.id.clone();
-                    tracing::info!(worker = worker_id, job_id = %job_id.0, "claimed search job");
-                    if let Err(e) = self.process(job).await {
-                        tracing::warn!(worker = worker_id, job_id = %job_id.0, error = %e, "search job failed");
+            while running.len() < max_concurrent {
+                match self.repo.claim_next_pending().await {
+                    Ok(Some(job)) => {
+                        backoff.reset();
+                        let job_id = job.id.clone();
+                        let scheduler = self.clone();
+                        tracing::info!(
+                            job_id = %job_id.0,
+                            active = running.len() + 1,
+                            max_concurrent,
+                            "claimed search job"
+                        );
+                        running.spawn(async move {
+                            if let Err(error) = scheduler.process(job).await {
+                                tracing::warn!(
+                                    job_id = %job_id.0,
+                                    %error,
+                                    "search job failed"
+                                );
+                            }
+                        });
+                    }
+                    Ok(None) => break,
+                    Err(error) => {
+                        tracing::warn!(%error, "claim_next_pending failed");
+                        break;
                     }
                 }
-                Ok(None) => tokio::time::sleep(idle).await,
-                Err(e) => {
-                    tracing::warn!(worker = worker_id, error = %e, "claim_next_pending failed");
-                    tokio::time::sleep(idle).await;
+            }
+
+            if running.len() >= max_concurrent {
+                observe_job_completion(running.join_next().await);
+                continue;
+            }
+
+            let delay = backoff.next_delay();
+            if running.is_empty() {
+                let _ = self.repo.wait_for_pending(delay).await;
+            } else {
+                tokio::select! {
+                    _ = self.repo.wait_for_pending(delay) => {}
+                    completed = running.join_next() => {
+                        observe_job_completion(completed);
+                    }
                 }
             }
         }
@@ -152,7 +192,13 @@ impl SearchJobScheduler {
             Err(e) => {
                 let finished = TimestampMicros::now();
                 self.repo
-                    .mark_failed(&job.id, &format!("decode request: {e}"), finished)
+                    .mark_failed(
+                        &job.org_id,
+                        &job.id,
+                        job.attempt,
+                        &format!("decode request: {e}"),
+                        finished,
+                    )
                     .await?;
                 return Ok(());
             }
@@ -166,18 +212,28 @@ impl SearchJobScheduler {
             .and_then(Value::as_str)
             .map(str::to_string);
 
-        let query_result = if pipeline_id.is_some() {
-            // Backfill 仍要继续执行 VRL、写入目标流并触发 egress，必须使用原始值；
-            // 普通异步搜索则在持久化结果前完成最终返回边界遮掩。
-            self.query.run_raw(req).await
-        } else {
-            self.query.run(req).await
-        };
+        let query_result = self
+            .query
+            .run_search_job(
+                req,
+                job.user_id.clone(),
+                &job.role_key,
+                job.id.clone(),
+                job.attempt,
+                pipeline_id.is_some(),
+            )
+            .await;
         let result = match query_result {
             Ok(r) => r,
             Err(e) => {
                 self.repo
-                    .mark_failed(&job.id, &e.to_string(), TimestampMicros::now())
+                    .mark_failed(
+                        &job.org_id,
+                        &job.id,
+                        job.attempt,
+                        &e.to_string(),
+                        TimestampMicros::now(),
+                    )
                     .await?;
                 return Ok(());
             }
@@ -191,7 +247,10 @@ impl SearchJobScheduler {
 
     /// 普通 search-job：结果以 NDJSON 落 object_store + mark_done。
     async fn store_result(&self, job: &SearchJob, result: &QueryResult) -> Result<()> {
-        let key = format!("{}/search_jobs/{}.ndjson", job.org_id.0, job.id.0);
+        let key = format!(
+            "{}/search_jobs/{}-{}.ndjson",
+            job.org_id.0, job.id.0, job.attempt
+        );
         let bytes = encode_ndjson(result);
         let rows = result.rows.len() as i64;
         self.object_store
@@ -201,9 +260,20 @@ impl SearchJobScheduler {
             )
             .await
             .map_err(|e| crate::shared::Error::internal(format!("upload result: {e}")))?;
-        self.repo
-            .mark_done(&job.id, &key, rows, TimestampMicros::now())
+        let committed = self
+            .repo
+            .mark_done(
+                &job.org_id,
+                &job.id,
+                job.attempt,
+                &key,
+                rows,
+                TimestampMicros::now(),
+            )
             .await?;
+        if !committed {
+            let _ = self.object_store.delete(&Path::from(key)).await;
+        }
         Ok(())
     }
 
@@ -224,7 +294,9 @@ impl SearchJobScheduler {
             Err(e) => {
                 self.repo
                     .mark_failed(
+                        &job.org_id,
                         &job.id,
+                        job.attempt,
                         &format!("load pipeline: {e}"),
                         TimestampMicros::now(),
                     )
@@ -240,7 +312,13 @@ impl SearchJobScheduler {
             stream_type,
         ) {
             self.repo
-                .mark_failed(&job.id, &error.to_string(), TimestampMicros::now())
+                .mark_failed(
+                    &job.org_id,
+                    &job.id,
+                    job.attempt,
+                    &error.to_string(),
+                    TimestampMicros::now(),
+                )
                 .await?;
             return Ok(());
         }
@@ -263,7 +341,13 @@ impl SearchJobScheduler {
             Ok(o) => o,
             Err(e) => {
                 self.repo
-                    .mark_failed(&job.id, &e.to_string(), TimestampMicros::now())
+                    .mark_failed(
+                        &job.org_id,
+                        &job.id,
+                        job.attempt,
+                        &e.to_string(),
+                        TimestampMicros::now(),
+                    )
                     .await?;
                 return Ok(());
             }
@@ -280,7 +364,10 @@ impl SearchJobScheduler {
             );
         }
 
-        let key = format!("{}/search_jobs/{}.ndjson", job.org_id.0, job.id.0);
+        let key = format!(
+            "{}/search_jobs/{}-{}.ndjson",
+            job.org_id.0, job.id.0, job.attempt
+        );
         let bytes = encode_objects_ndjson(&outcome.transformed);
         self.object_store
             .put(
@@ -289,25 +376,34 @@ impl SearchJobScheduler {
             )
             .await
             .map_err(|e| crate::shared::Error::internal(format!("upload result: {e}")))?;
-        self.repo
+        let committed = self
+            .repo
             .mark_done(
+                &job.org_id,
                 &job.id,
+                job.attempt,
                 &key,
                 outcome.written as i64,
                 TimestampMicros::now(),
             )
             .await?;
+        if !committed {
+            let _ = self.object_store.delete(&Path::from(key)).await;
+        }
         Ok(())
     }
 
     async fn run_cleanup(self: Arc<Self>) {
         let interval = Duration::from_secs(self.cfg.cleanup_interval_secs.max(60));
-        let mut ticker = tokio::time::interval(interval);
-        ticker.tick().await;
+        let max_delay = interval.saturating_mul(8);
+        let mut backoff = PollingBackoff::new(interval, max_delay, "search-jobs-cleanup");
         loop {
-            ticker.tick().await;
-            if let Err(e) = self.cleanup_once().await {
-                tracing::warn!(error = %e, "search_jobs cleanup failed");
+            tokio::time::sleep(backoff.next_delay()).await;
+            match self.cleanup_once().await {
+                Ok(()) => backoff.reset(),
+                Err(error) => {
+                    tracing::warn!(%error, "search_jobs cleanup failed");
+                }
             }
         }
     }
@@ -325,9 +421,15 @@ impl SearchJobScheduler {
             if let Some(key) = j.result_object_key.as_deref() {
                 let _ = self.object_store.delete(&Path::from(key.to_string())).await;
             }
-            self.repo.delete(&j.id).await?;
+            self.repo.delete(&j.org_id, &j.id).await?;
         }
         Ok(())
+    }
+}
+
+fn observe_job_completion(completed: Option<std::result::Result<(), tokio::task::JoinError>>) {
+    if let Some(Err(error)) = completed {
+        tracing::error!(%error, "search job execution task terminated unexpectedly");
     }
 }
 

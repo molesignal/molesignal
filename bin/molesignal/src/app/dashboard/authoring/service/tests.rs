@@ -108,6 +108,13 @@ impl DashboardRepository for MemoryDashboards {
     async fn update(&self, dashboard: Dashboard) -> Result<Dashboard> {
         Ok(dashboard)
     }
+    async fn update_if_version(
+        &self,
+        dashboard: Dashboard,
+        _expected_version: u32,
+    ) -> Result<Dashboard> {
+        Ok(dashboard)
+    }
     async fn get(&self, _id: &Id) -> Result<Dashboard> {
         Err(Error::not_found("dashboard"))
     }

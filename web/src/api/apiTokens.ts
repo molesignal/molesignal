@@ -1,6 +1,10 @@
 import { http } from '@/lib/http';
 
-export type ApiTokenKind = 'personal' | 'default_intake' | 'rum_client';
+export type ApiTokenKind =
+  | 'personal'
+  | 'default_intake'
+  | 'rum_client'
+  | 'service_account';
 
 export interface ApiToken {
   id: string;
@@ -11,6 +15,7 @@ export interface ApiToken {
   role_name: string;
   token_kind: ApiTokenKind;
   application_id?: string | null;
+  service_account_id?: string | null;
   expires_at_micros?: number | null;
   last_used_at_micros?: number | null;
   revoked: boolean;
@@ -21,6 +26,7 @@ export interface ApiToken {
 export interface CreateApiTokenPayload {
   name: string;
   role_id?: string | undefined;
+  service_account_id?: string | undefined;
   expires_in_days?: number | undefined;
 }
 
@@ -33,6 +39,7 @@ export interface CreatedApiToken {
   role_name: string;
   token_kind: ApiTokenKind;
   application_id?: string | null;
+  service_account_id?: string | null;
   expires_at_micros?: number | null;
   created_at_micros: number;
 }

@@ -39,7 +39,7 @@ pub struct WriteReq {
     pub time_range_preset: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Resp {
     pub id: String,
     pub name: String,
@@ -53,60 +53,9 @@ pub struct Resp {
 }
 
 fn builtins() -> Vec<Resp> {
-    vec![
-        Resp {
-            id: "weekly-platform-health".to_owned(),
-            name: "Weekly platform health".to_owned(),
-            description: "Dashboard PDF covering availability, error rate, and latency.".to_owned(),
-            target_type: "dashboard".to_owned(),
-            format: "pdf".to_owned(),
-            time_range_preset: "previous-calendar-week".to_owned(),
-            is_builtin: true,
-            created_at_micros: None,
-            updated_at_micros: None,
-        },
-        Resp {
-            id: "daily-error-digest".to_owned(),
-            name: "Daily error digest".to_owned(),
-            description: "CSV export for recent incidents and high-volume errors.".to_owned(),
-            target_type: "saved_view".to_owned(),
-            format: "csv".to_owned(),
-            time_range_preset: "previous-calendar-day".to_owned(),
-            is_builtin: true,
-            created_at_micros: None,
-            updated_at_micros: None,
-        },
-        Resp {
-            id: "monthly-capacity-review".to_owned(),
-            name: "Monthly capacity review".to_owned(),
-            description: "JSON export for storage, intake, and query usage review.".to_owned(),
-            target_type: "saved_view".to_owned(),
-            format: "json".to_owned(),
-            time_range_preset: "previous-calendar-month".to_owned(),
-            is_builtin: true,
-            created_at_micros: None,
-            updated_at_micros: None,
-        },
-        Resp {
-            id: "monthly-sla-compliance".to_owned(),
-            name: "Monthly SLA compliance".to_owned(),
-            description:
-                "Dashboard PDF covering service availability, SLA attainment, error-budget burn, and breach risk."
-                    .to_owned(),
-            target_type: "dashboard".to_owned(),
-            format: "pdf".to_owned(),
-            time_range_preset: "previous-calendar-month".to_owned(),
-            is_builtin: true,
-            created_at_micros: None,
-            updated_at_micros: None,
-        },
-    ]
-}
-
-pub(crate) fn builtin_templates_json() -> Vec<Value> {
-    builtins()
+    crate::app::tools::reports::builtin_templates()
         .into_iter()
-        .filter_map(|template| serde_json::to_value(template).ok())
+        .filter_map(|template| serde_json::from_value(template).ok())
         .collect()
 }
 

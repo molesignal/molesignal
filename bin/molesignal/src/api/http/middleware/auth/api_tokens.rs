@@ -17,6 +17,13 @@ use crate::{
     shared::{Error, ids::Id, time::TimestampMicros},
 };
 
+#[derive(Debug, Clone)]
+pub(crate) struct VerifiedApiTokenIdentity {
+    pub context: IamContext,
+    pub token_id: Id,
+    pub token_kind: ApiTokenKind,
+}
+
 /// Validate a bearer credential and enforce the current organization state.
 pub async fn authenticate_bearer(
     token: &str,
@@ -42,6 +49,20 @@ pub(super) async fn authenticate_bearer_identity(
     }
 }
 
+pub(crate) async fn authenticate_api_token_identity_with_metadata(
+    token: &str,
+    iam: &IamService,
+    repo: Arc<dyn ApiTokenRepository>,
+) -> Result<VerifiedApiTokenIdentity, Error> {
+    let identity = verify_api_token_with_metadata(token, repo).await?;
+    if identity.context.credential_application_id.is_none()
+        && identity.context.credential_service_account_id.is_none()
+    {
+        iam.ensure_user_access(&identity.context.user_id).await?;
+    }
+    Ok(identity)
+}
+
 /// API-token-only variant used by endpoints that intentionally reject JWTs.
 pub async fn authenticate_api_token(
     token: &str,
@@ -58,10 +79,12 @@ async fn authenticate_api_token_identity(
     iam: &IamService,
     repo: Arc<dyn ApiTokenRepository>,
 ) -> Result<IamContext, Error> {
-    let context = verify_api_token(token, repo).await?;
+    let context = verify_api_token_with_metadata(token, repo).await?.context;
     // A public RUM credential is owned by the application, not by the user who
     // originally created it. Revocation and organization state remain enforced.
-    if context.credential_application_id.is_none() {
+    if context.credential_application_id.is_none()
+        && context.credential_service_account_id.is_none()
+    {
         iam.ensure_user_access(&context.user_id).await?;
     }
     Ok(context)
@@ -72,6 +95,13 @@ pub async fn verify_api_token(
     token: &str,
     repo: Arc<dyn ApiTokenRepository>,
 ) -> Result<IamContext, Error> {
+    Ok(verify_api_token_with_metadata(token, repo).await?.context)
+}
+
+pub(crate) async fn verify_api_token_with_metadata(
+    token: &str,
+    repo: Arc<dyn ApiTokenRepository>,
+) -> Result<VerifiedApiTokenIdentity, Error> {
     let ((prefix, secret), presented_kind) = if token.starts_with("msrum_") {
         (
             split_rum_token(token).ok_or_else(|| {
@@ -123,16 +153,24 @@ pub async fn verify_api_token(
     crate::shared::trace_context::spawn_with_current_trace_context(async move {
         let _ = repo_clone.touch_last_used(&prefix_owned, now).await;
     });
-    Ok(IamContext {
-        user_id: Id(row.user_id.0),
-        org_id: Id(row.org_id.0),
-        display_role: String::new(),
-        roles: Vec::new(),
-        credential_role_id: Some(row.role_id),
-        credential_application_id: row.application_id,
-        scope: IamScope::ApiToken,
-        permissions: BTreeSet::new(),
-        features: BTreeSet::new(),
-        policy_version: 0,
+    let service_account_id = row.service_account_id.clone();
+    let token_id = row.id.clone();
+    let token_kind = row.token_kind;
+    Ok(VerifiedApiTokenIdentity {
+        context: IamContext {
+            user_id: service_account_id.clone().unwrap_or(Id(row.user_id.0)),
+            org_id: Id(row.org_id.0),
+            display_role: String::new(),
+            roles: Vec::new(),
+            credential_role_id: Some(row.role_id),
+            credential_application_id: row.application_id,
+            credential_service_account_id: service_account_id,
+            scope: IamScope::ApiToken,
+            permissions: BTreeSet::new(),
+            features: BTreeSet::new(),
+            policy_version: 0,
+        },
+        token_id,
+        token_kind,
     })
 }

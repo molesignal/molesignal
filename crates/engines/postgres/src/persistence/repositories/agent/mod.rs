@@ -20,6 +20,7 @@ use crate::{
 
 pub mod chat_archives;
 pub mod chats;
+pub mod inbound_mcp;
 pub mod model_providers;
 pub mod prompts;
 pub mod tool_control;

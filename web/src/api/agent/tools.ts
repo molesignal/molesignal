@@ -73,7 +73,12 @@ export interface RegisteredTool {
   statistics: ToolStatistics;
   last_synced_at?: number | null;
   version?: string | null;
-  access: 'read_only' | 'creates_approval_request';
+  access:
+    | 'read_only'
+    | 'preflight'
+    | 'managed_mutation'
+    | 'creates_approval_request'
+    | 'executes_approved_operation';
 }
 
 export interface ToolRegistry {

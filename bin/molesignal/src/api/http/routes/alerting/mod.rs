@@ -7,6 +7,7 @@
 //! 结构（DTO 层后续可拆得更薄）。
 
 mod resources;
+mod rule_actions;
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -66,6 +67,7 @@ pub fn routes() -> Router<AppState> {
                 .put(update_escalation)
                 .delete(delete_escalation),
         )
+        .merge(rule_actions::routes())
 }
 
 #[derive(Debug, Deserialize)]
@@ -239,6 +241,7 @@ async fn get_rule(
 ) -> Result<Json<Value>> {
     Ok(Json(serde_json::to_value(rule).unwrap()))
 }
+
 #[resource_permission(
     action = "alerts.manage",
     resource = AlertRule,

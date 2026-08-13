@@ -101,7 +101,7 @@ redirecting to canonical RUM. `/services*` similarly redirects to
 | openobserve | molesignal | Status | Backend |
 | --- | --- | --- | --- |
 | `/iam/users` | `/iam/users` | ✓ | 🔌 `GET /users`, `POST /users`, `DELETE /users/:id` |
-| `/iam/serviceAccounts` | `/iam/service-accounts` | ✓ | 🚧 (no service-account endpoint — page uses `/users` filtered + note) |
+| `/iam/serviceAccounts` | `/iam/service-accounts` | ✓ | 🔌 `GET/POST/PATCH/DELETE /service-accounts`; create atomically returns the initial bound API Token once |
 | `/iam/organizations` | `/iam/organizations` | ✓ | 🔌 `GET /orgs`, `POST /orgs`, `POST /orgs/:id/members` |
 | `/iam/groups` (+ `edit/:group_name`) | `/iam/groups` | ✓ | 🔌 `routes/iam_access.rs` (`/iam/role-bindings`, `/iam/cross-org-grants`) |
 | `/iam/roles` (+ `edit/:role_name`) | `/iam/roles` | ✓ | 🚧 (roles are an enum — page renders a read-only matrix) |

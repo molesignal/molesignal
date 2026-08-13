@@ -5,6 +5,7 @@ use std::{sync::Arc, time::Duration};
 
 use tokio::task::JoinHandle;
 
+use super::polling::PollingBackoff;
 use crate::{app::status_page::StatusPageService, shared::Result};
 
 pub struct StatusPageNotificationWorker {
@@ -24,12 +25,20 @@ impl StatusPageNotificationWorker {
 
     pub fn spawn(self) -> JoinHandle<()> {
         tokio::spawn(async move {
-            let mut tick = tokio::time::interval(self.interval);
+            let mut backoff = PollingBackoff::new(
+                self.interval,
+                Duration::from_secs(30),
+                "status-page-notifications",
+            );
             loop {
-                tick.tick().await;
-                if let Err(error) = self.sweep_once().await {
-                    tracing::warn!(error = %error, "status-page notification sweep failed");
+                match self.sweep_once().await {
+                    Ok(processed) if processed > 0 => backoff.reset(),
+                    Ok(_) => {}
+                    Err(error) => {
+                        tracing::warn!(%error, "status-page notification sweep failed");
+                    }
                 }
+                tokio::time::sleep(backoff.next_delay()).await;
             }
         })
     }
@@ -40,10 +49,9 @@ impl StatusPageNotificationWorker {
         skip_all,
         fields(otel.kind = "internal", molesignal.worker.name = "status_page_notifications")
     )]
-    async fn sweep_once(&self) -> Result<()> {
+    async fn sweep_once(&self) -> Result<u32> {
         self.service
             .process_pending_notifications(self.batch_size)
             .await
-            .map(|_| ())
     }
 }

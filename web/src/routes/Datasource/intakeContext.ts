@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import * as apiTokensApi from '@/api/apiTokens';
 import * as instanceApi from '@/api/instance';
 import { toApiError } from '@/lib/http';
+import { resolvePublicBaseUrl } from '@/lib/publicUrl';
 import { useCurrentOrgSelection } from '@/stores/useOrgStore';
 
 export interface IntakeContext {
@@ -72,7 +73,10 @@ export function useIntakeContext(options: IntakeContextOptions): IntakeContext {
     staleTime: options.isRum ? 15_000 : 300_000,
     gcTime: 0,
   });
-  const endpoint = (instanceQuery.data?.external_url || window.location.origin).replace(/\/+$/, '');
+  const endpoint = resolvePublicBaseUrl(
+    instanceQuery.data?.external_url,
+    window.location.origin,
+  );
   const { host, port, scheme } = parseEndpoint(endpoint);
   return {
     endpoint,

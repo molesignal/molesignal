@@ -48,7 +48,7 @@ export function TokenPanel({ context }: { context: IntakeContext }) {
             type="button"
             disabled={tokenManageAccess.disabled}
             aria-disabled={tokenManageAccess.disabled || undefined}
-            onClick={() => navigate('/iam/service-accounts')}
+            onClick={() => navigate('/iam/api-tokens')}
             className="font-sans text-xs font-strong text-indigo-soft enabled:hover:underline disabled:cursor-not-allowed disabled:text-tx-3"
           >
             {t('datasource_page.manage_tokens')}

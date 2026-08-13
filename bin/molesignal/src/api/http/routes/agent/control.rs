@@ -10,31 +10,38 @@ use axum::{
 };
 use serde::{Deserialize, Deserializer};
 use serde_json::{Value, json};
+use tool_runtime::{ToolSurface, catalog::tools_for_surface};
 
 use crate::{
     agent::{
         FEATURE,
         model::{
             AgentProfile, ApprovalRequest, ApprovalStatus, Automation, ConfidenceLevel, Execution,
-            ExecutionStatus, FactStatus, HypothesisStatus, Investigation, InvestigationEvidence,
+            FactStatus, HypothesisStatus, Investigation, InvestigationEvidence,
             InvestigationHypothesis, InvestigationStatus, InvestigationStep, NetworkAccess,
-            RiskLevel, StepStatus,
+            StepStatus,
         },
-        tool_control::ToolExecutionMode,
         tools::builtin_tools,
     },
     api::{
         AppState,
         http::{middleware::Permission, routes::activity_audit},
     },
-    app::iam::IamContext,
-    domain::{alerting::incident::IncidentStatus, iam::permission},
+    app::{
+        iam::IamContext,
+        tools::dashboard::{CreateApprovalRequest, create_agent_approval, operation_policy},
+    },
+    domain::iam::permission,
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
+mod approval_execution;
 mod dashboard_operation;
+mod execution_response;
+mod resource_operation;
 
-const DEFAULT_APPROVAL_TTL_MICROS: i64 = 60 * 60 * 1_000_000;
+use approval_execution::OperationOutcome;
+pub(super) use approval_execution::{OperationExecution, execute_approved_operation};
 
 pub fn routes() -> Router<AppState> {
     Router::new()
@@ -160,7 +167,7 @@ async fn create_investigation(
     let item = Investigation {
         id: Id::new(),
         org_id: ctx.org_id.clone(),
-        created_by: ctx.user_id.clone(),
+        created_by: ctx.principal_id().clone(),
         chat_id: request.chat_id,
         title: request.title,
         status: InvestigationStatus::Draft,
@@ -268,7 +275,7 @@ async fn update_investigation(
         .get_investigation(&ctx.org_id, &Id(id))
         .await?
         .investigation;
-    if item.created_by != ctx.user_id {
+    if &item.created_by != ctx.principal_id() {
         Permission::require_key(&ctx, "agent.manage")?;
     }
     if let Some(title) = request.title {
@@ -351,7 +358,7 @@ async fn append_investigation_step(
     let item = InvestigationStep {
         id: Id::new(),
         investigation_id,
-        org_id: ctx.org_id,
+        org_id: ctx.org_id.clone(),
         position: request.position,
         title: request.title,
         status: request.status.unwrap_or(StepStatus::Pending),
@@ -399,7 +406,7 @@ async fn append_investigation_evidence(
         id: Id::new(),
         investigation_id,
         step_id: request.step_id,
-        org_id: ctx.org_id,
+        org_id: ctx.org_id.clone(),
         kind: request.kind,
         label: request.label,
         fact_status: request.fact_status,
@@ -479,8 +486,13 @@ fn default_true() -> bool {
     true
 }
 
-async fn validate_allowed_tools(state: &AppState, org_id: &Id, tools: &[String]) -> Result<()> {
-    let mut registered = builtin_tools()
+async fn validate_allowed_tools(
+    state: &AppState,
+    org_id: &Id,
+    tools: &[String],
+    surface: ToolSurface,
+) -> Result<()> {
+    let mut registered = tools_for_surface(surface)
         .into_iter()
         .map(|tool| tool.name)
         .collect::<std::collections::HashSet<_>>();
@@ -519,11 +531,17 @@ async fn create_automation(
     Json(request): Json<AutomationRequest>,
 ) -> Result<Json<Automation>> {
     require_license(&state)?;
-    validate_allowed_tools(&state, &ctx.org_id, &request.allowed_tools).await?;
+    validate_allowed_tools(
+        &state,
+        &ctx.org_id,
+        &request.allowed_tools,
+        ToolSurface::MoleAgent,
+    )
+    .await?;
     let now = TimestampMicros::now();
     let item = Automation {
         id: Id::new(),
-        org_id: ctx.org_id,
+        org_id: ctx.org_id.clone(),
         name: request.name,
         description: request.description,
         enabled: request.enabled,
@@ -535,7 +553,7 @@ async fn create_automation(
         output_actions: request.output_actions,
         failure_policy: request.failure_policy,
         notification: request.notification,
-        created_by: ctx.user_id,
+        created_by: ctx.principal_id().clone(),
         created_at: now,
         updated_at: now,
     };
@@ -566,7 +584,13 @@ async fn update_automation(
     Json(request): Json<AutomationRequest>,
 ) -> Result<Json<Automation>> {
     require_license(&state)?;
-    validate_allowed_tools(&state, &ctx.org_id, &request.allowed_tools).await?;
+    validate_allowed_tools(
+        &state,
+        &ctx.org_id,
+        &request.allowed_tools,
+        ToolSurface::MoleAgent,
+    )
+    .await?;
     let existing = state
         .agent
         .repository
@@ -603,7 +627,13 @@ async fn dry_run_automation(
         .repository
         .get_automation(&ctx.org_id, &Id(id))
         .await?;
-    validate_allowed_tools(&state, &ctx.org_id, &automation.allowed_tools).await?;
+    validate_allowed_tools(
+        &state,
+        &ctx.org_id,
+        &automation.allowed_tools,
+        ToolSurface::MoleAgent,
+    )
+    .await?;
     let actions = automation
         .output_actions
         .as_array()
@@ -632,130 +662,6 @@ async fn dry_run_automation(
     })))
 }
 
-#[derive(Debug, Deserialize)]
-pub(crate) struct CreateApprovalRequest {
-    pub investigation_id: Option<Id>,
-    pub action: String,
-    pub target: String,
-    #[serde(default)]
-    pub parameters: Value,
-    pub reason: String,
-    pub impact: String,
-    pub expires_at_micros: Option<i64>,
-    /// Internal policy resolution. HTTP callers cannot set reviewer counts.
-    #[serde(skip)]
-    pub required_approvals_override: Option<i32>,
-}
-
-pub(crate) fn operation_policy(action: &str) -> Result<(RiskLevel, &'static str)> {
-    match action {
-        "acknowledge_alert" | "resolve_alert" => Ok((RiskLevel::L2, "alerts.acknowledge")),
-        "create_dashboard" => Ok((RiskLevel::L1, "dashboards.create")),
-        other => Err(Error::invalid(format!(
-            "operation `{other}` is not registered"
-        ))),
-    }
-}
-
-pub(crate) fn dashboard_required_approvals(mode: ToolExecutionMode) -> Result<i32> {
-    match mode {
-        // Dashboard creation has a Confirmation hard floor. Automatic therefore still
-        // creates an approved proposal that must be explicitly executed.
-        ToolExecutionMode::Automatic | ToolExecutionMode::Confirmation => Ok(0),
-        ToolExecutionMode::SingleApproval => Ok(1),
-        ToolExecutionMode::DualApproval => Ok(2),
-        ToolExecutionMode::Disabled => Err(Error::forbidden(
-            "Dashboard creation is disabled by the active operation policy",
-        )),
-    }
-}
-
-pub(crate) async fn create_agent_approval(
-    state: &AppState,
-    ctx: &IamContext,
-    request: CreateApprovalRequest,
-) -> Result<ApprovalRequest> {
-    let (risk, _) = operation_policy(&request.action)?;
-    if request.target.trim().is_empty() {
-        return Err(Error::invalid("operation target cannot be empty"));
-    }
-    let dashboard_draft_expiry = if request.action == "create_dashboard" {
-        let expected_hash = request
-            .parameters
-            .get("expected_hash")
-            .and_then(Value::as_str)
-            .ok_or_else(|| Error::invalid("create_dashboard requires expected_hash"))?;
-        if request
-            .parameters
-            .as_object()
-            .is_none_or(|value| value.len() != 1)
-        {
-            return Err(Error::invalid(
-                "create_dashboard parameters may contain only expected_hash",
-            ));
-        }
-        let draft = state
-            .agent
-            .dashboard_authoring
-            .validate_reference(
-                &ctx.org_id,
-                &ctx.user_id,
-                &Id(request.target.clone()),
-                expected_hash,
-            )
-            .await?;
-        Some(draft.expires_at)
-    } else {
-        None
-    };
-    let now = TimestampMicros::now();
-    let required_approvals = if request.action == "create_dashboard" {
-        request.required_approvals_override.unwrap_or(0).clamp(0, 2)
-    } else {
-        risk.required_approvals()
-    };
-    let item = ApprovalRequest {
-        id: Id::new(),
-        org_id: ctx.org_id.clone(),
-        investigation_id: request.investigation_id,
-        action: request.action,
-        target: request.target,
-        parameters: request.parameters,
-        reason: request.reason,
-        impact: request.impact,
-        risk,
-        status: if required_approvals == 0 {
-            ApprovalStatus::Approved
-        } else {
-            ApprovalStatus::Pending
-        },
-        requested_by: ctx.user_id.clone(),
-        required_approvals,
-        reviews: json!([]),
-        expires_at: Some(TimestampMicros(dashboard_draft_expiry.map_or_else(
-            || {
-                request
-                    .expires_at_micros
-                    .unwrap_or(now.0 + DEFAULT_APPROVAL_TTL_MICROS)
-            },
-            |draft_expiry| {
-                request
-                    .expires_at_micros
-                    .unwrap_or(now.0 + DEFAULT_APPROVAL_TTL_MICROS)
-                    .min(draft_expiry.0)
-            },
-        ))),
-        decided_at: if required_approvals == 0 {
-            Some(now)
-        } else {
-            None
-        },
-        created_at: now,
-        updated_at: now,
-    };
-    state.agent.repository.create_approval(item).await
-}
-
 #[permission("agent.use")]
 async fn list_approvals(
     State(state): State<AppState>,
@@ -774,7 +680,7 @@ async fn create_approval(
     Json(request): Json<CreateApprovalRequest>,
 ) -> Result<Json<ApprovalRequest>> {
     require_license(&state)?;
-    let saved = create_agent_approval(&state, &ctx, request).await?;
+    let saved = create_agent_approval(&state.tools, &ctx, request).await?;
     activity_audit::record(
         &state,
         &ctx,
@@ -816,7 +722,7 @@ async fn review_approval(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
     Json(request): Json<ReviewApprovalRequest>,
-) -> Result<Json<ApprovalRequest>> {
+) -> Result<axum::response::Response> {
     require_license(&state)?;
     let id = Id(id);
     let existing = state
@@ -824,18 +730,18 @@ async fn review_approval(
         .repository
         .get_approval(&ctx.org_id, &id)
         .await?;
-    if existing.required_approvals > 0 && existing.requested_by == ctx.user_id {
+    if existing.required_approvals > 0 && &existing.requested_by == ctx.principal_id() {
         return Err(Error::forbidden(
             "requester cannot approve their own reviewed operation",
         ));
     }
-    let saved = state
+    let mut saved = state
         .agent
         .repository
         .review_approval(
             &ctx.org_id,
             &id,
-            &ctx.user_id,
+            ctx.principal_id(),
             request.approve,
             &request.comment,
             TimestampMicros::now(),
@@ -854,7 +760,24 @@ async fn review_approval(
         json!({"comment": request.comment, "status": saved.status}),
     )
     .await;
-    Ok(Json(saved))
+    let execution = if request.approve && saved.status == ApprovalStatus::Approved {
+        let execution = execute_approved_operation(
+            &state,
+            &ctx,
+            &saved.id,
+            format!("approval:{}:approved", saved.id.0),
+        )
+        .await?;
+        saved = state
+            .agent
+            .repository
+            .get_approval(&ctx.org_id, &saved.id)
+            .await?;
+        Some(execution)
+    } else {
+        None
+    };
+    Ok(execution_response::review_response(saved, execution))
 }
 
 #[derive(Debug, Deserialize)]
@@ -868,194 +791,10 @@ async fn execute_approval(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
     Json(request): Json<ExecuteApprovalRequest>,
-) -> Result<Json<Execution>> {
+) -> Result<axum::response::Response> {
     require_license(&state)?;
-    if request.idempotency_key.trim().is_empty() || request.idempotency_key.len() > 128 {
-        return Err(Error::invalid(
-            "idempotency_key length must be between 1 and 128",
-        ));
-    }
-    if let Some(existing) = state
-        .agent
-        .repository
-        .find_execution_by_key(&ctx.org_id, &request.idempotency_key)
-        .await?
-    {
-        return Ok(Json(existing));
-    }
-    let approval_id = Id(id);
-    let approval = state
-        .agent
-        .repository
-        .get_approval(&ctx.org_id, &approval_id)
-        .await?;
-    if approval.status == ApprovalStatus::Executed {
-        return state
-            .agent
-            .repository
-            .list_executions(&ctx.org_id)
-            .await?
-            .into_iter()
-            .find(|execution| execution.approval_request_id == approval.id)
-            .map(Json)
-            .ok_or_else(|| Error::internal("executed approval is missing its execution"));
-    }
-    if approval.status != ApprovalStatus::Approved {
-        return Err(Error::conflict("approval has not reached approved status"));
-    }
-    if approval.required_approvals > 0 {
-        Permission::require_key(&ctx, "agent.approve")?;
-    } else if approval.requested_by != ctx.user_id {
-        return Err(Error::forbidden(
-            "only the requester can execute a confirmation-mode operation",
-        ));
-    }
-    if approval
-        .expires_at
-        .is_some_and(|expires| expires.0 <= TimestampMicros::now().0)
-    {
-        return Err(Error::conflict("approval has expired"));
-    }
-    let (_, required_permission) = operation_policy(&approval.action)?;
-    Permission::require_key(&ctx, required_permission)?;
-    let approved_by = approval
-        .reviews
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter(|review| review["decision"] == "approved")
-        .filter_map(|review| review["reviewer_id"].as_str())
-        .map(|id| Id(id.to_string()))
-        .collect::<Vec<_>>();
-    let now = TimestampMicros::now();
-    let mut execution = Execution {
-        id: Id::new(),
-        org_id: ctx.org_id.clone(),
-        approval_request_id: approval.id.clone(),
-        investigation_id: approval.investigation_id.clone(),
-        action: approval.action.clone(),
-        target: approval.target.clone(),
-        parameters: approval.parameters.clone(),
-        idempotency_key: request.idempotency_key,
-        requested_by: approval.requested_by.clone(),
-        approved_by,
-        status: ExecutionStatus::Running,
-        output_summary: None,
-        error: None,
-        verification: json!({}),
-        started_at: Some(now),
-        finished_at: None,
-        created_at: now,
-        updated_at: now,
-    };
-    let proposed_execution_id = execution.id.clone();
-    execution = state.agent.repository.create_execution(execution).await?;
-    if execution.id != proposed_execution_id {
-        return Ok(Json(execution));
-    }
-    let outcome = run_registered_operation(&state, &ctx, &approval).await;
-    let finished = TimestampMicros::now();
-    match outcome {
-        Ok(outcome) => {
-            execution.status = ExecutionStatus::Succeeded;
-            execution.output_summary = Some(outcome.summary);
-            execution.verification = outcome.verification;
-        }
-        Err(error) => {
-            execution.status = ExecutionStatus::Failed;
-            execution.error = Some(error.to_string());
-            execution.verification = json!({"verified": false});
-        }
-    }
-    execution.finished_at = Some(finished);
-    execution.updated_at = finished;
-    execution = state.agent.repository.update_execution(execution).await?;
-    let _ = state
-        .agent
-        .repository
-        .mark_approval_executed(&ctx.org_id, &approval_id, finished)
-        .await?;
-    activity_audit::record(
-        &state,
-        &ctx,
-        "agent.execution.completed",
-        "agent_execution",
-        &execution.id.0,
-        json!({
-            "approval_id": approval.id,
-            "action": execution.action,
-            "target": execution.target,
-            "status": execution.status,
-            "idempotency_key": execution.idempotency_key,
-        }),
-    )
-    .await;
-    Ok(Json(execution))
-}
-
-async fn run_registered_operation(
-    state: &AppState,
-    ctx: &IamContext,
-    approval: &ApprovalRequest,
-) -> Result<OperationOutcome> {
-    if approval.action == "create_dashboard" {
-        return dashboard_operation::execute(state, ctx, approval).await;
-    }
-    let incident_id = Id(approval.target.clone());
-    let incident = state.alerting.service.get_incident(&incident_id).await?;
-    if incident.org_id != ctx.org_id {
-        return Err(Error::forbidden("alert belongs to another organization"));
-    }
-    match approval.action.as_str() {
-        "acknowledge_alert" => match incident.status {
-            IncidentStatus::Acknowledged => Ok(OperationOutcome::verified(
-                "alert was already acknowledged; no change",
-            )),
-            IncidentStatus::Open => {
-                state
-                    .alerting
-                    .service
-                    .acknowledge(&incident_id, ctx.user_id.clone(), TimestampMicros::now())
-                    .await?;
-                Ok(OperationOutcome::verified(
-                    "alert acknowledged and state re-read successfully",
-                ))
-            }
-            _ => Err(Error::conflict("only an open alert can be acknowledged")),
-        },
-        "resolve_alert" => match incident.status {
-            IncidentStatus::Resolved | IncidentStatus::Closed => Ok(OperationOutcome::verified(
-                "alert was already resolved; no change",
-            )),
-            IncidentStatus::Open | IncidentStatus::Acknowledged => {
-                state
-                    .alerting
-                    .service
-                    .resolve(&incident_id, ctx.user_id.clone(), TimestampMicros::now())
-                    .await?;
-                Ok(OperationOutcome::verified(
-                    "alert resolved and state re-read successfully",
-                ))
-            }
-        },
-        other => Err(Error::invalid(format!(
-            "operation `{other}` is not registered"
-        ))),
-    }
-}
-
-pub(super) struct OperationOutcome {
-    summary: String,
-    verification: Value,
-}
-
-impl OperationOutcome {
-    fn verified(summary: impl Into<String>) -> Self {
-        Self {
-            summary: summary.into(),
-            verification: json!({"verified": true}),
-        }
-    }
+    let result = execute_approved_operation(&state, &ctx, &Id(id), request.idempotency_key).await?;
+    Ok(execution_response::response(result))
 }
 
 #[permission("agent.use")]
@@ -1151,11 +890,17 @@ async fn create_profile(
 ) -> Result<Json<AgentProfile>> {
     require_license(&state)?;
     validate_profile_request(&request)?;
-    validate_allowed_tools(&state, &ctx.org_id, &request.allowed_tools).await?;
+    validate_allowed_tools(
+        &state,
+        &ctx.org_id,
+        &request.allowed_tools,
+        ToolSurface::MoleAgent,
+    )
+    .await?;
     let now = TimestampMicros::now();
     let profile = AgentProfile {
         id: Id::new(),
-        org_id: ctx.org_id,
+        org_id: ctx.org_id.clone(),
         name: request.name,
         description: request.description,
         model_provider_id: request.model_provider_id,
@@ -1169,7 +914,7 @@ async fn create_profile(
         max_tool_calls: request.max_tool_calls,
         is_default: request.is_default,
         enabled: request.enabled,
-        created_by: ctx.user_id,
+        created_by: ctx.principal_id().clone(),
         created_at: now,
         updated_at: now,
     };
@@ -1201,7 +946,13 @@ async fn update_profile(
 ) -> Result<Json<AgentProfile>> {
     require_license(&state)?;
     validate_profile_request(&request)?;
-    validate_allowed_tools(&state, &ctx.org_id, &request.allowed_tools).await?;
+    validate_allowed_tools(
+        &state,
+        &ctx.org_id,
+        &request.allowed_tools,
+        ToolSurface::MoleAgent,
+    )
+    .await?;
     let existing = state
         .agent
         .repository
@@ -1232,12 +983,14 @@ mod tests {
     use serde_json::json;
 
     use super::{
-        AgentProfileRequest, UpdateInvestigationRequest, dashboard_required_approvals,
-        operation_policy, validate_profile_request,
+        AgentProfileRequest, UpdateInvestigationRequest, operation_policy, validate_profile_request,
     };
-    use crate::agent::{
-        model::{NetworkAccess, RiskLevel},
-        tool_control::ToolExecutionMode,
+    use crate::{
+        agent::{
+            model::{NetworkAccess, RiskLevel},
+            tool_control::ToolExecutionMode,
+        },
+        app::tools::dashboard::dashboard_required_approvals,
     };
 
     #[test]

@@ -95,6 +95,20 @@ impl CipherRootKey {
         let organization_key = hmac::Key::new(hmac::HMAC_SHA256, derived.as_ref());
         hex::encode(hmac::sign(&organization_key, value).as_ref())
     }
+
+    /// Derive a deployment-stable sub-key without exposing the root key.
+    pub fn derive_key(&self, purpose: &[u8]) -> [u8; 32] {
+        use aws_lc_rs::hmac;
+
+        let root = hmac::Key::new(hmac::HMAC_SHA256, &self.hmac_key);
+        let mut context = b"molesignal/derived-key/v1\0".to_vec();
+        context.extend_from_slice(purpose);
+        let derived = hmac::sign(&root, &context);
+        derived
+            .as_ref()
+            .try_into()
+            .expect("HMAC-SHA256 always returns 32 bytes")
+    }
 }
 
 #[cfg(test)]
@@ -130,5 +144,18 @@ mod tests {
         assert_eq!(first.len(), 64);
         assert_eq!(first, key.org_hmac_sha256("org-a", b"alice@example.com"));
         assert_ne!(first, key.org_hmac_sha256("org-b", b"alice@example.com"));
+    }
+
+    #[test]
+    fn derived_keys_are_stable_and_domain_separated() {
+        let key = CipherRootKey::from_base64(&random_b64_key()).unwrap();
+        assert_eq!(
+            key.derive_key(b"inbound-mcp"),
+            key.derive_key(b"inbound-mcp")
+        );
+        assert_ne!(
+            key.derive_key(b"inbound-mcp"),
+            key.derive_key(b"another-purpose")
+        );
     }
 }

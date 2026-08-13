@@ -19,7 +19,7 @@ use crate::{
         IamAssignedRole,
         access::{
             IamCrossOrgGrant, IamCrossOrgGrantQuery, IamCrossOrgGrantStatus, IamPrincipalType,
-            IamRepository, IamResourceRelationship, IamRoleBinding,
+            IamRelationshipQuery, IamRepository, IamResourceRelationship, IamRoleBinding,
             ResolvedIamResourceRelationship, ResolvedIamRoleBinding,
         },
         catalog::{
@@ -33,6 +33,7 @@ use crate::{
 pub mod memberships;
 pub mod platform_administrators;
 pub mod roles;
+pub mod service_accounts;
 
 pub struct PgIamRepository {
     pool: PgPool,
@@ -296,6 +297,44 @@ impl IamRepository for PgIamRepository {
         .transpose()
     }
 
+    async fn role_summaries(
+        &self,
+        organization_id: &Id,
+        role_ids: &[Id],
+    ) -> Result<Vec<IamAssignedRole>> {
+        let role_ids = role_ids
+            .iter()
+            .map(|id| id.0.clone())
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
+        if role_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let rows = sqlx::query(
+            "SELECT id, role_key, name, builtin
+               FROM iam_roles
+              WHERE org_id = $1
+                AND id = ANY($2)
+           ORDER BY id",
+        )
+        .bind(&organization_id.0)
+        .bind(&role_ids)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(sqlx_err)?;
+        rows.into_iter()
+            .map(|row| {
+                Ok(IamAssignedRole {
+                    id: Id::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?),
+                    key: row.try_get("role_key").map_err(sqlx_err)?,
+                    name: row.try_get("name").map_err(sqlx_err)?,
+                    builtin: row.try_get("builtin").map_err(sqlx_err)?,
+                })
+            })
+            .collect()
+    }
+
     async fn role_for_purpose(
         &self,
         organization_id: &Id,
@@ -415,7 +454,8 @@ impl IamRepository for PgIamRepository {
     async fn active_role_bindings(
         &self,
         organization_id: &Id,
-        user_id: &Id,
+        principal_type: IamPrincipalType,
+        principal_id: &Id,
         now: TimestampMicros,
     ) -> Result<Vec<ResolvedIamRoleBinding>> {
         let rows = sqlx::query(
@@ -448,18 +488,20 @@ impl IamRepository for PgIamRepository {
                  ON permission.permission_key = rp.permission_key
                 AND permission.scope = 'organization'
               WHERE b.organization_id = $1
-                AND (b.starts_at_micros IS NULL OR b.starts_at_micros <= $3)
-                AND (b.expires_at_micros IS NULL OR b.expires_at_micros > $3)
+                AND (b.starts_at_micros IS NULL OR b.starts_at_micros <= $4)
+                AND (b.expires_at_micros IS NULL OR b.expires_at_micros > $4)
                 AND (
-                    (b.principal_type = 'user' AND b.principal_id = $2)
+                    (b.principal_type = $2 AND b.principal_id = $3)
                     OR (
+                        $2 = 'user'
+                        AND
                         b.principal_type = 'team'
                         AND EXISTS (
                             SELECT 1
                               FROM teams t
                              WHERE t.org_id = b.organization_id
                                AND t.id = b.principal_id
-                               AND t.member_ids @> jsonb_build_array($2::text)
+                               AND t.member_ids @> jsonb_build_array($3::text)
                         )
                     )
                 )
@@ -470,7 +512,8 @@ impl IamRepository for PgIamRepository {
                 rp.permission_key",
         )
         .bind(&organization_id.0)
-        .bind(&user_id.0)
+        .bind(principal_type.as_str())
+        .bind(&principal_id.0)
         .bind(now.0)
         .fetch_all(&self.pool)
         .await
@@ -585,12 +628,7 @@ impl IamRepository for PgIamRepository {
 
     async fn matching_relationships(
         &self,
-        organization_id: &Id,
-        user_id: &Id,
-        resource_type: &str,
-        resource_id: &str,
-        container_type: Option<&str>,
-        container_id: Option<&str>,
+        query: &IamRelationshipQuery,
     ) -> Result<Vec<ResolvedIamResourceRelationship>> {
         let rows = sqlx::query(
             "SELECT rel.id, rel.organization_id, rel.resource_type,
@@ -611,24 +649,26 @@ impl IamRepository for PgIamRepository {
                  ON role_permission.role_id = role.id
               WHERE rel.organization_id = $1
                 AND (
-                    (rel.resource_type = $3 AND rel.resource_id = $4)
+                    (rel.resource_type = $4 AND rel.resource_id = $5)
                     OR (
-                        $5::TEXT IS NOT NULL
-                        AND $6::TEXT IS NOT NULL
-                        AND rel.resource_type = $5
-                        AND rel.resource_id = $6
+                        $6::TEXT IS NOT NULL
+                        AND $7::TEXT IS NOT NULL
+                        AND rel.resource_type = $6
+                        AND rel.resource_id = $7
                     )
                 )
                 AND (
-                    (rel.subject_type = 'user' AND rel.subject_id = $2)
+                    (rel.subject_type = $2 AND rel.subject_id = $3)
                     OR (
+                        $2 = 'user'
+                        AND
                         rel.subject_type = 'team'
                         AND EXISTS (
                             SELECT 1
                               FROM teams t
                              WHERE t.org_id = rel.organization_id
                                AND t.id = rel.subject_id
-                               AND t.member_ids @> jsonb_build_array($2::text)
+                               AND t.member_ids @> jsonb_build_array($3::text)
                         )
                     )
                 )
@@ -638,12 +678,13 @@ impl IamRepository for PgIamRepository {
                     rel.created_by, rel.created_at_micros, role.role_key
            ORDER BY rel.created_at_micros DESC",
         )
-        .bind(&organization_id.0)
-        .bind(&user_id.0)
-        .bind(resource_type)
-        .bind(resource_id)
-        .bind(container_type)
-        .bind(container_id)
+        .bind(&query.organization_id.0)
+        .bind(query.principal_type.as_str())
+        .bind(&query.principal_id.0)
+        .bind(&query.resource_type)
+        .bind(&query.resource_id)
+        .bind(&query.container_type)
+        .bind(&query.container_id)
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -739,33 +780,36 @@ impl IamRepository for PgIamRepository {
                FROM iam_cross_org_grants grant_row
               WHERE source_organization_id = $1
                 AND target_organization_id = $2
-                AND resource_type = $4
+                AND resource_type = $5
                 AND status = 'active'
-                AND (starts_at_micros IS NULL OR starts_at_micros <= $7)
-                AND (expires_at_micros IS NULL OR expires_at_micros > $7)
-                AND permissions ? $6
+                AND (starts_at_micros IS NULL OR starts_at_micros <= $8)
+                AND (expires_at_micros IS NULL OR expires_at_micros > $8)
+                AND permissions ? $7
                 AND (
-                    resource_selector -> 'ids' ? $5
+                    resource_selector -> 'ids' ? $6
                     OR resource_selector ->> 'all' = 'true'
                 )
                 AND (
-                    (grantee_type = 'user' AND grantee_id = $3)
+                    (grantee_type = $3 AND grantee_id = $4)
                     OR (grantee_type = 'organization' AND grantee_id = $2)
                     OR (
+                        $3 = 'user'
+                        AND
                         grantee_type = 'team'
                         AND EXISTS (
                             SELECT 1
                               FROM teams t
                              WHERE t.org_id = grant_row.target_organization_id
                                AND t.id = grant_row.grantee_id
-                               AND t.member_ids @> jsonb_build_array($3::text)
+                               AND t.member_ids @> jsonb_build_array($4::text)
                         )
                     )
                 )",
         )
         .bind(&query.source_organization_id.0)
         .bind(&query.target_organization_id.0)
-        .bind(&query.user_id.0)
+        .bind(query.principal_type.as_str())
+        .bind(&query.principal_id.0)
         .bind(&query.resource_type)
         .bind(&query.resource_id)
         .bind(&query.permission)

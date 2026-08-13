@@ -68,14 +68,19 @@ impl ToolDispatcher for EchoDispatcher {
 }
 
 fn ctx() -> ToolAuthContext {
-    ToolAuthContext {
-        user_id: "u1".into(),
-        org_id: "orgA".into(),
-        chat_id: None,
-        investigation_id: None,
-        execution_policy: Default::default(),
-        query_generation_only: false,
-    }
+    ToolAuthContext::from_iam(&domain::iam::IamContext {
+        user_id: Id("u1".into()),
+        org_id: Id("orgA".into()),
+        display_role: String::new(),
+        roles: Vec::new(),
+        credential_role_id: None,
+        credential_application_id: None,
+        credential_service_account_id: None,
+        scope: domain::iam::IamScope::Organization,
+        permissions: Default::default(),
+        features: Default::default(),
+        policy_version: 0,
+    })
 }
 
 fn user_msg(s: &str) -> ChatMessage {

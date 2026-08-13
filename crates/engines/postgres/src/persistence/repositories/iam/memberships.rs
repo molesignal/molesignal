@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 
 use async_trait::async_trait;
 use sqlx::{PgConnection, PgPool, Row};
@@ -248,6 +248,62 @@ impl IamMembershipRepository for PgIamMembershipRepository {
                 })
             })
             .collect()
+    }
+
+    async fn assigned_roles_for_users(
+        &self,
+        user_ids: &[Id],
+        org_id: &Id,
+    ) -> Result<Vec<(Id, Vec<IamAssignedRole>)>> {
+        let user_ids = user_ids
+            .iter()
+            .map(|id| id.0.clone())
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
+        if user_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let now = TimestampMicros::now();
+        let rows = sqlx::query(
+            "SELECT DISTINCT binding.principal_id,role.id,role.role_key,role.name,role.builtin,
+                    COALESCE(catalog.display_priority,1000) AS display_priority
+               FROM iam_role_bindings binding
+               JOIN iam_roles role
+                 ON role.id=binding.role_id AND role.org_id=binding.organization_id
+          LEFT JOIN iam_builtin_roles catalog ON catalog.role_key=role.role_key
+              WHERE binding.organization_id=$1
+                AND binding.principal_type='user'
+                AND binding.principal_id=ANY($2::TEXT[])
+                AND binding.resource_type IS NULL
+                AND binding.resource_id IS NULL
+                AND (binding.starts_at_micros IS NULL OR binding.starts_at_micros<=$3)
+                AND (binding.expires_at_micros IS NULL OR binding.expires_at_micros>$3)
+           ORDER BY binding.principal_id,display_priority,role.name,role.id",
+        )
+        .bind(&org_id.0)
+        .bind(&user_ids)
+        .bind(now.0)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(sqlx_err)?;
+        let mut by_user: HashMap<String, Vec<IamAssignedRole>> = HashMap::new();
+        for row in rows {
+            let user_id: String = row.try_get("principal_id").map_err(sqlx_err)?;
+            by_user.entry(user_id).or_default().push(IamAssignedRole {
+                id: Id::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?),
+                key: row.try_get("role_key").map_err(sqlx_err)?,
+                name: row.try_get("name").map_err(sqlx_err)?,
+                builtin: row.try_get("builtin").map_err(sqlx_err)?,
+            });
+        }
+        Ok(user_ids
+            .into_iter()
+            .map(|user_id| {
+                let roles = by_user.remove(&user_id).unwrap_or_default();
+                (Id::from_string(user_id), roles)
+            })
+            .collect())
     }
 
     async fn role_id_for_purpose(&self, org_id: &Id, purpose: &str) -> Result<Id> {

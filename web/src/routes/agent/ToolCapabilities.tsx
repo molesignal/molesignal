@@ -69,6 +69,8 @@ import {
   TooltipTrigger,
 } from '@/shell/ui/tooltip';
 
+import { localizeToolMetadata } from './toolMetadata';
+
 type ToolFilter = 'all' | 'read_only' | 'automatic' | 'approval' | 'disabled';
 type GroupMode = 'domain' | 'mcp' | 'none';
 type McpRemovalTarget = {
@@ -129,8 +131,11 @@ export function ToolCapabilitiesPanel({
   const [collapsed, setCollapsed] = React.useState<Set<string>>(() => readCollapsedGroups());
 
   const tools = React.useMemo(
-    () => (registry.data?.tools ?? EMPTY_TOOLS).map(normalizeTool),
-    [registry.data?.tools],
+    () =>
+      (registry.data?.tools ?? EMPTY_TOOLS)
+        .map(normalizeTool)
+        .map((tool) => localizeToolMetadata(tool, t)),
+    [registry.data?.tools, t],
   );
   const filteredTools = React.useMemo(() => {
     const needle = search.trim().toLocaleLowerCase();
@@ -648,7 +653,7 @@ function ToolGroup({
         <div role="table" aria-label={group.title}>
           <div
             role="row"
-            className="hidden min-h-8 grid-cols-[minmax(260px,1fr)_110px_82px_124px_60px_36px] items-center gap-3 border-b border-bd-0 bg-bg-2 px-3 text-type-micro font-strong uppercase tracking-[0.06em] text-tx-3 xl:grid"
+            className="hidden min-h-8 grid-cols-[minmax(260px,1fr)_110px_82px_124px_60px_36px] items-center gap-3 border-b border-bd-0 bg-bg-2 px-3 text-type-micro font-strong lowercase tracking-[0.06em] text-tx-3 xl:grid"
           >
             <span role="columnheader">{t('settings.tools.fields.tool')}</span>
             <span role="columnheader">{t('settings.tools.fields.source')}</span>

@@ -15,6 +15,7 @@ use anyhow::{Context as _, Result};
 use prost::Message as _;
 use tokio::{sync::Semaphore, task::JoinHandle};
 
+use super::super::polling::PollingBackoff;
 use crate::{
     api::grpc::probe::{result::result_from_wire, task::task_to_wire},
     app::synthetics::SyntheticService,
@@ -62,10 +63,13 @@ impl EmbeddedProbeRunner {
     async fn run(self) {
         let permits = Arc::new(Semaphore::new(self.max_concurrent));
         let sequence = Arc::new(AtomicU64::new(self.agent.last_result_sequence));
-        let mut tick = tokio::time::interval(POLL_INTERVAL);
-        tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        let mut backoff = PollingBackoff::new(
+            POLL_INTERVAL,
+            Duration::from_secs(10),
+            "synthetics-embedded-probe",
+        );
         loop {
-            tick.tick().await;
+            let mut leased_any = false;
             while permits.available_permits() > 0 {
                 let permit = match permits.clone().try_acquire_owned() {
                     Ok(permit) => permit,
@@ -73,7 +77,10 @@ impl EmbeddedProbeRunner {
                 };
                 let leased = self.synthetics.lease_next_probe_task(&self.agent).await;
                 let (task, lease_token) = match leased {
-                    Ok(Some(leased)) => leased,
+                    Ok(Some(leased)) => {
+                        leased_any = true;
+                        leased
+                    }
                     Ok(None) => {
                         drop(permit);
                         break;
@@ -101,6 +108,18 @@ impl EmbeddedProbeRunner {
                     }
                 });
             }
+
+            if permits.available_permits() == 0 {
+                if let Ok(permit) = permits.clone().acquire_owned().await {
+                    drop(permit);
+                }
+                backoff.reset();
+                continue;
+            }
+            if leased_any {
+                backoff.reset();
+            }
+            tokio::time::sleep(backoff.next_delay()).await;
         }
     }
 }

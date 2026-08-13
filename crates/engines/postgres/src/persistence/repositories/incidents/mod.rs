@@ -234,7 +234,9 @@ impl IncidentRepository for PgIncidentRepository {
         fingerprint: &str,
     ) -> Result<Option<Incident>> {
         let row = sqlx::query(&format!(
-            "SELECT {COLS} FROM incidents WHERE org_id = $1 AND fingerprint = $2"
+            "SELECT {COLS} FROM incidents
+             WHERE org_id = $1 AND fingerprint = $2
+             ORDER BY created_at_micros DESC LIMIT 1"
         ))
         .bind(&org_id.0)
         .bind(fingerprint)

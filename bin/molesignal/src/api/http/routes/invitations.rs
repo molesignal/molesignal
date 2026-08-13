@@ -3,6 +3,8 @@
 
 //! IAM invitation lifecycle endpoints.
 
+use std::collections::HashMap;
+
 use axum::{
     Extension, Json, Router,
     extract::{Path, State},
@@ -13,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     api::AppState,
     app::iam::IamContext,
-    domain::iam::permission,
+    domain::iam::{IamAssignedRole, permission},
     infra::persistence::repositories::invitations::Invitation,
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
@@ -46,15 +48,8 @@ struct Resp {
     updated_at_micros: i64,
 }
 
-async fn to_resp(state: &AppState, invitation: Invitation) -> Result<Resp> {
-    let role = state
-        .iam
-        .access
-        .repository()
-        .role_summary(&invitation.org_id, &invitation.role_id)
-        .await?
-        .ok_or_else(|| Error::internal("invitation references a missing IAM role"))?;
-    Ok(Resp {
+fn to_resp(invitation: Invitation, role: IamAssignedRole) -> Resp {
+    Resp {
         id: invitation.id.0,
         org_id: invitation.org_id.0,
         email: invitation.email,
@@ -65,7 +60,18 @@ async fn to_resp(state: &AppState, invitation: Invitation) -> Result<Resp> {
         status: invitation.status,
         sent_at_micros: invitation.sent_at.0,
         updated_at_micros: invitation.updated_at.0,
-    })
+    }
+}
+
+async fn resolve_resp(state: &AppState, invitation: Invitation) -> Result<Resp> {
+    let role = state
+        .iam
+        .access
+        .repository()
+        .role_summary(&invitation.org_id, &invitation.role_id)
+        .await?
+        .ok_or_else(|| Error::internal("invitation references a missing IAM role"))?;
+    Ok(to_resp(invitation, role))
 }
 
 #[permission("org.members.read")]
@@ -74,10 +80,29 @@ async fn list(
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Vec<Resp>>> {
     let invitations = state.iam.invitations.list(&ctx.org_id).await?;
-    let mut responses = Vec::with_capacity(invitations.len());
-    for invitation in invitations {
-        responses.push(to_resp(&state, invitation).await?);
-    }
+    let role_ids = invitations
+        .iter()
+        .map(|invitation| invitation.role_id.clone())
+        .collect::<Vec<_>>();
+    let roles = state
+        .iam
+        .access
+        .repository()
+        .role_summaries(&ctx.org_id, &role_ids)
+        .await?
+        .into_iter()
+        .map(|role| (role.id.0.clone(), role))
+        .collect::<HashMap<_, _>>();
+    let responses = invitations
+        .into_iter()
+        .map(|invitation| {
+            let role = roles
+                .get(&invitation.role_id.0)
+                .cloned()
+                .ok_or_else(|| Error::internal("invitation references a missing IAM role"))?;
+            Ok(to_resp(invitation, role))
+        })
+        .collect::<Result<Vec<_>>>()?;
     Ok(Json(responses))
 }
 
@@ -123,7 +148,7 @@ async fn create(
         updated_at: now,
     };
     let invitation = state.iam.invitations.create(invitation).await?;
-    Ok(Json(to_resp(&state, invitation).await?))
+    Ok(Json(resolve_resp(&state, invitation).await?))
 }
 
 #[permission("org.members.manage")]
@@ -138,7 +163,7 @@ async fn resend(
         .invitations
         .update_status(&ctx.org_id, &Id::from_string(id), "pending", Some(now), now)
         .await?;
-    Ok(Json(to_resp(&state, invitation).await?))
+    Ok(Json(resolve_resp(&state, invitation).await?))
 }
 
 #[permission("org.members.manage")]
@@ -153,5 +178,5 @@ async fn revoke(
         .invitations
         .update_status(&ctx.org_id, &Id::from_string(id), "revoked", None, now)
         .await?;
-    Ok(Json(to_resp(&state, invitation).await?))
+    Ok(Json(resolve_resp(&state, invitation).await?))
 }

@@ -24,5 +24,6 @@ pub mod search;
 pub mod self_telemetry;
 pub mod status_page;
 pub mod synthetics;
+pub mod tools;
 pub mod trace;
 pub mod web;

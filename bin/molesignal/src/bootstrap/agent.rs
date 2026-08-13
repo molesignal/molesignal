@@ -7,7 +7,10 @@ use std::sync::Arc;
 
 use super::{core::Core, iam::IamRuntime, license::LicenseRuntime};
 use crate::{
-    agent::{model::AgentRepository, tool_control::ToolControlRepository},
+    agent::{
+        inbound_mcp::InboundMcpRepository, model::AgentRepository,
+        tool_control::ToolControlRepository,
+    },
     domain::{
         alerting::repositories::IncidentRcaRepository,
         iam::{IamMembershipRepository, OrganizationRepository},
@@ -18,6 +21,7 @@ use crate::{
             PgAgentRepository,
             chat_archives::{ChatArchiveRepository, PgChatArchiveRepository},
             chats::{ChatRepository, PgChatRepository},
+            inbound_mcp::PgInboundMcpRepository,
             model_providers::{ModelProviderRepository, PgModelProviderRepository},
             prompts::{AgentPromptRepository, PgAgentPromptRepository},
             tool_control::PgToolControlRepository,
@@ -40,6 +44,8 @@ pub(super) struct AgentRuntime {
     pub(super) agent: Arc<dyn AgentRepository>,
     pub(super) toolsets: Arc<dyn AgentToolsetRepository>,
     pub(super) tool_control: Arc<dyn ToolControlRepository>,
+    pub(super) inbound_mcp: Arc<dyn InboundMcpRepository>,
+    pub(super) inbound_mcp_request_state_key: [u8; 32],
     pub(super) prompts: Arc<dyn AgentPromptRepository>,
     pub(super) chat_archives: Arc<dyn ChatArchiveRepository>,
     pub(super) incident_rca: Arc<dyn IncidentRcaRepository>,
@@ -61,6 +67,11 @@ impl AgentRuntime {
             core.pool.clone(),
             core.cipher_root_key.clone(),
         ));
+        let inbound_mcp: Arc<dyn InboundMcpRepository> =
+            Arc::new(PgInboundMcpRepository::new(core.pool.clone()));
+        let inbound_mcp_request_state_key = core
+            .cipher_root_key
+            .derive_key(b"inbound-mcp/request-state/v1");
         let prompts: Arc<dyn AgentPromptRepository> =
             Arc::new(PgAgentPromptRepository::new(core.pool.clone()));
         let chat_archives: Arc<dyn ChatArchiveRepository> =
@@ -102,6 +113,8 @@ impl AgentRuntime {
             agent,
             toolsets,
             tool_control,
+            inbound_mcp,
+            inbound_mcp_request_state_key,
             prompts,
             chat_archives,
             incident_rca,

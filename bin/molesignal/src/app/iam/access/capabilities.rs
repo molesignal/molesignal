@@ -8,7 +8,8 @@ use std::{collections::BTreeSet, sync::Arc};
 use super::{IamAccessService, IamAttributes, IamCapabilitySnapshot, IamSubject, SnapshotCacheKey};
 use crate::{
     domain::iam::{
-        IamAssignedRole, IamScope, PLATFORM_ADMINISTRATOR_ROLE_PURPOSE, catalog::IamPermissionScope,
+        IamAssignedRole, IamScope, PLATFORM_ADMINISTRATOR_ROLE_PURPOSE, access::IamPrincipalType,
+        catalog::IamPermissionScope,
     },
     shared::{Error, Result, time::TimestampMicros},
 };
@@ -44,6 +45,10 @@ impl IamAccessService {
                 .as_ref()
                 .map(|role_id| role_id.0.clone()),
             credential_application_id: subject.credential_application_id.clone(),
+            credential_service_account_id: subject
+                .credential_service_account_id
+                .as_ref()
+                .map(|id| id.0.clone()),
             version,
             permission_catalog_version,
             route_catalog_version,
@@ -117,7 +122,9 @@ impl IamAccessService {
                     return Err(Error::forbidden("root system scope required"));
                 }
                 IamScope::ApiToken => {
-                    if subject.credential_application_id.is_none() {
+                    if subject.credential_application_id.is_none()
+                        && subject.credential_service_account_id.is_none()
+                    {
                         self.ensure_membership(subject).await?;
                     }
                     let role_id = subject
@@ -193,6 +200,7 @@ impl IamAccessService {
             .repository
             .active_role_bindings(
                 &subject.organization_id,
+                IamPrincipalType::User,
                 &subject.user_id,
                 TimestampMicros::now(),
             )

@@ -278,6 +278,7 @@ async fn collect_org_admin_emails(state: &AppState, org_id: &Id) -> Vec<String> 
                 organization_id: org_id.clone(),
                 credential_role_id: None,
                 credential_application_id: None,
+                credential_service_account_id: None,
                 scope: IamScope::Organization,
             })
             .await
@@ -601,6 +602,7 @@ mod tests {
             roles: Vec::new(),
             credential_role_id: None,
             credential_application_id: None,
+            credential_service_account_id: None,
             scope,
             permissions: permissions
                 .iter()

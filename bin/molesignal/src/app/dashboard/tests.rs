@@ -40,6 +40,22 @@ impl DashboardRepository for MemoryDashboards {
         Ok(dashboard)
     }
 
+    async fn update_if_version(
+        &self,
+        dashboard: Dashboard,
+        expected_version: u32,
+    ) -> Result<Dashboard> {
+        let mut values = self.values.lock();
+        let current = values
+            .get(&dashboard.id)
+            .ok_or_else(|| Error::not_found("dashboard"))?;
+        if current.version != expected_version {
+            return Err(Error::conflict("dashboard version changed"));
+        }
+        values.insert(dashboard.id.clone(), dashboard.clone());
+        Ok(dashboard)
+    }
+
     async fn get(&self, id: &Id) -> Result<Dashboard> {
         self.values
             .lock()
@@ -198,6 +214,35 @@ async fn failed_update_is_immutable_and_success_preserves_uid() {
     assert_eq!(saved.uid, created.uid);
     assert_eq!(saved.model["uid"], created.uid);
     assert_eq!(saved.version, 2);
+}
+
+#[tokio::test]
+async fn stale_dashboard_update_cannot_overwrite_a_newer_version() {
+    let (service, repository) = service();
+    let created = service
+        .create(Id::new(), None, Id::new(), valid_model())
+        .await
+        .unwrap();
+
+    let mut first_model = created.model.clone();
+    first_model["title"] = Value::from("First update");
+    let first = service
+        .update_model(created.clone(), None, Id::new(), first_model)
+        .await
+        .unwrap();
+    assert_eq!(first.version, 2);
+
+    let mut stale_model = created.model.clone();
+    stale_model["title"] = Value::from("Stale overwrite");
+    let error = service
+        .update_model(created.clone(), None, Id::new(), stale_model)
+        .await
+        .unwrap_err();
+    assert!(matches!(error, Error::Conflict(_)));
+    assert_eq!(
+        repository.get(&created.id).await.unwrap().title,
+        "First update"
+    );
 }
 
 #[tokio::test]

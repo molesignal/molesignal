@@ -25,6 +25,7 @@ pub mod shared {
 
 pub mod capabilities;
 pub mod chat;
+pub mod inbound_mcp;
 pub mod model;
 pub mod telemetry;
 pub mod tool_control;

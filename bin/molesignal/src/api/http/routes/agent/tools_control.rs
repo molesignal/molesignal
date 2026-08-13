@@ -26,10 +26,7 @@ use crate::{
             ManagedToolStatus, McpServer, McpTool, ToolExecutionMode, ToolPolicy,
             ToolPolicyDefaults,
         },
-        tools::{
-            BuiltinToolKind, ToolAuthContext, ToolCall, ToolDispatcher, builtin_tools,
-            is_builtin_tool,
-        },
+        tools::{ToolAuthContext, ToolCall, ToolDispatcher, builtin_tools, is_builtin_tool},
     },
     api::{AppState, http::routes::activity_audit},
     app::iam::IamContext,
@@ -137,23 +134,20 @@ async fn managed_tools(state: &AppState, ctx: &IamContext) -> Result<Vec<Value>>
         .collect::<HashMap<_, _>>();
     let mut result = Vec::new();
     for tool in builtin_tools() {
-        let kind = BuiltinToolKind::from_name(&tool.name)
-            .ok_or_else(|| Error::internal("builtin tool registry is inconsistent"))?;
-        let presentation = kind.presentation();
         let policy = policies.get(&tool.name);
         let execution_mode = resolution.execution_mode_for_builtin(&tool.name);
         let enabled = policy.is_none_or(|value| value.enabled)
             && execution_mode != ToolExecutionMode::Disabled;
-        let available_to_agent = resolution.builtin_enabled(&tool.name);
+        let available_to_agent = tool.exposure.mole_agent && resolution.builtin_enabled(&tool.name);
         let stats = call_stats(&calls, &tool.name);
         result.push(json!({
             "id": tool.name,
             "name": tool.name,
-            "display_name": presentation.display_name,
-            "description": presentation.description_zh,
+            "display_name": tool.display_name,
+            "description": tool.description,
             "technical_description": tool.description,
-            "domain": presentation.domain,
-            "category": presentation.category,
+            "domain": tool.domain,
+            "category": tool.category,
             "source": {"kind": "builtin", "label": "builtin"},
             "risk": tool.risk,
             "execution_mode": execution_mode,
@@ -161,15 +155,18 @@ async fn managed_tools(state: &AppState, ctx: &IamContext) -> Result<Vec<Value>>
             "available_to_agent": available_to_agent,
             "status": if enabled { "healthy" } else { "disabled" },
             "input_schema": tool.input_schema,
-            "output_schema": presentation.output_schema,
-            "capabilities": presentation.capabilities,
+            "output_schema": tool.output_schema,
+            "capabilities": tool.annotations.capabilities(),
             "limits": {
                 "timeout_ms": policy.map(|value| value.timeout_ms).unwrap_or(DEFAULT_TIMEOUT_MS),
                 "max_calls_per_run": policy.map(|value| value.max_calls_per_run).unwrap_or(DEFAULT_MAX_CALLS),
                 "max_response_bytes": policy.map(|value| value.max_response_bytes).unwrap_or(DEFAULT_MAX_RESPONSE_BYTES)
             },
             "environment_overrides": policy.map(|value| value.environment_overrides.clone()).unwrap_or_else(|| json!({})),
-            "tags": presentation.tags,
+            "tags": tool.tags,
+            "exposure": tool.exposure,
+            "required_permissions": tool.required_permissions,
+            "permission_mode": tool.permission_mode,
             "access": tool.access,
             "statistics": stats
         }));
@@ -388,7 +385,7 @@ async fn apply_tool_policy(
     id: &str,
     request: ToolPolicyRequest,
 ) -> Result<Value> {
-    if let Some(kind) = BuiltinToolKind::from_name(id) {
+    if is_builtin_tool(id) {
         let definition = builtin_tools()
             .into_iter()
             .find(|tool| tool.name == id)
@@ -429,7 +426,7 @@ async fn apply_tool_policy(
         validate_tool_environment_overrides(&environment_overrides, definition.risk)?;
         let policy = ToolPolicy {
             org_id: ctx.org_id.clone(),
-            tool_name: kind.name().into(),
+            tool_name: id.to_string(),
             enabled: request
                 .enabled
                 .or_else(|| existing.as_ref().map(|policy| policy.enabled))
@@ -889,14 +886,7 @@ async fn test_tool(
     let started = Instant::now();
     let result = dispatcher
         .dispatch(
-            &ToolAuthContext {
-                user_id: ctx.user_id.0.clone(),
-                org_id: ctx.org_id.0.clone(),
-                chat_id: None,
-                investigation_id: None,
-                execution_policy: Default::default(),
-                query_generation_only: false,
-            },
+            &ToolAuthContext::from_iam(&ctx),
             ToolCall {
                 name: tool["name"].as_str().unwrap_or(&id).to_string(),
                 arguments: request.arguments.clone(),

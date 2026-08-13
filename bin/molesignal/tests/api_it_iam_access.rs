@@ -18,6 +18,101 @@ use reqwest::StatusCode;
 use serde_json::{Value, json};
 
 #[tokio::test]
+async fn creating_service_account_atomically_returns_one_time_bound_api_token() {
+    if skip_unless_enabled() {
+        return;
+    }
+
+    let server = TestServer::start().await;
+    let role_id = server
+        .state
+        .iam
+        .service
+        .iam_memberships
+        .role_id_for_purpose(&server.root_org_id, "default_api_token")
+        .await
+        .expect("resolve API token role");
+    let response = server
+        .client
+        .post(format!("{}/api/v1/service-accounts", server.base_url))
+        .bearer_auth(&server.root_token)
+        .json(&json!({
+            "name": "integration-collector",
+            "description": "non-interactive integration identity",
+            "role_id": role_id,
+        }))
+        .send()
+        .await
+        .expect("create service account");
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers()[reqwest::header::CACHE_CONTROL],
+        "private, no-store"
+    );
+    let payload: Value = response.json().await.expect("decode provision response");
+    let account_id = payload["service_account"]["id"]
+        .as_str()
+        .expect("service account id");
+    let plaintext = payload["api_token"]["token"]
+        .as_str()
+        .expect("one-time API token");
+    assert!(plaintext.starts_with("ms_"));
+    assert_eq!(
+        payload["api_token"]["service_account_id"].as_str(),
+        Some(account_id)
+    );
+
+    let accounts = server
+        .state
+        .iam
+        .service_accounts
+        .list(&server.root_org_id)
+        .await
+        .expect("list service accounts");
+    let account = accounts
+        .iter()
+        .find(|account| account.id.0 == account_id)
+        .expect("created service account persisted");
+    let tokens = server
+        .state
+        .iam
+        .api_tokens
+        .list_by_org(&server.root_org_id)
+        .await
+        .expect("list API tokens");
+    let token = tokens
+        .iter()
+        .find(|token| token.service_account_id.as_ref() == Some(&account.id))
+        .expect("initial bound API token persisted");
+    assert_eq!(token.token_kind, ApiTokenKind::ServiceAccount);
+    assert_eq!(token.role_id, account.role_id);
+
+    server
+        .client
+        .get(format!("{}/api/v1/iam/capabilities", server.base_url))
+        .bearer_auth(plaintext)
+        .send()
+        .await
+        .expect("authenticate initial service-account token")
+        .error_for_status()
+        .expect("initial service-account token is usable");
+
+    let listed = server
+        .client
+        .get(format!("{}/api/v1/auth/tokens", server.base_url))
+        .bearer_auth(&server.root_token)
+        .send()
+        .await
+        .expect("list API token metadata")
+        .error_for_status()
+        .expect("list API token metadata succeeds")
+        .text()
+        .await
+        .expect("read API token metadata");
+    assert!(!listed.contains(plaintext));
+}
+
+#[tokio::test]
 async fn disabling_user_immediately_invalidates_existing_jwt_and_api_tokens() {
     if skip_unless_enabled() {
         return;
@@ -95,6 +190,7 @@ async fn disabling_user_immediately_invalidates_existing_jwt_and_api_tokens() {
             is_default: false,
             token_kind: ApiTokenKind::Personal,
             application_id: None,
+            service_account_id: None,
         })
         .await
         .expect("create API token");

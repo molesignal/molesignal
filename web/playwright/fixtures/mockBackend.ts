@@ -53,6 +53,8 @@ const MOCK_IAM_ORGANIZATION_PERMISSIONS = [
   'org.billing.manage',
   'api_tokens.read',
   'api_tokens.manage',
+  'service_accounts.read',
+  'service_accounts.manage',
   'streams.read',
   'streams.query',
   'streams.write',
@@ -150,9 +152,16 @@ function mockCapabilityRoutes(
     ['account.settings', '/account/settings/*', true],
     ['iam', '/iam', scope === 'system'
       ? permissionSet.has('sys.organizations.manage')
-      : permissionSet.has('org.members.read') || permissionSet.has('iam.roles.read')],
+      : permissionSet.has('org.members.read') ||
+        permissionSet.has('iam.roles.read') ||
+        permissionSet.has('iam.policies.read') ||
+        permissionSet.has('api_tokens.read') ||
+        permissionSet.has('service_accounts.read') ||
+        permissionSet.has('org.settings.read')],
     ['iam.users', '/iam/users', scope !== 'system' && permissionSet.has('org.members.read')],
     ['iam.roles', '/iam/roles', scope !== 'system' && permissionSet.has('iam.roles.read')],
+    ['iam.api.tokens', '/iam/api-tokens', scope !== 'system' && permissionSet.has('api_tokens.read')],
+    ['iam.service.accounts', '/iam/service-accounts', scope !== 'system' && permissionSet.has('service_accounts.read')],
     ['settings.notify', '/settings/notify/*', scope !== 'system' && permissionSet.has('alerts.read')],
     ['settings.tenant.tools', '/settings/:section', scope !== 'system' && permissionSet.has('org.settings.read')],
   ] as const;
@@ -205,7 +214,12 @@ const mockIamDomain = (permission: string): string => {
   const resource = permission.split('.')[0];
   if (resource === 'sys') return 'platform';
   if (resource === 'org') return 'organization';
-  if (resource === 'iam' || resource === 'api_tokens' || resource === 'audit') {
+  if (
+    resource === 'iam' ||
+    resource === 'api_tokens' ||
+    resource === 'service_accounts' ||
+    resource === 'audit'
+  ) {
     return 'iam';
   }
   if (resource === 'dashboards') return 'dashboards';
@@ -993,6 +1007,73 @@ export function registerRoutes(app: Express): void {
 
   // ── Mole Agent control plane ──
   const nowMicros = Date.parse(FROZEN_NOW_ISO) * 1000;
+  let inboundMcpSettings = {
+    org_id: 'acme-prod',
+    enabled: true,
+    allowed_origins: [] as string[],
+    max_request_bytes: 1_048_576,
+    max_response_bytes: 1_048_576,
+    max_concurrent_calls: 8,
+    calls_per_minute: 60,
+    read_timeout_ms: 30_000,
+    updated_by: 'dev',
+    created_at: nowMicros,
+    updated_at: nowMicros,
+  };
+  const inboundMcpSettingsResponse = () => ({
+    settings: inboundMcpSettings,
+    endpoint: 'https://molesignal.example/api/v1/mcp',
+    protocol_versions: ['2026-07-28', '2025-11-25', '2025-06-18', '2025-03-26'],
+    transports: ['streamable_http'],
+    hard_max_body_bytes: 8_388_608,
+    oauth: {
+      protected_resource_metadata: 'https://molesignal.example/.well-known/oauth-protected-resource/api/v1/mcp',
+      authorization_server_metadata: 'https://molesignal.example/.well-known/oauth-authorization-server',
+      authorization_endpoint: 'https://molesignal.example/oauth/authorize',
+      token_endpoint: 'https://molesignal.example/api/v1/oauth/token',
+      registration_endpoint: 'https://molesignal.example/api/v1/oauth/register',
+      revocation_endpoint: 'https://molesignal.example/api/v1/oauth/revoke',
+    },
+  });
+  app.get('/api/v1/agent/settings/inbound-mcp', (_req, res) =>
+    res.json(inboundMcpSettingsResponse()),
+  );
+  app.put('/api/v1/agent/settings/inbound-mcp', (req, res) => {
+    inboundMcpSettings = {
+      ...inboundMcpSettings,
+      ...req.body,
+      updated_by: 'dev',
+      updated_at: nowMicros,
+    };
+    res.json(inboundMcpSettingsResponse());
+  });
+  app.get('/api/v1/agent/settings/inbound-mcp/oauth-connections', (_req, res) =>
+    res.json({ connections: [] }),
+  );
+  app.post('/api/v1/agent/settings/inbound-mcp/oauth-connections/:id/revoke', (_req, res) =>
+    res.status(204).end(),
+  );
+  app.get('/api/v1/oauth/authorization-request', (req, res) =>
+    res.json({
+      client: {
+        client_id: String(req.query.client_id ?? 'mock-client'),
+        client_name: 'Example MCP Client',
+        client_uri: 'https://client.example',
+        metadata_document: false,
+      },
+      scope: String(req.query.scope ?? 'mcp'),
+      resource: String(req.query.resource ?? 'https://molesignal.example/api/v1/mcp'),
+      redirect_uri: String(req.query.redirect_uri ?? 'https://client.example/callback'),
+      state: typeof req.query.state === 'string' ? req.query.state : null,
+      organization: {
+        id: 'acme-prod',
+        name: 'Acme Production',
+      },
+    }),
+  );
+  app.post('/api/v1/oauth/authorize', (_req, res) =>
+    res.json({ redirect_to: 'https://client.example/callback?code=mock' }),
+  );
   const investigations: Array<Record<string, unknown>> = [
     {
       id: 'investigation-checkout',
@@ -1822,6 +1903,8 @@ export function registerRoutes(app: Express): void {
     }),
   );
   app.get('/api/v1/teams', (_req, res) => res.json([]));
+  app.get('/api/v1/auth/tokens', (_req, res) => res.json([]));
+  app.get('/api/v1/service-accounts', (_req, res) => res.json([]));
   app.get('/api/v1/roles', (_req, res) =>
     res.json([
       {
@@ -1836,6 +1919,7 @@ export function registerRoutes(app: Express): void {
         usage: {
           memberships: 1,
           api_tokens: 0,
+          service_accounts: 0,
           invitations: 0,
           bindings: 1,
           total: 2,

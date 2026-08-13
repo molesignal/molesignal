@@ -3,6 +3,8 @@
 
 //! IAM：身份、组织上下文、成员关系、角色与权限。
 
+use std::collections::BTreeSet;
+
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
@@ -12,6 +14,7 @@ pub mod access;
 pub mod api_token;
 pub mod catalog;
 pub mod navigation;
+pub mod service_account;
 mod sso;
 
 pub use permission_macro::{permission, resource_permission};
@@ -134,6 +137,67 @@ pub enum IamScope {
     ApiToken,
 }
 
+/// Server-authenticated identity and authorization snapshot for one request.
+///
+/// Protocol adapters may read this value, but only authentication and IAM layers should construct
+/// it. Downstream security-sensitive contexts derive identity from this type instead of accepting
+/// request JSON or headers directly.
+#[derive(Debug, Clone)]
+pub struct IamContext {
+    pub user_id: Id,
+    pub org_id: Id,
+    /// Server-resolved display metadata. Authorization never reads this field.
+    pub display_role: String,
+    pub roles: Vec<IamAssignedRole>,
+    /// API tokens are directly scoped to one database IAM role.
+    pub credential_role_id: Option<Id>,
+    /// Public RUM credentials are bound to one application and never inherit user access.
+    pub credential_application_id: Option<String>,
+    /// Present only for credentials authenticating a first-class non-human principal.
+    pub credential_service_account_id: Option<Id>,
+    pub scope: IamScope,
+    /// Canonical, server-resolved capability keys for this request.
+    pub permissions: BTreeSet<String>,
+    /// Active product features included in the capability snapshot.
+    pub features: BTreeSet<String>,
+    /// Monotonic organization policy version used to resolve `permissions`.
+    pub policy_version: u64,
+}
+
+impl IamContext {
+    pub fn is_system_scope(&self) -> bool {
+        self.scope == IamScope::System
+    }
+
+    pub fn has_permission(&self, permission: &str) -> bool {
+        self.permissions.contains(permission)
+    }
+
+    pub fn principal_type(&self) -> access::IamPrincipalType {
+        if self.credential_service_account_id.is_some() {
+            access::IamPrincipalType::ServiceAccount
+        } else {
+            access::IamPrincipalType::User
+        }
+    }
+
+    pub fn principal_id(&self) -> &Id {
+        self.credential_service_account_id
+            .as_ref()
+            .unwrap_or(&self.user_id)
+    }
+
+    /// Dynamic role key used only for query admission work-group selection.
+    /// Authorization itself is based on `permissions`.
+    pub fn organization_role_key(&self) -> &str {
+        if self.is_system_scope() {
+            ""
+        } else {
+            self.roles.first().map_or("", |role| role.key.as_str())
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IamPlatformAdministrator {
     pub user_id: Id,
@@ -148,6 +212,16 @@ pub struct IamPlatformAdministrator {
 pub trait UserRepository: Send + Sync {
     async fn create(&self, user: User) -> Result<User>;
     async fn get(&self, id: &Id) -> Result<User>;
+    /// Batch lookup used by bounded directory views. Persistence adapters should
+    /// override this to avoid one query per user; the default keeps test and
+    /// non-database adapters source-compatible.
+    async fn get_many(&self, ids: &[Id]) -> Result<Vec<User>> {
+        let mut users = Vec::with_capacity(ids.len());
+        for id in ids {
+            users.push(self.get(id).await?);
+        }
+        Ok(users)
+    }
     async fn get_by_email(&self, email: &str) -> Result<User>;
     async fn update(&self, user: User) -> Result<User>;
     async fn delete(&self, id: &Id) -> Result<()>;
@@ -270,6 +344,18 @@ pub trait IamMembershipRepository: Send + Sync {
     async fn list_for_user(&self, user_id: &Id) -> Result<Vec<IamMembership>>;
     async fn list_for_org(&self, org_id: &Id) -> Result<Vec<IamMembership>>;
     async fn assigned_roles(&self, user_id: &Id, org_id: &Id) -> Result<Vec<IamAssignedRole>>;
+    /// Resolve organization-wide roles for a bounded set of users in one call.
+    async fn assigned_roles_for_users(
+        &self,
+        user_ids: &[Id],
+        org_id: &Id,
+    ) -> Result<Vec<(Id, Vec<IamAssignedRole>)>> {
+        let mut roles = Vec::with_capacity(user_ids.len());
+        for user_id in user_ids {
+            roles.push((user_id.clone(), self.assigned_roles(user_id, org_id).await?));
+        }
+        Ok(roles)
+    }
     async fn role_id_for_purpose(&self, org_id: &Id, purpose: &str) -> Result<Id>;
     async fn remove(&self, user_id: &Id, org_id: &Id) -> Result<()>;
 }

@@ -7,9 +7,11 @@ use axum::Router;
 
 use crate::api::AppState;
 
+pub(crate) mod builtin_execution;
 pub mod chat;
 pub mod control;
 pub mod dashboard_drafts;
+pub mod inbound_mcp;
 pub mod mcp;
 pub mod model_providers;
 pub mod prompts;
@@ -18,11 +20,12 @@ pub mod tool_dispatcher;
 pub mod tools_control;
 pub mod toolsets;
 
-pub fn routes() -> Router<AppState> {
+pub fn routes(state: AppState) -> Router<AppState> {
     Router::new()
         .merge(chat::routes())
         .merge(control::routes())
         .merge(dashboard_drafts::routes())
+        .merge(inbound_mcp::routes(state))
         .merge(model_providers::routes())
         .merge(mcp::routes())
         .merge(prompts::routes())

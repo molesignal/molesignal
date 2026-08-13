@@ -52,6 +52,11 @@ const IAM_GROUPS: IamSectionGroup[] = [
     key: 'group_authentication',
     sections: [
       {
+        to: '/iam/api-tokens',
+        key: 'api_tokens',
+        contentWidth: 'table',
+      },
+      {
         to: '/iam/service-accounts',
         key: 'service_accounts',
         contentWidth: 'table',

@@ -40,6 +40,8 @@ import {
   type AutomationEditorTarget,
   type InvestigationEditorTarget,
 } from './Editors';
+import { localizeToolMetadataList } from '../toolMetadata';
+import { OneTimeApiTokenDialog } from './OneTimeApiTokenDialog';
 
 const EMPTY_TOOLS: agentApi.RegisteredTool[] = [];
 
@@ -321,6 +323,14 @@ export function AutomationsPage() {
     queryFn: agentApi.listTools,
     retry: false,
   });
+  const toolRows = React.useMemo(
+    () => localizeToolMetadataList(tools.data?.tools ?? EMPTY_TOOLS, t),
+    [t, tools.data?.tools],
+  );
+  const toolLabels = React.useMemo(
+    () => new Map(toolRows.map((tool) => [tool.name, tool.display_name])),
+    [toolRows],
+  );
   const dryRun = useMutation({
     mutationFn: (id: string) => agentApi.dryRunAutomation(id, { type: 'manual.preview' }),
     onSuccess: () => toast.success(t('automations.dry_run_success')),
@@ -356,7 +366,7 @@ export function AutomationsPage() {
               <p className="text-sm text-tx-2">{automation.description}</p>
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {automation.allowed_tools.map((tool) => (
-                  <Badge key={tool} variant="outline" className="font-mono">{tool}</Badge>
+                  <Badge key={tool} variant="outline">{toolLabels.get(tool) ?? tool}</Badge>
                 ))}
               </div>
               <div className="mt-4 flex items-center justify-between border-t border-bd-0 pt-3">
@@ -402,7 +412,7 @@ export function AutomationsPage() {
       )}
       <AutomationEditorDrawer
         target={editor}
-        tools={tools.data?.tools ?? EMPTY_TOOLS}
+        tools={toolRows}
         onClose={() => setEditor(null)}
       />
     </ModulePage>
@@ -415,6 +425,12 @@ export function ApprovalsPage() {
   const approveAccess = useActionAccess({
     permission: 'agent.approve',
   });
+  const executeAccess = useActionAccess({
+    permission: 'agent.use',
+  });
+  const [oneTimeApiToken, setOneTimeApiToken] = React.useState<string | null>(
+    null,
+  );
   const approvals = useQuery({
     queryKey: ['agent', 'approvals'],
     queryFn: agentApi.listApprovals,
@@ -434,17 +450,24 @@ export function ApprovalsPage() {
       }
       return agentApi.reviewApproval(id, approve, '');
     },
-    onSuccess: refresh,
+    onSuccess: async (result) => {
+      const token = result.execution?.one_time_result?.api_token?.token;
+      if (token) setOneTimeApiToken(token);
+      await refresh();
+      if (result.execution) toast.success(t('approvals.execution_started'));
+    },
     onError: (error) => toast.error(String(error)),
   });
   const execute = useMutation({
     mutationFn: (id: string) => {
-      if (!approveAccess.allowed) {
-        throw new Error(approveAccess.reason);
+      if (!executeAccess.allowed) {
+        throw new Error(executeAccess.reason);
       }
       return agentApi.executeApproval(id, `mole-${id}-${Date.now()}`);
     },
-    onSuccess: async () => {
+    onSuccess: async (execution) => {
+      const token = execution.one_time_result?.api_token?.token;
+      if (token) setOneTimeApiToken(token);
       await refresh();
       toast.success(t('approvals.execution_started'));
     },
@@ -511,9 +534,9 @@ export function ApprovalsPage() {
                   ) : (
                     <Button
                       size="sm"
-                      disabled={execute.isPending || approveAccess.disabled}
+                      disabled={execute.isPending || executeAccess.disabled}
                       disabledReason={
-                        !execute.isPending ? approveAccess.reason : undefined
+                        !execute.isPending ? executeAccess.reason : undefined
                       }
                       onClick={() => execute.mutate(approval.id)}
                     >
@@ -532,6 +555,10 @@ export function ApprovalsPage() {
           description={t('approvals.empty_description')}
         />
       )}
+      <OneTimeApiTokenDialog
+        token={oneTimeApiToken}
+        onClose={() => setOneTimeApiToken(null)}
+      />
     </ModulePage>
   );
 }

@@ -181,7 +181,7 @@ export function AccountWorkspaceIdentity() {
         <ChromeButton
           disabled={apiTokensAccess.disabled}
           disabledReason={apiTokensAccess.reason}
-          onClick={() => navigate('/iam/service-accounts')}
+          onClick={() => navigate('/iam/api-tokens')}
         >
           {t('workspace.api_tokens')}
         </ChromeButton>

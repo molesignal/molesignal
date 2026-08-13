@@ -25,6 +25,7 @@
   "datasource": "数据源",
   "iam": "身份与访问",
   "iam_users": "用户",
+  "iam_api_tokens": "API tokens",
   "iam_service_accounts": "服务账号",
   "iam_organizations": "组织",
   "organization_management": "组织管理",

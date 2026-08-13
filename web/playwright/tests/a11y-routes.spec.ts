@@ -30,6 +30,7 @@ const ROUTES: Array<{ path: string; label: string }> = [
   { path: '/agent/approvals', label: 'agent-approvals' },
   { path: '/agent/executions', label: 'agent-executions' },
   { path: '/agent/settings', label: 'agent-settings' },
+  { path: '/agent/settings/inbound-mcp', label: 'agent-inbound-mcp' },
   { path: '/streams', label: 'streams' },
   { path: '/settings', label: 'settings' },
   { path: '/noc', label: 'noc' },
@@ -66,9 +67,10 @@ const ROUTES: Array<{ path: string; label: string }> = [
   { path: '/pipelines/sample-id/history', label: 'pipelines-history' },
   { path: '/pipelines/sample-id/backfill', label: 'pipelines-backfill' },
 
-  // IAM module (7 routes)
+  // IAM module (8 routes)
   { path: '/iam/users', label: 'iam-users' },
   { path: '/iam/service-accounts', label: 'iam-service-accounts' },
+  { path: '/iam/api-tokens', label: 'iam-api-tokens' },
   { path: '/iam/organizations', label: 'iam-organizations' },
   { path: '/iam/groups', label: 'iam-groups' },
   { path: '/iam/roles', label: 'iam-roles' },

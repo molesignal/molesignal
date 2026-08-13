@@ -46,9 +46,11 @@ use crate::{
 mod evaluation;
 mod events;
 mod incident_context;
+mod manual;
 use evaluation::{compare_value, compute_fingerprint, first_cell_f64, first_cell_matches};
 use events::{emit_lifecycle, enqueue_notify_event};
 use incident_context::derive_incident_context;
+pub use manual::{AlertRuleAnomalyTest, AlertRuleTestResult};
 
 /// 一天的微秒数；anomaly 历史窗口按整天回看。
 const DAY_MICROS: i64 = 86_400_000_000;
@@ -350,6 +352,22 @@ impl RuleEvaluator {
         from: TimestampMicros,
         to: TimestampMicros,
     ) -> Option<QueryResult> {
+        match self.run_window_result(rule, stream, from, to).await {
+            Ok(result) => Some(result),
+            Err(error) => {
+                tracing::warn!(rule_id = %rule.id, error = %error, "rule query failed");
+                None
+            }
+        }
+    }
+
+    async fn run_window_result(
+        &self,
+        rule: &AlertRule,
+        stream: &StreamHint,
+        from: TimestampMicros,
+        to: TimestampMicros,
+    ) -> Result<QueryResult> {
         let req = QueryRequest {
             org_id: rule.org_id.clone(),
             language: rule.query.language,
@@ -360,17 +378,9 @@ impl RuleEvaluator {
             federation_clusters: Vec::new(),
         };
         let timeout = Duration::from_secs(self.eval_timeout_secs as u64);
-        match tokio::time::timeout(timeout, self.sql_engine.execute(req)).await {
-            Err(_) => {
-                tracing::warn!(rule_id = %rule.id, "rule eval timed out");
-                None
-            }
-            Ok(Err(e)) => {
-                tracing::warn!(rule_id = %rule.id, error = %e, "rule query error");
-                None
-            }
-            Ok(Ok(q)) => Some(q),
-        }
+        tokio::time::timeout(timeout, self.sql_engine.execute(req))
+            .await
+            .map_err(|_| crate::shared::Error::cancelled("alert rule test timed out"))?
     }
 
     /// Anomaly 求值：取 `lookback_days` 个同时刻历史窗口的首格值作基线，

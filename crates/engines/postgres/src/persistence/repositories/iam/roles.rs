@@ -10,6 +10,10 @@ use sqlx::{PgPool, Row};
 use super::super::sqlx_err;
 use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
+mod queries;
+
+use queries::{get_sql, list_sql, list_with_usage_sql};
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IamRole {
     pub id: Id,
@@ -29,13 +33,24 @@ pub struct IamRole {
 pub struct RoleUsage {
     pub memberships: i64,
     pub api_tokens: i64,
+    pub service_accounts: i64,
     pub invitations: i64,
     pub bindings: i64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IamRoleWithUsage {
+    pub role: IamRole,
+    pub usage: RoleUsage,
+}
+
 impl RoleUsage {
     pub fn total(&self) -> i64 {
-        self.memberships + self.api_tokens + self.invitations + self.bindings
+        self.memberships
+            + self.api_tokens
+            + self.service_accounts
+            + self.invitations
+            + self.bindings
     }
 }
 
@@ -43,6 +58,7 @@ impl RoleUsage {
 pub trait IamRoleRepository: Send + Sync {
     async fn ensure_builtin_roles(&self, org_id: &Id) -> Result<()>;
     async fn list(&self, org_id: &Id) -> Result<Vec<IamRole>>;
+    async fn list_with_usage(&self, org_id: &Id) -> Result<Vec<IamRoleWithUsage>>;
     async fn get(&self, org_id: &Id, id: &Id) -> Result<IamRole>;
     async fn create(&self, role: IamRole) -> Result<IamRole>;
     async fn update(&self, role: IamRole) -> Result<IamRole>;
@@ -59,8 +75,6 @@ impl PgIamRoleRepository {
         Self { pool }
     }
 }
-
-const COLS: &str = "id, org_id, role_key, name, description, builtin, role_type, scope, created_at_micros, updated_at_micros";
 
 fn row_to(row: sqlx::postgres::PgRow, permissions: Vec<String>) -> Result<IamRole> {
     Ok(IamRole {
@@ -152,44 +166,51 @@ impl IamRoleRepository for PgIamRoleRepository {
     }
 
     async fn list(&self, org_id: &Id) -> Result<Vec<IamRole>> {
-        let rows = sqlx::query(&format!(
-            "SELECT {COLS}
-               FROM iam_roles
-              WHERE org_id = $1
-              ORDER BY
-                CASE WHEN builtin THEN 0 ELSE 1 END,
-                COALESCE(
-                    (SELECT display_priority
-                       FROM iam_builtin_roles catalog
-                      WHERE catalog.role_key = iam_roles.role_key),
-                    1000
-                ),
-                name ASC"
-        ))
-        .bind(&org_id.0)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(sqlx_err)?;
+        let rows = sqlx::query(&list_sql())
+            .bind(&org_id.0)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(sqlx_err)?;
+        rows.into_iter()
+            .map(|row| {
+                let permissions = row.try_get("permissions").map_err(sqlx_err)?;
+                row_to(row, permissions)
+            })
+            .collect()
+    }
 
-        let mut out = Vec::with_capacity(rows.len());
-        for row in rows {
-            let id: String = row.try_get("id").map_err(sqlx_err)?;
-            let permissions = self.permissions(&id).await?;
-            out.push(row_to(row, permissions)?);
-        }
-        Ok(out)
+    async fn list_with_usage(&self, org_id: &Id) -> Result<Vec<IamRoleWithUsage>> {
+        let rows = sqlx::query(&list_with_usage_sql())
+            .bind(&org_id.0)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(sqlx_err)?;
+        rows.into_iter()
+            .map(|row| {
+                let permissions = row.try_get("permissions").map_err(sqlx_err)?;
+                let usage = RoleUsage {
+                    memberships: row.try_get("memberships").map_err(sqlx_err)?,
+                    api_tokens: row.try_get("api_tokens").map_err(sqlx_err)?,
+                    service_accounts: row.try_get("service_accounts").map_err(sqlx_err)?,
+                    invitations: row.try_get("invitations").map_err(sqlx_err)?,
+                    bindings: row.try_get("bindings").map_err(sqlx_err)?,
+                };
+                Ok(IamRoleWithUsage {
+                    role: row_to(row, permissions)?,
+                    usage,
+                })
+            })
+            .collect()
     }
 
     async fn get(&self, org_id: &Id, id: &Id) -> Result<IamRole> {
-        let row = sqlx::query(&format!(
-            "SELECT {COLS} FROM iam_roles WHERE org_id = $1 AND id = $2"
-        ))
-        .bind(&org_id.0)
-        .bind(&id.0)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(sqlx_err)?;
-        let permissions = self.permissions(&id.0).await?;
+        let row = sqlx::query(&get_sql())
+            .bind(&org_id.0)
+            .bind(&id.0)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(sqlx_err)?;
+        let permissions = row.try_get("permissions").map_err(sqlx_err)?;
         row_to(row, permissions)
     }
 
@@ -287,6 +308,12 @@ impl IamRoleRepository for PgIamRoleRepository {
                     AND r.role_key = $2
                     AND token.revoked = FALSE) AS api_tokens,
                 (SELECT COUNT(*)
+                   FROM service_accounts account
+                  JOIN iam_roles r ON r.id = account.role_id
+                  WHERE account.org_id = $1
+                    AND r.role_key = $2
+                    AND account.deleted_at_micros IS NULL) AS service_accounts,
+                (SELECT COUNT(*)
                    FROM invitations invitation
                    JOIN iam_roles r ON r.id = invitation.role_id
                   WHERE invitation.org_id = $1
@@ -307,6 +334,7 @@ impl IamRoleRepository for PgIamRoleRepository {
         Ok(RoleUsage {
             memberships: row.try_get("memberships").map_err(sqlx_err)?,
             api_tokens: row.try_get("api_tokens").map_err(sqlx_err)?,
+            service_accounts: row.try_get("service_accounts").map_err(sqlx_err)?,
             invitations: row.try_get("invitations").map_err(sqlx_err)?,
             bindings: row.try_get("bindings").map_err(sqlx_err)?,
         })
@@ -354,25 +382,6 @@ impl PgIamRoleRepository {
             return Err(Error::invalid(format!("unknown permission: {unknown}")));
         }
         Ok(validated)
-    }
-
-    async fn permissions(&self, role_id: &str) -> Result<Vec<String>> {
-        let rows = sqlx::query(
-            "SELECT role_permission.permission_key
-               FROM iam_role_permissions role_permission
-               JOIN iam_permissions permission
-                 ON permission.permission_key = role_permission.permission_key
-                AND permission.scope = 'organization'
-              WHERE role_permission.role_id = $1
-           ORDER BY role_permission.permission_key ASC",
-        )
-        .bind(role_id)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(sqlx_err)?;
-        rows.into_iter()
-            .map(|row| row.try_get("permission_key").map_err(sqlx_err))
-            .collect()
     }
 }
 

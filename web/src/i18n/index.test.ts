@@ -101,6 +101,28 @@ function leafValue(bundle: Bundle, dottedKey: string): unknown {
   }, bundle);
 }
 
+describe('builtin tool catalog translations', () => {
+  const enCatalog = leafValue(EN.agent ?? {}, 'tools') as Bundle;
+  const zhCatalog = leafValue(ZH.agent ?? {}, 'tools') as Bundle;
+
+  it('contains complete localized metadata for all builtin tools', () => {
+    expect(Object.keys(enCatalog)).toHaveLength(190);
+    expect(Object.keys(zhCatalog).sort()).toEqual(Object.keys(enCatalog).sort());
+
+    for (const [name, metadata] of Object.entries(enCatalog)) {
+      expect(name).toMatch(/^[a-z][a-z0-9_]*$/);
+      expect(metadata).toMatchObject({
+        title: expect.any(String),
+        description: expect.any(String),
+      });
+      expect(zhCatalog[name]).toMatchObject({
+        title: expect.any(String),
+        description: expect.any(String),
+      });
+    }
+  });
+});
+
 describe('i18n resource parity', () => {
   const namespaces = Object.keys(EN);
 

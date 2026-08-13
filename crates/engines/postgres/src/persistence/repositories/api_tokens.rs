@@ -61,7 +61,7 @@ impl PgApiTokenRepository {
 
 const COLS: &str = "id, prefix, secret_hash, org_id, user_id, role_id, name,
                     expires_at_micros, last_used_at_micros, revoked, created_at_micros,
-                    is_default, token_kind, application_id";
+                    is_default, token_kind, application_id, service_account_id";
 
 fn row_to(row: sqlx::postgres::PgRow) -> ApiToken {
     let token_kind = row
@@ -95,6 +95,10 @@ fn row_to(row: sqlx::postgres::PgRow) -> ApiToken {
         application_id: row
             .try_get::<Option<String>, _>("application_id")
             .unwrap_or_default(),
+        service_account_id: row
+            .try_get::<Option<String>, _>("service_account_id")
+            .unwrap_or_default()
+            .map(Id),
     }
 }
 
@@ -105,8 +109,8 @@ impl ApiTokenRepository for PgApiTokenRepository {
             "INSERT INTO api_tokens
                 (id, prefix, secret_hash, org_id, user_id, role_id, name,
                  expires_at_micros, last_used_at_micros, revoked, created_at_micros,
-                 is_default, token_kind, application_id)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULL, $9, $10, $11, $12, $13)",
+                 is_default, token_kind, application_id, service_account_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULL, $9, $10, $11, $12, $13, $14)",
         )
         .bind(&token.id.0)
         .bind(&token.prefix)
@@ -121,12 +125,15 @@ impl ApiTokenRepository for PgApiTokenRepository {
         .bind(token.is_default)
         .bind(token.token_kind.as_str())
         .bind(&token.application_id)
+        .bind(token.service_account_id.as_ref().map(|id| &id.0))
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
-        self.tokens
-            .insert(token.prefix.clone(), Some(token.clone()))
-            .await;
+        if token.token_kind != ApiTokenKind::ServiceAccount {
+            self.tokens
+                .insert(token.prefix.clone(), Some(token.clone()))
+                .await;
+        }
         Ok(token)
     }
 
@@ -134,21 +141,40 @@ impl ApiTokenRepository for PgApiTokenRepository {
         if let Some(cached) = self.tokens.get(prefix).await {
             return Ok(cached);
         }
-        let sql = format!("SELECT {COLS} FROM api_tokens WHERE prefix = $1");
+        let sql = format!(
+            "SELECT {COLS} FROM api_tokens token
+             WHERE prefix = $1
+               AND (
+                   token_kind <> 'service_account'
+                   OR EXISTS (
+                       SELECT 1 FROM service_accounts account
+                       WHERE account.org_id = token.org_id
+                         AND account.id = token.service_account_id
+                         AND NOT account.disabled
+                         AND account.deleted_at_micros IS NULL
+                   )
+               )"
+        );
         let token = sqlx::query(&sql)
             .bind(prefix)
             .fetch_optional(&self.pool)
             .await
             .map_err(sqlx_err)?
             .map(row_to);
-        self.tokens.insert(prefix.to_string(), token.clone()).await;
+        if token
+            .as_ref()
+            .is_none_or(|token| token.token_kind != ApiTokenKind::ServiceAccount)
+        {
+            self.tokens.insert(prefix.to_string(), token.clone()).await;
+        }
         Ok(token)
     }
 
     async fn list_by_org(&self, org_id: &Id) -> Result<Vec<ApiToken>> {
         let sql = format!(
             "SELECT {COLS} FROM api_tokens
-             WHERE org_id = $1 ORDER BY created_at_micros DESC LIMIT 500"
+             WHERE org_id = $1
+             ORDER BY created_at_micros DESC LIMIT 500"
         );
         let rows = sqlx::query(&sql)
             .bind(&org_id.0)

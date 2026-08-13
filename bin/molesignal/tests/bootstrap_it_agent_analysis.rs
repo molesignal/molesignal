@@ -55,6 +55,22 @@ fn user_msg(s: &str) -> molesignal::agent::chat::ChatMessage {
     }
 }
 
+fn test_tool_context() -> ToolAuthContext {
+    ToolAuthContext::from_iam(&molesignal::app::iam::IamContext {
+        user_id: Id("u1".into()),
+        org_id: Id("orgA".into()),
+        display_role: String::new(),
+        roles: Vec::new(),
+        credential_role_id: None,
+        credential_application_id: None,
+        credential_service_account_id: None,
+        scope: molesignal::domain::iam::IamScope::Organization,
+        permissions: Default::default(),
+        features: Default::default(),
+        policy_version: 0,
+    })
+}
+
 /// provider 返 5xx → AgentLoop 发一条 `Error` 事件并收尾（不 panic）。
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn chatloop_provider_error_path_emits_error_event() {
@@ -69,14 +85,7 @@ async fn chatloop_provider_error_path_emits_error_event() {
         as Arc<dyn molesignal::agent::chat::ProviderAdapter>;
     let chat_loop = Arc::new(AgentLoop::new(adapter, Arc::new(NoopDispatcher)));
     let mut stream = chat_loop.clone().run_stream(
-        ToolAuthContext {
-            user_id: "u1".into(),
-            org_id: "orgA".into(),
-            chat_id: None,
-            investigation_id: None,
-            execution_policy: Default::default(),
-            query_generation_only: false,
-        },
+        test_tool_context(),
         "gpt-4o".into(),
         vec![user_msg("hi")],
         None,

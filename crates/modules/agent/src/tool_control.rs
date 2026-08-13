@@ -9,49 +9,12 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+pub use tool_runtime::ToolExecutionMode;
 
 use crate::{
     agent::model::RiskLevel,
     shared::{Result, ids::Id, time::TimestampMicros},
 };
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ToolExecutionMode {
-    Automatic,
-    Confirmation,
-    SingleApproval,
-    DualApproval,
-    Disabled,
-}
-
-impl ToolExecutionMode {
-    pub const fn default_for_risk(risk: RiskLevel) -> Self {
-        match risk {
-            RiskLevel::L0 => Self::Automatic,
-            RiskLevel::L1 => Self::Confirmation,
-            RiskLevel::L2 => Self::SingleApproval,
-            RiskLevel::L3 => Self::DualApproval,
-            RiskLevel::L4 => Self::Disabled,
-        }
-    }
-
-    /// 系统硬限制：策略只允许收紧风险要求，不能把高风险工具降为自动执行。
-    pub const fn allowed_for_risk(self, risk: RiskLevel) -> bool {
-        match risk {
-            RiskLevel::L0 | RiskLevel::L1 => true,
-            RiskLevel::L2 => matches!(
-                self,
-                Self::SingleApproval | Self::DualApproval | Self::Disabled
-            ),
-            RiskLevel::L3 => matches!(
-                self,
-                Self::SingleApproval | Self::DualApproval | Self::Disabled
-            ),
-            RiskLevel::L4 => matches!(self, Self::DualApproval | Self::Disabled),
-        }
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

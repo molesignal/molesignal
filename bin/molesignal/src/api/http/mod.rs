@@ -40,6 +40,8 @@ pub(crate) fn build_router_with_client_ip(
         // /api/v1/public/status-pages/<slug>：客户状态页无需 MoleSignal 登录。
         .merge(routes::status_pages::public_routes().with_state(state.clone()));
 
+    let r = r.merge(routes::oauth::well_known_routes().with_state(state.clone()));
+
     // /.well-known/acme-challenge/<token>：顶层公开（无 auth），仅
     let r = r.merge(routes::domains::challenge_routes().with_state(state.clone()));
 

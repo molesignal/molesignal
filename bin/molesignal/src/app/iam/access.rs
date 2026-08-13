@@ -29,6 +29,7 @@ pub struct IamSubject {
     pub organization_id: Id,
     pub credential_role_id: Option<Id>,
     pub credential_application_id: Option<String>,
+    pub credential_service_account_id: Option<Id>,
     pub scope: IamScope,
 }
 
@@ -39,6 +40,7 @@ impl From<&IamContext> for IamSubject {
             organization_id: context.org_id.clone(),
             credential_role_id: context.credential_role_id.clone(),
             credential_application_id: context.credential_application_id.clone(),
+            credential_service_account_id: context.credential_service_account_id.clone(),
             scope: context.scope,
         }
     }
@@ -153,6 +155,7 @@ struct SnapshotCacheKey {
     scope: &'static str,
     credential_role_id: Option<String>,
     credential_application_id: Option<String>,
+    credential_service_account_id: Option<String>,
     version: u64,
     permission_catalog_version: u64,
     route_catalog_version: u64,

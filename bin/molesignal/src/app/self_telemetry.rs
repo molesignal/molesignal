@@ -405,6 +405,7 @@ impl SelfTelemetryRuntime {
         }
 
         if settings.enabled
+            && settings.profiles_enabled
             && let Some(context) = profile_context.clone()
         {
             handles.push(tokio::spawn(with_suppression(run_profiles_worker(

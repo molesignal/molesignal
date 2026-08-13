@@ -40,6 +40,7 @@ pub mod model_prices;
 pub mod mutes;
 pub mod node;
 pub mod notify;
+pub mod oauth;
 pub mod onboarding;
 pub mod profiles;
 pub mod profiling;
@@ -81,6 +82,7 @@ pub fn api_v1(state: AppState) -> Router<AppState> {
         .merge(billing::routes())
         .merge(intake::routes())
         .merge(onboarding::routes())
+        .merge(oauth::routes())
         .merge(query::routes())
         .merge(dashboards::routes())
         .merge(folders::routes())
@@ -128,7 +130,7 @@ pub fn api_v1(state: AppState) -> Router<AppState> {
         .merge(web::routes());
 
     let r = r
-        .merge(agent::routes())
+        .merge(agent::routes(state.clone()))
         .merge(marketplace::routes())
         .merge(domains::routes());
 

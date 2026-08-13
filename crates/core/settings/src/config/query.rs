@@ -134,8 +134,10 @@ pub struct AdmissionSettings {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchJobsSettings {
+    /// Maximum Search Jobs executing concurrently on one node. Claiming always uses one poller.
     #[serde(default = "default_search_workers")]
     pub workers: u32,
+    /// Initial fallback poll delay; notification wakeups normally avoid waiting for this timeout.
     #[serde(default = "default_search_idle")]
     pub idle_poll_secs: u64,
     #[serde(default = "default_search_cleanup")]

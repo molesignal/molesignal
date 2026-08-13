@@ -1,6 +1,7 @@
 export { IamIndexRedirect, IamLayout } from './IamLayout';
 export { Users } from './Users';
 export { Approvals } from './Approvals';
+export { ApiTokens } from './ApiTokens';
 export { ServiceAccounts } from './ServiceAccounts';
 export { Organizations } from './Organizations';
 export { Groups } from './Groups';

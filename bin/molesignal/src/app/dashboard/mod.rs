@@ -21,6 +21,7 @@ use crate::{
 
 pub mod authoring;
 pub mod contract_registry;
+mod panels;
 pub mod validation;
 
 #[cfg(test)]
@@ -188,7 +189,8 @@ impl DashboardService {
         actor: Id,
         mut model: Value,
     ) -> Result<Dashboard> {
-        let next_version = dashboard.version.saturating_add(1);
+        let expected_version = dashboard.version;
+        let next_version = expected_version.saturating_add(1);
         apply_server_model_fields(
             &mut model,
             &dashboard.id,
@@ -212,7 +214,9 @@ impl DashboardService {
         dashboard.version = next_version;
         dashboard.updated_at = TimestampMicros::now();
         dashboard.updated_by = actor;
-        self.dashboards.update(dashboard).await
+        self.dashboards
+            .update_if_version(dashboard, expected_version)
+            .await
     }
 
     /// 按 id 存在与否决定 create / update（幂等覆盖）。跨集群事件 apply 用：

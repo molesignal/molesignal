@@ -5,6 +5,7 @@ use std::{sync::Arc, time::Duration};
 
 use tokio::task::JoinHandle;
 
+use super::polling::PollingBackoff;
 use crate::{app::status_page::StatusPageService, infra::status_page::StatusPageAssetCleaner};
 
 pub struct StatusPageMaintenanceWorker {
@@ -24,11 +25,12 @@ impl StatusPageMaintenanceWorker {
 
     pub fn spawn(self) -> JoinHandle<()> {
         tokio::spawn(async move {
-            let mut tick = tokio::time::interval(self.interval);
-            tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+            let mut cadence =
+                PollingBackoff::new(self.interval, self.interval, "status-page-maintenance");
             loop {
-                tick.tick().await;
                 self.sweep_once().await;
+                tokio::time::sleep(cadence.next_delay()).await;
+                cadence.reset();
             }
         })
     }

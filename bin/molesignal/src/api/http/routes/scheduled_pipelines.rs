@@ -26,10 +26,7 @@ use crate::{
         query::{QueryLanguage, QueryRequest, StreamHint},
     },
     infra::{
-        persistence::repositories::{
-            pipelines::runs::{PipelineRun, PipelineRunSummary},
-            search::jobs::{SearchJob, SearchJobState},
-        },
+        persistence::repositories::pipelines::runs::{PipelineRun, PipelineRunSummary},
         pipeline::{
             ScheduledPipeline,
             exec::{parse_signal_type, validate_pipeline_streams},
@@ -424,38 +421,18 @@ async fn submit_backfill(
         limit: None,
         federation_clusters: Vec::new(),
     };
-    let mut request_json =
-        serde_json::to_value(&synth).map_err(|e| Error::internal(format!("request json: {e}")))?;
-    if let Some(obj) = request_json.as_object_mut() {
-        obj.insert(
-            "pipeline_id".to_string(),
-            Value::String(pipeline_id.0.clone()),
-        );
-        obj.insert(
-            "backfill_window_micros".to_string(),
-            Value::Number(window.into()),
-        );
-    }
-
-    let now = TimestampMicros::now();
-    let ttl_secs: i64 = 7 * 86400;
-    let job = SearchJob {
-        id: Id::new(),
-        org_id: pipeline.org_id.clone(),
-        user_id: ctx.user_id.clone(),
-        request_json,
-        trace_link: crate::shared::trace_context::current_trace_context()
-            .map(|context| context.serialized_link()),
-        state: SearchJobState::Pending,
-        result_object_key: None,
-        result_rows: None,
-        error: None,
-        submitted_at: now,
-        started_at: None,
-        finished_at: None,
-        expires_at: TimestampMicros(now.0 + ttl_secs * 1_000_000),
-    };
-    let job = state.storage.search_jobs.create(job).await?;
+    let job = state
+        .search_jobs
+        .submit_backfill(
+            pipeline.org_id.clone(),
+            ctx.user_id.clone(),
+            ctx.organization_role_key().to_string(),
+            synth,
+            pipeline_id,
+            window,
+            None,
+        )
+        .await?;
     let body = BackfillResp {
         job_id: job.id.0.clone(),
         monitor: format!("/api/v1/query/jobs/{}", job.id.0),

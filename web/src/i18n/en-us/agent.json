@@ -253,6 +253,11 @@
     "approve": "Approve",
     "execute": "Approve and execute",
     "execution_started": "Operation submitted for execution",
+    "one_time_token_title": "One-time API token",
+    "one_time_token_description": "Copy this API token now. Its plaintext is excluded from execution history and cannot be viewed again.",
+    "copy_one_time_token": "Copy API token",
+    "one_time_token_copied": "API token copied",
+    "one_time_token_copy_failed": "Could not copy the API token",
     "empty_title": "No approvals to review",
     "empty_description": "Controlled operations proposed by Mole Agent appear here."
   },
@@ -277,9 +282,59 @@
       "models": "Models & reasoning",
       "prompts": "Prompt management",
       "tools": "Tools & capabilities",
+      "inbound_mcp": "Inbound MCP",
       "data": "Data access",
       "network": "Network policy",
       "approvals": "Approval policy"
+    },
+    "inbound_mcp": {
+      "title": "Inbound MCP Server",
+      "description": "Let external AI clients manage this organization through MoleSignal's authenticated, policy-controlled MCP endpoint.",
+      "enabled": "Enabled",
+      "endpoint": "Endpoint",
+      "protocols": "Protocol versions",
+      "saved": "Inbound MCP settings saved",
+      "invalid_limits": "Every runtime limit must be a positive integer.",
+      "allowed_origins": "Allowed browser origins",
+      "origins_hint": "One exact HTTP or HTTPS origin per line. Requests without Origin and same-origin requests remain allowed.",
+      "copy": "Copy MCP endpoint",
+      "copied": "MCP endpoint copied",
+      "save": "Save settings",
+      "security": {
+        "title": "Tenant and policy enforcement",
+        "description": "The server derives user and organization identity only from the credential. Effective tools are intersected with token IAM permissions and the organization's Tool Policy; Agent Profiles do not narrow this surface."
+      },
+      "credentials": {
+        "title": "Credentials",
+        "description": "Use a personal API token, a Service Account API token, or OAuth 2.1. Inbound MCP never returns API token plaintext.",
+        "api_tokens": "Manage API tokens",
+        "service_accounts": "Manage Service Accounts"
+      },
+      "runtime": {
+        "title": "Per-request runtime limits",
+        "description": "Changes take effect when the next MCP HTTP request starts. Existing requests keep their current snapshot.",
+        "request_bytes": "Request bytes",
+        "response_bytes": "Response bytes",
+        "concurrent_calls": "Concurrent calls / credential",
+        "calls_per_minute": "Calls / minute / credential",
+        "read_timeout": "Read timeout (ms)"
+      },
+      "oauth": {
+        "title": "OAuth connections",
+        "description": "Review and revoke OAuth 2.1 token families issued for this organization.",
+        "discovery_title": "OAuth 2.1 discovery",
+        "discovery_description": "Use these endpoints when a client needs explicit OAuth configuration instead of automatic protected-resource discovery.",
+        "protected_metadata": "Protected resource metadata",
+        "authorization_metadata": "Authorization server metadata",
+        "registration_endpoint": "Dynamic registration endpoint",
+        "token_endpoint": "Token endpoint",
+        "empty": "No OAuth connections",
+        "empty_description": "Connections appear here after a user authorizes an MCP client.",
+        "authorized_by": "Authorized by {{value}}",
+        "expires": "Latest token expires {{value}}",
+        "revoke": "Revoke",
+        "revoked": "OAuth connection revoked"
+      }
     },
     "profiles": {
       "title": "Agent profiles",
@@ -805,7 +860,10 @@
       },
       "access": {
         "read_only": "Read-only automatic",
-        "creates_approval_request": "Creates approval only"
+        "preflight": "Preflight only",
+        "managed_mutation": "Policy-managed mutation",
+        "creates_approval_request": "Creates approval only",
+        "executes_approved_operation": "Executes approved operation"
       }
     },
     "data": {
@@ -998,24 +1056,785 @@
     "rows": "{{count}} results",
     "technical_detail": "Technical detail"
   },
-  "tool_names": {
-    "query_logs": "Query logs",
-    "query_metrics": "Analyze metrics",
-    "list_streams": "Check available data",
-    "get_trace": "Correlate traces",
-    "list_recent_alerts": "Check active alerts",
-    "list_on_call_schedules": "Check on-call schedules",
-    "get_current_on_call": "Check current on-call",
-    "list_rum_sessions": "Check User Experience sessions",
-    "list_rum_actions": "Check User Experience actions",
-    "list_rum_errors": "Check User Experience errors",
-    "list_continuous_profiles": "Check continuous profiles",
-    "list_report_templates": "Check report templates",
-    "list_scheduled_reports": "Check scheduled reports",
-    "propose_operation": "Prepare an operation proposal",
-    "get_dashboard_capabilities": "Check Dashboard capabilities",
-    "prepare_dashboard": "Prepare Dashboard draft",
-    "propose_dashboard_creation": "Submit Dashboard creation proposal"
+  "oauth": {
+    "invalid_request": "This OAuth authorization request is invalid or incomplete.",
+    "eyebrow": "MoleSignal Inbound MCP",
+    "title": "Authorize {{client}}",
+    "description": "This MCP client is requesting access to MoleSignal using your identity and current organization.",
+    "access_title": "This connection can",
+    "access_tools": "• Discover and call tools permitted by your IAM permissions and the organization Tool Policy.",
+    "access_policy": "• Propose managed changes and continue them only through the configured approval policy.",
+    "access_credentials": "• Act only while this OAuth grant remains active; it cannot read API token plaintext.",
+    "client": "Client",
+    "organization": "Organization",
+    "resource": "Protected resource",
+    "scopes": "Scopes",
+    "client_website": "Open client website",
+    "deny": "Deny",
+    "allow": "Authorize",
+    "footer": "Authorization is bound to this client, redirect URI, user, organization, and MCP resource."
+  },
+  "tools": {
+    "tool_search": {
+      "title": "Search tools",
+      "description": "Search the enabled tool catalog by capability, domain, tag, or exact name. Use this when the required tool is not already visible."
+    },
+    "tools_call": {
+      "title": "Call tool",
+      "description": "Call one enabled tool discovered with tool_search. The target tool keeps its own permissions, risk policy, timeout, and audit behavior."
+    },
+    "get_platform_capabilities": {
+      "title": "Get platform capabilities",
+      "description": "Return the complete builtin-tool domain inventory, exposure policy, and intentionally excluded unsafe entrypoints."
+    },
+    "query_logs": {
+      "title": "Query logs",
+      "description": "Run bounded read-only SQL against one logs stream. First inspect the exact schema with get_stream_schema; time_range already constrains event time."
+    },
+    "query_metrics": {
+      "title": "Query metrics",
+      "description": "Run one bounded read-only PromQL range query. Grafana template helpers such as label_values() are not PromQL."
+    },
+    "list_streams": {
+      "title": "List streams",
+      "description": "List queryable streams as compact summaries; use get_stream_schema for fields."
+    },
+    "get_stream_schema": {
+      "title": "Get stream schema",
+      "description": "Return exact fields, types, settings, and retention for one stream."
+    },
+    "get_stream_settings": {
+      "title": "Get stream settings",
+      "description": "Return query, retention, partitioning, and ingestion settings for one stream without repeating its full schema."
+    },
+    "list_metric_names": {
+      "title": "List metric names",
+      "description": "List metric stream names, optionally filtered by a substring."
+    },
+    "list_metric_label_values": {
+      "title": "List metric label values",
+      "description": "List distinct values for one real metric label field without using non-PromQL helpers."
+    },
+    "list_metric_labels": {
+      "title": "List metric labels",
+      "description": "List real label fields for one metric stream."
+    },
+    "list_metric_series": {
+      "title": "List metric series",
+      "description": "List bounded distinct metric-label series for a time range."
+    },
+    "search_around": {
+      "title": "Search around",
+      "description": "Fetch log rows immediately before and after an anchor timestamp."
+    },
+    "search_field_values": {
+      "title": "Search field values",
+      "description": "Return bounded distinct values and counts for one exact stream field."
+    },
+    "list_traces": {
+      "title": "List traces",
+      "description": "List bounded trace summaries for a time range, with optional service, duration, error, and trace-id filters."
+    },
+    "get_trace": {
+      "title": "Get trace",
+      "description": "Fetch a bounded set of spans for one trace id. Use get_trace_dag when only structure is needed."
+    },
+    "get_trace_dag": {
+      "title": "Get trace DAG",
+      "description": "Return a compact service/span dependency DAG for one trace without full span payloads."
+    },
+    "list_trace_sessions": {
+      "title": "List trace sessions",
+      "description": "List bounded LLM/AI trace sessions when session fields exist in the trace stream."
+    },
+    "get_trace_session": {
+      "title": "Get trace session",
+      "description": "Get bounded per-trace summaries for one LLM/AI session."
+    },
+    "list_trace_users": {
+      "title": "List trace users",
+      "description": "List bounded AI trace-user aggregates when user fields exist in the trace stream."
+    },
+    "list_recent_alerts": {
+      "title": "List recent alerts",
+      "description": "List active alert incidents. Compatibility alias for list_incidents with status=active."
+    },
+    "list_incidents": {
+      "title": "List incidents",
+      "description": "List incidents by status and optional time range, with bounded results."
+    },
+    "get_incident": {
+      "title": "Get incident",
+      "description": "Get one incident and its alert-rule context by incident id."
+    },
+    "get_incident_rca": {
+      "title": "Get incident RCA",
+      "description": "Get the latest persisted root-cause analysis for an incident."
+    },
+    "get_incident_insights": {
+      "title": "Get incident insights",
+      "description": "Return bounded incident counts grouped by status, severity, service, and rule."
+    },
+    "acknowledge_incident": {
+      "title": "Acknowledge incident",
+      "description": "Acknowledge one open incident."
+    },
+    "resolve_incident": {
+      "title": "Resolve incident",
+      "description": "Resolve one open or acknowledged incident."
+    },
+    "list_alert_rules": {
+      "title": "List alert rules",
+      "description": "List alert rules with state, query, thresholds, and routing metadata."
+    },
+    "get_alert_rule": {
+      "title": "Get alert rule",
+      "description": "Get one alert rule by id."
+    },
+    "create_alert_rule": {
+      "title": "Create alert rule",
+      "description": "Create an alert rule after validation."
+    },
+    "update_alert_rule": {
+      "title": "Update alert rule",
+      "description": "Replace one alert rule after validation."
+    },
+    "delete_alert_rule": {
+      "title": "Delete alert rule",
+      "description": "Delete one alert rule."
+    },
+    "test_alert_rule": {
+      "title": "Test alert rule",
+      "description": "Execute one alert rule as a side-effect-free dry run and return its match decision and bounded sample."
+    },
+    "trigger_alert_rule": {
+      "title": "Trigger alert rule",
+      "description": "Manually open the incident represented by one alert rule without evaluating its threshold."
+    },
+    "list_incident_groups": {
+      "title": "List incident groups",
+      "description": "List correlated incident groups with bounded status filtering."
+    },
+    "get_incident_group": {
+      "title": "Get incident group",
+      "description": "Get one correlated incident group by id."
+    },
+    "list_mute_rules": {
+      "title": "List mute rules",
+      "description": "List alert mute rules without exposing secrets."
+    },
+    "get_mute_rule": {
+      "title": "Get mute rule",
+      "description": "Get one alert mute rule by id."
+    },
+    "list_escalation_policies": {
+      "title": "List escalation policies",
+      "description": "List incident escalation policies."
+    },
+    "get_escalation_policy": {
+      "title": "Get escalation policy",
+      "description": "Get one incident escalation policy by id."
+    },
+    "list_on_call_schedules": {
+      "title": "List on-call schedules",
+      "description": "List on-call schedules and current assignees."
+    },
+    "get_on_call_schedule": {
+      "title": "Get on-call schedule",
+      "description": "Get one on-call schedule by id."
+    },
+    "get_current_on_call": {
+      "title": "Get current on-call",
+      "description": "Resolve current on-call owners for one schedule or all enabled schedules."
+    },
+    "list_notification_connectors": {
+      "title": "List notification connectors",
+      "description": "List notification connectors with credential fields omitted."
+    },
+    "get_notification_connector": {
+      "title": "Get notification connector",
+      "description": "Get notification connector metadata with credentials omitted."
+    },
+    "list_notification_policies": {
+      "title": "List notification policies",
+      "description": "List notification routing policies."
+    },
+    "get_notification_policy": {
+      "title": "Get notification policy",
+      "description": "Get one notification routing policy."
+    },
+    "list_notification_templates": {
+      "title": "List notification templates",
+      "description": "List organization and system notification templates."
+    },
+    "get_notification_template": {
+      "title": "Get notification template",
+      "description": "Get one notification template."
+    },
+    "list_notification_deliveries": {
+      "title": "List notification deliveries",
+      "description": "List bounded notification delivery attempts."
+    },
+    "get_notification_delivery": {
+      "title": "Get notification delivery",
+      "description": "Get one notification delivery attempt."
+    },
+    "retry_notification_delivery": {
+      "title": "Retry notification delivery",
+      "description": "Retry one failed notification delivery."
+    },
+    "acknowledge_notification_delivery": {
+      "title": "Acknowledge notification delivery",
+      "description": "Acknowledge one notification delivery."
+    },
+    "apm_overview": {
+      "title": "APM overview",
+      "description": "Return bounded RED metrics, trends, service health, dependencies, and top errors."
+    },
+    "list_apm_services": {
+      "title": "List APM services",
+      "description": "List APM services with RED health summaries."
+    },
+    "get_apm_service": {
+      "title": "Get APM service",
+      "description": "Get detailed RED trends, transactions, dependencies, errors, and versions for one service."
+    },
+    "list_apm_transactions": {
+      "title": "List APM transactions",
+      "description": "List APM transaction groups with RED summaries."
+    },
+    "get_apm_transaction": {
+      "title": "Get APM transaction",
+      "description": "Get detailed trends and traces for one APM transaction."
+    },
+    "list_apm_dependencies": {
+      "title": "List APM dependencies",
+      "description": "List APM service dependencies with latency and error summaries."
+    },
+    "list_apm_errors": {
+      "title": "List APM errors",
+      "description": "List grouped APM errors with affected services and trace handles."
+    },
+    "get_apm_error": {
+      "title": "Get APM error",
+      "description": "Get one APM error group with samples and trace handles."
+    },
+    "compare_apm_versions": {
+      "title": "Compare APM versions",
+      "description": "Compare RED metrics and regressions between two service versions."
+    },
+    "get_apm_health": {
+      "title": "Get APM health",
+      "description": "Return APM projection freshness, coverage, and data-quality health."
+    },
+    "correlate_signals": {
+      "title": "Correlate signals",
+      "description": "Return bounded links between incidents, traces, logs, RUM, and profiles for a service or trace."
+    },
+    "get_service_topology": {
+      "title": "Get service topology",
+      "description": "Return a bounded service dependency graph for a time range."
+    },
+    "list_rum_sessions": {
+      "title": "List RUM sessions",
+      "description": "List bounded real-user monitoring sessions."
+    },
+    "get_rum_session": {
+      "title": "Get RUM session",
+      "description": "Get one RUM session with a bounded action and error summary."
+    },
+    "list_rum_actions": {
+      "title": "List RUM actions",
+      "description": "List page views, actions, resources, and Web Vitals."
+    },
+    "list_rum_errors": {
+      "title": "List RUM errors",
+      "description": "List RUM errors by session or fingerprint."
+    },
+    "get_rum_related_traces": {
+      "title": "Get RUM related traces",
+      "description": "Find traces directly linked to a RUM session, with bounded time-correlation fallback."
+    },
+    "list_continuous_profiles": {
+      "title": "List continuous profiles",
+      "description": "List continuous-profile metadata with service, type, trace, and label filters."
+    },
+    "get_profile_flamegraph": {
+      "title": "Get profile flamegraph",
+      "description": "Merge a bounded profile selection into a flamebearer flamegraph."
+    },
+    "compare_profiles": {
+      "title": "Compare profiles",
+      "description": "Compare baseline and comparison profile windows as a differential flamegraph. Requires profiling_enhanced."
+    },
+    "list_report_templates": {
+      "title": "List report templates",
+      "description": "List built-in and organization report templates."
+    },
+    "get_report_template": {
+      "title": "Get report template",
+      "description": "Get one report template by id."
+    },
+    "list_scheduled_reports": {
+      "title": "List scheduled reports",
+      "description": "List scheduled reports in the current organization."
+    },
+    "get_scheduled_report": {
+      "title": "Get scheduled report",
+      "description": "Get one scheduled report by id."
+    },
+    "list_report_deliveries": {
+      "title": "List report deliveries",
+      "description": "List bounded delivery history for one scheduled report."
+    },
+    "list_dashboards": {
+      "title": "List dashboards",
+      "description": "List dashboards, optionally within one folder."
+    },
+    "get_dashboard": {
+      "title": "Get dashboard",
+      "description": "Get a Dashboard and its complete model by id."
+    },
+    "create_dashboard": {
+      "title": "Create dashboard",
+      "description": "Create a Dashboard from a complete validated model."
+    },
+    "update_dashboard": {
+      "title": "Update dashboard",
+      "description": "Replace one Dashboard model and optionally move it to another folder."
+    },
+    "delete_dashboard": {
+      "title": "Delete dashboard",
+      "description": "Delete one Dashboard."
+    },
+    "list_folders": {
+      "title": "List folders",
+      "description": "List Dashboard folders."
+    },
+    "get_folder": {
+      "title": "Get folder",
+      "description": "Get one Dashboard folder by id."
+    },
+    "create_folder": {
+      "title": "Create folder",
+      "description": "Create a Dashboard folder."
+    },
+    "update_folder": {
+      "title": "Update folder",
+      "description": "Rename or move one Dashboard folder."
+    },
+    "delete_folder": {
+      "title": "Delete folder",
+      "description": "Delete one empty Dashboard folder."
+    },
+    "list_annotations": {
+      "title": "List annotations",
+      "description": "List bounded time annotations for a range and optional Dashboard or panel."
+    },
+    "get_annotation": {
+      "title": "Get annotation",
+      "description": "Get one time annotation by id."
+    },
+    "create_annotation": {
+      "title": "Create annotation",
+      "description": "Create a time annotation through the configured execution policy."
+    },
+    "update_annotation": {
+      "title": "Update annotation",
+      "description": "Update selected fields of one time annotation through the configured execution policy."
+    },
+    "delete_annotation": {
+      "title": "Delete annotation",
+      "description": "Delete one time annotation through the configured execution policy."
+    },
+    "add_dashboard_panel": {
+      "title": "Add dashboard panel",
+      "description": "Add one panel to a Dashboard root or nested container atomically."
+    },
+    "update_dashboard_panel": {
+      "title": "Update dashboard panel",
+      "description": "Replace one Dashboard panel atomically."
+    },
+    "move_dashboard_panel": {
+      "title": "Move dashboard panel",
+      "description": "Move one Dashboard panel to a root or nested container position atomically."
+    },
+    "delete_dashboard_panel": {
+      "title": "Delete dashboard panel",
+      "description": "Delete one Dashboard panel atomically."
+    },
+    "get_dashboard_capabilities": {
+      "title": "Get dashboard capabilities",
+      "description": "Return supported Dashboard authoring contracts and limits."
+    },
+    "prepare_dashboard": {
+      "title": "Prepare dashboard",
+      "description": "Validate, preflight, and persist a temporary Dashboard draft without creating a Dashboard."
+    },
+    "propose_dashboard_creation": {
+      "title": "Propose dashboard creation",
+      "description": "Create an approval request for a previously prepared Dashboard draft; never creates it directly."
+    },
+    "propose_operation": {
+      "title": "Propose operation",
+      "description": "Create an approval request for a registered operation; never executes it directly."
+    },
+    "propose_alert_action": {
+      "title": "Propose alert action",
+      "description": "Create an approval request to acknowledge or resolve one alert incident."
+    },
+    "propose_synthetic_monitor_action": {
+      "title": "Propose synthetic monitor action",
+      "description": "Create an approval request to run, pause, resume, or archive one synthetic monitor."
+    },
+    "propose_status_page_action": {
+      "title": "Propose status page action",
+      "description": "Create an approval request to archive or restore a status page, or pause/resume its automation."
+    },
+    "propose_notification_action": {
+      "title": "Propose notification action",
+      "description": "Create an approval request to retry or acknowledge one notification delivery."
+    },
+    "propose_scheduled_pipeline_action": {
+      "title": "Propose scheduled pipeline action",
+      "description": "Create an approval request to enable, disable, or delete one scheduled pipeline."
+    },
+    "list_saved_views": {
+      "title": "List saved views",
+      "description": "List saved SQL and PromQL views."
+    },
+    "get_saved_view": {
+      "title": "Get saved view",
+      "description": "Get one saved query view."
+    },
+    "create_saved_view": {
+      "title": "Create saved view",
+      "description": "Create a saved SQL or PromQL view."
+    },
+    "update_saved_view": {
+      "title": "Update saved view",
+      "description": "Replace one saved SQL or PromQL view."
+    },
+    "delete_saved_view": {
+      "title": "Delete saved view",
+      "description": "Delete one saved query view."
+    },
+    "list_search_jobs": {
+      "title": "List search jobs",
+      "description": "List bounded asynchronous search jobs."
+    },
+    "get_search_job": {
+      "title": "Get search job",
+      "description": "Get asynchronous search-job status and result metadata."
+    },
+    "get_search_job_results": {
+      "title": "Get search job results",
+      "description": "Get one bounded page of decoded asynchronous search-job results."
+    },
+    "submit_search_job": {
+      "title": "Submit search job",
+      "description": "Submit one durable asynchronous SQL or PromQL search job."
+    },
+    "cancel_search_job": {
+      "title": "Cancel search job",
+      "description": "Cancel one pending or running asynchronous search job."
+    },
+    "retry_search_job": {
+      "title": "Retry search job",
+      "description": "Retry one failed or cancelled asynchronous search job."
+    },
+    "delete_search_job": {
+      "title": "Delete search job",
+      "description": "Delete one asynchronous search job and its stored result."
+    },
+    "list_scheduled_pipelines": {
+      "title": "List scheduled pipelines",
+      "description": "List scheduled pipelines and recent run health."
+    },
+    "get_scheduled_pipeline": {
+      "title": "Get scheduled pipeline",
+      "description": "Get one scheduled pipeline."
+    },
+    "list_pipeline_runs": {
+      "title": "List pipeline runs",
+      "description": "List bounded execution history for one scheduled pipeline."
+    },
+    "enable_scheduled_pipeline": {
+      "title": "Enable scheduled pipeline",
+      "description": "Enable one scheduled pipeline."
+    },
+    "disable_scheduled_pipeline": {
+      "title": "Disable scheduled pipeline",
+      "description": "Disable one scheduled pipeline."
+    },
+    "delete_scheduled_pipeline": {
+      "title": "Delete scheduled pipeline",
+      "description": "Delete one scheduled pipeline."
+    },
+    "list_functions": {
+      "title": "List functions",
+      "description": "List organization and built-in processing functions."
+    },
+    "get_function": {
+      "title": "Get function",
+      "description": "Get one processing function, including source."
+    },
+    "test_function": {
+      "title": "Test function",
+      "description": "Run a bounded side-effect-free function test against supplied sample input."
+    },
+    "create_function": {
+      "title": "Create function",
+      "description": "Create a processing function after compilation precheck."
+    },
+    "update_function": {
+      "title": "Update function",
+      "description": "Replace one organization processing function after compilation precheck."
+    },
+    "delete_function": {
+      "title": "Delete function",
+      "description": "Delete one organization processing function."
+    },
+    "list_enrichment_tables": {
+      "title": "List enrichment tables",
+      "description": "List enrichment/KV tables."
+    },
+    "list_enrichment_rows": {
+      "title": "List enrichment rows",
+      "description": "List bounded rows from one enrichment table."
+    },
+    "get_enrichment_value": {
+      "title": "Get enrichment value",
+      "description": "Get one enrichment-table row by key."
+    },
+    "list_log_patterns": {
+      "title": "List log patterns",
+      "description": "List persisted log patterns."
+    },
+    "get_log_pattern": {
+      "title": "Get log pattern",
+      "description": "Get one persisted log pattern."
+    },
+    "list_regex_patterns": {
+      "title": "List regex patterns",
+      "description": "List reusable regular-expression patterns."
+    },
+    "get_regex_pattern": {
+      "title": "Get regex pattern",
+      "description": "Get one reusable regular-expression pattern."
+    },
+    "list_field_masking_rules": {
+      "title": "List field masking rules",
+      "description": "List field-masking rules without secret key material."
+    },
+    "get_effective_field_masking": {
+      "title": "Get effective field masking",
+      "description": "Resolve effective field-masking rules for one stream."
+    },
+    "list_data_connectors": {
+      "title": "List data connectors",
+      "description": "List data connectors with credential-like config values redacted."
+    },
+    "get_data_connector": {
+      "title": "Get data connector",
+      "description": "Get one data connector with credential-like config values redacted."
+    },
+    "list_synthetic_monitors": {
+      "title": "List synthetic monitors",
+      "description": "List synthetic monitors and current lifecycle state."
+    },
+    "get_synthetic_monitor": {
+      "title": "Get synthetic monitor",
+      "description": "Get one synthetic monitor and its active revision."
+    },
+    "list_synthetic_revisions": {
+      "title": "List synthetic revisions",
+      "description": "List bounded revisions for one synthetic monitor."
+    },
+    "list_synthetic_results": {
+      "title": "List synthetic results",
+      "description": "List bounded synthetic execution results."
+    },
+    "list_synthetic_locations": {
+      "title": "List synthetic locations",
+      "description": "List synthetic probe locations."
+    },
+    "list_synthetic_agents": {
+      "title": "List synthetic agents",
+      "description": "List probe agents, optionally for one location."
+    },
+    "list_synthetic_secrets": {
+      "title": "List synthetic secrets",
+      "description": "List synthetic-secret metadata; secret values are never returned."
+    },
+    "run_synthetic_monitor": {
+      "title": "Run synthetic monitor",
+      "description": "Run one synthetic monitor immediately."
+    },
+    "pause_synthetic_monitor": {
+      "title": "Pause synthetic monitor",
+      "description": "Pause one synthetic monitor."
+    },
+    "resume_synthetic_monitor": {
+      "title": "Resume synthetic monitor",
+      "description": "Resume one synthetic monitor."
+    },
+    "archive_synthetic_monitor": {
+      "title": "Archive synthetic monitor",
+      "description": "Archive one synthetic monitor."
+    },
+    "list_status_pages": {
+      "title": "List status pages",
+      "description": "List status pages by lifecycle."
+    },
+    "get_status_page": {
+      "title": "Get status page",
+      "description": "Get a status-page snapshot including components and current events."
+    },
+    "list_status_page_incidents": {
+      "title": "List status page incidents",
+      "description": "List status-page incidents or maintenance events."
+    },
+    "get_status_page_incident": {
+      "title": "Get status page incident",
+      "description": "Get one status-page event and its updates."
+    },
+    "list_status_page_subscribers": {
+      "title": "List status page subscribers",
+      "description": "List a bounded page of status-page subscribers."
+    },
+    "list_status_page_deliveries": {
+      "title": "List status page deliveries",
+      "description": "List a bounded page of status-page notification deliveries."
+    },
+    "list_status_page_automation_rules": {
+      "title": "List status page automation rules",
+      "description": "List active status-page automation rules."
+    },
+    "list_status_page_automation_candidates": {
+      "title": "List status page automation candidates",
+      "description": "List bounded status-page automation candidates."
+    },
+    "get_status_page_automation_settings": {
+      "title": "Get status page automation settings",
+      "description": "Get automation settings for one status page."
+    },
+    "archive_status_page": {
+      "title": "Archive status page",
+      "description": "Archive one status page."
+    },
+    "restore_status_page": {
+      "title": "Restore status page",
+      "description": "Restore one archived status page."
+    },
+    "pause_status_page_automation": {
+      "title": "Pause status page automation",
+      "description": "Pause automation for one status page."
+    },
+    "resume_status_page_automation": {
+      "title": "Resume status page automation",
+      "description": "Resume automation for one status page."
+    },
+    "get_user_profile": {
+      "title": "Get user profile",
+      "description": "Get safe profile fields for an organization user. User principals may omit the target for themselves; Service Account principals must specify it, and other-user access requires member read permission."
+    },
+    "get_user_preferences": {
+      "title": "Get user preferences",
+      "description": "Get workspace preferences for an organization user. User principals may omit the target for themselves; Service Account principals must specify it, and other-user access requires member read permission."
+    },
+    "list_organization_members": {
+      "title": "List organization members",
+      "description": "List members of the authenticated organization without password or credential data."
+    },
+    "list_teams": {
+      "title": "List teams",
+      "description": "List teams in the authenticated organization."
+    },
+    "list_roles": {
+      "title": "List roles",
+      "description": "List roles and permission keys in the authenticated organization."
+    },
+    "list_audit_events": {
+      "title": "List audit events",
+      "description": "Query bounded organization audit events with optional filters."
+    },
+    "get_iam_capabilities": {
+      "title": "Get IAM capabilities",
+      "description": "Return the effective capability snapshot for the authenticated subject."
+    },
+    "list_service_accounts": {
+      "title": "List service accounts",
+      "description": "List non-human principals in the authenticated organization."
+    },
+    "get_service_account": {
+      "title": "Get service account",
+      "description": "Get one non-human organization principal."
+    },
+    "list_api_tokens": {
+      "title": "List API tokens",
+      "description": "List API token metadata in the authenticated organization without exposing token secrets; optionally filter by service account."
+    },
+    "create_api_token": {
+      "title": "Create API token",
+      "description": "Create a personal API token for the requesting user and return its plaintext once after execution."
+    },
+    "revoke_api_token": {
+      "title": "Revoke API token",
+      "description": "Revoke one API token."
+    },
+    "create_service_account": {
+      "title": "Create service account",
+      "description": "Atomically create one non-human organization principal and its initial bound API token. The plaintext token is returned once after execution and excluded from execution history."
+    },
+    "update_service_account": {
+      "title": "Update service account",
+      "description": "Update service-account metadata or its effective IAM role."
+    },
+    "enable_service_account": {
+      "title": "Enable service account",
+      "description": "Enable one service account. Previously revoked API tokens stay revoked."
+    },
+    "disable_service_account": {
+      "title": "Disable service account",
+      "description": "Disable one service account and atomically revoke all bound active API tokens."
+    },
+    "delete_service_account": {
+      "title": "Delete service account",
+      "description": "Delete one service account and atomically revoke all bound active API tokens."
+    },
+    "list_agent_investigations": {
+      "title": "List agent investigations",
+      "description": "List Mole Agent investigations."
+    },
+    "get_agent_investigation": {
+      "title": "Get agent investigation",
+      "description": "Get one Mole Agent investigation with steps, evidence, and hypotheses."
+    },
+    "list_agent_approvals": {
+      "title": "List agent approvals",
+      "description": "List Mole Agent approval requests."
+    },
+    "get_agent_approval": {
+      "title": "Get agent approval",
+      "description": "Get one Mole Agent approval request."
+    },
+    "execute_agent_approval": {
+      "title": "Execute agent approval",
+      "description": "Execute an approved Mole Agent operation idempotently."
+    },
+    "list_agent_executions": {
+      "title": "List agent executions",
+      "description": "List Mole Agent approved-operation executions."
+    },
+    "get_agent_execution": {
+      "title": "Get agent execution",
+      "description": "Get one Mole Agent approved-operation execution."
+    },
+    "list_agent_automations": {
+      "title": "List agent automations",
+      "description": "List configured Mole Agent automations."
+    }
   },
   "dashboard_authoring": {
     "title": "AI Dashboard draft",

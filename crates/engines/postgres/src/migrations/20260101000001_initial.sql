@@ -168,11 +168,31 @@ CREATE INDEX IF NOT EXISTS idx_sso_providers_org_enabled
     ON sso_providers(org_id, enabled);
 
 -- ============================================================
--- API tokens / audit / quotas / signing secrets
+-- Service accounts / API tokens / audit / quotas / signing secrets
 -- ============================================================
 
--- Personal/default API token 保留所属用户并随用户禁用失效；rum_client 是应用凭据，
--- 不继承签发人的后续账号状态，但仍受组织状态、撤销与应用绑定约束。
+CREATE TABLE IF NOT EXISTS service_accounts (
+    id                  VARCHAR(64)  PRIMARY KEY,
+    org_id              VARCHAR(64)  NOT NULL,
+    name                VARCHAR(128) NOT NULL,
+    description         TEXT         NOT NULL DEFAULT '',
+    role_id             VARCHAR(64)  NOT NULL,
+    disabled            BOOLEAN      NOT NULL DEFAULT FALSE,
+    created_by          VARCHAR(64)  NOT NULL,
+    created_at_micros   BIGINT       NOT NULL,
+    updated_at_micros   BIGINT       NOT NULL,
+    deleted_at_micros   BIGINT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_service_accounts_org_id
+    ON service_accounts(org_id, id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_service_accounts_org_name_active
+    ON service_accounts(org_id, lower(name)) WHERE deleted_at_micros IS NULL;
+CREATE INDEX IF NOT EXISTS idx_service_accounts_org
+    ON service_accounts(org_id, created_at_micros DESC)
+    WHERE deleted_at_micros IS NULL;
+
+-- API Token 是独立凭证资源。personal/default 归属用户，rum_client 绑定应用；
+-- service_account 类型的 API Token 以不可登录的 Service Account 作为 IAM principal。
 CREATE TABLE IF NOT EXISTS api_tokens (
     id                  VARCHAR(64)  PRIMARY KEY,
     org_id              VARCHAR(64)  NOT NULL,
@@ -187,12 +207,13 @@ CREATE TABLE IF NOT EXISTS api_tokens (
     revoked             BOOLEAN      NOT NULL DEFAULT FALSE,
     token_kind          VARCHAR(32)  NOT NULL DEFAULT 'personal',
     application_id      VARCHAR(128),
+    service_account_id  VARCHAR(64),
     -- 默认接入 PAT：每个 (org, user) 至多一个活的默认 token，完整明文经 KEK seal 存 plaintext_sealed，可重复回显。
     is_default          BOOLEAN      NOT NULL DEFAULT FALSE,
     plaintext_sealed    BYTEA,
     plaintext_nonce     BYTEA,
     CONSTRAINT chk_api_token_kind
-        CHECK (token_kind IN ('personal', 'default_intake', 'rum_client')),
+        CHECK (token_kind IN ('personal', 'default_intake', 'rum_client', 'service_account')),
     CONSTRAINT chk_api_token_application
         CHECK (
             (token_kind = 'rum_client'
@@ -200,11 +221,16 @@ CREATE TABLE IF NOT EXISTS api_tokens (
                 AND application_id ~ '^[A-Za-z0-9._:-]{1,128}$')
             OR (token_kind <> 'rum_client' AND application_id IS NULL)
         ),
+    CONSTRAINT chk_api_token_service_account
+        CHECK (
+            (token_kind = 'service_account' AND service_account_id IS NOT NULL)
+            OR (token_kind <> 'service_account' AND service_account_id IS NULL)
+        ),
     CONSTRAINT chk_api_token_default_kind
         CHECK (is_default = (token_kind = 'default_intake')),
     CONSTRAINT chk_api_token_plaintext_envelope
         CHECK (
-            (token_kind = 'personal'
+            (token_kind IN ('personal', 'service_account')
                 AND plaintext_sealed IS NULL AND plaintext_nonce IS NULL)
             OR (token_kind IN ('default_intake', 'rum_client')
                 AND plaintext_sealed IS NOT NULL AND plaintext_nonce IS NOT NULL)
@@ -214,6 +240,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS uniq_api_tokens_prefix ON api_tokens(prefix);
 CREATE INDEX IF NOT EXISTS idx_api_token_org
     ON api_tokens(org_id, created_at_micros DESC);
 CREATE INDEX IF NOT EXISTS idx_api_token_user ON api_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_api_token_service_account
+    ON api_tokens(org_id, service_account_id, created_at_micros DESC)
+    WHERE service_account_id IS NOT NULL;
 -- 每个 (org, user) 至多一个「活的」默认 token；revoked 的旧默认不占名额。
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_api_tokens_default
     ON api_tokens(org_id, user_id) WHERE is_default AND NOT revoked;
@@ -582,7 +611,10 @@ CREATE TABLE IF NOT EXISTS incidents (
     body_template                   TEXT
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_incidents_fingerprint
-    ON incidents(org_id, fingerprint);
+    ON incidents(org_id, fingerprint)
+    WHERE status IN ('open', 'acknowledged');
+CREATE INDEX IF NOT EXISTS idx_incidents_fingerprint_history
+    ON incidents(org_id, fingerprint, created_at_micros DESC);
 CREATE INDEX IF NOT EXISTS idx_incidents_status
     ON incidents(org_id, status);
 
@@ -783,8 +815,10 @@ CREATE TABLE IF NOT EXISTS search_jobs (
     id                  VARCHAR(64)  PRIMARY KEY,
     org_id              VARCHAR(64)  NOT NULL,
     user_id             VARCHAR(64)  NOT NULL,
+    role_key            VARCHAR(64)  NOT NULL DEFAULT '',
     request_json        JSONB        NOT NULL,
-    state               VARCHAR(16)  NOT NULL DEFAULT 'pending',  -- pending | running | done | failed
+    state               VARCHAR(16)  NOT NULL DEFAULT 'pending',  -- pending | running | done | failed | cancelled
+    attempt             INTEGER      NOT NULL DEFAULT 0,
     result_object_key   TEXT,
     result_rows         BIGINT,
     error               TEXT,
@@ -2118,6 +2152,140 @@ ALTER TABLE agent_tool_calls
     ADD COLUMN IF NOT EXISTS audit_id VARCHAR(64);
 
 -- ============================================================
+-- Inbound MCP Server and OAuth 2.1 authorization server
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS inbound_mcp_settings (
+    org_id                 VARCHAR(64) PRIMARY KEY REFERENCES organizations(id) ON DELETE CASCADE,
+    enabled                BOOLEAN NOT NULL DEFAULT TRUE,
+    allowed_origins        JSONB NOT NULL DEFAULT '[]'::JSONB,
+    max_request_bytes      BIGINT NOT NULL DEFAULT 1048576,
+    max_response_bytes     BIGINT NOT NULL DEFAULT 1048576,
+    max_concurrent_calls   INTEGER NOT NULL DEFAULT 8,
+    calls_per_minute       INTEGER NOT NULL DEFAULT 60,
+    read_timeout_ms        BIGINT NOT NULL DEFAULT 30000,
+    updated_by             VARCHAR(64) NOT NULL REFERENCES users(id),
+    created_at_micros      BIGINT NOT NULL,
+    updated_at_micros      BIGINT NOT NULL,
+    CONSTRAINT inbound_mcp_settings_request_limit
+        CHECK (max_request_bytes BETWEEN 1024 AND 8388608),
+    CONSTRAINT inbound_mcp_settings_response_limit
+        CHECK (max_response_bytes BETWEEN 1024 AND 8388608),
+    CONSTRAINT inbound_mcp_settings_concurrency_limit
+        CHECK (max_concurrent_calls BETWEEN 1 AND 128),
+    CONSTRAINT inbound_mcp_settings_rate_limit
+        CHECK (calls_per_minute BETWEEN 1 AND 10000),
+    CONSTRAINT inbound_mcp_settings_timeout_limit
+        CHECK (read_timeout_ms BETWEEN 100 AND 300000)
+);
+
+CREATE TABLE IF NOT EXISTS inbound_mcp_oauth_clients (
+    client_id                  TEXT PRIMARY KEY,
+    client_name                VARCHAR(255) NOT NULL,
+    redirect_uris              JSONB NOT NULL,
+    grant_types                JSONB NOT NULL,
+    response_types             JSONB NOT NULL,
+    token_endpoint_auth_method VARCHAR(64) NOT NULL,
+    scope                      TEXT NOT NULL,
+    client_secret_hash         TEXT,
+    client_id_issued_at        BIGINT NOT NULL,
+    client_secret_expires_at   BIGINT,
+    client_uri                 TEXT,
+    software_id                VARCHAR(255),
+    software_version           VARCHAR(255),
+    created_at_micros          BIGINT NOT NULL,
+    updated_at_micros          BIGINT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS inbound_mcp_oauth_codes (
+    code_hash              VARCHAR(64) PRIMARY KEY,
+    client_id              TEXT NOT NULL,
+    org_id                 VARCHAR(64) NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    user_id                VARCHAR(64) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    redirect_uri           TEXT NOT NULL,
+    scope                  TEXT NOT NULL,
+    resource               TEXT NOT NULL,
+    code_challenge         VARCHAR(128) NOT NULL,
+    code_challenge_method  VARCHAR(16) NOT NULL,
+    expires_at_micros      BIGINT NOT NULL,
+    consumed_at_micros     BIGINT,
+    created_at_micros      BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_inbound_mcp_oauth_codes_expiry
+    ON inbound_mcp_oauth_codes(expires_at_micros)
+    WHERE consumed_at_micros IS NULL;
+
+CREATE TABLE IF NOT EXISTS inbound_mcp_oauth_tokens (
+    id                     VARCHAR(64) PRIMARY KEY,
+    token_hash             VARCHAR(64) NOT NULL UNIQUE,
+    token_kind             VARCHAR(16) NOT NULL,
+    family_id              VARCHAR(64) NOT NULL,
+    client_id              TEXT NOT NULL,
+    org_id                 VARCHAR(64) NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    user_id                VARCHAR(64) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    scope                  TEXT NOT NULL,
+    resource               TEXT NOT NULL,
+    expires_at_micros      BIGINT NOT NULL,
+    revoked_at_micros      BIGINT,
+    rotated_from           VARCHAR(64),
+    created_at_micros      BIGINT NOT NULL,
+    CONSTRAINT inbound_mcp_oauth_token_kind
+        CHECK (token_kind IN ('access', 'refresh'))
+);
+CREATE INDEX IF NOT EXISTS idx_inbound_mcp_oauth_tokens_org_created
+    ON inbound_mcp_oauth_tokens(org_id, created_at_micros DESC);
+CREATE INDEX IF NOT EXISTS idx_inbound_mcp_oauth_tokens_family
+    ON inbound_mcp_oauth_tokens(family_id);
+CREATE INDEX IF NOT EXISTS idx_inbound_mcp_oauth_tokens_client
+    ON inbound_mcp_oauth_tokens(client_id, revoked_at_micros);
+
+CREATE TABLE IF NOT EXISTS inbound_mcp_idempotency (
+    org_id                 VARCHAR(64) NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    principal_type         VARCHAR(32) NOT NULL,
+    principal_id           VARCHAR(64) NOT NULL,
+    idempotency_key        VARCHAR(128) NOT NULL,
+    tool_name              VARCHAR(192) NOT NULL,
+    request_hash           VARCHAR(64) NOT NULL,
+    status                 VARCHAR(16) NOT NULL DEFAULT 'pending',
+    approval_id            VARCHAR(64),
+    result                 JSONB,
+    lease_expires_at_micros BIGINT NOT NULL,
+    created_at_micros      BIGINT NOT NULL,
+    updated_at_micros      BIGINT NOT NULL,
+    PRIMARY KEY (org_id, principal_type, principal_id, idempotency_key),
+    CONSTRAINT inbound_mcp_idempotency_status
+        CHECK (status IN ('pending', 'completed', 'failed'))
+);
+CREATE INDEX IF NOT EXISTS idx_inbound_mcp_idempotency_expiry
+    ON inbound_mcp_idempotency(lease_expires_at_micros)
+    WHERE status = 'pending';
+
+CREATE TABLE IF NOT EXISTS inbound_mcp_tasks (
+    id                     VARCHAR(64) PRIMARY KEY,
+    org_id                 VARCHAR(64) NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    principal_type         VARCHAR(32) NOT NULL,
+    principal_id           VARCHAR(64) NOT NULL,
+    tool_name              VARCHAR(192) NOT NULL,
+    request                JSONB NOT NULL,
+    status                 VARCHAR(32) NOT NULL,
+    status_message         TEXT,
+    input_requests         JSONB,
+    input_responses        JSONB,
+    result                 JSONB,
+    error                  JSONB,
+    cancel_requested       BOOLEAN NOT NULL DEFAULT FALSE,
+    expires_at_micros      BIGINT NOT NULL,
+    created_at_micros      BIGINT NOT NULL,
+    updated_at_micros      BIGINT NOT NULL,
+    CONSTRAINT inbound_mcp_task_status
+        CHECK (status IN ('working', 'input_required', 'completed', 'failed', 'cancelled'))
+);
+CREATE INDEX IF NOT EXISTS idx_inbound_mcp_tasks_principal
+    ON inbound_mcp_tasks(org_id, principal_type, principal_id, updated_at_micros DESC);
+CREATE INDEX IF NOT EXISTS idx_inbound_mcp_tasks_expiry
+    ON inbound_mcp_tasks(expires_at_micros);
+
+-- ============================================================
 -- User preference product fields
 -- ============================================================
 
@@ -2538,7 +2706,8 @@ FOR EACH ROW EXECUTE FUNCTION protect_platform_administrator_user();
 -- Persist only bounded W3C correlation for delayed search/backfill execution.
 -- This value is diagnostic linkage and MUST NOT be used as an authorization source.
 ALTER TABLE search_jobs
-    ADD COLUMN IF NOT EXISTS trace_link JSONB;
+    ADD COLUMN IF NOT EXISTS trace_link JSONB,
+    ADD COLUMN IF NOT EXISTS attempt INTEGER NOT NULL DEFAULT 0;
 
 -- ============================================================
 -- Unified IAM access
@@ -2766,7 +2935,25 @@ BEGIN
             ADD CONSTRAINT fk_api_tokens_iam_role
             FOREIGN KEY (org_id, role_id)
             REFERENCES iam_roles(org_id, id)
-            ON DELETE RESTRICT;
+            ON DELETE CASCADE;
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'fk_service_accounts_iam_role'
+    ) THEN
+        ALTER TABLE service_accounts
+            ADD CONSTRAINT fk_service_accounts_iam_role
+            FOREIGN KEY (org_id, role_id)
+            REFERENCES iam_roles(org_id, id)
+            ON DELETE CASCADE;
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'fk_api_tokens_service_account'
+    ) THEN
+        ALTER TABLE api_tokens
+            ADD CONSTRAINT fk_api_tokens_service_account
+            FOREIGN KEY (org_id, service_account_id)
+            REFERENCES service_accounts(org_id, id)
+            ON DELETE CASCADE;
     END IF;
     IF NOT EXISTS (
         SELECT 1 FROM pg_constraint WHERE conname = 'fk_invitations_iam_role'
@@ -3107,7 +3294,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_iam_permission_bundle_position
 INSERT INTO iam_permission_catalog_versions (catalog_key, version, updated_at_micros)
 VALUES (
     'permissions',
-    4,
+    5,
     (EXTRACT(EPOCH FROM clock_timestamp()) * 1000000)::BIGINT
 )
 ON CONFLICT (catalog_key) DO UPDATE
@@ -3154,6 +3341,8 @@ VALUES
     ('org.billing.manage', 'organization', 'organization', 'permissions.org_billing_manage', 'permissions_hint.org_billing_manage', NULL, ARRAY['owner', 'admin']::TEXT[]),
     ('api_tokens.read', 'organization', 'iam', 'permissions.api_tokens_read', 'permissions_hint.api_tokens_read', NULL, ARRAY['owner', 'admin']::TEXT[]),
     ('api_tokens.manage', 'organization', 'iam', 'permissions.api_tokens_manage', 'permissions_hint.api_tokens_manage', NULL, ARRAY['owner', 'admin']::TEXT[]),
+    ('service_accounts.read', 'organization', 'iam', 'permissions.service_accounts_read', 'permissions_hint.service_accounts_read', NULL, ARRAY['owner', 'admin']::TEXT[]),
+    ('service_accounts.manage', 'organization', 'iam', 'permissions.service_accounts_manage', 'permissions_hint.service_accounts_manage', NULL, ARRAY['owner', 'admin']::TEXT[]),
     ('streams.read', 'organization', 'observability', 'permissions.streams_read', 'permissions_hint.streams_read', NULL, ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
     ('streams.query', 'organization', 'observability', 'permissions.streams_query', 'permissions_hint.streams_query', NULL, ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
     ('streams.write', 'organization', 'observability', 'permissions.streams_write', 'permissions_hint.streams_write', NULL, ARRAY['owner', 'admin', 'editor', 'intake']::TEXT[]),
@@ -3213,7 +3402,7 @@ SELECT
     label_key,
     description_key,
     feature,
-    CASE WHEN permission_key = 'rum.write' THEN 7 ELSE 4 END
+    CASE WHEN permission_key = 'rum.write' THEN 7 ELSE 5 END
 FROM iam_permission_seed
 ON CONFLICT (permission_key) DO UPDATE
 SET scope = EXCLUDED.scope,
@@ -3272,7 +3461,7 @@ VALUES
     ('data_analyst', 'roles.bundles.data_analyst', 'roles.bundles_hint.data_analyst', ARRAY['streams.read', 'streams.query', 'dashboards.read', 'dashboards.create', 'dashboards.edit', 'saved_views.read', 'saved_views.create', 'saved_views.edit', 'reports.read']::TEXT[]),
     ('pipeline_developer', 'roles.bundles.pipeline_developer', 'roles.bundles_hint.pipeline_developer', ARRAY['streams.read', 'streams.query', 'streams.write', 'streams.create', 'streams.configure', 'pipelines.read', 'pipelines.create', 'pipelines.edit', 'pipelines.run', 'pipelines.pause', 'pipelines.delete', 'functions.read', 'functions.create', 'functions.edit', 'functions.run', 'functions.delete']::TEXT[]),
     ('alert_administrator', 'roles.bundles.alert_administrator', 'roles.bundles_hint.alert_administrator', ARRAY['streams.read', 'streams.query', 'alerts.read', 'alerts.manage', 'alerts.acknowledge', 'alerts.silence', 'schedules.read', 'schedules.manage']::TEXT[]),
-    ('organization_administrator', 'roles.bundles.organization_administrator', 'roles.bundles_hint.organization_administrator', ARRAY['org.settings.read', 'org.settings.manage', 'org.members.read', 'org.members.manage', 'iam.roles.read', 'iam.roles.manage', 'iam.policies.read', 'iam.policies.manage', 'api_tokens.read', 'api_tokens.manage', 'audit.read']::TEXT[]);
+    ('organization_administrator', 'roles.bundles.organization_administrator', 'roles.bundles_hint.organization_administrator', ARRAY['org.settings.read', 'org.settings.manage', 'org.members.read', 'org.members.manage', 'iam.roles.read', 'iam.roles.manage', 'iam.policies.read', 'iam.policies.manage', 'api_tokens.read', 'api_tokens.manage', 'service_accounts.read', 'service_accounts.manage', 'audit.read']::TEXT[]);
 
 INSERT INTO iam_permission_bundles (
     bundle_key,
@@ -3280,7 +3469,7 @@ INSERT INTO iam_permission_bundles (
     description_key,
     catalog_version
 )
-SELECT bundle_key, label_key, description_key, 4
+SELECT bundle_key, label_key, description_key, 5
 FROM iam_permission_bundle_seed
 ON CONFLICT (bundle_key) DO UPDATE
 SET label_key = EXCLUDED.label_key,

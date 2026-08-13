@@ -43,6 +43,7 @@ struct RoleResp {
 struct RoleUsageResp {
     memberships: i64,
     api_tokens: i64,
+    service_accounts: i64,
     invitations: i64,
     bindings: i64,
     total: i64,
@@ -71,15 +72,15 @@ fn usage_resp(usage: RoleUsage) -> RoleUsageResp {
     RoleUsageResp {
         memberships: usage.memberships,
         api_tokens: usage.api_tokens,
+        service_accounts: usage.service_accounts,
         invitations: usage.invitations,
         bindings: usage.bindings,
         total: usage.total(),
     }
 }
 
-async fn to_resp(state: &AppState, org_id: &Id, role: IamRole) -> Result<RoleResp> {
-    let usage = state.iam.roles.usage_by_key(org_id, &role.key).await?;
-    Ok(RoleResp {
+fn to_resp(role: IamRole, usage: RoleUsage) -> RoleResp {
+    RoleResp {
         id: role.id.0,
         key: role.key,
         name: role.name,
@@ -91,7 +92,7 @@ async fn to_resp(state: &AppState, org_id: &Id, role: IamRole) -> Result<RoleRes
         usage: usage_resp(usage),
         created_at_micros: role.created_at.0,
         updated_at_micros: role.updated_at.0,
-    })
+    }
 }
 
 #[permission("iam.roles.read")]
@@ -100,12 +101,16 @@ async fn list(
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Vec<RoleResp>>> {
     state.iam.roles.ensure_builtin_roles(&ctx.org_id).await?;
-    let roles = state.iam.roles.list(&ctx.org_id).await?;
-    let mut out = Vec::with_capacity(roles.len());
-    for role in roles {
-        out.push(to_resp(&state, &ctx.org_id, role).await?);
-    }
-    Ok(Json(out))
+    Ok(Json(
+        state
+            .iam
+            .roles
+            .list_with_usage(&ctx.org_id)
+            .await?
+            .into_iter()
+            .map(|entry| to_resp(entry.role, entry.usage))
+            .collect(),
+    ))
 }
 
 #[permission("iam.roles.manage")]
@@ -143,7 +148,12 @@ async fn create(
         updated_at: now,
     };
     let saved = state.iam.roles.create(role).await?;
-    Ok(Json(to_resp(&state, &ctx.org_id, saved).await?))
+    let usage = state
+        .iam
+        .roles
+        .usage_by_key(&ctx.org_id, &saved.key)
+        .await?;
+    Ok(Json(to_resp(saved, usage)))
 }
 
 #[permission("iam.roles.manage")]
@@ -172,7 +182,12 @@ async fn update(
         updated_at: TimestampMicros::now(),
     };
     let saved = state.iam.roles.update(role).await?;
-    Ok(Json(to_resp(&state, &ctx.org_id, saved).await?))
+    let usage = state
+        .iam
+        .roles
+        .usage_by_key(&ctx.org_id, &saved.key)
+        .await?;
+    Ok(Json(to_resp(saved, usage)))
 }
 
 #[permission("iam.roles.manage")]
@@ -202,8 +217,12 @@ async fn delete(
     let usage = state.iam.roles.usage_by_key(&ctx.org_id, &role.key).await?;
     if usage.total() > 0 {
         return Err(Error::conflict(format!(
-            "role is in use: memberships={}, api_tokens={}, invitations={}, bindings={}",
-            usage.memberships, usage.api_tokens, usage.invitations, usage.bindings
+            "role is in use: memberships={}, api_tokens={}, service_accounts={}, invitations={}, bindings={}",
+            usage.memberships,
+            usage.api_tokens,
+            usage.service_accounts,
+            usage.invitations,
+            usage.bindings
         )));
     }
     state.iam.roles.delete(&ctx.org_id, &id).await?;

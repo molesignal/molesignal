@@ -12,6 +12,7 @@ pub enum ApiTokenKind {
     Personal,
     DefaultIntake,
     RumClient,
+    ServiceAccount,
 }
 
 impl ApiTokenKind {
@@ -20,6 +21,7 @@ impl ApiTokenKind {
             Self::Personal => "personal",
             Self::DefaultIntake => "default_intake",
             Self::RumClient => "rum_client",
+            Self::ServiceAccount => "service_account",
         }
     }
 
@@ -28,6 +30,7 @@ impl ApiTokenKind {
             "personal" => Some(Self::Personal),
             "default_intake" => Some(Self::DefaultIntake),
             "rum_client" => Some(Self::RumClient),
+            "service_account" => Some(Self::ServiceAccount),
             _ => None,
         }
     }
@@ -51,6 +54,7 @@ pub struct ApiToken {
     pub is_default: bool,
     pub token_kind: ApiTokenKind,
     pub application_id: Option<String>,
+    pub service_account_id: Option<Id>,
 }
 
 /// A managed token whose plaintext is sealed at rest and can be shown again.

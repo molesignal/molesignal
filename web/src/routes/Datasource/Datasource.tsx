@@ -306,7 +306,7 @@ export function Datasource() {
             <ChromeButton
               disabled={apiTokensReadAccess.disabled}
               disabledReason={apiTokensReadAccess.reason}
-              onClick={() => navigate('/iam/service-accounts')}
+              onClick={() => navigate('/iam/api-tokens')}
             >
               <KeyRound className="h-3.5 w-3.5" />
               {t('datasource_page.api_tokens')}

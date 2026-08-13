@@ -265,14 +265,15 @@ INSERT INTO iam_route_seed VALUES
     ('agent.detail', '/agent/:section/:id', 'organization', 'all', ARRAY['agent']::TEXT[], NULL, NULL, TRUE, ARRAY['agent.use']::TEXT[]),
 
     -- Organization IAM and settings.
-    ('iam', '/iam', 'any', 'any', ARRAY[]::TEXT[], NULL, NULL, TRUE, ARRAY['org.members.read', 'sys.organizations.manage']::TEXT[]),
+    ('iam', '/iam', 'any', 'any', ARRAY[]::TEXT[], NULL, NULL, TRUE, ARRAY['org.members.read', 'iam.roles.read', 'iam.policies.read', 'api_tokens.read', 'service_accounts.read', 'org.settings.read', 'sys.organizations.manage']::TEXT[]),
     ('iam.users', '/iam/users', 'organization', 'all', ARRAY[]::TEXT[], 'admin', 10, TRUE, ARRAY['org.members.read']::TEXT[]),
     ('iam.invitations', '/iam/invitations', 'organization', 'all', ARRAY[]::TEXT[], NULL, NULL, TRUE, ARRAY['org.members.read']::TEXT[]),
     ('iam.approvals', '/iam/approvals', 'organization', 'all', ARRAY[]::TEXT[], NULL, NULL, TRUE, ARRAY['org.members.read']::TEXT[]),
     ('iam.teams', '/iam/teams', 'organization', 'all', ARRAY[]::TEXT[], NULL, NULL, TRUE, ARRAY['org.members.read']::TEXT[]),
     ('iam.roles', '/iam/roles', 'organization', 'all', ARRAY[]::TEXT[], NULL, NULL, TRUE, ARRAY['iam.roles.read']::TEXT[]),
     ('iam.groups', '/iam/groups', 'organization', 'all', ARRAY[]::TEXT[], NULL, NULL, TRUE, ARRAY['iam.policies.read']::TEXT[]),
-    ('iam.service.accounts', '/iam/service-accounts', 'organization', 'all', ARRAY[]::TEXT[], NULL, NULL, TRUE, ARRAY['api_tokens.read']::TEXT[]),
+    ('iam.api.tokens', '/iam/api-tokens', 'organization', 'all', ARRAY[]::TEXT[], NULL, NULL, TRUE, ARRAY['api_tokens.read']::TEXT[]),
+    ('iam.service.accounts', '/iam/service-accounts', 'organization', 'all', ARRAY[]::TEXT[], NULL, NULL, TRUE, ARRAY['service_accounts.read']::TEXT[]),
     ('iam.sso', '/iam/sso', 'organization', 'all', ARRAY[]::TEXT[], NULL, NULL, TRUE, ARRAY['org.settings.read']::TEXT[]),
     ('iam.email.domains', '/iam/email-domains', 'organization', 'all', ARRAY[]::TEXT[], NULL, NULL, TRUE, ARRAY['org.settings.read']::TEXT[]),
     ('iam.quota', '/iam/quota', 'none', 'all', ARRAY[]::TEXT[], NULL, NULL, FALSE, ARRAY[]::TEXT[]),

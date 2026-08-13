@@ -7,6 +7,8 @@
 //! - `GET /api/v1/auth/tokens` list（无 secret_hash，无 plaintext）
 //! - `DELETE /api/v1/auth/tokens/{id}` revoke
 
+use std::collections::HashMap;
+
 use axum::{
     Extension, Json, Router,
     extract::{Path, Query, State},
@@ -20,7 +22,11 @@ use crate::{
     api::{AppState, http::middleware::Permission},
     app::iam::IamContext,
     domain::{
-        iam::api_token::{ApiToken, ApiTokenKind},
+        iam::{
+            IamAssignedRole,
+            access::IamPrincipalType,
+            api_token::{ApiToken, ApiTokenKind},
+        },
         rum::validate_application_id,
     },
     infra::persistence::repositories::api_tokens::{
@@ -40,7 +46,12 @@ pub fn routes() -> Router<AppState> {
 #[derive(Debug, Deserialize)]
 pub struct CreateReq {
     pub name: String,
+    /// Optional non-human principal authenticated by this API Token. Service Accounts do not
+    /// sign in and never receive a JWT; their role is inherited by bound API Tokens.
+    #[serde(default)]
+    pub service_account_id: Option<String>,
     /// 缺省使用数据库中 `default_api_token` purpose 对应的角色。
+    /// This field must be omitted when `service_account_id` is present.
     #[serde(default)]
     pub role_id: Option<String>,
     /// 缺省 = 永不过期；建议 ≤ 365 天
@@ -59,6 +70,7 @@ pub struct CreateResp {
     pub role_name: String,
     pub token_kind: String,
     pub application_id: Option<String>,
+    pub service_account_id: Option<String>,
     pub expires_at_micros: Option<i64>,
     pub created_at_micros: i64,
 }
@@ -73,21 +85,15 @@ pub struct TokenResp {
     pub role_name: String,
     pub token_kind: String,
     pub application_id: Option<String>,
+    pub service_account_id: Option<String>,
     pub expires_at_micros: Option<i64>,
     pub last_used_at_micros: Option<i64>,
     pub revoked: bool,
     pub created_at_micros: i64,
 }
 
-async fn to_resp(state: &AppState, t: ApiToken) -> Result<TokenResp> {
-    let role = state
-        .iam
-        .access
-        .repository()
-        .role_summary(&t.org_id, &t.role_id)
-        .await?
-        .ok_or_else(|| Error::internal("API token references a missing IAM role"))?;
-    Ok(TokenResp {
+fn to_resp(t: ApiToken, role: IamAssignedRole) -> TokenResp {
+    TokenResp {
         id: t.id.0,
         prefix: t.prefix,
         name: t.name,
@@ -96,11 +102,12 @@ async fn to_resp(state: &AppState, t: ApiToken) -> Result<TokenResp> {
         role_name: role.name,
         token_kind: t.token_kind.as_str().to_string(),
         application_id: t.application_id,
+        service_account_id: t.service_account_id.map(|id| id.0),
         expires_at_micros: t.expires_at.map(|v| v.0),
         last_used_at_micros: t.last_used_at.map(|v| v.0),
         revoked: t.revoked,
         created_at_micros: t.created_at.0,
-    })
+    }
 }
 
 async fn list(
@@ -110,10 +117,29 @@ async fn list(
     require_organization_scope(&ctx)?;
     Permission::require_key(&ctx, "api_tokens.read")?;
     let tokens = state.iam.api_tokens.list_by_org(&ctx.org_id).await?;
-    let mut responses = Vec::with_capacity(tokens.len());
-    for token in tokens {
-        responses.push(to_resp(&state, token).await?);
-    }
+    let role_ids = tokens
+        .iter()
+        .map(|token| token.role_id.clone())
+        .collect::<Vec<_>>();
+    let roles = state
+        .iam
+        .access
+        .repository()
+        .role_summaries(&ctx.org_id, &role_ids)
+        .await?
+        .into_iter()
+        .map(|role| (role.id.0.clone(), role))
+        .collect::<HashMap<_, _>>();
+    let responses = tokens
+        .into_iter()
+        .map(|token| {
+            let role = roles
+                .get(&token.role_id.0)
+                .cloned()
+                .ok_or_else(|| Error::internal("API token references a missing IAM role"))?;
+            Ok(to_resp(token, role))
+        })
+        .collect::<Result<Vec<_>>>()?;
     Ok(Json(responses))
 }
 
@@ -124,39 +150,66 @@ async fn create(
 ) -> Result<Response> {
     require_organization_scope(&ctx)?;
     Permission::require_key(&ctx, "api_tokens.manage")?;
-    if req.name.trim().is_empty() {
+    let name = req.name.trim();
+    if name.is_empty() {
         return Err(Error::invalid("name must not be empty"));
     }
-    let role_id = match req.role_id {
-        Some(role_id) => Id::from_string(role_id),
-        None => {
-            state
+    let (role_id, token_kind, service_account_id) = match req.service_account_id {
+        Some(service_account_id) => {
+            if req.role_id.is_some() {
+                return Err(Error::invalid(
+                    "role_id must be omitted for a service-account API token",
+                ));
+            }
+            let service_account_id = service_account_id.trim();
+            if service_account_id.is_empty() {
+                return Err(Error::invalid("service_account_id must not be empty"));
+            }
+            let service_account = state
                 .iam
-                .service
-                .iam_memberships
-                .role_id_for_purpose(&ctx.org_id, "default_api_token")
-                .await?
+                .service_accounts
+                .get(&ctx.org_id, &Id::from_string(service_account_id))
+                .await?;
+            if service_account.disabled {
+                return Err(Error::invalid(
+                    "an API token cannot be issued for a disabled service account",
+                ));
+            }
+            (
+                service_account.role_id,
+                ApiTokenKind::ServiceAccount,
+                Some(service_account.id),
+            )
+        }
+        None => {
+            require_user_principal(&ctx)?;
+            let role_id = match req.role_id {
+                Some(role_id) => Id::from_string(role_id),
+                None => {
+                    state
+                        .iam
+                        .service
+                        .iam_memberships
+                        .role_id_for_purpose(&ctx.org_id, "default_api_token")
+                        .await?
+                }
+            };
+            (role_id, ApiTokenKind::Personal, None)
         }
     };
-    let role = state
-        .iam
-        .access
-        .repository()
-        .role_summary(&ctx.org_id, &role_id)
-        .await?
-        .ok_or_else(|| Error::invalid("role_id must reference an IAM role in this organization"))?;
+    let role = state.iam.roles.get(&ctx.org_id, &role_id).await?;
+    if role.role_type != "organization" || role.scope != "organization" {
+        return Err(Error::invalid(
+            "API token role must have organization type and scope",
+        ));
+    }
     if role.key == "rum_client" {
         return Err(Error::invalid(
             "use GET /auth/tokens/rum to issue an application-bound RUM client token",
         ));
     }
-    let role_permissions = state
-        .iam
-        .access
-        .repository()
-        .role_permissions(&ctx.org_id, &role.id)
-        .await?;
-    if role_permissions
+    if role
+        .permissions
         .iter()
         .any(|permission| !ctx.has_permission(permission))
     {
@@ -170,23 +223,24 @@ async fn create(
     let now = TimestampMicros::now();
     let expires_at = req.expires_in_days.map(|d| {
         let micros = d.clamp(1, 365 * 5).saturating_mul(86_400 * 1_000_000);
-        TimestampMicros(now.0 + micros)
+        TimestampMicros(now.0.saturating_add(micros))
     });
     let row = ApiToken {
         id: Id::new(),
         prefix: prefix.clone(),
         secret_hash,
         org_id: ctx.org_id.clone(),
-        user_id: ctx.user_id.clone(),
+        user_id: ctx.principal_id().clone(),
         role_id: role.id.clone(),
-        name: req.name,
+        name: name.to_string(),
         expires_at,
         last_used_at: None,
         revoked: false,
         created_at: now,
         is_default: false,
-        token_kind: ApiTokenKind::Personal,
+        token_kind,
         application_id: None,
+        service_account_id,
     };
     let saved = state.iam.api_tokens.create(row).await?;
     Ok(secret_response(CreateResp {
@@ -198,6 +252,7 @@ async fn create(
         role_name: role.name,
         token_kind: saved.token_kind.as_str().to_string(),
         application_id: saved.application_id,
+        service_account_id: saved.service_account_id.map(|id| id.0),
         expires_at_micros: saved.expires_at.map(|v| v.0),
         created_at_micros: saved.created_at.0,
     }))
@@ -210,6 +265,7 @@ async fn get_default(
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Response> {
     require_organization_scope(&ctx)?;
+    require_user_principal(&ctx)?;
     Permission::require_key(&ctx, "api_tokens.manage")?;
     let role_id = state
         .iam
@@ -252,6 +308,7 @@ async fn get_default(
         role_name: role.name,
         token_kind: dt.token_kind.as_str().to_string(),
         application_id: dt.application_id,
+        service_account_id: None,
         expires_at_micros: None,
         created_at_micros: dt.created_at.0,
     }))
@@ -312,6 +369,7 @@ async fn get_rum_client(
         role_name: role.name,
         token_kind: token.token_kind.as_str().to_string(),
         application_id: token.application_id,
+        service_account_id: None,
         expires_at_micros: None,
         created_at_micros: token.created_at.0,
     }))
@@ -346,6 +404,16 @@ fn require_organization_scope(context: &IamContext) -> Result<()> {
     }
 }
 
+fn require_user_principal(context: &IamContext) -> Result<()> {
+    if context.principal_type() == IamPrincipalType::User {
+        Ok(())
+    } else {
+        Err(Error::forbidden(
+            "personal API tokens can only be created for an authenticated user",
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -365,6 +433,7 @@ mod tests {
             }],
             credential_role_id: None,
             credential_application_id: None,
+            credential_service_account_id: None,
             scope: IamScope::System,
             permissions: ["sys.licenses.read".to_string()].into_iter().collect(),
             features: std::collections::BTreeSet::new(),
@@ -378,6 +447,29 @@ mod tests {
     }
 
     #[test]
+    fn service_account_cannot_create_a_personal_api_token() {
+        let mut context = IamContext {
+            user_id: Id::from_string("issuer"),
+            org_id: Id::from_string("org"),
+            display_role: String::new(),
+            roles: Vec::new(),
+            credential_role_id: None,
+            credential_application_id: None,
+            credential_service_account_id: Some(Id::from_string("service-account")),
+            scope: IamScope::ApiToken,
+            permissions: std::collections::BTreeSet::new(),
+            features: std::collections::BTreeSet::new(),
+            policy_version: 1,
+        };
+        assert!(matches!(
+            require_user_principal(&context),
+            Err(Error::Forbidden(_))
+        ));
+        context.credential_service_account_id = None;
+        assert!(require_user_principal(&context).is_ok());
+    }
+
+    #[test]
     fn plaintext_token_responses_are_not_cacheable() {
         let response = secret_response(CreateResp {
             id: "token-id".into(),
@@ -388,6 +480,7 @@ mod tests {
             role_name: "Intake token".into(),
             token_kind: "default_intake".into(),
             application_id: None,
+            service_account_id: None,
             expires_at_micros: None,
             created_at_micros: 1,
         });

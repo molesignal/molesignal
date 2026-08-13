@@ -26,12 +26,14 @@ use crate::{
     shared::{Result, ids::Id},
 };
 
+mod panels;
 mod variables;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/dashboards", get(list).post(create))
         .route("/dashboards/{id}", get(get_one).put(update).delete(delete))
+        .merge(panels::routes())
         .merge(variables::routes())
 }
 

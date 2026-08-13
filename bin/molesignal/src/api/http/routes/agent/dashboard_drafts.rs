@@ -9,17 +9,19 @@ use axum::{
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use super::{
-    control::{CreateApprovalRequest, create_agent_approval, dashboard_required_approvals},
-    toolsets::resolve_toolsets,
-};
+use super::toolsets::resolve_toolsets;
 use crate::{
     agent::{FEATURE, tools::BuiltinToolKind},
     api::{
         AppState,
         http::{middleware::Permission, routes::activity_audit},
     },
-    app::iam::IamContext,
+    app::{
+        iam::IamContext,
+        tools::dashboard::{
+            CreateApprovalRequest, create_agent_approval, dashboard_required_approvals,
+        },
+    },
     domain::{dashboard::authoring::DashboardDraftStatus, iam::permission},
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
@@ -129,7 +131,7 @@ async fn propose(
     let required_approvals =
         dashboard_required_approvals(resolution.execution_mode_for_builtin(tool_name))?;
     let approval = create_agent_approval(
-        &state,
+        &state.tools,
         &ctx,
         CreateApprovalRequest {
             investigation_id: None,

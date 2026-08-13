@@ -110,7 +110,8 @@ impl AgentPromptRepository for PgAgentPromptRepository {
              WHERE scope = 'builtin'
                 OR (scope = 'org' AND org_id = $1)
                 OR (scope = 'user' AND org_id = $1 AND user_id = $2)
-             ORDER BY scope, purpose, updated_at_micros DESC"
+             ORDER BY scope, purpose, updated_at_micros DESC, id ASC
+             LIMIT 1000"
         ))
         .bind(&org_id.0)
         .bind(&user_id.0)

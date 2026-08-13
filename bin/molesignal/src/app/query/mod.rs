@@ -34,6 +34,8 @@ use crate::{
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
+pub mod jobs;
+
 #[derive(Clone)]
 pub struct ActiveQuery {
     pub id: Id,
@@ -59,6 +61,17 @@ pub struct ActiveQuerySnapshot {
 
 pub struct QueryRegistry {
     inner: RwLock<HashMap<String, ActiveQuery>>,
+}
+
+struct ActiveQueryGuard {
+    registry: Arc<QueryRegistry>,
+    id: String,
+}
+
+impl Drop for ActiveQueryGuard {
+    fn drop(&mut self) {
+        self.registry.remove(&self.id);
+    }
 }
 
 impl Default for QueryRegistry {
@@ -259,37 +272,7 @@ impl QueryService {
                 "search admission: too many concurrent queries for your work group; retry shortly",
             )
         })?;
-        let id = Id::new();
-        let cancel = Arc::new(AtomicBool::new(false));
-        // 仅联邦查询（目标含非 local 集群）生成跨集群 id，使远端子查询可经 CancelQuery 取消。
-        let fed_id = req
-            .federation_clusters
-            .iter()
-            .any(|c| !c.eq_ignore_ascii_case("local"))
-            .then(|| Id::new().0);
-        let entry = ActiveQuery {
-            id: id.clone(),
-            org_id: req.org_id.clone(),
-            user_id,
-            statement: req.statement.clone(),
-            started_at: TimestampMicros::now(),
-            cancel: cancel.clone(),
-            federation_query_id: fed_id.clone(),
-        };
-        self.registry.insert(entry);
-        struct Guard<'a> {
-            reg: &'a QueryRegistry,
-            id: String,
-        }
-        impl Drop for Guard<'_> {
-            fn drop(&mut self) {
-                self.reg.remove(&self.id);
-            }
-        }
-        let _g = Guard {
-            reg: &self.registry,
-            id: id.0.clone(),
-        };
+        let (cancel, fed_id, _guard) = self.track_query(&req, user_id, Id::new());
 
         let Some(cache) = self.result_cache.clone() else {
             let mut result = self.run_cancellable(req.clone(), &cancel, fed_id).await?;
@@ -309,6 +292,60 @@ impl QueryService {
         let mut result = raw;
         self.mask_result(&req, &mut result).await?;
         Ok(result)
+    }
+
+    /// Execute a persisted search job under the same cancellable registry as interactive queries.
+    /// The durable job id is also the registry id, so the job control endpoint can truly interrupt
+    /// local execution. `raw` is reserved for trusted backfill processing before derived writes.
+    pub(crate) async fn run_search_job(
+        &self,
+        req: QueryRequest,
+        user_id: Id,
+        role_key: &str,
+        job_id: Id,
+        attempt: i32,
+        raw: bool,
+    ) -> Result<QueryResult> {
+        let _slot = self.admission.acquire_for_role(role_key).ok_or_else(|| {
+            Error::resource_exhausted(
+                "search admission: too many concurrent queries for your work group; retry shortly",
+            )
+        })?;
+        let execution_id = jobs::execution_id(&job_id, attempt);
+        let (cancel, fed_id, _guard) = self.track_query(&req, user_id, execution_id);
+        let mut result = self.run_cancellable(req.clone(), &cancel, fed_id).await?;
+        if !raw {
+            self.mask_result(&req, &mut result).await?;
+        }
+        Ok(result)
+    }
+
+    fn track_query(
+        &self,
+        req: &QueryRequest,
+        user_id: Id,
+        id: Id,
+    ) -> (Arc<AtomicBool>, Option<String>, ActiveQueryGuard) {
+        let cancel = Arc::new(AtomicBool::new(false));
+        let fed_id = req
+            .federation_clusters
+            .iter()
+            .any(|cluster| !cluster.eq_ignore_ascii_case("local"))
+            .then(|| Id::new().0);
+        self.registry.insert(ActiveQuery {
+            id: id.clone(),
+            org_id: req.org_id.clone(),
+            user_id,
+            statement: req.statement.clone(),
+            started_at: TimestampMicros::now(),
+            cancel: cancel.clone(),
+            federation_query_id: fed_id.clone(),
+        });
+        let guard = ActiveQueryGuard {
+            registry: self.registry.clone(),
+            id: id.0,
+        };
+        (cancel, fed_id, guard)
     }
 
     /// 按 language 派发，SQL 路径带上 `fed_id`（联邦引擎据此让远端子查询可被 CancelQuery 取消）。

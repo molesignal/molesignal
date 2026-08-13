@@ -7,7 +7,7 @@ use sqlx::{PgPool, Row, types::Json};
 use super::sqlx_err;
 use crate::{
     domain::dashboard::{Dashboard, repositories::DashboardRepository},
-    shared::{Result, ids::Id, time::TimestampMicros},
+    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 pub struct PgDashboardRepository {
@@ -91,6 +91,32 @@ impl DashboardRepository for PgDashboardRepository {
         .await
         .map_err(sqlx_err)?;
         Ok(d)
+    }
+
+    async fn update_if_version(&self, d: Dashboard, expected_version: u32) -> Result<Dashboard> {
+        let row = sqlx::query(&format!(
+            "UPDATE dashboards SET
+               folder_id = $3, uid = $4, title = $5, tags = $6, model = $7,
+               version = $8, updated_at_micros = $9, updated_by = $10
+             WHERE id = $1 AND org_id = $2 AND version = $11
+             RETURNING {COLS}"
+        ))
+        .bind(&d.id.0)
+        .bind(&d.org_id.0)
+        .bind(d.folder_id.as_ref().map(|id| &id.0))
+        .bind(&d.uid)
+        .bind(&d.title)
+        .bind(Json(&d.tags))
+        .bind(Json(&d.model))
+        .bind(d.version as i32)
+        .bind(d.updated_at.0)
+        .bind(&d.updated_by.0)
+        .bind(expected_version as i32)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(sqlx_err)?
+        .ok_or_else(|| Error::conflict("dashboard version changed; reload and retry"))?;
+        row_to_dashboard(row)
     }
 
     async fn get(&self, id: &Id) -> Result<Dashboard> {

@@ -67,6 +67,8 @@ import {
 } from './functions';
 import { Home } from './home';
 import {
+  ApiTokens as IamApiTokens,
+  Approvals as IamApprovals,
   EmailDomains as IamEmailDomains,
   Groups as IamGroups,
   IamIndexRedirect,
@@ -78,7 +80,6 @@ import {
   ServiceAccounts as IamServiceAccounts,
   Teams as IamTeams,
   Users as IamUsers,
-  Approvals as IamApprovals,
 } from './iam';
 import { IncidentDetail } from './IncidentDetail';
 import { Investigate } from './Investigate';
@@ -93,6 +94,7 @@ import { NotifyDeliveriesPage } from './notify/DeliveriesPage';
 import { NotifyPoliciesPage } from './notify/policy';
 import { NotifyTemplatesPage } from './notify/template';
 import { NotifyUsersPage } from './notify/UsersPage';
+import { InboundMcpOAuthAuthorize } from './oauth/Authorize';
 import {
   PipelineAdd,
   PipelineBackfill,
@@ -243,6 +245,14 @@ function RootShellRoute() {
 export const router = createBrowserRouter([
   { path: '/signin', element: <Signin /> },
   { path: '/signup', element: <Signup /> },
+  {
+    path: '/oauth/authorize',
+    element: (
+      <RequireAuth>
+        <InboundMcpOAuthAuthorize />
+      </RequireAuth>
+    ),
+  },
   { path: '/shared', element: <PublicShare /> },
   {
     path: '/history',
@@ -428,6 +438,7 @@ export const router = createBrowserRouter([
           { index: true, element: <IamIndexRedirect /> },
           { path: 'users', element: <IamUsers /> },
           { path: 'approvals', element: <IamApprovals /> },
+          { path: 'api-tokens', element: <IamApiTokens /> },
           { path: 'service-accounts', element: <IamServiceAccounts /> },
           { path: 'organizations', element: <IamOrganizations /> },
           { path: 'groups', element: <IamGroups /> },

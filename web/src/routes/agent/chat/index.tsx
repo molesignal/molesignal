@@ -1483,9 +1483,10 @@ function InvestigationProcessRow({
       : item.status === 'error'
         ? CircleAlert
         : CircleGauge;
-  const translated = t(`tool_names.${item.tool}`);
+  const translationKey = `tools.${item.tool}.title`;
+  const translated = t(translationKey);
   const displayName =
-    translated === `tool_names.${item.tool}`
+    translated === translationKey
       ? fallbackToolLabel(item.tool)
       : translated;
   return (

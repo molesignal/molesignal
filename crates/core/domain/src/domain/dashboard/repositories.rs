@@ -10,6 +10,12 @@ use crate::shared::{Result, ids::Id};
 pub trait DashboardRepository: Send + Sync {
     async fn create(&self, dashboard: Dashboard) -> Result<Dashboard>;
     async fn update(&self, dashboard: Dashboard) -> Result<Dashboard>;
+    /// Persist only when the stored version still matches the caller's loaded version.
+    async fn update_if_version(
+        &self,
+        dashboard: Dashboard,
+        expected_version: u32,
+    ) -> Result<Dashboard>;
     async fn get(&self, id: &Id) -> Result<Dashboard>;
     async fn get_by_uid(&self, org_id: &Id, uid: &str) -> Result<Dashboard>;
     async fn list(&self, org_id: &Id, folder_id: Option<&Id>) -> Result<Vec<Dashboard>>;

@@ -480,6 +480,7 @@ impl FlightSqlService for FlightSqlGrpc {
                     roles: Vec::new(),
                     credential_role_id: None,
                     credential_application_id: None,
+                    credential_service_account_id: None,
                     scope: crate::domain::iam::IamScope::Organization,
                     permissions: std::collections::BTreeSet::new(),
                     features: std::collections::BTreeSet::new(),

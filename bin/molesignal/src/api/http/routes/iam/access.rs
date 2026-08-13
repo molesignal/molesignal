@@ -629,10 +629,18 @@ async fn validate_principal(
                 "organization principal must match the selected organization",
             ));
         }
-        IamPrincipalType::Group | IamPrincipalType::ServiceAccount => {
-            return Err(Error::invalid(
-                "group and service-account principals are not available yet",
-            ));
+        IamPrincipalType::ServiceAccount => {
+            let account = state
+                .iam
+                .service_accounts
+                .get(organization_id, &Id::from_string(principal_id))
+                .await?;
+            if account.disabled {
+                return Err(Error::invalid("principal service account is disabled"));
+            }
+        }
+        IamPrincipalType::Group => {
+            return Err(Error::invalid("group principals are not available yet"));
         }
     }
     Ok(())

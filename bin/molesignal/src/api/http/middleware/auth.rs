@@ -32,9 +32,45 @@ use crate::{
 };
 
 mod api_tokens;
+pub(crate) mod oauth;
 
-use api_tokens::authenticate_bearer_identity;
+pub(crate) use api_tokens::authenticate_api_token_identity_with_metadata;
 pub use api_tokens::{authenticate_api_token, authenticate_bearer, verify_api_token};
+
+#[derive(Debug, Clone)]
+pub(crate) enum AuthenticatedCredential {
+    UserJwt,
+    ApiToken {
+        token_id: Id,
+        token_kind: crate::domain::iam::api_token::ApiTokenKind,
+    },
+    OAuthAccess {
+        token_id: Id,
+    },
+}
+
+impl AuthenticatedCredential {
+    pub(crate) fn stable_key(&self, org_id: &Id) -> String {
+        match self {
+            Self::UserJwt => format!("{}:jwt", org_id.0),
+            Self::ApiToken { token_id, .. } => format!("{}:api:{}", org_id.0, token_id.0),
+            Self::OAuthAccess { token_id, .. } => {
+                format!("{}:oauth:{}", org_id.0, token_id.0)
+            }
+        }
+    }
+
+    pub(crate) fn is_inbound_mcp_credential(&self) -> bool {
+        matches!(
+            self,
+            Self::ApiToken {
+                token_kind: crate::domain::iam::api_token::ApiTokenKind::Personal
+                    | crate::domain::iam::api_token::ApiTokenKind::ServiceAccount,
+                ..
+            } | Self::OAuthAccess { .. }
+        )
+    }
+}
 
 const WHITELIST_PREFIXES: &[&str] = &[
     "/api/v1/auth/signin",
@@ -57,10 +93,22 @@ const WHITELIST_PREFIXES: &[&str] = &[
     "/api/v1/_heroku",
 ];
 
+const WHITELIST_EXACT_PATHS: &[&str] = &[
+    "/api/v1/mcp",
+    "/api/v1/oauth/token",
+    "/api/v1/oauth/register",
+    "/api/v1/oauth/revoke",
+    "/.well-known/oauth-protected-resource",
+    "/.well-known/oauth-protected-resource/api/v1/mcp",
+    "/.well-known/oauth-authorization-server",
+    "/docs/inbound-mcp",
+];
+
 fn is_whitelisted_path(path: &str) -> bool {
-    WHITELIST_PREFIXES
-        .iter()
-        .any(|prefix| path.starts_with(prefix))
+    WHITELIST_EXACT_PATHS.contains(&path)
+        || WHITELIST_PREFIXES
+            .iter()
+            .any(|prefix| path.starts_with(prefix))
 }
 
 pub async fn auth_layer(
@@ -68,6 +116,7 @@ pub async fn auth_layer(
     mut req: Request,
     next: Next,
 ) -> Result<Response, Error> {
+    materialize_http2_authority(&mut req);
     let path = req.uri().path().to_string();
     if is_whitelisted_path(&path) {
         return Ok(next.run(req).await);
@@ -81,12 +130,29 @@ pub async fn auth_layer(
 
     // Organization state is enforced by the inner org-blocking layer so a
     // disabled tenant can still reach the narrowly-scoped recovery routes.
-    let mut ctx = authenticate_bearer_identity(
-        token,
-        state.iam.service.as_ref(),
-        state.iam.api_tokens.clone(),
-    )
-    .await?;
+    let (mut ctx, credential) = if token.starts_with("ms_") || token.starts_with("msrum_") {
+        let identity = authenticate_api_token_identity_with_metadata(
+            token,
+            state.iam.service.as_ref(),
+            state.iam.api_tokens.clone(),
+        )
+        .await?;
+        (
+            identity.context,
+            AuthenticatedCredential::ApiToken {
+                token_id: identity.token_id,
+                token_kind: identity.token_kind,
+            },
+        )
+    } else {
+        let context = state.iam.service.verify_token(token)?;
+        state
+            .iam
+            .service
+            .ensure_user_access(&context.user_id)
+            .await?;
+        (context, AuthenticatedCredential::UserJwt)
+    };
     let capability_snapshot = state.iam.access.enrich_context(&mut ctx).await?;
     let debug_token = req
         .headers()
@@ -153,8 +219,24 @@ pub async fn auth_layer(
     tracing::Span::current().record("molesignal.org.id", ctx.org_id.as_str());
     tracing::Span::current().record("molesignal.user.id", ctx.user_id.as_str());
     req.extensions_mut().insert(capability_snapshot);
+    req.extensions_mut().insert(credential);
     req.extensions_mut().insert(ctx);
     Ok(next.run(req).await)
+}
+
+/// Hyper represents HTTP/2 `:authority` on the request URI and does not have
+/// to materialize a `Host` header. Downstream Host/Origin defenses use one
+/// canonical header path, so preserve the authority there when it is absent.
+fn materialize_http2_authority(req: &mut Request) {
+    if req.headers().contains_key(http::header::HOST) {
+        return;
+    }
+    let authority = req.uri().authority().map(|value| value.as_str().to_owned());
+    if let Some(authority) = authority
+        && let Ok(value) = http::HeaderValue::from_str(&authority)
+    {
+        req.headers_mut().insert(http::header::HOST, value);
+    }
 }
 
 #[cfg(test)]
@@ -162,14 +244,16 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use async_trait::async_trait;
+    use axum::extract::Request;
 
-    use super::{authenticate_bearer, is_whitelisted_path};
+    use super::{authenticate_bearer, is_whitelisted_path, materialize_http2_authority};
     use crate::{
         app::iam::IamService,
         config::AuthSettings,
         domain::iam::{
             IamAssignedRole, IamMembership, IamMembershipRepository, Organization,
             OrganizationRepository, User, UserRepository, UserStatus,
+            access::IamPrincipalType,
             api_token::{ApiToken, ApiTokenKind, ApiTokenRepository, ManagedApiToken},
         },
         infra::persistence::repositories::api_tokens::{
@@ -407,6 +491,31 @@ mod tests {
         assert!(is_whitelisted_path("/api/v1/auth/sso/providers"));
         assert!(is_whitelisted_path("/api/v1/auth/sso/ldap/login"));
         assert!(!is_whitelisted_path("/api/v1/sso/providers"));
+        assert!(is_whitelisted_path("/api/v1/mcp"));
+        assert!(!is_whitelisted_path("/api/v1/mcp-admin"));
+        assert!(is_whitelisted_path(
+            "/.well-known/oauth-protected-resource/api/v1/mcp"
+        ));
+        assert!(!is_whitelisted_path(
+            "/.well-known/oauth-protected-resource/other"
+        ));
+    }
+
+    #[test]
+    fn http2_authority_is_available_to_downstream_host_checks() {
+        let mut request = Request::builder()
+            .uri("https://molesignal.example/api/v1/mcp")
+            .body(axum::body::Body::empty())
+            .unwrap();
+        assert!(!request.headers().contains_key(http::header::HOST));
+        materialize_http2_authority(&mut request);
+        assert_eq!(
+            request
+                .headers()
+                .get(http::header::HOST)
+                .and_then(|value| value.to_str().ok()),
+            Some("molesignal.example")
+        );
     }
 
     #[tokio::test]
@@ -468,6 +577,7 @@ mod tests {
                 is_default: false,
                 token_kind: ApiTokenKind::Personal,
                 application_id: None,
+                service_account_id: None,
             },
         });
 
@@ -500,6 +610,7 @@ mod tests {
                 is_default: false,
                 token_kind: ApiTokenKind::RumClient,
                 application_id: Some("mobile-shop".into()),
+                service_account_id: None,
             },
         });
         assert!(
@@ -507,6 +618,37 @@ mod tests {
                 .await
                 .is_ok()
         );
+
+        let service_account_id = Id::from_string("service-account-1");
+        let (service_prefix, service_secret) = generate_token_parts();
+        let service_token = assemble_token(&service_prefix, &service_secret);
+        let service_tokens = Arc::new(TestApiTokens {
+            token: ApiToken {
+                id: Id::from_string("service-token-1"),
+                prefix: service_prefix,
+                secret_hash: hash_secret(&service_secret).expect("hash service API token"),
+                org_id: org_id.clone(),
+                user_id: user_id.clone(),
+                role_id: Id::from_string("service-role-1"),
+                name: "collector".into(),
+                expires_at: None,
+                last_used_at: None,
+                revoked: false,
+                created_at: TimestampMicros::now(),
+                is_default: false,
+                token_kind: ApiTokenKind::ServiceAccount,
+                application_id: None,
+                service_account_id: Some(service_account_id.clone()),
+            },
+        });
+        let service_context = authenticate_bearer(&service_token, &iam, service_tokens.clone())
+            .await
+            .expect("service account API token authenticates programmatic access");
+        assert_eq!(
+            service_context.principal_type(),
+            IamPrincipalType::ServiceAccount
+        );
+        assert_eq!(service_context.principal_id(), &service_account_id);
 
         users.set_disabled(true);
 
@@ -522,6 +664,12 @@ mod tests {
                 .is_ok(),
             "an application credential must not inherit issuer suspension"
         );
+        assert!(
+            authenticate_bearer(&service_token, &iam, service_tokens.clone())
+                .await
+                .is_ok(),
+            "a Service Account is not an interactive user and must not inherit issuer suspension"
+        );
 
         users.set_disabled(false);
         organizations.set_disabled(true);
@@ -534,6 +682,11 @@ mod tests {
         }
         assert!(matches!(
             authenticate_bearer(&rum_token, &iam, rum_tokens).await,
+            Err(Error::Forbidden(message))
+                if message == "organization is disabled by a platform administrator"
+        ));
+        assert!(matches!(
+            authenticate_bearer(&service_token, &iam, service_tokens).await,
             Err(Error::Forbidden(message))
                 if message == "organization is disabled by a platform administrator"
         ));

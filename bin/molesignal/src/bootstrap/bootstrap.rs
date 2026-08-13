@@ -25,9 +25,16 @@ use crate::{
         AgentState, AlertingState, AppState, ClusterState, IamState, PlatformState, StorageState,
         TelemetryState, TraceSystemLoadHealth,
     },
-    app::dashboard::{
-        authoring::{DashboardAuthoringService, RuntimeDashboardQueryPreflight},
-        contract_registry::{DashboardContractRegistryService, DashboardContractResolver},
+    app::{
+        dashboard::{
+            authoring::{DashboardAuthoringService, RuntimeDashboardQueryPreflight},
+            contract_registry::{DashboardContractRegistryService, DashboardContractResolver},
+        },
+        tools::{
+            AdministrationToolDependencies, AgentToolDependencies, AlertingToolDependencies,
+            ContentToolDependencies, DataToolDependencies, ObservabilityToolDependencies,
+            ToolRuntime, ToolRuntimeDependencies,
+        },
     },
     config::{Role, Settings},
     domain::stream::StreamRepository,
@@ -209,6 +216,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         mute_rules,
         incident_groups,
         semantic_groups,
+        evaluator,
     } = alerting_runtime;
     let LicenseRuntime {
         license,
@@ -221,6 +229,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         instance_settings,
         signing_secrets,
         api_tokens,
+        service_accounts,
         user_preferences,
         workspace_preference_defaults,
         invitations,
@@ -278,15 +287,83 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         agent,
         toolsets: agent_toolsets,
         tool_control: agent_tool_control,
+        inbound_mcp,
+        inbound_mcp_request_state_key,
         prompts: agent_prompts,
         chat_archives: agent_chat_archives,
         incident_rca,
         slow_queries,
     } = agent_runtime;
+    let stream_repository: Arc<dyn StreamRepository> = streams.clone();
+    let search_job_service = Arc::new(crate::app::query::jobs::SearchJobService::new(
+        search_jobs.clone(),
+        store.clone(),
+        query.clone(),
+    ));
+    let tools = Arc::new(ToolRuntime::new(ToolRuntimeDependencies {
+        observability: ObservabilityToolDependencies {
+            query: query.clone(),
+            streams: stream_repository.clone(),
+            apm: apm_query.clone(),
+            apm_runtime: apm_runtime.clone(),
+            service_graph: service_graph_repo.clone(),
+            parquet_files: parquet_file_meta.clone(),
+            object_store: store.clone(),
+            slow_queries: slow_queries.clone(),
+        },
+        alerting: AlertingToolDependencies {
+            service: alerting.clone(),
+            evaluator: evaluator.clone(),
+            incident_rca: incident_rca.clone(),
+            incident_groups: incident_groups.clone(),
+            mute_rules: mute_rules.clone(),
+            notify: notify.clone(),
+            notify_engine: notify_engine.clone(),
+            notify_templates: notify_templates.clone(),
+        },
+        content: ContentToolDependencies {
+            dashboard: dashboard.clone(),
+            dashboard_authoring: dashboard_authoring.clone(),
+            report_templates: report_templates.clone(),
+            scheduled_reports: scheduled_reports.clone(),
+            annotations: annotations.clone(),
+        },
+        data: DataToolDependencies {
+            saved_views: saved_views.clone(),
+            search_jobs: search_job_service.clone(),
+            scheduled_pipelines: scheduled_pipelines.clone(),
+            pipeline_runs: pipeline_runs.clone(),
+            functions: functions.clone(),
+            functions_js_runtime_enabled,
+            enrichment: extend_kv.clone(),
+            log_patterns: log_patterns.clone(),
+            regex_patterns: regex_patterns.clone(),
+            field_masking_rules: field_masking_rules.clone(),
+            field_masking: field_masking_service.clone(),
+            connectors: connectors.clone(),
+        },
+        synthetics: synthetics.clone(),
+        status_pages: status_pages.clone(),
+        administration: AdministrationToolDependencies {
+            iam: iam.clone(),
+            iam_access: iam_access.clone(),
+            teams: teams.clone(),
+            roles: iam_roles.clone(),
+            audit_events: audit_events.clone(),
+            user_preferences: user_preferences.clone(),
+            service_accounts: service_accounts.clone(),
+            api_tokens: api_tokens.clone(),
+        },
+        agent: AgentToolDependencies {
+            repository: agent.clone(),
+        },
+        license: license.clone(),
+    }));
 
     Ok(AppState {
         intake,
         query,
+        search_jobs: search_job_service,
         dashboard,
         status_pages,
         synthetics,
@@ -299,6 +376,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
             semantic_groups,
             templates: notify_templates,
             mute_rules,
+            evaluator,
         },
         iam: IamState {
             service: iam,
@@ -318,12 +396,13 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
             roles: iam_roles,
             signing_secrets,
             api_tokens,
+            service_accounts,
             user_preferences,
             workspace_preference_defaults,
             audit_events,
         },
         telemetry: TelemetryState {
-            streams: streams as Arc<dyn StreamRepository>,
+            streams: stream_repository,
             stream_retention_days: settings.compactor.retention_days.max(1),
             self_telemetry_org_id,
             self_telemetry_runtime: None,
@@ -416,12 +495,15 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
             repository: agent,
             toolsets: agent_toolsets,
             tool_control: agent_tool_control,
+            inbound_mcp,
+            inbound_mcp_request_state_key,
             model_providers: agent_model_providers,
             prompts: agent_prompts,
             chat_archives: agent_chat_archives,
             incident_rca,
             slow_queries,
         },
+        tools,
     })
 }
 
@@ -619,6 +701,7 @@ mod tests {
     fn self_collect_settings() -> SelfCollectSettings {
         SelfCollectSettings {
             enabled: true,
+            profiles_enabled: true,
             retention_days: 3,
             metrics_retention_days: 3,
             traces_retention_days: 7,
@@ -750,6 +833,28 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(ordinary.len(), 1);
         assert!(ordinary.contains(&StreamType::Profiles));
+
+        let profiles_disabled_streams = TestStreams::default();
+        let profiles_disabled = SelfCollectSettings {
+            metrics_enabled: false,
+            profiles_enabled: false,
+            ..self_collect_settings()
+        };
+        prepare_self_telemetry_streams(
+            &orgs,
+            &profiles_disabled_streams,
+            &profiles_disabled,
+            false,
+        )
+        .await
+        .unwrap();
+        assert!(
+            profiles_disabled_streams
+                .list(&default_org().id)
+                .await
+                .unwrap()
+                .is_empty()
+        );
 
         let external_only_streams = TestStreams::default();
         let org_id = prepare_self_telemetry_streams(

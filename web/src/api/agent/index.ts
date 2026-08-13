@@ -7,5 +7,6 @@ export * from './tools';
 
 export * as chat from './chat';
 export * as modelProviders from './modelProviders';
+export * as inboundMcp from './inboundMcp';
 export * as prompts from './prompts';
 export * as toolsets from './toolsets';

@@ -25,6 +25,7 @@
   "datasource": "Datasource",
   "iam": "Identity & Access",
   "iam_users": "Users",
+  "iam_api_tokens": "API tokens",
   "iam_service_accounts": "Service accounts",
   "iam_organizations": "Organizations",
   "organization_management": "Organization management",

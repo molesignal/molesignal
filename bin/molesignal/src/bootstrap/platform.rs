@@ -102,10 +102,13 @@ impl PlatformRuntime {
         );
         let annotations: Arc<dyn AnnotationRepository> =
             Arc::new(PgAnnotationRepository::new(core.pool.clone()));
-        let search_jobs: Arc<dyn SearchJobRepository> =
-            Arc::new(PgSearchJobRepository::new(core.pool.clone()));
+        let search_job_repository = Arc::new(PgSearchJobRepository::new(core.pool.clone()));
+        let search_job_notification_listener = search_job_repository
+            .clone()
+            .spawn_notification_listener(settings.store.meta.dsn.clone());
+        let search_jobs: Arc<dyn SearchJobRepository> = search_job_repository;
         let search_jobs_settings = &settings.search_jobs;
-        let _search_jobs_handles = Arc::new(
+        let mut search_jobs_handles = Arc::new(
             crate::bootstrap::workers::search_jobs::SearchJobScheduler::new(
                 search_jobs.clone(),
                 query.query.clone(),
@@ -115,13 +118,15 @@ impl PlatformRuntime {
                 connectors.clone(),
                 Arc::new(crate::infra::connectors::EgressDispatcher),
                 crate::bootstrap::workers::search_jobs::SearchJobSchedulerConfig {
-                    workers: search_jobs_settings.workers.max(1) as usize,
+                    max_concurrent_jobs: search_jobs_settings.workers.max(1) as usize,
                     idle_poll_secs: search_jobs_settings.idle_poll_secs,
                     cleanup_interval_secs: search_jobs_settings.cleanup_interval_secs,
                 },
             ),
         )
         .spawn();
+        search_jobs_handles.push(search_job_notification_listener);
+        let _search_jobs_handles = Arc::new(search_jobs_handles);
 
         let functions: Arc<dyn FunctionRepository> =
             Arc::new(PgFunctionRepository::new(core.pool.clone()));

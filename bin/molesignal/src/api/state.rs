@@ -6,9 +6,12 @@ use std::sync::Arc;
 use object_store::ObjectStore;
 
 use crate::{
-    agent::{model::AgentRepository, tool_control::ToolControlRepository},
+    agent::{
+        inbound_mcp::InboundMcpRepository, model::AgentRepository,
+        tool_control::ToolControlRepository,
+    },
     app::{
-        alerting::AlertingService,
+        alerting::{AlertingService, RuleEvaluator},
         cluster::ClusterRegistry,
         dashboard::{DashboardService, authoring::DashboardAuthoringService},
         iam::{IamAccessService, IamService},
@@ -20,6 +23,7 @@ use crate::{
         self_telemetry::SelfTelemetryRuntime,
         status_page::StatusPageService,
         synthetics::{ProbeControlService, SyntheticService},
+        tools::ToolRuntime,
         trace::{TracePipeline, candidate_router::TraceCandidateRouter},
     },
     domain::{
@@ -31,6 +35,7 @@ use crate::{
         iam::{
             IamPlatformAdministratorRepository, InstanceSettingsRepository, SsoProviderRepository,
             TeamRepository, api_token::ApiTokenRepository,
+            service_account::ServiceAccountRepository,
         },
         license::LicenseVersionRepository,
         query::SlowQueryRepository,
@@ -114,6 +119,7 @@ pub struct TraceSystemLoadHealth {
 pub struct AppState {
     pub intake: Arc<IntakeService>,
     pub query: Arc<QueryService>,
+    pub search_jobs: Arc<crate::app::query::jobs::SearchJobService>,
     pub dashboard: Arc<DashboardService>,
     pub status_pages: Arc<StatusPageService>,
     pub synthetics: Arc<SyntheticService>,
@@ -125,6 +131,8 @@ pub struct AppState {
     pub cluster: ClusterState,
     pub platform: PlatformState,
     pub agent: AgentState,
+    /// 协议中立的平台工具执行入口；Agent 与入站 MCP adapter 共用。
+    pub tools: Arc<ToolRuntime>,
 }
 
 #[derive(Clone)]
@@ -136,6 +144,7 @@ pub struct AlertingState {
     pub semantic_groups: Arc<dyn SemanticGroupRepository>,
     pub templates: Arc<dyn NotifyTemplateManagementRepository>,
     pub mute_rules: Arc<dyn MuteRuleRepository>,
+    pub evaluator: Arc<RuleEvaluator>,
 }
 
 #[derive(Clone)]
@@ -157,6 +166,7 @@ pub struct IamState {
     pub roles: Arc<dyn IamRoleRepository>,
     pub signing_secrets: Arc<dyn SigningSecretRepository>,
     pub api_tokens: Arc<dyn ApiTokenRepository>,
+    pub service_accounts: Arc<dyn ServiceAccountRepository>,
     pub user_preferences: Arc<dyn UserPreferencesRepository>,
     pub workspace_preference_defaults: Arc<dyn WorkspacePreferenceDefaultsRepository>,
     pub audit_events: Arc<dyn AuditEventRepository>,
@@ -261,6 +271,8 @@ pub struct AgentState {
     pub repository: Arc<dyn AgentRepository>,
     pub toolsets: Arc<dyn AgentToolsetRepository>,
     pub tool_control: Arc<dyn ToolControlRepository>,
+    pub inbound_mcp: Arc<dyn InboundMcpRepository>,
+    pub(crate) inbound_mcp_request_state_key: [u8; 32],
     pub model_providers: Arc<dyn ModelProviderRepository>,
     pub prompts: Arc<dyn AgentPromptRepository>,
     pub chat_archives: Arc<dyn ChatArchiveRepository>,

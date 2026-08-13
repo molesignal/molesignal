@@ -74,10 +74,30 @@ export interface Execution {
   output_summary?: string | null;
   error?: string | null;
   verification: Record<string, unknown>;
+  one_time_result?: {
+    api_token?: {
+      id: string;
+      name: string;
+      prefix: string;
+      token: string;
+      role_id: string;
+      role_key: string;
+      role_name: string;
+      token_kind: 'personal' | 'service_account';
+      service_account_id?: string | null;
+      expires_at_micros: number;
+      created_at_micros: number;
+    };
+  };
   started_at?: number | null;
   finished_at?: number | null;
   created_at: number;
   updated_at: number;
+}
+
+export interface ApprovalReviewResult {
+  approval: ApprovalRequest;
+  execution?: Execution | null;
 }
 
 export async function listAutomations(): Promise<Automation[]> {
@@ -121,8 +141,8 @@ export async function reviewApproval(
   id: string,
   approve: boolean,
   comment: string,
-): Promise<ApprovalRequest> {
-  const { data } = await http.post<ApprovalRequest>(
+): Promise<ApprovalReviewResult> {
+  const { data } = await http.post<ApprovalReviewResult>(
     `/agent/approvals/${encodeURIComponent(id)}/review`,
     { approve, comment },
   );

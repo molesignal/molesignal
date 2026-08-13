@@ -10,6 +10,7 @@ import {
   KeyRound,
   Pencil,
   Plus,
+  RadioTower,
   ShieldCheck,
   SlidersHorizontal,
   Wrench,
@@ -28,6 +29,7 @@ import { Badge } from '@/shell/ui/badge';
 import { Button } from '@/shell/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shell/ui/tabs';
 
+import { InboundMcpPanel } from './InboundMcp';
 import {
   ModelProviderEditorDrawer,
   ProfileEditorDrawer,
@@ -37,12 +39,14 @@ import {
 import { ModulePage } from '../operations/Pages';
 import { PromptManagementPanel } from '../prompt/Management';
 import { ToolCapabilitiesPanel } from '../ToolCapabilities';
+import { localizeToolMetadataList } from '../toolMetadata';
 
 const SETTINGS_TABS = [
   { value: 'profiles', key: 'settings.tabs.profiles', icon: Bot },
   { value: 'models', key: 'settings.tabs.models', icon: BrainCircuit },
   { value: 'prompts', key: 'settings.tabs.prompts', icon: FileText },
   { value: 'tools', key: 'settings.tabs.tools', icon: Wrench },
+  { value: 'inbound-mcp', key: 'settings.tabs.inbound_mcp', icon: RadioTower },
   { value: 'data', key: 'settings.tabs.data', icon: Database },
   { value: 'network', key: 'settings.tabs.network', icon: GlobeLock },
   { value: 'approvals', key: 'settings.tabs.approvals', icon: ShieldCheck },
@@ -75,7 +79,10 @@ export function AgentSettingsPage() {
     retry: false,
   });
   const profileRows = profiles.data ?? [];
-  const toolRows = tools.data?.tools ?? EMPTY_TOOLS;
+  const toolRows = React.useMemo(
+    () => localizeToolMetadataList(tools.data?.tools ?? EMPTY_TOOLS, t),
+    [t, tools.data?.tools],
+  );
   const providerRows = providers.data ?? EMPTY_PROVIDERS;
   const activeProfile =
     profileRows.find((profile) => profile.is_default) ?? profileRows[0];
@@ -137,6 +144,9 @@ export function AgentSettingsPage() {
         </TabsContent>
         <TabsContent value="tools" className="mt-4">
           <ToolCapabilitiesPanel registry={tools} />
+        </TabsContent>
+        <TabsContent value="inbound-mcp" className="mt-4">
+          <InboundMcpPanel />
         </TabsContent>
         <TabsContent value="data" className="mt-4">
           <DataAccessPanel

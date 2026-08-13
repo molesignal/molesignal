@@ -40,6 +40,7 @@ pub trait AnnotationRepository: Send + Sync {
     async fn create(&self, a: Annotation) -> Result<Annotation>;
     async fn get(&self, org_id: &Id, id: &Id) -> Result<Annotation>;
     async fn list(&self, org_id: &Id, f: AnnotationFilter<'_>) -> Result<Vec<Annotation>>;
+    async fn update(&self, a: Annotation) -> Result<Annotation>;
     async fn delete(&self, org_id: &Id, id: &Id) -> Result<()>;
 }
 
@@ -154,6 +155,31 @@ impl AnnotationRepository for PgAnnotationRepository {
             .await
             .map_err(sqlx_err)?;
         Ok(())
+    }
+
+    async fn update(&self, a: Annotation) -> Result<Annotation> {
+        let sql = format!(
+            "UPDATE annotations
+             SET title = $3, description = $4, tags = $5,
+                 time_start_micros = $6, time_end_micros = $7,
+                 dashboard_id = $8, stream_name = $9
+             WHERE org_id = $1 AND id = $2
+             RETURNING {COLS}"
+        );
+        let row = sqlx::query(&sql)
+            .bind(&a.org_id.0)
+            .bind(&a.id.0)
+            .bind(&a.title)
+            .bind(&a.description)
+            .bind(Json(&a.tags))
+            .bind(a.time_start.0)
+            .bind(a.time_end.0)
+            .bind(a.dashboard_id.as_ref().map(|id| &id.0))
+            .bind(&a.stream_name)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(sqlx_err)?;
+        Ok(row_to(row))
     }
 }
 

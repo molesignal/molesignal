@@ -607,7 +607,7 @@ export function AutomationEditorDrawer({
           <AgentToolChecklist
             options={tools.map((tool) => ({
               value: tool.name,
-              label: tool.name,
+              label: tool.display_name,
               hint: tool.description,
             }))}
             selected={draft.allowedTools}

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use std::collections::BTreeSet;
+
 use async_trait::async_trait;
 use sqlx::{PgPool, Row};
 
@@ -78,6 +80,26 @@ impl UserRepository for PgUserRepository {
             .await
             .map_err(sqlx_err)?;
         row_to_user(row)
+    }
+
+    async fn get_many(&self, ids: &[Id]) -> Result<Vec<User>> {
+        let ids = ids
+            .iter()
+            .map(|id| id.0.clone())
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let rows = sqlx::query(&format!(
+            "SELECT {COLS} FROM users WHERE id=ANY($1::TEXT[]) ORDER BY id"
+        ))
+        .bind(ids)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(sqlx_err)?;
+        rows.into_iter().map(row_to_user).collect()
     }
 
     async fn get_by_email(&self, email: &str) -> Result<User> {

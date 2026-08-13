@@ -443,7 +443,7 @@ async fn post_message(
     let initial_tool_choice = if let Some(activation) = dashboard_activation {
         let enabled_tools = builtin_tools()
             .into_iter()
-            .filter(|tool| resolution.builtin_enabled(&tool.name))
+            .filter(|tool| tool.exposure.mole_agent && resolution.builtin_enabled(&tool.name))
             .map(|tool| tool.name)
             .collect::<Vec<_>>();
         let compatibility = dashboard_authoring::validate_compatibility(
@@ -479,14 +479,11 @@ async fn post_message(
     let dispatcher: Arc<dyn ToolDispatcher> =
         Arc::new(RealToolDispatcher::new(state.clone()).with_toolsets(resolution.clone()));
     let agent_loop = Arc::new(AgentLoop::new(resolved.adapter.clone(), dispatcher));
-    let tool_ctx = ToolAuthContext {
-        user_id: ctx.user_id.0.clone(),
-        org_id: ctx.org_id.0.clone(),
-        chat_id: Some(chat.id.0.clone()),
-        investigation_id: req.investigation_id.clone(),
-        execution_policy: req.execution_policy.unwrap_or_default(),
-        query_generation_only: req.analysis_mode.as_deref() == Some("query_generation"),
-    };
+    let tool_ctx = ToolAuthContext::from_iam(&ctx)
+        .with_chat(Some(chat.id.0.clone()))
+        .with_investigation(req.investigation_id.clone())
+        .with_execution_policy(req.execution_policy.unwrap_or_default())
+        .query_generation_only(req.analysis_mode.as_deref() == Some("query_generation"));
     let tools_schema = tools_schema_for(resolved.provider, &resolution);
     let event_stream = agent_loop.clone().run_stream_with_tool_choice(
         tool_ctx,
@@ -1011,7 +1008,7 @@ fn answer_presentation_instruction(query_generation_only: bool) -> &'static str 
 }
 
 fn observability_query_instruction() -> &'static str {
-    r#"When investigating observability data, inspect list_streams before the first log or metric query unless the exact current schema is already present in this chat. SQL must reference only exact fields returned for the selected stream. The query_logs time_range argument already constrains event time, so never invent timestamp, time, or _timestamp fields and never order by one unless that exact field exists in the schema. query_metrics accepts PromQL only; label_values() is a Grafana template helper and is invalid. Do not repeat equivalent empty queries. After at most one corrected retry for a failed query, stop querying that path, explain the limitation in the final answer, and use the evidence already collected to produce a conclusion."#
+    r#"When investigating observability data, use list_streams and then get_stream_schema before the first log or metric query unless the exact current schema is already present in this chat. SQL must reference only exact fields returned for the selected stream. The query_logs time_range argument already constrains event time, so never invent timestamp, time, or _timestamp fields and never order by one unless that exact field exists in the schema. query_metrics accepts PromQL only; label_values() is a Grafana template helper and is invalid. If a needed capability is not visible, discover it with tool_search and invoke the selected result through tools_call. Do not repeat equivalent empty queries. After at most one corrected retry for a failed query, stop querying that path, explain the limitation in the final answer, and use the evidence already collected to produce a conclusion."#
 }
 
 // ---------------------------------------------------------------------------
@@ -1338,22 +1335,16 @@ fn system_message(text: String) -> ExternalChatMessage {
 /// OpenAI / OpenAI-compatible：`{type:function, function:{name,description,parameters}}`；
 /// Anthropic：`{name, description, input_schema}`。
 fn tools_schema_for(provider: Provider, resolution: &toolsets::ToolsetResolution) -> Value {
-    // 内置工具按默认 Agent Profile + 组织 Toolset + 工具策略过滤；MCP 工具必须
-    // 同时满足 Profile 网络策略、Server 健康状态和显式启用状态。
+    // 常用与控制工具固定暴露；其余内置/MCP 工具通过 tool_search → tools_call 延迟发现。
     let mut arr: Vec<Value> = builtin_tools()
         .into_iter()
-        .filter(|t| resolution.builtin_enabled(&t.name))
+        .filter(|tool| {
+            tool.exposure.mole_agent
+                && tool.exposure.pinned
+                && resolution.builtin_enabled(&tool.name)
+        })
         .map(|t| tool_schema_entry(provider, &t.name, &t.description, &t.input_schema))
         .collect();
-    arr.extend(
-        resolution
-            .mcp_tools
-            .values()
-            .filter(|tool| resolution.mcp_tool(&tool.name).is_some())
-            .map(|tool| {
-                tool_schema_entry(provider, &tool.name, &tool.description, &tool.input_schema)
-            }),
-    );
     arr.sort_by(|left, right| tool_schema_name(left).cmp(tool_schema_name(right)));
     Value::Array(arr)
 }

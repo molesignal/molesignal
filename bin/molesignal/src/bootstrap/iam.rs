@@ -12,7 +12,7 @@ use crate::{
     domain::iam::{
         IamMembership, IamMembershipRepository, IamPlatformAdministratorRepository,
         InstanceSettingsRepository, Organization, OrganizationRepository, SsoProviderRepository,
-        api_token::ApiTokenRepository,
+        api_token::ApiTokenRepository, service_account::ServiceAccountRepository,
     },
     infra::{
         persistence::repositories::{
@@ -23,6 +23,7 @@ use crate::{
                 PgIamRepository,
                 memberships::PgIamMembershipRepository,
                 roles::{IamRoleRepository, PgIamRoleRepository},
+                service_accounts::PgServiceAccountRepository,
             },
             instance_settings::PgInstanceSettingsRepository,
             invitations::{InvitationRepository, PgInvitationRepository},
@@ -47,6 +48,7 @@ pub(super) struct IamRuntime {
     pub(super) instance_settings: Arc<dyn InstanceSettingsRepository>,
     pub(super) signing_secrets: Arc<dyn SigningSecretRepository>,
     pub(super) api_tokens: Arc<dyn ApiTokenRepository>,
+    pub(super) service_accounts: Arc<dyn ServiceAccountRepository>,
     pub(super) user_preferences: Arc<dyn UserPreferencesRepository>,
     pub(super) workspace_preference_defaults: Arc<dyn WorkspacePreferenceDefaultsRepository>,
     pub(super) invitations: Arc<dyn InvitationRepository>,
@@ -88,6 +90,8 @@ impl IamRuntime {
         let api_tokens: Arc<dyn ApiTokenRepository> = Arc::new(
             PgApiTokenRepository::new(core.pool.clone()).with_cipher(core.cipher_root_key.clone()),
         );
+        let service_accounts: Arc<dyn ServiceAccountRepository> =
+            Arc::new(PgServiceAccountRepository::new(core.pool.clone()));
         let user_preferences: Arc<dyn UserPreferencesRepository> =
             Arc::new(PgUserPreferencesRepository::new(core.pool.clone()));
         let workspace_preference_defaults: Arc<dyn WorkspacePreferenceDefaultsRepository> =
@@ -137,6 +141,7 @@ impl IamRuntime {
             instance_settings,
             signing_secrets,
             api_tokens,
+            service_accounts,
             user_preferences,
             workspace_preference_defaults,
             invitations,

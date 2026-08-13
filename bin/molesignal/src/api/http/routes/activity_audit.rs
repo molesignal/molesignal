@@ -31,8 +31,8 @@ pub async fn record(
     let e = AuditEvent {
         id: Id::new(),
         org_id: ctx.org_id.clone(),
-        actor_kind: "user".into(),
-        actor_id: ctx.user_id.0.clone(),
+        actor_kind: ctx.principal_type().as_str().into(),
+        actor_id: ctx.principal_id().0.clone(),
         action: action.into(),
         target_kind: Some(target_kind.into()),
         target_id: Some(target_id.into()),

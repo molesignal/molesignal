@@ -14,7 +14,9 @@ use crate::{
     app::iam::IamContext,
     domain::iam::{
         IamScope,
-        access::{IamCrossOrgGrantQuery, IamRoleBinding, ResolvedIamRoleBinding},
+        access::{
+            IamCrossOrgGrantQuery, IamRelationshipQuery, IamRoleBinding, ResolvedIamRoleBinding,
+        },
         catalog::IamPermissionScope,
     },
     shared::{Error, Result, ids::Id, time::TimestampMicros},
@@ -78,7 +80,8 @@ impl IamAccessService {
                 .matching_cross_org_grants(&IamCrossOrgGrantQuery {
                     source_organization_id: target_org,
                     target_organization_id: context.org_id.clone(),
-                    user_id: context.user_id.clone(),
+                    principal_type: context.principal_type(),
+                    principal_id: context.principal_id().clone(),
                     resource_type: target.resource_type.clone(),
                     resource_id: target.resource_id.clone(),
                     permission: request.permission.clone(),
@@ -119,7 +122,12 @@ impl IamAccessService {
 
         let bindings = self
             .repository
-            .active_role_bindings(&context.org_id, &context.user_id, TimestampMicros::now())
+            .active_role_bindings(
+                &context.org_id,
+                context.principal_type(),
+                context.principal_id(),
+                TimestampMicros::now(),
+            )
             .await?;
         let mut condition_mismatch = false;
         let matched_bindings = bindings
@@ -147,14 +155,15 @@ impl IamAccessService {
 
         let relationships = self
             .repository
-            .matching_relationships(
-                &context.org_id,
-                &context.user_id,
-                &target.resource_type,
-                &target.resource_id,
-                target.container_type.as_deref(),
-                target.container_id.as_deref(),
-            )
+            .matching_relationships(&IamRelationshipQuery {
+                organization_id: context.org_id.clone(),
+                principal_type: context.principal_type(),
+                principal_id: context.principal_id().clone(),
+                resource_type: target.resource_type.clone(),
+                resource_id: target.resource_id.clone(),
+                container_type: target.container_type.clone(),
+                container_id: target.container_id.clone(),
+            })
             .await?;
         let matched_relationships = relationships
             .into_iter()

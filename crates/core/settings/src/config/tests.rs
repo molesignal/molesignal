@@ -34,6 +34,7 @@ fn example_config_file_parses_all_sections() {
     assert_eq!(s.flight_sql.port, 5083);
     assert!(s.telemetry.self_collect.enabled);
     assert_eq!(s.telemetry.self_collect.retention_days, 7);
+    assert!(!s.telemetry.self_collect.profiles_enabled);
     assert!(!s.profiling.enabled);
     assert_eq!(s.profiling.bind, "127.0.0.1");
     assert_eq!(s.profiling.port, 5084);
@@ -213,6 +214,7 @@ fn self_telemetry_defaults_are_opt_in_and_bounded() {
     let self_collect = &settings.telemetry.self_collect;
     assert!(!self_collect.enabled);
     assert!(self_collect.metrics_enabled);
+    assert!(!self_collect.profiles_enabled);
     assert_eq!(self_collect.queue_capacity, 8192);
     assert_eq!(settings.profiling.bind, "127.0.0.1");
     settings.validate().unwrap();
@@ -241,6 +243,24 @@ org_slug = "_sys"
             .unwrap_err()
             .to_string()
             .contains("queue_capacity")
+    );
+
+    let mut profile_settings: Settings = toml::from_str("").unwrap();
+    profile_settings.telemetry.self_collect.enabled = true;
+    profile_settings
+        .telemetry
+        .self_collect
+        .profile_interval_secs = 0;
+    profile_settings
+        .validate()
+        .expect("disabled self profiles ignore profile-only tuning");
+    profile_settings.telemetry.self_collect.profiles_enabled = true;
+    assert!(
+        profile_settings
+            .validate()
+            .unwrap_err()
+            .to_string()
+            .contains("profile_interval_secs")
     );
 }
 
@@ -305,7 +325,6 @@ fn removed_service_switches_are_rejected() {
         "[telemetry.self_collect]\nlogs_enabled = false\n",
         "[telemetry.self_collect]\nlogs_retention_days = 7\n",
         "[telemetry.self_collect]\ntraces_enabled = false\n",
-        "[telemetry.self_collect]\nprofiles_enabled = false\n",
     ] {
         assert!(
             toml::from_str::<Settings>(removed).is_err(),

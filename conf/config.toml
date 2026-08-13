@@ -119,6 +119,8 @@ batch_max_events = 256
 batch_max_delay_ms = 1000
 # 进程退出时等待自遥测队列冲刷完成的超时时间，单位秒。
 flush_timeout_secs = 5
+# 是否采集并回灌本进程 Profile；仅在 enabled = true 时生效，默认关闭。
+profiles_enabled = false
 # 启用的 Profile 类型：cpu | heap。
 profile_kinds = ["cpu"]
 # Profile 采集间隔，单位秒。
@@ -557,9 +559,9 @@ refresh_interval_secs = 604800
 
 # === 异步搜索作业 ===
 [search_jobs]
-# 异步搜索 worker 数量；0 按 1 个处理。
+# 单节点同时执行的异步搜索任务数；领取队列始终只有一个 poller，0 按 1 个处理。
 workers = 2
-# worker 空闲时轮询间隔（秒）
+# 未收到 PostgreSQL 通知时的兜底轮询初始间隔（秒），连续空闲会自动退避。
 idle_poll_secs = 2
 # 过期 job 清扫间隔（秒）；默认 1 小时
 cleanup_interval_secs = 3600

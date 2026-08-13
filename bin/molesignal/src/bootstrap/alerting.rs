@@ -75,6 +75,7 @@ pub(super) struct AlertingRuntime {
     pub(super) mute_rules: Arc<dyn MuteRuleRepository>,
     pub(super) incident_groups: Arc<dyn IncidentGroupRepository>,
     pub(super) semantic_groups: Arc<dyn SemanticGroupRepository>,
+    pub(super) evaluator: Arc<RuleEvaluator>,
 }
 
 impl AlertingRuntime {
@@ -201,7 +202,7 @@ impl AlertingRuntime {
         let oncall_events = Arc::new(OncallEventProducer::new(notify_engine.clone(), schedules));
         let _alert_handles = core.roles.run_alert_manager.then(|| {
             crate::bootstrap::roles::alert_manager::spawn_alert_manager_loops(
-                evaluator,
+                evaluator.clone(),
                 dispatcher,
                 core.orgs.clone() as Arc<dyn OrganizationRepository>,
                 notify_engine.clone(),
@@ -238,6 +239,7 @@ impl AlertingRuntime {
             mute_rules,
             incident_groups,
             semantic_groups,
+            evaluator,
         })
     }
 }
