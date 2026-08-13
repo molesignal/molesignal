@@ -144,6 +144,9 @@ jobs:
           # 按构建容器变体隔离缓存：bookworm 编译的 C 依赖产物（jemalloc/rdkafka）
           # 与 bullseye 不应混用，避免 glibc 版本串扰。
           key: release-${{ matrix.target }}-bullseye
+          # 发布 job 只恢复已有缓存。release target 很大，aarch64 回写曾在
+          # 产物上传后持续数十分钟并拖到 job 超时，不应阻断交付链路。
+          save-if: false
 
       - name: build release binary once
         env:
