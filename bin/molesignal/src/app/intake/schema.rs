@@ -8,7 +8,7 @@ use std::collections::{BTreeMap, HashSet};
 use crate::{
     domain::{
         intake::{EVENT_ID_FIELD, RawEvent},
-        stream::{FieldDef, FieldType, Schema, StreamType},
+        stream::{FieldDef, FieldType, Schema, StreamIndexType, StreamType},
     },
     shared::trace::summary::TRACE_SUMMARY_MARKER_FIELD,
 };
@@ -34,13 +34,17 @@ pub fn check_event_types(schema: &Schema, event: &RawEvent) -> std::result::Resu
     Ok(())
 }
 
-/// Return the automatic `(indexed, exact)` policy for newly discovered fields.
-fn auto_index_policy(stream_type: StreamType, field_name: &str) -> (bool, bool) {
+/// Return the automatic index policy for newly discovered fields.
+fn auto_index_type(stream_type: StreamType, field_name: &str) -> StreamIndexType {
     match stream_type {
         StreamType::Traces => {
             let exact = matches!(field_name, "trace_id" | "span_id" | "service.name")
                 || field_name == TRACE_SUMMARY_MARKER_FIELD;
-            (exact, exact)
+            if exact {
+                StreamIndexType::Exact
+            } else {
+                StreamIndexType::None
+            }
         }
         // Cursor identities and common RUM dimensions are exact indexed so that Bloom/Tantivy can
         // eliminate unrelated hourly objects before Parquet planning.
@@ -57,13 +61,23 @@ fn auto_index_policy(stream_type: StreamType, field_name: &str) -> (bool, bool) 
             );
             // `message` uses a tokenized TEXT index. Exact dimensions use a STRING index and
             // Bloom filter; the two modes intentionally remain mutually exclusive.
-            (exact || field_name == "message", exact)
+            if exact {
+                StreamIndexType::Exact
+            } else if field_name == "message" {
+                StreamIndexType::FullText
+            } else {
+                StreamIndexType::None
+            }
         }
         StreamType::Metrics => {
             let exact = field_name == crate::domain::metrics::METRIC_NAME_FIELD;
-            (exact, exact)
+            if exact {
+                StreamIndexType::Exact
+            } else {
+                StreamIndexType::None
+            }
         }
-        StreamType::Profiles | StreamType::Extend => (false, false),
+        StreamType::Profiles | StreamType::Extend => StreamIndexType::None,
     }
 }
 
@@ -96,14 +110,15 @@ pub fn infer_schema_extension(
 
     let mut next = schema.clone();
     for (name, data_type) in new_fields {
-        let (indexed, exact) = auto_index_policy(stream_type, &name);
+        let index_type = auto_index_type(stream_type, &name);
         next.fields.push(FieldDef {
             name,
             data_type,
             nullable: true,
-            indexed,
+            index_type: Some(index_type),
+            indexed: index_type != StreamIndexType::None,
             encrypted: false,
-            exact,
+            exact: index_type == StreamIndexType::Exact,
         });
     }
     Some(next)
@@ -151,12 +166,12 @@ mod tests {
     #[test]
     fn log_message_uses_tokenized_index() {
         assert_eq!(
-            auto_index_policy(StreamType::Logs, "message"),
-            (true, false)
+            auto_index_type(StreamType::Logs, "message"),
+            StreamIndexType::FullText
         );
         assert_eq!(
-            auto_index_policy(StreamType::Logs, EVENT_ID_FIELD),
-            (true, true)
+            auto_index_type(StreamType::Logs, EVENT_ID_FIELD),
+            StreamIndexType::Exact
         );
     }
 }

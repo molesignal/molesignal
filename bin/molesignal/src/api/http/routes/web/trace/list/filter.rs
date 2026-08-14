@@ -253,6 +253,7 @@ mod tests {
             name: name.into(),
             data_type,
             nullable: true,
+            index_type: None,
             indexed: false,
             encrypted: false,
             exact: false,

@@ -8,6 +8,23 @@
 > 函数规范形式为**全大写** `MATCH` / `MATCH_TEXT`（文档、示例、错误信息、前端补全均大写）；
 > SQL 解析与执行大小写不敏感，小写调用（`match_text(...)`）同样生效。
 
+## 字段索引类型
+
+数据流字段的 `index_type` 直接决定写入与查询路径，不再由 `indexed/exact` 两个兼容字段
+模糊推断：
+
+| 类型 | 写入结构 | 查询用途 |
+| --- | --- | --- |
+| `none` | 不创建字段索引 | 完整交给 Parquet/DataFusion 执行 |
+| `exact` | 文本字段使用未分词 Tantivy `STRING`；同时启用 Parquet Bloom | 文本等值谓词可做文件级 Tantivy 裁剪，Parquet 读取时继续使用 Bloom |
+| `full_text` | 分词 Tantivy `TEXT` | `MATCH` / `MATCH_TEXT` 的安全文件级候选裁剪 |
+| `bloom` | 仅 Parquet Bloom | DataFusion 下推等值谓词时做概率过滤，不进入 Tantivy |
+| `skip` | Parquet 文件元数据中的 min/max zone map | 对顶层 `AND` 中的 `= / != / < / <= / > / >=` 比较做文件级裁剪 |
+
+`skip` 对 `OR`、复杂表达式、类型不匹配、缺失/无效边界以及加密字段一律保守保留文件。
+索引只影响候选裁剪，最终结果仍由 DataFusion 的行级表达式决定。修改字段配置只影响随后
+写出的 Parquet 文件，不会自动重建历史数据索引。
+
 ## MATCH(field, term)：通用子串匹配
 
 `MATCH` 是**无门槛**的通用子串函数：字段值包含 `term` 作为连续子串即命中，
@@ -32,7 +49,7 @@ SELECT * FROM app_logs WHERE MATCH(message, '100%');    -- 字面 `100%`，不�
 ## MATCH_TEXT(field, query)：全文检索
 
 `MATCH_TEXT` 对单个字段执行全文检索，前提是字段已配置全文索引
-（`indexed && !exact`，即 full_text 索引类型）。未配置索引的字段调用会报错，
+（`index_type == full_text`）。未配置索引的字段调用会报错，
 错误信息指明该字段未配置全文索引。单 token 查询的匹配语义与 `MATCH` 一致。
 
 ### 查询语法
@@ -71,7 +88,7 @@ SELECT * FROM app_logs WHERE MATCH_TEXT(message, 'panic -debug');
 
 ### 索引前提与错误行为
 
-- 字段必须已配置 full_text 索引（`indexed && !exact`）；未配置时查询失败，错误信息
+- 字段必须已配置 `full_text` 索引；未配置时查询失败，错误信息
   指向配置全文索引。
 - full_text 索引类型仅限 **string（utf8）** 字段：创建数据流与更新设置时对
   `index_type == full_text` 且字段非 utf8 的请求返回 400；前端 schema 编辑界面按字段

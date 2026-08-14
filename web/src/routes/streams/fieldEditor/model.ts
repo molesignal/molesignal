@@ -28,6 +28,7 @@ export function indexOptionsFor(dataType: streamsApi.FieldType) {
 }
 
 function defaultIndexType(field: streamsApi.StreamField): streamsApi.StreamIndexType {
+  if (field.index_type) return field.index_type;
   if (!field.indexed) return 'none';
   return field.data_type === 'utf8' ? 'full_text' : 'exact';
 }

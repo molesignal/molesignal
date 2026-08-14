@@ -56,6 +56,7 @@ async fn seed_stream(s: &TestServer) -> StreamDefinition {
                     name: "level".into(),
                     data_type: FieldType::Utf8,
                     nullable: false,
+                    index_type: None,
                     indexed: true,
                     encrypted: false,
                     exact: false,

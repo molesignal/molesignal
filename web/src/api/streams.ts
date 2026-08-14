@@ -10,6 +10,8 @@ export interface StreamField {
   data_type: FieldType;
   nullable: boolean;
   indexed: boolean;
+  /** 新版 schema 直接持久化的规范索引类型；旧服务响应可能缺失。 */
+  index_type?: StreamIndexType;
   /** 字段级静态加密：写入前用 cipher key 加密、密文落盘；查询用 decrypt(col) 还原。 */
   encrypted?: boolean;
 }
@@ -131,7 +133,7 @@ export interface CreateStreamRequest {
   name: string;
   stream_type: StreamType;
   retention_days?: number | null;
-  fields?: Array<Pick<StreamField, 'name' | 'data_type' | 'nullable' | 'indexed' | 'encrypted'>>;
+  fields?: Array<Pick<StreamField, 'name' | 'data_type' | 'nullable' | 'indexed' | 'index_type' | 'encrypted'>>;
   settings?: Partial<StreamSettings>;
 }
 

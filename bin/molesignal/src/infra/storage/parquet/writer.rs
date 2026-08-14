@@ -23,7 +23,7 @@ use super::partition::{sort_for_storage, split_by_utc_hour};
 use crate::{
     domain::{
         storage::{ParquetFileMeta, PhysicalDatasetKind},
-        stream::StreamDefinition,
+        stream::{StreamDefinition, StreamIndexType},
     },
     infra::search::tantivy_index::{TantivyArchive, TantivyArchiveBuilder},
     shared::{
@@ -71,7 +71,7 @@ impl ParquetWriter {
 
     /// 同时写 parquet + tantivy 索引：
     /// - parquet 上传后产 ParquetFileMeta；
-    /// - 若 stream 中有 `indexed=true && Utf8/Json` 字段，构建 tantivy 索引并返回 archive。
+    /// - 若 stream 中有 `full_text/exact && Utf8/Json` 字段，构建 Tantivy 索引并返回 archive。
     ///   archive 的对象上传由 caller 在同一 await 链路完成（规范路径映射为 `.ttv` sidecar）。
     pub async fn flush_with_index(
         &self,
@@ -334,7 +334,8 @@ pub fn is_downsampled_key(key: &str) -> bool {
     key.ends_with(".ds.parquet")
 }
 
-/// 把 batch 中的 indexed Utf8 列喂给 [`TantivyArchiveBuilder`] → archive bytes + object key。
+/// 把 batch 中的 `full_text/exact` 文本列喂给 [`TantivyArchiveBuilder`] → archive bytes +
+/// object key。`bloom/skip` 不生成 Tantivy sidecar。
 fn build_tantivy_for_batch(
     stream: &StreamDefinition,
     batch: &RecordBatch,
@@ -349,7 +350,10 @@ fn build_tantivy_for_batch(
     let schema = batch.schema();
     let mut indexed_arrays: Vec<(String, &StringArray)> = Vec::new();
     for f in &stream.schema.fields {
-        if !f.indexed {
+        if !matches!(
+            f.effective_index_type(),
+            StreamIndexType::Exact | StreamIndexType::FullText
+        ) {
             continue;
         }
         if let Ok(idx) = schema.index_of(&f.name)
@@ -392,12 +396,12 @@ fn build_tantivy_for_batch(
 
 fn encode_parquet(stream: &StreamDefinition, batch: &RecordBatch) -> Result<Bytes> {
     let mut properties = WriterProperties::builder().set_compression(Compression::SNAPPY);
-    for field in stream
-        .schema
-        .fields
-        .iter()
-        .filter(|field| field.indexed && field.exact && !field.encrypted)
-    {
+    for field in stream.schema.fields.iter().filter(|field| {
+        matches!(
+            field.effective_index_type(),
+            StreamIndexType::Exact | StreamIndexType::Bloom
+        ) && !field.encrypted
+    }) {
         if batch.schema().index_of(&field.name).is_ok() {
             properties = properties
                 .set_column_bloom_filter_enabled(ColumnPath::from(field.name.clone()), true)
@@ -426,7 +430,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        domain::stream::{FieldDef, FieldType, Retention, Schema, StreamType},
+        domain::stream::{FieldDef, FieldType, Retention, Schema, StreamIndexType, StreamType},
         infra::storage::arrow_schema::to_arrow,
     };
 
@@ -442,6 +446,7 @@ mod tests {
                         name: "level".into(),
                         data_type: FieldType::Utf8,
                         nullable: false,
+                        index_type: Some(StreamIndexType::FullText),
                         indexed: true,
                         encrypted: false,
                         exact: false,
@@ -450,6 +455,7 @@ mod tests {
                         name: "latency_ms".into(),
                         data_type: FieldType::Int64,
                         nullable: true,
+                        index_type: Some(StreamIndexType::Skip),
                         indexed: true,
                         encrypted: false,
                         exact: false,
@@ -500,5 +506,27 @@ mod tests {
             "file at {} missing",
             local_path.display()
         );
+    }
+
+    #[test]
+    fn bloom_type_writes_a_parquet_bloom_without_falling_through_from_skip() {
+        use parquet::file::metadata::ParquetMetaDataReader;
+
+        for index_type in [StreamIndexType::Bloom, StreamIndexType::Exact] {
+            let mut stream = sample_stream();
+            stream.schema.fields[0].configure_index(true, index_type);
+            let batch = sample_batch(&stream);
+            let bytes = encode_parquet(&stream, &batch).expect("encode parquet");
+            let metadata = ParquetMetaDataReader::new()
+                .parse_and_finish(&bytes)
+                .expect("read parquet metadata");
+            let row_group = metadata.row_group(0);
+            // `_timestamp` = 0, `level` = 1, `latency_ms` = 2.
+            assert!(
+                row_group.column(1).bloom_filter_offset().is_some(),
+                "{index_type:?} must enable a Bloom filter"
+            );
+            assert!(row_group.column(2).bloom_filter_offset().is_none());
+        }
     }
 }

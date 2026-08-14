@@ -5,6 +5,7 @@
 //!
 //! - [`promql`]：PromQL 引擎。
 //! - [`tantivy_pruner`]：基于 tantivy 倒排索引的 parquet_file_meta 候选裁剪。
+//! - [`skip_pruner`]：基于字段 min/max zone map 的 parquet_file_meta 候选裁剪。
 //! - [`distributed`]：分布式 SQL 引擎，用 Arrow Flight 调远端 querier do_get。
 //! - [`planner`]：多租户 planner rewrite；当前由 `ensure_stream_in_org` 校验越权。
 //! - [`parser`]：基于 sqlparser AST 的 base table 引用提取（change `sqlparser-join-planner`）。
@@ -19,6 +20,7 @@ pub use ::query_language as parser;
 pub mod planner;
 pub mod promql;
 pub mod rewrite;
+pub mod skip_pruner;
 pub mod sql_functions;
 pub mod tantivy_pruner;
 pub mod udafs;

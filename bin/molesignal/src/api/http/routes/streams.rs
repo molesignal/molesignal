@@ -174,9 +174,8 @@ struct CreateFieldRequest {
     nullable: bool,
     #[serde(default)]
     indexed: bool,
-    /// 索引类型：`Exact` → 未分词 STRING 索引供 `col = 'x'` 等值裁剪；其余（含缺省）
-    /// → 分词 TEXT 索引供 `MATCH()` 全文。仅在 `indexed = true` 时有意义。缺省不破坏
-    /// 老请求（只传 `indexed: true` 仍是 TEXT）。
+    /// 规范索引类型；仅在 `indexed = true` 时有意义。缺省兼容旧请求：文本字段映射为
+    /// `full_text`，非文本字段映射为 `skip`。
     #[serde(default)]
     index_type: StreamIndexType,
     /// 字段级静态加密：写入前用 cipher root key 加密、密文落盘；查询用 `decrypt(col)` 还原。
@@ -216,6 +215,20 @@ struct FieldSettingRequest {
 
 fn default_true() -> bool {
     true
+}
+
+fn resolve_create_index_type(
+    indexed: bool,
+    data_type: FieldType,
+    requested: StreamIndexType,
+) -> StreamIndexType {
+    if !indexed {
+        StreamIndexType::None
+    } else if requested == StreamIndexType::None {
+        StreamIndexType::legacy_default(data_type)
+    } else {
+        requested
+    }
 }
 
 async fn response_for(state: &AppState, def: StreamDefinition) -> Result<StreamResponse> {
@@ -271,6 +284,18 @@ fn validate_full_text_data_type(
 }
 
 fn validate_settings(settings: &StreamSettings) -> Result<()> {
+    let mut indexed_fields = std::collections::HashSet::new();
+    for rule in &settings.index_rules {
+        if rule.field.trim().is_empty() {
+            return Err(Error::invalid("index rule field cannot be empty"));
+        }
+        if !indexed_fields.insert(rule.field.as_str()) {
+            return Err(Error::invalid(format!(
+                "duplicate index rule for field `{}`",
+                rule.field
+            )));
+        }
+    }
     for condition in &settings.keep_conditions {
         if let Some(days) = condition.retention_days {
             validate_days(days)?;
@@ -454,16 +479,29 @@ async fn create(
                 .fields
                 .into_iter()
                 .map(|field| {
-                    let index_type = field.index_type;
-                    validate_full_text_data_type(&field.name, field.data_type, index_type.clone())?;
+                    let rule = settings
+                        .index_rules
+                        .iter()
+                        .find(|rule| rule.field == field.name);
+                    let requested = rule.map_or(field.index_type, |rule| rule.index_type);
+                    validate_full_text_data_type(&field.name, field.data_type, requested)?;
+                    let index_type = match rule {
+                        Some(rule) if rule.enabled => rule.index_type,
+                        Some(_) => StreamIndexType::None,
+                        None => resolve_create_index_type(
+                            field.indexed,
+                            field.data_type,
+                            field.index_type,
+                        ),
+                    };
                     Ok(FieldDef {
                         name: field.name,
-                        // exact 索引对高基数字段（trace_id 等）有意义，隐含 indexed。
-                        exact: field.indexed && index_type == StreamIndexType::Exact,
                         data_type: field.data_type,
                         nullable: field.nullable,
-                        indexed: field.indexed,
+                        index_type: Some(index_type),
+                        indexed: index_type != StreamIndexType::None,
                         encrypted: field.encrypted,
+                        exact: index_type == StreamIndexType::Exact,
                     })
                 })
                 .collect::<Result<Vec<_>>>()?,
@@ -526,27 +564,8 @@ async fn update_settings(
     }
 
     let mut settings = req.settings.unwrap_or_else(|| current_settings.clone());
-    validate_settings(&settings)?;
-
-    let schema_changed = req.fields.is_some();
+    let fields_were_provided = req.fields.is_some();
     if let Some(field_settings) = req.fields {
-        for setting in &field_settings {
-            if let Some(field) = def
-                .schema
-                .fields
-                .iter_mut()
-                .find(|f| f.name == setting.name)
-            {
-                validate_full_text_data_type(
-                    &field.name,
-                    field.data_type,
-                    setting.index_type.clone(),
-                )?;
-                field.indexed = setting.indexed && setting.index_type != StreamIndexType::None;
-                // Exact → 未分词 STRING 索引（等值裁剪）；其余索引类型走分词 TEXT（全文）。
-                field.exact = field.indexed && setting.index_type == StreamIndexType::Exact;
-            }
-        }
         settings.index_rules = field_settings
             .into_iter()
             .map(|setting| FieldIndexRule {
@@ -562,6 +581,23 @@ async fn update_settings(
                     .collect(),
             })
             .collect();
+    }
+    validate_settings(&settings)?;
+
+    let schema_changed =
+        fields_were_provided || settings.index_rules != current_settings.index_rules;
+    if schema_changed {
+        for rule in &settings.index_rules {
+            if let Some(field) = def
+                .schema
+                .fields
+                .iter_mut()
+                .find(|field| field.name == rule.field)
+            {
+                validate_full_text_data_type(&field.name, field.data_type, rule.index_type)?;
+                field.configure_index(rule.enabled, rule.index_type);
+            }
+        }
     }
 
     validate_field_masking(&settings, &def.schema, def.stream_type)?;
@@ -943,7 +979,7 @@ mod full_text_type_tests {
             StreamIndexType::Skip,
         ] {
             assert!(
-                validate_full_text_data_type("count", FieldType::Int64, index_type.clone()).is_ok(),
+                validate_full_text_data_type("count", FieldType::Int64, index_type).is_ok(),
                 "int64 + {index_type:?} 应放行"
             );
         }
@@ -951,6 +987,33 @@ mod full_text_type_tests {
             validate_full_text_data_type("trace_id", FieldType::Utf8, StreamIndexType::Exact)
                 .is_ok(),
             "utf8 + exact 应放行"
+        );
+    }
+
+    #[test]
+    fn create_request_preserves_explicit_types_and_maps_legacy_indexed_fields() {
+        assert_eq!(
+            resolve_create_index_type(true, FieldType::Utf8, StreamIndexType::None),
+            StreamIndexType::FullText
+        );
+        assert_eq!(
+            resolve_create_index_type(true, FieldType::Int64, StreamIndexType::None),
+            StreamIndexType::Skip
+        );
+        for index_type in [
+            StreamIndexType::Exact,
+            StreamIndexType::FullText,
+            StreamIndexType::Bloom,
+            StreamIndexType::Skip,
+        ] {
+            assert_eq!(
+                resolve_create_index_type(true, FieldType::Utf8, index_type),
+                index_type
+            );
+        }
+        assert_eq!(
+            resolve_create_index_type(false, FieldType::Utf8, StreamIndexType::FullText),
+            StreamIndexType::None
         );
     }
 }

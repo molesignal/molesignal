@@ -181,6 +181,7 @@ mod tests {
                         name: (*name).to_string(),
                         data_type: FieldType::Utf8,
                         nullable: true,
+                        index_type: None,
                         indexed: false,
                         encrypted: false,
                         exact: false,

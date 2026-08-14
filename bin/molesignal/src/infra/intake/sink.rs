@@ -266,6 +266,7 @@ mod tests {
                     name: "level".into(),
                     data_type: FieldType::Utf8,
                     nullable: false,
+                    index_type: None,
                     indexed: true,
                     encrypted: false,
                     exact: false,

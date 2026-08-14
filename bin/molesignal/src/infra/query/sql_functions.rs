@@ -50,7 +50,7 @@ pub fn sql_query_capabilities() -> SqlQueryCapabilities {
                 label: "MATCH_TEXT",
                 insert_text: "MATCH_TEXT(${1:field}, '${2:query}')",
                 detail: "全文检索（多词 / 短语 / 通配符）",
-                documentation: "仅限已配置 full_text 索引的 string 字段（indexed && !exact），未配置时报错。",
+                documentation: "仅限 index_type 为 full_text 的 string 字段，未配置时报错。",
                 kind: SqlFunctionCompletionKind::Function,
             },
         ],

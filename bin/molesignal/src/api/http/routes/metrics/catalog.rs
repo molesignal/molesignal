@@ -416,6 +416,7 @@ mod tests {
             name: name.into(),
             data_type: FieldType::Float64,
             nullable: false,
+            index_type: None,
             indexed: false,
             encrypted: false,
             exact: false,

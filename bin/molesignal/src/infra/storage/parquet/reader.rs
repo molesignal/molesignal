@@ -265,6 +265,7 @@ mod tests {
                     name: "msg".into(),
                     data_type: FieldType::Utf8,
                     nullable: false,
+                    index_type: None,
                     indexed: false,
                     encrypted: false,
                     exact: false,

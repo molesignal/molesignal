@@ -57,6 +57,7 @@ fn sample_stream() -> StreamDefinition {
                 name: "val".into(),
                 data_type: FieldType::Int64,
                 nullable: false,
+                index_type: None,
                 indexed: false,
                 encrypted: false,
                 exact: false,

@@ -14,13 +14,14 @@ use crate::{
         masking::Masker,
         query::{QueryRequest, QueryResult, StreamHint},
         storage::PhysicalDatasetKind,
-        stream::{StreamRepository, StreamType as StreamTypeEnum},
+        stream::{FieldType, StreamIndexType, StreamRepository, StreamType as StreamTypeEnum},
     },
     infra::{
         query::{
             parquet_table::PrunedParquetTable,
             parser::{extract_equality_predicates, extract_referenced_tables, parse_sample_hint},
             planner::ensure_stream_in_org,
+            skip_pruner,
             tantivy_pruner::{MatchPredicate, extract_match_predicates, match_text_fields},
             udfs::{build_extract_pattern_udf, build_mask_udf, compile_patterns},
         },
@@ -53,7 +54,7 @@ pub(super) async fn run(
     )
     .await?;
     let (mut predicates, rewritten_sql) = extract_match_predicates(&statement);
-    add_exact_predicates(
+    constrain_tantivy_predicates(
         engine,
         &req,
         &name,
@@ -100,6 +101,19 @@ pub(super) async fn run(
             req.time_range,
         )
         .await?;
+        let stream_definition = if let Some(streams) = &engine.streams {
+            streams
+                .get(&req.org_id, table_name, *stream_type)
+                .await
+                .ok()
+        } else {
+            None
+        };
+        if table_name == &name
+            && let Some(definition) = stream_definition.as_ref()
+        {
+            files = skip_pruner::prune(files, &statement, &definition.schema);
+        }
         if !predicates.is_empty()
             && table_name == &name
             && let Some(pruner) = &engine.tantivy_pruner
@@ -123,14 +137,6 @@ pub(super) async fn run(
         }
         scanned_rows = scanned_rows.saturating_add(files.iter().map(|file| file.rows).sum::<u64>());
 
-        let stream_definition = if let Some(streams) = &engine.streams {
-            streams
-                .get(&req.org_id, table_name, *stream_type)
-                .await
-                .ok()
-        } else {
-            None
-        };
         let schema: Arc<ArrowSchema> = match stream_definition {
             Some(definition) => {
                 let definition = selected_dataset
@@ -190,7 +196,7 @@ pub(super) async fn run(
 }
 
 /// 校验 SQL 中所有 `MATCH_TEXT(field, ...)` 调用的字段前提（设计 D2/D3、spec
-/// text-match-functions）：字段必须存在且配置了 full_text 索引（`indexed && !exact`），
+/// text-match-functions）：字段必须存在且显式/兼容配置为 `full_text`，
 /// 否则查询失败并指明该字段未配置全文索引。
 ///
 /// 校验落在 schema 上下文层（本函数由 `run` / `explain` 在 rewrite 前调用）；`streams` 为
@@ -213,11 +219,9 @@ pub(super) async fn validate_match_text_fields(
         return Ok(());
     };
     for field in fields {
-        let configured = definition
-            .schema
-            .fields
-            .iter()
-            .any(|def| def.name == field && def.indexed && !def.exact);
+        let configured = definition.schema.fields.iter().any(|def| {
+            def.name == field && def.effective_index_type() == StreamIndexType::FullText
+        });
         if !configured {
             return Err(Error::invalid(format!(
                 "MATCH_TEXT: field `{field}` has no full-text index configured; \
@@ -228,7 +232,10 @@ pub(super) async fn validate_match_text_fields(
     Ok(())
 }
 
-async fn add_exact_predicates(
+/// 把 MATCH/MATCH_TEXT 产生的候选谓词限制到真正的 `full_text` 字段，再补入可由
+/// Tantivy STRING 消费的文本 `exact` 等值谓词。没有 schema 上下文时关闭裁剪，避免把
+/// exact 整值索引误用于 MATCH 子串语义。
+async fn constrain_tantivy_predicates(
     engine: &DataFusionEngine,
     req: &QueryRequest,
     stream: &str,
@@ -237,26 +244,40 @@ async fn add_exact_predicates(
     predicates: &mut Vec<MatchPredicate>,
 ) {
     let exact = extract_equality_predicates(statement);
-    if exact.is_empty() {
-        return;
-    }
     let Some(streams) = &engine.streams else {
+        predicates.clear();
         return;
     };
     let Ok(definition) = streams.get(&req.org_id, stream, stream_type).await else {
+        predicates.clear();
         return;
     };
-    let indexed = definition
+    let full_text = definition
         .schema
         .fields
         .iter()
-        .filter(|field| field.indexed && field.exact)
+        .filter(|field| {
+            !field.encrypted && field.effective_index_type() == StreamIndexType::FullText
+        })
+        .map(|field| field.name.as_str())
+        .collect::<HashSet<_>>();
+    predicates.retain(|predicate| full_text.contains(predicate.field.as_str()));
+
+    let exact_fields = definition
+        .schema
+        .fields
+        .iter()
+        .filter(|field| {
+            !field.encrypted
+                && matches!(field.data_type, FieldType::Utf8 | FieldType::Json)
+                && field.effective_index_type() == StreamIndexType::Exact
+        })
         .map(|field| field.name.as_str())
         .collect::<HashSet<_>>();
     predicates.extend(
         exact
             .into_iter()
-            .filter(|(column, _)| indexed.contains(column.as_str()))
+            .filter(|(column, _)| exact_fields.contains(column.as_str()))
             .map(|(field, term)| MatchPredicate { field, term }),
     );
 }

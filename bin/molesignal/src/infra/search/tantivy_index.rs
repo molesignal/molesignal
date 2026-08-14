@@ -25,7 +25,7 @@ use tantivy::{
 };
 
 use crate::{
-    domain::stream::{FieldType, StreamDefinition},
+    domain::stream::{FieldType, StreamDefinition, StreamIndexType},
     tantivy::puffin_directory::{PuffinDirReader, PuffinDirWriter},
 };
 
@@ -43,7 +43,8 @@ pub struct TantivyArchiveBuilder {
 }
 
 impl TantivyArchiveBuilder {
-    /// 按 stream schema 中 `indexed=true && Utf8/Json && !encrypted` 字段建 tantivy schema。
+    /// 按 stream schema 中 `full_text/exact && Utf8/Json && !encrypted` 字段建 Tantivy
+    /// schema；`bloom/skip/none` 不进入倒排 sidecar。
     /// 没有任何可索引字段时返 `Ok(None)`（caller 跳过 tantivy 同写）。
     ///
     /// 字段级选型：`exact=true` 建**未分词** `STRING` 索引（整值单 term，供 `col = 'x'`
@@ -52,7 +53,7 @@ impl TantivyArchiveBuilder {
         let mut sb = Schema::builder();
         let mut fields = HashMap::new();
         for f in &stream.schema.fields {
-            if !f.indexed || !matches!(f.data_type, FieldType::Utf8 | FieldType::Json) {
+            if !matches!(f.data_type, FieldType::Utf8 | FieldType::Json) {
                 continue;
             }
             // 加密字段列里是密文，明文查询（等值或全文）必然 miss；索引它只会让 pruner
@@ -60,7 +61,11 @@ impl TantivyArchiveBuilder {
             if f.encrypted {
                 continue;
             }
-            let options = if f.exact { STRING } else { TEXT };
+            let options = match f.effective_index_type() {
+                StreamIndexType::Exact => STRING,
+                StreamIndexType::FullText => TEXT,
+                StreamIndexType::None | StreamIndexType::Bloom | StreamIndexType::Skip => continue,
+            };
             let tf = sb.add_text_field(&f.name, options);
             fields.insert(f.name.clone(), tf);
         }
@@ -226,6 +231,7 @@ mod tests {
                         name: "level".into(),
                         data_type: FieldType::Utf8,
                         nullable: false,
+                        index_type: None,
                         indexed: false,
                         encrypted: false,
                         exact: false,
@@ -234,6 +240,7 @@ mod tests {
                         name: "message".into(),
                         data_type: FieldType::Utf8,
                         nullable: false,
+                        index_type: None,
                         indexed: true,
                         encrypted: false,
                         exact: false,
@@ -283,16 +290,28 @@ mod tests {
         assert_eq!(handle.count_term("message", "api").unwrap(), 0);
     }
 
-    /// 加密字段即便 indexed=true 也不进 tantivy schema（列里是密文，索引它只会误裁）。
+    /// 加密字段即便配置倒排索引也不进 Tantivy schema（列里是密文，索引它只会误裁）。
     #[test]
     fn encrypted_indexed_field_is_skipped() {
         let mut s = stream_with_indexed_message();
-        s.schema.fields[1].encrypted = true; // message: indexed=true + encrypted=true
+        s.schema.fields[1].encrypted = true;
         // 只剩加密字段可选 → 无可索引字段 → None。
         assert!(TantivyArchiveBuilder::try_new(&s).unwrap().is_none());
     }
 
-    /// 存量 json 全文索引不受影响：builder 仍为 `indexed=true && Json` 字段建 TEXT 索引
+    #[test]
+    fn bloom_and_skip_fields_do_not_fall_through_to_text_indexes() {
+        for index_type in [StreamIndexType::Bloom, StreamIndexType::Skip] {
+            let mut stream = stream_with_indexed_message();
+            stream.schema.fields[1].configure_index(true, index_type);
+            assert!(
+                TantivyArchiveBuilder::try_new(&stream).unwrap().is_none(),
+                "{index_type:?} must not create a Tantivy field"
+            );
+        }
+    }
+
+    /// 存量 json 全文索引不受影响：builder 仍为兼容推导出的 Json full_text 字段建 TEXT 索引
     /// （spec stream-index-config「存量全文索引兼容」——新配置已由 API 层 400 拦下，写侧
     /// 保持 `Utf8 | Json` 原状，json full_text 检索与裁剪行为不变）。
     #[tokio::test]
@@ -300,7 +319,7 @@ mod tests {
         use object_store::{ObjectStoreExt, memory::InMemory, path::Path as ObjectPath};
 
         let mut s = stream_with_indexed_message();
-        s.schema.fields[1].data_type = FieldType::Json; // message: indexed=true + Json
+        s.schema.fields[1].data_type = FieldType::Json;
         let mut b = TantivyArchiveBuilder::try_new(&s)
             .unwrap()
             .expect("json full_text 仍应建 TEXT 索引");

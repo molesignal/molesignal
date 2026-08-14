@@ -526,6 +526,7 @@ pub fn canonical_trace_schema() -> Schema {
         name: name.into(),
         data_type,
         nullable: true,
+        index_type: None,
         indexed,
         encrypted: false,
         exact,

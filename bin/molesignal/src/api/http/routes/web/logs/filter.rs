@@ -9,7 +9,7 @@ use super::{LogFilter, clean_required, sql_literal};
 use crate::{
     domain::{
         intake::EVENT_ID_FIELD,
-        stream::{FieldDef, FieldType},
+        stream::{FieldDef, FieldType, StreamIndexType},
     },
     infra::query::escape_sql_ident,
     shared::{Error, Result},
@@ -155,8 +155,7 @@ fn validate_search_function(filter: &LogFilter, fields: &[FieldDef]) -> Result<(
     let configured = fields.iter().any(|field| {
         field.name == filter.field
             && field.data_type == FieldType::Utf8
-            && field.indexed
-            && !field.exact
+            && field.effective_index_type() == StreamIndexType::FullText
     });
     if !configured {
         return Err(Error::invalid(format!(
@@ -258,6 +257,7 @@ mod tests {
             name: name.into(),
             data_type,
             nullable: true,
+            index_type: None,
             indexed: false,
             encrypted: false,
             exact: false,
@@ -340,8 +340,15 @@ mod tests {
 
         message.indexed = true;
         assert_eq!(
-            to_sql(&filter("message", "match_text", "panic"), &[message]).unwrap(),
+            to_sql(
+                &filter("message", "match_text", "panic"),
+                &[message.clone()]
+            )
+            .unwrap(),
             "MATCH_TEXT(message, 'panic')"
         );
+
+        message.configure_index(true, StreamIndexType::Bloom);
+        assert!(to_sql(&filter("message", "match_text", "panic"), &[message]).is_err());
     }
 }

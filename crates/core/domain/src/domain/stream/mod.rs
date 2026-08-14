@@ -102,17 +102,50 @@ pub struct FieldDef {
     pub name: String,
     pub data_type: FieldType,
     pub nullable: bool,
+    /// 规范化后的字段索引类型。`None` 表示该 schema 来自旧版本，需要由
+    /// [`Self::effective_index_type`] 从 `indexed/exact` 兼容推导；`Some(None)` 才表示
+    /// API 明确关闭索引。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub index_type: Option<StreamIndexType>,
+    /// 旧 schema/API 的兼容投影：新写入保持为 `index_type != none`。
     pub indexed: bool,
     /// 字段级静态加密：为 true 时该字段在写入 parquet 前用 `CipherRootKey` 加密，
     /// 列以密文（Utf8）落盘；查询端用 `decrypt(col)` UDF 还原明文。默认 false。
     #[serde(default)]
     pub encrypted: bool,
-    /// 精确索引：`indexed && exact` 时该字段建**未分词**的 tantivy `STRING` 索引（整值一个
-    /// term），供 `col = 'literal'` 等值裁剪；`indexed && !exact` 走分词 `TEXT` 索引供
-    /// `MATCH()` 全文。二者不可兼得（一个 tantivy 字段只能其一）。`exact` 无 `indexed`
-    /// 无意义（不建任何索引）。默认 false，存量 schema 反序列化即保持既有 TEXT 行为。
+    /// 旧 schema/API 的兼容投影：新写入仅在 `index_type == exact` 时为 `true`。
     #[serde(default)]
     pub exact: bool,
+}
+
+impl FieldDef {
+    /// 返回实际索引类型，并兼容尚未持久化 `index_type` 的历史 schema。
+    ///
+    /// 历史非文本 `indexed && !exact` 字段没有 Tantivy TEXT 索引，只生成 min/max 元数据，
+    /// 因而兼容映射为 `skip`；历史文本字段保持原有 `full_text` 行为。
+    pub fn effective_index_type(&self) -> StreamIndexType {
+        match self.index_type {
+            Some(index_type) => index_type,
+            None if !self.indexed => StreamIndexType::None,
+            None if self.exact => StreamIndexType::Exact,
+            None if matches!(self.data_type, FieldType::Utf8 | FieldType::Json) => {
+                StreamIndexType::FullText
+            }
+            None => StreamIndexType::Skip,
+        }
+    }
+
+    /// 原子更新规范索引类型与两个旧兼容字段，避免三者出现互相矛盾的组合。
+    pub fn configure_index(&mut self, enabled: bool, index_type: StreamIndexType) {
+        let index_type = if enabled {
+            index_type
+        } else {
+            StreamIndexType::None
+        };
+        self.index_type = Some(index_type);
+        self.indexed = index_type != StreamIndexType::None;
+        self.exact = index_type == StreamIndexType::Exact;
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -159,15 +192,105 @@ mod stream_name_tests {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum StreamIndexType {
+    /// 不创建字段级辅助索引。
     #[default]
     None,
+    /// 精确匹配：文本使用未分词倒排索引，并启用 Parquet Bloom。
     Exact,
+    /// 全文匹配：文本使用分词倒排索引。
     FullText,
+    /// 仅启用 Parquet Bloom filter。
     Bloom,
+    /// 使用文件级 min/max zone map 做比较谓词裁剪。
     Skip,
+}
+
+impl StreamIndexType {
+    /// 兼容只提交 `indexed=true`、未提交 `index_type` 的旧创建请求。
+    pub fn legacy_default(data_type: FieldType) -> Self {
+        if matches!(data_type, FieldType::Utf8 | FieldType::Json) {
+            Self::FullText
+        } else {
+            Self::Skip
+        }
+    }
+}
+
+#[cfg(test)]
+mod index_type_tests {
+    use super::*;
+
+    fn field(data_type: FieldType, indexed: bool, exact: bool) -> FieldDef {
+        FieldDef {
+            name: "value".into(),
+            data_type,
+            nullable: true,
+            index_type: None,
+            indexed,
+            encrypted: false,
+            exact,
+        }
+    }
+
+    #[test]
+    fn legacy_schema_maps_to_the_previous_effective_indexes() {
+        assert_eq!(
+            field(FieldType::Utf8, true, false).effective_index_type(),
+            StreamIndexType::FullText
+        );
+        assert_eq!(
+            field(FieldType::Int64, true, false).effective_index_type(),
+            StreamIndexType::Skip
+        );
+        assert_eq!(
+            field(FieldType::Utf8, true, true).effective_index_type(),
+            StreamIndexType::Exact
+        );
+        assert_eq!(
+            field(FieldType::Utf8, false, false).effective_index_type(),
+            StreamIndexType::None
+        );
+    }
+
+    #[test]
+    fn explicit_index_type_is_not_collapsed_to_indexed_and_exact() {
+        let mut value = field(FieldType::Utf8, false, false);
+        value.configure_index(true, StreamIndexType::Bloom);
+        assert_eq!(value.effective_index_type(), StreamIndexType::Bloom);
+        assert!(value.indexed);
+        assert!(!value.exact);
+
+        value.configure_index(true, StreamIndexType::Skip);
+        assert_eq!(value.effective_index_type(), StreamIndexType::Skip);
+
+        value.configure_index(false, StreamIndexType::FullText);
+        assert_eq!(value.effective_index_type(), StreamIndexType::None);
+        assert!(!value.indexed);
+    }
+
+    #[test]
+    fn serde_reads_legacy_schema_and_persists_the_explicit_type() {
+        let mut value: FieldDef = serde_json::from_value(serde_json::json!({
+            "name": "message",
+            "data_type": "utf8",
+            "nullable": true,
+            "indexed": true,
+            "encrypted": false,
+            "exact": false
+        }))
+        .expect("legacy field schema");
+        assert_eq!(value.index_type, None);
+        assert_eq!(value.effective_index_type(), StreamIndexType::FullText);
+
+        value.configure_index(true, StreamIndexType::Bloom);
+        let serialized = serde_json::to_value(value).expect("serialize field schema");
+        assert_eq!(serialized["index_type"], "bloom");
+        assert_eq!(serialized["indexed"], true);
+        assert_eq!(serialized["exact"], false);
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

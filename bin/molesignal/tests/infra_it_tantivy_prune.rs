@@ -90,6 +90,7 @@ fn logs_stream() -> StreamDefinition {
                 name: "message".into(),
                 data_type: FieldType::Utf8,
                 nullable: false,
+                index_type: None,
                 indexed: true, // tantivy 索引
                 encrypted: false,
                 exact: false,
@@ -230,6 +231,7 @@ fn traces_stream() -> StreamDefinition {
                 name: "trace_id".into(),
                 data_type: FieldType::Utf8,
                 nullable: false,
+                index_type: None,
                 indexed: true,
                 encrypted: false,
                 exact: true, // 未分词 STRING 索引 → 等值裁剪
