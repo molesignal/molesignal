@@ -3,9 +3,10 @@
 
 //! 指标降采样：把老数据按时间桶预聚合，降低分辨率以省存储（compactor 用）。
 //!
-//! 模型：按 `_timestamp` 的 `date_bin` 时间桶 + 全部**非数值**列分组，对**数值**列
-//! （Int64/Float64）取 `avg` 并 **cast 回原类型**，其余列原样作分组键。产物 schema 与
-//! 输入完全一致（经 [`align_batch_to_schema`] 兜底）→ 降采样文件与原始文件可同读、同一
+//! 模型：按 `_timestamp` 的 `date_bin` 时间桶 + 全部**非数值**列分组。普通数值列取
+//! `avg`；OTLP DELTA 的 `value` 取 `sum`，时间戳取桶内最后一个点，start time 取最早值，
+//! 从而让合并后的点仍表示完整区间。数值结果均 **cast 回原类型**。产物 schema 与输入
+//! 完全一致（经 [`align_batch_to_schema`] 兜底）→ 降采样文件与原始文件可同读、同一
 //! 权威 schema 投影不报错。
 //!
 //! 仅对 metrics 流有意义（数值时序）；对文本/日志做时间桶分组会把每行打散成自己的桶。
@@ -20,7 +21,10 @@ use datafusion::prelude::SessionContext;
 
 use super::arrow_schema::{TS_COL, align_batch_to_schema};
 use crate::{
-    domain::metrics::PROMETHEUS_EXEMPLAR_MARKER_FIELD,
+    domain::metrics::{
+        METRIC_START_TIME_UNIX_NANO_FIELD, METRIC_TEMPORALITY_FIELD,
+        PROMETHEUS_EXEMPLAR_MARKER_FIELD,
+    },
     shared::{Error, Result},
 };
 
@@ -114,6 +118,8 @@ async fn downsample_samples(batch: RecordBatch, bucket_secs: u32) -> Result<Reco
         "arrow_cast(date_bin(INTERVAL '{bucket_secs} seconds', {ts}), '{ts_cast}')",
         ts = quote_ident(TS_COL)
     );
+    let has_temporality = input_schema.index_of(METRIC_TEMPORALITY_FIELD).is_ok();
+    let temporality = quote_ident(METRIC_TEMPORALITY_FIELD);
 
     // 按输入 schema 顺序构造 SELECT 列；GROUP BY = 桶 + 全部非度量非 ts 列。
     let mut select_items: Vec<String> = Vec::with_capacity(input_schema.fields().len());
@@ -121,10 +127,22 @@ async fn downsample_samples(batch: RecordBatch, bucket_secs: u32) -> Result<Reco
     for f in input_schema.fields() {
         let q = quote_ident(f.name());
         if f.name() == TS_COL {
-            select_items.push(format!("{bucket} AS {q}"));
+            if has_temporality {
+                select_items.push(format!(
+                    "CASE WHEN {temporality} = 'delta' THEN max({q}) ELSE {bucket} END AS {q}"
+                ));
+            } else {
+                select_items.push(format!("{bucket} AS {q}"));
+            }
         } else if let Some(cast_ty) = measure_cast_type(f.data_type()) {
-            // 度量：avg 再 cast 回原类型（保持 schema）。
-            select_items.push(format!("CAST(avg({q}) AS {cast_ty}) AS {q}"));
+            let aggregate = if has_temporality && f.name() == "value" {
+                format!("CASE WHEN {temporality} = 'delta' THEN sum({q}) ELSE avg({q}) END")
+            } else if f.name() == METRIC_START_TIME_UNIX_NANO_FIELD {
+                format!("min({q})")
+            } else {
+                format!("avg({q})")
+            };
+            select_items.push(format!("CAST({aggregate} AS {cast_ty}) AS {q}"));
         } else {
             // 维度：原样分组。
             select_items.push(q.clone());
@@ -276,6 +294,59 @@ mod tests {
         let out = downsample_batch(batch, 3600).await.unwrap();
         assert_eq!(out.num_rows(), 2, "one bucket × two hosts → 2 rows");
         let _ = TimeUnit::Microsecond;
+    }
+
+    #[tokio::test]
+    async fn downsample_sums_delta_values_and_preserves_interval() {
+        let schema = Arc::new(Schema::new(vec![
+            ts_field(),
+            Field::new(METRIC_TEMPORALITY_FIELD, DataType::Utf8, true),
+            Field::new("metric_monotonic", DataType::Boolean, true),
+            Field::new(METRIC_START_TIME_UNIX_NANO_FIELD, DataType::Int64, true),
+            Field::new("value", DataType::Float64, true),
+        ]));
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(
+                    TimestampMicrosecondArray::from(vec![10_000_000_i64, 20_000_000, 30_000_000])
+                        .with_timezone("UTC"),
+                ),
+                Arc::new(StringArray::from(vec!["delta", "delta", "delta"])),
+                Arc::new(BooleanArray::from(vec![true, true, true])),
+                Arc::new(Int64Array::from(vec![
+                    0_i64,
+                    10_000_000_000,
+                    20_000_000_000,
+                ])),
+                Arc::new(Float64Array::from(vec![1.0, 2.0, 3.0])),
+            ],
+        )
+        .unwrap();
+
+        let out = downsample_batch(batch, 3_600).await.unwrap();
+        assert_eq!(out.num_rows(), 1);
+        let timestamps = out
+            .column_by_name(TS_COL)
+            .unwrap()
+            .as_any()
+            .downcast_ref::<TimestampMicrosecondArray>()
+            .unwrap();
+        assert_eq!(timestamps.value(0), 30_000_000, "DELTA uses interval end");
+        let starts = out
+            .column_by_name(METRIC_START_TIME_UNIX_NANO_FIELD)
+            .unwrap()
+            .as_any()
+            .downcast_ref::<Int64Array>()
+            .unwrap();
+        assert_eq!(starts.value(0), 0, "DELTA uses earliest interval start");
+        let values = out
+            .column_by_name("value")
+            .unwrap()
+            .as_any()
+            .downcast_ref::<Float64Array>()
+            .unwrap();
+        assert_eq!(values.value(0), 6.0, "DELTA values are additive");
     }
 
     #[tokio::test]

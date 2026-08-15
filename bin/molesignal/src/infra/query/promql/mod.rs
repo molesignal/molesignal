@@ -28,7 +28,9 @@
 //! step 由跨度与 `limit` 推导（[`range_step_us`]），每条 series 输出 ≤ [`MAX_RANGE_STEPS`]
 //! 个点，与原始采样密度无关；单 selector 物化样本数受 [`MAX_MATRIX_SAMPLES`] 约束。
 //!
-//! 列布局约定：metrics stream schema 必须含 `value Float64`；其余字段通常视为 labels。
+//! 列布局约定：metrics stream schema 必须含数值 `value`；其余字段通常视为 labels，
+//! `metric_temporality` / `metric_monotonic` / `metric_start_time_unix_nano` 作为查询语义
+//! sidecar，不暴露为 labels。
 //! 由 `IntakeService::intake` 写入时，每行的 `_timestamp` 由 RawEvent.timestamp 决定，
 //! `value` / labels 由 RawEvent.fields 提供。Prometheus Exemplar 旁路行不含 `value`，
 //! 因此 sample evaluator 会跳过它们，`query_exemplars` 走独立读取路径。系统指标的
@@ -82,6 +84,7 @@ mod labels;
 mod math;
 mod metric_source;
 mod range_funcs;
+mod rate;
 mod results;
 mod series;
 #[cfg(test)]
@@ -96,14 +99,17 @@ use eval_utils::*;
 use functions::*;
 // Exposed for criterion benches (`benches/*`); not part of the stable API.
 #[doc(hidden)]
-pub use functions::{apply_histogram_quantile, apply_rate_like};
+pub use functions::apply_histogram_quantile;
 use incremental::StreamingAgg;
 use labels::*;
 use math::*;
 use range_funcs::*;
+#[doc(hidden)]
+pub use rate::apply_rate_like;
+use rate::*;
 use results::{instant_to_query_result, range_to_query_result};
 use series::*;
-pub use types::{InstantVector, LabelSet, Series};
+pub use types::{InstantVector, LabelSet, MetricSampleMetadata, MetricTemporality, Series};
 use types::{RangePoint, RangeVector};
 
 /// Prometheus staleness lookback：instant 取样与裸 selector range 步进时向前
@@ -493,9 +499,17 @@ impl PromQLEngine {
                     let range = ms.range;
                     let range_secs = range.as_secs_f64().max(1.0);
                     let rv = self
-                        .eval_windowed_cached(&ms.vs, range, func_name, req, move |_t, win| {
-                            rate_window_value(func_name, win, range_secs)
-                        })
+                        .eval_windowed_cached(
+                            &ms.vs,
+                            range,
+                            func_name,
+                            req,
+                            move |_t, win, metadata| {
+                                rate_window_value_with_metadata(
+                                    func_name, win, metadata, range_secs,
+                                )
+                            },
+                        )
                         .await?;
                     return Ok(Some(rv));
                 }
@@ -517,9 +531,13 @@ impl PromQLEngine {
                 if let Some(ms) = self.cacheable_matrix(arg) {
                     let func_key = format!("{name}|q={quantile:?}");
                     let rv = self
-                        .eval_windowed_cached(&ms.vs, ms.range, &func_key, req, move |_t, win| {
-                            apply_over_time_value(name, quantile, win)
-                        })
+                        .eval_windowed_cached(
+                            &ms.vs,
+                            ms.range,
+                            &func_key,
+                            req,
+                            move |_t, win, _metadata| apply_over_time_value(name, quantile, win),
+                        )
                         .await?;
                     return Ok(Some(rv));
                 }
@@ -545,9 +563,13 @@ impl PromQLEngine {
                         params.predict_t, params.hw_sf, params.hw_tf
                     );
                     let rv = self
-                        .eval_windowed_cached(&ms.vs, ms.range, &func_key, req, move |t, win| {
-                            range_vector_value(name, win, t, params)
-                        })
+                        .eval_windowed_cached(
+                            &ms.vs,
+                            ms.range,
+                            &func_key,
+                            req,
+                            move |t, win, _metadata| range_vector_value(name, win, t, params),
+                        )
                         .await?;
                     return Ok(Some(rv));
                 }
@@ -1128,7 +1150,11 @@ impl PromQLEngine {
         }
         Ok(series_map
             .into_iter()
-            .map(|(labels, samples)| Series { labels, samples })
+            .map(|(labels, samples)| Series {
+                labels,
+                samples,
+                ..Default::default()
+            })
             .collect())
     }
 }

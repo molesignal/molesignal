@@ -487,15 +487,20 @@ mod tests {
     fn exposes_unindexed_utf8_fields_as_promql_labels() {
         let mut service = field("service.name");
         service.data_type = FieldType::Utf8;
-        let mut metric_name = field(METRIC_NAME_FIELD);
-        metric_name.data_type = FieldType::Utf8;
-        let mut metric_kind = field(crate::domain::metrics::METRIC_KIND_FIELD);
-        metric_kind.data_type = FieldType::Utf8;
+        let mut fields = vec![service];
+        for name in [
+            METRIC_NAME_FIELD,
+            crate::domain::metrics::METRIC_KIND_FIELD,
+            crate::domain::metrics::METRIC_DESCRIPTION_FIELD,
+            crate::domain::metrics::METRIC_UNIT_FIELD,
+            crate::domain::metrics::METRIC_TEMPORALITY_FIELD,
+        ] {
+            let mut metadata = field(name);
+            metadata.data_type = FieldType::Utf8;
+            fields.push(metadata);
+        }
 
-        assert_eq!(
-            metric_labels(&[service, metric_name, metric_kind]),
-            vec!["service.name"]
-        );
+        assert_eq!(metric_labels(&fields), vec!["service.name"]);
     }
 
     #[test]

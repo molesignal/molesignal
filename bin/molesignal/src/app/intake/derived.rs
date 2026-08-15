@@ -237,7 +237,11 @@ mod tests {
         let mut source = batch(
             "_molesignal",
             StreamType::Metrics,
-            json!({METRIC_NAME_FIELD: "requests_total", "value": 1}),
+            json!({
+                METRIC_NAME_FIELD: "requests_total",
+                METRIC_KIND_FIELD: "counter",
+                "value": 1
+            }),
         );
         source.events.push(source.events[0].clone());
         let projections = project(&source);
@@ -246,6 +250,10 @@ mod tests {
         assert_eq!(
             projections[0].1.events[0].fields[METRIC_NAME_FIELD],
             "requests_total"
+        );
+        assert_eq!(
+            projections[0].1.events[0].fields[METRIC_KIND_FIELD],
+            "counter"
         );
     }
 }

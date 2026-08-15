@@ -127,6 +127,11 @@ fn batches_to_series_keeps_last_value_for_duplicate_timestamp() {
 fn batches_to_series_filters_container_metric_and_hides_storage_identity() {
     use std::sync::Arc;
 
+    use crate::domain::metrics::{
+        METRIC_DESCRIPTION_FIELD, METRIC_MONOTONIC_FIELD, METRIC_START_TIME_UNIX_NANO_FIELD,
+        METRIC_TEMPORALITY_FIELD, METRIC_UNIT_FIELD,
+    };
+    use arrow::array::{BooleanArray, Int64Array};
     use arrow::datatypes::{DataType, Field, Schema, TimeUnit};
 
     let schema = Arc::new(Schema::new(vec![
@@ -138,6 +143,11 @@ fn batches_to_series_filters_container_metric_and_hides_storage_identity() {
         Field::new("value", DataType::Float64, false),
         Field::new("metric_name", DataType::Utf8, false),
         Field::new("metric_kind", DataType::Utf8, false),
+        Field::new(METRIC_DESCRIPTION_FIELD, DataType::Utf8, false),
+        Field::new(METRIC_UNIT_FIELD, DataType::Utf8, false),
+        Field::new(METRIC_TEMPORALITY_FIELD, DataType::Utf8, false),
+        Field::new(METRIC_MONOTONIC_FIELD, DataType::Boolean, false),
+        Field::new(METRIC_START_TIME_UNIX_NANO_FIELD, DataType::Int64, false),
         Field::new("node.id", DataType::Utf8, false),
     ]));
     let batch = RecordBatch::try_new(
@@ -155,6 +165,15 @@ fn batches_to_series_filters_container_metric_and_hides_storage_identity() {
                 "requests_total",
             ])),
             Arc::new(StringArray::from(vec!["counter", "gauge", "counter"])),
+            Arc::new(StringArray::from(vec!["requests", "depth", "requests"])),
+            Arc::new(StringArray::from(vec!["{request}", "1", "{request}"])),
+            Arc::new(StringArray::from(vec!["delta", "unspecified", "delta"])),
+            Arc::new(BooleanArray::from(vec![true, false, true])),
+            Arc::new(Int64Array::from(vec![
+                9_000_000_000_i64,
+                9_500_000_000,
+                19_000_000_000,
+            ])),
             Arc::new(StringArray::from(vec!["node-1", "node-1", "node-1"])),
         ],
     )
@@ -178,11 +197,31 @@ fn batches_to_series_filters_container_metric_and_hides_storage_identity() {
     assert_eq!(series[0].labels, ls(&[("node.id", "node-1")]));
     assert!(!series[0].labels.contains_key("metric_name"));
     assert!(!series[0].labels.contains_key("metric_kind"));
+    assert_eq!(series[0].sample_metadata.len(), 2);
+    assert_eq!(
+        series[0].sample_metadata[0].temporality(),
+        MetricTemporality::Delta
+    );
+    assert!(series[0].sample_metadata[0].is_monotonic());
+    assert_eq!(
+        series[0].sample_metadata[0].start_time_us(),
+        Some(9_000_000)
+    );
+    assert_eq!(
+        series[0].sample_metadata[1].start_time_us(),
+        Some(19_000_000)
+    );
+    let increase = apply_rate_like("increase", series, Duration::from_secs(30));
+    assert_eq!(increase.items[0].1, 3.0, "materialized DELTA values add");
 }
 
 #[tokio::test]
 async fn missing_system_metric_resolves_to_protected_container_stream() {
     use crate::{
+        domain::metrics::{
+            METRIC_DESCRIPTION_FIELD, METRIC_KIND_FIELD, METRIC_MONOTONIC_FIELD, METRIC_NAME_FIELD,
+            METRIC_START_TIME_UNIX_NANO_FIELD, METRIC_TEMPORALITY_FIELD,
+        },
         domain::stream::{
             FieldDef, FieldType, Schema as StreamSchema, StreamDefinition, StreamSettings,
         },
@@ -190,6 +229,18 @@ async fn missing_system_metric_resolves_to_protected_container_stream() {
     };
 
     struct SystemStreams;
+
+    fn field(name: &str, data_type: FieldType) -> FieldDef {
+        FieldDef {
+            name: name.into(),
+            data_type,
+            nullable: true,
+            index_type: None,
+            indexed: false,
+            encrypted: false,
+            exact: false,
+        }
+    }
 
     #[async_trait]
     impl StreamRepository for SystemStreams {
@@ -216,15 +267,16 @@ async fn missing_system_metric_resolves_to_protected_container_stream() {
                 name: name.into(),
                 stream_type,
                 schema: StreamSchema {
-                    fields: vec![FieldDef {
-                        name: "value".into(),
-                        data_type: FieldType::Float64,
-                        nullable: false,
-                        index_type: None,
-                        indexed: false,
-                        encrypted: false,
-                        exact: false,
-                    }],
+                    fields: vec![
+                        field("value", FieldType::Float64),
+                        field(METRIC_NAME_FIELD, FieldType::Utf8),
+                        field(METRIC_KIND_FIELD, FieldType::Utf8),
+                        field(METRIC_DESCRIPTION_FIELD, FieldType::Utf8),
+                        field(METRIC_TEMPORALITY_FIELD, FieldType::Utf8),
+                        field(METRIC_MONOTONIC_FIELD, FieldType::Bool),
+                        field(METRIC_START_TIME_UNIX_NANO_FIELD, FieldType::Int64),
+                        field("host", FieldType::Utf8),
+                    ],
                 },
                 retention: None,
                 created_at: TimestampMicros(1),
@@ -289,6 +341,18 @@ async fn missing_system_metric_resolves_to_protected_container_stream() {
 
     assert_eq!(source.stream, "_molesignal");
     assert_eq!(source.logical_metric.as_deref(), Some("requests_total"));
+    assert_eq!(
+        source.sample_columns.unwrap(),
+        vec![
+            "_timestamp",
+            "host",
+            METRIC_MONOTONIC_FIELD,
+            METRIC_NAME_FIELD,
+            METRIC_START_TIME_UNIX_NANO_FIELD,
+            METRIC_TEMPORALITY_FIELD,
+            "value",
+        ]
+    );
 }
 
 #[test]
@@ -296,6 +360,7 @@ fn rate_basic_two_points() {
     let series = vec![Series {
         labels: ls(&[("method", "GET")]),
         samples: vec![(0, 0.0), (60_000_000, 60.0)], // 60 in 60s
+        ..Default::default()
     }];
     let r = apply_rate_like("rate", series, Duration::from_secs(60));
     assert_eq!(r.items.len(), 1);
@@ -316,6 +381,7 @@ fn rate_and_increase_handle_counter_resets() {
         vec![Series {
             labels: ls(&[("service", "checkout")]),
             samples: samples.clone(),
+            ..Default::default()
         }],
         Duration::from_secs(100),
     );
@@ -324,6 +390,7 @@ fn rate_and_increase_handle_counter_resets() {
         vec![Series {
             labels: ls(&[("service", "checkout")]),
             samples,
+            ..Default::default()
         }],
         Duration::from_secs(100),
     );
@@ -337,6 +404,7 @@ fn irate_uses_last_two_points() {
     let series = vec![Series {
         labels: ls(&[("method", "GET")]),
         samples: vec![(0, 0.0), (60_000_000, 30.0), (120_000_000, 90.0)],
+        ..Default::default()
     }];
     let r = apply_rate_like("irate", series, Duration::from_secs(120));
     assert_eq!(r.items.len(), 1);
@@ -349,10 +417,92 @@ fn irate_uses_post_reset_value_instead_of_negative_delta() {
     let series = vec![Series {
         labels: ls(&[("method", "GET")]),
         samples: vec![(0, 90.0), (60_000_000, 5.0)],
+        ..Default::default()
     }];
     let result = apply_rate_like("irate", series, Duration::from_secs(60));
     assert_eq!(result.items.len(), 1);
     assert!((result.items[0].1 - (5.0 / 60.0)).abs() < 1e-9);
+}
+
+#[test]
+fn delta_rate_and_increase_sum_reported_intervals() {
+    let samples = vec![(10_000_000, 3.0), (20_000_000, 2.0), (30_000_000, 5.0)];
+    let metadata = [0_i64, 10_000_000, 20_000_000]
+        .into_iter()
+        .map(|start| MetricSampleMetadata::new(MetricTemporality::Delta, Some(true), Some(start)))
+        .collect::<Vec<_>>();
+    let input = || Series {
+        labels: ls(&[("service", "checkout")]),
+        samples: samples.clone(),
+        sample_metadata: metadata.clone(),
+    };
+
+    let rate = apply_rate_like("rate", vec![input()], Duration::from_secs(30));
+    let increase = apply_rate_like("increase", vec![input()], Duration::from_secs(30));
+    assert!((rate.items[0].1 - (10.0 / 30.0)).abs() < 1e-9);
+    assert!((increase.items[0].1 - 10.0).abs() < 1e-9);
+}
+
+#[test]
+fn delta_irate_uses_latest_reported_interval() {
+    let series = Series {
+        labels: LabelSet::new(),
+        samples: vec![(20_000_000, 2.0), (30_000_000, 8.0)],
+        sample_metadata: vec![
+            MetricSampleMetadata::new(MetricTemporality::Delta, Some(true), Some(10_000_000)),
+            MetricSampleMetadata::new(MetricTemporality::Delta, Some(true), Some(28_000_000)),
+        ],
+    };
+
+    let result = apply_rate_like("irate", vec![series], Duration::from_secs(30));
+    assert!((result.items[0].1 - 4.0).abs() < 1e-9);
+}
+
+#[test]
+fn non_monotonic_sum_uses_signed_semantics() {
+    let cumulative = Series {
+        labels: LabelSet::new(),
+        samples: vec![(0, 10.0), (10_000_000, 5.0)],
+        sample_metadata: vec![
+            MetricSampleMetadata::new(MetricTemporality::Cumulative, Some(false), None),
+            MetricSampleMetadata::new(MetricTemporality::Cumulative, Some(false), None),
+        ],
+    };
+    let delta = Series {
+        labels: LabelSet::new(),
+        samples: vec![(10_000_000, 5.0), (20_000_000, -2.0), (30_000_000, 4.0)],
+        sample_metadata: vec![
+            MetricSampleMetadata::new(MetricTemporality::Delta, Some(false), None);
+            3
+        ],
+    };
+
+    let cumulative = apply_rate_like("increase", vec![cumulative], Duration::from_secs(30));
+    let delta = apply_rate_like("increase", vec![delta], Duration::from_secs(30));
+    assert!((cumulative.items[0].1 + 5.0).abs() < 1e-9);
+    assert!((delta.items[0].1 - 7.0).abs() < 1e-9);
+}
+
+#[test]
+fn temporality_switch_uses_latest_contiguous_run() {
+    let series = Series {
+        labels: LabelSet::new(),
+        samples: vec![
+            (0, 100.0),
+            (10_000_000, 110.0),
+            (20_000_000, 3.0),
+            (30_000_000, 4.0),
+        ],
+        sample_metadata: vec![
+            MetricSampleMetadata::default(),
+            MetricSampleMetadata::default(),
+            MetricSampleMetadata::new(MetricTemporality::Delta, Some(true), Some(10_000_000)),
+            MetricSampleMetadata::new(MetricTemporality::Delta, Some(true), Some(20_000_000)),
+        ],
+    };
+
+    let result = apply_rate_like("increase", vec![series], Duration::from_secs(30));
+    assert!((result.items[0].1 - 7.0).abs() < 1e-9);
 }
 
 #[test]
@@ -430,6 +580,7 @@ fn avg_over_time_range_uses_trailing_window() {
     let series = vec![Series {
         labels: ls(&[("host", "a")]),
         samples: vec![(0, 10.0), (60_000_000, 20.0), (120_000_000, 30.0)],
+        ..Default::default()
     }];
     let range = apply_over_time_range(
         "avg_over_time",
@@ -962,6 +1113,7 @@ fn increase_basic() {
     let series = vec![Series {
         labels: ls(&[]),
         samples: vec![(0, 10.0), (60_000_000, 70.0)],
+        ..Default::default()
     }];
     let r = apply_rate_like("increase", series, Duration::from_secs(60));
     assert!((r.items[0].1 - 60.0).abs() < 1e-9);
@@ -972,6 +1124,7 @@ fn rate_range_emits_timestamped_points() {
     let series = vec![Series {
         labels: ls(&[("method", "GET")]),
         samples: vec![(0, 0.0), (60_000_000, 60.0), (120_000_000, 120.0)],
+        ..Default::default()
     }];
     let range = apply_rate_like_range(
         "rate",
@@ -1290,6 +1443,7 @@ fn apply_range_vector_func_maps_series_to_instant() {
     let series = vec![Series {
         labels: ls(&[("method", "GET")]),
         samples: vec![(0, 10.0), (60_000_000, 40.0)],
+        ..Default::default()
     }];
     let out = apply_range_vector_func("delta", series, 60_000_000, RangeFuncParams::default());
     assert_eq!(out.items.len(), 1);
@@ -1618,6 +1772,7 @@ fn rate_range_output_bounded_by_step_not_sample_density() {
     let series = vec![Series {
         labels: ls(&[("m", "x")]),
         samples,
+        ..Default::default()
     }];
     let out = apply_rate_like_range(
         "rate",
@@ -1645,6 +1800,7 @@ fn samples_to_range_vector_steps_with_staleness_lookback() {
     let series = vec![Series {
         labels: ls(&[("m", "x")]),
         samples: vec![(0, 1.0), (30_000_000, 2.0), (60_000_000, 3.0)],
+        ..Default::default()
     }];
     let out = samples_to_range_vector(series, 0, 600_000_000, 30_000_000);
     let vals: Vec<(i64, f64)> = out.points.iter().map(|p| (p.ts_us, p.value)).collect();

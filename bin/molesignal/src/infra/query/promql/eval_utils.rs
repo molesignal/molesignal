@@ -123,6 +123,28 @@ pub(super) fn each_step_window<F>(
 ) where
     F: FnMut(i64, &[(i64, f64)]),
 {
+    each_step_window_indices(
+        samples,
+        start_us,
+        end_us,
+        step_us,
+        range_us,
+        |timestamp, lo, hi| visit(timestamp, &samples[lo..hi]),
+    );
+}
+
+/// Index-based variant used when per-sample sidecar metadata must stay aligned
+/// with the selected value window.
+pub(super) fn each_step_window_indices<F>(
+    samples: &[(i64, f64)],
+    start_us: i64,
+    end_us: i64,
+    step_us: i64,
+    range_us: i64,
+    mut visit: F,
+) where
+    F: FnMut(i64, usize, usize),
+{
     let step_us = step_us.max(1);
     let range_us = range_us.max(1);
     let (mut lo, mut hi) = (0usize, 0usize);
@@ -138,7 +160,7 @@ pub(super) fn each_step_window<F>(
         while hi < samples.len() && samples[hi].0 <= t {
             hi += 1;
         }
-        visit(t, &samples[lo..hi]);
+        visit(t, lo, hi);
         match t.checked_add(step_us) {
             Some(next) => t = next,
             None => break,

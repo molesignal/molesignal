@@ -196,8 +196,8 @@ impl PromQLEngine {
     }
 
     /// range 函数（rate / `*_over_time` / delta 等）的增量缓存求值。`compute` 是纯窗口
-    /// 求值（`(step_ts, 窗口样本) -> Option<value>`），与未缓存路径共用同一份逻辑，保证
-    /// 同一 (step_ts, 窗口) 取值一致——仅输出落在 step 网格上的步点。
+    /// 求值（`(step_ts, 窗口样本, 样本元数据) -> Option<value>`），与未缓存路径共用
+    /// 同一份逻辑，保证同一 (step_ts, 窗口) 取值一致——仅输出落在 step 网格上的步点。
     pub(super) async fn eval_windowed_cached<F>(
         &self,
         vs: &VectorSelector,
@@ -207,7 +207,7 @@ impl PromQLEngine {
         compute: F,
     ) -> Result<RangeVector>
     where
-        F: Fn(i64, &[(i64, f64)]) -> Option<f64>,
+        F: Fn(i64, &[(i64, f64)], &[MetricSampleMetadata]) -> Option<f64>,
     {
         let agg = self
             .streaming
@@ -274,14 +274,16 @@ impl PromQLEngine {
                 )
                 .await?;
             for s in &series {
-                each_step_window(
+                each_step_window_indices(
                     &s.samples,
                     plan.compute_lo,
                     q_hi,
                     step_us,
                     range_us,
-                    |t, win| {
-                        let Some(v) = compute(t, win) else {
+                    |t, lo, hi| {
+                        let samples = &s.samples[lo..hi];
+                        let metadata = s.metadata_slice(lo, hi);
+                        let Some(v) = compute(t, samples, metadata) else {
                             return;
                         };
                         points.push(RangePoint {

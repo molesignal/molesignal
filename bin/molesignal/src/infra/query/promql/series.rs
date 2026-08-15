@@ -2,7 +2,11 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use super::*;
-use crate::domain::metrics::{METRIC_NAME_FIELD, is_metric_identity_storage_field};
+use crate::domain::metrics::{
+    METRIC_MONOTONIC_FIELD, METRIC_NAME_FIELD, METRIC_START_TIME_UNIX_NANO_FIELD,
+    METRIC_TEMPORALITY_FIELD, is_metric_identity_storage_field,
+};
+use arrow::array::{BooleanArray, Int64Array};
 
 /// 把 record batches 按 (matchers 过滤) + (labels 分组) 转 Vec<Series>。
 ///
@@ -42,6 +46,24 @@ pub(super) fn batches_to_series(
         let Some(val_arr) = value_f64.as_any().downcast_ref::<Float64Array>() else {
             continue;
         };
+        let temporality_arr = schema
+            .index_of(METRIC_TEMPORALITY_FIELD)
+            .ok()
+            .and_then(|index| b.column(index).as_any().downcast_ref::<StringArray>());
+        let monotonic_arr = schema
+            .index_of(METRIC_MONOTONIC_FIELD)
+            .ok()
+            .and_then(|index| b.column(index).as_any().downcast_ref::<BooleanArray>());
+        let start_time_i64 = schema
+            .index_of(METRIC_START_TIME_UNIX_NANO_FIELD)
+            .ok()
+            .and_then(|index| arrow::compute::cast(b.column(index), &DataType::Int64).ok());
+        let start_time_arr = start_time_i64
+            .as_ref()
+            .and_then(|array| array.as_any().downcast_ref::<Int64Array>());
+        let metric_name_arr = logical_metric
+            .and_then(|_| schema.index_of(METRIC_NAME_FIELD).ok())
+            .and_then(|index| b.column(index).as_any().downcast_ref::<StringArray>());
         // label 列（非 reserved 的 Utf8 列）一个 batch 解析一次；按列名排序，
         // 使 series key 不受 schema 演进带来的列序差异影响。
         let mut label_cols: Vec<(&str, &StringArray)> = schema
@@ -51,6 +73,9 @@ pub(super) fn batches_to_series(
             .filter_map(|(i, f)| {
                 let name = f.name().as_str();
                 if name == "_timestamp" || name == "value" {
+                    return None;
+                }
+                if is_metric_identity_storage_field(name) {
                     return None;
                 }
                 if !matches!(f.data_type(), DataType::Utf8) {
@@ -64,11 +89,6 @@ pub(super) fn batches_to_series(
             .collect();
         label_cols.sort_by_key(|(name, _)| *name);
         let matcher_cols = MatcherColumns::resolve(matchers, &label_cols);
-        let metric_name_col = logical_metric.and_then(|_| {
-            label_cols
-                .iter()
-                .position(|(name, _)| *name == METRIC_NAME_FIELD)
-        });
 
         for row in 0..b.num_rows() {
             if val_arr.is_null(row) || ts_arr.is_null(row) {
@@ -79,10 +99,9 @@ pub(super) fn batches_to_series(
                 continue;
             }
             if let Some(expected) = logical_metric {
-                let Some(index) = metric_name_col else {
+                let Some(metric_names) = metric_name_arr else {
                     continue;
                 };
-                let metric_names = label_cols[index].1;
                 if metric_names.is_null(row) || metric_names.value(row) != expected {
                     continue;
                 }
@@ -93,9 +112,6 @@ pub(super) fn batches_to_series(
 
             key_buf.clear();
             for (name, arr) in &label_cols {
-                if logical_metric.is_some() && is_metric_identity_storage_field(name) {
-                    continue;
-                }
                 if arr.is_null(row) {
                     continue;
                 }
@@ -109,9 +125,6 @@ pub(super) fn batches_to_series(
                 None => {
                     let mut labels = LabelSet::new();
                     for (name, arr) in &label_cols {
-                        if logical_metric.is_some() && is_metric_identity_storage_field(name) {
-                            continue;
-                        }
                         if !arr.is_null(row) {
                             labels.insert((*name).to_string(), arr.value(row).to_string());
                         }
@@ -119,6 +132,7 @@ pub(super) fn batches_to_series(
                     series.push(Series {
                         labels,
                         samples: Vec::new(),
+                        sample_metadata: Vec::new(),
                     });
                     by_key.insert(key_buf.clone(), series.len() - 1);
                     series.len() - 1
@@ -131,10 +145,45 @@ pub(super) fn batches_to_series(
                      narrow the time window or add label matchers"
                 )));
             }
-            series[idx].samples.push((ts, val_arr.value(row)));
+            let temporality = temporality_arr
+                .filter(|array| !array.is_null(row))
+                .and_then(|array| (array.value(row) == "delta").then_some(MetricTemporality::Delta))
+                .unwrap_or_default();
+            let monotonic = monotonic_arr
+                .filter(|array| !array.is_null(row))
+                .map(|array| array.value(row));
+            let start_time_us = start_time_arr
+                .filter(|array| !array.is_null(row))
+                .map(|array| array.value(row) / 1_000);
+            series[idx].push_sample(
+                (ts, val_arr.value(row)),
+                MetricSampleMetadata::new(temporality, monotonic, start_time_us),
+            );
         }
     }
     for s in &mut series {
+        if !s.sample_metadata.is_empty() {
+            debug_assert_eq!(s.samples.len(), s.sample_metadata.len());
+            let mut combined = s
+                .samples
+                .drain(..)
+                .zip(s.sample_metadata.drain(..))
+                .collect::<Vec<_>>();
+            combined.sort_by_key(|(sample, _)| sample.0);
+            let mut deduplicated: Vec<((i64, f64), MetricSampleMetadata)> =
+                Vec::with_capacity(combined.len());
+            for point in combined {
+                if let Some(last) = deduplicated.last_mut()
+                    && last.0.0 == point.0.0
+                {
+                    *last = point;
+                    continue;
+                }
+                deduplicated.push(point);
+            }
+            (s.samples, s.sample_metadata) = deduplicated.into_iter().unzip();
+            continue;
+        }
         s.samples.sort_by_key(|&(t, _)| t);
         // Multiple batches can contain the same series/timestamp (for example
         // retrying an intake). Keep the most recently materialized value so a

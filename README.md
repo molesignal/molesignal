@@ -101,6 +101,9 @@ A trace, its logs, and the host's metric for the same minute share **the same st
 | Heroku log drain | `POST /api/v1/_heroku` | Heroku |
 | Native HTTP JSON | `POST /api/v1/intake/{type}/:stream` | curl / app SDK |
 
+OTLP metric type and aggregation metadata are normalized according to the
+[metric storage contract](docs/otlp-metrics.md).
+
 ### 🌐 RUM & APM
 
 - **RUM** — Datadog-compatible receiver for sessions, actions, errors, and replay; sourcemap symbolication for JavaScript and native stacks

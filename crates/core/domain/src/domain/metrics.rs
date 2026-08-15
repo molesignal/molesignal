@@ -14,9 +14,38 @@ use crate::shared::time::TimestampMicros;
 pub const METRIC_NAME_FIELD: &str = "metric_name";
 /// Persisted metric metadata used by catalogs; it is not a Prometheus label.
 pub const METRIC_KIND_FIELD: &str = "metric_kind";
+/// Human-readable OTLP metric description.
+pub const METRIC_DESCRIPTION_FIELD: &str = "metric_description";
+/// OTLP metric unit.
+pub const METRIC_UNIT_FIELD: &str = "metric_unit";
+/// OTLP aggregation temporality normalized to a stable string.
+pub const METRIC_TEMPORALITY_FIELD: &str = "metric_temporality";
+/// Whether an OTLP Sum is monotonic.
+pub const METRIC_MONOTONIC_FIELD: &str = "metric_monotonic";
+/// Aggregation interval start in Unix nanoseconds.
+pub const METRIC_START_TIME_UNIX_NANO_FIELD: &str = "metric_start_time_unix_nano";
 
+/// Returns whether a field is persisted metric metadata rather than a
+/// user-supplied Prometheus label.
 pub fn is_metric_identity_storage_field(name: &str) -> bool {
-    matches!(name, METRIC_NAME_FIELD | METRIC_KIND_FIELD)
+    matches!(
+        name,
+        METRIC_NAME_FIELD
+            | METRIC_KIND_FIELD
+            | METRIC_DESCRIPTION_FIELD
+            | METRIC_UNIT_FIELD
+            | METRIC_TEMPORALITY_FIELD
+            | METRIC_MONOTONIC_FIELD
+            | METRIC_START_TIME_UNIX_NANO_FIELD
+    )
+}
+
+/// Per-sample storage metadata required to evaluate OTLP aggregation semantics.
+pub fn is_metric_query_semantics_storage_field(name: &str) -> bool {
+    matches!(
+        name,
+        METRIC_TEMPORALITY_FIELD | METRIC_MONOTONIC_FIELD | METRIC_START_TIME_UNIX_NANO_FIELD
+    )
 }
 
 /// Exemplar 行与普通 metric sample 共用 stream，但不写 `value`。

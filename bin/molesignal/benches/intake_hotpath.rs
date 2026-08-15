@@ -16,7 +16,8 @@ use molesignal::{
     infra::{
         intake::RecordBuilder,
         query::promql::{
-            InstantVector, LabelSet, Series, apply_histogram_quantile, apply_rate_like,
+            InstantVector, LabelSet, MetricSampleMetadata, MetricTemporality, Series,
+            apply_histogram_quantile, apply_rate_like,
         },
         storage::arrow_schema::{align_batch_to_schema, to_arrow},
     },
@@ -82,7 +83,31 @@ fn rate_series(n: usize) -> Vec<Series> {
     labels.insert("job".into(), "api".into());
     labels.insert("instance".into(), "node-1".into());
     let samples = (0..n).map(|k| (k as i64 * 1_000_000, k as f64)).collect();
-    vec![Series { labels, samples }]
+    vec![Series {
+        labels,
+        samples,
+        ..Default::default()
+    }]
+}
+
+fn delta_rate_series(n: usize) -> Vec<Series> {
+    let mut series = rate_series(n).pop().expect("one series");
+    series
+        .samples
+        .iter_mut()
+        .for_each(|(_, value)| *value = 1.0);
+    series.sample_metadata = series
+        .samples
+        .iter()
+        .map(|(timestamp, _)| {
+            MetricSampleMetadata::new(
+                MetricTemporality::Delta,
+                Some(true),
+                Some(timestamp.saturating_sub(1_000_000)),
+            )
+        })
+        .collect();
+    vec![series]
 }
 
 fn hist_vector() -> InstantVector {
@@ -138,6 +163,14 @@ fn bench(c: &mut Criterion) {
     c.bench_function("promql/rate_1000pts", |b| {
         b.iter_batched(
             || series.clone(),
+            |s| black_box(apply_rate_like("rate", s, Duration::from_secs(300))),
+            BatchSize::SmallInput,
+        )
+    });
+    let delta_series = delta_rate_series(1_000);
+    c.bench_function("promql/rate_delta_1000pts", |b| {
+        b.iter_batched(
+            || delta_series.clone(),
             |s| black_box(apply_rate_like("rate", s, Duration::from_secs(300))),
             BatchSize::SmallInput,
         )

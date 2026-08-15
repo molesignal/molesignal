@@ -8,7 +8,10 @@ use futures::future::try_join_all;
 use super::*;
 use crate::{
     domain::{
-        metrics::{METRIC_KIND_FIELD, METRIC_NAME_FIELD},
+        metrics::{
+            METRIC_NAME_FIELD, is_metric_identity_storage_field,
+            is_metric_query_semantics_storage_field,
+        },
         storage::ParquetFileMeta,
         stream::{FieldType, MOLESIGNAL_SYSTEM_STREAM, StreamDefinition},
     },
@@ -23,7 +26,8 @@ pub(super) struct ResolvedMetricSource {
     pub(super) logical_metric: Option<String>,
     /// Resolved physical stream identity, when a stream repository is present.
     pub(super) stream_id: Option<crate::shared::ids::Id>,
-    /// Parquet sample scan projection: timestamp, value and string labels only.
+    /// Parquet sample scan projection: timestamp, value, labels and internal
+    /// temporality metadata required by the evaluator.
     pub(super) sample_columns: Option<Vec<String>>,
 }
 
@@ -41,11 +45,18 @@ impl ResolvedMetricSource {
 fn sample_columns(stream: &StreamDefinition, container: bool) -> Vec<String> {
     let mut columns = vec!["_timestamp".to_string(), "value".to_string()];
     columns.extend(stream.schema.fields.iter().filter_map(|field| {
+        let query_semantics = is_metric_query_semantics_storage_field(&field.name);
+        let logical_discriminator = container && field.name == METRIC_NAME_FIELD;
+        let hidden_metadata = is_metric_identity_storage_field(&field.name)
+            && !query_semantics
+            && !logical_discriminator;
+        let supported = matches!(field.data_type, FieldType::Utf8 | FieldType::Json)
+            || logical_discriminator
+            || query_semantics;
         if field.name == "value"
-            || (container && field.name == METRIC_KIND_FIELD)
+            || hidden_metadata
             || crate::domain::metrics::is_prometheus_exemplar_storage_field(&field.name)
-            || !(matches!(field.data_type, FieldType::Utf8 | FieldType::Json)
-                || container && field.name == METRIC_NAME_FIELD)
+            || !supported
         {
             return None;
         }

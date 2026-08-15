@@ -28,7 +28,6 @@ use opentelemetry_proto::tonic::{
         trace::v1::{ExportTraceServiceRequest, ExportTraceServiceResponse},
     },
     common::v1::{AnyValue, InstrumentationScope, KeyValue, any_value},
-    metrics::v1::{Metric, metric, number_data_point},
     resource::v1::Resource,
 };
 use serde::Serialize;
@@ -38,7 +37,6 @@ use crate::{
     api::AppState,
     domain::{
         intake::{IntakeBatch, RawEvent},
-        metrics::METRIC_NAME_FIELD,
         stream::StreamType,
     },
     shared::{
@@ -51,6 +49,10 @@ use crate::{
         },
     },
 };
+
+mod metrics;
+
+pub(crate) use metrics::metrics_to_events;
 
 /// 无 `stream-name` 头时 OTLP 各信号类型落入的默认流名（默认约定）；
 /// 使用前端 explore / send-test-event 相同的 `default` 流，不存在时 intake 自动建流。
@@ -134,7 +136,7 @@ where
 
 // ===== OTLP → RawEvent 转换 =====
 
-fn nanos_to_micros(ns: u64) -> TimestampMicros {
+pub(super) fn nanos_to_micros(ns: u64) -> TimestampMicros {
     if ns == 0 {
         TimestampMicros::now()
     } else {
@@ -179,7 +181,7 @@ pub(crate) fn any_value_to_json(v: &AnyValue) -> Value {
     }
 }
 
-fn put_attrs(map: &mut Map<String, Value>, attrs: &[KeyValue]) {
+pub(super) fn put_attrs(map: &mut Map<String, Value>, attrs: &[KeyValue]) {
     for kv in attrs {
         let v = kv
             .value
@@ -206,7 +208,7 @@ fn attrs_to_btree(attrs: &[KeyValue]) -> BTreeMap<String, Value> {
 }
 
 /// resource + scope 公共字段（每条记录复制一份做基底）。
-fn base_fields(
+pub(super) fn base_fields(
     resource: Option<&Resource>,
     scope: Option<&InstrumentationScope>,
 ) -> Map<String, Value> {
@@ -379,101 +381,6 @@ pub(crate) fn traces_to_events(req: ExportTraceServiceRequest) -> Vec<RawEvent> 
         .collect()
 }
 
-fn metric_meta(f: &mut Map<String, Value>, m: &Metric) {
-    f.insert(METRIC_NAME_FIELD.into(), Value::String(m.name.clone()));
-    if !m.unit.is_empty() {
-        f.insert("metric_unit".into(), Value::String(m.unit.clone()));
-    }
-}
-
-fn put_number(f: &mut Map<String, Value>, v: &Option<number_data_point::Value>) {
-    match v {
-        Some(number_data_point::Value::AsDouble(d)) => {
-            f.insert("value".into(), Value::from(*d));
-        }
-        Some(number_data_point::Value::AsInt(i)) => {
-            f.insert("value".into(), Value::from(*i));
-        }
-        None => {}
-    }
-}
-
-pub(crate) fn metrics_to_events(req: ExportMetricsServiceRequest) -> Vec<RawEvent> {
-    let mut out = Vec::new();
-    for rm in &req.resource_metrics {
-        for sm in &rm.scope_metrics {
-            let base = base_fields(rm.resource.as_ref(), sm.scope.as_ref());
-            for m in &sm.metrics {
-                let push = |out: &mut Vec<RawEvent>,
-                            attrs: &[KeyValue],
-                            ts: u64,
-                            fill: &dyn Fn(&mut Map<String, Value>)| {
-                    let mut f = base.clone();
-                    metric_meta(&mut f, m);
-                    put_attrs(&mut f, attrs);
-                    fill(&mut f);
-                    out.push(RawEvent {
-                        timestamp: nanos_to_micros(ts),
-                        fields: f,
-                    });
-                };
-                match &m.data {
-                    Some(metric::Data::Gauge(g)) => {
-                        for dp in &g.data_points {
-                            push(&mut out, &dp.attributes, dp.time_unix_nano, &|f| {
-                                put_number(f, &dp.value)
-                            });
-                        }
-                    }
-                    Some(metric::Data::Sum(s)) => {
-                        for dp in &s.data_points {
-                            push(&mut out, &dp.attributes, dp.time_unix_nano, &|f| {
-                                put_number(f, &dp.value)
-                            });
-                        }
-                    }
-                    Some(metric::Data::Histogram(h)) => {
-                        for dp in &h.data_points {
-                            push(&mut out, &dp.attributes, dp.time_unix_nano, &|f| {
-                                f.insert("count".into(), Value::from(dp.count));
-                                if let Some(sum) = dp.sum {
-                                    f.insert("sum".into(), Value::from(sum));
-                                }
-                                if let Some(min) = dp.min {
-                                    f.insert("min".into(), Value::from(min));
-                                }
-                                if let Some(max) = dp.max {
-                                    f.insert("max".into(), Value::from(max));
-                                }
-                            });
-                        }
-                    }
-                    Some(metric::Data::ExponentialHistogram(h)) => {
-                        for dp in &h.data_points {
-                            push(&mut out, &dp.attributes, dp.time_unix_nano, &|f| {
-                                f.insert("count".into(), Value::from(dp.count));
-                                if let Some(sum) = dp.sum {
-                                    f.insert("sum".into(), Value::from(sum));
-                                }
-                            });
-                        }
-                    }
-                    Some(metric::Data::Summary(s)) => {
-                        for dp in &s.data_points {
-                            push(&mut out, &dp.attributes, dp.time_unix_nano, &|f| {
-                                f.insert("count".into(), Value::from(dp.count));
-                                f.insert("sum".into(), Value::from(dp.sum));
-                            });
-                        }
-                    }
-                    None => {}
-                }
-            }
-        }
-    }
-    out
-}
-
 // ===== intake =====
 
 pub(crate) async fn intake(
@@ -630,7 +537,6 @@ pub(crate) async fn submit_traces(
 mod tests {
     use opentelemetry_proto::tonic::{
         logs::v1::{LogRecord, ResourceLogs, ScopeLogs},
-        metrics::v1::{Gauge, Metric, NumberDataPoint, ResourceMetrics, ScopeMetrics, metric},
         trace::v1::{ResourceSpans, ScopeSpans, Span, Status, span::SpanKind, status::StatusCode},
     };
 
@@ -771,37 +677,5 @@ mod tests {
         assert_eq!(f.get("status_code").unwrap(), "UNSET");
         assert_eq!(f.get("service.name").unwrap(), "unknown_service");
         assert!(f.get("status_message").is_none());
-    }
-
-    #[test]
-    fn metrics_gauge_emits_one_event_per_point() {
-        let req = ExportMetricsServiceRequest {
-            resource_metrics: vec![ResourceMetrics {
-                scope_metrics: vec![ScopeMetrics {
-                    metrics: vec![Metric {
-                        name: "cpu.usage".into(),
-                        unit: "1".into(),
-                        data: Some(metric::Data::Gauge(Gauge {
-                            data_points: vec![NumberDataPoint {
-                                time_unix_nano: 5_000,
-                                attributes: vec![str_kv("host", "a")],
-                                value: Some(number_data_point::Value::AsDouble(0.5)),
-                                ..Default::default()
-                            }],
-                        })),
-                        ..Default::default()
-                    }],
-                    ..Default::default()
-                }],
-                ..Default::default()
-            }],
-        };
-        let events = metrics_to_events(req);
-        assert_eq!(events.len(), 1);
-        let e = &events[0];
-        assert_eq!(e.timestamp.0, 5);
-        assert_eq!(e.fields.get("metric_name").unwrap(), "cpu.usage");
-        assert_eq!(e.fields.get("host").unwrap(), "a");
-        assert_eq!(e.fields.get("value").unwrap(), 0.5);
     }
 }

@@ -91,6 +91,7 @@ impl Workload {
             samples: (0..100_000)
                 .map(|index| (index * 1_000_000, index as f64))
                 .collect(),
+            ..Default::default()
         }];
         let object_store = ProductionObjectStore::wrap(
             Arc::new(InMemory::new()),
