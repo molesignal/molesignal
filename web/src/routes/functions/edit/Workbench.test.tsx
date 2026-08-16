@@ -1,11 +1,15 @@
 import { render } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
+import i18n from '@/i18n';
+
 import { FunctionWorkbench } from './Workbench';
 
 vi.mock('@/shell/codeEditor', () => ({
   CodeEditor: () => <div data-code-editor />,
 }));
+
+const saveFunctionLabel = i18n.t('functions:edit.save');
 
 describe('FunctionWorkbench cardless layout', () => {
   it('uses flat definition and editor bands without card containers', () => {
@@ -27,7 +31,7 @@ describe('FunctionWorkbench cardless layout', () => {
         runPending={false}
         canRun
         canSave
-        actions={<button type="button">Save function</button>}
+        actions={<button type="button">{saveFunctionLabel}</button>}
         onSubmit={vi.fn()}
         onNameChange={vi.fn()}
         onLanguageChange={vi.fn()}
@@ -50,7 +54,7 @@ describe('FunctionWorkbench cardless layout', () => {
     expect(workbench?.className).not.toMatch(/rounded|shadow|bg-bg-1/);
 
     const actions = container.querySelector('[data-function-actions]');
-    expect(actions).toHaveTextContent('Save function');
+    expect(actions).toHaveTextContent(saveFunctionLabel);
     expect(actions?.className).toContain('mt-auto');
     expect(actions?.className).toContain('sm:pb-10');
     expect(actions?.className).toContain('justify-end');
@@ -75,7 +79,7 @@ describe('FunctionWorkbench cardless layout', () => {
         runPending={false}
         canRun
         canSave
-        actions={<button type="button">Save function</button>}
+        actions={<button type="button">{saveFunctionLabel}</button>}
         onSubmit={vi.fn()}
         onNameChange={vi.fn()}
         onLanguageChange={vi.fn()}

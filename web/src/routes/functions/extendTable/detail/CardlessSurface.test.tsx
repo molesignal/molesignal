@@ -1,9 +1,8 @@
 import { render } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import '@/i18n';
-
 import type { ExtendTableSummary } from '@/api/extendTables';
+import i18n from '@/i18n';
 
 import { ExtendTableListSurface } from '../index';
 import { SchemaPanel, SettingsPanel } from './InformationPanels';
@@ -12,7 +11,7 @@ import { RecordsPanel } from './RecordsPanel';
 
 const table: ExtendTableSummary = {
   table_name: 'service_owners',
-  description: 'Service ownership lookup',
+  description: i18n.t('functions:extend_tables.definition_description'),
   key_field: 'service',
   value_fields: [],
   row_count: 0,
@@ -23,7 +22,9 @@ const table: ExtendTableSummary = {
 describe('Extend Table cardless surfaces', () => {
   it('keeps the list on a flat page band', () => {
     const { container } = render(
-      <ExtendTableListSurface>Table rows</ExtendTableListSurface>,
+      <ExtendTableListSurface>
+        {i18n.t('functions:extend_tables.tabs.records')}
+      </ExtendTableListSurface>,
     );
 
     const surface = container.querySelector(

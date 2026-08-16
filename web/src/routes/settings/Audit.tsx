@@ -293,7 +293,7 @@ export function Audit() {
               <dd className="min-w-0 text-tx-0">
                 <div>{auditActorName(selected, usersById, resourceNames)}</div>
                 {auditActorName(selected, usersById, resourceNames) !== rawAuditActor(selected) && (
-                  <div className="truncate font-mono text-[11px] text-tx-3">
+                  <div className="truncate type-micro font-mono text-tx-3">
                     {rawAuditActor(selected)}
                   </div>
                 )}
@@ -304,7 +304,7 @@ export function Audit() {
               <dd className="min-w-0 text-tx-0">
                 <div>{auditTargetName(selected, resourceNames)}</div>
                 {auditTargetName(selected, resourceNames) !== rawAuditTarget(selected) && (
-                  <div className="truncate font-mono text-[11px] text-tx-3">
+                  <div className="truncate type-micro font-mono text-tx-3">
                     {rawAuditTarget(selected)}
                   </div>
                 )}

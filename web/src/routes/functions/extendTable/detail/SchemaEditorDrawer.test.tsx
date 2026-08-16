@@ -2,9 +2,8 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import '@/i18n';
-
 import type { ExtendTableSummary, ExtendValueField } from '@/api/extendTables';
+import i18n from '@/i18n';
 
 import { SchemaEditorDrawer } from './SchemaEditorDrawer';
 
@@ -14,13 +13,13 @@ const field: ExtendValueField = {
   name: 'tier',
   field_type: 'string',
   required: false,
-  description: 'Customer tier',
+  description: i18n.t('functions:extend_tables.field_description'),
 };
 
 function table(rowCount: number): ExtendTableSummary {
   return {
     table_name: 'customers',
-    description: 'Customer attributes',
+    description: i18n.t('functions:extend_tables.definition_description'),
     key_field: 'customer_id',
     value_fields: [field],
     row_count: rowCount,
