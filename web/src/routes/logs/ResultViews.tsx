@@ -2,6 +2,7 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { uiTableHeaderClass } from '@/shell/chrome';
+import { SeverityRail } from '@/viz/SeverityRail';
 
 import {
   displayLogValue,
@@ -99,8 +100,11 @@ function LogResultValue({ log, field }: { log: LogEntry; field: string }) {
   if (LEVEL_FIELDS.has(field) && value) {
     const level = value.toUpperCase();
     return (
-      <span className={`type-micro w-fit rounded px-1.5 py-0.5 font-mono font-semibold ${levelToneClass(level)}`}>
-        {level}
+      <span className="flex w-fit items-center gap-1.5">
+        <SeverityRail severity={level} className="h-4 w-[3px] rounded-full" />
+        <span className={`type-micro rounded px-1.5 py-0.5 font-mono font-semibold ${levelToneClass(level)}`}>
+          {level}
+        </span>
       </span>
     );
   }
@@ -114,7 +118,6 @@ function LogResultValue({ log, field }: { log: LogEntry; field: string }) {
 interface LogListResultsProps {
   rows: LogEntry[];
   fields: string[];
-  timezone: string;
   startIndex: number;
   selectedIndex: number | null;
   density: LogResultDensity;
@@ -124,7 +127,6 @@ interface LogListResultsProps {
 export function LogListResults({
   rows,
   fields,
-  timezone,
   startIndex,
   selectedIndex,
   density,
@@ -132,7 +134,7 @@ export function LogListResults({
 }: LogListResultsProps) {
   const { t } = useTranslation('logs');
   const columns = React.useMemo(() => visibleResultFields(fields), [fields]);
-  const timeColumnLabel = t('explore.table.time_column', { timezone });
+  const timeColumnLabel = t('explore.table.time_column');
   const rowHeight = logResultRowHeight(density);
   const gridStyle = React.useMemo(
     () => resultGridStyle(columns, rows, timeColumnLabel),

@@ -2,33 +2,31 @@ import { AlertTriangle, ArrowRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
+import type { ExperienceGrade } from '@/api/rum';
 import type {
-  ErrorRow,
-  ExperienceGrade,
-  SessionRow,
-} from '@/api/rum';
+  ExperienceBucket,
+  OverviewDimensionShare,
+  OverviewFrequentError,
+  OverviewMetrics,
+  OverviewSlowPage,
+  SatisfactionCounts,
+} from '@/api/rum/overview';
 import { cn } from '@/shell/lib/cn';
 import { useTimeStore } from '@/stores/useTimeStore';
 import { TimeSeriesChart } from '@/viz/timeseries/TimeSeriesChart';
 
 import { formatDurationMs } from '../_helpers';
 import { RumSectionHeader } from '../RumLayout';
-import type {
-  DimensionShare,
-  OverviewMetrics,
-  SlowPage,
-} from './model';
 
 export function ExperienceTrend({
-  sessions,
+  buckets,
   range,
 }: {
-  sessions: SessionRow[];
+  buckets: ExperienceBucket[];
   range: { from_micros: number; to_micros: number };
 }) {
   const { t } = useTranslation('rum');
   const setWindow = useTimeStore((state) => state.setWindow);
-  const buckets = bucketSessions(sessions, 12, range);
   return (
     <section>
       <RumSectionHeader
@@ -148,23 +146,27 @@ export function CoreWebVitalsPanel({
   );
 }
 
-export function SatisfactionPanel({ sessions }: { sessions: SessionRow[] }) {
+export function SatisfactionPanel({
+  counts,
+}: {
+  counts: SatisfactionCounts;
+}) {
   const { t } = useTranslation('rum');
-  const total = Math.max(1, sessions.length);
+  const total = Math.max(1, counts.total);
   const items: Array<{ grade: ExperienceGrade; count: number; color: string }> = [
     {
       grade: 'good',
-      count: sessions.filter((row) => row.experience === 'good').length,
+      count: counts.good,
       color: 'bg-green',
     },
     {
       grade: 'needs_improvement',
-      count: sessions.filter((row) => row.experience === 'needs_improvement').length,
+      count: counts.needsImprovement,
       color: 'bg-yellow',
     },
     {
       grade: 'poor',
-      count: sessions.filter((row) => row.experience === 'poor').length,
+      count: counts.poor,
       color: 'bg-red',
     },
   ];
@@ -201,7 +203,7 @@ export function SatisfactionPanel({ sessions }: { sessions: SessionRow[] }) {
   );
 }
 
-export function SlowPagesPanel({ pages }: { pages: SlowPage[] }) {
+export function SlowPagesPanel({ pages }: { pages: OverviewSlowPage[] }) {
   const { t } = useTranslation('rum');
   const max = Math.max(...pages.map((page) => page.p75), 1);
   return (
@@ -259,7 +261,11 @@ export function SlowPagesPanel({ pages }: { pages: SlowPage[] }) {
   );
 }
 
-export function FrequentErrorsPanel({ errors }: { errors: ErrorRow[] }) {
+export function FrequentErrorsPanel({
+  errors,
+}: {
+  errors: OverviewFrequentError[];
+}) {
   const { t } = useTranslation('rum');
   return (
     <section>
@@ -313,7 +319,7 @@ export function DimensionPanel({
 }: {
   title: string;
   description: string;
-  rows: DimensionShare[];
+  rows: OverviewDimensionShare[];
 }) {
   const { t } = useTranslation('rum');
   return (
@@ -360,31 +366,4 @@ function durationGrade(
   if (value > poorThreshold) return 'poor';
   if (value > needsThreshold) return 'needs_improvement';
   return 'good';
-}
-
-function bucketSessions(
-  sessions: SessionRow[],
-  count: number,
-  range: { from_micros: number; to_micros: number },
-) {
-  const width = Math.max(1, (range.to_micros - range.from_micros) / count);
-  const buckets = Array.from({ length: count }, (_, index) => ({
-    start: range.from_micros + width * index,
-    good: 0,
-    needs: 0,
-    poor: 0,
-  }));
-  for (const session of sessions) {
-    const timestamp = session.started_at_micros ?? range.from_micros;
-    const index = Math.min(
-      count - 1,
-      Math.max(0, Math.floor((timestamp - range.from_micros) / width)),
-    );
-    const bucket = buckets[index];
-    if (!bucket) continue;
-    if (session.experience === 'good') bucket.good += 1;
-    else if (session.experience === 'needs_improvement') bucket.needs += 1;
-    else if (session.experience === 'poor') bucket.poor += 1;
-  }
-  return buckets;
 }

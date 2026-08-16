@@ -13,12 +13,12 @@ use serde_json::Value;
 
 use crate::{
     api::{AppState, http::middleware::ProtectedResource},
-    app::{iam::IamContext, intake::FunctionExecutor},
+    app::iam::IamContext,
     domain::{
         function::{Function, FunctionLanguage},
         iam::{permission, resource_permission},
     },
-    infra::{persistence::repositories::functions::precheck_compile, runtime::VrlFunctionExecutor},
+    infra::persistence::repositories::functions::precheck_compile,
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
@@ -278,7 +278,10 @@ async fn run(
         updated_at: now,
     };
     let mut output = req.input;
-    let executor = VrlFunctionExecutor::new();
-    executor.run(&function, &mut output).await?;
+    state
+        .storage
+        .function_executor
+        .run(&function, &mut output)
+        .await?;
     Ok(Json(RunResp { output }))
 }

@@ -31,6 +31,7 @@ export function FormDrawer({
   subtitle,
   width = 760,
   bodyClassName,
+  headerDivider = true,
   children,
   footer,
 }: {
@@ -40,6 +41,7 @@ export function FormDrawer({
   subtitle?: React.ReactNode;
   width?: number | string;
   bodyClassName?: string;
+  headerDivider?: boolean | undefined;
   children: React.ReactNode;
   footer?: React.ReactNode;
 }) {
@@ -54,7 +56,12 @@ export function FormDrawer({
           style={{ width, maxWidth: 'calc(100vw - 16px)' }}
         >
           {/* header */}
-          <div className="flex items-start gap-4 border-b border-bd-0 px-6 py-5">
+          <div
+            className={cn(
+              'flex items-start gap-4 px-6 py-5',
+              headerDivider && 'border-b border-bd-0',
+            )}
+          >
             <div className="flex-1">
               <Dialog.Title className="m-0 font-sans text-xl font-display-strong tracking-[-0.02em] text-tx-0">
                 {title}

@@ -57,7 +57,7 @@ function verticalGeometry(
   const plot = { left: 48, right: Math.max(56, width - 12), top: 10 + legendHeight, bottom: Math.max(30, height - 30) };
   const plotWidth = Math.max(1, plot.right - plot.left);
   const plotHeight = Math.max(1, plot.bottom - plot.top);
-  const step = plotWidth / model.categories.length;
+  const step = plotWidth / Math.max(1, model.categories.length);
   const group = step * clamp(groupWidth, 0.1, 1);
   const barWidth = Math.max(0.5, group / model.series.length);
   const y = (value: number) =>
@@ -79,7 +79,7 @@ function verticalGeometry(
         valueX: x + barWidth / 2,
         valueY: point.value >= 0 ? valueY - 4 : valueY + 11,
         valueAnchor: 'middle',
-        category: category.label,
+        category: category.tooltipLabel ?? category.label,
         series: series.name,
         value: point.value,
         text: point.text,
@@ -119,7 +119,7 @@ function horizontalGeometry(
   const plot = { left: Math.min(104, Math.max(72, width * 0.24)), right: Math.max(80, width - 14), top: 10 + legendHeight, bottom: Math.max(32, height - 24) };
   const plotWidth = Math.max(1, plot.right - plot.left);
   const plotHeight = Math.max(1, plot.bottom - plot.top);
-  const step = plotHeight / model.categories.length;
+  const step = plotHeight / Math.max(1, model.categories.length);
   const group = step * clamp(groupWidth, 0.1, 1);
   const barHeight = Math.max(0.5, group / model.series.length);
   const x = (value: number) =>
@@ -141,7 +141,7 @@ function horizontalGeometry(
         valueX: point.value >= 0 ? valueX + 4 : valueX - 4,
         valueY: y + barHeight / 2 + 3,
         valueAnchor: point.value >= 0 ? 'start' : 'end',
-        category: category.label,
+        category: category.tooltipLabel ?? category.label,
         series: series.name,
         value: point.value,
         text: point.text,

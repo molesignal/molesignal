@@ -286,7 +286,7 @@ export function ToolCapabilitiesPanel({
           </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-2 border-b border-bd-0 pb-3 sm:grid-cols-2 xl:grid-cols-4">
           <SummaryCard
             icon={ShieldCheck}
             label={t('settings.tools.summary.enabled')}
@@ -333,7 +333,7 @@ export function ToolCapabilitiesPanel({
           />
         </div>
 
-        <div className="mt-4 flex flex-col gap-3 rounded-lg border border-bd-0 bg-bg-1 p-3 xl:flex-row xl:items-center">
+        <div className="mt-3 flex flex-col gap-3 xl:flex-row xl:items-center">
           <div className="relative min-w-0 flex-1 xl:max-w-md">
             <Search
               aria-hidden
@@ -390,7 +390,7 @@ export function ToolCapabilitiesPanel({
         {tools.length === 0 ? (
           <ToolsEmpty onAddMcp={() => setMcpOpen(true)} />
         ) : filteredTools.length === 0 ? (
-          <div className="mt-4 rounded-lg border border-dashed border-bd-1 bg-bg-1 px-6 py-12 text-center">
+          <div className="mt-4 px-6 py-12 text-center">
             <Search className="mx-auto h-5 w-5 text-tx-3" />
             <div className="mt-3 text-sm font-strong text-tx-1">
               {t('settings.tools.empty_filter_title')}
@@ -400,7 +400,7 @@ export function ToolCapabilitiesPanel({
             </p>
           </div>
         ) : (
-          <div className="mt-4 space-y-3">
+          <div className="mt-4">
             {groups.map((group) => (
               <ToolGroup
                 key={group.key}
@@ -491,14 +491,14 @@ function SummaryCard({
       type="button"
       onClick={onClick}
       className={cn(
-        'group flex min-h-[92px] items-center gap-3 rounded-lg border bg-bg-1 px-4 py-3 text-left transition-colors',
-        active ? 'border-indigo/50 bg-indigo/5' : 'border-bd-0 hover:border-bd-1 hover:bg-bg-2',
+        'group flex min-h-[88px] items-center gap-3 px-3 py-2 text-left transition-colors',
+        active ? 'bg-indigo/5' : 'hover:bg-bg-2',
       )}
     >
       <span
         className={cn(
-          'grid h-10 w-10 shrink-0 place-items-center rounded-md border border-indigo/20 bg-indigo/10 text-indigo',
-          warning && 'border-yellow/30 bg-yellow/10 text-yellow-soft',
+          'grid h-9 w-9 shrink-0 place-items-center rounded-md bg-indigo/10 text-indigo',
+          warning && 'bg-yellow/10 text-yellow-soft',
         )}
       >
         <Icon className="h-[18px] w-[18px]" />
@@ -631,10 +631,10 @@ function ToolGroup({
 }) {
   const { t } = useTranslation('agent');
   return (
-    <section className="overflow-hidden rounded-lg border border-bd-0 bg-bg-1">
+    <section className="overflow-hidden border-t border-bd-0 first:border-t-0">
       <button
         type="button"
-        className="flex min-h-11 w-full items-center gap-2 border-b border-bd-0 px-3 py-2 text-left hover:bg-bg-2"
+        className="flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left hover:bg-bg-2"
         onClick={onToggle}
         aria-expanded={!collapsed}
       >
@@ -2730,7 +2730,7 @@ function ToolsLoading({ compact = false }: { compact?: boolean }) {
   return (
     <div
       className={cn(
-        'flex items-center justify-center rounded-lg border border-bd-0 bg-bg-1',
+        'flex items-center justify-center',
         compact ? 'min-h-32' : 'min-h-80',
       )}
     >
@@ -2751,7 +2751,7 @@ function ToolsError({
   return (
     <div
       className={cn(
-        'flex flex-col items-center justify-center rounded-lg border border-red/20 bg-bg-1 px-6 text-center',
+        'flex flex-col items-center justify-center px-6 text-center',
         compact ? 'min-h-40' : 'min-h-80',
       )}
     >
@@ -2770,7 +2770,7 @@ function ToolsError({
 function ToolsEmpty({ onAddMcp }: { onAddMcp: () => void }) {
   const { t } = useTranslation('agent');
   return (
-    <div className="mt-4 flex min-h-72 flex-col items-center justify-center rounded-lg border border-dashed border-bd-1 bg-bg-1 px-6 text-center">
+    <div className="mt-4 flex min-h-72 flex-col items-center justify-center px-6 text-center">
       <Wrench className="h-6 w-6 text-tx-3" />
       <div className="mt-3 text-sm font-strong text-tx-1">
         {t('settings.tools.empty_title')}

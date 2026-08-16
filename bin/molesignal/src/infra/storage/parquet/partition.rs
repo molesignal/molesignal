@@ -139,6 +139,10 @@ pub(crate) fn storage_sort_column_names(
             }
             names.push(EVENT_ID_FIELD);
         }
+        PhysicalDatasetKind::RumActionSummary => {
+            names.push("session_id");
+            names.push(EVENT_ID_FIELD);
+        }
         PhysicalDatasetKind::RumErrorSummary => {
             if schema.index_of("error.id").is_ok() {
                 names.push("error.id");

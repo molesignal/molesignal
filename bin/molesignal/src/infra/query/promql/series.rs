@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use arrow::array::{BooleanArray, Int64Array};
+
 use super::*;
 use crate::domain::metrics::{
     METRIC_MONOTONIC_FIELD, METRIC_NAME_FIELD, METRIC_START_TIME_UNIX_NANO_FIELD,
     METRIC_TEMPORALITY_FIELD, is_metric_identity_storage_field,
 };
-use arrow::array::{BooleanArray, Int64Array};
 
 /// 把 record batches 按 (matchers 过滤) + (labels 分组) 转 Vec<Series>。
 ///

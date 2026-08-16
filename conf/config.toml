@@ -581,8 +581,8 @@ safe_lookback_secs = 300
 max_series_per_query = 10000
 
 # === Pipeline JS function 运行时 ===
-# JS function 可用与否完全由编译期 `--features js-runtime` 决定（无运行时开关）。
-# 未编译该 feature → POST language=js 的 function 被拒。
+# 官方 molesignal 二进制默认内置 JS function runtime（无运行时开关）。
+# 仅显式排除 `js-runtime` 的自定义精简构建会拒绝 language=js。
 [functions]
 # LLM 评估节点开关（language=llm 的 pipeline 步骤）；默认 false（每条命中事件一次模型调用）
 llm_eval_enabled = false

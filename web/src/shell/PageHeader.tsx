@@ -1,4 +1,4 @@
-import { ChevronRight, ChevronLeft } from 'lucide-react';
+import { ChevronRight, ChevronLeft, type LucideIcon } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation } from 'react-router-dom';
@@ -14,6 +14,14 @@ interface PageHeaderProps {
   title: React.ReactNode;
   subtitle?: string | undefined;
   toolbar?: React.ReactNode | undefined;
+  /**
+   * Uses the same single-line title rhythm as observation pages such as
+   * Metrics. Observation routes opt into this automatically through their
+   * module icon; management surfaces can request it explicitly.
+   */
+  compact?: boolean | undefined;
+  /** Optional icon for an explicitly compact management header. */
+  moduleIcon?: LucideIcon | null | undefined;
   /**
    * Crumbs leading to this page. When omitted, PageHeader auto-derives
    * from the current route's `breadcrumbs` field in `ia.ts` — pass `null`
@@ -45,6 +53,8 @@ export function PageHeader({
   title,
   subtitle,
   toolbar,
+  compact = false,
+  moduleIcon,
   breadcrumbs,
   backTo,
   className,
@@ -66,7 +76,8 @@ export function PageHeader({
     );
     return parentRoute ?? (route?.group === 'observe' ? route : undefined);
   }, [location.pathname, route]);
-  const HeaderIcon = iconRoute?.icon;
+  const HeaderIcon = moduleIcon === null ? undefined : moduleIcon ?? iconRoute?.icon;
+  const compactLayout = compact || Boolean(HeaderIcon);
 
   // Resolve breadcrumbs: explicit prop > route metadata > none.
   const resolvedCrumbs: readonly ProductBreadcrumbItem[] | undefined =
@@ -107,7 +118,7 @@ export function PageHeader({
       data-testid="page-header"
       className={cn(
         'flex flex-col border-b border-bd-0 bg-bg-1 px-6',
-        HeaderIcon ? 'gap-1.5 py-1.5' : 'gap-2 py-2.5',
+        compactLayout ? 'gap-1.5 py-1.5' : 'gap-2 py-2.5',
         className,
       )}
     >
@@ -131,19 +142,21 @@ export function PageHeader({
           {hasCrumbs && <Breadcrumbs items={resolvedCrumbs!} />}
         </div>
       )}
-      {HeaderIcon ? (
+      {compactLayout ? (
         <div className="flex min-w-0 flex-nowrap items-center gap-2">
-          <span
-            aria-hidden
-            data-testid="page-header-module-icon"
-            className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-indigo/10 text-indigo"
-          >
-            <HeaderIcon className="h-3.5 w-3.5" strokeWidth={1.8} />
-          </span>
+          {HeaderIcon && (
+            <span
+              aria-hidden
+              data-testid="page-header-module-icon"
+              className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-indigo/10 text-indigo"
+            >
+              <HeaderIcon className="h-3.5 w-3.5" strokeWidth={1.8} />
+            </span>
+          )}
           <div className="flex min-w-0 flex-1 items-baseline gap-2 overflow-hidden whitespace-nowrap">
-            <div className="max-w-[45%] shrink-0 truncate type-page-title font-sans font-display-strong tracking-[-0.025em] text-tx-0">
+            <h1 className="max-w-[45%] shrink-0 truncate type-page-title font-sans font-display-strong tracking-[-0.025em] text-tx-0">
               {title}
-            </div>
+            </h1>
             {subtitle && (
               <>
                 <span aria-hidden className="shrink-0 text-tx-3">
@@ -168,7 +181,7 @@ export function PageHeader({
         <div className="flex min-w-0 flex-wrap items-center gap-4 xl:flex-nowrap xl:gap-5">
           <div className="flex min-w-[240px] flex-1 items-center gap-2.5">
             <div className="min-w-0 flex-1">
-              <div className="type-page-title font-sans font-display-strong tracking-[-0.025em] text-tx-0">{title}</div>
+              <h1 className="type-page-title font-sans font-display-strong tracking-[-0.025em] text-tx-0">{title}</h1>
               {subtitle && <div className="mt-0.5 max-w-3xl truncate type-caption text-tx-2">{subtitle}</div>}
             </div>
           </div>

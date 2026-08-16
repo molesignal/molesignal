@@ -1,5 +1,13 @@
-import { AlertCircle, ChevronDown, ChevronRight, MessageSquareWarning, RotateCw } from 'lucide-react';
+import {
+  AlertCircle,
+  BookOpen,
+  ChevronDown,
+  ChevronRight,
+  MessageSquareWarning,
+  RotateCw,
+} from 'lucide-react';
 import * as React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { toApiError, type ApiError } from '@/lib/http';
 import { CopyIconButton } from '@/shell/CopyIconButton';
@@ -25,6 +33,7 @@ interface ErrorStateProps {
   title: string;
   onRetry?: (() => void) | undefined;
   onReport?: ((apiError: ApiError) => void) | undefined;
+  help?: { label: string; href: string } | undefined;
   className?: string | undefined;
   'data-testid'?: string | undefined;
 }
@@ -34,9 +43,11 @@ export function ErrorState({
   title,
   onRetry,
   onReport,
+  help,
   className,
   'data-testid': testId,
 }: ErrorStateProps) {
+  const { t } = useTranslation('common');
   const apiError = React.useMemo(() => toApiError(error), [error]);
   const errorId = React.useMemo(() => generateErrorId(apiError), [apiError]);
   const [detailsOpen, setDetailsOpen] = React.useState(false);
@@ -67,9 +78,9 @@ export function ErrorState({
         <AlertCircle aria-hidden className="mt-0.5 h-5 w-5 shrink-0 stroke-[1.6] text-red" />
         <div className="min-w-0 flex-1">
           <h3 className="font-sans text-sm font-display-strong text-tx-0">{title}</h3>
-          <p className="mt-0.5 truncate font-sans text-xs text-tx-2">
+          <p className="mt-0.5 break-words font-sans text-xs text-tx-2">
             {apiError.status > 0 ? `HTTP ${apiError.status} — ` : ''}
-            {apiError.message || 'Unknown error'}
+            {apiError.message || t('error_state.unknown')}
           </p>
         </div>
       </div>
@@ -81,15 +92,15 @@ export function ErrorState({
             onClick={onRetry}
             variant="primary"
             icon={<RotateCw className="h-3 w-3" />}
-            label="Retry"
+            label={t('actions.retry')}
             testid="error-retry"
           />
         )}
         <CopyIconButton
           onClick={() => void handleCopy()}
-          label="Copy error ID"
+          label={t('error_state.copy_error_id')}
           copied={copied}
-          copiedLabel="Copied"
+          copiedLabel={t('error_state.copied')}
           data-testid="error-copy-id"
         />
         {onReport && (
@@ -97,9 +108,21 @@ export function ErrorState({
             onClick={() => onReport(apiError)}
             variant="secondary"
             icon={<MessageSquareWarning className="h-3 w-3" />}
-            label="Report"
+            label={t('error_state.report')}
             testid="error-report"
           />
+        )}
+        {help && (
+          <a
+            href={help.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={actionClass('secondary')}
+            data-testid="error-help"
+          >
+            <BookOpen className="h-3 w-3" aria-hidden />
+            <span>{help.label}</span>
+          </a>
         )}
       </div>
 
@@ -112,7 +135,7 @@ export function ErrorState({
         <summary
           className={cn(
             'flex cursor-pointer list-none items-center gap-1.5 px-2.5 py-1.5 font-sans text-xs font-strong text-tx-2',
-            'hover:text-tx-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo focus-visible:ring-inset',
+            'hover:text-tx-0 focus-visible:bg-indigo-dim focus-visible:text-indigo',
             '[&::-webkit-details-marker]:hidden',
           )}
         >
@@ -121,14 +144,14 @@ export function ErrorState({
           ) : (
             <ChevronRight aria-hidden className="h-3 w-3" />
           )}
-          <span>Details</span>
-          <span className="ml-auto select-all font-sans tabular-nums text-tx-3">{errorId}</span>
+          <span>{t('error_state.details')}</span>
+          <span className="ml-auto select-all font-sans tabular-nums text-tx-2">{errorId}</span>
         </summary>
         <dl className="grid grid-cols-[80px_1fr] gap-x-3 gap-y-1 border-t border-bd-0 px-2.5 py-2 font-sans text-xs leading-relaxed">
-          <Detail label="Status" value={apiError.status > 0 ? String(apiError.status) : '—'} />
-          <Detail label="Code" value={apiError.code ?? '—'} mono />
-          <Detail label="Message" value={apiError.message || '(empty)'} wrap />
-          <Detail label="Error ID" value={errorId} mono selectable />
+          <Detail label={t('error_state.status')} value={apiError.status > 0 ? String(apiError.status) : '—'} />
+          <Detail label={t('error_state.code')} value={apiError.code ?? '—'} mono />
+          <Detail label={t('error_state.message')} value={apiError.message || t('error_state.empty')} wrap />
+          <Detail label={t('error_state.error_id')} value={errorId} mono selectable />
         </dl>
       </details>
     </div>
@@ -153,18 +176,21 @@ function ActionButton({
       type="button"
       onClick={onClick}
       data-testid={testid}
-      className={cn(
-        'inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 font-sans text-xs font-strong',
-        'transition-colors duration-fast ease-default',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo focus-visible:ring-offset-1 focus-visible:ring-offset-bg-1',
-        variant === 'primary'
-          ? 'bg-indigo text-white hover:bg-indigo-soft'
-          : 'border border-bd-1 bg-bg-2 text-tx-1 hover:bg-bg-3 hover:text-tx-0',
-      )}
+      className={actionClass(variant)}
     >
       {icon}
       <span>{label}</span>
     </button>
+  );
+}
+
+function actionClass(variant: 'primary' | 'secondary'): string {
+  return cn(
+    'inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 font-sans text-xs font-strong',
+    'transition-colors duration-fast ease-default focus-visible:bg-indigo-dim focus-visible:text-indigo',
+    variant === 'primary'
+      ? 'bg-indigo text-white hover:brightness-90 focus-visible:brightness-90'
+      : 'border border-bd-1 bg-bg-2 text-tx-1 hover:bg-bg-3 hover:text-tx-0',
   );
 }
 
@@ -183,7 +209,7 @@ function Detail({
 }) {
   return (
     <>
-      <dt className="text-tx-3">{label}</dt>
+      <dt className="text-tx-2">{label}</dt>
       <dd
         className={cn(
           'min-w-0 text-tx-1',

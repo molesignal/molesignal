@@ -8,7 +8,7 @@
 //! service 推断（time-correlated）。
 //!
 //! 设计要点：
-//! - 两条 SQL 都走 `state.query.run`，复用现有 DataFusion engine + 多表注册逻辑；
+//! - RUM 侧走写入时物理摘要 + 专用 Parquet reader，不经过 DataFusion；
 //! - direct / time-correlated 在响应里通过 `relation` 字段标注，前端可显示置信度；
 //! - traces 表字段走标准 OTEL / OTLP proto 列名（`trace_id` / `"service.name"` /
 //!   `start_time_unix_nano` / `end_time_unix_nano`），流名按当前 org 的 traces
@@ -22,18 +22,16 @@ use axum::{
     routing::get,
 };
 use serde::Serialize;
-use serde_json::Value;
 
 use crate::{
     api::{AppState, http::routes::web::trace::resolve_traces_stream},
     app::iam::IamContext,
-    domain::{
-        iam::permission,
-        query::{QueryLanguage, QueryRequest, QueryResult, StreamHint},
-        stream::StreamType,
-    },
-    infra::traces::summary_reader::{
-        SummaryOrder, TraceSummaryQuery, TraceSummaryReader, TraceSummaryRecord,
+    domain::iam::permission,
+    infra::{
+        rum::read_model::RumReadModelReader,
+        traces::summary_reader::{
+            SummaryOrder, TraceSummaryQuery, TraceSummaryReader, TraceSummaryRecord,
+        },
     },
     shared::{
         Error, Result,
@@ -41,9 +39,16 @@ use crate::{
     },
 };
 
-/// 默认时间窗（µs）：12 小时；查 rum_actions / rum_sessions 不会因为列表回放过头
-/// 而错过较老 session。
-const DEFAULT_LOOKBACK_US: i64 = 12 * 3600 * 1_000_000;
+/// Session detail can be opened from the 30-day list, so correlation uses the same maximum window.
+const DEFAULT_LOOKBACK_US: i64 = 30 * 24 * 3600 * 1_000_000;
+const ACTION_GRACE_US: i64 = 5 * 60 * 1_000_000;
+const TRACE_ACTION_COLUMNS: &[&str] = &[
+    "_timestamp",
+    "ts_micros",
+    "session_id",
+    "trace_id",
+    "service",
+];
 
 pub fn routes() -> Router<AppState> {
     Router::new().route("/rum/sessions/{id}/related-traces", get(related_traces))
@@ -83,46 +88,61 @@ async fn related_traces(
         TimestampMicros(now_us + 60 * 1_000_000),
     );
 
-    // 1. rum_actions：拿 (trace_id, service)，先按 direct 路径查。
-    let action_rows = state
-        .query
-        .run(QueryRequest {
-            org_id: ctx.org_id.clone(),
-            language: QueryLanguage::Sql,
-            statement: format!(
-                "SELECT DISTINCT trace_id, service FROM rum_actions \
-                 WHERE session_id = '{}' AND trace_id IS NOT NULL AND trace_id != ''",
-                sql_escape(&session_id)
-            ),
-            time_range: lookback_range,
-            stream: Some(StreamHint {
-                name: "rum_actions".into(),
-                stream_type: StreamType::Logs,
-            }),
-            limit: Some(50),
-            federation_clusters: Vec::new(),
-        })
-        .await?;
-    let mut direct: Vec<(String, Option<String>)> = Vec::new();
-    let trace_idx = column_index(&action_rows, "trace_id");
-    let service_idx = column_index(&action_rows, "service");
-    if let Some(ti) = trace_idx {
-        for row in &action_rows.rows {
-            let trace = row
-                .get(ti)
-                .and_then(Value::as_str)
-                .unwrap_or("")
-                .to_string();
-            if trace.is_empty() {
-                continue;
-            }
-            let svc =
-                service_idx.and_then(|si| row.get(si).and_then(Value::as_str).map(String::from));
-            if !direct.iter().any(|(t, _)| t == &trace) {
-                direct.push((trace, svc));
-            }
+    let rum = RumReadModelReader::new(
+        state.storage.parquet_file_meta.clone(),
+        state.storage.object_store.clone(),
+    );
+    let session_ids = HashSet::from([session_id.clone()]);
+    let mut session = None;
+    rum.visit_raw_sessions_for_ids(&ctx.org_id, lookback_range, &session_ids, |candidate| {
+        if session.as_ref().is_none_or(
+            |current: &crate::infra::rum::read_model::RumSessionRecord| {
+                candidate.timestamp_micros > current.timestamp_micros
+            },
+        ) {
+            session = Some(candidate);
         }
-    }
+    })
+    .await?;
+    let Some(session_record) = session else {
+        return Ok(Json(RelatedTracesResponse {
+            session_id,
+            primary_service: None,
+            traces: Vec::new(),
+        }));
+    };
+    let window_start = session_record.timestamp_micros;
+    let duration_us = session_record
+        .duration_ms
+        .map(|duration| (duration.max(0.0) * 1_000.0) as i64)
+        .unwrap_or(60 * 1_000_000)
+        .max(60 * 1_000_000);
+    let trace_window = TimeRange::new(
+        TimestampMicros(window_start),
+        TimestampMicros(
+            window_start
+                .saturating_add(duration_us)
+                .saturating_add(ACTION_GRACE_US),
+        ),
+    );
+
+    // 1. rum_action_summary：拿 (trace_id, service)，先按 direct 路径查。
+    let mut direct: Vec<(String, Option<String>)> = Vec::new();
+    rum.visit_actions_for_sessions(
+        &ctx.org_id,
+        trace_window,
+        &session_ids,
+        TRACE_ACTION_COLUMNS,
+        |action| {
+            let Some(trace_id) = action.trace_id.filter(|trace_id| !trace_id.is_empty()) else {
+                return;
+            };
+            if !direct.iter().any(|(existing, _)| existing == &trace_id) {
+                direct.push((trace_id, action.service));
+            }
+        },
+    )
+    .await?;
     let primary_service = direct
         .iter()
         .find_map(|(_, s)| s.clone())
@@ -130,7 +150,7 @@ async fn related_traces(
 
     if !direct.is_empty() {
         let trace_ids: Vec<String> = direct.iter().map(|(t, _)| t.clone()).collect();
-        let traces = aggregate_traces(&state, &ctx, &trace_ids, lookback_range, "direct").await?;
+        let traces = aggregate_traces(&state, &ctx, &trace_ids, trace_window, "direct").await?;
         return Ok(Json(RelatedTracesResponse {
             session_id,
             primary_service,
@@ -138,38 +158,7 @@ async fn related_traces(
         }));
     }
 
-    // 2. 退化：rum_sessions 查 started_at_micros + duration_ms，按时间窗 + service
-    //    在 traces 找。service 不知道时按 session 自身没法继续，返空。
-    let session_rows = state
-        .query
-        .run(QueryRequest {
-            org_id: ctx.org_id.clone(),
-            language: QueryLanguage::Sql,
-            statement: format!(
-                "SELECT started_at_micros, duration_ms FROM rum_sessions \
-                 WHERE session_id = '{}' LIMIT 1",
-                sql_escape(&session_id)
-            ),
-            time_range: lookback_range,
-            stream: Some(StreamHint {
-                name: "rum_sessions".into(),
-                stream_type: StreamType::Logs,
-            }),
-            limit: Some(1),
-            federation_clusters: Vec::new(),
-        })
-        .await?;
-    let (started_us, duration_ms) = first_row_started(&session_rows);
-    let (Some(started_us), Some(duration_ms)) = (started_us, duration_ms) else {
-        return Ok(Json(RelatedTracesResponse {
-            session_id,
-            primary_service: None,
-            traces: Vec::new(),
-        }));
-    };
-    let window_start = started_us;
-    let window_end = started_us + (duration_ms as i64).max(60_000) * 1_000;
-    let trace_window = TimeRange::new(TimestampMicros(window_start), TimestampMicros(window_end));
+    // 2. 退化：按 session 的真实时间窗做 time correlation。
     let traces = aggregate_traces_by_window(&state, &ctx, trace_window).await?;
     Ok(Json(RelatedTracesResponse {
         session_id,
@@ -269,25 +258,4 @@ fn enrich_with_action_service(
         }
     }
     entries
-}
-
-fn first_row_started(rows: &QueryResult) -> (Option<i64>, Option<f64>) {
-    let Some(row) = rows.rows.first() else {
-        return (None, None);
-    };
-    let started =
-        column_index(rows, "started_at_micros").and_then(|i| row.get(i).and_then(Value::as_i64));
-    let duration =
-        column_index(rows, "duration_ms").and_then(|i| row.get(i).and_then(Value::as_f64));
-    (started, duration)
-}
-
-fn column_index(rows: &QueryResult, name: &str) -> Option<usize> {
-    rows.columns
-        .iter()
-        .position(|c| c.eq_ignore_ascii_case(name))
-}
-
-fn sql_escape(s: &str) -> String {
-    s.replace('\'', "''")
 }

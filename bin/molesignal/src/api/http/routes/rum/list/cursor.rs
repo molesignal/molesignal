@@ -6,16 +6,11 @@ use serde::{Deserialize, Serialize};
 use super::{
     errors::{ErrorContext, ErrorRow},
     sessions::{SessionContext, SessionRow},
-    sql_literal,
 };
 use crate::{
     api::http::pagination::cursor::{CursorDirection, decode_signed_cursor, encode_signed_cursor},
     app::iam::IamService,
-    shared::{
-        Error, Result,
-        cursor::{CursorSortDirection, CursorValue, lexicographic_seek},
-        ids::Id,
-    },
+    shared::{Error, Result, ids::Id},
 };
 
 const VERSION: u8 = 1;
@@ -115,30 +110,6 @@ pub(super) fn encode_session(
     )
 }
 
-pub(super) fn session_seek(boundary: &SessionBoundary, timestamp: &str) -> String {
-    lexicographic_seek(
-        &[
-            (
-                timestamp,
-                CursorValue::Integer(boundary.started_at_micros),
-                CursorSortDirection::Desc,
-            ),
-            (
-                "session_id",
-                CursorValue::Text(boundary.session_id.clone()),
-                CursorSortDirection::Desc,
-            ),
-            (
-                crate::domain::intake::EVENT_ID_FIELD,
-                CursorValue::Text(boundary.event_id.clone()),
-                CursorSortDirection::Desc,
-            ),
-        ],
-        boundary.direction,
-        sql_literal,
-    )
-}
-
 pub(super) fn decode_error(
     iam: &IamService,
     org_id: &Id,
@@ -178,29 +149,5 @@ pub(super) fn encode_error(
             last_seen_micros: row.item.last_seen_micros,
             fingerprint: row.item.fingerprint.clone(),
         },
-    )
-}
-
-pub(super) fn error_seek(boundary: &ErrorBoundary) -> String {
-    lexicographic_seek(
-        &[
-            (
-                "error_count",
-                CursorValue::Integer(boundary.count),
-                CursorSortDirection::Desc,
-            ),
-            (
-                "last_seen_micros",
-                CursorValue::Integer(boundary.last_seen_micros),
-                CursorSortDirection::Desc,
-            ),
-            (
-                "fingerprint",
-                CursorValue::Text(boundary.fingerprint.clone()),
-                CursorSortDirection::Desc,
-            ),
-        ],
-        boundary.direction,
-        sql_literal,
     )
 }

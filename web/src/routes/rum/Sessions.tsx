@@ -206,7 +206,7 @@ export function Sessions({
       }
       state={pageState}
     >
-      <div className="flex flex-wrap items-center gap-4 border-b border-bd-0 pb-3">
+        <div className="flex flex-wrap items-center gap-4">
         <span className="text-sm font-strong text-tx-0">
           {t('sessions.result_count', { count: rows.length })}
         </span>
@@ -230,8 +230,8 @@ export function Sessions({
         )}
       </div>
 
-      <div className="overflow-hidden border-b border-bd-0">
-        <div className="hidden min-h-10 grid-cols-[minmax(300px,1.25fr)_minmax(150px,.75fr)_minmax(250px,1fr)_170px_130px_20px] items-center gap-4 border-b border-bd-0 text-xs font-strong text-tx-3 xl:grid">
+        <div className="overflow-hidden">
+          <div className="hidden min-h-8 grid-cols-[minmax(300px,1.25fr)_minmax(150px,.75fr)_minmax(250px,1fr)_170px_130px_20px] items-center gap-4 border-b border-bd-0 text-xs font-strong text-tx-3 xl:grid">
           <span>{t('sessions.columns.experience')}</span>
           <span>{t('sessions.columns.user_device')}</span>
           <span>{t('sessions.columns.journey')}</span>

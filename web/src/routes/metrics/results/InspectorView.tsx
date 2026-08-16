@@ -7,12 +7,15 @@ import { QueryState } from '@/shell/query/State';
 import type { QueryResult } from '@/types/query';
 
 import { formatMetricDuration, formatPercent } from '../model';
+import { MetricsQueryErrorState } from './RecoveryState';
+import type { MetricsExploreResultsProps } from './types';
 
 interface InspectorViewProps {
   result: QueryResult | undefined;
   statement: string;
   pending: boolean;
   error: unknown;
+  recovery: MetricsExploreResultsProps['recovery'];
   metricSeriesCount: number;
   quality: MetricSeriesQuality;
   timeRangeSeconds: number;
@@ -27,6 +30,7 @@ export function InspectorView({
   statement,
   pending,
   error,
+  recovery,
   metricSeriesCount,
   quality,
   timeRangeSeconds,
@@ -36,7 +40,7 @@ export function InspectorView({
   onInspectMetricType,
 }: InspectorViewProps) {
   const { t } = useTranslation('metrics');
-  if (error) return <QueryState state="error" error={error} />;
+  if (error) return <MetricsQueryErrorState error={error} recovery={recovery} />;
   if (pending && !result) return <QueryState state="loading" />;
   if (!result) {
     return <QueryState state="empty" emptyLabel={t('explore.query_stats.empty')} />;

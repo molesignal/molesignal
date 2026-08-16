@@ -60,6 +60,9 @@ test.beforeEach(async ({ page }) => {
       },
     }),
   );
+  await page.route('**/api/v1/field_masking/effective/**', (route) =>
+    route.fulfill({ json: { fields: [] } }),
+  );
 });
 
 test('dragged field order drives result columns', async ({ page }) => {
@@ -73,7 +76,7 @@ test('dragged field order drives result columns', async ({ page }) => {
 
   const logsHeader = page.locator('[data-log-result-columns="logs"]');
   await expect(logsHeader.locator(':scope > *')).toHaveText([
-    '_timestamp (UTC)',
+    '_timestamp',
     'message',
     'level',
     'service.name',
@@ -84,20 +87,47 @@ test('dragged field order drives result columns', async ({ page }) => {
   await expect(logsRow.locator(':scope > *').nth(2)).toHaveText('INFO');
 });
 
-test('timestamp header and values follow the page timezone override', async ({ page }) => {
+test('restores a hidden log column to its original position', async ({ page }) => {
+  await page.goto('/logs');
+  await expect(page.getByText(LOG_MESSAGE)).toBeVisible();
+
+  const logsHeader = page.locator('[data-log-result-columns="logs"]');
+  await expect(logsHeader.locator(':scope > *')).toHaveText([
+    '_timestamp',
+    'level',
+    'service.name',
+    'message',
+    'trace_id',
+  ]);
+
+  await page.getByRole('button', { name: 'Columns' }).click();
+  await page.getByRole('menuitemcheckbox', { name: /^Reorder level\./ }).click();
+  await expect(logsHeader.locator(':scope > *')).toHaveText([
+    '_timestamp',
+    'service.name',
+    'message',
+    'trace_id',
+  ]);
+
+  await page.getByRole('menuitemcheckbox', { name: 'level', exact: true }).click();
+  await expect(logsHeader.locator(':scope > *')).toHaveText([
+    '_timestamp',
+    'level',
+    'service.name',
+    'message',
+    'trace_id',
+  ]);
+});
+
+test('timestamp header omits the redundant timezone suffix', async ({ page }) => {
   await page.goto('/logs');
   await expect(page.getByText(LOG_MESSAGE)).toBeVisible();
 
   const header = page.locator('[data-log-result-columns="logs"] [data-log-field="_timestamp"]');
   const value = page.locator('[data-log-result-row="logs"] [data-log-field="_timestamp"]').first();
-  await expect(header).toHaveText('_timestamp (UTC)');
-  const utcValue = await value.textContent();
-
-  await page.getByRole('combobox', { name: 'Timezone' }).click();
-  await page.getByText(/Asia\/Shanghai · UTC\+8/).click();
-
-  await expect(header).toHaveText('_timestamp (Asia/Shanghai)');
-  await expect(value).not.toHaveText(utcValue ?? '');
+  await expect(header).toHaveText('_timestamp');
+  await expect(value).not.toBeEmpty();
+  await expect(page.getByRole('combobox', { name: 'Page timezone' })).toHaveCount(0);
 });
 
 test('result columns adapt to content, cap width, and ellipsize overflow', async ({ page }) => {
@@ -129,16 +159,14 @@ test('result columns adapt to content, cap width, and ellipsize overflow', async
   expect(overflow.textOverflow).toBe('ellipsis');
 });
 
-test('result actions place Fields after density and download CSV or LOG text', async ({ page }) => {
+test('result actions share the event summary row and download CSV or LOG text', async ({ page }) => {
   await page.goto('/logs');
   await expect(page.getByText(LOG_MESSAGE)).toBeVisible();
 
-  await expect(page.locator('[data-log-result-summary]').getByRole('button')).toHaveCount(0);
-  const mode = page.locator('[data-log-result-mode]');
-  await expect(mode).toHaveText('Content');
-  await expect(mode.getByRole('button')).toHaveCount(0);
+  const summary = page.locator('[data-log-result-summary]');
+  await expect(page.locator('[data-log-result-mode]')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Table', exact: true })).toHaveCount(0);
-  const actions = page.locator('[data-log-result-actions]');
+  const actions = summary.locator('[data-log-result-actions]');
   const actionButtons = actions.getByRole('button');
   await expect(actionButtons).toHaveText(['Columns', 'Compact', 'Fields', '']);
   await expect(actionButtons.nth(2)).toHaveAccessibleName('Collapse fields');
@@ -166,4 +194,18 @@ test('result actions place Fields after density and download CSV or LOG text', a
     '1785628332000000 level=INFO service.name=checkout-api '
       + `message=${JSON.stringify(LOG_MESSAGE)} trace_id=trace-1`,
   );
+});
+
+test('expanded field values omit the redundant value and count header', async ({ page }) => {
+  await page.goto('/logs');
+  await expect(page.getByText(LOG_MESSAGE)).toBeVisible();
+
+  const panel = page.locator('aside[data-variant="utility"]');
+  const fieldRow = panel.locator('[data-log-field-row="level"]');
+  await fieldRow.locator('button').first().click();
+
+  const values = panel.locator('[data-log-field-values="level"]');
+  await expect(values.getByText('INFO', { exact: true })).toBeVisible();
+  await expect(values.getByText('Top values', { exact: true })).toHaveCount(0);
+  await expect(values.getByText('Count', { exact: true })).toHaveCount(0);
 });

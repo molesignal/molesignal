@@ -169,9 +169,9 @@ export function InboundMcpPanel() {
   };
 
   return (
-    <form className="grid gap-4" onSubmit={submit}>
-      <section className="overflow-hidden rounded-lg border border-bd-0 bg-bg-1">
-        <div className="flex flex-wrap items-start gap-4 border-b border-bd-0 px-4 py-3">
+    <form className="grid gap-0" onSubmit={submit}>
+      <section className="pb-5">
+        <div className="flex flex-wrap items-start gap-4">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <ServerCog className="h-4 w-4 text-indigo" />
@@ -196,7 +196,7 @@ export function InboundMcpPanel() {
             />
           </div>
         </div>
-        <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_auto]">
+        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
           <div>
             <Label className="text-xs text-tx-3">
               {t('settings.inbound_mcp.endpoint')}
@@ -223,7 +223,7 @@ export function InboundMcpPanel() {
         </div>
       </section>
 
-      <section className="rounded-lg border border-bd-0 bg-bg-1 p-4">
+      <section className="border-t border-bd-0 py-5">
         <div className="flex items-start gap-3">
           <Link2 className="mt-0.5 h-4 w-4 text-indigo" />
           <div>
@@ -255,7 +255,7 @@ export function InboundMcpPanel() {
         </div>
       </section>
 
-      <section className="rounded-lg border border-bd-0 bg-bg-1 p-4">
+      <section className="border-t border-bd-0 py-5">
         <div className="flex items-start gap-3">
           <ShieldCheck className="mt-0.5 h-4 w-4 text-green-soft" />
           <div>
@@ -268,8 +268,12 @@ export function InboundMcpPanel() {
           </div>
         </div>
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          <Field label={t('settings.inbound_mcp.allowed_origins')}>
+          <Field
+            label={t('settings.inbound_mcp.allowed_origins')}
+            htmlFor="inbound-mcp-allowed-origins"
+          >
             <Textarea
+              id="inbound-mcp-allowed-origins"
               value={draft.origins}
               onChange={(event) =>
                 setDraft((value) =>
@@ -283,7 +287,7 @@ export function InboundMcpPanel() {
               {t('settings.inbound_mcp.origins_hint')}
             </p>
           </Field>
-          <div className="rounded-md border border-bd-0 bg-bg-2 p-3">
+          <div className="lg:pl-4">
             <div className="flex items-center gap-2 text-sm font-strong text-tx-1">
               <KeyRound className="h-4 w-4 text-amber-soft" />
               {t('settings.inbound_mcp.credentials.title')}
@@ -309,7 +313,7 @@ export function InboundMcpPanel() {
         </div>
       </section>
 
-      <section className="rounded-lg border border-bd-0 bg-bg-1 p-4">
+      <section className="border-t border-bd-0 py-5">
         <div className="flex items-center gap-2">
           <RefreshCw className="h-4 w-4 text-indigo" />
           <h3 className="font-strong text-tx-0">
@@ -336,7 +340,7 @@ export function InboundMcpPanel() {
         onRevoke={(id) => revoke.mutate(id)}
       />
 
-      <div className="flex justify-end">
+      <div className="flex justify-end border-t border-bd-0 pt-4">
         <Button type="submit" disabled={save.isPending}>
           <Save />
           {save.isPending

@@ -129,8 +129,11 @@ describe('TraceFlame', () => {
     expect(bars).toHaveLength(6);
     expect(screen.getByText('25 ms')).not.toBeNull();
     for (const [index, duration] of durations.entries()) {
+      const bar = bars[index];
       expect(duration.parentElement?.dataset.testid).toBe('trace-timeline-track');
-      expect(bars[index]?.nextElementSibling).toBe(duration);
+      expect(bar?.nextElementSibling).toBe(duration);
+      expect(bar?.className).not.toContain('border');
+      expect(bar?.className).not.toContain('ring-');
       expect(duration.className).not.toContain('rounded');
       expect(duration.className).not.toContain('border');
       expect(duration.className).not.toContain('bg-');

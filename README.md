@@ -157,12 +157,12 @@ OTLP metric type and aggregation metadata are normalized according to the
 - Investigation stack (max 6 frames) — push frames as you drill; `⌘[` / `⌘]` to navigate; pin to keep context
 - Every clickable action is keyboard-reachable
 
-### 🧩 Pipeline functions (VRL + optional JS + LLM)
+### 🧩 Pipeline functions (VRL + JavaScript + optional LLM)
 
 Functions are reusable transforms attached to a pipeline step. Three kinds are supported on the intake hot path:
 
 - **VRL** — always available. Compiled per `(function_id, updated_at)`, evaluated with the upstream `vrl::compiler` stdlib (`del`, `parse_json`, `to_int`, `match`, `encrypt` / `decrypt`, …).
-- **JavaScript** — opt-in, built on `deno_core` (V8). Disabled by default because adding `deno_core` pushes a clean workspace build from ~1.5 min to ~5 min. Enable at compile time with `--features js-runtime` (no runtime toggle needed — the binary either has V8 or it doesn't). If the feature is off, a JS function POST returns `400 javascript runtime not enabled`, and any existing JS row reaching the pipeline fails with `IntakeError { reason: "javascript runtime disabled" }`.
+- **JavaScript** — built on `deno_core` (V8) and included in the default `molesignal` binary. There is no runtime toggle. Custom minimal builds may exclude the `js-runtime` default feature; those builds reject JavaScript functions.
 - **LLM** — opt-in, passes the event JSON through a configured AI provider (agent) and writes the model output back into a configurable field (default `_llm_eval`). Gated by the runtime config toggle:
 
   ```toml

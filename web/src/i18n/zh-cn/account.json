@@ -2,6 +2,12 @@
   "title": "账号设置",
   "subtitle": "管理个人资料、安全、通知、使用偏好和工作区身份。",
   "nav": {
+    "search_placeholder": "搜索账号设置…",
+    "search_aria": "搜索账号设置",
+    "no_results": "没有匹配的账号设置",
+    "collapse_group": "收起{{group}}",
+    "expand_group": "展开{{group}}",
+    "open_navigation": "打开账号设置导航",
     "groups": {
       "personal": "个人设置",
       "access": "安全与访问",

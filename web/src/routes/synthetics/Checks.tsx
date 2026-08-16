@@ -25,7 +25,15 @@ import { toast } from '@/shell/ui/sonner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/shell/ui/tooltip';
 
 import { CheckEditor } from './CheckEditor';
-import { KindLabel, StatePill, SyntheticsPage, WorkspaceBoundary } from './components';
+import {
+  KindLabel,
+  StatePill,
+  SyntheticsCanvas,
+  SyntheticsFilterBar,
+  SyntheticsListSurface,
+  SyntheticsPage,
+  WorkspaceBoundary,
+} from './components';
 import { useSyntheticsWorkspace, type CheckRow } from './data';
 import {
   formatDuration,
@@ -127,64 +135,83 @@ export function Checks({
           )}
         </div>
       }
+      bodyClassName="space-y-0 pb-4 pt-2 lg:pb-6 lg:pt-2"
     >
-      <WorkspaceBoundary pending={workspace.pending} error={workspace.error} onRetry={() => void workspace.refetch()}>
-        {workspace.rows.length === 0 ? (
-          <ProductState
-            variant="empty"
-            title={t('states.empty_title')}
-            description={t('states.empty_description')}
-            action={canManage ? <ChromeButton variant="primary" onClick={() => navigate('/synthetics/checks/new')}><Plus className="h-3.5 w-3.5" />{t('actions.create_first_check')}</ChromeButton> : undefined}
-          />
-        ) : (
-          <section className="overflow-hidden rounded-lg border border-bd-0 bg-bg-1">
-            <div className="grid gap-2 border-b border-bd-0 p-3 sm:grid-cols-[minmax(220px,1fr)_170px_170px]">
-              <FormInput
-                aria-label={t('checks.search_placeholder')}
-                value={query}
-                onChange={(event) => setFilter('query', event.target.value)}
-                placeholder={t('checks.search_placeholder')}
-              />
-              <FormSelect
-                ariaLabel={t('checks.all_states')}
-                value={stateFilter}
-                onChange={(value) => setFilter('state', value)}
-                options={[
-                  { value: 'all', label: t('checks.all_states') },
-                  ...(['healthy', 'degraded', 'failing', 'unknown'] as const).map((state) => ({ value: state, label: t(`states.${state}`) })),
-                ]}
-              />
-              <FormSelect
-                ariaLabel={t('checks.all_types')}
-                value={kindFilter}
-                onChange={(value) => setFilter('type', value)}
-                options={[
-                  { value: 'all', label: t('checks.all_types') },
-                  ...(kinds ?? ALL_KINDS).map((kind) => ({ value: kind, label: t(`kinds.${kind}`) })),
-                ]}
-              />
-            </div>
-            <div className="overflow-x-auto">
-              <DataTable
-                rows={rows}
-                columns={columns({
-                  t,
-                  locale: i18n.language,
-                  canManage,
-                  onRun: (row) => run.mutate(row.monitor.id),
-                  onEdit: (row) => navigate(`/synthetics/checks/${row.monitor.id}/edit`),
-                  onClone: (row) => setCloneDetail(row.detail),
-                  onToggle: (row) => lifecycle.mutate({ monitorId: row.monitor.id, paused: row.monitor.lifecycle === 'paused' }),
-                  onDelete: setDeleteRow,
-                })}
-                rowKey={(row) => row.monitor.id}
-                onRowClick={(row) => navigate(`/synthetics/checks/${row.monitor.id}`)}
-                emptyLabel={t('states.filtered_empty')}
-                className="min-w-[1180px]"
-              />
-            </div>
-          </section>
-        )}
+      <WorkspaceBoundary
+        pending={workspace.pending}
+        error={workspace.error}
+        onRetry={() => void workspace.refetch()}
+        flat
+      >
+        <SyntheticsCanvas>
+          {workspace.rows.length === 0 ? (
+            <ProductState
+              variant="empty"
+              title={t('states.empty_title')}
+              description={t('states.empty_description')}
+              className="rounded-none border-x-0 border-t-0 border-solid border-bd-0 bg-transparent"
+              action={
+                canManage ? (
+                  <ChromeButton
+                    variant="primary"
+                    onClick={() => navigate('/synthetics/checks/new')}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    {t('actions.create_first_check')}
+                  </ChromeButton>
+                ) : undefined
+              }
+            />
+          ) : (
+            <SyntheticsListSurface>
+              <SyntheticsFilterBar className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_170px_170px]">
+                <FormInput
+                  aria-label={t('checks.search_placeholder')}
+                  value={query}
+                  onChange={(event) => setFilter('query', event.target.value)}
+                  placeholder={t('checks.search_placeholder')}
+                />
+                <FormSelect
+                  ariaLabel={t('checks.all_states')}
+                  value={stateFilter}
+                  onChange={(value) => setFilter('state', value)}
+                  options={[
+                    { value: 'all', label: t('checks.all_states') },
+                    ...(['healthy', 'degraded', 'failing', 'unknown'] as const).map((state) => ({ value: state, label: t(`states.${state}`) })),
+                  ]}
+                />
+                <FormSelect
+                  ariaLabel={t('checks.all_types')}
+                  value={kindFilter}
+                  onChange={(value) => setFilter('type', value)}
+                  options={[
+                    { value: 'all', label: t('checks.all_types') },
+                    ...(kinds ?? ALL_KINDS).map((kind) => ({ value: kind, label: t(`kinds.${kind}`) })),
+                  ]}
+                />
+              </SyntheticsFilterBar>
+              <div className="overflow-x-auto">
+                <DataTable
+                  rows={rows}
+                  columns={columns({
+                    t,
+                    locale: i18n.language,
+                    canManage,
+                    onRun: (row) => run.mutate(row.monitor.id),
+                    onEdit: (row) => navigate(`/synthetics/checks/${row.monitor.id}/edit`),
+                    onClone: (row) => setCloneDetail(row.detail),
+                    onToggle: (row) => lifecycle.mutate({ monitorId: row.monitor.id, paused: row.monitor.lifecycle === 'paused' }),
+                    onDelete: setDeleteRow,
+                  })}
+                  rowKey={(row) => row.monitor.id}
+                  onRowClick={(row) => navigate(`/synthetics/checks/${row.monitor.id}`)}
+                  emptyLabel={t('states.filtered_empty')}
+                  className="min-w-[1180px] rounded-none border-0 bg-transparent"
+                />
+              </div>
+            </SyntheticsListSurface>
+          )}
+        </SyntheticsCanvas>
       </WorkspaceBoundary>
 
       <CheckEditor

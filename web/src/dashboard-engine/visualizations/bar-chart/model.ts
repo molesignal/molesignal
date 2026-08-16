@@ -27,6 +27,7 @@ export interface BarChartPoint {
 export interface BarChartCategory {
   id: string;
   label: string;
+  tooltipLabel?: string;
   values: Record<string, BarChartPoint | undefined>;
 }
 

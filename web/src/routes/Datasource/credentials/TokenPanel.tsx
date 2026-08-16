@@ -36,7 +36,7 @@ export function TokenPanel({ context }: { context: IntakeContext }) {
   const blocked = context.isRum && !context.applicationValid;
 
   return (
-    <div className="min-w-0 rounded-md border border-bd-0 bg-bg-1 p-3">
+    <div className="min-w-0 rounded-md bg-bg-1 p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className={uiLabelClass}>
           {context.isRum

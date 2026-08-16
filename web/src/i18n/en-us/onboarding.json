@@ -7,6 +7,9 @@
     "progress_short": "{{completed}}/{{total}}",
     "ready": "Core workflows are active",
     "empty": "Finish the first three steps to make this org operational.",
+    "remaining_single": "1 setup step remaining",
+    "remaining_multiple": "{{count}} setup steps remaining",
+    "complete_action": "Complete setup",
     "open": "Open",
     "steps": {
       "datasource": {
@@ -65,7 +68,7 @@
     },
     "kpis": {
       "label": "System key metrics",
-      "intake_status": "Intake status",
+      "intake_status": "Stream health",
       "last_received": "Last received: {{when}}",
       "active_alerts": "Active alerts",
       "alert_detail": "{{firing}} firing · {{acknowledged}} acknowledged",
@@ -75,10 +78,11 @@
       "compression_pending": "Waiting for raw intake metering",
       "compression_saved": "{{percent}}% smaller than raw",
       "compression_overhead": "Small-batch storage overhead +{{percent}}%",
-      "attention_streams": "Streams needing attention",
-      "attention_detail": "{{total}} observable streams total",
-      "active_sources": "Active sources",
-      "probe_detail": "{{succeeded}} / {{total}} metadata probes succeeded"
+      "attention_streams": "Needs attention",
+      "attention_detail": "{{total}} observable streams · as of {{asOf}}",
+      "active_sources": "Receiving normally",
+      "probe_detail": "{{succeeded}} / {{total}} metadata probes succeeded",
+      "receiving_detail": "{{inactive}} idle or unused · as of {{asOf}}"
     },
     "health": {
       "title": "System health overview",
@@ -91,13 +95,6 @@
         "stored": "Compressed",
         "events": "Events"
       }
-    },
-    "resources": {
-      "title": "Resources",
-      "functions": "Functions",
-      "alerts": "Alerts",
-      "pipelines": "Pipelines",
-      "dashboards": "Dashboards"
     },
     "streams": {
       "title": "Priority streams",
@@ -162,10 +159,14 @@
       "view_schedule": "View schedule"
     },
     "dashboards": {
-      "title": "Common dashboards",
+      "title": "Recent dashboards",
       "empty_title": "No dashboards yet",
       "empty_description": "Create a dashboard to pin your team's most useful operational view.",
-      "panel_count": "{{count}} panels"
+      "empty_with_dashboards_title": "No dashboards with panels yet",
+      "empty_with_dashboards_description": "Add a panel to your most recent dashboard to make it useful here.",
+      "add_panels": "Add panels",
+      "panel_count": "{{count}} panels",
+      "updated": "Updated {{when}}"
     }
   },
   "datasource": {

@@ -1,6 +1,6 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { TFunction } from 'i18next';
-import { Globe2, Pause, Play, Plus, RefreshCw, Server, ShieldCheck, Wifi, WifiOff, type LucideIcon } from 'lucide-react';
+import { Pause, Play, Plus, RefreshCw, ShieldCheck, Wifi, WifiOff } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -22,7 +22,14 @@ import {
 import { toast } from '@/shell/ui/sonner';
 
 import { RegisterInstructionsDrawer } from './agents/RegisterDrawers';
-import { StatePill, SyntheticsPage, WorkspaceBoundary } from './components';
+import {
+  StatePill,
+  SyntheticsCanvas,
+  SyntheticsKpiBand,
+  SyntheticsListSurface,
+  SyntheticsPage,
+  WorkspaceBoundary,
+} from './components';
 import { formatRelativeTimestamp } from './model';
 
 export function Locations() {
@@ -90,25 +97,31 @@ export function Locations() {
           )}
         </div>
       }
+      bodyClassName="space-y-0 pb-4 pt-2 lg:pb-6 lg:pt-2"
     >
-      <WorkspaceBoundary pending={pending} error={error} onRetry={() => void refresh()}>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <LocationSummary icon={Globe2} label={t('locations.platform')} value={locations.filter((location) => location.scope === 'platform').length} />
-          <LocationSummary icon={Server} label={t('locations.organization')} value={locations.filter((location) => location.scope === 'organization').length} />
-          <LocationSummary icon={Wifi} label={t('states.online')} value={locations.filter((location) => location.health === 'online').length} />
-        </div>
-        <section className="overflow-hidden rounded-lg border border-bd-0 bg-bg-1">
-          <div className="overflow-x-auto">
-            <DataTable
-              rows={locations}
-              columns={locationColumns(agentsByLocation, i18n.language, t)}
-              rowKey={(location) => location.id}
-              onRowClick={(location) => navigate(`/synthetics/locations/${location.id}`)}
-              emptyLabel={t('states.no_locations')}
-              className="min-w-[860px]"
-            />
-          </div>
-        </section>
+      <WorkspaceBoundary pending={pending} error={error} onRetry={() => void refresh()} flat>
+        <SyntheticsCanvas>
+          <SyntheticsKpiBand
+            columns={3}
+            items={[
+              { label: t('locations.platform'), value: locations.filter((location) => location.scope === 'platform').length },
+              { label: t('locations.organization'), value: locations.filter((location) => location.scope === 'organization').length },
+              { label: t('states.online'), value: locations.filter((location) => location.health === 'online').length, tone: 'good' },
+            ]}
+          />
+          <SyntheticsListSurface>
+            <div className="overflow-x-auto">
+              <DataTable
+                rows={locations}
+                columns={locationColumns(agentsByLocation, i18n.language, t)}
+                rowKey={(location) => location.id}
+                onRowClick={(location) => navigate(`/synthetics/locations/${location.id}`)}
+                emptyLabel={t('states.no_locations')}
+                className="min-w-[860px] rounded-none border-0 bg-transparent"
+              />
+            </div>
+          </SyntheticsListSurface>
+        </SyntheticsCanvas>
       </WorkspaceBoundary>
 
       <CreateLocationDrawer open={createOpen} onOpenChange={setCreateOpen} onCreated={async (location) => { await refresh(); setCreateOpen(false); navigate(`/synthetics/locations/${location.id}`); }} />
@@ -134,10 +147,6 @@ export function Locations() {
       />
     </SyntheticsPage>
   );
-}
-
-function LocationSummary({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: number }) {
-  return <div className="flex items-center gap-3 rounded-lg border border-bd-0 bg-bg-1 p-4"><span className="grid h-10 w-10 place-items-center rounded-md bg-bg-3 text-indigo-soft"><Icon className="h-5 w-5" /></span><div><div className="text-2xl font-display-strong text-tx-0">{value}</div><div className="text-xs text-tx-2">{label}</div></div></div>;
 }
 
 function locationColumns(agentsByLocation: Map<string, ProbeAgent[]>, locale: string, t: TFunction<'synthetics'>): DataTableColumn<ProbeLocation>[] {

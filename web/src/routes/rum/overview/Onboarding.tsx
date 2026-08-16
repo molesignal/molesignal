@@ -57,7 +57,7 @@ export function RumOnboarding() {
             </span>
             <Link
               to="/datasource/recommended/rum?test=1"
-              className="inline-flex h-8 items-center rounded-md bg-indigo px-3 text-xs font-strong text-white hover:bg-indigo-soft focus-visible:bg-indigo-soft"
+              className="inline-flex h-8 items-center rounded-md bg-indigo px-3 text-xs font-strong text-white hover:brightness-90 focus-visible:brightness-90"
             >
               {t('onboarding.send_test')}
             </Link>

@@ -43,8 +43,6 @@ import {
 } from '@/shell/ui/dropdown-menu';
 import { toast } from '@/shell/ui/sonner';
 import type {
-  AlertRule,
-  AlertRuleKind,
   Incident,
   IncidentStatus,
   Severity,
@@ -52,17 +50,20 @@ import type {
 import { SeverityRail } from '@/viz/SeverityRail';
 
 import {
-  COMPARISON_LABEL,
+  adaptRule,
   formatDurationSecs,
-  ruleSeverity,
-  topThreshold,
+  isActiveIncident,
+  type RuleDisplayState,
 } from './alertRuleModel';
+import {
+  AlertFilterTabs,
+  AlertStateBand,
+  alertFlatTableClassName,
+} from './CardlessSurface';
 import { AlertsSubNav } from './Layout';
 
 type IncidentTab = 'active' | 'unacknowledged' | 'resolved';
 type RuleTab = 'all' | 'enabled' | 'disabled';
-type RuleDisplayState = 'healthy' | 'pending' | 'firing' | 'disabled';
-
 const SEVERITY_RANK: Record<Severity, number> = {
   info: 0,
   warning: 1,
@@ -78,24 +79,12 @@ const INCIDENT_TONE: Record<IncidentStatus, PillTone> = {
 };
 
 const RULE_STATE_TONE: Record<RuleDisplayState, PillTone> = {
+  not_evaluated: 'blue',
   healthy: 'green',
   pending: 'yellow',
   firing: 'red',
   disabled: 'dim',
 };
-
-interface DisplayRule {
-  id: string;
-  name: string;
-  severity: Severity;
-  service: string;
-  source: string;
-  condition: string;
-  state: RuleDisplayState;
-  lastEvaluation: number | null;
-  kind: AlertRuleKind;
-  raw: AlertRule;
-}
 
 export function Alerts() {
   const location = useLocation();
@@ -162,9 +151,9 @@ function AlertIncidentsPage() {
   const affectedServices = new Set(
     active
       .flatMap((incident) => [
-        ...incident.affected_services,
-        incident.labels.service,
-        incident.labels.svc,
+        ...(incident.affected_services ?? []),
+        incident.labels?.service,
+        incident.labels?.svc,
       ])
       .filter((value): value is string => Boolean(value)),
   );
@@ -182,6 +171,9 @@ function AlertIncidentsPage() {
         title={t('center.incidents.title')}
         subtitle={t('center.incidents.subtitle')}
         subnav={<AlertsSubNav />}
+        cardless
+        filterClassName="border-b-0"
+        stateClassName="border-0"
         toolbar={<NewRuleActions />}
         kpis={[
           {
@@ -213,7 +205,7 @@ function AlertIncidentsPage() {
           },
         ]}
         filters={
-          <ObjectFilters<IncidentTab>
+          <AlertFilterTabs<IncidentTab>
             value={tab}
             onChange={setTab}
             options={[
@@ -256,8 +248,8 @@ function AlertIncidentsPage() {
               />
             )}
             {rows.length > 0 ? (
-              <div className="overflow-hidden rounded-lg border border-bd-0 bg-bg-1">
-                <DataTable
+              <DataTable
+                className={alertFlatTableClassName}
                   rows={rows}
                   rowKey={(incident) => incident.id}
                   onRowClick={(incident) => setViewingIncidentId(incident.id)}
@@ -276,7 +268,7 @@ function AlertIncidentsPage() {
                       cell: (incident) => (
                         <div className="min-w-0 py-1">
                           <div className="truncate font-strong text-tx-0">{incident.summary}</div>
-                          <div className="mt-0.5 truncate text-xs text-tx-3">
+                          <div className="mt-0.5 truncate text-xs text-tx-2">
                             {incidentService(incident)} · {relativeTime(incident.created_at)}
                           </div>
                         </div>
@@ -310,7 +302,7 @@ function AlertIncidentsPage() {
                       cell: (incident) => (
                         <span className="text-tx-2">
                           {incident.acknowledged_by ??
-                            incident.assignees[0] ??
+                            incident.assignees?.[0] ??
                             t('center.incidents.unassigned')}
                         </span>
                       ),
@@ -324,9 +316,9 @@ function AlertIncidentsPage() {
                       cell: (incident) => {
                         const rule = ruleById.get(incident.rule_id);
                         const runbook =
-                          incident.annotations.runbook_url ??
-                          incident.annotations.runbook ??
-                          rule?.annotations.runbook_url;
+                          incident.annotations?.runbook_url ??
+                          incident.annotations?.runbook ??
+                          rule?.annotations?.runbook_url;
                         return (
                           <div
                             className="flex items-center justify-end gap-1"
@@ -383,11 +375,10 @@ function AlertIncidentsPage() {
                       },
                     },
                   ]}
-                />
-              </div>
+              />
             ) : (
               active.length > 0 && (
-                <CompactEmpty
+                <AlertStateBand
                   title={t(`center.incidents.empty.${tab}.title`)}
                   description={t(`center.incidents.empty.${tab}.description`)}
                 />
@@ -455,10 +446,23 @@ function AlertRulesPage() {
       title={t('center.rules.title')}
       subtitle={t('center.rules.subtitle')}
       subnav={<AlertsSubNav />}
+      cardless
+      bodyClassName="pt-2"
+      filterClassName="border-b-0"
+      stateClassName="border-0"
       toolbar={<NewRuleActions />}
       filters={
         <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center">
-          <ObjectFilters<RuleTab>
+          <label className="relative w-full sm:w-80">
+            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-tx-3" />
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder={t('center.rules.search')}
+              className="h-9 w-full rounded-md border border-bd-1 bg-bg-2 pl-9 pr-3 font-sans text-sm text-tx-0 placeholder:text-tx-3 focus-visible:bg-bg-3"
+            />
+          </label>
+          <AlertFilterTabs<RuleTab>
             value={tab}
             onChange={setTab}
             options={[
@@ -467,15 +471,6 @@ function AlertRulesPage() {
               { value: 'disabled', label: t('center.rules.tabs.disabled'), count: disabled.length },
             ]}
           />
-          <label className="relative ml-auto w-full sm:w-72">
-            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-tx-3" />
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder={t('center.rules.search')}
-              className="h-9 w-full rounded-md border border-bd-1 bg-bg-2 pl-9 pr-3 font-sans text-sm text-tx-0 placeholder:text-tx-3 focus:outline-none focus:ring-2 focus:ring-indigo"
-            />
-          </label>
         </div>
       }
     >
@@ -514,13 +509,13 @@ function AlertRulesPage() {
             </span>
           </div>
           {filtered.length === 0 ? (
-            <CompactEmpty
+            <AlertStateBand
               title={t('center.rules.no_match.title')}
               description={t('center.rules.no_match.description')}
             />
           ) : (
-            <div className="overflow-hidden rounded-lg border border-bd-0 bg-bg-1">
-              <DataTable
+            <DataTable
+              className={alertFlatTableClassName}
                 rows={filtered}
                 rowKey={(rule) => rule.id}
                 onRowClick={(rule) =>
@@ -611,8 +606,7 @@ function AlertRulesPage() {
                     ),
                   },
                 ]}
-              />
-            </div>
+            />
           )}
         </div>
       )}
@@ -698,92 +692,49 @@ function HealthyState({
   const createAccess = useActionAccess({ permission: 'alerts.manage' });
   if (!hasRules) {
     return (
-      <div className="flex min-h-[176px] flex-col items-start justify-center rounded-lg border border-dashed border-bd-1 bg-bg-1 px-6 py-6">
-        <div className="font-sans text-base font-display-strong text-tx-0">
-          {t('center.incidents.no_rules.title')}
-        </div>
-        <p className="mt-1 max-w-xl text-sm leading-relaxed text-tx-2">
-          {t('center.incidents.no_rules.description')}
-        </p>
-        <ChromeButton
-          variant="primary"
-          className="mt-4"
-          disabled={createAccess.disabled}
-          disabledReason={createAccess.reason}
-          onClick={onCreateRule}
-        >
-          <Plus className="h-4 w-4" />
-          {t('center.incidents.no_rules.action')}
-        </ChromeButton>
-      </div>
+      <AlertStateBand
+        align="start"
+        title={t('center.incidents.no_rules.title')}
+        description={t('center.incidents.no_rules.description')}
+        actions={
+          <ChromeButton
+            variant="primary"
+            disabled={createAccess.disabled}
+            disabledReason={createAccess.reason}
+            onClick={onCreateRule}
+          >
+            <Plus className="h-4 w-4" />
+            {t('center.incidents.no_rules.action')}
+          </ChromeButton>
+        }
+      />
     );
   }
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-green/30 bg-green-dim px-5 py-4 sm:flex-row sm:items-center">
-      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-green/15 text-green-soft">
-        <ShieldCheck className="h-5 w-5" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="font-sans text-base font-display-strong text-tx-0">
-          {t('center.incidents.healthy.title')}
-        </div>
-        <div className="mt-1 text-sm text-tx-2">
-          {lastRecovery
-            ? t('center.incidents.healthy.with_recovery', {
-                count: recoveredCount,
-                time: relativeTime(lastRecovery),
-              })
-            : t('center.incidents.healthy.no_recovery')}
-        </div>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <ChromeButton onClick={onViewRecovered}>
-          {t('center.incidents.healthy.view_recovered')}
-        </ChromeButton>
-        <ChromeButton onClick={onViewRules}>
-          {t('center.incidents.healthy.view_rules')}
-        </ChromeButton>
-      </div>
-    </div>
-  );
-}
-
-function ObjectFilters<T extends string>({
-  value,
-  onChange,
-  options,
-}: {
-  value: T;
-  onChange: (value: T) => void;
-  options: Array<{ value: T; label: string; count: number }>;
-}) {
-  return (
-    <div className="flex max-w-full items-center gap-1 overflow-x-auto">
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          onClick={() => onChange(option.value)}
-          className={`flex h-8 shrink-0 items-center rounded-md px-3 font-sans text-xs font-strong transition-colors ${
-            value === option.value
-              ? 'bg-bg-4 text-tx-0 shadow-sm'
-              : 'text-tx-2 hover:bg-bg-2 hover:text-tx-0'
-          }`}
-        >
-          {option.label}
-          <span className="ml-1.5 tabular-nums text-tx-3">{option.count}</span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function CompactEmpty({ title, description }: { title: string; description: string }) {
-  return (
-    <div className="flex min-h-[160px] flex-col items-center justify-center rounded-lg border border-dashed border-bd-1 bg-bg-1 px-6 text-center">
-      <div className="font-sans text-sm font-strong text-tx-0">{title}</div>
-      <p className="mt-1 max-w-lg text-sm text-tx-3">{description}</p>
-    </div>
+    <AlertStateBand
+      icon={ShieldCheck}
+      tone="success"
+      align="start"
+      title={t('center.incidents.healthy.title')}
+      description={
+        lastRecovery
+          ? t('center.incidents.healthy.with_recovery', {
+              count: recoveredCount,
+              time: relativeTime(lastRecovery),
+            })
+          : t('center.incidents.healthy.no_recovery')
+      }
+      actions={
+        <>
+          <ChromeButton onClick={onViewRecovered}>
+            {t('center.incidents.healthy.view_recovered')}
+          </ChromeButton>
+          <ChromeButton onClick={onViewRules}>
+            {t('center.incidents.healthy.view_rules')}
+          </ChromeButton>
+        </>
+      }
+    />
   );
 }
 
@@ -820,48 +771,15 @@ function TableAction({
   );
 }
 
-function adaptRule(rule: AlertRule, incidents: Incident[]): DisplayRule {
-  const activeIncident = incidents.find(
-    (incident) => incident.rule_id === rule.id && isActiveIncident(incident),
-  );
-  const threshold = topThreshold(rule) ?? rule.trigger;
-  const duration = threshold.for_periods * rule.query.period_secs;
-  const state: RuleDisplayState = !rule.enabled
-    ? 'disabled'
-    : activeIncident
-      ? 'firing'
-      : rule.last_state?.kind === 'pending'
-        ? 'pending'
-        : 'healthy';
-  return {
-    id: rule.id,
-    name: rule.name,
-    severity: ruleSeverity(rule),
-    service: rule.labels.service ?? rule.labels.svc ?? '—',
-    source: rule.query.stream
-      ? `${rule.query.stream.name} · ${rule.query.stream.stream_type}`
-      : '—',
-    condition: `${COMPARISON_LABEL[threshold.operator]} ${threshold.threshold} · ${formatDurationSecs(duration)}`,
-    state,
-    lastEvaluation: rule.last_eval_at ?? null,
-    kind: rule.kind ?? 'scheduled',
-    raw: rule,
-  };
-}
-
-function isActiveIncident(incident: Incident): boolean {
-  return incident.status === 'open' || incident.status === 'acknowledged';
-}
-
 function isResolvedIncident(incident: Incident): boolean {
   return incident.status === 'resolved' || incident.status === 'closed';
 }
 
 function incidentService(incident: Incident): string {
   return (
-    incident.affected_services[0] ??
-    incident.labels.service ??
-    incident.labels.svc ??
+    incident.affected_services?.[0] ??
+    incident.labels?.service ??
+    incident.labels?.svc ??
     '—'
   );
 }

@@ -4,8 +4,9 @@ import { CopyIconButton } from '@/shell/CopyIconButton';
 import { cn } from '@/shell/lib/cn';
 
 /**
- * Section-body shell with a 24px gutter — every Settings sub-page
- * mounts its content inside this so spacing stays consistent.
+ * Flat page body used below the local settings header. The management page
+ * already owns the outer gutter, so section content should align directly
+ * with its title instead of creating another inset panel.
  */
 export function SectionBody({
   children,
@@ -14,7 +15,13 @@ export function SectionBody({
   children: React.ReactNode;
   className?: string;
 }) {
-  return <div className={cn('p-4 lg:p-6', className)}>{children}</div>;
+  return (
+    <div
+      className={cn('px-0 pb-8 pt-5 lg:px-0 lg:pb-10 lg:pt-6', className)}
+    >
+      {children}
+    </div>
+  );
 }
 
 /**
@@ -32,7 +39,7 @@ export function SettingsGroupStack({
   return (
     <div
       data-settings-layout="single-column"
-      className={cn('flex w-full min-w-0 flex-col gap-4', className)}
+      className={cn('flex w-full min-w-0 flex-col gap-0', className)}
     >
       {children}
     </div>
@@ -40,8 +47,9 @@ export function SettingsGroupStack({
 }
 
 /**
- * A Settings topic is one light card. Fields stay flat inside it so the page
- * gains hierarchy without turning every control into another nested panel.
+ * A Settings topic is a flat region on one continuous management canvas.
+ * Adjacent topics use a single low-contrast divider; controls keep their own
+ * functional boundaries, while the section itself never becomes a card.
  */
 export function SettingsSection({
   title,
@@ -62,13 +70,18 @@ export function SettingsSection({
     <section
       data-settings-section
       className={cn(
-        'w-full min-w-0 rounded-lg border bg-bg-1 px-5 py-5 lg:px-6',
-        tone === 'danger' ? 'border-red/30 bg-red-dim/30' : 'border-bd-0',
+        'w-full min-w-0 py-1 [&+&]:mt-7 [&+&]:border-t [&+&]:border-bd-0 [&+&]:pt-8',
         className,
       )}
     >
       <header>
-        <div className="type-section-title font-sans font-display-strong text-tx-0">
+        <div
+          data-settings-section-title
+          className={cn(
+            'type-section-title font-sans font-display-strong',
+            tone === 'danger' ? 'text-red-soft' : 'text-tx-0',
+          )}
+        >
           {title}
         </div>
         {description && (
@@ -85,8 +98,8 @@ export function SettingsSection({
 }
 
 /**
- * A named topic inside a Settings card. Adjacent topics use one deliberately
- * weak divider so related controls stay grouped without becoming nested cards.
+ * A named topic inside a Settings region. Whitespace, rather than another
+ * border, separates related topics and keeps long forms calm.
  */
 export function SettingsSubsection({
   title,
@@ -103,7 +116,7 @@ export function SettingsSubsection({
     <div
       data-settings-subsection
       className={cn(
-        'min-w-0 [&+&]:mt-4 [&+&]:border-t [&+&]:border-bd-0 [&+&]:pt-4',
+        'min-w-0 [&+&]:mt-8 [&+&]:pt-1',
         className,
       )}
     >
@@ -150,14 +163,14 @@ export function SettingsRow({
     <div
       data-settings-row
       className={cn(
-        'grid w-full min-w-0 grid-cols-1 items-start gap-3 min-[1100px]:grid-cols-[260px_minmax(420px,1fr)] min-[1100px]:gap-8',
+        'grid w-full min-w-0 grid-cols-1 items-start gap-3 min-[1100px]:grid-cols-[minmax(220px,280px)_minmax(420px,1fr)] min-[1100px]:gap-8',
         className,
       )}
     >
       <div className="min-w-0">
         <div className="font-sans text-base font-strong text-tx-0 lg:text-sm">{label}</div>
         {description && (
-          <div className="mt-1 max-w-[260px] font-sans text-base leading-relaxed text-tx-2 lg:text-sm">
+          <div className="mt-1 max-w-[280px] font-sans text-base leading-relaxed text-tx-2 lg:text-sm">
             {description}
           </div>
         )}
@@ -286,7 +299,7 @@ export function KvRow({
   return (
     <div
       data-settings-row
-      className="grid min-h-11 grid-cols-1 items-start gap-2 min-[1100px]:grid-cols-[260px_minmax(420px,1fr)] min-[1100px]:gap-8"
+      className="grid min-h-11 grid-cols-1 items-start gap-2 min-[1100px]:grid-cols-[minmax(220px,280px)_minmax(420px,1fr)] min-[1100px]:gap-8"
     >
       <div>
         <div className="font-sans text-base font-strong text-tx-1 lg:text-sm">{label}</div>

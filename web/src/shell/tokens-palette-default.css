@@ -26,28 +26,28 @@
   --bg-hover: #1d2335;    /* oklch(0.25 0.014 265) — neutral hover */
 
   /* layer 1 — borders */
-  --bd-0: #20253a;        /* oklch(0.25 0.018 265) — table dividers, subtle */
-  --bd-1: #2c324b;        /* oklch(0.30 0.020 265) — button borders */
-  --bd-2: #3a4263;        /* oklch(0.37 0.022 265) — emphatic borders */
+  --bd-0: #1b2031;        /* quiet dividers: only one step above the surface */
+  --bd-1: #252b40;        /* controls: visible without looking outlined */
+  --bd-2: #323a55;        /* emphatic interaction boundary */
 
   /* layer 1 — text */
   --tx-0: #ecedf3;        /* oklch(0.94 0.006 265) — primary text (not pure white) */
   --tx-1: #b9bdcb;        /* oklch(0.78 0.012 265) — secondary text */
-  --tx-2: #888da0;        /* oklch(0.62 0.014 265) — muted / auxiliary */
-  --tx-3: #5b6077;        /* oklch(0.45 0.014 265) — placeholder / dim */
+  --tx-2: #8b90a4;        /* muted / auxiliary; AA on bg-3 keyboard hints */
+  --tx-3: #8b90a4;        /* placeholder / dim; AA on bg-0..bg-3 */
   --tx-4: #383d52;        /* oklch(0.32 0.012 265) — weakest, rarely used */
 
   /* layer 1 — Indigo: new primary brand (was --blue in legacy) */
   --indigo:      #4f60e0;  /* oklch(0.58 0.18 265) — primary brand */
-  --indigo-soft: #7682eb;  /* oklch(0.68 0.16 265) — lighter on dark */
+  --indigo-soft: #7885ef;  /* readable brand foreground on indigo-dim */
   --indigo-dim:  rgba(79, 96, 224, 0.16);
 
   /* layer 1 — status palette (re-tuned, names conserved) */
 
-  /* red — error / firing — bumped near-AAA on bg-0 */
-  --red:         #f25b56;  /* oklch(0.66 0.20 22) — 6.8:1 on bg-0 */
-  --red-soft:    #f78784;
-  --red-dim:     rgba(242, 91, 86, 0.16);
+  /* red — error / firing — WCAG AAA on the two primary dark surfaces */
+  --red:         #f78784;
+  --red-soft:    #ff8f89;
+  --red-dim:     rgba(247, 135, 132, 0.16);
 
   /* green — success / healthy */
   --green:       #3dc26e;  /* oklch(0.70 0.18 150) — 6.3:1 on bg-0 */
@@ -104,18 +104,18 @@
   --tx-0: #131825;        /* oklch(0.20 0.013 265) — primary (not pure black) */
   --tx-1: #404763;        /* oklch(0.36 0.018 265) — secondary */
   --tx-2: #686f8d;        /* oklch(0.52 0.016 265) — muted */
-  --tx-3: #8c92ad;        /* oklch(0.65 0.013 265) — placeholder */
+  --tx-3: #5f6682;        /* placeholder / dim; AA on bg-0..bg-3 */
   --tx-4: #b5b9c9;        /* oklch(0.76 0.010 265) — weakest */
 
   /* Indigo (brand) — darker for light theme */
   --indigo:      #3742c7;  /* oklch(0.48 0.20 265) — primary brand on light */
-  --indigo-soft: #5a66d8;  /* oklch(0.58 0.18 265) */
+  --indigo-soft: #3742c7;  /* readable brand foreground on indigo-dim */
   --indigo-dim:  rgba(55, 66, 199, 0.12);
 
   /* status colors — AA+ on light backgrounds */
-  --red:         #d1252a;  /* oklch(0.52 0.20 25) — 5.6:1 on bg-0 (AAA) */
-  --red-soft:    #e54a4f;
-  --red-dim:     rgba(209, 37, 42, 0.10);
+  --red:         #a10f1c;  /* WCAG AAA on the two primary light surfaces */
+  --red-soft:    #97101b;
+  --red-dim:     rgba(161, 15, 28, 0.10);
 
   --green:       #157f3f;  /* oklch(0.50 0.15 145) — 5.8:1 on bg-0 (AAA) */
   --green-soft:  #2aa05a;

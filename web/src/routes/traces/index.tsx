@@ -1,14 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import {
-  ChevronDown,
-  ChevronRight,
-  Eye,
-  EyeOff,
   Play,
-  Plus,
   RefreshCw,
-  Search,
   X,
 } from 'lucide-react';
 import * as React from 'react';
@@ -18,6 +12,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import * as queryApi from '@/api/query';
 import * as streamsApi from '@/api/streams';
 import * as webApi from '@/api/web';
+import { widenTimeWindow } from '@/investigation/timeRangeRecovery';
 import { useTimeFormatter } from '@/lib/time';
 import type { CursorPage } from '@/pagination/cursor';
 import { useCursorPagination } from '@/pagination/useCursorPagination';
@@ -30,11 +25,15 @@ import {
   uiLabelClass,
 } from '@/shell/chrome';
 import type { CodeCompletionItem } from '@/shell/codeEditor/types';
-import { CollapsibleSidePanel, SidePanelSection } from '@/shell/CollapsibleSidePanel';
 import { EmptyState } from '@/shell/EmptyState';
 import { PageHeader } from '@/shell/PageHeader';
 import { QueryEditorFrame } from '@/shell/query/EditorFrame';
-import { QueryState, queryStateFor } from '@/shell/query/State';
+import {
+  QueryRecoveryState,
+  type QueryRecoveryActions,
+  type QueryRecoveryCopy,
+} from '@/shell/query/RecoveryState';
+import { queryStateFor } from '@/shell/query/State';
 import { QuerySyntaxHelp } from '@/shell/query/SyntaxHelp';
 import { useSqlFunctionCompletions } from '@/shell/query/useSqlFunctionCompletions';
 import {
@@ -62,15 +61,13 @@ import { formatTraceDurationMs } from '@/viz/trace/duration';
 import { TraceFlame } from '@/viz/trace/TraceFlame';
 import { TraceOperationName } from '@/viz/trace/TraceOperationName';
 
+import { traceFieldValue, type TraceFieldRecord } from './fieldPanel/model';
+import { TraceFieldPanel } from './fieldPanel/Panel';
 import {
   appendTraceSqlFieldFilter,
-  COMMON_TRACE_FIELD_ORDER,
-  COMMON_TRACE_FIELDS,
   DEFAULT_VISIBLE_TRACE_FIELDS,
   deriveTraceFields,
-  groupTraceFields,
   insertTraceClause,
-  isTraceFieldQueryable,
   parseTraceStatement,
   selectTraceStream,
   TRACE_RESULT_LIMIT,
@@ -91,16 +88,13 @@ import {
   TRACE_LIST_SORT_OPTIONS,
   writeTraceListSort,
 } from './sort';
+import {
+  quoteTraceValue,
+  traceUrlQueryStateFromParams,
+  traceUrlQueryStateKey,
+} from './urlState';
 
-interface DisplayTrace {
-  id: string;
-  op: string;
-  service: string;
-  startNs: number;
-  durationMs: number;
-  spans: number;
-  errors: number;
-}
+type DisplayTrace = TraceFieldRecord;
 
 type TraceListData = CursorPage<DisplayTrace>;
 
@@ -126,19 +120,6 @@ const TRACE_TABS: Array<{ id: TraceTab; labelKey: string }> = [
   { id: 'service-graph', labelKey: 'explore.tabs.service_graph' },
   { id: 'service-catalog', labelKey: 'explore.tabs.service_catalog' },
 ];
-
-// Columns whose value the aggregated trace list can render as a chip. Arbitrary
-// span attributes (e.g. `http.method`) can be listed/queried but not shown per
-// trace, since the list endpoint aggregates spans into one row per trace.
-const DISPLAYABLE_TRACE_FIELDS = new Set<string>([
-  'trace_id',
-  'service.name',
-  'name',
-  'status_code',
-  'duration_ns',
-  'span_count',
-  'error_count',
-]);
 
 function quotedTraceCompletion(value: string): string {
   return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
@@ -171,21 +152,6 @@ function traceQueryCompletions(fields: TraceFieldDef[], traces: DisplayTrace[]):
   ];
 }
 
-function isTraceFieldDisplayable(name: string): boolean {
-  return DISPLAYABLE_TRACE_FIELDS.has(name);
-}
-
-// Phase 4: service-kind palette uses chart-1..6 (categorical, OKLCH-
-// equalized for CVD safety). Mirrors `--chart-N` in tokens-palette-
-// default.css dark variant so the SVG span rectangles stay on-palette.
-const KIND_COLOR = {
-  rust: '#5d6dd9',  // chart-1 indigo (brand)
-  go: '#1faab0',    // chart-2 teal
-  python: '#2bb35b',// chart-4 green
-  db: '#d9961c',    // chart-3 amber
-  http: '#a445c1',  // chart-6 purple
-} as const;
-
 function rangeFromWindow(window: TimeWindow, now: Date): { from: string; to: string } {
   const resolvedWindow = resolveWindow(window, now);
   return { from: resolvedWindow.from.toISOString(), to: resolvedWindow.to.toISOString() };
@@ -195,63 +161,6 @@ function tabFromParam(value: string | null): TraceTab | null {
   if (value === 'map') return 'service-graph';
   if (value === 'analytics') return 'service-catalog';
   return TRACE_TABS.some((tab) => tab.id === value) ? (value as TraceTab) : null;
-}
-
-function quoteTraceValue(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-}
-
-function traceQueryFromParams(params: URLSearchParams): string {
-  const direct = params.get('q') ?? params.get('query') ?? '';
-  if (direct.trim()) return direct.trim();
-  const clauses: string[] = [];
-  const traceId = params.get('trace_id') ?? params.get('traceId');
-  const spanId = params.get('span_id') ?? params.get('spanId');
-  const service = params.get('service') ?? params.get('service_name');
-  const operation = params.get('operation_name') ?? params.get('operation');
-  const route = params.get('route') ?? params.get('path');
-  const status = params.get('status_code') ?? params.get('status');
-  if (traceId) clauses.push(`trace_id = '${quoteTraceValue(traceId)}'`);
-  if (spanId) clauses.push(`span_id = '${quoteTraceValue(spanId)}'`);
-  if (service) clauses.push(`service_name = '${quoteTraceValue(service)}'`);
-  if (operation) clauses.push(`operation_name contains '${quoteTraceValue(operation)}'`);
-  else if (route) clauses.push(`operation_name contains '${quoteTraceValue(route)}'`);
-  if (status) clauses.push(`status_code = '${quoteTraceValue(status)}'`);
-  return clauses.join(' AND ');
-}
-
-function traceFieldValue(trace: DisplayTrace, field: TraceFieldName): string {
-  switch (field) {
-    case 'trace_id':
-      return trace.id;
-    case 'service.name':
-      return trace.service;
-    case 'name':
-      return trace.op;
-    case 'status_code':
-      return trace.errors > 0 ? 'ERROR' : 'OK';
-    case 'duration_ns':
-    case 'duration_ms':
-      return formatTraceDurationMs(trace.durationMs);
-    case 'span_count':
-      return String(trace.spans);
-    case 'error_count':
-      return String(trace.errors);
-    default:
-      return '';
-  }
-}
-
-function traceFieldCount(traces: DisplayTrace[], field: TraceFieldName): number {
-  return traces.reduce((count, trace) => (traceFieldValue(trace, field) ? count + 1 : count), 0);
-}
-
-function traceFieldSample(traces: DisplayTrace[], field: TraceFieldName): string {
-  for (const trace of traces) {
-    const value = traceFieldValue(trace, field);
-    if (value) return value;
-  }
-  return '—';
 }
 
 function traceColumnIndex(result: QueryResult): Record<string, number> {
@@ -309,7 +218,7 @@ function traceSqlResultToDisplayTraces(result: QueryResult): DisplayTrace[] {
 }
 
 export function Traces() {
-  const { t } = useTranslation('traces');
+  const { t, i18n } = useTranslation('traces');
   const orgId = useAuthStore((s) => s.ctx?.org_id ?? '');
   const timeWindow = useTimeStore((s) => s.window);
   const setTimeWindow = useTimeStore((s) => s.setWindow);
@@ -326,23 +235,32 @@ export function Traces() {
     ? TRACE_DEFAULT_WINDOW
     : timeWindow;
   const traceSort = parseTraceListSort(searchParams.get('sort'));
+  const requestedTraceStream = searchParams.get('stream')?.trim() ?? '';
   const urlTabParam = searchParams.get('tab') ?? searchParams.get('view');
   const urlTab = tabFromParam(urlTabParam);
-  const initialQuery = traceQueryFromParams(searchParams);
+  const initialUrlQuery = React.useRef(
+    traceUrlQueryStateFromParams(searchParams),
+  ).current;
   const [tab, setTab] = React.useState<TraceTab>(() => urlTab ?? 'spans');
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
-  const [queryMode, setQueryMode] = React.useState<TraceQueryMode>('fields');
-  const [queryDraft, setQueryDraft] = React.useState(initialQuery);
-  const [queryText, setQueryText] = React.useState(initialQuery);
-  const [sqlDraft, setSqlDraft] = React.useState('');
-  const [sqlText, setSqlText] = React.useState('');
+  const [queryMode, setQueryMode] = React.useState<TraceQueryMode>(
+    initialUrlQuery.mode,
+  );
+  const [queryDraft, setQueryDraft] = React.useState(initialUrlQuery.fields);
+  const [queryText, setQueryText] = React.useState(initialUrlQuery.fields);
+  const [sqlDraft, setSqlDraft] = React.useState(initialUrlQuery.sql);
+  const [sqlText, setSqlText] = React.useState(initialUrlQuery.sql);
   const [fieldFilter, setFieldFilter] = React.useState('');
   const [fieldPanelCollapsed, setFieldPanelCollapsed] = React.useState(false);
-  const [queryEditorCollapsed, setQueryEditorCollapsed] = React.useState(true);
+  const [queryEditorCollapsed, setQueryEditorCollapsed] = React.useState(
+    !initialUrlQuery.fields && !initialUrlQuery.sql,
+  );
   const [visibleTraceFields, setVisibleTraceFields] = React.useState<TraceFieldName[]>(DEFAULT_VISIBLE_TRACE_FIELDS);
   const [tracePage, setTracePage] = React.useState(1);
   const [rangeRefreshAt, setRangeRefreshAt] = React.useState(() => Date.now());
-  const appliedTraceQueryRef = React.useRef(initialQuery);
+  const appliedTraceQueryRef = React.useRef(
+    traceUrlQueryStateKey(initialUrlQuery),
+  );
   const appliedTabParamRef = React.useRef<string | null>(urlTabParam);
 
   React.useLayoutEffect(() => {
@@ -359,12 +277,18 @@ export function Traces() {
   }, [urlTab, urlTabParam]);
 
   React.useEffect(() => {
-    const next = traceQueryFromParams(searchParams);
-    if (next === appliedTraceQueryRef.current) return;
-    appliedTraceQueryRef.current = next;
-    setQueryMode('fields');
-    setQueryDraft(next);
-    setQueryText(next);
+    const next = traceUrlQueryStateFromParams(searchParams);
+    const nextKey = traceUrlQueryStateKey(next);
+    if (nextKey === appliedTraceQueryRef.current) return;
+    appliedTraceQueryRef.current = nextKey;
+    setQueryMode(next.mode);
+    if (next.mode === 'sql') {
+      setSqlDraft(next.sql);
+      setSqlText(next.sql);
+    } else {
+      setQueryDraft(next.fields);
+      setQueryText(next.fields);
+    }
     setQueryEditorCollapsed(false);
     setTab('spans');
   }, [searchParams]);
@@ -408,8 +332,8 @@ export function Traces() {
     [streamsQuery.data],
   );
   const primaryTraceDefinition = React.useMemo(
-    () => selectTraceStream(traceStreams),
-    [traceStreams],
+    () => selectTraceStream(traceStreams, requestedTraceStream),
+    [requestedTraceStream, traceStreams],
   );
   const primaryTraceStream = primaryTraceDefinition?.name ?? '';
   const traceFields = React.useMemo(
@@ -492,7 +416,7 @@ export function Traces() {
       );
       return {
         ...response,
-        items: response.items.map((item) => ({
+        items: (response.items ?? []).map((item) => ({
           id: item.trace_id,
           op: item.operation,
           service: item.service,
@@ -663,9 +587,6 @@ export function Traces() {
     isError: traceListQuery.isError,
     data: traceList,
   });
-  const traceQueryDirty = queryMode === 'sql'
-    ? sqlDraft.trim() !== sqlText.trim()
-    : queryDraft.trim() !== queryText.trim();
   const traceQueryRunning = traceListQuery.isFetching;
   const traceQueryCanRun = queryMode === 'fields'
     || Boolean(orgId && primaryTraceStream && sqlDraft.trim());
@@ -695,6 +616,62 @@ export function Traces() {
     topologyQuery,
     traceListQuery,
   ]);
+  const clearRecoveryFilters = React.useCallback(() => {
+    const params = new URLSearchParams(searchParams);
+    for (const key of [
+      'q',
+      'query',
+      'sql',
+      'trace_id',
+      'traceId',
+      'span_id',
+      'spanId',
+      'service',
+      'service_name',
+      'operation',
+      'operation_name',
+      'path',
+      'route',
+      'status',
+      'status_code',
+    ]) {
+      params.delete(key);
+    }
+    appliedTraceQueryRef.current = traceUrlQueryStateKey({
+      mode: 'fields',
+      fields: '',
+      sql: '',
+    });
+    setQueryMode('fields');
+    setQueryDraft('');
+    setQueryText('');
+    setSqlDraft('');
+    setSqlText('');
+    resetTraceCursor();
+    setSelectedId(null);
+    setSearchParams(params, { replace: true });
+  }, [resetTraceCursor, searchParams, setSearchParams]);
+  const widenRecoveryRange = React.useCallback(() => {
+    resetTraceCursor();
+    setTimeWindow(widenTimeWindow(effectiveTimeWindow));
+  }, [effectiveTimeWindow, resetTraceCursor, setTimeWindow]);
+  const recoveryCopy: QueryRecoveryCopy = {
+    errorTitle: t('explore.recovery.query_failed'),
+    emptyTitle: t('explore.recovery.no_data_title'),
+    emptyDescription: t('explore.recovery.no_data_description'),
+    clearFiltersLabel: t('explore.recovery.clear_filters'),
+    widenRangeLabel: t('explore.recovery.expand_time'),
+    docsLabel: t('explore.recovery.query_docs'),
+  };
+  const recovery: QueryRecoveryActions = {
+    hasFilters: Boolean(queryText.trim() || sqlText.trim()),
+    onRetry: () => void traceListQuery.refetch(),
+    onClearFilters: clearRecoveryFilters,
+    onWidenRange: widenRecoveryRange,
+    docsHref: `https://docs.molesignal.io/${
+      (i18n.resolvedLanguage ?? i18n.language).toLowerCase().startsWith('zh') ? 'zh' : 'en'
+    }/query/traces`,
+  };
 
   return (
     <div
@@ -720,7 +697,6 @@ export function Traces() {
         sqlDraft={sqlDraft}
         parsedQuery={parsedQuery}
         completionItems={traceCompletionItems}
-        dirty={traceQueryDirty}
         running={traceQueryRunning}
         canRun={traceQueryCanRun}
         collapsed={queryEditorCollapsed}
@@ -755,6 +731,8 @@ export function Traces() {
             fields={traceFields}
             listState={listState}
             listError={traceListQuery.error}
+            recovery={recovery}
+            recoveryCopy={recoveryCopy}
             selectedId={selectedId}
             visibleFields={visibleTraceFields}
             fieldFilter={fieldFilter}
@@ -780,6 +758,8 @@ export function Traces() {
             fields={traceFields}
             listState={listState}
             listError={traceListQuery.error}
+            recovery={recovery}
+            recoveryCopy={recoveryCopy}
             selectedTrace={selectedTrace}
             selectedId={selectedId}
             visibleFields={visibleTraceFields}
@@ -870,7 +850,6 @@ function TraceQueryPanel({
   sqlDraft,
   parsedQuery,
   completionItems,
-  dirty,
   running,
   canRun,
   collapsed,
@@ -891,7 +870,6 @@ function TraceQueryPanel({
   sqlDraft: string;
   parsedQuery: ParsedTraceStatement;
   completionItems: CodeCompletionItem[];
-  dirty: boolean;
   running: boolean;
   canRun: boolean;
   collapsed: boolean;
@@ -915,7 +893,7 @@ function TraceQueryPanel({
       {...(!isQueryTab ? { bodyClassName: 'hidden' } : {})}
       toolbar={
         <>
-          <QueryToolbarTabs tabs={tabs} activeId={tab} onChange={onTabChange} tone="blue" />
+          <QueryToolbarTabs tabs={tabs} activeId={tab} onChange={onTabChange} tone="indigo" />
           {isQueryTab && (
             <>
               <QueryToolbarGroup aria-label={t('explore.query.mode_aria')}>
@@ -930,7 +908,7 @@ function TraceQueryPanel({
                   </QueryToolbarButton>
                 ))}
               </QueryToolbarGroup>
-              <QuerySyntaxHelp mode={queryMode} scope="traces" />
+              <QuerySyntaxHelp mode={queryMode} scope="traces" compact />
             </>
           )}
           <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
@@ -940,7 +918,6 @@ function TraceQueryPanel({
                 variant="primary"
                 onClick={onApplySearch}
                 disabled={running || !canRun}
-                className={dirty ? 'bg-orange-dim text-orange-soft' : undefined}
               >
                 <Play className="h-3 w-3" aria-hidden="true" />
                 {running ? t('explore.query.running') : t('explore.query.run')}
@@ -1049,6 +1026,8 @@ function TraceSpanExplorer({
   fields,
   listState,
   listError,
+  recovery,
+  recoveryCopy,
   selectedId,
   visibleFields,
   fieldFilter,
@@ -1070,6 +1049,8 @@ function TraceSpanExplorer({
   fields: TraceFieldDef[];
   listState: ReturnType<typeof queryStateFor>;
   listError: unknown;
+  recovery: QueryRecoveryActions;
+  recoveryCopy: QueryRecoveryCopy;
   selectedId: string | null;
   visibleFields: TraceFieldName[];
   fieldFilter: string;
@@ -1112,11 +1093,13 @@ function TraceSpanExplorer({
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto">
           {listState ? (
-            <QueryState
+            <QueryRecoveryState
               state={listState}
               error={listError}
-              emptyLabel={t('explore.results.no_match')}
+              copy={recoveryCopy}
+              recovery={recovery}
               className="h-full min-h-0"
+              testId="traces-no-data"
             />
           ) : (
             traceList.map((trace) => {
@@ -1212,6 +1195,8 @@ function TraceTableExplorer({
   fields,
   listState,
   listError,
+  recovery,
+  recoveryCopy,
   selectedTrace,
   selectedId,
   visibleFields,
@@ -1235,6 +1220,8 @@ function TraceTableExplorer({
   fields: TraceFieldDef[];
   listState: ReturnType<typeof queryStateFor>;
   listError: unknown;
+  recovery: QueryRecoveryActions;
+  recoveryCopy: QueryRecoveryCopy;
   selectedTrace: DisplayTrace | null;
   selectedId: string | null;
   visibleFields: TraceFieldName[];
@@ -1299,11 +1286,13 @@ function TraceTableExplorer({
         </div>
         <div className="min-h-0 flex-1 overflow-auto">
           {listState ? (
-            <QueryState
+            <QueryRecoveryState
               state={listState}
               error={listError}
-              emptyLabel={t('explore.results.no_match')}
+              copy={recoveryCopy}
+              recovery={recovery}
               className="h-full min-h-0"
+              testId="traces-table-no-data"
             />
           ) : (
             traceList.map((trace) => (
@@ -1474,216 +1463,6 @@ function formatTraceStart(startNs: number, tz: string): string {
   return d.isValid() ? d.format('HH:mm:ss.SSS') : '-';
 }
 
-function TraceFieldPanel({
-  traces,
-  fields,
-  queryMode,
-  visibleFields,
-  fieldFilter,
-  collapsed,
-  onFieldFilterChange,
-  onCollapsedChange,
-  onToggleField,
-  onInsertField,
-}: {
-  traces: DisplayTrace[];
-  fields: TraceFieldDef[];
-  queryMode: TraceQueryMode;
-  visibleFields: TraceFieldName[];
-  fieldFilter: string;
-  collapsed: boolean;
-  onFieldFilterChange: (value: string) => void;
-  onCollapsedChange: (collapsed: boolean) => void;
-  onToggleField: (field: TraceFieldName) => void;
-  onInsertField: (field: TraceFieldDef) => void;
-}) {
-  const { t } = useTranslation('traces');
-  const needle = fieldFilter.trim().toLowerCase();
-  const filtered = React.useMemo(
-    () => fields.filter((field) => field.name.toLowerCase().includes(needle)),
-    [fields, needle],
-  );
-  const common = React.useMemo(
-    () => COMMON_TRACE_FIELD_ORDER
-      .map((name) => filtered.find((field) => field.name === name))
-      .filter((field): field is TraceFieldDef => field !== undefined),
-    [filtered],
-  );
-  const remaining = React.useMemo(
-    () => filtered.filter((field) => !COMMON_TRACE_FIELDS.has(field.name)),
-    [filtered],
-  );
-  const { core, groups } = React.useMemo(() => groupTraceFields(remaining), [remaining]);
-  // Dot-prefix namespace groups collapse by default (Jaeger-style span-
-  // attribute UX); the no-dot core fields stay at the root. An active search
-  // needle force-expands every group so matches aren't hidden.
-  const [expandedGroups, setExpandedGroups] = React.useState<Set<string>>(new Set());
-  const toggleGroup = React.useCallback((group: string) => {
-    setExpandedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(group)) next.delete(group);
-      else next.add(group);
-      return next;
-    });
-  }, []);
-
-  const renderRow = (field: TraceFieldDef) => (
-    <TraceFieldRow
-      key={field.name}
-      field={field}
-      queryMode={queryMode}
-      traces={traces}
-      visible={visibleFields.includes(field.name)}
-      onToggleField={onToggleField}
-      onInsertField={onInsertField}
-    />
-  );
-
-  return (
-    <CollapsibleSidePanel
-      title={t('explore.labels.title')}
-      collapsed={collapsed}
-      onCollapsedChange={onCollapsedChange}
-      variant="utility"
-      widthClassName="w-[240px]"
-      resizable
-      defaultWidth={240}
-      resizeLabel={t('explore.labels.resize')}
-      bodyClassName="flex flex-col"
-      collapseLabel={t('explore.labels.collapse')}
-      expandLabel={t('explore.labels.expand')}
-      footer={
-        <div className="flex h-11 items-center truncate border-t border-bd-0 px-3 font-sans text-xs text-tx-3">
-          {t('explore.labels.fields_summary', {
-            shown: filtered.length,
-            total: fields.length,
-          })}
-        </div>
-      }
-    >
-      <div className="px-2 pb-2">
-        <div className="flex h-8 items-center gap-2 rounded-md border border-bd-1 bg-bg-1 px-2.5 font-sans text-xs">
-          <Search className="h-3.5 w-3.5 text-tx-3" />
-          <input
-            value={fieldFilter}
-            onChange={(event) => onFieldFilterChange(event.target.value)}
-            placeholder={t('explore.labels.filter_placeholder')}
-            aria-label={t('explore.labels.filter_aria')}
-            className="min-w-0 flex-1 bg-transparent text-tx-0 placeholder:text-tx-3 focus:outline-none"
-          />
-        </div>
-      </div>
-      <div className="min-h-0 flex-1 overflow-auto px-1">
-        {common.length > 0 && (
-          <SidePanelSection title={t('explore.labels.common_fields')} count={common.length}>
-            {common.map(renderRow)}
-          </SidePanelSection>
-        )}
-        {remaining.length > 0 && (
-          <SidePanelSection
-            title={t('explore.labels.other_fields')}
-            count={remaining.length}
-            className={common.length > 0 ? 'border-t border-bd-0' : undefined}
-          >
-            {core.map(renderRow)}
-            {groups.map((group) => {
-              const expanded = needle ? true : expandedGroups.has(group.group);
-              return (
-                <div key={group.group} className="mt-0.5">
-                  <button
-                    type="button"
-                    onClick={() => toggleGroup(group.group)}
-                    className="grid w-full grid-cols-[28px_minmax(0,1fr)_auto] items-center gap-1 rounded px-1.5 py-1.5 text-left font-sans hover:bg-bg-3"
-                    aria-expanded={expanded}
-                    aria-label={`${expanded ? 'Collapse' : 'Expand'} ${group.group}`}
-                  >
-                    {expanded ? (
-                      <ChevronDown className="h-3.5 w-3.5 text-tx-3" />
-                    ) : (
-                      <ChevronRight className="h-3.5 w-3.5 text-tx-3" />
-                    )}
-                    <span className="truncate text-xs font-strong text-tx-1">{group.group}</span>
-                    <span className="font-mono text-xs text-tx-3">{group.fields.length}</span>
-                  </button>
-                  {expanded && (
-                    <div className="ml-2 border-l border-bd-0 pl-1">{group.fields.map(renderRow)}</div>
-                  )}
-                </div>
-              );
-            })}
-          </SidePanelSection>
-        )}
-        {filtered.length === 0 && (
-          <div className="px-2 py-4 text-center font-sans text-xs text-tx-3">
-            {t('explore.results.no_match')}
-          </div>
-        )}
-      </div>
-    </CollapsibleSidePanel>
-  );
-}
-
-function TraceFieldRow({
-  field,
-  queryMode,
-  traces,
-  visible,
-  onToggleField,
-  onInsertField,
-}: {
-  field: TraceFieldDef;
-  queryMode: TraceQueryMode;
-  traces: DisplayTrace[];
-  visible: boolean;
-  onToggleField: (field: TraceFieldName) => void;
-  onInsertField: (field: TraceFieldDef) => void;
-}) {
-  const { t } = useTranslation('traces');
-  const displayable = isTraceFieldDisplayable(field.name);
-  const queryable = isTraceFieldQueryable(field, queryMode);
-  const count = displayable ? traceFieldCount(traces, field.name) : 0;
-  const sample = displayable ? traceFieldSample(traces, field.name) : '';
-  const unavailableReason = field.dataType === 'json'
-    ? t('explore.labels.json_query_required', { name: field.name })
-    : t('explore.labels.direct_query_unavailable', { name: field.name });
-  return (
-    <div className="grid min-h-9 grid-cols-[28px_minmax(0,1fr)_auto_28px] items-center gap-1 rounded px-1.5 py-0.5 font-sans hover:bg-bg-3">
-      <button
-        type="button"
-        onClick={() => {
-          if (queryable) onInsertField(field);
-        }}
-        className="grid h-7 w-7 place-items-center rounded-md text-tx-3 hover:bg-bg-4 hover:text-blue-soft disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-tx-3"
-        disabled={!queryable}
-        aria-label={`Add ${field.name} to query`}
-        title={queryable ? `Add ${field.name} to query` : unavailableReason}
-      >
-        <Plus className="h-3.5 w-3.5" />
-      </button>
-      <div className="min-w-0 text-left">
-        <span className="block truncate text-xs font-semibold text-tx-0">{field.name}</span>
-        {displayable && sample && (
-          <span className="block truncate text-xs text-tx-3">{sample}</span>
-        )}
-      </div>
-      <span className="font-mono text-xs font-normal text-tx-3">{displayable ? count : ''}</span>
-      {displayable ? (
-        <button
-          type="button"
-          onClick={() => onToggleField(field.name)}
-          className="grid h-7 w-7 place-items-center rounded-md text-tx-3 hover:bg-bg-4 hover:text-tx-0"
-          aria-label={`${visible ? 'Hide' : 'Show'} ${field.name}`}
-          title={visible ? `Hide ${field.name}` : `Show ${field.name}`}
-        >
-          {visible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-        </button>
-      ) : (
-        <span aria-hidden="true" className="h-7 w-7" />
-      )}
-    </div>
-  );
-}
-
 function ServiceCatalog({
   edges,
   totalRps,
@@ -1841,6 +1620,3 @@ function LatencyDistribution({ edges }: { edges: webApi.TopologyEdge[] }) {
     </div>
   );
 }
-
-// Keep KIND_COLOR exported-as-used for any future Waterfall re-add.
-void KIND_COLOR;

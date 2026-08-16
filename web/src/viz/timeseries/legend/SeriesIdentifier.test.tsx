@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import * as React from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -21,24 +22,26 @@ const text: SeriesIdentityConfig = {
 function Harness({ onSelect }: { onSelect: () => void }) {
   const [expanded, setExpanded] = React.useState(false);
   return (
-    <SeriesIdentifier
-      series={{
-        metricName: 'cache_misses_total',
-        name: 'cache_misses_total{service.name="molesignal"}',
-        data: [0],
-        labels: {
-          __name__: 'cache_misses_total',
-          'service.name': 'molesignal',
-          'deployment.environment.name': 'production',
-        },
-      }}
-      hidden={false}
-      expanded={expanded}
-      text={text}
-      onSelect={onSelect}
-      onExpandedChange={setExpanded}
-      onFocusChange={() => undefined}
-    />
+    <MemoryRouter>
+      <SeriesIdentifier
+        series={{
+          metricName: 'cache_misses_total',
+          name: 'cache_misses_total{service.name="molesignal"}',
+          data: [0],
+          labels: {
+            __name__: 'cache_misses_total',
+            'service.name': 'molesignal',
+            'deployment.environment.name': 'production',
+          },
+        }}
+        hidden={false}
+        expanded={expanded}
+        text={text}
+        onSelect={onSelect}
+        onExpandedChange={setExpanded}
+        onFocusChange={() => undefined}
+      />
+    </MemoryRouter>
   );
 }
 
@@ -65,6 +68,9 @@ describe('SeriesIdentifier', () => {
     const labelValue = screen.getByText('production');
     expect(labelName.className).toContain('font-sans');
     expect(labelValue.className).toContain('font-sans');
+    expect(
+      screen.getByRole('button', { name: 'molesignal' }).getAttribute('data-signal-type'),
+    ).toBe('service');
     expect(screen.queryByText('__name__')).toBeNull();
 
     fireEvent.click(metric);

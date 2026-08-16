@@ -24,10 +24,8 @@ import { useNavigate } from 'react-router-dom';
 import { ConfirmDialog, DataTable } from '@/admin';
 import * as dashboardsApi from '@/api/dashboards';
 import * as foldersApi from '@/api/folders';
-import {
-  dashboardDefinitionFromApi,
-  flattenElements,
-} from '@/dashboard-engine/model';
+import { dashboardDefinitionFromApi } from '@/dashboard-engine/model';
+import { dashboardPanelCount } from '@/dashboard-engine/summary';
 import { toApiError } from '@/lib/http';
 import {
   type ActionAccess,
@@ -87,11 +85,7 @@ function adaptDashboard(
     formatRelative: (value: number | undefined) => string;
   },
 ): DisplayDashboard {
-  const panels = flattenElements(
-    dashboardDefinitionFromApi(d).elements,
-  ).filter(
-    (element) => element.kind === 'panel' || element.kind === 'text',
-  ).length;
+  const panels = dashboardPanelCount(d);
   const folderId = d.folder_id;
   return {
     id: d.id,

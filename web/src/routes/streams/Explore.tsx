@@ -39,9 +39,6 @@ import {
 import { type ProductStateProps } from '@/product/states';
 import { DetailPage } from '@/product/templates';
 import {
-  Card,
-  CardBody,
-  CardHeader,
   ChromeButton,
   Dot,
   Pill,
@@ -66,6 +63,13 @@ import { toast } from '@/shell/ui/sonner';
 import { Switch } from '@/shell/ui/switch';
 import { TimeSeriesChart } from '@/viz/timeseries/TimeSeriesChart';
 
+import {
+  streamFlatTableClassName,
+  StreamKpiBand,
+  StreamSection,
+  StreamSettingsSection,
+  StreamToggleRow,
+} from './CardlessSurface';
 import {
   datasourceLinkForStream,
   intakePathForSignal,
@@ -999,38 +1003,40 @@ function OverviewPanel({
         </div>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <MetricCard
-          label={t('explore.kpis.events_24h')}
-          value={runtime?.stats_available ? formatCount(runtime.rows) : '—'}
-          note={t('explore.kpis.from_parquet_file_meta')}
-        />
-        <MetricCard
-          label={t('explore.kpis.receive_rate')}
-          value={formatRate(runtime?.rows, runtimeWindowSecs, stream.stream_type)}
-          note={t('explore.kpis.average_24h')}
-        />
-        <MetricCard
-          label={t('explore.kpis.compressed_24h')}
-          value={runtime?.stats_available ? formatBytes(runtime.stored_bytes) : '—'}
-          note={t('explore.kpis.compressed_note')}
-        />
-        <MetricCard
-          label={t('explore.kpis.current_storage')}
-          value={
-            runtime?.stats_available ? formatBytes(runtime.current_stored_bytes) : '—'
-          }
-          note={t('explore.kpis.live_parquet')}
-        />
-        <MetricCard
-          label={t('explore.kpis.index_coverage')}
-          value={totalFields > 0 ? `${indexedFields} / ${totalFields}` : '—'}
-          note={t('explore.kpis.index_coverage_note')}
-        />
-      </div>
+      <StreamKpiBand
+        items={[
+          {
+            label: t('explore.kpis.events_24h'),
+            value: runtime?.stats_available ? formatCount(runtime.rows) : '—',
+            note: t('explore.kpis.from_parquet_file_meta'),
+          },
+          {
+            label: t('explore.kpis.receive_rate'),
+            value: formatRate(runtime?.rows, runtimeWindowSecs, stream.stream_type),
+            note: t('explore.kpis.average_24h'),
+          },
+          {
+            label: t('explore.kpis.compressed_24h'),
+            value: runtime?.stats_available ? formatBytes(runtime.stored_bytes) : '—',
+            note: t('explore.kpis.compressed_note'),
+          },
+          {
+            label: t('explore.kpis.current_storage'),
+            value: runtime?.stats_available
+              ? formatBytes(runtime.current_stored_bytes)
+              : '—',
+            note: t('explore.kpis.live_parquet'),
+          },
+          {
+            label: t('explore.kpis.index_coverage'),
+            value: totalFields > 0 ? `${indexedFields} / ${totalFields}` : '—',
+            note: t('explore.kpis.index_coverage_note'),
+          },
+        ]}
+      />
 
       {noData ? (
-        <div className="grid min-h-[300px] place-items-center rounded-lg border border-dashed border-bd-1 bg-bg-1 px-6 py-10 text-center">
+        <div className="grid min-h-[300px] place-items-center px-6 py-10 text-center">
           <div className="max-w-lg">
             <Database className="mx-auto h-8 w-8 text-tx-3" />
             <h3 className="mt-4 font-sans text-lg font-display-strong text-tx-0">
@@ -1063,9 +1069,10 @@ function OverviewPanel({
       ) : (
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
           <TrendChart buckets={runtime?.buckets ?? []} />
-          <Card>
-            <CardHeader title={t('explore.overview.operational_state')} />
-            <CardBody className="divide-y divide-bd-0 p-0">
+          <StreamSection
+            title={t('explore.overview.operational_state')}
+            bodyClassName="space-y-0 pt-2"
+          >
               <OverviewRow
                 label={t('explore.metadata.status')}
                 value={
@@ -1105,30 +1112,9 @@ function OverviewPanel({
                     : t('explore.overview.not_queryable')
                 }
               />
-            </CardBody>
-          </Card>
+          </StreamSection>
         </div>
       )}
-    </div>
-  );
-}
-
-function MetricCard({
-  label,
-  value,
-  note,
-}: {
-  label: string;
-  value: React.ReactNode;
-  note?: string;
-}) {
-  return (
-    <div className="min-h-[108px] rounded-lg border border-bd-0 bg-bg-1 px-4 py-3.5">
-      <div className="font-sans text-xs font-semibold text-tx-2">{label}</div>
-      <div className="mt-2.5 truncate font-sans text-2xl font-display-strong tabular-nums text-tx-0">
-        {value}
-      </div>
-      {note && <div className="mt-1.5 truncate font-sans text-type-micro text-tx-3">{note}</div>}
     </div>
   );
 }
@@ -1145,82 +1131,74 @@ function TrendChart({
   );
   const max = Math.max(0, ...values);
   return (
-    <Card>
-      <CardHeader
-        title={
-          <div>
-            <div>{t('explore.overview.trend_title')}</div>
-            <div className="mt-0.5 font-sans text-xs font-normal text-tx-3">
-              {t('explore.overview.trend_subtitle')}
-            </div>
-          </div>
-        }
-        actions={
-          <div className="flex rounded-md border border-bd-0 bg-bg-2 p-0.5">
-            {(['rows', 'storage'] as const).map((item) => (
-              <button
-                key={item}
-                type="button"
-                onClick={() => setMetric(item)}
-                className={cn(
-                  'rounded px-2 py-1 font-sans text-xs font-semibold',
-                  metric === item ? 'bg-bg-4 text-tx-0' : 'text-tx-2',
-                )}
-              >
-                {t(`explore.overview.metric_${item}`)}
-              </button>
-            ))}
-          </div>
-        }
-      />
-      <CardBody>
-        {max === 0 ? (
-          <div className="grid h-[220px] place-items-center font-sans text-sm text-tx-3">
-            {t('explore.overview.no_chart_data')}
-          </div>
-        ) : (
-          <TimeSeriesChart
-            series={[
-              {
-                id: `stream-${metric}`,
-                name: t(`explore.overview.metric_${metric}`),
-                data: values,
-                timestamps: buckets.map((bucket) =>
-                  Math.round((bucket.start_micros + bucket.end_micros) / 2),
-                ),
-                unit: metric === 'rows' ? 'rows' : 'bytes',
-              },
-            ]}
-            {...(buckets[0] && buckets.at(-1)
-              ? {
-                  xDomain: [
-                    buckets[0].start_micros,
-                    buckets.at(-1)!.end_micros,
-                  ] as [number, number],
-                }
-              : {})}
-            height={220}
-            ariaLabel={t('explore.overview.trend_title')}
-            options={{
-              drawStyle: 'bar',
-              showPoints: 'never',
-              legendMode: 'hidden',
-              leftAxis: {
-                min: 0,
-                unit: metric === 'rows' ? 'rows' : 'bytes',
-              },
-            }}
-            showLegend={false}
-          />
-        )}
-      </CardBody>
-    </Card>
+    <StreamSection
+      title={t('explore.overview.trend_title')}
+      description={t('explore.overview.trend_subtitle')}
+      bodyClassName="pt-4"
+      actions={
+        <div className="flex rounded-md border border-bd-0 bg-bg-2 p-0.5">
+          {(['rows', 'storage'] as const).map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => setMetric(item)}
+              className={cn(
+                'rounded px-2 py-1 font-sans text-xs font-semibold',
+                metric === item ? 'bg-bg-4 text-tx-0' : 'text-tx-2',
+              )}
+            >
+              {t(`explore.overview.metric_${item}`)}
+            </button>
+          ))}
+        </div>
+      }
+    >
+      {max === 0 ? (
+        <div className="grid h-[220px] place-items-center font-sans text-sm text-tx-3">
+          {t('explore.overview.no_chart_data')}
+        </div>
+      ) : (
+        <TimeSeriesChart
+          series={[
+            {
+              id: `stream-${metric}`,
+              name: t(`explore.overview.metric_${metric}`),
+              data: values,
+              timestamps: buckets.map((bucket) =>
+                Math.round((bucket.start_micros + bucket.end_micros) / 2),
+              ),
+              unit: metric === 'rows' ? 'rows' : 'bytes',
+            },
+          ]}
+          {...(buckets[0] && buckets.at(-1)
+            ? {
+                xDomain: [
+                  buckets[0].start_micros,
+                  buckets.at(-1)!.end_micros,
+                ] as [number, number],
+              }
+            : {})}
+          height={220}
+          ariaLabel={t('explore.overview.trend_title')}
+          options={{
+            drawStyle: 'bar',
+            showPoints: 'never',
+            legendMode: 'hidden',
+            leftAxis: {
+              min: 0,
+              unit: metric === 'rows' ? 'rows' : 'bytes',
+            },
+          }}
+          showLegend={false}
+        />
+      )}
+    </StreamSection>
   );
 }
 
 function OverviewRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex min-h-12 items-center gap-4 px-4 py-3">
+    <div className="flex min-h-11 items-center gap-4 py-2">
       <span className="font-sans text-xs text-tx-2">{label}</span>
       <span className="ml-auto text-right font-sans text-xs font-semibold text-tx-0">
         {value}
@@ -1290,8 +1268,8 @@ function SchemaPanel({
         )}
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-bd-0 bg-bg-1">
-        <div className="overflow-x-auto">
+      <div className={streamFlatTableClassName}>
+        <div>
           <table className="w-full min-w-[900px] border-collapse font-sans text-xs">
             <thead>
               <tr>
@@ -1417,10 +1395,11 @@ function RetentionPanel({
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
-        <Card>
-          <CardHeader title={t('explore.retention.default_policy')} />
-          <CardBody className="space-y-4">
+      <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+        <StreamSection
+          title={t('explore.retention.default_policy')}
+          bodyClassName="space-y-4 pt-4"
+        >
             <FormField
               label={t('explore.retention.data_retention_days')}
               hint={t('explore.retention.days_default_hint', {
@@ -1438,11 +1417,10 @@ function RetentionPanel({
                 })}
               />
             </FormField>
-            <div className="rounded-md border border-bd-0 bg-bg-2 px-3 py-2.5 font-sans text-xs leading-relaxed text-tx-2">
+            <div className="bg-bg-2 px-3 py-2.5 font-sans text-xs leading-relaxed text-tx-2">
               {t('explore.retention.default_explanation')}
             </div>
-          </CardBody>
-        </Card>
+        </StreamSection>
 
         <div className="min-w-0">
           <div className="mb-3 flex flex-wrap items-center gap-3">
@@ -1460,7 +1438,7 @@ function RetentionPanel({
             </ChromeButton>
           </div>
 
-          <div className="overflow-hidden rounded-lg border border-bd-0 bg-bg-1">
+          <div className="min-w-0 overflow-hidden bg-transparent">
             <div className="hidden grid-cols-[52px_52px_170px_minmax(220px,1fr)_130px_120px_44px] border-b border-bd-0 px-3 py-2 lg:grid">
               {[
                 t('explore.retention.priority'),
@@ -1541,11 +1519,11 @@ function RetentionPanel({
         </div>
       </div>
 
-      <details className="rounded-lg border border-bd-0 bg-bg-1">
-        <summary className="cursor-pointer px-4 py-3 font-sans text-sm font-semibold text-tx-1">
+      <details className="[&[open]>summary]:border-b [&[open]>summary]:border-bd-0">
+        <summary className="cursor-pointer py-3 font-sans text-sm font-semibold text-tx-1">
           {t('explore.retention.advanced_filter')}
         </summary>
-        <div className="border-t border-bd-0 p-4">
+        <div className="pt-4">
           <FormField
             label={t('explore.retention.keep_condition')}
             hint={t('explore.retention.keep_condition_hint')}
@@ -1651,19 +1629,12 @@ function UsageGroup({
 }) {
   const { t } = useTranslation('streams');
   return (
-    <Card>
-      <CardHeader
-        title={
-          <div>
-            <div>{title}</div>
-            <div className="mt-0.5 font-sans text-xs font-normal text-tx-3">
-              {subtitle}
-            </div>
-          </div>
-        }
-        actions={<Pill tone="dim">{items.length}</Pill>}
-      />
-      <CardBody className="p-0">
+    <StreamSection
+      title={title}
+      description={subtitle}
+      actions={<Pill tone="dim">{items.length}</Pill>}
+      bodyClassName="pt-0"
+    >
         {items.length === 0 ? (
           <div className="grid h-28 place-items-center font-sans text-xs text-tx-3">
             {t('explore.usage.none')}
@@ -1687,8 +1658,7 @@ function UsageGroup({
             </Link>
           ))
         )}
-      </CardBody>
-    </Card>
+    </StreamSection>
   );
 }
 
@@ -1702,7 +1672,7 @@ function SettingsPanel({
   const { t } = useTranslation('streams');
   return (
     <div className="grid gap-4 xl:grid-cols-3">
-      <SettingsSection
+      <StreamSettingsSection
         title={t('explore.runtime.basic')}
         description={t('explore.runtime.basic_hint')}
       >
@@ -1714,19 +1684,19 @@ function SettingsPanel({
             placeholder={t('explore.runtime.description_placeholder')}
           />
         </FormField>
-      </SettingsSection>
+      </StreamSettingsSection>
 
-      <SettingsSection
+      <StreamSettingsSection
         title={t('explore.runtime.query_capabilities')}
         description={t('explore.runtime.query_capabilities_hint')}
       >
-        <ToggleRow
+        <StreamToggleRow
           title={t('explore.runtime.queryable')}
           hint={t('explore.runtime.queryable_hint')}
           checked={draft.queryable}
           onChange={(queryable) => onChange({ queryable })}
         />
-        <ToggleRow
+        <StreamToggleRow
           title={t('explore.runtime.enable_distinct_values')}
           checked={draft.distinctValues}
           onChange={(distinctValues) => onChange({ distinctValues })}
@@ -1742,27 +1712,27 @@ function SettingsPanel({
             onChange={(event) => onChange({ maxQueryRange: event.target.value })}
           />
         </FormField>
-      </SettingsSection>
+      </StreamSettingsSection>
 
-      <SettingsSection
+      <StreamSettingsSection
         title={t('explore.runtime.storage_behavior')}
         description={t('explore.runtime.storage_behavior_hint')}
       >
-        <ToggleRow
+        <StreamToggleRow
           title={t('explore.runtime.store_original')}
           checked={draft.storeOriginal}
           onChange={(storeOriginal) => onChange({ storeOriginal })}
         />
-        <ToggleRow
+        <StreamToggleRow
           title={t('explore.runtime.use_stats')}
           checked={draft.useStats}
           onChange={(useStats) => onChange({ useStats })}
         />
-        <details className="rounded-md border border-bd-0 bg-bg-2">
-          <summary className="cursor-pointer px-3 py-2.5 font-sans text-xs font-semibold text-tx-1">
+        <details className="[&[open]>summary]:border-b [&[open]>summary]:border-bd-0">
+          <summary className="cursor-pointer py-2.5 font-sans text-xs font-semibold text-tx-1">
             {t('explore.runtime.advanced')}
           </summary>
-          <div className="border-t border-bd-0 p-3">
+          <div className="pt-3">
             <FormField
               label={t('explore.runtime.flatten_level')}
               hint={t('explore.runtime.flatten_level_hint')}
@@ -1777,55 +1747,7 @@ function SettingsPanel({
             </FormField>
           </div>
         </details>
-      </SettingsSection>
-    </div>
-  );
-}
-
-function SettingsSection({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="rounded-lg border border-bd-0 bg-bg-1">
-      <div className="border-b border-bd-0 px-4 py-3">
-        <h3 className="font-sans text-sm font-semibold text-tx-0">{title}</h3>
-        <p className="mt-1 font-sans text-xs leading-relaxed text-tx-3">{description}</p>
-      </div>
-      <div className="space-y-4 p-4">{children}</div>
-    </section>
-  );
-}
-
-function ToggleRow({
-  title,
-  hint,
-  checked,
-  onChange,
-}: {
-  title: string;
-  hint?: string;
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-}) {
-  return (
-    <div className="flex items-start gap-4 rounded-md border border-bd-0 bg-bg-2 px-3 py-3">
-      <div className="min-w-0">
-        <div className="font-sans text-xs font-semibold text-tx-0">{title}</div>
-        {hint && (
-          <div className="mt-1 font-sans text-xs leading-relaxed text-tx-3">{hint}</div>
-        )}
-      </div>
-      <Switch
-        checked={checked}
-        onCheckedChange={onChange}
-        className="ml-auto shrink-0 data-[state=checked]:bg-indigo"
-      />
+      </StreamSettingsSection>
     </div>
   );
 }

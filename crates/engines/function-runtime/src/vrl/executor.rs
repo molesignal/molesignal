@@ -61,7 +61,7 @@ impl FunctionExecutor for VrlFunctionExecutor {
                 self.runtime.run(&prog, event)
             }
             FunctionLanguage::Js => Err(Error::invalid(
-                "javascript runtime not yet implemented (build with feature=js)",
+                "javascript function routed to VRL executor (should go through the chained executor)",
             )),
             FunctionLanguage::Llm => Err(Error::invalid(
                 "LLM eval routed to VRL executor (should go through the chained executor)",
@@ -117,11 +117,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn js_function_returns_invalid_until_feature_on() {
+    async fn js_function_rejects_vrl_only_executor() {
         let ex = VrlFunctionExecutor::new();
         let mut f = mk_fn(r#"function x(){}"#, 1);
         f.language = FunctionLanguage::Js;
         let err = ex.run(&f, &mut json!({})).await.unwrap_err();
-        assert!(err.to_string().contains("javascript runtime"));
+        assert!(err.to_string().contains("routed to VRL executor"));
     }
 }

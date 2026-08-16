@@ -1,17 +1,23 @@
 import type { TFunction } from 'i18next';
 import { ArrowRight, Plus, RefreshCw } from 'lucide-react';
-import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 
-import { DataTable, KpiStrip, type DataTableColumn } from '@/admin';
+import { DataTable, type DataTableColumn } from '@/admin';
 import type { ProbeLocation, SyntheticResult } from '@/api/synthetics';
 import { hasPermission, useProductAccess } from '@/product/access';
 import { ProductState } from '@/product/states';
 import { ChromeButton } from '@/shell/chrome';
 import { TimeSeriesChart } from '@/viz/timeseries/TimeSeriesChart';
 
-import { Section, StatePill, SyntheticsPage, WorkspaceBoundary } from './components';
+import {
+  Section,
+  StatePill,
+  SyntheticsCanvas,
+  SyntheticsKpiBand,
+  SyntheticsPage,
+  WorkspaceBoundary,
+} from './components';
 import { useSyntheticsWorkspace, type CheckRow } from './data';
 import { WorldAvailabilityMap } from './map/WorldAvailabilityMap';
 import {
@@ -69,19 +75,26 @@ export function SyntheticsOverview() {
           )}
         </div>
       }
+      bodyClassName="space-y-0 pb-4 pt-2 lg:pb-6 lg:pt-2"
     >
-      <WorkspaceBoundary pending={workspace.pending} error={workspace.error} onRetry={() => void workspace.refetch()}>
+      <WorkspaceBoundary
+        pending={workspace.pending}
+        error={workspace.error}
+        onRetry={() => void workspace.refetch()}
+        flat
+      >
         {workspace.rows.length === 0 ? (
           <ProductState
             variant="empty"
             title={t('states.empty_title')}
             description={t('states.empty_description')}
             action={canManage ? <ChromeButton variant="primary" onClick={() => navigate('/synthetics/checks/new')}><Plus className="h-3.5 w-3.5" />{t('actions.create_first_check')}</ChromeButton> : undefined}
+            className="rounded-none border-x-0 border-t-0 border-solid border-bd-0 bg-transparent"
           />
         ) : (
-          <>
-            <KpiStrip
-              className="xl:grid-cols-6"
+          <SyntheticsCanvas>
+            <SyntheticsKpiBand
+              columns={6}
               items={[
                 { label: t('overview.running_checks'), value: activeRows.length, sub: t('overview.total_checks', { count: workspace.rows.length }) },
                 { label: t('overview.passed'), value: healthy, sub: formatPercent(activeRows.length ? healthy / activeRows.length : undefined), tone: 'good' },
@@ -92,7 +105,7 @@ export function SyntheticsOverview() {
               ]}
             />
 
-            <div className="grid gap-5 xl:grid-cols-2">
+            <div className="grid grid-cols-1 xl:grid-cols-2">
               <TrendPanel
                 title={t('overview.success_trend')}
                 description={t('overview.success_trend_description')}
@@ -104,14 +117,16 @@ export function SyntheticsOverview() {
                 description={t('overview.latency_trend_description')}
                 results={workspace.operationalResults}
                 metric="latency"
+                className="xl:border-l"
               />
             </div>
 
-            <div className="grid gap-5 2xl:grid-cols-2">
+            <div className="grid grid-cols-1 2xl:grid-cols-2">
               <Section
                 title={t('overview.recent_failures')}
                 description={t('overview.recent_failures_description')}
                 action={<SectionLink to="/synthetics/results" label={t('actions.view_all')} />}
+                flat
               >
                 <DataTable
                   rows={failures}
@@ -119,12 +134,15 @@ export function SyntheticsOverview() {
                   rowKey={(row) => row.id}
                   onRowClick={(row) => navigate(`/synthetics/checks/${row.monitor_id}/results/${row.id}`)}
                   emptyLabel={t('states.no_results')}
+                  className="rounded-none border-0 bg-transparent"
                 />
               </Section>
               <Section
                 title={t('overview.slow_checks')}
                 description={t('overview.slow_checks_description')}
                 action={<SectionLink to="/synthetics/checks" label={t('actions.view_all')} />}
+                className="2xl:border-l"
+                flat
               >
                 <DataTable
                   rows={slowRows}
@@ -132,29 +150,39 @@ export function SyntheticsOverview() {
                   rowKey={(row) => row.monitor.id}
                   onRowClick={(row) => navigate(`/synthetics/checks/${row.monitor.id}`)}
                   emptyLabel={t('states.no_results')}
+                  className="rounded-none border-0 bg-transparent"
                 />
               </Section>
             </div>
 
-            <div className="grid gap-5 2xl:grid-cols-[1.35fr_0.65fr]">
-              <Section title={t('overview.global_map')} description={t('overview.global_map_description')}>
+            <div className="grid grid-cols-1 2xl:grid-cols-[1.35fr_0.65fr]">
+              <Section
+                title={t('overview.global_map')}
+                description={t('overview.global_map_description')}
+                flat
+              >
                 <WorldAvailabilityMap
                   locations={workspace.locations}
                   results={workspace.operationalResults}
                 />
               </Section>
-              <Section title={t('overview.reliability_loop')} description={t('overview.reliability_loop_hint')}>
+              <Section
+                title={t('overview.reliability_loop')}
+                description={t('overview.reliability_loop_hint')}
+                className="2xl:border-l"
+                flat
+              >
                 <ReliabilityLoop />
               </Section>
             </div>
-          </>
+          </SyntheticsCanvas>
         )}
       </WorkspaceBoundary>
     </SyntheticsPage>
   );
 }
 
-function TrendPanel({ title, description, results, metric }: { title: string; description: string; results: SyntheticResult[]; metric: 'success' | 'latency' }) {
+function TrendPanel({ title, description, results, metric, className }: { title: string; description: string; results: SyntheticResult[]; metric: 'success' | 'latency'; className?: string }) {
   const { t } = useTranslation('synthetics');
   const ordered = results.slice(0, 120).reverse();
   const series = [{
@@ -165,7 +193,7 @@ function TrendPanel({ title, description, results, metric }: { title: string; de
     data: ordered.map((result) => metric === 'success' ? (result.outcome === 'healthy' ? 1 : result.outcome === 'unknown' || result.outcome === 'skipped' ? null : 0) : ((resultDurationMicros(result) ?? 0) / 1000)),
     unit: metric === 'success' ? 'percentunit' : 'ms',
   }];
-  return <Section title={title} description={description}><div className="p-4">{ordered.length ? <TimeSeriesChart series={series} height={210} ariaLabel={title} options={{ drawStyle: 'line', showPoints: 'auto', compactAxes: true, leftAxis: { min: 0, ...(metric === 'success' ? { max: 1, unit: 'percentunit' } : { unit: 'ms' }) } }} /> : <div className="grid h-[210px] place-items-center text-xs text-tx-3">{t('states.no_results')}</div>}</div></Section>;
+  return <Section title={title} description={description} {...(className ? { className } : {})} flat><div className="p-4">{ordered.length ? <TimeSeriesChart series={series} height={210} ariaLabel={title} options={{ drawStyle: 'line', showPoints: 'auto', compactAxes: true, leftAxis: { min: 0, ...(metric === 'success' ? { max: 1, unit: 'percentunit' } : { unit: 'ms' }) } }} /> : <div className="grid h-[210px] place-items-center text-xs text-tx-3">{t('states.no_results')}</div>}</div></Section>;
 }
 
 function failureColumns(rows: CheckRow[], locations: ProbeLocation[], locale: string, t: TFunction<'synthetics'>): DataTableColumn<SyntheticResult>[] {
@@ -189,7 +217,7 @@ function slowColumns(locale: string, t: TFunction<'synthetics'>): DataTableColum
 function ReliabilityLoop() {
   const { t } = useTranslation('synthetics');
   const items: Array<[string, string]> = [[t('overview.loop_synthetic'), '/synthetics/results'], [t('overview.loop_alert'), '/alerts/incidents'], [t('overview.loop_evidence'), '/traces'], [t('overview.loop_agent'), '/agent'], [t('overview.loop_status_page'), '/status-pages']];
-  return <div className="flex flex-col p-4">{items.map(([label, to], index) => <React.Fragment key={label}><Link to={to} className="flex min-h-11 items-center justify-between rounded-md border border-bd-0 bg-bg-2 px-3 text-sm font-strong text-tx-1 hover:bg-bg-3 focus-visible:bg-bg-3"><span>{label}</span><ArrowRight className="h-3.5 w-3.5 text-tx-3" /></Link>{index < items.length - 1 && <span aria-hidden className="ml-5 h-3 w-px bg-bd-1" />}</React.Fragment>)}</div>;
+  return <div className="divide-y divide-bd-0">{items.map(([label, to]) => <Link key={label} to={to} className="flex min-h-12 items-center justify-between px-4 text-sm font-strong text-tx-1 hover:bg-bg-2 focus-visible:bg-bg-2"><span>{label}</span><ArrowRight className="h-3.5 w-3.5 text-tx-3" /></Link>)}</div>;
 }
 
 function SectionLink({ to, label }: { to: string; label: string }) {

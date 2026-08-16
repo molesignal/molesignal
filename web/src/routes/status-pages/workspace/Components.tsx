@@ -24,6 +24,13 @@ import { toast } from '@/shell/ui/sonner';
 
 import { ComponentFormDrawer } from '../ConfigurationDrawers';
 import { COMPONENT_STATUSES, COMPONENT_TONE, componentStatusLabel } from '../model';
+import {
+  StatusPageBand,
+  StatusPageCanvas,
+  StatusPageFilterBand,
+  StatusPageListSurface,
+  statusPageFlatTableClassName,
+} from './CardlessSurface';
 import { useStatusPageWorkspace } from './Layout';
 
 export function StatusPageComponents() {
@@ -126,72 +133,77 @@ export function StatusPageComponents() {
   });
 
   return (
-    <PageBody className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1">
-          {(['active', 'archived'] as const).map((item) => (
-            <ChromeButton
-              key={item}
-              size="sm"
-              variant={lifecycle === item ? 'primary' : 'ghost'}
-              onClick={() => updateFilter('lifecycle', item === 'archived' ? 'archived' : '')}
-            >
-              {t(`lifecycle.${item}`)}
-              <span className="type-micro font-mono opacity-70">
-                {snapshot.components.filter((component) => component.lifecycle === item).length}
-              </span>
-            </ChromeButton>
-          ))}
-        </div>
-        <ChromeButton
-          variant="primary"
-          className="ml-auto"
-          disabled={!canMutate}
-          disabledReason={manageAccess.reason}
-          onClick={() => navigate(`/status-pages/${pageId}/components/new`)}
+    <PageBody className="space-y-0 pb-4 pt-2 lg:pb-6 lg:pt-2">
+      <StatusPageCanvas>
+        <StatusPageBand className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1">
+            {(['active', 'archived'] as const).map((item) => (
+              <ChromeButton
+                key={item}
+                size="sm"
+                variant={lifecycle === item ? 'primary' : 'ghost'}
+                onClick={() => updateFilter('lifecycle', item === 'archived' ? 'archived' : '')}
+              >
+                {t(`lifecycle.${item}`)}
+                <span className="type-micro font-mono opacity-70">
+                  {snapshot.components.filter((component) => component.lifecycle === item).length}
+                </span>
+              </ChromeButton>
+            ))}
+          </div>
+          <ChromeButton
+            variant="primary"
+            className="ml-auto"
+            disabled={!canMutate}
+            disabledReason={manageAccess.reason}
+            onClick={() => navigate(`/status-pages/${pageId}/components/new`)}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            {t('actions.add_component')}
+          </ChromeButton>
+        </StatusPageBand>
+
+        <StatusPageFilterBand
+          className="grid gap-2 md:grid-cols-[minmax(220px,1fr)_200px_180px]"
+          onSubmit={(event) => event.preventDefault()}
         >
-          <Plus className="h-3.5 w-3.5" />
-          {t('actions.add_component')}
-        </ChromeButton>
-      </div>
-
-      <div className="grid gap-2 rounded-lg border border-bd-0 bg-bg-1 p-3 md:grid-cols-[minmax(220px,1fr)_200px_180px]">
-        <label className="relative min-w-0">
-          <span className="sr-only">{t('filters.search_components')}</span>
-          <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-tx-3" />
-          <FormInput
-            value={search}
-            onChange={(event) => updateFilter('q', event.currentTarget.value)}
-            placeholder={t('filters.component_search_placeholder')}
-            className="pl-9"
+          <label className="relative min-w-0">
+            <span className="sr-only">{t('filters.search_components')}</span>
+            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-tx-3" />
+            <FormInput
+              value={search}
+              onChange={(event) => updateFilter('q', event.currentTarget.value)}
+              placeholder={t('filters.component_search_placeholder')}
+              className="pl-9"
+            />
+          </label>
+          <FormSelect
+            ariaLabel={t('filters.status')}
+            value={status ?? ''}
+            onChange={(value) => updateFilter('status', value)}
+            options={[
+              { value: '', label: t('filters.all_component_statuses') },
+              ...COMPONENT_STATUSES.map((item) => ({
+                value: item,
+                label: componentStatusLabel(t, item),
+              })),
+            ]}
           />
-        </label>
-        <FormSelect
-          ariaLabel={t('filters.status')}
-          value={status ?? ''}
-          onChange={(value) => updateFilter('status', value)}
-          options={[
-            { value: '', label: t('filters.all_component_statuses') },
-            ...COMPONENT_STATUSES.map((item) => ({
-              value: item,
-              label: componentStatusLabel(t, item),
-            })),
-          ]}
-        />
-        <FormSelect
-          ariaLabel={t('filters.visibility')}
-          value={visibility ?? ''}
-          onChange={(value) => updateFilter('visibility', value)}
-          options={[
-            { value: '', label: t('filters.all_visibilities') },
-            { value: 'enabled', label: t('component_visibility.enabled') },
-            { value: 'hidden', label: t('component_visibility.hidden') },
-          ]}
-        />
-      </div>
+          <FormSelect
+            ariaLabel={t('filters.visibility')}
+            value={visibility ?? ''}
+            onChange={(value) => updateFilter('visibility', value)}
+            options={[
+              { value: '', label: t('filters.all_visibilities') },
+              { value: 'enabled', label: t('component_visibility.enabled') },
+              { value: 'hidden', label: t('component_visibility.hidden') },
+            ]}
+          />
+        </StatusPageFilterBand>
 
-      <div className="overflow-hidden rounded-lg border border-bd-0 bg-bg-1">
-        <DataTable
+        <StatusPageListSurface>
+          <DataTable
+          className={statusPageFlatTableClassName}
           rows={rows}
           rowKey={(component) => component.id}
           emptyLabel={t(lifecycle === 'active' ? 'states.no_components_title' : 'states.no_archived_components')}
@@ -303,8 +315,9 @@ export function StatusPageComponents() {
               ),
             },
           ]}
-        />
-      </div>
+          />
+        </StatusPageListSurface>
+      </StatusPageCanvas>
 
       <ComponentFormDrawer
         open={creating || Boolean(editing)}

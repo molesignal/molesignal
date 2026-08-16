@@ -1,14 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  CheckCircle2,
-  CircleAlert,
-  CircleDotDashed,
-  Code2,
   Loader2,
   Play,
   Save,
-  WandSparkles,
-  XCircle,
 } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -18,37 +12,22 @@ import { ConfirmDialog } from '@/admin';
 import * as functionsApi from '@/api/functions';
 import { toApiError } from '@/lib/http';
 import { useActionAccess } from '@/product/actionAccess';
-import { ChromeButton, Pill } from '@/shell/chrome';
-import { CodeEditor } from '@/shell/codeEditor';
-import { FormField, FormInput, FormSelect } from '@/shell/FormDrawer';
-import { cn } from '@/shell/lib/cn';
-import { PageBody, PageHeader } from '@/shell/PageHeader';
+import { ChromeButton } from '@/shell/chrome';
+import { PageHeader } from '@/shell/PageHeader';
 import { QueryState, queryStateFor } from '@/shell/query/State';
 import { toast } from '@/shell/ui/sonner';
 
+import {
+  DEFAULT_VRL_SOURCE,
+  defaultFunctionSource,
+  normalizeLoadedFunctionSource,
+} from './edit/defaults';
+import {
+  FunctionWorkbench,
+  type RunState,
+  type ValidationState,
+} from './edit/Workbench';
 import { formatFunctionSource, formatSampleInput, parseSampleInput } from './workbench';
-
-const DEFAULT_VRL = `# VRL transform — receives event in \`.\`, returns the modified event.
-.environment = "production"
-.timestamp = now()`;
-
-const DEFAULT_JS = `// JS transform — receives event, returns the modified event.
-export default function transform(event) {
-  return { ...event, environment: 'production' };
-}`;
-
-type ValidationKind = 'pending' | 'checking' | 'valid' | 'invalid';
-
-interface ValidationState {
-  kind: ValidationKind;
-  message?: string;
-}
-
-type RunState =
-  | { kind: 'idle' }
-  | { kind: 'running' }
-  | { kind: 'success'; durationMs: number }
-  | { kind: 'error'; durationMs?: number; message: string };
 
 const INITIAL_VALIDATION: ValidationState = { kind: 'pending' };
 const INITIAL_RUN_STATE: RunState = { kind: 'idle' };
@@ -78,7 +57,7 @@ export function FunctionsEdit() {
 
   const [name, setName] = React.useState('');
   const [language, setLanguage] = React.useState<functionsApi.FunctionLanguage>('vrl');
-  const [source, setSource] = React.useState(DEFAULT_VRL);
+  const [source, setSource] = React.useState(DEFAULT_VRL_SOURCE);
   const [sampleInput, setSampleInput] = React.useState('{\n  "level": "info",\n  "message": "hello"\n}');
   const [sampleOutput, setSampleOutput] = React.useState('');
   const [validation, setValidation] = React.useState<ValidationState>(INITIAL_VALIDATION);
@@ -89,7 +68,7 @@ export function FunctionsEdit() {
     if (!existing.data) return;
     setName(existing.data.name);
     setLanguage(existing.data.language);
-    setSource(existing.data.source);
+    setSource(normalizeLoadedFunctionSource(existing.data.language, existing.data.source));
     setValidation(INITIAL_VALIDATION);
     setRunState(INITIAL_RUN_STATE);
     setSampleOutput('');
@@ -162,7 +141,6 @@ export function FunctionsEdit() {
     }
   }, [sampleInput, t]);
 
-  const editorLanguage = language === 'vrl' ? 'vrl' : 'javascript';
   const canRun =
     runAccess.allowed &&
     source.trim().length > 0 &&
@@ -195,7 +173,7 @@ export function FunctionsEdit() {
     const nextLanguage = next as functionsApi.FunctionLanguage;
     if (nextLanguage === language) return;
     setLanguage(nextLanguage);
-    setSource(nextLanguage === 'vrl' ? DEFAULT_VRL : DEFAULT_JS);
+    setSource(defaultFunctionSource(nextLanguage));
     resetExecution();
   }, [language, resetExecution]);
 
@@ -280,51 +258,6 @@ export function FunctionsEdit() {
         ]}
         title={isNew ? t('edit.create_title') : `${t('edit.edit_title')} · ${name}`}
         subtitle={t('edit.workspace_subtitle')}
-        toolbar={
-          <>
-            {!isNew && (
-              <ChromeButton
-                disabled={deleteAccess.disabled}
-                disabledReason={deleteAccess.reason}
-                onClick={() =>
-                  deleteAccess.allowed && setConfirmDelete(true)
-                }
-                className="border-red text-red-soft enabled:hover:bg-red-dim"
-              >
-                {t('edit.delete')}
-              </ChromeButton>
-            )}
-            <ChromeButton variant="ghost" onClick={() => navigate('/functions')}>
-              {t('edit.cancel')}
-            </ChromeButton>
-            <ChromeButton
-              onClick={runSample}
-              disabled={!canRun}
-              disabledReason={runAccess.reason}
-            >
-              {dryRun.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
-              ) : (
-                <Play className="h-4 w-4" />
-              )}
-              {dryRun.isPending ? t('edit.running') : t('edit.run_test')}
-            </ChromeButton>
-            <ChromeButton
-              variant="primary"
-              form="function-form"
-              type="submit"
-              disabled={!canSave}
-              disabledReason={writeAccess.reason}
-            >
-              {save.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
-              {save.isPending ? t('edit.saving') : t('edit.save')}
-            </ChromeButton>
-          </>
-        }
       />
       <ConfirmDialog
         open={confirmDelete}
@@ -338,270 +271,86 @@ export function FunctionsEdit() {
         disabledReason={deleteAccess.reason}
         onConfirm={() => deleteAccess.allowed && remove.mutate()}
       />
-      <PageBody className="flex flex-col p-3 sm:p-4 xl:p-5">
-        <form id="function-form" onSubmit={submit} className="flex min-h-0 flex-1 flex-col gap-3">
-          <section
-            aria-label={t('edit.definition')}
-            className="rounded-lg border border-bd-0 bg-bg-1 px-4 py-3"
-          >
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
-              <FormField label={t('edit.name_label')} required>
-                <FormInput
-                  value={name}
-                  disabled={writeAccess.disabled || save.isPending}
-                  disabledReason={writeAccess.reason}
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder={t('edit.name_placeholder')}
-                  autoComplete="off"
-                  required
-                />
-              </FormField>
-              <FormField label={t('edit.language_label')} required>
-                <FormSelect
-                  value={language}
-                  disabled={writeAccess.disabled || save.isPending}
-                  disabledReason={writeAccess.reason}
-                  onChange={handleLanguageChange}
-                  options={[
-                    { value: 'vrl', label: 'VRL' },
-                    { value: 'js', label: t('edit.languages.javascript') },
-                  ]}
-                />
-              </FormField>
-            </div>
-          </section>
-
-          <div className="grid min-h-0 flex-1 grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(0,2.1fr)_minmax(320px,1fr)]">
-            <section className="min-w-0 overflow-hidden rounded-lg border border-bd-1 bg-bg-1">
-              <div className="flex min-h-12 flex-wrap items-center gap-2 border-b border-bd-0 px-4 py-2">
-                <div className="flex min-w-0 flex-1 items-center gap-2.5">
-                  <Code2 className="h-4 w-4 shrink-0 text-indigo-soft" />
-                  <span className="truncate font-sans text-sm font-strong text-tx-0">
-                    {t('edit.source_editor')}
-                  </span>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <Pill tone={language === 'vrl' ? 'yellow' : 'blue'}>
-                    {language === 'vrl' ? 'VRL' : 'JavaScript'}
-                  </Pill>
-                  <WorkbenchStatus kind={validation.kind}>
-                    {t(`edit.validation.${validation.kind}`)}
-                  </WorkbenchStatus>
-                  <ChromeButton
-                    variant="ghost"
-                    size="sm"
-                    disabled={writeAccess.disabled}
-                    disabledReason={writeAccess.reason}
-                    onClick={formatSource}
-                  >
-                    <WandSparkles className="h-3.5 w-3.5" />
-                    {t('edit.format')}
-                  </ChromeButton>
-                </div>
-              </div>
-              <CodeEditor
-                value={source}
-                onChange={handleSourceChange}
-                readOnly={writeAccess.disabled}
-                language={editorLanguage}
-                ariaLabel={t('edit.source_label')}
-                minHeight={460}
-                maxHeight={720}
-                onModEnter={runSample}
-                onModSave={() => {
-                  if (writeAccess.allowed && canSave) save.mutate();
-                }}
-                resizable
-                showHeader={false}
-                className="rounded-none border-0 shadow-none"
-              />
-              <div
-                aria-live="polite"
-                className="flex min-h-10 flex-wrap items-center gap-2 border-t border-bd-0 bg-bg-1 px-3 py-2 font-sans text-xs text-tx-2"
+      <FunctionWorkbench
+        name={name}
+        language={language}
+        source={source}
+        sampleInput={sampleInput}
+        sampleOutput={sampleOutput}
+        validation={validation}
+        runState={runState}
+        validationMessage={validationMessage}
+        outputPlaceholder={outputPlaceholder}
+        sampleInputError={sampleInputError}
+        writeAccess={writeAccess}
+        runAccess={runAccess}
+        savePending={save.isPending}
+        runPending={dryRun.isPending}
+        canRun={canRun}
+        canSave={canSave}
+        actions={
+          <>
+            {!isNew && (
+              <ChromeButton
+                type="button"
+                disabled={deleteAccess.disabled}
+                disabledReason={deleteAccess.reason}
+                onClick={() =>
+                  deleteAccess.allowed && setConfirmDelete(true)
+                }
+                className="h-11 border-red text-red-soft enabled:hover:bg-red-dim sm:h-10"
               >
-                <StatusIcon kind={validation.kind} />
-                <span className="min-w-0 flex-1">{validationMessage}</span>
-                <div className="ml-auto hidden items-center gap-3 text-tx-3 sm:flex">
-                  <span><KeyHint>{t('edit.shortcut_run_key')}</KeyHint> {t('edit.shortcut_run')}</span>
-                  <span><KeyHint>{t('edit.shortcut_save_key')}</KeyHint> {t('edit.shortcut_save')}</span>
-                </div>
-              </div>
-            </section>
-
-            <aside
-              aria-label={t('edit.test_runner')}
-              className="min-w-0 overflow-hidden rounded-lg border border-bd-1 bg-bg-1"
+                {t('edit.delete')}
+              </ChromeButton>
+            )}
+            <ChromeButton
+              type="button"
+              variant="ghost"
+              onClick={() => navigate('/functions')}
+              className="h-11 sm:h-10"
             >
-              <div className="flex min-h-12 items-center gap-3 border-b border-bd-0 px-4 py-2">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 font-sans text-sm font-strong text-tx-0">
-                    <Play className="h-4 w-4 text-indigo-soft" />
-                    {t('edit.test_runner')}
-                  </div>
-                  <div className="mt-0.5 truncate font-sans text-xs text-tx-3">
-                    {t('edit.test_runner_hint')}
-                  </div>
-                </div>
-                <ChromeButton
-                  size="sm"
-                  onClick={runSample}
-                  disabled={!canRun}
-                  disabledReason={runAccess.reason}
-                >
-                  {dryRun.isPending ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
-                  ) : (
-                    <Play className="h-3.5 w-3.5" />
-                  )}
-                  {dryRun.isPending ? t('edit.running') : t('edit.run_sample')}
-                </ChromeButton>
-              </div>
-
-              <div className="flex min-h-9 items-center gap-2 border-b border-bd-0 bg-bg-2 px-3 py-1.5">
-                <span className="font-mono text-xs font-strong text-tx-1">
-                  {t('edit.sample_input_step')}
-                </span>
-                <span className={cn(
-                  'ml-auto inline-flex items-center gap-1.5 font-sans text-xs',
-                  sampleInputError ? 'text-red-soft' : 'text-green-soft',
-                )}>
-                  {sampleInputError ? <CircleAlert className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                  {sampleInputError ? t('edit.json_invalid') : t('edit.json_valid')}
-                </span>
-                <ChromeButton
-                  variant="ghost"
-                  size="sm"
-                  onClick={formatInput}
-                  disabled={runAccess.disabled || sampleInputError !== null}
-                  disabledReason={runAccess.reason}
-                  className="ml-1"
-                >
-                  <WandSparkles className="h-3.5 w-3.5" />
-                  {t('edit.format')}
-                </ChromeButton>
-              </div>
-              <CodeEditor
-                value={sampleInput}
-                onChange={handleSampleInputChange}
-                readOnly={runAccess.disabled}
-                language="json"
-                ariaLabel={t('edit.sample_input')}
-                minHeight={180}
-                maxHeight={280}
-                onModEnter={runSample}
-                showHeader={false}
-                showStatus={false}
-                className="rounded-none border-0 shadow-none"
-              />
-
-              <div className="flex min-h-9 items-center gap-2 border-y border-bd-0 bg-bg-2 px-3 py-1.5">
-                <span className="font-mono text-xs font-strong text-tx-1">
-                  {t('edit.sample_output_step')}
-                </span>
-                <div className="ml-auto" aria-live="polite">
-                  <RunStatus state={runState} />
-                </div>
-              </div>
-              {runState.kind === 'error' ? (
-                <div className="min-h-[220px] bg-bg-0 p-4">
-                  <div className="flex items-start gap-2 rounded-md border border-red/30 bg-red-dim p-3">
-                    <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-soft" />
-                    <div className="min-w-0">
-                      <div className="font-sans text-xs font-strong text-red-soft">
-                        {t('edit.run_failed')}
-                      </div>
-                      <pre className="mt-2 whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-tx-1">
-                        {runState.message}
-                      </pre>
-                    </div>
-                  </div>
-                </div>
+              {t('edit.cancel')}
+            </ChromeButton>
+            <ChromeButton
+              type="button"
+              onClick={runSample}
+              disabled={!canRun}
+              disabledReason={runAccess.reason}
+              className="h-11 sm:h-10"
+            >
+              {dryRun.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
               ) : (
-                <CodeEditor
-                  value={sampleOutput}
-                  language="json"
-                  ariaLabel={t('edit.sample_output')}
-                  placeholder={outputPlaceholder}
-                  readOnly
-                  minHeight={220}
-                  maxHeight={320}
-                  showHeader={false}
-                  showStatus={false}
-                  className="rounded-none border-0 shadow-none"
-                />
+                <Play className="h-4 w-4" />
               )}
-              <div className="border-t border-bd-0 px-3 py-2 font-sans text-xs leading-relaxed text-tx-3">
-                {t('edit.test_runner_footer')}
-              </div>
-            </aside>
-          </div>
-        </form>
-      </PageBody>
+              {dryRun.isPending ? t('edit.running') : t('edit.run_test')}
+            </ChromeButton>
+            <ChromeButton
+              variant="primary"
+              type="submit"
+              disabled={!canSave}
+              disabledReason={writeAccess.reason}
+              className="h-11 sm:h-10"
+            >
+              {save.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              {save.isPending ? t('edit.saving') : t('edit.save')}
+            </ChromeButton>
+          </>
+        }
+        onSubmit={submit}
+        onNameChange={setName}
+        onLanguageChange={handleLanguageChange}
+        onSourceChange={handleSourceChange}
+        onSampleInputChange={handleSampleInputChange}
+        onFormatSource={formatSource}
+        onFormatInput={formatInput}
+        onRun={runSample}
+        onSave={() => save.mutate()}
+      />
     </>
-  );
-}
-
-function WorkbenchStatus({
-  kind,
-  children,
-}: {
-  kind: ValidationKind;
-  children: React.ReactNode;
-}) {
-  return (
-    <span
-      className={cn(
-        'inline-flex h-[22px] items-center gap-1.5 whitespace-nowrap rounded-full border px-2 font-sans text-xs font-strong',
-        kind === 'valid' && 'border-green/30 bg-green-dim text-green-soft',
-        kind === 'invalid' && 'border-red/30 bg-red-dim text-red-soft',
-        kind === 'checking' && 'border-blue/30 bg-blue-dim text-blue-soft',
-        kind === 'pending' && 'border-bd-0 bg-bg-2 text-tx-3',
-      )}
-    >
-      <StatusIcon kind={kind} />
-      {children}
-    </span>
-  );
-}
-
-function StatusIcon({ kind }: { kind: ValidationKind }) {
-  if (kind === 'valid') return <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />;
-  if (kind === 'invalid') return <XCircle className="h-3.5 w-3.5 shrink-0" />;
-  if (kind === 'checking') {
-    return <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin motion-reduce:animate-none" />;
-  }
-  return <CircleDotDashed className="h-3.5 w-3.5 shrink-0" />;
-}
-
-function RunStatus({ state }: { state: RunState }) {
-  const { t } = useTranslation('functions');
-
-  if (state.kind === 'success') {
-    return (
-      <WorkbenchStatus kind="valid">
-        {t('edit.run_success', { duration: state.durationMs })}
-      </WorkbenchStatus>
-    );
-  }
-  if (state.kind === 'error') {
-    return (
-      <WorkbenchStatus kind="invalid">
-        {state.durationMs
-          ? t('edit.run_error_timed', { duration: state.durationMs })
-          : t('edit.run_error')}
-      </WorkbenchStatus>
-    );
-  }
-  if (state.kind === 'running') {
-    return <WorkbenchStatus kind="checking">{t('edit.run_running')}</WorkbenchStatus>;
-  }
-  return <WorkbenchStatus kind="pending">{t('edit.run_idle')}</WorkbenchStatus>;
-}
-
-function KeyHint({ children }: { children: React.ReactNode }) {
-  return (
-    <kbd className="rounded border border-bd-1 bg-bg-2 px-1.5 py-0.5 font-mono text-tx-2">
-      {children}
-    </kbd>
   );
 }

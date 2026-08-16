@@ -97,7 +97,7 @@ export function NotifyPoliciesPage() {
         }
         state={state}
       >
-        <div className="overflow-x-auto rounded-md border border-bd-0 bg-bg-1">
+        <div className="overflow-x-auto">
           <DataTable
             rows={rows}
             rowKey={(row) => row.id}

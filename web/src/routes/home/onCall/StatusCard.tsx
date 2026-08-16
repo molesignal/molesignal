@@ -102,6 +102,7 @@ export interface OnCallStatusCardProps {
   onArrange: () => void;
   arrangeDisabled: boolean;
   arrangeDisabledReason?: string | undefined;
+  surface?: 'card' | 'canvas';
   className?: string;
 }
 
@@ -119,6 +120,7 @@ export function OnCallStatusCard({
   onArrange,
   arrangeDisabled,
   arrangeDisabledReason,
+  surface = 'card',
   className,
 }: OnCallStatusCardProps) {
   const { t } = useTranslation('onboarding');
@@ -177,7 +179,8 @@ export function OnCallStatusCard({
     <Card
       className={cn(
         'relative flex min-h-[250px] flex-1 overflow-hidden',
-        CARD_TREATMENT[tone],
+        surface === 'card' ? CARD_TREATMENT[tone] : 'bg-bg-0',
+        surface === 'canvas' && 'home-canvas-primary-section h-full rounded-none border-0',
         className,
       )}
       bodyClassName="flex min-h-0 flex-1 flex-col"
@@ -185,6 +188,7 @@ export function OnCallStatusCard({
       <CardHeader
         className={cn(
           'relative z-10 shrink-0',
+          surface === 'canvas' && 'border-b-0',
           isGap && 'text-red-soft',
         )}
         title={
@@ -287,7 +291,13 @@ export function OnCallStatusCard({
           </div>
         </CardBody>
       ) : (
-        <CardBody className="relative z-10 flex min-h-[204px] flex-1 flex-col overflow-y-auto px-4 py-2">
+        <CardBody
+          className={cn(
+            'relative z-10 flex min-h-[204px] flex-1 flex-col overflow-y-auto px-4 py-2',
+            surface === 'canvas' &&
+              '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+          )}
+        >
           <div className="flex min-w-0 items-center gap-3">
             <UserAvatar user={currentUser} size="lg" online />
             <div className="min-w-0 flex-1">
@@ -308,7 +318,7 @@ export function OnCallStatusCard({
             </div>
           </div>
 
-          <div className="mt-2 grid grid-cols-1 gap-3 border-y border-bd-0 py-1.5 min-[430px]:grid-cols-2">
+          <div className="mt-2 grid grid-cols-1 gap-3 rounded-md bg-bg-2/30 px-3 py-2 min-[430px]:grid-cols-2">
             <div className="min-w-0">
               <div className={uiLabelClass}>
                 {isOverride
@@ -334,7 +344,7 @@ export function OnCallStatusCard({
               )}
             </div>
 
-            <div className="min-w-0 min-[430px]:border-l min-[430px]:border-bd-0 min-[430px]:pl-4">
+            <div className="min-w-0 min-[430px]:pl-2">
               <div className={uiLabelClass}>
                 {t('home.on_call.remaining_label')}
               </div>
@@ -389,28 +399,32 @@ export function OnCallStatusCard({
             </div>
           )}
 
-          <div className="mt-auto flex flex-wrap items-center justify-end gap-2 pt-2">
-            {pendingCount > 0 && (
-              <ChromeButton
-                size="sm"
-                className="h-11 sm:h-8"
-                onClick={onOpenIncidents}
-              >
-                {t('home.on_call.open_incidents')}
-              </ChromeButton>
-            )}
-            <button
-              type="button"
-              className={cn(
-                cardTextActionClass,
-                '-mr-1 h-11 sm:h-8',
+          {(pendingCount > 0 || surface === 'card') && (
+            <div className="mt-auto flex flex-wrap items-center justify-end gap-2 pt-2">
+              {pendingCount > 0 && (
+                <ChromeButton
+                  size="sm"
+                  className="h-11 sm:h-8"
+                  onClick={onOpenIncidents}
+                >
+                  {t('home.on_call.open_incidents')}
+                </ChromeButton>
               )}
-              onClick={onViewSchedule}
-            >
-              {t('home.on_call.view_schedule')}
-              <ChevronRight aria-hidden="true" className="h-3 w-3" />
-            </button>
-          </div>
+              {surface === 'card' && (
+                <button
+                  type="button"
+                  className={cn(
+                    cardTextActionClass,
+                    '-mr-1 h-11 sm:h-8',
+                  )}
+                  onClick={onViewSchedule}
+                >
+                  {t('home.on_call.view_schedule')}
+                  <ChevronRight aria-hidden="true" className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          )}
         </CardBody>
       )}
     </Card>

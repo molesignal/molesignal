@@ -28,6 +28,7 @@ pub enum PhysicalDatasetKind {
     Raw,
     TraceSummary,
     RumSessionSummary,
+    RumActionSummary,
     RumErrorSummary,
     MetricCatalog,
     MetricRollup,
@@ -39,6 +40,7 @@ impl PhysicalDatasetKind {
             Self::Raw => "raw",
             Self::TraceSummary => "trace_summary",
             Self::RumSessionSummary => "rum_session_summary",
+            Self::RumActionSummary => "rum_action_summary",
             Self::RumErrorSummary => "rum_error_summary",
             Self::MetricCatalog => "metric_catalog",
             Self::MetricRollup => "metric_rollup",
@@ -72,6 +74,7 @@ impl FromStr for PhysicalDatasetKind {
             "raw" => Ok(Self::Raw),
             "trace_summary" => Ok(Self::TraceSummary),
             "rum_session_summary" => Ok(Self::RumSessionSummary),
+            "rum_action_summary" => Ok(Self::RumActionSummary),
             "rum_error_summary" => Ok(Self::RumErrorSummary),
             "metric_catalog" => Ok(Self::MetricCatalog),
             "metric_rollup" => Ok(Self::MetricRollup),
@@ -104,11 +107,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn physical_dataset_roundtrips() {
+    fn physical_dataset_roundtrips_including_rum() {
         for kind in [
             PhysicalDatasetKind::Raw,
             PhysicalDatasetKind::TraceSummary,
             PhysicalDatasetKind::RumSessionSummary,
+            PhysicalDatasetKind::RumActionSummary,
             PhysicalDatasetKind::RumErrorSummary,
             PhysicalDatasetKind::MetricCatalog,
             PhysicalDatasetKind::MetricRollup,

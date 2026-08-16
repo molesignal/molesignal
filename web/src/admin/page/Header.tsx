@@ -17,6 +17,7 @@ interface AdminPageHeaderProps {
 export function PageHeader({ title, subtitle, actions, className }: AdminPageHeaderProps) {
   return (
     <div
+      data-admin-page-header
       className={cn(
         'flex min-h-14 items-center gap-4 border-b border-bd-0 bg-bg-1 px-5 py-3.5',
         className,

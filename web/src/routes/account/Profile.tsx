@@ -6,8 +6,9 @@ import * as meApi from '@/api/me';
 import { toApiError } from '@/lib/http';
 import { ProductState, productStateFor } from '@/product/states';
 import { AccountSection } from '@/routes/account/AccountSection';
+import { SettingsRow } from '@/routes/settings/_atoms';
 import { ChromeButton } from '@/shell/chrome';
-import { FormField, FormInput, FormTextarea } from '@/shell/FormDrawer';
+import { FormInput, FormTextarea } from '@/shell/FormDrawer';
 import { toast } from '@/shell/ui/sonner';
 import { useAuthStore } from '@/stores/auth';
 
@@ -121,7 +122,7 @@ export function AccountProfile() {
           }}
         >
           <div className="flex flex-col gap-4 pb-2 sm:flex-row sm:items-center">
-            <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border border-bd-1 bg-bg-2 font-sans text-3xl font-bold text-indigo-soft">
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-bg-2 font-sans text-2xl font-bold text-indigo-soft">
               {profile?.avatar_url ? (
                 <img
                   src={profile.avatar_url}
@@ -175,8 +176,19 @@ export function AccountProfile() {
             </div>
           </div>
 
-          <FormField label={t('account:profile.display_name')} required>
+          <SettingsRow
+            label={
+              <>
+                {t('account:profile.display_name')}
+                <span aria-hidden className="ml-1 text-red-soft">
+                  *
+                </span>
+              </>
+            }
+            controlClassName="w-full"
+          >
             <FormInput
+              aria-label={t('account:profile.display_name')}
               value={displayName}
               onChange={(event) => setDisplayName(event.target.value)}
               maxLength={255}
@@ -188,27 +200,31 @@ export function AccountProfile() {
               }
               required
             />
-          </FormField>
-          <FormField
+          </SettingsRow>
+          <SettingsRow
             label={t('account:profile.email')}
-            hint={t('account:profile.email_hint')}
+            description={t('account:profile.email_hint')}
+            controlClassName="w-full"
           >
             <FormInput
+              aria-label={t('account:profile.email')}
               type="email"
               value={profile?.email ?? ''}
               readOnly
               aria-readonly="true"
             />
-          </FormField>
-          <FormField
+          </SettingsRow>
+          <SettingsRow
             label={t('account:profile.bio')}
-            hint={t('account:profile.bio_hint')}
+            description={t('account:profile.bio_hint')}
+            controlClassName="w-full"
           >
             <FormTextarea
+              aria-label={t('account:profile.bio')}
               value={bio}
               onChange={(event) => setBio(event.target.value)}
               maxLength={500}
-              className="min-h-24"
+              className="min-h-24 w-full"
               disabled={save.isPending}
               disabledReason={
                 save.isPending
@@ -216,7 +232,7 @@ export function AccountProfile() {
                   : undefined
               }
             />
-          </FormField>
+          </SettingsRow>
           <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
             <span aria-live="polite" className="font-sans text-xs text-tx-3">
               {dirty ? t('settings-admin:preferences.unsaved') : ''}

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   appendTraceSqlFieldFilter,
   deriveTraceFields,
+  groupTraceFields,
   insertTraceClause,
   isTraceFieldQueryable,
   parseTraceStatement,
@@ -31,6 +32,50 @@ describe('trace field query model', () => {
       'error_count',
     ]);
     expect(fields.find((field) => field.name === 'span_count')?.physical).toBe(false);
+  });
+
+  it('separates OpenTelemetry core fields from resource, scope and Span attributes', () => {
+    const grouped = groupTraceFields(deriveTraceFields([
+      { name: 'trace_id', data_type: 'utf8', nullable: false, indexed: true },
+      { name: 'span_id', data_type: 'utf8', nullable: false, indexed: true },
+      { name: 'name', data_type: 'utf8', nullable: false, indexed: true },
+      { name: 'duration_ns', data_type: 'int64', nullable: false, indexed: false },
+      { name: 'status_code', data_type: 'utf8', nullable: true, indexed: true },
+      { name: 'service.name', data_type: 'utf8', nullable: true, indexed: true },
+      { name: 'host.name', data_type: 'utf8', nullable: true, indexed: false },
+      { name: 'telemetry.sdk.name', data_type: 'utf8', nullable: true, indexed: false },
+      { name: 'scope_name', data_type: 'utf8', nullable: true, indexed: false },
+      { name: 'http.request.method', data_type: 'utf8', nullable: true, indexed: false },
+      { name: 'attributes', data_type: 'json', nullable: true, indexed: false },
+      { name: 'conflict', data_type: 'bool', nullable: true, indexed: false },
+    ]));
+
+    expect(grouped.core.map((field) => field.name)).toEqual([
+      'trace_id',
+      'span_id',
+      'name',
+      'duration_ns',
+      'status_code',
+      'span_count',
+      'error_count',
+    ]);
+    expect(grouped.groups.map((group) => ({
+      group: group.group,
+      fields: group.fields.map((field) => field.name),
+    }))).toEqual([
+      {
+        group: 'resource',
+        fields: ['host.name', 'service.name', 'telemetry.sdk.name'],
+      },
+      {
+        group: 'scope',
+        fields: ['scope_name'],
+      },
+      {
+        group: 'span',
+        fields: ['attributes', 'conflict', 'http.request.method'],
+      },
+    ]);
   });
 
   it('parses typed numeric, boolean and any-Span field filters', () => {
@@ -113,7 +158,15 @@ describe('trace field query model', () => {
       stream('default', ['trace_id', 'span_id']),
       stream('otel', canonicalFields),
     ]);
+    const preferred = selectTraceStream(
+      [
+        stream('default', canonicalFields),
+        stream('checkout-traces', canonicalFields),
+      ],
+      'checkout-traces',
+    );
 
     expect(selected?.name).toBe('otel');
+    expect(preferred?.name).toBe('checkout-traces');
   });
 });

@@ -13,6 +13,7 @@ import { useActionAccess } from '@/product/actionAccess';
 import type { ProductStateProps } from '@/product/states';
 import { ListPage } from '@/product/templates';
 import { ChromeButton, IconButton, Pill } from '@/shell/chrome';
+import { cn } from '@/shell/lib/cn';
 import { toast } from '@/shell/ui/sonner';
 
 import { PageFormDrawer, type PageFormSubmission } from './ConfigurationDrawers';
@@ -119,6 +120,9 @@ export function StatusPages() {
       <ListPage
         title={t('title')}
         subtitle={t('subtitle')}
+        cardless
+        filterClassName="border-b-0"
+        stateClassName="border-0"
         toolbar={
           <ChromeButton
             variant="primary"
@@ -133,23 +137,22 @@ export function StatusPages() {
         filters={
           <div className="flex items-center gap-1">
             {(['active', 'archived'] as const).map((item) => (
-              <ChromeButton
+              <button
+                type="button"
                 key={item}
-                size="sm"
-                variant={lifecycle === item ? 'primary' : 'ghost'}
                 onClick={() => setLifecycle(item)}
+                className={cn(
+                  'inline-flex h-10 items-center border-b-2 px-3 text-xs font-strong transition-colors duration-fast',
+                  lifecycle === item
+                    ? 'border-indigo text-tx-0'
+                    : 'border-transparent text-tx-2 hover:bg-bg-2 hover:text-tx-0 focus-visible:bg-bg-2 focus-visible:text-tx-0',
+                )}
               >
                 {t(`lifecycle.${item}`)}
-              </ChromeButton>
+              </button>
             ))}
           </div>
         }
-        kpis={[
-          { label: t('kpis.pages'), value: String(pages.length) },
-          { label: t('kpis.public'), value: String(pages.filter((page) => page.visibility === 'public').length) },
-          { label: t('kpis.private'), value: String(pages.filter((page) => page.visibility === 'private').length) },
-        ]}
-        kpiLayout="inline"
         state={state}
       >
         <DataTable

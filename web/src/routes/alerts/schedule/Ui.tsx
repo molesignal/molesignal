@@ -61,23 +61,28 @@ export function ScheduleSummaryCard({
   );
 
   const className =
-    'flex min-h-[104px] w-full items-center gap-4 rounded-lg border border-bd-0 bg-bg-1 px-4 py-3 text-left';
+    'flex min-h-[96px] w-full items-center gap-4 bg-transparent px-4 py-3 text-left';
 
   if (onClick) {
     return (
       <button
+        data-schedule-summary
         type="button"
         onClick={onClick}
         className={cn(
           className,
-          'transition-colors duration-fast hover:border-bd-1 hover:bg-bg-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo',
+          'transition-colors duration-fast hover:bg-bg-2 focus-visible:bg-bg-2 focus-visible:text-tx-0',
         )}
       >
         {content}
       </button>
     );
   }
-  return <div className={className}>{content}</div>;
+  return (
+    <div data-schedule-summary className={className}>
+      {content}
+    </div>
+  );
 }
 
 export function ScheduleCard({
@@ -95,18 +100,19 @@ export function ScheduleCard({
 }) {
   return (
     <section
+      data-schedule-section
       className={cn(
-        'overflow-hidden rounded-lg border border-bd-0 bg-bg-1',
+        'min-w-0 bg-transparent',
         className,
       )}
     >
-      <header className="flex min-h-11 items-center gap-3 border-b border-bd-0 px-4">
+      <header className="flex min-h-11 items-center gap-3 border-b border-bd-0 py-2.5">
         <h2 className="type-section-title font-sans font-display text-tx-0">
           {title}
         </h2>
         {action && <div className="ml-auto">{action}</div>}
       </header>
-      <div className={cn('p-4', bodyClassName)}>{children}</div>
+      <div className={cn('pt-4', bodyClassName)}>{children}</div>
     </section>
   );
 }
@@ -139,7 +145,7 @@ export function UserAvatar({
       <Avatar
         className={cn(
           dimensions,
-          'border border-bd-0 bg-bg-2',
+          'bg-bg-2',
           muted && 'opacity-45 grayscale',
         )}
       >

@@ -155,8 +155,8 @@ export function Errors() {
       }
       state={pageState}
     >
-      <div className="border-b border-bd-0">
-        <div className="hidden min-h-10 grid-cols-[minmax(320px,1.4fr)_minmax(180px,.7fr)_120px_160px_120px_24px] items-center gap-5 border-b border-bd-0 text-xs font-strong text-tx-3 lg:grid">
+        <div>
+          <div className="hidden min-h-8 grid-cols-[minmax(320px,1.4fr)_minmax(180px,.7fr)_120px_160px_120px_24px] items-center gap-5 text-xs font-strong text-tx-3 lg:grid">
           <span>{t('errors.columns.issue')}</span>
           <span>{t('errors.columns.impact')}</span>
           <span>{t('errors.columns.trend')}</span>

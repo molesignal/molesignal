@@ -31,6 +31,15 @@ import * as chatApi from '@/api/agent/chat';
 import * as providersApi from '@/api/agent/modelProviders';
 import * as promptsApi from '@/api/agent/prompts';
 import * as meApi from '@/api/me';
+import {
+  AGENT_CONTEXT_FILTER_KEYS,
+  AGENT_TIME_PRESETS,
+  chatContextFromFilters,
+  contextStreamHints,
+  timePresetFromWindow,
+  timeRangeMicros,
+  timeWindowForPreset,
+} from '@/investigation/agentContext';
 import { toApiError } from '@/lib/http';
 import { formatMicrosActive } from '@/lib/time';
 import { ProductState } from '@/product/states';
@@ -56,6 +65,8 @@ import {
 } from '@/shell/ui/sheet';
 import { toast } from '@/shell/ui/sonner';
 import { useAuthStore } from '@/stores/auth';
+import { useFiltersStore } from '@/stores/useFiltersStore';
+import { formatWindowSummary, useTimeStore } from '@/stores/useTimeStore';
 
 import { type EvidenceRef, evidenceHref, parseStructuredAnswer } from '../answer';
 import { MarkdownMessage } from '../markdown';
@@ -97,15 +108,6 @@ import {
   sanitizeAssistantContent,
 } from '../settings/presentation';
 
-const TIME_PRESETS: Record<string, number> = {
-  '15m': 15 * 60,
-  '30m': 30 * 60,
-  '1h': 3600,
-  '6h': 6 * 3600,
-  '24h': 24 * 3600,
-  '7d': 7 * 86400,
-};
-
 const AUTO = 'auto';
 const STICKY_SCROLL_THRESHOLD_PX = 12;
 
@@ -131,12 +133,6 @@ interface ChatUserIdentity {
 
 type ToolPayloadKind = 'arguments' | 'result' | 'error';
 
-function rangeMicros(preset: string): chatApi.TimeRange {
-  const nowMs = Date.now();
-  const secs = TIME_PRESETS[preset] ?? 3600;
-  return { start_micros: (nowMs - secs * 1000) * 1000, end_micros: nowMs * 1000 };
-}
-
 function analysisModeForChatMode(mode: ChatMode): string | undefined {
   if (mode === 'quick') return 'anomaly_analysis';
   if (mode === 'deep') return 'root_cause';
@@ -154,14 +150,6 @@ function chatModeForAnalysisMode(mode: string | null | undefined): ChatMode {
   if (mode === 'root_cause') return 'deep';
   if (mode === 'query_generation') return 'query_only';
   return 'auto';
-}
-
-function contextStreamHints(context: ChatContext): string[] {
-  return [
-    context.environment && `environment:${context.environment}`,
-    context.service && `service:${context.service}`,
-    context.alert && `alert:${context.alert}`,
-  ].filter((value): value is string => Boolean(value));
 }
 
 function resizeComposer(textarea: HTMLTextAreaElement | null): void {
@@ -215,6 +203,35 @@ export function AgentChat({ embedded = false }: { embedded?: boolean } = {}) {
   const { t } = useTranslation('agent');
   const { t: tc } = useTranslation('common');
   const authCtx = useAuthStore((s) => s.ctx);
+  const globalTimeWindow = useTimeStore((state) => state.window);
+  const setGlobalTimeWindow = useTimeStore((state) => state.setWindow);
+  const globalFilters = useFiltersStore((state) => state.filters);
+  const context = React.useMemo(
+    () => chatContextFromFilters(globalFilters),
+    [globalFilters],
+  );
+  const rangePreset = timePresetFromWindow(globalTimeWindow);
+  const rangeLabel = formatWindowSummary(globalTimeWindow);
+  const setRangePreset = React.useCallback(
+    (preset: string) => {
+      const next = timeWindowForPreset(preset);
+      if (next) setGlobalTimeWindow(next);
+    },
+    [setGlobalTimeWindow],
+  );
+  const setContext = React.useCallback<
+    React.Dispatch<React.SetStateAction<ChatContext>>
+  >((update) => {
+    const store = useFiltersStore.getState();
+    const current = chatContextFromFilters(store.filters);
+    const next = typeof update === 'function' ? update(current) : update;
+    for (const field of ['environment', 'service', 'alert'] as const) {
+      for (const alias of AGENT_CONTEXT_FILTER_KEYS[field]) {
+        store.removeFilter(alias);
+      }
+      if (next[field].trim()) store.setFilter(field, next[field].trim());
+    }
+  }, []);
   const chatsQ = useQuery({
     queryKey: ['agent', 'chats'],
     queryFn: () => chatApi.listChats(),
@@ -255,15 +272,9 @@ export function AgentChat({ embedded = false }: { embedded?: boolean } = {}) {
     React.useState<chatApi.ChatCapability | null>(null);
   const [executionPolicy, setExecutionPolicy] =
     React.useState<ExecutionPolicy>('advice_only');
-  const [rangePreset, setRangePreset] = React.useState('1h');
   const [agentProfileId, setAgentProfileId] = React.useState(AUTO);
   const [providerId, setProviderId] = React.useState(AUTO);
   const [promptId, setPromptId] = React.useState(AUTO);
-  const [context, setContext] = React.useState<ChatContext>({
-    environment: '',
-    service: '',
-    alert: '',
-  });
   const [chatListWidth, setChatListWidth] = React.useState(() => {
     if (typeof window === 'undefined') return CHAT_LIST_DEFAULT_WIDTH;
     try {
@@ -576,11 +587,11 @@ export function AgentChat({ embedded = false }: { embedded?: boolean } = {}) {
     const body: chatApi.PostMessageBody = {
       content,
       regenerate_from_message_id: regenerateFromMessageId,
-      time_range: rangeMicros(rangePreset),
+      time_range: timeRangeMicros(globalTimeWindow),
       analysis_mode: analysisModeForChatMode(mode),
       capability: capability ?? undefined,
       execution_policy: executionPolicy,
-      stream_hints: contextStreamHints(context),
+      stream_hints: contextStreamHints(context, globalFilters),
       agent_profile_id: agentProfileId !== AUTO ? agentProfileId : undefined,
       provider_id: providerId !== AUTO ? providerId : undefined,
       model: selectedProvider?.default_model,
@@ -792,6 +803,7 @@ export function AgentChat({ embedded = false }: { embedded?: boolean } = {}) {
               context={context}
               onContextChange={setContext}
               rangePreset={rangePreset}
+              rangeLabel={rangeLabel}
               onRangeChange={setRangePreset}
               mode={mode}
               onModeChange={(value) => {
@@ -816,7 +828,7 @@ export function AgentChat({ embedded = false }: { embedded?: boolean } = {}) {
         </div>
       </div>
 
-      {!embedded && <SystemContext context={context} rangePreset={rangePreset} />}
+      {!embedded && <SystemContext context={context} timeLabel={rangeLabel} />}
 
       {!embedded && (
         <>
@@ -848,7 +860,7 @@ export function AgentChat({ embedded = false }: { embedded?: boolean } = {}) {
               <SystemContext
                 variant="drawer"
                 context={context}
-                rangePreset={rangePreset}
+                timeLabel={rangeLabel}
               />
             </SheetContent>
           </Sheet>
@@ -892,6 +904,7 @@ function ChatComposer({
   context,
   onContextChange,
   rangePreset,
+  rangeLabel,
   onRangeChange,
   mode,
   onModeChange,
@@ -919,6 +932,7 @@ function ChatComposer({
   context: ChatContext;
   onContextChange: React.Dispatch<React.SetStateAction<ChatContext>>;
   rangePreset: string;
+  rangeLabel: string;
   onRangeChange: (value: string) => void;
   mode: ChatMode;
   onModeChange: (value: ChatMode) => void;
@@ -1009,10 +1023,15 @@ function ChatComposer({
           value={rangePreset}
           onChange={onRangeChange}
           ariaLabel={t('controls.time')}
-          options={Object.keys(TIME_PRESETS).map((key) => ({
-            value: key,
-            label: t(`range.${key}`),
-          }))}
+          options={[
+            ...Object.keys(AGENT_TIME_PRESETS).map((key) => ({
+              value: key,
+              label: t(`range.${key}`),
+            })),
+            ...(rangePreset === 'custom'
+              ? [{ value: 'custom', label: rangeLabel }]
+              : []),
+          ]}
         />
         <ControlSelect
           value={executionPolicy}

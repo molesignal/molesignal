@@ -70,13 +70,30 @@
   },
   "history": {
     "title": "Alert history",
-    "subtitle": "Review the timeline of recovered and closed incidents.",
+    "subtitle": "Review current incident states and timelines.",
     "error_title": "Cannot load alert history",
-    "empty_title": "No recovered incidents",
-    "empty_description": "After an alert fires and recovers, its timing, duration, and incident details appear here.",
+    "empty_title": "No alert incidents",
+    "empty_description": "After an alert fires, its current state, timing, duration, and incident details appear here.",
+    "no_matches_title": "No matching incidents",
+    "no_matches_description": "Adjust the search or filters to see more results.",
+    "filters": {
+      "search_placeholder": "Search incident, service, or incident ID…",
+      "search_label": "Search alert history",
+      "severity_label": "Filter by severity",
+      "status_label": "Filter by status",
+      "all_severities": "All severities",
+      "all_statuses": "All statuses"
+    },
+    "status": {
+      "open": "Firing",
+      "acknowledged": "Acknowledged",
+      "resolved": "Recovered",
+      "closed": "Closed"
+    },
     "columns": {
       "summary": "Incident",
       "severity": "Severity",
+      "current_status": "Current status",
       "created": "Fired",
       "resolved": "Recovered",
       "duration": "Duration"
@@ -86,6 +103,15 @@
       "warning": "Warning",
       "error": "Error",
       "critical": "Critical"
+    },
+    "pagination": {
+      "page": "{{page}} / {{count}}",
+      "label": "Alert history pagination",
+      "page_size": "Rows per page",
+      "first": "First page",
+      "previous": "Previous page",
+      "next": "Next page",
+      "last": "Last page"
     }
   },
   "center": {
@@ -181,6 +207,7 @@
         "actions": "Actions"
       },
       "state": {
+        "not_evaluated": "Not evaluated",
         "healthy": "Healthy",
         "pending": "Waiting duration",
         "firing": "Firing",
@@ -320,7 +347,10 @@
       "window": "Real data · last 6 hours",
       "not_run": "Test has not run",
       "not_run_description": "Run it to see the query curve, threshold line, and estimated historical triggers.",
+      "stale": "Query changed after the last test",
+      "stale_description": "Run the test again so the preview and activation check match the current query.",
       "failed": "Query failed",
+      "query_docs": "Query documentation",
       "no_data": "Query succeeded but returned no numeric data",
       "no_data_description": "Check the time range, target stream, and returned columns.",
       "query_value": "Query result",
@@ -331,11 +361,19 @@
     },
     "validation": {
       "title": "Pre-create checks",
+      "identity": "Rule identity is complete",
       "query": "Query ran and returned numeric data",
       "thresholds": "Thresholds are valid and non-conflicting",
       "runbook": "Runbook URL format is valid",
       "ready": "Ready",
-      "pending": "Pending"
+      "pending": "Pending",
+      "blockers": {
+        "identity": "Enter a rule name before enabling.",
+        "preview_running": "Wait for the query test to finish before enabling.",
+        "preview_required": "Run Test rule successfully against the current query before enabling.",
+        "thresholds": "Resolve the threshold validation issues before enabling.",
+        "runbook": "Enter a valid Runbook URL before enabling."
+      }
     },
     "errors": {
       "load_rule": "Cannot load alert rule",
@@ -357,18 +395,30 @@
     "error_title": "Cannot load incident",
     "actions": {
       "ack": "Acknowledge",
+      "ack_unavailable": "Only open incidents can be acknowledged.",
       "ack_success": "Incident acknowledged",
       "silence": "Silence",
+      "silence_unavailable": "Only active incidents can be silenced.",
       "resolve": "Resolve",
+      "resolve_unavailable": "This incident is no longer active.",
       "resolve_success": "Incident resolved"
     },
     "incident_sections": {
       "timeline": "Timeline",
+      "investigation": "Investigate",
       "rca": "AI root cause",
       "signals": "Cross-signal handles",
       "metadata": "Metadata",
       "triggering_query": "Triggering query",
       "assignees": "Assignees"
+    },
+    "investigation": {
+      "open_trigger": "Open triggering query",
+      "open_trigger_description": "Replay the exact query in Explore.",
+      "related_logs": "Related logs",
+      "related_logs_description": "Inspect logs from the affected context.",
+      "related_metrics": "Related metrics",
+      "related_metrics_description": "Compare service health in the same window."
     },
     "rca": {
       "generate": "Generate",
@@ -402,27 +452,66 @@
   },
   "insights": {
     "title": "Alert insights",
-    "subtitle": "Aggregate view over recent incidents",
+    "subtitle": "Understand recent alerts through recovery, timing, and impact",
     "error_title": "Cannot compute insights",
     "empty_title": "No incidents yet",
-    "empty_description": "Insights summarize MTTR, noise, busiest hours, and which rules and services fire most. They populate as alerts fire and resolve.",
-    "kpis": {
-      "total": "Total incidents",
-      "mttr": "MTTR",
-      "mttr_sub": "mean across resolved",
-      "active": "Active",
-      "active_sub": "open + acknowledged",
-      "closed": "Closed",
-      "closed_sub": "resolved + closed",
-      "noise": "Noise rate",
-      "noise_sub": "resolved < 60s"
+    "empty_description": "Once incidents fire and recover, this view shows recovery, timing, severity, and their main sources.",
+    "window": {
+      "label": "Insights time range",
+      "last_24h": "Last 24 hours",
+      "last_7d": "Last 7 days",
+      "last_30d": "Last 30 days"
     },
-    "heatmap_title": "Incidents by hour of day (UTC)",
-    "top_services": "Top affected services",
-    "no_services": "No services attributed.",
-    "top_rules": "Top firing rules",
-    "no_rules": "No rules attributed.",
-    "by_severity": "By severity"
+    "summary": {
+      "active_headline": "{{active}} of {{total}} incidents still need attention",
+      "recovered_headline": "All {{total}} incidents recovered",
+      "active_description": "Prioritize incidents that remain open or acknowledged.",
+      "recovered_description": "No incidents are active; recovery is complete for the selected period.",
+      "total": "Total incidents",
+      "total_description": "Created in the selected period",
+      "mttr": "Average recovery time",
+      "mttr_description": "Across recovered incidents",
+      "status": "Incident status",
+      "status_value": "{{active}} active / {{closed}} recovered",
+      "status_description": "{{percent}} recovered",
+      "noise": "Rapid recoveries",
+      "noise_value": "{{count}} incidents",
+      "noise_description": "{{rate}} recovered within 60 seconds"
+    },
+    "hourly": {
+      "title": "Incident timeline",
+      "description": "Grouped hourly for the last 24 hours and by calendar day for longer ranges in your browser time zone ({{timezone}}).",
+      "series_name": "Incidents",
+      "peak_summary": "Peak {{count}} at {{period}} ({{timezone}})",
+      "chart_label": "Incident timeline. {{summary}}"
+    },
+    "severity_breakdown": {
+      "title": "Severity mix",
+      "description": "Highest severity recorded when each incident fired."
+    },
+    "services": {
+      "title": "Most affected services",
+      "description": "Services most frequently attributed to these incidents.",
+      "empty_title": "No service attribution",
+      "empty_description": "These incidents contain no service information. Add a service label to alert rules to identify the most affected services here."
+    },
+    "rules": {
+      "title": "Top firing rules",
+      "description": "Ranked by incidents created in the selected period.",
+      "empty_title": "No rule attribution",
+      "empty_description": "These incidents have no identifiable rule source.",
+      "unknown_rule": "Deleted or unavailable rule"
+    },
+    "rankings": {
+      "count_and_share": "{{count}} incidents · {{percent}}"
+    },
+    "duration": {
+      "seconds": "{{count}}s",
+      "minutes": "{{count}}m",
+      "minutes_seconds": "{{minutes}}m {{seconds}}s",
+      "hours": "{{count}}h",
+      "hours_minutes": "{{hours}}h {{minutes}}m"
+    }
   },
   "anomaly": {
     "new_title": "New anomaly rule",

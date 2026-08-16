@@ -6,7 +6,7 @@
 //! Wire 层始终注入此结构：
 //! - `feature = "js-runtime"` 关 → `js = None`，所有 `language = Js` 的 row
 //!   被拒（`IntakeError { reason: "javascript runtime disabled" }`）。
-//! - `feature = "js-runtime"` 开 + `[functions].js_runtime_enabled = true` →
+//! - `feature = "js-runtime"` 开（主二进制默认）→
 //!   `js = Some(JsFunctionExecutor)`，分发到 V8 isolate。
 //! - `[functions].llm_eval_enabled = true` → `llm = Some(...)`（bootstrap 注入，含
 //!   agent provider），`language = Llm` 的 row 调模型评估；否则被拒。

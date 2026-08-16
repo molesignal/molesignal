@@ -139,7 +139,7 @@ zstd.workspace = true
 query-language = { path = "../../crates/engines/query-language" }
 
 [features]
-default = ["jemalloc", "profiling-pprof", "ws"]
+default = ["jemalloc", "profiling-pprof", "ws", "js-runtime"]
 ws = ["axum/ws"]
 enterprise = []
 jemalloc = ["dep:tikv-jemallocator", "dep:tikv-jemalloc-ctl"]

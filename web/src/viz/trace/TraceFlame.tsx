@@ -24,8 +24,8 @@ import { Badge } from '@/shell/ui/badge';
 import { Button } from '@/shell/ui/button';
 import { Input } from '@/shell/ui/input';
 import { useFiltersStore } from '@/stores/useFiltersStore';
+import { colorKeyForService } from '@/viz/serviceColors';
 import { useThemePalette } from '@/viz/timeseries/themeAdapter';
-import { colorKeyForService } from '@/viz/trace/colors';
 import { formatTraceDurationNs } from '@/viz/trace/duration';
 import { TraceOperationName } from '@/viz/trace/TraceOperationName';
 
@@ -451,14 +451,7 @@ function JaegerTraceView({
                         <div
                           role="img"
                           aria-label={`${node.span.operation}, ${node.span.service}, ${t('explore.table.duration')} ${durationLabel}`}
-                          className={cn(
-                            // Span outline uses the overlay-soft token so it
-                            // tracks the theme palette instead of forcing a
-                            // dark-ish edge on a light canvas.
-                            'absolute top-1/2 h-5 -translate-y-1/2 cursor-pointer rounded-sm border border-overlay-soft transition-[filter] hover:brightness-110',
-                            node.span.status === 'ERROR' && 'ring-1 ring-red',
-                            match && 'ring-2 ring-blue-soft',
-                          )}
+                          className="absolute top-1/2 h-5 -translate-y-1/2 cursor-pointer rounded-sm transition-[filter] hover:brightness-110"
                           data-testid="trace-span-bar"
                           style={{ left: `${left}%`, width: `${width}%`, backgroundColor: color }}
                         />

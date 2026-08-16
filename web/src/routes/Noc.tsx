@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, Eye, EyeOff, Maximize2, Minimize2, RotateCcw, Settings } from 'lucide-react';
+import { ArrowLeft, Settings } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -7,18 +7,25 @@ import { useNavigate } from 'react-router-dom';
 import * as dashboardsApi from '@/api/dashboards';
 import * as incidentsApi from '@/api/incidents';
 import * as webApi from '@/api/web';
-import { Dot, Pill, uiLabelClass, uiLabelStrongClass, uiTableHeaderClass } from '@/shell/chrome';
+import { Dot, Pill, uiLabelClass, uiTableHeaderClass } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
 import { LogoMark } from '@/shell/LogoMark';
 import { NocKpi, NocPanel } from '@/shell/NocPanel';
 import { QueryState, queryStateFor } from '@/shell/query/State';
 import { ServiceMap, type ServiceEdge, type ServiceNode } from '@/shell/svgCharts';
+import { UnsupportedScreen } from '@/shell/UnsupportedScreen';
+import {
+  DESKTOP_MIN_WIDTH,
+  useViewportWidth,
+} from '@/shell/useViewportWidth';
 import { getFullscreenDashboard } from '@/shell/wallboard';
 import { useAuthStore } from '@/stores/auth';
 import { useNocLayoutStore, type NocPanelId } from '@/stores/useNocLayoutStore';
 import type { Incident } from '@/types/alerting';
-import type { Dashboard } from '@/types/dashboard';
 import { SeverityRail } from '@/viz/SeverityRail';
+
+import { DashboardWallboard } from './noc/DashboardWallboard';
+import { NocEditBar } from './noc/EditBar';
 
 // Phase 4 status color logic: the hex constants below migrate from the
 // legacy Terminal hex set to values that match the new default palette;
@@ -52,6 +59,7 @@ export function Noc() {
   const { t } = useTranslation('shell');
   const nav = useNavigate();
   const orgId = useAuthStore((s) => s.ctx?.org_id ?? '');
+  const viewportWidth = useViewportWidth();
   const [now, setNow] = React.useState(new Date());
   const [fullscreenDashboard, setFullscreenDashboardState] = React.useState(() => getFullscreenDashboard(orgId));
   const [editing, setEditing] = React.useState(false);
@@ -212,12 +220,25 @@ export function Noc() {
     data: activeIncidents,
   });
 
+  if (viewportWidth < DESKTOP_MIN_WIDTH) {
+    return (
+      <div data-theme="dark" data-palette="default" data-mode="noc">
+        <UnsupportedScreen width={viewportWidth} />
+      </div>
+    );
+  }
+
   if (fullscreenDashboard?.dashboardId && dashboardQuery.data) {
     return <DashboardWallboard dashboard={dashboardQuery.data} now={now} onReturn={returnToConsole} />;
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col bg-bg-0 p-6">
+    <div
+      className="fixed inset-0 z-[100] flex flex-col bg-bg-0 p-6"
+      data-theme="dark"
+      data-palette="default"
+      data-mode="noc"
+    >
       <div className="flex items-center gap-3 border-b border-bd-0 pb-3">
         <LogoMark size={32} />
         <div>
@@ -231,7 +252,7 @@ export function Noc() {
             aria-label={t('pages.noc.edit.configure')}
             title={t('pages.noc.edit.configure')}
             className={cn(
-              'grid h-8 w-8 place-items-center rounded-md border text-tx-2 hover:text-tx-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo',
+              'grid h-8 w-8 place-items-center rounded-md border text-tx-2 hover:text-tx-0 focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none',
               editing ? 'border-indigo bg-indigo-dim text-indigo-soft' : 'border-bd-1 bg-bg-2 hover:bg-bg-3',
             )}
           >
@@ -418,7 +439,7 @@ export function Noc() {
           <button
             type="button"
             onClick={returnToConsole}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-bd-1 bg-transparent px-2.5 text-tx-1 transition-colors hover:bg-bg-2 hover:text-tx-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo"
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-bd-1 bg-transparent px-2.5 text-tx-1 transition-colors hover:bg-bg-2 hover:text-tx-0 focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             {t('pages.noc.return_console')}
@@ -457,225 +478,4 @@ function TrafficBreakdown({
       ))}
     </div>
   );
-}
-
-function NocEditBar({ onDone }: { onDone: () => void }) {
-  const { t } = useTranslation('shell');
-  const panels = useNocLayoutStore((s) => s.panels);
-  const move = useNocLayoutStore((s) => s.move);
-  const toggleVisible = useNocLayoutStore((s) => s.toggleVisible);
-  const cycleSpan = useNocLayoutStore((s) => s.cycleSpan);
-  const applyPreset = useNocLayoutStore((s) => s.applyPreset);
-  const reset = useNocLayoutStore((s) => s.reset);
-
-  return (
-    <div className="mb-1 flex flex-wrap items-center gap-2 rounded-lg border border-bd-1 bg-bg-1 px-3 py-2 font-sans text-xs">
-      <span className="font-strong uppercase tracking-normal text-tx-3">{t('pages.noc.edit.presets')}</span>
-      {(['platform', 'sre', 'executive'] as const).map((preset) => (
-        <button
-          key={preset}
-          type="button"
-          onClick={() => applyPreset(preset)}
-          className="rounded border border-bd-1 bg-bg-2 px-2 py-1 font-strong text-tx-1 hover:bg-bg-3 hover:text-tx-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo"
-        >
-          {t(`pages.noc.edit.preset_${preset}`)}
-        </button>
-      ))}
-      <span className="mx-1 h-4 w-px bg-bd-1" />
-      {panels.map((p, i) => (
-        <div key={p.id} className="flex items-center gap-1 rounded border border-bd-0 bg-bg-2 px-1.5 py-1">
-          <span className={cn('mr-1 font-strong', p.visible ? 'text-tx-1' : 'text-tx-3 line-through')}>
-            {t(`pages.noc.panel_names.${p.id}`)}
-          </span>
-          <NocEditBtn onClick={() => move(p.id, -1)} disabled={i === 0} label={t('pages.noc.edit.move_left')}>
-            <ArrowLeft className="h-3 w-3" />
-          </NocEditBtn>
-          <NocEditBtn onClick={() => move(p.id, 1)} disabled={i === panels.length - 1} label={t('pages.noc.edit.move_right')}>
-            <ArrowRight className="h-3 w-3" />
-          </NocEditBtn>
-          <NocEditBtn onClick={() => cycleSpan(p.id)} label={t('pages.noc.edit.wide')}>
-            {p.span === 4 ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
-          </NocEditBtn>
-          <NocEditBtn onClick={() => toggleVisible(p.id)} label={t('pages.noc.edit.show_hide')}>
-            {p.visible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
-          </NocEditBtn>
-        </div>
-      ))}
-      <div className="ml-auto flex items-center gap-2">
-        <button
-          type="button"
-          onClick={reset}
-          className="inline-flex items-center gap-1 rounded px-2 py-1 font-strong text-tx-2 hover:bg-bg-3 hover:text-tx-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo"
-        >
-          <RotateCcw className="h-3 w-3" /> {t('pages.noc.edit.reset')}
-        </button>
-        <button
-          type="button"
-          onClick={onDone}
-          className="rounded bg-indigo px-2.5 py-1 font-bold text-white hover:bg-indigo-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo focus-visible:ring-offset-2 focus-visible:ring-offset-bg-0"
-        >
-          {t('pages.noc.edit.done')}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function NocEditBtn({
-  children,
-  onClick,
-  disabled,
-  label,
-}: {
-  children: React.ReactNode;
-  onClick: () => void;
-  disabled?: boolean;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={label}
-      title={label}
-      className="grid h-5 w-5 place-items-center rounded text-tx-2 hover:bg-bg-3 hover:text-tx-0 disabled:opacity-30 disabled:hover:bg-transparent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-indigo"
-    >
-      {children}
-    </button>
-  );
-}
-
-function DashboardWallboard({
-  dashboard,
-  now,
-  onReturn,
-}: {
-  dashboard: Dashboard;
-  now: Date;
-  onReturn: () => void;
-}) {
-  const { t } = useTranslation('shell');
-  const panels = dashboardPanels(dashboard);
-  const time = now.toLocaleTimeString('en-US', { hour12: false });
-  const date = now.toLocaleDateString('en-CA');
-
-  return (
-    <div className="fixed inset-0 z-[100] flex flex-col bg-bg-0 p-6">
-      <div className="flex items-center gap-3 border-b border-bd-0 pb-3">
-        <LogoMark size={32} />
-        <div className="min-w-0">
-          <div className={uiLabelClass}>{t('pages.noc.dashboard_wallboard.title')}</div>
-          <div className="truncate font-sans text-base font-strong text-tx-0">
-            {dashboard.title} {t('pages.noc.dashboard_wallboard.subtitle_suffix')}
-          </div>
-        </div>
-        <div className="ml-auto flex items-center gap-8">
-          <div>
-            <div className={'text-right ' + uiLabelClass}>{date}</div>
-            <div className="flex items-baseline">
-              <span className="font-sans text-[56px] font-display-strong leading-none tracking-tight text-tx-0">{time}</span>
-              <span className="ml-2 font-sans text-xs text-tx-3">{t('pages.noc.utc_label')}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="my-3 grid flex-1 grid-cols-4 auto-rows-fr gap-3 overflow-hidden">
-        {panels.length > 0 ? panels.slice(0, 12).map((panel, index) => (
-          <DashboardWallboardPanel key={panel.id} panel={panel} index={index} />
-        )) : (
-          <div className="col-span-4 grid place-items-center rounded-lg border border-dashed border-bd-1 bg-bg-1 font-sans text-sm text-tx-2">
-            {t('pages.noc.dashboard_wallboard.no_panels')}
-          </div>
-        )}
-      </div>
-
-      <div className="flex items-center gap-3 overflow-hidden border-t border-bd-0 pt-2 font-sans text-xs font-semibold tracking-normal text-tx-2">
-        <span>{t('pages.noc.dashboard_wallboard.panels_count', { count: panels.length })}</span>
-        <span className="text-tx-3">·</span>
-        <span>{t('pages.noc.dashboard_wallboard.version', { version: dashboard.version })}</span>
-        <span className="text-tx-3">·</span>
-        <span>{dashboard.uid}</span>
-        <span className="ml-auto flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onReturn}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-bd-1 bg-transparent px-2.5 text-tx-1 transition-colors hover:bg-bg-2 hover:text-tx-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            {t('pages.noc.return_console')}
-          </button>
-          <span className="text-tx-3">{t('pages.noc.esc_to_exit')}</span>
-          <span className="flex items-center gap-1"><Dot tone="green" /> {t('pages.noc.status_bar.live')}</span>
-        </span>
-      </div>
-    </div>
-  );
-}
-
-interface WallboardPanel {
-  id: string;
-  title: string;
-  type: string;
-  query: string;
-  span: number;
-}
-
-function dashboardPanels(dashboard: Dashboard): WallboardPanel[] {
-  const rawPanels = Array.isArray((dashboard.model as { panels?: unknown[] }).panels)
-    ? (dashboard.model as { panels: unknown[] }).panels
-    : [];
-  return rawPanels.map((raw, index) => {
-    const panel = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
-    const grid = (panel.gridPos && typeof panel.gridPos === 'object' ? panel.gridPos : {}) as Record<string, unknown>;
-    const targets = Array.isArray(panel.targets) ? panel.targets : [];
-    const firstTarget = (targets[0] && typeof targets[0] === 'object' ? targets[0] : {}) as Record<string, unknown>;
-    const query = firstString(firstTarget.expr, firstTarget.rawSql, firstTarget.query, firstTarget.target) ?? 'Query adapter pending';
-    const width = typeof grid.w === 'number' ? grid.w : 8;
-    return {
-      id: firstString(panel.id) ?? 'panel-' + index,
-      title: firstString(panel.title) ?? 'Panel ' + (index + 1),
-      type: firstString(panel.type, panel.pluginId) ?? 'panel',
-      query,
-      span: Math.max(1, Math.min(4, Math.round(width / 6))),
-    };
-  });
-}
-
-function DashboardWallboardPanel({ panel, index }: { panel: WallboardPanel; index: number }) {
-  const { t } = useTranslation('shell');
-  return (
-    <div
-      className="flex min-h-[190px] flex-col overflow-hidden rounded-lg border border-bd-1 bg-bg-1"
-      style={{ gridColumn: 'span ' + panel.span }}
-    >
-      <div className="flex items-center gap-2 border-b border-bd-0 px-3 py-2">
-        <span className={uiLabelStrongClass}>{panel.title}</span>
-        <Pill className="ml-auto">{panel.type}</Pill>
-      </div>
-      <div className="flex flex-1 flex-col justify-between gap-3 p-4">
-        <div className="grid flex-1 place-items-center rounded-md border border-dashed border-bd-0 bg-bg-2 text-center font-sans text-xs text-tx-2">
-          <div>
-            <div className="font-semibold text-tx-1">
-              {t('pages.noc.dashboard_wallboard.panel_index', { index: String(index + 1).padStart(2, '0') })}
-            </div>
-            <div className="mt-1 max-w-[360px] truncate text-tx-3">{panel.query}</div>
-          </div>
-        </div>
-        <div className="flex items-center justify-between font-sans text-xs font-semibold tracking-normal text-tx-2">
-          <span>{t('pages.noc.dashboard_wallboard.render_pending')}</span>
-          <span>{t('pages.noc.dashboard_wallboard.live')}</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function firstString(...values: unknown[]): string | undefined {
-  for (const value of values) {
-    if (typeof value === 'string' && value.trim().length > 0) return value;
-    if (typeof value === 'number') return String(value);
-  }
-  return undefined;
 }

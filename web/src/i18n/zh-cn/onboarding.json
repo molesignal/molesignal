@@ -7,6 +7,9 @@
     "progress_short": "{{completed}}/{{total}}",
     "ready": "核心工作流已激活",
     "empty": "完成前三步即可让该组织进入可运营状态。",
+    "remaining_single": "还有 1 个设置步骤",
+    "remaining_multiple": "还有 {{count}} 个设置步骤",
+    "complete_action": "完成设置",
     "open": "打开",
     "steps": {
       "datasource": {
@@ -65,7 +68,7 @@
     },
     "kpis": {
       "label": "系统关键指标",
-      "intake_status": "数据接入状态",
+      "intake_status": "数据流健康状态",
       "last_received": "最后接收：{{when}}",
       "active_alerts": "当前告警",
       "alert_detail": "{{firing}} 个触发中 · {{acknowledged}} 个已确认",
@@ -76,9 +79,10 @@
       "compression_saved": "较原始体积减少 {{percent}}%",
       "compression_overhead": "小批量存储开销 +{{percent}}%",
       "attention_streams": "需关注数据流",
-      "attention_detail": "共 {{total}} 个可观测数据流",
-      "active_sources": "活跃数据源",
-      "probe_detail": "{{succeeded}} / {{total}} 个元数据探测成功"
+      "attention_detail": "共 {{total}} 个可观测数据流 · 数据截至{{asOf}}",
+      "active_sources": "正常接收",
+      "probe_detail": "{{succeeded}} / {{total}} 个元数据探测成功",
+      "receiving_detail": "{{inactive}} 个空闲或未使用 · 数据截至{{asOf}}"
     },
     "health": {
       "title": "系统健康概览",
@@ -91,13 +95,6 @@
         "stored": "压缩存储",
         "events": "事件数"
       }
-    },
-    "resources": {
-      "title": "资源",
-      "functions": "函数",
-      "alerts": "告警",
-      "pipelines": "流水线",
-      "dashboards": "仪表盘"
     },
     "streams": {
       "title": "重点数据流",
@@ -162,10 +159,14 @@
       "view_schedule": "查看排班"
     },
     "dashboards": {
-      "title": "常用仪表盘",
+      "title": "最近仪表盘",
       "empty_title": "还没有仪表盘",
       "empty_description": "创建一个仪表盘，固定团队最常查看的运营视图。",
-      "panel_count": "{{count}} 个面板"
+      "empty_with_dashboards_title": "还没有包含面板的仪表盘",
+      "empty_with_dashboards_description": "为最近更新的仪表盘添加面板，让它成为可用的运营视图。",
+      "add_panels": "添加面板",
+      "panel_count": "{{count}} 个面板",
+      "updated": "{{when}}更新"
     }
   },
   "datasource": {

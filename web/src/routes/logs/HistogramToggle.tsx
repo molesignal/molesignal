@@ -25,7 +25,7 @@ export function HistogramToggle({
         <TooltipTrigger asChild>
           <QueryToolbarButton
             active={visible}
-            tone="blue"
+            tone="indigo"
             aria-label={label}
             aria-pressed={visible}
             onClick={() => onVisibleChange(!visible)}

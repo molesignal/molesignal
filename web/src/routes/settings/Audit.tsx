@@ -7,13 +7,19 @@ import * as auditApi from '@/api/audit';
 import * as usersApi from '@/api/users';
 import { type ApiError, toApiError } from '@/lib/http';
 import { ProductState } from '@/product/states';
-import { MarkdownMessage } from '@/routes/agent/markdown';
 import { ChromeButton } from '@/shell/chrome';
 import { CopyIconButton } from '@/shell/CopyIconButton';
+import { CursorPagination } from '@/shell/CursorPagination';
 import { FormDrawer, FormField, FormInput, FormSelect } from '@/shell/FormDrawer';
-import { cn } from '@/shell/lib/cn';
 
 import { SectionBody } from './_atoms';
+import { AuditChatTranscript } from './audit/AuditChatTranscript';
+import {
+  auditTargetName,
+  rawAuditTarget,
+  resourceNameKey,
+  useAuditResourceNames,
+} from './audit/useAuditResourceNames';
 import { formatMicros } from '../rum/_helpers';
 
 interface Filters {
@@ -36,7 +42,8 @@ const EMPTY: Filters = {
   target_id: '',
 };
 
-const PAGE_SIZE = 50;
+const DEFAULT_PAGE_SIZE = 20;
+const PAGE_SIZE_OPTIONS = [20, 50, 100];
 // Radix Select 不接受空字符串 value，用哨兵代表「全部用户」，提交时映射回空。
 const ALL_ACTORS = '__all__';
 
@@ -58,6 +65,11 @@ export function Audit() {
   const [draft, setDraft] = React.useState<Filters>(EMPTY);
   const [applied, setApplied] = React.useState<Filters>(EMPTY);
   const [items, setItems] = React.useState<auditApi.AuditEvent[]>([]);
+  const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE);
+  const [cursor, setCursor] = React.useState<string | undefined>();
+  const [previousCursors, setPreviousCursors] = React.useState<
+    Array<string | undefined>
+  >([]);
   const [nextCursor, setNextCursor] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<ApiError | null>(null);
@@ -73,18 +85,24 @@ export function Audit() {
     retry: false,
   });
   const usersQ = useQuery({ queryKey: ['audit-actors'], queryFn: () => usersApi.list() });
+  const usersById = React.useMemo(
+    () => new Map((usersQ.data ?? []).map((user) => [user.id, user])),
+    [usersQ.data],
+  );
+  const resourceNames = useAuditResourceNames(items);
 
   const run = React.useCallback(
-    async (f: Filters, cursor: string | undefined, append: boolean) => {
+    async (f: Filters, pageCursor: string | undefined, limit: number) => {
       setLoading(true);
       try {
-        const page = await auditApi.query({ ...toParams(f), cursor, limit: PAGE_SIZE });
-        setItems((prev) => (append ? [...prev, ...page.items] : page.items));
+        const page = await auditApi.query({ ...toParams(f), cursor: pageCursor, limit });
+        setItems(page.items);
         setNextCursor(page.next_cursor);
         setError(null);
       } catch (e) {
         setError(toApiError(e));
-        if (!append) setItems([]);
+        setItems([]);
+        setNextCursor(null);
       } finally {
         setLoading(false);
       }
@@ -93,8 +111,8 @@ export function Audit() {
   );
 
   React.useEffect(() => {
-    void run(applied, undefined, false);
-  }, [applied, run]);
+    void run(applied, cursor, pageSize);
+  }, [applied, cursor, pageSize, run]);
 
   const update = (k: keyof Filters) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setDraft((d) => ({ ...d, [k]: e.target.value }));
@@ -110,6 +128,8 @@ export function Audit() {
           className="mb-3 grid grid-cols-2 gap-2 md:grid-cols-4"
           onSubmit={(e) => {
             e.preventDefault();
+            setCursor(undefined);
+            setPreviousCursors([]);
             setApplied({ ...draft });
           }}
         >
@@ -161,6 +181,8 @@ export function Audit() {
               onClick={() => {
                 setDraft(EMPTY);
                 setApplied(EMPTY);
+                setCursor(undefined);
+                setPreviousCursors([]);
               }}
             >
               {t('audit.filters.reset')}
@@ -192,15 +214,14 @@ export function Audit() {
                 {
                   key: 'actor',
                   header: t('audit.columns.actor'),
-                  cell: (r) => `${r.actor_kind}:${r.actor_id}`,
+                  cell: (r) => auditActorName(r, usersById, resourceNames),
                   width: 200,
                 },
                 { key: 'action', header: t('audit.columns.action'), cell: (r) => r.action },
                 {
                   key: 'target',
                   header: t('audit.columns.target'),
-                  cell: (r) =>
-                    r.target_kind ? `${r.target_kind}${r.target_id ? `/${r.target_id}` : ''}` : '—',
+                  cell: (r) => auditTargetName(r, resourceNames),
                 },
                 {
                   key: 'status',
@@ -210,17 +231,35 @@ export function Audit() {
                 },
               ]}
             />
-            {nextCursor && (
-              <div className="mt-3 flex justify-center">
-                <ChromeButton
-                  type="button"
-                  disabled={loading}
-                  onClick={() => void run(applied, nextCursor, true)}
-                >
-                  {t('audit.load_more')}
-                </ChromeButton>
-              </div>
-            )}
+            <CursorPagination
+              pageSize={pageSize}
+              pageSizeOptions={PAGE_SIZE_OPTIONS}
+              hasPrevious={previousCursors.length > 0}
+              hasNext={Boolean(nextCursor)}
+              pending={loading}
+              ariaLabel={t('audit.pagination.aria')}
+              pageSizeAriaLabel={t('audit.pagination.page_size')}
+              previousLabel={t('audit.pagination.previous')}
+              nextLabel={t('audit.pagination.next')}
+              onPrevious={() => {
+                const previous = previousCursors[previousCursors.length - 1];
+                setPreviousCursors((value) => value.slice(0, -1));
+                setCursor(previous);
+                setSelected(null);
+              }}
+              onNext={() => {
+                if (!nextCursor) return;
+                setPreviousCursors((value) => [...value, cursor]);
+                setCursor(nextCursor);
+                setSelected(null);
+              }}
+              onPageSizeChange={(value) => {
+                setPageSize(value);
+                setCursor(undefined);
+                setPreviousCursors([]);
+                setSelected(null);
+              }}
+            />
           </>
         )}
       </SectionBody>
@@ -251,14 +290,24 @@ export function Audit() {
               <dt className="text-tx-3">{t('audit.columns.ts')}</dt>
               <dd className="text-tx-0">{formatMicros(selected.ts_micros)}</dd>
               <dt className="text-tx-3">{t('audit.columns.actor')}</dt>
-              <dd className="text-tx-0">{`${selected.actor_kind}:${selected.actor_id}`}</dd>
+              <dd className="min-w-0 text-tx-0">
+                <div>{auditActorName(selected, usersById, resourceNames)}</div>
+                {auditActorName(selected, usersById, resourceNames) !== rawAuditActor(selected) && (
+                  <div className="truncate font-mono text-[11px] text-tx-3">
+                    {rawAuditActor(selected)}
+                  </div>
+                )}
+              </dd>
               <dt className="text-tx-3">{t('audit.columns.action')}</dt>
               <dd className="text-tx-0">{selected.action}</dd>
               <dt className="text-tx-3">{t('audit.columns.target')}</dt>
-              <dd className="text-tx-0">
-                {selected.target_kind
-                  ? `${selected.target_kind}${selected.target_id ? `/${selected.target_id}` : ''}`
-                  : '—'}
+              <dd className="min-w-0 text-tx-0">
+                <div>{auditTargetName(selected, resourceNames)}</div>
+                {auditTargetName(selected, resourceNames) !== rawAuditTarget(selected) && (
+                  <div className="truncate font-mono text-[11px] text-tx-3">
+                    {rawAuditTarget(selected)}
+                  </div>
+                )}
               </dd>
             </dl>
             {selectedChatId && (
@@ -279,6 +328,25 @@ export function Audit() {
   );
 }
 
+function auditActorName(
+  event: auditApi.AuditEvent,
+  users: ReadonlyMap<string, usersApi.UserView>,
+  resourceNames: ReadonlyMap<string, string>,
+): string {
+  if (event.actor_kind === 'user') {
+    const user = users.get(event.actor_id);
+    return user?.display_name.trim() || user?.email || rawAuditActor(event);
+  }
+  return (
+    resourceNames.get(resourceNameKey(event.actor_kind, event.actor_id)) ??
+    rawAuditActor(event)
+  );
+}
+
+function rawAuditActor(event: auditApi.AuditEvent): string {
+  return `${event.actor_kind}:${event.actor_id}`;
+}
+
 function auditChatId(event: auditApi.AuditEvent): string | null {
   if (event.target_kind === 'agent_chat' && event.target_id) return event.target_id;
   const payload = recordOf(event.payload);
@@ -296,142 +364,4 @@ function recordOf(value: unknown): Record<string, unknown> {
 
 function stringValue(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value : null;
-}
-
-function AuditChatTranscript({
-  transcript,
-  loading,
-  error,
-  t,
-}: {
-  transcript: auditApi.AuditChatTranscript | undefined;
-  loading: boolean;
-  error: ApiError | null;
-  t: (k: string) => string;
-}) {
-  return (
-    <section className="rounded-md border border-bd-0 bg-bg-1">
-      <div className="flex items-center justify-between border-b border-bd-0 px-3 py-2">
-        <div>
-          <div className="font-sans text-xs font-display-strong text-tx-0">
-            {t('audit.chat.title')}
-          </div>
-          {transcript && (
-            <div className="mt-0.5 font-sans text-xs text-tx-3">
-              {transcript.chat.provider} · {transcript.chat.model}
-            </div>
-          )}
-        </div>
-        {transcript?.chat.deleted_at_micros && (
-          <span className="rounded border border-bd-0 bg-bg-2 px-2 py-0.5 font-sans text-xs text-tx-3">
-            {t('audit.chat.deleted')}
-          </span>
-        )}
-      </div>
-
-      {loading ? (
-        <div className="p-3 font-sans text-xs text-tx-2">{t('audit.chat.loading')}</div>
-      ) : error ? (
-        <div className="p-3 font-sans text-xs text-red-soft">
-          {t('audit.chat.load_failed')}: {error.message}
-        </div>
-      ) : transcript ? (
-        <div className="space-y-3 p-3">
-          <dl className="grid grid-cols-[120px_minmax(0,1fr)_120px_minmax(0,1fr)] gap-x-3 gap-y-1 font-sans text-xs">
-            <dt className="text-tx-3">{t('audit.chat.chat')}</dt>
-            <dd className="truncate text-tx-0">{transcript.chat.id}</dd>
-            <dt className="text-tx-3">{t('audit.chat.updated')}</dt>
-            <dd className="text-tx-0">{formatMicros(transcript.chat.updated_at_micros)}</dd>
-            <dt className="text-tx-3">{t('audit.chat.mode')}</dt>
-            <dd className="text-tx-0">{transcript.chat.analysis_mode ?? '—'}</dd>
-            <dt className="text-tx-3">{t('audit.chat.archive')}</dt>
-            <dd className="truncate text-tx-0">{transcript.chat.archive_object_key ?? '—'}</dd>
-          </dl>
-
-          {transcript.messages.length === 0 ? (
-            <div className="rounded-md border border-bd-0 bg-bg-2 p-3 font-sans text-xs text-tx-2">
-              {t('audit.chat.empty')}
-            </div>
-          ) : (
-            <div className="max-h-[44vh] space-y-2 overflow-auto pr-1">
-              {transcript.messages.map((message) => (
-                <TranscriptMessage key={message.id} message={message} t={t} />
-              ))}
-            </div>
-          )}
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
-function TranscriptMessage({
-  message,
-  t,
-}: {
-  message: auditApi.AuditChatTranscript['messages'][number];
-  t: (k: string) => string;
-}) {
-  const isUser = message.role === 'user';
-  const role = roleLabel(message.role, t);
-  const evidence = message.evidence_json;
-  const hasMetadata =
-    evidence ||
-    message.prompt_template_id ||
-    message.prompt_builtin_key ||
-    message.prompt_hash ||
-    message.prompt_tokens ||
-    message.completion_tokens ||
-    message.cost_usd;
-
-  return (
-    <article
-      className={cn(
-        'rounded-md border p-3 font-sans text-xs',
-        isUser ? 'border-bd-1 bg-bg-2' : 'border-bd-0 bg-bg-1',
-      )}
-    >
-      <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
-        <span className="font-display-strong text-tx-0">{role}</span>
-        <span className="text-tx-3">{formatMicros(message.created_at_micros)}</span>
-        {(message.prompt_tokens || message.completion_tokens) && (
-          <span className="ml-auto text-tx-3">
-            {t('audit.chat.tokens')}: {message.prompt_tokens ?? 0}/{message.completion_tokens ?? 0}
-          </span>
-        )}
-      </div>
-      <MarkdownMessage content={message.content || '—'} />
-      {hasMetadata && (
-        <details className="mt-2 rounded border border-bd-0 bg-bg-2 px-2 py-1">
-          <summary className="cursor-pointer font-sans text-xs text-tx-3">
-            {t('audit.chat.metadata')}
-          </summary>
-          <pre className="mt-2 max-h-40 overflow-auto font-mono text-xs text-tx-2">
-            {JSON.stringify(
-              {
-                prompt_template_id: message.prompt_template_id,
-                prompt_builtin_key: message.prompt_builtin_key,
-                prompt_version: message.prompt_version,
-                prompt_hash: message.prompt_hash,
-                evidence_json: evidence,
-                prompt_tokens: message.prompt_tokens,
-                completion_tokens: message.completion_tokens,
-                cost_usd: message.cost_usd,
-              },
-              null,
-              2,
-            )}
-          </pre>
-        </details>
-      )}
-    </article>
-  );
-}
-
-function roleLabel(role: string, t: (k: string) => string): string {
-  if (role === 'user') return t('audit.chat.roles.user');
-  if (role === 'assistant') return t('audit.chat.roles.assistant');
-  if (role === 'tool') return t('audit.chat.roles.tool');
-  if (role === 'system') return t('audit.chat.roles.system');
-  return role;
 }

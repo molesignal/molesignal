@@ -13,9 +13,8 @@ import type * as reportsApi from '@/api/reports';
 import { formatMicrosActive } from '@/lib/time';
 import { useActionAccess } from '@/product/actionAccess';
 import {
-  Card,
   ChromeButton,
-  DataTable,
+  TableShell,
   Dot,
   Pill,
   Td,
@@ -63,8 +62,8 @@ export function ScheduleTable({
   const shareAccess = useActionAccess({ permission: 'reports.share' });
 
   return (
-    <Card className="overflow-hidden">
-      <DataTable>
+    <div className="min-w-0 overflow-hidden bg-bg-0">
+      <TableShell>
         <thead>
           <tr>
             <Th className="min-w-[260px]">{t('table.name_source')}</Th>
@@ -98,7 +97,7 @@ export function ScheduleTable({
                       disabled={scheduleAccess.disabled}
                       aria-disabled={scheduleAccess.disabled || undefined}
                       onClick={() => onEdit(report)}
-                      className="block max-w-full text-left enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo"
+                      className="-ml-1 block max-w-full rounded-sm px-1 text-left enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 focus-visible:bg-bg-3 focus-visible:text-tx-0 focus-visible:outline-none"
                     >
                       <span className="block truncate font-sans text-sm font-bold text-tx-0">
                         {report.title}
@@ -208,8 +207,8 @@ export function ScheduleTable({
             );
           })}
         </tbody>
-      </DataTable>
-    </Card>
+      </TableShell>
+    </div>
   );
 }
 
@@ -222,8 +221,8 @@ export function HistoryTable({
 }) {
   const { t } = useTranslation('reports');
   return (
-    <Card className="overflow-hidden">
-      <DataTable>
+    <div className="min-w-0 overflow-hidden bg-bg-0">
+      <TableShell>
         <thead>
           <tr>
             <Th className="min-w-[220px]">
@@ -298,8 +297,8 @@ export function HistoryTable({
             );
           })}
         </tbody>
-      </DataTable>
-    </Card>
+      </TableShell>
+    </div>
   );
 }
 

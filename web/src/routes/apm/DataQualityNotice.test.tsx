@@ -89,6 +89,20 @@ describe('DataQualityNotice', () => {
     expect(screen.getByText('APM data starts inside this window')).toBeTruthy();
   });
 
+  it('does not describe cardinality overflow as zero projection gaps', () => {
+    renderNotice(
+      meta({
+        data_quality: {
+          partial: true,
+          gaps: [],
+          overflow_dimensions: ['transaction'],
+        },
+      }),
+    );
+    expect(screen.getByText('APM cardinality is truncated')).toBeTruthy();
+    expect(screen.queryByText(/0 projection gaps/)).toBeNull();
+  });
+
   it('shows stale complete-bucket state separately from partial data', () => {
     renderNotice(
       meta({

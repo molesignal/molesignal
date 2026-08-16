@@ -2,12 +2,11 @@ import * as React from 'react';
 
 import { cn } from '@/shell/lib/cn';
 
-type QueryToolbarTone = 'blue' | 'indigo' | 'orange';
+type QueryToolbarTone = 'indigo' | 'orange';
 
 const activeToneClass: Record<QueryToolbarTone, string> = {
-  blue: 'bg-blue text-white shadow-sm',
   indigo: 'bg-indigo text-white shadow-sm',
-  orange: 'bg-orange text-white shadow-sm',
+  orange: 'bg-orange text-[var(--orange-fg)] shadow-sm',
 };
 
 interface QueryWorkbenchProps {
@@ -55,7 +54,7 @@ export const QueryToolbarButton = React.forwardRef<
   QueryToolbarButtonProps
 >(function QueryToolbarButton({
   active = false,
-  tone = 'blue',
+  tone = 'indigo',
   className,
   children,
   type = 'button',
@@ -94,7 +93,7 @@ export function QueryToolbarTabs<T extends string>({
   tabs,
   activeId,
   onChange,
-  tone = 'blue',
+  tone = 'indigo',
 }: QueryToolbarTabsProps<T>) {
   return (
     <QueryToolbarGroup className="shrink-0">

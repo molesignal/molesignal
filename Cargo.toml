@@ -167,7 +167,7 @@ notify = "8"
 # 仅引核心解释器；不需要 vector 的 sink/source。
 vrl = { version = "0.33", default-features = false, features = ["compiler", "stdlib", "value"] }
 
-# JS function runtime（feature `js-runtime`，默认关；编译时间膨胀 ~5 分钟）
+# JS function runtime（molesignal 主二进制默认启用；精简构建可显式排除）
 # 仅 deno_core，不引 deno_runtime，刻意不带 fetch / file IO / npm。
 deno_core = "0.403"
 

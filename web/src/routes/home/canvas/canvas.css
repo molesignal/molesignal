@@ -1,0 +1,117 @@
+.home-operations-canvas {
+  container-name: home-canvas;
+  container-type: inline-size;
+  --home-primary-height: 356px;
+  --home-detail-height: 344px;
+}
+
+.home-canvas-kpi-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.home-canvas-kpi {
+  min-height: 104px;
+}
+
+.home-canvas-primary-section {
+  min-height: 312px;
+}
+
+.home-canvas-detail-section {
+  min-height: 300px;
+}
+
+.home-canvas-primary-grid,
+.home-canvas-detail-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.home-canvas-divider-grid > * + * {
+  border-top: 1px solid var(--bd-0);
+}
+
+.home-canvas-footer {
+  position: relative;
+}
+
+.home-canvas-footer::before {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 1;
+  height: 1px;
+  transform: scaleY(0.5);
+  transform-origin: top;
+  background: var(--bd-0);
+  content: '';
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+.home-canvas-footer-section .home-canvas-section-header {
+  min-height: 36px;
+  padding-block: 6px;
+}
+
+@container home-canvas (min-width: 700px) {
+  .home-canvas-kpi-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@container home-canvas (min-width: 980px) {
+  .home-canvas-primary-grid {
+    grid-template-columns: minmax(0, 2.15fr) minmax(340px, 0.85fr);
+  }
+
+  .home-canvas-detail-grid {
+    grid-template-columns: minmax(0, 2.15fr) minmax(340px, 0.85fr);
+  }
+
+  .home-canvas-divider-grid > * + * {
+    border-top: 0;
+    border-left: 1px solid var(--bd-0);
+  }
+
+  .home-canvas-primary-grid > *,
+  .home-canvas-primary-section {
+    height: var(--home-primary-height);
+    min-height: var(--home-primary-height);
+  }
+
+  .home-canvas-detail-section {
+    height: var(--home-detail-height);
+    min-height: var(--home-detail-height);
+  }
+}
+
+@container home-canvas (min-width: 1120px) {
+  .home-canvas-kpi-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+@container home-canvas (min-width: 1280px) {
+  .home-canvas-primary-grid > *,
+  .home-canvas-primary-section {
+    height: 336px;
+    min-height: 336px;
+  }
+}
+
+@container home-canvas (min-width: 1680px) {
+  .home-canvas-kpi {
+    min-height: 100px;
+    padding-inline: 16px;
+  }
+
+  .home-canvas-primary-grid > *,
+  .home-canvas-primary-section {
+    height: 320px;
+    min-height: 320px;
+  }
+
+  .home-canvas-detail-section {
+    height: 392px;
+    min-height: 392px;
+  }
+}

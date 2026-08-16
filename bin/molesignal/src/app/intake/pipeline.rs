@@ -4,8 +4,8 @@
 //! Pipeline runtime port + engine。
 //!
 //! 模型：
-//! - [`FunctionExecutor`]：app 层 port，由 infra 实装（默认 `VrlFunctionExecutor`，包装
-//!   [`crate::app::intake::pipeline`] 调用的 `infra::runtime::VrlRuntime`）。
+//! - [`FunctionExecutor`]：app 层 port，由 infra 的 `ChainedFunctionExecutor` 实装，
+//!   按函数语言分发到 VRL、JavaScript 或可选的 LLM runtime。
 //! - [`PipelineEngine::apply`]：拉 `(org, stream, stream_type)` 下 enabled pipelines；
 //!   对每条 pipeline 的 steps 依次调 `executor.run_step(function, event_value)`。
 //!

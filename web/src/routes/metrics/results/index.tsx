@@ -16,6 +16,7 @@ export function MetricsExploreResults({
   series,
   chart,
   exemplars,
+  recovery,
   timeRangeSeconds,
   language,
   preferredView,
@@ -93,17 +94,24 @@ export function MetricsExploreResults({
             series={series}
             chart={chart}
             exemplars={exemplars}
+            recovery={recovery}
             onViewRawCounter={onViewRawCounter}
             onInspectMetricType={onInspectMetricType}
           />
         ) : activeView === 'table' ? (
-          <TableView result={query.result} pending={query.pending} error={query.error} />
+          <TableView
+            result={query.result}
+            pending={query.pending}
+            error={query.error}
+            recovery={recovery}
+          />
         ) : (
           <InspectorView
             result={query.result}
             statement={query.executedPromql ?? query.promql}
             pending={query.pending}
             error={query.error}
+            recovery={recovery}
             metricSeriesCount={series.metricSeries.length}
             quality={series.quality}
             timeRangeSeconds={timeRangeSeconds}

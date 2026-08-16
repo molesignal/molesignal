@@ -91,7 +91,7 @@ export function Signup() {
           <button
             type="submit"
             disabled={submit.isPending || !email || !displayName || !password}
-            className="auth-primary-button mt-2 flex h-9 items-center justify-center rounded-md font-sans text-xs font-bold tracking-wide text-white focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            className="auth-primary-button mt-2 flex h-9 items-center justify-center rounded-md font-sans text-xs font-bold tracking-wide text-white focus-visible:outline-none disabled:cursor-not-allowed"
           >
             {submit.isPending ? t('shell:signup.submitting') : t('shell:signup.submit')}
           </button>

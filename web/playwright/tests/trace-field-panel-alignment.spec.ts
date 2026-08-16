@@ -67,7 +67,26 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/api/v1/web/traces**', (route) =>
     route.fulfill({
       json: {
-        items: [],
+        items: [
+          {
+            trace_id: 'trace-1',
+            service: 'checkout-api',
+            operation: 'POST /api/orders',
+            start_ns: 1_786_704_600_000_000_000,
+            duration_ms: 442,
+            span_count: 11,
+            error_count: 0,
+          },
+          {
+            trace_id: 'trace-2',
+            service: 'checkout-api',
+            operation: 'POST /api/orders',
+            start_ns: 1_786_704_599_000_000_000,
+            duration_ms: 2450,
+            span_count: 12,
+            error_count: 6,
+          },
+        ],
         next_cursor: null,
         previous_cursor: null,
         has_more: false,
@@ -76,38 +95,28 @@ test.beforeEach(async ({ page }) => {
   );
 });
 
-test('aligns trace field controls without an empty leading action slot', async ({ page }) => {
+test('matches log field rows and expands values without a redundant header', async ({ page }) => {
   await page.goto('/traces');
 
   const panel = page.locator('aside[data-variant="utility"]');
-  const rootAdd = panel.getByRole('button', { name: 'Add scope to query' });
-  const rootLabel = panel.getByText('scope', { exact: true });
-  const namespaceToggle = panel.getByRole('button', { name: 'Expand molesignal' });
-  const namespaceLabel = namespaceToggle.getByText('molesignal', { exact: true });
+  await expect(panel.getByText('Core fields', { exact: true })).toBeVisible();
+  await expect(panel.getByText('Attributes', { exact: true })).toBeVisible();
+  await expect(panel.getByText('Resource attributes', { exact: true })).toHaveCount(0);
+  await expect(panel.locator('[data-trace-field="service.name"]')).toBeVisible();
 
-  await rootAdd.scrollIntoViewIfNeeded();
-  await expect(rootAdd).toBeVisible();
-  await expect(namespaceToggle).toBeVisible();
+  const fieldRow = panel.locator('[data-trace-field="trace_id"]');
+  const label = fieldRow.getByText('trace_id', { exact: true });
+  const add = fieldRow.getByRole('button', { name: 'Add trace_id to query' });
+  await fieldRow.hover();
+  const [labelBox, addBox] = await Promise.all([boundingBox(label), boundingBox(add)]);
+  expect(addBox.x).toBeGreaterThan(labelBox.x + labelBox.width);
 
-  const [panelBox, rootAddBox, rootLabelBox, namespaceLabelBox] = await Promise.all([
-    boundingBox(panel),
-    boundingBox(rootAdd),
-    boundingBox(rootLabel),
-    boundingBox(namespaceLabel),
-  ]);
-
-  expect(rootAddBox.x - panelBox.x).toBeLessThanOrEqual(12);
-  expect(Math.abs(rootLabelBox.x - namespaceLabelBox.x)).toBeLessThanOrEqual(1);
-
-  await namespaceToggle.click();
-  const nestedAdd = panel.getByRole('button', {
-    name: 'Add molesignal.compaction.level to query',
-  });
-  await expect(nestedAdd).toBeVisible();
-  const nestedAddBox = await boundingBox(nestedAdd);
-
-  expect(nestedAddBox.x - rootAddBox.x).toBeGreaterThanOrEqual(11);
-  expect(nestedAddBox.x - rootAddBox.x).toBeLessThanOrEqual(15);
+  await fieldRow.locator('button').first().click();
+  const values = panel.locator('[data-trace-field-values="trace_id"]');
+  await expect(values.getByText('trace-1', { exact: true })).toBeVisible();
+  await expect(values.getByText('trace-2', { exact: true })).toBeVisible();
+  await expect(values.getByText('Top values', { exact: true })).toHaveCount(0);
+  await expect(values.getByText('Count', { exact: true })).toHaveCount(0);
 });
 
 test('drags the field panel in both directions and clamps its maximum width', async ({ page }) => {

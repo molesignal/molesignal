@@ -99,7 +99,7 @@ export function Pages() {
       }
       state={state}
     >
-      <section>
+      <section className="space-y-2">
         <RumSectionHeader
           title={t('pages.list_title')}
           description={t('pages.result_count', { count: rows.length })}

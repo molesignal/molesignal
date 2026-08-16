@@ -7,6 +7,13 @@ import { KpiStrip, type KpiStripItem } from '@/admin';
 import { ProductState, type ProductStateProps } from '@/product/states';
 import { cn } from '@/shell/lib/cn';
 import { PageBody, PageHeader } from '@/shell/PageHeader';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/shell/ui/select';
 
 const TABS: Array<{ suffix: string; key: string }> = [
   { suffix: '/overview', key: 'overview' },
@@ -171,7 +178,7 @@ export function RumListPage({
         toolbar={toolbar}
       />
       <RumNavigation performance={performance} settings={settings} />
-      <PageBody className={cn('space-y-5', bodyClassName)}>
+      <PageBody className={cn('space-y-3', bodyClassName)}>
         {kpis && (
           <KpiStrip
             items={kpis}
@@ -179,9 +186,7 @@ export function RumListPage({
           />
         )}
         {filterBar && (
-          <div className="flex flex-wrap items-end gap-3 border-y border-bd-0 py-3">
-            {filterBar}
-          </div>
+          <div className="flex flex-wrap items-end gap-3">{filterBar}</div>
         )}
         {state ? <ProductState {...state} /> : children}
       </PageBody>
@@ -231,20 +236,24 @@ export function RumFilterSelect({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="grid gap-1">
+    <div className="grid gap-1">
       <span className="type-caption font-sans font-strong text-tx-3">{label}</span>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-8 min-w-[132px] rounded-md border border-bd-1 bg-bg-1 px-2.5 font-sans text-xs font-strong text-tx-1 outline-none transition-colors focus-visible:bg-bg-2 focus-visible:text-tx-0"
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger
+          aria-label={label}
+          className="h-8 w-auto min-w-[132px] px-2.5 py-0 text-xs font-strong text-tx-1"
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent align="start">
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value} className="text-xs">
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }
 
@@ -258,7 +267,7 @@ export function RumSectionHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex min-w-0 flex-wrap items-end justify-between gap-3 border-b border-bd-0 pb-3">
+    <div className="flex min-w-0 flex-wrap items-end justify-between gap-3">
       <div className="min-w-0">
         <h2 className="m-0 type-section-title font-sans font-display text-tx-0">{title}</h2>
         {description && <p className="mb-0 mt-1 text-xs text-tx-3">{description}</p>}

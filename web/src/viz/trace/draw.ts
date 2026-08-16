@@ -1,6 +1,6 @@
+import { colorKeyForService } from '@/viz/serviceColors';
 import type { Palette } from '@/viz/timeseries/themeAdapter';
 
-import { colorKeyForService } from './colors';
 import type { LaidOutTrace, Viewport } from './types';
 
 export interface DrawConfig {

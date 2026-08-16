@@ -22,14 +22,30 @@ export const SEVERITY_BAR_CLASS: Record<Severity, string> = {
   info: 'bg-blue',
 };
 
-/** Bar fill class for an arbitrary severity string; unknown falls back to info blue. */
-export function severityBarClass(severity: string): string {
-  return SEVERITY_BAR_CLASS[severity as Severity] ?? SEVERITY_BAR_CLASS.info;
+const CATEGORICAL_BAR_CLASS: Record<string, string> = {
+  fatal: 'bg-red',
+  interrupted: 'bg-red',
+  warn: 'bg-yellow',
+  delayed: 'bg-yellow',
+  unknown: 'bg-orange',
+  healthy: 'bg-green',
+  debug: 'bg-tx-3',
+  trace: 'bg-tx-3',
+  idle: 'bg-tx-3',
+  unused: 'bg-tx-3',
+};
+
+/** Bar fill class for alert, log-level, and stream-health categories. */
+export function severityBarClass(severity?: string | null): string {
+  const normalized = severity?.trim().toLowerCase() ?? 'info';
+  return CATEGORICAL_BAR_CLASS[normalized]
+    ?? SEVERITY_BAR_CLASS[normalized as Severity]
+    ?? SEVERITY_BAR_CLASS.info;
 }
 
 /**
  * SeverityRail — the thin colored bar the product uses to flag the severity
- * of a row (alerts table, NOC incident list, and future log/stream rows).
+ * of a row (alerts table, NOC incident list, log level, and stream health).
  * Centralizes the severity → color grammar so every surface agrees. Sizing
  * is left to the caller via `className` (e.g. `h-row w-[3px]` in a table
  * cell, `h-9` inside a fixed-width grid column).
@@ -38,7 +54,7 @@ export function SeverityRail({
   severity,
   className,
 }: {
-  severity: string;
+  severity?: string | null | undefined;
   className?: string | undefined;
 }) {
   return <span className={cn('block', severityBarClass(severity), className)} />;

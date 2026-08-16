@@ -33,9 +33,9 @@ type Theme = 'dark' | 'light';
 interface Pair {
   fg: string;
   bg: string;
-  /** Target ratio: 4.5 for body, 3 for UI/large. */
-  target: 4.5 | 3;
-  /** Human description: "AA body" / "AA UI". */
+  /** Target ratio: 7 for critical alert text, 4.5 for body, 3 for UI/large. */
+  target: 7 | 4.5 | 3;
+  /** Human description: "AAA alert" / "AA body" / "AA UI". */
   label: string;
 }
 
@@ -48,16 +48,26 @@ const BODY_PAIRS: Array<[string, string]> = [
   ['--tx-1', '--bg-1'],
   ['--tx-2', '--bg-0'],
   ['--tx-2', '--bg-1'],
+  ['--tx-3', '--bg-0'],
+  ['--tx-3', '--bg-1'],
+  ['--tx-3', '--bg-2'],
+  ['--tx-3', '--bg-3'],
   ['--fg', '--surface'],
 ];
 // Status-text pairs (color word on the chrome surface, AA 4.5).
 const STATUS_TEXT_PAIRS: Array<[string, string]> = [
-  ['--red', '--bg-0'],
   ['--green', '--bg-0'],
   ['--yellow', '--bg-0'],
   ['--blue', '--bg-0'],
   ['--purple', '--bg-0'],
   ['--orange', '--bg-0'],
+];
+// Critical/firing red is held to AAA on both page and surface backgrounds.
+const ALERT_TEXT_PAIRS: Array<[string, string]> = [
+  ['--red', '--bg-0'],
+  ['--red', '--bg-1'],
+  ['--red-soft', '--bg-0'],
+  ['--red-soft', '--bg-1'],
 ];
 // Accent-badge pairs (UI element; AA Large 3:1).
 const BADGE_PAIRS: Array<[string, string]> = [
@@ -74,6 +84,7 @@ function buildPairList(): Pair[] {
   const out: Pair[] = [];
   for (const [fg, bg] of BODY_PAIRS) out.push({ fg, bg, target: 4.5, label: 'AA body' });
   for (const [fg, bg] of STATUS_TEXT_PAIRS) out.push({ fg, bg, target: 4.5, label: 'AA body' });
+  for (const [fg, bg] of ALERT_TEXT_PAIRS) out.push({ fg, bg, target: 7, label: 'AAA alert' });
   for (const [fg, bg] of BADGE_PAIRS) out.push({ fg, bg, target: 3, label: 'AA UI' });
   return out;
 }

@@ -14,7 +14,7 @@
   },
   "topbar": {
     "toggle_sidebar": "Toggle sidebar",
-    "search_placeholder": "Search across logs · metrics · traces · dashboards…",
+    "search_placeholder": "Search pages · streams · services · dashboards…",
     "open_noc": "Open NOC wallboard mode",
     "noc": "NOC Wallboard",
     "notifications": "Notifications",
@@ -297,9 +297,9 @@
     "loading": "Loading Mole Agent…"
   },
   "system_status": {
-    "healthy": "System healthy / Data intake healthy / Connected",
-    "degraded": "Some services are degraded",
-    "disconnected": "Connection error"
+    "healthy": "Core API connected",
+    "degraded": "Core API degraded",
+    "disconnected": "Core API unreachable"
   },
   "about": {
     "title": "About",

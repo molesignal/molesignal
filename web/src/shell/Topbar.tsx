@@ -191,7 +191,7 @@ export function Topbar({ onToggleSidebar, onPaletteOpen, onNocOpen }: TopbarProp
       <button
         type="button"
         onClick={() => nav(preferredHome())}
-        className="flex shrink-0 items-center gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo"
+        className="flex shrink-0 items-center gap-2 rounded-md focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none"
         aria-label={t('nav:home')}
         title={t('nav:home')}
       >
@@ -213,7 +213,7 @@ export function Topbar({ onToggleSidebar, onPaletteOpen, onNocOpen }: TopbarProp
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="flex h-9 max-w-[180px] items-center gap-2 rounded-md border border-bd-1 bg-bg-2 px-3 font-sans text-sm font-semibold text-tx-0 transition-colors hover:bg-bg-3 focus:outline-none focus-visible:outline-none sm:max-w-[240px]"
+            className="flex h-9 max-w-[180px] items-center gap-2 rounded-md border border-bd-1 bg-bg-2 px-3 font-sans text-sm font-semibold text-tx-0 transition-colors hover:bg-bg-3 focus:outline-none focus-visible:bg-bg-3 focus-visible:text-indigo focus-visible:outline-none sm:max-w-[240px]"
             data-testid="org-switcher"
             aria-label={t('shell:chrome.org_switcher')}
             title={t('shell:chrome.org_switcher')}
@@ -255,7 +255,7 @@ export function Topbar({ onToggleSidebar, onPaletteOpen, onNocOpen }: TopbarProp
       <button
         type="button"
         onClick={onPaletteOpen}
-        className="flex h-9 min-w-9 flex-1 items-center gap-2.5 rounded-md border border-bd-1 bg-bg-2 px-3 text-left text-tx-3 transition-colors duration-fast ease-default hover:border-bd-2 hover:bg-bg-3 hover:text-tx-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo sm:max-w-[560px]"
+        className="flex h-9 min-w-9 flex-1 items-center gap-2.5 rounded-md border border-bd-1 bg-bg-2 px-3 text-left text-tx-2 transition-colors duration-fast ease-default hover:border-bd-2 hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none sm:max-w-[560px]"
         aria-label={t('shell:chrome.command_palette')}
         data-testid="command-palette-trigger"
       >
@@ -273,24 +273,21 @@ export function Topbar({ onToggleSidebar, onPaletteOpen, onNocOpen }: TopbarProp
           <button
             type="button"
             onClick={toggleMoleAgent}
-            className="hidden h-9 items-center gap-2 rounded-md border border-bd-1 bg-bg-2 px-3 font-sans text-sm font-strong text-tx-1 hover:bg-bg-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo lg:flex"
+            className="hidden h-9 items-center gap-2 rounded-md bg-transparent px-2.5 font-sans text-sm font-strong text-tx-2 transition-colors duration-fast hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none lg:flex"
             title={t('shell:topbar.mole_agent')}
             data-testid="mole-agent-trigger"
           >
             <Bot className="h-4 w-4 text-indigo-soft" />
             <span className="hidden xl:inline">{t('shell:topbar.agent')}</span>
-            <Kbd className="hidden font-sans text-xs xl:inline-flex">⌘ J</Kbd>
           </button>
         )}
-        <button
-          type="button"
+        <IconBtn
           onClick={onNocOpen}
-          className="hidden h-9 items-center gap-2 rounded-md border border-bd-1 bg-transparent px-2.5 font-sans text-sm font-medium text-tx-2 transition-colors hover:bg-bg-2 hover:text-tx-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo lg:flex"
           title={t('shell:topbar.open_noc')}
+          className="hidden lg:flex"
         >
           <Monitor className="h-4 w-4" />
-          <span className="hidden xl:inline">{t('shell:topbar.noc')}</span>
-        </button>
+        </IconBtn>
         <NotificationCenter />
         <HelpMenu
           title={t('shell:topbar.help')}
@@ -315,13 +312,12 @@ export function Topbar({ onToggleSidebar, onPaletteOpen, onNocOpen }: TopbarProp
         >
           {theme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
         </IconBtn>
-        <SystemStatusIndicator />
-        <span className="mx-1 h-5 w-px bg-bd-1" />
+        <SystemStatusIndicator compact className="ml-1 mr-3" />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-indigo/40 bg-indigo font-sans text-xs font-bold text-white focus:outline-none focus-visible:outline-none"
+              className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-indigo font-sans text-xs font-bold text-white focus:outline-none focus-visible:brightness-90 focus-visible:text-white focus-visible:outline-none"
               aria-label={t('shell:chrome.user_menu')}
               data-testid="user-menu-trigger"
             >
@@ -338,7 +334,7 @@ export function Topbar({ onToggleSidebar, onPaletteOpen, onNocOpen }: TopbarProp
           >
             <DropdownMenuLabel className="px-3 py-3">
               <div className="flex min-w-0 items-center gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-bd-1 bg-indigo font-sans text-sm font-bold text-white">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-indigo font-sans text-sm font-bold text-white">
                   {avatarUrl ? (
                     <img
                       src={avatarUrl}
@@ -551,7 +547,7 @@ function HelpMenu({
           className={cn(
             'relative hidden h-8 w-8 items-center justify-center rounded-md text-tx-2 md:flex',
             'hover:bg-bg-3 hover:text-tx-0',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo',
+            'focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none',
           )}
         >
           <HelpCircle className="h-3.5 w-3.5" />
@@ -603,7 +599,7 @@ function IconBtn({
       className={cn(
         'relative flex h-8 w-8 items-center justify-center rounded-md text-tx-2',
         'hover:bg-bg-3 hover:text-tx-0',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo',
+        'focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none',
         className,
       )}
     >

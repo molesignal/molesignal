@@ -9,5 +9,6 @@
 //! - [`symbolication`]：解析 Web/Flutter/Android/iOS 调试产物并还原错误 frame。
 
 pub mod normalize;
+pub mod read_model;
 pub mod replay;
 pub mod symbolication;

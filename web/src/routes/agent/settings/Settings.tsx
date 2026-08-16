@@ -29,11 +29,15 @@ import { Badge } from '@/shell/ui/badge';
 import { Button } from '@/shell/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shell/ui/tabs';
 
+import { AgentSettingsSection } from './CardlessSurface';
 import { InboundMcpPanel } from './InboundMcp';
+import { ProfilesPanel } from './Profile';
 import {
-  ModelProviderEditorDrawer,
   ProfileEditorDrawer,
   type ProfileEditorTarget,
+} from './Profile/Editor';
+import {
+  ModelProviderEditorDrawer,
   type ProviderEditorTarget,
 } from './SettingsEditors';
 import { ModulePage } from '../operations/Pages';
@@ -128,6 +132,7 @@ export function AgentSettingsPage() {
         <TabsContent value="profiles" className="mt-4">
           <ProfilesPanel
             profiles={profiles}
+            providers={providerRows}
             onCreate={() =>
               setProfileEditor({ profile: 'new', section: 'profile' })
             }
@@ -204,80 +209,6 @@ export function AgentSettingsPage() {
   );
 }
 
-function ProfilesPanel({
-  profiles,
-  onCreate,
-  onEdit,
-}: {
-  profiles: UseQueryResult<agentApi.AgentProfile[], Error>;
-  onCreate: () => void;
-  onEdit: (profile: agentApi.AgentProfile) => void;
-}) {
-  const { t } = useTranslation('agent');
-  if (profiles.isLoading) return <ProductState variant="loading" />;
-  if (profiles.isError) return <ProductState variant="error" error={profiles.error} />;
-  return (
-    <SettingsSection
-      title={t('settings.profiles.title')}
-      description={t('settings.profiles.description')}
-      action={<Button size="sm" onClick={onCreate}><Plus />{t('settings.profiles.create')}</Button>}
-    >
-      {profiles.data?.length ? (
-        <div className="grid gap-3 xl:grid-cols-2">
-          {profiles.data.map((profile) => (
-            <article key={profile.id} className="rounded-lg border border-bd-0 bg-bg-2 p-4">
-              <div className="flex items-start gap-3">
-                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-md border border-indigo/30 bg-indigo/10">
-                  <Bot className="h-4 w-4 text-indigo" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-strong text-tx-0">{profile.name}</h3>
-                        {profile.is_default && <Badge variant="accent">{t('settings.profiles.default')}</Badge>}
-                        <Badge variant="outline">{profile.enabled ? t('status.enabled') : t('status.disabled')}</Badge>
-                      </div>
-                      <p className="mt-1 text-xs leading-5 text-tx-3">{profile.description}</p>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label={t('settings.profiles.edit')}
-                      onClick={() => onEdit(profile)}
-                    >
-                      <Pencil />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-              <dl className="mt-4 grid grid-cols-3 gap-3 border-t border-bd-0 pt-3">
-                <Stat label={t('settings.profiles.max_tools')} value={String(profile.max_tool_calls)} />
-                <Stat label={t('settings.profiles.max_time')} value={`${Math.round(profile.max_investigation_secs / 60)}m`} />
-                <Stat
-                  label={t('settings.profiles.network')}
-                  value={t(
-                    profile.network_access === 'allowed'
-                      ? 'settings.allowed'
-                      : 'settings.blocked',
-                  )}
-                />
-              </dl>
-            </article>
-          ))}
-        </div>
-      ) : (
-        <ProductState
-          variant="empty"
-          compact
-          title={t('settings.profiles.empty_title')}
-          description={t('settings.profiles.empty_description')}
-        />
-      )}
-    </SettingsSection>
-  );
-}
-
 function ModelsPanel({
   providers,
 }: {
@@ -288,7 +219,7 @@ function ModelsPanel({
   if (providers.isLoading) return <ProductState variant="loading" />;
   if (providers.isError) return <ProductState variant="error" error={providers.error} />;
   return (
-    <SettingsSection
+    <AgentSettingsSection
       title={t('settings.models.title')}
       description={t('settings.models.description')}
       action={<Button size="sm" onClick={() => setEditor('new')}><Plus />{t('settings.models.create')}</Button>}
@@ -331,7 +262,7 @@ function ModelsPanel({
         target={editor}
         onClose={() => setEditor(null)}
       />
-    </SettingsSection>
+    </AgentSettingsSection>
   );
 }
 
@@ -344,7 +275,7 @@ function DataAccessPanel({
 }) {
   const { t } = useTranslation('agent');
   return (
-    <SettingsSection
+    <AgentSettingsSection
       title={t('settings.data.title')}
       description={t('settings.data.description')}
       action={
@@ -354,13 +285,14 @@ function DataAccessPanel({
         />
       }
     >
+      <ProfileContextLine profile={profile} />
       <div className="grid gap-3 lg:grid-cols-2">
         <PolicyRow label={t('settings.data.environments')} value={scopeValue(profile?.data_scope.environments)} />
         <PolicyRow label={t('settings.data.services')} value={scopeValue(profile?.data_scope.services, t('settings.data.all_authorized'))} />
         <PolicyRow label={t('settings.data.streams')} value={scopeValue(profile?.data_scope.streams, t('settings.data.all_authorized'))} />
         <PolicyRow label={t('settings.data.cross_org')} value={t('settings.blocked')} secure />
       </div>
-    </SettingsSection>
+    </AgentSettingsSection>
   );
 }
 
@@ -382,7 +314,7 @@ function NetworkPanel({
     { key: 'settings.network.open_mcp', blocked: registry?.open_mcp !== true },
   ];
   return (
-    <SettingsSection
+    <AgentSettingsSection
       title={t('settings.network.title')}
       description={t('settings.network.description')}
       action={
@@ -392,6 +324,7 @@ function NetworkPanel({
         />
       }
     >
+      <ProfileContextLine profile={profile} />
       <div
         className={cn(
           'rounded-lg border p-4',
@@ -452,7 +385,7 @@ function NetworkPanel({
           </div>
         ))}
       </div>
-    </SettingsSection>
+    </AgentSettingsSection>
   );
 }
 
@@ -471,7 +404,7 @@ function ApprovalPolicyPanel({
     ['l3', 'settings.approval_policy.two_person'],
   ] as const;
   return (
-    <SettingsSection
+    <AgentSettingsSection
       title={t('settings.approval_policy.title')}
       description={t('settings.approval_policy.description')}
       action={
@@ -481,6 +414,7 @@ function ApprovalPolicyPanel({
         />
       }
     >
+      <ProfileContextLine profile={profile} />
       <div className="divide-y divide-bd-0 overflow-hidden rounded-lg border border-bd-0 bg-bg-2">
         {rows.map(([risk, fallback]) => {
           const policy = String(profile?.risk_policy[risk] ?? (
@@ -500,7 +434,7 @@ function ApprovalPolicyPanel({
           );
         })}
       </div>
-    </SettingsSection>
+    </AgentSettingsSection>
   );
 }
 
@@ -519,37 +453,17 @@ function EditSectionButton({
   );
 }
 
-function SettingsSection({
-  title,
-  description,
-  action,
-  children,
+function ProfileContextLine({
+  profile,
 }: {
-  title: string;
-  description: string;
-  action?: React.ReactNode;
-  children: React.ReactNode;
+  profile: agentApi.AgentProfile | undefined;
 }) {
+  const { t } = useTranslation('agent');
+  if (!profile) return null;
   return (
-    <section className="rounded-lg border border-bd-0 bg-bg-1">
-      <div className="flex flex-wrap items-start gap-4 border-b border-bd-0 px-4 py-3">
-        <div className="min-w-0 flex-1">
-          <h2 className="font-strong text-tx-0">{title}</h2>
-          <p className="mt-1 text-xs leading-5 text-tx-3">{description}</p>
-        </div>
-        {action}
-      </div>
-      <div className="p-4">{children}</div>
-    </section>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-xs text-tx-3">{label}</dt>
-      <dd className="mt-0.5 font-mono text-xs font-strong text-tx-1">{value}</dd>
-    </div>
+    <p className="mb-4 border-b border-bd-0 pb-3 text-xs leading-5 text-tx-2">
+      {t('settings.profiles.shortcut_hint', { name: profile.name })}
+    </p>
   );
 }
 

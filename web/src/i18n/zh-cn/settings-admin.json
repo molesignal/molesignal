@@ -810,7 +810,12 @@
       "target": "目标",
       "status": "状态"
     },
-    "load_more": "加载更多",
+    "pagination": {
+      "aria": "审计记录分页",
+      "page_size": "每页记录数",
+      "previous": "上一页",
+      "next": "下一页"
+    },
     "detail_title": "审计事件",
     "copy_id": "复制 ID",
     "copied": "已复制",

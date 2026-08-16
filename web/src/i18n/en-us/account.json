@@ -2,6 +2,12 @@
   "title": "Account settings",
   "subtitle": "Manage your profile, security, notify preferences, and workspace identity.",
   "nav": {
+    "search_placeholder": "Search account settings…",
+    "search_aria": "Search account settings",
+    "no_results": "No matching account settings",
+    "collapse_group": "Collapse {{group}}",
+    "expand_group": "Expand {{group}}",
+    "open_navigation": "Open account settings navigation",
     "groups": {
       "personal": "Personal settings",
       "access": "Security & access",

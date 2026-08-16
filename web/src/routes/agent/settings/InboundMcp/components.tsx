@@ -29,8 +29,8 @@ export function OAuthConnections({
 }) {
   const { t } = useTranslation('agent');
   return (
-    <section className="overflow-hidden rounded-lg border border-bd-0 bg-bg-1">
-      <div className="border-b border-bd-0 px-4 py-3">
+    <section className="border-t border-bd-0 py-5">
+      <div>
         <div className="flex items-center gap-2">
           <Link2 className="h-4 w-4 text-indigo" />
           <h3 className="font-strong text-tx-0">
@@ -53,11 +53,11 @@ export function OAuthConnections({
           description={t('settings.inbound_mcp.oauth.empty_description')}
         />
       ) : (
-        <div className="divide-y divide-bd-0">
+        <div className="mt-4 divide-y divide-bd-0">
           {connections.map((connection) => (
             <div
               key={connection.family_id}
-              className="flex flex-wrap items-center gap-3 px-4 py-3"
+              className="flex flex-wrap items-center gap-3 py-3"
             >
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
@@ -105,14 +105,16 @@ export function OAuthConnections({
 
 export function Field({
   label,
+  htmlFor,
   children,
 }: {
   label: string;
+  htmlFor?: string | undefined;
   children: React.ReactNode;
 }) {
   return (
     <div>
-      <Label className="text-xs text-tx-2">{label}</Label>
+      <Label htmlFor={htmlFor} className="text-xs text-tx-2">{label}</Label>
       <div className="mt-1.5">{children}</div>
     </div>
   );
@@ -131,9 +133,11 @@ export function NumberField({
   max: number;
   onChange: (value: string) => void;
 }) {
+  const inputId = React.useId();
   return (
-    <Field label={label}>
+    <Field label={label} htmlFor={inputId}>
       <Input
+        id={inputId}
         type="number"
         min={min}
         max={max}

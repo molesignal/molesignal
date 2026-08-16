@@ -28,11 +28,71 @@
     "saving_default": "Saving default timezone…",
     "default_saved": "Default timezone updated"
   },
+  "query_syntax_help": {
+    "aria": "Open query syntax reference",
+    "trigger": "Query syntax reference",
+    "title": "Syntax reference",
+    "description": "{{mode}} query mode. Press Cmd/Ctrl + Enter to run.",
+    "mode_shortcut": "{{mode}} · Cmd/Ctrl + Enter",
+    "modes": {
+      "fields": "Fields",
+      "sql": "SQL",
+      "promql": "PromQL"
+    },
+    "labels": {
+      "equals": "Exact value",
+      "contains": "Contains",
+      "substring": "Substring",
+      "full_text": "Full text",
+      "basic": "Basic query",
+      "filter": "Filter",
+      "aggregate": "Aggregate",
+      "sort": "Sort"
+    }
+  },
   "query_recommendations": {
     "title": "Optimization tips",
     "dismiss": "Dismiss tips",
     "inline_title": "Query can be optimized:",
-    "view": "View tips"
+    "view": "View tips",
+    "items": {
+      "slow_query": {
+        "title": "Slow query",
+        "detail": "The query took {{took_ms}} ms and scanned {{scanned_rows}} rows. Narrow the time range or add more selective filters."
+      },
+      "wide_time_range": {
+        "title": "Wide scan window",
+        "detail": "This query scanned a large unbounded or multi-week time range. Narrow it to the smallest window that answers the question."
+      },
+      "low_selectivity": {
+        "title": "Low selectivity",
+        "detail": "The query scanned {{scanned_rows}} rows to return {{returned_rows}}. Add predicates on indexed or partitioned fields to reduce the scan."
+      },
+      "select_star": {
+        "title": "Avoid SELECT *",
+        "detail": "Projecting all columns reads more data than needed. Select only the columns you use."
+      },
+      "missing_filter": {
+        "title": "No filter predicate",
+        "detail": "A large scan without a WHERE clause reads the whole time window. Add filters to reduce I/O."
+      },
+      "missing_limit": {
+        "title": "Add a LIMIT",
+        "detail": "This query returned {{returned_rows}} rows without a LIMIT. Add one when you only need a sample or the top results."
+      },
+      "promql_wide_range": {
+        "title": "Wide range selector",
+        "detail": "This range selector reads many samples per series. Consider a recording rule or a smaller window."
+      },
+      "promql_subquery": {
+        "title": "Subquery cost",
+        "detail": "Subqueries ([..:..]) recompute the inner query at every step and can be expensive. Use a recording rule for frequently reused work."
+      },
+      "promql_regex_matcher": {
+        "title": "Regex label matcher",
+        "detail": "Regex matchers (=~ / !~) scan more series than exact matches. Prefer = / != when possible, or anchor the regular expression."
+      }
+    }
   },
   "actions": {
     "ok": "OK",
@@ -55,6 +115,18 @@
     "rotate": "Rotate",
     "add": "Add",
     "choose_file": "Choose file"
+  },
+  "error_state": {
+    "unknown": "Unknown error",
+    "copy_error_id": "Copy error ID",
+    "copied": "Copied",
+    "report": "Report",
+    "details": "Details",
+    "status": "Status",
+    "code": "Code",
+    "message": "Message",
+    "error_id": "Error ID",
+    "empty": "(empty)"
   },
   "status": {
     "loading": "Loading…",

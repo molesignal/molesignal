@@ -15,7 +15,14 @@ import { PageBody } from '@/shell/PageHeader';
 import { ResultPagination } from '@/shell/ResultPagination';
 import { toast } from '@/shell/ui/sonner';
 
+import {
+  StatusPageBand,
+  StatusPageCanvas,
+  StatusPageListSurface,
+  statusPageFlatTableClassName,
+} from './CardlessSurface';
 import { useStatusPageWorkspace } from './Layout';
+import { shouldShowStatusPagePagination } from './pagination';
 
 export function StatusPageSubscribers({ view }: { view: 'list' | 'deliveries' }) {
   const { t } = useTranslation('status-pages');
@@ -59,32 +66,36 @@ export function StatusPageSubscribers({ view }: { view: 'list' | 'deliveries' })
   const pageCount = Math.max(1, Math.ceil((result?.total ?? 0) / (result?.per_page ?? 25)));
 
   return (
-    <PageBody className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1">
-          {(['list', 'deliveries'] as const).map((item) => (
-            <NavLink
-              key={item}
-              to={`/status-pages/${pageId}/subscribers/${item}`}
-              className={({ isActive }) =>
-                cn(
-                  'inline-flex h-8 items-center rounded-md px-2.5 text-xs font-strong',
-                  isActive ? 'bg-indigo text-white' : 'text-tx-2 hover:bg-bg-2 hover:text-tx-0',
-                )
-              }
-            >
-              {t(`subscriber_views.${item}`)}
-            </NavLink>
-          ))}
-        </div>
-        <p className="ml-auto text-xs text-tx-3">
-          {t('subscribers.retention_hint', { count: snapshot.page.delivery_retention_days })}
-        </p>
-      </div>
+    <PageBody className="space-y-0 pb-4 pt-2 lg:pb-6 lg:pt-2">
+      <StatusPageCanvas>
+        <StatusPageBand className="flex flex-wrap items-center gap-2 py-0">
+          <div className="flex items-center gap-1">
+            {(['list', 'deliveries'] as const).map((item) => (
+              <NavLink
+                key={item}
+                to={`/status-pages/${pageId}/subscribers/${item}`}
+                className={({ isActive }) =>
+                  cn(
+                    'inline-flex h-12 items-center border-b-2 px-3 text-xs font-strong',
+                    isActive
+                      ? 'border-indigo text-tx-0'
+                      : 'border-transparent text-tx-2 hover:bg-bg-2 hover:text-tx-0',
+                  )
+                }
+              >
+                {t(`subscriber_views.${item}`)}
+              </NavLink>
+            ))}
+          </div>
+          <p className="ml-auto text-xs text-tx-3">
+            {t('subscribers.retention_hint', { count: snapshot.page.delivery_retention_days })}
+          </p>
+        </StatusPageBand>
 
-      <div className="overflow-hidden rounded-lg border border-bd-0 bg-bg-1">
-        {view === 'list' ? (
-          <DataTable
+        <StatusPageListSurface>
+          {view === 'list' ? (
+            <DataTable
+            className={statusPageFlatTableClassName}
             rows={subscribersQuery.data?.items ?? []}
             rowKey={(subscriber) => subscriber.id}
             emptyLabel={loading ? t('states.loading') : t('states.no_subscribers')}
@@ -156,9 +167,10 @@ export function StatusPageSubscribers({ view }: { view: 'list' | 'deliveries' })
                 ),
               },
             ]}
-          />
-        ) : (
-          <DataTable
+            />
+          ) : (
+            <DataTable
+            className={statusPageFlatTableClassName}
             rows={deliveriesQuery.data?.items ?? []}
             rowKey={(delivery) => delivery.id}
             emptyLabel={loading ? t('states.loading') : t('states.no_deliveries')}
@@ -198,24 +210,27 @@ export function StatusPageSubscribers({ view }: { view: 'list' | 'deliveries' })
                 ),
               },
             ]}
-          />
-        )}
-        <ResultPagination
-          page={page}
-          pageCount={pageCount}
-          pageSize={result?.per_page ?? 25}
-          pageSizeOptions={[25]}
-          pageLabel={t('pagination.page', { page, pages: pageCount })}
-          ariaLabel={t('pagination.label')}
-          pageSizeAriaLabel={t('pagination.page_size')}
-          firstAriaLabel={t('pagination.first')}
-          previousAriaLabel={t('pagination.previous')}
-          nextAriaLabel={t('pagination.next')}
-          lastAriaLabel={t('pagination.last')}
-          onPageChange={(next) => setSearchParams(next === 1 ? {} : { page: String(next) })}
-          onPageSizeChange={() => undefined}
-        />
-      </div>
+            />
+          )}
+          {shouldShowStatusPagePagination(result) && (
+            <ResultPagination
+              page={page}
+              pageCount={pageCount}
+              pageSize={result.per_page}
+              pageSizeOptions={[25]}
+              pageLabel={t('pagination.page', { page, pages: pageCount })}
+              ariaLabel={t('pagination.label')}
+              pageSizeAriaLabel={t('pagination.page_size')}
+              firstAriaLabel={t('pagination.first')}
+              previousAriaLabel={t('pagination.previous')}
+              nextAriaLabel={t('pagination.next')}
+              lastAriaLabel={t('pagination.last')}
+              onPageChange={(next) => setSearchParams(next === 1 ? {} : { page: String(next) })}
+              onPageSizeChange={() => undefined}
+            />
+          )}
+        </StatusPageListSurface>
+      </StatusPageCanvas>
 
       <ConfirmDialog
         open={Boolean(revoking)}

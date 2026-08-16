@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import * as quotaApi from '@/api/quota';
 import { productStateFor } from '@/product/states';
-import { Card, CardBody, CardHeader, Pill, uiLabelClass } from '@/shell/chrome';
+import { Pill, uiLabelClass } from '@/shell/chrome';
 import { queryStateFor } from '@/shell/query/State';
 
 import { IamListPage } from './IamLayout';
@@ -65,40 +65,40 @@ export function Quota() {
       state={pageState}
     >
       {data ? (
-        <div className="space-y-3">
-          <Card>
-            <CardHeader
-              title={t('quota.source_license')}
-              actions={<Pill tone="blue">{data.edition}</Pill>}
-            />
-            <CardBody>
-              <div className="grid gap-3 md:grid-cols-3">
-                {items.map((item) => (
-                  <QuotaCard key={item.key} item={item} />
-                ))}
-              </div>
-              <div className="mt-4 rounded-md border border-bd-0 bg-bg-2 px-3 py-2">
-                <div className={uiLabelClass}>{t('quota.labels.reset')}</div>
-                <div className="mt-1 font-sans text-sm font-semibold text-tx-0">
-                  {data.reset_at_micros ? formatMicros(data.reset_at_micros) : t('quota.not_reported')}
-                </div>
-              </div>
-            </CardBody>
-          </Card>
-        </div>
+        <section className="border-b border-bd-0">
+          <div className="flex min-h-10 items-center gap-3">
+            <h3 className="font-sans text-xs font-strong text-tx-1">
+              {t('quota.source_license')}
+            </h3>
+            <Pill tone="blue">{data.edition}</Pill>
+          </div>
+          <div className="grid md:grid-cols-3 md:[&>*+*]:border-l md:[&>*+*]:border-bd-0">
+            {items.map((item) => (
+              <QuotaStat key={item.key} item={item} />
+            ))}
+          </div>
+          <div className="flex min-h-12 flex-wrap items-center gap-x-4 gap-y-1 border-t border-bd-0 px-3 py-2">
+            <div className={uiLabelClass}>{t('quota.labels.reset')}</div>
+            <div className="font-sans text-sm font-semibold text-tx-0">
+              {data.reset_at_micros
+                ? formatMicros(data.reset_at_micros)
+                : t('quota.not_reported')}
+            </div>
+          </div>
+        </section>
       ) : null}
     </IamListPage>
   );
 }
 
-function QuotaCard({ item }: { item: QuotaItem }) {
+function QuotaStat({ item }: { item: QuotaItem }) {
   const { t } = useTranslation('iam');
   const limit = formatValue(item.limit, item.kind);
   const used = item.used === null ? t('quota.usage_unknown') : formatValue(item.used, item.kind);
   const value = item.limit === null ? t('quota.not_reported') : limit;
 
   return (
-    <div className="rounded-md border border-bd-0 bg-bg-1 px-3 py-3">
+    <div className="min-w-0 px-3 py-4">
       <div className={uiLabelClass}>{item.label}</div>
       <div className="mt-2 font-sans text-2xl font-display-strong leading-none text-tx-0">
         {value}

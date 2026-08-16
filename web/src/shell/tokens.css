@@ -53,7 +53,7 @@
 
   --red-bg:          var(--red-dim);
   --red-muted:       var(--red-soft);
-  --red-fg:          #ffffff;
+  --red-fg:          #0d101a;
 
   --green-bg:        var(--green-dim);
   --green-muted:     var(--green-soft);
@@ -111,19 +111,25 @@
 }
 
 .auth-primary-button {
-  background: linear-gradient(
-    90deg,
-    var(--indigo) 0%,
-    var(--blue) 50%,
-    var(--green) 100%
-  );
+  background: var(--indigo);
+  transition:
+    background-color var(--duration-fast) var(--easing-default),
+    filter var(--duration-fast) var(--easing-default);
 }
 
 .auth-primary-button:is(:hover, :focus-visible) {
-  filter: brightness(0.92) saturate(1.06);
+  background: var(--indigo);
+  filter: brightness(0.90);
+}
+
+.auth-primary-button:active:not(:disabled) {
+  background: var(--indigo);
+  filter: brightness(0.86);
 }
 
 .auth-primary-button:disabled {
+  background: var(--bg-3);
+  color: var(--tx-3);
   filter: none;
 }
 
@@ -179,6 +185,17 @@
   --easing-default:    cubic-bezier(0.4, 0, 0.2, 1);
   --easing-in:         cubic-bezier(0.4, 0, 1, 1);
   --easing-out:        cubic-bezier(0, 0, 0.2, 1);
+}
+
+/* Home's On-call card is width-constrained by its grid column at 1280px. */
+.on-call-shift-overview {
+  container-type: inline-size;
+}
+
+@container (min-width: 440px) {
+  .on-call-shift-metrics {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 /* Density belongs to data surfaces. It must not shrink shell chrome or root type. */
@@ -269,16 +286,28 @@ body,
   box-sizing: border-box;
 }
 
+/*
+ * Tailwind Preflight defaults an unspecified border to light gray. Any
+ * missing or unsupported color utility would therefore become a bright frame
+ * in dark mode. Theme borders must always fall back to the quiet divider.
+ */
+*,
+::before,
+::after,
+::backdrop {
+  border-color: var(--bd-0);
+}
+
 input::placeholder,
 textarea::placeholder,
 .placeholder\:text-tx-3::placeholder,
 .placeholder\:text-muted-foreground::placeholder {
-  color: var(--tx-3) !important;
+  color: var(--tx-2) !important;
   opacity: 1 !important;
 }
 
 [data-placeholder] {
-  color: var(--tx-3) !important;
+  color: var(--tx-2) !important;
 }
 
 /* Monaco editor — fixed code metrics and quiet IDE chrome. */
@@ -367,6 +396,23 @@ textarea::placeholder,
 }
 
 /*
+ * Keyboard-focus fallback for non-form interactive controls. Native text
+ * controls are handled below: applying a brightness filter to them washes
+ * light-theme fills to white and creates a stacking context that can cover
+ * leading icons in compound fields.
+ */
+:where(
+  a[href],
+  button:not(:disabled):not([role='combobox']),
+  summary,
+  [role='button']:not([aria-disabled='true']),
+  [role='tab']:not([aria-disabled='true']),
+  [role='menuitem']:not([aria-disabled='true'])
+):focus-visible {
+  filter: brightness(1.14) saturate(1.06);
+}
+
+/*
  * Global form-control focus treatment. This overrides both native browser
  * focus outlines and Tailwind ring utilities. The border remains at the
  * standard control color instead of becoming a focus highlight frame.
@@ -378,6 +424,7 @@ textarea::placeholder,
   [role='combobox'],
   [contenteditable='true']
 ):is(:focus, :focus-visible) {
+  filter: none;
   outline: none !important;
   outline-offset: 0 !important;
   --tw-ring-offset-width: 0px !important;

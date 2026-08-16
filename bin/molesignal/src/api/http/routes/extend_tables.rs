@@ -3,6 +3,8 @@
 
 //! Extend table CRUD over `extend_kv`.
 
+mod schema;
+
 use std::collections::{HashMap, HashSet};
 
 use axum::{
@@ -28,7 +30,9 @@ pub fn routes() -> Router<AppState> {
         .route("/extend_tables", get(list_tables).post(create_table))
         .route(
             "/extend_tables/{table}",
-            get(list_rows).delete(delete_table),
+            get(list_rows)
+                .patch(update_table_fields)
+                .delete(delete_table),
         )
         .route(
             "/extend_tables/{table}/rows/{key}",
@@ -167,6 +171,57 @@ async fn create_table(
             updated_at: table.updated_at,
         },
         usage_locations: Vec::new(),
+    }))
+}
+
+#[permission("functions.edit")]
+async fn update_table_fields(
+    State(state): State<AppState>,
+    Extension(ctx): Extension<IamContext>,
+    Path(table): Path<String>,
+    Json(req): Json<schema::UpdateTableFieldsReq>,
+) -> Result<Json<TableResp>> {
+    validate_key(&table, "table")?;
+    let existing = state
+        .storage
+        .extend_kv
+        .list_tables(&ctx.org_id)
+        .await?
+        .into_iter()
+        .find(|summary| summary.table_name == table)
+        .ok_or_else(|| Error::not_found(format!("extend table {table} not found")))?;
+    let update = schema::validate_field_update(&existing, req.value_fields)?;
+    let now = TimestampMicros::now();
+    let updated = state
+        .storage
+        .extend_kv
+        .update_table_fields(
+            &ctx.org_id,
+            &table,
+            &update.value_fields,
+            now,
+            update.require_empty,
+        )
+        .await?;
+    if !updated {
+        if update.require_empty {
+            return Err(Error::conflict(
+                "table received records while its field schema was being changed; reload and retry",
+            ));
+        }
+        return Err(Error::not_found(format!("extend table {table} not found")));
+    }
+
+    let mut summary = existing;
+    summary.value_fields = update.value_fields;
+    summary.updated_at = now;
+    let pipelines = state.storage.scheduled_pipelines.list(&ctx.org_id).await?;
+    let saved_views = state.platform.saved_view.list(&ctx.org_id, false).await?;
+    let mut usage_locations = pipeline_usages(&pipelines, &summary.table_name);
+    usage_locations.extend(saved_view_usages(&saved_views, &summary.table_name));
+    Ok(Json(TableResp {
+        summary,
+        usage_locations,
     }))
 }
 

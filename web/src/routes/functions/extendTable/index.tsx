@@ -24,6 +24,7 @@ import { ListPage } from '@/product/templates';
 import { ChromeButton } from '@/shell/chrome';
 import { EmptyState } from '@/shell/EmptyState';
 import { FormSelect } from '@/shell/FormDrawer';
+import { cn } from '@/shell/lib/cn';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,6 +35,10 @@ import {
 import { toast } from '@/shell/ui/sonner';
 
 import { CreateExtendTableDrawer } from './Drawers';
+import {
+  ExtendTablePagination,
+  useExtendTablePagination,
+} from './Pagination';
 import { formatRelativeMicros } from '../../pipelines/presentation';
 
 type StatusFilter = 'all' | 'healthy' | 'empty';
@@ -86,6 +91,10 @@ export function ExtendTables() {
       return matchesSearch && matchesStatus && matchesUsage;
     });
   }, [allTables, search, statusFilter, usageFilter]);
+  const pagination = useExtendTablePagination(
+    tables,
+    `${search}\u0000${statusFilter}\u0000${usageFilter}`,
+  );
 
   const deleteTable = useMutation({
     mutationFn: (table: string) => extendTablesApi.deleteTable(table),
@@ -128,6 +137,9 @@ export function ExtendTables() {
       <ListPage
         title={t('extend_tables.title')}
         subtitle={t('extend_tables.subtitle')}
+        cardless
+        filterClassName="border-b-0"
+        stateClassName="border-b-0"
         toolbar={
           <ChromeButton
             variant="primary"
@@ -147,7 +159,7 @@ export function ExtendTables() {
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder={t('extend_tables.search_placeholder')}
-                className="h-9 w-full rounded-md border border-bd-1 bg-bg-2 pl-9 pr-3 text-sm text-tx-0 placeholder:text-tx-3 focus:outline-none focus:ring-2 focus:ring-indigo/20"
+                className="h-9 w-full rounded-md border border-bd-1 bg-bg-2 pl-9 pr-3 text-sm text-tx-0 placeholder:text-tx-3 focus-visible:bg-bg-3"
               />
             </label>
             <FormSelect
@@ -186,16 +198,16 @@ export function ExtendTables() {
         state={listState}
       >
         {tables.length === 0 ? (
-          <div className="rounded-lg border border-bd-0 bg-bg-1">
+          <ExtendTableListSurface>
             <EmptyState
               strategy="query-first"
               title={t('extend_tables.no_match_title')}
               description={t('extend_tables.no_match_description')}
               className="min-h-60"
             />
-          </div>
+          </ExtendTableListSurface>
         ) : (
-          <div className="overflow-hidden rounded-lg border border-bd-0 bg-bg-1">
+          <ExtendTableListSurface className="overflow-hidden">
             <div className="hidden min-h-10 grid-cols-[minmax(280px,1.7fr)_minmax(220px,1.3fr)_120px_150px_150px_136px] items-center gap-4 border-b border-bd-0 bg-bg-2 px-5 text-type-micro font-strong uppercase tracking-wider text-tx-3 xl:grid">
               <span>{t('extend_tables.columns.name')}</span>
               <span>{t('extend_tables.columns.schema')}</span>
@@ -206,14 +218,17 @@ export function ExtendTables() {
                 {t('extend_tables.columns.status')}
               </span>
             </div>
-            {tables.map((table) => (
+            {pagination.pageItems.map((table, index) => (
               <div
                 key={table.table_name}
-                className="group grid min-h-[76px] gap-3 border-b border-bd-0 px-5 py-4 transition-colors last:border-b-0 hover:bg-bg-2 xl:grid-cols-[minmax(280px,1.7fr)_minmax(220px,1.3fr)_120px_150px_150px_136px] xl:items-center xl:gap-4"
+                className={cn(
+                  'group grid min-h-[64px] gap-3 px-5 py-3 transition-colors hover:bg-bg-2 xl:grid-cols-[minmax(280px,1.7fr)_minmax(220px,1.3fr)_120px_150px_150px_136px] xl:items-center xl:gap-4',
+                  index > 0 && 'border-t border-bd-0',
+                )}
               >
                 <Link
                   to={`/extend-tables/${encodeURIComponent(table.table_name)}`}
-                  className="min-w-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo"
+                  className="min-w-0 rounded px-1 py-0.5 focus-visible:bg-bg-2"
                 >
                   <div className="flex items-center gap-2">
                     <TableProperties className="h-4 w-4 shrink-0 text-indigo-soft" />
@@ -320,7 +335,8 @@ export function ExtendTables() {
                 </div>
               </div>
             ))}
-          </div>
+            <ExtendTablePagination {...pagination} />
+          </ExtendTableListSurface>
         )}
       </ListPage>
 
@@ -353,6 +369,23 @@ export function ExtendTables() {
         }}
       />
     </>
+  );
+}
+
+export function ExtendTableListSurface({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string | undefined;
+}) {
+  return (
+    <section
+      data-extend-table-list-surface
+      className={cn('min-w-0 border-b border-bd-0', className)}
+    >
+      {children}
+    </section>
   );
 }
 

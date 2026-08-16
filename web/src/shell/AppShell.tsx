@@ -15,27 +15,16 @@ import { MoleAgentPanel } from '@/shell/MoleAgentPanel';
 import { Sidebar } from '@/shell/Sidebar';
 import { Topbar } from '@/shell/Topbar';
 import { UnsupportedScreen } from '@/shell/UnsupportedScreen';
+import {
+  DESKTOP_MIN_WIDTH,
+  useViewportWidth,
+} from '@/shell/useViewportWidth';
 import { useMoleAgentStore } from '@/stores/useMoleAgentStore';
 import { useSidebarStore } from '@/stores/useSidebarStore';
 
 interface AppShellProps {
   onTimePickerOpen: () => void;
   onPaletteOpen: () => void;
-}
-
-/** Below this the dense SRE layout has no fallback — see UnsupportedScreen. */
-const DESKTOP_MIN_WIDTH = 1024;
-
-function useViewportWidth(): number {
-  const [width, setWidth] = React.useState(() =>
-    typeof window === 'undefined' ? DESKTOP_MIN_WIDTH : window.innerWidth,
-  );
-  React.useEffect(() => {
-    const onResize = () => setWidth(window.innerWidth);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
-  return width;
 }
 
 /**
@@ -135,12 +124,11 @@ export function AppShell(_props: AppShellProps) {
     setCollapsed((v) => !v);
   };
 
-  // Dense investigation surfaces remain desktop-only. Management routes have
-  // their own narrow-screen navigation drawers and responsive content, so they
-  // can bypass the interstitial without claiming mobile support for the whole
-  // console.
+  // The product contract is desktop-only below 1024px, including Settings and
+  // IAM. Keeping one shell-wide threshold avoids suggesting that a narrow
+  // management drawer makes dense administrative tables mobile-supported.
   // Hooks above run unconditionally so this early return stays hook-safe.
-  if (viewportWidth < DESKTOP_MIN_WIDTH && !isManagementRoute) {
+  if (viewportWidth < DESKTOP_MIN_WIDTH) {
     return <UnsupportedScreen width={viewportWidth} />;
   }
 

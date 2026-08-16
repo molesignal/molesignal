@@ -327,7 +327,7 @@ export function QueryBoundary({
             <button
               type="button"
               onClick={onRetry}
-              className="inline-flex h-8 items-center gap-1.5 rounded-md bg-indigo px-3 text-xs font-strong text-white outline-none hover:bg-indigo-soft focus-visible:bg-indigo-soft"
+              className="inline-flex h-8 items-center gap-1.5 rounded-md bg-indigo px-3 text-xs font-strong text-white outline-none hover:brightness-90 focus-visible:brightness-90"
             >
               <RefreshCw aria-hidden className="h-3.5 w-3.5" />
               {t('actions.retry')}

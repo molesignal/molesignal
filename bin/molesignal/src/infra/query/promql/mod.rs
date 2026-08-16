@@ -96,10 +96,10 @@ use args::*;
 use binary::*;
 use datetime::*;
 use eval_utils::*;
-use functions::*;
 // Exposed for criterion benches (`benches/*`); not part of the stable API.
 #[doc(hidden)]
 pub use functions::apply_histogram_quantile;
+use functions::*;
 use incremental::StreamingAgg;
 use labels::*;
 use math::*;

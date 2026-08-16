@@ -14,6 +14,10 @@ import { TimeSeriesChart } from '@/viz/timeseries/TimeSeriesChart';
 
 import { ExemplarRail } from '../ExemplarRail';
 import type { MetricsDrawStyle, MetricsStackMode } from '../model';
+import {
+  MetricsNoDataState,
+  MetricsQueryErrorState,
+} from './RecoveryState';
 import type { GraphViewProps } from './types';
 
 export function GraphView({
@@ -21,6 +25,7 @@ export function GraphView({
   series,
   chart,
   exemplars,
+  recovery,
   onViewRawCounter,
   onInspectMetricType,
 }: GraphViewProps) {
@@ -86,7 +91,7 @@ export function GraphView({
 
       <div className="flex min-h-0 flex-none flex-col p-3">
         {query.error ? (
-          <QueryState state="error" error={query.error} />
+          <MetricsQueryErrorState error={query.error} recovery={recovery} />
         ) : query.pending && !query.result ? (
           <QueryState
             state="loading"
@@ -99,7 +104,7 @@ export function GraphView({
             className="min-h-[clamp(320px,44vh,520px)]"
           />
         ) : series.metricSeries.length === 0 ? (
-          <QueryState state="empty" emptyLabel={t('explore.chart.empty')} />
+          <MetricsNoDataState recovery={recovery} />
         ) : (
           <>
             {series.counterRateQuery && series.quality.negativePoints > 0 ? (

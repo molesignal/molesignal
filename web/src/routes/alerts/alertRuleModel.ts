@@ -1,10 +1,12 @@
 import type {
   AlertRule,
+  AlertRuleKind,
   ComparisonOp,
+  Incident,
   Severity,
   SeverityThreshold,
 } from '@/types/alerting';
-import type { QueryResult } from '@/types/query';
+import type { QueryLanguage, QueryResult } from '@/types/query';
 
 export const SEVERITY_ORDER: Severity[] = ['info', 'warning', 'error', 'critical'];
 
@@ -16,6 +18,40 @@ export const COMPARISON_LABEL: Record<ComparisonOp, string> = {
   eq: '=',
   neq: '≠',
 };
+
+export type RuleDisplayState =
+  | 'not_evaluated'
+  | 'healthy'
+  | 'pending'
+  | 'firing'
+  | 'disabled';
+
+export interface DisplayRule {
+  id: string;
+  name: string;
+  severity: Severity;
+  service: string;
+  source: string;
+  condition: string;
+  state: RuleDisplayState;
+  lastEvaluation: number | null;
+  kind: AlertRuleKind;
+  raw: AlertRule;
+}
+
+export type AlertRuleActivationBlocker =
+  | 'identity'
+  | 'preview_running'
+  | 'preview_required'
+  | 'thresholds'
+  | 'runbook';
+
+export interface AlertRulePreviewInput {
+  signal: string;
+  queryLanguage: QueryLanguage;
+  streamName: string;
+  statement: string;
+}
 
 export function severityRank(severity: Severity): number {
   const index = SEVERITY_ORDER.indexOf(severity);
@@ -36,6 +72,77 @@ export function ruleSeverity(rule: AlertRule): Severity {
   if (rule.severity) return rule.severity;
   const label = rule.labels?.severity as Severity | undefined;
   return label && SEVERITY_ORDER.includes(label) ? label : 'warning';
+}
+
+/**
+ * Derive the single presentation state used by the rule table. An enabled
+ * rule with no completed evaluator pass is explicitly "not evaluated"—it
+ * must never be presented as Healthy beside a "Never evaluated" timestamp.
+ */
+export function adaptRule(
+  rule: AlertRule,
+  incidents: Incident[],
+): DisplayRule {
+  const activeIncident = incidents.find(
+    (incident) => incident.rule_id === rule.id && isActiveIncident(incident),
+  );
+  const threshold = topThreshold(rule) ?? rule.trigger;
+  const duration = threshold.for_periods * rule.query.period_secs;
+  const state: RuleDisplayState = !rule.enabled
+    ? 'disabled'
+    : activeIncident
+      ? 'firing'
+      : !rule.last_eval_at
+        ? 'not_evaluated'
+        : rule.last_state?.kind === 'pending'
+          ? 'pending'
+          : 'healthy';
+
+  return {
+    id: rule.id,
+    name: rule.name,
+    severity: ruleSeverity(rule),
+    service: rule.labels.service ?? rule.labels.svc ?? '—',
+    source: rule.query.stream
+      ? `${rule.query.stream.name} · ${rule.query.stream.stream_type}`
+      : '—',
+    condition: `${COMPARISON_LABEL[threshold.operator]} ${threshold.threshold} · ${formatDurationSecs(duration)}`,
+    state,
+    lastEvaluation: rule.last_eval_at ?? null,
+    kind: rule.kind ?? 'scheduled',
+    raw: rule,
+  };
+}
+
+export function isActiveIncident(incident: Incident): boolean {
+  return incident.status === 'open' || incident.status === 'acknowledged';
+}
+
+/** Stable identity for the exact query inputs approved by the last test run. */
+export function alertRulePreviewFingerprint(
+  input: AlertRulePreviewInput,
+): string {
+  return JSON.stringify({
+    signal: input.signal,
+    language: input.queryLanguage,
+    stream: input.streamName.trim(),
+    statement: input.statement.trim(),
+  });
+}
+
+export function alertRuleActivationBlocker(args: {
+  identityReady: boolean;
+  previewRunning: boolean;
+  queryReady: boolean;
+  thresholdsReady: boolean;
+  runbookReady: boolean;
+}): AlertRuleActivationBlocker | null {
+  if (!args.identityReady) return 'identity';
+  if (args.previewRunning) return 'preview_running';
+  if (!args.queryReady) return 'preview_required';
+  if (!args.thresholdsReady) return 'thresholds';
+  if (!args.runbookReady) return 'runbook';
+  return null;
 }
 
 export function seedThresholds(rule?: AlertRule): SeverityThreshold[] {

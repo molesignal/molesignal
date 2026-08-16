@@ -113,6 +113,14 @@
       "select_prompt": "Enter PromQL above or search for a metric, then run the query.",
       "empty": "No data points for this query / range."
     },
+    "recovery": {
+      "query_failed": "PromQL query failed",
+      "promql_docs": "PromQL documentation",
+      "no_data_title": "No metric data in this investigation window",
+      "no_data_description": "The query is valid. Broaden the time range or remove pinned filters before changing the expression.",
+      "expand_time": "Expand time range 4×",
+      "clear_filters": "Clear filters and retry"
+    },
     "exemplars": {
       "title": "Exemplars",
       "count": "{{count}} exemplars",

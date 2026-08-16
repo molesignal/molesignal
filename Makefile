@@ -68,7 +68,7 @@ DOCKER_TAG       ?= $(VERSION)
 CARGO_FLAGS_BASE := --frozen --locked
 WORKSPACE_PKGS   := -p $(BIN_PKG)
 
-# 付费版 feature（默认关）。使用：make build FEATURES=
+# 附加 Cargo feature；molesignal 默认已包含 js-runtime。使用：make build FEATURES=
 ifdef FEATURES
   CARGO_FEATURE_FLAGS := --features $(FEATURES)
 else

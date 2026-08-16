@@ -54,6 +54,14 @@ pub struct ExtendTableSummary {
 #[async_trait]
 pub trait ExtendKvRepository: Send + Sync {
     async fn create_table(&self, table: ExtendTableDefinition) -> Result<ExtendTableDefinition>;
+    async fn update_table_fields(
+        &self,
+        org: &Id,
+        table: &str,
+        value_fields: &[ExtendValueField],
+        updated_at: TimestampMicros,
+        require_empty: bool,
+    ) -> Result<bool>;
     async fn delete_table(&self, org: &Id, table: &str) -> Result<()>;
     async fn upsert(&self, row: ExtendRow) -> Result<()>;
     async fn delete(&self, org: &Id, table: &str, key: &str) -> Result<()>;
@@ -105,6 +113,41 @@ impl ExtendKvRepository for PgExtendKvRepository {
         .await
         .map_err(super::super::super::persistence::sqlx_err)?;
         Ok(table)
+    }
+
+    async fn update_table_fields(
+        &self,
+        org: &Id,
+        table: &str,
+        value_fields: &[ExtendValueField],
+        updated_at: TimestampMicros,
+        require_empty: bool,
+    ) -> Result<bool> {
+        let result = sqlx::query(
+            "UPDATE extend_table_definitions AS definitions
+                SET value_fields_json = $3,
+                    updated_at_micros = $4
+              WHERE definitions.org_id = $1
+                AND definitions.table_name = $2
+                AND (
+                    NOT $5
+                    OR NOT EXISTS (
+                        SELECT 1
+                          FROM extend_kv AS rows
+                         WHERE rows.org_id = definitions.org_id
+                           AND rows.table_name = definitions.table_name
+                    )
+                )",
+        )
+        .bind(&org.0)
+        .bind(table)
+        .bind(Json(value_fields))
+        .bind(updated_at.0)
+        .bind(require_empty)
+        .execute(&self.pool)
+        .await
+        .map_err(super::super::super::persistence::sqlx_err)?;
+        Ok(result.rows_affected() == 1)
     }
 
     #[tracing::instrument(

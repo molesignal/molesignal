@@ -96,62 +96,66 @@ export function UsersTable({
   ).length;
 
   return (
-    <div className="space-y-4">
-      <p className="font-sans text-xs text-tx-2" aria-live="polite">
-        {t('users.summary', {
-          total: rows.length,
-          active: activeCount,
-          pending: pendingCount,
-        })}
-      </p>
-
-      <div className="flex flex-col gap-2 border-y border-bd-0 py-3 sm:flex-row sm:items-center">
-        <label className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-md border border-bd-1 bg-bg-1 px-3 sm:max-w-md">
-          <Search className="h-3.5 w-3.5 shrink-0 text-tx-3" />
-          <span className="sr-only">{t('users.search_aria')}</span>
-          <input
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={t('users.search_placeholder')}
-            className="min-w-0 flex-1 bg-transparent font-sans text-base text-tx-0 placeholder:text-tx-3 focus:outline-none lg:text-sm"
-          />
-        </label>
-        <label>
-          <span className="sr-only">{t('users.role_filter_aria')}</span>
-          <select
-            value={roleFilter}
-            onChange={(event) => setRoleFilter(event.target.value)}
-            className="h-9 w-full rounded-md border border-bd-1 bg-bg-1 px-3 font-sans text-sm text-tx-1 focus:outline-none sm:w-36"
-          >
-            <option value="all">{t('users.filters.all_roles')}</option>
-            {roles.map((role) => (
-              <option key={role.id} value={role.id}>
-                {role.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span className="sr-only">{t('users.status_filter_aria')}</span>
-          <select
-            value={statusFilter}
-            onChange={(event) =>
-              setStatusFilter(event.target.value as StatusFilter)
-            }
-            className="h-9 w-full rounded-md border border-bd-1 bg-bg-1 px-3 font-sans text-sm text-tx-1 focus:outline-none sm:w-36"
-          >
-            <option value="all">{t('users.filters.all_statuses')}</option>
-            <option value="active">{t('users.status_active')}</option>
-            <option value="pending">{t('users.status_pending')}</option>
-            <option value="disabled">{t('users.status_disabled')}</option>
-            <option value="rejected">{t('users.status_rejected')}</option>
-          </select>
-        </label>
+    <div className="space-y-2">
+      <div className="flex flex-col gap-2 border-b border-bd-0 pb-2 md:flex-row md:items-center">
+        <p
+          className="shrink-0 font-sans text-xs text-tx-2"
+          aria-live="polite"
+        >
+          {t('users.summary', {
+            total: rows.length,
+            active: activeCount,
+            pending: pendingCount,
+          })}
+        </p>
+        <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center md:justify-end">
+          <label className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-md bg-bg-2 px-3 transition-colors hover:bg-bg-3 focus-within:bg-bg-3 sm:max-w-sm">
+            <Search className="h-3.5 w-3.5 shrink-0 text-tx-3" />
+            <span className="sr-only">{t('users.search_aria')}</span>
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={t('users.search_placeholder')}
+              className="min-w-0 flex-1 bg-transparent font-sans text-base text-tx-0 placeholder:text-tx-3 focus:outline-none lg:text-sm"
+            />
+          </label>
+          <label>
+            <span className="sr-only">{t('users.role_filter_aria')}</span>
+            <select
+              value={roleFilter}
+              onChange={(event) => setRoleFilter(event.target.value)}
+              className="h-9 w-full rounded-md border-0 bg-bg-2 px-3 font-sans text-sm text-tx-1 focus:bg-bg-3 focus:outline-none sm:w-36"
+            >
+              <option value="all">{t('users.filters.all_roles')}</option>
+              {roles.map((role) => (
+                <option key={role.id} value={role.id}>
+                  {role.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span className="sr-only">{t('users.status_filter_aria')}</span>
+            <select
+              value={statusFilter}
+              onChange={(event) =>
+                setStatusFilter(event.target.value as StatusFilter)
+              }
+              className="h-9 w-full rounded-md border-0 bg-bg-2 px-3 font-sans text-sm text-tx-1 focus:bg-bg-3 focus:outline-none sm:w-36"
+            >
+              <option value="all">{t('users.filters.all_statuses')}</option>
+              <option value="active">{t('users.status_active')}</option>
+              <option value="pending">{t('users.status_pending')}</option>
+              <option value="disabled">{t('users.status_disabled')}</option>
+              <option value="rejected">{t('users.status_rejected')}</option>
+            </select>
+          </label>
+        </div>
       </div>
 
       {filteredRows.length === 0 ? (
-        <div className="flex h-36 flex-col items-center justify-center rounded-md border border-dashed border-bd-1 bg-bg-1 px-6 text-center">
+        <div className="flex h-36 flex-col items-center justify-center border-b border-bd-0 px-6 text-center">
           <Search className="mb-2 h-5 w-5 text-tx-3" />
           <div className="font-sans text-sm font-strong text-tx-1">
             {t('users.no_results_title')}
@@ -161,7 +165,7 @@ export function UsersTable({
           </div>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-md border border-bd-0 bg-bg-1">
+        <div className="min-w-0 overflow-hidden border-b border-bd-0 bg-bg-0">
           <DataTable
             rows={filteredRows}
             rowKey={(user) => user.id}
@@ -169,7 +173,7 @@ export function UsersTable({
               {
                 key: 'user',
                 header: t('users.columns.user'),
-                width: 210,
+                width: 180,
                 cell: (user) => (
                   <div className="flex min-w-0 items-center gap-2.5">
                     <UserAvatar user={user} />
@@ -196,13 +200,13 @@ export function UsersTable({
               {
                 key: 'email',
                 header: t('users.columns.email'),
-                width: 240,
+                width: 200,
                 cell: (user) => user.email,
               },
               {
                 key: 'role',
                 header: t('users.columns.role'),
-                width: 110,
+                width: 100,
                 cell: (user) =>
                   user.roles.length ? (
                     <Pill tone="neutral">
@@ -215,7 +219,9 @@ export function UsersTable({
               {
                 key: 'teams',
                 header: t('users.columns.teams'),
-                width: 190,
+                width: 180,
+                headerClassName: 'hidden 2xl:table-cell',
+                className: 'hidden 2xl:table-cell',
                 cell: (user) =>
                   user.team_names?.length
                     ? user.team_names.join(', ')
@@ -224,26 +230,30 @@ export function UsersTable({
               {
                 key: 'login_method',
                 header: t('users.columns.login_method'),
-                width: 130,
+                width: 100,
+                headerClassName: 'hidden xl:table-cell',
+                className: 'hidden xl:table-cell',
                 cell: (user) => loginMethodLabel(t, user.login_method),
               },
               {
                 key: 'last_active',
                 header: t('users.columns.last_active'),
-                width: 140,
+                width: 110,
+                headerClassName: 'hidden xl:table-cell',
+                className: 'hidden xl:table-cell',
                 cell: (user) =>
                   lastActiveLabel(user, currentUserId, locale, t),
               },
               {
                 key: 'status',
                 header: t('users.columns.status'),
-                width: 110,
+                width: 90,
                 cell: (user) => <UserStatusPill user={user} />,
               },
               {
                 key: 'actions',
                 header: t('users.columns.actions'),
-                width: 170,
+                width: 110,
                 headerClassName: 'text-center',
                 className: 'overflow-visible text-center',
                 cell: (user) => (
@@ -333,7 +343,7 @@ function UserActions({
       <button
         type="button"
         onClick={() => onView(user)}
-        className="rounded-md px-2 py-1 font-sans text-xs font-strong text-tx-2 hover:bg-bg-3 hover:text-tx-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo"
+        className="rounded-md px-2 py-1 font-sans text-xs font-strong text-tx-2 hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-bg-3 focus-visible:text-tx-0 focus-visible:outline-none"
       >
         {t('users.actions.details')}
       </button>
@@ -344,7 +354,7 @@ function UserActions({
             aria-label={t('users.actions.open_menu', {
               user: user.display_name || user.email,
             })}
-            className="flex h-8 w-8 items-center justify-center rounded-md text-tx-2 hover:bg-bg-3 hover:text-tx-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-tx-2 hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-bg-3 focus-visible:text-tx-0 focus-visible:outline-none"
           >
             <MoreHorizontal className="h-4 w-4" />
           </button>

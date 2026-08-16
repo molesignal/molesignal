@@ -13,7 +13,8 @@ export function TraceDetail() {
   const { t: tProfiles } = useTranslation('profiles');
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
-  const spanId = searchParams.get('spanId') ?? undefined;
+  const spanId =
+    searchParams.get('span_id') ?? searchParams.get('spanId') ?? undefined;
   const traceQuery = useTrace(id);
   const sessionId = relatedSessionId(traceQuery.data?.spans ?? []);
   const profilesHref = id

@@ -52,6 +52,7 @@ export {
   localInputToMicros,
   microsToLocalInput,
 } from './EditorDrawer';
+import { ScheduleFilterSelect } from './list/FilterSelect';
 import {
   MICROS_PER_DAY,
   liveOrFutureOverrides,
@@ -366,8 +367,8 @@ export function AlertsSchedules() {
         {pageState ? (
           <ProductState {...pageState} />
         ) : (
-          <div className="flex min-w-0 flex-col gap-4">
-            <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+          <div className="flex min-w-0 flex-col gap-0">
+            <div className="grid grid-cols-2 gap-0 xl:grid-cols-4">
               <ScheduleSummaryCard
                 icon={CalendarDays}
                 label={t('schedules.summary.schedules')}
@@ -429,7 +430,7 @@ export function AlertsSchedules() {
               />
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 py-3">
               <label className="relative min-w-[280px] flex-1">
                 <span className="sr-only">
                   {t('schedules.filters.search')}
@@ -439,10 +440,10 @@ export function AlertsSchedules() {
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder={t('schedules.filters.search')}
-                  className="h-9 w-full rounded-md border border-bd-1 bg-bg-1 pl-9 pr-3 text-sm text-tx-0 outline-none placeholder:text-tx-3 focus:border-indigo/60"
+                  className="h-9 w-full rounded-md border border-bd-1 bg-bg-1 pl-9 pr-3 text-sm text-tx-0 placeholder:text-tx-3 focus-visible:bg-bg-2"
                 />
               </label>
-              <FilterSelect
+              <ScheduleFilterSelect
                 label={t('schedules.filters.team')}
                 value={teamFilter}
                 onChange={setTeamFilter}
@@ -457,7 +458,7 @@ export function AlertsSchedules() {
                   })),
                 ]}
               />
-              <FilterSelect
+              <ScheduleFilterSelect
                 label={t('schedules.filters.timezone')}
                 value={timezoneFilter}
                 onChange={setTimezoneFilter}
@@ -472,7 +473,7 @@ export function AlertsSchedules() {
                   })),
                 ]}
               />
-              <FilterSelect
+              <ScheduleFilterSelect
                 label={t('schedules.filters.status')}
                 value={statusFilter}
                 onChange={(value) =>
@@ -497,7 +498,7 @@ export function AlertsSchedules() {
                   })),
                 ]}
               />
-              <label className="flex h-9 items-center gap-2 rounded-md border border-bd-0 bg-bg-1 px-3 text-xs font-strong text-tx-1">
+              <label className="flex h-9 items-center gap-2 bg-bg-2 px-3 text-xs font-strong text-tx-1">
                 {t('schedules.filters.mine')}
                 <Switch
                   checked={mineOnly}
@@ -560,8 +561,9 @@ export function AlertsSchedules() {
               </DropdownMenu>
             </div>
 
-            <div className="overflow-hidden rounded-lg border border-bd-0 bg-bg-1">
+            <div className="min-w-0">
               <DataTable
+                className="min-w-[1180px] rounded-none border-0 bg-transparent"
                 rows={pagedRows}
                 rowKey={(row) => row.schedule.id}
                 onRowClick={(row) =>
@@ -733,36 +735,38 @@ export function AlertsSchedules() {
                   },
                 ]}
               />
-              <div className="flex items-center border-t border-bd-0 bg-bg-1">
-                <span className="px-3 text-xs text-tx-3">
-                  {t('schedules.total_count', {
-                    count: filteredRows.length,
-                  })}
-                </span>
-                <ResultPagination
-                  page={Math.min(page, pageCount)}
-                  pageCount={pageCount}
-                  pageSize={pageSize}
-                  pageSizeOptions={[10, 20, 50]}
-                  pageLabel={t('schedules.pagination.page', {
-                    page: Math.min(page, pageCount),
-                    count: pageCount,
-                  })}
-                  ariaLabel={t('schedules.pagination.label')}
-                  pageSizeAriaLabel={t(
-                    'schedules.pagination.page_size',
-                  )}
-                  firstAriaLabel={t('schedules.pagination.first')}
-                  previousAriaLabel={t(
-                    'schedules.pagination.previous',
-                  )}
-                  nextAriaLabel={t('schedules.pagination.next')}
-                  lastAriaLabel={t('schedules.pagination.last')}
-                  onPageChange={setPage}
-                  onPageSizeChange={setPageSize}
-                  className="ml-auto border-t-0"
-                />
-              </div>
+              {filteredRows.length > pageSize && (
+                <div className="flex items-center border-t border-bd-0 bg-bg-1">
+                  <span className="px-3 text-xs text-tx-3">
+                    {t('schedules.total_count', {
+                      count: filteredRows.length,
+                    })}
+                  </span>
+                  <ResultPagination
+                    page={Math.min(page, pageCount)}
+                    pageCount={pageCount}
+                    pageSize={pageSize}
+                    pageSizeOptions={[10, 20, 50]}
+                    pageLabel={t('schedules.pagination.page', {
+                      page: Math.min(page, pageCount),
+                      count: pageCount,
+                    })}
+                    ariaLabel={t('schedules.pagination.label')}
+                    pageSizeAriaLabel={t(
+                      'schedules.pagination.page_size',
+                    )}
+                    firstAriaLabel={t('schedules.pagination.first')}
+                    previousAriaLabel={t(
+                      'schedules.pagination.previous',
+                    )}
+                    nextAriaLabel={t('schedules.pagination.next')}
+                    lastAriaLabel={t('schedules.pagination.last')}
+                    onPageChange={setPage}
+                    onPageSizeChange={setPageSize}
+                    className="ml-auto border-t-0"
+                  />
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -793,36 +797,6 @@ export function AlertsSchedules() {
         }}
       />
     </>
-  );
-}
-
-function FilterSelect({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  options: Array<{ value: string; label: string }>;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <label className="flex h-9 min-w-36 items-center gap-2 rounded-md border border-bd-1 bg-bg-1 px-3">
-      <span className="shrink-0 text-xs text-tx-3">{label}</span>
-      <select
-        value={value}
-        aria-label={label}
-        onChange={(event) => onChange(event.target.value)}
-        className="min-w-0 flex-1 bg-transparent text-xs font-strong text-tx-1 outline-none"
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
   );
 }
 

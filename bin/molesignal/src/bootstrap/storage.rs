@@ -39,6 +39,7 @@ pub(super) struct StorageRuntime {
     pub(super) profile_storage: Arc<ProfileStorageService>,
     pub(super) profiling_service: Arc<ProfilingService>,
     pub(super) prometheus_series_admission: Arc<PrometheusSeriesAdmission>,
+    pub(super) function_executor: Arc<dyn crate::app::intake::FunctionExecutor>,
     pub(super) functions_js_runtime_enabled: bool,
     pub(super) service_graph_aggregator: Arc<ServiceGraphAggregator>,
     pub(super) usage: Arc<dyn UsageRepository>,
@@ -131,9 +132,7 @@ impl StorageRuntime {
         let js_executor: Option<Arc<dyn crate::app::intake::FunctionExecutor>> = {
             #[cfg(feature = "js-runtime")]
             {
-                tracing::info!(
-                    "JS function runtime enabled (deno_core; compiled in via --features js-runtime)"
-                );
+                tracing::info!("JS function runtime enabled (deno_core compiled in)");
                 Some(Arc::new(
                     crate::infra::runtime::JsFunctionExecutor::with_defaults(),
                 ))
@@ -161,7 +160,7 @@ impl StorageRuntime {
         let pipeline_engine = Arc::new(crate::app::intake::PipelineEngine::new(
             pipelines,
             functions,
-            function_executor,
+            function_executor.clone(),
         ));
         let functions_js_runtime_enabled = cfg!(feature = "js-runtime");
 
@@ -249,6 +248,7 @@ impl StorageRuntime {
             profile_storage,
             profiling_service,
             prometheus_series_admission,
+            function_executor,
             functions_js_runtime_enabled,
             service_graph_aggregator,
             usage,

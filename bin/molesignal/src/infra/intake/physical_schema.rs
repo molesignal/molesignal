@@ -40,6 +40,9 @@ const RUM_SESSION_SUMMARY_FIELDS: &[&str] = &[
     EVENT_ID_FIELD,
     "session_id",
     "user_id",
+    "ip_address",
+    "client_ip",
+    "ip",
     "started_at_micros",
     "duration_ms",
     "application",
@@ -72,6 +75,33 @@ const RUM_ERROR_SUMMARY_FIELDS: &[&str] = &[
     "environment",
 ];
 
+const RUM_ACTION_SUMMARY_FIELDS: &[&str] = &[
+    EVENT_ID_FIELD,
+    "session_id",
+    "ts_micros",
+    "type",
+    "name",
+    "page",
+    "url",
+    "application",
+    "service",
+    "environment",
+    "version",
+    "country",
+    "browser",
+    "device",
+    "os",
+    "duration_ms",
+    "status",
+    "lcp_ms",
+    "fid_ms",
+    "inp_ms",
+    "cls",
+    "ttfb_ms",
+    "trace_id",
+    "parent_span_id",
+];
+
 const METRIC_CATALOG_FIELDS: &[&str] = &[METRIC_NAME_FIELD, METRIC_KIND_FIELD];
 
 pub(crate) fn project(
@@ -81,6 +111,7 @@ pub(crate) fn project(
     let fields = match dataset_kind {
         PhysicalDatasetKind::TraceSummary => Some(TRACE_SUMMARY_FIELDS),
         PhysicalDatasetKind::RumSessionSummary => Some(RUM_SESSION_SUMMARY_FIELDS),
+        PhysicalDatasetKind::RumActionSummary => Some(RUM_ACTION_SUMMARY_FIELDS),
         PhysicalDatasetKind::RumErrorSummary => Some(RUM_ERROR_SUMMARY_FIELDS),
         PhysicalDatasetKind::MetricCatalog => Some(METRIC_CATALOG_FIELDS),
         _ => None,
@@ -162,6 +193,8 @@ mod tests {
         original.schema.fields.extend([
             field(EVENT_ID_FIELD),
             field("session_id"),
+            field("ip_address"),
+            field("type"),
             field("fingerprint"),
             field(METRIC_NAME_FIELD),
             field("large_payload"),
@@ -174,6 +207,13 @@ mod tests {
                 .fields
                 .iter()
                 .any(|field| field.name == "session_id")
+        );
+        assert!(
+            sessions
+                .schema
+                .fields
+                .iter()
+                .any(|field| field.name == "ip_address")
         );
         assert!(
             !sessions
@@ -193,6 +233,22 @@ mod tests {
         );
         assert!(
             !errors
+                .schema
+                .fields
+                .iter()
+                .any(|field| field.name == "large_payload")
+        );
+
+        let actions = project(&original, PhysicalDatasetKind::RumActionSummary);
+        assert!(
+            actions
+                .schema
+                .fields
+                .iter()
+                .any(|field| field.name == "type")
+        );
+        assert!(
+            !actions
                 .schema
                 .fields
                 .iter()

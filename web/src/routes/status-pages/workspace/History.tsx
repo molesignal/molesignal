@@ -24,8 +24,16 @@ import {
   formatDurationMicros,
   incidentStatusLabel,
 } from '../model';
+import {
+  StatusPageCanvas,
+  StatusPageFilterBand,
+  StatusPageListSurface,
+  statusPageFlatStateClassName,
+  statusPageFlatTableClassName,
+} from './CardlessSurface';
 import { StatusPageEventDrawer } from './EventDrawer';
 import { useStatusPageWorkspace } from './Layout';
+import { shouldShowStatusPagePagination } from './pagination';
 
 export function StatusPageHistory() {
   const { t } = useTranslation('status-pages');
@@ -79,75 +87,81 @@ export function StatusPageHistory() {
     navigate({ pathname: `/status-pages/${pageId}/history`, search: location.search }, { replace: true });
 
   return (
-    <PageBody className="space-y-4">
-      <form
-        className="grid gap-2 rounded-lg border border-bd-0 bg-bg-1 p-3 md:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_150px_160px_190px_190px_190px]"
-        onSubmit={(event) => {
-          event.preventDefault();
-          updateFilter('q', search.trim());
-        }}
-      >
-        <label className="relative min-w-0">
-          <span className="sr-only">{t('filters.search')}</span>
-          <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-tx-3" />
-          <FormInput
-            value={search}
-            onChange={(event) => setSearch(event.currentTarget.value)}
-            placeholder={t('filters.search_placeholder')}
-            className="pl-9"
+    <PageBody className="space-y-0 pb-4 pt-2 lg:pb-6 lg:pt-2">
+      <StatusPageCanvas>
+        <StatusPageFilterBand
+          className="grid gap-2 md:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_150px_160px_190px_190px_190px]"
+          onSubmit={(event) => {
+            event.preventDefault();
+            updateFilter('q', search.trim());
+          }}
+        >
+          <label className="relative min-w-0">
+            <span className="sr-only">{t('filters.search')}</span>
+            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-tx-3" />
+            <FormInput
+              value={search}
+              onChange={(event) => setSearch(event.currentTarget.value)}
+              placeholder={t('filters.search_placeholder')}
+              className="pl-9"
+            />
+          </label>
+          <FormSelect
+            ariaLabel={t('filters.type')}
+            value={kind ?? ''}
+            onChange={(value) => updateFilter('type', value)}
+            options={[
+              { value: '', label: t('filters.all_types') },
+              { value: 'incident', label: t('kind.incident') },
+              { value: 'maintenance', label: t('kind.maintenance') },
+            ]}
           />
-        </label>
-        <FormSelect
-          ariaLabel={t('filters.type')}
-          value={kind ?? ''}
-          onChange={(value) => updateFilter('type', value)}
-          options={[
-            { value: '', label: t('filters.all_types') },
-            { value: 'incident', label: t('kind.incident') },
-            { value: 'maintenance', label: t('kind.maintenance') },
-          ]}
-        />
-        <DateTimePicker
-          aria-label={t('filters.from')}
-          value={microsToLocalDateTime(from)}
-          onChange={(value) => updateFilter('from', localDateTimeToMicros(value))}
-          placeholder={t('filters.from')}
-        />
-        <DateTimePicker
-          aria-label={t('filters.to')}
-          value={microsToLocalDateTime(to)}
-          onChange={(value) => updateFilter('to', localDateTimeToMicros(value))}
-          placeholder={t('filters.to')}
-        />
-        <FormSelect
-          ariaLabel={t('filters.status')}
-          value={status ?? ''}
-          onChange={(value) => updateFilter('status', value)}
-          options={[
-            { value: '', label: t('filters.all_statuses') },
-            { value: 'resolved', label: t('incident_status.resolved') },
-            { value: 'completed', label: t('incident_status.completed') },
-            { value: 'cancelled', label: t('incident_status.cancelled') },
-          ]}
-        />
-        <FormSelect
-          ariaLabel={t('filters.component')}
-          value={component ?? ''}
-          onChange={(value) => updateFilter('component', value)}
-          options={[
-            { value: '', label: t('filters.all_components') },
-            ...snapshot.components.map((item) => ({ value: item.id, label: item.name })),
-          ]}
-        />
-      </form>
+          <DateTimePicker
+            aria-label={t('filters.from')}
+            value={microsToLocalDateTime(from)}
+            onChange={(value) => updateFilter('from', localDateTimeToMicros(value))}
+            placeholder={t('filters.from')}
+          />
+          <DateTimePicker
+            aria-label={t('filters.to')}
+            value={microsToLocalDateTime(to)}
+            onChange={(value) => updateFilter('to', localDateTimeToMicros(value))}
+            placeholder={t('filters.to')}
+          />
+          <FormSelect
+            ariaLabel={t('filters.status')}
+            value={status ?? ''}
+            onChange={(value) => updateFilter('status', value)}
+            options={[
+              { value: '', label: t('filters.all_statuses') },
+              { value: 'resolved', label: t('incident_status.resolved') },
+              { value: 'completed', label: t('incident_status.completed') },
+              { value: 'cancelled', label: t('incident_status.cancelled') },
+            ]}
+          />
+          <FormSelect
+            ariaLabel={t('filters.component')}
+            value={component ?? ''}
+            onChange={(value) => updateFilter('component', value)}
+            options={[
+              { value: '', label: t('filters.all_components') },
+              ...snapshot.components.map((item) => ({ value: item.id, label: item.name })),
+            ]}
+          />
+        </StatusPageFilterBand>
 
-      {query.isLoading ? (
-        <ProductState variant="loading" />
-      ) : query.isError ? (
-        <ProductState variant="error" error={query.error} />
-      ) : (
-        <div className="overflow-hidden rounded-lg border border-bd-0 bg-bg-1">
+        {query.isLoading ? (
+          <ProductState variant="loading" className={statusPageFlatStateClassName} />
+        ) : query.isError ? (
+          <ProductState
+            variant="error"
+            error={query.error}
+            className={statusPageFlatStateClassName}
+          />
+        ) : (
+          <StatusPageListSurface>
           <DataTable
+            className={statusPageFlatTableClassName}
             rows={query.data?.items ?? []}
             rowKey={(event) => event.id}
             emptyLabel={t('states.no_history')}
@@ -207,26 +221,29 @@ export function StatusPageHistory() {
               },
             ]}
           />
-          <ResultPagination
-            page={page}
-            pageCount={Math.max(1, Math.ceil((query.data?.total ?? 0) / (query.data?.per_page ?? 25)))}
-            pageSize={query.data?.per_page ?? 25}
-            pageSizeOptions={[25]}
-            pageLabel={t('pagination.page', {
-              page,
-              pages: Math.max(1, Math.ceil((query.data?.total ?? 0) / (query.data?.per_page ?? 25))),
-            })}
-            ariaLabel={t('pagination.label')}
-            pageSizeAriaLabel={t('pagination.page_size')}
-            firstAriaLabel={t('pagination.first')}
-            previousAriaLabel={t('pagination.previous')}
-            nextAriaLabel={t('pagination.next')}
-            lastAriaLabel={t('pagination.last')}
-            onPageChange={(nextPage) => updateFilter('page', String(nextPage))}
-            onPageSizeChange={() => undefined}
-          />
-        </div>
-      )}
+          {shouldShowStatusPagePagination(query.data) && (
+            <ResultPagination
+              page={page}
+              pageCount={Math.max(1, Math.ceil(query.data.total / query.data.per_page))}
+              pageSize={query.data.per_page}
+              pageSizeOptions={[25]}
+              pageLabel={t('pagination.page', {
+                page,
+                pages: Math.max(1, Math.ceil(query.data.total / query.data.per_page)),
+              })}
+              ariaLabel={t('pagination.label')}
+              pageSizeAriaLabel={t('pagination.page_size')}
+              firstAriaLabel={t('pagination.first')}
+              previousAriaLabel={t('pagination.previous')}
+              nextAriaLabel={t('pagination.next')}
+              lastAriaLabel={t('pagination.last')}
+              onPageChange={(nextPage) => updateFilter('page', String(nextPage))}
+              onPageSizeChange={() => undefined}
+            />
+          )}
+          </StatusPageListSurface>
+        )}
+      </StatusPageCanvas>
 
       <StatusPageEventDrawer
         kind={selected?.kind ?? 'incident'}

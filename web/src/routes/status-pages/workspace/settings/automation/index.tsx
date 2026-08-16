@@ -101,7 +101,7 @@ export function StatusPageAutomationSettings() {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-8">
       <SettingsCard title={t('automation.title')} description={t('automation.description')}>
         <div className="flex flex-col gap-3 rounded-md border border-bd-0 bg-bg-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div>

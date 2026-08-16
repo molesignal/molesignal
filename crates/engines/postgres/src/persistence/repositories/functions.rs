@@ -153,9 +153,9 @@ impl FunctionRepository for PgFunctionRepository {
 
 /// 编译前置校验：spec 要求 POST 时同步编译。
 ///
-/// `js_runtime_enabled`：从 `[functions].js_runtime_enabled` 透传；
-/// - false（feature off 默认 / 运行期开关关）→ JS source 一律 400，错误码与历史保持一致。
-/// - true 且 `feature = "js-runtime"` 编进 binary →
+/// `js_runtime_enabled` 表示当前 binary 是否编入 JS runtime；
+/// - false（自定义精简构建排除了 feature）→ JS source 一律 400。
+/// - true（主二进制默认）且 `feature = "js-runtime"` 编进 binary →
 ///   走 `JsFunctionExecutor::parse_only` 在 throwaway V8 isolate 上做 syntax check，
 ///   语法错抛 invalid。
 ///
@@ -182,7 +182,7 @@ pub fn precheck_compile(
         FunctionLanguage::Js => {
             if !js_runtime_enabled {
                 return Err(Error::invalid(
-                    "javascript runtime not available (build the binary with --features js-runtime)",
+                    "javascript runtime is not included in this build",
                 ));
             }
             #[cfg(feature = "js-runtime")]
@@ -192,7 +192,7 @@ pub fn precheck_compile(
             #[cfg(not(feature = "js-runtime"))]
             {
                 Err(Error::invalid(
-                    "javascript runtime not enabled (build with --features js-runtime)",
+                    "javascript runtime is not included in this build",
                 ))
             }
         }

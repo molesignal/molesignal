@@ -119,7 +119,7 @@ pub struct Settings {
     /// SearchJob worker pool。
     #[serde(default)]
     pub search_jobs: SearchJobsSettings,
-    /// Function runtime（VRL 永远可用；JS 走 `--features js-runtime` + 本段开关）。
+    /// Function runtime（VRL 永远可用；默认二进制内置 JS；本段配置 LLM）。
     #[serde(default)]
     pub functions: FunctionsSettings,
     /// Scheduled reports (`[scheduled_reports]`)：renderer 子段配置 headless

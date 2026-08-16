@@ -13,7 +13,6 @@ import {
   Filter,
   List,
   Minus,
-  MoreVertical,
   Play,
   Plus,
   RefreshCw,
@@ -32,6 +31,7 @@ import * as fieldMaskingApi from '@/api/fieldMasking';
 import * as queryApi from '@/api/query';
 import * as streamsApi from '@/api/streams';
 import type { LogListResponse } from '@/api/web';
+import { widenTimeWindow } from '@/investigation/timeRangeRecovery';
 import {
   type DateFormat,
   formatMicros,
@@ -47,13 +47,16 @@ import { CursorPagination } from '@/shell/CursorPagination';
 import { PageHeader } from '@/shell/PageHeader';
 import { QueryEditorFrame } from '@/shell/query/EditorFrame';
 import { QueryRecommendations } from '@/shell/query/Recommendations';
+import { QueryRecoveryState } from '@/shell/query/RecoveryState';
 import { QueryState } from '@/shell/query/State';
 import { QuerySyntaxHelp } from '@/shell/query/SyntaxHelp';
 import { useSqlFunctionCompletions } from '@/shell/query/useSqlFunctionCompletions';
 import { QueryToolbarButton, QueryToolbarGroup, QueryWorkbench } from '@/shell/query/Workbench';
 import { ResultPagination } from '@/shell/ResultPagination';
-import { detectSignalTypeForLabel, SignalReference } from '@/shell/SignalReference';
-import { TimezoneSelect } from '@/shell/TimezoneSelect';
+import {
+  detectSignalTypeForLabel,
+  SignalReference,
+} from '@/shell/SignalReference';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -102,8 +105,14 @@ import {
   type LogFieldDef,
 } from './fieldQueryModel';
 import { HistogramToggle } from './HistogramToggle';
+import {
+  relatedSignalsFromRecord,
+  signalTimeFromTimestamp,
+  stringLabelsFromRecord,
+} from './relatedSignals';
 import { levelToneClass, LogListResults } from './ResultViews';
 import {
+  captureLogFieldPosition,
   defaultLogTableFields,
   displayLogValue,
   logLevelLabel,
@@ -111,7 +120,9 @@ import {
   primaryLogMessage,
   recordsToCsv,
   recordsToLogText,
+  restoreLogFieldPosition,
   topLogFieldValues,
+  type LogFieldPosition,
   type LogResultDensity,
   type LogEntry,
   type LogLevel,
@@ -135,13 +146,6 @@ const LOG_PAGE_SIZE_OPTIONS = [25, 50, 100, 200];
 const LOG_CURSOR_PAGE_SIZE_OPTIONS = [20, 50, 100];
 
 type LogQueryMode = 'fields' | 'sql';
-
-interface LogQueryTemplate {
-  id: string;
-  labelKey: string;
-  descriptionKey: string;
-  statement: string;
-}
 
 const TYPE_GLYPH: Record<LogFieldDef['type'], string> = {
   string: 'T',
@@ -170,14 +174,6 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function appendLogQueryExpression(current: string, expression: string): string {
-  const trimmed = current.trim();
-  if (!trimmed) return expression;
-  if (trimmed.includes(expression)) return trimmed;
-  if (/\bAND\s*$/i.test(trimmed)) return `${trimmed} ${expression}`;
-  return `${trimmed} AND ${expression}`;
-}
-
 function logQueryPlaceholder(mode: LogQueryMode, stream: string): string {
   if (mode === 'sql') return stream ? defaultLogQuery(stream) : 'Select a stream to start querying logs.';
   return 'trace_id = "..." / service_name contains "checkout"';
@@ -185,13 +181,6 @@ function logQueryPlaceholder(mode: LogQueryMode, stream: string): string {
 
 function defaultLogQuery(stream: string): string {
   return `SELECT * FROM "${escapeSqlIdentifier(stream)}"\nORDER BY _timestamp DESC\nLIMIT ${DEFAULT_LOG_LIMIT}`;
-}
-
-function logExecutionKey(mode: LogQueryMode, stream: string, sql: string, fields: string): string {
-  const selectedStream = stream.trim();
-  if (!selectedStream) return '';
-  if (mode === 'sql') return `sql:${selectedStream}:${sql.trim() || defaultLogQuery(selectedStream)}`;
-  return `fields:${selectedStream}:${fields.trim()}`;
 }
 
 function quotedCompletion(value: string): string {
@@ -397,7 +386,7 @@ function compactRecord(record: Record<string, unknown>): string {
   }
 }
 
-const COMMON_LOG_FIELD_ORDER = [
+const FIXED_LOG_FIELD_ORDER = [
   '_timestamp',
   'timestamp',
   'service',
@@ -407,7 +396,7 @@ const COMMON_LOG_FIELD_ORDER = [
   'body',
   'trace_id',
 ] as const;
-const COMMON_LOG_FIELDS = new Set<string>(COMMON_LOG_FIELD_ORDER);
+const FIXED_LOG_FIELDS = new Set<string>(FIXED_LOG_FIELD_ORDER);
 
 function formatLogFieldValue(value: unknown): string {
   if (!isPresent(value)) return '';
@@ -418,15 +407,6 @@ function formatLogFieldValue(value: unknown): string {
   } catch {
     return String(value);
   }
-}
-
-function stringLabelsFromRecord(record: Record<string, unknown>): Record<string, string> {
-  const labels: Record<string, string> = {};
-  for (const [key, value] of Object.entries(record)) {
-    if (typeof value === 'string' && value) labels[key] = value;
-    else if (typeof value === 'number' || typeof value === 'boolean') labels[key] = String(value);
-  }
-  return labels;
 }
 
 interface FieldJumpContext {
@@ -656,10 +636,9 @@ function logParamClause(field: string, value: string): string {
 }
 
 export function Logs() {
-  const { t } = useTranslation('logs');
+  const { t, i18n } = useTranslation('logs');
   const { t: tCommon } = useTranslation('common');
-  const [tzOverride, setTzOverride] = React.useState('');
-  const fmt = useTimeFormatter({ timezone: tzOverride || undefined });
+  const fmt = useTimeFormatter();
   const [searchParams] = useSearchParams();
   const requestedStream = searchParams.get('stream') ?? '';
   const requestedFieldQuery = requestedLogFieldQueryFromParams(searchParams);
@@ -677,7 +656,14 @@ export function Logs() {
   const [fieldPanelCollapsed, setFieldPanelCollapsed] = React.useState(false);
   const [queryEditorCollapsed, setQueryEditorCollapsed] = React.useState(false);
   const [fieldFilter, setFieldFilter] = React.useState('');
-  const [visibleLogFields, setVisibleLogFields] = React.useState<string[]>([]);
+  const [logColumnState, setLogColumnState] = React.useState<{
+    visibleFields: string[];
+    hiddenPositions: Record<string, LogFieldPosition>;
+  }>({
+    visibleFields: [],
+    hiddenPositions: {},
+  });
+  const visibleLogFields = logColumnState.visibleFields;
   const [resultDensity, setResultDensity] = React.useState<LogResultDensity>('compact');
   const [expandedField, setExpandedField] = React.useState<string | null>(null);
   const [resultPage, setResultPage] = React.useState(1);
@@ -692,8 +678,6 @@ export function Logs() {
   const [executedTimeRange, setExecutedTimeRange] = React.useState<LogHistogramRange | null>(null);
   const [queryError, setQueryError] = React.useState<unknown>(null);
   const [queryPending, setQueryPending] = React.useState(false);
-  const [lastExecutedQueryKey, setLastExecutedQueryKey] = React.useState<string | null>(null);
-  const [functionPanelOpen, setFunctionPanelOpen] = React.useState(false);
   const initialRunStreamRef = React.useRef<string | null>(null);
   const appliedFieldQueryRef = React.useRef(requestedFieldQuery);
   const appliedSqlRef = React.useRef(requestedSql);
@@ -702,6 +686,7 @@ export function Logs() {
   const timeWindow = useTimeStore((s) => s.window);
   const setTimeWindow = useTimeStore((s) => s.setWindow);
   const globalFilters = useFiltersStore((s) => s.filters);
+  const clearGlobalFilters = useFiltersStore((s) => s.clearFilters);
   const previousTimeWindowRef = React.useRef(timeWindow);
   const logCursorContextKey = React.useMemo(
     () =>
@@ -775,7 +760,6 @@ export function Logs() {
         ? (query.trim() || defaultLogQuery(selectedStream))
         : buildLogFieldQuerySql(selectedStream, fieldQuery, options.pageSize ?? logPageSize);
       const statement = appendGlobalFilters(baseStatement, selectedStream, globalFilters);
-      const queryKey = logExecutionKey(queryMode, selectedStream, query, fieldQuery);
       let result: QueryResult;
       if (queryMode === 'fields') {
         const { page, result: cursorResult } = await runLogCursorQuery({
@@ -809,8 +793,6 @@ export function Logs() {
       );
       setSelectedRow(null);
       setResultPage(1);
-      setLastExecutedQueryKey(queryKey);
-      setFunctionPanelOpen(false);
     } catch (err) {
       setQueryError(err);
     } finally {
@@ -991,16 +973,16 @@ export function Logs() {
       .filter((field): field is LogFieldDef => field !== undefined),
     [filteredFields, visibleLogFields],
   );
-  const commonFields = React.useMemo(
-    () => COMMON_LOG_FIELD_ORDER
+  const fixedFields = React.useMemo(
+    () => FIXED_LOG_FIELD_ORDER
       .map((name) => filteredFields.find((field) => field.name === name))
       .filter((field): field is LogFieldDef => field !== undefined)
       .filter((field) => !visibleLogFields.includes(field.name)),
     [filteredFields, visibleLogFields],
   );
-  const otherFields = React.useMemo(
+  const allFields = React.useMemo(
     () => filteredFields.filter((field) => (
-      !COMMON_LOG_FIELDS.has(field.name) && !visibleLogFields.includes(field.name)
+      !FIXED_LOG_FIELDS.has(field.name) && !visibleLogFields.includes(field.name)
     )),
     [filteredFields, visibleLogFields],
   );
@@ -1013,22 +995,61 @@ export function Logs() {
 
   React.useEffect(() => {
     const names = fields.map((field) => field.name);
-    setVisibleLogFields((current) => {
-      if (names.length === 0) return [];
-      const next = current.filter((name) => names.includes(name));
+    setLogColumnState((current) => {
+      if (names.length === 0) {
+        return current.visibleFields.length === 0
+          && Object.keys(current.hiddenPositions).length === 0
+          ? current
+          : { visibleFields: [], hiddenPositions: {} };
+      }
+
+      const next = current.visibleFields.filter((name) => names.includes(name));
       const populatedNames = fields
         .filter((field) => Number(field.count) > 0)
         .map((field) => field.name);
-      return next.length > 0
+      const visibleFields = next.length > 0
         ? next
         : defaultLogTableFields(populatedNames.length > 0 ? populatedNames : names);
+      const hiddenPositions = Object.fromEntries(
+        Object.entries(current.hiddenPositions).filter(([name]) => names.includes(name)),
+      ) as Record<string, LogFieldPosition>;
+      const visibleFieldsUnchanged = visibleFields.length === current.visibleFields.length
+        && visibleFields.every((name, index) => name === current.visibleFields[index]);
+      const hiddenPositionEntries = Object.entries(hiddenPositions);
+      const hiddenPositionsUnchanged = hiddenPositionEntries.length
+        === Object.keys(current.hiddenPositions).length
+        && hiddenPositionEntries.every(([name, position]) => (
+          current.hiddenPositions[name]?.index === position.index
+          && current.hiddenPositions[name]?.previous === position.previous
+          && current.hiddenPositions[name]?.next === position.next
+        ));
+
+      return visibleFieldsUnchanged && hiddenPositionsUnchanged
+        ? current
+        : { visibleFields, hiddenPositions };
     });
   }, [fields]);
 
   const toggleLogFieldVisibility = React.useCallback((field: string) => {
-    setVisibleLogFields((current) => (
-      current.includes(field) ? current.filter((name) => name !== field) : [...current, field]
-    ));
+    setLogColumnState((current) => {
+      if (current.visibleFields.includes(field)) {
+        const position = captureLogFieldPosition(current.visibleFields, field);
+        return {
+          visibleFields: current.visibleFields.filter((name) => name !== field),
+          hiddenPositions: position
+            ? { ...current.hiddenPositions, [field]: position }
+            : current.hiddenPositions,
+        };
+      }
+
+      const hiddenPositions = { ...current.hiddenPositions };
+      const position = hiddenPositions[field];
+      delete hiddenPositions[field];
+      return {
+        visibleFields: restoreLogFieldPosition(current.visibleFields, field, position),
+        hiddenPositions,
+      };
+    });
   }, []);
 
   const reorderLogField = React.useCallback((
@@ -1036,7 +1057,10 @@ export function Logs() {
     target: string,
     position: LogColumnDropPosition,
   ) => {
-    setVisibleLogFields((current) => reorderVisibleLogFields(current, source, target, position));
+    setLogColumnState((current) => ({
+      ...current,
+      visibleFields: reorderVisibleLogFields(current.visibleFields, source, target, position),
+    }));
   }, []);
 
   const insertLogFieldFilter = React.useCallback((field: string) => {
@@ -1067,78 +1091,7 @@ export function Logs() {
     setFieldQuery((current) => appendLogFieldValueClause(current, field, value, filterMode));
   }, [fields, queryMode, stream]);
 
-  const sqlTemplateStream = stream.trim() || 'app_logs';
-  const queryTemplates = React.useMemo<LogQueryTemplate[]>(() => {
-    if (queryMode === 'sql') {
-      const table = escapeSqlIdentifier(sqlTemplateStream);
-      return [
-        {
-          id: 'sql-errors',
-          labelKey: 'explore.toolbar.fx_templates.errors',
-          descriptionKey: 'explore.toolbar.fx_templates.errors_desc',
-          statement: `SELECT * FROM "${table}"\nWHERE "level" = 'error'\nORDER BY _timestamp DESC\nLIMIT ${DEFAULT_LOG_LIMIT}`,
-        },
-        {
-          id: 'sql-message-contains',
-          labelKey: 'explore.toolbar.fx_templates.message_contains',
-          descriptionKey: 'explore.toolbar.fx_templates.message_contains_desc',
-          statement: `SELECT * FROM "${table}"\nWHERE "message" LIKE '%timeout%'\nORDER BY _timestamp DESC\nLIMIT ${DEFAULT_LOG_LIMIT}`,
-        },
-        {
-          id: 'sql-count-by-level',
-          labelKey: 'explore.toolbar.fx_templates.count_by_level',
-          descriptionKey: 'explore.toolbar.fx_templates.count_by_level_desc',
-          statement: `SELECT "level", COUNT(*) AS count\nFROM "${table}"\nGROUP BY "level"\nORDER BY count DESC\nLIMIT 20`,
-        },
-      ];
-    }
-    return [
-      {
-        id: 'field-errors',
-        labelKey: 'explore.toolbar.fx_templates.errors',
-        descriptionKey: 'explore.toolbar.fx_templates.errors_desc',
-        statement: "level='error'",
-      },
-      {
-        id: 'field-message-contains',
-        labelKey: 'explore.toolbar.fx_templates.message_contains',
-        descriptionKey: 'explore.toolbar.fx_templates.message_contains_desc',
-        statement: "message contains 'timeout'",
-      },
-      {
-        id: 'field-source',
-        labelKey: 'explore.toolbar.fx_templates.source_filter',
-        descriptionKey: 'explore.toolbar.fx_templates.source_filter_desc',
-        statement: "source='otlp-http'",
-      },
-    ];
-  }, [queryMode, sqlTemplateStream]);
-
   const activeQueryText = queryMode === 'sql' ? query.trim() : fieldQuery.trim();
-
-  const insertQueryTemplate = React.useCallback((statement: string) => {
-    if (queryMode === 'sql') {
-      setQuery(statement);
-    } else {
-      setFieldQuery((current) => appendLogQueryExpression(current, statement));
-    }
-    setFunctionPanelOpen(false);
-    setQueryEditorCollapsed(false);
-  }, [queryMode]);
-
-  const resetActiveQuery = React.useCallback(() => {
-    if (queryMode === 'sql') {
-      setQuery(stream.trim() ? defaultLogQuery(stream.trim()) : '');
-    } else {
-      setFieldQuery('');
-    }
-    setSelectedRow(null);
-    setResultPage(1);
-    setQueryResult(undefined);
-    setLogCursorPage(null);
-    setQueryError(null);
-    setQueryEditorCollapsed(false);
-  }, [queryMode, stream]);
 
   const clearActiveQuery = React.useCallback(() => {
     if (queryMode === 'sql') {
@@ -1147,23 +1100,6 @@ export function Logs() {
       setFieldQuery('');
     }
   }, [queryMode]);
-
-  const copyActiveQuery = React.useCallback(async () => {
-    if (!activeQueryText) return;
-    await copyTextToClipboard(activeQueryText);
-    toast.success(t('explore.toolbar.copied_query'));
-  }, [activeQueryText, t]);
-
-  const downloadCurrentResults = React.useCallback(() => {
-    if (!queryResult) return;
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    downloadJsonFile(`molesignal-logs-${timestamp}.json`, {
-      queryMode,
-      stream,
-      query: activeQueryText,
-      result: queryResult,
-    });
-  }, [activeQueryText, queryMode, queryResult, stream]);
 
   const downloadVisibleCsv = React.useCallback(() => {
     if (rows.length === 0) return;
@@ -1189,8 +1125,27 @@ export function Logs() {
 
   const hasRunnableQuery = queryMode === 'fields' || query.trim().length > 0;
   const canRun = Boolean(orgId && stream.trim() && hasRunnableQuery && !queryPending);
-  const activeQueryKey = logExecutionKey(queryMode, stream, query, fieldQuery);
-  const queryDirty = Boolean(activeQueryKey && activeQueryKey !== lastExecutedQueryKey);
+  const recoveryHasFilters = globalFilters.length > 0 || (
+    queryMode === 'fields'
+      ? fieldQuery.trim().length > 0
+      : query.trim() !== defaultLogQuery(stream.trim())
+  );
+  const clearRecoveryFilters = React.useCallback(() => {
+    clearGlobalFilters();
+    if (queryMode === 'fields') setFieldQuery('');
+    else setQuery(stream.trim() ? defaultLogQuery(stream.trim()) : '');
+    setSelectedRow(null);
+    setQueryError(null);
+    // A fresh window object intentionally triggers the existing query effect
+    // after React has committed the cleared local and global filters.
+    setTimeWindow({ ...timeWindow });
+  }, [clearGlobalFilters, queryMode, setTimeWindow, stream, timeWindow]);
+  const widenRecoveryRange = React.useCallback(() => {
+    setTimeWindow(widenTimeWindow(timeWindow));
+  }, [setTimeWindow, timeWindow]);
+  const queryDocsHref = `https://docs.molesignal.io/${
+    (i18n.resolvedLanguage ?? i18n.language).toLowerCase().startsWith('zh') ? 'zh' : 'en'
+  }/query/logs`;
 
   React.useEffect(() => {
     if (previousTimeWindowRef.current === timeWindow) return;
@@ -1224,7 +1179,7 @@ export function Logs() {
             <QueryToolbarGroup>
               <QueryToolbarButton
                 active={mode === MODE_OPTIONS[0].id}
-                tone="blue"
+                tone="indigo"
                 onClick={() => setMode(MODE_OPTIONS[0].id)}
                 className="w-9 px-0"
                 aria-label={t(MODE_OPTIONS[0].ariaKey)}
@@ -1238,7 +1193,7 @@ export function Logs() {
               />
               <QueryToolbarButton
                 active={mode === MODE_OPTIONS[1].id}
-                tone="blue"
+                tone="indigo"
                 onClick={() => setMode(MODE_OPTIONS[1].id)}
                 className="w-9 px-0"
                 aria-label={t(MODE_OPTIONS[1].ariaKey)}
@@ -1251,7 +1206,7 @@ export function Logs() {
                 <QueryToolbarButton
                   key={item.id}
                   active={queryMode === item.id}
-                  tone="orange"
+                  tone="indigo"
                   onClick={() => {
                     setQueryMode(item.id);
                     setQueryEditorCollapsed(false);
@@ -1261,7 +1216,7 @@ export function Logs() {
                 </QueryToolbarButton>
               ))}
             </QueryToolbarGroup>
-            <QuerySyntaxHelp mode={queryMode} scope="logs" />
+            <QuerySyntaxHelp mode={queryMode} scope="logs" compact />
             {streams.length > 0 ? (
               <Select value={stream} onValueChange={setAutoStream}>
                 <SelectTrigger
@@ -1285,47 +1240,12 @@ export function Logs() {
                   : t('explore.left_panel.no_streams')}
               </div>
             )}
-            <TimezoneSelect value={tzOverride} onChange={setTzOverride} className="h-9" />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <ChromeButton aria-label={t('explore.toolbar.more_actions_aria')}>
-                  <MoreVertical className="h-3 w-3" />
-                </ChromeButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-56 border-bd-1 bg-bg-0">
-                <DropdownMenuLabel>{t('explore.toolbar.actions_label')}</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem disabled={!activeQueryText} onSelect={() => void copyActiveQuery()}>
-                  <Clipboard className="h-3.5 w-3.5" />
-                  {t('explore.toolbar.copy_query')}
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={resetActiveQuery}>
-                  <X className="h-3.5 w-3.5" />
-                  {t('explore.toolbar.reset_query')}
-                </DropdownMenuItem>
-                <DropdownMenuItem disabled={!queryResult} onSelect={downloadCurrentResults}>
-                  <Download className="h-3.5 w-3.5" />
-                  {t('explore.toolbar.download_results')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
             <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-              <QueryToolbarButton
-                active={functionPanelOpen}
-                aria-label={t('explore.toolbar.fx_aria')}
-                onClick={() => {
-                  setFunctionPanelOpen((open) => !open);
-                  setQueryEditorCollapsed(false);
-                }}
-              >
-                {t('explore.toolbar.fx')}
-              </QueryToolbarButton>
               <TimeRangeChip />
               <ChromeButton
                 variant="primary"
                 onClick={() => void executeQuery()}
                 disabled={!canRun}
-                className={queryDirty ? 'bg-orange-dim text-orange-soft' : undefined}
               >
                 <Play className="h-3 w-3" /> {queryPending ? t('explore.toolbar.running') : t('explore.toolbar.run')}
               </ChromeButton>
@@ -1336,30 +1256,6 @@ export function Logs() {
           </>
         }
       >
-        {functionPanelOpen && (
-          <div className="mb-3 overflow-hidden rounded-lg border border-bd-1 bg-bg-1">
-            <div className="border-b border-bd-0 px-4 py-3">
-              <div className="font-sans text-sm font-bold text-tx-0">{t('explore.toolbar.fx_title')}</div>
-              <div className="mt-1 font-sans text-xs text-tx-3">{t('explore.toolbar.fx_hint')}</div>
-            </div>
-            <div className="grid gap-2 p-3 md:grid-cols-3">
-              {queryTemplates.map((template) => (
-                <button
-                  key={template.id}
-                  type="button"
-                  onClick={() => insertQueryTemplate(template.statement)}
-                  className="min-w-0 rounded-md border border-bd-0 bg-bg-0 px-3 py-3 text-left hover:bg-bg-2 focus:bg-bg-2"
-                >
-                  <span className="block font-sans text-xs font-semibold text-tx-0">{t(template.labelKey)}</span>
-                  <code className="mt-1.5 block overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs text-indigo-soft">
-                    {template.statement.replace(/\s+/g, ' ')}
-                  </code>
-                  <span className="mt-1.5 block font-sans text-xs text-tx-3">{t(template.descriptionKey)}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
         <QueryEditorFrame
           queryRef="A"
           value={queryMode === 'sql' ? query : fieldQuery}
@@ -1374,16 +1270,13 @@ export function Logs() {
           ariaLabel={queryMode === 'sql' ? 'SQL query editor' : 'Log field query editor'}
           placeholder={logQueryPlaceholder(queryMode, stream)}
           collapsed={queryEditorCollapsed}
-          onCollapsedChange={(collapsed) => {
-            setQueryEditorCollapsed(collapsed);
-            if (collapsed) setFunctionPanelOpen(false);
-          }}
+          onCollapsedChange={setQueryEditorCollapsed}
           collapseLabel={t('explore.toolbar.collapse_editor')}
           expandLabel={t('explore.toolbar.expand_editor')}
           summary={activeQueryText || t('explore.toolbar.empty_query_summary')}
           completionItems={queryMode === 'fields' ? completionItems : sqlFunctions}
-          minHeight={queryMode === 'sql' ? 240 : 180}
-          maxHeight={queryMode === 'sql' ? 420 : 320}
+          minHeight={queryMode === 'sql' ? 220 : 112}
+          maxHeight={queryMode === 'sql' ? 420 : 260}
           lineNumbers
           resizable
         />
@@ -1473,13 +1366,12 @@ export function Logs() {
                     ))}
                   </SidePanelSection>
                 )}
-                {commonFields.length > 0 && (
+                {fixedFields.length > 0 && (
                   <SidePanelSection
-                    title={t('explore.left_panel.common_fields')}
-                    count={commonFields.length}
-                    className={displayedFields.length > 0 ? 'border-t border-bd-0' : undefined}
+                    title={t('explore.left_panel.fixed_fields')}
+                    count={fixedFields.length}
                   >
-                    {commonFields.map((field) => (
+                    {fixedFields.map((field) => (
                       <LogFieldRow
                         key={field.name}
                         field={field}
@@ -1495,13 +1387,12 @@ export function Logs() {
                     ))}
                   </SidePanelSection>
                 )}
-                {otherFields.length > 0 && (
+                {allFields.length > 0 && (
                   <SidePanelSection
-                    title={t('explore.left_panel.other_fields')}
-                    count={otherFields.length}
-                    className={displayedFields.length > 0 || commonFields.length > 0 ? 'border-t border-bd-0' : undefined}
+                    title={t('explore.left_panel.all_fields')}
+                    count={allFields.length}
                   >
-                    {otherFields.map((field) => (
+                    {allFields.map((field) => (
                       <LogFieldRow
                         key={field.name}
                         field={field}
@@ -1543,77 +1434,6 @@ export function Logs() {
                 {formatTimeWindowLabel(timeWindow, tCommon)}
               </span>
               <RefreshCw className={`h-3 w-3 text-tx-3 ${queryPending ? 'animate-spin' : ''}`} />
-            </div>
-            {showHistogram && (
-              <div className="border-b border-bd-0 bg-bg-1">
-                <TimeSeriesChart
-                  className="px-4 py-1"
-                  series={[
-                    {
-                      id: 'log-normal',
-                      name: t('explore.histogram.normal'),
-                      color: 'var(--blue-soft)',
-                      data: histo.map((bucket) => bucket.ok),
-                      timestamps: histo.map((bucket) =>
-                        Math.round((bucket.startMicros + bucket.endMicros) / 2),
-                      ),
-                    },
-                    {
-                      id: 'log-errors',
-                      name: t('explore.histogram.errors'),
-                      color: 'var(--orange-soft)',
-                      data: histo.map((bucket) => bucket.err),
-                      timestamps: histo.map((bucket) =>
-                        Math.round((bucket.startMicros + bucket.endMicros) / 2),
-                      ),
-                    },
-                  ]}
-                  {...(executedTimeRange
-                    ? {
-                        xDomain: [
-                          executedTimeRange.start,
-                          executedTimeRange.end,
-                        ] as [number, number],
-                      }
-                    : {})}
-                  height={rows.length < 5 ? 72 : 96}
-                  ariaLabel={t('explore.toolbar.histogram')}
-                  options={{
-                    drawStyle: 'bar',
-                    stackMode: 'normal',
-                    showPoints: 'never',
-                    legendMode: 'hidden',
-                    showXAxis: false,
-                    showYAxis: false,
-                    leftAxis: { min: 0, showGrid: false },
-                  }}
-                  showLegend={false}
-                  onRangeSelect={selectHistogramRange}
-                />
-              </div>
-            )}
-
-            <QueryRecommendations
-              result={queryResult}
-              statement={executedStatement}
-              language="sql"
-              timeRangeSecs={executedRangeSecs}
-              variant="inline"
-            />
-
-            <div className="flex min-h-10 items-center gap-2 border-b border-bd-0 bg-bg-0 px-3">
-              <QueryToolbarGroup
-                data-log-result-mode
-                aria-label={t('explore.results.content')}
-              >
-                <span
-                  aria-current="true"
-                  className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded bg-blue px-3 font-sans text-xs font-strong text-white"
-                >
-                  <List className="h-3.5 w-3.5" />
-                  {t('explore.results.content')}
-                </span>
-              </QueryToolbarGroup>
               <div data-log-result-actions className="ml-auto flex items-center gap-1">
                 <LogColumnMenu
                   fields={fields.map((field) => field.name)}
@@ -1673,9 +1493,86 @@ export function Logs() {
                 </DropdownMenu>
               </div>
             </div>
+            {showHistogram && (
+              <div className="border-b border-bd-0 bg-bg-1">
+                <TimeSeriesChart
+                  className="px-4 py-1"
+                  series={[
+                    {
+                      id: 'log-normal',
+                      name: t('explore.histogram.normal'),
+                      color: 'var(--blue-soft)',
+                      data: histo.map((bucket) => bucket.ok),
+                      timestamps: histo.map((bucket) =>
+                        Math.round((bucket.startMicros + bucket.endMicros) / 2),
+                      ),
+                    },
+                    {
+                      id: 'log-errors',
+                      name: t('explore.histogram.errors'),
+                      color: 'var(--orange-soft)',
+                      data: histo.map((bucket) => bucket.err),
+                      timestamps: histo.map((bucket) =>
+                        Math.round((bucket.startMicros + bucket.endMicros) / 2),
+                      ),
+                    },
+                  ]}
+                  {...(executedTimeRange
+                    ? {
+                        xDomain: [
+                          executedTimeRange.start,
+                          executedTimeRange.end,
+                        ] as [number, number],
+                      }
+                    : {})}
+                  height={rows.length < 5 ? 72 : 96}
+                  ariaLabel={t('explore.toolbar.histogram')}
+                  options={{
+                    drawStyle: 'bar',
+                    stackMode: 'normal',
+                    showPoints: 'never',
+                    legendMode: 'hidden',
+                    showXAxis: false,
+                    showYAxis: false,
+                    leftAxis: { min: 0, showGrid: false },
+                  }}
+                  showLegend={false}
+                  onRangeSelect={selectHistogramRange}
+                />
+              </div>
+            )}
+
+            <QueryRecommendations
+              result={queryResult}
+              statement={executedStatement}
+              language="sql"
+              timeRangeSecs={executedRangeSecs}
+              variant="inline"
+            />
+
             <div className="min-h-0 flex-1 overflow-hidden">
               {queryError ? (
-                <QueryState state="error" error={queryError} className="h-full min-h-0" />
+                <QueryRecoveryState
+                  state="error"
+                  error={queryError}
+                  copy={{
+                    errorTitle: t('explore.recovery.query_failed'),
+                    emptyTitle: t('explore.recovery.no_data_title'),
+                    emptyDescription: t('explore.recovery.no_data_description'),
+                    clearFiltersLabel: t('explore.recovery.clear_filters'),
+                    widenRangeLabel: t('explore.recovery.expand_time'),
+                    docsLabel: t('explore.recovery.query_docs'),
+                  }}
+                  recovery={{
+                    hasFilters: recoveryHasFilters,
+                    onRetry: () => void executeQuery(),
+                    onClearFilters: clearRecoveryFilters,
+                    onWidenRange: widenRecoveryRange,
+                    docsHref: queryDocsHref,
+                  }}
+                  className="h-full min-h-0 justify-center rounded-none border-0"
+                  testId="logs-query-error"
+                />
               ) : queryPending && !queryResult ? (
                 <QueryState
                   state="loading"
@@ -1683,16 +1580,30 @@ export function Logs() {
                   className="h-full min-h-0"
                 />
               ) : rows.length === 0 ? (
-                <QueryState
+                <QueryRecoveryState
                   state="empty"
-                  emptyLabel={t('explore.table.no_events')}
+                  copy={{
+                    errorTitle: t('explore.recovery.query_failed'),
+                    emptyTitle: t('explore.recovery.no_data_title'),
+                    emptyDescription: t('explore.recovery.no_data_description'),
+                    clearFiltersLabel: t('explore.recovery.clear_filters'),
+                    widenRangeLabel: t('explore.recovery.expand_time'),
+                    docsLabel: t('explore.recovery.query_docs'),
+                  }}
+                  recovery={{
+                    hasFilters: recoveryHasFilters,
+                    onRetry: () => void executeQuery(),
+                    onClearFilters: clearRecoveryFilters,
+                    onWidenRange: widenRecoveryRange,
+                    docsHref: queryDocsHref,
+                  }}
                   className="h-full min-h-0"
+                  testId="logs-no-data"
                 />
               ) : (
                 <LogListResults
                   rows={pagedRows}
                   fields={visibleLogFields}
-                  timezone={fmt.tz}
                   startIndex={resultPageStart}
                   selectedIndex={selectedRow}
                   density={resultDensity}
@@ -1807,7 +1718,7 @@ function LogFieldRow({
     : t('explore.left_panel.json_query_required', { name: field.name });
 
   return (
-    <div className={`border-b border-bd-0/70 ${expanded ? 'bg-bg-2' : ''}`}>
+    <div data-log-field-row={field.name}>
       <div className="group flex min-h-9 items-center gap-1 px-1.5 font-sans text-xs font-strong hover:bg-bg-3">
         <button
           type="button"
@@ -1819,7 +1730,7 @@ function LogFieldRow({
             {TYPE_GLYPH[field.type]}
           </span>
           <span className="min-w-0 flex-1 truncate text-tx-0">{field.name}</span>
-          <span className="type-micro shrink-0 font-mono font-normal text-tx-3">{field.count}</span>
+          <span className="type-micro shrink-0 font-mono font-normal text-tx-2">{field.count}</span>
         </button>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -1850,13 +1761,9 @@ function LogFieldRow({
         </Tooltip>
       </div>
       {expanded && (
-        <div className="border-t border-bd-0 bg-bg-1 px-2 pb-2 pt-1.5">
-          <div className="type-micro flex items-center justify-between px-1 py-1 font-sans font-semibold uppercase tracking-wide text-tx-3">
-            <span>{t('explore.left_panel.top_values')}</span>
-            <span>{t('explore.left_panel.value_count')}</span>
-          </div>
+        <div data-log-field-values={field.name} className="bg-bg-1 px-2 py-1.5">
           {topValues.length === 0 ? (
-            <div className="px-1 py-2 font-sans text-xs text-tx-3">
+            <div className="px-1 py-2 font-sans text-xs text-tx-2">
               {t('explore.left_panel.no_top_values')}
             </div>
           ) : (
@@ -1869,7 +1776,7 @@ function LogFieldRow({
                   <span className="type-micro min-w-0 flex-1 truncate font-mono text-tx-1" title={topValue.label}>
                     {topValue.label}
                   </span>
-                  <span className="type-micro w-7 shrink-0 text-right font-mono text-tx-3">{topValue.count}</span>
+                  <span className="type-micro w-7 shrink-0 text-right font-mono text-tx-2">{topValue.count}</span>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
@@ -1962,6 +1869,9 @@ function LogDetail({
   const message = primaryLogMessage(log.raw);
   const source = logSourceLabel(log.raw);
   const level = logLevelLabel(log.raw, log.level);
+  const relatedSignals = relatedSignalsFromRecord(fullJson);
+  const relatedSignalLabels = stringLabelsFromRecord(fullJson);
+  const relatedSignalTime = signalTimeFromTimestamp(log.ts);
   const primaryFields = visibleFields
     .filter((field) => isPresent(log.raw[field]))
     .slice(0, 8);
@@ -2025,13 +1935,13 @@ function LogDetail({
               <div className="mt-3 text-sm font-semibold leading-6 text-tx-0">
                 {message.value || compactRecord(log.raw)}
               </div>
-              <div className="mt-2 flex items-center gap-2 text-tx-3">
+              <div className="mt-2 flex items-center gap-2 text-tx-2">
                 <span>{source}</span>
                 {message.field && <span>· {message.field}</span>}
               </div>
             </section>
             <section>
-              <div className="mb-2 font-semibold uppercase tracking-wide text-tx-3">
+              <div className="mb-2 font-semibold uppercase tracking-wide text-tx-2">
                 {t('explore.detail.overview_metadata')}
               </div>
               <dl className="overflow-hidden rounded-md border border-bd-0">
@@ -2041,9 +1951,33 @@ function LogDetail({
                 <DetailMetaRow label={t('explore.detail.source')} value={source} />
               </dl>
             </section>
+            {relatedSignals.length > 0 && (
+              <section>
+                <div className="mb-2 font-semibold uppercase tracking-wide text-tx-2">
+                  {t('explore.detail.related_signals')}
+                </div>
+                <dl className="overflow-hidden rounded-md border border-bd-0">
+                  {relatedSignals.map((signal) => (
+                    <DetailMetaRow
+                      key={`${signal.type}:${signal.value}`}
+                      label={signal.field}
+                      value={(
+                        <SignalReference
+                          type={signal.type}
+                          value={signal.value}
+                          labelName={signal.field}
+                          labels={relatedSignalLabels}
+                          time={relatedSignalTime}
+                        />
+                      )}
+                    />
+                  ))}
+                </dl>
+              </section>
+            )}
             {primaryFields.length > 0 && (
               <section>
-                <div className="mb-2 font-semibold uppercase tracking-wide text-tx-3">
+                <div className="mb-2 font-semibold uppercase tracking-wide text-tx-2">
                   {t('explore.detail.primary_fields')}
                 </div>
                 <div className="overflow-hidden rounded-md border border-bd-0">
@@ -2051,7 +1985,15 @@ function LogDetail({
                     <DetailMetaRow
                       key={field}
                       label={field}
-                      value={formatLogFieldValue(log.raw[field])}
+                      value={(
+                        <LogFieldValue
+                          field={field}
+                          value={log.raw[field]}
+                          record={fullJson}
+                          onJump={handleJump}
+                          className="text-tx-0"
+                        />
+                      )}
                     />
                   ))}
                 </div>
@@ -2074,7 +2016,7 @@ function LogDetail({
         )}
         {tab === 'context' && (
           <div className="space-y-2">
-            <div className="font-sans text-xs leading-5 text-tx-3">
+            <div className="font-sans text-xs leading-5 text-tx-2">
               {t('explore.detail.context_description')}
             </div>
             <div className="overflow-hidden rounded-md border border-bd-0">
@@ -2090,10 +2032,10 @@ function LogDetail({
                       active ? 'bg-indigo-dim text-indigo-soft' : ''
                     }`}
                   >
-                    <span className="type-micro font-mono text-tx-3">{contextLog.ts}</span>
+                    <span className="type-micro font-mono text-tx-2">{contextLog.ts}</span>
                     <span className="min-w-0">
                       <span className="block truncate text-tx-0">{contextMessage.value || compactRecord(contextLog.raw)}</span>
-                      <span className="type-micro mt-0.5 block truncate text-tx-3">{logSourceLabel(contextLog.raw)}</span>
+                      <span className="type-micro mt-0.5 block truncate text-tx-2">{logSourceLabel(contextLog.raw)}</span>
                     </span>
                   </button>
                 );
@@ -2107,7 +2049,7 @@ function LogDetail({
         <ChromeButton onClick={onPrev} disabled={index === 0}>
           <ArrowLeft className="h-3 w-3" /> {t('explore.detail.prev')}
         </ChromeButton>
-        <span className="font-sans text-xs text-tx-3">
+        <span className="font-sans text-xs text-tx-2">
           {t('explore.detail.position', { current: index + 1, total })}
         </span>
         <ChromeButton onClick={onNext} disabled={index === total - 1}>
@@ -2118,11 +2060,13 @@ function LogDetail({
   );
 }
 
-function DetailMetaRow({ label, value }: { label: string; value: string }) {
+function DetailMetaRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="grid grid-cols-[140px_minmax(0,1fr)] border-b border-bd-0 last:border-b-0">
       <dt className="bg-bg-2 px-3 py-2 text-tx-2">{label}</dt>
-      <dd className="min-w-0 whitespace-pre-wrap break-words px-3 py-2 text-tx-0">{value || '—'}</dd>
+      <dd className="min-w-0 whitespace-pre-wrap break-words px-3 py-2 text-tx-0">
+        {typeof value === 'string' && !value ? '—' : value}
+      </dd>
     </div>
   );
 }
@@ -2361,7 +2305,10 @@ function LogFieldValue({
   // single-destination button. Uses the shared label-name detection so
   // Metrics / Logs / Trace span attributes all recognize the same
   // aliases. Tied to brief Principle #3.
-  const signalType = isPresent(value) ? detectSignalTypeForLabel(leafFieldName(field)) : null;
+  const signalType = isPresent(value)
+    ? detectSignalTypeForLabel(field) ??
+      detectSignalTypeForLabel(leafFieldName(field))
+    : null;
   if (signalType) {
     return (
       <SignalReference

@@ -1,5 +1,8 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
+
+import { TooltipProvider } from '@/shell/ui/tooltip';
 
 import { createDashboardPanel } from '../../factories';
 import type { DataField, DataFrame, PanelData } from '../../schema';
@@ -93,7 +96,8 @@ describe('BarChartVisualization', () => {
     expect(horizontal.zeroLine.x1).toBe(horizontal.zeroLine.x2);
   });
 
-  it('renders an accessible SVG with bar titles in both orientations', () => {
+  it('renders accessible bars with hover details in both orientations', async () => {
+    const user = userEvent.setup();
     const data = panelData(
       frame([
         field('service', 'string', ['api', 'web']),
@@ -101,26 +105,36 @@ describe('BarChartVisualization', () => {
       ]),
     );
     const { rerender } = render(
-      <BarChartVisualization
-        panel={createDashboardPanel([], 'bar_chart')}
-        data={data}
-        options={{ orientation: 'vertical', showValues: 'always' }}
-        height={220}
-      />,
+      <TooltipProvider delayDuration={0}>
+        <BarChartVisualization
+          panel={createDashboardPanel([], 'bar_chart')}
+          data={data}
+          options={{ orientation: 'vertical', showValues: 'always' }}
+          height={220}
+        />
+      </TooltipProvider>,
     );
     expect(
       screen.getByRole('img', { name: 'Bar chart with 2 categories and 1 series' }),
     ).toBeTruthy();
-    expect(screen.getAllByTestId('bar-chart-bar')).toHaveLength(2);
-    expect(screen.getByText('api · requests: 20')).toBeTruthy();
+    const bars = screen.getAllByTestId('bar-chart-bar');
+    expect(bars).toHaveLength(2);
+    expect(bars[0]?.getAttribute('aria-label')).toBe('api · requests: 20');
+    await user.hover(bars[0]!);
+    const tooltip = await screen.findByRole('tooltip');
+    expect(tooltip).toBeTruthy();
+    expect(within(tooltip).getByText('api')).toBeTruthy();
+    expect(within(tooltip).getByText('requests: 20')).toBeTruthy();
 
     rerender(
-      <BarChartVisualization
-        panel={createDashboardPanel([], 'bar_chart')}
-        data={data}
-        options={{ orientation: 'horizontal', showValues: 'never' }}
-        height={220}
-      />,
+      <TooltipProvider delayDuration={0}>
+        <BarChartVisualization
+          panel={createDashboardPanel([], 'bar_chart')}
+          data={data}
+          options={{ orientation: 'horizontal', showValues: 'never' }}
+          height={220}
+        />
+      </TooltipProvider>,
     );
     expect(screen.getAllByTestId('bar-chart-bar')).toHaveLength(2);
   });

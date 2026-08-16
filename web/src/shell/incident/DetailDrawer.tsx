@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BellOff, Check, CircleCheck, Hash, Server, Sparkles, Tag, Workflow } from 'lucide-react';
+import { Activity, BellOff, Check, CircleCheck, Hash, Server, Sparkles, Tag, Workflow } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
+import * as alertsApi from '@/api/alerts';
 import * as incidentsApi from '@/api/incidents';
 import { toApiError } from '@/lib/http';
 import { restrictActionAccess, useActionAccess } from '@/product/actionAccess';
@@ -10,11 +11,15 @@ import { MarkdownMessage } from '@/routes/agent/markdown';
 import { ChromeButton, Pill, type PillTone } from '@/shell/chrome';
 import { ErrorState } from '@/shell/ErrorState';
 import { FormDrawer } from '@/shell/FormDrawer';
+import {
+  buildIncidentTimeWindow,
+  IncidentInvestigationActions,
+} from '@/shell/incident/InvestigationActions';
 import { cn } from '@/shell/lib/cn';
 import { LoadingState } from '@/shell/LoadingState';
 import { SignalReference } from '@/shell/SignalReference';
 import { toast } from '@/shell/ui/sonner';
-import type { Incident, IncidentStatus, Severity } from '@/types/alerting';
+import type { AlertRule, Incident, IncidentStatus, Severity } from '@/types/alerting';
 
 import { IncidentSilenceDialog } from './SilenceDialog';
 
@@ -94,6 +99,12 @@ export function IncidentDetailDrawer({ incidentId, onClose }: IncidentDetailDraw
   });
 
   const incident = q.data ?? null;
+  const ruleQuery = useQuery({
+    queryKey: ['alerts', 'rule', incident?.rule_id],
+    queryFn: () => alertsApi.get(incident!.rule_id),
+    enabled: Boolean(incident?.rule_id),
+    staleTime: 30_000,
+  });
   const open = !!incidentId;
   const active = Boolean(
     incident &&
@@ -193,7 +204,9 @@ export function IncidentDetailDrawer({ incidentId, onClose }: IncidentDetailDraw
             onRetry={() => void q.refetch()}
           />
         )}
-        {incident && <IncidentBody incident={incident} />}
+        {incident && (
+          <IncidentBody incident={incident} rule={ruleQuery.data} />
+        )}
       </FormDrawer>
       <IncidentSilenceDialog
         incidentId={incident?.id ?? null}
@@ -205,9 +218,26 @@ export function IncidentDetailDrawer({ incidentId, onClose }: IncidentDetailDraw
   );
 }
 
-export function IncidentBody({ incident }: { incident: Incident }) {
+export function IncidentBody({
+  incident,
+  rule,
+}: {
+  incident: Incident;
+  rule?: AlertRule | undefined;
+}) {
   const { t } = useTranslation('alerts');
-  const timeWindow = React.useMemo(() => buildTimeWindow(incident), [incident]);
+  const timeWindow = React.useMemo(
+    () => buildIncidentTimeWindow(incident),
+    [incident],
+  );
+  const hasInvestigationContext = Boolean(
+    incident.triggering_query ||
+      incident.trace_ids.length > 0 ||
+      incident.host_ids.length > 0 ||
+      incident.affected_services.length > 0 ||
+      incident.labels.service ||
+      incident.labels.svc,
+  );
 
   return (
     <div className="flex flex-col gap-5">
@@ -217,6 +247,19 @@ export function IncidentBody({ incident }: { incident: Incident }) {
       >
         <Timeline incident={incident} />
       </Section>
+
+      {hasInvestigationContext && (
+        <Section
+          title={t('drawer.incident_sections.investigation')}
+          icon={<Activity className="h-3.5 w-3.5" />}
+        >
+          <IncidentInvestigationActions
+            incident={incident}
+            rule={rule}
+            time={timeWindow}
+          />
+        </Section>
+      )}
 
       <IncidentRcaSection incidentId={incident.id} />
 
@@ -348,7 +391,7 @@ function IncidentRcaSection({ incidentId }: { incidentId: string }) {
       onClick={() => genMut.mutate()}
       disabled={genMut.isPending}
       className={cn(
-        'inline-flex h-8 items-center gap-1.5 font-sans text-xs font-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo disabled:opacity-50',
+        'inline-flex h-8 items-center gap-1.5 font-sans text-xs font-strong focus-visible:bg-indigo-dim focus-visible:text-indigo disabled:opacity-50',
         rca
           ? 'rounded px-1 text-tx-2 hover:text-indigo-soft'
           : 'rounded-md border border-bd-1 bg-bg-2 px-3 text-tx-1 hover:bg-bg-3 hover:text-tx-0',
@@ -481,17 +524,17 @@ function TriggeringQueryBlock({ query }: { query: NonNullable<Incident['triggeri
         <code>{query.statement}</code>
       </pre>
       {query.sample_values.length > 0 && (
-        <details className="rounded border border-bd-0 bg-bg-2">
+        <details>
           <summary
             className={cn(
-              'cursor-pointer list-none px-3 py-1.5 font-sans text-xs font-strong text-tx-2',
-              'hover:text-tx-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo focus-visible:ring-inset',
+              'w-fit cursor-pointer list-none font-sans text-xs font-strong text-tx-2 transition-colors',
+              'hover:text-indigo focus-visible:text-indigo',
               '[&::-webkit-details-marker]:hidden',
             )}
           >
             {t('drawer.triggering_query.show_samples', { defaultValue: 'Show sample values' })}
           </summary>
-          <ul className="border-t border-bd-0 px-3 py-2 font-sans text-xs tabular-nums">
+          <ul className="mt-2 rounded border border-bd-0 bg-bg-2 px-3 py-2 font-sans text-xs tabular-nums">
             {query.sample_values.map((s, i) => (
               <li key={i} className="flex justify-between gap-3 border-b border-bd-0 py-1 last:border-b-0">
                 <span className="text-tx-3">{new Date(s.ts / 1000).toLocaleString()}</span>
@@ -548,21 +591,6 @@ function Timeline({ incident }: { incident: Incident }) {
       ))}
     </ol>
   );
-}
-
-/* ─── helpers ────────────────────────────────────────────────────── */
-
-/**
- * Build the time window used when jumping cross-signal: from incident
- * creation to now (or resolved_at if closed). Microsecond → ISO string.
- */
-function buildTimeWindow(incident: Incident): { from: string; to: string } {
-  const fromMs = Math.floor(incident.created_at / 1000);
-  const toMs = incident.resolved_at ? Math.floor(incident.resolved_at / 1000) : Date.now();
-  return {
-    from: new Date(fromMs).toISOString(),
-    to: new Date(toMs).toISOString(),
-  };
 }
 
 function labelsToString(labels: Record<string, string>): string {

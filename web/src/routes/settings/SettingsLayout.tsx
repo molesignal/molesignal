@@ -1,3 +1,4 @@
+import { Settings as SettingsIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useLocation } from 'react-router-dom';
 
@@ -141,10 +142,10 @@ const GROUPS: SectionGroup[] = [
 ];
 
 const CONTENT_WIDTH_CLASS: Record<Section['contentWidth'], string> = {
-  page: 'max-w-[1120px]',
-  form: 'max-w-[1120px]',
-  list: 'max-w-[1080px]',
-  table: 'max-w-[1440px]',
+  page: 'max-w-[1680px]',
+  form: 'max-w-[1280px]',
+  list: 'max-w-[1600px]',
+  table: 'max-w-[1920px]',
 };
 
 /**
@@ -194,14 +195,17 @@ function SettingsLayoutFrame() {
         onExpand: toggleSidebar,
         expandLabel: t('nav.expand_navigation'),
       }}
-      headerClassName="gap-2 py-3.5"
-      bodyClassName="mx-auto w-full max-w-[1440px] gap-8"
+      headerClassName="shrink-0"
+      headerCompact
+      headerIcon={SettingsIcon}
+      bodyClassName="mx-auto w-full max-w-[2200px] gap-6 [&_[data-product-state]]:rounded-none [&_[data-product-state]]:border-0 [&_[data-product-state]]:bg-transparent"
     >
       <div className="min-w-0">
         <div
           data-settings-content-width={contentWidth}
           className={cn(
-            'mx-auto w-full min-w-0',
+            'w-full min-w-0',
+            '[&>[data-admin-page-header]]:min-h-0 [&>[data-admin-page-header]]:border-b-0 [&>[data-admin-page-header]]:bg-transparent [&>[data-admin-page-header]]:px-0 [&>[data-admin-page-header]]:py-0',
             CONTENT_WIDTH_CLASS[contentWidth],
           )}
         >

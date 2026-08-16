@@ -2,7 +2,12 @@ import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import * as rumApi from '@/api/rum';
+import {
+  getOverview,
+  getOverviewInsights,
+  type OverviewMetrics,
+  type OverviewParams,
+} from '@/api/rum/overview';
 import { ChromeButton, TimeRangeChip } from '@/shell/chrome';
 import { ErrorState } from '@/shell/ErrorState';
 import { LoadingState } from '@/shell/LoadingState';
@@ -11,19 +16,7 @@ import { formatWindowSummary, useTimeStore } from '@/stores/useTimeStore';
 
 import { formatDurationMs, windowToMicros } from '../_helpers';
 import { RumFilterSelect, RumListPage } from '../RumLayout';
-import {
-  ALL,
-  applySessionScope,
-  applyVitalScope,
-  dimensionShares,
-  frequentErrors,
-  initialScope,
-  overviewMetrics,
-  regionShares,
-  scopeOptions,
-  slowestPages,
-  valuesFor,
-} from './model';
+import { ALL, initialScope, scopeOptions, type RumScope } from './model';
 import { RumOnboarding } from './Onboarding';
 import {
   CoreWebVitalsPanel,
@@ -33,6 +26,15 @@ import {
   SatisfactionPanel,
   SlowPagesPanel,
 } from './Panels';
+
+const EMPTY_METRICS: OverviewMetrics = {
+  users: 0,
+  sessions: 0,
+  errorFreeRate: 0,
+  lcpP75: 0,
+  inpP75: 0,
+  clsP75: 0,
+};
 
 export function Overview() {
   const { t } = useTranslation('rum');
@@ -47,84 +49,108 @@ export function Overview() {
     };
   }, [range]);
   const [scope, setScope] = React.useState(initialScope);
-  const [comparePrevious, setComparePrevious] = React.useState(true);
+  const [comparePrevious, setComparePrevious] = React.useState(false);
+  const requestScope = React.useMemo(() => overviewScope(scope), [scope]);
+  const hasScope = Object.keys(requestScope).length > 0;
 
-  const sessionsQuery = useQuery({
-    queryKey: ['rum', 'overview-sessions', orgId, range.from_micros, range.to_micros],
-    queryFn: () => rumApi.listSessions({ org_id: orgId, ...range, limit: 500 }),
-    enabled: Boolean(orgId),
-  });
-  const previousSessionsQuery = useQuery({
+  const baseQuery = useQuery({
     queryKey: [
       'rum',
-      'overview-sessions-previous',
+      'overview',
+      'base',
+      orgId,
+      range.from_micros,
+      range.to_micros,
+    ],
+    queryFn: () => getOverview({ org_id: orgId, ...range }),
+    enabled: Boolean(orgId),
+  });
+  const scopedQuery = useQuery({
+    queryKey: [
+      'rum',
+      'overview',
+      'scope',
+      orgId,
+      range.from_micros,
+      range.to_micros,
+      scope.application,
+      scope.environment,
+      scope.version,
+      scope.country,
+      scope.device,
+    ],
+    queryFn: () =>
+      getOverview({ org_id: orgId, ...range, ...requestScope }),
+    enabled: Boolean(orgId) && hasScope,
+  });
+  const currentQuery = hasScope ? scopedQuery : baseQuery;
+  const insightsQuery = useQuery({
+    queryKey: [
+      'rum',
+      'overview',
+      'insights',
+      orgId,
+      range.from_micros,
+      range.to_micros,
+      scope.application,
+      scope.environment,
+      scope.version,
+      scope.country,
+      scope.device,
+    ],
+    queryFn: () =>
+      getOverviewInsights({ org_id: orgId, ...range, ...requestScope }),
+    enabled:
+      Boolean(orgId) &&
+      currentQuery.isSuccess &&
+      (currentQuery.data?.metrics.sessions ?? 0) > 0,
+  });
+  const previousQuery = useQuery({
+    queryKey: [
+      'rum',
+      'overview',
+      'previous',
       orgId,
       previousRange.from_micros,
       previousRange.to_micros,
+      scope.application,
+      scope.environment,
+      scope.version,
+      scope.country,
+      scope.device,
     ],
     queryFn: () =>
-      rumApi.listSessions({ org_id: orgId, ...previousRange, limit: 500 }),
-    enabled: Boolean(orgId && comparePrevious),
-  });
-  const errorsQuery = useQuery({
-    queryKey: ['rum', 'overview-errors', orgId, range.from_micros, range.to_micros],
-    queryFn: () => rumApi.listErrors({ org_id: orgId, ...range, limit: 20 }),
-    enabled: Boolean(orgId),
-  });
-  const vitalsQuery = useQuery({
-    queryKey: ['rum', 'overview-vitals', orgId, range.from_micros, range.to_micros],
-    queryFn: () =>
-      rumApi.webVitalsSeries({ org_id: orgId, ...range, limit: 1_000 }),
-    enabled: Boolean(orgId),
-  });
-  const previousVitalsQuery = useQuery({
-    queryKey: [
-      'rum',
-      'overview-vitals-previous',
-      orgId,
-      previousRange.from_micros,
-      previousRange.to_micros,
-    ],
-    queryFn: () =>
-      rumApi.webVitalsSeries({
+      getOverview({
         org_id: orgId,
         ...previousRange,
-        limit: 1_000,
+        ...requestScope,
+        summary_only: true,
       }),
-    enabled: Boolean(orgId && comparePrevious),
+    enabled:
+      Boolean(orgId) && comparePrevious && currentQuery.isSuccess,
   });
 
-  const allSessions = sessionsQuery.data?.items ?? [];
-  const sessions = applySessionScope(allSessions, scope);
-  const previousSessions = applySessionScope(
-    previousSessionsQuery.data?.items ?? [],
-    scope,
-  );
-  const vitals = applyVitalScope(vitalsQuery.data ?? [], scope);
-  const previousVitals = applyVitalScope(
-    previousVitalsQuery.data ?? [],
-    scope,
-  );
-  const metrics = overviewMetrics(sessions, vitals);
-  const previousMetrics = overviewMetrics(previousSessions, previousVitals);
-  const pages = slowestPages(vitals, sessions);
-  const errors = frequentErrors(
-    (errorsQuery.data?.items ?? []).filter(
-      (error) => scope.version === ALL || error.version === scope.version,
-    ),
-  );
-  const isLoading =
-    sessionsQuery.isLoading || errorsQuery.isLoading || vitalsQuery.isLoading;
-  const error = sessionsQuery.error ?? errorsQuery.error ?? vitalsQuery.error;
+  const data = currentQuery.data;
+  const insights = insightsQuery.data;
+  const metrics = data?.metrics ?? EMPTY_METRICS;
+  const previousMetrics = previousQuery.data?.metrics ?? EMPTY_METRICS;
+  const facets = baseQuery.data?.facets;
+  const error = currentQuery.error;
 
   const refetchAll = () => {
-    void Promise.all([
-      sessionsQuery.refetch(),
-      errorsQuery.refetch(),
-      vitalsQuery.refetch(),
-      comparePrevious ? previousSessionsQuery.refetch() : Promise.resolve(),
-      comparePrevious ? previousVitalsQuery.refetch() : Promise.resolve(),
-    ]);
+    void (async () => {
+      const summaryRequests = [baseQuery.refetch()];
+      if (hasScope) summaryRequests.push(scopedQuery.refetch());
+      const summaryResults = await Promise.all(summaryRequests);
+      const refreshedCurrent = hasScope ? summaryResults[1] : summaryResults[0];
+
+      const deferredRequests: Array<Promise<unknown>> = [];
+      if ((refreshedCurrent?.data?.metrics.sessions ?? 0) > 0) {
+        deferredRequests.push(insightsQuery.refetch());
+      }
+      if (comparePrevious) deferredRequests.push(previousQuery.refetch());
+      await Promise.all(deferredRequests);
+    })();
   };
 
   return (
@@ -150,7 +176,7 @@ export function Overview() {
             label={t('scope.application')}
             value={scope.application}
             options={scopeOptions(
-              valuesFor(allSessions, 'application'),
+              facets?.applications ?? [],
               t('scope.all_apps'),
             )}
             onChange={(application) =>
@@ -161,7 +187,7 @@ export function Overview() {
             label={t('scope.environment')}
             value={scope.environment}
             options={scopeOptions(
-              valuesFor(allSessions, 'environment'),
+              facets?.environments ?? [],
               t('scope.all_environments'),
             )}
             onChange={(environment) =>
@@ -172,7 +198,7 @@ export function Overview() {
             label={t('scope.version')}
             value={scope.version}
             options={scopeOptions(
-              valuesFor(allSessions, 'version'),
+              facets?.versions ?? [],
               t('scope.all_versions'),
             )}
             onChange={(version) =>
@@ -183,7 +209,7 @@ export function Overview() {
             label={t('scope.region')}
             value={scope.country}
             options={scopeOptions(
-              valuesFor(allSessions, 'country'),
+              facets?.countries ?? [],
               t('scope.all_regions'),
             )}
             onChange={(country) =>
@@ -194,7 +220,7 @@ export function Overview() {
             label={t('scope.device')}
             value={scope.device}
             options={scopeOptions(
-              valuesFor(allSessions, 'device'),
+              facets?.devices ?? [],
               t('scope.all_devices'),
             )}
             onChange={(device) =>
@@ -204,7 +230,7 @@ export function Overview() {
         </>
       }
       kpis={
-        !isLoading && !error && sessions.length > 0
+        !currentQuery.isLoading && !error && metrics.sessions > 0
           ? [
               {
                 label: t('overview.kpi.active_users'),
@@ -283,7 +309,7 @@ export function Overview() {
       }
       kpiClassName="xl:grid-cols-3 2xl:grid-cols-6"
     >
-      {isLoading ? (
+      {currentQuery.isLoading ? (
         <LoadingState variant="chart" />
       ) : error ? (
         <ErrorState
@@ -291,43 +317,67 @@ export function Overview() {
           error={error}
           onRetry={refetchAll}
         />
-      ) : sessions.length === 0 ? (
+      ) : metrics.sessions === 0 || !data ? (
         <RumOnboarding />
       ) : (
         <div className="grid gap-6 xl:grid-cols-12">
           <div className="xl:col-span-12">
-            <ExperienceTrend sessions={sessions} range={range} />
+            {insights ? (
+              <ExperienceTrend buckets={insights.trend} range={range} />
+            ) : insightsQuery.error ? (
+              <ErrorState
+                title={t('overview.load_error')}
+                error={insightsQuery.error}
+                onRetry={() => void insightsQuery.refetch()}
+              />
+            ) : (
+              <LoadingState variant="chart" />
+            )}
           </div>
           <div className="xl:col-span-8">
             <CoreWebVitalsPanel metrics={metrics} />
           </div>
-          <div className="xl:col-span-4">
-            <SatisfactionPanel sessions={sessions} />
-          </div>
-          <div className="xl:col-span-7">
-            <SlowPagesPanel pages={pages} />
-          </div>
-          <div className="xl:col-span-5">
-            <FrequentErrorsPanel errors={errors} />
-          </div>
+          {insights ? (
+            <>
+              <div className="xl:col-span-4">
+                <SatisfactionPanel counts={insights.satisfaction} />
+              </div>
+              <div className="xl:col-span-7">
+                <SlowPagesPanel pages={insights.slowPages} />
+              </div>
+              <div className="xl:col-span-5">
+                <FrequentErrorsPanel errors={insights.frequentErrors} />
+              </div>
+            </>
+          ) : null}
           <div className="xl:col-span-7">
             <DimensionPanel
               title={t('overview.browser_device')}
               description={t('overview.browser_device_description')}
-              rows={dimensionShares(sessions, ['browser', 'device'])}
+              rows={data.browserDevices}
             />
           </div>
           <div className="xl:col-span-5">
             <DimensionPanel
               title={t('overview.regions')}
               description={t('overview.regions_description')}
-              rows={regionShares(sessions)}
+              rows={data.regions}
             />
           </div>
         </div>
       )}
     </RumListPage>
   );
+}
+
+function overviewScope(scope: RumScope): Partial<OverviewParams> {
+  return {
+    ...(scope.application !== ALL ? { application: scope.application } : {}),
+    ...(scope.environment !== ALL ? { environment: scope.environment } : {}),
+    ...(scope.version !== ALL ? { version: scope.version } : {}),
+    ...(scope.country !== ALL ? { country: scope.country } : {}),
+    ...(scope.device !== ALL ? { device: scope.device } : {}),
+  };
 }
 
 function formatVital(value: number): string {

@@ -1,4 +1,5 @@
 import { cleanup, render, screen } from '@testing-library/react';
+import { Settings } from 'lucide-react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -21,6 +22,7 @@ describe('PageHeader module identity', () => {
     expect(icon.querySelector('svg')).not.toBeNull();
     expect(header?.className).toContain('py-1.5');
     expect(screen.getByText('·')).not.toBeNull();
+    expect(screen.getByRole('heading', { level: 1, name: 'Metrics' })).not.toBeNull();
   });
 
   it('falls back to the owning observation module for unregistered subpages', () => {
@@ -41,5 +43,27 @@ describe('PageHeader module identity', () => {
     );
 
     expect(screen.queryByTestId('page-header-module-icon')).toBeNull();
+    expect(screen.getByRole('heading', { level: 1, name: 'Settings' })).not.toBeNull();
+  });
+
+  it('supports the Metrics-style compact layout on management pages', () => {
+    render(
+      <MemoryRouter initialEntries={['/settings/general']}>
+        <PageHeader
+          title="Settings"
+          subtitle="Manage the organization"
+          compact
+          moduleIcon={Settings}
+        />
+      </MemoryRouter>,
+    );
+
+    const icon = screen.getByTestId('page-header-module-icon');
+    const header = screen.getByText('Settings').closest('[class*="border-b"]');
+
+    expect(icon.querySelector('svg')).not.toBeNull();
+    expect(header?.className).toContain('py-1.5');
+    expect(screen.getByText('·')).not.toBeNull();
+    expect(screen.getByText('Manage the organization')).not.toBeNull();
   });
 });

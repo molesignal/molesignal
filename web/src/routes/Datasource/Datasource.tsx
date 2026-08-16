@@ -99,10 +99,10 @@ const SIGNALS: readonly Signal[] = ['logs', 'metrics', 'traces', 'profiles'];
 const METHODS: readonly IntegrationMethod[] = ['all', 'native', 'otel', 'collector', 'api'];
 
 const SIGNAL_FILTER_ON: Record<Signal, string> = {
-  logs: 'border-orange/30 bg-orange-dim text-orange-soft',
-  metrics: 'border-blue/30 bg-blue-dim text-blue-soft',
-  traces: 'border-green/30 bg-green-dim text-green-soft',
-  profiles: 'border-purple/30 bg-purple-dim text-purple-soft',
+  logs: 'bg-orange-dim text-orange-soft',
+  metrics: 'bg-blue-dim text-blue-soft',
+  traces: 'bg-green-dim text-green-soft',
+  profiles: 'bg-purple-dim text-purple-soft',
 };
 
 const SOURCE_ICONS: Record<string, LucideIcon> = {
@@ -476,10 +476,10 @@ function SignalFilterButton({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        'h-6 rounded border px-2 font-sans text-xs font-semibold transition-colors',
+        'h-6 rounded border border-transparent px-2 font-sans text-xs font-semibold transition-colors',
         active && tone && SIGNAL_FILTER_ON[tone],
-        active && !tone && 'border-indigo/30 bg-indigo-dim text-indigo-soft',
-        !active && 'border-bd-0 bg-bg-2 text-tx-3 hover:border-bd-1 hover:text-tx-1',
+        active && !tone && 'bg-indigo-dim text-indigo-soft',
+        !active && 'bg-bg-2 text-tx-3 hover:bg-bg-3 hover:text-tx-1',
       )}
     >
       {children}
@@ -590,11 +590,11 @@ function SourceIcon({
   return (
     <span
       className={cn(
-        'grid shrink-0 place-items-center border transition-colors',
+        'grid shrink-0 place-items-center border border-transparent transition-colors',
         hero ? 'h-12 w-12 rounded-lg' : 'h-8 w-8 rounded-md',
         selected
-          ? 'border-indigo/25 bg-indigo-dim text-indigo-soft'
-          : 'border-bd-0 bg-bg-2 text-tx-2 group-hover:border-bd-1 group-hover:text-tx-0',
+          ? 'bg-indigo-dim text-indigo-soft'
+          : 'bg-bg-2 text-tx-2 group-hover:bg-bg-3 group-hover:text-tx-0',
       )}
       aria-hidden="true"
       title={source.name}
@@ -765,12 +765,12 @@ function Guide({
             <div
               key={key}
               className={cn(
-                'flex min-h-11 items-center gap-2.5 rounded-md border px-3',
+                'flex min-h-11 items-center gap-2.5 rounded-md border border-transparent px-3',
                 done
-                  ? 'border-green/25 bg-green-dim text-green-soft'
+                  ? 'bg-green-dim text-green-soft'
                   : index + 1 === currentStep
-                    ? 'border-indigo/30 bg-indigo-dim text-indigo-soft'
-                    : 'border-bd-0 bg-bg-1 text-tx-3',
+                    ? 'bg-indigo-dim text-indigo-soft'
+                    : 'bg-bg-1 text-tx-3',
               )}
             >
               {done ? (
@@ -967,10 +967,10 @@ const WizardSection = React.forwardRef<
       <div className="mb-4 flex items-start gap-3">
         <span
           className={cn(
-            'grid h-7 w-7 shrink-0 place-items-center rounded-full border font-mono text-xs font-bold',
-            status === 'complete' && 'border-green/30 bg-green-dim text-green-soft',
-            status === 'active' && 'border-indigo/30 bg-indigo-dim text-indigo-soft',
-            status === 'pending' && 'border-bd-1 bg-bg-1 text-tx-3',
+            'grid h-7 w-7 shrink-0 place-items-center rounded-full border border-transparent font-mono text-xs font-bold',
+            status === 'complete' && 'bg-green-dim text-green-soft',
+            status === 'active' && 'bg-indigo-dim text-indigo-soft',
+            status === 'pending' && 'bg-bg-2 text-tx-3',
           )}
         >
           {status === 'complete' ? <Check className="h-3.5 w-3.5 stroke-[3]" /> : number}
@@ -1039,7 +1039,7 @@ function EndpointPanel({ endpoint }: { endpoint: string }) {
     }
   };
   return (
-    <div className="min-w-0 rounded-md border border-bd-0 bg-bg-1 p-3">
+    <div className="min-w-0 rounded-md bg-bg-1 p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className={uiLabelClass}>{t('datasource.endpoint')}</span>
         <span className="font-sans text-xs text-green-soft">

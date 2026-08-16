@@ -31,17 +31,17 @@ export type PillTone =
   | 'dim';
 
 const PILL_TONE: Record<PillTone, string> = {
-  neutral: 'bg-bg-3 text-tx-1 border-bd-0',
+  neutral: 'bg-bg-3 text-tx-1',
   // Phase 4: indigo pill for brand-affiliated tags (e.g. "Default rule",
   // active filter). Mirrors the brand pattern used by primary buttons.
-  indigo: 'bg-indigo-dim text-indigo-soft border-indigo/30',
-  orange: 'bg-orange-dim text-orange-soft border-orange/30',
-  blue: 'bg-blue-dim text-blue-soft border-blue/30',
-  green: 'bg-green-dim text-green-soft border-green/30',
-  red: 'bg-red-dim text-red-soft border-red/30',
-  yellow: 'bg-yellow-dim text-yellow-soft border-yellow/30',
-  purple: 'bg-purple-dim text-purple-soft border-purple/30',
-  dim: 'bg-bg-2 text-tx-3 border-bd-0',
+  indigo: 'bg-indigo-dim text-indigo-soft',
+  orange: 'bg-orange-dim text-orange-soft',
+  blue: 'bg-blue-dim text-blue-soft',
+  green: 'bg-green-dim text-green-soft',
+  red: 'bg-red-dim text-red-soft',
+  yellow: 'bg-yellow-dim text-yellow-soft',
+  purple: 'bg-purple-dim text-purple-soft',
+  dim: 'bg-bg-2 text-tx-3',
 };
 
 export function Pill({
@@ -56,7 +56,7 @@ export function Pill({
   return (
     <span
       className={cn(
-        'inline-flex h-[22px] items-center gap-1 whitespace-nowrap rounded-full border px-2 font-sans text-xs font-semibold leading-none tracking-normal',
+        'inline-flex h-[22px] items-center gap-1 whitespace-nowrap rounded-full border border-transparent px-2 font-sans text-xs font-semibold leading-none tracking-normal',
         PILL_TONE[tone],
         className,
       )}
@@ -121,7 +121,7 @@ export function CriticalAlertBanner({
           <button
             type="button"
             onClick={onViewAll}
-            className="ml-auto inline-flex items-center gap-1 rounded font-sans text-xs font-strong text-red-soft hover:text-tx-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red"
+            className="ml-auto inline-flex items-center gap-1 rounded px-1 py-0.5 font-sans text-xs font-strong text-red-soft transition-colors hover:bg-red/10 hover:text-tx-0 focus-visible:bg-red/10 focus-visible:text-tx-0 focus-visible:outline-none"
           >
             {viewAllLabel} →
           </button>
@@ -177,12 +177,12 @@ export const ChromeButton = React.forwardRef<
         'inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md font-sans font-strong transition-colors duration-fast ease-default disabled:pointer-events-none disabled:cursor-not-allowed disabled:border-bd-0 disabled:bg-bg-2 disabled:text-tx-3 disabled:opacity-100 disabled:shadow-none',
         size === 'md' ? 'h-9 px-3 text-sm' : 'h-8 px-2.5 text-xs',
         variant === 'default' &&
-          'border border-bd-1 bg-bg-2 text-tx-1 enabled:hover:border-bd-2 enabled:hover:bg-bg-3 enabled:hover:text-tx-0',
+          'border border-transparent bg-bg-2 text-tx-1 enabled:hover:bg-bg-3 enabled:hover:text-tx-0',
         variant === 'primary' &&
           // Phase 4: primary button is the brand surface — Indigo. Text
           // is white (--primary-fg). No border, no glow — the elevation
           // comes purely from the saturated fill against bg-1.
-          'bg-indigo font-bold text-white enabled:hover:bg-indigo-soft',
+          'bg-indigo font-bold text-white enabled:hover:brightness-90 enabled:focus-visible:brightness-90',
         variant === 'ghost' &&
           'border border-transparent bg-transparent text-tx-1 enabled:hover:bg-bg-3',
         className,
@@ -378,12 +378,10 @@ export function TabItem({
 /* ───────────────────────── DataTable ───────────────────────── */
 
 // Thin pass-throughs over the token-aware shadcn Table primitive in
-// `shell/ui/table.tsx`. Keeping the chrome-level names (`DataTable` / `Th`
-// / `Td` / `Tr`) so the existing call sites in fixtures and ad-hoc tables
-// don't churn, while every visual token (row-height, header tracking,
-// hover layer) flows from the primitive.
+// `shell/ui/table.tsx`. `TableShell` deliberately differs from the row/column
+// `admin/DataTable` API, so imports cannot silently select the wrong table.
 
-export function DataTable({ children, className }: { children: React.ReactNode; className?: string }) {
+export function TableShell({ children, className }: { children: React.ReactNode; className?: string }) {
   return <ShadTable className={cn('font-strong', className)}>{children}</ShadTable>;
 }
 

@@ -22,9 +22,19 @@ import {
   QueryInput,
   type PillTone,
 } from '@/shell/chrome';
-import { FormSelect } from '@/shell/FormDrawer';
 import { queryStateFor } from '@/shell/query/State';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/shell/ui/select';
 
+import {
+  PIPELINE_TYPE_TONE,
+  pipelineFlatTableClassName,
+} from './CardlessSurface';
 import {
   signalTypeFromPipeline,
   type PipelineSignalType,
@@ -43,12 +53,6 @@ interface DisplayPipeline extends pipelinesApi.ScheduledPipeline {
 }
 
 type DotTone = NonNullable<React.ComponentProps<typeof Dot>['tone']>;
-
-const TYPE_TONE: Record<PipelineSignalType, PillTone> = {
-  logs: 'orange',
-  metrics: 'blue',
-  traces: 'green',
-};
 
 const HEALTH_TONE: Record<PipelineHealth, { pill: PillTone; dot: DotTone }> = {
   healthy: { pill: 'green', dot: 'green' },
@@ -142,6 +146,9 @@ export function Pipelines() {
     <ListPage
       title={t('title')}
       subtitle={t('overview.subtitle')}
+      cardless
+      filterClassName="border-b-0"
+      stateClassName="border-b-0"
       toolbar={
         <>
           <ChromeButton onClick={() => navigate('/datasource')}>
@@ -226,32 +233,42 @@ export function Pipelines() {
               );
             })}
           </div>
-          <FormSelect
+          <Select
             value={healthFilter}
-            onChange={(value) => setHealthFilter(value as 'all' | PipelineHealth)}
-            options={[
-              { value: 'all', label: t('overview.filters.all_statuses') },
-              { value: 'healthy', label: t('overview.health.healthy') },
-              { value: 'running', label: t('overview.health.running') },
-              { value: 'error', label: t('overview.health.error') },
-              { value: 'paused', label: t('overview.health.paused') },
-              { value: 'unknown', label: t('overview.health.unknown') },
-              { value: 'never', label: t('overview.health.never') },
-            ]}
-            className="w-40 bg-bg-1"
-          />
+            onValueChange={(value) =>
+              setHealthFilter(value as 'all' | PipelineHealth)
+            }
+          >
+            <SelectTrigger
+              className="h-9 w-40 bg-bg-2 px-2.5 font-sans text-xs font-semibold text-tx-1"
+              aria-label={t('overview.filters.all_statuses')}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="start">
+              <SelectItem value="all" className="h-8 text-xs">
+                {t('overview.filters.all_statuses')}
+              </SelectItem>
+              {(['healthy', 'running', 'error', 'paused', 'unknown', 'never'] as const).map(
+                (health) => (
+                  <SelectItem key={health} value={health} className="h-8 text-xs">
+                    {t(`overview.health.${health}`)}
+                  </SelectItem>
+                ),
+              )}
+            </SelectContent>
+          </Select>
         </div>
       }
       state={listState}
-      bodyClassName="space-y-4"
     >
-      <div className="overflow-hidden rounded-lg border border-bd-0 bg-bg-1">
-        <DataTable
-          rows={filtered}
-          rowKey={(pipeline) => pipeline.id}
-          onRowClick={(pipeline) => navigate(`/pipelines/${encodeURIComponent(pipeline.id)}`)}
-          emptyLabel={t('overview.no_matches')}
-          columns={[
+      <DataTable
+        className={pipelineFlatTableClassName}
+        rows={filtered}
+        rowKey={(pipeline) => pipeline.id}
+        onRowClick={(pipeline) => navigate(`/pipelines/${encodeURIComponent(pipeline.id)}`)}
+        emptyLabel={t('overview.no_matches')}
+        columns={[
             {
               key: 'name',
               header: t('overview.columns.name'),
@@ -272,7 +289,9 @@ export function Pipelines() {
               header: t('overview.columns.type'),
               width: 110,
               cell: (pipeline) => (
-                <Pill tone={TYPE_TONE[pipeline.type]}>{t(`filters.${pipeline.type}`)}</Pill>
+                <Pill tone={PIPELINE_TYPE_TONE[pipeline.type]}>
+                  {t(`filters.${pipeline.type}`)}
+                </Pill>
               ),
             },
             {
@@ -327,9 +346,8 @@ export function Pipelines() {
               width: 48,
               cell: () => <ChevronRight className="h-4 w-4 text-tx-3" />,
             },
-          ]}
-        />
-      </div>
+        ]}
+      />
     </ListPage>
   );
 

@@ -47,25 +47,11 @@
       "histogram": "柱状图",
       "query_mode_aria": "日志查询模式",
       "more_actions_aria": "更多操作",
-      "fx": "f(x)",
-      "fx_aria": "打开查询模板",
       "actions_label": "查询操作",
       "copy_query": "复制查询",
       "copied_query": "已复制查询",
       "reset_query": "重置查询",
       "download_results": "下载结果 JSON",
-      "fx_title": "查询模板",
-      "fx_hint": "字段模式追加过滤条件；SQL 模式替换当前语句。",
-      "fx_templates": {
-        "errors": "仅错误日志",
-        "errors_desc": "过滤到 error 级别事件。",
-        "message_contains": "消息包含",
-        "message_contains_desc": "按关键字搜索 message 文本。",
-        "count_by_level": "按级别计数",
-        "count_by_level_desc": "按日志级别聚合返回结果。",
-        "source_filter": "Source 过滤",
-        "source_filter_desc": "过滤到 OTLP HTTP 来源日志。"
-      },
       "time_range_aria": "选择日志时间范围",
       "refresh_aria": "刷新查询",
       "run": "查询",
@@ -90,10 +76,8 @@
       "field_search_placeholder": "搜索字段",
       "filter_fields_aria": "过滤字段",
       "visible_fields": "已显示字段",
-      "common_fields": "常用字段",
-      "other_fields": "其他字段",
-      "top_values": "Top Values",
-      "value_count": "数量",
+      "fixed_fields": "固定字段",
+      "all_fields": "全部字段",
       "no_top_values": "当前结果中没有可统计的值。",
       "include_value": "添加正向筛选",
       "exclude_value": "添加排除筛选",
@@ -111,7 +95,7 @@
       "refresh_fields_aria": "刷新字段"
     },
     "table": {
-      "time_column": "_timestamp ({{timezone}})",
+      "time_column": "_timestamp",
       "level_column": "级别",
       "source_column": "source",
       "message_column": "消息",
@@ -128,6 +112,14 @@
       "running_query": "正在查询…",
       "no_events": "该时间范围内没有事件。",
       "row_aria": "查看第 {{index}} 条日志"
+    },
+    "recovery": {
+      "query_failed": "日志查询失败",
+      "no_data_title": "没有匹配的日志",
+      "no_data_description": "当前时间范围内没有找到关联日志。可先清除过滤或扩大时间范围，再考虑更换数据流。",
+      "expand_time": "扩大时间范围 4 倍",
+      "clear_filters": "清除过滤并重试",
+      "query_docs": "日志查询文档"
     },
     "results": {
       "content": "内容",
@@ -161,6 +153,7 @@
         "context": "上下文"
       },
       "overview_metadata": "日志信息",
+      "related_signals": "相关信号",
       "primary_fields": "主要字段",
       "stream": "数据流",
       "time": "时间",

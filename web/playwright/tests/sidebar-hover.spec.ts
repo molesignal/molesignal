@@ -35,4 +35,40 @@ test.describe('Primary sidebar hover preview', () => {
     await expect(sidebar).toHaveCSS('width', '64px');
     await expect(main).toHaveCSS('padding-left', '64px');
   });
+
+  test('navigates on the first click while the rail expands on hover', async ({
+    page,
+  }) => {
+    await page.goto('/agent/chat');
+    await expect(page.getByTestId('primary-sidebar')).toHaveCSS('width', '64px');
+
+    await page.getByRole('link', { name: 'Metrics', exact: true }).click();
+
+    await expect(page).toHaveURL(/\/metrics(?:\?|$)/);
+  });
+
+  test('clears rail tooltips when the pointer leaves the sidebar', async ({
+    page,
+  }) => {
+    await page.goto('/agent/chat');
+    const sidebar = page.getByTestId('primary-sidebar');
+
+    await expect(sidebar).toHaveCSS('width', '64px');
+    for (const name of ['Logs', 'Traces', 'APM']) {
+      const box = await page
+        .getByRole('link', { name, exact: true })
+        .boundingBox();
+      expect(box).not.toBeNull();
+      await page.mouse.move(
+        box!.x + Math.min(24, box!.width / 2),
+        box!.y + box!.height / 2,
+      );
+      await page.waitForTimeout(250);
+    }
+    await page.mouse.move(600, 400);
+
+    await expect(sidebar).toHaveCSS('width', '64px');
+    await page.waitForTimeout(300);
+    await expect(page.getByRole('tooltip')).toHaveCount(0);
+  });
 });

@@ -7,7 +7,7 @@
 //! （`rum_sessions / rum_actions / rum_errors` 三个 stream，stream_type = Logs）；
 //! replay 单独走 `RumReplayWriter`（object_store + `rum_replay_events` 元数据）。
 //!
-//! 不实装前端 SDK 与 player —— 只负责协议接收 + 存储 + 后续查询接口（query/api/v1 走通用 SQL）。
+//! 不实装前端 SDK 与 player —— 只负责协议接收、存储与专用 Parquet 读模型接口。
 
 use std::net::{IpAddr, SocketAddr};
 
@@ -35,6 +35,7 @@ use crate::{
 
 mod list;
 mod query;
+mod read_models;
 mod symbolication;
 
 pub fn routes() -> Router<AppState> {
@@ -51,6 +52,7 @@ pub fn routes() -> Router<AppState> {
         .route("/rum/replay/{session_id}", get(read_replay))
         .merge(list::routes())
         .merge(query::routes())
+        .merge(read_models::routes())
 }
 
 async fn intake_stream(

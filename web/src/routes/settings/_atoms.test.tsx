@@ -21,7 +21,7 @@ const COPY = {
 } as const;
 
 describe('Settings form layout', () => {
-  it('uses light section cards and a responsive field grid', () => {
+  it('uses flat sections and a responsive field grid', () => {
     const { container } = render(
       <SettingsGroupStack>
         <SettingsSection title={COPY.workspaceInformation}>
@@ -43,15 +43,16 @@ describe('Settings form layout', () => {
     const section = screen.getByText(COPY.workspaceInformation).closest(
       '[data-settings-section]',
     );
-    expect(section?.className).toContain('rounded-lg');
-    expect(section?.className).toContain('bg-bg-1');
+    expect(section?.className).not.toContain('rounded-lg');
+    expect(section?.className).not.toContain('bg-bg-1');
+    expect(section?.className).toContain('[&+&]:border-t');
 
     const row = screen.getByText(COPY.workspaceName).closest(
       '[data-settings-row]',
     );
     expect(row?.className).toContain('grid-cols-1');
     expect(row?.className).toContain(
-      'min-[1100px]:grid-cols-[260px_minmax(420px,1fr)]',
+      'min-[1100px]:grid-cols-[minmax(220px,280px)_minmax(420px,1fr)]',
     );
 
     const control = screen.getByRole('textbox', {
@@ -72,12 +73,12 @@ describe('Settings form layout', () => {
     );
     expect(row?.className).toContain('grid-cols-1');
     expect(row?.className).toContain(
-      'min-[1100px]:grid-cols-[260px_minmax(420px,1fr)]',
+      'min-[1100px]:grid-cols-[minmax(220px,280px)_minmax(420px,1fr)]',
     );
     expect(screen.getByText(COPY.workspaceValue)).toBeTruthy();
   });
 
-  it('groups related topics with one weak internal divider', () => {
+  it('groups related topics with whitespace instead of nested borders', () => {
     const { container } = render(
       <SettingsSection
         title={COPY.workspaceInformation}
@@ -95,6 +96,7 @@ describe('Settings form layout', () => {
     expect(container.querySelectorAll('[data-settings-section]')).toHaveLength(1);
     const topics = container.querySelectorAll('[data-settings-subsection]');
     expect(topics).toHaveLength(2);
-    expect(topics[1]?.className).toContain('[&+&]:border-t');
+    expect(topics[1]?.className).not.toContain('[&+&]:border-t');
+    expect(topics[1]?.className).toContain('[&+&]:mt-8');
   });
 });

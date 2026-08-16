@@ -2,11 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowRight,
   ChevronDown,
-  Copy,
-  MoreHorizontal,
   Plus,
   RefreshCw,
-  Settings2,
 } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -14,6 +11,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { DataTable } from '@/admin';
 import * as streamsApi from '@/api/streams';
+import {
+  matchesStreamHealthFilter,
+  streamHealthFilterFromParams,
+  streamHealthWindowFromParams,
+  summarizeStreamHealth,
+  type StreamHealthFilter,
+} from '@/investigation/streamHealth';
 import { formatMicrosActive } from '@/lib/time';
 import {
   type ActionAccess,
@@ -38,12 +42,19 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/shell/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/shell/ui/select';
 import { toast } from '@/shell/ui/sonner';
 import { Switch } from '@/shell/ui/switch';
 import { formatRelativeMicros } from '@/time/relative';
+import { SeverityRail } from '@/viz/SeverityRail';
 
 import {
   type DisplayStream,
@@ -51,10 +62,11 @@ import {
   groupStreamsByName,
   selectStreamVariant,
 } from './model';
+import { StreamPagination, useStreamPagination } from './StreamPagination';
 
 type StreamType = streamsApi.StreamType;
 type StreamTab = 'all' | 'logs' | 'metrics' | 'traces' | 'profiles';
-type StatusFilter = 'all' | streamsApi.StreamRuntimeStatus;
+type StatusFilter = StreamHealthFilter;
 
 const TYPE_TONE: Record<StreamType, 'orange' | 'blue' | 'green' | 'dim'> = {
   logs: 'orange',
@@ -95,6 +107,7 @@ const STREAM_TABS = ['all', 'logs', 'metrics', 'traces', 'profiles'] as const sa
 
 const STATUS_FILTERS = [
   'all',
+  'attention',
   'healthy',
   'idle',
   'delayed',
@@ -104,7 +117,7 @@ const STATUS_FILTERS = [
 ] as const satisfies readonly StatusFilter[];
 
 const QUERY_ACTION_CLASS =
-  'inline-flex h-8 shrink-0 items-center gap-1.5 px-1.5 font-sans text-xs font-strong text-tx-1 transition-colors duration-fast hover:text-indigo-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo disabled:cursor-not-allowed disabled:text-tx-4';
+  'inline-flex h-8 shrink-0 items-center gap-1.5 px-1.5 font-sans text-xs font-strong text-tx-1 transition-colors duration-fast hover:text-indigo-soft focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none disabled:cursor-not-allowed disabled:text-tx-4';
 
 function streamExplorePath(streamName: string, variant: DisplayStreamVariant): string {
   const encoded = encodeURIComponent(streamName);
@@ -132,6 +145,12 @@ function formatCount(value: number): string {
   if (value < 1_000_000) return `${(value / 1_000).toFixed(1)}K`;
   if (value < 1_000_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
   return `${(value / 1_000_000_000).toFixed(2)}B`;
+}
+
+function formatRuntimeWindow(windowSecs: number): string {
+  if (windowSecs % 86_400 === 0) return `${windowSecs / 86_400}d`;
+  if (windowSecs % 3_600 === 0) return `${windowSecs / 3_600}h`;
+  return `${Math.round(windowSecs / 60)}m`;
 }
 
 function formatRowRate(stream: DisplayStream, windowSecs: number): string {
@@ -168,10 +187,13 @@ function StreamStatus({
   t: (key: string) => string;
 }) {
   return (
-    <Pill tone={STATUS_TONE[status]}>
-      <Dot tone={STATUS_DOT[status]} />
-      {t(`list.status.${status}`)}
-    </Pill>
+    <span className="flex items-center gap-1.5">
+      <SeverityRail severity={status} className="h-[22px] w-[3px] rounded-full" />
+      <Pill tone={STATUS_TONE[status]}>
+        <Dot tone={STATUS_DOT[status]} />
+        {t(`list.status.${status}`)}
+      </Pill>
+    </span>
   );
 }
 
@@ -185,7 +207,8 @@ export function Streams() {
     permission: 'streams.create',
   });
   const [tab, setTab] = React.useState<StreamTab>('all');
-  const [statusFilter, setStatusFilter] = React.useState<StatusFilter>('all');
+  const statusFilter = streamHealthFilterFromParams(searchParams);
+  const requestedRuntimeWindowSecs = streamHealthWindowFromParams(searchParams);
   const [filter, setFilter] = React.useState('');
   const [creating, setCreating] = React.useState(() => searchParams.get('create') === '1');
 
@@ -202,8 +225,12 @@ export function Streams() {
     queryFn: () => streamsApi.list(),
   });
   const runtimeQuery = useQuery({
-    queryKey: ['streams', 'runtime', 24 * 60 * 60],
-    queryFn: () => streamsApi.runtimeOverview({ windowSecs: 24 * 60 * 60, bucketCount: 24 }),
+    queryKey: ['streams', 'runtime', requestedRuntimeWindowSecs],
+    queryFn: () =>
+      streamsApi.runtimeOverview({
+        windowSecs: requestedRuntimeWindowSecs,
+        bucketCount: requestedRuntimeWindowSecs > 24 * 60 * 60 ? 28 : 24,
+      }),
     refetchInterval: 60_000,
   });
 
@@ -215,8 +242,18 @@ export function Streams() {
   const filtered = streams.filter(
     (s) =>
       (tab === 'all' || s.types.includes(tab)) &&
-      (statusFilter === 'all' || (s.runtime?.status ?? 'unknown') === statusFilter) &&
+      (statusFilter === 'all' ||
+        s.variants.some((variant) =>
+          matchesStreamHealthFilter(
+            variant.runtime?.status ?? 'unknown',
+            statusFilter,
+          ),
+        )) &&
       `${s.name} ${s.description}`.toLowerCase().includes(filter.toLowerCase()),
+  );
+  const pagination = useStreamPagination(
+    filtered,
+    `${tab}:${statusFilter}:${filter}`,
   );
   const activeType = tab === 'all' ? undefined : tab;
   const openStreamDetail = React.useCallback(
@@ -269,42 +306,57 @@ export function Streams() {
             }
           : null;
 
-  const healthyCount = streams.filter((item) => item.runtime?.status === 'healthy').length;
-  const attentionCount = streams.filter((item) => {
-    const status = item.runtime?.status ?? 'unknown';
-    return status === 'delayed' || status === 'interrupted' || status === 'unknown';
-  }).length;
-  const rows24h = streams.reduce((sum, item) => sum + (item.runtime?.rows ?? 0), 0);
-  const stored24h = streams.reduce((sum, item) => sum + (item.runtime?.stored_bytes ?? 0), 0);
+  const healthSummary = summarizeStreamHealth(
+    runtimeQuery.data?.streams ?? [],
+  );
+  const rowsInWindow = streams.reduce((sum, item) => sum + (item.runtime?.rows ?? 0), 0);
+  const storedInWindow = streams.reduce((sum, item) => sum + (item.runtime?.stored_bytes ?? 0), 0);
   const currentStored = streams.reduce(
     (sum, item) => sum + (item.runtime?.current_stored_bytes ?? 0),
     0,
   );
-  const runtimeWindowSecs = runtimeQuery.data?.window_secs ?? 24 * 60 * 60;
+  const runtimeWindowSecs = runtimeQuery.data?.window_secs ?? requestedRuntimeWindowSecs;
+  const runtimeWindowLabel = formatRuntimeWindow(runtimeWindowSecs);
   const generatedAt = runtimeQuery.data?.generated_at_micros;
+
+  const changeStatusFilter = React.useCallback(
+    (nextFilter: StatusFilter) => {
+      setSearchParams((current) => {
+        const next = new URLSearchParams(current);
+        if (nextFilter === 'all') next.delete('status');
+        else next.set('status', nextFilter);
+        next.set('window_secs', String(runtimeWindowSecs));
+        return next;
+      }, { replace: true });
+    },
+    [runtimeWindowSecs, setSearchParams],
+  );
 
   return (
     <>
       <ListPage
         title={t('title')}
         subtitle={t('subtitle') as string}
+        cardless
+        filterClassName="border-b-0"
+        stateClassName="border-b-0"
         kpis={[
           {
             label: t('list.kpis.healthy'),
-            value: runtimeQuery.isLoading ? '—' : healthyCount,
-            sub: t('list.kpis.healthy_sub', { total: streams.length }),
-            tone: healthyCount === streams.length && streams.length > 0 ? 'good' : 'neutral',
+            value: runtimeQuery.isLoading ? '—' : healthSummary.receiving,
+            sub: t('list.kpis.healthy_sub', { total: healthSummary.total }),
+            tone: healthSummary.receiving === healthSummary.total && healthSummary.total > 0 ? 'good' : 'neutral',
           },
           {
             label: t('list.kpis.attention'),
-            value: runtimeQuery.isLoading ? '—' : attentionCount,
+            value: runtimeQuery.isLoading ? '—' : healthSummary.attention,
             sub: t('list.kpis.attention_sub'),
-            tone: attentionCount > 0 ? 'warn' : 'good',
+            tone: healthSummary.attention > 0 ? 'warn' : 'good',
           },
           {
-            label: t('list.kpis.compressed_24h'),
-            value: runtimeQuery.isLoading ? '—' : formatBytes(stored24h),
-            sub: t('list.kpis.rows_24h', { count: formatCount(rows24h) }),
+            label: t('list.kpis.compressed_window', { window: runtimeWindowLabel }),
+            value: runtimeQuery.isLoading ? '—' : formatBytes(storedInWindow),
+            sub: t('list.kpis.rows_window', { count: formatCount(rowsInWindow) }),
           },
           {
             label: t('list.kpis.current_storage'),
@@ -353,18 +405,24 @@ export function Streams() {
               placeholder={t('list.search_placeholder') ?? ''}
               className="h-8 min-w-[180px] max-w-[280px] flex-1"
             />
-            <select
+            <Select
               value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
-              className="h-8 rounded-md border border-bd-1 bg-bg-1 px-2.5 font-sans text-xs font-semibold text-tx-1 outline-none"
-              aria-label={t('list.status_filter')}
+              onValueChange={(value) => changeStatusFilter(value as StatusFilter)}
             >
-              {STATUS_FILTERS.map((status) => (
-                <option key={status} value={status}>
-                  {status === 'all' ? t('list.status.all') : t(`list.status.${status}`)}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger
+                className="h-8 w-[132px] bg-bg-2 px-2.5 font-sans text-xs font-semibold text-tx-1"
+                aria-label={t('list.status_filter')}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent align="start">
+                {STATUS_FILTERS.map((status) => (
+                  <SelectItem key={status} value={status} className="h-8 text-xs">
+                    {t(`list.status.${status}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <div className="ml-auto text-right font-sans text-xs text-tx-2">
               <div>{t('list.result_count', { count: filtered.length })}</div>
               <div className="mt-0.5 text-type-micro text-tx-3">
@@ -382,7 +440,8 @@ export function Streams() {
         state={listState}
       >
         <DataTable
-          rows={filtered}
+          className="rounded-none border-0 bg-transparent"
+          rows={pagination.pageItems}
           rowKey={(s) => s.key}
           onRowClick={openStreamDetail}
           columns={[
@@ -456,7 +515,7 @@ export function Streams() {
             },
             {
               key: 'volume_24h',
-              header: t('list.columns.volume_24h'),
+              header: t('list.columns.volume_window', { window: runtimeWindowLabel }),
               cell: (s) => (
                 <span className="font-mono text-xs tabular-nums text-tx-1">
                   {s.runtime?.stats_available ? formatBytes(s.runtime.stored_bytes) : '—'}
@@ -489,7 +548,7 @@ export function Streams() {
               cell: (s) => {
                 const queryableVariants = s.variants.filter((variant) => variant.queryable);
                 return (
-                  <div className="flex items-center justify-center gap-1">
+                  <div className="flex items-center justify-center">
                     {queryableVariants.length <= 1 ? (
                       <button
                         type="button"
@@ -526,55 +585,16 @@ export function Streams() {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     )}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          type="button"
-                          onClick={(event) => event.stopPropagation()}
-                          className="grid h-8 w-8 place-items-center rounded-md text-tx-3 hover:bg-bg-3 hover:text-tx-0"
-                          aria-label={t('list.more_actions', { name: s.name })}
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {s.variants.map((variant) => (
-                          <DropdownMenuItem
-                            key={`detail-${variant.id}`}
-                            onSelect={() => openStreamDetail(s, variant)}
-                          >
-                            <Settings2 className="h-3.5 w-3.5" />
-                            {s.variants.length === 1
-                              ? t('list.view_detail')
-                              : `${streamTypeLabel(t, variant.type)} · ${t('list.view_detail')}`}
-                          </DropdownMenuItem>
-                        ))}
-                        <DropdownMenuSeparator />
-                        {s.variants.map((variant) => (
-                          <DropdownMenuItem
-                            key={`copy-${variant.id}`}
-                            onSelect={() => {
-                              void navigator.clipboard.writeText(variant.id);
-                              toast.success(t('list.id_copied'));
-                            }}
-                          >
-                            <Copy className="h-3.5 w-3.5" />
-                            {s.variants.length === 1
-                              ? t('list.copy_id')
-                              : `${streamTypeLabel(t, variant.type)} · ${t('list.copy_id')}`}
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
                   </div>
                 );
               },
-              width: 152,
+              width: 96,
               className: 'text-center',
               headerClassName: 'text-center',
             },
           ]}
         />
+        <StreamPagination {...pagination} />
       </ListPage>
 
       <StreamDrawer

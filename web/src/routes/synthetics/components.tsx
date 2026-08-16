@@ -21,8 +21,10 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 
+import type { KpiStripItem } from '@/admin';
 import type { MonitorKind, MonitorState, ProbeOutcome } from '@/api/synthetics';
 import { ProductState } from '@/product/states';
+import { uiLabelClass } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
 import { PageBody, PageHeader } from '@/shell/PageHeader';
 
@@ -110,6 +112,114 @@ export function SyntheticsPage({
   );
 }
 
+const KPI_GRID_CLASS = {
+  3: 'sm:grid-cols-3',
+  4: 'sm:grid-cols-2 xl:grid-cols-4',
+  5: 'sm:grid-cols-2 xl:grid-cols-5',
+  6: 'sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6',
+} as const;
+
+export function SyntheticsCanvas({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      data-synthetics-canvas
+      className={cn('mx-auto w-full max-w-[2200px] bg-bg-0', className)}
+    >
+      {children}
+    </div>
+  );
+}
+
+export function SyntheticsKpiBand({
+  items,
+  columns = 4,
+  className,
+}: {
+  items: readonly KpiStripItem[];
+  columns?: keyof typeof KPI_GRID_CLASS;
+  className?: string;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <section
+      data-synthetics-kpis
+      className={cn(
+        'grid grid-cols-1 border-b border-bd-0 bg-bg-0',
+        KPI_GRID_CLASS[columns],
+        className,
+      )}
+    >
+      {items.map((item, index) => (
+        <div key={index} className="min-h-[92px] min-w-0 px-4 py-3">
+          <div className={uiLabelClass}>{item.label}</div>
+          <div
+            className={cn(
+              'mt-2 truncate font-sans text-2xl font-display-strong leading-none tracking-[-0.025em] tabular-nums',
+              (!item.tone || item.tone === 'neutral') && 'text-tx-0',
+              item.tone === 'good' && 'text-green',
+              item.tone === 'warn' && 'text-yellow',
+              item.tone === 'danger' && 'text-red',
+            )}
+          >
+            {item.value}
+          </div>
+          {item.sub && (
+            <div className="mt-1.5 truncate font-sans text-xs text-tx-2">
+              {item.sub}
+            </div>
+          )}
+        </div>
+      ))}
+    </section>
+  );
+}
+
+export function SyntheticsListSurface({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <section
+      data-synthetics-list-surface
+      className={cn(
+        'min-w-0 overflow-hidden border-b border-bd-0 bg-bg-0',
+        className,
+      )}
+    >
+      {children}
+    </section>
+  );
+}
+
+export function SyntheticsFilterBar({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      data-synthetics-filter-bar
+      className={cn(
+        'min-h-12 border-b border-bd-0 px-4 py-2',
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
 const STATE_STYLE: Record<MonitorState | ProbeOutcome, { icon: LucideIcon; className: string }> = {
   healthy: { icon: CheckCircle2, className: 'border-green/25 bg-green-dim text-green-soft' },
   degraded: { icon: TriangleAlert, className: 'border-yellow/25 bg-yellow-dim text-yellow-soft' },
@@ -164,15 +274,25 @@ export function Section({
   action,
   children,
   className,
+  flat = false,
 }: {
   title: React.ReactNode;
   description?: React.ReactNode;
   action?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
+  flat?: boolean;
 }) {
   return (
-    <section className={cn('overflow-hidden rounded-lg border border-bd-0 bg-bg-1', className)}>
+    <section
+      data-synthetics-section={flat ? 'flat' : undefined}
+      className={cn(
+        flat
+          ? 'min-w-0 overflow-hidden border-b border-bd-0 bg-bg-0'
+          : 'overflow-hidden rounded-lg border border-bd-0 bg-bg-1',
+        className,
+      )}
+    >
       <div className="flex min-h-14 items-center justify-between gap-4 border-b border-bd-0 px-4 py-3">
         <div className="min-w-0">
           <h2 className="type-section-title font-strong text-tx-0">{title}</h2>
@@ -190,25 +310,39 @@ export function WorkspaceBoundary({
   error,
   onRetry,
   children,
+  flat = false,
 }: {
   pending: boolean;
   error: unknown;
   onRetry: () => void;
   children: React.ReactNode;
+  flat?: boolean;
 }) {
   const { t } = useTranslation('synthetics');
-  if (pending) return <ProductState variant="loading" title={t('states.loading')} />;
+  const stateClassName = flat
+    ? 'rounded-none border-x-0 border-t-0 border-solid border-bd-0 bg-transparent'
+    : undefined;
+  if (pending) {
+    return (
+      <ProductState
+        variant="loading"
+        title={t('states.loading')}
+        className={stateClassName}
+      />
+    );
+  }
   if (error) {
     return (
       <ProductState
         variant="error"
         title={t('states.load_error')}
         error={error}
+        className={stateClassName}
         action={
           <button
             type="button"
             onClick={onRetry}
-            className="h-9 rounded-md bg-indigo px-3 text-xs font-strong text-white hover:bg-indigo-soft focus-visible:bg-indigo-soft"
+            className="h-9 rounded-md bg-indigo px-3 text-xs font-strong text-white hover:brightness-90 focus-visible:brightness-90"
           >
             {t('actions.refresh')}
           </button>

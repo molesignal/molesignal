@@ -414,7 +414,7 @@ function PrimaryButton({
     <button
       type="submit"
       disabled={disabled}
-      className="auth-primary-button mt-2 flex h-11 items-center justify-center rounded-md font-sans text-xs font-bold tracking-wide text-white focus-visible:outline-none sm:h-9 disabled:cursor-not-allowed disabled:opacity-50"
+      className="auth-primary-button mt-2 flex h-11 items-center justify-center rounded-md font-sans text-xs font-bold tracking-wide text-white focus-visible:outline-none sm:h-9 disabled:cursor-not-allowed"
     >
       {children}
     </button>

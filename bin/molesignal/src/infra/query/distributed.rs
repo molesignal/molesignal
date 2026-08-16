@@ -343,7 +343,8 @@ pub(crate) fn batches_to_json(
     batches: &[RecordBatch],
 ) -> (Vec<String>, Vec<Vec<serde_json::Value>>) {
     use arrow::array::{
-        Array, BooleanArray, Float64Array, Int64Array, StringArray, TimestampMicrosecondArray,
+        Array, BooleanArray, Float64Array, Int64Array, LargeStringArray, StringArray,
+        StringViewArray, TimestampMicrosecondArray,
     };
     let mut columns: Vec<String> = Vec::new();
     let mut rows: Vec<Vec<serde_json::Value>> = Vec::new();
@@ -369,6 +370,10 @@ pub(crate) fn batches_to_json(
                 } else if let Some(a) = arr.as_any().downcast_ref::<Float64Array>() {
                     serde_json::Value::from(a.value(r))
                 } else if let Some(a) = arr.as_any().downcast_ref::<StringArray>() {
+                    serde_json::Value::from(a.value(r).to_string())
+                } else if let Some(a) = arr.as_any().downcast_ref::<LargeStringArray>() {
+                    serde_json::Value::from(a.value(r).to_string())
+                } else if let Some(a) = arr.as_any().downcast_ref::<StringViewArray>() {
                     serde_json::Value::from(a.value(r).to_string())
                 } else if let Some(a) = arr.as_any().downcast_ref::<TimestampMicrosecondArray>() {
                     serde_json::Value::from(a.value(r))

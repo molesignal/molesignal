@@ -10,9 +10,9 @@ use super::{
     common::{bounded, json_result, parse_args, redact_credentials},
 };
 use crate::{
-    app::{iam::IamContext, intake::FunctionExecutor},
+    app::iam::IamContext,
     domain::function::{Function, FunctionLanguage},
-    infra::{persistence::repositories::functions::precheck_compile, runtime::VrlFunctionExecutor},
+    infra::persistence::repositories::functions::precheck_compile,
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
@@ -200,7 +200,9 @@ async fn test_function(
         updated_at: now,
     };
     let mut output = args.input;
-    VrlFunctionExecutor::new()
+    runtime
+        .data
+        .function_executor
         .run(&function, &mut output)
         .await?;
     Ok(ToolResult::json(json!({"output": output})))

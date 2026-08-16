@@ -70,13 +70,30 @@
   },
   "history": {
     "title": "告警历史",
-    "subtitle": "查看已恢复和已关闭事件的时间线。",
+    "subtitle": "查看告警事件的当前状态与时间线。",
     "error_title": "无法加载告警历史",
-    "empty_title": "暂无已恢复事件",
-    "empty_description": "告警触发并恢复后，会在这里保留时间、持续时长和事件详情。",
+    "empty_title": "暂无告警事件",
+    "empty_description": "告警触发后，会在这里保留当前状态、时间、持续时长和事件详情。",
+    "no_matches_title": "没有符合条件的事件",
+    "no_matches_description": "请调整搜索内容或筛选条件。",
+    "filters": {
+      "search_placeholder": "搜索事件名称、服务或事件 ID…",
+      "search_label": "搜索告警历史",
+      "severity_label": "按级别筛选",
+      "status_label": "按状态筛选",
+      "all_severities": "全部级别",
+      "all_statuses": "全部状态"
+    },
+    "status": {
+      "open": "触发中",
+      "acknowledged": "已确认",
+      "resolved": "已恢复",
+      "closed": "已关闭"
+    },
     "columns": {
       "summary": "事件",
       "severity": "级别",
+      "current_status": "当前状态",
       "created": "触发时间",
       "resolved": "恢复时间",
       "duration": "持续时间"
@@ -86,6 +103,15 @@
       "warning": "警告",
       "error": "错误",
       "critical": "严重"
+    },
+    "pagination": {
+      "page": "{{page}} / {{count}}",
+      "label": "告警历史分页",
+      "page_size": "每页条数",
+      "first": "第一页",
+      "previous": "上一页",
+      "next": "下一页",
+      "last": "最后一页"
     }
   },
   "center": {
@@ -181,6 +207,7 @@
         "actions": "操作"
       },
       "state": {
+        "not_evaluated": "尚未评估",
         "healthy": "正常",
         "pending": "等待持续",
         "firing": "触发中",
@@ -320,7 +347,10 @@
       "window": "最近 6 小时真实数据",
       "not_run": "尚未运行测试",
       "not_run_description": "运行后会显示查询曲线、阈值线和历史预计触发次数。",
+      "stale": "上次测试后查询已变化",
+      "stale_description": "请重新运行测试，确保预览与启用检查对应当前查询。",
       "failed": "查询执行失败",
+      "query_docs": "查询文档",
       "no_data": "查询成功，但没有数值数据",
       "no_data_description": "请检查时间范围、数据流名称与查询返回列。",
       "query_value": "查询结果",
@@ -331,11 +361,19 @@
     },
     "validation": {
       "title": "创建前检查",
+      "identity": "规则基本信息已完整",
       "query": "查询已运行且返回数值",
       "thresholds": "阈值配置有效且无冲突",
       "runbook": "Runbook URL 格式有效",
       "ready": "通过",
-      "pending": "待完成"
+      "pending": "待完成",
+      "blockers": {
+        "identity": "填写规则名称后才能启用。",
+        "preview_running": "请等待查询测试完成后再启用。",
+        "preview_required": "请先使用当前查询成功运行「测试规则」，再启用规则。",
+        "thresholds": "请先修复阈值校验问题，再启用规则。",
+        "runbook": "请输入有效的 Runbook URL 后再启用。"
+      }
     },
     "errors": {
       "load_rule": "无法加载告警规则",
@@ -357,18 +395,30 @@
     "error_title": "无法加载事件",
     "actions": {
       "ack": "确认",
+      "ack_unavailable": "只能确认处于打开状态的事件。",
       "ack_success": "已确认事件",
       "silence": "静默",
+      "silence_unavailable": "只能静默仍处于活动状态的事件。",
       "resolve": "解决",
+      "resolve_unavailable": "该事件已不再处于活动状态。",
       "resolve_success": "事件已解决"
     },
     "incident_sections": {
       "timeline": "时间线",
+      "investigation": "调查",
       "rca": "AI 根因",
       "signals": "跨信号引用",
       "metadata": "元数据",
       "triggering_query": "触发查询",
       "assignees": "负责人"
+    },
+    "investigation": {
+      "open_trigger": "打开触发查询",
+      "open_trigger_description": "在 Explore 中重放当时的精确查询。",
+      "related_logs": "相关日志",
+      "related_logs_description": "检查受影响上下文中的日志。",
+      "related_metrics": "相关指标",
+      "related_metrics_description": "在同一时间窗对比服务健康状态。"
     },
     "rca": {
       "generate": "生成",
@@ -402,27 +452,66 @@
   },
   "insights": {
     "title": "告警洞察",
-    "subtitle": "近期事件的聚合视图",
+    "subtitle": "从恢复效率、触发时段和影响对象理解近期告警",
     "error_title": "无法计算洞察",
     "empty_title": "还没有事件",
-    "empty_description": "洞察汇总 MTTR、噪声、最繁忙的时段，以及触发最多的规则与服务。告警触发并解决后会逐步填充。",
-    "kpis": {
-      "total": "事件总数",
-      "mttr": "MTTR",
-      "mttr_sub": "已解决事件均值",
-      "active": "活跃",
-      "active_sub": "打开 + 已确认",
-      "closed": "已关闭",
-      "closed_sub": "已解决 + 已关闭",
-      "noise": "噪声率",
-      "noise_sub": "60 秒内解决"
+    "empty_description": "事件产生并恢复后，这里会显示恢复效率、时段、级别和主要触发来源。",
+    "window": {
+      "label": "洞察时间范围",
+      "last_24h": "最近 24 小时",
+      "last_7d": "最近 7 天",
+      "last_30d": "最近 30 天"
     },
-    "heatmap_title": "按一天中的小时（UTC）分布",
-    "top_services": "受影响最多的服务",
-    "no_services": "无归因服务。",
-    "top_rules": "触发最多的规则",
-    "no_rules": "无归因规则。",
-    "by_severity": "按严重程度"
+    "summary": {
+      "active_headline": "{{total}} 起事件中仍有 {{active}} 起待处理",
+      "recovered_headline": "{{total}} 起事件均已恢复",
+      "active_description": "优先处理仍处于打开或已确认状态的事件。",
+      "recovered_description": "当前没有活跃事件，所选时段内的恢复闭环完整。",
+      "total": "事件总数",
+      "total_description": "所选时段内创建",
+      "mttr": "平均恢复时间",
+      "mttr_description": "按已恢复事件计算",
+      "status": "事件状态",
+      "status_value": "{{active}} 活跃 / {{closed}} 已恢复",
+      "status_description": "{{percent}} 已完成恢复",
+      "noise": "快速恢复事件",
+      "noise_value": "{{count}} 起",
+      "noise_description": "{{rate}} 在 60 秒内恢复"
+    },
+    "hourly": {
+      "title": "事件时间趋势",
+      "description": "最近 24 小时按小时、其余范围按自然日统计，使用浏览器时区（{{timezone}}）。",
+      "series_name": "事件数",
+      "peak_summary": "峰值 {{count}} 起，发生在 {{period}}（{{timezone}}）",
+      "chart_label": "事件时间分布。{{summary}}"
+    },
+    "severity_breakdown": {
+      "title": "级别构成",
+      "description": "按事件触发时的最高级别统计。"
+    },
+    "services": {
+      "title": "主要影响服务",
+      "description": "事件中出现频率最高的服务归因。",
+      "empty_title": "暂无服务归因",
+      "empty_description": "这些事件未携带服务信息。可在告警规则标签中添加 service，以便识别主要受影响服务。"
+    },
+    "rules": {
+      "title": "主要触发规则",
+      "description": "按所选时段内触发的事件数量排序。",
+      "empty_title": "暂无规则归因",
+      "empty_description": "当前事件没有可识别的规则来源。",
+      "unknown_rule": "已删除或不可用的规则"
+    },
+    "rankings": {
+      "count_and_share": "{{count}} 起 · {{percent}}"
+    },
+    "duration": {
+      "seconds": "{{count}} 秒",
+      "minutes": "{{count}} 分钟",
+      "minutes_seconds": "{{minutes}} 分 {{seconds}} 秒",
+      "hours": "{{count}} 小时",
+      "hours_minutes": "{{hours}} 小时 {{minutes}} 分"
+    }
   },
   "anomaly": {
     "new_title": "新建异常检测规则",

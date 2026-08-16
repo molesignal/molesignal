@@ -3,7 +3,7 @@
 
 //! JS function runtime（spec functions-runtime / change `js-runtime-functions`）。
 //!
-//! 仅在 `cargo build --features js-runtime` 下编译。设计选型见
+//! 由 `js-runtime` feature 编译；`molesignal` 主二进制默认启用。设计选型见
 //! `openspec/changes/js-runtime-functions/design.md`。
 //!
 //! 关键约束：`deno_core::JsRuntime` 内含 `RefCell<dyn Any>` → `!Send + !Sync`。

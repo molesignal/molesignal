@@ -3,8 +3,10 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { DataTable, type DataTableColumn } from '@/admin';
-import * as rumApi from '@/api/rum';
-import type { SessionRow } from '@/api/rum';
+import {
+  listApplicationSummaries,
+  type ApplicationSummary,
+} from '@/api/rum/applications';
 import { productStateFor } from '@/product/states';
 import { ChromeButton, Pill, TimeRangeChip } from '@/shell/chrome';
 import { queryStateFor } from '@/shell/query/State';
@@ -16,14 +18,22 @@ import { RumFilterSelect, RumListPage, RumSectionHeader } from './RumLayout';
 
 const ALL = '__all__';
 
-interface ApplicationSummary {
-  application: string;
-  environments: string[];
-  versions: string[];
-  users: number;
-  sessions: number;
-  errorFreeRate: number;
-  lcpP75: number;
+function VersionTopics({ versions }: { versions: string[] }) {
+  if (versions.length === 0) return <>—</>;
+
+  return (
+    <span className="flex max-w-[28rem] flex-wrap gap-1.5">
+      {versions.map((version) => (
+        <span
+          key={version}
+          title={version}
+          className="inline-flex min-h-6 max-w-64 items-center truncate rounded-full bg-indigo-dim px-2.5 py-0.5 font-mono text-xs font-strong text-indigo"
+        >
+          {version}
+        </span>
+      ))}
+    </span>
+  );
 }
 
 export function Applications() {
@@ -33,23 +43,55 @@ export function Applications() {
   const range = React.useMemo(() => windowToMicros(window), [window]);
   const [environment, setEnvironment] = React.useState(ALL);
   const [version, setVersion] = React.useState(ALL);
-  const query = useQuery({
-    queryKey: ['rum', 'applications', orgId, range.from_micros, range.to_micros],
-    queryFn: () => rumApi.listSessions({ org_id: orgId, ...range, limit: 500 }),
+  const hasScope = environment !== ALL || version !== ALL;
+  const baseQuery = useQuery({
+    queryKey: [
+      'rum',
+      'applications',
+      'base',
+      orgId,
+      range.from_micros,
+      range.to_micros,
+    ],
+    queryFn: () => listApplicationSummaries({ org_id: orgId, ...range }),
     enabled: Boolean(orgId),
   });
-  const sessions = React.useMemo(() => query.data?.items ?? [], [query.data]);
-  const filtered = sessions.filter(
-    (session) =>
-      (environment === ALL || session.environment === environment) &&
-      (version === ALL || session.version === version),
+  const scopedQuery = useQuery({
+    queryKey: [
+      'rum',
+      'applications',
+      'scope',
+      orgId,
+      range.from_micros,
+      range.to_micros,
+      environment,
+      version,
+    ],
+    queryFn: () =>
+      listApplicationSummaries({
+        org_id: orgId,
+        ...range,
+        ...(environment !== ALL ? { environment } : {}),
+        ...(version !== ALL ? { version } : {}),
+      }),
+    enabled: Boolean(orgId) && hasScope,
+  });
+  const query = hasScope ? scopedQuery : baseQuery;
+  const baseRows = React.useMemo(() => baseQuery.data ?? [], [baseQuery.data]);
+  const unknownApplication = t('scope.unknown_app');
+  const rows = React.useMemo(
+    () =>
+      (query.data ?? []).map((row) =>
+        row.application ? row : { ...row, application: unknownApplication },
+      ),
+    [query.data, unknownApplication],
   );
-  const rows = summarizeApplications(filtered, t('scope.unknown_app'));
+  const tableColumns = React.useMemo(() => columns(t), [t]);
   const state = productStateFor(
     queryStateFor({
       isLoading: query.isLoading,
       isError: query.isError,
-      data: sessions,
+      data: rows,
     }),
     {
       error: query.error,
@@ -65,81 +107,57 @@ export function Applications() {
       toolbar={
         <>
           <TimeRangeChip value={formatWindowSummary(window)} />
-          <ChromeButton onClick={() => query.refetch()}>{t('refresh')}</ChromeButton>
-        </>
-      }
-      filterBar={
-        <>
-          <RumFilterSelect
-            label={t('scope.environment')}
-            value={environment}
-            options={valueOptions(
-              sessions,
-              'environment',
-              t('scope.all_environments'),
-            )}
-            onChange={setEnvironment}
-          />
-          <RumFilterSelect
-            label={t('scope.version')}
-            value={version}
-            options={valueOptions(sessions, 'version', t('scope.all_versions'))}
-            onChange={setVersion}
-          />
+          <ChromeButton
+            onClick={() => {
+              void baseQuery.refetch();
+              if (hasScope) void scopedQuery.refetch();
+            }}
+          >
+            {t('refresh')}
+          </ChromeButton>
         </>
       }
       state={state}
     >
-      <section>
+      <section className="space-y-2">
         <RumSectionHeader
           title={t('applications.list_title')}
           description={t('applications.result_count', { count: rows.length })}
+          action={
+            <div className="flex flex-wrap items-end gap-3">
+              <RumFilterSelect
+                label={t('scope.environment')}
+                value={environment}
+                options={valueOptions(
+                  baseRows,
+                  'environments',
+                  t('scope.all_environments'),
+                )}
+                onChange={setEnvironment}
+              />
+              <RumFilterSelect
+                label={t('scope.version')}
+                value={version}
+                options={valueOptions(
+                  baseRows,
+                  'versions',
+                  t('scope.all_versions'),
+                )}
+                onChange={setVersion}
+              />
+            </div>
+          }
         />
         <DataTable
+          className="[&_tbody_tr]:h-auto [&_tbody_td]:py-2"
           rows={rows}
-          columns={columns(t)}
+          columns={tableColumns}
           rowKey={(row) => row.application}
           emptyLabel={t('applications.no_filter_results')}
         />
       </section>
     </RumListPage>
   );
-}
-
-function summarizeApplications(
-  sessions: SessionRow[],
-  unknownLabel: string,
-): ApplicationSummary[] {
-  const groups = new Map<string, SessionRow[]>();
-  for (const session of sessions) {
-    const key = session.application ?? unknownLabel;
-    groups.set(key, [...(groups.get(key) ?? []), session]);
-  }
-  return Array.from(groups.entries())
-    .map(([application, rows]) => {
-      const errorFree = rows.filter(
-        (row) => (row.error_count ?? 0) === 0 && row.failed_request_count === 0,
-      ).length;
-      return {
-        application,
-        environments: unique(rows.map((row) => row.environment)),
-        versions: unique(rows.map((row) => row.version)),
-        users: new Set(
-          rows
-            .map((row) => row.user_id ?? row.session_id)
-            .filter((value) => value.length > 0),
-        ).size,
-        sessions: rows.length,
-        errorFreeRate: rows.length === 0 ? 0 : errorFree / rows.length,
-        lcpP75: percentile(
-          rows
-            .map((row) => row.lcp_ms)
-            .filter((value): value is number => value !== undefined),
-          0.75,
-        ),
-      };
-    })
-    .sort((left, right) => right.sessions - left.sessions);
 }
 
 function columns(
@@ -161,7 +179,7 @@ function columns(
     {
       key: 'versions',
       header: t('applications.columns.versions'),
-      cell: (row) => row.versions.slice(0, 3).join(', ') || '—',
+      cell: (row) => <VersionTopics versions={row.versions} />,
     },
     {
       key: 'users',
@@ -191,31 +209,19 @@ function columns(
 }
 
 function valueOptions(
-  rows: SessionRow[],
-  field: 'environment' | 'version',
+  rows: ApplicationSummary[],
+  field: 'environments' | 'versions',
   allLabel: string,
 ) {
   return [
     { value: ALL, label: allLabel },
-    ...unique(rows.map((row) => row[field])).map((value) => ({
+    ...unique(rows.flatMap((row) => row[field])).map((value) => ({
       value,
       label: value,
     })),
   ];
 }
 
-function unique(values: Array<string | undefined>): string[] {
-  return Array.from(
-    new Set(values.filter((value): value is string => Boolean(value))),
-  ).sort();
-}
-
-function percentile(values: number[], fraction: number): number {
-  if (values.length === 0) return 0;
-  const sorted = [...values].sort((left, right) => left - right);
-  return (
-    sorted[
-      Math.min(sorted.length - 1, Math.ceil(sorted.length * fraction) - 1)
-    ] ?? 0
-  );
+function unique(values: string[]): string[] {
+  return Array.from(new Set(values)).sort();
 }

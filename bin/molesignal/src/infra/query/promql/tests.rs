@@ -127,12 +127,15 @@ fn batches_to_series_keeps_last_value_for_duplicate_timestamp() {
 fn batches_to_series_filters_container_metric_and_hides_storage_identity() {
     use std::sync::Arc;
 
+    use arrow::{
+        array::{BooleanArray, Int64Array},
+        datatypes::{DataType, Field, Schema, TimeUnit},
+    };
+
     use crate::domain::metrics::{
         METRIC_DESCRIPTION_FIELD, METRIC_MONOTONIC_FIELD, METRIC_START_TIME_UNIX_NANO_FIELD,
         METRIC_TEMPORALITY_FIELD, METRIC_UNIT_FIELD,
     };
-    use arrow::array::{BooleanArray, Int64Array};
-    use arrow::datatypes::{DataType, Field, Schema, TimeUnit};
 
     let schema = Arc::new(Schema::new(vec![
         Field::new(
@@ -218,12 +221,14 @@ fn batches_to_series_filters_container_metric_and_hides_storage_identity() {
 #[tokio::test]
 async fn missing_system_metric_resolves_to_protected_container_stream() {
     use crate::{
-        domain::metrics::{
-            METRIC_DESCRIPTION_FIELD, METRIC_KIND_FIELD, METRIC_MONOTONIC_FIELD, METRIC_NAME_FIELD,
-            METRIC_START_TIME_UNIX_NANO_FIELD, METRIC_TEMPORALITY_FIELD,
-        },
-        domain::stream::{
-            FieldDef, FieldType, Schema as StreamSchema, StreamDefinition, StreamSettings,
+        domain::{
+            metrics::{
+                METRIC_DESCRIPTION_FIELD, METRIC_KIND_FIELD, METRIC_MONOTONIC_FIELD,
+                METRIC_NAME_FIELD, METRIC_START_TIME_UNIX_NANO_FIELD, METRIC_TEMPORALITY_FIELD,
+            },
+            stream::{
+                FieldDef, FieldType, Schema as StreamSchema, StreamDefinition, StreamSettings,
+            },
         },
         shared::{ids::Id, time::TimestampMicros},
     };

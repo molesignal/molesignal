@@ -333,7 +333,7 @@ function EscalationDrawer({
           <FormField label={t('escalations.fields.name', { defaultValue: 'Policy name' })} required>
             <FormInput value={name} onChange={(e) => setName(e.target.value)} placeholder="on_call_default" required />
           </FormField>
-          <label className="flex min-h-9 items-center gap-2 rounded-md border border-bd-0 bg-bg-2 px-2.5 py-2 font-sans text-xs text-tx-0">
+          <label className="flex min-h-9 items-center gap-2 bg-bg-2 px-2.5 py-2 font-sans text-xs text-tx-0">
             <Checkbox checked={repeat} onCheckedChange={(next) => setRepeat(next === true)} />
             <span>{t('escalations.fields.repeat', { defaultValue: 'Repeat the whole policy until acknowledged' })}</span>
           </label>
@@ -401,7 +401,7 @@ function StepFields({
   );
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border border-bd-1 bg-bg-1 p-3">
+    <div className="flex flex-col gap-3 border-b border-bd-0 pb-4">
       <div className="flex items-center gap-2">
         <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-indigo/15 font-mono text-xs font-strong text-indigo-soft">
           {index + 1}
@@ -472,7 +472,7 @@ function TargetFields({
         : refs.teams;
 
   return (
-    <div className="flex flex-col gap-2 rounded-md border border-bd-0 bg-bg-2 p-2">
+    <div className="flex flex-col gap-2 bg-bg-2 px-3 py-2">
       <div className="flex items-center gap-2">
         <div className="w-28 shrink-0">
           <FormSelect

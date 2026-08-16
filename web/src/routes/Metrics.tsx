@@ -37,13 +37,14 @@ import {
   timeWindowKey,
 } from './metrics/model';
 import {
-  DEFAULT_METRICS_QUERY_OPTIONS,
   isValidMetricsStep,
   metricsQueryLimit,
   type MetricsQueryOptions,
 } from './metrics/queryOptions/model';
 import { MetricsExploreResults } from './metrics/results';
 import { useMetricSeriesPresentation } from './metrics/results/useMetricSeriesPresentation';
+import { metricsStateFromParams } from './metrics/urlState';
+import { useMetricsExploreContinuity } from './metrics/useExploreContinuity';
 
 /**
  * Prometheus Explore workspace. The route owns query/data state while the
@@ -57,8 +58,14 @@ export function Metrics() {
   const nav = useNavigate();
   const [searchParams] = useSearchParams();
   const requestedPromql = requestedPromqlFromParams(searchParams);
+  const initialUrlState = React.useRef(
+    metricsStateFromParams(searchParams),
+  ).current;
   const [promql, setPromql] = React.useState(requestedPromql);
   const [lastExecutedPromql, setLastExecutedPromql] = React.useState<
+    string | null
+  >(null);
+  const [lastExecutedDraft, setLastExecutedDraft] = React.useState<
     string | null
   >(null);
   const [executionVersion, setExecutionVersion] = React.useState(0);
@@ -68,12 +75,12 @@ export function Metrics() {
   const [queryEditorCollapsed, setQueryEditorCollapsed] = React.useState(false);
   const [timezone, setTimezone] = React.useState('');
   const [queryOptions, setQueryOptions] = React.useState<MetricsQueryOptions>(
-    DEFAULT_METRICS_QUERY_OPTIONS,
+    initialUrlState.queryOptions,
   );
   const [chartDrawStyle, setChartDrawStyle] =
-    React.useState<MetricsDrawStyle>('line');
+    React.useState<MetricsDrawStyle>(initialUrlState.drawStyle);
   const [chartStackMode, setChartStackMode] =
-    React.useState<MetricsStackMode>('none');
+    React.useState<MetricsStackMode>(initialUrlState.stackMode);
   const [chartZoomOrigin, setChartZoomOrigin] =
     React.useState<TimeWindow | null>(null);
 
@@ -81,9 +88,11 @@ export function Metrics() {
   const timeWindow = useTimeStore((state) => state.window);
   const setTimeWindow = useTimeStore((state) => state.setWindow);
   const globalFilters = useFiltersStore((state) => state.filters);
+  const clearGlobalFilters = useFiltersStore((state) => state.clearFilters);
   const chartZoomWindowKey = React.useRef<string | null>(null);
   const lastRequestedPromql = React.useRef(requestedPromql);
   const lastRunStatement = React.useRef(promql);
+  const lastRunDraft = React.useRef(promql);
 
   const metricCatalogContextKey = React.useMemo(
     () => JSON.stringify({ orgId, filter: filter.trim().toLowerCase() }),
@@ -97,10 +106,12 @@ export function Metrics() {
   const run = useMutation({
     mutationFn: (statementOverride?: string) => {
       const resolvedWindow = resolveWindow(useTimeStore.getState().window);
+      const draft = (statementOverride ?? promql).trim();
       const statement = injectPromqlMatchers(
-        statementOverride ?? promql,
+        draft,
         useFiltersStore.getState().filters,
       );
+      lastRunDraft.current = draft;
       lastRunStatement.current = statement;
       return queryApi.runQuery({
         org_id: orgId,
@@ -118,8 +129,11 @@ export function Metrics() {
       });
     },
     onSuccess: () => {
+      const executedDraft = lastRunDraft.current.trim();
       setLastExecutedPromql(lastRunStatement.current.trim());
+      setLastExecutedDraft(executedDraft);
       setExecutionVersion((current) => current + 1);
+      lastRequestedPromql.current = executedDraft;
     },
   });
 
@@ -211,6 +225,13 @@ export function Metrics() {
     ],
     [chartWindow],
   );
+  const { widenResultWindow } = useMetricsExploreContinuity({
+    executedPromql: lastExecutedDraft,
+    queryOptions,
+    drawStyle: chartDrawStyle,
+    stackMode: chartStackMode,
+    window: chartWindow,
+  });
   const chartUnit = React.useMemo(
     () => metricQueryUnit(lastExecutedPromql ?? promql, selectedMetricName),
     [lastExecutedPromql, promql, selectedMetricName],
@@ -300,7 +321,7 @@ export function Metrics() {
       !run.isPending,
   );
   const promqlDirty = Boolean(
-    promql.trim() && promql.trim() !== lastExecutedPromql,
+    promql.trim() && promql.trim() !== lastExecutedDraft,
   );
   const language = i18n.resolvedLanguage ?? i18n.language;
   const promqlDocsLocale = language.toLowerCase().startsWith('zh')
@@ -438,6 +459,13 @@ export function Metrics() {
             ...(exemplarsEnabled && exemplars.isError
               ? { error: t('explore.exemplars.query_error') }
               : {}),
+          }}
+          recovery={{
+            docsHref: promqlDocsHref,
+            hasFilters: globalFilters.length > 0,
+            onRetry: () => run.mutate(undefined),
+            onWidenRange: widenResultWindow,
+            onClearFilters: clearGlobalFilters,
           }}
           timeRangeSeconds={timeRangeSeconds}
           language={language}

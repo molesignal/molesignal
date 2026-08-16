@@ -13,9 +13,11 @@ export interface TraceFieldDef {
 }
 
 export interface TraceFieldGroup {
-  group: string;
+  group: TraceAttributeGroup;
   fields: TraceFieldDef[];
 }
+
+export type TraceAttributeGroup = 'resource' | 'scope' | 'span';
 
 export interface ParsedTraceStatement {
   q?: string;
@@ -45,10 +47,61 @@ const CORE_FIELD_ORDER = [
   'span_id',
   'parent_span_id',
   'name',
-  'status_code',
+  'kind',
+  'span_kind',
+  'start_time',
+  'start_time_unix_nano',
+  'end_time',
+  'end_time_unix_nano',
   'duration_ns',
+  'status_code',
+  'status_message',
+  'trace_state',
+  'trace_flags',
+  'flags',
   'span_count',
   'error_count',
+  'events',
+  'links',
+  'dropped_attributes_count',
+  'dropped_events_count',
+  'dropped_links_count',
+];
+const CORE_TRACE_FIELDS = new Set<string>(CORE_FIELD_ORDER);
+const TRACE_ATTRIBUTE_GROUP_ORDER: TraceAttributeGroup[] = ['resource', 'scope', 'span'];
+const RESOURCE_ATTRIBUTE_NAMES = new Set([
+  'resource',
+  'resource_attributes',
+  'resource_schema_url',
+]);
+const RESOURCE_ATTRIBUTE_PREFIXES = [
+  'resource.',
+  'service.',
+  'deployment.',
+  'cloud.',
+  'container.',
+  'host.',
+  'k8s.',
+  'os.',
+  'process.',
+  'telemetry.sdk.',
+  'telemetry.distro.',
+  'device.',
+  'faas.',
+  'browser.',
+];
+const SCOPE_ATTRIBUTE_NAMES = new Set([
+  'instrumentation_scope',
+  'scope_attributes',
+  'scope_name',
+  'scope_version',
+  'scope_schema_url',
+]);
+const SCOPE_ATTRIBUTE_PREFIXES = [
+  'instrumentation_scope.',
+  'otel.scope.',
+  'otel.library.',
+  'scope.',
 ];
 const TRACE_FIELD_ALIASES: Record<string, string> = {
   service: 'service.name',
@@ -73,16 +126,16 @@ export const DEFAULT_VISIBLE_TRACE_FIELDS: TraceFieldName[] = [
   'span_count',
   'status_code',
 ];
-export const COMMON_TRACE_FIELD_ORDER = [
-  'trace_id',
-  'name',
-  'service.name',
-  'status_code',
-  'duration_ns',
-] as const;
-export const COMMON_TRACE_FIELDS = new Set<string>(COMMON_TRACE_FIELD_ORDER);
 
-export function selectTraceStream(streams: StreamSummary[]): StreamSummary | undefined {
+export function selectTraceStream(
+  streams: StreamSummary[],
+  preferredName?: string,
+): StreamSummary | undefined {
+  const requested = preferredName?.trim();
+  if (requested) {
+    const preferred = streams.find((stream) => stream.name === requested);
+    if (preferred) return preferred;
+  }
   const rank = (stream: StreamSummary) => {
     const names = new Set(stream.schema.fields.map((field) => field.name));
     const canonical = [...REQUIRED_TRACE_FIELDS].every((field) => names.has(field));
@@ -118,17 +171,15 @@ export function groupTraceFields(fields: TraceFieldDef[]): {
   groups: TraceFieldGroup[];
 } {
   const core: TraceFieldDef[] = [];
-  const byPrefix = new Map<string, TraceFieldDef[]>();
+  const byGroup = new Map<TraceAttributeGroup, TraceFieldDef[]>(
+    TRACE_ATTRIBUTE_GROUP_ORDER.map((group) => [group, []]),
+  );
   for (const field of fields) {
-    const dot = field.name.indexOf('.');
-    if (dot <= 0) {
+    if (CORE_TRACE_FIELDS.has(field.name)) {
       core.push(field);
       continue;
     }
-    const prefix = field.name.slice(0, dot);
-    const list = byPrefix.get(prefix) ?? [];
-    list.push(field);
-    byPrefix.set(prefix, list);
+    byGroup.get(traceAttributeGroup(field.name))!.push(field);
   }
   core.sort((left, right) => {
     const leftIndex = CORE_FIELD_ORDER.indexOf(left.name);
@@ -138,13 +189,29 @@ export function groupTraceFields(fields: TraceFieldDef[]): {
     }
     return left.name.localeCompare(right.name);
   });
-  const groups = [...byPrefix.entries()]
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([group, groupedFields]) => ({
+  const groups = TRACE_ATTRIBUTE_GROUP_ORDER
+    .map((group) => ({
       group,
-      fields: [...groupedFields].sort((left, right) => left.name.localeCompare(right.name)),
-    }));
+      fields: [...byGroup.get(group)!].sort((left, right) => left.name.localeCompare(right.name)),
+    }))
+    .filter((group) => group.fields.length > 0);
   return { core, groups };
+}
+
+function traceAttributeGroup(fieldName: string): TraceAttributeGroup {
+  if (
+    RESOURCE_ATTRIBUTE_NAMES.has(fieldName)
+    || RESOURCE_ATTRIBUTE_PREFIXES.some((prefix) => fieldName.startsWith(prefix))
+  ) {
+    return 'resource';
+  }
+  if (
+    SCOPE_ATTRIBUTE_NAMES.has(fieldName)
+    || SCOPE_ATTRIBUTE_PREFIXES.some((prefix) => fieldName.startsWith(prefix))
+  ) {
+    return 'scope';
+  }
+  return 'span';
 }
 
 export function isTraceFieldQueryable(field: TraceFieldDef, mode: TraceQueryMode): boolean {

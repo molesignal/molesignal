@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
 
 import { type MetadataStripItem } from '@/admin';
+import * as alertsApi from '@/api/alerts';
 import * as incidentsApi from '@/api/incidents';
 import { toApiError } from '@/lib/http';
 import { formatMicrosActive } from '@/lib/time';
@@ -74,6 +75,12 @@ export function IncidentDetail() {
   // good `data` across a failed background refetch otherwise.
   const notFound = q.isError && toApiError(q.error).status === 404;
   const incident = notFound ? null : q.data ?? null;
+  const ruleQuery = useQuery({
+    queryKey: ['alerts', 'rule', incident?.rule_id],
+    queryFn: () => alertsApi.get(incident!.rule_id),
+    enabled: Boolean(incident?.rule_id),
+    staleTime: 30_000,
+  });
   const queryState = queryStateFor({ isLoading: q.isLoading, isError: q.isError, data: incident });
   const pageState: ProductStateProps | null = notFound
     ? {
@@ -170,7 +177,7 @@ export function IncidentDetail() {
         ) : undefined
       }
     >
-      {incident && <IncidentBody incident={incident} />}
+      {incident && <IncidentBody incident={incident} rule={ruleQuery.data} />}
     </DetailPage>
   );
 }

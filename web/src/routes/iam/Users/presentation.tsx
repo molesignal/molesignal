@@ -16,9 +16,9 @@ export type StatusFilter =
 export function UserAvatar({ user }: { user: usersApi.UserView }) {
   const fallback = initials(user.display_name || user.email);
   return (
-    <Avatar className="h-8 w-8 border border-bd-0">
+    <Avatar className="h-8 w-8">
       {user.avatar_url && <AvatarImage src={user.avatar_url} alt="" />}
-      <AvatarFallback className="bg-indigo-dim font-sans text-type-micro font-bold text-indigo-soft">
+      <AvatarFallback className="bg-indigo-dim font-sans text-type-micro font-bold text-tx-0">
         {fallback}
       </AvatarFallback>
     </Avatar>
@@ -49,11 +49,12 @@ export function normalizedStatus(
 
 export function loginMethodLabel(
   t: TFunction<'iam'>,
-  method: string,
+  method: string | null | undefined,
 ): string {
-  const normalized = method.toLocaleLowerCase();
+  const displayMethod = method?.trim() || 'password';
+  const normalized = displayMethod.toLocaleLowerCase();
   return t(`users.login_methods.${normalized}`, {
-    defaultValue: method.toUpperCase(),
+    defaultValue: displayMethod.toUpperCase(),
   });
 }
 

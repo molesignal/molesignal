@@ -113,6 +113,14 @@
       "select_prompt": "请在上方输入 PromQL，或搜索一个指标，然后执行查询。",
       "empty": "该查询 / 时间范围内没有数据点。"
     },
+    "recovery": {
+      "query_failed": "PromQL 查询失败",
+      "promql_docs": "PromQL 文档",
+      "no_data_title": "当前调查时间窗内没有指标数据",
+      "no_data_description": "查询语法有效。修改表达式前，可先扩大时间范围或移除已固定的过滤条件。",
+      "expand_time": "扩大时间范围 4 倍",
+      "clear_filters": "清除过滤并重试"
+    },
     "exemplars": {
       "title": "Exemplar",
       "count": "{{count}} 条",

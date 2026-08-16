@@ -103,7 +103,7 @@ export function QuickStartDrawer({
                 onClick={() =>
                   loadable ? onLoadSample() : onOpenStep(step.to)
                 }
-                className="group flex min-h-[92px] w-full items-start gap-3 px-6 py-4 text-left transition-colors duration-fast enabled:hover:bg-bg-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo disabled:cursor-not-allowed disabled:opacity-60"
+                className="group flex min-h-[92px] w-full items-start gap-3 px-6 py-4 text-left transition-colors duration-fast enabled:hover:bg-bg-2 focus-visible:bg-bg-2 focus-visible:text-tx-0 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <span className="relative mt-0.5 grid h-7 w-7 shrink-0 place-items-center">
                   {step.backendPending && !step.completed ? (

@@ -1,6 +1,14 @@
 import type { ScheduledPipeline } from '@/api/pipelines';
+import type { PipelineRun } from '@/api/pipelines/runs';
 
 export type PipelineHealth = 'healthy' | 'running' | 'error' | 'paused' | 'unknown' | 'never';
+export type PipelineDetailTab = 'overview' | 'topology' | 'runs' | 'configuration';
+
+export function parsePipelineDetailTab(value: string | null): PipelineDetailTab {
+  return value === 'topology' || value === 'runs' || value === 'configuration'
+    ? value
+    : 'overview';
+}
 
 export function pipelineHealth(pipeline: ScheduledPipeline): PipelineHealth {
   if (pipeline.enabled === false) return 'paused';
@@ -69,7 +77,37 @@ export function formatRunDuration(
 ): string {
   if (!finishedAtMicros) return '—';
   const millis = Math.max(0, (finishedAtMicros - startedAtMicros) / 1000);
+  return formatMillisDuration(millis);
+}
+
+export function formatMillisDuration(millis: number): string {
   if (millis < 1000) return `${millis.toFixed(0)} ms`;
   if (millis < 60_000) return `${(millis / 1000).toFixed(1)} s`;
   return `${(millis / 60_000).toFixed(1)} min`;
+}
+
+export function summarizePipelineRuns(
+  runs: readonly PipelineRun[],
+  nowMicros = Date.now() * 1000,
+) {
+  const since24h = nowMicros - 24 * 3600 * 1_000_000;
+  const runs24h = runs.filter((run) => run.started_at_micros >= since24h);
+  const succeeded24h = runs24h.filter((run) => run.state === 'succeeded').length;
+  const completedDurations = runs24h
+    .filter((run) => run.finished_at_micros != null)
+    .map((run) => (run.finished_at_micros! - run.started_at_micros) / 1000);
+
+  return {
+    lastRun: runs[0] ?? null,
+    runs24h,
+    successRate:
+      runs24h.length > 0 ? (succeeded24h / runs24h.length) * 100 : null,
+    processedRows: runs24h.reduce((total, run) => total + run.scanned_rows, 0),
+    averageDuration:
+      completedDurations.length > 0
+        ? completedDurations.reduce((total, duration) => total + duration, 0) /
+          completedDurations.length
+        : null,
+    completedRuns: completedDurations.length,
+  };
 }

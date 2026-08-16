@@ -7,11 +7,12 @@ use crate::domain::{storage::PhysicalDatasetKind, stream::StreamType};
 
 pub(super) fn for_stream_type(stream_type: StreamType) -> &'static [PhysicalDatasetKind] {
     use PhysicalDatasetKind::{
-        MetricCatalog, MetricRollup, Raw, RumErrorSummary, RumSessionSummary, TraceSummary,
+        MetricCatalog, MetricRollup, Raw, RumActionSummary, RumErrorSummary, RumSessionSummary,
+        TraceSummary,
     };
 
     match stream_type {
-        StreamType::Logs => &[Raw, RumSessionSummary, RumErrorSummary],
+        StreamType::Logs => &[Raw, RumSessionSummary, RumActionSummary, RumErrorSummary],
         StreamType::Metrics => &[Raw, MetricCatalog, MetricRollup],
         StreamType::Traces => &[Raw, TraceSummary],
         // Profile sample payloads live in the dedicated compressed archive;

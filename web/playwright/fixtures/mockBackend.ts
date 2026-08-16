@@ -1786,6 +1786,124 @@ export function registerRoutes(app: Express): void {
       previous_cursor: null,
     }),
   );
+  const rumStartedAt = Date.parse(FROZEN_NOW_ISO) * 1_000 - 120_000_000;
+  const rumSession = (sessionId: string) => ({
+    session_id: sessionId,
+    user_id: 'user-7',
+    application: 'storefront',
+    environment: 'prod',
+    version: '2.0.0',
+    browser: 'Chrome',
+    country: 'CN',
+    device: 'desktop',
+    duration_ms: 12_000,
+    started_at_micros: rumStartedAt,
+    error_count: 1,
+    journey: ['/products', '/checkout'],
+    rage_click_count: 0,
+    dead_click_count: 0,
+    slow_resource_count: 0,
+    failed_request_count: 1,
+    crash_count: 0,
+    experience: 'poor',
+    replay_available: false,
+  });
+  const emptyCursorPage = {
+    items: [],
+    has_more: false,
+    next_cursor: null,
+    previous_cursor: null,
+  };
+  app.get('/api/v1/rum/applications/summary', (_req, res) =>
+    res.json({
+      items: [
+        {
+          application: 'storefront',
+          environments: ['prod'],
+          versions: ['2.0.0'],
+          users: 1,
+          sessions: 1,
+          errorFreeRate: 0,
+          lcpP75: 2_800,
+        },
+      ],
+    }),
+  );
+  app.get('/api/v1/rum/overview', (_req, res) =>
+    res.json({
+      metrics: {
+        users: 1,
+        sessions: 1,
+        errorFreeRate: 0,
+        lcpP75: 2_800,
+        inpP75: 180,
+        clsP75: 0.08,
+      },
+      browserDevices: [{ label: 'Chrome · desktop', count: 1, share: 1 }],
+      regions: [{ label: 'CN', count: 1, share: 1 }],
+      facets: {
+        applications: ['storefront'],
+        environments: ['prod'],
+        versions: ['2.0.0'],
+        countries: ['CN'],
+        devices: ['desktop'],
+      },
+    }),
+  );
+  app.get('/api/v1/rum/overview/insights', (_req, res) =>
+    res.json({
+      trend: [],
+      satisfaction: { good: 0, needsImprovement: 0, poor: 1, total: 1 },
+      slowPages: [],
+      frequentErrors: [],
+    }),
+  );
+  app.get('/api/v1/rum/sessions', (_req, res) =>
+    res.json({ ...emptyCursorPage, items: [rumSession('sample-session')] }),
+  );
+  app.get('/api/v1/rum/sessions/:sessionId', (req, res) =>
+    res.json({
+      session: rumSession(req.params.sessionId),
+      events: [
+        {
+          ts_micros: rumStartedAt + 1_000_000,
+          type: 'network_error',
+          name: 'POST /api/orders',
+          url: '/checkout',
+          duration_ms: 420,
+          status: 500,
+          payload: {},
+          service: 'checkout',
+          trace_id: '0123456789abcdef0123456789abcdef',
+          parent_span_id: '0123456789abcdef',
+        },
+      ],
+    }),
+  );
+  app.get('/api/v1/rum/sessions/:sessionId/related-traces', (req, res) =>
+    res.json({ session_id: req.params.sessionId, primary_service: null, traces: [] }),
+  );
+  app.get('/api/v1/rum/errors', (_req, res) => res.json(emptyCursorPage));
+  app.get('/api/v1/rum/errors/:fingerprint', (req, res) =>
+    res.json({
+      fingerprint: req.params.fingerprint,
+      message: 'Checkout request failed',
+      stack: [],
+      recent_sessions: ['sample-session'],
+      count: 1,
+      users: 1,
+      first_seen_micros: rumStartedAt,
+      last_seen_micros: rumStartedAt,
+      pages: ['/checkout'],
+      versions: ['2.0.0'],
+    }),
+  );
+  app.get('/api/v1/rum/performance/vitals', (_req, res) => res.json([]));
+  app.get('/api/v1/rum/performance/apis', (_req, res) => res.json([]));
+  app.get('/api/v1/rum/performance/errors', (_req, res) => res.json([]));
+  app.get('/api/v1/rum/replay/:sessionId', (req, res) =>
+    res.json({ session_id: req.params.sessionId, segment_count: 0, events: [] }),
+  );
   app.post('/api/v1/query', (req: Request, res: Response) => {
     if (req.body?.language === 'promql') {
       const start = Number(req.body?.time_range?.start ?? Date.parse(FROZEN_NOW_ISO) * 1000 - 3_600_000_000);
@@ -1817,7 +1935,12 @@ export function registerRoutes(app: Express): void {
         took_ms: 14,
       });
     }
-    return res.json({ rows: [{ t: FROZEN_NOW_ISO, v: 1 }], took_ms: 2 });
+    return res.json({
+      columns: ['_timestamp', 'value'],
+      rows: [[Date.parse(FROZEN_NOW_ISO) * 1_000, 1]],
+      scanned_rows: 1,
+      took_ms: 2,
+    });
   });
   app.get('/api/v1/metrics', (_req, res) => res.json({ series: [] }));
   // /query/stream streams an initial batch, then after 3s streams a second
@@ -1982,7 +2105,7 @@ export function registerRoutes(app: Express): void {
         }),
       ),
   );
-  app.get('/api/v1/schedules', (_req, res) => res.json({ items: [] }));
+  app.get('/api/v1/schedules', (_req, res) => res.json([]));
   app.get('/api/v1/resource_shares/policy', (_req, res) =>
     res.json(resourceSharePolicy),
   );

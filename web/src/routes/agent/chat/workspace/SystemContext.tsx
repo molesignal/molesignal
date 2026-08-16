@@ -51,13 +51,13 @@ function connectionForSignal(
 
 export interface SystemContextProps {
   context: ChatContext;
-  rangePreset: string;
+  timeLabel: string;
   variant?: 'sidebar' | 'drawer';
 }
 
 export function SystemContext({
   context,
-  rangePreset,
+  timeLabel,
   variant = 'sidebar',
 }: SystemContextProps) {
   const { t } = useTranslation('agent');
@@ -144,7 +144,7 @@ export function SystemContext({
             <ScopeRow
               icon={Clock3}
               label={t('workspace.time_range')}
-              value={t(`range.${rangePreset}`)}
+              value={timeLabel}
             />
           </dl>
         </section>

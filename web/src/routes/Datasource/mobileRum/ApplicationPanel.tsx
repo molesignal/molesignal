@@ -20,7 +20,7 @@ export function ApplicationPanel({
   const { t } = useTranslation('onboarding');
   const showError = value.trim().length > 0 && !valid;
   return (
-    <div className="min-w-0 rounded-md border border-bd-0 bg-bg-1 p-3">
+    <div className="min-w-0 rounded-md bg-bg-1 p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
         <label htmlFor="rum-application-id" className="font-sans text-xs font-strong text-tx-2">
           {t('datasource_page.rum_application_id')}

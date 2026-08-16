@@ -198,7 +198,7 @@ test.describe('preference entry-point synchronization', () => {
   test('page timezone override can be promoted to the personal default', async ({
     page,
   }) => {
-    await page.goto('/logs');
+    await page.goto('/metrics');
     const timezone = page.getByRole('combobox', { name: 'Page timezone' });
     await expect(timezone).toContainText('Timezone: use default');
 

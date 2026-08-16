@@ -17,14 +17,15 @@ export function AccountSection({
 }) {
   return (
     <section
+      data-account-section
       className={cn(
-        'min-w-0',
-        width === 'form' && 'max-w-[760px]',
-        width === 'page' && 'max-w-[1080px]',
-        width === 'table' && 'max-w-[1280px]',
+        'w-full min-w-0',
+        width === 'form' && 'max-w-[960px]',
+        width === 'page' && 'max-w-[1440px]',
+        width === 'table' && 'max-w-[1920px]',
       )}
     >
-      <header className="mb-5 flex min-h-12 items-start gap-4">
+      <header className="mb-6 flex min-h-12 items-start gap-4">
         <div className="min-w-0 flex-1">
           <h2 className="type-section-title font-sans font-display-strong text-tx-0">
             {title}

@@ -125,6 +125,14 @@
       "close_summary": "Close trace details",
       "summary_drawer_aria": "Trace details drawer"
     },
+    "recovery": {
+      "query_failed": "Trace query failed",
+      "no_data_title": "No matching traces",
+      "no_data_description": "No related traces were found in this time range. Clear the query or expand the range before changing streams.",
+      "expand_time": "Expand time range 4×",
+      "clear_filters": "Clear query and retry",
+      "query_docs": "Trace query documentation"
+    },
     "sort": {
       "aria": "Sort traces",
       "latest": "Newest first",
@@ -161,8 +169,12 @@
       "resize": "Drag to resize fields; double-click to reset",
       "filter_placeholder": "Search fields",
       "filter_aria": "Filter trace fields",
-      "common_fields": "Common fields",
-      "other_fields": "Other fields",
+      "core_fields": "Core fields",
+      "attributes": "Attributes",
+      "show_field_aria": "Show {{name}}",
+      "hide_field_aria": "Hide {{name}}",
+      "add_field_aria": "Add {{name}} to query",
+      "no_top_values": "No values to summarize in the current result.",
       "json_query_required": "{{name}} requires a JSON path query in SQL mode",
       "direct_query_unavailable": "{{name}} cannot be queried directly",
       "fields_summary": "{{shown}} / {{total}} fields"

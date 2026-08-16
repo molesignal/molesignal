@@ -56,6 +56,33 @@ const RUM_ERROR_FIELDS: &[&str] = &[
     "environment",
 ];
 
+const RUM_ACTION_FIELDS: &[&str] = &[
+    EVENT_ID_FIELD,
+    "session_id",
+    "ts_micros",
+    "type",
+    "name",
+    "page",
+    "url",
+    "application",
+    "service",
+    "environment",
+    "version",
+    "country",
+    "browser",
+    "device",
+    "os",
+    "duration_ms",
+    "status",
+    "lcp_ms",
+    "fid_ms",
+    "inp_ms",
+    "cls",
+    "ttfb_ms",
+    "trace_id",
+    "parent_span_id",
+];
+
 /// 自动派生只在权威 `raw` 批次落盘前调用。返回批次与原批次共享逻辑 stream，
 /// 但使用独立的 WAL/buffer/object path。
 pub(super) fn project(batch: &IntakeBatch) -> Vec<(PhysicalDatasetKind, IntakeBatch)> {
@@ -66,6 +93,15 @@ pub(super) fn project(batch: &IntakeBatch) -> Vec<(PhysicalDatasetKind, IntakeBa
             RUM_SESSION_FIELDS,
             Some("session_id"),
             true,
+        )
+        .into_iter()
+        .collect(),
+        (StreamType::Logs, "rum_actions") => project_rows(
+            batch,
+            PhysicalDatasetKind::RumActionSummary,
+            RUM_ACTION_FIELDS,
+            Some("session_id"),
+            false,
         )
         .into_iter()
         .collect(),
@@ -230,6 +266,27 @@ mod tests {
                 .fields
                 .contains_key("large_payload")
         );
+    }
+
+    #[test]
+    fn rum_action_projection_keeps_query_fields_and_drops_payload() {
+        let source = batch(
+            "rum_actions",
+            StreamType::Logs,
+            json!({
+                "session_id": "s-1",
+                "ts_micros": 456,
+                "type": "view",
+                "page": "/checkout",
+                "payload": {"large": true}
+            }),
+        );
+        let projections = project(&source);
+        assert_eq!(projections.len(), 1);
+        assert_eq!(projections[0].0, PhysicalDatasetKind::RumActionSummary);
+        assert_eq!(projections[0].1.events[0].fields["ts_micros"], 456);
+        assert_eq!(projections[0].1.events[0].fields["type"], "view");
+        assert!(!projections[0].1.events[0].fields.contains_key("payload"));
     }
 
     #[test]

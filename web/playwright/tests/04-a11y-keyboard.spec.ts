@@ -42,4 +42,44 @@ test.describe('a11y / keyboard', () => {
     const critical = results.violations.filter((v) => v.impact === 'critical');
     expect(critical, JSON.stringify(critical, null, 2)).toEqual([]);
   });
+
+  test('core routes keep tab focus visible and out of hidden subtrees', async ({
+    page,
+  }) => {
+    for (const route of ['/home', '/logs', '/metrics', '/traces', '/alerts']) {
+      await page.goto(route);
+      await page.waitForLoadState('networkidle').catch(() => undefined);
+      await page.locator('body').click({ position: { x: 2, y: 2 } });
+
+      for (let index = 0; index < 24; index += 1) {
+        await page.keyboard.press('Tab');
+        const focus = await page.evaluate(() => {
+          const active = document.activeElement as HTMLElement | null;
+          if (!active || active === document.body) return null;
+          const rect = active.getBoundingClientRect();
+          const style = getComputedStyle(active);
+          return {
+            tag: active.tagName,
+            hiddenAncestor: Boolean(active.closest('[aria-hidden="true"], [inert]')),
+            visible:
+              rect.width > 0 &&
+              rect.height > 0 &&
+              rect.bottom > 0 &&
+              rect.right > 0 &&
+              rect.top < window.innerHeight &&
+              rect.left < window.innerWidth,
+            filter: style.filter,
+            background: style.backgroundColor,
+          };
+        });
+        expect(focus, `${route} tab ${index + 1} did not reach a control`).not.toBeNull();
+        expect(focus?.hiddenAncestor, `${route} focused a hidden control`).toBe(false);
+        expect(focus?.visible, `${route} focus moved off screen`).toBe(true);
+        expect(
+          focus?.filter !== 'none' || focus?.background !== 'rgba(0, 0, 0, 0)',
+          `${route} focus has no visible fill/foreground treatment`,
+        ).toBe(true);
+      }
+    }
+  });
 });

@@ -20,6 +20,7 @@ import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import * as dashboardsApi from '@/api/dashboards';
+import { buildPanelExploreLink } from '@/investigation/exploreLink';
 import {
   canAccessProductPath,
   useProductAccess,
@@ -91,7 +92,6 @@ import type {
   DashboardTimeRange,
   DashboardVariable,
   PanelData,
-  PanelQuery,
 } from './schema';
 import {
   expandRepeatedElements,
@@ -503,9 +503,6 @@ function DashboardPanelCard({
     ? interpolateVariables(panel.description, variables)
     : '';
   const activeQuery = panel.queries.find((query) => query.enabled);
-  const exploreRoute = activeQuery
-    ? signalExploreRoute(activeQuery.dataSourceType)
-    : '/metrics';
   const menuButton = (
     <button
       type="button"
@@ -609,14 +606,13 @@ function DashboardPanelCard({
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onSelect={() => {
-                        const statement = activeQuery
-                          ? queryExpression(activeQuery)
-                          : '';
-                        nav(
-                          statement
-                            ? `${exploreRoute}?query=${encodeURIComponent(interpolateVariables(statement, variables))}`
-                            : exploreRoute,
-                        );
+                        nav(activeQuery
+                          ? buildPanelExploreLink({
+                              query: activeQuery,
+                              variables,
+                              timeRange: data.timeRange,
+                            })
+                          : '/metrics');
                       }}
                     >
                       <Eye className="h-3.5 w-3.5" /> {tr('Explore data')}
@@ -1123,21 +1119,6 @@ function VariableControl({
       </select>
     </label>
   );
-}
-
-function signalExploreRoute(type: PanelQuery['dataSourceType']): string {
-  if (type === 'logs') return '/logs';
-  if (type === 'traces') return '/traces';
-  if (type === 'profiles') return '/profiles';
-  return '/metrics';
-}
-
-function queryExpression(query: PanelQuery): string {
-  for (const key of ['expression', 'statement', 'sql', 'query']) {
-    const value = query.query[key];
-    if (typeof value === 'string' && value.trim()) return value;
-  }
-  return '';
 }
 
 function exportPanelData(title: string, data: PanelData): void {

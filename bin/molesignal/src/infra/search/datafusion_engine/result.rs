@@ -34,7 +34,8 @@ pub(super) fn batches_to_json(
 
 fn cell_to_json(array: &dyn Array, index: usize) -> serde_json::Value {
     use arrow::array::{
-        BooleanArray, Float64Array, Int64Array, StringArray, TimestampMicrosecondArray,
+        BooleanArray, Float64Array, Int64Array, LargeStringArray, StringArray, StringViewArray,
+        TimestampMicrosecondArray,
     };
     if array.is_null(index) {
         return serde_json::Value::Null;
@@ -49,6 +50,12 @@ fn cell_to_json(array: &dyn Array, index: usize) -> serde_json::Value {
         return serde_json::Value::from(values.value(index));
     }
     if let Some(values) = array.as_any().downcast_ref::<StringArray>() {
+        return serde_json::Value::from(values.value(index).to_string());
+    }
+    if let Some(values) = array.as_any().downcast_ref::<LargeStringArray>() {
+        return serde_json::Value::from(values.value(index).to_string());
+    }
+    if let Some(values) = array.as_any().downcast_ref::<StringViewArray>() {
         return serde_json::Value::from(values.value(index).to_string());
     }
     if let Some(values) = array.as_any().downcast_ref::<TimestampMicrosecondArray>() {

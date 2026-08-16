@@ -5,20 +5,10 @@
 
 use axum::{Router, routing::get};
 use serde::Deserialize;
-use serde_json::Value;
 
 use crate::{
     api::AppState,
-    app::iam::IamContext,
-    domain::{
-        query::{QueryLanguage, QueryRequest, QueryResult, StreamHint},
-        storage::PhysicalDatasetKind,
-        stream::{FieldDef, StreamDefinition, StreamType},
-    },
-    shared::{
-        Error, Result,
-        time::{TimeRange, TimestampMicros},
-    },
+    shared::{Error, Result, time::TimestampMicros},
 };
 
 mod cursor;
@@ -85,80 +75,4 @@ pub(super) fn normalize_text(value: Option<String>, max: usize) -> Option<String
         let value = value.trim();
         (!value.is_empty() && !value.contains('\0')).then(|| value.chars().take(max).collect())
     })
-}
-
-pub(super) async fn log_stream(
-    state: &AppState,
-    iam: &IamContext,
-    name: &str,
-) -> Result<Option<StreamDefinition>> {
-    match state
-        .telemetry
-        .streams
-        .get(&iam.org_id, name, StreamType::Logs)
-        .await
-    {
-        Ok(stream) => Ok(Some(stream)),
-        Err(Error::NotFound(_)) => Ok(None),
-        Err(error) => Err(error),
-    }
-}
-
-pub(super) async fn run_log_query(
-    state: &AppState,
-    iam: &IamContext,
-    stream: &str,
-    time_range: TimeRange,
-    statement: String,
-    limit: usize,
-    dataset_kind: PhysicalDatasetKind,
-) -> Result<QueryResult> {
-    state
-        .query
-        .run_dataset(
-            QueryRequest {
-                org_id: iam.org_id.clone(),
-                language: QueryLanguage::Sql,
-                statement,
-                time_range,
-                stream: Some(StreamHint {
-                    name: stream.to_string(),
-                    stream_type: StreamType::Logs,
-                }),
-                limit: Some(limit),
-                federation_clusters: Vec::new(),
-            },
-            dataset_kind,
-        )
-        .await
-}
-
-pub(super) fn has_field(fields: &[FieldDef], name: &str) -> bool {
-    fields.iter().any(|field| field.name == name)
-}
-
-pub(super) fn column(result: &QueryResult, name: &str) -> Option<usize> {
-    result.columns.iter().position(|column| column == name)
-}
-
-pub(super) fn value_i64(value: &Value) -> Option<i64> {
-    value
-        .as_i64()
-        .or_else(|| value.as_u64().and_then(|value| i64::try_from(value).ok()))
-        .or_else(|| value.as_f64().map(|value| value as i64))
-}
-
-pub(super) fn value_string(value: &Value) -> Option<String> {
-    value
-        .as_str()
-        .map(str::to_string)
-        .or_else(|| (!value.is_null()).then(|| value.to_string()))
-}
-
-pub(super) fn non_empty_string(value: &Value) -> Option<String> {
-    value_string(value).filter(|value| !value.is_empty())
-}
-
-pub(super) fn sql_literal(value: &str) -> String {
-    format!("'{}'", value.replace('\'', "''"))
 }

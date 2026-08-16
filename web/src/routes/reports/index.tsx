@@ -25,17 +25,14 @@ import { toApiError } from '@/lib/http';
 import { formatMicrosActive } from '@/lib/time';
 import { useActionAccess } from '@/product/actionAccess';
 import { ProductState } from '@/product/states';
-import { ListPage } from '@/product/templates';
 import { ResourceShareDialog } from '@/sharing/ResourceShareDialog';
 import {
-  Card,
   ChromeButton,
   Pill,
   QueryInput,
   uiLabelClass,
   uiLabelStrongClass,
 } from '@/shell/chrome';
-import { DisabledControl } from '@/shell/DisabledControl';
 import { FormField, FormInput, FormSelect, FormTextarea } from '@/shell/FormDrawer';
 import { cn } from '@/shell/lib/cn';
 import { QueryState } from '@/shell/query/State';
@@ -51,6 +48,15 @@ import { toast } from '@/shell/ui/sonner';
 import { Switch } from '@/shell/ui/switch';
 import { TimeSeriesChart } from '@/viz/timeseries/TimeSeriesChart';
 
+import {
+  ReportStarter,
+  TemplateLibrary,
+} from './landing/ReportLandingSections';
+import {
+  ReportPagination,
+  useReportPagination,
+} from './landing/ReportPagination';
+import { ReportsPageCanvas } from './landing/ReportsPageCanvas';
 import {
   nextRunAtMicros,
   normalizeMicros,
@@ -82,7 +88,6 @@ import {
   type SourceKind,
   type TemplateDraft,
   templateDraftFromPreset,
-  templateIcon,
   type TemplatePreset,
   validateDraft,
   type WorkbenchSeed,
@@ -245,6 +250,16 @@ export function Reports() {
     });
   }, [deliveryRows, historyResult, historySearch]);
 
+  const schedulePagination = useReportPagination(
+    filteredReports,
+    JSON.stringify([tab, scheduleSearch, scheduleStatus, scheduleSource]),
+  );
+  const historyPagination = useReportPagination(
+    filteredHistory,
+    JSON.stringify([tab, historySearch, historyResult]),
+  );
+  const templatePagination = useReportPagination(templates, tab);
+
   const nowMicros = Date.now() * 1_000;
   const nextDayMicros = nowMicros + 24 * 60 * 60 * 1_000_000;
   const deliveriesNextDay = reports.filter((report) => {
@@ -355,23 +370,11 @@ export function Reports() {
           ]}
         />
       </ReportFilters>
-    ) : tab === 'templates' ? (
-      <div className="flex w-full justify-end">
-        <ChromeButton
-          variant="primary"
-          disabled={createTemplateAccess.disabled}
-          disabledReason={createTemplateAccess.reason}
-          onClick={() => setTemplateEditor('new')}
-        >
-          <Plus className="h-4 w-4" />
-          {t('templates.new_template')}
-        </ChromeButton>
-      </div>
     ) : undefined;
 
   return (
     <>
-      <ListPage
+      <ReportsPageCanvas
         title={t('title')}
         subtitle={t('subtitle')}
         toolbar={
@@ -423,33 +426,36 @@ export function Reports() {
               ]
             : undefined
         }
-        filters={
-          <div className="flex w-full items-center gap-1 overflow-x-auto">
-            {(['schedules', 'history', 'templates'] as const).map((candidate) => (
-              <button
-                key={candidate}
-                type="button"
-                onClick={() => setTab(candidate)}
-                className={cn(
-                  'relative h-9 shrink-0 border-b-2 px-3 font-sans text-sm font-strong transition-colors',
-                  tab === candidate
-                    ? 'border-indigo text-tx-0'
-                    : 'border-transparent text-tx-2 hover:text-tx-0',
-                )}
-              >
-                {t(`tabs.${candidate}`)}
-                {candidate !== 'templates' && (
-                  <span className="ml-2 rounded-full bg-bg-3 px-1.5 py-0.5 text-xs text-tx-2">
-                    {candidate === 'schedules' ? reports.length : deliveryRows.length}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
+        tabs={[
+          {
+            id: 'schedules',
+            label: t('tabs.schedules'),
+            count: reports.length,
+          },
+          {
+            id: 'history',
+            label: t('tabs.history'),
+            count: deliveryRows.length,
+          },
+          { id: 'templates', label: t('tabs.templates') },
+        ]}
+        activeTab={tab}
+        onTabChange={setTab}
+        tabAction={
+          tab === 'templates' ? (
+            <ChromeButton
+              variant="primary"
+              disabled={createTemplateAccess.disabled}
+              disabledReason={createTemplateAccess.reason}
+              onClick={() => setTemplateEditor('new')}
+            >
+              <Plus className="h-4 w-4" />
+              {t('templates.new_template')}
+            </ChromeButton>
+          ) : undefined
         }
         actionBar={actionBar}
         state={pageState}
-        bodyClassName="space-y-4"
       >
         {tab === 'schedules' &&
           (reports.length === 0 ? (
@@ -465,21 +471,25 @@ export function Reports() {
               variant="empty"
               title={t('empty.no_results_title')}
               description={t('empty.no_results_description')}
+              className="rounded-none border-x-0 border-t-0 border-solid bg-transparent"
             />
           ) : (
-            <ScheduleTable
-              reports={filteredReports}
-              dashboardNames={dashboardNames}
-              savedViewNames={savedViewNames}
-              latestDeliveryByReport={latestDeliveryByReport}
-              exportingId={exportingId}
-              sharingId={null}
-              toggling={toggleMutation.isPending}
-              onExport={(report) => void downloadReport(report)}
-              onEdit={(report) => setWorkbenchSeed({ report, template: null })}
-              onShare={setSharingReport}
-              onToggle={(report, enabled) => toggleMutation.mutate({ report, enabled })}
-            />
+            <>
+              <ScheduleTable
+                reports={schedulePagination.pageItems}
+                dashboardNames={dashboardNames}
+                savedViewNames={savedViewNames}
+                latestDeliveryByReport={latestDeliveryByReport}
+                exportingId={exportingId}
+                sharingId={null}
+                toggling={toggleMutation.isPending}
+                onExport={(report) => void downloadReport(report)}
+                onEdit={(report) => setWorkbenchSeed({ report, template: null })}
+                onShare={setSharingReport}
+                onToggle={(report, enabled) => toggleMutation.mutate({ report, enabled })}
+              />
+              <ReportPagination {...schedulePagination} />
+            </>
           ))}
 
         {tab === 'history' &&
@@ -490,13 +500,14 @@ export function Reports() {
               variant="empty"
               title={t('history.empty_title')}
               description={t('history.empty_description')}
+              className="rounded-none border-x-0 border-t-0 border-solid bg-transparent"
             />
           ) : (
-            <div className="space-y-3">
+            <div>
               {anyHistoryError && (
                 <div
                   role="status"
-                  className="flex items-center gap-2 rounded-lg border border-yellow/30 bg-yellow-dim px-4 py-3 text-sm text-yellow-soft"
+                  className="flex items-center gap-2 border-b border-yellow/25 bg-yellow-dim px-4 py-3 text-sm text-yellow-soft"
                 >
                   <CircleAlert className="h-4 w-4" />
                   {t('history.partial_error')}
@@ -507,25 +518,33 @@ export function Reports() {
                   variant="empty"
                   title={t('empty.no_results_title')}
                   description={t('empty.no_results_description')}
+                  className="rounded-none border-x-0 border-t-0 border-solid bg-transparent"
                 />
               ) : (
-                <HistoryTable
-                  rows={filteredHistory}
-                  onViewError={setFailedDelivery}
-                />
+                <>
+                  <HistoryTable
+                    rows={historyPagination.pageItems}
+                    onViewError={setFailedDelivery}
+                  />
+                  <ReportPagination {...historyPagination} />
+                </>
               )}
             </div>
           ))}
 
         {tab === 'templates' && (
-          <TemplateLibrary
-            templates={templates}
-            apiError={templatesQuery.isError}
-            onUse={(template) => setWorkbenchSeed({ report: null, template })}
-            onEdit={setTemplateEditor}
-          />
+          <>
+            <TemplateLibrary
+              templates={templatePagination.pageItems}
+              apiError={templatesQuery.isError}
+              onRetry={() => void templatesQuery.refetch()}
+              onUse={(template) => setWorkbenchSeed({ report: null, template })}
+              onEdit={setTemplateEditor}
+            />
+            <ReportPagination {...templatePagination} />
+          </>
         )}
-      </ListPage>
+      </ReportsPageCanvas>
 
       <ReportWorkbench
         open={workbenchSeed !== null}
@@ -588,7 +607,7 @@ function FilterSelect({
       aria-label={ariaLabel}
       value={value}
       onChange={(event) => onChange(event.target.value)}
-      className="h-9 rounded-md border border-bd-1 bg-bg-2 px-3 font-sans text-sm text-tx-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo"
+      className="h-9 rounded-md border-0 bg-bg-2 px-3 font-sans text-sm text-tx-1 transition-colors hover:bg-bg-3 focus:bg-bg-3 focus:outline-none"
     >
       {options.map((option) => (
         <option key={option.value} value={option.value}>
@@ -623,192 +642,6 @@ function FieldGroup({
       {children}
       {hint && <div className="mt-1.5 text-xs leading-relaxed text-tx-3">{hint}</div>}
     </fieldset>
-  );
-}
-
-function ReportStarter({
-  templates,
-  onUseTemplate,
-  onCustom,
-}: {
-  templates: TemplatePreset[];
-  onUseTemplate: (template: TemplatePreset) => void;
-  onCustom: () => void;
-}) {
-  const { t } = useTranslation('reports');
-  const scheduleAccess = useActionAccess({ permission: 'reports.schedule' });
-  return (
-    <Card className="overflow-hidden">
-      <div className="border-b border-bd-0 px-6 py-7 text-center">
-        <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl border border-indigo/25 bg-indigo-dim text-indigo-soft">
-          <LayoutTemplate className="h-6 w-6" />
-        </div>
-        <h2 className="mb-0 mt-4 font-sans text-xl font-display-strong tracking-tight text-tx-0">
-          {t('empty.title')}
-        </h2>
-        <p className="mx-auto mb-0 mt-2 max-w-2xl text-sm leading-relaxed text-tx-2">
-          {t('empty.description')}
-        </p>
-      </div>
-      <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-4">
-        {templates.map((template) => (
-          <StarterCard
-            key={template.id}
-            template={template}
-            onClick={() => onUseTemplate(template)}
-          />
-        ))}
-        <DisabledControl
-          disabled={scheduleAccess.disabled}
-          reason={scheduleAccess.reason}
-          className="w-full"
-        >
-          <button
-            type="button"
-            disabled={scheduleAccess.disabled}
-            aria-disabled={scheduleAccess.disabled || undefined}
-            onClick={onCustom}
-            className="group min-h-[184px] w-full rounded-lg border border-dashed border-bd-1 bg-bg-1 p-5 text-left transition-colors enabled:hover:border-indigo/50 enabled:hover:bg-bg-2 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo"
-          >
-            <span className="grid h-9 w-9 place-items-center rounded-lg border border-bd-0 bg-bg-2 text-tx-2">
-              <Plus className="h-4 w-4" />
-            </span>
-            <span className="mt-5 block font-sans text-sm font-bold text-tx-0">
-              {t('empty.custom_title')}
-            </span>
-            <span className="mt-2 block text-xs leading-relaxed text-tx-2">
-              {t('empty.custom_description')}
-            </span>
-          </button>
-        </DisabledControl>
-      </div>
-    </Card>
-  );
-}
-
-function StarterCard({
-  template,
-  onClick,
-}: {
-  template: TemplatePreset;
-  onClick: () => void;
-}) {
-  const { t } = useTranslation('reports');
-  const scheduleAccess = useActionAccess({ permission: 'reports.schedule' });
-  const Icon = templateIcon(template.icon);
-  return (
-    <DisabledControl
-      disabled={scheduleAccess.disabled}
-      reason={scheduleAccess.reason}
-      className="w-full"
-    >
-      <button
-        type="button"
-        disabled={scheduleAccess.disabled}
-        aria-disabled={scheduleAccess.disabled || undefined}
-        onClick={onClick}
-        className="group min-h-[184px] w-full rounded-lg border border-bd-0 bg-bg-2 p-5 text-left transition-colors enabled:hover:border-indigo/40 enabled:hover:bg-bg-3 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo"
-      >
-        <span className="grid h-9 w-9 place-items-center rounded-lg bg-indigo-dim text-indigo-soft">
-          <Icon className="h-4 w-4" />
-        </span>
-        <span className="mt-5 block font-sans text-sm font-bold text-tx-0">
-          {template.name}
-        </span>
-        <span className="mt-2 line-clamp-2 block text-xs leading-relaxed text-tx-2">
-          {template.description}
-        </span>
-        <span className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-indigo-soft">
-          {t('actions.use_template')}
-          <span aria-hidden>→</span>
-        </span>
-      </button>
-    </DisabledControl>
-  );
-}
-
-function TemplateLibrary({
-  templates,
-  apiError,
-  onUse,
-  onEdit,
-}: {
-  templates: TemplatePreset[];
-  apiError: boolean;
-  onUse: (template: TemplatePreset) => void;
-  onEdit: (template: TemplatePreset) => void;
-}) {
-  const { t } = useTranslation('reports');
-  const scheduleAccess = useActionAccess({ permission: 'reports.schedule' });
-  const editAccess = useActionAccess({ permission: 'reports.edit' });
-  return (
-    <div className="space-y-3">
-      {apiError && (
-        <div
-          role="status"
-          className="flex items-center gap-2 rounded-lg border border-yellow/30 bg-yellow-dim px-4 py-3 text-sm text-yellow-soft"
-        >
-          <CircleAlert className="h-4 w-4" />
-          {t('templates.api_warning')}
-        </div>
-      )}
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {templates.map((template) => {
-          const Icon = templateIcon(template.icon);
-          return (
-            <Card key={template.id} className="flex min-h-[230px] flex-col p-5">
-              <div className="flex items-start justify-between gap-3">
-                <div className="grid h-10 w-10 place-items-center rounded-lg bg-indigo-dim text-indigo-soft">
-                  <Icon className="h-5 w-5" />
-                </div>
-                <div className="flex flex-wrap justify-end gap-1.5">
-                  <Pill tone={template.isBuiltin ? 'dim' : 'indigo'}>
-                    {template.isBuiltin
-                      ? t('templates.builtin_badge')
-                      : t('templates.custom_badge')}
-                  </Pill>
-                  <Pill>
-                    {t('templates.source_badge', {
-                      source: t(`source.${template.sourceKind}`),
-                    })}
-                  </Pill>
-                </div>
-              </div>
-              <h3 className="mb-0 mt-5 font-sans text-base font-bold text-tx-0">
-                {template.name}
-              </h3>
-              <p className="mb-0 mt-2 flex-1 text-sm leading-relaxed text-tx-2">
-                {template.description}
-              </p>
-              <div className="mt-5 flex items-center gap-2 border-t border-bd-0 pt-4">
-                <Pill tone="dim">{template.format.toUpperCase()}</Pill>
-                <Pill tone="dim">{rangeLabel(template.rangePreset, t)}</Pill>
-                {!template.isBuiltin && (
-                  <ChromeButton
-                    size="sm"
-                    className="ml-auto"
-                    disabled={editAccess.disabled}
-                    disabledReason={editAccess.reason}
-                    onClick={() => onEdit(template)}
-                  >
-                    {t('actions.edit')}
-                  </ChromeButton>
-                )}
-                <ChromeButton
-                  size="sm"
-                  className={cn(template.isBuiltin && 'ml-auto')}
-                  disabled={scheduleAccess.disabled}
-                  disabledReason={scheduleAccess.reason}
-                  onClick={() => onUse(template)}
-                >
-                  {t('actions.use_template')}
-                </ChromeButton>
-              </div>
-            </Card>
-          );
-        })}
-      </div>
-    </div>
   );
 }
 

@@ -32,11 +32,15 @@ vi.mock('./data', () => ({
   }),
 }));
 
-vi.mock('./components', () => ({
-  SyntheticsPage: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  WorkspaceBoundary: ({ children }: { children: ReactNode }) => <>{children}</>,
-  StatePill: ({ state }: { state: string }) => <span>{state}</span>,
-}));
+vi.mock('./components', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...actual,
+    SyntheticsPage: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+    WorkspaceBoundary: ({ children }: { children: ReactNode }) => <>{children}</>,
+    StatePill: ({ state }: { state: string }) => <span>{state}</span>,
+  };
+});
 
 vi.mock('./ResultDrawer', () => ({ ResultDrawer: () => null }));
 
@@ -57,7 +61,7 @@ beforeEach(async () => {
 afterEach(cleanup);
 
 describe('Synthetics Results', () => {
-  it('renders a full-width divider, check search, and server-backed pagination', async () => {
+  it('renders a flat list surface, check search, and server-backed pagination', async () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
@@ -72,9 +76,13 @@ describe('Synthetics Results', () => {
     );
 
     expect(await screen.findByText('Checkout API')).toBeTruthy();
-    const filterBar = container.querySelector('[data-results-filter-bar]');
+    const surface = container.querySelector('[data-synthetics-list-surface]');
+    expect(surface?.className).toContain('border-b');
+    expect(surface?.className).not.toMatch(/rounded|shadow|border-x|border-y/);
+    const filterBar = container.querySelector('[data-synthetics-filter-bar]');
     expect(filterBar?.className).toContain('border-b');
-    expect(filterBar?.className).not.toContain('lg:w-');
+    expect(filterBar?.className).toContain('px-4');
+    expect(filterBar?.className).not.toMatch(/rounded|shadow|lg:w-/);
     expect(
       screen.getByRole('navigation', { name: 'Synthetic result pagination' }),
     ).toBeTruthy();

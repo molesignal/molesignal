@@ -47,25 +47,11 @@
       "histogram": "Histogram",
       "query_mode_aria": "Log query mode",
       "more_actions_aria": "More actions",
-      "fx": "f(x)",
-      "fx_aria": "Open query templates",
       "actions_label": "Query actions",
       "copy_query": "Copy query",
       "copied_query": "Copied query",
       "reset_query": "Reset query",
       "download_results": "Download results JSON",
-      "fx_title": "Query templates",
-      "fx_hint": "Insert a filter in Fields mode or replace the SQL statement.",
-      "fx_templates": {
-        "errors": "Errors only",
-        "errors_desc": "Filter logs to error-level events.",
-        "message_contains": "Message contains",
-        "message_contains_desc": "Search message text for a keyword.",
-        "count_by_level": "Count by level",
-        "count_by_level_desc": "Aggregate returned logs by severity level.",
-        "source_filter": "Source filter",
-        "source_filter_desc": "Filter to logs from the OTLP HTTP source."
-      },
       "time_range_aria": "Select log time range",
       "refresh_aria": "Refresh query",
       "run": "Run",
@@ -89,11 +75,9 @@
       "no_streams": "No streams available",
       "field_search_placeholder": "Search fields",
       "filter_fields_aria": "Filter fields",
-      "visible_fields": "Shown fields",
-      "common_fields": "Common fields",
-      "other_fields": "Other fields",
-      "top_values": "Top values",
-      "value_count": "Count",
+      "visible_fields": "Displayed fields",
+      "fixed_fields": "Fixed fields",
+      "all_fields": "All fields",
       "no_top_values": "No values to summarize in the current result.",
       "include_value": "Add include filter",
       "exclude_value": "Add exclude filter",
@@ -111,7 +95,7 @@
       "refresh_fields_aria": "Refresh fields"
     },
     "table": {
-      "time_column": "_timestamp ({{timezone}})",
+      "time_column": "_timestamp",
       "level_column": "Level",
       "source_column": "source",
       "message_column": "Message",
@@ -128,6 +112,14 @@
       "running_query": "Running query…",
       "no_events": "No events in this time window.",
       "row_aria": "Open log row {{index}}"
+    },
+    "recovery": {
+      "query_failed": "Log query failed",
+      "no_data_title": "No matching logs",
+      "no_data_description": "No related logs were found in this time range. Clear filters or expand the range before changing streams.",
+      "expand_time": "Expand time range 4×",
+      "clear_filters": "Clear filters and retry",
+      "query_docs": "Log query documentation"
     },
     "results": {
       "content": "Content",
@@ -161,6 +153,7 @@
         "context": "Context"
       },
       "overview_metadata": "Log metadata",
+      "related_signals": "Related signals",
       "primary_fields": "Primary fields",
       "stream": "Stream",
       "time": "Time",

@@ -3,7 +3,6 @@ import EditorWorker from 'monaco-editor/editor/editor.worker.js?worker';
 import 'monaco-editor/editor/contrib/suggest/browser/suggestController.js';
 import JsonWorker from 'monaco-editor/language/json/json.worker.js?worker';
 import 'monaco-editor/language/json/monaco.contribution.js';
-import 'monaco-editor/languages/definitions/javascript/register.js';
 import 'monaco-editor/languages/definitions/sql/register.js';
 import 'monaco-editor/languages/definitions/yaml/register.js';
 import * as React from 'react';
@@ -16,6 +15,7 @@ import {
   presentFieldQueryCompletion,
   resolveFieldQueryCompletionContext,
 } from './fieldQueryCompletion';
+import { registerJavaScriptLanguage } from './javascript';
 import type {
   CodeCompletionItem,
   CodeCompletionKind,
@@ -579,7 +579,7 @@ function MonacoCodeEditor({
           role="separator"
           aria-orientation="horizontal"
           aria-label="Resize query editor"
-          className="group flex h-2 cursor-row-resize items-center justify-center border-t border-bd-0 bg-bg-1 hover:bg-bg-2"
+          className="group flex h-2 cursor-row-resize items-center justify-center bg-bg-1 hover:bg-bg-2"
           onDoubleClick={resetManualHeight}
           onMouseDown={handleResizeStart}
         >
@@ -613,6 +613,7 @@ function configureMonaco() {
   const runtime = globalThis as MonacoGlobal;
   runtime.MoleSignalCompletionProviders?.forEach((provider) => provider.dispose());
   runtime.MoleSignalCompletionProviders = [];
+  registerJavaScriptLanguage(monaco);
   registerSql();
   registerPromql();
   registerVrl();
@@ -985,7 +986,7 @@ function registerFieldQuery() {
   registerCompletionProvider(
     FIELD_QUERY_LANGUAGE,
     DEFAULT_FIELD_QUERY_COMPLETIONS,
-    [' ', '"', "'", '.', '=', '_'],
+    [' ', '"', "'", '.', '=', '_', '('],
   );
 }
 
@@ -1280,7 +1281,7 @@ function defaultPlaceholder(language: CodeLanguage): string | undefined {
   if (language === 'json') return '{\n  "key": "value"\n}';
   if (language === 'yaml') return 'key: value';
   if (language === 'vrl') return '.level = upcase(.level)';
-  if (language === 'javascript') return 'export function transform(event) {\n  return event;\n}';
+  if (language === 'javascript') return "molesignal.set('environment', 'production');";
   if (language === 'field-query') return 'trace_id = "..." AND service_name contains "checkout"';
   if (language === 'template') return '{{severity}} {{rule.name}}';
   return undefined;

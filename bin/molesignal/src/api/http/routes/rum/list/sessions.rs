@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use std::collections::HashSet;
+
 use axum::{
     Extension, Json,
     extract::{Query, State},
 };
-use serde_json::{Map, Value};
+use serde_json::{Map, Value, json};
 
 use super::{
-    ListQuery, column,
+    ListQuery,
     cursor::{self, SessionBoundary, SessionCursorPayload},
-    has_field, initial_page_context, log_stream, normalize_text, run_log_query,
-    shared_cursor_mismatch, sql_literal, value_i64,
+    initial_page_context, normalize_text, shared_cursor_mismatch,
 };
 use crate::{
     api::{
@@ -19,18 +20,21 @@ use crate::{
         http::pagination::cursor::{CursorDirection, CursorPage, trim_cursor_page},
     },
     app::iam::IamContext,
-    domain::{
-        iam::permission,
-        intake::EVENT_ID_FIELD,
-        storage::PhysicalDatasetKind,
-        stream::{FieldDef, StreamDefinition},
+    domain::iam::permission,
+    infra::rum::read_model::{
+        RumReadModelReader, RumSessionRecord, SessionPageBoundary, SessionPageQuery,
     },
-    infra::query::escape_sql_ident,
     shared::{
         Error, Result,
         time::{TimeRange, TimestampMicros},
     },
 };
+
+mod enrichment;
+
+const DEFAULT_ACTION_LOOKAHEAD_MICROS: i64 = 4 * 60 * 60 * 1_000_000;
+const MAX_ACTION_LOOKAHEAD_MICROS: i64 = 24 * 60 * 60 * 1_000_000;
+const ACTION_GRACE_MICROS: i64 = 5 * 60 * 1_000_000;
 
 #[derive(Clone, Debug)]
 pub(super) struct SessionContext {
@@ -59,65 +63,56 @@ pub(super) async fn list(
     Query(request): Query<ListQuery>,
 ) -> Result<Json<CursorPage<Map<String, Value>>>> {
     let context = resolve_context(&state, &iam, request)?;
-    let Some(stream) = log_stream(&state, &iam, "rum_sessions").await? else {
-        return Ok(Json(CursorPage::empty()));
-    };
-    if !has_field(&stream.schema.fields, "session_id")
-        || !has_field(&stream.schema.fields, EVENT_ID_FIELD)
-    {
-        return Ok(Json(CursorPage::empty()));
-    }
-
-    let fetch_limit = context.page_size.saturating_add(1);
-    // 派生写入已把 `_timestamp` 规范为 session start。
-    let timestamp = "CAST(_timestamp AS BIGINT)".to_string();
-    let replay_session_ids = if context.replay_only {
+    let replay_filter = if context.replay_only {
         state
             .telemetry
             .rum_replay
             .session_ids_in_window(&iam.org_id, context.from, context.to)
             .await?
+            .into_iter()
+            .collect::<HashSet<_>>()
     } else {
-        Vec::new()
+        HashSet::new()
     };
-    if context.replay_only && replay_session_ids.is_empty() {
+    if context.replay_only && replay_filter.is_empty() {
         return Ok(Json(CursorPage::empty()));
     }
-    let sql = build_sql(
-        &context,
-        &stream,
-        &timestamp,
-        fetch_limit,
-        &replay_session_ids,
+
+    let reader = RumReadModelReader::new(
+        state.storage.parquet_file_meta.clone(),
+        state.storage.object_store.clone(),
     );
-    let output = run_log_query(
-        &state,
-        &iam,
-        "rum_sessions",
-        TimeRange::new(TimestampMicros(context.from), TimestampMicros(context.to)),
-        sql,
-        fetch_limit,
-        PhysicalDatasetKind::RumSessionSummary,
-    )
-    .await?;
-    let direction = context.boundary.as_ref().map(|boundary| boundary.direction);
-    let mut page = trim_cursor_page(rows(output), context.page_size, direction);
-    let session_ids = page
-        .items
-        .iter()
-        .map(|row| row.session_id.clone())
-        .collect::<Vec<_>>();
-    let available = state
-        .telemetry
-        .rum_replay
-        .existing_session_ids(&iam.org_id, &session_ids)
+    let boundary = context
+        .boundary
+        .as_ref()
+        .map(|boundary| SessionPageBoundary {
+            direction: boundary.direction,
+            started_at_micros: boundary.started_at_micros,
+            session_id: &boundary.session_id,
+            event_id: &boundary.event_id,
+        });
+    let records = reader
+        .session_page(
+            &iam.org_id,
+            TimeRange::new(TimestampMicros(context.from), TimestampMicros(context.to)),
+            SessionPageQuery {
+                text: context.query.as_deref(),
+                country: context.country.as_deref(),
+                browser: context.browser.as_deref(),
+                allowed_session_ids: context.replay_only.then_some(&replay_filter),
+                boundary,
+                limit: context.page_size.saturating_add(1),
+            },
+        )
         .await?;
-    for row in &mut page.items {
-        row.item.insert(
-            "replay_available".into(),
-            Value::Bool(available.contains(&row.session_id)),
-        );
-    }
+    let direction = context.boundary.as_ref().map(|boundary| boundary.direction);
+    let mut page = trim_cursor_page(
+        records.into_iter().map(record_to_row).collect(),
+        context.page_size,
+        direction,
+    );
+    enrichment::enrich_rows(&state, &iam, &reader, &mut page.items).await?;
+
     let previous_cursor = if page.has_previous {
         page.items
             .first()
@@ -150,13 +145,69 @@ pub(super) async fn list(
     } else {
         None
     };
-
     Ok(Json(CursorPage {
         items: page.items.into_iter().map(|row| row.item).collect(),
         has_more: next_cursor.is_some(),
         next_cursor,
         previous_cursor,
     }))
+}
+
+fn record_to_row(record: RumSessionRecord) -> SessionRow {
+    let mut item = Map::new();
+    item.insert(
+        "session_id".into(),
+        Value::String(record.session_id.clone()),
+    );
+    insert_optional(&mut item, "user_id", record.user_id);
+    insert_optional(&mut item, "ip_address", record.ip_address);
+    insert_number(&mut item, "duration_ms", record.duration_ms);
+    insert_optional(&mut item, "application", record.application);
+    insert_optional(&mut item, "service", record.service);
+    insert_optional(&mut item, "environment", record.environment);
+    insert_optional(&mut item, "version", record.version);
+    insert_optional(&mut item, "country", record.country);
+    insert_optional(&mut item, "browser", record.browser);
+    insert_optional(&mut item, "device", record.device);
+    insert_optional(&mut item, "os", record.os);
+    insert_optional(&mut item, "landing_page", record.landing_page);
+    insert_optional(&mut item, "last_page", record.last_page);
+    insert_integer(&mut item, "view_count", record.view_count);
+    insert_integer(&mut item, "action_count", record.action_count);
+    item.insert("error_count".into(), json!(record.error_count));
+    insert_optional(&mut item, "trace_id", record.trace_id);
+    item.insert("started_at_micros".into(), json!(record.timestamp_micros));
+    SessionRow {
+        item,
+        started_at_micros: record.timestamp_micros,
+        session_id: record.session_id,
+        event_id: record.event_id,
+    }
+}
+
+fn action_range(rows: &[SessionRow]) -> TimeRange {
+    let start = rows
+        .iter()
+        .map(|row| row.started_at_micros)
+        .min()
+        .unwrap_or_default();
+    let end = rows
+        .iter()
+        .map(|row| {
+            let duration = row
+                .item
+                .get("duration_ms")
+                .and_then(Value::as_f64)
+                .map(|value| (value.max(0.0) * 1_000.0) as i64)
+                .unwrap_or(DEFAULT_ACTION_LOOKAHEAD_MICROS)
+                .min(MAX_ACTION_LOOKAHEAD_MICROS);
+            row.started_at_micros
+                .saturating_add(duration)
+                .saturating_add(ACTION_GRACE_MICROS)
+        })
+        .max()
+        .unwrap_or(start);
+    TimeRange::new(TimestampMicros(start), TimestampMicros(end.max(start + 1)))
 }
 
 fn resolve_context(
@@ -183,7 +234,6 @@ fn resolve_context(
             }),
         });
     }
-
     let (from, to, page_size) = initial_page_context(&request)?;
     Ok(SessionContext {
         from,
@@ -222,208 +272,20 @@ fn validate_cursor_request(request: &ListQuery, payload: &SessionCursorPayload) 
     Ok(())
 }
 
-fn build_sql(
-    context: &SessionContext,
-    stream: &StreamDefinition,
-    timestamp: &str,
-    fetch_limit: usize,
-    replay_session_ids: &[String],
-) -> String {
-    let mut clauses = vec![
-        "session_id IS NOT NULL AND session_id != ''".into(),
-        format!("{timestamp} >= {}", context.from),
-        format!("{timestamp} < {}", context.to),
-    ];
-    if let Some(query) = context.query.as_deref() {
-        let searchable = [
-            "session_id",
-            "user_id",
-            "country",
-            "browser",
-            "application",
-            "environment",
-            "version",
-            "landing_page",
-            "last_page",
-        ]
-        .into_iter()
-        .filter(|field| *field == "session_id" || has_field(&stream.schema.fields, field))
-        .map(|field| {
-            format!(
-                "CAST(\"{}\" AS VARCHAR) LIKE {}",
-                escape_sql_ident(field),
-                sql_literal(&format!("%{query}%"))
-            )
-        })
-        .collect::<Vec<_>>();
-        clauses.push(format!("({})", searchable.join(" OR ")));
-    }
-    add_exact_filter(
-        &mut clauses,
-        &stream.schema.fields,
-        "country",
-        context.country.as_deref(),
-    );
-    add_exact_filter(
-        &mut clauses,
-        &stream.schema.fields,
-        "browser",
-        context.browser.as_deref(),
-    );
-    if context.replay_only {
-        clauses.push(format!(
-            "session_id IN ({})",
-            replay_session_ids
-                .iter()
-                .map(|session_id| sql_literal(session_id))
-                .collect::<Vec<_>>()
-                .join(", ")
-        ));
-    }
-    if let Some(boundary) = &context.boundary {
-        clauses.push(cursor::session_seek(boundary, timestamp));
-    }
-    let order = if context
-        .boundary
-        .as_ref()
-        .is_some_and(|boundary| boundary.direction == CursorDirection::Before)
-    {
-        "ASC"
-    } else {
-        "DESC"
-    };
-    format!(
-        "SELECT *, {timestamp} AS __cursor_started_at FROM \"{}\" \
-         WHERE {} ORDER BY _timestamp {order}, session_id {order}, \
-         \"{EVENT_ID_FIELD}\" {order} LIMIT {fetch_limit}",
-        escape_sql_ident(&stream.name),
-        clauses.join(" AND "),
-    )
-}
-
-fn add_exact_filter(
-    clauses: &mut Vec<String>,
-    fields: &[FieldDef],
-    field: &str,
-    value: Option<&str>,
-) {
-    let Some(value) = value else {
-        return;
-    };
-    if has_field(fields, field) {
-        clauses.push(format!(
-            "\"{}\" = {}",
-            escape_sql_ident(field),
-            sql_literal(value)
-        ));
-    } else {
-        clauses.push("1 = 0".into());
+fn insert_optional(item: &mut Map<String, Value>, name: &str, value: Option<String>) {
+    if let Some(value) = value {
+        item.insert(name.into(), Value::String(value));
     }
 }
 
-fn rows(output: crate::domain::query::QueryResult) -> Vec<SessionRow> {
-    let started = column(&output, "__cursor_started_at");
-    let session = column(&output, "session_id");
-    let event = column(&output, EVENT_ID_FIELD);
-    output
-        .rows
-        .into_iter()
-        .filter_map(|row| {
-            let started_at_micros = started
-                .and_then(|index| row.get(index))
-                .and_then(value_i64)?;
-            let session_id = session
-                .and_then(|index| row.get(index))
-                .and_then(Value::as_str)?
-                .to_string();
-            let event_id = event
-                .and_then(|index| row.get(index))
-                .and_then(Value::as_str)?
-                .to_string();
-            let mut item = Map::new();
-            for (index, name) in output.columns.iter().enumerate() {
-                if name == "__cursor_started_at" || name == EVENT_ID_FIELD {
-                    continue;
-                }
-                item.insert(name.clone(), row.get(index).cloned().unwrap_or(Value::Null));
-            }
-            Some(SessionRow {
-                item,
-                started_at_micros,
-                session_id,
-                event_id,
-            })
-        })
-        .collect()
+fn insert_number(item: &mut Map<String, Value>, name: &str, value: Option<f64>) {
+    if let Some(value) = value.filter(|value| value.is_finite()) {
+        item.insert(name.into(), json!(value));
+    }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{
-        domain::stream::{Schema, StreamType},
-        shared::{ids::Id, time::TimestampMicros},
-    };
-
-    #[test]
-    fn query_has_strict_window_and_compound_order() {
-        let context = SessionContext {
-            from: 10,
-            to: 20,
-            page_size: 20,
-            query: None,
-            country: None,
-            browser: None,
-            replay_only: false,
-            boundary: None,
-        };
-        let stream = StreamDefinition {
-            id: Id::new(),
-            org_id: Id::new(),
-            name: "rum_sessions".into(),
-            stream_type: StreamType::Logs,
-            schema: Schema { fields: vec![] },
-            retention: None,
-            created_at: TimestampMicros(0),
-            updated_at: TimestampMicros(0),
-        };
-        let sql = build_sql(&context, &stream, "CAST(_timestamp AS BIGINT)", 21, &[]);
-        assert!(sql.contains("CAST(_timestamp AS BIGINT) >= 10"));
-        assert!(sql.contains("CAST(_timestamp AS BIGINT) < 20"));
-        assert!(
-            sql.contains("ORDER BY _timestamp DESC, session_id DESC, \"_event_id\" DESC LIMIT 21")
-        );
-    }
-
-    #[test]
-    fn replay_only_query_restricts_session_ids() {
-        let context = SessionContext {
-            from: 10,
-            to: 20,
-            page_size: 20,
-            query: None,
-            country: None,
-            browser: None,
-            replay_only: true,
-            boundary: None,
-        };
-        let stream = StreamDefinition {
-            id: Id::new(),
-            org_id: Id::new(),
-            name: "rum_sessions".into(),
-            stream_type: StreamType::Logs,
-            schema: Schema { fields: vec![] },
-            retention: None,
-            created_at: TimestampMicros(0),
-            updated_at: TimestampMicros(0),
-        };
-        let sql = build_sql(
-            &context,
-            &stream,
-            "CAST(_timestamp AS BIGINT)",
-            21,
-            &["ses_a".into(), "ses_b".into()],
-        );
-        assert!(sql.contains("session_id IN ('ses_a', 'ses_b')"));
+fn insert_integer(item: &mut Map<String, Value>, name: &str, value: Option<i64>) {
+    if let Some(value) = value {
+        item.insert(name.into(), json!(value));
     }
 }

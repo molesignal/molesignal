@@ -2,9 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Activity,
   BellRing,
-  Check,
   CircleAlert,
-  Database,
   FileCode2,
   Gauge,
   Plus,
@@ -20,7 +18,7 @@ import * as alertsApi from '@/api/alerts';
 import * as queryApi from '@/api/query';
 import { toApiError } from '@/lib/http';
 import { useActionAccess } from '@/product/actionAccess';
-import { ChromeButton, Dot, Pill, uiLabelClass } from '@/shell/chrome';
+import { ChromeButton, uiLabelClass } from '@/shell/chrome';
 import { CodeEditor } from '@/shell/codeEditor';
 import { ErrorState } from '@/shell/ErrorState';
 import {
@@ -41,9 +39,10 @@ import type {
   StreamType,
 } from '@/types/alerting';
 import type { QueryLanguage } from '@/types/query';
-import { TimeSeriesChart } from '@/viz/timeseries/TimeSeriesChart';
 
 import {
+  alertRuleActivationBlocker,
+  alertRulePreviewFingerprint,
   COMPARISON_LABEL,
   estimateTriggerEpisodes,
   extractQueryPoints,
@@ -53,6 +52,12 @@ import {
   thresholdConflict,
   topThreshold,
 } from './alertRuleModel';
+import {
+  QueryPreview,
+  ValidationSummary,
+  WorkbenchSection,
+  WorkbenchSteps,
+} from './rule-workbench/Surfaces';
 
 type RuleSignal = StreamType;
 type SaveMode = 'draft' | 'active';
@@ -205,6 +210,13 @@ export function AlertRuleWorkbench() {
     setRunbook(rule.annotations.runbook_url ?? '');
   }, [ruleQuery.data]);
 
+  const currentPreviewFingerprint = alertRulePreviewFingerprint({
+    signal,
+    queryLanguage,
+    streamName,
+    statement: query,
+  });
+
   const preview = useMutation({
     mutationFn: async () => {
       if (!orgId) throw new Error(t('workbench.errors.org_required'));
@@ -212,6 +224,12 @@ export function AlertRuleWorkbench() {
       if (!query.trim()) throw new Error(t('workbench.errors.query_required'));
       const to = Date.now() * 1000;
       const from = to - 6 * 60 * 60 * 1_000_000;
+      const fingerprint = alertRulePreviewFingerprint({
+        signal,
+        queryLanguage,
+        streamName,
+        statement: query,
+      });
       const result = await queryApi.runQuery({
         org_id: orgId,
         language: queryLanguage,
@@ -220,7 +238,7 @@ export function AlertRuleWorkbench() {
         stream: { name: streamName.trim(), stream_type: signal },
         limit: 1000,
       });
-      return { result, from, to };
+      return { result, from, to, fingerprint };
     },
     onError: (error) => toast.error(toApiError(error).message),
   });
@@ -256,6 +274,25 @@ export function AlertRuleWorkbench() {
       : null;
   const hasConflict = thresholdConflict(thresholds);
   const runbookValid = !runbook.trim() || isValidHttpUrl(runbook);
+  const identityReady = Boolean(name.trim());
+  const thresholdsReady =
+    thresholds.length > 0 &&
+    thresholds.every((band) => Number.isFinite(band.threshold)) &&
+    !hasConflict;
+  const previewMatchesCurrentInputs =
+    preview.data?.fingerprint === currentPreviewFingerprint;
+  const queryReady =
+    preview.isSuccess && previewMatchesCurrentInputs && points.length > 0;
+  const activationBlocker = alertRuleActivationBlocker({
+    identityReady,
+    previewRunning: preview.isPending,
+    queryReady,
+    thresholdsReady,
+    runbookReady: runbookValid,
+  });
+  const activationDisabledReason = activationBlocker
+    ? t(`workbench.validation.blockers.${activationBlocker}`)
+    : undefined;
   const save = useMutation({
     mutationFn: (mode: SaveMode) => {
       validateBeforeSave({
@@ -423,8 +460,18 @@ export function AlertRuleWorkbench() {
             <ChromeButton
               variant="primary"
               onClick={() => save.mutate('active')}
-              disabled={save.isPending || manageAccess.disabled}
-              disabledReason={!save.isPending ? manageAccess.reason : undefined}
+              disabled={
+                save.isPending ||
+                manageAccess.disabled ||
+                activationBlocker !== null
+              }
+              disabledReason={
+                !save.isPending
+                  ? manageAccess.disabled
+                    ? manageAccess.reason
+                    : activationDisabledReason
+                  : undefined
+              }
             >
               <BellRing className="h-4 w-4" />
               {isEdit
@@ -441,8 +488,8 @@ export function AlertRuleWorkbench() {
           aria-disabled={manageAccess.disabled || undefined}
           className="contents"
         >
-        <div className="mx-auto grid max-w-[1680px] grid-cols-1 gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(360px,2fr)]">
-          <main className="min-w-0 space-y-4">
+        <div className="mx-auto grid max-w-[1680px] grid-cols-1 gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(360px,2fr)]">
+          <main className="min-w-0 space-y-6">
             <WorkbenchSection
               id="identity"
               number="01"
@@ -490,11 +537,11 @@ export function AlertRuleWorkbench() {
                       type="button"
                       onClick={() => chooseSignal(item)}
                       className={cn(
-                        'flex min-h-14 items-center gap-3 rounded-md border px-3 text-left transition-colors',
-                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo',
+                        'flex min-h-14 items-center gap-3 bg-bg-2 px-3 text-left transition-colors',
+                        'focus-visible:bg-indigo-dim focus-visible:text-indigo',
                         signal === item
-                          ? 'border-indigo bg-indigo-dim text-indigo-soft'
-                          : 'border-bd-0 bg-bg-2 text-tx-2 hover:border-bd-1 hover:text-tx-0',
+                          ? 'bg-indigo-dim text-indigo-soft'
+                          : 'text-tx-2 hover:bg-bg-3 hover:text-tx-0',
                       )}
                     >
                       {SIGNAL_ICON[item]}
@@ -514,7 +561,7 @@ export function AlertRuleWorkbench() {
                       key={preset.id}
                       type="button"
                       onClick={() => applyPreset(preset)}
-                      className="rounded-md border border-bd-0 bg-bg-2 px-3 py-3 text-left hover:border-bd-2 hover:bg-bg-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo"
+                      className="bg-bg-2 px-3 py-3 text-left hover:bg-bg-3 focus-visible:bg-indigo-dim focus-visible:text-indigo"
                     >
                       <span className="block font-sans text-xs font-strong text-tx-0">
                         {t(preset.titleKey)}
@@ -571,7 +618,7 @@ export function AlertRuleWorkbench() {
                         className={cn(
                           'rounded px-2.5 py-1 font-mono text-type-micro font-semibold uppercase transition-colors',
                           queryLanguage === language
-                            ? 'bg-bg-0 text-indigo-soft shadow-sm'
+                            ? 'bg-bg-0 text-indigo-soft'
                             : 'text-tx-3 hover:text-tx-1',
                         )}
                       >
@@ -609,7 +656,7 @@ export function AlertRuleWorkbench() {
               title={t('workbench.sections.delivery')}
               description={t('workbench.sections.delivery_description')}
             >
-              <div className="flex flex-col gap-3 rounded-lg border border-bd-0 bg-bg-2 p-4 sm:flex-row sm:items-center">
+              <div className="flex flex-col gap-3 bg-bg-2 px-4 py-3 sm:flex-row sm:items-center">
                 <div className="min-w-0 flex-1">
                   <div className="font-sans text-sm font-display-strong text-tx-0">
                     {t('workbench.notify.title', { defaultValue: 'Notify routing' })}
@@ -648,10 +695,11 @@ export function AlertRuleWorkbench() {
             </WorkbenchSection>
           </main>
 
-          <aside className="min-w-0 space-y-4 xl:sticky xl:top-4 xl:self-start">
+          <aside className="min-w-0 space-y-6 xl:sticky xl:top-4 xl:self-start">
             <QueryPreview
               pending={preview.isPending}
               attempted={preview.isSuccess || preview.isError}
+              stale={preview.isSuccess && !previewMatchesCurrentInputs}
               error={preview.error}
               points={points}
               timestamps={chartTimestamps}
@@ -670,12 +718,9 @@ export function AlertRuleWorkbench() {
               onRun={() => preview.mutate()}
             />
             <ValidationSummary
-              queryReady={points.length > 0}
-              thresholdsReady={
-                thresholds.length > 0 &&
-                thresholds.every((band) => Number.isFinite(band.threshold)) &&
-                !hasConflict
-              }
+              identityReady={identityReady}
+              queryReady={queryReady}
+              thresholdsReady={thresholdsReady}
               runbookReady={runbookValid}
             />
           </aside>
@@ -683,56 +728,6 @@ export function AlertRuleWorkbench() {
         </fieldset>
       </PageBody>
     </>
-  );
-}
-
-function WorkbenchSteps() {
-  const { t } = useTranslation('alerts');
-  return (
-    <div className="flex min-h-12 items-center gap-2 overflow-x-auto border-b border-bd-0 bg-bg-1 px-4 sm:px-6">
-      {[
-        t('workbench.steps.identity'),
-        t('workbench.steps.condition'),
-        t('workbench.steps.delivery'),
-      ].map((label, index) => (
-        <React.Fragment key={label}>
-          {index > 0 && <span className="h-px w-8 shrink-0 bg-bd-1" />}
-          <span className="flex shrink-0 items-center gap-2 font-sans text-xs font-strong text-tx-2">
-            <span className="grid h-5 w-5 place-items-center rounded-full border border-bd-1 bg-bg-2 font-mono text-type-micro text-tx-1">
-              {index + 1}
-            </span>
-            {label}
-          </span>
-        </React.Fragment>
-      ))}
-    </div>
-  );
-}
-
-function WorkbenchSection({
-  id,
-  number,
-  title,
-  description,
-  children,
-}: {
-  id: string;
-  number: string;
-  title: string;
-  description: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section id={id} className="overflow-hidden rounded-lg border border-bd-0 bg-bg-1">
-      <header className="flex items-start gap-3 border-b border-bd-0 px-4 py-3.5 sm:px-5">
-        <span className="mt-0.5 font-mono text-xs font-semibold text-indigo-soft">{number}</span>
-        <div>
-          <h2 className="font-sans text-sm font-display-strong text-tx-0">{title}</h2>
-          <p className="mt-0.5 text-xs leading-relaxed text-tx-3">{description}</p>
-        </div>
-      </header>
-      <div className="space-y-5 p-4 sm:p-5">{children}</div>
-    </section>
   );
 }
 
@@ -788,7 +783,7 @@ function ThresholdEditor({
           return (
             <div
               key={`${band.severity}-${index}`}
-              className="grid grid-cols-1 items-end gap-2 rounded-md border border-bd-0 bg-bg-2 p-3 md:grid-cols-[130px_150px_minmax(100px,1fr)_150px_32px]"
+              className="grid grid-cols-1 items-end gap-2 bg-bg-2 px-3 py-3 md:grid-cols-[130px_150px_minmax(100px,1fr)_150px_32px]"
             >
               <FormField label={t('workbench.threshold.severity')}>
                 <FormSelect
@@ -868,202 +863,6 @@ function ThresholdEditor({
         </div>
       )}
     </div>
-  );
-}
-
-function QueryPreview({
-  pending,
-  attempted,
-  error,
-  points,
-  timestamps,
-  from,
-  to,
-  threshold,
-  currentValue,
-  estimatedEpisodes,
-  scannedRows,
-  tookMs,
-  onRun,
-}: {
-  pending: boolean;
-  attempted: boolean;
-  error: unknown;
-  points: Array<{ value: number }>;
-  timestamps: number[];
-  from?: number;
-  to?: number;
-  threshold: SeverityThreshold | null;
-  currentValue?: number;
-  estimatedEpisodes: number | null;
-  scannedRows?: number;
-  tookMs?: number;
-  onRun: () => void;
-}) {
-  const { t } = useTranslation('alerts');
-  const hasData = points.length > 0;
-  return (
-    <section className="overflow-hidden rounded-lg border border-bd-0 bg-bg-1">
-      <header className="flex min-h-12 items-center gap-3 border-b border-bd-0 px-4 py-3">
-        <div className="min-w-0 flex-1">
-          <h2 className="font-sans text-sm font-display-strong text-tx-0">
-            {t('workbench.preview.title')}
-          </h2>
-          <p className="mt-0.5 text-xs text-tx-3">{t('workbench.preview.window')}</p>
-        </div>
-        <ChromeButton size="sm" onClick={onRun} disabled={pending}>
-          <TestTube2 className="h-3.5 w-3.5" />
-          {pending ? t('workbench.actions.testing') : t('workbench.actions.test')}
-        </ChromeButton>
-      </header>
-      <div className="p-4">
-        {pending ? (
-          <div className="flex h-[220px] items-center justify-center">
-            <LoadingState variant="list" rows={3} />
-          </div>
-        ) : error ? (
-          <div className="flex min-h-[220px] flex-col items-center justify-center text-center">
-            <CircleAlert className="h-7 w-7 text-red-soft" />
-            <div className="mt-3 text-sm font-strong text-tx-0">
-              {t('workbench.preview.failed')}
-            </div>
-            <div className="mt-1 max-w-sm text-xs leading-relaxed text-red-soft">
-              {toApiError(error).message}
-            </div>
-          </div>
-        ) : !attempted ? (
-          <div className="flex min-h-[220px] flex-col items-center justify-center text-center">
-            <Database className="h-7 w-7 text-tx-3" />
-            <div className="mt-3 text-sm font-strong text-tx-0">
-              {t('workbench.preview.not_run')}
-            </div>
-            <div className="mt-1 max-w-sm text-xs leading-relaxed text-tx-3">
-              {t('workbench.preview.not_run_description')}
-            </div>
-          </div>
-        ) : !hasData ? (
-          <div className="flex min-h-[220px] flex-col items-center justify-center text-center">
-            <Database className="h-7 w-7 text-tx-3" />
-            <div className="mt-3 text-sm font-strong text-tx-0">
-              {t('workbench.preview.no_data')}
-            </div>
-            <div className="mt-1 max-w-sm text-xs leading-relaxed text-tx-3">
-              {t('workbench.preview.no_data_description')}
-            </div>
-          </div>
-        ) : (
-          <>
-            <TimeSeriesChart
-              series={[
-                {
-                  id: 'query-value',
-                  name: t('workbench.preview.query_value'),
-                  color: 'var(--chart-1)',
-                  data: points.map((point) => point.value),
-                  timestamps,
-                },
-              ]}
-              height={220}
-              options={{
-                drawStyle: 'line',
-                thresholds: threshold
-                  ? [
-                      {
-                        value: threshold.threshold,
-                        label: t('workbench.preview.threshold'),
-                        color: 'var(--yellow)',
-                      },
-                    ]
-                  : [],
-              }}
-              {...(from !== undefined && to !== undefined
-                ? { xDomain: [from, to] as [number, number] }
-                : {})}
-              showLegend
-            />
-            <dl className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-2 min-[1560px]:grid-cols-4">
-              <PreviewStat
-                label={t('workbench.preview.current')}
-                value={formatNumber(currentValue)}
-              />
-              <PreviewStat
-                label={t('workbench.preview.threshold')}
-                value={
-                  threshold
-                    ? `${COMPARISON_LABEL[threshold.operator]} ${threshold.threshold}`
-                    : '—'
-                }
-              />
-              <PreviewStat
-                label={t('workbench.preview.estimated')}
-                value={estimatedEpisodes === null ? '—' : String(estimatedEpisodes)}
-              />
-              <PreviewStat
-                label={t('workbench.preview.cost')}
-                value={
-                  scannedRows === undefined || tookMs === undefined
-                    ? '—'
-                    : `${scannedRows.toLocaleString()} · ${tookMs}ms`
-                }
-              />
-            </dl>
-          </>
-        )}
-      </div>
-    </section>
-  );
-}
-
-function PreviewStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border border-bd-0 bg-bg-2 px-3 py-2.5">
-      <dt className="text-xs text-tx-3">{label}</dt>
-      <dd className="mt-1 truncate font-mono text-sm font-semibold text-tx-0">{value}</dd>
-    </div>
-  );
-}
-
-function ValidationSummary({
-  queryReady,
-  thresholdsReady,
-  runbookReady,
-}: {
-  queryReady: boolean;
-  thresholdsReady: boolean;
-  runbookReady: boolean;
-}) {
-  const { t } = useTranslation('alerts');
-  const items = [
-    { ready: queryReady, label: t('workbench.validation.query') },
-    { ready: thresholdsReady, label: t('workbench.validation.thresholds') },
-    { ready: runbookReady, label: t('workbench.validation.runbook') },
-  ];
-  return (
-    <section className="overflow-hidden rounded-lg border border-bd-0 bg-bg-1">
-      <header className="flex min-h-12 items-center gap-2 border-b border-bd-0 px-4 py-3">
-        <Check className="h-4 w-4 text-green-soft" />
-        <h2 className="font-sans text-sm font-display-strong text-tx-0">
-          {t('workbench.validation.title')}
-        </h2>
-      </header>
-      <ul className="divide-y divide-bd-0">
-        {items.map((item) => (
-          <li key={item.label} className="flex min-h-10 items-center gap-2 px-4 py-2">
-            {item.ready ? <Dot tone="green" /> : <Dot tone="dim" />}
-            <span className={cn('text-xs', item.ready ? 'text-tx-1' : 'text-tx-3')}>
-              {item.label}
-            </span>
-            <span className="ml-auto">
-              <Pill tone={item.ready ? 'green' : 'dim'}>
-                {item.ready
-                  ? t('workbench.validation.ready')
-                  : t('workbench.validation.pending')}
-              </Pill>
-            </span>
-          </li>
-        ))}
-      </ul>
-    </section>
   );
 }
 

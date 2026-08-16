@@ -1,6 +1,15 @@
 {
   "title": "数据流",
   "subtitle": "查看数据是否持续流入、占用多少存储，以及查询与保留配置是否合理。",
+  "pagination": {
+    "aria": "数据流列表分页",
+    "page_summary": "{{page}} / {{pages}}",
+    "page_size_aria": "每页数据流数量",
+    "first_aria": "第一页",
+    "previous_aria": "上一页",
+    "next_aria": "下一页",
+    "last_aria": "最后一页"
+  },
   "list": {
     "refresh": "刷新",
     "create": "创建数据流",
@@ -22,11 +31,14 @@
       "attention_sub": "接收延迟、断流或统计异常",
       "compressed_24h": "24h 压缩数据",
       "rows_24h": "{{count}} 行已写入",
+      "compressed_window": "{{window}} 压缩数据",
+      "rows_window": "当前窗口写入 {{count}} 行",
       "current_storage": "当前存储",
       "current_storage_sub": "已持久化数据"
     },
     "status": {
       "all": "全部状态",
+      "attention": "需要关注",
       "healthy": "正常",
       "idle": "空闲",
       "delayed": "接收延迟",
@@ -49,6 +61,7 @@
       "rate": "接收速率",
       "last_received": "最后接收",
       "volume_24h": "24h 压缩数据",
+      "volume_window": "{{window}} 压缩数据",
       "storage": "当前存储",
       "retention": "保留期",
       "actions": "操作"

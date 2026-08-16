@@ -12,7 +12,14 @@ import { ChromeButton } from '@/shell/chrome';
 import { FormInput, FormSelect } from '@/shell/FormDrawer';
 import { ResultPagination } from '@/shell/ResultPagination';
 
-import { StatePill, SyntheticsPage, WorkspaceBoundary } from './components';
+import {
+  StatePill,
+  SyntheticsCanvas,
+  SyntheticsFilterBar,
+  SyntheticsListSurface,
+  SyntheticsPage,
+  WorkspaceBoundary,
+} from './components';
 import { useSyntheticsWorkspace, type CheckRow } from './data';
 import { formatDuration, formatTimestamp, resultDurationMicros } from './model';
 import { ResultDrawer } from './ResultDrawer';
@@ -118,15 +125,19 @@ export function Results() {
           {t('actions.refresh')}
         </ChromeButton>
       }
+      bodyClassName="space-y-0 pb-4 pt-2 lg:pb-6 lg:pt-2"
     >
       <WorkspaceBoundary
         pending={workspace.pending || resultQuery.isPending}
         error={workspace.error ?? resultQuery.error}
         onRetry={() => void refetch()}
+        flat
       >
-        <section className="overflow-hidden rounded-lg border border-bd-0 bg-bg-1">
-          <div data-results-filter-bar className="border-b border-bd-0 p-3">
-            <div className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_180px_200px]">
+        <SyntheticsCanvas>
+          <SyntheticsListSurface>
+            <SyntheticsFilterBar
+              className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_180px_200px]"
+            >
               <FormInput
                 aria-label={t('results.search_placeholder')}
                 value={query}
@@ -157,38 +168,38 @@ export function Results() {
                   })),
                 ]}
               />
+            </SyntheticsFilterBar>
+            <div className="overflow-x-auto">
+              <DataTable
+                rows={results}
+                columns={columns(workspace.rows, workspace.locations, i18n.language, t)}
+                rowKey={(result) => result.id}
+                onRowClick={(result) => navigate({ pathname: `/synthetics/results/${result.id}`, search: searchParams.toString() })}
+                emptyLabel={t('states.no_results')}
+                className="min-w-[820px] rounded-none border-0 bg-transparent"
+              />
             </div>
-          </div>
-          <div className="overflow-x-auto">
-            <DataTable
-              rows={results}
-              columns={columns(workspace.rows, workspace.locations, i18n.language, t)}
-              rowKey={(result) => result.id}
-              onRowClick={(result) => navigate({ pathname: `/synthetics/results/${result.id}`, search: searchParams.toString() })}
-              emptyLabel={t('states.no_results')}
-              className="min-w-[820px]"
+            <ResultPagination
+              page={currentPage}
+              pageCount={pageCount}
+              pageSize={pageSize}
+              pageSizeOptions={PAGE_SIZE_OPTIONS}
+              pageLabel={t('results.pagination.page', {
+                page: currentPage,
+                pages: pageCount,
+                total,
+              })}
+              ariaLabel={t('results.pagination.label')}
+              pageSizeAriaLabel={t('results.pagination.page_size')}
+              firstAriaLabel={t('results.pagination.first')}
+              previousAriaLabel={t('results.pagination.previous')}
+              nextAriaLabel={t('results.pagination.next')}
+              lastAriaLabel={t('results.pagination.last')}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
             />
-          </div>
-          <ResultPagination
-            page={currentPage}
-            pageCount={pageCount}
-            pageSize={pageSize}
-            pageSizeOptions={PAGE_SIZE_OPTIONS}
-            pageLabel={t('results.pagination.page', {
-              page: currentPage,
-              pages: pageCount,
-              total,
-            })}
-            ariaLabel={t('results.pagination.label')}
-            pageSizeAriaLabel={t('results.pagination.page_size')}
-            firstAriaLabel={t('results.pagination.first')}
-            previousAriaLabel={t('results.pagination.previous')}
-            nextAriaLabel={t('results.pagination.next')}
-            lastAriaLabel={t('results.pagination.last')}
-            onPageChange={setPage}
-            onPageSizeChange={setPageSize}
-          />
-        </section>
+          </SyntheticsListSurface>
+        </SyntheticsCanvas>
       </WorkspaceBoundary>
       <ResultDrawer
         result={selected}

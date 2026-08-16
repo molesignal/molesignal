@@ -902,7 +902,7 @@ function GeneratedLink({
           label={t('sharing.copy_link')}
           copied={copied}
           copiedLabel={t('sharing.copied')}
-          className="h-11 w-11 bg-indigo text-white enabled:hover:bg-indigo-soft sm:h-8 sm:w-8"
+          className="h-11 w-11 bg-indigo text-white enabled:hover:brightness-90 sm:h-8 sm:w-8"
           iconClassName="h-4 w-4"
           wrapperClassName="self-end sm:self-auto"
         />

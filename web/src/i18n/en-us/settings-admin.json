@@ -810,7 +810,12 @@
       "target": "Target",
       "status": "Status"
     },
-    "load_more": "Load more",
+    "pagination": {
+      "aria": "Audit record pagination",
+      "page_size": "Records per page",
+      "previous": "Previous",
+      "next": "Next"
+    },
     "detail_title": "Audit event",
     "copy_id": "Copy id",
     "copied": "Copied",

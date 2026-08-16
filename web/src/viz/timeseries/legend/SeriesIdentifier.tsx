@@ -2,6 +2,10 @@ import { ChevronRight } from 'lucide-react';
 import * as React from 'react';
 
 import { cn } from '@/shell/lib/cn';
+import {
+  detectSignalTypeForLabel,
+  SignalReference,
+} from '@/shell/SignalReference';
 
 import type { TimeSeriesLegendStat, TimeSeriesSeries } from '../types';
 
@@ -92,8 +96,10 @@ export function SeriesIdentifier({
           className="mt-2 grid min-w-0 grid-cols-[minmax(7.5rem,auto)_minmax(0,1fr)] gap-x-3 gap-y-1 border-l border-bd-0 pl-3"
           data-testid="series-identifier-labels"
         >
-          {labels.map(([key, value]) => (
-            <React.Fragment key={key}>
+          {labels.map(([key, value]) => {
+            const signalType = detectSignalTypeForLabel(key);
+            return (
+              <React.Fragment key={key}>
               <dt
                 className="truncate font-sans text-xs text-tx-3"
                 title={key}
@@ -104,10 +110,23 @@ export function SeriesIdentifier({
                 className="m-0 truncate font-sans text-xs text-tx-1"
                 title={value}
               >
-                {value}
+                {signalType ? (
+                  <SignalReference
+                    type={signalType}
+                    value={value}
+                    labelName={key}
+                    labels={series.labels}
+                    metricQuery={metricName}
+                    showIcon={false}
+                    className="max-w-full truncate"
+                  >
+                    {value}
+                  </SignalReference>
+                ) : value}
               </dd>
-            </React.Fragment>
-          ))}
+              </React.Fragment>
+            );
+          })}
         </dl>
       ) : null}
     </div>

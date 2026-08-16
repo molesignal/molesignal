@@ -1,5 +1,5 @@
 import { GripVertical, Pin } from 'lucide-react';
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
 
@@ -88,7 +88,7 @@ export function Sidebar({
         {!visuallyCollapsed && group !== 'home' && (
           // Group labels use the shell's micro role so they remain secondary.
           // Home is a stand-alone top item, so we skip a "HOME" label.
-          <div className="font-sidebar-face type-micro px-3.5 pb-1 pt-2.5 font-semibold uppercase tracking-wide text-tx-3">
+          <div className="font-sidebar-face type-micro px-3.5 pb-1 pt-2.5 font-semibold uppercase tracking-wide text-tx-2">
             {t(groupMeta.labelKey)}
           </div>
         )}
@@ -277,13 +277,13 @@ function MiniNavRow({
             // extra right padding for the grip + pin controls (grip only on pinned rows)
             drag ? 'pr-16' : 'pr-9',
             'transition-colors duration-fast ease-default hover:bg-bg-3 hover:text-tx-0',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo',
+            'focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none',
             isActive &&
               'bg-indigo-dim text-indigo-soft hover:bg-indigo-dim hover:text-indigo-soft before:absolute before:-left-1.5 before:top-1/2 before:h-5 before:w-0.5 before:-translate-y-1/2 before:rounded-r before:bg-indigo',
           )} font-sidebar-face`
         }
       >
-        <route.icon className="h-4 w-4 shrink-0" />
+        <route.icon className="h-4 w-4 shrink-0 text-indigo-soft" />
         <span className="flex-1 truncate">{label}</span>
       </NavLink>
       <div className="absolute right-0.5 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
@@ -300,7 +300,7 @@ function MiniNavRow({
             onMouseUp={() => {
               armedRef.current = false;
             }}
-            className="grid h-7 w-7 cursor-grab place-items-center rounded text-tx-3 opacity-0 transition-opacity hover:bg-bg-2 hover:text-tx-0 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo active:cursor-grabbing group-hover/mini:opacity-100 group-focus-within/mini:opacity-100"
+            className="grid h-7 w-7 cursor-grab place-items-center rounded text-tx-3 opacity-0 transition-opacity hover:bg-bg-2 hover:text-tx-0 focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:opacity-100 focus-visible:outline-none active:cursor-grabbing group-hover/mini:opacity-100 group-focus-within/mini:opacity-100"
           >
             <GripVertical className="h-3 w-3" />
           </button>
@@ -312,7 +312,7 @@ function MiniNavRow({
           title={actionLabel}
           className={cn(
             'grid h-7 w-7 place-items-center rounded text-tx-3 opacity-0 transition-opacity',
-            'hover:bg-bg-2 hover:text-tx-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo',
+            'hover:bg-bg-2 hover:text-tx-0 focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none',
             'focus-visible:opacity-100 group-hover/mini:opacity-100 group-focus-within/mini:opacity-100',
             action.kind === 'unpin' && 'text-indigo-soft',
           )}
@@ -337,6 +337,12 @@ function NavRow({
 }) {
   const { t } = useTranslation('nav');
   const label = t(item.labelKey);
+  const [tooltipOpen, setTooltipOpen] = useState(false);
+
+  useEffect(() => {
+    if (!collapsed) setTooltipOpen(false);
+  }, [collapsed]);
+
   const link = (
     <NavLink
       to={item.path}
@@ -347,10 +353,10 @@ function NavRow({
         `${cn(
           // Shell navigation stays stable across density modes; lighter,
           // caption-sized labels and 16px icons keep the compact rail balanced.
-          'group relative flex h-sidebar-item items-center gap-2 rounded-md pl-2.5 pr-2 text-xs font-strong text-tx-1',
+          'group relative flex h-sidebar-item items-center gap-2 rounded-md pl-[18px] pr-2 text-xs font-strong text-tx-1',
           'transition-colors duration-fast ease-default',
           'hover:bg-bg-3 hover:text-tx-0',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo',
+          'focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none',
           isActive && 'bg-indigo-dim text-indigo-soft hover:bg-indigo-dim hover:text-indigo-soft',
           collapsed && 'justify-center pl-0 pr-0',
           !collapsed && pinControl && 'pr-10',
@@ -369,42 +375,53 @@ function NavRow({
               className="absolute -left-1.5 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r bg-indigo"
             />
           )}
-          <item.icon className="h-4 w-4 shrink-0" />
+          <item.icon className="h-4 w-4 shrink-0 text-indigo-soft" />
           {!collapsed && <span className="flex-1 truncate">{label}</span>}
         </>
       )}
     </NavLink>
   );
 
-  if (collapsed) {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>{link}</TooltipTrigger>
-        <TooltipContent side="right">{label}</TooltipContent>
-      </Tooltip>
-    );
-  }
+  const actionLabel = pinControl
+    ? pinControl.pinned
+      ? t('unpin')
+      : t('pin')
+    : null;
 
-  if (!pinControl) return link;
-
-  const actionLabel = pinControl.pinned ? t('unpin') : t('pin');
+  // Keep both the wrapper and TooltipTrigger mounted while hover temporarily
+  // expands the compact rail. Swapping a bare NavLink for a tooltip-wrapped
+  // NavLink detached the anchor between pointerdown and click, so the first
+  // navigation attempt was lost.
   return (
-    <div className="group/nav relative">
-      {link}
-      <button
-        type="button"
-        onClick={pinControl.onToggle}
-        aria-label={actionLabel}
-        title={actionLabel}
-        className={cn(
-          'absolute right-1 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded text-tx-3 opacity-0 transition-opacity',
-          'hover:bg-bg-2 hover:text-tx-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo',
-          'focus-visible:opacity-100 group-hover/nav:opacity-100 group-focus-within/nav:opacity-100',
-          pinControl.pinned && 'text-indigo-soft',
-        )}
-      >
-        <Pin className={cn('h-3 w-3', pinControl.pinned && 'fill-current')} />
-      </button>
-    </div>
+    <Tooltip
+      open={collapsed && tooltipOpen}
+      onOpenChange={(open) => setTooltipOpen(collapsed && open)}
+    >
+      <TooltipTrigger asChild>
+        <div
+          className="group/nav relative"
+          onPointerLeave={() => setTooltipOpen(false)}
+        >
+          {link}
+          {pinControl && actionLabel && (
+            <button
+              type="button"
+              onClick={pinControl.onToggle}
+              aria-label={actionLabel}
+              title={actionLabel}
+              className={cn(
+                'absolute right-1 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded text-tx-3 opacity-0 transition-opacity',
+                'hover:bg-bg-2 hover:text-tx-0 focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none',
+                'focus-visible:opacity-100 group-hover/nav:opacity-100 group-focus-within/nav:opacity-100',
+                pinControl.pinned && 'text-indigo-soft',
+              )}
+            >
+              <Pin className={cn('h-3 w-3', pinControl.pinned && 'fill-current')} />
+            </button>
+          )}
+        </div>
+      </TooltipTrigger>
+      {collapsed && <TooltipContent side="right">{label}</TooltipContent>}
+    </Tooltip>
   );
 }

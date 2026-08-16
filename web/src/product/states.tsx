@@ -100,6 +100,7 @@ export function ProductState({
 
   return (
     <section
+      data-product-state
       role={variant === 'error' ? 'alert' : 'status'}
       aria-live={variant === 'loading' ? 'polite' : undefined}
       className={cn(

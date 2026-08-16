@@ -1,4 +1,4 @@
-import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { PanelLeftClose, PanelLeftOpen, type LucideIcon } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -34,6 +34,8 @@ interface ProductPageFrameProps {
   children?: React.ReactNode | undefined;
   className?: string | undefined;
   headerClassName?: string | undefined;
+  headerCompact?: boolean | undefined;
+  headerIcon?: LucideIcon | null | undefined;
   bodyClassName?: string | undefined;
   padded?: boolean | undefined;
 }
@@ -47,9 +49,12 @@ interface ListPageProps extends ProductPageFrameProps {
   kpis?: readonly KpiStripItem[] | undefined;
   kpiLayout?: KpiStripLayout | undefined;
   kpiClassName?: string | undefined;
+  cardless?: boolean | undefined;
   filters?: React.ReactNode | undefined;
+  filterClassName?: string | undefined;
   actionBar?: React.ReactNode | undefined;
   state?: ProductStateProps | null | undefined;
+  stateClassName?: string | undefined;
 }
 
 interface DetailPageProps extends ProductPageFrameProps {
@@ -98,19 +103,54 @@ export function ListPage({
   kpis,
   kpiLayout,
   kpiClassName,
+  cardless = false,
   filters,
+  filterClassName,
   actionBar,
   state,
+  stateClassName,
   children,
   bodyClassName,
   ...frame
 }: ListPageProps) {
   return (
-    <ProductPageFrame {...frame} bodyClassName={cn('space-y-4', bodyClassName)}>
-      <KpiStrip items={kpis} layout={kpiLayout} className={kpiClassName} />
-      <FilterArea>{filters}</FilterArea>
-      <ActionBar>{actionBar}</ActionBar>
-      {state ? <ProductState {...state} /> : children}
+    <ProductPageFrame
+      {...frame}
+      bodyClassName={cn(cardless ? 'space-y-0' : 'space-y-4', bodyClassName)}
+    >
+      <KpiStrip
+        items={kpis}
+        layout={kpiLayout}
+        className={cn(
+          cardless
+            && 'gap-0 border-b border-bd-0 bg-bg-0 [&>div]:min-h-[92px] [&>div]:rounded-none [&>div]:border-0 [&>div]:bg-transparent [&>div]:px-4 [&>div]:py-3',
+          kpiClassName,
+        )}
+      />
+      <FilterArea
+        className={cn(
+          cardless
+            ? 'rounded-none border-x-0 border-t-0 bg-transparent p-0 px-4 py-2'
+            : undefined,
+          filterClassName,
+        )}
+      >
+        {filters}
+      </FilterArea>
+      <ActionBar className={cardless ? 'bg-transparent px-4 py-2' : undefined}>
+        {actionBar}
+      </ActionBar>
+      {state ? (
+        <ProductState
+          {...state}
+          className={cn(
+            cardless
+              && 'rounded-none border-x-0 border-t-0 border-solid border-bd-0 bg-transparent',
+            stateClassName,
+            state.className,
+          )}
+        />
+      ) : children}
     </ProductPageFrame>
   );
 }
@@ -289,6 +329,8 @@ function ProductPageFrame({
   children,
   className,
   headerClassName,
+  headerCompact,
+  headerIcon,
   bodyClassName,
   padded = true,
 }: ProductPageFrameProps) {
@@ -301,6 +343,8 @@ function ProductPageFrame({
         breadcrumbs={breadcrumbs}
         backTo={backTo}
         className={headerClassName}
+        compact={headerCompact}
+        moduleIcon={headerIcon}
       />
       {subnav}
       {padded ? (

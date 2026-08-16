@@ -24,6 +24,10 @@ import { cn } from '@/shell/lib/cn';
 import { PageBody, PageHeader } from '@/shell/PageHeader';
 
 import { publicStatusPageUrl } from '../publicUrl';
+import {
+  StatusPageCanvas,
+  statusPageFlatStateClassName,
+} from './CardlessSurface';
 
 interface WorkspaceContextValue {
   pageId: string;
@@ -70,15 +74,23 @@ export function StatusPageWorkspaceLayout() {
 
   if (snapshotQuery.isLoading) {
     return (
-      <PageBody>
-        <ProductState variant="loading" />
+      <PageBody className="space-y-0 pb-4 pt-2 lg:pb-6 lg:pt-2">
+        <StatusPageCanvas>
+          <ProductState variant="loading" className={statusPageFlatStateClassName} />
+        </StatusPageCanvas>
       </PageBody>
     );
   }
   if (!snapshotQuery.data || snapshotQuery.isError) {
     return (
-      <PageBody>
-        <ProductState variant="error" error={snapshotQuery.error} />
+      <PageBody className="space-y-0 pb-4 pt-2 lg:pb-6 lg:pt-2">
+        <StatusPageCanvas>
+          <ProductState
+            variant="error"
+            error={snapshotQuery.error}
+            className={statusPageFlatStateClassName}
+          />
+        </StatusPageCanvas>
       </PageBody>
     );
   }

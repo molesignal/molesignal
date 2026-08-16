@@ -950,6 +950,7 @@ async function seedRum(api) {
           : { width: 1440, height: 900 },
     });
     await api.post('/rum/replay', {
+      application: session.application,
       session_id: session.session_id,
       seq: 1,
       events,
@@ -1245,11 +1246,8 @@ async function seedControlPlane(api, { directDb = true } = {}) {
       description: 'Configuration-driven Dashboard Engine seed data.',
       editable: true,
       defaultDashboard: false,
-      timezone: 'browser',
       schemaVersion: 2,
       version: 1,
-      refresh: '30s',
-      time: { from: 'now-1h', to: 'now' },
       timeSettings: {
         defaultFrom: 'now-1h',
         defaultTo: 'now',

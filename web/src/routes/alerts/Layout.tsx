@@ -4,10 +4,10 @@ import { NavLink } from 'react-router-dom';
 import { cn } from '@/shell/lib/cn';
 
 const ALERT_TABS = [
+  { to: '/alerts/insights', labelKey: 'subnav.insights', fallback: 'Insights' },
   { to: '/alerts/incidents', labelKey: 'subnav.incidents', fallback: 'Incidents' },
   { to: '/alerts/rules', labelKey: 'subnav.rules', fallback: 'Rules' },
   { to: '/alerts/history', labelKey: 'subnav.history', fallback: 'History' },
-  { to: '/alerts/insights', labelKey: 'subnav.insights', fallback: 'Insights' },
   { to: '/alerts/silences', labelKey: 'subnav.silences', fallback: 'Silences' },
   { to: '/alerts/escalations', labelKey: 'subnav.escalations', fallback: 'Escalations' },
   { to: '/alerts/schedules', labelKey: 'subnav.schedules', fallback: 'On-call schedules' },

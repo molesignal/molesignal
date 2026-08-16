@@ -382,7 +382,7 @@ export function AlertsScheduleDetail() {
 
       <PageBody className="overflow-auto">
         <div className="flex w-full min-w-[1020px] flex-col gap-4">
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-4 gap-0 border-b border-bd-0">
             <ScheduleSummaryCard
               icon={UserRoundPlus}
               label={t('schedules.detail.current')}
@@ -895,7 +895,7 @@ function OverrideList({
   );
   if (overrides.length === 0) {
     return (
-      <div className="grid min-h-40 place-items-center rounded-md border border-dashed border-bd-1 text-xs text-tx-3">
+      <div className="grid min-h-40 place-items-center bg-bg-2 text-xs text-tx-3">
         {t('schedules.no_overrides')}
       </div>
     );
@@ -913,10 +913,10 @@ function OverrideList({
             key={override.id}
             className={
               active
-                ? 'relative rounded-md border border-green/30 bg-green-dim/40 p-3 pl-5'
+                ? 'relative border-b border-bd-0 bg-green-dim/40 p-3 pl-5'
                 : future
-                  ? 'relative rounded-md border border-orange/25 bg-orange-dim/30 p-3 pl-5'
-                  : 'relative rounded-md border border-bd-0 bg-bg-2 p-3 pl-5 opacity-70'
+                  ? 'relative border-b border-bd-0 bg-orange-dim/30 p-3 pl-5'
+                  : 'relative border-b border-bd-0 bg-bg-2 p-3 pl-5 opacity-70'
             }
           >
             <span
@@ -965,7 +965,7 @@ function OverrideList({
                 </div>
               </div>
             </div>
-            <div className="mt-3 rounded border border-bd-0 bg-bg-1/70 px-3 py-2">
+            <div className="mt-3 bg-bg-1/70 px-3 py-2">
               <div className="text-type-micro text-tx-3">
                 {t('schedules.override_fields.reason')}
               </div>
@@ -1220,7 +1220,7 @@ function AddOverrideForm({
           </ValidationNotice>
         )}
         {userId && timeValid && (
-          <div className="rounded-md border border-bd-0 bg-bg-2 px-3 py-2 text-xs leading-relaxed text-tx-2">
+          <div className="bg-bg-2 px-3 py-2 text-xs leading-relaxed text-tx-2">
             {t('schedules.override_summary', {
               user: selectedUser?.name ?? userId,
               start: formatScheduleDateTime(

@@ -1,6 +1,15 @@
 {
   "title": "Streams",
   "subtitle": "See whether data is still flowing, what it costs to store, and how query and retention settings affect it.",
+  "pagination": {
+    "aria": "Streams list pagination",
+    "page_summary": "{{page}} / {{pages}}",
+    "page_size_aria": "Streams per page",
+    "first_aria": "First page",
+    "previous_aria": "Previous page",
+    "next_aria": "Next page",
+    "last_aria": "Last page"
+  },
   "list": {
     "refresh": "Refresh",
     "create": "Create stream",
@@ -22,11 +31,14 @@
       "attention_sub": "Delayed, interrupted, or unavailable stats",
       "compressed_24h": "24h compressed data",
       "rows_24h": "{{count}} rows written",
+      "compressed_window": "{{window}} compressed data",
+      "rows_window": "{{count}} rows written in this window",
       "current_storage": "Current storage",
       "current_storage_sub": "Persisted data"
     },
     "status": {
       "all": "All statuses",
+      "attention": "Needs attention",
       "healthy": "Healthy",
       "idle": "Idle",
       "delayed": "Delayed",
@@ -49,6 +61,7 @@
       "rate": "Receive rate",
       "last_received": "Last received",
       "volume_24h": "24h compressed",
+      "volume_window": "{{window}} compressed",
       "storage": "Current storage",
       "retention": "Retention",
       "actions": "Actions"

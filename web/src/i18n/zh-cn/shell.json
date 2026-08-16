@@ -14,7 +14,7 @@
   },
   "topbar": {
     "toggle_sidebar": "切换侧栏",
-    "search_placeholder": "跨日志 · 指标 · 链路 · 仪表盘搜索…",
+    "search_placeholder": "搜索页面 · 数据流 · 服务 · 仪表盘…",
     "open_noc": "进入 NOC 大屏模式",
     "noc": "NOC 大屏",
     "notifications": "通知",
@@ -297,9 +297,9 @@
     "loading": "正在加载 Mole Agent…"
   },
   "system_status": {
-    "healthy": "系统正常 / 数据接入正常 / 已连接",
-    "degraded": "部分服务异常",
-    "disconnected": "连接异常"
+    "healthy": "核心 API 已连接",
+    "degraded": "核心 API 部分异常",
+    "disconnected": "核心 API 无法连接"
   },
   "about": {
     "title": "关于",

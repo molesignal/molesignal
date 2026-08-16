@@ -28,11 +28,71 @@
     "saving_default": "正在保存默认时区…",
     "default_saved": "默认时区已更新"
   },
+  "query_syntax_help": {
+    "aria": "打开查询语法速查",
+    "trigger": "查询语法速查",
+    "title": "语法速查",
+    "description": "{{mode}} 查询模式，按 Cmd/Ctrl + Enter 执行。",
+    "mode_shortcut": "{{mode}} · Cmd/Ctrl + Enter",
+    "modes": {
+      "fields": "字段",
+      "sql": "SQL",
+      "promql": "PromQL"
+    },
+    "labels": {
+      "equals": "字段等值",
+      "contains": "字段包含",
+      "substring": "子串匹配",
+      "full_text": "全文检索",
+      "basic": "基础查询",
+      "filter": "字段过滤",
+      "aggregate": "聚合",
+      "sort": "排序"
+    }
+  },
   "query_recommendations": {
     "title": "查询优化建议",
     "dismiss": "关闭建议",
     "inline_title": "查询可优化：",
-    "view": "查看建议"
+    "view": "查看建议",
+    "items": {
+      "slow_query": {
+        "title": "查询耗时较长",
+        "detail": "本次查询耗时 {{took_ms}} 毫秒，扫描了 {{scanned_rows}} 行。请缩小时间范围或添加选择性更强的筛选条件。"
+      },
+      "wide_time_range": {
+        "title": "扫描时间范围过大",
+        "detail": "当前查询在无边界或跨周时间范围内进行了大规模扫描。请将时间范围缩小到足以回答当前问题的最小区间。"
+      },
+      "low_selectivity": {
+        "title": "筛选选择性较低",
+        "detail": "扫描了 {{scanned_rows}} 行，仅返回 {{returned_rows}} 行。请对索引字段或分区字段添加条件，以减少读取量。"
+      },
+      "select_star": {
+        "title": "避免使用 SELECT *",
+        "detail": "读取全部列会产生不必要的数据扫描。请只选择实际需要的列。"
+      },
+      "missing_filter": {
+        "title": "缺少筛选条件",
+        "detail": "在没有 WHERE 子句时进行大规模扫描，会读取整个时间窗口。请添加筛选条件以减少 I/O。"
+      },
+      "missing_limit": {
+        "title": "添加 LIMIT",
+        "detail": "当前查询未使用 LIMIT，返回了 {{returned_rows}} 行。如果只需样本或排名靠前的结果，请添加 LIMIT。"
+      },
+      "promql_wide_range": {
+        "title": "区间选择器范围过大",
+        "detail": "该区间选择器会读取每个序列的大量样本。可考虑使用记录规则或缩小窗口。"
+      },
+      "promql_subquery": {
+        "title": "子查询开销较高",
+        "detail": "子查询（[..:..]）会在每个步长重新计算内部查询，开销较高。可使用记录规则预计算高频查询。"
+      },
+      "promql_regex_matcher": {
+        "title": "正则标签匹配",
+        "detail": "正则匹配器（=~ / !~）会比精确匹配扫描更多序列。请尽量使用 = / !=，或为正则表达式添加边界。"
+      }
+    }
   },
   "actions": {
     "ok": "确定",
@@ -55,6 +115,18 @@
     "rotate": "轮换",
     "add": "添加",
     "choose_file": "选择文件"
+  },
+  "error_state": {
+    "unknown": "未知错误",
+    "copy_error_id": "复制错误 ID",
+    "copied": "已复制",
+    "report": "反馈问题",
+    "details": "详细信息",
+    "status": "状态",
+    "code": "代码",
+    "message": "消息",
+    "error_id": "错误 ID",
+    "empty": "（空）"
   },
   "status": {
     "loading": "加载中…",
