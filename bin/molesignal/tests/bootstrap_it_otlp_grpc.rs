@@ -4,7 +4,7 @@
 //! 对外 OTLP gRPC 端到端：起 `OtlpGrpc` 四 service 的 tonic server（随机端口）→ 用标准
 //! OTLP `TraceServiceClient` export →
 //! 1. 无 `authorization` metadata → `Unauthenticated`；
-//! 2. 带 Bearer（root JWT，Owner → StreamWrite）→ ok；
+//! 2. 普通 API Token 按绑定角色鉴权：Viewer → `PermissionDenied`，Intake → ok；
 //! 3. 等 IntakeWorker flush → `/api/v1/query` 验证 span 落到 traces 流。
 //!
 //! 与 `it_grpc_intake`（内部 intake.v1，免鉴权、绕过 AppState）不同：OTLP gRPC 走完整
@@ -88,6 +88,47 @@ fn one_span_request() -> ExportTraceServiceRequest {
     }
 }
 
+async fn create_api_token_for_role(s: &TestServer, role_key: &str) -> String {
+    let roles: Vec<serde_json::Value> = s
+        .client
+        .get(format!("{}/api/v1/roles", s.base_url))
+        .bearer_auth(&s.root_token)
+        .send()
+        .await
+        .expect("list IAM roles")
+        .error_for_status()
+        .expect("IAM role list succeeds")
+        .json()
+        .await
+        .expect("IAM role list JSON");
+    let role_id = roles
+        .iter()
+        .find(|role| role["key"] == role_key)
+        .and_then(|role| role["id"].as_str())
+        .unwrap_or_else(|| panic!("missing IAM role {role_key}"));
+    let token: serde_json::Value = s
+        .client
+        .post(format!("{}/api/v1/auth/tokens", s.base_url))
+        .bearer_auth(&s.root_token)
+        .json(&serde_json::json!({
+            "name": format!("otlp-grpc-{role_key}"),
+            "role_id": role_id,
+        }))
+        .send()
+        .await
+        .expect("create API token")
+        .error_for_status()
+        .expect("API token creation succeeds")
+        .json()
+        .await
+        .expect("API token JSON");
+    assert_eq!(token["role_key"], role_key);
+    token["token"]
+        .as_str()
+        .expect("API token plaintext")
+        .to_owned()
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn otlp_grpc_traces_authz_and_lands() {
     if skip_unless_enabled() {
@@ -117,11 +158,26 @@ async fn otlp_grpc_traces_authz_and_lands() {
         tonic::Code::Unauthenticated,
     );
 
-    // 2) 带 Bearer（root JWT，Owner → StreamWrite）+ stream-name → ok。
+    // 2) 权限来自 Token 绑定的 IAM 角色，不依赖 Token 类型或名称。
+    let viewer_token = create_api_token_for_role(&s, "viewer").await;
     let mut req = Request::new(one_span_request());
     req.metadata_mut().insert(
         "authorization",
-        format!("Bearer {}", s.root_token).parse().unwrap(),
+        format!("Bearer {viewer_token}").parse().unwrap(),
+    );
+    let denied = client.export(req).await;
+    assert_eq!(
+        denied
+            .expect_err("viewer role must not export telemetry")
+            .code(),
+        tonic::Code::PermissionDenied,
+    );
+
+    let intake_token = create_api_token_for_role(&s, "intake").await;
+    let mut req = Request::new(one_span_request());
+    req.metadata_mut().insert(
+        "authorization",
+        format!("Bearer {intake_token}").parse().unwrap(),
     );
     req.metadata_mut()
         .insert("stream-name", "otel_traces".parse().unwrap());

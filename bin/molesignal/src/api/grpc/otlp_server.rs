@@ -82,13 +82,19 @@ impl OtlpGrpc {
                     .or_else(|| h.strip_prefix("bearer "))
             })
             .ok_or_else(|| Status::unauthenticated("missing bearer token"))?;
-        let ctx = authenticate_bearer(
+        let mut ctx = authenticate_bearer(
             bearer,
             self.state.iam.service.as_ref(),
             self.state.iam.api_tokens.clone(),
         )
         .await
         .map_err(|e| Status::unauthenticated(e.to_string()))?;
+        self.state
+            .iam
+            .access
+            .enrich_context(&mut ctx)
+            .await
+            .map_err(|e| Status::permission_denied(e.to_string()))?;
         Permission::require_key(&ctx, "streams.write")
             .map_err(|e| Status::permission_denied(e.to_string()))?;
         update_current_trace_context(|trace_context| {
