@@ -50,6 +50,8 @@ docker compose -f deploy/docker/docker-compose.yaml --profile standalone up
 # S3 控制台： http://localhost:9001  (minioadmin / minioadmin)
 ```
 
+Web UI 已嵌入 `molesignal` 二进制，由同一个 `5080` HTTP 端口提供，无需单独部署前端服务。
+
 发送第一条数据：
 
 ```bash
@@ -231,7 +233,7 @@ Pre-1.0，**早期项目**。发布日期 YYYY-MM-DD。
 
 ```bash
 # 开源生产制品
-BUILD_ID=local-001 cargo build --release --locked -p molesignal
+BUILD_ID=local-001 make build-release
 
 # 晋升时只修改运行时部署元数据，复用同一个二进制。
 RELEASE_CHANNEL=alpha ./target/release/molesignal --config conf/config.toml
@@ -248,7 +250,7 @@ RELEASE_CHANNEL=alpha ./target/release/molesignal --config conf/config.toml
 - DDD 分层：不要把 infra 关注点塞进 `domain/`
 - 每个 public 类型用一句 doc comment 说明*为什么*存在
 - 集成测试放在 `bin/molesignal/tests/*_it_*.rs`；依赖 Docker 的用 `MS_RUN_IT=1` 门控
-- push 前跑 `cargo fmt --all` + `cargo clippy --workspace --all-targets`
+- push 前跑 `make fmt-check` + `make lint`
 
 Issue / RFC / 设计讨论都在 GitHub 上。Discord / Slack 暂未建，等第一批用户到位后再开。
 

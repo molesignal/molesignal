@@ -17,6 +17,17 @@ PACKAGE_DIR  = $(DIST_DIR)/$(PACKAGE_NAME)
 PACKAGE_BIN_DIR = $(if $(TARGET),target/$(TARGET)/release,target/release)
 HTTP_PORT    := 5080
 WEB_DIR      := web
+WEB_DIST_INDEX := $(WEB_DIR)/dist/index.html
+WEB_NODE_MODULES_STAMP := $(WEB_DIR)/node_modules/.modules.yaml
+WEB_BUILD_INPUTS := \
+	$(shell find $(WEB_DIR)/src $(WEB_DIR)/public -type f 2>/dev/null) \
+	$(WEB_DIR)/index.html \
+	$(WEB_DIR)/package.json \
+	$(WEB_DIR)/pnpm-lock.yaml \
+	$(WEB_DIR)/postcss.config.cjs \
+	$(WEB_DIR)/tailwind.config.ts \
+	$(WEB_DIR)/tsconfig.json \
+	$(WEB_DIR)/vite.config.ts
 DEPLOY_DIR   := deploy
 COMPOSE_FILE := $(DEPLOY_DIR)/docker/docker-compose.yaml
 DOCKERFILE   := $(DEPLOY_DIR)/docker/Dockerfile
@@ -79,14 +90,24 @@ endif
 all: build
 
 # === 构建 ===
-.PHONY: build build-release build-debug
+.PHONY: build build-release build-debug web-build
+
+# Rust build.rs 只负责嵌入产物，不隐式启动包管理器；统一构建入口先确保 dist 新鲜。
+$(WEB_NODE_MODULES_STAMP): $(WEB_DIR)/package.json $(WEB_DIR)/pnpm-lock.yaml
+	pnpm -C $(WEB_DIR) install --frozen-lockfile
+
+$(WEB_DIST_INDEX): $(WEB_NODE_MODULES_STAMP) $(WEB_BUILD_INPUTS)
+	BUILD_HASH="$(GIT_SHA)" pnpm -C $(WEB_DIR) build
+
+web-build: $(WEB_DIST_INDEX)
+
 build:
 	$(MAKE) build-release
 
-build-debug:
+build-debug: web-build
 	BUILD_ID="$(BUILD_ID)" cargo build $(CARGO_FLAGS_BASE) $(WORKSPACE_PKGS) $(CARGO_FEATURE_FLAGS)
 
-build-release:
+build-release: web-build
 	BUILD_ID="$(BUILD_ID)" cargo build $(CARGO_FLAGS_BASE) --release $(WORKSPACE_PKGS) $(CARGO_FEATURE_FLAGS)
 
 # 生成二进制发布包：内置 conf/ 和 systemd 部署文件
@@ -107,7 +128,7 @@ package:
 
 # 为指定 target 构建，用法: make build-release-target TARGET=x86_64-unknown-linux-musl
 .PHONY: build-release-target
-build-release-target:
+build-release-target: web-build
 	@if [ -z "$(TARGET)" ]; then \
 		echo "Usage: make build-release-target TARGET=<rust-target>"; \
 		echo "  e.g. make build-release-target TARGET=x86_64-unknown-linux-musl"; \
@@ -118,13 +139,13 @@ build-release-target:
 
 # 跨平台快捷目标（Linux 需在对应架构机器并安装 musl-tools）
 .PHONY: build-linux-amd64 build-linux-arm64 build-darwin-arm64
-build-linux-amd64:
+build-linux-amd64: web-build
 	BUILD_ID="$(BUILD_ID)" cargo build $(CARGO_FLAGS_BASE) --release --target x86_64-unknown-linux-musl $(WORKSPACE_PKGS) $(CARGO_FEATURE_FLAGS)
 
-build-linux-arm64:
+build-linux-arm64: web-build
 	BUILD_ID="$(BUILD_ID)" cargo build $(CARGO_FLAGS_BASE) --release --target aarch64-unknown-linux-musl $(WORKSPACE_PKGS) $(CARGO_FEATURE_FLAGS)
 
-build-darwin-arm64:
+build-darwin-arm64: web-build
 	BUILD_ID="$(BUILD_ID)" cargo build $(CARGO_FLAGS_BASE) --release --target aarch64-apple-darwin $(WORKSPACE_PKGS) $(CARGO_FEATURE_FLAGS)
 
 OUTPUT_DIR = target/$(TARGET)/release
@@ -133,28 +154,28 @@ OUTPUT_DIR = target/$(TARGET)/release
 .PHONY: run run-debug run-release
 run: run-debug
 
-run-debug:
+run-debug: web-build
 	RELEASE_CHANNEL="$(RELEASE_CHANNEL)" BUILD_ID="$(BUILD_ID)" cargo run $(WORKSPACE_PKGS) $(CARGO_FEATURE_FLAGS) -- --config $(CONFIG_DIR)/config.toml
 
-run-release:
+run-release: web-build
 	RELEASE_CHANNEL="$(RELEASE_CHANNEL)" BUILD_ID="$(BUILD_ID)" cargo run --release $(WORKSPACE_PKGS) $(CARGO_FEATURE_FLAGS) -- --config $(CONFIG_DIR)/config.toml
 
 # === 测试 ===
 .PHONY: test test-unit test-integration test-all
 test: test-unit
 
-test-unit:
+test-unit: web-build
 	cargo test $(CARGO_FLAGS_BASE) --workspace --lib --bins $(CARGO_FEATURE_FLAGS)
 
-test-integration:
+test-integration: web-build
 	cargo test $(CARGO_FLAGS_BASE) --workspace --tests $(CARGO_FEATURE_FLAGS)
 
-test-all:
+test-all: web-build
 	cargo test $(CARGO_FLAGS_BASE) --workspace --all-targets $(CARGO_FEATURE_FLAGS)
 
 # === Bench ===
 .PHONY: bench
-bench:
+bench: web-build
 	cargo bench $(CARGO_FLAGS_BASE) --workspace $(CARGO_FEATURE_FLAGS)
 
 # === Git hooks ===
@@ -187,16 +208,16 @@ fmt: _ensure-nightly-rustfmt
 fmt-check: _ensure-nightly-rustfmt
 	cargo +nightly fmt --all -- --check
 
-lint:
+lint: web-build
 	cargo clippy --workspace --all-targets $(CARGO_FEATURE_FLAGS) -- -D warnings
 
-lint-fix:
+lint-fix: web-build
 	cargo clippy --workspace --all-targets --fix --allow-dirty --allow-staged $(CARGO_FEATURE_FLAGS) -- -D warnings
 
-check:
+check: web-build
 	cargo check $(WORKSPACE_PKGS) $(CARGO_FEATURE_FLAGS)
 
-check-all:
+check-all: web-build
 	cargo check --workspace --all-targets $(CARGO_FEATURE_FLAGS)
 
 # === Proto schema ===
@@ -344,6 +365,7 @@ help:
 	@echo "构建:"
 	@echo "  make build / build-release      - 统一 release 构建"
 	@echo "  make build-debug                - debug 构建"
+	@echo "  make web-build                  - 生成供 Rust 二进制嵌入的 web/dist"
 	@echo "  make package                    - 构建二进制发布包"
 	@echo "  make build-release-target TARGET=<rust-target>"
 	@echo "  make build-linux-amd64 / build-linux-arm64 / build-darwin-arm64"

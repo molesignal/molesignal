@@ -91,10 +91,11 @@ pub fn build_router(state: AppState, rate: RouterRateLimit) -> anyhow::Result<Ro
             .timeout(Duration::from_secs(30))
             .build()?,
     };
-    Ok(Router::new()
+    let router = Router::new()
         .route("/api/v1/intake/{*rest}", any(proxy_intake))
         .route("/api/v1/query", any(proxy_query))
-        .with_state(rs))
+        .with_state(rs);
+    Ok(crate::api::http::web_assets::with_embedded_web(router))
 }
 
 async fn proxy_intake(State(rs): State<RouterState>, req: Request) -> Response {

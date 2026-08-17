@@ -1,4 +1,14 @@
-################ Stage 1: build rust binary ################
+################ Stage 1: build embedded web assets ################
+FROM node:20-bullseye-slim AS web-builder
+ARG GIT_SHA=unknown
+WORKDIR /src/web
+RUN corepack enable && corepack prepare pnpm@9 --activate
+COPY web/package.json web/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+COPY web/ ./
+RUN BUILD_HASH="$GIT_SHA" pnpm run build
+
+################ Stage 2: build rust binary ################
 # bullseye（Debian 11, glibc 2.31）：产物 glibc 地板 2.31，覆盖目标机地板 2.34
 # （Alma 9）与 Ubuntu 22.04（2.35）。bookworm/trixie 的 glibc 更高，会在这类
 # 目标机上报 "GLIBC_2.x not found"。
@@ -19,9 +29,10 @@ COPY crates ./crates
 COPY tools ./tools
 COPY proto ./proto
 COPY contracts ./contracts
+COPY --from=web-builder /src/web/dist ./web/dist
 RUN BUILD_ID="$BUILD_ID" GIT_SHA="$GIT_SHA" cargo build --release --locked --bin molesignal
 
-################ Stage 2: runtime ################
+################ Stage 3: runtime ################
 # bullseye-slim（glibc 2.31）：镜像自带 glibc 低于目标机地板 2.34（Alma 9 /
 # Ubuntu 22.04），且 ≥ 二进制地板 2.31，二者自洽。
 # ⚠ bullseye 的 chromium 已 EOL（120.x，2024 起无安全更新）。OSS build 不调
@@ -43,6 +54,7 @@ COPY --from=rust-builder /src/target/release/molesignal /usr/local/bin/molesigna
 RUN mkdir -p /usr/share/molesignal/mmdb
 COPY assets/mmdb/GeoLite2-City.mmdb /usr/share/molesignal/mmdb/GeoLite2-City.mmdb
 COPY conf/config.toml /app/conf/config.toml
+# Web UI 已编译进 molesignal；5080 同时提供页面和 HTTP API。
 EXPOSE 5080 5082
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD curl -fsS http://localhost:5080/api/v1/healthz || exit 1

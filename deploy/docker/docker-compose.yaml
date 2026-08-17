@@ -1,7 +1,7 @@
 # MoleSignal docker-compose
 #
 # 两种部署形态（用 profile 区分；默认 standalone 单进程）：
-#   docker compose up                          → 默认 + standalone profile（一个进程跑所有 role）
+#   docker compose up                          → 默认 + standalone profile（一个进程跑所有 role + Web UI）
 #   docker compose --profile multirole up      → 拆分模式（router/intake/querier/compactor/alert-manager/connector）
 #
 # postgresql + minio 总是启动；molesignal 容器走哪个 profile 由 docker compose --profile 选。

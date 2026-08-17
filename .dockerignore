@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 MoleSignal Authors
+
+.git
+.github
+.release-artifacts
+target
+**/target
+dist
+data
+web/node_modules
+web/dist
+web/.vite
+web/coverage
+web/test-results
+web/tsconfig.tsbuildinfo

@@ -50,15 +50,15 @@ git commit -s -m "your message"
   `rustup toolchain install nightly --profile minimal --component rustfmt`
 - `protoc`（例如 `apt-get install protobuf-compiler` 或 `brew install protobuf`）以及 [Buf CLI](https://buf.build/docs/installation)。
 - Docker（跑集成测试和 sandbox compose 用）。
-- 改 `web/` 还需要 Node 20 + `pnpm` 9。
+- 需要 Node 20 + `pnpm` 9；每个 `molesignal` 二进制都会嵌入 Vite 生产资源。
 
 最小快路径：
 
 ```bash
 make proto-lint                                     # 校验 Proto；binding 由 Cargo 自动生成
-cargo +nightly fmt --all                            # 使用仓库 rustfmt 配置
-cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace --lib --bins                 # 快：仅单元 + bin 测试
+make fmt-check                                      # 使用仓库 rustfmt 配置
+make lint                                           # 先构建 web/dist，再执行 Clippy
+make test                                           # 快：仅单元 + bin 测试
 
 # Sandbox：Postgres + MinIO + molesignal standalone
 docker compose -f deploy/docker/docker-compose.yaml --profile standalone up
@@ -97,6 +97,7 @@ pnpm -C web dev          # vite dev server
   整套集成测试跑法：
 
   ```bash
+  make web-build
   MS_RUN_IT=1 cargo test -p molesignal --tests -- --test-threads=1
   ```
 
@@ -134,9 +135,9 @@ pnpm -C web dev          # vite dev server
 2. 从目标通道 fork 分支，PR 保持小而聚焦，一个 PR 只做一件逻辑事。
 3. 行为面有变更时同步更新相关文档（`README.md`、`ARCHITECTURE.md`、crate 内 doc comment）。
 4. push 前确保 CI 必跑项本地全绿：
-   - `cargo +nightly fmt --all -- --check`
-   - `cargo clippy --workspace --all-targets -- -D warnings`
-   - `cargo test --workspace --lib --bins`
+   - `make fmt-check`
+   - `make lint`
+   - `make test`
    - 涉及 HTTP / wire / 持久化的特性，跑 `bin/molesignal/tests/` 下对应的 `*_it_*.rs`，记得带 `MS_RUN_IT=1`。
 5. push、开 PR、填模板。请在 PR 描述里写清：
    - 动机（解决什么问题；改了哪些用户可见行为）。

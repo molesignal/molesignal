@@ -1,13 +1,12 @@
-# Standalone web image — used when frontend is deployed separately from the
-# Rust backend (k8s split-pod setup). When deploying as one binary, use the
-# existing top-level `Dockerfile`.
+# Optional standalone web image for split-pod deployments. Normal release and
+# single-binary deployments already serve the embedded UI from molesignal:5080.
 
 ############### Stage 1: build web ###############
 FROM node:20-alpine AS web-builder
 WORKDIR /web
 
-# Enable corepack so we get the exact pnpm major used in CI.
-RUN corepack enable
+# Enable the same pnpm major used in CI.
+RUN corepack enable && corepack prepare pnpm@9 --activate
 
 # Copy manifest bits before sources so the deps layer caches well.
 COPY web/package.json web/pnpm-lock.yaml ./

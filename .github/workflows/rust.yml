@@ -38,13 +38,26 @@ concurrency:
 
 jobs:
   # Rust 质量门禁：fmt-check + clippy（-D warnings）+ unit/bin tests。
-  # 不跑 integration tests（it.yml 单独负责），不动 web 前端（web.yml 单独负责）。
+  # 不跑 integration tests（it.yml 单独负责）；前端只构建嵌入产物，功能门禁仍由 web.yml 负责。
   rust-quality:
     name: rust quality
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
+
+      # molesignal 的 build.rs 会把 Vite 产物编译进二进制；Rust 门禁也必须从干净
+      # checkout 验证这条边界，而不是依赖未跟踪的本地 web/dist。
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm -C web install --frozen-lockfile
+      - run: pnpm -C web build
 
       - name: install system dependencies
         run: |

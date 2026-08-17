@@ -250,6 +250,7 @@ resources, immutable License history, and final-platform-administrator
 protection:
 
 ```text
+make web-build
 MS_RUN_IT=1 cargo test --test bootstrap_it_distributed_tracing
 ```
 

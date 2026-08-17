@@ -18,11 +18,11 @@ pnpm -C web typecheck
 pnpm -C web lint
 pnpm -C web test                      # vitest
 pnpm -C web playwright                # 端到端（含 a11y smoke）
-pnpm -C web build                     # 产出 web/dist/
+pnpm -C web build                     # 产出 web/dist/；make build 会将其嵌入 Rust 二进制
 ```
 
 何时用哪个：
-- `pnpm dev`：本地已经在 5080 跑 `cargo run --bin molesignal`。这是接真后端的开发流，登录走 `/api/v1/auth/signin`，org switcher、查询、dashboards 全部打真实数据。
+- `pnpm dev`：本地已经通过 `make run-debug` 在 5080 跑后端。这是接真后端的开发流，登录走 `/api/v1/auth/signin`，org switcher、查询、dashboards 全部打真实数据。
 - `pnpm dev:mock`：没有 Rust 工具链 / 后端临时 down。`scripts/dev-mock.ts` 复用 `playwright/fixtures/mockBackend.ts` 的 `registerRoutes`，独立起 express 在 5080。前端代码完全不变，vite proxy 把 `/api` 转过去。
 
 ## 目录约定
@@ -127,7 +127,7 @@ pnpm -C web playwright:perf            # 本地性能套件
 ## 部署
 
 ```bash
-# 容器内嵌（默认）：web 构建产物嵌入 crates/server/static → 一并 cargo build
+# 容器内嵌（默认）：web 构建产物由 bin/molesignal/build.rs 编译进同一个二进制
 docker build -t molesignal:dev -f deploy/docker/Dockerfile .
 
 # 独立 nginx（split-pod 部署）：仅前端
@@ -137,7 +137,7 @@ docker build -t molesignal-web:dev -f deploy/docker/Dockerfile.web .
 bash scripts/dev-up.sh
 
 # 起 backend
-cargo run -p molesignal -- --config ./conf/config.toml
+make run-debug
 ```
 
 k8s manifests：`deploy/k8s/{30-router,40-intake,50-querier,60-compactor,70-alert-manager,80-web}.yaml`。

@@ -18,6 +18,9 @@ set -euo pipefail
 : "${BENCH_BATCHES:=12}"
 : "${BENCH_THREADS:=}"
 
+# molesignal 的 build.rs 会嵌入前端；先在宿主机生成一次，Docker 模式随后复用挂载产物。
+make web-build
+
 # ---- --docker：在 rust:1.96-bullseye（与 Dockerfile builder 同）内跑，拿真实 glibc 数字 ----
 if [ "${1:-}" = "--docker" ]; then
   command -v docker >/dev/null || { echo "docker 不可用"; exit 1; }

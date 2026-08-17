@@ -45,14 +45,48 @@ jobs:
         id: detect
         run: .github/scripts/detect-release-channel.sh
 
-  # 1. 质量门禁：和 ci.yml 同一套 fmt + clippy + 单测，release 路径上再跑一遍兜底。
+  # 1. 前端只构建一次，后续质量门禁和两个原生架构编译复用同一份确定性产物。
+  web-assets:
+    name: embedded web assets
+    needs: detect-channel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm -C web install --frozen-lockfile
+      - name: build assets for embedding
+        env:
+          BUILD_HASH: ${{ github.sha }}
+        run: pnpm -C web build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: embedded-web-${{ github.run_id }}
+          path: |
+            web/dist/
+            !web/dist/**/*.map
+          if-no-files-found: error
+          retention-days: 1
+
+  # 2. 质量门禁：和 ci.yml 同一套 fmt + clippy + 单测，release 路径上再跑一遍兜底。
   quality-gate:
     name: quality gate
-    needs: detect-channel
+    needs: [detect-channel, web-assets]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: embedded-web-${{ github.run_id }}
+          path: web/dist
 
       - name: install system dependencies
         run: |
@@ -89,10 +123,10 @@ jobs:
       - name: unit + bin tests
         run: cargo test --workspace --lib --bins
 
-  # 2. 多平台原生编译：每个 target 在对应架构 runner 上原生 build，避免 cross-compile。
+  # 3. 多平台原生编译：每个 target 在对应架构 runner 上原生 build，避免 cross-compile。
   build:
     name: build (${{ matrix.target }})
-    needs: [detect-channel, quality-gate]
+    needs: [detect-channel, web-assets, quality-gate]
     runs-on: ${{ matrix.os }}
     # 构建在 rust:1.96-bullseye 容器（Debian 11, glibc 2.31）内进行，产物 glibc
     # 地板 2.31，低于目标机地板 2.34（Alma 9 / Ubuntu 22.04）；runtime 镜像
@@ -121,6 +155,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: embedded-web-${{ github.run_id }}
+          path: web/dist
 
       - name: install system dependencies
         # rust:1.96-bullseye 已含 build-essential/git/ca-certificates/curl/pkg-config；
@@ -214,7 +253,7 @@ jobs:
           path: target/${{ matrix.target }}/release/molesignal
           if-no-files-found: error
 
-  # 3. Docker 多平台镜像：把 step 2 的原生 release 二进制原样封装进镜像。
+  # 4. Docker 多平台镜像：把 step 3 的原生 release 二进制原样封装进镜像。
   docker:
     name: docker image
     needs: [detect-channel, build]
@@ -283,7 +322,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # 4. GitHub Release：cliff 生成 changelog + 上传所有 target 的 tar.gz。
+  # 5. GitHub Release：cliff 生成 changelog + 上传所有 target 的 tar.gz。
   release:
     name: github release
     needs: [detect-channel, build, docker]

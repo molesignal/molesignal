@@ -17,6 +17,7 @@ pub mod middleware;
 pub mod pagination;
 pub mod routes;
 pub mod validate;
+pub(crate) mod web_assets;
 
 /// 装配整个 HTTP API 的 axum Router。
 pub fn build_router(state: AppState) -> Router {
@@ -47,16 +48,20 @@ pub(crate) fn build_router_with_client_ip(
 
     // 层序（外→内）：auth_layer 先跑注入 IamContext，org_blocking_layer 紧随其后按 org 拦停服。
     // `.layer()` 链中先加的更内层，故 org_blocking 放在 auth 之前一行。
-    r.layer(from_fn_with_state(
-        state.clone(),
-        middleware::org_blocking_layer,
-    ))
-    .layer(from_fn_with_state(state.clone(), middleware::auth_layer))
-    .layer(from_fn(middleware::trace_context_layer))
-    .layer(Extension(client_ip))
-    .layer(CorsLayer::very_permissive().expose_headers([
-        HeaderName::from_static("x-request-id"),
-        HeaderName::from_static("x-trace-id"),
-    ]))
-    .with_state(state)
+    let api = r
+        .layer(from_fn_with_state(
+            state.clone(),
+            middleware::org_blocking_layer,
+        ))
+        .layer(from_fn_with_state(state.clone(), middleware::auth_layer))
+        .layer(from_fn(middleware::trace_context_layer))
+        .layer(Extension(client_ip))
+        .layer(CorsLayer::very_permissive().expose_headers([
+            HeaderName::from_static("x-request-id"),
+            HeaderName::from_static("x-trace-id"),
+        ]))
+        .with_state(state);
+
+    // 静态 UI 位于 API middleware 之外：登录页和 Vite chunk 不应要求 Bearer token。
+    web_assets::with_embedded_web(Router::new().merge(api))
 }

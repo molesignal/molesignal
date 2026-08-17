@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 MoleSignal Authors
 
-# CI 已在原生 runner 上完成一次 release 构建；这里只把同一二进制封装进多架构镜像。
+# CI 已在原生 runner 上完成前端构建并将其嵌入 release 二进制；这里只把同一二进制封装
+# 进多架构镜像。
 # runtime 用 bullseye-slim（glibc 2.31）：CI 产物地板也是 2.31（rust:1.96-bullseye），
 # 低于目标机地板 2.34（Alma 9 / Ubuntu 22.04）。勿用 bookworm/trixie，glibc 会超地板。
 ARG TARGETARCH
@@ -28,6 +29,7 @@ RUN chmod 0755 /usr/local/bin/molesignal \
  && mkdir -p /usr/share/molesignal/mmdb
 COPY assets/mmdb/GeoLite2-City.mmdb /usr/share/molesignal/mmdb/GeoLite2-City.mmdb
 COPY conf/config.toml /app/conf/config.toml
+# Web UI 已编译进 molesignal；5080 同时提供页面和 HTTP API。
 EXPOSE 5080 5082
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD curl -fsS http://localhost:5080/api/v1/healthz || exit 1

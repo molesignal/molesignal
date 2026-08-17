@@ -49,6 +49,9 @@ docker compose -f deploy/docker/docker-compose.yaml --profile standalone up
 # S3 admin:  http://localhost:9001  (minioadmin / minioadmin)
 ```
 
+The Web UI is embedded in the `molesignal` binary and served from the same HTTP port (`5080`),
+so the standard release does not require a separate frontend service.
+
 Send your first data:
 
 ```bash
@@ -257,7 +260,7 @@ Pre-1.0, **early**. Released YYYY-MM-DD.
 
 ```bash
 # Open-source production artifact
-BUILD_ID=local-001 cargo build --release --locked -p molesignal
+BUILD_ID=local-001 make build-release
 
 # The same binary is promoted by changing runtime deployment metadata only.
 RELEASE_CHANNEL=alpha ./target/release/molesignal --config conf/config.toml
@@ -274,7 +277,7 @@ PRs welcome — start with the `tasks.md` files in `openspec/changes/*`. Convent
 - DDD layering: don't push infra concerns into `domain/`
 - Every public type has a 1-sentence doc explaining *why* it exists
 - Integration tests live in `bin/molesignal/tests/*_it_*.rs`; gate behind `MS_RUN_IT=1` if they need Docker
-- `cargo fmt --all` + `cargo clippy --workspace --all-targets` before pushing
+- `make fmt-check` + `make lint` before pushing
 
 Issues, RFCs, design discussions: all on GitHub. No Discord/Slack yet — we'll set one up after the first batch of users.
 

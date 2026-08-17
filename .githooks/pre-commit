@@ -24,6 +24,11 @@ if ! cargo +nightly fmt --all -- --check; then
 fi
 
 echo "==> pre-commit: cargo clippy"
+if ! make -C "$REPO_ROOT" web-build; then
+    echo ""
+    echo "前端产物构建失败；Rust 二进制需要最新的 web/dist 才能执行 Clippy。"
+    exit 1
+fi
 if ! cargo clippy --workspace --all-targets -- -D warnings; then
     echo ""
     echo "Clippy 检查未通过，请修复警告后再提交（可尝试 'make lint-fix'）。"

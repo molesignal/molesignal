@@ -50,15 +50,15 @@ Prerequisites:
   `rustup toolchain install nightly --profile minimal --component rustfmt`
 - `protoc` (e.g. `apt-get install protobuf-compiler` or `brew install protobuf`) and the [Buf CLI](https://buf.build/docs/installation) for the gRPC bindings.
 - Docker (for integration tests and the sandbox compose stack).
-- Node 20 + `pnpm` 9 if you touch `web/`.
+- Node 20 + `pnpm` 9. The Vite production assets are embedded in every `molesignal` binary.
 
 Quick sanity loop:
 
 ```bash
 make proto-lint                                     # validate Proto; Cargo generates bindings
-cargo +nightly fmt --all                            # match the rustfmt config
-cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace --lib --bins                 # fast: unit + bin tests only
+make fmt-check                                      # match the rustfmt config
+make lint                                           # builds web/dist, then runs Clippy
+make test                                           # fast: unit + bin tests only
 
 # Sandbox: Postgres + MinIO + molesignal standalone
 docker compose -f deploy/docker/docker-compose.yaml --profile standalone up
@@ -97,6 +97,7 @@ A pre-commit hook is installed via `make install-hooks` and enforces the license
   Run the full it suite with:
 
   ```bash
+  make web-build
   MS_RUN_IT=1 cargo test -p molesignal --tests -- --test-threads=1
   ```
 
@@ -134,9 +135,9 @@ Day-to-day PRs target `alpha` (or `main` if there is no `alpha` branch yet — u
 2. Branch off the target channel, keep PRs small and focused. One logical change per PR.
 3. Update relevant docs (`README.md`, `ARCHITECTURE.md`, in-crate doc comments) when you change observable behaviour.
 4. Make sure the CI required jobs pass locally before pushing:
-   - `cargo +nightly fmt --all -- --check`
-   - `cargo clippy --workspace --all-targets -- -D warnings`
-   - `cargo test --workspace --lib --bins`
+   - `make fmt-check`
+   - `make lint`
+   - `make test`
    - For features that touch HTTP / wire / persistence: the relevant `*_it_*.rs` suite under `bin/molesignal/tests/` with `MS_RUN_IT=1`.
 5. Push, open the PR, and fill in the template. Include:
    - Motivation (what problem this solves; which user-facing behaviour changes).
