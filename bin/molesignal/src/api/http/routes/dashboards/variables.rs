@@ -123,7 +123,7 @@ async fn resolve(
                 })
                 .unwrap_or(StreamHint {
                     name: metric.clone(),
-                    stream_type: StreamType::Metrics,
+                    stream_type: StreamType::METRICS,
                 });
             let sql = format!(
                 "SELECT DISTINCT {label} FROM {metric} \

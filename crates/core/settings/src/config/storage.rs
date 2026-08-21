@@ -1,79 +1,181 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! `[storage]` —— 与 `[store]` 解耦的上层存储 capability（目前为 ParquetFileMeta 冷分区下沉）。
+//! `[storage]` Catalog lifecycle, index, GC, and reconciliation settings.
 
 use serde::{Deserialize, Serialize};
 
-use super::yes;
-
-/// `[storage]` —— 存储层子能力配置（与 `[store]` 解耦：`store` 负责底层元/对象
-/// 存储凭据，`storage` 负责上层 capability 行为）。
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct StorageSettings {
-    /// `[storage.parquet_file_meta_dump]`：ParquetFileMeta 冷分区下沉到 object_store（spec
-    /// `storage/ParquetFileMeta Dump Spillover`）。
     #[serde(default)]
-    pub parquet_file_meta_dump: ParquetFileMetaDumpSettings,
+    pub catalog: CatalogSettings,
+    #[serde(default)]
+    pub index: IndexMaintenanceSettings,
+    #[serde(default)]
+    pub gc: GarbageCollectionSettings,
+    #[serde(default)]
+    pub reconciler: ReconcilerSettings,
 }
 
-/// `[storage.parquet_file_meta_dump]` —— ParquetFileMeta dump worker 行为开关与速率。
-///
-/// `enabled = false` 时 worker 不启动、查询路径回退到只读主表；
-/// 已 dump 的对象与索引行保留不动（重启 enabled=true 时无需任何手工迁移）。
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ParquetFileMetaDumpSettings {
-    #[serde(default = "yes")]
-    pub enabled: bool,
-    #[serde(default = "default_parquet_file_meta_dump_cold_after_days")]
-    pub cold_after_days: u32,
-    #[serde(default = "default_parquet_file_meta_dump_interval_secs")]
+pub struct CatalogSettings {
+    /// Seal partitions whose end is older than this many hours. Zero disables sealing.
+    #[serde(default = "default_seal_after_hours")]
+    pub seal_after_hours: u32,
+    #[serde(default = "default_manifest_cache_bytes")]
+    pub manifest_cache_bytes: u64,
+    #[serde(default = "default_catalog_interval_secs")]
     pub interval_secs: u32,
-    #[serde(default = "default_parquet_file_meta_dump_max_partitions_per_tick")]
-    pub max_partitions_per_tick: u32,
-    /// Dump partition 粒度。`daily` 默认，hourly 高频小窗口场景下减少跨 partition 扫。
-    /// 同 stream 允许混合粒度共存（change `parquet-file-meta-dump-columnar`）。
-    #[serde(default)]
-    pub partition_level: PartitionLevel,
+    #[serde(default = "default_catalog_batch_size")]
+    pub batch_size: u32,
 }
 
-/// Dump partition 粒度。镜像 domain crate 的 `storage::PartitionLevel`，
-/// config 不依赖 domain，留独立 enum 解耦；运行时由 infra 做 From 转换。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum PartitionLevel {
-    #[default]
-    Daily,
-    Hourly,
+fn default_seal_after_hours() -> u32 {
+    24 * 7
+}
+fn default_manifest_cache_bytes() -> u64 {
+    256 * 1024 * 1024
+}
+fn default_catalog_interval_secs() -> u32 {
+    300
+}
+fn default_catalog_batch_size() -> u32 {
+    64
 }
 
-impl PartitionLevel {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            PartitionLevel::Daily => "daily",
-            PartitionLevel::Hourly => "hourly",
+impl Default for CatalogSettings {
+    fn default() -> Self {
+        Self {
+            seal_after_hours: default_seal_after_hours(),
+            manifest_cache_bytes: default_manifest_cache_bytes(),
+            interval_secs: default_catalog_interval_secs(),
+            batch_size: default_catalog_batch_size(),
         }
     }
 }
 
-fn default_parquet_file_meta_dump_cold_after_days() -> u32 {
-    30
-}
-fn default_parquet_file_meta_dump_interval_secs() -> u32 {
-    3600
-}
-fn default_parquet_file_meta_dump_max_partitions_per_tick() -> u32 {
-    100
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IndexMaintenanceSettings {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default = "default_index_interval_secs")]
+    pub interval_secs: u32,
+    #[serde(default = "default_index_batch_size")]
+    pub batch_size: u32,
+    #[serde(default = "default_index_concurrency")]
+    pub max_concurrency: usize,
+    #[serde(default = "default_index_retry_after_secs")]
+    pub retry_after_secs: u32,
 }
 
-impl Default for ParquetFileMetaDumpSettings {
+fn default_index_interval_secs() -> u32 {
+    30
+}
+fn default_index_batch_size() -> u32 {
+    64
+}
+fn default_index_concurrency() -> usize {
+    2
+}
+fn default_index_retry_after_secs() -> u32 {
+    300
+}
+
+impl Default for IndexMaintenanceSettings {
     fn default() -> Self {
         Self {
             enabled: true,
-            cold_after_days: default_parquet_file_meta_dump_cold_after_days(),
-            interval_secs: default_parquet_file_meta_dump_interval_secs(),
-            max_partitions_per_tick: default_parquet_file_meta_dump_max_partitions_per_tick(),
-            partition_level: PartitionLevel::default(),
+            interval_secs: default_index_interval_secs(),
+            batch_size: default_index_batch_size(),
+            max_concurrency: default_index_concurrency(),
+            retry_after_secs: default_index_retry_after_secs(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GarbageCollectionSettings {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default = "default_gc_interval_secs")]
+    pub interval_secs: u32,
+    #[serde(default = "default_gc_grace_period_secs")]
+    pub grace_period_secs: u32,
+    #[serde(default = "default_gc_lease_secs")]
+    pub lease_secs: u32,
+    #[serde(default = "default_gc_batch_size")]
+    pub batch_size: u32,
+    #[serde(default = "default_gc_concurrency")]
+    pub max_concurrency: usize,
+}
+
+fn default_gc_interval_secs() -> u32 {
+    30
+}
+fn default_gc_grace_period_secs() -> u32 {
+    3600
+}
+fn default_gc_lease_secs() -> u32 {
+    900
+}
+fn default_gc_batch_size() -> u32 {
+    128
+}
+fn default_gc_concurrency() -> usize {
+    4
+}
+
+impl Default for GarbageCollectionSettings {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            interval_secs: default_gc_interval_secs(),
+            grace_period_secs: default_gc_grace_period_secs(),
+            lease_secs: default_gc_lease_secs(),
+            batch_size: default_gc_batch_size(),
+            max_concurrency: default_gc_concurrency(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReconcilerSettings {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default = "default_reconciler_interval_secs")]
+    pub interval_secs: u32,
+    #[serde(default = "default_reconciler_batch_size")]
+    pub batch_size: u32,
+    #[serde(default = "default_reconciler_orphan_grace_secs")]
+    pub orphan_grace_secs: u32,
+    #[serde(default = "default_reconciler_verify_checksums")]
+    pub verify_checksums: bool,
+}
+
+fn default_true() -> bool {
+    true
+}
+fn default_reconciler_interval_secs() -> u32 {
+    300
+}
+fn default_reconciler_batch_size() -> u32 {
+    256
+}
+fn default_reconciler_orphan_grace_secs() -> u32 {
+    24 * 3600
+}
+fn default_reconciler_verify_checksums() -> bool {
+    true
+}
+
+impl Default for ReconcilerSettings {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            interval_secs: default_reconciler_interval_secs(),
+            batch_size: default_reconciler_batch_size(),
+            orphan_grace_secs: default_reconciler_orphan_grace_secs(),
+            verify_checksums: default_reconciler_verify_checksums(),
         }
     }
 }

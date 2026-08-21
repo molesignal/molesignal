@@ -17,7 +17,7 @@ pub(super) async fn available(state: &AppState, ctx: &IamContext, stream: &str) 
     let Ok(definition) = state
         .telemetry
         .streams
-        .get(&ctx.org_id, stream, StreamType::Traces)
+        .get(&ctx.org_id, stream, StreamType::TRACES)
         .await
     else {
         return false;

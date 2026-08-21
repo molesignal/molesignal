@@ -101,24 +101,24 @@ mod tests {
     #[test]
     fn put_get_roundtrips() {
         let c = OrgSchemaCache::new();
-        let s = mk("orgA", "logs", StreamType::Logs);
+        let s = mk("orgA", "logs", StreamType::LOGS);
         c.put(s.clone());
-        let got = c.get(&Id("orgA".into()), "logs", StreamType::Logs).unwrap();
+        let got = c.get(&Id("orgA".into()), "logs", StreamType::LOGS).unwrap();
         assert_eq!(got.id.0, s.id.0);
     }
 
     #[test]
     fn invalidate_for_removes_one() {
         let c = OrgSchemaCache::new();
-        c.put(mk("orgA", "logs", StreamType::Logs));
-        c.put(mk("orgA", "metrics", StreamType::Metrics));
-        c.invalidate_for(&Id("orgA".into()), "logs", StreamType::Logs);
+        c.put(mk("orgA", "logs", StreamType::LOGS));
+        c.put(mk("orgA", "metrics", StreamType::METRICS));
+        c.invalidate_for(&Id("orgA".into()), "logs", StreamType::LOGS);
         assert!(
-            c.get(&Id("orgA".into()), "logs", StreamType::Logs)
+            c.get(&Id("orgA".into()), "logs", StreamType::LOGS)
                 .is_none()
         );
         assert!(
-            c.get(&Id("orgA".into()), "metrics", StreamType::Metrics)
+            c.get(&Id("orgA".into()), "metrics", StreamType::METRICS)
                 .is_some()
         );
     }
@@ -126,15 +126,15 @@ mod tests {
     #[test]
     fn invalidate_org_clears_org() {
         let c = OrgSchemaCache::new();
-        c.put(mk("orgA", "logs", StreamType::Logs));
-        c.put(mk("orgB", "logs", StreamType::Logs));
+        c.put(mk("orgA", "logs", StreamType::LOGS));
+        c.put(mk("orgB", "logs", StreamType::LOGS));
         c.invalidate_org(&Id("orgA".into()));
         assert!(
-            c.get(&Id("orgA".into()), "logs", StreamType::Logs)
+            c.get(&Id("orgA".into()), "logs", StreamType::LOGS)
                 .is_none()
         );
         assert!(
-            c.get(&Id("orgB".into()), "logs", StreamType::Logs)
+            c.get(&Id("orgB".into()), "logs", StreamType::LOGS)
                 .is_some()
         );
     }

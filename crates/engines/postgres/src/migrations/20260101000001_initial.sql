@@ -321,92 +321,218 @@ CREATE INDEX IF NOT EXISTS idx_rbac_resource
     ON rbac_policies(org_id, resource_kind, resource_id);
 
 -- ============================================================
--- Streams & parquet file metadata
+-- Logical streams & unified file catalog
 -- ============================================================
 
 -- Stream retention 可选；settings 始终以 JSON object 作为默认值。
-CREATE TABLE IF NOT EXISTS streams (
+-- 逻辑流：用户可见的数据流实体。stream_type 是实体属性而非身份的一部分；
+-- 身份只由 (org_id, id) 决定。stream_type 持久化 namespaced StreamTypeId；
+-- 新类型由 StreamTypeRegistry 注册，不需要修改数据库约束。
+CREATE TABLE IF NOT EXISTS logical_streams (
     id                  VARCHAR(64) PRIMARY KEY,
     org_id              VARCHAR(64)  NOT NULL,
     name                VARCHAR(255) NOT NULL,
-    stream_type         VARCHAR(16)  NOT NULL,
+    stream_type         VARCHAR(96)  NOT NULL,
+    stream_type_version INTEGER      NOT NULL DEFAULT 1,
     schema              JSONB        NOT NULL,
     retention           JSONB,
     settings            JSONB        NOT NULL DEFAULT '{}'::JSONB,
+    state               VARCHAR(16)  NOT NULL DEFAULT 'active',
+    system              BOOLEAN      NOT NULL DEFAULT FALSE,
     created_at_micros   BIGINT       NOT NULL,
     updated_at_micros   BIGINT       NOT NULL
 );
-CREATE UNIQUE INDEX IF NOT EXISTS uniq_streams_org_name_type
-    ON streams(org_id, name, stream_type);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_logical_streams_org_type_name
+    ON logical_streams(org_id, stream_type, name);
+-- 复合外键目标：让子表以 (org_id, id) 引用，保证跨租户记录无法关联。
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_logical_streams_org_id
+    ON logical_streams(org_id, id);
 
-CREATE TABLE IF NOT EXISTS parquet_file_meta (
-    id                  VARCHAR(64) PRIMARY KEY,
-    org_id              VARCHAR(64)  NOT NULL,
-    stream              VARCHAR(255) NOT NULL,
-    stream_type         VARCHAR(16)  NOT NULL,
-    dataset_kind        VARCHAR(32)  NOT NULL,
-    object_key          TEXT         NOT NULL,
-    time_start_micros   BIGINT       NOT NULL,
-    time_end_micros     BIGINT       NOT NULL,
-    rows                BIGINT       NOT NULL,
-    size_bytes          BIGINT       NOT NULL,
-    min_values          JSONB        NOT NULL,
-    max_values          JSONB        NOT NULL,
-    deleted             BOOLEAN      NOT NULL DEFAULT FALSE
+-- ============================================================
+-- 统一 FileCatalog：LogicalStream → PhysicalDataset → DataSegment
+-- → Artifact → StoredObject。下面这组表是文件元数据的唯一事实来源；
+-- Catalog transaction and immutable manifest generations are the only publication mechanism.
+-- ============================================================
+
+-- 逻辑流下的物理数据集。底层子系统只认 dataset id，不理解信号语义。
+CREATE TABLE IF NOT EXISTS physical_datasets (
+    org_id               VARCHAR(64) NOT NULL,
+    id                   VARCHAR(64) NOT NULL,
+    logical_stream_id    VARCHAR(64) NOT NULL,
+    dataset_type         VARCHAR(96) NOT NULL,
+    dataset_type_version INTEGER     NOT NULL DEFAULT 1,
+    partition_policy     JSONB       NOT NULL DEFAULT '{}'::JSONB,
+    storage_policy       JSONB       NOT NULL DEFAULT '{}'::JSONB,
+    index_policy         JSONB       NOT NULL DEFAULT '{}'::JSONB,
+    catalog_version      BIGINT      NOT NULL DEFAULT 0,
+    state                VARCHAR(16) NOT NULL DEFAULT 'active',
+    created_at_micros    BIGINT      NOT NULL,
+    updated_at_micros    BIGINT      NOT NULL,
+    PRIMARY KEY (org_id, id),
+    CONSTRAINT fk_physical_datasets_stream
+        FOREIGN KEY (org_id, logical_stream_id)
+        REFERENCES logical_streams (org_id, id)
+        ON DELETE CASCADE,
+    CONSTRAINT uniq_physical_datasets_dataset_type
+        UNIQUE (org_id, logical_stream_id, dataset_type)
 );
-CREATE INDEX IF NOT EXISTS idx_parquet_file_meta_scan
-    ON parquet_file_meta(
-        org_id, stream, stream_type, dataset_kind, time_end_micros, time_start_micros
-    )
-    WHERE deleted = FALSE;
-CREATE INDEX IF NOT EXISTS idx_parquet_file_meta_deleted ON parquet_file_meta(deleted);
 
--- Cold-tier ParquetFileMeta dump pointer.
-CREATE TABLE IF NOT EXISTS parquet_file_meta_dump (
-    id                  TEXT        PRIMARY KEY,
-    org_id              TEXT        NOT NULL,
-    stream              TEXT        NOT NULL,
-    stream_type         TEXT        NOT NULL,
-    dataset_kind        TEXT        NOT NULL,
-    partition_level     TEXT        NOT NULL,
-    partition_key       TEXT        NOT NULL,
-    object_key          TEXT        NOT NULL,
-    deleted             BOOLEAN     NOT NULL DEFAULT FALSE,
-    rows_in_dump        INTEGER     NOT NULL,
-    size_bytes          BIGINT      NOT NULL,
-    min_ts_micros       BIGINT      NOT NULL,
-    max_ts_micros       BIGINT      NOT NULL,
-    date                DATE        NOT NULL,
-    created_at_micros   BIGINT      NOT NULL,
-    updated_at_micros   BIGINT      NOT NULL
-);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_parquet_file_meta_dump_object_key
-    ON parquet_file_meta_dump (object_key);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_parquet_file_meta_dump_live_partition
-    ON parquet_file_meta_dump (
-        org_id, stream, stream_type, dataset_kind, partition_level, partition_key
-    )
-    WHERE deleted = FALSE;
-CREATE INDEX IF NOT EXISTS idx_parquet_file_meta_dump_query
-    ON parquet_file_meta_dump (
-        org_id, stream, stream_type, dataset_kind, min_ts_micros, max_ts_micros
-    )
-    WHERE deleted = FALSE;
-
-CREATE TABLE IF NOT EXISTS parquet_file_meta_dump_stats (
-    object_key          TEXT        PRIMARY KEY,
-    rows_total          BIGINT      NOT NULL,
-    files_total         BIGINT      NOT NULL,
-    time_start_micros   BIGINT      NOT NULL,
-    time_end_micros     BIGINT      NOT NULL,
-    storage_size_bytes  BIGINT      NOT NULL,
-    updated_at_micros   BIGINT      NOT NULL,
-    CONSTRAINT fk_parquet_file_meta_dump_stats_object_key
-        FOREIGN KEY (object_key)
-        REFERENCES parquet_file_meta_dump (object_key)
-        ON UPDATE CASCADE
+-- 一次 flush / compaction 形成的不可变数据单元。
+CREATE TABLE IF NOT EXISTS data_segments (
+    org_id                 VARCHAR(64) NOT NULL,
+    id                     VARCHAR(64) NOT NULL,
+    dataset_id             VARCHAR(64) NOT NULL,
+    partition_start_micros BIGINT      NOT NULL,
+    partition_end_micros   BIGINT      NOT NULL,
+    partition_shard        SMALLINT    NOT NULL DEFAULT 0,
+    min_event_micros       BIGINT      NOT NULL,
+    max_event_micros       BIGINT      NOT NULL,
+    row_count              BIGINT      NOT NULL,
+    schema_fingerprint     BIGINT,
+    -- 列级 min/max（{"min":{},"max":{}}），查询侧保守跳段用。
+    column_stats           JSONB       NOT NULL DEFAULT '{}'::JSONB,
+    flush_id               TEXT,
+    sequence_start         BIGINT,
+    sequence_end           BIGINT,
+    output_ordinal         INTEGER     NOT NULL DEFAULT 0,
+    state                  VARCHAR(16) NOT NULL,
+    visible_from_version   BIGINT      NOT NULL,
+    retired_at_version     BIGINT,
+    created_at_micros      BIGINT      NOT NULL,
+    PRIMARY KEY (org_id, id),
+    CONSTRAINT fk_data_segments_dataset
+        FOREIGN KEY (org_id, dataset_id)
+        REFERENCES physical_datasets (org_id, id)
         ON DELETE CASCADE
 );
+CREATE INDEX IF NOT EXISTS idx_data_segments_scan
+    ON data_segments(org_id, dataset_id, state, partition_start_micros);
+CREATE INDEX IF NOT EXISTS idx_data_segments_time
+    ON data_segments(org_id, dataset_id, min_event_micros, max_event_micros)
+    WHERE state = 'active';
+CREATE INDEX IF NOT EXISTS idx_data_segments_flush
+    ON data_segments(org_id, dataset_id, flush_id);
+
+-- Segment 下的物理文件（Parquet 主数据、索引、统计、字典）。
+-- 格式判定只看 artifact_type + format_version，不看对象 key 后缀。
+CREATE TABLE IF NOT EXISTS artifacts (
+    org_id             VARCHAR(64) NOT NULL,
+    id                 VARCHAR(64) NOT NULL,
+    segment_id         VARCHAR(64) NOT NULL,
+    role               VARCHAR(16) NOT NULL,
+    artifact_type      VARCHAR(96) NOT NULL,
+    format_version     INTEGER     NOT NULL DEFAULT 1,
+    object_key         TEXT        NOT NULL,
+    size_bytes         BIGINT      NOT NULL CHECK (size_bytes >= 0),
+    checksum           TEXT        NOT NULL,
+    etag               TEXT,
+    source_artifact_id VARCHAR(64),
+    source_checksum    TEXT,
+    schema_fingerprint BIGINT,
+    state              VARCHAR(16) NOT NULL,
+    failure_reason     TEXT,
+    created_at_micros  BIGINT      NOT NULL,
+    updated_at_micros  BIGINT      NOT NULL,
+    PRIMARY KEY (org_id, id),
+    CONSTRAINT fk_artifacts_segment
+        FOREIGN KEY (org_id, segment_id)
+        REFERENCES data_segments (org_id, id)
+        ON DELETE CASCADE
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_artifacts_object_key
+    ON artifacts(org_id, object_key);
+-- 同一槽位只允许一个存活 Artifact；tombstoned 行等待延迟 GC 期间不占槽位，
+-- 这样 index rebuild 才能先插新行再回收旧行。
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_artifacts_live_slot
+    ON artifacts(org_id, segment_id, role, artifact_type)
+    WHERE state IN ('pending', 'ready');
+CREATE INDEX IF NOT EXISTS idx_artifacts_rebuild_scan
+    ON artifacts(org_id, state)
+    WHERE state IN ('pending', 'failed');
+
+-- flush 幂等提交记录。唯一约束必须含 writer_node_id：多写入节点的
+-- (epoch, sequence) 序号空间彼此独立，缺了节点维度会把并发 flush 误判为重试。
+CREATE TABLE IF NOT EXISTS storage_flush_commits (
+    org_id             VARCHAR(64)  NOT NULL,
+    dataset_id         VARCHAR(64)  NOT NULL,
+    flush_id           TEXT         NOT NULL,
+    writer_node_id     VARCHAR(128) NOT NULL,
+    writer_epoch       BIGINT       NOT NULL,
+    sequence_start     BIGINT       NOT NULL,
+    sequence_end       BIGINT       NOT NULL,
+    committed_at_micros BIGINT      NOT NULL,
+    PRIMARY KEY (org_id, dataset_id, flush_id),
+    CONSTRAINT uniq_storage_flush_commits_range
+        UNIQUE (org_id, dataset_id, writer_node_id, writer_epoch,
+                sequence_start, sequence_end),
+    CONSTRAINT fk_storage_flush_commits_dataset
+        FOREIGN KEY (org_id, dataset_id)
+        REFERENCES physical_datasets (org_id, id)
+        ON DELETE CASCADE
+);
+
+-- 每个 (dataset, node, epoch) 已提交进 Catalog 的最高 WAL 序号。
+-- 恢复时据此跳过已提交记录；查询侧据此对 Buffer 去重。
+CREATE TABLE IF NOT EXISTS wal_checkpoints (
+    org_id             VARCHAR(64)  NOT NULL,
+    dataset_id         VARCHAR(64)  NOT NULL,
+    writer_node_id     VARCHAR(128) NOT NULL,
+    writer_epoch       BIGINT       NOT NULL,
+    committed_sequence BIGINT       NOT NULL,
+    updated_at_micros  BIGINT       NOT NULL,
+    PRIMARY KEY (org_id, dataset_id, writer_node_id, writer_epoch),
+    CONSTRAINT fk_wal_checkpoints_dataset
+        FOREIGN KEY (org_id, dataset_id)
+        REFERENCES physical_datasets (org_id, id)
+        ON DELETE CASCADE
+);
+
+-- 封存冷分区的不可变 Manifest 指针（Manifest 本体在 object store）。
+CREATE TABLE IF NOT EXISTS partition_manifests (
+    org_id                 VARCHAR(64) NOT NULL,
+    dataset_id             VARCHAR(64) NOT NULL,
+    partition_start_micros BIGINT      NOT NULL,
+    partition_end_micros   BIGINT      NOT NULL,
+    partition_shard        SMALLINT    NOT NULL DEFAULT 0,
+    generation             BIGINT      NOT NULL,
+    object_key             TEXT        NOT NULL,
+    size_bytes             BIGINT      NOT NULL,
+    checksum               TEXT        NOT NULL,
+    etag                   TEXT,
+    segment_count          INTEGER     NOT NULL,
+    state                  VARCHAR(16) NOT NULL,
+    created_at_micros      BIGINT      NOT NULL,
+    PRIMARY KEY (org_id, dataset_id, partition_start_micros, partition_shard, generation),
+    CONSTRAINT fk_partition_manifests_dataset
+        FOREIGN KEY (org_id, dataset_id)
+        REFERENCES physical_datasets (org_id, id)
+        ON DELETE CASCADE
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_partition_manifests_object_key
+    ON partition_manifests(org_id, object_key);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_partition_manifests_active
+    ON partition_manifests(org_id, dataset_id, partition_start_micros, partition_shard)
+    WHERE state = 'active';
+
+-- 延迟对象 GC 队列。所有对象删除都必须经 tombstone → 到期 → 二次确认。
+CREATE TABLE IF NOT EXISTS object_gc_queue (
+    org_id            VARCHAR(64) NOT NULL,
+    object_key        TEXT        NOT NULL,
+    checksum          TEXT,
+    reason            VARCHAR(32) NOT NULL,
+    not_before_micros BIGINT      NOT NULL,
+    attempt_count     INTEGER     NOT NULL DEFAULT 0,
+    state             VARCHAR(16) NOT NULL DEFAULT 'pending',
+    last_error        TEXT,
+    created_at_micros BIGINT      NOT NULL,
+    updated_at_micros BIGINT      NOT NULL,
+    PRIMARY KEY (org_id, object_key)
+);
+CREATE INDEX IF NOT EXISTS idx_object_gc_queue_due
+    ON object_gc_queue(state, not_before_micros);
+CREATE INDEX IF NOT EXISTS idx_artifacts_rebuild
+    ON artifacts(org_id, state, updated_at_micros)
+    WHERE role = 'index' AND state IN ('pending', 'failed');
 
 CREATE TABLE IF NOT EXISTS file_download_tokens (
     token             VARCHAR(64)  PRIMARY KEY,
@@ -720,13 +846,13 @@ CREATE TABLE IF NOT EXISTS field_masking_rules (
     enabled           BOOLEAN      NOT NULL DEFAULT true,
     field_pattern     VARCHAR(255) NOT NULL,
     stream_pattern    VARCHAR(255),
-    stream_type       VARCHAR(16),
+    stream_type       VARCHAR(96),
     algorithm         JSONB        NOT NULL,
     created_at_micros BIGINT       NOT NULL,
     updated_at_micros BIGINT       NOT NULL,
     CONSTRAINT chk_field_masking_priority CHECK (priority >= 0),
     CONSTRAINT chk_field_masking_stream_type
-        CHECK (stream_type IS NULL OR stream_type IN ('logs', 'traces', 'profiles', 'extend'))
+        CHECK (stream_type IS NULL OR stream_type ~ '^[a-z][a-z0-9_-]*(\.[a-z][a-z0-9_-]*)*$')
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_field_masking_rule_org_name
     ON field_masking_rules(org_id, name);
@@ -908,6 +1034,8 @@ CREATE TABLE IF NOT EXISTS rum_replay_events (
     application_id      VARCHAR(128) NOT NULL DEFAULT '',
     session_id          VARCHAR(64)  NOT NULL,
     seq                 INTEGER      NOT NULL,
+    -- v1 = zstd-compressed NDJSON; independent from the object-key layout version.
+    format_version      INTEGER      NOT NULL DEFAULT 1 CHECK (format_version > 0),
     object_key          TEXT         NOT NULL,
     bytes_uncompressed  BIGINT       NOT NULL,
     event_count         INTEGER      NOT NULL,
@@ -1129,7 +1257,7 @@ CREATE INDEX IF NOT EXISTS idx_ai_toolsets_org_updated
 -- ============================================================
 
 CREATE INDEX IF NOT EXISTS gin_streams_name
-    ON streams USING gin (name gin_trgm_ops);
+    ON logical_streams USING gin (name gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS gin_dashboards_title
     ON dashboards USING gin (title gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS gin_saved_views_name
@@ -2475,9 +2603,6 @@ CREATE TRIGGER trg_protect_last_enabled_tenant_organization
 BEFORE UPDATE OF disabled OR DELETE ON organizations
 FOR EACH ROW EXECUTE FUNCTION protect_last_enabled_tenant_organization();
 
-ALTER TABLE streams
-    ADD COLUMN IF NOT EXISTS system BOOLEAN NOT NULL DEFAULT FALSE;
-
 CREATE TABLE IF NOT EXISTS platform_administrators (
     user_id             VARCHAR(64) PRIMARY KEY,
     active              BOOLEAN NOT NULL DEFAULT TRUE,
@@ -2625,9 +2750,9 @@ BEGIN
 END
 $$;
 
-DROP TRIGGER IF EXISTS trg_protect_system_stream ON streams;
+DROP TRIGGER IF EXISTS trg_protect_system_stream ON logical_streams;
 CREATE TRIGGER trg_protect_system_stream
-BEFORE INSERT OR UPDATE OR DELETE ON streams
+BEFORE INSERT OR UPDATE OR DELETE ON logical_streams
 FOR EACH ROW EXECUTE FUNCTION protect_system_stream();
 
 CREATE OR REPLACE FUNCTION reject_license_version_mutation()
@@ -5422,7 +5547,8 @@ CREATE TABLE synthetic_probe_locations (
     CONSTRAINT chk_synthetic_probe_locations_code
         CHECK (code = LOWER(code) AND code ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'),
     CONSTRAINT chk_synthetic_probe_locations_system_managed
-        CHECK (NOT system_managed OR scope = 'platform')
+        CHECK (NOT system_managed OR scope = 'platform'),
+    CONSTRAINT uq_synthetic_probe_locations_org_id UNIQUE (organization_id, id)
 );
 CREATE UNIQUE INDEX uq_synthetic_probe_locations_platform_code
     ON synthetic_probe_locations (code)
@@ -5511,6 +5637,48 @@ CREATE INDEX ix_synthetic_probe_register_tokens_location_expiry
     ON synthetic_probe_register_tokens (location_id, expires_at_micros)
     WHERE used_at_micros IS NULL;
 
+CREATE TABLE synthetic_probe_agent_tokens (
+    id                      VARCHAR(64) PRIMARY KEY,
+    organization_id         VARCHAR(64) NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    location_id             VARCHAR(64) NOT NULL,
+    name                    VARCHAR(128) NOT NULL,
+    token_hash              BYTEA NOT NULL UNIQUE,
+    token_prefix            VARCHAR(32) NOT NULL,
+    status                  VARCHAR(16) NOT NULL DEFAULT 'active',
+    expires_at_micros       BIGINT,
+    last_used_at_micros     BIGINT,
+    created_by              VARCHAR(64) NOT NULL REFERENCES users(id),
+    created_at_micros       BIGINT NOT NULL,
+    rotated_at_micros       BIGINT,
+    disabled_at_micros      BIGINT,
+    updated_at_micros       BIGINT NOT NULL,
+    CONSTRAINT fk_synthetic_probe_agent_tokens_location
+        FOREIGN KEY (organization_id, location_id)
+        REFERENCES synthetic_probe_locations(organization_id, id) ON DELETE CASCADE,
+    CONSTRAINT uq_synthetic_probe_agent_tokens_org_id UNIQUE (organization_id, id),
+    CONSTRAINT chk_synthetic_probe_agent_tokens_status
+        CHECK (status IN ('active', 'disabled')),
+    CONSTRAINT chk_synthetic_probe_agent_tokens_disabled
+        CHECK ((status = 'disabled') = (disabled_at_micros IS NOT NULL)),
+    CONSTRAINT chk_synthetic_probe_agent_tokens_name
+        CHECK (name = BTRIM(name) AND name <> ''),
+    CONSTRAINT chk_synthetic_probe_agent_tokens_hash
+        CHECK (OCTET_LENGTH(token_hash) = 32),
+    CONSTRAINT chk_synthetic_probe_agent_tokens_prefix
+        CHECK (token_prefix ~ '^ms_probe_[A-Za-z0-9_-]{8}$'),
+    CONSTRAINT chk_synthetic_probe_agent_tokens_expiry
+        CHECK (expires_at_micros IS NULL OR expires_at_micros > created_at_micros),
+    CONSTRAINT chk_synthetic_probe_agent_tokens_timestamps
+        CHECK (
+            updated_at_micros >= created_at_micros
+            AND (last_used_at_micros IS NULL OR last_used_at_micros >= created_at_micros)
+            AND (rotated_at_micros IS NULL OR rotated_at_micros >= created_at_micros)
+            AND (disabled_at_micros IS NULL OR disabled_at_micros >= created_at_micros)
+        )
+);
+CREATE INDEX ix_synthetic_probe_agent_tokens_org_status
+    ON synthetic_probe_agent_tokens (organization_id, status, name, id);
+
 CREATE TABLE synthetic_secrets (
     id                      VARCHAR(64) PRIMARY KEY,
     organization_id         VARCHAR(64) NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -5562,11 +5730,11 @@ CREATE TABLE synthetic_monitors (
     archived_at_micros      BIGINT,
     CONSTRAINT uq_synthetic_monitors_org_id UNIQUE (organization_id, id),
     CONSTRAINT chk_synthetic_monitors_kind
-        CHECK (kind IN ('http', 'tcp', 'dns', 'icmp', 'tls', 'grpc', 'browser', 'heartbeat')),
+        CHECK (kind IN ('http', 'tcp', 'ssh', 'dns', 'icmp', 'tls', 'grpc', 'browser', 'heartbeat')),
     CONSTRAINT chk_synthetic_monitors_lifecycle
         CHECK (lifecycle IN ('draft', 'active', 'paused', 'archived')),
     CONSTRAINT chk_synthetic_monitors_state
-        CHECK (state IN ('healthy', 'degraded', 'failing', 'unknown')),
+        CHECK (state IN ('healthy', 'flaky', 'degraded', 'failing', 'unknown')),
     CONSTRAINT chk_synthetic_monitors_archive
         CHECK ((lifecycle = 'archived') = (archived_at_micros IS NOT NULL))
 );
@@ -5591,6 +5759,7 @@ CREATE TABLE synthetic_monitor_revisions (
     location_policy             JSONB NOT NULL,
     escalation_policy_id        VARCHAR(64) REFERENCES escalation_policies(id) ON DELETE SET NULL,
     alert_on_degraded            BOOLEAN NOT NULL DEFAULT FALSE,
+    alert_on_flaky               BOOLEAN NOT NULL DEFAULT FALSE,
     last_test_result_id          VARCHAR(64),
     last_test_passed_at_micros   BIGINT,
     heartbeat_token_hash         BYTEA,
@@ -5711,9 +5880,10 @@ CREATE TABLE synthetic_results (
     CONSTRAINT fk_synthetic_results_revision
         FOREIGN KEY (organization_id, monitor_revision_id)
         REFERENCES synthetic_monitor_revisions(organization_id, id),
+    CONSTRAINT uq_synthetic_results_org_id UNIQUE (organization_id, id),
     CONSTRAINT uq_synthetic_results_task UNIQUE (task_id),
     CONSTRAINT chk_synthetic_results_outcome
-        CHECK (outcome IN ('healthy', 'degraded', 'failing', 'unknown', 'skipped')),
+        CHECK (outcome IN ('healthy', 'flaky', 'degraded', 'failing', 'unknown', 'skipped')),
     CONSTRAINT chk_synthetic_results_window
         CHECK (started_at_micros <= finished_at_micros
                AND finished_at_micros <= received_at_micros),
@@ -5757,10 +5927,10 @@ CREATE TABLE synthetic_monitor_location_states (
         FOREIGN KEY (organization_id, monitor_revision_id)
         REFERENCES synthetic_monitor_revisions(organization_id, id) ON DELETE CASCADE,
     CONSTRAINT chk_synthetic_monitor_location_states_current
-        CHECK (current_state IN ('healthy', 'degraded', 'failing', 'unknown')),
+        CHECK (current_state IN ('healthy', 'flaky', 'degraded', 'failing', 'unknown')),
     CONSTRAINT chk_synthetic_monitor_location_states_candidate
         CHECK (candidate_state IS NULL OR candidate_state IN
-               ('healthy', 'degraded', 'failing', 'unknown')),
+            ('healthy', 'flaky', 'degraded', 'failing', 'unknown')),
     CONSTRAINT chk_synthetic_monitor_location_states_count CHECK (candidate_count >= 0)
 );
 CREATE INDEX ix_synthetic_monitor_location_states_monitor
@@ -5787,9 +5957,9 @@ CREATE TABLE synthetic_state_transitions (
         FOREIGN KEY (organization_id, monitor_revision_id)
         REFERENCES synthetic_monitor_revisions(organization_id, id),
     CONSTRAINT chk_synthetic_state_transitions_previous
-        CHECK (previous_state IN ('healthy', 'degraded', 'failing', 'unknown')),
+        CHECK (previous_state IN ('healthy', 'flaky', 'degraded', 'failing', 'unknown')),
     CONSTRAINT chk_synthetic_state_transitions_current
-        CHECK (current_state IN ('healthy', 'degraded', 'failing', 'unknown')),
+        CHECK (current_state IN ('healthy', 'flaky', 'degraded', 'failing', 'unknown')),
     CONSTRAINT chk_synthetic_state_transitions_change CHECK (previous_state <> current_state),
     CONSTRAINT chk_synthetic_state_transitions_window
         CHECK (ended_at_micros IS NULL OR ended_at_micros >= started_at_micros)
@@ -5803,14 +5973,18 @@ CREATE INDEX ix_synthetic_state_transitions_monitor_time
 CREATE TABLE synthetic_result_artifacts (
     id                      VARCHAR(64) PRIMARY KEY,
     organization_id         VARCHAR(64) NOT NULL,
-    result_id               VARCHAR(64) NOT NULL REFERENCES synthetic_results(id) ON DELETE CASCADE,
+    result_id               VARCHAR(64) NOT NULL,
     kind                    VARCHAR(32) NOT NULL,
+    name                    VARCHAR(128) NOT NULL DEFAULT '',
     object_key              TEXT NOT NULL,
     content_type            VARCHAR(128) NOT NULL,
     content_length          BIGINT NOT NULL,
     sha256                  BYTEA NOT NULL,
     expires_at_micros       BIGINT NOT NULL,
     created_at_micros       BIGINT NOT NULL,
+    CONSTRAINT fk_synthetic_result_artifacts_result
+        FOREIGN KEY (organization_id, result_id)
+        REFERENCES synthetic_results(organization_id, id) ON DELETE CASCADE,
     CONSTRAINT chk_synthetic_result_artifacts_length CHECK (content_length >= 0),
     CONSTRAINT chk_synthetic_result_artifacts_sha CHECK (OCTET_LENGTH(sha256) = 32),
     CONSTRAINT uq_synthetic_result_artifacts_object UNIQUE (object_key)

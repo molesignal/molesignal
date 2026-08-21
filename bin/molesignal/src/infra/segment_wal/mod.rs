@@ -31,9 +31,9 @@ mod writer;
 
 pub use reader::{scan_segment_bytes, scan_segment_file_readonly, scan_segment_max_index};
 pub use types::{
-    FLAG_LZ4_BIT, FsyncPolicy, SegmentScanResult, SegmentWalConfig, StaticTermSource, SyncLevel,
-    TermSource, WAL_HEADER_SIZE, WAL_MAGIC, WAL_VERSION, WalDirScanError, WalEntryType,
-    WalReadonlyScan, WalRecord, sync_dir_parent_of, sync_file,
+    FLAG_LZ4_BIT, FsyncPolicy, SegmentScanResult, SyncLevel, WAL_HEADER_SIZE, WAL_MAGIC,
+    WAL_VERSION, WalDirScanError, WalEntryType, WalReadonlyScan, WalRecord, sync_dir_parent_of,
+    sync_file,
 };
 pub use writer::SegmentWal;
 

@@ -4,6 +4,7 @@
 .git
 .github
 .release-artifacts
+.probe-release-artifacts
 target
 **/target
 dist

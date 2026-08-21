@@ -10,7 +10,10 @@ import { ProductState, type ProductStateProps } from '@/product/states';
 import { ManagementPage } from '@/product/templates';
 import { cn } from '@/shell/lib/cn';
 import { ManagementNav } from '@/shell/ManagementNav';
+import { PageTitleRow } from '@/shell/PageTitleRow';
 import { useIamSidebarStore } from '@/stores/useIamSidebarStore';
+
+import './IamLayout.css';
 
 interface IamSection {
   to: string;
@@ -80,44 +83,32 @@ const CONTENT_WIDTH_CLASS: Record<IamSection['contentWidth'], string> = {
 export function IamLayout() {
   const { t } = useTranslation('iam');
   const { pathname } = useLocation();
-  const access = useProductAccess();
   const sidebarCollapsed = useIamSidebarStore((state) => state.collapsed);
   const toggleSidebar = useIamSidebarStore((state) => state.toggle);
   const iamSections = IAM_GROUPS.flatMap((group) => group.sections);
-  const landingPath =
-    iamSections.find((section) => canAccessProductPath(section.to, access))
-      ?.to ?? '/account/settings/profile';
-  // 子页面包屑：从分组导航推导「身份与访问 > 当前页 + 返回」，与 Settings 子页一致。
-  // users 是 IAM 落地页，自身不加面包屑。
   const current = iamSections.find((s) => s.to === pathname);
-  const crumbs =
-    current && current.to !== landingPath
-      ? [
-          { labelKey: 'iam', label: t('title'), to: landingPath },
-          { labelKey: current.key, label: t(`nav.${current.key}`) },
-        ]
-      : null;
   const contentWidth = current?.contentWidth ?? 'page';
   return (
     <ManagementPage
+      appearance="surface"
       title={t('title')}
       subtitle={t('subtitle') as string}
-      breadcrumbs={crumbs}
-      backTo={crumbs ? landingPath : null}
+      breadcrumbs={null}
+      backTo={null}
       sections={<IamNav onCollapse={toggleSidebar} />}
       sectionNavigation={{
         collapsed: sidebarCollapsed,
         onExpand: toggleSidebar,
         expandLabel: t('nav.expand_navigation'),
       }}
-      headerClassName="gap-2 py-3.5"
-      bodyClassName="mx-auto w-full max-w-[2200px] gap-2 pb-4 pt-2 lg:gap-0"
+      bodyClassName="mx-auto w-full max-w-[2200px] gap-[12px]"
     >
       <div className="min-w-0">
         <div
           data-iam-content-width={contentWidth}
+          data-iam-surface-workspace
           className={cn(
-            'mx-auto w-full min-w-0',
+            'iam-surface-workspace mx-auto w-full min-w-0',
             CONTENT_WIDTH_CLASS[contentWidth],
           )}
         >
@@ -189,28 +180,15 @@ export function IamListPage({
   children?: React.ReactNode | undefined;
 }) {
   return (
-    <section className="min-w-0 bg-bg-0" data-iam-list-page>
-      <header className="flex min-h-12 flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5">
-        <div className="flex min-w-0 flex-1 items-baseline gap-2.5 overflow-hidden">
-          <h2 className="shrink-0 type-section-title font-sans font-display-strong text-tx-0">
-            {title}
-          </h2>
-          {subtitle && (
-            <>
-              <span aria-hidden className="shrink-0 text-tx-3">
-                ·
-              </span>
-              <p className="min-w-0 truncate type-label text-tx-2">
-                {subtitle}
-              </p>
-            </>
-          )}
-        </div>
-        {toolbar && (
-          <div className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2">
-            {toolbar}
-          </div>
-        )}
+    <section className="min-w-0 rounded-md bg-[var(--functional-surface)]" data-iam-list-page>
+      <header className="min-h-12 px-4 py-1.5">
+        <PageTitleRow
+          title={title}
+          description={subtitle}
+          actions={toolbar}
+          level={2}
+          size="section"
+        />
       </header>
       <div className="min-w-0 px-4 pb-4 pt-1">
         {state ? <ProductState {...state} /> : children}

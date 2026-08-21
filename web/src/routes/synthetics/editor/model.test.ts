@@ -70,4 +70,66 @@ describe('synthetics editor model', () => {
     });
     expect(input.location_ids).toEqual([]);
   });
+
+  it('builds an SSH identification check with the standard port', () => {
+    const input = inputFromDraft({
+      ...emptyDraft([]),
+      name: 'Production bastion',
+      kind: 'ssh',
+      host: '{{bastion_host}}',
+      port: '22',
+      sshIdentificationRegex: '^SSH-2\\.0-OpenSSH_',
+      locationIds: ['private-vpc'],
+    });
+
+    expect(input.spec).toEqual({
+      kind: 'ssh',
+      configuration: {
+        host: { source: 'variable', name: 'bastion_host' },
+        port: 22,
+        expected_identification_regex: '^SSH-2\\.0-OpenSSH_',
+      },
+    });
+  });
+
+  it('builds an SSH authentication and command check with Secret values', () => {
+    const input = inputFromDraft({
+      ...emptyDraft([]),
+      name: 'Production bastion command',
+      kind: 'ssh',
+      host: 'bastion.internal',
+      port: '22',
+      sshAuthMode: 'password',
+      sshUsername: 'deploy',
+      sshPassword: '{{API_KEY}}',
+      sshHostKeySha256: `SHA256:${'A'.repeat(43)}`,
+      sshCommand: 'systemctl is-active app',
+      sshOutputRegex: '^active$',
+      sshExitStatus: '0',
+      alertOnFlaky: true,
+      locationIds: ['private-vpc'],
+    }, [SECRET]);
+
+    expect(input.alert_on_flaky).toBe(true);
+    expect(input.spec).toEqual({
+      kind: 'ssh',
+      configuration: {
+        host: { source: 'literal', value: 'bastion.internal' },
+        port: 22,
+        authentication: {
+          kind: 'password',
+          username: { source: 'literal', value: 'deploy' },
+          password: {
+            source: 'secret',
+            reference: 'API_KEY',
+            secret_id: SECRET.id,
+          },
+        },
+        expected_host_key_sha256: `SHA256:${'A'.repeat(43)}`,
+        command: { source: 'literal', value: 'systemctl is-active app' },
+        expected_output_regex: '^active$',
+        expected_exit_status: 0,
+      },
+    });
+  });
 });

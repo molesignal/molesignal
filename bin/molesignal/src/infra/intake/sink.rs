@@ -5,27 +5,22 @@
 //!
 //! 入口语义：
 //! 1. 用 batch 的 `(org, stream_type, stream)` 找 [`StreamDefinition`]（schema 已由
-//!    [`IntakeService`] 演化好）。
+//!    [`IntakeService`] 演化好），再经 [`DatasetResolver`] 解析出物理数据集。
 //! 2. 串行先写 WAL（durable）后写 buffer（内存）：
-//!    - 整批 bincode/JSON 序列化 → [`WalPool::append`]
+//!    - 整批 JSON 序列化 → [`WalPool::append`]（按 dataset 键入独立 WAL，
+//!      sequence 由 WAL 分配返回）
 //!    - 逐条 [`BufferPool::push`]，并把高水位 `seq` 记入 buffer
 //! 3. 返 `IntakeResult { accepted, rejected: 0, errors: [] }`。
-//!
-//! seq 编号：全局 `AtomicU64`，每条 batch 自增一次，整 batch 共享同一个 seq（足以让
-//! FlushScheduler 在 truncate WAL 时识别已落 parquet 的 segments）。
 
-use std::sync::{
-    Arc,
-    atomic::{AtomicU64, Ordering},
-};
+use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use super::{BufferPool, WalPool};
+use super::{BufferPool, BufferWriter, DatasetResolver, WalPool, physical_schema};
 use crate::{
     domain::{
         intake::{IntakeBatch, IntakeResult, IntakeSink},
-        storage::PhysicalDatasetKind,
+        storage::{DatasetTypeId, WriterNodeId},
         stream::StreamRepository,
     },
     infra::cipher::FieldKeyService,
@@ -36,9 +31,9 @@ pub struct DurableIntakeSink {
     wal: Arc<WalPool>,
     buffer: Arc<BufferPool>,
     streams: Arc<dyn StreamRepository>,
+    datasets: Arc<DatasetResolver>,
     /// 字段加密 DEK 服务；`None` 时不解析 DEK（无加密字段的流不受影响）。
     field_keys: Option<Arc<FieldKeyService>>,
-    seq: AtomicU64,
 }
 
 impl DurableIntakeSink {
@@ -46,13 +41,14 @@ impl DurableIntakeSink {
         wal: Arc<WalPool>,
         buffer: Arc<BufferPool>,
         streams: Arc<dyn StreamRepository>,
+        datasets: Arc<DatasetResolver>,
     ) -> Self {
         Self {
             wal,
             buffer,
             streams,
+            datasets,
             field_keys: None,
-            seq: AtomicU64::new(1),
         }
     }
 
@@ -70,14 +66,9 @@ impl DurableIntakeSink {
         &self.buffer
     }
 
-    fn next_seq(&self) -> u64 {
-        // 只要求每批拿到互不相同的递增值，不用它给别的内存操作定序。
-        self.seq.fetch_add(1, Ordering::Relaxed)
-    }
-
     async fn write_inner(
         &self,
-        dataset_kind: PhysicalDatasetKind,
+        dataset_type: DatasetTypeId,
         batch: IntakeBatch,
     ) -> Result<IntakeResult> {
         if batch.events.is_empty() {
@@ -106,38 +97,41 @@ impl DurableIntakeSink {
             None
         };
 
-        let seq = self.next_seq();
+        let resolved = self.datasets.resolve(&stream, dataset_type.clone()).await?;
         let payload = serde_json::to_vec(&batch)
             .map_err(|e| Error::internal(format!("intake serialize: {e}")))?;
         let reservation = self.buffer.try_reserve(stream.stream_type, payload.len())?;
-        let key = (
-            stream.org_id.clone(),
-            stream.stream_type,
-            stream.name.clone(),
-            dataset_kind,
-        );
-        self.wal
-            .append(&key, payload, seq)
+        let buffer = self
+            .buffer
+            .get_or_create_dataset(&stream, resolved.clone())?;
+
+        // This mutex is the per-dataset ordering discipline shared with flush rotation. Holding it
+        // across append + push closes the historical window where a flush high-watermark could
+        // cover a WAL record that had not entered the memory buffer yet.
+        let mut guard = buffer.records().lock().await;
+        guard.sync_schema(&physical_schema::project(&stream, &dataset_type));
+        let position = self
+            .wal
+            .append_position(&resolved.wal_identity(), payload)
             .await
             .map_err(|e| Error::internal(format!("wal append: {e}")))?;
-
-        let buffer_handle = self.buffer.get_or_create_dataset(&stream, dataset_kind);
-        let mut guard = buffer_handle.lock().await;
         if let Some(dek) = field_dek {
             guard.set_field_key(dek);
         }
         guard.add_accounted_bytes(reservation.commit());
         let accepted = batch.events.len();
+        let writer =
+            BufferWriter::new(WriterNodeId::new(self.wal.node_id()), position.writer_epoch);
         let buffer_span = tracing::info_span!(
             "intake.buffer",
             otel.kind = "internal",
             molesignal.intake.event_count = accepted,
-            molesignal.dataset.kind = dataset_kind.as_str()
+            molesignal.dataset.type = resolved.dataset.dataset_type.as_str()
         );
         buffer_span.in_scope(|| {
             for event in &batch.events {
                 guard
-                    .push(event, seq)
+                    .push_with_position(event, &writer, position.sequence)
                     .map_err(|e| Error::internal(format!("buffer push: {e}")))?;
             }
             Ok::<(), Error>(())
@@ -157,6 +151,13 @@ impl IntakeSink for DurableIntakeSink {
         true
     }
 
+    fn primary_dataset_type(
+        &self,
+        stream_type: crate::domain::stream::StreamType,
+    ) -> Result<DatasetTypeId> {
+        self.datasets.primary_dataset_type(stream_type)
+    }
+
     #[tracing::instrument(
         name = "intake.persist",
         skip_all,
@@ -167,15 +168,16 @@ impl IntakeSink for DurableIntakeSink {
         )
     )]
     async fn write(&self, batch: IntakeBatch) -> Result<IntakeResult> {
-        self.write_inner(PhysicalDatasetKind::Raw, batch).await
+        self.write_inner(self.primary_dataset_type(batch.stream_type)?, batch)
+            .await
     }
 
     async fn write_dataset(
         &self,
-        dataset_kind: PhysicalDatasetKind,
+        dataset_type: DatasetTypeId,
         batch: IntakeBatch,
     ) -> Result<IntakeResult> {
-        self.write_inner(dataset_kind, batch).await
+        self.write_inner(dataset_type, batch).await
     }
 }
 
@@ -183,6 +185,7 @@ impl IntakeSink for DurableIntakeSink {
 mod tests {
     use std::{collections::HashMap, sync::Mutex as StdMutex};
 
+    use arrow::array::Array;
     use async_trait::async_trait;
     use serde_json::json;
     use tempfile::tempdir;
@@ -191,9 +194,10 @@ mod tests {
     use crate::{
         domain::{
             intake::RawEvent,
+            storage::primary_dataset_type,
             stream::{FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamType},
         },
-        infra::intake::{BufferPool, WalPool},
+        infra::intake::{BufferPool, WalPool, dataset_resolver::test_support::test_resolver},
         shared::{ids::Id, time::TimestampMicros},
     };
 
@@ -229,9 +233,15 @@ mod tests {
         }
         async fn update_schema(
             &self,
-            _id: &Id,
-            _schema: crate::domain::stream::Schema,
+            id: &Id,
+            schema: crate::domain::stream::Schema,
         ) -> Result<()> {
+            let mut streams = self.inner.lock().unwrap();
+            let stream = streams
+                .values_mut()
+                .find(|stream| stream.id == *id)
+                .ok_or_else(|| Error::not_found(format!("stream {id}")))?;
+            stream.schema = schema;
             Ok(())
         }
         async fn get(
@@ -260,7 +270,7 @@ mod tests {
             id: Id::new(),
             org_id: Id::from_string("org-a"),
             name: "app".into(),
-            stream_type: StreamType::Logs,
+            stream_type: StreamType::LOGS,
             schema: Schema {
                 fields: vec![FieldDef {
                     name: "level".into(),
@@ -292,14 +302,15 @@ mod tests {
         let tmp = tempdir().unwrap();
         let wal = Arc::new(WalPool::new(
             tmp.path(),
+            "node-test",
             64 * 1024,
             crate::infra::segment_wal::FsyncPolicy::none_default(),
-            Arc::new(crate::infra::segment_wal::StaticTermSource(1)),
         ));
         let buffer = Arc::new(BufferPool::new());
         let stream = sample_stream();
         let streams = InMemStreamRepo::with(stream.clone());
-        let sink = DurableIntakeSink::new(wal.clone(), buffer.clone(), streams);
+        let resolver = test_resolver();
+        let sink = DurableIntakeSink::new(wal.clone(), buffer.clone(), streams, resolver.clone());
 
         let batch = IntakeBatch {
             batch_id: Id::new(),
@@ -314,7 +325,12 @@ mod tests {
         assert_eq!(res.rejected, 0);
 
         // buffer 持有 2 行 + high_watermark_seq == 1（首批 seq=1）
-        let buf = buffer.get_or_create(&stream).lock_owned().await;
+        let dataset = resolver
+            .resolve(&stream, primary_dataset_type(stream.stream_type).unwrap())
+            .await
+            .unwrap();
+        let dataset_buffer = buffer.get_or_create_dataset(&stream, dataset).unwrap();
+        let buf = dataset_buffer.records().lock().await;
         assert_eq!(buf.row_count(), 2);
         assert_eq!(buf.high_watermark_seq(), 1);
         assert_eq!(buf.accounted_size_bytes(), buffer.reserved_bytes());
@@ -326,14 +342,15 @@ mod tests {
         let tmp = tempdir().unwrap();
         let wal = Arc::new(WalPool::new(
             tmp.path(),
+            "node-test",
             64 * 1024,
             crate::infra::segment_wal::FsyncPolicy::none_default(),
-            Arc::new(crate::infra::segment_wal::StaticTermSource(1)),
         ));
         let buffer = Arc::new(BufferPool::new());
         let stream = sample_stream();
         let streams = InMemStreamRepo::with(stream.clone());
-        let sink = DurableIntakeSink::new(wal.clone(), buffer.clone(), streams);
+        let resolver = test_resolver();
+        let sink = DurableIntakeSink::new(wal.clone(), buffer.clone(), streams, resolver.clone());
 
         for i in 0..3 {
             let batch = IntakeBatch {
@@ -346,9 +363,88 @@ mod tests {
             };
             sink.write(batch).await.unwrap();
         }
-        let buf = buffer.get_or_create(&stream).lock_owned().await;
+        let dataset = resolver
+            .resolve(&stream, primary_dataset_type(stream.stream_type).unwrap())
+            .await
+            .unwrap();
+        let dataset_buffer = buffer.get_or_create_dataset(&stream, dataset).unwrap();
+        let buf = dataset_buffer.records().lock().await;
         assert_eq!(buf.row_count(), 3);
         assert_eq!(buf.high_watermark_seq(), 3, "third batch carries seq=3");
+    }
+
+    #[tokio::test]
+    async fn existing_dataset_buffer_tracks_stream_schema_evolution() {
+        let tmp = tempdir().unwrap();
+        let wal = Arc::new(WalPool::new(
+            tmp.path(),
+            "node-test",
+            64 * 1024,
+            crate::infra::segment_wal::FsyncPolicy::none_default(),
+        ));
+        let buffer = Arc::new(BufferPool::new());
+        let stream = sample_stream();
+        let streams = InMemStreamRepo::with(stream.clone());
+        let resolver = test_resolver();
+        let sink = DurableIntakeSink::new(wal, buffer.clone(), streams.clone(), resolver.clone());
+
+        sink.write(IntakeBatch {
+            batch_id: Id::new(),
+            org_id: stream.org_id.clone(),
+            stream: stream.name.clone(),
+            stream_type: stream.stream_type,
+            events: vec![raw(1_000_000, "before")],
+            received_at: TimestampMicros::now(),
+        })
+        .await
+        .unwrap();
+
+        let mut evolved = stream.clone();
+        evolved.schema.fields.push(FieldDef {
+            name: "user_id".into(),
+            data_type: FieldType::Utf8,
+            nullable: true,
+            index_type: None,
+            indexed: false,
+            encrypted: false,
+            exact: false,
+        });
+        streams
+            .update_schema(&stream.id, evolved.schema.clone())
+            .await
+            .unwrap();
+        let mut fields = serde_json::Map::new();
+        fields.insert("level".into(), json!("after"));
+        fields.insert("user_id".into(), json!("user-1"));
+        sink.write(IntakeBatch {
+            batch_id: Id::new(),
+            org_id: stream.org_id.clone(),
+            stream: stream.name.clone(),
+            stream_type: stream.stream_type,
+            events: vec![RawEvent {
+                timestamp: TimestampMicros(2_000_000),
+                fields,
+            }],
+            received_at: TimestampMicros::now(),
+        })
+        .await
+        .unwrap();
+
+        let dataset = resolver
+            .resolve(&evolved, primary_dataset_type(evolved.stream_type).unwrap())
+            .await
+            .unwrap();
+        let snapshots = buffer.snapshot_dataset(&dataset.dataset.id).await.unwrap();
+        assert_eq!(snapshots.len(), 1);
+        let users = snapshots[0]
+            .batch
+            .column_by_name("user_id")
+            .unwrap()
+            .as_any()
+            .downcast_ref::<arrow::array::StringArray>()
+            .unwrap();
+        assert!(users.is_null(0));
+        assert_eq!(users.value(1), "user-1");
     }
 
     #[tokio::test]
@@ -356,14 +452,14 @@ mod tests {
         let tmp = tempdir().unwrap();
         let wal = Arc::new(WalPool::new(
             tmp.path(),
+            "node-test",
             64 * 1024,
             crate::infra::segment_wal::FsyncPolicy::none_default(),
-            Arc::new(crate::infra::segment_wal::StaticTermSource(1)),
         ));
         let buffer = Arc::new(BufferPool::with_memory_limit_bytes(1));
         let stream = sample_stream();
         let streams = InMemStreamRepo::with(stream.clone());
-        let sink = DurableIntakeSink::new(wal.clone(), buffer.clone(), streams);
+        let sink = DurableIntakeSink::new(wal.clone(), buffer.clone(), streams, test_resolver());
         let batch = IntakeBatch {
             batch_id: Id::new(),
             org_id: stream.org_id.clone(),
@@ -377,6 +473,6 @@ mod tests {
         assert!(error.to_string().contains("buffer memory limit"));
         assert_eq!(buffer.reserved_bytes(), 0);
         assert!(buffer.snapshot_keys().is_empty());
-        assert!(wal.recover().unwrap().is_empty());
+        assert!(wal.recovery_sources().unwrap().is_empty());
     }
 }

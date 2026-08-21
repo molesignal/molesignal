@@ -18,10 +18,13 @@ use object_store::ObjectStore;
 
 use crate::{
     domain::{
-        storage::{ParquetFileMetaRepository, PhysicalDatasetKind},
+        storage::{DatasetTypeId, QueryFileSource, type_id::builtin},
         stream::StreamType,
     },
-    infra::storage::parquet::reader::{ParquetReader, ReadOptions},
+    infra::{
+        query::catalog_source::CatalogQuerySource,
+        storage::parquet::reader::{ParquetReader, ReadOptions},
+    },
     shared::{
         Error, Result,
         ids::Id,
@@ -65,19 +68,23 @@ pub struct TraceSummaryQuery<'a> {
 }
 
 pub struct TraceSummaryReader {
-    files: Arc<dyn ParquetFileMetaRepository>,
+    files: Arc<dyn QueryFileSource>,
     object_store: Arc<dyn ObjectStore>,
+    catalog_source: Option<Arc<CatalogQuerySource>>,
 }
 
 impl TraceSummaryReader {
-    pub fn new(
-        files: Arc<dyn ParquetFileMetaRepository>,
-        object_store: Arc<dyn ObjectStore>,
-    ) -> Self {
+    pub fn new(files: Arc<dyn QueryFileSource>, object_store: Arc<dyn ObjectStore>) -> Self {
         Self {
             files,
             object_store,
+            catalog_source: None,
         }
+    }
+
+    pub fn with_catalog_source(mut self, source: Arc<CatalogQuerySource>) -> Self {
+        self.catalog_source = Some(source);
+        self
     }
 
     /// 从独立 `trace_summary` 数据集读取，不回退扫描原始 Span。
@@ -98,16 +105,35 @@ impl TraceSummaryReader {
         if limit == 0 || trace_ids.is_some_and(HashSet::is_empty) {
             return Ok(Vec::new());
         }
-        let mut files = self
-            .files
-            .find_dataset(
-                org_id,
-                stream,
-                StreamType::Traces,
-                PhysicalDatasetKind::TraceSummary,
-                range,
-            )
-            .await?;
+        let summary_type = DatasetTypeId::builtin(builtin::DATASET_TRACE_SUMMARY);
+        let (mut files, buffered_batches) = match &self.catalog_source {
+            Some(source) => {
+                let snapshot = source
+                    .snapshot_by_name(
+                        org_id,
+                        stream,
+                        StreamType::TRACES,
+                        std::slice::from_ref(&summary_type),
+                        range,
+                    )
+                    .await?;
+                let dataset = snapshot.dataset(&summary_type);
+                (
+                    dataset
+                        .map(|dataset| dataset.files.clone())
+                        .unwrap_or_default(),
+                    dataset
+                        .map(|dataset| dataset.buffered_batches.clone())
+                        .unwrap_or_default(),
+                )
+            }
+            None => (
+                self.files
+                    .find_dataset(org_id, stream, StreamType::TRACES, summary_type, range)
+                    .await?,
+                Vec::new(),
+            ),
+        };
         files.sort_by(|left, right| match order {
             SummaryOrder::Latest => right
                 .time_range
@@ -136,6 +162,24 @@ impl TraceSummaryReader {
         let mut rows = Vec::with_capacity(limit.min(trace_ids.map_or(limit, HashSet::len)));
         let mut found = HashSet::new();
 
+        for batch in &buffered_batches {
+            if append_batch(
+                batch,
+                trace_ids,
+                require_contained,
+                order,
+                limit,
+                from_ns,
+                to_ns,
+                &mut rows,
+                &mut found,
+            ) {
+                rows.sort_by(|left, right| compare(left, right, order));
+                rows.truncate(limit);
+                return Ok(rows);
+            }
+        }
+
         'files: while let Some(file) = files.pop_front() {
             let options = ReadOptions::new()
                 .with_time_range(range.start.0, range.end.0)
@@ -154,46 +198,18 @@ impl TraceSummaryReader {
             };
             while let Some(batch) = batches.next().await {
                 let batch = batch?;
-                for row in 0..batch.num_rows() {
-                    let Some(trace_id) = string_at(&batch, "trace_id", row) else {
-                        continue;
-                    };
-                    if let Some(ids) = trace_ids
-                        && (!ids.contains(trace_id) || !found.insert(trace_id.to_string()))
-                    {
-                        continue;
-                    }
-                    let start_ns =
-                        integer_at(&batch, TRACE_SUMMARY_START_NS_FIELD, row).unwrap_or_default();
-                    let duration_ns = integer_at(&batch, TRACE_SUMMARY_DURATION_NS_FIELD, row)
-                        .unwrap_or_default()
-                        .max(0);
-                    if start_ns < from_ns
-                        || start_ns >= to_ns
-                        || (require_contained && start_ns.saturating_add(duration_ns) > to_ns)
-                    {
-                        found.remove(trace_id);
-                        continue;
-                    }
-                    let candidate = TraceSummaryRecord {
-                        trace_id: trace_id.to_string(),
-                        service: string_at(&batch, "service.name", row)
-                            .filter(|value| !value.is_empty())
-                            .map(str::to_string),
-                        start_ns,
-                        duration_ns,
-                        span_count: integer_at(&batch, TRACE_SUMMARY_SPAN_COUNT_FIELD, row)
-                            .unwrap_or_default()
-                            .max(0) as u64,
-                    };
-                    if trace_ids.is_some() {
-                        rows.push(candidate);
-                    } else {
-                        push_top_k(&mut rows, candidate, limit, order);
-                    }
-                    if trace_ids.is_some_and(|ids| found.len() == ids.len()) {
-                        break 'files;
-                    }
+                if append_batch(
+                    &batch,
+                    trace_ids,
+                    require_contained,
+                    order,
+                    limit,
+                    from_ns,
+                    to_ns,
+                    &mut rows,
+                    &mut found,
+                ) {
+                    break 'files;
                 }
             }
             if trace_ids.is_none()
@@ -210,6 +226,61 @@ impl TraceSummaryReader {
         rows.truncate(limit);
         Ok(rows)
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn append_batch(
+    batch: &RecordBatch,
+    trace_ids: Option<&HashSet<String>>,
+    require_contained: bool,
+    order: SummaryOrder,
+    limit: usize,
+    from_ns: i64,
+    to_ns: i64,
+    rows: &mut Vec<TraceSummaryRecord>,
+    found: &mut HashSet<String>,
+) -> bool {
+    for row in 0..batch.num_rows() {
+        let Some(trace_id) = string_at(batch, "trace_id", row) else {
+            continue;
+        };
+        if let Some(ids) = trace_ids
+            && (!ids.contains(trace_id) || !found.insert(trace_id.to_string()))
+        {
+            continue;
+        }
+        let start_ns = integer_at(batch, TRACE_SUMMARY_START_NS_FIELD, row).unwrap_or_default();
+        let duration_ns = integer_at(batch, TRACE_SUMMARY_DURATION_NS_FIELD, row)
+            .unwrap_or_default()
+            .max(0);
+        if start_ns < from_ns
+            || start_ns >= to_ns
+            || (require_contained && start_ns.saturating_add(duration_ns) > to_ns)
+        {
+            found.remove(trace_id);
+            continue;
+        }
+        let candidate = TraceSummaryRecord {
+            trace_id: trace_id.to_string(),
+            service: string_at(batch, "service.name", row)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string),
+            start_ns,
+            duration_ns,
+            span_count: integer_at(batch, TRACE_SUMMARY_SPAN_COUNT_FIELD, row)
+                .unwrap_or_default()
+                .max(0) as u64,
+        };
+        if trace_ids.is_some() {
+            rows.push(candidate);
+        } else {
+            push_top_k(rows, candidate, limit, order);
+        }
+        if trace_ids.is_some_and(|ids| found.len() == ids.len()) {
+            return true;
+        }
+    }
+    false
 }
 
 fn compare(left: &TraceSummaryRecord, right: &TraceSummaryRecord, order: SummaryOrder) -> Ordering {
@@ -256,7 +327,7 @@ fn push_top_k(
 }
 
 fn file_cannot_beat(
-    file: &crate::domain::storage::ParquetFileMeta,
+    file: &crate::domain::storage::QueryFile,
     rows: &[TraceSummaryRecord],
     order: SummaryOrder,
 ) -> bool {

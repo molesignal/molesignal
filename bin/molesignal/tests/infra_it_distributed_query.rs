@@ -8,6 +8,8 @@
 //! - 写 6 个 parquet → DistributedDataFusionEngine.execute SELECT count(*)
 //! - 验：scanned_rows = 6 个 parquet 全部行数；count 正确
 
+mod common;
+
 use std::{
     collections::HashMap,
     net::SocketAddr,
@@ -20,11 +22,12 @@ use arrow::{
     datatypes::{DataType, Field, Schema as ArrowSchema, TimeUnit},
 };
 use async_trait::async_trait;
+use common::write_parquet_fixture;
 use molesignal::{
     app::cluster::{ClusterRegistry, PeerInfo, PeerRole},
     domain::{
         query::{QueryEngine, QueryLanguage, QueryRequest, StreamHint},
-        storage::{ParquetFileMeta, ParquetFileMetaRepository},
+        storage::{QueryFile, QueryFileSource},
         stream::{FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamType},
     },
     infra::{
@@ -32,7 +35,7 @@ use molesignal::{
         search::datafusion_engine::DataFusionEngine, storage::parquet::writer::ParquetWriter,
     },
     shared::{
-        Error, Result,
+        Result,
         ids::Id,
         time::{TimeRange, TimestampMicros},
     },
@@ -42,32 +45,33 @@ use tokio::net::TcpListener;
 use tokio_stream::wrappers::TcpListenerStream;
 use tonic::transport::Server;
 
-// ---- in-mem ParquetFileMetaRepository ----
+// ---- in-mem QueryFileSource ----
 #[derive(Default)]
-struct InMemParquetFileMeta {
-    inner: StdMutex<HashMap<String, ParquetFileMeta>>,
+struct InMemQueryFile {
+    inner: StdMutex<HashMap<String, QueryFile>>,
 }
-#[async_trait]
-impl ParquetFileMetaRepository for InMemParquetFileMeta {
-    async fn insert(&self, file: ParquetFileMeta) -> Result<()> {
+impl InMemQueryFile {
+    async fn insert(&self, file: QueryFile) -> Result<()> {
         self.inner.lock().unwrap().insert(file.id.0.clone(), file);
         Ok(())
     }
+}
+#[async_trait]
+impl QueryFileSource for InMemQueryFile {
     async fn find(
         &self,
         org: &Id,
         stream: &str,
         st: StreamType,
         range: TimeRange,
-    ) -> Result<Vec<ParquetFileMeta>> {
+    ) -> Result<Vec<QueryFile>> {
         Ok(self
             .inner
             .lock()
             .unwrap()
             .values()
             .filter(|f| {
-                !f.deleted
-                    && &f.org_id == org
+                &f.org_id == org
                     && f.stream == stream
                     && f.stream_type == st
                     && f.time_range.end.0 >= range.start.0
@@ -75,12 +79,6 @@ impl ParquetFileMetaRepository for InMemParquetFileMeta {
             })
             .cloned()
             .collect())
-    }
-    async fn replace(&self, _: &[Id], _: Vec<ParquetFileMeta>) -> Result<()> {
-        Err(Error::internal("not supported"))
-    }
-    async fn mark_deleted(&self, _: &[Id]) -> Result<usize> {
-        Err(Error::internal("not supported"))
     }
 }
 
@@ -111,7 +109,7 @@ fn stream_named(name: &str) -> StreamDefinition {
         id: Id::new(),
         org_id: Id::from_string("orga"),
         name: name.into(),
-        stream_type: StreamType::Logs,
+        stream_type: StreamType::LOGS,
         schema: Schema {
             fields: vec![FieldDef {
                 name: "n".into(),
@@ -183,13 +181,13 @@ async fn distributed_count_star(stream_name: &str, from_clause: &str) -> (u64, i
     let store: Arc<dyn ObjectStore> =
         Arc::new(LocalFileSystem::new_with_prefix(tmp.path()).unwrap());
     let writer = ParquetWriter::new(store.clone());
-    let repo: Arc<InMemParquetFileMeta> = Arc::new(InMemParquetFileMeta::default());
+    let repo: Arc<InMemQueryFile> = Arc::new(InMemQueryFile::default());
     let stream = stream_named(stream_name);
 
     // 6 个 parquet，每个 10 行
     for i in 0..6 {
         let b = batch(1_000_000 + i * 10_000, &(0..10).collect::<Vec<i64>>());
-        let m = writer.flush(&stream, b).await.unwrap();
+        let m = write_parquet_fixture(&writer, &stream, b).await;
         repo.insert(m).await.unwrap();
     }
 
@@ -217,13 +215,13 @@ async fn distributed_count_star(stream_name: &str, from_clause: &str) -> (u64, i
         addr: local_addr.to_string(),
     });
     let local = Arc::new(DataFusionEngine::new(
-        repo.clone() as Arc<dyn ParquetFileMetaRepository>,
+        repo.clone() as Arc<dyn QueryFileSource>,
         store.clone(),
     ));
     let dist = DistributedDataFusionEngine::new(
         local,
         registry,
-        repo.clone() as Arc<dyn ParquetFileMetaRepository>,
+        repo.clone() as Arc<dyn QueryFileSource>,
         store.clone(),
     );
 
@@ -234,7 +232,7 @@ async fn distributed_count_star(stream_name: &str, from_clause: &str) -> (u64, i
         time_range: TimeRange::new(TimestampMicros(0), TimestampMicros(i64::MAX)),
         stream: Some(StreamHint {
             name: stream_name.into(),
-            stream_type: StreamType::Logs,
+            stream_type: StreamType::LOGS,
         }),
         limit: None,
         federation_clusters: Vec::new(),

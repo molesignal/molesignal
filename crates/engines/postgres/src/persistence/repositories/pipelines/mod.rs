@@ -55,8 +55,10 @@ fn row_to(r: sqlx::postgres::PgRow) -> Result<Pipeline> {
     let mut parts = target.splitn(3, ':');
     let _org = parts.next().unwrap_or_default();
     let stream_name = parts.next().unwrap_or_default().to_string();
-    let st_str = parts.next().unwrap_or("logs");
-    let st = stream_type_from_str(st_str).unwrap_or(StreamType::Logs);
+    let st_str = parts
+        .next()
+        .ok_or_else(|| Error::internal("pipeline target is missing stream type"))?;
+    let st = stream_type_from_str(st_str)?;
     Ok(Pipeline {
         id: Id(r.try_get::<String, _>("id").unwrap_or_default()),
         org_id: Id(r.try_get::<String, _>("org_id").unwrap_or_default()),

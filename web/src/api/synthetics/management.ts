@@ -8,6 +8,8 @@ import type {
   MonitorDetail,
   MonitorRevision,
   ProbeAgent,
+  ProbeAgentToken,
+  ProbeAgentTokenInstructions,
   ProbeRegisterInstructions,
   ProbeLocation,
   ProbeOutcome,
@@ -110,6 +112,17 @@ export async function listResultPage(options: {
   return data;
 }
 
+export async function getResultArtifact(
+  resultId: string,
+  artifactId: string,
+): Promise<Blob> {
+  const { data } = await http.get<Blob>(
+    `/synthetics/results/${encodeURIComponent(resultId)}/artifacts/${encodeURIComponent(artifactId)}`,
+    { responseType: 'blob' },
+  );
+  return data;
+}
+
 export async function listLocations(): Promise<ProbeLocation[]> {
   const { data } = await http.get<ProbeLocation[]>('/synthetics/locations');
   return data;
@@ -173,6 +186,41 @@ export async function updateAgentConfiguration(
   const { data } = await http.put<ProbeAgent>(
     `/synthetics/agents/${encodeURIComponent(agentId)}/configuration`,
     input,
+  );
+  return data;
+}
+
+export async function listAgentTokens(): Promise<ProbeAgentToken[]> {
+  const { data } = await http.get<ProbeAgentToken[]>('/synthetics/agent-tokens');
+  return data;
+}
+
+export async function createAgentToken(input: {
+  name: string;
+  location_id: string;
+  expires_in_days: number;
+}): Promise<ProbeAgentTokenInstructions> {
+  const { data } = await http.post<ProbeAgentTokenInstructions>(
+    '/synthetics/agent-tokens',
+    input,
+  );
+  return data;
+}
+
+export async function rotateAgentToken(
+  tokenId: string,
+  expiresInDays: number,
+): Promise<ProbeAgentTokenInstructions> {
+  const { data } = await http.post<ProbeAgentTokenInstructions>(
+    `/synthetics/agent-tokens/${encodeURIComponent(tokenId)}/rotate`,
+    { expires_in_days: expiresInDays },
+  );
+  return data;
+}
+
+export async function disableAgentToken(tokenId: string): Promise<ProbeAgentToken> {
+  const { data } = await http.post<ProbeAgentToken>(
+    `/synthetics/agent-tokens/${encodeURIComponent(tokenId)}/disable`,
   );
   return data;
 }

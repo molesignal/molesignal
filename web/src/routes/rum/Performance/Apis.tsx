@@ -11,7 +11,7 @@ import { useAuthStore } from '@/stores/auth';
 import { useTimeStore, formatWindowSummary } from '@/stores/useTimeStore';
 
 import { windowToMicros } from '../_helpers';
-import { RumListPage } from '../RumLayout';
+import { RumListPage, RumSurface } from '../RumLayout';
 
 export function Apis() {
   const { t } = useTranslation('rum');
@@ -35,14 +35,15 @@ export function Apis() {
   return (
     <RumListPage
       title={t('performance.apis')}
-      toolbar={<TimeRangeChip value={formatWindowSummary(window)} />}
+      toolbar={<TimeRangeChip value={formatWindowSummary(window)} className="border-0" />}
       performance
       state={pageState}
     >
-      <DataTable
-        rows={rows}
-        rowKey={(r) => r.url}
-        columns={[
+      <RumSurface className="overflow-hidden p-4">
+        <DataTable
+          rows={rows}
+          rowKey={(r) => r.url}
+          columns={[
           { key: 'url', header: t('performance.columns.url'), cell: (r) => r.url },
           { key: 'count', header: t('performance.columns.count'), cell: (r) => r.count, width: 90 },
           { key: 'p50', header: t('performance.columns.p50'), cell: (r) => Math.round(r.p50_ms), width: 90 },
@@ -60,8 +61,9 @@ export function Apis() {
             },
             width: 100,
           },
-        ]}
-      />
+          ]}
+        />
+      </RumSurface>
     </RumListPage>
   );
 }

@@ -6,7 +6,16 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { KpiStrip, type KpiStripItem } from '@/admin';
 import { ProductState, type ProductStateProps } from '@/product/states';
 import { cn } from '@/shell/lib/cn';
-import { PageBody, PageHeader } from '@/shell/PageHeader';
+import {
+  surfaceModuleNavigationActiveClass,
+  surfaceModuleNavigationClass,
+  surfaceModuleNavigationItemClass,
+  surfaceModuleNavigationRowClass,
+  surfacePanelClass,
+  surfacePageRootClass,
+  SurfacePageBody,
+  SurfacePageHeader,
+} from '@/shell/SurfaceWorkbench';
 import {
   Select,
   SelectContent,
@@ -54,7 +63,7 @@ export function RumTabs() {
   return (
     <nav
       aria-label={t('title')}
-      className="flex min-h-11 items-end gap-6 overflow-x-auto"
+      className={surfaceModuleNavigationRowClass}
     >
       {TABS.map((tab) => {
         const sectionActive =
@@ -66,8 +75,8 @@ export function RumTabs() {
             to={`${basePath}${tab.suffix}`}
             className={({ isActive }) =>
               cn(
-                'relative inline-flex h-11 shrink-0 items-center border-b-2 border-transparent px-0.5 font-sans text-sm font-strong text-tx-2 outline-none transition-colors duration-fast hover:bg-bg-2 hover:text-tx-0 focus-visible:bg-bg-2 focus-visible:text-tx-0',
-                (isActive || sectionActive) && 'border-indigo text-tx-0',
+                surfaceModuleNavigationItemClass,
+                (isActive || sectionActive) && surfaceModuleNavigationActiveClass,
               )
             }
           >
@@ -80,9 +89,10 @@ export function RumTabs() {
         aria-label={t('settings.title')}
         className={({ isActive }) =>
           cn(
-            'ml-auto inline-flex h-11 shrink-0 items-center gap-1.5 border-b-2 border-transparent px-0.5 text-xs font-strong text-tx-2 transition-colors hover:bg-bg-2 hover:text-tx-0 focus-visible:bg-bg-2 focus-visible:text-tx-0',
+            surfaceModuleNavigationItemClass,
+            'ml-auto gap-1.5 text-xs',
             (isActive || location.pathname.startsWith(`${basePath}/settings/`)) &&
-              'border-indigo text-tx-0',
+              surfaceModuleNavigationActiveClass,
           )
         }
       >
@@ -98,8 +108,9 @@ export function PerformanceTabs() {
   const basePath = useRumBasePath();
   return (
     <nav
+      data-rum-subnavigation="performance"
       aria-label={t('nav.performance')}
-      className="flex min-h-10 items-end gap-5 overflow-x-auto"
+      className="flex min-h-11 items-end gap-5 overflow-x-auto"
     >
       {PERFORMANCE_TABS.map((tab) => (
         <NavLink
@@ -107,7 +118,7 @@ export function PerformanceTabs() {
           to={`${basePath}${tab.suffix}`}
           className={({ isActive }) =>
             cn(
-              'inline-flex h-10 shrink-0 items-center border-b-2 border-transparent px-0.5 font-sans text-xs font-strong text-tx-2 outline-none transition-colors duration-fast hover:bg-bg-2 hover:text-tx-0 focus-visible:bg-bg-2 focus-visible:text-tx-0',
+              'inline-flex h-11 shrink-0 items-center border-b-[3px] border-transparent px-0.5 font-sans text-xs font-strong text-tx-2 outline-none transition-colors duration-fast hover:bg-bg-2 hover:text-tx-0 focus-visible:bg-bg-2 focus-visible:text-tx-0',
               isActive && 'border-indigo text-indigo-soft',
             )
           }
@@ -124,8 +135,9 @@ export function RumSettingsTabs() {
   const basePath = useRumBasePath();
   return (
     <nav
+      data-rum-subnavigation="settings"
       aria-label={t('settings.title')}
-      className="flex min-h-10 items-end gap-5 overflow-x-auto"
+      className="flex min-h-11 items-end gap-5 overflow-x-auto"
     >
       {SETTINGS_TABS.map((tab) => (
         <NavLink
@@ -133,7 +145,7 @@ export function RumSettingsTabs() {
           to={`${basePath}${tab.suffix}`}
           className={({ isActive }) =>
             cn(
-              'inline-flex h-10 shrink-0 items-center border-b-2 border-transparent px-0.5 text-xs font-strong text-tx-2 transition-colors hover:bg-bg-2 hover:text-tx-0 focus-visible:bg-bg-2 focus-visible:text-tx-0',
+              'inline-flex h-11 shrink-0 items-center border-b-[3px] border-transparent px-0.5 text-xs font-strong text-tx-2 transition-colors hover:bg-bg-2 hover:text-tx-0 focus-visible:bg-bg-2 focus-visible:text-tx-0',
               isActive && 'border-indigo text-indigo-soft',
             )
           }
@@ -171,25 +183,43 @@ export function RumListPage({
   children?: React.ReactNode | undefined;
 }) {
   return (
-    <div className="min-h-0 bg-bg-0">
-      <PageHeader
-        title={<h1 className="m-0">{title}</h1>}
+    <div
+      data-surface-workbench-page="rum"
+      className={surfacePageRootClass}
+    >
+      <SurfacePageHeader
+        title={title}
         subtitle={subtitle}
         toolbar={toolbar}
+        breadcrumbs={null}
+        backTo={null}
       />
       <RumNavigation performance={performance} settings={settings} />
-      <PageBody className={cn('space-y-3', bodyClassName)}>
+      <SurfacePageBody className={cn('space-y-[12px]', bodyClassName)}>
         {kpis && (
           <KpiStrip
             items={kpis}
-            className={cn('xl:grid-cols-4', kpiClassName)}
+            className={cn(
+              'gap-[12px] xl:grid-cols-4 [&>div]:border-0 [&>div]:bg-[var(--functional-surface)] [&>div]:[box-shadow:var(--shadow-functional-surface)]',
+              kpiClassName,
+            )}
           />
         )}
         {filterBar && (
-          <div className="flex flex-wrap items-end gap-3">{filterBar}</div>
+          <div className="flex flex-wrap items-end gap-3 rounded-md bg-[var(--functional-surface)] p-[12px] [box-shadow:var(--shadow-functional-surface)]">
+            {filterBar}
+          </div>
         )}
-        {state ? <ProductState {...state} /> : children}
-      </PageBody>
+        {state ? (
+          <ProductState
+            {...state}
+            className={cn(
+              'rounded-md border-0 bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]',
+              state.className,
+            )}
+          />
+        ) : children}
+      </SurfacePageBody>
     </div>
   );
 }
@@ -210,16 +240,27 @@ export function RumDetailPage({
   children?: React.ReactNode | undefined;
 }) {
   return (
-    <div className="min-h-0 bg-bg-0">
-      <PageHeader
-        title={<h1 className="m-0">{title}</h1>}
+    <div
+      data-surface-workbench-page="rum"
+      className={surfacePageRootClass}
+    >
+      <SurfacePageHeader
+        title={title}
         subtitle={subtitle}
         toolbar={toolbar}
       />
       <RumNavigation />
-      <PageBody className={cn('space-y-5', bodyClassName)}>
-        {state ? <ProductState {...state} /> : children}
-      </PageBody>
+      <SurfacePageBody className={cn('space-y-[12px]', bodyClassName)}>
+        {state ? (
+          <ProductState
+            {...state}
+            className={cn(
+              'rounded-md border-0 bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]',
+              state.className,
+            )}
+          />
+        ) : children}
+      </SurfacePageBody>
     </div>
   );
 }
@@ -277,6 +318,18 @@ export function RumSectionHeader({
   );
 }
 
+export function RumSurface({
+  className,
+  ...props
+}: React.ComponentProps<'section'>) {
+  return (
+    <section
+      {...props}
+      className={cn(surfacePanelClass, className)}
+    />
+  );
+}
+
 function RumNavigation({
   performance,
   settings,
@@ -285,10 +338,13 @@ function RumNavigation({
   settings?: boolean | undefined;
 }) {
   return (
-    <div className="border-b border-bd-0 bg-bg-1 px-6">
+    <div
+      data-rum-navigation="surface"
+      className={surfaceModuleNavigationClass}
+    >
       <RumTabs />
       {(performance || settings) && (
-        <div className="border-t border-bd-0">
+        <div className="rounded-md bg-[var(--control-surface)] px-2">
           {settings ? <RumSettingsTabs /> : <PerformanceTabs />}
         </div>
       )}

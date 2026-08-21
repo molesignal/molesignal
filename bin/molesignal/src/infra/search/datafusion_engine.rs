@@ -3,15 +3,15 @@
 
 //! DataFusion-backed SQL `QueryEngine`。
 //!
-//! 当前实现直接把 ParquetFileMeta/Tantivy 裁剪后的对象清单交给 `ParquetExec`：
+//! 当前实现把 Catalog/Buffer 快照裁剪后的对象与内存批次统一交给 DataFusion：
 //!
 //! 1. 解析 `QueryRequest` 拿到目标 stream（由 `StreamHint` 强制提供）；
-//! 2. 经 `ParquetFileMetaRepository::find` 拉时间窗内的 parquet_file_meta 列表（含分区裁剪）；
+//! 2. 先取 Buffer Snapshot，再取多 Dataset FileCatalog Snapshot，并按 checkpoint 去重；
 //! 3. 注册显式候选文件的 [`PrunedParquetTable`]；
 //! 4. projection / filter / limit 由 DataFusion 下推到 parquet 扫描；
 //! 5. 仅最终结果物化为 `QueryResult`。
 
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
 use datafusion::{common::TableReference, datasource::MemTable};
@@ -21,7 +21,7 @@ use crate::{
     domain::{
         masking::Masker,
         query::{QueryEngine, QueryRequest, QueryResult, StreamHint},
-        storage::{ParquetFileMetaRepository, PhysicalDatasetKind},
+        storage::{DatasetTypeId, QueryFileSource},
         stream::{StreamRepository, StreamType as StreamTypeEnum},
     },
     infra::{
@@ -29,6 +29,7 @@ use crate::{
             log_patterns::LogPatternRepository, regex_patterns::RegexPatternRepository,
         },
         query::{
+            catalog_source::CatalogQuerySource,
             parser::{extract_referenced_tables, parse_sample_hint},
             planner::ensure_stream_in_org,
             tantivy_pruner::{TantivyPruner, extract_match_predicates},
@@ -43,7 +44,7 @@ mod execute;
 mod result;
 
 pub struct DataFusionEngine {
-    files: Arc<dyn ParquetFileMetaRepository>,
+    files: Arc<dyn QueryFileSource>,
     object_store: Arc<dyn ObjectStore>,
     tantivy_pruner: Option<Arc<TantivyPruner>>,
     streams: Option<Arc<dyn StreamRepository>>,
@@ -55,13 +56,15 @@ pub struct DataFusionEngine {
     max_result_rows: usize,
     /// 字段加密 DEK 服务；非空时 SQL 可用 `decrypt(col)`（执行期按 org 预载 DEK 还原密文）。
     field_keys: Option<Arc<crate::infra::cipher::FieldKeyService>>,
+    /// FileCatalog + local buffer snapshot source. `None` preserves isolated unit-test fixtures.
+    catalog_source: Option<Arc<CatalogQuerySource>>,
+    /// Explicit Artifact relationships for isolated callers that do not own a FileCatalog.
+    /// Production bootstrap leaves this empty because Catalog snapshots provide the mapping.
+    explicit_tantivy_indexes: HashMap<String, String>,
 }
 
 impl DataFusionEngine {
-    pub fn new(
-        files: Arc<dyn ParquetFileMetaRepository>,
-        object_store: Arc<dyn ObjectStore>,
-    ) -> Self {
+    pub fn new(files: Arc<dyn QueryFileSource>, object_store: Arc<dyn ObjectStore>) -> Self {
         Self {
             files,
             object_store,
@@ -71,6 +74,8 @@ impl DataFusionEngine {
             regex_patterns: None,
             max_result_rows: 0,
             field_keys: None,
+            catalog_source: None,
+            explicit_tantivy_indexes: HashMap::new(),
         }
     }
 
@@ -109,6 +114,16 @@ impl DataFusionEngine {
         self
     }
 
+    pub fn with_catalog_source(mut self, source: Arc<CatalogQuerySource>) -> Self {
+        self.catalog_source = Some(source);
+        self
+    }
+
+    pub fn with_tantivy_index_keys(mut self, keys: HashMap<String, String>) -> Self {
+        self.explicit_tantivy_indexes = keys;
+        self
+    }
+
     /// 暴露 DEK 服务给包装层（distributed coordinator 复用本地引擎的服务注册 `decrypt`）。
     pub fn field_keys(&self) -> Option<&Arc<crate::infra::cipher::FieldKeyService>> {
         self.field_keys.as_ref()
@@ -129,6 +144,10 @@ impl DataFusionEngine {
     pub fn streams(&self) -> Option<&Arc<dyn StreamRepository>> {
         self.streams.as_ref()
     }
+
+    pub fn catalog_source(&self) -> Option<&Arc<CatalogQuerySource>> {
+        self.catalog_source.as_ref()
+    }
 }
 
 #[async_trait]
@@ -145,9 +164,9 @@ impl QueryEngine for DataFusionEngine {
     async fn execute_dataset(
         &self,
         req: QueryRequest,
-        dataset_kind: PhysicalDatasetKind,
+        dataset_type: DatasetTypeId,
     ) -> Result<QueryResult> {
-        execute::run(self, req, Some(dataset_kind)).await
+        execute::run(self, req, Some(dataset_type)).await
     }
 
     /// search inspector：注册 schema-only 空表后规划，返回优化后逻辑计划文本（不读数据）。
@@ -240,10 +259,10 @@ async fn resolve_stream_type(
     name: &str,
 ) -> Option<StreamTypeEnum> {
     for st in [
-        StreamTypeEnum::Logs,
-        StreamTypeEnum::Metrics,
-        StreamTypeEnum::Traces,
-        StreamTypeEnum::Extend,
+        StreamTypeEnum::LOGS,
+        StreamTypeEnum::METRICS,
+        StreamTypeEnum::TRACES,
+        StreamTypeEnum::EXTEND,
     ] {
         if streams.get(org_id, name, st).await.is_ok() {
             return Some(st);

@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
 import type { Span } from '@/api/web';
+import { writeClipboardText } from '@/lib/clipboard';
 import { toApiError } from '@/lib/http';
 import { ProductState } from '@/product/states';
 import { CopyIconButton } from '@/shell/CopyIconButton';
@@ -216,7 +217,7 @@ function JaegerTraceView({
               className="h-6 w-6 shrink-0 text-tx-3 hover:text-tx-0"
               label={t('detail.copy_trace_id')}
               onClick={() => {
-                void navigator.clipboard?.writeText(layout.trace.trace_id);
+                void writeClipboardText(layout.trace.trace_id);
               }}
             />
             {layout.trace.truncated && <Badge variant="destructive">truncated</Badge>}
@@ -568,7 +569,7 @@ function SpanInspector({
             <CopyIconButton
               label={t('detail.copy_span_id')}
               onClick={() => {
-                void navigator.clipboard?.writeText(span.span_id);
+                void writeClipboardText(span.span_id);
               }}
             />
           </div>

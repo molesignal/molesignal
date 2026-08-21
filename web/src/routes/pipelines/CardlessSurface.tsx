@@ -55,12 +55,12 @@ export function PipelineKpiBand({
     <section
       data-pipeline-kpis
       className={cn(
-        'grid grid-cols-1 border-b border-bd-0 bg-transparent sm:grid-cols-2 xl:grid-cols-4',
+        'grid grid-cols-1 gap-[12px] sm:grid-cols-2 xl:grid-cols-4',
         className,
       )}
     >
       {items.map((item, index) => (
-        <div key={index} className="min-h-[92px] min-w-0 px-4 py-3 first:pl-0 last:pr-0">
+        <div key={index} className="min-h-[92px] min-w-0 rounded-md bg-[var(--functional-surface)] px-4 py-3 [box-shadow:var(--shadow-functional-surface)]">
           <div className={uiLabelClass}>{item.label}</div>
           <div
             className={cn(
@@ -104,12 +104,15 @@ export function PipelineSection({
   return (
     <section
       data-pipeline-section
-      className={cn('min-w-0 bg-transparent', className)}
+      className={cn(
+        'min-w-0 rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)]',
+        className,
+      )}
     >
       <header
+        data-header-divider={showHeaderDivider ? 'spaced' : undefined}
         className={cn(
           'flex min-h-[50px] items-center gap-4 py-2.5',
-          showHeaderDivider && 'border-b border-bd-0',
         )}
       >
         <div className="min-w-0 flex-1">
@@ -165,7 +168,7 @@ export function PipelineTabTrigger({
   return (
     <TabsTrigger
       value={value}
-      className="h-10 rounded-none border-b-2 border-transparent bg-transparent px-4 text-xs text-tx-2 shadow-none data-[state=active]:border-indigo data-[state=active]:bg-transparent data-[state=active]:text-tx-0 data-[state=active]:shadow-none"
+      className="h-10 rounded-none border-b-[3px] border-transparent bg-transparent px-4 text-xs text-tx-2 shadow-none data-[state=active]:border-indigo data-[state=active]:bg-transparent data-[state=active]:text-tx-0 data-[state=active]:shadow-none"
     >
       {children}
     </TabsTrigger>
@@ -207,7 +210,7 @@ export function PipelineDetailMetadata({
   return (
     <div
       data-pipeline-metadata
-      className="flex min-h-12 flex-wrap items-center gap-x-6 gap-y-2 border-b border-bd-0 bg-bg-0 px-6 py-2.5 font-sans text-xs"
+      className="mb-[12px] flex min-h-12 flex-wrap items-center gap-x-6 gap-y-2 rounded-md bg-[var(--functional-surface)] px-4 py-2.5 font-sans text-xs [box-shadow:var(--shadow-functional-surface)]"
     >
       <Pill tone={tone.pill}>
         <Dot tone={tone.dot} />

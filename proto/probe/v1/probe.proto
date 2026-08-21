@@ -93,6 +93,7 @@ enum Capability {
   CAPABILITY_TLS = 5;
   CAPABILITY_GRPC = 6;
   CAPABILITY_BROWSER = 7;
+  CAPABILITY_SSH = 8;
 }
 
 message TaskAck {
@@ -163,6 +164,7 @@ message ProbeTask {
     TlsSpec tls = 24;
     GrpcSpec grpc = 25;
     BrowserJourneySpec browser = 26;
+    SshSpec ssh = 27;
   }
 }
 
@@ -190,6 +192,7 @@ message ArtifactUploadTarget {
   map<string, string> upload_headers = 4;
   int64 expires_at_micros = 5;
   uint64 max_bytes = 6;
+  string name = 7;
 }
 
 message HeaderValue {
@@ -232,6 +235,31 @@ message TcpSpec {
   Value send = 5;
   optional string expect_regex = 6;
   repeated Assertion assertions = 7;
+}
+
+message SshSpec {
+  Value host = 1;
+  uint32 port = 2;
+  optional string expected_identification_regex = 3;
+  oneof authentication {
+    SshPasswordAuthentication password = 4;
+    SshPublicKeyAuthentication public_key = 5;
+  }
+  Value command = 6;
+  optional string expected_output_regex = 7;
+  optional sint32 expected_exit_status = 8;
+  optional string expected_host_key_sha256 = 9;
+}
+
+message SshPasswordAuthentication {
+  Value username = 1;
+  Value password = 2;
+}
+
+message SshPublicKeyAuthentication {
+  Value username = 1;
+  Value private_key = 2;
+  Value passphrase = 3;
 }
 
 message DnsSpec {
@@ -292,6 +320,7 @@ message BrowserJourneySpec {
   string user_agent = 3;
   bool capture_screenshot_on_failure = 4;
   bool capture_har_on_failure = 5;
+  bool capture_trace_on_failure = 6;
 }
 
 message Viewport {
@@ -401,6 +430,7 @@ enum ProbeOutcome {
   PROBE_OUTCOME_FAILING = 3;
   PROBE_OUTCOME_UNKNOWN = 4;
   PROBE_OUTCOME_SKIPPED = 5;
+  PROBE_OUTCOME_FLAKY = 6;
 }
 
 message ProbeAttempt {
@@ -412,6 +442,19 @@ message ProbeAttempt {
   string error_category = 6;
   string error_message = 7;
   bytes bounded_response_excerpt = 8;
+  map<string, string> metadata = 9;
+  repeated StepEvidence evidence = 10;
+}
+
+message StepEvidence {
+  string step_id = 1;
+  string name = 2;
+  string action = 3;
+  int64 started_at_micros = 4;
+  int64 finished_at_micros = 5;
+  ProbeOutcome outcome = 6;
+  string error_category = 7;
+  string error_message = 8;
   map<string, string> metadata = 9;
 }
 
@@ -437,4 +480,5 @@ message Artifact {
   uint64 content_length = 3;
   bytes sha256 = 4;
   bool uploaded = 5;
+  string name = 6;
 }

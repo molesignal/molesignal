@@ -30,6 +30,7 @@ import * as intakeApi from '@/api/intake';
 import * as pipelinesApi from '@/api/pipelines';
 import * as savedViewsApi from '@/api/savedViews';
 import * as streamsApi from '@/api/streams';
+import { writeClipboardText } from '@/lib/clipboard';
 import { formatMicrosActive } from '@/lib/time';
 import {
   restrictActionAccess,
@@ -577,12 +578,12 @@ export function StreamExplore() {
   return (
     <>
       <DetailPage
+        appearance="surface"
         title={streamName}
         subtitle={
           stream?.settings.description?.trim() ||
           t('explore.subtitle', { defaultValue: '运行状态、查询效率、存储与保留策略' })
         }
-        backTo="/streams"
         toolbar={
           stream ? (
             <>
@@ -608,7 +609,7 @@ export function StreamExplore() {
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem
                     onSelect={() => {
-                      void navigator.clipboard.writeText(stream.id);
+                      void writeClipboardText(stream.id);
                       toast.success(t('explore.toolbar.id_copied'));
                     }}
                   >
@@ -1008,7 +1009,7 @@ function OverviewPanel({
           {
             label: t('explore.kpis.events_24h'),
             value: runtime?.stats_available ? formatCount(runtime.rows) : '—',
-            note: t('explore.kpis.from_parquet_file_meta'),
+            note: t('explore.kpis.from_catalog'),
           },
           {
             label: t('explore.kpis.receive_rate'),
@@ -1241,7 +1242,10 @@ function SchemaPanel({
             {t('explore.schema.readonly_hint')}
           </div>
         </div>
-        <div className="ml-auto flex h-9 min-w-[260px] items-center gap-2 rounded-md border border-bd-1 bg-bg-1 px-3">
+        <div
+          data-ui="input-control"
+          className="ml-auto flex h-9 min-w-[260px] items-center gap-2 rounded-md border-0 bg-[var(--control-surface)] px-3 transition-colors hover:bg-bg-3 focus-within:bg-bg-3"
+        >
           <Search className="h-3.5 w-3.5 text-tx-3" />
           <input
             value={filter}

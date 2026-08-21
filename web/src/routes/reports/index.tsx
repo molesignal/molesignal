@@ -1164,7 +1164,7 @@ function ReportWorkbench({
                   type="button"
                   onClick={() => setStep(candidate)}
                   className={cn(
-                    'relative flex min-h-[58px] items-center gap-2 border-b-2 px-2 text-left font-sans text-xs font-strong',
+                    'relative flex min-h-[58px] items-center gap-2 border-b-[3px] px-2 text-left font-sans text-xs font-strong',
                     step === candidate
                       ? 'border-indigo text-tx-0'
                       : 'border-transparent text-tx-2 hover:text-tx-0',

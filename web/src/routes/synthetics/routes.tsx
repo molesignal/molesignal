@@ -49,7 +49,7 @@ export const SYNTHETICS_ROUTES: RouteObject[] = [
     path: 'synthetics/network',
     element: (
       <Checks
-        kinds={['tcp', 'dns', 'icmp', 'tls', 'grpc']}
+        kinds={['tcp', 'ssh', 'dns', 'icmp', 'tls', 'grpc']}
         titleKey="checks.network_title"
         subtitleKey="checks.network_subtitle"
       />

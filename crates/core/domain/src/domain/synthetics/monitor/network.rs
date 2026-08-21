@@ -18,6 +18,32 @@ pub struct TcpSpec {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SshSpec {
+    pub host: ValueSource,
+    pub port: u16,
+    pub expected_identification_regex: Option<String>,
+    pub authentication: Option<SshAuthentication>,
+    pub command: Option<ValueSource>,
+    pub expected_output_regex: Option<String>,
+    pub expected_exit_status: Option<i32>,
+    pub expected_host_key_sha256: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum SshAuthentication {
+    Password {
+        username: ValueSource,
+        password: ValueSource,
+    },
+    PublicKey {
+        username: ValueSource,
+        private_key: ValueSource,
+        passphrase: Option<ValueSource>,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DnsSpec {
     pub name: String,
     pub record_type: String,

@@ -12,7 +12,7 @@ const KPI_GRID_CLASS = {
 
 export const statusPageFlatTableClassName = 'rounded-none border-0 bg-transparent';
 export const statusPageFlatStateClassName =
-  'rounded-none border-x-0 border-t-0 border-solid border-bd-0 bg-transparent';
+  'rounded-none border-0 bg-transparent shadow-none';
 
 export function StatusPageCanvas({
   children,
@@ -24,7 +24,7 @@ export function StatusPageCanvas({
   return (
     <div
       data-status-page-canvas
-      className={cn('mx-auto w-full max-w-[2200px] bg-bg-0', className)}
+      className={cn('mx-auto w-full max-w-[2200px] space-y-[12px] bg-[var(--page-canvas)]', className)}
     >
       {children}
     </div>
@@ -46,13 +46,13 @@ export function StatusPageKpiBand({
     <section
       data-status-page-kpis
       className={cn(
-        'grid grid-cols-1 border-b border-bd-0 bg-bg-0',
+        'grid grid-cols-1 gap-[12px]',
         KPI_GRID_CLASS[columns],
         className,
       )}
     >
       {items.map((item, index) => (
-        <div key={index} className="min-h-[92px] min-w-0 px-4 py-3">
+        <div key={index} className="min-h-[92px] min-w-0 rounded-md bg-[var(--functional-surface)] px-4 py-3 [box-shadow:var(--shadow-functional-surface)]">
           <div className={uiLabelClass}>{item.label}</div>
           <div
             className={cn(
@@ -82,7 +82,7 @@ export function StatusPageBand({
   return (
     <div
       data-status-page-band
-      className={cn('min-h-12 border-b border-bd-0 px-4 py-2', className)}
+      className={cn('min-h-12 rounded-md bg-[var(--functional-surface)] px-4 py-2 [box-shadow:var(--shadow-functional-surface)]', className)}
     >
       {children}
     </div>
@@ -97,7 +97,7 @@ export function StatusPageFilterBand({
   return (
     <form
       data-status-page-filter-band
-      className={cn('min-h-12 px-4 py-2', className)}
+      className={cn('min-h-12 rounded-md bg-[var(--functional-surface)] px-4 py-2 [box-shadow:var(--shadow-functional-surface)]', className)}
       {...props}
     >
       {children}
@@ -115,7 +115,7 @@ export function StatusPageListSurface({
   return (
     <section
       data-status-page-list-surface
-      className={cn('min-w-0 overflow-hidden bg-bg-0', className)}
+      className={cn('min-w-0 overflow-hidden rounded-md bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]', className)}
     >
       {children}
     </section>
@@ -138,9 +138,9 @@ export function StatusPageSection({
   return (
     <section
       data-status-page-section
-      className={cn('min-w-0 overflow-hidden bg-bg-0', className)}
+      className={cn('min-w-0 overflow-hidden rounded-md bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]', className)}
     >
-      <div className="flex min-h-12 items-center justify-between gap-4 border-b border-bd-0 px-4 py-2.5">
+      <div className="flex min-h-12 items-center justify-between gap-4 px-4 py-2.5">
         <div className="min-w-0">
           <h2 className="text-sm font-display-strong text-tx-0">{title}</h2>
           {description && <p className="mt-0.5 text-xs text-tx-2">{description}</p>}

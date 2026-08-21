@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import * as statusPagesApi from '@/api/statusPages';
+import { writeClipboardText } from '@/lib/clipboard';
 import { toApiError } from '@/lib/http';
 import { formatMicrosActive } from '@/lib/time';
 import { ChromeButton, IconButton, Pill } from '@/shell/chrome';
@@ -178,7 +179,7 @@ function DnsRecord({ label, value }: { label: string; value: string }) {
           <IconButton
             aria-label={copied ? t('actions.copied') : t('actions.copy')}
             onClick={() => {
-              void navigator.clipboard.writeText(value).then(() => {
+              void writeClipboardText(value).then(() => {
                 setCopied(true);
                 window.setTimeout(() => setCopied(false), 1_500);
               });

@@ -8,6 +8,7 @@ import { StackPortal } from '@/investigation/StackPortal';
 import { useSyncStateToUrl } from '@/investigation/syncUrl';
 import { useBindings } from '@/keyboard/controller';
 import { HelpOverlay } from '@/keyboard/HelpOverlay';
+import { writeClipboardText } from '@/lib/clipboard';
 import { rememberLastVisitedRoute } from '@/lib/homeRoute';
 import { CommandPalette } from '@/palette/CommandPalette';
 import { canAccessProductPath, useProductAccess } from '@/product/access';
@@ -107,7 +108,7 @@ export function ShellRoot() {
       description: t('keyboard:bindings.copy_link'),
       category: t('keyboard:categories.investigation'),
       handler: () => {
-        void navigator.clipboard.writeText(window.location.href).then(() => toast.success(t('errors:link_copied')));
+        void writeClipboardText(window.location.href).then(() => toast.success(t('errors:link_copied')));
       },
     },
     { keys: 'mod+esc', description: t('keyboard:bindings.dismiss_overlay'), category: t('keyboard:categories.general'), handler: () => {

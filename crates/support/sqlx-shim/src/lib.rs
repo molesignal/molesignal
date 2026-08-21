@@ -35,6 +35,7 @@ pub use sqlx_core::{
     query_scalar::query_scalar_with,
     raw_sql::{RawSql, raw_sql},
     row::Row,
+    sql_str::{AssertSqlSafe, SqlSafeStr, SqlStr},
     statement::Statement,
     transaction::{Transaction, TransactionManager},
     type_info::TypeInfo,
@@ -176,7 +177,7 @@ impl Drop for TracedTransaction<'_> {
 /// Construct an instrumented Postgres query.
 pub fn query(sql: &str) -> TracedQuery<'_> {
     TracedQuery {
-        inner: sqlx_core::query::query::<Postgres>(sql),
+        inner: sqlx_core::query::query::<Postgres>(AssertSqlSafe(sql)),
         metadata: SqlTraceMetadata::from_sql(sql),
     }
 }
@@ -186,7 +187,7 @@ where
     O: for<'row> sqlx_core::from_row::FromRow<'row, PgRow>,
 {
     TracedQueryAs {
-        inner: sqlx_core::query_as::query_as::<Postgres, O>(sql),
+        inner: sqlx_core::query_as::query_as::<Postgres, O>(AssertSqlSafe(sql)),
         metadata: SqlTraceMetadata::from_sql(sql),
     }
 }
@@ -196,7 +197,7 @@ where
     (O,): for<'row> sqlx_core::from_row::FromRow<'row, PgRow>,
 {
     TracedQueryScalar {
-        inner: sqlx_core::query_scalar::query_scalar::<Postgres, O>(sql),
+        inner: sqlx_core::query_scalar::query_scalar::<Postgres, O>(AssertSqlSafe(sql)),
         metadata: SqlTraceMetadata::from_sql(sql),
     }
 }

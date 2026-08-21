@@ -48,12 +48,12 @@ export function TableMetadata({ table }: { table: ExtendTableSummary }) {
   return (
     <div
       data-extend-table-metadata
-      className="grid gap-y-2 border-y border-bd-0 py-3 sm:grid-cols-2 xl:grid-cols-4"
+      className="grid gap-[12px] sm:grid-cols-2 xl:grid-cols-4"
     >
       {items.map((item) => (
         <div
           key={item.label}
-          className="flex min-h-16 items-center gap-3 px-4 py-2 sm:border-r sm:border-bd-0 sm:even:border-r-0 xl:even:border-r xl:last:border-r-0"
+          className="flex min-h-16 items-center gap-3 rounded-md bg-[var(--functional-surface)] px-4 py-2 [box-shadow:var(--shadow-functional-surface)]"
         >
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-bg-2 text-tx-2">
             <item.icon className="h-4 w-4" />
@@ -90,7 +90,7 @@ export function DetailTabs({
 }) {
   const { t } = useTranslation('functions');
   return (
-    <div className="border-b border-bd-0">
+    <div className="overflow-hidden rounded-md bg-[var(--functional-surface)] px-3 [box-shadow:var(--shadow-functional-surface)]">
       <Tabs value={value} onValueChange={(next) => onChange(next as DetailTab)}>
         <TabsList className="h-10 max-w-full justify-start overflow-x-auto rounded-none bg-transparent p-0">
           <DetailTabTrigger
@@ -136,7 +136,7 @@ function DetailTabTrigger({
   return (
     <TabsTrigger
       value={value}
-      className="h-10 gap-2 rounded-none border-b-2 border-transparent bg-transparent px-4 text-xs text-tx-2 shadow-none data-[state=active]:border-indigo data-[state=active]:bg-transparent data-[state=active]:text-tx-0 data-[state=active]:shadow-none"
+      className="h-10 gap-2 rounded-none border-b-[3px] border-transparent bg-transparent px-4 text-xs text-tx-2 shadow-none data-[state=active]:border-indigo data-[state=active]:bg-transparent data-[state=active]:text-tx-0 data-[state=active]:shadow-none"
     >
       <Icon className="h-3.5 w-3.5" />
       {label}

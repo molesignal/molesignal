@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use std::collections::HashMap;
+
 use async_trait::async_trait;
-use sqlx::Row;
+use sqlx::{PgConnection, Row};
 
 use super::{
     PgSyntheticRepository,
@@ -10,7 +12,8 @@ use super::{
 };
 use crate::{
     domain::synthetics::{
-        SyntheticResult, SyntheticResultListQuery, SyntheticResultPage, SyntheticResultRepository,
+        SyntheticResult, SyntheticResultArtifact, SyntheticResultListQuery, SyntheticResultPage,
+        SyntheticResultRepository,
     },
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
@@ -106,7 +109,13 @@ impl SyntheticResultRepository for PgSyntheticRepository {
                 .map_err(super::sqlx_err)?;
         }
         let inserted: bool = row.try_get("inserted").map_err(super::sqlx_err)?;
-        let persisted = row_to_result(row)?;
+        if inserted {
+            insert_artifacts(&mut transaction, &result).await?;
+        }
+        let mut persisted = row_to_result(row)?;
+        persisted.artifacts =
+            load_artifacts_in_transaction(&mut transaction, &result.organization_id, &persisted.id)
+                .await?;
         transaction.commit().await.map_err(super::sqlx_err)?;
         Ok((persisted, inserted))
     }
@@ -124,7 +133,7 @@ impl SyntheticResultRepository for PgSyntheticRepository {
                AND ($3::BIGINT IS NULL OR finished_at_micros < $3)
              ORDER BY finished_at_micros DESC, id DESC LIMIT $4"
         );
-        sqlx::query(&sql)
+        let mut results = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&monitor_id.0)
             .bind(before.map(|value| value.0))
@@ -134,7 +143,9 @@ impl SyntheticResultRepository for PgSyntheticRepository {
             .map_err(super::sqlx_err)?
             .into_iter()
             .map(row_to_result)
-            .collect()
+            .collect::<Result<Vec<_>>>()?;
+        attach_artifacts(&self.pool, org_id, &mut results).await?;
+        Ok(results)
     }
 
     async fn list_results_page(
@@ -162,7 +173,7 @@ impl SyntheticResultRepository for PgSyntheticRepository {
         );
         let limit = i64::from(query.limit.clamp(1, 500));
         let offset = i64::try_from(query.offset).unwrap_or(i64::MAX);
-        let rows = sqlx::query(&page_sql)
+        let mut rows = sqlx::query(&page_sql)
             .bind(org_id.as_str())
             .bind(query.check_query.as_deref())
             .bind(query.outcome.map(|outcome| outcome.as_str()))
@@ -175,6 +186,7 @@ impl SyntheticResultRepository for PgSyntheticRepository {
             .into_iter()
             .map(row_to_result)
             .collect::<Result<Vec<_>>>()?;
+        attach_artifacts(&self.pool, org_id, &mut rows).await?;
 
         Ok(SyntheticResultPage {
             items: rows,
@@ -182,6 +194,140 @@ impl SyntheticResultRepository for PgSyntheticRepository {
                 .map_err(|_| Error::internal("synthetic result count cannot be negative"))?,
         })
     }
+
+    async fn get_result(&self, org_id: &Id, result_id: &Id) -> Result<SyntheticResult> {
+        let sql = format!(
+            "SELECT {RESULT_COLS} FROM synthetic_results
+             WHERE organization_id = $1 AND id = $2"
+        );
+        let row = sqlx::query(&sql)
+            .bind(org_id.as_str())
+            .bind(result_id.as_str())
+            .fetch_one(&self.pool)
+            .await
+            .map_err(super::sqlx_err)?;
+        let mut result = row_to_result(row)?;
+        attach_artifacts(&self.pool, org_id, std::slice::from_mut(&mut result)).await?;
+        Ok(result)
+    }
+}
+
+async fn insert_artifacts(connection: &mut PgConnection, result: &SyntheticResult) -> Result<()> {
+    for artifact in &result.artifacts {
+        let sha256 = hex::decode(&artifact.sha256)
+            .map_err(|_| Error::invalid("invalid synthetic Artifact SHA-256"))?;
+        let content_length = i64::try_from(artifact.content_length)
+            .map_err(|_| Error::invalid("synthetic Artifact is too large"))?;
+        let inserted = sqlx::query(
+            "INSERT INTO synthetic_result_artifacts
+                (id, organization_id, result_id, kind, name, object_key, content_type,
+                 content_length, sha256, expires_at_micros, created_at_micros)
+             SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+             FROM synthetic_results result
+             WHERE result.id = $3 AND result.organization_id = $2",
+        )
+        .bind(artifact.id.as_str())
+        .bind(result.organization_id.as_str())
+        .bind(result.id.as_str())
+        .bind(&artifact.kind)
+        .bind(&artifact.name)
+        .bind(&artifact.object_key)
+        .bind(&artifact.content_type)
+        .bind(content_length)
+        .bind(sha256)
+        .bind(artifact.expires_at.0)
+        .bind(artifact.created_at.0)
+        .execute(&mut *connection)
+        .await
+        .map_err(super::sqlx_err)?
+        .rows_affected();
+        if inserted != 1 {
+            return Err(Error::conflict(
+                "synthetic Artifact does not match its organization-scoped result",
+            ));
+        }
+    }
+    Ok(())
+}
+
+async fn load_artifacts_in_transaction(
+    connection: &mut PgConnection,
+    org_id: &Id,
+    result_id: &Id,
+) -> Result<Vec<SyntheticResultArtifact>> {
+    sqlx::query(
+        "SELECT id, result_id, kind, name, object_key, content_type, content_length, sha256,
+                expires_at_micros, created_at_micros
+         FROM synthetic_result_artifacts
+         WHERE organization_id = $1 AND result_id = $2
+         ORDER BY created_at_micros, id",
+    )
+    .bind(org_id.as_str())
+    .bind(result_id.as_str())
+    .fetch_all(&mut *connection)
+    .await
+    .map_err(super::sqlx_err)?
+    .into_iter()
+    .map(row_to_artifact)
+    .collect()
+}
+
+async fn attach_artifacts(
+    pool: &sqlx::PgPool,
+    org_id: &Id,
+    results: &mut [SyntheticResult],
+) -> Result<()> {
+    if results.is_empty() {
+        return Ok(());
+    }
+    let result_ids = results
+        .iter()
+        .map(|result| result.id.as_str().to_string())
+        .collect::<Vec<_>>();
+    let rows = sqlx::query(
+        "SELECT id, result_id, kind, name, object_key, content_type, content_length, sha256,
+                expires_at_micros, created_at_micros
+         FROM synthetic_result_artifacts
+         WHERE organization_id = $1 AND result_id = ANY($2::TEXT[])
+         ORDER BY created_at_micros, id",
+    )
+    .bind(org_id.as_str())
+    .bind(&result_ids)
+    .fetch_all(pool)
+    .await
+    .map_err(super::sqlx_err)?;
+    let mut by_result: HashMap<String, Vec<SyntheticResultArtifact>> = HashMap::new();
+    for row in rows {
+        let result_id: String = row.try_get("result_id").map_err(super::sqlx_err)?;
+        by_result
+            .entry(result_id)
+            .or_default()
+            .push(row_to_artifact(row)?);
+    }
+    for result in results {
+        result.artifacts = by_result.remove(result.id.as_str()).unwrap_or_default();
+    }
+    Ok(())
+}
+
+fn row_to_artifact(row: sqlx::postgres::PgRow) -> Result<SyntheticResultArtifact> {
+    let content_length = u64::try_from(
+        row.try_get::<i64, _>("content_length")
+            .map_err(super::sqlx_err)?,
+    )
+    .map_err(|_| Error::internal("negative synthetic Artifact length"))?;
+    let sha256: Vec<u8> = row.try_get("sha256").map_err(super::sqlx_err)?;
+    Ok(SyntheticResultArtifact {
+        id: Id::from_string(row.try_get::<String, _>("id").map_err(super::sqlx_err)?),
+        name: row.try_get("name").map_err(super::sqlx_err)?,
+        kind: row.try_get("kind").map_err(super::sqlx_err)?,
+        object_key: row.try_get("object_key").map_err(super::sqlx_err)?,
+        content_type: row.try_get("content_type").map_err(super::sqlx_err)?,
+        content_length,
+        sha256: hex::encode(sha256),
+        expires_at: TimestampMicros(row.try_get("expires_at_micros").map_err(super::sqlx_err)?),
+        created_at: TimestampMicros(row.try_get("created_at_micros").map_err(super::sqlx_err)?),
+    })
 }
 
 #[cfg(test)]

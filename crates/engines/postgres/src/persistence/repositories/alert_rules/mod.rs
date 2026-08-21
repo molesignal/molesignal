@@ -79,30 +79,8 @@ fn row_to_rule(row: sqlx::postgres::PgRow) -> Result<AlertRule> {
 }
 
 fn decode_alert_query(raw: Value, rule_id: &Id) -> Result<AlertQuery> {
-    match serde_json::from_value::<AlertQuery>(raw.clone()) {
-        Ok(query) => Ok(query),
-        Err(err) if has_legacy_stream_type_placeholder(&raw) => {
-            tracing::warn!(
-                rule_id = %rule_id,
-                error = %err,
-                "alert rule query contains legacy stream_type placeholder; treating stream as unset"
-            );
-            let mut sanitized = raw;
-            if let Some(obj) = sanitized.as_object_mut() {
-                obj.remove("stream");
-            }
-            serde_json::from_value::<AlertQuery>(sanitized)
-                .map_err(|e| Error::internal(format!("alert rule query decode after cleanup: {e}")))
-        }
-        Err(err) => Err(Error::internal(format!("alert rule query decode: {err}"))),
-    }
-}
-
-fn has_legacy_stream_type_placeholder(raw: &Value) -> bool {
-    raw.get("stream")
-        .and_then(|stream| stream.get("stream_type"))
-        .and_then(Value::as_str)
-        == Some("<logs|metrics|traces>")
+    serde_json::from_value::<AlertQuery>(raw)
+        .map_err(|error| Error::internal(format!("alert rule {rule_id} query decode: {error}")))
 }
 
 fn collect_valid_rules(rows: Vec<sqlx::postgres::PgRow>, context: &str) -> Vec<AlertRule> {
@@ -229,8 +207,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn legacy_stream_type_placeholder_is_treated_as_missing_stream() {
-        let query = decode_alert_query(
+    fn malformed_stream_type_placeholder_is_rejected() {
+        let error = decode_alert_query(
             json!({
                 "language": "sql",
                 "statement": "SELECT COUNT(*) FROM app_logs",
@@ -239,15 +217,14 @@ mod tests {
             }),
             &Id::from_string("rule-1"),
         )
-        .expect("legacy placeholder should not poison repository reads");
+        .expect_err("placeholder compatibility is intentionally removed");
 
-        assert!(query.stream.is_none());
-        assert_eq!(query.statement, "SELECT COUNT(*) FROM app_logs");
+        assert!(error.to_string().contains("query decode"));
     }
 
     #[test]
-    fn unknown_stream_type_still_fails_decode() {
-        let err = decode_alert_query(
+    fn open_stream_type_is_preserved_for_registry_validation() {
+        let query = decode_alert_query(
             json!({
                 "language": "sql",
                 "statement": "SELECT COUNT(*) FROM app_logs",
@@ -256,8 +233,8 @@ mod tests {
             }),
             &Id::from_string("rule-2"),
         )
-        .expect_err("non-placeholder invalid stream type must remain invalid");
+        .expect("syntactically valid open type ids decode");
 
-        assert!(err.to_string().contains("alert rule query decode"));
+        assert_eq!(query.stream.unwrap().stream_type.as_str(), "bogus");
     }
 }

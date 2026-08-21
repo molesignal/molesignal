@@ -59,7 +59,7 @@ pub struct TableRef {
 /// 采样查询提示解析：识别 SQL 开头的优化器风格注释 `/*+ sample(N) */`（大小写不敏感），
 /// 返回 `(样本扫描行数上限, 去掉提示后的 SQL)`。无提示 / 提示非法 → `(None, 原 SQL)`。
 ///
-/// 采样语义：引擎对主表只读到约 N 行即停（parquet_file_meta 粒度的访问计划），SQL 在样本上执行，
+/// 采样语义：引擎对主表只读到约 N 行即停（Catalog segment 粒度的访问计划），SQL 在样本上执行，
 /// 用速度换近似——适合大表探索。N 必须为正整数。
 pub fn parse_sample_hint(sql: &str) -> (Option<u64>, String) {
     let trimmed = sql.trim_start();
@@ -226,7 +226,7 @@ pub fn prepare_flight_sql_select(stmt: &str) -> Result<FlightSqlSelect> {
             .schema
             .as_deref()
             .and_then(stream_type_from_qualifier)
-            .unwrap_or(StreamType::Logs);
+            .unwrap_or(StreamType::LOGS);
         (r.name.clone(), st)
     });
 
@@ -260,11 +260,11 @@ pub fn prepare_flight_sql_select(stmt: &str) -> Result<FlightSqlSelect> {
 /// stream_type schema 限定符 → [`StreamType`]；大小写不敏感，未知 → `None`。
 fn stream_type_from_qualifier(q: &str) -> Option<StreamType> {
     match q.to_ascii_lowercase().as_str() {
-        "logs" => Some(StreamType::Logs),
-        "metrics" => Some(StreamType::Metrics),
-        "traces" => Some(StreamType::Traces),
-        "profiles" => Some(StreamType::Profiles),
-        "extend" => Some(StreamType::Extend),
+        "logs" => Some(StreamType::LOGS),
+        "metrics" => Some(StreamType::METRICS),
+        "traces" => Some(StreamType::TRACES),
+        "profiles" => Some(StreamType::PROFILES),
+        "extend" => Some(StreamType::EXTEND),
         _ => None,
     }
 }
@@ -607,10 +607,10 @@ mod tests {
     #[test]
     fn flight_sql_strips_all_four_stream_type_qualifiers() {
         for (qualifier, expected) in [
-            ("logs", StreamType::Logs),
-            ("metrics", StreamType::Metrics),
-            ("traces", StreamType::Traces),
-            ("extend", StreamType::Extend),
+            ("logs", StreamType::LOGS),
+            ("metrics", StreamType::METRICS),
+            ("traces", StreamType::TRACES),
+            ("extend", StreamType::EXTEND),
         ] {
             let out =
                 prepare_flight_sql_select(&format!("SELECT * FROM {qualifier}.nginx LIMIT 5"))
@@ -626,7 +626,7 @@ mod tests {
     fn flight_sql_unqualified_defaults_to_logs() {
         let out = prepare_flight_sql_select("SELECT count(*) FROM nginx").unwrap();
         assert_eq!(out.sql, "SELECT count(*) FROM nginx");
-        assert_eq!(out.stream, Some(("nginx".to_string(), StreamType::Logs)));
+        assert_eq!(out.stream, Some(("nginx".to_string(), StreamType::LOGS)));
     }
 
     #[test]
@@ -650,7 +650,7 @@ mod tests {
         assert_eq!(out.sql, r#"SELECT * FROM "cpu-usage""#);
         assert_eq!(
             out.stream,
-            Some(("cpu-usage".to_string(), StreamType::Metrics))
+            Some(("cpu-usage".to_string(), StreamType::METRICS))
         );
     }
 
@@ -659,7 +659,7 @@ mod tests {
         // DBeaver 浏览表数据按 catalog.schema.table 生成全限定名
         let out = prepare_flight_sql_select("SELECT * FROM molesignal.logs.app LIMIT 3").unwrap();
         assert_eq!(out.sql, "SELECT * FROM app LIMIT 3");
-        assert_eq!(out.stream, Some(("app".to_string(), StreamType::Logs)));
+        assert_eq!(out.stream, Some(("app".to_string(), StreamType::LOGS)));
 
         // 带引号变体（引号在重序列化后保留，仍是合法 SQL）
         let out = prepare_flight_sql_select(r#"SELECT * FROM "molesignal"."metrics"."cpu_usage""#)
@@ -667,7 +667,7 @@ mod tests {
         assert_eq!(out.sql, r#"SELECT * FROM "cpu_usage""#);
         assert_eq!(
             out.stream,
-            Some(("cpu_usage".to_string(), StreamType::Metrics))
+            Some(("cpu_usage".to_string(), StreamType::METRICS))
         );
     }
 
@@ -679,7 +679,7 @@ mod tests {
         )
         .unwrap();
         assert!(out.sql.contains("FROM nginx"), "{}", out.sql);
-        assert_eq!(out.stream, Some(("nginx".to_string(), StreamType::Logs)));
+        assert_eq!(out.stream, Some(("nginx".to_string(), StreamType::LOGS)));
     }
 
     #[test]

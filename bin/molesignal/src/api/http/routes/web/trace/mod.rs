@@ -68,7 +68,7 @@ pub(crate) async fn resolve_traces_stream_definition(
         .await
         .ok()?
         .into_iter()
-        .filter(|s| s.stream_type == StreamType::Traces)
+        .filter(|s| s.stream_type == StreamType::TRACES)
         .collect();
     choose_traces_stream(traces)
 }
@@ -147,7 +147,7 @@ async fn trace(
         time_range: range,
         stream: Some(StreamHint {
             name: stream,
-            stream_type: StreamType::Traces,
+            stream_type: StreamType::TRACES,
         }),
         limit: Some(SPAN_LIMIT + 1),
         federation_clusters: Vec::new(),
@@ -173,7 +173,7 @@ mod tests {
             id: Id::from_string(name),
             org_id: Id::from_string("org-1"),
             name: name.to_string(),
-            stream_type: StreamType::Traces,
+            stream_type: StreamType::TRACES,
             schema: Schema {
                 fields: fields
                     .iter()

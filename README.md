@@ -119,8 +119,8 @@ OTLP metric type and aggregation metadata are normalized according to the
 - **DataFusion query engine** — full SQL with joins / CTEs / window functions across logs, metrics, traces
 - **PromQL subset** — `rate`, `increase`, `sum/avg/min/max/count by/without`, `histogram_quantile` ([roadmap](docs/promql_subset.md))
 - **Distributed query via Arrow Flight** — coordinator shards by consistent hash, peers stream `RecordBatch` back
-- **3-level cache** — `parquet_file_meta` / `parquet_meta` / `query_result` plus a parquet disk cache enabled by default (`./data/cache/parquet`, 10 GB LRU; tune or turn off via `[cache.disk_cache]`)
-- **ParquetFileMeta cold-tier spillover** — partitions older than `[storage.parquet_file_meta_dump].cold_after_days` (default 30) are serialized to object storage so the main metadata table stays small; queries transparently merge hot + cold sources
+- **Unified object cache** — every remote Artifact and Manifest range read shares a checksum-bound fixed-block cache (`[cache.object]`); local filesystems bypass it
+- **Versioned FileCatalog** — immutable partition manifests use sealed base + overlay generations while queries merge manifests, hot Catalog segments, and live buffers from one snapshot
 
 ### 📊 Dashboards
 
@@ -221,7 +221,7 @@ The source workspace layout and dependency rules are documented in
                        ┌──────────────┐                                     │
                        │ web shell    │                                     ▼
                        │ (⌘K + stack) │             ┌────────────────────────────┐
-                       └──────┬───────┘             │ ParquetFileMeta in Postgres       │
+                       └──────┬───────┘             │ FileCatalog in Postgres     │
                               │ /query              │ object_store in S3/GCS/... │
                               ▼                     └────────────────────────────┘
                        ┌──────────────┐                          ▲

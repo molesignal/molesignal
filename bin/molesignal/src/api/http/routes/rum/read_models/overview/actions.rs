@@ -100,9 +100,10 @@ async fn load(
     projection: ActionProjection,
 ) -> Result<ActionAggregate> {
     let reader = RumReadModelReader::new(
-        state.storage.parquet_file_meta.clone(),
-        state.storage.object_store.clone(),
-    );
+        state.storage.catalog_files.clone(),
+        state.storage.read_store.clone(),
+    )
+    .with_catalog_source(state.storage.catalog_query.clone());
     let scope = RumScope {
         application: context.application.as_deref(),
         environment: context.environment.as_deref(),

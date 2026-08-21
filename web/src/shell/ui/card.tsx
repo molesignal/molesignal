@@ -5,12 +5,9 @@ import { cn } from '@/shell/lib/cn';
 /**
  * Card — Phase 4 token-aware shadcn primitive.
  *
- * Brief mandate: cards distinguish via 1px border (bd-0) over surface
- * (bg-1). No shadow. Radius 6px (md), not 12px. Padding 16px (p-4)
- * instead of the default p-6 — density-first.
- *
- * The shadcn shadow has been deliberately removed: Confident-quiet does
- * not bloom. Use border-bd-1 to bump emphasis instead of shadow.
+ * Cards sit on the page canvas as quiet functional surfaces. Separation comes
+ * from the canvas gutter and a very light, radius-clipped shadow rather than
+ * a permanent outline.
  */
 
 const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
@@ -18,7 +15,7 @@ const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
     <div
       ref={ref}
       className={cn(
-        'rounded-md border border-bd-0 bg-surface text-tx-0',
+        'rounded-md border-0 bg-[var(--functional-surface)] text-tx-0 [box-shadow:var(--shadow-functional-surface)]',
         className,
       )}
       {...props}
@@ -64,7 +61,7 @@ const CardFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
     <div
       ref={ref}
       className={cn(
-        'flex items-center gap-2 border-t border-bd-0 px-4 py-3',
+        'flex items-center gap-2 px-4 py-3',
         className,
       )}
       {...props}

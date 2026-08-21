@@ -75,6 +75,8 @@ pub struct CreateMonitorInput {
     pub escalation_policy_id: Option<Id>,
     #[serde(default)]
     pub alert_on_degraded: bool,
+    #[serde(default)]
+    pub alert_on_flaky: bool,
 }
 
 const fn default_failure_threshold() -> u32 {
@@ -119,6 +121,7 @@ pub(super) fn build_revision(
         location_ids: input.location_ids,
         escalation_policy_id: input.escalation_policy_id,
         alert_on_degraded: input.alert_on_degraded,
+        alert_on_flaky: input.alert_on_flaky,
         last_test_result_id: None,
         last_test_passed_at: None,
         created_by: actor_id.clone(),

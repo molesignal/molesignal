@@ -428,7 +428,7 @@ async fn otlp_logs(
     let events = logs_to_events(req);
     intake(
         &state,
-        StreamType::Logs,
+        StreamType::LOGS,
         ctx.org_id,
         stream,
         events,
@@ -450,7 +450,7 @@ async fn otlp_metrics(
     let events = metrics_to_events(req);
     intake(
         &state,
-        StreamType::Metrics,
+        StreamType::METRICS,
         ctx.org_id,
         stream,
         events,

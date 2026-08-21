@@ -6,6 +6,8 @@
 //! - CTE / Subquery / UNION ALL 形式下，同 org 数据仍正确隔离 + 跨 org 不可见
 //! - stream 不存在 → Forbidden
 
+mod common;
+
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex as StdMutex},
@@ -16,10 +18,11 @@ use arrow::{
     datatypes::{DataType, Field, Schema as ArrowSchema, TimeUnit},
 };
 use async_trait::async_trait;
+use common::write_parquet_fixture;
 use molesignal::{
     domain::{
         query::{QueryEngine, QueryLanguage, QueryRequest, StreamHint},
-        storage::{ParquetFileMeta, ParquetFileMetaRepository},
+        storage::{QueryFile, QueryFileSource},
         stream::{
             FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamRepository, StreamType,
         },
@@ -34,30 +37,31 @@ use molesignal::{
 use object_store::{ObjectStore, local::LocalFileSystem};
 
 #[derive(Default)]
-struct InMemParquetFileMeta {
-    inner: StdMutex<HashMap<String, ParquetFileMeta>>,
+struct InMemQueryFile {
+    inner: StdMutex<HashMap<String, QueryFile>>,
 }
-#[async_trait]
-impl ParquetFileMetaRepository for InMemParquetFileMeta {
-    async fn insert(&self, f: ParquetFileMeta) -> Result<()> {
-        self.inner.lock().unwrap().insert(f.id.0.clone(), f);
+impl InMemQueryFile {
+    async fn insert(&self, file: QueryFile) -> Result<()> {
+        self.inner.lock().unwrap().insert(file.id.0.clone(), file);
         Ok(())
     }
+}
+#[async_trait]
+impl QueryFileSource for InMemQueryFile {
     async fn find(
         &self,
         org: &Id,
         stream: &str,
         st: StreamType,
         r: TimeRange,
-    ) -> Result<Vec<ParquetFileMeta>> {
+    ) -> Result<Vec<QueryFile>> {
         Ok(self
             .inner
             .lock()
             .unwrap()
             .values()
             .filter(|f| {
-                !f.deleted
-                    && &f.org_id == org
+                &f.org_id == org
                     && f.stream == stream
                     && f.stream_type == st
                     && f.time_range.end.0 >= r.start.0
@@ -65,13 +69,6 @@ impl ParquetFileMetaRepository for InMemParquetFileMeta {
             })
             .cloned()
             .collect())
-    }
-    async fn replace(&self, _: &[Id], _: Vec<ParquetFileMeta>) -> Result<()> {
-        Err(Error::internal("noop"))
-    }
-
-    async fn mark_deleted(&self, _ids: &[Id]) -> Result<usize> {
-        Err(Error::internal("noop"))
     }
 }
 
@@ -111,7 +108,7 @@ fn stream_def(org: &str) -> StreamDefinition {
         id: Id::new(),
         org_id: Id::from_string(org),
         name: "app".into(),
-        stream_type: StreamType::Logs,
+        stream_type: StreamType::LOGS,
         schema: Schema {
             fields: vec![FieldDef {
                 name: "n".into(),
@@ -151,7 +148,7 @@ async fn cte_union_subquery_isolated_per_org() {
     let store: Arc<dyn ObjectStore> =
         Arc::new(LocalFileSystem::new_with_prefix(tmp.path()).unwrap());
     let writer = ParquetWriter::new(store.clone());
-    let parquet_file_meta: Arc<InMemParquetFileMeta> = Arc::new(InMemParquetFileMeta::default());
+    let query_file: Arc<InMemQueryFile> = Arc::new(InMemQueryFile::default());
     let streams: Arc<InMemStreams> = Arc::new(InMemStreams {
         inner: StdMutex::new(HashMap::new()),
     });
@@ -162,19 +159,15 @@ async fn cte_union_subquery_isolated_per_org() {
     let sb = stream_def("orgb");
     streams.create(sa.clone()).await.unwrap();
     streams.create(sb.clone()).await.unwrap();
-    let ma = writer
-        .flush(&sa, batch(1_000_000, &(0..50).collect::<Vec<_>>()))
-        .await
-        .unwrap();
-    parquet_file_meta.insert(ma).await.unwrap();
-    let mb = writer
-        .flush(&sb, batch(2_000_000, &(0..30).collect::<Vec<_>>()))
-        .await
-        .unwrap();
-    parquet_file_meta.insert(mb).await.unwrap();
+    let ma =
+        write_parquet_fixture(&writer, &sa, batch(1_000_000, &(0..50).collect::<Vec<_>>())).await;
+    query_file.insert(ma).await.unwrap();
+    let mb =
+        write_parquet_fixture(&writer, &sb, batch(2_000_000, &(0..30).collect::<Vec<_>>())).await;
+    query_file.insert(mb).await.unwrap();
 
     let engine = DataFusionEngine::new(
-        parquet_file_meta.clone() as Arc<dyn ParquetFileMetaRepository>,
+        query_file.clone() as Arc<dyn QueryFileSource>,
         store.clone(),
     )
     .with_streams(stream_repo);
@@ -187,7 +180,7 @@ async fn cte_union_subquery_isolated_per_org() {
             time_range: TimeRange::new(TimestampMicros(0), TimestampMicros(i64::MAX)),
             stream: Some(StreamHint {
                 name: "app".into(),
-                stream_type: StreamType::Logs,
+                stream_type: StreamType::LOGS,
             }),
             limit: None,
             federation_clusters: Vec::new(),

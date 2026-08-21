@@ -60,10 +60,11 @@ async fn insert_revision(
             (id, organization_id, monitor_id, revision_number, spec, schedule,
              timeout_millis, max_retries, consecutive_failures, consecutive_recoveries,
              freshness_seconds, location_policy, escalation_policy_id, alert_on_degraded,
+             alert_on_flaky,
              last_test_result_id, last_test_passed_at_micros,
              created_by, created_at_micros, content_hash)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
-                 $15, $16, $17, $18, $19)",
+                 $15, $16, $17, $18, $19, $20)",
     )
     .bind(&revision.id.0)
     .bind(&revision.organization_id.0)
@@ -79,6 +80,7 @@ async fn insert_revision(
     .bind(sqlx::types::Json(&revision.location_policy))
     .bind(revision.escalation_policy_id.as_ref().map(Id::as_str))
     .bind(revision.alert_on_degraded)
+    .bind(revision.alert_on_flaky)
     .bind(revision.last_test_result_id.as_ref().map(Id::as_str))
     .bind(revision.last_test_passed_at.map(|value| value.0))
     .bind(&revision.created_by.0)
@@ -337,7 +339,7 @@ impl SyntheticMonitorRepository for PgSyntheticRepository {
              WHERE revision.organization_id = $1 AND revision.monitor_id = $2
                AND revision.id = $3 AND result.organization_id = $1
                AND result.id = $4 AND result.monitor_revision_id = revision.id
-               AND result.is_test AND result.outcome IN ('healthy', 'degraded')",
+               AND result.is_test AND result.outcome IN ('healthy', 'flaky', 'degraded')",
         )
         .bind(&org_id.0)
         .bind(&monitor_id.0)

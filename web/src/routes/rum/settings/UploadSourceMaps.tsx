@@ -81,11 +81,6 @@ export function UploadSourceMaps() {
   return (
     <DetailPage
       title={t('upload_source_maps.title')}
-      toolbar={
-        <ChromeButton onClick={() => navigate(`${basePath}/settings/source-maps`)}>
-          ← {t('upload_source_maps.back')}
-        </ChromeButton>
-      }
       metadata={[
         {
           label: t('source_maps.title'),

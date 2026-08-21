@@ -204,7 +204,7 @@ mod tests {
         let with_stream = QueryRequest {
             stream: Some(StreamHint {
                 name: "app".into(),
-                stream_type: StreamType::Logs,
+                stream_type: StreamType::LOGS,
             }),
             ..base.clone()
         };

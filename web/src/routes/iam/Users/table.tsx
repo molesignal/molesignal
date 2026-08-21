@@ -97,7 +97,10 @@ export function UsersTable({
 
   return (
     <div className="space-y-2">
-      <div className="flex flex-col gap-2 border-b border-bd-0 pb-2 md:flex-row md:items-center">
+      <div
+        data-iam-filter-surface
+        className="flex flex-col gap-2 rounded-md bg-[var(--control-surface)] p-2 md:flex-row md:items-center"
+      >
         <p
           className="shrink-0 font-sans text-xs text-tx-2"
           aria-live="polite"
@@ -109,7 +112,7 @@ export function UsersTable({
           })}
         </p>
         <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center md:justify-end">
-          <label className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-md bg-bg-2 px-3 transition-colors hover:bg-bg-3 focus-within:bg-bg-3 sm:max-w-sm">
+          <label className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-md bg-[var(--functional-surface)] px-3 transition-colors hover:bg-bg-3 focus-within:bg-bg-3 sm:max-w-sm">
             <Search className="h-3.5 w-3.5 shrink-0 text-tx-3" />
             <span className="sr-only">{t('users.search_aria')}</span>
             <input
@@ -125,7 +128,7 @@ export function UsersTable({
             <select
               value={roleFilter}
               onChange={(event) => setRoleFilter(event.target.value)}
-              className="h-9 w-full rounded-md border-0 bg-bg-2 px-3 font-sans text-sm text-tx-1 focus:bg-bg-3 focus:outline-none sm:w-36"
+              className="h-9 w-full rounded-md border-0 bg-[var(--functional-surface)] px-3 font-sans text-sm text-tx-1 focus:bg-bg-3 focus:outline-none sm:w-36"
             >
               <option value="all">{t('users.filters.all_roles')}</option>
               {roles.map((role) => (
@@ -142,7 +145,7 @@ export function UsersTable({
               onChange={(event) =>
                 setStatusFilter(event.target.value as StatusFilter)
               }
-              className="h-9 w-full rounded-md border-0 bg-bg-2 px-3 font-sans text-sm text-tx-1 focus:bg-bg-3 focus:outline-none sm:w-36"
+              className="h-9 w-full rounded-md border-0 bg-[var(--functional-surface)] px-3 font-sans text-sm text-tx-1 focus:bg-bg-3 focus:outline-none sm:w-36"
             >
               <option value="all">{t('users.filters.all_statuses')}</option>
               <option value="active">{t('users.status_active')}</option>
@@ -155,7 +158,7 @@ export function UsersTable({
       </div>
 
       {filteredRows.length === 0 ? (
-        <div className="flex h-36 flex-col items-center justify-center border-b border-bd-0 px-6 text-center">
+        <div className="flex h-36 flex-col items-center justify-center rounded-md bg-[var(--control-surface)] px-6 text-center">
           <Search className="mb-2 h-5 w-5 text-tx-3" />
           <div className="font-sans text-sm font-strong text-tx-1">
             {t('users.no_results_title')}
@@ -165,7 +168,7 @@ export function UsersTable({
           </div>
         </div>
       ) : (
-        <div className="min-w-0 overflow-hidden border-b border-bd-0 bg-bg-0">
+        <div className="min-w-0 overflow-hidden">
           <DataTable
             rows={filteredRows}
             rowKey={(user) => user.id}
@@ -359,7 +362,7 @@ function UserActions({
             <MoreHorizontal className="h-4 w-4" />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48 border-bd-1 bg-bg-1">
+        <DropdownMenuContent align="end" className="w-48">
           <DropdownMenuItem onSelect={() => onView(user)}>
             <Eye className="h-4 w-4" />
             {t('users.actions.details')}

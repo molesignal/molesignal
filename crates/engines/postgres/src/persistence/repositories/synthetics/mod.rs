@@ -3,6 +3,7 @@
 
 //! PostgreSQL adapter for user-facing synthetic monitoring.
 
+mod agent_tokens;
 mod agents;
 mod codec;
 mod locations;

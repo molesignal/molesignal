@@ -2,7 +2,7 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use std::{
-    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs as _},
     str::FromStr as _,
 };
 
@@ -11,6 +11,7 @@ use ipnet::IpNet;
 
 use crate::protocol::v1::EgressPolicy;
 
+#[derive(Clone)]
 pub struct EgressGuard {
     policy: EgressPolicy,
     allowed: Vec<IpNet>,
@@ -39,6 +40,21 @@ impl EgressGuard {
                 approved.push(address);
             }
         }
+        approved.sort_unstable();
+        approved.dedup();
+        if approved.is_empty() {
+            bail!("egress policy rejected every resolved address for {host}");
+        }
+        Ok(approved)
+    }
+
+    pub fn resolve_blocking(&self, host: &str, port: u16) -> Result<Vec<SocketAddr>> {
+        self.validate_domain(host)?;
+        self.validate_port(port)?;
+        let mut approved = (host, port)
+            .to_socket_addrs()?
+            .filter(|address| self.ip_allowed(address.ip()))
+            .collect::<Vec<_>>();
         approved.sort_unstable();
         approved.dedup();
         if approved.is_empty() {

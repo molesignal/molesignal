@@ -135,7 +135,7 @@ export function Checks({
           )}
         </div>
       }
-      bodyClassName="space-y-0 pb-4 pt-2 lg:pb-6 lg:pt-2"
+      bodyClassName="space-y-[12px]"
     >
       <WorkspaceBoundary
         pending={workspace.pending}
@@ -149,7 +149,6 @@ export function Checks({
               variant="empty"
               title={t('states.empty_title')}
               description={t('states.empty_description')}
-              className="rounded-none border-x-0 border-t-0 border-solid border-bd-0 bg-transparent"
               action={
                 canManage ? (
                   <ChromeButton
@@ -177,7 +176,7 @@ export function Checks({
                   onChange={(value) => setFilter('state', value)}
                   options={[
                     { value: 'all', label: t('checks.all_states') },
-                    ...(['healthy', 'degraded', 'failing', 'unknown'] as const).map((state) => ({ value: state, label: t(`states.${state}`) })),
+                    ...(['healthy', 'flaky', 'degraded', 'failing', 'unknown'] as const).map((state) => ({ value: state, label: t(`states.${state}`) })),
                   ]}
                 />
                 <FormSelect
@@ -289,4 +288,14 @@ function RowActions({ row, canManage, t, onRun, onEdit, onClone, onToggle, onDel
   return <div className="flex items-center justify-end gap-0.5" onClick={(event) => event.stopPropagation()}>{actions.map(([label, Icon, action, disabled]) => <Tooltip key={label}><TooltipTrigger asChild><IconButton aria-label={label} disabled={!canManage || disabled} onClick={() => action(row)}><Icon className="h-3.5 w-3.5" /></IconButton></TooltipTrigger><TooltipContent>{label}</TooltipContent></Tooltip>)}</div>;
 }
 
-const ALL_KINDS: MonitorKind[] = ['http', 'browser', 'tcp', 'dns', 'icmp', 'tls', 'grpc', 'heartbeat'];
+const ALL_KINDS: MonitorKind[] = [
+  'http',
+  'browser',
+  'tcp',
+  'ssh',
+  'dns',
+  'icmp',
+  'tls',
+  'grpc',
+  'heartbeat',
+];

@@ -10,22 +10,32 @@ use crate::{
     app::{
         intake::IntakeService, profile_storage::ProfileStorageService, profiling::ProfilingService,
     },
-    bootstrap::roles::{compactor::spawn_compactor_loop, intake::IntakeWorker},
+    bootstrap::{
+        roles::{compactor::spawn_compactor_loop, intake::IntakeWorker},
+        workers::storage_maintenance,
+    },
     config::{Settings, WalFlushStrategy, WalSettings, WalSyncLevel},
-    domain::{iam::OrganizationRepository, stream::StreamRepository},
+    domain::{
+        iam::OrganizationRepository,
+        storage::{FileCatalog, QueryFileSource, builtin_registry},
+        stream::StreamRepository,
+    },
     infra::{
-        caching::{
-            DiskCacheSettings as InfraDiskCacheSettings, ParquetDiskCache, ParquetFileMetaCache,
-        },
-        intake::{BufferPool, PrometheusSeriesAdmission, WalPool},
+        intake::{BufferPool, DatasetResolver, PrometheusSeriesAdmission, WalPool},
         persistence::repositories::{
             agent::model_providers::ModelProviderRepository,
+            file_catalog::PgFileCatalog,
             usage::{PgUsageRepository, UsageRepository},
         },
-        segment_wal::{FsyncPolicy, StaticTermSource, SyncLevel, TermSource},
+        query::catalog_source::CatalogQuerySource,
+        segment_wal::{FsyncPolicy, SyncLevel},
         storage::{
             compactor::Compactor,
-            parquet::{reader::ParquetReader, writer::ParquetWriter},
+            index_rebuild::IndexRebuildWorker,
+            manifest::{PartitionManifestManager, PartitionManifestReader},
+            object_gc::ObjectGcWorker,
+            parquet::writer::ParquetWriter,
+            reconciler::StorageReconciler,
         },
         traces::{ServiceGraphAggregator, ServiceGraphObserverImpl},
     },
@@ -46,6 +56,8 @@ pub(super) struct StorageRuntime {
     pub(super) investigation_blobs: Arc<
         dyn crate::infra::persistence::repositories::investigation_blobs::InvestigationBlobRepository,
     >,
+    pub(super) catalog_query: Arc<CatalogQuerySource>,
+    pub(super) catalog_files: Arc<dyn QueryFileSource>,
 }
 
 impl StorageRuntime {
@@ -70,9 +82,13 @@ impl StorageRuntime {
             "wal fsync policy resolved"
         );
 
-        let term_source: Arc<dyn TermSource> = Arc::new(StaticTermSource(1));
         let wal_pool = {
-            let pool = WalPool::new(&settings.wal.dir, segment_bytes, fsync_policy, term_source);
+            let pool = WalPool::new(
+                &settings.wal.dir,
+                core.node_id.clone(),
+                segment_bytes,
+                fsync_policy,
+            );
             let pool = if settings.wal.encrypt {
                 pool.with_cipher(core.cipher_root_key.clone())
             } else {
@@ -87,23 +103,39 @@ impl StorageRuntime {
             settings.intake.prometheus.cardinality.clone(),
         ));
         let parquet_writer = Arc::new(ParquetWriter::new(core.store.clone()));
-        let parquet_reader = Arc::new(ParquetReader::new(core.store.clone()));
-        let parquet_file_meta_cache = Arc::new(ParquetFileMetaCache::new(
-            settings.cache.parquet_file_meta.clone(),
-        ));
         let probe = Arc::new(Probe::new());
 
+        let file_catalog: Arc<dyn FileCatalog> = Arc::new(PgFileCatalog::new(core.pool.clone()));
+        let manifest_reader = Arc::new(PartitionManifestReader::new(
+            core.object_reader.clone(),
+            settings.storage.catalog.manifest_cache_bytes,
+        ));
+        let dataset_resolver = Arc::new(DatasetResolver::new(
+            file_catalog.clone(),
+            Arc::new(builtin_registry()),
+        ));
+        let catalog_query = Arc::new(CatalogQuerySource::new(
+            file_catalog.clone(),
+            buffer_pool.clone(),
+            core.streams.clone(),
+            core.object_reader.clone(),
+            manifest_reader.clone(),
+        ));
+        let catalog_files: Arc<dyn QueryFileSource> = catalog_query.clone();
+        let replay_byte_cap =
+            (settings.wal.max_replay_mb.max(1) as usize).saturating_mul(1024 * 1024);
         let worker = Arc::new(
             IntakeWorker::new(
                 wal_pool,
                 buffer_pool,
                 core.streams.clone(),
-                core.parquet_file_meta.clone(),
+                dataset_resolver,
+                file_catalog.clone(),
                 parquet_writer.clone(),
-                Some(parquet_file_meta_cache),
                 probe.clone(),
                 settings.intake.clone(),
             )
+            .with_replay_byte_cap(replay_byte_cap)
             .with_field_keys(core.field_key_service.clone())
             .with_drain(core.drain_controller.clone()),
         );
@@ -202,11 +234,13 @@ impl StorageRuntime {
         let profiling_service = ProfilingService::new();
 
         let compactor = Arc::new(Compactor::new(
-            core.parquet_file_meta.clone(),
-            parquet_reader,
+            file_catalog.clone(),
+            core.object_reader.clone(),
+            manifest_reader.clone(),
             parquet_writer,
             core.store.clone(),
             settings.compactor.clone(),
+            settings.storage.gc.grace_period_secs,
         ));
         let investigation_blobs: Arc<
             dyn crate::infra::persistence::repositories::investigation_blobs::InvestigationBlobRepository,
@@ -226,18 +260,39 @@ impl StorageRuntime {
                 core.drain_controller.clone(),
             )
         });
-
-        let parquet_file_meta_dump_service = Arc::new(
-            crate::infra::storage::parquet_file_meta_dump::ParquetFileMetaDumpService::new(
-                core.pool.clone(),
-                core.store.clone(),
-                settings.storage.parquet_file_meta_dump.clone(),
-            )
-            .with_dump_cache(core.parquet_file_meta_dump_cache.clone()),
-        );
-        let _parquet_file_meta_dump_handle = core.roles.run_compactor.then(|| {
-            crate::bootstrap::workers::parquet_file_meta_dumper::spawn(
-                parquet_file_meta_dump_service,
+        let _storage_maintenance_handles = core.roles.run_compactor.then(|| {
+            storage_maintenance::spawn(
+                Arc::new(IndexRebuildWorker::new(
+                    file_catalog.clone(),
+                    core.streams.clone(),
+                    core.object_reader.clone(),
+                    core.store.clone(),
+                    settings.storage.index.clone(),
+                    &settings.storage.gc,
+                )),
+                Arc::new(ObjectGcWorker::new(
+                    file_catalog.clone(),
+                    core.store.clone(),
+                    settings.storage.gc.clone(),
+                )),
+                Arc::new(StorageReconciler::new(
+                    file_catalog.clone(),
+                    core.object_reader.clone(),
+                    manifest_reader.clone(),
+                    core.store.clone(),
+                    settings.storage.reconciler.clone(),
+                )),
+                Arc::new(PartitionManifestManager::new(
+                    file_catalog,
+                    manifest_reader.clone(),
+                    core.store.clone(),
+                    settings.storage.catalog.clone(),
+                    &settings.storage.gc,
+                    settings.compactor.retention_days,
+                )),
+                core.orgs.clone() as Arc<dyn OrganizationRepository>,
+                core.streams.clone() as Arc<dyn StreamRepository>,
+                core.drain_controller.clone(),
             )
         });
 
@@ -253,31 +308,10 @@ impl StorageRuntime {
             service_graph_aggregator,
             usage,
             investigation_blobs,
+            catalog_query,
+            catalog_files,
         })
     }
-}
-
-/// 根据 `[cache.disk_cache]` 实例化 [`ParquetDiskCache`]。
-///
-/// `enabled=false` 或 `max_size_gb=0` 视为整层关闭：返回 `None`，缓存目录不会被
-/// 创建，`ProductionObjectStore` 走纯 inner 路径。
-pub(super) fn build_parquet_disk_cache(
-    settings: &crate::config::DiskCacheSettings,
-) -> Result<Option<Arc<ParquetDiskCache>>> {
-    if !settings.is_effectively_enabled() {
-        tracing::info!("parquet disk cache: disabled");
-        return Ok(None);
-    }
-    let cache = ParquetDiskCache::new(InfraDiskCacheSettings {
-        dir: settings.dir.clone(),
-        max_bytes: settings.max_size_bytes(),
-    })?;
-    tracing::info!(
-        dir = %settings.dir.display(),
-        max_size_gb = settings.max_size_gb,
-        "parquet disk cache: enabled"
-    );
-    Ok(Some(Arc::new(cache)))
 }
 
 /// 把 `[wal]` settings 字段映射到 `SegmentWal` 的 [`FsyncPolicy`]。

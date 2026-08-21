@@ -13,11 +13,12 @@ use crate::{
     domain::{
         masking::Masker,
         query::{QueryRequest, QueryResult, StreamHint},
-        storage::PhysicalDatasetKind,
+        storage::DatasetTypeId,
         stream::{FieldType, StreamIndexType, StreamRepository, StreamType as StreamTypeEnum},
     },
     infra::{
         query::{
+            catalog_source::StreamSnapshotSelection,
             parquet_table::PrunedParquetTable,
             parser::{extract_equality_predicates, extract_referenced_tables, parse_sample_hint},
             planner::ensure_stream_in_org,
@@ -33,7 +34,7 @@ use crate::{
 pub(super) async fn run(
     engine: &DataFusionEngine,
     req: QueryRequest,
-    primary_dataset: Option<PhysicalDatasetKind>,
+    primary_dataset: Option<DatasetTypeId>,
 ) -> Result<QueryResult> {
     let started = Instant::now();
     let StreamHint { name, stream_type } = req.stream.clone().ok_or_else(|| {
@@ -90,25 +91,67 @@ pub(super) async fn run(
         }
     }
 
-    let mut scanned_rows = 0_u64;
-    for (table_name, stream_type, selected_dataset) in &tables {
-        let mut files = dataset::load_files(
-            &engine.files,
-            &req.org_id,
-            table_name,
-            *stream_type,
-            *selected_dataset,
-            req.time_range,
-        )
-        .await?;
-        let stream_definition = if let Some(streams) = &engine.streams {
-            streams
-                .get(&req.org_id, table_name, *stream_type)
-                .await
-                .ok()
-        } else {
-            None
+    let mut stream_definitions = Vec::with_capacity(tables.len());
+    for (table_name, stream_type, _) in &tables {
+        let definition = match &engine.streams {
+            Some(streams) => Some(streams.get(&req.org_id, table_name, *stream_type).await?),
+            None => None,
         };
+        stream_definitions.push(definition);
+    }
+
+    let mut catalog_snapshots = std::iter::repeat_with(|| None)
+        .take(tables.len())
+        .collect::<Vec<_>>();
+    if let Some(source) = &engine.catalog_source
+        && stream_definitions.iter().all(Option::is_some)
+    {
+        let selections = tables
+            .iter()
+            .zip(&stream_definitions)
+            .map(|((_, stream_type, selected_dataset), definition)| {
+                let dataset_types = match selected_dataset.clone() {
+                    Some(dataset_type) => vec![dataset_type],
+                    None => crate::domain::storage::logical_query_dataset_types(*stream_type)?,
+                };
+                Ok(StreamSnapshotSelection::new(
+                    definition.clone().expect("all definitions checked above"),
+                    dataset_types,
+                ))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        catalog_snapshots = source
+            .snapshot_streams(&selections, req.time_range)
+            .await?
+            .into_iter()
+            .map(Some)
+            .collect();
+    }
+
+    let mut scanned_rows = 0_u64;
+    for (index, (table_name, stream_type, selected_dataset)) in tables.iter().enumerate() {
+        let stream_definition = stream_definitions[index].clone();
+        let loaded = if let Some(snapshot) = catalog_snapshots[index].take() {
+            dataset::LoadedDataset::from_catalog_snapshot(snapshot)
+        } else {
+            dataset::load(
+                &engine.files,
+                engine.catalog_source.as_ref(),
+                &engine.explicit_tantivy_indexes,
+                stream_definition.as_ref(),
+                dataset::DatasetLoadSelection {
+                    organization_id: &req.org_id,
+                    stream_name: table_name,
+                    stream_type: *stream_type,
+                    dataset_type: selected_dataset.clone(),
+                    time_range: req.time_range,
+                },
+            )
+            .await?
+        };
+        let mut files = loaded.files;
+        let tantivy_indexes = loaded.tantivy_indexes;
+        let buffered_batches = loaded.buffered_batches;
         if table_name == &name
             && let Some(definition) = stream_definition.as_ref()
         {
@@ -119,7 +162,7 @@ pub(super) async fn run(
             && let Some(pruner) = &engine.tantivy_pruner
         {
             files = pruner
-                .prune(files, &predicates)
+                .prune_with_index_keys(files, &predicates, &tantivy_indexes)
                 .await
                 .map_err(|error| Error::internal(format!("tantivy prune: {error}")))?;
         }
@@ -135,12 +178,22 @@ pub(super) async fn run(
                 true
             });
         }
-        scanned_rows = scanned_rows.saturating_add(files.iter().map(|file| file.rows).sum::<u64>());
+        scanned_rows = scanned_rows
+            .saturating_add(files.iter().map(|file| file.rows).sum::<u64>())
+            .saturating_add(
+                buffered_batches
+                    .iter()
+                    .map(|batch| batch.num_rows() as u64)
+                    .sum::<u64>(),
+            );
 
         let schema: Arc<ArrowSchema> = match stream_definition {
             Some(definition) => {
                 let definition = selected_dataset
-                    .map(|kind| crate::infra::intake::physical_schema::project(&definition, kind))
+                    .as_ref()
+                    .map(|dataset_type| {
+                        crate::infra::intake::physical_schema::project(&definition, dataset_type)
+                    })
                     .unwrap_or(definition);
                 crate::infra::storage::arrow_schema::to_arrow(&definition.schema)
             }
@@ -150,11 +203,16 @@ pub(super) async fn run(
                         .schema_from_store(store.clone(), &file.object_key, file.size_bytes)
                         .await?
                 }
-                None => Arc::new(ArrowSchema::new(vec![arrow::datatypes::Field::new(
-                    "_timestamp",
-                    DataType::Timestamp(TimeUnit::Microsecond, Some("UTC".into())),
-                    false,
-                )])),
+                None => buffered_batches
+                    .first()
+                    .map(|batch| batch.schema())
+                    .unwrap_or_else(|| {
+                        Arc::new(ArrowSchema::new(vec![arrow::datatypes::Field::new(
+                            "_timestamp",
+                            DataType::Timestamp(TimeUnit::Microsecond, Some("UTC".into())),
+                            false,
+                        )]))
+                    }),
             },
         };
         let table = PrunedParquetTable::new(
@@ -162,8 +220,9 @@ pub(super) async fn run(
             &files,
             object_store_url.clone(),
             req.time_range,
-            *selected_dataset,
-        );
+            selected_dataset.clone(),
+        )
+        .with_buffered_batches(buffered_batches);
         ctx.register_table(TableReference::bare(table_name.clone()), Arc::new(table))
             .map_err(|error| Error::internal(format!("datafusion register: {error}")))?;
     }

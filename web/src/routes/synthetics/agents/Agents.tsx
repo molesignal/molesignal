@@ -40,6 +40,7 @@ import {
   AgentRegisterDrawer,
   RegisterInstructionsDrawer,
 } from './RegisterDrawers';
+import { AgentTokenPanel } from './tokens/TokenPanel';
 
 export function Agents() {
   const { t, i18n } = useTranslation('synthetics');
@@ -152,7 +153,7 @@ export function Agents() {
           )}
         </div>
       }
-      bodyClassName="space-y-0 pb-4 pt-2 lg:pb-6 lg:pt-2"
+      bodyClassName="space-y-[12px]"
     >
       <WorkspaceBoundary
         pending={locationsQuery.isPending || agentsQuery.isPending}
@@ -198,12 +199,13 @@ export function Agents() {
             ]}
           />
 
+          <AgentTokenPanel locations={eligibleLocations} canManage={canManage} />
+
           {agents.length === 0 ? (
             <ProductState
               variant="empty"
               title={t('agents.no_agents')}
               description={t('agents.no_agents_hint')}
-              className="rounded-none border-x-0 border-t-0 border-solid border-bd-0 bg-transparent"
               action={
                 canManage && eligibleLocations.length > 0 ? (
                   <ChromeButton variant="primary" onClick={() => setRegisterOpen(true)}>

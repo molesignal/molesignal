@@ -14,7 +14,12 @@ import { useAuthStore } from '@/stores/auth';
 import { formatWindowSummary, useTimeStore } from '@/stores/useTimeStore';
 
 import { formatDurationMs, windowToMicros } from './_helpers';
-import { RumFilterSelect, RumListPage, RumSectionHeader } from './RumLayout';
+import {
+  RumFilterSelect,
+  RumListPage,
+  RumSectionHeader,
+  RumSurface,
+} from './RumLayout';
 
 const ALL = '__all__';
 
@@ -106,7 +111,7 @@ export function Applications() {
       subtitle={t('applications.subtitle')}
       toolbar={
         <>
-          <TimeRangeChip value={formatWindowSummary(window)} />
+          <TimeRangeChip value={formatWindowSummary(window)} className="border-0" />
           <ChromeButton
             onClick={() => {
               void baseQuery.refetch();
@@ -119,7 +124,7 @@ export function Applications() {
       }
       state={state}
     >
-      <section className="space-y-2">
+      <RumSurface className="space-y-2 p-4">
         <RumSectionHeader
           title={t('applications.list_title')}
           description={t('applications.result_count', { count: rows.length })}
@@ -155,7 +160,7 @@ export function Applications() {
           rowKey={(row) => row.application}
           emptyLabel={t('applications.no_filter_results')}
         />
-      </section>
+      </RumSurface>
     </RumListPage>
   );
 }

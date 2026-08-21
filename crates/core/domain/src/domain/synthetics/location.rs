@@ -150,6 +150,7 @@ pub struct ProbeLocation {
 pub enum ProbeCapability {
     Http,
     Tcp,
+    Ssh,
     Dns,
     Icmp,
     Tls,
@@ -162,6 +163,7 @@ impl ProbeCapability {
         match self {
             Self::Http => "http",
             Self::Tcp => "tcp",
+            Self::Ssh => "ssh",
             Self::Dns => "dns",
             Self::Icmp => "icmp",
             Self::Tls => "tls",
@@ -174,6 +176,7 @@ impl ProbeCapability {
         match value {
             "http" => Some(Self::Http),
             "tcp" => Some(Self::Tcp),
+            "ssh" => Some(Self::Ssh),
             "dns" => Some(Self::Dns),
             "icmp" => Some(Self::Icmp),
             "tls" => Some(Self::Tls),

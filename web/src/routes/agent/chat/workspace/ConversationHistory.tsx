@@ -49,7 +49,7 @@ export function ConversationHistory({
   const groups = groupChats(chats);
   const content = (
     <>
-      <header className="flex items-center justify-between border-b border-bd-0 px-3 py-2.5">
+      <header className="flex items-center justify-between px-3 py-2.5">
         <h2 className="font-sans text-xs font-strong text-tx-1">{t('chats')}</h2>
         <button
           type="button"
@@ -94,10 +94,10 @@ export function ConversationHistory({
                     <div
                       key={chat.id}
                       className={cn(
-                        'group/chat relative flex items-center rounded-r-md border-l-2 transition-colors duration-fast',
+                        'group/chat relative flex items-center rounded-md transition-colors duration-fast',
                         active
-                          ? 'border-indigo bg-indigo/10 text-tx-0'
-                          : 'border-transparent text-tx-1 hover:bg-bg-2',
+                          ? 'bg-indigo/10 text-tx-0'
+                          : 'text-tx-1 hover:bg-bg-3',
                       )}
                     >
                       <button
@@ -161,14 +161,18 @@ export function ConversationHistory({
   );
 
   if (variant === 'drawer') {
-    return <div className="flex h-full min-h-0 flex-col bg-bg-1">{content}</div>;
+    return (
+      <div className="flex h-full min-h-0 flex-col bg-[var(--control-surface)]">
+        {content}
+      </div>
+    );
   }
 
   return (
     <aside
       data-testid="conversation-history"
       aria-label={t('chats')}
-      className="relative hidden shrink-0 flex-col border-r border-bd-0 bg-bg-1 md:flex"
+      className="relative hidden shrink-0 flex-col rounded-md bg-[var(--control-surface)] md:flex"
       style={{ width }}
     >
       {content}
@@ -193,7 +197,7 @@ export function ConversationHistory({
         <span
           aria-hidden="true"
           className={cn(
-            'absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-bd-0 transition-colors duration-fast',
+            'absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-transparent transition-colors duration-fast',
             'group-hover:bg-indigo group-focus-visible:bg-indigo',
             resizing && 'bg-indigo',
           )}

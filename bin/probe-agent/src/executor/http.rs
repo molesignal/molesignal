@@ -13,11 +13,11 @@ use reqwest::{
     Method, StatusCode, Url,
     header::{HeaderMap, HeaderName, HeaderValue},
 };
+use url::Host;
 
-use super::{AttemptOutcome, ExecutionContext, security::EgressGuard, unknown};
+use super::{AttemptOutcome, ExecutionContext, now_micros, security::EgressGuard};
 use crate::protocol::v1::{
-    self as wire, AssertionResult, AssertionSeverity, BrowserJourneySpec, HttpJourneySpec,
-    ProbeOutcome,
+    self as wire, AssertionResult, AssertionSeverity, HttpJourneySpec, ProbeOutcome, StepEvidence,
 };
 
 const MAX_BODY_BYTES: usize = 64 * 1024;
@@ -38,8 +38,32 @@ pub(super) async fn execute(
     let mut assertions = Vec::new();
     let mut last_body = Vec::new();
     let mut metadata = HashMap::new();
+    let mut evidence = Vec::with_capacity(spec.steps.len());
     for step in &spec.steps {
-        let observation = execute_step(task, spec, step, context, &guard).await?;
+        let step_started = now_micros();
+        let observation = match execute_step(task, spec, step, context, &guard).await {
+            Ok(observation) => observation,
+            Err(error) => {
+                return Ok(step_failure(
+                    step,
+                    step_started,
+                    context.redact(&error.to_string()),
+                    assertions,
+                    context
+                        .redact(&String::from_utf8_lossy(&last_body))
+                        .into_bytes(),
+                    metadata,
+                    evidence,
+                ));
+            }
+        };
+        let step_metadata = HashMap::from([
+            ("status".into(), observation.status.as_u16().to_string()),
+            (
+                "duration_micros".into(),
+                observation.elapsed.as_micros().to_string(),
+            ),
+        ]);
         metadata.insert(
             format!("step.{}.status", step.id),
             observation.status.as_u16().to_string(),
@@ -48,38 +72,55 @@ pub(super) async fn execute(
             format!("step.{}.duration_micros", step.id),
             observation.elapsed.as_micros().to_string(),
         );
-        for extraction in &step.extractions {
-            let extracted = extract(extraction, &observation)?;
-            if let Some(value) = extracted {
-                context.insert_variable(extraction.variable.clone(), value);
-            } else if extraction.required {
-                bail!(
-                    "required extraction `{}` did not match",
-                    extraction.variable
-                );
+        let processed = (|| -> Result<Vec<AssertionResult>> {
+            for extraction in &step.extractions {
+                let extracted = extract(extraction, &observation)?;
+                if let Some(value) = extracted {
+                    context.insert_variable(extraction.variable.clone(), value);
+                } else if extraction.required {
+                    bail!(
+                        "required extraction `{}` did not match",
+                        extraction.variable
+                    );
+                }
             }
-        }
-        assertions.extend(
             step.assertions
                 .iter()
                 .map(|assertion| evaluate(assertion, &observation, context))
-                .collect::<Result<Vec<_>>>()?,
-        );
+                .collect()
+        })();
+        let step_assertions = match processed {
+            Ok(assertions) => assertions,
+            Err(error) => {
+                return Ok(step_failure(
+                    step,
+                    step_started,
+                    context.redact(&error.to_string()),
+                    assertions,
+                    context
+                        .redact(&String::from_utf8_lossy(&observation.body))
+                        .into_bytes(),
+                    metadata,
+                    evidence,
+                ));
+            }
+        };
+        let step_outcome = assertion_outcome(&step_assertions);
+        evidence.push(StepEvidence {
+            step_id: step.id.clone(),
+            name: step.name.clone(),
+            action: "http".into(),
+            started_at_micros: step_started,
+            finished_at_micros: now_micros(),
+            outcome: step_outcome as i32,
+            error_category: String::new(),
+            error_message: String::new(),
+            metadata: step_metadata,
+        });
+        assertions.extend(step_assertions);
         last_body = observation.body;
     }
-    let critical_failed = assertions
-        .iter()
-        .any(|result| !result.passed && result.severity == AssertionSeverity::Critical as i32);
-    let warning_failed = assertions
-        .iter()
-        .any(|result| !result.passed && result.severity == AssertionSeverity::Warning as i32);
-    let outcome = if critical_failed {
-        ProbeOutcome::Failing
-    } else if warning_failed {
-        ProbeOutcome::Degraded
-    } else {
-        ProbeOutcome::Healthy
-    };
+    let outcome = assertion_outcome(&assertions);
     let excerpt = if matches!(outcome, ProbeOutcome::Failing | ProbeOutcome::Degraded) {
         context
             .redact(&String::from_utf8_lossy(&last_body))
@@ -94,7 +135,58 @@ pub(super) async fn execute(
         error_category: String::new(),
         error_message: String::new(),
         metadata,
+        evidence,
+        artifacts: Vec::new(),
     })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn step_failure(
+    step: &wire::HttpStep,
+    started_at: i64,
+    message: String,
+    assertions: Vec<AssertionResult>,
+    response_body: Vec<u8>,
+    metadata: HashMap<String, String>,
+    mut evidence: Vec<StepEvidence>,
+) -> AttemptOutcome {
+    evidence.push(StepEvidence {
+        step_id: step.id.clone(),
+        name: step.name.clone(),
+        action: "http".into(),
+        started_at_micros: started_at,
+        finished_at_micros: now_micros(),
+        outcome: ProbeOutcome::Unknown as i32,
+        error_category: "http_step_failed".into(),
+        error_message: message.clone(),
+        metadata: HashMap::new(),
+    });
+    AttemptOutcome {
+        outcome: ProbeOutcome::Unknown,
+        assertions,
+        response_excerpt: response_body,
+        error_category: "http_step_failed".into(),
+        error_message: message,
+        metadata,
+        evidence,
+        artifacts: Vec::new(),
+    }
+}
+
+fn assertion_outcome(assertions: &[AssertionResult]) -> ProbeOutcome {
+    let critical_failed = assertions
+        .iter()
+        .any(|result| !result.passed && result.severity == AssertionSeverity::Critical as i32);
+    let warning_failed = assertions
+        .iter()
+        .any(|result| !result.passed && result.severity == AssertionSeverity::Warning as i32);
+    if critical_failed {
+        ProbeOutcome::Failing
+    } else if warning_failed {
+        ProbeOutcome::Degraded
+    } else {
+        ProbeOutcome::Healthy
+    }
 }
 
 async fn execute_step(
@@ -127,17 +219,20 @@ async fn execute_step(
     let mut redirects = 0;
     let started = Instant::now();
     loop {
-        let host = url
-            .host_str()
-            .ok_or_else(|| anyhow!("HTTP URL has no host"))?;
+        let host = match url.host() {
+            Some(Host::Domain(host)) => host.to_string(),
+            Some(Host::Ipv4(host)) => host.to_string(),
+            Some(Host::Ipv6(host)) => host.to_string(),
+            None => return Err(anyhow!("HTTP URL has no host")),
+        };
         let port = url
             .port_or_known_default()
             .ok_or_else(|| anyhow!("HTTP URL has no port"))?;
-        let address = guard.resolve(host, port).await?.remove(0);
+        let address = guard.resolve(&host, port).await?.remove(0);
         let client = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::none())
             .danger_accept_invalid_certs(!spec.verify_tls)
-            .resolve(host, address)
+            .resolve(&host, address)
             .build()?;
         let mut request = client
             .request(method.clone(), url.clone())
@@ -264,15 +359,4 @@ fn extract(extraction: &wire::Extraction, observation: &HttpObservation) -> Resu
             .or_else(|| captures.get(0))
             .map(|value| value.as_str().to_string())
     }))
-}
-
-pub(super) async fn execute_browser(
-    _task: &wire::ProbeTask,
-    _spec: &BrowserJourneySpec,
-    _context: &mut ExecutionContext,
-) -> Result<AttemptOutcome> {
-    Ok(unknown(
-        "browser_runtime_unavailable",
-        "this Probe Agent build does not include the declarative Browser runtime",
-    ))
 }

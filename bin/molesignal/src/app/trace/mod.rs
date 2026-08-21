@@ -26,7 +26,7 @@ use crate::{
     app::intake::IntakeService,
     domain::{
         intake::IntakeBatch,
-        storage::PhysicalDatasetKind,
+        storage::{DatasetTypeId, type_id::builtin},
         stream::{MOLESIGNAL_SYSTEM_STREAM, StreamType},
     },
     shared::{
@@ -688,7 +688,7 @@ impl TraceSink for SelfIntakeTraceSink {
                 batch_id: Id::new(),
                 org_id: Id(org_id.clone()),
                 stream: stream.clone(),
-                stream_type: StreamType::Traces,
+                stream_type: StreamType::TRACES,
                 events: spans,
                 received_at: TimestampMicros::now(),
             };
@@ -708,21 +708,21 @@ impl TraceSink for SelfIntakeTraceSink {
                 batch_id: Id::new(),
                 org_id: Id(org_id),
                 stream,
-                stream_type: StreamType::Traces,
+                stream_type: StreamType::TRACES,
                 events: summaries,
                 received_at: TimestampMicros::now(),
             };
             let result = if internal {
                 with_suppression(self.intake.intake_self_telemetry_dataset(
                     summary_batch,
-                    PhysicalDatasetKind::TraceSummary,
+                    DatasetTypeId::builtin(builtin::DATASET_TRACE_SUMMARY),
                 ))
                 .await
             } else {
-                with_suppression(
-                    self.intake
-                        .intake_derived_dataset(summary_batch, PhysicalDatasetKind::TraceSummary),
-                )
+                with_suppression(self.intake.intake_derived_dataset(
+                    summary_batch,
+                    DatasetTypeId::builtin(builtin::DATASET_TRACE_SUMMARY),
+                ))
                 .await
             }
             .map_err(|error| error.to_string())?;

@@ -2,6 +2,14 @@ import { Radar } from 'lucide-react';
 
 import type { ProductRouteMeta } from '../ia';
 
+const syntheticsCrumb = { labelKey: 'synthetics', to: '/synthetics/overview' } as const;
+const checksCrumb = { labelKey: 'synthetics_checks', to: '/synthetics/checks' } as const;
+const checkDetailBreadcrumbs = [
+  syntheticsCrumb,
+  checksCrumb,
+  { labelKey: 'breadcrumbs.synthetics_check_detail' },
+] as const;
+
 export const SYNTHETICS_PRODUCT_ROUTES = [
   {
     id: 'synthetics',
@@ -13,5 +21,90 @@ export const SYNTHETICS_PRODUCT_ROUTES = [
     owner: 'synthetics',
     emptyStateStrategy: 'create-first',
     nav: true,
+  },
+  {
+    id: 'synthetics.check.new',
+    path: '/synthetics/checks/new',
+    labelKey: 'breadcrumbs.synthetics_check_new',
+    group: 'reliability',
+    icon: Radar,
+    edition: 'any',
+    owner: 'synthetics',
+    emptyStateStrategy: 'create-first',
+    breadcrumbs: [
+      syntheticsCrumb,
+      checksCrumb,
+      { labelKey: 'breadcrumbs.synthetics_check_new' },
+    ],
+  },
+  {
+    id: 'synthetics.check.edit',
+    path: '/synthetics/checks/:monitorId/edit',
+    labelKey: 'breadcrumbs.synthetics_check_edit',
+    group: 'reliability',
+    icon: Radar,
+    edition: 'any',
+    owner: 'synthetics',
+    emptyStateStrategy: 'create-first',
+    breadcrumbs: [
+      syntheticsCrumb,
+      checksCrumb,
+      { labelKey: 'breadcrumbs.synthetics_check_edit' },
+    ],
+  },
+  {
+    id: 'synthetics.check.detail',
+    path: '/synthetics/checks/:monitorId',
+    labelKey: 'breadcrumbs.synthetics_check_detail',
+    group: 'reliability',
+    icon: Radar,
+    edition: 'any',
+    owner: 'synthetics',
+    emptyStateStrategy: 'query-first',
+    breadcrumbs: checkDetailBreadcrumbs,
+  },
+  {
+    id: 'synthetics.check.results',
+    path: '/synthetics/checks/:monitorId/results',
+    labelKey: 'breadcrumbs.synthetics_check_detail',
+    group: 'reliability',
+    icon: Radar,
+    edition: 'any',
+    owner: 'synthetics',
+    emptyStateStrategy: 'query-first',
+    breadcrumbs: checkDetailBreadcrumbs,
+  },
+  {
+    id: 'synthetics.check.result',
+    path: '/synthetics/checks/:monitorId/results/:resultId',
+    labelKey: 'breadcrumbs.synthetics_check_detail',
+    group: 'reliability',
+    icon: Radar,
+    edition: 'any',
+    owner: 'synthetics',
+    emptyStateStrategy: 'query-first',
+    breadcrumbs: checkDetailBreadcrumbs,
+  },
+  {
+    id: 'synthetics.check.configuration',
+    path: '/synthetics/checks/:monitorId/configuration',
+    labelKey: 'breadcrumbs.synthetics_check_detail',
+    group: 'reliability',
+    icon: Radar,
+    edition: 'any',
+    owner: 'synthetics',
+    emptyStateStrategy: 'query-first',
+    breadcrumbs: checkDetailBreadcrumbs,
+  },
+  {
+    id: 'synthetics.check.revisions',
+    path: '/synthetics/checks/:monitorId/revisions',
+    labelKey: 'breadcrumbs.synthetics_check_detail',
+    group: 'reliability',
+    icon: Radar,
+    edition: 'any',
+    owner: 'synthetics',
+    emptyStateStrategy: 'query-first',
+    breadcrumbs: checkDetailBreadcrumbs,
   },
 ] as const satisfies readonly ProductRouteMeta[];

@@ -12,7 +12,7 @@ use std::{
 
 use anyhow::{Context as _, Result, bail};
 use base64::Engine as _;
-use tokio::sync::{Mutex, Semaphore, mpsc};
+use tokio::sync::{Mutex, OwnedSemaphorePermit, Semaphore, mpsc};
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::transport::{Certificate, Channel, ClientTlsConfig, Endpoint, Identity};
 use url::Url;
@@ -142,6 +142,7 @@ async fn run_session(
     let mut inbound = response.into_inner();
     let active_tasks = Arc::new(AtomicU32::new(0));
     let semaphore = Arc::new(Semaphore::new(options.max_concurrent.clamp(1, 32) as usize));
+    let browser_semaphore = Arc::new(Semaphore::new(max_browser_concurrent(options) as usize));
     let pending_rotation = Arc::new(Mutex::new(None::<PendingKey>));
 
     outbound
@@ -149,8 +150,8 @@ async fn run_session(
             agent_id: identity.metadata.agent_id.clone(),
             agent_version: env!("CARGO_PKG_VERSION").to_string(),
             protocol_version: PROTOCOL_VERSION,
-            capabilities: capabilities(),
-            capacity: Some(capacity(options, &semaphore)),
+            capabilities: run_capabilities(options),
+            capacity: Some(capacity(options, &semaphore, &browser_semaphore)),
             last_acked_result_sequence: sequence.load(Ordering::Relaxed),
         })))
         .await?;
@@ -175,7 +176,7 @@ async fn run_session(
             _ = heartbeat.tick() => {
                 outbound.send(frame(agent_frame::Payload::Heartbeat(wire::AgentHeartbeat {
                     observed_at_micros: now_micros(),
-                    capacity: Some(capacity(options, &semaphore)),
+                    capacity: Some(capacity(options, &semaphore, &browser_semaphore)),
                     active_tasks: active_tasks.load(Ordering::Relaxed),
                     result_spool_bytes: spool.size_bytes(),
                     draining: false,
@@ -188,6 +189,7 @@ async fn run_session(
                     message,
                     &outbound,
                     &semaphore,
+                    &browser_semaphore,
                     &active_tasks,
                     &spool,
                     &sequence,
@@ -204,6 +206,7 @@ async fn handle_control(
     message: ControlFrame,
     outbound: &mpsc::Sender<AgentFrame>,
     semaphore: &Arc<Semaphore>,
+    browser_semaphore: &Arc<Semaphore>,
     active_tasks: &Arc<AtomicU32>,
     spool: &ResultSpool,
     sequence: &Arc<AtomicU64>,
@@ -211,21 +214,21 @@ async fn handle_control(
 ) -> Result<()> {
     match message.payload {
         Some(control_frame::Payload::Task(task)) => {
-            let permit = semaphore.clone().try_acquire_owned();
-            let accepted = permit.is_ok();
+            let is_browser = matches!(task.spec.as_ref(), Some(wire::probe_task::Spec::Browser(_)));
+            let permits = try_acquire_task(semaphore, browser_semaphore, is_browser);
+            let accepted = permits.is_ok();
             outbound
                 .send(frame(agent_frame::Payload::TaskAck(TaskAck {
                     task_id: task.task_id.clone(),
                     lease_token: task.lease_token.clone(),
                     accepted,
-                    rejection_code: if accepted {
-                        String::new()
-                    } else {
-                        "capacity_exhausted".into()
-                    },
+                    rejection_code: permits
+                        .as_ref()
+                        .err()
+                        .map_or_else(String::new, |rejection| rejection.code().into()),
                 })))
                 .await?;
-            if let Ok(permit) = permit {
+            if let Ok(permits) = permits {
                 let outbound = outbound.clone();
                 let spool = spool.clone();
                 let sequence = sequence.clone();
@@ -233,7 +236,7 @@ async fn handle_control(
                 active_tasks.fetch_add(1, Ordering::Relaxed);
                 tokio::spawn(async move {
                     let result_sequence = sequence.fetch_add(1, Ordering::SeqCst) + 1;
-                    let result = executor::execute(task, result_sequence).await;
+                    let result = execute_with_lease_renewal(task, result_sequence, &outbound).await;
                     match result {
                         Ok(result) => {
                             if let Err(error) = spool.store(&result) {
@@ -251,7 +254,7 @@ async fn handle_control(
                         }
                     }
                     active_tasks.fetch_sub(1, Ordering::Relaxed);
-                    drop(permit);
+                    drop(permits);
                 });
             }
         }
@@ -287,6 +290,45 @@ async fn handle_control(
         None => bail!("Probe control frame has no payload"),
     }
     Ok(())
+}
+
+async fn execute_with_lease_renewal(
+    task: wire::ProbeTask,
+    result_sequence: u64,
+    outbound: &mpsc::Sender<AgentFrame>,
+) -> Result<wire::ProbeResult> {
+    let task_id = task.task_id.clone();
+    let lease_token = task.lease_token.clone();
+    let deadline = task.deadline_micros;
+    let execution = executor::execute(task, result_sequence);
+    tokio::pin!(execution);
+    let mut renewal = tokio::time::interval_at(
+        tokio::time::Instant::now() + Duration::from_secs(25),
+        Duration::from_secs(25),
+    );
+    loop {
+        tokio::select! {
+            result = &mut execution => return result,
+            _ = renewal.tick() => {
+                let now = now_micros();
+                if now >= deadline {
+                    continue;
+                }
+                let requested_until_micros = now
+                    .saturating_add(90 * 1_000_000)
+                    .min(deadline);
+                if outbound.send(frame(agent_frame::Payload::LeaseRenewal(
+                    wire::LeaseRenewal {
+                        task_id: task_id.clone(),
+                        lease_token: lease_token.clone(),
+                        requested_until_micros,
+                    },
+                ))).await.is_err() {
+                    tracing::warn!(%task_id, "cannot renew Probe task lease after stream close");
+                }
+            }
+        }
+    }
 }
 
 async fn maybe_request_rotation(
@@ -336,19 +378,72 @@ async fn connect_tls(
         .context("connect to Probe endpoint")
 }
 
-fn capacity(options: &RunOptions, semaphore: &Semaphore) -> wire::AgentCapacity {
+fn capacity(
+    options: &RunOptions,
+    semaphore: &Semaphore,
+    browser_semaphore: &Semaphore,
+) -> wire::AgentCapacity {
+    let available = semaphore.available_permits().min(32) as u32;
     wire::AgentCapacity {
         max_concurrent: options.max_concurrent.clamp(1, 32),
-        max_browser_concurrent: options.max_browser_concurrent.min(4),
-        available: semaphore.available_permits().min(32) as u32,
-        available_browser: options.max_browser_concurrent.min(4),
+        max_browser_concurrent: max_browser_concurrent(options),
+        available,
+        available_browser: (browser_semaphore.available_permits().min(4) as u32).min(available),
     }
+}
+
+fn max_browser_concurrent(options: &RunOptions) -> u32 {
+    options
+        .max_browser_concurrent
+        .min(4)
+        .min(options.max_concurrent.clamp(1, 32))
+}
+
+#[derive(Debug)]
+struct TaskPermits {
+    _general: OwnedSemaphorePermit,
+    _browser: Option<OwnedSemaphorePermit>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CapacityRejection {
+    General,
+    Browser,
+}
+
+impl CapacityRejection {
+    const fn code(self) -> &'static str {
+        match self {
+            Self::General => "capacity_exhausted",
+            Self::Browser => "browser_capacity_exhausted",
+        }
+    }
+}
+
+fn try_acquire_task(
+    semaphore: &Arc<Semaphore>,
+    browser_semaphore: &Arc<Semaphore>,
+    is_browser: bool,
+) -> std::result::Result<TaskPermits, CapacityRejection> {
+    let general = semaphore
+        .clone()
+        .try_acquire_owned()
+        .map_err(|_| CapacityRejection::General)?;
+    let browser = is_browser
+        .then(|| browser_semaphore.clone().try_acquire_owned())
+        .transpose()
+        .map_err(|_| CapacityRejection::Browser)?;
+    Ok(TaskPermits {
+        _general: general,
+        _browser: browser,
+    })
 }
 
 fn capabilities() -> Vec<i32> {
     [
         Capability::Http,
         Capability::Tcp,
+        Capability::Ssh,
         Capability::Dns,
         Capability::Icmp,
         Capability::Tls,
@@ -358,6 +453,15 @@ fn capabilities() -> Vec<i32> {
     .into_iter()
     .map(|value| value as i32)
     .collect()
+}
+
+fn run_capabilities(options: &RunOptions) -> Vec<i32> {
+    capabilities()
+        .into_iter()
+        .filter(|capability| {
+            max_browser_concurrent(options) > 0 || *capability != Capability::Browser as i32
+        })
+        .collect()
 }
 
 fn frame(payload: agent_frame::Payload) -> AgentFrame {
@@ -373,4 +477,60 @@ fn now_micros() -> i64 {
         .unwrap_or_default()
         .as_micros()
         .min(i64::MAX as u128) as i64
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{path::PathBuf, sync::Arc};
+
+    use tokio::sync::Semaphore;
+
+    use super::{
+        CapacityRejection, RunOptions, capacity, max_browser_concurrent, try_acquire_task,
+    };
+
+    fn options(max_concurrent: u32, max_browser_concurrent: u32) -> RunOptions {
+        RunOptions {
+            state_dir: PathBuf::new(),
+            max_concurrent,
+            max_browser_concurrent,
+        }
+    }
+
+    #[test]
+    fn browser_tasks_hold_both_capacity_classes() {
+        let options = options(2, 1);
+        let general = Arc::new(Semaphore::new(2));
+        let browser = Arc::new(Semaphore::new(1));
+        let _first = try_acquire_task(&general, &browser, true).expect("first Browser task");
+
+        assert_eq!(
+            try_acquire_task(&general, &browser, true).unwrap_err(),
+            CapacityRejection::Browser
+        );
+        let reported = capacity(&options, &general, &browser);
+        assert_eq!(reported.available, 1);
+        assert_eq!(reported.available_browser, 0);
+
+        let _non_browser = try_acquire_task(&general, &browser, false).expect("non-Browser task");
+        assert_eq!(
+            try_acquire_task(&general, &browser, false).unwrap_err(),
+            CapacityRejection::General
+        );
+    }
+
+    #[test]
+    fn browser_capacity_can_be_disabled_and_is_clamped() {
+        assert_eq!(max_browser_concurrent(&options(8, 9)), 4);
+        assert_eq!(max_browser_concurrent(&options(2, 4)), 2);
+
+        let options = options(4, 0);
+        let general = Arc::new(Semaphore::new(4));
+        let browser = Arc::new(Semaphore::new(0));
+        assert_eq!(
+            try_acquire_task(&general, &browser, true).unwrap_err(),
+            CapacityRejection::Browser
+        );
+        assert_eq!(capacity(&options, &general, &browser).available_browser, 0);
+    }
 }

@@ -125,17 +125,6 @@ pub fn sync_dir_parent_of(path: &Path, sync_level: SyncLevel) -> std::io::Result
     dir.sync_all()
 }
 
-/// WAL 日志配置。
-pub struct SegmentWalConfig {
-    pub path: PathBuf,
-    pub segment_size: usize,
-    pub buffer_size: usize,
-    pub max_segments: Option<usize>,
-    pub max_total_size_bytes: Option<u64>,
-    pub fsync_policy: FsyncPolicy,
-    pub initial_term: u64,
-}
-
 /// WAL 记录类型（低 7 位）。
 ///
 /// molesignal 用法：
@@ -219,38 +208,4 @@ pub struct WalDirScanError {
 pub struct WalReadonlyScan {
     pub records: Vec<WalRecord>,
     pub errors: Vec<WalDirScanError>,
-}
-
-/// 供 `WalPool` 在 append 之前查询当前 raft / consensus term 的注入点。
-///
-/// OSS bootstrap 注入 [`StaticTermSource`]（固定值 1）；未来 raft 接入只需
-/// `impl TermSource for RaftTermSource { fn current_term(&self) -> u64 { self.raft.current_term() } }`
-/// 然后在 bootstrap 阶段 swap，**不改 `WalPool::new` / `SegmentWal::new` 签名**。
-pub trait TermSource: Send + Sync {
-    /// 返回写入下一条 WAL 记录时应使用的 term。要求实现使用原子读，免锁、轻量。
-    fn current_term(&self) -> u64;
-}
-
-/// 固定 term 值实现，单机非共识场景的默认 [`TermSource`]。
-#[derive(Debug, Clone, Copy)]
-pub struct StaticTermSource(pub u64);
-
-impl TermSource for StaticTermSource {
-    fn current_term(&self) -> u64 {
-        self.0
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn static_term_source_returns_inner_value() {
-        let s = StaticTermSource(7);
-        assert_eq!(s.current_term(), 7);
-        // Send + Sync: 应能跨 thread。
-        let h = std::thread::spawn(move || s.current_term());
-        assert_eq!(h.join().unwrap(), 7);
-    }
 }

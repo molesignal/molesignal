@@ -14,6 +14,7 @@
   "dashboards": "Dashboards",
   "alerts": "Alerts",
   "synthetics": "Synthetics",
+  "synthetics_checks": "Checks",
   "agent": "Mole Agent",
   "saved_views": "Saved views",
   "streams": "Streams",
@@ -108,7 +109,12 @@
     "profiles_compare": "Compare profiles",
     "anomaly_new": "New anomaly rule",
     "anomaly_edit": "Edit anomaly rule",
-    "semantic_groups": "Semantic groups"
+    "semantic_groups": "Semantic groups",
+    "synthetics_check_new": "New check",
+    "synthetics_check_edit": "Edit check",
+    "synthetics_check_detail": "Check",
+    "alert_schedules": "On-call schedules",
+    "alert_schedule_detail": "Schedule"
   },
   "service_graph": "Service graph"
 }

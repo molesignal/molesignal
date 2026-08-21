@@ -20,12 +20,12 @@ export function AgentSettingsSection({
   return (
     <section
       data-agent-settings-section
-      className="min-w-0 bg-transparent"
+      className="min-w-0 rounded-md bg-[var(--control-surface)] p-4"
     >
       <header
+        data-header-divider={headerDivider ? 'spaced' : undefined}
         className={cn(
           'flex min-h-[60px] flex-wrap items-center gap-4 py-3',
-          headerDivider && 'border-b border-bd-0',
         )}
       >
         <div className="min-w-0 flex-1">
@@ -45,7 +45,7 @@ export function AgentSettingsSection({
 
 export function AgentProfileList({ children }: { children: ReactNode }) {
   return (
-    <div data-agent-profile-list className="divide-y divide-bd-0">
+    <div data-agent-profile-list className="space-y-2">
       {children}
     </div>
   );
@@ -53,7 +53,7 @@ export function AgentProfileList({ children }: { children: ReactNode }) {
 
 export function AgentProfileRow({ children }: { children: ReactNode }) {
   return (
-    <article data-agent-profile-row className="min-w-0 py-4">
+    <article data-agent-profile-row className="min-w-0 rounded-md bg-[var(--functional-surface)] p-4">
       {children}
     </article>
   );

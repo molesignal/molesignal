@@ -406,7 +406,7 @@ function MapHoverCard({ hover }: { hover: MapHover }) {
     <div
       role="tooltip"
       data-map-tooltip
-      className="pointer-events-none absolute z-30 w-[min(244px,calc(100%-16px))] rounded-md border border-bd-1 bg-bg-1/95 p-3 text-xs text-tx-1 shadow-popup"
+      className="pointer-events-none absolute z-30 w-[min(244px,calc(100%-16px))] rounded-md border-0 bg-[var(--floating-surface)] p-3 text-xs text-tx-1 shadow-popup"
       style={{ left: hover.x, top: hover.y }}
     >
       <div className="mb-2 font-strong text-tx-0">{hover.title}</div>

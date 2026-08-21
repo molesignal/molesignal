@@ -74,7 +74,7 @@ async fn run_sql(
         time_range: TimeRange::new(TimestampMicros(from), TimestampMicros(to)),
         stream: Some(StreamHint {
             name: AGENT_STREAM.to_string(),
-            stream_type: StreamType::Traces,
+            stream_type: StreamType::TRACES,
         }),
         limit: None,
         federation_clusters: Vec::new(),

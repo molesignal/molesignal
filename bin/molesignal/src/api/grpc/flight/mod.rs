@@ -3,7 +3,7 @@
 
 //! Arrow Flight server：实现 `arrow_flight::FlightService`。
 //!
-//! - `do_get(Ticket)`：把 ticket bytes 反序列化为 `query.v1.QueryShard`，按 `parquet_file_metas`
+//! - `do_get(Ticket)`：把 ticket bytes 反序列化为 `query.v1.QueryShard`，按 `query_files`
 //!   把显式 parquet 清单注册为 `ParquetExec` → 跑 shard.sql（仅 scan + WHERE + projection；最终聚合
 //!   留 coordinator） → 用 `FlightDataEncoderBuilder` 把 `RecordBatch` 流编码为
 //!   `FlightData` 流返回。
@@ -16,7 +16,7 @@ use std::{
     time::Duration,
 };
 
-use arrow::datatypes::Schema as ArrowSchema;
+use arrow::datatypes::{Schema as ArrowSchema, SchemaRef};
 use arrow_flight::{
     Action, ActionType, Criteria, Empty, FlightData, FlightDescriptor, FlightInfo,
     HandshakeRequest, HandshakeResponse, PollInfo, PutResult, SchemaResult, Ticket,
@@ -36,11 +36,14 @@ use crate::{
     app::iam::IamService,
     domain::{
         iam::api_token::ApiTokenRepository,
-        storage::{ParquetFileMeta, ParquetFileMetaRepository, PhysicalDatasetKind},
+        storage::{DatasetTypeId, ObjectChecksum, QueryFile, QueryFileSource},
         stream::StreamType,
     },
     infra::{
-        query::{federation_cancel::FederationCancelRegistry, parquet_table::PrunedParquetTable},
+        query::{
+            catalog_source::CatalogQuerySource, federation_cancel::FederationCancelRegistry,
+            parquet_table::PrunedParquetTable,
+        },
         storage::parquet::reader::ParquetReader,
     },
     protocol::query::v1::QueryShard,
@@ -55,9 +58,10 @@ pub mod sql;
 
 pub struct FlightGrpc {
     object_store: Arc<dyn ObjectStore>,
-    /// federated-search 联邦请求（空 parquet_file_metas）时远端用它自解析本集群的
-    /// parquet_file_meta；None 时不支持联邦自解析（仅集群内预解析分片可用）。
-    files: Option<Arc<dyn ParquetFileMetaRepository>>,
+    /// federated-search 联邦请求（空 query_files）时远端用它自解析本集群的
+    /// query_file；None 时不支持联邦自解析（仅集群内预解析分片可用）。
+    files: Option<Arc<dyn QueryFileSource>>,
+    catalog_source: Option<Arc<CatalogQuerySource>>,
     /// federated-search 联邦请求的 bearer 校验用的 API token repo；
     /// None 时联邦请求一律拒绝（未配置鉴权）。集群内分片不受影响。
     api_tokens: Option<Arc<dyn ApiTokenRepository>>,
@@ -74,6 +78,7 @@ impl FlightGrpc {
         Self {
             object_store,
             files: None,
+            catalog_source: None,
             api_tokens: None,
             iam: None,
             cancel_registry: None,
@@ -86,9 +91,14 @@ impl FlightGrpc {
         self
     }
 
-    /// 注入 ParquetFileMetaRepository → 远端可处理联邦自解析分片（空 parquet_file_metas）。
-    pub fn with_files(mut self, files: Arc<dyn ParquetFileMetaRepository>) -> Self {
+    /// 注入 QueryFileSource → 远端可处理联邦自解析分片（空 query_files）。
+    pub fn with_files(mut self, files: Arc<dyn QueryFileSource>) -> Self {
         self.files = Some(files);
+        self
+    }
+
+    pub fn with_catalog_source(mut self, source: Arc<CatalogQuerySource>) -> Self {
+        self.catalog_source = Some(source);
         self
     }
 
@@ -117,53 +127,100 @@ impl FlightGrpc {
         let store = self.object_store.clone();
         let reader = ParquetReader::new(store.clone());
 
-        // parquet_file_metas 为空 = 联邦自解析 —— 远端用
-        // (org, stream, stream_type, time_range) 查本集群 parquet_file_meta；非空则沿用
+        // query_files 为空 = 联邦自解析 —— 远端用
+        // (org, stream, stream_type, time_range) 查本集群 query_file；非空则沿用
         // coordinator 预解析的集群内分片。
-        // 两条分支统一成 ParquetFileMeta，直接交给 ParquetExec；不再先把所有文件解码到 MemTable。
-        let mut targets: Vec<ParquetFileMeta> = if shard.parquet_file_metas.is_empty() {
-            let files = self.files.as_ref().ok_or_else(|| {
-                "parquet_file_meta repo not configured for federated self-resolve".to_string()
-            })?;
-            let st = parse_stream_type(&shard.stream_type);
+        // 两条分支统一成 QueryFile，直接交给 ParquetExec；不再先把所有文件解码到 MemTable。
+        let (mut targets, buffered_batches, catalog_schema): (
+            Vec<QueryFile>,
+            Vec<_>,
+            Option<SchemaRef>,
+        ) = if shard.query_files.is_empty() {
+            let st = parse_stream_type(&shard.stream_type)?;
             let time_range = TimeRange::new(
                 TimestampMicros(shard.time_start_micros),
                 TimestampMicros(shard.time_end_micros),
             );
             let org_id = Id(shard.org_id.clone());
-            let lookups = crate::domain::storage::logical_query_datasets(st)
-                .iter()
-                .map(|dataset_kind| {
-                    files.find_dataset(&org_id, &shard.stream, st, *dataset_kind, time_range)
+            let dataset_types = crate::domain::storage::logical_query_dataset_types(st)
+                .map_err(|error| format!("query dataset selection: {error}"))?;
+            if let Some(source) = &self.catalog_source {
+                let snapshot = source
+                    .snapshot_by_name(&org_id, &shard.stream, st, &dataset_types, time_range)
+                    .await
+                    .map_err(|error| format!("catalog snapshot: {error}"))?;
+                let schema = snapshot
+                    .datasets
+                    .first()
+                    .map(|dataset| dataset.schema.clone());
+                (snapshot.files(), snapshot.buffered_batches(), schema)
+            } else {
+                let files = self.files.as_ref().ok_or_else(|| {
+                    "parquet file source not configured for federated self-resolve".to_string()
+                })?;
+                let lookups = dataset_types.into_iter().map(|dataset_type| {
+                    files.find_dataset(&org_id, &shard.stream, st, dataset_type, time_range)
                 });
-            futures::future::try_join_all(lookups)
-                .await
-                .map_err(|e| format!("parquet_file_meta find: {e}"))?
-                .into_iter()
-                .flatten()
-                .collect()
+                (
+                    futures::future::try_join_all(lookups)
+                        .await
+                        .map_err(|error| format!("parquet file find: {error}"))?
+                        .into_iter()
+                        .flatten()
+                        .collect(),
+                    Vec::new(),
+                    None,
+                )
+            }
         } else {
-            shard
-                .parquet_file_metas
+            let catalog_schema = match &self.catalog_source {
+                Some(source) => Some(
+                    source
+                        .logical_arrow_schema(
+                            &Id(shard.org_id.clone()),
+                            &shard.stream,
+                            parse_stream_type(&shard.stream_type)?,
+                        )
+                        .await
+                        .map_err(|error| format!("stream schema: {error}"))?,
+                ),
+                None => None,
+            };
+            let explicit_files = shard
+                .query_files
                 .iter()
-                .map(|file| ParquetFileMeta {
-                    id: Id(file.id.clone()),
-                    org_id: Id(file.org_id.clone()),
-                    stream: file.stream.clone(),
-                    stream_type: parse_stream_type(&file.stream_type),
-                    dataset_kind: PhysicalDatasetKind::Raw,
-                    object_key: file.object_key.clone(),
-                    time_range: TimeRange::new(
-                        TimestampMicros(file.time_start_micros),
-                        TimestampMicros(file.time_end_micros),
-                    ),
-                    rows: file.rows,
-                    size_bytes: file.size_bytes,
-                    min_values: serde_json::Map::new(),
-                    max_values: serde_json::Map::new(),
-                    deleted: false,
+                .map(|file| {
+                    let dataset_type = DatasetTypeId::new(file.dataset_type.clone())
+                        .map_err(|error| format!("invalid query file dataset type: {error}"))?;
+                    Ok::<_, String>(QueryFile {
+                        id: Id(file.id.clone()),
+                        org_id: Id(file.org_id.clone()),
+                        stream: file.stream.clone(),
+                        stream_type: parse_stream_type(&file.stream_type)?,
+                        dataset_type,
+                        object_key: file.object_key.clone(),
+                        checksum: (!file.checksum.is_empty())
+                            .then(|| ObjectChecksum::from_string(file.checksum.clone())),
+                        etag: (!file.etag.is_empty()).then(|| file.etag.clone()),
+                        time_range: TimeRange::new(
+                            TimestampMicros(file.time_start_micros),
+                            TimestampMicros(file.time_end_micros),
+                        ),
+                        rows: file.rows,
+                        size_bytes: file.size_bytes,
+                        min_values: serde_json::Map::new(),
+                        max_values: serde_json::Map::new(),
+                    })
                 })
-                .collect()
+                .collect::<Result<Vec<_>, _>>()?;
+            if let Some(source) = &self.catalog_source {
+                for file in &explicit_files {
+                    source
+                        .register_query_file(file)
+                        .map_err(|error| format!("register query object: {error}"))?;
+                }
+            }
+            (explicit_files, Vec::new(), catalog_schema)
         };
         // Prefer the newest footer for schema-evolution fallback and keep the same candidate
         // ordering as the common latest-first query path.
@@ -174,14 +231,17 @@ impl FlightGrpc {
                 .cmp(&left.time_range.end)
                 .then_with(|| right.id.0.cmp(&left.id.0))
         });
-        if targets.is_empty() {
+        if targets.is_empty() && buffered_batches.is_empty() {
             return Ok(Vec::new());
         }
-        let first = &targets[0];
-        let schema = reader
-            .schema_from_store(store.clone(), &first.object_key, first.size_bytes)
-            .await
-            .map_err(|e| format!("parquet schema: {e}"))?;
+        let schema = match (catalog_schema, targets.first()) {
+            (Some(schema), _) => schema,
+            (None, Some(first)) => reader
+                .schema_from_store(store.clone(), &first.object_key, first.size_bytes)
+                .await
+                .map_err(|error| format!("parquet schema: {error}"))?,
+            (None, None) => buffered_batches[0].schema(),
+        };
         let ctx = SessionContext::new();
         let object_store_url = ObjectStoreUrl::parse("molesignal://flight")
             .map_err(|e| format!("object store URL: {e}"))?;
@@ -196,7 +256,8 @@ impl FlightGrpc {
                 TimestampMicros(shard.time_end_micros),
             ),
             None,
-        );
+        )
+        .with_buffered_batches(buffered_batches);
         ctx.register_table(TableReference::bare(shard.stream.clone()), Arc::new(table))
             .map_err(|e| format!("register: {e}"))?;
         let df = ctx
@@ -249,15 +310,10 @@ impl FlightGrpc {
     }
 }
 
-/// proto 里的 stream_type 字符串 → domain [`StreamType`]；未知值退回 `Logs`。
-fn parse_stream_type(s: &str) -> StreamType {
-    match s {
-        "metrics" => StreamType::Metrics,
-        "traces" => StreamType::Traces,
-        "profiles" => StreamType::Profiles,
-        "extend" => StreamType::Extend,
-        _ => StreamType::Logs,
-    }
+/// Proto boundary accepts stable built-in slugs and namespaced extension IDs.
+fn parse_stream_type(value: &str) -> Result<StreamType, String> {
+    StreamType::from_external_name(value)
+        .map_err(|error| format!("invalid query stream type: {error}"))
 }
 
 type FlightStream<T> = Pin<Box<dyn futures::Stream<Item = Result<T, Status>> + Send + 'static>>;
@@ -286,9 +342,9 @@ impl FlightService for FlightGrpc {
         let shard = QueryShard::decode(ticket.ticket.as_ref())
             .map_err(|e| Status::invalid_argument(format!("decode shard: {e}")))?;
 
-        // federated-search 联邦请求（空 parquet_file_metas = 远端自解析）必须带合法
+        // federated-search 联邦请求（空 query_files = 远端自解析）必须带合法
         // bearer 且 token 的 org 与 query org 一致；集群内分片走可信网络免鉴权（行为不变）。
-        if shard.parquet_file_metas.is_empty() {
+        if shard.query_files.is_empty() {
             let token = bearer.ok_or_else(|| {
                 Status::unauthenticated("missing bearer token for federated query")
             })?;

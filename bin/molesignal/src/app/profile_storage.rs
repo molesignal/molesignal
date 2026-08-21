@@ -45,7 +45,7 @@ impl ProfileStorageService {
             batch_id: Id::new(),
             org_id: org_id.clone(),
             stream: DEFAULT_PROFILE_STREAM.into(),
-            stream_type: StreamType::Profiles,
+            stream_type: StreamType::PROFILES,
             events: vec![event],
             received_at: TimestampMicros::now(),
         };

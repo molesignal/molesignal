@@ -192,6 +192,27 @@ impl SyntheticTaskRepository for PgSyntheticRepository {
         row_to_task(row)
     }
 
+    async fn get_leased_task_by_token(
+        &self,
+        task_id: &Id,
+        lease_token_hash: &str,
+        now: TimestampMicros,
+    ) -> Result<ProbeTask> {
+        let sql = format!(
+            "SELECT {TASK_COLS} FROM synthetic_probe_tasks
+             WHERE id = $1 AND lease_token_hash = $2
+               AND state IN ('leased', 'running') AND leased_until_micros > $3"
+        );
+        let row = sqlx::query(&sql)
+            .bind(&task_id.0)
+            .bind(lease_token_hash)
+            .bind(now.0)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(super::sqlx_err)?;
+        row_to_task(row)
+    }
+
     async fn acknowledge_task(
         &self,
         task_id: &Id,

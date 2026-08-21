@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import * as syntheticsApi from '@/api/synthetics';
 import type { ProbeRegisterInstructions, ProbeLocation } from '@/api/synthetics';
+import { writeClipboardText } from '@/lib/clipboard';
 import { toApiError } from '@/lib/http';
 import { CopyIconButton } from '@/shell/CopyIconButton';
 import {
@@ -123,8 +124,7 @@ export function RegisterInstructionsDrawer({
           className="absolute right-2 top-2"
           onClick={() => {
             if (!instructions) return;
-            void navigator.clipboard
-              .writeText(instructions.command)
+            void writeClipboardText(instructions.command)
               .then(() => setCopied(true));
           }}
         />

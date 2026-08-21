@@ -209,7 +209,7 @@ async fn correlated_rum(
         statement,
         range,
         "rum_actions",
-        StreamType::Logs,
+        StreamType::LOGS,
         limit,
     )
     .await?;

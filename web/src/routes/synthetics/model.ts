@@ -120,6 +120,7 @@ export function detailToInput(detail: MonitorDetail, clone = false): CreateMonit
       ? { escalation_policy_id: revision.escalation_policy_id }
       : {}),
     alert_on_degraded: revision.alert_on_degraded,
+    alert_on_flaky: revision.alert_on_flaky,
   };
 }
 

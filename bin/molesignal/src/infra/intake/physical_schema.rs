@@ -13,7 +13,7 @@ use crate::{
     domain::{
         intake::EVENT_ID_FIELD,
         metrics::{METRIC_KIND_FIELD, METRIC_NAME_FIELD},
-        storage::PhysicalDatasetKind,
+        storage::{DatasetTypeId, type_id::builtin},
         stream::StreamDefinition,
     },
     shared::trace::summary::{
@@ -104,16 +104,13 @@ const RUM_ACTION_SUMMARY_FIELDS: &[&str] = &[
 
 const METRIC_CATALOG_FIELDS: &[&str] = &[METRIC_NAME_FIELD, METRIC_KIND_FIELD];
 
-pub(crate) fn project(
-    stream: &StreamDefinition,
-    dataset_kind: PhysicalDatasetKind,
-) -> StreamDefinition {
-    let fields = match dataset_kind {
-        PhysicalDatasetKind::TraceSummary => Some(TRACE_SUMMARY_FIELDS),
-        PhysicalDatasetKind::RumSessionSummary => Some(RUM_SESSION_SUMMARY_FIELDS),
-        PhysicalDatasetKind::RumActionSummary => Some(RUM_ACTION_SUMMARY_FIELDS),
-        PhysicalDatasetKind::RumErrorSummary => Some(RUM_ERROR_SUMMARY_FIELDS),
-        PhysicalDatasetKind::MetricCatalog => Some(METRIC_CATALOG_FIELDS),
+pub(crate) fn project(stream: &StreamDefinition, dataset_type: &DatasetTypeId) -> StreamDefinition {
+    let fields = match dataset_type.as_str() {
+        builtin::DATASET_TRACE_SUMMARY => Some(TRACE_SUMMARY_FIELDS),
+        builtin::DATASET_RUM_SESSION_SUMMARY => Some(RUM_SESSION_SUMMARY_FIELDS),
+        builtin::DATASET_RUM_ACTION_SUMMARY => Some(RUM_ACTION_SUMMARY_FIELDS),
+        builtin::DATASET_RUM_ERROR_SUMMARY => Some(RUM_ERROR_SUMMARY_FIELDS),
+        builtin::DATASET_METRIC_CATALOG => Some(METRIC_CATALOG_FIELDS),
         _ => None,
     };
     let Some(fields) = fields else {
@@ -153,7 +150,7 @@ mod tests {
             id: Id::new(),
             org_id: Id::new(),
             name: "traces".to_string(),
-            stream_type: StreamType::Traces,
+            stream_type: StreamType::TRACES,
             schema: Schema {
                 fields: vec![
                     field("trace_id"),
@@ -170,7 +167,10 @@ mod tests {
 
     #[test]
     fn trace_summary_drops_wide_span_columns() {
-        let projected = project(&stream(), PhysicalDatasetKind::TraceSummary);
+        let projected = project(
+            &stream(),
+            &DatasetTypeId::builtin(builtin::DATASET_TRACE_SUMMARY),
+        );
         let names = projected
             .schema
             .fields
@@ -183,7 +183,10 @@ mod tests {
     #[test]
     fn raw_keeps_authoritative_schema() {
         let original = stream();
-        let projected = project(&original, PhysicalDatasetKind::Raw);
+        let projected = project(
+            &original,
+            &DatasetTypeId::builtin(builtin::DATASET_TRACE_SPANS),
+        );
         assert_eq!(projected.schema.fields.len(), original.schema.fields.len());
     }
 
@@ -200,7 +203,10 @@ mod tests {
             field("large_payload"),
         ]);
 
-        let sessions = project(&original, PhysicalDatasetKind::RumSessionSummary);
+        let sessions = project(
+            &original,
+            &DatasetTypeId::builtin(builtin::DATASET_RUM_SESSION_SUMMARY),
+        );
         assert!(
             sessions
                 .schema
@@ -223,7 +229,10 @@ mod tests {
                 .any(|field| field.name == "large_payload")
         );
 
-        let errors = project(&original, PhysicalDatasetKind::RumErrorSummary);
+        let errors = project(
+            &original,
+            &DatasetTypeId::builtin(builtin::DATASET_RUM_ERROR_SUMMARY),
+        );
         assert!(
             errors
                 .schema
@@ -239,7 +248,10 @@ mod tests {
                 .any(|field| field.name == "large_payload")
         );
 
-        let actions = project(&original, PhysicalDatasetKind::RumActionSummary);
+        let actions = project(
+            &original,
+            &DatasetTypeId::builtin(builtin::DATASET_RUM_ACTION_SUMMARY),
+        );
         assert!(
             actions
                 .schema
@@ -255,7 +267,10 @@ mod tests {
                 .any(|field| field.name == "large_payload")
         );
 
-        let catalog = project(&original, PhysicalDatasetKind::MetricCatalog);
+        let catalog = project(
+            &original,
+            &DatasetTypeId::builtin(builtin::DATASET_METRIC_CATALOG),
+        );
         assert_eq!(
             catalog
                 .schema

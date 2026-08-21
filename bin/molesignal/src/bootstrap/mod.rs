@@ -16,6 +16,7 @@ mod platform;
 mod query;
 pub mod roles;
 mod storage;
+mod synthetics;
 mod tracing;
 pub mod workers;
 

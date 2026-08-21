@@ -159,7 +159,7 @@ export function PublicUptimeHistory({
                             data-theme="light"
                             side="top"
                             sideOffset={8}
-                            className="w-72 border-bd-1 bg-white p-3 text-tx-1"
+                            className="w-72 p-3 text-tx-1"
                           >
                             <UptimeDayTooltip
                               day={day}

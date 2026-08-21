@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use super::{core::Core, iam::IamRuntime};
+use super::{core::Core, iam::IamRuntime, storage::StorageRuntime};
 use crate::{
     app::{cluster::PeerRole, query::QueryService},
     config::Settings,
@@ -44,11 +44,22 @@ pub(super) struct QueryRuntime {
 }
 
 impl QueryRuntime {
-    pub(super) async fn build(settings: &Settings, core: &Core) -> Self {
-        let index_handle_cache = Arc::new(crate::infra::caching::ParquetMetaCache::<
+    pub(super) async fn build(settings: &Settings, core: &Core, storage: &StorageRuntime) -> Self {
+        let read_store = core.object_reader.store();
+        let index_handle_cache = Arc::new(crate::infra::caching::IndexHandleCache::<
             Arc<IndexHandle>,
-        >::new(settings.cache.parquet_meta.clone()));
-        let tantivy_pruner = Arc::new(TantivyPruner::new(index_handle_cache, core.store.clone()));
+        >::new(settings.cache.index_handle.clone()));
+        let tantivy_result_cache = Arc::new(crate::infra::caching::TantivyResultCache::new(
+            &settings.cache.tantivy_result,
+        ));
+        let tantivy_footer_cache = Arc::new(crate::infra::caching::TantivyFooterCache::new(
+            &settings.cache.tantivy_footer,
+        ));
+        let tantivy_pruner = Arc::new(
+            TantivyPruner::new(index_handle_cache, read_store.clone())
+                .with_result_cache(tantivy_result_cache)
+                .with_footer_cache(tantivy_footer_cache),
+        );
         let log_patterns: Arc<
             dyn crate::infra::persistence::repositories::log_patterns::LogPatternRepository,
         > = Arc::new(
@@ -57,8 +68,9 @@ impl QueryRuntime {
             ),
         );
         let local_engine = Arc::new(
-            DataFusionEngine::new(core.parquet_file_meta.clone(), core.store.clone())
+            DataFusionEngine::new(storage.catalog_files.clone(), read_store.clone())
                 .with_tantivy_pruner(tantivy_pruner)
+                .with_catalog_source(storage.catalog_query.clone())
                 .with_streams(core.streams.clone())
                 .with_log_patterns(log_patterns.clone())
                 .with_regex_patterns(core.regex_patterns.clone())
@@ -73,8 +85,8 @@ impl QueryRuntime {
             Arc::new(DistributedDataFusionEngine::new(
                 local_engine.clone(),
                 core.registry.clone(),
-                core.parquet_file_meta.clone(),
-                core.store.clone(),
+                storage.catalog_files.clone(),
+                read_store.clone(),
             ))
         } else {
             local_engine
@@ -99,19 +111,21 @@ impl QueryRuntime {
             FederatedDistributedEngine::new(
                 sql_engine.clone(),
                 remote_clusters.clone(),
-                core.parquet_file_meta.clone(),
-                core.store.clone(),
+                storage.catalog_files.clone(),
+                read_store.clone(),
             )
             .with_secrets(cluster_secrets.clone())
             .with_field_keys(core.field_key_service.clone())
             .with_regex_patterns(core.regex_patterns.clone())
             .with_log_patterns(log_patterns)
             .with_cancel_registry(federation_cancel.clone())
+            .with_catalog_source(storage.catalog_query.clone())
             .with_streams(core.streams.clone()),
         );
         let promql_engine = {
-            let engine = PromQLEngine::new(core.parquet_file_meta.clone(), core.store.clone())
-                .with_streams(core.streams.clone());
+            let engine = PromQLEngine::new(storage.catalog_files.clone(), read_store)
+                .with_streams(core.streams.clone())
+                .with_catalog_source(storage.catalog_query.clone());
             let settings = &settings.search.stream_agg_cache;
             let engine = if settings.capacity > 0 {
                 let cache = Arc::new(crate::infra::caching::StreamingAggCache::new(settings));

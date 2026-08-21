@@ -61,7 +61,7 @@ impl Workload {
             id: Id::new(),
             org_id: Id::new(),
             name: "trace_perf".into(),
-            stream_type: StreamType::Logs,
+            stream_type: StreamType::LOGS,
             schema,
             retention: None,
             created_at: TimestampMicros(0),
@@ -122,7 +122,13 @@ impl Workload {
                     .push(event, sequence as u64)
                     .expect("benchmark event");
             }
-            std::hint::black_box(builder.finish_and_clear().expect("benchmark record batch"));
+            std::hint::black_box(
+                builder
+                    .begin_flush()
+                    .expect("benchmark record batch")
+                    .expect("non-empty benchmark batch")
+                    .batch,
+            );
         }
         .instrument(intake)
         .await;

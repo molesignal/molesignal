@@ -20,7 +20,7 @@ export function RumOnboarding() {
   return (
     <section
       data-testid="rum-activation"
-      className="overflow-hidden rounded-xl border border-bd-0 bg-bg-1"
+      className="overflow-hidden rounded-md bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]"
     >
       <div className="grid gap-8 px-6 py-8 xl:grid-cols-[minmax(0,1fr)_420px] xl:px-8">
         <div>
@@ -38,7 +38,7 @@ export function RumOnboarding() {
               <Link
                 key={key}
                 to={to}
-                className="group flex min-h-20 items-center gap-3 rounded-lg border border-bd-0 bg-bg-2 px-4 text-left transition-colors hover:bg-bg-3 focus-visible:bg-bg-3"
+                className="group flex min-h-20 items-center gap-3 rounded-md bg-[var(--control-surface)] px-4 text-left transition-colors hover:bg-bg-3 focus-visible:bg-bg-3"
               >
                 <Icon aria-hidden className="h-5 w-5 text-indigo-soft" />
                 <span className="text-sm font-strong text-tx-0">
@@ -71,7 +71,7 @@ export function RumOnboarding() {
             </a>
           </div>
         </div>
-        <div className="rounded-lg border border-bd-0 bg-bg-0 p-5">
+        <div className="rounded-md bg-[var(--control-surface)] p-5">
           <div className="text-xs font-strong uppercase tracking-wide text-tx-3">
             {t('onboarding.progress_title')}
           </div>

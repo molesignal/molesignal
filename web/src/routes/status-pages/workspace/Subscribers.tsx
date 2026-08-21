@@ -76,7 +76,7 @@ export function StatusPageSubscribers({ view }: { view: 'list' | 'deliveries' })
                 to={`/status-pages/${pageId}/subscribers/${item}`}
                 className={({ isActive }) =>
                   cn(
-                    'inline-flex h-12 items-center border-b-2 px-3 text-xs font-strong',
+                    'inline-flex h-12 items-center border-b-[3px] px-3 text-xs font-strong',
                     isActive
                       ? 'border-indigo text-tx-0'
                       : 'border-transparent text-tx-2 hover:bg-bg-2 hover:text-tx-0',

@@ -3,6 +3,12 @@ import { expect, test } from '@playwright/test';
 import { installMockShellSession } from '../fixtures/mockSession';
 
 const TRACE_ID = 'trace-1';
+const LONG_BODY = JSON.stringify({
+  mem_limit_pages: 256,
+  mem_usage_pages: 256,
+  trigger_comm: 'python3',
+  payload: 'x'.repeat(2_048),
+});
 
 test.beforeEach(async ({ page }) => {
   await installMockShellSession(page);
@@ -18,6 +24,7 @@ test.beforeEach(async ({ page }) => {
             { name: 'level', data_type: 'utf8', nullable: true, indexed: true },
             { name: 'service', data_type: 'utf8', nullable: true, indexed: true },
             { name: 'message', data_type: 'utf8', nullable: true, indexed: false },
+            { name: 'body', data_type: 'utf8', nullable: true, indexed: false },
             { name: 'trace_id', data_type: 'utf8', nullable: true, indexed: true },
           ],
         },
@@ -28,13 +35,21 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/api/v1/web/logs', (route) =>
     route.fulfill({
       json: {
-        items: [{
-          _timestamp: 1_786_704_600_000_000,
-          level: 'ERROR',
-          service: 'checkout-api',
-          message: 'checkout request failed',
-          trace_id: TRACE_ID,
-        }],
+        items: [
+          {
+            _timestamp: 1_786_704_600_000_000,
+            level: 'ERROR',
+            service: 'checkout-api',
+            message: 'checkout request failed',
+            trace_id: TRACE_ID,
+          },
+          {
+            _timestamp: 1_786_704_601_000_000,
+            level: 'ERROR',
+            service: 'node-agent',
+            body: LONG_BODY,
+          },
+        ],
         next_cursor: null,
         previous_cursor: null,
         has_more: false,
@@ -79,4 +94,26 @@ test('Logs overview pivots to the exact trace with investigation time', async ({
   expect(target.searchParams.get('from')).toBeTruthy();
   expect(target.searchParams.get('to')).toBeTruthy();
   expect(target.searchParams.get('time')).toContain('..');
+});
+
+test('Log detail contains long messages without horizontal overflow', async ({
+  page,
+}) => {
+  await page.goto('/logs');
+  const rows = page.locator('[data-log-result-row="logs"]');
+  await expect(rows).toHaveCount(2);
+  await rows.nth(1).click();
+
+  const drawer = page.getByRole('complementary', {
+    name: 'Log detail drawer',
+  });
+  const scroller = drawer.locator('[data-log-detail-scroll]');
+  const message = drawer.locator('[data-log-detail-message]');
+  await expect(message).toContainText('mem_limit_pages');
+  await expect.poll(async () => scroller.evaluate((element) => (
+    element.scrollWidth <= element.clientWidth
+  ))).toBe(true);
+  await expect.poll(async () => message.evaluate((element) => (
+    getComputedStyle(element).overflowWrap
+  ))).toBe('anywhere');
 });

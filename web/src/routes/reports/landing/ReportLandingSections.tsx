@@ -20,7 +20,7 @@ export function ReportStarter({
   const scheduleAccess = useActionAccess({ permission: 'reports.schedule' });
 
   return (
-    <section className="border-b border-bd-0" aria-labelledby="report-starter-title">
+    <section aria-labelledby="report-starter-title">
       <div className="flex max-w-3xl items-start gap-3 px-4 py-4">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-indigo-dim text-indigo-soft">
           <LayoutTemplate className="h-5 w-5" aria-hidden="true" />
@@ -38,7 +38,7 @@ export function ReportStarter({
         </div>
       </div>
 
-      <div className="grid divide-y divide-bd-0 border-t border-bd-0 lg:grid-cols-4 lg:divide-x lg:divide-y-0">
+      <div className="grid gap-[12px] p-4 lg:grid-cols-4">
         {templates.map((template) => (
           <StarterOption
             key={template.id}
@@ -60,7 +60,7 @@ export function ReportStarter({
         >
           <button
             type="button"
-            className="group min-h-[168px] w-full bg-transparent px-4 py-4 text-left transition-colors enabled:hover:bg-bg-2 focus-visible:bg-bg-2 focus-visible:text-tx-0 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+            className="group min-h-[168px] w-full rounded-md bg-[var(--control-surface)] px-4 py-4 text-left transition-colors enabled:hover:bg-bg-3 focus-visible:bg-bg-3 focus-visible:text-tx-0 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
             disabled={scheduleAccess.disabled}
             aria-disabled={scheduleAccess.disabled || undefined}
             onClick={onCustom}
@@ -107,7 +107,7 @@ function StarterOption({
     <DisabledControl disabled={disabled} reason={disabledReason} className="w-full">
       <button
         type="button"
-        className="group min-h-[168px] w-full bg-transparent px-4 py-4 text-left transition-colors enabled:hover:bg-bg-2 focus-visible:bg-bg-2 focus-visible:text-tx-0 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+        className="group min-h-[168px] w-full rounded-md bg-[var(--control-surface)] px-4 py-4 text-left transition-colors enabled:hover:bg-bg-3 focus-visible:bg-bg-3 focus-visible:text-tx-0 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
         disabled={disabled}
         aria-disabled={disabled || undefined}
         onClick={onClick}
@@ -151,7 +151,7 @@ export function TemplateLibrary({
       {apiError && (
         <div
           role="status"
-          className="flex flex-wrap items-center gap-3 border-b border-yellow/25 bg-yellow-dim px-4 py-3 text-sm text-yellow-soft"
+          className="m-4 flex flex-wrap items-center gap-3 rounded-md bg-yellow-dim px-4 py-3 text-sm text-yellow-soft"
         >
           <CircleAlert className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span className="min-w-0 flex-1">{t('templates.api_warning')}</span>
@@ -161,13 +161,13 @@ export function TemplateLibrary({
         </div>
       )}
 
-      <div className="divide-y divide-bd-0 border-b border-bd-0">
+      <div className="space-y-2 p-4">
         {templates.map((template) => {
           const Icon = templateIcon(template.icon);
           return (
             <article
               key={template.id}
-              className="group grid gap-4 px-4 py-4 transition-colors hover:bg-bg-2 lg:grid-cols-[40px_minmax(0,1fr)_minmax(190px,auto)_auto] lg:items-center"
+              className="group grid gap-4 rounded-md bg-[var(--control-surface)] px-4 py-4 transition-colors hover:bg-bg-3 lg:grid-cols-[40px_minmax(0,1fr)_minmax(190px,auto)_auto] lg:items-center"
             >
               <span className="grid h-10 w-10 place-items-center rounded-md bg-bg-2 text-indigo-soft transition-colors group-hover:bg-indigo-dim">
                 <Icon className="h-4.5 w-4.5" aria-hidden="true" />

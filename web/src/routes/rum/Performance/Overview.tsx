@@ -53,7 +53,7 @@ export function Overview() {
   return (
     <RumListPage
       title={t('performance.overview')}
-      toolbar={<TimeRangeChip value={formatWindowSummary(window)} />}
+      toolbar={<TimeRangeChip value={formatWindowSummary(window)} className="border-0" />}
       performance
       kpis={[
         { label: t('performance.lcp'), value: avg('lcp_ms') },
@@ -62,8 +62,8 @@ export function Overview() {
         { label: t('performance.ttfb'), value: avg('ttfb_ms') },
       ]}
     >
-      <Card>
-        <CardHeader title={t('performance.chart_title')} />
+      <Card className="border-0 bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]">
+        <CardHeader title={t('performance.chart_title')} className="border-b-0" />
         <CardBody>
           {chartState ? (
             <div className="py-2">

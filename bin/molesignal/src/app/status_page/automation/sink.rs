@@ -27,12 +27,16 @@ impl StatusPageSyntheticTransitionSink {
 
 #[async_trait]
 impl SyntheticTransitionSink for StatusPageSyntheticTransitionSink {
-    async fn on_transition(&self, transition: &SyntheticStateTransition) -> Result<()> {
-        let (active, severity) = match transition.current_state {
-            MonitorState::Healthy => (false, Severity::Info),
-            MonitorState::Degraded => (true, Severity::Warning),
-            MonitorState::Failing => (true, Severity::Error),
-            MonitorState::Unknown => return Ok(()),
+    async fn on_transition(
+        &self,
+        transition: &SyntheticStateTransition,
+        alert_on_degraded: bool,
+        alert_on_flaky: bool,
+    ) -> Result<()> {
+        let Some((active, severity)) =
+            transition_activation(transition.current_state, alert_on_degraded, alert_on_flaky)
+        else {
+            return Ok(());
         };
         let mut labels = BTreeMap::new();
         labels.insert(
@@ -64,5 +68,56 @@ impl SyntheticTransitionSink for StatusPageSyntheticTransitionSink {
                 .await?;
         }
         Ok(())
+    }
+}
+
+fn transition_activation(
+    state: MonitorState,
+    alert_on_degraded: bool,
+    alert_on_flaky: bool,
+) -> Option<(bool, Severity)> {
+    match state {
+        MonitorState::Healthy => Some((false, Severity::Info)),
+        MonitorState::Flaky if alert_on_flaky => Some((true, Severity::Warning)),
+        MonitorState::Flaky => Some((false, Severity::Info)),
+        MonitorState::Degraded if alert_on_degraded => Some((true, Severity::Warning)),
+        MonitorState::Degraded => Some((false, Severity::Info)),
+        MonitorState::Failing => Some((true, Severity::Error)),
+        MonitorState::Unknown => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::transition_activation;
+    use crate::domain::synthetics::MonitorState;
+
+    #[test]
+    fn degraded_activation_follows_revision_setting() {
+        assert!(
+            transition_activation(MonitorState::Degraded, true, false)
+                .unwrap()
+                .0
+        );
+        assert!(
+            !transition_activation(MonitorState::Degraded, false, false)
+                .unwrap()
+                .0
+        );
+        assert!(
+            transition_activation(MonitorState::Failing, false, false)
+                .unwrap()
+                .0
+        );
+        assert!(
+            transition_activation(MonitorState::Flaky, false, true)
+                .unwrap()
+                .0
+        );
+        assert!(
+            !transition_activation(MonitorState::Flaky, false, false)
+                .unwrap()
+                .0
+        );
     }
 }

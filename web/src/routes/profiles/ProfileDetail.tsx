@@ -100,10 +100,10 @@ export function ProfileDetail() {
 
   return (
     <DetailPage
+      appearance="surface"
       title={profile ? `${profile.service} · ${typeLabel(profile.profile_type)}` : t('detail.title')}
       toolbar={toolbar}
       breadcrumbs={[{ labelKey: 'profiles', to: '/profiles' }, { labelKey: 'breadcrumbs.profile_detail' }]}
-      backTo="/profiles"
       metadata={
         profile
           ? [
@@ -126,13 +126,16 @@ export function ProfileDetail() {
             </div>
           )}
           {flameQuery.isError ? (
-            <div className="rounded-md border border-bd-0 bg-bg-1 p-6 text-center font-sans text-xs text-tx-2">
+            <div className="rounded-md bg-[var(--functional-surface)] p-6 text-center font-sans text-xs text-tx-2 [box-shadow:var(--shadow-functional-surface)]">
               {t('errors.flamegraph_failed')}
             </div>
           ) : flameQuery.data ? (
-            <Flamegraph flamebearer={flameQuery.data.flamebearer} />
+            <Flamegraph
+              flamebearer={flameQuery.data.flamebearer}
+              className="border-0 [box-shadow:var(--shadow-functional-surface)]"
+            />
           ) : (
-            <div className="rounded-md border border-bd-0 bg-bg-1 p-6 text-center font-sans text-xs text-tx-2">
+            <div className="rounded-md bg-[var(--functional-surface)] p-6 text-center font-sans text-xs text-tx-2 [box-shadow:var(--shadow-functional-surface)]">
               {t('flamegraph.no_data_title')}
             </div>
           )}

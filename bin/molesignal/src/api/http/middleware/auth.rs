@@ -86,6 +86,7 @@ const WHITELIST_PREFIXES: &[&str] = &[
     "/api/v1/files/stream/",          // 文件下载 token 自带授权
     "/api/v1/public/avatars/",        // 头像公开读：<img src> 不带 Bearer
     "/api/v1/public/status-pages/",   // 客户状态页公开快照
+    "/api/v1/synthetics/artifacts/",  // Probe lease token 自鉴权的 Artifact 上传
     "/api/v1/billing/stripe/webhook", // Stripe webhook：无 JWT，靠 HMAC 验签
     // Push 型 connector 接入：外部平台带不了 Bearer，由 handler 用 X-Connector-Token 自鉴权。
     "/api/v1/_kinesis_firehose",
@@ -486,6 +487,9 @@ mod tests {
         ));
         assert!(is_whitelisted_path(
             "/api/v1/public/status-pages/by-domain/current"
+        ));
+        assert!(is_whitelisted_path(
+            "/api/v1/synthetics/artifacts/task/artifact"
         ));
         assert!(is_whitelisted_path("/api/v1/healthz"));
         assert!(is_whitelisted_path("/api/v1/auth/sso/providers"));

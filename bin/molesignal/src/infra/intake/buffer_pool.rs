@@ -1,20 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! BufferPool：按 `(org, stream_type, stream)` 维护 Arrow `RecordBuilder` 内存 buffer。
+//! BufferPool：按 [`PhysicalDatasetId`] 维护 Arrow `RecordBuilder` 内存 buffer。
 //!
 //! 数据流：
-//! 1. `IntakeService::intake` 先调 [`WalPool::append`](super::WalPool::append)（durable），
-//!    再调 [`BufferPool::push`]（in-memory）。
-//! 2. FlushScheduler 定期 `finish_and_clear` → 把 `RecordBatch` 喂给
-//!    `ParquetWriter::flush` → `ParquetFileMetaRepository::insert` → `WalPool::truncate_up_to`。
-//!    前两步任一失败 → `restore_batch` 把 batch 暂存回 builder，下一轮 concat 重试。
+//! 1. 写入方先持有 dataset buffer 锁，再执行 WAL append + buffer push；flush 取得同一把锁
+//!    做 generation rotation，因此不存在“WAL 已写但尚未进入 buffer”的高水位竞态。
+//! 2. FlushScheduler 把 active generation 旋转为 immutable in-flight batch。发布期间该 batch
+//!    仍对查询可见；Catalog commit 后才退休，失败则转为 retry generation。
 //!
 //! `RecordBuilder` 内部按 [`StreamDefinition::schema`] 顺序维护每列一个 `*Builder`；
 //! `extend_schema` 在 schema 演化时对历史行追加 null 补齐。
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, VecDeque},
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -22,36 +21,36 @@ use std::{
 use anyhow::{Result, anyhow};
 use arrow::{
     array::{
-        ArrayRef, BooleanBuilder, Float64Builder, Int64Builder, RecordBatch, StringBuilder,
-        TimestampMicrosecondBuilder, new_null_array,
+        ArrayRef, BooleanBuilder, Float64Builder, Int64Builder, StringBuilder,
+        TimestampMicrosecondBuilder,
     },
-    compute::concat_batches,
-    datatypes::{DataType, Field, Schema as ArrowSchema, TimeUnit},
+    datatypes::{DataType, Field, TimeUnit},
 };
 
 use crate::{
     domain::{
         intake::RawEvent,
-        storage::PhysicalDatasetKind,
-        stream::{FieldDef, FieldType, StreamDefinition, StreamType},
+        storage::{PhysicalDatasetId, WalSequence, WriterEpoch, WriterNodeId},
+        stream::{FieldDef, FieldType, StreamDefinition},
     },
     infra::{
         cipher::{OrgFieldKey, encrypt_field},
         intake::rotation::RotationReason,
         storage::arrow_schema::TS_COL,
     },
-    shared::ids::Id,
 };
 
+mod generation;
 mod memory;
 mod pool;
 
+pub(crate) use generation::align_to_schema;
+pub use generation::{BufferWriter, BufferedRecordBatch};
 pub use memory::MemoryReservation;
-pub use pool::BufferPool;
+pub use pool::{BufferPool, DatasetBuffer};
 
-/// `(org, stream_type, stream, physical_dataset)`；小时边界在 flush 时拆分，不放进 key，
-/// 否则同一 WAL generation 跨小时会出现部分提交后无法安全 truncate 的问题。
-pub type BufferKey = (Id, StreamType, String, PhysicalDatasetKind);
+/// Buffer、flush single-flight 与 adaptive rotation 的唯一身份。
+pub type BufferKey = PhysicalDatasetId;
 
 /// 单列内存 builder，按 schema field type dispatch。
 enum ColumnBuilder {
@@ -173,6 +172,16 @@ impl ColumnBuilder {
             Self::Utf8(b) => Arc::new(b.finish()),
         }
     }
+
+    fn finish_cloned(&self) -> ArrayRef {
+        match self {
+            Self::Timestamp(b) => Arc::new(b.finish_cloned().with_timezone("UTC")),
+            Self::Bool(b) => Arc::new(b.finish_cloned()),
+            Self::Int64(b) => Arc::new(b.finish_cloned()),
+            Self::Float64(b) => Arc::new(b.finish_cloned()),
+            Self::Utf8(b) => Arc::new(b.finish_cloned()),
+        }
+    }
 }
 
 /// 单个 stream 的内存 buffer。线程不安全：调用方用 `Mutex` 串行化。
@@ -191,17 +200,13 @@ pub struct RecordBuilder {
     accounted_size_bytes: usize,
     /// 当前活跃 generation 首行完成写入的单调时钟时间。
     active_started_at: Option<Instant>,
-    /// 当前 buffer 已吸收的最高 WAL seq，flush 成功后用于 `WalPool::truncate_up_to`。
-    high_watermark_seq: u64,
-    /// 上一轮 flush 失败暂存的 batch：下次 `finish_and_clear` 与新数据 concat 后重试。
-    ///
-    /// 存已构建好的 Arrow batch 而非原始事件——列式表示比 `RawEvent` 的 `serde_json::Map`
-    /// 小数倍，且**成功路径上完全不留副本**（失败时才占内存）。
-    /// 不从 WAL 重放的原因：WAL 按 segment 整段截断，flush 期间的并发写入会和已 flush 的
-    /// 记录封进同一段而使该段删不掉，故「WAL 中 index ≤ hwm 的记录」≠「未 flush 的数据」，
-    /// 照此重放会产生重复。见 `wal_pool::tests::
-    /// successful_truncate_still_retains_flushed_records_when_write_races_flush`。
-    pending: Vec<RecordBatch>,
+    /// 当前 active generation 的 WAL namespace 与逐行 sequence sidecar。
+    active_writer: Option<BufferWriter>,
+    active_sequences: Vec<WalSequence>,
+    /// 发布失败后等待重试的 immutable generations（最旧优先）。
+    pending: VecDeque<BufferedRecordBatch>,
+    /// 正在编码 / 上传 / Catalog commit 的 generation。发布期间查询仍必须看见它。
+    inflight: Option<BufferedRecordBatch>,
     /// 当前 org 的字段加密 DEK；由调用方（sink / replay）在 push 前 `set_field_key` 注入。
     /// `None` 且存在加密字段时 push 报错。
     field_key: Option<OrgFieldKey>,
@@ -247,8 +252,10 @@ impl RecordBuilder {
             approx_size_bytes: 0,
             accounted_size_bytes: 0,
             active_started_at: None,
-            high_watermark_seq: 0,
-            pending: Vec::new(),
+            active_writer: None,
+            active_sequences: Vec::new(),
+            pending: VecDeque::new(),
+            inflight: None,
             field_key: None,
             encrypted_cols,
         }
@@ -274,6 +281,15 @@ impl RecordBuilder {
 
     pub fn accounted_size_bytes(&self) -> usize {
         self.accounted_size_bytes
+            + self
+                .pending
+                .iter()
+                .map(BufferedRecordBatch::accounted_size_bytes)
+                .sum::<usize>()
+            + self
+                .inflight
+                .as_ref()
+                .map_or(0, BufferedRecordBatch::accounted_size_bytes)
     }
 
     /// 把一批已经成功写入 WAL 的 reservation 转移给此 generation。
@@ -282,14 +298,61 @@ impl RecordBuilder {
     }
 
     pub fn high_watermark_seq(&self) -> u64 {
-        self.high_watermark_seq
+        self.active_sequences
+            .last()
+            .map(|sequence| sequence.0)
+            .into_iter()
+            .chain(
+                self.pending
+                    .iter()
+                    .map(|batch| batch.sequence_range().end.0),
+            )
+            .chain(
+                self.inflight
+                    .iter()
+                    .map(|batch| batch.sequence_range().end.0),
+            )
+            .max()
+            .unwrap_or_default()
     }
 
     /// 把一条事件 push 进 buffer。
     /// - 缺字段填 null；
     /// - 未知字段当前忽略（schema 演化路径走 `extend_schema`）。
-    /// - 同时把 `seq` 抬升 high_watermark。
+    /// - 同时记录 `(writer node, epoch, sequence)`，供 flush provenance 与查询去重。
     pub fn push(&mut self, event: &RawEvent, seq: u64) -> Result<()> {
+        self.push_with_position(
+            event,
+            &BufferWriter::new(WriterNodeId::new("test-node"), WriterEpoch(1)),
+            WalSequence(seq),
+        )
+    }
+
+    pub fn push_with_position(
+        &mut self,
+        event: &RawEvent,
+        writer: &BufferWriter,
+        sequence: WalSequence,
+    ) -> Result<()> {
+        if let Some(active_writer) = &self.active_writer
+            && active_writer != writer
+        {
+            return Err(anyhow!(
+                "buffer active generation belongs to node {} epoch {}, cannot append node {} epoch {}",
+                active_writer.writer_node_id,
+                active_writer.writer_epoch,
+                writer.writer_node_id,
+                writer.writer_epoch
+            ));
+        }
+        if let Some(previous) = self.active_sequences.last()
+            && sequence < *previous
+        {
+            return Err(anyhow!(
+                "buffer WAL sequence regressed from {previous} to {sequence}"
+            ));
+        }
+
         // _timestamp 列：用 event.timestamp（domain Required）。
         let ts_col = self
             .columns
@@ -328,9 +391,8 @@ impl RecordBuilder {
         self.row_count += 1;
         self.approx_size_bytes += bytes_estimate;
         self.active_started_at.get_or_insert_with(Instant::now);
-        if seq > self.high_watermark_seq {
-            self.high_watermark_seq = seq;
-        }
+        self.active_writer.get_or_insert_with(|| writer.clone());
+        self.active_sequences.push(sequence);
         Ok(())
     }
 
@@ -376,93 +438,21 @@ impl RecordBuilder {
         self.column_order.push(field.name.clone());
     }
 
-    /// 无待 flush 数据（含上轮失败暂存的 pending）。调用方据此跳过 flush。
+    /// Synchronize an existing dataset buffer with the latest projected stream schema.
     ///
-    /// 必须一并看 `pending`：只看 `row_count` 会让"flush 失败后恰好没有新写入"的 buffer
-    /// 被永久跳过，暂存的数据再也不会被重试。
+    /// Intake calls this while holding the same per-dataset mutex that orders WAL append and
+    /// buffer push. New columns therefore become visible atomically to subsequent generations,
+    /// while rows already present in the active generation are padded with nulls.
+    pub fn sync_schema(&mut self, stream: &StreamDefinition) {
+        for field in &stream.schema.fields {
+            self.extend_schema(field);
+        }
+    }
+
+    /// 无待 flush 或正在发布的数据。
     pub fn is_empty(&self) -> bool {
-        self.row_count == 0 && self.pending.is_empty()
+        self.row_count == 0 && self.pending.is_empty() && self.inflight.is_none()
     }
-
-    /// finish & clear：拿出 `(RecordBatch, high_watermark_seq)`，并把内部 row_count / size 清零。
-    /// 上一轮 flush 失败暂存的 pending batch 会被 concat 在新数据之前（保持时序）。
-    /// 即使 `is_empty()` 也返 Ok，但 batch.num_rows() = 0（调用方应跳过 flush）。
-    pub fn finish_and_clear(&mut self) -> Result<(RecordBatch, u64)> {
-        let mut arrays: Vec<ArrayRef> = Vec::with_capacity(self.column_order.len());
-        for name in &self.column_order {
-            let col = self
-                .columns
-                .get_mut(name)
-                .ok_or_else(|| anyhow!("column {name} missing on finish"))?;
-            arrays.push(col.finish());
-        }
-        let schema = Arc::new(ArrowSchema::new(self.fields.clone()));
-        let batch = RecordBatch::try_new(schema.clone(), arrays)
-            .map_err(|e| anyhow!("RecordBatch::try_new failed: {e}"))?;
-
-        let batch = if self.pending.is_empty() {
-            batch
-        } else {
-            let taken = std::mem::take(&mut self.pending);
-            let mut all: Vec<RecordBatch> = Vec::with_capacity(taken.len() + 1);
-            for p in taken {
-                all.push(align_to_schema(p, &schema)?);
-            }
-            all.push(batch);
-            concat_batches(&schema, &all).map_err(|e| anyhow!("concat pending batches: {e}"))?
-        };
-
-        let hwm = self.high_watermark_seq;
-        self.row_count = 0;
-        self.approx_size_bytes = 0;
-        self.accounted_size_bytes = 0;
-        self.active_started_at = None;
-        // high_watermark_seq 不清零：caller 比对 hwm 决定截断点；下一轮 push 会按需更新
-        Ok((batch, hwm))
-    }
-
-    /// flush 失败时把 batch 暂存回 builder，下一轮 `finish_and_clear` 会 concat 回去，
-    /// 保证"任一步失败留 buffer 不变"语义（spec 4.5）。
-    ///
-    /// 收 `RecordBatch` 而非原始事件：`RecordBatch` 是 `Arc` 数组的浅壳，调用方传克隆的
-    /// 成本只是 refcount，于是成功路径无需为"万一失败要回滚"常驻任何副本。
-    pub fn restore_batch(&mut self, batch: RecordBatch) {
-        self.restore_batch_with_accounting(batch, 0);
-    }
-
-    /// 与 [`Self::restore_batch`] 相同，同时把 flush snapshot 的内存计费一并恢复。
-    pub fn restore_batch_with_accounting(
-        &mut self,
-        batch: RecordBatch,
-        accounted_size_bytes: usize,
-    ) {
-        self.approx_size_bytes += batch.get_array_memory_size();
-        self.accounted_size_bytes = self
-            .accounted_size_bytes
-            .saturating_add(accounted_size_bytes);
-        self.pending.push(batch);
-    }
-}
-
-/// 把暂存的历史 batch 转换为当前 schema：缺的列整列补 null。
-///
-/// `extend_schema` 只追加新列、不改已有列的类型，所以按列名取列即可；对不上的一定是
-/// 暂存之后才演化出来的新列。
-fn align_to_schema(batch: RecordBatch, target: &Arc<ArrowSchema>) -> Result<RecordBatch> {
-    if batch.schema() == *target {
-        return Ok(batch);
-    }
-    let rows = batch.num_rows();
-    let src = batch.schema();
-    let mut cols: Vec<ArrayRef> = Vec::with_capacity(target.fields().len());
-    for f in target.fields() {
-        match src.index_of(f.name()) {
-            Ok(i) => cols.push(batch.column(i).clone()),
-            Err(_) => cols.push(new_null_array(f.data_type(), rows)),
-        }
-    }
-    RecordBatch::try_new(target.clone(), cols)
-        .map_err(|e| anyhow!("align pending batch to evolved schema: {e}"))
 }
 
 /// 加密字段写入前的明文串化：与 Utf8 列的常规追加一致（String 取内值，其余 JSON 串化），
@@ -481,8 +471,8 @@ mod tests {
 
     use super::*;
     use crate::{
-        domain::stream::{Retention, Schema},
-        shared::time::TimestampMicros,
+        domain::stream::{Retention, Schema, StreamType},
+        shared::{ids::Id, time::TimestampMicros},
     };
 
     fn stream_def() -> StreamDefinition {
@@ -490,7 +480,7 @@ mod tests {
             id: Id::new(),
             org_id: Id::from_string("org-a"),
             name: "app".into(),
-            stream_type: StreamType::Logs,
+            stream_type: StreamType::LOGS,
             schema: Schema {
                 fields: vec![
                     FieldDef {
@@ -564,19 +554,18 @@ mod tests {
             ),
             Some(RotationReason::Size)
         );
-        let (batch, _) = size_buffer.finish_and_clear().unwrap();
+        let batch = size_buffer.begin_flush().unwrap().unwrap();
         assert!(size_buffer.active_started_at.is_none());
-        size_buffer.restore_batch(batch);
+        size_buffer.fail_flush(&batch.flush_id()).unwrap();
         assert_eq!(
             size_buffer.rotation_due(usize::MAX, Duration::MAX, now),
             Some(RotationReason::Retry)
         );
     }
 
-    /// flush 失败 → `restore_batch` 暂存 → 期间又有新写入 → 下一轮 `finish_and_clear`
-    /// 必须把两部分都交出来，且各自恰好一次（不丢、不重）。
+    /// flush 失败后 retry generation 与期间的新写入保持独立，按 generation 顺序各提交一次。
     #[test]
-    fn restore_batch_then_finish_returns_pending_and_new_rows_exactly_once() {
+    fn failed_generation_retries_before_new_active_rows() {
         let s = stream_def();
         let mut b = RecordBuilder::new(&s);
         for (ts, lvl) in [(1_000_000, "a"), (2_000_000, "b")] {
@@ -584,11 +573,11 @@ mod tests {
             f.insert("level".into(), json!(lvl));
             b.push(&raw_event(ts, f), 1).unwrap();
         }
-        let (batch, _) = b.finish_and_clear().unwrap();
-        assert_eq!(batch.num_rows(), 2);
+        let batch = b.begin_flush().unwrap().unwrap();
+        assert_eq!(batch.batch.num_rows(), 2);
 
-        // flush 失败：把 batch 暂存回去
-        b.restore_batch(batch);
+        // flush 失败：immutable generation 回到 retry 队列。
+        b.fail_flush(&batch.flush_id()).unwrap();
         assert!(!b.is_empty(), "暂存的数据必须让 buffer 不为空");
 
         // flush 的 IO 期间又来了一条新写入
@@ -596,21 +585,25 @@ mod tests {
         f.insert("level".into(), json!("c"));
         b.push(&raw_event(3_000_000, f), 2).unwrap();
 
-        let (retry, hwm) = b.finish_and_clear().unwrap();
-        assert_eq!(retry.num_rows(), 3, "2 条暂存 + 1 条新写入");
-        assert_eq!(hwm, 2);
+        let retry = b.begin_flush().unwrap().unwrap();
+        assert_eq!(retry.batch.num_rows(), 2, "retry generation 不与新写入混合");
+        assert_eq!(retry.sequence_range().end, WalSequence(1));
         let levels = retry
-            .column(retry.schema().index_of("level").unwrap())
+            .batch
+            .column(retry.batch.schema().index_of("level").unwrap())
             .as_any()
             .downcast_ref::<arrow::array::StringArray>()
             .unwrap();
         let got: Vec<&str> = (0..levels.len()).map(|i| levels.value(i)).collect();
-        assert_eq!(got, vec!["a", "b", "c"], "暂存的在前，保持时序");
+        assert_eq!(got, vec!["a", "b"]);
+        b.complete_flush(&retry.flush_id()).unwrap();
 
-        // 交出去之后 pending 必须清空，否则下一轮会重复
-        assert!(b.is_empty(), "finish 后 pending 应已清空");
-        let (after, _) = b.finish_and_clear().unwrap();
-        assert_eq!(after.num_rows(), 0, "同一批数据不得被交出第二次");
+        let active = b.begin_flush().unwrap().unwrap();
+        assert_eq!(active.batch.num_rows(), 1);
+        assert_eq!(active.sequence_range().end, WalSequence(2));
+        b.complete_flush(&active.flush_id()).unwrap();
+        assert!(b.is_empty(), "两个 generation 提交后必须清空");
+        assert!(b.begin_flush().unwrap().is_none());
     }
 
     /// flush 失败后 schema 又演化了：暂存 batch 比当前 schema 少列，concat 前必须补齐 null 列。
@@ -621,8 +614,8 @@ mod tests {
         let mut f = serde_json::Map::new();
         f.insert("level".into(), json!("old"));
         b.push(&raw_event(1_000_000, f), 1).unwrap();
-        let (batch, _) = b.finish_and_clear().unwrap();
-        b.restore_batch(batch);
+        let batch = b.begin_flush().unwrap().unwrap();
+        b.fail_flush(&batch.flush_id()).unwrap();
 
         // flush 失败后新字段出现，schema 演化
         b.extend_schema(&FieldDef {
@@ -639,15 +632,25 @@ mod tests {
         f2.insert("trace_id".into(), json!("abc"));
         b.push(&raw_event(2_000_000, f2), 2).unwrap();
 
-        let (merged, _) = b.finish_and_clear().unwrap();
-        assert_eq!(merged.num_rows(), 2);
-        let tid = merged
-            .column(merged.schema().index_of("trace_id").unwrap())
+        let retry = b.begin_flush().unwrap().unwrap();
+        let target = Arc::new(arrow::datatypes::Schema::new(b.fields.clone()));
+        let aligned = align_to_schema(retry.batch.clone(), &target).unwrap();
+        assert_eq!(aligned.num_rows(), 1);
+        let tid = aligned
+            .column(aligned.schema().index_of("trace_id").unwrap())
             .as_any()
             .downcast_ref::<arrow::array::StringArray>()
             .unwrap();
         assert!(tid.is_null(0), "暂存的老行在新列上应为 null");
-        assert_eq!(tid.value(1), "abc");
+        b.complete_flush(&retry.flush_id()).unwrap();
+        let active = b.begin_flush().unwrap().unwrap();
+        let tid = active
+            .batch
+            .column(active.batch.schema().index_of("trace_id").unwrap())
+            .as_any()
+            .downcast_ref::<arrow::array::StringArray>()
+            .unwrap();
+        assert_eq!(tid.value(0), "abc");
     }
 
     /// flush 失败后一直没有新写入：不能因为 `row_count == 0` 就把 buffer 当空的跳过，
@@ -659,14 +662,14 @@ mod tests {
         let mut f = serde_json::Map::new();
         f.insert("level".into(), json!("stranded"));
         b.push(&raw_event(1_000_000, f), 7).unwrap();
-        let (batch, _) = b.finish_and_clear().unwrap();
-        b.restore_batch(batch);
+        let batch = b.begin_flush().unwrap().unwrap();
+        b.fail_flush(&batch.flush_id()).unwrap();
 
         assert_eq!(b.row_count(), 0, "builder 自身确实没有行");
         assert!(!b.is_empty(), "但有 pending → 不能被当作空 buffer 跳过");
-        let (retry, hwm) = b.finish_and_clear().unwrap();
-        assert_eq!(retry.num_rows(), 1, "暂存的行必须被重新交出");
-        assert_eq!(hwm, 7, "hwm 保持，截断点不回退");
+        let retry = b.begin_flush().unwrap().unwrap();
+        assert_eq!(retry.batch.num_rows(), 1, "暂存的行必须被重新交出");
+        assert_eq!(retry.sequence_range().end, WalSequence(7));
     }
 
     #[test]
@@ -686,10 +689,10 @@ mod tests {
         assert_eq!(b.row_count(), 2);
         assert_eq!(b.high_watermark_seq(), 2);
 
-        let (batch, hwm) = b.finish_and_clear().unwrap();
-        assert_eq!(batch.num_rows(), 2);
-        assert_eq!(batch.num_columns(), 3); // _timestamp + level + latency_ms
-        assert_eq!(hwm, 2);
+        let batch = b.begin_flush().unwrap().unwrap();
+        assert_eq!(batch.batch.num_rows(), 2);
+        assert_eq!(batch.batch.num_columns(), 3); // _timestamp + level + latency_ms
+        assert_eq!(batch.sequence_range().end, WalSequence(2));
         assert_eq!(b.row_count(), 0, "row_count cleared after finish");
     }
 
@@ -720,12 +723,12 @@ mod tests {
         f3.insert("user_id".into(), json!("u-3"));
         b.push(&raw_event(3_000_000, f3), 3).unwrap();
 
-        let (batch, _) = b.finish_and_clear().unwrap();
-        assert_eq!(batch.num_rows(), 3);
-        assert_eq!(batch.num_columns(), 4);
+        let batch = b.begin_flush().unwrap().unwrap();
+        assert_eq!(batch.batch.num_rows(), 3);
+        assert_eq!(batch.batch.num_columns(), 4);
 
         // user_id 列：前 2 行 null，第 3 行 "u-3"
-        let user_col = batch.column_by_name("user_id").unwrap();
+        let user_col = batch.batch.column_by_name("user_id").unwrap();
         let arr = user_col
             .as_any()
             .downcast_ref::<arrow::array::StringArray>()
@@ -736,13 +739,64 @@ mod tests {
     }
 
     #[test]
-    fn high_watermark_is_monotonic_max() {
+    fn sync_schema_adds_all_new_fields_to_an_existing_generation() {
+        let original = stream_def();
+        let mut evolved = original.clone();
+        evolved.schema.fields.extend([
+            FieldDef {
+                name: "trace_id".into(),
+                data_type: FieldType::Utf8,
+                nullable: true,
+                index_type: None,
+                indexed: false,
+                encrypted: false,
+                exact: false,
+            },
+            FieldDef {
+                name: "duration_ns".into(),
+                data_type: FieldType::Int64,
+                nullable: true,
+                index_type: None,
+                indexed: false,
+                encrypted: false,
+                exact: false,
+            },
+        ]);
+
+        let mut builder = RecordBuilder::new(&original);
+        let mut old_fields = serde_json::Map::new();
+        old_fields.insert("level".into(), json!("old"));
+        builder.push(&raw_event(1_000_000, old_fields), 1).unwrap();
+
+        builder.sync_schema(&evolved);
+        builder.sync_schema(&evolved);
+        let mut new_fields = serde_json::Map::new();
+        new_fields.insert("level".into(), json!("new"));
+        new_fields.insert("trace_id".into(), json!("trace-1"));
+        new_fields.insert("duration_ns".into(), json!(42));
+        builder.push(&raw_event(2_000_000, new_fields), 2).unwrap();
+
+        let batch = builder.begin_flush().unwrap().unwrap().batch;
+        assert_eq!(batch.num_rows(), 2);
+        assert_eq!(batch.num_columns(), 5);
+        let trace_ids = batch
+            .column_by_name("trace_id")
+            .unwrap()
+            .as_any()
+            .downcast_ref::<arrow::array::StringArray>()
+            .unwrap();
+        assert!(trace_ids.is_null(0));
+        assert_eq!(trace_ids.value(1), "trace-1");
+    }
+
+    #[test]
+    fn sequence_regression_is_rejected() {
         let s = stream_def();
         let mut b = RecordBuilder::new(&s);
         let mut f = serde_json::Map::new();
         f.insert("level".into(), json!("info"));
         b.push(&raw_event(1, f.clone()), 5).unwrap();
-        b.push(&raw_event(2, f.clone()), 3).unwrap(); // out-of-order seq
+        assert!(b.push(&raw_event(2, f.clone()), 3).is_err());
         b.push(&raw_event(3, f), 7).unwrap();
         assert_eq!(b.high_watermark_seq(), 7);
     }
@@ -751,8 +805,16 @@ mod tests {
     async fn buffer_pool_get_or_create_returns_same_handle() {
         let s = stream_def();
         let pool = BufferPool::new();
-        let b1 = pool.get_or_create(&s);
-        let b2 = pool.get_or_create(&s);
+        let resolver = crate::infra::intake::dataset_resolver::test_support::test_resolver();
+        let dataset = resolver
+            .resolve(
+                &s,
+                crate::domain::storage::primary_dataset_type(s.stream_type).unwrap(),
+            )
+            .await
+            .unwrap();
+        let b1 = pool.get_or_create_dataset(&s, dataset.clone()).unwrap();
+        let b2 = pool.get_or_create_dataset(&s, dataset).unwrap();
         assert!(Arc::ptr_eq(&b1, &b2));
     }
 
@@ -761,7 +823,7 @@ mod tests {
             id: Id::new(),
             org_id: Id::from_string("org-a"),
             name: "users".into(),
-            stream_type: StreamType::Logs,
+            stream_type: StreamType::LOGS,
             schema: Schema {
                 fields: vec![FieldDef {
                     name: "email".into(),
@@ -797,9 +859,9 @@ mod tests {
         f.insert("email".into(), json!("alice@example.com"));
         b.push(&raw_event(1_000_000, f), 1).unwrap();
 
-        let (batch, _) = b.finish_and_clear().unwrap();
+        let batch = b.begin_flush().unwrap().unwrap();
         // 列类型固定 Utf8（密文）。
-        let col = batch.column_by_name("email").unwrap();
+        let col = batch.batch.column_by_name("email").unwrap();
         let arr = col
             .as_any()
             .downcast_ref::<arrow::array::StringArray>()

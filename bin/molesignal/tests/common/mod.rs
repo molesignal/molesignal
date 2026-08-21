@@ -11,13 +11,22 @@
 
 use std::sync::Arc;
 
+use arrow::array::RecordBatch;
 use molesignal::{
     api::http,
     config::{
         AuthSettings, MetaStoreSettings, NotifySettings, ObjectStoreSettings, Settings,
         StoreSettings,
     },
-    domain::iam::{IamMembership, IamMembershipRepository, Organization, OrganizationRepository},
+    domain::{
+        iam::{IamMembership, IamMembershipRepository, Organization, OrganizationRepository},
+        storage::{
+            ArtifactRole, ArtifactState, DatasetState, PhysicalDataset, PhysicalDatasetId,
+            QueryFile, primary_dataset_type, type_id,
+        },
+        stream::StreamDefinition,
+    },
+    infra::storage::parquet::writer::ParquetWriter,
     shared::{ids::Id, time::TimestampMicros},
 };
 use testcontainers::{ContainerAsync, runners::AsyncRunner};
@@ -275,6 +284,62 @@ impl TestServer {
 
 pub fn skip_unless_enabled() -> bool {
     std::env::var("MS_RUN_IT").ok().as_deref() != Some("1")
+}
+
+/// Build immutable Segment/Artifact objects through the production StorageLayout, then expose the
+/// primary object as a read-only Catalog query projection for isolated integration fixtures.
+pub async fn write_parquet_fixture(
+    writer: &ParquetWriter,
+    stream: &StreamDefinition,
+    batch: RecordBatch,
+) -> QueryFile {
+    let dataset_type = primary_dataset_type(stream.stream_type).unwrap();
+    let registry = molesignal::domain::storage::builtin_registry();
+    let descriptor = registry
+        .dataset_type(&stream.stream_type, &dataset_type)
+        .expect("built-in raw dataset descriptor");
+    let spec = descriptor.to_spec();
+    let dataset = PhysicalDataset {
+        id: PhysicalDatasetId::from_string(format!("fixture-{}", stream.id)),
+        organization_id: stream.org_id.clone(),
+        logical_stream_id: stream.id.clone(),
+        dataset_type,
+        dataset_type_version: spec.dataset_type_version,
+        partition_policy: spec.partition_policy,
+        storage_policy: spec.storage_policy,
+        index_policy: spec.index_policy,
+        catalog_version: 0,
+        state: DatasetState::Active,
+        created_at_micros: 0,
+        updated_at_micros: 0,
+    };
+    let mut segments = writer
+        .write_compaction_catalog(stream, &dataset, batch)
+        .await
+        .expect("write explicit fixture Artifacts");
+    assert_eq!(segments.len(), 1, "fixture batch must fit one partition");
+    let segment = segments.remove(0);
+    assert_eq!(segment.primary.role, ArtifactRole::PrimaryData);
+    assert_eq!(segment.primary.state, ArtifactState::Ready);
+    assert_eq!(
+        segment.primary.artifact_type.as_str(),
+        type_id::builtin::ARTIFACT_PARQUET
+    );
+    QueryFile {
+        id: segment.id.0,
+        org_id: stream.org_id.clone(),
+        stream: stream.name.clone(),
+        stream_type: stream.stream_type,
+        dataset_type: primary_dataset_type(stream.stream_type).unwrap(),
+        object_key: segment.primary.object.key.0,
+        checksum: Some(segment.primary.object.checksum),
+        etag: segment.primary.object.etag,
+        time_range: segment.time_range,
+        rows: segment.row_count,
+        size_bytes: segment.primary.object.size_bytes,
+        min_values: segment.column_stats.min_values,
+        max_values: segment.column_stats.max_values,
+    }
 }
 
 /// 轮询 predicate `f` 直到返 true 或 `secs` 秒超时（每 100ms 重试）。

@@ -57,10 +57,10 @@ pub async fn rewrap_kek(settings: &Settings, old_key_b64: &str) -> Result<Vec<(S
 pub async fn build_state(settings: &Settings) -> Result<AppState> {
     super::tls::install_crypto_provider()?;
     let core = Core::build(settings).await?;
-    let query_runtime = QueryRuntime::build(settings, &core).await;
     let agent_model_providers = build_model_providers(&core);
     let storage_runtime =
         StorageRuntime::build(settings, &core, agent_model_providers.clone()).await?;
+    let query_runtime = QueryRuntime::build(settings, &core, &storage_runtime).await;
     let dashboard_contract_registry = Arc::new(DashboardContractRegistryService::new(
         core.dashboard_contracts.clone(),
     ));
@@ -111,11 +111,13 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
                 ),
             )),
     );
+    let probe_artifact_base_url = super::synthetics::artifact_base_url(settings);
     let probe_control = Some(Arc::new(crate::app::synthetics::ProbeControlService::new(
         synthetic_repository,
         synthetics.clone(),
         probe_authority,
         settings.probe.resolved_control_endpoint(),
+        probe_artifact_base_url.clone(),
     )));
     let _synthetic_automation_worker = core.roles.run_alert_manager.then(|| {
         crate::bootstrap::workers::synthetics::SyntheticAutomationWorker::new(
@@ -125,8 +127,12 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         .spawn()
     });
     let _embedded_probe_runner = embedded_probe_agent.map(|agent| {
-        crate::bootstrap::workers::synthetics::EmbeddedProbeRunner::new(synthetics.clone(), agent)
-            .spawn()
+        crate::bootstrap::workers::synthetics::EmbeddedProbeRunner::new(
+            synthetics.clone(),
+            agent,
+            probe_artifact_base_url.clone(),
+        )
+        .spawn()
     });
     let license_runtime = LicenseRuntime::build(settings, &core).await;
     let iam_runtime = IamRuntime::build(settings, &core, &license_runtime).await?;
@@ -160,6 +166,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
     query_runtime.spawn_federation_workers(settings, &core, &iam_runtime);
     let Core {
         store,
+        object_reader,
         system_org,
         password_resets,
         iam_platform_administrators,
@@ -169,7 +176,6 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         teams,
         org_schema_cache,
         streams,
-        parquet_file_meta,
         saved_views,
         email_sender,
         cipher_keys,
@@ -184,6 +190,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         node_id,
         ..
     } = core;
+    let read_store = object_reader.store();
     let QueryRuntime {
         query,
         remote_clusters,
@@ -205,6 +212,8 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         functions_js_runtime_enabled,
         usage,
         investigation_blobs,
+        catalog_query,
+        catalog_files,
         ..
     } = storage_runtime;
     let AlertingRuntime {
@@ -260,7 +269,6 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         scheduled_pipelines,
         extend_kv,
         extend_table,
-        parquet_disk_cache,
         resource_shares,
         annotations,
         search_jobs,
@@ -308,8 +316,9 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
             apm: apm_query.clone(),
             apm_runtime: apm_runtime.clone(),
             service_graph: service_graph_repo.clone(),
-            parquet_files: parquet_file_meta.clone(),
-            object_store: store.clone(),
+            catalog_files: catalog_files.clone(),
+            catalog_query: catalog_query.clone(),
+            object_store: read_store.clone(),
             slow_queries: slow_queries.clone(),
         },
         alerting: AlertingToolDependencies {
@@ -433,14 +442,15 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         },
         storage: StorageState {
             object_store: store,
-            parquet_file_meta,
+            read_store,
+            catalog_files,
+            catalog_query,
             cipher_keys,
             field_keys: field_key_service,
             connectors,
             scheduled_pipelines,
             extend_kv,
             extend_table,
-            parquet_disk_cache,
             resource_shares,
             annotations,
             search_jobs,
@@ -512,21 +522,14 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{Arc, Mutex};
-
-    use object_store::memory::InMemory;
-    use tempfile::TempDir;
+    use std::sync::Mutex;
 
     use crate::{
         bootstrap::{
-            license::build_license,
-            storage::{build_fsync_policy, build_parquet_disk_cache},
+            license::build_license, storage::build_fsync_policy,
             tracing::prepare_self_telemetry_streams,
         },
-        config::{
-            CacheSettings, ObjectStoreSettings, SelfCollectSettings, Settings, WalFlushStrategy,
-            WalSettings, WalSyncLevel,
-        },
+        config::{SelfCollectSettings, Settings, WalFlushStrategy, WalSettings, WalSyncLevel},
         domain::{
             iam::{Organization, OrganizationRepository},
             license::{ActiveLicenseVersion, LicenseVersion, LicenseVersionRepository},
@@ -535,7 +538,7 @@ mod tests {
                 StreamType,
             },
         },
-        infra::{segment_wal::FsyncPolicy, storage::object::production::ProductionObjectStore},
+        infra::segment_wal::FsyncPolicy,
         shared::{Error, Result, ids::Id, time::TimestampMicros},
     };
 
@@ -778,9 +781,9 @@ mod tests {
         let definitions = streams.list(&org_id).await.unwrap();
         assert_eq!(definitions.len(), 3);
         for (stream_type, retention_days) in [
-            (StreamType::Metrics, 3),
-            (StreamType::Traces, 7),
-            (StreamType::Profiles, 3),
+            (StreamType::METRICS, 3),
+            (StreamType::TRACES, 7),
+            (StreamType::PROFILES, 3),
         ] {
             let stream = definitions
                 .iter()
@@ -802,9 +805,9 @@ mod tests {
             .unwrap();
         let definitions = streams.list(&org_id).await.unwrap();
         for (stream_type, retention_days) in [
-            (StreamType::Metrics, 10),
-            (StreamType::Traces, 11),
-            (StreamType::Profiles, 12),
+            (StreamType::METRICS, 10),
+            (StreamType::TRACES, 11),
+            (StreamType::PROFILES, 12),
         ] {
             let stream = definitions
                 .iter()
@@ -835,7 +838,7 @@ mod tests {
             .map(|definition| definition.stream_type)
             .collect::<Vec<_>>();
         assert_eq!(ordinary.len(), 1);
-        assert!(ordinary.contains(&StreamType::Profiles));
+        assert!(ordinary.contains(&StreamType::PROFILES));
 
         let profiles_disabled_streams = TestStreams::default();
         let profiles_disabled = SelfCollectSettings {
@@ -931,67 +934,6 @@ mod tests {
 
         assert!(!healthy);
         assert_eq!(license.edition(), "community");
-    }
-
-    #[test]
-    fn build_parquet_disk_cache_default_settings_is_some_and_creates_dir() {
-        let tmp = TempDir::new().expect("tmpdir");
-        let dir = tmp.path().join("parquet");
-        // 默认 [cache.disk_cache] 是 enabled=true / max_size_gb=10；改 dir 到 tmpdir。
-        let cache_settings = CacheSettings {
-            disk_cache: crate::config::DiskCacheSettings {
-                dir: dir.clone(),
-                ..Default::default()
-            },
-            ..Default::default()
-        };
-        let cache = build_parquet_disk_cache(&cache_settings.disk_cache)
-            .expect("must build")
-            .expect("default settings must yield Some(cache)");
-        assert_eq!(cache.dir(), dir.as_path());
-        // ParquetDiskCache::new 应当已经 mkdir -p。
-        assert!(dir.exists(), "cache directory should be auto-created");
-
-        // bootstrap 装配：把 cache 喂给 ProductionObjectStore.with_disk_cache，应当持有 Some(_)
-        let inner = Arc::new(InMemory::new()) as Arc<dyn object_store::ObjectStore>;
-        let wrapped = ProductionObjectStore::wrap(inner, ObjectStoreSettings::default());
-        let with_cache = (*wrapped).clone().with_disk_cache(cache);
-        assert!(
-            with_cache.disk_cache().is_some(),
-            "ProductionObjectStore must carry the injected disk_cache"
-        );
-    }
-
-    #[test]
-    fn build_parquet_disk_cache_disabled_returns_none_and_skips_dir() {
-        let tmp = TempDir::new().expect("tmpdir");
-        let dir = tmp.path().join("never_created");
-        let cache_settings = CacheSettings {
-            disk_cache: crate::config::DiskCacheSettings {
-                dir: dir.clone(),
-                max_size_gb: 0, // 0 = 关闭
-            },
-            ..Default::default()
-        };
-        let cache =
-            build_parquet_disk_cache(&cache_settings.disk_cache).expect("disabled must Ok-return");
-        assert!(cache.is_none(), "enabled=false must skip cache");
-        assert!(!dir.exists(), "directory must not be created when disabled");
-    }
-
-    #[test]
-    fn build_parquet_disk_cache_zero_size_is_effectively_disabled() {
-        let tmp = TempDir::new().expect("tmpdir");
-        let cache_settings = CacheSettings {
-            disk_cache: crate::config::DiskCacheSettings {
-                dir: tmp.path().join("zero"),
-                max_size_gb: 0,
-            },
-            ..Default::default()
-        };
-        let cache =
-            build_parquet_disk_cache(&cache_settings.disk_cache).expect("zero must Ok-return");
-        assert!(cache.is_none(), "max_size_gb=0 must skip cache");
     }
 
     #[test]

@@ -75,9 +75,12 @@ export function ExploreQuerySection({
     : t('explore.editor.run');
 
   return (
-    <section className="shrink-0 bg-bg-0 px-3 pt-3">
+    <section
+      data-metrics-query-surface="true"
+      className="mx-[20px] mb-[12px] shrink-0 rounded-md bg-[var(--functional-surface)] px-[12px] py-[8px] [box-shadow:var(--shadow-functional-surface)]"
+    >
       <div
-        className="flex min-h-12 flex-wrap items-center gap-2 rounded-md border border-bd-0 bg-bg-1 px-2 py-1.5 lg:flex-nowrap"
+        className="flex min-h-10 flex-wrap items-center gap-[8px] rounded-md bg-transparent lg:flex-nowrap"
         data-testid="metrics-explore-toolbar"
       >
         <QuerySyntaxHelp
@@ -87,6 +90,7 @@ export function ExploreQuerySection({
           triggerTitle={t('explore.function_hint.title')}
           title={t('explore.function_hint.title')}
           description={t('explore.function_hint.description')}
+          className="border-0"
           contentClassName="w-[480px]"
           examples={[
             {
@@ -125,11 +129,11 @@ export function ExploreQuerySection({
         />
 
         <div className="ml-auto flex flex-1 flex-wrap items-center justify-end gap-1.5 lg:flex-none">
-          <TimeRangeChip />
+          <TimeRangeChip className="border-0" />
           <TimezoneSelect
             value={timezone}
             onChange={onTimezoneChange}
-            className="h-11 sm:h-9"
+            className="h-11 border-0 bg-[var(--control-surface)] shadow-none sm:h-9"
           />
           <ChromeButton
             variant="primary"
@@ -173,11 +177,11 @@ export function ExploreQuerySection({
       </div>
 
       <div
-        className="mt-2 overflow-hidden rounded-md border border-bd-1 bg-bg-1"
+        className="mt-[8px] overflow-hidden rounded-md border-0 bg-[var(--control-surface)]"
         data-testid="metrics-query-card"
       >
-        <div className="flex min-h-11 flex-wrap items-center gap-2 border-b border-bd-0 bg-bg-2/70 px-2 py-1.5">
-          <span className="grid h-7 min-w-7 place-items-center rounded border border-bd-1 bg-bg-1 px-1 font-mono text-xs font-bold text-tx-0">
+        <div className="flex min-h-11 flex-wrap items-center gap-2 bg-transparent px-2 py-1.5">
+          <span className="grid h-7 min-w-7 place-items-center rounded bg-[var(--functional-surface)] px-1 font-mono text-xs font-bold text-tx-0">
             A
           </span>
           <div className="flex min-w-0 items-center gap-2">
@@ -190,7 +194,7 @@ export function ExploreQuerySection({
             <div
               role="group"
               aria-label={t('explore.query.mode_aria')}
-              className="flex h-11 items-center rounded-md border border-bd-0 bg-bg-1 p-0.5 sm:h-8"
+              className="flex h-11 items-center rounded-md bg-[var(--functional-surface)] p-0.5 sm:h-8"
             >
               <button
                 type="button"
@@ -257,7 +261,7 @@ export function ExploreQuerySection({
                   data-testid="metric-search-trigger"
                   aria-haspopup="dialog"
                   onClick={onOpenMetricBrowser}
-                  className="flex h-11 w-full items-center gap-2 border-b border-bd-0 bg-bg-1 px-3 text-left font-sans text-xs text-tx-3 transition-colors hover:bg-bg-2 hover:text-tx-1 focus-visible:bg-bg-2 focus-visible:text-tx-1"
+                  className="flex h-11 w-full items-center gap-2 bg-[var(--functional-surface)] px-3 text-left font-sans text-xs text-tx-3 transition-colors hover:bg-bg-2 hover:text-tx-1 focus-visible:bg-bg-2 focus-visible:text-tx-1"
                 >
                   <Search className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                   <span>{t('explore.catalog.search_trigger')}</span>
@@ -278,8 +282,6 @@ export function ExploreQuerySection({
                   completionItems={completionItems}
                   minHeight={112}
                   maxHeight={240}
-                  fontSize={14}
-                  fontWeight={500}
                   lineNumbers
                   resizable
                   showHeader={false}

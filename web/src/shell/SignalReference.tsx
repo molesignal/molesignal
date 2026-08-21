@@ -12,6 +12,7 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
+import { writeClipboardText } from '@/lib/clipboard';
 import { cn } from '@/shell/lib/cn';
 import {
   buildSignalContext,
@@ -135,7 +136,7 @@ export function SignalReference({
 
   const handleCopy = React.useCallback(async (copyValue: string, key: string) => {
     try {
-      await navigator.clipboard.writeText(copyValue);
+      await writeClipboardText(copyValue);
       setCopiedKey(key);
       window.setTimeout(() => setCopiedKey(null), 1200);
     } catch {
@@ -181,7 +182,7 @@ export function SignalReference({
         side="top"
         align="start"
         sideOffset={6}
-        className="z-[70] w-72 border-bd-1 bg-surface p-0 shadow-popup"
+        className="z-[70] w-72 p-0"
       >
         <header className="border-b border-bd-0 px-3 py-2.5">
           <div className="flex min-w-0 items-center gap-1.5">

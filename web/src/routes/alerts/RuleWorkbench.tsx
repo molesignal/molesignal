@@ -399,7 +399,6 @@ export function AlertRuleWorkbench() {
       <>
         <PageHeader
           title={t('workbench.edit_title')}
-          backTo="/alerts/rules"
         />
         <PageBody>
           <LoadingState variant="list" rows={6} />
@@ -413,7 +412,6 @@ export function AlertRuleWorkbench() {
       <>
         <PageHeader
           title={t('workbench.edit_title')}
-          backTo="/alerts/rules"
         />
         <PageBody>
           <ErrorState
@@ -431,7 +429,6 @@ export function AlertRuleWorkbench() {
       <PageHeader
         title={isEdit ? t('workbench.edit_named', { name }) : t('workbench.new_title')}
         subtitle={t('workbench.subtitle')}
-        backTo="/alerts/rules"
         toolbar={
           <>
             <ChromeButton variant="ghost" onClick={() => navigate('/alerts/rules')}>

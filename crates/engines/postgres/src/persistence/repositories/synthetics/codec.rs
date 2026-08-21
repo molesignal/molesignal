@@ -53,7 +53,7 @@ pub(super) const MONITOR_COLS: &str = "id, organization_id, name, description, k
     created_by, created_at_micros, updated_at_micros, archived_at_micros";
 pub(super) const REVISION_COLS: &str = "id, organization_id, monitor_id, revision_number,
     spec, schedule, timeout_millis, max_retries, consecutive_failures, consecutive_recoveries,
-    freshness_seconds, location_policy, escalation_policy_id, alert_on_degraded,
+    freshness_seconds, location_policy, escalation_policy_id, alert_on_degraded, alert_on_flaky,
     last_test_result_id, last_test_passed_at_micros,
     created_by, created_at_micros, content_hash";
 pub(super) const TASK_COLS: &str = "id, organization_id, monitor_id, monitor_revision_id,
@@ -252,6 +252,7 @@ pub(super) fn row_to_revision(
             .map_err(super::sqlx_err)?
             .map(Id),
         alert_on_degraded: row.try_get("alert_on_degraded").map_err(super::sqlx_err)?,
+        alert_on_flaky: row.try_get("alert_on_flaky").map_err(super::sqlx_err)?,
         last_test_result_id: row
             .try_get::<Option<String>, _>("last_test_result_id")
             .map_err(super::sqlx_err)?
@@ -343,6 +344,7 @@ pub(super) fn row_to_result(row: sqlx::postgres::PgRow) -> Result<SyntheticResul
             .map_err(|error| Error::internal(format!("decode Probe attempts: {error}")))?,
         assertions: serde_json::from_value(assertions)
             .map_err(|error| Error::internal(format!("decode Probe assertions: {error}")))?,
+        artifacts: Vec::new(),
         secret_versions: serde_json::from_value(secret_versions)
             .map_err(|error| Error::internal(format!("decode Secret versions: {error}")))?,
         protocol_version: row

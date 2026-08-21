@@ -144,9 +144,82 @@ test('drags the field panel in both directions and clamps its maximum width', as
   await expect(separator).toHaveAttribute('aria-valuenow', '480');
 
   await dragTo(0);
-  expect((await boundingBox(panel)).width).toBe(240);
-  await expect(separator).toHaveAttribute('aria-valuenow', '240');
+  expect((await boundingBox(panel)).width).toBe(260);
+  await expect(separator).toHaveAttribute('aria-valuenow', '260');
 
   await separator.dblclick();
-  expect((await boundingBox(panel)).width).toBe(240);
+  expect((await boundingBox(panel)).width).toBe(260);
+});
+
+test('uses canvas gutters and borderless surfaces for the trace workbench hierarchy', async ({ page }) => {
+  await page.goto('/traces');
+
+  const shell = page.locator('[data-shell-layout="surface-workbench"]');
+  const topbar = page.getByRole('banner');
+  const sidebar = page.getByTestId('primary-sidebar');
+  const canvas = page.locator('[data-workspace="traces"]');
+  const pageHeader = page.getByTestId('page-header');
+  const querySurface = page.locator('[data-query-workbench-appearance="surface"]');
+  const workspace = page.locator('[data-trace-workspace-layout="surface-grid"]');
+  const fieldPanel = page.locator('aside[data-variant="utility"]');
+  const results = page.locator('[data-workspace-pane="trace-results"]');
+  const detail = page.locator('[data-workspace-pane="trace-detail"]');
+  const pagination = results.getByRole('navigation');
+  const primaryTabs = querySurface.locator('[data-query-tab-selection="underline"]');
+  const activeTab = primaryTabs.getByRole('tab', { name: /Spans/ });
+  const syntaxHelp = querySurface.getByRole('button', { name: /query syntax reference/i });
+  const timeRange = querySurface.getByRole('button', { name: /^Time range:/ });
+
+  await expect(shell).toBeVisible();
+  await expect(querySurface).toBeVisible();
+  await expect(pageHeader.getByTestId('page-header-module-icon')).toBeVisible();
+  await expect(topbar).toHaveCSS('border-bottom-width', '0px');
+  await expect(sidebar).toHaveCSS('border-right-width', '0px');
+  await expect(pageHeader).toHaveCSS('border-bottom-width', '0px');
+  await expect(pagination).toHaveCSS('border-top-width', '0px');
+  await expect(syntaxHelp).toHaveCSS('border-width', '0px');
+  await expect(timeRange).toHaveCSS('border-width', '0px');
+  await expect(activeTab).toHaveAttribute('aria-selected', 'true');
+  expect(
+    await activeTab.evaluate(
+      (element) => getComputedStyle(element, '::after').height,
+    ),
+  ).toBe('2px');
+  expect(
+    await activeTab.evaluate(
+      (element) => getComputedStyle(element, '::after').backgroundColor,
+    ),
+  ).not.toBe('rgba(0, 0, 0, 0)');
+  expect(await workspace.evaluate((element) => getComputedStyle(element).gap)).toBe('8px');
+  expect((await boundingBox(fieldPanel)).width).toBe(260);
+  expect((await boundingBox(results)).width).toBe(380);
+
+  const [canvasBox, headerBox, queryBox] = await Promise.all([
+    boundingBox(canvas),
+    boundingBox(pageHeader),
+    boundingBox(querySurface),
+  ]);
+  const titleTopGap = headerBox.y - canvasBox.y;
+  const titleBottomGap = queryBox.y - headerBox.y - headerBox.height;
+  expect(titleTopGap).toBe(12);
+  expect(titleBottomGap).toBe(titleTopGap);
+
+  const surfaceBackgrounds = await Promise.all(
+    [querySurface, fieldPanel, results, detail].map((locator) =>
+      locator.evaluate((element) => getComputedStyle(element).backgroundColor),
+    ),
+  );
+  expect(new Set(surfaceBackgrounds).size).toBe(1);
+  expect(
+    await canvas.evaluate((element) => getComputedStyle(element).backgroundColor),
+  ).not.toBe(surfaceBackgrounds[0]);
+  await expect(querySurface).not.toHaveCSS('box-shadow', 'none');
+
+  const traceHeaderHeight = headerBox.height;
+  await page.goto('/logs');
+  const logHeader = page.getByTestId('page-header');
+  await expect(logHeader).toBeVisible();
+  expect(
+    Math.abs((await boundingBox(logHeader)).height - traceHeaderHeight),
+  ).toBeLessThanOrEqual(1);
 });

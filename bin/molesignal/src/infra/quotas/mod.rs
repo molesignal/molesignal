@@ -5,7 +5,7 @@
 //!
 //! - [`QuotaLimiter`]：`DashMap<org_id, Arc<governor::RateLimiter>>` 两套（intake / query）。
 //!   intake entry 在权限校验后调 `acquire_async`；超限 → 429 + Retry-After。
-//! - storage cap：compactor 每 5min 计算 `(org → sum(parquet_file_meta.size_bytes))` 进内存；
+//! - storage cap：后台周期聚合 FileCatalog 中 Active Segment 的 Ready Primary Artifact；
 //!   intake entry 在 acquire 之后检查，超 → 413。
 
 use std::{collections::HashMap, num::NonZeroU32, sync::Arc};

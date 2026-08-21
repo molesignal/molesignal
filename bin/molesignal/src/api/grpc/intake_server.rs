@@ -150,10 +150,10 @@ fn error_to_status(error: crate::shared::Error) -> Status {
 
 fn proto_stream_type_to_domain(v: i32) -> Option<StreamType> {
     match ProtoStreamType::try_from(v).ok()? {
-        ProtoStreamType::Logs => Some(StreamType::Logs),
-        ProtoStreamType::Metrics => Some(StreamType::Metrics),
-        ProtoStreamType::Traces => Some(StreamType::Traces),
-        ProtoStreamType::Profiles => Some(StreamType::Profiles),
+        ProtoStreamType::Logs => Some(StreamType::LOGS),
+        ProtoStreamType::Metrics => Some(StreamType::METRICS),
+        ProtoStreamType::Traces => Some(StreamType::TRACES),
+        ProtoStreamType::Profiles => Some(StreamType::PROFILES),
         ProtoStreamType::Unspecified => None,
     }
 }

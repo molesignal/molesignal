@@ -34,9 +34,9 @@ pub fn parse_signal_type(function_steps: &Value) -> StreamType {
         .and_then(Value::as_str)
         .unwrap_or("logs")
     {
-        "metrics" => StreamType::Metrics,
-        "traces" => StreamType::Traces,
-        _ => StreamType::Logs,
+        "metrics" => StreamType::METRICS,
+        "traces" => StreamType::TRACES,
+        _ => StreamType::LOGS,
     }
 }
 
@@ -184,29 +184,29 @@ mod tests {
     fn parse_signal_type_supports_workbench_shape_and_legacy_logs() {
         assert_eq!(
             parse_signal_type(&json!({ "signal_type": "metrics" })),
-            StreamType::Metrics
+            StreamType::METRICS
         );
         assert_eq!(
             parse_signal_type(&json!({ "signal_type": "traces" })),
-            StreamType::Traces
+            StreamType::TRACES
         );
-        assert_eq!(parse_signal_type(&json!([])), StreamType::Logs);
+        assert_eq!(parse_signal_type(&json!([])), StreamType::LOGS);
         assert_eq!(
             parse_signal_type(&json!({ "signal_type": "unknown" })),
-            StreamType::Logs
+            StreamType::LOGS
         );
     }
 
     #[test]
     fn pipeline_rejects_same_source_and_target_for_one_signal_type() {
-        let err = validate_pipeline_streams("app_logs", "app_logs", StreamType::Logs)
+        let err = validate_pipeline_streams("app_logs", "app_logs", StreamType::LOGS)
             .expect_err("same stream must be rejected");
         assert_eq!(err.http_status_code(), 409);
         assert!(err.to_string().contains("app_logs"));
         assert!(err.to_string().contains("logs"));
 
         assert!(
-            validate_pipeline_streams("app_logs", "app_logs_enriched", StreamType::Logs).is_ok()
+            validate_pipeline_streams("app_logs", "app_logs_enriched", StreamType::LOGS).is_ok()
         );
     }
 

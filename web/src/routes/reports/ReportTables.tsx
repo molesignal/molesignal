@@ -62,7 +62,7 @@ export function ScheduleTable({
   const shareAccess = useActionAccess({ permission: 'reports.share' });
 
   return (
-    <div className="min-w-0 overflow-hidden bg-bg-0">
+    <div className="min-w-0 overflow-hidden bg-transparent">
       <TableShell>
         <thead>
           <tr>
@@ -221,7 +221,7 @@ export function HistoryTable({
 }) {
   const { t } = useTranslation('reports');
   return (
-    <div className="min-w-0 overflow-hidden bg-bg-0">
+    <div className="min-w-0 overflow-hidden bg-transparent">
       <TableShell>
         <thead>
           <tr>

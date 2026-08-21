@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 
+import { writeClipboardText } from '@/lib/clipboard';
 import { ChromeButton } from '@/shell/chrome';
 import { CopyIconButton } from '@/shell/CopyIconButton';
 import {
@@ -24,7 +25,7 @@ export function OneTimeApiTokenDialog({
   const copy = async () => {
     if (!token) return;
     try {
-      await navigator.clipboard.writeText(token);
+      await writeClipboardText(token);
       toast.success(t('approvals.one_time_token_copied'));
     } catch {
       toast.error(t('approvals.one_time_token_copy_failed'));

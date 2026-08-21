@@ -26,27 +26,6 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
-.home-canvas-divider-grid > * + * {
-  border-top: 1px solid var(--bd-0);
-}
-
-.home-canvas-footer {
-  position: relative;
-}
-
-.home-canvas-footer::before {
-  position: absolute;
-  inset: 0 0 auto;
-  z-index: 1;
-  height: 1px;
-  transform: scaleY(0.5);
-  transform-origin: top;
-  background: var(--bd-0);
-  content: '';
-  opacity: 0.8;
-  pointer-events: none;
-}
-
 .home-canvas-footer-section .home-canvas-section-header {
   min-height: 36px;
   padding-block: 6px;
@@ -65,11 +44,6 @@
 
   .home-canvas-detail-grid {
     grid-template-columns: minmax(0, 2.15fr) minmax(340px, 0.85fr);
-  }
-
-  .home-canvas-divider-grid > * + * {
-    border-top: 0;
-    border-left: 1px solid var(--bd-0);
   }
 
   .home-canvas-primary-grid > *,

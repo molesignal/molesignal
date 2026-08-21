@@ -36,8 +36,6 @@ export const RUM_PRODUCT_ROUTES = [
     path: '/rum/overview',
     labelKey: 'breadcrumbs.rum_overview',
     icon: Gauge,
-    breadcrumbs: [rumCrumb, { labelKey: 'breadcrumbs.rum_overview' }],
-    backTo: '/rum',
   },
   {
     ...RUM_ACCESS,
@@ -45,8 +43,6 @@ export const RUM_PRODUCT_ROUTES = [
     path: '/rum/applications',
     labelKey: 'breadcrumbs.rum_applications',
     icon: AppWindow,
-    breadcrumbs: [rumCrumb, { labelKey: 'breadcrumbs.rum_applications' }],
-    backTo: '/rum/overview',
   },
   {
     ...RUM_ACCESS,
@@ -54,8 +50,6 @@ export const RUM_PRODUCT_ROUTES = [
     path: '/rum/sessions',
     labelKey: 'rum_sessions',
     icon: Users,
-    breadcrumbs: [rumCrumb, { labelKey: 'rum_sessions' }],
-    backTo: '/rum/overview',
   },
   {
     ...RUM_ACCESS,
@@ -76,8 +70,6 @@ export const RUM_PRODUCT_ROUTES = [
     path: '/rum/pages',
     labelKey: 'breadcrumbs.rum_pages',
     icon: PanelsTopLeft,
-    breadcrumbs: [rumCrumb, { labelKey: 'breadcrumbs.rum_pages' }],
-    backTo: '/rum/overview',
   },
   {
     ...RUM_ACCESS,
@@ -85,8 +77,6 @@ export const RUM_PRODUCT_ROUTES = [
     path: '/rum/errors',
     labelKey: 'rum_errors',
     icon: Bug,
-    breadcrumbs: [rumCrumb, { labelKey: 'rum_errors' }],
-    backTo: '/rum/overview',
   },
   {
     ...RUM_ACCESS,
@@ -107,8 +97,6 @@ export const RUM_PRODUCT_ROUTES = [
     path: '/rum/performance/overview',
     labelKey: 'rum_performance',
     icon: Gauge,
-    breadcrumbs: [rumCrumb, { labelKey: 'rum_performance' }],
-    backTo: '/rum/overview',
   },
   {
     ...RUM_ACCESS,
@@ -116,8 +104,6 @@ export const RUM_PRODUCT_ROUTES = [
     path: '/rum/session-replay',
     labelKey: 'breadcrumbs.rum_session_replay',
     icon: MonitorPlay,
-    breadcrumbs: [rumCrumb, { labelKey: 'breadcrumbs.rum_session_replay' }],
-    backTo: '/rum/overview',
   },
   {
     ...RUM_ACCESS,
@@ -125,8 +111,6 @@ export const RUM_PRODUCT_ROUTES = [
     path: '/rum/settings/:section',
     labelKey: 'breadcrumbs.rum_settings',
     icon: Settings,
-    breadcrumbs: [rumCrumb, { labelKey: 'breadcrumbs.rum_settings' }],
-    backTo: '/rum/overview',
   },
   {
     ...RUM_ACCESS,
@@ -134,12 +118,6 @@ export const RUM_PRODUCT_ROUTES = [
     path: '/rum/settings/source-maps',
     labelKey: 'rum_source_maps',
     icon: FileCode2,
-    breadcrumbs: [
-      rumCrumb,
-      { labelKey: 'breadcrumbs.rum_settings', to: '/rum/settings/sdk' },
-      { labelKey: 'rum_source_maps' },
-    ],
-    backTo: '/rum/settings/sdk',
   },
   {
     ...RUM_ACCESS,

@@ -1,6 +1,7 @@
 export type MonitorKind =
   | 'http'
   | 'tcp'
+  | 'ssh'
   | 'dns'
   | 'icmp'
   | 'tls'
@@ -9,7 +10,7 @@ export type MonitorKind =
   | 'heartbeat';
 
 export type MonitorLifecycle = 'draft' | 'active' | 'paused' | 'archived';
-export type MonitorState = 'healthy' | 'degraded' | 'failing' | 'unknown';
+export type MonitorState = 'healthy' | 'flaky' | 'degraded' | 'failing' | 'unknown';
 export type ProbeOutcome = MonitorState | 'skipped';
 
 export type ValueSource =
@@ -86,6 +87,7 @@ export type MonitorSpec =
         user_agent?: string;
         capture_screenshot_on_failure: boolean;
         capture_har_on_failure: boolean;
+        capture_trace_on_failure: boolean;
       };
     }
   | {
@@ -98,6 +100,26 @@ export type MonitorSpec =
         send?: ValueSource;
         expect_regex?: string;
         assertions: MonitorAssertion[];
+      };
+    }
+  | {
+      kind: 'ssh';
+      configuration: {
+        host: ValueSource;
+        port: number;
+        expected_identification_regex?: string;
+        authentication?:
+          | { kind: 'password'; username: ValueSource; password: ValueSource }
+          | {
+              kind: 'public_key';
+              username: ValueSource;
+              private_key: ValueSource;
+              passphrase?: ValueSource;
+            };
+        command?: ValueSource;
+        expected_output_regex?: string;
+        expected_exit_status?: number;
+        expected_host_key_sha256?: string;
       };
     }
   | {
@@ -202,6 +224,7 @@ export interface MonitorRevision {
   location_ids: string[];
   escalation_policy_id?: string;
   alert_on_degraded: boolean;
+  alert_on_flaky: boolean;
   last_test_result_id?: string;
   last_test_passed_at?: number;
   created_by: string;
@@ -235,6 +258,7 @@ export interface CreateMonitorInput {
   tags: string[];
   escalation_policy_id?: string;
   alert_on_degraded: boolean;
+  alert_on_flaky: boolean;
 }
 
 export interface TimingBreakdown {
@@ -255,6 +279,19 @@ export interface ProbeAttempt {
   error_message?: string;
   bounded_response_excerpt?: number[];
   metadata: Record<string, string>;
+  evidence?: ProbeStepEvidence[];
+}
+
+export interface ProbeStepEvidence {
+  step_id: string;
+  name: string;
+  action: string;
+  started_at: number;
+  finished_at: number;
+  outcome: ProbeOutcome;
+  error_category?: string;
+  error_message?: string;
+  metadata: Record<string, string>;
 }
 
 export interface AssertionObservation {
@@ -263,6 +300,17 @@ export interface AssertionObservation {
   passed: boolean;
   actual?: string;
   message?: string;
+}
+
+export interface SyntheticResultArtifact {
+  id: string;
+  name: string;
+  kind: 'screenshot' | 'har' | string;
+  content_type: string;
+  content_length: number;
+  sha256: string;
+  expires_at: number;
+  created_at: number;
 }
 
 export interface SyntheticResult {
@@ -282,6 +330,7 @@ export interface SyntheticResult {
   outcome: ProbeOutcome;
   attempts: ProbeAttempt[];
   assertions: AssertionObservation[];
+  artifacts?: SyntheticResultArtifact[];
   secret_versions: Record<string, number>;
   protocol_version: number;
   metadata: Record<string, string>;
@@ -363,6 +412,30 @@ export interface ProbeRegisterInstructions {
     location_id: string;
     expires_at: number;
   };
+  command: string;
+}
+
+export type ProbeAgentTokenStatus = 'active' | 'disabled';
+
+export interface ProbeAgentToken {
+  id: string;
+  organization_id: string;
+  location_id: string;
+  name: string;
+  token_prefix: string;
+  status: ProbeAgentTokenStatus;
+  expires_at?: number;
+  last_used_at?: number;
+  created_by: string;
+  created_at: number;
+  rotated_at?: number;
+  disabled_at?: number;
+  updated_at: number;
+}
+
+export interface ProbeAgentTokenInstructions {
+  token: ProbeAgentToken;
+  agent_token: string;
   command: string;
 }
 

@@ -11,6 +11,11 @@
 pub mod arrow_schema;
 pub mod compactor;
 pub mod downsample;
+pub mod index_rebuild;
+pub mod layout;
+pub mod manifest;
 pub mod object;
+pub mod object_gc;
+pub mod object_reader;
 pub mod parquet;
-pub mod parquet_file_meta_dump;
+pub mod reconciler;

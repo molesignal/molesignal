@@ -7,9 +7,10 @@ use async_trait::async_trait;
 
 use super::{
     ActiveMonitorRevision, LocationStateUpdate, MonitorLifecycle, MonitorLocationState,
-    MonitorRevision, MonitorState, ProbeAgent, ProbeLocation, ProbeRegisterToken, ProbeTask,
-    SecretMaterial, StateObservation, SyntheticMonitor, SyntheticResult, SyntheticResultListQuery,
-    SyntheticResultPage, SyntheticSecret, SyntheticSecretVersion, SyntheticStateTransition,
+    MonitorRevision, MonitorState, ProbeAgent, ProbeAgentToken, ProbeLocation, ProbeRegisterToken,
+    ProbeRegistrationGrant, ProbeTask, SecretMaterial, StateObservation, SyntheticMonitor,
+    SyntheticResult, SyntheticResultListQuery, SyntheticResultPage, SyntheticSecret,
+    SyntheticSecretVersion, SyntheticStateTransition,
 };
 use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
@@ -47,17 +48,42 @@ pub trait SyntheticRegisterRepository: Send + Sync {
         token: ProbeRegisterToken,
         token_hash: Vec<u8>,
     ) -> Result<ProbeRegisterToken>;
-    async fn get_register_token(
+    async fn get_registration_grant(
         &self,
         token_hash: &[u8],
         now: TimestampMicros,
-    ) -> Result<ProbeRegisterToken>;
-    async fn consume_register_token(
+    ) -> Result<ProbeRegistrationGrant>;
+    async fn register_probe(
         &self,
         token_hash: &[u8],
         agent: ProbeAgent,
         consumed_at: TimestampMicros,
     ) -> Result<ProbeAgent>;
+}
+
+#[async_trait]
+pub trait SyntheticAgentTokenRepository: Send + Sync {
+    async fn create_agent_token(
+        &self,
+        token: ProbeAgentToken,
+        token_hash: Vec<u8>,
+    ) -> Result<ProbeAgentToken>;
+    async fn list_agent_tokens(&self, org_id: &Id) -> Result<Vec<ProbeAgentToken>>;
+    async fn rotate_agent_token(
+        &self,
+        org_id: &Id,
+        token_id: &Id,
+        token_hash: Vec<u8>,
+        token_prefix: &str,
+        expires_at: Option<TimestampMicros>,
+        rotated_at: TimestampMicros,
+    ) -> Result<ProbeAgentToken>;
+    async fn disable_agent_token(
+        &self,
+        org_id: &Id,
+        token_id: &Id,
+        disabled_at: TimestampMicros,
+    ) -> Result<ProbeAgentToken>;
 }
 
 #[async_trait]
@@ -161,6 +187,12 @@ pub trait SyntheticTaskRepository: Send + Sync {
         lease_token_hash: &str,
         now: TimestampMicros,
     ) -> Result<ProbeTask>;
+    async fn get_leased_task_by_token(
+        &self,
+        task_id: &Id,
+        lease_token_hash: &str,
+        now: TimestampMicros,
+    ) -> Result<ProbeTask>;
     async fn acknowledge_task(
         &self,
         task_id: &Id,
@@ -194,6 +226,7 @@ pub trait SyntheticResultRepository: Send + Sync {
         org_id: &Id,
         query: &SyntheticResultListQuery,
     ) -> Result<SyntheticResultPage>;
+    async fn get_result(&self, org_id: &Id, result_id: &Id) -> Result<SyntheticResult>;
 }
 
 #[async_trait]
@@ -224,6 +257,7 @@ pub trait SyntheticStateRepository: Send + Sync {
 pub trait SyntheticRepository:
     SyntheticLocationRepository
     + SyntheticAgentRepository
+    + SyntheticAgentTokenRepository
     + SyntheticRegisterRepository
     + SyntheticSecretRepository
     + SyntheticMonitorRepository
@@ -236,6 +270,7 @@ pub trait SyntheticRepository:
 impl<T> SyntheticRepository for T where
     T: SyntheticLocationRepository
         + SyntheticAgentRepository
+        + SyntheticAgentTokenRepository
         + SyntheticRegisterRepository
         + SyntheticSecretRepository
         + SyntheticMonitorRepository

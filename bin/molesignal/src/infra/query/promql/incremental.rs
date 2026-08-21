@@ -172,25 +172,35 @@ impl PromQLEngine {
         }
     }
 
-    /// 该 metric 在查询窗口内的 intake 水位 ≈
-    /// `max(parquet_file_meta.time_range.end)`；无文件返回
-    /// `i64::MIN`（→ 全活跃、无可封存桶）。
-    ///
-    /// 每次求值、每个 selector 都会实打实地打一次 PG：`ParquetFileMetaCache` **并没有**兜住它
-    /// （那层至今未接入查询路径，原因见 [`crate::infra::caching`] 的 `parquet_file_meta` 模块文档）。
-    /// 开销可接受的真实原因是 `idx_parquet_file_meta_scan` 覆盖了本查询的全部谓词，
-    /// 走的是索引区间扫描、只返回该 metric 在窗口内的那几十行 —— 不是因为有缓存。
+    /// 该 metric 在查询窗口内的 intake 水位约等于
+    /// `max(Catalog Segment time_range.end, visible Buffer _timestamp)`；无数据返回
+    /// `i64::MIN`（→ 全活跃、无可封存桶）。Catalog 与 Buffer 来自同一次 checkpoint
+    /// 去重后的查询快照，且不会读取 WAL。
     async fn intake_watermark(&self, vs: &VectorSelector, req: &QueryRequest) -> Result<i64> {
         let Some(metric) = vs.name.as_deref() else {
             return Ok(i64::MIN);
         };
         let source = self.resolve_metric_source(&req.org_id, metric).await?;
-        let metas = self
+        let storage = self
             .metric_files(&req.org_id, &source.stream, req.time_range)
             .await?;
-        Ok(metas
+        let file_watermark = storage.files.iter().map(|m| m.time_range.end.0).max();
+        let buffer_watermark = storage
+            .buffered_batches
             .iter()
-            .map(|m| m.time_range.end.0)
+            .filter_map(|batch| {
+                batch
+                    .column_by_name(crate::infra::storage::arrow_schema::TS_COL)?
+                    .as_any()
+                    .downcast_ref::<TimestampMicrosecondArray>()?
+                    .iter()
+                    .flatten()
+                    .max()
+            })
+            .max();
+        Ok(file_watermark
+            .into_iter()
+            .chain(buffer_watermark)
             .max()
             .unwrap_or(i64::MIN))
     }

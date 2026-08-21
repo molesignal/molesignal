@@ -14,7 +14,7 @@ import { formatWindowSummary, useTimeStore } from '@/stores/useTimeStore';
 import { TimeSeriesSparkline } from '@/viz/timeseries/TimeSeriesChart';
 
 import { windowToMicros } from '../_helpers';
-import { RumListPage, RumSectionHeader } from '../RumLayout';
+import { RumListPage, RumSectionHeader, RumSurface } from '../RumLayout';
 
 type VitalKey = 'lcp_ms' | 'fid_ms' | 'cls' | 'ttfb_ms';
 type Grade = 'good' | 'needs_improvement' | 'poor';
@@ -73,12 +73,12 @@ export function WebVitals() {
     <RumListPage
       title={t('performance.web_vitals')}
       subtitle={t('performance.web_vitals_subtitle') as string}
-      toolbar={<TimeRangeChip value={formatWindowSummary(window)} />}
+      toolbar={<TimeRangeChip value={formatWindowSummary(window)} className="border-0" />}
       performance
       state={pageState}
     >
-      <div className="grid border-y border-bd-0 sm:grid-cols-2 xl:grid-cols-4">
-        {VITALS.map((spec, index) => {
+      <RumSurface className="grid gap-[8px] p-[12px] sm:grid-cols-2 xl:grid-cols-4">
+        {VITALS.map((spec) => {
           const values = valuesFor(data, spec.key);
           const p75 = percentile(values, 0.75);
           const dist = distributionFor(values, spec);
@@ -89,8 +89,7 @@ export function WebVitals() {
               key={spec.key}
               onClick={() => setActiveKey(spec.key)}
               className={cn(
-                'min-h-[126px] border-b border-bd-0 p-4 text-left transition-colors duration-fast hover:bg-bg-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo sm:[&:nth-child(odd)]:border-r xl:border-b-0 xl:border-r',
-                index === VITALS.length - 1 && 'xl:border-r-0',
+                'min-h-[126px] rounded-md bg-[var(--control-surface)] p-4 text-left transition-colors duration-fast hover:bg-bg-3 focus-visible:bg-bg-3',
                 activeKey === spec.key && 'bg-indigo-dim',
               )}
             >
@@ -106,17 +105,17 @@ export function WebVitals() {
             </button>
           );
         })}
-      </div>
+      </RumSurface>
 
-      <div className="grid gap-6 xl:grid-cols-12">
-        <section className="min-w-0 xl:col-span-8">
+      <div className="grid gap-[12px] xl:grid-cols-12">
+        <RumSurface className="min-w-0 p-4 xl:col-span-8">
           <RumSectionHeader
             title={t('performance.distribution_title', { metric: activeSpec.label })}
             description={t('performance.distribution_description')}
           />
           <div className="grid gap-6 py-5 lg:grid-cols-[minmax(0,1fr)_220px]">
             <VitalDistribution distribution={distribution} spec={activeSpec} />
-            <div className="border-l-0 border-bd-0 lg:border-l lg:pl-6">
+            <div className="rounded-md bg-[var(--control-surface)] p-4">
               <div className="type-caption font-sans font-strong text-tx-3">
                 {t('performance.current_p75')}
               </div>
@@ -128,7 +127,7 @@ export function WebVitals() {
                   {t(`experience.${gradeFor(percentile(activeValues, 0.75), activeSpec)}`)}
                 </Pill>
               </div>
-              <dl className="mt-5 grid grid-cols-[1fr_auto] gap-x-3 gap-y-2 border-t border-bd-0 pt-4 text-xs">
+              <dl className="mt-5 grid grid-cols-[1fr_auto] gap-x-3 gap-y-2 text-xs">
                 <dt className="text-tx-3">{t('performance.good_target')}</dt>
                 <dd className="m-0 font-mono font-strong text-tx-1">
                   ≤ {formatVital(activeSpec.good, activeSpec)}
@@ -140,7 +139,7 @@ export function WebVitals() {
               </dl>
             </div>
           </div>
-          <div className="border-t border-bd-0 pt-4">
+          <div className="rounded-md bg-[var(--control-surface)] p-4">
             <div className="mb-3 flex items-center justify-between gap-3">
               <span className="text-xs font-strong text-tx-2">
                 {t('performance.trend_title', { metric: activeSpec.label })}
@@ -149,9 +148,9 @@ export function WebVitals() {
             </div>
             <VitalSparkline values={activeValues} spec={activeSpec} />
           </div>
-        </section>
+        </RumSurface>
 
-        <section className="min-w-0 xl:col-span-4">
+        <RumSurface className="min-w-0 p-4 xl:col-span-4">
           <RumSectionHeader
             title={t('performance.worst_pages')}
             description={t('performance.worst_pages_description', {
@@ -159,9 +158,9 @@ export function WebVitals() {
             })}
           />
           <RankedRows rows={pageRows.slice(0, 7)} spec={activeSpec} empty={t('performance.no_page_data')} />
-        </section>
+        </RumSurface>
 
-        <section className="min-w-0 xl:col-span-12">
+        <RumSurface className="min-w-0 p-4 xl:col-span-12">
           <RumSectionHeader
             title={t('performance.impact_dimensions')}
             description={t('performance.impact_dimensions_description')}
@@ -175,7 +174,7 @@ export function WebVitals() {
               dimensionRows.map((row) => (
                 <div
                   key={`${row.dimension}-${row.label}`}
-                  className="grid min-h-[64px] grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-bd-0 py-3"
+                  className="grid min-h-[64px] grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-md bg-[var(--control-surface)] px-3 py-3"
                 >
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-strong text-tx-0">{row.label}</span>
@@ -194,7 +193,7 @@ export function WebVitals() {
               ))
             )}
           </div>
-        </section>
+        </RumSurface>
       </div>
     </RumListPage>
   );

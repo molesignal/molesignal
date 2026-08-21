@@ -526,15 +526,16 @@ async fn http_sql_object_store_business_spans_and_logs_are_queryable_in_system_s
     );
 
     let trace_stream_id = sqlx::query_scalar::<String>(
-        "SELECT id FROM streams
-         WHERE org_id = $1 AND name = '_molesignal' AND stream_type = 'traces' AND system",
+        "SELECT id FROM logical_streams
+         WHERE org_id = $1 AND name = '_molesignal'
+           AND stream_type = 'builtin.traces' AND system",
     )
     .bind(server.state.iam.system_org_id.as_str())
     .fetch_one(&pool)
     .await
     .expect("protected system Trace stream");
     sqlx::query(
-        "UPDATE streams
+        "UPDATE logical_streams
          SET retention = '{\"days\": 8}'::jsonb, updated_at_micros = $2
          WHERE id = $1",
     )
@@ -544,10 +545,10 @@ async fn http_sql_object_store_business_spans_and_logs_are_queryable_in_system_s
     .await
     .expect("retention is an approved system-stream capacity mutation");
     for statement in [
-        "UPDATE streams SET name = 'tampered' WHERE id = $1",
-        "UPDATE streams SET system = FALSE WHERE id = $1",
-        "UPDATE streams SET schema = '{\"fields\": []}'::jsonb WHERE id = $1",
-        "DELETE FROM streams WHERE id = $1",
+        "UPDATE logical_streams SET name = 'tampered' WHERE id = $1",
+        "UPDATE logical_streams SET system = FALSE WHERE id = $1",
+        "UPDATE logical_streams SET schema = '{\"fields\": []}'::jsonb WHERE id = $1",
+        "DELETE FROM logical_streams WHERE id = $1",
     ] {
         assert!(
             sqlx::query(statement)

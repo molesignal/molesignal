@@ -7,7 +7,7 @@
 //! cluster：当 `QueryRequest.federation_clusters` 含非 `"local"` 集群时——
 //! 1. 本地扫描 `SELECT * FROM <stream>` → `RecordBatch`；
 //! 2. 对每个命中的 enabled remote，经 Arrow Flight `do_get` 跑同一份 scan SQL（携
-//!    bearer token；ticket 的 `parquet_file_metas` 留空 → 远端自解析本集群的 parquet_file_meta）；
+//!    bearer token；ticket 的 `query_files` 留空 → 远端自解析本集群的 query_file）；
 //! 3. UNION 所有 `RecordBatch` → 本地 DataFusion 跑 final user SQL（聚合只在 coordinator
 //!    跑一次）；
 //! 4. 不可达 / 鉴权失败的 cluster 记入 `FederationMeta.degraded_clusters`，不 500。
@@ -36,7 +36,7 @@ use crate::{
     domain::{
         masking::Masker,
         query::{FederationMeta, QueryEngine, QueryRequest, QueryResult, StreamHint},
-        storage::{ParquetFileMetaRepository, PhysicalDatasetKind},
+        storage::{DatasetTypeId, QueryFileSource},
         stream::StreamRepository,
     },
     infra::{
@@ -47,7 +47,10 @@ use crate::{
         persistence::repositories::{
             log_patterns::LogPatternRepository, regex_patterns::RegexPatternRepository,
         },
-        query::distributed::{batches_to_json, stream_type_to_proto},
+        query::{
+            catalog_source::CatalogQuerySource,
+            distributed::{batches_to_json, stream_type_to_proto},
+        },
         secret::resolve_secret_ref,
     },
     protocol::query::v1::QueryShard,
@@ -63,7 +66,7 @@ use cancel_guard::DispatchGuard;
 pub struct FederatedDistributedEngine {
     inner: Arc<dyn QueryEngine>,
     remote_clusters: Arc<dyn RemoteClustersRepository>,
-    files: Arc<dyn ParquetFileMetaRepository>,
+    files: Arc<dyn QueryFileSource>,
     object_store: Arc<dyn ObjectStore>,
     secrets: Option<Arc<dyn ClusterSecretRepository>>,
     /// 字段加密 DEK 服务；非空时 coordinator final SQL 按 org 预载 DEK 注册 `decrypt(col)`。
@@ -77,13 +80,14 @@ pub struct FederatedDistributedEngine {
     /// stream repo：联邦 final SQL 自建 `SessionContext`、不走 `inner.execute`，
     /// 归属 / queryable 校验只能在这一层自己做。
     streams: Option<Arc<dyn StreamRepository>>,
+    catalog_source: Option<Arc<CatalogQuerySource>>,
 }
 
 impl FederatedDistributedEngine {
     pub fn new(
         inner: Arc<dyn QueryEngine>,
         remote_clusters: Arc<dyn RemoteClustersRepository>,
-        files: Arc<dyn ParquetFileMetaRepository>,
+        files: Arc<dyn QueryFileSource>,
         object_store: Arc<dyn ObjectStore>,
     ) -> Self {
         Self {
@@ -97,6 +101,7 @@ impl FederatedDistributedEngine {
             log_patterns: None,
             cancel_registry: None,
             streams: None,
+            catalog_source: None,
         }
     }
 
@@ -104,6 +109,11 @@ impl FederatedDistributedEngine {
     /// 未注入时联邦查询不校验 `queryable`——`wire` 必须接上。
     pub fn with_streams(mut self, streams: Arc<dyn StreamRepository>) -> Self {
         self.streams = Some(streams);
+        self
+    }
+
+    pub fn with_catalog_source(mut self, source: Arc<CatalogQuerySource>) -> Self {
+        self.catalog_source = Some(source);
         self
     }
 
@@ -165,6 +175,7 @@ impl FederatedDistributedEngine {
             &self.files,
             &self.object_store,
             self.streams.as_ref(),
+            self.catalog_source.as_ref(),
             req,
             stream,
         )
@@ -211,16 +222,16 @@ impl FederatedDistributedEngine {
         .await
         .map_err(|e| (e, false))?;
 
-        // 空 parquet_file_metas → 远端自解析；带 stream_type 供远端 find()。
+        // 空 query_files → 远端自解析；带 stream_type 供远端 find()。
         let shard = QueryShard {
             org_id: req.org_id.0.clone(),
             stream: stream.name.clone(),
             sql: scan_sql.to_string(),
-            parquet_file_metas: Vec::new(),
+            query_files: Vec::new(),
             projection: Vec::new(),
             time_start_micros: req.time_range.start.0,
             time_end_micros: req.time_range.end.0,
-            stream_type: stream_type_to_proto(stream.stream_type).to_string(),
+            stream_type: stream_type_to_proto(stream.stream_type),
             federation_query_id: fed_id.unwrap_or_default().to_string(),
         };
         let mut buf = Vec::with_capacity(shard.encoded_len());
@@ -270,7 +281,7 @@ impl QueryEngine for FederatedDistributedEngine {
     async fn execute_dataset(
         &self,
         req: QueryRequest,
-        dataset_kind: PhysicalDatasetKind,
+        dataset_type: DatasetTypeId,
     ) -> Result<QueryResult> {
         if req
             .federation_clusters
@@ -281,7 +292,7 @@ impl QueryEngine for FederatedDistributedEngine {
                 "physical read models cannot be queried across federation",
             ));
         }
-        self.inner.execute_dataset(req, dataset_kind).await
+        self.inner.execute_dataset(req, dataset_type).await
     }
 
     /// coordinator 把 `fed_id` 随分片下发，使远端子查询可经 `CancelQuery(fed_id)` 取消。

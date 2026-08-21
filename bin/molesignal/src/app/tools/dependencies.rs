@@ -35,7 +35,7 @@ use crate::{
         masking::{FieldMaskingProvider, FieldMaskingRuleRepository},
         query::SlowQueryRepository,
         saved_view::SavedViewRepository,
-        storage::ParquetFileMetaRepository,
+        storage::QueryFileSource,
         stream::StreamRepository,
     },
     infra::{
@@ -49,6 +49,7 @@ use crate::{
             user_preferences::UserPreferencesRepository,
         },
         pipeline::{ExtendKvRepository, ScheduledPipelineRepository},
+        query::catalog_source::CatalogQuerySource,
         traces::ServiceGraphRepository,
     },
     shared::LicenseGate,
@@ -74,7 +75,8 @@ pub struct ObservabilityToolDependencies {
     pub apm: Arc<ApmQueryService>,
     pub apm_runtime: Option<Arc<ApmRuntime>>,
     pub service_graph: Arc<dyn ServiceGraphRepository>,
-    pub parquet_files: Arc<dyn ParquetFileMetaRepository>,
+    pub catalog_files: Arc<dyn QueryFileSource>,
+    pub catalog_query: Arc<CatalogQuerySource>,
     pub object_store: Arc<dyn ObjectStore>,
     pub slow_queries: Arc<dyn SlowQueryRepository>,
 }

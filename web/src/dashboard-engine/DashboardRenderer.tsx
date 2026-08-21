@@ -21,6 +21,7 @@ import { useNavigate } from 'react-router-dom';
 
 import * as dashboardsApi from '@/api/dashboards';
 import { buildPanelExploreLink } from '@/investigation/exploreLink';
+import { writeClipboardText } from '@/lib/clipboard';
 import {
   canAccessProductPath,
   useProductAccess,
@@ -1193,8 +1194,7 @@ function sharePanel(
 ): void {
   const url = new URL(window.location.href);
   url.searchParams.set('viewPanel', panelId);
-  void navigator.clipboard
-    .writeText(url.toString())
+  void writeClipboardText(url.toString())
     .then(() => toast.success(successMessage))
     .catch(() => toast.error(errorMessage));
 }
@@ -1204,8 +1204,7 @@ function copyText(
   successMessage: string,
   errorMessage: string,
 ): void {
-  void navigator.clipboard
-    .writeText(value)
+  void writeClipboardText(value)
     .then(() => toast.success(successMessage))
     .catch(() => toast.error(errorMessage));
 }

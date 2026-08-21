@@ -259,7 +259,7 @@ pub(super) async fn resolve_traces_stream(
         .await?
         .into_iter()
         .filter(|stream| {
-            stream.stream_type == StreamType::Traces && schema_has(&stream.schema, "trace_id")
+            stream.stream_type == StreamType::TRACES && schema_has(&stream.schema, "trace_id")
         })
         .collect::<Vec<_>>();
     candidates.sort_by_key(|stream| (stream.name != "default", stream.name.clone()));

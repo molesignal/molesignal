@@ -243,7 +243,7 @@ export function Card({
   bodyClassName?: string;
 }) {
   return (
-    <div className={cn('rounded-lg border border-bd-0 bg-bg-1', className)}>
+    <div className={cn('rounded-md bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]', className)}>
       <div className={cn(bodyClassName)}>{children}</div>
     </div>
   );
@@ -261,7 +261,7 @@ export function CardHeader({
   return (
     <div
       className={cn(
-        'flex min-h-11 items-center gap-3 border-b border-bd-0 px-4 py-3',
+        'flex min-h-11 items-center gap-3 px-4 py-3',
         uiLabelStrongClass,
         className,
       )}
@@ -300,7 +300,7 @@ export function StatCard({
   return (
     <div
       className={cn(
-        'relative flex min-h-[112px] flex-col gap-2 overflow-hidden rounded-lg border border-bd-0 bg-bg-1 px-4 py-4',
+        'relative flex min-h-[112px] flex-col gap-2 overflow-hidden rounded-md bg-[var(--functional-surface)] px-4 py-4 [box-shadow:var(--shadow-functional-surface)]',
         className,
       )}
     >
@@ -336,7 +336,7 @@ export function TabBar({ children, className }: { children: React.ReactNode; cla
   return (
     <div
       className={cn(
-        'flex border-b border-bd-0 bg-bg-1 px-3',
+        'flex overflow-hidden rounded-md bg-[var(--functional-surface)] px-3 [box-shadow:var(--shadow-functional-surface)]',
         className,
       )}
     >
@@ -361,7 +361,7 @@ export function TabItem({
       type="button"
       onClick={onClick}
       className={cn(
-        '-mb-px flex min-h-9 items-center gap-2 border-b-2 px-3 py-2 font-sans text-sm font-strong',
+        '-mb-px flex min-h-9 items-center gap-2 border-b-[3px] px-3 py-2 font-sans text-sm font-strong',
         active ? 'border-indigo font-bold text-tx-0' : 'border-transparent text-tx-2 hover:text-tx-0',
       )}
     >
@@ -424,14 +424,17 @@ export function Tr({
 export function TimeRangeChip({
   value,
   onClick,
+  className,
 }: {
   value?: string;
   onClick?: () => void;
+  className?: string;
 }) {
   return (
     <TimeRangeControl
       {...(value !== undefined ? { value } : {})}
       {...(onClick !== undefined ? { onClick } : {})}
+      {...(className !== undefined ? { className } : {})}
     />
   );
 }
@@ -453,8 +456,9 @@ export function QueryInput({
 }) {
   return (
     <div
+      data-ui="input-control"
       className={cn(
-        'flex h-9 items-center gap-2.5 rounded-md border border-bd-1 bg-bg-2 px-3 font-sans text-sm text-tx-0',
+        'flex h-9 items-center gap-2.5 rounded-md border-0 bg-[var(--control-surface)] px-3 font-sans text-sm text-tx-0 transition-colors hover:bg-bg-3 focus-within:bg-bg-3',
         className,
       )}
     >

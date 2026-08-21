@@ -21,6 +21,7 @@ import { formatMicrosActive } from '@/lib/time';
 import { useActionAccess } from '@/product/actionAccess';
 import { ProductState } from '@/product/states';
 import { cn } from '@/shell/lib/cn';
+import { PageTitleRow } from '@/shell/PageTitleRow';
 import { Badge } from '@/shell/ui/badge';
 import { Button } from '@/shell/ui/button';
 import { toast } from '@/shell/ui/sonner';
@@ -641,13 +642,13 @@ export function ModulePage({
             <ArrowRight className="h-3.5 w-3.5 rotate-180" /> {t('common.back')}
           </Link>
         )}
-        <div className="flex flex-wrap items-end gap-4">
-          <div className="min-w-0 flex-1">
-            <h1 className="font-sans text-xl font-display-strong tracking-[-0.02em] text-tx-0">{title}</h1>
-            {description && <p className="mt-1 max-w-3xl text-sm text-tx-2">{description}</p>}
-          </div>
-          {action && <div className="ml-auto">{action}</div>}
-        </div>
+        <PageTitleRow
+          title={title}
+          description={description}
+          actions={action}
+          level={2}
+          size="section"
+        />
       </div>
       <div className="p-5">{children}</div>
     </div>

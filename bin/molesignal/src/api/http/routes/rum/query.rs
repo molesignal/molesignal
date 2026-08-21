@@ -89,9 +89,10 @@ async fn related_traces(
     );
 
     let rum = RumReadModelReader::new(
-        state.storage.parquet_file_meta.clone(),
-        state.storage.object_store.clone(),
-    );
+        state.storage.catalog_files.clone(),
+        state.storage.read_store.clone(),
+    )
+    .with_catalog_source(state.storage.catalog_query.clone());
     let session_ids = HashSet::from([session_id.clone()]);
     let mut session = None;
     rum.visit_raw_sessions_for_ids(&ctx.org_id, lookback_range, &session_ids, |candidate| {
@@ -179,9 +180,10 @@ async fn aggregate_traces(
     };
     let trace_ids = trace_ids.iter().cloned().collect::<HashSet<_>>();
     let reader = TraceSummaryReader::new(
-        state.storage.parquet_file_meta.clone(),
-        state.storage.object_store.clone(),
-    );
+        state.storage.catalog_files.clone(),
+        state.storage.read_store.clone(),
+    )
+    .with_catalog_source(state.storage.catalog_query.clone());
     let rows = reader
         .scan(
             &ctx.org_id,
@@ -207,9 +209,10 @@ async fn aggregate_traces_by_window(
         return Ok(Vec::new());
     };
     let reader = TraceSummaryReader::new(
-        state.storage.parquet_file_meta.clone(),
-        state.storage.object_store.clone(),
-    );
+        state.storage.catalog_files.clone(),
+        state.storage.read_store.clone(),
+    )
+    .with_catalog_source(state.storage.catalog_query.clone());
     let rows = reader
         .scan(
             &ctx.org_id,

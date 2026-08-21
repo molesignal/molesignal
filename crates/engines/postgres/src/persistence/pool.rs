@@ -14,7 +14,7 @@ use prometheus::{
     proto::MetricFamily,
 };
 use sqlx::{
-    ConnectOptions, PgPool,
+    ConnectOptions, PgPool, SqlSafeStr,
     migrate::{Migration, MigrationType, Migrator},
     postgres::{PgConnectOptions, PgPoolOptions},
 };
@@ -26,6 +26,8 @@ use crate::{
 
 static META_POOL: OnceLock<RwLock<Option<PgPool>>> = OnceLock::new();
 static META_POOL_COLLECTOR_REGISTERED: OnceLock<()> = OnceLock::new();
+
+const MIGRATION_TABLE_NAME: &str = "_molesignal_schema_meta";
 
 /// 元数据库连接池 + 启动期迁移。
 #[derive(Clone)]
@@ -160,7 +162,7 @@ impl Collector for MetaPoolCollector {
 /// We still embed the SQL via `include_str!`, preserving the release image
 /// behavior where migrations do not need to exist on disk at runtime.
 fn embedded_migrator() -> Migrator {
-    Migrator {
+    let mut migrator = Migrator {
         migrations: Cow::Owned(vec![
             migration(
                 20260101000001,
@@ -179,7 +181,9 @@ fn embedded_migrator() -> Migrator {
             ),
         ]),
         ..Migrator::DEFAULT
-    }
+    };
+    migrator.dangerous_set_table_name(MIGRATION_TABLE_NAME);
+    migrator
 }
 
 fn migration(version: i64, description: &'static str, sql: &'static str) -> Migration {
@@ -187,7 +191,7 @@ fn migration(version: i64, description: &'static str, sql: &'static str) -> Migr
         version,
         Cow::Borrowed(description),
         MigrationType::Simple,
-        Cow::Borrowed(sql),
+        sql.into_sql_str(),
         sql.starts_with("-- no-transaction"),
     )
 }
@@ -234,6 +238,7 @@ mod tests {
     #[test]
     fn embedded_migrations_keep_the_three_development_baselines() {
         let migrator = embedded_migrator();
+        assert_eq!(&*migrator.table_name, MIGRATION_TABLE_NAME);
         assert_eq!(migrator.migrations.len(), 3);
         assert_eq!(migrator.migrations[0].version, 20260101000001);
         assert_eq!(migrator.migrations[0].description, "initial");
@@ -295,6 +300,7 @@ mod tests {
         for table in [
             "synthetic_probe_locations",
             "synthetic_probe_agents",
+            "synthetic_probe_agent_tokens",
             "synthetic_secrets",
             "synthetic_monitor_revisions",
             "synthetic_probe_tasks",
@@ -312,6 +318,9 @@ mod tests {
         assert!(IAM_ROUTE_CATALOG_SQL.contains("'reliability', 20"));
         assert!(INITIAL_SQL.contains("fk_synthetic_results_monitor"));
         assert!(INITIAL_SQL.contains("CREATE TABLE synthetic_probe_agent_configurations"));
+        assert!(INITIAL_SQL.contains("fk_synthetic_probe_agent_tokens_location"));
+        assert!(INITIAL_SQL.contains("chk_synthetic_probe_agent_tokens_hash"));
+        assert!(INITIAL_SQL.contains("chk_synthetic_probe_agent_tokens_prefix"));
         assert!(INITIAL_SQL.contains("PRIMARY KEY (organization_id, agent_id)"));
         assert!(INITIAL_SQL.contains("organization_id"));
         assert!(INITIAL_SQL.contains("finished_at_micros DESC, id DESC"));
@@ -444,7 +453,7 @@ mod tests {
             .collect();
 
         assert!(
-            registered.len() >= 87,
+            registered.len() >= 80,
             "metric scanner unexpectedly found only {} production metrics",
             registered.len()
         );

@@ -5,7 +5,7 @@
 //!
 //! 当前实现：我们的查询路径**by construction** 已是多租户安全的：
 //! - [`super::super::search::datafusion_engine::DataFusionEngine`] 跑查询前用
-//!   `ParquetFileMetaRepository::find(org_id, ...)` 只拉当前 org 的候选文件
+//!   `QueryFileSource::find(org_id, ...)` 只拉当前 org 的候选文件
 //! - 注册到 `SessionContext` 的 Parquet `TableProvider` 只含当前 org 的候选文件
 //! - SQL 中即使写 `FROM streamX`，DataFusion 也只能看到当前 org 注册的那张表
 //!
@@ -79,7 +79,7 @@ impl RewriteTableNamesPass {
     /// 对 LogicalPlan 应用 rewrite。当前直接返回原 plan（参见模块文档）。
     ///
     /// ⚠️ **零生产调用者**：本方法未接入任何查询路径，不承担隔离职责。org 隔离由
-    /// `ParquetFileMetaRepository::find(org_id, ...)` by-construction 成立（见模块文档）。保留
+    /// `QueryFileSource::find(org_id, ...)` by-construction 成立（见模块文档）。保留
     /// 此 API 仅为将来切 DataFusion 多 catalog 时预留插入点，勿误信这里已在过滤。
     pub fn apply<P>(&self, plan: P) -> P {
         // 占位：DataFusion LogicalPlan rewriter 接入留至后续阶段。
@@ -185,7 +185,7 @@ mod tests {
             exists: true,
             queryable: true,
         };
-        ensure_stream_in_org(&streams, &Id::from_string("org"), "app", StreamType::Logs)
+        ensure_stream_in_org(&streams, &Id::from_string("org"), "app", StreamType::LOGS)
             .await
             .expect("queryable stream should pass");
     }
@@ -196,7 +196,7 @@ mod tests {
             exists: true,
             queryable: false,
         };
-        let err = ensure_stream_in_org(&streams, &Id::from_string("org"), "app", StreamType::Logs)
+        let err = ensure_stream_in_org(&streams, &Id::from_string("org"), "app", StreamType::LOGS)
             .await
             .expect_err("non-queryable stream must be rejected");
         match err {
@@ -214,7 +214,7 @@ mod tests {
             exists: false,
             queryable: true,
         };
-        let err = ensure_stream_in_org(&streams, &Id::from_string("org"), "app", StreamType::Logs)
+        let err = ensure_stream_in_org(&streams, &Id::from_string("org"), "app", StreamType::LOGS)
             .await
             .expect_err("missing stream must be rejected");
         match err {

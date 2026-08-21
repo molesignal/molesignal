@@ -14,6 +14,7 @@
   "dashboards": "仪表盘",
   "alerts": "告警",
   "synthetics": "拨测",
+  "synthetics_checks": "检查",
   "agent": "Mole Agent",
   "saved_views": "保存的视图",
   "streams": "数据流",
@@ -108,7 +109,12 @@
     "profiles_compare": "对比 profile",
     "anomaly_new": "新建异常规则",
     "anomaly_edit": "编辑异常规则",
-    "semantic_groups": "语义分组"
+    "semantic_groups": "语义分组",
+    "synthetics_check_new": "新建检查",
+    "synthetics_check_edit": "编辑检查",
+    "synthetics_check_detail": "检查",
+    "alert_schedules": "值班计划",
+    "alert_schedule_detail": "值班计划"
   },
   "service_graph": "服务图"
 }

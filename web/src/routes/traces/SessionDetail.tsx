@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 
 import { DataTable } from '@/admin';
 import * as queryApi from '@/api/query';
@@ -100,7 +100,6 @@ export function TraceSessionDetail() {
     <DetailPage
       title={t('session.title')}
       metadata={[
-        { label: t('session.back'), value: <Link to="/traces" className="text-indigo-soft hover:underline">{t('session.back')}</Link> },
         ...(id
           ? [{
               label: t('session.session_id'),

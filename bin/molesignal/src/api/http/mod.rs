@@ -39,7 +39,9 @@ pub(crate) fn build_router_with_client_ip(
         // /api/v1/public/avatars/<user>/<file>：顶层公开（无 auth），<img> 直读头像
         .merge(routes::me::avatar_serve_routes().with_state(state.clone()))
         // /api/v1/public/status-pages/<slug>：客户状态页无需 MoleSignal 登录。
-        .merge(routes::status_pages::public_routes().with_state(state.clone()));
+        .merge(routes::status_pages::public_routes().with_state(state.clone()))
+        // Probe Artifact 上传：任务 lease token 自鉴权，不接受用户 Bearer。
+        .merge(routes::synthetics::artifact_upload_routes().with_state(state.clone()));
 
     let r = r.merge(routes::oauth::well_known_routes().with_state(state.clone()));
 

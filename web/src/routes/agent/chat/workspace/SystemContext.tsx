@@ -116,7 +116,7 @@ export function SystemContext({
 
   const content = (
     <>
-      <header className="border-b border-bd-0 px-4 py-3.5">
+      <header className="px-4 py-3.5">
         <h2 className="type-section-title font-display-strong text-tx-0">
           {t('workspace.context_title')}
         </h2>
@@ -125,8 +125,11 @@ export function SystemContext({
         </p>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-auto">
-        <section className="border-b border-bd-0 px-4 py-4">
+      <div className="min-h-0 flex-1 space-y-2 overflow-auto p-2">
+        <section
+          data-agent-context-section="scope"
+          className="rounded-md bg-[var(--functional-surface)] px-3 py-3.5"
+        >
           <h3 className="type-micro font-strong uppercase tracking-[0.08em] text-tx-3">
             {t('workspace.scope')}
           </h3>
@@ -149,7 +152,10 @@ export function SystemContext({
           </dl>
         </section>
 
-        <section className="border-b border-bd-0 px-4 py-4">
+        <section
+          data-agent-context-section="signals"
+          className="rounded-md bg-[var(--functional-surface)] px-3 py-3.5"
+        >
           <h3 className="type-micro font-strong uppercase tracking-[0.08em] text-tx-3">
             {t('workspace.signals')}
           </h3>
@@ -194,14 +200,18 @@ export function SystemContext({
   );
 
   if (variant === 'drawer') {
-    return <div className="flex h-full min-h-0 flex-col bg-bg-1">{content}</div>;
+    return (
+      <div className="flex h-full min-h-0 flex-col bg-[var(--control-surface)]">
+        {content}
+      </div>
+    );
   }
 
   return (
     <aside
       data-testid="conversation-context"
       aria-label={t('workspace.context_title')}
-      className="hidden w-[260px] shrink-0 flex-col border-l border-bd-0 bg-bg-1 xl:flex"
+      className="hidden w-[260px] shrink-0 flex-col overflow-hidden rounded-md bg-[var(--control-surface)] xl:flex"
     >
       {content}
     </aside>
@@ -244,7 +254,8 @@ function ContextLink({
   return (
     <Link
       to={to}
-      className="group flex min-h-[52px] items-center gap-2.5 border-b border-bd-0 px-4 py-3 transition-colors duration-fast hover:bg-bg-2 focus-visible:bg-bg-2"
+      data-agent-context-link
+      className="group flex min-h-[52px] items-center gap-2.5 rounded-md bg-[var(--functional-surface)] px-3 py-3 transition-colors duration-fast hover:bg-bg-3 focus-visible:bg-bg-3"
     >
       <Icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-tx-3" />
       <span className="min-w-0 flex-1 type-caption text-tx-2">{label}</span>

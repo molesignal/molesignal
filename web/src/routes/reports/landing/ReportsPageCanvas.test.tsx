@@ -7,7 +7,7 @@ import '@/i18n';
 import { ReportsPageCanvas } from './ReportsPageCanvas';
 
 describe('ReportsPageCanvas', () => {
-  it('uses one flat canvas for KPIs, tabs, controls, and content', () => {
+  it('uses a canvas with borderless KPI and content surfaces', () => {
     const onTabChange = vi.fn();
     const { container } = render(
       <MemoryRouter initialEntries={['/reports']}>
@@ -35,20 +35,21 @@ describe('ReportsPageCanvas', () => {
 
     const kpis = container.querySelector('[data-reports-kpis]');
     expect(kpis).not.toBeNull();
-    expect(kpis?.className).not.toMatch(/rounded|shadow|border-y|divide-x/);
-    expect(kpis?.className).toMatch(/\bborder-b\b/);
+    expect(kpis?.className).toContain('gap-[12px]');
+    expect(kpis?.className).not.toMatch(/border|divide/);
+    expect(kpis?.firstElementChild?.className).toContain('rounded-md');
+    expect(kpis?.firstElementChild?.className).toContain('shadow-functional-surface');
 
     const tablist = screen.getByRole('tablist', { name: 'Reports' });
-    expect(tablist.parentElement?.className).not.toMatch(
-      /rounded|shadow|border-y/,
-    );
+    expect(tablist.parentElement?.parentElement?.className).toContain('rounded-md');
+    expect(tablist.parentElement?.parentElement?.className).toContain('shadow-functional-surface');
+    expect(tablist.parentElement?.className).toContain('min-h-11');
+    expect(tablist.parentElement?.className).not.toContain('min-h-12');
     expect(tablist.parentElement?.className).not.toMatch(/\bborder-b\b/);
     const activeTab = screen.getByRole('tab', { name: 'Schedules 4' });
     expect(activeTab.className).toContain('border-b-[3px]');
     expect(activeTab.className).not.toContain('-mb-px');
-    expect(screen.getByText('Filters').parentElement?.className).not.toMatch(
-      /rounded|shadow|border-y/,
-    );
+    expect(screen.getByText('Filters').parentElement?.className).not.toMatch(/border/);
 
     fireEvent.click(screen.getByRole('tab', { name: 'Templates' }));
     expect(onTabChange).toHaveBeenCalledWith('templates');

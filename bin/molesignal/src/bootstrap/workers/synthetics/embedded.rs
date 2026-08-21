@@ -19,7 +19,7 @@ use super::super::polling::PollingBackoff;
 use crate::{
     api::grpc::probe::{result::result_from_wire, task::task_to_wire},
     app::synthetics::SyntheticService,
-    domain::synthetics::{ProbeAgent, ProbeTask},
+    domain::synthetics::{MonitorSpec, ProbeAgent, ProbeCapability, ProbeTask},
     protocol::probe::v1 as wire,
     shared::time::TimestampMicros,
 };
@@ -33,18 +33,28 @@ pub struct EmbeddedProbeRunner {
     synthetics: Arc<SyntheticService>,
     agent: ProbeAgent,
     max_concurrent: usize,
+    max_browser_concurrent: usize,
+    artifact_base_url: String,
 }
 
 impl EmbeddedProbeRunner {
-    pub fn new(synthetics: Arc<SyntheticService>, agent: ProbeAgent) -> Self {
+    pub fn new(
+        synthetics: Arc<SyntheticService>,
+        agent: ProbeAgent,
+        artifact_base_url: String,
+    ) -> Self {
         let max_concurrent = agent
             .capacity
             .max_concurrent
             .clamp(1, MAX_EMBEDDED_CONCURRENCY) as usize;
+        let max_browser_concurrent =
+            (agent.capacity.max_browser_concurrent.min(4) as usize).min(max_concurrent);
         Self {
             synthetics,
             agent,
             max_concurrent,
+            max_browser_concurrent,
+            artifact_base_url,
         }
     }
 
@@ -62,6 +72,7 @@ impl EmbeddedProbeRunner {
 
     async fn run(self) {
         let permits = Arc::new(Semaphore::new(self.max_concurrent));
+        let browser_permits = Arc::new(Semaphore::new(self.max_browser_concurrent));
         let sequence = Arc::new(AtomicU64::new(self.agent.last_result_sequence));
         let mut backoff = PollingBackoff::new(
             POLL_INTERVAL,
@@ -75,7 +86,13 @@ impl EmbeddedProbeRunner {
                     Ok(permit) => permit,
                     Err(_) => break,
                 };
-                let leased = self.synthetics.lease_next_probe_task(&self.agent).await;
+                let mut lease_agent = self.agent.clone();
+                if browser_permits.available_permits() == 0 {
+                    lease_agent
+                        .capabilities
+                        .retain(|capability| capability != &ProbeCapability::Browser);
+                }
+                let leased = self.synthetics.lease_next_probe_task(&lease_agent).await;
                 let (task, lease_token) = match leased {
                     Ok(Some(leased)) => {
                         leased_any = true;
@@ -91,14 +108,45 @@ impl EmbeddedProbeRunner {
                         break;
                     }
                 };
+                let browser_permit = if matches!(&task.spec, MonitorSpec::Browser(_)) {
+                    match browser_permits.clone().try_acquire_owned() {
+                        Ok(permit) => Some(permit),
+                        Err(_) => {
+                            drop(permit);
+                            if let Err(error) = self
+                                .synthetics
+                                .acknowledge_probe_task(&self.agent, &task.id, &lease_token, false)
+                                .await
+                            {
+                                tracing::warn!(
+                                    task_id = %task.id,
+                                    %error,
+                                    "embedded Browser task capacity rejection failed"
+                                );
+                            }
+                            continue;
+                        }
+                    }
+                } else {
+                    None
+                };
                 let task_id = task.id.clone();
                 let synthetics = self.synthetics.clone();
                 let agent = self.agent.clone();
                 let sequence = sequence.clone();
+                let artifact_base_url = self.artifact_base_url.clone();
                 tokio::spawn(async move {
                     let _permit = permit;
-                    if let Err(error) =
-                        execute_task(synthetics, agent, task, lease_token, sequence).await
+                    let _browser_permit = browser_permit;
+                    if let Err(error) = execute_task(
+                        synthetics,
+                        agent,
+                        task,
+                        lease_token,
+                        sequence,
+                        artifact_base_url,
+                    )
+                    .await
                     {
                         tracing::warn!(
                             task_id = %task_id,
@@ -143,11 +191,18 @@ async fn execute_task(
     task: ProbeTask,
     lease_token: String,
     sequence: Arc<AtomicU64>,
+    artifact_base_url: String,
 ) -> Result<()> {
     let prepared = async {
         let location = synthetics.probe_task_location(&task).await?;
         let secrets = synthetics.resolve_probe_task_secrets(&task).await?;
-        task_to_wire(task.clone(), lease_token.clone(), location, secrets)
+        task_to_wire(
+            task.clone(),
+            lease_token.clone(),
+            location,
+            secrets,
+            Some(&artifact_base_url),
+        )
     }
     .await;
     let wire_task = match prepared {

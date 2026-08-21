@@ -375,17 +375,17 @@ pub(super) async fn prepare_self_telemetry_streams(
     let enabled_types = [
         (
             settings.enabled && settings.metrics_enabled,
-            StreamType::Metrics,
+            StreamType::METRICS,
             settings.metrics_retention_days,
         ),
         (
             settings.enabled && trace_capture_enabled,
-            StreamType::Traces,
+            StreamType::TRACES,
             settings.traces_retention_days,
         ),
         (
             settings.enabled && settings.profiles_enabled,
-            StreamType::Profiles,
+            StreamType::PROFILES,
             settings.profiles_retention_days,
         ),
     ];
@@ -412,7 +412,7 @@ pub(super) async fn prepare_self_telemetry_streams(
                         org_id: org.id.clone(),
                         name: MOLESIGNAL_SYSTEM_STREAM.into(),
                         stream_type,
-                        schema: if stream_type == StreamType::Traces {
+                        schema: if stream_type == StreamType::TRACES {
                             crate::shared::trace_normalization::canonical_trace_schema()
                         } else {
                             Schema { fields: Vec::new() }

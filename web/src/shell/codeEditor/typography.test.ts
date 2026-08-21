@@ -5,6 +5,7 @@ import {
   CODE_EDITOR_FONT_SIZE,
   CODE_EDITOR_FONT_WEIGHT,
   CODE_EDITOR_LINE_HEIGHT,
+  CODE_EDITOR_PLACEHOLDER_FONT_WEIGHT,
 } from './typography';
 
 describe('code editor typography', () => {
@@ -15,5 +16,6 @@ describe('code editor typography', () => {
     expect(CODE_EDITOR_FONT_SIZE).toBe(12);
     expect(CODE_EDITOR_FONT_WEIGHT).toBe(600);
     expect(CODE_EDITOR_LINE_HEIGHT).toBe(20);
+    expect(CODE_EDITOR_PLACEHOLDER_FONT_WEIGHT).toBe(400);
   });
 });

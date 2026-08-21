@@ -131,8 +131,7 @@ pub struct Settings {
     /// （`MS_AGENT_<PROVIDER>_API_KEY` / `_BASE_URL`），不进 TOML。
     #[serde(default)]
     pub agent: AgentSettings,
-    /// `[storage]` 段：与 [`store`] 解耦的存储层子能力（spec `storage` capability）。
-    /// 目前仅含 `parquet_file_meta_dump` 子段（ParquetFileMeta 冷分区下沉到 object_store）。
+    /// `[storage]` Catalog lifecycle, index maintenance, delayed GC, and reconciliation.
     #[serde(default)]
     pub storage: StorageSettings,
     /// `[flight_sql]`（spec `flight-sql`）：对外 Arrow Flight SQL 端口。
@@ -147,8 +146,7 @@ pub struct Settings {
 
 /// 跨多个 section 复用的 `bool` 默认值（`true`）。
 ///
-/// 由 `network`（`http.gzip`）与 `storage`（`parquet_file_meta_dump.enabled`）共享，
-/// 故留在 crate 根、经 `super::yes` 引用。
+/// `network` 的 true 默认值，留在 crate 根供子模块经 `super::yes` 引用。
 fn yes() -> bool {
     true
 }
@@ -184,6 +182,7 @@ impl Settings {
         self.scheduled_reports.renderer.validate()?;
         self.intake.validate()?;
         self.probe.validate()?;
+        self.cache.object.validate()?;
         Ok(())
     }
 }

@@ -29,7 +29,7 @@ use crate::{
             is_prometheus_exemplar_storage_field,
         },
         query::{QueryLanguage, QueryRequest, StreamHint},
-        storage::PhysicalDatasetKind,
+        storage::{DatasetTypeId, type_id::builtin},
         stream::{FieldDef, FieldType, MOLESIGNAL_SYSTEM_STREAM, StreamDefinition, StreamType},
     },
     shared::{
@@ -95,7 +95,7 @@ async fn list(
         .list(&ctx.org_id)
         .await?
         .into_iter()
-        .filter(|s| s.stream_type == StreamType::Metrics)
+        .filter(|s| s.stream_type == StreamType::METRICS)
         .collect::<Vec<_>>();
     let self_metric_stream = metric_streams
         .iter()
@@ -263,14 +263,17 @@ async fn discover_self_metric_names(
         ),
         stream: Some(StreamHint {
             name: MOLESIGNAL_SYSTEM_STREAM.to_string(),
-            stream_type: StreamType::Metrics,
+            stream_type: StreamType::METRICS,
         }),
         limit: Some(MAX_SELF_METRIC_NAMES),
         federation_clusters: Vec::new(),
     };
     match state
         .query
-        .run_dataset(request, PhysicalDatasetKind::MetricCatalog)
+        .run_dataset(
+            request,
+            DatasetTypeId::builtin(builtin::DATASET_METRIC_CATALOG),
+        )
         .await
     {
         Ok(result) => {
@@ -509,7 +512,7 @@ mod tests {
             id: Id::new(),
             org_id: Id::from_string("_sys"),
             name: MOLESIGNAL_SYSTEM_STREAM.into(),
-            stream_type: StreamType::Metrics,
+            stream_type: StreamType::METRICS,
             schema: Schema {
                 fields: vec![field("value")],
             },

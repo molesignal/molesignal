@@ -8,7 +8,7 @@ rust-version.workspace = true
 [dependencies]
 async-trait.workspace = true
 bytes.workspace = true
-headless_chrome = "1"
+headless_chrome.workspace = true
 kernel = { path = "../../core/kernel" }
 parking_lot.workspace = true
 serde_json.workspace = true

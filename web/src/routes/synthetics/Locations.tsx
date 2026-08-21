@@ -97,7 +97,7 @@ export function Locations() {
           )}
         </div>
       }
-      bodyClassName="space-y-0 pb-4 pt-2 lg:pb-6 lg:pt-2"
+      bodyClassName="space-y-[12px]"
     >
       <WorkspaceBoundary pending={pending} error={error} onRetry={() => void refresh()} flat>
         <SyntheticsCanvas>

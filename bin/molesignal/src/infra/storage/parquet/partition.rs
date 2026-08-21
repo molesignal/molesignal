@@ -14,13 +14,21 @@ use arrow::{
 use crate::{
     domain::{
         intake::EVENT_ID_FIELD,
-        storage::{PhysicalDatasetKind, hour_start_micros},
+        storage::{DatasetTypeId, PartitionPolicy, type_id::builtin},
     },
     infra::storage::arrow_schema::TS_COL,
-    shared::{Error, Result, time::TimestampMicros, trace::summary::TRACE_SUMMARY_START_NS_FIELD},
+    shared::{Error, Result, trace::summary::TRACE_SUMMARY_START_NS_FIELD},
 };
 
 pub fn split_by_utc_hour(batch: &RecordBatch) -> Result<Vec<RecordBatch>> {
+    split_by_partition(batch, &PartitionPolicy::default())
+}
+
+/// Split a buffer generation according to the dataset's persisted partition policy.
+pub fn split_by_partition(
+    batch: &RecordBatch,
+    partition_policy: &PartitionPolicy,
+) -> Result<Vec<RecordBatch>> {
     if batch.num_rows() == 0 {
         return Ok(Vec::new());
     }
@@ -40,7 +48,7 @@ pub fn split_by_utc_hour(batch: &RecordBatch) -> Result<Vec<RecordBatch>> {
         .downcast_ref::<TimestampMicrosecondArray>()
         .ok_or_else(|| Error::internal(format!("downcast {TS_COL}")))?;
 
-    let mut rows_by_hour: BTreeMap<i64, Vec<u32>> = BTreeMap::new();
+    let mut rows_by_partition: BTreeMap<i64, Vec<u32>> = BTreeMap::new();
     for row in 0..batch.num_rows() {
         if timestamps.is_null(row) {
             return Err(Error::invalid(format!(
@@ -49,24 +57,27 @@ pub fn split_by_utc_hour(batch: &RecordBatch) -> Result<Vec<RecordBatch>> {
         }
         let row_index = u32::try_from(row)
             .map_err(|_| Error::invalid("record batch exceeds u32 row index capacity"))?;
-        let hour = hour_start_micros(TimestampMicros(timestamps.value(row))).0;
-        rows_by_hour.entry(hour).or_default().push(row_index);
+        let partition = partition_policy.bucket_start_micros(timestamps.value(row));
+        rows_by_partition
+            .entry(partition)
+            .or_default()
+            .push(row_index);
     }
 
-    let mut partitions = Vec::with_capacity(rows_by_hour.len());
-    for indices in rows_by_hour.into_values() {
+    let mut partitions = Vec::with_capacity(rows_by_partition.len());
+    for indices in rows_by_partition.into_values() {
         let indices = UInt32Array::from(indices);
         let columns = batch
             .columns()
             .iter()
             .map(|column| {
                 take(column.as_ref(), &indices, None)
-                    .map_err(|error| Error::internal(format!("hour partition take: {error}")))
+                    .map_err(|error| Error::internal(format!("partition take: {error}")))
             })
             .collect::<Result<Vec<_>>>()?;
         partitions.push(
             RecordBatch::try_new(batch.schema(), columns)
-                .map_err(|error| Error::internal(format!("hour partition batch: {error}")))?,
+                .map_err(|error| Error::internal(format!("partition batch: {error}")))?,
         );
     }
     Ok(partitions)
@@ -76,16 +87,13 @@ pub fn split_by_utc_hour(batch: &RecordBatch) -> Result<Vec<RecordBatch>> {
 ///
 /// 这不是查询排序的替代品，而是让最新文件优先扫描和 Cursor 边界具备稳定的物理顺序。
 /// Compactor 合并时也会经过这里，因此不会破坏写入期建立的顺序。
-pub fn sort_for_storage(
-    batch: RecordBatch,
-    dataset_kind: PhysicalDatasetKind,
-) -> Result<RecordBatch> {
+pub fn sort_for_storage(batch: RecordBatch, dataset_type: &DatasetTypeId) -> Result<RecordBatch> {
     if batch.num_rows() <= 1 {
         return Ok(batch);
     }
 
     let schema = batch.schema();
-    let names = storage_sort_column_names(schema.as_ref(), dataset_kind);
+    let names = storage_sort_column_names(schema.as_ref(), Some(dataset_type));
     let options = SortOptions {
         descending: true,
         nulls_first: false,
@@ -116,22 +124,22 @@ pub fn sort_for_storage(
 /// `FileScanConfig.output_ordering` 漂移后产生错误的有序合并结果。
 pub(crate) fn storage_sort_column_names(
     schema: &arrow::datatypes::Schema,
-    dataset_kind: PhysicalDatasetKind,
+    dataset_type: Option<&DatasetTypeId>,
 ) -> Vec<&'static str> {
-    let mut names = match dataset_kind {
+    let mut names = match dataset_type.map(DatasetTypeId::as_str) {
         // `_timestamp` only has microsecond precision. The trace cursor uses
         // nanoseconds, so use the exact cursor field as the physical primary
         // key and only fall back to `_timestamp` when a malformed row lacks it.
-        PhysicalDatasetKind::TraceSummary
+        Some(builtin::DATASET_TRACE_SUMMARY)
             if schema.index_of(TRACE_SUMMARY_START_NS_FIELD).is_ok() =>
         {
             vec![TRACE_SUMMARY_START_NS_FIELD]
         }
         _ => vec![TS_COL],
     };
-    match dataset_kind {
-        PhysicalDatasetKind::TraceSummary => names.extend(["trace_id"]),
-        PhysicalDatasetKind::RumSessionSummary => {
+    match dataset_type.map(DatasetTypeId::as_str) {
+        Some(builtin::DATASET_TRACE_SUMMARY) => names.extend(["trace_id"]),
+        Some(builtin::DATASET_RUM_SESSION_SUMMARY) => {
             if schema.index_of("session.id").is_ok() {
                 names.push("session.id");
             } else {
@@ -139,11 +147,11 @@ pub(crate) fn storage_sort_column_names(
             }
             names.push(EVENT_ID_FIELD);
         }
-        PhysicalDatasetKind::RumActionSummary => {
+        Some(builtin::DATASET_RUM_ACTION_SUMMARY) => {
             names.push("session_id");
             names.push(EVENT_ID_FIELD);
         }
-        PhysicalDatasetKind::RumErrorSummary => {
+        Some(builtin::DATASET_RUM_ERROR_SUMMARY) => {
             if schema.index_of("error.id").is_ok() {
                 names.push("error.id");
             } else if schema.index_of("error_id").is_ok() {
@@ -229,7 +237,11 @@ mod tests {
         )
         .unwrap();
 
-        let sorted = sort_for_storage(batch, PhysicalDatasetKind::TraceSummary).unwrap();
+        let sorted = sort_for_storage(
+            batch,
+            &DatasetTypeId::builtin(builtin::DATASET_TRACE_SUMMARY),
+        )
+        .unwrap();
         let trace_ids = sorted
             .column(1)
             .as_any()

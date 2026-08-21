@@ -50,7 +50,10 @@ export function SyntheticsOverview() {
     0.95,
   );
   const failures = workspace.operationalResults
-    .filter((result) => result.outcome === 'failing' || result.outcome === 'degraded')
+    .filter((result) =>
+      result.outcome === 'failing'
+      || result.outcome === 'degraded'
+      || result.outcome === 'flaky')
     .slice(0, 6);
   const slowRows = workspace.rows
     .filter((row) => row.latestLatencyMicros !== undefined)
@@ -75,7 +78,7 @@ export function SyntheticsOverview() {
           )}
         </div>
       }
-      bodyClassName="space-y-0 pb-4 pt-2 lg:pb-6 lg:pt-2"
+      bodyClassName="space-y-[12px]"
     >
       <WorkspaceBoundary
         pending={workspace.pending}
@@ -89,7 +92,6 @@ export function SyntheticsOverview() {
             title={t('states.empty_title')}
             description={t('states.empty_description')}
             action={canManage ? <ChromeButton variant="primary" onClick={() => navigate('/synthetics/checks/new')}><Plus className="h-3.5 w-3.5" />{t('actions.create_first_check')}</ChromeButton> : undefined}
-            className="rounded-none border-x-0 border-t-0 border-solid border-bd-0 bg-transparent"
           />
         ) : (
           <SyntheticsCanvas>
@@ -105,7 +107,7 @@ export function SyntheticsOverview() {
               ]}
             />
 
-            <div className="grid grid-cols-1 xl:grid-cols-2">
+            <div className="grid grid-cols-1 gap-[12px] xl:grid-cols-2">
               <TrendPanel
                 title={t('overview.success_trend')}
                 description={t('overview.success_trend_description')}
@@ -117,11 +119,10 @@ export function SyntheticsOverview() {
                 description={t('overview.latency_trend_description')}
                 results={workspace.operationalResults}
                 metric="latency"
-                className="xl:border-l"
               />
             </div>
 
-            <div className="grid grid-cols-1 2xl:grid-cols-2">
+            <div className="grid grid-cols-1 gap-[12px] 2xl:grid-cols-2">
               <Section
                 title={t('overview.recent_failures')}
                 description={t('overview.recent_failures_description')}
@@ -141,7 +142,6 @@ export function SyntheticsOverview() {
                 title={t('overview.slow_checks')}
                 description={t('overview.slow_checks_description')}
                 action={<SectionLink to="/synthetics/checks" label={t('actions.view_all')} />}
-                className="2xl:border-l"
                 flat
               >
                 <DataTable
@@ -155,7 +155,7 @@ export function SyntheticsOverview() {
               </Section>
             </div>
 
-            <div className="grid grid-cols-1 2xl:grid-cols-[1.35fr_0.65fr]">
+            <div className="grid grid-cols-1 gap-[12px] 2xl:grid-cols-[1.35fr_0.65fr]">
               <Section
                 title={t('overview.global_map')}
                 description={t('overview.global_map_description')}
@@ -169,7 +169,6 @@ export function SyntheticsOverview() {
               <Section
                 title={t('overview.reliability_loop')}
                 description={t('overview.reliability_loop_hint')}
-                className="2xl:border-l"
                 flat
               >
                 <ReliabilityLoop />

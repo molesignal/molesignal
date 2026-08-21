@@ -80,7 +80,7 @@ impl ConnectorRunner {
                                     batch_id: Id::new(),
                                     org_id: c.org_id.clone(),
                                     stream: target_stream(&c),
-                                    stream_type: StreamType::Logs,
+                                    stream_type: StreamType::LOGS,
                                     events,
                                     received_at: TimestampMicros::now(),
                                 };

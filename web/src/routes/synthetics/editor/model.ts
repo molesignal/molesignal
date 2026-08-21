@@ -39,6 +39,16 @@ export interface CheckDraft {
   browserSteps: string;
   host: string;
   port: string;
+  sshIdentificationRegex: string;
+  sshAuthMode: 'none' | 'password' | 'public_key';
+  sshUsername: string;
+  sshPassword: string;
+  sshPrivateKey: string;
+  sshPassphrase: string;
+  sshHostKeySha256: string;
+  sshCommand: string;
+  sshOutputRegex: string;
+  sshExitStatus: string;
   recordType: string;
   resolver: string;
   expectedValues: string;
@@ -61,6 +71,7 @@ export interface CheckDraft {
   locationIds: string[];
   tags: string;
   alertOnDegraded: boolean;
+  alertOnFlaky: boolean;
   escalationPolicyId: string;
 }
 
@@ -85,6 +96,16 @@ export function emptyDraft(locations: ProbeLocation[]): CheckDraft {
     browserSteps: 'open https://',
     host: '',
     port: '443',
+    sshIdentificationRegex: '',
+    sshAuthMode: 'none',
+    sshUsername: '',
+    sshPassword: '',
+    sshPrivateKey: '',
+    sshPassphrase: '',
+    sshHostKeySha256: '',
+    sshCommand: '',
+    sshOutputRegex: '',
+    sshExitStatus: '0',
     recordType: 'A',
     resolver: '',
     expectedValues: '',
@@ -107,6 +128,7 @@ export function emptyDraft(locations: ProbeLocation[]): CheckDraft {
     locationIds: locations.filter((location) => location.lifecycle === 'active').slice(0, 1).map((location) => location.id),
     tags: '',
     alertOnDegraded: false,
+    alertOnFlaky: false,
     escalationPolicyId: '',
   };
 }
@@ -166,6 +188,7 @@ export function draftFromDetail(
     locationIds: input.location_ids,
     tags: input.tags.join(', '),
     alertOnDegraded: input.alert_on_degraded,
+    alertOnFlaky: input.alert_on_flaky,
     escalationPolicyId: input.escalation_policy_id ?? '',
     ...(revision.schedule.kind === 'cron'
       ? {
@@ -204,6 +227,29 @@ function hydrateSpec(draft: CheckDraft, spec: MonitorSpec) {
     draft.port = String(spec.configuration.port);
     draft.useTls = spec.configuration.use_tls;
     draft.assertions = spec.configuration.assertions.map(assertionToDraft);
+  } else if (spec.kind === 'ssh') {
+    draft.host = valueSourceText(spec.configuration.host);
+    draft.port = String(spec.configuration.port);
+    draft.sshIdentificationRegex = spec.configuration.expected_identification_regex ?? '';
+    draft.sshHostKeySha256 = spec.configuration.expected_host_key_sha256 ?? '';
+    draft.sshCommand = spec.configuration.command
+      ? valueSourceText(spec.configuration.command)
+      : '';
+    draft.sshOutputRegex = spec.configuration.expected_output_regex ?? '';
+    draft.sshExitStatus = String(spec.configuration.expected_exit_status ?? 0);
+    const authentication = spec.configuration.authentication;
+    if (authentication?.kind === 'password') {
+      draft.sshAuthMode = 'password';
+      draft.sshUsername = valueSourceText(authentication.username);
+      draft.sshPassword = valueSourceText(authentication.password);
+    } else if (authentication?.kind === 'public_key') {
+      draft.sshAuthMode = 'public_key';
+      draft.sshUsername = valueSourceText(authentication.username);
+      draft.sshPrivateKey = valueSourceText(authentication.private_key);
+      draft.sshPassphrase = authentication.passphrase
+        ? valueSourceText(authentication.passphrase)
+        : '';
+    }
   } else if (spec.kind === 'dns') {
     draft.host = spec.configuration.name;
     draft.recordType = spec.configuration.record_type;
@@ -292,5 +338,6 @@ export function inputFromDraft(
       ? { escalation_policy_id: draft.escalationPolicyId }
       : {}),
     alert_on_degraded: draft.alertOnDegraded,
+    alert_on_flaky: draft.alertOnFlaky,
   };
 }

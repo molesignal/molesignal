@@ -8,6 +8,8 @@
 //! - 反向：无效 token、跨 org ticket 重放、DML 拒绝。
 //! - registry：慢查询执行中出现在 `QueryRegistry::list_for`，cancel 后客户端收错。
 
+mod common;
+
 use std::{sync::Arc, time::Duration};
 
 use arrow::array::{Array, Int64Array, RecordBatch, StringArray, TimestampMicrosecondArray};
@@ -18,6 +20,7 @@ use arrow_flight::{
     },
 };
 use async_trait::async_trait;
+use common::write_parquet_fixture;
 use futures::TryStreamExt;
 use molesignal::{
     api::grpc::flight::sql::server::FlightSqlGrpc,
@@ -33,7 +36,7 @@ use molesignal::{
             api_token::{ApiToken, ApiTokenRepository, ManagedApiToken},
         },
         query::{PromqlEngine, QueryEngine, QueryRequest, QueryResult},
-        storage::{ParquetFileMeta, ParquetFileMetaRepository},
+        storage::{QueryFile, QueryFileSource},
         stream::{
             FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamRepository, StreamType,
         },
@@ -61,8 +64,15 @@ use tonic::transport::Channel;
 
 // === in-memory fixtures ===
 
-struct MemParquetFileMetaRepo {
-    files: Mutex<Vec<ParquetFileMeta>>,
+struct MemQueryFileRepo {
+    files: Mutex<Vec<QueryFile>>,
+}
+
+impl MemQueryFileRepo {
+    async fn insert(&self, file: QueryFile) -> Result<()> {
+        self.files.lock().push(file);
+        Ok(())
+    }
 }
 
 struct TestIamContextEnricher;
@@ -78,18 +88,14 @@ impl IamContextEnricher for TestIamContextEnricher {
 }
 
 #[async_trait]
-impl ParquetFileMetaRepository for MemParquetFileMetaRepo {
-    async fn insert(&self, file: ParquetFileMeta) -> Result<()> {
-        self.files.lock().push(file);
-        Ok(())
-    }
+impl QueryFileSource for MemQueryFileRepo {
     async fn find(
         &self,
         org_id: &Id,
         stream: &str,
         stream_type: StreamType,
         time_range: TimeRange,
-    ) -> Result<Vec<ParquetFileMeta>> {
+    ) -> Result<Vec<QueryFile>> {
         Ok(self
             .files
             .lock()
@@ -98,18 +104,11 @@ impl ParquetFileMetaRepository for MemParquetFileMetaRepo {
                 &f.org_id == org_id
                     && f.stream == stream
                     && f.stream_type == stream_type
-                    && !f.deleted
                     && f.time_range.end.0 >= time_range.start.0
                     && f.time_range.start.0 <= time_range.end.0
             })
             .cloned()
             .collect())
-    }
-    async fn replace(&self, _merged_ids: &[Id], _new_files: Vec<ParquetFileMeta>) -> Result<()> {
-        unimplemented!()
-    }
-    async fn mark_deleted(&self, _ids: &[Id]) -> Result<usize> {
-        unimplemented!()
     }
 }
 
@@ -355,7 +354,7 @@ fn sample_stream(org: &Id) -> StreamDefinition {
         id: Id::new(),
         org_id: org.clone(),
         name: "app".into(),
-        stream_type: StreamType::Logs,
+        stream_type: StreamType::LOGS,
         schema: Schema {
             fields: vec![
                 FieldDef {
@@ -451,11 +450,11 @@ async fn start_server(engine_override: Option<Arc<dyn QueryEngine>>) -> TestServ
     let org = Id::from_string("org-flight");
     let stream = sample_stream(&org);
 
-    let files = Arc::new(MemParquetFileMetaRepo {
+    let files = Arc::new(MemQueryFileRepo {
         files: Mutex::new(Vec::new()),
     });
     let writer = ParquetWriter::new(store.clone());
-    let meta = writer.flush(&stream, sample_batch(&stream)).await.unwrap();
+    let meta = write_parquet_fixture(&writer, &stream, sample_batch(&stream)).await;
     files.insert(meta).await.unwrap();
 
     let engine: Arc<dyn QueryEngine> = engine_override

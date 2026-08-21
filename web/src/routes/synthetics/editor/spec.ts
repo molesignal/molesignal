@@ -21,6 +21,7 @@ export function buildSpec(draft: CheckDraft, secrets: SyntheticSecret[]): Monito
         viewport: { width: 1440, height: 900 },
         capture_screenshot_on_failure: true,
         capture_har_on_failure: true,
+        capture_trace_on_failure: true,
       },
     };
   }
@@ -32,6 +33,47 @@ export function buildSpec(draft: CheckDraft, secrets: SyntheticSecret[]): Monito
         port: Number(draft.port) || 443,
         use_tls: draft.useTls,
         assertions,
+      },
+    };
+  }
+  if (draft.kind === 'ssh') {
+    const authentication = draft.sshAuthMode === 'password'
+      ? {
+          kind: 'password' as const,
+          username: valueSource(draft.sshUsername, secrets),
+          password: valueSource(draft.sshPassword, secrets),
+        }
+      : draft.sshAuthMode === 'public_key'
+        ? {
+            kind: 'public_key' as const,
+            username: valueSource(draft.sshUsername, secrets),
+            private_key: valueSource(draft.sshPrivateKey, secrets),
+            ...(draft.sshPassphrase.trim()
+              ? { passphrase: valueSource(draft.sshPassphrase, secrets) }
+              : {}),
+          }
+        : undefined;
+    return {
+      kind: 'ssh',
+      configuration: {
+        host: valueSource(draft.host, secrets),
+        port: Number(draft.port) || 22,
+        ...(draft.sshIdentificationRegex.trim()
+          ? { expected_identification_regex: draft.sshIdentificationRegex.trim() }
+          : {}),
+        ...(authentication ? { authentication } : {}),
+        ...(authentication && draft.sshHostKeySha256.trim()
+          ? { expected_host_key_sha256: draft.sshHostKeySha256.trim() }
+          : {}),
+        ...(authentication && draft.sshCommand.trim()
+          ? {
+              command: valueSource(draft.sshCommand, secrets),
+              expected_exit_status: Number(draft.sshExitStatus) || 0,
+              ...(draft.sshOutputRegex.trim()
+                ? { expected_output_regex: draft.sshOutputRegex.trim() }
+                : {}),
+            }
+          : {}),
       },
     };
   }

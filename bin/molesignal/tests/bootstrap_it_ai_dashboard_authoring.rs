@@ -591,7 +591,7 @@ async fn dashboard_authoring_runs_from_chat_intent_to_renderable_dashboard() {
         &server.state,
         &server.root_org_id,
         "app_errors",
-        StreamType::Logs,
+        StreamType::LOGS,
     )
     .await;
     let response = server
@@ -618,7 +618,7 @@ async fn dashboard_authoring_runs_from_chat_intent_to_renderable_dashboard() {
             let org_id = flush_org.clone();
             async move {
                 sqlx::query_scalar::<i64>(
-                    "SELECT COUNT(*) FROM parquet_file_meta
+                    "SELECT COUNT(*) FROM query_file
                      WHERE org_id = $1 AND stream = 'app_errors' AND deleted = FALSE",
                 )
                 .bind(org_id)

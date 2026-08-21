@@ -16,7 +16,7 @@ const STATUS_ICON_CLASS: Partial<Record<homeApi.HomeHealthStatus, string>> = {
 export function OperationsCanvas({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="home-operations-canvas mx-auto w-full max-w-[2200px] overflow-hidden bg-bg-0"
+      className="home-operations-canvas mx-auto w-full max-w-[2200px] space-y-[12px] bg-[var(--page-canvas)]"
       data-testid="home-operations-canvas"
     >
       {children}
@@ -24,22 +24,17 @@ export function OperationsCanvas({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function CanvasDividerGrid({
+export function CanvasSurfaceGrid({
   children,
   className,
-  topDivider = false,
 }: {
   children: React.ReactNode;
   className?: string;
-  topDivider?: boolean;
 }) {
   return (
     <div
-      className={cn(
-        'home-canvas-divider-grid grid',
-        topDivider && 'border-t border-bd-0',
-        className,
-      )}
+      data-home-surface-grid
+      className={cn('home-canvas-surface-grid grid gap-[12px]', className)}
     >
       {children}
     </div>
@@ -50,7 +45,7 @@ export function CanvasKpiStrip({ children, label }: { children: React.ReactNode;
   return (
     <section
       aria-label={label}
-      className="home-canvas-kpi-grid grid border-b border-bd-0 bg-bg-0"
+      className="home-canvas-kpi-grid grid gap-[12px] bg-[var(--page-canvas)]"
     >
       {children}
     </section>
@@ -76,7 +71,8 @@ export function CanvasKpi({
     <button
       type="button"
       onClick={onClick}
-      className="home-canvas-kpi group relative min-w-0 bg-bg-0 px-3 py-3 text-left transition-colors duration-fast hover:bg-bg-2 focus-visible:bg-bg-2 focus-visible:text-tx-0 focus-visible:outline-none"
+      data-home-surface="kpi"
+      className="home-canvas-kpi group relative min-w-0 rounded-md bg-[var(--functional-surface)] px-3 py-3 text-left transition-colors duration-fast [box-shadow:var(--shadow-functional-surface)] hover:bg-bg-2 focus-visible:bg-bg-2 focus-visible:text-tx-0 focus-visible:outline-none"
     >
       <div className="flex min-w-0 items-center gap-1.5">
         <span
@@ -126,9 +122,10 @@ export function CanvasSection({
     <section
       aria-label={ariaLabel}
       className={cn(
-        'flex min-h-0 min-w-0 flex-col overflow-hidden bg-bg-0',
+        'flex min-h-0 min-w-0 flex-col overflow-hidden rounded-md bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]',
         className,
       )}
+      data-home-surface="section"
       data-testid={testId}
     >
       <div

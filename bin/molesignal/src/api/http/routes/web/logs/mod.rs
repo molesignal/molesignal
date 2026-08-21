@@ -90,7 +90,7 @@ async fn list(
     let stream = match state
         .telemetry
         .streams
-        .get(&iam.org_id, &context.stream, StreamType::Logs)
+        .get(&iam.org_id, &context.stream, StreamType::LOGS)
         .await
     {
         Ok(stream) => stream,
@@ -120,7 +120,7 @@ async fn list(
             time_range: TimeRange::new(TimestampMicros(context.from), TimestampMicros(context.to)),
             stream: Some(StreamHint {
                 name: context.stream.clone(),
-                stream_type: StreamType::Logs,
+                stream_type: StreamType::LOGS,
             }),
             limit: Some(fetch_limit),
             federation_clusters: Vec::new(),

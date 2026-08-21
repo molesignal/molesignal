@@ -1,165 +1,271 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Hour-scoped metrics rollup orchestration.
+//! Metrics raw-to-rollup transformation.
+//!
+//! One cold partition is read from a repeatable-read Catalog snapshot, including its immutable
+//! sealed base and hot overlay. Publication retires that exact manifest generation and every
+//! selected raw Segment while making the rollup Segment visible in the same PostgreSQL
+//! transaction. A concurrent compaction, late manifest fold, or retention pass therefore turns
+//! into a conflict and the unpublished rollup objects are removed.
 
-use std::collections::BTreeMap;
+use std::{collections::HashMap, sync::OnceLock};
 
-use arrow::compute::concat_batches;
-use object_store::{ObjectStoreExt, path::Path};
+use arrow::{compute::concat_batches, record_batch::RecordBatch};
+use prometheus::IntCounter;
 
-use super::{
-    Compactor, cleanup::delete_file_outputs, downsampled, failures, partition::validate_group,
-};
+use super::{Compactor, DAY_MICROS, failures, valid_primary};
 use crate::{
     domain::{
-        storage::ParquetFileMeta,
+        storage::{
+            DataSegment, DatasetSelection, DatasetState, DatasetTypeId, OrganizationScope,
+            Partition, PartitionManifestPointer, PhysicalDataset, PublishDatasetTransform,
+            builtin_registry, primary_dataset_type, type_id,
+        },
         stream::{StreamDefinition, StreamType},
     },
-    infra::storage::{downsample::downsample_batch, parquet::writer::is_downsampled_key},
+    infra::storage::downsample::downsample_batch,
     shared::{
         Error, Result,
-        ids::Id,
+        metrics::register_int_counter,
         time::{TimeRange, TimestampMicros},
     },
 };
 
+struct PartitionInput {
+    manifest: Option<PartitionManifestPointer>,
+    segments: Vec<DataSegment>,
+}
+
 pub(super) async fn sweep(compactor: &Compactor, stream: &StreamDefinition) -> Result<usize> {
-    let after_days = compactor.settings.downsample_after_days;
-    let bucket_secs = compactor.settings.downsample_interval_secs;
-    if after_days == 0 || bucket_secs == 0 || stream.stream_type != StreamType::Metrics {
+    if compactor.settings.downsample_after_days == 0
+        || compactor.settings.downsample_interval_secs == 0
+        || stream.stream_type != StreamType::METRICS
+    {
         return Ok(0);
     }
+    let (raw, rollup) = resolve_datasets(compactor, stream).await?;
+    let cutoff = TimestampMicros::now().0.saturating_sub(
+        i64::from(compactor.settings.downsample_after_days).saturating_mul(DAY_MICROS),
+    );
+    let mut partitions = snapshot_partitions(compactor, stream, &raw, cutoff).await?;
+    partitions.sort_by_key(|(partition, _)| {
+        (
+            partition.end_micros,
+            partition.start_micros,
+            partition.shard,
+        )
+    });
 
-    let cutoff = TimestampMicros::now().0 - i64::from(after_days) * 86_400 * 1_000_000;
-    let range = TimeRange::new(TimestampMicros(0), TimestampMicros(cutoff));
-    let candidates = compactor
-        .parquet_file_meta
-        .find(&stream.org_id, &stream.name, stream.stream_type, range)
-        .await?;
-    let old = candidates
-        .into_iter()
-        .filter(|file| !file.deleted && file.time_range.end.0 <= cutoff)
-        .collect::<Vec<_>>();
-    if old.is_empty() {
-        return Ok(0);
-    }
-
-    let mut by_hour: BTreeMap<String, Vec<ParquetFileMeta>> = BTreeMap::new();
-    for file in old {
-        by_hour
-            .entry(crate::domain::storage::hour_partition_path(
-                file.time_range.start,
-            ))
-            .or_default()
-            .push(file);
-    }
-
-    let mut processed = 0_usize;
-    for group in by_hour.into_values() {
-        validate_group(&group)?;
-        let raw_files = group
-            .iter()
-            .filter(|file| !is_downsampled_key(&file.object_key))
-            .count();
-        if raw_files == 0 && group.len() <= 1 {
-            continue;
-        }
-        match downsample_group(compactor, stream, &group, bucket_secs).await {
+    let mut completed = 0;
+    for (partition, input) in partitions {
+        match transform_partition(compactor, stream, &raw, &rollup, partition, input).await {
             Ok(true) => {
-                processed += 1;
+                completed += 1;
                 downsampled().inc();
             }
             Ok(false) => {}
-            Err(error) => tracing::warn!(
-                stream = %stream.name,
-                group_size = group.len(),
-                %error,
-                "downsample group failed; will retry next sweep"
-            ),
-        }
-    }
-    Ok(processed)
-}
-
-async fn downsample_group(
-    compactor: &Compactor,
-    stream: &StreamDefinition,
-    group: &[ParquetFileMeta],
-    bucket_secs: u32,
-) -> Result<bool> {
-    let store = compactor.object_store.clone();
-    let mut all_batches = Vec::new();
-    for file in group {
-        match compactor
-            .reader
-            .read_all_from_store(store.clone(), &file.object_key)
-            .await
-        {
-            Ok(batches) => all_batches.extend(batches),
-            Err(Error::NotFound(_)) => {
-                failures().with_label_values(&["ghost_file"]).inc();
+            Err(error) => {
+                failures().with_label_values(&["downsample"]).inc();
                 tracing::warn!(
                     stream = %stream.name,
-                    object_key = %file.object_key,
-                    "downsample parquet_file_meta references missing object; will mark deleted"
+                    raw_dataset_id = %raw.id,
+                    rollup_dataset_id = %rollup.id,
+                    partition_start_micros = partition.start_micros,
+                    %error,
+                    "metrics downsample partition failed; will retry next sweep"
                 );
             }
-            Err(error) => return Err(error),
         }
     }
-    let group_ids = group
-        .iter()
-        .map(|file| file.id.clone())
-        .collect::<Vec<Id>>();
-    let group_keys = group
-        .iter()
-        .map(|file| file.object_key.clone())
+    Ok(completed)
+}
+
+async fn resolve_datasets(
+    compactor: &Compactor,
+    stream: &StreamDefinition,
+) -> Result<(PhysicalDataset, PhysicalDataset)> {
+    let scope = OrganizationScope::new(stream.org_id.clone());
+    let raw_type = primary_dataset_type(stream.stream_type)?;
+    let rollup_type = DatasetTypeId::builtin(type_id::builtin::DATASET_METRIC_ROLLUP);
+    let datasets = compactor
+        .catalog
+        .list_datasets(&scope, &stream.id)
+        .await?
+        .into_iter()
+        .filter(|dataset| dataset.state == DatasetState::Active)
         .collect::<Vec<_>>();
-    if all_batches.is_empty() {
-        compactor.parquet_file_meta.mark_deleted(&group_ids).await?;
-        compactor.invalidate_tantivy_caches(&group_keys).await;
+    let raw = datasets
+        .iter()
+        .find(|dataset| dataset.dataset_type == raw_type)
+        .cloned()
+        .ok_or_else(|| Error::not_found(format!("metrics raw dataset for stream {}", stream.id)))?;
+    let rollup = match datasets
+        .iter()
+        .find(|dataset| dataset.dataset_type == rollup_type)
+        .cloned()
+    {
+        Some(dataset) => dataset,
+        None => {
+            let registry = builtin_registry();
+            let spec = registry
+                .dataset_type(&stream.stream_type, &rollup_type)?
+                .to_spec();
+            compactor
+                .catalog
+                .ensure_datasets(&scope, &stream.id, &[spec])
+                .await?
+                .into_iter()
+                .next()
+                .ok_or_else(|| Error::internal("rollup dataset ensure returned no dataset"))?
+        }
+    };
+    Ok((raw, rollup))
+}
+
+async fn snapshot_partitions(
+    compactor: &Compactor,
+    stream: &StreamDefinition,
+    raw: &PhysicalDataset,
+    cutoff: i64,
+) -> Result<Vec<(Partition, PartitionInput)>> {
+    let snapshot = compactor
+        .catalog
+        .snapshot(
+            &OrganizationScope::new(stream.org_id.clone()),
+            DatasetSelection {
+                dataset_ids: vec![raw.id.clone()],
+                time_range: TimeRange::new(TimestampMicros(i64::MIN), TimestampMicros(cutoff)),
+                partition_shard: None,
+            },
+        )
+        .await?;
+    let dataset = snapshot
+        .dataset(&raw.id)
+        .ok_or_else(|| Error::internal(format!("catalog omitted dataset {}", raw.id)))?;
+    let mut work = HashMap::<Partition, PartitionInput>::new();
+    for pointer in &dataset.manifests {
+        if pointer.partition.end_micros > cutoff {
+            continue;
+        }
+        let manifest = compactor.manifest_reader.load(pointer).await?;
+        work.insert(
+            pointer.partition,
+            PartitionInput {
+                manifest: Some(pointer.clone()),
+                segments: manifest.segments.clone(),
+            },
+        );
+    }
+    for segment in &dataset.segments {
+        if segment.partition.end_micros > cutoff {
+            continue;
+        }
+        work.entry(segment.partition)
+            .or_insert_with(|| PartitionInput {
+                manifest: None,
+                segments: Vec::new(),
+            })
+            .segments
+            .push(segment.clone());
+    }
+    Ok(work.into_iter().collect())
+}
+
+async fn transform_partition(
+    compactor: &Compactor,
+    stream: &StreamDefinition,
+    raw: &PhysicalDataset,
+    rollup: &PhysicalDataset,
+    partition: Partition,
+    input: PartitionInput,
+) -> Result<bool> {
+    if input.segments.is_empty() {
         return Ok(false);
     }
+    if let Some(segment) = input
+        .segments
+        .iter()
+        .find(|segment| !valid_primary(segment))
+    {
+        return Err(Error::internal(format!(
+            "downsample input segment {} has no supported ready Parquet primary Artifact",
+            segment.id
+        )));
+    }
 
-    let schema = crate::infra::storage::arrow_schema::to_arrow(&stream.schema);
-    let aligned = all_batches
+    let mut batches = Vec::new();
+    for segment in &input.segments {
+        compactor
+            .object_reader
+            .register_segment(&stream.org_id, segment)?;
+        batches.extend(
+            compactor
+                .reader
+                .read_all(segment.primary.object.key.as_str())
+                .await?,
+        );
+    }
+    if batches.is_empty() {
+        return Err(Error::internal(
+            "downsample input produced no record batches",
+        ));
+    }
+    let raw_stream = crate::infra::intake::physical_schema::project(stream, &raw.dataset_type);
+    let raw_schema = crate::infra::storage::arrow_schema::to_arrow(&raw_stream.schema);
+    let aligned = batches
         .iter()
         .map(|batch| {
-            crate::infra::storage::arrow_schema::align_batch_to_schema(batch, &schema)
+            crate::infra::storage::arrow_schema::align_batch_to_schema(batch, &raw_schema)
                 .map_err(|error| Error::internal(format!("downsample align schema: {error}")))
         })
-        .collect::<Result<Vec<_>>>()?;
-    let merged = concat_batches(&schema, &aligned)
-        .map_err(|error| Error::internal(format!("downsample concat_batches: {error}")))?;
-    let reduced = downsample_batch(merged, bucket_secs).await?;
-    if reduced.num_rows() == 0 {
-        return Ok(false);
+        .collect::<Result<Vec<RecordBatch>>>()?;
+    let merged = concat_batches(&raw_schema, &aligned)
+        .map_err(|error| Error::internal(format!("downsample concat batches: {error}")))?;
+    let reduced = downsample_batch(merged, compactor.settings.downsample_interval_secs).await?;
+    let rollup_stream =
+        crate::infra::intake::physical_schema::project(stream, &rollup.dataset_type);
+    let outputs = compactor
+        .writer
+        .write_compaction_catalog(&rollup_stream, rollup, reduced)
+        .await?;
+    if outputs.is_empty() || outputs.iter().any(|segment| segment.partition != partition) {
+        compactor.writer.delete_catalog_outputs(&outputs).await;
+        return Err(Error::internal(
+            "downsample output escaped its input partition",
+        ));
     }
 
-    let new_meta = compactor
-        .writer
-        .flush_downsampled_to_store(store.as_ref(), stream, reduced)
-        .await?;
-    let new_key = new_meta.object_key.clone();
+    let command = PublishDatasetTransform {
+        input_dataset_id: raw.id.clone(),
+        input_partition: partition,
+        input_manifest: input.manifest,
+        input_segment_ids: input
+            .segments
+            .iter()
+            .map(|segment| segment.id.clone())
+            .collect(),
+        output_dataset_id: rollup.id.clone(),
+        output_segments: outputs.clone(),
+        gc_not_before_micros: compactor.gc_not_before(),
+    };
     if let Err(error) = compactor
-        .parquet_file_meta
-        .replace(&group_ids, vec![new_meta])
+        .catalog
+        .publish_dataset_transform(&OrganizationScope::new(stream.org_id.clone()), command)
         .await
     {
-        failures().with_label_values(&["downsample_replace"]).inc();
-        if let Err(delete_error) = store.delete(&Path::from(new_key.clone())).await {
-            tracing::warn!(
-                object_key = %new_key,
-                error = %delete_error,
-                "downsample cleanup delete failed; retention sweep will reclaim"
-            );
-        }
+        compactor.writer.delete_catalog_outputs(&outputs).await;
         return Err(error);
     }
-    compactor.invalidate_tantivy_caches(&group_keys).await;
-    for file in group {
-        delete_file_outputs(store.as_ref(), file).await;
-    }
     Ok(true)
+}
+
+fn downsampled() -> &'static IntCounter {
+    static METRIC: OnceLock<IntCounter> = OnceLock::new();
+    METRIC.get_or_init(|| {
+        register_int_counter(
+            "compactor_downsampled_partitions_total",
+            "metrics partitions atomically transformed from raw to rollup",
+        )
+    })
 }

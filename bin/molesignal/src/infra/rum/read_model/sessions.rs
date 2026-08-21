@@ -12,7 +12,7 @@ use super::{
     scan::RumReadModelReader,
 };
 use crate::{
-    domain::storage::PhysicalDatasetKind,
+    domain::storage::{DatasetTypeId, type_id::builtin},
     infra::storage::parquet::reader::{ParquetReader, ReadOptions},
     shared::{Error, Result, cursor::CursorDirection, ids::Id, time::TimeRange},
 };
@@ -45,18 +45,18 @@ impl RumReadModelReader {
         if query.limit == 0 {
             return Ok(Vec::new());
         }
-        let mut files = self
+        let mut input = self
             .source_files(
                 org_id,
                 "rum_sessions",
-                PhysicalDatasetKind::RumSessionSummary,
+                DatasetTypeId::builtin(builtin::DATASET_RUM_SESSION_SUMMARY),
                 range,
             )
             .await?;
         let before = query
             .boundary
             .is_some_and(|boundary| boundary.direction == CursorDirection::Before);
-        files.sort_by(|left, right| {
+        input.files.sort_by(|left, right| {
             let ordering = right
                 .meta
                 .time_range
@@ -67,8 +67,21 @@ impl RumReadModelReader {
         });
 
         let mut top = Vec::with_capacity(query.limit);
+        for buffered in input.batches {
+            for row in 0..buffered.batch.num_rows() {
+                let Some(record) = RumSessionRecord::from_batch(&buffered.batch, row) else {
+                    continue;
+                };
+                if in_range(record.timestamp_micros, buffered.range)
+                    && matches_session(&record, query)
+                    && matches_boundary(&record, query.boundary)
+                {
+                    push_top_k(&mut top, record, query.limit, before);
+                }
+            }
+        }
         let reader = ParquetReader::new(self.object_store.clone());
-        for (index, file) in files.iter().enumerate() {
+        for (index, file) in input.files.iter().enumerate() {
             let options = ReadOptions::new()
                 .with_time_range(file.range.start.0, file.range.end.0)
                 .with_columns(SESSION_COLUMNS)
@@ -104,7 +117,7 @@ impl RumReadModelReader {
             }
             if !before
                 && top.len() >= query.limit
-                && files.get(index + 1).is_some_and(|next| {
+                && input.files.get(index + 1).is_some_and(|next| {
                     top.iter()
                         .max_by(|left, right| effective_cmp(left, right, before))
                         .is_some_and(|worst| next.meta.time_range.end.0 < worst.timestamp_micros)

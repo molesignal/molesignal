@@ -348,10 +348,8 @@ fn defaults_roundtrip_through_toml() {
     assert_eq!(s.compactor.target_mb, 512);
     assert_eq!(s.compactor.max_concurrent_groups, 4);
     assert_eq!(s.router.rate_limit.intake_qps, 1000);
-    assert_eq!(s.cache.parquet_file_meta.capacity, 100_000);
-    assert_eq!(s.cache.parquet_file_meta.ttl_secs, 60);
-    assert_eq!(s.cache.parquet_meta.capacity, 10_000);
-    assert_eq!(s.cache.parquet_meta.ttl_secs, 600);
+    assert_eq!(s.cache.index_handle.capacity, 10_000);
+    assert_eq!(s.cache.index_handle.ttl_secs, 600);
     assert_eq!(s.cache.query_result.capacity, 1_000);
     assert_eq!(s.cache.query_result.ttl_secs, 60);
     assert!(matches!(s.notify.smtp.tls, SmtpTls::Starttls));
@@ -402,98 +400,32 @@ jwt_secret = "legacy-value"
 }
 
 #[test]
-fn disk_cache_defaults_when_missing_from_toml() {
-    // 缺省 TOML（[cache.disk_cache] 整段都没写）必须落到默认值：
-    // dir=./data/cache/parquet / max_size_gb=10（>0 即启用）
+fn object_cache_defaults_when_missing_from_toml() {
     let s: Settings = toml::from_str("").expect("empty TOML must parse with defaults");
-    assert_eq!(
-        s.cache.disk_cache.dir,
-        PathBuf::from("./data/cache/parquet")
-    );
-    assert_eq!(s.cache.disk_cache.max_size_gb, 10);
-    assert!(s.cache.disk_cache.is_effectively_enabled());
-    assert_eq!(s.cache.disk_cache.max_size_bytes(), 10 * 1024 * 1024 * 1024);
+    assert_eq!(s.cache.object.root, PathBuf::from("./data/cache/objects"));
+    assert_eq!(s.cache.object.max_bytes, 10 * 1024 * 1024 * 1024);
+    assert_eq!(s.cache.object.block_size_bytes, 4 * 1024 * 1024);
+    assert!(s.cache.object.is_effectively_enabled());
 
-    // 只写 [cache] 段不写 disk_cache 子段也要走默认。
     let only_cache: Settings = toml::from_str("[cache]\n").expect("empty [cache] must parse");
-    assert_eq!(only_cache.cache.disk_cache.max_size_gb, 10);
+    assert_eq!(only_cache.cache.object.block_size_bytes, 4 * 1024 * 1024);
 }
 
 #[test]
-fn disk_cache_max_size_gb_zero_is_effectively_disabled() {
+fn object_cache_explicit_disable_round_trips() {
     let toml_text = r#"
-[cache.disk_cache]
-max_size_gb = 0
-"#;
-    let s: Settings = toml::from_str(toml_text).expect("zero-size must parse");
-    assert_eq!(s.cache.disk_cache.max_size_gb, 0);
-    assert!(!s.cache.disk_cache.is_effectively_enabled());
-}
-
-#[test]
-fn parquet_file_meta_dump_default_when_missing_from_toml() {
-    let s: Settings = toml::from_str("").expect("empty TOML must parse with defaults");
-    assert!(s.storage.parquet_file_meta_dump.enabled);
-    assert_eq!(s.storage.parquet_file_meta_dump.cold_after_days, 30);
-    assert_eq!(s.storage.parquet_file_meta_dump.interval_secs, 3600);
-    assert_eq!(
-        s.storage.parquet_file_meta_dump.max_partitions_per_tick,
-        100
-    );
-    assert_eq!(
-        s.storage.parquet_file_meta_dump.partition_level,
-        PartitionLevel::Daily
-    );
-}
-
-#[test]
-fn parquet_file_meta_dump_explicit_disable_round_trips() {
-    let toml_text = r#"
-[storage.parquet_file_meta_dump]
+[cache.object]
 enabled = false
-cold_after_days = 90
-interval_secs = 7200
-max_partitions_per_tick = 50
-partition_level = "hourly"
+root = "/var/cache/molesignal/objects"
+max_bytes = 1234
 "#;
-    let s: Settings = toml::from_str(toml_text).expect("parquet_file_meta_dump must parse");
-    assert!(!s.storage.parquet_file_meta_dump.enabled);
-    assert_eq!(s.storage.parquet_file_meta_dump.cold_after_days, 90);
-    assert_eq!(s.storage.parquet_file_meta_dump.interval_secs, 7200);
-    assert_eq!(s.storage.parquet_file_meta_dump.max_partitions_per_tick, 50);
+    let s: Settings = toml::from_str(toml_text).expect("object cache settings must parse");
     assert_eq!(
-        s.storage.parquet_file_meta_dump.partition_level,
-        PartitionLevel::Hourly
+        s.cache.object.root,
+        PathBuf::from("/var/cache/molesignal/objects")
     );
-}
-
-#[test]
-fn partition_level_parses_both_variants() {
-    let daily: PartitionLevel = serde_json::from_str("\"daily\"").unwrap();
-    let hourly: PartitionLevel = serde_json::from_str("\"hourly\"").unwrap();
-    assert_eq!(daily, PartitionLevel::Daily);
-    assert_eq!(hourly, PartitionLevel::Hourly);
-    assert_eq!(daily.as_str(), "daily");
-    assert_eq!(hourly.as_str(), "hourly");
-}
-
-#[test]
-fn parquet_file_meta_dump_cache_defaults_when_missing_from_toml() {
-    let s: Settings = toml::from_str("").expect("empty TOML must parse with defaults");
-    assert_eq!(s.cache.parquet_file_meta_dump.capacity, 10_000);
-    assert_eq!(s.cache.parquet_file_meta_dump.ttl_secs, 600);
-}
-
-#[test]
-fn parquet_file_meta_dump_cache_capacity_zero_round_trips() {
-    let toml_text = r#"
-[cache.parquet_file_meta_dump]
-capacity = 0
-ttl_secs = 1
-"#;
-    let s: Settings = toml::from_str(toml_text).expect("zero capacity must parse");
-    assert_eq!(s.cache.parquet_file_meta_dump.capacity, 0);
-    assert_eq!(s.cache.parquet_file_meta_dump.ttl_secs, 1);
+    assert_eq!(s.cache.object.max_bytes, 1234);
+    assert!(!s.cache.object.is_effectively_enabled());
 }
 
 #[test]
@@ -521,23 +453,6 @@ ttl_secs = 1
     let s: Settings = toml::from_str(toml_text).expect("zero capacity must parse");
     assert_eq!(s.cache.tantivy_result.capacity, 0);
     assert_eq!(s.cache.tantivy_footer.capacity, 0);
-}
-
-#[test]
-fn disk_cache_explicit_disable_round_trips() {
-    // 关闭 = max_size_gb = 0（无独立 enabled 开关）。
-    let toml_text = r#"
-[cache.disk_cache]
-dir = "/var/cache/molesignal/parquet"
-max_size_gb = 0
-"#;
-    let s: Settings = toml::from_str(toml_text).expect("explicit disk_cache must parse");
-    assert_eq!(
-        s.cache.disk_cache.dir,
-        PathBuf::from("/var/cache/molesignal/parquet")
-    );
-    assert_eq!(s.cache.disk_cache.max_size_gb, 0);
-    assert!(!s.cache.disk_cache.is_effectively_enabled());
 }
 
 #[test]

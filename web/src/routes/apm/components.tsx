@@ -7,7 +7,11 @@ import { KpiStrip } from '@/admin';
 import type { ApmMeta, RedSummary, TimeRange, TrendPoint } from '@/api/apm';
 import { ProductState } from '@/product/states';
 import { cn } from '@/shell/lib/cn';
-import { PageBody, PageHeader } from '@/shell/PageHeader';
+import {
+  surfacePageRootClass,
+  SurfacePageBody,
+  SurfacePageHeader,
+} from '@/shell/SurfaceWorkbench';
 import { TimeSeriesChart } from '@/viz/timeseries/TimeSeriesChart';
 import type { TimeSeriesSeries } from '@/viz/timeseries/types';
 
@@ -33,6 +37,7 @@ export function RedKpis({
   const throughput = averageThroughput(red.request_count, trend, resolution);
   return (
     <KpiStrip
+      className="gap-[12px] [&>div]:border-0 [&>div]:bg-[var(--functional-surface)] [&>div]:[box-shadow:var(--shadow-functional-surface)]"
       items={[
         {
           label: t('metrics.throughput'),
@@ -148,7 +153,7 @@ export function TrendStrip({
   }
 
   return (
-    <section className="rounded-lg border border-bd-0 bg-bg-1 p-4">
+    <section className="rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)]">
       <div className="mb-4 flex flex-col items-start gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="type-section-title font-strong text-tx-0">{t('trend.title')}</h2>
@@ -237,8 +242,8 @@ export function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="overflow-hidden rounded-lg border border-bd-0 bg-bg-1">
-      <div className="flex min-h-14 items-center justify-between gap-4 border-b border-bd-0 px-4 py-3">
+    <section className="overflow-hidden rounded-md bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]">
+      <div className="flex min-h-14 items-center justify-between gap-4 px-4 py-3">
         <div>
           <h2 className="type-section-title font-strong text-tx-0">{title}</h2>
           {description && <p className="mt-0.5 text-xs text-tx-2">{description}</p>}
@@ -311,7 +316,11 @@ export function QueryBoundary({
   children: React.ReactNode;
 }) {
   const { t } = useTranslation('apm');
-  if (pending) return <ProductState variant="loading" />;
+  const stateClassName =
+    'rounded-md border-0 bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]';
+  if (pending) {
+    return <ProductState variant="loading" className={stateClassName} />;
+  }
   if (error) {
     const forbidden =
       typeof error === 'object' &&
@@ -322,6 +331,7 @@ export function QueryBoundary({
       <ProductState
         variant={forbidden ? 'permission-denied' : 'error'}
         error={error}
+        className={stateClassName}
         action={
           forbidden ? undefined : (
             <button
@@ -341,6 +351,7 @@ export function QueryBoundary({
     return (
       <ProductState
         variant="empty"
+        className={stateClassName}
         title={filtered ? t('states.filtered_empty') : t('states.activation_empty')}
         description={
           filtered
@@ -379,17 +390,20 @@ export function ApmPageFrame({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-0 bg-bg-0">
-      <PageHeader
-        title={<h1 className="m-0">{title}</h1>}
+    <div
+      data-surface-workbench-page="apm"
+      className={surfacePageRootClass}
+    >
+      <SurfacePageHeader
+        title={title}
         subtitle={subtitle}
         toolbar={toolbar}
       />
       {navigation === undefined ? <ApmNavigation /> : navigation}
-      <PageBody className="space-y-5">
+      <SurfacePageBody className="space-y-[12px]">
         {meta && <DataQualityNotice meta={meta} />}
         {children}
-      </PageBody>
+      </SurfacePageBody>
     </div>
   );
 }

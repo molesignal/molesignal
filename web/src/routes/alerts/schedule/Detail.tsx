@@ -229,7 +229,6 @@ export function AlertsScheduleDetail() {
       <>
         <PageHeader
           title={t('schedules.detail_loading')}
-          backTo="/alerts/schedules"
         />
         <PageBody>
           <LoadingState variant="list" rows={7} />
@@ -243,7 +242,6 @@ export function AlertsScheduleDetail() {
       <>
         <PageHeader
           title={t('schedules.detail_loading')}
-          backTo="/alerts/schedules"
         />
         <PageBody>
           <ErrorState
@@ -308,7 +306,6 @@ export function AlertsScheduleDetail() {
         subtitle={
           schedule.description || t('schedules.description_fallback')
         }
-        backTo="/alerts/schedules"
         toolbar={
           <>
             <ChromeButton

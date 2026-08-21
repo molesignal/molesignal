@@ -112,7 +112,7 @@ pub(super) async fn list_traces(
 
     let fetch_limit = context.page_size.saturating_add(1);
     let rows = if context.filters.iter().any(TraceFilter::is_span_filter) {
-        span_filter::run(&state, &ctx.org_id, &definition, &context, fetch_limit).await?
+        span_filter::run(&state, &definition, &context, fetch_limit).await?
     } else {
         scan::run(&state, &ctx.org_id, &stream, &context, fetch_limit).await?
     };

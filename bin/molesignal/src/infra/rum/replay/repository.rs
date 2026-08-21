@@ -6,7 +6,10 @@ use std::collections::HashSet;
 use async_trait::async_trait;
 use sqlx::{PgPool, Row};
 
-use super::{MAX_REPLAY_SEGMENTS_PER_SESSION, RumReplayMetaRepository, RumReplayRecord};
+use super::{
+    MAX_REPLAY_SEGMENTS_PER_SESSION, RUM_REPLAY_FORMAT_VERSION, RumReplayMetaRepository,
+    RumReplayRecord,
+};
 use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 pub struct PgRumReplayMetaRepository {
@@ -29,7 +32,7 @@ impl RumReplayMetaRepository for PgRumReplayMetaRepository {
         seq: i32,
     ) -> Result<Option<RumReplayRecord>> {
         sqlx::query(
-            "SELECT id, org_id, application_id, session_id, seq, object_key, bytes_uncompressed, event_count,
+            "SELECT id, org_id, application_id, session_id, seq, format_version, object_key, bytes_uncompressed, event_count,
                     has_full_snapshot, content_hash, first_event_at_micros, created_at_micros
              FROM rum_replay_events
              WHERE org_id = $1 AND application_id = $2 AND session_id = $3 AND seq = $4",
@@ -47,10 +50,10 @@ impl RumReplayMetaRepository for PgRumReplayMetaRepository {
     async fn insert_if_absent(&self, row: &RumReplayRecord) -> Result<bool> {
         let result = sqlx::query(
             "INSERT INTO rum_replay_events
-                (id, org_id, application_id, session_id, seq, object_key, bytes_uncompressed,
+                (id, org_id, application_id, session_id, seq, format_version, object_key, bytes_uncompressed,
                  event_count, has_full_snapshot, content_hash, first_event_at_micros,
                  created_at_micros)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
              ON CONFLICT (org_id, application_id, session_id, seq) DO NOTHING",
         )
         .bind(&row.id.0)
@@ -58,6 +61,7 @@ impl RumReplayMetaRepository for PgRumReplayMetaRepository {
         .bind(&row.application_id)
         .bind(&row.session_id)
         .bind(row.seq)
+        .bind(row.format_version as i32)
         .bind(&row.object_key)
         .bind(row.bytes_uncompressed as i64)
         .bind(row.event_count as i32)
@@ -77,7 +81,7 @@ impl RumReplayMetaRepository for PgRumReplayMetaRepository {
         session_id: &str,
     ) -> Result<Vec<RumReplayRecord>> {
         sqlx::query(
-            "SELECT id, org_id, application_id, session_id, seq, object_key, bytes_uncompressed, event_count,
+            "SELECT id, org_id, application_id, session_id, seq, format_version, object_key, bytes_uncompressed, event_count,
                     has_full_snapshot, content_hash, first_event_at_micros, created_at_micros
              FROM rum_replay_events WHERE org_id = $1 AND session_id = $2
              ORDER BY seq ASC LIMIT $3",
@@ -128,10 +132,12 @@ impl RumReplayMetaRepository for PgRumReplayMetaRepository {
         }
         let rows = sqlx::query(
             "SELECT DISTINCT session_id FROM rum_replay_events
-             WHERE org_id = $1 AND session_id = ANY($2) AND has_full_snapshot = TRUE",
+             WHERE org_id = $1 AND session_id = ANY($2) AND has_full_snapshot = TRUE
+               AND format_version = $3",
         )
         .bind(&org_id.0)
         .bind(session_ids)
+        .bind(RUM_REPLAY_FORMAT_VERSION as i32)
         .fetch_all(&self.pool)
         .await
         .map_err(crate::infra::persistence::sqlx_err)?;
@@ -152,12 +158,13 @@ impl RumReplayMetaRepository for PgRumReplayMetaRepository {
             "SELECT session_id, MIN(first_event_at_micros) AS first_segment
              FROM rum_replay_events
              WHERE org_id = $1 AND first_event_at_micros >= $2 AND first_event_at_micros < $3
-               AND has_full_snapshot = TRUE
-             GROUP BY session_id ORDER BY first_segment DESC LIMIT $4",
+               AND has_full_snapshot = TRUE AND format_version = $4
+             GROUP BY session_id ORDER BY first_segment DESC LIMIT $5",
         )
         .bind(&org_id.0)
         .bind(from_micros)
         .bind(to_micros)
+        .bind(RUM_REPLAY_FORMAT_VERSION as i32)
         .bind(limit as i64)
         .fetch_all(&self.pool)
         .await
@@ -170,7 +177,7 @@ impl RumReplayMetaRepository for PgRumReplayMetaRepository {
 
     async fn list_expired(&self, cutoff_micros: i64, limit: usize) -> Result<Vec<RumReplayRecord>> {
         sqlx::query(
-            "SELECT id, org_id, application_id, session_id, seq, object_key, bytes_uncompressed, event_count,
+            "SELECT id, org_id, application_id, session_id, seq, format_version, object_key, bytes_uncompressed, event_count,
                     has_full_snapshot, content_hash, first_event_at_micros, created_at_micros
              FROM rum_replay_events WHERE created_at_micros < $1
              ORDER BY created_at_micros ASC LIMIT $2",
@@ -203,6 +210,7 @@ fn record_from_row(row: sqlx::postgres::PgRow) -> RumReplayRecord {
         application_id: row.get("application_id"),
         session_id: row.get("session_id"),
         seq: row.get("seq"),
+        format_version: row.get::<i32, _>("format_version").max(0) as u32,
         object_key: row.get("object_key"),
         bytes_uncompressed: row.get::<i64, _>("bytes_uncompressed").max(0) as u64,
         event_count: row.get::<i32, _>("event_count").max(0) as usize,

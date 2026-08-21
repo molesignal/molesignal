@@ -130,7 +130,7 @@ async fn inspect_query(
             "profile": {
                 "stages": [
                     { "name": "parse_sql", "ms": parse_ms, "estimated": false },
-                    { "name": "parquet_file_meta_scan", "ms": null, "estimated": true,
+                    { "name": "query_file_scan", "ms": null, "estimated": true,
                       "note": "depends on time_range + stream cardinality" },
                     { "name": "object_store_get", "ms": null, "estimated": true },
                     { "name": "datafusion_execute", "ms": null, "estimated": true }
@@ -168,7 +168,7 @@ fn should_auto_async(req: &QueryRequest, state: &AppState) -> bool {
     let throughput = cfg.querier.estimate_throughput_per_sec.max(1);
     let window_secs = (req.time_range.end.0 - req.time_range.start.0).max(0) / 1_000_000;
     let estimated_rows = (window_secs as u64).saturating_mul(throughput);
-    let _ = state; // 保留参数以便接入真实 parquet_file_meta 估算
+    let _ = state; // 保留参数以便接入真实 query_file 估算
     estimated_rows >= threshold
 }
 
@@ -459,7 +459,7 @@ pub struct StreamQuery {
 }
 
 fn default_stream_type() -> crate::domain::stream::StreamType {
-    crate::domain::stream::StreamType::Logs
+    crate::domain::stream::StreamType::LOGS
 }
 
 #[permission(any("streams.query", "sys.telemetry.read"))]

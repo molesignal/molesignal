@@ -10,9 +10,8 @@ test.describe('topbar account menu', () => {
     });
     await page.goto('/account/settings/profile');
 
-    await expect(
-      page.getByTestId('workspace-settings-trigger'),
-    ).toHaveAttribute('aria-label', 'Workspace settings');
+    await expect(page.getByTestId('org-switcher')).toHaveCount(0);
+    await expect(page.getByTestId('command-palette-trigger')).toBeVisible();
 
     const userMenuTrigger = page.getByTestId('user-menu-trigger');
     await userMenuTrigger.click();
@@ -44,7 +43,7 @@ test.describe('topbar account menu', () => {
       menu.getByRole('menuitem', { name: 'Preferences' }),
     ).toBeVisible();
     await expect(
-      menu.getByRole('menuitem', { name: 'Notifications' }),
+      menu.getByRole('menuitem', { name: 'Notify' }),
     ).toBeVisible();
     await expect(
       menu.getByRole('menuitem', { name: 'Sign out' }),
@@ -55,29 +54,6 @@ test.describe('topbar account menu', () => {
 
     await menu.getByRole('menuitem', { name: 'Preferences' }).click();
     await expect(page).toHaveURL(/\/account\/settings\/preferences/);
-  });
-
-  test('opens workspace settings only for administrators', async ({
-    page,
-    mockServer,
-  }) => {
-    await mountMockRoutes(page, mockServer.port, {
-      token: 'fake-jwt',
-    });
-    await page.goto('/account/settings/profile');
-    await page.getByTestId('workspace-settings-trigger').click();
-    await expect(page).toHaveURL(/\/settings\/general/);
-  });
-
-  test('hides workspace settings from non-administrators', async ({
-    page,
-    mockServer,
-  }) => {
-    await mountMockRoutes(page, mockServer.port, { role: 'Viewer' });
-    await page.goto('/account/settings/profile');
-    await expect(page.getByTestId('workspace-settings-trigger')).toHaveCount(
-      0,
-    );
   });
 
   test('does not show a switch action for a single workspace', async ({
@@ -113,6 +89,78 @@ test.describe('topbar account menu', () => {
     const menu = page.getByRole('menu');
     await expect(menu.getByText('acme-prod', { exact: true })).toBeVisible();
     await expect(menu.getByText('Switch', { exact: true })).toHaveCount(0);
+  });
+
+  test('uses the same flat selected fill for the workspace trigger and current option', async ({
+    page,
+    mockServer,
+  }) => {
+    await mountMockRoutes(page, mockServer.port, {
+      token: 'fake-jwt',
+    });
+    await page.goto('/account/settings/profile');
+    await page.getByTestId('user-menu-trigger').click();
+
+    const menu = page.locator("[data-ui='user-menu']");
+    const trigger = page.locator("[data-ui='workspace-switcher-trigger']");
+    await expect(menu).toBeVisible();
+    await expect(menu).toHaveCSS('box-shadow', 'none');
+    await expect(trigger).toBeVisible();
+    await expect(trigger).toHaveAttribute('data-state', 'closed');
+    await expect(trigger).not.toHaveAttribute('data-selected', 'true');
+    await expect(trigger).not.toHaveAttribute('style', /background-color/);
+    await expect
+      .poll(() =>
+        trigger.evaluate(
+          (element) => getComputedStyle(element).backgroundColor,
+        ),
+      )
+      .toBe('rgba(0, 0, 0, 0)');
+    await expect(trigger).toHaveCSS('box-shadow', 'none');
+
+    await page.getByText('Switch', { exact: true }).click();
+    await expect(trigger).toHaveAttribute('data-state', 'open');
+    await expect(trigger).toHaveAttribute('data-selected', 'true');
+    await expect(trigger).toHaveAttribute(
+      'style',
+      /background-color: var\(--workspace-selection-fill\)/,
+    );
+    const currentOption = page.locator(
+      "[data-ui='workspace-option'][data-state='checked']",
+    );
+    await expect(currentOption).toBeVisible();
+    await page.waitForTimeout(400);
+    await expect(trigger).toHaveAttribute('data-state', 'open');
+    await expect(currentOption).toBeVisible();
+    await expect
+      .poll(async () => {
+        const [triggerFill, optionFill, menuFill] = await Promise.all([
+          trigger.evaluate((element) =>
+            getComputedStyle(element).backgroundColor,
+          ),
+          currentOption.evaluate((element) =>
+            getComputedStyle(element).backgroundColor,
+          ),
+          menu.evaluate((element) =>
+            getComputedStyle(element).backgroundColor,
+          ),
+        ]);
+        return (
+          triggerFill === optionFill &&
+          triggerFill !== menuFill &&
+          triggerFill !== 'rgba(0, 0, 0, 0)'
+        );
+      })
+      .toBe(true);
+    await expect(currentOption).toHaveCSS('box-shadow', 'none');
+    await expect
+      .poll(() =>
+        currentOption.evaluate((element) => {
+          const submenu = element.closest('[role="menu"]');
+          return submenu ? getComputedStyle(submenu).boxShadow : null;
+        }),
+      )
+      .toBe('none');
   });
 
   test('can switch from the system workspace back to the only tenant workspace', async ({
@@ -153,20 +201,15 @@ test.describe('topbar account menu', () => {
     });
     await page.goto('/settings/license');
 
-    const switcher = page.getByTestId('org-switcher');
-    await expect(switcher).toHaveText('_sys');
-    await expect(switcher).toHaveCSS('box-shadow', 'none');
-    await expect(switcher).toHaveCSS('outline-style', 'none');
+    await expect(page.getByTestId('org-switcher')).toHaveCount(0);
     await page.getByTestId('user-menu-trigger').click();
     await expect(page.getByTestId('current-workspace-role')).toHaveText(
       'Owner',
     );
-    await page.keyboard.press('Escape');
-    await switcher.click();
-    await page.getByRole('menuitem', { name: 'default' }).click();
+    await page.getByText('Switch', { exact: true }).click();
+    await page.getByRole('menuitemradio', { name: 'default' }).click();
 
     await expect(page).toHaveURL(/\/home(?:[?#]|$)/);
-    await expect(switcher).toHaveText('default');
     await expect(page.getByRole('link', { name: 'License' })).toHaveCount(0);
   });
 });

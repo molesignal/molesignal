@@ -2127,14 +2127,7 @@ fn constraint_i64(value: &Value, key: &str, fallback: i64) -> i64 {
 }
 
 fn parse_stream_type(value: &str) -> Option<StreamType> {
-    match value {
-        "logs" => Some(StreamType::Logs),
-        "metrics" => Some(StreamType::Metrics),
-        "traces" => Some(StreamType::Traces),
-        "profiles" => Some(StreamType::Profiles),
-        "extend" => Some(StreamType::Extend),
-        _ => None,
-    }
+    StreamType::from_external_name(value).ok()
 }
 
 fn safe_filename(value: &str) -> String {

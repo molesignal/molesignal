@@ -144,11 +144,9 @@ export function Pipelines() {
 
   return (
     <ListPage
+      appearance="surface"
       title={t('title')}
       subtitle={t('overview.subtitle')}
-      cardless
-      filterClassName="border-b-0"
-      stateClassName="border-b-0"
       toolbar={
         <>
           <ChromeButton onClick={() => navigate('/datasource')}>

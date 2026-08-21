@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ExternalLink, Globe2, LockKeyhole } from 'lucide-react';
+import { ExternalLink, Globe2, LockKeyhole } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   Navigate,
@@ -22,6 +22,12 @@ import { ProductState } from '@/product/states';
 import { ChromeButton, Pill } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
 import { PageBody, PageHeader } from '@/shell/PageHeader';
+import {
+  surfaceModuleNavigationActiveClass,
+  surfaceModuleNavigationClass,
+  surfaceModuleNavigationItemClass,
+  surfaceModuleNavigationRowClass,
+} from '@/shell/SurfaceWorkbench';
 
 import { publicStatusPageUrl } from '../publicUrl';
 import {
@@ -126,12 +132,14 @@ export function StatusPageWorkspaceLayout() {
   };
 
   return (
-    <div className="min-w-0">
+    <div className="min-w-0 bg-[var(--page-canvas)]">
       <PageHeader
         title={page.name}
         subtitle={t('workspace.subtitle', { url: publicUrl })}
-        breadcrumbs={null}
-        backTo={null}
+        breadcrumbs={[
+          { labelKey: 'status_pages', to: '/status-pages' },
+          { labelKey: 'status_page', label: page.name },
+        ]}
         toolbar={
           <div className="flex items-center gap-2">
             <Pill tone={page.visibility === 'public' ? 'green' : 'dim'}>
@@ -154,17 +162,10 @@ export function StatusPageWorkspaceLayout() {
           </div>
         }
       />
-      <div className="flex min-w-0 items-center border-b border-bd-0 bg-bg-1 px-3">
-        <NavLink
-          to="/status-pages"
-          aria-label={t('actions.all_pages')}
-          className="mr-2 grid h-10 w-9 shrink-0 place-items-center rounded-md text-tx-2 hover:bg-bg-2 hover:text-tx-0 focus-visible:bg-bg-2"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </NavLink>
+      <div className={surfaceModuleNavigationClass}>
         <nav
           aria-label={t('tabs.label')}
-          className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto overflow-y-hidden"
+          className={surfaceModuleNavigationRowClass}
         >
           {visibleTabs.map((tab) => (
             <NavLink
@@ -172,10 +173,11 @@ export function StatusPageWorkspaceLayout() {
               to={`/status-pages/${pageId}/${tab}`}
               className={({ isActive }) =>
                 cn(
-                  'inline-flex h-11 shrink-0 items-center whitespace-nowrap border-b-2 px-3 text-xs font-strong transition-colors',
+                  surfaceModuleNavigationItemClass,
+                  'whitespace-nowrap',
                   isActive
-                    ? 'border-indigo text-tx-0'
-                    : 'border-transparent text-tx-2 hover:bg-bg-2 hover:text-tx-0 focus-visible:bg-bg-2',
+                    ? surfaceModuleNavigationActiveClass
+                    : 'text-tx-2',
                 )
               }
             >
@@ -185,7 +187,7 @@ export function StatusPageWorkspaceLayout() {
         </nav>
       </div>
       {page.lifecycle === 'archived' && (
-        <div className="border-b border-yellow/25 bg-yellow-dim px-6 py-2 text-xs text-yellow-soft">
+        <div className="mx-[20px] mb-[12px] rounded-md bg-yellow-dim px-4 py-2 text-xs text-yellow-soft">
           {t('states.archived_read_only')}
         </div>
       )}

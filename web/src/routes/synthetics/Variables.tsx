@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { DataTable, type DataTableColumn } from '@/admin';
 import * as syntheticsApi from '@/api/synthetics';
 import type { SyntheticSecret } from '@/api/synthetics';
+import { writeClipboardText } from '@/lib/clipboard';
 import { toApiError } from '@/lib/http';
 import { hasPermission, useProductAccess } from '@/product/access';
 import { ChromeButton, IconButton } from '@/shell/chrome';
@@ -113,5 +114,5 @@ function SecretDrawer({ open, onOpenChange, secret, onSaved }: { open: boolean; 
 function CopyVariable({ value }: { value: string }) {
   const [copied, setCopied] = React.useState(false);
   const { t } = useTranslation('synthetics');
-  return <CopyIconButton label={t('actions.copy_value', { value })} copied={copied} onClick={() => void navigator.clipboard.writeText(value).then(() => { setCopied(true); window.setTimeout(() => setCopied(false), 1500); })} tooltipSide="left" />;
+  return <CopyIconButton label={t('actions.copy_value', { value })} copied={copied} onClick={() => void writeClipboardText(value).then(() => { setCopied(true); window.setTimeout(() => setCopied(false), 1500); })} tooltipSide="left" />;
 }

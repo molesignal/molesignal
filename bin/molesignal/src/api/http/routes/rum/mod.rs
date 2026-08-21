@@ -66,7 +66,7 @@ async fn intake_stream(
         batch_id: Id::new(),
         org_id: ctx.org_id.clone(),
         stream: stream.to_string(),
-        stream_type: StreamType::Logs,
+        stream_type: StreamType::LOGS,
         events,
         received_at: TimestampMicros::now(),
     };

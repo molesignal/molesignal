@@ -112,8 +112,8 @@ Vector / Fluent Bit / OTel Collector / Prometheus remote_write 等完整对接�
 - **查询引擎** —— 完整 SQL，含 join / CTE / window function，跨 logs / metrics / traces
 - **PromQL 子集** —— `rate` / `increase` / `sum/avg/min/max/count by/without` / `histogram_quantile`（[路线图](docs/promql_subset.md)）
 - **Arrow Flight 分布式查询** —— coordinator 按一致性哈希分片，peer 流式回传 `RecordBatch`
-- **3 级缓存** —— `parquet_file_meta` / `parquet_meta` / `query_result`，外加默认开启的 parquet 磁盘缓存（`./data/cache/parquet`，10 GB LRU；通过 `[cache.disk_cache]` 调整或关闭）
-- **ParquetFileMeta 冷分层** —— 超过 `[storage.parquet_file_meta_dump].cold_after_days`（默认 30 天）的分区被序列化下沉到 object_store，主元数据表始终保持小；查询路径自动跨冷热合并
+- **统一对象缓存** —— 所有远端 Artifact / Manifest range read 共享按 checksum 绑定的固定块缓存（`[cache.object]`），本地文件系统自动旁路
+- **版本化 FileCatalog** —— 冷分区以 immutable manifest 的 sealed base + overlay generation 管理；查询在同一快照中合并 manifest、热 Catalog segment 与实时 buffer
 
 ### 📊 仪表盘
 
@@ -194,7 +194,7 @@ Vector / Fluent Bit / OTel Collector / Prometheus remote_write 等完整对接�
                        ┌──────────────┐                             │
                        │   web shell  │                             ▼
                        │ (⌘K + 调查栈) │       ┌────────────────────────────┐
-                       └──────┬───────┘       │ ParquetFileMeta in Postgres       │
+                       └──────┬───────┘       │ FileCatalog in Postgres     │
                               │ /query        │ object_store in S3/GCS/... │
                               ▼               └────────────────────────────┘
                        ┌──────────────┐                  ▲

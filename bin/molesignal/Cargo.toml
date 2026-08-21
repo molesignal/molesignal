@@ -132,6 +132,7 @@ tracing-subscriber.workspace = true
 url.workspace = true
 percent-encoding.workspace = true
 ipnet.workspace = true
+libc = "0.2"
 uuid.workspace = true
 vrl.workspace = true
 x509-cert.workspace = true
@@ -148,7 +149,6 @@ js-runtime = ["function-runtime/js-runtime", "postgres/js-runtime"]
 
 [dev-dependencies]
 criterion = "0.8"
-libc = "0.2"
 rcgen = "0.14"
 testcontainers.workspace = true
 testcontainers-modules.workspace = true

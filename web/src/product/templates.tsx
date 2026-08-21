@@ -14,6 +14,11 @@ import {
 import { cn } from '@/shell/lib/cn';
 import { PageBody, PageHeader } from '@/shell/PageHeader';
 import {
+  surfacePageRootClass,
+  SurfacePageBody,
+  SurfacePageHeader,
+} from '@/shell/SurfaceWorkbench';
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -38,6 +43,7 @@ interface ProductPageFrameProps {
   headerIcon?: LucideIcon | null | undefined;
   bodyClassName?: string | undefined;
   padded?: boolean | undefined;
+  appearance?: 'default' | 'surface' | undefined;
 }
 
 interface OverviewPageProps extends ProductPageFrameProps {
@@ -111,12 +117,18 @@ export function ListPage({
   stateClassName,
   children,
   bodyClassName,
+  appearance = 'default',
   ...frame
 }: ListPageProps) {
+  const surface = appearance === 'surface';
   return (
     <ProductPageFrame
       {...frame}
-      bodyClassName={cn(cardless ? 'space-y-0' : 'space-y-4', bodyClassName)}
+      appearance={appearance}
+      bodyClassName={cn(
+        cardless ? 'space-y-0' : surface ? 'space-y-[12px]' : 'space-y-4',
+        bodyClassName,
+      )}
     >
       <KpiStrip
         items={kpis}
@@ -124,6 +136,9 @@ export function ListPage({
         className={cn(
           cardless
             && 'gap-0 border-b border-bd-0 bg-bg-0 [&>div]:min-h-[92px] [&>div]:rounded-none [&>div]:border-0 [&>div]:bg-transparent [&>div]:px-4 [&>div]:py-3',
+          surface
+            && !cardless
+            && 'gap-[12px] [&>div]:border-0 [&>div]:bg-[var(--functional-surface)] [&>div]:[box-shadow:var(--shadow-functional-surface)]',
           kpiClassName,
         )}
       />
@@ -131,13 +146,22 @@ export function ListPage({
         className={cn(
           cardless
             ? 'rounded-none border-x-0 border-t-0 bg-transparent p-0 px-4 py-2'
+            : surface
+              ? 'rounded-md border-0 bg-[var(--functional-surface)] p-[12px] [box-shadow:var(--shadow-functional-surface)]'
             : undefined,
           filterClassName,
         )}
       >
         {filters}
       </FilterArea>
-      <ActionBar className={cardless ? 'bg-transparent px-4 py-2' : undefined}>
+      <ActionBar
+        className={cn(
+          cardless && 'bg-transparent px-4 py-2',
+          surface
+            && !cardless
+            && 'rounded-md border-0 bg-[var(--functional-surface)] px-[12px] py-[8px] [box-shadow:var(--shadow-functional-surface)]',
+        )}
+      >
         {actionBar}
       </ActionBar>
       {state ? (
@@ -146,22 +170,53 @@ export function ListPage({
           className={cn(
             cardless
               && 'rounded-none border-x-0 border-t-0 border-solid border-bd-0 bg-transparent',
+            surface
+              && !cardless
+              && 'rounded-md border-0 bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]',
             stateClassName,
             state.className,
           )}
         />
-      ) : children}
+      ) : surface && !cardless ? (
+        <div
+          data-list-surface
+          className="min-w-0 overflow-hidden rounded-md bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]"
+        >
+          {children}
+        </div>
+      ) : (
+        children
+      )}
     </ProductPageFrame>
   );
 }
 
-export function DetailPage({ metadata, state, children, bodyClassName, ...frame }: DetailPageProps) {
+export function DetailPage({
+  metadata,
+  state,
+  children,
+  bodyClassName,
+  appearance = 'default',
+  ...frame
+}: DetailPageProps) {
+  const surface = appearance === 'surface';
   return (
-    <ProductPageFrame {...frame} padded={false}>
-      <MetadataStrip items={metadata} />
-      <PageBody className={cn('space-y-6', bodyClassName)}>
-        {state ? <ProductState {...state} /> : children}
-      </PageBody>
+    <ProductPageFrame {...frame} appearance={appearance} padded={false}>
+      <MetadataStrip
+        items={metadata}
+        className={surface
+          ? 'mx-[20px] mb-[12px] rounded-md border-0 bg-[var(--functional-surface)] px-[12px] [box-shadow:var(--shadow-functional-surface)]'
+          : undefined}
+      />
+      {surface ? (
+        <SurfacePageBody className={cn('space-y-[12px]', bodyClassName)}>
+          {state ? <ProductState {...state} /> : children}
+        </SurfacePageBody>
+      ) : (
+        <PageBody className={cn('space-y-6', bodyClassName)}>
+          {state ? <ProductState {...state} /> : children}
+        </PageBody>
+      )}
     </ProductPageFrame>
   );
 }
@@ -209,6 +264,7 @@ export function ManagementPage({
   children,
   bodyClassName,
   sectionNavigation,
+  appearance = 'default',
   ...frame
 }: ManagementPageProps) {
   const { t } = useTranslation('shell');
@@ -223,8 +279,10 @@ export function ManagementPage({
   return (
     <ProductPageFrame
       {...frame}
+      appearance={appearance}
       bodyClassName={cn(
-        'grid gap-6',
+        'grid',
+        appearance === 'surface' ? 'gap-[12px]' : 'gap-6',
         sections &&
           (collapsed && fullyHidden
             ? 'lg:grid-cols-1'
@@ -243,7 +301,12 @@ export function ManagementPage({
               onClick={toggle}
               aria-label={expandLabel}
               title={expandLabel}
-              className="sticky top-6 hidden h-9 w-9 place-items-center rounded-md border border-bd-0 bg-bg-1 text-tx-2 hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-bg-3 lg:grid"
+              className={cn(
+                'sticky top-6 hidden h-9 w-9 place-items-center rounded-md text-tx-2 hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-bg-3 lg:grid',
+                appearance === 'surface'
+                  ? 'border-0 bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]'
+                  : 'border border-bd-0 bg-bg-1',
+              )}
             >
               <PanelLeftOpen className="h-4 w-4" />
             </button>
@@ -271,13 +334,24 @@ export function ManagementPage({
                 <PanelLeftClose className="h-3.5 w-3.5" />
               </button>
             )}
-            {sections}
+            <div
+              className={cn(
+                appearance === 'surface' &&
+                  'rounded-md bg-[var(--functional-surface)] p-[12px] [box-shadow:var(--shadow-functional-surface)]',
+              )}
+            >
+              {sections}
+            </div>
           </aside>
         ))}
       <div
         data-management-content
         data-sections-collapsed={collapsed && fullyHidden ? 'true' : 'false'}
-        className="relative min-w-0"
+        className={cn(
+          'relative min-w-0',
+          appearance === 'surface' &&
+            'rounded-md bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]',
+        )}
       >
         {collapsed && fullyHidden && (
           <div className="absolute -left-5 top-0 z-10 hidden h-full lg:block">
@@ -333,22 +407,37 @@ function ProductPageFrame({
   headerIcon,
   bodyClassName,
   padded = true,
+  appearance = 'default',
 }: ProductPageFrameProps) {
+  const surface = appearance === 'surface';
+  const headerProps = {
+    title,
+    subtitle,
+    toolbar,
+    breadcrumbs,
+    backTo,
+    className: headerClassName,
+    compact: headerCompact,
+    moduleIcon: headerIcon,
+  };
+
   return (
-    <div className={className}>
-      <PageHeader
-        title={title}
-        subtitle={subtitle}
-        toolbar={toolbar}
-        breadcrumbs={breadcrumbs}
-        backTo={backTo}
-        className={headerClassName}
-        compact={headerCompact}
-        moduleIcon={headerIcon}
-      />
+    <div
+      data-page-appearance={appearance}
+      className={cn(surface && surfacePageRootClass, className)}
+    >
+      {surface ? (
+        <SurfacePageHeader {...headerProps} />
+      ) : (
+        <PageHeader {...headerProps} />
+      )}
       {subnav}
       {padded ? (
-        <PageBody className={bodyClassName}>{children}</PageBody>
+        surface ? (
+          <SurfacePageBody className={bodyClassName}>{children}</SurfacePageBody>
+        ) : (
+          <PageBody className={bodyClassName}>{children}</PageBody>
+        )
       ) : (
         children
       )}

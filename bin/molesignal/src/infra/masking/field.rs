@@ -82,7 +82,7 @@ impl FieldMaskingService {
                 {
                     match self
                         .streams
-                        .get(&request.org_id, &name, StreamType::Metrics)
+                        .get(&request.org_id, &name, StreamType::METRICS)
                         .await
                     {
                         Ok(definition) => definitions.push(definition),
@@ -96,7 +96,7 @@ impl FieldMaskingService {
                         .get(
                             &request.org_id,
                             MOLESIGNAL_SYSTEM_STREAM,
-                            StreamType::Metrics,
+                            StreamType::METRICS,
                         )
                         .await
                     {
@@ -155,7 +155,7 @@ impl FieldMaskingService {
             .query_definitions(request)
             .await?
             .into_iter()
-            .filter(|definition| definition.stream_type != StreamType::Metrics)
+            .filter(|definition| definition.stream_type != StreamType::METRICS)
             .collect::<Vec<_>>();
         if definitions.is_empty() {
             return Ok(HashMap::new());
@@ -181,11 +181,12 @@ impl FieldMaskingService {
 
 fn sql_join_stream_type_rank(stream_type: StreamType) -> Option<u8> {
     match stream_type {
-        StreamType::Logs => Some(0),
-        StreamType::Metrics => Some(1),
-        StreamType::Traces => Some(2),
-        StreamType::Extend => Some(3),
-        StreamType::Profiles => None,
+        StreamType::LOGS => Some(0),
+        StreamType::METRICS => Some(1),
+        StreamType::TRACES => Some(2),
+        StreamType::EXTEND => Some(3),
+        StreamType::PROFILES => None,
+        _ => None,
     }
 }
 
@@ -194,7 +195,7 @@ fn resolve_effective(
     stream_overrides: &[crate::domain::masking::FieldMaskingOverride],
     rules: &[FieldMaskingRule],
 ) -> EffectiveFieldMasking {
-    if definition.stream_type == StreamType::Metrics {
+    if definition.stream_type == StreamType::METRICS {
         return EffectiveFieldMasking {
             stream_id: definition.id.clone(),
             fields: definition
@@ -283,7 +284,7 @@ impl FieldMaskingProvider for FieldMaskingService {
         if &definition.org_id != org_id {
             return Err(crate::shared::Error::not_found("stream"));
         }
-        if definition.stream_type == StreamType::Metrics {
+        if definition.stream_type == StreamType::METRICS {
             return Ok(resolve_effective(&definition, &[], &[]));
         }
         let rules = self.rules.list(org_id).await?;
@@ -500,7 +501,7 @@ mod tests {
             id: Id::from_string("stream"),
             org_id: Id::from_string("org"),
             name: "customers".into(),
-            stream_type: StreamType::Logs,
+            stream_type: StreamType::LOGS,
             schema: Schema {
                 fields: ["email", "token", "untouched"]
                     .into_iter()
@@ -601,7 +602,7 @@ mod tests {
     #[test]
     fn metrics_never_have_effective_field_masking() {
         let mut definition = masking_definition();
-        definition.stream_type = StreamType::Metrics;
+        definition.stream_type = StreamType::METRICS;
         let rules = vec![masking_rule(
             "all",
             "all fields",

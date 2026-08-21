@@ -7,9 +7,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    domain::{
-        metrics::PrometheusExemplarQueryResult, storage::PhysicalDatasetKind, stream::StreamType,
-    },
+    domain::{metrics::PrometheusExemplarQueryResult, storage::DatasetTypeId, stream::StreamType},
     shared::{
         Error, Result,
         ids::Id,
@@ -139,13 +137,19 @@ pub trait QueryEngine: Send + Sync {
     async fn execute_dataset(
         &self,
         req: QueryRequest,
-        dataset_kind: PhysicalDatasetKind,
+        dataset_type: DatasetTypeId,
     ) -> Result<QueryResult> {
-        if dataset_kind == PhysicalDatasetKind::Raw {
+        let primary = match req.stream.as_ref() {
+            Some(stream) => Some(crate::domain::storage::primary_dataset_type(
+                stream.stream_type,
+            )?),
+            None => None,
+        };
+        if primary.as_ref() == Some(&dataset_type) {
             self.execute(req).await
         } else {
             Err(Error::invalid(format!(
-                "query engine does not support physical dataset `{dataset_kind}`"
+                "query engine does not support physical dataset `{dataset_type}`"
             )))
         }
     }

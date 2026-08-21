@@ -3,8 +3,6 @@ import {
   Bell,
   BookOpen,
   Bot,
-  Check,
-  ChevronDown,
   CreditCard,
   HelpCircle,
   Info,
@@ -51,6 +49,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
@@ -67,9 +67,15 @@ interface TopbarProps {
   onToggleSidebar: () => void;
   onPaletteOpen: () => void;
   onNocOpen: () => void;
+  surfaceWorkbench?: boolean;
 }
 
-export function Topbar({ onToggleSidebar, onPaletteOpen, onNocOpen }: TopbarProps) {
+export function Topbar({
+  onToggleSidebar,
+  onPaletteOpen,
+  onNocOpen,
+  surfaceWorkbench = false,
+}: TopbarProps) {
   const { t, i18n } = useTranslation([
     'shell',
     'common',
@@ -87,6 +93,7 @@ export function Topbar({ onToggleSidebar, onPaletteOpen, onNocOpen }: TopbarProp
   const switchOrg = useOrgStore((s) => s.switchOrg);
   const toggleMoleAgent = useMoleAgentStore((s) => s.toggle);
   const [aboutOpen, setAboutOpen] = React.useState(false);
+  const [workspaceSwitcherOpen, setWorkspaceSwitcherOpen] = React.useState(false);
   const profileQuery = useQuery({
     queryKey: ['me', 'profile'],
     queryFn: () => meApi.profile(),
@@ -185,7 +192,12 @@ export function Topbar({ onToggleSidebar, onPaletteOpen, onNocOpen }: TopbarProp
   return (
     <header
       role="banner"
-      className="fixed inset-x-0 top-0 z-50 flex h-topbar min-w-0 items-center gap-3 overflow-hidden border-b border-bd-0 bg-bg-1 px-4"
+      className={cn(
+        'fixed inset-x-0 top-0 z-50 flex h-topbar min-w-0 items-center gap-3 overflow-hidden px-4',
+        surfaceWorkbench
+          ? 'border-b-0 bg-[var(--app-header-surface)] shadow-sm'
+          : 'border-b border-bd-0 bg-bg-1',
+      )}
     >
       {/* brand */}
       <button
@@ -209,54 +221,13 @@ export function Topbar({ onToggleSidebar, onPaletteOpen, onNocOpen }: TopbarProp
         <PanelLeft className="h-3.5 w-3.5" />
       </IconBtn>
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            className="flex h-9 max-w-[180px] items-center gap-2 rounded-md border border-bd-1 bg-bg-2 px-3 font-sans text-sm font-semibold text-tx-0 transition-colors hover:bg-bg-3 focus:outline-none focus-visible:bg-bg-3 focus-visible:text-indigo focus-visible:outline-none sm:max-w-[240px]"
-            data-testid="org-switcher"
-            aria-label={t('shell:chrome.org_switcher')}
-            title={t('shell:chrome.org_switcher')}
-          >
-            <span className="truncate text-indigo-soft">{orgLabel}</span>
-            <ChevronDown className="h-3 w-3 shrink-0 text-tx-2" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="min-w-[220px]">
-          <DropdownMenuLabel>{t('shell:chrome.org_switcher')}</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          {orgOptions.map((org) => {
-            const isCurrent = org.id === currentOrgId;
-            return (
-              <DropdownMenuItem
-                key={org.id}
-                data-current={isCurrent ? 'true' : undefined}
-                disabled={org.disabled}
-                onSelect={() => void handleSwitchOrg(org.id)}
-              >
-                <span className="flex w-4 items-center justify-center">
-                  {isCurrent && <Check className="h-3.5 w-3.5" />}
-                </span>
-                <span className="truncate">{org.name}</span>
-                {org.disabled && (
-                  <span className="ml-auto text-xs text-tx-3">
-                    {t('common:status.disabled')}
-                  </span>
-                )}
-              </DropdownMenuItem>
-            );
-          })}
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      {/* Global search — the product's "launch anything" surface.
-           Subtle indigo-hinted border on hover signals this isn't just
-           another input; it's the universal entry point (⌘K). */}
+      {/* Global search — the product's "launch anything" control surface. */}
       <button
         type="button"
         onClick={onPaletteOpen}
-        className="flex h-9 min-w-9 flex-1 items-center gap-2.5 rounded-md border border-bd-1 bg-bg-2 px-3 text-left text-tx-2 transition-colors duration-fast ease-default hover:border-bd-2 hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none sm:max-w-[560px]"
+        className="flex h-9 min-w-9 flex-1 items-center gap-2.5 rounded-md border-0 bg-bg-2 px-3 text-left text-tx-2 transition-colors duration-fast ease-default hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none sm:max-w-[720px]"
         aria-label={t('shell:chrome.command_palette')}
+        data-ui="search-control"
         data-testid="command-palette-trigger"
       >
         <Search className="h-4 w-4" />
@@ -313,7 +284,11 @@ export function Topbar({ onToggleSidebar, onPaletteOpen, onNocOpen }: TopbarProp
           {theme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
         </IconBtn>
         <SystemStatusIndicator compact className="ml-1 mr-3" />
-        <DropdownMenu>
+        <DropdownMenu
+          onOpenChange={(open) => {
+            if (!open) setWorkspaceSwitcherOpen(false);
+          }}
+        >
           <DropdownMenuTrigger asChild>
             <button
               type="button"
@@ -330,7 +305,8 @@ export function Topbar({ onToggleSidebar, onPaletteOpen, onNocOpen }: TopbarProp
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="end"
-            className="w-[300px] rounded-xl p-1.5"
+            data-ui="user-menu"
+            className="w-[300px] p-1.5 shadow-none"
           >
             <DropdownMenuLabel className="px-3 py-3">
               <div className="flex min-w-0 items-center gap-3">
@@ -366,15 +342,29 @@ export function Topbar({ onToggleSidebar, onPaletteOpen, onNocOpen }: TopbarProp
               {t('shell:user_menu.current_workspace')}
             </DropdownMenuLabel>
             {orgOptions.length > 1 ? (
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger className="mx-1 min-h-10 rounded-md px-2 py-2">
+              <DropdownMenuSub
+                open={workspaceSwitcherOpen}
+                onOpenChange={setWorkspaceSwitcherOpen}
+              >
+                <DropdownMenuSubTrigger
+                  data-ui="workspace-switcher-trigger"
+                  data-selected={workspaceSwitcherOpen ? 'true' : undefined}
+                  className="mx-1 min-h-10 rounded-md bg-transparent px-2 py-2 shadow-none transition-none hover:bg-[var(--floating-item-hover)]"
+                  onClick={() => setWorkspaceSwitcherOpen(true)}
+                  style={{
+                    backgroundColor: workspaceSwitcherOpen
+                      ? 'var(--workspace-selection-fill)'
+                      : undefined,
+                    boxShadow: 'none',
+                  }}
+                >
                   <span className="flex min-w-0 flex-1 items-center gap-2">
                     <span className="truncate font-sans text-sm font-strong text-tx-0">
                       {currentOrgName}
                     </span>
                     <span
                       data-testid="current-workspace-role"
-                      className="type-micro shrink-0 rounded-full border border-bd-0 bg-bg-3 px-2 py-0.5 font-sans font-strong text-tx-2"
+                      className="type-micro shrink-0 rounded-full bg-bg-4 px-2 py-0.5 font-sans font-strong text-tx-1"
                     >
                       {role}
                     </span>
@@ -383,40 +373,47 @@ export function Topbar({ onToggleSidebar, onPaletteOpen, onNocOpen }: TopbarProp
                     {t('shell:user_menu.switch_workspace')}
                   </span>
                 </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="w-60">
+                <DropdownMenuSubContent
+                  data-ui="workspace-switcher-menu"
+                  className="w-60 shadow-none"
+                  sideOffset={12}
+                >
                   <DropdownMenuLabel>
                     {t('shell:user_menu.current_workspace')}
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  {orgOptions.map((org) => {
-                    const isCurrent = org.id === currentOrgId;
-                    const orgRole = org.display_role ?? (isCurrent ? role : null);
-                    return (
-                      <DropdownMenuItem
-                        key={org.id}
-                        className="min-h-10 rounded-md"
-                        disabled={org.disabled}
-                        onSelect={() => void handleSwitchOrg(org.id)}
-                      >
-                        <span className="flex w-4 items-center justify-center">
-                          {isCurrent && <Check className="h-3.5 w-3.5" />}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate">
-                          {org.name}
-                        </span>
-                        {orgRole && (
-                          <span className="type-micro rounded-full bg-bg-3 px-1.5 py-0.5 font-sans text-tx-3">
-                            {orgRole}
+                  <DropdownMenuRadioGroup
+                    value={currentOrgId ?? ''}
+                    onValueChange={(id) => void handleSwitchOrg(id)}
+                  >
+                    {orgOptions.map((org) => {
+                      const isCurrent = org.id === currentOrgId;
+                      const orgRole = org.display_role ?? (isCurrent ? role : null);
+                      return (
+                        <DropdownMenuRadioItem
+                          key={org.id}
+                          value={org.id}
+                          data-ui="workspace-option"
+                          className="min-h-10 rounded-md"
+                          disabled={org.disabled}
+                        >
+                          <span className="min-w-0 flex-1 truncate font-sans text-sm font-strong">
+                            {org.name}
                           </span>
-                        )}
-                        {org.disabled && (
-                          <span className="type-micro text-tx-3">
-                            {t('common:status.disabled')}
-                          </span>
-                        )}
-                      </DropdownMenuItem>
-                    );
-                  })}
+                          {orgRole && (
+                            <span className="type-micro rounded-full bg-bg-4 px-1.5 py-0.5 font-sans text-tx-1">
+                              {orgRole}
+                            </span>
+                          )}
+                          {org.disabled && (
+                            <span className="type-micro text-tx-3">
+                              {t('common:status.disabled')}
+                            </span>
+                          )}
+                        </DropdownMenuRadioItem>
+                      );
+                    })}
+                  </DropdownMenuRadioGroup>
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
             ) : (

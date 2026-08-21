@@ -341,7 +341,7 @@ mod tests {
             &dispatcher,
             &Id("o1".into()),
             "logs_5m",
-            StreamType::Logs,
+            StreamType::LOGS,
             &steps,
             rows,
         )
@@ -381,7 +381,7 @@ mod tests {
             &dispatcher,
             &Id("o1".into()),
             "out",
-            StreamType::Logs,
+            StreamType::LOGS,
             &steps,
             rows,
         )
@@ -411,7 +411,7 @@ mod tests {
             &dispatcher,
             &Id("o1".into()),
             "out",
-            StreamType::Logs,
+            StreamType::LOGS,
             &steps,
             vec![json!({})],
         )
@@ -437,7 +437,7 @@ mod tests {
             &dispatcher,
             &Id("o1".into()),
             "out",
-            StreamType::Logs,
+            StreamType::LOGS,
             &json!({}),
             vec![json!({ "a": 1 }), json!({ "a": 2 })],
         )

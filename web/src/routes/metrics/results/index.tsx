@@ -33,16 +33,16 @@ export function MetricsExploreResults({
 
   return (
     <div
-      className="flex min-h-0 flex-1 flex-col overflow-auto bg-bg-0 px-3 pb-3 pt-2"
+      className="flex min-h-0 flex-1 flex-col overflow-auto bg-[var(--page-canvas)] px-[20px] pb-[20px]"
       data-testid="metrics-workspace"
     >
       <section
         className={cn(
-          'flex min-h-[480px] flex-col overflow-hidden rounded-md border border-bd-0 bg-bg-1',
+          'flex min-h-[480px] flex-col overflow-hidden rounded-md bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]',
           activeView === 'graph' ? 'shrink-0' : 'flex-1',
         )}
       >
-        <div className="flex min-h-11 shrink-0 flex-wrap items-center border-b border-bd-0 bg-bg-2/50">
+        <div className="flex min-h-11 shrink-0 flex-wrap items-center bg-transparent px-2">
           <div className="flex min-w-0 flex-1 overflow-x-auto" role="tablist">
             {(
               [
@@ -62,10 +62,10 @@ export function MetricsExploreResults({
                     onPreferredViewChange(id);
                   }
                 }}
-                className={`m-1 h-9 shrink-0 rounded-md px-3 font-sans text-xs font-semibold transition-colors focus-visible:bg-bg-3 ${
+                className={`relative h-11 shrink-0 rounded-none px-3 font-sans text-xs font-semibold transition-colors after:absolute after:inset-x-3 after:bottom-0 after:h-[2px] after:rounded-t after:bg-transparent hover:text-tx-0 focus-visible:bg-bg-2 ${
                   activeView === id
-                    ? 'bg-bg-4 text-tx-0'
-                    : 'text-tx-2 hover:bg-bg-3 hover:text-tx-0'
+                    ? 'text-indigo-soft after:bg-indigo'
+                    : 'text-tx-2'
                 }`}
               >
                 {label}

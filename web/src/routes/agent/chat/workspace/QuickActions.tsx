@@ -100,7 +100,10 @@ export function QuickActions({ displayName, onPrime }: QuickActionsProps) {
         <h3 className="type-micro font-strong uppercase tracking-[0.08em] text-tx-3">
           {t('quick_title')}
         </h3>
-        <div className="mt-2 divide-y divide-bd-0 border-y border-bd-0">
+        <div
+          data-testid="agent-quick-actions"
+          className="mt-2 divide-y divide-bd-0 border-y border-bd-0"
+        >
           {suggestions.map((suggestion) => (
             <button
               key={suggestion.key}

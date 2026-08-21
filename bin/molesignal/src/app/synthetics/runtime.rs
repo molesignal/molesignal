@@ -24,7 +24,12 @@ pub struct ProcessResultOutcome {
 
 #[async_trait]
 pub trait SyntheticTransitionSink: Send + Sync {
-    async fn on_transition(&self, transition: &SyntheticStateTransition) -> Result<()>;
+    async fn on_transition(
+        &self,
+        transition: &SyntheticStateTransition,
+        alert_on_degraded: bool,
+        alert_on_flaky: bool,
+    ) -> Result<()>;
 }
 
 impl SyntheticService {
@@ -174,7 +179,7 @@ impl SyntheticService {
         if result.is_test {
             if matches!(
                 result.outcome,
-                ProbeOutcome::Healthy | ProbeOutcome::Degraded
+                ProbeOutcome::Healthy | ProbeOutcome::Flaky | ProbeOutcome::Degraded
             ) {
                 self.repository
                     .mark_revision_tested(
@@ -257,7 +262,12 @@ impl SyntheticService {
                     created_at: result.received_at,
                 })
                 .await?;
-            self.emit_transition(&transition).await;
+            self.emit_transition(
+                &transition,
+                active.revision.alert_on_degraded,
+                active.revision.alert_on_flaky,
+            )
+            .await;
             Some(transition)
         } else {
             None
@@ -290,9 +300,20 @@ impl SyntheticService {
         self.repository.list_results_page(org_id, query).await
     }
 
-    async fn emit_transition(&self, transition: &SyntheticStateTransition) {
+    pub async fn get_result(&self, org_id: &Id, result_id: &Id) -> Result<SyntheticResult> {
+        self.repository.get_result(org_id, result_id).await
+    }
+
+    async fn emit_transition(
+        &self,
+        transition: &SyntheticStateTransition,
+        alert_on_degraded: bool,
+        alert_on_flaky: bool,
+    ) {
         if let Some(sink) = &self.transition_sink
-            && let Err(error) = sink.on_transition(transition).await
+            && let Err(error) = sink
+                .on_transition(transition, alert_on_degraded, alert_on_flaky)
+                .await
         {
             tracing::error!(
                 monitor_id = %transition.monitor_id,
@@ -316,6 +337,7 @@ fn historical(result: SyntheticResult) -> ProcessResultOutcome {
 fn outcome_state(outcome: ProbeOutcome) -> MonitorState {
     match outcome {
         ProbeOutcome::Healthy => MonitorState::Healthy,
+        ProbeOutcome::Flaky => MonitorState::Flaky,
         ProbeOutcome::Degraded => MonitorState::Degraded,
         ProbeOutcome::Failing => MonitorState::Failing,
         ProbeOutcome::Unknown | ProbeOutcome::Skipped => MonitorState::Unknown,

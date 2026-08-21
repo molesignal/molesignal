@@ -358,6 +358,8 @@ sync_level = "data"
 batch_max_pending = 64
 # Batch 模式两次 sync_* 之间允许的最大间隔，单位毫秒。
 batch_max_delay_ms = 50
+# 启动恢复重放的内存上限（MB）：重放累计超过该值即强制 flush 一次腾空 buffer。
+max_replay_mb = 512
 # 回归旧版"永不 fsync"行为：flush_strategy = "none" 且 sync_level = "none"
 
 [intake]
@@ -482,20 +484,14 @@ query_qps = 100
 # 令牌桶突发倍数（容量 = qps * burst_multiplier）
 burst_multiplier = 2
 
-# === 进程内多级缓存 ===
-# 三层独立 LRU+TTL：parquet_file_meta（ParquetFileMeta 列表）/ parquet_meta（ParquetMetaData + Tantivy IndexHandle）/
-# query_result（SQL 查询结果，仅对 closed-window 查询启用）。
+# === 进程内与本地对象缓存 ===
+# index_handle / query_result / Tantivy cache 各自使用 LRU+TTL；所有远端 Artifact 与
+# Manifest 的字节读取统一经过 cache.object 固定块缓存。
 # 任一层 capacity = 0 等同关闭该层；命中率经 /metrics 的 cache_<level>_hit_ratio 暴露。
-[cache.parquet_file_meta]
-# ParquetFileMeta 列表缓存的最大条目数；0 表示关闭该层缓存。
-capacity = 100000
-# ParquetFileMeta 列表缓存条目的存活时间，单位秒。
-ttl_secs = 60
-
-[cache.parquet_meta]
-# Parquet metadata 与 Tantivy IndexHandle 缓存的最大条目数；0 表示关闭。
+[cache.index_handle]
+# 已打开 Index Artifact handle 的最大条目数；0 表示关闭。
 capacity = 10000
-# Parquet metadata 缓存条目的存活时间，单位秒。
+# Index handle 缓存条目的存活时间，单位秒。
 ttl_secs = 600
 
 [cache.query_result]
@@ -523,27 +519,16 @@ capacity = 100000
 # Tantivy 归档 footer 缓存条目的存活时间，单位秒。
 ttl_secs = 3600
 
-# Parquet 本地磁盘二级缓存
-# 默认开启：所有 parquet 读取先查本地 NVMe，命中即可避开 object store GET。
-# 关闭方式：把 enabled = false（或 max_size_gb = 0）。
-# 占盘上限：max_size_gb（默认 10 GB），超过后按 LRU 自动淘汰。
-# 自定义目录：dir 指向期望的缓存路径，缓存目录不存在时启动期自动 mkdir -p。
-# 建议放到独立盘 / 单独 quota，避免与 WAL、对象本地存储互踩。
-[cache.disk_cache]
-# Parquet 本地磁盘缓存目录；启用时目录不存在会自动创建。
-dir = "./data/cache/parquet"
-# 0 = 关闭（无独立 enabled 开关）
-max_size_gb = 10
-
-# 冷分区 ParquetFileMeta dump 进程内缓存
-# Key = (org, stream, stream_type, partition_level, partition_key)
-# Value = Arc<Vec<ParquetFileMeta>>。capacity = 0 整层关闭，每次冷查重新 GET + parse dump parquet。
-# Eviction / hit_ratio 经 cache_parquet_file_meta_dump_* 暴露。
-[cache.parquet_file_meta_dump]
-# 冷分区 ParquetFileMeta dump 解析结果缓存的最大条目数；0 表示关闭。
-capacity = 10000
-# 冷分区 ParquetFileMeta dump 缓存条目的存活时间，单位秒。
-ttl_secs = 600
+# 远端 ObjectStore 共享 range-block cache；LocalFileSystem 自动旁路。
+[cache.object]
+enabled = true
+root = "./data/cache/objects"
+max_bytes = 10737418240
+# 可配范围 1–16 MiB，默认 4 MiB。
+block_size_bytes = 4194304
+min_free_bytes = 1073741824
+max_concurrent_fetches = 16
+max_concurrent_fetches_per_object = 4
 
 # SSO（OIDC / SAML / LDAP）配置已完全迁到 DB（sso_providers 表），经管理界面/API 维护；
 # 不再走 config。原 [sso] 段已移除。
@@ -603,26 +588,36 @@ viewport_width = 1280
 # 报告页面渲染 viewport 的高度，单位像素。
 viewport_height = 800
 
-# === ParquetFileMeta 冷分区下沉到 object_store ===
-# 默认开启：每小时把 30 天前的 (org, stream, stream_type, date) 分区的 ParquetFileMeta
-# 行序列化为 parquet 写到 object_store，对应主表行删除。主表始终保持"热窗口"行数。
-# 关闭方式：enabled = false。worker 关掉后已 dump 的对象/索引仍可读，查询回退到只读主表。
-# 首次启动提示：老部署升级后 worker 会陆续把历史冷分区搬到 object_store；
-# 用 max_partitions_per_tick 控制速率防 IO 抖动。
-[storage.parquet_file_meta_dump]
-# 是否启动 ParquetFileMeta 冷分区下沉 worker；关闭后已生成的 dump 仍可读取。
+# === FileCatalog 生命周期与后台维护 ===
+[storage.catalog]
+# 分区结束超过该小时数后写入 immutable manifest；0 表示不封存。
+seal_after_hours = 168
+manifest_cache_bytes = 268435456
+interval_secs = 300
+batch_size = 64
+
+[storage.index]
 enabled = true
-# ParquetFileMeta 分区早于此天数后视为冷数据并允许下沉。
-cold_after_days = 30
-# 冷分区扫描与下沉任务的运行间隔，单位秒；0 按 1 秒处理。
-interval_secs = 3600
-# 单次 tick 最多处理的冷分区数量；0 会停用该 worker。
-max_partitions_per_tick = 100
-# Dump partition 粒度：
-# - "daily"（默认）：dump 按 YYYY-MM-DD 分桶，一份 parquet 覆盖一整天的冷分区行；
-# - "hourly"：dump 按 YYYY-MM-DD-HH 分桶，适合冷查频繁打小时窗口的场景。
-# 同 stream 允许混合粒度共存（切换粒度时已有 daily dump 不重写）。
-partition_level = "daily"
+interval_secs = 30
+batch_size = 64
+max_concurrency = 2
+retry_after_secs = 300
+
+[storage.gc]
+enabled = true
+interval_secs = 30
+# 所有对象先进入延迟删除队列，最终删除前再次检查 Catalog 引用与 checksum。
+grace_period_secs = 3600
+lease_secs = 900
+batch_size = 128
+max_concurrency = 4
+
+[storage.reconciler]
+enabled = true
+interval_secs = 300
+batch_size = 256
+orphan_grace_secs = 86400
+verify_checksums = true
 
 # === Agent ===
 [agent]

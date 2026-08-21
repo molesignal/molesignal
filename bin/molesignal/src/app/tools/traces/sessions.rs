@@ -120,7 +120,7 @@ async fn aggregate_identities(
         QueryLanguage::Sql,
         statement,
         optional_time_range(args.time_range)?,
-        Some((&stream.name, StreamType::Traces)),
+        Some((&stream.name, StreamType::TRACES)),
         limit,
     )
     .await?;
@@ -179,7 +179,7 @@ async fn get_session(
         QueryLanguage::Sql,
         statement,
         optional_time_range(args.time_range)?,
-        Some((&stream.name, StreamType::Traces)),
+        Some((&stream.name, StreamType::TRACES)),
         limit,
     )
     .await?;

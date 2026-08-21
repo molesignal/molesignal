@@ -125,7 +125,18 @@ describe('RecentDashboardsSection', () => {
     const callbacks = renderDashboards([]);
 
     expect(screen.getByText('No dashboards yet')).not.toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'New dashboard' }));
+    const createButton = screen.getByRole('button', { name: 'New' });
+    const viewAllButton = screen.getByRole('button', { name: 'View all' });
+    const header = createButton.closest('.home-canvas-section-header');
+    expect(header).not.toBeNull();
+    expect(viewAllButton.closest('.home-canvas-section-header')).toBe(header);
+    expect(
+      Array.from(header!.querySelectorAll('button')).map((button) =>
+        button.textContent?.trim(),
+      ),
+    ).toEqual(['New', 'View all']);
+
+    fireEvent.click(createButton);
     expect(callbacks.onCreateDashboard).toHaveBeenCalledOnce();
   });
 });

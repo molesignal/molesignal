@@ -6,7 +6,7 @@ use std::str::FromStr;
 use crate::{
     domain::synthetics::{
         BrowserAction, MonitorRevision, MonitorSchedule, MonitorSpec, MultiLocationPolicy,
-        ValueSource,
+        SshAuthentication, ValueSource,
     },
     shared::{Error, Result},
 };
@@ -56,19 +56,153 @@ pub fn validate_revision(revision: &MonitorRevision) -> Result<()> {
             if spec.steps.is_empty() || spec.steps.len() > 100 {
                 return Err(Error::invalid("Browser journeys require 1 to 100 steps"));
             }
+            if spec.viewport.width == 0
+                || spec.viewport.width > 7680
+                || spec.viewport.height == 0
+                || spec.viewport.height > 4320
+            {
+                return Err(Error::invalid(
+                    "Browser viewport is outside the supported range",
+                ));
+            }
+            if spec
+                .user_agent
+                .as_ref()
+                .is_some_and(|value| value.len() > 1024)
+            {
+                return Err(Error::invalid("Browser user agent is too long"));
+            }
+            let screenshot_count = spec
+                .steps
+                .iter()
+                .filter(|step| matches!(&step.action, BrowserAction::Screenshot { .. }))
+                .count();
+            let failure_artifact_count = usize::from(spec.capture_screenshot_on_failure)
+                + usize::from(spec.capture_har_on_failure)
+                + usize::from(spec.capture_trace_on_failure);
+            if screenshot_count + failure_artifact_count > 10 {
+                return Err(Error::invalid(
+                    "Browser journeys cannot configure more than 10 Artifacts per Attempt",
+                ));
+            }
             for step in &spec.steps {
                 match &step.action {
-                    BrowserAction::Navigate { url, .. } => validate_value(url)?,
-                    BrowserAction::Fill { value, .. } | BrowserAction::Select { value, .. } => {
-                        validate_value(value)?
+                    BrowserAction::Navigate { url, wait_until } => {
+                        validate_value(url)?;
+                        if !matches!(
+                            wait_until.to_ascii_lowercase().as_str(),
+                            "" | "load"
+                                | "domcontentloaded"
+                                | "networkidle"
+                                | "network_idle"
+                                | "commit"
+                                | "none"
+                        ) {
+                            return Err(Error::invalid(
+                                "unsupported Browser navigation wait condition",
+                            ));
+                        }
+                    }
+                    BrowserAction::Click { selector }
+                    | BrowserAction::WaitSelector { selector }
+                        if selector.trim().is_empty() =>
+                    {
+                        return Err(Error::invalid("Browser selector cannot be empty"));
+                    }
+                    BrowserAction::Fill { selector, value }
+                    | BrowserAction::Select { selector, value } => {
+                        if selector.trim().is_empty() {
+                            return Err(Error::invalid("Browser selector cannot be empty"));
+                        }
+                        validate_value(value)?;
                     }
                     BrowserAction::WaitDuration { duration_millis }
                         if *duration_millis > 30_000 =>
                     {
                         return Err(Error::invalid("Browser wait cannot exceed 30 seconds"));
                     }
+                    BrowserAction::WaitExpression { expression }
+                        if expression.trim().is_empty() || expression.len() > 64 * 1024 =>
+                    {
+                        return Err(Error::invalid("invalid Browser wait expression"));
+                    }
+                    BrowserAction::Extract {
+                        variable,
+                        selector,
+                        source,
+                    } if variable.trim().is_empty()
+                        || variable.len() > 128
+                        || selector.trim().is_empty()
+                        || source.trim().is_empty() =>
+                    {
+                        return Err(Error::invalid("invalid Browser extraction"));
+                    }
+                    BrowserAction::Screenshot { name, .. }
+                        if name.trim().is_empty() || name.len() > 128 =>
+                    {
+                        return Err(Error::invalid("invalid Browser screenshot name"));
+                    }
                     _ => {}
                 }
+            }
+        }
+        MonitorSpec::Ssh(spec) => {
+            validate_value(&spec.host)?;
+            if spec.port == 0 {
+                return Err(Error::invalid("SSH port must be between 1 and 65535"));
+            }
+            if let Some(pattern) = &spec.expected_identification_regex {
+                regex::Regex::new(pattern).map_err(|error| {
+                    Error::invalid(format!("invalid SSH identification regex: {error}"))
+                })?;
+            }
+            if let Some(pattern) = &spec.expected_output_regex {
+                regex::Regex::new(pattern).map_err(|error| {
+                    Error::invalid(format!("invalid SSH output regex: {error}"))
+                })?;
+            }
+            if spec.authentication.is_some()
+                && spec
+                    .expected_host_key_sha256
+                    .as_ref()
+                    .is_none_or(|fingerprint| {
+                        !regex::Regex::new(r"^SHA256:[A-Za-z0-9+/]{43}$")
+                            .expect("static SSH fingerprint regex")
+                            .is_match(fingerprint)
+                    })
+            {
+                return Err(Error::invalid(
+                    "SSH authentication requires a SHA256 host key fingerprint",
+                ));
+            }
+            if let Some(authentication) = &spec.authentication {
+                match authentication {
+                    SshAuthentication::Password { username, password } => {
+                        validate_nonempty_value(username, "SSH username")?;
+                        validate_nonempty_value(password, "SSH password")?;
+                    }
+                    SshAuthentication::PublicKey {
+                        username,
+                        private_key,
+                        passphrase,
+                    } => {
+                        validate_nonempty_value(username, "SSH username")?;
+                        validate_nonempty_value(private_key, "SSH private key")?;
+                        if let Some(passphrase) = passphrase {
+                            validate_nonempty_value(passphrase, "SSH private key passphrase")?;
+                        }
+                    }
+                }
+            }
+            if let Some(command) = &spec.command {
+                if spec.authentication.is_none() {
+                    return Err(Error::invalid("SSH command requires authentication"));
+                }
+                validate_nonempty_value(command, "SSH command")?;
+            } else if spec.expected_output_regex.is_some() || spec.expected_exit_status.is_some() {
+                return Err(Error::invalid(
+                    "SSH output and exit status expectations require a command",
+                ));
             }
         }
         MonitorSpec::Heartbeat if !revision.location_ids.is_empty() => {
@@ -141,4 +275,12 @@ fn validate_value(value: &ValueSource) -> Result<()> {
         )),
         _ => Ok(()),
     }
+}
+
+fn validate_nonempty_value(value: &ValueSource, label: &str) -> Result<()> {
+    validate_value(value)?;
+    if matches!(value, ValueSource::Literal { value } if value.trim().is_empty()) {
+        return Err(Error::invalid(format!("{label} cannot be empty")));
+    }
+    Ok(())
 }

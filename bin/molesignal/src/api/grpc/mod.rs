@@ -50,9 +50,13 @@ pub async fn serve_probe_grpc(state: AppState, settings: &ProbeGrpcSettings) -> 
         format!("{}:{}", settings.bind, settings.control_port).parse()?;
     let max_recv = (settings.max_message_size_mb as usize).saturating_mul(1024 * 1024);
 
-    let register_service = probe::ProbeGrpc::new(control.clone(), probe::ProbeListener::Register)
-        .into_server()
-        .max_decoding_message_size(max_recv);
+    let register_service = probe::ProbeGrpc::new(
+        control.clone(),
+        state.storage.object_store.clone(),
+        probe::ProbeListener::Register,
+    )
+    .into_server()
+    .max_decoding_message_size(max_recv);
     let register_tls = ServerTlsConfig::new().identity(Identity::from_pem(
         tls.certificate_chain_pem.clone(),
         tls.private_key_pem.clone(),
@@ -68,9 +72,13 @@ pub async fn serve_probe_grpc(state: AppState, settings: &ProbeGrpcSettings) -> 
             .map_err(|error| anyhow::anyhow!("Probe registration gRPC serve: {error}"))
     };
 
-    let control_service = probe::ProbeGrpc::new(control, probe::ProbeListener::Control)
-        .into_server()
-        .max_decoding_message_size(max_recv);
+    let control_service = probe::ProbeGrpc::new(
+        control,
+        state.storage.object_store.clone(),
+        probe::ProbeListener::Control,
+    )
+    .into_server()
+    .max_decoding_message_size(max_recv);
     let control_tls = ServerTlsConfig::new()
         .identity(Identity::from_pem(
             tls.certificate_chain_pem,
@@ -108,8 +116,9 @@ pub async fn serve_grpc(
         .into_server()
         .max_decoding_message_size(max_recv);
     // Flight server 收到 do_get 后用集群默认 store 读分片。
-    let flight = FlightGrpc::new(state.storage.object_store.clone())
-        .with_files(state.storage.parquet_file_meta.clone())
+    let flight = FlightGrpc::new(state.storage.read_store.clone())
+        .with_files(state.storage.catalog_files.clone())
+        .with_catalog_source(state.storage.catalog_query.clone())
         .with_api_tokens(state.iam.api_tokens.clone())
         .with_iam(state.iam.service.clone())
         .with_cancel_registry(state.cluster.federation_cancel.clone())

@@ -1,0 +1,55 @@
+# syntax=docker/dockerfile:1
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 MoleSignal Authors
+
+################ Stage 1: build Probe Agent ################
+# Keep the build on bullseye so the resulting binary retains the repository's
+# GLIBC 2.31 floor while still running on the newer runtime below.
+FROM rust:1.96-bullseye AS rust-builder
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+        ca-certificates cmake protobuf-compiler \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
+COPY .cargo ./.cargo
+COPY bin ./bin
+COPY crates ./crates
+COPY tools ./tools
+COPY proto ./proto
+COPY contracts ./contracts
+RUN cargo build --release --locked --bin probe-agent
+
+################ Stage 2: runtime ################
+# bookworm carries a maintained Chromium package. The Probe Agent binary was
+# built against the older bullseye GLIBC and is forward-compatible with it.
+FROM debian:bookworm-slim
+ARG BUILD_ID=unknown
+ARG GIT_SHA=unknown
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+        ca-certificates dumb-init \
+        chromium chromium-sandbox \
+        fonts-liberation fonts-noto-cjk fonts-noto-color-emoji \
+ && rm -rf /var/lib/apt/lists/* \
+ && groupadd --gid 10001 molesignal \
+ && useradd --uid 10001 --gid molesignal --create-home --shell /usr/sbin/nologin molesignal \
+ && install -d -o molesignal -g molesignal /var/lib/molesignal-probe
+
+ENV CHROME_PATH=/usr/bin/chromium \
+    CHROME=/usr/bin/chromium \
+    HOME=/home/molesignal
+LABEL io.molesignal.build-id="${BUILD_ID}" \
+      org.opencontainers.image.revision="${GIT_SHA}" \
+      org.opencontainers.image.title="MoleSignal Probe Agent"
+
+COPY --from=rust-builder /src/target/release/probe-agent /usr/local/bin/probe-agent
+RUN chmod 0755 /usr/local/bin/probe-agent \
+ && test -x "${CHROME_PATH}" \
+ && "${CHROME_PATH}" --version
+
+VOLUME ["/var/lib/molesignal-probe"]
+USER molesignal
+ENTRYPOINT ["/usr/bin/dumb-init", "--", "probe-agent"]
+CMD ["run"]

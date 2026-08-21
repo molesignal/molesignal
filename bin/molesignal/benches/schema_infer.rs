@@ -71,7 +71,7 @@ fn bench(c: &mut Criterion) {
             black_box(infer_schema_extension(
                 black_box(&empty),
                 black_box(&events),
-                black_box(StreamType::Logs),
+                black_box(StreamType::LOGS),
             ))
         })
     });
@@ -81,7 +81,7 @@ fn bench(c: &mut Criterion) {
             black_box(infer_schema_extension(
                 black_box(&full),
                 black_box(&events),
-                black_box(StreamType::Logs),
+                black_box(StreamType::LOGS),
             ))
         })
     });

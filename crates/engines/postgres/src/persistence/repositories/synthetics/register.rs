@@ -6,9 +6,10 @@ use async_trait::async_trait;
 use super::PgSyntheticRepository;
 use crate::{
     domain::synthetics::{
-        ProbeAgent, ProbeRegisterToken, SyntheticAgentRepository, SyntheticRegisterRepository,
+        ProbeAgent, ProbeRegisterToken, ProbeRegistrationGrant, SyntheticAgentRepository,
+        SyntheticRegisterRepository,
     },
-    shared::{Error, Result, time::TimestampMicros},
+    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 #[async_trait]
@@ -45,21 +46,34 @@ impl SyntheticRegisterRepository for PgSyntheticRepository {
         Ok(token)
     }
 
-    async fn get_register_token(
+    async fn get_registration_grant(
         &self,
         token_hash: &[u8],
         now: TimestampMicros,
-    ) -> Result<ProbeRegisterToken> {
+    ) -> Result<ProbeRegistrationGrant> {
         use sqlx::Row;
 
         let row = sqlx::query(
-            "SELECT token.id, token.location_id, location.organization_id,
-                    token.expires_at_micros, token.created_by, token.created_at_micros
-             FROM synthetic_probe_register_tokens token
-             JOIN synthetic_probe_locations location ON location.id = token.location_id
-             WHERE token.token_hash = $1 AND token.used_at_micros IS NULL
-               AND token.expires_at_micros > $2 AND location.organization_id IS NOT NULL
-               AND location.lifecycle = 'active'",
+            "SELECT grant.organization_id, grant.location_id
+             FROM (
+                 SELECT location.organization_id, token.location_id, 1 AS priority
+                 FROM synthetic_probe_register_tokens token
+                 JOIN synthetic_probe_locations location ON location.id = token.location_id
+                 WHERE token.token_hash = $1 AND token.used_at_micros IS NULL
+                   AND token.expires_at_micros > $2 AND location.organization_id IS NOT NULL
+                   AND location.lifecycle = 'active' AND location.execution = 'agent_pool'
+                 UNION ALL
+                 SELECT token.organization_id, token.location_id, 2 AS priority
+                 FROM synthetic_probe_agent_tokens token
+                 JOIN synthetic_probe_locations location
+                   ON location.organization_id = token.organization_id
+                  AND location.id = token.location_id
+                 WHERE token.token_hash = $1 AND token.status = 'active'
+                   AND (token.expires_at_micros IS NULL OR token.expires_at_micros > $2)
+                   AND location.lifecycle = 'active' AND location.execution = 'agent_pool'
+             ) grant
+             ORDER BY grant.priority
+             LIMIT 1",
         )
         .bind(token_hash)
         .bind(now.0)
@@ -67,25 +81,17 @@ impl SyntheticRegisterRepository for PgSyntheticRepository {
         .await
         .map_err(|error| match error {
             sqlx::Error::RowNotFound => {
-                Error::unauthorized("invalid, expired, or already-used Probe register token")
+                Error::unauthorized("invalid, expired, disabled, or already-used Probe credential")
             }
             other => super::sqlx_err(other),
         })?;
-        Ok(ProbeRegisterToken {
-            id: crate::shared::ids::Id(row.try_get("id").map_err(super::sqlx_err)?),
-            organization_id: crate::shared::ids::Id(
-                row.try_get("organization_id").map_err(super::sqlx_err)?,
-            ),
-            location_id: crate::shared::ids::Id(
-                row.try_get("location_id").map_err(super::sqlx_err)?,
-            ),
-            expires_at: TimestampMicros(row.try_get("expires_at_micros").map_err(super::sqlx_err)?),
-            created_by: crate::shared::ids::Id(row.try_get("created_by").map_err(super::sqlx_err)?),
-            created_at: TimestampMicros(row.try_get("created_at_micros").map_err(super::sqlx_err)?),
+        Ok(ProbeRegistrationGrant {
+            organization_id: Id(row.try_get("organization_id").map_err(super::sqlx_err)?),
+            location_id: Id(row.try_get("location_id").map_err(super::sqlx_err)?),
         })
     }
 
-    async fn consume_register_token(
+    async fn register_probe(
         &self,
         token_hash: &[u8],
         agent: ProbeAgent,
@@ -97,13 +103,14 @@ impl SyntheticRegisterRepository for PgSyntheticRepository {
             ));
         };
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
-        let token_id: Option<String> = sqlx::query_scalar(
+        let register_token_id: Option<String> = sqlx::query_scalar(
             "SELECT token.id
              FROM synthetic_probe_register_tokens token
              JOIN synthetic_probe_locations location ON location.id = token.location_id
              WHERE token.token_hash = $1 AND token.used_at_micros IS NULL
                AND token.expires_at_micros > $2 AND token.location_id = $3
-               AND location.organization_id = $4
+               AND location.organization_id = $4 AND location.lifecycle = 'active'
+               AND location.execution = 'agent_pool'
              FOR UPDATE OF token",
         )
         .bind(token_hash)
@@ -113,11 +120,34 @@ impl SyntheticRegisterRepository for PgSyntheticRepository {
         .fetch_optional(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
-        let Some(token_id) = token_id else {
-            return Err(Error::unauthorized(
-                "invalid, expired, or already-used Probe register token",
-            ));
+        let agent_token_id: Option<String> = if register_token_id.is_none() {
+            sqlx::query_scalar(
+                "SELECT token.id
+                 FROM synthetic_probe_agent_tokens token
+                 JOIN synthetic_probe_locations location
+                   ON location.organization_id = token.organization_id
+                  AND location.id = token.location_id
+                 WHERE token.token_hash = $1 AND token.status = 'active'
+                   AND (token.expires_at_micros IS NULL OR token.expires_at_micros > $2)
+                   AND token.location_id = $3 AND token.organization_id = $4
+                   AND location.lifecycle = 'active' AND location.execution = 'agent_pool'
+                 FOR UPDATE OF token",
+            )
+            .bind(token_hash)
+            .bind(consumed_at.0)
+            .bind(&agent.location_id.0)
+            .bind(&org_id.0)
+            .fetch_optional(&mut *transaction)
+            .await
+            .map_err(super::sqlx_err)?
+        } else {
+            None
         };
+        if register_token_id.is_none() && agent_token_id.is_none() {
+            return Err(Error::unauthorized(
+                "invalid, expired, disabled, or already-used Probe credential",
+            ));
+        }
         sqlx::query(
             "INSERT INTO synthetic_probe_agents
                 (id, location_id, name, hostname, status, agent_version, protocol_version,
@@ -150,16 +180,28 @@ impl SyntheticRegisterRepository for PgSyntheticRepository {
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
-        sqlx::query(
-            "UPDATE synthetic_probe_register_tokens
-             SET used_at_micros = $2, used_by_agent_id = $3 WHERE id = $1",
-        )
-        .bind(token_id)
-        .bind(consumed_at.0)
-        .bind(&agent.id.0)
-        .execute(&mut *transaction)
-        .await
-        .map_err(super::sqlx_err)?;
+        if let Some(token_id) = register_token_id {
+            sqlx::query(
+                "UPDATE synthetic_probe_register_tokens
+                 SET used_at_micros = $2, used_by_agent_id = $3 WHERE id = $1",
+            )
+            .bind(token_id)
+            .bind(consumed_at.0)
+            .bind(&agent.id.0)
+            .execute(&mut *transaction)
+            .await
+            .map_err(super::sqlx_err)?;
+        } else if let Some(token_id) = agent_token_id {
+            sqlx::query(
+                "UPDATE synthetic_probe_agent_tokens
+                 SET last_used_at_micros = $2, updated_at_micros = $2 WHERE id = $1",
+            )
+            .bind(token_id)
+            .bind(consumed_at.0)
+            .execute(&mut *transaction)
+            .await
+            .map_err(super::sqlx_err)?;
+        }
         transaction.commit().await.map_err(super::sqlx_err)?;
         self.get_agent(org_id, &agent.id).await
     }

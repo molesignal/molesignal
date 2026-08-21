@@ -101,6 +101,8 @@ pub(super) async fn execute_tcp(
                 started.elapsed().as_micros().to_string(),
             ),
         ]),
+        evidence: Vec::new(),
+        artifacts: Vec::new(),
     })
 }
 
@@ -153,6 +155,8 @@ pub(super) async fn execute_dns(task: &wire::ProbeTask, spec: &DnsSpec) -> Resul
             "DNS answer did not contain every expected value".into()
         },
         metadata: HashMap::from([("answers".into(), values.join(","))]),
+        evidence: Vec::new(),
+        artifacts: Vec::new(),
     })
 }
 
@@ -230,6 +234,8 @@ pub(super) async fn execute_tls(task: &wire::ProbeTask, spec: &TlsSpec) -> Resul
             ("remaining_days".into(), remaining_days.to_string()),
             ("sans".into(), sans.join(",")),
         ]),
+        evidence: Vec::new(),
+        artifacts: Vec::new(),
     })
 }
 
@@ -300,6 +306,8 @@ pub(super) async fn execute_grpc(
             "gRPC Health service is not serving".into()
         },
         metadata: HashMap::from([("health_status".into(), response.status.to_string())]),
+        evidence: Vec::new(),
+        artifacts: Vec::new(),
     })
 }
 

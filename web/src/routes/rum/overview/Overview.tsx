@@ -166,7 +166,7 @@ export function Overview() {
           >
             {t('overview.compare_previous')}
           </ChromeButton>
-          <TimeRangeChip value={formatWindowSummary(window)} />
+          <TimeRangeChip value={formatWindowSummary(window)} className="border-0" />
           <ChromeButton onClick={refetchAll}>{t('refresh')}</ChromeButton>
         </>
       }
@@ -320,7 +320,7 @@ export function Overview() {
       ) : metrics.sessions === 0 || !data ? (
         <RumOnboarding />
       ) : (
-        <div className="grid gap-6 xl:grid-cols-12">
+        <div className="grid gap-[12px] xl:grid-cols-12">
           <div className="xl:col-span-12">
             {insights ? (
               <ExperienceTrend buckets={insights.trend} range={range} />

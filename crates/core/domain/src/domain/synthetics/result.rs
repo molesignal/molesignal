@@ -12,6 +12,7 @@ use crate::shared::{ids::Id, time::TimestampMicros};
 #[serde(rename_all = "snake_case")]
 pub enum ProbeOutcome {
     Healthy,
+    Flaky,
     Degraded,
     Failing,
     Unknown,
@@ -22,6 +23,7 @@ impl ProbeOutcome {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Healthy => "healthy",
+            Self::Flaky => "flaky",
             Self::Degraded => "degraded",
             Self::Failing => "failing",
             Self::Unknown => "unknown",
@@ -32,6 +34,7 @@ impl ProbeOutcome {
     pub fn parse(value: &str) -> Option<Self> {
         match value {
             "healthy" => Some(Self::Healthy),
+            "flaky" => Some(Self::Flaky),
             "degraded" => Some(Self::Degraded),
             "failing" => Some(Self::Failing),
             "unknown" => Some(Self::Unknown),
@@ -61,6 +64,21 @@ pub struct ProbeAttempt {
     pub error_message: Option<String>,
     pub bounded_response_excerpt: Option<Vec<u8>>,
     pub metadata: BTreeMap<String, String>,
+    #[serde(default)]
+    pub evidence: Vec<ProbeStepEvidence>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProbeStepEvidence {
+    pub step_id: Id,
+    pub name: String,
+    pub action: String,
+    pub started_at: TimestampMicros,
+    pub finished_at: TimestampMicros,
+    pub outcome: ProbeOutcome,
+    pub error_category: Option<String>,
+    pub error_message: Option<String>,
+    pub metadata: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -70,6 +88,20 @@ pub struct AssertionObservation {
     pub passed: bool,
     pub actual: Option<String>,
     pub message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyntheticResultArtifact {
+    pub id: Id,
+    pub name: String,
+    pub kind: String,
+    #[serde(skip, default)]
+    pub object_key: String,
+    pub content_type: String,
+    pub content_length: u64,
+    pub sha256: String,
+    pub expires_at: TimestampMicros,
+    pub created_at: TimestampMicros,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -90,6 +122,8 @@ pub struct SyntheticResult {
     pub outcome: ProbeOutcome,
     pub attempts: Vec<ProbeAttempt>,
     pub assertions: Vec<AssertionObservation>,
+    #[serde(default)]
+    pub artifacts: Vec<SyntheticResultArtifact>,
     pub secret_versions: BTreeMap<String, u32>,
     pub protocol_version: u32,
     pub metadata: BTreeMap<String, String>,

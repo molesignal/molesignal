@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! File-level time bounds, zone maps, and canonical object keys.
+//! File-level time bounds and zone maps.
 
 use arrow::{
     array::{Array, RecordBatch},
@@ -10,15 +10,10 @@ use arrow::{
 };
 
 use crate::{
-    domain::{
-        storage::{PhysicalDatasetKind, hour_partition_path},
-        stream::{StreamDefinition, StreamIndexType, StreamType},
-    },
+    domain::stream::{StreamDefinition, StreamIndexType},
     infra::storage::arrow_schema::TS_COL,
     shared::{
         Error, Result,
-        ids::Id,
-        time::TimestampMicros,
         trace::summary::{
             TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_ERROR_COUNT_FIELD,
             TRACE_SUMMARY_SPAN_COUNT_FIELD, TRACE_SUMMARY_START_NS_FIELD,
@@ -161,36 +156,6 @@ fn finite_f64_extreme(
     extreme
         .and_then(serde_json::Number::from_f64)
         .map(serde_json::Value::Number)
-}
-
-/// `{org}/{stream_type}/{dataset_kind}/{stream}/{YYYY}/{MM}/{DD}/{HH}/{id}.parquet`.
-pub(super) fn object_key(
-    org_id: &Id,
-    stream: &str,
-    stream_type: StreamType,
-    dataset_kind: PhysicalDatasetKind,
-    start_micros: i64,
-) -> String {
-    let partition = hour_partition_path(TimestampMicros(start_micros));
-    format!(
-        "{}/{}/{}/{}/{}/{}.parquet",
-        org_id.0,
-        stream_type_directory(stream_type),
-        dataset_kind.as_str(),
-        stream,
-        partition,
-        Id::new().0
-    )
-}
-
-fn stream_type_directory(stream_type: StreamType) -> &'static str {
-    match stream_type {
-        StreamType::Logs => "logs",
-        StreamType::Metrics => "metrics",
-        StreamType::Traces => "traces",
-        StreamType::Profiles => "profiles",
-        StreamType::Extend => "extend",
-    }
 }
 
 #[cfg(test)]

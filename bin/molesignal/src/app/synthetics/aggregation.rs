@@ -13,18 +13,20 @@ pub fn aggregate_locations(
         return MonitorState::Unknown;
     }
     let mut healthy = 0usize;
+    let mut flaky = 0usize;
     let mut degraded = 0usize;
     let mut failing = 0usize;
     let mut unknown = 0usize;
     for state in states.into_iter().take(expected_locations) {
         match state {
             MonitorState::Healthy => healthy += 1,
+            MonitorState::Flaky => flaky += 1,
             MonitorState::Degraded => degraded += 1,
             MonitorState::Failing => failing += 1,
             MonitorState::Unknown => unknown += 1,
         }
     }
-    unknown += expected_locations.saturating_sub(healthy + degraded + failing + unknown);
+    unknown += expected_locations.saturating_sub(healthy + flaky + degraded + failing + unknown);
     let threshold = match policy {
         MultiLocationPolicy::Any => 1,
         MultiLocationPolicy::Quorum { required } => {
@@ -39,8 +41,14 @@ pub fn aggregate_locations(
     if failing + degraded >= threshold {
         return MonitorState::Degraded;
     }
+    if failing + degraded + flaky >= threshold {
+        return MonitorState::Flaky;
+    }
     // If the missing evidence could still change the threshold verdict, the state is unknown.
-    if failing + unknown >= threshold || failing + degraded + unknown >= threshold {
+    if failing + unknown >= threshold
+        || failing + degraded + unknown >= threshold
+        || failing + degraded + flaky + unknown >= threshold
+    {
         return MonitorState::Unknown;
     }
     if healthy > 0 {
@@ -87,6 +95,30 @@ mod tests {
                 &MultiLocationPolicy::Any,
             ),
             MonitorState::Unknown
+        );
+    }
+
+    #[test]
+    fn flaky_is_a_first_class_aggregate_state() {
+        assert_eq!(
+            aggregate_locations(
+                [
+                    MonitorState::Flaky,
+                    MonitorState::Healthy,
+                    MonitorState::Flaky
+                ],
+                3,
+                &MultiLocationPolicy::Majority,
+            ),
+            MonitorState::Flaky
+        );
+        assert_eq!(
+            aggregate_locations(
+                [MonitorState::Degraded, MonitorState::Flaky],
+                2,
+                &MultiLocationPolicy::All,
+            ),
+            MonitorState::Flaky
         );
     }
 }

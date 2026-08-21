@@ -3,6 +3,7 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { CollapsibleSidePanel, SidePanelSection } from '@/shell/CollapsibleSidePanel';
+import { cn } from '@/shell/lib/cn';
 import {
   Tooltip,
   TooltipContent,
@@ -37,6 +38,7 @@ interface TraceFieldPanelProps {
   onCollapsedChange: (collapsed: boolean) => void;
   onToggleField: (field: TraceFieldName) => void;
   onInsertField: (field: TraceFieldDef) => void;
+  className?: string;
 }
 
 export function TraceFieldPanel({
@@ -50,6 +52,7 @@ export function TraceFieldPanel({
   onCollapsedChange,
   onToggleField,
   onInsertField,
+  className,
 }: TraceFieldPanelProps) {
   const { t } = useTranslation('traces');
   const needle = fieldFilter.trim().toLowerCase();
@@ -84,15 +87,16 @@ export function TraceFieldPanel({
       collapsed={collapsed}
       onCollapsedChange={onCollapsedChange}
       variant="utility"
-      widthClassName="w-[240px]"
+      widthClassName="w-[260px]"
       resizable
-      defaultWidth={240}
+      defaultWidth={260}
       resizeLabel={t('explore.labels.resize')}
       bodyClassName="flex flex-col"
+      className={cn('border-r-0', className)}
       collapseLabel={t('explore.labels.collapse')}
       expandLabel={t('explore.labels.expand')}
       footer={
-        <div className="flex h-11 items-center truncate border-t border-bd-0 px-3 font-sans text-xs text-tx-3">
+        <div className="flex h-11 items-center truncate px-3 font-sans text-xs text-tx-3">
           {t('explore.labels.fields_summary', {
             shown: filtered.length,
             total: fields.length,
@@ -102,14 +106,14 @@ export function TraceFieldPanel({
     >
       <TooltipProvider>
         <div className="px-2 pb-2">
-          <div className="flex h-8 items-center gap-2 rounded-md border border-bd-1 bg-bg-1 px-2.5 font-sans text-xs">
+          <div className="flex h-8 items-center gap-2 rounded-md border-0 bg-[var(--control-surface)] px-2.5 font-sans text-xs">
             <Search className="h-3.5 w-3.5 text-tx-3" />
             <input
               value={fieldFilter}
               onChange={(event) => onFieldFilterChange(event.target.value)}
               placeholder={t('explore.labels.filter_placeholder')}
               aria-label={t('explore.labels.filter_aria')}
-              className="min-w-0 flex-1 bg-transparent text-tx-0 placeholder:text-tx-3 focus:bg-bg-2"
+              className="min-w-0 flex-1 bg-transparent text-tx-0 placeholder:text-tx-3 focus:bg-transparent"
             />
           </div>
         </div>
@@ -223,7 +227,7 @@ function TraceFieldRow({
         </Tooltip>
       </div>
       {expanded && (
-        <div data-trace-field-values={field.name} className="bg-bg-1 px-2 py-1.5">
+        <div data-trace-field-values={field.name} className="bg-[var(--control-surface)] px-2 py-1.5">
           {topValues.length === 0 ? (
             <div className="px-1 py-2 font-sans text-xs text-tx-2">
               {t('explore.labels.no_top_values')}

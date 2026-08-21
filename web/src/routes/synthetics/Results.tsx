@@ -28,6 +28,7 @@ const PAGE_SIZE_OPTIONS = [20, 50, 100];
 const DEFAULT_PAGE_SIZE = PAGE_SIZE_OPTIONS[0] ?? 20;
 const RESULT_OUTCOMES: ProbeOutcome[] = [
   'healthy',
+  'flaky',
   'degraded',
   'failing',
   'unknown',
@@ -125,7 +126,7 @@ export function Results() {
           {t('actions.refresh')}
         </ChromeButton>
       }
-      bodyClassName="space-y-0 pb-4 pt-2 lg:pb-6 lg:pt-2"
+      bodyClassName="space-y-[12px]"
     >
       <WorkspaceBoundary
         pending={workspace.pending || resultQuery.isPending}

@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Compactor 端到端：testcontainer postgres + 真 PgParquetFileMetaRepository。
-//! 写 5 个小 parquet → sweep_one → 验合并为 1 个 + 旧 object 已删 + replace 事务原子。
+//! Compactor 端到端：testcontainer postgres + 真 PgFileCatalog。
+//! 写 5 个小 Segment → sweep_one → 验 Catalog 原子替换为 1 个，旧 Artifact 仅进入
+//! 延迟 GC 队列且对象仍可供旧快照读取。
 //!
 //! 用 `MS_RUN_IT=1` 守护：默认本地无 docker 跳过。
 
@@ -16,9 +17,13 @@ use arrow::array::{Int64Array, RecordBatch, TimestampMicrosecondArray};
 use common::skip_unless_enabled;
 use futures::StreamExt;
 use molesignal::{
-    config::CompactorSettings,
+    config::{CompactorSettings, ObjectCacheSettings},
     domain::{
-        storage::{ParquetFileMeta, ParquetFileMetaRepository},
+        iam::{Organization, OrganizationRepository},
+        storage::{
+            CommitFlush, DatasetSelection, FileCatalog, FlushProvenance, OrganizationScope,
+            SequenceRange, WalSequence, WriterEpoch, WriterNodeId, builtin_registry,
+        },
         stream::{
             FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamRepository, StreamType,
         },
@@ -27,14 +32,13 @@ use molesignal::{
         persistence::{
             MetaStore,
             repositories::{
-                parquet_file_meta::PgParquetFileMetaRepository, streams::PgStreamRepository,
+                file_catalog::PgFileCatalog, organizations::PgOrganizationRepository,
+                streams::PgStreamRepository,
             },
         },
         storage::{
-            arrow_schema::to_arrow,
-            compactor::Compactor,
-            object,
-            parquet::{reader::ParquetReader, writer::ParquetWriter},
+            arrow_schema::to_arrow, compactor::Compactor, manifest::PartitionManifestReader,
+            object, object_reader::ObjectReader, parquet::writer::ParquetWriter,
         },
     },
     shared::{
@@ -51,7 +55,7 @@ fn sample_stream() -> StreamDefinition {
         id: Id::new(),
         org_id: Id::from_string("orga"),
         name: "app".into(),
-        stream_type: StreamType::Logs,
+        stream_type: StreamType::LOGS,
         schema: Schema {
             fields: vec![FieldDef {
                 name: "val".into(),
@@ -97,10 +101,30 @@ async fn it_compactor_merges_5_files_into_1_via_pg() {
     let meta = MetaStore::connect(&meta_cfg).await.unwrap();
     let pool = meta.pool.clone();
     let streams_repo = Arc::new(PgStreamRepository::new(pool.clone()));
-    let parquet_file_meta = Arc::new(PgParquetFileMetaRepository::new(pool.clone()));
 
     let stream = sample_stream();
+    PgOrganizationRepository::new(pool.clone())
+        .create(Organization {
+            id: stream.org_id.clone(),
+            name: "Compactor".into(),
+            slug: "compactor".into(),
+            system: false,
+            disabled: false,
+            created_at: TimestampMicros::now(),
+        })
+        .await
+        .unwrap();
     streams_repo.create(stream.clone()).await.unwrap();
+    let catalog = Arc::new(PgFileCatalog::new(pool.clone()));
+    let scope = OrganizationScope::new(stream.org_id.clone());
+    let specs = builtin_registry()
+        .eager_dataset_specs(&stream.stream_type)
+        .unwrap();
+    let dataset = catalog
+        .ensure_datasets(&scope, &stream.id, &specs)
+        .await
+        .unwrap()
+        .remove(0);
 
     let object_root = tempfile::tempdir().unwrap();
     let object_cfg = molesignal::config::ObjectStoreSettings {
@@ -110,36 +134,51 @@ async fn it_compactor_merges_5_files_into_1_via_pg() {
     };
     let store = object::build(&object_cfg).unwrap();
     let writer = Arc::new(ParquetWriter::new(store.clone()));
-    let reader = Arc::new(ParquetReader::new(store.clone()));
+    let object_reader =
+        ObjectReader::build(store.clone(), "local", &ObjectCacheSettings::default()).unwrap();
 
-    // 写 5 个小文件
-    let mut metas: Vec<ParquetFileMeta> = Vec::new();
+    // 写 5 个小 Segment，并逐个通过 Catalog 原子发布。
     for i in 0..5 {
         let batch = small_batch(1_000_000 + i * 1_000, 20);
-        let mut m = writer.flush(&stream, batch).await.unwrap();
-        m.size_bytes = 1024; // 强制小于 target_mb
-        parquet_file_meta.insert(m.clone()).await.unwrap();
-        metas.push(m);
+        let start = i as u64 * 20 + 1;
+        let provenance = FlushProvenance::derive(
+            WriterNodeId::new("intake-a"),
+            WriterEpoch(1),
+            SequenceRange::new(WalSequence(start), WalSequence(start + 19)),
+        );
+        let segments = writer
+            .flush_catalog(&stream, &dataset, &provenance, batch)
+            .await
+            .unwrap();
+        catalog
+            .commit_flush(
+                &scope,
+                CommitFlush {
+                    dataset_id: dataset.id.clone(),
+                    provenance,
+                    segments,
+                },
+            )
+            .await
+            .unwrap();
     }
-    // 验：5 个 active
-    let before = parquet_file_meta
-        .find(
-            &stream.org_id,
-            &stream.name,
-            stream.stream_type,
-            TimeRange::new(TimestampMicros(0), TimestampMicros(i64::MAX)),
-        )
-        .await
-        .unwrap();
-    assert_eq!(before.len(), 5);
+    let selection = || DatasetSelection {
+        dataset_ids: vec![dataset.id.clone()],
+        time_range: TimeRange::new(TimestampMicros(0), TimestampMicros(i64::MAX)),
+        partition_shard: None,
+    };
+    let before = catalog.snapshot(&scope, selection()).await.unwrap();
+    assert_eq!(before.datasets[0].segments.len(), 5);
 
     // 跑 sweep
     let compactor = Compactor::new(
-        parquet_file_meta.clone() as Arc<dyn ParquetFileMetaRepository>,
-        reader,
+        catalog.clone() as Arc<dyn FileCatalog>,
+        object_reader.clone(),
+        Arc::new(PartitionManifestReader::new(object_reader, 8 * 1024 * 1024)),
         writer,
         store.clone(),
         CompactorSettings::default(),
+        3600,
     );
     let n = compactor
         .sweep_one(
@@ -150,27 +189,28 @@ async fn it_compactor_merges_5_files_into_1_via_pg() {
         .unwrap();
     assert_eq!(n, 1, "expect 1 merged group");
 
-    // 验：1 个 active（5 旧 marked deleted）
-    let after = parquet_file_meta
-        .find(
-            &stream.org_id,
-            &stream.name,
-            stream.stream_type,
-            TimeRange::new(TimestampMicros(0), TimestampMicros(i64::MAX)),
-        )
-        .await
-        .unwrap();
-    assert_eq!(after.len(), 1);
-    assert_eq!(after[0].rows, 100, "all 5×20 rows in merged");
+    // 只有 replacement 对新快照可见，旧对象尚未物理删除。
+    let after = catalog.snapshot(&scope, selection()).await.unwrap();
+    assert_eq!(after.datasets[0].segments.len(), 1);
+    assert_eq!(
+        after.datasets[0].segments[0].row_count, 100,
+        "all 5×20 rows in merged"
+    );
 
-    // 验：object_store 上 .parquet 对象数 == 1（旧 5 已删除 + 新 1）
+    // 5 个被替换对象 + 1 个 replacement 都仍在 store；延迟 GC 由独立 worker 执行。
     let mut stream_list = store.list(None);
     let mut count = 0usize;
     while let Some(item) = stream_list.next().await {
-        let obj = item.unwrap();
-        if obj.location.as_ref().ends_with(".parquet") {
-            count += 1;
-        }
+        item.unwrap();
+        count += 1;
     }
-    assert_eq!(count, 1, "5 old objects deleted, 1 new survives");
+    assert_eq!(count, 6);
+    let queued: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM object_gc_queue WHERE org_id = $1 AND reason = 'replaced'",
+    )
+    .bind(stream.org_id.as_str())
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(queued, 5);
 }

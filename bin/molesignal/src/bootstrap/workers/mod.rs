@@ -8,7 +8,6 @@
 
 pub mod admission_load_sync;
 pub mod cluster;
-pub mod parquet_file_meta_dumper;
 pub mod pipeline_exec;
 pub mod polling;
 pub mod rca_sweeper;
@@ -19,6 +18,7 @@ pub mod service_graph;
 pub mod slow_query_analyzer;
 pub mod status_page_maintenance;
 pub mod status_page_notifications;
+pub mod storage_maintenance;
 pub mod synthetics;
 pub mod trial_sweeper;
 

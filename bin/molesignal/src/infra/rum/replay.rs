@@ -3,9 +3,10 @@
 
 //! RUM session-replay segment persistence.
 //!
-//! Segments are validated, NDJSON encoded, compressed, and stored under a
-//! tenant-scoped deterministic key. PostgreSQL metadata supplies ordering,
-//! idempotency, availability filtering, quotas, and retention cleanup.
+//! Segments are validated, NDJSON encoded, compressed, and stored under
+//! `rum/v1/{org}/...`. PostgreSQL metadata carries the independent payload
+//! format version and supplies ordering, idempotency, availability filtering,
+//! quotas, and retention cleanup.
 
 use std::{collections::HashSet, sync::Arc};
 
@@ -26,6 +27,8 @@ pub const MAX_REPLAY_SEGMENT_BYTES: u64 = 8 * 1024 * 1024;
 pub const MAX_REPLAY_SESSION_BYTES: u64 = 100 * 1024 * 1024;
 pub const MAX_REPLAY_SEGMENTS_PER_SESSION: usize = 2_000;
 pub const MAX_REPLAY_FILTER_SESSION_IDS: usize = 10_000;
+const RUM_REPLAY_LAYOUT_VERSION: &str = "v1";
+const RUM_REPLAY_FORMAT_VERSION: u32 = 1;
 
 #[derive(Debug, Clone)]
 pub struct RumReplayRecord {
@@ -34,6 +37,7 @@ pub struct RumReplayRecord {
     pub application_id: String,
     pub session_id: String,
     pub seq: i32,
+    pub format_version: u32,
     pub object_key: String,
     pub bytes_uncompressed: u64,
     pub event_count: usize,
@@ -137,11 +141,12 @@ impl RumReplayWriter {
 
         let hash_prefix = &content_hash[..16];
         let application_hash = hex::encode(Sha256::digest(application_id.as_bytes()));
-        let object_key = format!(
-            "{}/rum/{}/{}/{seq:010}-{hash_prefix}.ndjson.zst",
-            org_id.0,
+        let object_key = replay_object_key(
+            org_id,
             &application_hash[..16],
-            session_id
+            session_id,
+            seq,
+            hash_prefix,
         );
         let path = ObjPath::parse(&object_key)
             .map_err(|error| Error::internal(format!("RUM replay object path: {error}")))?;
@@ -161,6 +166,7 @@ impl RumReplayWriter {
             application_id: application_id.to_string(),
             session_id: session_id.to_string(),
             seq,
+            format_version: RUM_REPLAY_FORMAT_VERSION,
             object_key,
             bytes_uncompressed,
             event_count: events.len(),
@@ -211,6 +217,7 @@ impl RumReplayWriter {
         let event_capacity = records.iter().map(|row| row.event_count).sum();
         let mut events = Vec::with_capacity(event_capacity);
         for record in records {
+            ensure_supported_format(&record)?;
             let path = ObjPath::parse(&record.object_key)
                 .map_err(|error| Error::internal(format!("RUM replay object path: {error}")))?;
             let compressed = self
@@ -370,7 +377,21 @@ fn encode_events(events: &[Value]) -> Result<Vec<u8>> {
     Ok(ndjson)
 }
 
+fn replay_object_key(
+    org_id: &Id,
+    application_hash_prefix: &str,
+    session_id: &str,
+    seq: i32,
+    content_hash_prefix: &str,
+) -> String {
+    format!(
+        "rum/{RUM_REPLAY_LAYOUT_VERSION}/{}/{application_hash_prefix}/{session_id}/{seq:010}-{content_hash_prefix}.ndjson.zst",
+        org_id.0
+    )
+}
+
 fn same_segment(existing: RumReplayRecord, content_hash: &str) -> Result<RumReplayRecord> {
+    ensure_supported_format(&existing)?;
     if existing.content_hash == content_hash {
         Ok(existing)
     } else {
@@ -381,9 +402,20 @@ fn same_segment(existing: RumReplayRecord, content_hash: &str) -> Result<RumRepl
 }
 
 fn verify_segment(record: &RumReplayRecord, decoded: &[u8]) -> Result<()> {
+    ensure_supported_format(record)?;
     let hash = hex::encode(Sha256::digest(decoded));
     if decoded.len() as u64 != record.bytes_uncompressed || hash != record.content_hash {
         return Err(Error::internal("RUM replay segment integrity check failed"));
+    }
+    Ok(())
+}
+
+fn ensure_supported_format(record: &RumReplayRecord) -> Result<()> {
+    if record.format_version != RUM_REPLAY_FORMAT_VERSION {
+        return Err(Error::internal(format!(
+            "unsupported RUM replay format version {}",
+            record.format_version
+        )));
     }
     Ok(())
 }
@@ -421,6 +453,7 @@ mod tests {
             application_id: "app".into(),
             session_id: "ses_integrity".into(),
             seq: 1,
+            format_version: RUM_REPLAY_FORMAT_VERSION,
             object_key: "unused".into(),
             bytes_uncompressed: encoded.len() as u64,
             event_count: 1,
@@ -431,8 +464,26 @@ mod tests {
         };
         verify_segment(&record, &encoded).unwrap();
 
+        let mut unsupported = record.clone();
+        unsupported.format_version = RUM_REPLAY_FORMAT_VERSION + 1;
+        assert!(verify_segment(&unsupported, &encoded).is_err());
+
         let mut corrupted = encoded;
         corrupted[0] ^= 1;
         assert!(verify_segment(&record, &corrupted).is_err());
+    }
+
+    #[test]
+    fn replay_object_key_includes_layout_version() {
+        assert_eq!(
+            replay_object_key(
+                &Id::from_string("org-1"),
+                "apphash",
+                "session-1",
+                7,
+                "contenthash"
+            ),
+            "rum/v1/org-1/apphash/session-1/0000000007-contenthash.ndjson.zst"
+        );
     }
 }

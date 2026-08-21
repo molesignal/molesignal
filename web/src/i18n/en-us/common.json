@@ -301,7 +301,7 @@
     "week_number_header": "Week number"
   },
   "time_picker": {
-    "title": "Time range",
+    "title": "Select time range",
     "button_aria": "Time range: {{value}}",
     "quick_ranges": "Quick ranges",
     "absolute": "Absolute range",

@@ -114,6 +114,6 @@ metric_start_time_unix_nano   内部 query metadata，不作为 label
 <label>    : Utf8             每个 label 一列（非 _timestamp/value 的 Utf8 列即 label）
 ```
 
-求值路径：按 `parquet_file_meta` 时间窗裁剪候选 parquet → 只解码与窗口相交的 row group →
+求值路径：按 FileCatalog snapshot 与 manifest 时间窗裁剪候选 parquet → 只解码与窗口相交的 row group →
 在内存按 matcher 过滤、按 label 列组合分组成 series。单 selector 一次物化的样本数
 有上限，超出即报错提示收窄窗口或追加 label matcher。

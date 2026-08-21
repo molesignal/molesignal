@@ -30,7 +30,7 @@ use crate::{
             ServiceGraphObserver,
         },
         masking::{Masker, MaskingProvider},
-        storage::PhysicalDatasetKind,
+        storage::DatasetTypeId,
         stream::{
             Schema, StreamDefinition, StreamRepository, StreamType, is_reserved_system_stream,
             validate_stream_name,
@@ -117,7 +117,8 @@ impl IntakeService {
                 "`_molesignal` is a protected system stream",
             ));
         }
-        self.intake_with_origin(batch, IntakeOrigin::External, PhysicalDatasetKind::Raw)
+        let dataset_type = self.sink.primary_dataset_type(batch.stream_type)?;
+        self.intake_with_origin(batch, IntakeOrigin::External, dataset_type)
             .await
     }
 
@@ -131,7 +132,8 @@ impl IntakeService {
                 "self telemetry may only target `_sys/_molesignal`",
             ));
         }
-        self.intake_with_origin(batch, IntakeOrigin::SelfTelemetry, PhysicalDatasetKind::Raw)
+        let dataset_type = self.sink.primary_dataset_type(batch.stream_type)?;
+        self.intake_with_origin(batch, IntakeOrigin::SelfTelemetry, dataset_type)
             .await
     }
 
@@ -146,12 +148,9 @@ impl IntakeService {
                 "internal telemetry must target a protected non-self stream",
             ));
         }
-        self.intake_with_origin(
-            batch,
-            IntakeOrigin::InternalTelemetry,
-            PhysicalDatasetKind::Raw,
-        )
-        .await
+        let dataset_type = self.sink.primary_dataset_type(batch.stream_type)?;
+        self.intake_with_origin(batch, IntakeOrigin::InternalTelemetry, dataset_type)
+            .await
     }
 
     /// 可信应用服务写入独立的派生物理数据集。它复用 schema 校验/演化和 WAL 语义，
@@ -159,29 +158,29 @@ impl IntakeService {
     pub(crate) async fn intake_derived_dataset(
         &self,
         batch: IntakeBatch,
-        dataset_kind: PhysicalDatasetKind,
+        dataset_type: DatasetTypeId,
     ) -> Result<IntakeResult> {
-        if dataset_kind == PhysicalDatasetKind::Raw {
-            return Err(Error::invalid("derived dataset kind must not be raw"));
+        if dataset_type == self.sink.primary_dataset_type(batch.stream_type)? {
+            return Err(Error::invalid("derived dataset type must not be primary"));
         }
         if is_reserved_system_stream(&batch.stream) {
             return Err(Error::forbidden(
                 "reserved self telemetry requires the dedicated derived entry point",
             ));
         }
-        self.intake_with_origin(batch, IntakeOrigin::InternalTelemetry, dataset_kind)
+        self.intake_with_origin(batch, IntakeOrigin::InternalTelemetry, dataset_type)
             .await
     }
 
     pub(crate) async fn intake_self_telemetry_dataset(
         &self,
         batch: IntakeBatch,
-        dataset_kind: PhysicalDatasetKind,
+        dataset_type: DatasetTypeId,
     ) -> Result<IntakeResult> {
         let system_org_id = self.system_org_id.as_ref().ok_or_else(|| {
             Error::internal("self telemetry system organization is not configured")
         })?;
-        if dataset_kind == PhysicalDatasetKind::Raw
+        if dataset_type == self.sink.primary_dataset_type(batch.stream_type)?
             || &batch.org_id != system_org_id
             || !is_reserved_system_stream(&batch.stream)
         {
@@ -189,7 +188,7 @@ impl IntakeService {
                 "derived self telemetry must target `_sys/_molesignal`",
             ));
         }
-        self.intake_with_origin(batch, IntakeOrigin::SelfTelemetry, dataset_kind)
+        self.intake_with_origin(batch, IntakeOrigin::SelfTelemetry, dataset_type)
             .await
     }
 
@@ -207,7 +206,7 @@ impl IntakeService {
         &self,
         mut batch: IntakeBatch,
         origin: IntakeOrigin,
-        dataset_kind: PhysicalDatasetKind,
+        dataset_type: DatasetTypeId,
     ) -> Result<IntakeResult> {
         validate_stream_name(&batch.stream)?;
         // 节点退役中：停接新写入（让 pending 数据 flush 干净后安全下线）。
@@ -275,7 +274,7 @@ impl IntakeService {
         // Log-like datasets are queried while new rows continue to arrive.
         // Timestamp alone is not unique, so assign an immutable batch+row id
         // before schema evolution and persistence. RUM streams use Logs too.
-        if batch.stream_type == StreamType::Logs {
+        if batch.stream_type == StreamType::LOGS {
             assign_log_event_ids(&batch.batch_id, &mut batch.events);
         }
 
@@ -305,8 +304,10 @@ impl IntakeService {
 
         // 3.5) 旁路观测 trace：从 span 派生服务间调用边（service graph）。仅 Traces 批、
         // 仅已留存事件；纯内存累计、不阻塞写入；无观测器时零开销。
-        if dataset_kind == PhysicalDatasetKind::Raw
-            && batch.stream_type == StreamType::Traces
+        let is_primary_dataset =
+            dataset_type == self.sink.primary_dataset_type(batch.stream_type)?;
+        if is_primary_dataset
+            && batch.stream_type == StreamType::TRACES
             && total_kept > 0
             && let Some(sg) = &self.service_graph
         {
@@ -315,12 +316,11 @@ impl IntakeService {
 
         // 原始批次完成全部用户可见变换后再投影内部读模型，保证摘要与权威数据使用
         // 同一份脱敏、类型校验结果。测试/内存 sink 不声明能力时保持原有单批语义。
-        let derived =
-            if dataset_kind == PhysicalDatasetKind::Raw && self.sink.supports_derived_datasets() {
-                derived::project(&batch)
-            } else {
-                Vec::new()
-            };
+        let derived = if is_primary_dataset && self.sink.supports_derived_datasets() {
+            derived::project(&batch)
+        } else {
+            Vec::new()
+        };
 
         // 4) 写入
         let mut result = if total_kept == 0 {
@@ -330,14 +330,14 @@ impl IntakeService {
                 errors: Vec::new(),
             }
         } else {
-            self.sink.write_dataset(dataset_kind, batch).await?
+            self.sink.write_dataset(dataset_type, batch).await?
         };
         if result.accepted > 0 {
-            for (kind, batch) in derived {
-                let derived_result = self.sink.write_dataset(kind, batch).await?;
+            for (dataset_type, batch) in derived {
+                let derived_result = self.sink.write_dataset(dataset_type.clone(), batch).await?;
                 if derived_result.rejected != 0 {
                     return Err(Error::internal(format!(
-                        "physical dataset `{kind}` rejected {} derived rows",
+                        "physical dataset `{dataset_type}` rejected {} derived rows",
                         derived_result.rejected
                     )));
                 }
@@ -497,7 +497,7 @@ mod tests {
             ev(json!({"msg":"a", "lat":3})),
             ev(json!({"msg":"b","ok":true})),
         ];
-        let next = infer_schema_extension(&s, &events, StreamType::Logs).expect("extension");
+        let next = infer_schema_extension(&s, &events, StreamType::LOGS).expect("extension");
         let names: Vec<&str> = next.fields.iter().map(|f| f.name.as_str()).collect();
         assert!(names.contains(&"lat"));
         assert!(names.contains(&"ok"));
@@ -513,7 +513,7 @@ mod tests {
             (TRACE_SUMMARY_MARKER_FIELD): "1",
             "http.status_code": 500,
         }))];
-        let next = infer_schema_extension(&Schema { fields: vec![] }, &events, StreamType::Traces)
+        let next = infer_schema_extension(&Schema { fields: vec![] }, &events, StreamType::TRACES)
             .expect("extension");
         let by_name = |n: &str| next.fields.iter().find(|f| f.name == n).unwrap().clone();
         for f in [
@@ -530,7 +530,7 @@ mod tests {
         assert!(!sc.indexed && !sc.exact, "普通字段不应被自动索引");
 
         // 同名字段在 logs 流不触发（策略仅限 traces）。
-        let logs = infer_schema_extension(&Schema { fields: vec![] }, &events, StreamType::Logs)
+        let logs = infer_schema_extension(&Schema { fields: vec![] }, &events, StreamType::LOGS)
             .expect("extension");
         let tid = logs.fields.iter().find(|f| f.name == "trace_id").unwrap();
         assert!(
@@ -630,7 +630,7 @@ mod tests {
                 batch_id: Id::new(),
                 org_id: Id::from_string("org-1"),
                 stream: "app_logs".into(),
-                stream_type: StreamType::Logs,
+                stream_type: StreamType::LOGS,
                 events: vec![ev(json!({"message": "first batch"}))],
                 received_at: TimestampMicros::now(),
             })
@@ -654,7 +654,7 @@ mod tests {
             batch_id: Id::new(),
             org_id: Id::from_string("org-1"),
             stream: "s".into(),
-            stream_type: crate::domain::stream::StreamType::Logs,
+            stream_type: crate::domain::stream::StreamType::LOGS,
             events: vec![ev(json!({"msg": "x"}))],
             received_at: TimestampMicros::now(),
         };
@@ -669,7 +669,7 @@ mod tests {
             batch_id: Id::new(),
             org_id: Id::from_string("org-1"),
             stream: crate::domain::stream::MOLESIGNAL_SYSTEM_STREAM.into(),
-            stream_type: StreamType::Logs,
+            stream_type: StreamType::LOGS,
             events: vec![ev(json!({"message": "spoof"}))],
             received_at: TimestampMicros::now(),
         };
@@ -721,7 +721,7 @@ mod tests {
                 id: Id::new(),
                 org_id: org_id.clone(),
                 name: crate::domain::stream::MOLESIGNAL_SYSTEM_STREAM.into(),
-                stream_type: StreamType::Logs,
+                stream_type: StreamType::LOGS,
                 schema: Schema { fields: vec![] },
                 retention: Some(crate::domain::stream::Retention { days: 7 }),
                 created_at: now,
@@ -745,7 +745,7 @@ mod tests {
                 batch_id: Id::new(),
                 org_id: org_id.clone(),
                 stream: crate::domain::stream::MOLESIGNAL_SYSTEM_STREAM.into(),
-                stream_type: StreamType::Logs,
+                stream_type: StreamType::LOGS,
                 events: vec![ev(json!({"message": "self"}))],
                 received_at: now,
             })
@@ -770,7 +770,7 @@ mod tests {
                 batch_id: Id::new(),
                 org_id: Id::from_string("tenant-org"),
                 stream: crate::domain::stream::MOLESIGNAL_SYSTEM_STREAM.into(),
-                stream_type: StreamType::Logs,
+                stream_type: StreamType::LOGS,
                 events: vec![ev(json!({"message": "misrouted"}))],
                 received_at: TimestampMicros::now(),
             })
@@ -795,7 +795,7 @@ mod tests {
                 batch_id: Id::new(),
                 org_id: system_org_id,
                 stream: crate::domain::stream::MOLESIGNAL_SYSTEM_STREAM.into(),
-                stream_type: StreamType::Logs,
+                stream_type: StreamType::LOGS,
                 events: vec![ev(json!({"message": "late"}))],
                 received_at: TimestampMicros::now(),
             })

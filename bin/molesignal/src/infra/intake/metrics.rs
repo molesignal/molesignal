@@ -3,11 +3,12 @@
 
 //! Intake role 自身的 metric（与 caching 共享同一全局 registry）。
 //!
-//! - `intake_flush_errors_total{step}`：step ∈ {parquet_write, parquet_file_meta_insert, wal_truncate}。
+//! - `intake_flush_errors_total{step}`：step ∈ {parquet_write, file_catalog_commit, wal_seal, wal_truncate}。
 //! - `intake_rotations_total{stream_type,reason}`：reason ∈ {size, age, retry, forced}。
 //! - `intake_flush_inflight{stream_type}`：正在执行完整 flush transaction 的并发数。
-//! - `wal_append_lock_wait_seconds{stream_type}`：WAL per-key 互斥锁等待延迟 Histogram。
-//! - `wal_append_inflight{stream_type}`：当前持有 WAL 临界区的并发数 IntGauge（`WalInflightGuard` RAII 维护）。
+//! - `wal_append_lock_wait_seconds{dataset_type}`：WAL per-dataset 互斥锁等待延迟 Histogram。
+//! - `wal_append_inflight{dataset_type}`：当前持有 WAL 临界区的并发数 IntGauge（`WalInflightGuard` RAII 维护）。
+//! - `wal_recovery_quarantined_total` / `wal_recovery_tail_truncated_total`：恢复期损坏处理计数。
 
 use std::sync::OnceLock;
 
@@ -54,7 +55,7 @@ fn rotations_vec() -> &'static IntCounterVec {
     })
 }
 
-pub fn inc_rotation(stream_type: &'static str, reason: RotationReason) {
+pub fn inc_rotation(stream_type: &str, reason: RotationReason) {
     rotations_vec()
         .with_label_values(&[stream_type, reason.as_str()])
         .inc();
@@ -71,20 +72,22 @@ fn flush_inflight_vec() -> &'static IntGaugeVec {
 }
 
 pub struct FlushInflightGuard {
-    stream_type: &'static str,
+    stream_type: String,
 }
 
 impl FlushInflightGuard {
-    pub fn enter(stream_type: &'static str) -> Self {
+    pub fn enter(stream_type: &str) -> Self {
         flush_inflight_vec().with_label_values(&[stream_type]).inc();
-        Self { stream_type }
+        Self {
+            stream_type: stream_type.to_owned(),
+        }
     }
 }
 
 impl Drop for FlushInflightGuard {
     fn drop(&mut self) {
         flush_inflight_vec()
-            .with_label_values(&[self.stream_type])
+            .with_label_values(&[&self.stream_type])
             .dec();
     }
 }
@@ -126,7 +129,7 @@ fn memory_rejections_vec() -> &'static IntCounterVec {
     })
 }
 
-pub(super) fn inc_memory_rejection(stream_type: &'static str) {
+pub(super) fn inc_memory_rejection(stream_type: &str) {
     memory_rejections_vec()
         .with_label_values(&[stream_type])
         .inc();
@@ -150,15 +153,15 @@ fn parquet_ratio_vec() -> &'static HistogramVec {
         register_histogram_vec(
             "intake_parquet_encoded_raw_ratio",
             "Observed encoded Parquet bytes divided by estimated raw generation bytes",
-            &["stream_type"],
+            &["dataset_type"],
             vec![0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0],
         )
     })
 }
 
-pub(super) fn observe_parquet_ratio(stream_type: &'static str, ratio: f64) {
+pub(super) fn observe_parquet_ratio(dataset_type: &str, ratio: f64) {
     parquet_ratio_vec()
-        .with_label_values(&[stream_type])
+        .with_label_values(&[dataset_type])
         .observe(ratio);
 }
 
@@ -167,7 +170,7 @@ fn adaptive_target_vec() -> &'static HistogramVec {
         register_histogram_vec(
             "intake_adaptive_rotation_target_bytes",
             "Adaptive raw buffer rotation thresholds selected after successful files",
-            &["stream_type"],
+            &["dataset_type"],
             vec![
                 1024.0 * 1024.0,
                 4.0 * 1024.0 * 1024.0,
@@ -182,9 +185,9 @@ fn adaptive_target_vec() -> &'static HistogramVec {
     })
 }
 
-pub(super) fn observe_adaptive_target(stream_type: &'static str, bytes: f64) {
+pub(super) fn observe_adaptive_target(dataset_type: &str, bytes: f64) {
     adaptive_target_vec()
-        .with_label_values(&[stream_type])
+        .with_label_values(&[dataset_type])
         .observe(bytes);
 }
 
@@ -192,8 +195,8 @@ fn wal_lock_wait_vec() -> &'static HistogramVec {
     WAL_LOCK_WAIT.get_or_init(|| {
         register_histogram_vec(
             "wal_append_lock_wait_seconds",
-            "WAL per-key mutex wait time observed at WalPool::append",
-            &["stream_type"],
+            "WAL per-dataset mutex wait time observed at WalPool::append",
+            &["dataset_type"],
             vec![0.0001, 0.001, 0.01, 0.1, 1.0],
         )
     })
@@ -203,40 +206,72 @@ fn wal_inflight_vec() -> &'static IntGaugeVec {
     WAL_INFLIGHT.get_or_init(|| {
         register_int_gauge_vec(
             "wal_append_inflight",
-            "Concurrent WalPool::append entries holding the per-key mutex",
-            &["stream_type"],
+            "Concurrent WalPool::append entries holding the per-dataset mutex",
+            &["dataset_type"],
         )
     })
 }
 
-/// 记录 `WalPool::append` 在 per-key mutex 上的等待时长。
-pub fn observe_wal_lock_wait(stream_type: &str, secs: f64) {
+/// 记录 `WalPool::append` 在 per-dataset mutex 上的等待时长。
+pub fn observe_wal_lock_wait(dataset_type: &str, secs: f64) {
     wal_lock_wait_vec()
-        .with_label_values(&[stream_type])
+        .with_label_values(&[dataset_type])
         .observe(secs);
 }
 
 /// RAII：进入 `WalPool::append` 临界区时 +1，drop 时 -1。
 ///
-/// label cardinality 锁死在 `stream_type` 固定枚举，不带 `org_id` / `stream_name`，
-/// 避免 high cardinality。
+/// label cardinality 锁死在受控的 dataset type 集合，不带 `org_id` /
+/// `stream_name`，避免 high cardinality。
 pub struct WalInflightGuard {
-    stream_type: &'static str,
+    dataset_type: String,
 }
 
 impl WalInflightGuard {
-    pub fn enter(stream_type: &'static str) -> Self {
-        wal_inflight_vec().with_label_values(&[stream_type]).inc();
-        Self { stream_type }
+    pub fn enter(dataset_type: &str) -> Self {
+        wal_inflight_vec().with_label_values(&[dataset_type]).inc();
+        Self {
+            dataset_type: dataset_type.to_owned(),
+        }
     }
 }
 
 impl Drop for WalInflightGuard {
     fn drop(&mut self) {
         wal_inflight_vec()
-            .with_label_values(&[self.stream_type])
+            .with_label_values(&[self.dataset_type.as_str()])
             .dec();
     }
+}
+
+fn wal_recovery_quarantined() -> &'static prometheus::IntCounter {
+    static C: OnceLock<prometheus::IntCounter> = OnceLock::new();
+    C.get_or_init(|| {
+        crate::shared::metrics::register_int_counter(
+            "wal_recovery_quarantined_total",
+            "WAL segments or epoch dirs moved to quarantine during recovery",
+        )
+    })
+}
+
+fn wal_recovery_tail_truncated() -> &'static prometheus::IntCounter {
+    static C: OnceLock<prometheus::IntCounter> = OnceLock::new();
+    C.get_or_init(|| {
+        crate::shared::metrics::register_int_counter(
+            "wal_recovery_tail_truncated_total",
+            "Active WAL segments whose incomplete tail was truncated during recovery",
+        )
+    })
+}
+
+/// 恢复期把损坏的 sealed segment / 非法 epoch 目录挪进隔离区时 +1。
+pub(crate) fn inc_wal_recovery_quarantined() {
+    wal_recovery_quarantined().inc();
+}
+
+/// 恢复期把活跃 segment 的不完整尾部截断到最后一条有效记录时 +1。
+pub(crate) fn inc_wal_recovery_tail_truncated() {
+    wal_recovery_tail_truncated().inc();
 }
 
 #[cfg(test)]

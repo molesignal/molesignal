@@ -179,8 +179,9 @@ export function OnCallStatusCard({
     <Card
       className={cn(
         'relative flex min-h-[250px] flex-1 overflow-hidden',
-        surface === 'card' ? CARD_TREATMENT[tone] : 'bg-bg-0',
-        surface === 'canvas' && 'home-canvas-primary-section h-full rounded-none border-0',
+        surface === 'card' && CARD_TREATMENT[tone],
+        surface === 'canvas' &&
+          'home-canvas-primary-section h-full rounded-md border-0 bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]',
         className,
       )}
       bodyClassName="flex min-h-0 flex-1 flex-col"

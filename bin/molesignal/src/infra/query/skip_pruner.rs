@@ -15,7 +15,7 @@ use sqlparser::{
 };
 
 use crate::domain::{
-    storage::ParquetFileMeta,
+    storage::QueryFile,
     stream::{FieldType, Schema, StreamIndexType},
 };
 
@@ -112,7 +112,7 @@ struct SkipPredicate {
 }
 
 impl SkipPredicate {
-    fn file_may_match(&self, file: &ParquetFileMeta) -> bool {
+    fn file_may_match(&self, file: &QueryFile) -> bool {
         let Some(minimum) = file.min_values.get(&self.field) else {
             return true;
         };
@@ -142,11 +142,7 @@ impl SkipPredicate {
 }
 
 /// 用 `skip` 字段的文件级 min/max 排除不可能命中的候选文件。
-pub fn prune(
-    files: Vec<ParquetFileMeta>,
-    statement: &str,
-    schema: &Schema,
-) -> Vec<ParquetFileMeta> {
+pub fn prune(files: Vec<QueryFile>, statement: &str, schema: &Schema) -> Vec<QueryFile> {
     let predicates = extract_predicates(statement, schema);
     if predicates.is_empty() {
         return files;
@@ -294,20 +290,24 @@ mod tests {
         }
     }
 
-    fn file(id: &str, minimum: serde_json::Value, maximum: serde_json::Value) -> ParquetFileMeta {
-        ParquetFileMeta {
+    fn file(id: &str, minimum: serde_json::Value, maximum: serde_json::Value) -> QueryFile {
+        QueryFile {
             id: Id::from_string(id),
             org_id: Id::from_string("org"),
             stream: "logs".into(),
-            stream_type: crate::domain::stream::StreamType::Logs,
-            dataset_kind: Default::default(),
+            stream_type: crate::domain::stream::StreamType::LOGS,
+            dataset_type: crate::domain::storage::primary_dataset_type(
+                crate::domain::stream::StreamType::LOGS,
+            )
+            .unwrap(),
             object_key: format!("{id}.parquet"),
+            checksum: None,
+            etag: None,
             time_range: TimeRange::new(TimestampMicros(0), TimestampMicros(1)),
             rows: 1,
             size_bytes: 1,
             min_values: [("value".into(), minimum)].into_iter().collect(),
             max_values: [("value".into(), maximum)].into_iter().collect(),
-            deleted: false,
         }
     }
 

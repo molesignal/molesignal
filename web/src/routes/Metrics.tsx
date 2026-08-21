@@ -11,7 +11,7 @@ import * as queryApi from '@/api/query';
 import { resolveMetricType } from '@/lib/metricTypes';
 import { useCursorPagination } from '@/pagination/useCursorPagination';
 import { useActionAccess } from '@/product/actionAccess';
-import { PageHeader } from '@/shell/PageHeader';
+import { SurfacePageHeader } from '@/shell/SurfaceWorkbench';
 import { useAuthStore } from '@/stores/auth';
 import { useFiltersStore } from '@/stores/useFiltersStore';
 import {
@@ -354,13 +354,12 @@ export function Metrics() {
 
   return (
     <div
-      className="flex h-[calc(100vh-var(--topbar-h)-var(--contextbar-h,0px))] min-h-0 flex-col overflow-hidden"
+      className="flex h-[calc(100vh-var(--topbar-h)-var(--contextbar-h,0px))] min-h-0 flex-col overflow-hidden bg-[var(--page-canvas)]"
       data-testid="metrics-page"
     >
-      <PageHeader
+      <SurfacePageHeader
         title={t('explore.title')}
         subtitle={t('explore.subtitle')}
-        className="shrink-0"
       />
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <ExploreQuerySection

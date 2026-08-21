@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import * as rolesApi from '@/api/roles';
 import * as serviceAccountsApi from '@/api/serviceAccounts';
+import { writeClipboardText } from '@/lib/clipboard';
 import { toApiError } from '@/lib/http';
 import type { ActionAccess } from '@/product/actionAccess';
 import { ChromeButton } from '@/shell/chrome';
@@ -81,7 +82,7 @@ export function CreateServiceAccountDrawer({
   const copyToken = async () => {
     if (!created) return;
     try {
-      await navigator.clipboard.writeText(created.api_token.token);
+      await writeClipboardText(created.api_token.token);
       toast.success(t('service_accounts.toast_token_copied'));
     } catch (error) {
       toast.error(toApiError(error).message);

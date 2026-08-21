@@ -3,6 +3,7 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
+import { writeClipboardText } from '@/lib/clipboard';
 import { useActionAccess } from '@/product/actionAccess';
 import { ChromeButton, uiLabelClass } from '@/shell/chrome';
 import { CopyIconButton } from '@/shell/CopyIconButton';
@@ -21,7 +22,7 @@ export function TokenPanel({ context }: { context: IntakeContext }) {
   const copy = async () => {
     if (!context.token) return;
     try {
-      await navigator.clipboard.writeText(context.token);
+      await writeClipboardText(context.token);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -68,7 +69,10 @@ export function TokenPanel({ context }: { context: IntakeContext }) {
         </div>
       ) : (
         <div className="flex min-w-0 items-center gap-1.5">
-          <code className="min-w-0 flex-1 truncate rounded border border-bd-0 bg-bg-2 px-2.5 py-2 font-mono text-xs text-tx-1">
+          <code
+            data-ui="read-only-control"
+            className="min-w-0 flex-1 truncate rounded border-0 bg-[var(--control-surface)] px-2.5 py-2 font-mono text-xs text-tx-1"
+          >
             {context.tokenLoading
               ? t('datasource.token_loading')
               : revealed

@@ -49,7 +49,6 @@ export function AccountSettingsLayout() {
       breadcrumbs={null}
       backTo={null}
       sections={<AccountNav />}
-      headerClassName="gap-2 py-3.5"
       bodyClassName="mx-auto w-full max-w-[2200px] gap-6 [&_[data-product-state]]:rounded-none [&_[data-product-state]]:border-0 [&_[data-product-state]]:bg-transparent"
     >
       <Outlet />

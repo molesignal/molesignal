@@ -64,10 +64,13 @@ use regex::{Captures, Regex};
 use crate::{
     domain::{
         query::{PromqlEngine, QueryRequest, QueryResult},
-        storage::ParquetFileMetaRepository,
+        storage::QueryFileSource,
         stream::{StreamRepository, StreamType},
     },
-    infra::storage::parquet::reader::{ParquetReader, ReadOptions},
+    infra::{
+        query::catalog_source::CatalogQuerySource,
+        storage::parquet::reader::{ParquetReader, ReadOptions},
+    },
     shared::{Error, Result, time::TimeRange},
 };
 
@@ -238,25 +241,24 @@ pub(crate) fn derived_label_dependencies(statement: &str) -> Result<Vec<(String,
 }
 
 pub struct PromQLEngine {
-    files: Arc<dyn ParquetFileMetaRepository>,
+    files: Arc<dyn QueryFileSource>,
     object_store: Arc<dyn ObjectStore>,
     /// range 窗口聚合增量缓存；`None` = 未装配（range 路径行为与现状一致）。
     streaming: Option<StreamingAgg>,
     /// 可选 stream 目录；装配后，命中的 metric stream 若标记为不可查询则拒绝。
     /// `None` = 不校验（保持历史单测行为）。
     streams: Option<Arc<dyn StreamRepository>>,
+    catalog_source: Option<Arc<CatalogQuerySource>>,
 }
 
 impl PromQLEngine {
-    pub fn new(
-        files: Arc<dyn ParquetFileMetaRepository>,
-        object_store: Arc<dyn ObjectStore>,
-    ) -> Self {
+    pub fn new(files: Arc<dyn QueryFileSource>, object_store: Arc<dyn ObjectStore>) -> Self {
         Self {
             files,
             object_store,
             streaming: None,
             streams: None,
+            catalog_source: None,
         }
     }
 
@@ -264,6 +266,11 @@ impl PromQLEngine {
     /// 仅作 intake 入口 / pipeline 源）时拒绝查询。缺省（不调用）则不做该校验。
     pub fn with_streams(mut self, streams: Arc<dyn StreamRepository>) -> Self {
         self.streams = Some(streams);
+        self
+    }
+
+    pub fn with_catalog_source(mut self, source: Arc<CatalogQuerySource>) -> Self {
+        self.catalog_source = Some(source);
         self
     }
 
@@ -1004,7 +1011,7 @@ impl PromQLEngine {
     }
 
     /// 从 `(at_us - range, at_us]` 拉一个 matrix（每个 series 的样本序列）。
-    /// 实现：按 ParquetFileMeta 裁剪时间窗，Parquet 只投影 timestamp/value/label 列并做
+    /// 实现：按 QueryFile 裁剪时间窗，Parquet 只投影 timestamp/value/label 列并做
     /// row-group pruning，再在内存按 matchers 过滤与按 labels 分组。
     async fn load_matrix(
         &self,
@@ -1023,7 +1030,7 @@ impl PromQLEngine {
         let range_us = range.as_micros() as i64;
         let start_us = at_us - range_us;
 
-        let parquet_file_metas = self
+        let storage = self
             .metric_files(
                 &req.org_id,
                 &source.stream,
@@ -1033,7 +1040,7 @@ impl PromQLEngine {
                 ),
             )
             .await?;
-        if parquet_file_metas.is_empty() {
+        if storage.files.is_empty() && storage.buffered_batches.is_empty() {
             return Ok(Vec::new());
         }
         let reader = ParquetReader::new(self.object_store.clone());
@@ -1042,9 +1049,9 @@ impl PromQLEngine {
             .sample_columns
             .as_ref()
             .map(|columns| columns.iter().map(String::as_str).collect::<Vec<_>>());
-        for fm in &parquet_file_metas {
+        for fm in &storage.files {
             // 时间窗口下推：按 `_timestamp` row-group 统计裁剪，边界文件只解码
-            // 与窗口相交的 row group；ParquetFileMeta 里的权威 size 避免每文件
+            // 与窗口相交的 row group；QueryFile 里的权威 size 避免每文件
             // 再做一次 object_store HEAD。
             let mut options = ReadOptions::new()
                 .with_time_range(start_us, at_us)
@@ -1057,6 +1064,7 @@ impl PromQLEngine {
                 .await?;
             batches.extend(bs);
         }
+        batches.extend(storage.buffered_batches);
         if batches.is_empty() {
             return Ok(Vec::new());
         }

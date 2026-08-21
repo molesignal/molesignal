@@ -17,8 +17,8 @@ use super::{TraceListContext, TraceListRow, TraceListSort, filter::TraceFilter};
 use crate::{
     api::{AppState, http::pagination::cursor::CursorDirection},
     domain::{
-        storage::PhysicalDatasetKind,
-        stream::{FieldType, StreamDefinition, StreamType},
+        storage::{DatasetTypeId, primary_dataset_type, type_id::builtin},
+        stream::{FieldType, StreamDefinition},
     },
     infra::{
         query::{escape_sql_ident, parquet_table::PrunedParquetTable},
@@ -27,7 +27,6 @@ use crate::{
     shared::{
         Error, Result,
         cursor::{CursorSortDirection, CursorValue, lexicographic_seek},
-        ids::Id,
         time::{TimeRange, TimestampMicros},
         trace::summary::{
             TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_ERROR_COUNT_FIELD,
@@ -42,70 +41,60 @@ const SUMMARY_RANK_FIELD: &str = "__molesignal_summary_rank";
 
 pub(super) async fn run(
     state: &AppState,
-    org_id: &Id,
     definition: &StreamDefinition,
     context: &TraceListContext,
     fetch_limit: usize,
 ) -> Result<Vec<TraceListRow>> {
     let range = TimeRange::new(TimestampMicros(context.from), TimestampMicros(context.to));
-    let raw_files = state
+    let raw_type = primary_dataset_type(definition.stream_type)?;
+    let summary_type = DatasetTypeId::builtin(builtin::DATASET_TRACE_SUMMARY);
+    let snapshot = state
         .storage
-        .parquet_file_meta
-        .find_dataset(
-            org_id,
-            &definition.name,
-            StreamType::Traces,
-            PhysicalDatasetKind::Raw,
-            range,
-        )
+        .catalog_query
+        .snapshot_stream(definition, &[raw_type.clone(), summary_type.clone()], range)
         .await?;
-    if raw_files.is_empty() {
+    let (raw_files, raw_buffers) = snapshot
+        .dataset(&raw_type)
+        .map(|dataset| (dataset.files.clone(), dataset.buffered_batches.clone()))
+        .unwrap_or_default();
+    if raw_files.is_empty() && raw_buffers.is_empty() {
         return Ok(Vec::new());
     }
-    let summary_files = state
-        .storage
-        .parquet_file_meta
-        .find_dataset(
-            org_id,
-            &definition.name,
-            StreamType::Traces,
-            PhysicalDatasetKind::TraceSummary,
-            range,
-        )
-        .await?;
-    if summary_files.is_empty() {
+    let (summary_files, summary_buffers) = snapshot
+        .dataset(&summary_type)
+        .map(|dataset| (dataset.files.clone(), dataset.buffered_batches.clone()))
+        .unwrap_or_default();
+    if summary_files.is_empty() && summary_buffers.is_empty() {
         return Ok(Vec::new());
     }
 
     let ctx = SessionContext::new();
     let object_store_url = ObjectStoreUrl::parse("molesignal://trace-list")
         .map_err(|error| Error::internal(format!("trace-list object store URL: {error}")))?;
-    ctx.runtime_env().register_object_store(
-        object_store_url.as_ref(),
-        state.storage.object_store.clone(),
-    );
+    ctx.runtime_env()
+        .register_object_store(object_store_url.as_ref(), state.storage.read_store.clone());
 
     let raw_table = PrunedParquetTable::new(
         arrow_schema::to_arrow(&definition.schema),
         &raw_files,
         object_store_url.clone(),
         range,
-        Some(PhysicalDatasetKind::Raw),
-    );
+        Some(raw_type),
+    )
+    .with_buffered_batches(raw_buffers);
     ctx.register_table(TableReference::bare(RAW_TABLE), Arc::new(raw_table))
         .map_err(|error| Error::internal(format!("register trace Span table: {error}")))?;
 
-    let summary_definition = crate::infra::intake::physical_schema::project(
-        definition,
-        PhysicalDatasetKind::TraceSummary,
-    );
+    let summary_definition =
+        crate::infra::intake::physical_schema::project(definition, &summary_type);
     let summary_table = PrunedParquetTable::new(
         arrow_schema::to_arrow(&summary_definition.schema),
         &summary_files,
         object_store_url,
         range,
-        Some(PhysicalDatasetKind::TraceSummary),
-    );
+        Some(summary_type),
+    )
+    .with_buffered_batches(summary_buffers);
     ctx.register_table(TableReference::bare(SUMMARY_TABLE), Arc::new(summary_table))
         .map_err(|error| Error::internal(format!("register trace summary table: {error}")))?;
 

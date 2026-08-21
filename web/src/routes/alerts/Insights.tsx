@@ -95,7 +95,7 @@ export function AlertsInsights() {
         }
       />
       <AlertsSubNav />
-      <PageBody className="pt-2">
+      <PageBody>
         {state === 'loading' && <LoadingState variant="list" rows={5} />}
         {state === 'error' && (
           <ErrorState
@@ -169,8 +169,8 @@ function InsightsDashboard({
   const serviceItems = data.top_services.map((item) => ({ ...item, label: item.key }));
 
   return (
-    <div className="mx-auto w-full max-w-[2200px]">
-      <section aria-labelledby="insights-summary" className="border-b border-bd-0 pb-6 pt-4">
+    <div className="mx-auto w-full max-w-[2200px] space-y-[12px]">
+      <section aria-labelledby="insights-summary" className="rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)]">
         <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="font-sans text-xs font-strong uppercase tracking-wider text-tx-3">{windowLabel}</p>
@@ -187,7 +187,7 @@ function InsightsDashboard({
           </div>
         </div>
 
-        <dl className="mt-6 grid gap-x-10 gap-y-5 sm:grid-cols-2 xl:grid-cols-4">
+        <dl className="mt-6 grid gap-[12px] sm:grid-cols-2 xl:grid-cols-4">
           <SummaryMetric
             label={t('insights.summary.total')}
             value={String(data.total)}
@@ -217,7 +217,7 @@ function InsightsDashboard({
         </dl>
       </section>
 
-      <section className="grid gap-10 border-b border-bd-0 py-7 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
+      <section className="grid gap-10 rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)] xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
         <IncidentTimeline
           incidents={incidents}
           locale={locale}
@@ -227,7 +227,7 @@ function InsightsDashboard({
         <SeverityBreakdown data={data} t={t} />
       </section>
 
-      <section className="grid gap-12 py-7 xl:grid-cols-2">
+      <section className="grid gap-12 rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)] xl:grid-cols-2">
         <RankedList
           sectionId="insights-services"
           title={t('insights.services.title')}
@@ -265,7 +265,7 @@ function SummaryMetric({
   tone?: 'neutral' | 'good' | 'warn';
 }) {
   return (
-    <div>
+    <div className="rounded-md bg-[var(--control-surface)] p-3">
       <dt className="font-sans text-xs font-strong uppercase tracking-wider text-tx-3">{label}</dt>
       <dd
         className={cn(
@@ -357,7 +357,7 @@ function RankedList({
     <section aria-labelledby={sectionId}>
       <SectionHeading id={sectionId} title={title} description={description} />
       {items.length === 0 ? (
-        <div className="mt-5 border-l-2 border-bd-1 pl-4">
+        <div className="mt-5 rounded-md bg-[var(--control-surface)] p-3">
           <p className="font-sans text-sm font-strong text-tx-1">{emptyTitle}</p>
           <p className="mt-1 max-w-xl font-sans text-xs leading-relaxed text-tx-3">{emptyDescription}</p>
         </div>

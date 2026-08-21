@@ -3,14 +3,14 @@
 
 //! intake API + query API 端到端冒烟。
 //!
-//! 两条路径都接通到 parquet_file_meta，query 时 DataFusion engine 把它们 union 到一个
-//! MemTable，跨 parquet schema 演化由 `align_batch_to_schema` 抚平。
+//! 两条路径都通过 FileCatalog 发布显式 Segment/Artifact，query 时 DataFusion engine
+//! 把它们 union 到一个 MemTable，跨 parquet schema 演化由 `align_batch_to_schema` 抚平。
 //!
 //! 1. POST `/api/v1/intake/logs/:stream`（含 schema 演化的新字段 `latency_ms`）
 //!    → IntakeService → IntakeWorker WAL → batch_max_delay_ms 内自动 flush
-//!    出一个 parquet + 插入 parquet_file_meta。
+//!    出一个 Parquet Artifact + 原子提交 Catalog。
 //! 2. 同时走 `ParquetWriter` 手动写一份只有老 schema (`_timestamp + level`) 的
-//!    parquet + `ParquetFileMetaRepository::insert`，验证 query 时能正确合并两批数据。
+//!    Parquet Artifact + `FileCatalog::commit_flush`，验证 query 时能正确合并两批数据。
 //! 3. POST `/api/v1/query`：`SELECT COUNT(*)` 两条路径产物之和（3 + 3 = 6）。
 
 mod common;
@@ -21,15 +21,16 @@ use arrow::array::{RecordBatch, StringArray, TimestampMicrosecondArray};
 use common::{TestServer, skip_unless_enabled};
 use molesignal::{
     domain::{
-        storage::ParquetFileMetaRepository,
+        storage::{
+            CommitFlush, FileCatalog, FlushProvenance, OrganizationScope, SequenceRange,
+            WalSequence, WriterEpoch, WriterNodeId, primary_dataset_type,
+        },
         stream::{
             FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamRepository, StreamType,
         },
     },
     infra::{
-        persistence::repositories::{
-            parquet_file_meta::PgParquetFileMetaRepository, streams::PgStreamRepository,
-        },
+        persistence::repositories::{file_catalog::PgFileCatalog, streams::PgStreamRepository},
         storage::{arrow_schema::to_arrow, parquet::writer::ParquetWriter},
     },
     shared::{ids::Id, time::TimestampMicros},
@@ -50,7 +51,7 @@ async fn seed_stream(s: &TestServer) -> StreamDefinition {
             id: Id::new(),
             org_id: s.root_org_id.clone(),
             name: "app".into(),
-            stream_type: StreamType::Logs,
+            stream_type: StreamType::LOGS,
             schema: Schema {
                 fields: vec![FieldDef {
                     name: "level".into(),
@@ -98,8 +99,8 @@ async fn intake_api_accepts_batch_and_query_api_returns_seeded_rows() {
     assert_eq!(body["accepted"], 3, "all 3 events accepted");
     assert_eq!(body["rejected"], 0);
 
-    // 2a. 等 IntakeWorker 自动 flush 出 parquet_file_meta（wire 默认 batch_max_delay_ms=50，
-    //     加上 parquet 写 + PG insert，通常 < 1s；这里给 10s 兜底防 CI 抖动）。
+    // 2a. 等 IntakeWorker 自动提交 active Segment（wire 默认 batch_max_delay_ms=50，
+    //     加上 Artifact 写 + Catalog 事务，通常 < 1s；这里给 10s 兜底防 CI 抖动）。
     let pool = sqlx::postgres::PgPoolOptions::new()
         .max_connections(2)
         .connect(&s.settings.store.meta.dsn)
@@ -107,14 +108,18 @@ async fn intake_api_accepts_batch_and_query_api_returns_seeded_rows() {
         .expect("test pool 2");
     let flushed = {
         let pool = pool.clone();
+        let organization_id = s.root_org_id.0.clone();
         common::wait_until_async(10, move || {
             let pool = pool.clone();
+            let organization_id = organization_id.clone();
             async move {
-                let row: (i64,) =
-                    sqlx::query_as("SELECT COUNT(*) FROM parquet_file_meta WHERE deleted = FALSE")
-                        .fetch_one(&pool)
-                        .await
-                        .unwrap_or((0,));
+                let row: (i64,) = sqlx::query_as(
+                    "SELECT COUNT(*) FROM data_segments WHERE org_id = $1 AND state = 'active'",
+                )
+                .bind(organization_id)
+                .fetch_one(&pool)
+                .await
+                .unwrap_or((0,));
                 row.0 >= 1
             }
         })
@@ -122,11 +127,11 @@ async fn intake_api_accepts_batch_and_query_api_returns_seeded_rows() {
     };
     assert!(
         flushed,
-        "intake flush did not produce parquet_file_meta within timeout"
+        "intake flush did not commit a Catalog segment within timeout"
     );
 
-    // 2b. 同时手动写一份"老 schema" parquet（只有 _timestamp + level，没有 latency_ms）
-    //     + 插 parquet_file_meta，制造 schema 演化场景，验证 DataFusion 端 align_batch_to_schema 抚平。
+    // 2b. 手动写一份"老 schema" Artifact（只有 _timestamp + level，没有 latency_ms）
+    //     并原子提交 Catalog，制造 schema 演化场景。
     let store: Arc<dyn ObjectStore> =
         Arc::new(LocalFileSystem::new_with_prefix(s.object_store_root.path()).unwrap());
     let writer = ParquetWriter::new(store);
@@ -137,12 +142,36 @@ async fn intake_api_accepts_batch_and_query_api_returns_seeded_rows() {
     let batch =
         RecordBatch::try_new(arrow_schema, vec![Arc::new(ts), Arc::new(level)]).expect("batch");
 
-    let meta = writer.flush(&stream, batch).await.expect("flush parquet");
-
-    PgParquetFileMetaRepository::new(pool)
-        .insert(meta)
+    let catalog = PgFileCatalog::new(pool.clone());
+    let scope = OrganizationScope::new(stream.org_id.clone());
+    let dataset_type = primary_dataset_type(stream.stream_type).unwrap();
+    let dataset = catalog
+        .list_datasets(&scope, &stream.id)
         .await
-        .expect("insert ParquetFileMeta");
+        .expect("list physical datasets")
+        .into_iter()
+        .find(|dataset| dataset.dataset_type == dataset_type)
+        .expect("intake provisioned raw dataset");
+    let provenance = FlushProvenance::derive(
+        WriterNodeId::new("fixture-node"),
+        WriterEpoch(1),
+        SequenceRange::new(WalSequence(1), WalSequence(3)),
+    );
+    let segments = writer
+        .flush_catalog(&stream, &dataset, &provenance, batch)
+        .await
+        .expect("write old-schema Artifacts");
+    catalog
+        .commit_flush(
+            &scope,
+            CommitFlush {
+                dataset_id: dataset.id,
+                provenance,
+                segments,
+            },
+        )
+        .await
+        .expect("commit old-schema Segment");
 
     // 3. POST query → 验证 count = 6（intake path 3 + 手写 parquet 3）
     let resp = s
@@ -206,14 +235,18 @@ async fn intake_auto_creates_missing_stream() {
         .expect("test pool");
     let flushed = {
         let pool = pool.clone();
+        let organization_id = s.root_org_id.0.clone();
         common::wait_until_async(10, move || {
             let pool = pool.clone();
+            let organization_id = organization_id.clone();
             async move {
-                let row: (i64,) =
-                    sqlx::query_as("SELECT COUNT(*) FROM parquet_file_meta WHERE deleted = FALSE")
-                        .fetch_one(&pool)
-                        .await
-                        .unwrap_or((0,));
+                let row: (i64,) = sqlx::query_as(
+                    "SELECT COUNT(*) FROM data_segments WHERE org_id = $1 AND state = 'active'",
+                )
+                .bind(organization_id)
+                .fetch_one(&pool)
+                .await
+                .unwrap_or((0,));
                 row.0 >= 1
             }
         })
@@ -221,7 +254,7 @@ async fn intake_auto_creates_missing_stream() {
     };
     assert!(
         flushed,
-        "auto-created stream never flushed to parquet_file_meta"
+        "auto-created stream never committed to FileCatalog"
     );
 
     let resp = s

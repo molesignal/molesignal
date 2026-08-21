@@ -255,7 +255,9 @@ impl PgSyntheticRepository {
             ("execution".to_string(), "embedded".to_string()),
             ("system_managed".to_string(), "true".to_string()),
         ]);
-        let capabilities = vec!["http", "tcp", "dns", "icmp", "tls", "grpc", "browser"];
+        let capabilities = vec![
+            "http", "tcp", "ssh", "dns", "icmp", "tls", "grpc", "browser",
+        ];
         let rows = sqlx::query(
             "INSERT INTO synthetic_probe_agents AS agent
                 (id, location_id, name, hostname, status, agent_version, protocol_version,

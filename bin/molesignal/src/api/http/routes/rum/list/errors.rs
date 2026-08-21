@@ -96,9 +96,10 @@ pub(super) async fn list(
     let midpoint = context.from + (context.to - context.from) / 2;
     let new_threshold = context.from + (context.to - context.from) * 3 / 4;
     let reader = RumReadModelReader::new(
-        state.storage.parquet_file_meta.clone(),
-        state.storage.object_store.clone(),
-    );
+        state.storage.catalog_files.clone(),
+        state.storage.read_store.clone(),
+    )
+    .with_catalog_source(state.storage.catalog_query.clone());
     let mut groups = HashMap::<String, ErrorGroup>::new();
     let stats = reader
         .visit_errors(

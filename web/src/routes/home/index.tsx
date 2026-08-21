@@ -68,9 +68,9 @@ import {
   streamExplorePath,
 } from './canvas/format';
 import {
-  CanvasDividerGrid,
   CanvasKpi,
   CanvasKpiStrip,
+  CanvasSurfaceGrid,
   OperationsCanvas,
 } from './canvas/layout';
 import {
@@ -380,7 +380,9 @@ export function Home() {
     <OverviewPage
       title={t('home.title')}
       subtitle={t('home.subtitle')}
-      bodyClassName="gap-4 pb-2 pt-2"
+      appearance="surface"
+      headerCompact
+      bodyClassName="gap-[12px] pb-[20px] pt-0"
       toolbar={
         <>
           <DropdownMenu>
@@ -561,7 +563,7 @@ export function Home() {
           </CanvasKpiStrip>
 
           {criticalItems.length > 0 && (
-            <div className="border-b border-bd-0 bg-bg-0 p-3">
+            <div className="rounded-md bg-[var(--functional-surface)] p-[12px] [box-shadow:var(--shadow-functional-surface)]">
               <CriticalAlertBanner
                 title={t('home.critical.title', { count: firing })}
                 items={criticalItems}
@@ -571,7 +573,7 @@ export function Home() {
             </div>
           )}
 
-          <CanvasDividerGrid className="home-canvas-primary-grid items-stretch">
+          <CanvasSurfaceGrid className="home-canvas-primary-grid items-stretch">
             <SystemHealthSection
               overview={overview}
               runtimeOverview={runtimeQuery.data}
@@ -585,7 +587,7 @@ export function Home() {
 
             <aside
               aria-label={t('home.sidebar_label')}
-              className="min-w-0 bg-bg-0"
+              className="min-w-0"
               data-testid="home-primary-operational-context"
             >
               {featuredOnCall?.status === 'gap' ? (
@@ -643,12 +645,9 @@ export function Home() {
                 />
               )}
             </aside>
-          </CanvasDividerGrid>
+          </CanvasSurfaceGrid>
 
-          <CanvasDividerGrid
-            topDivider
-            className="home-canvas-detail-grid items-stretch"
-          >
+          <CanvasSurfaceGrid className="home-canvas-detail-grid items-stretch">
             <TopStreamsSection
               overview={overview}
               runtimeOverview={runtimeQuery.data}
@@ -666,9 +665,9 @@ export function Home() {
               createAlertDisabled={alertCreateAccess.disabled}
               createAlertDisabledReason={alertCreateAccess.reason}
             />
-          </CanvasDividerGrid>
+          </CanvasSurfaceGrid>
 
-          <div className="home-canvas-footer bg-bg-0">
+          <div className="space-y-[8px] bg-[var(--page-canvas)]">
             <RecentDashboardsSection
               dashboards={dashboards}
               loading={dashboardsQuery.isLoading}

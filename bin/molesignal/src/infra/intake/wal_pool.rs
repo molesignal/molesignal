@@ -1,67 +1,89 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! WalPool：按 `(org, stream_type, stream)` 维护独立 `SegmentWal` 实例。
+//! WalPool：按 [`PhysicalDatasetId`] 维护独立 `SegmentWal` 实例。
 //!
-//! - 每个 key 一个独立子目录（`{root}/{org_id}/{stream_type}/{stream_name}`），
-//!   彼此独立 rotate / fsync / replay。
-//! - `append` 串行化到 `Arc<Mutex<SegmentWal>>`：同 key 不并发写。
-//! - `truncate_up_to(key, seq)` 把"全部 record index ≤ seq"的封口 segment 整段删除；
-//!   当前正写入的 segment 不动（即使该 segment 内全部 ≤ seq 也保留，避免删活跃写文件）。
-//! - `recover()` 扫 root 目录重建 key 列表并把每个 wal 的 record 全部读出，供 IntakeWorker
-//!   在 ready 之前 replay 回 buffer。
+//! 目录布局只含稳定 ID，不含 stream name / signal 类型：
 //!
-//! **目录命名约定**：`stream_name` 必须满足领域层统一的 path-safe 校验，否则
-//! [`WalPool::append`] 返错（sanitize 不安全会导致冲突；约束也在 intake 入口做）。
+//! ```text
+//! {root}/{node_id}/{dataset_id}/CURRENT              当前 writer epoch（十进制）
+//! {root}/{node_id}/{dataset_id}/{epoch}/IDENTITY     该 epoch 的身份清单（JSON）
+//! {root}/{node_id}/{dataset_id}/{epoch}/wal-*.seg    记录段
+//! {root}/{node_id}/{dataset_id}/quarantine/          损坏段隔离区
+//! ```
+//!
+//! - **writer epoch**：进程每次取得某 dataset 的写入所有权（首次 append）时把
+//!   `CURRENT` 原子推进一格并新建 epoch 目录；旧 epoch 目录只由启动恢复读取。
+//!   `CURRENT` 无条件 fsync——epoch 号丢失会让 (epoch, sequence) 撞车，进而在
+//!   flush 幂等去重时吞掉真实数据。
+//! - **sequence**：per-dataset 单调递增（record header 的 `index`），新 epoch 从
+//!   全部旧 epoch 的最大值 +1 续走，保证 buffer 高水位跨恢复仍然单调。
+//!   record header 的 `term` 存 epoch。
+//! - `append` 在 `SegmentWal` 互斥区内分配 sequence，文件内严格有序。
+//! - `truncate_up_to(dataset, seq)` 只作用于当前 epoch 目录；旧 epoch 目录由
+//!   恢复流程整目录清理（见 `wal_pool/recovery.rs`）。
+
+mod recovery;
 
 use std::{
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
     time::Instant,
 };
 
 use anyhow::{Context, Result, anyhow};
 use dashmap::DashMap;
+use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
+pub use self::recovery::{WalEpochDir, WalRecoverySource};
 use crate::{
-    domain::{storage::PhysicalDatasetKind, stream::StreamType},
+    domain::storage::{DatasetTypeId, PhysicalDatasetId, WalCodecId, WalSequence, WriterEpoch},
     infra::{
         cipher::CipherRootKey,
         intake::metrics::{WalInflightGuard, observe_wal_lock_wait},
         segment_wal::{
-            FsyncPolicy, SegmentWal, TermSource, WalEntryType, WalRecord, scan_segment_max_index,
+            FsyncPolicy, SegmentWal, WalEntryType, scan_segment_max_index, sync_dir_parent_of,
         },
     },
     shared::ids::Id,
 };
 
-pub type WalKey = (Id, StreamType, String, PhysicalDatasetKind);
-
-/// [`WalPool::truncate_up_to`] 的同步实现（在 blocking 池上跑）。
-fn truncate_dir_blocking(dir: &Path, seq: u64) -> Result<()> {
-    if !dir.exists() {
-        return Ok(());
-    }
-    let segments = SegmentWal::segment_paths_sorted(dir)?;
-    if segments.len() <= 1 {
-        // 0 segments or only the active (head) one - nothing to seal
-        return Ok(());
-    }
-    let active_idx = segments.len() - 1;
-    for seg_path in segments.iter().take(active_idx) {
-        // 只读 header 链取 max index：这里只需判断本段是否全部 ≤ seq，
-        // 没必要为此把每条记录解压 + 拷贝一遍。
-        match scan_segment_max_index(seg_path)? {
-            // empty / corrupt-only segment：直接删
-            None => std::fs::remove_file(seg_path)?,
-            Some(max_index) if max_index <= seq => std::fs::remove_file(seg_path)?,
-            // 出现含 > seq 的旧 segment 即停（理论上不该发生 — index 单调递增）
-            Some(_) => break,
-        }
-    }
-    Ok(())
+/// 一条 WAL 流的写入身份；由 dataset 解析层构造。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WalStreamIdentity {
+    pub organization_id: Id,
+    pub dataset_id: PhysicalDatasetId,
+    pub dataset_type: DatasetTypeId,
+    pub wal_codec: WalCodecId,
 }
+
+/// Position durably assigned to one WAL record.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WalAppendPosition {
+    pub writer_epoch: WriterEpoch,
+    pub sequence: WalSequence,
+}
+
+/// epoch 目录内的身份清单。恢复时与目录路径互验，防止段文件被错放 / 错拷。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct EpochIdentity {
+    pub format_version: u32,
+    pub organization_id: String,
+    pub dataset_id: String,
+    pub dataset_type: String,
+    pub node_id: String,
+    pub epoch: u64,
+    pub wal_codec: String,
+}
+
+pub(crate) const EPOCH_IDENTITY_FORMAT_VERSION: u32 = 1;
+pub(crate) const CURRENT_FILE: &str = "CURRENT";
+pub(crate) const IDENTITY_FILE: &str = "IDENTITY";
+pub(crate) const QUARANTINE_DIR: &str = "quarantine";
 
 const DEFAULT_BUFFER_BYTES: usize = 64 * 1024;
 
@@ -89,61 +111,53 @@ fn wal_decrypt_body(kek: Option<&CipherRootKey>, stored: &[u8]) -> Result<Vec<u8
     kek.open(nonce, ct).map_err(|e| anyhow!("wal open: {e}"))
 }
 
-fn stream_type_dir(st: StreamType) -> &'static str {
-    match st {
-        StreamType::Logs => "logs",
-        StreamType::Metrics => "metrics",
-        StreamType::Traces => "traces",
-        StreamType::Profiles => "profiles",
-        StreamType::Extend => "extend",
+/// 原子写小文件：tmp + sync_all + rename + 父目录 sync_all。
+fn write_file_durable(path: &Path, contents: &[u8]) -> Result<()> {
+    let tmp = path.with_extension("tmp");
+    {
+        let mut file =
+            std::fs::File::create(&tmp).with_context(|| format!("create {}", tmp.display()))?;
+        use std::io::Write;
+        file.write_all(contents)?;
+        file.sync_all()?;
     }
+    std::fs::rename(&tmp, path)
+        .with_context(|| format!("rename {} -> {}", tmp.display(), path.display()))?;
+    sync_dir_parent_of(path, crate::infra::segment_wal::SyncLevel::ALL)?;
+    Ok(())
 }
 
-fn stream_type_from_dir(s: &str) -> Option<StreamType> {
-    match s {
-        "logs" => Some(StreamType::Logs),
-        "metrics" => Some(StreamType::Metrics),
-        "traces" => Some(StreamType::Traces),
-        "profiles" => Some(StreamType::Profiles),
-        "extend" => Some(StreamType::Extend),
-        _ => None,
-    }
-}
-
-fn key_dir(root: &Path, key: &WalKey) -> PathBuf {
-    root.join(key.0.as_str())
-        .join(stream_type_dir(key.1))
-        .join(key.3.as_str())
-        .join(&key.2)
+struct DatasetWal {
+    epoch: u64,
+    epoch_dir: PathBuf,
+    next_seq: AtomicU64,
+    wal: Mutex<SegmentWal>,
 }
 
 pub struct WalPool {
     root: PathBuf,
+    node_id: String,
     segment_size_bytes: usize,
     fsync_policy: FsyncPolicy,
-    term_source: Arc<dyn TermSource>,
-    pools: DashMap<WalKey, Arc<Mutex<SegmentWal>>>,
+    pools: DashMap<PhysicalDatasetId, Arc<DatasetWal>>,
     /// at-rest 加密 KEK；`None` = 明文落盘（默认）。`with_cipher` 注入。
     cipher: Option<CipherRootKey>,
 }
 
 impl WalPool {
-    /// `segment_size_bytes` 为每个 segment 文件的滚动上限。
-    ///
-    /// - `fsync_policy` 由 bootstrap 从 `WalSettings` 构造（见 `src/bootstrap/storage.rs`
-    ///   的 `build_fsync_policy`）；新建 `SegmentWal` 时透传。
-    /// - `term_source` 为 raft / consensus 注入点；OSS 默认 `StaticTermSource(1)`。
+    /// `segment_size_bytes` 为每个 segment 文件的滚动上限；`node_id` 进目录布局，
+    /// 同一 dataset 在不同节点的 WAL 与 (epoch, sequence) 序号空间彼此独立。
     pub fn new(
         root: impl Into<PathBuf>,
+        node_id: impl Into<String>,
         segment_size_bytes: usize,
         fsync_policy: FsyncPolicy,
-        term_source: Arc<dyn TermSource>,
     ) -> Self {
         Self {
             root: root.into(),
+            node_id: node_id.into(),
             segment_size_bytes,
             fsync_policy,
-            term_source,
             pools: DashMap::new(),
             cipher: None,
         }
@@ -159,496 +173,454 @@ impl WalPool {
         &self.root
     }
 
-    /// 拿到或新建给定 key 的 `Arc<Mutex<SegmentWal>>`。
-    fn open_or_create(&self, key: &WalKey) -> Result<Arc<Mutex<SegmentWal>>> {
-        if let Some(w) = self.pools.get(key) {
-            return Ok(w.clone());
+    pub fn node_id(&self) -> &str {
+        &self.node_id
+    }
+
+    pub(crate) fn cipher(&self) -> Option<&CipherRootKey> {
+        self.cipher.as_ref()
+    }
+
+    fn node_dir(&self) -> PathBuf {
+        self.root.join(&self.node_id)
+    }
+
+    fn dataset_dir(&self, dataset_id: &PhysicalDatasetId) -> PathBuf {
+        self.node_dir().join(dataset_id.as_str())
+    }
+
+    /// 读取 `CURRENT`；缺失 = 0，损坏显式报错（静默归零会造成 epoch 复用）。
+    fn read_current_epoch(dataset_dir: &Path) -> Result<u64> {
+        let path = dataset_dir.join(CURRENT_FILE);
+        match std::fs::read_to_string(&path) {
+            Ok(raw) => raw
+                .trim()
+                .parse::<u64>()
+                .with_context(|| format!("corrupt CURRENT at {}", path.display())),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(0),
+            Err(e) => Err(anyhow!("read CURRENT at {}: {e}", path.display())),
         }
-        crate::domain::stream::validate_stream_name(&key.2)
-            .map_err(|error| anyhow!(error.to_string()))?;
-        let dir = key_dir(&self.root, key);
-        std::fs::create_dir_all(&dir)
-            .with_context(|| format!("create wal dir {}", dir.display()))?;
+    }
+
+    /// 目录中现存 epoch 子目录的最大编号（防 `CURRENT` 写入与建目录间崩溃后回退）。
+    fn max_existing_epoch(dataset_dir: &Path) -> Result<u64> {
+        let mut max = 0u64;
+        if dataset_dir.exists() {
+            for entry in std::fs::read_dir(dataset_dir)? {
+                let entry = entry?;
+                if !entry.file_type()?.is_dir() {
+                    continue;
+                }
+                if let Ok(epoch) = entry.file_name().to_string_lossy().parse::<u64>() {
+                    max = max.max(epoch);
+                }
+            }
+        }
+        Ok(max)
+    }
+
+    /// 全部现存 epoch 目录里最大的 record index；新 epoch 的 sequence 从其 +1 续走。
+    fn max_existing_sequence(dataset_dir: &Path) -> Result<u64> {
+        let mut max = 0u64;
+        if !dataset_dir.exists() {
+            return Ok(max);
+        }
+        for entry in std::fs::read_dir(dataset_dir)? {
+            let entry = entry?;
+            if !entry.file_type()?.is_dir()
+                || entry.file_name().to_string_lossy().parse::<u64>().is_err()
+            {
+                continue;
+            }
+            for segment in SegmentWal::segment_paths_sorted(entry.path())? {
+                if let Some(index) = scan_segment_max_index(&segment)? {
+                    max = max.max(index);
+                }
+            }
+        }
+        Ok(max)
+    }
+
+    /// 取得写入所有权：推进 `CURRENT`、建 epoch 目录、写 IDENTITY、打开 SegmentWal。
+    fn acquire(&self, identity: &WalStreamIdentity) -> Result<DatasetWal> {
+        let dataset_dir = self.dataset_dir(&identity.dataset_id);
+        std::fs::create_dir_all(&dataset_dir)
+            .with_context(|| format!("create wal dataset dir {}", dataset_dir.display()))?;
+
+        let epoch = Self::read_current_epoch(&dataset_dir)?
+            .max(Self::max_existing_epoch(&dataset_dir)?)
+            + 1;
+        let next_seq = Self::max_existing_sequence(&dataset_dir)? + 1;
+        write_file_durable(
+            &dataset_dir.join(CURRENT_FILE),
+            epoch.to_string().as_bytes(),
+        )?;
+
+        let epoch_dir = dataset_dir.join(epoch.to_string());
+        std::fs::create_dir_all(&epoch_dir)?;
+        let manifest = EpochIdentity {
+            format_version: EPOCH_IDENTITY_FORMAT_VERSION,
+            organization_id: identity.organization_id.as_str().to_owned(),
+            dataset_id: identity.dataset_id.as_str().to_owned(),
+            dataset_type: identity.dataset_type.as_str().to_owned(),
+            node_id: self.node_id.clone(),
+            epoch,
+            wal_codec: identity.wal_codec.as_str().to_owned(),
+        };
+        write_file_durable(
+            &epoch_dir.join(IDENTITY_FILE),
+            &serde_json::to_vec_pretty(&manifest)?,
+        )?;
+
         let wal = SegmentWal::new(
-            &dir,
+            &epoch_dir,
             self.segment_size_bytes,
             DEFAULT_BUFFER_BYTES,
             None,
             None,
             self.fsync_policy,
-            self.term_source.current_term(),
+            epoch,
         )
-        .with_context(|| format!("open wal at {}", dir.display()))?;
-        let arc = Arc::new(Mutex::new(wal));
-        self.pools.insert(key.clone(), arc.clone());
-        Ok(arc)
+        .with_context(|| format!("open wal at {}", epoch_dir.display()))?;
+        Ok(DatasetWal {
+            epoch,
+            epoch_dir,
+            next_seq: AtomicU64::new(next_seq),
+            wal: Mutex::new(wal),
+        })
     }
 
-    /// 追加一条 WAL 记录（Normal entry）。
+    fn open_or_create(&self, identity: &WalStreamIdentity) -> Result<Arc<DatasetWal>> {
+        if let Some(entry) = self.pools.get(&identity.dataset_id) {
+            return Ok(entry.clone());
+        }
+        // 竞争建 entry：entry() 持 shard 锁串行化同 dataset 的 acquire，
+        // 保证一个进程内每个 dataset 只推进一次 epoch。
+        let entry = self
+            .pools
+            .entry(identity.dataset_id.clone())
+            .or_try_insert_with(|| self.acquire(identity).map(Arc::new))?;
+        Ok(entry.clone())
+    }
+
+    /// 当前进程为该 dataset 取得的 writer epoch；尚未 append 过时为 None。
+    pub fn current_epoch(&self, dataset_id: &PhysicalDatasetId) -> Option<u64> {
+        self.pools.get(dataset_id).map(|entry| entry.epoch)
+    }
+
+    /// 兼容入口：只返回 sequence。需要构造 flush provenance 的写入方应使用
+    /// [`Self::append_position`]，避免在 append 后另读 epoch。
+    pub async fn append(&self, identity: &WalStreamIdentity, payload: Vec<u8>) -> Result<u64> {
+        Ok(self.append_position(identity, payload).await?.sequence.0)
+    }
+
+    /// 追加一条 WAL 记录（Normal entry），返回原子取得的 epoch + sequence。
     ///
-    /// 写入本身是同步文件 IO，跑在 blocking 池上而非 tokio worker：默认的 `Batch` 策略
-    /// 每攒够 `max_pending` 条（或超时）就在那一次 `write_raw` 里同步 `sync_file`，
-    /// 毫秒级；留在 worker 上会把整个 runtime 的其他任务一起卡住。
-    ///
-    /// `payload` 收 owned `Vec` 是为了能直接 move 进 blocking task —— 调用方本来
-    /// 持有的就是 owned buffer，不必为此多拷一份。
+    /// sequence 在 `SegmentWal` 互斥区内分配，段文件里严格单调；写入本身是同步
+    /// 文件 IO，跑在 blocking 池上（`Batch` fsync 策略会在临界区里同步刷盘）。
     #[tracing::instrument(
         name = "wal.append",
         skip_all,
         fields(
             otel.kind = "internal",
             molesignal.wal.payload_bytes = payload.len(),
-            molesignal.stream.type = ?key.1
+            molesignal.dataset.r#type = %identity.dataset_type
         )
     )]
-    pub async fn append(&self, key: &WalKey, payload: Vec<u8>, seq: u64) -> Result<()> {
-        let wal = self.open_or_create(key)?;
-        let stream_type_label = stream_type_dir(key.1);
-        // term 透传：若 raft 在两次 append 间 leader election 切换，下一条记录的 header
-        // 必须反映新的 term。term_source 默认是 StaticTermSource，比较是 noop。
-        let term = self.term_source.current_term();
+    pub async fn append_position(
+        &self,
+        identity: &WalStreamIdentity,
+        payload: Vec<u8>,
+    ) -> Result<WalAppendPosition> {
+        let entry = self.open_or_create(identity)?;
+        let writer_epoch = WriterEpoch(entry.epoch);
+        let dataset_type_label = identity.dataset_type.as_str().to_owned();
         let payload = match &self.cipher {
             Some(k) => wal_encrypt(k, &payload)?,
             None => payload,
         };
         let lock_started = Instant::now();
         tokio::task::spawn_blocking(move || {
-            let mut guard = wal.blocking_lock();
-            observe_wal_lock_wait(stream_type_label, lock_started.elapsed().as_secs_f64());
-            let _inflight = WalInflightGuard::enter(stream_type_label);
-            if guard.current_term() != term {
-                guard.set_term(term);
-            }
-            guard.write_raw(WalEntryType::Normal, &payload, seq)
+            let mut guard = entry.wal.blocking_lock();
+            observe_wal_lock_wait(&dataset_type_label, lock_started.elapsed().as_secs_f64());
+            let _inflight = WalInflightGuard::enter(&dataset_type_label);
+            let seq = entry.next_seq.fetch_add(1, Ordering::SeqCst);
+            guard.write_raw(WalEntryType::Normal, &payload, seq)?;
+            Ok(WalAppendPosition {
+                writer_epoch,
+                sequence: WalSequence(seq),
+            })
         })
         .await
         .map_err(|e| anyhow!("wal append join: {e}"))?
     }
 
-    /// 强制封口当前活跃 segment（若非空）。flush_one 在 truncate 前调用，
-    /// 把所有已写 record 推到 sealed segment，便于随后被 [`Self::truncate_up_to`] 整段删除。
+    /// 强制封口当前活跃 segment（若非空）。flush 在 truncate 前调用，
+    /// 把所有已写 record 推到 sealed segment，便于随后被整段删除。
     ///
-    /// 若 key 对应的 pool 尚未初始化（从未 append 过），no-op。
-    pub async fn seal_active(&self, key: &WalKey) -> Result<()> {
-        let Some(wal) = self.pools.get(key).map(|w| w.clone()) else {
+    /// 该 dataset 本进程尚未写过时 no-op。
+    pub async fn seal_active(&self, dataset_id: &PhysicalDatasetId) -> Result<()> {
+        let Some(entry) = self.pools.get(dataset_id).map(|entry| entry.clone()) else {
             return Ok(());
         };
-        let mut guard = wal.lock().await;
+        let mut guard = entry.wal.lock().await;
         guard.seal_active()?;
         Ok(())
     }
 
-    /// 把所有 record index ≤ `seq` 的 sealed segments 整段删除（当前活跃 segment 保留）。
-    /// 遇到"含 index > seq 记录"的 segment 立即停止（保持时间序完整）。
-    pub async fn truncate_up_to(&self, key: &WalKey, seq: u64) -> Result<()> {
-        let dir = key_dir(&self.root, key);
-        // 列目录、扫 header、unlink 全是同步文件 IO，挪到 blocking 池，别占 tokio worker。
+    /// 把当前 epoch 目录里 record index ≤ `seq` 的 sealed segments 整段删除
+    /// （活跃 segment 保留）。旧 epoch 目录不在此处理，由恢复流程清理。
+    pub async fn truncate_up_to(&self, dataset_id: &PhysicalDatasetId, seq: u64) -> Result<()> {
+        let Some(entry) = self.pools.get(dataset_id).map(|entry| entry.clone()) else {
+            return Ok(());
+        };
+        let dir = entry.epoch_dir.clone();
         tokio::task::spawn_blocking(move || truncate_dir_blocking(&dir, seq))
             .await
             .map_err(|e| anyhow!("truncate join: {e}"))?
     }
+}
 
-    /// 启动期扫整 root 目录恢复未 flush 的记录。结果按 key 分组返回。
-    pub fn recover(&self) -> Result<Vec<(WalKey, Vec<WalRecord>)>> {
-        let mut out = Vec::new();
-        if !self.root.exists() {
-            return Ok(out);
-        }
-        for org_entry in std::fs::read_dir(&self.root)? {
-            let org_entry = org_entry?;
-            if !org_entry.file_type()?.is_dir() {
-                continue;
-            }
-            let org_id = Id::from_string(org_entry.file_name().to_string_lossy().to_string());
-            for st_entry in std::fs::read_dir(org_entry.path())? {
-                let st_entry = st_entry?;
-                if !st_entry.file_type()?.is_dir() {
-                    continue;
-                }
-                let Some(stream_type) =
-                    stream_type_from_dir(&st_entry.file_name().to_string_lossy())
-                else {
-                    continue;
-                };
-                for dataset_entry in std::fs::read_dir(st_entry.path())? {
-                    let dataset_entry = dataset_entry?;
-                    if !dataset_entry.file_type()?.is_dir() {
-                        continue;
-                    }
-                    let Ok(dataset_kind) = dataset_entry
-                        .file_name()
-                        .to_string_lossy()
-                        .parse::<PhysicalDatasetKind>()
-                    else {
-                        continue;
-                    };
-                    for stream_entry in std::fs::read_dir(dataset_entry.path())? {
-                        let stream_entry = stream_entry?;
-                        if !stream_entry.file_type()?.is_dir() {
-                            continue;
-                        }
-                        let stream_name = stream_entry.file_name().to_string_lossy().to_string();
-                        let key = (org_id.clone(), stream_type, stream_name, dataset_kind);
-                        let (mut records, _truncated) =
-                            SegmentWal::read_records(stream_entry.path())?;
-                        // at-rest 解密：仅对带 magic 前缀的 record（明文原样透传）。
-                        for r in &mut records {
-                            if r.payload.starts_with(WAL_ENC_MAGIC) {
-                                r.payload = wal_decrypt_body(self.cipher.as_ref(), &r.payload)?;
-                            }
-                        }
-                        if !records.is_empty() {
-                            out.push((key, records));
-                        }
-                    }
-                }
-            }
-        }
-        Ok(out)
+/// [`WalPool::truncate_up_to`] 的同步实现（在 blocking 池上跑）。
+fn truncate_dir_blocking(dir: &Path, seq: u64) -> Result<()> {
+    if !dir.exists() {
+        return Ok(());
     }
+    let segments = SegmentWal::segment_paths_sorted(dir)?;
+    if segments.len() <= 1 {
+        // 0 segments or only the active (head) one - nothing to seal
+        return Ok(());
+    }
+    let active_idx = segments.len() - 1;
+    for seg_path in segments.iter().take(active_idx) {
+        // 只读 header 链取 max index：这里只需判断本段是否全部 ≤ seq，
+        // 没必要为此把每条记录解压 + 拷贝一遍。
+        match scan_segment_max_index(seg_path)? {
+            // empty / corrupt-only segment：直接删
+            None => std::fs::remove_file(seg_path)?,
+            Some(max_index) if max_index <= seq => std::fs::remove_file(seg_path)?,
+            // 出现含 > seq 的旧 segment 即停（理论上不该发生 — index 单调递增）
+            Some(_) => break,
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
-mod tests {
-    use std::sync::atomic::{AtomicU64, Ordering};
-
+pub(crate) mod tests {
     use tempfile::tempdir;
 
     use super::*;
-    use crate::infra::segment_wal::{StaticTermSource, SyncLevel, scan_segment_file_readonly};
+    use crate::{
+        domain::storage::type_id,
+        infra::segment_wal::{SyncLevel, scan_segment_file_readonly},
+    };
 
-    fn key_logs(org: &str, stream: &str) -> WalKey {
-        (
-            Id::from_string(org),
-            StreamType::Logs,
-            stream.to_string(),
-            PhysicalDatasetKind::Raw,
-        )
-    }
-
-    fn test_pool(root: &Path, seg: usize) -> WalPool {
-        WalPool::new(
-            root,
-            seg,
-            FsyncPolicy::none_default(),
-            Arc::new(StaticTermSource(1)),
-        )
-    }
-
-    /// `truncate` 靠 `scan_segment_max_index` 判断一整段能否删除，它必须和全量扫描
-    /// 给出一致的 max index —— 不一致就会误删还没落 parquet 的 WAL 段。
-    #[tokio::test]
-    async fn max_index_scan_agrees_with_full_scan() {
-        let tmp = tempdir().unwrap();
-        // 段开小，逼出多个 sealed segment；payload 给大一点让 LZ4 分支也走到。
-        let pool = test_pool(tmp.path(), 512);
-        let k = key_logs("org-a", "app");
-        for i in 1..=20u64 {
-            let payload = format!("{}-{i}", "x".repeat(60));
-            pool.append(&k, payload.into_bytes(), i).await.unwrap();
-        }
-
-        let dir = key_dir(tmp.path(), &k);
-        let segments = SegmentWal::segment_paths_sorted(&dir).unwrap();
-        assert!(segments.len() > 1, "需要多个 segment 才有意义");
-        for seg in &segments {
-            let full = scan_segment_file_readonly(seg).unwrap();
-            let expected = full.records.iter().map(|r| r.index).max();
-            assert_eq!(
-                scan_segment_max_index(seg).unwrap(),
-                expected,
-                "segment {seg:?} 的 max index 与全量扫描不一致"
-            );
+    pub(crate) fn identity(dataset: &str) -> WalStreamIdentity {
+        WalStreamIdentity {
+            organization_id: Id::from_string("org-a"),
+            dataset_id: PhysicalDatasetId::from_string(dataset),
+            dataset_type: DatasetTypeId::builtin(type_id::builtin::DATASET_LOG_RECORDS),
+            wal_codec: WalCodecId::builtin(type_id::builtin::WAL_CODEC_ROW_BATCH),
         }
     }
 
-    /// truncate 按 segment 整段删，且遇到 `max_index > seq` 即停。而 flush 的对象存储 IO
-    /// 期间新到的写入会落进同一个活跃段，`seal_active` 把它和已 flush 的记录封进同一段，
-    /// 该段 `max_index > hwm` → 整段删不掉。于是**已落 parquet 的记录会继续留在 WAL 里**。
-    ///
-    /// 稳态持续写入下这是常态而非边角情况，因此「flush 失败时按 index ≤ hwm 从 WAL 重放」
-    /// 不安全：会把已落盘的记录重放成重复数据。
+    pub(crate) fn test_pool(root: &Path, seg: usize) -> WalPool {
+        WalPool::new(root, "node-test", seg, FsyncPolicy::none_default())
+    }
+
+    fn epoch_dir(pool: &WalPool, dataset: &str, epoch: u64) -> PathBuf {
+        pool.root()
+            .join(pool.node_id())
+            .join(dataset)
+            .join(epoch.to_string())
+    }
+
     #[tokio::test]
-    async fn successful_truncate_still_retains_flushed_records_when_write_races_flush() {
+    async fn append_assigns_monotonic_sequences_and_returns_them() {
         let tmp = tempdir().unwrap();
-        // 段开大，让所有记录落进同一个活跃段（逼出"已 flush 的和新写入的同段混装"）。
         let pool = test_pool(tmp.path(), 1024 * 1024);
-        let k = key_logs("org-a", "app");
-        // 快照时 buffer 吸收了 seq 1..=10 → hwm = 10。
-        for i in 1..=10u64 {
-            pool.append(&k, format!("flushed-{i}").into_bytes(), i)
-                .await
-                .unwrap();
+        let id = identity("ds-1");
+        assert_eq!(pool.append(&id, b"a".to_vec()).await.unwrap(), 1);
+        assert_eq!(pool.append(&id, b"b".to_vec()).await.unwrap(), 2);
+        assert_eq!(pool.current_epoch(&id.dataset_id), Some(1));
+
+        let scan = scan_segment_file_readonly(
+            SegmentWal::segment_paths_sorted(epoch_dir(&pool, "ds-1", 1)).unwrap()[0].clone(),
+        )
+        .unwrap();
+        assert_eq!(scan.records.len(), 2);
+        assert_eq!(scan.records[0].index, 1);
+        assert_eq!(scan.records[0].term, 1, "record term must carry the epoch");
+    }
+
+    #[tokio::test]
+    async fn reopen_bumps_epoch_and_continues_sequence() {
+        let tmp = tempdir().unwrap();
+        {
+            let pool = test_pool(tmp.path(), 1024 * 1024);
+            let id = identity("ds-1");
+            pool.append(&id, b"a".to_vec()).await.unwrap();
+            pool.append(&id, b"b".to_vec()).await.unwrap();
         }
-        // flush 的对象存储 IO 期间又来一条写入（finish_and_clear 已 drop 了 buffer 锁）。
-        pool.append(&k, b"raced".to_vec(), 11).await.unwrap();
+        let pool = test_pool(tmp.path(), 1024 * 1024);
+        let id = identity("ds-1");
+        let seq = pool.append(&id, b"c".to_vec()).await.unwrap();
+        assert_eq!(seq, 3, "sequence continues past the previous epoch");
+        assert_eq!(pool.current_epoch(&id.dataset_id), Some(2));
 
-        // flush 成功后的 step 3：seal + truncate 到 hwm=10，两步都返回 Ok。
-        pool.seal_active(&k).await.unwrap();
-        pool.truncate_up_to(&k, 10).await.unwrap();
+        let scan = scan_segment_file_readonly(
+            SegmentWal::segment_paths_sorted(epoch_dir(&pool, "ds-1", 2)).unwrap()[0].clone(),
+        )
+        .unwrap();
+        assert_eq!(scan.records[0].term, 2);
+    }
 
-        let recovered = pool.recover().unwrap();
-        let indices: Vec<u64> = recovered[0].1.iter().map(|r| r.index).collect();
-        assert!(
-            indices.contains(&1) && indices.contains(&10),
-            "已 flush 的 seq 1..=10 应仍残留在 WAL 中（truncate 删不掉混装段），实得 {indices:?}"
-        );
+    #[tokio::test]
+    async fn identity_manifest_written_per_epoch() {
+        let tmp = tempdir().unwrap();
+        let pool = test_pool(tmp.path(), 1024 * 1024);
+        let id = identity("ds-1");
+        pool.append(&id, b"a".to_vec()).await.unwrap();
+
+        let manifest: EpochIdentity = serde_json::from_slice(
+            &std::fs::read(epoch_dir(&pool, "ds-1", 1).join(IDENTITY_FILE)).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(manifest.epoch, 1);
+        assert_eq!(manifest.dataset_id, "ds-1");
+        assert_eq!(manifest.node_id, "node-test");
+        assert_eq!(manifest.dataset_type, type_id::builtin::DATASET_LOG_RECORDS);
+        assert_eq!(manifest.wal_codec, type_id::builtin::WAL_CODEC_ROW_BATCH);
+    }
+
+    #[tokio::test]
+    async fn corrupt_current_file_fails_loudly_instead_of_reusing_epochs() {
+        let tmp = tempdir().unwrap();
+        let id = identity("ds-1");
+        {
+            let pool = test_pool(tmp.path(), 1024 * 1024);
+            pool.append(&id, b"a".to_vec()).await.unwrap();
+        }
+        let current = tmp.path().join("node-test").join("ds-1").join(CURRENT_FILE);
+        std::fs::write(&current, b"not-a-number").unwrap();
+        let pool = test_pool(tmp.path(), 1024 * 1024);
+        assert!(pool.append(&id, b"b".to_vec()).await.is_err());
     }
 
     #[tokio::test]
     async fn truncate_removes_only_fully_flushed_sealed_segments() {
         let tmp = tempdir().unwrap();
         let pool = test_pool(tmp.path(), 512);
-        let k = key_logs("org-a", "app");
+        let id = identity("ds-1");
         for i in 1..=20u64 {
             let payload = format!("{}-{i}", "x".repeat(60));
-            pool.append(&k, payload.into_bytes(), i).await.unwrap();
+            assert_eq!(pool.append(&id, payload.into_bytes()).await.unwrap(), i);
         }
-        let dir = key_dir(tmp.path(), &k);
+        let dir = epoch_dir(&pool, "ds-1", 1);
         let before = SegmentWal::segment_paths_sorted(&dir).unwrap().len();
+        assert!(before > 1, "需要多个 segment 才有意义");
 
         // seq=0：什么都没落盘，一段都不该删。
-        pool.truncate_up_to(&k, 0).await.unwrap();
+        pool.truncate_up_to(&id.dataset_id, 0).await.unwrap();
         assert_eq!(
             SegmentWal::segment_paths_sorted(&dir).unwrap().len(),
-            before,
-            "seq=0 时不得删除任何 segment"
+            before
         );
 
-        // 全部 flush 后：活跃段仍须保留，其余 sealed 段应被删光。
-        pool.truncate_up_to(&k, 20).await.unwrap();
+        pool.seal_active(&id.dataset_id).await.unwrap();
+        pool.truncate_up_to(&id.dataset_id, 20).await.unwrap();
         let after = SegmentWal::segment_paths_sorted(&dir).unwrap();
         assert_eq!(after.len(), 1, "只应剩下活跃段，实剩 {}", after.len());
-
-        // 幸存记录的 index 必须都 > 已 flush 的水位之外的部分仍可恢复。
-        let recovered = pool.recover().unwrap();
-        let recs = &recovered[0].1;
-        assert!(
-            recs.iter().all(|r| r.index >= 1 && r.index <= 20),
-            "恢复出的记录 index 越界"
-        );
     }
 
-    #[tokio::test]
-    async fn append_and_recover_round_trip() {
-        let tmp = tempdir().unwrap();
-        let pool = test_pool(tmp.path(), 1024 * 1024);
-        let k = key_logs("org-a", "app");
-        pool.append(&k, b"first".to_vec(), 1).await.unwrap();
-        pool.append(&k, b"second".to_vec(), 2).await.unwrap();
-
-        // drop pool, scan fs
-        drop(pool);
-        let pool2 = test_pool(tmp.path(), 1024 * 1024);
-        let recovered = pool2.recover().unwrap();
-        assert_eq!(recovered.len(), 1);
-        let (rk, recs) = &recovered[0];
-        assert_eq!(rk, &k);
-        assert_eq!(recs.len(), 2);
-        assert_eq!(recs[0].payload, b"first");
-        assert_eq!(recs[1].payload, b"second");
-    }
-
-    #[tokio::test]
-    async fn truncate_up_to_drops_sealed_segments_only() {
-        let tmp = tempdir().unwrap();
-        // segment size 小到一条记录就触发 rotation
-        let pool = test_pool(tmp.path(), 64);
-        let k = key_logs("org-a", "logs");
-        for i in 1..=4u64 {
-            pool.append(&k, i.to_le_bytes().to_vec(), i).await.unwrap();
-        }
-        // 应至少有 2 个 segments，最后一个是 active
-        let segs_before = SegmentWal::segment_paths_sorted(key_dir(pool.root(), &k)).unwrap();
-        assert!(segs_before.len() >= 2);
-        // truncate 到 seq=2：sealed segments 中 record.index 全部 ≤ 2 的删，其它保留
-        pool.truncate_up_to(&k, 2).await.unwrap();
-        let segs_after = SegmentWal::segment_paths_sorted(key_dir(pool.root(), &k)).unwrap();
-        assert!(
-            segs_after.len() < segs_before.len(),
-            "expected sealed segments to be removed: before={} after={}",
-            segs_before.len(),
-            segs_after.len()
-        );
-    }
-
-    #[tokio::test]
-    async fn append_rejects_unsafe_stream_name() {
-        let tmp = tempdir().unwrap();
-        let pool = test_pool(tmp.path(), 1024);
-        let bad: WalKey = (
-            Id::from_string("org-a"),
-            StreamType::Logs,
-            "../escape".into(),
-            PhysicalDatasetKind::Raw,
-        );
-        let r = pool.append(&bad, b"x".to_vec(), 1).await;
-        assert!(r.is_err());
-    }
-
-    /// 构造时传 `FsyncPolicy::EveryWrite { sync_level: Data }`，写 1 条后扫
-    /// segment 文件验证 payload 完整 + CRC 校验通过（read_records_readonly 内做 CRC 校验）。
     #[tokio::test]
     async fn every_write_fsync_round_trip() {
         let tmp = tempdir().unwrap();
         let pool = WalPool::new(
             tmp.path(),
+            "node-test",
             1024 * 1024,
             FsyncPolicy::EveryWrite {
                 sync_level: SyncLevel::DATA,
             },
-            Arc::new(StaticTermSource(1)),
         );
-        let k = key_logs("org-x", "app");
-        pool.append(&k, b"payload-xyz".to_vec(), 42).await.unwrap();
-        let scan = SegmentWal::read_records_readonly(key_dir(pool.root(), &k)).unwrap();
+        let id = identity("ds-x");
+        assert_eq!(pool.append(&id, b"payload-xyz".to_vec()).await.unwrap(), 1);
+        let scan = SegmentWal::read_records_readonly(epoch_dir(&pool, "ds-x", 1)).unwrap();
         assert_eq!(scan.records.len(), 1);
         assert_eq!(scan.records[0].payload, b"payload-xyz");
-        assert_eq!(scan.records[0].index, 42);
         assert!(scan.errors.is_empty());
     }
 
-    /// `StaticTermSource(7)` 注入后 append 一条，header 的 term 字段 == 7。
-    #[tokio::test]
-    async fn static_term_source_propagates_to_record_header() {
-        let tmp = tempdir().unwrap();
-        let pool = WalPool::new(
-            tmp.path(),
-            1024 * 1024,
-            FsyncPolicy::none_default(),
-            Arc::new(StaticTermSource(7)),
-        );
-        let k = key_logs("org-a", "app");
-        pool.append(&k, b"hello".to_vec(), 1).await.unwrap();
-        let scan = SegmentWal::read_records_readonly(key_dir(pool.root(), &k)).unwrap();
-        assert_eq!(scan.records.len(), 1);
-        assert_eq!(scan.records[0].term, 7);
-    }
-
-    /// spawn 8 个并发 append 到同 key，drop 后 wal_append_inflight{extend} == 0
-    /// 且 wal_append_lock_wait_seconds_count{extend} 至少累加 8。
-    /// 用 Extend 标签是为了与其它单测 (Logs/Metrics/Traces) 隔离。
+    /// spawn 8 个并发 append 到同 dataset，结束后 inflight gauge 归零且 lock-wait
+    /// histogram 至少累加 8。用专属 dataset type 标签与其它单测隔离。
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn lock_wait_metrics_recorded_under_concurrent_append() {
         use crate::infra::intake::metrics::{wal_inflight_count, wal_lock_wait_sample_count};
 
         let tmp = tempdir().unwrap();
-        let pool = Arc::new(test_pool(tmp.path(), 1024 * 1024));
-        let key: WalKey = (
-            Id::from_string("org-c"),
-            StreamType::Extend,
-            "obs-key".into(),
-            PhysicalDatasetKind::Raw,
-        );
-        let count_before = wal_lock_wait_sample_count("extend");
+        let pool = std::sync::Arc::new(test_pool(tmp.path(), 1024 * 1024));
+        let mut id = identity("ds-metrics");
+        id.dataset_type = DatasetTypeId::new("vendor.metrics_probe").unwrap();
+        let label = id.dataset_type.as_str().to_owned();
+        let count_before = wal_lock_wait_sample_count(&label);
 
         let mut handles = Vec::new();
         for i in 0u64..8 {
             let pool = pool.clone();
-            let k = key.clone();
+            let id = id.clone();
             handles.push(tokio::spawn(async move {
-                pool.append(&k, format!("payload-{i}").into_bytes(), i + 1)
+                pool.append(&id, format!("payload-{i}").into_bytes())
                     .await
                     .unwrap();
             }));
         }
-        for h in handles {
-            h.await.unwrap();
+        let mut seqs = Vec::new();
+        for handle in handles {
+            handle.await.unwrap();
         }
+        // 并发分配的 sequence 必须无重复、无空洞。
+        let sources = {
+            let scan = SegmentWal::read_records_readonly(
+                tmp.path().join("node-test").join("ds-metrics").join("1"),
+            )
+            .unwrap();
+            for record in &scan.records {
+                seqs.push(record.index);
+            }
+            scan.records.len()
+        };
+        assert_eq!(sources, 8);
+        seqs.sort_unstable();
+        assert_eq!(seqs, (1..=8).collect::<Vec<_>>());
 
-        let count_after = wal_lock_wait_sample_count("extend");
+        let count_after = wal_lock_wait_sample_count(&label);
         assert!(
             count_after - count_before >= 8,
             "histogram delta = {} should >= 8",
             count_after - count_before
         );
-        assert_eq!(wal_inflight_count("extend"), 0, "gauge must return to 0");
+        assert_eq!(wal_inflight_count(&label), 0, "gauge must return to 0");
     }
 
-    /// 自定义 TermSource，两次 append 之间 term 从 7 切到 9，两条 record 的
-    /// header 分别为 7 / 9（验证 `set_term` 在 append 路径被正确调用）。
-    #[tokio::test]
-    async fn term_change_between_appends_reflected_in_record_headers() {
-        struct AtomicTermSource(AtomicU64);
-        impl TermSource for AtomicTermSource {
-            fn current_term(&self) -> u64 {
-                self.0.load(Ordering::SeqCst)
-            }
-        }
-
-        let term = Arc::new(AtomicTermSource(AtomicU64::new(7)));
-        let tmp = tempdir().unwrap();
-        let pool = WalPool::new(
-            tmp.path(),
-            1024 * 1024,
-            FsyncPolicy::none_default(),
-            term.clone() as Arc<dyn TermSource>,
-        );
-        let k = key_logs("org-a", "app");
-        pool.append(&k, b"first".to_vec(), 1).await.unwrap();
-        term.0.store(9, Ordering::SeqCst);
-        pool.append(&k, b"second".to_vec(), 2).await.unwrap();
-
-        let scan = SegmentWal::read_records_readonly(key_dir(pool.root(), &k)).unwrap();
-        assert_eq!(scan.records.len(), 2);
-        assert_eq!(scan.records[0].term, 7);
-        assert_eq!(scan.records[1].term, 9);
-    }
-
-    fn test_kek() -> CipherRootKey {
+    pub(crate) fn test_kek() -> CipherRootKey {
         // 32 字节全零 base64（仅测试）。
         CipherRootKey::from_base64("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=").unwrap()
     }
 
     #[tokio::test]
-    async fn encrypted_payload_is_ciphertext_on_disk_and_recovers() {
+    async fn encrypted_payload_is_ciphertext_on_disk() {
         let tmp = tempdir().unwrap();
-        let kek = test_kek();
-        let pool = test_pool(tmp.path(), 1024 * 1024).with_cipher(kek.clone());
-        let k = key_logs("org-e", "app");
-        pool.append(&k, b"secret-payload".to_vec(), 1)
-            .await
-            .unwrap();
+        let pool = test_pool(tmp.path(), 1024 * 1024).with_cipher(test_kek());
+        let id = identity("ds-e");
+        pool.append(&id, b"secret-payload".to_vec()).await.unwrap();
 
-        // 盘上 record 是密文（WEN1 前缀），不含明文。
-        let scan = SegmentWal::read_records_readonly(key_dir(pool.root(), &k)).unwrap();
+        let scan = SegmentWal::read_records_readonly(epoch_dir(&pool, "ds-e", 1)).unwrap();
         assert!(
             scan.records[0].payload.starts_with(b"WEN1"),
             "stored payload must be encrypted"
         );
         assert_ne!(scan.records[0].payload, b"secret-payload");
-
-        // 带同一 KEK recover → 还原明文。
-        drop(pool);
-        let pool2 = test_pool(tmp.path(), 1024 * 1024).with_cipher(kek);
-        let recovered = pool2.recover().unwrap();
-        assert_eq!(recovered.len(), 1);
-        assert_eq!(recovered[0].1[0].payload, b"secret-payload");
-    }
-
-    #[tokio::test]
-    async fn encrypted_record_without_key_errors_on_recover() {
-        let tmp = tempdir().unwrap();
-        let pool = test_pool(tmp.path(), 1024 * 1024).with_cipher(test_kek());
-        let k = key_logs("org-e", "app");
-        pool.append(&k, b"secret".to_vec(), 1).await.unwrap();
-        drop(pool);
-        // 无 KEK 的 pool 读到加密 record → 报错（数据加密但缺 key）。
-        let pool_no_key = test_pool(tmp.path(), 1024 * 1024);
-        assert!(pool_no_key.recover().is_err());
-    }
-
-    #[tokio::test]
-    async fn plaintext_pool_recovers_when_encryption_off() {
-        // encrypt=off（默认）：与现状一致，明文落盘 + recover。
-        let tmp = tempdir().unwrap();
-        let pool = test_pool(tmp.path(), 1024 * 1024);
-        let k = key_logs("org-p", "app");
-        pool.append(&k, b"plain".to_vec(), 1).await.unwrap();
-        let scan = SegmentWal::read_records_readonly(key_dir(pool.root(), &k)).unwrap();
-        assert_eq!(scan.records[0].payload, b"plain");
-        drop(pool);
-        let pool2 = test_pool(tmp.path(), 1024 * 1024);
-        assert_eq!(pool2.recover().unwrap()[0].1[0].payload, b"plain");
     }
 }

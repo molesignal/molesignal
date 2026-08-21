@@ -1,6 +1,7 @@
 import * as React from 'react';
 
 import { cn } from '@/shell/lib/cn';
+import { PageTitleRow } from '@/shell/PageTitleRow';
 
 interface AdminPageHeaderProps {
   title: React.ReactNode;
@@ -19,17 +20,17 @@ export function PageHeader({ title, subtitle, actions, className }: AdminPageHea
     <div
       data-admin-page-header
       className={cn(
-        'flex min-h-14 items-center gap-4 border-b border-bd-0 bg-bg-1 px-5 py-3.5',
+        'min-h-12 bg-transparent px-5 py-1.5',
         className,
       )}
     >
-      <div className="flex min-w-0 flex-col gap-0.5">
-        <div className="type-section-title font-sans font-display-strong text-tx-0">{title}</div>
-        {subtitle && (
-          <span className="type-label truncate text-tx-2">{subtitle}</span>
-        )}
-      </div>
-      {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
+      <PageTitleRow
+        title={title}
+        description={subtitle}
+        actions={actions}
+        level={2}
+        size="section"
+      />
     </div>
   );
 }

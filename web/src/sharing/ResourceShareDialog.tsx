@@ -21,6 +21,7 @@ import { Link } from 'react-router-dom';
 
 import * as iamApi from '@/api/iam';
 import * as resourceSharesApi from '@/api/resourceShares';
+import { writeClipboardText } from '@/lib/clipboard';
 import { toApiError } from '@/lib/http';
 import { hasPermission, useProductAccess } from '@/product/access';
 import { ChromeButton, Pill } from '@/shell/chrome';
@@ -283,7 +284,7 @@ export function ResourceShareDialog({
   const copyGeneratedUrl = async () => {
     if (!generatedUrl) return;
     try {
-      await copyText(generatedUrl);
+      await writeClipboardText(generatedUrl);
       setCopied(true);
       toast.success(t('sharing.copied'));
     } catch {
@@ -936,7 +937,7 @@ function ExistingShares({
   const { t, i18n } = useTranslation('common');
   const copyExistingUrl = async (url: string) => {
     try {
-      await copyText(url);
+      await writeClipboardText(url);
       toast.success(t('sharing.copied'));
     } catch {
       toast.error(t('sharing.copy_failed'));
@@ -1088,25 +1089,4 @@ function publicAllowedFromShares(
   shares: resourceSharesApi.ResourceShare[],
 ): boolean {
   return shares.some((share) => share.share_mode === 'public_link');
-}
-
-async function copyText(value: string): Promise<void> {
-  if (navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(value);
-      return;
-    } catch {
-      // Fall through when browser permission is unavailable.
-    }
-  }
-  const input = document.createElement('textarea');
-  input.value = value;
-  input.readOnly = true;
-  input.style.position = 'fixed';
-  input.style.left = '-9999px';
-  document.body.appendChild(input);
-  input.select();
-  const copied = document.execCommand('copy');
-  input.remove();
-  if (!copied) throw new Error('copy failed');
 }

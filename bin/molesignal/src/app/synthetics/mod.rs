@@ -3,7 +3,9 @@
 
 //! Synthetic monitoring use cases and deterministic scheduling/state decisions.
 
+mod agent_tokens;
 mod aggregation;
+mod artifacts;
 mod dispatch;
 mod model;
 mod probe;
@@ -12,7 +14,12 @@ mod schedule;
 mod service;
 mod validation;
 
+pub use agent_tokens::{CreateAgentTokenInput, RotateAgentTokenInput};
 pub use aggregation::aggregate_locations;
+pub use artifacts::{
+    MAX_HAR_BYTES, MAX_SCREENSHOT_BYTES, MAX_TRACE_BYTES, SyntheticArtifactTarget, artifact_expiry,
+    artifact_object_key, artifact_targets,
+};
 pub use model::{
     CreateLocationInput, CreateMonitorInput, CreateSecretInput, UpdateAgentConfigurationInput,
 };

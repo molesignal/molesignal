@@ -41,12 +41,12 @@ use crate::{
         query::SlowQueryRepository,
         rum::DebugArtifactRepository,
         saved_view::SavedViewRepository,
-        storage::ParquetFileMetaRepository,
+        storage::QueryFileSource,
         stream::StreamRepository,
         trace_policy::{TraceDebugTokenRepository, TracePolicyRepository},
     },
     infra::{
-        caching::{BillingStateCache, OrgSchemaCache, ParquetDiskCache},
+        caching::{BillingStateCache, OrgSchemaCache},
         cipher::{CipherKeyRepository, FieldKeyService},
         cluster::{ClusterSecretRepository, RemoteClustersRepository},
         connectors::ConnectorRepository,
@@ -94,7 +94,7 @@ use crate::{
             workspace_preference_defaults::WorkspacePreferenceDefaultsRepository,
         },
         pipeline::{ExtendKvRepository, ExtendTable, ScheduledPipelineRepository},
-        query::federation_cancel::FederationCancelRegistry,
+        query::{catalog_source::CatalogQuerySource, federation_cancel::FederationCancelRegistry},
         quotas::QuotaLimiter,
         rum::replay::RumReplayWriter,
         sso::{JwksCache, SsoSessionRepository, SsoStateStore},
@@ -200,15 +200,18 @@ pub struct TelemetryState {
 
 #[derive(Clone)]
 pub struct StorageState {
+    /// Origin store for object writers and lifecycle operations.
     pub object_store: Arc<dyn ObjectStore>,
-    pub parquet_file_meta: Arc<dyn ParquetFileMetaRepository>,
+    /// Catalog-aware read store; remote backends pass through the shared block cache.
+    pub read_store: Arc<dyn ObjectStore>,
+    pub catalog_files: Arc<dyn QueryFileSource>,
+    pub catalog_query: Arc<CatalogQuerySource>,
     pub cipher_keys: Arc<dyn CipherKeyRepository>,
     pub field_keys: Arc<FieldKeyService>,
     pub connectors: Arc<dyn ConnectorRepository>,
     pub scheduled_pipelines: Arc<dyn ScheduledPipelineRepository>,
     pub extend_kv: Arc<dyn ExtendKvRepository>,
     pub extend_table: Arc<ExtendTable>,
-    pub parquet_disk_cache: Option<Arc<ParquetDiskCache>>,
     pub resource_shares: Arc<dyn ResourceShareRepository>,
     pub annotations: Arc<dyn AnnotationRepository>,
     pub search_jobs: Arc<dyn SearchJobRepository>,

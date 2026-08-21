@@ -232,9 +232,9 @@ fn proto_stream_type(signal: SelfTelemetrySignal) -> ProtoStreamType {
 
 fn stream_type(signal: SelfTelemetrySignal) -> StreamType {
     match signal {
-        SelfTelemetrySignal::Metrics => StreamType::Metrics,
-        SelfTelemetrySignal::Traces => StreamType::Traces,
-        SelfTelemetrySignal::Profiles => StreamType::Profiles,
+        SelfTelemetrySignal::Metrics => StreamType::METRICS,
+        SelfTelemetrySignal::Traces => StreamType::TRACES,
+        SelfTelemetrySignal::Profiles => StreamType::PROFILES,
     }
 }
 

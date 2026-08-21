@@ -11,7 +11,7 @@ use crate::{
     domain::{
         intake::{EVENT_ID_FIELD, IntakeBatch, RawEvent},
         metrics::{METRIC_KIND_FIELD, METRIC_NAME_FIELD},
-        storage::PhysicalDatasetKind,
+        storage::{DatasetTypeId, type_id::builtin},
         stream::StreamType,
     },
     shared::{ids::Id, time::TimestampMicros},
@@ -85,47 +85,47 @@ const RUM_ACTION_FIELDS: &[&str] = &[
 
 /// 自动派生只在权威 `raw` 批次落盘前调用。返回批次与原批次共享逻辑 stream，
 /// 但使用独立的 WAL/buffer/object path。
-pub(super) fn project(batch: &IntakeBatch) -> Vec<(PhysicalDatasetKind, IntakeBatch)> {
+pub(super) fn project(batch: &IntakeBatch) -> Vec<(DatasetTypeId, IntakeBatch)> {
     match (batch.stream_type, batch.stream.as_str()) {
-        (StreamType::Logs, "rum_sessions") => project_rows(
+        (StreamType::LOGS, "rum_sessions") => project_rows(
             batch,
-            PhysicalDatasetKind::RumSessionSummary,
+            DatasetTypeId::builtin(builtin::DATASET_RUM_SESSION_SUMMARY),
             RUM_SESSION_FIELDS,
             Some("session_id"),
             true,
         )
         .into_iter()
         .collect(),
-        (StreamType::Logs, "rum_actions") => project_rows(
+        (StreamType::LOGS, "rum_actions") => project_rows(
             batch,
-            PhysicalDatasetKind::RumActionSummary,
+            DatasetTypeId::builtin(builtin::DATASET_RUM_ACTION_SUMMARY),
             RUM_ACTION_FIELDS,
             Some("session_id"),
             false,
         )
         .into_iter()
         .collect(),
-        (StreamType::Logs, "rum_errors") => project_rows(
+        (StreamType::LOGS, "rum_errors") => project_rows(
             batch,
-            PhysicalDatasetKind::RumErrorSummary,
+            DatasetTypeId::builtin(builtin::DATASET_RUM_ERROR_SUMMARY),
             RUM_ERROR_FIELDS,
             Some("fingerprint"),
             false,
         )
         .into_iter()
         .collect(),
-        (StreamType::Metrics, _) => metric_catalog(batch).into_iter().collect(),
+        (StreamType::METRICS, _) => metric_catalog(batch).into_iter().collect(),
         _ => Vec::new(),
     }
 }
 
 fn project_rows(
     batch: &IntakeBatch,
-    kind: PhysicalDatasetKind,
+    dataset_type: DatasetTypeId,
     fields: &[&str],
     required: Option<&str>,
     use_started_at: bool,
-) -> Option<(PhysicalDatasetKind, IntakeBatch)> {
+) -> Option<(DatasetTypeId, IntakeBatch)> {
     let events = batch
         .events
         .iter()
@@ -154,12 +154,12 @@ fn project_rows(
             projected
         })
         .collect::<Vec<_>>();
-    (!events.is_empty()).then(|| (kind, derived_batch(batch, events)))
+    (!events.is_empty()).then(|| (dataset_type, derived_batch(batch, events)))
 }
 
 /// `_molesignal` 与 OTLP 容器 stream 会在同一 stream 中承载多个逻辑指标。
 /// 每批每个指标仅写一行目录项，避免目录查询扫描宽样本列。
-fn metric_catalog(batch: &IntakeBatch) -> Option<(PhysicalDatasetKind, IntakeBatch)> {
+fn metric_catalog(batch: &IntakeBatch) -> Option<(DatasetTypeId, IntakeBatch)> {
     let mut entries = BTreeMap::<String, RawEvent>::new();
     for event in &batch.events {
         let Some(name) = event
@@ -185,7 +185,7 @@ fn metric_catalog(batch: &IntakeBatch) -> Option<(PhysicalDatasetKind, IntakeBat
     let events = entries.into_values().collect::<Vec<_>>();
     (!events.is_empty()).then(|| {
         (
-            PhysicalDatasetKind::MetricCatalog,
+            DatasetTypeId::builtin(builtin::DATASET_METRIC_CATALOG),
             derived_batch(batch, events),
         )
     })
@@ -244,7 +244,7 @@ mod tests {
     fn rum_session_projection_is_narrow_and_uses_session_start() {
         let source = batch(
             "rum_sessions",
-            StreamType::Logs,
+            StreamType::LOGS,
             json!({
                 "session_id": "s-1",
                 "started_at_micros": 123,
@@ -255,7 +255,10 @@ mod tests {
         );
         let projections = project(&source);
         assert_eq!(projections.len(), 1);
-        assert_eq!(projections[0].0, PhysicalDatasetKind::RumSessionSummary);
+        assert_eq!(
+            projections[0].0,
+            DatasetTypeId::builtin(builtin::DATASET_RUM_SESSION_SUMMARY)
+        );
         assert_eq!(projections[0].1.events[0].timestamp, TimestampMicros(123));
         assert_eq!(
             projections[0].1.events[0].fields["ip_address"],
@@ -272,7 +275,7 @@ mod tests {
     fn rum_action_projection_keeps_query_fields_and_drops_payload() {
         let source = batch(
             "rum_actions",
-            StreamType::Logs,
+            StreamType::LOGS,
             json!({
                 "session_id": "s-1",
                 "ts_micros": 456,
@@ -283,7 +286,10 @@ mod tests {
         );
         let projections = project(&source);
         assert_eq!(projections.len(), 1);
-        assert_eq!(projections[0].0, PhysicalDatasetKind::RumActionSummary);
+        assert_eq!(
+            projections[0].0,
+            DatasetTypeId::builtin(builtin::DATASET_RUM_ACTION_SUMMARY)
+        );
         assert_eq!(projections[0].1.events[0].fields["ts_micros"], 456);
         assert_eq!(projections[0].1.events[0].fields["type"], "view");
         assert!(!projections[0].1.events[0].fields.contains_key("payload"));
@@ -293,7 +299,7 @@ mod tests {
     fn metric_catalog_deduplicates_names_within_batch() {
         let mut source = batch(
             "_molesignal",
-            StreamType::Metrics,
+            StreamType::METRICS,
             json!({
                 METRIC_NAME_FIELD: "requests_total",
                 METRIC_KIND_FIELD: "counter",
@@ -302,7 +308,10 @@ mod tests {
         );
         source.events.push(source.events[0].clone());
         let projections = project(&source);
-        assert_eq!(projections[0].0, PhysicalDatasetKind::MetricCatalog);
+        assert_eq!(
+            projections[0].0,
+            DatasetTypeId::builtin(builtin::DATASET_METRIC_CATALOG)
+        );
         assert_eq!(projections[0].1.events.len(), 1);
         assert_eq!(
             projections[0].1.events[0].fields[METRIC_NAME_FIELD],

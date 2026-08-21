@@ -148,7 +148,6 @@ export function ExtendTableDetail() {
       <PageHeader
         title={tableName || t('extend_tables.title')}
         subtitle={table?.description || t('extend_tables.detail_subtitle')}
-        backTo="/extend-tables"
         breadcrumbs={[
           {
             labelKey: 'extend_tables',
@@ -184,7 +183,7 @@ export function ExtendTableDetail() {
           ) : undefined
         }
       />
-      <PageBody className="space-y-5">
+      <PageBody className="space-y-[12px]">
         {loading ? (
           <DetailSkeleton />
         ) : error ? (

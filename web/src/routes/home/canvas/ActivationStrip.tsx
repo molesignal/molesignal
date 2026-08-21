@@ -19,7 +19,8 @@ export function ActivationStrip({
   return (
     <div
       role="status"
-      className="mx-4 mb-1 flex min-h-8 flex-wrap items-center gap-x-2.5 gap-y-1"
+      data-home-surface="activation"
+      className="flex min-h-10 flex-wrap items-center gap-x-2.5 gap-y-1 rounded-md bg-[var(--functional-surface)] px-4 py-1 [box-shadow:var(--shadow-functional-surface)]"
     >
       <Sparkles
         aria-hidden="true"

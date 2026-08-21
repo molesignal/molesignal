@@ -7,8 +7,8 @@ import type { CodeEditorHandle, CodeEditorProps, CodeLanguage } from './types';
 import {
   CODE_EDITOR_FONT_FAMILY,
   CODE_EDITOR_FONT_SIZE,
-  CODE_EDITOR_FONT_WEIGHT,
   CODE_EDITOR_LINE_HEIGHT,
+  CODE_EDITOR_PLACEHOLDER_FONT_WEIGHT,
 } from './typography';
 
 export type {
@@ -43,7 +43,6 @@ function CodeEditorFallback({
   placeholder,
   minHeight = 96,
   fontSize,
-  fontWeight = CODE_EDITOR_FONT_WEIGHT,
   lineHeight,
   lineNumbers = true,
   readOnly = false,
@@ -75,12 +74,13 @@ function CodeEditorFallback({
         />
       )}
       <div
-        className="flex items-start bg-bg-0 font-normal tracking-normal text-tx-3"
+        data-code-editor-placeholder="true"
+        className="flex items-start bg-bg-0 font-normal italic tracking-normal text-tx-3"
         style={{
           fontFamily: CODE_EDITOR_FONT_FAMILY,
           height: minHeight,
           fontSize: metrics.fontSize,
-          fontWeight,
+          fontWeight: CODE_EDITOR_PLACEHOLDER_FONT_WEIGHT,
           lineHeight: `${metrics.lineHeight}px`,
           paddingBottom: metrics.paddingBottom,
           paddingLeft: (lineNumbers ? FALLBACK_LEFT_INSET_WITH_LINE_NUMBERS : FALLBACK_LEFT_INSET) + FALLBACK_FRAME_HORIZONTAL_PADDING,

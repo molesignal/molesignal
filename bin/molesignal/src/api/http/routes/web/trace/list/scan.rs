@@ -17,10 +17,13 @@ use files::{file_may_match_cursor, file_may_match_filters, order_files, remainin
 
 use super::{TraceListContext, TraceListRow, TraceListSort};
 #[cfg(test)]
-use crate::domain::storage::ParquetFileMeta;
+use crate::domain::storage::QueryFile;
 use crate::{
     api::{AppState, http::pagination::cursor::CursorDirection},
-    domain::{storage::PhysicalDatasetKind, stream::FieldType},
+    domain::{
+        storage::{DatasetTypeId, type_id::builtin},
+        stream::FieldType,
+    },
     infra::storage::parquet::reader::{ParquetReader, ReadOptions},
     shared::{
         Error, Result,
@@ -55,19 +58,29 @@ pub(super) async fn run(
     fetch_limit: usize,
 ) -> Result<Vec<TraceListRow>> {
     let range = TimeRange::new(TimestampMicros(context.from), TimestampMicros(context.to));
-    let files = state
+    let summary_type = DatasetTypeId::builtin(builtin::DATASET_TRACE_SUMMARY);
+    let snapshot = state
         .storage
-        .parquet_file_meta
-        .find_dataset(
+        .catalog_query
+        .snapshot_by_name(
             org_id,
             stream,
-            crate::domain::stream::StreamType::Traces,
-            PhysicalDatasetKind::TraceSummary,
+            crate::domain::stream::StreamType::TRACES,
+            std::slice::from_ref(&summary_type),
             range,
         )
         .await?;
-    let mut files = order_files(files, context);
-    let reader = ParquetReader::new(state.storage.object_store.clone());
+    let dataset = snapshot.dataset(&summary_type);
+    let mut files = order_files(
+        dataset
+            .map(|dataset| dataset.files.clone())
+            .unwrap_or_default(),
+        context,
+    );
+    let buffered_batches = dataset
+        .map(|dataset| dataset.buffered_batches.clone())
+        .unwrap_or_default();
+    let reader = ParquetReader::new(state.storage.read_store.clone());
     let mut top = Vec::with_capacity(fetch_limit);
     let from_ns = context
         .from
@@ -80,6 +93,13 @@ pub(super) async fn run(
     let mut scanned_files = 0_usize;
     let mut scanned_rows = 0_usize;
 
+    // Buffer generations are query-visible but not physically sorted until Parquet encoding.
+    // They therefore participate in Top-K without the file-order early-stop optimization.
+    for batch in &buffered_batches {
+        scanned_rows += batch.num_rows();
+        collect_batch(batch, context, from_ns, to_ns, fetch_limit, &mut top, false)?;
+    }
+
     while let Some(file) = files.pop_front() {
         if !file_may_match_cursor(&file, context) || !file_may_match_filters(&file, context) {
             continue;
@@ -89,11 +109,7 @@ pub(super) async fn run(
             .with_columns(COLUMNS)
             .with_known_size(file.size_bytes);
         let mut batches = match reader
-            .stream_from_store(
-                state.storage.object_store.clone(),
-                &file.object_key,
-                options,
-            )
+            .stream_from_store(state.storage.read_store.clone(), &file.object_key, options)
             .await
         {
             Ok(stream) => stream,
@@ -107,7 +123,7 @@ pub(super) async fn run(
         while let Some(batch) = batches.next().await {
             let batch = batch?;
             scanned_rows += batch.num_rows();
-            if collect_batch(&batch, context, from_ns, to_ns, fetch_limit, &mut top)? {
+            if collect_batch(&batch, context, from_ns, to_ns, fetch_limit, &mut top, true)? {
                 break;
             }
         }
@@ -138,8 +154,10 @@ fn collect_batch(
     to_ns: i64,
     limit: usize,
     top: &mut Vec<TraceListRow>,
+    allow_physical_short_circuit: bool,
 ) -> Result<bool> {
-    let physically_ordered = physical_order_matches_effective(context);
+    let physically_ordered =
+        allow_physical_short_circuit && physical_order_matches_effective(context);
     for row_index in 0..batch.num_rows() {
         let Some(trace_id) = string_at(batch, "trace_id", row_index) else {
             continue;
@@ -586,19 +604,20 @@ mod tests {
             32,
         )
         .unwrap();
-        let mut file = ParquetFileMeta {
+        let mut file = QueryFile {
             id: Id::from_string("file"),
             org_id: Id::from_string("org"),
             stream: "default".into(),
-            stream_type: crate::domain::stream::StreamType::Traces,
-            dataset_kind: PhysicalDatasetKind::TraceSummary,
+            stream_type: crate::domain::stream::StreamType::TRACES,
+            dataset_type: DatasetTypeId::builtin(builtin::DATASET_TRACE_SUMMARY),
             object_key: "file.parquet".into(),
+            checksum: None,
+            etag: None,
             time_range: TimeRange::new(TimestampMicros(0), TimestampMicros(1)),
             rows: 1,
             size_bytes: 1,
             min_values: serde_json::Map::new(),
             max_values: serde_json::Map::new(),
-            deleted: false,
         };
         file.min_values.insert("trace_id".into(), "trace-a".into());
         file.max_values.insert("trace_id".into(), "trace-m".into());

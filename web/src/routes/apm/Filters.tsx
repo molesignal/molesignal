@@ -5,6 +5,7 @@ import { cn } from '@/shell/lib/cn';
 import { TimeRangeControl } from '@/time/TimePicker';
 
 import type { ApmUrlFilters } from './model';
+import { ApmToolbarSelect } from './ToolbarSelect';
 
 export function ApmFilters({
   filters,
@@ -80,38 +81,37 @@ export function ApmFilters({
         className={cn(control, 'w-28')}
       />
       {showCategory && (
-        <select
-          aria-label={t('filters.category')}
+        <ApmToolbarSelect
+          ariaLabel={t('filters.category')}
           value={filters.category}
-          onChange={(event) => setFilter('category', event.target.value)}
-          className={control}
-        >
-          <option value="">{t('filters.all_categories')}</option>
-          {[
-            'service',
-            'database',
-            'cache',
-            'messaging',
-            'external_http',
-            'external_rpc',
-            'other',
-          ].map((category) => (
-            <option key={category} value={category}>
-              {t(`dependency_categories.${category}`)}
-            </option>
-          ))}
-        </select>
+          onValueChange={(value) => setFilter('category', value)}
+          options={[
+            { value: '', label: t('filters.all_categories') },
+            ...[
+              'service',
+              'database',
+              'cache',
+              'messaging',
+              'external_http',
+              'external_rpc',
+              'other',
+            ].map((category) => ({
+              value: category,
+              label: t(`dependency_categories.${category}`),
+            })),
+          ]}
+        />
       )}
-      <select
-        aria-label={t('filters.resolution')}
+      <ApmToolbarSelect
+        ariaLabel={t('filters.resolution')}
         value={filters.resolution}
-        onChange={(event) => setFilter('resolution', event.target.value)}
-        className={control}
-      >
-        <option value="auto">{t('filters.resolution_auto')}</option>
-        <option value="minute">{t('filters.resolution_minute')}</option>
-        <option value="hour">{t('filters.resolution_hour')}</option>
-      </select>
+        onValueChange={(value) => setFilter('resolution', value)}
+        options={[
+          { value: 'auto', label: t('filters.resolution_auto') },
+          { value: 'minute', label: t('filters.resolution_minute') },
+          { value: 'hour', label: t('filters.resolution_hour') },
+        ]}
+      />
       <TimeRangeControl
         align="end"
         className="h-8 max-w-[180px] border-bd-0 bg-bg-1 px-2.5 text-xs"

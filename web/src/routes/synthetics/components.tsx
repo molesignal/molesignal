@@ -26,7 +26,15 @@ import type { MonitorKind, MonitorState, ProbeOutcome } from '@/api/synthetics';
 import { ProductState } from '@/product/states';
 import { uiLabelClass } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
-import { PageBody, PageHeader } from '@/shell/PageHeader';
+import {
+  surfacePageRootClass,
+  surfaceModuleNavigationActiveClass,
+  surfaceModuleNavigationClass,
+  surfaceModuleNavigationItemClass,
+  surfaceModuleNavigationRowClass,
+  SurfacePageBody,
+  SurfacePageHeader,
+} from '@/shell/SurfaceWorkbench';
 
 const NAV_ITEMS = [
   ['overview', '/synthetics/overview', Radar],
@@ -51,9 +59,11 @@ export function SyntheticsNavigation() {
     ([, to]) => location.pathname === to || location.pathname.startsWith(`${to}/`),
   )?.[1];
   return (
-    <nav
-      aria-label={t('navigation_label')}
-      className="relative z-10 -mt-px flex min-h-11 min-w-0 items-center border-b border-bd-0 bg-bg-1 px-3"
+    <div
+      className={cn(
+        surfaceModuleNavigationClass,
+        'relative z-10 flex items-center',
+      )}
     >
       <select
         aria-label={t('navigation_label')}
@@ -67,17 +77,24 @@ export function SyntheticsNavigation() {
           </option>
         ))}
       </select>
-      <div className="hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto overflow-y-hidden sm:flex">
+      <nav
+        aria-label={t('navigation_label')}
+        className={cn(
+          surfaceModuleNavigationRowClass,
+          'hidden min-w-0 flex-1 sm:flex',
+        )}
+      >
         {NAV_ITEMS.map(([key, to, Icon]) => (
           <NavLink
             key={key}
             to={to}
             className={({ isActive }) =>
               cn(
-                'inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-3 text-xs font-strong transition-colors duration-fast',
+                surfaceModuleNavigationItemClass,
+                'gap-1.5 whitespace-nowrap',
                 isActive
-                  ? 'bg-bg-3 text-tx-0'
-                  : 'text-tx-2 hover:bg-bg-2 hover:text-tx-0 focus-visible:bg-bg-2 focus-visible:text-tx-0',
+                  ? surfaceModuleNavigationActiveClass
+                  : 'text-tx-2',
               )
             }
           >
@@ -85,8 +102,8 @@ export function SyntheticsNavigation() {
             {t(`tabs.${key}`)}
           </NavLink>
         ))}
-      </div>
-    </nav>
+      </nav>
+    </div>
   );
 }
 
@@ -104,10 +121,10 @@ export function SyntheticsPage({
   bodyClassName?: string;
 }) {
   return (
-    <div className="min-h-0 bg-bg-0">
-      <PageHeader title={<h1 className="m-0">{title}</h1>} subtitle={subtitle} toolbar={toolbar} />
+    <div data-page-appearance="surface" className={surfacePageRootClass}>
+      <SurfacePageHeader title={title} subtitle={subtitle} toolbar={toolbar} />
       <SyntheticsNavigation />
-      <PageBody className={cn('space-y-5', bodyClassName)}>{children}</PageBody>
+      <SurfacePageBody className={cn('space-y-[12px]', bodyClassName)}>{children}</SurfacePageBody>
     </div>
   );
 }
@@ -129,7 +146,7 @@ export function SyntheticsCanvas({
   return (
     <div
       data-synthetics-canvas
-      className={cn('mx-auto w-full max-w-[2200px] bg-bg-0', className)}
+      className={cn('mx-auto w-full max-w-[2200px] space-y-[12px] bg-[var(--page-canvas)]', className)}
     >
       {children}
     </div>
@@ -150,13 +167,16 @@ export function SyntheticsKpiBand({
     <section
       data-synthetics-kpis
       className={cn(
-        'grid grid-cols-1 border-b border-bd-0 bg-bg-0',
+        'grid grid-cols-1 gap-[12px]',
         KPI_GRID_CLASS[columns],
         className,
       )}
     >
       {items.map((item, index) => (
-        <div key={index} className="min-h-[92px] min-w-0 px-4 py-3">
+        <div
+          key={index}
+          className="min-h-[92px] min-w-0 rounded-md bg-[var(--functional-surface)] px-4 py-3 [box-shadow:var(--shadow-functional-surface)]"
+        >
           <div className={uiLabelClass}>{item.label}</div>
           <div
             className={cn(
@@ -191,7 +211,7 @@ export function SyntheticsListSurface({
     <section
       data-synthetics-list-surface
       className={cn(
-        'min-w-0 overflow-hidden border-b border-bd-0 bg-bg-0',
+        'min-w-0 overflow-hidden rounded-md bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]',
         className,
       )}
     >
@@ -211,7 +231,7 @@ export function SyntheticsFilterBar({
     <div
       data-synthetics-filter-bar
       className={cn(
-        'min-h-12 border-b border-bd-0 px-4 py-2',
+        'min-h-12 px-4 py-2',
         className,
       )}
     >
@@ -222,6 +242,7 @@ export function SyntheticsFilterBar({
 
 const STATE_STYLE: Record<MonitorState | ProbeOutcome, { icon: LucideIcon; className: string }> = {
   healthy: { icon: CheckCircle2, className: 'border-green/25 bg-green-dim text-green-soft' },
+  flaky: { icon: TriangleAlert, className: 'border-orange/25 bg-orange-dim text-orange-soft' },
   degraded: { icon: TriangleAlert, className: 'border-yellow/25 bg-yellow-dim text-yellow-soft' },
   failing: { icon: XCircle, className: 'border-red/25 bg-red-dim text-red-soft' },
   unknown: { icon: CircleDashed, className: 'border-bd-1 bg-bg-3 text-tx-2' },
@@ -250,6 +271,7 @@ const KIND_ICON: Record<MonitorKind, LucideIcon> = {
   http: Braces,
   browser: MonitorPlay,
   tcp: Network,
+  ssh: KeyRound,
   dns: Globe2,
   icmp: Radar,
   tls: ShieldCheck,
@@ -287,13 +309,11 @@ export function Section({
     <section
       data-synthetics-section={flat ? 'flat' : undefined}
       className={cn(
-        flat
-          ? 'min-w-0 overflow-hidden border-b border-bd-0 bg-bg-0'
-          : 'overflow-hidden rounded-lg border border-bd-0 bg-bg-1',
+        'min-w-0 overflow-hidden rounded-md bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]',
         className,
       )}
     >
-      <div className="flex min-h-14 items-center justify-between gap-4 border-b border-bd-0 px-4 py-3">
+      <div className="flex min-h-14 items-center justify-between gap-4 px-4 py-3">
         <div className="min-w-0">
           <h2 className="type-section-title font-strong text-tx-0">{title}</h2>
           {description && <p className="mt-0.5 text-xs text-tx-2">{description}</p>}
@@ -320,7 +340,7 @@ export function WorkspaceBoundary({
 }) {
   const { t } = useTranslation('synthetics');
   const stateClassName = flat
-    ? 'rounded-none border-x-0 border-t-0 border-solid border-bd-0 bg-transparent'
+    ? 'min-h-[240px]'
     : undefined;
   if (pending) {
     return (

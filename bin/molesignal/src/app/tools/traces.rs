@@ -104,9 +104,10 @@ async fn list_traces(
     }
     let scan_limit = limit.saturating_mul(10).clamp(limit, 2_000);
     let reader = TraceSummaryReader::new(
-        runtime.observability.parquet_files.clone(),
+        runtime.observability.catalog_files.clone(),
         runtime.observability.object_store.clone(),
-    );
+    )
+    .with_catalog_source(runtime.observability.catalog_query.clone());
     let rows = reader
         .scan(
             &auth.org_id,
@@ -167,7 +168,7 @@ async fn error_trace_ids(
         QueryLanguage::Sql,
         statement,
         range,
-        Some((stream, StreamType::Traces)),
+        Some((stream, StreamType::TRACES)),
         limit,
     )
     .await?;
@@ -233,7 +234,7 @@ async fn trace_query(
         QueryLanguage::Sql,
         statement,
         range,
-        Some((&stream.name, StreamType::Traces)),
+        Some((&stream.name, StreamType::TRACES)),
         max_spans + 1,
     )
     .await?;

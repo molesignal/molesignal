@@ -71,7 +71,7 @@ async fn list(runtime: &ToolRuntime, auth: &IamContext, arguments: Value) -> Res
         statement,
         range,
         DEFAULT_PROFILE_STREAM,
-        StreamType::Profiles,
+        StreamType::PROFILES,
         limit,
     )
     .await?
@@ -178,7 +178,7 @@ async fn object_keys(
         statement,
         range,
         DEFAULT_PROFILE_STREAM,
-        StreamType::Profiles,
+        StreamType::PROFILES,
         SCAN_LIMIT,
     )
     .await?

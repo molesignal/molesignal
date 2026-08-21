@@ -164,31 +164,19 @@ export function SettingsLayout() {
 function SettingsLayoutFrame() {
   const { t } = useTranslation('settings-admin');
   const { pathname } = useLocation();
-  const access = useProductAccess();
   const sidebarCollapsed = useSettingsSidebarStore((state) => state.collapsed);
   const toggleSidebar = useSettingsSidebarStore((state) => state.toggle);
-  // 子页面包屑：从已有的 GROUPS 定义推导「设置 > 当前页 + 返回」，统一所有子页的层级
-  // 感（此前只有 ia.ts 里登记过的 license/organization 才有面包屑）。general 是设置
-  // 入口，自身不加面包屑。
   const current = GROUPS.flatMap((g) => g.sections).find((s) => s.to === pathname);
-  const crumbs =
-    current &&
-    current.key !== 'general' &&
-    canAccessProductPath('/settings/general', access)
-      ? [
-          { labelKey: 'settings', label: t('title'), to: '/settings/general' },
-          { labelKey: current.key, label: t(`nav.${current.key}`) },
-        ]
-      : null;
   const contentWidth =
     current?.contentWidth ?? 'page';
   return (
     <ManagementPage
+      appearance="surface"
       title={t('title')}
       subtitle={t('subtitle') as string}
       toolbar={<SettingsSaveStatusIndicator />}
-      breadcrumbs={crumbs}
-      backTo={crumbs ? '/settings/general' : null}
+      breadcrumbs={null}
+      backTo={null}
       sections={<SettingsNav onCollapse={toggleSidebar} />}
       sectionNavigation={{
         collapsed: sidebarCollapsed,
@@ -198,7 +186,7 @@ function SettingsLayoutFrame() {
       headerClassName="shrink-0"
       headerCompact
       headerIcon={SettingsIcon}
-      bodyClassName="mx-auto w-full max-w-[2200px] gap-6 [&_[data-product-state]]:rounded-none [&_[data-product-state]]:border-0 [&_[data-product-state]]:bg-transparent"
+      bodyClassName="mx-auto w-full max-w-[2200px] gap-[12px] [&_[data-product-state]]:border-0"
     >
       <div className="min-w-0">
         <div

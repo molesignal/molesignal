@@ -11,7 +11,9 @@ pub use assertion::{
 };
 pub use browser::{BrowserAction, BrowserJourneySpec, BrowserStep, Viewport};
 pub use http::{HeaderValue, HttpJourneySpec, HttpStep};
-pub use network::{DnsSpec, GrpcCall, GrpcSpec, IcmpSpec, TcpSpec, TlsSpec};
+pub use network::{
+    DnsSpec, GrpcCall, GrpcSpec, IcmpSpec, SshAuthentication, SshSpec, TcpSpec, TlsSpec,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::shared::{ids::Id, time::TimestampMicros};
@@ -21,6 +23,7 @@ use crate::shared::{ids::Id, time::TimestampMicros};
 pub enum MonitorKind {
     Http,
     Tcp,
+    Ssh,
     Dns,
     Icmp,
     Tls,
@@ -34,6 +37,7 @@ impl MonitorKind {
         match self {
             Self::Http => "http",
             Self::Tcp => "tcp",
+            Self::Ssh => "ssh",
             Self::Dns => "dns",
             Self::Icmp => "icmp",
             Self::Tls => "tls",
@@ -47,6 +51,7 @@ impl MonitorKind {
         match value {
             "http" => Some(Self::Http),
             "tcp" => Some(Self::Tcp),
+            "ssh" => Some(Self::Ssh),
             "dns" => Some(Self::Dns),
             "icmp" => Some(Self::Icmp),
             "tls" => Some(Self::Tls),
@@ -92,6 +97,7 @@ impl MonitorLifecycle {
 #[serde(rename_all = "snake_case")]
 pub enum MonitorState {
     Healthy,
+    Flaky,
     Degraded,
     Failing,
     Unknown,
@@ -101,6 +107,7 @@ impl MonitorState {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Healthy => "healthy",
+            Self::Flaky => "flaky",
             Self::Degraded => "degraded",
             Self::Failing => "failing",
             Self::Unknown => "unknown",
@@ -110,6 +117,7 @@ impl MonitorState {
     pub fn parse(value: &str) -> Option<Self> {
         match value {
             "healthy" => Some(Self::Healthy),
+            "flaky" => Some(Self::Flaky),
             "degraded" => Some(Self::Degraded),
             "failing" => Some(Self::Failing),
             "unknown" => Some(Self::Unknown),
@@ -148,6 +156,7 @@ pub enum MultiLocationPolicy {
 pub enum MonitorSpec {
     Http(HttpJourneySpec),
     Tcp(TcpSpec),
+    Ssh(SshSpec),
     Dns(DnsSpec),
     Icmp(IcmpSpec),
     Tls(TlsSpec),
@@ -161,6 +170,7 @@ impl MonitorSpec {
         match self {
             Self::Http(_) => MonitorKind::Http,
             Self::Tcp(_) => MonitorKind::Tcp,
+            Self::Ssh(_) => MonitorKind::Ssh,
             Self::Dns(_) => MonitorKind::Dns,
             Self::Icmp(_) => MonitorKind::Icmp,
             Self::Tls(_) => MonitorKind::Tls,
@@ -208,6 +218,7 @@ pub struct MonitorRevision {
     pub location_ids: Vec<Id>,
     pub escalation_policy_id: Option<Id>,
     pub alert_on_degraded: bool,
+    pub alert_on_flaky: bool,
     pub last_test_result_id: Option<Id>,
     pub last_test_passed_at: Option<TimestampMicros>,
     pub created_by: Id,

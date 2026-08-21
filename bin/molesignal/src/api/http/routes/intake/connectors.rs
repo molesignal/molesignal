@@ -145,7 +145,7 @@ async fn intake_events(
             batch_id: Id::new(),
             org_id: connector.org_id.clone(),
             stream,
-            stream_type: StreamType::Logs,
+            stream_type: StreamType::LOGS,
             events,
             received_at: TimestampMicros::now(),
         };

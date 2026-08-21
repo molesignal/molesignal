@@ -241,7 +241,7 @@ fn sample_rule() -> AlertRule {
             period_secs: 60,
             stream: Some(StreamHint {
                 name: "logs".into(),
-                stream_type: StreamType::Logs,
+                stream_type: StreamType::LOGS,
             }),
         },
         anomaly_params: None,
@@ -349,7 +349,7 @@ fn anomaly_rule() -> AlertRule {
             period_secs: 60,
             stream: Some(StreamHint {
                 name: "logs".into(),
-                stream_type: StreamType::Logs,
+                stream_type: StreamType::LOGS,
             }),
         },
         anomaly_params: Some(AnomalyParams {

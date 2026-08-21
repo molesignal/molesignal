@@ -23,9 +23,9 @@ use crate::{
 pub struct SyntheticService {
     pub(super) repository: Arc<dyn SyntheticRepository>,
     pub(super) transition_sink: Option<Arc<dyn super::SyntheticTransitionSink>>,
-    register_endpoint: String,
-    control_endpoint: String,
-    probe_ca_certificate_pem: String,
+    pub(super) register_endpoint: String,
+    pub(super) control_endpoint: String,
+    pub(super) probe_ca_certificate_pem: String,
 }
 
 impl SyntheticService {

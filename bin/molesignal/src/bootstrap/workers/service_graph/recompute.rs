@@ -121,7 +121,7 @@ impl ServiceGraphRecomputer {
                 .await
                 .unwrap_or_default()
                 .into_iter()
-                .filter(|s| s.stream_type == StreamType::Traces)
+                .filter(|s| s.stream_type == StreamType::TRACES)
                 .map(|s| s.name)
                 .collect();
             if traces.is_empty() {
@@ -178,7 +178,7 @@ impl ServiceGraphRecomputer {
             time_range: TimeRange::new(TimestampMicros(from), TimestampMicros(to)),
             stream: Some(StreamHint {
                 name: stream.to_string(),
-                stream_type: StreamType::Traces,
+                stream_type: StreamType::TRACES,
             }),
             limit: Some(self.cfg.max_rows),
             federation_clusters: Vec::new(),

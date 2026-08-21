@@ -90,7 +90,7 @@ async fn intake_into(
         batch_id: Id::new(),
         org_id: org_id.clone(),
         stream,
-        stream_type: StreamType::Logs,
+        stream_type: StreamType::LOGS,
         events,
         received_at: TimestampMicros::now(),
     };

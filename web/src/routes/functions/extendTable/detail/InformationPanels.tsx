@@ -43,7 +43,7 @@ export function SchemaPanel({
   ];
 
   return (
-    <section data-extend-table-schema>
+    <section data-extend-table-schema className="rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)]">
       <div className="flex flex-wrap items-start justify-between gap-3 px-1 pb-4">
         <div>
           <h2 className="text-sm font-display-strong text-tx-0">
@@ -62,7 +62,7 @@ export function SchemaPanel({
           {t('extend_tables.edit_schema')}
         </ChromeButton>
       </div>
-      <div className="border-y border-bd-0">
+      <div>
         <Table>
           <TableHeader>
             <TableRow className="h-10 hover:bg-transparent">
@@ -125,7 +125,7 @@ export function UsagePanel({ table }: { table: ExtendTableSummary }) {
   }
 
   return (
-    <section data-extend-table-usage>
+    <section data-extend-table-usage className="rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)]">
       <div className="px-1 pb-4">
         <h2 className="text-sm font-display-strong text-tx-0">
           {t('extend_tables.usage_title')}
@@ -134,7 +134,7 @@ export function UsagePanel({ table }: { table: ExtendTableSummary }) {
           {t('extend_tables.usage_description')}
         </p>
       </div>
-      <div className="divide-y divide-bd-0 border-y border-bd-0">
+      <div className="space-y-2">
         {table.usage_locations.map((usage) => {
           const UsageIcon = usage.kind === 'pipeline' ? Workflow : Code2;
           return (
@@ -145,7 +145,7 @@ export function UsagePanel({ table }: { table: ExtendTableSummary }) {
                   ? `/pipelines/${usage.id}`
                   : '/saved-views'
               }
-              className="flex min-h-16 items-center gap-3 px-1 py-3 hover:bg-bg-2 focus-visible:bg-bg-2 sm:px-4"
+              className="flex min-h-16 items-center gap-3 rounded-md bg-[var(--control-surface)] px-3 py-3 hover:bg-bg-3 focus-visible:bg-bg-3"
             >
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-purple-dim text-purple-soft">
                 <UsageIcon className="h-4 w-4" />
@@ -181,9 +181,9 @@ export function SettingsPanel({
   return (
     <section
       data-extend-table-settings
-      className="max-w-3xl space-y-6"
+      className="max-w-3xl space-y-[12px] rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)]"
     >
-      <div className="border-y border-bd-0 py-5">
+      <div className="rounded-md bg-[var(--control-surface)] p-4">
         <h2 className="text-sm font-display-strong text-tx-0">
           {t('extend_tables.table_information')}
         </h2>
@@ -212,7 +212,7 @@ export function SettingsPanel({
           />
         </dl>
       </div>
-      <div className="border-y border-red/25 bg-red-dim px-1 py-5 sm:px-4">
+      <div className="rounded-md bg-red-dim p-4">
         <h2 className="text-sm font-display-strong text-red">
           {t('extend_tables.danger_zone')}
         </h2>

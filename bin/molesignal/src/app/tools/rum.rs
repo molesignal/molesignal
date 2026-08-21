@@ -123,7 +123,7 @@ async fn list(
         statement,
         range,
         stream,
-        StreamType::Logs,
+        StreamType::LOGS,
         limit,
     )
     .await?
@@ -199,7 +199,7 @@ async fn query_by_session(
         statement,
         range,
         stream,
-        StreamType::Logs,
+        StreamType::LOGS,
         limit,
     )
     .await
@@ -230,9 +230,10 @@ async fn related_traces(
     };
     let direct = direct_trace_ids(runtime, auth, range, &args.session_id).await?;
     let reader = TraceSummaryReader::new(
-        runtime.observability.parquet_files.clone(),
+        runtime.observability.catalog_files.clone(),
         runtime.observability.object_store.clone(),
-    );
+    )
+    .with_catalog_source(runtime.observability.catalog_query.clone());
     let (trace_ids, relation, scan_range) = if direct.is_empty() {
         let Some(session) =
             query_by_session(runtime, auth, "rum_sessions", range, &args.session_id, 1)
@@ -309,7 +310,7 @@ async fn direct_trace_ids(
         statement,
         range,
         "rum_actions",
-        StreamType::Logs,
+        StreamType::LOGS,
         100,
     )
     .await?

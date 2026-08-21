@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import * as apiTokens from '@/api/apiTokens';
 import * as rolesApi from '@/api/roles';
 import * as serviceAccountsApi from '@/api/serviceAccounts';
+import { writeClipboardText } from '@/lib/clipboard';
 import { toApiError } from '@/lib/http';
 import {
   type ActionAccess,
@@ -107,7 +108,7 @@ export function CreateApiTokenDrawer({
   const copyToken = async () => {
     if (!created) return;
     try {
-      await navigator.clipboard.writeText(created.token);
+      await writeClipboardText(created.token);
       toast.success(t('api_tokens.toast_copied'));
     } catch (error) {
       toast.error(toApiError(error).message);

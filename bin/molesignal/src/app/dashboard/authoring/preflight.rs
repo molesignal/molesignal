@@ -170,7 +170,7 @@ fn build_query_request(
                 Some(stream) => Some(resolve_stream(
                     streams,
                     stream,
-                    Some(StreamType::Metrics),
+                    Some(StreamType::METRICS),
                     path,
                 )?),
                 None => None,
@@ -200,7 +200,7 @@ fn build_query_request(
             limit: _,
             ..
         } => {
-            let hint = resolve_stream(streams, stream, Some(StreamType::Traces), path)?;
+            let hint = resolve_stream(streams, stream, Some(StreamType::TRACES), path)?;
             let statement = if query
                 .trim_start()
                 .to_ascii_lowercase()
@@ -225,7 +225,7 @@ fn build_query_request(
             ..
         } => {
             validate_read_only_filter(query, path)?;
-            let hint = resolve_stream(streams, stream, Some(StreamType::Profiles), path)?;
+            let hint = resolve_stream(streams, stream, Some(StreamType::PROFILES), path)?;
             (
                 QueryLanguage::Sql,
                 format!(

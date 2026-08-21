@@ -12,6 +12,7 @@ import { ApmPageFrame, HealthDot, QueryBoundary, Section } from './components';
 import { ApmFilters } from './Filters';
 import { formatCount, formatDuration, formatRate, formatTimestamp } from './format';
 import { hasActiveEntityFilters, servicePath } from './model';
+import { ApmToolbarSelect } from './ToolbarSelect';
 import { useApmFilters } from './useApmFilters';
 
 export function ApmServices() {
@@ -73,6 +74,7 @@ export function ApmServices() {
               />
             </Section>
             <CursorPagination
+              className="border-t-0 bg-transparent"
               pageSize={pagination.pageSize}
               pageSizeOptions={[20, 50, 100]}
               hasPrevious={Boolean(query.data.previous_cursor)}
@@ -109,8 +111,6 @@ function ResultControls({
   onDirection: (value: string) => void;
 }) {
   const { t } = useTranslation('apm');
-  const control =
-    'h-8 rounded-md border border-bd-0 bg-bg-1 px-2.5 text-xs text-tx-1 outline-none hover:bg-bg-2 focus-visible:bg-bg-2';
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-tx-2">
@@ -122,26 +122,26 @@ function ResultControls({
         </span>
       </div>
       <div className="flex items-center gap-2">
-        <select
-          aria-label={t('filters.sort')}
+        <ApmToolbarSelect
+          ariaLabel={t('filters.sort')}
           value={sort || 'request_count'}
-          onChange={(event) => onSort(event.target.value)}
-          className={control}
-        >
-          <option value="request_count">{t('sort.requests')}</option>
-          <option value="error_rate">{t('sort.error_rate')}</option>
-          <option value="p95">{t('sort.p95')}</option>
-          <option value="name">{t('sort.name')}</option>
-        </select>
-        <select
-          aria-label={t('filters.direction')}
+          onValueChange={onSort}
+          options={[
+            { value: 'request_count', label: t('sort.requests') },
+            { value: 'error_rate', label: t('sort.error_rate') },
+            { value: 'p95', label: t('sort.p95') },
+            { value: 'name', label: t('sort.name') },
+          ]}
+        />
+        <ApmToolbarSelect
+          ariaLabel={t('filters.direction')}
           value={direction}
-          onChange={(event) => onDirection(event.target.value)}
-          className={control}
-        >
-          <option value="desc">{t('sort.descending')}</option>
-          <option value="asc">{t('sort.ascending')}</option>
-        </select>
+          onValueChange={onDirection}
+          options={[
+            { value: 'desc', label: t('sort.descending') },
+            { value: 'asc', label: t('sort.ascending') },
+          ]}
+        />
       </div>
     </div>
   );

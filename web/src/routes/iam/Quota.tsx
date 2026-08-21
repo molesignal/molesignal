@@ -65,19 +65,19 @@ export function Quota() {
       state={pageState}
     >
       {data ? (
-        <section className="border-b border-bd-0">
-          <div className="flex min-h-10 items-center gap-3">
+        <section className="space-y-2">
+          <div className="flex min-h-10 items-center gap-3 rounded-md bg-[var(--control-surface)] px-3">
             <h3 className="font-sans text-xs font-strong text-tx-1">
               {t('quota.source_license')}
             </h3>
             <Pill tone="blue">{data.edition}</Pill>
           </div>
-          <div className="grid md:grid-cols-3 md:[&>*+*]:border-l md:[&>*+*]:border-bd-0">
+          <div className="grid gap-2 md:grid-cols-3">
             {items.map((item) => (
               <QuotaStat key={item.key} item={item} />
             ))}
           </div>
-          <div className="flex min-h-12 flex-wrap items-center gap-x-4 gap-y-1 border-t border-bd-0 px-3 py-2">
+          <div className="flex min-h-12 flex-wrap items-center gap-x-4 gap-y-1 rounded-md bg-[var(--control-surface)] px-3 py-2">
             <div className={uiLabelClass}>{t('quota.labels.reset')}</div>
             <div className="font-sans text-sm font-semibold text-tx-0">
               {data.reset_at_micros
@@ -98,7 +98,7 @@ function QuotaStat({ item }: { item: QuotaItem }) {
   const value = item.limit === null ? t('quota.not_reported') : limit;
 
   return (
-    <div className="min-w-0 px-3 py-4">
+    <div className="min-w-0 rounded-md bg-[var(--control-surface)] px-3 py-4">
       <div className={uiLabelClass}>{item.label}</div>
       <div className="mt-2 font-sans text-2xl font-display-strong leading-none text-tx-0">
         {value}

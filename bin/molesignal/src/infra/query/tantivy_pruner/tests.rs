@@ -16,7 +16,7 @@ fn logs_stream() -> StreamDefinition {
         id: Id::new(),
         org_id: Id::from_string("orga"),
         name: "logs".into(),
-        stream_type: StreamType::Logs,
+        stream_type: StreamType::LOGS,
         schema: Schema {
             fields: vec![FieldDef {
                 name: "message".into(),
@@ -52,28 +52,65 @@ async fn seed_archive(store: &Arc<dyn ObjectStore>, index_object_key: &str, msgs
         .unwrap();
 }
 
-async fn fm_with(parquet_object_key: &str) -> ParquetFileMeta {
-    ParquetFileMeta {
+#[tokio::test]
+async fn catalog_pruning_uses_only_explicit_artifact_relationships() {
+    let tmp = tempfile::tempdir().unwrap();
+    let store: Arc<dyn ObjectStore> =
+        Arc::new(LocalFileSystem::new_with_prefix(tmp.path()).unwrap());
+    let primary_key = "v1/artifacts/orga/dataset/p-0-00/segment/primary.parquet";
+    let explicit_index_key = "v1/artifacts/orga/dataset/p-0-00/segment/index-artifact.ttv";
+    seed_archive(&store, explicit_index_key, &["healthy request"]).await;
+
+    let handle_cache: Arc<IndexHandleCache<Arc<IndexHandle>>> =
+        Arc::new(IndexHandleCache::new(CacheLayerSettings::new(100, 60)));
+    let pruner = TantivyPruner::new(handle_cache, store);
+    let file = fm_with(primary_key).await;
+    let predicates = vec![MatchPredicate {
+        field: "message".into(),
+        term: "panic".into(),
+    }];
+
+    let without_artifact = pruner
+        .prune_with_index_keys(vec![file.clone()], &predicates, &HashMap::new())
+        .await
+        .unwrap();
+    assert_eq!(
+        without_artifact.len(),
+        1,
+        "missing Artifact must fall back to Parquet"
+    );
+
+    let indexes = HashMap::from([(primary_key.to_string(), explicit_index_key.to_string())]);
+    let with_artifact = pruner
+        .prune_with_index_keys(vec![file], &predicates, &indexes)
+        .await
+        .unwrap();
+    assert!(
+        with_artifact.is_empty(),
+        "explicit index proves the file cannot match"
+    );
+}
+
+async fn fm_with(parquet_object_key: &str) -> QueryFile {
+    QueryFile {
         id: Id::new(),
         org_id: Id::from_string("orga"),
         stream: "log_app".into(),
-        stream_type: StreamType::Logs,
-        dataset_kind: crate::domain::storage::PhysicalDatasetKind::Raw,
-        // Parquet object_key 必须是带 dataset/hour 的规范物理路径，才能由
-        // `key_for` 唯一映射到同一文件的 `.ttv` sidecar。
+        stream_type: StreamType::LOGS,
+        dataset_type: crate::domain::storage::primary_dataset_type(StreamType::LOGS).unwrap(),
         object_key: parquet_object_key.to_string(),
+        checksum: None,
+        etag: None,
         time_range: crate::shared::time::TimeRange::new(TimestampMicros(0), TimestampMicros(1)),
         rows: 0,
         size_bytes: 0,
         min_values: serde_json::Map::new(),
         max_values: serde_json::Map::new(),
-        deleted: false,
     }
 }
 
-/// 给定一个 parquet object_key 计算其 .ttv sidecar 的 storage key（用于 seed）。
-fn sidecar_key(parquet_object_key: &str) -> String {
-    TantivyArchive::key_for(parquet_object_key).expect("canonical parquet key")
+fn explicit_indexes(parquet_object_key: &str, index_object_key: &str) -> HashMap<String, String> {
+    HashMap::from([(parquet_object_key.to_owned(), index_object_key.to_owned())])
 }
 
 #[tokio::test]
@@ -81,12 +118,13 @@ async fn result_cache_hit_on_second_prune_increments_metric() {
     let tmp = tempfile::tempdir().unwrap();
     let store: Arc<dyn ObjectStore> =
         Arc::new(LocalFileSystem::new_with_prefix(tmp.path()).unwrap());
-    let parquet_key = "orgA/logs/raw/log_app/2026/01/15/09/obj-a.parquet";
-    let index_object_key = sidecar_key(parquet_key);
-    seed_archive(&store, &index_object_key, &["panic 1", "panic 2", "ok"]).await;
+    let parquet_key = "primary/result-cache";
+    let index_object_key = "indexes/result-cache";
+    seed_archive(&store, index_object_key, &["panic 1", "panic 2", "ok"]).await;
+    let indexes = explicit_indexes(parquet_key, index_object_key);
 
-    let handle_cache: Arc<ParquetMetaCache<Arc<IndexHandle>>> =
-        Arc::new(ParquetMetaCache::new(CacheLayerSettings::new(100, 60)));
+    let handle_cache: Arc<IndexHandleCache<Arc<IndexHandle>>> =
+        Arc::new(IndexHandleCache::new(CacheLayerSettings::new(100, 60)));
     let result_cache = Arc::new(TantivyResultCache::new(&TantivyResultCacheSettings {
         capacity: 100,
         ttl_secs: 60,
@@ -99,12 +137,18 @@ async fn result_cache_hit_on_second_prune_increments_metric() {
         term: "panic".into(),
     }];
     let fm = fm_with(parquet_key).await;
-    let kept1 = pruner.prune(vec![fm.clone()], &preds).await.unwrap();
+    let kept1 = pruner
+        .prune_with_index_keys(vec![fm.clone()], &preds, &indexes)
+        .await
+        .unwrap();
     assert_eq!(kept1.len(), 1);
     let hits_before = crate::shared::metrics::gather_text().unwrap();
     let n_before = scrape_counter(&hits_before, "cache_tantivy_result_hits_total");
 
-    let kept2 = pruner.prune(vec![fm], &preds).await.unwrap();
+    let kept2 = pruner
+        .prune_with_index_keys(vec![fm], &preds, &indexes)
+        .await
+        .unwrap();
     assert_eq!(kept2.len(), 1);
     let hits_after = crate::shared::metrics::gather_text().unwrap();
     let n_after = scrape_counter(&hits_after, "cache_tantivy_result_hits_total");
@@ -124,12 +168,13 @@ async fn all_eight_tantivy_cache_metrics_visible_after_prune() {
     let tmp = tempfile::tempdir().unwrap();
     let store: Arc<dyn ObjectStore> =
         Arc::new(LocalFileSystem::new_with_prefix(tmp.path()).unwrap());
-    let parquet_key = "orgA/logs/raw/log_app/2026/01/15/09/obj-m.parquet";
-    let index_object_key = sidecar_key(parquet_key);
-    seed_archive(&store, &index_object_key, &["panic msg"]).await;
+    let parquet_key = "primary/all-metrics";
+    let index_object_key = "indexes/all-metrics";
+    seed_archive(&store, index_object_key, &["panic msg"]).await;
+    let indexes = explicit_indexes(parquet_key, index_object_key);
 
-    let handle_cache: Arc<ParquetMetaCache<Arc<IndexHandle>>> =
-        Arc::new(ParquetMetaCache::new(CacheLayerSettings::new(100, 60)));
+    let handle_cache: Arc<IndexHandleCache<Arc<IndexHandle>>> =
+        Arc::new(IndexHandleCache::new(CacheLayerSettings::new(100, 60)));
     let result_cache = Arc::new(TantivyResultCache::new(&TantivyResultCacheSettings {
         capacity: 100,
         ttl_secs: 60,
@@ -147,8 +192,14 @@ async fn all_eight_tantivy_cache_metrics_visible_after_prune() {
     }];
     let fm = fm_with(parquet_key).await;
     // 两轮 prune：第一轮 miss → 写两层 cache；第二轮 result cache 命中。
-    let _ = pruner.prune(vec![fm.clone()], &preds).await.unwrap();
-    let _ = pruner.prune(vec![fm], &preds).await.unwrap();
+    let _ = pruner
+        .prune_with_index_keys(vec![fm.clone()], &preds, &indexes)
+        .await
+        .unwrap();
+    let _ = pruner
+        .prune_with_index_keys(vec![fm], &preds, &indexes)
+        .await
+        .unwrap();
 
     let text = crate::shared::metrics::gather_text().unwrap();
     // 8 个核心指标 + 2 个 errors_total 全部应当出现在 /metrics。
@@ -185,17 +236,18 @@ async fn footer_cache_hit_short_circuits_object_store_get() {
     let tmp = tempfile::tempdir().unwrap();
     let store: Arc<dyn ObjectStore> =
         Arc::new(LocalFileSystem::new_with_prefix(tmp.path()).unwrap());
-    let parquet_key = "orgA/logs/raw/log_app/2026/01/15/09/obj-f.parquet";
-    let index_object_key = sidecar_key(parquet_key);
-    seed_archive(&store, &index_object_key, &["panic 1", "panic 2"]).await;
+    let parquet_key = "primary/footer-cache";
+    let index_object_key = "indexes/footer-cache";
+    seed_archive(&store, index_object_key, &["panic 1", "panic 2"]).await;
+    let indexes = explicit_indexes(parquet_key, index_object_key);
 
     // 第一次 prune：fresh handle cache + 共享 footer cache → footer 写入 cache。
     let footer_cache = Arc::new(TantivyFooterCache::new(&TantivyFooterCacheSettings {
         capacity: 100,
         ttl_secs: 60,
     }));
-    let handle_cache_1: Arc<ParquetMetaCache<Arc<IndexHandle>>> =
-        Arc::new(ParquetMetaCache::new(CacheLayerSettings::new(100, 60)));
+    let handle_cache_1: Arc<IndexHandleCache<Arc<IndexHandle>>> =
+        Arc::new(IndexHandleCache::new(CacheLayerSettings::new(100, 60)));
     let pruner1 =
         TantivyPruner::new(handle_cache_1, store.clone()).with_footer_cache(footer_cache.clone());
     let preds = vec![MatchPredicate {
@@ -203,24 +255,27 @@ async fn footer_cache_hit_short_circuits_object_store_get() {
         term: "panic".into(),
     }];
     let fm = fm_with(parquet_key).await;
-    let k1 = pruner1.prune(vec![fm.clone()], &preds).await.unwrap();
+    let k1 = pruner1
+        .prune_with_index_keys(vec![fm.clone()], &preds, &indexes)
+        .await
+        .unwrap();
     assert_eq!(k1.len(), 1);
 
     // 删掉对象：模拟 IndexHandle 失效后的 worst case。
-    store
-        .delete(&Path::from(index_object_key.clone()))
-        .await
-        .unwrap();
+    store.delete(&Path::from(index_object_key)).await.unwrap();
     // 校验：对象确实没了，object_store GET 会 NotFound。
-    let direct = store.get(&Path::from(index_object_key.clone())).await;
+    let direct = store.get(&Path::from(index_object_key)).await;
     assert!(matches!(direct, Err(object_store::Error::NotFound { .. })));
 
     // 第二次 prune：fresh handle cache（IndexHandle 已 evict 等价），共享 footer cache。
-    let handle_cache_2: Arc<ParquetMetaCache<Arc<IndexHandle>>> =
-        Arc::new(ParquetMetaCache::new(CacheLayerSettings::new(100, 60)));
+    let handle_cache_2: Arc<IndexHandleCache<Arc<IndexHandle>>> =
+        Arc::new(IndexHandleCache::new(CacheLayerSettings::new(100, 60)));
     let pruner2 =
         TantivyPruner::new(handle_cache_2, store.clone()).with_footer_cache(footer_cache.clone());
-    let k2 = pruner2.prune(vec![fm], &preds).await.unwrap();
+    let k2 = pruner2
+        .prune_with_index_keys(vec![fm], &preds, &indexes)
+        .await
+        .unwrap();
     assert_eq!(
         k2.len(),
         1,
@@ -237,12 +292,13 @@ async fn result_cache_capacity_zero_falls_through_to_tantivy() {
     let tmp = tempfile::tempdir().unwrap();
     let store: Arc<dyn ObjectStore> =
         Arc::new(LocalFileSystem::new_with_prefix(tmp.path()).unwrap());
-    let parquet_key = "orgA/logs/raw/log_app/2026/01/15/09/obj-z.parquet";
-    let index_object_key = sidecar_key(parquet_key);
-    seed_archive(&store, &index_object_key, &["panic only"]).await;
+    let parquet_key = "primary/cache-disabled";
+    let index_object_key = "indexes/cache-disabled";
+    seed_archive(&store, index_object_key, &["panic only"]).await;
+    let indexes = explicit_indexes(parquet_key, index_object_key);
 
-    let handle_cache: Arc<ParquetMetaCache<Arc<IndexHandle>>> =
-        Arc::new(ParquetMetaCache::new(CacheLayerSettings::new(100, 60)));
+    let handle_cache: Arc<IndexHandleCache<Arc<IndexHandle>>> =
+        Arc::new(IndexHandleCache::new(CacheLayerSettings::new(100, 60)));
     let result_cache = Arc::new(TantivyResultCache::new(&TantivyResultCacheSettings {
         capacity: 0, // disabled
         ttl_secs: 60,
@@ -256,8 +312,14 @@ async fn result_cache_capacity_zero_falls_through_to_tantivy() {
     }];
     let fm = fm_with(parquet_key).await;
     // 两次 prune 都应当正确：capacity=0 走 no-op cache，结果与不挂 cache 等价。
-    let k1 = pruner.prune(vec![fm.clone()], &preds).await.unwrap();
-    let k2 = pruner.prune(vec![fm], &preds).await.unwrap();
+    let k1 = pruner
+        .prune_with_index_keys(vec![fm.clone()], &preds, &indexes)
+        .await
+        .unwrap();
+    let k2 = pruner
+        .prune_with_index_keys(vec![fm], &preds, &indexes)
+        .await
+        .unwrap();
     assert_eq!(k1.len(), 1);
     assert_eq!(k2.len(), 1);
     // capacity=0 时 inner cache 是 None，get/insert 都直接早退；本测试覆盖到该路径

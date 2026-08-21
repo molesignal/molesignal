@@ -24,6 +24,7 @@ interface SidebarProps {
   mobileOpen?: boolean | undefined;
   onNavigate?: (() => void) | undefined;
   onHoverChange?: ((hovered: boolean) => void) | undefined;
+  surfaceWorkbench?: boolean;
 }
 
 export function Sidebar({
@@ -31,13 +32,13 @@ export function Sidebar({
   mobileOpen = false,
   onNavigate,
   onHoverChange,
+  surfaceWorkbench = false,
 }: SidebarProps) {
   const { t } = useTranslation('nav');
   const visuallyCollapsed = collapsed && !mobileOpen;
   const access = useProductAccess();
 
   const pinned = useSidebarStore((s) => s.pinned);
-  const recent = useSidebarStore((s) => s.recent);
   const togglePin = useSidebarStore((s) => s.togglePin);
   const unpin = useSidebarStore((s) => s.unpin);
   const reorderPinned = useSidebarStore((s) => s.reorderPinned);
@@ -51,29 +52,6 @@ export function Sidebar({
       (route): route is ProductRouteMeta =>
         !!route && canAccessProductRoute(route, access),
     );
-  // Ids that already have a permanent home in a fixed nav group. Recent must not
-  // echo these — its whole purpose is quick access to pages that AREN'T already
-  // one click away in the sidebar. Built from the same source the fixed groups
-  // render (the DB-backed capability navigation), so the two never drift apart.
-  const groupedIds = new Set(
-    PRODUCT_NAV_GROUPS.flatMap((group) =>
-      accessibleProductNavigation(access, group),
-    ).map((route) => route.id),
-  );
-  // Recent excludes pinned (shown in the Pinned section) and anything already in
-  // a fixed group, so the same destination never appears twice. Recomputed every
-  // render, so the dedup also applies whenever the recent list updates.
-  const recentRoutes = recent
-    .map(getProductRouteById)
-    .filter(
-      (route): route is ProductRouteMeta =>
-        !!route &&
-        canAccessProductRoute(route, access) &&
-        !pinnedSet.has(route.id) &&
-        !groupedIds.has(route.id),
-    )
-    .slice(0, 4);
-
   // Render one nav group, minus any items currently pinned (those live in the
   // Pinned section instead, so nothing shows twice). Returns null when the
   // group has nothing left to show — e.g. when Home itself is pinned.
@@ -114,7 +92,10 @@ export function Sidebar({
       onMouseEnter={() => onHoverChange?.(true)}
       onMouseLeave={() => onHoverChange?.(false)}
       className={cn(
-        'fixed bottom-0 left-0 top-topbar z-40 flex w-sidebar flex-col border-r border-bd-0 bg-bg-1',
+        'fixed bottom-0 left-0 top-topbar z-40 flex w-sidebar flex-col',
+        surfaceWorkbench
+          ? 'border-r-0 bg-[var(--sidebar-surface)]'
+          : 'border-r border-bd-0 bg-bg-1',
         'transition-[transform,width] duration-normal ease-out-default',
         mobileOpen ? 'translate-x-0 shadow-lg' : '-translate-x-full md:translate-x-0',
         visuallyCollapsed ? 'md:w-sidebar-collapsed' : 'md:w-sidebar',
@@ -123,10 +104,9 @@ export function Sidebar({
       <nav className="flex-1 overflow-y-auto py-2">
         {renderGroup('home')}
 
-        {/* Personalization. Pinned items render here ONLY — renderGroup drops
-            them from their home group so nothing shows twice; unpinning returns
-            an item to its original group slot. Recent is auto-rotated. Each
-            section (header included) disappears entirely when empty. */}
+        {/* Pinned items render here ONLY — renderGroup drops them from their
+            home group so nothing shows twice; unpinning returns an item to its
+            original group slot. The section disappears when it is empty. */}
         {!visuallyCollapsed && pinnedRoutes.length > 0 && (
           <MiniSection labelKey="pinned">
             {pinnedRoutes.map((route) => (
@@ -154,19 +134,6 @@ export function Sidebar({
             ))}
           </MiniSection>
         )}
-        {!visuallyCollapsed && recentRoutes.length > 0 && (
-          <MiniSection labelKey="recent">
-            {recentRoutes.map((route) => (
-              <MiniNavRow
-                key={route.id}
-                route={route}
-                onNavigate={onNavigate}
-                action={{ kind: 'pin', onToggle: () => togglePin(route.id) }}
-              />
-            ))}
-          </MiniSection>
-        )}
-
         {PRODUCT_NAV_GROUPS.filter((group) => group !== 'home').map((group) => renderGroup(group))}
       </nav>
     </aside>
@@ -194,7 +161,7 @@ interface MiniRowDrag {
   onDragEnd: () => void;
 }
 
-/** Row for the Pinned / Recent sections. Shares the fixed-group row metrics
+/** Row for the Pinned section. Shares the fixed-group row metrics
  *  (`h-sidebar-item`, `text-xs`, 16px icon, `text-tx-1`) so the whole sidebar
  *  keeps one density — only the trailing pin/grip controls differ. */
 function MiniNavRow({
@@ -272,7 +239,7 @@ function MiniNavRow({
         className={({ isActive }) =>
           `${cn(
             // Match NavRow metrics (h-sidebar-item / text-xs / text-tx-1) so the
-            // Pinned / Recent rows share the fixed groups' density.
+            // Pinned rows share the fixed groups' density.
             'relative flex h-sidebar-item items-center gap-2 rounded-md pl-2.5 text-xs font-strong text-tx-1',
             // extra right padding for the grip + pin controls (grip only on pinned rows)
             drag ? 'pr-16' : 'pr-9',

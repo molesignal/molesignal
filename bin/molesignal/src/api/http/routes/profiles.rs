@@ -17,7 +17,7 @@
 //!
 //! 与自诊断 `profiling`（`/debug/profile/*`，本服务运维）相互独立：本模块面向**被
 //! 观测的用户应用**。三协议归一化后统一双路落盘：规范 pprof + zstd 旁路归档 object
-//! store，元数据行经 `IntakeService` 进 `StreamType::Profiles` 流。
+//! store，元数据行经 `IntakeService` 进 `StreamType::PROFILES` 流。
 
 use std::collections::BTreeMap;
 
@@ -176,7 +176,7 @@ async fn run_query(
     let definition = match state
         .telemetry
         .streams
-        .get(org_id, stream, StreamType::Profiles)
+        .get(org_id, stream, StreamType::PROFILES)
         .await
     {
         Ok(definition) => definition,
@@ -195,7 +195,7 @@ async fn run_query(
             time_range: range,
             stream: Some(StreamHint {
                 name: stream.to_string(),
-                stream_type: StreamType::Profiles,
+                stream_type: StreamType::PROFILES,
             }),
             limit,
             federation_clusters: Vec::new(),

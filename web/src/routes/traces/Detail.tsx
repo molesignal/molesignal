@@ -49,7 +49,6 @@ export function TraceDetail() {
         ) : null
       }
       metadata={[
-        { label: t('detail.back'), value: <Link to="/traces" className="text-indigo-soft hover:underline">{t('detail.back')}</Link> },
         // Phase 6 M2: trace_id is a canonical cross-signal handle.
         // Wrapping it in SignalReference lets users jump to related
         // logs / metrics without leaving the trace view.

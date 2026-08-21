@@ -1,16 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! SQL 查询端到端冒烟（local object_store + 内存 ParquetFileMetaRepository）。
+//! SQL 查询端到端冒烟（local object_store + 内存 QueryFileSource）。
+
+mod common;
 
 use std::sync::Arc;
 
 use arrow::array::{Int64Array, RecordBatch, StringArray, TimestampMicrosecondArray};
 use async_trait::async_trait;
+use common::write_parquet_fixture;
 use molesignal::{
     domain::{
         query::{QueryEngine, QueryLanguage, QueryRequest, StreamHint},
-        storage::{ParquetFileMeta, ParquetFileMetaRepository},
+        storage::{QueryFile, QueryFileSource},
         stream::{
             FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamRepository, StreamType,
         },
@@ -28,31 +31,32 @@ use molesignal::{
 use object_store::{ObjectStore, local::LocalFileSystem};
 use parking_lot::Mutex;
 
-struct MemParquetFileMetaRepo {
-    files: Mutex<Vec<ParquetFileMeta>>,
+struct MemQueryFileRepo {
+    files: Mutex<Vec<QueryFile>>,
 }
 
-impl MemParquetFileMetaRepo {
+impl MemQueryFileRepo {
     fn new() -> Self {
         Self {
             files: Mutex::new(Vec::new()),
         }
     }
-}
 
-#[async_trait]
-impl ParquetFileMetaRepository for MemParquetFileMetaRepo {
-    async fn insert(&self, file: ParquetFileMeta) -> Result<()> {
+    async fn insert(&self, file: QueryFile) -> Result<()> {
         self.files.lock().push(file);
         Ok(())
     }
+}
+
+#[async_trait]
+impl QueryFileSource for MemQueryFileRepo {
     async fn find(
         &self,
         org_id: &Id,
         stream: &str,
         stream_type: StreamType,
         time_range: TimeRange,
-    ) -> Result<Vec<ParquetFileMeta>> {
+    ) -> Result<Vec<QueryFile>> {
         Ok(self
             .files
             .lock()
@@ -61,18 +65,11 @@ impl ParquetFileMetaRepository for MemParquetFileMetaRepo {
                 &f.org_id == org_id
                     && f.stream == stream
                     && f.stream_type == stream_type
-                    && !f.deleted
                     && f.time_range.end.0 >= time_range.start.0
                     && f.time_range.start.0 <= time_range.end.0
             })
             .cloned()
             .collect())
-    }
-    async fn replace(&self, _merged_ids: &[Id], _new_files: Vec<ParquetFileMeta>) -> Result<()> {
-        unimplemented!()
-    }
-    async fn mark_deleted(&self, _ids: &[Id]) -> Result<usize> {
-        unimplemented!()
     }
 }
 
@@ -81,7 +78,7 @@ fn sample_stream(org: &Id) -> StreamDefinition {
         id: Id::new(),
         org_id: org.clone(),
         name: "app".into(),
-        stream_type: StreamType::Logs,
+        stream_type: StreamType::LOGS,
         schema: Schema {
             fields: vec![
                 FieldDef {
@@ -133,8 +130,8 @@ async fn count_and_aggregate_round_trip() {
     let stream = sample_stream(&org);
     let writer = ParquetWriter::new(store.clone());
 
-    let meta = writer.flush(&stream, sample_batch(&stream)).await.unwrap();
-    let repo = Arc::new(MemParquetFileMetaRepo::new());
+    let meta = write_parquet_fixture(&writer, &stream, sample_batch(&stream)).await;
+    let repo = Arc::new(MemQueryFileRepo::new());
     repo.insert(meta).await.unwrap();
 
     let engine = DataFusionEngine::new(repo.clone(), store.clone());
@@ -148,7 +145,7 @@ async fn count_and_aggregate_round_trip() {
             time_range: TimeRange::new(TimestampMicros(0), TimestampMicros(10_000_000)),
             stream: Some(StreamHint {
                 name: "app".into(),
-                stream_type: StreamType::Logs,
+                stream_type: StreamType::LOGS,
             }),
             limit: None,
             federation_clusters: Vec::new(),
@@ -172,7 +169,7 @@ async fn count_and_aggregate_round_trip() {
                 time_range: TimeRange::new(TimestampMicros(0), TimestampMicros(10_000_000)),
                 stream: Some(StreamHint {
                     name: "app".into(),
-                    stream_type: StreamType::Logs,
+                    stream_type: StreamType::LOGS,
                 }),
                 limit: None,
                 federation_clusters: Vec::new(),
@@ -195,7 +192,7 @@ async fn count_and_aggregate_round_trip() {
             time_range: TimeRange::new(TimestampMicros(20_000_000), TimestampMicros(30_000_000)),
             stream: Some(StreamHint {
                 name: "app".into(),
-                stream_type: StreamType::Logs,
+                stream_type: StreamType::LOGS,
             }),
             limit: None,
             federation_clusters: Vec::new(),
@@ -240,7 +237,7 @@ fn stream_with(message_indexed: bool, request_id_indexed: bool) -> StreamDefinit
         id: Id::new(),
         org_id: org.clone(),
         name: "logs".into(),
-        stream_type: StreamType::Logs,
+        stream_type: StreamType::LOGS,
         schema: Schema {
             fields: vec![
                 FieldDef {
@@ -291,7 +288,7 @@ fn match_text_request(org: &Id, statement: &str) -> QueryRequest {
         time_range: TimeRange::new(TimestampMicros(0), TimestampMicros(10_000_000)),
         stream: Some(StreamHint {
             name: "logs".into(),
-            stream_type: StreamType::Logs,
+            stream_type: StreamType::LOGS,
         }),
         limit: None,
         federation_clusters: Vec::new(),
@@ -309,8 +306,8 @@ async fn match_text_requires_full_text_indexed_field() {
     // message 有 full_text 索引，request_id 未建索引。
     let stream = stream_with(true, false);
     let writer = ParquetWriter::new(store.clone());
-    let meta = writer.flush(&stream, batch_for(&stream)).await.unwrap();
-    let repo = Arc::new(MemParquetFileMetaRepo::new());
+    let meta = write_parquet_fixture(&writer, &stream, batch_for(&stream)).await;
+    let repo = Arc::new(MemQueryFileRepo::new());
     repo.insert(meta).await.unwrap();
     let streams = Arc::new(MemStreamRepository {
         def: stream.clone(),
@@ -360,8 +357,8 @@ async fn match_text_single_token_matches_plain_match_results() {
     let org = Id::from_string("org-1");
     let stream = stream_with(true, true);
     let writer = ParquetWriter::new(store.clone());
-    let meta = writer.flush(&stream, batch_for(&stream)).await.unwrap();
-    let repo = Arc::new(MemParquetFileMetaRepo::new());
+    let meta = write_parquet_fixture(&writer, &stream, batch_for(&stream)).await;
+    let repo = Arc::new(MemQueryFileRepo::new());
     repo.insert(meta).await.unwrap();
     let streams = Arc::new(MemStreamRepository {
         def: stream.clone(),

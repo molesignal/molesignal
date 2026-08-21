@@ -107,7 +107,12 @@ export function CheckEditor({
         kind === 'browser' && Number(current.intervalSeconds) < 60
           ? '60'
           : current.intervalSeconds,
-      port: kind === 'tls' || kind === 'tcp' ? current.port || '443' : current.port,
+      port:
+        kind === 'ssh'
+          ? '22'
+          : kind === 'tls' || kind === 'tcp'
+            ? current.port || '443'
+            : current.port,
     }));
   };
 
@@ -262,6 +267,11 @@ export function CheckEditor({
             checked={draft.alertOnDegraded}
             onChange={(checked) => patch('alertOnDegraded', checked)}
             label={t('editor.alert_on_degraded')}
+          />
+          <CheckToggle
+            checked={draft.alertOnFlaky}
+            onChange={(checked) => patch('alertOnFlaky', checked)}
+            label={t('editor.alert_on_flaky')}
           />
         </FormSection>
       </form>

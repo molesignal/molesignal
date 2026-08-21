@@ -34,8 +34,6 @@ export const APM_PRODUCT_ROUTES = [
     path: '/apm/overview',
     labelKey: 'breadcrumbs.apm_overview',
     icon: Gauge,
-    breadcrumbs: [apmCrumb, { labelKey: 'breadcrumbs.apm_overview' }],
-    backTo: '/apm',
   },
   {
     ...BACKEND_ACCESS,
@@ -43,8 +41,6 @@ export const APM_PRODUCT_ROUTES = [
     path: '/apm/services',
     labelKey: 'breadcrumbs.apm_services',
     icon: Activity,
-    breadcrumbs: [apmCrumb, { labelKey: 'breadcrumbs.apm_services' }],
-    backTo: '/apm/overview',
   },
   {
     ...BACKEND_ACCESS,
@@ -79,8 +75,6 @@ export const APM_PRODUCT_ROUTES = [
     path: '/apm/transactions',
     labelKey: 'breadcrumbs.apm_transactions',
     icon: Boxes,
-    breadcrumbs: [apmCrumb, { labelKey: 'breadcrumbs.apm_transactions' }],
-    backTo: '/apm/overview',
   },
   {
     ...BACKEND_ACCESS,
@@ -101,8 +95,6 @@ export const APM_PRODUCT_ROUTES = [
     path: '/apm/dependencies',
     labelKey: 'breadcrumbs.apm_dependencies',
     icon: Network,
-    breadcrumbs: [apmCrumb, { labelKey: 'breadcrumbs.apm_dependencies' }],
-    backTo: '/apm/overview',
   },
   {
     ...BACKEND_ACCESS,
@@ -110,8 +102,6 @@ export const APM_PRODUCT_ROUTES = [
     path: '/apm/errors',
     labelKey: 'breadcrumbs.apm_errors',
     icon: Bug,
-    breadcrumbs: [apmCrumb, { labelKey: 'breadcrumbs.apm_errors' }],
-    backTo: '/apm/overview',
   },
   {
     ...BACKEND_ACCESS,
@@ -132,7 +122,5 @@ export const APM_PRODUCT_ROUTES = [
     path: '/apm/deployments',
     labelKey: 'breadcrumbs.apm_deployments',
     icon: GitBranch,
-    breadcrumbs: [apmCrumb, { labelKey: 'breadcrumbs.apm_deployments' }],
-    backTo: '/apm/overview',
   },
 ] as const satisfies readonly ProductRouteMeta[];

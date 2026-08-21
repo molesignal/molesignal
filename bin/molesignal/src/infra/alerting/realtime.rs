@@ -127,7 +127,7 @@ mod tests {
         let mut rx = cache.subscribe_events();
         let mut map = HashMap::new();
         map.insert(
-            (Id::from_string("orga"), StreamType::Logs, "app".into()),
+            (Id::from_string("orga"), StreamType::LOGS, "app".into()),
             vec![CompiledRule {
                 rule_id: Id::from_string("r1"),
                 field: "level".into(),
@@ -139,7 +139,7 @@ mod tests {
         let hits = cache.matches(
             &Id::from_string("orga"),
             "app",
-            StreamType::Logs,
+            StreamType::LOGS,
             &ev("level", serde_json::json!("fatal")),
         );
         assert_eq!(hits, 1);
@@ -152,7 +152,7 @@ mod tests {
         let cache = RealtimeMatcherCache::new();
         let mut map = HashMap::new();
         map.insert(
-            (Id::from_string("orga"), StreamType::Logs, "app".into()),
+            (Id::from_string("orga"), StreamType::LOGS, "app".into()),
             vec![CompiledRule {
                 rule_id: Id::from_string("r1"),
                 field: "level".into(),
@@ -163,7 +163,7 @@ mod tests {
         let hits = cache.matches(
             &Id::from_string("orga"),
             "app",
-            StreamType::Logs,
+            StreamType::LOGS,
             &ev("level", serde_json::json!("info")),
         );
         assert_eq!(hits, 0);

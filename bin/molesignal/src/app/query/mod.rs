@@ -29,7 +29,7 @@ use crate::{
             PromqlEngine, QueryEngine, QueryLanguage, QueryRequest, QueryResult,
             QueryResultCachePort,
         },
-        storage::PhysicalDatasetKind,
+        storage::DatasetTypeId,
     },
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
@@ -204,14 +204,14 @@ impl QueryService {
     pub async fn run_dataset(
         &self,
         req: QueryRequest,
-        dataset_kind: PhysicalDatasetKind,
+        dataset_type: DatasetTypeId,
     ) -> Result<QueryResult> {
         if req.language != QueryLanguage::Sql {
             return Err(Error::invalid(
                 "physical dataset selection is only available for SQL",
             ));
         }
-        let mut result = self.sql.execute_dataset(req.clone(), dataset_kind).await?;
+        let mut result = self.sql.execute_dataset(req.clone(), dataset_type).await?;
         self.mask_result(&req, &mut result).await?;
         Ok(result)
     }

@@ -167,7 +167,7 @@
       "compressed_24h": "24h compressed data",
       "current_storage": "Current storage",
       "index_coverage": "Indexed field coverage",
-      "from_parquet_file_meta": "From live storage metadata",
+      "from_catalog": "From live storage metadata",
       "average_24h": "Calculated over the last 24 hours",
       "compressed_note": "Compressed Parquet data",
       "live_parquet": "Live, non-deleted files",

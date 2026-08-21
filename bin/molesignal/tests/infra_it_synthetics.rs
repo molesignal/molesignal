@@ -53,7 +53,8 @@ async fn embedded_probe_distinguishes_test_and_operational_runs() {
             "team_id": null,
             "tags": [],
             "escalation_policy_id": null,
-            "alert_on_degraded": false
+            "alert_on_degraded": false,
+            "alert_on_flaky": false
         }))
         .send()
         .await

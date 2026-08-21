@@ -19,8 +19,8 @@ const table: ExtendTableSummary = {
   usage_locations: [],
 };
 
-describe('Extend Table cardless surfaces', () => {
-  it('keeps the list on a flat page band', () => {
+describe('Extend Table surface hierarchy', () => {
+  it('keeps the list borderless inside the shared list surface', () => {
     const { container } = render(
       <ExtendTableListSurface>
         {i18n.t('functions:extend_tables.tabs.records')}
@@ -30,13 +30,11 @@ describe('Extend Table cardless surfaces', () => {
     const surface = container.querySelector(
       '[data-extend-table-list-surface]',
     );
-    expect(surface?.className).toMatch(/border-b/);
-    expect(surface?.className).not.toMatch(
-      /rounded-lg|shadow|bg-bg-1|border-x|border-t/,
-    );
+    expect(surface?.className).toContain('bg-transparent');
+    expect(surface?.className).not.toMatch(/border|shadow/);
   });
 
-  it('uses bands and whitespace instead of rounded card containers', () => {
+  it('uses borderless functional surfaces for detail regions', () => {
     const { container } = render(
       <>
         <TableMetadata table={table} />
@@ -76,14 +74,18 @@ describe('Extend Table cardless surfaces', () => {
       '[data-extend-table-settings]',
       '[data-extend-table-schema]',
     ]) {
-      expect(container.querySelector(selector)?.className).not.toMatch(
-        /rounded-lg|shadow|bg-bg-1/,
-      );
+      const region = container.querySelector(selector);
+      if (selector !== '[data-extend-table-metadata]') {
+        expect(region?.className).toContain('rounded-md');
+        expect(region?.className).toContain('shadow-functional-surface');
+      }
+      expect(region?.className).not.toMatch(/\bborder/);
     }
 
     const settings = container.querySelector('[data-extend-table-settings]');
     for (const child of settings?.children ?? []) {
-      expect(child.className).not.toMatch(/rounded-lg|shadow/);
+      expect(child.className).toContain('rounded-md');
+      expect(child.className).not.toMatch(/\bborder/);
     }
   });
 });

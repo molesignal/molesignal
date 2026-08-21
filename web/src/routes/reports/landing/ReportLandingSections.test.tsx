@@ -34,8 +34,8 @@ const customTemplate: TemplatePreset = {
   name: 'Customer review',
 };
 
-describe('cardless report landing sections', () => {
-  it('renders starter choices as flat band cells and preserves their actions', () => {
+describe('report landing surfaces', () => {
+  it('renders starter choices as tonal cards and preserves their actions', () => {
     const onUseTemplate = vi.fn();
     const onCustom = vi.fn();
     render(
@@ -49,7 +49,9 @@ describe('cardless report landing sections', () => {
     const templateButton = screen.getByRole('button', {
       name: /Platform health weekly/i,
     });
-    expect(templateButton.className).not.toMatch(/rounded|border|shadow/);
+    expect(templateButton.className).toContain('rounded-md');
+    expect(templateButton.className).toContain('control-surface');
+    expect(templateButton.className).not.toMatch(/\bborder/);
     fireEvent.click(templateButton);
     fireEvent.click(screen.getByRole('button', { name: /Custom report/i }));
 
@@ -57,7 +59,7 @@ describe('cardless report landing sections', () => {
     expect(onCustom).toHaveBeenCalledOnce();
   });
 
-  it('renders templates as divided rows with retry, edit, and use actions', () => {
+  it('renders templates as tonal rows with retry, edit, and use actions', () => {
     const onRetry = vi.fn();
     const onUse = vi.fn();
     const onEdit = vi.fn();
@@ -74,7 +76,9 @@ describe('cardless report landing sections', () => {
     const rows = Array.from(container.querySelectorAll('article'));
     expect(rows).toHaveLength(2);
     rows.forEach((row) => {
-      expect(row.className).not.toMatch(/rounded|border|shadow/);
+      expect(row.className).toContain('rounded-md');
+      expect(row.className).toContain('control-surface');
+      expect(row.className).not.toMatch(/\bborder/);
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));

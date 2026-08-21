@@ -3,9 +3,9 @@
 
 //! Tantivy 归档 footer cache（spec `caching/Tantivy Footer Cache`）。
 //!
-//! Key = `index_object_key`、Value = `Arc<TantivyFooter>`（archive bytes + 解析后的 schema）。
-//! IndexHandle cache TTL 过期后，重新打开归档时优先查本 cache：命中即用 bytes 重建
-//! handle，避免对象存储 GET；miss 才走完整下载 + 解析。
+//! Key = immutable Index Artifact object key、Value = parsed footer metadata and schema.
+//! IndexHandle cache TTL 过期后，重新打开归档时优先查本 cache：命中时跳过 HEAD 和
+//! footer range reads；Tantivy blob 内容仍通过共享 ObjectReader 按 range 读取。
 //!
 //! `capacity = 0` 整层关闭：`get` 永远 `None`、`insert` 是 no-op。
 
@@ -21,8 +21,7 @@ use moka::future::Cache;
 use prometheus::{Gauge, IntCounter, Opts};
 
 // `TantivyFooter` 经 `search::tantivy_index` 转出口暴露；底层类型来自
-// `molesignal_tantivy`，change `tantivy-puffin-migration` 后已经从「整 archive bytes」
-// 改成「puffin footer payload + meta + schema」（约几 KB），cache value 轻量化。
+// `molesignal_tantivy`，只保存 Puffin footer payload、metadata、object size 与 schema。
 use crate::infra::search::tantivy_index::TantivyFooter;
 use crate::{
     config::TantivyFooterCacheSettings,

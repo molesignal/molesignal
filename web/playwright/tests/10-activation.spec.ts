@@ -44,6 +44,50 @@ async function overrideHomeData(
   await page.route('**/api/v1/streams', getJson(data.streams));
   await page.route('**/api/v1/dashboards', getJson(data.dashboards));
   await page.route('**/api/v1/alerts/rules', getJson(data.rules));
+  await page.route('**/api/v1/scheduled_pipelines', getJson([]));
+  await page.route(
+    '**/api/v1/onboarding/sample-data',
+    getJson({ loaded: false, stream_ids: [], total_rows: 0 }),
+  );
+  const overviewStreams = data.streams.map((stream, index) => {
+    const item = stream as { id?: unknown; name?: unknown };
+    const id = String(item.id ?? `stream-${index + 1}`);
+    return {
+      id,
+      name: String(item.name ?? id),
+      stream_type: 'logs',
+      status: 'healthy',
+      rows: 1,
+      stored_bytes: 1,
+      first_received_at_micros: 100,
+      last_received_at_micros: 200,
+    };
+  });
+  await page.route(
+    '**/api/v1/home/overview**',
+    getJson({
+      generated_at_micros: 200,
+      window: {
+        start_micros: 100,
+        end_micros: 200,
+        window_secs: 100,
+      },
+      intake_status: overviewStreams.length > 0 ? 'healthy' : 'no_data',
+      probe_reason: null,
+      intake_bytes: overviewStreams.length,
+      stored_bytes: overviewStreams.length,
+      rows: overviewStreams.length,
+      compression_savings_ratio: null,
+      active_streams: overviewStreams.length,
+      total_streams: overviewStreams.length,
+      attention_streams: 0,
+      last_received_at_micros: overviewStreams.length > 0 ? 200 : null,
+      stats_probe: { succeeded: 1, total: 1 },
+      buckets: [],
+      signals: [],
+      streams: overviewStreams,
+    }),
+  );
   // Home maps the recent-activity feed; the shared catch-all returns `{}` (not
   // an array), which crashes `activity.map`. Serve an empty list explicitly.
   await page.route('**/api/v1/audit**', getJson([]));
@@ -58,8 +102,8 @@ test.describe('Activation — empty OSS org', () => {
 
     // No streams → the streams panel shows its empty state…
     await expect(page.getByText('No streams registered yet.')).toBeVisible({ timeout: 10_000 });
-    // …and the activation summary nudges the operator to finish the first steps.
-    await expect(page.getByText(/Finish the first three steps/i)).toBeVisible();
+    // …and the compact activation strip reports every remaining setup step.
+    await expect(page.getByText('5 setup steps remaining')).toBeVisible();
   });
 });
 
@@ -75,8 +119,10 @@ test.describe('Activation — active org', () => {
     await page.goto('/home');
 
     // Streams render (so the empty state is gone) and ≥3 activation steps are
-    // complete (streams + dashboards + alerts) → "core workflows are active".
+    // complete (streams + dashboards + alerts) → two setup steps remain.
     await expect(page.getByText('No streams registered yet.')).toHaveCount(0);
-    await expect(page.getByText('Core workflows are active')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('2 setup steps remaining')).toBeVisible({
+      timeout: 10_000,
+    });
   });
 });

@@ -54,7 +54,7 @@ fn stream_def() -> StreamDefinition {
         id: Id::new(),
         org_id: Id::new(),
         name: "bench".into(),
-        stream_type: StreamType::Logs,
+        stream_type: StreamType::LOGS,
         schema: bench_schema(),
         retention: None,
         created_at: TimestampMicros(0),
@@ -136,7 +136,11 @@ fn bench(c: &mut Criterion) {
                 for (seq, e) in events.iter().enumerate() {
                     rb.push(e, seq as u64).unwrap();
                 }
-                black_box(rb.finish_and_clear().unwrap())
+                black_box(
+                    rb.begin_flush()
+                        .unwrap()
+                        .expect("non-empty benchmark buffer"),
+                )
             },
             BatchSize::SmallInput,
         )
@@ -149,7 +153,10 @@ fn bench(c: &mut Criterion) {
         for (seq, e) in events.iter().enumerate() {
             rb.push(e, seq as u64).unwrap();
         }
-        rb.finish_and_clear().unwrap().0
+        rb.begin_flush()
+            .unwrap()
+            .expect("non-empty benchmark buffer")
+            .batch
     };
     c.bench_function("arrow_schema/to_arrow", |b| {
         b.iter(|| black_box(to_arrow(black_box(&stream.schema))))

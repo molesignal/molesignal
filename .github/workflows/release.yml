@@ -13,6 +13,7 @@ env:
   CARGO_TERM_COLOR: always
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  PROBE_IMAGE_NAME: ${{ github.repository_owner }}/probe-agent
   BUILD_ID: gha-${{ github.run_id }}-${{ github.run_attempt }}
   GIT_SHA: ${{ github.sha }}
 
@@ -129,9 +130,10 @@ jobs:
     needs: [detect-channel, web-assets, quality-gate]
     runs-on: ${{ matrix.os }}
     # 构建在 rust:1.96-bullseye 容器（Debian 11, glibc 2.31）内进行，产物 glibc
-    # 地板 2.31，低于目标机地板 2.34（Alma 9 / Ubuntu 22.04）；runtime 镜像
-    # debian:bullseye-slim（glibc 2.31）与其一致。runner 仅提供 native 架构，
-    # 其自身的 glibc 版本不再影响产物。
+    # 地板 2.31，低于目标机地板 2.34（Alma 9 / Ubuntu 22.04）。Server runtime
+    # 使用 bullseye-slim；Probe Agent runtime 使用带维护版 Chromium 的 bookworm-slim，
+    # 旧 GLIBC 产物可向前兼容。runner 仅提供 native 架构，其自身的 glibc 版本不再
+    # 影响产物。
     container:
       image: rust:1.96-bullseye
     timeout-minutes: 60
@@ -187,36 +189,37 @@ jobs:
           # 产物上传后持续数十分钟并拖到 job 超时，不应阻断交付链路。
           save-if: false
 
-      - name: build release binary once
+      - name: build release binaries once
         env:
           # 所有交付阶段共用这一套参数；pprof 需要可回溯栈帧与符号。
           RUSTFLAGS: "-C force-frame-pointers=yes"
-        run: cargo build --release --locked --target ${{ matrix.target }} -p molesignal
+        run: cargo build --release --locked --target ${{ matrix.target }} -p molesignal -p probe-agent
 
-      # glibc 地板守护：确认二进制要求的最高 GLIBC 符号版本 ≤ 2.31（bullseye runtime，
-      # glibc 2.31），低于目标机地板 2.34（Alma 9 / Ubuntu 22.04）。若未来构建容器
-      # /runner 漂移到更高 glibc，发布产物会在目标机或镜像内回退报 "GLIBC_2.x not
-      # found"，此步骤直接拦截。objdump 来自容器 build-essential。
+      # glibc 地板守护：确认两个二进制要求的最高 GLIBC 符号版本均 ≤ 2.31，既匹配
+      # Server 的 bullseye runtime，也让 Probe Agent 二进制仍可脱离 bookworm 镜像
+      # 部署到目标机。若未来构建容器漂移到更高 glibc，此步骤直接拦截。
       - name: assert glibc floor <= 2.31
         shell: bash
         run: |
-          bin="target/${{ matrix.target }}/release/molesignal"
-          max_ver="$(objdump -T "$bin" \
-            | awk '/GLIBC_/ { for (i=1;i<=NF;i++) if ($i ~ /^GLIBC_[0-9]+\.[0-9]+$/) print $i }' \
-            | sed 's/^GLIBC_//' | sort -V | tail -n1)"
-          echo "binary max GLIBC symbol: ${max_ver:-<none>}"
-          if [ -z "$max_ver" ]; then
-            echo "OK: no GLIBC symbols (static build, no glibc floor)"
-            exit 0
-          fi
-          IFS=. read -r major minor <<< "${max_ver}"
-          if [ "${major}" -eq 2 ] && [ "${minor}" -le 31 ]; then
-            echo "OK: glibc floor ${max_ver} <= bullseye runtime (2.31)"
-          else
-            echo "ERROR: binary requires GLIBC_${max_ver}, newer than bullseye runtime (2.31)" >&2
-            echo "      fix: 构建环境（容器/runner）glibc 需 <= 2.31，如 rust:1.96-bullseye" >&2
-            exit 1
-          fi
+          for name in molesignal probe-agent; do
+            bin="target/${{ matrix.target }}/release/${name}"
+            max_ver="$(objdump -T "$bin" \
+              | awk '/GLIBC_/ { for (i=1;i<=NF;i++) if ($i ~ /^GLIBC_[0-9]+\.[0-9]+$/) print $i }' \
+              | sed 's/^GLIBC_//' | sort -V | tail -n1)"
+            echo "${name} max GLIBC symbol: ${max_ver:-<none>}"
+            if [ -z "$max_ver" ]; then
+              echo "OK: ${name} has no GLIBC symbols (static build, no glibc floor)"
+              continue
+            fi
+            IFS=. read -r major minor <<< "${max_ver}"
+            if [ "${major}" -eq 2 ] && [ "${minor}" -le 31 ]; then
+              echo "OK: ${name} glibc floor ${max_ver} <= bullseye builder (2.31)"
+            else
+              echo "ERROR: ${name} requires GLIBC_${max_ver}, newer than the 2.31 floor" >&2
+              echo "       fix: 构建环境 glibc 需 <= 2.31，如 rust:1.96-bullseye" >&2
+              exit 1
+            fi
+          done
 
       - name: package artifact (binary + conf + systemd)
         shell: bash
@@ -253,9 +256,17 @@ jobs:
           path: target/${{ matrix.target }}/release/molesignal
           if-no-files-found: error
 
-  # 4. Docker 多平台镜像：把 step 3 的原生 release 二进制原样封装进镜像。
+      - name: upload Probe Agent docker binary
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v7
+        with:
+          name: probe-docker-binary-${{ matrix.target }}-${{ github.run_id }}
+          path: target/${{ matrix.target }}/release/probe-agent
+          if-no-files-found: error
+
+  # 4. Docker 多平台镜像：把 step 3 的原生 release 二进制分别封装进两个镜像。
   docker:
-    name: docker image
+    name: docker images
     needs: [detect-channel, build]
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -268,6 +279,12 @@ jobs:
           pattern: docker-binary-*-${{ github.run_id }}
           path: .release-artifacts
 
+      - name: download Probe Agent release binaries
+        uses: actions/download-artifact@v8
+        with:
+          pattern: probe-docker-binary-*-${{ github.run_id }}
+          path: .probe-release-artifacts
+
       - name: stage release binaries for buildx
         env:
           RUN_ID: ${{ github.run_id }}
@@ -275,7 +292,11 @@ jobs:
           mkdir -p .release-binaries/amd64 .release-binaries/arm64
           cp ".release-artifacts/docker-binary-x86_64-unknown-linux-gnu-${RUN_ID}/molesignal" ".release-binaries/amd64/molesignal"
           cp ".release-artifacts/docker-binary-aarch64-unknown-linux-gnu-${RUN_ID}/molesignal" ".release-binaries/arm64/molesignal"
-          chmod 0755 .release-binaries/amd64/molesignal .release-binaries/arm64/molesignal
+          cp ".probe-release-artifacts/probe-docker-binary-x86_64-unknown-linux-gnu-${RUN_ID}/probe-agent" ".release-binaries/amd64/probe-agent"
+          cp ".probe-release-artifacts/probe-docker-binary-aarch64-unknown-linux-gnu-${RUN_ID}/probe-agent" ".release-binaries/arm64/probe-agent"
+          chmod 0755 \
+            .release-binaries/amd64/molesignal .release-binaries/arm64/molesignal \
+            .release-binaries/amd64/probe-agent .release-binaries/arm64/probe-agent
 
       - name: set up QEMU
         uses: docker/setup-qemu-action@v4
@@ -310,6 +331,25 @@ jobs:
           labels: |
             io.molesignal.build-id=${{ env.BUILD_ID }}
 
+      - name: extract Probe Agent metadata
+        id: probe-meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.PROBE_IMAGE_NAME }}
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=build-${{ env.BUILD_ID }}
+            type=sha,format=long,prefix=sha-
+            type=match,pattern=v(.*),group=1
+            type=raw,value=latest,enable=${{ needs.detect-channel.outputs.channel == 'stable' }}
+            type=raw,value=rc,enable=${{ needs.detect-channel.outputs.channel == 'rc' }}
+            type=raw,value=beta,enable=${{ needs.detect-channel.outputs.channel == 'beta' }}
+            type=raw,value=alpha,enable=${{ needs.detect-channel.outputs.channel == 'alpha' }}
+          labels: |
+            io.molesignal.build-id=${{ env.BUILD_ID }}
+            org.opencontainers.image.title=MoleSignal Probe Agent
+
       - name: package and push
         uses: docker/build-push-action@v7
         with:
@@ -321,6 +361,18 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: package and push Probe Agent
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: deploy/docker/Dockerfile.probe-agent.release
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.probe-meta.outputs.tags }}
+          labels: ${{ steps.probe-meta.outputs.labels }}
+          cache-from: type=gha,scope=probe-agent
+          cache-to: type=gha,mode=max,scope=probe-agent
 
   # 5. GitHub Release：cliff 生成 changelog + 上传所有 target 的 tar.gz。
   release:
@@ -366,12 +418,15 @@ jobs:
           \`\`\`bash
           # Pull the image (multi-arch: linux/amd64, linux/arm64)
           docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSIONED_TAG}
+          docker pull ${{ env.REGISTRY }}/${{ env.PROBE_IMAGE_NAME }}:${VERSIONED_TAG}
           \`\`\`
 
-          | Tag | Image |
-          |-----|-------|
-          | \`${VERSIONED_TAG}\` | \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSIONED_TAG}\` |
-          | \`${FLOAT_TAG}\` | \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${FLOAT_TAG}\` |
+          | Artifact | Tag | Image |
+          |----------|-----|-------|
+          | Server | \`${VERSIONED_TAG}\` | \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSIONED_TAG}\` |
+          | Server | \`${FLOAT_TAG}\` | \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${FLOAT_TAG}\` |
+          | Probe Agent | \`${VERSIONED_TAG}\` | \`${{ env.REGISTRY }}/${{ env.PROBE_IMAGE_NAME }}:${VERSIONED_TAG}\` |
+          | Probe Agent | \`${FLOAT_TAG}\` | \`${{ env.REGISTRY }}/${{ env.PROBE_IMAGE_NAME }}:${FLOAT_TAG}\` |
           EOF
 
       - name: download all build artifacts

@@ -53,6 +53,10 @@ pub struct WalSettings {
     /// 再写 segment（recover 时解密）。默认 false → 明文落盘（与现状一致）。
     #[serde(default)]
     pub encrypt: bool,
+    /// 启动恢复重放的内存上限（MB）：重放累计超过该值即强制 flush 一次腾空 buffer，
+    /// 保证恢复期占用有界。0 视为 1。
+    #[serde(default = "default_max_replay_mb")]
+    pub max_replay_mb: u32,
 }
 
 fn default_wal_dir() -> String {
@@ -73,6 +77,9 @@ fn default_batch_max_pending() -> u32 {
 fn default_batch_max_delay_ms() -> u32 {
     50
 }
+fn default_max_replay_mb() -> u32 {
+    512
+}
 
 impl Default for WalSettings {
     fn default() -> Self {
@@ -84,6 +91,7 @@ impl Default for WalSettings {
             batch_max_pending: default_batch_max_pending(),
             batch_max_delay_ms: default_batch_max_delay_ms(),
             encrypt: false,
+            max_replay_mb: default_max_replay_mb(),
         }
     }
 }

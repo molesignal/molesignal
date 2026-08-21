@@ -395,7 +395,7 @@ function seedStreams(orgId) {
   // 旧版本脚本用 `seed-stream-<name>` 当 id，跟 (org_id, name, stream_type) unique
   // 索引强绑死。新版用 id = name，先把残留行删掉，否则唯一索引会撞。
   psql(`
-    DELETE FROM streams
+    DELETE FROM logical_streams
      WHERE org_id = ${sqlString(orgId)}
        AND id LIKE 'seed-stream-%';
   `);
@@ -410,7 +410,7 @@ function seedStreams(orgId) {
     )`;
   });
   psql(`
-    INSERT INTO streams
+    INSERT INTO logical_streams
       (id, org_id, name, stream_type, schema, retention, created_at_micros, updated_at_micros)
     VALUES ${rows.join(',\n')}
     ON CONFLICT (id) DO UPDATE
@@ -422,16 +422,6 @@ function seedStreams(orgId) {
           updated_at_micros = EXCLUDED.updated_at_micros;
   `);
   return `streams: upserted ${rows.length} (${STREAM_DEFS.map(([n]) => n).join(', ')})`;
-}
-
-function resetSeedParquetFileMeta(orgId) {
-  const names = STREAM_DEFS.map(([n]) => sqlString(n)).join(', ');
-  psql(`
-    UPDATE parquet_file_meta
-       SET deleted = TRUE
-     WHERE org_id = ${sqlString(orgId)}
-       AND stream IN (${names});
-  `);
 }
 
 // ---------- Data generators ----------
@@ -1411,18 +1401,22 @@ async function verify(api, { directDb = true } = {}) {
   const graph = await api.get(`/traces/service_graph?from=${timeRange.start}&to=${timeRange.end}`);
   checks.push(['service graph edges', graph.edges?.length ?? 0]);
 
-  let parquetFileMeta = [];
+  let catalogSegments = [];
   if (directDb) {
-    const names = STREAM_DEFS.map(([, n]) => sqlString(n)).join(', ');
-    parquetFileMeta = psql(
+    const names = STREAM_DEFS.map(([name]) => sqlString(name)).join(', ');
+    catalogSegments = psql(
       `
-        SELECT stream_type || ':' || stream || '=' || COALESCE(SUM(rows),0)::TEXT
-        FROM parquet_file_meta
-        WHERE org_id = ${sqlString(api.orgId)}
-          AND deleted = FALSE
-          AND stream IN (${names})
-        GROUP BY stream_type, stream
-        ORDER BY stream_type, stream;
+        SELECT ls.stream_type || ':' || ls.name || '=' || COALESCE(SUM(ds.row_count),0)::TEXT
+          FROM data_segments ds
+          JOIN physical_datasets pd
+            ON pd.org_id = ds.org_id AND pd.id = ds.dataset_id
+          JOIN logical_streams ls
+            ON ls.org_id = pd.org_id AND ls.id = pd.logical_stream_id
+         WHERE ds.org_id = ${sqlString(api.orgId)}
+           AND ds.state IN ('active', 'sealed')
+           AND ls.name IN (${names})
+         GROUP BY ls.stream_type, ls.name
+         ORDER BY ls.stream_type, ls.name;
       `,
       { capture: true },
     )
@@ -1431,7 +1425,7 @@ async function verify(api, { directDb = true } = {}) {
       .filter(Boolean);
   }
 
-  return { checks, parquetFileMeta };
+  return { checks, catalogSegments };
 }
 
 // ---------- Main ----------
@@ -1512,7 +1506,6 @@ async function main() {
     created.push('streams: schema-on-write through intake APIs');
   } else {
     created.push(seedStreams(api.orgId));
-    resetSeedParquetFileMeta(api.orgId);
   }
   created.push(...(await seedTelemetry(api)));
   created.push(...(await seedProfiles(api)));

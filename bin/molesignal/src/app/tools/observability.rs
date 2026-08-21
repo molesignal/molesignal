@@ -63,14 +63,14 @@ async fn query_logs(
     arguments: Value,
 ) -> Result<ToolResult> {
     let args: QueryLogsArgs = parse_args(arguments)?;
-    require_stream(runtime, &auth.org_id, &args.stream, StreamType::Logs).await?;
+    require_stream(runtime, &auth.org_id, &args.stream, StreamType::LOGS).await?;
     let result = run_query(
         runtime,
         &auth.org_id,
         QueryLanguage::Sql,
         args.sql,
         time_range(args.time_range)?,
-        Some((&args.stream, StreamType::Logs)),
+        Some((&args.stream, StreamType::LOGS)),
         args.limit.unwrap_or(DEFAULT_LIMIT).clamp(1, MAX_LIMIT),
     )
     .await?;
@@ -222,7 +222,7 @@ async fn list_metric_names(
         .await?
         .into_iter()
         .filter(|stream| {
-            stream.stream_type == StreamType::Metrics
+            stream.stream_type == StreamType::METRICS
                 && !is_internal_stream(&stream.name)
                 && query
                     .as_ref()
@@ -253,7 +253,7 @@ async fn list_metric_label_values(
     arguments: Value,
 ) -> Result<ToolResult> {
     let args: MetricLabelValuesArgs = parse_args(arguments)?;
-    let stream = require_stream(runtime, &auth.org_id, &args.metric, StreamType::Metrics).await?;
+    let stream = require_stream(runtime, &auth.org_id, &args.metric, StreamType::METRICS).await?;
     let field = require_field(&stream.schema, &args.label)?;
     let mut filters = vec![format!("{} IS NOT NULL", quote_ident(field))];
     if let Some(query) = args
@@ -281,7 +281,7 @@ async fn list_metric_label_values(
         QueryLanguage::Sql,
         statement,
         time_range(args.time_range)?,
-        Some((&args.metric, StreamType::Metrics)),
+        Some((&args.metric, StreamType::METRICS)),
         limit,
     )
     .await?;
@@ -313,7 +313,7 @@ async fn search_around(
     arguments: Value,
 ) -> Result<ToolResult> {
     let args: SearchAroundArgs = parse_args(arguments)?;
-    require_stream(runtime, &auth.org_id, &args.stream, StreamType::Logs).await?;
+    require_stream(runtime, &auth.org_id, &args.stream, StreamType::LOGS).await?;
     let before = args.before.unwrap_or(25).clamp(1, 250);
     let after = args.after.unwrap_or(25).clamp(1, 250);
     let extra = validated_filter(args.filter_sql.as_deref())?;
@@ -343,7 +343,7 @@ async fn search_around(
             QueryLanguage::Sql,
             before_sql,
             range,
-            Some((&args.stream, StreamType::Logs)),
+            Some((&args.stream, StreamType::LOGS)),
             before.max(1),
         )
         .await?,
@@ -356,7 +356,7 @@ async fn search_around(
             QueryLanguage::Sql,
             after_sql,
             range,
-            Some((&args.stream, StreamType::Logs)),
+            Some((&args.stream, StreamType::LOGS)),
             after.max(1),
         )
         .await?,
@@ -382,7 +382,7 @@ struct SearchFieldValuesArgs {
 }
 
 fn logs_stream_type() -> StreamType {
-    StreamType::Logs
+    StreamType::LOGS
 }
 
 async fn search_field_values(

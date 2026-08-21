@@ -163,6 +163,7 @@ function httpRevision(
     location_policy: { kind: 'majority' },
     location_ids: ['builtin-local'],
     alert_on_degraded: false,
+    alert_on_flaky: false,
     created_by: 'user-a',
     created_at: 1,
     content_hash: id,

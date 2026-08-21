@@ -112,7 +112,7 @@ async fn trace_intake_auto_creates_stream_then_list_and_detail_return_data() {
     let body: serde_json::Value = resp.json().await.unwrap();
     assert_eq!(body["accepted"], 2, "both spans accepted");
 
-    // 等 buffer→parquet→parquet_file_meta flush 后，列表查询能查到这条 trace。
+    // 等 buffer→parquet→query_file flush 后，列表查询能查到这条 trace。
     let client = s.client.clone();
     let base = s.base_url.clone();
     let auth = hv.clone();

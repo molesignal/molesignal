@@ -52,8 +52,8 @@ fn map_type(t: FieldType) -> DataType {
 
 /// 把一个 RecordBatch 投影/扩展到 `target` schema。
 ///
-/// 应对 stream schema 演化：老 parquet 文件可能只有 schema 子集，老 parquet_file_meta + 新
-/// parquet_file_meta 在同一次查询里被拼到一个 MemTable 时会撞 "Mismatch between schema and
+/// 应对 stream schema 演化：老 parquet 文件可能只有 schema 子集，老 query_file + 新
+/// query_file 在同一次查询里被拼到一个 MemTable 时会撞 "Mismatch between schema and
 /// batches"。统一以 [`to_arrow`] 的输出作为权威 schema，本函数：
 ///
 /// - 按 target 字段顺序取列；batch 里同名列存在 → 直接 reuse

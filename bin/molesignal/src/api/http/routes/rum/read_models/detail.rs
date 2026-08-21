@@ -304,9 +304,10 @@ fn resolve_range(query: DetailQuery) -> Result<TimeRange> {
 
 fn reader(state: &AppState) -> RumReadModelReader {
     RumReadModelReader::new(
-        state.storage.parquet_file_meta.clone(),
-        state.storage.object_store.clone(),
+        state.storage.catalog_files.clone(),
+        state.storage.read_store.clone(),
     )
+    .with_catalog_source(state.storage.catalog_query.clone())
 }
 
 fn insert_string(item: &mut Map<String, Value>, name: &str, value: Option<String>) {

@@ -104,12 +104,12 @@ export function ProductState({
       role={variant === 'error' ? 'alert' : 'status'}
       aria-live={variant === 'loading' ? 'polite' : undefined}
       className={cn(
-        'flex flex-col items-center justify-center rounded-lg border border-dashed border-bd-1 bg-bg-1 text-center',
+        'flex flex-col items-center justify-center rounded-md border-0 bg-[var(--functional-surface)] text-center [box-shadow:var(--shadow-functional-surface)]',
         compact ? 'min-h-40 gap-3 px-5 py-7' : 'min-h-60 gap-4 px-8 py-12',
         className,
       )}
     >
-      <div className={cn('grid place-items-center rounded-lg border border-bd-0 bg-bg-2', compact ? 'h-10 w-10' : 'h-12 w-12')}>
+      <div className={cn('grid place-items-center rounded-md bg-[var(--control-surface)]', compact ? 'h-10 w-10' : 'h-12 w-12')}>
         <Icon className={cn(compact ? 'h-5 w-5' : 'h-6 w-6', STATE_TONE[variant], variant === 'loading' && 'animate-spin')} />
       </div>
       <div className="max-w-lg">

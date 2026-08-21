@@ -80,6 +80,20 @@ export const ALERT_PRODUCT_ROUTES = [
     backTo: '/alerts/incidents',
   }),
   route({
+    id: 'alert.schedule.detail',
+    path: '/alerts/schedules/:id',
+    labelKey: 'breadcrumbs.alert_schedule_detail',
+    group: 'reliability',
+    icon: Bell,
+    owner: 'alerts',
+    emptyStateStrategy: 'query-first',
+    breadcrumbs: [
+      crumb('alerts', '/alerts/incidents'),
+      crumb('breadcrumbs.alert_schedules', '/alerts/schedules'),
+      crumb('breadcrumbs.alert_schedule_detail'),
+    ],
+  }),
+  route({
     id: 'anomaly.new',
     path: '/alerts/anomaly/add',
     labelKey: 'breadcrumbs.anomaly_new',
@@ -109,8 +123,6 @@ export const ALERT_PRODUCT_ROUTES = [
     icon: Bell,
     owner: 'alerts',
     emptyStateStrategy: 'create-first',
-    breadcrumbs: [crumb('alerts', '/alerts'), crumb('breadcrumbs.semantic_groups')],
-    backTo: '/alerts',
   }),
   route({
     id: 'import.semantic.groups',
@@ -120,8 +132,6 @@ export const ALERT_PRODUCT_ROUTES = [
     icon: Bell,
     owner: 'alerts',
     emptyStateStrategy: 'create-first',
-    breadcrumbs: [crumb('alerts', '/alerts'), crumb('breadcrumbs.semantic_groups')],
-    backTo: '/alerts',
   }),
 ] as const satisfies readonly ProductRouteMeta[];
 

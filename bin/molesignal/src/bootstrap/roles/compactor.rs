@@ -101,19 +101,23 @@ async fn run_once(
                 let retention_days =
                     stream.effective_retention_days(compactor.settings().retention_days);
                 let lookback =
-                    TimestampMicros(now.0 - (retention_days as i64) * 86_400 * 1_000_000);
+                    TimestampMicros(now.0.saturating_sub(
+                        i64::from(retention_days).saturating_mul(86_400 * 1_000_000),
+                    ));
                 if let Err(e) = compactor
                     .sweep_one(&stream, TimeRange::new(lookback, now))
                     .await
                 {
                     tracing::warn!(stream = %stream.name, error = %e, "sweep_one failed");
                 }
-                if let Err(e) = compactor.retention_sweep(&stream).await {
-                    tracing::warn!(stream = %stream.name, error = %e, "retention_sweep failed");
-                }
                 // 降采样：把早于阈值的 metrics 预聚合成时间桶（关闭时 no-op）。
                 if let Err(e) = compactor.downsample_sweep(&stream).await {
                     tracing::warn!(stream = %stream.name, error = %e, "downsample_sweep failed");
+                }
+                // Retention runs after derivation so an aggressive cutoff cannot remove raw
+                // inputs before an enabled raw-to-rollup transform has a chance to publish.
+                if let Err(e) = compactor.retention_sweep(&stream).await {
+                    tracing::warn!(stream = %stream.name, error = %e, "retention_sweep failed");
                 }
             });
             handles.push(h);

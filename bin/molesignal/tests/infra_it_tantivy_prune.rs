@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Tantivy 裁剪端到端：3 个 parquet（其中 1 个含 "panic"），跑 SELECT WHERE MATCH(message,'panic')
-//! → 验只有 1 个 file 被实际扫描（其它 2 个被 pruner 剔除）。
+//! Tantivy 裁剪端到端：写入 3 组显式 Parquet/Tantivy Artifact（其中 1 组含
+//! "panic"），跑 SELECT WHERE MATCH(message,'panic') → 验只有 1 个主 Artifact
+//! 被实际扫描（其它 2 个被 pruner 剔除）。
 
 use std::{
     collections::HashMap,
@@ -18,19 +19,23 @@ use molesignal::{
     config::CacheLayerSettings,
     domain::{
         query::{QueryEngine, QueryLanguage, QueryRequest, StreamHint},
-        storage::{ParquetFileMeta, ParquetFileMetaRepository},
+        storage::{
+            ArtifactRole, ArtifactState, DataSegment, DatasetState, IndexPolicy, IndexTypeId,
+            PartitionPolicy, PhysicalDataset, PhysicalDatasetId, QueryFile, QueryFileSource,
+            StoragePolicy, primary_dataset_type, type_id,
+        },
         stream::{
             FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamRepository, StreamType,
         },
     },
     infra::{
-        caching::ParquetMetaCache,
+        caching::IndexHandleCache,
         query::tantivy_pruner::TantivyPruner,
         search::{datafusion_engine::DataFusionEngine, tantivy_index::IndexHandle},
         storage::parquet::writer::ParquetWriter,
     },
     shared::{
-        Error, Result,
+        Result,
         ids::Id,
         time::{TimeRange, TimestampMicros},
     },
@@ -38,30 +43,31 @@ use molesignal::{
 use object_store::{ObjectStore, local::LocalFileSystem};
 
 #[derive(Default)]
-struct InMemParquetFileMeta {
-    inner: StdMutex<HashMap<String, ParquetFileMeta>>,
+struct InMemQueryFile {
+    inner: StdMutex<HashMap<String, QueryFile>>,
 }
-#[async_trait]
-impl ParquetFileMetaRepository for InMemParquetFileMeta {
-    async fn insert(&self, file: ParquetFileMeta) -> Result<()> {
+impl InMemQueryFile {
+    async fn insert(&self, file: QueryFile) -> Result<()> {
         self.inner.lock().unwrap().insert(file.id.0.clone(), file);
         Ok(())
     }
+}
+#[async_trait]
+impl QueryFileSource for InMemQueryFile {
     async fn find(
         &self,
         org: &Id,
         stream: &str,
         st: StreamType,
         range: TimeRange,
-    ) -> Result<Vec<ParquetFileMeta>> {
+    ) -> Result<Vec<QueryFile>> {
         Ok(self
             .inner
             .lock()
             .unwrap()
             .values()
             .filter(|f| {
-                !f.deleted
-                    && &f.org_id == org
+                &f.org_id == org
                     && f.stream == stream
                     && f.stream_type == st
                     && f.time_range.end.0 >= range.start.0
@@ -70,13 +76,6 @@ impl ParquetFileMetaRepository for InMemParquetFileMeta {
             .cloned()
             .collect())
     }
-    async fn replace(&self, _: &[Id], _: Vec<ParquetFileMeta>) -> Result<()> {
-        Err(Error::internal("not supported"))
-    }
-
-    async fn mark_deleted(&self, _ids: &[Id]) -> Result<usize> {
-        Err(Error::internal("not supported"))
-    }
 }
 
 fn logs_stream() -> StreamDefinition {
@@ -84,7 +83,7 @@ fn logs_stream() -> StreamDefinition {
         id: Id::new(),
         org_id: Id::from_string("orga"),
         name: "logs".into(),
-        stream_type: StreamType::Logs,
+        stream_type: StreamType::LOGS,
         schema: Schema {
             fields: vec![FieldDef {
                 name: "message".into(),
@@ -121,51 +120,102 @@ fn build_logs_batch(start_us: i64, messages: &[&str]) -> RecordBatch {
     RecordBatch::try_new(schema, vec![Arc::new(ts), Arc::new(msgs)]).unwrap()
 }
 
+fn indexed_dataset(stream: &StreamDefinition) -> PhysicalDataset {
+    PhysicalDataset {
+        id: PhysicalDatasetId::generate(),
+        organization_id: stream.org_id.clone(),
+        logical_stream_id: stream.id.clone(),
+        dataset_type: primary_dataset_type(stream.stream_type).unwrap(),
+        dataset_type_version: 1,
+        partition_policy: PartitionPolicy::default(),
+        storage_policy: StoragePolicy::default(),
+        index_policy: IndexPolicy {
+            indexers: vec![IndexTypeId::builtin(type_id::builtin::INDEX_TANTIVY)],
+        },
+        catalog_version: 0,
+        state: DatasetState::Active,
+        created_at_micros: 0,
+        updated_at_micros: 0,
+    }
+}
+
+async fn write_indexed_fixture(
+    writer: &ParquetWriter,
+    stream: &StreamDefinition,
+    dataset: &PhysicalDataset,
+    batch: RecordBatch,
+) -> (QueryFile, (String, String)) {
+    let mut segments = writer
+        .write_compaction_catalog(stream, dataset, batch)
+        .await
+        .unwrap();
+    assert_eq!(segments.len(), 1);
+    let segment = segments.remove(0);
+    let index = explicit_tantivy_key(&segment);
+    let primary_key = segment.primary.object.key.as_str().to_owned();
+    let meta = QueryFile {
+        id: segment.id.0,
+        org_id: stream.org_id.clone(),
+        stream: stream.name.clone(),
+        stream_type: stream.stream_type,
+        dataset_type: primary_dataset_type(stream.stream_type).unwrap(),
+        object_key: primary_key.clone(),
+        checksum: Some(segment.primary.object.checksum),
+        etag: segment.primary.object.etag,
+        time_range: segment.time_range,
+        rows: segment.row_count,
+        size_bytes: segment.primary.object.size_bytes,
+        min_values: segment.column_stats.min_values,
+        max_values: segment.column_stats.max_values,
+    };
+    (meta, (primary_key, index))
+}
+
+fn explicit_tantivy_key(segment: &DataSegment) -> String {
+    segment
+        .auxiliaries
+        .iter()
+        .find(|artifact| {
+            artifact.role == ArtifactRole::Index
+                && artifact.state == ArtifactState::Ready
+                && artifact.artifact_type.as_str() == type_id::builtin::ARTIFACT_TANTIVY
+                && artifact.source_artifact_id.as_ref() == Some(&segment.primary.id)
+        })
+        .expect("fixture has an explicit Tantivy Artifact")
+        .object
+        .key
+        .as_str()
+        .to_owned()
+}
+
 #[tokio::test]
 async fn match_predicate_prunes_two_files_out_of_three() {
     let tmp = tempfile::tempdir().unwrap();
     let store: Arc<dyn ObjectStore> =
         Arc::new(LocalFileSystem::new_with_prefix(tmp.path()).unwrap());
     let writer = ParquetWriter::new(store.clone());
-    let repo: Arc<InMemParquetFileMeta> = Arc::new(InMemParquetFileMeta::default());
+    let repo: Arc<InMemQueryFile> = Arc::new(InMemQueryFile::default());
     let stream = logs_stream();
+    let dataset = indexed_dataset(&stream);
 
-    // File A: contains "panic"
-    let metas = vec![
-        writer
-            .flush_with_index(
-                &stream,
-                build_logs_batch(1_000_000, &["panic at line 1", "ok"]),
-            )
-            .await
-            .unwrap(),
-        writer
-            .flush_with_index(
-                &stream,
-                build_logs_batch(2_000_000, &["all good", "still good"]),
-            )
-            .await
-            .unwrap(),
-        writer
-            .flush_with_index(
-                &stream,
-                build_logs_batch(3_000_000, &["info only", "warn only"]),
-            )
-            .await
-            .unwrap(),
-    ];
-    for (m, _) in metas {
-        repo.insert(m).await.unwrap();
+    let mut index_keys = HashMap::new();
+    for batch in [
+        build_logs_batch(1_000_000, &["panic at line 1", "ok"]),
+        build_logs_batch(2_000_000, &["all good", "still good"]),
+        build_logs_batch(3_000_000, &["info only", "warn only"]),
+    ] {
+        let (meta, (primary, index)) =
+            write_indexed_fixture(&writer, &stream, &dataset, batch).await;
+        repo.insert(meta).await.unwrap();
+        index_keys.insert(primary, index);
     }
 
-    let cache: Arc<ParquetMetaCache<Arc<IndexHandle>>> =
-        Arc::new(ParquetMetaCache::new(CacheLayerSettings::new(100, 60)));
+    let cache: Arc<IndexHandleCache<Arc<IndexHandle>>> =
+        Arc::new(IndexHandleCache::new(CacheLayerSettings::new(100, 60)));
     let pruner = Arc::new(TantivyPruner::new(cache, store.clone()));
-    let engine = DataFusionEngine::new(
-        repo.clone() as Arc<dyn ParquetFileMetaRepository>,
-        store.clone(),
-    )
-    .with_tantivy_pruner(pruner);
+    let engine = DataFusionEngine::new(repo.clone() as Arc<dyn QueryFileSource>, store.clone())
+        .with_tantivy_pruner(pruner)
+        .with_tantivy_index_keys(index_keys);
 
     // 查 SELECT count(*) WHERE MATCH(message, 'panic')
     let req = QueryRequest {
@@ -175,7 +225,7 @@ async fn match_predicate_prunes_two_files_out_of_three() {
         time_range: TimeRange::new(TimestampMicros(0), TimestampMicros(i64::MAX)),
         stream: Some(StreamHint {
             name: "logs".into(),
-            stream_type: StreamType::Logs,
+            stream_type: StreamType::LOGS,
         }),
         limit: None,
         federation_clusters: Vec::new(),
@@ -225,7 +275,7 @@ fn traces_stream() -> StreamDefinition {
         id: Id::new(),
         org_id: Id::from_string("orga"),
         name: "traces".into(),
-        stream_type: StreamType::Traces,
+        stream_type: StreamType::TRACES,
         schema: Schema {
             fields: vec![FieldDef {
                 name: "trace_id".into(),
@@ -262,41 +312,41 @@ fn build_traces_batch(start_us: i64, trace_ids: &[&str]) -> RecordBatch {
     RecordBatch::try_new(schema, vec![Arc::new(ts), Arc::new(ids)]).unwrap()
 }
 
-/// `WHERE trace_id = '<A>'` 对 exact-indexed 字段触发 tantivy 等值裁剪：3 个 parquet
-/// 各含不同 trace_id，只有含目标值的文件被扫描（其余被 STRING 索引 count_term=0 剔除）。
+/// `WHERE trace_id = '<A>'` 对 exact-indexed 字段触发 tantivy 等值裁剪：3 个主
+/// Artifact 各含不同 trace_id，只有含目标值的对象被扫描。
 #[tokio::test]
 async fn equality_predicate_on_exact_field_prunes_files() {
     let tmp = tempfile::tempdir().unwrap();
     let store: Arc<dyn ObjectStore> =
         Arc::new(LocalFileSystem::new_with_prefix(tmp.path()).unwrap());
     let writer = ParquetWriter::new(store.clone());
-    let repo: Arc<InMemParquetFileMeta> = Arc::new(InMemParquetFileMeta::default());
+    let repo: Arc<InMemQueryFile> = Arc::new(InMemQueryFile::default());
     let stream = traces_stream();
+    let dataset = indexed_dataset(&stream);
 
     let a = "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1";
     let b = "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2";
     let c = "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3";
+    let mut index_keys = HashMap::new();
     for (start, tids) in [
         (1_000_000, [a, a]),
         (2_000_000, [b, b]),
         (3_000_000, [c, c]),
     ] {
-        let (m, _) = writer
-            .flush_with_index(&stream, build_traces_batch(start, &tids))
-            .await
-            .unwrap();
-        repo.insert(m).await.unwrap();
+        let (meta, (primary, index)) =
+            write_indexed_fixture(&writer, &stream, &dataset, build_traces_batch(start, &tids))
+                .await;
+        repo.insert(meta).await.unwrap();
+        index_keys.insert(primary, index);
     }
 
-    let cache: Arc<ParquetMetaCache<Arc<IndexHandle>>> =
-        Arc::new(ParquetMetaCache::new(CacheLayerSettings::new(100, 60)));
+    let cache: Arc<IndexHandleCache<Arc<IndexHandle>>> =
+        Arc::new(IndexHandleCache::new(CacheLayerSettings::new(100, 60)));
     let pruner = Arc::new(TantivyPruner::new(cache, store.clone()));
-    let engine = DataFusionEngine::new(
-        repo.clone() as Arc<dyn ParquetFileMetaRepository>,
-        store.clone(),
-    )
-    .with_streams(Arc::new(OneTracesRepo(stream.clone())) as Arc<dyn StreamRepository>)
-    .with_tantivy_pruner(pruner);
+    let engine = DataFusionEngine::new(repo.clone() as Arc<dyn QueryFileSource>, store.clone())
+        .with_streams(Arc::new(OneTracesRepo(stream.clone())) as Arc<dyn StreamRepository>)
+        .with_tantivy_pruner(pruner)
+        .with_tantivy_index_keys(index_keys);
 
     let req = QueryRequest {
         org_id: stream.org_id.clone(),
@@ -305,7 +355,7 @@ async fn equality_predicate_on_exact_field_prunes_files() {
         time_range: TimeRange::new(TimestampMicros(0), TimestampMicros(i64::MAX)),
         stream: Some(StreamHint {
             name: "traces".into(),
-            stream_type: StreamType::Traces,
+            stream_type: StreamType::TRACES,
         }),
         limit: None,
         federation_clusters: Vec::new(),

@@ -10,9 +10,7 @@
 //! - [`puffin`]：Puffin v1 文件格式（spec + 二进制 read/write）。
 //! - [`puffin_directory`]：把 tantivy 的 `Directory` trait 适配到 Puffin —— 写时
 //!   通过 mmap tempdir，序列化时把每个文件作为 blob 拼接；读时 lazy range-read。
-//! - [`key_mapping`]：parquet → tantivy puffin sidecar key 映射。
 
-pub mod key_mapping;
 pub mod metrics;
 pub mod puffin;
 pub mod puffin_directory;

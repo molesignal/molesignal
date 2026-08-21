@@ -8,8 +8,8 @@ import {
   StreamToggleRow,
 } from './CardlessSurface';
 
-describe('Streams cardless surfaces', () => {
-  it('renders metrics and sections without outer cards', () => {
+describe('Streams surface hierarchy', () => {
+  it('renders metrics and sections as borderless surfaces', () => {
     const { container } = render(
       <>
         <StreamKpiBand
@@ -25,16 +25,20 @@ describe('Streams cardless surfaces', () => {
     );
 
     const kpis = container.querySelector('[data-stream-kpis]');
-    expect(kpis?.className).toContain('border-b');
-    expect(kpis?.className).not.toMatch(/rounded|shadow/);
-    expect(kpis?.firstElementChild?.className).not.toMatch(/rounded|shadow|border/);
+    expect(kpis?.className).toContain('gap-[12px]');
+    expect(kpis?.className).not.toMatch(/border/);
+    expect(kpis?.firstElementChild?.className).toContain('rounded-md');
+    expect(kpis?.firstElementChild?.className).toContain('shadow-functional-surface');
+    expect(kpis?.firstElementChild?.className).not.toMatch(/\bborder/);
 
     const section = container.querySelector('[data-stream-section]');
-    expect(section?.className).not.toMatch(/rounded|shadow|border/);
-    expect(section?.querySelector('header')?.className).toContain('border-b');
+    expect(section?.className).toContain('rounded-md');
+    expect(section?.className).toContain('shadow-functional-surface');
+    expect(section?.className).not.toMatch(/\bborder/);
+    expect(section?.querySelector('header')?.className).not.toContain('border-b');
   });
 
-  it('keeps settings and toggles flat', () => {
+  it('uses a surface for settings while keeping toggle rows flat', () => {
     const { container } = render(
       <StreamSettingsSection title="Storage" description="Storage behavior">
         <StreamToggleRow title="Store original" checked onChange={() => undefined} />
@@ -42,8 +46,10 @@ describe('Streams cardless surfaces', () => {
     );
 
     const section = container.querySelector('[data-stream-settings-section]');
-    expect(section?.className).not.toMatch(/rounded|shadow|border/);
-    expect(section?.querySelector('header')?.className).toContain('border-b');
+    expect(section?.className).toContain('rounded-md');
+    expect(section?.className).toContain('shadow-functional-surface');
+    expect(section?.className).not.toMatch(/\bborder/);
+    expect(section?.querySelector('header')?.className).not.toContain('border-b');
 
     const toggle = section?.querySelector('button')?.parentElement;
     expect(toggle?.className).not.toMatch(/rounded|shadow|border|bg-/);

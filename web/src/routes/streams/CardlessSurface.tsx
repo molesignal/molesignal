@@ -27,12 +27,12 @@ export function StreamKpiBand({
     <section
       data-stream-kpis
       className={cn(
-        'grid grid-cols-1 border-b border-bd-0 bg-transparent pb-2 sm:grid-cols-2 xl:grid-cols-5',
+        'grid grid-cols-1 gap-[12px] sm:grid-cols-2 xl:grid-cols-5',
         className,
       )}
     >
       {items.map((item, index) => (
-        <div key={index} className="min-h-[92px] min-w-0 px-3 py-3 first:pl-0 last:pr-0">
+        <div key={index} className="min-h-[92px] min-w-0 rounded-md bg-[var(--functional-surface)] px-3 py-3 [box-shadow:var(--shadow-functional-surface)]">
           <div className={uiLabelClass}>{item.label}</div>
           <div
             className={cn(
@@ -74,9 +74,12 @@ export function StreamSection({
   return (
     <section
       data-stream-section
-      className={cn('min-w-0 bg-transparent', className)}
+      className={cn(
+        'min-w-0 rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)]',
+        className,
+      )}
     >
-      <header className="flex min-h-[50px] items-center gap-4 border-b border-bd-0 py-2.5">
+      <header className="flex min-h-[50px] items-center gap-4 py-2.5">
         <div className="min-w-0 flex-1">
           <h2 className="truncate font-sans text-sm font-display-strong text-tx-0">
             {title}
@@ -104,8 +107,8 @@ export function StreamSettingsSection({
   children: React.ReactNode;
 }) {
   return (
-    <section data-stream-settings-section className="min-w-0 bg-transparent">
-      <header className="min-h-[68px] border-b border-bd-0 py-3">
+    <section data-stream-settings-section className="min-w-0 rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)]">
+      <header className="min-h-[68px] py-3">
         <h2 className="font-sans text-sm font-display-strong text-tx-0">{title}</h2>
         <p className="mt-1 font-sans text-xs leading-relaxed text-tx-2">{description}</p>
       </header>

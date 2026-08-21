@@ -3,6 +3,7 @@
 
 //! Logical-to-physical metric resolution for container-style system metrics.
 
+use arrow::array::RecordBatch;
 use futures::future::try_join_all;
 
 use super::*;
@@ -12,7 +13,7 @@ use crate::{
             METRIC_NAME_FIELD, is_metric_identity_storage_field,
             is_metric_query_semantics_storage_field,
         },
-        storage::ParquetFileMeta,
+        storage::QueryFile,
         stream::{FieldType, MOLESIGNAL_SYSTEM_STREAM, StreamDefinition},
     },
     shared::{ids::Id, time::TimeRange},
@@ -29,6 +30,11 @@ pub(super) struct ResolvedMetricSource {
     /// Parquet sample scan projection: timestamp, value, labels and internal
     /// temporality metadata required by the evaluator.
     pub(super) sample_columns: Option<Vec<String>>,
+}
+
+pub(super) struct MetricStorageSnapshot {
+    pub(super) files: Vec<QueryFile>,
+    pub(super) buffered_batches: Vec<RecordBatch>,
 }
 
 impl ResolvedMetricSource {
@@ -69,30 +75,47 @@ fn sample_columns(stream: &StreamDefinition, container: bool) -> Vec<String> {
 
 impl PromQLEngine {
     /// 把 metrics 的 hot/raw 与已被 compactor 原子替换的 rollup 合并为
-    /// 一个逻辑数据集。两类 ParquetFileMeta 并行查询，避免给每个 PromQL
+    /// 一个逻辑数据集。两类 QueryFile 并行查询，避免给每个 PromQL
     /// selector 串行增加两次 PG 往返。
     pub(super) async fn metric_files(
         &self,
         org_id: &Id,
         stream: &str,
         time_range: TimeRange,
-    ) -> Result<Vec<ParquetFileMeta>> {
-        let lookups = crate::domain::storage::logical_query_datasets(StreamType::Metrics)
-            .iter()
-            .map(|dataset_kind| {
-                self.files.find_dataset(
-                    org_id,
-                    stream,
-                    StreamType::Metrics,
-                    *dataset_kind,
-                    time_range,
+    ) -> Result<MetricStorageSnapshot> {
+        let dataset_types =
+            crate::domain::storage::logical_query_dataset_types(StreamType::METRICS)?;
+        let (mut files, buffered_batches) =
+            if let (Some(source), Some(streams)) = (&self.catalog_source, &self.streams) {
+                match streams.get(org_id, stream, StreamType::METRICS).await {
+                    Ok(definition) => {
+                        let snapshot = source
+                            .snapshot_stream(&definition, &dataset_types, time_range)
+                            .await?;
+                        (snapshot.files(), snapshot.buffered_batches())
+                    }
+                    Err(Error::NotFound(_)) => (Vec::new(), Vec::new()),
+                    Err(error) => return Err(error),
+                }
+            } else {
+                let lookups = dataset_types.into_iter().map(|dataset_type| {
+                    self.files.find_dataset(
+                        org_id,
+                        stream,
+                        StreamType::METRICS,
+                        dataset_type,
+                        time_range,
+                    )
+                });
+                (
+                    try_join_all(lookups)
+                        .await?
+                        .into_iter()
+                        .flatten()
+                        .collect::<Vec<_>>(),
+                    Vec::new(),
                 )
-            });
-        let mut files = try_join_all(lookups)
-            .await?
-            .into_iter()
-            .flatten()
-            .collect::<Vec<_>>();
+            };
         files.sort_by(|left, right| {
             left.time_range
                 .start
@@ -100,7 +123,10 @@ impl PromQLEngine {
                 .then_with(|| left.id.0.cmp(&right.id.0))
         });
         files.dedup_by(|left, right| left.id == right.id);
-        Ok(files)
+        Ok(MetricStorageSnapshot {
+            files,
+            buffered_batches,
+        })
     }
 
     /// Resolve a PromQL metric identifier to its physical stream.
@@ -119,7 +145,7 @@ impl PromQLEngine {
         };
 
         if metric == MOLESIGNAL_SYSTEM_STREAM {
-            return match streams.get(org_id, metric, StreamType::Metrics).await {
+            return match streams.get(org_id, metric, StreamType::METRICS).await {
                 Ok(definition) => Ok(ResolvedMetricSource {
                     stream: metric.to_string(),
                     logical_metric: None,
@@ -131,7 +157,7 @@ impl PromQLEngine {
             };
         }
 
-        match streams.get(org_id, metric, StreamType::Metrics).await {
+        match streams.get(org_id, metric, StreamType::METRICS).await {
             Ok(definition) => {
                 return Ok(ResolvedMetricSource {
                     stream: metric.to_string(),
@@ -145,7 +171,7 @@ impl PromQLEngine {
         }
 
         match streams
-            .get(org_id, MOLESIGNAL_SYSTEM_STREAM, StreamType::Metrics)
+            .get(org_id, MOLESIGNAL_SYSTEM_STREAM, StreamType::METRICS)
             .await
         {
             Ok(definition) => Ok(ResolvedMetricSource {

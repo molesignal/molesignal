@@ -664,12 +664,15 @@ export function AgentChat({ embedded = false }: { embedded?: boolean } = {}) {
 
   return (
     <div
+      data-agent-chat-workspace
       className={cn(
         'flex min-h-0 flex-col',
         // Embedded in the shell Mole Agent panel: fill the panel and stay
         // single-column. As a full route: fill the viewport below the chrome
         // and split into chat-list + chat at md+.
-        embedded ? 'h-full' : 'h-full md:flex-row',
+        embedded
+          ? 'h-full'
+          : 'h-full bg-[var(--page-canvas)] md:flex-row md:gap-[8px]',
       )}
     >
       {!embedded && (
@@ -689,9 +692,16 @@ export function AgentChat({ embedded = false }: { embedded?: boolean } = {}) {
       )}
 
       {/* Main column */}
-      <div id="agent-chat-transcript" className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div
+        id="agent-chat-transcript"
+        data-testid="conversation-workspace"
+        className={cn(
+          'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--functional-surface)]',
+          !embedded && 'rounded-md',
+        )}
+      >
         {!embedded && (
-          <div className="flex h-11 shrink-0 items-center justify-between border-b border-bd-0 bg-bg-1 px-2 md:justify-end xl:hidden">
+          <div className="flex h-11 shrink-0 items-center justify-between bg-[var(--control-surface)] px-2 md:justify-end xl:hidden">
             <button
               type="button"
               onClick={() => setMobileHistoryOpen(true)}
@@ -960,7 +970,7 @@ function ChatComposer({
     <form
       data-testid="composer-shell"
       aria-label={t('workspace.command_bar')}
-      className="overflow-hidden rounded-lg border border-bd-1 bg-bg-1"
+      className="overflow-hidden rounded-lg border-0 bg-[var(--control-surface)]"
       onSubmit={(event) => {
         event.preventDefault();
         onSubmit();
@@ -1011,7 +1021,7 @@ function ChatComposer({
       />
       <div
         data-testid="composer-controls"
-        className="flex min-h-11 items-center gap-1 overflow-x-auto bg-bg-0/40 px-2 py-1.5 whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex min-h-11 items-center gap-1 overflow-x-auto bg-transparent px-2 py-1.5 whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         <ContextEditorPopover
           t={t}

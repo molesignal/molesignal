@@ -3,25 +3,49 @@
 
 use std::sync::Arc;
 
-use dashmap::DashMap;
+use dashmap::{DashMap, mapref::entry::Entry};
 use tokio::sync::Mutex;
 
 use super::{
-    BufferKey, RecordBuilder,
+    BufferKey, BufferedRecordBatch, RecordBuilder,
     memory::{MemoryBudget, MemoryReservation},
 };
 use crate::{
     domain::{
-        storage::PhysicalDatasetKind,
+        storage::PhysicalDatasetId,
         stream::{StreamDefinition, StreamType},
     },
-    infra::intake::physical_schema,
-    shared::Result,
+    infra::intake::{dataset_resolver::ResolvedDataset, physical_schema},
+    shared::{Error, Result, ids::Id},
 };
+
+/// Immutable dataset metadata plus the one mutex that orders WAL append/push against rotation.
+pub struct DatasetBuffer {
+    pub dataset: Arc<ResolvedDataset>,
+    pub organization_id: Id,
+    pub logical_stream_id: Id,
+    pub stream_name: String,
+    pub stream_type: StreamType,
+    records: Mutex<RecordBuilder>,
+}
+
+impl DatasetBuffer {
+    pub fn records(&self) -> &Mutex<RecordBuilder> {
+        &self.records
+    }
+
+    pub async fn query_snapshot(&self) -> Result<Vec<BufferedRecordBatch>> {
+        self.records
+            .lock()
+            .await
+            .query_snapshot()
+            .map_err(|error| Error::internal(format!("buffer query snapshot: {error}")))
+    }
+}
 
 /// 跨 stream 的 buffer 池，同时拥有整个 intake 进程的内存预算。
 pub struct BufferPool {
-    buffers: DashMap<BufferKey, Arc<Mutex<RecordBuilder>>>,
+    buffers: DashMap<BufferKey, Arc<DatasetBuffer>>,
     memory: Arc<MemoryBudget>,
 }
 
@@ -60,28 +84,45 @@ impl BufferPool {
         self.memory.reserved_bytes()
     }
 
-    pub fn get_or_create(&self, stream: &StreamDefinition) -> Arc<Mutex<RecordBuilder>> {
-        self.get_or_create_dataset(stream, PhysicalDatasetKind::Raw)
-    }
-
     pub fn get_or_create_dataset(
         &self,
         stream: &StreamDefinition,
-        dataset_kind: PhysicalDatasetKind,
-    ) -> Arc<Mutex<RecordBuilder>> {
-        let key: BufferKey = (
-            stream.org_id.clone(),
-            stream.stream_type,
-            stream.name.clone(),
-            dataset_kind,
-        );
-        if let Some(buffer) = self.buffers.get(&key) {
-            return buffer.clone();
+        dataset: Arc<ResolvedDataset>,
+    ) -> Result<Arc<DatasetBuffer>> {
+        if dataset.dataset.organization_id != stream.org_id
+            || dataset.dataset.logical_stream_id != stream.id
+        {
+            return Err(Error::invalid(format!(
+                "physical dataset {} does not belong to stream {}",
+                dataset.dataset.id, stream.id
+            )));
         }
-        let physical_stream = physical_schema::project(stream, dataset_kind);
-        let buffer = Arc::new(Mutex::new(RecordBuilder::new(&physical_stream)));
-        self.buffers.insert(key, buffer.clone());
-        buffer
+        let key = dataset.dataset.id.clone();
+        match self.buffers.entry(key.clone()) {
+            Entry::Occupied(entry) => {
+                if entry.get().logical_stream_id != stream.id {
+                    return Err(Error::internal(format!(
+                        "buffer dataset {} is already bound to another logical stream",
+                        key
+                    )));
+                }
+                Ok(entry.get().clone())
+            }
+            Entry::Vacant(entry) => {
+                let physical_stream =
+                    physical_schema::project(stream, &dataset.dataset.dataset_type);
+                Ok(entry
+                    .insert(Arc::new(DatasetBuffer {
+                        dataset,
+                        organization_id: stream.org_id.clone(),
+                        logical_stream_id: stream.id.clone(),
+                        stream_name: stream.name.clone(),
+                        stream_type: stream.stream_type,
+                        records: Mutex::new(RecordBuilder::new(&physical_stream)),
+                    }))
+                    .clone())
+            }
+        }
     }
 
     /// 列出当前所有 `(key, buffer)` 快照，供 flush scheduler 遍历。
@@ -92,8 +133,18 @@ impl BufferPool {
             .collect()
     }
 
-    pub fn get(&self, key: &BufferKey) -> Option<Arc<Mutex<RecordBuilder>>> {
+    pub fn get(&self, key: &BufferKey) -> Option<Arc<DatasetBuffer>> {
         self.buffers.get(key).map(|value| value.clone())
+    }
+
+    pub async fn snapshot_dataset(
+        &self,
+        dataset_id: &PhysicalDatasetId,
+    ) -> Result<Vec<BufferedRecordBatch>> {
+        match self.get(dataset_id) {
+            Some(buffer) => buffer.query_snapshot().await,
+            None => Ok(Vec::new()),
+        }
     }
 }
 
@@ -105,19 +156,19 @@ mod tests {
     #[test]
     fn reservation_is_atomic_and_drop_releases_capacity() {
         let pool = BufferPool::with_memory_limit_bytes(10);
-        let first = pool.try_reserve(StreamType::Logs, 7).unwrap();
+        let first = pool.try_reserve(StreamType::LOGS, 7).unwrap();
         assert_eq!(pool.reserved_bytes(), 7);
-        assert!(pool.try_reserve(StreamType::Metrics, 4).is_err());
+        assert!(pool.try_reserve(StreamType::METRICS, 4).is_err());
         assert_eq!(pool.reserved_bytes(), 7);
         drop(first);
         assert_eq!(pool.reserved_bytes(), 0);
-        assert!(pool.try_reserve(StreamType::Metrics, 10).is_ok());
+        assert!(pool.try_reserve(StreamType::METRICS, 10).is_ok());
     }
 
     #[test]
     fn committed_and_replay_reservations_need_explicit_release() {
         let pool = BufferPool::with_memory_limit_bytes(5);
-        let accounted = pool.try_reserve(StreamType::Logs, 5).unwrap().commit();
+        let accounted = pool.try_reserve(StreamType::LOGS, 5).unwrap().commit();
         assert_eq!(accounted, 5);
         assert_eq!(pool.reserved_bytes(), 5);
 

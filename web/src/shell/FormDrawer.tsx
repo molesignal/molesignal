@@ -52,7 +52,7 @@ export function FormDrawer({
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-overlay data-[state=open]:animate-fade-in" />
         <Dialog.Content
-          className="fixed inset-y-0 right-0 z-50 flex flex-col border-l border-bd-1 bg-bg-1 shadow-drawer data-[state=open]:animate-slide-in-right"
+          className="fixed inset-y-0 right-0 z-50 flex flex-col border-l border-bd-1 bg-[var(--functional-surface)] shadow-drawer data-[state=open]:animate-slide-in-right"
           style={{ width, maxWidth: 'calc(100vw - 16px)' }}
         >
           {/* header */}
@@ -176,8 +176,9 @@ export const FormInput = React.forwardRef<
         {...rest}
         disabled={disabled}
         aria-disabled={disabled || undefined}
+        data-ui="input-control"
         className={cn(
-          'h-9 min-w-0 w-full rounded-md border border-bd-1 bg-bg-2 px-3 font-sans text-sm text-tx-0 placeholder:text-tx-3 focus:outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:border-bd-0 disabled:bg-bg-3 disabled:text-tx-3 disabled:opacity-100 read-only:cursor-default read-only:border-bd-0 read-only:bg-bg-3 read-only:text-tx-2',
+          'h-9 min-w-0 w-full rounded-md border-0 bg-[var(--control-surface)] px-3 font-sans text-sm text-tx-0 transition-colors placeholder:text-tx-3 hover:bg-bg-3 focus:bg-bg-3 focus:outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-bg-3 disabled:text-tx-3 disabled:opacity-100 read-only:cursor-default read-only:bg-bg-3 read-only:text-tx-2',
           className,
         )}
       />
@@ -209,8 +210,9 @@ export const FormTextarea = React.forwardRef<
       {...rest}
       disabled={disabled}
       aria-disabled={disabled || undefined}
+      data-ui="textarea-control"
       className={cn(
-        'min-h-24 rounded-md border border-bd-1 bg-bg-2 px-3 py-2.5 font-sans text-sm leading-relaxed text-tx-0 placeholder:text-tx-3 focus:outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:border-bd-0 disabled:bg-bg-3 disabled:text-tx-3 disabled:opacity-100 read-only:cursor-default read-only:border-bd-0 read-only:bg-bg-3 read-only:text-tx-2',
+        'min-h-24 rounded-md border-0 bg-[var(--control-surface)] px-3 py-2.5 font-sans text-sm leading-relaxed text-tx-0 transition-colors placeholder:text-tx-3 hover:bg-bg-3 focus:bg-bg-3 focus:outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-bg-3 disabled:text-tx-3 disabled:opacity-100 read-only:cursor-default read-only:bg-bg-3 read-only:text-tx-2',
         className,
       )}
     />
@@ -271,7 +273,7 @@ export function FormSelect({
           aria-label={ariaLabel}
           aria-disabled={disabled || undefined}
           className={cn(
-            'h-9 rounded-md border-bd-1 bg-bg-2 px-3 font-sans text-sm text-tx-0 focus:outline-none disabled:border-bd-0 disabled:bg-bg-3 disabled:text-tx-3 disabled:opacity-100',
+            'h-9 rounded-md border-bd-1 bg-[var(--control-surface)] px-3 font-sans text-sm text-tx-0 focus:outline-none disabled:border-bd-0 disabled:bg-bg-3 disabled:text-tx-3 disabled:opacity-100',
             className,
           )}
         >

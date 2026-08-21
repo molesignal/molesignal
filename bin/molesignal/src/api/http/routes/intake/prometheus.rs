@@ -161,7 +161,7 @@ async fn intake_chunk(
             batch_id: Id::new(),
             org_id: org_id.clone(),
             stream: chunk.stream,
-            stream_type: StreamType::Metrics,
+            stream_type: StreamType::METRICS,
             events: chunk.events,
             received_at,
         })

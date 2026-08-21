@@ -62,8 +62,8 @@ export function RecordsPanel({
 }) {
   const { t, i18n } = useTranslation('functions');
   return (
-    <section data-extend-table-records className="min-w-0">
-      <div className="flex flex-wrap items-center gap-3 border-b border-bd-0 pb-3">
+    <section data-extend-table-records className="min-w-0 rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)]">
+      <div className="flex flex-wrap items-center gap-3 pb-3">
         <label className="relative w-full min-w-0 flex-1 sm:min-w-[240px] sm:max-w-sm">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-tx-3" />
           <input
@@ -116,7 +116,7 @@ export function RecordsPanel({
           className="min-h-64"
         />
       ) : (
-        <div className="border-y border-bd-0">
+        <div>
           <Table className="min-w-[880px]">
             <TableHeader>
               <TableRow className="h-10 hover:bg-transparent">

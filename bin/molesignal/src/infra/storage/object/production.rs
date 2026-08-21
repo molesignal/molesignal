@@ -9,25 +9,29 @@ use std::{
     fmt,
     future::Future,
     ops::Range,
-    sync::{Arc, OnceLock},
+    sync::Arc,
     time::{Duration, Instant},
 };
 
 use bytes::Bytes;
 use futures::{FutureExt, StreamExt, stream::BoxStream};
 use object_store::{
-    CopyOptions, Error as OsError, GetOptions, GetResult, ListResult, MultipartUpload, ObjectMeta,
-    ObjectStore, ObjectStoreExt, PutMultipartOptions, PutOptions, PutPayload, PutResult,
-    RenameOptions, Result as ObjectStoreResult, UploadPart, path::Path as ObjPath,
+    CopyOptions, GetOptions, GetResult, ListResult, MultipartUpload, ObjectMeta, ObjectStore,
+    PutMultipartOptions, PutOptions, PutPayload, PutResult, RenameOptions,
+    Result as ObjectStoreResult, UploadPart, path::Path as ObjPath,
 };
-use prometheus::{HistogramVec, IntCounterVec};
 use tokio::sync::Semaphore;
-use tracing::{Instrument, field};
+use tracing::Instrument;
 
-use crate::{
-    config::ObjectStoreSettings,
-    infra::caching::ParquetDiskCache,
-    shared::metrics::{register_histogram_vec, register_int_counter_vec},
+use crate::config::ObjectStoreSettings;
+
+mod retry;
+mod telemetry;
+
+use retry::RetryPolicy;
+pub use telemetry::health_dur;
+use telemetry::{
+    bytes_total, error_reason, errors_total, op_dur, operation_span, ops_total, timeout_error,
 };
 
 #[derive(Clone)]
@@ -36,8 +40,6 @@ pub struct ProductionObjectStore {
     backend: &'static str,
     settings: ObjectStoreSettings,
     semaphore: Arc<Semaphore>,
-    /// 可选磁盘缓存。`get_or_cache` 命中直读，miss 走 inner.get 再异步落盘。
-    disk_cache: Option<Arc<ParquetDiskCache>>,
 }
 
 impl ProductionObjectStore {
@@ -55,24 +57,11 @@ impl ProductionObjectStore {
             backend,
             semaphore: Arc::new(Semaphore::new(permits)),
             settings,
-            disk_cache: None,
         })
-    }
-
-    /// 注入磁盘缓存。`Arc<Self>` 不便链式调用，给一个 builder 形态——
-    /// 由 wire 在 wrap 之后调用：`Arc::new(ProductionObjectStore { disk_cache: Some(c), .. (*wrapped).clone() })`。
-    pub fn with_disk_cache(mut self, cache: Arc<ParquetDiskCache>) -> Self {
-        self.disk_cache = Some(cache);
-        self
     }
 
     pub fn backend(&self) -> &str {
         self.backend
-    }
-
-    /// 当前是否挂了 disk cache（wire 注入后为 Some）。
-    pub fn disk_cache(&self) -> Option<&Arc<ParquetDiskCache>> {
-        self.disk_cache.as_ref()
     }
 
     fn op_timeout(&self) -> Duration {
@@ -151,40 +140,6 @@ impl ProductionObjectStore {
             .with_label_values(&[self.backend, operation])
             .observe(started.elapsed().as_secs_f64());
         result
-    }
-
-    /// parquet_reader 走这条路径——hit 直接返磁盘 bytes；miss 才去 object_store
-    /// 拉，拉回后异步落盘 + 升级 LRU。命中/未命中都更新 `object_store_operations_total{op="get_or_cache"}`
-    /// 计数器（外部观测）。
-    ///
-    /// 注意：本方法不走 `Self::semaphore` / retry——这两层属于真正的 inner.get；
-    /// disk_cache 仅是热路径短路。
-    pub async fn get_or_cache(&self, path: &ObjPath) -> Result<Bytes, OsError> {
-        if let Some(cache) = &self.disk_cache {
-            if let Some(b) = cache.get(path.as_ref()).await {
-                ops_total()
-                    .with_label_values(&[self.backend, "disk_cache_hit"])
-                    .inc();
-                return Ok(b);
-            }
-            ops_total()
-                .with_label_values(&[self.backend, "disk_cache_miss"])
-                .inc();
-        }
-        let payload = self.get(path).await?;
-        let bytes = payload.bytes().await?;
-        if let Some(cache) = &self.disk_cache {
-            // 异步落盘失败仅 warn，不影响主路径
-            let key = path.as_ref().to_string();
-            let bytes_clone = bytes.clone();
-            let cache_clone = cache.clone();
-            tokio::spawn(async move {
-                if let Err(e) = cache_clone.insert(&key, bytes_clone).await {
-                    tracing::warn!(error = %e, "disk_cache insert failed");
-                }
-            });
-        }
-        Ok(bytes)
     }
 }
 
@@ -472,216 +427,13 @@ impl MultipartUpload for InstrumentedMultipartUpload {
     }
 }
 
-fn operation_span(
-    backend: &'static str,
-    operation: &'static str,
-    location: Option<&ObjPath>,
-) -> tracing::Span {
-    let category = location.map(object_category).unwrap_or("collection");
-    let fingerprint = location.and_then(|path| {
-        crate::shared::trace_normalization::optional_hmac_fingerprint(path.as_ref())
-    });
-    tracing::info_span!(
-        "object_store.operation",
-        otel.kind = "client",
-        molesignal.trace.category = "object_store",
-        object_store.system = backend,
-        object_store.operation = operation,
-        molesignal.object.category = category,
-        molesignal.object.key_fingerprint = fingerprint.as_deref().unwrap_or(""),
-        molesignal.object.bytes = field::Empty,
-        molesignal.object.retry_count = field::Empty,
-        error.type = field::Empty,
-    )
-}
-
-fn object_category(path: &ObjPath) -> &'static str {
-    let value = path.as_ref().to_ascii_lowercase();
-    if value.ends_with(".parquet") {
-        "parquet"
-    } else if value.ends_with(".puffin") || value.contains("tantivy") {
-        "search_index"
-    } else if value.contains("profile") || value.ends_with(".pprof") {
-        "profile"
-    } else if value.contains("replay") {
-        "rum_replay"
-    } else if value.contains("report") {
-        "report"
-    } else if value.contains("sourcemap") || value.ends_with(".map") {
-        "source_map"
-    } else if value.contains("parquet_file_meta") || value.contains("dump") {
-        "metadata"
-    } else {
-        "other"
-    }
-}
-
-fn timeout_error(store: &'static str, operation: &str) -> OsError {
-    OsError::Generic {
-        store,
-        source: std::io::Error::new(
-            std::io::ErrorKind::TimedOut,
-            format!("{operation} deadline exceeded"),
-        )
-        .into(),
-    }
-}
-
-fn error_reason(error: &OsError) -> &'static str {
-    match error {
-        OsError::NotFound { .. } => "not_found",
-        OsError::InvalidPath { .. } => "invalid_path",
-        OsError::NotSupported { .. } | OsError::NotImplemented { .. } => "not_supported",
-        OsError::AlreadyExists { .. } => "already_exists",
-        OsError::Precondition { .. } => "precondition",
-        OsError::NotModified { .. } => "not_modified",
-        OsError::PermissionDenied { .. } => "permission_denied",
-        OsError::Unauthenticated { .. } => "unauthenticated",
-        OsError::UnknownConfigurationKey { .. } => "configuration",
-        OsError::Generic { source, .. }
-            if source
-                .downcast_ref::<std::io::Error>()
-                .is_some_and(|error| error.kind() == std::io::ErrorKind::TimedOut) =>
-        {
-            "timeout"
-        }
-        OsError::Generic { .. } => "backend",
-        OsError::JoinError { .. } => "join",
-        _ => "other",
-    }
-}
-
-/// metric 注册（一次性）。
-static OPS_TOTAL: OnceLock<IntCounterVec> = OnceLock::new();
-static BYTES_TOTAL: OnceLock<IntCounterVec> = OnceLock::new();
-static ERRORS_TOTAL: OnceLock<IntCounterVec> = OnceLock::new();
-static OP_DUR: OnceLock<HistogramVec> = OnceLock::new();
-static HEALTH_DUR: OnceLock<HistogramVec> = OnceLock::new();
-
-pub fn ops_total() -> &'static IntCounterVec {
-    OPS_TOTAL.get_or_init(|| {
-        register_int_counter_vec(
-            "object_store_operations_total",
-            "object store operations",
-            &["backend", "op"],
-        )
-    })
-}
-pub fn bytes_total() -> &'static IntCounterVec {
-    BYTES_TOTAL.get_or_init(|| {
-        register_int_counter_vec(
-            "object_store_bytes_total",
-            "object store bytes by op",
-            &["backend", "op"],
-        )
-    })
-}
-pub fn errors_total() -> &'static IntCounterVec {
-    ERRORS_TOTAL.get_or_init(|| {
-        register_int_counter_vec(
-            "object_store_errors_total",
-            "object store errors",
-            &["backend", "op", "reason"],
-        )
-    })
-}
-pub fn op_dur() -> &'static HistogramVec {
-    OP_DUR.get_or_init(|| {
-        register_histogram_vec(
-            "object_store_op_duration_seconds",
-            "object store op duration",
-            &["backend", "op"],
-            vec![0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0, 30.0],
-        )
-    })
-}
-pub fn health_dur() -> &'static HistogramVec {
-    HEALTH_DUR.get_or_init(|| {
-        register_histogram_vec(
-            "object_store_health_check_duration_seconds",
-            "health probe round-trip",
-            &["backend"],
-            vec![0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0],
-        )
-    })
-}
-
-// =====================================================================
-//  Retry policy
-// =====================================================================
-
-#[derive(Debug, Clone, Copy)]
-pub struct RetryPolicy {
-    pub max_attempts: u32,
-    pub base_backoff_ms: u64,
-    pub max_backoff_ms: u64,
-    pub jitter_ratio: f32,
-}
-
-impl RetryPolicy {
-    pub fn from(settings: &ObjectStoreSettings) -> Self {
-        Self {
-            max_attempts: settings.retry.max_attempts.max(1),
-            base_backoff_ms: settings.retry.base_backoff_ms,
-            max_backoff_ms: settings.retry.max_backoff_ms,
-            jitter_ratio: settings.retry.jitter_ratio,
-        }
-    }
-
-    /// 永久错误（NotFound / AlreadyExists / PermissionDenied / InvalidArgument）
-    /// 不重试；其余 transient 类型重试。
-    pub fn is_retryable(err: &OsError) -> bool {
-        match err {
-            OsError::NotFound { .. }
-            | OsError::AlreadyExists { .. }
-            | OsError::PermissionDenied { .. }
-            | OsError::Unauthenticated { .. }
-            | OsError::InvalidPath { .. }
-            | OsError::Precondition { .. }
-            | OsError::NotModified { .. }
-            | OsError::NotSupported { .. }
-            | OsError::UnknownConfigurationKey { .. }
-            | OsError::NotImplemented { .. } => false,
-            OsError::Generic { source, .. } => {
-                let msg = source.to_string().to_lowercase();
-                msg.contains("timeout")
-                    || msg.contains("slowdown")
-                    || msg.contains("throttl")
-                    || msg.contains("connection")
-                    || msg.contains("5")
-            }
-            _ => true,
-        }
-    }
-
-    pub async fn backoff(&self, attempt: u32) {
-        let exp = self
-            .base_backoff_ms
-            .saturating_mul(1u64 << (attempt.saturating_sub(1).min(20)));
-        let capped = exp.min(self.max_backoff_ms);
-        // jitter
-        let jitter_max = (capped as f32 * self.jitter_ratio) as u64;
-        let jitter = if jitter_max > 0 {
-            use std::time::SystemTime;
-            let nanos = SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .map(|d| d.subsec_nanos() as u64)
-                .unwrap_or(0);
-            (nanos % (jitter_max * 2 + 1)) as i64 - jitter_max as i64
-        } else {
-            0
-        };
-        let wait_ms = (capped as i64 + jitter).max(0) as u64;
-        tokio::time::sleep(Duration::from_millis(wait_ms)).await;
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use futures::TryStreamExt;
+    use object_store::{Error as OsError, ObjectStoreExt};
     use tracing_subscriber::prelude::*;
 
-    use super::*;
+    use super::{telemetry::object_category, *};
 
     #[test]
     fn permanent_errors_not_retried() {
@@ -728,7 +480,7 @@ mod tests {
                 3 => "replay/session.bin",
                 4 => "report/render.bin",
                 5 => "sourcemap/app.js.map",
-                6 => "parquet_file_meta/dump.bin",
+                6 => "v1/manifests/org/dataset/p-0-00/1.parquet",
                 _ => "unknown.bin",
             };
             let secret = format!("alice+{index}@example.com/private-token-{index:08}");
@@ -741,80 +493,6 @@ mod tests {
             assert!(!category.contains(&index.to_string()));
         }
     }
-
-    #[tokio::test]
-    async fn get_or_cache_hit_increments_metrics_and_skips_inner() {
-        use object_store::{ObjectStore, PutPayload, memory::InMemory, path::Path as ObjPath};
-        use tempfile::TempDir;
-
-        use crate::infra::caching::{
-            DiskCacheSettings as InfraDiskCacheSettings, ParquetDiskCache,
-        };
-
-        let tmp = TempDir::new().expect("tmpdir");
-        let cache = Arc::new(
-            ParquetDiskCache::new(InfraDiskCacheSettings {
-                dir: tmp.path().to_path_buf(),
-                max_bytes: 1 << 20,
-            })
-            .expect("cache builds"),
-        );
-        let inner: Arc<dyn ObjectStore> = Arc::new(InMemory::new());
-        let path = ObjPath::from("e2e/test.parquet");
-        inner
-            .put(&path, PutPayload::from_static(b"hello-parquet"))
-            .await
-            .expect("seed inner");
-
-        let wrapped = ProductionObjectStore::wrap(inner.clone(), ObjectStoreSettings::default());
-        let with_cache = (*wrapped).clone().with_disk_cache(cache);
-
-        // 第一次：disk miss → 走 inner → 异步落盘
-        let b1 = with_cache.get_or_cache(&path).await.expect("first get");
-        assert_eq!(&b1[..], b"hello-parquet");
-
-        // 等异步 insert 落盘（最多 500ms 轮询）
-        for _ in 0..50 {
-            if let Some(c) = with_cache.disk_cache()
-                && c.get(path.as_ref()).await.is_some()
-            {
-                break;
-            }
-            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-        }
-
-        // 第二次：disk hit → 直接返磁盘
-        let b2 = with_cache.get_or_cache(&path).await.expect("second get");
-        assert_eq!(&b2[..], b"hello-parquet");
-
-        // /metrics 文本里必须看到 hits/misses/hit_ratio，且至少 1 个 hit。
-        let text = crate::shared::metrics::gather_text().expect("gather");
-        assert!(
-            text.contains("cache_parquet_disk_hits_total"),
-            "hits counter must appear in /metrics"
-        );
-        assert!(
-            text.contains("cache_parquet_disk_misses_total"),
-            "misses counter must appear in /metrics"
-        );
-        assert!(
-            text.contains("cache_parquet_disk_evictions_total"),
-            "evictions counter must appear in /metrics"
-        );
-        assert!(
-            text.contains("cache_parquet_disk_hit_ratio"),
-            "hit_ratio gauge must appear in /metrics"
-        );
-
-        // 解析 hits_total 与 hit_ratio 当前值，断言 hits >= 1 且 hit_ratio > 0。
-        let hits =
-            parse_metric_value(&text, "cache_parquet_disk_hits_total").expect("hits_total parsed");
-        assert!(hits >= 1.0, "expected hits >= 1, got {hits}");
-        let ratio =
-            parse_metric_value(&text, "cache_parquet_disk_hit_ratio").expect("hit_ratio parsed");
-        assert!(ratio > 0.0, "expected hit_ratio > 0, got {ratio}");
-    }
-
     #[tokio::test(flavor = "current_thread")]
     async fn decorator_covers_operations_without_recording_complete_keys() {
         use object_store::{PutPayload, memory::InMemory};
@@ -857,24 +535,5 @@ mod tests {
         assert!(encoded.contains("parquet"));
         assert!(!encoded.contains("customer-42"));
         assert!(!encoded.contains("credential.parquet"));
-    }
-
-    /// 在 prometheus textfmt 中提取无 label 的样本数值。
-    /// 同名 metric 在测试进程里可能因为其它测试 emit 出现多行，本函数返回最后一行的值
-    /// （Prometheus 累计计数 / Gauge 都是最新值就是当前值）。
-    #[cfg(test)]
-    fn parse_metric_value(text: &str, name: &str) -> Option<f64> {
-        text.lines()
-            .filter(|l| !l.starts_with('#'))
-            .filter_map(|l| {
-                let rest = l.strip_prefix(name)?;
-                // 必须紧跟空格或 '{'，避免 cache_x_hits_total 也匹配到 cache_x_hits_total_blah。
-                let after = rest.chars().next()?;
-                if after != ' ' && after != '{' {
-                    return None;
-                }
-                rest.split_whitespace().next_back()?.parse::<f64>().ok()
-            })
-            .next_back()
     }
 }

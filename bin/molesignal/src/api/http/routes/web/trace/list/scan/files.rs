@@ -8,7 +8,7 @@ use std::{cmp::Ordering, collections::VecDeque};
 use super::{TraceListContext, TraceListRow, TraceListSort, effective_cmp};
 use crate::{
     api::http::pagination::cursor::CursorDirection,
-    domain::{storage::ParquetFileMeta, stream::FieldType},
+    domain::{storage::QueryFile, stream::FieldType},
     shared::trace::summary::{
         TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_ERROR_COUNT_FIELD,
         TRACE_SUMMARY_SPAN_COUNT_FIELD, TRACE_SUMMARY_START_NS_FIELD,
@@ -16,9 +16,9 @@ use crate::{
 };
 
 pub(super) fn order_files(
-    mut files: Vec<ParquetFileMeta>,
+    mut files: Vec<QueryFile>,
     context: &TraceListContext,
-) -> VecDeque<ParquetFileMeta> {
+) -> VecDeque<QueryFile> {
     let descending = effective_primary_desc(context);
     files.sort_by(|left, right| {
         match (
@@ -47,7 +47,7 @@ fn effective_primary_desc(context: &TraceListContext) -> bool {
         ^ (context.boundary.as_ref().map(|value| value.direction) == Some(CursorDirection::Before))
 }
 
-fn file_bound(file: &ParquetFileMeta, context: &TraceListContext, maximum: bool) -> Option<i64> {
+fn file_bound(file: &QueryFile, context: &TraceListContext, maximum: bool) -> Option<i64> {
     let value = match context.sort {
         TraceListSort::Latest | TraceListSort::Earliest => {
             let map = if maximum {
@@ -66,7 +66,7 @@ fn file_bound(file: &ParquetFileMeta, context: &TraceListContext, maximum: bool)
                     };
                     // `_timestamp` is truncated from nanoseconds. A maximum fallback must include
                     // the entire final microsecond or early-stop could discard a row up to 999 ns
-                    // newer than the recorded ParquetFileMeta timestamp.
+                    // newer than the recorded QueryFile timestamp.
                     Some(
                         micros
                             .saturating_mul(1_000)
@@ -87,7 +87,7 @@ fn file_bound(file: &ParquetFileMeta, context: &TraceListContext, maximum: bool)
 }
 
 pub(super) fn remaining_cannot_beat(
-    next: &ParquetFileMeta,
+    next: &QueryFile,
     context: &TraceListContext,
     top: &[TraceListRow],
 ) -> bool {
@@ -114,7 +114,7 @@ pub(super) fn remaining_cannot_beat(
     }
 }
 
-pub(super) fn file_may_match_cursor(file: &ParquetFileMeta, context: &TraceListContext) -> bool {
+pub(super) fn file_may_match_cursor(file: &QueryFile, context: &TraceListContext) -> bool {
     let Some(boundary) = context.boundary.as_ref() else {
         return true;
     };
@@ -149,7 +149,7 @@ pub(super) fn file_may_match_cursor(file: &ParquetFileMeta, context: &TraceListC
 
 /// Zone maps provide a cheap first pass before opening Parquet. Missing or incompatible bounds
 /// always retain the file so pruning can never create a false negative.
-pub(super) fn file_may_match_filters(file: &ParquetFileMeta, context: &TraceListContext) -> bool {
+pub(super) fn file_may_match_filters(file: &QueryFile, context: &TraceListContext) -> bool {
     context.filters.iter().all(|filter| {
         let Some(field) = filter.summary_column() else {
             return true;

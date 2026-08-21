@@ -37,7 +37,7 @@ export function RecentActivitySection({
       actions={<CanvasHeaderAction label={t('home.view_all')} onClick={onViewAll} />}
     >
       {state === 'empty' ? (
-        <div className="m-4 grid min-h-[222px] place-items-center rounded-md border border-dashed border-bd-1 bg-bg-2/50 px-5 py-4 text-center">
+        <div className="m-4 grid min-h-[222px] place-items-center rounded-md bg-[var(--control-surface)] px-5 py-4 text-center">
           <div>
             <Activity className="mx-auto h-5 w-5 text-tx-3" />
             <div className="mt-2 font-sans text-sm font-strong text-tx-1">

@@ -15,7 +15,7 @@ pub(super) fn validate_field_masking(
     schema: &Schema,
     stream_type: StreamType,
 ) -> Result<()> {
-    if stream_type == StreamType::Metrics && !settings.field_masking.is_empty() {
+    if stream_type == StreamType::METRICS && !settings.field_masking.is_empty() {
         return Err(Error::invalid(
             "metrics streams do not support field masking",
         ));
@@ -92,10 +92,10 @@ mod tests {
             field_masking: vec![item.clone(), item],
             ..Default::default()
         };
-        assert!(validate_field_masking(&settings, &schema(), StreamType::Logs).is_err());
+        assert!(validate_field_masking(&settings, &schema(), StreamType::LOGS).is_err());
 
         settings.field_masking[1].field = "missing".into();
-        assert!(validate_field_masking(&settings, &schema(), StreamType::Logs).is_err());
+        assert!(validate_field_masking(&settings, &schema(), StreamType::LOGS).is_err());
     }
 
     #[test]
@@ -107,7 +107,7 @@ mod tests {
             }],
             ..Default::default()
         };
-        assert!(validate_field_masking(&settings, &schema(), StreamType::Metrics).is_err());
+        assert!(validate_field_masking(&settings, &schema(), StreamType::METRICS).is_err());
     }
 
     #[test]

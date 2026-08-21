@@ -74,7 +74,7 @@ async fn sample_data_status(
     let loaded = state
         .telemetry
         .streams
-        .get(&ctx.org_id, SAMPLE_LOGS, StreamType::Logs)
+        .get(&ctx.org_id, SAMPLE_LOGS, StreamType::LOGS)
         .await
         .is_ok();
     Ok(Json(SampleDataStatus { loaded }))
@@ -119,9 +119,9 @@ async fn load_sample_data(
 /// 三个流的样例事件（traces / logs / metrics），共享 trace_id 串成跨信号关联。
 fn sample_batches(now_us: i64) -> Vec<(StreamType, &'static str, Vec<RawEvent>)> {
     vec![
-        (StreamType::Traces, SAMPLE_TRACES, sample_traces(now_us)),
-        (StreamType::Logs, SAMPLE_LOGS, sample_logs(now_us)),
-        (StreamType::Metrics, SAMPLE_METRICS, sample_metrics(now_us)),
+        (StreamType::TRACES, SAMPLE_TRACES, sample_traces(now_us)),
+        (StreamType::LOGS, SAMPLE_LOGS, sample_logs(now_us)),
+        (StreamType::METRICS, SAMPLE_METRICS, sample_metrics(now_us)),
     ]
 }
 

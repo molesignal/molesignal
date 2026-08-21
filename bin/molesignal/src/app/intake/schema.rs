@@ -37,7 +37,7 @@ pub fn check_event_types(schema: &Schema, event: &RawEvent) -> std::result::Resu
 /// Return the automatic index policy for newly discovered fields.
 fn auto_index_type(stream_type: StreamType, field_name: &str) -> StreamIndexType {
     match stream_type {
-        StreamType::Traces => {
+        StreamType::TRACES => {
             let exact = matches!(field_name, "trace_id" | "span_id" | "service.name")
                 || field_name == TRACE_SUMMARY_MARKER_FIELD;
             if exact {
@@ -48,7 +48,7 @@ fn auto_index_type(stream_type: StreamType, field_name: &str) -> StreamIndexType
         }
         // Cursor identities and common RUM dimensions are exact indexed so that Bloom/Tantivy can
         // eliminate unrelated hourly objects before Parquet planning.
-        StreamType::Logs => {
+        StreamType::LOGS => {
             let exact = matches!(
                 field_name,
                 EVENT_ID_FIELD
@@ -69,7 +69,7 @@ fn auto_index_type(stream_type: StreamType, field_name: &str) -> StreamIndexType
                 StreamIndexType::None
             }
         }
-        StreamType::Metrics => {
+        StreamType::METRICS => {
             let exact = field_name == crate::domain::metrics::METRIC_NAME_FIELD;
             if exact {
                 StreamIndexType::Exact
@@ -77,7 +77,8 @@ fn auto_index_type(stream_type: StreamType, field_name: &str) -> StreamIndexType
                 StreamIndexType::None
             }
         }
-        StreamType::Profiles | StreamType::Extend => StreamIndexType::None,
+        StreamType::PROFILES | StreamType::EXTEND => StreamIndexType::None,
+        _ => StreamIndexType::None,
     }
 }
 
@@ -166,11 +167,11 @@ mod tests {
     #[test]
     fn log_message_uses_tokenized_index() {
         assert_eq!(
-            auto_index_type(StreamType::Logs, "message"),
+            auto_index_type(StreamType::LOGS, "message"),
             StreamIndexType::FullText
         );
         assert_eq!(
-            auto_index_type(StreamType::Logs, EVENT_ID_FIELD),
+            auto_index_type(StreamType::LOGS, EVENT_ID_FIELD),
             StreamIndexType::Exact
         );
     }

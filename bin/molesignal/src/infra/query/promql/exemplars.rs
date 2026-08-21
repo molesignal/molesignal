@@ -55,10 +55,10 @@ impl PromQLEngine {
 
         'metrics: for (metric, matcher_groups) in selectors {
             let source = self.resolve_metric_source(&req.org_id, &metric).await?;
-            let parquet_file_metas = self
+            let storage = self
                 .metric_files(&req.org_id, &source.stream, req.time_range)
                 .await?;
-            if parquet_file_metas.is_empty() {
+            if storage.files.is_empty() && storage.buffered_batches.is_empty() {
                 continue;
             }
 
@@ -77,19 +77,15 @@ impl PromQLEngine {
             let projection_refs = projection
                 .as_ref()
                 .map(|columns| columns.iter().map(String::as_str).collect::<Vec<_>>());
-            for parquet_file_meta in parquet_file_metas {
+            for query_file in storage.files {
                 let mut options = ReadOptions::new()
                     .with_time_range(req.time_range.start.0, req.time_range.end.0)
-                    .with_known_size(parquet_file_meta.size_bytes);
+                    .with_known_size(query_file.size_bytes);
                 if let Some(columns) = projection_refs.as_deref() {
                     options = options.with_columns(columns);
                 }
                 let batches = reader
-                    .read_from_store(
-                        self.object_store.clone(),
-                        &parquet_file_meta.object_key,
-                        options,
-                    )
+                    .read_from_store(self.object_store.clone(), &query_file.object_key, options)
                     .await?;
                 for batch in batches {
                     if append_batch_exemplars(
@@ -105,6 +101,21 @@ impl PromQLEngine {
                         truncated = true;
                         break 'metrics;
                     }
+                }
+            }
+            for batch in storage.buffered_batches {
+                if append_batch_exemplars(
+                    &batch,
+                    &metric,
+                    source.logical_metric.as_deref(),
+                    &matcher_groups,
+                    req.time_range,
+                    limit,
+                    &mut grouped,
+                    &mut seen,
+                ) {
+                    truncated = true;
+                    break 'metrics;
                 }
             }
         }

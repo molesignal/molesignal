@@ -7,10 +7,11 @@ import {
   SyntheticsFilterBar,
   SyntheticsKpiBand,
   SyntheticsListSurface,
+  StatePill,
 } from './components';
 
-describe('Synthetics cardless surfaces', () => {
-  it('uses one flat canvas with band and divider-based list structure', () => {
+describe('Synthetics surface hierarchy', () => {
+  it('uses a canvas with gutter-separated KPI and list surfaces', () => {
     const { container } = render(
       <SyntheticsCanvas>
         <SyntheticsKpiBand
@@ -32,20 +33,23 @@ describe('Synthetics cardless surfaces', () => {
     expect(canvas?.className).not.toMatch(/rounded|shadow|border/);
 
     const kpis = container.querySelector('[data-synthetics-kpis]');
-    expect(kpis?.className).toContain('border-b');
-    expect(kpis?.className).not.toMatch(/rounded|shadow|gap-/);
-    expect(kpis?.firstElementChild?.className).not.toMatch(/rounded|shadow|border/);
+    expect(kpis?.className).toContain('gap-[12px]');
+    expect(kpis?.className).not.toMatch(/border/);
+    expect(kpis?.firstElementChild?.className).toContain('rounded-md');
+    expect(kpis?.firstElementChild?.className).toContain('shadow-functional-surface');
+    expect(kpis?.firstElementChild?.className).not.toMatch(/\bborder/);
 
     const surface = container.querySelector('[data-synthetics-list-surface]');
-    expect(surface?.className).toContain('border-b');
-    expect(surface?.className).not.toMatch(/rounded|shadow|border-x|border-y/);
+    expect(surface?.className).toContain('rounded-md');
+    expect(surface?.className).toContain('shadow-functional-surface');
+    expect(surface?.className).not.toMatch(/\bborder/);
 
     const filters = container.querySelector('[data-synthetics-filter-bar]');
     expect(filters?.className).toContain('min-h-12');
-    expect(filters?.className).not.toMatch(/rounded|shadow/);
+    expect(filters?.className).not.toMatch(/border|shadow/);
   });
 
-  it('keeps overview KPI and content sections on the flat canvas', () => {
+  it('keeps overview KPI and content sections on the surface canvas', () => {
     const { container } = render(
       <SyntheticsCanvas>
         <SyntheticsKpiBand
@@ -66,7 +70,14 @@ describe('Synthetics cardless surfaces', () => {
     expect(kpis?.children).toHaveLength(6);
 
     const section = container.querySelector('[data-synthetics-section="flat"]');
-    expect(section?.className).toContain('border-b');
-    expect(section?.className).not.toMatch(/rounded|shadow|border-x|border-y/);
+    expect(section?.className).toContain('rounded-md');
+    expect(section?.className).toContain('shadow-functional-surface');
+    expect(section?.className).not.toMatch(/\bborder/);
+  });
+
+  it('renders flaky as a first-class warning state', () => {
+    const { container } = render(<StatePill state="flaky" />);
+
+    expect(container.querySelector('span')?.className).toContain('text-orange-soft');
   });
 });

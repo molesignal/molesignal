@@ -3,7 +3,9 @@
 
 //! PromQL 端到端：写 http_requests_total 系列到本地 parquet → 调 PromQLEngine。
 //!
-//! 无 docker：用 in-mem ParquetFileMetaRepository + local LocalFileSystem object store。
+//! 无 docker：用 in-mem QueryFileSource + local LocalFileSystem object store。
+
+mod common;
 
 use std::{
     collections::HashMap,
@@ -16,11 +18,12 @@ use arrow::{
     datatypes::{DataType, Field, Schema as ArrowSchema, TimeUnit},
 };
 use async_trait::async_trait;
+use common::write_parquet_fixture;
 use molesignal::{
     config::StreamAggCacheSettings,
     domain::{
         query::{PromqlEngine, QueryLanguage, QueryRequest},
-        storage::{ParquetFileMeta, ParquetFileMetaRepository},
+        storage::{QueryFile, QueryFileSource},
         stream::{
             FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamRepository,
             StreamSettings, StreamType,
@@ -38,31 +41,32 @@ use molesignal::{
 };
 use object_store::{ObjectStore, local::LocalFileSystem};
 
-// ---- in-mem ParquetFileMetaRepository ----
+// ---- in-mem QueryFileSource ----
 #[derive(Default)]
-struct InMemParquetFileMeta {
-    inner: StdMutex<HashMap<String, ParquetFileMeta>>,
+struct InMemQueryFile {
+    inner: StdMutex<HashMap<String, QueryFile>>,
     /// `find` 调用计数：增量缓存测试用它证明 run2 跳过了 parquet 扫描。
     finds: std::sync::atomic::AtomicUsize,
 }
-impl InMemParquetFileMeta {
+impl InMemQueryFile {
+    async fn insert(&self, file: QueryFile) -> Result<()> {
+        self.inner.lock().unwrap().insert(file.id.0.clone(), file);
+        Ok(())
+    }
+
     fn find_count(&self) -> usize {
         self.finds.load(std::sync::atomic::Ordering::SeqCst)
     }
 }
 #[async_trait]
-impl ParquetFileMetaRepository for InMemParquetFileMeta {
-    async fn insert(&self, file: ParquetFileMeta) -> Result<()> {
-        self.inner.lock().unwrap().insert(file.id.0.clone(), file);
-        Ok(())
-    }
+impl QueryFileSource for InMemQueryFile {
     async fn find(
         &self,
         org: &Id,
         stream: &str,
         st: StreamType,
         range: TimeRange,
-    ) -> Result<Vec<ParquetFileMeta>> {
+    ) -> Result<Vec<QueryFile>> {
         self.finds.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         Ok(self
             .inner
@@ -70,8 +74,7 @@ impl ParquetFileMetaRepository for InMemParquetFileMeta {
             .unwrap()
             .values()
             .filter(|f| {
-                !f.deleted
-                    && &f.org_id == org
+                &f.org_id == org
                     && f.stream == stream
                     && f.stream_type == st
                     && f.time_range.end.0 >= range.start.0
@@ -79,13 +82,6 @@ impl ParquetFileMetaRepository for InMemParquetFileMeta {
             })
             .cloned()
             .collect())
-    }
-    async fn replace(&self, _: &[Id], _: Vec<ParquetFileMeta>) -> Result<()> {
-        Err(Error::internal("not supported in promql test"))
-    }
-
-    async fn mark_deleted(&self, _ids: &[Id]) -> Result<usize> {
-        Err(Error::internal("not supported in promql test"))
     }
 }
 
@@ -107,7 +103,7 @@ impl StreamRepository for FakeStreams {
         name: &str,
         stream_type: StreamType,
     ) -> Result<StreamDefinition> {
-        if stream_type == StreamType::Metrics && name == "http_requests_total" {
+        if stream_type == StreamType::METRICS && name == "http_requests_total" {
             let mut def = metric_stream();
             def.org_id = org_id.clone();
             Ok(def)
@@ -134,7 +130,7 @@ fn metric_stream() -> StreamDefinition {
         id: Id::new(),
         org_id: Id::from_string("orga"),
         name: "http_requests_total".into(),
-        stream_type: StreamType::Metrics,
+        stream_type: StreamType::METRICS,
         schema: Schema {
             fields: vec![
                 FieldDef {
@@ -213,21 +209,18 @@ async fn rate_and_sum_by_method() {
     let store: Arc<dyn ObjectStore> =
         Arc::new(LocalFileSystem::new_with_prefix(tmp.path()).unwrap());
     let writer = ParquetWriter::new(store.clone());
-    let repo: Arc<InMemParquetFileMeta> = Arc::new(InMemParquetFileMeta::default());
+    let repo: Arc<InMemQueryFile> = Arc::new(InMemQueryFile::default());
     let stream = metric_stream();
 
     // 在 [t0, t0+60s] 内为 method=GET 写 60 个样本（counter 0..59）+ method=POST 写 60 个（counter 0..59）
     let t0: i64 = 1_700_000_000_000_000;
     for (method, code) in &[("GET", "200"), ("POST", "200")] {
         let batch = build_batch(t0, 60, method, code);
-        let meta = writer.flush(&stream, batch).await.unwrap();
+        let meta = write_parquet_fixture(&writer, &stream, batch).await;
         repo.insert(meta).await.unwrap();
     }
 
-    let engine = PromQLEngine::new(
-        repo.clone() as Arc<dyn ParquetFileMetaRepository>,
-        store.clone(),
-    );
+    let engine = PromQLEngine::new(repo.clone() as Arc<dyn QueryFileSource>, store.clone());
 
     // 1) rate(http_requests_total[5m]) — 每秒变化率
     //    序列每个 60s 内 0..59，rate = (59 - 0)/60 ≈ 0.983
@@ -301,21 +294,18 @@ async fn perf_smoke_range_query_over_dense_samples() {
     let store: Arc<dyn ObjectStore> =
         Arc::new(LocalFileSystem::new_with_prefix(tmp.path()).unwrap());
     let writer = ParquetWriter::new(store.clone());
-    let repo: Arc<InMemParquetFileMeta> = Arc::new(InMemParquetFileMeta::default());
+    let repo: Arc<InMemQueryFile> = Arc::new(InMemQueryFile::default());
     let stream = metric_stream();
 
     // 20 个文件 × 60_000 样本 = 1.2M 样本，覆盖 [t0, t0+20min)
     let t0: i64 = 1_700_000_000_000_000;
     for i in 0..20 {
         let batch = build_batch(t0 + i * 60_000_000, 60_000, "GET", "200");
-        let meta = writer.flush(&stream, batch).await.unwrap();
+        let meta = write_parquet_fixture(&writer, &stream, batch).await;
         repo.insert(meta).await.unwrap();
     }
 
-    let engine = PromQLEngine::new(
-        repo.clone() as Arc<dyn ParquetFileMetaRepository>,
-        store.clone(),
-    );
+    let engine = PromQLEngine::new(repo.clone() as Arc<dyn QueryFileSource>, store.clone());
     let req = QueryRequest {
         org_id: stream.org_id.clone(),
         language: QueryLanguage::Promql,
@@ -347,20 +337,17 @@ async fn rate_range_query_is_step_bounded() {
     let store: Arc<dyn ObjectStore> =
         Arc::new(LocalFileSystem::new_with_prefix(tmp.path()).unwrap());
     let writer = ParquetWriter::new(store.clone());
-    let repo: Arc<InMemParquetFileMeta> = Arc::new(InMemParquetFileMeta::default());
+    let repo: Arc<InMemQueryFile> = Arc::new(InMemQueryFile::default());
     let stream = metric_stream();
 
     let t0: i64 = 1_700_000_000_000_000;
     for (method, code) in &[("GET", "200"), ("POST", "200")] {
         let batch = build_batch(t0, 60, method, code);
-        let meta = writer.flush(&stream, batch).await.unwrap();
+        let meta = write_parquet_fixture(&writer, &stream, batch).await;
         repo.insert(meta).await.unwrap();
     }
 
-    let engine = PromQLEngine::new(
-        repo.clone() as Arc<dyn ParquetFileMetaRepository>,
-        store.clone(),
-    );
+    let engine = PromQLEngine::new(repo.clone() as Arc<dyn QueryFileSource>, store.clone());
     let req = QueryRequest {
         org_id: stream.org_id.clone(),
         language: QueryLanguage::Promql,
@@ -424,13 +411,13 @@ fn build_counter_batch(
     .unwrap()
 }
 
-/// `ParquetWriter` 强制单个文件不得跨 UTC 小时边界（tantivy 按小时映射 `.ttv` sidecar），
-/// 因此把 `[data_start, data_end]` 的采样按小时切段、逐段落独立文件，保持序列连续无间隙。
+/// Catalog 的分区策略要求单个 Segment 不跨 UTC 小时边界，因此把
+/// `[data_start, data_end]` 的采样按小时切段、逐段落独立对象，保持序列连续无间隙。
 #[allow(clippy::too_many_arguments)]
 async fn flush_counter_range(
     writer: &ParquetWriter,
     stream: &StreamDefinition,
-    repo: &Arc<InMemParquetFileMeta>,
+    repo: &Arc<InMemQueryFile>,
     data_start: i64,
     data_end: i64,
     sample_step_us: i64,
@@ -443,7 +430,7 @@ async fn flush_counter_range(
         let hour_start = (segment_start / HOUR_US) * HOUR_US;
         let segment_end = (hour_start + HOUR_US - 1).min(data_end);
         let batch = build_counter_batch(segment_start, segment_end, sample_step_us, method, code);
-        let meta = writer.flush(stream, batch).await.unwrap();
+        let meta = write_parquet_fixture(writer, stream, batch).await;
         repo.insert(meta).await.unwrap();
         segment_start = segment_end + sample_step_us;
     }
@@ -452,7 +439,7 @@ async fn flush_counter_range(
 /// range 窗口聚合增量缓存：同一 range 查询连续两次（仪表盘刷新），
 /// 第二次稳定桶全部命中缓存、跳过 parquet 扫描，且结果与无缓存路径逐行一致。
 ///
-/// 数据时间戳取 2023（远早于真实 now），故水位 = `max(parquet_file_meta.end)`（数据驱动），
+/// 数据时间戳取 2023（远早于真实 now），故水位 = `max(query_file.end)`（数据驱动），
 /// 查询窗口内全部桶都「已封存」→ 行为确定，不依赖 wall-clock。
 #[tokio::test]
 async fn streaming_agg_cache_reuses_stable_buckets_across_refresh() {
@@ -460,7 +447,7 @@ async fn streaming_agg_cache_reuses_stable_buckets_across_refresh() {
     let store: Arc<dyn ObjectStore> =
         Arc::new(LocalFileSystem::new_with_prefix(tmp.path()).unwrap());
     let writer = ParquetWriter::new(store.clone());
-    let repo: Arc<InMemParquetFileMeta> = Arc::new(InMemParquetFileMeta::default());
+    let repo: Arc<InMemQueryFile> = Arc::new(InMemQueryFile::default());
     let stream = metric_stream();
 
     // step = span / limit = 60s；start 落在 step 网格上 → 无缓存（start 锚定）与
@@ -498,10 +485,7 @@ async fn streaming_agg_cache_reuses_stable_buckets_across_refresh() {
     };
 
     // 基准：无缓存引擎。
-    let nocache = PromQLEngine::new(
-        repo.clone() as Arc<dyn ParquetFileMetaRepository>,
-        store.clone(),
-    );
+    let nocache = PromQLEngine::new(repo.clone() as Arc<dyn QueryFileSource>, store.clone());
     let res_nocache = nocache.execute(mk_req()).await.expect("nocache query");
     assert!(!res_nocache.rows.is_empty());
 
@@ -514,11 +498,8 @@ async fn streaming_agg_cache_reuses_stable_buckets_across_refresh() {
         safe_lookback_secs: 300,
         max_series_per_query: 0,
     }));
-    let cached = PromQLEngine::new(
-        repo.clone() as Arc<dyn ParquetFileMetaRepository>,
-        store.clone(),
-    )
-    .with_streaming_cache(cache.clone(), Duration::from_secs(300));
+    let cached = PromQLEngine::new(repo.clone() as Arc<dyn QueryFileSource>, store.clone())
+        .with_streaming_cache(cache.clone(), Duration::from_secs(300));
 
     // 刷新 1（冷）：稳定桶全部重算 + 封存。
     let res1 = cached.execute(mk_req()).await.expect("cached run1");
@@ -536,7 +517,7 @@ async fn streaming_agg_cache_reuses_stable_buckets_across_refresh() {
     // 暖查：恰好命中冷查封存的全部桶点，且没有任何稳定桶被重算。
     assert_eq!(h2 - h1, m1, "run2 serves exactly what run1 sealed");
     assert_eq!(m2, m1, "run2 recomputes no stable bucket");
-    // 扫描缩减：run2 比 run1 少 parquet_file_meta find —— load 被跳过，仅剩水位探测。
+    // 扫描缩减：run2 比 run1 少 query_file find —— load 被跳过，仅剩水位探测。
     assert!(
         finds2 < finds1,
         "run2 must issue fewer file finds (scan skipped): {finds2} vs {finds1}"
@@ -561,7 +542,7 @@ async fn streaming_agg_cache_slide_recomputes_only_new_bucket() {
     let store: Arc<dyn ObjectStore> =
         Arc::new(LocalFileSystem::new_with_prefix(tmp.path()).unwrap());
     let writer = ParquetWriter::new(store.clone());
-    let repo: Arc<InMemParquetFileMeta> = Arc::new(InMemParquetFileMeta::default());
+    let repo: Arc<InMemQueryFile> = Arc::new(InMemQueryFile::default());
     let stream = metric_stream();
 
     let step_us: i64 = 60_000_000;
@@ -599,11 +580,8 @@ async fn streaming_agg_cache_slide_recomputes_only_new_bucket() {
         capacity: 64,
         ..Default::default()
     }));
-    let cached = PromQLEngine::new(
-        repo.clone() as Arc<dyn ParquetFileMetaRepository>,
-        store.clone(),
-    )
-    .with_streaming_cache(cache.clone(), Duration::from_secs(300));
+    let cached = PromQLEngine::new(repo.clone() as Arc<dyn QueryFileSource>, store.clone())
+        .with_streaming_cache(cache.clone(), Duration::from_secs(300));
 
     // 刷新 1：窗口 [start, end]。
     let _ = cached.execute(mk_req(start, end)).await.expect("run1");
@@ -628,10 +606,7 @@ async fn streaming_agg_cache_slide_recomputes_only_new_bucket() {
     assert!(h2 > 0, "overlapping buckets served from cache (hits={h2})");
 
     // 与无缓存路径逐行一致（start+step 仍落在 step 网格上）。
-    let nocache = PromQLEngine::new(
-        repo.clone() as Arc<dyn ParquetFileMetaRepository>,
-        store.clone(),
-    );
+    let nocache = PromQLEngine::new(repo.clone() as Arc<dyn QueryFileSource>, store.clone());
     let res_nocache = nocache
         .execute(mk_req(start + step_us, end + step_us))
         .await
@@ -647,14 +622,11 @@ async fn non_queryable_metric_stream_is_rejected() {
     let store: Arc<dyn ObjectStore> =
         Arc::new(LocalFileSystem::new_with_prefix(tmp.path()).unwrap());
     let writer = ParquetWriter::new(store.clone());
-    let repo: Arc<InMemParquetFileMeta> = Arc::new(InMemParquetFileMeta::default());
+    let repo: Arc<InMemQueryFile> = Arc::new(InMemQueryFile::default());
     let stream = metric_stream();
 
     let t0: i64 = 1_700_000_000_000_000;
-    let meta = writer
-        .flush(&stream, build_batch(t0, 60, "GET", "200"))
-        .await
-        .unwrap();
+    let meta = write_parquet_fixture(&writer, &stream, build_batch(t0, 60, "GET", "200")).await;
     repo.insert(meta).await.unwrap();
 
     let mk_req = || QueryRequest {
@@ -668,11 +640,8 @@ async fn non_queryable_metric_stream_is_rejected() {
     };
 
     // queryable = false → Forbidden「not queryable」（与「不存在」区分）。
-    let blocked = PromQLEngine::new(
-        repo.clone() as Arc<dyn ParquetFileMetaRepository>,
-        store.clone(),
-    )
-    .with_streams(Arc::new(FakeStreams { queryable: false }) as Arc<dyn StreamRepository>);
+    let blocked = PromQLEngine::new(repo.clone() as Arc<dyn QueryFileSource>, store.clone())
+        .with_streams(Arc::new(FakeStreams { queryable: false }) as Arc<dyn StreamRepository>);
     let err = blocked
         .execute(mk_req())
         .await
@@ -683,11 +652,8 @@ async fn non_queryable_metric_stream_is_rejected() {
     }
 
     // queryable = true → 照常求值。
-    let allowed = PromQLEngine::new(
-        repo.clone() as Arc<dyn ParquetFileMetaRepository>,
-        store.clone(),
-    )
-    .with_streams(Arc::new(FakeStreams { queryable: true }) as Arc<dyn StreamRepository>);
+    let allowed = PromQLEngine::new(repo.clone() as Arc<dyn QueryFileSource>, store.clone())
+        .with_streams(Arc::new(FakeStreams { queryable: true }) as Arc<dyn StreamRepository>);
     let res = allowed
         .execute(mk_req())
         .await

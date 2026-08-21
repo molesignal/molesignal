@@ -4,14 +4,16 @@
 //! Query engines（infra adapter 层）。
 //!
 //! - [`promql`]：PromQL 引擎。
-//! - [`tantivy_pruner`]：基于 tantivy 倒排索引的 parquet_file_meta 候选裁剪。
-//! - [`skip_pruner`]：基于字段 min/max zone map 的 parquet_file_meta 候选裁剪。
+//! - [`catalog_source`]：Buffer-first + multi-Dataset FileCatalog 一致性快照。
+//! - [`tantivy_pruner`]：基于显式 Tantivy Artifact 的候选裁剪。
+//! - [`skip_pruner`]：基于 Segment 字段 min/max zone map 的候选裁剪。
 //! - [`distributed`]：分布式 SQL 引擎，用 Arrow Flight 调远端 querier do_get。
 //! - [`planner`]：多租户 planner rewrite；当前由 `ensure_stream_in_org` 校验越权。
 //! - [`parser`]：基于 sqlparser AST 的 base table 引用提取（change `sqlparser-join-planner`）。
 //! - [`rewrite`]：query rewrite 框架（org_id 注入等）；当前 passthrough。
 
 pub mod analyzer;
+pub mod catalog_source;
 pub mod distributed;
 pub mod federated;
 pub mod federation_cancel;

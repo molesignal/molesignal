@@ -73,7 +73,7 @@ async fn metric_labels(
     arguments: Value,
 ) -> Result<ToolResult> {
     let args: MetricArgs = parse_args(arguments)?;
-    let stream = require_stream(runtime, &auth.org_id, &args.metric, StreamType::Metrics).await?;
+    let stream = require_stream(runtime, &auth.org_id, &args.metric, StreamType::METRICS).await?;
     let labels = label_names(&stream.schema);
     Ok(ToolResult::json(json!({
         "metric": args.metric,
@@ -98,7 +98,7 @@ async fn metric_series(
     arguments: Value,
 ) -> Result<ToolResult> {
     let args: MetricSeriesArgs = parse_args(arguments)?;
-    let stream = require_stream(runtime, &auth.org_id, &args.metric, StreamType::Metrics).await?;
+    let stream = require_stream(runtime, &auth.org_id, &args.metric, StreamType::METRICS).await?;
     let labels = label_names(&stream.schema);
     let limit = args.limit.unwrap_or(200).clamp(1, 1_000);
     if labels.is_empty() {
@@ -133,7 +133,7 @@ async fn metric_series(
         QueryLanguage::Sql,
         statement,
         time_range(args.time_range)?,
-        Some((&args.metric, StreamType::Metrics)),
+        Some((&args.metric, StreamType::METRICS)),
         limit,
     )
     .await?;

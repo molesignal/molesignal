@@ -28,7 +28,7 @@ fn skip_unless_enabled() -> bool {
 }
 
 #[tokio::test]
-async fn org_and_user_roundtrip() {
+async fn custom_migration_table_and_repository_roundtrip() {
     if skip_unless_enabled() {
         eprintln!("skipped (set MS_RUN_IT=1 to enable)");
         return;
@@ -46,7 +46,25 @@ async fn org_and_user_roundtrip() {
         max_connections: 5,
     })
     .await
-    .expect("connect + migrate");
+    .expect("connect + migrate with custom tracking table");
+
+    let migration_table: Option<String> =
+        sqlx::query_scalar("SELECT to_regclass('_molesignal_schema_meta')::TEXT")
+            .fetch_one(&store.pool)
+            .await
+            .expect("resolve custom migration tracking table");
+    let legacy_migration_table: Option<String> =
+        sqlx::query_scalar("SELECT to_regclass('_sqlx_migrations')::TEXT")
+            .fetch_one(&store.pool)
+            .await
+            .expect("resolve legacy migration tracking table");
+    let migration_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM _molesignal_schema_meta")
+        .fetch_one(&store.pool)
+        .await
+        .expect("count migration records");
+    assert_eq!(migration_table.as_deref(), Some("_molesignal_schema_meta"));
+    assert_eq!(legacy_migration_table, None);
+    assert_eq!(migration_count, 3);
 
     let orgs = PgOrganizationRepository::new(store.pool.clone());
     let users = PgUserRepository::new(store.pool.clone());

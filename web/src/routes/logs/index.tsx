@@ -32,6 +32,7 @@ import * as queryApi from '@/api/query';
 import * as streamsApi from '@/api/streams';
 import type { LogListResponse } from '@/api/web';
 import { widenTimeWindow } from '@/investigation/timeRangeRecovery';
+import { writeClipboardText } from '@/lib/clipboard';
 import {
   type DateFormat,
   formatMicros,
@@ -44,7 +45,6 @@ import type { CodeCompletionItem } from '@/shell/codeEditor/types';
 import { CollapsibleSidePanel, SidePanelSection } from '@/shell/CollapsibleSidePanel';
 import { CopyIconButton } from '@/shell/CopyIconButton';
 import { CursorPagination } from '@/shell/CursorPagination';
-import { PageHeader } from '@/shell/PageHeader';
 import { QueryEditorFrame } from '@/shell/query/EditorFrame';
 import { QueryRecommendations } from '@/shell/query/Recommendations';
 import { QueryRecoveryState } from '@/shell/query/RecoveryState';
@@ -57,6 +57,7 @@ import {
   detectSignalTypeForLabel,
   SignalReference,
 } from '@/shell/SignalReference';
+import { SurfacePageHeader } from '@/shell/SurfaceWorkbench';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -503,22 +504,6 @@ function resolveLogFieldJump(record: Record<string, unknown>, field: string, val
 
 function logRecordJson(record: Record<string, unknown>): string {
   return JSON.stringify(record, null, 2);
-}
-
-async function copyTextToClipboard(textToCopy: string): Promise<void> {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(textToCopy);
-    return;
-  }
-  const textarea = document.createElement('textarea');
-  textarea.value = textToCopy;
-  textarea.setAttribute('readonly', 'true');
-  textarea.style.position = 'fixed';
-  textarea.style.top = '-1000px';
-  document.body.appendChild(textarea);
-  textarea.select();
-  document.execCommand('copy');
-  textarea.remove();
 }
 
 function downloadJsonFile(filename: string, value: unknown): void {
@@ -1164,22 +1149,23 @@ export function Logs() {
   return (
     <div
       data-workspace="logs"
-      className="flex h-[calc(100vh-var(--topbar-h)-var(--contextbar-h,0px))] min-h-0 flex-col overflow-hidden bg-bg-0"
+      className="flex h-[calc(100vh-var(--topbar-h)-var(--contextbar-h,0px))] min-h-0 flex-col overflow-hidden bg-[var(--page-canvas)]"
     >
-      <PageHeader
+      <SurfacePageHeader
         title={t('explore.title')}
         subtitle={t('explore.subtitle')}
-        className="shrink-0"
       />
 
       <QueryWorkbench
+        appearance="surface"
         className="shrink-0"
         toolbar={
           <>
-            <QueryToolbarGroup>
+            <QueryToolbarGroup className="border-0 bg-[var(--control-surface)]">
               <QueryToolbarButton
                 active={mode === MODE_OPTIONS[0].id}
                 tone="indigo"
+                flat
                 onClick={() => setMode(MODE_OPTIONS[0].id)}
                 className="w-9 px-0"
                 aria-label={t(MODE_OPTIONS[0].ariaKey)}
@@ -1194,6 +1180,7 @@ export function Logs() {
               <QueryToolbarButton
                 active={mode === MODE_OPTIONS[1].id}
                 tone="indigo"
+                flat
                 onClick={() => setMode(MODE_OPTIONS[1].id)}
                 className="w-9 px-0"
                 aria-label={t(MODE_OPTIONS[1].ariaKey)}
@@ -1201,12 +1188,16 @@ export function Logs() {
                 <SlidersHorizontal aria-hidden="true" className="h-4 w-4" />
               </QueryToolbarButton>
             </QueryToolbarGroup>
-            <QueryToolbarGroup aria-label={t('explore.toolbar.query_mode_aria')}>
+            <QueryToolbarGroup
+              aria-label={t('explore.toolbar.query_mode_aria')}
+              className="border-0 bg-[var(--control-surface)]"
+            >
               {LOG_QUERY_MODES.map((item) => (
                 <QueryToolbarButton
                   key={item.id}
                   active={queryMode === item.id}
                   tone="indigo"
+                  flat
                   onClick={() => {
                     setQueryMode(item.id);
                     setQueryEditorCollapsed(false);
@@ -1216,12 +1207,17 @@ export function Logs() {
                 </QueryToolbarButton>
               ))}
             </QueryToolbarGroup>
-            <QuerySyntaxHelp mode={queryMode} scope="logs" compact />
+            <QuerySyntaxHelp
+              mode={queryMode}
+              scope="logs"
+              compact
+              className="border-0"
+            />
             {streams.length > 0 ? (
               <Select value={stream} onValueChange={setAutoStream}>
                 <SelectTrigger
                   aria-label={t('explore.left_panel.select_stream_aria')}
-                  className="h-9 w-[220px] rounded-md border-bd-1 bg-bg-1 px-2.5 font-sans text-xs font-strong text-tx-0"
+                  className="h-9 w-[220px] rounded-md border-0 bg-[var(--control-surface)] px-2.5 font-sans text-xs font-strong text-tx-0 shadow-none"
                 >
                   <SelectValue placeholder={t('explore.left_panel.select_stream_placeholder')} />
                 </SelectTrigger>
@@ -1234,14 +1230,14 @@ export function Logs() {
                 </SelectContent>
               </Select>
             ) : (
-              <div className="flex h-9 w-[220px] items-center rounded-md border border-bd-1 bg-bg-1 px-2.5 font-sans text-xs font-strong text-tx-2">
+              <div className="flex h-9 w-[220px] items-center rounded-md bg-[var(--control-surface)] px-2.5 font-sans text-xs font-strong text-tx-2">
                 {streamsQuery.isLoading
                   ? t('explore.left_panel.loading_streams')
                   : t('explore.left_panel.no_streams')}
               </div>
             )}
             <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-              <TimeRangeChip />
+              <TimeRangeChip className="border-0" />
               <ChromeButton
                 variant="primary"
                 onClick={() => void executeQuery()}
@@ -1275,6 +1271,7 @@ export function Logs() {
           expandLabel={t('explore.toolbar.expand_editor')}
           summary={activeQueryText || t('explore.toolbar.empty_query_summary')}
           completionItems={queryMode === 'fields' ? completionItems : sqlFunctions}
+          frameClassName="border-0 bg-[var(--control-surface)] shadow-none"
           minHeight={queryMode === 'sql' ? 220 : 112}
           maxHeight={queryMode === 'sql' ? 420 : 260}
           lineNumbers
@@ -1283,7 +1280,10 @@ export function Logs() {
       </QueryWorkbench>
 
       {/* Body: independent field and result scrollers fill the remaining viewport. */}
-      <div className="flex min-h-0 flex-1 overflow-hidden">
+      <div
+        data-log-workspace-layout="surface-grid"
+        className="flex min-h-0 flex-1 gap-[8px] overflow-hidden bg-[var(--page-canvas)] px-[20px]"
+      >
         <CollapsibleSidePanel
           title={t('explore.left_panel.title')}
           collapsed={fieldPanelCollapsed}
@@ -1294,10 +1294,11 @@ export function Logs() {
           defaultWidth={240}
           resizeLabel={t('explore.left_panel.resize')}
           bodyClassName="flex flex-col"
+          className="rounded-md border-r-0 bg-[var(--functional-surface)]"
           collapseLabel={t('explore.left_panel.collapse')}
           expandLabel={t('explore.left_panel.expand')}
           footer={
-            <div className="flex h-11 items-center justify-between border-t border-bd-0 px-2 font-sans text-xs font-strong text-tx-2">
+            <div className="flex h-11 items-center justify-between px-2 font-sans text-xs font-strong text-tx-2">
               <span className="min-w-0 truncate">
                 {t('explore.left_panel.fields_summary', {
                   shown: filteredFields.length.toLocaleString(),
@@ -1317,7 +1318,7 @@ export function Logs() {
           }
         >
           <div className="px-2 pb-2">
-            <div className="flex h-8 items-center gap-2 rounded-md border border-bd-1 bg-bg-1 px-2.5 font-sans text-xs">
+            <div className="flex h-8 items-center gap-2 rounded-md border-0 bg-[var(--control-surface)] px-2.5 font-sans text-xs">
               <Search className="h-3.5 w-3.5 text-tx-3" />
               <input
                 value={fieldFilter}
@@ -1416,11 +1417,11 @@ export function Logs() {
         <div className="flex min-w-0 flex-1 overflow-hidden">
           <div
             data-workspace-pane="log-results"
-            className="flex min-w-0 flex-1 flex-col overflow-hidden bg-bg-0"
+            className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-md bg-[var(--functional-surface)]"
           >
             <div
               data-log-result-summary
-              className="flex min-h-11 flex-wrap items-center gap-2 border-b border-bd-0 px-4 py-1.5 font-sans text-xs"
+              className="flex min-h-11 flex-wrap items-center gap-2 px-4 py-1.5 font-sans text-xs"
             >
               <span className="h-1.5 w-1.5 rounded-full bg-orange" />
               <span className="font-semibold text-tx-0">
@@ -1494,7 +1495,7 @@ export function Logs() {
               </div>
             </div>
             {showHistogram && (
-              <div className="border-b border-bd-0 bg-bg-1">
+              <div className="bg-[var(--control-surface)]">
                 <TimeSeriesChart
                   className="px-4 py-1"
                   series={[
@@ -1613,6 +1614,7 @@ export function Logs() {
             </div>
             {cursorResults ? (
               <CursorPagination
+                className="border-t-0 bg-transparent"
                 pageSize={logPageSize}
                 pageSizeOptions={LOG_CURSOR_PAGE_SIZE_OPTIONS}
                 hasPrevious={Boolean(logCursorPage?.previous_cursor)}
@@ -1628,6 +1630,7 @@ export function Logs() {
               />
             ) : (
               <ResultPagination
+                className="border-t-0 bg-transparent"
                 page={activeResultPage}
                 pageCount={resultPageCount}
                 pageSize={resultPageSize}
@@ -1659,7 +1662,7 @@ export function Logs() {
               />
               <aside
                 aria-label={t('explore.detail.drawer_aria')}
-                className="fixed bottom-0 right-0 top-topbar z-[60] min-h-0 w-[34vw] min-w-[420px] max-w-[660px] border-l border-bd-1 bg-bg-0 shadow-drawer data-[state=open]:animate-slide-in-right"
+                className="fixed bottom-0 right-0 top-topbar z-[60] min-h-0 w-full max-w-[660px] border-l border-bd-1 bg-bg-0 shadow-drawer data-[state=open]:animate-slide-in-right sm:w-[34vw] sm:min-w-[420px]"
                 data-state="open"
               >
                 <LogDetail
@@ -1854,7 +1857,7 @@ function LogDetail({
   }, []);
 
   const handleCopy = React.useCallback(async () => {
-    await copyTextToClipboard(logRecordJson(fullJson));
+    await writeClipboardText(logRecordJson(fullJson));
     setCopied(true);
     if (copyTimerRef.current !== null) window.clearTimeout(copyTimerRef.current);
     copyTimerRef.current = window.setTimeout(() => setCopied(false), 1400);
@@ -1922,21 +1925,24 @@ function LogDetail({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto p-4">
+      <div data-log-detail-scroll className="min-h-0 min-w-0 flex-1 overflow-auto p-4">
         {tab === 'overview' && (
-          <div className="space-y-4 font-sans text-xs">
-            <section className="rounded-md border border-bd-0 bg-bg-1 p-3">
-              <div className="flex items-center gap-2">
+          <div className="min-w-0 space-y-4 font-sans text-xs">
+            <section className="min-w-0 overflow-hidden rounded-md border border-bd-0 bg-bg-1 p-3">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className={`type-micro rounded px-1.5 py-0.5 font-mono font-semibold ${levelToneClass(level)}`}>
                   {level}
                 </span>
                 <span className="type-micro font-mono text-tx-2">{log.ts}</span>
               </div>
-              <div className="mt-3 text-sm font-semibold leading-6 text-tx-0">
+              <div
+                data-log-detail-message
+                className="mt-3 min-w-0 whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-tx-0 [overflow-wrap:anywhere]"
+              >
                 {message.value || compactRecord(log.raw)}
               </div>
-              <div className="mt-2 flex items-center gap-2 text-tx-2">
-                <span>{source}</span>
+              <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2 text-tx-2">
+                <span className="min-w-0 break-all">{source}</span>
                 {message.field && <span>· {message.field}</span>}
               </div>
             </section>
@@ -2232,7 +2238,7 @@ function KvTable({
                     label={t('explore.detail.copy_value')}
                     icon={Clipboard}
                     onClick={() => {
-                      void copyTextToClipboard(formatLogFieldValue(v)).then(() => {
+                      void writeClipboardText(formatLogFieldValue(v)).then(() => {
                         toast.success(t('explore.detail.copied_value'));
                       });
                     }}

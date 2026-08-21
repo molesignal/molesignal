@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import { AlertFilterTabs, AlertStateBand } from './CardlessSurface';
 
-describe('Alerts cardless surfaces', () => {
+describe('Alerts surface hierarchy', () => {
   it('uses underline tabs instead of a segmented card', () => {
     const { container } = render(
       <AlertFilterTabs
@@ -20,12 +20,12 @@ describe('Alerts cardless surfaces', () => {
     const root = container.querySelector('[data-alert-filter-tabs]');
     expect(root?.className).not.toMatch(/rounded|shadow|border/);
     const active = root?.querySelector('button');
-    expect(active?.className).toContain('border-b-2');
+    expect(active?.className).toContain('border-b-[3px]');
     expect(active?.className).toContain('border-indigo');
     expect(active?.className).not.toMatch(/rounded|shadow/);
   });
 
-  it('renders status content as a flat band', () => {
+  it('renders status content as a borderless tonal surface', () => {
     const { container } = render(
       <AlertStateBand
         icon={ShieldCheck}
@@ -37,6 +37,7 @@ describe('Alerts cardless surfaces', () => {
 
     const band = container.querySelector('[data-alert-state-band]');
     expect(band?.className).toContain('bg-green-dim');
-    expect(band?.className).not.toMatch(/rounded|shadow|border/);
+    expect(band?.className).toContain('rounded-md');
+    expect(band?.className).not.toMatch(/border/);
   });
 });

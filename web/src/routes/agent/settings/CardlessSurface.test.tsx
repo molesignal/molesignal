@@ -7,8 +7,8 @@ import {
   AgentSettingsSection,
 } from './CardlessSurface';
 
-describe('Mole Agent profile cardless surfaces', () => {
-  it('uses a divider-led settings section and flat profile rows', () => {
+describe('Mole Agent profile surfaces', () => {
+  it('uses tonal settings and profile surfaces without divider lines', () => {
     const { container } = render(
       <AgentSettingsSection
         title="Agent profiles"
@@ -23,17 +23,21 @@ describe('Mole Agent profile cardless surfaces', () => {
     );
 
     const section = container.querySelector('[data-agent-settings-section]');
-    expect(section?.className).not.toMatch(/rounded|shadow|border/);
-    expect(section?.querySelector('header')?.className).toContain('border-b');
+    expect(section?.className).toContain('rounded-md');
+    expect(section?.className).toContain('control-surface');
+    expect(section?.className).not.toMatch(/border|shadow/);
+    expect(section?.querySelector('header')?.className).not.toContain('border-b');
 
     const list = container.querySelector('[data-agent-profile-list]');
-    expect(list?.className).toContain('divide-y');
-    expect(list?.className).not.toMatch(/rounded|shadow|border|grid|gap-/);
+    expect(list?.className).toContain('space-y-2');
+    expect(list?.className).not.toMatch(/border|shadow|divide/);
 
     const rows = container.querySelectorAll('[data-agent-profile-row]');
     expect(rows).toHaveLength(2);
     for (const row of rows) {
-      expect(row.className).not.toMatch(/rounded|shadow|border/);
+      expect(row.className).toContain('rounded-md');
+      expect(row.className).toContain('functional-surface');
+      expect(row.className).not.toMatch(/border|shadow/);
     }
   });
 

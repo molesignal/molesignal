@@ -232,9 +232,10 @@ fn resolve(query: PerformanceQuery) -> Result<(TimeRange, usize)> {
 
 fn reader(state: &AppState) -> RumReadModelReader {
     RumReadModelReader::new(
-        state.storage.parquet_file_meta.clone(),
-        state.storage.object_store.clone(),
+        state.storage.catalog_files.clone(),
+        state.storage.read_store.clone(),
     )
+    .with_catalog_source(state.storage.catalog_query.clone())
 }
 
 fn percentile(values: &mut [f64], quantile: f64) -> f64 {

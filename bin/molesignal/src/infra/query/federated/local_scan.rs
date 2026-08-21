@@ -14,10 +14,13 @@ use object_store::ObjectStore;
 use crate::{
     domain::{
         query::{QueryRequest, StreamHint},
-        storage::ParquetFileMetaRepository,
+        storage::QueryFileSource,
         stream::StreamRepository,
     },
-    infra::{query::parquet_table::PrunedParquetTable, storage::parquet::reader::ParquetReader},
+    infra::{
+        query::{catalog_source::CatalogQuerySource, parquet_table::PrunedParquetTable},
+        storage::parquet::reader::ParquetReader,
+    },
     shared::{Error, Result},
 };
 
@@ -27,28 +30,42 @@ use crate::{
     fields(otel.kind = "internal", molesignal.query.stage = "local_scan")
 )]
 pub(super) async fn run(
-    files: &Arc<dyn ParquetFileMetaRepository>,
+    files: &Arc<dyn QueryFileSource>,
     object_store: &Arc<dyn ObjectStore>,
     streams: Option<&Arc<dyn StreamRepository>>,
+    catalog_source: Option<&Arc<CatalogQuerySource>>,
     request: &QueryRequest,
     stream: &StreamHint,
 ) -> Result<Vec<RecordBatch>> {
-    let lookups = crate::domain::storage::logical_query_datasets(stream.stream_type)
-        .iter()
-        .map(|dataset_kind| {
-            files.find_dataset(
-                &request.org_id,
-                &stream.name,
-                stream.stream_type,
-                *dataset_kind,
-                request.time_range,
+    let dataset_types = crate::domain::storage::logical_query_dataset_types(stream.stream_type)?;
+    let (mut metas, buffered_batches) =
+        if let (Some(source), Some(streams)) = (catalog_source, streams) {
+            let definition = streams
+                .get(&request.org_id, &stream.name, stream.stream_type)
+                .await?;
+            let snapshot = source
+                .snapshot_stream(&definition, &dataset_types, request.time_range)
+                .await?;
+            (snapshot.files(), snapshot.buffered_batches())
+        } else {
+            let lookups = dataset_types.into_iter().map(|dataset_type| {
+                files.find_dataset(
+                    &request.org_id,
+                    &stream.name,
+                    stream.stream_type,
+                    dataset_type,
+                    request.time_range,
+                )
+            });
+            (
+                futures::future::try_join_all(lookups)
+                    .await?
+                    .into_iter()
+                    .flatten()
+                    .collect::<Vec<_>>(),
+                Vec::new(),
             )
-        });
-    let mut metas = futures::future::try_join_all(lookups)
-        .await?
-        .into_iter()
-        .flatten()
-        .collect::<Vec<_>>();
+        };
     metas.sort_by(|left, right| {
         right
             .time_range
@@ -56,7 +73,7 @@ pub(super) async fn run(
             .cmp(&left.time_range.end)
             .then_with(|| right.id.0.cmp(&left.id.0))
     });
-    if metas.is_empty() {
+    if metas.is_empty() && buffered_batches.is_empty() {
         return Ok(Vec::new());
     }
 
@@ -67,7 +84,7 @@ pub(super) async fn run(
             .await
         {
             Ok(definition) => crate::infra::storage::arrow_schema::to_arrow(&definition.schema),
-            Err(_) => {
+            Err(_) if !metas.is_empty() => {
                 reader
                     .schema_from_store(
                         object_store.clone(),
@@ -76,8 +93,9 @@ pub(super) async fn run(
                     )
                     .await?
             }
+            Err(error) => return Err(error),
         },
-        None => {
+        None if !metas.is_empty() => {
             reader
                 .schema_from_store(
                     object_store.clone(),
@@ -86,6 +104,7 @@ pub(super) async fn run(
                 )
                 .await?
         }
+        None => buffered_batches[0].schema(),
     };
     let context = SessionContext::new();
     let store_url = ObjectStoreUrl::parse("molesignal://federation-local")
@@ -96,13 +115,10 @@ pub(super) async fn run(
     context
         .register_table(
             TableReference::bare(stream.name.clone()),
-            Arc::new(PrunedParquetTable::new(
-                schema,
-                &metas,
-                store_url,
-                request.time_range,
-                None,
-            )),
+            Arc::new(
+                PrunedParquetTable::new(schema, &metas, store_url, request.time_range, None)
+                    .with_buffered_batches(buffered_batches),
+            ),
         )
         .map_err(|error| Error::internal(format!("federation local register: {error}")))?;
     context

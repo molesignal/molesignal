@@ -411,14 +411,8 @@ fn split_login_username(username: &str) -> (&str, Option<&str>) {
     (username, None)
 }
 
-fn stream_type_schema(st: StreamType) -> &'static str {
-    match st {
-        StreamType::Logs => "logs",
-        StreamType::Metrics => "metrics",
-        StreamType::Traces => "traces",
-        StreamType::Profiles => "profiles",
-        StreamType::Extend => "extend",
-    }
+fn stream_type_schema(stream_type: &StreamType) -> &str {
+    stream_type.external_name()
 }
 
 #[tonic::async_trait]
@@ -647,12 +641,12 @@ impl FlightSqlService for FlightSqlGrpc {
         self.authenticate(&request).await?;
         let mut builder = query.into_builder();
         for st in [
-            StreamType::Logs,
-            StreamType::Metrics,
-            StreamType::Traces,
-            StreamType::Extend,
+            StreamType::LOGS,
+            StreamType::METRICS,
+            StreamType::TRACES,
+            StreamType::EXTEND,
         ] {
-            builder.append(CATALOG, stream_type_schema(st));
+            builder.append(CATALOG, stream_type_schema(&st));
         }
         Ok(batch_stream(builder.build()))
     }
@@ -681,8 +675,8 @@ impl FlightSqlService for FlightSqlGrpc {
             .await
             .map_err(error_to_status)?;
         defs.sort_by(|a, b| {
-            (stream_type_schema(a.stream_type), a.name.as_str())
-                .cmp(&(stream_type_schema(b.stream_type), b.name.as_str()))
+            (stream_type_schema(&a.stream_type), a.name.as_str())
+                .cmp(&(stream_type_schema(&b.stream_type), b.name.as_str()))
         });
         let mut builder = query.into_builder();
         for def in &defs {
@@ -692,7 +686,7 @@ impl FlightSqlService for FlightSqlGrpc {
             builder
                 .append(
                     CATALOG,
-                    stream_type_schema(def.stream_type),
+                    stream_type_schema(&def.stream_type),
                     &def.name,
                     "TABLE",
                     to_arrow(&def.schema).as_ref(),

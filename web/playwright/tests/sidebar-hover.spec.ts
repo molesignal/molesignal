@@ -71,4 +71,24 @@ test.describe('Primary sidebar hover preview', () => {
     await page.waitForTimeout(300);
     await expect(page.getByRole('tooltip')).toHaveCount(0);
   });
+
+  test('does not render the removed recent section from persisted history', async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        'molesignal.sidebar.v1',
+        JSON.stringify({
+          state: { pinned: [], recent: ['service.graph'] },
+          version: 0,
+        }),
+      );
+    });
+    await page.goto('/agent/chat');
+    await page.getByTestId('sidebar-toggle').click();
+
+    const sidebar = page.getByTestId('primary-sidebar');
+    await expect(sidebar).toHaveCSS('width', '240px');
+    await expect(sidebar.getByText('Recent', { exact: true })).toHaveCount(0);
+  });
 });

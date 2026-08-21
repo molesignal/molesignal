@@ -3,6 +3,7 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { InboundMcpOAuthConnection } from '@/api/agent/inboundMcp';
+import { writeClipboardText } from '@/lib/clipboard';
 import { ProductState } from '@/product/states';
 import { Badge } from '@/shell/ui/badge';
 import { Button } from '@/shell/ui/button';
@@ -182,7 +183,7 @@ export function CopyButton({ value }: { value: string }) {
           variant="ghost"
           aria-label={label}
           onClick={async () => {
-            await navigator.clipboard.writeText(value);
+            await writeClipboardText(value);
             setCopied(true);
             window.setTimeout(() => setCopied(false), 1_500);
           }}

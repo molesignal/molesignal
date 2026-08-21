@@ -32,6 +32,7 @@ DEPLOY_DIR   := deploy
 COMPOSE_FILE := $(DEPLOY_DIR)/docker/docker-compose.yaml
 DOCKERFILE   := $(DEPLOY_DIR)/docker/Dockerfile
 DOCKERFILE_WEB := $(DEPLOY_DIR)/docker/Dockerfile.web
+DOCKERFILE_PROBE_AGENT := $(DEPLOY_DIR)/docker/Dockerfile.probe-agent
 
 # --- 版本管理 ---
 # 优先级: 环境变量 VERSION → VERSION 文件 → Git 标签 → Cargo.toml workspace.package.version → 默认值
@@ -73,6 +74,7 @@ RUST_TARGETS := \
 DOCKER_PLATFORMS := linux/amd64,linux/arm64
 DOCKER_IMAGE     ?= molesignal
 DOCKER_IMAGE_WEB ?= molesignal-web
+DOCKER_IMAGE_PROBE_AGENT ?= probe-agent
 DOCKER_TAG       ?= $(VERSION)
 
 # Cargo 通用参数
@@ -154,7 +156,7 @@ OUTPUT_DIR = target/$(TARGET)/release
 .PHONY: run run-debug run-release
 run: run-debug
 
-run-debug: web-build
+run-debug:
 	RELEASE_CHANNEL="$(RELEASE_CHANNEL)" BUILD_ID="$(BUILD_ID)" cargo run $(WORKSPACE_PKGS) $(CARGO_FEATURE_FLAGS) -- --config $(CONFIG_DIR)/config.toml
 
 run-release: web-build
@@ -241,16 +243,22 @@ ci: fmt-check lint test web-typecheck web-lint web-test
 ci-fast: fmt-check lint check-all web-typecheck web-lint
 
 # === Docker ===
-.PHONY: docker-build docker-build-web docker-build-multi docker-push docker-run
+.PHONY: docker-build docker-build-web docker-build-probe-agent docker-build-multi docker-build-probe-agent-multi docker-push docker-run
 docker-build:
 	docker build --build-arg BUILD_ID="$(BUILD_ID)" --build-arg GIT_SHA="$(GIT_SHA)" -f $(DOCKERFILE) -t $(DOCKER_IMAGE):$(DOCKER_TAG) -t $(DOCKER_IMAGE):latest .
 
 docker-build-web:
 	docker build -f $(DOCKERFILE_WEB) -t $(DOCKER_IMAGE_WEB):$(DOCKER_TAG) -t $(DOCKER_IMAGE_WEB):latest .
 
+docker-build-probe-agent:
+	docker build --build-arg BUILD_ID="$(BUILD_ID)" --build-arg GIT_SHA="$(GIT_SHA)" -f $(DOCKERFILE_PROBE_AGENT) -t $(DOCKER_IMAGE_PROBE_AGENT):$(DOCKER_TAG) -t $(DOCKER_IMAGE_PROBE_AGENT):latest .
+
 # 多平台镜像（需 buildx）
 docker-build-multi:
 	docker buildx build --build-arg BUILD_ID="$(BUILD_ID)" --build-arg GIT_SHA="$(GIT_SHA)" --platform $(DOCKER_PLATFORMS) -f $(DOCKERFILE) -t $(DOCKER_IMAGE):$(DOCKER_TAG) --push .
+
+docker-build-probe-agent-multi:
+	docker buildx build --build-arg BUILD_ID="$(BUILD_ID)" --build-arg GIT_SHA="$(GIT_SHA)" --platform $(DOCKER_PLATFORMS) -f $(DOCKERFILE_PROBE_AGENT) -t $(DOCKER_IMAGE_PROBE_AGENT):$(DOCKER_TAG) --push .
 
 docker-push:
 	docker push $(DOCKER_IMAGE):$(DOCKER_TAG)
@@ -386,8 +394,8 @@ help:
 	@echo "  make proto-breaking                  - 检查协议兼容性"
 	@echo ""
 	@echo "Docker:"
-	@echo "  make docker-build / docker-build-web"
-	@echo "  make docker-build-multi (buildx)"
+	@echo "  make docker-build / docker-build-web / docker-build-probe-agent"
+	@echo "  make docker-build-multi / docker-build-probe-agent-multi (buildx)"
 	@echo "  make docker-run"
 	@echo ""
 	@echo "版本:"

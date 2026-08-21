@@ -1,6 +1,7 @@
 import * as React from 'react';
 
 import { cn } from '@/shell/lib/cn';
+import { PageTitleRow } from '@/shell/PageTitleRow';
 
 export function AccountSection({
   title,
@@ -25,20 +26,14 @@ export function AccountSection({
         width === 'table' && 'max-w-[1920px]',
       )}
     >
-      <header className="mb-6 flex min-h-12 items-start gap-4">
-        <div className="min-w-0 flex-1">
-          <h2 className="type-section-title font-sans font-display-strong text-tx-0">
-            {title}
-          </h2>
-          {subtitle && (
-            <p className="mt-1 max-w-2xl font-sans text-xs leading-relaxed text-tx-2">
-              {subtitle}
-            </p>
-          )}
-        </div>
-        {actions && (
-          <div className="flex shrink-0 items-center gap-2">{actions}</div>
-        )}
+      <header className="mb-6 min-h-[var(--page-title-row-h)]">
+        <PageTitleRow
+          title={title}
+          description={subtitle}
+          actions={actions}
+          level={2}
+          size="section"
+        />
       </header>
       {children}
     </section>

@@ -47,6 +47,7 @@ rmcp = { version = "3.0.0", default-features = false, features = [
 # TLS + ACME（change `domain-acme-tls`）：纯 rustls stack，与 reqwest/sqlx 复用根。
 rustls = "0.23"
 rustls-pemfile = "2"
+russh = "0.62.5"
 tokio-rustls = "0.26"
 axum-server = { version = "0.8", features = ["tls-rustls"] }
 instant-acme = "0.8"
@@ -147,6 +148,7 @@ percent-encoding = "2.3"
 ipnet = "2"
 hex = "0.4"
 hostname = "0.4"
+headless_chrome = "1"
 md5 = "0.8"
 sha256 = "1.6"
 argon2 = { version = "0.5", features = ["alloc", "password-hash"] }
@@ -200,7 +202,7 @@ ldap3 = { version = "0.12.1", default-features = false, features = ["tls-rustls-
 cron = "0.16"
 
 # in-process caching & rate limiting
-moka = { version = "0.12", features = ["future"] }
+moka = { version = "0.12", features = ["future", "sync"] }
 governor = "0.10"
 
 # templates / Grafana JSON

@@ -3,10 +3,11 @@
 
 //! Direct scanners for the narrow RUM physical datasets.
 
+mod source;
+
 use std::{collections::HashSet, sync::Arc};
 
-use arrow::array::RecordBatch;
-use futures::{StreamExt, stream};
+use arrow::array::{Array, RecordBatch, TimestampMicrosecondArray};
 use object_store::ObjectStore;
 
 use super::model::{
@@ -15,23 +16,35 @@ use super::model::{
 };
 use crate::{
     domain::{
-        storage::{ParquetFileMeta, ParquetFileMetaRepository, PhysicalDatasetKind},
+        storage::{
+            DatasetTypeId, QueryFile, QueryFileSource, primary_dataset_type, type_id::builtin,
+        },
         stream::StreamType,
     },
-    infra::storage::parquet::reader::{ParquetReader, ReadOptions},
+    infra::{query::catalog_source::CatalogQuerySource, storage::arrow_schema::TS_COL},
     shared::{
-        Error, Result,
+        Result,
         ids::Id,
         time::{TimeRange, TimestampMicros},
     },
 };
 
-const FILE_READ_CONCURRENCY: usize = 16;
-
 #[derive(Clone, Debug)]
 pub(super) struct ScanFile {
-    pub(super) meta: ParquetFileMeta,
+    pub(super) meta: QueryFile,
     pub(super) range: TimeRange,
+}
+
+#[derive(Clone, Debug)]
+pub(in crate::infra::rum::read_model) struct ScanBatch {
+    pub(in crate::infra::rum::read_model) batch: RecordBatch,
+    pub(in crate::infra::rum::read_model) range: TimeRange,
+}
+
+#[derive(Clone, Debug, Default)]
+pub(super) struct ScanInput {
+    pub(super) files: Vec<ScanFile>,
+    pub(in crate::infra::rum::read_model) batches: Vec<ScanBatch>,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -41,19 +54,23 @@ pub struct ScanStats {
 }
 
 pub struct RumReadModelReader {
-    pub(super) files: Arc<dyn ParquetFileMetaRepository>,
+    pub(super) files: Arc<dyn QueryFileSource>,
     pub(super) object_store: Arc<dyn ObjectStore>,
+    catalog_source: Option<Arc<CatalogQuerySource>>,
 }
 
 impl RumReadModelReader {
-    pub fn new(
-        files: Arc<dyn ParquetFileMetaRepository>,
-        object_store: Arc<dyn ObjectStore>,
-    ) -> Self {
+    pub fn new(files: Arc<dyn QueryFileSource>, object_store: Arc<dyn ObjectStore>) -> Self {
         Self {
             files,
             object_store,
+            catalog_source: None,
         }
+    }
+
+    pub fn with_catalog_source(mut self, source: Arc<CatalogQuerySource>) -> Self {
+        self.catalog_source = Some(source);
+        self
     }
 
     pub async fn visit_sessions<F>(
@@ -66,15 +83,15 @@ impl RumReadModelReader {
     where
         F: FnMut(RumSessionRecord),
     {
-        let files = self
+        let input = self
             .source_files(
                 org_id,
                 "rum_sessions",
-                PhysicalDatasetKind::RumSessionSummary,
+                DatasetTypeId::builtin(builtin::DATASET_RUM_SESSION_SUMMARY),
                 range,
             )
             .await?;
-        self.visit_files(files, columns, |batch, scan_range| {
+        self.visit_files(input, columns, |batch, scan_range| {
             for row in 0..batch.num_rows() {
                 if let Some(record) = RumSessionRecord::from_batch(batch, row)
                     && in_range(record.timestamp_micros, scan_range)
@@ -96,15 +113,15 @@ impl RumReadModelReader {
     where
         F: FnMut(RumActionRecord),
     {
-        let files = self
+        let input = self
             .source_files(
                 org_id,
                 "rum_actions",
-                PhysicalDatasetKind::RumActionSummary,
+                DatasetTypeId::builtin(builtin::DATASET_RUM_ACTION_SUMMARY),
                 range,
             )
             .await?;
-        self.visit_files(files, columns, |batch, scan_range| {
+        self.visit_files(input, columns, |batch, scan_range| {
             for row in 0..batch.num_rows() {
                 if let Some(record) = RumActionRecord::from_batch(batch, row)
                     && in_range(record.timestamp_micros, scan_range)
@@ -130,18 +147,18 @@ impl RumReadModelReader {
         if session_ids.is_empty() {
             return Ok(ScanStats::default());
         }
-        let files = self
+        let mut input = self
             .source_files(
                 org_id,
                 "rum_actions",
-                PhysicalDatasetKind::RumActionSummary,
+                DatasetTypeId::builtin(builtin::DATASET_RUM_ACTION_SUMMARY),
                 range,
             )
-            .await?
-            .into_iter()
-            .filter(|file| file_may_contain_session(&file.meta, session_ids))
-            .collect();
-        self.visit_files(files, columns, |batch, scan_range| {
+            .await?;
+        input
+            .files
+            .retain(|file| file_may_contain_session(&file.meta, session_ids));
+        self.visit_files(input, columns, |batch, scan_range| {
             for row in 0..batch.num_rows() {
                 if let Some(record) = RumActionRecord::from_batch(batch, row)
                     && in_range(record.timestamp_micros, scan_range)
@@ -164,13 +181,11 @@ impl RumReadModelReader {
     where
         F: FnMut(RumSessionRecord),
     {
-        let files = self
-            .raw_files(org_id, "rum_sessions", range)
-            .await?
-            .into_iter()
-            .filter(|file| file_may_contain_session(&file.meta, session_ids))
-            .collect();
-        self.visit_files(files, SESSION_COLUMNS, |batch, scan_range| {
+        let mut input = self.raw_files(org_id, "rum_sessions", range).await?;
+        input
+            .files
+            .retain(|file| file_may_contain_session(&file.meta, session_ids));
+        self.visit_files(input, SESSION_COLUMNS, |batch, scan_range| {
             for row in 0..batch.num_rows() {
                 if let Some(record) = RumSessionRecord::from_batch(batch, row)
                     && in_range(record.timestamp_micros, scan_range)
@@ -193,13 +208,11 @@ impl RumReadModelReader {
     where
         F: FnMut(RumActionRecord),
     {
-        let files = self
-            .raw_files(org_id, "rum_actions", range)
-            .await?
-            .into_iter()
-            .filter(|file| file_may_contain_session(&file.meta, session_ids))
-            .collect();
-        self.visit_files(files, ACTION_DETAIL_COLUMNS, |batch, scan_range| {
+        let mut input = self.raw_files(org_id, "rum_actions", range).await?;
+        input
+            .files
+            .retain(|file| file_may_contain_session(&file.meta, session_ids));
+        self.visit_files(input, ACTION_DETAIL_COLUMNS, |batch, scan_range| {
             for row in 0..batch.num_rows() {
                 if let Some(record) = RumActionRecord::from_batch(batch, row)
                     && in_range(record.timestamp_micros, scan_range)
@@ -222,13 +235,11 @@ impl RumReadModelReader {
     where
         F: FnMut(RumErrorRecord),
     {
-        let files = self
-            .raw_files(org_id, "rum_errors", range)
-            .await?
-            .into_iter()
-            .filter(|file| file_may_contain_value(&file.meta, "fingerprint", fingerprint))
-            .collect();
-        self.visit_files(files, ERROR_DETAIL_COLUMNS, |batch, scan_range| {
+        let mut input = self.raw_files(org_id, "rum_errors", range).await?;
+        input
+            .files
+            .retain(|file| file_may_contain_value(&file.meta, "fingerprint", fingerprint));
+        self.visit_files(input, ERROR_DETAIL_COLUMNS, |batch, scan_range| {
             for row in 0..batch.num_rows() {
                 if let Some(record) = RumErrorRecord::from_batch(batch, row)
                     && in_range(record.timestamp_micros, scan_range)
@@ -251,15 +262,15 @@ impl RumReadModelReader {
     where
         F: FnMut(RumErrorRecord),
     {
-        let files = self
+        let input = self
             .source_files(
                 org_id,
                 "rum_errors",
-                PhysicalDatasetKind::RumErrorSummary,
+                DatasetTypeId::builtin(builtin::DATASET_RUM_ERROR_SUMMARY),
                 range,
             )
             .await?;
-        self.visit_files(files, columns, |batch, scan_range| {
+        self.visit_files(input, columns, |batch, scan_range| {
             for row in 0..batch.num_rows() {
                 if let Some(record) = RumErrorRecord::from_batch(batch, row)
                     && in_range(record.timestamp_micros, scan_range)
@@ -275,131 +286,134 @@ impl RumReadModelReader {
         &self,
         org_id: &Id,
         stream: &str,
-        summary_kind: PhysicalDatasetKind,
+        summary_type: DatasetTypeId,
         range: TimeRange,
-    ) -> Result<Vec<ScanFile>> {
-        let (summaries, raw) = tokio::try_join!(
-            self.files
-                .find_dataset(org_id, stream, StreamType::Logs, summary_kind, range,),
-            self.files.find_dataset(
-                org_id,
-                stream,
-                StreamType::Logs,
-                PhysicalDatasetKind::Raw,
-                range,
-            ),
-        )?;
+    ) -> Result<ScanInput> {
+        let raw_type = primary_dataset_type(StreamType::LOGS)?;
+        let (mut summaries, mut raw) = match &self.catalog_source {
+            Some(source) => {
+                let snapshot = source
+                    .snapshot_by_name(
+                        org_id,
+                        stream,
+                        StreamType::LOGS,
+                        &[summary_type.clone(), raw_type.clone()],
+                        range,
+                    )
+                    .await?;
+                (
+                    ScanInput::from_catalog(snapshot.dataset(&summary_type), range),
+                    ScanInput::from_catalog(snapshot.dataset(&raw_type), range),
+                )
+            }
+            None => {
+                let (summaries, raw) = tokio::try_join!(
+                    self.files
+                        .find_dataset(org_id, stream, StreamType::LOGS, summary_type, range,),
+                    self.files
+                        .find_dataset(org_id, stream, StreamType::LOGS, raw_type, range,),
+                )?;
+                (
+                    ScanInput {
+                        files: summaries
+                            .into_iter()
+                            .map(|meta| ScanFile { meta, range })
+                            .collect(),
+                        batches: Vec::new(),
+                    },
+                    ScanInput {
+                        files: raw
+                            .into_iter()
+                            .map(|meta| ScanFile { meta, range })
+                            .collect(),
+                        batches: Vec::new(),
+                    },
+                )
+            }
+        };
         if summaries.is_empty() {
-            return Ok(raw
-                .into_iter()
-                .map(|meta| ScanFile { meta, range })
-                .collect());
+            return Ok(raw);
         }
 
         // A deployment can introduce a new physical projection while older raw files still
         // exist. Read the raw prefix before the first summary row, then use summaries from that
         // exact timestamp onward. This keeps upgrades visible without permanently double-scanning.
         let summary_start = summaries
+            .files
             .iter()
-            .map(|file| file.time_range.start.0)
+            .map(|file| file.meta.time_range.start.0)
+            .chain(
+                summaries
+                    .batches
+                    .iter()
+                    .filter_map(|batch| batch_min_timestamp(&batch.batch)),
+            )
             .min()
             .unwrap_or(range.start.0);
-        let mut files = summaries
-            .into_iter()
-            .map(|meta| ScanFile { meta, range })
-            .collect::<Vec<_>>();
         if summary_start > range.start.0 {
             let prefix = TimeRange::new(range.start, TimestampMicros(summary_start));
-            files.extend(
-                raw.into_iter()
-                    .filter(|file| file.time_range.start.0 < summary_start)
-                    .map(|meta| ScanFile {
-                        meta,
-                        range: prefix,
-                    }),
-            );
+            summaries
+                .files
+                .extend(raw.files.drain(..).filter_map(|mut file| {
+                    (file.meta.time_range.start.0 < summary_start).then(|| {
+                        file.range = prefix;
+                        file
+                    })
+                }));
+            summaries
+                .batches
+                .extend(raw.batches.drain(..).map(|mut batch| {
+                    batch.range = prefix;
+                    batch
+                }));
         }
-        Ok(files)
+        Ok(summaries)
     }
 
-    async fn raw_files(
-        &self,
-        org_id: &Id,
-        stream: &str,
-        range: TimeRange,
-    ) -> Result<Vec<ScanFile>> {
-        Ok(self
-            .files
-            .find_dataset(
-                org_id,
-                stream,
-                StreamType::Logs,
-                PhysicalDatasetKind::Raw,
-                range,
-            )
-            .await?
-            .into_iter()
-            .map(|meta| ScanFile { meta, range })
-            .collect())
-    }
-
-    async fn visit_files<F>(
-        &self,
-        files: Vec<ScanFile>,
-        columns: &[&str],
-        mut visitor: F,
-    ) -> Result<ScanStats>
-    where
-        F: FnMut(&RecordBatch, TimeRange),
-    {
-        let reads = stream::iter(files).map(|file| {
-            let store = self.object_store.clone();
-            async move {
-                let reader = ParquetReader::new(store.clone());
-                let options = ReadOptions::new()
-                    .with_time_range(file.range.start.0, file.range.end.0)
-                    .with_columns(columns)
-                    .with_known_size(file.meta.size_bytes);
-                let result = reader
-                    .read_from_store(store, &file.meta.object_key, options)
-                    .await;
-                (file, result)
+    async fn raw_files(&self, org_id: &Id, stream: &str, range: TimeRange) -> Result<ScanInput> {
+        let raw_type = primary_dataset_type(StreamType::LOGS)?;
+        match &self.catalog_source {
+            Some(source) => {
+                let snapshot = source
+                    .snapshot_by_name(
+                        org_id,
+                        stream,
+                        StreamType::LOGS,
+                        std::slice::from_ref(&raw_type),
+                        range,
+                    )
+                    .await?;
+                Ok(ScanInput::from_catalog(snapshot.dataset(&raw_type), range))
             }
-        });
-        let mut reads = reads.buffer_unordered(FILE_READ_CONCURRENCY);
-        let mut stats = ScanStats::default();
-        while let Some((file, result)) = reads.next().await {
-            let batches = match result {
-                Ok(batches) => batches,
-                Err(Error::NotFound(_)) => {
-                    tracing::warn!(
-                        object_key = %file.meta.object_key,
-                        "RUM read-model parquet is missing"
-                    );
-                    continue;
-                }
-                Err(error) => return Err(error),
-            };
-            stats.files += 1;
-            for batch in batches {
-                stats.rows += batch.num_rows();
-                visitor(&batch, file.range);
-            }
+            None => Ok(ScanInput {
+                files: self
+                    .files
+                    .find_dataset(org_id, stream, StreamType::LOGS, raw_type, range)
+                    .await?
+                    .into_iter()
+                    .map(|meta| ScanFile { meta, range })
+                    .collect(),
+                batches: Vec::new(),
+            }),
         }
-        tracing::debug!(
-            scanned_files = stats.files,
-            scanned_rows = stats.rows,
-            "RUM physical read-model scan completed"
-        );
-        Ok(stats)
     }
+}
+
+fn batch_min_timestamp(batch: &RecordBatch) -> Option<i64> {
+    batch
+        .column_by_name(TS_COL)?
+        .as_any()
+        .downcast_ref::<TimestampMicrosecondArray>()?
+        .iter()
+        .flatten()
+        .min()
 }
 
 fn in_range(timestamp_micros: i64, range: TimeRange) -> bool {
     timestamp_micros >= range.start.0 && timestamp_micros < range.end.0
 }
 
-fn file_may_contain_session(file: &ParquetFileMeta, session_ids: &HashSet<String>) -> bool {
+fn file_may_contain_session(file: &QueryFile, session_ids: &HashSet<String>) -> bool {
     let Some(minimum) = file
         .min_values
         .get("session_id")
@@ -419,7 +433,7 @@ fn file_may_contain_session(file: &ParquetFileMeta, session_ids: &HashSet<String
         .any(|session_id| session_id.as_str() >= minimum && session_id.as_str() <= maximum)
 }
 
-fn file_may_contain_value(file: &ParquetFileMeta, field: &str, value: &str) -> bool {
+fn file_may_contain_value(file: &QueryFile, field: &str, value: &str) -> bool {
     let Some(minimum) = file.min_values.get(field).and_then(|value| value.as_str()) else {
         return true;
     };

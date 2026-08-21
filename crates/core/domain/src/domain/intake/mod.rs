@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    domain::{storage::PhysicalDatasetKind, stream::StreamType},
+    domain::{storage::DatasetTypeId, stream::StreamType},
     shared::{Result, ids::Id, time::TimestampMicros},
 };
 
@@ -53,6 +53,10 @@ pub struct IntakeError {
 pub trait IntakeSink: Send + Sync {
     async fn write(&self, batch: IntakeBatch) -> Result<IntakeResult>;
 
+    fn primary_dataset_type(&self, stream_type: StreamType) -> Result<DatasetTypeId> {
+        crate::domain::storage::primary_dataset_type(stream_type)
+    }
+
     /// 生产 WAL/buffer sink 显式声明支持独立派生数据集。内存与测试 sink 默认关闭，
     /// 避免自动投影改变只验证原始批次的测试语义。
     fn supports_derived_datasets(&self) -> bool {
@@ -60,15 +64,15 @@ pub trait IntakeSink: Send + Sync {
     }
 
     /// 写入内部派生的物理数据集。外部采集入口只调用 [`Self::write`]，因此始终进入
-    /// [`PhysicalDatasetKind::Raw`]；Trace/RUM/指标目录等应用服务可显式写独立摘要。
+    /// 该信号的主 Dataset；Trace/RUM/指标目录等应用服务可显式写独立摘要。
     async fn write_dataset(
         &self,
-        dataset_kind: PhysicalDatasetKind,
+        dataset_type: DatasetTypeId,
         batch: IntakeBatch,
     ) -> Result<IntakeResult> {
-        if dataset_kind != PhysicalDatasetKind::Raw {
+        if dataset_type != self.primary_dataset_type(batch.stream_type)? {
             return Err(crate::shared::Error::invalid(format!(
-                "intake sink does not support physical dataset `{dataset_kind}`"
+                "intake sink does not support physical dataset `{dataset_type}`"
             )));
         }
         self.write(batch).await

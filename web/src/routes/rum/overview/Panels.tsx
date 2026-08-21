@@ -28,7 +28,7 @@ export function ExperienceTrend({
   const { t } = useTranslation('rum');
   const setWindow = useTimeStore((state) => state.setWindow);
   return (
-    <section>
+    <section className="h-full rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)]">
       <RumSectionHeader
         title={t('overview.experience_trend')}
         description={t('overview.experience_trend_description')}
@@ -109,14 +109,14 @@ export function CoreWebVitalsPanel({
     },
   ];
   return (
-    <section>
+    <section className="h-full rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)]">
       <RumSectionHeader
         title={t('overview.core_web_vitals')}
         description={t('overview.core_web_vitals_description')}
       />
-      <div className="grid gap-px bg-bd-0 sm:grid-cols-3">
+      <div className="mt-4 grid gap-[8px] sm:grid-cols-3">
         {items.map((item) => (
-          <div key={item.key} className="bg-bg-0 px-4 py-5">
+          <div key={item.key} className="rounded-md bg-[var(--control-surface)] px-4 py-5">
             <div className="flex items-center justify-between gap-3">
               <span className="text-xs font-strong text-tx-3">
                 {t(`overview.vitals.${item.key}`)} P75
@@ -171,7 +171,7 @@ export function SatisfactionPanel({
     },
   ];
   return (
-    <section>
+    <section className="h-full rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)]">
       <RumSectionHeader
         title={t('overview.satisfaction')}
         description={t('overview.satisfaction_description')}
@@ -207,7 +207,7 @@ export function SlowPagesPanel({ pages }: { pages: OverviewSlowPage[] }) {
   const { t } = useTranslation('rum');
   const max = Math.max(...pages.map((page) => page.p75), 1);
   return (
-    <section>
+    <section className="h-full rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)]">
       <RumSectionHeader
         title={t('overview.slowest_pages')}
         description={t('overview.slowest_pages_description')}
@@ -223,11 +223,11 @@ export function SlowPagesPanel({ pages }: { pages: OverviewSlowPage[] }) {
       {pages.length === 0 ? (
         <EmptyRow label={t('performance.no_page_data')} />
       ) : (
-        <div className="divide-y divide-bd-0">
+        <div className="space-y-1">
           {pages.slice(0, 5).map((page) => (
             <div
               key={page.page}
-              className="grid min-h-[62px] grid-cols-[minmax(0,1fr)_90px_90px] items-center gap-4 py-2.5"
+              className="grid min-h-[62px] grid-cols-[minmax(0,1fr)_90px_90px] items-center gap-4 rounded-md px-2 py-2.5 hover:bg-[var(--control-surface)]"
             >
               <div className="min-w-0">
                 <div className="truncate text-sm font-strong text-tx-0">
@@ -268,7 +268,7 @@ export function FrequentErrorsPanel({
 }) {
   const { t } = useTranslation('rum');
   return (
-    <section>
+    <section className="h-full rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)]">
       <RumSectionHeader
         title={t('overview.frequent_errors')}
         description={t('overview.frequent_errors_description')}
@@ -284,12 +284,12 @@ export function FrequentErrorsPanel({
       {errors.length === 0 ? (
         <EmptyRow label={t('errors.empty_title')} />
       ) : (
-        <div className="divide-y divide-bd-0">
+        <div className="space-y-1">
           {errors.map((error) => (
             <Link
               key={error.fingerprint}
               to={`/rum/errors/view/${encodeURIComponent(error.fingerprint)}`}
-              className="group flex min-h-[62px] items-center gap-3 py-2.5 hover:bg-bg-2 focus-visible:bg-bg-2"
+              className="group flex min-h-[62px] items-center gap-3 rounded-md px-2 py-2.5 hover:bg-[var(--control-surface)] focus-visible:bg-[var(--control-surface)]"
             >
               <AlertTriangle aria-hidden className="h-4 w-4 shrink-0 text-red-soft" />
               <span className="min-w-0 flex-1">
@@ -323,7 +323,7 @@ export function DimensionPanel({
 }) {
   const { t } = useTranslation('rum');
   return (
-    <section>
+    <section className="h-full rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)]">
       <RumSectionHeader title={title} description={description} />
       {rows.length === 0 ? (
         <EmptyRow label={t('performance.no_dimension_data')} />

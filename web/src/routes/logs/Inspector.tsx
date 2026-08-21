@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 
 import * as searchJobsApi from '@/api/searchJobs';
 import { formatMicrosActive } from '@/lib/time';
@@ -34,7 +34,6 @@ export function LogsInspector() {
           variant: 'empty',
           title: t('inspector.pick_title'),
           description: t('inspector.pick_description'),
-          action: <Link to="/logs" className="text-blue-soft hover:underline">{t('inspector.back')}</Link>,
         }
       : state === 'loading'
         ? { variant: 'loading' }
@@ -53,7 +52,6 @@ export function LogsInspector() {
       title={t('inspector.title')}
       subtitle={t('inspector.subtitle')}
       metadata={[
-        { label: t('inspector.back'), value: <Link to="/logs" className="text-blue-soft hover:underline">{t('inspector.back')}</Link> },
         ...(id ? [{ label: t('inspector.fields.job_id'), value: id }] : []),
         ...(data ? [{ label: t('inspector.fields.state'), value: data.state }] : []),
       ]}

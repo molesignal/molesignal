@@ -9,29 +9,32 @@ import {
   type ProductBreadcrumbItem,
 } from '@/product/ia';
 import { cn } from '@/shell/lib/cn';
+import { PageTitleRow } from '@/shell/PageTitleRow';
 
 interface PageHeaderProps {
   title: React.ReactNode;
   subtitle?: string | undefined;
   toolbar?: React.ReactNode | undefined;
   /**
-   * Uses the same single-line title rhythm as observation pages such as
-   * Metrics. Observation routes opt into this automatically through their
-   * module icon; management surfaces can request it explicitly.
+   * Kept for backwards compatibility. Every PageHeader now uses the same
+   * single-line title rhythm, regardless of module or icon.
    */
   compact?: boolean | undefined;
-  /** Optional icon for an explicitly compact management header. */
+  /** Optional icon for a management or custom module header. */
   moduleIcon?: LucideIcon | null | undefined;
+  /** Stable test hook for custom module headers that share this primitive. */
+  moduleIconTestId?: string | undefined;
   /**
-   * Crumbs leading to this page. When omitted, PageHeader auto-derives
-   * from the current route's `breadcrumbs` field in `ia.ts` — pass `null`
-   * to explicitly suppress.
+   * Resource drill-down crumbs leading to this page. When omitted,
+   * PageHeader auto-derives from the current route's `breadcrumbs` field in
+   * `ia.ts`. Same-level module pages should not define crumbs; pass `null` to
+   * explicitly suppress them in a shared tabbed layout.
    */
   breadcrumbs?: readonly ProductBreadcrumbItem[] | null | undefined;
   /**
-   * Optional back link, used on deep routes (e.g. `/dashboards/:id` → back
-   * to `/dashboards`). When omitted, PageHeader auto-derives from
-   * `ia.ts.backTo`. Pass `null` to suppress.
+   * Optional back link for an isolated workspace that has no breadcrumbs.
+   * When omitted, PageHeader auto-derives from `ia.ts.backTo`. Breadcrumbs
+   * always take precedence so both navigation models never render together.
    */
   backTo?: string | null | undefined;
   className?: string | undefined;
@@ -40,14 +43,14 @@ interface PageHeaderProps {
 /**
  * Page header — sits inside <main>, below the global Topbar.
  *
- * Three-band structure (Phase 3 IA spec):
- *   1. Breadcrumb + optional back-link
- *   2. Title (display-strong) + subtitle
- *   3. Right-aligned toolbar (filters / time picker / run button / etc.)
+ * Two-band structure:
+ *   1. Optional resource breadcrumb or isolated-workspace back-link
+ *   2. Fixed-height `Title · Description` row with an optional toolbar
  *
- * Breadcrumbs are sourced from `ia.ts` so a deep route doesn't have to
- * repeat its crumb chain inline. Pass an explicit `breadcrumbs` prop to
- * override; pass `null` to suppress for landing pages.
+ * Breadcrumbs are sourced from `ia.ts` so a deep route doesn't have to repeat
+ * its crumb chain inline. The sidebar already identifies the product module,
+ * so chains deeper than two items omit that first module crumb. A one-item
+ * chain is not navigation and is suppressed.
  */
 export function PageHeader({
   title,
@@ -55,6 +58,7 @@ export function PageHeader({
   toolbar,
   compact = false,
   moduleIcon,
+  moduleIconTestId = 'page-header-module-icon',
   breadcrumbs,
   backTo,
   className,
@@ -77,18 +81,22 @@ export function PageHeader({
     return parentRoute ?? (route?.group === 'observe' ? route : undefined);
   }, [location.pathname, route]);
   const HeaderIcon = moduleIcon === null ? undefined : moduleIcon ?? iconRoute?.icon;
-  const compactLayout = compact || Boolean(HeaderIcon);
+  const compactRequested = compact || Boolean(HeaderIcon);
 
-  // Resolve breadcrumbs: explicit prop > route metadata > none.
-  const resolvedCrumbs: readonly ProductBreadcrumbItem[] | undefined =
-    breadcrumbs === null
-      ? undefined
-      : breadcrumbs ?? route?.breadcrumbs;
+  // Resolve breadcrumbs: explicit prop > route metadata > none. The sidebar
+  // already carries module identity, so a deep chain starts at the first
+  // module-internal level (for example Applications / checkout-web).
+  const sourceCrumbs: readonly ProductBreadcrumbItem[] | undefined =
+    breadcrumbs === null ? undefined : breadcrumbs ?? route?.breadcrumbs;
+  const resolvedCrumbs = visibleBreadcrumbs(sourceCrumbs);
   const resolvedBackTo: string | undefined =
     backTo === null ? undefined : backTo ?? route?.backTo;
 
   const hasCrumbs = (resolvedCrumbs?.length ?? 0) > 0;
-  const hasBack = !!resolvedBackTo;
+  // A breadcrumb and Back link express the same navigation relationship.
+  // Breadcrumbs win; standalone Back remains available to explicit full-screen
+  // workspaces through `breadcrumbs={null}` + `backTo="…"`.
+  const hasBack = !hasCrumbs && !!resolvedBackTo;
   const hasNav = hasCrumbs || hasBack;
 
   // Publish the live header height as a CSS variable so page bodies can size
@@ -116,9 +124,10 @@ export function PageHeader({
     <div
       ref={headerRef}
       data-testid="page-header"
+      data-page-header-layout="inline"
+      data-page-header-compact={compactRequested ? 'true' : 'false'}
       className={cn(
-        'flex flex-col border-b border-bd-0 bg-bg-1 px-6',
-        compactLayout ? 'gap-1.5 py-1.5' : 'gap-2 py-2.5',
+        'flex flex-col gap-1.5 border-b border-bd-0 bg-bg-1 px-6 py-1.5',
         className,
       )}
     >
@@ -138,58 +147,34 @@ export function PageHeader({
               <span className="hidden sm:inline">{t('breadcrumbs.back', { defaultValue: 'Back' })}</span>
             </Link>
           )}
-          {hasBack && hasCrumbs && <span aria-hidden className="h-3 w-px bg-bd-1" />}
           {hasCrumbs && <Breadcrumbs items={resolvedCrumbs!} />}
         </div>
       )}
-      {compactLayout ? (
-        <div className="flex min-w-0 flex-nowrap items-center gap-2">
-          {HeaderIcon && (
+      <PageTitleRow
+        title={title}
+        description={subtitle}
+        leading={
+          HeaderIcon ? (
             <span
               aria-hidden
-              data-testid="page-header-module-icon"
+              data-testid={moduleIconTestId}
               className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-indigo/10 text-indigo"
             >
               <HeaderIcon className="h-3.5 w-3.5" strokeWidth={1.8} />
             </span>
-          )}
-          <div className="flex min-w-0 flex-1 items-baseline gap-2 overflow-hidden whitespace-nowrap">
-            <h1 className="max-w-[45%] shrink-0 truncate type-page-title font-sans font-display-strong tracking-[-0.025em] text-tx-0">
-              {title}
-            </h1>
-            {subtitle && (
-              <>
-                <span aria-hidden className="shrink-0 text-tx-3">
-                  ·
-                </span>
-                <div className="min-w-0 truncate type-caption text-tx-2">
-                  {subtitle}
-                </div>
-              </>
-            )}
-          </div>
-          {toolbar && (
-            <>
-              <span aria-hidden className="h-5 w-px shrink-0 bg-bd-1" />
-              <div className="flex max-w-[60%] shrink-0 items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {toolbar}
-              </div>
-            </>
-          )}
-        </div>
-      ) : (
-        <div className="flex min-w-0 flex-wrap items-center gap-4 xl:flex-nowrap xl:gap-5">
-          <div className="flex min-w-[240px] flex-1 items-center gap-2.5">
-            <div className="min-w-0 flex-1">
-              <h1 className="type-page-title font-sans font-display-strong tracking-[-0.025em] text-tx-0">{title}</h1>
-              {subtitle && <div className="mt-0.5 max-w-3xl truncate type-caption text-tx-2">{subtitle}</div>}
-            </div>
-          </div>
-          {toolbar && <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2">{toolbar}</div>}
-        </div>
-      )}
+          ) : undefined
+        }
+        actions={toolbar}
+      />
     </div>
   );
+}
+
+function visibleBreadcrumbs(
+  items: readonly ProductBreadcrumbItem[] | undefined,
+): readonly ProductBreadcrumbItem[] | undefined {
+  if (!items || items.length < 2) return undefined;
+  return items.length > 2 ? items.slice(1) : items;
 }
 
 function Breadcrumbs({ items }: { items: readonly ProductBreadcrumbItem[] }) {
@@ -245,6 +230,7 @@ interface PageBodyProps {
 export function PageBody({ children, className, padded = true }: PageBodyProps) {
   return (
     <div
+      data-page-body
       className={cn(
         // PageHeader publishes its live height as --pageheader-h (see above);
         // falls back to 0px when a route renders no header, so the body always

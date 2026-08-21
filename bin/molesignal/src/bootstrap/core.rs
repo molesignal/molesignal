@@ -13,11 +13,10 @@ use crate::{
     domain::{
         iam::{IamPlatformAdministratorRepository, Organization},
         license::LicenseVersionRepository,
-        storage::ParquetFileMetaDumpRepository,
         trace_policy::{TraceDebugTokenRepository, TracePolicyRepository},
     },
     infra::{
-        caching::{OrgSchemaCache, ParquetFileMetaDumpCache},
+        caching::OrgSchemaCache,
         cipher::{CipherKeyRepository, CipherRootKey, FieldKeyService, PgCipherKeyRepository},
         masking::MaskingService,
         persistence::{
@@ -39,7 +38,6 @@ use crate::{
                 incidents::PgIncidentRepository,
                 license_versions::PgLicenseVersionRepository,
                 organizations::PgOrganizationRepository,
-                parquet_file_meta::PgParquetFileMetaRepository,
                 password_resets::{PasswordResetRepository, PgPasswordResetRepository},
                 saved_views::PgSavedViewRepository,
                 schedules::PgScheduleRepository,
@@ -51,7 +49,7 @@ use crate::{
         },
         storage::{
             object::{self, production::ProductionObjectStore},
-            parquet_file_meta_dump::reader::ObjectStoreParquetFileMetaDumpReader,
+            object_reader::ObjectReader,
         },
     },
     shared::{Result, drain::DrainController},
@@ -68,6 +66,7 @@ pub(super) struct RolePlan {
 pub(super) struct Core {
     pub(super) pool: sqlx::PgPool,
     pub(super) store: Arc<dyn ObjectStore>,
+    pub(super) object_reader: Arc<ObjectReader>,
     pub(super) orgs: Arc<PgOrganizationRepository>,
     pub(super) system_org: Organization,
     pub(super) users: Arc<PgUserRepository>,
@@ -80,8 +79,6 @@ pub(super) struct Core {
     pub(super) teams: Arc<PgTeamRepository>,
     pub(super) org_schema_cache: Arc<OrgSchemaCache>,
     pub(super) streams: Arc<PgStreamRepository>,
-    pub(super) parquet_file_meta_dump_cache: Arc<ParquetFileMetaDumpCache>,
-    pub(super) parquet_file_meta: Arc<PgParquetFileMetaRepository>,
     pub(super) folders: Arc<PgFolderRepository>,
     pub(super) dashboards: Arc<PgDashboardRepository>,
     pub(super) dashboard_drafts: Arc<PgDashboardDraftRepository>,
@@ -122,6 +119,11 @@ impl Core {
         let store: Arc<dyn ObjectStore> =
             ProductionObjectStore::wrap(raw_store, settings.store.object.clone());
         crate::bootstrap::roles::health_probe::startup_ping(store.as_ref()).await?;
+        let object_reader = ObjectReader::build(
+            store.clone(),
+            &settings.store.object.backend,
+            &settings.cache.object,
+        )?;
 
         let orgs = Arc::new(PgOrganizationRepository::new(pool.clone()));
         let system_org = match orgs.ensure_system_organization().await {
@@ -151,37 +153,6 @@ impl Core {
         let streams = Arc::new(
             PgStreamRepository::new(pool.clone()).with_mutation_observer(org_schema_cache.clone()),
         );
-
-        let parquet_file_meta_dump_repo: Arc<dyn ParquetFileMetaDumpRepository> = Arc::new(
-            crate::infra::persistence::repositories::parquet_file_meta::dump::PgParquetFileMetaDumpRepository::new(
-                pool.clone(),
-            ),
-        );
-        let parquet_file_meta_dump_cache = Arc::new(ParquetFileMetaDumpCache::new(
-            &settings.cache.parquet_file_meta_dump,
-        ));
-        let parquet_file_meta = {
-            let mut repository = PgParquetFileMetaRepository::new(pool.clone());
-            if settings.storage.parquet_file_meta_dump.enabled
-                && settings
-                    .storage
-                    .parquet_file_meta_dump
-                    .max_partitions_per_tick
-                    > 0
-            {
-                repository = repository.with_dump_query(
-                    crate::infra::persistence::repositories::parquet_file_meta::DumpQueryContext {
-                        dump_repo: parquet_file_meta_dump_repo,
-                        dump_reader: Arc::new(ObjectStoreParquetFileMetaDumpReader::new(
-                            store.clone(),
-                        )),
-                        cold_after_days: settings.storage.parquet_file_meta_dump.cold_after_days,
-                        dump_cache: Some(parquet_file_meta_dump_cache.clone()),
-                    },
-                );
-            }
-            Arc::new(repository)
-        };
 
         let folders = Arc::new(PgFolderRepository::new(pool.clone()));
         let dashboards = Arc::new(PgDashboardRepository::new(pool.clone()));
@@ -264,6 +235,7 @@ impl Core {
         Ok(Self {
             pool,
             store,
+            object_reader,
             orgs,
             system_org,
             users,
@@ -276,8 +248,6 @@ impl Core {
             teams,
             org_schema_cache,
             streams,
-            parquet_file_meta_dump_cache,
-            parquet_file_meta,
             folders,
             dashboards,
             dashboard_drafts,

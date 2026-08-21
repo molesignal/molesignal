@@ -2,6 +2,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { writeClipboardText } from '@/lib/clipboard';
 import { IconButton } from '@/shell/chrome';
 import { CopyIconButton } from '@/shell/CopyIconButton';
 import { cn } from '@/shell/lib/cn';
@@ -111,7 +112,7 @@ export function MarkdownCodeBlock({
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(content);
+      await writeClipboardText(content);
       setCopied(true);
       window.clearTimeout(resetTimer.current);
       resetTimer.current = window.setTimeout(() => setCopied(false), 1500);

@@ -270,7 +270,7 @@ async fn archive_metadata_and_retention() {
         id: Id::from_string("arch-ok"),
         chat_id: chat.clone(),
         org_id: org.clone(),
-        object_key: Some("agent/chat/orgA/chat1/transcript.json".into()),
+        object_key: Some("agent/chat/v1/orgA/chat1/transcript.json".into()),
         sha256: Some("deadbeef".into()),
         bytes: 1234,
         status: "ok".into(),
@@ -305,7 +305,7 @@ async fn archive_metadata_and_retention() {
     let keys = repo.delete_older_than(1_500).await.expect("retention");
     assert_eq!(
         keys,
-        vec!["agent/chat/orgA/chat1/transcript.json".to_string()]
+        vec!["agent/chat/v1/orgA/chat1/transcript.json".to_string()]
     );
     let after = repo.list_for_chat(&chat).await.expect("list2");
     assert_eq!(after.len(), 1);

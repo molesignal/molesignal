@@ -12,8 +12,8 @@ use super::{ProcessResultOutcome, SyntheticService};
 use crate::{
     domain::synthetics::{
         AgentCapacity, AgentStatus, BrowserAction, MonitorSpec, ProbeAgent, ProbeCapability,
-        ProbeLocation, ProbeTask, SecretMaterial, SyntheticRepository, SyntheticResult,
-        ValueSource,
+        ProbeLocation, ProbeTask, SecretMaterial, SshAuthentication, SyntheticRepository,
+        SyntheticResult, ValueSource,
     },
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
@@ -54,6 +54,7 @@ pub struct ProbeControlService {
     synthetics: Arc<SyntheticService>,
     authority: Arc<ProbeCertificateAuthority>,
     control_endpoint: String,
+    artifact_base_url: String,
 }
 
 impl ProbeControlService {
@@ -62,12 +63,14 @@ impl ProbeControlService {
         synthetics: Arc<SyntheticService>,
         authority: Arc<ProbeCertificateAuthority>,
         control_endpoint: String,
+        artifact_base_url: String,
     ) -> Self {
         Self {
             repository,
             synthetics,
             authority,
             control_endpoint,
+            artifact_base_url: artifact_base_url.trim().trim_end_matches('/').to_string(),
         }
     }
 
@@ -75,14 +78,17 @@ impl ProbeControlService {
         validate_register(&input)?;
         let now = TimestampMicros::now();
         let token_hash = Sha256::digest(input.register_token.as_bytes()).to_vec();
-        let grant = self.repository.get_register_token(&token_hash, now).await?;
+        let grant = self
+            .repository
+            .get_registration_grant(&token_hash, now)
+            .await?;
         let agent_id = Id::new();
         let issued = self
             .authority
             .issue_agent(&agent_id, &input.public_key_der)?;
         let agent = self
             .repository
-            .consume_register_token(
+            .register_probe(
                 &token_hash,
                 ProbeAgent {
                     id: agent_id,
@@ -200,6 +206,22 @@ impl ProbeControlService {
             .map_err(|_| Error::unauthorized("invalid or expired Probe task lease"))
     }
 
+    pub async fn verify_artifact_lease(
+        &self,
+        task_id: &Id,
+        lease_token: &str,
+    ) -> Result<ProbeTask> {
+        let hash = hex::encode(Sha256::digest(lease_token.as_bytes()));
+        self.repository
+            .get_leased_task_by_token(task_id, &hash, TimestampMicros::now())
+            .await
+            .map_err(|_| Error::unauthorized("invalid or expired Probe Artifact lease"))
+    }
+
+    pub fn artifact_base_url(&self) -> Option<&str> {
+        (!self.artifact_base_url.is_empty()).then_some(self.artifact_base_url.as_str())
+    }
+
     pub async fn process_result(&self, result: SyntheticResult) -> Result<ProcessResultOutcome> {
         self.synthetics.process_result(result).await
     }
@@ -292,6 +314,31 @@ pub(super) fn collect_secret_references(spec: &MonitorSpec) -> Result<BTreeMap<S
             add(&spec.host)?;
             if let Some(send) = &spec.send {
                 add(send)?;
+            }
+        }
+        MonitorSpec::Ssh(spec) => {
+            add(&spec.host)?;
+            if let Some(authentication) = &spec.authentication {
+                match authentication {
+                    SshAuthentication::Password { username, password } => {
+                        add(username)?;
+                        add(password)?;
+                    }
+                    SshAuthentication::PublicKey {
+                        username,
+                        private_key,
+                        passphrase,
+                    } => {
+                        add(username)?;
+                        add(private_key)?;
+                        if let Some(passphrase) = passphrase {
+                            add(passphrase)?;
+                        }
+                    }
+                }
+            }
+            if let Some(command) = &spec.command {
+                add(command)?;
             }
         }
         MonitorSpec::Grpc(spec) => {

@@ -17,7 +17,7 @@ struct StreamFeedback {
     threshold_bytes: usize,
 }
 
-/// 用成功 Parquet 文件的 encoded/raw 比例，为每个 stream 平滑调整下一代 raw 阈值。
+/// 用成功 Parquet 文件的 encoded/raw 比例，为每个 dataset 平滑调整下一代 raw 阈值。
 pub struct AdaptiveRotation {
     enabled: bool,
     target_bytes: usize,
@@ -49,17 +49,23 @@ impl AdaptiveRotation {
             .unwrap_or(self.max_bytes)
     }
 
-    /// 只应在 Parquet 对象与 ParquetFileMeta 均提交成功后调用。
-    pub fn observe(&self, key: &BufferKey, estimated_raw_bytes: usize, encoded_bytes: u64) {
+    /// 只应在 Parquet 对象与 QueryFile 均提交成功后调用。
+    pub fn observe(
+        &self,
+        key: &BufferKey,
+        dataset_type: &str,
+        estimated_raw_bytes: usize,
+        encoded_bytes: u64,
+    ) {
         if estimated_raw_bytes == 0 {
             return;
         }
         let observed_ratio =
             ((encoded_bytes as f64) / (estimated_raw_bytes as f64)).clamp(1.0e-6, 1.0e6);
-        observe_parquet_ratio(key.1.as_str(), observed_ratio);
+        observe_parquet_ratio(dataset_type, observed_ratio);
 
         if !self.enabled {
-            observe_adaptive_target(key.1.as_str(), self.max_bytes as f64);
+            observe_adaptive_target(dataset_type, self.max_bytes as f64);
             return;
         }
         let mut feedback = self.feedback.entry(key.clone()).or_insert(StreamFeedback {
@@ -74,7 +80,7 @@ impl AdaptiveRotation {
             .round()
             .clamp(self.min_bytes as f64, self.max_bytes as f64);
         feedback.threshold_bytes = desired as usize;
-        observe_adaptive_target(key.1.as_str(), desired);
+        observe_adaptive_target(dataset_type, desired);
     }
 }
 
@@ -85,18 +91,10 @@ fn mb_to_bytes(value: u32) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        domain::{storage::PhysicalDatasetKind, stream::StreamType},
-        shared::ids::Id,
-    };
+    use crate::domain::storage::PhysicalDatasetId;
 
     fn key() -> BufferKey {
-        (
-            Id::from_string("org-a"),
-            StreamType::Logs,
-            "app".to_string(),
-            PhysicalDatasetKind::Raw,
-        )
+        PhysicalDatasetId::from_string("dataset-a")
     }
 
     fn settings(enabled: bool, alpha: f64) -> ParquetRotationSettings {
@@ -115,10 +113,20 @@ mod tests {
         let key = key();
         assert_eq!(adaptive.threshold_for(&key), max);
 
-        adaptive.observe(&key, 100 * 1024 * 1024, 100 * 1024 * 1024);
+        adaptive.observe(
+            &key,
+            "builtin.logs.records",
+            100 * 1024 * 1024,
+            100 * 1024 * 1024,
+        );
         assert_eq!(adaptive.threshold_for(&key), 50 * 1024 * 1024);
 
-        adaptive.observe(&key, 100 * 1024 * 1024, 10 * 1024 * 1024);
+        adaptive.observe(
+            &key,
+            "builtin.logs.records",
+            100 * 1024 * 1024,
+            10 * 1024 * 1024,
+        );
         let threshold = adaptive.threshold_for(&key);
         assert!(threshold > 90 * 1024 * 1024);
         assert!(threshold < max);
@@ -129,9 +137,9 @@ mod tests {
         let max = 100 * 1024 * 1024;
         let adaptive = AdaptiveRotation::new(&settings(true, 1.0), max);
         let key = key();
-        adaptive.observe(&key, 100 * 1024 * 1024, 1);
+        adaptive.observe(&key, "builtin.logs.records", 100 * 1024 * 1024, 1);
         assert_eq!(adaptive.threshold_for(&key), max);
-        adaptive.observe(&key, 1, 100 * 1024 * 1024);
+        adaptive.observe(&key, "builtin.logs.records", 1, 100 * 1024 * 1024);
         assert_eq!(adaptive.threshold_for(&key), 10 * 1024 * 1024);
     }
 
@@ -140,7 +148,7 @@ mod tests {
         let max = 100 * 1024 * 1024;
         let adaptive = AdaptiveRotation::new(&settings(false, 1.0), max);
         let key = key();
-        adaptive.observe(&key, max, max as u64);
+        adaptive.observe(&key, "builtin.logs.records", max, max as u64);
         assert_eq!(adaptive.threshold_for(&key), max);
     }
 }

@@ -167,7 +167,7 @@
       "compressed_24h": "24h 压缩数据",
       "current_storage": "当前存储",
       "index_coverage": "索引字段覆盖",
-      "from_parquet_file_meta": "来自实际存储文件元数据",
+      "from_catalog": "来自实际存储文件元数据",
       "average_24h": "按最近 24 小时计算",
       "compressed_note": "压缩后 Parquet 数据",
       "live_parquet": "现存且未删除的文件",

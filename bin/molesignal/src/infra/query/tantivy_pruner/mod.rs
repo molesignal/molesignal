@@ -3,14 +3,16 @@
 
 //! Tantivy 候选裁剪：
 //!
-//! 对每个候选 `ParquetFileMeta`，从 object_store 按规范映射定位同小时的 `.ttv` Puffin sidecar，
-//! 用 [`IndexHandle::count_term`] 查 `(field, term)`。任一谓词命中 0 文档则剔除该 file。
+//! Catalog 查询为每个候选 `QueryFile` 提供显式的 Tantivy Artifact object key，
+//! 再用 [`IndexHandle::count_term`] 查 `(field, term)`。任一谓词命中 0 文档则剔除该 file。
+//! 缺失 Artifact 时保守回退扫描 Primary Parquet；任何调用方都不得从主对象路径
+//! 反推索引对象路径。
 //!
-//! `IndexHandle` 通过 [`ParquetMetaCache`]（容量/TTL 同 `parquet_meta` 层）按 sidecar
-//! object_key 缓存，避免重复下载 + 解归档。
+//! `IndexHandle` 通过 [`IndexHandleCache`]（容量/TTL 同 `index_handle` 层）按 Index
+//! Artifact object key 缓存，避免重复下载 + 解归档。
 
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     ops::ControlFlow,
     sync::{Arc, OnceLock},
 };
@@ -28,13 +30,15 @@ use sqlparser::{
 };
 
 use crate::{
-    domain::storage::ParquetFileMeta,
+    domain::storage::QueryFile,
     infra::{
-        caching::{ParquetMetaCache, TantivyFooterCache, TantivyResultCache, TantivyResultKey},
-        search::tantivy_index::{IndexHandle, TantivyArchive, TantivyArchiveOpener},
+        caching::{IndexHandleCache, TantivyFooterCache, TantivyResultCache, TantivyResultKey},
+        search::tantivy_index::{IndexHandle, TantivyArchiveOpener},
     },
     shared::metrics::register_int_counter,
 };
+
+mod index_source;
 
 /// 单个 MATCH 谓词：`MATCH(<field>, '<term>')`。
 #[derive(Debug, Clone)]
@@ -56,7 +60,7 @@ fn pruned_counter() -> &'static IntCounter {
 }
 
 pub struct TantivyPruner {
-    cache: Arc<ParquetMetaCache<Arc<IndexHandle>>>,
+    cache: Arc<IndexHandleCache<Arc<IndexHandle>>>,
     object_store: Arc<dyn ObjectStore>,
     /// `(index_object_key, field, term) → count`：命中时跳过 `IndexHandle::count_term`。
     /// 默认 `None`（向后兼容老 wire），bootstrap 通过 [`Self::with_result_cache`] 注入。
@@ -68,7 +72,7 @@ pub struct TantivyPruner {
 
 impl TantivyPruner {
     pub fn new(
-        cache: Arc<ParquetMetaCache<Arc<IndexHandle>>>,
+        cache: Arc<IndexHandleCache<Arc<IndexHandle>>>,
         object_store: Arc<dyn ObjectStore>,
     ) -> Self {
         Self {
@@ -89,13 +93,14 @@ impl TantivyPruner {
         self
     }
 
-    /// 按 `predicates` 裁剪：保留至少有一个 doc 命中**所有**谓词的 file。
-    /// 谓词为空 → 全部保留。
-    pub async fn prune(
+    /// Index object keys come exclusively from explicit Artifact relationships. Absence or an
+    /// unusable Artifact conservatively keeps the Primary file.
+    pub async fn prune_with_index_keys(
         &self,
-        candidates: Vec<ParquetFileMeta>,
+        candidates: Vec<QueryFile>,
         predicates: &[MatchPredicate],
-    ) -> anyhow::Result<Vec<ParquetFileMeta>> {
+        index_keys: &HashMap<String, String>,
+    ) -> anyhow::Result<Vec<QueryFile>> {
         if predicates.is_empty() {
             return Ok(candidates);
         }
@@ -104,7 +109,10 @@ impl TantivyPruner {
         // 顺序，避免破坏“最新文件优先”的后续扫描约定。
         let mut decisions = stream::iter(candidates.into_iter().enumerate())
             .map(|(index, file)| async move {
-                let keep = self.candidate_matches(&file, predicates).await?;
+                let keep = match index_source::key_for(index_keys, &file) {
+                    Some(index_key) => self.candidate_matches(predicates, index_key).await?,
+                    None => true,
+                };
                 Ok::<_, anyhow::Error>((index, file, keep))
             })
             .buffer_unordered(PRUNE_CONCURRENCY)
@@ -129,19 +137,15 @@ impl TantivyPruner {
 
     async fn candidate_matches(
         &self,
-        file: &ParquetFileMeta,
         predicates: &[MatchPredicate],
+        index_object_key: &str,
     ) -> anyhow::Result<bool> {
-        // 不规范 key 没有可定位的 sidecar，保守保留交给 Parquet 过滤。
-        let Some(index_object_key) = TantivyArchive::key_for(&file.object_key) else {
-            return Ok(true);
-        };
-        let handle = match self.load_handle(&index_object_key).await {
+        let handle = match self.load_handle(index_object_key).await {
             Ok(Some(handle)) => handle,
             Ok(None) => return Ok(true),
             Err(error) => {
                 tracing::warn!(
-                    archive = %index_object_key,
+                    archive = index_object_key,
                     %error,
                     "tantivy archive load failed; keeping file as candidate"
                 );
@@ -151,7 +155,7 @@ impl TantivyPruner {
 
         for predicate in predicates {
             let key = TantivyResultKey::new(
-                index_object_key.as_str(),
+                index_object_key,
                 predicate.field.as_str(),
                 predicate.term.as_str(),
             );
@@ -174,7 +178,7 @@ impl TantivyPruner {
                         }
                         count
                     }
-                    // 字段不在该 sidecar schema 中时不能证明文件不命中。
+                    // 字段不在该 Index Artifact schema 中时不能证明文件不命中。
                     Err(_) => return Ok(true),
                 },
             };
@@ -196,7 +200,7 @@ impl TantivyPruner {
     /// 2. miss → `object_store.head(key)` 取 size → `open_from_object_store(...)`
     ///    →（成功）把 footer（含 object_size）写回 cache 供下次短路。
     ///
-    /// change `tantivy-puffin-migration`：不再下载整 archive bytes，全程 range read。
+    /// Archive content is never downloaded as a whole; all blob access uses range reads.
     async fn load_handle(
         &self,
         index_object_key: &str,

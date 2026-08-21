@@ -10,7 +10,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    domain::masking::FieldMaskingOverride,
+    domain::{masking::FieldMaskingOverride, storage::StreamTypeId},
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
@@ -42,38 +42,9 @@ pub fn validate_stream_name(name: &str) -> Result<()> {
     Ok(())
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum StreamType {
-    Logs,
-    Metrics,
-    Traces,
-    /// Continuous Profiling（持续性能分析）：一组带权调用栈样本。
-    /// 归一化后原始 pprof 旁路 zstd 归档到 object store，元数据行进本流；
-    /// 不作为 pipeline target（栈语义不适合通用 transform）。
-    Profiles,
-    /// extend table（静态 KV）。
-    /// 不参与 parquet 落盘 + 不能作为 pipeline target；
-    /// intake 把行内容直接 fan-out 到 [`crate::domain::stream`] 外的内存表（infra: `ExtendTable`）。
-    Extend,
-}
-
-impl StreamType {
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            StreamType::Logs => "logs",
-            StreamType::Metrics => "metrics",
-            StreamType::Traces => "traces",
-            StreamType::Profiles => "profiles",
-            StreamType::Extend => "extend",
-        }
-    }
-
-    /// extend stream 禁止作为 pipeline target。
-    pub fn allowed_as_pipeline_target(self) -> bool {
-        !matches!(self, StreamType::Extend | StreamType::Profiles)
-    }
-}
+/// Public domain name retained for API readability; the underlying type is the open,
+/// namespaced [`StreamTypeId`], not a closed enum.
+pub type StreamType = StreamTypeId;
 
 /// Receives committed stream mutations so runtime projections can invalidate stale state.
 pub trait StreamMutationObserver: Send + Sync {

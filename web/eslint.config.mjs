@@ -89,6 +89,15 @@ export default [
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
+      'no-restricted-properties': [
+        'error',
+        {
+          object: 'navigator',
+          property: 'clipboard',
+          message:
+            'Use writeClipboardText from @/lib/clipboard so copying also works on plain HTTP.',
+        },
+      ],
       'import/order': [
         'error',
         {
@@ -125,6 +134,12 @@ export default [
       'no-restricted-imports': 'off',
     },
   },
+  {
+    files: ['src/lib/clipboard.ts'],
+    rules: {
+      'no-restricted-properties': 'off',
+    },
+  },
   // Tests / scripts loosened
   {
     files: ['**/*.test.{ts,tsx}', 'playwright/**/*.ts', 'scripts/**/*.ts'],
@@ -136,6 +151,7 @@ export default [
       // fixture lifecycle callback (not a React hook).
       'no-empty-pattern': 'off',
       'react-hooks/rules-of-hooks': 'off',
+      'no-restricted-properties': 'off',
     },
   },
   {

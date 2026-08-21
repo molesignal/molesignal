@@ -1,5 +1,6 @@
 import * as React from 'react';
 
+import { writeClipboardText } from '@/lib/clipboard';
 import { CopyIconButton } from '@/shell/CopyIconButton';
 import { cn } from '@/shell/lib/cn';
 
@@ -207,9 +208,9 @@ export function CopyableValue({
   );
 
   const copy = React.useCallback(async () => {
-    if (!value || value === '—' || !navigator.clipboard?.writeText) return;
+    if (!value || value === '—') return;
     try {
-      await navigator.clipboard.writeText(value);
+      await writeClipboardText(value);
     } catch {
       return;
     }

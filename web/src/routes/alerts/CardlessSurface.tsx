@@ -25,7 +25,7 @@ export function AlertFilterTabs<T extends string>({
           type="button"
           onClick={() => onChange(option.value)}
           className={cn(
-            'inline-flex h-10 shrink-0 items-center border-b-2 px-3 font-sans text-xs font-strong transition-colors duration-fast',
+            'inline-flex h-10 shrink-0 items-center border-b-[3px] px-3 font-sans text-xs font-strong transition-colors duration-fast',
             value === option.value
               ? 'border-indigo text-tx-0'
               : 'border-transparent text-tx-2 hover:bg-bg-2 hover:text-tx-0 focus-visible:bg-bg-2 focus-visible:text-tx-0',
@@ -61,7 +61,7 @@ export function AlertStateBand({
     <section
       data-alert-state-band
       className={cn(
-        'flex min-h-[160px] flex-col gap-4 bg-transparent px-4 py-6',
+        'flex min-h-[160px] flex-col gap-4 rounded-md bg-[var(--control-surface)] px-4 py-6',
         centered ? 'items-center justify-center text-center' : 'items-start justify-center',
         tone === 'success'
           && 'min-h-[96px] bg-green-dim sm:flex-row sm:items-center sm:text-left',

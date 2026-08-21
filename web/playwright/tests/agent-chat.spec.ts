@@ -31,6 +31,63 @@ test.describe('Mole Agent operations workspace', () => {
     await expect(page.getByText('Agent status')).toHaveCount(0);
     await expect(page.getByText('System health')).toHaveCount(0);
     await expect(page.getByText('Current context')).toHaveCount(0);
+
+    const workspace = page.locator('[data-agent-chat-workspace]');
+    const history = page.getByTestId('conversation-history');
+    const conversation = page.getByTestId('conversation-workspace');
+    const context = page.getByTestId('conversation-context');
+    const workspaceAppearance = await workspace.evaluate((element) => {
+      const styles = getComputedStyle(element);
+      const colorProbe = document.createElement('span');
+      colorProbe.style.color = styles.getPropertyValue('--page-canvas').trim();
+      return {
+        gap: styles.columnGap,
+        background: styles.backgroundColor,
+        canvas: colorProbe.style.color,
+      };
+    });
+    expect(workspaceAppearance.gap).toBe('8px');
+    expect(workspaceAppearance.background).toBe(workspaceAppearance.canvas);
+
+    for (const pane of [history, conversation, context]) {
+      const appearance = await pane.evaluate((element) => {
+        const styles = getComputedStyle(element);
+        return {
+          borderLeft: styles.borderLeftWidth,
+          borderRight: styles.borderRightWidth,
+          radius: styles.borderRadius,
+        };
+      });
+      expect(appearance.borderLeft).toBe('0px');
+      expect(appearance.borderRight).toBe('0px');
+      expect(appearance.radius).not.toBe('0px');
+    }
+
+    const [historyBackground, conversationBackground, contextBackground] =
+      await Promise.all(
+        [history, conversation, context].map((pane) =>
+          pane.evaluate((element) => getComputedStyle(element).backgroundColor),
+        ),
+      );
+    expect(historyBackground).toBe(contextBackground);
+    expect(historyBackground).not.toBe(conversationBackground);
+
+    const contextSections = context.locator('[data-agent-context-section]');
+    await expect(contextSections).toHaveCount(2);
+    for (const section of await contextSections.all()) {
+      await expect(section).not.toHaveClass(/border/);
+    }
+    for (const link of await context.locator('[data-agent-context-link]').all()) {
+      await expect(link).not.toHaveClass(/border/);
+    }
+
+    const quickActions = page.getByTestId('agent-quick-actions');
+    await expect(quickActions).toHaveClass(/divide-y/);
+    const quickActionBorders = await quickActions.evaluate((element) => {
+      const styles = getComputedStyle(element);
+      return [styles.borderTopWidth, styles.borderBottomWidth];
+    });
+    expect(quickActionBorders).toEqual(['1px', '1px']);
     await expect(page.getByRole('combobox', { name: 'Time' })).toContainText(
       'Last 1h',
     );
@@ -44,6 +101,22 @@ test.describe('Mole Agent operations workspace', () => {
     await expect(page.getByRole('combobox', { name: 'Prompt' })).toHaveCount(0);
 
     const composerShell = page.getByTestId('composer-shell');
+    const composerAppearance = await composerShell.evaluate((element) => {
+      const styles = getComputedStyle(element);
+      const colorProbe = document.createElement('span');
+      colorProbe.style.color = styles
+        .getPropertyValue('--control-surface')
+        .trim();
+      return {
+        borderTop: styles.borderTopWidth,
+        background: styles.backgroundColor,
+        controlSurface: colorProbe.style.color,
+      };
+    });
+    expect(composerAppearance.borderTop).toBe('0px');
+    expect(composerAppearance.background).toBe(
+      composerAppearance.controlSurface,
+    );
     const compactComposerBox = await composerShell.boundingBox();
     expect(compactComposerBox?.height).toBeLessThanOrEqual(100);
     const composer = page.getByLabel(
@@ -200,7 +273,7 @@ test.describe('Mole Agent operations workspace', () => {
     ).toBeLessThan(2);
 
     await investigationSummary.click();
-    await expect(page.getByText('Check available data')).toBeVisible();
+    await expect(page.getByText('List streams', { exact: true })).toBeVisible();
     await expect(page.getByText('list_streams')).not.toBeVisible();
     await page.getByText('Technical detail').click();
     await expect(page.getByText('list_streams')).toBeVisible();
@@ -302,7 +375,8 @@ test.describe('Mole Agent operations workspace', () => {
       .locator('a[href="/alerts/incidents"]');
 
     await expect(activeTab).toHaveClass(/rounded-md/);
-    await expect(activeTab).toHaveClass(/bg-bg-2/);
+    await expect(activeTab).toHaveClass(/bg-transparent/);
+    await expect(activeTab).toHaveClass(/after:bg-indigo/);
     await expect(activeTab).not.toHaveClass(/border-b-2/);
   });
 

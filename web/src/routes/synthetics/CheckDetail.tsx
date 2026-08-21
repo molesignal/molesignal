@@ -16,6 +16,10 @@ import { toApiError } from '@/lib/http';
 import { hasPermission, useProductAccess } from '@/product/access';
 import { ChromeButton } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
+import {
+  surfaceModuleNavigationActiveClass,
+  surfaceModuleNavigationItemClass,
+} from '@/shell/SurfaceWorkbench';
 import { toast } from '@/shell/ui/sonner';
 
 import { KindLabel, Section, StatePill, SyntheticsPage, WorkspaceBoundary } from './components';
@@ -202,7 +206,7 @@ export function CheckDetail() {
 
 function DetailNavigation({ monitorId, currentTab }: { monitorId: string; currentTab: (typeof DETAIL_TABS)[number] }) {
   const { t } = useTranslation('synthetics');
-  return <nav aria-label={t('navigation_label')} className="-mx-6 flex min-w-0 gap-1 overflow-x-auto border-b border-bd-0 bg-bg-1 px-6"><Link to="/synthetics/checks" className="mr-2 inline-flex h-11 items-center text-xs font-strong text-tx-2 hover:text-tx-0">← {t('checks.title')}</Link>{DETAIL_TABS.map((tab) => <NavLink key={tab} to={`/synthetics/checks/${monitorId}${tab === 'overview' ? '' : `/${tab}`}`} className={cn('inline-flex h-11 shrink-0 items-center border-b-2 px-3 text-xs font-strong', currentTab === tab ? 'border-indigo text-tx-0' : 'border-transparent text-tx-2 hover:text-tx-0')}>{t(`detail.${tab}`)}</NavLink>)}</nav>;
+  return <nav aria-label={t('navigation_label')} className="flex min-h-11 min-w-0 gap-5 overflow-x-auto rounded-md bg-[var(--functional-surface)] px-3 [box-shadow:var(--shadow-functional-surface)]">{DETAIL_TABS.map((tab) => <NavLink key={tab} to={`/synthetics/checks/${monitorId}${tab === 'overview' ? '' : `/${tab}`}`} className={cn(surfaceModuleNavigationItemClass, 'text-xs', currentTab === tab && surfaceModuleNavigationActiveClass)}>{t(`detail.${tab}`)}</NavLink>)}</nav>;
 }
 
 function OverviewTab({ monitor, revision, results, locations, locale }: { monitor: SyntheticMonitor; revision: MonitorRevision; results: SyntheticResult[]; locations: ProbeLocation[]; locale: string }) {
@@ -217,7 +221,59 @@ function OverviewTab({ monitor, revision, results, locations, locale }: { monito
 
 function ConfigurationTab({ revision, locations }: { revision: MonitorRevision; locations: ProbeLocation[] }) {
   const { t } = useTranslation('synthetics');
-  return <div className="space-y-5 pt-5"><MetadataStrip items={[{ label: t('checks.columns.type'), value: <KindLabel kind={revision.spec.kind} /> }, { label: t('checks.columns.target'), value: monitorTarget(revision.spec) }, { label: t('checks.columns.interval'), value: scheduleText(revision.schedule) }, { label: t('editor.timeout'), value: `${revision.timeout_millis} ms` }]} /><div className="grid gap-5 xl:grid-cols-2"><Section title={t('editor.locations')}><div className="flex flex-wrap gap-2 p-4">{revision.location_ids.map((id) => <span key={id} className="rounded-full border border-bd-0 bg-bg-2 px-2.5 py-1 text-xs text-tx-1">{locations.find((location) => location.id === id)?.name ?? id}</span>)}</div></Section><Section title={t('editor.schedule')}><dl className="grid grid-cols-2 gap-3 p-4 text-xs"><dt className="text-tx-3">{t('editor.retries')}</dt><dd className="text-right text-tx-1">{revision.max_retries}</dd><dt className="text-tx-3">{t('editor.failure_threshold')}</dt><dd className="text-right text-tx-1">{revision.consecutive_failures}</dd><dt className="text-tx-3">{t('editor.recovery_threshold')}</dt><dd className="text-right text-tx-1">{revision.consecutive_recoveries}</dd><dt className="text-tx-3">{t('editor.alert_on_degraded')}</dt><dd className="text-right text-tx-1">{t(revision.alert_on_degraded ? 'common.yes' : 'common.no')}</dd></dl></Section></div><Section title={t('detail.configuration')}><pre className="max-h-[420px] overflow-auto p-4 font-code text-xs leading-relaxed text-tx-1">{JSON.stringify('configuration' in revision.spec ? revision.spec.configuration : revision.spec, null, 2)}</pre></Section></div>;
+  return (
+    <div className="space-y-5 pt-5">
+      <MetadataStrip
+        items={[
+          { label: t('checks.columns.type'), value: <KindLabel kind={revision.spec.kind} /> },
+          { label: t('checks.columns.target'), value: monitorTarget(revision.spec) },
+          { label: t('checks.columns.interval'), value: scheduleText(revision.schedule) },
+          { label: t('editor.timeout'), value: `${revision.timeout_millis} ms` },
+        ]}
+      />
+      <div className="grid gap-5 xl:grid-cols-2">
+        <Section title={t('editor.locations')}>
+          <div className="flex flex-wrap gap-2 p-4">
+            {revision.location_ids.map((id) => (
+              <span
+                key={id}
+                className="rounded-full border border-bd-0 bg-bg-2 px-2.5 py-1 text-xs text-tx-1"
+              >
+                {locations.find((location) => location.id === id)?.name ?? id}
+              </span>
+            ))}
+          </div>
+        </Section>
+        <Section title={t('editor.schedule')}>
+          <dl className="grid grid-cols-2 gap-3 p-4 text-xs">
+            <dt className="text-tx-3">{t('editor.retries')}</dt>
+            <dd className="text-right text-tx-1">{revision.max_retries}</dd>
+            <dt className="text-tx-3">{t('editor.failure_threshold')}</dt>
+            <dd className="text-right text-tx-1">{revision.consecutive_failures}</dd>
+            <dt className="text-tx-3">{t('editor.recovery_threshold')}</dt>
+            <dd className="text-right text-tx-1">{revision.consecutive_recoveries}</dd>
+            <dt className="text-tx-3">{t('editor.alert_on_degraded')}</dt>
+            <dd className="text-right text-tx-1">
+              {t(revision.alert_on_degraded ? 'common.yes' : 'common.no')}
+            </dd>
+            <dt className="text-tx-3">{t('editor.alert_on_flaky')}</dt>
+            <dd className="text-right text-tx-1">
+              {t(revision.alert_on_flaky ? 'common.yes' : 'common.no')}
+            </dd>
+          </dl>
+        </Section>
+      </div>
+      <Section title={t('detail.configuration')}>
+        <pre className="max-h-[420px] overflow-auto p-4 font-code text-xs leading-relaxed text-tx-1">
+          {JSON.stringify(
+            'configuration' in revision.spec ? revision.spec.configuration : revision.spec,
+            null,
+            2,
+          )}
+        </pre>
+      </Section>
+    </div>
+  );
 }
 
 function RevisionsTab({ revisions, activeId, draftId, locale }: { revisions: MonitorRevision[]; activeId: string | undefined; draftId: string | undefined; locale: string }) {

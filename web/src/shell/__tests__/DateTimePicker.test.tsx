@@ -61,6 +61,19 @@ describe.sequential('DateTimePicker', () => {
     ).toContain('text-tx-0');
     expect(screen.getByText('2026年7月')).not.toBeNull();
     expect(screen.getByRole('button', { name: '下个月' })).not.toBeNull();
+    expect(document.querySelector('.rdp-weekdays')?.className).toContain(
+      'table-row',
+    );
+    expect(document.querySelector('.rdp-week')?.className).toContain(
+      'table-row',
+    );
+    expect(document.querySelector('.rdp-weekday')?.className).toContain(
+      '[font-family:var(--font-sans)] text-xs font-body',
+    );
+    expect(selectedDay?.className).toContain(
+      '[font-family:var(--font-sans)] text-xs font-body',
+    );
+    expect(screen.queryByText('时间')).toBeNull();
     expect(screen.getByText('时')).not.toBeNull();
     expect(screen.getByText('分')).not.toBeNull();
   });

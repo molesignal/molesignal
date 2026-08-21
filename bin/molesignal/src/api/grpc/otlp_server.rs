@@ -260,7 +260,7 @@ impl LogsService for OtlpGrpc {
         let req = request.into_inner();
         let bytes = req.encoded_len();
         let events = logs_to_events(req);
-        self.intake_events(&ctx, StreamType::Logs, stream, events, bytes)
+        self.intake_events(&ctx, StreamType::LOGS, stream, events, bytes)
             .await?;
         Ok(Response::new(ExportLogsServiceResponse::default()))
     }
@@ -277,7 +277,7 @@ impl MetricsService for OtlpGrpc {
         let req = request.into_inner();
         let bytes = req.encoded_len();
         let events = metrics_to_events(req);
-        self.intake_events(&ctx, StreamType::Metrics, stream, events, bytes)
+        self.intake_events(&ctx, StreamType::METRICS, stream, events, bytes)
             .await?;
         Ok(Response::new(ExportMetricsServiceResponse::default()))
     }

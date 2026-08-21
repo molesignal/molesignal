@@ -74,7 +74,7 @@ fn normalize_request(request: RuleRequest) -> Result<RuleRequest> {
             "stream_pattern must not exceed 255 characters",
         ));
     }
-    if request.stream_type == Some(StreamType::Metrics) {
+    if request.stream_type == Some(StreamType::METRICS) {
         return Err(Error::invalid(
             "metrics streams do not support field masking",
         ));

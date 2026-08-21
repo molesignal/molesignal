@@ -30,27 +30,27 @@ message QueryShardServiceExecuteResponse {
 }
 
 // Arrow Flight Ticket 序列化结构：
-// coordinator 切分 parquet_file_metas → 每个 peer 一个 QueryShard → prost::encode_to_vec
+// coordinator 切分 query_files → 每个 peer 一个 QueryShard → prost::encode_to_vec
 // → arrow_flight::Ticket{ticket: bytes}。
 message QueryShard {
   string org_id = 1;
   string stream = 2;
   // peer 端跑的 SQL（仅 scan + projection + WHERE，跳过最终聚合）
   string sql = 3;
-  // 每条对应 parquet_file_meta 行的精简版（避免每次再去 PG 查）。
+  // 每条对应 query_file 行的精简版（避免每次再去 PG 查）。
   //
   // 集群内分片：coordinator 预解析并填好这里。
   // 跨集群联邦（spec federated-search）：coordinator 不知道远端的
-  // parquet_file_meta，故 parquet_file_metas 留空 —— 远端 Flight server 收到空 parquet_file_metas 时
-  // 用 (org_id, stream, stream_type, time_range) 自行 `ParquetFileMetaRepository::find`
-  // 解析本集群的 parquet_file_meta 再扫描。集群内路径永不发空分片，故空＝自解析无歧义。
-  repeated ParquetFileMetaRef parquet_file_metas = 4;
+  // query_file，故 query_files 留空 —— 远端 Flight server 收到空 query_files 时
+  // 用 (org_id, stream, stream_type, time_range) 自行 `QueryFileSource::find`
+  // 解析本集群的 query_file 再扫描。集群内路径永不发空分片，故空＝自解析无歧义。
+  repeated QueryFileRef query_files = 4;
   // SELECT 列投影；空表示 SELECT *
   repeated string projection = 5;
   int64 time_start_micros = 6;
   int64 time_end_micros = 7;
   // 联邦自解析所需的 stream 类型（"logs"/"metrics"/"traces"/"extend"）。
-  // 集群内分片可留空（parquet_file_metas 已直接给出对象）。
+  // 集群内分片可留空（query_files 已直接给出对象）。
   string stream_type = 8;
   // 跨集群查询 id（coordinator 下发，远端据此把本地查询登记进可取消表）。
   // 集群内分片留空。空＝不可经 CancelQuery 远程取消（仍可经 gRPC 流断开兜底）。
@@ -66,7 +66,7 @@ message FlightSqlTicket {
   string org_id = 2;
 }
 
-message ParquetFileMetaRef {
+message QueryFileRef {
   string id = 1;
   string org_id = 2;
   string stream = 3;
@@ -76,4 +76,10 @@ message ParquetFileMetaRef {
   int64 time_end_micros = 7;
   uint64 rows = 8;
   uint64 size_bytes = 9;
+  // Catalog content identity for the shared immutable range cache.
+  string checksum = 10;
+  // Origin object version validator; empty when the backend does not expose one.
+  string etag = 11;
+  // Persisted open Dataset type ID; peers must not infer it from the object key.
+  string dataset_type = 12;
 }

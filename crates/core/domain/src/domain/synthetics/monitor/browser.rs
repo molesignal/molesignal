@@ -69,4 +69,6 @@ pub struct BrowserJourneySpec {
     pub user_agent: Option<String>,
     pub capture_screenshot_on_failure: bool,
     pub capture_har_on_failure: bool,
+    #[serde(default)]
+    pub capture_trace_on_failure: bool,
 }

@@ -3,6 +3,7 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import * as versionApi from '@/api/version';
+import { writeClipboardText } from '@/lib/clipboard';
 import { tzOffsetLabel, useTimeFormatter } from '@/lib/time';
 import { ChromeButton } from '@/shell/chrome';
 import { CopyIconButton } from '@/shell/CopyIconButton';
@@ -66,9 +67,9 @@ function useClipboardFeedback() {
   );
 
   const copy = React.useCallback(async (value: string) => {
-    if (!value || !navigator.clipboard?.writeText) return;
+    if (!value) return;
     try {
-      await navigator.clipboard.writeText(value);
+      await writeClipboardText(value);
     } catch {
       return;
     }

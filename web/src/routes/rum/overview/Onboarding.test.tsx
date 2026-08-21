@@ -37,5 +37,11 @@ describe('RUM onboarding navigation', () => {
       container.querySelector('a[href="/rum/settings/sdk"]'),
     ).not.toBeNull();
     expect(container.querySelector('a[href^="/datasource"]')).toBeNull();
+    expect(
+      container.querySelector('[data-rum-subnavigation="settings"]')?.className,
+    ).toContain('min-h-11');
+    expect(
+      container.querySelector('a[href="/rum/settings/sdk"]')?.className,
+    ).toContain('h-11');
   });
 });

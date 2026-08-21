@@ -5,16 +5,12 @@
 
 use std::sync::Arc;
 
-use super::{
-    core::Core,
-    query::QueryRuntime,
-    storage::{StorageRuntime, build_parquet_disk_cache},
-};
+use super::{core::Core, query::QueryRuntime, storage::StorageRuntime};
 use crate::{
     config::Settings,
     domain::{function::FunctionRepository, rum::DebugArtifactRepository},
     infra::{
-        caching::{BillingStateCache, ParquetDiskCache},
+        caching::BillingStateCache,
         connectors::{ConnectorRepository, PgConnectorRepository},
         persistence::repositories::{
             annotations::{AnnotationRepository, PgAnnotationRepository},
@@ -48,7 +44,6 @@ pub(super) struct PlatformRuntime {
     pub(super) scheduled_pipelines: Arc<dyn ScheduledPipelineRepository>,
     pub(super) extend_kv: Arc<dyn ExtendKvRepository>,
     pub(super) extend_table: Arc<ExtendTable>,
-    pub(super) parquet_disk_cache: Option<Arc<ParquetDiskCache>>,
     pub(super) resource_shares: Arc<dyn ResourceShareRepository>,
     pub(super) annotations: Arc<dyn AnnotationRepository>,
     pub(super) search_jobs: Arc<dyn SearchJobRepository>,
@@ -95,8 +90,6 @@ impl PlatformRuntime {
         let extend_kv: Arc<dyn ExtendKvRepository> =
             Arc::new(PgExtendKvRepository::new(core.pool.clone()));
         let extend_table = Arc::new(ExtendTable::new());
-        let parquet_disk_cache = build_parquet_disk_cache(&settings.cache.disk_cache)?;
-
         let resource_shares: Arc<dyn ResourceShareRepository> = Arc::new(
             PgResourceShareRepository::new(core.pool.clone(), core.cipher_root_key.clone()),
         );
@@ -272,7 +265,6 @@ impl PlatformRuntime {
             scheduled_pipelines,
             extend_kv,
             extend_table,
-            parquet_disk_cache,
             resource_shares,
             annotations,
             search_jobs,

@@ -166,7 +166,6 @@ export function PipelineDetail() {
       <PageHeader
         title={pipeline.name}
         subtitle={t('detail.subtitle')}
-        backTo="/pipelines"
         toolbar={
           <>
             <ChromeButton
@@ -274,7 +273,7 @@ export function PipelineDetail() {
           onValueChange={setActiveTab}
           className="flex h-[calc(100%_-_48px)] min-h-0 flex-col"
         >
-          <div className="border-b border-bd-0 bg-bg-0 px-6">
+          <div className="overflow-hidden rounded-md bg-[var(--functional-surface)] px-3 [box-shadow:var(--shadow-functional-surface)]">
             <TabsList className="h-10 max-w-full justify-start overflow-x-auto rounded-none bg-transparent p-0">
               <PipelineTabTrigger value="overview">
                 {t('detail.tabs.overview')}
@@ -291,8 +290,8 @@ export function PipelineDetail() {
             </TabsList>
           </div>
 
-          <TabsContent value="overview" className="m-0 min-h-0 flex-1 overflow-auto px-6 py-5">
-            <div className="mx-auto flex w-full max-w-[2200px] flex-col gap-6">
+          <TabsContent value="overview" className="m-0 min-h-0 flex-1 overflow-auto py-[12px]">
+            <div className="mx-auto flex w-full max-w-[2200px] flex-col gap-[12px]">
               <PipelineKpiBand
                 items={[
                   {
@@ -370,7 +369,7 @@ export function PipelineDetail() {
             </div>
           </TabsContent>
 
-          <TabsContent value="topology" className="m-0 min-h-0 flex-1 overflow-auto px-6 py-5">
+          <TabsContent value="topology" className="m-0 min-h-0 flex-1 overflow-auto py-[12px]">
             <div className="mx-auto w-full max-w-[2200px]">
               <PipelineSection
                 title={t('detail.graph')}
@@ -392,8 +391,8 @@ export function PipelineDetail() {
             </div>
           </TabsContent>
 
-          <TabsContent value="runs" className="m-0 min-h-0 flex-1 overflow-auto px-6 py-5">
-            <div className="mx-auto w-full max-w-[2200px] overflow-hidden bg-transparent">
+          <TabsContent value="runs" className="m-0 min-h-0 flex-1 overflow-auto py-[12px]">
+            <div className="mx-auto w-full max-w-[2200px] overflow-hidden rounded-md bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]">
               {runsQuery.isError ? (
                 <ProductState
                   variant="error"
@@ -418,7 +417,7 @@ export function PipelineDetail() {
             </div>
           </TabsContent>
 
-          <TabsContent value="configuration" className="m-0 min-h-0 flex-1 overflow-auto px-6 py-5">
+          <TabsContent value="configuration" className="m-0 min-h-0 flex-1 overflow-auto py-[12px]">
             <div className="mx-auto w-full max-w-[2200px]">
               <PipelineSection
                 title={t('detail.configuration')}

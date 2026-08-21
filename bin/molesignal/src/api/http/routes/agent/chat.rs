@@ -65,6 +65,9 @@ use crate::{
 const INLINE_TOOL_RESULT_LIMIT: usize = 16 * 1024;
 /// evidence 摘要文本上限。
 const EVIDENCE_SUMMARY_CAP: usize = 500;
+/// Agent chat 对象目录布局版本，与 transcript JSON schema 版本独立演进。
+const CHAT_OBJECT_LAYOUT_VERSION: &str = "v1";
+const CHAT_TRANSCRIPT_SCHEMA_VERSION: u32 = 1;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
@@ -694,7 +697,7 @@ async fn post_message(
                 batch_id: Id::new(),
                 org_id: persist_ctx.org_id.clone(),
                 stream: "_agent_model_traces".into(),
-                stream_type: StreamType::Logs,
+                stream_type: StreamType::LOGS,
                 events: vec![RawEvent {
                     timestamp: TimestampMicros::now(),
                     fields: trace_event.as_object().cloned().unwrap_or_default(),
@@ -1047,10 +1050,7 @@ async fn build_evidence(
     }
 
     if result_json.len() > INLINE_TOOL_RESULT_LIMIT {
-        let object_key = format!(
-            "agent/chat/{}/{}/tool-results/{}/{}.json",
-            org_id.0, chat_id.0, message_id.0, tool_call_id
-        );
+        let object_key = tool_result_object_key(org_id, chat_id, message_id, tool_call_id);
         match ObjPath::parse(&object_key) {
             Ok(path) => {
                 match state
@@ -1075,6 +1075,18 @@ async fn build_evidence(
         }
     }
     entry
+}
+
+fn tool_result_object_key(
+    org_id: &Id,
+    chat_id: &Id,
+    message_id: &Id,
+    tool_call_id: &str,
+) -> String {
+    format!(
+        "agent/chat/{CHAT_OBJECT_LAYOUT_VERSION}/{}/{}/tool-results/{}/{}.json",
+        org_id.0, chat_id.0, message_id.0, tool_call_id
+    )
 }
 
 /// 从 tool 结果 JSON（`Vec<ToolContent>` 序列化）提取 row/scanned/took + 摘要文本。
@@ -1164,7 +1176,9 @@ async fn archive_chat(
     let total_prompt: i64 = messages.iter().filter_map(|m| m.prompt_tokens).sum();
     let total_completion: i64 = messages.iter().filter_map(|m| m.completion_tokens).sum();
     let total_cost: f64 = messages.iter().filter_map(|m| m.cost_usd).sum();
+    let archived_at = TimestampMicros::now();
     let transcript = json!({
+        "schema_version": CHAT_TRANSCRIPT_SCHEMA_VERSION,
         "chat": {
             "id": chat.id.0,
             "org_id": chat.org_id.0,
@@ -1194,18 +1208,13 @@ async fn archive_chat(
         })).collect::<Vec<_>>(),
         "token_usage": { "prompt_tokens": total_prompt, "completion_tokens": total_completion },
         "cost_usd_total": total_cost,
-        "archived_at_micros": TimestampMicros::now().0,
+        "archived_at_micros": archived_at.0,
     });
 
     let body = serde_json::to_string(&transcript).unwrap_or_else(|_| "{}".into());
     let sha = prompt_hash(&body);
     let bytes = body.len() as i64;
-    let object_key = format!(
-        "agent/chat/{}/{}/transcript-{}.json",
-        chat.org_id.0,
-        chat.id.0,
-        TimestampMicros::now().0
-    );
+    let object_key = transcript_object_key(&chat.org_id, &chat.id, archived_at);
 
     let write_ok = match ObjPath::parse(&object_key) {
         Ok(path) => state
@@ -1277,6 +1286,13 @@ async fn archive_chat(
     )
     .await;
     saved
+}
+
+fn transcript_object_key(org_id: &Id, chat_id: &Id, archived_at: TimestampMicros) -> String {
+    format!(
+        "agent/chat/{CHAT_OBJECT_LAYOUT_VERSION}/{}/{}/transcript-{}.json",
+        org_id.0, chat_id.0, archived_at.0
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -1429,6 +1445,21 @@ mod tests {
         let result = r#"[{"type":"text","text":"trace not found"}]"#;
         let (_, _, _, summary) = summarize_tool_result(result);
         assert_eq!(summary, "trace not found");
+    }
+
+    #[test]
+    fn chat_archive_object_keys_include_layout_version() {
+        let org_id = Id::from_string("org-1");
+        let chat_id = Id::from_string("chat-1");
+        let message_id = Id::from_string("message-1");
+        assert_eq!(
+            tool_result_object_key(&org_id, &chat_id, &message_id, "tool-1"),
+            "agent/chat/v1/org-1/chat-1/tool-results/message-1/tool-1.json"
+        );
+        assert_eq!(
+            transcript_object_key(&org_id, &chat_id, TimestampMicros(42)),
+            "agent/chat/v1/org-1/chat-1/transcript-42.json"
+        );
     }
 
     #[test]

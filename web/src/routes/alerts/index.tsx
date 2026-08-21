@@ -168,12 +168,10 @@ function AlertIncidentsPage() {
   return (
     <>
       <ListPage
+        appearance="surface"
         title={t('center.incidents.title')}
         subtitle={t('center.incidents.subtitle')}
         subnav={<AlertsSubNav />}
-        cardless
-        filterClassName="border-b-0"
-        stateClassName="border-0"
         toolbar={<NewRuleActions />}
         kpis={[
           {
@@ -443,13 +441,10 @@ function AlertRulesPage() {
 
   return (
     <ListPage
+      appearance="surface"
       title={t('center.rules.title')}
       subtitle={t('center.rules.subtitle')}
       subnav={<AlertsSubNav />}
-      cardless
-      bodyClassName="pt-2"
-      filterClassName="border-b-0"
-      stateClassName="border-0"
       toolbar={<NewRuleActions />}
       filters={
         <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center">

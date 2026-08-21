@@ -1,68 +1,38 @@
 import { useQuery } from '@tanstack/react-query';
-import dayjs from 'dayjs';
-import {
-  Play,
-  RefreshCw,
-  X,
-} from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 
 import * as queryApi from '@/api/query';
 import * as streamsApi from '@/api/streams';
 import * as webApi from '@/api/web';
 import { widenTimeWindow } from '@/investigation/timeRangeRecovery';
-import { useTimeFormatter } from '@/lib/time';
 import type { CursorPage } from '@/pagination/cursor';
 import { useCursorPagination } from '@/pagination/useCursorPagination';
 import {
   Card,
   CardBody,
   CardHeader,
-  ChromeButton,
-  TimeRangeChip,
   uiLabelClass,
 } from '@/shell/chrome';
 import type { CodeCompletionItem } from '@/shell/codeEditor/types';
-import { EmptyState } from '@/shell/EmptyState';
-import { PageHeader } from '@/shell/PageHeader';
-import { QueryEditorFrame } from '@/shell/query/EditorFrame';
 import {
-  QueryRecoveryState,
   type QueryRecoveryActions,
   type QueryRecoveryCopy,
 } from '@/shell/query/RecoveryState';
 import { queryStateFor } from '@/shell/query/State';
-import { QuerySyntaxHelp } from '@/shell/query/SyntaxHelp';
-import { useSqlFunctionCompletions } from '@/shell/query/useSqlFunctionCompletions';
-import {
-  QueryToolbarButton,
-  QueryToolbarGroup,
-  QueryToolbarTabs,
-  QueryWorkbench,
-  type QueryToolbarTab,
-} from '@/shell/query/Workbench';
-import { SignalReference, type SignalReferenceType } from '@/shell/SignalReference';
-import { TimezoneSelect } from '@/shell/TimezoneSelect';
-import { Button } from '@/shell/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/shell/ui/select';
+import { SurfacePageHeader } from '@/shell/SurfaceWorkbench';
 import { Tooltip, TooltipContent, TooltipPortal, TooltipTrigger } from '@/shell/ui/tooltip';
 import { useAuthStore } from '@/stores/auth';
 import { resolveWindow, type TimeWindow, useTimeStore } from '@/stores/useTimeStore';
 import type { QueryResult } from '@/types/query';
 import { formatTraceDurationMs } from '@/viz/trace/duration';
-import { TraceFlame } from '@/viz/trace/TraceFlame';
 import { TraceOperationName } from '@/viz/trace/TraceOperationName';
 
-import { traceFieldValue, type TraceFieldRecord } from './fieldPanel/model';
-import { TraceFieldPanel } from './fieldPanel/Panel';
+import { TraceQueryPanel } from './explorer/QueryPanel';
+import { TraceSpanExplorer } from './explorer/SpanWorkspace';
+import { TraceTableExplorer } from './explorer/TableWorkspace';
+import type { DisplayTrace, TraceTab } from './explorer/types';
 import {
   appendTraceSqlFieldFilter,
   DEFAULT_VISIBLE_TRACE_FIELDS,
@@ -72,20 +42,17 @@ import {
   selectTraceStream,
   TRACE_RESULT_LIMIT,
   traceSqlPlaceholder,
-  type ParsedTraceStatement,
   type TraceFieldDef,
   type TraceFieldName,
   type TraceQueryMode,
 } from './fieldQueryModel';
 import {
   DEFAULT_TRACE_PAGE_SIZE,
-  TracePagination,
   type TracePaginationModel,
 } from './Pagination';
 import { ServiceGraphPanel } from './serviceGraph/Panel';
 import {
   parseTraceListSort,
-  TRACE_LIST_SORT_OPTIONS,
   writeTraceListSort,
 } from './sort';
 import {
@@ -94,25 +61,13 @@ import {
   traceUrlQueryStateKey,
 } from './urlState';
 
-type DisplayTrace = TraceFieldRecord;
-
 type TraceListData = CursorPage<DisplayTrace>;
-
-type TraceTab = 'spans' | 'traces' | 'service-graph' | 'service-catalog';
 
 const TRACE_DEFAULT_WINDOW: TimeWindow = {
   from: 'now-24h',
   to: 'now',
   mode: 'relative',
 };
-
-// Tabs / query-mode buttons / field hints carry i18n keys; the rendering
-// component calls `t(labelKey)` so locale changes flow through without
-// re-creating the array.
-const TRACE_QUERY_MODES: Array<{ id: TraceQueryMode; labelKey: string }> = [
-  { id: 'fields', labelKey: 'explore.query.modes.fields' },
-  { id: 'sql', labelKey: 'explore.query.modes.sql' },
-];
 
 const TRACE_TABS: Array<{ id: TraceTab; labelKey: string }> = [
   { id: 'spans', labelKey: 'explore.tabs.spans' },
@@ -676,12 +631,11 @@ export function Traces() {
   return (
     <div
       data-workspace="traces"
-      className="flex h-[calc(100vh-var(--topbar-h)-var(--contextbar-h,0px))] min-h-0 flex-col overflow-hidden bg-bg-0"
+      className="flex h-[calc(100vh-var(--topbar-h)-var(--contextbar-h,0px))] min-h-0 flex-col overflow-hidden bg-[var(--page-canvas)]"
     >
-      <PageHeader
+      <SurfacePageHeader
         title={t('explore.title')}
         subtitle={t('explore.subtitle')}
-        className="shrink-0"
       />
 
       <TraceQueryPanel
@@ -716,8 +670,8 @@ export function Traces() {
       <div
         className={
           tab === 'spans' || tab === 'traces' || tab === 'service-graph'
-            ? 'min-h-0 flex-1 overflow-hidden'
-            : 'min-h-0 flex-1 overflow-auto'
+            ? 'min-h-0 flex-1 overflow-hidden bg-[var(--page-canvas)] px-[20px]'
+            : 'min-h-0 flex-1 overflow-auto bg-[var(--page-canvas)] px-[20px]'
         }
       >
         {tab === 'spans' && (
@@ -839,628 +793,6 @@ function TraceStatsPanel({
       </div>
     </div>
   );
-}
-
-function TraceQueryPanel({
-  tab,
-  tabs,
-  queryMode,
-  queryDraft,
-  queryText,
-  sqlDraft,
-  parsedQuery,
-  completionItems,
-  running,
-  canRun,
-  collapsed,
-  sqlPlaceholder,
-  onTabChange,
-  onQueryModeChange,
-  onQueryDraftChange,
-  onSqlDraftChange,
-  onCollapsedChange,
-  onApplySearch,
-  onRefresh,
-}: {
-  tab: TraceTab;
-  tabs: Array<QueryToolbarTab<TraceTab>>;
-  queryMode: TraceQueryMode;
-  queryDraft: string;
-  queryText: string;
-  sqlDraft: string;
-  parsedQuery: ParsedTraceStatement;
-  completionItems: CodeCompletionItem[];
-  running: boolean;
-  canRun: boolean;
-  collapsed: boolean;
-  sqlPlaceholder: string;
-  onTabChange: (tab: TraceTab) => void;
-  onQueryModeChange: (mode: TraceQueryMode) => void;
-  onQueryDraftChange: (value: string) => void;
-  onSqlDraftChange: (value: string) => void;
-  onCollapsedChange: (collapsed: boolean) => void;
-  onApplySearch: () => void;
-  onRefresh: () => void;
-}) {
-  const { t } = useTranslation('traces');
-  const activeDraft = queryMode === 'sql' ? sqlDraft : queryDraft;
-  const isQueryTab = tab === 'spans' || tab === 'traces';
-  // SQL 检索函数（MATCH / MATCH_TEXT）由后端能力驱动，仅 SQL 模式注入（fields 走 q 全文搜索）。
-  const sqlFunctions = useSqlFunctionCompletions();
-  return (
-    <QueryWorkbench
-      className="shrink-0"
-      {...(!isQueryTab ? { bodyClassName: 'hidden' } : {})}
-      toolbar={
-        <>
-          <QueryToolbarTabs tabs={tabs} activeId={tab} onChange={onTabChange} tone="indigo" />
-          {isQueryTab && (
-            <>
-              <QueryToolbarGroup aria-label={t('explore.query.mode_aria')}>
-                {TRACE_QUERY_MODES.map((item) => (
-                  <QueryToolbarButton
-                    key={item.id}
-                    active={queryMode === item.id}
-                    tone="indigo"
-                    onClick={() => onQueryModeChange(item.id)}
-                  >
-                    {t(item.labelKey)}
-                  </QueryToolbarButton>
-                ))}
-              </QueryToolbarGroup>
-              <QuerySyntaxHelp mode={queryMode} scope="traces" compact />
-            </>
-          )}
-          <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
-            <TimeRangeChip />
-            {isQueryTab && (
-              <ChromeButton
-                variant="primary"
-                onClick={onApplySearch}
-                disabled={running || !canRun}
-              >
-                <Play className="h-3 w-3" aria-hidden="true" />
-                {running ? t('explore.query.running') : t('explore.query.run')}
-              </ChromeButton>
-            )}
-            <ChromeButton onClick={onRefresh} disabled={running}>
-              <RefreshCw className="h-3 w-3" /> {t('explore.toolbar.refresh')}
-            </ChromeButton>
-          </div>
-        </>
-      }
-    >
-      {isQueryTab && (
-        <>
-          <QueryEditorFrame
-            queryRef="A"
-            value={activeDraft}
-            onChange={queryMode === 'sql' ? onSqlDraftChange : onQueryDraftChange}
-            onClear={() => {
-              if (queryMode === 'sql') onSqlDraftChange('');
-              else onQueryDraftChange('');
-            }}
-            clearLabel={t('explore.query.clear_query')}
-            onModEnter={() => {
-              if (!running && canRun) onApplySearch();
-            }}
-            language={queryMode === 'sql' ? 'sql' : 'field-query'}
-            ariaLabel={queryMode === 'sql' ? 'Trace SQL query editor' : 'Trace field query editor'}
-            placeholder={queryMode === 'sql' ? sqlPlaceholder : 'trace_id = "..." / service_name contains "checkout"'}
-            collapsed={collapsed}
-            onCollapsedChange={onCollapsedChange}
-            collapseLabel={t('explore.query.collapse_editor')}
-            expandLabel={t('explore.query.expand_editor')}
-            summary={activeDraft || t('explore.query.empty_summary')}
-            completionItems={queryMode === 'fields' ? completionItems : sqlFunctions}
-            minHeight={160}
-            maxHeight={320}
-            lineNumbers
-            resizable
-          />
-          {!collapsed && queryMode === 'fields' && (queryText || parsedQuery.filters.length > 0 || parsedQuery.rejected.length > 0) && (
-            <div className="mt-2 flex flex-wrap gap-2 font-sans text-xs">
-              {parsedQuery.q && (
-                <span className="inline-flex h-6 items-center rounded-md border border-bd-0 bg-bg-2 px-2 text-tx-1">
-                  {t('explore.query.free_text_label')} {parsedQuery.q}
-                </span>
-              )}
-              {parsedQuery.filters.map((filter, index) => (
-                <span
-                  key={`${filter.field}-${filter.op}-${filter.value}-${index}`}
-                  className="inline-flex h-6 items-center rounded-md border border-bd-0 bg-bg-2 px-2 text-tx-1"
-                >
-                  {filter.field} {filter.op} {filter.value}
-                </span>
-              ))}
-              {parsedQuery.rejected.map((item) => (
-                <span key={item} className="inline-flex h-6 items-center rounded-md border border-yellow/40 bg-yellow-dim px-2 text-yellow-soft">
-                  ignored: {item}
-                </span>
-              ))}
-            </div>
-          )}
-        </>
-      )}
-    </QueryWorkbench>
-  );
-}
-
-function TraceListSortSelect({
-  value,
-  onChange,
-}: {
-  value: webApi.TraceListSort;
-  onChange: (value: webApi.TraceListSort) => void;
-}) {
-  const { t } = useTranslation('traces');
-  return (
-    <Select
-      value={value}
-      onValueChange={(nextValue) => onChange(parseTraceListSort(nextValue))}
-    >
-      <SelectTrigger
-        aria-label={t('explore.sort.aria')}
-        className="h-7 w-fit min-w-0 border-0 bg-transparent px-1.5 py-0 text-xs font-semibold text-tx-2 shadow-none hover:bg-transparent hover:text-tx-0 data-[state=open]:border-0 data-[state=open]:bg-transparent data-[state=open]:text-tx-0"
-      >
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent align="end" className="min-w-[136px]">
-        {TRACE_LIST_SORT_OPTIONS.map((option) => (
-          <SelectItem key={option.value} value={option.value} className="h-8 text-xs">
-            {t(option.labelKey)}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
-function TraceSpanExplorer({
-  traceList,
-  fieldTraces,
-  loadedTraceCount,
-  sort,
-  sortEnabled,
-  queryMode,
-  fields,
-  listState,
-  listError,
-  recovery,
-  recoveryCopy,
-  selectedId,
-  visibleFields,
-  fieldFilter,
-  fieldPanelCollapsed,
-  onFieldFilterChange,
-  onFieldPanelCollapsedChange,
-  onToggleField,
-  onInsertField,
-  onSelectTrace,
-  pagination,
-  onSortChange,
-}: {
-  traceList: DisplayTrace[];
-  fieldTraces: DisplayTrace[];
-  loadedTraceCount: number;
-  sort: webApi.TraceListSort;
-  sortEnabled: boolean;
-  queryMode: TraceQueryMode;
-  fields: TraceFieldDef[];
-  listState: ReturnType<typeof queryStateFor>;
-  listError: unknown;
-  recovery: QueryRecoveryActions;
-  recoveryCopy: QueryRecoveryCopy;
-  selectedId: string | null;
-  visibleFields: TraceFieldName[];
-  fieldFilter: string;
-  fieldPanelCollapsed: boolean;
-  onFieldFilterChange: (value: string) => void;
-  onFieldPanelCollapsedChange: (collapsed: boolean) => void;
-  onToggleField: (field: TraceFieldName) => void;
-  onInsertField: (field: TraceFieldDef) => void;
-  onSelectTrace: (id: string) => void;
-  pagination: TracePaginationModel;
-  onSortChange: (sort: webApi.TraceListSort) => void;
-}) {
-  const { t } = useTranslation('traces');
-  const fmt = useTimeFormatter();
-  return (
-    <div className="flex h-full min-h-0 w-full items-stretch">
-      <TraceFieldPanel
-        traces={fieldTraces}
-        fields={fields}
-        queryMode={queryMode}
-        visibleFields={visibleFields}
-        fieldFilter={fieldFilter}
-        collapsed={fieldPanelCollapsed}
-        onFieldFilterChange={onFieldFilterChange}
-        onCollapsedChange={onFieldPanelCollapsedChange}
-        onToggleField={onToggleField}
-        onInsertField={onInsertField}
-      />
-      <section
-        data-workspace-pane="trace-results"
-        className="flex min-h-0 w-[340px] shrink-0 flex-col overflow-hidden border-r border-bd-0 bg-bg-0 [contain:size]"
-      >
-        <div className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-bd-0 px-3 font-sans text-xs">
-          <span className="min-w-0 truncate text-tx-1">
-            {t('explore.results.loaded_count', { count: loadedTraceCount })}
-          </span>
-          {sortEnabled ? (
-            <TraceListSortSelect value={sort} onChange={onSortChange} />
-          ) : null}
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          {listState ? (
-            <QueryRecoveryState
-              state={listState}
-              error={listError}
-              copy={recoveryCopy}
-              recovery={recovery}
-              className="h-full min-h-0"
-              testId="traces-no-data"
-            />
-          ) : (
-            traceList.map((trace) => {
-              const selected = selectedId === trace.id;
-              return (
-                <button
-                  key={trace.id}
-                  type="button"
-                  title={trace.id}
-                  aria-label={t('explore.results.select_trace_aria', { operation: trace.op })}
-                  onClick={() => onSelectTrace(trace.id)}
-                  className={`block min-h-16 w-full border-b border-l-2 border-bd-0 px-3 py-2.5 text-left font-sans text-xs transition-colors hover:bg-bg-2 focus-visible:bg-bg-2 ${
-                    selected
-                      ? 'border-l-indigo bg-indigo-dim'
-                      : 'border-l-transparent bg-bg-0'
-                  }`}
-                >
-                  <span className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3">
-                    <TraceOperationName operation={trace.op} className="font-semibold text-tx-0" />
-                    <span className="whitespace-nowrap font-mono font-bold tabular-nums text-tx-0">
-                      {formatTraceDurationMs(trace.durationMs)}
-                    </span>
-                  </span>
-                  <span className="mt-1.5 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-                    <span className="flex min-w-0 items-center gap-1.5 overflow-hidden text-tx-2">
-                      <span className="truncate">{trace.service}</span>
-                      <span className="shrink-0 text-tx-4">·</span>
-                      <span className="shrink-0">
-                        {t('explore.results.span_count', { count: trace.spans })}
-                      </span>
-                      {trace.errors > 0 ? (
-                        <>
-                          <span className="shrink-0 text-tx-4">·</span>
-                          <span className="shrink-0 font-semibold text-red-soft">
-                            {t('explore.results.error_count', { count: trace.errors })}
-                          </span>
-                        </>
-                      ) : null}
-                    </span>
-                    <time className="whitespace-nowrap font-mono text-tx-3">
-                      {formatTraceStart(trace.startNs, fmt.tz)}
-                    </time>
-                  </span>
-                </button>
-              );
-            })
-          )}
-        </div>
-        <TracePagination model={pagination} />
-      </section>
-
-      <section
-        data-workspace-pane="trace-detail"
-        className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-bg-0 [contain:size]"
-      >
-        <div className="flex h-11 shrink-0 items-center gap-2 border-b border-bd-0 px-3 font-sans text-xs text-tx-2">
-          <span className="min-w-0 flex-1 truncate">
-            {selectedId ? selectedId : t('detail.title')}
-          </span>
-          {selectedId && (
-            <Link
-              to={`/traces/${encodeURIComponent(selectedId)}`}
-              className="shrink-0 whitespace-nowrap text-blue-soft hover:underline"
-            >
-              {t('explore.results.open_detail')}
-            </Link>
-          )}
-        </div>
-        <div className="min-h-0 flex-1 overflow-auto p-4">
-          {selectedId ? (
-            <TraceFlame traceId={selectedId} />
-          ) : (
-            <EmptyState
-              strategy="query-first"
-              title={t('explore.results.select_prompt')}
-              description={t('explore.results.select_description')}
-              className="min-h-0"
-            />
-          )}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function TraceTableExplorer({
-  traceList,
-  fieldTraces,
-  loadedTraceCount,
-  sort,
-  sortEnabled,
-  queryMode,
-  fields,
-  listState,
-  listError,
-  recovery,
-  recoveryCopy,
-  selectedTrace,
-  selectedId,
-  visibleFields,
-  fieldFilter,
-  fieldPanelCollapsed,
-  onFieldFilterChange,
-  onFieldPanelCollapsedChange,
-  onToggleField,
-  onInsertField,
-  onSelectTrace,
-  onViewSpans,
-  pagination,
-  onSortChange,
-}: {
-  traceList: DisplayTrace[];
-  fieldTraces: DisplayTrace[];
-  loadedTraceCount: number;
-  sort: webApi.TraceListSort;
-  sortEnabled: boolean;
-  queryMode: TraceQueryMode;
-  fields: TraceFieldDef[];
-  listState: ReturnType<typeof queryStateFor>;
-  listError: unknown;
-  recovery: QueryRecoveryActions;
-  recoveryCopy: QueryRecoveryCopy;
-  selectedTrace: DisplayTrace | null;
-  selectedId: string | null;
-  visibleFields: TraceFieldName[];
-  fieldFilter: string;
-  fieldPanelCollapsed: boolean;
-  onFieldFilterChange: (value: string) => void;
-  onFieldPanelCollapsedChange: (collapsed: boolean) => void;
-  onToggleField: (field: TraceFieldName) => void;
-  onInsertField: (field: TraceFieldDef) => void;
-  onSelectTrace: (id: string) => void;
-  onViewSpans: (id: string) => void;
-  pagination: TracePaginationModel;
-  onSortChange: (sort: webApi.TraceListSort) => void;
-}) {
-  const { t } = useTranslation('traces');
-  const [tzOverride, setTzOverride] = React.useState('');
-  const [summaryOpen, setSummaryOpen] = React.useState(false);
-  const fmt = useTimeFormatter({ timezone: tzOverride || undefined });
-
-  const selectTrace = React.useCallback((id: string) => {
-    onSelectTrace(id);
-    setSummaryOpen(true);
-  }, [onSelectTrace]);
-
-  return (
-    <div className="flex h-full min-h-0 w-full items-stretch">
-      <TraceFieldPanel
-        traces={fieldTraces}
-        fields={fields}
-        queryMode={queryMode}
-        visibleFields={visibleFields}
-        fieldFilter={fieldFilter}
-        collapsed={fieldPanelCollapsed}
-        onFieldFilterChange={onFieldFilterChange}
-        onCollapsedChange={onFieldPanelCollapsedChange}
-        onToggleField={onToggleField}
-        onInsertField={onInsertField}
-      />
-      <div
-        data-workspace-pane="trace-results"
-        className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-r border-bd-0 bg-bg-0 [contain:size]"
-      >
-        <div className="flex min-h-11 shrink-0 items-center justify-between gap-3 border-b border-bd-0 bg-bg-0 px-3 py-1.5">
-          <span className="font-sans text-xs font-semibold text-tx-0">
-            {t('explore.results.loaded_count', { count: loadedTraceCount })}
-          </span>
-          <div className="flex shrink-0 items-center gap-1.5">
-            {sortEnabled ? (
-              <TraceListSortSelect value={sort} onChange={onSortChange} />
-            ) : null}
-            <TimezoneSelect value={tzOverride} onChange={setTzOverride} className="h-8" />
-          </div>
-        </div>
-        <div className="grid shrink-0 grid-cols-[minmax(180px,1.4fr)_160px_minmax(180px,1fr)_72px_72px_96px_150px] gap-3 border-b border-bd-0 bg-bg-1 px-3 py-2 font-sans text-xs font-strong uppercase tracking-normal text-tx-2">
-          <span>{t('explore.table.trace')}</span>
-          <span>{t('explore.table.service')}</span>
-          <span>{t('explore.table.operation')}</span>
-          <span>{t('explore.table.spans')}</span>
-          <span>{t('explore.table.errors')}</span>
-          <span>{t('explore.table.duration')}</span>
-          <span>{t('explore.table.start')}</span>
-        </div>
-        <div className="min-h-0 flex-1 overflow-auto">
-          {listState ? (
-            <QueryRecoveryState
-              state={listState}
-              error={listError}
-              copy={recoveryCopy}
-              recovery={recovery}
-              className="h-full min-h-0"
-              testId="traces-table-no-data"
-            />
-          ) : (
-            traceList.map((trace) => (
-              <button
-                key={trace.id}
-                type="button"
-                onClick={() => selectTrace(trace.id)}
-                className={`grid w-full grid-cols-[minmax(180px,1.4fr)_160px_minmax(180px,1fr)_72px_72px_96px_150px] gap-3 border-b border-bd-0 px-3 py-2 text-left font-sans text-xs hover:bg-bg-2 ${
-                  selectedId === trace.id ? 'border-l-2 border-l-orange bg-bg-2' : 'border-l-2 border-l-transparent'
-                }`}
-              >
-                <span className="min-w-0">
-                  <span className="block truncate font-semibold text-tx-0">{trace.id}</span>
-                  <span className="mt-1 block truncate text-xs text-tx-3">{t('explore.results.inspect_hint')}</span>
-                </span>
-                <span className="truncate text-tx-1">{trace.service}</span>
-                <TraceOperationName operation={trace.op} className="text-tx-1" />
-                <span className="text-tx-1">{trace.spans}</span>
-                <span className={trace.errors > 0 ? 'text-red' : 'text-tx-2'}>{trace.errors}</span>
-                <span className="font-semibold text-tx-0">{formatTraceDurationMs(trace.durationMs)}</span>
-                <span className="truncate text-tx-2">{formatTraceStart(trace.startNs, fmt.tz)}</span>
-              </button>
-            ))
-          )}
-        </div>
-        <TracePagination model={pagination} />
-      </div>
-      {summaryOpen && selectedTrace && (
-        <>
-          <button
-            type="button"
-            aria-label={t('explore.results.close_summary')}
-            tabIndex={-1}
-            onClick={() => setSummaryOpen(false)}
-            className="fixed bottom-0 left-0 right-0 top-topbar z-[55] cursor-default border-0 bg-transparent p-0 focus:outline-none"
-          />
-          <aside
-            aria-label={t('explore.results.summary_drawer_aria')}
-            className="fixed bottom-0 right-0 top-topbar z-[60] min-h-0 w-[34vw] min-w-[420px] max-w-[660px] border-l border-bd-1 bg-bg-0 shadow-drawer data-[state=open]:animate-slide-in-right"
-            data-state="open"
-          >
-            <TraceSummaryPanel
-              trace={selectedTrace}
-              visibleFields={visibleFields}
-              onViewSpans={onViewSpans}
-              onClose={() => setSummaryOpen(false)}
-            />
-          </aside>
-        </>
-      )}
-    </div>
-  );
-}
-
-function TraceSummaryPanel({
-  trace,
-  visibleFields,
-  onViewSpans,
-  onClose,
-}: {
-  trace: DisplayTrace;
-  visibleFields: TraceFieldName[];
-  onViewSpans: (id: string) => void;
-  onClose: () => void;
-}) {
-  const { t } = useTranslation('traces');
-
-  return (
-    <div className="flex h-full min-h-0 flex-col bg-bg-0">
-      <div className="flex items-start gap-3 border-b border-bd-0 px-4 py-3">
-        <div className="min-w-0 flex-1">
-          <TraceOperationName
-            operation={trace.op}
-            className="font-sans text-sm font-bold text-tx-0"
-          />
-          <div className="mt-1 truncate font-sans text-xs text-tx-2">
-            {/* Phase 6 M2: trace ID is the canonical cross-signal handle. */}
-            <SignalReference type="trace_id" value={trace.id} labels={{ trace_id: trace.id, service: trace.service }}>
-              {trace.id}
-            </SignalReference>
-          </div>
-        </div>
-        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={onClose} aria-label={t('explore.results.close_summary')}>
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
-      <div className="grid grid-cols-2 border-b border-bd-0">
-        <TraceSummaryMetric
-          label="service"
-          value={
-            <SignalReference type="service" value={trace.service} labels={{ trace_id: trace.id, service: trace.service }}>
-              {trace.service}
-            </SignalReference>
-          }
-        />
-        <TraceSummaryMetric label="duration" value={formatTraceDurationMs(trace.durationMs)} />
-        <TraceSummaryMetric label="spans" value={String(trace.spans)} />
-        <TraceSummaryMetric label="errors" value={String(trace.errors)} {...(trace.errors > 0 ? { tone: 'text-red' } : {})} />
-      </div>
-      <div className="min-h-0 flex-1 overflow-auto p-4">
-        <div className="mb-2 font-sans text-xs font-strong uppercase tracking-normal text-tx-2">{t('explore.results.visible_labels')}</div>
-        <div className="flex flex-wrap gap-1.5">
-          {visibleFields.map((field) => {
-            const value = traceFieldValue(trace, field);
-            if (!value) return null;
-            const signalType = traceFieldSignalType(field);
-            return (
-              <span key={field} className="inline-flex max-w-full items-center gap-1 rounded border border-bd-0 bg-bg-1 px-2 py-1 font-sans text-xs">
-                <span className="text-tx-3">{field}</span>
-                {signalType ? (
-                  <SignalReference
-                    type={signalType}
-                    value={value}
-                    labelName={field}
-                    labels={{ trace_id: trace.id, service: trace.service, [field]: value }}
-                    className="max-w-[230px] truncate"
-                  >
-                    {value}
-                  </SignalReference>
-                ) : (
-                  <span className="max-w-[230px] truncate text-tx-1">{value}</span>
-                )}
-              </span>
-            );
-          })}
-        </div>
-      </div>
-      <div className="border-t border-bd-0 p-3">
-        <Button className="w-full" onClick={() => onViewSpans(trace.id)}>
-          {t('explore.results.view_spans')}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function TraceSummaryMetric({ label, value, tone }: { label: string; value: React.ReactNode; tone?: string }) {
-  return (
-    <div className="min-w-0 border-b border-r border-bd-0 px-4 py-3 even:border-r-0">
-      <div className="font-sans text-xs font-semibold uppercase tracking-normal text-tx-3">{label}</div>
-      <div className={`mt-1 truncate font-sans text-sm font-semibold ${tone ?? 'text-tx-0'}`}>{value}</div>
-    </div>
-  );
-}
-
-/**
- * Map trace field names → SignalReference signal types so the visible-
- * labels chips automatically wrap cross-signal handles in a HoverCard.
- * Returning `null` falls back to plain text.
- */
-function traceFieldSignalType(field: TraceFieldName): SignalReferenceType | null {
-  switch (field) {
-    case 'trace_id':
-      return 'trace_id';
-    case 'span_id':
-    case 'parent_span_id':
-      return 'span_id';
-    case 'service.name':
-      return 'service';
-    default:
-      return null;
-  }
-}
-
-function formatTraceStart(startNs: number, tz: string): string {
-  if (!Number.isFinite(startNs) || startNs <= 0) return '-';
-  const d = dayjs(Math.floor(startNs / 1_000_000)).tz(tz);
-  return d.isValid() ? d.format('HH:mm:ss.SSS') : '-';
 }
 
 function ServiceCatalog({

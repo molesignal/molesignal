@@ -5,16 +5,19 @@
 //! 的字段加密落 parquet（载荷 `kid:<key_id>:v<n>:...`）；查询端 `SELECT col` 拿密文、
 //! `SELECT decrypt(col)` 经 FieldKeyService 预载 org DEK 还原明文。
 //!
-//! 无 docker：in-mem ParquetFileMetaRepository + in-mem CipherKeyRepository + LocalFileSystem。
+//! 无 docker：in-mem QueryFileSource + in-mem CipherKeyRepository + LocalFileSystem。
+
+mod common;
 
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use common::write_parquet_fixture;
 use molesignal::{
     domain::{
         intake::RawEvent,
         query::{QueryEngine, QueryLanguage, QueryRequest, StreamHint},
-        storage::{ParquetFileMeta, ParquetFileMetaRepository},
+        storage::{QueryFile, QueryFileSource},
         stream::{FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamType},
     },
     infra::{
@@ -33,30 +36,30 @@ use object_store::{ObjectStore, local::LocalFileSystem};
 use parking_lot::Mutex;
 use serde_json::json;
 
-// ---- in-mem ParquetFileMetaRepository ----
-struct MemParquetFileMetaRepo {
-    files: Mutex<Vec<ParquetFileMeta>>,
+// ---- in-mem QueryFileSource ----
+struct MemQueryFileRepo {
+    files: Mutex<Vec<QueryFile>>,
 }
-impl MemParquetFileMetaRepo {
+impl MemQueryFileRepo {
     fn new() -> Self {
         Self {
             files: Mutex::new(Vec::new()),
         }
     }
-}
-#[async_trait]
-impl ParquetFileMetaRepository for MemParquetFileMetaRepo {
-    async fn insert(&self, file: ParquetFileMeta) -> Result<()> {
+    async fn insert(&self, file: QueryFile) -> Result<()> {
         self.files.lock().push(file);
         Ok(())
     }
+}
+#[async_trait]
+impl QueryFileSource for MemQueryFileRepo {
     async fn find(
         &self,
         org_id: &Id,
         stream: &str,
         stream_type: StreamType,
         time_range: TimeRange,
-    ) -> Result<Vec<ParquetFileMeta>> {
+    ) -> Result<Vec<QueryFile>> {
         Ok(self
             .files
             .lock()
@@ -65,19 +68,11 @@ impl ParquetFileMetaRepository for MemParquetFileMetaRepo {
                 &f.org_id == org_id
                     && f.stream == stream
                     && f.stream_type == stream_type
-                    && !f.deleted
                     && f.time_range.end.0 >= time_range.start.0
                     && f.time_range.start.0 <= time_range.end.0
             })
             .cloned()
             .collect())
-    }
-    async fn replace(&self, _merged_ids: &[Id], _new_files: Vec<ParquetFileMeta>) -> Result<()> {
-        unimplemented!()
-    }
-
-    async fn mark_deleted(&self, _ids: &[Id]) -> Result<usize> {
-        unimplemented!()
     }
 }
 
@@ -175,7 +170,7 @@ fn users_stream(org: &Id) -> StreamDefinition {
         id: Id::new(),
         org_id: org.clone(),
         name: "users".into(),
-        stream_type: StreamType::Logs,
+        stream_type: StreamType::LOGS,
         schema: Schema {
             fields: vec![
                 FieldDef {
@@ -212,7 +207,7 @@ fn req(sql: &str, org: &Id) -> QueryRequest {
         time_range: TimeRange::new(TimestampMicros(0), TimestampMicros(10_000_000)),
         stream: Some(StreamHint {
             name: "users".into(),
-            stream_type: StreamType::Logs,
+            stream_type: StreamType::LOGS,
         }),
         limit: None,
         federation_clusters: Vec::new(),
@@ -247,10 +242,10 @@ async fn encrypted_field_round_trips_through_intake_and_query() {
         )
         .unwrap();
     }
-    let (batch, _) = rb.finish_and_clear().unwrap();
+    let batch = rb.begin_flush().unwrap().unwrap().batch;
     let writer = ParquetWriter::new(store.clone());
-    let meta = writer.flush(&stream, batch).await.unwrap();
-    let file_repo = Arc::new(MemParquetFileMetaRepo::new());
+    let meta = write_parquet_fixture(&writer, &stream, batch).await;
+    let file_repo = Arc::new(MemQueryFileRepo::new());
     file_repo.insert(meta).await.unwrap();
 
     let engine =

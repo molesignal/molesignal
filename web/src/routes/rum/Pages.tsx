@@ -12,7 +12,12 @@ import { useAuthStore } from '@/stores/auth';
 import { formatWindowSummary, useTimeStore } from '@/stores/useTimeStore';
 
 import { formatDurationMs, windowToMicros } from './_helpers';
-import { RumFilterSelect, RumListPage, RumSectionHeader } from './RumLayout';
+import {
+  RumFilterSelect,
+  RumListPage,
+  RumSectionHeader,
+  RumSurface,
+} from './RumLayout';
 
 const ALL = '__all__';
 
@@ -67,7 +72,7 @@ export function Pages() {
       subtitle={t('pages.subtitle')}
       toolbar={
         <>
-          <TimeRangeChip value={formatWindowSummary(window)} />
+          <TimeRangeChip value={formatWindowSummary(window)} className="border-0" />
           <ChromeButton onClick={() => query.refetch()}>{t('refresh')}</ChromeButton>
         </>
       }
@@ -99,7 +104,7 @@ export function Pages() {
       }
       state={state}
     >
-      <section className="space-y-2">
+      <RumSurface className="space-y-2 p-4">
         <RumSectionHeader
           title={t('pages.list_title')}
           description={t('pages.result_count', { count: rows.length })}
@@ -110,7 +115,7 @@ export function Pages() {
           rowKey={(row) => row.page}
           emptyLabel={t('pages.no_filter_results')}
         />
-      </section>
+      </RumSurface>
     </RumListPage>
   );
 }

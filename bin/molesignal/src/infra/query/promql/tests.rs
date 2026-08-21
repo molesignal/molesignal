@@ -263,7 +263,7 @@ async fn missing_system_metric_resolves_to_protected_container_stream() {
             name: &str,
             stream_type: StreamType,
         ) -> Result<StreamDefinition> {
-            if name != "_molesignal" || stream_type != StreamType::Metrics {
+            if name != "_molesignal" || stream_type != StreamType::METRICS {
                 return Err(Error::not_found(format!("stream {name}")));
             }
             Ok(StreamDefinition {
@@ -305,31 +305,15 @@ async fn missing_system_metric_resolves_to_protected_container_stream() {
     struct EmptyFiles;
 
     #[async_trait]
-    impl ParquetFileMetaRepository for EmptyFiles {
-        async fn insert(&self, _file: crate::domain::storage::ParquetFileMeta) -> Result<()> {
-            Ok(())
-        }
-
+    impl QueryFileSource for EmptyFiles {
         async fn find(
             &self,
             _org_id: &Id,
             _stream: &str,
             _stream_type: StreamType,
             _time_range: TimeRange,
-        ) -> Result<Vec<crate::domain::storage::ParquetFileMeta>> {
+        ) -> Result<Vec<crate::domain::storage::QueryFile>> {
             Ok(Vec::new())
-        }
-
-        async fn replace(
-            &self,
-            _merged_ids: &[Id],
-            _new_files: Vec<crate::domain::storage::ParquetFileMeta>,
-        ) -> Result<()> {
-            Ok(())
-        }
-
-        async fn mark_deleted(&self, _ids: &[Id]) -> Result<usize> {
-            Ok(0)
         }
     }
 
@@ -1318,28 +1302,15 @@ async fn unsupported_function_returns_invalid() {
     };
     struct EmptyFiles;
     #[async_trait]
-    impl ParquetFileMetaRepository for EmptyFiles {
-        async fn insert(&self, _f: crate::domain::storage::ParquetFileMeta) -> Result<()> {
-            Ok(())
-        }
+    impl QueryFileSource for EmptyFiles {
         async fn find(
             &self,
             _o: &Id,
             _s: &str,
             _t: StreamType,
             _r: TimeRange,
-        ) -> Result<Vec<crate::domain::storage::ParquetFileMeta>> {
+        ) -> Result<Vec<crate::domain::storage::QueryFile>> {
             Ok(Vec::new())
-        }
-        async fn replace(
-            &self,
-            _ids: &[Id],
-            _new: Vec<crate::domain::storage::ParquetFileMeta>,
-        ) -> Result<()> {
-            Ok(())
-        }
-        async fn mark_deleted(&self, _ids: &[Id]) -> Result<usize> {
-            Ok(0)
         }
     }
     let engine = PromQLEngine::new(
@@ -1690,28 +1661,15 @@ async fn subquery_steps_inner_expression_over_window() {
 
     struct EmptyFiles;
     #[async_trait]
-    impl ParquetFileMetaRepository for EmptyFiles {
-        async fn insert(&self, _f: crate::domain::storage::ParquetFileMeta) -> Result<()> {
-            Ok(())
-        }
+    impl QueryFileSource for EmptyFiles {
         async fn find(
             &self,
             _o: &Id,
             _s: &str,
             _t: StreamType,
             _r: TimeRange,
-        ) -> Result<Vec<crate::domain::storage::ParquetFileMeta>> {
+        ) -> Result<Vec<crate::domain::storage::QueryFile>> {
             Ok(Vec::new())
-        }
-        async fn replace(
-            &self,
-            _ids: &[Id],
-            _new: Vec<crate::domain::storage::ParquetFileMeta>,
-        ) -> Result<()> {
-            Ok(())
-        }
-        async fn mark_deleted(&self, _ids: &[Id]) -> Result<usize> {
-            Ok(0)
         }
     }
 

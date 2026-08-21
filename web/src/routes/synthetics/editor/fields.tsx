@@ -12,6 +12,7 @@ import {
 
 import { clientId } from '../model';
 import type { AssertionDraft, CheckDraft } from './model';
+import { HostPortFields, SshFields } from './networkFields';
 
 type DraftPatch = <K extends keyof CheckDraft>(key: K, value: CheckDraft[K]) => void;
 
@@ -34,6 +35,7 @@ export function TargetFields({ draft, patch }: { draft: CheckDraft; patch: Draft
       </FormField>
     );
   }
+  if (draft.kind === 'ssh') return <SshFields draft={draft} patch={patch} />;
   if (draft.kind === 'dns') return <DnsFields draft={draft} patch={patch} />;
   if (draft.kind === 'icmp') return <IcmpFields draft={draft} patch={patch} />;
   if (draft.kind === 'tls') return <TlsFields draft={draft} patch={patch} />;
@@ -255,27 +257,6 @@ function TcpFields({ draft, patch }: { draft: CheckDraft; patch: DraftPatch }) {
   );
 }
 
-function HostPortFields({ draft, patch }: { draft: CheckDraft; patch: DraftPatch }) {
-  const { t } = useTranslation('synthetics');
-  return (
-    <FormRow className="grid-cols-1 sm:grid-cols-[minmax(0,1fr)_120px]">
-      <FormField label={t('editor.host')} required>
-        <FormInput
-          value={draft.host}
-          onChange={(event) => patch('host', event.target.value)}
-        />
-      </FormField>
-      <FormField label={t('editor.port')}>
-        <FormInput
-          type="number"
-          value={draft.port}
-          onChange={(event) => patch('port', event.target.value)}
-        />
-      </FormField>
-    </FormRow>
-  );
-}
-
 export function AssertionEditor({
   assertions,
   onChange,
@@ -369,6 +350,7 @@ export const KIND_OPTIONS: MonitorKind[] = [
   'http',
   'browser',
   'tcp',
+  'ssh',
   'dns',
   'icmp',
   'tls',
@@ -390,5 +372,16 @@ export function targetIsValid(draft: CheckDraft) {
   if (draft.kind === 'http') return draft.url.trim().length > 8;
   if (draft.kind === 'browser') return draft.browserSteps.trim().length > 8;
   if (draft.kind === 'heartbeat') return true;
+  if (draft.kind === 'ssh' && draft.sshAuthMode !== 'none') {
+    const credential = draft.sshAuthMode === 'password'
+      ? draft.sshPassword
+      : draft.sshPrivateKey;
+    return Boolean(
+      draft.host.trim()
+      && draft.sshUsername.trim()
+      && credential.trim()
+      && /^SHA256:[A-Za-z0-9+/]{43}$/.test(draft.sshHostKeySha256.trim()),
+    );
+  }
   return draft.host.trim().length > 0;
 }

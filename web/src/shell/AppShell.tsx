@@ -4,10 +4,8 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import {
   canAccessProductPath,
-  canAccessProductRoute,
   useProductAccess,
 } from '@/product/access';
-import { findProductRoute } from '@/product/ia';
 import { ProductRouteAccessGuard } from '@/routes/RouteGuard';
 import { InvestigationContextBar } from '@/shell/InvestigationContextBar';
 import { cn } from '@/shell/lib/cn';
@@ -20,11 +18,39 @@ import {
   useViewportWidth,
 } from '@/shell/useViewportWidth';
 import { useMoleAgentStore } from '@/stores/useMoleAgentStore';
-import { useSidebarStore } from '@/stores/useSidebarStore';
 
 interface AppShellProps {
   onTimePickerOpen: () => void;
   onPaletteOpen: () => void;
+}
+
+const SURFACE_WORKBENCH_ROUTES = [
+  '/dashboards',
+  '/logs',
+  '/metrics',
+  '/traces',
+  '/apm',
+  '/rum',
+  '/profiles',
+  '/alerts',
+  '/synthetics',
+  '/status-pages',
+  '/agent',
+  '/datasource',
+  '/streams',
+  '/pipelines',
+  '/functions',
+  '/extend-tables',
+  '/reports',
+  '/iam',
+  '/settings',
+  '/account',
+] as const;
+
+function isSurfaceWorkbenchRoute(pathname: string): boolean {
+  return SURFACE_WORKBENCH_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`),
+  );
 }
 
 /**
@@ -51,6 +77,7 @@ export function AppShell(_props: AppShellProps) {
     /^\/dashboards\/[^/]+\/edit$/.test(location.pathname) ||
     /^\/dashboards\/[^/]+\/panels\/new$/.test(location.pathname);
   const isAutoCollapsedRoute = isManagementRoute || isDashboardEditorRoute;
+  const isSurfaceWorkbench = isSurfaceWorkbenchRoute(location.pathname);
   const primarySidebarCollapsed = isAutoCollapsedRoute
     ? !autoCollapsedSidebarExpanded
     : collapsed;
@@ -58,7 +85,6 @@ export function AppShell(_props: AppShellProps) {
     primarySidebarCollapsed && !temporarilyExpanded;
   const nav = useNavigate();
   const viewportWidth = useViewportWidth();
-  const recordVisit = useSidebarStore((s) => s.recordVisit);
   const toggleMoleAgent = useMoleAgentStore((s) => s.toggle);
   const access = useProductAccess();
   const canUseMoleAgent = canAccessProductPath('/agent', access);
@@ -74,23 +100,6 @@ export function AppShell(_props: AppShellProps) {
   React.useEffect(() => {
     if (!primarySidebarCollapsed) setTemporarilyExpanded(false);
   }, [primarySidebarCollapsed]);
-
-  // Feed the sidebar "Recent" list with real destinations that DON'T already
-  // have a permanent home in a fixed nav group — nav items live in their group,
-  // so Recent surfaces the rest (e.g. saved views, service graph). Skip
-  // parameterized detail routes (`/x/:id`) so deep pages don't crowd the list,
-  // and skip nav items so Recent never just echoes a fixed group.
-  React.useEffect(() => {
-    const route = findProductRoute(location.pathname);
-    if (
-      route &&
-      canAccessProductRoute(route, access) &&
-      !route.nav &&
-      !route.path.includes(':')
-    ) {
-      recordVisit(route.id);
-    }
-  }, [access, location.pathname, recordVisit]);
 
   // ⌘J / Ctrl-J toggles Mole Agent from anywhere in the app.
   React.useEffect(() => {
@@ -133,7 +142,13 @@ export function AppShell(_props: AppShellProps) {
   }
 
   return (
-    <div className="h-screen min-w-0 overflow-hidden bg-bg-0 text-tx-0">
+    <div
+      data-shell-layout={isSurfaceWorkbench ? 'surface-workbench' : undefined}
+      className={cn(
+        'h-screen min-w-0 overflow-hidden bg-bg-0 text-tx-0',
+        isSurfaceWorkbench && 'bg-[var(--page-canvas)] [--sidebar-w:216px] [--topbar-h:48px]',
+      )}
+    >
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-[100] focus:rounded focus:bg-indigo focus:px-2 focus:py-1 focus:text-white"
@@ -145,6 +160,7 @@ export function AppShell(_props: AppShellProps) {
         onToggleSidebar={handleToggleSidebar}
         onPaletteOpen={_props.onPaletteOpen}
         onNocOpen={() => nav('/noc')}
+        surfaceWorkbench={isSurfaceWorkbench}
       />
 
       {mobileNavOpen && (
@@ -163,6 +179,7 @@ export function AppShell(_props: AppShellProps) {
         onHoverChange={(hovered) =>
           setTemporarilyExpanded(primarySidebarCollapsed && hovered)
         }
+        surfaceWorkbench={isSurfaceWorkbench}
       />
 
       <main

@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import {
   AlertTriangle,
-  ChevronLeft,
   ChevronRight,
   CircleX,
   Gauge,
@@ -10,12 +9,12 @@ import {
 } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 
 import * as rumApi from '@/api/rum';
 import type { SessionRow } from '@/api/rum';
 import { productStateFor } from '@/product/states';
-import { ChromeButton, Pill, type PillTone } from '@/shell/chrome';
+import { Pill, type PillTone } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
 import { queryStateFor } from '@/shell/query/State';
 import { SignalReference } from '@/shell/SignalReference';
@@ -25,13 +24,11 @@ import { useTimeStore } from '@/stores/useTimeStore';
 import { formatDurationMs, windowToMicros } from './_helpers';
 import { EventTimeline, normalizePlayerEvents } from './replay/events';
 import { ReplayPlayer } from './replay/ReplayPlayer';
-import { RumDetailPage, RumSectionHeader, useRumBasePath } from './RumLayout';
+import { RumDetailPage, RumSectionHeader } from './RumLayout';
 
 export function SessionDetail() {
   const { t } = useTranslation('rum');
   const { id = '' } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const basePath = useRumBasePath();
   const orgId = useAuthStore((state) => state.ctx?.org_id ?? '');
   const window = useTimeStore((state) => state.window);
   const range = React.useMemo(() => windowToMicros(window), [window]);
@@ -79,17 +76,11 @@ export function SessionDetail() {
       title={sessionTitle(session, t)}
       subtitle={id}
       toolbar={
-        <>
-          {session && (
-            <Pill tone={experienceTone(session.experience)}>
-              {t(`experience.${session.experience}`)}
-            </Pill>
-          )}
-          <ChromeButton onClick={() => navigate(`${basePath}/sessions`)}>
-            <ChevronLeft className="h-4 w-4" />
-            {t('session_detail.back')}
-          </ChromeButton>
-        </>
+        session ? (
+          <Pill tone={experienceTone(session.experience)}>
+            {t(`experience.${session.experience}`)}
+          </Pill>
+        ) : undefined
       }
       state={pageState}
       bodyClassName="pt-5"

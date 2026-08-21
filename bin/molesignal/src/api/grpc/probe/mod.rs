@@ -4,9 +4,11 @@
 pub(crate) mod result;
 pub(crate) mod task;
 
-use std::{collections::HashSet, pin::Pin, sync::Arc, time::Duration};
+use std::{collections::HashMap, pin::Pin, sync::Arc, time::Duration};
 
 use futures::{Stream, StreamExt as _};
+use object_store::{ObjectStore, ObjectStoreExt as _, path::Path as ObjectPath};
+use sha2::{Digest as _, Sha256};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status, Streaming};
@@ -14,7 +16,7 @@ use tonic::{Request, Response, Status, Streaming};
 use self::{result::result_from_wire, task::capabilities_from_wire};
 use crate::{
     app::synthetics::{PROBE_PROTOCOL_VERSION, ProbeControlService, ProbeRegisterInput},
-    domain::synthetics::{AgentCapacity, AgentStatus, ProbeAgent},
+    domain::synthetics::{AgentCapacity, AgentStatus, MonitorSpec, ProbeAgent, ProbeCapability},
     protocol::probe::v1::{
         self as wire, agent_frame, control_frame,
         probe_service_server::{ProbeService, ProbeServiceServer},
@@ -31,12 +33,21 @@ pub enum ProbeListener {
 #[derive(Clone)]
 pub struct ProbeGrpc {
     service: Arc<ProbeControlService>,
+    object_store: Arc<dyn ObjectStore>,
     listener: ProbeListener,
 }
 
 impl ProbeGrpc {
-    pub fn new(service: Arc<ProbeControlService>, listener: ProbeListener) -> Self {
-        Self { service, listener }
+    pub fn new(
+        service: Arc<ProbeControlService>,
+        object_store: Arc<dyn ObjectStore>,
+        listener: ProbeListener,
+    ) -> Self {
+        Self {
+            service,
+            object_store,
+            listener,
+        }
     }
 
     pub fn into_server(self) -> ProbeServiceServer<Self> {
@@ -127,6 +138,7 @@ impl ProbeService for ProbeGrpc {
 
         let (output, receiver) = mpsc::channel(64);
         let service = self.service.clone();
+        let object_store = self.object_store.clone();
         tokio::spawn(async move {
             if output
                 .send(Ok(control_frame(control_frame::Payload::HelloAck(
@@ -143,7 +155,7 @@ impl ProbeService for ProbeGrpc {
             {
                 return;
             }
-            run_stream(service, input, output, agent).await;
+            run_stream(service, object_store, input, output, agent).await;
         });
         Ok(Response::new(Box::pin(ReceiverStream::new(receiver))))
     }
@@ -151,18 +163,19 @@ impl ProbeService for ProbeGrpc {
 
 async fn run_stream(
     service: Arc<ProbeControlService>,
+    object_store: Arc<dyn ObjectStore>,
     mut input: Streaming<wire::AgentFrame>,
     output: mpsc::Sender<Result<wire::ControlFrame, Status>>,
     mut agent: ProbeAgent,
 ) {
-    let mut in_flight = HashSet::new();
+    let mut in_flight = HashMap::new();
     let mut dispatch = tokio::time::interval(Duration::from_secs(2));
     dispatch.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     loop {
         let outcome = tokio::select! {
             frame = input.next() => match frame {
                 Some(Ok(frame)) => handle_frame(
-                    &service, &output, &mut agent, &mut in_flight, frame,
+                    &service, &object_store, &output, &mut agent, &mut in_flight, frame,
                 ).await,
                 Some(Err(status)) => Err(status),
                 None => break,
@@ -180,9 +193,10 @@ async fn run_stream(
 
 async fn handle_frame(
     service: &ProbeControlService,
+    object_store: &Arc<dyn ObjectStore>,
     output: &mpsc::Sender<Result<wire::ControlFrame, Status>>,
     agent: &mut ProbeAgent,
-    in_flight: &mut HashSet<Id>,
+    in_flight: &mut HashMap<Id, bool>,
     frame: wire::AgentFrame,
 ) -> Result<(), Status> {
     if frame.frame_id.is_empty() || frame.frame_id.len() > 128 {
@@ -235,6 +249,9 @@ async fn handle_frame(
                 .map_err(to_status)?;
             let sequence = value.result_sequence;
             let result = result_from_wire(agent, &task, value).map_err(to_status)?;
+            verify_artifact_objects(object_store, &result)
+                .await
+                .map_err(to_status)?;
             service.process_result(result).await.map_err(to_status)?;
             in_flight.remove(&task_id);
             output
@@ -279,29 +296,70 @@ async fn handle_frame(
     }
 }
 
+async fn verify_artifact_objects(
+    object_store: &Arc<dyn ObjectStore>,
+    result: &crate::domain::synthetics::SyntheticResult,
+) -> crate::shared::Result<()> {
+    for artifact in &result.artifacts {
+        let path = ObjectPath::parse(&artifact.object_key).map_err(|error| {
+            Error::invalid(format!("invalid Probe Artifact object key: {error}"))
+        })?;
+        let body = object_store
+            .get(&path)
+            .await
+            .map_err(|_| Error::invalid("Probe Artifact receipt has no uploaded object"))?
+            .bytes()
+            .await
+            .map_err(|_| Error::invalid("Probe Artifact object cannot be read"))?;
+        if body.len() as u64 != artifact.content_length
+            || hex::encode(Sha256::digest(&body)) != artifact.sha256
+        {
+            return Err(Error::invalid(
+                "Probe Artifact receipt does not match the uploaded object",
+            ));
+        }
+    }
+    Ok(())
+}
+
 async fn dispatch_tasks(
     service: &ProbeControlService,
     output: &mpsc::Sender<Result<wire::ControlFrame, Status>>,
     agent: &ProbeAgent,
-    in_flight: &mut HashSet<Id>,
+    in_flight: &mut HashMap<Id, bool>,
 ) -> Result<(), Status> {
     if agent.status == AgentStatus::Draining {
         return Ok(());
     }
-    let available = agent
-        .capacity
-        .available
-        .min(agent.capacity.max_concurrent)
-        .min(32) as usize;
-    while in_flight.len() < available {
-        let Some((task, token)) = service.lease_next(agent).await.map_err(to_status)? else {
+    let browser_in_flight = in_flight.values().filter(|is_browser| **is_browser).count();
+    let (mut available, mut available_browser) =
+        dispatch_budgets(agent.capacity, in_flight.len(), browser_in_flight);
+    while available > 0 {
+        let mut dispatch_agent = agent.clone();
+        if available_browser == 0 {
+            dispatch_agent
+                .capabilities
+                .retain(|capability| capability != &ProbeCapability::Browser);
+        }
+        let Some((task, token)) = service
+            .lease_next(&dispatch_agent)
+            .await
+            .map_err(to_status)?
+        else {
             break;
         };
         let task_id = task.id.clone();
+        let is_browser = matches!(&task.spec, MonitorSpec::Browser(_));
         let wire = async {
             let location = service.task_location(&task).await?;
             let secrets = service.resolve_task_secrets(&task).await?;
-            task::task_to_wire(task, token.clone(), location, secrets)
+            task::task_to_wire(
+                task,
+                token.clone(),
+                location,
+                secrets,
+                service.artifact_base_url(),
+            )
         }
         .await;
         let wire = match wire {
@@ -313,13 +371,31 @@ async fn dispatch_tasks(
                 return Err(to_status(error));
             }
         };
-        in_flight.insert(task_id);
+        in_flight.insert(task_id, is_browser);
+        available -= 1;
+        if is_browser {
+            available_browser = available_browser.saturating_sub(1);
+        }
         output
             .send(Ok(control_frame(control_frame::Payload::Task(wire))))
             .await
             .map_err(|_| Status::cancelled("Probe stream closed"))?;
     }
     Ok(())
+}
+
+fn dispatch_budgets(
+    capacity: AgentCapacity,
+    in_flight: usize,
+    browser_in_flight: usize,
+) -> (usize, usize) {
+    let max = capacity.max_concurrent.min(32) as usize;
+    let available = (capacity.available.min(32) as usize).min(max.saturating_sub(in_flight));
+    let max_browser = (capacity.max_browser_concurrent.min(4) as usize).min(max);
+    let available_browser = (capacity.available_browser.min(4) as usize)
+        .min(max_browser.saturating_sub(browser_in_flight))
+        .min(available);
+    (available, available_browser)
 }
 
 fn capacity_from_wire(value: Option<wire::AgentCapacity>) -> AgentCapacity {
@@ -362,5 +438,25 @@ fn to_status(error: Error) -> Status {
             tracing::error!(error = %error, "Probe gRPC internal error");
             Status::internal("internal Probe control error")
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::dispatch_budgets;
+    use crate::domain::synthetics::AgentCapacity;
+
+    #[test]
+    fn dispatch_uses_free_capacity_without_exceeding_in_flight_limits() {
+        let capacity = AgentCapacity {
+            max_concurrent: 4,
+            max_browser_concurrent: 1,
+            available: 2,
+            available_browser: 1,
+        };
+
+        assert_eq!(dispatch_budgets(capacity, 2, 0), (2, 1));
+        assert_eq!(dispatch_budgets(capacity, 3, 1), (1, 0));
+        assert_eq!(dispatch_budgets(capacity, 4, 1), (0, 0));
     }
 }

@@ -79,9 +79,10 @@ pub(super) async fn list(
     }
 
     let reader = RumReadModelReader::new(
-        state.storage.parquet_file_meta.clone(),
-        state.storage.object_store.clone(),
-    );
+        state.storage.catalog_files.clone(),
+        state.storage.read_store.clone(),
+    )
+    .with_catalog_source(state.storage.catalog_query.clone());
     let boundary = context
         .boundary
         .as_ref()

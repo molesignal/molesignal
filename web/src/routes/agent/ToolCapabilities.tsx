@@ -29,6 +29,7 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import * as agentApi from '@/api/agent';
+import { writeClipboardText } from '@/lib/clipboard';
 import { CopyIconButton } from '@/shell/CopyIconButton';
 import {
   FormDrawer,
@@ -793,7 +794,7 @@ function ToolMenu({
 }) {
   const { t } = useTranslation('agent');
   const copyDefinition = async () => {
-    await navigator.clipboard.writeText(
+    await writeClipboardText(
       JSON.stringify(
         {
           name: tool.name,
@@ -1131,7 +1132,7 @@ function SchemaSection({
   const properties = schemaProperties(schema);
   const required = new Set(Array.isArray(schema.required) ? schema.required.map(String) : []);
   const copy = async () => {
-    await navigator.clipboard.writeText(JSON.stringify(schema, null, 2));
+    await writeClipboardText(JSON.stringify(schema, null, 2));
     toast.success(t('settings.tools.feedback.schema_copied'));
   };
   return (

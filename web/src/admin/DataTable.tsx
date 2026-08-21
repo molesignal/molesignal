@@ -57,6 +57,7 @@ export function DataTable<T>({
   if (rows.length === 0) {
     return (
       <div
+        data-data-table-empty
         className={cn(
           'flex h-32 items-center justify-center rounded-md border border-bd-0 bg-bg-1 font-sans text-xs text-tx-2',
           className,
@@ -67,7 +68,7 @@ export function DataTable<T>({
     );
   }
   return (
-    <Table className={cn('font-strong', className)}>
+    <Table data-data-table className={cn('font-strong', className)}>
       <TableHeader className="[&_th]:sticky [&_th]:top-0 [&_th]:bg-bg-1">
         <TableRow>
           {columns.map((c) => (

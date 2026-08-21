@@ -43,7 +43,7 @@ async fn intake_logs(
     Path(stream): Path<String>,
     body: Bytes,
 ) -> Result<Json<IntakeResult>> {
-    intake(state, ctx, stream, StreamType::Logs, body).await
+    intake(state, ctx, stream, StreamType::LOGS, body).await
 }
 
 #[permission("streams.write")]
@@ -53,7 +53,7 @@ async fn intake_metrics(
     Path(stream): Path<String>,
     body: Bytes,
 ) -> Result<Json<IntakeResult>> {
-    intake(state, ctx, stream, StreamType::Metrics, body).await
+    intake(state, ctx, stream, StreamType::METRICS, body).await
 }
 
 #[permission("streams.write")]
@@ -63,7 +63,7 @@ async fn intake_traces(
     Path(stream): Path<String>,
     body: Bytes,
 ) -> Result<Json<IntakeResult>> {
-    intake(state, ctx, stream, StreamType::Traces, body).await
+    intake(state, ctx, stream, StreamType::TRACES, body).await
 }
 
 async fn intake(

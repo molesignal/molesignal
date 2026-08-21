@@ -454,8 +454,8 @@ test('service-scoped overview replaces the redundant service ranking with invest
   await expect(page.getByText('P99 latency', { exact: true }).first()).toBeVisible();
   await expect(
     page
-      .getByRole('list', { name: 'Series legend' })
-      .getByRole('listitem')
+      .getByRole('table', { name: 'Series legend' })
+      .locator('tbody tr')
       .first(),
   ).toHaveCSS('font-size', '11px');
 });

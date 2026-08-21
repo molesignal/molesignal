@@ -4,10 +4,11 @@
 use base64::Engine as _;
 
 use crate::{
-    app::synthetics::ResolvedProbeSecret,
+    app::synthetics::{ResolvedProbeSecret, artifact_targets},
     domain::synthetics::{
         AssertionOperator, AssertionSeverity, BrowserAction, EgressPolicy, GrpcCall, HeaderValue,
-        MonitorAssertion, MonitorSpec, ProbeCapability, ProbeLocation, ProbeTask, ValueSource,
+        MonitorAssertion, MonitorSpec, ProbeCapability, ProbeLocation, ProbeTask,
+        SshAuthentication, ValueSource,
     },
     protocol::probe::v1 as wire,
     shared::{Error, Result},
@@ -19,6 +20,7 @@ pub(super) fn capabilities_from_wire(values: &[i32]) -> Result<Vec<ProbeCapabili
         .map(|value| match wire::Capability::try_from(*value).ok() {
             Some(wire::Capability::Http) => Ok(ProbeCapability::Http),
             Some(wire::Capability::Tcp) => Ok(ProbeCapability::Tcp),
+            Some(wire::Capability::Ssh) => Ok(ProbeCapability::Ssh),
             Some(wire::Capability::Dns) => Ok(ProbeCapability::Dns),
             Some(wire::Capability::Icmp) => Ok(ProbeCapability::Icmp),
             Some(wire::Capability::Tls) => Ok(ProbeCapability::Tls),
@@ -34,8 +36,33 @@ pub(crate) fn task_to_wire(
     lease_token: String,
     location: ProbeLocation,
     secrets: Vec<ResolvedProbeSecret>,
+    artifact_base_url: Option<&str>,
 ) -> Result<wire::ProbeTask> {
     let spec = spec_to_wire(&task.spec)?;
+    let artifact_uploads = artifact_base_url
+        .map(|base_url| {
+            artifact_targets(&task, &lease_token)
+                .into_iter()
+                .map(|target| wire::ArtifactUploadTarget {
+                    artifact_id: target.id.clone(),
+                    kind: target.kind,
+                    upload_url: format!(
+                        "{base_url}/api/v1/synthetics/artifacts/{}/{}",
+                        task.id, target.id
+                    ),
+                    upload_headers: [
+                        ("authorization".into(), format!("Bearer {lease_token}")),
+                        ("content-type".into(), target.content_type),
+                    ]
+                    .into_iter()
+                    .collect(),
+                    expires_at_micros: target.expires_at.0,
+                    max_bytes: target.max_bytes,
+                    name: target.name,
+                })
+                .collect()
+        })
+        .unwrap_or_default();
     Ok(wire::ProbeTask {
         task_id: task.id.0,
         organization_id: task.organization_id.0,
@@ -59,7 +86,7 @@ pub(crate) fn task_to_wire(
             })
             .collect(),
         test_run: task.is_test,
-        artifact_uploads: Vec::new(),
+        artifact_uploads,
         spec: Some(spec),
     })
 }
@@ -116,6 +143,36 @@ fn spec_to_wire(spec: &MonitorSpec) -> Result<wire::probe_task::Spec> {
             send: value.send.as_ref().map(value_to_wire),
             expect_regex: value.expect_regex.clone(),
             assertions: value.assertions.iter().map(assertion_to_wire).collect(),
+        }),
+        MonitorSpec::Ssh(value) => Spec::Ssh(wire::SshSpec {
+            host: Some(value_to_wire(&value.host)),
+            port: u32::from(value.port),
+            expected_identification_regex: value.expected_identification_regex.clone(),
+            authentication: value.authentication.as_ref().map(
+                |authentication| match authentication {
+                    SshAuthentication::Password { username, password } => {
+                        wire::ssh_spec::Authentication::Password(wire::SshPasswordAuthentication {
+                            username: Some(value_to_wire(username)),
+                            password: Some(value_to_wire(password)),
+                        })
+                    }
+                    SshAuthentication::PublicKey {
+                        username,
+                        private_key,
+                        passphrase,
+                    } => wire::ssh_spec::Authentication::PublicKey(
+                        wire::SshPublicKeyAuthentication {
+                            username: Some(value_to_wire(username)),
+                            private_key: Some(value_to_wire(private_key)),
+                            passphrase: passphrase.as_ref().map(value_to_wire),
+                        },
+                    ),
+                },
+            ),
+            command: value.command.as_ref().map(value_to_wire),
+            expected_output_regex: value.expected_output_regex.clone(),
+            expected_exit_status: value.expected_exit_status,
+            expected_host_key_sha256: value.expected_host_key_sha256.clone(),
         }),
         MonitorSpec::Dns(value) => Spec::Dns(wire::DnsSpec {
             name: value.name.clone(),
@@ -194,6 +251,7 @@ fn spec_to_wire(spec: &MonitorSpec) -> Result<wire::probe_task::Spec> {
             user_agent: value.user_agent.clone().unwrap_or_default(),
             capture_screenshot_on_failure: value.capture_screenshot_on_failure,
             capture_har_on_failure: value.capture_har_on_failure,
+            capture_trace_on_failure: value.capture_trace_on_failure,
         }),
         MonitorSpec::Heartbeat => {
             return Err(Error::invalid(

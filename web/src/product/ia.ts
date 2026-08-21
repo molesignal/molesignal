@@ -361,7 +361,6 @@ export const PRODUCT_ROUTES = [
     owner: 'settings',
     emptyStateStrategy: 'none',
     nav: true,
-    breadcrumbs: [crumb('settings', '/settings/general'), crumb('breadcrumbs.license')],
   }),
   route({
     id: 'settings.client_ip',
@@ -381,7 +380,6 @@ export const PRODUCT_ROUTES = [
     edition: 'saas',
     owner: 'account',
     emptyStateStrategy: 'license-gated',
-    breadcrumbs: [crumb('account_billing')],
   }),
   route({
     id: 'account.support',
@@ -392,7 +390,6 @@ export const PRODUCT_ROUTES = [
     edition: 'saas',
     owner: 'account',
     emptyStateStrategy: 'license-gated',
-    breadcrumbs: [crumb('account_support')],
   }),
   route({
     id: 'investigate',

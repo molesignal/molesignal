@@ -186,7 +186,7 @@ async fn otlp_grpc_traces_authz_and_lands() {
         .await
         .expect("authed export must succeed");
 
-    // 3) 等 flush 出 parquet_file_meta，再 query 验证 span 落到 traces/otel_traces 流。
+    // 3) 等 flush 出 query_file，再 query 验证 span 落到 traces/otel_traces 流。
     let pool = sqlx::postgres::PgPoolOptions::new()
         .max_connections(2)
         .connect(&s.settings.store.meta.dsn)
@@ -198,7 +198,7 @@ async fn otlp_grpc_traces_authz_and_lands() {
             let pool = pool.clone();
             async move {
                 let row: (i64,) =
-                    sqlx::query_as("SELECT COUNT(*) FROM parquet_file_meta WHERE deleted = FALSE")
+                    sqlx::query_as("SELECT COUNT(*) FROM query_file WHERE deleted = FALSE")
                         .fetch_one(&pool)
                         .await
                         .unwrap_or((0,));
@@ -209,7 +209,7 @@ async fn otlp_grpc_traces_authz_and_lands() {
     };
     assert!(
         flushed,
-        "otlp traces never flushed to parquet_file_meta within timeout"
+        "otlp traces never flushed to query_file within timeout"
     );
 
     let resp = s

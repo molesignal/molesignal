@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import * as webApi from '@/api/web';
+import { writeClipboardText } from '@/lib/clipboard';
 import {
   canAccessProductPath,
   useProductAccess,
@@ -79,7 +80,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         toggleDensity,
         pinAnchor: () => togglePin(anchor?.at ?? new Date().toISOString()),
         copyInvestigationLink: () => {
-          void navigator.clipboard.writeText(window.location.href).then(() => {
+          void writeClipboardText(window.location.href).then(() => {
             toast.success(t('errors:link_copied'));
           });
         },

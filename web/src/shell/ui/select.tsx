@@ -3,6 +3,13 @@ import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 import * as React from 'react';
 
 import { cn } from '@/shell/lib/cn';
+import {
+  floatingMenuContentClass,
+  floatingMenuItemClass,
+  floatingMenuLabelClass,
+  floatingMenuSelectedClass,
+  floatingMenuSeparatorClass,
+} from '@/shell/ui/floating';
 
 const Select = SelectPrimitive.Root;
 const SelectGroup = SelectPrimitive.Group;
@@ -14,9 +21,10 @@ const SelectTrigger = React.forwardRef<
 >(({ className, children, ...props }, ref) => (
   <SelectPrimitive.Trigger
     ref={ref}
+    data-ui="select-trigger"
     className={cn(
-      'flex h-9 w-full items-center justify-between rounded-md border border-bd-1 bg-bg-2 px-3 py-1.5 font-sans text-sm text-tx-0 shadow-none transition-colors',
-      'placeholder:text-tx-3 hover:border-bd-2 focus:outline-none data-[state=open]:border-bd-2 data-[state=open]:text-indigo data-[state=open]:[&>svg]:text-indigo data-[state=open]:[&>svg]:opacity-100',
+      'flex h-[44px] w-full items-center justify-between rounded-md border-0 bg-[var(--control-surface)] px-3 py-1.5 font-sans text-sm text-tx-0 shadow-none transition-colors sm:h-9',
+      'placeholder:text-tx-3 hover:bg-[var(--floating-item-hover)] focus:outline-none focus-visible:bg-[var(--floating-item-hover)] data-[state=open]:bg-[var(--floating-item-hover)] data-[state=open]:text-tx-0 data-[state=open]:[&>svg]:text-indigo data-[state=open]:[&>svg]:opacity-100',
       'disabled:cursor-not-allowed disabled:opacity-50',
       className,
     )}
@@ -24,7 +32,7 @@ const SelectTrigger = React.forwardRef<
   >
     {children}
     <SelectPrimitive.Icon asChild>
-      <ChevronDown className="h-4 w-4 shrink-0 opacity-50 transition-colors" />
+      <ChevronDown className="h-[14px] w-[14px] shrink-0 opacity-50 transition-colors" />
     </SelectPrimitive.Icon>
   </SelectPrimitive.Trigger>
 ));
@@ -36,10 +44,13 @@ const SelectScrollUpButton = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <SelectPrimitive.ScrollUpButton
     ref={ref}
-    className={cn('flex cursor-default items-center justify-center py-1', className)}
+    className={cn(
+      'flex h-[44px] cursor-default items-center justify-center rounded-sm text-tx-2 sm:h-[24px]',
+      className,
+    )}
     {...props}
   >
-    <ChevronUp className="h-4 w-4" />
+    <ChevronUp className="h-[14px] w-[14px]" />
   </SelectPrimitive.ScrollUpButton>
 ));
 SelectScrollUpButton.displayName = SelectPrimitive.ScrollUpButton.displayName;
@@ -50,10 +61,13 @@ const SelectScrollDownButton = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <SelectPrimitive.ScrollDownButton
     ref={ref}
-    className={cn('flex cursor-default items-center justify-center py-1', className)}
+    className={cn(
+      'flex h-[44px] cursor-default items-center justify-center rounded-sm text-tx-2 sm:h-[24px]',
+      className,
+    )}
     {...props}
   >
-    <ChevronDown className="h-4 w-4" />
+    <ChevronDown className="h-[14px] w-[14px]" />
   </SelectPrimitive.ScrollDownButton>
 ));
 SelectScrollDownButton.displayName = SelectPrimitive.ScrollDownButton.displayName;
@@ -61,13 +75,14 @@ SelectScrollDownButton.displayName = SelectPrimitive.ScrollDownButton.displayNam
 const SelectContent = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content>
->(({ className, children, position = 'popper', ...props }, ref) => (
+>(({ className, children, position = 'popper', sideOffset = 4, ...props }, ref) => (
   <SelectPrimitive.Portal>
     <SelectPrimitive.Content
-    ref={ref}
-    className={cn(
-        'relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-md border border-bd-1 bg-bg-1 text-tx-0 shadow-popup data-[state=open]:animate-fade-in',
-        position === 'popper' && 'data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1',
+      ref={ref}
+      sideOffset={sideOffset}
+      className={cn(
+        floatingMenuContentClass,
+        'relative max-h-96 p-0 data-[state=open]:animate-fade-in',
         className,
       )}
       position={position}
@@ -76,7 +91,7 @@ const SelectContent = React.forwardRef<
       <SelectScrollUpButton />
       <SelectPrimitive.Viewport
         className={cn(
-          'p-1',
+          'p-[4px]',
           position === 'popper' &&
             'max-h-[min(var(--radix-select-content-available-height),24rem)] w-full min-w-[var(--radix-select-trigger-width)]',
         )}
@@ -95,7 +110,7 @@ const SelectLabel = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <SelectPrimitive.Label
     ref={ref}
-    className={cn('px-2.5 py-2 font-sans text-xs font-semibold text-tx-3', className)}
+    className={cn(floatingMenuLabelClass, className)}
     {...props}
   />
 ));
@@ -108,15 +123,16 @@ const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      'relative flex h-8 w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2.5 font-sans text-sm text-tx-0 outline-none transition-colors',
-      'focus:bg-bg-3 focus:text-tx-0 data-[disabled]:cursor-not-allowed data-[disabled]:text-tx-3 data-[disabled]:opacity-100',
+      floatingMenuItemClass,
+      floatingMenuSelectedClass,
+      'h-[44px] w-full pl-[30px] pr-[10px] sm:h-[30px]',
       className,
     )}
     {...props}
   >
-    <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+    <span className="absolute left-[8px] flex h-[14px] w-[14px] items-center justify-center">
       <SelectPrimitive.ItemIndicator>
-        <Check className="h-3.5 w-3.5 text-indigo" />
+        <Check className="h-[14px] w-[14px] text-indigo-soft" />
       </SelectPrimitive.ItemIndicator>
     </span>
     <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
@@ -128,7 +144,11 @@ const SelectSeparator = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Separator>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Separator>
 >(({ className, ...props }, ref) => (
-  <SelectPrimitive.Separator ref={ref} className={cn('-mx-1 my-1 h-px bg-border', className)} {...props} />
+  <SelectPrimitive.Separator
+    ref={ref}
+    className={cn(floatingMenuSeparatorClass, className)}
+    {...props}
+  />
 ));
 SelectSeparator.displayName = SelectPrimitive.Separator.displayName;
 

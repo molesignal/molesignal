@@ -1,17 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Tantivy 倒排索引：与 parquet 同写同存同查。
+//! Tantivy 倒排索引的 Puffin 编解码与读取。
 //!
-//! change `tantivy-puffin-migration`：sidecar 从 `tar+zstd` 整目录切到 **Puffin v1**
+//! Tantivy Artifact 从 `tar+zstd` 整目录切到 **Puffin v1**
 //! 单文件多 blob。写端 `TantivyArchiveBuilder` 内部仍是 tempdir + `MmapDirectory`，
 //! `commit_and_archive` 改走 `PuffinDirWriter::to_puffin_bytes()`。读端
 //! `TantivyArchiveOpener::open_from_object_store(store, key, size)` 通过
 //! `PuffinDirReader` 把 tantivy 每次文件读转成 sub-range `get_range`。
 //!
-//! Sidecar 命名也从 `{object_key}.tantivy.tar.zst` 切到
-//! `files/{org}/index/{stream_type}/{dataset_kind}/{stream}/YYYY/MM/DD/HH/{id}.ttv`，
-//! 由 `tantivy::key_mapping::convert_parquet_file_name_to_tantivy_file` 决定。
+//! 索引对象 key 由 `StorageLayout` 独立生成，并作为显式 Artifact 记录在 FileCatalog；
+//! 本模块不接受 Parquet key，也不承担任何索引路径映射。
 
 use std::{collections::HashMap, sync::Arc};
 
@@ -44,7 +43,7 @@ pub struct TantivyArchiveBuilder {
 
 impl TantivyArchiveBuilder {
     /// 按 stream schema 中 `full_text/exact && Utf8/Json && !encrypted` 字段建 Tantivy
-    /// schema；`bloom/skip/none` 不进入倒排 sidecar。
+    /// schema；`bloom/skip/none` 不进入倒排 Artifact。
     /// 没有任何可索引字段时返 `Ok(None)`（caller 跳过 tantivy 同写）。
     ///
     /// 字段级选型：`exact=true` 建**未分词** `STRING` 索引（整值单 term，供 `col = 'x'`
@@ -195,22 +194,6 @@ impl TantivyArchiveOpener {
 
 pub use crate::tantivy::TantivyFooter;
 
-/// 一份索引的目标 object key。
-pub struct TantivyArchive {
-    pub object_key: String,
-    pub bytes: Vec<u8>,
-}
-
-impl TantivyArchive {
-    /// 把 parquet object key 转换成对应的 puffin sidecar key（`.ttv` 后缀）。
-    ///
-    /// 返回 `None` 的兜底：parquet key 不符合规范小时分区时不写 sidecar。
-    /// caller 应跳过 Tantivy 写出，避免产生无法由查询路径反向定位的孤儿索引。
-    pub fn key_for(parquet_object_key: &str) -> Option<String> {
-        crate::tantivy::key_mapping::convert_parquet_file_name_to_tantivy_file(parquet_object_key)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -224,7 +207,7 @@ mod tests {
             id: Id::new(),
             org_id: Id::from_string("org"),
             name: "logs".into(),
-            stream_type: crate::domain::stream::StreamType::Logs,
+            stream_type: crate::domain::stream::StreamType::LOGS,
             schema: DomainSchema {
                 fields: vec![
                     FieldDef {
@@ -408,14 +391,5 @@ mod tests {
             0,
             "带连字符的 term 查不到（索引里已被切成 my / api）"
         );
-    }
-
-    #[test]
-    fn key_for_uses_puffin_mapping() {
-        assert_eq!(
-            TantivyArchive::key_for("orgA/logs/raw/log_app/2026/01/15/09/abc.parquet"),
-            Some("files/orgA/index/logs/raw/log_app/2026/01/15/09/abc.ttv".to_string())
-        );
-        assert_eq!(TantivyArchive::key_for("not-a-key"), None);
     }
 }

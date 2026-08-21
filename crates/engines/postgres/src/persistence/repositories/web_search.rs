@@ -48,7 +48,7 @@ impl PgWebSearchRepository {
         let limit = limit.clamp(1, 50) as i64;
         let rows = sqlx::query(
             "SELECT id::text AS id, name AS label, stream_type AS subtitle
-               FROM streams
+               FROM logical_streams
               WHERE org_id = $1
               ORDER BY name ASC
               LIMIT $2",
@@ -83,7 +83,7 @@ const ALL: &[KindQuery] = &[
         kind: "stream",
         sql: "SELECT 'stream' AS kind, id::text AS id, name AS label,
                      stream_type AS subtitle, similarity(name, $2) AS rk
-              FROM streams WHERE org_id = $1 AND name % $2",
+              FROM logical_streams WHERE org_id = $1 AND name % $2",
     },
     KindQuery {
         kind: "dashboard",

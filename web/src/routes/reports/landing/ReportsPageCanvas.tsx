@@ -4,7 +4,11 @@ import type { KpiStripItem } from '@/admin';
 import { ProductState, type ProductStateProps } from '@/product/states';
 import { uiLabelClass } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
-import { PageBody, PageHeader } from '@/shell/PageHeader';
+import {
+  surfacePageRootClass,
+  SurfacePageBody,
+  SurfacePageHeader,
+} from '@/shell/SurfaceWorkbench';
 
 import type { ReportTab } from '../reportTypes';
 
@@ -40,14 +44,21 @@ export function ReportsPageCanvas({
   children?: React.ReactNode | undefined;
 }) {
   return (
-    <>
-      <PageHeader title={title} subtitle={subtitle} toolbar={toolbar} />
-      <PageBody className="pb-4 pt-2 lg:pb-6 lg:pt-2">
-        <main className="mx-auto w-full max-w-[2200px] bg-bg-0">
+    <div data-page-appearance="surface" className={surfacePageRootClass}>
+      <SurfacePageHeader title={title} subtitle={subtitle} toolbar={toolbar} />
+      <SurfacePageBody>
+        <main className="mx-auto w-full max-w-[2200px] space-y-[12px] bg-[var(--page-canvas)]">
           {kpis && kpis.length > 0 && <ReportsKpiStrip items={kpis} />}
 
-          <section className="min-w-0 bg-bg-0" aria-label={title as string}>
-            <header className="flex min-h-12 min-w-0 items-end">
+          <section
+            data-reports-workspace
+            className="min-w-0 overflow-hidden rounded-md bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]"
+            aria-label={title as string}
+          >
+            <header
+              data-reports-navigation
+              className="flex min-h-11 min-w-0 items-end"
+            >
               <div
                 role="tablist"
                 aria-label={title as string}
@@ -80,14 +91,14 @@ export function ReportsPageCanvas({
                 })}
               </div>
               {tabAction && (
-                <div className="ml-auto flex min-h-12 shrink-0 items-center px-3 py-1.5">
+                <div className="ml-auto flex min-h-11 shrink-0 items-center px-3 py-1.5">
                   {tabAction}
                 </div>
               )}
             </header>
 
             {actionBar && (
-              <div className="flex min-h-12 min-w-0 flex-wrap items-center gap-2 border-b border-bd-0 px-4 py-2">
+              <div className="flex min-h-12 min-w-0 flex-wrap items-center gap-2 px-4 py-2">
                 {actionBar}
               </div>
             )}
@@ -97,7 +108,7 @@ export function ReportsPageCanvas({
                 <ProductState
                   {...state}
                   className={cn(
-                    'rounded-none border-x-0 border-t-0 border-solid bg-transparent',
+                    'rounded-none border-0 bg-transparent shadow-none',
                     state.className,
                   )}
                 />
@@ -107,8 +118,8 @@ export function ReportsPageCanvas({
             </div>
           </section>
         </main>
-      </PageBody>
-    </>
+      </SurfacePageBody>
+    </div>
   );
 }
 
@@ -116,10 +127,13 @@ function ReportsKpiStrip({ items }: { items: readonly KpiStripItem[] }) {
   return (
     <section
       data-reports-kpis
-      className="grid grid-cols-4 border-b border-bd-0 bg-bg-0"
+      className="grid grid-cols-4 gap-[12px]"
     >
       {items.map((item, index) => (
-        <div key={index} className="min-h-[92px] min-w-0 px-4 py-3">
+        <div
+          key={index}
+          className="min-h-[92px] min-w-0 rounded-md bg-[var(--functional-surface)] px-4 py-3 [box-shadow:var(--shadow-functional-surface)]"
+        >
           <div className={uiLabelClass}>{item.label}</div>
           <div
             className={cn(

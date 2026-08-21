@@ -31,7 +31,6 @@ export const DATA_COLLABORATION_PRODUCT_ROUTES = [
   route({
     id: 'datasource', path: '/datasource', labelKey: 'datasource', group: 'data',
     icon: Plug, owner: 'datasource', emptyStateStrategy: 'activation', nav: true,
-    breadcrumbs: [crumb('datasource', '/datasource')],
   }),
   route({
     id: 'datasource.category', path: '/datasource/:category',

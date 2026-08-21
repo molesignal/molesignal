@@ -29,6 +29,7 @@ import {
   CODE_EDITOR_FONT_SIZE,
   CODE_EDITOR_FONT_WEIGHT,
   CODE_EDITOR_LINE_HEIGHT,
+  CODE_EDITOR_PLACEHOLDER_FONT_WEIGHT,
 } from './typography';
 
 type MonacoGlobal = typeof globalThis & {
@@ -560,11 +561,12 @@ function MonacoCodeEditor({
         {effectivePlaceholder && isEmpty ? (
           <div
             aria-hidden="true"
+            data-code-editor-placeholder="true"
             className="pointer-events-none absolute inset-y-0 right-3 z-10 overflow-hidden whitespace-pre-wrap font-normal italic tracking-normal text-tx-3"
             style={{
               fontFamily: CODE_EDITOR_FONT_FAMILY,
               fontSize: metrics.fontSize,
-              fontWeight,
+              fontWeight: CODE_EDITOR_PLACEHOLDER_FONT_WEIGHT,
               left: placeholderLeft,
               lineHeight: `${metrics.lineHeight}px`,
               paddingTop: metrics.paddingTop,

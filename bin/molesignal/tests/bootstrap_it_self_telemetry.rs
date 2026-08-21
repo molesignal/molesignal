@@ -97,11 +97,12 @@ mod enabled {
         stream_name: &str,
     ) -> i64 {
         let stream_type = match stream_type {
-            StreamType::Logs => "logs",
-            StreamType::Metrics => "metrics",
-            StreamType::Traces => "traces",
-            StreamType::Profiles => "profiles",
-            StreamType::Extend => unreachable!(),
+            StreamType::LOGS => "logs",
+            StreamType::METRICS => "metrics",
+            StreamType::TRACES => "traces",
+            StreamType::PROFILES => "profiles",
+            StreamType::EXTEND => unreachable!(),
+            _ => unreachable!("test only queries built-in telemetry streams"),
         };
         let response = server
             .client
@@ -297,7 +298,7 @@ mod enabled {
             .state
             .telemetry
             .streams
-            .get(&system_org_id, MOLESIGNAL_SYSTEM_STREAM, StreamType::Traces)
+            .get(&system_org_id, MOLESIGNAL_SYSTEM_STREAM, StreamType::TRACES)
             .await
             .unwrap();
         let response = server
@@ -438,7 +439,7 @@ mod enabled {
                 let org_id = flushed_org_id.clone();
                 async move {
                     let row: (i64,) = sqlx::query_as(
-                        "SELECT COUNT(*) FROM parquet_file_meta
+                        "SELECT COUNT(*) FROM query_file
                          WHERE org_id = $1 AND deleted = FALSE",
                     )
                     .bind(org_id)
@@ -453,9 +454,9 @@ mod enabled {
         );
 
         for stream_type in [
-            StreamType::Metrics,
-            StreamType::Traces,
-            StreamType::Profiles,
+            StreamType::METRICS,
+            StreamType::TRACES,
+            StreamType::PROFILES,
         ] {
             assert!(
                 query_count(&server, &system_token, system_org_id.as_str(), stream_type,).await
@@ -476,7 +477,7 @@ mod enabled {
                 &server,
                 &server.root_token,
                 server.root_org_id.as_str(),
-                StreamType::Profiles,
+                StreamType::PROFILES,
                 "default",
             )
             .await

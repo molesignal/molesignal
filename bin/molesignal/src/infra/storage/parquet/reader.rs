@@ -51,8 +51,8 @@ pub struct ReadOptions<'a> {
     /// 已知的对象字节数，用于省掉一次 `head()` 往返。
     ///
     /// **必须与对象实际大小一致**：parquet 的 footer 靠文件尾定位，size 不对会直接读失败。
-    /// 唯一可信来源是 `ParquetFileMeta.size_bytes`——它由 `ParquetWriter` 在上传时记成
-    /// `bytes.len()`。别的来源一律别传，让它 head。
+    /// 唯一可信来源是 Catalog `Artifact.object.size_bytes`（过渡查询投影里的
+    /// `QueryFile.size_bytes` 来自同一字段）。别的来源一律别传，让它 head。
     size_bytes: Option<u64>,
 }
 
@@ -71,7 +71,7 @@ impl<'a> ReadOptions<'a> {
         self
     }
 
-    /// 见 [`ReadOptions::size_bytes`] 的契约：只传 `ParquetFileMeta.size_bytes`。
+    /// 见 [`ReadOptions::size_bytes`] 的契约：只传 Catalog 记录的对象大小。
     pub fn with_known_size(mut self, size_bytes: u64) -> Self {
         self.size_bytes = Some(size_bytes);
         self
@@ -178,7 +178,7 @@ impl ParquetReader {
         opts: ReadOptions<'_>,
     ) -> Result<BoxStream<'static, Result<RecordBatch>>> {
         let path = Path::from(object_key);
-        // 调用方给了权威 size（ParquetFileMeta）就直接用，省一次往返；否则 head 一次拿。
+        // 调用方给了 Catalog 权威 size 就直接用，省一次往返；否则 head 一次拿。
         let (location, size) = match opts.size_bytes {
             Some(size) => (path, size),
             None => {
@@ -245,12 +245,12 @@ impl ParquetReader {
 #[cfg(test)]
 mod tests {
     use arrow::array::{Int64Array, StringArray, TimestampMicrosecondArray};
-    use object_store::local::LocalFileSystem;
+    use object_store::{ObjectStoreExt, PutPayload, local::LocalFileSystem, path::Path};
 
     use super::*;
     use crate::{
         domain::stream::{FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamType},
-        infra::storage::{arrow_schema::to_arrow, parquet::writer::ParquetWriter},
+        infra::storage::{arrow_schema::to_arrow, parquet::writer::encode_parquet},
         shared::{ids::Id, time::TimestampMicros},
     };
 
@@ -259,7 +259,7 @@ mod tests {
             id: Id::new(),
             org_id: Id::from_string("org-1"),
             name: "app".into(),
-            stream_type: StreamType::Logs,
+            stream_type: StreamType::LOGS,
             schema: Schema {
                 fields: vec![FieldDef {
                     name: "msg".into(),
@@ -282,18 +282,25 @@ mod tests {
         (stream, batch)
     }
 
+    async fn write_sample(store: &dyn ObjectStore, key: &str) {
+        let (stream, batch) = sample();
+        let bytes = encode_parquet(&stream, &batch).unwrap();
+        store
+            .put(&Path::from(key), PutPayload::from(bytes))
+            .await
+            .unwrap();
+    }
+
     #[tokio::test]
     async fn roundtrip_read_all() {
         let tmp = tempfile::tempdir().unwrap();
         let store: Arc<dyn ObjectStore> =
             Arc::new(LocalFileSystem::new_with_prefix(tmp.path()).unwrap());
-        let writer = ParquetWriter::new(store.clone());
-        let reader = ParquetReader::new(store);
+        let reader = ParquetReader::new(store.clone());
+        let object_key = "tests/reader-roundtrip";
+        write_sample(store.as_ref(), object_key).await;
 
-        let (stream, batch) = sample();
-        let meta = writer.flush(&stream, batch).await.unwrap();
-
-        let batches = reader.read_all(&meta.object_key).await.unwrap();
+        let batches = reader.read_all(object_key).await.unwrap();
         let total: usize = batches.iter().map(|b| b.num_rows()).sum();
         assert_eq!(total, 2);
         // 列顺序应是 _timestamp + msg
@@ -309,32 +316,24 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let store: Arc<dyn ObjectStore> =
             Arc::new(LocalFileSystem::new_with_prefix(tmp.path()).unwrap());
-        let writer = ParquetWriter::new(store.clone());
-        let reader = ParquetReader::new(store);
+        let reader = ParquetReader::new(store.clone());
+        let object_key = "tests/reader-range";
+        write_sample(store.as_ref(), object_key).await;
 
         // sample() 的 _timestamp 统计为 [10_000, 20_000]
-        let (stream, batch) = sample();
-        let meta = writer.flush(&stream, batch).await.unwrap();
-
         // 窗口与统计相交 → row group 保留（行级过滤在查询侧做，这里整组返回）
-        let hit = reader
-            .read_time_range(&meta.object_key, 0, 15_000)
-            .await
-            .unwrap();
+        let hit = reader.read_time_range(object_key, 0, 15_000).await.unwrap();
         assert_eq!(hit.iter().map(|b| b.num_rows()).sum::<usize>(), 2);
 
         // [20_001, 30_000)：max=20_000 小于 start → 裁掉
         let after = reader
-            .read_time_range(&meta.object_key, 20_001, 30_000)
+            .read_time_range(object_key, 20_001, 30_000)
             .await
             .unwrap();
         assert!(after.is_empty());
 
         // [0, 5_000)：min=10_000 不小于 end → 裁掉
-        let before = reader
-            .read_time_range(&meta.object_key, 0, 5_000)
-            .await
-            .unwrap();
+        let before = reader.read_time_range(object_key, 0, 5_000).await.unwrap();
         assert!(before.is_empty());
     }
 }

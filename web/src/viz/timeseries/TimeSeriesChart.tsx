@@ -12,6 +12,7 @@ import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 
 import { useScope } from '@/keyboard/controller';
+import { writeClipboardText } from '@/lib/clipboard';
 import { CopyIconButton } from '@/shell/CopyIconButton';
 import { cn } from '@/shell/lib/cn';
 
@@ -1085,7 +1086,7 @@ function TimeSeriesTooltip({
       role="tooltip"
       data-testid="time-series-tooltip"
       className={cn(
-        'fixed z-[70] w-[286px] overflow-hidden rounded-md border border-border bg-surface text-foreground shadow-popup',
+        'fixed z-[70] w-[286px] overflow-hidden rounded-md border-0 bg-[var(--floating-surface)] text-tx-0 shadow-popup',
         pinned ? 'pointer-events-auto' : 'pointer-events-none',
       )}
       style={position}
@@ -1148,7 +1149,7 @@ function TimeSeriesTooltip({
           <CopyIconButton
             label="Copy"
             onClick={() => {
-              void navigator.clipboard?.writeText(
+              void writeClipboardText(
                 `${primary.name} ${formatTimeSeriesValue(primary.value, primary.unit)}`,
               );
             }}

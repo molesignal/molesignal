@@ -74,7 +74,7 @@ traces 使用独立有界队列。`tracing` callback 只执行 `try_send`，队�
 
 ## 存储成本与查询示例
 
-默认保留 7 天。指标 family 数量和 profile duty cycle 会直接影响存储；建议先在单节点或较短 retention 下观察 `accepted`、`dropped` 与实际 object-store 增长。profile blob 使用现有 `profiles/<org>/<service>/<type>/<date>/<id>.pprof.zst` 布局。
+默认保留 7 天。指标 family 数量和 profile duty cycle 会直接影响存储；建议先在单节点或较短 retention 下观察 `accepted`、`dropped` 与实际 object-store 增长。profile blob 使用 `profiles/v1/<org>/<service>/<type>/<date>/<id>.pprof.zst` 布局。
 
 SQL 查询时同时传递 stream hint，区分三个同名 typed streams。例如：
 

@@ -4,7 +4,7 @@
 //! Distributed DataFusion engine：
 //!
 //! Coordinator path：
-//! 1. 拿到 `parquet_file_metas`（已经过 tantivy prune 等步骤）
+//! 1. 拿到 `query_files`（已经过 tantivy prune 等步骤）
 //! 2. peers = `registry.list_role(Querier)` —— 仅当 ≥ 2 时走分布式，单 peer fallback local
 //! 3. 一致性哈希按 `object_key` 分片到 peers；每片打包成 `query.v1.QueryShard` →
 //!    prost-encode → `arrow_flight::Ticket`
@@ -36,18 +36,18 @@ use crate::{
     domain::{
         masking::Masker,
         query::{QueryEngine, QueryRequest, QueryResult, StreamHint},
-        storage::{ParquetFileMetaRepository, PhysicalDatasetKind},
+        storage::{DatasetTypeId, QueryFileSource},
         stream::StreamType,
     },
     infra::{search::datafusion_engine::DataFusionEngine, storage::parquet::reader::ParquetReader},
-    protocol::query::v1::{ParquetFileMetaRef, QueryShard},
+    protocol::query::v1::{QueryFileRef, QueryShard},
     shared::{Error, Result},
 };
 
 pub struct DistributedDataFusionEngine {
     local: Arc<DataFusionEngine>,
     registry: Arc<dyn ClusterRegistry>,
-    files: Arc<dyn ParquetFileMetaRepository>,
+    files: Arc<dyn QueryFileSource>,
     // 保留供后续 phase（直接拉 parquet fallback / metadata RPC）使用
     #[allow(dead_code)]
     object_store: Arc<dyn ObjectStore>,
@@ -57,7 +57,7 @@ impl DistributedDataFusionEngine {
     pub fn new(
         local: Arc<DataFusionEngine>,
         registry: Arc<dyn ClusterRegistry>,
-        files: Arc<dyn ParquetFileMetaRepository>,
+        files: Arc<dyn QueryFileSource>,
         object_store: Arc<dyn ObjectStore>,
     ) -> Self {
         Self {
@@ -142,27 +142,42 @@ impl QueryEngine for DistributedDataFusionEngine {
             .await?;
         }
 
-        let lookups = crate::domain::storage::logical_query_datasets(stream_type)
-            .iter()
-            .map(|dataset_kind| {
+        let dataset_types = crate::domain::storage::logical_query_dataset_types(stream_type)?;
+        let (query_files, buffered_batches) = if let (Some(source), Some(streams)) =
+            (self.local.catalog_source(), self.local.streams())
+        {
+            let definition = streams.get(&req.org_id, &name, stream_type).await?;
+            let snapshot = source
+                .snapshot_stream(&definition, &dataset_types, req.time_range)
+                .await?;
+            (snapshot.files(), snapshot.buffered_batches())
+        } else {
+            let lookups = dataset_types.into_iter().map(|dataset_type| {
                 self.files.find_dataset(
                     &req.org_id,
                     &name,
                     stream_type,
-                    *dataset_kind,
+                    dataset_type,
                     req.time_range,
                 )
             });
-        let parquet_file_metas = futures::future::try_join_all(lookups)
-            .await?
-            .into_iter()
-            .flatten()
-            .collect::<Vec<_>>();
+            (
+                futures::future::try_join_all(lookups)
+                    .await?
+                    .into_iter()
+                    .flatten()
+                    .collect::<Vec<_>>(),
+                Vec::new(),
+            )
+        };
 
         // 一致性哈希切片
-        let groups = shard_files_by_hash(&parquet_file_metas, peers.len());
-        let mut all_batches: Vec<RecordBatch> = Vec::new();
-        let mut scanned_rows: u64 = 0;
+        let groups = shard_files_by_hash(&query_files, peers.len());
+        let mut scanned_rows = buffered_batches
+            .iter()
+            .map(|batch| batch.num_rows() as u64)
+            .sum();
+        let mut all_batches = buffered_batches;
 
         // 每个 peer 一个独立 future，并发拉取：延迟取决于最慢的那个 peer，而不是所有
         // peer 之和。try_join_all 保序返回，UNION 的批次顺序与串行版一致。
@@ -173,16 +188,23 @@ impl QueryEngine for DistributedDataFusionEngine {
                 .cloned()
                 .unwrap_or_default()
                 .into_iter()
-                .map(|fm| ParquetFileMetaRef {
+                .map(|fm| QueryFileRef {
                     id: fm.id.0.clone(),
                     org_id: fm.org_id.0.clone(),
                     stream: fm.stream.clone(),
-                    stream_type: stream_type_to_proto(fm.stream_type).to_string(),
+                    stream_type: stream_type_to_proto(fm.stream_type),
                     object_key: fm.object_key.clone(),
                     time_start_micros: fm.time_range.start.0,
                     time_end_micros: fm.time_range.end.0,
                     rows: fm.rows,
                     size_bytes: fm.size_bytes,
+                    checksum: fm
+                        .checksum
+                        .as_ref()
+                        .map(|checksum| checksum.as_str().to_owned())
+                        .unwrap_or_default(),
+                    etag: fm.etag.clone().unwrap_or_default(),
+                    dataset_type: fm.dataset_type.as_str().to_owned(),
                 })
                 .collect();
             if shard_files.is_empty() {
@@ -198,13 +220,13 @@ impl QueryEngine for DistributedDataFusionEngine {
                 org_id: req.org_id.0.clone(),
                 stream: name.clone(),
                 sql: peer_sql,
-                parquet_file_metas: shard_files,
+                query_files: shard_files,
                 projection: Vec::new(),
                 time_start_micros: req.time_range.start.0,
                 time_end_micros: req.time_range.end.0,
-                // 集群内分片自带非空 parquet_file_metas，远端不走自解析；stream_type 仍填上以备
+                // 集群内分片自带非空 query_files，远端不走自解析；stream_type 仍填上以备
                 // 远端一致处理（spec federated-search）。
-                stream_type: stream_type_to_proto(stream_type).to_string(),
+                stream_type: stream_type_to_proto(stream_type),
                 // 集群内分片不需要跨集群取消 id（同进程协调）。
                 federation_query_id: String::new(),
             };
@@ -291,11 +313,11 @@ impl QueryEngine for DistributedDataFusionEngine {
     async fn execute_dataset(
         &self,
         req: QueryRequest,
-        dataset_kind: PhysicalDatasetKind,
+        dataset_type: DatasetTypeId,
     ) -> Result<QueryResult> {
-        // 派生读模型通常是 page_size + 1 的低延迟列表。共享 ParquetFileMeta/object store 使任一
+        // 派生读模型通常是 page_size + 1 的低延迟列表。共享 QueryFile/object store 使任一
         // querier 都能直接扫描完整窄数据集；避免先把宽行经 Flight 汇总到 coordinator。
-        self.local.execute_dataset(req, dataset_kind).await
+        self.local.execute_dataset(req, dataset_type).await
     }
 }
 
@@ -313,7 +335,7 @@ fn shard_files_by_hash<T: Clone + HasObjectKey>(files: &[T], peer_count: usize) 
 trait HasObjectKey {
     fn object_key(&self) -> &str;
 }
-impl HasObjectKey for crate::domain::storage::ParquetFileMeta {
+impl HasObjectKey for crate::domain::storage::QueryFile {
     fn object_key(&self) -> &str {
         &self.object_key
     }
@@ -329,14 +351,8 @@ fn fxhash_u64(s: &str) -> u64 {
     h
 }
 
-pub(crate) fn stream_type_to_proto(t: StreamType) -> &'static str {
-    match t {
-        StreamType::Logs => "logs",
-        StreamType::Metrics => "metrics",
-        StreamType::Traces => "traces",
-        StreamType::Profiles => "profiles",
-        StreamType::Extend => "extend",
-    }
+pub(crate) fn stream_type_to_proto(stream_type: StreamType) -> String {
+    stream_type.external_name().to_owned()
 }
 
 pub(crate) fn batches_to_json(
@@ -391,33 +407,34 @@ pub(crate) fn batches_to_json(
 mod tests {
     use super::*;
     use crate::{
-        domain::storage::ParquetFileMeta,
+        domain::storage::{QueryFile, primary_dataset_type},
         shared::{
             ids::Id,
             time::{TimeRange, TimestampMicros},
         },
     };
 
-    fn fm(key: &str) -> ParquetFileMeta {
-        ParquetFileMeta {
+    fn fm(key: &str) -> QueryFile {
+        QueryFile {
             id: Id::new(),
             org_id: Id::from_string("org"),
             stream: "s".into(),
-            stream_type: StreamType::Logs,
-            dataset_kind: crate::domain::storage::PhysicalDatasetKind::Raw,
+            stream_type: StreamType::LOGS,
+            dataset_type: primary_dataset_type(StreamType::LOGS).unwrap(),
             object_key: key.into(),
+            checksum: None,
+            etag: None,
             time_range: TimeRange::new(TimestampMicros(0), TimestampMicros(1)),
             rows: 0,
             size_bytes: 0,
             min_values: Default::default(),
             max_values: Default::default(),
-            deleted: false,
         }
     }
 
     #[test]
     fn shard_files_is_stable_and_balanced_enough() {
-        let files: Vec<ParquetFileMeta> = (0..20).map(|i| fm(&format!("k/{i}"))).collect();
+        let files: Vec<QueryFile> = (0..20).map(|i| fm(&format!("k/{i}"))).collect();
         let groups_a = shard_files_by_hash(&files, 4);
         let groups_b = shard_files_by_hash(&files, 4);
         // 同输入两次 sharding 应一致（确定性）

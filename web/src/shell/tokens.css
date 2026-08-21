@@ -39,6 +39,21 @@
   --fg-muted:        var(--tx-2);
   --border:          var(--bd-0);
 
+  /* Workbench depth: canvas exposes gutters between borderless surfaces. */
+  --app-header-surface:       var(--bg-1);
+  --sidebar-surface:          var(--bg-1);
+  --page-canvas:              var(--bg-0);
+  --functional-surface:       var(--bg-1);
+  --control-surface:          var(--bg-2);
+  --floating-surface:         var(--bg-2);
+  --floating-item-hover:      var(--bg-3);
+  --floating-item-emphasis:   var(--bg-3);
+  --workspace-selection-fill: #282d3f;
+  --floating-item-selected:   rgba(120, 133, 239, 0.12);
+  --shadow-functional-surface:
+    0 1px 2px rgba(0, 0, 0, 0.24),
+    0 1px 3px rgba(0, 0, 0, 0.18);
+
   /* primary = brand indigo (Phase 4) */
   --primary:         var(--indigo);
   --primary-bg:      var(--indigo-dim);
@@ -84,7 +99,7 @@
   --shadow-md:       0 4px 12px rgba(0, 0, 0, 0.50), 0 0 0 1px rgba(0, 0, 0, 0.25);
   --shadow-lg:       0 12px 32px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.40);
   --shadow-drawer:   -2px 0 16px rgba(0, 0, 0, 0.45);
-  --shadow-popup:    0 12px 32px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.40);
+  --shadow-popup:    0 4px 12px rgba(0, 0, 0, 0.32), 0 1px 2px rgba(0, 0, 0, 0.20);
   --shadow-login:    0 20px 60px rgba(0, 0, 0, 0.50);
 }
 
@@ -98,6 +113,20 @@
   --purple-fg:   #ffffff;
   --orange-fg:   #ffffff;
 
+  --app-header-surface:       #ffffff;
+  --sidebar-surface:          #f1f3f7;
+  --page-canvas:              #f5f6f8;
+  --functional-surface:       #ffffff;
+  --control-surface:          #f6f7f9;
+  --floating-surface:         #ffffff;
+  --floating-item-hover:      #f5f6f8;
+  --floating-item-emphasis:   var(--bg-3);
+  --workspace-selection-fill: #dde0ea;
+  --floating-item-selected:   rgba(55, 66, 199, 0.06);
+  --shadow-functional-surface:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 1px 3px rgba(15, 23, 42, 0.03);
+
   --overlay:         rgba(19, 24, 37, 0.50);
   --overlay-soft:    rgba(19, 24, 37, 0.20);
 
@@ -106,8 +135,22 @@
   --shadow-md:       0 4px 12px rgba(19, 24, 37, 0.10), 0 0 0 1px rgba(19, 24, 37, 0.04);
   --shadow-lg:       0 12px 32px rgba(19, 24, 37, 0.14), 0 0 0 1px rgba(19, 24, 37, 0.06);
   --shadow-drawer:   -2px 0 16px rgba(19, 24, 37, 0.10);
-  --shadow-popup:    0 12px 32px rgba(19, 24, 37, 0.18), 0 0 0 1px rgba(19, 24, 37, 0.06);
+  --shadow-popup:    0 4px 12px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.04);
   --shadow-login:    0 20px 60px rgba(19, 24, 37, 0.12);
+}
+
+/* Both workspace selectors share a dedicated, visibly distinct selection fill.
+ * Keep it outside Tailwind so portal state cannot lose it through generated
+ * class precedence. */
+[data-ui='workspace-option'][data-state='checked'] {
+  background-color: var(--workspace-selection-fill) !important;
+  box-shadow: none !important;
+}
+
+[data-ui='user-menu'],
+[data-ui='workspace-switcher-menu'],
+[data-ui='workspace-switcher-trigger'] {
+  box-shadow: none !important;
 }
 
 .auth-primary-button {
@@ -151,6 +194,7 @@
   --control-h:        36px;
   --control-h-sm:     32px;
   --icon-button-size: 32px;
+  --page-title-row-h: 36px;
   --panel-header-h:   44px;
   --page-pad:         24px;
 
@@ -414,8 +458,8 @@ textarea::placeholder,
 
 /*
  * Global form-control focus treatment. This overrides both native browser
- * focus outlines and Tailwind ring utilities. The border remains at the
- * standard control color instead of becoming a focus highlight frame.
+ * focus outlines and Tailwind ring utilities. Interaction is communicated
+ * by the Control Surface fill rather than an outline or border.
  */
 :where(
   input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']),
@@ -432,14 +476,56 @@ textarea::placeholder,
   --tw-ring-shadow: 0 0 #0000 !important;
 }
 
+/* Selectors are Control Surfaces, not outlined form fields. Keep every shared
+ * and native selector borderless in all interaction and validation states. */
+:where(select, [data-ui='select-trigger']) {
+  border-width: 0 !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Text inputs are Control Surfaces, not outlined fields. The explicit marker
+ * also covers compound controls and button-based launchers such as search. */
 :where(
-  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']),
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']):not([type='button']):not([type='submit']):not([type='reset']):not([type='image']):not([type='hidden']),
   textarea,
-  select,
-  [role='combobox'],
-  [contenteditable='true']
-):is(:focus, :focus-visible):not([aria-invalid='true']):not(:invalid) {
-  border-color: var(--bd-1) !important;
+  [data-ui='input-control'],
+  [data-ui='textarea-control'],
+  [data-ui='search-control'],
+  [data-ui='read-only-control']
+) {
+  border-width: 0 !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+:where(select, [data-ui='select-trigger']):is([aria-invalid='true'], :invalid) {
+  background-color: var(--red-dim) !important;
+  color: var(--red-soft) !important;
+}
+
+/* Surface-workbench fallback. Route templates opt into the same treatment
+ * explicitly, while this shell-scoped layer also catches custom builders and
+ * detail pages so a module never drops back to the old ruled-sheet layout. */
+[data-shell-layout='surface-workbench'] main#main,
+[data-shell-layout='surface-workbench'] [data-page-body] {
+  background: var(--page-canvas);
+}
+
+[data-shell-layout='surface-workbench'] [data-page-body] {
+  padding: 0 20px 20px;
+}
+
+[data-shell-layout='surface-workbench'] [data-testid='page-header'] {
+  margin-block: 12px;
+  border-width: 0 !important;
+  background: var(--page-canvas);
+  padding-inline: 20px;
+}
+
+[data-shell-layout='surface-workbench'] [data-management-content],
+[data-shell-layout='surface-workbench'] [data-iam-list-page] {
+  border-width: 0 !important;
 }
 
 /* 下拉选项（select / command 等 listbox option）：聚焦/选中态不显示蓝色描边——保留勾选

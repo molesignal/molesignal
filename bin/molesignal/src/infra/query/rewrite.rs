@@ -11,7 +11,7 @@
 //! 名字像安全 API，就以为查询走了 SQL 层的 org 过滤——它没有。
 //!
 //! 当前的 org 隔离**由构造成立**：查询路径拿 file 候选唯一入口是
-//! [`crate::domain::storage::ParquetFileMetaRepository::find`]`(org_id, ...)`，PG 侧
+//! [`crate::domain::storage::QueryFileSource::find`]`(org_id, ...)`，PG 侧
 //! `WHERE org_id = $1` 天然只返回本 org 的文件，跨 org 的对象根本不进候选集。SQL 文本里
 //! 没有、也不需要 `_org_id` 谓词。本函数是为「schema 加上 `_org_id` 列后改走 SQL 注入」
 //! 预留的接口，在那之前它不承担任何隔离职责。

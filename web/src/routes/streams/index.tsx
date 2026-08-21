@@ -335,11 +335,9 @@ export function Streams() {
   return (
     <>
       <ListPage
+        appearance="surface"
         title={t('title')}
         subtitle={t('subtitle') as string}
-        cardless
-        filterClassName="border-b-0"
-        stateClassName="border-b-0"
         kpis={[
           {
             label: t('list.kpis.healthy'),
@@ -381,7 +379,7 @@ export function Streams() {
         }
         filters={
           <div className="flex w-full flex-wrap items-center gap-3">
-            <div className="flex gap-1 rounded-md border border-bd-0 bg-bg-2 p-0.5">
+            <div className="flex gap-1 rounded-md bg-[var(--control-surface)] p-0.5">
               {STREAM_TABS.map((kind) => (
                 <button
                   key={kind}

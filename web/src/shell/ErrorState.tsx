@@ -9,6 +9,7 @@ import {
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { writeClipboardText } from '@/lib/clipboard';
 import { toApiError, type ApiError } from '@/lib/http';
 import { CopyIconButton } from '@/shell/CopyIconButton';
 import { cn } from '@/shell/lib/cn';
@@ -55,7 +56,7 @@ export function ErrorState({
 
   const handleCopy = React.useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(errorId);
+      await writeClipboardText(errorId);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
     } catch {

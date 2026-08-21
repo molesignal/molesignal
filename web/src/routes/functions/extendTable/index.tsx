@@ -135,11 +135,9 @@ export function ExtendTables() {
   return (
     <>
       <ListPage
+        appearance="surface"
         title={t('extend_tables.title')}
         subtitle={t('extend_tables.subtitle')}
-        cardless
-        filterClassName="border-b-0"
-        stateClassName="border-b-0"
         toolbar={
           <ChromeButton
             variant="primary"
@@ -382,7 +380,7 @@ export function ExtendTableListSurface({
   return (
     <section
       data-extend-table-list-surface
-      className={cn('min-w-0 border-b border-bd-0', className)}
+      className={cn('min-w-0 bg-transparent', className)}
     >
       {children}
     </section>

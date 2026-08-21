@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { DataTable, PageHeader } from '@/admin';
 import * as auditApi from '@/api/audit';
 import * as usersApi from '@/api/users';
+import { writeClipboardText } from '@/lib/clipboard';
 import { type ApiError, toApiError } from '@/lib/http';
 import { ProductState } from '@/product/states';
 import { ChromeButton } from '@/shell/chrome';
@@ -275,7 +276,7 @@ export function Audit() {
               type="button"
               label={t('audit.copy_id')}
               onClick={() => {
-                if (selected) void navigator.clipboard?.writeText(selected.id);
+                if (selected) void writeClipboardText(selected.id);
               }}
             />
             <ChromeButton type="button" variant="primary" onClick={() => setSelected(null)}>

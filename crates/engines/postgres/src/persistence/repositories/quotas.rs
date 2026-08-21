@@ -4,8 +4,8 @@
 //! `quotas` 表 Pg 实装 + 存储用量聚合。
 //!
 //! per-org 配额上限（`max_intake_qps` / `max_storage_bytes` / ...）存 `quotas` 表；
-//! 当前存储用量由 `parquet_file_meta.size_bytes` 按 org 求和得到。两者由后台 refresh loop
-//! 周期载入进进程内 quota limiter，摄取门禁据此做 429 / 413 判定。
+//! 当前存储用量由 FileCatalog 中 Active Segment 的 Ready Primary Artifact 按 org 求和。
+//! 两者由后台 refresh loop 周期载入进进程内 quota limiter，摄取门禁据此做 429 / 413 判定。
 
 use std::collections::HashMap;
 
@@ -54,11 +54,14 @@ impl PgQuotaRepository {
         Ok(out)
     }
 
-    /// 按 org 聚合当前存储字节（活跃 parquet 的 `parquet_file_meta.size_bytes` 之和）。
+    /// 按 org 聚合当前主数据存储字节。索引等辅助 Artifact 与旧实现一样不计入配额。
     pub async fn storage_usage(&self) -> Result<HashMap<Id, u64>> {
         let rows = sqlx::query(
-            "SELECT org_id, COALESCE(SUM(size_bytes), 0)::BIGINT AS bytes \
-             FROM parquet_file_meta WHERE deleted = false GROUP BY org_id",
+            "SELECT s.org_id, COALESCE(SUM(a.size_bytes), 0)::BIGINT AS bytes \
+             FROM data_segments s \
+             JOIN artifacts a ON a.org_id = s.org_id AND a.segment_id = s.id \
+             WHERE s.state = 'active' AND a.role = 'primary_data' AND a.state = 'ready' \
+             GROUP BY s.org_id",
         )
         .fetch_all(&self.pool)
         .await

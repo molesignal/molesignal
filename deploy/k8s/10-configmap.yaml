@@ -111,17 +111,50 @@ data:
     [notify.smtp]
     host = ""
 
-    [cache.parquet_file_meta]
-    capacity = 100000
-    ttl_secs = 60
-
-    [cache.parquet_meta]
+    [cache.index_handle]
     capacity = 10000
     ttl_secs = 600
 
     [cache.query_result]
     capacity = 1000
     ttl_secs = 60
+
+    [cache.object]
+    enabled = true
+    root = "./data/cache/objects"
+    max_bytes = 10737418240
+    block_size_bytes = 4194304
+    min_free_bytes = 1073741824
+    max_concurrent_fetches = 16
+    max_concurrent_fetches_per_object = 4
+
+    [storage.catalog]
+    seal_after_hours = 168
+    manifest_cache_bytes = 268435456
+    interval_secs = 300
+    batch_size = 64
+
+    [storage.index]
+    enabled = true
+    interval_secs = 30
+    batch_size = 64
+    max_concurrency = 2
+    retry_after_secs = 300
+
+    [storage.gc]
+    enabled = true
+    interval_secs = 30
+    grace_period_secs = 3600
+    lease_secs = 900
+    batch_size = 128
+    max_concurrency = 4
+
+    [storage.reconciler]
+    enabled = true
+    interval_secs = 300
+    batch_size = 256
+    orphan_grace_secs = 86400
+    verify_checksums = true
 
     [auth]
     token_ttl_secs = 86400

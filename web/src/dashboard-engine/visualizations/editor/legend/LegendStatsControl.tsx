@@ -118,9 +118,12 @@ export function LegendStatsControl({
       </div>
       <PopoverContent
         align="end"
-        className="w-[var(--radix-popover-trigger-width)] min-w-48 p-0 shadow-none"
+        className="w-[var(--radix-popover-trigger-width)] min-w-48 p-0"
       >
-        <label className="flex h-11 items-center gap-2 border-b border-bd-0 px-2.5 sm:h-9">
+        <label
+          data-ui="input-control"
+          className="flex h-11 items-center gap-2 rounded-md border-0 bg-[var(--control-surface)] px-2.5 sm:h-9"
+        >
           <Search className="h-3.5 w-3.5 shrink-0 text-tx-3" aria-hidden="true" />
           <input
             value={query}
