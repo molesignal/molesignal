@@ -12,6 +12,8 @@ pub(super) fn available_bytes(path: &Path) -> Option<u64> {
     (result == 0).then(|| {
         // SAFETY: a successful `statvfs` call initialized the output value.
         let stats = unsafe { stats.assume_init() };
-        u64::from(stats.f_bavail).saturating_mul(stats.f_frsize)
+        let available_bytes =
+            u128::from(stats.f_bavail).saturating_mul(u128::from(stats.f_frsize));
+        u64::try_from(available_bytes).unwrap_or(u64::MAX)
     })
 }

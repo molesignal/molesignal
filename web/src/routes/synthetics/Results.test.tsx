@@ -61,7 +61,7 @@ beforeEach(async () => {
 afterEach(cleanup);
 
 describe('Synthetics Results', () => {
-  it('renders a flat list surface, check search, and server-backed pagination', async () => {
+  it('renders a functional list surface, check search, and server-backed pagination', async () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
@@ -77,12 +77,13 @@ describe('Synthetics Results', () => {
 
     expect(await screen.findByText('Checkout API')).toBeTruthy();
     const surface = container.querySelector('[data-synthetics-list-surface]');
-    expect(surface?.className).toContain('border-b');
-    expect(surface?.className).not.toMatch(/rounded|shadow|border-x|border-y/);
+    expect(surface?.className).toContain('rounded-md');
+    expect(surface?.className).toContain('shadow-functional-surface');
+    expect(surface?.className).not.toMatch(/\bborder/);
     const filterBar = container.querySelector('[data-synthetics-filter-bar]');
-    expect(filterBar?.className).toContain('border-b');
+    expect(filterBar?.className).toContain('min-h-12');
     expect(filterBar?.className).toContain('px-4');
-    expect(filterBar?.className).not.toMatch(/rounded|shadow|lg:w-/);
+    expect(filterBar?.className).not.toMatch(/border|rounded|shadow|lg:w-/);
     expect(
       screen.getByRole('navigation', { name: 'Synthetic result pagination' }),
     ).toBeTruthy();
