@@ -602,8 +602,7 @@ function IconBtn({
     >
       {children}
       {badge && (
-        // Phase 4: notifications use the status `red` token (an incident
-        // signal), not the brand accent.
+        // Notification badges use status red to communicate incident state.
         <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-red" />
       )}
     </button>

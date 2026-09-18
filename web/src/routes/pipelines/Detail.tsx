@@ -33,17 +33,6 @@ import { Tabs, TabsContent, TabsList } from '@/shell/ui/tabs';
 
 import { NotFound } from '../NotFound';
 import {
-  PipelineConfigSection,
-  PipelineConfigValue,
-  PipelineDetailMetadata,
-  PipelineKpiBand,
-  PipelineRunState,
-  PipelineSection,
-  PipelineTabTrigger,
-  PIPELINE_TYPE_TONE,
-  pipelineFlatTableClassName,
-} from './CardlessSurface';
-import {
   PipelineGraphView,
   pipelineGraphFromPipeline,
   signalTypeFromPipeline,
@@ -62,6 +51,17 @@ import {
   summarizePipelineRuns,
   type PipelineDetailTab,
 } from './presentation';
+import {
+  PipelineConfigSection,
+  PipelineConfigValue,
+  PipelineDetailMetadata,
+  PipelineKpiBand,
+  PipelineRunState,
+  PipelineSection,
+  PipelineTabTrigger,
+  PIPELINE_TYPE_TONE,
+  pipelineFlatTableClassName,
+} from './Surfaces';
 
 export function PipelineDetail() {
   const { t, i18n } = useTranslation('pipelines');

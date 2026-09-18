@@ -29,7 +29,6 @@ import { Badge } from '@/shell/ui/badge';
 import { Button } from '@/shell/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shell/ui/tabs';
 
-import { AgentSettingsSection } from './CardlessSurface';
 import { InboundMcpPanel } from './InboundMcp';
 import { ProfilesPanel } from './Profile';
 import {
@@ -40,6 +39,7 @@ import {
   ModelProviderEditorDrawer,
   type ProviderEditorTarget,
 } from './SettingsEditors';
+import { AgentSettingsSection } from './Surfaces';
 import { ModulePage } from '../operations/Pages';
 import { PromptManagementPanel } from '../prompt/Management';
 import { ToolCapabilitiesPanel } from '../ToolCapabilities';

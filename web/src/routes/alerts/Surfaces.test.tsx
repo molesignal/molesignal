@@ -2,10 +2,10 @@ import { render } from '@testing-library/react';
 import { ShieldCheck } from 'lucide-react';
 import { describe, expect, it } from 'vitest';
 
-import { AlertFilterTabs, AlertStateBand } from './CardlessSurface';
+import { AlertFilterTabs, AlertStateBand } from './Surfaces';
 
 describe('Alerts surface hierarchy', () => {
-  it('uses underline tabs instead of a segmented card', () => {
+  it('uses underline tabs for alert filters', () => {
     const { container } = render(
       <AlertFilterTabs
         value="active"
@@ -25,7 +25,7 @@ describe('Alerts surface hierarchy', () => {
     expect(active?.className).not.toMatch(/rounded|shadow/);
   });
 
-  it('renders status content as a borderless tonal surface', () => {
+  it('renders status content on a tonal surface', () => {
     const { container } = render(
       <AlertStateBand
         icon={ShieldCheck}

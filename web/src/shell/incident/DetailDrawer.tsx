@@ -24,17 +24,14 @@ import type { AlertRule, Incident, IncidentStatus, Severity } from '@/types/aler
 import { IncidentSilenceDialog } from './SilenceDialog';
 
 /**
- * Incident detail drawer — Phase 6 M1.1 #3 unblocked by the backend
- * schema extension (see BACKEND_REQUIREMENTS.md).
- *
- * Loads the full incident via `GET /alerts/incidents/{id}` (which
+ * Incident detail drawer. Loads the full incident via
+ * `GET /alerts/incidents/{id}` (which
  * returns complete `trace_ids` / `host_ids` / `affected_services` /
  * `triggering_query.sample_values`, unlike the list endpoint which
  * truncates each handle list to the top 1 element).
  *
- * Cross-signal handles are wrapped in `SignalReference` so every
- * trace_id / host / service shows the HoverCard jump menu — direct
- * tech delivery of brief Principle #3 "Continuity across signals".
+ * Cross-signal handles use `SignalReference` so every trace_id, host, and
+ * service exposes the shared HoverCard jump menu.
  */
 
 export const SEVERITY_TONE: Record<Severity, PillTone> = {

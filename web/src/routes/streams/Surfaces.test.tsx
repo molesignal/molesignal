@@ -6,10 +6,10 @@ import {
   StreamSection,
   StreamSettingsSection,
   StreamToggleRow,
-} from './CardlessSurface';
+} from './Surfaces';
 
 describe('Streams surface hierarchy', () => {
-  it('renders metrics and sections as borderless surfaces', () => {
+  it('renders metrics and sections with functional-surface depth', () => {
     const { container } = render(
       <>
         <StreamKpiBand
@@ -38,7 +38,7 @@ describe('Streams surface hierarchy', () => {
     expect(section?.querySelector('header')?.className).not.toContain('border-b');
   });
 
-  it('uses a surface for settings while keeping toggle rows flat', () => {
+  it('uses a settings surface with inline toggle rows', () => {
     const { container } = render(
       <StreamSettingsSection title="Storage" description="Storage behavior">
         <StreamToggleRow title="Store original" checked onChange={() => undefined} />

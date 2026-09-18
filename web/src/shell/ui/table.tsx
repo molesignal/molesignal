@@ -3,9 +3,9 @@ import * as React from 'react';
 import { cn } from '@/shell/lib/cn';
 
 /**
- * Table — Phase 4 token-aware shadcn primitive.
+ * Token-aware Table primitive.
  *
- * Brief mandates (M0.3):
+ * Layout and interaction invariants:
  *   - row-height tracks --row-height (density-aware: 24/28/34px)
  *   - cell padding tracks --row-pad-x / --row-pad-y
  *   - hover row uses bg-bg-3 (the dedicated hover layer)

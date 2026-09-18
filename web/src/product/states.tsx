@@ -63,7 +63,7 @@ const STATE_ICON = {
   'trial-available': LockKeyhole,
 } satisfies Record<ProductStateVariant, LucideIcon>;
 
-// Phase 4 status color logic:
+// State tones:
 //   yellow = warning / pending (waiting on something external)
 //   red    = error / denied
 //   blue   = info / link

@@ -27,12 +27,8 @@ import { SeverityRail } from '@/viz/SeverityRail';
 import { DashboardWallboard } from './noc/DashboardWallboard';
 import { NocEditBar } from './noc/EditBar';
 
-// Phase 4 status color logic: the hex constants below migrate from the
-// legacy Terminal hex set to values that match the new default palette;
-// ideally these would read from `var(...)` but the SVG renderer here takes
-// literal strings. (Severity → bar color lives in @/viz/SeverityRail.)
-// Phase 4+ brand tokens — reads from the active palette so NOC
-// stays correct in dark/light and any future palette swap.
+// State colors read from the active palette so NOC remains consistent across
+// themes and future palette changes.
 const STATE_COLOR = { healthy: 'var(--green)', degraded: 'var(--yellow)', error: 'var(--red)' } as const;
 
 function lastHourRange(): { from: string; to: string } {

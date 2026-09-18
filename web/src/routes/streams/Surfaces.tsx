@@ -1,3 +1,4 @@
+/** Stream workspace surface primitives. */
 import type * as React from 'react';
 
 import { uiLabelClass } from '@/shell/chrome';

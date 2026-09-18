@@ -49,7 +49,7 @@ export interface SessionEvent {
   duration_ms?: number;
   status?: number;
   payload: Record<string, unknown>;
-  /** Phase 6+ M2 cross-signal handles. RUM SDK writes these from the W3C
+  /** Cross-signal handles populated by the RUM SDK from the W3C
    *  Trace Context (`traceparent` header) of the fetch/XHR that produced
    *  the action. May be missing on old SDK versions — UI degrades gracefully. */
   service?: string;

@@ -185,7 +185,7 @@ describe('PublicStatusPage domain routing', () => {
     expect(screen.getByText('Database index optimization')).toBeTruthy();
   });
 
-  it('groups recent incidents by page-local date without incident cards', async () => {
+  it('groups recent incidents by page-local date', async () => {
     getPublicByDomain.mockResolvedValue(snapshot);
     renderDomainPage();
 

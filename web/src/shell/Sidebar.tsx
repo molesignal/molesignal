@@ -333,10 +333,8 @@ function NavRow({
       {({ isActive }) => (
         <>
           {isActive && (
-            // Active state: 2px indigo rail flush to the sidebar's left
-            // edge. Phase 4 replaces the orange rail (legacy "terminal
-            // hacker" accent) with brand indigo so the marker matches
-            // focus rings and primary buttons everywhere.
+            // Active state: a 2px indigo rail aligned with the sidebar edge
+            // and the brand treatment used by primary actions.
             <span
               aria-hidden
               className="absolute -left-1.5 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r bg-indigo"

@@ -11,8 +11,8 @@ vi.mock('@/shell/codeEditor', () => ({
 
 const saveFunctionLabel = i18n.t('functions:edit.save');
 
-describe('FunctionWorkbench cardless layout', () => {
-  it('uses flat definition and editor bands without card containers', () => {
+describe('FunctionWorkbench layout', () => {
+  it('uses contiguous definition and editor bands', () => {
     const { container } = render(
       <FunctionWorkbench
         name="Normalize logs"
@@ -60,7 +60,7 @@ describe('FunctionWorkbench cardless layout', () => {
     expect(actions?.className).toContain('justify-end');
   });
 
-  it('keeps detailed validation errors beside the editor instead of in a bottom footer', () => {
+  it('shows detailed validation errors beside the editor', () => {
     const { container } = render(
       <FunctionWorkbench
         name="Normalize logs"

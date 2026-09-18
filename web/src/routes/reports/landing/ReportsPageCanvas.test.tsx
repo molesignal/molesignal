@@ -7,7 +7,7 @@ import '@/i18n';
 import { ReportsPageCanvas } from './ReportsPageCanvas';
 
 describe('ReportsPageCanvas', () => {
-  it('uses a canvas with borderless KPI and content surfaces', () => {
+  it('uses canvas gutters and functional depth for KPI and content surfaces', () => {
     const onTabChange = vi.fn();
     const { container } = render(
       <MemoryRouter initialEntries={['/reports']}>

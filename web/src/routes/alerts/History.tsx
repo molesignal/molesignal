@@ -226,8 +226,7 @@ export function AlertsHistory() {
                     <TableRow key={r.id}>
                       <TableCell className="text-tx-0">
                         <div className="flex flex-col gap-0.5">
-                          {/* Phase 6 M1.1 #3: summary opens IncidentDetailDrawer in
-                              place of the legacy /alerts/incidents/:id link. */}
+                          {/* Open the incident drawer for in-context triage. */}
                           <button
                             type="button"
                             onClick={() => setViewingIncidentId(r.id)}

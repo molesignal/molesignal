@@ -49,7 +49,7 @@ describe('useExtendTablePagination', () => {
 });
 
 describe('ExtendTablePagination', () => {
-  it('only renders for multiple pages and stays cardless', () => {
+  it('renders navigation for multi-page results', () => {
     const props = {
       page: 1,
       pageCount: 1,

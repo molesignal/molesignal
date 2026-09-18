@@ -1,11 +1,9 @@
 /**
  * Incident detail — full-page deep link (`/alerts/incidents/:id`).
  *
- * The route used to be a `PagePlaceholder`; it now renders the real
- * {@link IncidentDetail} page, which reuses the drawer's
- * `IncidentBody` renderer and wires ack / resolve against the existing
- * backend. This spec walks the bookmarkable / keyboard-nav path that the
- * drawer-based Flow 1 spec does not exercise:
+ * Verifies the bookmarkable, keyboard-navigable {@link IncidentDetail} page,
+ * which reuses the drawer's `IncidentBody` renderer and wires acknowledge and
+ * resolve actions to the backend:
  *
  *   navigate directly to /alerts/incidents/:id
  *     → header shows summary + severity / status
@@ -13,8 +11,8 @@
  *     → Acknowledge + Resolve mutate and refetch
  *     → a deleted / cross-org id reads as a clean "not found" empty
  *
- * Backend is mocked in-test via `page.route` (same isolation choice as
- * the Flow 1 spec) so the shared mock fixture stays untouched.
+ * This spec owns its `page.route` mocks because the full-page detail endpoints
+ * are local to this workflow.
  */
 import { expect, test } from '@playwright/test';
 

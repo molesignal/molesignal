@@ -7,8 +7,8 @@ import { LogoMark } from '@/shell/LogoMark';
  * Full-screen interstitial shown when the viewport is narrower than the
  * 1024px desktop minimum. Molesignal's dense SRE surfaces — multi-pane
  * investigation, the NOC wallboard, the dashboard editor — have no mobile
- * fallback by design; we ask the operator to widen rather than silently
- * degrade into a broken layout.
+ * fallback by design and gives the operator explicit resize guidance for
+ * dense interfaces below their usable width.
  */
 export function UnsupportedScreen({ width }: { width: number }) {
   const { t } = useTranslation('shell');

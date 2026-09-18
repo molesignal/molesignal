@@ -24,16 +24,16 @@ import {
   formatDurationMicros,
   incidentStatusLabel,
 } from '../model';
+import { StatusPageEventDrawer } from './EventDrawer';
+import { useStatusPageWorkspace } from './Layout';
+import { shouldShowStatusPagePagination } from './pagination';
 import {
   StatusPageCanvas,
   StatusPageFilterBand,
   StatusPageListSurface,
   statusPageFlatStateClassName,
   statusPageFlatTableClassName,
-} from './CardlessSurface';
-import { StatusPageEventDrawer } from './EventDrawer';
-import { useStatusPageWorkspace } from './Layout';
-import { shouldShowStatusPagePagination } from './pagination';
+} from './Surfaces';
 
 export function StatusPageHistory() {
   const { t } = useTranslation('status-pages');

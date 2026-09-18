@@ -65,13 +65,6 @@ import { Switch } from '@/shell/ui/switch';
 import { TimeSeriesChart } from '@/viz/timeseries/TimeSeriesChart';
 
 import {
-  streamFlatTableClassName,
-  StreamKpiBand,
-  StreamSection,
-  StreamSettingsSection,
-  StreamToggleRow,
-} from './CardlessSurface';
-import {
   datasourceLinkForStream,
   intakePathForSignal,
   isIntakeSignal,
@@ -79,6 +72,13 @@ import {
 import { FieldEditDrawer } from './fieldEditor/FieldEditDrawer';
 import { INDEX_OPTIONS, toFieldDrafts, type FieldDraft } from './fieldEditor/model';
 import { logicalFieldType, streamVariantsForDetail } from './model';
+import {
+  streamFlatTableClassName,
+  StreamKpiBand,
+  StreamSection,
+  StreamSettingsSection,
+  StreamToggleRow,
+} from './Surfaces';
 
 type DetailTab = 'overview' | 'schema' | 'retention' | 'usage' | 'settings';
 

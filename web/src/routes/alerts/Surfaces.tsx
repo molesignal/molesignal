@@ -1,3 +1,4 @@
+/** Alert page surface primitives. */
 import type { LucideIcon } from 'lucide-react';
 import type * as React from 'react';
 

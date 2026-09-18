@@ -112,10 +112,7 @@ export interface Incident {
   resolved_at?: number;
   resolved_by?: string;
   /**
-   * Cross-signal context. Phase 6 M1 backend addition (selected
-   * "Option C" — see BACKEND_REQUIREMENTS.md).
-   *
-   * The `list` endpoint truncates `trace_ids` / `host_ids` /
+   * Cross-signal incident context. The `list` endpoint truncates `trace_ids` / `host_ids` /
    * `affected_services` to the top 1 element and zeroes
    * `triggering_query`; the detail endpoint returns the complete sets.
    * All fields are `serde(default)` on the backend, so older payloads

@@ -55,12 +55,12 @@ import {
   isActiveIncident,
   type RuleDisplayState,
 } from './alertRuleModel';
+import { AlertsSubNav } from './Layout';
 import {
   AlertFilterTabs,
   AlertStateBand,
   alertFlatTableClassName,
-} from './CardlessSurface';
-import { AlertsSubNav } from './Layout';
+} from './Surfaces';
 
 type IncidentTab = 'active' | 'unacknowledged' | 'resolved';
 type RuleTab = 'all' | 'enabled' | 'disabled';

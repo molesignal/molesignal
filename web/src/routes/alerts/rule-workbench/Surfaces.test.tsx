@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { ValidationSummary, WorkbenchSection } from './Surfaces';
 
 describe('Alert rule workbench surfaces', () => {
-  it('uses flat sections with a single header divider', () => {
+  it('uses sections with a single header divider', () => {
     const { container } = render(
       <WorkbenchSection
         id="identity"
@@ -21,7 +21,7 @@ describe('Alert rule workbench surfaces', () => {
     expect(section?.querySelector('header')?.className).toContain('border-b');
   });
 
-  it('keeps validation flat without row dividers or an outer card', () => {
+  it('uses a compact validation section', () => {
     const { container } = render(
       <ValidationSummary
         identityReady

@@ -20,7 +20,7 @@ const table: ExtendTableSummary = {
 };
 
 describe('Extend Table surface hierarchy', () => {
-  it('keeps the list borderless inside the shared list surface', () => {
+  it('integrates the list with the shared list surface', () => {
     const { container } = render(
       <ExtendTableListSurface>
         {i18n.t('functions:extend_tables.tabs.records')}
@@ -34,7 +34,7 @@ describe('Extend Table surface hierarchy', () => {
     expect(surface?.className).not.toMatch(/border|shadow/);
   });
 
-  it('uses borderless functional surfaces for detail regions', () => {
+  it('uses functional-surface depth for detail regions', () => {
     const { container } = render(
       <>
         <TableMetadata table={table} />

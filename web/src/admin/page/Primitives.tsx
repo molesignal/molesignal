@@ -78,8 +78,7 @@ export function KpiStripStat({ label, value, sub, tone = 'neutral' }: KpiStripIt
           'mt-2 font-sans [font-size:32px] font-display-strong leading-none tracking-[-0.025em] tabular-nums',
           tone === 'neutral' && 'text-tx-0',
           tone === 'good' && 'text-green',
-          // Yellow is the warning status color in Phase 4 — orange
-          // shifted to brand-secondary.
+          // Warning KPIs use the status yellow token.
           tone === 'warn' && 'text-yellow',
           tone === 'danger' && 'text-red',
         )}

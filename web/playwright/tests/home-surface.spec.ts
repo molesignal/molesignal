@@ -5,7 +5,7 @@ test.describe('Home surface hierarchy', () => {
     await mountMockRoutes(page, mockServer.port);
   });
 
-  test('uses canvas gutters and borderless functional surfaces', async ({
+  test('uses canvas gutters and functional-surface depth', async ({
     page,
   }) => {
     await page.route('**/api/v1/home/overview**', (route) =>

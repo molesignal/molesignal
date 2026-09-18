@@ -5,11 +5,11 @@ import { DataTable } from '@/admin';
 import type { PipelineRun } from '@/api/pipelines/runs';
 import { ProductState } from '@/product/states';
 
-import { pipelineFlatTableClassName } from './CardlessSurface';
 import {
   formatRelativeMicros,
   formatRunDuration,
 } from './presentation';
+import { pipelineFlatTableClassName } from './Surfaces';
 
 interface PipelineRunsTableLabels {
   state: React.ReactNode;

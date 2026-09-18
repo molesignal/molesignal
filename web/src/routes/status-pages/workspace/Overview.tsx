@@ -8,12 +8,12 @@ import { ChromeButton, Dot, Pill } from '@/shell/chrome';
 import { PageBody } from '@/shell/PageHeader';
 
 import { COMPONENT_TONE, componentStatusLabel, incidentStatusLabel } from '../model';
+import { useStatusPageWorkspace } from './Layout';
 import {
   StatusPageCanvas,
   StatusPageKpiBand,
   StatusPageSection,
-} from './CardlessSurface';
-import { useStatusPageWorkspace } from './Layout';
+} from './Surfaces';
 
 export function StatusPageOverview() {
   const { t } = useTranslation('status-pages');

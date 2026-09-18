@@ -24,14 +24,14 @@ import { toast } from '@/shell/ui/sonner';
 
 import { ComponentFormDrawer } from '../ConfigurationDrawers';
 import { COMPONENT_STATUSES, COMPONENT_TONE, componentStatusLabel } from '../model';
+import { useStatusPageWorkspace } from './Layout';
 import {
   StatusPageBand,
   StatusPageCanvas,
   StatusPageFilterBand,
   StatusPageListSurface,
   statusPageFlatTableClassName,
-} from './CardlessSurface';
-import { useStatusPageWorkspace } from './Layout';
+} from './Surfaces';
 
 export function StatusPageComponents() {
   const { t } = useTranslation('status-pages');

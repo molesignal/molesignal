@@ -10,11 +10,10 @@ import { Checkbox } from '@/shell/ui/checkbox';
 export type SigninView = 'signin' | 'forgot-password' | 'forgot-password-sent' | 'reset-password';
 
 /**
- * SigninShell — the public-facing sign-in face (brief Component Inventory:
- * a standalone 880px card with a 380px left brand panel and a right auth
- * `shadow-login`, no Topbar / Sidebar). Purely
- * presentational: all auth state and side effects live in the `/signin`
- * route, which passes them in as props.
+ * SigninShell is the public-facing authentication surface: a standalone 880px
+ * card with a 380px brand panel and an authentication panel using
+ * `shadow-login`. It is purely presentational; the `/signin` route owns auth
+ * state and side effects.
  */
 export interface SigninShellProps {
   view: SigninView;

@@ -4,8 +4,8 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { cn } from '@/shell/lib/cn';
 import { PageBody } from '@/shell/PageHeader';
 
-import { StatusPageCanvas } from '../CardlessSurface';
 import { useStatusPageWorkspace } from '../Layout';
+import { StatusPageCanvas } from '../Surfaces';
 
 const SECTIONS = ['general', 'branding', 'localization', 'domain-access', 'automation'] as const;
 

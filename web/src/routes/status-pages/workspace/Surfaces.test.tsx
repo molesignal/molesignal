@@ -8,7 +8,7 @@ import {
   StatusPageKpiBand,
   StatusPageListSurface,
   StatusPageSection,
-} from './CardlessSurface';
+} from './Surfaces';
 import { SettingsCard, SettingsFooter } from './settings/SettingsSection';
 
 describe('Status Pages surface hierarchy', () => {
@@ -62,7 +62,7 @@ describe('Status Pages surface hierarchy', () => {
     expect(section?.firstElementChild?.className).not.toContain('border-b');
   });
 
-  it('uses a borderless settings surface', () => {
+  it('uses functional-surface depth for settings', () => {
     const { container } = render(
       <SettingsCard title="General" description="Status page defaults">
         Settings form

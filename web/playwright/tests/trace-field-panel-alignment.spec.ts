@@ -151,7 +151,7 @@ test('drags the field panel in both directions and clamps its maximum width', as
   expect((await boundingBox(panel)).width).toBe(260);
 });
 
-test('uses canvas gutters and borderless surfaces for the trace workbench hierarchy', async ({ page }) => {
+test('uses canvas gutters and surface depth for the trace workbench hierarchy', async ({ page }) => {
   await page.goto('/traces');
 
   const shell = page.locator('[data-shell-layout="surface-workbench"]');

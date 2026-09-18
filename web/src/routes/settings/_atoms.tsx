@@ -5,9 +5,8 @@ import { CopyIconButton } from '@/shell/CopyIconButton';
 import { cn } from '@/shell/lib/cn';
 
 /**
- * Flat page body used below the local settings header. The management page
- * already owns the outer gutter, so section content should align directly
- * with its title instead of creating another inset panel.
+ * Page body used below the local settings header. The management page owns
+ * the outer gutter, and section content aligns directly with its title.
  */
 export function SectionBody({
   children,
@@ -48,9 +47,9 @@ export function SettingsGroupStack({
 }
 
 /**
- * A Settings topic is a flat region on one continuous management canvas.
+ * A Settings topic is a region on one continuous management canvas.
  * Adjacent topics use a single low-contrast divider; controls keep their own
- * functional boundaries, while the section itself never becomes a card.
+ * functional boundaries.
  */
 export function SettingsSection({
   title,
@@ -99,8 +98,8 @@ export function SettingsSection({
 }
 
 /**
- * A named topic inside a Settings region. Whitespace, rather than another
- * border, separates related topics and keeps long forms calm.
+ * A named topic inside a Settings region. Whitespace separates related topics
+ * and keeps long forms calm.
  */
 export function SettingsSubsection({
   title,

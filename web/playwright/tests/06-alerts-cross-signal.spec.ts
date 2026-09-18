@@ -1,8 +1,7 @@
 /**
- * Flow 1 — SRE pager → alert → trace_id → cross-signal jump
+ * SRE pager → alert → trace_id → cross-signal jump
  *
- * Phase 6 M1.3 spec covering brief Experience Principle #3 ("Continuity
- * across signals"). Walks:
+ * Verifies continuity across signals:
  *
  *   /alerts (firing rule list)
  *     → click state Pill on a firing row → IncidentDetailDrawer opens
@@ -11,10 +10,8 @@
  *     → click "Open in Traces" → /traces/:traceId with preserved
  *       time window query params
  *
- * Backend is mocked in-test via `page.route` rather than touching the
- * shared `mockBackend` fixture: the incident detail endpoint is only
- * exercised by this Flow and isolating the mock keeps blast radius
- * minimal until the shared fixture grows incident_sections support.
+ * This spec owns its `page.route` mocks because the incident detail endpoint
+ * is unique to this flow. Keeping them local leaves the shared fixture focused.
  */
 import { expect, test } from '@playwright/test';
 
@@ -78,7 +75,7 @@ const RULE = {
   annotations: INCIDENT.annotations,
 };
 
-test.describe('Flow 1 — SRE pager to trace', () => {
+test.describe('SRE pager to trace', () => {
   test.beforeEach(async ({ page }) => {
     await installMockShellSession(page, {
       token: 'mock-alert-flow-token',
@@ -91,7 +88,7 @@ test.describe('Flow 1 — SRE pager to trace', () => {
       window.localStorage.setItem('molesignal-density', 'normal');
     });
 
-    // Incident list (truncated handles per backend Option C contract).
+    // The list endpoint returns compact cross-signal handle lists.
     const listIncident = {
       ...INCIDENT,
       trace_ids: [INCIDENT.trace_ids[0]!],
@@ -168,8 +165,7 @@ test.describe('Flow 1 — SRE pager to trace', () => {
     // The trace id is carried inside the `q` field expression
     // (q=trace_id = 'trace-…'), not a standalone trace_id param.
     expect(url.searchParams.get('q')).toContain('trace-');
-    // Time window is propagated so the trace view is bounded to the
-    // incident window — brief Principle #3 in its concrete form.
+    // The propagated time window bounds the trace view to the incident window.
     expect(url.searchParams.get('from')).toBeTruthy();
     expect(url.searchParams.get('to')).toBeTruthy();
   });

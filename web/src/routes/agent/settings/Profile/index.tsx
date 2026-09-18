@@ -20,7 +20,7 @@ import {
   AgentProfileList,
   AgentProfileRow,
   AgentSettingsSection,
-} from '../CardlessSurface';
+} from '../Surfaces';
 import { profileRiskPolicy, profileScopeValues } from './model';
 import { ProfilePagination, useProfilePagination } from './Pagination';
 

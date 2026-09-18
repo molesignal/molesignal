@@ -32,8 +32,7 @@ export type PillTone =
 
 const PILL_TONE: Record<PillTone, string> = {
   neutral: 'bg-bg-3 text-tx-1',
-  // Phase 4: indigo pill for brand-affiliated tags (e.g. "Default rule",
-  // active filter). Mirrors the brand pattern used by primary buttons.
+  // Brand-affiliated tags use the same indigo treatment as primary actions.
   indigo: 'bg-indigo-dim text-indigo-soft',
   orange: 'bg-orange-dim text-orange-soft',
   blue: 'bg-blue-dim text-blue-soft',
@@ -68,10 +67,7 @@ export function Pill({
 
 /* ───────────────────────── Dot ───────────────────────── */
 
-// Phase 4: status dots are flat — the legacy glow shadows used
-// hardcoded hex matching the old Terminal palette, which broke once the
-// palette migrated. A 1px ring of the same color matched against the
-// surface reads sharp without the Confident-quiet-violating bloom.
+// Status dots use palette tokens so their meaning remains stable across themes.
 const DOT_TONE = {
   green: 'bg-green',
   orange: 'bg-orange',
@@ -179,9 +175,7 @@ export const ChromeButton = React.forwardRef<
         variant === 'default' &&
           'border border-transparent bg-bg-2 text-tx-1 enabled:hover:bg-bg-3 enabled:hover:text-tx-0',
         variant === 'primary' &&
-          // Phase 4: primary button is the brand surface — Indigo. Text
-          // is white (--primary-fg). No border, no glow — the elevation
-          // comes purely from the saturated fill against bg-1.
+          // Primary actions use a saturated indigo fill with white text.
           'bg-indigo font-bold text-white enabled:hover:brightness-90 enabled:focus-visible:brightness-90',
         variant === 'ghost' &&
           'border border-transparent bg-transparent text-tx-1 enabled:hover:bg-bg-3',

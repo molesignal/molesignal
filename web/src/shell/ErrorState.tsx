@@ -15,17 +15,14 @@ import { CopyIconButton } from '@/shell/CopyIconButton';
 import { cn } from '@/shell/lib/cn';
 
 /**
- * ErrorState — brief Principle "Empty/Error/Loading 都是头等公民".
- *
- * Three-band structure (per brief):
+ * ErrorState uses a three-band structure:
  *   1. What I did            — title summarizing the failed action
  *   2. What you can do       — Retry / Copy error ID / Report buttons
  *   3. Where the details are — collapsible block exposing status, code,
  *                              message, optional stack
  *
- * NOT a toast. Toasts are transient feedback. This is an in-place obstacle
- * that tells the SRE which lever to pull. Use Toast ONLY for transient
- * confirmations ("query saved"), never as the primary error channel.
+ * The in-place obstacle remains visible and tells the operator which action
+ * to take. Toasts provide transient confirmations such as "query saved".
  */
 
 interface ErrorStateProps {

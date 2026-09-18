@@ -45,7 +45,7 @@ const config: Config = {
         'tx-3': tokenColor('--tx-3'),
         'tx-4': tokenColor('--tx-4'),
 
-        /* Phase 4: Indigo is the brand color */
+        /* Indigo is the brand color. */
         indigo: {
           DEFAULT: tokenColor('--indigo'),
           soft: tokenColor('--indigo-soft'),
@@ -191,7 +191,7 @@ const config: Config = {
         full: '9999px',
       },
       boxShadow: {
-        /* Phase 4: shadow tokens are theme-aware via CSS vars */
+        /* Shadow tokens are theme-aware via CSS variables. */
         sm: 'var(--shadow-sm)',
         md: 'var(--shadow-md)',
         lg: 'var(--shadow-lg)',
@@ -224,7 +224,7 @@ const config: Config = {
       },
       animation: {
         'fade-in': 'fade-in var(--duration-fast) var(--easing-out)',
-        // Drawer slide is 200ms ease-out per Phase 4 motion tokens.
+        // Drawer animations use the normal duration and ease-out motion tokens.
         'slide-in-right': 'slide-in-right var(--duration-normal) var(--easing-out)',
         'slide-out-right': 'slide-out-right var(--duration-normal) var(--easing-out) forwards',
       },

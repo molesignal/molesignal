@@ -21,7 +21,7 @@ const COPY = {
 } as const;
 
 describe('Settings form layout', () => {
-  it('uses flat sections and a responsive field grid', () => {
+  it('uses canvas-aligned sections and a responsive field grid', () => {
     const { container } = render(
       <SettingsGroupStack>
         <SettingsSection title={COPY.workspaceInformation}>
@@ -78,7 +78,7 @@ describe('Settings form layout', () => {
     expect(screen.getByText(COPY.workspaceValue)).toBeTruthy();
   });
 
-  it('groups related topics with whitespace instead of nested borders', () => {
+  it('groups related topics with whitespace', () => {
     const { container } = render(
       <SettingsSection
         title={COPY.workspaceInformation}

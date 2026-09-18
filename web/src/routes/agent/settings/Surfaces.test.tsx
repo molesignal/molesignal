@@ -5,10 +5,10 @@ import {
   AgentProfileList,
   AgentProfileRow,
   AgentSettingsSection,
-} from './CardlessSurface';
+} from './Surfaces';
 
 describe('Mole Agent profile surfaces', () => {
-  it('uses tonal settings and profile surfaces without divider lines', () => {
+  it('uses tonal settings and profile surfaces', () => {
     const { container } = render(
       <AgentSettingsSection
         title="Agent profiles"

@@ -30,7 +30,7 @@ describe('FormSelect', () => {
     expect(input.className).toContain('w-full');
   });
 
-  it('keeps borderless form controls visible on the shared control surface', () => {
+  it('uses Control Surface styling for form controls', () => {
     render(
       <>
         <FormInput aria-label="Name" />

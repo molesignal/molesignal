@@ -1,5 +1,5 @@
 /*
- * Default palette — molesignal redesign (Phase 4)
+ * Default MoleSignal palette
  *
  * Philosophy: Datadog × Linear × Apple Pro Software, Confident quiet.
  * Brand color: Indigo #4F60E0 (dark) / #3742C7 (light).
@@ -27,7 +27,7 @@
 
   /* layer 1 — borders */
   --bd-0: #1b2031;        /* quiet dividers: only one step above the surface */
-  --bd-1: #252b40;        /* controls: visible without looking outlined */
+  --bd-1: #252b40;        /* controls: subtle structural separation */
   --bd-2: #323a55;        /* emphatic interaction boundary */
 
   /* layer 1 — text */
@@ -121,7 +121,7 @@
   --green-soft:  #2aa05a;
   --green-dim:   rgba(21, 127, 63, 0.10);
 
-  /* Phase 4 yellow on light: needed a bump from oklch(0.58…) to (0.50…)
+  /* Light-theme yellow uses oklch(0.50…) rather than oklch(0.58…)
    * to clear WCAG AA body (4.5:1). The previous value scored 3.84:1.
    * Soft + dim follow the lightness shift so chip surfaces stay
    * differentiable. */

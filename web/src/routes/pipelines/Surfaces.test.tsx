@@ -9,10 +9,10 @@ import {
   PipelineKpiBand,
   PipelineSection,
   PipelineTabTrigger,
-} from './CardlessSurface';
+} from './Surfaces';
 
 describe('Pipelines surface hierarchy', () => {
-  it('renders KPI and content as borderless surfaces with gutters', () => {
+  it('renders KPI and content surfaces with gutters and functional depth', () => {
     const { container } = render(
       <>
         <PipelineKpiBand
@@ -41,7 +41,7 @@ describe('Pipelines surface hierarchy', () => {
     expect(section?.querySelector('header')?.className).not.toContain('border-b');
   });
 
-  it('keeps configuration groups flat and tabs underline-driven', () => {
+  it('uses inline configuration groups and underline tabs', () => {
     const { container } = render(
       <>
         <Tabs defaultValue="overview">

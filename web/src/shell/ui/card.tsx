@@ -3,11 +3,8 @@ import * as React from 'react';
 import { cn } from '@/shell/lib/cn';
 
 /**
- * Card — Phase 4 token-aware shadcn primitive.
- *
- * Cards sit on the page canvas as quiet functional surfaces. Separation comes
- * from the canvas gutter and a very light, radius-clipped shadow rather than
- * a permanent outline.
+ * Token-aware Card primitive. Cards use canvas gutters and a light,
+ * radius-clipped shadow to establish functional-surface depth.
  */
 
 const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(

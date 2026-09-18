@@ -55,7 +55,6 @@ interface ListPageProps extends ProductPageFrameProps {
   kpis?: readonly KpiStripItem[] | undefined;
   kpiLayout?: KpiStripLayout | undefined;
   kpiClassName?: string | undefined;
-  cardless?: boolean | undefined;
   filters?: React.ReactNode | undefined;
   filterClassName?: string | undefined;
   actionBar?: React.ReactNode | undefined;
@@ -109,7 +108,6 @@ export function ListPage({
   kpis,
   kpiLayout,
   kpiClassName,
-  cardless = false,
   filters,
   filterClassName,
   actionBar,
@@ -126,7 +124,7 @@ export function ListPage({
       {...frame}
       appearance={appearance}
       bodyClassName={cn(
-        cardless ? 'space-y-0' : surface ? 'space-y-[12px]' : 'space-y-4',
+        surface ? 'space-y-[12px]' : 'space-y-4',
         bodyClassName,
       )}
     >
@@ -134,20 +132,15 @@ export function ListPage({
         items={kpis}
         layout={kpiLayout}
         className={cn(
-          cardless
-            && 'gap-0 border-b border-bd-0 bg-bg-0 [&>div]:min-h-[92px] [&>div]:rounded-none [&>div]:border-0 [&>div]:bg-transparent [&>div]:px-4 [&>div]:py-3',
           surface
-            && !cardless
             && 'gap-[12px] [&>div]:border-0 [&>div]:bg-[var(--functional-surface)] [&>div]:[box-shadow:var(--shadow-functional-surface)]',
           kpiClassName,
         )}
       />
       <FilterArea
         className={cn(
-          cardless
-            ? 'rounded-none border-x-0 border-t-0 bg-transparent p-0 px-4 py-2'
-            : surface
-              ? 'rounded-md border-0 bg-[var(--functional-surface)] p-[12px] [box-shadow:var(--shadow-functional-surface)]'
+          surface
+            ? 'rounded-md border-0 bg-[var(--functional-surface)] p-[12px] [box-shadow:var(--shadow-functional-surface)]'
             : undefined,
           filterClassName,
         )}
@@ -156,9 +149,7 @@ export function ListPage({
       </FilterArea>
       <ActionBar
         className={cn(
-          cardless && 'bg-transparent px-4 py-2',
           surface
-            && !cardless
             && 'rounded-md border-0 bg-[var(--functional-surface)] px-[12px] py-[8px] [box-shadow:var(--shadow-functional-surface)]',
         )}
       >
@@ -168,16 +159,13 @@ export function ListPage({
         <ProductState
           {...state}
           className={cn(
-            cardless
-              && 'rounded-none border-x-0 border-t-0 border-solid border-bd-0 bg-transparent',
             surface
-              && !cardless
               && 'rounded-md border-0 bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]',
             stateClassName,
             state.className,
           )}
         />
-      ) : surface && !cardless ? (
+      ) : surface ? (
         <div
           data-list-surface
           className="min-w-0 overflow-hidden rounded-md bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]"

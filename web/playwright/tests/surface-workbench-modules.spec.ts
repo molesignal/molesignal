@@ -113,7 +113,7 @@ test.beforeEach(async ({ page, mockServer }) => {
   );
 });
 
-test('uses the Trace canvas and borderless Surface hierarchy across analysis modules', async ({
+test('uses the Trace canvas and Surface hierarchy across analysis modules', async ({
   page,
 }) => {
   for (const module of MODULES) {
@@ -267,7 +267,7 @@ test('keeps module and nested secondary menus at the shared height', async ({
   }
 });
 
-test('keeps shared and native selectors borderless', async ({ page }) => {
+test('uses Control Surface styling for shared and native selectors', async ({ page }) => {
   await page.goto('/rum/overview');
 
   const sharedSelectors = page.locator('[data-ui="select-trigger"]');
@@ -293,7 +293,7 @@ test('keeps shared and native selectors borderless', async ({ page }) => {
   await expect(nativeSelector).toHaveCSS('border-left-width', '0px');
 });
 
-test('keeps global and workbench search controls borderless while focused', async ({
+test('uses fill-based focus feedback for global and workbench search controls', async ({
   page,
 }) => {
   await page.goto('/rum/sessions');
@@ -316,7 +316,7 @@ test('keeps global and workbench search controls borderless while focused', asyn
   }
 });
 
-test('keeps every text input surface borderless', async ({ page }) => {
+test('uses Control Surface styling for text inputs', async ({ page }) => {
   await page.goto('/apm/overview');
 
   const inputs = page.locator(
@@ -337,7 +337,7 @@ test('keeps every text input surface borderless', async ({ page }) => {
   await expect(firstInput).toHaveCSS('box-shadow', 'none');
 });
 
-test('keeps compound and read-only input surfaces borderless', async ({
+test('uses Control Surface styling for compound and read-only inputs', async ({
   page,
 }) => {
   await page.goto('/datasource/recommended/kubernetes');

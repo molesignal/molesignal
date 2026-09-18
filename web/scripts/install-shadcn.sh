@@ -37,13 +37,13 @@ COMPONENTS=(
   avatar
   sheet
 
-  # Phase 6 M0.3 — data-display batch
+  # Data display
   table
   pagination
   hover-card
   skeleton
 
-  # Phase 6 M0.3 — form batch
+  # Forms
   card
   form
   checkbox
@@ -52,7 +52,7 @@ COMPONENTS=(
   textarea
   label
 
-  # Phase 6 M0.3 — feedback/navigation batch
+  # Feedback and navigation
   alert
   breadcrumb
   calendar

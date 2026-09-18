@@ -91,7 +91,7 @@ test.describe('topbar account menu', () => {
     await expect(menu.getByText('Switch', { exact: true })).toHaveCount(0);
   });
 
-  test('uses the same flat selected fill for the workspace trigger and current option', async ({
+  test('uses the same selected fill for the workspace trigger and current option', async ({
     page,
     mockServer,
   }) => {

@@ -1,9 +1,8 @@
 @import './fonts.css';
 
 /*
- * Single palette: default. Warm and high-contrast palette files were
- * removed in Phase 4 — the cool-indigo default palette is the only one
- * we ship. The [data-palette] selector is kept for future expansion.
+ * The cool-indigo default palette is the shipped palette. The [data-palette]
+ * selector leaves room for future expansion.
  */
 @import './tokens-palette-default.css';
 
@@ -24,9 +23,8 @@
  *   3. shadcn-compatible aliases (--background, --foreground, --card, …)
  *      live in tailwind.config.ts color mapping and reference layer 2.
  *
- * Phase 4 brand: --primary and --accent both point to --indigo to unify
- * brand expression. --blue is strictly informational/link, --indigo is
- * brand.
+ * Brand aliases: --primary and --accent both point to --indigo. --blue is
+ * informational/link color, while --indigo carries brand emphasis.
  */
 
 :root,
@@ -39,7 +37,7 @@
   --fg-muted:        var(--tx-2);
   --border:          var(--bd-0);
 
-  /* Workbench depth: canvas exposes gutters between borderless surfaces. */
+  /* Workbench depth: canvas gutters separate functional surfaces. */
   --app-header-surface:       var(--bg-1);
   --sidebar-surface:          var(--bg-1);
   --page-canvas:              var(--bg-0);
@@ -54,7 +52,7 @@
     0 1px 2px rgba(0, 0, 0, 0.24),
     0 1px 3px rgba(0, 0, 0, 0.18);
 
-  /* primary = brand indigo (Phase 4) */
+  /* primary = brand indigo */
   --primary:         var(--indigo);
   --primary-bg:      var(--indigo-dim);
   --primary-muted:   var(--indigo-soft);
@@ -457,9 +455,9 @@ textarea::placeholder,
 }
 
 /*
- * Global form-control focus treatment. This overrides both native browser
- * focus outlines and Tailwind ring utilities. Interaction is communicated
- * by the Control Surface fill rather than an outline or border.
+ * Global form-control focus treatment. This normalizes native browser focus
+ * outlines and Tailwind ring utilities. The Control Surface fill communicates
+ * interaction state.
  */
 :where(
   input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']),
@@ -476,16 +474,15 @@ textarea::placeholder,
   --tw-ring-shadow: 0 0 #0000 !important;
 }
 
-/* Selectors are Control Surfaces, not outlined form fields. Keep every shared
- * and native selector borderless in all interaction and validation states. */
+/* Selectors use Control Surface styling in all interaction and validation states. */
 :where(select, [data-ui='select-trigger']) {
   border-width: 0 !important;
   border-color: transparent !important;
   box-shadow: none !important;
 }
 
-/* Text inputs are Control Surfaces, not outlined fields. The explicit marker
- * also covers compound controls and button-based launchers such as search. */
+/* Text inputs use Control Surface styling. The explicit marker also covers
+ * compound controls and button-based launchers such as search. */
 :where(
   input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']):not([type='button']):not([type='submit']):not([type='reset']):not([type='image']):not([type='hidden']),
   textarea,

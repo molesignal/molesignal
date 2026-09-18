@@ -4,12 +4,11 @@ import * as React from 'react';
 import { cn } from '@/shell/lib/cn';
 
 /**
- * Alert / Banner — Phase 4 token-aware shadcn primitive.
+ * Token-aware Alert / Banner primitive.
  *
- * Brief mandate: 4 semantic variants matching the status color tokens
- * (info/success/warn/error). Icons are NOT embedded — caller passes a
- * lucide stroke icon as the first child so the variant set stays
- * orthogonal to icon choice.
+ * Four semantic variants match the status color tokens
+ * (info/success/warn/error). The caller supplies a lucide stroke icon as the
+ * first child so the variant set stays orthogonal to icon choice.
  *
  * Page-level use: this is for sticky notices that explain a state ("3
  * queries failed", "license expires in 7 days"). Use Toast for transient
@@ -30,8 +29,7 @@ const alertVariants = cva(
         info: 'border-blue/30 bg-blue-dim text-blue-soft [&>svg]:text-blue',
         success: 'border-green/30 bg-green-dim text-green-soft [&>svg]:text-green',
         warning: 'border-yellow/30 bg-yellow-dim text-yellow-soft [&>svg]:text-yellow',
-        // Status-tagged danger surface. Mirrors brief: `red` is the
-        // error/firing token, bumped to AAA on bg-0.
+        // Danger surfaces use the AAA-calibrated red error/firing token.
         destructive: 'border-red/30 bg-red-dim text-red-soft [&>svg]:text-red',
       },
     },

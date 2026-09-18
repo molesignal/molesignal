@@ -1,3 +1,4 @@
+/** Mole Agent settings surface primitives. */
 import type { ReactNode } from 'react';
 
 import { cn } from '@/shell/lib/cn';

@@ -4,8 +4,8 @@ import { describe, expect, it } from 'vitest';
 
 import { ScheduleCard, ScheduleSummaryCard } from './Ui';
 
-describe('Schedule cardless surfaces', () => {
-  it('renders summary metrics without an outer card or focus ring', () => {
+describe('Schedule surfaces', () => {
+  it('uses fill-based focus feedback for summary metrics', () => {
     const { container } = render(
       <ScheduleSummaryCard
         icon={CalendarClock}
@@ -21,7 +21,7 @@ describe('Schedule cardless surfaces', () => {
     expect(summary?.className).toContain('focus-visible:bg-bg-2');
   });
 
-  it('renders detail sections with only a header divider', () => {
+  it('renders detail sections with a single header divider', () => {
     const { container } = render(
       <ScheduleCard title="Coverage">Schedule content</ScheduleCard>,
     );

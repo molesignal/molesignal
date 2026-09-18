@@ -49,9 +49,8 @@ export function TraceDetail() {
         ) : null
       }
       metadata={[
-        // Phase 6 M2: trace_id is a canonical cross-signal handle.
-        // Wrapping it in SignalReference lets users jump to related
-        // logs / metrics without leaving the trace view.
+        // trace_id is a canonical cross-signal handle. SignalReference exposes
+        // related logs and metrics directly from the trace view.
         ...(id ? [{ label: t('detail.trace_id'), value: <SignalReference type="trace_id" value={id}>{id}</SignalReference> }] : []),
       ]}
       bodyClassName="p-4"

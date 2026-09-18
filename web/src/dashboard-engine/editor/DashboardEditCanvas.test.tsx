@@ -15,7 +15,7 @@ import { DashboardEditCanvas } from './DashboardEditCanvas';
 afterEach(cleanup);
 
 describe('DashboardEditCanvas', () => {
-  it('edits the production Dashboard canvas instead of a Layout preview', () => {
+  it('edits the production Dashboard canvas', () => {
     const definition = createEmptyDashboardDefinition('Editable dashboard');
     const text = createDashboardText();
     text.id = 'text-live';

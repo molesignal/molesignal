@@ -4,10 +4,8 @@ import { uiLabelClass, uiLabelStrongClass } from '@/shell/chrome';
 import { TimeSeriesSparkline } from '@/viz/timeseries/TimeSeriesChart';
 
 /**
- * NocPanel / NocKpi — the layout primitives the NOC wallboard is built from
- * (brief Component Inventory). Extracted out of `routes/Noc.tsx` so the
- * wallboard's panel grammar lives in one place and can be reused by other
- * wallboard surfaces.
+ * NocPanel and NocKpi are the shared layout primitives for NOC wallboards.
+ * Their panel grammar lives in one place for reuse across wallboard surfaces.
  */
 
 export function NocKpi({

@@ -32,10 +32,6 @@ import {
 } from '@/shell/ui/select';
 
 import {
-  PIPELINE_TYPE_TONE,
-  pipelineFlatTableClassName,
-} from './CardlessSurface';
-import {
   signalTypeFromPipeline,
   type PipelineSignalType,
 } from './PipelineGraph';
@@ -46,6 +42,10 @@ import {
   pipelineSuccessRate,
   type PipelineHealth,
 } from './presentation';
+import {
+  PIPELINE_TYPE_TONE,
+  pipelineFlatTableClassName,
+} from './Surfaces';
 
 interface DisplayPipeline extends pipelinesApi.ScheduledPipeline {
   type: PipelineSignalType;

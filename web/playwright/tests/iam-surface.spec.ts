@@ -38,7 +38,7 @@ test.beforeEach(async ({ page, mockServer }) => {
   );
 });
 
-test('uses tonal IAM surfaces instead of page and table dividers', async ({
+test('uses tonal IAM surfaces and alternating row backgrounds', async ({
   page,
 }) => {
   await page.goto('/iam/users');

@@ -161,7 +161,7 @@ const TYPE_COLOR: Record<LogFieldDef['type'], string> = {
   // Stays in sync with the JSON-tree value palette below (see `valColor`
   // around line 1224): the same data type reads as the same color whether
   // it appears as a field-type swatch on the left or as a rendered value
-  // in the row. Brief: `key tx-2，string green，number orange，level keyword indigo`.
+  // in the row: key tx-2, string green, number orange, level keyword indigo.
   string: 'text-green-soft',
   number: 'text-orange-soft',
   timestamp: 'text-green-soft',
@@ -2306,11 +2306,9 @@ function LogFieldValue({
   const { t } = useTranslation('logs');
   const display = value === null ? 'null' : value === undefined ? 'undefined' : formatLogFieldValue(value);
 
-  // Phase 6 M2: cross-signal handles (trace_id / span_id / service / host)
-  // get the SignalReference HoverCard with 2-3 jump actions instead of a
-  // single-destination button. Uses the shared label-name detection so
-  // Metrics / Logs / Trace span attributes all recognize the same
-  // aliases. Tied to brief Principle #3.
+  // Cross-signal fields use the shared SignalReference HoverCard and label
+  // detection so metrics, logs, and trace attributes expose the same actions
+  // and aliases.
   const signalType = isPresent(value)
     ? detectSignalTypeForLabel(field) ??
       detectSignalTypeForLabel(leafFieldName(field))

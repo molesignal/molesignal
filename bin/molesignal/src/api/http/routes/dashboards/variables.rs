@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! `POST /api/v1/dashboards/variables/resolve`（BACKEND_REQUIREMENTS.md）。
+//! Dashboard variable 候选值解析端点：`POST /api/v1/dashboards/variables/resolve`。
 //!
 //! Dashboard 顶部的 variable dropdown 取候选值时调用此端点。前端把单
 //! variable 的定义（`label_values(metric, label)` 或自由 SQL）+ 当前时间窗发过

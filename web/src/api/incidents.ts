@@ -2,7 +2,7 @@ import { http, toApiError } from '@/lib/http';
 import type { Incident, IncidentRca } from '@/types/alerting';
 
 /**
- * List incidents. Phase 6 M1 contract: backend truncates `trace_ids`,
+ * List incidents. The backend truncates `trace_ids`,
  * `host_ids`, `affected_services` to top 1 element each and returns
  * `triggering_query = null` to keep the list payload small. Use `get`
  * for the full context.
@@ -20,7 +20,7 @@ export async function list(options?: {
 /**
  * Fetch a single incident with full cross-signal context — all
  * `trace_ids`, full `triggering_query.sample_values`. Backend enforces
- * org isolation on this endpoint (Phase 6 M1 addition).
+ * organization isolation on this endpoint.
  */
 export async function get(id: string): Promise<Incident> {
   const { data } = await http.get<Incident>(`/alerts/incidents/${encodeURIComponent(id)}`);

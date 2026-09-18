@@ -33,7 +33,7 @@ import { publicStatusPageUrl } from '../publicUrl';
 import {
   StatusPageCanvas,
   statusPageFlatStateClassName,
-} from './CardlessSurface';
+} from './Surfaces';
 
 interface WorkspaceContextValue {
   pageId: string;

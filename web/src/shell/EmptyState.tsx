@@ -15,11 +15,10 @@ import { DisabledControl } from '@/shell/DisabledControl';
 import { cn } from '@/shell/lib/cn';
 
 /**
- * EmptyState — brief Principle #2 head-of-line citizen. Renders the
- * standard layout that every "no data yet" surface in the product agrees
- * on: a single 48px stroke icon, one short title, optional one-sentence
- * description, optional primary CTA, optional secondary link. Always
- * centered in the available space.
+ * EmptyState renders the shared layout for product surfaces with no data: a
+ * single 48px stroke icon, one short title, an optional one-sentence
+ * description, an optional primary CTA, and an optional secondary link.
+ * Content remains centered in the available space.
  *
  * Strategy is sourced from `ia.ts.emptyStateStrategy` — passing it gives
  * a sensible default icon when the caller doesn't supply one. The 7

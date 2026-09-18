@@ -15,14 +15,14 @@ import { PageBody } from '@/shell/PageHeader';
 import { ResultPagination } from '@/shell/ResultPagination';
 import { toast } from '@/shell/ui/sonner';
 
+import { useStatusPageWorkspace } from './Layout';
+import { shouldShowStatusPagePagination } from './pagination';
 import {
   StatusPageBand,
   StatusPageCanvas,
   StatusPageListSurface,
   statusPageFlatTableClassName,
-} from './CardlessSurface';
-import { useStatusPageWorkspace } from './Layout';
-import { shouldShowStatusPagePagination } from './pagination';
+} from './Surfaces';
 
 export function StatusPageSubscribers({ view }: { view: 'list' | 'deliveries' }) {
   const { t } = useTranslation('status-pages');

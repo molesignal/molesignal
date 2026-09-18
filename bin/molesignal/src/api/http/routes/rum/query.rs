@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! RUM 跨信号查询 endpoint（BACKEND_REQUIREMENTS.md）。
+//! RUM session 关联 trace 的跨信号查询端点。
 //!
 //! `GET /rum/sessions/{id}/related-traces`：把 RUM session 跟 backend traces 关联。
 //! 优先看 `rum_actions.trace_id`（W3C traceparent direct）；为空时退化到时间窗 +

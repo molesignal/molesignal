@@ -1,3 +1,4 @@
+/** Status Pages workspace surface primitives. */
 import type * as React from 'react';
 
 import type { KpiStripItem } from '@/admin';

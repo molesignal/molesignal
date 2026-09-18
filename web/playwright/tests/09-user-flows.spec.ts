@@ -1,17 +1,13 @@
 /**
- * User-flow e2e specs — Flows 2–5.
- *
- * Flow 1 (SRE pager → alert → trace cross-signal jump) lives in
- * `06-alerts-flow-1`. This file covers the remaining four named flows from
- * the redesign tasks: authoring a dashboard, authoring an alert rule,
- * connecting a data source, and the RBAC route guard.
+ * Product workflow e2e specs covering dashboard and alert authoring, data
+ * source setup, and the IAM capability route guard.
  *
  * Uses the shared mock backend (mock Owner auth, frozen clock, every
  * `/api/v1/**` proxied to the in-test Express server).
  */
 import { expect, mountMockRoutes, test } from '../fixtures/mockBackend';
 
-test.describe('Flow 2 — author a dashboard', () => {
+test.describe('Author a dashboard', () => {
   test.beforeEach(async ({ page, mockServer }) => {
     await mountMockRoutes(page, mockServer.port);
   });
@@ -143,7 +139,7 @@ test.describe('Flow 2 — author a dashboard', () => {
   });
 });
 
-test.describe('Flow 3 — author an alert rule', () => {
+test.describe('Author an alert rule', () => {
   test.beforeEach(async ({ page, mockServer }) => {
     await mountMockRoutes(page, mockServer.port);
   });
@@ -179,7 +175,7 @@ test.describe('Flow 3 — author an alert rule', () => {
   });
 });
 
-test.describe('Flow 4 — connect a data source', () => {
+test.describe('Connect a data source', () => {
   test.beforeEach(async ({ page, mockServer }) => {
     await mountMockRoutes(page, mockServer.port);
   });
@@ -236,7 +232,7 @@ test.describe('Flow 4 — connect a data source', () => {
   });
 });
 
-test.describe('Flow 5 — IAM capability route guard', () => {
+test.describe('IAM capability route guard', () => {
   test('Viewer capabilities cannot open /iam/teams', async ({ page, mockServer }) => {
     await mountMockRoutes(page, mockServer.port, { role: 'Viewer' });
 
