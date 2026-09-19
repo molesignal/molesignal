@@ -8,7 +8,6 @@ members = [
     "crates/modules/*",
     "crates/transport/*",
     "crates/support/*",
-    "tools/*",
 ]
 default-members = ["bin/molesignal"]
 

@@ -5296,20 +5296,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "license-sign"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "base64 0.22.1",
- "clap",
- "ed25519-dalek 2.2.0",
- "hex",
- "license",
- "rand 0.10.2",
- "serde_json",
-]
-
-[[package]]
 name = "linux-raw-sys"
 version = "0.4.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
