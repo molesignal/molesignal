@@ -1,0 +1,1944 @@
+{
+  "chats": "Chats",
+  "new_chat": "New chat",
+  "untitled": "Untitled",
+  "chat_list_resize": "Drag to resize the chat list; double-click to reset",
+  "chat_delete": "Delete chat",
+  "chat_delete_title": "Delete chat?",
+  "chat_delete_confirm": "“{{title}}” will be archived before it is removed from chat history.",
+  "chat_delete_action": "Delete",
+  "chat_deleting": "Deleting…",
+  "chat_deleted": "Chat deleted",
+  "history_empty_title": "No conversations yet",
+  "history_empty_description": "Start an investigation and its context will stay here.",
+  "quick_title": "Quick start",
+  "quick": {
+    "service_errors": "Why is {{service}}'s error rate increasing?",
+    "service_errors_fallback": "Which service has the highest error rate?",
+    "recent_anomalies": "Analyze recent anomalies across logs, metrics, and traces",
+    "unacknowledged_alerts": "Show current unacknowledged alerts",
+    "build_dashboard": "Create a service health dashboard for the last hour"
+  },
+  "chat_groups": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "last_7_days": "Last 7 days",
+    "older": "Older"
+  },
+  "context": {
+    "title": "Current context",
+    "add": "Add context",
+    "clear": "Clear context",
+    "auto_description": "No service or alert is pinned. Mole Agent will select the data scope from your question.",
+    "editor_title": "Add investigation context",
+    "editor_description": "These values are sent with the next message and remain visible to you.",
+    "environment": "Environment",
+    "environment_placeholder": "For example: production",
+    "service": "Service",
+    "service_placeholder": "For example: checkout-api",
+    "alert": "Alert",
+    "alert_placeholder": "For example: high_error_rate"
+  },
+  "module_subtitle": "Your AI operations assistant for observability.",
+  "nav": {
+    "label": "Mole Agent navigation",
+    "chat": "Chat",
+    "investigations": "Investigations",
+    "automations": "Automations",
+    "approvals": "Approvals",
+    "executions": "Executions",
+    "settings": "Settings"
+  },
+  "overview": {
+    "label": "Mole Agent overview",
+    "active": "investigating",
+    "pending_approvals": "awaiting approval"
+  },
+  "workspace": {
+    "start_title": "AI-powered assistant",
+    "start_description": "Tell me what happened, ask a follow-up, or choose a question to begin. This conversation will preserve the investigation context.",
+    "context_title": "Context",
+    "context_description": "Applied to this conversation",
+    "scope": "Scope",
+    "signals": "Signals",
+    "context_auto": "Auto-detect",
+    "all_environments": "All environments",
+    "time_range": "Time range",
+    "active_alerts": "Active alerts",
+    "on_call": "On-call",
+    "unassigned": "Unassigned",
+    "command_bar": "Agent command bar",
+    "connections": {
+      "metrics": "Metrics",
+      "logs": "Logs",
+      "traces": "Traces"
+    },
+    "connection_state": {
+      "connected": "Online",
+      "attention": "Needs attention",
+      "no_data": "No data",
+      "checking": "Checking",
+      "unavailable": "Limited"
+    }
+  },
+  "common": {
+    "status": "Status",
+    "updated": "Updated",
+    "time": "Time",
+    "open": "Open",
+    "back": "Back",
+    "close": "Close",
+    "actions": "Actions",
+    "cancel": "Cancel",
+    "create": "Create",
+    "edit": "Edit",
+    "save": "Save",
+    "saving": "Saving…",
+    "invalid_json": "Invalid JSON in {{field}}: {{message}}",
+    "json_object_required": "{{field}} must be a JSON object"
+  },
+  "confidence": {
+    "high": "High",
+    "medium": "Medium",
+    "low": "Low"
+  },
+  "status": {
+    "draft": "Draft",
+    "pending": "Pending",
+    "running": "Running",
+    "waiting_for_data": "Waiting for data",
+    "waiting_for_approval": "Waiting for approval",
+    "verifying_recovery": "Verifying recovery",
+    "completed": "Completed",
+    "partially_completed": "Partially completed",
+    "failed": "Failed",
+    "cancelled": "Cancelled",
+    "succeeded": "Succeeded",
+    "partially_succeeded": "Partially succeeded",
+    "rolled_back": "Rolled back",
+    "verification_failed": "Verification failed",
+    "proposed": "Proposed",
+    "testing": "Testing",
+    "supported": "Supported",
+    "insufficient_evidence": "Insufficient evidence",
+    "rejected": "Rejected",
+    "approved": "Approved",
+    "expired": "Expired",
+    "executed": "Executed",
+    "verified": "Verified",
+    "unverified": "Unverified",
+    "inference": "Inference",
+    "suggestion": "Suggestion",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "skipped": "Skipped"
+  },
+  "investigations": {
+    "title": "Investigations",
+    "description": "Collect cross-signal evidence and test root-cause hypotheses over time.",
+    "create": "Create investigation",
+    "created": "Investigation created",
+    "edit": "Edit investigation",
+    "updated": "Investigation updated",
+    "create_description": "Mole Agent records each tool, input, evidence item, and impact on the conclusion.",
+    "editor_description": "Maintain task state, current conclusion, investigation context, and initial steps.",
+    "title_placeholder": "For example: Payment service error-rate investigation",
+    "confidence_unset": "Not set",
+    "steps_hint": "Enter one investigation step per line or separate steps with commas.",
+    "empty_title": "No investigations yet",
+    "empty_description": "Turn complex or long-running questions into tracked investigations.",
+    "sections": {
+      "basic": "Task information",
+      "steps": "Initial steps",
+      "context": "Investigation context"
+    },
+    "fields": {
+      "title": "Title",
+      "summary": "Current conclusion",
+      "confidence": "Confidence",
+      "current_step": "Current step",
+      "steps": "Investigation steps",
+      "context": "Context JSON"
+    },
+    "columns": {
+      "task": "Investigation",
+      "current_step": "Current step"
+    },
+    "default_steps": {
+      "context": "Collect alert and service context",
+      "metrics": "Query error-rate and latency changes",
+      "logs": "Find anomalous logs",
+      "traces": "Correlate anomalous traces",
+      "hypothesis": "Test the primary root-cause hypothesis",
+      "recommendation": "Propose remediation"
+    }
+  },
+  "investigation_detail": {
+    "description": "Every tool call, evidence item, and hypothesis is traceable.",
+    "confidence": "Confidence",
+    "current_conclusion": "Current conclusion",
+    "no_conclusion": "Mole Agent has not formed a verified conclusion.",
+    "steps": "Investigation steps",
+    "hypotheses": "Root-cause hypotheses",
+    "timeline": "Investigation timeline",
+    "no_hypotheses": "No root-cause hypotheses yet.",
+    "no_steps": "No investigation steps recorded.",
+    "no_evidence": "No evidence recorded.",
+    "operations_title": "No proposed operations",
+    "operations_description": "Write operations proposed by Mole Agent go to approvals and are never executed directly.",
+    "runs_title": "No related executions",
+    "runs_description": "Approved operations retain parameters, results, and verification state in execution records.",
+    "tabs": {
+      "overview": "Overview",
+      "timeline": "Timeline",
+      "evidence": "Evidence",
+      "queries": "Queries",
+      "operations": "Proposed operations",
+      "runs": "Run history"
+    }
+  },
+  "automations": {
+    "title": "Automations",
+    "description": "Save reusable Mole Agent workflows; dry runs never perform real writes.",
+    "create": "Create automation",
+    "created": "Automation created",
+    "edit": "Edit automation",
+    "updated": "Automation updated",
+    "create_description": "Start with a read-only, manually triggered investigation template.",
+    "editor_description": "Configure triggers, workflow, tools, approvals, and failure handling.",
+    "name_placeholder": "For example: Critical production alert investigation",
+    "empty_title": "No automations yet",
+    "empty_description": "Save common investigation steps as reusable workflows.",
+    "default_description": "Read-only observability investigation workflow",
+    "manual": "Manual",
+    "dry_run": "Dry run",
+    "dry_run_success": "Dry run completed with no real writes",
+    "json_hint": "Advanced workflow fields use JSON and are validated before saving.",
+    "tools_fallback_hint": "If the tool registry is unavailable, separate tool names with commas or new lines.",
+    "sections": {
+      "basic": "Basic information",
+      "tools": "Available tools",
+      "tools_description": "This automation can call only registered tools in this allowlist.",
+      "workflow": "Trigger and workflow",
+      "governance": "Approval, output, and failure handling"
+    },
+    "fields": {
+      "name": "Name",
+      "description": "Description",
+      "enabled": "Enable automation",
+      "trigger": "Trigger",
+      "input_context": "Input context",
+      "steps": "Workflow steps",
+      "allowed_tools": "Allowed tools",
+      "approval_policy": "Approval policy",
+      "output_actions": "Output actions",
+      "failure_policy": "Failure policy",
+      "notification": "Notification"
+    },
+    "default_steps": {
+      "metrics": "Query key metrics",
+      "logs": "Query anomalous logs",
+      "traces": "Correlate anomalous traces",
+      "hypothesis": "Produce root-cause hypotheses"
+    }
+  },
+  "approvals": {
+    "title": "Approvals",
+    "description": "Every real write must satisfy its risk-level approval policy before execution.",
+    "agent_suggestion": "Mole Agent recommends the following operation",
+    "reason": "Reason",
+    "impact": "Impact and risk",
+    "parameters": "Execution parameters",
+    "reject": "Reject",
+    "approve": "Approve",
+    "execute": "Approve and execute",
+    "execution_started": "Operation submitted for execution",
+    "one_time_token_title": "One-time API token",
+    "one_time_token_description": "Copy this API token now. Its plaintext is excluded from execution history and cannot be viewed again.",
+    "copy_one_time_token": "Copy API token",
+    "one_time_token_copied": "API token copied",
+    "one_time_token_copy_failed": "Could not copy the API token",
+    "empty_title": "No approvals to review",
+    "empty_description": "Controlled operations proposed by Mole Agent appear here."
+  },
+  "executions": {
+    "title": "Executions",
+    "description": "Review parameter snapshots, idempotency keys, outcomes, and recovery verification.",
+    "empty_title": "No executions yet",
+    "empty_description": "Only approved operations appear in the execution record.",
+    "columns": {
+      "operation": "Operation",
+      "target": "Target",
+      "verification": "Verification"
+    }
+  },
+  "settings": {
+    "title": "Agent settings",
+    "description": "Configure Mole Agent models, prompts, tools and capabilities, data scope, network, and approval policy.",
+    "blocked": "Blocked",
+    "allowed": "Allowed",
+    "tabs": {
+      "profiles": "Agent profiles",
+      "models": "Models & reasoning",
+      "prompts": "Prompt management",
+      "tools": "Tools & capabilities",
+      "inbound_mcp": "Inbound MCP",
+      "data": "Data access",
+      "network": "Network policy",
+      "approvals": "Approval policy"
+    },
+    "inbound_mcp": {
+      "title": "Inbound MCP Server",
+      "description": "Let external AI clients manage this organization through MoleSignal's authenticated, policy-controlled MCP endpoint.",
+      "enabled": "Enabled",
+      "endpoint": "Endpoint",
+      "protocols": "Protocol versions",
+      "saved": "Inbound MCP settings saved",
+      "invalid_limits": "Every runtime limit must be a positive integer.",
+      "allowed_origins": "Allowed browser origins",
+      "origins_hint": "One exact HTTP or HTTPS origin per line. Requests without Origin and same-origin requests remain allowed.",
+      "copy": "Copy MCP endpoint",
+      "copied": "MCP endpoint copied",
+      "save": "Save settings",
+      "security": {
+        "title": "Tenant and policy enforcement",
+        "description": "The server derives user and organization identity only from the credential. Effective tools are intersected with token IAM permissions and the organization's Tool Policy; Agent Profiles do not narrow this surface."
+      },
+      "credentials": {
+        "title": "Credentials",
+        "description": "Use a personal API token, a Service Account API token, or OAuth 2.1. Inbound MCP never returns API token plaintext.",
+        "api_tokens": "Manage API tokens",
+        "service_accounts": "Manage Service Accounts"
+      },
+      "runtime": {
+        "title": "Per-request runtime limits",
+        "description": "Changes take effect when the next MCP HTTP request starts. Existing requests keep their current snapshot.",
+        "request_bytes": "Request bytes",
+        "response_bytes": "Response bytes",
+        "concurrent_calls": "Concurrent calls / credential",
+        "calls_per_minute": "Calls / minute / credential",
+        "read_timeout": "Read timeout (ms)"
+      },
+      "oauth": {
+        "title": "OAuth connections",
+        "description": "Review and revoke OAuth 2.1 token families issued for this organization.",
+        "discovery_title": "OAuth 2.1 discovery",
+        "discovery_description": "Use these endpoints when a client needs explicit OAuth configuration instead of automatic protected-resource discovery.",
+        "protected_metadata": "Protected resource metadata",
+        "authorization_metadata": "Authorization server metadata",
+        "registration_endpoint": "Dynamic registration endpoint",
+        "token_endpoint": "Token endpoint",
+        "empty": "No OAuth connections",
+        "empty_description": "Connections appear here after a user authorizes an MCP client.",
+        "authorized_by": "Authorized by {{value}}",
+        "expires": "Latest token expires {{value}}",
+        "revoke": "Revoke",
+        "revoked": "OAuth connection revoked"
+      }
+    },
+    "profiles": {
+      "title": "Agent profiles",
+      "description": "Give each operating mode its own model, tools, data boundary, network access, approval policy, and runtime limits.",
+      "create": "Create profile",
+      "created": "Agent profile created",
+      "edit": "Edit profile",
+      "edit_default": "Edit default profile",
+      "updated": "Agent profile updated",
+      "create_description": "New profiles enable registered tools, block networking, and require approval for L2/L3 operations.",
+      "editor_description": "Configure this profile's identity, model, tools, data scope, network, approval policy, and runtime limits.",
+      "usage_hint": "The default profile is used when none is specified. In a chat, choose any enabled profile under Advanced settings to switch operating constraints.",
+      "editing_profile": "Editing profile: {{name}}",
+      "shortcut_hint": "This shortcut shows profile “{{name}}”. Edit any other profile from the Agent profiles list.",
+      "navigation_label": "Profile configuration sections",
+      "name_placeholder": "For example: Production-restricted agent",
+      "name_required": "Enter a profile name before saving.",
+      "default_description": "Controlled Mole Agent investigation profile",
+      "provider_auto": "Select model provider automatically",
+      "model_inherit": "Inherit the provider default",
+      "list_hint": "Separate multiple values with commas or new lines.",
+      "empty_means_all": "Leave empty to allow all authorized resources.",
+      "tag_placeholder": "Type a value and press Enter",
+      "tag_hint": "Press Enter or type a comma to add each value as a tag.",
+      "optional_tag_hint": "Press Enter or type a comma to add a tag. Leave empty to allow all authorized resources.",
+      "remove_tag": "Remove {{value}}",
+      "tools_selected": "{{selected}} of {{total}} available tools selected",
+      "select_all_tools": "Select all",
+      "clear_tools": "Clear",
+      "no_tools": "No tools allowed",
+      "remaining_tools": "{{count}} remaining tools",
+      "runtime_summary": "{{minutes}}m · {{calls}} calls",
+      "pagination": {
+        "aria": "Agent profile pagination",
+        "page_size_aria": "Profiles per page",
+        "page_summary": "{{page}} / {{pages}}",
+        "first_aria": "First profile page",
+        "previous_aria": "Previous profile page",
+        "next_aria": "Next profile page",
+        "last_aria": "Last profile page"
+      },
+      "invalid_limits": "Runtime limits must be positive and max tool calls cannot exceed 256.",
+      "default": "Default",
+      "empty_title": "No agent profiles yet",
+      "empty_description": "Create a profile to define models, tools, data scope, and runtime limits.",
+      "max_tools": "Max tool calls",
+      "max_time": "Max duration",
+      "network": "Network",
+      "summary": {
+        "model": "Model",
+        "tools": "Tool allowlist · {{count}}",
+        "data": "Data scope",
+        "approval": "Approval boundary",
+        "runtime": "Runtime boundary",
+        "network": "Network"
+      },
+      "scope_prefix": {
+        "environment": "Env",
+        "service": "Service",
+        "stream": "Stream"
+      },
+      "sections": {
+        "identity": "Identity and model",
+        "tools": "Tool allowlist",
+        "tools_description": "Only tools present in the registry can be selected.",
+        "data": "Data access",
+        "network": "Network access",
+        "limits": "Runtime limits",
+        "approvals": "Approval policy"
+      },
+      "fields": {
+        "name": "Name",
+        "description": "Description",
+        "provider": "Model provider",
+        "model": "Model override",
+        "enabled": "Enable profile",
+        "default": "Set as default profile",
+        "network": "Network access",
+        "context_tokens": "Max context tokens",
+        "duration_minutes": "Max investigation duration (minutes)",
+        "tool_calls": "Max tool calls"
+      },
+      "policies": {
+        "automatic": "Automatic",
+        "approval": "Single approval",
+        "two_person_approval": "Two-person approval"
+      }
+    },
+    "models": {
+      "title": "Models & reasoning",
+      "description": "Model keys are write-only for admins and calls are isolated through the Model Gateway.",
+      "create": "Add model provider",
+      "created": "Model provider added",
+      "edit": "Edit model provider",
+      "updated": "Model provider updated",
+      "create_description": "Configure an administrator-approved Model Gateway upstream.",
+      "editor_description": "Configure the upstream URL, default model, runtime settings, and write-only credentials.",
+      "name_placeholder": "Display name",
+      "model_placeholder": "Default model, e.g. gpt-5",
+      "base_url_placeholder": "For example: https://api.example.com/v1",
+      "base_url_hint": "Required for OpenAI-compatible providers; leave empty to use an official default endpoint.",
+      "base_url_required": "A Base URL is required for OpenAI-compatible providers.",
+      "invalid_limits": "Timeout and max token values must be positive.",
+      "max_tokens_placeholder": "Leave empty to use the provider default",
+      "default_endpoint": "Using the official default endpoint",
+      "key_placeholder": "API key (write-only)",
+      "key_create_hint": "The API key is write-only and is never returned by the page or API.",
+      "key_edit_hint": "Leave empty to keep the current key; enter a value to rotate it after saving.",
+      "key_set": "Key configured",
+      "key_unset": "No key",
+      "empty_title": "No model providers yet",
+      "sections": {
+        "connection": "Connection",
+        "runtime": "Runtime",
+        "credentials": "Credentials"
+      },
+      "fields": {
+        "provider": "Provider type",
+        "name": "Display name",
+        "base_url": "Base URL",
+        "model": "Default model",
+        "timeout_ms": "Timeout (milliseconds)",
+        "max_tokens": "Max output tokens",
+        "enabled": "Enable model provider",
+        "api_key": "API key"
+      }
+    },
+    "prompts": {
+      "title": "Prompt management",
+      "description": "Manage Mole Agent system instructions and investigation templates. Built-in prompts remain read-only and can be overridden at organization or personal scope.",
+      "create": "Create prompt",
+      "view": "View",
+      "override": "Create override",
+      "set_default": "Set as default",
+      "restore": "Restore built-in",
+      "delete": "Delete",
+      "delete_confirm": "Delete “{{name}}”? Historical messages retain the prompt version that was used.",
+      "effective": "Effective",
+      "version": "v{{version}}",
+      "search_label": "Search prompts",
+      "search_placeholder": "Search name, purpose, body, or built-in key…",
+      "name_placeholder": "For example: Production root-cause investigation",
+      "body_hint": "Reference variables with double braces. Every variable must be declared in the JSON Schema below.",
+      "schema_hint": "Only declare variables that the server can safely inject. Template references are validated before saving.",
+      "enabled_hint": "Disabled prompts are excluded from default resolution and the chat prompt selector.",
+      "default_hint": "Personal defaults take priority, followed by organization defaults and the built-in fallback.",
+      "empty_title": "No prompts are available",
+      "empty_description": "Create an organization or personal prompt, or verify that the built-in template migration has run.",
+      "empty_filter": "No matching prompts",
+      "empty_filter_description": "Change the search and try again.",
+      "stats": {
+        "total": "Total prompts",
+        "total_hint": "Built-in and override versions",
+        "effective": "Effective now",
+        "effective_hint": "Resolved defaults by purpose",
+        "customized": "Custom versions",
+        "customized_hint": "Organization and personal overrides"
+      },
+      "scopes": {
+        "builtin": "Built-in",
+        "org": "Organization",
+        "user": "Personal"
+      },
+      "purposes": {
+        "system": {
+          "title": "System instruction",
+          "description": "Defines Mole Agent identity, safety boundaries, evidence requirements, and baseline behavior."
+        },
+        "anomaly_analysis": {
+          "title": "Anomaly analysis",
+          "description": "Fast correlation across metric, log, and trace anomalies."
+        },
+        "root_cause": {
+          "title": "Root-cause analysis",
+          "description": "Drives multi-step investigation, hypothesis testing, and evidence synthesis."
+        },
+        "alert_explain": {
+          "title": "Alert explanation",
+          "description": "Explains alert conditions, impact, duration, and related signals."
+        },
+        "query_generation": {
+          "title": "Query generation",
+          "description": "Generates SQL, PromQL, or trace filters without performing write operations."
+        }
+      },
+      "fields": {
+        "scope": "Scope",
+        "purpose": "Purpose",
+        "name": "Name",
+        "body": "Prompt body",
+        "schema": "Variable JSON Schema",
+        "enabled": "Enable prompt",
+        "default": "Set as default after saving"
+      },
+      "variables": {
+        "title": "Template variables",
+        "description": "Variables are detected from the prompt body. Red variables are not declared in the schema.",
+        "none": "This prompt does not reference any variables."
+      },
+      "editor": {
+        "create_title": "Create prompt",
+        "edit_title": "Edit prompt",
+        "view_title": "View prompt",
+        "override_title": "Create prompt override",
+        "description": "Every save increments the version; chats record the version and content hash that was used.",
+        "source": "Source"
+      },
+      "validation": {
+        "required": "Name and prompt body are required.",
+        "invalid_schema": "The variable schema is not valid JSON: {{message}}",
+        "schema_object_required": "The variable schema must be a JSON object.",
+        "schema_properties_required": "The schema properties value must be a JSON object.",
+        "unknown_variables": "These template variables are not declared in the schema: {{variables}}"
+      },
+      "messages": {
+        "created": "Prompt created",
+        "updated": "Prompt updated",
+        "set_default": "Default prompt updated",
+        "restore": "Built-in prompt content restored",
+        "delete": "Prompt deleted"
+      }
+    },
+    "tools": {
+      "title": "Tools & capabilities",
+      "description": "Manage the tools and MCP Servers Mole Agent can call, including execution permissions and approval policies.",
+      "search_label": "Search tools",
+      "search_placeholder": "Search tool name, display name, or description…",
+      "loading": "Loading tools…",
+      "load_error": "Tool list failed to load",
+      "retry": "Reload",
+      "empty_title": "No agent tools configured",
+      "empty_description": "Add an MCP Server or enable built-in tools before Mole Agent can query data and perform tasks.",
+      "empty_filter_title": "No matching tools",
+      "empty_filter_description": "Change the search or clear filters and try again.",
+      "profile_restricted": "This tool is enabled but is not granted to the default Agent Profile, so Mole Agent cannot discover it.",
+      "summary": {
+        "enabled": "Enabled tools",
+        "enabled_hint": "Available to Mole Agent",
+        "automatic": "Automatic",
+        "automatic_hint": "No human approval required",
+        "approval": "Requires approval",
+        "approval_hint": "Human review before execution",
+        "mcp": "MCP Servers",
+        "mcp_healthy": "{{count}} connected",
+        "mcp_unhealthy": "{{healthy}} healthy · {{unhealthy}} unhealthy"
+      },
+      "actions": {
+        "configure_policy": "Configure tool policy",
+        "add_mcp": "Add MCP Server",
+        "details": "View details",
+        "test": "Test tool",
+        "calls": "View call records",
+        "edit_policy": "Edit policy",
+        "dependencies": "View dependencies",
+        "copy_definition": "Copy tool definition",
+        "view_mcp": "View MCP Server",
+        "disable": "Disable tool",
+        "enable": "Enable tool",
+        "toggle": "Toggle {{name}} enabled state",
+        "more": "More actions for {{name}}"
+      },
+      "filters": {
+        "all": "All",
+        "read_only": "Read-only",
+        "automatic": "Automatic",
+        "approval": "Approval",
+        "disabled": "Disabled",
+        "advanced": "Advanced filters",
+        "clear": "Clear filters"
+      },
+      "grouping": {
+        "label": "Tool grouping",
+        "domain": "Group by domain",
+        "mcp": "Group by MCP Server",
+        "none": "No grouping",
+        "all_tools": "All tools",
+        "builtin_description": "Tools registered and maintained by the MoleSignal server",
+        "mcp_description": "Tools synchronized from MCP Servers and explicitly authorized"
+      },
+      "domains": {
+        "observability": {
+          "title": "Observability",
+          "description": "Logs, metrics, traces, APM User Experience, and continuous profiling"
+        },
+        "alerts_on_call": {
+          "title": "Alerts & On-call",
+          "description": "Alert incidents, response state, and on-call schedules"
+        },
+        "automation": {
+          "title": "Automation",
+          "description": "Automated execution, approval requests, and operations"
+        },
+        "knowledge_context": {
+          "title": "Knowledge & Context",
+          "description": "Knowledge base, documents, and investigation context"
+        },
+        "dashboard_reports": {
+          "title": "Dashboard & Reports",
+          "description": "Dashboards, report templates, and scheduled reports"
+        },
+        "notify": {
+          "title": "Notify",
+          "description": "Notification parsing, routing, and delivery"
+        },
+        "administration": {
+          "title": "Administration",
+          "description": "Organization, identity, and administrative resources"
+        }
+      },
+      "fields": {
+        "tool": "Tool",
+        "display_name": "Display name",
+        "domain": "Domain",
+        "source": "Source",
+        "risk": "Risk",
+        "execution": "Execution policy",
+        "status": "Status",
+        "timeout": "Timeout",
+        "timeout_ms": "Timeout (milliseconds)",
+        "max_calls": "Max calls per run",
+        "max_response": "Max response",
+        "max_response_bytes": "Max response bytes",
+        "dry_run": "Dry Run support"
+      },
+      "sources": {
+        "builtin": "Built-in",
+        "mcp": "MCP",
+        "custom": "Custom"
+      },
+      "risk": {
+        "l0": {
+          "title": "Read-only",
+          "description": "Reads data without changing system state and may run automatically."
+        },
+        "l1": {
+          "title": "Low-risk write",
+          "description": "Creates drafts, comments, or reports and is usually reversible."
+        },
+        "l2": {
+          "title": "Medium risk",
+          "description": "Changes a business resource or workflow and requires at least one approver."
+        },
+        "l3": {
+          "title": "High risk",
+          "description": "May affect production services, data, or permissions and always requires approval."
+        },
+        "l4": {
+          "title": "Destructive",
+          "description": "Irreversible or hard-to-bound impact; disabled by default and requires two approvers."
+        }
+      },
+      "execution": {
+        "automatic": "Automatic",
+        "confirmation": "Confirmation",
+        "single_approval": "Single approval",
+        "dual_approval": "Dual approval",
+        "disabled": "Disabled"
+      },
+      "status": {
+        "healthy": "Healthy",
+        "degraded": "Degraded",
+        "unavailable": "Unavailable",
+        "enabled": "Enabled",
+        "disabled": "Disabled"
+      },
+      "common": {
+        "yes": "Yes",
+        "no": "No"
+      },
+      "detail": {
+        "tabs": {
+          "overview": "Overview",
+          "schema": "Input & output",
+          "policy": "Permissions & policy",
+          "calls": "Call records",
+          "dependencies": "Dependencies"
+        },
+        "basic": "Basic information",
+        "description": "Description",
+        "statistics": "Recent calls",
+        "input_schema": "Input parameters",
+        "output_schema": "Output",
+        "permissions": "Permissions & policy"
+      },
+      "schema": {
+        "json_view": "View JSON Schema",
+        "form_view": "View fields",
+        "copy": "Copy Schema",
+        "no_fields": "This Schema declares no fields."
+      },
+      "stats": {
+        "calls_24h": "Calls in 24h",
+        "success_rate": "Success rate",
+        "p95": "P95 latency",
+        "last_error": "Latest error",
+        "has_error": "Error",
+        "no_error": "None"
+      },
+      "policy": {
+        "title": "Edit {{name}} policy",
+        "description": "Configure risk, execution mode, environment overrides, and runtime limits.",
+        "classification": "Risk & execution policy",
+        "hard_floor": "Overrides can tighten policy but cannot bypass server-enforced risk floors.",
+        "builtin_risk_locked": "Built-in tool risk is defined by server code and cannot be lowered here.",
+        "environment_overrides": "Environment overrides",
+        "inherit": "Inherit default policy",
+        "limits": "Runtime limits"
+      },
+      "environments": {
+        "development": "Development",
+        "staging": "Staging",
+        "production": "Production"
+      },
+      "defaults": {
+        "title": "Configure tool policy",
+        "description": "Set default execution modes by risk and apply stricter environment overrides.",
+        "risk_title": "Default execution policy",
+        "risk_description": "Tool-level policy may override defaults but cannot bypass a hard risk floor.",
+        "environments_title": "Environment policy",
+        "environments_description": "Set only the risk levels to override; all others inherit defaults."
+      },
+      "test": {
+        "title": "Test {{name}}",
+        "read_description": "Fill parameters from the tool Schema; read-only tools may run a real query.",
+        "write_description": "Write-capable tools use Dry Run or validation and never perform a real write.",
+        "parameters": "Test parameters",
+        "no_parameters": "This tool takes no parameters.",
+        "validate": "Validate parameters",
+        "execute": "Run test",
+        "dry_run": "Run Dry Run",
+        "result": "Test result",
+        "success": "Test succeeded",
+        "failed": "Test failed",
+        "request": "Request JSON",
+        "response": "Response JSON"
+      },
+      "dependencies": {
+        "title": "{{name}} dependencies",
+        "description": "Review Agent Profile, automation, and investigation template references before disabling.",
+        "none": "No current dependencies",
+        "warning": "{{count}} objects currently depend on this tool.",
+        "agent_profiles": "Agent Profiles",
+        "automations": "Automations",
+        "investigation_templates": "Investigation templates",
+        "empty": "None"
+      },
+      "disable": {
+        "title": "Disable {{name}}?",
+        "description": "Mole Agent will no longer discover or call this tool. Historical records are retained.",
+        "dependency_warning": "{{count}} objects depend on this tool. Force disabling may break those flows.",
+        "confirm": "Disable tool"
+      },
+      "calls": {
+        "empty": "No tool call records yet.",
+        "arguments": "Argument snapshot (redacted)",
+        "policy_decision": "Policy decision",
+        "source": {
+          "chat": "Chat",
+          "investigation": "Investigation",
+          "automation": "Automation",
+          "manual_test": "Manual test"
+        }
+      },
+      "mcp": {
+        "title": "MCP Servers",
+        "description": "Manage constrained MCP connections, credentials, network boundaries, and synchronized tools.",
+        "empty_title": "No MCP Servers",
+        "empty_description": "Add a server, pass the connection test, then select tools to import.",
+        "tool_count": "{{count}} tools",
+        "test_connection": "Test connection",
+        "remove": "Remove server",
+        "remove_drawer": {
+          "title": "Remove {{name}}?",
+          "description": "The server can be removed only after its tools are disabled and all dependencies are replaced.",
+          "confirm": "Remove MCP Server",
+          "safe": "No enabled tools or active dependencies were found.",
+          "blocked": "{{enabled}} tools are still enabled and {{dependencies}} active dependencies remain.",
+          "tools_title": "Imported tools & dependencies",
+          "no_tools": "No imported tools.",
+          "dependency_count": "{{count}} dependencies"
+        },
+        "discovered": "{{count}} tools discovered",
+        "new_tools_disabled": "Newly imported tools are disabled",
+        "sync_selected": "Sync selected tools",
+        "transport": {
+          "streamable_http": "Streamable HTTP",
+          "sse": "SSE",
+          "stdio": "stdio",
+          "unix_socket": "Unix Socket"
+        },
+        "auth": {
+          "none": "No authentication",
+          "bearer_token": "Bearer Token",
+          "api_key": "API Key",
+          "oauth": "OAuth Token",
+          "mtls": "mTLS",
+          "internal_service_identity": "Internal service identity"
+        },
+        "status": {
+          "healthy": "Connected",
+          "connecting": "Connecting",
+          "error": "Error",
+          "disabled": "Disabled",
+          "unauthorized": "Unauthorized",
+          "unavailable": "Unavailable"
+        },
+        "feedback": {
+          "created": "MCP Server added",
+          "updated": "MCP Server updated",
+          "deleted": "MCP Server removed",
+          "test_success": "Connected; {{count}} tools discovered",
+          "test_failed": "MCP Server connection failed",
+          "sync_success": "{{count}} tools synchronized"
+        },
+        "editor": {
+          "create_title": "Add MCP Server",
+          "edit_title": "Edit MCP Server",
+          "description": "Credentials are write-only, encrypted at rest, and never returned by the API or UI.",
+          "basic": "Basic information",
+          "authentication": "Authentication",
+          "network": "Network policy",
+          "runtime": "Runtime limits",
+          "transport_restricted": "This runtime executes Streamable HTTP only. Other transports may be saved but remain unavailable in connection tests.",
+          "credential_set": "Credential set (ending {{last4}}). Leave blank to retain it.",
+          "credential_not_set": "No credential is set."
+        },
+        "fields": {
+          "name": "Name",
+          "name_placeholder": "For example: Internal knowledge MCP",
+          "transport": "Transport",
+          "endpoint": "Endpoint URL",
+          "endpoint_placeholder": "For example: https://mcp.internal.example.com/mcp",
+          "auth_type": "Authentication",
+          "auth_header": "Authentication header",
+          "auth_header_placeholder": "For example: X-API-Key",
+          "credential": "Credential",
+          "credential_placeholder": "Write-only; never displayed",
+          "credential_hint": "Encrypted with the server key after saving; list and detail APIs return only whether it is set.",
+          "private_only": "Private network only",
+          "private_only_hint": "Every DNS-resolved address must be private.",
+          "allowed_domains": "Allowed domains",
+          "allowed_cidrs": "Allowed IP/CIDR",
+          "one_per_line": "One per line; leave blank for no additional restriction.",
+          "tls_verify": "Verify TLS certificate",
+          "redirects_blocked": "Redirects are always blocked by server security policy.",
+          "timeout_ms": "Request timeout (milliseconds)",
+          "max_response_bytes": "Max response bytes",
+          "enabled": "Enable MCP Server"
+        }
+      },
+      "feedback": {
+        "enabled": "Tool enabled",
+        "disabled": "Tool disabled",
+        "policy_saved": "Tool policy saved",
+        "defaults_saved": "Default tool policy saved",
+        "definition_copied": "Tool definition copied",
+        "schema_copied": "Schema copied"
+      },
+      "errors": {
+        "no_tool": "No tool selected"
+      },
+      "access": {
+        "read_only": "Read-only automatic",
+        "preflight": "Preflight only",
+        "managed_mutation": "Policy-managed mutation",
+        "creates_approval_request": "Creates approval only",
+        "executes_approved_operation": "Executes approved operation"
+      }
+    },
+    "data": {
+      "title": "Data access",
+      "description": "Scope comes from the default agent profile; cross-organization access is always forbidden.",
+      "configure": "Edit data access",
+      "editor_title": "Edit data access",
+      "editor_description": "Limit the environments, services, and streams available to the current default profile.",
+      "updated": "Data access updated",
+      "environments": "Allowed environments",
+      "services": "Allowed services",
+      "streams": "Allowed streams",
+      "cross_org": "Cross-organization access",
+      "all_authorized": "All authorized resources"
+    },
+    "network": {
+      "title": "Network policy",
+      "description": "The current default agent profile controls network access; actual tool capabilities remain constrained by the registry and runtime.",
+      "configure": "Edit network policy",
+      "editor_title": "Edit network policy",
+      "editor_description": "Choose whether the current default profile may access the network through authorized tools.",
+      "editor_help": "This policy controls profile-level network access and does not enable unregistered tool capabilities.",
+      "updated": "Network policy updated",
+      "access": "Network access",
+      "allow_network_access": "Allow network access",
+      "blocked_explanation": "This profile cannot access the network and can use only authorized tools that do not require it.",
+      "allowed_explanation": "This profile may access the network through registered, authorized tools; arbitrary HTTP, shell, browser, and open MCP capabilities are not enabled automatically.",
+      "capabilities": "Runtime capabilities",
+      "capabilities_description": "These capabilities come from the tool registry and execution environment and cannot be enabled by the profile switch.",
+      "internet": "Public internet",
+      "dynamic_http": "Arbitrary HTTP tools",
+      "shell": "General shell",
+      "browser": "Browser tools",
+      "open_mcp": "Open MCP"
+    },
+    "approval_policy": {
+      "title": "Approval policy",
+      "description": "Risk policies are server-enforced; permissions, resource state, and parameters are revalidated after approval.",
+      "configure": "Edit approval policy",
+      "editor_title": "Edit approval policy",
+      "editor_description": "Configure approval requirements for L0 through L3 operations on the current default profile.",
+      "updated": "Approval policy updated",
+      "l0": "Read-only query and view",
+      "l1": "Drafts and recommendations",
+      "l2": "Alert and configuration writes",
+      "l3": "Production and external high-risk actions",
+      "automatic": "Automatic",
+      "configurable": "Automatic by default; profiles may tighten it",
+      "single": "Single approver; requester cannot self-approve",
+      "two_person": "Mandatory two-person approval"
+    }
+  },
+  "unlicensed_title": "Mole Agent is not licensed",
+  "unlicensed_description": "The agent feature is not enabled by this license.",
+  "starter_title": "What should we investigate tonight?",
+  "starter_title_named": "Working late, {{name}}",
+  "greeting": {
+    "morning": "Good morning",
+    "morning_named": "Good morning, {{name}}",
+    "afternoon": "Good afternoon",
+    "afternoon_named": "Good afternoon, {{name}}",
+    "evening": "Good evening",
+    "evening_named": "Good evening, {{name}}",
+    "late": "Working late",
+    "late_named": "Working late, {{name}}"
+  },
+  "starter_subtitle": "Ask a question scoped to a time range. The assistant uses backend tools to inspect your logs, metrics, traces, and alerts.",
+  "starter_subtitle_prefix": "I am Mole Agent. I can write",
+  "starter_subtitle_suffix": "and guide you through logs, traces, metrics, and events.",
+  "signed_in_as": "Signed in as",
+  "try_one": "Or try one of these",
+  "starters": {
+    "query": "Write a query that finds the services with the most errors in the last hour.",
+    "anomaly": "What changed in the last hour?",
+    "root_cause": "Find the root cause of the latest incident.",
+    "errors": "Why did errors spike recently?",
+    "latency": "Which service regressed in latency?",
+    "dashboard": "Build a dashboard for Kubernetes node health.",
+    "alert": "Create an alert rule for error-rate anomalies."
+  },
+  "capability_prompts": {
+    "query": "Help me write a query.\n\nGoal/question:\nData source or service:\nTime range: Last 1h\nExpected output: SQL or PromQL",
+    "incident": "Help me investigate an incident.\n\nSymptom:\nRelated service:\nTime range: Last 1h\nI need: trigger cause, impact, and next steps",
+    "dashboard": "Help me build a dashboard.\n\nTopic:\nKey service or cluster:\nMetrics to show:\nTime range: Last 24h",
+    "alert": "Help me create an alert rule.\n\nAlert target:\nTrigger condition:\nDuration:\nNotification path:"
+  },
+  "capabilities": {
+    "query": {
+      "title": "Write a query",
+      "description": "SQL for logs, traces, and APM User Experience; PromQL for metric signals."
+    },
+    "incident": {
+      "title": "Investigate incidents",
+      "description": "Analyze logs, traces, metrics, and alerts to explain a trigger."
+    },
+    "dashboard": {
+      "title": "Build dashboards",
+      "description": "Start from a topic such as CPU, memory, restarts, or latency."
+    },
+    "alert": {
+      "title": "Create alerts",
+      "description": "Draft threshold, trend, or intake-pipeline alert rules."
+    }
+  },
+  "suggestions": {
+    "vrl": "Write VRL to parse JSON from nginx logs.",
+    "email_regex": "Generate a regular expression for editing email.",
+    "live_arch": "Map my default live architecture.",
+    "cpu_promql": "Write PromQL for pods using > 80% CPU.",
+    "datadog": "Convert another platform query to a MoleSignal query",
+    "last_alert": "Why was my most recent alert triggered?"
+  },
+  "suggestion_prompts": {
+    "convert_external": "Convert another platform query to a MoleSignal query.\n\nSource platform:\nOriginal query:\nExpected output:"
+  },
+  "range": {
+    "15m": "Last 15m",
+    "30m": "Last 30m",
+    "1h": "Last 1h",
+    "6h": "Last 6h",
+    "24h": "Last 24h",
+    "7d": "Last 7d"
+  },
+  "controls": {
+    "time": "Time",
+    "mode": "Mode",
+    "execution": "Execution"
+  },
+  "mode": {
+    "auto": "Auto mode",
+    "quick": "Quick answer",
+    "deep": "Deep investigation",
+    "query_only": "Generate query only"
+  },
+  "execution_policy": {
+    "advice_only": "Advice mode",
+    "read_only": "Investigate mode",
+    "policy": "Execute with approval"
+  },
+  "provider_auto": "Auto provider",
+  "model_prefix": "Model",
+  "model_auto": "Auto",
+  "prompt_prefix": "Prompt",
+  "prompt_auto": "Auto",
+  "advanced": {
+    "trigger": "More",
+    "title": "Agent settings",
+    "description": "Tune Agent behavior only when the defaults do not fit this investigation.",
+    "agent_mode": "Agent mode",
+    "overrides_active": "Custom Agent settings are active",
+    "profile": "Agent Profile",
+    "profile_auto": "Default Profile",
+    "investigation_limit": "Investigation limit",
+    "tool_limit": "Tool call limit",
+    "minutes": "{{count}} min",
+    "calls": "{{count}} calls",
+    "manage_profile": "Manage Agent Profiles"
+  },
+  "composer_placeholder": "Ask about incidents, services, or operational tasks…",
+  "send": "Send",
+  "resend": "Resend",
+  "stop": "Stop",
+  "running": "running",
+  "tool_detail": "Tool detail",
+  "tool_call_count": "{{count}} calls",
+  "tool_arguments": "Arguments",
+  "tool_result": "Result",
+  "tool_error_result": "Error",
+  "tool_empty_payload": "None",
+  "tool_status": {
+    "running": "running",
+    "done": "done",
+    "error": "failed"
+  },
+  "thinking": "Mole Agent is analyzing…",
+  "answer_versions": {
+    "position": "Answer {{current}} / {{total}}",
+    "previous": "View previous answer",
+    "next": "View next answer",
+    "regenerate": "Regenerate",
+    "regenerating": "Regenerating…"
+  },
+  "investigation_process": {
+    "running": "Checking {{count}} data sources",
+    "completed": "Checked {{count}} data sources",
+    "completed_with_errors": "Checked {{count}} items; {{errors}} did not complete",
+    "view": "View investigation",
+    "processing": "Processing",
+    "processed": "Processed",
+    "rows": "{{count}} results",
+    "technical_detail": "Technical detail"
+  },
+  "oauth": {
+    "invalid_request": "This OAuth authorization request is invalid or incomplete.",
+    "eyebrow": "MoleSignal Inbound MCP",
+    "title": "Authorize {{client}}",
+    "description": "This MCP client is requesting access to MoleSignal using your identity and current organization.",
+    "access_title": "This connection can",
+    "access_tools": "• Discover and call tools permitted by your IAM permissions and the organization Tool Policy.",
+    "access_policy": "• Propose managed changes and continue them only through the configured approval policy.",
+    "access_credentials": "• Act only while this OAuth grant remains active; it cannot read API token plaintext.",
+    "client": "Client",
+    "organization": "Organization",
+    "resource": "Protected resource",
+    "scopes": "Scopes",
+    "client_website": "Open client website",
+    "deny": "Deny",
+    "allow": "Authorize",
+    "footer": "Authorization is bound to this client, redirect URI, user, organization, and MCP resource."
+  },
+  "tools": {
+    "tool_search": {
+      "title": "Search tools",
+      "description": "Search the enabled tool catalog by capability, domain, tag, or exact name. Use this when the required tool is not already visible."
+    },
+    "tools_call": {
+      "title": "Call tool",
+      "description": "Call one enabled tool discovered with tool_search. The target tool keeps its own permissions, risk policy, timeout, and audit behavior."
+    },
+    "get_platform_capabilities": {
+      "title": "Get platform capabilities",
+      "description": "Return the complete builtin-tool domain inventory, exposure policy, and intentionally excluded unsafe entrypoints."
+    },
+    "query_logs": {
+      "title": "Query logs",
+      "description": "Run bounded read-only SQL against one logs stream. First inspect the exact schema with get_stream_schema; time_range already constrains event time."
+    },
+    "query_metrics": {
+      "title": "Query metrics",
+      "description": "Run one bounded read-only PromQL range query. Grafana template helpers such as label_values() are not PromQL."
+    },
+    "list_streams": {
+      "title": "List streams",
+      "description": "List queryable streams as compact summaries; use get_stream_schema for fields."
+    },
+    "get_stream_schema": {
+      "title": "Get stream schema",
+      "description": "Return exact fields, types, settings, and retention for one stream."
+    },
+    "get_stream_settings": {
+      "title": "Get stream settings",
+      "description": "Return query, retention, partitioning, and ingestion settings for one stream without repeating its full schema."
+    },
+    "list_metric_names": {
+      "title": "List metric names",
+      "description": "List metric stream names, optionally filtered by a substring."
+    },
+    "list_metric_label_values": {
+      "title": "List metric label values",
+      "description": "List distinct values for one real metric label field without using non-PromQL helpers."
+    },
+    "list_metric_labels": {
+      "title": "List metric labels",
+      "description": "List real label fields for one metric stream."
+    },
+    "list_metric_series": {
+      "title": "List metric series",
+      "description": "List bounded distinct metric-label series for a time range."
+    },
+    "search_around": {
+      "title": "Search around",
+      "description": "Fetch log rows immediately before and after an anchor timestamp."
+    },
+    "search_field_values": {
+      "title": "Search field values",
+      "description": "Return bounded distinct values and counts for one exact stream field."
+    },
+    "list_traces": {
+      "title": "List traces",
+      "description": "List bounded trace summaries for a time range, with optional service, duration, error, and trace-id filters."
+    },
+    "get_trace": {
+      "title": "Get trace",
+      "description": "Fetch a bounded set of spans for one trace id. Use get_trace_dag when only structure is needed."
+    },
+    "get_trace_dag": {
+      "title": "Get trace DAG",
+      "description": "Return a compact service/span dependency DAG for one trace without full span payloads."
+    },
+    "list_trace_sessions": {
+      "title": "List trace sessions",
+      "description": "List bounded LLM/AI trace sessions when session fields exist in the trace stream."
+    },
+    "get_trace_session": {
+      "title": "Get trace session",
+      "description": "Get bounded per-trace summaries for one LLM/AI session."
+    },
+    "list_trace_users": {
+      "title": "List trace users",
+      "description": "List bounded AI trace-user aggregates when user fields exist in the trace stream."
+    },
+    "list_recent_alerts": {
+      "title": "List recent alerts",
+      "description": "List active alert incidents. Compatibility alias for list_incidents with status=active."
+    },
+    "list_incidents": {
+      "title": "List incidents",
+      "description": "List incidents by status and optional time range, with bounded results."
+    },
+    "get_incident": {
+      "title": "Get incident",
+      "description": "Get one incident and its alert-rule context by incident id."
+    },
+    "get_incident_rca": {
+      "title": "Get incident RCA",
+      "description": "Get the latest persisted root-cause analysis for an incident."
+    },
+    "get_incident_insights": {
+      "title": "Get incident insights",
+      "description": "Return bounded incident counts grouped by status, severity, service, and rule."
+    },
+    "acknowledge_incident": {
+      "title": "Acknowledge incident",
+      "description": "Acknowledge one open incident."
+    },
+    "resolve_incident": {
+      "title": "Resolve incident",
+      "description": "Resolve one open or acknowledged incident."
+    },
+    "list_alert_rules": {
+      "title": "List alert rules",
+      "description": "List alert rules with state, query, thresholds, and routing metadata."
+    },
+    "get_alert_rule": {
+      "title": "Get alert rule",
+      "description": "Get one alert rule by id."
+    },
+    "create_alert_rule": {
+      "title": "Create alert rule",
+      "description": "Create an alert rule after validation."
+    },
+    "update_alert_rule": {
+      "title": "Update alert rule",
+      "description": "Replace one alert rule after validation."
+    },
+    "delete_alert_rule": {
+      "title": "Delete alert rule",
+      "description": "Delete one alert rule."
+    },
+    "test_alert_rule": {
+      "title": "Test alert rule",
+      "description": "Execute one alert rule as a side-effect-free dry run and return its match decision and bounded sample."
+    },
+    "trigger_alert_rule": {
+      "title": "Trigger alert rule",
+      "description": "Manually open the incident represented by one alert rule without evaluating its threshold."
+    },
+    "list_incident_groups": {
+      "title": "List incident groups",
+      "description": "List correlated incident groups with bounded status filtering."
+    },
+    "get_incident_group": {
+      "title": "Get incident group",
+      "description": "Get one correlated incident group by id."
+    },
+    "list_mute_rules": {
+      "title": "List mute rules",
+      "description": "List alert mute rules without exposing secrets."
+    },
+    "get_mute_rule": {
+      "title": "Get mute rule",
+      "description": "Get one alert mute rule by id."
+    },
+    "list_escalation_policies": {
+      "title": "List escalation policies",
+      "description": "List incident escalation policies."
+    },
+    "get_escalation_policy": {
+      "title": "Get escalation policy",
+      "description": "Get one incident escalation policy by id."
+    },
+    "list_on_call_schedules": {
+      "title": "List on-call schedules",
+      "description": "List on-call schedules and current assignees."
+    },
+    "get_on_call_schedule": {
+      "title": "Get on-call schedule",
+      "description": "Get one on-call schedule by id."
+    },
+    "get_current_on_call": {
+      "title": "Get current on-call",
+      "description": "Resolve current on-call owners for one schedule or all enabled schedules."
+    },
+    "list_notification_connectors": {
+      "title": "List notification connectors",
+      "description": "List notification connectors with credential fields omitted."
+    },
+    "get_notification_connector": {
+      "title": "Get notification connector",
+      "description": "Get notification connector metadata with credentials omitted."
+    },
+    "list_notification_policies": {
+      "title": "List notification policies",
+      "description": "List notification routing policies."
+    },
+    "get_notification_policy": {
+      "title": "Get notification policy",
+      "description": "Get one notification routing policy."
+    },
+    "list_notification_templates": {
+      "title": "List notification templates",
+      "description": "List organization and system notification templates."
+    },
+    "get_notification_template": {
+      "title": "Get notification template",
+      "description": "Get one notification template."
+    },
+    "list_notification_deliveries": {
+      "title": "List notification deliveries",
+      "description": "List bounded notification delivery attempts."
+    },
+    "get_notification_delivery": {
+      "title": "Get notification delivery",
+      "description": "Get one notification delivery attempt."
+    },
+    "retry_notification_delivery": {
+      "title": "Retry notification delivery",
+      "description": "Retry one failed notification delivery."
+    },
+    "acknowledge_notification_delivery": {
+      "title": "Acknowledge notification delivery",
+      "description": "Acknowledge one notification delivery."
+    },
+    "apm_overview": {
+      "title": "APM overview",
+      "description": "Return bounded RED metrics, trends, service health, dependencies, and top errors."
+    },
+    "list_apm_services": {
+      "title": "List APM services",
+      "description": "List APM services with RED health summaries."
+    },
+    "get_apm_service": {
+      "title": "Get APM service",
+      "description": "Get detailed RED trends, transactions, dependencies, errors, and versions for one service."
+    },
+    "list_apm_transactions": {
+      "title": "List APM transactions",
+      "description": "List APM transaction groups with RED summaries."
+    },
+    "get_apm_transaction": {
+      "title": "Get APM transaction",
+      "description": "Get detailed trends and traces for one APM transaction."
+    },
+    "list_apm_dependencies": {
+      "title": "List APM dependencies",
+      "description": "List APM service dependencies with latency and error summaries."
+    },
+    "list_apm_errors": {
+      "title": "List APM errors",
+      "description": "List grouped APM errors with affected services and trace handles."
+    },
+    "get_apm_error": {
+      "title": "Get APM error",
+      "description": "Get one APM error group with samples and trace handles."
+    },
+    "compare_apm_versions": {
+      "title": "Compare APM versions",
+      "description": "Compare RED metrics and regressions between two service versions."
+    },
+    "get_apm_health": {
+      "title": "Get APM health",
+      "description": "Return APM projection freshness, coverage, and data-quality health."
+    },
+    "correlate_signals": {
+      "title": "Correlate signals",
+      "description": "Return bounded links between incidents, traces, logs, RUM, and profiles for a service or trace."
+    },
+    "get_service_topology": {
+      "title": "Get service topology",
+      "description": "Return a bounded service dependency graph for a time range."
+    },
+    "list_rum_sessions": {
+      "title": "List RUM sessions",
+      "description": "List bounded real-user monitoring sessions."
+    },
+    "get_rum_session": {
+      "title": "Get RUM session",
+      "description": "Get one RUM session with a bounded action and error summary."
+    },
+    "list_rum_actions": {
+      "title": "List RUM actions",
+      "description": "List page views, actions, resources, and Web Vitals."
+    },
+    "list_rum_errors": {
+      "title": "List RUM errors",
+      "description": "List RUM errors by session or fingerprint."
+    },
+    "get_rum_related_traces": {
+      "title": "Get RUM related traces",
+      "description": "Find traces directly linked to a RUM session, with bounded time-correlation fallback."
+    },
+    "list_continuous_profiles": {
+      "title": "List continuous profiles",
+      "description": "List continuous-profile metadata with service, type, trace, and label filters."
+    },
+    "get_profile_flamegraph": {
+      "title": "Get profile flamegraph",
+      "description": "Merge a bounded profile selection into a flamebearer flamegraph."
+    },
+    "compare_profiles": {
+      "title": "Compare profiles",
+      "description": "Compare baseline and comparison profile windows as a differential flamegraph. Requires profiling_enhanced."
+    },
+    "list_report_templates": {
+      "title": "List report templates",
+      "description": "List built-in and organization report templates."
+    },
+    "get_report_template": {
+      "title": "Get report template",
+      "description": "Get one report template by id."
+    },
+    "list_scheduled_reports": {
+      "title": "List scheduled reports",
+      "description": "List scheduled reports in the current organization."
+    },
+    "get_scheduled_report": {
+      "title": "Get scheduled report",
+      "description": "Get one scheduled report by id."
+    },
+    "list_report_deliveries": {
+      "title": "List report deliveries",
+      "description": "List bounded delivery history for one scheduled report."
+    },
+    "list_dashboards": {
+      "title": "List dashboards",
+      "description": "List dashboards, optionally within one folder."
+    },
+    "get_dashboard": {
+      "title": "Get dashboard",
+      "description": "Get a Dashboard and its complete model by id."
+    },
+    "create_dashboard": {
+      "title": "Create dashboard",
+      "description": "Create a Dashboard from a complete validated model."
+    },
+    "update_dashboard": {
+      "title": "Update dashboard",
+      "description": "Replace one Dashboard model and optionally move it to another folder."
+    },
+    "delete_dashboard": {
+      "title": "Delete dashboard",
+      "description": "Delete one Dashboard."
+    },
+    "list_folders": {
+      "title": "List folders",
+      "description": "List Dashboard folders."
+    },
+    "get_folder": {
+      "title": "Get folder",
+      "description": "Get one Dashboard folder by id."
+    },
+    "create_folder": {
+      "title": "Create folder",
+      "description": "Create a Dashboard folder."
+    },
+    "update_folder": {
+      "title": "Update folder",
+      "description": "Rename or move one Dashboard folder."
+    },
+    "delete_folder": {
+      "title": "Delete folder",
+      "description": "Delete one empty Dashboard folder."
+    },
+    "list_annotations": {
+      "title": "List annotations",
+      "description": "List bounded time annotations for a range and optional Dashboard or panel."
+    },
+    "get_annotation": {
+      "title": "Get annotation",
+      "description": "Get one time annotation by id."
+    },
+    "create_annotation": {
+      "title": "Create annotation",
+      "description": "Create a time annotation through the configured execution policy."
+    },
+    "update_annotation": {
+      "title": "Update annotation",
+      "description": "Update selected fields of one time annotation through the configured execution policy."
+    },
+    "delete_annotation": {
+      "title": "Delete annotation",
+      "description": "Delete one time annotation through the configured execution policy."
+    },
+    "add_dashboard_panel": {
+      "title": "Add dashboard panel",
+      "description": "Add one panel to a Dashboard root or nested container atomically."
+    },
+    "update_dashboard_panel": {
+      "title": "Update dashboard panel",
+      "description": "Replace one Dashboard panel atomically."
+    },
+    "move_dashboard_panel": {
+      "title": "Move dashboard panel",
+      "description": "Move one Dashboard panel to a root or nested container position atomically."
+    },
+    "delete_dashboard_panel": {
+      "title": "Delete dashboard panel",
+      "description": "Delete one Dashboard panel atomically."
+    },
+    "get_dashboard_capabilities": {
+      "title": "Get dashboard capabilities",
+      "description": "Return supported Dashboard authoring contracts and limits."
+    },
+    "prepare_dashboard": {
+      "title": "Prepare dashboard",
+      "description": "Validate, preflight, and persist a temporary Dashboard draft without creating a Dashboard."
+    },
+    "propose_dashboard_creation": {
+      "title": "Propose dashboard creation",
+      "description": "Create an approval request for a previously prepared Dashboard draft; never creates it directly."
+    },
+    "propose_operation": {
+      "title": "Propose operation",
+      "description": "Create an approval request for a registered operation; never executes it directly."
+    },
+    "propose_alert_action": {
+      "title": "Propose alert action",
+      "description": "Create an approval request to acknowledge or resolve one alert incident."
+    },
+    "propose_synthetic_monitor_action": {
+      "title": "Propose synthetic monitor action",
+      "description": "Create an approval request to run, pause, resume, or archive one synthetic monitor."
+    },
+    "propose_status_page_action": {
+      "title": "Propose status page action",
+      "description": "Create an approval request to archive or restore a status page, or pause/resume its automation."
+    },
+    "propose_notification_action": {
+      "title": "Propose notification action",
+      "description": "Create an approval request to retry or acknowledge one notification delivery."
+    },
+    "propose_scheduled_pipeline_action": {
+      "title": "Propose scheduled pipeline action",
+      "description": "Create an approval request to enable, disable, or delete one scheduled pipeline."
+    },
+    "list_saved_views": {
+      "title": "List saved views",
+      "description": "List saved SQL and PromQL views."
+    },
+    "get_saved_view": {
+      "title": "Get saved view",
+      "description": "Get one saved query view."
+    },
+    "create_saved_view": {
+      "title": "Create saved view",
+      "description": "Create a saved SQL or PromQL view."
+    },
+    "update_saved_view": {
+      "title": "Update saved view",
+      "description": "Replace one saved SQL or PromQL view."
+    },
+    "delete_saved_view": {
+      "title": "Delete saved view",
+      "description": "Delete one saved query view."
+    },
+    "list_search_jobs": {
+      "title": "List search jobs",
+      "description": "List bounded asynchronous search jobs."
+    },
+    "get_search_job": {
+      "title": "Get search job",
+      "description": "Get asynchronous search-job status and result metadata."
+    },
+    "get_search_job_results": {
+      "title": "Get search job results",
+      "description": "Get one bounded page of decoded asynchronous search-job results."
+    },
+    "submit_search_job": {
+      "title": "Submit search job",
+      "description": "Submit one durable asynchronous SQL or PromQL search job."
+    },
+    "cancel_search_job": {
+      "title": "Cancel search job",
+      "description": "Cancel one pending or running asynchronous search job."
+    },
+    "retry_search_job": {
+      "title": "Retry search job",
+      "description": "Retry one failed or cancelled asynchronous search job."
+    },
+    "delete_search_job": {
+      "title": "Delete search job",
+      "description": "Delete one asynchronous search job and its stored result."
+    },
+    "list_scheduled_pipelines": {
+      "title": "List scheduled pipelines",
+      "description": "List scheduled pipelines and recent run health."
+    },
+    "get_scheduled_pipeline": {
+      "title": "Get scheduled pipeline",
+      "description": "Get one scheduled pipeline."
+    },
+    "list_pipeline_runs": {
+      "title": "List pipeline runs",
+      "description": "List bounded execution history for one scheduled pipeline."
+    },
+    "enable_scheduled_pipeline": {
+      "title": "Enable scheduled pipeline",
+      "description": "Enable one scheduled pipeline."
+    },
+    "disable_scheduled_pipeline": {
+      "title": "Disable scheduled pipeline",
+      "description": "Disable one scheduled pipeline."
+    },
+    "delete_scheduled_pipeline": {
+      "title": "Delete scheduled pipeline",
+      "description": "Delete one scheduled pipeline."
+    },
+    "list_functions": {
+      "title": "List functions",
+      "description": "List organization and built-in processing functions."
+    },
+    "get_function": {
+      "title": "Get function",
+      "description": "Get one processing function, including source."
+    },
+    "test_function": {
+      "title": "Test function",
+      "description": "Run a bounded side-effect-free function test against supplied sample input."
+    },
+    "create_function": {
+      "title": "Create function",
+      "description": "Create a processing function after compilation precheck."
+    },
+    "update_function": {
+      "title": "Update function",
+      "description": "Replace one organization processing function after compilation precheck."
+    },
+    "delete_function": {
+      "title": "Delete function",
+      "description": "Delete one organization processing function."
+    },
+    "list_enrichment_tables": {
+      "title": "List enrichment tables",
+      "description": "List enrichment/KV tables."
+    },
+    "list_enrichment_rows": {
+      "title": "List enrichment rows",
+      "description": "List bounded rows from one enrichment table."
+    },
+    "get_enrichment_value": {
+      "title": "Get enrichment value",
+      "description": "Get one enrichment-table row by key."
+    },
+    "list_log_patterns": {
+      "title": "List log patterns",
+      "description": "List persisted log patterns."
+    },
+    "get_log_pattern": {
+      "title": "Get log pattern",
+      "description": "Get one persisted log pattern."
+    },
+    "list_regex_patterns": {
+      "title": "List regex patterns",
+      "description": "List reusable regular-expression patterns."
+    },
+    "get_regex_pattern": {
+      "title": "Get regex pattern",
+      "description": "Get one reusable regular-expression pattern."
+    },
+    "list_field_masking_rules": {
+      "title": "List field masking rules",
+      "description": "List field-masking rules without secret key material."
+    },
+    "get_effective_field_masking": {
+      "title": "Get effective field masking",
+      "description": "Resolve effective field-masking rules for one stream."
+    },
+    "list_data_connectors": {
+      "title": "List data connectors",
+      "description": "List data connectors with credential-like config values redacted."
+    },
+    "get_data_connector": {
+      "title": "Get data connector",
+      "description": "Get one data connector with credential-like config values redacted."
+    },
+    "list_synthetic_monitors": {
+      "title": "List synthetic monitors",
+      "description": "List synthetic monitors and current lifecycle state."
+    },
+    "get_synthetic_monitor": {
+      "title": "Get synthetic monitor",
+      "description": "Get one synthetic monitor and its active revision."
+    },
+    "list_synthetic_revisions": {
+      "title": "List synthetic revisions",
+      "description": "List bounded revisions for one synthetic monitor."
+    },
+    "list_synthetic_results": {
+      "title": "List synthetic results",
+      "description": "List bounded synthetic execution results."
+    },
+    "list_synthetic_locations": {
+      "title": "List synthetic locations",
+      "description": "List synthetic probe locations."
+    },
+    "list_synthetic_agents": {
+      "title": "List synthetic agents",
+      "description": "List probe agents, optionally for one location."
+    },
+    "list_synthetic_secrets": {
+      "title": "List synthetic secrets",
+      "description": "List synthetic-secret metadata; secret values are never returned."
+    },
+    "run_synthetic_monitor": {
+      "title": "Run synthetic monitor",
+      "description": "Run one synthetic monitor immediately."
+    },
+    "pause_synthetic_monitor": {
+      "title": "Pause synthetic monitor",
+      "description": "Pause one synthetic monitor."
+    },
+    "resume_synthetic_monitor": {
+      "title": "Resume synthetic monitor",
+      "description": "Resume one synthetic monitor."
+    },
+    "archive_synthetic_monitor": {
+      "title": "Archive synthetic monitor",
+      "description": "Archive one synthetic monitor."
+    },
+    "list_status_pages": {
+      "title": "List status pages",
+      "description": "List status pages by lifecycle."
+    },
+    "get_status_page": {
+      "title": "Get status page",
+      "description": "Get a status-page snapshot including components and current events."
+    },
+    "list_status_page_incidents": {
+      "title": "List status page incidents",
+      "description": "List status-page incidents or maintenance events."
+    },
+    "get_status_page_incident": {
+      "title": "Get status page incident",
+      "description": "Get one status-page event and its updates."
+    },
+    "list_status_page_subscribers": {
+      "title": "List status page subscribers",
+      "description": "List a bounded page of status-page subscribers."
+    },
+    "list_status_page_deliveries": {
+      "title": "List status page deliveries",
+      "description": "List a bounded page of status-page notification deliveries."
+    },
+    "list_status_page_automation_rules": {
+      "title": "List status page automation rules",
+      "description": "List active status-page automation rules."
+    },
+    "list_status_page_automation_candidates": {
+      "title": "List status page automation candidates",
+      "description": "List bounded status-page automation candidates."
+    },
+    "get_status_page_automation_settings": {
+      "title": "Get status page automation settings",
+      "description": "Get automation settings for one status page."
+    },
+    "archive_status_page": {
+      "title": "Archive status page",
+      "description": "Archive one status page."
+    },
+    "restore_status_page": {
+      "title": "Restore status page",
+      "description": "Restore one archived status page."
+    },
+    "pause_status_page_automation": {
+      "title": "Pause status page automation",
+      "description": "Pause automation for one status page."
+    },
+    "resume_status_page_automation": {
+      "title": "Resume status page automation",
+      "description": "Resume automation for one status page."
+    },
+    "get_user_profile": {
+      "title": "Get user profile",
+      "description": "Get safe profile fields for an organization user. User principals may omit the target for themselves; Service Account principals must specify it, and other-user access requires member read permission."
+    },
+    "get_user_preferences": {
+      "title": "Get user preferences",
+      "description": "Get workspace preferences for an organization user. User principals may omit the target for themselves; Service Account principals must specify it, and other-user access requires member read permission."
+    },
+    "list_organization_members": {
+      "title": "List organization members",
+      "description": "List members of the authenticated organization without password or credential data."
+    },
+    "list_teams": {
+      "title": "List teams",
+      "description": "List teams in the authenticated organization."
+    },
+    "list_roles": {
+      "title": "List roles",
+      "description": "List roles and permission keys in the authenticated organization."
+    },
+    "list_audit_events": {
+      "title": "List audit events",
+      "description": "Query bounded organization audit events with optional filters."
+    },
+    "get_iam_capabilities": {
+      "title": "Get IAM capabilities",
+      "description": "Return the effective capability snapshot for the authenticated subject."
+    },
+    "list_service_accounts": {
+      "title": "List service accounts",
+      "description": "List non-human principals in the authenticated organization."
+    },
+    "get_service_account": {
+      "title": "Get service account",
+      "description": "Get one non-human organization principal."
+    },
+    "list_api_tokens": {
+      "title": "List API tokens",
+      "description": "List API token metadata in the authenticated organization without exposing token secrets; optionally filter by service account."
+    },
+    "create_api_token": {
+      "title": "Create API token",
+      "description": "Create a personal API token for the requesting user and return its plaintext once after execution."
+    },
+    "revoke_api_token": {
+      "title": "Revoke API token",
+      "description": "Revoke one API token."
+    },
+    "create_service_account": {
+      "title": "Create service account",
+      "description": "Atomically create one non-human organization principal and its initial bound API token. The plaintext token is returned once after execution and excluded from execution history."
+    },
+    "update_service_account": {
+      "title": "Update service account",
+      "description": "Update service-account metadata or its effective IAM role."
+    },
+    "enable_service_account": {
+      "title": "Enable service account",
+      "description": "Enable one service account. Previously revoked API tokens stay revoked."
+    },
+    "disable_service_account": {
+      "title": "Disable service account",
+      "description": "Disable one service account and atomically revoke all bound active API tokens."
+    },
+    "delete_service_account": {
+      "title": "Delete service account",
+      "description": "Delete one service account and atomically revoke all bound active API tokens."
+    },
+    "list_agent_investigations": {
+      "title": "List agent investigations",
+      "description": "List Mole Agent investigations."
+    },
+    "get_agent_investigation": {
+      "title": "Get agent investigation",
+      "description": "Get one Mole Agent investigation with steps, evidence, and hypotheses."
+    },
+    "list_agent_approvals": {
+      "title": "List agent approvals",
+      "description": "List Mole Agent approval requests."
+    },
+    "get_agent_approval": {
+      "title": "Get agent approval",
+      "description": "Get one Mole Agent approval request."
+    },
+    "execute_agent_approval": {
+      "title": "Execute agent approval",
+      "description": "Execute an approved Mole Agent operation idempotently."
+    },
+    "list_agent_executions": {
+      "title": "List agent executions",
+      "description": "List Mole Agent approved-operation executions."
+    },
+    "get_agent_execution": {
+      "title": "Get agent execution",
+      "description": "Get one Mole Agent approved-operation execution."
+    },
+    "list_agent_automations": {
+      "title": "List agent automations",
+      "description": "List configured Mole Agent automations."
+    }
+  },
+  "dashboard_authoring": {
+    "title": "AI Dashboard draft",
+    "subtitle": "Review the persisted draft, query preflight, and approval state before explicitly creating it.",
+    "loading_title": "Loading Dashboard draft",
+    "loading_description": "Reading the validated, persisted preview model from the server.",
+    "load_failed": "Dashboard draft could not be loaded",
+    "invalid_preview": "The draft model cannot be previewed safely",
+    "invalid_preview_description": "The persisted server model does not pass the current Dashboard contract. Return to chat and generate it again.",
+    "preview_title": "Read-only preview",
+    "preview_description": "Rendered by the production Dashboard Renderer; previewing does not create or modify a Dashboard.",
+    "review_title": "Creation review",
+    "review_description": "The draft is bound to this model hash and cannot run after it expires or changes.",
+    "expires": "Time remaining",
+    "expired": "Expired",
+    "created_at": "Prepared",
+    "model_hash": "Model hash",
+    "preflight_range": "Preflight range",
+    "operation_title": "Creation policy",
+    "review_progress": "{{approved}} of {{required}} reviews approved. Creation unlocks after the requirement is met.",
+    "confirmation_required": "No separate reviewer is needed, but the requester must still explicitly confirm creation.",
+    "preflight_title": "Query preflight",
+    "preflight_rows": "{{count}} rows",
+    "no_preflight_panels": "This draft has no panels that require query preflight.",
+    "warnings_title": "Generation warnings",
+    "issues_title": "Issues to repair",
+    "retry_in_chat": "Return to chat and regenerate",
+    "open_dashboard": "Open Dashboard",
+    "submitting": "Submitting…",
+    "submit_proposal": "Submit creation proposal",
+    "creating": "Creating…",
+    "confirm_create": "Confirm and create",
+    "view_approval": "View approval progress",
+    "creation_unavailable": "Creation unavailable",
+    "proposal_reason": "The user reviewed the server-persisted Dashboard draft preview.",
+    "proposal_impact": "Creates one native Dashboard without modifying existing Dashboards.",
+    "proposal_created": "The creation proposal was submitted. Review its policy state.",
+    "creation_failed": "Dashboard creation failed. Check the execution record.",
+    "created": "Dashboard created.",
+    "draft_status": {
+      "ready": "Ready for review",
+      "consumed": "Created",
+      "expired": "Expired"
+    },
+    "preflight_status": {
+      "passed": "Passed",
+      "empty": "Empty result",
+      "skipped": "Skipped"
+    }
+  },
+  "answer": {
+    "conclusion": "Conclusion",
+    "anomaly_points": "Anomaly points",
+    "evidence": "Evidence",
+    "likely_causes": "Likely causes",
+    "limitations": "Limitations",
+    "next_steps": "Next steps",
+    "related_links": "Related actions",
+    "confidence": "Confidence",
+    "failed_title": "The investigation could not be completed",
+    "failed_description": "Mole Agent did not receive a usable result. Adjust the context and retry, or inspect the technical error.",
+    "technical_error": "View technical error",
+    "confidence_levels": {
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    }
+  }
+}

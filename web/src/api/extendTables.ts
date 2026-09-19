@@ -53,6 +53,17 @@ export async function createTable(
   return data;
 }
 
+export async function updateTableFields(
+  table: string,
+  value_fields: ExtendValueField[],
+): Promise<ExtendTableSummary> {
+  const { data } = await http.patch<ExtendTableSummary>(
+    `/extend_tables/${encodeURIComponent(table)}`,
+    { value_fields },
+  );
+  return data;
+}
+
 export async function deleteTable(table: string): Promise<void> {
   await http.delete(`/extend_tables/${encodeURIComponent(table)}`);
 }

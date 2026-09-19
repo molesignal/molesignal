@@ -2,12 +2,18 @@ import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
 
 import { cn } from '@/shell/lib/cn';
+import {
+  surfaceModuleNavigationActiveClass,
+  surfaceModuleNavigationClass,
+  surfaceModuleNavigationItemClass,
+  surfaceModuleNavigationRowClass,
+} from '@/shell/SurfaceWorkbench';
 
 const ALERT_TABS = [
+  { to: '/alerts/insights', labelKey: 'subnav.insights', fallback: 'Insights' },
   { to: '/alerts/incidents', labelKey: 'subnav.incidents', fallback: 'Incidents' },
   { to: '/alerts/rules', labelKey: 'subnav.rules', fallback: 'Rules' },
   { to: '/alerts/history', labelKey: 'subnav.history', fallback: 'History' },
-  { to: '/alerts/insights', labelKey: 'subnav.insights', fallback: 'Insights' },
   { to: '/alerts/silences', labelKey: 'subnav.silences', fallback: 'Silences' },
   { to: '/alerts/escalations', labelKey: 'subnav.escalations', fallback: 'Escalations' },
   { to: '/alerts/schedules', labelKey: 'subnav.schedules', fallback: 'On-call schedules' },
@@ -23,23 +29,24 @@ export function AlertsSubNav() {
   const { t } = useTranslation('alerts');
 
   return (
-    <nav
+    <div
       data-testid="alerts-subnav"
-      aria-label={t('subnav.label', { defaultValue: 'Alerts views' })}
-      className="relative z-10 -mt-px flex h-11 min-w-0 items-center border-b border-bd-0 bg-bg-1 px-3"
+      className={cn(surfaceModuleNavigationClass, 'relative z-10')}
     >
-      <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto overflow-y-hidden">
+      <nav
+        aria-label={t('subnav.label', { defaultValue: 'Alerts views' })}
+        className={surfaceModuleNavigationRowClass}
+      >
         {ALERT_TABS.map((tab) => (
           <NavLink
             key={tab.to}
             to={tab.to}
             className={({ isActive }) =>
               cn(
-                'inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-md px-3 font-sans text-xs font-strong text-tx-2',
-                'transition-colors duration-fast ease-default',
-                'hover:bg-bg-2 hover:text-tx-0',
+                surfaceModuleNavigationItemClass,
+                'whitespace-nowrap',
                 isActive
-                  ? 'bg-bg-2 text-tx-0'
+                  ? surfaceModuleNavigationActiveClass
                   : 'text-tx-2',
               )
             }
@@ -47,7 +54,7 @@ export function AlertsSubNav() {
             {t(tab.labelKey, { defaultValue: tab.fallback })}
           </NavLink>
         ))}
-      </div>
-    </nav>
+      </nav>
+    </div>
   );
 }

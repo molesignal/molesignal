@@ -3,6 +3,12 @@ import { Link } from 'react-router-dom';
 
 import type { ServiceIdentity, SignalFilterHandle } from '@/api/apm';
 import { cn } from '@/shell/lib/cn';
+import {
+  surfaceModuleNavigationActiveClass,
+  surfaceModuleNavigationClass,
+  surfaceModuleNavigationItemClass,
+  surfaceModuleNavigationRowClass,
+} from '@/shell/SurfaceWorkbench';
 
 import { signalHref } from '../model';
 
@@ -46,23 +52,28 @@ export function ServiceNavigation({
   ];
 
   return (
-    <nav
-      aria-label={t('services.navigation')}
-      className="flex min-h-11 items-stretch gap-1 overflow-x-auto border-b border-bd-0 bg-bg-1 px-6"
+    <div
+      data-apm-navigation="surface"
+      className={surfaceModuleNavigationClass}
     >
-      {items.map((item) => (
-        <Link
-          key={item.key}
-          to={item.to}
-          aria-current={item.key === active ? 'page' : undefined}
-          className={cn(
-            'inline-flex shrink-0 items-center border-b-2 border-transparent px-3 text-xs font-strong text-tx-2 transition-colors hover:bg-bg-2 hover:text-tx-0 focus-visible:bg-bg-2 focus-visible:text-tx-0',
-            item.key === active && 'border-indigo bg-bg-2 text-tx-0',
-          )}
-        >
-          {t(`services.nav.${item.key}`)}
-        </Link>
-      ))}
-    </nav>
+      <nav
+        aria-label={t('services.navigation')}
+        className={surfaceModuleNavigationRowClass}
+      >
+        {items.map((item) => (
+          <Link
+            key={item.key}
+            to={item.to}
+            aria-current={item.key === active ? 'page' : undefined}
+            className={cn(
+              surfaceModuleNavigationItemClass,
+              item.key === active && surfaceModuleNavigationActiveClass,
+            )}
+          >
+            {t(`services.nav.${item.key}`)}
+          </Link>
+        ))}
+      </nav>
+    </div>
   );
 }

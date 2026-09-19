@@ -103,7 +103,7 @@ function renderCard(
 }
 
 describe('OnCallStatusCard', () => {
-  it('presents the current duty as a status instead of a generic metric card', () => {
+  it('presents the current duty as an operational status', () => {
     renderCard(0);
 
     expect(screen.getByText('On call now')).not.toBeNull();

@@ -5,9 +5,6 @@ import * as React from 'react';
  * indigo → blue → green gradient. The three stops echo the data viz
  * series (chart-1 indigo / chart-7 sky blue / chart-4 green) so the logo
  * reads as "the same product that shows you the three signals."
- *
- * Phase 4 retired the legacy red→orange→blue→green four-stop gradient
- * (the "terminal-hacker" warmth violated the Confident-quiet brief).
  */
 export function LogoMark({ size = 22, className }: { size?: number; className?: string }) {
   const id = React.useId();

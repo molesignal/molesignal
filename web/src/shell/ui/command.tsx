@@ -13,7 +13,7 @@ const Command = React.forwardRef<
   <CommandPrimitive
     ref={ref}
     className={cn(
-      'flex h-full w-full flex-col overflow-hidden rounded-md bg-surface text-foreground',
+      'flex h-full w-full flex-col overflow-hidden rounded-md bg-[var(--floating-surface)] text-tx-0',
       className,
     )}
     {...props}
@@ -106,7 +106,7 @@ const CommandItem = React.forwardRef<
   <CommandPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none data-[disabled='true']:pointer-events-none data-[selected='true']:bg-accent-bg data-[selected='true']:text-foreground data-[selected='true']:before:absolute data-[selected='true']:before:inset-y-0 data-[selected='true']:before:left-0 data-[selected='true']:before:w-0.5 data-[selected='true']:before:bg-accent data-[disabled='true']:opacity-50",
+      "relative flex min-h-[44px] cursor-default select-none items-center gap-[8px] rounded-sm px-[10px] py-0 text-xs text-tx-1 outline-none transition-colors duration-fast data-[disabled='true']:pointer-events-none data-[disabled='true']:text-tx-3 data-[disabled='true']:opacity-60 data-[selected='true']:bg-[var(--floating-item-selected)] data-[selected='true']:font-strong data-[selected='true']:text-indigo-soft sm:min-h-[30px]",
       className,
     )}
     {...props}

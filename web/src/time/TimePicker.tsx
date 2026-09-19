@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { DateTimePicker } from '@/shell/DateTimePicker';
 import { cn } from '@/shell/lib/cn';
 import { Button } from '@/shell/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shell/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/shell/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/shell/ui/popover';
 import { resolveWindow, type TimeWindow, useTimeStore } from '@/stores/useTimeStore';
 
@@ -46,22 +46,27 @@ export function TimeRangeControl({ value, className, align = 'end', onClick }: T
         <button
           type="button"
           onClick={onClick}
+          data-time-range-trigger="true"
           aria-label={t('time_picker.button_aria', { value: displayValue })}
           className={cn(
-            'inline-flex h-9 max-w-[220px] shrink-0 items-center gap-2 rounded-md border border-bd-1 bg-bg-2 px-3 font-sans text-sm font-strong text-tx-1 hover:bg-bg-3 focus-visible:bg-bg-3 focus-visible:text-tx-0',
+            'group inline-flex h-8 max-w-[220px] shrink-0 items-center gap-2 rounded-md border-0 bg-[var(--control-surface)] px-[10px] font-sans text-[13px] font-strong text-tx-1 transition-colors duration-fast hover:bg-[var(--floating-item-hover)] hover:text-tx-0 focus-visible:bg-[var(--floating-item-hover)] focus-visible:text-tx-0 data-[state=open]:bg-[var(--floating-item-hover)] data-[state=open]:text-tx-0',
             className,
           )}
         >
-          <Clock3 className="h-4 w-4 shrink-0 text-tx-3" />
+          <Clock3 className="h-3.5 w-3.5 shrink-0 text-tx-3" />
           <span className="min-w-0 max-w-[150px] truncate">{displayValue}</span>
-          <ChevronDown className="h-4 w-4 shrink-0 text-tx-3" />
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-tx-3 transition-transform duration-fast group-data-[state=open]:rotate-180" />
         </button>
       </PopoverTrigger>
       <PopoverContent
         align={align}
-        className="w-[400px] max-w-[calc(100vw-24px)] border-bd-1 bg-bg-1 p-0 text-tx-0 shadow-popup"
+        sideOffset={8}
+        collisionPadding={12}
+        aria-label={t('time_picker.title')}
+        data-time-picker-surface="workbench"
+        className="w-[600px] max-w-[calc(100vw-24px)] overflow-hidden rounded-md p-0"
       >
-        <TimePickerHeader current={displayValue} />
+        <TimePickerHeader />
         <TimeRangePanel onDone={() => setOpen(false)} />
       </PopoverContent>
     </Popover>
@@ -70,31 +75,36 @@ export function TimeRangeControl({ value, className, align = 'end', onClick }: T
 
 export function TimePicker({ open, onOpenChange }: TimePickerProps) {
   const { t } = useTranslation('common');
-  const window = useTimeStore((s) => s.window);
-  const displayValue = formatTimeWindowLabel(window, t);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[400px] gap-0 overflow-hidden p-0">
-        <DialogHeader className="border-b border-bd-0 px-4 py-3">
-          <DialogTitle>{t('time_picker.title')}</DialogTitle>
-        </DialogHeader>
-        <div className="border-b border-bd-0 px-4 py-2 font-sans text-xs font-strong text-tx-3">
-          {displayValue}
-        </div>
+      <DialogContent
+        data-time-picker-surface="workbench"
+        className="w-[600px] max-w-[calc(100vw-24px)] gap-0 overflow-hidden rounded-md border-0 bg-[var(--floating-surface)] p-0 shadow-popup"
+      >
+        <TimePickerHeader
+          title={(
+            <DialogTitle className="font-sans text-sm font-strong leading-5 tracking-normal text-tx-0">
+              {t('time_picker.title')}
+            </DialogTitle>
+          )}
+        />
         <TimeRangePanel onDone={() => onOpenChange(false)} />
       </DialogContent>
     </Dialog>
   );
 }
 
-function TimePickerHeader({ current }: { current: string }) {
+function TimePickerHeader({ title }: { title?: React.ReactNode }) {
   const { t } = useTranslation('common');
 
   return (
-    <div className="flex items-center gap-2 border-b border-bd-0 px-3 py-2">
-      <div className="font-sans text-xs font-display-strong text-tx-0">{t('time_picker.title')}</div>
-      <div className="ml-auto truncate font-sans text-xs font-strong text-tx-3">{current}</div>
+    <div className="px-3 pb-2 pt-3">
+      {title ?? (
+        <div className="font-sans text-sm font-strong leading-5 text-tx-0">
+          {t('time_picker.title')}
+        </div>
+      )}
     </div>
   );
 }
@@ -126,65 +136,71 @@ function TimeRangePanel({ onDone }: { onDone: () => void }) {
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-[180px_minmax(0,1fr)]">
-      <section className="border-b border-bd-0 p-2 md:border-b-0 md:border-r">
-        <div className="px-1.5 pb-1.5 font-sans text-xs font-display-strong uppercase tracking-normal text-tx-3">
+    <div className="grid grid-cols-1 gap-3 px-3 pb-3 pt-1 sm:grid-cols-[300px_minmax(0,1fr)]">
+      <section className="min-w-0">
+        <div className="px-2 pb-2 font-sans text-xs font-strong text-tx-3">
           {t('time_picker.quick_ranges')}
         </div>
-        <div className="grid gap-0.5">
+        <div className="grid grid-flow-col grid-rows-5 gap-0.5">
           {PRESETS.map((preset) => {
             const selected = sameWindow(current, preset.window);
             return (
               <button
                 key={preset.id}
                 type="button"
+                aria-pressed={selected}
                 onClick={() => {
                   setWindow(preset.window);
                   onDone();
                 }}
                 className={cn(
-                  'flex h-8 items-center gap-2 rounded-md px-2.5 text-left font-sans text-xs font-strong',
+                  'flex h-8 items-center gap-2 rounded-sm px-[10px] text-left font-sans text-xs font-body transition-colors duration-fast',
                   selected
-                    ? 'bg-indigo-dim text-indigo-soft'
-                    : 'text-tx-1 hover:bg-bg-2 hover:text-tx-0',
+                    ? 'bg-[var(--floating-item-selected)] font-strong text-indigo-soft'
+                    : 'text-tx-1 hover:bg-[var(--floating-item-hover)] hover:text-tx-0 focus-visible:bg-[var(--floating-item-hover)] focus-visible:text-tx-0',
                 )}
               >
                 <span className="min-w-0 flex-1 truncate">{t(preset.labelKey)}</span>
-                {selected && <Check className="h-3 w-3 shrink-0" />}
+                {selected && <Check className="h-3.5 w-3.5 shrink-0" />}
               </button>
             );
           })}
         </div>
       </section>
 
-      <section className="flex flex-col gap-3 p-3">
+      <section className="flex min-w-0 flex-col px-1">
         <div>
-          <div className="font-sans text-xs font-display-strong text-tx-0">{t('time_picker.absolute')}</div>
-          <div className="mt-0.5 font-sans text-xs text-tx-3">{t('time_picker.local_time')}</div>
+          <div className="font-sans text-xs font-strong text-tx-1">{t('time_picker.absolute')}</div>
+          <div className="mt-0.5 font-sans text-xs leading-4 text-tx-3">{t('time_picker.local_time')}</div>
         </div>
-        <label className="flex flex-col gap-1 font-sans text-xs font-strong text-tx-2">
+        <label className="mt-2.5 flex flex-col gap-1 font-sans text-xs font-strong text-tx-2">
           {t('time_picker.from')}
           <DateTimePicker
             value={from}
             onChange={setFrom}
             includeSeconds
             aria-invalid={!!error}
-            className="h-8 border-bd-1 bg-bg-2 text-xs text-tx-0 shadow-none"
+            className="h-8 border-0 bg-[var(--control-surface)] text-xs font-body text-tx-0 shadow-none enabled:hover:border-0 enabled:hover:bg-[var(--floating-item-hover)]"
           />
         </label>
-        <label className="flex flex-col gap-1 font-sans text-xs font-strong text-tx-2">
+        <label className="mt-2.5 flex flex-col gap-1 font-sans text-xs font-strong text-tx-2">
           {t('time_picker.to')}
           <DateTimePicker
             value={to}
             onChange={setTo}
             includeSeconds
             aria-invalid={!!error}
-            className="h-8 border-bd-1 bg-bg-2 text-xs text-tx-0 shadow-none"
+            className="h-8 border-0 bg-[var(--control-surface)] text-xs font-body text-tx-0 shadow-none enabled:hover:border-0 enabled:hover:bg-[var(--floating-item-hover)]"
           />
         </label>
-        {error && <div className="font-sans text-xs font-strong text-red-soft">{error}</div>}
-        <div className="mt-auto flex justify-end">
-          <Button size="sm" onClick={submitAbsolute} disabled={!from || !to}>
+        {error && <div role="alert" className="mt-2 font-sans text-xs font-strong text-red-soft">{error}</div>}
+        <div className="mt-auto flex justify-end pt-3">
+          <Button
+            size="sm"
+            onClick={submitAbsolute}
+            disabled={!from || !to}
+            className="bg-indigo font-bold text-white hover:brightness-90"
+          >
             {t('time_picker.apply')}
           </Button>
         </div>

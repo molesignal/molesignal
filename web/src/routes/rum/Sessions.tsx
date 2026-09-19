@@ -23,7 +23,12 @@ import { useAuthStore } from '@/stores/auth';
 import { formatWindowSummary, useTimeStore } from '@/stores/useTimeStore';
 
 import { formatDurationMs, windowToMicros } from './_helpers';
-import { RumFilterSelect, RumListPage, useRumBasePath } from './RumLayout';
+import {
+  RumFilterSelect,
+  RumListPage,
+  RumSurface,
+  useRumBasePath,
+} from './RumLayout';
 
 const ALL = '__all__';
 
@@ -132,7 +137,7 @@ export function Sessions({
       }
       toolbar={
         <>
-          <TimeRangeChip value={formatWindowSummary(window)} />
+          <TimeRangeChip value={formatWindowSummary(window)} className="border-0" />
           <ChromeButton
             onClick={() => {
               if (pagination.cursor) {
@@ -158,10 +163,12 @@ export function Sessions({
             <span className="relative">
               <Search className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-tx-3" />
               <input
+                type="search"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder={t('sessions.search_placeholder') ?? ''}
-                className="h-8 w-full rounded-md border border-bd-1 bg-bg-1 pl-8 pr-2.5 font-sans text-xs text-tx-0 outline-none placeholder:text-tx-3 focus-visible:bg-bg-2"
+                className="h-8 w-full rounded-md border-0 bg-[var(--control-surface)] pl-8 pr-2.5 font-sans text-xs text-tx-0 outline-none placeholder:text-tx-3 hover:bg-bg-2 focus-visible:bg-bg-2"
+                data-ui="search-control"
               />
             </span>
           </label>
@@ -206,7 +213,8 @@ export function Sessions({
       }
       state={pageState}
     >
-      <div className="flex flex-wrap items-center gap-4 border-b border-bd-0 pb-3">
+      <RumSurface className="overflow-hidden p-4">
+        <div className="flex flex-wrap items-center gap-4">
         <span className="text-sm font-strong text-tx-0">
           {t('sessions.result_count', { count: rows.length })}
         </span>
@@ -230,8 +238,8 @@ export function Sessions({
         )}
       </div>
 
-      <div className="overflow-hidden border-b border-bd-0">
-        <div className="hidden min-h-10 grid-cols-[minmax(300px,1.25fr)_minmax(150px,.75fr)_minmax(250px,1fr)_170px_130px_20px] items-center gap-4 border-b border-bd-0 text-xs font-strong text-tx-3 xl:grid">
+        <div className="overflow-hidden">
+          <div className="hidden min-h-8 grid-cols-[minmax(300px,1.25fr)_minmax(150px,.75fr)_minmax(250px,1fr)_170px_130px_20px] items-center gap-4 border-b border-bd-0 text-xs font-strong text-tx-3 xl:grid">
           <span>{t('sessions.columns.experience')}</span>
           <span>{t('sessions.columns.user_device')}</span>
           <span>{t('sessions.columns.journey')}</span>
@@ -257,6 +265,7 @@ export function Sessions({
         )}
       </div>
       <CursorPagination
+        className="border-t-0 bg-transparent"
         pageSize={pagination.pageSize}
         pageSizeOptions={[20, 50, 100]}
         hasPrevious={Boolean(query.data?.previous_cursor)}
@@ -270,6 +279,7 @@ export function Sessions({
         onNext={() => pagination.goNext(query.data)}
         onPageSizeChange={pagination.setPageSize}
       />
+      </RumSurface>
     </RumListPage>
   );
 }

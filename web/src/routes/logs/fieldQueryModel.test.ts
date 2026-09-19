@@ -117,4 +117,60 @@ describe('log field query model', () => {
     expect(isLogFieldFilterable(payload!, 'fields')).toBe(false);
     expect(isLogFieldFilterable(payload!, 'sql')).toBe(true);
   });
+
+  it('converts MATCH / MATCH_TEXT to structured filters, not free text', () => {
+    const parsed = parseLogFieldStatement(
+      "MATCH_TEXT(message, 'panic disk') AND MATCH(level, 'error')",
+    );
+
+    expect(parsed.filters).toEqual([
+      {
+        field: 'message',
+        op: 'match_text',
+        value: 'panic disk',
+        quoted: true,
+      },
+      {
+        field: 'level',
+        op: 'match',
+        value: 'error',
+        quoted: true,
+      },
+    ]);
+    expect(parsed.freeText).toEqual([]);
+  });
+
+  it('accepts lowercase function names and parentheses inside quoted queries', () => {
+    const parsed = parseLogFieldStatement("match_text(message, 'a)')");
+
+    expect(parsed.filters).toEqual([{
+      field: 'message',
+      op: 'match_text',
+      value: 'a)',
+      quoted: true,
+    }]);
+  });
+
+  it('rejects malformed MATCH calls instead of silently treating them as text', () => {
+    const parsed = parseLogFieldStatement('MATCH(level, INFO)');
+
+    expect(parsed.filters).toEqual([]);
+    expect(parsed.freeText).toEqual([]);
+    expect(parsed.rejected).toEqual(['MATCH(level, INFO)']);
+  });
+
+  it('passes functions through into the generated SQL', () => {
+    const sql = buildLogFieldQuerySql(
+      '_molesignal',
+      "MATCH_TEXT(message, 'panic disk') AND level = 'ERROR'",
+      200,
+    );
+
+    // Functions use normalized, safely escaped SQL; ordinary conditions retain
+    // the existing translation.
+    expect(sql).toContain("MATCH_TEXT(message, 'panic disk')");
+    expect(sql).toContain('"level" = \'ERROR\'');
+    // 函数不能当自由文本被 message LIKE 吞掉。
+    expect(sql).not.toContain("LIKE '%MATCH_TEXT");
+  });
 });

@@ -3,9 +3,9 @@ import * as React from 'react';
 import { cn } from '@/shell/lib/cn';
 
 /**
- * Table — Phase 4 token-aware shadcn primitive.
+ * Token-aware Table primitive.
  *
- * Brief mandates (M0.3):
+ * Layout and interaction invariants:
  *   - row-height tracks --row-height (density-aware: 24/28/34px)
  *   - cell padding tracks --row-pad-x / --row-pad-y
  *   - hover row uses bg-bg-3 (the dedicated hover layer)
@@ -90,7 +90,7 @@ const TableHead = React.forwardRef<
     ref={ref}
     className={cn(
       'px-row-pad-x py-row-pad-y text-left align-middle',
-      'font-sans text-xs font-strong uppercase tracking-wider text-tx-3',
+      'font-sans text-xs font-strong uppercase tracking-wider text-tx-2',
       // aria-sort surfaces the sorted column with an indigo top border.
       '[&[aria-sort=ascending]]:border-t-2 [&[aria-sort=ascending]]:border-t-indigo [&[aria-sort=ascending]]:text-tx-0',
       '[&[aria-sort=descending]]:border-t-2 [&[aria-sort=descending]]:border-t-indigo [&[aria-sort=descending]]:text-tx-0',

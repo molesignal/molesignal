@@ -24,10 +24,8 @@ import { useNavigate } from 'react-router-dom';
 import { ConfirmDialog, DataTable } from '@/admin';
 import * as dashboardsApi from '@/api/dashboards';
 import * as foldersApi from '@/api/folders';
-import {
-  dashboardDefinitionFromApi,
-  flattenElements,
-} from '@/dashboard-engine/model';
+import { dashboardDefinitionFromApi } from '@/dashboard-engine/model';
+import { dashboardPanelCount } from '@/dashboard-engine/summary';
 import { toApiError } from '@/lib/http';
 import {
   type ActionAccess,
@@ -87,11 +85,7 @@ function adaptDashboard(
     formatRelative: (value: number | undefined) => string;
   },
 ): DisplayDashboard {
-  const panels = flattenElements(
-    dashboardDefinitionFromApi(d).elements,
-  ).filter(
-    (element) => element.kind === 'panel' || element.kind === 'text',
-  ).length;
+  const panels = dashboardPanelCount(d);
   const folderId = d.folder_id;
   return {
     id: d.id,
@@ -474,6 +468,7 @@ export function Dashboards() {
   return (
     <>
       <ListPage
+        appearance="surface"
         title={t('title')}
         subtitle={summary}
         toolbar={
@@ -500,7 +495,10 @@ export function Dashboards() {
         }
         filters={
           <div className="flex w-full flex-wrap items-center gap-2">
-            <div className="flex h-9 min-w-[240px] max-w-[420px] flex-1 items-center gap-2 rounded-md border border-bd-1 bg-bg-1 px-3 font-sans text-xs">
+            <div
+              data-ui="input-control"
+              className="flex h-9 min-w-[240px] max-w-[420px] flex-1 items-center gap-2 rounded-md border-0 bg-[var(--control-surface)] px-3 font-sans text-xs transition-colors hover:bg-bg-3 focus-within:bg-bg-3"
+            >
               <Search className="h-3 w-3 text-tx-3" />
               <input
                 value={search}
@@ -509,7 +507,7 @@ export function Dashboards() {
                 className="min-w-0 flex-1 bg-transparent text-tx-0 placeholder:text-tx-3 focus:outline-none"
               />
             </div>
-            <div className="flex gap-0.5 rounded-md border border-bd-0 bg-bg-1 p-0.5">
+            <div className="flex gap-0.5 rounded-md bg-[var(--control-surface)] p-0.5">
               {(['all', 'mine', 'favorites'] as const).map((candidate) => (
                 <button
                   key={candidate}

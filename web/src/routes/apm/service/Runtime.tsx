@@ -56,12 +56,12 @@ export function ApmServiceRuntime() {
         onRetry={() => void query.refetch()}
       >
         {detail && (
-          <div className="space-y-5">
+          <div className="space-y-[12px]">
             <Section
               title={t('runtime.title')}
               description={t('runtime.description')}
             >
-              <div className="grid gap-px bg-bd-0 md:grid-cols-3">
+              <div className="grid gap-[8px] p-[12px] md:grid-cols-3">
                 <RuntimeFact
                   icon={Cpu}
                   label={t('runtime.language')}
@@ -101,7 +101,7 @@ function RuntimeFact({
   detail?: string | undefined;
 }) {
   return (
-    <div className="bg-bg-1 p-5">
+    <div className="rounded-md bg-[var(--control-surface)] p-5">
       <Icon aria-hidden className="h-4 w-4 text-indigo-soft" />
       <div className="mt-4 text-xs font-strong text-tx-3">{label}</div>
       <div className="mt-1 text-base font-display-strong text-tx-0">{value}</div>

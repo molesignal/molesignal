@@ -1,6 +1,6 @@
 # MoleSignal HTTP API v1
-# OpenAPI 3.0 描述。当前覆盖 ingest / query / streams / alerts / dashboards / 派生查询 /
-# 付费版 (sso/clusters/cipher_keys/connectors/intelligence)。
+# OpenAPI 3.0 描述。当前覆盖 intake / query / streams / alerts / dashboards / 派生查询 /
+# 付费版 (sso/clusters/cipher_keys/connectors/agent)。
 # 完整 endpoint 索引见各 handler 文件 `src/api/http/routes/*.rs`。
 
 openapi: 3.0.3
@@ -22,7 +22,7 @@ info:
     - 413 quota exhausted
     - 429 rate limited
 
-    精确流名 `_molesignal` 保留给服务自身遥测。所有公共 ingest 与 stream mutation
+    精确流名 `_molesignal` 保留给服务自身遥测。所有公共 intake 与 stream mutation
     对该名称返回 403；`_sys` system scope 中的 IAM 查询仍然可用。
 servers:
   - url: https://molesignal.example.com
@@ -39,7 +39,7 @@ components:
       type: object
       properties:
         error: { type: string }
-    IngestResult:
+    IntakeResult:
       type: object
       properties:
         accepted: { type: integer }
@@ -82,7 +82,7 @@ paths:
       security: []
       responses:
         '200': { description: ready }
-        '503': { description: degraded (ingester replay / object_store probe failing) }
+        '503': { description: degraded (intake replay / object_store probe failing) }
 
   /metrics:
     get:
@@ -392,9 +392,9 @@ paths:
       description: Identity-field and role mappings replace the previously saved mappings.
     delete: { summary: Delete one provider }
 
-  /api/v1/ingest/logs/{stream}:
+  /api/v1/intake/logs/{stream}:
     post:
-      summary: HTTP JSON ingest (logs)
+      summary: HTTP JSON intake (logs)
       parameters:
         - { in: path, name: stream, required: true, schema: { type: string } }
       requestBody:
@@ -409,16 +409,16 @@ paths:
         '200':
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/IngestResult' }
+              schema: { $ref: '#/components/schemas/IntakeResult' }
         '413': { description: storage quota exceeded }
         '429': { description: rate limited }
 
-  /api/v1/ingest/metrics/{stream}: { $ref: '#/paths/~1api~1v1~1ingest~1logs~1{stream}' }
-  /api/v1/ingest/traces/{stream}: { $ref: '#/paths/~1api~1v1~1ingest~1logs~1{stream}' }
+  /api/v1/intake/metrics/{stream}: { $ref: '#/paths/~1api~1v1~1intake~1logs~1{stream}' }
+  /api/v1/intake/traces/{stream}: { $ref: '#/paths/~1api~1v1~1intake~1logs~1{stream}' }
 
   /api/v1/_bulk:
     post:
-      summary: Elasticsearch _bulk-compatible ingest (NDJSON)
+      summary: Elasticsearch _bulk-compatible intake (NDJSON)
       requestBody:
         required: true
         content:
@@ -719,8 +719,8 @@ paths:
     get: { summary: List }
   /api/v1/auth/tokens/default:
     get:
-      summary: Get or create the workspace default ingestion token
-      description: 'Requires `api_tokens.manage`; returns a sealed-at-rest `ms_` token with the write-only ingest role and `Cache-Control: private, no-store`.'
+      summary: Get or create the workspace default intake token
+      description: 'Requires `api_tokens.manage`; returns a sealed-at-rest `ms_` token with the write-only intake role and `Cache-Control: private, no-store`.'
   /api/v1/auth/tokens/rum:
     get:
       summary: Get or create an application-bound RUM client token
@@ -887,7 +887,7 @@ paths:
         '200': { description: Non-readiness APM runtime health, projection start, completion and gaps }
 
   /api/v1/rum/sessions:
-    post: { summary: RUM session ingest (`rum.write`; app-bound tokens enforce application identity) }
+    post: { summary: RUM session intake (`rum.write`; app-bound tokens enforce application identity) }
     get:
       summary: Cursor-paginated RUM sessions
       description: The signed cursor freezes the absolute time window and active filters.
@@ -902,10 +902,10 @@ paths:
       responses: { '200': { description: "items, previous_cursor, next_cursor, and has_more" } }
 
   /api/v1/rum/actions:
-    post: { summary: RUM action ingest }
+    post: { summary: RUM action intake }
 
   /api/v1/rum/errors:
-    post: { summary: RUM error ingest with best-effort Source Map / native symbol translation }
+    post: { summary: RUM error intake with best-effort Source Map / native symbol translation }
     get:
       summary: Cursor-paginated RUM error groups
       description: Sorting and aggregation happen on the server before page trimming.
@@ -956,33 +956,33 @@ paths:
       description: The first request supplies a stream, absolute time range, and filters; continuations use the signed cursor.
       responses: { '200': { description: "items, previous_cursor, next_cursor, and has_more" } }
 
-  /api/v1/intelligence/stats:
-    get: { summary: Intelligence LLM overall stats (license-gated) }
-  /api/v1/intelligence/top_models:
+  /api/v1/agent/stats:
+    get: { summary: Agent LLM overall stats (license-gated) }
+  /api/v1/agent/top_models:
     get: { summary: Top models by call count }
-  /api/v1/intelligence/top_users:
+  /api/v1/agent/top_users:
     get: { summary: Top users by call count }
-  /api/v1/intelligence/chat:
-    get: { summary: List the current user's Mole Intelligence chats }
-    post: { summary: Create a Mole Intelligence chat }
-  /api/v1/intelligence/chat/{id}:
+  /api/v1/agent/chat:
+    get: { summary: List the current user's Mole Agent chats }
+    post: { summary: Create a Mole Agent chat }
+  /api/v1/agent/chat/{id}:
     delete: { summary: Archive and soft-delete a chat }
-  /api/v1/intelligence/chat/{id}/messages:
+  /api/v1/agent/chat/{id}/messages:
     get: { summary: List chat messages }
     post: { summary: Send or regenerate a message with context, Agent Profile, Prompt, and execution policy; stream Mole Agent events over SSE }
-  /api/v1/intelligence/chat/{id}/archive:
+  /api/v1/agent/chat/{id}/archive:
     post: { summary: Archive the chat transcript to object storage }
-  /api/v1/intelligence/dashboard-authoring/capabilities:
+  /api/v1/agent/dashboard-authoring/capabilities:
     get:
       summary: Discover the server-owned Dashboard authoring contract, visualizations, query kinds, limits, and workflow
-      description: Requires `intelligence.use`, `dashboards.create`, and the `intelligence` license feature. The response is derived from the deployed compiler manifest.
-  /api/v1/intelligence/dashboard-drafts/{id}:
+      description: Requires `agent.use`, `dashboards.create`, and the `agent` license feature. The response is derived from the deployed compiler manifest.
+  /api/v1/agent/dashboard-drafts/{id}:
     get:
       summary: Read an organization-scoped persisted Dashboard draft for restricted preview
       description: Returns the server-compiled model, hash, expiry, preflight results, and current operation state. Cross-organization lookup is non-enumerating.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
-  /api/v1/intelligence/dashboard-drafts/{id}/propose:
+  /api/v1/agent/dashboard-drafts/{id}/propose:
     post:
       summary: Propose controlled creation of a previously prepared Dashboard draft
       description: Accepts only the expected draft hash plus human-readable reason and impact. It never accepts a compiled model or trusted identity fields and never creates a Dashboard directly.
@@ -1000,60 +1000,60 @@ paths:
                 expected_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
                 reason: { type: string, minLength: 1, maxLength: 2000 }
                 impact: { type: string, minLength: 1, maxLength: 2000 }
-  /api/v1/intelligence/overview:
-    get: { summary: Mole Intelligence operational overview }
-  /api/v1/intelligence/investigations:
+  /api/v1/agent/overview:
+    get: { summary: Mole Agent operational overview }
+  /api/v1/agent/investigations:
     get: { summary: List investigation tasks }
     post: { summary: Create an investigation task }
-  /api/v1/intelligence/investigations/{id}:
+  /api/v1/agent/investigations/{id}:
     get: { summary: Get investigation steps, evidence, and hypotheses }
     put: { summary: Update investigation state and conclusion }
-  /api/v1/intelligence/investigations/{id}/steps:
+  /api/v1/agent/investigations/{id}/steps:
     post: { summary: Append a traceable investigation step }
-  /api/v1/intelligence/investigations/{id}/evidence:
+  /api/v1/agent/investigations/{id}/evidence:
     post: { summary: Append evidence with fact status and source reference }
-  /api/v1/intelligence/investigations/{id}/hypotheses:
+  /api/v1/agent/investigations/{id}/hypotheses:
     post: { summary: Create or update a root-cause hypothesis }
-  /api/v1/intelligence/automations:
+  /api/v1/agent/automations:
     get: { summary: List constrained Mole Agent automations }
     post: { summary: Create an automation from registered tools }
-  /api/v1/intelligence/automations/{id}:
+  /api/v1/agent/automations/{id}:
     get: { summary: Get an automation }
     put: { summary: Update an automation }
-  /api/v1/intelligence/automations/{id}/dry-run:
+  /api/v1/agent/automations/{id}/dry-run:
     post: { summary: Resolve a no-side-effect automation dry run }
-  /api/v1/intelligence/approvals:
+  /api/v1/agent/approvals:
     get: { summary: List Mole Agent operation approvals }
     post: { summary: Propose a registered operation for approval }
-  /api/v1/intelligence/approvals/{id}:
+  /api/v1/agent/approvals/{id}:
     get: { summary: Get an approval record }
-  /api/v1/intelligence/approvals/{id}/review:
+  /api/v1/agent/approvals/{id}/review:
     post: { summary: Approve or reject an operation }
-  /api/v1/intelligence/approvals/{id}/execute:
+  /api/v1/agent/approvals/{id}/execute:
     post: { summary: Execute an approved registered operation idempotently }
-  /api/v1/intelligence/executions:
+  /api/v1/agent/executions:
     get: { summary: List approved operation executions }
-  /api/v1/intelligence/executions/{id}:
+  /api/v1/agent/executions/{id}:
     get: { summary: Get execution parameters, result, and verification }
-  /api/v1/intelligence/settings/agent-profiles:
+  /api/v1/agent/settings/agent-profiles:
     get: { summary: List constrained Mole Agent profiles }
     post: { summary: Create a Mole Agent profile }
-  /api/v1/intelligence/settings/agent-profiles/{id}:
+  /api/v1/agent/settings/agent-profiles/{id}:
     get: { summary: Get a Mole Agent profile }
     put: { summary: Update a Mole Agent profile }
-  /api/v1/intelligence/settings/prompts:
+  /api/v1/agent/settings/prompts:
     get: { summary: List visible built-in, organization, and personal Mole Agent Prompts }
     post: { summary: Create an organization or personal Prompt override }
-  /api/v1/intelligence/settings/prompts/{id}:
+  /api/v1/agent/settings/prompts/{id}:
     put: { summary: Update and version a non-built-in Prompt }
     delete: { summary: Delete a non-built-in Prompt }
-  /api/v1/intelligence/settings/prompts/{id}/set-default:
+  /api/v1/agent/settings/prompts/{id}/set-default:
     post: { summary: Set the effective default Prompt for its scope and purpose }
-  /api/v1/intelligence/settings/prompts/{id}/restore:
+  /api/v1/agent/settings/prompts/{id}/restore:
     post: { summary: Restore an override body and variable schema from its built-in parent }
-  /api/v1/intelligence/tools:
+  /api/v1/agent/tools:
     get: { summary: List the compile-time Mole Agent tool allowlist and runtime capabilities }
-  /api/v1/intelligence/audit/chat/{id}:
+  /api/v1/agent/audit/chat/{id}:
     get: { summary: Read an audited chat transcript (Admin or Owner) }
 
   /api/v1/clusters:

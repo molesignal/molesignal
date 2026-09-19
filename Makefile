@@ -1,6 +1,6 @@
 # molesignal Makefile
 # ============================================================================
-# Rust workspace (单二进制 molesignal) + Web 前端 (pnpm/Vite) + buf proto +
+# Rust workspace（最终二进制位于 bin/）+ Web 前端 (pnpm/Vite) + buf proto +
 # docker/k8s 部署。
 # ============================================================================
 
@@ -17,10 +17,22 @@ PACKAGE_DIR  = $(DIST_DIR)/$(PACKAGE_NAME)
 PACKAGE_BIN_DIR = $(if $(TARGET),target/$(TARGET)/release,target/release)
 HTTP_PORT    := 5080
 WEB_DIR      := web
+WEB_DIST_INDEX := $(WEB_DIR)/dist/index.html
+WEB_NODE_MODULES_STAMP := $(WEB_DIR)/node_modules/.modules.yaml
+WEB_BUILD_INPUTS := \
+	$(shell find $(WEB_DIR)/src $(WEB_DIR)/public -type f 2>/dev/null) \
+	$(WEB_DIR)/index.html \
+	$(WEB_DIR)/package.json \
+	$(WEB_DIR)/pnpm-lock.yaml \
+	$(WEB_DIR)/postcss.config.cjs \
+	$(WEB_DIR)/tailwind.config.ts \
+	$(WEB_DIR)/tsconfig.json \
+	$(WEB_DIR)/vite.config.ts
 DEPLOY_DIR   := deploy
 COMPOSE_FILE := $(DEPLOY_DIR)/docker/docker-compose.yaml
 DOCKERFILE   := $(DEPLOY_DIR)/docker/Dockerfile
 DOCKERFILE_WEB := $(DEPLOY_DIR)/docker/Dockerfile.web
+DOCKERFILE_PROBE_AGENT := $(DEPLOY_DIR)/docker/Dockerfile.probe-agent
 
 # --- 版本管理 ---
 # 优先级: 环境变量 VERSION → VERSION 文件 → Git 标签 → Cargo.toml workspace.package.version → 默认值
@@ -62,13 +74,14 @@ RUST_TARGETS := \
 DOCKER_PLATFORMS := linux/amd64,linux/arm64
 DOCKER_IMAGE     ?= molesignal
 DOCKER_IMAGE_WEB ?= molesignal-web
+DOCKER_IMAGE_PROBE_AGENT ?= probe-agent
 DOCKER_TAG       ?= $(VERSION)
 
 # Cargo 通用参数
 CARGO_FLAGS_BASE := --frozen --locked
 WORKSPACE_PKGS   := -p $(BIN_PKG)
 
-# 付费版 feature（默认关）。使用：make build FEATURES=
+# 附加 Cargo feature；molesignal 默认已包含 js-runtime。使用：make build FEATURES=
 ifdef FEATURES
   CARGO_FEATURE_FLAGS := --features $(FEATURES)
 else
@@ -79,17 +92,27 @@ endif
 all: build
 
 # === 构建 ===
-.PHONY: build build-release build-debug
+.PHONY: build build-release build-debug web-build
+
+# Rust build.rs 只负责嵌入产物，不隐式启动包管理器；统一构建入口先确保 dist 新鲜。
+$(WEB_NODE_MODULES_STAMP): $(WEB_DIR)/package.json $(WEB_DIR)/pnpm-lock.yaml
+	pnpm -C $(WEB_DIR) install --frozen-lockfile
+
+$(WEB_DIST_INDEX): $(WEB_NODE_MODULES_STAMP) $(WEB_BUILD_INPUTS)
+	BUILD_HASH="$(GIT_SHA)" pnpm -C $(WEB_DIR) build
+
+web-build: $(WEB_DIST_INDEX)
+
 build:
 	$(MAKE) build-release
 
-build-debug:
+build-debug: web-build
 	BUILD_ID="$(BUILD_ID)" cargo build $(CARGO_FLAGS_BASE) $(WORKSPACE_PKGS) $(CARGO_FEATURE_FLAGS)
 
-build-release:
+build-release: web-build
 	BUILD_ID="$(BUILD_ID)" cargo build $(CARGO_FLAGS_BASE) --release $(WORKSPACE_PKGS) $(CARGO_FEATURE_FLAGS)
 
-# 生成二进制发布包：内置 conf/ 和 GeoLite2-City.mmdb
+# 生成二进制发布包：内置 conf/ 和 systemd 部署文件
 package:
 	@if [ -n "$(TARGET)" ]; then \
 		$(MAKE) build-release-target TARGET=$(TARGET); \
@@ -97,16 +120,17 @@ package:
 		$(MAKE) build-release; \
 	fi
 	rm -rf "$(PACKAGE_DIR)"
-	mkdir -p "$(PACKAGE_DIR)/bin" "$(PACKAGE_DIR)/conf"
+	mkdir -p "$(PACKAGE_DIR)/bin" "$(PACKAGE_DIR)/conf" "$(PACKAGE_DIR)/deploy/systemd"
 	cp "$(PACKAGE_BIN_DIR)/$(BIN_NAME)" "$(PACKAGE_DIR)/bin/$(BIN_NAME)"
 	cp -R "$(CONFIG_DIR)/." "$(PACKAGE_DIR)/conf/"
+	cp -R "$(DEPLOY_DIR)/systemd/." "$(PACKAGE_DIR)/deploy/systemd/"
 	printf '{"build_id":"%s","git_sha":"%s"}\n' "$(BUILD_ID)" "$(GIT_SHA)" > "$(PACKAGE_DIR)/build-info.json"
 	tar -C "$(DIST_DIR)" -czf "$(DIST_DIR)/$(PACKAGE_NAME).tar.gz" "$(PACKAGE_NAME)"
 	@echo "→ wrote $(DIST_DIR)/$(PACKAGE_NAME).tar.gz"
 
 # 为指定 target 构建，用法: make build-release-target TARGET=x86_64-unknown-linux-musl
 .PHONY: build-release-target
-build-release-target:
+build-release-target: web-build
 	@if [ -z "$(TARGET)" ]; then \
 		echo "Usage: make build-release-target TARGET=<rust-target>"; \
 		echo "  e.g. make build-release-target TARGET=x86_64-unknown-linux-musl"; \
@@ -117,13 +141,13 @@ build-release-target:
 
 # 跨平台快捷目标（Linux 需在对应架构机器并安装 musl-tools）
 .PHONY: build-linux-amd64 build-linux-arm64 build-darwin-arm64
-build-linux-amd64:
+build-linux-amd64: web-build
 	BUILD_ID="$(BUILD_ID)" cargo build $(CARGO_FLAGS_BASE) --release --target x86_64-unknown-linux-musl $(WORKSPACE_PKGS) $(CARGO_FEATURE_FLAGS)
 
-build-linux-arm64:
+build-linux-arm64: web-build
 	BUILD_ID="$(BUILD_ID)" cargo build $(CARGO_FLAGS_BASE) --release --target aarch64-unknown-linux-musl $(WORKSPACE_PKGS) $(CARGO_FEATURE_FLAGS)
 
-build-darwin-arm64:
+build-darwin-arm64: web-build
 	BUILD_ID="$(BUILD_ID)" cargo build $(CARGO_FLAGS_BASE) --release --target aarch64-apple-darwin $(WORKSPACE_PKGS) $(CARGO_FEATURE_FLAGS)
 
 OUTPUT_DIR = target/$(TARGET)/release
@@ -135,25 +159,25 @@ run: run-debug
 run-debug:
 	RELEASE_CHANNEL="$(RELEASE_CHANNEL)" BUILD_ID="$(BUILD_ID)" cargo run $(WORKSPACE_PKGS) $(CARGO_FEATURE_FLAGS) -- --config $(CONFIG_DIR)/config.toml
 
-run-release:
+run-release: web-build
 	RELEASE_CHANNEL="$(RELEASE_CHANNEL)" BUILD_ID="$(BUILD_ID)" cargo run --release $(WORKSPACE_PKGS) $(CARGO_FEATURE_FLAGS) -- --config $(CONFIG_DIR)/config.toml
 
 # === 测试 ===
 .PHONY: test test-unit test-integration test-all
 test: test-unit
 
-test-unit:
+test-unit: web-build
 	cargo test $(CARGO_FLAGS_BASE) --workspace --lib --bins $(CARGO_FEATURE_FLAGS)
 
-test-integration:
+test-integration: web-build
 	cargo test $(CARGO_FLAGS_BASE) --workspace --tests $(CARGO_FEATURE_FLAGS)
 
-test-all:
+test-all: web-build
 	cargo test $(CARGO_FLAGS_BASE) --workspace --all-targets $(CARGO_FEATURE_FLAGS)
 
 # === Bench ===
 .PHONY: bench
-bench:
+bench: web-build
 	cargo bench $(CARGO_FLAGS_BASE) --workspace $(CARGO_FEATURE_FLAGS)
 
 # === Git hooks ===
@@ -186,23 +210,23 @@ fmt: _ensure-nightly-rustfmt
 fmt-check: _ensure-nightly-rustfmt
 	cargo +nightly fmt --all -- --check
 
-lint:
+lint: web-build
 	cargo clippy --workspace --all-targets $(CARGO_FEATURE_FLAGS) -- -D warnings
 
-lint-fix:
+lint-fix: web-build
 	cargo clippy --workspace --all-targets --fix --allow-dirty --allow-staged $(CARGO_FEATURE_FLAGS) -- -D warnings
 
-check:
+check: web-build
 	cargo check $(WORKSPACE_PKGS) $(CARGO_FEATURE_FLAGS)
 
-check-all:
+check-all: web-build
 	cargo check --workspace --all-targets $(CARGO_FEATURE_FLAGS)
 
-# === Proto 代码生成 ===
-# 注：proto 代码生成现为手动执行（build.rs 不再自动触发 buf），输出到 src/protocol/。
+# === Proto schema ===
+# Rust binding 由 protocol / probe-agent 各自的 build.rs 自动生成到 Cargo OUT_DIR；
+# make proto 仅保留为兼容入口，用于校验仓库中的 .proto 源文件。
 .PHONY: proto proto-lint proto-breaking
-proto:
-	cd proto && buf generate
+proto: proto-lint
 
 proto-lint:
 	buf lint
@@ -219,16 +243,22 @@ ci: fmt-check lint test web-typecheck web-lint web-test
 ci-fast: fmt-check lint check-all web-typecheck web-lint
 
 # === Docker ===
-.PHONY: docker-build docker-build-web docker-build-multi docker-push docker-run
+.PHONY: docker-build docker-build-web docker-build-probe-agent docker-build-multi docker-build-probe-agent-multi docker-push docker-run
 docker-build:
 	docker build --build-arg BUILD_ID="$(BUILD_ID)" --build-arg GIT_SHA="$(GIT_SHA)" -f $(DOCKERFILE) -t $(DOCKER_IMAGE):$(DOCKER_TAG) -t $(DOCKER_IMAGE):latest .
 
 docker-build-web:
 	docker build -f $(DOCKERFILE_WEB) -t $(DOCKER_IMAGE_WEB):$(DOCKER_TAG) -t $(DOCKER_IMAGE_WEB):latest .
 
+docker-build-probe-agent:
+	docker build --build-arg BUILD_ID="$(BUILD_ID)" --build-arg GIT_SHA="$(GIT_SHA)" -f $(DOCKERFILE_PROBE_AGENT) -t $(DOCKER_IMAGE_PROBE_AGENT):$(DOCKER_TAG) -t $(DOCKER_IMAGE_PROBE_AGENT):latest .
+
 # 多平台镜像（需 buildx）
 docker-build-multi:
 	docker buildx build --build-arg BUILD_ID="$(BUILD_ID)" --build-arg GIT_SHA="$(GIT_SHA)" --platform $(DOCKER_PLATFORMS) -f $(DOCKERFILE) -t $(DOCKER_IMAGE):$(DOCKER_TAG) --push .
+
+docker-build-probe-agent-multi:
+	docker buildx build --build-arg BUILD_ID="$(BUILD_ID)" --build-arg GIT_SHA="$(GIT_SHA)" --platform $(DOCKER_PLATFORMS) -f $(DOCKERFILE_PROBE_AGENT) -t $(DOCKER_IMAGE_PROBE_AGENT):$(DOCKER_TAG) --push .
 
 docker-push:
 	docker push $(DOCKER_IMAGE):$(DOCKER_TAG)
@@ -343,6 +373,7 @@ help:
 	@echo "构建:"
 	@echo "  make build / build-release      - 统一 release 构建"
 	@echo "  make build-debug                - debug 构建"
+	@echo "  make web-build                  - 生成供 Rust 二进制嵌入的 web/dist"
 	@echo "  make package                    - 构建二进制发布包"
 	@echo "  make build-release-target TARGET=<rust-target>"
 	@echo "  make build-linux-amd64 / build-linux-arm64 / build-darwin-arm64"
@@ -359,11 +390,12 @@ help:
 	@echo "  make ci / ci-fast               - 组合门禁"
 	@echo ""
 	@echo "Proto:"
-	@echo "  make proto / proto-lint / proto-breaking"
+	@echo "  make proto / proto-lint              - 校验 .proto（Rust binding 构建时生成）"
+	@echo "  make proto-breaking                  - 检查协议兼容性"
 	@echo ""
 	@echo "Docker:"
-	@echo "  make docker-build / docker-build-web"
-	@echo "  make docker-build-multi (buildx)"
+	@echo "  make docker-build / docker-build-web / docker-build-probe-agent"
+	@echo "  make docker-build-multi / docker-build-probe-agent-multi (buildx)"
 	@echo "  make docker-run"
 	@echo ""
 	@echo "版本:"

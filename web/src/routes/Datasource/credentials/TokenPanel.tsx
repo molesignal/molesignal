@@ -3,6 +3,7 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
+import { writeClipboardText } from '@/lib/clipboard';
 import { useActionAccess } from '@/product/actionAccess';
 import { ChromeButton, uiLabelClass } from '@/shell/chrome';
 import { CopyIconButton } from '@/shell/CopyIconButton';
@@ -10,9 +11,9 @@ import { DisabledControl } from '@/shell/DisabledControl';
 import { cn } from '@/shell/lib/cn';
 
 import { maskToken } from '../datasourceModel';
-import type { IngestContext } from '../ingestContext';
+import type { IntakeContext } from '../intakeContext';
 
-export function TokenPanel({ context }: { context: IngestContext }) {
+export function TokenPanel({ context }: { context: IntakeContext }) {
   const { t, i18n } = useTranslation('onboarding');
   const navigate = useNavigate();
   const tokenManageAccess = useActionAccess({ permission: 'api_tokens.manage' });
@@ -21,7 +22,7 @@ export function TokenPanel({ context }: { context: IngestContext }) {
   const copy = async () => {
     if (!context.token) return;
     try {
-      await navigator.clipboard.writeText(context.token);
+      await writeClipboardText(context.token);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -36,19 +37,19 @@ export function TokenPanel({ context }: { context: IngestContext }) {
   const blocked = context.isRum && !context.applicationValid;
 
   return (
-    <div className="min-w-0 rounded-md border border-bd-0 bg-bg-1 p-3">
+    <div className="min-w-0 rounded-md bg-bg-1 p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className={uiLabelClass}>
           {context.isRum
             ? t('datasource.rum_client_token')
-            : t('datasource.ingestion_token')}
+            : t('datasource.intake_token')}
         </span>
         <DisabledControl disabled={tokenManageAccess.disabled} reason={tokenManageAccess.reason}>
           <button
             type="button"
             disabled={tokenManageAccess.disabled}
             aria-disabled={tokenManageAccess.disabled || undefined}
-            onClick={() => navigate('/iam/service-accounts')}
+            onClick={() => navigate('/iam/api-tokens')}
             className="font-sans text-xs font-strong text-indigo-soft enabled:hover:underline disabled:cursor-not-allowed disabled:text-tx-3"
           >
             {t('datasource_page.manage_tokens')}
@@ -68,7 +69,10 @@ export function TokenPanel({ context }: { context: IngestContext }) {
         </div>
       ) : (
         <div className="flex min-w-0 items-center gap-1.5">
-          <code className="min-w-0 flex-1 truncate rounded border border-bd-0 bg-bg-2 px-2.5 py-2 font-mono text-xs text-tx-1">
+          <code
+            data-ui="read-only-control"
+            className="min-w-0 flex-1 truncate rounded border-0 bg-[var(--control-surface)] px-2.5 py-2 font-mono text-xs text-tx-1"
+          >
             {context.tokenLoading
               ? t('datasource.token_loading')
               : revealed

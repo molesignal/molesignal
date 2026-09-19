@@ -38,6 +38,10 @@ export function DataQualityNotice({ meta }: { meta: ApmMeta }) {
   const activationOnly =
     meta.activation_boundary && meta.data_quality.gaps.length === 0 && !stale;
   const partial = meta.data_quality.partial;
+  const overflowOnly =
+    partial &&
+    meta.data_quality.gaps.length === 0 &&
+    meta.data_quality.overflow_dimensions.length > 0;
   const Icon = activationOnly || stale ? Clock3 : AlertTriangle;
   const hasDetails =
     meta.activation_boundary ||
@@ -67,6 +71,8 @@ export function DataQualityNotice({ meta }: { meta: ApmMeta }) {
         <div id={titleId} className="font-strong text-tx-0">
           {activationOnly
             ? t('quality.activation_title')
+            : overflowOnly
+              ? t('quality.overflow_title')
             : partial
               ? t('quality.partial_title')
               : t('quality.stale_title')}
@@ -76,10 +82,16 @@ export function DataQualityNotice({ meta }: { meta: ApmMeta }) {
             ? t('quality.activation_description', {
                 time: formatTimestamp(meta.projection_started_at),
               })
-            : partial
-              ? t('quality.partial_description', {
-                  count: meta.data_quality.gaps.length,
+            : overflowOnly
+              ? t('quality.overflow_description', {
+                  count: meta.data_quality.overflow_dimensions.length,
                 })
+            : partial
+              ? meta.data_quality.gaps.length > 0
+                ? t('quality.partial_description', {
+                    count: meta.data_quality.gaps.length,
+                  })
+                : t('quality.partial_unknown_description')
               : t('quality.stale_description', {
                   time: formatTimestamp(meta.last_complete_bucket_at),
                 })}

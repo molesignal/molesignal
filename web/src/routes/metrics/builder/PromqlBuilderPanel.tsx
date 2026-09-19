@@ -396,7 +396,7 @@ export function PromqlBuilderPanel({
         </span>
         <code
           data-testid="promql-builder-preview"
-          className="min-w-0 flex-1 truncate font-mono text-xs text-tx-1"
+          className="min-w-0 flex-1 truncate font-code text-[14px] font-medium text-tx-1"
         >
           {composedExpression || t('builder.preview_empty')}
         </code>

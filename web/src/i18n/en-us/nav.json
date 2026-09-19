@@ -13,16 +13,20 @@
   "profiles": "Profiles",
   "dashboards": "Dashboards",
   "alerts": "Alerts",
-  "intelligence": "Mole Intelligence",
+  "synthetics": "Synthetics",
+  "synthetics_checks": "Checks",
+  "agent": "Mole Agent",
   "saved_views": "Saved views",
   "streams": "Streams",
   "pipelines": "Pipelines",
   "functions": "Functions",
   "extend_tables": "Extend tables",
   "reports": "Reports",
+  "status_pages": "Status pages",
   "datasource": "Datasource",
   "iam": "Identity & Access",
   "iam_users": "Users",
+  "iam_api_tokens": "API tokens",
   "iam_service_accounts": "Service accounts",
   "iam_organizations": "Organizations",
   "organization_management": "Organization management",
@@ -45,8 +49,11 @@
   "drag_handle": "Drag to reorder",
   "groups": {
     "home": "HOME",
-    "investigate": "INVESTIGATE",
-    "pipeline": "PIPELINE",
+    "observe": "OBSERVE",
+    "reliability": "RELIABILITY",
+    "ai_ops": "AI OPS",
+    "data": "DATA",
+    "collaboration": "COLLABORATION",
     "admin": "ADMIN"
   },
   "breadcrumbs": {
@@ -90,6 +97,7 @@
     "rum_upload_source_maps": "Upload source maps",
     "alert_incidents": "Alert incidents",
     "alert_rules": "Alert rules",
+    "status_pages": "Status pages",
     "alert_rule_new": "New alert rule",
     "alert_rule_edit": "Edit alert rule",
     "incident_detail": "Incident",
@@ -101,7 +109,12 @@
     "profiles_compare": "Compare profiles",
     "anomaly_new": "New anomaly rule",
     "anomaly_edit": "Edit anomaly rule",
-    "semantic_groups": "Semantic groups"
+    "semantic_groups": "Semantic groups",
+    "synthetics_check_new": "New check",
+    "synthetics_check_edit": "Edit check",
+    "synthetics_check_detail": "Check",
+    "alert_schedules": "On-call schedules",
+    "alert_schedule_detail": "Schedule"
   },
   "service_graph": "Service graph"
 }

@@ -48,7 +48,7 @@ export function AccountSessions() {
       subtitle={t('sessions.subtitle')}
     >
       <div className="flex items-center gap-4 pb-2">
-        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-bd-0 bg-bg-2">
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-bg-2">
           <MonitorSmartphone className="h-4 w-4 text-tx-2" />
         </div>
         <div className="min-w-0 flex-1">

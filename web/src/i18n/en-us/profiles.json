@@ -96,7 +96,7 @@
     "view_flamegraph": "View flame graph",
     "open_profile": "Open profile",
     "empty_title": "No profiles in this window",
-    "empty_description": "Set up ingestion from Datasource (OTLP / Pyroscope / pprof), or use Upload to send a pprof file directly."
+    "empty_description": "Set up intake from Datasource (OTLP / Pyroscope / pprof), or use Upload to send a pprof file directly."
   },
   "flamegraph": {
     "title": "Flame graph",

@@ -395,7 +395,7 @@ function seedStreams(orgId) {
   // 旧版本脚本用 `seed-stream-<name>` 当 id，跟 (org_id, name, stream_type) unique
   // 索引强绑死。新版用 id = name，先把残留行删掉，否则唯一索引会撞。
   psql(`
-    DELETE FROM streams
+    DELETE FROM logical_streams
      WHERE org_id = ${sqlString(orgId)}
        AND id LIKE 'seed-stream-%';
   `);
@@ -410,7 +410,7 @@ function seedStreams(orgId) {
     )`;
   });
   psql(`
-    INSERT INTO streams
+    INSERT INTO logical_streams
       (id, org_id, name, stream_type, schema, retention, created_at_micros, updated_at_micros)
     VALUES ${rows.join(',\n')}
     ON CONFLICT (id) DO UPDATE
@@ -422,16 +422,6 @@ function seedStreams(orgId) {
           updated_at_micros = EXCLUDED.updated_at_micros;
   `);
   return `streams: upserted ${rows.length} (${STREAM_DEFS.map(([n]) => n).join(', ')})`;
-}
-
-function resetSeedParquetFileMeta(orgId) {
-  const names = STREAM_DEFS.map(([n]) => sqlString(n)).join(', ');
-  psql(`
-    UPDATE parquet_file_meta
-       SET deleted = TRUE
-     WHERE org_id = ${sqlString(orgId)}
-       AND stream IN (${names});
-  `);
 }
 
 // ---------- Data generators ----------
@@ -655,23 +645,23 @@ async function seedTelemetry(api) {
     ...gaugeSeries('payments', 'payments-1', 834, 11),
   ];
 
-  await api.post('/ingest/logs/app_logs', logs);
-  await api.post('/ingest/logs/app_logs_enriched', enriched);
-  await api.post('/ingest/metrics/http_requests_total', [
+  await api.post('/intake/logs/app_logs', logs);
+  await api.post('/intake/logs/app_logs_enriched', enriched);
+  await api.post('/intake/metrics/http_requests_total', [
     ...requestMetrics,
     ...requestExemplars,
   ]);
-  await api.post('/ingest/metrics/http_request_duration_ms', durations);
-  await api.post('/ingest/metrics/process_cpu_usage', cpu);
-  await api.post('/ingest/metrics/memory_usage_mb', memory);
+  await api.post('/intake/metrics/http_request_duration_ms', durations);
+  await api.post('/intake/metrics/process_cpu_usage', cpu);
+  await api.post('/intake/metrics/memory_usage_mb', memory);
   await api.post(
-    '/ingest/metrics/http_requests_total_5m',
+    '/intake/metrics/http_requests_total_5m',
     requestMetrics.slice(-12).map((row) => ({ ...row, window: '5m', rollup: 'rate' })),
   );
-  await api.post('/ingest/traces/traces', traces);
-  await api.post('/ingest/traces/topology_traces', topologyTraces);
+  await api.post('/intake/traces/traces', traces);
+  await api.post('/intake/traces/topology_traces', topologyTraces);
   await api.post(
-    '/ingest/traces/traces_enriched',
+    '/intake/traces/traces_enriched',
     traces.slice(0, 12).map((row) => ({
       ...row,
       attributes: {
@@ -720,7 +710,7 @@ async function seedProfiles(api) {
       from: String(profile.start),
       until: String(profile.until),
     });
-    const resp = await fetch(`${api.base}/profiles/ingest?${query}`, {
+    const resp = await fetch(`${api.base}/profiles/intake?${query}`, {
       method: 'POST',
       headers: {
         authorization: `Bearer ${api.token}`,
@@ -729,7 +719,7 @@ async function seedProfiles(api) {
       body: profile.body,
     });
     if (!resp.ok) {
-      throw new Error(`POST /profiles/ingest -> ${resp.status} ${await resp.text()}`);
+      throw new Error(`POST /profiles/intake -> ${resp.status} ${await resp.text()}`);
     }
   }
 
@@ -950,6 +940,7 @@ async function seedRum(api) {
           : { width: 1440, height: 900 },
     });
     await api.post('/rum/replay', {
+      application: session.application,
       session_id: session.session_id,
       seq: 1,
       events,
@@ -1245,11 +1236,8 @@ async function seedControlPlane(api, { directDb = true } = {}) {
       description: 'Configuration-driven Dashboard Engine seed data.',
       editable: true,
       defaultDashboard: false,
-      timezone: 'browser',
       schemaVersion: 2,
       version: 1,
-      refresh: '30s',
-      time: { from: 'now-1h', to: 'now' },
       timeSettings: {
         defaultFrom: 'now-1h',
         defaultTo: 'now',
@@ -1413,18 +1401,22 @@ async function verify(api, { directDb = true } = {}) {
   const graph = await api.get(`/traces/service_graph?from=${timeRange.start}&to=${timeRange.end}`);
   checks.push(['service graph edges', graph.edges?.length ?? 0]);
 
-  let parquetFileMeta = [];
+  let catalogSegments = [];
   if (directDb) {
-    const names = STREAM_DEFS.map(([, n]) => sqlString(n)).join(', ');
-    parquetFileMeta = psql(
+    const names = STREAM_DEFS.map(([name]) => sqlString(name)).join(', ');
+    catalogSegments = psql(
       `
-        SELECT stream_type || ':' || stream || '=' || COALESCE(SUM(rows),0)::TEXT
-        FROM parquet_file_meta
-        WHERE org_id = ${sqlString(api.orgId)}
-          AND deleted = FALSE
-          AND stream IN (${names})
-        GROUP BY stream_type, stream
-        ORDER BY stream_type, stream;
+        SELECT ls.stream_type || ':' || ls.name || '=' || COALESCE(SUM(ds.row_count),0)::TEXT
+          FROM data_segments ds
+          JOIN physical_datasets pd
+            ON pd.org_id = ds.org_id AND pd.id = ds.dataset_id
+          JOIN logical_streams ls
+            ON ls.org_id = pd.org_id AND ls.id = pd.logical_stream_id
+         WHERE ds.org_id = ${sqlString(api.orgId)}
+           AND ds.state IN ('active', 'sealed')
+           AND ls.name IN (${names})
+         GROUP BY ls.stream_type, ls.name
+         ORDER BY ls.stream_type, ls.name;
       `,
       { capture: true },
     )
@@ -1433,7 +1425,7 @@ async function verify(api, { directDb = true } = {}) {
       .filter(Boolean);
   }
 
-  return { checks, parquetFileMeta };
+  return { checks, catalogSegments };
 }
 
 // ---------- Main ----------
@@ -1450,7 +1442,7 @@ async function main() {
 
   if (ARGS.has('--topology-only')) {
     const topologyTraces = makeTopologyTraces();
-    await api.post('/ingest/traces/topology_traces', topologyTraces);
+    await api.post('/intake/traces/topology_traces', topologyTraces);
     console.log(
       JSON.stringify(
         {
@@ -1469,7 +1461,7 @@ async function main() {
 
   if (ARGS.has('--rum-only')) {
     const linkedTraces = makeTraces();
-    await api.post('/ingest/traces/traces', linkedTraces);
+    await api.post('/intake/traces/traces', linkedTraces);
     const created = [
       `traces: ${linkedTraces.length} spans linked from RUM actions`,
       ...(await seedRum(api)),
@@ -1511,16 +1503,15 @@ async function main() {
 
   const created = [];
   if (API_ONLY) {
-    created.push('streams: schema-on-write through ingest APIs');
+    created.push('streams: schema-on-write through intake APIs');
   } else {
     created.push(seedStreams(api.orgId));
-    resetSeedParquetFileMeta(api.orgId);
   }
   created.push(...(await seedTelemetry(api)));
   created.push(...(await seedProfiles(api)));
   created.push(...(await seedRum(api)));
   if (API_ONLY) {
-    created.push('service_graph_edges: derived from ingested traces');
+    created.push('service_graph_edges: derived from received traces');
   } else {
     created.push(seedServiceGraph(api.orgId));
   }

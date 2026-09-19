@@ -15,6 +15,17 @@ import { AccountProfile } from './account/Profile';
 import { AccountSecurity } from './account/Security';
 import { AccountSessions } from './account/Sessions';
 import { AccountWorkspaceIdentity } from './account/WorkspaceIdentity';
+import {
+  AgentSettingsPage,
+  ApprovalsPage as AgentApprovalsPage,
+  AutomationsPage as AgentAutomationsPage,
+  ExecutionsPage as AgentExecutionsPage,
+  AgentChat,
+  AgentLayout,
+  DashboardDraftPage,
+  InvestigationDetailPage,
+  InvestigationsPage,
+} from './agent';
 import { Alerts } from './alerts';
 import { AlertsAnomaly } from './alerts/Anomaly';
 import { AlertsEscalations } from './alerts/Escalations';
@@ -56,6 +67,8 @@ import {
 } from './functions';
 import { Home } from './home';
 import {
+  ApiTokens as IamApiTokens,
+  Approvals as IamApprovals,
   EmailDomains as IamEmailDomains,
   Groups as IamGroups,
   IamIndexRedirect,
@@ -67,20 +80,8 @@ import {
   ServiceAccounts as IamServiceAccounts,
   Teams as IamTeams,
   Users as IamUsers,
-  Approvals as IamApprovals,
 } from './iam';
 import { IncidentDetail } from './IncidentDetail';
-import {
-  AgentSettingsPage,
-  ApprovalsPage as IntelligenceApprovalsPage,
-  AutomationsPage as IntelligenceAutomationsPage,
-  ExecutionsPage as IntelligenceExecutionsPage,
-  IntelligenceChat,
-  IntelligenceLayout,
-  DashboardDraftPage,
-  InvestigationDetailPage,
-  InvestigationsPage,
-} from './intelligence';
 import { Investigate } from './Investigate';
 import { Logs } from './logs';
 import { LogsInspector } from './logs/Inspector';
@@ -93,6 +94,7 @@ import { NotifyDeliveriesPage } from './notify/DeliveriesPage';
 import { NotifyPoliciesPage } from './notify/policy';
 import { NotifyTemplatesPage } from './notify/template';
 import { NotifyUsersPage } from './notify/UsersPage';
+import { InboundMcpOAuthAuthorize } from './oauth/Authorize';
 import {
   PipelineAdd,
   PipelineBackfill,
@@ -120,6 +122,7 @@ import {
   CipherKeys,
   Correlation,
   DomainManagement,
+  FieldMasking,
   General,
   License,
   ModelPricing,
@@ -134,8 +137,16 @@ import {
 import { ShellRoot } from './ShellRoot';
 import { Signin } from './Signin';
 import { Signup } from './Signup';
+import {
+  PublicStatusHistoryPage,
+  PublicStatusUptimePage,
+} from './status-pages/PublicStatusArchivePage';
+import { PublicStatusIncidentPage } from './status-pages/PublicStatusIncidentPage';
+import { PublicStatusPage } from './status-pages/PublicStatusPage';
+import { STATUS_PAGE_MANAGEMENT_ROUTES } from './status-pages/routes';
 import { Streams } from './streams';
 import { StreamExplore } from './streams/Explore';
+import { SYNTHETICS_ROUTES } from './synthetics/routes';
 import { Traces } from './traces';
 import { TraceDetail } from './traces/Detail';
 import { TraceSessionDetail } from './traces/SessionDetail';
@@ -210,10 +221,73 @@ function LegacyServicesRedirect() {
   );
 }
 
+function AuthenticatedShell() {
+  return (
+    <RequireAuth>
+      <ShellRoot />
+    </RequireAuth>
+  );
+}
+
+function RootShellRoute() {
+  const location = useLocation();
+  if (location.pathname === '/') {
+    return (
+      <PublicStatusPage
+        source="domain"
+        unmatchedDomain={<AuthenticatedShell />}
+      />
+    );
+  }
+  return <AuthenticatedShell />;
+}
+
 export const router = createBrowserRouter([
   { path: '/signin', element: <Signin /> },
   { path: '/signup', element: <Signup /> },
+  {
+    path: '/oauth/authorize',
+    element: (
+      <RequireAuth>
+        <InboundMcpOAuthAuthorize />
+      </RequireAuth>
+    ),
+  },
   { path: '/shared', element: <PublicShare /> },
+  {
+    path: '/history',
+    element: (
+      <PublicStatusHistoryPage
+        source="domain"
+        unmatchedDomain={<Navigate to="/home" replace />}
+      />
+    ),
+  },
+  {
+    path: '/uptime',
+    element: (
+      <PublicStatusUptimePage
+        source="domain"
+        unmatchedDomain={<Navigate to="/home" replace />}
+      />
+    ),
+  },
+  {
+    path: '/incidents/:incidentId',
+    element: (
+      <PublicStatusIncidentPage
+        source="domain"
+        unmatchedDomain={<Navigate to="/home" replace />}
+      />
+    ),
+  },
+  {
+    path: '/status/:slug/incidents/:incidentId',
+    element: <PublicStatusIncidentPage />,
+  },
+  { path: '/status/:slug/history', element: <PublicStatusHistoryPage /> },
+  { path: '/status/:slug/uptime', element: <PublicStatusUptimePage /> },
+  { path: '/status/:slug', element: <PublicStatusPage /> },
   ...DEMO_ROUTES,
 
   {
@@ -227,11 +301,7 @@ export const router = createBrowserRouter([
 
   {
     path: '/',
-    element: (
-      <RequireAuth>
-        <ShellRoot />
-      </RequireAuth>
-    ),
+    element: <RootShellRoute />,
     children: [
       { index: true, element: <DefaultHomeRedirect /> },
 
@@ -243,22 +313,22 @@ export const router = createBrowserRouter([
       { path: 'datasource/:category', element: <Datasource /> },
       { path: 'datasource/:category/:source', element: <Datasource /> },
       { path: 'datasources', element: <Navigate to="/datasource" replace /> },
-      { path: 'ingest', element: <Navigate to="/datasource" replace /> },
-      { path: 'ingest/:category', element: <DatasourceRedirect /> },
-      { path: 'ingest/:category/:source', element: <DatasourceRedirect /> },
+      { path: 'intake', element: <Navigate to="/datasource" replace /> },
+      { path: 'intake/:category', element: <DatasourceRedirect /> },
+      { path: 'intake/:category/:source', element: <DatasourceRedirect /> },
 
       /* OBSERVE */
       {
-        path: 'intelligence',
-        element: <IntelligenceLayout />,
+        path: 'agent',
+        element: <AgentLayout />,
         children: [
-          { index: true, element: <Navigate to="/intelligence/chat" replace /> },
-          { path: 'chat', element: <IntelligenceChat /> },
+          { index: true, element: <Navigate to="/agent/chat" replace /> },
+          { path: 'chat', element: <AgentChat /> },
           { path: 'investigations', element: <InvestigationsPage /> },
           { path: 'investigations/:id', element: <InvestigationDetailPage /> },
-          { path: 'automations', element: <IntelligenceAutomationsPage /> },
-          { path: 'approvals', element: <IntelligenceApprovalsPage /> },
-          { path: 'executions', element: <IntelligenceExecutionsPage /> },
+          { path: 'automations', element: <AgentAutomationsPage /> },
+          { path: 'approvals', element: <AgentApprovalsPage /> },
+          { path: 'executions', element: <AgentExecutionsPage /> },
           {
             path: 'settings',
             element: <AgentSettingsPage />,
@@ -332,8 +402,9 @@ export const router = createBrowserRouter([
       { path: 'alerts/schedules/:id', element: <AlertsScheduleDetail /> },
       { path: 'alerts/silences', element: <AlertsSilences /> },
       { path: 'alerts/semantic-groups', element: <SemanticGroups /> },
-      // sitemap parity alias for the planned /alerts/import-semantic-groups route.
+      // Alias for the planned /alerts/import-semantic-groups route.
       { path: 'alerts/import-semantic-groups', element: <SemanticGroups /> },
+      ...SYNTHETICS_ROUTES,
 
       /* DATA */
       { path: 'streams', element: <Streams /> },
@@ -347,6 +418,7 @@ export const router = createBrowserRouter([
       { path: 'pipelines/:id/history', element: <PipelineHistory /> },
       { path: 'pipelines/:id/backfill', element: <PipelineBackfill /> },
       { path: 'reports', element: <Reports /> },
+      ...STATUS_PAGE_MANAGEMENT_ROUTES,
       { path: 'functions', element: <FunctionsList /> },
       { path: 'functions/new', element: <FunctionsEdit /> },
       { path: 'functions/:id', element: <FunctionsEdit /> },
@@ -366,6 +438,7 @@ export const router = createBrowserRouter([
           { index: true, element: <IamIndexRedirect /> },
           { path: 'users', element: <IamUsers /> },
           { path: 'approvals', element: <IamApprovals /> },
+          { path: 'api-tokens', element: <IamApiTokens /> },
           { path: 'service-accounts', element: <IamServiceAccounts /> },
           { path: 'organizations', element: <IamOrganizations /> },
           { path: 'groups', element: <IamGroups /> },
@@ -408,6 +481,7 @@ export const router = createBrowserRouter([
           { path: 'sso_providers', element: <Navigate to="/iam/sso" replace /> },
           { path: 'cipher_keys', element: <CipherKeys /> },
           { path: 'regex_patterns', element: <RegexPatterns /> },
+          { path: 'field_masking', element: <FieldMasking /> },
           { path: 'domain_management', element: <DomainManagement /> },
           { path: 'organization_management', element: <OrganizationManagement /> },
           { path: 'model_pricing', element: <ModelPricing /> },
@@ -436,7 +510,7 @@ export const router = createBrowserRouter([
       { path: 'account/billing', element: <AccountBilling /> },
       { path: 'account/support', element: <AccountSupport /> },
 
-      /* legacy / keyboard nav parity */
+      /* Legacy and keyboard navigation routes. */
       { path: 'investigate', element: <Investigate /> },
       { path: 'alerts/incidents/:id', element: <IncidentDetail /> },
       { path: 'saved-views', element: <SavedViews /> },

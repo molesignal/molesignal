@@ -22,7 +22,7 @@ export async function getSampleDataStatus(): Promise<SampleDataStatus> {
   return data;
 }
 
-/** `POST /onboarding/sample-data` — ingest the built-in cross-signal demo
+/** `POST /onboarding/sample-data` — intake the built-in cross-signal demo
  *  (logs + metrics + traces sharing trace_ids) into the current org. */
 export async function loadSampleData(): Promise<LoadSampleResult> {
   const { data } = await http.post<LoadSampleResult>('/onboarding/sample-data');

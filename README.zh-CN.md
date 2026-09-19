@@ -17,7 +17,7 @@
 
 现有可观测工具逼你二选一：
 
-- **商业 SaaS**（Datadog / New Relic / Splunk）—— 三种信号确实串得通，但账单跟流量线性增长。一个中等规模的团队，100 GB/天 一个月轻松 **2k–10k 美元**；想省钱只能砍 ingest，砍 ingest 又看不到东西。
+- **商业 SaaS**（Datadog / New Relic / Splunk）—— 三种信号确实串得通，但账单跟流量线性增长。一个中等规模的团队，100 GB/天 一个月轻松 **2k–10k 美元**；想省钱只能砍 intake，砍 intake 又看不到东西。
 - **开源拼装**（Loki + Mimir + Tempo + Grafana，或 ELK + Prometheus + Jaeger）—— 不要钱，但**日志 / 指标 / trace 在三个独立的存储里、用三种不同的查询语言**。排障时人人都需要的"trace ↔ log ↔ 主机 metric"那一跳必须人肉拼：复制一个 trace_id、切 tab、粘进去、再粘一次时间范围、祈祷两边时钟对得上。
 
 MoleSignal 走第三条路：**一个存储层（对象存储上的 Parquet）+ 一个查询引擎（DataFusion + Arrow）+ 一个元数据层（Postgres）**——三种信号在**数据层**就是串通的，不是靠 dashboard 拼出来的。自托管，所以你的账单就是 S3 的成本。
@@ -29,7 +29,7 @@ MoleSignal 走第三条路：**一个存储层（对象存储上的 Parquet）+ 
 | 跨信号关联 | ✅（付费） | ⚠️ 手动 copy-paste trace_id | **✅ 原生（`/web/correlation/*`）** |
 | 数据归属 | 他们的云 | 自托管 | **自托管** |
 | 起步时间 | 5 分钟（配 agent） | 6 小时+（5 个组件 + Grafana） | **`docker compose up` 一行** |
-| OpenTelemetry 原生 | 是 | 部分 | **是（10 个采集协议）** |
+| OpenTelemetry 原生 | 是 | 部分 | **是（9 个采集协议）** |
 | 实时告警（<1s） | 是 | 否（评估周期 ≥ 抓取周期） | **是（`kind: realtime`）** |
 | 原生多租户 | 是（按账户） | 否 | **是（planner 层 org rewrite）** |
 
@@ -50,11 +50,13 @@ docker compose -f deploy/docker/docker-compose.yaml --profile standalone up
 # S3 控制台： http://localhost:9001  (minioadmin / minioadmin)
 ```
 
+Web UI 已嵌入 `molesignal` 二进制，由同一个 `5080` HTTP 端口提供，无需单独部署前端服务。
+
 发送第一条数据：
 
 ```bash
 # OTLP HTTP（OpenTelemetry Collector / SDK / Vector / Fluent Bit 直接对接）
-curl -X POST http://localhost:5080/api/v1/ingest/logs/app \
+curl -X POST http://localhost:5080/api/v1/intake/logs/app \
   -H 'content-type: application/json' \
   -H 'authorization: Bearer <jwt>' \
   -d '[{"_timestamp":1700000000000000,"level":"error","msg":"db pool exhausted","trace_id":"abc123"}]'
@@ -84,30 +86,44 @@ Vector / Fluent Bit / OTel Collector / Prometheus remote_write 等完整对接�
 - 时间锚点同步所有面板（一次 zoom 自动广播）
 - 调查栈：从 `metric → trace → log → host` 来回钻而不丢上下文
 
-### 📡 采集（10 个协议，drop-in 替代）
+### 📡 采集（兼容 9 种协议）
 
-| 协议 | Endpoint | 直接替代 |
+| 协议 | Endpoint | 兼容客户端 / 服务 |
 |---|---|---|
 | OTLP gRPC | `:5082` | OpenTelemetry SDK / Collector |
 | OTLP HTTP | `POST /api/v1/{logs,metrics,traces}` | OTel HTTP exporter |
 | Prometheus remote_write | `POST /api/v1/prometheus/api/v1/write` | Prometheus / VictoriaMetrics |
 | Elasticsearch `_bulk` | `POST /api/v1/_bulk` | Filebeat / Vector ES sink / Logstash |
 | Loki push | `POST /api/v1/loki/api/v1/push` | Promtail / Vector Loki sink |
-| Syslog UDP/TCP | `[syslog].udp_bind` / `tcp_bind` | rsyslog / syslog-ng |
 | Kinesis Firehose | `POST /api/v1/_kinesis_firehose` | AWS Firehose |
 | Cloudflare Logpush | `POST /api/v1/_cloudflare` | Cloudflare Logpush |
 | Heroku log drain | `POST /api/v1/_heroku` | Heroku |
-| 原生 HTTP JSON | `POST /api/v1/ingest/{type}/:stream` | curl / 应用 SDK |
+| 原生 HTTP JSON | `POST /api/v1/intake/{type}/:stream` | curl / 应用 SDK |
 
-### 🗃️ 存储与查询 —— 一个引擎搞定全部
+### 🌐 RUM & APM
+
+- **RUM** — Datadog 兼容接收端，支持 session / action / error / replay；JavaScript 与 native stack 的 sourcemap 符号化
+- **APM** — 从 trace 派生 service graph、RED metrics 与依赖视图；service/endpoint 逐级下钻
+
+### 🗃️ 存储与查询 — 一个引擎搞定全部
 
 - **列式存储** —— Parquet on S3 / GCS / Azure / MinIO；Postgres 存元数据
 - **Tantivy 倒排索引** —— 查询时文件级裁剪（典型 ~99% 减少扫描）
-- **DataFusion 查询引擎** —— 完整 SQL，含 join / CTE / window function，跨 logs / metrics / traces
+- **查询引擎** —— 完整 SQL，含 join / CTE / window function，跨 logs / metrics / traces
 - **PromQL 子集** —— `rate` / `increase` / `sum/avg/min/max/count by/without` / `histogram_quantile`（[路线图](docs/promql_subset.md)）
 - **Arrow Flight 分布式查询** —— coordinator 按一致性哈希分片，peer 流式回传 `RecordBatch`
-- **3 级缓存** —— `parquet_file_meta` / `parquet_meta` / `query_result`，外加默认开启的 parquet 磁盘缓存（`./data/cache/parquet`，10 GB LRU；通过 `[cache.disk_cache]` 调整或关闭）
-- **ParquetFileMeta 冷分层** —— 超过 `[storage.parquet_file_meta_dump].cold_after_days`（默认 30 天）的分区被序列化下沉到 object_store，主元数据表始终保持小；查询路径自动跨冷热合并
+- **统一对象缓存** —— 所有远端 Artifact / Manifest range read 共享按 checksum 绑定的固定块缓存（`[cache.object]`），本地文件系统自动旁路
+- **版本化 FileCatalog** —— 冷分区以 immutable manifest 的 sealed base + overlay generation 管理；查询在同一快照中合并 manifest、热 Catalog segment 与实时 buffer
+
+### 📊 仪表盘
+
+- 自定义仪表盘，支持图表变量，time-series / stat / table / topology 等面板类型
+- Dashboard contracts 支持版本化部署与同步
+
+### 🌍 联邦搜索
+
+- 跨集群资源同步（CloudEvents 1.0）
+- Dashboards、告警规则、regex patterns 跨集群共享，Lamport 版本号做冲突解决
 
 ### 🚨 告警
 
@@ -115,13 +131,21 @@ Vector / Fluent Bit / OTel Collector / Prometheus remote_write 等完整对接�
 - **升级策略** —— 多步 + ack 超时 + 排班轮值 + override
 - **Notify 管理** —— 加密 Connector、用户 Endpoint/Preference、策略匹配、三级兜底、确认升级与幂等投递
 
-### 🏢 多租户与安全
+### 🛡️ 平台
 
-- **planner 层 org 隔离** —— 所有 SQL plan 强制 `org_id` rewrite，跨 org 数据零泄漏可能
-- **API token**（`ms_<prefix>_<secret>`）与 JWT 并存；每个 token 引用数据库 IAM `role_id`，并记录 expiry / last-used
-- **审计日志** 覆盖所有写操作
-- **字段级加密** —— `cipher_keys` 用 AES-256-GCM + master-key envelope；VRL `encrypt()` / `decrypt()` 内置
-- **per-org 配额** —— ingest QPS / query QPS / 存储 cap（超限 429 / 413 + 审计 + 告警）
+- **SSO** — OIDC / SAML / LDAP，支持身份字段映射与用户组角色绑定
+- **RBAC** — API token（`ms_<prefix>_<secret>`）与 JWT 并存；per-token 角色、过期、last-used
+- **多租户** — planner 层 `org_id` 强制 rewrite，跨 org 数据零泄漏可能
+- **审计日志** — 覆盖所有写操作
+- **字段级加密** — AES-256-GCM + cipher root key envelope；VRL `encrypt()` / `decrypt()` 内置
+- **per-org 配额** — intake QPS / query QPS / 存储 cap
+
+### 🤖 Mole Agent
+
+- 基于遥测数据的自然语言对话（SSE 流式）
+- MCP server 对接 AI 助手
+- 按 org 配置 model provider / toolset / prompt
+- 从对话生成仪表盘草稿
 
 ### ⌨️ 键盘友好的 Web UI
 
@@ -129,31 +153,48 @@ Vector / Fluent Bit / OTel Collector / Prometheus remote_write 等完整对接�
 - 调查栈（最多 6 帧）—— 下钻时压栈；`⌘[` / `⌘]` 前后切；pin 帧锁定上下文
 - 任何可点击操作都可键盘到达
 
+### 🧩 Pipeline 函数（VRL + JavaScript + 可选 LLM）
+
+函数是挂在 pipeline 步骤上的可复用转换逻辑。有三种类型，运行在 intake 热路径上：
+
+- **VRL** — 始终可用。按 `(function_id, updated_at)` 编译，基于上游 `vrl::compiler` stdlib（`del` / `parse_json` / `to_int` / `match` / `encrypt` / `decrypt` 等）。
+- **JavaScript** — 基于 `deno_core`（V8），默认包含在 `molesignal` 主二进制中，不设运行时开关。自定义精简构建可以排除默认的 `js-runtime` feature；这类构建会拒绝 JavaScript 函数。
+- **LLM** — 可选，将事件 JSON 交给配置好的 AI provider（agent）评估，模型输出写回事件的可配置字段（默认 `_llm_eval`）。由运行时开关控制：
+
+  ```toml
+  [functions]
+  llm_eval_enabled = true
+  ```
+
+  关闭时 pipeline 拒绝 `language=llm` 的步骤。
+
 ### ☸️ 运维
 
-- **6 个无状态 role** —— `router` / `ingester(SF + PVC)` / `querier` / `compactor` / `alert-manager` / `connector`，只 ingester 有本地状态（WAL，≤ flush_interval 窗口）
+- **6 个无状态 role** —— `router` / `intake(SF + PVC)` / `querier` / `compactor` / `alert-manager` / `connector`，只 intake 有本地状态（WAL，≤ flush_interval 窗口）
 - **单二进制** —— 同一镜像跑所有 role，靠 `MS_NODE_ROLES` 区分
 - **Kubernetes manifest** 见 [deploy/k8s/](deploy/k8s/)，Docker Compose 提供 `standalone` 与 `multirole` 双 profile
-- **Prometheus `/metrics`** 默认暴露，含 cache / object_store / ingester / compactor 各层指标
-- **健康探针** —— readiness 由 ingester WAL replay 完成 + object_store round-trip 探活共同决定
+- **Prometheus `/metrics`** 默认暴露，含 cache / object_store / intake / compactor 各层指标
+- **健康探针** —— readiness 由 intake WAL replay 完成 + object_store round-trip 探活共同决定
 
 ---
 
 ## 架构
 
+源码 workspace 的完整目录与依赖规则见 [ARCHITECTURE.md](ARCHITECTURE.md)。
+
 ```
                           ┌──────────┐
-   OTel / Vector / ...  ─►│  router  │─► 一致性哈希(org,stream) ─► ingester(s)
+   OTel / Vector / ...  ─►│  router  │─► 一致性哈希(org,stream) ─► intake(s)
                           └──────────┘                              │
                                │                                    ▼
                                ▼                            WAL + Arrow buffer
-                       /api/v1/{ingest,query,...}                   │
+                       /api/v1/{intake,query,...}                   │
                                │                          flush → Parquet + Tantivy
                                ▼                          上传 S3
                        ┌──────────────┐                             │
                        │   web shell  │                             ▼
                        │ (⌘K + 调查栈) │       ┌────────────────────────────┐
-                       └──────┬───────┘       │ ParquetFileMeta in Postgres       │
+                       └──────┬───────┘       │ FileCatalog in Postgres     │
                               │ /query        │ object_store in S3/GCS/... │
                               ▼               └────────────────────────────┘
                        ┌──────────────┐                  ▲
@@ -162,8 +203,6 @@ Vector / Fluent Bit / OTel Collector / Prometheus remote_write 等完整对接�
 ```
 
 **关键点：** logs、metrics、traces 全部落到**同一批** Parquet 文件里（不同 stream，相同物理存储）。一条 SQL 查询可以原生 join 三种信号——不需要跨 store 联邦，不需要人肉对 trace_id。
-
-完整设计见 [ARCHITECTURE.md](ARCHITECTURE.md)（含缓存层 / 分布式查询 / 对象存储生产化 / pipeline / 10 个采集协议 / 实时与异常告警 / 联邦查询 / license 模型 —— 约 10 节设计笔记）。
 
 ---
 
@@ -174,15 +213,15 @@ Pre-1.0，**早期项目**。发布日期 YYYY-MM-DD。
 | 领域 | 状态 |
 |---|---|
 | 采集链路（WAL + buffer + flush） | ✅ 已通 |
-| 10 个采集协议 | ✅ receiver 已建；待真实流量打磨 |
+| 9 个采集协议 | ✅ 已通 |
 | Arrow Flight 分布式查询 | ✅ 已通 |
 | 3 级缓存 + 磁盘缓存 | ✅ 已通 |
 | 多租户 planner rewrite | ✅ 已通 |
-| realtime + scheduled + anomaly 告警 | ✅ 逻辑完整；需生产小时数 |
+| realtime + scheduled + anomaly 告警 | ✅ 已通 |
 | Cipher keys + audit + quotas | ✅ 已通 |
-| 跨信号关联 API | ✅ spec 完整；Web 集成进行中 |
-| Web shell（⌘K + 调查栈） | 🚧 spec 完整；集成进行中 |
-| SSO（OIDC / SAML / LDAP） | ✅ 已实现，受 License 门禁控制 |
+| 跨信号关联 API | ✅ 已通 |
+| Web shell（⌘K + 调查栈） | ✅ 已通 |
+| SSO（OIDC / SAML / LDAP） | ✅ 已通 |
 | 首启动 demo 数据集 | ⏳ 待做 |
 | 生产硬化 | ⏳ 需真实负载验证 |
 
@@ -194,10 +233,7 @@ Pre-1.0，**早期项目**。发布日期 YYYY-MM-DD。
 
 ```bash
 # 开源生产制品
-BUILD_ID=local-001 cargo build --release --locked -p molesignal
-
-# 付费版（需 SSH key 拉私有仓 git@github.com:molesignal/molesignal-.git）
-BUILD_ID=local-001 cargo build --release --locked -p molesignal --features <features>
+BUILD_ID=local-001 make build-release
 
 # 晋升时只修改运行时部署元数据，复用同一个二进制。
 RELEASE_CHANNEL=alpha ./target/release/molesignal --config conf/config.toml
@@ -205,18 +241,16 @@ RELEASE_CHANNEL=alpha ./target/release/molesignal --config conf/config.toml
 
 所有可交付制品统一使用 Cargo `release` profile。`BUILD_ID` 与 Git SHA 标识构建制品；运行时 `RELEASE_CHANNEL`（`alpha`、`beta`、`rc`、`stable`）表示部署成熟度。通道晋升复用同一个二进制或不可变镜像，不重新编译。
 
-模块布局与 license gating 模型见 [ARCHITECTURE.md](ARCHITECTURE.md)。
-
 ---
 
 ## 参与贡献
 
-欢迎 PR —— 从架构文档与 `openspec/changes/*/tasks.md` 开始读。约定：
+欢迎 PR —— 从 `openspec/changes/*/tasks.md` 开始读。约定：
 
 - DDD 分层：不要把 infra 关注点塞进 `domain/`
 - 每个 public 类型用一句 doc comment 说明*为什么*存在
-- 集成测试放在 `tests/*_it_*.rs`；依赖 Docker 的用 `MS_RUN_IT=1` 门控
-- push 前跑 `cargo fmt --all` + `cargo clippy --workspace --all-targets`
+- 集成测试放在 `bin/molesignal/tests/*_it_*.rs`；依赖 Docker 的用 `MS_RUN_IT=1` 门控
+- push 前跑 `make fmt-check` + `make lint`
 
 Issue / RFC / 设计讨论都在 GitHub 上。Discord / Slack 暂未建，等第一批用户到位后再开。
 

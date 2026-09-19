@@ -454,8 +454,8 @@ test('service-scoped overview replaces the redundant service ranking with invest
   await expect(page.getByText('P99 latency', { exact: true }).first()).toBeVisible();
   await expect(
     page
-      .getByRole('list', { name: 'Series legend' })
-      .getByRole('listitem')
+      .getByRole('table', { name: 'Series legend' })
+      .locator('tbody tr')
       .first(),
   ).toHaveCSS('font-size', '11px');
 });
@@ -503,6 +503,39 @@ test('RUM keeps an independent analysis navigation and guides SDK activation', a
   await page.route('**/api/v1/query', (route) =>
     route.fulfill({
       json: { columns: [], rows: [], scanned_rows: 0, took_ms: 1 },
+    }),
+  );
+  await page.route(/\/api\/v1\/rum\/overview(?:\?.*)?$/, (route) =>
+    route.fulfill({
+      json: {
+        metrics: {
+          users: 0,
+          sessions: 0,
+          errorFreeRate: 0,
+          lcpP75: 0,
+          inpP75: 0,
+          clsP75: 0,
+        },
+        browserDevices: [],
+        regions: [],
+        facets: {
+          applications: [],
+          environments: [],
+          versions: [],
+          countries: [],
+          devices: [],
+        },
+      },
+    }),
+  );
+  await page.route(/\/api\/v1\/rum\/overview\/insights(?:\?.*)?$/, (route) =>
+    route.fulfill({
+      json: {
+        trend: [],
+        satisfaction: { good: 0, needsImprovement: 0, poor: 0, total: 0 },
+        slowPages: [],
+        frequentErrors: [],
+      },
     }),
   );
 

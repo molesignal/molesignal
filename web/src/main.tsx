@@ -28,7 +28,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <QueryClientProvider client={queryClient}>
         <TooltipProvider delayDuration={200}>
           <KeyboardProvider>
-            <RouterProvider router={router} />
+            <RouterProvider router={router} future={{ v7_startTransition: true }} />
             <Toaster />
           </KeyboardProvider>
         </TooltipProvider>

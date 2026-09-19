@@ -84,11 +84,11 @@ export function ProfilesCompare() {
 
   return (
     <ListPage
+      appearance="surface"
       title={t('compare.title')}
       subtitle={t('compare.subtitle') as string}
       filters={filters}
       breadcrumbs={[{ labelKey: 'profiles', to: '/profiles' }, { labelKey: 'breadcrumbs.profiles_compare' }]}
-      backTo="/profiles"
       state={
         diffQuery.isFetching
           ? { variant: 'loading' }
@@ -108,7 +108,11 @@ export function ProfilesCompare() {
             <span>{t('compare.baseline_count', { count: diffQuery.data.baseline_count })}</span>
             <span>{t('compare.comparison_count', { count: diffQuery.data.comparison_count })}</span>
           </div>
-          <Flamegraph flamebearer={diffQuery.data.flamebearer} diff />
+          <Flamegraph
+            flamebearer={diffQuery.data.flamebearer}
+            diff
+            className="border-0 [box-shadow:var(--shadow-functional-surface)]"
+          />
         </div>
       )}
     </ListPage>

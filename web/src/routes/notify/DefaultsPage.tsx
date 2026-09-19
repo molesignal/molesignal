@@ -123,8 +123,8 @@ export function NotifyDefaultsPage() {
       title={t('defaults.title')}
       subtitle={t('defaults.subtitle')}
     >
-      <div className="mx-auto w-full max-w-5xl space-y-5">
-        <div className="grid gap-4 rounded-lg border border-bd-0 bg-bg-1 p-5 md:grid-cols-2">
+      <div className="w-full max-w-6xl space-y-9">
+        <div className="grid gap-5 md:grid-cols-2">
           <FormField label={t('defaults.scope')}>
             <FormSelect
               value={scope}
@@ -155,8 +155,8 @@ export function NotifyDefaultsPage() {
           </FormField>
         </div>
 
-        <section className="rounded-lg border border-bd-0 bg-bg-1">
-          <header className="flex min-h-14 flex-wrap items-center gap-3 border-b border-bd-0 px-5 py-3">
+        <section>
+          <header className="flex min-h-11 flex-wrap items-center gap-3">
             <div className="min-w-0 flex-1">
               <h2 className="text-sm font-semibold text-tx-0">{t('defaults.routes')}</h2>
               <p className="mt-0.5 text-xs text-tx-3">
@@ -168,13 +168,13 @@ export function NotifyDefaultsPage() {
               <Switch checked={enabled} onCheckedChange={setEnabled} />
             </label>
           </header>
-          <div className="space-y-3 p-5">
+          <div className="mt-6 space-y-6">
             {routes.map((route, index) => (
               <div
                 key={`${index}:${route.connector_id}`}
-                className="grid gap-3 rounded-md border border-bd-0 bg-bg-2 p-3 md:grid-cols-[36px_minmax(0,1fr)_180px_minmax(0,1fr)_36px]"
+                className="grid gap-3 md:grid-cols-[36px_minmax(0,1fr)_180px_minmax(0,1fr)_36px]"
               >
-                <div className="grid h-9 place-items-center rounded-md bg-bg-3 font-mono text-xs text-tx-2">
+                <div className="grid h-9 place-items-center font-mono text-xs text-tx-2">
                   {index + 1}
                 </div>
                 <FormField label={t('defaults.connector')}>
@@ -243,7 +243,7 @@ export function NotifyDefaultsPage() {
               {t('defaults.add_route')}
             </ChromeButton>
           </div>
-          <footer className="flex justify-end gap-2 border-t border-bd-0 bg-bg-2 px-5 py-4">
+          <footer className="mt-9 flex justify-end gap-2">
             {current && (
               <ChromeButton
                 disabled={manage.disabled || remove.isPending}

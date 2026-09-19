@@ -2,6 +2,7 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
 import enAccount from './en-us/account.json';
+import enAgent from './en-us/agent.json';
 import enAlerts from './en-us/alerts.json';
 import enApm from './en-us/apm.json';
 import enCommon from './en-us/common.json';
@@ -11,7 +12,6 @@ import enEdition from './en-us/edition.json';
 import enErrors from './en-us/errors.json';
 import enFunctions from './en-us/functions.json';
 import enIam from './en-us/iam.json';
-import enIntelligence from './en-us/intelligence.json';
 import enKeyboard from './en-us/keyboard.json';
 import enLogs from './en-us/logs.json';
 import enMetrics from './en-us/metrics.json';
@@ -29,9 +29,12 @@ import enSemanticGroups from './en-us/semantic-groups.json';
 import enServices from './en-us/services.json';
 import enSettingsAdmin from './en-us/settings-admin.json';
 import enShell from './en-us/shell.json';
+import enStatusPages from './en-us/status-pages.json';
 import enStreams from './en-us/streams.json';
+import enSynthetics from './en-us/synthetics.json';
 import enTraces from './en-us/traces.json';
 import zhAccount from './zh-cn/account.json';
+import zhAgent from './zh-cn/agent.json';
 import zhAlerts from './zh-cn/alerts.json';
 import zhApm from './zh-cn/apm.json';
 import zhCommon from './zh-cn/common.json';
@@ -41,7 +44,6 @@ import zhEdition from './zh-cn/edition.json';
 import zhErrors from './zh-cn/errors.json';
 import zhFunctions from './zh-cn/functions.json';
 import zhIam from './zh-cn/iam.json';
-import zhIntelligence from './zh-cn/intelligence.json';
 import zhKeyboard from './zh-cn/keyboard.json';
 import zhLogs from './zh-cn/logs.json';
 import zhMetrics from './zh-cn/metrics.json';
@@ -59,7 +61,9 @@ import zhSemanticGroups from './zh-cn/semantic-groups.json';
 import zhServices from './zh-cn/services.json';
 import zhSettingsAdmin from './zh-cn/settings-admin.json';
 import zhShell from './zh-cn/shell.json';
+import zhStatusPages from './zh-cn/status-pages.json';
 import zhStreams from './zh-cn/streams.json';
+import zhSynthetics from './zh-cn/synthetics.json';
 import zhTraces from './zh-cn/traces.json';
 
 export const SUPPORTED_LOCALES = ['en-us', 'zh-cn'] as const;
@@ -81,7 +85,7 @@ const NAMESPACES = [
   'account',
   'apm',
   'common',
-  'intelligence',
+  'agent',
   'palette',
   'keyboard',
   'nav',
@@ -108,6 +112,8 @@ const NAMESPACES = [
   'semantic-groups',
   'services',
   'settings-admin',
+  'status-pages',
+  'synthetics',
 ] as const;
 
 const resources = {
@@ -115,7 +121,7 @@ const resources = {
     account: enAccount,
     apm: enApm,
     common: enCommon,
-    intelligence: enIntelligence,
+    agent: enAgent,
     palette: enPalette,
     keyboard: enKeyboard,
     nav: enNav,
@@ -142,12 +148,14 @@ const resources = {
     'semantic-groups': enSemanticGroups,
     services: enServices,
     'settings-admin': enSettingsAdmin,
+    'status-pages': enStatusPages,
+    synthetics: enSynthetics,
   },
   'zh-cn': {
     account: zhAccount,
     apm: zhApm,
     common: zhCommon,
-    intelligence: zhIntelligence,
+    agent: zhAgent,
     palette: zhPalette,
     keyboard: zhKeyboard,
     nav: zhNav,
@@ -174,6 +182,8 @@ const resources = {
     'semantic-groups': zhSemanticGroups,
     services: zhServices,
     'settings-admin': zhSettingsAdmin,
+    'status-pages': zhStatusPages,
+    synthetics: zhSynthetics,
   },
 } as const;
 

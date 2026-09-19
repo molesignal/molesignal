@@ -2,7 +2,7 @@ import { http, toApiError } from '@/lib/http';
 
 /**
  * Continuous Profiling client. Talks to the backend profiles routes
- * (crates/api/src/http/routes/profiles.rs):
+ * (`bin/molesignal/src/api/http/routes/profiles.rs`):
  *
  *  - `GET /profiles`            metadata list / filter
  *  - `GET /profiles/flamegraph` window-merged flamebearer (+ trace correlation)
@@ -124,7 +124,7 @@ function queryParams(params: Record<string, string | number | undefined>): Recor
   return out;
 }
 
-/** The profiles stream is created on first ingest (schema-on-write); before
+/** The profiles stream is created on first intake (schema-on-write); before
  *  that the query planner returns "stream not found". Empty instances should
  *  render the onboarding empty state, not an error — so callers treat that one
  *  message as "no data yet". */

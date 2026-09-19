@@ -1,8 +1,15 @@
 import * as ContextMenuPrimitive from '@radix-ui/react-context-menu';
-import { Check, ChevronRight, Circle } from 'lucide-react';
+import { Check, ChevronRight } from 'lucide-react';
 import * as React from 'react';
 
 import { cn } from '@/shell/lib/cn';
+import {
+  floatingMenuContentClass,
+  floatingMenuItemClass,
+  floatingMenuLabelClass,
+  floatingMenuSelectedClass,
+  floatingMenuSeparatorClass,
+} from '@/shell/ui/floating';
 
 const ContextMenu = ContextMenuPrimitive.Root;
 const ContextMenuTrigger = ContextMenuPrimitive.Trigger;
@@ -18,14 +25,15 @@ const ContextMenuSubTrigger = React.forwardRef<
   <ContextMenuPrimitive.SubTrigger
     ref={ref}
     className={cn(
-      'flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-muted data-[state=open]:bg-muted',
+      floatingMenuItemClass,
+      'data-[state=open]:bg-[var(--floating-item-hover)] data-[state=open]:text-tx-0',
       inset && 'pl-8',
       className,
     )}
     {...props}
   >
     {children}
-    <ChevronRight className="ml-auto h-4 w-4" />
+    <ChevronRight className="ml-auto h-[14px] w-[14px]" />
   </ContextMenuPrimitive.SubTrigger>
 ));
 ContextMenuSubTrigger.displayName = ContextMenuPrimitive.SubTrigger.displayName;
@@ -36,10 +44,7 @@ const ContextMenuSubContent = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <ContextMenuPrimitive.SubContent
     ref={ref}
-    className={cn(
-      'z-50 min-w-[8rem] overflow-hidden rounded-md border border-border bg-surface p-1 text-foreground shadow-md',
-      className,
-    )}
+    className={cn(floatingMenuContentClass, className)}
     {...props}
   />
 ));
@@ -53,7 +58,8 @@ const ContextMenuContent = React.forwardRef<
     <ContextMenuPrimitive.Content
       ref={ref}
       className={cn(
-        'z-50 min-w-[10rem] overflow-hidden rounded-md border border-border bg-surface p-1 text-foreground shadow-md data-[state=open]:animate-fade-in',
+        floatingMenuContentClass,
+        'min-w-[10rem] data-[state=open]:animate-fade-in',
         className,
       )}
       {...props}
@@ -69,7 +75,7 @@ const ContextMenuItem = React.forwardRef<
   <ContextMenuPrimitive.Item
     ref={ref}
     className={cn(
-      'relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-muted focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+      floatingMenuItemClass,
       inset && 'pl-8',
       className,
     )}
@@ -85,15 +91,17 @@ const ContextMenuCheckboxItem = React.forwardRef<
   <ContextMenuPrimitive.CheckboxItem
     ref={ref}
     className={cn(
-      'relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-muted',
+      floatingMenuItemClass,
+      floatingMenuSelectedClass,
+      'pl-[30px] pr-[10px]',
       className,
     )}
     {...(checked !== undefined && { checked })}
     {...props}
   >
-    <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+    <span className="absolute left-[8px] flex h-[14px] w-[14px] items-center justify-center">
       <ContextMenuPrimitive.ItemIndicator>
-        <Check className="h-4 w-4" />
+        <Check className="h-[14px] w-[14px] text-indigo-soft" />
       </ContextMenuPrimitive.ItemIndicator>
     </span>
     {children}
@@ -108,14 +116,16 @@ const ContextMenuRadioItem = React.forwardRef<
   <ContextMenuPrimitive.RadioItem
     ref={ref}
     className={cn(
-      'relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-muted',
+      floatingMenuItemClass,
+      floatingMenuSelectedClass,
+      'pl-[30px] pr-[10px]',
       className,
     )}
     {...props}
   >
-    <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+    <span className="absolute left-[8px] flex h-[14px] w-[14px] items-center justify-center">
       <ContextMenuPrimitive.ItemIndicator>
-        <Circle className="h-2 w-2 fill-current" />
+        <Check className="h-[14px] w-[14px] text-indigo-soft" />
       </ContextMenuPrimitive.ItemIndicator>
     </span>
     {children}
@@ -129,7 +139,11 @@ const ContextMenuLabel = React.forwardRef<
 >(({ className, inset, ...props }, ref) => (
   <ContextMenuPrimitive.Label
     ref={ref}
-    className={cn('px-2 py-1.5 text-xs font-semibold text-muted-foreground', inset && 'pl-8', className)}
+    className={cn(
+      floatingMenuLabelClass,
+      inset && 'pl-8',
+      className,
+    )}
     {...props}
   />
 ));
@@ -139,12 +153,19 @@ const ContextMenuSeparator = React.forwardRef<
   React.ElementRef<typeof ContextMenuPrimitive.Separator>,
   React.ComponentPropsWithoutRef<typeof ContextMenuPrimitive.Separator>
 >(({ className, ...props }, ref) => (
-  <ContextMenuPrimitive.Separator ref={ref} className={cn('-mx-1 my-1 h-px bg-border', className)} {...props} />
+  <ContextMenuPrimitive.Separator
+    ref={ref}
+    className={cn(floatingMenuSeparatorClass, className)}
+    {...props}
+  />
 ));
 ContextMenuSeparator.displayName = ContextMenuPrimitive.Separator.displayName;
 
 const ContextMenuShortcut = ({ className, ...props }: React.HTMLAttributes<HTMLSpanElement>) => (
-  <span className={cn('ml-auto text-xs tracking-widest text-muted-foreground', className)} {...props} />
+  <span
+    className={cn('ml-auto type-micro tracking-wide text-tx-3', className)}
+    {...props}
+  />
 );
 ContextMenuShortcut.displayName = 'ContextMenuShortcut';
 

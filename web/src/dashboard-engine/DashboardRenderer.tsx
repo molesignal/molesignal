@@ -20,6 +20,8 @@ import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import * as dashboardsApi from '@/api/dashboards';
+import { buildPanelExploreLink } from '@/investigation/exploreLink';
+import { writeClipboardText } from '@/lib/clipboard';
 import {
   canAccessProductPath,
   useProductAccess,
@@ -91,7 +93,6 @@ import type {
   DashboardTimeRange,
   DashboardVariable,
   PanelData,
-  PanelQuery,
 } from './schema';
 import {
   expandRepeatedElements,
@@ -164,7 +165,7 @@ export function DashboardRenderer({
     productAccess,
   );
   const canUseMoleAgent = canAccessProductPath(
-    '/intelligence/chat',
+    '/agent/chat',
     productAccess,
   );
   const configuredRefreshCadence = refreshCadenceFromSettings(
@@ -503,9 +504,6 @@ function DashboardPanelCard({
     ? interpolateVariables(panel.description, variables)
     : '';
   const activeQuery = panel.queries.find((query) => query.enabled);
-  const exploreRoute = activeQuery
-    ? signalExploreRoute(activeQuery.dataSourceType)
-    : '/metrics';
   const menuButton = (
     <button
       type="button"
@@ -609,14 +607,13 @@ function DashboardPanelCard({
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onSelect={() => {
-                        const statement = activeQuery
-                          ? queryExpression(activeQuery)
-                          : '';
-                        nav(
-                          statement
-                            ? `${exploreRoute}?query=${encodeURIComponent(interpolateVariables(statement, variables))}`
-                            : exploreRoute,
-                        );
+                        nav(activeQuery
+                          ? buildPanelExploreLink({
+                              query: activeQuery,
+                              variables,
+                              timeRange: data.timeRange,
+                            })
+                          : '/metrics');
                       }}
                     >
                       <Eye className="h-3.5 w-3.5" /> {tr('Explore data')}
@@ -709,7 +706,7 @@ function DashboardPanelCard({
                       <DropdownMenuItem
                         onSelect={() =>
                           nav(
-                            `/intelligence/chat?dashboard=${encodeURIComponent(context.dashboard.uid)}&panel=${encodeURIComponent(baseElementId(panel.id))}`,
+                            `/agent/chat?dashboard=${encodeURIComponent(context.dashboard.uid)}&panel=${encodeURIComponent(baseElementId(panel.id))}`,
                           )
                         }
                       >
@@ -1125,21 +1122,6 @@ function VariableControl({
   );
 }
 
-function signalExploreRoute(type: PanelQuery['dataSourceType']): string {
-  if (type === 'logs') return '/logs';
-  if (type === 'traces') return '/traces';
-  if (type === 'profiles') return '/profiles';
-  return '/metrics';
-}
-
-function queryExpression(query: PanelQuery): string {
-  for (const key of ['expression', 'statement', 'sql', 'query']) {
-    const value = query.query[key];
-    if (typeof value === 'string' && value.trim()) return value;
-  }
-  return '';
-}
-
 function exportPanelData(title: string, data: PanelData): void {
   const rows = data.frames.flatMap((frame) => {
     const header = frame.fields.map((field) => field.name);
@@ -1212,8 +1194,7 @@ function sharePanel(
 ): void {
   const url = new URL(window.location.href);
   url.searchParams.set('viewPanel', panelId);
-  void navigator.clipboard
-    .writeText(url.toString())
+  void writeClipboardText(url.toString())
     .then(() => toast.success(successMessage))
     .catch(() => toast.error(errorMessage));
 }
@@ -1223,8 +1204,7 @@ function copyText(
   successMessage: string,
   errorMessage: string,
 ): void {
-  void navigator.clipboard
-    .writeText(value)
+  void writeClipboardText(value)
     .then(() => toast.success(successMessage))
     .catch(() => toast.error(errorMessage));
 }

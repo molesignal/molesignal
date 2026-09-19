@@ -93,7 +93,7 @@ export function NotifyConnectorsPage() {
         }
         state={state}
       >
-        <div className="overflow-x-auto rounded-md border border-bd-0 bg-bg-1">
+        <div className="overflow-x-auto">
           <DataTable
             rows={rows}
             rowKey={(row) => row.id}
@@ -107,7 +107,7 @@ export function NotifyConnectorsPage() {
                 width: '24%',
                 cell: (row) => (
                   <div className="flex min-w-0 items-center gap-3">
-                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-bd-0 bg-bg-2 text-tx-2">
+                    <span className="grid h-8 w-8 shrink-0 place-items-center text-tx-2">
                       <ConnectorIcon type={row.connector_type} />
                     </span>
                     <div className="min-w-0">

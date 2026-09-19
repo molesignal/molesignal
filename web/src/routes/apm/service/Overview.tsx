@@ -78,8 +78,8 @@ export function ApmServiceDetail() {
         onRetry={() => void query.refetch()}
       >
         {detail && (
-          <div className="space-y-5">
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-bd-0 bg-bg-1 px-4 py-3">
+          <div className="space-y-[12px]">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-[var(--functional-surface)] px-4 py-3 [box-shadow:var(--shadow-functional-surface)]">
               <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-tx-2">
                 <span>
                   {t('services.first_seen')}: {formatTimestamp(detail.service.first_seen_at)}

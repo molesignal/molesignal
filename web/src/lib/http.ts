@@ -69,7 +69,9 @@ http.interceptors.request.use((config) => {
 http.interceptors.response.use(
   (resp) => resp,
   (err) => {
-    if (err.response?.status === 401) {
+    const requestUrl = String(err.config?.url ?? '');
+    const isPublicStatusRequest = requestUrl.startsWith('/public/status-pages/');
+    if (err.response?.status === 401 && !isPublicStatusRequest) {
       const next = encodeURIComponent(window.location.pathname + window.location.search);
       useAuthStore.getState().logout();
       useOrgStore.getState().reset();

@@ -1,0 +1,40 @@
+# syntax=docker/dockerfile:1
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 MoleSignal Authors
+
+# CI builds both native Linux binaries once. This file packages the matching
+# Probe Agent binary without compiling it again under QEMU.
+ARG TARGETARCH
+
+FROM scratch AS binary-amd64
+COPY .release-binaries/amd64/probe-agent /probe-agent
+
+FROM scratch AS binary-arm64
+COPY .release-binaries/arm64/probe-agent /probe-agent
+
+FROM binary-${TARGETARCH} AS binary
+
+FROM debian:bookworm-slim
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+        ca-certificates dumb-init \
+        chromium chromium-sandbox \
+        fonts-liberation fonts-noto-cjk fonts-noto-color-emoji \
+ && rm -rf /var/lib/apt/lists/* \
+ && groupadd --gid 10001 molesignal \
+ && useradd --uid 10001 --gid molesignal --create-home --shell /usr/sbin/nologin molesignal \
+ && install -d -o molesignal -g molesignal /var/lib/molesignal-probe
+
+ENV CHROME_PATH=/usr/bin/chromium \
+    CHROME=/usr/bin/chromium \
+    HOME=/home/molesignal
+
+COPY --from=binary /probe-agent /usr/local/bin/probe-agent
+RUN chmod 0755 /usr/local/bin/probe-agent \
+ && test -x "${CHROME_PATH}" \
+ && "${CHROME_PATH}" --version
+
+VOLUME ["/var/lib/molesignal-probe"]
+USER molesignal
+ENTRYPOINT ["/usr/bin/dumb-init", "--", "probe-agent"]
+CMD ["run"]

@@ -38,4 +38,24 @@ describe('ApmFilters', () => {
       mode: 'relative',
     });
   });
+
+  it('uses the shared lightweight menus for category and resolution', () => {
+    const setFilter = vi.fn();
+    render(
+      <ApmFilters
+        filters={DEFAULT_APM_FILTERS}
+        setFilter={setFilter}
+        clearFilters={vi.fn()}
+        showCategory
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('combobox', { name: 'Category' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Database' }));
+    expect(setFilter).toHaveBeenCalledWith('category', 'database');
+
+    fireEvent.click(screen.getByRole('combobox', { name: 'Resolution' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Minute' }));
+    expect(setFilter).toHaveBeenCalledWith('resolution', 'minute');
+  });
 });

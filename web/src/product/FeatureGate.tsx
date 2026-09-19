@@ -89,8 +89,8 @@ export function FeatureBadge({
         'inline-flex h-5 items-center rounded border px-1.5 font-sans text-xs font-semibold tracking-normal',
         gate.status === 'allowed' && 'border-green/30 bg-green-dim text-green-soft',
         gate.status === 'loading' && 'border-bd-1 bg-bg-2 text-tx-3',
-        // Phase 4: gates that aren't allowed are a warning state (yellow),
-        // not a brand surface (indigo) and not an error (red).
+        // The warning tone communicates unavailable access; allowed and
+        // loading states have dedicated treatments above.
         gate.status !== 'allowed' && gate.status !== 'loading' && 'border-yellow/30 bg-yellow-dim text-yellow-soft',
         className,
       )}

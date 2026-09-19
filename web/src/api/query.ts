@@ -66,6 +66,27 @@ export async function fetchPromqlCapabilities(): Promise<PromqlCapabilities> {
   return data;
 }
 
+/** SQL 文本检索函数（`MATCH` / `MATCH_TEXT`）能力项，由 `/query/sql/capabilities` 返回。 */
+export interface SqlFunctionCapabilityItem {
+  label: string;
+  /** Monaco snippet 插入文本；`${1:...}` 为 Tab 跳转占位。 */
+  insert_text: string;
+  detail: string;
+  documentation: string;
+  kind: 'function';
+}
+
+export interface SqlQueryCapabilities {
+  engine: string;
+  version: number;
+  functions: SqlFunctionCapabilityItem[];
+}
+
+export async function fetchSqlQueryCapabilities(): Promise<SqlQueryCapabilities> {
+  const { data } = await http.get<SqlQueryCapabilities>('/query/sql/capabilities');
+  return data;
+}
+
 /**
  * Advisory query-optimization tips for a query profile. Stateless — it does
  * not re-run the query; pass the stats (`scanned_rows` / `took_ms` / row

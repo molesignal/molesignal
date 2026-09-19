@@ -1,20 +1,17 @@
 /**
- * M3.2 i18n length audit — capture every key page in both locales so the
+ * i18n length audit — capture every key page in both locales so the
  * designer can eyeball the ~1.6× zh / en length difference for overflow,
  * truncation, and toolbar wrapping.
  *
- * Not a regression suite — these screenshots are diagnostic. They are
- * written to `.design/molesignal-redesign/screenshots/m3/i18n/` using
- * `page.screenshot({ path })` instead of
- * Playwright's snapshot baselines so a re-run overwrites the diff folder
- * rather than failing on pixel mismatch.
+ * These diagnostic screenshots are written to `test-results/i18n-length/`
+ * with `page.screenshot({ path })`, so each run refreshes the same artifacts.
  *
  * Run with:
  *   pnpm playwright tests/07-i18n-length.spec.ts
  *
  * After the run, open the two PNGs side by side (e.g. `open
- * .design/molesignal-redesign/screenshots/m3/i18n/sidebar-en.png
- * .design/molesignal-redesign/screenshots/m3/i18n/sidebar-zh.png`) and
+ * test-results/i18n-length/sidebar-en.png
+ * test-results/i18n-length/sidebar-zh.png`) and
  * walk down the column looking for: overflowed text in the sidebar group
  * headings, wrapped pills in the alerts toolbar, truncated KPI labels,
  * and toolbar buttons that now wrap onto two lines.
@@ -34,7 +31,7 @@ const THEME_KEY = 'molesignal-theme';
 const DENSITY_KEY = 'molesignal-density';
 const EXPLICIT_THEME_KEY = 'molesignal-theme-explicit';
 
-const OUT_DIR = resolve(__dirname, '../../../.design/molesignal-redesign/screenshots/m3/i18n');
+const OUT_DIR = resolve(__dirname, '../../test-results/i18n-length');
 
 const LOCALES: Locale[] = ['en-us', 'zh-cn'];
 

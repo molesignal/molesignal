@@ -275,7 +275,7 @@ function ServiceHealthPanel({
   ] as const;
   if (compact) {
     return (
-      <section className="flex flex-col gap-3 rounded-lg border border-bd-0 bg-bg-1 px-4 py-3 sm:flex-row sm:items-center">
+      <section className="flex flex-col gap-3 rounded-md bg-[var(--functional-surface)] px-4 py-3 [box-shadow:var(--shadow-functional-surface)] sm:flex-row sm:items-center">
         <h2 className="shrink-0 type-section-title font-strong text-tx-0">
           {t('health.title')}
         </h2>
@@ -294,7 +294,7 @@ function ServiceHealthPanel({
     );
   }
   return (
-    <section className="rounded-lg border border-bd-0 bg-bg-1 p-4">
+    <section className="rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)]">
       <h2 className="type-section-title font-strong text-tx-0">{t('health.title')}</h2>
       <div className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-md border border-bd-0 bg-bd-0">
         {items.map(([key, value, Icon, tone]) => (

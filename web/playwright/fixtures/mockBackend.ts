@@ -53,6 +53,8 @@ const MOCK_IAM_ORGANIZATION_PERMISSIONS = [
   'org.billing.manage',
   'api_tokens.read',
   'api_tokens.manage',
+  'service_accounts.read',
+  'service_accounts.manage',
   'streams.read',
   'streams.query',
   'streams.write',
@@ -92,9 +94,9 @@ const MOCK_IAM_ORGANIZATION_PERMISSIONS = [
   'reports.share',
   'reports.delete',
   'audit.read',
-  'intelligence.use',
-  'intelligence.manage',
-  'intelligence.approve',
+  'agent.use',
+  'agent.manage',
+  'agent.approve',
 ] as const;
 
 function mockCapabilityRoutes(
@@ -150,9 +152,16 @@ function mockCapabilityRoutes(
     ['account.settings', '/account/settings/*', true],
     ['iam', '/iam', scope === 'system'
       ? permissionSet.has('sys.organizations.manage')
-      : permissionSet.has('org.members.read') || permissionSet.has('iam.roles.read')],
+      : permissionSet.has('org.members.read') ||
+        permissionSet.has('iam.roles.read') ||
+        permissionSet.has('iam.policies.read') ||
+        permissionSet.has('api_tokens.read') ||
+        permissionSet.has('service_accounts.read') ||
+        permissionSet.has('org.settings.read')],
     ['iam.users', '/iam/users', scope !== 'system' && permissionSet.has('org.members.read')],
     ['iam.roles', '/iam/roles', scope !== 'system' && permissionSet.has('iam.roles.read')],
+    ['iam.api.tokens', '/iam/api-tokens', scope !== 'system' && permissionSet.has('api_tokens.read')],
+    ['iam.service.accounts', '/iam/service-accounts', scope !== 'system' && permissionSet.has('service_accounts.read')],
     ['settings.notify', '/settings/notify/*', scope !== 'system' && permissionSet.has('alerts.read')],
     ['settings.tenant.tools', '/settings/:section', scope !== 'system' && permissionSet.has('org.settings.read')],
   ] as const;
@@ -176,7 +185,7 @@ const MOCK_IAM_VIEWER_PERMISSIONS = [
   'pipelines.read',
   'functions.read',
   'reports.read',
-  'intelligence.use',
+  'agent.use',
 ] as const;
 
 const MOCK_IAM_EDITOR_DENY_PREFIXES = [
@@ -184,8 +193,8 @@ const MOCK_IAM_EDITOR_DENY_PREFIXES = [
   'iam.',
   'api_tokens.',
   'audit.',
-  'intelligence.manage',
-  'intelligence.approve',
+  'agent.manage',
+  'agent.approve',
 ] as const;
 
 const MOCK_IAM_ROLE_PERMISSIONS: Record<string, readonly string[]> = {
@@ -205,14 +214,19 @@ const mockIamDomain = (permission: string): string => {
   const resource = permission.split('.')[0];
   if (resource === 'sys') return 'platform';
   if (resource === 'org') return 'organization';
-  if (resource === 'iam' || resource === 'api_tokens' || resource === 'audit') {
+  if (
+    resource === 'iam' ||
+    resource === 'api_tokens' ||
+    resource === 'service_accounts' ||
+    resource === 'audit'
+  ) {
     return 'iam';
   }
   if (resource === 'dashboards') return 'dashboards';
   if (resource === 'alerts' || resource === 'schedules') return 'alerts';
   if (resource === 'pipelines' || resource === 'functions') return 'pipelines';
   if (resource === 'reports') return 'reports';
-  if (resource === 'intelligence') return 'intelligence';
+  if (resource === 'agent') return 'agent';
   return 'observability';
 };
 
@@ -232,8 +246,8 @@ const MOCK_IAM_PERMISSION_CATALOG = {
       builtin_roles: Object.entries(MOCK_IAM_ROLE_PERMISSIONS)
         .filter(([, permissions]) => permissions.includes(permission))
         .map(([role]) => role),
-      ...(permission.startsWith('intelligence.')
-        ? { feature: 'intelligence' }
+      ...(permission.startsWith('agent.')
+        ? { feature: 'agent' }
         : {}),
     };
   }),
@@ -338,7 +352,7 @@ export function registerRoutes(app: Express): void {
     },
   ];
   const chatMessages = new Map<string, Array<Record<string, unknown>>>();
-  const intelligenceChats: Array<Record<string, unknown>> = [];
+  const agentChats: Array<Record<string, unknown>> = [];
   let userPreferences = {
     theme: 'system',
     density: 'normal',
@@ -625,9 +639,9 @@ export function registerRoutes(app: Express): void {
   app.get('/api/v1/notify/organization-defaults', (_req, res) => res.json([]));
   app.get('/api/v1/notify/team-defaults/:teamId', (_req, res) => res.json([]));
 
-  // ── Mole Intelligence chat + audit ──
-  app.get('/api/v1/intelligence/chat', (_req, res) => res.json(intelligenceChats));
-  app.post('/api/v1/intelligence/chat', (req, res) => {
+  // ── Mole Agent chat + audit ──
+  app.get('/api/v1/agent/chat', (_req, res) => res.json(agentChats));
+  app.post('/api/v1/agent/chat', (req, res) => {
     const now = Date.now() * 1000;
     const id = `mock-chat-${now}`;
     chatMessages.set(id, []);
@@ -635,7 +649,7 @@ export function registerRoutes(app: Express): void {
       id,
       provider: req.body?.provider ?? 'openai',
       model: req.body?.model ?? 'gpt-4o',
-      title: req.body?.title ?? 'Mole Intelligence 对话',
+      title: req.body?.title ?? 'Mole Agent 对话',
       provider_id: req.body?.provider_id ?? null,
       analysis_mode: req.body?.analysis_mode ?? null,
       time_range_start_micros: null,
@@ -644,13 +658,13 @@ export function registerRoutes(app: Express): void {
       created_at_micros: now,
       updated_at_micros: now,
     };
-    intelligenceChats.unshift(chat);
+    agentChats.unshift(chat);
     res.json(chat);
   });
-  app.get('/api/v1/intelligence/chat/:id/messages', (req, res) =>
+  app.get('/api/v1/agent/chat/:id/messages', (req, res) =>
     res.json({ messages: chatMessages.get(req.params.id) ?? [] }),
   );
-  app.post('/api/v1/intelligence/chat/:id/messages', (req, res) => {
+  app.post('/api/v1/agent/chat/:id/messages', (req, res) => {
     const now = Date.now() * 1000;
     const messages = chatMessages.get(req.params.id) ?? [];
     chatMessages.set(req.params.id, messages);
@@ -703,7 +717,7 @@ export function registerRoutes(app: Express): void {
         ],
         created_at_micros: Date.now() * 1000,
       });
-      const chat = intelligenceChats.find((item) => item.id === req.params.id);
+      const chat = agentChats.find((item) => item.id === req.params.id);
       if (chat) chat.updated_at_micros = Date.now() * 1000;
       res.write(
         `event: tool_end\ndata: ${JSON.stringify({
@@ -717,19 +731,19 @@ export function registerRoutes(app: Express): void {
       res.end();
     }, 350);
   });
-  app.post('/api/v1/intelligence/chat/:id/archive', (req, res) =>
+  app.post('/api/v1/agent/chat/:id/archive', (req, res) =>
     res.json({
       status: 'ok',
-      object_key: `intelligence/chat/default/${req.params.id}/transcript.json`,
+      object_key: `agent/chat/default/${req.params.id}/transcript.json`,
     }),
   );
-  app.delete('/api/v1/intelligence/chat/:id', (req, res) => {
+  app.delete('/api/v1/agent/chat/:id', (req, res) => {
     chatMessages.delete(req.params.id);
-    const index = intelligenceChats.findIndex((item) => item.id === req.params.id);
-    if (index >= 0) intelligenceChats.splice(index, 1);
+    const index = agentChats.findIndex((item) => item.id === req.params.id);
+    if (index >= 0) agentChats.splice(index, 1);
     res.json({});
   });
-  app.get('/api/v1/intelligence/audit/chat/:id', (req, res) => {
+  app.get('/api/v1/agent/audit/chat/:id', (req, res) => {
     const now = Date.now() * 1000;
     const messages = req.params.id === 'audit-chat-seeded'
       ? [
@@ -768,7 +782,7 @@ export function registerRoutes(app: Express): void {
         analysis_mode: 'anomaly_analysis',
         time_range_start_micros: now - 3_600_000_000,
         time_range_end_micros: now,
-        archive_object_key: `intelligence/chat/default/${req.params.id}/transcript.json`,
+        archive_object_key: `agent/chat/default/${req.params.id}/transcript.json`,
         deleted_at_micros: null,
         created_at_micros: now - 3_000_000,
         updated_at_micros: now - 500_000,
@@ -780,18 +794,18 @@ export function registerRoutes(app: Express): void {
     res.json({
       items: [
         {
-          id: 'audit-intelligence-chat-1',
+          id: 'audit-agent-chat-1',
           org_id: 'default',
           actor_kind: 'user',
           actor_id: 'dev',
-          action: 'intelligence.chat.archived',
-          target_kind: 'intelligence_chat',
+          action: 'agent.chat.archived',
+          target_kind: 'agent_chat',
           target_id: 'audit-chat-seeded',
           ip: '127.0.0.1',
           user_agent: 'mock',
           payload: {
             status: 'ok',
-            object_key: 'intelligence/chat/default/audit-chat-seeded/transcript.json',
+            object_key: 'agent/chat/default/audit-chat-seeded/transcript.json',
             chat_id: 'audit-chat-seeded',
           },
           ts_micros: Date.now() * 1000,
@@ -830,10 +844,10 @@ export function registerRoutes(app: Express): void {
       updated_at_micros: Date.now() * 1000,
     },
   ];
-  app.get('/api/v1/intelligence/settings/model-providers', (_req, res) =>
+  app.get('/api/v1/agent/settings/model-providers', (_req, res) =>
     res.json(modelProviders),
   );
-  app.post('/api/v1/intelligence/settings/model-providers', (req, res) => {
+  app.post('/api/v1/agent/settings/model-providers', (req, res) => {
     const provider = {
       ...req.body,
       id: `model-provider-${modelProviders.length + 1}`,
@@ -847,14 +861,14 @@ export function registerRoutes(app: Express): void {
     modelProviders.push(provider);
     res.json(provider);
   });
-  app.put('/api/v1/intelligence/settings/model-providers/:id', (req, res) => {
+  app.put('/api/v1/agent/settings/model-providers/:id', (req, res) => {
     const provider = modelProviders.find((item) => item.id === req.params.id);
     if (!provider) return res.status(404).json({ error: 'not found' });
     Object.assign(provider, req.body, { updated_at_micros: Date.now() * 1000 });
     return res.json(provider);
   });
   app.post(
-    '/api/v1/intelligence/settings/model-providers/:id/rotate-key',
+    '/api/v1/agent/settings/model-providers/:id/rotate-key',
     (req, res) => {
       const provider = modelProviders.find((item) => item.id === req.params.id);
       if (!provider) return res.status(404).json({ error: 'not found' });
@@ -917,10 +931,10 @@ export function registerRoutes(app: Express): void {
       updated_at_micros: Date.now() * 1000,
     },
   ];
-  app.get('/api/v1/intelligence/settings/prompts', (_req, res) =>
+  app.get('/api/v1/agent/settings/prompts', (_req, res) =>
     res.json(promptTemplates),
   );
-  app.post('/api/v1/intelligence/settings/prompts', (req, res) => {
+  app.post('/api/v1/agent/settings/prompts', (req, res) => {
     const now = Date.now() * 1000;
     const prompt = {
       ...req.body,
@@ -936,7 +950,7 @@ export function registerRoutes(app: Express): void {
     promptTemplates.push(prompt);
     return res.json(prompt);
   });
-  app.put('/api/v1/intelligence/settings/prompts/:id', (req, res) => {
+  app.put('/api/v1/agent/settings/prompts/:id', (req, res) => {
     const prompt = promptTemplates.find((item) => item.id === req.params.id);
     if (!prompt) return res.status(404).json({ error: 'not found' });
     if (prompt.scope === 'builtin') {
@@ -949,7 +963,7 @@ export function registerRoutes(app: Express): void {
     return res.json(prompt);
   });
   app.post(
-    '/api/v1/intelligence/settings/prompts/:id/set-default',
+    '/api/v1/agent/settings/prompts/:id/set-default',
     (req, res) => {
       const prompt = promptTemplates.find((item) => item.id === req.params.id);
       if (!prompt) return res.status(404).json({ error: 'not found' });
@@ -967,7 +981,7 @@ export function registerRoutes(app: Express): void {
       return res.json(prompt);
     },
   );
-  app.post('/api/v1/intelligence/settings/prompts/:id/restore', (req, res) => {
+  app.post('/api/v1/agent/settings/prompts/:id/restore', (req, res) => {
     const prompt = promptTemplates.find((item) => item.id === req.params.id);
     if (!prompt) return res.status(404).json({ error: 'not found' });
     const builtin = promptTemplates.find(
@@ -984,15 +998,82 @@ export function registerRoutes(app: Express): void {
     });
     return res.json(prompt);
   });
-  app.delete('/api/v1/intelligence/settings/prompts/:id', (req, res) => {
+  app.delete('/api/v1/agent/settings/prompts/:id', (req, res) => {
     const index = promptTemplates.findIndex((item) => item.id === req.params.id);
     if (index === -1) return res.status(404).json({ error: 'not found' });
     promptTemplates.splice(index, 1);
     return res.json({ deleted: true });
   });
 
-  // ── Mole Intelligence control plane ──
+  // ── Mole Agent control plane ──
   const nowMicros = Date.parse(FROZEN_NOW_ISO) * 1000;
+  let inboundMcpSettings = {
+    org_id: 'acme-prod',
+    enabled: true,
+    allowed_origins: [] as string[],
+    max_request_bytes: 1_048_576,
+    max_response_bytes: 1_048_576,
+    max_concurrent_calls: 8,
+    calls_per_minute: 60,
+    read_timeout_ms: 30_000,
+    updated_by: 'dev',
+    created_at: nowMicros,
+    updated_at: nowMicros,
+  };
+  const inboundMcpSettingsResponse = () => ({
+    settings: inboundMcpSettings,
+    endpoint: 'https://molesignal.example/api/v1/mcp',
+    protocol_versions: ['2026-07-28', '2025-11-25', '2025-06-18', '2025-03-26'],
+    transports: ['streamable_http'],
+    hard_max_body_bytes: 8_388_608,
+    oauth: {
+      protected_resource_metadata: 'https://molesignal.example/.well-known/oauth-protected-resource/api/v1/mcp',
+      authorization_server_metadata: 'https://molesignal.example/.well-known/oauth-authorization-server',
+      authorization_endpoint: 'https://molesignal.example/oauth/authorize',
+      token_endpoint: 'https://molesignal.example/api/v1/oauth/token',
+      registration_endpoint: 'https://molesignal.example/api/v1/oauth/register',
+      revocation_endpoint: 'https://molesignal.example/api/v1/oauth/revoke',
+    },
+  });
+  app.get('/api/v1/agent/settings/inbound-mcp', (_req, res) =>
+    res.json(inboundMcpSettingsResponse()),
+  );
+  app.put('/api/v1/agent/settings/inbound-mcp', (req, res) => {
+    inboundMcpSettings = {
+      ...inboundMcpSettings,
+      ...req.body,
+      updated_by: 'dev',
+      updated_at: nowMicros,
+    };
+    res.json(inboundMcpSettingsResponse());
+  });
+  app.get('/api/v1/agent/settings/inbound-mcp/oauth-connections', (_req, res) =>
+    res.json({ connections: [] }),
+  );
+  app.post('/api/v1/agent/settings/inbound-mcp/oauth-connections/:id/revoke', (_req, res) =>
+    res.status(204).end(),
+  );
+  app.get('/api/v1/oauth/authorization-request', (req, res) =>
+    res.json({
+      client: {
+        client_id: String(req.query.client_id ?? 'mock-client'),
+        client_name: 'Example MCP Client',
+        client_uri: 'https://client.example',
+        metadata_document: false,
+      },
+      scope: String(req.query.scope ?? 'mcp'),
+      resource: String(req.query.resource ?? 'https://molesignal.example/api/v1/mcp'),
+      redirect_uri: String(req.query.redirect_uri ?? 'https://client.example/callback'),
+      state: typeof req.query.state === 'string' ? req.query.state : null,
+      organization: {
+        id: 'acme-prod',
+        name: 'Acme Production',
+      },
+    }),
+  );
+  app.post('/api/v1/oauth/authorize', (_req, res) =>
+    res.json({ redirect_to: 'https://client.example/callback?code=mock' }),
+  );
   const investigations: Array<Record<string, unknown>> = [
     {
       id: 'investigation-checkout',
@@ -1082,7 +1163,7 @@ export function registerRoutes(app: Express): void {
       updated_at: nowMicros - 900_000_000,
     },
   ];
-  app.get('/api/v1/intelligence/overview', (_req, res) =>
+  app.get('/api/v1/agent/overview', (_req, res) =>
     res.json({
       active_investigations: 0,
       pending_approvals: 0,
@@ -1091,10 +1172,10 @@ export function registerRoutes(app: Express): void {
       enabled_automations: 0,
     }),
   );
-  app.get('/api/v1/intelligence/investigations', (_req, res) =>
+  app.get('/api/v1/agent/investigations', (_req, res) =>
     res.json({ investigations }),
   );
-  app.post('/api/v1/intelligence/investigations', (req, res) => {
+  app.post('/api/v1/agent/investigations', (req, res) => {
     const investigation = {
       id: `investigation-${investigations.length + 1}`,
       org_id: 'acme-prod',
@@ -1113,7 +1194,7 @@ export function registerRoutes(app: Express): void {
     investigations.push(investigation);
     res.json(investigation);
   });
-  app.get('/api/v1/intelligence/investigations/:id', (req, res) => {
+  app.get('/api/v1/agent/investigations/:id', (req, res) => {
     const investigation = investigations.find((item) => item.id === req.params.id);
     if (!investigation) return res.status(404).json({ error: 'not found' });
     return res.json({
@@ -1123,16 +1204,16 @@ export function registerRoutes(app: Express): void {
       hypotheses: [],
     });
   });
-  app.put('/api/v1/intelligence/investigations/:id', (req, res) => {
+  app.put('/api/v1/agent/investigations/:id', (req, res) => {
     const investigation = investigations.find((item) => item.id === req.params.id);
     if (!investigation) return res.status(404).json({ error: 'not found' });
     Object.assign(investigation, req.body, { updated_at: nowMicros });
     return res.json(investigation);
   });
-  app.get('/api/v1/intelligence/automations', (_req, res) =>
+  app.get('/api/v1/agent/automations', (_req, res) =>
     res.json({ automations }),
   );
-  app.post('/api/v1/intelligence/automations', (req, res) => {
+  app.post('/api/v1/agent/automations', (req, res) => {
     const automation = {
       id: `automation-${automations.length + 1}`,
       created_by: 'dev',
@@ -1143,16 +1224,16 @@ export function registerRoutes(app: Express): void {
     automations.push(automation);
     res.json(automation);
   });
-  app.put('/api/v1/intelligence/automations/:id', (req, res) => {
+  app.put('/api/v1/agent/automations/:id', (req, res) => {
     const automation = automations.find((item) => item.id === req.params.id);
     if (!automation) return res.status(404).json({ error: 'not found' });
     Object.assign(automation, req.body, { updated_at: nowMicros });
     return res.json(automation);
   });
-  app.post('/api/v1/intelligence/automations/:id/dry-run', (_req, res) =>
+  app.post('/api/v1/agent/automations/:id/dry-run', (_req, res) =>
     res.json({ status: 'completed', writes: 0 }),
   );
-  app.get('/api/v1/intelligence/approvals', (_req, res) =>
+  app.get('/api/v1/agent/approvals', (_req, res) =>
     res.json({
       approvals: [
         {
@@ -1176,13 +1257,13 @@ export function registerRoutes(app: Express): void {
       ],
     }),
   );
-  app.get('/api/v1/intelligence/executions', (_req, res) =>
+  app.get('/api/v1/agent/executions', (_req, res) =>
     res.json({ executions: [] }),
   );
-  app.get('/api/v1/intelligence/settings/agent-profiles', (_req, res) =>
+  app.get('/api/v1/agent/settings/agent-profiles', (_req, res) =>
     res.json({ profiles: agentProfiles }),
   );
-  app.post('/api/v1/intelligence/settings/agent-profiles', (req, res) => {
+  app.post('/api/v1/agent/settings/agent-profiles', (req, res) => {
     const profile = {
       id: `profile-${agentProfiles.length + 1}`,
       created_by: 'dev',
@@ -1193,7 +1274,7 @@ export function registerRoutes(app: Express): void {
     agentProfiles.push(profile);
     res.json(profile);
   });
-  app.put('/api/v1/intelligence/settings/agent-profiles/:id', (req, res) => {
+  app.put('/api/v1/agent/settings/agent-profiles/:id', (req, res) => {
     const profile = agentProfiles.find((item) => item.id === req.params.id);
     if (!profile) return res.status(404).json({ error: 'not found' });
     Object.assign(profile, req.body, { updated_at: nowMicros });
@@ -1250,7 +1331,7 @@ export function registerRoutes(app: Express): void {
     },
     access,
   });
-  const intelligenceTools: Array<Record<string, unknown>> = [
+  const agentTools: Array<Record<string, unknown>> = [
     makeTool(
       'query_logs',
       '在授权范围内执行只读日志查询。',
@@ -1361,7 +1442,7 @@ export function registerRoutes(app: Express): void {
     };
   };
   const findTool = (name: string) =>
-    intelligenceTools.find((tool) => tool.id === name || tool.name === name);
+    agentTools.find((tool) => tool.id === name || tool.name === name);
   const mcpServers: Array<Record<string, unknown>> = [
     {
       id: 'mcp-observability',
@@ -1393,9 +1474,9 @@ export function registerRoutes(app: Express): void {
     },
   ];
 
-  app.get('/api/v1/intelligence/tools', (_req, res) =>
+  app.get('/api/v1/agent/tools', (_req, res) =>
     res.json({
-      tools: intelligenceTools,
+      tools: agentTools,
       dynamic_http: false,
       shell: false,
       browser: false,
@@ -1403,20 +1484,20 @@ export function registerRoutes(app: Express): void {
       mcp_servers: { total: mcpServers.length, healthy: 1, unhealthy: 0 },
     }),
   );
-  app.get('/api/v1/intelligence/tools/policies', (_req, res) =>
+  app.get('/api/v1/agent/tools/policies', (_req, res) =>
     res.json(toolPolicyDefaults),
   );
-  app.put('/api/v1/intelligence/tools/policies', (req, res) => {
+  app.put('/api/v1/agent/tools/policies', (req, res) => {
     Object.assign(toolPolicyDefaults, req.body, {
       updated_by: 'dev',
       updated_at: nowMicros,
     });
     res.json(toolPolicyDefaults);
   });
-  app.get('/api/v1/intelligence/tools/:id/dependencies', (req, res) =>
+  app.get('/api/v1/agent/tools/:id/dependencies', (req, res) =>
     res.json(toolDependencies(req.params.id)),
   );
-  app.get('/api/v1/intelligence/tools/:id/calls', (req, res) =>
+  app.get('/api/v1/agent/tools/:id/calls', (req, res) =>
     res.json({
       calls:
         req.params.id === 'query_logs'
@@ -1444,7 +1525,7 @@ export function registerRoutes(app: Express): void {
           : [],
     }),
   );
-  app.post('/api/v1/intelligence/tools/:id/test', (req, res) =>
+  app.post('/api/v1/agent/tools/:id/test', (req, res) =>
     res.json({
       success: true,
       validated: true,
@@ -1457,19 +1538,19 @@ export function registerRoutes(app: Express): void {
       response: { rows: 0, preview: [] },
     }),
   );
-  app.put('/api/v1/intelligence/tools/:id/policy', (req, res) => {
+  app.put('/api/v1/agent/tools/:id/policy', (req, res) => {
     const tool = findTool(req.params.id);
     if (!tool) return res.status(404).json({ error: 'not found' });
     Object.assign(tool, req.body);
     return res.json(tool);
   });
-  app.post('/api/v1/intelligence/tools/:id/enable', (req, res) => {
+  app.post('/api/v1/agent/tools/:id/enable', (req, res) => {
     const tool = findTool(req.params.id);
     if (!tool) return res.status(404).json({ error: 'not found' });
     Object.assign(tool, { enabled: true, available_to_agent: true, status: 'healthy' });
     return res.json(tool);
   });
-  app.post('/api/v1/intelligence/tools/:id/disable', (req, res) => {
+  app.post('/api/v1/agent/tools/:id/disable', (req, res) => {
     const tool = findTool(req.params.id);
     if (!tool) return res.status(404).json({ error: 'not found' });
     const dependencies = toolDependencies(req.params.id);
@@ -1479,17 +1560,17 @@ export function registerRoutes(app: Express): void {
     Object.assign(tool, { enabled: false, available_to_agent: false, status: 'disabled' });
     return res.json({ tool, dependencies });
   });
-  app.get('/api/v1/intelligence/tools/:id', (req, res) => {
+  app.get('/api/v1/agent/tools/:id', (req, res) => {
     const tool = findTool(req.params.id);
     return tool
       ? res.json({ tool, dependencies: toolDependencies(req.params.id) })
       : res.status(404).json({ error: 'not found' });
   });
 
-  app.get('/api/v1/intelligence/mcp-servers', (_req, res) =>
+  app.get('/api/v1/agent/mcp-servers', (_req, res) =>
     res.json({ servers: mcpServers }),
   );
-  app.post('/api/v1/intelligence/mcp-servers', (req, res) => {
+  app.post('/api/v1/agent/mcp-servers', (req, res) => {
     const server = {
       id: `mcp-${mcpServers.length + 1}`,
       org_id: 'acme-prod',
@@ -1513,9 +1594,9 @@ export function registerRoutes(app: Express): void {
     mcpServers.push(server);
     res.json(server);
   });
-  app.get('/api/v1/intelligence/mcp-servers/:id', (req, res) => {
+  app.get('/api/v1/agent/mcp-servers/:id', (req, res) => {
     const server = mcpServers.find((item) => item.id === req.params.id);
-    const tools = intelligenceTools.filter(
+    const tools = agentTools.filter(
       (tool) => {
         const source = tool.source as
           | { kind?: string; server_id?: string }
@@ -1527,7 +1608,7 @@ export function registerRoutes(app: Express): void {
       ? res.json({ server, tools })
       : res.status(404).json({ error: 'not found' });
   });
-  app.put('/api/v1/intelligence/mcp-servers/:id', (req, res) => {
+  app.put('/api/v1/agent/mcp-servers/:id', (req, res) => {
     const server = mcpServers.find((item) => item.id === req.params.id);
     if (!server) return res.status(404).json({ error: 'not found' });
     const credential =
@@ -1542,12 +1623,12 @@ export function registerRoutes(app: Express): void {
     });
     return res.json(server);
   });
-  app.delete('/api/v1/intelligence/mcp-servers/:id', (req, res) => {
+  app.delete('/api/v1/agent/mcp-servers/:id', (req, res) => {
     const index = mcpServers.findIndex((item) => item.id === req.params.id);
     if (index >= 0) mcpServers.splice(index, 1);
     res.json({});
   });
-  app.post('/api/v1/intelligence/mcp-servers/:id/test', (req, res) => {
+  app.post('/api/v1/agent/mcp-servers/:id/test', (req, res) => {
     const server = mcpServers.find((item) => item.id === req.params.id);
     if (!server) return res.status(404).json({ error: 'not found' });
     Object.assign(server, { status: 'healthy', last_error: null, last_tested_at: nowMicros });
@@ -1580,7 +1661,7 @@ export function registerRoutes(app: Express): void {
       ],
     });
   });
-  app.post('/api/v1/intelligence/mcp-servers/:id/sync', (req, res) => {
+  app.post('/api/v1/agent/mcp-servers/:id/sync', (req, res) => {
     const server = mcpServers.find((item) => item.id === req.params.id);
     if (!server) return res.status(404).json({ error: 'not found' });
     const selectedTools = Array.isArray(req.body?.selected_tools)
@@ -1618,7 +1699,7 @@ export function registerRoutes(app: Express): void {
         status: 'disabled',
         last_synced_at: nowMicros,
       });
-      intelligenceTools.push(tool);
+      agentTools.push(tool);
       return tool;
     });
     Object.assign(server, {
@@ -1705,6 +1786,124 @@ export function registerRoutes(app: Express): void {
       previous_cursor: null,
     }),
   );
+  const rumStartedAt = Date.parse(FROZEN_NOW_ISO) * 1_000 - 120_000_000;
+  const rumSession = (sessionId: string) => ({
+    session_id: sessionId,
+    user_id: 'user-7',
+    application: 'storefront',
+    environment: 'prod',
+    version: '2.0.0',
+    browser: 'Chrome',
+    country: 'CN',
+    device: 'desktop',
+    duration_ms: 12_000,
+    started_at_micros: rumStartedAt,
+    error_count: 1,
+    journey: ['/products', '/checkout'],
+    rage_click_count: 0,
+    dead_click_count: 0,
+    slow_resource_count: 0,
+    failed_request_count: 1,
+    crash_count: 0,
+    experience: 'poor',
+    replay_available: false,
+  });
+  const emptyCursorPage = {
+    items: [],
+    has_more: false,
+    next_cursor: null,
+    previous_cursor: null,
+  };
+  app.get('/api/v1/rum/applications/summary', (_req, res) =>
+    res.json({
+      items: [
+        {
+          application: 'storefront',
+          environments: ['prod'],
+          versions: ['2.0.0'],
+          users: 1,
+          sessions: 1,
+          errorFreeRate: 0,
+          lcpP75: 2_800,
+        },
+      ],
+    }),
+  );
+  app.get('/api/v1/rum/overview', (_req, res) =>
+    res.json({
+      metrics: {
+        users: 1,
+        sessions: 1,
+        errorFreeRate: 0,
+        lcpP75: 2_800,
+        inpP75: 180,
+        clsP75: 0.08,
+      },
+      browserDevices: [{ label: 'Chrome · desktop', count: 1, share: 1 }],
+      regions: [{ label: 'CN', count: 1, share: 1 }],
+      facets: {
+        applications: ['storefront'],
+        environments: ['prod'],
+        versions: ['2.0.0'],
+        countries: ['CN'],
+        devices: ['desktop'],
+      },
+    }),
+  );
+  app.get('/api/v1/rum/overview/insights', (_req, res) =>
+    res.json({
+      trend: [],
+      satisfaction: { good: 0, needsImprovement: 0, poor: 1, total: 1 },
+      slowPages: [],
+      frequentErrors: [],
+    }),
+  );
+  app.get('/api/v1/rum/sessions', (_req, res) =>
+    res.json({ ...emptyCursorPage, items: [rumSession('sample-session')] }),
+  );
+  app.get('/api/v1/rum/sessions/:sessionId', (req, res) =>
+    res.json({
+      session: rumSession(req.params.sessionId),
+      events: [
+        {
+          ts_micros: rumStartedAt + 1_000_000,
+          type: 'network_error',
+          name: 'POST /api/orders',
+          url: '/checkout',
+          duration_ms: 420,
+          status: 500,
+          payload: {},
+          service: 'checkout',
+          trace_id: '0123456789abcdef0123456789abcdef',
+          parent_span_id: '0123456789abcdef',
+        },
+      ],
+    }),
+  );
+  app.get('/api/v1/rum/sessions/:sessionId/related-traces', (req, res) =>
+    res.json({ session_id: req.params.sessionId, primary_service: null, traces: [] }),
+  );
+  app.get('/api/v1/rum/errors', (_req, res) => res.json(emptyCursorPage));
+  app.get('/api/v1/rum/errors/:fingerprint', (req, res) =>
+    res.json({
+      fingerprint: req.params.fingerprint,
+      message: 'Checkout request failed',
+      stack: [],
+      recent_sessions: ['sample-session'],
+      count: 1,
+      users: 1,
+      first_seen_micros: rumStartedAt,
+      last_seen_micros: rumStartedAt,
+      pages: ['/checkout'],
+      versions: ['2.0.0'],
+    }),
+  );
+  app.get('/api/v1/rum/performance/vitals', (_req, res) => res.json([]));
+  app.get('/api/v1/rum/performance/apis', (_req, res) => res.json([]));
+  app.get('/api/v1/rum/performance/errors', (_req, res) => res.json([]));
+  app.get('/api/v1/rum/replay/:sessionId', (req, res) =>
+    res.json({ session_id: req.params.sessionId, segment_count: 0, events: [] }),
+  );
   app.post('/api/v1/query', (req: Request, res: Response) => {
     if (req.body?.language === 'promql') {
       const start = Number(req.body?.time_range?.start ?? Date.parse(FROZEN_NOW_ISO) * 1000 - 3_600_000_000);
@@ -1736,7 +1935,12 @@ export function registerRoutes(app: Express): void {
         took_ms: 14,
       });
     }
-    return res.json({ rows: [{ t: FROZEN_NOW_ISO, v: 1 }], took_ms: 2 });
+    return res.json({
+      columns: ['_timestamp', 'value'],
+      rows: [[Date.parse(FROZEN_NOW_ISO) * 1_000, 1]],
+      scanned_rows: 1,
+      took_ms: 2,
+    });
   });
   app.get('/api/v1/metrics', (_req, res) => res.json({ series: [] }));
   // /query/stream streams an initial batch, then after 3s streams a second
@@ -1822,6 +2026,8 @@ export function registerRoutes(app: Express): void {
     }),
   );
   app.get('/api/v1/teams', (_req, res) => res.json([]));
+  app.get('/api/v1/auth/tokens', (_req, res) => res.json([]));
+  app.get('/api/v1/service-accounts', (_req, res) => res.json([]));
   app.get('/api/v1/roles', (_req, res) =>
     res.json([
       {
@@ -1836,6 +2042,7 @@ export function registerRoutes(app: Express): void {
         usage: {
           memberships: 1,
           api_tokens: 0,
+          service_accounts: 0,
           invitations: 0,
           bindings: 1,
           total: 2,
@@ -1862,7 +2069,7 @@ export function registerRoutes(app: Express): void {
         },
       ],
       permissions: MOCK_IAM_ROLE_PERMISSIONS.owner,
-      features: ['intelligence', 'domain_management', 'federated_search'],
+      features: ['agent', 'domain_management', 'federated_search'],
       version: 1,
       route_catalog_version: 1,
       routes: mockCapabilityRoutes(
@@ -1898,7 +2105,7 @@ export function registerRoutes(app: Express): void {
         }),
       ),
   );
-  app.get('/api/v1/schedules', (_req, res) => res.json({ items: [] }));
+  app.get('/api/v1/schedules', (_req, res) => res.json([]));
   app.get('/api/v1/resource_shares/policy', (_req, res) =>
     res.json(resourceSharePolicy),
   );
@@ -2164,8 +2371,8 @@ export function registerRoutes(app: Express): void {
     verified: true,
     expired: false,
     issued_to: 'dev',
-    features: ['intelligence', 'domain_management', 'federated_search'],
-    max_ingest_bytes_per_day: null,
+    features: ['agent', 'domain_management', 'federated_search'],
+    max_intake_bytes_per_day: null,
     expires_at_micros: null,
     active_version_id: 'license-dev',
   };
@@ -2173,30 +2380,30 @@ export function registerRoutes(app: Express): void {
   app.post('/api/v1/system/license/versions', (_req, res) =>
     res.status(201).json(licenseSnapshot),
   );
-  const intelligenceToolsets: Array<{
+  const agentToolsets: Array<{
     id: string;
     name: string;
     enabled: boolean;
     schema: unknown;
     updated_at_micros: number;
   }> = [];
-  app.get('/api/v1/intelligence/settings/toolsets', (_req, res) =>
-    res.json(intelligenceToolsets),
+  app.get('/api/v1/agent/settings/toolsets', (_req, res) =>
+    res.json(agentToolsets),
   );
-  app.post('/api/v1/intelligence/settings/toolsets', (req: Request, res: Response) => {
+  app.post('/api/v1/agent/settings/toolsets', (req: Request, res: Response) => {
     const row = {
-      id: `tool-${intelligenceToolsets.length + 1}`,
+      id: `tool-${agentToolsets.length + 1}`,
       name: String(req.body?.name ?? ''),
       enabled: Boolean(req.body?.enabled ?? true),
       schema: req.body?.schema ?? {},
       updated_at_micros: Date.now() * 1000,
     };
-    intelligenceToolsets.push(row);
+    agentToolsets.push(row);
     res.json(row);
   });
-  app.delete('/api/v1/intelligence/settings/toolsets/:id', (req, res) => {
-    const idx = intelligenceToolsets.findIndex((r) => r.id === req.params.id);
-    if (idx >= 0) intelligenceToolsets.splice(idx, 1);
+  app.delete('/api/v1/agent/settings/toolsets/:id', (req, res) => {
+    const idx = agentToolsets.findIndex((r) => r.id === req.params.id);
+    if (idx >= 0) agentToolsets.splice(idx, 1);
     res.json({});
   });
 
@@ -2372,7 +2579,7 @@ export async function mountMockRoutes(
           permissions,
           features:
             opts.features ??
-            ['intelligence', 'domain_management', 'federated_search'],
+            ['agent', 'domain_management', 'federated_search'],
           version: 1,
           route_catalog_version: 1,
           routes: mockCapabilityRoutes(scope, permissions),

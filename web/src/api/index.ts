@@ -1,6 +1,6 @@
-export * as intelligence from './intelligence';
-export * as intelligenceChat from './intelligence/chat';
-export * as intelligenceToolsets from './intelligence/toolsets';
+export * as agent from './agent';
+export * as agentChat from './agent/chat';
+export * as agentToolsets from './agent/toolsets';
 export * as alerts from './alerts';
 export * as apiTokens from './apiTokens';
 export * as auth from './auth';
@@ -18,7 +18,7 @@ export * as folders from './folders';
 export * as functions from './functions';
 export * as groups from './groups';
 export * as incidents from './incidents';
-export * as ingestion from './ingestion';
+export * as intake from './intake';
 export * as invitations from './invitations';
 export * as license from './license';
 export * as me from './me';

@@ -35,7 +35,7 @@ export function QueryRecommendations({
   className?: string;
   variant?: 'card' | 'inline';
 }) {
-  const { t } = useTranslation('common');
+  const { i18n, t } = useTranslation('common');
   const profileKey = result
     ? `${language}|${statement}|${result.scanned_rows}|${result.took_ms}|${result.rows.length}`
     : '';
@@ -60,8 +60,33 @@ export function QueryRecommendations({
   const recs = recsQuery.data?.recommendations ?? [];
   if (!result || recs.length === 0 || dismissedKey === profileKey) return null;
 
+  const translationValues = {
+    took_ms: result.took_ms,
+    scanned_rows: result.scanned_rows,
+    returned_rows: result.rows.length,
+  };
+  const localizedRecommendations = recs.map((recommendation) => {
+    const translationKey = `query_recommendations.items.${recommendation.code}`;
+    const hasLocalizedCopy =
+      i18n.exists(`${translationKey}.title`, { ns: 'common' }) &&
+      i18n.exists(`${translationKey}.detail`, { ns: 'common' });
+    if (!hasLocalizedCopy) return recommendation;
+
+    return {
+      ...recommendation,
+      title: t(`${translationKey}.title`, {
+        defaultValue: recommendation.title,
+        ...translationValues,
+      }),
+      detail: t(`${translationKey}.detail`, {
+        defaultValue: recommendation.detail,
+        ...translationValues,
+      }),
+    };
+  });
+
   if (variant === 'inline') {
-    const first = recs[0]!;
+    const first = localizedRecommendations[0]!;
     return (
       <div className={`flex min-h-9 items-center gap-2 border-b border-bd-0 bg-bg-1 px-3 font-sans text-xs ${className ?? ''}`}>
         <Lightbulb className="h-3.5 w-3.5 shrink-0 text-yellow" />
@@ -85,7 +110,7 @@ export function QueryRecommendations({
               {t('query_recommendations.title', { defaultValue: 'Optimization tips' })}
             </div>
             <ul className="mt-2 flex flex-col gap-2">
-              {recs.map((recommendation) => (
+              {localizedRecommendations.map((recommendation) => (
                 <li key={recommendation.code} className="flex items-start gap-2 font-sans text-xs leading-snug">
                   <span className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${severityDotClass(recommendation.severity)}`} />
                   <span className="min-w-0">
@@ -126,7 +151,7 @@ export function QueryRecommendations({
         </button>
       </div>
       <ul className="mt-1.5 flex flex-col gap-1">
-        {recs.map((r) => (
+        {localizedRecommendations.map((r) => (
           <li key={r.code} className="flex items-start gap-2 font-sans text-xs leading-snug">
             <span className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${severityDotClass(r.severity)}`} />
             <span className="min-w-0">

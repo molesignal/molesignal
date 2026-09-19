@@ -121,6 +121,63 @@ describe('TimeSeriesChart', () => {
     expect(iconCell?.className).toContain('self-stretch');
   });
 
+  it('renders an expandable metric identity instead of the raw label set', () => {
+    render(
+      <TimeSeriesChart
+        height="auto"
+        series={[
+          {
+            id: 'cache-misses',
+            metricName: 'cache_misses_total',
+            name: 'cache_misses_total{service.name="molesignal"}',
+            labels: {
+              'deployment.environment.name': 'production',
+              'service.name': 'molesignal',
+            },
+            data: [0, 0],
+          },
+        ]}
+        options={{
+          legendMode: 'table',
+          legendPlacement: 'bottom',
+          legendStats: ['last'],
+        }}
+        seriesIdentity={{
+          title: 'Series',
+          countLabel: '1 series',
+          nameLabel: 'Name',
+          labelCountLabel: (count) => `${count} labels`,
+          expandLabel: (metricName) => `Show labels for ${metricName}`,
+          collapseLabel: (metricName) => `Hide labels for ${metricName}`,
+          statLabels: { last: 'Last' },
+        }}
+      />,
+    );
+
+    expect(screen.getByTestId('time-series-legend-heading').textContent)
+      .toContain('1 series');
+    expect(
+      screen.getByRole('button', { name: 'cache_misses_total' }).textContent,
+    ).toBe('cache_misses_total');
+    expect(screen.getByText('2 labels')).not.toBeNull();
+    const chart = screen.getByTestId('time-series-chart');
+    const legend = screen.getByTestId('time-series-legend');
+    expect(chart.style.height).toBe('auto');
+    expect(chart.className).toContain('overflow-visible');
+    expect(screen.getByTestId('time-series-content').className).toContain(
+      'flex-none',
+    );
+    expect(screen.getByTestId('time-series-plot').className).toContain(
+      'h-[clamp(320px,42vh,460px)]',
+    );
+    expect(legend.getAttribute('data-adaptive-height')).toBe('true');
+    expect(legend.className).toContain('overflow-visible');
+    expect(legend.className).not.toContain('max-h-[42%]');
+
+    fireEvent.click(screen.getByText('2 labels'));
+    expect(screen.getByTestId('series-identifier-labels')).not.toBeNull();
+  });
+
   it('renders List, Table, and Hidden modes with Grafana legend placement', () => {
     const series = [
       { id: 'requests', name: 'Requests', data: [1, 2, 3] },

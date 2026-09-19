@@ -38,7 +38,7 @@ export interface HomeSignalOverview {
 export interface HomeOverviewBucket {
   start_micros: number;
   end_micros: number;
-  ingested_bytes: number | null;
+  intake_bytes: number | null;
   stored_bytes: number;
   rows: number;
 }
@@ -46,9 +46,9 @@ export interface HomeOverviewBucket {
 export interface HomeOverview {
   generated_at_micros: number;
   window: HomeOverviewWindow;
-  ingest_status: HomeHealthStatus;
+  intake_status: HomeHealthStatus;
   probe_reason: string | null;
-  ingested_bytes: number | null;
+  intake_bytes: number | null;
   stored_bytes: number;
   rows: number;
   compression_savings_ratio: number | null;

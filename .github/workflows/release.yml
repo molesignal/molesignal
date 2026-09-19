@@ -13,6 +13,7 @@ env:
   CARGO_TERM_COLOR: always
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  PROBE_IMAGE_NAME: ${{ github.repository_owner }}/probe-agent
   BUILD_ID: gha-${{ github.run_id }}-${{ github.run_attempt }}
   GIT_SHA: ${{ github.sha }}
 
@@ -31,7 +32,7 @@ jobs:
       float_tag: ${{ steps.detect.outputs.float_tag }}
       versioned_tag: ${{ steps.detect.outputs.versioned_tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -45,14 +46,48 @@ jobs:
         id: detect
         run: .github/scripts/detect-release-channel.sh
 
-  # 1. 质量门禁：和 ci.yml 同一套 fmt + clippy + 单测，release 路径上再跑一遍兜底。
+  # 1. 前端只构建一次，后续质量门禁和两个原生架构编译复用同一份确定性产物。
+  web-assets:
+    name: embedded web assets
+    needs: detect-channel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm -C web install --frozen-lockfile
+      - name: build assets for embedding
+        env:
+          BUILD_HASH: ${{ github.sha }}
+        run: pnpm -C web build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: embedded-web-${{ github.run_id }}
+          path: |
+            web/dist/
+            !web/dist/**/*.map
+          if-no-files-found: error
+          retention-days: 1
+
+  # 2. 质量门禁：和 ci.yml 同一套 fmt + clippy + 单测，release 路径上再跑一遍兜底。
   quality-gate:
     name: quality gate
-    needs: detect-channel
+    needs: [detect-channel, web-assets]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: embedded-web-${{ github.run_id }}
+          path: web/dist
 
       - name: install system dependencies
         run: |
@@ -67,8 +102,8 @@ jobs:
           sudo chmod +x /usr/local/bin/buf
           buf --version
 
-      - name: generate protobuf code
-        run: make proto
+      - name: lint protobuf schemas
+        run: make proto-lint
 
       - name: install rust toolchain
         # 跟随仓库根 `rust-toolchain.toml`（1.96）。
@@ -89,11 +124,18 @@ jobs:
       - name: unit + bin tests
         run: cargo test --workspace --lib --bins
 
-  # 2. 多平台原生编译：每个 target 在对应架构 runner 上原生 build，避免 cross-compile。
+  # 3. 多平台原生编译：每个 target 在对应架构 runner 上原生 build，避免 cross-compile。
   build:
     name: build (${{ matrix.target }})
-    needs: [detect-channel, quality-gate]
+    needs: [detect-channel, web-assets, quality-gate]
     runs-on: ${{ matrix.os }}
+    # 构建在 rust:1.96-bullseye 容器（Debian 11, glibc 2.31）内进行，产物 glibc
+    # 地板 2.31，低于目标机地板 2.34（Alma 9 / Ubuntu 22.04）。Server runtime
+    # 使用 bullseye-slim；Probe Agent runtime 使用带维护版 Chromium 的 bookworm-slim，
+    # 旧 GLIBC 产物可向前兼容。runner 仅提供 native 架构，其自身的 glibc 版本不再
+    # 影响产物。
+    container:
+      image: rust:1.96-bullseye
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -101,78 +143,105 @@ jobs:
         include:
           # glibc(gnu) Linux：jemalloc 全功能（含 background_thread）。musl 不用，
           # 因为 jemalloc-sys 在 musl 上编不过且 background_thread 不受支持。
+          # glibc 地板：构建容器 rust:1.96-bullseye 的 glibc 是 2.31，覆盖目标机
+          # 地板 2.34（Alma 9）与 Ubuntu 22.04（2.35）；runtime debian:bullseye-slim
+          # 同为 2.31；下方 assert 步骤守护该地板不被漂移。
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
+            archive_arch: x86_64
+            archive_os: linux
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-24.04-arm
-          # macOS：jemalloc 关闭（cfg 到 glibc），系统分配器。
-          - target: aarch64-apple-darwin
-            os: macos-14
+            archive_arch: aarch64
+            archive_os: linux
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - name: install system dependencies (linux)
-        if: runner.os == 'Linux'
+      - uses: actions/download-artifact@v8
+        with:
+          name: embedded-web-${{ github.run_id }}
+          path: web/dist
+
+      - name: install system dependencies
+        # rust:1.96-bullseye 已含 build-essential/git/ca-certificates/curl/pkg-config；
+        # cmake 供 rdkafka cmake-build 编 librdkafka；protobuf-compiler 供各 crate 的
+        # build.rs 在 Cargo OUT_DIR 生成协议 binding。容器默认 root。
         run: |
-          sudo apt-get update
-          # build-essential 提供 gcc/make，jemalloc-sys 在 gnu target 上原生编 C 源需要。
-          sudo apt-get install -y --no-install-recommends \
-            build-essential cmake pkg-config file ca-certificates curl \
-            protobuf-compiler
-
-      - name: install system dependencies (macOS)
-        if: runner.os == 'macOS'
-        run: brew install protobuf
-
-      - name: install Buf CLI
-        run: |
-          sudo curl -sSL "https://github.com/bufbuild/buf/releases/latest/download/buf-$(uname -s)-$(uname -m)" \
-            -o /usr/local/bin/buf
-          sudo chmod +x /usr/local/bin/buf
-          buf --version
-
-      - name: generate protobuf code
-        run: make proto
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            cmake protobuf-compiler
+          rm -rf /var/lib/apt/lists/*
 
       - name: install rust toolchain
-        # 跟随仓库根 `rust-toolchain.toml`（1.96）。
+        # 容器已是 rust:1.96-bullseye（channel 与仓库 rust-toolchain.toml 一致）；
+        # 这里幂等补齐目标 target。
         uses: dtolnay/rust-toolchain@1.96
         with:
           targets: ${{ matrix.target }}
 
       - uses: Swatinem/rust-cache@v2
         with:
-          key: release-${{ matrix.target }}
+          # 按构建容器变体隔离缓存：bookworm 编译的 C 依赖产物（jemalloc/rdkafka）
+          # 与 bullseye 不应混用，避免 glibc 版本串扰。
+          key: release-${{ matrix.target }}-bullseye
+          # 发布 job 只恢复已有缓存。release target 很大，aarch64 回写曾在
+          # 产物上传后持续数十分钟并拖到 job 超时，不应阻断交付链路。
+          save-if: false
 
-      - name: build release binary once
+      - name: build release binaries once
         env:
           # 所有交付阶段共用这一套参数；pprof 需要可回溯栈帧与符号。
           RUSTFLAGS: "-C force-frame-pointers=yes"
-        run: cargo build --release --locked --target ${{ matrix.target }} -p molesignal
+        run: cargo build --release --locked --target ${{ matrix.target }} -p molesignal -p probe-agent
 
-      - name: package artifact (binary + conf)
+      # glibc 地板守护：确认两个二进制要求的最高 GLIBC 符号版本均 ≤ 2.31，既匹配
+      # Server 的 bullseye runtime，也让 Probe Agent 二进制仍可脱离 bookworm 镜像
+      # 部署到目标机。若未来构建容器漂移到更高 glibc，此步骤直接拦截。
+      - name: assert glibc floor <= 2.31
+        shell: bash
+        run: |
+          for name in molesignal probe-agent; do
+            bin="target/${{ matrix.target }}/release/${name}"
+            max_ver="$(objdump -T "$bin" \
+              | awk '/GLIBC_/ { for (i=1;i<=NF;i++) if ($i ~ /^GLIBC_[0-9]+\.[0-9]+$/) print $i }' \
+              | sed 's/^GLIBC_//' | sort -V | tail -n1)"
+            echo "${name} max GLIBC symbol: ${max_ver:-<none>}"
+            if [ -z "$max_ver" ]; then
+              echo "OK: ${name} has no GLIBC symbols (static build, no glibc floor)"
+              continue
+            fi
+            IFS=. read -r major minor <<< "${max_ver}"
+            if [ "${major}" -eq 2 ] && [ "${minor}" -le 31 ]; then
+              echo "OK: ${name} glibc floor ${max_ver} <= bullseye builder (2.31)"
+            else
+              echo "ERROR: ${name} requires GLIBC_${max_ver}, newer than the 2.31 floor" >&2
+              echo "       fix: 构建环境 glibc 需 <= 2.31，如 rust:1.96-bullseye" >&2
+              exit 1
+            fi
+          done
+
+      - name: package artifact (binary + conf + systemd)
         shell: bash
         env:
-          CHANNEL: ${{ needs.detect-channel.outputs.channel }}
-          VERSION: ${{ needs.detect-channel.outputs.version }}
+          VERSION: ${{ github.ref_name }}
+          ARCH: ${{ matrix.archive_arch }}
+          OS: ${{ matrix.archive_os }}
         run: |
-          # stable:        molesignal-<ver>-<target>
-          # rc/beta/alpha: molesignal-<ver>-<channel>-<target>
-          if [ "$CHANNEL" = "stable" ]; then
-            ARCHIVE="molesignal-${VERSION}-${{ matrix.target }}"
-          else
-            ARCHIVE="molesignal-${VERSION}-${CHANNEL}-${{ matrix.target }}"
-          fi
-          mkdir -p "dist/${ARCHIVE}/bin" "dist/${ARCHIVE}/conf"
+          # Release archive: molesignal-{version}-{arch}-{os}.tar.gz.
+          # VERSION is the original Git tag and therefore keeps its leading "v".
+          ARCHIVE="molesignal-${VERSION}-${ARCH}-${OS}"
+          mkdir -p "dist/${ARCHIVE}/bin" "dist/${ARCHIVE}/conf" \
+            "dist/${ARCHIVE}/deploy/systemd"
           cp "target/${{ matrix.target }}/release/molesignal" "dist/${ARCHIVE}/bin/"
           cp -R conf/. "dist/${ARCHIVE}/conf/"
+          cp -R deploy/systemd/. "dist/${ARCHIVE}/deploy/systemd/"
           printf '{"build_id":"%s","git_sha":"%s"}\n' "$BUILD_ID" "$GITHUB_SHA" \
             > "dist/${ARCHIVE}/build-info.json"
           cd dist && tar czf "${ARCHIVE}.tar.gz" "${ARCHIVE}"
 
       - name: upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.target }}-${{ github.ref_name }}
           path: dist/*.tar.gz
@@ -181,26 +250,40 @@ jobs:
       # Docker 镜像直接复用上面已经验证并打包的同一个 Linux 二进制，不再重新 cargo build。
       - name: upload docker binary
         if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: docker-binary-${{ matrix.target }}-${{ github.run_id }}
           path: target/${{ matrix.target }}/release/molesignal
           if-no-files-found: error
 
-  # 3. Docker 多平台镜像：把 step 2 的原生 release 二进制原样封装进镜像。
+      - name: upload Probe Agent docker binary
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v7
+        with:
+          name: probe-docker-binary-${{ matrix.target }}-${{ github.run_id }}
+          path: target/${{ matrix.target }}/release/probe-agent
+          if-no-files-found: error
+
+  # 4. Docker 多平台镜像：把 step 3 的原生 release 二进制分别封装进两个镜像。
   docker:
-    name: docker image
+    name: docker images
     needs: [detect-channel, build]
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: download release binaries
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: docker-binary-*-${{ github.run_id }}
           path: .release-artifacts
+
+      - name: download Probe Agent release binaries
+        uses: actions/download-artifact@v8
+        with:
+          pattern: probe-docker-binary-*-${{ github.run_id }}
+          path: .probe-release-artifacts
 
       - name: stage release binaries for buildx
         env:
@@ -209,16 +292,20 @@ jobs:
           mkdir -p .release-binaries/amd64 .release-binaries/arm64
           cp ".release-artifacts/docker-binary-x86_64-unknown-linux-gnu-${RUN_ID}/molesignal" ".release-binaries/amd64/molesignal"
           cp ".release-artifacts/docker-binary-aarch64-unknown-linux-gnu-${RUN_ID}/molesignal" ".release-binaries/arm64/molesignal"
-          chmod 0755 .release-binaries/amd64/molesignal .release-binaries/arm64/molesignal
+          cp ".probe-release-artifacts/probe-docker-binary-x86_64-unknown-linux-gnu-${RUN_ID}/probe-agent" ".release-binaries/amd64/probe-agent"
+          cp ".probe-release-artifacts/probe-docker-binary-aarch64-unknown-linux-gnu-${RUN_ID}/probe-agent" ".release-binaries/arm64/probe-agent"
+          chmod 0755 \
+            .release-binaries/amd64/molesignal .release-binaries/arm64/molesignal \
+            .release-binaries/amd64/probe-agent .release-binaries/arm64/probe-agent
 
       - name: set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -226,23 +313,17 @@ jobs:
 
       - name: extract metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           # 关掉 metadata-action 默认的 latest 自动行为；下面按 channel 显式控制。
           flavor: |
             latest=false
-          # stable: <version> + latest
-          # rc:     <version>-rc + rc
-          # beta:   <version>-beta + beta
-          # alpha:  <version>-alpha + alpha
+          # Keep the exact version from the Git tag and add one floating channel tag.
           tags: |
             type=raw,value=build-${{ env.BUILD_ID }}
             type=sha,format=long,prefix=sha-
-            type=match,pattern=v(.*),group=1,enable=${{ needs.detect-channel.outputs.channel == 'stable' }}
-            type=match,pattern=v(.*),group=1,suffix=-rc,enable=${{ needs.detect-channel.outputs.channel == 'rc' }}
-            type=match,pattern=v(.*),group=1,suffix=-beta,enable=${{ needs.detect-channel.outputs.channel == 'beta' }}
-            type=match,pattern=v(.*),group=1,suffix=-alpha,enable=${{ needs.detect-channel.outputs.channel == 'alpha' }}
+            type=match,pattern=v(.*),group=1
             type=raw,value=latest,enable=${{ needs.detect-channel.outputs.channel == 'stable' }}
             type=raw,value=rc,enable=${{ needs.detect-channel.outputs.channel == 'rc' }}
             type=raw,value=beta,enable=${{ needs.detect-channel.outputs.channel == 'beta' }}
@@ -250,8 +331,27 @@ jobs:
           labels: |
             io.molesignal.build-id=${{ env.BUILD_ID }}
 
+      - name: extract Probe Agent metadata
+        id: probe-meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.PROBE_IMAGE_NAME }}
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=build-${{ env.BUILD_ID }}
+            type=sha,format=long,prefix=sha-
+            type=match,pattern=v(.*),group=1
+            type=raw,value=latest,enable=${{ needs.detect-channel.outputs.channel == 'stable' }}
+            type=raw,value=rc,enable=${{ needs.detect-channel.outputs.channel == 'rc' }}
+            type=raw,value=beta,enable=${{ needs.detect-channel.outputs.channel == 'beta' }}
+            type=raw,value=alpha,enable=${{ needs.detect-channel.outputs.channel == 'alpha' }}
+          labels: |
+            io.molesignal.build-id=${{ env.BUILD_ID }}
+            org.opencontainers.image.title=MoleSignal Probe Agent
+
       - name: package and push
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: deploy/docker/Dockerfile.release
@@ -262,7 +362,19 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # 4. GitHub Release：cliff 生成 changelog + 上传所有 target 的 tar.gz。
+      - name: package and push Probe Agent
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: deploy/docker/Dockerfile.probe-agent.release
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.probe-meta.outputs.tags }}
+          labels: ${{ steps.probe-meta.outputs.labels }}
+          cache-from: type=gha,scope=probe-agent
+          cache-to: type=gha,mode=max,scope=probe-agent
+
+  # 5. GitHub Release：cliff 生成 changelog + 上传所有 target 的 tar.gz。
   release:
     name: github release
     needs: [detect-channel, build, docker]
@@ -271,7 +383,7 @@ jobs:
       contents: write
       pull-requests: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -306,23 +418,26 @@ jobs:
           \`\`\`bash
           # Pull the image (multi-arch: linux/amd64, linux/arm64)
           docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSIONED_TAG}
+          docker pull ${{ env.REGISTRY }}/${{ env.PROBE_IMAGE_NAME }}:${VERSIONED_TAG}
           \`\`\`
 
-          | Tag | Image |
-          |-----|-------|
-          | \`${VERSIONED_TAG}\` | \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSIONED_TAG}\` |
-          | \`${FLOAT_TAG}\` | \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${FLOAT_TAG}\` |
+          | Artifact | Tag | Image |
+          |----------|-----|-------|
+          | Server | \`${VERSIONED_TAG}\` | \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSIONED_TAG}\` |
+          | Server | \`${FLOAT_TAG}\` | \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${FLOAT_TAG}\` |
+          | Probe Agent | \`${VERSIONED_TAG}\` | \`${{ env.REGISTRY }}/${{ env.PROBE_IMAGE_NAME }}:${VERSIONED_TAG}\` |
+          | Probe Agent | \`${FLOAT_TAG}\` | \`${{ env.REGISTRY }}/${{ env.PROBE_IMAGE_NAME }}:${FLOAT_TAG}\` |
           EOF
 
       - name: download all build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
           pattern: '*-${{ github.ref_name }}'
           merge-multiple: true
 
       - name: create release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           name: ${{ needs.detect-channel.outputs.title }}
           prerelease: ${{ needs.detect-channel.outputs.prerelease == 'true' }}

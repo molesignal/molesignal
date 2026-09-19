@@ -52,8 +52,8 @@ export function ApmErrorDetail() {
         onRetry={() => void query.refetch()}
       >
         {detail && (
-          <div className="space-y-5">
-            <div className="grid gap-px overflow-hidden rounded-lg border border-bd-0 bg-bd-0 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="space-y-[12px]">
+            <div className="grid gap-[8px] overflow-hidden rounded-md bg-[var(--functional-surface)] p-[12px] [box-shadow:var(--shadow-functional-surface)] sm:grid-cols-2 xl:grid-cols-4">
               <Fact label={t('columns.service')} value={detail.group.service.name} />
               <Fact
                 label={t('columns.occurrences')}
@@ -144,7 +144,7 @@ export function ApmErrorDetail() {
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-bg-1 p-4">
+    <div className="rounded-md bg-[var(--control-surface)] p-4">
       <span className="block text-xs text-tx-3">{label}</span>
       <span className="mt-1 block truncate text-sm font-strong text-tx-0">{value}</span>
     </div>

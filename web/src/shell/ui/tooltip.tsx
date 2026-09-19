@@ -2,6 +2,7 @@ import * as TooltipPrimitive from '@radix-ui/react-tooltip';
 import * as React from 'react';
 
 import { cn } from '@/shell/lib/cn';
+import { floatingSurfaceClass } from '@/shell/ui/floating';
 
 const TooltipProvider = TooltipPrimitive.Provider;
 const Tooltip = TooltipPrimitive.Root;
@@ -18,7 +19,8 @@ const TooltipContent = React.forwardRef<
       sideOffset={sideOffset}
       collisionPadding={collisionPadding}
       className={cn(
-        'z-50 max-w-[calc(100vw-1rem)] whitespace-normal break-words rounded-md border border-border bg-surface px-2 py-1 text-xs leading-relaxed text-foreground shadow-md',
+        floatingSurfaceClass,
+        'z-50 max-w-[calc(100vw-1rem)] whitespace-normal break-words rounded-sm px-2 py-1 text-xs leading-relaxed',
         className,
       )}
       {...props}

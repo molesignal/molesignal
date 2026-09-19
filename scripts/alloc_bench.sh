@@ -7,7 +7,7 @@
 #
 # 用法：
 #   scripts/alloc_bench.sh            # 本机跑（Linux glibc 才有代表性；macOS 仅吞吐有意义）
-#   scripts/alloc_bench.sh --docker   # 在项目 glibc 镜像(debian bookworm)内跑，贴合生产【推荐】
+#   scripts/alloc_bench.sh --docker   # 在项目 glibc 镜像(debian bullseye)内跑，贴合生产【推荐】
 #
 # 可调（env）：BENCH_SECONDS=20 BENCH_IDLE_SECONDS=8 BENCH_ROWS=20000 BENCH_BATCHES=12 BENCH_THREADS=<n>
 set -euo pipefail
@@ -18,10 +18,13 @@ set -euo pipefail
 : "${BENCH_BATCHES:=12}"
 : "${BENCH_THREADS:=}"
 
-# ---- --docker：在 rust:1.96-bookworm（与 Dockerfile builder 同）内跑，拿真实 glibc 数字 ----
+# molesignal 的 build.rs 会嵌入前端；先在宿主机生成一次，Docker 模式随后复用挂载产物。
+make web-build
+
+# ---- --docker：在 rust:1.96-bullseye（与 Dockerfile builder 同）内跑，拿真实 glibc 数字 ----
 if [ "${1:-}" = "--docker" ]; then
   command -v docker >/dev/null || { echo "docker 不可用"; exit 1; }
-  echo ">>> 在 rust:1.96-bookworm 容器内跑（首跑要编 arrow/datafusion/jemalloc，约 10-15 min；之后走缓存卷）"
+  echo ">>> 在 rust:1.96-bullseye 容器内跑（首跑要编 arrow/datafusion/jemalloc，约 10-15 min；之后走缓存卷）"
   exec docker run --rm -i \
     -v "$PWD":/src -w /src \
     -v molesignal_alloc_cargo:/usr/local/cargo/registry \
@@ -29,7 +32,7 @@ if [ "${1:-}" = "--docker" ]; then
     -e CARGO_TARGET_DIR=/target \
     -e BENCH_SECONDS -e BENCH_IDLE_SECONDS -e BENCH_ROWS -e BENCH_BATCHES -e BENCH_THREADS \
     -e CARGO_BUILD_JOBS \
-    rust:1.96-bookworm bash -c '
+    rust:1.96-bullseye bash -c '
       set -e
       if ! command -v buf >/dev/null; then
         apt-get update -qq && apt-get install -y -qq protobuf-compiler curl ca-certificates >/dev/null
@@ -56,9 +59,9 @@ export CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16
 : "${CARGO_BUILD_JOBS:=4}"; export CARGO_BUILD_JOBS
 
 echo ">>> 构建两个变体（release, lto=off cu=16 -j${CARGO_BUILD_JOBS}）..."
-cargo build --release -q -p molesignal-infra --example alloc_bench
+cargo build --release -q -p molesignal --example alloc_bench
 cp "$TGT/release/examples/alloc_bench" /tmp/alloc_bench_system
-cargo build --release -q -p molesignal-infra --example alloc_bench --features jemalloc
+cargo build --release -q -p molesignal --example alloc_bench --features jemalloc
 cp "$TGT/release/examples/alloc_bench" /tmp/alloc_bench_jemalloc
 
 # 传给 bench 的 env（BENCH_THREADS 为空则不传，让 bench 用 CPU 数）

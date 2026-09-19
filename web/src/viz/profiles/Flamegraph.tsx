@@ -951,7 +951,7 @@ function FlameTooltip({
     : pointer.y + 12;
   return (
     <div
-      className="pointer-events-none absolute z-20 w-[320px] max-w-[calc(100%-16px)] rounded-md border border-bd-1 bg-surface px-3 py-2.5 shadow-popup"
+      className="pointer-events-none absolute z-20 w-[320px] max-w-[calc(100%-16px)] rounded-md border-0 bg-[var(--floating-surface)] px-3 py-2.5 shadow-popup"
       style={{ left, top }}
     >
       <div className="mb-2 break-all font-mono text-xs font-semibold text-tx-0">{name}</div>

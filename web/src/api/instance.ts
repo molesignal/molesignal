@@ -33,10 +33,10 @@ export async function updateSignupPolicy(policy: SignupPolicy): Promise<SignupPo
   return data;
 }
 
-export type ServiceGraphSource = 'ingest' | 'storage';
+export type ServiceGraphSource = 'intake' | 'storage';
 
 export interface ServiceGraphSettings {
-  /** ingest（各进程内存配对+flush）或 storage（单例 worker 从存储重算，跨节点正确）。 */
+  /** intake（各进程内存配对+flush）或 storage（单例 worker 从存储重算，跨节点正确）。 */
   source: ServiceGraphSource;
 }
 

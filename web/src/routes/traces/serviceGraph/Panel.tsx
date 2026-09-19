@@ -56,7 +56,10 @@ export function ServiceGraphPanel({
       className="flex h-full min-h-0 flex-col overflow-hidden bg-bg-0"
     >
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-bd-0 bg-bg-1 px-3 py-2">
-        <label className="flex h-9 min-w-[220px] flex-1 items-center gap-2 rounded-md border border-bd-1 bg-bg-0 px-3 text-tx-2 transition-colors focus-within:bg-bg-1 sm:max-w-[340px]">
+        <label
+          data-ui="input-control"
+          className="flex h-9 min-w-[220px] flex-1 items-center gap-2 rounded-md border-0 bg-[var(--control-surface)] px-3 text-tx-2 transition-colors hover:bg-bg-3 focus-within:bg-bg-3 sm:max-w-[340px]"
+        >
           <Search className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           <input
             value={search}

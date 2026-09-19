@@ -3,7 +3,7 @@
 # Copyright (c) 2026 MoleSignal Authors
 """Seed demo metrics into a RUNNING molesignal backend (not the dev mock).
 
-Ingests realistic, cross-month time series so the Metrics page has something to
+Seeds realistic, cross-month time series so the Metrics page has something to
 chart over long windows:
 
   * cpu_usage_percent     gauge   (Float64), 3 hosts — daily/weekly seasonality + slow trend
@@ -43,7 +43,7 @@ def main() -> int:
     ap.add_argument("--password", default="admin")
     ap.add_argument("--days", type=int, default=95, help="time span in days (default 95 -> crosses months)")
     ap.add_argument("--step-min", type=int, default=60, help="point interval in minutes (default 60)")
-    ap.add_argument("--chunk", type=int, default=5000, help="events per ingest POST (stay under body limit)")
+    ap.add_argument("--chunk", type=int, default=5000, help="events per intake POST (stay under body limit)")
     args = ap.parse_args()
 
     base = args.base.rstrip("/") + "/api/v1"
@@ -107,15 +107,15 @@ def main() -> int:
     def post_chunked(metric, events):
         total = 0
         for k in range(0, len(events), args.chunk):
-            st, r = call(f"/ingest/metrics/{metric}", events[k:k + args.chunk], token)
+            st, r = call(f"/intake/metrics/{metric}", events[k:k + args.chunk], token)
             if st != 200:
-                print(f"ingest {metric} failed: {st} {r}", file=sys.stderr)
+                print(f"intake {metric} failed: {st} {r}", file=sys.stderr)
                 return False
             total += r.get("accepted", 0)
         print(f"  {metric}: {total} points")
         return True
 
-    print(f"ingesting {args.days} days @ {args.step_min}-min step ({n} points/series)...")
+    print(f"seeding {args.days} days @ {args.step_min}-min step ({n} points/series)...")
     ok = post_chunked("cpu_usage_percent", cpu) and post_chunked("memory_usage_percent", mem) and post_chunked("http_requests_total", http)
     if not ok:
         return 1

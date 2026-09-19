@@ -3,7 +3,7 @@
 # Base：Microsoft devcontainers Rust 镜像（已含 vscode 用户、git、build-essential、lldb 等）
 FROM mcr.microsoft.com/devcontainers/rust:1-1-bookworm
 
-# 锁 Rust 工具链版本（与 rust-toolchain.toml 对齐）
+# Rust 工具链版本由 rust-toolchain.toml 统一指定
 ARG RUST_TOOLCHAIN=1.90
 RUN rustup install ${RUST_TOOLCHAIN} \
  && rustup default ${RUST_TOOLCHAIN} \
@@ -47,7 +47,7 @@ RUN cargo install cargo-watch --locked || true
 # 切回 vscode 用户（base 镜像默认就是它，明示一下）
 USER vscode
 
-# 让 pnpm store 落到挂载的 volume（与 devcontainer.json mounts 对齐）
+# pnpm store 使用 devcontainer.json mounts 配置的 volume
 RUN mkdir -p /home/vscode/.local/share/pnpm/store
 
 # 提前把 cargo / rust-analyzer 缓存目录建好（避免 mount 时权限错乱）

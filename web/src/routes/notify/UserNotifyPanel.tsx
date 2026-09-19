@@ -99,7 +99,7 @@ export function UserNotifyPanel({ userId }: { userId: string }) {
             {t('endpoints.add')}
           </ChromeButton>
         </div>
-        <div className="mt-4 divide-y divide-bd-0 rounded-md border border-bd-0 bg-bg-1">
+        <div className="mt-4 divide-y divide-bd-0 border-y border-bd-0">
           {endpointRows.length === 0 && (
             <div className="px-4 py-8 text-center text-sm text-tx-3">{t('endpoints.empty')}</div>
           )}
@@ -158,7 +158,7 @@ export function UserNotifyPanel({ userId }: { userId: string }) {
         <p className="mt-1 text-xs leading-relaxed text-tx-2">{t('preferences.description')}</p>
         <div className="mt-4 space-y-3">
           {CATEGORIES.map((category) => (
-            <PreferenceCard
+            <PreferenceSection
               key={category}
               userId={userId}
               category={category}
@@ -196,7 +196,7 @@ export function UserNotifyPanel({ userId }: { userId: string }) {
   );
 }
 
-function PreferenceCard({
+function PreferenceSection({
   userId,
   category,
   endpoints,
@@ -268,7 +268,7 @@ function PreferenceCard({
   };
 
   return (
-    <article className="rounded-md border border-bd-0 bg-bg-1 p-4">
+    <article className="py-5 [&+&]:border-t [&+&]:border-bd-0">
       <div className="flex items-center justify-between gap-4">
         <h4 className="text-sm font-semibold text-tx-0">{t(`preferences.${category}`)}</h4>
         <Switch checked={enabled} onCheckedChange={setEnabled} />
@@ -279,13 +279,13 @@ function PreferenceCard({
           {endpoints.length === 0 ? (
             <div className="rounded-md bg-bg-2 px-3 py-4 text-xs text-tx-3">{t('preferences.no_endpoints')}</div>
           ) : (
-            <div className="space-y-1.5">
+            <div className="divide-y divide-bd-0 bg-bg-2">
               {endpoints.map((endpoint) => {
                 const index = selected.indexOf(endpoint.id);
                 return (
                   <div
                     key={endpoint.id}
-                    className="flex min-h-11 items-center gap-2 rounded-md border border-bd-0 bg-bg-2 px-3"
+                    className="flex min-h-11 items-center gap-2 px-3"
                   >
                     <button
                       type="button"
@@ -312,7 +312,7 @@ function PreferenceCard({
           )}
         </div>
         <div className="space-y-3">
-          <label className="flex min-h-11 items-center justify-between gap-3 rounded-md border border-bd-0 bg-bg-2 px-3 text-sm text-tx-1">
+          <label className="flex min-h-11 items-center justify-between gap-3 bg-bg-2 px-3 text-sm text-tx-1">
             <span>{t('preferences.quiet_enabled')}</span>
             <Switch checked={quietEnabled} onCheckedChange={setQuietEnabled} />
           </label>
@@ -329,7 +329,7 @@ function PreferenceCard({
               </FormField>
             </div>
           )}
-          <label className="flex min-h-11 items-center justify-between gap-3 rounded-md border border-bd-0 bg-bg-2 px-3 text-sm text-tx-1">
+          <label className="flex min-h-11 items-center justify-between gap-3 bg-bg-2 px-3 text-sm text-tx-1">
             <span>{t('preferences.critical_bypass')}</span>
             <Switch checked={criticalBypass} onCheckedChange={setCriticalBypass} />
           </label>

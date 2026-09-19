@@ -42,6 +42,13 @@ export interface MetricsExploreResultsProps {
     warning?: string;
     error?: string;
   };
+  recovery: {
+    docsHref: string;
+    hasFilters: boolean;
+    onRetry: () => void;
+    onWidenRange: () => void;
+    onClearFilters: () => void;
+  };
   timeRangeSeconds: number;
   language: string;
   preferredView: 'graph' | 'table';
@@ -55,6 +62,7 @@ export interface GraphViewProps {
   series: MetricsExploreResultsProps['series'];
   chart: MetricsExploreResultsProps['chart'];
   exemplars: MetricsExploreResultsProps['exemplars'];
+  recovery: MetricsExploreResultsProps['recovery'];
   onViewRawCounter: () => void;
   onInspectMetricType: () => void;
 }

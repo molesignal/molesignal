@@ -65,7 +65,7 @@ export function AccountWorkspaceIdentity() {
       subtitle={t('workspace.subtitle')}
       width="page"
     >
-      <div className="overflow-hidden rounded-md bg-bg-1">
+      <div className="overflow-hidden">
         <div className="grid grid-cols-[minmax(180px,1fr)_120px_100px] gap-3 bg-bg-2 px-3 py-2 font-sans text-xs font-strong text-tx-2">
           <span>{t('workspace.columns.workspace')}</span>
           <span>{t('workspace.columns.role')}</span>
@@ -181,7 +181,7 @@ export function AccountWorkspaceIdentity() {
         <ChromeButton
           disabled={apiTokensAccess.disabled}
           disabledReason={apiTokensAccess.reason}
-          onClick={() => navigate('/iam/service-accounts')}
+          onClick={() => navigate('/iam/api-tokens')}
         >
           {t('workspace.api_tokens')}
         </ChromeButton>

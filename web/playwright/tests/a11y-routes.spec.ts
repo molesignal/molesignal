@@ -1,11 +1,11 @@
 /**
- * Axe-core critical-violation gate across every authenticated route
+ * Axe-core gate across every authenticated route
  * (web-a11y-baseline).
  *
- * Iterates the 11 routes from the IconRail/Sidebar nav, runs
- * `AxeBuilder().analyze()` on each, asserts `critical = 0`, and reports
- * moderate / minor counts as JSON so the CI log retains visibility without
- * gating on style-of-attribute issues.
+ * Iterates the authenticated application route matrix, runs
+ * `AxeBuilder().analyze()` on each and asserts `critical = 0`. The core
+ * investigation and management surfaces additionally gate `serious = 0`,
+ * which includes real rendered color-contrast and labeling failures.
  *
  * The dev server is the same one Playwright spins up for visual + behavior
  * specs; mountMockRoutes seeds mock auth + frozen clock + deterministic
@@ -24,12 +24,13 @@ const ROUTES: Array<{ path: string; label: string }> = [
   { path: '/traces', label: 'traces' },
   { path: '/dashboards', label: 'dashboards' },
   { path: '/alerts', label: 'alerts' },
-  { path: '/intelligence/chat', label: 'intelligence-chat' },
-  { path: '/intelligence/investigations', label: 'intelligence-investigations' },
-  { path: '/intelligence/automations', label: 'intelligence-automations' },
-  { path: '/intelligence/approvals', label: 'intelligence-approvals' },
-  { path: '/intelligence/executions', label: 'intelligence-executions' },
-  { path: '/intelligence/settings', label: 'intelligence-settings' },
+  { path: '/agent/chat', label: 'agent-chat' },
+  { path: '/agent/investigations', label: 'agent-investigations' },
+  { path: '/agent/automations', label: 'agent-automations' },
+  { path: '/agent/approvals', label: 'agent-approvals' },
+  { path: '/agent/executions', label: 'agent-executions' },
+  { path: '/agent/settings', label: 'agent-settings' },
+  { path: '/agent/settings/inbound-mcp', label: 'agent-inbound-mcp' },
   { path: '/streams', label: 'streams' },
   { path: '/settings', label: 'settings' },
   { path: '/noc', label: 'noc' },
@@ -66,9 +67,10 @@ const ROUTES: Array<{ path: string; label: string }> = [
   { path: '/pipelines/sample-id/history', label: 'pipelines-history' },
   { path: '/pipelines/sample-id/backfill', label: 'pipelines-backfill' },
 
-  // IAM module (7 routes)
+  // IAM module (8 routes)
   { path: '/iam/users', label: 'iam-users' },
   { path: '/iam/service-accounts', label: 'iam-service-accounts' },
+  { path: '/iam/api-tokens', label: 'iam-api-tokens' },
   { path: '/iam/organizations', label: 'iam-organizations' },
   { path: '/iam/groups', label: 'iam-groups' },
   { path: '/iam/roles', label: 'iam-roles' },
@@ -97,7 +99,7 @@ const ROUTES: Array<{ path: string; label: string }> = [
   { path: '/settings/notify/defaults', label: 'settings-notify-defaults' },
   { path: '/settings/notify/deliveries', label: 'settings-notify-deliveries' },
 
-  // Misc P2 secondary routes (web-feature-parity-misc)
+  // Secondary application routes.
   { path: '/logs/inspector', label: 'logs-inspector' },
   { path: '/traces/sample-trace-id', label: 'traces-detail' },
   { path: '/traces/session/sample-session', label: 'traces-session-detail' },
@@ -112,13 +114,26 @@ const ROUTES: Array<{ path: string; label: string }> = [
   { path: '/alerts/insights', label: 'alerts-insights' },
 ];
 
+const STRICT_ROUTES = new Set([
+  'login',
+  'home',
+  'logs',
+  'metrics',
+  'traces',
+  'alerts',
+  'streams',
+  'settings-general',
+  'iam-users',
+]);
+
 test.describe('a11y: routes', () => {
   test.beforeEach(async ({ page, mockServer }) => {
     await mountMockRoutes(page, mockServer.port);
   });
 
   for (const { path, label } of ROUTES) {
-    test(`route ${label} has no critical axe violations`, async ({ page }) => {
+    const strict = STRICT_ROUTES.has(label);
+    test(`route ${label} has no ${strict ? 'serious/critical' : 'critical'} axe violations`, async ({ page }) => {
       await page.goto(path);
       await page.waitForLoadState('networkidle').catch(() => undefined);
       const results = await new AxeBuilder({ page })
@@ -126,18 +141,26 @@ test.describe('a11y: routes', () => {
         .exclude('[aria-live]')
         .analyze();
       const critical = results.violations.filter((v) => v.impact === 'critical');
+      const serious = results.violations.filter((v) => v.impact === 'serious');
       const moderate = results.violations.filter((v) => v.impact === 'moderate');
       const minor = results.violations.filter((v) => v.impact === 'minor');
       // Non-fatal counts surfaced as JSON for CI log scraping.
       console.log(
         JSON.stringify({
           route: label,
-          counts: { critical: critical.length, moderate: moderate.length, minor: minor.length },
+          counts: {
+            critical: critical.length,
+            serious: serious.length,
+            moderate: moderate.length,
+            minor: minor.length,
+          },
+          seriousIds: serious.map((v) => v.id),
           moderateIds: moderate.map((v) => v.id),
           minorIds: minor.map((v) => v.id),
         }),
       );
-      expect(critical, JSON.stringify(critical, null, 2)).toEqual([]);
+      const blocking = strict ? [...critical, ...serious] : critical;
+      expect(blocking, JSON.stringify(blocking, null, 2)).toEqual([]);
     });
   }
 });

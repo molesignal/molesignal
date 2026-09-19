@@ -9,7 +9,7 @@ export interface RegexPattern {
   /** Matched text is replaced with this (supports `$1` capture groups). */
   replacement: string;
   /** Permanently redact matches at write time; off = query-side `mask(col)` only. */
-  apply_on_ingest: boolean;
+  apply_on_intake: boolean;
   created_at_micros: number;
   updated_at_micros: number;
 }
@@ -26,7 +26,7 @@ export interface CreateRegexPatternInput {
   pattern: string;
   description?: string;
   replacement?: string;
-  apply_on_ingest?: boolean;
+  apply_on_intake?: boolean;
 }
 
 export async function list(): Promise<RegexPattern[]> {

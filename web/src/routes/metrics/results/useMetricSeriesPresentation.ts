@@ -49,6 +49,7 @@ export function useMetricSeriesPresentation({
           name: series.valueColumn,
           labels: series.labels,
         }),
+        metricName: metricName?.trim() || series.valueColumn,
         name: displayNames[index]!,
         color: colors[index]!,
         data: series.values.map((value) =>
@@ -62,7 +63,7 @@ export function useMetricSeriesPresentation({
         labels: series.labels,
         ...(unit ? { unit } : {}),
       })),
-    [colors, displayNames, metricSeries, unit, xDomain],
+    [colors, displayNames, metricName, metricSeries, unit, xDomain],
   );
   const quality = React.useMemo(
     () => analyzeMetricSeries(metricSeries),

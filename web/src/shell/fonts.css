@@ -1,7 +1,8 @@
 /*
- * Alibaba PuHuiTi 3.0 is self-hosted for every product surface: UI copy,
- * navigation, data, inline code, charts, and Monaco. The four static weights
- * match the product's existing 400/500/600/700 typography roles.
+ * Alibaba PuHuiTi 3.0 is self-hosted for product UI copy, navigation, data,
+ * inline code, and charts. Code editors use the system monospace stack defined
+ * in tokens.css. The four static weights match the product's existing
+ * 400/500/600/700 typography roles.
  *
  * No font CDN is used at runtime.
  */

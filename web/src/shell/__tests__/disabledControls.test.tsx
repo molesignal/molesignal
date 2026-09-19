@@ -85,7 +85,7 @@ describe('disabled action foundations', () => {
       <Button
         asChild
         disabled
-        disabledReason="Requires intelligence.manage"
+        disabledReason="Requires agent.manage"
       >
         <a href="/write" onClick={onClick}>
           Edit

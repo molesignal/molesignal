@@ -36,7 +36,9 @@ spec:
             # 设 jwt_secret_override 字段（kubectl edit secret/molesignal-secret）。
             - name: MS_AUTH_JWT_SECRET_OVERRIDE
               valueFrom: { secretKeyRef: { name: molesignal-secret, key: jwt_secret_override, optional: true } }
-            - name: MS_OBJECT_STORE_SECRET_KEY
+            - name: MS_STORE_OBJECT_ACCESS_KEY
+              valueFrom: { secretKeyRef: { name: molesignal-secret, key: object_store_access_key } }
+            - name: MS_STORE_OBJECT_SECRET_KEY
               valueFrom: { secretKeyRef: { name: molesignal-secret, key: object_store_secret_key } }
             - name: MS_CIPHER_KEY
               valueFrom: { secretKeyRef: { name: molesignal-secret, key: cipher_key } }

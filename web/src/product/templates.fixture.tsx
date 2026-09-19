@@ -3,7 +3,7 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { FilterArea, KpiStrip, MetadataStrip } from '@/admin';
-import { ChromeButton, DataTable, Td, Th, Tr } from '@/shell/chrome';
+import { ChromeButton, TableShell, Td, Th, Tr } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
 
 import { BuilderPage, DetailPage, GatePage, ListPage, OverviewPage, SettingsPage } from './templates';
@@ -175,7 +175,7 @@ function SampleActionBar() {
 function SampleTable() {
   const { t } = useTranslation('product');
   return (
-    <DataTable>
+    <TableShell>
       <thead>
         <tr>
           <Th>{t('product:fixture.name')}</Th>
@@ -194,7 +194,7 @@ function SampleTable() {
           </Tr>
         ))}
       </tbody>
-    </DataTable>
+    </TableShell>
   );
 }
 

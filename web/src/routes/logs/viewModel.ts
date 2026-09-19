@@ -55,6 +55,48 @@ const TABLE_FIELD_PRIORITY = [
   'span_id',
 ] as const;
 
+export interface LogFieldPosition {
+  index: number;
+  previous?: string;
+  next?: string;
+}
+
+export function captureLogFieldPosition(
+  fields: readonly string[],
+  field: string,
+): LogFieldPosition | undefined {
+  const index = fields.indexOf(field);
+  if (index < 0) return undefined;
+
+  return {
+    index,
+    ...(index > 0 ? { previous: fields[index - 1] } : {}),
+    ...(index < fields.length - 1 ? { next: fields[index + 1] } : {}),
+  };
+}
+
+export function restoreLogFieldPosition(
+  fields: readonly string[],
+  field: string,
+  position?: LogFieldPosition,
+): string[] {
+  if (fields.includes(field)) return [...fields];
+
+  const nextIndex = position?.next ? fields.indexOf(position.next) : -1;
+  if (nextIndex >= 0) {
+    return [...fields.slice(0, nextIndex), field, ...fields.slice(nextIndex)];
+  }
+
+  const previousIndex = position?.previous ? fields.indexOf(position.previous) : -1;
+  if (previousIndex >= 0) {
+    const insertAt = previousIndex + 1;
+    return [...fields.slice(0, insertAt), field, ...fields.slice(insertAt)];
+  }
+
+  const insertAt = Math.min(Math.max(position?.index ?? fields.length, 0), fields.length);
+  return [...fields.slice(0, insertAt), field, ...fields.slice(insertAt)];
+}
+
 const TIMESTAMP_FIELDS = new Set(['_timestamp', 'timestamp', 'time']);
 
 function isPresent(value: unknown): boolean {

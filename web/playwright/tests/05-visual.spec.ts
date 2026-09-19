@@ -26,14 +26,14 @@ import { expect, test } from '@playwright/test';
 
 import { installMockSession } from '../fixtures/mockSession';
 
-// QUARANTINE (follow-up: P2-T6): the committed screenshot baselines are
+// QUARANTINE: the committed screenshot baselines are
 // `*-chromium-darwin.png` only, so this suite cannot pass on the linux CI
 // runner (it would look for `*-linux.png`). Skip on linux until linux
 // baselines are regenerated; it still runs locally on darwin.
 test.beforeEach(() => {
   test.skip(
     process.platform === 'linux',
-    'Visual baselines are darwin-only; linux baselines are a follow-up (P2-T6).',
+    'Visual baselines are darwin-only; linux baselines have not been generated.',
   );
 });
 

@@ -67,29 +67,18 @@ test.describe('IAM navigation', () => {
     ).toBe('false');
   });
 
-  test('opens IAM navigation as a drawer below desktop width', async ({
+  test('uses the product-wide unsupported interstitial below desktop width', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 900, height: 900 });
     await page.goto('/iam/roles');
-    await expect(page.getByText('Full administrative access.')).toBeVisible();
-
-    const openButton = page.getByRole('button', {
-      name: 'Open identity and access navigation',
-    });
-    await expect(openButton).toBeVisible();
+    await expect(
+      page.getByRole('heading', {
+        name: 'Molesignal is built for wide screens',
+      }),
+    ).toBeVisible();
     await expect(
       page.locator('nav[aria-label="Identity & Access"]'),
-    ).toBeHidden();
-
-    await openButton.click();
-
-    const drawer = page.getByRole('dialog');
-    await expect(drawer).toBeVisible();
-    await expect(
-      drawer.getByRole('navigation', { name: 'Identity & Access' }),
-    ).toBeVisible();
-    await drawer.getByRole('link', { name: 'Roles' }).click();
-    await expect(drawer).toBeHidden();
+    ).toHaveCount(0);
   });
 });

@@ -35,11 +35,11 @@ export function PerformanceErrors() {
   return (
     <RumListPage
       title={t('performance.errors')}
-      toolbar={<TimeRangeChip value={formatWindowSummary(window)} />}
+      toolbar={<TimeRangeChip value={formatWindowSummary(window)} className="border-0" />}
       performance
     >
-      <Card>
-        <CardHeader title={t('performance.errors')} />
+      <Card className="border-0 bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]">
+        <CardHeader title={t('performance.errors')} className="border-b-0" />
         <CardBody>
           {chartState ? (
             <ProductState {...chartState} compact />

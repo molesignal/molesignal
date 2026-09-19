@@ -1,5 +1,5 @@
+import { colorKeyForService } from '@/viz/serviceColors';
 import type { PaletteKey } from '@/viz/timeseries/themeAdapter';
-import { colorKeyForService } from '@/viz/trace/colors';
 
 export function colorKeyForLevel(level: string | undefined): PaletteKey | undefined {
   switch ((level ?? '').toLowerCase()) {

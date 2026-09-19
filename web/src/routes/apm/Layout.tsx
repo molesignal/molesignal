@@ -11,6 +11,12 @@ import { useTranslation } from 'react-i18next';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 
 import { cn } from '@/shell/lib/cn';
+import {
+  surfaceModuleNavigationActiveClass,
+  surfaceModuleNavigationClass,
+  surfaceModuleNavigationItemClass,
+  surfaceModuleNavigationRowClass,
+} from '@/shell/SurfaceWorkbench';
 
 const NAV = [
   { to: '/apm/overview', key: 'overview', icon: Gauge },
@@ -30,26 +36,28 @@ export function ApmNavigation() {
   const { t } = useTranslation('apm');
   const location = useLocation();
   return (
-    <nav
-      aria-label={t('title')}
-      className="flex min-h-11 items-stretch gap-1 overflow-x-auto border-b border-bd-0 bg-bg-1 px-6"
+    <div
+      data-apm-navigation="surface"
+      className={surfaceModuleNavigationClass}
     >
-      {NAV.map(({ to, key, icon: Icon }) => (
-        <NavLink
-          key={to}
-          to={{ pathname: to, search: location.search }}
-          className={({ isActive }) =>
-            cn(
-              'inline-flex shrink-0 items-center gap-2 border-b-2 border-transparent px-3 text-xs font-strong text-tx-2 transition-colors',
-              'outline-none hover:bg-bg-2 hover:text-tx-0 focus-visible:bg-bg-2 focus-visible:text-tx-0',
-              isActive && 'border-indigo bg-bg-2 text-tx-0',
-            )
-          }
-        >
-          <Icon aria-hidden className="h-3.5 w-3.5" />
-          {t(`nav.${key}`)}
-        </NavLink>
-      ))}
-    </nav>
+      <nav aria-label={t('title')} className={surfaceModuleNavigationRowClass}>
+        {NAV.map(({ to, key, icon: Icon }) => (
+          <NavLink
+            key={to}
+            to={{ pathname: to, search: location.search }}
+            className={({ isActive }) =>
+              cn(
+                surfaceModuleNavigationItemClass,
+                'gap-2',
+                isActive && surfaceModuleNavigationActiveClass,
+              )
+            }
+          >
+            <Icon aria-hidden className="h-3.5 w-3.5" />
+            {t(`nav.${key}`)}
+          </NavLink>
+        ))}
+      </nav>
+    </div>
   );
 }

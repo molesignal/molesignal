@@ -12,7 +12,16 @@ MoleSignal 的 PromQL 引擎（`src/infra/query/promql/`）基于 `promql-parser
 
 ### rate 家族（输入 `metric[range]`）
 
-`rate` · `irate` · `increase`（counter reset 自动检测）
+`rate` · `irate` · `increase`
+
+- cumulative monotonic Sum：按 counter 计算并自动检测 reset；
+- cumulative non-monotonic Sum：使用有符号的首尾差值；
+- OTLP DELTA：`increase` 累加窗口内各区间值，`rate` 再除以 range，`irate`
+  使用最后一个点的 `value / (time_unix_nano - start_time_unix_nano)`。
+
+查询窗口内若 temporality / monotonicity 发生切换，只计算最新一段语义连续的样本，
+不把 DELTA 值误当 cumulative reset。缺少 OTLP metadata 的历史数据继续按 cumulative
+monotonic counter 解释，保持兼容。
 
 ### range-vector 派生（输入 `metric[range]`）
 
@@ -99,9 +108,12 @@ metrics stream 的 parquet schema：
 ```
 _timestamp : TimestampMicros  NOT NULL
 value      : Float64          整数 value 自动 cast 为 Float64
+metric_temporality            内部 query metadata，不作为 label
+metric_monotonic              内部 query metadata，不作为 label
+metric_start_time_unix_nano   内部 query metadata，不作为 label
 <label>    : Utf8             每个 label 一列（非 _timestamp/value 的 Utf8 列即 label）
 ```
 
-求值路径：按 `parquet_file_meta` 时间窗裁剪候选 parquet → 只解码与窗口相交的 row group →
+求值路径：按 FileCatalog snapshot 与 manifest 时间窗裁剪候选 parquet → 只解码与窗口相交的 row group →
 在内存按 matcher 过滤、按 label 列组合分组成 series。单 selector 一次物化的样本数
 有上限，超出即报错提示收窄窗口或追加 label matcher。

@@ -13,15 +13,10 @@ interface PagePlaceholderProps {
 }
 
 /**
- * Shared placeholder used by Phase-1 route stubs. Each page exposes the
- * final chrome (PageHeader + PageBody) so the Topbar / Sidebar
- * are exercised end-to-end, while the body content lands later with the
- * feature module that owns it.
- *
- * Phase 6 M2: routes through the shared EmptyState component for the
- * `backend-pending` strategy so the placeholder shares one grammar with
- * every other "this page exists but isn't fully wired" surface
- * (RUM / Quota / AI Toolsets etc.).
+ * Shared placeholder for routes whose backend integration is pending. Each
+ * page renders the final PageHeader and PageBody chrome so the Topbar and
+ * Sidebar remain exercised end-to-end. The shared `backend-pending`
+ * EmptyState strategy keeps placeholder copy and layout consistent.
  */
 export function PagePlaceholder({ title, subtitle, hint }: PagePlaceholderProps) {
   const { t } = useTranslation('shell');
@@ -37,7 +32,7 @@ export function PagePlaceholder({ title, subtitle, hint }: PagePlaceholderProps)
             typeof hint === 'string'
               ? hint
               : t('placeholder.default_hint', {
-                  defaultValue: 'This view is a Phase-1 placeholder. The feature module that owns it lands later.',
+                  defaultValue: 'This view is coming soon.',
                 })
           }
         />

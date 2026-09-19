@@ -6,7 +6,7 @@ import { ErrorState } from '@/shell/ErrorState';
 import { LoadingState } from '@/shell/LoadingState';
 
 /**
- * Showcase of the three head-of-line state components (M0.4):
+ * Showcase of the shared product-state components:
  *   - 7 EmptyState strategies (icon + copy + CTAs)
  *   - ErrorState across 3 representative API failure shapes
  *   - LoadingState across the 3 skeleton variants
@@ -22,8 +22,8 @@ export function StatesDemo() {
           States — Empty / Error / Loading
         </h1>
         <p className="font-sans text-xs text-tx-2">
-          Phase 4 head-of-line citizens. Every product surface that has no data, can&apos;t load,
-          or is still loading uses these three components.
+          Every product surface that has no data, cannot load, or is still loading uses these
+          shared components.
         </p>
       </header>
 
@@ -140,7 +140,7 @@ const EMPTY_STRATEGIES: ReadonlyArray<{
   },
   {
     strategy: 'license-gated',
-    title: 'Mole Intelligence is a Pro feature',
+    title: 'Mole Agent is a Pro feature',
     description: 'Investigate incidents with assisted analysis and controlled operations.',
     primaryAction: { label: 'Upgrade', onClick: () => alert('upgrade') },
     secondaryAction: { label: 'Compare editions', onClick: () => alert('compare') },

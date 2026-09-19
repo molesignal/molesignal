@@ -50,15 +50,15 @@ Prerequisites:
   `rustup toolchain install nightly --profile minimal --component rustfmt`
 - `protoc` (e.g. `apt-get install protobuf-compiler` or `brew install protobuf`) and the [Buf CLI](https://buf.build/docs/installation) for the gRPC bindings.
 - Docker (for integration tests and the sandbox compose stack).
-- Node 20 + `pnpm` 9 if you touch `web/`.
+- Node 20 + `pnpm` 9. The Vite production assets are embedded in every `molesignal` binary.
 
 Quick sanity loop:
 
 ```bash
-make proto                                          # generate gRPC code
-cargo +nightly fmt --all                            # match the rustfmt config
-cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace --lib --bins                 # fast: unit + bin tests only
+make proto-lint                                     # validate Proto; Cargo generates bindings
+make fmt-check                                      # match the rustfmt config
+make lint                                           # builds web/dist, then runs Clippy
+make test                                           # fast: unit + bin tests only
 
 # Sandbox: Postgres + MinIO + molesignal standalone
 docker compose -f deploy/docker/docker-compose.yaml --profile standalone up
@@ -77,7 +77,7 @@ A pre-commit hook is installed via `make install-hooks` and enforces the license
 
 ## Coding conventions
 
-- **DDD layering.** Keep dependency arrows pointing inward: `bootstrap → api → app → domain → shared`. Infra (`crates/infra`) implements `domain` ports, never the other way around.
+- **Workspace boundaries.** Keep `crates/core/domain` adapter-free; engines and modules may depend on core, while `bin/molesignal` remains the composition root. See `ARCHITECTURE.md`.
 - **No premature abstraction.** Three similar lines is better than a generic helper used twice.
 - **Comments only when the *why* is non-obvious.** Well-named identifiers explain *what*; comments should capture invariants, workarounds, or surprising constraints.
 - **No backwards-compat shims** unless we explicitly need them; deleted code stays deleted.
@@ -87,7 +87,7 @@ A pre-commit hook is installed via `make install-hooks` and enforces the license
 ## Tests
 
 - Unit tests live next to the code they test (`#[cfg(test)] mod tests`).
-- Integration tests live in `crates/*/tests/it_*.rs`.
+- Integration tests live in `bin/molesignal/tests/*_it_*.rs`.
 - Anything that needs Docker (Postgres testcontainer, MinIO, Pebble, …) goes behind `MS_RUN_IT=1`:
 
   ```rust
@@ -97,11 +97,12 @@ A pre-commit hook is installed via `make install-hooks` and enforces the license
   Run the full it suite with:
 
   ```bash
-  MS_RUN_IT=1 cargo test -p molesignal-bootstrap --tests -- --test-threads=1
+  make web-build
+  MS_RUN_IT=1 cargo test -p molesignal --tests -- --test-threads=1
   ```
 
 - For UI / frontend work, exercise the change in a browser before claiming done — type checks and unit tests do not catch UX regressions.
-- If you touch query planning or multi-tenant code, `crates/bootstrap/tests/it_multitenant.rs` and `it_planner_rewrite.rs` are the contract you must keep green.
+- If you touch query planning or multi-tenant code, `bin/molesignal/tests/infra_it_multitenant.rs` and `infra_it_planner_rewrite.rs` are the contract you must keep green.
 
 ## Commit messages
 
@@ -134,10 +135,10 @@ Day-to-day PRs target `alpha` (or `main` if there is no `alpha` branch yet — u
 2. Branch off the target channel, keep PRs small and focused. One logical change per PR.
 3. Update relevant docs (`README.md`, `ARCHITECTURE.md`, in-crate doc comments) when you change observable behaviour.
 4. Make sure the CI required jobs pass locally before pushing:
-   - `cargo +nightly fmt --all -- --check`
-   - `cargo clippy --workspace --all-targets -- -D warnings`
-   - `cargo test --workspace --lib --bins`
-   - For features that touch HTTP / wire / persistence: the relevant `it_*.rs` suite under `crates/bootstrap/tests/` with `MS_RUN_IT=1`.
+   - `make fmt-check`
+   - `make lint`
+   - `make test`
+   - For features that touch HTTP / wire / persistence: the relevant `*_it_*.rs` suite under `bin/molesignal/tests/` with `MS_RUN_IT=1`.
 5. Push, open the PR, and fill in the template. Include:
    - Motivation (what problem this solves; which user-facing behaviour changes).
    - Test plan (what you ran locally; what is still untested and why).

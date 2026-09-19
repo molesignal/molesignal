@@ -50,15 +50,15 @@ git commit -s -m "your message"
   `rustup toolchain install nightly --profile minimal --component rustfmt`
 - `protoc`（例如 `apt-get install protobuf-compiler` 或 `brew install protobuf`）以及 [Buf CLI](https://buf.build/docs/installation)。
 - Docker（跑集成测试和 sandbox compose 用）。
-- 改 `web/` 还需要 Node 20 + `pnpm` 9。
+- 需要 Node 20 + `pnpm` 9；每个 `molesignal` 二进制都会嵌入 Vite 生产资源。
 
 最小快路径：
 
 ```bash
-make proto                                          # 生成 gRPC 代码
-cargo +nightly fmt --all                            # 跟 rustfmt 配置对齐
-cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace --lib --bins                 # 快：仅单元 + bin 测试
+make proto-lint                                     # 校验 Proto；binding 由 Cargo 自动生成
+make fmt-check                                      # 使用仓库 rustfmt 配置
+make lint                                           # 先构建 web/dist，再执行 Clippy
+make test                                           # 快：仅单元 + bin 测试
 
 # Sandbox：Postgres + MinIO + molesignal standalone
 docker compose -f deploy/docker/docker-compose.yaml --profile standalone up
@@ -77,7 +77,7 @@ pnpm -C web dev          # vite dev server
 
 ## 代码约定
 
-- **DDD 分层**：依赖箭头必须从外往内：`bootstrap → api → app → domain → shared`；infra (`crates/infra`) 实现 `domain` 的端口，不能反向。
+- **Workspace 边界**：`crates/core/domain` 不得引入 adapter；engine 与 module 可以依赖 core，`bin/molesignal` 保持为总 composition root。详见 `ARCHITECTURE.md`。
 - **不过度抽象**：三处雷同代码比给两处用一次的通用 helper 好。
 - **注释只解释 *为什么***：命名负责"是什么"，注释留给不变量、变通方案、出乎意料的约束。
 - **不留向后兼容垫层**：除非明确需要；删掉的代码就让它删干净。
@@ -87,7 +87,7 @@ pnpm -C web dev          # vite dev server
 ## 测试
 
 - 单元测试紧贴被测代码（`#[cfg(test)] mod tests`）。
-- 集成测试在 `crates/*/tests/it_*.rs`。
+- 集成测试在 `bin/molesignal/tests/*_it_*.rs`。
 - 需要 Docker（Postgres testcontainer / MinIO / Pebble 等）的，必须放到 `MS_RUN_IT=1` 后面：
 
   ```rust
@@ -97,11 +97,12 @@ pnpm -C web dev          # vite dev server
   整套集成测试跑法：
 
   ```bash
-  MS_RUN_IT=1 cargo test -p molesignal-bootstrap --tests -- --test-threads=1
+  make web-build
+  MS_RUN_IT=1 cargo test -p molesignal --tests -- --test-threads=1
   ```
 
 - 改 UI / 前端的工作，请在浏览器里走通再算"完成" —— 类型检查和单元测试抓不住交互回归。
-- 改查询计划或多租户代码，`crates/bootstrap/tests/it_multitenant.rs` 与 `it_planner_rewrite.rs` 是必须保持绿的契约测试。
+- 改查询计划或多租户代码，`bin/molesignal/tests/infra_it_multitenant.rs` 与 `infra_it_planner_rewrite.rs` 是必须保持绿的契约测试。
 
 ## Commit 信息
 
@@ -130,14 +131,14 @@ pnpm -C web dev          # vite dev server
 
 ## Pull request 流程
 
-1. 非微小变更先开 issue / discussion 对齐方向 —— 不希望你周末写完一个大重构才发现方向有分歧。
+1. 非微小变更先开 issue / discussion 确认方向 —— 不希望你周末写完一个大重构才发现方向有分歧。
 2. 从目标通道 fork 分支，PR 保持小而聚焦，一个 PR 只做一件逻辑事。
 3. 行为面有变更时同步更新相关文档（`README.md`、`ARCHITECTURE.md`、crate 内 doc comment）。
 4. push 前确保 CI 必跑项本地全绿：
-   - `cargo +nightly fmt --all -- --check`
-   - `cargo clippy --workspace --all-targets -- -D warnings`
-   - `cargo test --workspace --lib --bins`
-   - 涉及 HTTP / wire / 持久化的特性，跑 `crates/bootstrap/tests/` 下对应的 `it_*.rs`，记得带 `MS_RUN_IT=1`。
+   - `make fmt-check`
+   - `make lint`
+   - `make test`
+   - 涉及 HTTP / wire / 持久化的特性，跑 `bin/molesignal/tests/` 下对应的 `*_it_*.rs`，记得带 `MS_RUN_IT=1`。
 5. push、开 PR、填模板。请在 PR 描述里写清：
    - 动机（解决什么问题；改了哪些用户可见行为）。
    - 测试计划（你本地跑了什么；什么还没测，原因是什么）。

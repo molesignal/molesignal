@@ -4,7 +4,6 @@ import {
   Activity,
   ArrowRight,
   Braces,
-  CheckCircle2,
   Clock3,
   Copy,
   Database,
@@ -26,21 +25,21 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { ConfirmDialog } from '@/admin';
 import * as alertsApi from '@/api/alerts';
-import * as ingestionApi from '@/api/ingestion';
+import * as fieldMaskingApi from '@/api/fieldMasking';
+import * as intakeApi from '@/api/intake';
 import * as pipelinesApi from '@/api/pipelines';
 import * as savedViewsApi from '@/api/savedViews';
 import * as streamsApi from '@/api/streams';
+import { writeClipboardText } from '@/lib/clipboard';
 import { formatMicrosActive } from '@/lib/time';
 import {
+  restrictActionAccess,
   type ActionAccess,
   useActionAccess,
 } from '@/product/actionAccess';
 import { type ProductStateProps } from '@/product/states';
 import { DetailPage } from '@/product/templates';
 import {
-  Card,
-  CardBody,
-  CardHeader,
   ChromeButton,
   Dot,
   Pill,
@@ -48,10 +47,8 @@ import {
   uiTableHeaderClass,
 } from '@/shell/chrome';
 import {
-  FormDrawer,
   FormField,
   FormInput,
-  FormSelect,
   FormTextarea,
 } from '@/shell/FormDrawer';
 import { cn } from '@/shell/lib/cn';
@@ -69,18 +66,23 @@ import { TimeSeriesChart } from '@/viz/timeseries/TimeSeriesChart';
 
 import {
   datasourceLinkForStream,
-  ingestPathForSignal,
-  isIngestSignal,
+  intakePathForSignal,
+  isIntakeSignal,
 } from './datasourceLink';
+import { FieldEditDrawer } from './fieldEditor/FieldEditDrawer';
+import { INDEX_OPTIONS, toFieldDrafts, type FieldDraft } from './fieldEditor/model';
 import { logicalFieldType, streamVariantsForDetail } from './model';
+import {
+  streamFlatTableClassName,
+  StreamKpiBand,
+  StreamSection,
+  StreamSettingsSection,
+  StreamToggleRow,
+} from './Surfaces';
 
 type DetailTab = 'overview' | 'schema' | 'retention' | 'usage' | 'settings';
 
-type FieldDraft = streamsApi.StreamField & {
-  index_type: streamsApi.StreamIndexType;
-  condition: string;
-  extraction_patterns_text: string;
-};
+const MOLESIGNAL_SYSTEM_STREAM = '_molesignal';
 
 interface RetentionRuleDraft {
   id: string;
@@ -117,14 +119,6 @@ const DETAIL_TABS: Array<{ id: DetailTab; labelKey: string; icon: React.ElementT
   { id: 'retention', labelKey: 'explore.tabs.retention', icon: Clock3 },
   { id: 'usage', labelKey: 'explore.tabs.usage', icon: Workflow },
   { id: 'settings', labelKey: 'explore.tabs.settings', icon: Settings2 },
-];
-
-const INDEX_OPTIONS: Array<{ value: streamsApi.StreamIndexType; labelKey: string }> = [
-  { value: 'none', labelKey: 'explore.index_options.none' },
-  { value: 'full_text', labelKey: 'explore.index_options.full_text' },
-  { value: 'exact', labelKey: 'explore.index_options.exact' },
-  { value: 'bloom', labelKey: 'explore.index_options.bloom' },
-  { value: 'skip', labelKey: 'explore.index_options.skip' },
 ];
 
 const STATUS_TONE: Record<streamsApi.StreamRuntimeStatus, PillTone> = {
@@ -174,25 +168,6 @@ function streamTypeLabel(
   return t(`list.tabs.${type}`);
 }
 
-function ruleFor(
-  settings: streamsApi.StreamSettings,
-  field: string,
-): streamsApi.FieldIndexRule | undefined {
-  return settings.index_rules.find((rule) => rule.field === field);
-}
-
-function toFieldDrafts(stream: streamsApi.StreamSummary): FieldDraft[] {
-  return stream.schema.fields.map((field) => {
-    const rule = ruleFor(stream.settings, field.name);
-    return {
-      ...field,
-      index_type: rule?.index_type ?? (field.indexed ? 'full_text' : 'none'),
-      condition: rule?.condition ?? '',
-      extraction_patterns_text: rule?.sdr_patterns.join('\n') ?? '',
-    };
-  });
-}
-
 function toDraft(stream: streamsApi.StreamSummary): StreamDraft {
   return {
     fields: toFieldDrafts(stream),
@@ -223,7 +198,10 @@ function parseOptionalNumber(value: string): number | null {
   return Number.isFinite(number) && number >= 0 ? number : null;
 }
 
-function payloadForDraft(draft: StreamDraft): streamsApi.UpdateStreamSettingsRequest {
+function payloadForDraft(
+  draft: StreamDraft,
+  systemStream = false,
+): streamsApi.UpdateStreamSettingsRequest {
   const settings: streamsApi.StreamSettings = {
     description: draft.description.trim() || null,
     index_rules: draft.fields.map((field) => ({
@@ -249,9 +227,22 @@ function payloadForDraft(draft: StreamDraft): streamsApi.UpdateStreamSettingsReq
     store_original_data: draft.storeOriginal,
     enable_distinct_values: draft.distinctValues,
     queryable: draft.queryable,
+    field_masking: draft.fields.flatMap((field) => {
+      if (field.masking_mode === 'inherit') return [];
+      return [{
+        field: field.name,
+        algorithm: field.masking_mode === 'custom' ? field.masking_algorithm : null,
+      }];
+    }),
   };
   return {
-    retention_days: draft.retentionDays.trim() ? Number(draft.retentionDays) : null,
+    ...(systemStream
+      ? {}
+      : {
+          retention_days: draft.retentionDays.trim()
+            ? Number(draft.retentionDays)
+            : null,
+        }),
     fields: draft.fields.map((field) => ({
       name: field.name,
       indexed: field.indexed,
@@ -266,8 +257,8 @@ function payloadForDraft(draft: StreamDraft): streamsApi.UpdateStreamSettingsReq
   };
 }
 
-function draftSignature(draft: StreamDraft | null): string {
-  return draft ? JSON.stringify(payloadForDraft(draft)) : '';
+function draftSignature(draft: StreamDraft | null, systemStream = false): string {
+  return draft ? JSON.stringify(payloadForDraft(draft, systemStream)) : '';
 }
 
 function formatBytes(value: number | null | undefined): string {
@@ -371,10 +362,10 @@ async function loadUsage(streamName: string): Promise<UsageSummary> {
 
 async function sendTestEvent(
   stream: streamsApi.StreamSummary,
-): Promise<ingestionApi.IngestResult> {
+): Promise<intakeApi.IntakeResult> {
   if (stream.stream_type === 'traces') {
     const startNs = Date.now() * 1_000_000;
-    return ingestionApi.ingestTraces(stream.name, [
+    return intakeApi.intakeTraces(stream.name, [
       {
         _timestamp: Math.floor(startNs / 1000),
         trace_id: crypto.randomUUID().replace(/-/g, ''),
@@ -391,7 +382,7 @@ async function sendTestEvent(
     ]);
   }
   if (stream.stream_type === 'metrics') {
-    return ingestionApi.ingestMetrics(stream.name, [
+    return intakeApi.intakeMetrics(stream.name, [
       {
         name: 'molesignal_stream_test_total',
         value: 1,
@@ -401,7 +392,7 @@ async function sendTestEvent(
     ]);
   }
   if (stream.stream_type === 'logs') {
-    return ingestionApi.ingestLogs(stream.name, [
+    return intakeApi.intakeLogs(stream.name, [
       {
         timestamp: new Date().toISOString(),
         level: 'info',
@@ -434,12 +425,6 @@ export function StreamExplore() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const configureAccess = useActionAccess({
-    permission: 'streams.configure',
-  });
-  const deleteAccess = useActionAccess({
-    permission: 'streams.delete',
-  });
   const [tab, setTab] = React.useState<DetailTab>('overview');
   const [draft, setDraft] = React.useState<StreamDraft | null>(null);
   const [editingField, setEditingField] = React.useState<FieldDraft | null>(null);
@@ -461,6 +446,27 @@ export function StreamExplore() {
     refetchInterval: 60_000,
   });
   const stream = streamQuery.data;
+  const systemStream = stream?.name === MOLESIGNAL_SYSTEM_STREAM;
+  const configureAccess = useActionAccess({
+    permission: systemStream ? 'sys.telemetry.manage' : 'streams.configure',
+  });
+  const baseDeleteAccess = useActionAccess({ permission: 'streams.delete' });
+  const systemImmutableReason = t('explore.system_stream_immutable');
+  const deleteAccess = restrictActionAccess(
+    baseDeleteAccess,
+    !systemStream,
+    systemImmutableReason,
+  );
+  const mutableSettingsAccess = restrictActionAccess(
+    configureAccess,
+    !systemStream,
+    systemImmutableReason,
+  );
+  const fieldMaskingQuery = useQuery({
+    queryKey: ['field-masking-effective', stream?.id],
+    queryFn: () => fieldMaskingApi.effectiveForStream(stream?.id ?? ''),
+    enabled: Boolean(stream?.id) && stream?.stream_type !== 'metrics',
+  });
   const streamVariants = React.useMemo(
     () => (stream ? streamVariantsForDetail(stream, streamListQuery.data ?? []) : []),
     [stream, streamListQuery.data],
@@ -480,10 +486,13 @@ export function StreamExplore() {
   }, [stream]);
 
   const baselineSignature = React.useMemo(
-    () => (stream ? draftSignature(toDraft(stream)) : ''),
-    [stream],
+    () => (stream ? draftSignature(toDraft(stream), systemStream) : ''),
+    [stream, systemStream],
   );
-  const currentSignature = React.useMemo(() => draftSignature(draft), [draft]);
+  const currentSignature = React.useMemo(
+    () => draftSignature(draft, systemStream),
+    [draft, systemStream],
+  );
   const dirty = Boolean(draft && stream && currentSignature !== baselineSignature);
 
   React.useEffect(() => {
@@ -504,12 +513,16 @@ export function StreamExplore() {
       if (!stream || !draft) throw new Error('stream not loaded');
       const validation = validateDraft(draft);
       if (validation) throw new Error(validation);
-      return streamsApi.updateSettings(stream.id, payloadForDraft(draft));
+      return streamsApi.updateSettings(
+        stream.id,
+        payloadForDraft(draft, systemStream),
+      );
     },
     onSuccess: (updated) => {
       queryClient.setQueryData(['streams', 'detail', updated.id], updated);
       setDraft(toDraft(updated));
       void queryClient.invalidateQueries({ queryKey: ['streams', 'list'] });
+      void queryClient.invalidateQueries({ queryKey: ['field-masking-effective', updated.id] });
       toast.success(t('explore.toast.updated'));
     },
     onError: (error) => {
@@ -565,12 +578,12 @@ export function StreamExplore() {
   return (
     <>
       <DetailPage
+        appearance="surface"
         title={streamName}
         subtitle={
           stream?.settings.description?.trim() ||
           t('explore.subtitle', { defaultValue: '运行状态、查询效率、存储与保留策略' })
         }
-        backTo="/streams"
         toolbar={
           stream ? (
             <>
@@ -596,7 +609,7 @@ export function StreamExplore() {
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem
                     onSelect={() => {
-                      void navigator.clipboard.writeText(stream.id);
+                      void writeClipboardText(stream.id);
                       toast.success(t('explore.toolbar.id_copied'));
                     }}
                   >
@@ -778,12 +791,12 @@ export function StreamExplore() {
             )}
 
             {tab === 'retention' && (
-              <PermissionFieldset access={configureAccess}>
+              <PermissionFieldset access={mutableSettingsAccess}>
                 <RetentionPanel
                   draft={draft}
                   effectiveRetentionDays={stream.effective_retention.days}
                   onChange={(patch) => {
-                    if (!configureAccess.allowed) return;
+                    if (!mutableSettingsAccess.allowed) return;
                     setDraft((current) =>
                       current ? { ...current, ...patch } : current,
                     );
@@ -802,11 +815,11 @@ export function StreamExplore() {
             )}
 
             {tab === 'settings' && (
-              <PermissionFieldset access={configureAccess}>
+              <PermissionFieldset access={mutableSettingsAccess}>
                 <SettingsPanel
                   draft={draft}
                   onChange={(patch) => {
-                    if (!configureAccess.allowed) return;
+                    if (!mutableSettingsAccess.allowed) return;
                     setDraft((current) =>
                       current ? { ...current, ...patch } : current,
                     );
@@ -821,6 +834,10 @@ export function StreamExplore() {
       <FieldEditDrawer
         access={configureAccess}
         field={editingField}
+        effectiveMasking={
+          fieldMaskingQuery.data?.fields.find((field) => field.field === editingField?.name) ?? null
+        }
+        maskingSupported={stream?.stream_type !== 'metrics'}
         onClose={() => setEditingField(null)}
         onApply={(updated) => {
           if (!configureAccess.allowed) return;
@@ -987,38 +1004,40 @@ function OverviewPanel({
         </div>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <MetricCard
-          label={t('explore.kpis.events_24h')}
-          value={runtime?.stats_available ? formatCount(runtime.rows) : '—'}
-          note={t('explore.kpis.from_parquet_file_meta')}
-        />
-        <MetricCard
-          label={t('explore.kpis.receive_rate')}
-          value={formatRate(runtime?.rows, runtimeWindowSecs, stream.stream_type)}
-          note={t('explore.kpis.average_24h')}
-        />
-        <MetricCard
-          label={t('explore.kpis.compressed_24h')}
-          value={runtime?.stats_available ? formatBytes(runtime.stored_bytes) : '—'}
-          note={t('explore.kpis.compressed_note')}
-        />
-        <MetricCard
-          label={t('explore.kpis.current_storage')}
-          value={
-            runtime?.stats_available ? formatBytes(runtime.current_stored_bytes) : '—'
-          }
-          note={t('explore.kpis.live_parquet')}
-        />
-        <MetricCard
-          label={t('explore.kpis.index_coverage')}
-          value={totalFields > 0 ? `${indexedFields} / ${totalFields}` : '—'}
-          note={t('explore.kpis.index_coverage_note')}
-        />
-      </div>
+      <StreamKpiBand
+        items={[
+          {
+            label: t('explore.kpis.events_24h'),
+            value: runtime?.stats_available ? formatCount(runtime.rows) : '—',
+            note: t('explore.kpis.from_catalog'),
+          },
+          {
+            label: t('explore.kpis.receive_rate'),
+            value: formatRate(runtime?.rows, runtimeWindowSecs, stream.stream_type),
+            note: t('explore.kpis.average_24h'),
+          },
+          {
+            label: t('explore.kpis.compressed_24h'),
+            value: runtime?.stats_available ? formatBytes(runtime.stored_bytes) : '—',
+            note: t('explore.kpis.compressed_note'),
+          },
+          {
+            label: t('explore.kpis.current_storage'),
+            value: runtime?.stats_available
+              ? formatBytes(runtime.current_stored_bytes)
+              : '—',
+            note: t('explore.kpis.live_parquet'),
+          },
+          {
+            label: t('explore.kpis.index_coverage'),
+            value: totalFields > 0 ? `${indexedFields} / ${totalFields}` : '—',
+            note: t('explore.kpis.index_coverage_note'),
+          },
+        ]}
+      />
 
       {noData ? (
-        <div className="grid min-h-[300px] place-items-center rounded-lg border border-dashed border-bd-1 bg-bg-1 px-6 py-10 text-center">
+        <div className="grid min-h-[300px] place-items-center px-6 py-10 text-center">
           <div className="max-w-lg">
             <Database className="mx-auto h-8 w-8 text-tx-3" />
             <h3 className="mt-4 font-sans text-lg font-display-strong text-tx-0">
@@ -1051,9 +1070,10 @@ function OverviewPanel({
       ) : (
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
           <TrendChart buckets={runtime?.buckets ?? []} />
-          <Card>
-            <CardHeader title={t('explore.overview.operational_state')} />
-            <CardBody className="divide-y divide-bd-0 p-0">
+          <StreamSection
+            title={t('explore.overview.operational_state')}
+            bodyClassName="space-y-0 pt-2"
+          >
               <OverviewRow
                 label={t('explore.metadata.status')}
                 value={
@@ -1093,30 +1113,9 @@ function OverviewPanel({
                     : t('explore.overview.not_queryable')
                 }
               />
-            </CardBody>
-          </Card>
+          </StreamSection>
         </div>
       )}
-    </div>
-  );
-}
-
-function MetricCard({
-  label,
-  value,
-  note,
-}: {
-  label: string;
-  value: React.ReactNode;
-  note?: string;
-}) {
-  return (
-    <div className="min-h-[108px] rounded-lg border border-bd-0 bg-bg-1 px-4 py-3.5">
-      <div className="font-sans text-xs font-semibold text-tx-2">{label}</div>
-      <div className="mt-2.5 truncate font-sans text-2xl font-display-strong tabular-nums text-tx-0">
-        {value}
-      </div>
-      {note && <div className="mt-1.5 truncate font-sans text-type-micro text-tx-3">{note}</div>}
     </div>
   );
 }
@@ -1133,82 +1132,74 @@ function TrendChart({
   );
   const max = Math.max(0, ...values);
   return (
-    <Card>
-      <CardHeader
-        title={
-          <div>
-            <div>{t('explore.overview.trend_title')}</div>
-            <div className="mt-0.5 font-sans text-xs font-normal text-tx-3">
-              {t('explore.overview.trend_subtitle')}
-            </div>
-          </div>
-        }
-        actions={
-          <div className="flex rounded-md border border-bd-0 bg-bg-2 p-0.5">
-            {(['rows', 'storage'] as const).map((item) => (
-              <button
-                key={item}
-                type="button"
-                onClick={() => setMetric(item)}
-                className={cn(
-                  'rounded px-2 py-1 font-sans text-xs font-semibold',
-                  metric === item ? 'bg-bg-4 text-tx-0' : 'text-tx-2',
-                )}
-              >
-                {t(`explore.overview.metric_${item}`)}
-              </button>
-            ))}
-          </div>
-        }
-      />
-      <CardBody>
-        {max === 0 ? (
-          <div className="grid h-[220px] place-items-center font-sans text-sm text-tx-3">
-            {t('explore.overview.no_chart_data')}
-          </div>
-        ) : (
-          <TimeSeriesChart
-            series={[
-              {
-                id: `stream-${metric}`,
-                name: t(`explore.overview.metric_${metric}`),
-                data: values,
-                timestamps: buckets.map((bucket) =>
-                  Math.round((bucket.start_micros + bucket.end_micros) / 2),
-                ),
-                unit: metric === 'rows' ? 'rows' : 'bytes',
-              },
-            ]}
-            {...(buckets[0] && buckets.at(-1)
-              ? {
-                  xDomain: [
-                    buckets[0].start_micros,
-                    buckets.at(-1)!.end_micros,
-                  ] as [number, number],
-                }
-              : {})}
-            height={220}
-            ariaLabel={t('explore.overview.trend_title')}
-            options={{
-              drawStyle: 'bar',
-              showPoints: 'never',
-              legendMode: 'hidden',
-              leftAxis: {
-                min: 0,
-                unit: metric === 'rows' ? 'rows' : 'bytes',
-              },
-            }}
-            showLegend={false}
-          />
-        )}
-      </CardBody>
-    </Card>
+    <StreamSection
+      title={t('explore.overview.trend_title')}
+      description={t('explore.overview.trend_subtitle')}
+      bodyClassName="pt-4"
+      actions={
+        <div className="flex rounded-md border border-bd-0 bg-bg-2 p-0.5">
+          {(['rows', 'storage'] as const).map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => setMetric(item)}
+              className={cn(
+                'rounded px-2 py-1 font-sans text-xs font-semibold',
+                metric === item ? 'bg-bg-4 text-tx-0' : 'text-tx-2',
+              )}
+            >
+              {t(`explore.overview.metric_${item}`)}
+            </button>
+          ))}
+        </div>
+      }
+    >
+      {max === 0 ? (
+        <div className="grid h-[220px] place-items-center font-sans text-sm text-tx-3">
+          {t('explore.overview.no_chart_data')}
+        </div>
+      ) : (
+        <TimeSeriesChart
+          series={[
+            {
+              id: `stream-${metric}`,
+              name: t(`explore.overview.metric_${metric}`),
+              data: values,
+              timestamps: buckets.map((bucket) =>
+                Math.round((bucket.start_micros + bucket.end_micros) / 2),
+              ),
+              unit: metric === 'rows' ? 'rows' : 'bytes',
+            },
+          ]}
+          {...(buckets[0] && buckets.at(-1)
+            ? {
+                xDomain: [
+                  buckets[0].start_micros,
+                  buckets.at(-1)!.end_micros,
+                ] as [number, number],
+              }
+            : {})}
+          height={220}
+          ariaLabel={t('explore.overview.trend_title')}
+          options={{
+            drawStyle: 'bar',
+            showPoints: 'never',
+            legendMode: 'hidden',
+            leftAxis: {
+              min: 0,
+              unit: metric === 'rows' ? 'rows' : 'bytes',
+            },
+          }}
+          showLegend={false}
+        />
+      )}
+    </StreamSection>
   );
 }
 
 function OverviewRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex min-h-12 items-center gap-4 px-4 py-3">
+    <div className="flex min-h-11 items-center gap-4 py-2">
       <span className="font-sans text-xs text-tx-2">{label}</span>
       <span className="ml-auto text-right font-sans text-xs font-semibold text-tx-0">
         {value}
@@ -1251,7 +1242,10 @@ function SchemaPanel({
             {t('explore.schema.readonly_hint')}
           </div>
         </div>
-        <div className="ml-auto flex h-9 min-w-[260px] items-center gap-2 rounded-md border border-bd-1 bg-bg-1 px-3">
+        <div
+          data-ui="input-control"
+          className="ml-auto flex h-9 min-w-[260px] items-center gap-2 rounded-md border-0 bg-[var(--control-surface)] px-3 transition-colors hover:bg-bg-3 focus-within:bg-bg-3"
+        >
           <Search className="h-3.5 w-3.5 text-tx-3" />
           <input
             value={filter}
@@ -1278,8 +1272,8 @@ function SchemaPanel({
         )}
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-bd-0 bg-bg-1">
-        <div className="overflow-x-auto">
+      <div className={streamFlatTableClassName}>
+        <div>
           <table className="w-full min-w-[900px] border-collapse font-sans text-xs">
             <thead>
               <tr>
@@ -1370,149 +1364,6 @@ function SchemaPanel({
   );
 }
 
-function FieldEditDrawer({
-  access,
-  field,
-  onClose,
-  onApply,
-}: {
-  access: ActionAccess;
-  field: FieldDraft | null;
-  onClose: () => void;
-  onApply: (field: FieldDraft) => void;
-}) {
-  const { t } = useTranslation('streams');
-  const [editing, setEditing] = React.useState<FieldDraft | null>(field);
-
-  React.useEffect(() => setEditing(field), [field]);
-
-  return (
-    <FormDrawer
-      open={field !== null}
-      onOpenChange={(open) => !open && onClose()}
-      width={600}
-      title={
-        field
-          ? t('explore.schema.drawer_title', { name: field.name })
-          : t('explore.schema.drawer_fallback')
-      }
-      subtitle={t('explore.schema.drawer_subtitle')}
-      footer={
-        <>
-          <ChromeButton onClick={onClose}>{t('explore.schema.cancel')}</ChromeButton>
-          <ChromeButton
-            variant="primary"
-            onClick={() => access.allowed && editing && onApply(editing)}
-            disabled={access.disabled || !editing}
-            disabledReason={access.reason}
-          >
-            {t('explore.schema.apply')}
-          </ChromeButton>
-        </>
-      }
-    >
-      {editing && (
-        <fieldset
-          disabled={access.disabled}
-          aria-disabled={access.disabled || undefined}
-          title={access.reason}
-          className="contents disabled:cursor-not-allowed"
-        >
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-3 rounded-lg border border-bd-0 bg-bg-2 p-4">
-            <OverviewRow label={t('explore.schema.columns.name')} value={editing.name} />
-            <OverviewRow
-              label={t('explore.schema.columns.type')}
-              value={
-                <span title={t('explore.schema.storage_type', { type: editing.data_type })}>
-                  {t(`explore.schema.field_types.${logicalFieldType(editing.data_type)}`)}
-                </span>
-              }
-            />
-          </div>
-
-          <div className="rounded-lg border border-yellow/30 bg-yellow-dim px-4 py-3 font-sans text-xs leading-relaxed text-tx-1">
-            {t('explore.changes.index_risk')}
-          </div>
-
-          <FormField
-            label={t('explore.schema.columns.index_type')}
-            hint={t('explore.schema.index_type_hint')}
-          >
-            <FormSelect
-              value={editing.index_type}
-              onChange={(value) =>
-                setEditing((current) =>
-                  current
-                    ? {
-                        ...current,
-                        index_type: value as streamsApi.StreamIndexType,
-                        indexed: value !== 'none',
-                      }
-                    : current,
-                )
-              }
-              options={INDEX_OPTIONS.map((option) => ({
-                value: option.value,
-                label: t(option.labelKey),
-              }))}
-            />
-          </FormField>
-
-          <FormField
-            label={t('explore.schema.columns.condition')}
-            hint={t('explore.schema.condition_hint')}
-          >
-            <FormInput
-              value={editing.condition}
-              onChange={(event) =>
-                setEditing((current) =>
-                  current ? { ...current, condition: event.target.value } : current,
-                )
-              }
-              placeholder={t('explore.schema.condition_placeholder')}
-            />
-          </FormField>
-
-          <FormField
-            label={t('explore.schema.extraction_rules')}
-            hint={t('explore.schema.extraction_hint')}
-          >
-            <FormTextarea
-              value={editing.extraction_patterns_text}
-              onChange={(event) =>
-                setEditing((current) =>
-                  current
-                    ? { ...current, extraction_patterns_text: event.target.value }
-                    : current,
-                )
-              }
-              rows={6}
-              className="font-mono"
-              placeholder={t('explore.schema.pattern_placeholder')}
-            />
-          </FormField>
-
-          {editing.encrypted && (
-            <div className="flex items-start gap-3 rounded-lg border border-green/25 bg-green-dim px-4 py-3">
-              <CheckCircle2 className="mt-0.5 h-4 w-4 text-green-soft" />
-              <div>
-                <div className="font-sans text-sm font-semibold text-tx-0">
-                  {t('explore.schema.encrypted')}
-                </div>
-                <div className="mt-1 font-sans text-xs text-tx-2">
-                  {t('explore.schema.encrypted_hint')}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-        </fieldset>
-      )}
-    </FormDrawer>
-  );
-}
-
 function RetentionPanel({
   draft,
   effectiveRetentionDays,
@@ -1548,10 +1399,11 @@ function RetentionPanel({
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
-        <Card>
-          <CardHeader title={t('explore.retention.default_policy')} />
-          <CardBody className="space-y-4">
+      <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+        <StreamSection
+          title={t('explore.retention.default_policy')}
+          bodyClassName="space-y-4 pt-4"
+        >
             <FormField
               label={t('explore.retention.data_retention_days')}
               hint={t('explore.retention.days_default_hint', {
@@ -1569,11 +1421,10 @@ function RetentionPanel({
                 })}
               />
             </FormField>
-            <div className="rounded-md border border-bd-0 bg-bg-2 px-3 py-2.5 font-sans text-xs leading-relaxed text-tx-2">
+            <div className="bg-bg-2 px-3 py-2.5 font-sans text-xs leading-relaxed text-tx-2">
               {t('explore.retention.default_explanation')}
             </div>
-          </CardBody>
-        </Card>
+        </StreamSection>
 
         <div className="min-w-0">
           <div className="mb-3 flex flex-wrap items-center gap-3">
@@ -1591,7 +1442,7 @@ function RetentionPanel({
             </ChromeButton>
           </div>
 
-          <div className="overflow-hidden rounded-lg border border-bd-0 bg-bg-1">
+          <div className="min-w-0 overflow-hidden bg-transparent">
             <div className="hidden grid-cols-[52px_52px_170px_minmax(220px,1fr)_130px_120px_44px] border-b border-bd-0 px-3 py-2 lg:grid">
               {[
                 t('explore.retention.priority'),
@@ -1672,11 +1523,11 @@ function RetentionPanel({
         </div>
       </div>
 
-      <details className="rounded-lg border border-bd-0 bg-bg-1">
-        <summary className="cursor-pointer px-4 py-3 font-sans text-sm font-semibold text-tx-1">
+      <details className="[&[open]>summary]:border-b [&[open]>summary]:border-bd-0">
+        <summary className="cursor-pointer py-3 font-sans text-sm font-semibold text-tx-1">
           {t('explore.retention.advanced_filter')}
         </summary>
-        <div className="border-t border-bd-0 p-4">
+        <div className="pt-4">
           <FormField
             label={t('explore.retention.keep_condition')}
             hint={t('explore.retention.keep_condition_hint')}
@@ -1721,10 +1572,10 @@ function UsagePanel({
         subtitle={t('explore.usage.write_source_hint')}
         items={[
           {
-            id: 'ingest',
-            title: t('explore.usage.ingest_endpoint'),
-            description: isIngestSignal(stream.stream_type)
-              ? ingestPathForSignal(stream.stream_type, stream.name)
+            id: 'intake',
+            title: t('explore.usage.intake_endpoint'),
+            description: isIntakeSignal(stream.stream_type)
+              ? intakePathForSignal(stream.stream_type, stream.name)
               : '—',
             to: datasourceLinkForStream(stream),
           },
@@ -1782,19 +1633,12 @@ function UsageGroup({
 }) {
   const { t } = useTranslation('streams');
   return (
-    <Card>
-      <CardHeader
-        title={
-          <div>
-            <div>{title}</div>
-            <div className="mt-0.5 font-sans text-xs font-normal text-tx-3">
-              {subtitle}
-            </div>
-          </div>
-        }
-        actions={<Pill tone="dim">{items.length}</Pill>}
-      />
-      <CardBody className="p-0">
+    <StreamSection
+      title={title}
+      description={subtitle}
+      actions={<Pill tone="dim">{items.length}</Pill>}
+      bodyClassName="pt-0"
+    >
         {items.length === 0 ? (
           <div className="grid h-28 place-items-center font-sans text-xs text-tx-3">
             {t('explore.usage.none')}
@@ -1818,8 +1662,7 @@ function UsageGroup({
             </Link>
           ))
         )}
-      </CardBody>
-    </Card>
+    </StreamSection>
   );
 }
 
@@ -1833,7 +1676,7 @@ function SettingsPanel({
   const { t } = useTranslation('streams');
   return (
     <div className="grid gap-4 xl:grid-cols-3">
-      <SettingsSection
+      <StreamSettingsSection
         title={t('explore.runtime.basic')}
         description={t('explore.runtime.basic_hint')}
       >
@@ -1845,19 +1688,19 @@ function SettingsPanel({
             placeholder={t('explore.runtime.description_placeholder')}
           />
         </FormField>
-      </SettingsSection>
+      </StreamSettingsSection>
 
-      <SettingsSection
+      <StreamSettingsSection
         title={t('explore.runtime.query_capabilities')}
         description={t('explore.runtime.query_capabilities_hint')}
       >
-        <ToggleRow
+        <StreamToggleRow
           title={t('explore.runtime.queryable')}
           hint={t('explore.runtime.queryable_hint')}
           checked={draft.queryable}
           onChange={(queryable) => onChange({ queryable })}
         />
-        <ToggleRow
+        <StreamToggleRow
           title={t('explore.runtime.enable_distinct_values')}
           checked={draft.distinctValues}
           onChange={(distinctValues) => onChange({ distinctValues })}
@@ -1873,27 +1716,27 @@ function SettingsPanel({
             onChange={(event) => onChange({ maxQueryRange: event.target.value })}
           />
         </FormField>
-      </SettingsSection>
+      </StreamSettingsSection>
 
-      <SettingsSection
+      <StreamSettingsSection
         title={t('explore.runtime.storage_behavior')}
         description={t('explore.runtime.storage_behavior_hint')}
       >
-        <ToggleRow
+        <StreamToggleRow
           title={t('explore.runtime.store_original')}
           checked={draft.storeOriginal}
           onChange={(storeOriginal) => onChange({ storeOriginal })}
         />
-        <ToggleRow
+        <StreamToggleRow
           title={t('explore.runtime.use_stats')}
           checked={draft.useStats}
           onChange={(useStats) => onChange({ useStats })}
         />
-        <details className="rounded-md border border-bd-0 bg-bg-2">
-          <summary className="cursor-pointer px-3 py-2.5 font-sans text-xs font-semibold text-tx-1">
+        <details className="[&[open]>summary]:border-b [&[open]>summary]:border-bd-0">
+          <summary className="cursor-pointer py-2.5 font-sans text-xs font-semibold text-tx-1">
             {t('explore.runtime.advanced')}
           </summary>
-          <div className="border-t border-bd-0 p-3">
+          <div className="pt-3">
             <FormField
               label={t('explore.runtime.flatten_level')}
               hint={t('explore.runtime.flatten_level_hint')}
@@ -1908,55 +1751,7 @@ function SettingsPanel({
             </FormField>
           </div>
         </details>
-      </SettingsSection>
-    </div>
-  );
-}
-
-function SettingsSection({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="rounded-lg border border-bd-0 bg-bg-1">
-      <div className="border-b border-bd-0 px-4 py-3">
-        <h3 className="font-sans text-sm font-semibold text-tx-0">{title}</h3>
-        <p className="mt-1 font-sans text-xs leading-relaxed text-tx-3">{description}</p>
-      </div>
-      <div className="space-y-4 p-4">{children}</div>
-    </section>
-  );
-}
-
-function ToggleRow({
-  title,
-  hint,
-  checked,
-  onChange,
-}: {
-  title: string;
-  hint?: string;
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-}) {
-  return (
-    <div className="flex items-start gap-4 rounded-md border border-bd-0 bg-bg-2 px-3 py-3">
-      <div className="min-w-0">
-        <div className="font-sans text-xs font-semibold text-tx-0">{title}</div>
-        {hint && (
-          <div className="mt-1 font-sans text-xs leading-relaxed text-tx-3">{hint}</div>
-        )}
-      </div>
-      <Switch
-        checked={checked}
-        onCheckedChange={onChange}
-        className="ml-auto shrink-0 data-[state=checked]:bg-indigo"
-      />
+      </StreamSettingsSection>
     </div>
   );
 }

@@ -62,7 +62,7 @@ export function OnCallShiftOverviewPanel({
   return (
     <section
       aria-label={t('home.on_call.overview_title')}
-      className="mt-2"
+      className="on-call-shift-overview mt-2"
       data-testid="on-call-shift-overview"
     >
       <div className="flex min-w-0 items-baseline justify-between gap-3">
@@ -77,7 +77,7 @@ export function OnCallShiftOverviewPanel({
         </div>
       </div>
 
-      <div className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-2 border-y border-bd-0 py-1.5 min-[430px]:grid-cols-4">
+      <div className="on-call-shift-metrics mt-2 grid grid-cols-2 gap-x-4 gap-y-2 py-1">
         <ShiftMetric
           label={t('home.on_call.shift_incidents')}
           value={overview?.incidentCount ?? '—'}

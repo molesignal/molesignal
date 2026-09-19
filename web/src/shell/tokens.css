@@ -1,9 +1,8 @@
 @import './fonts.css';
 
 /*
- * Single palette: default. Warm and high-contrast palette files were
- * removed in Phase 4 — the cool-indigo default palette is the only one
- * we ship. The [data-palette] selector is kept for future expansion.
+ * The cool-indigo default palette is the shipped palette. The [data-palette]
+ * selector leaves room for future expansion.
  */
 @import './tokens-palette-default.css';
 
@@ -24,9 +23,8 @@
  *   3. shadcn-compatible aliases (--background, --foreground, --card, …)
  *      live in tailwind.config.ts color mapping and reference layer 2.
  *
- * Phase 4 brand: --primary and --accent both point to --indigo to unify
- * brand expression. --blue is strictly informational/link, --indigo is
- * brand.
+ * Brand aliases: --primary and --accent both point to --indigo. --blue is
+ * informational/link color, while --indigo carries brand emphasis.
  */
 
 :root,
@@ -39,7 +37,22 @@
   --fg-muted:        var(--tx-2);
   --border:          var(--bd-0);
 
-  /* primary = brand indigo (Phase 4) */
+  /* Workbench depth: canvas gutters separate functional surfaces. */
+  --app-header-surface:       var(--bg-1);
+  --sidebar-surface:          var(--bg-1);
+  --page-canvas:              var(--bg-0);
+  --functional-surface:       var(--bg-1);
+  --control-surface:          var(--bg-2);
+  --floating-surface:         var(--bg-2);
+  --floating-item-hover:      var(--bg-3);
+  --floating-item-emphasis:   var(--bg-3);
+  --workspace-selection-fill: #282d3f;
+  --floating-item-selected:   rgba(120, 133, 239, 0.12);
+  --shadow-functional-surface:
+    0 1px 2px rgba(0, 0, 0, 0.24),
+    0 1px 3px rgba(0, 0, 0, 0.18);
+
+  /* primary = brand indigo */
   --primary:         var(--indigo);
   --primary-bg:      var(--indigo-dim);
   --primary-muted:   var(--indigo-soft);
@@ -53,7 +66,7 @@
 
   --red-bg:          var(--red-dim);
   --red-muted:       var(--red-soft);
-  --red-fg:          #ffffff;
+  --red-fg:          #0d101a;
 
   --green-bg:        var(--green-dim);
   --green-muted:     var(--green-soft);
@@ -84,7 +97,7 @@
   --shadow-md:       0 4px 12px rgba(0, 0, 0, 0.50), 0 0 0 1px rgba(0, 0, 0, 0.25);
   --shadow-lg:       0 12px 32px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.40);
   --shadow-drawer:   -2px 0 16px rgba(0, 0, 0, 0.45);
-  --shadow-popup:    0 12px 32px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.40);
+  --shadow-popup:    0 4px 12px rgba(0, 0, 0, 0.32), 0 1px 2px rgba(0, 0, 0, 0.20);
   --shadow-login:    0 20px 60px rgba(0, 0, 0, 0.50);
 }
 
@@ -98,6 +111,20 @@
   --purple-fg:   #ffffff;
   --orange-fg:   #ffffff;
 
+  --app-header-surface:       #ffffff;
+  --sidebar-surface:          #f1f3f7;
+  --page-canvas:              #f5f6f8;
+  --functional-surface:       #ffffff;
+  --control-surface:          #f6f7f9;
+  --floating-surface:         #ffffff;
+  --floating-item-hover:      #f5f6f8;
+  --floating-item-emphasis:   var(--bg-3);
+  --workspace-selection-fill: #dde0ea;
+  --floating-item-selected:   rgba(55, 66, 199, 0.06);
+  --shadow-functional-surface:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 1px 3px rgba(15, 23, 42, 0.03);
+
   --overlay:         rgba(19, 24, 37, 0.50);
   --overlay-soft:    rgba(19, 24, 37, 0.20);
 
@@ -106,24 +133,44 @@
   --shadow-md:       0 4px 12px rgba(19, 24, 37, 0.10), 0 0 0 1px rgba(19, 24, 37, 0.04);
   --shadow-lg:       0 12px 32px rgba(19, 24, 37, 0.14), 0 0 0 1px rgba(19, 24, 37, 0.06);
   --shadow-drawer:   -2px 0 16px rgba(19, 24, 37, 0.10);
-  --shadow-popup:    0 12px 32px rgba(19, 24, 37, 0.18), 0 0 0 1px rgba(19, 24, 37, 0.06);
+  --shadow-popup:    0 4px 12px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.04);
   --shadow-login:    0 20px 60px rgba(19, 24, 37, 0.12);
 }
 
+/* Both workspace selectors share a dedicated, visibly distinct selection fill.
+ * Keep it outside Tailwind so portal state cannot lose it through generated
+ * class precedence. */
+[data-ui='workspace-option'][data-state='checked'] {
+  background-color: var(--workspace-selection-fill) !important;
+  box-shadow: none !important;
+}
+
+[data-ui='user-menu'],
+[data-ui='workspace-switcher-menu'],
+[data-ui='workspace-switcher-trigger'] {
+  box-shadow: none !important;
+}
+
 .auth-primary-button {
-  background: linear-gradient(
-    90deg,
-    var(--indigo) 0%,
-    var(--blue) 50%,
-    var(--green) 100%
-  );
+  background: var(--indigo);
+  transition:
+    background-color var(--duration-fast) var(--easing-default),
+    filter var(--duration-fast) var(--easing-default);
 }
 
 .auth-primary-button:is(:hover, :focus-visible) {
-  filter: brightness(0.92) saturate(1.06);
+  background: var(--indigo);
+  filter: brightness(0.90);
+}
+
+.auth-primary-button:active:not(:disabled) {
+  background: var(--indigo);
+  filter: brightness(0.86);
 }
 
 .auth-primary-button:disabled {
+  background: var(--bg-3);
+  color: var(--tx-3);
   filter: none;
 }
 
@@ -145,6 +192,7 @@
   --control-h:        36px;
   --control-h-sm:     32px;
   --icon-button-size: 32px;
+  --page-title-row-h: 36px;
   --panel-header-h:   44px;
   --page-pad:         24px;
 
@@ -167,6 +215,7 @@
   --font-sans: var(--font-alibaba-puhuiti);
   --font-sidebar: var(--font-alibaba-puhuiti);
   --font-mono: var(--font-alibaba-puhuiti);
+  --font-code: 'JetBrains Mono', 'SFMono-Regular', 'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
 
   /* motion tokens — no bounce (Confident quiet) */
   --duration-instant:  80ms;
@@ -178,6 +227,17 @@
   --easing-default:    cubic-bezier(0.4, 0, 0.2, 1);
   --easing-in:         cubic-bezier(0.4, 0, 1, 1);
   --easing-out:        cubic-bezier(0, 0, 0.2, 1);
+}
+
+/* Home's On-call card is width-constrained by its grid column at 1280px. */
+.on-call-shift-overview {
+  container-type: inline-size;
+}
+
+@container (min-width: 440px) {
+  .on-call-shift-metrics {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 /* Density belongs to data surfaces. It must not shrink shell chrome or root type. */
@@ -268,16 +328,28 @@ body,
   box-sizing: border-box;
 }
 
+/*
+ * Tailwind Preflight defaults an unspecified border to light gray. Any
+ * missing or unsupported color utility would therefore become a bright frame
+ * in dark mode. Theme borders must always fall back to the quiet divider.
+ */
+*,
+::before,
+::after,
+::backdrop {
+  border-color: var(--bd-0);
+}
+
 input::placeholder,
 textarea::placeholder,
 .placeholder\:text-tx-3::placeholder,
 .placeholder\:text-muted-foreground::placeholder {
-  color: var(--tx-3) !important;
+  color: var(--tx-2) !important;
   opacity: 1 !important;
 }
 
 [data-placeholder] {
-  color: var(--tx-3) !important;
+  color: var(--tx-2) !important;
 }
 
 /* Monaco editor — fixed code metrics and quiet IDE chrome. */
@@ -290,11 +362,11 @@ textarea::placeholder,
 .monaco-editor .editorPlaceholder,
 .monaco-editor .monaco-mouse-cursor-text,
 .monaco-editor textarea.inputarea {
-  font-family: var(--font-mono) !important;
+  font-family: var(--font-code) !important;
   font-feature-settings: 'liga' 1, 'calt' 1 !important;
   font-kerning: normal;
   font-variant-ligatures: common-ligatures contextual !important;
-  font-weight: 600 !important;
+  font-weight: var(--code-editor-font-weight, 600) !important;
   letter-spacing: 0 !important;
 }
 
@@ -366,9 +438,26 @@ textarea::placeholder,
 }
 
 /*
- * Global form-control focus treatment. This overrides both native browser
- * focus outlines and Tailwind ring utilities. The border remains at the
- * standard control color instead of becoming a focus highlight frame.
+ * Keyboard-focus fallback for non-form interactive controls. Native text
+ * controls are handled below: applying a brightness filter to them washes
+ * light-theme fills to white and creates a stacking context that can cover
+ * leading icons in compound fields.
+ */
+:where(
+  a[href],
+  button:not(:disabled):not([role='combobox']),
+  summary,
+  [role='button']:not([aria-disabled='true']),
+  [role='tab']:not([aria-disabled='true']),
+  [role='menuitem']:not([aria-disabled='true'])
+):focus-visible {
+  filter: brightness(1.14) saturate(1.06);
+}
+
+/*
+ * Global form-control focus treatment. This normalizes native browser focus
+ * outlines and Tailwind ring utilities. The Control Surface fill communicates
+ * interaction state.
  */
 :where(
   input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']),
@@ -377,6 +466,7 @@ textarea::placeholder,
   [role='combobox'],
   [contenteditable='true']
 ):is(:focus, :focus-visible) {
+  filter: none;
   outline: none !important;
   outline-offset: 0 !important;
   --tw-ring-offset-width: 0px !important;
@@ -384,14 +474,55 @@ textarea::placeholder,
   --tw-ring-shadow: 0 0 #0000 !important;
 }
 
+/* Selectors use Control Surface styling in all interaction and validation states. */
+:where(select, [data-ui='select-trigger']) {
+  border-width: 0 !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Text inputs use Control Surface styling. The explicit marker also covers
+ * compound controls and button-based launchers such as search. */
 :where(
-  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']),
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']):not([type='button']):not([type='submit']):not([type='reset']):not([type='image']):not([type='hidden']),
   textarea,
-  select,
-  [role='combobox'],
-  [contenteditable='true']
-):is(:focus, :focus-visible):not([aria-invalid='true']):not(:invalid) {
-  border-color: var(--bd-1) !important;
+  [data-ui='input-control'],
+  [data-ui='textarea-control'],
+  [data-ui='search-control'],
+  [data-ui='read-only-control']
+) {
+  border-width: 0 !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+:where(select, [data-ui='select-trigger']):is([aria-invalid='true'], :invalid) {
+  background-color: var(--red-dim) !important;
+  color: var(--red-soft) !important;
+}
+
+/* Surface-workbench fallback. Route templates opt into the same treatment
+ * explicitly, while this shell-scoped layer also catches custom builders and
+ * detail pages so a module never drops back to the old ruled-sheet layout. */
+[data-shell-layout='surface-workbench'] main#main,
+[data-shell-layout='surface-workbench'] [data-page-body] {
+  background: var(--page-canvas);
+}
+
+[data-shell-layout='surface-workbench'] [data-page-body] {
+  padding: 0 20px 20px;
+}
+
+[data-shell-layout='surface-workbench'] [data-testid='page-header'] {
+  margin-block: 12px;
+  border-width: 0 !important;
+  background: var(--page-canvas);
+  padding-inline: 20px;
+}
+
+[data-shell-layout='surface-workbench'] [data-management-content],
+[data-shell-layout='surface-workbench'] [data-iam-list-page] {
+  border-width: 0 !important;
 }
 
 /* 下拉选项（select / command 等 listbox option）：聚焦/选中态不显示蓝色描边——保留勾选

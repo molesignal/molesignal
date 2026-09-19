@@ -5,7 +5,7 @@ import { useThemeStore } from '@/stores/useThemeStore';
 
 type ThemePreference = 'system' | 'dark' | 'light';
 type ResolvedTheme = 'dark' | 'light';
-// Phase 4: three density modes (brief hard constraint). `normal` is default.
+// The three density modes default to `normal`.
 type Density = 'compact' | 'normal' | 'comfortable';
 const DENSITY_VALUES: readonly Density[] = ['compact', 'normal', 'comfortable'];
 

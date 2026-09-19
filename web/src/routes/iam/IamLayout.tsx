@@ -2,7 +2,6 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 
-import { PageHeader as AdminPageHeader } from '@/admin';
 import {
   canAccessProductPath,
   useProductAccess,
@@ -11,7 +10,10 @@ import { ProductState, type ProductStateProps } from '@/product/states';
 import { ManagementPage } from '@/product/templates';
 import { cn } from '@/shell/lib/cn';
 import { ManagementNav } from '@/shell/ManagementNav';
+import { PageTitleRow } from '@/shell/PageTitleRow';
 import { useIamSidebarStore } from '@/stores/useIamSidebarStore';
+
+import './IamLayout.css';
 
 interface IamSection {
   to: string;
@@ -52,6 +54,11 @@ const IAM_GROUPS: IamSectionGroup[] = [
     key: 'group_authentication',
     sections: [
       {
+        to: '/iam/api-tokens',
+        key: 'api_tokens',
+        contentWidth: 'table',
+      },
+      {
         to: '/iam/service-accounts',
         key: 'service_accounts',
         contentWidth: 'table',
@@ -67,53 +74,41 @@ const IAM_GROUPS: IamSectionGroup[] = [
 ];
 
 const CONTENT_WIDTH_CLASS: Record<IamSection['contentWidth'], string> = {
-  page: 'max-w-[1120px]',
-  form: 'max-w-[1120px]',
-  list: 'max-w-[1080px]',
-  table: 'max-w-[1440px]',
+  page: 'max-w-[1280px]',
+  form: 'max-w-[1280px]',
+  list: 'max-w-[1440px]',
+  table: 'max-w-[1920px]',
 };
 
 export function IamLayout() {
   const { t } = useTranslation('iam');
   const { pathname } = useLocation();
-  const access = useProductAccess();
   const sidebarCollapsed = useIamSidebarStore((state) => state.collapsed);
   const toggleSidebar = useIamSidebarStore((state) => state.toggle);
   const iamSections = IAM_GROUPS.flatMap((group) => group.sections);
-  const landingPath =
-    iamSections.find((section) => canAccessProductPath(section.to, access))
-      ?.to ?? '/account/settings/profile';
-  // 子页面包屑：从分组导航推导「身份与访问 > 当前页 + 返回」，与 Settings 子页一致。
-  // users 是 IAM 落地页，自身不加面包屑。
   const current = iamSections.find((s) => s.to === pathname);
-  const crumbs =
-    current && current.to !== landingPath
-      ? [
-          { labelKey: 'iam', label: t('title'), to: landingPath },
-          { labelKey: current.key, label: t(`nav.${current.key}`) },
-        ]
-      : null;
   const contentWidth = current?.contentWidth ?? 'page';
   return (
     <ManagementPage
+      appearance="surface"
       title={t('title')}
       subtitle={t('subtitle') as string}
-      breadcrumbs={crumbs}
-      backTo={crumbs ? landingPath : null}
+      breadcrumbs={null}
+      backTo={null}
       sections={<IamNav onCollapse={toggleSidebar} />}
       sectionNavigation={{
         collapsed: sidebarCollapsed,
         onExpand: toggleSidebar,
         expandLabel: t('nav.expand_navigation'),
       }}
-      headerClassName="gap-2 py-3.5"
-      bodyClassName="mx-auto w-full max-w-[1440px] gap-8"
+      bodyClassName="mx-auto w-full max-w-[2200px] gap-[12px]"
     >
       <div className="min-w-0">
         <div
           data-iam-content-width={contentWidth}
+          data-iam-surface-workspace
           className={cn(
-            'mx-auto w-full min-w-0',
+            'iam-surface-workspace mx-auto w-full min-w-0',
             CONTENT_WIDTH_CLASS[contentWidth],
           )}
         >
@@ -185,16 +180,19 @@ export function IamListPage({
   children?: React.ReactNode | undefined;
 }) {
   return (
-    <>
-      <AdminPageHeader
-        title={title}
-        subtitle={subtitle}
-        actions={toolbar}
-        className="bg-transparent"
-      />
-      <div className="p-4 lg:p-6">
+    <section className="min-w-0 rounded-md bg-[var(--functional-surface)]" data-iam-list-page>
+      <header className="min-h-12 px-4 py-1.5">
+        <PageTitleRow
+          title={title}
+          description={subtitle}
+          actions={toolbar}
+          level={2}
+          size="section"
+        />
+      </header>
+      <div className="min-w-0 px-4 pb-4 pt-1">
         {state ? <ProductState {...state} /> : children}
       </div>
-    </>
+    </section>
   );
 }

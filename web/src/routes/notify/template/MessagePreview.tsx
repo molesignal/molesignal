@@ -1,7 +1,7 @@
 import DOMPurify from 'dompurify';
 
 import type { NotifyTemplate } from '@/api/notify/templates';
-import { MarkdownMessage } from '@/routes/intelligence/markdown';
+import { MarkdownMessage } from '@/routes/agent/markdown';
 
 type TemplateFormat = NonNullable<NotifyTemplate['format']>;
 

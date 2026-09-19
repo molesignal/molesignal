@@ -290,8 +290,6 @@ export function AlertsAnomaly() {
                   ariaLabel={t('anomaly.fields.query')}
                   minHeight={160}
                   maxHeight={320}
-                  fontSize={12}
-                  lineHeight={18}
                   compact
                   resizable
                   showHeader={false}

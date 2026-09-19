@@ -1,3 +1,4 @@
+import { Settings as SettingsIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useLocation } from 'react-router-dom';
 
@@ -102,6 +103,7 @@ const GROUPS: SectionGroup[] = [
     sections: [
       { to: '/settings/cipher_keys', key: 'cipher_keys', contentWidth: 'table' },
       { to: '/settings/regex_patterns', key: 'regex_patterns', contentWidth: 'table' },
+      { to: '/settings/field_masking', key: 'field_masking', contentWidth: 'table' },
       {
         to: '/settings/domain_management',
         key: 'domain_management',
@@ -140,10 +142,10 @@ const GROUPS: SectionGroup[] = [
 ];
 
 const CONTENT_WIDTH_CLASS: Record<Section['contentWidth'], string> = {
-  page: 'max-w-[1120px]',
-  form: 'max-w-[1120px]',
-  list: 'max-w-[1080px]',
-  table: 'max-w-[1440px]',
+  page: 'max-w-[1680px]',
+  form: 'max-w-[1280px]',
+  list: 'max-w-[1600px]',
+  table: 'max-w-[1920px]',
 };
 
 /**
@@ -162,45 +164,36 @@ export function SettingsLayout() {
 function SettingsLayoutFrame() {
   const { t } = useTranslation('settings-admin');
   const { pathname } = useLocation();
-  const access = useProductAccess();
   const sidebarCollapsed = useSettingsSidebarStore((state) => state.collapsed);
   const toggleSidebar = useSettingsSidebarStore((state) => state.toggle);
-  // 子页面包屑：从已有的 GROUPS 定义推导「设置 > 当前页 + 返回」，统一所有子页的层级
-  // 感（此前只有 ia.ts 里登记过的 license/organization 才有面包屑）。general 是设置
-  // 入口，自身不加面包屑。
   const current = GROUPS.flatMap((g) => g.sections).find((s) => s.to === pathname);
-  const crumbs =
-    current &&
-    current.key !== 'general' &&
-    canAccessProductPath('/settings/general', access)
-      ? [
-          { labelKey: 'settings', label: t('title'), to: '/settings/general' },
-          { labelKey: current.key, label: t(`nav.${current.key}`) },
-        ]
-      : null;
   const contentWidth =
     current?.contentWidth ?? 'page';
   return (
     <ManagementPage
+      appearance="surface"
       title={t('title')}
       subtitle={t('subtitle') as string}
       toolbar={<SettingsSaveStatusIndicator />}
-      breadcrumbs={crumbs}
-      backTo={crumbs ? '/settings/general' : null}
+      breadcrumbs={null}
+      backTo={null}
       sections={<SettingsNav onCollapse={toggleSidebar} />}
       sectionNavigation={{
         collapsed: sidebarCollapsed,
         onExpand: toggleSidebar,
         expandLabel: t('nav.expand_navigation'),
       }}
-      headerClassName="gap-2 py-3.5"
-      bodyClassName="mx-auto w-full max-w-[1440px] gap-8"
+      headerClassName="shrink-0"
+      headerCompact
+      headerIcon={SettingsIcon}
+      bodyClassName="mx-auto w-full max-w-[2200px] gap-[12px] [&_[data-product-state]]:border-0"
     >
       <div className="min-w-0">
         <div
           data-settings-content-width={contentWidth}
           className={cn(
-            'mx-auto w-full min-w-0',
+            'w-full min-w-0',
+            '[&>[data-admin-page-header]]:min-h-0 [&>[data-admin-page-header]]:border-b-0 [&>[data-admin-page-header]]:bg-transparent [&>[data-admin-page-header]]:px-0 [&>[data-admin-page-header]]:py-0',
             CONTENT_WIDTH_CLASS[contentWidth],
           )}
         >

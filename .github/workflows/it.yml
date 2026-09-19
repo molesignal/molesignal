@@ -3,9 +3,9 @@ name: integration tests
 on:
   pull_request:
     paths:
-      - 'src/**'
-      - 'build.rs'
-      - 'src/sqlx-shim/**'
+      - 'bin/**'
+      - 'crates/**'
+      - 'tools/**'
       - 'proto/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
@@ -34,7 +34,7 @@ jobs:
       docker:
         image: docker:24-dind
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # ubuntu-latest 只有 ~14GB 空闲磁盘；本 workspace（datafusion/arrow/tantivy +
       # 几十个 it_* 测试二进制）的 target 目录会撑爆 → rust-lld mmap 写输出失败报
@@ -44,6 +44,17 @@ jobs:
           sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
             /usr/local/lib/android /usr/local/share/boost "$AGENT_TOOLSDIRECTORY" || true
           df -h /
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm -C web install --frozen-lockfile
+      - run: pnpm -C web build
 
       - name: install system dependencies
         run: |
@@ -58,8 +69,8 @@ jobs:
           sudo chmod +x /usr/local/bin/buf
           buf --version
 
-      - name: generate protobuf code
-        run: make proto
+      - name: lint protobuf schemas
+        run: make proto-lint
 
       - name: install rust toolchain
         # 跟随仓库根 `rust-toolchain.toml`（1.96）。

@@ -2,35 +2,33 @@ import { AlertTriangle, ArrowRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
+import type { ExperienceGrade } from '@/api/rum';
 import type {
-  ErrorRow,
-  ExperienceGrade,
-  SessionRow,
-} from '@/api/rum';
+  ExperienceBucket,
+  OverviewDimensionShare,
+  OverviewFrequentError,
+  OverviewMetrics,
+  OverviewSlowPage,
+  SatisfactionCounts,
+} from '@/api/rum/overview';
 import { cn } from '@/shell/lib/cn';
 import { useTimeStore } from '@/stores/useTimeStore';
 import { TimeSeriesChart } from '@/viz/timeseries/TimeSeriesChart';
 
 import { formatDurationMs } from '../_helpers';
 import { RumSectionHeader } from '../RumLayout';
-import type {
-  DimensionShare,
-  OverviewMetrics,
-  SlowPage,
-} from './model';
 
 export function ExperienceTrend({
-  sessions,
+  buckets,
   range,
 }: {
-  sessions: SessionRow[];
+  buckets: ExperienceBucket[];
   range: { from_micros: number; to_micros: number };
 }) {
   const { t } = useTranslation('rum');
   const setWindow = useTimeStore((state) => state.setWindow);
-  const buckets = bucketSessions(sessions, 12, range);
   return (
-    <section>
+    <section className="h-full rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)]">
       <RumSectionHeader
         title={t('overview.experience_trend')}
         description={t('overview.experience_trend_description')}
@@ -111,14 +109,14 @@ export function CoreWebVitalsPanel({
     },
   ];
   return (
-    <section>
+    <section className="h-full rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)]">
       <RumSectionHeader
         title={t('overview.core_web_vitals')}
         description={t('overview.core_web_vitals_description')}
       />
-      <div className="grid gap-px bg-bd-0 sm:grid-cols-3">
+      <div className="mt-4 grid gap-[8px] sm:grid-cols-3">
         {items.map((item) => (
-          <div key={item.key} className="bg-bg-0 px-4 py-5">
+          <div key={item.key} className="rounded-md bg-[var(--control-surface)] px-4 py-5">
             <div className="flex items-center justify-between gap-3">
               <span className="text-xs font-strong text-tx-3">
                 {t(`overview.vitals.${item.key}`)} P75
@@ -148,28 +146,32 @@ export function CoreWebVitalsPanel({
   );
 }
 
-export function SatisfactionPanel({ sessions }: { sessions: SessionRow[] }) {
+export function SatisfactionPanel({
+  counts,
+}: {
+  counts: SatisfactionCounts;
+}) {
   const { t } = useTranslation('rum');
-  const total = Math.max(1, sessions.length);
+  const total = Math.max(1, counts.total);
   const items: Array<{ grade: ExperienceGrade; count: number; color: string }> = [
     {
       grade: 'good',
-      count: sessions.filter((row) => row.experience === 'good').length,
+      count: counts.good,
       color: 'bg-green',
     },
     {
       grade: 'needs_improvement',
-      count: sessions.filter((row) => row.experience === 'needs_improvement').length,
+      count: counts.needsImprovement,
       color: 'bg-yellow',
     },
     {
       grade: 'poor',
-      count: sessions.filter((row) => row.experience === 'poor').length,
+      count: counts.poor,
       color: 'bg-red',
     },
   ];
   return (
-    <section>
+    <section className="h-full rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)]">
       <RumSectionHeader
         title={t('overview.satisfaction')}
         description={t('overview.satisfaction_description')}
@@ -201,11 +203,11 @@ export function SatisfactionPanel({ sessions }: { sessions: SessionRow[] }) {
   );
 }
 
-export function SlowPagesPanel({ pages }: { pages: SlowPage[] }) {
+export function SlowPagesPanel({ pages }: { pages: OverviewSlowPage[] }) {
   const { t } = useTranslation('rum');
   const max = Math.max(...pages.map((page) => page.p75), 1);
   return (
-    <section>
+    <section className="h-full rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)]">
       <RumSectionHeader
         title={t('overview.slowest_pages')}
         description={t('overview.slowest_pages_description')}
@@ -221,11 +223,11 @@ export function SlowPagesPanel({ pages }: { pages: SlowPage[] }) {
       {pages.length === 0 ? (
         <EmptyRow label={t('performance.no_page_data')} />
       ) : (
-        <div className="divide-y divide-bd-0">
+        <div className="space-y-1">
           {pages.slice(0, 5).map((page) => (
             <div
               key={page.page}
-              className="grid min-h-[62px] grid-cols-[minmax(0,1fr)_90px_90px] items-center gap-4 py-2.5"
+              className="grid min-h-[62px] grid-cols-[minmax(0,1fr)_90px_90px] items-center gap-4 rounded-md px-2 py-2.5 hover:bg-[var(--control-surface)]"
             >
               <div className="min-w-0">
                 <div className="truncate text-sm font-strong text-tx-0">
@@ -259,10 +261,14 @@ export function SlowPagesPanel({ pages }: { pages: SlowPage[] }) {
   );
 }
 
-export function FrequentErrorsPanel({ errors }: { errors: ErrorRow[] }) {
+export function FrequentErrorsPanel({
+  errors,
+}: {
+  errors: OverviewFrequentError[];
+}) {
   const { t } = useTranslation('rum');
   return (
-    <section>
+    <section className="h-full rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)]">
       <RumSectionHeader
         title={t('overview.frequent_errors')}
         description={t('overview.frequent_errors_description')}
@@ -278,12 +284,12 @@ export function FrequentErrorsPanel({ errors }: { errors: ErrorRow[] }) {
       {errors.length === 0 ? (
         <EmptyRow label={t('errors.empty_title')} />
       ) : (
-        <div className="divide-y divide-bd-0">
+        <div className="space-y-1">
           {errors.map((error) => (
             <Link
               key={error.fingerprint}
               to={`/rum/errors/view/${encodeURIComponent(error.fingerprint)}`}
-              className="group flex min-h-[62px] items-center gap-3 py-2.5 hover:bg-bg-2 focus-visible:bg-bg-2"
+              className="group flex min-h-[62px] items-center gap-3 rounded-md px-2 py-2.5 hover:bg-[var(--control-surface)] focus-visible:bg-[var(--control-surface)]"
             >
               <AlertTriangle aria-hidden className="h-4 w-4 shrink-0 text-red-soft" />
               <span className="min-w-0 flex-1">
@@ -313,11 +319,11 @@ export function DimensionPanel({
 }: {
   title: string;
   description: string;
-  rows: DimensionShare[];
+  rows: OverviewDimensionShare[];
 }) {
   const { t } = useTranslation('rum');
   return (
-    <section>
+    <section className="h-full rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)]">
       <RumSectionHeader title={title} description={description} />
       {rows.length === 0 ? (
         <EmptyRow label={t('performance.no_dimension_data')} />
@@ -360,31 +366,4 @@ function durationGrade(
   if (value > poorThreshold) return 'poor';
   if (value > needsThreshold) return 'needs_improvement';
   return 'good';
-}
-
-function bucketSessions(
-  sessions: SessionRow[],
-  count: number,
-  range: { from_micros: number; to_micros: number },
-) {
-  const width = Math.max(1, (range.to_micros - range.from_micros) / count);
-  const buckets = Array.from({ length: count }, (_, index) => ({
-    start: range.from_micros + width * index,
-    good: 0,
-    needs: 0,
-    poor: 0,
-  }));
-  for (const session of sessions) {
-    const timestamp = session.started_at_micros ?? range.from_micros;
-    const index = Math.min(
-      count - 1,
-      Math.max(0, Math.floor((timestamp - range.from_micros) / width)),
-    );
-    const bucket = buckets[index];
-    if (!bucket) continue;
-    if (session.experience === 'good') bucket.good += 1;
-    else if (session.experience === 'needs_improvement') bucket.needs += 1;
-    else if (session.experience === 'poor') bucket.poor += 1;
-  }
-  return buckets;
 }

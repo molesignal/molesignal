@@ -84,7 +84,7 @@ export function ApmTransactionDetail() {
         onRetry={() => void query.refetch()}
       >
         {detail && (
-          <div className="space-y-5">
+          <div className="space-y-[12px]">
             <TransactionContext detail={detail.transaction} />
             <SignalLinks traces={detail.transaction.traces} />
             <RedKpis
@@ -152,9 +152,9 @@ function TransactionContext({
     },
   ];
   return (
-    <div className="grid gap-px overflow-hidden rounded-lg border border-bd-0 bg-bd-0 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-[8px] overflow-hidden rounded-md bg-[var(--functional-surface)] p-[12px] [box-shadow:var(--shadow-functional-surface)] sm:grid-cols-2 xl:grid-cols-4">
       {facts.map((fact) => (
-        <div key={fact.label} className="bg-bg-1 p-4">
+        <div key={fact.label} className="rounded-md bg-[var(--control-surface)] p-4">
           <span className="block text-xs text-tx-3">{fact.label}</span>
           <span className="mt-1 block truncate text-sm font-strong text-tx-0">
             {fact.value}

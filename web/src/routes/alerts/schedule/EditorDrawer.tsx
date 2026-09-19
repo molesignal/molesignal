@@ -406,7 +406,7 @@ function RotationEditor({
   };
 
   return (
-    <div className="rounded-lg border border-bd-0 bg-bg-1 p-4">
+    <div className="border-b border-bd-0 pb-5">
       <div className="mb-4 flex items-center gap-2">
         <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-indigo-dim font-mono text-xs font-strong text-indigo-soft">
           {index + 1}
@@ -431,7 +431,7 @@ function RotationEditor({
               onClick={() => setCadence(option)}
               className={
                 cadence === option
-                  ? 'h-8 rounded bg-bg-1 font-sans text-xs font-strong text-indigo-soft shadow-sm'
+                  ? 'h-8 rounded bg-bg-1 font-sans text-xs font-strong text-indigo-soft'
                   : 'h-8 rounded font-sans text-xs font-strong text-tx-3 hover:text-tx-1'
               }
             >
@@ -502,7 +502,7 @@ function RotationEditor({
               onChange={(members) => onChange({ ...rotation, members })}
             />
           ) : (
-            <div className="rounded-md border border-dashed border-bd-1 px-3 py-4 text-xs text-tx-3">
+            <div className="bg-bg-2 px-3 py-4 text-xs text-tx-3">
               {t('schedules.no_users')}
             </div>
           )}
@@ -547,7 +547,7 @@ function ActiveWindowEditor({
 }) {
   const { t } = useTranslation('alerts');
   return (
-    <div className="mt-2 rounded-md border border-bd-0 bg-bg-2 p-3">
+    <div className="mt-2 bg-bg-2 p-3">
       <div className="flex flex-wrap gap-1">
         {Array.from({ length: 7 }, (_, day) => {
           const enabled = (window.weekday_mask & (1 << day)) !== 0;
@@ -642,7 +642,7 @@ function ScheduleDraftPreview({
 
       <div className="mt-4 flex flex-col gap-2">
         {segments.length === 0 ? (
-          <div className="rounded-md border border-dashed border-bd-1 bg-bg-1 px-4 py-8 text-center text-xs text-tx-3">
+          <div className="bg-bg-1 px-4 py-8 text-center text-xs text-tx-3">
             {t('schedules.preview.empty')}
           </div>
         ) : (
@@ -653,7 +653,7 @@ function ScheduleDraftPreview({
             return (
               <div
                 key={segment.id}
-                className="flex items-center gap-3 rounded-md border border-bd-0 bg-bg-1 px-3 py-2.5"
+                className="flex items-center gap-3 border-b border-bd-0 bg-transparent px-1 py-2.5 last:border-b-0"
               >
                 <span className="w-20 shrink-0">
                   <span className="block text-xs font-strong text-tx-1">
@@ -695,7 +695,7 @@ function ScheduleDraftPreview({
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-2">
-        <div className="rounded-md border border-bd-0 bg-bg-1 p-3">
+        <div className="bg-bg-1 p-3">
           <UsersRound className="h-4 w-4 text-blue-soft" />
           <div className="mt-2 text-xs text-tx-3">
             {t('schedules.preview.member_count')}
@@ -710,7 +710,7 @@ function ScheduleDraftPreview({
             }
           </div>
         </div>
-        <div className="rounded-md border border-bd-0 bg-bg-1 p-3">
+        <div className="bg-bg-1 p-3">
           <Clock3 className="h-4 w-4 text-green-soft" />
           <div className="mt-2 text-xs text-tx-3">
             {t('schedules.preview.timezone')}

@@ -1,5 +1,5 @@
 import { GripVertical, Pin } from 'lucide-react';
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
 
@@ -23,15 +23,22 @@ interface SidebarProps {
   collapsed: boolean;
   mobileOpen?: boolean | undefined;
   onNavigate?: (() => void) | undefined;
+  onHoverChange?: ((hovered: boolean) => void) | undefined;
+  surfaceWorkbench?: boolean;
 }
 
-export function Sidebar({ collapsed, mobileOpen = false, onNavigate }: SidebarProps) {
+export function Sidebar({
+  collapsed,
+  mobileOpen = false,
+  onNavigate,
+  onHoverChange,
+  surfaceWorkbench = false,
+}: SidebarProps) {
   const { t } = useTranslation('nav');
   const visuallyCollapsed = collapsed && !mobileOpen;
   const access = useProductAccess();
 
   const pinned = useSidebarStore((s) => s.pinned);
-  const recent = useSidebarStore((s) => s.recent);
   const togglePin = useSidebarStore((s) => s.togglePin);
   const unpin = useSidebarStore((s) => s.unpin);
   const reorderPinned = useSidebarStore((s) => s.reorderPinned);
@@ -45,29 +52,6 @@ export function Sidebar({ collapsed, mobileOpen = false, onNavigate }: SidebarPr
       (route): route is ProductRouteMeta =>
         !!route && canAccessProductRoute(route, access),
     );
-  // Ids that already have a permanent home in a fixed nav group. Recent must not
-  // echo these — its whole purpose is quick access to pages that AREN'T already
-  // one click away in the sidebar. Built from the same source the fixed groups
-  // render (the DB-backed capability navigation), so the two never drift apart.
-  const groupedIds = new Set(
-    PRODUCT_NAV_GROUPS.flatMap((group) =>
-      accessibleProductNavigation(access, group),
-    ).map((route) => route.id),
-  );
-  // Recent excludes pinned (shown in the Pinned section) and anything already in
-  // a fixed group, so the same destination never appears twice. Recomputed every
-  // render, so the dedup also applies whenever the recent list updates.
-  const recentRoutes = recent
-    .map(getProductRouteById)
-    .filter(
-      (route): route is ProductRouteMeta =>
-        !!route &&
-        canAccessProductRoute(route, access) &&
-        !pinnedSet.has(route.id) &&
-        !groupedIds.has(route.id),
-    )
-    .slice(0, 4);
-
   // Render one nav group, minus any items currently pinned (those live in the
   // Pinned section instead, so nothing shows twice). Returns null when the
   // group has nothing left to show — e.g. when Home itself is pinned.
@@ -82,7 +66,7 @@ export function Sidebar({ collapsed, mobileOpen = false, onNavigate }: SidebarPr
         {!visuallyCollapsed && group !== 'home' && (
           // Group labels use the shell's micro role so they remain secondary.
           // Home is a stand-alone top item, so we skip a "HOME" label.
-          <div className="font-sidebar-face type-micro px-3.5 pb-1 pt-2.5 font-semibold uppercase tracking-wide text-tx-3">
+          <div className="font-sidebar-face type-micro px-3.5 pb-1 pt-2.5 font-semibold uppercase tracking-wide text-tx-2">
             {t(groupMeta.labelKey)}
           </div>
         )}
@@ -104,8 +88,14 @@ export function Sidebar({ collapsed, mobileOpen = false, onNavigate }: SidebarPr
   return (
     <aside
       aria-label={t('primary_navigation')}
+      data-testid="primary-sidebar"
+      onMouseEnter={() => onHoverChange?.(true)}
+      onMouseLeave={() => onHoverChange?.(false)}
       className={cn(
-        'fixed bottom-0 left-0 top-topbar z-40 flex w-sidebar flex-col border-r border-bd-0 bg-bg-1',
+        'fixed bottom-0 left-0 top-topbar z-40 flex w-sidebar flex-col',
+        surfaceWorkbench
+          ? 'border-r-0 bg-[var(--sidebar-surface)]'
+          : 'border-r border-bd-0 bg-bg-1',
         'transition-[transform,width] duration-normal ease-out-default',
         mobileOpen ? 'translate-x-0 shadow-lg' : '-translate-x-full md:translate-x-0',
         visuallyCollapsed ? 'md:w-sidebar-collapsed' : 'md:w-sidebar',
@@ -114,10 +104,9 @@ export function Sidebar({ collapsed, mobileOpen = false, onNavigate }: SidebarPr
       <nav className="flex-1 overflow-y-auto py-2">
         {renderGroup('home')}
 
-        {/* Personalization. Pinned items render here ONLY — renderGroup drops
-            them from their home group so nothing shows twice; unpinning returns
-            an item to its original group slot. Recent is auto-rotated. Each
-            section (header included) disappears entirely when empty. */}
+        {/* Pinned items render here ONLY — renderGroup drops them from their
+            home group so nothing shows twice; unpinning returns an item to its
+            original group slot. The section disappears when it is empty. */}
         {!visuallyCollapsed && pinnedRoutes.length > 0 && (
           <MiniSection labelKey="pinned">
             {pinnedRoutes.map((route) => (
@@ -145,19 +134,6 @@ export function Sidebar({ collapsed, mobileOpen = false, onNavigate }: SidebarPr
             ))}
           </MiniSection>
         )}
-        {!visuallyCollapsed && recentRoutes.length > 0 && (
-          <MiniSection labelKey="recent">
-            {recentRoutes.map((route) => (
-              <MiniNavRow
-                key={route.id}
-                route={route}
-                onNavigate={onNavigate}
-                action={{ kind: 'pin', onToggle: () => togglePin(route.id) }}
-              />
-            ))}
-          </MiniSection>
-        )}
-
         {PRODUCT_NAV_GROUPS.filter((group) => group !== 'home').map((group) => renderGroup(group))}
       </nav>
     </aside>
@@ -185,7 +161,7 @@ interface MiniRowDrag {
   onDragEnd: () => void;
 }
 
-/** Row for the Pinned / Recent sections. Shares the fixed-group row metrics
+/** Row for the Pinned section. Shares the fixed-group row metrics
  *  (`h-sidebar-item`, `text-xs`, 16px icon, `text-tx-1`) so the whole sidebar
  *  keeps one density — only the trailing pin/grip controls differ. */
 function MiniNavRow({
@@ -263,18 +239,18 @@ function MiniNavRow({
         className={({ isActive }) =>
           `${cn(
             // Match NavRow metrics (h-sidebar-item / text-xs / text-tx-1) so the
-            // Pinned / Recent rows share the fixed groups' density.
+            // Pinned rows share the fixed groups' density.
             'relative flex h-sidebar-item items-center gap-2 rounded-md pl-2.5 text-xs font-strong text-tx-1',
             // extra right padding for the grip + pin controls (grip only on pinned rows)
             drag ? 'pr-16' : 'pr-9',
             'transition-colors duration-fast ease-default hover:bg-bg-3 hover:text-tx-0',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo',
+            'focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none',
             isActive &&
               'bg-indigo-dim text-indigo-soft hover:bg-indigo-dim hover:text-indigo-soft before:absolute before:-left-1.5 before:top-1/2 before:h-5 before:w-0.5 before:-translate-y-1/2 before:rounded-r before:bg-indigo',
           )} font-sidebar-face`
         }
       >
-        <route.icon className="h-4 w-4 shrink-0" />
+        <route.icon className="h-4 w-4 shrink-0 text-indigo-soft" />
         <span className="flex-1 truncate">{label}</span>
       </NavLink>
       <div className="absolute right-0.5 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
@@ -291,7 +267,7 @@ function MiniNavRow({
             onMouseUp={() => {
               armedRef.current = false;
             }}
-            className="grid h-7 w-7 cursor-grab place-items-center rounded text-tx-3 opacity-0 transition-opacity hover:bg-bg-2 hover:text-tx-0 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo active:cursor-grabbing group-hover/mini:opacity-100 group-focus-within/mini:opacity-100"
+            className="grid h-7 w-7 cursor-grab place-items-center rounded text-tx-3 opacity-0 transition-opacity hover:bg-bg-2 hover:text-tx-0 focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:opacity-100 focus-visible:outline-none active:cursor-grabbing group-hover/mini:opacity-100 group-focus-within/mini:opacity-100"
           >
             <GripVertical className="h-3 w-3" />
           </button>
@@ -303,7 +279,7 @@ function MiniNavRow({
           title={actionLabel}
           className={cn(
             'grid h-7 w-7 place-items-center rounded text-tx-3 opacity-0 transition-opacity',
-            'hover:bg-bg-2 hover:text-tx-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo',
+            'hover:bg-bg-2 hover:text-tx-0 focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none',
             'focus-visible:opacity-100 group-hover/mini:opacity-100 group-focus-within/mini:opacity-100',
             action.kind === 'unpin' && 'text-indigo-soft',
           )}
@@ -328,19 +304,26 @@ function NavRow({
 }) {
   const { t } = useTranslation('nav');
   const label = t(item.labelKey);
+  const [tooltipOpen, setTooltipOpen] = useState(false);
+
+  useEffect(() => {
+    if (!collapsed) setTooltipOpen(false);
+  }, [collapsed]);
+
   const link = (
     <NavLink
       to={item.path}
       end={item.exact === true}
       onClick={onNavigate}
+      aria-label={collapsed ? label : undefined}
       className={({ isActive }) =>
         `${cn(
           // Shell navigation stays stable across density modes; lighter,
           // caption-sized labels and 16px icons keep the compact rail balanced.
-          'group relative flex h-sidebar-item items-center gap-2 rounded-md pl-2.5 pr-2 text-xs font-strong text-tx-1',
+          'group relative flex h-sidebar-item items-center gap-2 rounded-md pl-[18px] pr-2 text-xs font-strong text-tx-1',
           'transition-colors duration-fast ease-default',
           'hover:bg-bg-3 hover:text-tx-0',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo',
+          'focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none',
           isActive && 'bg-indigo-dim text-indigo-soft hover:bg-indigo-dim hover:text-indigo-soft',
           collapsed && 'justify-center pl-0 pr-0',
           !collapsed && pinControl && 'pr-10',
@@ -350,51 +333,60 @@ function NavRow({
       {({ isActive }) => (
         <>
           {isActive && (
-            // Active state: 2px indigo rail flush to the sidebar's left
-            // edge. Phase 4 replaces the orange rail (legacy "terminal
-            // hacker" accent) with brand indigo so the marker matches
-            // focus rings and primary buttons everywhere.
+            // Active state: a 2px indigo rail aligned with the sidebar edge
+            // and the brand treatment used by primary actions.
             <span
               aria-hidden
               className="absolute -left-1.5 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r bg-indigo"
             />
           )}
-          <item.icon className="h-4 w-4 shrink-0" />
+          <item.icon className="h-4 w-4 shrink-0 text-indigo-soft" />
           {!collapsed && <span className="flex-1 truncate">{label}</span>}
         </>
       )}
     </NavLink>
   );
 
-  if (collapsed) {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>{link}</TooltipTrigger>
-        <TooltipContent side="right">{label}</TooltipContent>
-      </Tooltip>
-    );
-  }
+  const actionLabel = pinControl
+    ? pinControl.pinned
+      ? t('unpin')
+      : t('pin')
+    : null;
 
-  if (!pinControl) return link;
-
-  const actionLabel = pinControl.pinned ? t('unpin') : t('pin');
+  // Keep both the wrapper and TooltipTrigger mounted while hover temporarily
+  // expands the compact rail. Swapping a bare NavLink for a tooltip-wrapped
+  // NavLink detached the anchor between pointerdown and click, so the first
+  // navigation attempt was lost.
   return (
-    <div className="group/nav relative">
-      {link}
-      <button
-        type="button"
-        onClick={pinControl.onToggle}
-        aria-label={actionLabel}
-        title={actionLabel}
-        className={cn(
-          'absolute right-1 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded text-tx-3 opacity-0 transition-opacity',
-          'hover:bg-bg-2 hover:text-tx-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo',
-          'focus-visible:opacity-100 group-hover/nav:opacity-100 group-focus-within/nav:opacity-100',
-          pinControl.pinned && 'text-indigo-soft',
-        )}
-      >
-        <Pin className={cn('h-3 w-3', pinControl.pinned && 'fill-current')} />
-      </button>
-    </div>
+    <Tooltip
+      open={collapsed && tooltipOpen}
+      onOpenChange={(open) => setTooltipOpen(collapsed && open)}
+    >
+      <TooltipTrigger asChild>
+        <div
+          className="group/nav relative"
+          onPointerLeave={() => setTooltipOpen(false)}
+        >
+          {link}
+          {pinControl && actionLabel && (
+            <button
+              type="button"
+              onClick={pinControl.onToggle}
+              aria-label={actionLabel}
+              title={actionLabel}
+              className={cn(
+                'absolute right-1 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded text-tx-3 opacity-0 transition-opacity',
+                'hover:bg-bg-2 hover:text-tx-0 focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none',
+                'focus-visible:opacity-100 group-hover/nav:opacity-100 group-focus-within/nav:opacity-100',
+                pinControl.pinned && 'text-indigo-soft',
+              )}
+            >
+              <Pin className={cn('h-3 w-3', pinControl.pinned && 'fill-current')} />
+            </button>
+          )}
+        </div>
+      </TooltipTrigger>
+      {collapsed && <TooltipContent side="right">{label}</TooltipContent>}
+    </Tooltip>
   );
 }

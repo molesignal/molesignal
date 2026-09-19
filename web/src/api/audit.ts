@@ -1,6 +1,6 @@
 import { http } from '@/lib/http';
 
-import type { ChatMessageRow, Chat } from './intelligence/chat';
+import type { ChatMessageRow, Chat } from './agent/chat';
 
 export interface AuditEvent {
   id: string;
@@ -59,10 +59,10 @@ export async function recent(limit = 10): Promise<AuditEvent[]> {
   return page.items;
 }
 
-/** Admin/Owner audit view for a Mole Intelligence chat, including soft-deleted chats. */
-export async function getIntelligenceChatTranscript(id: string): Promise<AuditChatTranscript> {
+/** Admin/Owner audit view for a Mole Agent chat, including soft-deleted chats. */
+export async function getAgentChatTranscript(id: string): Promise<AuditChatTranscript> {
   const { data } = await http.get<AuditChatTranscript>(
-    `/intelligence/audit/chat/${encodeURIComponent(id)}`,
+    `/agent/audit/chat/${encodeURIComponent(id)}`,
   );
   return data;
 }

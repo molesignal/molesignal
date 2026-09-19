@@ -7,7 +7,7 @@ VS Code / Cursor / 任何 [Dev Containers spec](https://containers.dev) 兼容�
 | Layer | What |
 |---|---|
 | Base image | `mcr.microsoft.com/devcontainers/rust:1-1-bookworm` |
-| Rust | 1.90（与 `rust-toolchain.toml` 对齐）+ rustfmt + clippy + rust-src |
+| Rust | 1.90（由 `rust-toolchain.toml` 统一指定）+ rustfmt + clippy + rust-src |
 | Node | 20 + pnpm 9（`web/` 前端用） |
 | Proto | `protoc` + `buf` 1.50 |
 | DB tools | `psql` + `sqlx-cli`（postgres feature） |
@@ -28,20 +28,19 @@ docker compose -f .devcontainer/docker-compose.yml exec workspace bash
 
 ```bash
 # 主服务（standalone 模式，HTTP 5080 / gRPC 5082）
-cargo run -p molesignal-bootstrap -- --config conf/config.toml
+cargo run -p molesignal -- --config conf/config.toml
 
 # 单测
 cargo test --workspace --lib
-cd  && cargo test --workspace
 
 # 启付费版构建
-cargo build -p molesignal-bootstrap --features 
+cargo build -p molesignal --features enterprise
 
 # 前端 dev server（vite，端口 5173 已转发）
 cd web && pnpm dev
 
 # 集成测试（需要 docker-out-of-docker，已启用）
-MS_RUN_IT=1 cargo test --workspace --test 'it_*'
+MS_RUN_IT=1 cargo test -p molesignal --tests -- --test-threads=1
 
 # openspec 工作流
 openspec list
@@ -77,7 +76,7 @@ docker volume rm molesignal-cargo-cache molesignal-target molesignal-pnpm-cache
 
 | Var | Value |
 |---|---|
-| `MS_STORE_META_DSN` | `postgres://molesignal:molesignal@postgres:5432/molesignal` |
+| `MS_STORE_META_DSN` | `postgres://molesignal:molesignal@postgresql:5432/molesignal` |
 | `MS_STORE_OBJECT_*` | 指向 compose 内的 minio |
 | `MS_CIPHER_KEY` | 32 字节全零 base64（**仅 dev**，cipher_keys envelope KEK；auth-hardening） |
 | `RUST_LOG` | `molesignal=debug,info` |

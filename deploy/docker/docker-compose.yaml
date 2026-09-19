@@ -1,10 +1,10 @@
 # MoleSignal docker-compose
 #
 # 两种部署形态（用 profile 区分；默认 standalone 单进程）：
-#   docker compose up                          → 默认 + standalone profile（一个进程跑所有 role）
-#   docker compose --profile multirole up      → 拆分模式（router/ingester/querier/compactor/alert-manager/connector）
+#   docker compose up                          → 默认 + standalone profile（一个进程跑所有 role + Web UI）
+#   docker compose --profile multirole up      → 拆分模式（router/intake/querier/compactor/alert-manager/connector）
 #
-# postgres + minio 总是启动；molesignal 容器走哪个 profile 由 docker compose --profile 选。
+# postgresql + minio 总是启动；molesignal 容器走哪个 profile 由 docker compose --profile 选。
 
 x-molesignal-base: &molesignal-base
   build:
@@ -13,9 +13,9 @@ x-molesignal-base: &molesignal-base
     args:
       BUILD_ID: ${BUILD_ID:-local-compose}
       GIT_SHA: ${GIT_SHA:-unknown}
-  image: molesignal:dev
+  image: ghcr.io/molesignal/molesignal:latest
   depends_on:
-    postgres:
+    postgresql:
       condition: service_healthy
     minio:
       condition: service_healthy
@@ -25,20 +25,21 @@ x-molesignal-base: &molesignal-base
     RELEASE_CHANNEL: ${RELEASE_CHANNEL:-alpha}
     MS_TELEMETRY_LOG_LEVEL: info
     MS_STORE_META_BACKEND: postgres
-    MS_STORE_META_DSN: "postgres://molesignal:molesignal@postgres:5432/molesignal"
+    MS_STORE_META_DSN: "postgres://molesignal:molesignal@postgresql:5432/molesignal"
     MS_STORE_OBJECT_BACKEND: s3
     MS_STORE_OBJECT_BUCKET: molesignal
     MS_STORE_OBJECT_REGION: us-east-1
     MS_STORE_OBJECT_ENDPOINT: "http://minio:9000"
+    MS_STORE_OBJECT_PATH_STYLE: "true"
     MS_STORE_OBJECT_ACCESS_KEY: minioadmin
     MS_STORE_OBJECT_SECRET_KEY: minioadmin
     # JWT signing secret 默认由 DB 自动 bootstrap（auth-hardening）；
     # 想 deterministic 锁定可设 MS_AUTH_JWT_SECRET_OVERRIDE。
     # 32B base64 cipher root key；dev 全零，生产换 openssl rand -base64 32
-    MS_CIPHER_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+    MS_CIPHER_KEY: "Ahh6n0ilIjohKjrfNZNj/YnFU8476KGnYwjoRsuAtpE="
 
 services:
-  postgres:
+  postgresql:
     image: postgres:17
     environment:
       POSTGRES_USER: molesignal
@@ -113,7 +114,7 @@ services:
       <<: *molesignal-env
       MS_NODE_ROLES: '["router"]'
 
-  molesignal-ingester:
+  molesignal-intake:
     <<: *molesignal-base
     profiles: ["multirole"]
     volumes:
@@ -121,7 +122,7 @@ services:
       - obs-wal:/data/wal
     environment:
       <<: *molesignal-env
-      MS_NODE_ROLES: '["ingester"]'
+      MS_NODE_ROLES: '["intake"]'
 
   molesignal-querier:
     <<: *molesignal-base

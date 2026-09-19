@@ -192,7 +192,7 @@
       "started": "Time",
       "service": "Service"
     },
-    "empty_title": "No sessions ingested yet",
+    "empty_title": "No sessions received yet",
     "empty_description": "Connect the MoleSignal RUM SDK and user sessions and actions will appear in seconds.",
     "view_session": "View replay"
   },

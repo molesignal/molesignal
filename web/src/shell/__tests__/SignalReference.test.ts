@@ -10,7 +10,7 @@ describe('buildSignalJumps', () => {
   };
   const source = { type: 'trace' as const, id: 'trace-checkout-1' };
 
-  it('builds exact span logs and contextual metrics / similar traces', () => {
+  it('builds exact trace and span-log links with contextual metrics', () => {
     const jumps = buildSignalJumps(
       'span_id',
       'span-payment-1',
@@ -44,10 +44,12 @@ describe('buildSignalJumps', () => {
     expect(metrics.searchParams.get('promql')).not.toContain('trace_id');
 
     const traces = new URL(jumps.find((jump) => jump.id === 'traces')!.to, 'https://molesignal.local');
-    expect(traces.searchParams.get('q')).toContain("service_name = 'payment-service'");
-    expect(traces.searchParams.get('q')).toContain("operation_name contains 'payment.authorize'");
-    expect(traces.searchParams.get('q')).not.toContain('trace_id');
-    expect(traces.searchParams.get('q')).not.toContain('span_id');
+    expect(traces.pathname).toBe('/traces/trace-checkout-1');
+    expect(traces.searchParams.get('trace_id')).toBe('trace-checkout-1');
+    expect(traces.searchParams.get('span_id')).toBe('span-payment-1');
+    expect(traces.searchParams.get('from')).toBe(time.from);
+    expect(traces.searchParams.get('to')).toBe(time.to);
+    expect(jumps.find((jump) => jump.id === 'traces')?.relation).toBe('exact');
   });
 
   it('keeps a service pivot scoped to the service and environment', () => {

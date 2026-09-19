@@ -1,0 +1,1944 @@
+{
+  "chats": "对话",
+  "new_chat": "新建对话",
+  "untitled": "未命名",
+  "chat_list_resize": "拖动调整对话列表宽度，双击恢复默认宽度",
+  "chat_delete": "删除对话",
+  "chat_delete_title": "删除对话？",
+  "chat_delete_confirm": "“{{title}}”的记录会先归档，再从对话历史中删除。",
+  "chat_delete_action": "删除",
+  "chat_deleting": "正在删除…",
+  "chat_deleted": "对话已删除",
+  "history_empty_title": "还没有对话",
+  "history_empty_description": "开始调查后，会话与上下文会保存在这里。",
+  "quick_title": "快速开始",
+  "quick": {
+    "service_errors": "为什么 {{service}} 错误率升高？",
+    "service_errors_fallback": "哪个服务的错误率最高？",
+    "recent_anomalies": "分析日志、指标和链路中的最近异常",
+    "unacknowledged_alerts": "查看当前未确认的告警",
+    "build_dashboard": "创建最近 1 小时的服务健康仪表盘"
+  },
+  "chat_groups": {
+    "today": "今天",
+    "yesterday": "昨天",
+    "last_7_days": "过去 7 天",
+    "older": "更早"
+  },
+  "context": {
+    "title": "当前上下文",
+    "add": "添加上下文",
+    "clear": "清除上下文",
+    "auto_description": "未绑定服务或告警，Mole Agent 将根据问题自动选择数据范围。",
+    "editor_title": "添加调查上下文",
+    "editor_description": "这些值会随下一条消息发送，并对用户保持可见。",
+    "environment": "环境",
+    "environment_placeholder": "例如：production",
+    "service": "服务",
+    "service_placeholder": "例如：checkout-api",
+    "alert": "告警",
+    "alert_placeholder": "例如：high_error_rate"
+  },
+  "module_subtitle": "你的 AI 可观测运维助手。",
+  "nav": {
+    "label": "AI 智能体导航",
+    "chat": "对话",
+    "investigations": "调查",
+    "automations": "自动化",
+    "approvals": "审批",
+    "executions": "执行记录",
+    "settings": "设置"
+  },
+  "overview": {
+    "label": "AI 运维概览",
+    "active": "调查中",
+    "pending_approvals": "待审批"
+  },
+  "workspace": {
+    "start_title": "AI 驱动的运维助手",
+    "start_description": "告诉我发生了什么、继续追问，或选择一个问题开始。这个会话会持续保留调查上下文。",
+    "context_title": "上下文",
+    "context_description": "应用于当前对话",
+    "scope": "范围",
+    "signals": "信号",
+    "context_auto": "自动识别",
+    "all_environments": "全部环境",
+    "time_range": "时间范围",
+    "active_alerts": "活动告警",
+    "on_call": "当前值班",
+    "unassigned": "未安排",
+    "command_bar": "Agent 命令栏",
+    "connections": {
+      "metrics": "指标",
+      "logs": "日志",
+      "traces": "链路"
+    },
+    "connection_state": {
+      "connected": "在线",
+      "attention": "需要关注",
+      "no_data": "暂无数据",
+      "checking": "检查中",
+      "unavailable": "能力受限"
+    }
+  },
+  "common": {
+    "status": "状态",
+    "updated": "更新时间",
+    "time": "时间",
+    "open": "打开",
+    "back": "返回",
+    "close": "关闭",
+    "actions": "操作",
+    "cancel": "取消",
+    "create": "创建",
+    "edit": "编辑",
+    "save": "保存",
+    "saving": "保存中…",
+    "invalid_json": "{{field}} 的 JSON 格式错误：{{message}}",
+    "json_object_required": "{{field}} 必须是 JSON 对象"
+  },
+  "confidence": {
+    "high": "高",
+    "medium": "中",
+    "low": "低"
+  },
+  "status": {
+    "draft": "草稿",
+    "pending": "等待执行",
+    "running": "调查中",
+    "waiting_for_data": "等待数据",
+    "waiting_for_approval": "等待审批",
+    "verifying_recovery": "验证恢复中",
+    "completed": "已完成",
+    "partially_completed": "部分完成",
+    "failed": "失败",
+    "cancelled": "已取消",
+    "succeeded": "成功",
+    "partially_succeeded": "部分成功",
+    "rolled_back": "已回滚",
+    "verification_failed": "验证失败",
+    "proposed": "待验证",
+    "testing": "正在验证",
+    "supported": "已获得支持",
+    "insufficient_evidence": "证据不足",
+    "rejected": "已拒绝",
+    "approved": "已批准",
+    "expired": "已失效",
+    "executed": "已执行",
+    "verified": "已验证",
+    "unverified": "尚未验证",
+    "inference": "推测",
+    "suggestion": "建议",
+    "enabled": "已启用",
+    "disabled": "已禁用",
+    "skipped": "已跳过"
+  },
+  "investigations": {
+    "title": "调查任务",
+    "description": "跨日志、指标、链路和告警持续收集证据并验证根因假设。",
+    "create": "创建调查任务",
+    "created": "调查任务已创建",
+    "edit": "编辑调查任务",
+    "updated": "调查任务已更新",
+    "create_description": "Mole Agent 将按步骤记录工具、输入、证据与结论影响。",
+    "editor_description": "维护任务状态、当前结论、调查上下文和初始步骤。",
+    "title_placeholder": "例如：支付服务错误率升高调查",
+    "confidence_unset": "未设置",
+    "steps_hint": "每行或逗号分隔一个调查步骤。",
+    "empty_title": "还没有调查任务",
+    "empty_description": "复杂或需要持续跟踪的问题可以从对话转换为调查任务。",
+    "sections": {
+      "basic": "任务信息",
+      "steps": "初始步骤",
+      "context": "调查上下文"
+    },
+    "fields": {
+      "title": "标题",
+      "summary": "当前结论",
+      "confidence": "置信度",
+      "current_step": "当前步骤",
+      "steps": "调查步骤",
+      "context": "上下文 JSON"
+    },
+    "columns": {
+      "task": "调查任务",
+      "current_step": "当前步骤"
+    },
+    "default_steps": {
+      "context": "获取告警与服务上下文",
+      "metrics": "查询错误率和延迟变化",
+      "logs": "查找异常日志",
+      "traces": "关联异常链路",
+      "hypothesis": "验证主要根因假设",
+      "recommendation": "提出处置建议"
+    }
+  },
+  "investigation_detail": {
+    "description": "每一步工具调用、证据与假设均可追溯。",
+    "confidence": "置信度",
+    "current_conclusion": "当前结论",
+    "no_conclusion": "Mole Agent 尚未形成可验证的结论。",
+    "steps": "调查步骤",
+    "hypotheses": "根因假设",
+    "timeline": "调查时间线",
+    "no_hypotheses": "尚未建立根因假设。",
+    "no_steps": "尚未记录调查步骤。",
+    "no_evidence": "尚未记录证据。",
+    "operations_title": "尚无建议操作",
+    "operations_description": "Mole Agent 提出的写操作会先进入审批记录，不会直接执行。",
+    "runs_title": "尚无关联执行",
+    "runs_description": "经审批执行的操作会在执行记录中保留参数、结果和验证状态。",
+    "tabs": {
+      "overview": "概览",
+      "timeline": "时间线",
+      "evidence": "证据",
+      "queries": "查询",
+      "operations": "建议操作",
+      "runs": "运行记录"
+    }
+  },
+  "automations": {
+    "title": "自动化",
+    "description": "保存可复用的 Mole Agent 调查工作流；试运行不会产生真实写操作。",
+    "create": "创建自动化",
+    "created": "自动化已创建",
+    "edit": "编辑自动化",
+    "updated": "自动化已更新",
+    "create_description": "先创建一个只读、手动触发的调查模板，之后可继续配置事件触发。",
+    "editor_description": "配置触发条件、工作流、可用工具、审批与失败策略。",
+    "name_placeholder": "例如：生产环境严重告警调查",
+    "empty_title": "还没有自动化",
+    "empty_description": "将常见调查步骤保存为可复用工作流。",
+    "default_description": "只读可观测性调查工作流",
+    "manual": "手动运行",
+    "dry_run": "试运行",
+    "dry_run_success": "试运行完成，未产生真实写操作",
+    "json_hint": "高级工作流字段使用 JSON；保存前会进行格式与对象类型校验。",
+    "tools_fallback_hint": "工具注册表不可用时，可用逗号或换行分隔工具名称。",
+    "sections": {
+      "basic": "基本信息",
+      "tools": "可用工具",
+      "tools_description": "自动化只能调用此白名单中的已注册工具。",
+      "workflow": "触发与工作流",
+      "governance": "审批、输出与失败处理"
+    },
+    "fields": {
+      "name": "名称",
+      "description": "说明",
+      "enabled": "启用自动化",
+      "trigger": "触发条件",
+      "input_context": "输入上下文",
+      "steps": "工作流步骤",
+      "allowed_tools": "允许的工具",
+      "approval_policy": "审批策略",
+      "output_actions": "输出动作",
+      "failure_policy": "失败策略",
+      "notification": "通知配置"
+    },
+    "default_steps": {
+      "metrics": "查询关键指标",
+      "logs": "查询异常日志",
+      "traces": "关联异常链路",
+      "hypothesis": "输出根因假设"
+    }
+  },
+  "approvals": {
+    "title": "审批记录",
+    "description": "所有真实写操作必须经过对应风险等级的审批后才能执行。",
+    "agent_suggestion": "Mole Agent 建议执行以下操作",
+    "reason": "原因",
+    "impact": "影响范围与风险",
+    "parameters": "执行参数",
+    "reject": "拒绝",
+    "approve": "批准",
+    "execute": "批准并执行",
+    "execution_started": "操作已提交执行",
+    "one_time_token_title": "一次性 API Token",
+    "one_time_token_description": "请立即复制此 API Token。明文不会写入执行历史，之后也无法再次查看。",
+    "copy_one_time_token": "复制 API Token",
+    "one_time_token_copied": "API Token 已复制",
+    "one_time_token_copy_failed": "无法复制 API Token",
+    "empty_title": "没有待处理的审批",
+    "empty_description": "Mole Agent 提出的受控操作会显示在这里。"
+  },
+  "executions": {
+    "title": "执行记录",
+    "description": "查看所有真实操作的参数快照、幂等键、结果与恢复验证。",
+    "empty_title": "还没有执行记录",
+    "empty_description": "只有经过审批的操作才会进入执行记录。",
+    "columns": {
+      "operation": "操作",
+      "target": "目标",
+      "verification": "验证"
+    }
+  },
+  "settings": {
+    "title": "智能体设置",
+    "description": "配置 Mole Agent 的模型、Prompt、工具与能力、数据范围、网络与审批策略。",
+    "blocked": "已阻断",
+    "allowed": "允许",
+    "tabs": {
+      "profiles": "Agent Profile",
+      "models": "模型与推理",
+      "prompts": "Prompt 管理",
+      "tools": "工具与能力",
+      "inbound_mcp": "Inbound MCP",
+      "data": "数据访问范围",
+      "network": "网络策略",
+      "approvals": "审批规则"
+    },
+    "inbound_mcp": {
+      "title": "Inbound MCP Server",
+      "description": "允许外部 AI 客户端通过 MoleSignal 的认证与策略控制 MCP 端点管理当前组织。",
+      "enabled": "启用",
+      "endpoint": "端点",
+      "protocols": "协议版本",
+      "saved": "Inbound MCP 设置已保存",
+      "invalid_limits": "所有运行限制都必须是正整数。",
+      "allowed_origins": "允许的浏览器 Origin",
+      "origins_hint": "每行填写一个完整 HTTP 或 HTTPS Origin。未携带 Origin 以及同源请求仍会放行。",
+      "copy": "复制 MCP 端点",
+      "copied": "MCP 端点已复制",
+      "save": "保存设置",
+      "security": {
+        "title": "租户与策略约束",
+        "description": "服务端只从凭证解析用户和组织身份。生效 Tool 是凭证 IAM 权限与组织 Tool Policy 的交集；Agent Profile 不参与缩小这个范围。"
+      },
+      "credentials": {
+        "title": "凭证",
+        "description": "支持个人 API Token、Service Account API Token 和 OAuth 2.1。Inbound MCP 永远不会返回 API Token 明文。",
+        "api_tokens": "管理 API Token",
+        "service_accounts": "管理 Service Account"
+      },
+      "runtime": {
+        "title": "单次请求运行限制",
+        "description": "修改会在下一次 MCP HTTP 请求开始时生效，已经开始的请求继续使用其配置快照。",
+        "request_bytes": "请求字节数",
+        "response_bytes": "响应字节数",
+        "concurrent_calls": "每凭证并发调用",
+        "calls_per_minute": "每凭证每分钟调用",
+        "read_timeout": "读取超时（毫秒）"
+      },
+      "oauth": {
+        "title": "OAuth 连接",
+        "description": "查看并撤销当前组织签发的 OAuth 2.1 Token Family。",
+        "discovery_title": "OAuth 2.1 发现",
+        "discovery_description": "当客户端无法自动发现受保护资源时，可以使用这些地址进行显式 OAuth 配置。",
+        "protected_metadata": "受保护资源元数据",
+        "authorization_metadata": "授权服务器元数据",
+        "registration_endpoint": "动态注册端点",
+        "token_endpoint": "Token 端点",
+        "empty": "没有 OAuth 连接",
+        "empty_description": "用户授权 MCP 客户端后，连接会显示在这里。",
+        "authorized_by": "授权用户：{{value}}",
+        "expires": "最新 Token 到期时间：{{value}}",
+        "revoke": "撤销",
+        "revoked": "OAuth 连接已撤销"
+      }
+    },
+    "profiles": {
+      "title": "Agent Profile",
+      "description": "为每种工作模式分别配置模型、工具、数据边界、网络、审批策略和运行限制。",
+      "create": "创建 Profile",
+      "created": "Agent Profile 已创建",
+      "edit": "编辑 Profile",
+      "edit_default": "编辑默认 Profile",
+      "updated": "Agent Profile 已更新",
+      "create_description": "新 Profile 默认启用已注册工具、阻断网络，并对 L2/L3 操作要求审批。",
+      "editor_description": "独立配置此 Profile 的身份、模型、工具、数据范围、网络、审批策略和运行限制。",
+      "usage_hint": "未指定时使用默认 Profile；在对话的高级设置中可选择任一已启用 Profile，切换整套运行约束。",
+      "editing_profile": "正在编辑 Profile：{{name}}",
+      "shortcut_hint": "此快捷页显示 Profile“{{name}}”；如需修改其他 Profile，请从 Agent Profile 列表进入。",
+      "navigation_label": "Profile 配置分区",
+      "name_placeholder": "例如：生产环境受限 Agent",
+      "name_required": "保存前请填写 Profile 名称。",
+      "default_description": "受控的 Mole Agent 调查配置",
+      "provider_auto": "自动选择模型服务",
+      "model_inherit": "继承模型服务默认值",
+      "list_hint": "使用逗号或换行分隔多个值。",
+      "empty_means_all": "留空表示所有已授权资源。",
+      "tag_placeholder": "输入内容后按 Enter",
+      "tag_hint": "按 Enter 或输入逗号，将每项内容添加为标签。",
+      "optional_tag_hint": "按 Enter 或输入逗号添加标签；留空表示所有已授权资源。",
+      "remove_tag": "移除 {{value}}",
+      "tools_selected": "已选择 {{selected}} / {{total}} 个可用工具",
+      "select_all_tools": "全选",
+      "clear_tools": "清空",
+      "no_tools": "未允许任何工具",
+      "remaining_tools": "剩余 {{count}} 个工具",
+      "runtime_summary": "{{minutes}} 分钟 · {{calls}} 次调用",
+      "pagination": {
+        "aria": "Agent Profile 分页",
+        "page_size_aria": "每页 Profile 数量",
+        "page_summary": "{{page}} / {{pages}}",
+        "first_aria": "第一页 Profile",
+        "previous_aria": "上一页 Profile",
+        "next_aria": "下一页 Profile",
+        "last_aria": "最后一页 Profile"
+      },
+      "invalid_limits": "运行限制必须为正数，最大工具调用次数不能超过 256。",
+      "default": "默认",
+      "empty_title": "还没有 Agent Profile",
+      "empty_description": "创建 Profile 以定义模型、工具、数据范围与运行限制。",
+      "max_tools": "最大工具调用",
+      "max_time": "最长调查",
+      "network": "网络",
+      "summary": {
+        "model": "模型",
+        "tools": "工具白名单 · {{count}}",
+        "data": "数据范围",
+        "approval": "审批边界",
+        "runtime": "运行边界",
+        "network": "网络"
+      },
+      "scope_prefix": {
+        "environment": "环境",
+        "service": "服务",
+        "stream": "数据流"
+      },
+      "sections": {
+        "identity": "身份与模型",
+        "tools": "工具白名单",
+        "tools_description": "只允许选择注册表中存在的工具。",
+        "data": "数据访问范围",
+        "network": "网络访问",
+        "limits": "运行限制",
+        "approvals": "审批策略"
+      },
+      "fields": {
+        "name": "名称",
+        "description": "说明",
+        "provider": "模型服务",
+        "model": "模型覆盖",
+        "enabled": "启用 Profile",
+        "default": "设为默认 Profile",
+        "network": "网络访问",
+        "context_tokens": "最大上下文 Token",
+        "duration_minutes": "最长调查时间（分钟）",
+        "tool_calls": "最大工具调用次数"
+      },
+      "policies": {
+        "automatic": "自动执行",
+        "approval": "单人审批",
+        "two_person_approval": "双人审批"
+      }
+    },
+    "models": {
+      "title": "模型与推理",
+      "description": "模型密钥只对管理员可写且永不回显；模型调用通过 Model Gateway。",
+      "create": "添加模型服务",
+      "created": "模型服务已添加",
+      "edit": "编辑模型服务",
+      "updated": "模型服务已更新",
+      "create_description": "配置管理员授权的 Model Gateway 上游。",
+      "editor_description": "配置上游地址、默认模型、运行参数与仅写入凭据。",
+      "name_placeholder": "显示名称",
+      "model_placeholder": "默认模型，例如 gpt-5",
+      "base_url_placeholder": "例如：https://api.example.com/v1",
+      "base_url_hint": "OpenAI-compatible 服务必须填写；官方服务可留空使用默认端点。",
+      "base_url_required": "OpenAI-compatible 模型服务必须填写 Base URL。",
+      "invalid_limits": "超时时间与最大 Token 必须是正数。",
+      "max_tokens_placeholder": "留空使用服务默认值",
+      "default_endpoint": "使用官方默认端点",
+      "key_placeholder": "API Key（仅写入）",
+      "key_create_hint": "API Key 仅在创建时写入，不会在页面或接口中回显。",
+      "key_edit_hint": "留空保留现有密钥；填写新值会在保存后轮换密钥。",
+      "key_set": "密钥已设置",
+      "key_unset": "未设置密钥",
+      "empty_title": "还没有模型服务",
+      "sections": {
+        "connection": "连接配置",
+        "runtime": "运行参数",
+        "credentials": "访问凭据"
+      },
+      "fields": {
+        "provider": "服务类型",
+        "name": "显示名称",
+        "base_url": "Base URL",
+        "model": "默认模型",
+        "timeout_ms": "超时时间（毫秒）",
+        "max_tokens": "最大输出 Token",
+        "enabled": "启用模型服务",
+        "api_key": "API Key"
+      }
+    },
+    "prompts": {
+      "title": "Prompt 管理",
+      "description": "管理 Mole Agent 的系统指令与调查模板。内置 Prompt 保持只读，可创建组织或个人覆盖版本。",
+      "create": "新建 Prompt",
+      "view": "查看",
+      "override": "创建覆盖版本",
+      "set_default": "设为默认",
+      "restore": "恢复内置内容",
+      "delete": "删除",
+      "delete_confirm": "确定删除“{{name}}”吗？历史消息仍会保留当时使用的 Prompt 版本信息。",
+      "effective": "生效中",
+      "version": "v{{version}}",
+      "search_label": "搜索 Prompt",
+      "search_placeholder": "搜索名称、用途、正文或内置键…",
+      "name_placeholder": "例如：生产环境根因调查",
+      "body_hint": "使用双花括号引用变量；所有变量必须在下方 JSON Schema 中声明。",
+      "schema_hint": "仅允许声明可由服务端安全注入的变量。保存时会校验模板引用。",
+      "enabled_hint": "停用后，该 Prompt 不参与默认解析，也不会出现在对话选择器中。",
+      "default_hint": "同一用途优先使用个人默认，其次组织默认，最后回退到内置默认。",
+      "empty_title": "还没有可用的 Prompt",
+      "empty_description": "创建组织或个人 Prompt，或检查内置模板迁移是否已执行。",
+      "empty_filter": "没有符合条件的 Prompt",
+      "empty_filter_description": "调整搜索词后重试。",
+      "stats": {
+        "total": "Prompt 总数",
+        "total_hint": "包含内置与覆盖版本",
+        "effective": "当前生效",
+        "effective_hint": "按用途解析出的默认版本",
+        "customized": "自定义版本",
+        "customized_hint": "组织与个人覆盖"
+      },
+      "scopes": {
+        "builtin": "内置",
+        "org": "组织",
+        "user": "个人"
+      },
+      "purposes": {
+        "system": {
+          "title": "系统指令",
+          "description": "定义 Mole Agent 的身份、安全边界、证据要求与基本行为。"
+        },
+        "anomaly_analysis": {
+          "title": "异常分析",
+          "description": "面向指标、日志和链路异常的快速关联分析。"
+        },
+        "root_cause": {
+          "title": "根因定位",
+          "description": "驱动多步骤调查、假设验证与证据归纳。"
+        },
+        "alert_explain": {
+          "title": "告警解释",
+          "description": "解释告警条件、影响范围、持续时间和关联信号。"
+        },
+        "query_generation": {
+          "title": "查询生成",
+          "description": "生成 SQL、PromQL 或链路筛选条件，不执行写操作。"
+        }
+      },
+      "fields": {
+        "scope": "作用范围",
+        "purpose": "用途",
+        "name": "名称",
+        "body": "Prompt 内容",
+        "schema": "变量 JSON Schema",
+        "enabled": "启用 Prompt",
+        "default": "保存后设为默认"
+      },
+      "variables": {
+        "title": "模板变量",
+        "description": "以下变量从 Prompt 内容自动识别；红色变量尚未在 Schema 中声明。",
+        "none": "当前 Prompt 未引用变量。"
+      },
+      "editor": {
+        "create_title": "新建 Prompt",
+        "edit_title": "编辑 Prompt",
+        "view_title": "查看 Prompt",
+        "override_title": "创建 Prompt 覆盖版本",
+        "description": "每次保存都会递增版本，实际对话会记录所用版本和内容哈希。",
+        "source": "来源"
+      },
+      "validation": {
+        "required": "名称和 Prompt 内容不能为空。",
+        "invalid_schema": "变量 Schema 不是有效 JSON：{{message}}",
+        "schema_object_required": "变量 Schema 必须是 JSON 对象。",
+        "schema_properties_required": "变量 Schema 的 properties 必须是 JSON 对象。",
+        "unknown_variables": "以下模板变量未在 Schema 中声明：{{variables}}"
+      },
+      "messages": {
+        "created": "Prompt 已创建",
+        "updated": "Prompt 已更新",
+        "set_default": "默认 Prompt 已更新",
+        "restore": "已恢复内置 Prompt 内容",
+        "delete": "Prompt 已删除"
+      }
+    },
+    "tools": {
+      "title": "工具与能力",
+      "description": "管理 Mole Agent 可以调用的工具、MCP Server、执行权限与审批策略。",
+      "search_label": "搜索工具",
+      "search_placeholder": "搜索工具名称、显示名称或描述…",
+      "loading": "正在加载工具…",
+      "load_error": "工具列表加载失败",
+      "retry": "重新加载",
+      "empty_title": "尚未配置智能体工具",
+      "empty_description": "添加 MCP Server 或启用内置工具后，Mole Agent 才能查询数据和执行任务。",
+      "empty_filter_title": "没有符合条件的工具",
+      "empty_filter_description": "调整搜索词或清除筛选条件后重试。",
+      "profile_restricted": "该工具已启用，但当前默认 Agent Profile 未授权，因此不会暴露给 Mole Agent。",
+      "summary": {
+        "enabled": "已启用工具",
+        "enabled_hint": "可供 Mole Agent 调用",
+        "automatic": "自动执行",
+        "automatic_hint": "无需人工审批",
+        "approval": "需要审批",
+        "approval_hint": "执行前需要人工确认",
+        "mcp": "MCP Servers",
+        "mcp_healthy": "{{count}} 个连接正常",
+        "mcp_unhealthy": "{{healthy}} 正常 · {{unhealthy}} 异常"
+      },
+      "actions": {
+        "configure_policy": "配置工具策略",
+        "add_mcp": "添加 MCP Server",
+        "details": "查看详情",
+        "test": "测试工具",
+        "calls": "查看调用记录",
+        "edit_policy": "编辑策略",
+        "dependencies": "查看依赖",
+        "copy_definition": "复制工具定义",
+        "view_mcp": "查看 MCP Server",
+        "disable": "停用工具",
+        "enable": "启用工具",
+        "toggle": "切换 {{name}} 的启用状态",
+        "more": "{{name}} 的更多操作"
+      },
+      "filters": {
+        "all": "全部",
+        "read_only": "只读",
+        "automatic": "自动执行",
+        "approval": "需审批",
+        "disabled": "已停用",
+        "advanced": "高级筛选",
+        "clear": "清除筛选"
+      },
+      "grouping": {
+        "label": "工具分组方式",
+        "domain": "按领域分组",
+        "mcp": "按 MCP Server 分组",
+        "none": "不分组",
+        "all_tools": "全部工具",
+        "builtin_description": "MoleSignal 内置并由服务端注册的工具",
+        "mcp_description": "由 MCP Server 同步并经管理员授权的工具"
+      },
+      "domains": {
+        "observability": {
+          "title": "可观测性",
+          "description": "日志、指标、链路、APM 用户体验与性能剖析查询能力"
+        },
+        "alerts_on_call": {
+          "title": "告警与值班",
+          "description": "告警事件、处置状态和值班排班能力"
+        },
+        "automation": {
+          "title": "自动化",
+          "description": "自动化执行、审批申请与运营操作能力"
+        },
+        "knowledge_context": {
+          "title": "知识与上下文",
+          "description": "知识库、文档和调查上下文检索能力"
+        },
+        "dashboard_reports": {
+          "title": "仪表盘与报告",
+          "description": "仪表盘、报告模板和定时报告能力"
+        },
+        "notify": {
+          "title": "通知",
+          "description": "通知解析、路由与投递能力"
+        },
+        "administration": {
+          "title": "管理",
+          "description": "组织、身份和管理资源能力"
+        }
+      },
+      "fields": {
+        "tool": "工具",
+        "display_name": "显示名称",
+        "domain": "领域",
+        "source": "来源",
+        "risk": "风险等级",
+        "execution": "执行策略",
+        "status": "状态",
+        "timeout": "调用超时",
+        "timeout_ms": "调用超时（毫秒）",
+        "max_calls": "单次运行最大调用次数",
+        "max_response": "最大响应",
+        "max_response_bytes": "最大响应体（字节）",
+        "dry_run": "支持 Dry Run"
+      },
+      "sources": {
+        "builtin": "内置",
+        "mcp": "MCP",
+        "custom": "自定义"
+      },
+      "risk": {
+        "l0": {
+          "title": "只读",
+          "description": "只读取数据，不修改系统状态，默认可自动执行。"
+        },
+        "l1": {
+          "title": "低风险写操作",
+          "description": "创建草稿、评论或报告，通常可恢复。"
+        },
+        "l2": {
+          "title": "中风险操作",
+          "description": "会修改业务资源或工作流状态，至少需要单人审批。"
+        },
+        "l3": {
+          "title": "高风险操作",
+          "description": "可能影响生产服务、数据或权限，强制审批。"
+        },
+        "l4": {
+          "title": "破坏性操作",
+          "description": "不可逆或影响范围难以预估，默认禁用且至少双人审批。"
+        }
+      },
+      "execution": {
+        "automatic": "自动执行",
+        "confirmation": "需要确认",
+        "single_approval": "单人审批",
+        "dual_approval": "双人审批",
+        "disabled": "禁止执行"
+      },
+      "status": {
+        "healthy": "正常",
+        "degraded": "部分异常",
+        "unavailable": "不可用",
+        "enabled": "已启用",
+        "disabled": "已停用"
+      },
+      "common": {
+        "yes": "是",
+        "no": "否"
+      },
+      "detail": {
+        "tabs": {
+          "overview": "概览",
+          "schema": "输入与输出",
+          "policy": "权限与策略",
+          "calls": "调用记录",
+          "dependencies": "依赖"
+        },
+        "basic": "基本信息",
+        "description": "功能说明",
+        "statistics": "最近调用",
+        "input_schema": "输入参数",
+        "output_schema": "输出结果",
+        "permissions": "权限与策略"
+      },
+      "schema": {
+        "json_view": "查看 JSON Schema",
+        "form_view": "查看字段",
+        "copy": "复制 Schema",
+        "no_fields": "该 Schema 没有声明字段。"
+      },
+      "stats": {
+        "calls_24h": "24 小时调用",
+        "success_rate": "成功率",
+        "p95": "P95 耗时",
+        "last_error": "最近错误",
+        "has_error": "有错误",
+        "no_error": "无"
+      },
+      "policy": {
+        "title": "编辑 {{name}} 策略",
+        "description": "配置工具的风险、执行方式、环境覆盖与运行限制。",
+        "classification": "风险与执行策略",
+        "hard_floor": "覆盖只能收紧策略，不能突破服务端风险硬限制。",
+        "builtin_risk_locked": "内置工具的风险等级由服务端代码定义，不可在页面中降低。",
+        "environment_overrides": "按环境覆盖",
+        "inherit": "继承默认策略",
+        "limits": "运行限制"
+      },
+      "environments": {
+        "development": "Development",
+        "staging": "Staging",
+        "production": "Production"
+      },
+      "defaults": {
+        "title": "配置工具策略",
+        "description": "设置各风险等级的默认执行方式，并按环境进行更严格的覆盖。",
+        "risk_title": "默认执行策略",
+        "risk_description": "工具级策略可以覆盖默认值，但不能突破风险硬限制。",
+        "environments_title": "环境策略",
+        "environments_description": "仅填写需要覆盖的风险等级，其余继承默认执行策略。"
+      },
+      "test": {
+        "title": "测试 {{name}}",
+        "read_description": "根据工具 Schema 填写参数；只读工具可执行真实查询。",
+        "write_description": "写工具只进行 Dry Run 或参数验证，不会执行真实写操作。",
+        "parameters": "测试参数",
+        "no_parameters": "该工具不需要参数。",
+        "validate": "仅验证参数",
+        "execute": "执行测试",
+        "dry_run": "执行 Dry Run",
+        "result": "测试结果",
+        "success": "测试成功",
+        "failed": "测试失败",
+        "request": "请求 JSON",
+        "response": "响应 JSON"
+      },
+      "dependencies": {
+        "title": "{{name}} 的依赖",
+        "description": "停用前检查 Agent Profile、自动化和调查任务模板的引用。",
+        "none": "当前没有依赖",
+        "warning": "该工具当前被 {{count}} 个对象使用。",
+        "agent_profiles": "Agent Profile",
+        "automations": "自动化",
+        "investigation_templates": "调查任务模板",
+        "empty": "无"
+      },
+      "disable": {
+        "title": "停用 {{name}}？",
+        "description": "Mole Agent 将无法继续发现和调用该工具，历史记录会保留。",
+        "dependency_warning": "当前有 {{count}} 个对象依赖该工具。强制停用可能导致这些流程失败。",
+        "confirm": "确认停用"
+      },
+      "calls": {
+        "empty": "还没有工具调用记录。",
+        "arguments": "参数快照（已脱敏）",
+        "policy_decision": "策略判断",
+        "source": {
+          "chat": "对话",
+          "investigation": "调查任务",
+          "automation": "自动化",
+          "manual_test": "人工测试"
+        }
+      },
+      "mcp": {
+        "title": "MCP Servers",
+        "description": "管理受限的 MCP 连接、凭据、网络边界和同步工具。",
+        "empty_title": "还没有 MCP Server",
+        "empty_description": "添加服务器并通过连接测试后，再选择需要导入的工具。",
+        "tool_count": "{{count}} 个工具",
+        "test_connection": "测试连接",
+        "remove": "移除服务器",
+        "remove_drawer": {
+          "title": "移除 {{name}}？",
+          "description": "仅当服务器工具全部停用且依赖已替换后，才能移除该服务器。",
+          "confirm": "移除 MCP Server",
+          "safe": "未发现已启用工具或活动依赖，可以安全移除。",
+          "blocked": "仍有 {{enabled}} 个工具启用、{{dependencies}} 个活动依赖，请先处理。",
+          "tools_title": "已导入工具与依赖",
+          "no_tools": "没有已导入工具。",
+          "dependency_count": "{{count}} 个依赖"
+        },
+        "discovered": "发现 {{count}} 个工具",
+        "new_tools_disabled": "新工具导入后默认停用",
+        "sync_selected": "同步所选工具",
+        "transport": {
+          "streamable_http": "Streamable HTTP",
+          "sse": "SSE",
+          "stdio": "stdio",
+          "unix_socket": "Unix Socket"
+        },
+        "auth": {
+          "none": "无认证",
+          "bearer_token": "Bearer Token",
+          "api_key": "API Key",
+          "oauth": "OAuth Token",
+          "mtls": "mTLS",
+          "internal_service_identity": "内部服务身份"
+        },
+        "status": {
+          "healthy": "已连接",
+          "connecting": "连接中",
+          "error": "异常",
+          "disabled": "已停用",
+          "unauthorized": "未授权",
+          "unavailable": "不可用"
+        },
+        "feedback": {
+          "created": "MCP Server 已添加",
+          "updated": "MCP Server 已更新",
+          "deleted": "MCP Server 已移除",
+          "test_success": "连接成功，发现 {{count}} 个工具",
+          "test_failed": "MCP Server 连接失败",
+          "sync_success": "已同步 {{count}} 个工具"
+        },
+        "editor": {
+          "create_title": "添加 MCP Server",
+          "edit_title": "编辑 MCP Server",
+          "description": "凭据仅写入并加密保存，接口和页面不会回显明文。",
+          "basic": "基本信息",
+          "authentication": "认证",
+          "network": "网络策略",
+          "runtime": "运行限制",
+          "transport_restricted": "当前运行时仅执行 Streamable HTTP；其他连接方式可保存，但连接测试会保持不可用。",
+          "credential_set": "凭据已设置（末四位 {{last4}}）；留空将保留现有凭据。",
+          "credential_not_set": "尚未设置凭据。"
+        },
+        "fields": {
+          "name": "名称",
+          "name_placeholder": "例如：内部知识库 MCP",
+          "transport": "连接方式",
+          "endpoint": "Endpoint URL",
+          "endpoint_placeholder": "例如：https://mcp.internal.example.com/mcp",
+          "auth_type": "认证方式",
+          "auth_header": "认证 Header",
+          "auth_header_placeholder": "例如：X-API-Key",
+          "credential": "凭据",
+          "credential_placeholder": "仅写入，不会回显",
+          "credential_hint": "保存后使用服务端密钥加密，列表和详情接口只返回是否已设置。",
+          "private_only": "仅允许私网",
+          "private_only_hint": "DNS 解析得到的每个地址都必须是私网地址。",
+          "allowed_domains": "允许的域名",
+          "allowed_cidrs": "允许的 IP/CIDR",
+          "one_per_line": "每行一个；留空表示不额外限制。",
+          "tls_verify": "校验 TLS 证书",
+          "redirects_blocked": "重定向由服务端安全策略强制禁止。",
+          "timeout_ms": "请求超时（毫秒）",
+          "max_response_bytes": "最大响应体（字节）",
+          "enabled": "启用 MCP Server"
+        }
+      },
+      "feedback": {
+        "enabled": "工具已启用",
+        "disabled": "工具已停用",
+        "policy_saved": "工具策略已保存",
+        "defaults_saved": "默认工具策略已保存",
+        "definition_copied": "工具定义已复制",
+        "schema_copied": "Schema 已复制"
+      },
+      "errors": {
+        "no_tool": "未选择工具"
+      },
+      "access": {
+        "read_only": "只读自动执行",
+        "preflight": "仅预检",
+        "managed_mutation": "由策略管理的变更",
+        "creates_approval_request": "只创建审批请求",
+        "executes_approved_operation": "执行已审批操作"
+      }
+    },
+    "data": {
+      "title": "数据访问范围",
+      "description": "数据范围来自当前默认 Agent Profile；跨组织访问始终禁止。",
+      "configure": "编辑访问范围",
+      "editor_title": "编辑数据访问范围",
+      "editor_description": "限制当前默认 Profile 可以访问的环境、服务和数据流。",
+      "updated": "数据访问范围已更新",
+      "environments": "允许环境",
+      "services": "允许服务",
+      "streams": "允许数据流",
+      "cross_org": "跨组织访问",
+      "all_authorized": "所有已授权资源"
+    },
+    "network": {
+      "title": "网络策略",
+      "description": "当前默认 Agent Profile 控制网络访问；具体工具能力仍由注册表与执行环境约束。",
+      "configure": "编辑网络策略",
+      "editor_title": "编辑网络策略",
+      "editor_description": "配置当前默认 Profile 是否允许已授权工具访问网络。",
+      "editor_help": "此策略只决定 Profile 是否允许网络访问，不会自动启用未注册的工具能力。",
+      "updated": "网络策略已更新",
+      "access": "网络访问",
+      "allow_network_access": "允许网络访问",
+      "blocked_explanation": "当前 Profile 禁止网络访问，只能使用不需要网络的已授权工具。",
+      "allowed_explanation": "当前 Profile 可通过已注册、已授权的网络工具访问网络；通用 HTTP、Shell、浏览器与开放式 MCP 不会因此自动启用。",
+      "capabilities": "运行时能力",
+      "capabilities_description": "以下能力来自工具注册表与执行环境，不能由 Profile 开关直接开启。",
+      "internet": "公开互联网访问",
+      "dynamic_http": "任意 HTTP 工具",
+      "shell": "通用 Shell",
+      "browser": "浏览器工具",
+      "open_mcp": "开放式 MCP"
+    },
+    "approval_policy": {
+      "title": "审批规则",
+      "description": "风险策略在服务端强制执行；审批后仍会重新校验权限、资源状态和参数。",
+      "configure": "编辑审批策略",
+      "editor_title": "编辑审批策略",
+      "editor_description": "分别配置当前默认 Profile 对 L0 至 L3 操作的审批要求。",
+      "updated": "审批策略已更新",
+      "l0": "只读查询与查看",
+      "l1": "创建草稿与建议",
+      "l2": "告警与配置写操作",
+      "l3": "生产与外部高风险操作",
+      "automatic": "自动执行",
+      "configurable": "默认自动，可由 Profile 收紧",
+      "single": "默认单人审批，发起人不能自批",
+      "two_person": "强制双人审批"
+    }
+  },
+  "unlicensed_title": "AI 运维未授权",
+  "unlicensed_description": "当前许可证未启用 agent 功能。",
+  "starter_title": "今晚想调查什么？",
+  "starter_title_named": "工作到很晚，{{name}}",
+  "greeting": {
+    "morning": "上午好",
+    "morning_named": "上午好，{{name}}",
+    "afternoon": "下午好",
+    "afternoon_named": "下午好，{{name}}",
+    "evening": "晚上好",
+    "evening_named": "晚上好，{{name}}",
+    "late": "夜深了",
+    "late_named": "夜深了，{{name}}"
+  },
+  "starter_subtitle": "提出一个限定时间范围的问题。助手会调用后端工具检查你的日志、指标、链路和告警。",
+  "starter_subtitle_prefix": "我是 Mole Agent，可以写你的",
+  "starter_subtitle_suffix": "并引导你浏览日志、跟踪、指标和事件。",
+  "signed_in_as": "登录身份",
+  "try_one": "或者试试其中一个",
+  "starters": {
+    "query": "帮我写一个查询，找出过去一小时错误最多的服务。",
+    "anomaly": "过去一小时发生了什么变化？",
+    "root_cause": "找出最近一次事件的根因。",
+    "errors": "为什么最近错误激增？",
+    "latency": "哪个服务的延迟出现了退化？",
+    "dashboard": "根据 Kubernetes 节点运行状况构建一个仪表盘。",
+    "alert": "创建一个错误率异常的告警规则。"
+  },
+  "capability_prompts": {
+    "query": "帮我写一个查询。\n\n目标/问题：\n数据源或服务：\n时间范围：近 1 小时\n期望输出：SQL 或 PromQL",
+    "incident": "帮我调查一个事件。\n\n事件现象：\n相关服务：\n时间范围：近 1 小时\n我想知道：触发原因、影响范围和下一步建议",
+    "dashboard": "帮我构建一个仪表板。\n\n主题：\n关键服务或集群：\n需要展示的指标：\n时间范围：近 24 小时",
+    "alert": "帮我创建一个告警规则。\n\n告警目标：\n触发条件：\n持续时间：\n通知方式："
+  },
+  "capabilities": {
+    "query": {
+      "title": "写一个查询",
+      "description": "SQL 用于日志、链路与 APM 用户体验，PromQL 用于指标信号。"
+    },
+    "incident": {
+      "title": "调查事件",
+      "description": "分析日志、链路、指标和告警，定位异常触发原因。"
+    },
+    "dashboard": {
+      "title": "构建仪表板",
+      "description": "从一个主题生成看板，例如 CPU、内存、重启和延迟。"
+    },
+    "alert": {
+      "title": "创建警报",
+      "description": "为阈值、趋势或采集流水线异常生成告警草案。"
+    }
+  },
+  "suggestions": {
+    "vrl": "编写 VRL 来解析 nginx 日志中的 JSON。",
+    "email_regex": "生成用于编辑电子邮件的正则表达式。",
+    "live_arch": "映射我的“默认”直播架构。",
+    "cpu_promql": "使用 > 80% 的 CPU 为 pod 编写 PromQL。",
+    "datadog": "把其他平台的查询转换为 MoleSignal 查询",
+    "last_alert": "为什么我最后一次警报被触发？"
+  },
+  "suggestion_prompts": {
+    "convert_external": "把其他平台的查询转换为 MoleSignal 查询。\n\n来源平台：\n原查询：\n期望输出："
+  },
+  "range": {
+    "15m": "近 15 分钟",
+    "30m": "近 30 分钟",
+    "1h": "近 1 小时",
+    "6h": "近 6 小时",
+    "24h": "近 24 小时",
+    "7d": "近 7 天"
+  },
+  "controls": {
+    "time": "时间",
+    "mode": "模式",
+    "execution": "执行"
+  },
+  "mode": {
+    "auto": "自动模式",
+    "quick": "快速问答",
+    "deep": "深度调查",
+    "query_only": "仅生成查询"
+  },
+  "execution_policy": {
+    "advice_only": "建议模式",
+    "read_only": "调查模式",
+    "policy": "执行模式（需审批）"
+  },
+  "provider_auto": "自动选择服务",
+  "model_prefix": "模型",
+  "model_auto": "自动",
+  "prompt_prefix": "提示词",
+  "prompt_auto": "自动",
+  "advanced": {
+    "trigger": "更多",
+    "title": "Agent 设置",
+    "description": "仅在默认配置不适合当前调查时调整 Agent 行为。",
+    "agent_mode": "Agent 模式",
+    "overrides_active": "已启用自定义 Agent 设置",
+    "profile": "Agent Profile",
+    "profile_auto": "默认 Profile",
+    "investigation_limit": "调查时限",
+    "tool_limit": "工具调用上限",
+    "minutes": "{{count}} 分钟",
+    "calls": "{{count}} 次",
+    "manage_profile": "管理 Agent Profile"
+  },
+  "composer_placeholder": "询问异常、服务状态，或输入一个运维任务…",
+  "send": "发送",
+  "resend": "重新发送",
+  "stop": "停止",
+  "running": "运行中",
+  "tool_detail": "工具详情",
+  "tool_call_count": "{{count}} 次调用",
+  "tool_arguments": "参数",
+  "tool_result": "结果",
+  "tool_error_result": "错误",
+  "tool_empty_payload": "无",
+  "tool_status": {
+    "running": "运行中",
+    "done": "完成",
+    "error": "失败"
+  },
+  "thinking": "Mole Agent 正在分析…",
+  "answer_versions": {
+    "position": "回答 {{current}} / {{total}}",
+    "previous": "查看上一版回答",
+    "next": "查看下一版回答",
+    "regenerate": "重新生成",
+    "regenerating": "正在重新生成…"
+  },
+  "investigation_process": {
+    "running": "正在检查 {{count}} 项数据源",
+    "completed": "已检查 {{count}} 项数据源",
+    "completed_with_errors": "已检查 {{count}} 项，其中 {{errors}} 项未完成",
+    "view": "查看调查过程",
+    "processing": "处理中",
+    "processed": "已处理",
+    "rows": "返回 {{count}} 条",
+    "technical_detail": "详情"
+  },
+  "oauth": {
+    "invalid_request": "这个 OAuth 授权请求无效或缺少必要参数。",
+    "eyebrow": "MoleSignal Inbound MCP",
+    "title": "授权 {{client}}",
+    "description": "这个 MCP 客户端正在申请使用你的身份和当前组织访问 MoleSignal。",
+    "access_title": "这个连接可以",
+    "access_tools": "• 发现并调用你的 IAM 权限和组织 Tool Policy 共同允许的 Tool。",
+    "access_policy": "• 提出受管变更，并且只能通过组织配置的审批策略继续执行。",
+    "access_credentials": "• 仅在 OAuth 授权有效期内代表你操作，且不能读取 API Token 明文。",
+    "client": "客户端",
+    "organization": "组织",
+    "resource": "受保护资源",
+    "scopes": "Scope",
+    "client_website": "打开客户端网站",
+    "deny": "拒绝",
+    "allow": "授权",
+    "footer": "授权会绑定到这个客户端、回调地址、用户、组织和 MCP 资源。"
+  },
+  "tools": {
+    "tool_search": {
+      "title": "发现工具",
+      "description": "按能力、领域、标签或精确名称发现当前可用工具。"
+    },
+    "tools_call": {
+      "title": "调用工具",
+      "description": "调用通过 tool_search 发现的工具，目标工具仍执行自身权限、风险和审计策略。"
+    },
+    "get_platform_capabilities": {
+      "title": "获取平台 Tool 能力",
+      "description": "返回完整内置 Tool 领域清单、暴露策略以及明确排除的不安全入口。"
+    },
+    "query_logs": {
+      "title": "查询日志",
+      "description": "对单个日志流执行有界只读 SQL；先用 get_stream_schema 获取精确字段。"
+    },
+    "query_metrics": {
+      "title": "查询指标",
+      "description": "执行单个有界只读 PromQL 范围查询；不接受 label_values() 等 Grafana 模板函数。"
+    },
+    "list_streams": {
+      "title": "列出数据流",
+      "description": "以紧凑摘要列出可查询数据流；字段详情使用 get_stream_schema。"
+    },
+    "get_stream_schema": {
+      "title": "获取数据流 Schema",
+      "description": "返回单个数据流的精确字段、类型、设置和保留期。"
+    },
+    "get_stream_settings": {
+      "title": "获取数据流设置",
+      "description": "返回单个数据流的查询、保留、分区及摄取设置，不重复完整 Schema。"
+    },
+    "list_metric_names": {
+      "title": "列出指标名",
+      "description": "列出指标流名称，可按子串过滤。"
+    },
+    "list_metric_label_values": {
+      "title": "列出指标标签值",
+      "description": "列出真实指标标签字段的去重值，无需使用非 PromQL 模板函数。"
+    },
+    "list_metric_labels": {
+      "title": "列出指标标签",
+      "description": "列出单个指标流的真实标签字段。"
+    },
+    "list_metric_series": {
+      "title": "列出指标 Series",
+      "description": "按时间范围有界列出指标标签 Series。"
+    },
+    "search_around": {
+      "title": "搜索上下文日志",
+      "description": "获取锚点时间前后的日志上下文。"
+    },
+    "search_field_values": {
+      "title": "搜索字段值",
+      "description": "返回单个精确字段的有界去重值及计数。"
+    },
+    "list_traces": {
+      "title": "检索链路",
+      "description": "按时间、服务、耗时、错误或 Trace ID 检索有界的链路摘要。"
+    },
+    "get_trace": {
+      "title": "获取链路",
+      "description": "按 Trace ID 获取有界 Span 集；只需结构时使用 get_trace_dag。"
+    },
+    "get_trace_dag": {
+      "title": "获取链路 DAG",
+      "description": "返回单条链路的紧凑服务与 Span 依赖 DAG，不返回完整 Span 载荷。"
+    },
+    "list_trace_sessions": {
+      "title": "列出 Trace Session",
+      "description": "当 Trace 流包含 Session 字段时，有界列出 LLM/AI Trace Session。"
+    },
+    "get_trace_session": {
+      "title": "获取 Trace Session",
+      "description": "获取单个 LLM/AI Session 的有界 Trace 摘要。"
+    },
+    "list_trace_users": {
+      "title": "列出 Trace User",
+      "description": "当 Trace 流包含 User 字段时，有界列出 AI Trace User 聚合。"
+    },
+    "list_recent_alerts": {
+      "title": "查看近期告警",
+      "description": "列出活跃告警事件；等价于 list_incidents 的 active 筛选。"
+    },
+    "list_incidents": {
+      "title": "检索事件",
+      "description": "按状态和可选时间范围检索有界事件列表。"
+    },
+    "get_incident": {
+      "title": "获取事件",
+      "description": "按 Incident ID 获取事件及其告警规则上下文。"
+    },
+    "get_incident_rca": {
+      "title": "获取事件 RCA",
+      "description": "获取事件最新持久化根因分析。"
+    },
+    "get_incident_insights": {
+      "title": "获取事件洞察",
+      "description": "返回按状态、严重度、服务及规则聚合的有界事件洞察。"
+    },
+    "acknowledge_incident": {
+      "title": "确认事件",
+      "description": "确认一个开放状态的事件。"
+    },
+    "resolve_incident": {
+      "title": "解决事件",
+      "description": "解决一个开放或已确认的事件。"
+    },
+    "list_alert_rules": {
+      "title": "列出告警规则",
+      "description": "列出告警规则及状态、查询、阈值与路由元数据。"
+    },
+    "get_alert_rule": {
+      "title": "获取告警规则",
+      "description": "按 ID 获取单条告警规则。"
+    },
+    "create_alert_rule": {
+      "title": "创建告警规则",
+      "description": "校验后创建一条告警规则。"
+    },
+    "update_alert_rule": {
+      "title": "更新告警规则",
+      "description": "校验后替换一条告警规则。"
+    },
+    "delete_alert_rule": {
+      "title": "删除告警规则",
+      "description": "删除一条告警规则。"
+    },
+    "test_alert_rule": {
+      "title": "测试告警规则",
+      "description": "以无副作用方式试跑单条告警规则，并返回匹配结论与有界样本。"
+    },
+    "trigger_alert_rule": {
+      "title": "触发告警规则",
+      "description": "手动触发单条告警规则，不执行阈值判断。"
+    },
+    "list_incident_groups": {
+      "title": "列出事件组",
+      "description": "按状态有界列出关联事件组。"
+    },
+    "get_incident_group": {
+      "title": "获取事件组",
+      "description": "按 ID 获取关联事件组。"
+    },
+    "list_mute_rules": {
+      "title": "列出静默规则",
+      "description": "列出告警静默规则。"
+    },
+    "get_mute_rule": {
+      "title": "获取静默规则",
+      "description": "按 ID 获取静默规则。"
+    },
+    "list_escalation_policies": {
+      "title": "列出升级策略",
+      "description": "列出事件升级策略。"
+    },
+    "get_escalation_policy": {
+      "title": "获取升级策略",
+      "description": "按 ID 获取事件升级策略。"
+    },
+    "list_on_call_schedules": {
+      "title": "列出值班排班",
+      "description": "列出值班排班及当前值班人。"
+    },
+    "get_on_call_schedule": {
+      "title": "获取值班排班",
+      "description": "按 ID 获取单个值班排班。"
+    },
+    "get_current_on_call": {
+      "title": "查询当前值班",
+      "description": "查询单个或全部启用排班的当前值班人员。"
+    },
+    "list_notification_connectors": {
+      "title": "列出通知连接器",
+      "description": "列出通知连接器，凭据字段始终省略。"
+    },
+    "get_notification_connector": {
+      "title": "获取通知连接器",
+      "description": "获取通知连接器元数据，凭据字段始终省略。"
+    },
+    "list_notification_policies": {
+      "title": "列出通知策略",
+      "description": "列出通知路由策略。"
+    },
+    "get_notification_policy": {
+      "title": "获取通知策略",
+      "description": "获取单条通知路由策略。"
+    },
+    "list_notification_templates": {
+      "title": "列出通知模板",
+      "description": "列出组织级及系统通知模板。"
+    },
+    "get_notification_template": {
+      "title": "获取通知模板",
+      "description": "获取单条通知模板。"
+    },
+    "list_notification_deliveries": {
+      "title": "列出通知投递",
+      "description": "有界列出通知投递记录。"
+    },
+    "get_notification_delivery": {
+      "title": "获取通知投递",
+      "description": "获取单条通知投递记录。"
+    },
+    "retry_notification_delivery": {
+      "title": "重试通知投递",
+      "description": "重试一次失败的通知投递。"
+    },
+    "acknowledge_notification_delivery": {
+      "title": "确认通知投递",
+      "description": "确认一次通知投递。"
+    },
+    "apm_overview": {
+      "title": "APM 概览",
+      "description": "返回有界的 RED 指标、趋势、服务健康、依赖与高频错误。"
+    },
+    "list_apm_services": {
+      "title": "列出 APM 服务",
+      "description": "列出带 RED 健康摘要的 APM 服务。"
+    },
+    "get_apm_service": {
+      "title": "获取 APM 服务",
+      "description": "获取单服务的 RED 趋势、事务、依赖、错误和版本。"
+    },
+    "list_apm_transactions": {
+      "title": "列出 APM Transaction",
+      "description": "列出带 RED 摘要的 APM Transaction 分组。"
+    },
+    "get_apm_transaction": {
+      "title": "获取 APM Transaction",
+      "description": "获取单个 APM Transaction 的趋势及链路详情。"
+    },
+    "list_apm_dependencies": {
+      "title": "列出 APM 依赖",
+      "description": "列出带延迟及错误摘要的 APM 服务依赖。"
+    },
+    "list_apm_errors": {
+      "title": "列出 APM 错误",
+      "description": "列出聚合的 APM 错误、受影响服务和链路查询句柄。"
+    },
+    "get_apm_error": {
+      "title": "获取 APM 错误",
+      "description": "获取单个 APM 错误分组、样例及 Trace Handle。"
+    },
+    "compare_apm_versions": {
+      "title": "比较 APM 版本",
+      "description": "比较两个服务版本的 RED 指标及回归。"
+    },
+    "get_apm_health": {
+      "title": "获取 APM 健康",
+      "description": "返回 APM 投影新鲜度、覆盖率及数据质量健康。"
+    },
+    "correlate_signals": {
+      "title": "跨信号关联",
+      "description": "按服务或 Trace 在事件、链路、日志、RUM 与 Profile 间建立有界关联。"
+    },
+    "get_service_topology": {
+      "title": "获取服务拓扑",
+      "description": "返回指定时间范围内的有界服务依赖图。"
+    },
+    "list_rum_sessions": {
+      "title": "查询 RUM 会话",
+      "description": "检索有界的真实用户监控会话。"
+    },
+    "get_rum_session": {
+      "title": "获取 RUM 会话",
+      "description": "获取单个 RUM 会话及有界的行为和错误摘要。"
+    },
+    "list_rum_actions": {
+      "title": "查询 RUM 行为",
+      "description": "检索页面、行为、资源和 Web Vitals。"
+    },
+    "list_rum_errors": {
+      "title": "查询 RUM 错误",
+      "description": "按会话或指纹检索 RUM 错误。"
+    },
+    "get_rum_related_traces": {
+      "title": "关联 RUM 与链路",
+      "description": "查找 RUM 会话直接关联的链路，并提供有界时间关联回退。"
+    },
+    "list_continuous_profiles": {
+      "title": "查询持续剖析",
+      "description": "按服务、类型、链路和标签检索持续剖析元数据。"
+    },
+    "get_profile_flamegraph": {
+      "title": "获取火焰图",
+      "description": "将有界的 Profile 集合合并为 flamebearer 火焰图。"
+    },
+    "compare_profiles": {
+      "title": "对比剖析",
+      "description": "以差分火焰图对比基线与当前 Profile 窗口；需要 profiling_enhanced。"
+    },
+    "list_report_templates": {
+      "title": "列出报告模板",
+      "description": "列出内置及组织级报告模板。"
+    },
+    "get_report_template": {
+      "title": "获取报告模板",
+      "description": "按 ID 获取单条报告模板。"
+    },
+    "list_scheduled_reports": {
+      "title": "列出定时报告",
+      "description": "列出当前组织的定时报告。"
+    },
+    "get_scheduled_report": {
+      "title": "获取定时报告",
+      "description": "按 ID 获取单条定时报告。"
+    },
+    "list_report_deliveries": {
+      "title": "列出报告投递",
+      "description": "有界列出单条定时报告的投递历史。"
+    },
+    "list_dashboards": {
+      "title": "列出 Dashboard",
+      "description": "列出 Dashboard，可限定文件夹。"
+    },
+    "get_dashboard": {
+      "title": "获取 Dashboard",
+      "description": "按 ID 获取 Dashboard 及完整模型。"
+    },
+    "create_dashboard": {
+      "title": "创建 Dashboard",
+      "description": "使用完整且已校验的模型创建 Dashboard。"
+    },
+    "update_dashboard": {
+      "title": "更新 Dashboard",
+      "description": "替换 Dashboard 模型，并可选移动到其他文件夹。"
+    },
+    "delete_dashboard": {
+      "title": "删除 Dashboard",
+      "description": "删除一个 Dashboard。"
+    },
+    "list_folders": {
+      "title": "列出文件夹",
+      "description": "列出 Dashboard 文件夹。"
+    },
+    "get_folder": {
+      "title": "获取文件夹",
+      "description": "按 ID 获取 Dashboard 文件夹。"
+    },
+    "create_folder": {
+      "title": "创建文件夹",
+      "description": "创建一个 Dashboard 文件夹。"
+    },
+    "update_folder": {
+      "title": "更新文件夹",
+      "description": "重命名或移动一个 Dashboard 文件夹。"
+    },
+    "delete_folder": {
+      "title": "删除文件夹",
+      "description": "删除一个空的 Dashboard 文件夹。"
+    },
+    "list_annotations": {
+      "title": "列出标注",
+      "description": "按时间及可选 Dashboard/Panel 有界列出标注。"
+    },
+    "get_annotation": {
+      "title": "获取标注",
+      "description": "按 ID 获取单条时间标注。"
+    },
+    "create_annotation": {
+      "title": "创建标注",
+      "description": "按当前执行策略创建时间标注。"
+    },
+    "update_annotation": {
+      "title": "更新标注",
+      "description": "按当前执行策略更新单条时间标注的部分字段。"
+    },
+    "delete_annotation": {
+      "title": "删除标注",
+      "description": "按当前执行策略删除单条时间标注。"
+    },
+    "add_dashboard_panel": {
+      "title": "添加 Dashboard Panel",
+      "description": "向 Dashboard 根节点或嵌套容器原子添加 Panel。"
+    },
+    "update_dashboard_panel": {
+      "title": "更新 Dashboard Panel",
+      "description": "原子替换单个 Dashboard Panel。"
+    },
+    "move_dashboard_panel": {
+      "title": "移动 Dashboard Panel",
+      "description": "原子把 Dashboard Panel 移至根节点或嵌套容器的指定位置。"
+    },
+    "delete_dashboard_panel": {
+      "title": "删除 Dashboard Panel",
+      "description": "原子删除单个 Dashboard Panel。"
+    },
+    "get_dashboard_capabilities": {
+      "title": "获取 Dashboard 能力",
+      "description": "返回 Dashboard 创作协议版本和限制。"
+    },
+    "prepare_dashboard": {
+      "title": "准备 Dashboard",
+      "description": "校验并预检 Dashboard 草稿；不会创建 Dashboard。"
+    },
+    "propose_dashboard_creation": {
+      "title": "建议创建 Dashboard",
+      "description": "为已准备的 Dashboard 草稿创建审批请求；不会直接创建。"
+    },
+    "propose_operation": {
+      "title": "提出处置操作",
+      "description": "为受控操作创建审批请求；不会直接执行。"
+    },
+    "propose_alert_action": {
+      "title": "提出告警处置",
+      "description": "提出单个告警事件的确认或解决操作审批。"
+    },
+    "propose_synthetic_monitor_action": {
+      "title": "提出 Synthetic Monitor 操作",
+      "description": "提出单个 Synthetic Monitor 的运行、暂停、恢复或归档操作审批。"
+    },
+    "propose_status_page_action": {
+      "title": "提出 Status Page 操作",
+      "description": "提出 Status Page 归档、恢复或自动化暂停/恢复操作审批。"
+    },
+    "propose_notification_action": {
+      "title": "提出通知投递操作",
+      "description": "提出单条通知投递的重试或确认操作审批。"
+    },
+    "propose_scheduled_pipeline_action": {
+      "title": "提出定时 Pipeline 操作",
+      "description": "提出单条定时 Pipeline 的启用、禁用或删除操作审批。"
+    },
+    "list_saved_views": {
+      "title": "列出 Saved View",
+      "description": "列出已保存的 SQL 与 PromQL 视图。"
+    },
+    "get_saved_view": {
+      "title": "获取 Saved View",
+      "description": "获取单条已保存查询视图。"
+    },
+    "create_saved_view": {
+      "title": "创建 Saved View",
+      "description": "创建一个已保存的 SQL 或 PromQL 视图。"
+    },
+    "update_saved_view": {
+      "title": "更新 Saved View",
+      "description": "替换一个已保存的 SQL 或 PromQL 视图。"
+    },
+    "delete_saved_view": {
+      "title": "删除 Saved View",
+      "description": "删除一个已保存的查询视图。"
+    },
+    "list_search_jobs": {
+      "title": "列出 Search Job",
+      "description": "有界列出异步 Search Job。"
+    },
+    "get_search_job": {
+      "title": "获取 Search Job",
+      "description": "获取异步 Search Job 状态及结果元数据。"
+    },
+    "get_search_job_results": {
+      "title": "获取 Search Job 结果",
+      "description": "获取一页已解码且有界的异步 Search Job 结果。"
+    },
+    "submit_search_job": {
+      "title": "提交 Search Job",
+      "description": "提出提交持久化异步 SQL 或 PromQL Search Job 的审批。"
+    },
+    "cancel_search_job": {
+      "title": "取消 Search Job",
+      "description": "提出取消待执行或运行中异步 Search Job 的审批。"
+    },
+    "retry_search_job": {
+      "title": "重试 Search Job",
+      "description": "提出重试失败或已取消异步 Search Job 的审批。"
+    },
+    "delete_search_job": {
+      "title": "删除 Search Job",
+      "description": "提出删除异步 Search Job 及已存结果的审批。"
+    },
+    "list_scheduled_pipelines": {
+      "title": "列出定时 Pipeline",
+      "description": "列出定时 Pipeline 及近期运行健康。"
+    },
+    "get_scheduled_pipeline": {
+      "title": "获取定时 Pipeline",
+      "description": "获取单条定时 Pipeline。"
+    },
+    "list_pipeline_runs": {
+      "title": "列出 Pipeline 运行",
+      "description": "有界列出单条定时 Pipeline 的执行历史。"
+    },
+    "enable_scheduled_pipeline": {
+      "title": "启用定时 Pipeline",
+      "description": "启用一个定时 Pipeline。"
+    },
+    "disable_scheduled_pipeline": {
+      "title": "停用定时 Pipeline",
+      "description": "停用一个定时 Pipeline。"
+    },
+    "delete_scheduled_pipeline": {
+      "title": "删除定时 Pipeline",
+      "description": "删除一个定时 Pipeline。"
+    },
+    "list_functions": {
+      "title": "列出处理函数",
+      "description": "列出组织级及内置处理函数。"
+    },
+    "get_function": {
+      "title": "获取处理函数",
+      "description": "获取单条处理函数及源码。"
+    },
+    "test_function": {
+      "title": "测试处理函数",
+      "description": "使用样例输入执行有界且无副作用的函数测试。"
+    },
+    "create_function": {
+      "title": "创建处理函数",
+      "description": "通过编译预检后创建一个处理函数。"
+    },
+    "update_function": {
+      "title": "更新处理函数",
+      "description": "通过编译预检后替换一个组织处理函数。"
+    },
+    "delete_function": {
+      "title": "删除处理函数",
+      "description": "删除一个组织处理函数。"
+    },
+    "list_enrichment_tables": {
+      "title": "列出扩展表",
+      "description": "列出扩展表与 KV 表。"
+    },
+    "list_enrichment_rows": {
+      "title": "列出扩展表行",
+      "description": "有界列出单个扩展表的数据行。"
+    },
+    "get_enrichment_value": {
+      "title": "获取扩展表值",
+      "description": "按 Key 获取单条扩展表数据。"
+    },
+    "list_log_patterns": {
+      "title": "列出日志 Pattern",
+      "description": "列出已持久化的日志 Pattern。"
+    },
+    "get_log_pattern": {
+      "title": "获取日志 Pattern",
+      "description": "获取单条日志 Pattern。"
+    },
+    "list_regex_patterns": {
+      "title": "列出 Regex Pattern",
+      "description": "列出可复用正则表达式 Pattern。"
+    },
+    "get_regex_pattern": {
+      "title": "获取 Regex Pattern",
+      "description": "获取单条正则表达式 Pattern。"
+    },
+    "list_field_masking_rules": {
+      "title": "列出字段脱敏规则",
+      "description": "列出字段脱敏规则，不返回密钥材料。"
+    },
+    "get_effective_field_masking": {
+      "title": "获取生效脱敏规则",
+      "description": "解析单个数据流的生效字段脱敏规则。"
+    },
+    "list_data_connectors": {
+      "title": "列出数据连接器",
+      "description": "列出数据连接器，凭据类配置值会被脱敏。"
+    },
+    "get_data_connector": {
+      "title": "获取数据连接器",
+      "description": "获取单个数据连接器，凭据类配置值会被脱敏。"
+    },
+    "list_synthetic_monitors": {
+      "title": "列出 Synthetic Monitor",
+      "description": "列出 Synthetic Monitor 及当前生命周期状态。"
+    },
+    "get_synthetic_monitor": {
+      "title": "获取 Synthetic Monitor",
+      "description": "获取单个 Synthetic Monitor 及其 Revision 列表。"
+    },
+    "list_synthetic_revisions": {
+      "title": "列出 Synthetic Revision",
+      "description": "有界列出单个 Synthetic Monitor 的 Revision。"
+    },
+    "list_synthetic_results": {
+      "title": "列出 Synthetic 结果",
+      "description": "有界列出 Synthetic 执行结果。"
+    },
+    "list_synthetic_locations": {
+      "title": "列出 Synthetic Location",
+      "description": "列出 Synthetic Probe Location。"
+    },
+    "list_synthetic_agents": {
+      "title": "列出 Synthetic Agent",
+      "description": "列出 Probe Agent，可限定 Location。"
+    },
+    "list_synthetic_secrets": {
+      "title": "列出 Synthetic Secret 元数据",
+      "description": "列出 Synthetic Secret 元数据；绝不返回 Secret 值。"
+    },
+    "run_synthetic_monitor": {
+      "title": "运行 Synthetic Monitor",
+      "description": "立即运行一个 Synthetic Monitor。"
+    },
+    "pause_synthetic_monitor": {
+      "title": "暂停 Synthetic Monitor",
+      "description": "暂停一个 Synthetic Monitor。"
+    },
+    "resume_synthetic_monitor": {
+      "title": "恢复 Synthetic Monitor",
+      "description": "恢复一个 Synthetic Monitor。"
+    },
+    "archive_synthetic_monitor": {
+      "title": "归档 Synthetic Monitor",
+      "description": "归档一个 Synthetic Monitor。"
+    },
+    "list_status_pages": {
+      "title": "列出 Status Page",
+      "description": "按生命周期列出 Status Page。"
+    },
+    "get_status_page": {
+      "title": "获取 Status Page",
+      "description": "获取包含组件及当前事件的 Status Page 快照。"
+    },
+    "list_status_page_incidents": {
+      "title": "列出 Status Page 事件",
+      "description": "列出 Status Page Incident 或维护事件。"
+    },
+    "get_status_page_incident": {
+      "title": "获取 Status Page 事件",
+      "description": "获取单条 Status Page 事件及更新记录。"
+    },
+    "list_status_page_subscribers": {
+      "title": "列出 Status Page 订阅者",
+      "description": "分页列出有界的 Status Page 订阅者。"
+    },
+    "list_status_page_deliveries": {
+      "title": "列出 Status Page 投递",
+      "description": "分页列出有界的 Status Page 通知投递。"
+    },
+    "list_status_page_automation_rules": {
+      "title": "列出 Status Page 自动化规则",
+      "description": "列出 Status Page 生效的自动化规则。"
+    },
+    "list_status_page_automation_candidates": {
+      "title": "列出 Status Page 自动化候选",
+      "description": "有界列出 Status Page 自动化候选。"
+    },
+    "get_status_page_automation_settings": {
+      "title": "获取 Status Page 自动化设置",
+      "description": "获取单个 Status Page 的自动化设置。"
+    },
+    "archive_status_page": {
+      "title": "归档 Status Page",
+      "description": "归档一个 Status Page。"
+    },
+    "restore_status_page": {
+      "title": "恢复 Status Page",
+      "description": "恢复一个已归档的 Status Page。"
+    },
+    "pause_status_page_automation": {
+      "title": "暂停 Status Page 自动化",
+      "description": "暂停一个 Status Page 的自动化。"
+    },
+    "resume_status_page_automation": {
+      "title": "恢复 Status Page 自动化",
+      "description": "恢复一个 Status Page 的自动化。"
+    },
+    "get_user_profile": {
+      "title": "获取用户资料",
+      "description": "获取组织用户的安全资料字段。用户主体可省略目标以读取自己；Service Account 主体必须指定目标，读取其他用户需要成员读取权限。"
+    },
+    "get_user_preferences": {
+      "title": "获取用户偏好",
+      "description": "获取组织用户的 Workspace 偏好。用户主体可省略目标以读取自己；Service Account 主体必须指定目标，读取其他用户需要成员读取权限。"
+    },
+    "list_organization_members": {
+      "title": "列出组织成员",
+      "description": "列出当前认证组织成员，不返回密码或凭据数据。"
+    },
+    "list_teams": {
+      "title": "列出团队",
+      "description": "列出当前认证组织的团队。"
+    },
+    "list_roles": {
+      "title": "列出角色",
+      "description": "列出当前认证组织的角色及权限键。"
+    },
+    "list_audit_events": {
+      "title": "查询审计事件",
+      "description": "按可选过滤条件查询有界的组织审计事件。"
+    },
+    "get_iam_capabilities": {
+      "title": "获取 IAM 能力",
+      "description": "返回当前认证主体的生效 IAM 能力快照。"
+    },
+    "list_service_accounts": {
+      "title": "列出 Service Account",
+      "description": "列出当前认证组织内的非人类主体。"
+    },
+    "get_service_account": {
+      "title": "获取 Service Account",
+      "description": "获取单个非人类组织主体。"
+    },
+    "list_api_tokens": {
+      "title": "列出 API Token",
+      "description": "列出认证组织内的 API Token 元数据且不暴露 Secret，可按 Service Account 筛选。"
+    },
+    "create_api_token": {
+      "title": "创建 API Token",
+      "description": "为请求用户创建个人 API Token，并在执行后仅返回一次明文。"
+    },
+    "revoke_api_token": {
+      "title": "撤销 API Token",
+      "description": "撤销一个 API Token。"
+    },
+    "create_service_account": {
+      "title": "创建 Service Account",
+      "description": "提出原子创建非人类组织主体及其初始绑定 API Token 的审批；审批执行后明文只返回一次，且不会写入执行历史。"
+    },
+    "update_service_account": {
+      "title": "更新 Service Account",
+      "description": "提出更新 Service Account 元数据或生效 IAM 角色的审批。"
+    },
+    "enable_service_account": {
+      "title": "启用 Service Account",
+      "description": "提出启用 Service Account 的审批；已吊销 API Token 不会恢复。"
+    },
+    "disable_service_account": {
+      "title": "禁用 Service Account",
+      "description": "提出禁用 Service Account 并原子吊销全部已绑定活跃 API Token 的审批。"
+    },
+    "delete_service_account": {
+      "title": "删除 Service Account",
+      "description": "提出删除 Service Account 并原子吊销全部已绑定活跃 API Token 的审批。"
+    },
+    "list_agent_investigations": {
+      "title": "列出 Agent 调查",
+      "description": "列出 Mole Agent 调查。"
+    },
+    "get_agent_investigation": {
+      "title": "获取 Agent 调查",
+      "description": "获取单条 Mole Agent 调查及步骤、证据和假设。"
+    },
+    "list_agent_approvals": {
+      "title": "列出 Agent 审批",
+      "description": "列出 Mole Agent 审批请求。"
+    },
+    "get_agent_approval": {
+      "title": "获取 Agent 审批",
+      "description": "获取一个 Mole Agent 审批请求。"
+    },
+    "execute_agent_approval": {
+      "title": "执行 Agent 审批",
+      "description": "幂等执行一个已审批的 Mole Agent 操作。"
+    },
+    "list_agent_executions": {
+      "title": "列出 Agent 执行",
+      "description": "列出 Mole Agent 已审批操作的执行记录。"
+    },
+    "get_agent_execution": {
+      "title": "获取 Agent 执行",
+      "description": "获取一个 Mole Agent 已审批操作的执行记录。"
+    },
+    "list_agent_automations": {
+      "title": "列出 Agent 自动化",
+      "description": "列出已配置的 Mole Agent 自动化。"
+    }
+  },
+  "dashboard_authoring": {
+    "title": "AI Dashboard 草稿",
+    "subtitle": "检查持久化草稿、查询预检结果与审批状态，然后显式确认创建。",
+    "loading_title": "正在加载 Dashboard 草稿",
+    "loading_description": "正在从服务端读取已校验并持久化的预览模型。",
+    "load_failed": "无法加载 Dashboard 草稿",
+    "invalid_preview": "草稿模型无法安全预览",
+    "invalid_preview_description": "服务端返回的持久化模型未通过当前 Dashboard 合约，请回到对话重新生成。",
+    "preview_title": "只读预览",
+    "preview_description": "使用正式 Dashboard Renderer；预览不会创建或修改 Dashboard。",
+    "review_title": "创建检查",
+    "review_description": "草稿与当前模型 hash 绑定，过期或改变后不能执行。",
+    "expires": "剩余时间",
+    "expired": "已过期",
+    "created_at": "生成时间",
+    "model_hash": "模型 hash",
+    "preflight_range": "预检范围",
+    "operation_title": "创建策略",
+    "review_progress": "已通过 {{approved}} / {{required}} 个审核；达到要求后才可创建。",
+    "confirmation_required": "无需额外审核，但仍须由发起人显式确认创建。",
+    "preflight_title": "查询预检",
+    "preflight_rows": "{{count}} 行",
+    "no_preflight_panels": "这个草稿没有需要执行查询预检的面板。",
+    "warnings_title": "生成警告",
+    "issues_title": "需要修复的问题",
+    "retry_in_chat": "回到对话重新生成",
+    "open_dashboard": "打开 Dashboard",
+    "submitting": "正在提交…",
+    "submit_proposal": "提交创建建议",
+    "creating": "正在创建…",
+    "confirm_create": "确认并创建",
+    "view_approval": "查看审批进度",
+    "creation_unavailable": "当前无法创建",
+    "proposal_reason": "用户已检查服务端持久化的 Dashboard 草稿预览。",
+    "proposal_impact": "创建一个原生 Dashboard；不会修改现有 Dashboard。",
+    "proposal_created": "创建建议已提交，请确认策略状态。",
+    "creation_failed": "Dashboard 创建失败，请检查执行记录。",
+    "created": "Dashboard 已创建。",
+    "draft_status": {
+      "ready": "待确认",
+      "consumed": "已创建",
+      "expired": "已过期"
+    },
+    "preflight_status": {
+      "passed": "已通过",
+      "empty": "结果为空",
+      "skipped": "已跳过"
+    }
+  },
+  "answer": {
+    "conclusion": "结论",
+    "anomaly_points": "异常点",
+    "evidence": "证据",
+    "likely_causes": "可能原因",
+    "limitations": "限制",
+    "next_steps": "下一步",
+    "related_links": "相关操作",
+    "confidence": "置信度",
+    "failed_title": "暂时无法完成调查",
+    "failed_description": "Mole Agent 没有得到可用结果。你可以调整上下文后重试，或查看技术错误。",
+    "technical_error": "查看技术错误",
+    "confidence_levels": {
+      "high": "高",
+      "medium": "中",
+      "low": "低"
+    }
+  }
+}

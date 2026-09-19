@@ -1,6 +1,6 @@
 {
   "features": {
-    "intelligence": "AI 运维",
+    "agent": "AI 运维",
     "domain_management": "域名管理",
     "federated_search": "联邦节点",
     "saas_billing": "账单",

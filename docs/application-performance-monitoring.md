@@ -4,7 +4,7 @@ MoleSignal APM derives bounded service, Transaction, dependency, backend-error,
 and version aggregates from unique `CanonicalSpan` candidates after
 trace-owner deduplication and before tail sampling. Sampled-out traces still
 contribute to RED metrics; duplicate OTLP retries do not. APM projection is
-non-blocking, and an APM failure does not change Trace ingest readiness.
+non-blocking, and an APM failure does not change Trace intake readiness.
 
 ## Data Model
 
@@ -175,7 +175,7 @@ If user-visible data is misleading, stop the rollout and restore the previous
 binary through the normal deployment mechanism. There is no configuration
 switch to disable APM independently. Keep the migration and aggregate data so a
 corrected binary can resume projection without a destructive rollback. Trace
-and RUM ingest, Logs, Metrics, Traces, and Profiles remain available through the
+and RUM intake, Logs, Metrics, Traces, and Profiles remain available through the
 restored release, and existing compatibility routes must remain active.
 
 After rollback, record the affected range as partial, identify whether the

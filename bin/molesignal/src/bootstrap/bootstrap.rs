@@ -1,0 +1,982 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 MoleSignal Authors
+
+//! Bootstrap 总编排入口：把 domain 抽象与 infra 实现绑起来，生成 app service，
+//! 再喂给 api 的 `AppState`。
+//!
+//! 这是整个仓库里唯一允许同时依赖 domain / app / infra / api 的位置。
+
+use std::sync::Arc;
+
+pub use super::tracing::activate_self_telemetry;
+use super::{
+    agent::{AgentRuntime, build_model_providers},
+    alerting::AlertingRuntime,
+    core::Core,
+    iam::IamRuntime,
+    license::LicenseRuntime,
+    platform::PlatformRuntime,
+    query::QueryRuntime,
+    storage::StorageRuntime,
+    tracing::TracingRuntime,
+};
+use crate::{
+    api::state::{
+        AgentState, AlertingState, AppState, ClusterState, IamState, PlatformState, StorageState,
+        TelemetryState, TraceSystemLoadHealth,
+    },
+    app::{
+        dashboard::{
+            authoring::{DashboardAuthoringService, RuntimeDashboardQueryPreflight},
+            contract_registry::{DashboardContractRegistryService, DashboardContractResolver},
+        },
+        tools::{
+            AdministrationToolDependencies, AgentToolDependencies, AlertingToolDependencies,
+            ContentToolDependencies, DataToolDependencies, ObservabilityToolDependencies,
+            ToolRuntime, ToolRuntimeDependencies,
+        },
+    },
+    config::{Role, Settings},
+    domain::stream::StreamRepository,
+    infra::{cipher::CipherRootKey, persistence::MetaStore},
+    shared::{Error, Result},
+};
+
+/// KEK 轮换离线工具：用 `old_key_b64`（旧 KEK，base64 32B）解、当前 `MS_CIPHER_KEY`（新 KEK）
+/// 重封 DB 里全部 KEK-sealed 列，返回每表重包行数。**离线运维操作**（停写窗口执行）：
+/// 跑完核对各表计数无误后方可下线旧 KEK。字段数据本身不动（只换信封）。
+pub async fn rewrap_kek(settings: &Settings, old_key_b64: &str) -> Result<Vec<(String, usize)>> {
+    let old = CipherRootKey::from_base64(old_key_b64)
+        .map_err(|e| Error::invalid(format!("old KEK invalid: {e}")))?;
+    let new = CipherRootKey::from_env()
+        .map_err(|e| Error::invalid(format!("new KEK (MS_CIPHER_KEY) invalid: {e}")))?;
+    let meta = MetaStore::connect(&settings.store.meta).await?;
+    crate::infra::cipher::kek_rewrap::rewrap_all(&meta.pool, &old, &new).await
+}
+
+pub async fn build_state(settings: &Settings) -> Result<AppState> {
+    super::tls::install_crypto_provider()?;
+    let core = Core::build(settings).await?;
+    let agent_model_providers = build_model_providers(&core);
+    let storage_runtime =
+        StorageRuntime::build(settings, &core, agent_model_providers.clone()).await?;
+    let query_runtime = QueryRuntime::build(settings, &core, &storage_runtime).await;
+    let dashboard_contract_registry = Arc::new(DashboardContractRegistryService::new(
+        core.dashboard_contracts.clone(),
+    ));
+    dashboard_contract_registry.publish_builtins().await?;
+    let dashboard_contracts: Arc<dyn DashboardContractResolver> = dashboard_contract_registry;
+    let alerting_runtime =
+        AlertingRuntime::build(settings, &core, &query_runtime, dashboard_contracts.clone())?;
+    let pg_synthetic_repository = Arc::new(
+        crate::infra::persistence::repositories::synthetics::PgSyntheticRepository::new(
+            core.pool.clone(),
+            core.cipher_root_key.clone(),
+        ),
+    );
+    let embedded_probe_agent = if settings.node.roles.contains(&Role::Standalone) {
+        Some(
+            pg_synthetic_repository
+                .ensure_builtin_local_agent(
+                    &core.node_id,
+                    env!("CARGO_PKG_VERSION"),
+                    crate::shared::time::TimestampMicros::now(),
+                )
+                .await?,
+        )
+    } else {
+        None
+    };
+    let synthetic_repository: Arc<dyn crate::domain::synthetics::SyntheticRepository> =
+        pg_synthetic_repository;
+    let probe_authority = Arc::new(
+        crate::infra::synthetics::ProbeCertificateAuthority::load_or_create(
+            &core.pool,
+            &core.cipher_root_key,
+            &settings.probe.server_names,
+            settings.probe.certificate_days,
+        )
+        .await?,
+    );
+    let synthetics = Arc::new(
+        crate::app::synthetics::SyntheticService::new(synthetic_repository.clone())
+            .with_probe_configuration(
+                settings.probe.resolved_register_endpoint(),
+                settings.probe.resolved_control_endpoint(),
+                probe_authority.ca_certificate_pem().to_string(),
+            )
+            .with_transition_sink(Arc::new(
+                crate::app::status_page::StatusPageSyntheticTransitionSink::new(
+                    alerting_runtime.status_pages.clone(),
+                ),
+            )),
+    );
+    let probe_artifact_base_url = super::synthetics::artifact_base_url(settings);
+    let probe_control = Some(Arc::new(crate::app::synthetics::ProbeControlService::new(
+        synthetic_repository,
+        synthetics.clone(),
+        probe_authority,
+        settings.probe.resolved_control_endpoint(),
+        probe_artifact_base_url.clone(),
+    )));
+    let _synthetic_automation_worker = core.roles.run_alert_manager.then(|| {
+        crate::bootstrap::workers::synthetics::SyntheticAutomationWorker::new(
+            synthetics.clone(),
+            alerting_runtime.status_pages.clone(),
+        )
+        .spawn()
+    });
+    let _embedded_probe_runner = embedded_probe_agent.map(|agent| {
+        crate::bootstrap::workers::synthetics::EmbeddedProbeRunner::new(
+            synthetics.clone(),
+            agent,
+            probe_artifact_base_url.clone(),
+        )
+        .spawn()
+    });
+    let license_runtime = LicenseRuntime::build(settings, &core).await;
+    let iam_runtime = IamRuntime::build(settings, &core, &license_runtime).await?;
+    let tracing_runtime = TracingRuntime::build(
+        settings,
+        &core,
+        &query_runtime,
+        &storage_runtime,
+        &iam_runtime,
+    )
+    .await?;
+    let platform_runtime =
+        PlatformRuntime::build(settings, &core, &query_runtime, &storage_runtime).await?;
+    let agent_runtime = AgentRuntime::build(
+        &core,
+        &iam_runtime,
+        &license_runtime,
+        agent_model_providers.clone(),
+    );
+    let dashboard_authoring = Arc::new(
+        DashboardAuthoringService::new(
+            core.dashboard_drafts.clone(),
+            Arc::new(RuntimeDashboardQueryPreflight::new(
+                query_runtime.query.clone(),
+                core.streams.clone(),
+            )),
+            alerting_runtime.dashboard.clone(),
+        )
+        .with_contract_resolver(dashboard_contracts),
+    );
+    query_runtime.spawn_federation_workers(settings, &core, &iam_runtime);
+    let Core {
+        store,
+        object_reader,
+        system_org,
+        password_resets,
+        iam_platform_administrators,
+        license_versions,
+        trace_policies,
+        trace_debug_tokens,
+        teams,
+        org_schema_cache,
+        streams,
+        saved_views,
+        email_sender,
+        cipher_keys,
+        field_key_service,
+        regex_patterns,
+        masking_service,
+        field_masking_rules,
+        field_masking_service,
+        cluster_repo,
+        registry,
+        drain_controller,
+        node_id,
+        ..
+    } = core;
+    let read_store = object_reader.store();
+    let QueryRuntime {
+        query,
+        remote_clusters,
+        cluster_event_outbox,
+        cluster_resource_version,
+        cluster_org_link,
+        seen_events,
+        federation_cancel,
+        cluster_secrets,
+        ..
+    } = query_runtime;
+    let StorageRuntime {
+        probe,
+        intake,
+        profile_storage,
+        profiling_service,
+        prometheus_series_admission,
+        function_executor,
+        functions_js_runtime_enabled,
+        usage,
+        investigation_blobs,
+        catalog_query,
+        catalog_files,
+        ..
+    } = storage_runtime;
+    let AlertingRuntime {
+        alerting,
+        notify,
+        notify_engine,
+        dashboard,
+        status_pages,
+        notify_templates,
+        mute_rules,
+        incident_groups,
+        semantic_groups,
+        evaluator,
+    } = alerting_runtime;
+    let LicenseRuntime {
+        license,
+        holder: license_holder,
+        loaded: license_loaded,
+    } = license_runtime;
+    let IamRuntime {
+        iam,
+        access: iam_access,
+        instance_settings,
+        signing_secrets,
+        api_tokens,
+        service_accounts,
+        user_preferences,
+        workspace_preference_defaults,
+        invitations,
+        roles: iam_roles,
+        email_domains,
+        audit_events,
+        sso_state_store,
+        sso_jwks_cache,
+        sso_sessions,
+        sso_providers,
+    } = iam_runtime;
+    let TracingRuntime {
+        policy_loaded: trace_policy_loaded,
+        tail_sampler,
+        candidates: trace_candidates,
+        pipeline: trace_pipeline,
+        cluster_token: trace_cluster_token,
+        self_telemetry_profiles_enabled,
+        self_telemetry_org_id,
+        service_graph: service_graph_repo,
+        rum_replay,
+        apm_query,
+        apm_runtime,
+    } = tracing_runtime;
+    let PlatformRuntime {
+        connectors,
+        scheduled_pipelines,
+        extend_kv,
+        extend_table,
+        resource_shares,
+        annotations,
+        search_jobs,
+        functions,
+        debug_artifacts,
+        log_patterns,
+        scheduled_reports,
+        report_templates,
+        report_renderer,
+        report_renderer_base_url,
+        file_download_tokens,
+        web_search,
+        marketplace,
+        model_prices,
+        domains,
+        billing_settings,
+        trials,
+        billing_enabled,
+        billing_state_cache,
+        pipeline_runs,
+        quotas,
+    } = platform_runtime;
+    let AgentRuntime {
+        chats: agent_chats,
+        agent,
+        toolsets: agent_toolsets,
+        tool_control: agent_tool_control,
+        inbound_mcp,
+        inbound_mcp_request_state_key,
+        prompts: agent_prompts,
+        chat_archives: agent_chat_archives,
+        incident_rca,
+        slow_queries,
+    } = agent_runtime;
+    let stream_repository: Arc<dyn StreamRepository> = streams.clone();
+    let search_job_service = Arc::new(crate::app::query::jobs::SearchJobService::new(
+        search_jobs.clone(),
+        store.clone(),
+        query.clone(),
+    ));
+    let tools = Arc::new(ToolRuntime::new(ToolRuntimeDependencies {
+        observability: ObservabilityToolDependencies {
+            query: query.clone(),
+            streams: stream_repository.clone(),
+            apm: apm_query.clone(),
+            apm_runtime: apm_runtime.clone(),
+            service_graph: service_graph_repo.clone(),
+            catalog_files: catalog_files.clone(),
+            catalog_query: catalog_query.clone(),
+            object_store: read_store.clone(),
+            slow_queries: slow_queries.clone(),
+        },
+        alerting: AlertingToolDependencies {
+            service: alerting.clone(),
+            evaluator: evaluator.clone(),
+            incident_rca: incident_rca.clone(),
+            incident_groups: incident_groups.clone(),
+            mute_rules: mute_rules.clone(),
+            notify: notify.clone(),
+            notify_engine: notify_engine.clone(),
+            notify_templates: notify_templates.clone(),
+        },
+        content: ContentToolDependencies {
+            dashboard: dashboard.clone(),
+            dashboard_authoring: dashboard_authoring.clone(),
+            report_templates: report_templates.clone(),
+            scheduled_reports: scheduled_reports.clone(),
+            annotations: annotations.clone(),
+        },
+        data: DataToolDependencies {
+            saved_views: saved_views.clone(),
+            search_jobs: search_job_service.clone(),
+            scheduled_pipelines: scheduled_pipelines.clone(),
+            pipeline_runs: pipeline_runs.clone(),
+            functions: functions.clone(),
+            function_executor: function_executor.clone(),
+            functions_js_runtime_enabled,
+            enrichment: extend_kv.clone(),
+            log_patterns: log_patterns.clone(),
+            regex_patterns: regex_patterns.clone(),
+            field_masking_rules: field_masking_rules.clone(),
+            field_masking: field_masking_service.clone(),
+            connectors: connectors.clone(),
+        },
+        synthetics: synthetics.clone(),
+        status_pages: status_pages.clone(),
+        administration: AdministrationToolDependencies {
+            iam: iam.clone(),
+            iam_access: iam_access.clone(),
+            teams: teams.clone(),
+            roles: iam_roles.clone(),
+            audit_events: audit_events.clone(),
+            user_preferences: user_preferences.clone(),
+            service_accounts: service_accounts.clone(),
+            api_tokens: api_tokens.clone(),
+        },
+        agent: AgentToolDependencies {
+            repository: agent.clone(),
+        },
+        license: license.clone(),
+    }));
+
+    Ok(AppState {
+        intake,
+        query,
+        search_jobs: search_job_service,
+        dashboard,
+        status_pages,
+        synthetics,
+        probe_control,
+        alerting: AlertingState {
+            service: alerting,
+            notify,
+            notify_engine,
+            incident_groups,
+            semantic_groups,
+            templates: notify_templates,
+            mute_rules,
+            evaluator,
+        },
+        iam: IamState {
+            service: iam,
+            access: iam_access,
+            system_org_id: system_org.id,
+            teams,
+            platform_administrators: iam_platform_administrators,
+            password_resets,
+            instance_settings,
+            sso_state_store,
+            sso_jwks_cache,
+            sso_sessions,
+            sso_providers,
+            email_sender,
+            invitations,
+            email_domains,
+            roles: iam_roles,
+            signing_secrets,
+            api_tokens,
+            service_accounts,
+            user_preferences,
+            workspace_preference_defaults,
+            audit_events,
+        },
+        telemetry: TelemetryState {
+            streams: stream_repository,
+            stream_retention_days: settings.compactor.retention_days.max(1),
+            self_telemetry_org_id,
+            self_telemetry_runtime: None,
+            self_telemetry_resource: None,
+            self_telemetry_profiles_enabled,
+            self_telemetry_cluster_token: trace_cluster_token,
+            profile_storage,
+            profiling_service,
+            profiling_settings: settings.profiling.clone(),
+            prometheus_series_admission,
+            probe,
+            system_load_health: TraceSystemLoadHealth {
+                system_org: true,
+                license: license_loaded,
+                trace_policy: trace_policy_loaded,
+            },
+            service_graph: service_graph_repo,
+            rum_replay,
+            apm_query,
+            apm_runtime,
+            trace_policies,
+            trace_debug_tokens,
+            tail_sampler,
+            trace_candidates,
+            trace_pipeline,
+        },
+        storage: StorageState {
+            object_store: store,
+            read_store,
+            catalog_files,
+            catalog_query,
+            cipher_keys,
+            field_keys: field_key_service,
+            connectors,
+            scheduled_pipelines,
+            extend_kv,
+            extend_table,
+            resource_shares,
+            annotations,
+            search_jobs,
+            functions,
+            function_executor,
+            functions_js_runtime_enabled,
+            debug_artifacts,
+            log_patterns,
+            file_download_tokens,
+            web_search,
+            investigation_blobs,
+            org_schema_cache,
+            pipeline_runs,
+            regex_patterns,
+            masking: masking_service,
+            field_masking_rules,
+            field_masking: field_masking_service,
+        },
+        cluster: ClusterState {
+            node_id,
+            drain: drain_controller,
+            registry,
+            repository: cluster_repo,
+            remote_clusters,
+            event_outbox: cluster_event_outbox,
+            resource_version: cluster_resource_version,
+            org_link: cluster_org_link,
+            seen_events,
+            federation_cancel,
+            secrets: cluster_secrets,
+        },
+        platform: PlatformState {
+            saved_view: saved_views,
+            external_url: settings.http.external_url.clone(),
+            license,
+            license_holder,
+            license_versions,
+            scheduled_reports,
+            report_templates,
+            report_renderer,
+            report_renderer_base_url,
+            marketplace,
+            billing_settings,
+            usage,
+            trials,
+            billing_enabled,
+            billing_state_cache,
+            quotas,
+            model_prices,
+            domains,
+        },
+        agent: AgentState {
+            dashboard_authoring,
+            chats: agent_chats,
+            repository: agent,
+            toolsets: agent_toolsets,
+            tool_control: agent_tool_control,
+            inbound_mcp,
+            inbound_mcp_request_state_key,
+            model_providers: agent_model_providers,
+            prompts: agent_prompts,
+            chat_archives: agent_chat_archives,
+            incident_rca,
+            slow_queries,
+        },
+        tools,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Mutex;
+
+    use crate::{
+        bootstrap::{
+            license::build_license, storage::build_fsync_policy,
+            tracing::prepare_self_telemetry_streams,
+        },
+        config::{SelfCollectSettings, Settings, WalFlushStrategy, WalSettings, WalSyncLevel},
+        domain::{
+            iam::{Organization, OrganizationRepository},
+            license::{ActiveLicenseVersion, LicenseVersion, LicenseVersionRepository},
+            stream::{
+                MOLESIGNAL_SYSTEM_STREAM, Retention, Schema, StreamDefinition, StreamRepository,
+                StreamType,
+            },
+        },
+        infra::segment_wal::FsyncPolicy,
+        shared::{Error, Result, ids::Id, time::TimestampMicros},
+    };
+
+    struct TestLicenseVersions {
+        active: Option<ActiveLicenseVersion>,
+        fail_load: bool,
+    }
+
+    #[async_trait::async_trait]
+    impl LicenseVersionRepository for TestLicenseVersions {
+        async fn list(&self) -> Result<Vec<LicenseVersion>> {
+            Ok(self
+                .active
+                .as_ref()
+                .map(|active| vec![active.version.clone()])
+                .unwrap_or_default())
+        }
+
+        async fn get(&self, id: &Id) -> Result<LicenseVersion> {
+            self.active
+                .as_ref()
+                .filter(|active| &active.version.id == id)
+                .map(|active| active.version.clone())
+                .ok_or_else(|| Error::not_found("License version"))
+        }
+
+        async fn active(&self) -> Result<Option<ActiveLicenseVersion>> {
+            if self.fail_load {
+                Err(Error::internal("fixture License store unavailable"))
+            } else {
+                Ok(self.active.clone())
+            }
+        }
+
+        async fn insert_and_activate(
+            &self,
+            _version: LicenseVersion,
+            _actor_id: Option<&Id>,
+        ) -> Result<ActiveLicenseVersion> {
+            Err(Error::internal("not used by License load test"))
+        }
+
+        async fn activate(&self, _id: &Id, _actor_id: &Id) -> Result<ActiveLicenseVersion> {
+            Err(Error::internal("not used by License load test"))
+        }
+    }
+
+    struct TestOrganizations {
+        org: Option<Organization>,
+    }
+
+    #[async_trait::async_trait]
+    impl OrganizationRepository for TestOrganizations {
+        async fn create(&self, org: Organization) -> Result<Organization> {
+            Ok(org)
+        }
+
+        async fn get(&self, id: &Id) -> Result<Organization> {
+            self.org
+                .clone()
+                .filter(|org| &org.id == id)
+                .ok_or_else(|| Error::not_found("organization"))
+        }
+
+        async fn get_by_slug(&self, slug: &str) -> Result<Organization> {
+            self.org
+                .clone()
+                .filter(|org| org.slug == slug)
+                .ok_or_else(|| Error::not_found("organization"))
+        }
+
+        async fn list(&self) -> Result<Vec<Organization>> {
+            Ok(self.org.clone().into_iter().collect())
+        }
+
+        async fn update_name(&self, id: &Id, name: String) -> Result<Organization> {
+            let mut org = self.get(id).await?;
+            org.ensure_mutable()?;
+            org.name = name;
+            Ok(org)
+        }
+
+        async fn set_disabled(&self, id: &Id, disabled: bool) -> Result<Organization> {
+            let mut org = self.get(id).await?;
+            org.ensure_mutable()?;
+            org.disabled = disabled;
+            Ok(org)
+        }
+
+        async fn delete(&self, _id: &Id) -> Result<()> {
+            Ok(())
+        }
+    }
+
+    #[derive(Default)]
+    struct TestStreams {
+        definitions: Mutex<Vec<StreamDefinition>>,
+    }
+
+    #[async_trait::async_trait]
+    impl StreamRepository for TestStreams {
+        async fn create(&self, def: StreamDefinition) -> Result<StreamDefinition> {
+            self.definitions.lock().unwrap().push(def.clone());
+            Ok(def)
+        }
+
+        async fn update_schema(&self, id: &Id, schema: Schema) -> Result<()> {
+            let mut definitions = self.definitions.lock().unwrap();
+            let definition = definitions
+                .iter_mut()
+                .find(|definition| &definition.id == id)
+                .ok_or_else(|| Error::not_found("stream"))?;
+            definition.schema = schema;
+            Ok(())
+        }
+
+        async fn update_retention(&self, id: &Id, retention: Option<Retention>) -> Result<()> {
+            let mut definitions = self.definitions.lock().unwrap();
+            let definition = definitions
+                .iter_mut()
+                .find(|definition| &definition.id == id)
+                .ok_or_else(|| Error::not_found("stream"))?;
+            definition.retention = retention;
+            Ok(())
+        }
+
+        async fn get(
+            &self,
+            org_id: &Id,
+            name: &str,
+            stream_type: StreamType,
+        ) -> Result<StreamDefinition> {
+            self.definitions
+                .lock()
+                .unwrap()
+                .iter()
+                .find(|definition| {
+                    &definition.org_id == org_id
+                        && definition.name == name
+                        && definition.stream_type == stream_type
+                })
+                .cloned()
+                .ok_or_else(|| Error::not_found("stream"))
+        }
+
+        async fn list(&self, org_id: &Id) -> Result<Vec<StreamDefinition>> {
+            Ok(self
+                .definitions
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|definition| &definition.org_id == org_id)
+                .cloned()
+                .collect())
+        }
+
+        async fn delete(&self, id: &Id) -> Result<()> {
+            self.definitions
+                .lock()
+                .unwrap()
+                .retain(|definition| &definition.id != id);
+            Ok(())
+        }
+    }
+
+    fn self_collect_settings() -> SelfCollectSettings {
+        SelfCollectSettings {
+            enabled: true,
+            profiles_enabled: true,
+            retention_days: 3,
+            metrics_retention_days: 3,
+            traces_retention_days: 7,
+            profiles_retention_days: 3,
+            ..SelfCollectSettings::default()
+        }
+    }
+
+    fn default_org() -> Organization {
+        Organization {
+            id: Id::from_string("management-org"),
+            name: "_sys".into(),
+            slug: "_sys".into(),
+            system: true,
+            disabled: false,
+            created_at: TimestampMicros(1),
+        }
+    }
+
+    #[tokio::test]
+    async fn self_telemetry_startup_is_a_noop_when_disabled() {
+        let orgs = TestOrganizations { org: None };
+        let streams = TestStreams::default();
+        let result =
+            prepare_self_telemetry_streams(&orgs, &streams, &SelfCollectSettings::default(), false)
+                .await
+                .unwrap();
+        assert!(result.is_none());
+        assert!(streams.definitions.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn self_telemetry_startup_reports_invariant_failure_for_a_missing_system_org() {
+        let error = prepare_self_telemetry_streams(
+            &TestOrganizations { org: None },
+            &TestStreams::default(),
+            &self_collect_settings(),
+            true,
+        )
+        .await
+        .unwrap_err();
+        assert!(matches!(error, Error::Internal(_)));
+    }
+
+    #[tokio::test]
+    async fn self_telemetry_startup_rejects_a_non_system_target() {
+        let mut tenant = default_org();
+        tenant.system = false;
+        let error = prepare_self_telemetry_streams(
+            &TestOrganizations { org: Some(tenant) },
+            &TestStreams::default(),
+            &self_collect_settings(),
+            true,
+        )
+        .await
+        .unwrap_err();
+        assert!(matches!(error, Error::Internal(_)));
+    }
+
+    #[tokio::test]
+    async fn self_telemetry_startup_precreates_all_typed_streams_and_updates_retention() {
+        let orgs = TestOrganizations {
+            org: Some(default_org()),
+        };
+        let streams = TestStreams::default();
+        let org_id =
+            prepare_self_telemetry_streams(&orgs, &streams, &self_collect_settings(), true)
+                .await
+                .unwrap()
+                .unwrap();
+        let definitions = streams.list(&org_id).await.unwrap();
+        assert_eq!(definitions.len(), 3);
+        for (stream_type, retention_days) in [
+            (StreamType::METRICS, 3),
+            (StreamType::TRACES, 7),
+            (StreamType::PROFILES, 3),
+        ] {
+            let stream = definitions
+                .iter()
+                .find(|definition| definition.stream_type == stream_type)
+                .unwrap();
+            assert_eq!(stream.name, MOLESIGNAL_SYSTEM_STREAM);
+            assert_eq!(stream.retention.unwrap().days, retention_days);
+        }
+
+        let settings = SelfCollectSettings {
+            retention_days: 9,
+            metrics_retention_days: 10,
+            traces_retention_days: 11,
+            profiles_retention_days: 12,
+            ..self_collect_settings()
+        };
+        prepare_self_telemetry_streams(&orgs, &streams, &settings, true)
+            .await
+            .unwrap();
+        let definitions = streams.list(&org_id).await.unwrap();
+        for (stream_type, retention_days) in [
+            (StreamType::METRICS, 10),
+            (StreamType::TRACES, 11),
+            (StreamType::PROFILES, 12),
+        ] {
+            let stream = definitions
+                .iter()
+                .find(|definition| definition.stream_type == stream_type)
+                .unwrap();
+            assert_eq!(stream.retention.unwrap().days, retention_days);
+        }
+    }
+
+    #[tokio::test]
+    async fn self_telemetry_signal_selection_uses_master_metrics_and_trace_policy() {
+        let orgs = TestOrganizations {
+            org: Some(default_org()),
+        };
+        let ordinary_streams = TestStreams::default();
+        let settings = SelfCollectSettings {
+            metrics_enabled: false,
+            ..self_collect_settings()
+        };
+        prepare_self_telemetry_streams(&orgs, &ordinary_streams, &settings, false)
+            .await
+            .unwrap();
+        let ordinary = ordinary_streams
+            .list(&default_org().id)
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|definition| definition.stream_type)
+            .collect::<Vec<_>>();
+        assert_eq!(ordinary.len(), 1);
+        assert!(ordinary.contains(&StreamType::PROFILES));
+
+        let profiles_disabled_streams = TestStreams::default();
+        let profiles_disabled = SelfCollectSettings {
+            metrics_enabled: false,
+            profiles_enabled: false,
+            ..self_collect_settings()
+        };
+        prepare_self_telemetry_streams(
+            &orgs,
+            &profiles_disabled_streams,
+            &profiles_disabled,
+            false,
+        )
+        .await
+        .unwrap();
+        assert!(
+            profiles_disabled_streams
+                .list(&default_org().id)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+
+        let external_only_streams = TestStreams::default();
+        let org_id = prepare_self_telemetry_streams(
+            &orgs,
+            &external_only_streams,
+            &SelfCollectSettings::default(),
+            true,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        let external_only = external_only_streams
+            .list(&default_org().id)
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|definition| definition.stream_type)
+            .collect::<Vec<_>>();
+        assert_eq!(org_id, default_org().id);
+        assert!(external_only.is_empty());
+    }
+
+    #[tokio::test]
+    async fn corrupt_persisted_license_degrades_to_community_and_unhealthy_load_state() {
+        let version = LicenseVersion {
+            id: Id::from_string("license-corrupt"),
+            system_org_id: Id::from_string("system-org"),
+            signed_package: serde_json::json!({
+                "payload_b64": "not-valid-base64!",
+                "signature_b64": "not-valid-base64!"
+            }),
+            payload_digest: "fixture-digest".into(),
+            summary: serde_json::json!({}),
+            created_by: None,
+            created_at: TimestampMicros(1),
+        };
+        let repository = TestLicenseVersions {
+            active: Some(ActiveLicenseVersion {
+                version,
+                activated_by: None,
+                activated_at: TimestampMicros(2),
+            }),
+            fail_load: false,
+        };
+
+        let (license, healthy) = build_license(
+            &repository,
+            &Id::from_string("system-org"),
+            &Settings::default(),
+        )
+        .await;
+
+        assert!(!healthy);
+        assert_eq!(license.edition(), "community");
+        assert!(!license.verified());
+    }
+
+    #[tokio::test]
+    async fn license_store_failure_degrades_to_community_without_blocking_startup() {
+        let repository = TestLicenseVersions {
+            active: None,
+            fail_load: true,
+        };
+
+        let (license, healthy) = build_license(
+            &repository,
+            &Id::from_string("system-org"),
+            &Settings::default(),
+        )
+        .await;
+
+        assert!(!healthy);
+        assert_eq!(license.edition(), "community");
+    }
+
+    #[test]
+    fn build_fsync_policy_defaults_to_batch_data_50ms_64() {
+        let wal = WalSettings::default();
+        let p = build_fsync_policy(&wal);
+        match p {
+            FsyncPolicy::Batch {
+                max_pending,
+                max_delay_ms,
+                sync_level,
+            } => {
+                assert_eq!(max_pending, 64);
+                assert_eq!(max_delay_ms, 50);
+                assert!(sync_level.is_data());
+            }
+            other => panic!("expected Batch, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn build_fsync_policy_none_strategy_yields_none_variant() {
+        let wal = WalSettings {
+            flush_strategy: WalFlushStrategy::None,
+            sync_level: WalSyncLevel::None,
+            ..Default::default()
+        };
+        match build_fsync_policy(&wal) {
+            FsyncPolicy::None { sync_level } => assert!(sync_level.is_none()),
+            other => panic!("expected None variant, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn build_fsync_policy_every_write_with_all_sync() {
+        let wal = WalSettings {
+            flush_strategy: WalFlushStrategy::EveryWrite,
+            sync_level: WalSyncLevel::All,
+            ..Default::default()
+        };
+        match build_fsync_policy(&wal) {
+            FsyncPolicy::EveryWrite { sync_level } => assert!(sync_level.is_all()),
+            other => panic!("expected EveryWrite, got {other:?}"),
+        }
+    }
+}

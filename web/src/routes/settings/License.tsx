@@ -140,8 +140,8 @@ export function License() {
                 <KvRow label={t('license.labels.features')}>
                   {data.features.length === 0 ? '—' : data.features.join(', ')}
                 </KvRow>
-                <KvRow label={t('license.labels.max_ingest_bytes_per_day')}>
-                  {data.max_ingest_bytes_per_day ?? '—'}
+                <KvRow label={t('license.labels.max_intake_bytes_per_day')}>
+                  {data.max_intake_bytes_per_day ?? '—'}
                 </KvRow>
                 <KvRow label={t('license.labels.expires_at')}>
                   {data.expires_at_micros ? formatMicros(data.expires_at_micros) : '—'}

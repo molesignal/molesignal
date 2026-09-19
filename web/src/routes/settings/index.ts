@@ -9,6 +9,7 @@ export { Correlation } from './Correlation';
 export { SsoProviders } from './SsoProviders/index';
 export { CipherKeys } from './CipherKeys';
 export { RegexPatterns } from './RegexPatterns';
+export { FieldMasking } from './FieldMasking';
 export { DomainManagement } from './DomainManagement';
 export { OrganizationManagement } from './OrganizationManagement';
 export { ModelPricing } from './ModelPricing';

@@ -24,6 +24,15 @@
     "history": "Generation history",
     "templates": "Template library"
   },
+  "pagination": {
+    "aria": "Report center pagination",
+    "page_summary": "{{page}} / {{pages}}",
+    "page_size_aria": "Items per page",
+    "first_aria": "First page",
+    "previous_aria": "Previous page",
+    "next_aria": "Next page",
+    "last_aria": "Last page"
+  },
   "kpis": {
     "running": "Running",
     "next_24h": "Deliveries in 24h",

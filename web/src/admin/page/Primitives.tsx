@@ -26,7 +26,7 @@ export function PageToolbar({
 }) {
   if (!children) return null;
   return (
-    <div className={cn('flex min-h-11 flex-wrap items-center gap-2 border-b border-bd-0 bg-bg-1 px-6 py-3', className)}>
+    <div className={cn('flex min-h-11 flex-wrap items-center gap-2 rounded-md bg-[var(--functional-surface)] px-4 py-3 [box-shadow:var(--shadow-functional-surface)]', className)}>
       {children}
     </div>
   );
@@ -68,7 +68,7 @@ export function KpiStrip({
 
 export function KpiStripStat({ label, value, sub, tone = 'neutral' }: KpiStripItem) {
   return (
-    <div className="min-h-[112px] rounded-lg border border-bd-0 bg-bg-1 px-5 py-4">
+    <div className="min-h-[112px] rounded-md bg-[var(--functional-surface)] px-5 py-4 [box-shadow:var(--shadow-functional-surface)]">
       <div className={uiLabelClass}>{label}</div>
       <div
         className={cn(
@@ -78,8 +78,7 @@ export function KpiStripStat({ label, value, sub, tone = 'neutral' }: KpiStripIt
           'mt-2 font-sans [font-size:32px] font-display-strong leading-none tracking-[-0.025em] tabular-nums',
           tone === 'neutral' && 'text-tx-0',
           tone === 'good' && 'text-green',
-          // Yellow is the warning status color in Phase 4 — orange
-          // shifted to brand-secondary.
+          // Warning KPIs use the status yellow token.
           tone === 'warn' && 'text-yellow',
           tone === 'danger' && 'text-red',
         )}
@@ -100,7 +99,7 @@ export function ActionBar({
 }) {
   if (!children) return null;
   return (
-    <div className={cn('flex min-h-11 flex-wrap items-center justify-between gap-2 border-b border-bd-0 bg-bg-1 px-6 py-3', className)}>
+    <div className={cn('flex min-h-11 flex-wrap items-center justify-between gap-2 rounded-md bg-[var(--functional-surface)] px-4 py-3 [box-shadow:var(--shadow-functional-surface)]', className)}>
       {children}
     </div>
   );
@@ -115,7 +114,7 @@ export function FilterArea({
 }) {
   if (!children) return null;
   return (
-    <div className={cn('flex flex-wrap items-center gap-2 rounded-lg border border-bd-0 bg-bg-1 p-3', className)}>
+    <div className={cn('flex flex-wrap items-center gap-2 rounded-md bg-[var(--functional-surface)] p-3 [box-shadow:var(--shadow-functional-surface)]', className)}>
       {children}
     </div>
   );
@@ -132,7 +131,7 @@ export function MetadataStrip({
 }) {
   if ((!items || items.length === 0) && !children) return null;
   return (
-    <dl className={cn('flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-bd-0 bg-bg-1 px-6 py-3', className)}>
+    <dl className={cn('flex flex-wrap items-center gap-x-5 gap-y-2 rounded-md bg-[var(--functional-surface)] px-4 py-3 [box-shadow:var(--shadow-functional-surface)]', className)}>
       {items?.map((item, index) => (
         <div key={index} className="flex min-w-0 items-center gap-2 font-sans text-sm">
           <dt className="shrink-0 font-semibold text-tx-2">{item.label}</dt>

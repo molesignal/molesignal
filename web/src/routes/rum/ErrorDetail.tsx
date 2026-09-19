@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
-import { ChevronLeft, PlayCircle } from 'lucide-react';
+import { PlayCircle } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 
 import * as rumApi from '@/api/rum';
 import { productStateFor } from '@/product/states';
-import { ChromeButton, Pill } from '@/shell/chrome';
+import { Pill } from '@/shell/chrome';
 import { queryStateFor } from '@/shell/query/State';
 import { useAuthStore } from '@/stores/auth';
 import { useTimeStore } from '@/stores/useTimeStore';
@@ -17,7 +17,6 @@ import { RumDetailPage, RumSectionHeader, useRumBasePath } from './RumLayout';
 export function ErrorDetail() {
   const { t } = useTranslation('rum');
   const { id = '' } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const basePath = useRumBasePath();
   const orgId = useAuthStore((state) => state.ctx?.org_id ?? '');
   const window = useTimeStore((state) => state.window);
@@ -44,12 +43,6 @@ export function ErrorDetail() {
     <RumDetailPage
       title={detail?.message || t('error_detail.title')}
       subtitle={id}
-      toolbar={
-        <ChromeButton onClick={() => navigate(`${basePath}/errors`)}>
-          <ChevronLeft className="h-4 w-4" />
-          {t('error_detail.back')}
-        </ChromeButton>
-      }
       state={pageState}
     >
       {detail && (

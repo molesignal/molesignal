@@ -171,7 +171,7 @@ export async function traces(params: {
 
 export interface LogListFilter {
   field: string;
-  op: '=' | '!=' | '>' | '>=' | '<' | '<=' | 'contains';
+  op: '=' | '!=' | '>' | '>=' | '<' | '<=' | 'contains' | 'match' | 'match_text';
   value: string;
   quoted?: boolean;
 }

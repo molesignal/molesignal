@@ -21,6 +21,18 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
+      '/.well-known': {
+        target: 'http://localhost:5080',
+        changeOrigin: false,
+      },
+      '/docs/inbound-mcp': {
+        target: 'http://localhost:5080',
+        changeOrigin: false,
+      },
+      '^/api/v1/(mcp|oauth)': {
+        target: 'http://localhost:5080',
+        changeOrigin: false,
+      },
       '/api': {
         target: 'http://localhost:5080',
         changeOrigin: true,
@@ -62,7 +74,7 @@ export default defineConfig({
           reactflow: ['reactflow'],
           d3: ['d3-scale', 'd3-array', 'd3-force'],
           virtual: ['@tanstack/react-virtual'],
-          // Phase 6 M3: Monaco is the largest single dep (~2 MB).
+          // Monaco is the largest single dependency (~2 MB).
           // Splitting it keeps /home / /alerts / /settings off the
           // first-paint cost; Logs/Metrics/Functions/Pipelines lazy-load
           // via the shell/CodeEditor wrapper.

@@ -15,11 +15,10 @@ import { DisabledControl } from '@/shell/DisabledControl';
 import { cn } from '@/shell/lib/cn';
 
 /**
- * EmptyState — brief Principle #2 head-of-line citizen. Renders the
- * standard layout that every "no data yet" surface in the product agrees
- * on: a single 48px stroke icon, one short title, optional one-sentence
- * description, optional primary CTA, optional secondary link. Always
- * centered in the available space.
+ * EmptyState renders the shared layout for product surfaces with no data: a
+ * single 48px stroke icon, one short title, an optional one-sentence
+ * description, an optional primary CTA, and an optional secondary link.
+ * Content remains centered in the available space.
  *
  * Strategy is sourced from `ia.ts.emptyStateStrategy` — passing it gives
  * a sensible default icon when the caller doesn't supply one. The 7
@@ -107,11 +106,10 @@ function ActionButton({
 }) {
   const cls = cn(
     'inline-flex h-8 items-center justify-center rounded-md px-3 font-sans text-xs font-strong',
-    'transition-colors duration-fast ease-default',
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo focus-visible:ring-offset-2 focus-visible:ring-offset-bg-0',
+    'transition-colors duration-fast ease-default focus-visible:outline-none',
     variant === 'primary'
-      ? 'bg-indigo text-white hover:bg-indigo-soft'
-      : 'border border-bd-1 bg-bg-2 text-tx-1 hover:bg-bg-3 hover:text-tx-0',
+      ? 'bg-indigo text-white hover:brightness-90 focus-visible:brightness-90 focus-visible:text-white'
+      : 'border border-bd-1 bg-bg-2 text-tx-1 hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-indigo-dim focus-visible:text-indigo',
     action.disabled &&
       'pointer-events-none cursor-not-allowed border-bd-0 bg-bg-2 text-tx-3 hover:bg-bg-2 hover:text-tx-3',
   );

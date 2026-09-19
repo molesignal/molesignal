@@ -2,6 +2,11 @@ import { ChevronDown, ChevronUp, Eraser } from 'lucide-react';
 
 import { CodeEditor, type CodeEditorProps } from '@/shell/codeEditor';
 import { codeLanguageLabel } from '@/shell/codeEditor/Chrome';
+import {
+  CODE_EDITOR_FONT_SIZE,
+  CODE_EDITOR_FONT_WEIGHT,
+  CODE_EDITOR_LINE_HEIGHT,
+} from '@/shell/codeEditor/typography';
 import { cn } from '@/shell/lib/cn';
 import { Button } from '@/shell/ui/button';
 
@@ -29,8 +34,9 @@ export function QueryEditorFrame({
   onClear,
   clearLabel = 'Clear query',
   summary,
-  fontSize = 13,
-  lineHeight = 20,
+  fontSize = CODE_EDITOR_FONT_SIZE,
+  fontWeight = CODE_EDITOR_FONT_WEIGHT,
+  lineHeight = CODE_EDITOR_LINE_HEIGHT,
   maxHeight = 360,
   minHeight = 160,
   showHeader = true,
@@ -144,6 +150,7 @@ export function QueryEditorFrame({
         language={language}
         readOnly={readOnly}
         fontSize={fontSize}
+        fontWeight={fontWeight}
         lineHeight={lineHeight}
         maxHeight={maxHeight}
         minHeight={minHeight}

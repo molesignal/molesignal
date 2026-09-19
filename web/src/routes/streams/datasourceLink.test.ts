@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   datasourceLinkForStream,
-  ingestPathForSignal,
+  intakePathForSignal,
 } from './datasourceLink';
 
 describe('streamDatasourceLink', () => {
@@ -11,7 +11,7 @@ describe('streamDatasourceLink', () => {
     ['metrics', '/datasource/applications/opentelemetry'],
     ['traces', '/datasource/applications/opentelemetry'],
     ['profiles', '/datasource/recommended/continuous-profiling'],
-  ] as const)('routes %s streams to the matching ingest guide', (streamType, pathname) => {
+  ] as const)('routes %s streams to the matching intake guide', (streamType, pathname) => {
     const target = new URL(
       datasourceLinkForStream({ name: `app ${streamType}`, stream_type: streamType }),
       'https://molesignal.test',
@@ -22,18 +22,18 @@ describe('streamDatasourceLink', () => {
     expect(target.searchParams.get('stream')).toBe(`app ${streamType}`);
   });
 
-  it('uses the selected stream in native ingest endpoints', () => {
-    expect(ingestPathForSignal('logs', 'app logs')).toBe(
-      '/api/v1/ingest/logs/app%20logs',
+  it('uses the selected stream in native intake endpoints', () => {
+    expect(intakePathForSignal('logs', 'app logs')).toBe(
+      '/api/v1/intake/logs/app%20logs',
     );
-    expect(ingestPathForSignal('traces', 'checkout')).toBe(
-      '/api/v1/ingest/traces/checkout',
+    expect(intakePathForSignal('traces', 'checkout')).toBe(
+      '/api/v1/intake/traces/checkout',
     );
   });
 
   it('uses the dedicated profiles endpoint', () => {
-    expect(ingestPathForSignal('profiles', 'default')).toBe(
-      '/api/v1/profiles/ingest',
+    expect(intakePathForSignal('profiles', 'default')).toBe(
+      '/api/v1/profiles/intake',
     );
   });
 });

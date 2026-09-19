@@ -1,0 +1,376 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 MoleSignal Authors
+
+//! Physical-file execution for the DataFusion query engine.
+
+use std::{collections::HashSet, sync::Arc, time::Instant};
+
+use arrow::datatypes::{DataType, Schema as ArrowSchema, TimeUnit};
+use datafusion::{common::TableReference, execution::object_store::ObjectStoreUrl};
+
+use super::{DataFusionEngine, dataset, resolve_stream_type, result};
+use crate::{
+    domain::{
+        masking::Masker,
+        query::{QueryRequest, QueryResult, StreamHint},
+        storage::DatasetTypeId,
+        stream::{FieldType, StreamIndexType, StreamRepository, StreamType as StreamTypeEnum},
+    },
+    infra::{
+        query::{
+            catalog_source::StreamSnapshotSelection,
+            parquet_table::PrunedParquetTable,
+            parser::{extract_equality_predicates, extract_referenced_tables, parse_sample_hint},
+            planner::ensure_stream_in_org,
+            skip_pruner,
+            tantivy_pruner::{MatchPredicate, extract_match_predicates, match_text_fields},
+            udfs::{build_extract_pattern_udf, build_mask_udf, compile_patterns},
+        },
+        storage::parquet::reader::ParquetReader,
+    },
+    shared::{Error, Result},
+};
+
+pub(super) async fn run(
+    engine: &DataFusionEngine,
+    req: QueryRequest,
+    primary_dataset: Option<DatasetTypeId>,
+) -> Result<QueryResult> {
+    let started = Instant::now();
+    let StreamHint { name, stream_type } = req.stream.clone().ok_or_else(|| {
+        Error::invalid("query.stream hint is required; caller must name the target table")
+    })?;
+
+    if let Some(streams) = &engine.streams {
+        ensure_stream_in_org(streams.as_ref(), &req.org_id, &name, stream_type).await?;
+    }
+
+    let (sample_cap, statement) = parse_sample_hint(&req.statement);
+    validate_match_text_fields(
+        engine.streams.as_deref(),
+        &req,
+        &name,
+        stream_type,
+        &statement,
+    )
+    .await?;
+    let (mut predicates, rewritten_sql) = extract_match_predicates(&statement);
+    constrain_tantivy_predicates(
+        engine,
+        &req,
+        &name,
+        stream_type,
+        &statement,
+        &mut predicates,
+    )
+    .await;
+
+    let store = engine.object_store.clone();
+    let reader = ParquetReader::new(store.clone());
+    let ctx = crate::infra::query::analyzer::session_context_with_guard(engine.max_result_rows);
+    let object_store_url = ObjectStoreUrl::parse("molesignal://query")
+        .map_err(|error| Error::internal(format!("object store URL: {error}")))?;
+    ctx.runtime_env()
+        .register_object_store(object_store_url.as_ref(), store.clone());
+    ctx.register_udaf(crate::infra::query::udafs::approx_topk_udf());
+    register_query_udfs(engine, &req, &rewritten_sql, &ctx).await?;
+
+    let mut tables = vec![(name.clone(), stream_type, primary_dataset)];
+    if let Some(streams) = &engine.streams {
+        for reference in extract_referenced_tables(&rewritten_sql).unwrap_or_default() {
+            if reference.name == name {
+                continue;
+            }
+            if let Some(stream_type) =
+                resolve_stream_type(streams.as_ref(), &req.org_id, &reference.name).await
+            {
+                ensure_stream_in_org(streams.as_ref(), &req.org_id, &reference.name, stream_type)
+                    .await?;
+                tables.push((reference.name, stream_type, None));
+            }
+        }
+    }
+
+    let mut stream_definitions = Vec::with_capacity(tables.len());
+    for (table_name, stream_type, _) in &tables {
+        let definition = match &engine.streams {
+            Some(streams) => Some(streams.get(&req.org_id, table_name, *stream_type).await?),
+            None => None,
+        };
+        stream_definitions.push(definition);
+    }
+
+    let mut catalog_snapshots = std::iter::repeat_with(|| None)
+        .take(tables.len())
+        .collect::<Vec<_>>();
+    if let Some(source) = &engine.catalog_source
+        && stream_definitions.iter().all(Option::is_some)
+    {
+        let selections = tables
+            .iter()
+            .zip(&stream_definitions)
+            .map(|((_, stream_type, selected_dataset), definition)| {
+                let dataset_types = match selected_dataset.clone() {
+                    Some(dataset_type) => vec![dataset_type],
+                    None => crate::domain::storage::logical_query_dataset_types(*stream_type)?,
+                };
+                Ok(StreamSnapshotSelection::new(
+                    definition.clone().expect("all definitions checked above"),
+                    dataset_types,
+                ))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        catalog_snapshots = source
+            .snapshot_streams(&selections, req.time_range)
+            .await?
+            .into_iter()
+            .map(Some)
+            .collect();
+    }
+
+    let mut scanned_rows = 0_u64;
+    for (index, (table_name, stream_type, selected_dataset)) in tables.iter().enumerate() {
+        let stream_definition = stream_definitions[index].clone();
+        let loaded = if let Some(snapshot) = catalog_snapshots[index].take() {
+            dataset::LoadedDataset::from_catalog_snapshot(snapshot)
+        } else {
+            dataset::load(
+                &engine.files,
+                engine.catalog_source.as_ref(),
+                &engine.explicit_tantivy_indexes,
+                stream_definition.as_ref(),
+                dataset::DatasetLoadSelection {
+                    organization_id: &req.org_id,
+                    stream_name: table_name,
+                    stream_type: *stream_type,
+                    dataset_type: selected_dataset.clone(),
+                    time_range: req.time_range,
+                },
+            )
+            .await?
+        };
+        let mut files = loaded.files;
+        let tantivy_indexes = loaded.tantivy_indexes;
+        let buffered_batches = loaded.buffered_batches;
+        if table_name == &name
+            && let Some(definition) = stream_definition.as_ref()
+        {
+            files = skip_pruner::prune(files, &statement, &definition.schema);
+        }
+        if !predicates.is_empty()
+            && table_name == &name
+            && let Some(pruner) = &engine.tantivy_pruner
+        {
+            files = pruner
+                .prune_with_index_keys(files, &predicates, &tantivy_indexes)
+                .await
+                .map_err(|error| Error::internal(format!("tantivy prune: {error}")))?;
+        }
+        if let Some(cap) = sample_cap
+            && table_name == &name
+        {
+            let mut candidate_rows = 0_u64;
+            files.retain(|file| {
+                if candidate_rows >= cap {
+                    return false;
+                }
+                candidate_rows = candidate_rows.saturating_add(file.rows);
+                true
+            });
+        }
+        scanned_rows = scanned_rows
+            .saturating_add(files.iter().map(|file| file.rows).sum::<u64>())
+            .saturating_add(
+                buffered_batches
+                    .iter()
+                    .map(|batch| batch.num_rows() as u64)
+                    .sum::<u64>(),
+            );
+
+        let schema: Arc<ArrowSchema> = match stream_definition {
+            Some(definition) => {
+                let definition = selected_dataset
+                    .as_ref()
+                    .map(|dataset_type| {
+                        crate::infra::intake::physical_schema::project(&definition, dataset_type)
+                    })
+                    .unwrap_or(definition);
+                crate::infra::storage::arrow_schema::to_arrow(&definition.schema)
+            }
+            None => match files.first() {
+                Some(file) => {
+                    reader
+                        .schema_from_store(store.clone(), &file.object_key, file.size_bytes)
+                        .await?
+                }
+                None => buffered_batches
+                    .first()
+                    .map(|batch| batch.schema())
+                    .unwrap_or_else(|| {
+                        Arc::new(ArrowSchema::new(vec![arrow::datatypes::Field::new(
+                            "_timestamp",
+                            DataType::Timestamp(TimeUnit::Microsecond, Some("UTC".into())),
+                            false,
+                        )]))
+                    }),
+            },
+        };
+        let table = PrunedParquetTable::new(
+            schema,
+            &files,
+            object_store_url.clone(),
+            req.time_range,
+            selected_dataset.clone(),
+        )
+        .with_buffered_batches(buffered_batches);
+        ctx.register_table(TableReference::bare(table_name.clone()), Arc::new(table))
+            .map_err(|error| Error::internal(format!("datafusion register: {error}")))?;
+    }
+
+    let dataframe = ctx.sql(&rewritten_sql).await.map_err(|error| {
+        tracing::warn!(%error, sql = %rewritten_sql, "query planning failed");
+        Error::invalid(
+            "query could not be planned: check the SQL syntax and that every referenced field exists in the stream",
+        )
+    })?;
+    let dataframe = if let Some(limit) = req.limit {
+        dataframe
+            .limit(0, Some(limit))
+            .map_err(|error| Error::internal(format!("datafusion limit: {error}")))?
+    } else {
+        dataframe
+    };
+    let batches = dataframe
+        .collect()
+        .await
+        .map_err(|error| Error::internal(format!("datafusion collect: {error}")))?;
+    let (columns, rows) = result::batches_to_json(&batches);
+    Ok(QueryResult {
+        columns,
+        rows,
+        scanned_rows,
+        took_ms: started.elapsed().as_millis() as u64,
+        federation: None,
+    })
+}
+
+/// 校验 SQL 中所有 `MATCH_TEXT(field, ...)` 调用的字段前提（设计 D2/D3、spec
+/// text-match-functions）：字段必须存在且显式/兼容配置为 `full_text`，
+/// 否则查询失败并指明该字段未配置全文索引。
+///
+/// 校验落在 schema 上下文层（本函数由 `run` / `explain` 在 rewrite 前调用）；`streams` 为
+/// None（引擎未注入 stream repo）时跳过——与既有无 schema 上下文的行为一致。
+pub(super) async fn validate_match_text_fields(
+    streams: Option<&dyn StreamRepository>,
+    req: &QueryRequest,
+    stream: &str,
+    stream_type: StreamTypeEnum,
+    sql: &str,
+) -> Result<()> {
+    let fields = match_text_fields(sql);
+    if fields.is_empty() {
+        return Ok(());
+    }
+    let Some(streams) = streams else {
+        return Ok(());
+    };
+    let Ok(definition) = streams.get(&req.org_id, stream, stream_type).await else {
+        return Ok(());
+    };
+    for field in fields {
+        let configured = definition.schema.fields.iter().any(|def| {
+            def.name == field && def.effective_index_type() == StreamIndexType::FullText
+        });
+        if !configured {
+            return Err(Error::invalid(format!(
+                "MATCH_TEXT: field `{field}` has no full-text index configured; \
+                 configure `index_type = full_text` on a string field to enable full-text search"
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// 把 MATCH/MATCH_TEXT 产生的候选谓词限制到真正的 `full_text` 字段，再补入可由
+/// Tantivy STRING 消费的文本 `exact` 等值谓词。没有 schema 上下文时关闭裁剪，避免把
+/// exact 整值索引误用于 MATCH 子串语义。
+async fn constrain_tantivy_predicates(
+    engine: &DataFusionEngine,
+    req: &QueryRequest,
+    stream: &str,
+    stream_type: StreamTypeEnum,
+    statement: &str,
+    predicates: &mut Vec<MatchPredicate>,
+) {
+    let exact = extract_equality_predicates(statement);
+    let Some(streams) = &engine.streams else {
+        predicates.clear();
+        return;
+    };
+    let Ok(definition) = streams.get(&req.org_id, stream, stream_type).await else {
+        predicates.clear();
+        return;
+    };
+    let full_text = definition
+        .schema
+        .fields
+        .iter()
+        .filter(|field| {
+            !field.encrypted && field.effective_index_type() == StreamIndexType::FullText
+        })
+        .map(|field| field.name.as_str())
+        .collect::<HashSet<_>>();
+    predicates.retain(|predicate| full_text.contains(predicate.field.as_str()));
+
+    let exact_fields = definition
+        .schema
+        .fields
+        .iter()
+        .filter(|field| {
+            !field.encrypted
+                && matches!(field.data_type, FieldType::Utf8 | FieldType::Json)
+                && field.effective_index_type() == StreamIndexType::Exact
+        })
+        .map(|field| field.name.as_str())
+        .collect::<HashSet<_>>();
+    predicates.extend(
+        exact
+            .into_iter()
+            .filter(|(column, _)| exact_fields.contains(column.as_str()))
+            .map(|(field, term)| MatchPredicate { field, term }),
+    );
+}
+
+async fn register_query_udfs(
+    engine: &DataFusionEngine,
+    req: &QueryRequest,
+    statement: &str,
+    ctx: &datafusion::prelude::SessionContext,
+) -> Result<()> {
+    if let Some(service) = &engine.field_keys {
+        let keys = service.decrypt_map(&req.org_id).await?;
+        ctx.register_udf(crate::infra::query::udfs::build_decrypt_udf(keys));
+    }
+    if statement.contains("extract_pattern(")
+        && let Some(repository) = &engine.log_patterns
+    {
+        let patterns = repository.list(&req.org_id).await.unwrap_or_default();
+        let rows = patterns
+            .into_iter()
+            .map(|pattern| (pattern.regex, pattern.category, pattern.priority))
+            .collect();
+        ctx.register_udf(build_extract_pattern_udf(compile_patterns(rows)));
+    }
+    if statement.contains("mask(")
+        && let Some(repository) = &engine.regex_patterns
+    {
+        let patterns = repository.list(&req.org_id).await.unwrap_or_default();
+        let masker = Masker::compile(
+            patterns
+                .into_iter()
+                .map(|pattern| (pattern.pattern, pattern.replacement)),
+        );
+        ctx.register_udf(build_mask_udf(Arc::new(masker)));
+    }
+    Ok(())
+}

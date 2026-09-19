@@ -4,10 +4,11 @@
 # 例如 MS_HTTP_PORT=5081 / MS_STORE_META_DSN=...
 
 [node]
-# 可选角色（可组合）：standalone / router / ingester / querier / compactor / alert_manager
+# 可选角色（可组合）：standalone / router / intake / querier / compactor / alert_manager
 # standalone 表示同进程内启用全部角色
 roles = ["standalone"]
-# 节点唯一标识，留空则启动时自动生成 KSUID
+# 节点唯一标识；留空默认使用 OS hostname，hostname 不可用时才生成 KSUID。
+# 同一 hostname 上运行多个 MoleSignal 进程时，必须为每个进程显式设置不同的 id。
 id = ""
 # 收到 SIGTERM/SIGINT 后等待 pending 数据 flush 完（drain）的上限秒数，超时强制退出
 drain_timeout_secs = 30
@@ -20,8 +21,10 @@ port = 5080
 # 反向代理后建议关闭
 gzip = true
 # 对外访问 URL；留空 = 前端按当前访问来源（window.location.origin）推导。
-# 反代 / 公网部署填真实对外地址，如 https://obs.example.com
-# （数据源接入页 snippet 用它拼 ingest URL）。env 覆盖：MS_HTTP_EXTERNAL_URL
+# 反代 / 公网部署填真实对外地址，如 https://molesignal.example.com
+# 状态页自定义域名验证也依赖此地址生成 CNAME 目标；修改后需重启服务。
+# 如需状态页托管 TLS，还必须启用下方 `[http.tls]` 并填写 `account_email`。
+# （数据源接入页 snippet 用它拼 intake URL）。env 覆盖：MS_HTTP_EXTERNAL_URL
 external_url = ""
 
 # === TLS + ACME 自动证书 ===
@@ -51,17 +54,18 @@ port = 5082
 # gRPC 单条收发消息允许的最大大小，单位 MiB。
 max_message_size_mb = 32
 
-# 裸 syslog 接入（RFC3164 / RFC5424）。无鉴权、无 org 上下文 → 必须显式绑定 org（slug）。
-# 全空（默认）= 禁用。启用：设 udp_bind 和/或 tcp_bind，并填 org。
-[syslog]
-# UDP Syslog 监听地址，如 `0.0.0.0:5514`；留空表示不启动 UDP listener。
-udp_bind = ""
-# TCP Syslog 监听地址，如 `0.0.0.0:5514`；按换行分帧，留空表示不启动 TCP listener。
-tcp_bind = ""
-# Syslog 写入目标组织的 slug；启用任一 listener 时必须填写。
-org = ""
-# Syslog 写入目标流名；留空时回退为 `syslog`。
-stream = "syslog"
+# Probe Agent register/control plane starts automatically on standalone and alert_manager nodes.
+# Register uses server-authenticated TLS; the control stream uses short-lived mTLS identities.
+[probe]
+bind = "0.0.0.0"
+register_port = 5084
+control_port = 5085
+# Public URLs printed in the one-time register command. Set these behind a proxy/LB.
+register_endpoint = "https://localhost:5084"
+control_endpoint = "https://localhost:5085"
+server_names = ["localhost", "127.0.0.1"]
+certificate_days = 30
+max_message_size_mb = 32
 
 # 对外 Arrow Flight SQL 端口（DBeaver / JDBC / ADBC 直连查询）。
 # 与 [grpc]（集群内可信网络）分端口；每个 RPC 强制 API token 鉴权。
@@ -86,21 +90,17 @@ log_format = "text"
 log_output = "console"
 # 文件日志目录，仅当 log_output = "file" 时生效。
 # log_directory = "logs"
-# 文件日志名称前缀，仅当 log_output = "file" 时生效。
-# log_file_prefix = "molesignal"
 # 文件日志轮转周期：minutely | hourly | daily | never。
 # log_rotation = "daily"
 # 文件日志最多保留的轮转文件数。
 # log_max_files = 7
 
-# Logs、Metrics、Traces 和 Profiles 由 Self Telemetry 总开关管理。
+# Metrics、Traces 和 Profiles 由 Self Telemetry 总开关管理。
 [telemetry.self_collect]
 # 服务自身遥测总开关；Trace 还要求 telemetry.trace.enabled 有效。
 enabled = true
 # 自遥测数据的通用保留天数，范围 1..3650。
 retention_days = 7
-# 自回灌日志的保留天数，范围 1..3650。
-logs_retention_days = 7
 # 自回灌指标的保留天数，范围 1..3650。
 metrics_retention_days = 7
 # 自回灌 Trace 的保留天数，范围 1..3650。
@@ -119,6 +119,8 @@ batch_max_events = 256
 batch_max_delay_ms = 1000
 # 进程退出时等待自遥测队列冲刷完成的超时时间，单位秒。
 flush_timeout_secs = 5
+# 是否采集并回灌本进程 Profile；仅在 enabled = true 时生效，默认关闭。
+profiles_enabled = false
 # 启用的 Profile 类型：cpu | heap。
 profile_kinds = ["cpu"]
 # Profile 采集间隔，单位秒。
@@ -169,7 +171,7 @@ http_ms = 1000
 # 查询 Span 判定为慢查询的耗时阈值，单位毫秒。
 query_ms = 5000
 # 批量摄取 Span 判定为慢操作的耗时阈值，单位毫秒。
-batch_ingest_ms = 2000
+batch_intake_ms = 2000
 # 数据库 Span 判定为慢操作的耗时阈值，单位毫秒。
 database_ms = 200
 # 对象存储 Span 判定为慢操作的耗时阈值，单位毫秒。
@@ -293,6 +295,8 @@ root = "./data/objects"
 # region = "us-east-1"
 # 自定义 S3 endpoint；AWS S3 可留空，MinIO 示例为 `http://localhost:9000`。
 # endpoint = ""
+# 默认 false，使用虚拟主机模式（适用于 AWS S3、华为云 OBS）；MinIO 等仅支持路径模式的服务设为 true。
+# path_style = false
 # 内联 access key；优先使用环境变量或 credentials_file。
 # access_key = ""
 # 内联 secret key；不要把生产凭据提交到配置仓库。
@@ -354,9 +358,11 @@ sync_level = "data"
 batch_max_pending = 64
 # Batch 模式两次 sync_* 之间允许的最大间隔，单位毫秒。
 batch_max_delay_ms = 50
+# 启动恢复重放的内存上限（MB）：重放累计超过该值即强制 flush 一次腾空 buffer。
+max_replay_mb = 512
 # 回归旧版"永不 fsync"行为：flush_strategy = "none" 且 sync_level = "none"
 
-[ingester]
+[intake]
 # 每个 stream 原始内存 buffer 硬上限（自适应阈值不会超过它）
 buffer_max_mb = 256
 # 当前进程 active + detached flush generation 的总 reservation 上限
@@ -366,7 +372,7 @@ flush_interval_secs = 30
 # 同时刷盘并发
 flush_parallelism = 4
 
-[ingester.rotation]
+[intake.rotation]
 # 根据成功 Parquet 的 encoded/raw 比率调整每个 stream 的下次原始阈值
 adaptive_enabled = true
 # 希望生成的 Parquet encoded 大小
@@ -376,18 +382,18 @@ min_buffer_mb = 16
 # encoded/raw 比率的 EWMA 平滑系数，范围 (0, 1]
 ewma_alpha = 0.2
 
-[ingester.prometheus]
+[intake.prometheus]
 # 单个 series 除 __name__ 外最多允许的 label 数
 max_labels_per_series = 64
 # label name / value 的最大 UTF-8 字节数
 max_label_name_bytes = 128
 # 单个 label value 允许的最大 UTF-8 字节数。
 max_label_value_bytes = 2048
-# 单个内部 IngestBatch / WAL seq 最多承载的 sample 数
+# 单个内部 IntakeBatch / WAL seq 最多承载的 sample 数
 max_samples_per_batch = 16384
 
-[ingester.prometheus.cardinality]
-# 当前一致性路由 ingester 上的 active-series / new-series 准入
+[intake.prometheus.cardinality]
+# 当前一致性路由 intake 上的 active-series / new-series 准入
 enabled = true
 # 当前进程允许同时保持活跃的 Prometheus series 总数；必须不小于组织级上限。
 max_active_series_per_process = 1000000
@@ -471,27 +477,21 @@ peer_timeout_secs = 15
 # 节点发现结果在每个进程内缓存 2 秒，并发刷新合并为一次数据库查询。
 
 [router.rate_limit]
-# 每 org 每秒 ingest 请求上限；0 = 不限
-ingest_qps = 1000
+# 每 org 每秒 intake 请求上限；0 = 不限
+intake_qps = 1000
 # 每 org 每秒查询请求上限；0 = 不限
 query_qps = 100
 # 令牌桶突发倍数（容量 = qps * burst_multiplier）
 burst_multiplier = 2
 
-# === 进程内多级缓存 ===
-# 三层独立 LRU+TTL：parquet_file_meta（ParquetFileMeta 列表）/ parquet_meta（ParquetMetaData + Tantivy IndexHandle）/
-# query_result（SQL 查询结果，仅对 closed-window 查询启用）。
+# === 进程内与本地对象缓存 ===
+# index_handle / query_result / Tantivy cache 各自使用 LRU+TTL；所有远端 Artifact 与
+# Manifest 的字节读取统一经过 cache.object 固定块缓存。
 # 任一层 capacity = 0 等同关闭该层；命中率经 /metrics 的 cache_<level>_hit_ratio 暴露。
-[cache.parquet_file_meta]
-# ParquetFileMeta 列表缓存的最大条目数；0 表示关闭该层缓存。
-capacity = 100000
-# ParquetFileMeta 列表缓存条目的存活时间，单位秒。
-ttl_secs = 60
-
-[cache.parquet_meta]
-# Parquet metadata 与 Tantivy IndexHandle 缓存的最大条目数；0 表示关闭。
+[cache.index_handle]
+# 已打开 Index Artifact handle 的最大条目数；0 表示关闭。
 capacity = 10000
-# Parquet metadata 缓存条目的存活时间，单位秒。
+# Index handle 缓存条目的存活时间，单位秒。
 ttl_secs = 600
 
 [cache.query_result]
@@ -519,27 +519,16 @@ capacity = 100000
 # Tantivy 归档 footer 缓存条目的存活时间，单位秒。
 ttl_secs = 3600
 
-# Parquet 本地磁盘二级缓存
-# 默认开启：所有 parquet 读取先查本地 NVMe，命中即可避开 object store GET。
-# 关闭方式：把 enabled = false（或 max_size_gb = 0）。
-# 占盘上限：max_size_gb（默认 10 GB），超过后按 LRU 自动淘汰。
-# 自定义目录：dir 指向期望的缓存路径，缓存目录不存在时启动期自动 mkdir -p。
-# 建议放到独立盘 / 单独 quota，避免与 WAL、对象本地存储互踩。
-[cache.disk_cache]
-# Parquet 本地磁盘缓存目录；启用时目录不存在会自动创建。
-dir = "./data/cache/parquet"
-# 0 = 关闭（无独立 enabled 开关）
-max_size_gb = 10
-
-# 冷分区 ParquetFileMeta dump 进程内缓存
-# Key = (org, stream, stream_type, partition_level, partition_key)
-# Value = Arc<Vec<ParquetFileMeta>>。capacity = 0 整层关闭，每次冷查重新 GET + parse dump parquet。
-# Eviction / hit_ratio 经 cache_parquet_file_meta_dump_* 暴露。
-[cache.parquet_file_meta_dump]
-# 冷分区 ParquetFileMeta dump 解析结果缓存的最大条目数；0 表示关闭。
-capacity = 10000
-# 冷分区 ParquetFileMeta dump 缓存条目的存活时间，单位秒。
-ttl_secs = 600
+# 远端 ObjectStore 共享 range-block cache；LocalFileSystem 自动旁路。
+[cache.object]
+enabled = true
+root = "./data/cache/objects"
+max_bytes = 10737418240
+# 可配范围 1–16 MiB，默认 4 MiB。
+block_size_bytes = 4194304
+min_free_bytes = 1073741824
+max_concurrent_fetches = 16
+max_concurrent_fetches_per_object = 4
 
 # SSO（OIDC / SAML / LDAP）配置已完全迁到 DB（sso_providers 表），经管理界面/API 维护；
 # 不再走 config。原 [sso] 段已移除。
@@ -555,15 +544,15 @@ refresh_interval_secs = 604800
 
 # === 异步搜索作业 ===
 [search_jobs]
-# 异步搜索 worker 数量；0 按 1 个处理。
+# 单节点同时执行的异步搜索任务数；领取队列始终只有一个 poller，0 按 1 个处理。
 workers = 2
-# worker 空闲时轮询间隔（秒）
+# 未收到 PostgreSQL 通知时的兜底轮询初始间隔（秒），连续空闲会自动退避。
 idle_poll_secs = 2
 # 过期 job 清扫间隔（秒）；默认 1 小时
 cleanup_interval_secs = 3600
 
 # === range PromQL 窗口聚合增量缓存 ===
-# 实时仪表盘的 rate(metric[range]) / *_over_time 等 range 查询：把按 step 网格对齐、
+# 实时仪表盘的 rate(metric[range]) / *_over_time 等 range 查询：把按 step 网格归一后、
 # 已封存（窗口右端早于水位）的窗口桶缓存起来。时间窗前移刷新时稳定桶直接命中、仅活跃区
 # 重扫重算。默认关闭 → range 路径行为与现状完全一致。
 [search.stream_agg_cache]
@@ -577,8 +566,8 @@ safe_lookback_secs = 300
 max_series_per_query = 10000
 
 # === Pipeline JS function 运行时 ===
-# JS function 可用与否完全由编译期 `--features js-runtime` 决定（无运行时开关）。
-# 未编译该 feature → POST language=js 的 function 被拒。
+# 官方 molesignal 二进制默认内置 JS function runtime（无运行时开关）。
+# 仅显式排除 `js-runtime` 的自定义精简构建会拒绝 language=js。
 [functions]
 # LLM 评估节点开关（language=llm 的 pipeline 步骤）；默认 false（每条命中事件一次模型调用）
 llm_eval_enabled = false
@@ -599,28 +588,38 @@ viewport_width = 1280
 # 报告页面渲染 viewport 的高度，单位像素。
 viewport_height = 800
 
-# === ParquetFileMeta 冷分区下沉到 object_store ===
-# 默认开启：每小时把 30 天前的 (org, stream, stream_type, date) 分区的 ParquetFileMeta
-# 行序列化为 parquet 写到 object_store，对应主表行删除。主表始终保持"热窗口"行数。
-# 关闭方式：enabled = false。worker 关掉后已 dump 的对象/索引仍可读，查询回退到只读主表。
-# 首次启动提示：老部署升级后 worker 会陆续把历史冷分区搬到 object_store；
-# 用 max_partitions_per_tick 控制速率防 IO 抖动。
-[storage.parquet_file_meta_dump]
-# 是否启动 ParquetFileMeta 冷分区下沉 worker；关闭后已生成的 dump 仍可读取。
-enabled = true
-# ParquetFileMeta 分区早于此天数后视为冷数据并允许下沉。
-cold_after_days = 30
-# 冷分区扫描与下沉任务的运行间隔，单位秒；0 按 1 秒处理。
-interval_secs = 3600
-# 单次 tick 最多处理的冷分区数量；0 会停用该 worker。
-max_partitions_per_tick = 100
-# Dump partition 粒度：
-# - "daily"（默认）：dump 按 YYYY-MM-DD 分桶，一份 parquet 覆盖一整天的冷分区行；
-# - "hourly"：dump 按 YYYY-MM-DD-HH 分桶，适合冷查频繁打小时窗口的场景。
-# 同 stream 允许混合粒度共存（切换粒度时已有 daily dump 不重写）。
-partition_level = "daily"
+# === FileCatalog 生命周期与后台维护 ===
+[storage.catalog]
+# 分区结束超过该小时数后写入 immutable manifest；0 表示不封存。
+seal_after_hours = 168
+manifest_cache_bytes = 268435456
+interval_secs = 300
+batch_size = 64
 
-# === Intelligence ===
-[intelligence]
+[storage.index]
+enabled = true
+interval_secs = 30
+batch_size = 64
+max_concurrency = 2
+retry_after_secs = 300
+
+[storage.gc]
+enabled = true
+interval_secs = 30
+# 所有对象先进入延迟删除队列，最终删除前再次检查 Catalog 引用与 checksum。
+grace_period_secs = 3600
+lease_secs = 900
+batch_size = 128
+max_concurrency = 4
+
+[storage.reconciler]
+enabled = true
+interval_secs = 300
+batch_size = 256
+orphan_grace_secs = 86400
+verify_checksums = true
+
+# === Agent ===
+[agent]
 # session.provider 为空时的 fallback；未来可用，当前仅文档化
 default_provider = "openai"

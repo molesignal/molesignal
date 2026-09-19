@@ -3,11 +3,8 @@ import { persist } from 'zustand/middleware';
 
 import { detectBrowserLocale, LEGACY_LOCALE_MAP, type Locale, SUPPORTED_LOCALES } from '@/i18n';
 
-// Phase 4 decision: single palette. The `warm` and `high-contrast` palettes
-// were removed; the default palette now meets WCAG AA+ on its own. We keep
-// the enum + setter API for forward compatibility (a future pro
-// brand palette could plug in here), but the UI no longer surfaces a
-// chooser.
+// The app ships one WCAG AA+ palette. The enum and setter API leave room for
+// future product palettes while keeping the current UI deterministic.
 export const PALETTES = ['default'] as const;
 export type Palette = (typeof PALETTES)[number];
 

@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { DataTable } from '@/admin';
 import * as functionsApi from '@/api/functions';
+import { writeClipboardText } from '@/lib/clipboard';
 import { useActionAccess } from '@/product/actionAccess';
 import { type ProductStateProps } from '@/product/states';
 import { ListPage } from '@/product/templates';
@@ -67,6 +68,7 @@ export function FunctionsList() {
   return (
     <>
       <ListPage
+        appearance="surface"
         title={t('title')}
         subtitle={t('subtitle') as string}
         toolbar={
@@ -139,7 +141,7 @@ export function FunctionsList() {
               label={t('list.preset_copy')}
               onClick={() => {
                 if (!viewing) return;
-                void navigator.clipboard?.writeText(viewing.source);
+                void writeClipboardText(viewing.source);
                 toast.success(t('list.preset_copied'));
               }}
             />

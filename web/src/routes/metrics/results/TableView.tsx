@@ -3,23 +3,31 @@ import { useTranslation } from 'react-i18next';
 import { QueryState } from '@/shell/query/State';
 import type { QueryResult } from '@/types/query';
 
+import {
+  MetricsNoDataState,
+  MetricsQueryErrorState,
+} from './RecoveryState';
+import type { MetricsExploreResultsProps } from './types';
+
 export function TableView({
   result,
   pending,
   error,
+  recovery,
 }: {
   result: QueryResult | undefined;
   pending: boolean;
   error: unknown;
+  recovery: MetricsExploreResultsProps['recovery'];
 }) {
   const { t } = useTranslation('metrics');
-  if (error) return <QueryState state="error" error={error} />;
+  if (error) return <MetricsQueryErrorState error={error} recovery={recovery} />;
   if (pending && !result) return <QueryState state="loading" />;
   if (!result) {
     return <QueryState state="empty" emptyLabel={t('explore.results.no_table')} />;
   }
   if (result.rows.length === 0) {
-    return <QueryState state="empty" emptyLabel={t('explore.chart.empty')} />;
+    return <MetricsNoDataState recovery={recovery} />;
   }
 
   return (

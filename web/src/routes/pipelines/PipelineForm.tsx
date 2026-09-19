@@ -33,7 +33,7 @@ interface PipelineFormProps {
 
 /**
  * Shared workbench body reused by /pipelines/new and /pipelines/:id/edit.
- * Persists exactly the fields exposed by `crates/api/src/http/routes/
+ * Persists exactly the fields exposed by `bin/molesignal/src/api/http/routes/
  * scheduled_pipelines.rs::CreateReq`.
  */
 export function PipelineForm({

@@ -21,7 +21,7 @@ Native writes reject unknown fields except at explicit extension points (`extens
 
 ## Runtime registry operations
 
-Git remains the publication authority. PostgreSQL is the runtime registry: `intelligence_contract_versions` stores immutable, canonically hashed snapshots, while `intelligence_capability_contract_bindings` atomically selects the model, authoring, and visualization versions used by `dashboard.authoring.v1`. Startup publishes the embedded snapshots idempotently, creates the default binding only when absent, resolves it through the same validation path used at runtime, and aborts startup if the database record is missing, corrupted, disabled, or incompatible with the running compiler.
+Git remains the publication authority. PostgreSQL is the runtime registry: `agent_contract_versions` stores immutable, canonically hashed snapshots, while `agent_capability_contract_bindings` atomically selects the model, authoring, and visualization versions used by `dashboard.authoring.v1`. Startup publishes the embedded snapshots idempotently, creates the default binding only when absent, resolves it through the same validation path used at runtime, and aborts startup if the database record is missing, corrupted, disabled, or incompatible with the running compiler.
 
 Dashboard authoring capabilities, preparation, preview/reference validation, native create/update/import validation, and draft execution all resolve the active database binding. A database outage therefore fails these operations closed; the process never silently falls back to a different embedded schema. Existing persisted Dashboard reads do not depend on registry resolution.
 

@@ -4,10 +4,8 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import {
   canAccessProductPath,
-  canAccessProductRoute,
   useProductAccess,
 } from '@/product/access';
-import { findProductRoute } from '@/product/ia';
 import { ProductRouteAccessGuard } from '@/routes/RouteGuard';
 import { InvestigationContextBar } from '@/shell/InvestigationContextBar';
 import { cn } from '@/shell/lib/cn';
@@ -15,27 +13,44 @@ import { MoleAgentPanel } from '@/shell/MoleAgentPanel';
 import { Sidebar } from '@/shell/Sidebar';
 import { Topbar } from '@/shell/Topbar';
 import { UnsupportedScreen } from '@/shell/UnsupportedScreen';
+import {
+  DESKTOP_MIN_WIDTH,
+  useViewportWidth,
+} from '@/shell/useViewportWidth';
 import { useMoleAgentStore } from '@/stores/useMoleAgentStore';
-import { useSidebarStore } from '@/stores/useSidebarStore';
 
 interface AppShellProps {
   onTimePickerOpen: () => void;
   onPaletteOpen: () => void;
 }
 
-/** Below this the dense SRE layout has no fallback — see UnsupportedScreen. */
-const DESKTOP_MIN_WIDTH = 1024;
+const SURFACE_WORKBENCH_ROUTES = [
+  '/dashboards',
+  '/logs',
+  '/metrics',
+  '/traces',
+  '/apm',
+  '/rum',
+  '/profiles',
+  '/alerts',
+  '/synthetics',
+  '/status-pages',
+  '/agent',
+  '/datasource',
+  '/streams',
+  '/pipelines',
+  '/functions',
+  '/extend-tables',
+  '/reports',
+  '/iam',
+  '/settings',
+  '/account',
+] as const;
 
-function useViewportWidth(): number {
-  const [width, setWidth] = React.useState(() =>
-    typeof window === 'undefined' ? DESKTOP_MIN_WIDTH : window.innerWidth,
+function isSurfaceWorkbenchRoute(pathname: string): boolean {
+  return SURFACE_WORKBENCH_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`),
   );
-  React.useEffect(() => {
-    const onResize = () => setWidth(window.innerWidth);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
-  return width;
 }
 
 /**
@@ -48,7 +63,8 @@ function useViewportWidth(): number {
  */
 export function AppShell(_props: AppShellProps) {
   const { t } = useTranslation('shell');
-  const [collapsed, setCollapsed] = React.useState(false);
+  const [collapsed, setCollapsed] = React.useState(true);
+  const [temporarilyExpanded, setTemporarilyExpanded] = React.useState(false);
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
   const location = useLocation();
   const [autoCollapsedSidebarExpanded, setAutoCollapsedSidebarExpanded] = React.useState(false);
@@ -61,15 +77,17 @@ export function AppShell(_props: AppShellProps) {
     /^\/dashboards\/[^/]+\/edit$/.test(location.pathname) ||
     /^\/dashboards\/[^/]+\/panels\/new$/.test(location.pathname);
   const isAutoCollapsedRoute = isManagementRoute || isDashboardEditorRoute;
+  const isSurfaceWorkbench = isSurfaceWorkbenchRoute(location.pathname);
   const primarySidebarCollapsed = isAutoCollapsedRoute
     ? !autoCollapsedSidebarExpanded
     : collapsed;
+  const sidebarVisuallyCollapsed =
+    primarySidebarCollapsed && !temporarilyExpanded;
   const nav = useNavigate();
   const viewportWidth = useViewportWidth();
-  const recordVisit = useSidebarStore((s) => s.recordVisit);
   const toggleMoleAgent = useMoleAgentStore((s) => s.toggle);
   const access = useProductAccess();
-  const canUseMoleAgent = canAccessProductPath('/intelligence', access);
+  const canUseMoleAgent = canAccessProductPath('/agent', access);
 
   React.useEffect(() => {
     setMobileNavOpen(false);
@@ -79,22 +97,9 @@ export function AppShell(_props: AppShellProps) {
     if (!isAutoCollapsedRoute) setAutoCollapsedSidebarExpanded(false);
   }, [isAutoCollapsedRoute]);
 
-  // Feed the sidebar "Recent" list with real destinations that DON'T already
-  // have a permanent home in a fixed nav group — nav items live in their group,
-  // so Recent surfaces the rest (e.g. saved views, service graph). Skip
-  // parameterized detail routes (`/x/:id`) so deep pages don't crowd the list,
-  // and skip nav items so Recent never just echoes a fixed group.
   React.useEffect(() => {
-    const route = findProductRoute(location.pathname);
-    if (
-      route &&
-      canAccessProductRoute(route, access) &&
-      !route.nav &&
-      !route.path.includes(':')
-    ) {
-      recordVisit(route.id);
-    }
-  }, [access, location.pathname, recordVisit]);
+    if (!primarySidebarCollapsed) setTemporarilyExpanded(false);
+  }, [primarySidebarCollapsed]);
 
   // ⌘J / Ctrl-J toggles Mole Agent from anywhere in the app.
   React.useEffect(() => {
@@ -120,6 +125,7 @@ export function AppShell(_props: AppShellProps) {
       setMobileNavOpen((v) => !v);
       return;
     }
+    setTemporarilyExpanded(false);
     if (isAutoCollapsedRoute) {
       setAutoCollapsedSidebarExpanded((v) => !v);
       return;
@@ -127,17 +133,22 @@ export function AppShell(_props: AppShellProps) {
     setCollapsed((v) => !v);
   };
 
-  // Dense investigation surfaces remain desktop-only. Management routes have
-  // their own narrow-screen navigation drawers and responsive content, so they
-  // can bypass the interstitial without claiming mobile support for the whole
-  // console.
+  // The product contract is desktop-only below 1024px, including Settings and
+  // IAM. Keeping one shell-wide threshold avoids suggesting that a narrow
+  // management drawer makes dense administrative tables mobile-supported.
   // Hooks above run unconditionally so this early return stays hook-safe.
-  if (viewportWidth < DESKTOP_MIN_WIDTH && !isManagementRoute) {
+  if (viewportWidth < DESKTOP_MIN_WIDTH) {
     return <UnsupportedScreen width={viewportWidth} />;
   }
 
   return (
-    <div className="h-screen min-w-0 overflow-hidden bg-bg-0 text-tx-0">
+    <div
+      data-shell-layout={isSurfaceWorkbench ? 'surface-workbench' : undefined}
+      className={cn(
+        'h-screen min-w-0 overflow-hidden bg-bg-0 text-tx-0',
+        isSurfaceWorkbench && 'bg-[var(--page-canvas)] [--sidebar-w:216px] [--topbar-h:48px]',
+      )}
+    >
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-[100] focus:rounded focus:bg-indigo focus:px-2 focus:py-1 focus:text-white"
@@ -149,6 +160,7 @@ export function AppShell(_props: AppShellProps) {
         onToggleSidebar={handleToggleSidebar}
         onPaletteOpen={_props.onPaletteOpen}
         onNocOpen={() => nav('/noc')}
+        surfaceWorkbench={isSurfaceWorkbench}
       />
 
       {mobileNavOpen && (
@@ -161,9 +173,13 @@ export function AppShell(_props: AppShellProps) {
       )}
 
       <Sidebar
-        collapsed={primarySidebarCollapsed}
+        collapsed={sidebarVisuallyCollapsed}
         mobileOpen={mobileNavOpen}
         onNavigate={() => setMobileNavOpen(false)}
+        onHoverChange={(hovered) =>
+          setTemporarilyExpanded(primarySidebarCollapsed && hovered)
+        }
+        surfaceWorkbench={isSurfaceWorkbench}
       />
 
       <main

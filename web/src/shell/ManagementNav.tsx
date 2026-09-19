@@ -187,7 +187,7 @@ export function ManagementNav({
       <nav
         aria-label={ariaLabel}
         className={cn(
-          'group/settings-nav sticky top-4 hidden max-h-[calc(100vh-var(--topbar-h)-80px)] min-h-0 flex-col border-r border-bd-0 pr-4 lg:flex',
+          'group/settings-nav sticky top-4 hidden max-h-[calc(100vh-var(--topbar-h)-80px)] min-h-0 flex-col pr-2 lg:flex',
           className,
         )}
       >
@@ -249,7 +249,10 @@ function ManagementNavContents({
   return (
     <>
       <div className="mb-3 flex items-center gap-1">
-        <label className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-md border border-bd-1 bg-bg-1 px-2.5 lg:h-9">
+        <label
+          data-ui="input-control"
+          className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-md border-0 bg-[var(--control-surface)] px-2.5 transition-colors hover:bg-bg-3 focus-within:bg-bg-3 lg:h-9"
+        >
           <Search className="h-3.5 w-3.5 shrink-0 text-tx-3" />
           <input
             value={query}
@@ -284,7 +287,7 @@ function ManagementNavContents({
             needle.length > 0 ||
             expandedGroups.has(group.key);
           return (
-            <div key={group.key} className="mb-4 last:mb-0">
+            <div key={group.key} className="mb-1 last:mb-0">
               {collapsibleGroups ? (
                 <button
                   type="button"

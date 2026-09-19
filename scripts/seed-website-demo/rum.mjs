@@ -130,6 +130,7 @@ export async function seedRum(api) {
   for (const [index, session] of sessions.slice(0, 24).entries()) {
     const journey = journeys[index % journeys.length];
     await api.post('/rum/replay', {
+      application: session.application,
       session_id: session.session_id,
       seq: 1,
       events: buildRrwebReplay({

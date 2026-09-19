@@ -130,11 +130,8 @@ export async function seedControlPlane(api) {
         'Golden signals for the order, inventory and payment workflow.',
       editable: true,
       defaultDashboard: false,
-      timezone: 'browser',
       schemaVersion: 2,
       version: 1,
-      refresh: '30s',
-      time: { from: 'now-6h', to: 'now' },
       timeSettings: {
         defaultFrom: 'now-6h',
         defaultTo: 'now',

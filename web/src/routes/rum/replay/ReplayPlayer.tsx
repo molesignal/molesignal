@@ -217,7 +217,7 @@ function RrwebReplay({ events }: { events: RrwebEvent[] }) {
         <button
           type="button"
           onClick={toggle}
-          className="grid h-9 w-9 place-items-center rounded-full bg-indigo text-white hover:bg-indigo-soft disabled:opacity-40"
+          className="grid h-9 w-9 place-items-center rounded-full bg-indigo text-white hover:brightness-90 disabled:opacity-40"
           aria-label={playing ? t('session_detail.pause') : t('session_detail.play')}
           aria-keyshortcuts="Space"
           disabled={Boolean(error)}

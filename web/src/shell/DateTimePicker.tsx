@@ -1,4 +1,4 @@
-import { CalendarDays, Clock3 } from 'lucide-react';
+import { CalendarDays } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -120,7 +120,7 @@ export function DateTimePicker({
         })
       }
       className={cn(
-        'flex h-9 w-full min-w-0 items-center gap-2 rounded-md border border-bd-1 bg-bg-2 px-3 text-left font-sans text-sm text-tx-0 transition-colors',
+        'flex h-9 w-full min-w-0 items-center gap-2 rounded-md border border-bd-1 bg-bg-2 px-3 text-left font-sans text-sm font-body text-tx-0 transition-colors',
         'enabled:hover:border-bd-2 enabled:hover:bg-bg-3',
         'disabled:pointer-events-none disabled:cursor-not-allowed disabled:border-bd-0 disabled:bg-bg-3 disabled:text-tx-3 disabled:opacity-100',
         ariaInvalid && 'border-red',
@@ -152,11 +152,11 @@ export function DateTimePicker({
         align="start"
         collisionPadding={12}
         data-slot="date-time-picker-content"
-        className="w-[var(--radix-popover-trigger-width)] min-w-0 max-w-[calc(100vw-24px)] [container-type:inline-size] border-bd-1 bg-bg-1 p-0 text-tx-0 shadow-popup"
+        className="w-[var(--radix-popover-trigger-width)] min-w-0 max-w-[calc(100vw-24px)] [container-type:inline-size] p-0"
       >
         <Calendar
           mode="single"
-          className="w-full"
+          className="w-full bg-transparent pb-1"
           style={
             {
               '--cell-size': 'clamp(1.5rem, 12cqi, 2rem)',
@@ -166,9 +166,7 @@ export function DateTimePicker({
             root: 'w-full',
             months: 'w-full',
             month: 'w-full',
-            month_grid: 'w-full table-fixed',
-            day: 'h-[--cell-size] w-auto aspect-auto',
-            day_button: 'mx-auto size-[--cell-size] min-w-0',
+            month_grid: 'w-full table-fixed border-collapse',
           }}
           selected={draft}
           month={draft}
@@ -187,11 +185,10 @@ export function DateTimePicker({
           onSelect={setDatePart}
         />
 
-        <div className="border-t border-bd-0 px-3 py-3">
-          <div className="mb-2 flex items-center gap-2 font-sans text-xs font-strong text-tx-2">
-            <Clock3 className="h-3.5 w-3.5 text-tx-3" />
-            {t('date_time_picker.time')}
-          </div>
+        <div
+          data-date-time-picker-section="time"
+          className="px-3 pb-2 pt-2"
+        >
           <div
             className={cn(
               'grid items-end gap-2',
@@ -221,7 +218,10 @@ export function DateTimePicker({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-bd-0 bg-bg-2 px-3 py-2.5">
+        <div
+          data-date-time-picker-section="actions"
+          className="flex flex-wrap items-center justify-between gap-2 bg-transparent px-3 pb-3 pt-1"
+        >
           <ChromeButton
             size="sm"
             variant="ghost"
@@ -276,7 +276,7 @@ function TimePartSelect({
         onChange={onChange}
         options={options}
         ariaLabel={label}
-        className="h-8 min-w-0 font-mono text-xs"
+        className="h-8 min-w-0 border-0 bg-[var(--control-surface)] font-sans text-xs font-body shadow-none hover:bg-[var(--floating-item-hover)]"
       />
     </div>
   );

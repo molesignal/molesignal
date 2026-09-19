@@ -57,30 +57,21 @@ test.describe('settings navigation', () => {
     ).toBe('false');
   });
 
-  test('opens the settings navigation as a drawer below desktop width', async ({
+  test('uses the product-wide unsupported interstitial below desktop width', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 900, height: 900 });
     await page.goto('/settings/general');
 
-    const openButton = page.getByRole('button', {
-      name: 'Open settings navigation',
-    });
-    await expect(openButton).toBeVisible();
-    await expect(page.locator('nav[aria-label="Settings"]')).toBeHidden();
-
-    await openButton.click();
-
-    const drawer = page.getByRole('dialog');
-    await expect(drawer).toBeVisible();
     await expect(
-      drawer.getByRole('navigation', { name: 'Settings' }),
+      page.getByRole('heading', {
+        name: 'Molesignal is built for wide screens',
+      }),
     ).toBeVisible();
-    await drawer.getByRole('link', { name: 'General' }).click();
-    await expect(drawer).toBeHidden();
+    await expect(page.locator('nav[aria-label="Settings"]')).toHaveCount(0);
   });
 
-  test('keeps the narrow-screen exception scoped to management routes', async ({
+  test('uses the same narrow-screen contract on investigation routes', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 900, height: 900 });

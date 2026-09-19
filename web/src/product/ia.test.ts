@@ -6,12 +6,23 @@ import zhNav from '@/i18n/zh-cn/nav.json';
 import { getProductNavItems } from './ia';
 
 describe('product navigation', () => {
-  it('keeps the primary analysis workflow in the intended order', () => {
+  it('keeps the primary observation workflow in the intended order', () => {
     expect(
-      getProductNavItems('investigate')
+      getProductNavItems('observe')
         .slice(0, 6)
         .map((item) => item.id),
     ).toEqual(['dashboards', 'metrics', 'logs', 'traces', 'apm', 'rum']);
+  });
+
+  it('keeps the reliability loop and AI operations in dedicated groups', () => {
+    expect(getProductNavItems('reliability').map((item) => item.id)).toEqual([
+      'alerts',
+      'synthetics',
+      'status.pages',
+    ]);
+    expect(getProductNavItems('ai_ops').map((item) => item.id)).toEqual([
+      'agent',
+    ]);
   });
 
   it('uses compact product labels in both locales', () => {

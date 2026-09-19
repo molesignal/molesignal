@@ -306,7 +306,10 @@ export function DashboardFolderManager({
           <div className="grid min-h-[540px] grid-cols-[300px_minmax(0,1fr)]">
             <aside className="min-h-0 border-r border-bd-0 bg-bg-1">
               <div className="flex items-center gap-2 border-b border-bd-0 p-3">
-                <div className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-md border border-bd-1 bg-bg-0 px-3">
+                <div
+                  data-ui="input-control"
+                  className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-md border-0 bg-[var(--control-surface)] px-3 transition-colors hover:bg-bg-3 focus-within:bg-bg-3"
+                >
                   <Search className="h-3.5 w-3.5 shrink-0 text-tx-3" />
                   <input
                     value={search}

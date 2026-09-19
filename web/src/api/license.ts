@@ -6,7 +6,7 @@ export interface LicenseSnapshot {
   expired: boolean;
   issued_to: string;
   features: string[];
-  max_ingest_bytes_per_day: number | null;
+  max_intake_bytes_per_day: number | null;
   expires_at_micros: number | null;
   active_version_id: string | null;
 }

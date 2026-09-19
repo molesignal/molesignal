@@ -13,16 +13,20 @@
   "profiles": "Profiles",
   "dashboards": "仪表盘",
   "alerts": "告警",
-  "intelligence": "AI智能体",
+  "synthetics": "拨测",
+  "synthetics_checks": "检查",
+  "agent": "Mole Agent",
   "saved_views": "保存的视图",
   "streams": "数据流",
   "pipelines": "流水线",
   "functions": "函数",
   "extend_tables": "扩展表",
-  "reports": "报告中心",
+  "reports": "报告",
+  "status_pages": "状态页",
   "datasource": "数据源",
   "iam": "身份与访问",
   "iam_users": "用户",
+  "iam_api_tokens": "API tokens",
   "iam_service_accounts": "服务账号",
   "iam_organizations": "组织",
   "organization_management": "组织管理",
@@ -45,8 +49,11 @@
   "drag_handle": "拖动重排序",
   "groups": {
     "home": "首页",
-    "investigate": "分析",
-    "pipeline": "流水线",
+    "observe": "观察",
+    "reliability": "可靠性",
+    "ai_ops": "AI 运维",
+    "data": "数据",
+    "collaboration": "协作",
     "admin": "管理"
   },
   "breadcrumbs": {
@@ -90,6 +97,7 @@
     "rum_upload_source_maps": "上传 Source maps",
     "alert_incidents": "告警事件",
     "alert_rules": "告警规则",
+    "status_pages": "状态页",
     "alert_rule_new": "新建告警规则",
     "alert_rule_edit": "编辑告警规则",
     "incident_detail": "事件",
@@ -101,7 +109,12 @@
     "profiles_compare": "对比 profile",
     "anomaly_new": "新建异常规则",
     "anomaly_edit": "编辑异常规则",
-    "semantic_groups": "语义分组"
+    "semantic_groups": "语义分组",
+    "synthetics_check_new": "新建检查",
+    "synthetics_check_edit": "编辑检查",
+    "synthetics_check_detail": "检查",
+    "alert_schedules": "值班计划",
+    "alert_schedule_detail": "值班计划"
   },
   "service_graph": "服务图"
 }

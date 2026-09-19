@@ -1,16 +1,22 @@
 ---
 name: review-sql-migrations
-description: Review MoleSignal PostgreSQL migrations and runtime sqlx queries for deployment safety, explicit embedded-migrator registration, tenant isolation, locking, indexes, conflict handling, data compatibility, and bounded results. Use for changes under src/infra/migrations, src/infra/persistence, repository SQL, schema evolution, indexes, backfills, or migration failures.
+description: Review MoleSignal PostgreSQL migrations and runtime sqlx queries for deployment safety, explicit embedded-migrator registration, tenant isolation, locking, indexes, conflict handling, data compatibility, and bounded results. Use for changes under crates/engines/postgres/src/migrations, crates/engines/postgres/src/persistence, repository SQL, schema evolution, indexes, backfills, or migration failures.
 ---
 
 # 审查 SQL Migration 与 sqlx 查询
 
 ## 当前迁移机制
 
-- migration 文件位于 `src/infra/migrations/*.sql`。
-- 文件名格式为 `YYYYMMDDHHMMSS_<short_name>.sql`，版本必须唯一且递增。
+- migration 文件位于 `crates/engines/postgres/src/migrations/*.sql`。
+- 首次发布前只保留 `20260101000001_initial.sql`、
+  `20260101000002_builtin_dashboards.sql` 与
+  `20260101000003_iam_route_catalog.sql` 三个基线文件。
+- 开发期领域 schema、约束与权限折叠进 `initial`；系统 Dashboard 只进入
+  `builtin_dashboards`；Route 与导航访问目录只进入 `iam_route_catalog`。
+- 首次发布后的新文件使用 `YYYYMMDDHHMMSS_<short_name>.sql`，版本必须唯一且递增。
 - 运行时不会扫描目录，也不使用 `sqlx::migrate!`。
-- 每个新文件都必须手工加入 `src/infra/persistence/pool.rs::embedded_migrator()` 的 `include_str!` 列表。
+- 首次发布后的每个新文件都必须手工加入
+  `crates/engines/postgres/src/persistence/pool.rs::embedded_migrator()` 的 `include_str!` 列表。
 - `embedded_migrations_match_files_on_disk` 单测要求磁盘文件与注册列表完全一致。
 - 已发布 migration 视为不可变；通过追加新文件演进 schema。
 - `-- no-transaction` 必须位于文件开头，才会被当前注册 helper 识别为非事务 migration。
@@ -37,7 +43,7 @@ ID 通常是 string-backed `Id`，数据库列使用 `TEXT` 或 `VARCHAR(64)`；
 5. PostgreSQL `BIGINT` 与 Rust `i64` 是否一致；转 `u64` 前是否校验。
 6. JSONB 是否可向前/向后兼容反序列化。
 7. 并发领取任务是否正确使用 advisory lock、`FOR UPDATE` 或 `SKIP LOCKED`。
-8. 错误是否通过 `src/infra/persistence/mod.rs::sqlx_err` 或等价的显式映射处理 `RowNotFound`、`23505` 和其他 DB 错误。
+8. 错误是否通过 `crates/engines/postgres/src/persistence/mod.rs::sqlx_err` 或等价的显式映射处理 `RowNotFound`、`23505` 和其他 DB 错误。
 9. 不要引入依赖在线 `DATABASE_URL` 的 `query_as!`；本项目使用 runtime query API 和本地 `sqlx-shim`。
 
 ## 输出

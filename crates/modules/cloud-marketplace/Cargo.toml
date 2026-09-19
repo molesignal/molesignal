@@ -1,0 +1,15 @@
+[package]
+name = "cloud-marketplace"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+hex.workspace = true
+kernel = { path = "../../core/kernel" }
+parking_lot.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true

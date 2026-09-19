@@ -40,14 +40,18 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import * as homeApi from '@/api/home';
-import * as ingestionApi from '@/api/ingestion';
-import * as rumIngestApi from '@/api/rumIngest';
+import * as intakeApi from '@/api/intake';
+import * as rumIntakeApi from '@/api/rumIntake';
+import { writeClipboardText } from '@/lib/clipboard';
 import { toApiError } from '@/lib/http';
 import { useActionAccess } from '@/product/actionAccess';
 import { ChromeButton, Pill, type PillTone, uiLabelClass } from '@/shell/chrome';
 import { CopyIconButton } from '@/shell/CopyIconButton';
 import { cn } from '@/shell/lib/cn';
-import { PageHeader } from '@/shell/PageHeader';
+import {
+  surfacePageRootClass,
+  SurfacePageHeader,
+} from '@/shell/SurfaceWorkbench';
 import {
   Select,
   SelectContent,
@@ -69,11 +73,11 @@ import {
   type SourceSignalSummary,
 } from './datasourceModel';
 import {
-  type IngestContext,
+  type IntakeContext,
   isValidRumApplicationId,
   substitute,
-  useIngestContext,
-} from './ingestContext';
+  useIntakeContext,
+} from './intakeContext';
 import { ApplicationPanel } from './mobileRum/ApplicationPanel';
 import {
   CATEGORIES,
@@ -84,8 +88,8 @@ import {
   type Source,
 } from './sources';
 import {
-  ingestPathForSignal,
-  isIngestSignal,
+  intakePathForSignal,
+  isIntakeSignal,
 } from '../streams/datasourceLink';
 
 const SIGNAL_TONE: Record<Signal, PillTone> = {
@@ -99,10 +103,10 @@ const SIGNALS: readonly Signal[] = ['logs', 'metrics', 'traces', 'profiles'];
 const METHODS: readonly IntegrationMethod[] = ['all', 'native', 'otel', 'collector', 'api'];
 
 const SIGNAL_FILTER_ON: Record<Signal, string> = {
-  logs: 'border-orange/30 bg-orange-dim text-orange-soft',
-  metrics: 'border-blue/30 bg-blue-dim text-blue-soft',
-  traces: 'border-green/30 bg-green-dim text-green-soft',
-  profiles: 'border-purple/30 bg-purple-dim text-purple-soft',
+  logs: 'bg-orange-dim text-orange-soft',
+  metrics: 'bg-blue-dim text-blue-soft',
+  traces: 'bg-green-dim text-green-soft',
+  profiles: 'bg-purple-dim text-purple-soft',
 };
 
 const SOURCE_ICONS: Record<string, LucideIcon> = {
@@ -121,7 +125,6 @@ const SOURCE_ICONS: Record<string, LucideIcon> = {
   'bulk-ndjson': FileJson,
   opentelemetry: Activity,
   'otel-collector': Router,
-  syslog: RadioTower,
   nginx: ServerCog,
   apache: ServerCog,
   haproxy: Router,
@@ -205,7 +208,7 @@ export function Datasource() {
   const [search, setSearch] = React.useState('');
   const [method, setMethod] = React.useState<IntegrationMethod>('all');
   const signalParam = searchParams.get('signal');
-  const requestedSignal = isIngestSignal(signalParam) ? signalParam : null;
+  const requestedSignal = isIntakeSignal(signalParam) ? signalParam : null;
   const requestedStream = searchParams.get('stream')?.trim() || DEFAULT_STREAM;
   const [signal, setSignal] = React.useState<SignalFilter>(requestedSignal ?? 'all');
   const [verifiedSources, setVerifiedSources] = React.useState<Set<string>>(new Set());
@@ -297,17 +300,22 @@ export function Datasource() {
   }, [overviewQuery, t]);
 
   return (
-    <section className="flex h-[calc(100vh-var(--topbar-h)-var(--contextbar-h,0px))] min-h-0 flex-col overflow-hidden bg-bg-0">
-      <PageHeader
+    <section
+      data-page-appearance="surface"
+      className={cn(
+        'flex h-[calc(100vh-var(--topbar-h)-var(--contextbar-h,0px))] min-h-0 flex-col overflow-hidden',
+        surfacePageRootClass,
+      )}
+    >
+      <SurfacePageHeader
         title={t('datasource_page.title')}
         subtitle={t('datasource_page.subtitle')}
-        className="shrink-0 py-4"
         toolbar={
           <>
             <ChromeButton
               disabled={apiTokensReadAccess.disabled}
               disabledReason={apiTokensReadAccess.reason}
-              onClick={() => navigate('/iam/service-accounts')}
+              onClick={() => navigate('/iam/api-tokens')}
             >
               <KeyRound className="h-3.5 w-3.5" />
               {t('datasource_page.api_tokens')}
@@ -324,9 +332,15 @@ export function Datasource() {
         }
       />
 
-      <div className="shrink-0 border-b border-bd-0 bg-bg-1 px-4 py-3">
+      <div
+        data-datasource-filter-surface
+        className="mx-[20px] mb-[12px] shrink-0 rounded-md bg-[var(--functional-surface)] p-[12px] [box-shadow:var(--shadow-functional-surface)]"
+      >
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <label className="flex h-9 min-w-[260px] flex-1 items-center gap-2 rounded-md border border-bd-1 bg-bg-2 px-3 lg:max-w-[560px]">
+          <label
+            data-ui="input-control"
+            className="flex h-9 min-w-[260px] flex-1 items-center gap-2 rounded-md border-0 bg-[var(--control-surface)] px-3 transition-colors hover:bg-bg-3 focus-within:bg-bg-3 lg:max-w-[560px]"
+          >
             <Search className="h-3.5 w-3.5 shrink-0 text-tx-3" />
             <input
               value={search}
@@ -380,9 +394,12 @@ export function Datasource() {
         </nav>
       </div>
 
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        <aside className="flex w-[280px] shrink-0 flex-col overflow-hidden border-r border-bd-0 bg-bg-1">
-          <div className="border-b border-bd-0 px-3 py-2.5">
+      <div className="flex min-h-0 flex-1 gap-[8px] overflow-hidden px-[20px] pb-[20px]">
+        <aside
+          data-datasource-catalog-surface
+          className="flex w-[280px] shrink-0 flex-col overflow-hidden rounded-md bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]"
+        >
+          <div className="px-3 py-2.5">
             <div className="flex items-center justify-between gap-2">
               <span className={uiLabelClass}>
                 {search
@@ -434,7 +451,10 @@ export function Datasource() {
           </div>
         </aside>
 
-        <main className="min-h-0 min-w-0 flex-1 overflow-auto">
+        <main
+          data-datasource-guide-surface
+          className="min-h-0 min-w-0 flex-1 overflow-auto rounded-md bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]"
+        >
           {selected ? (
             <Guide
               key={`${selected.id}:${signal}:${requestedStream}`}
@@ -477,10 +497,10 @@ function SignalFilterButton({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        'h-6 rounded border px-2 font-sans text-xs font-semibold transition-colors',
+        'h-6 rounded px-2 font-sans text-xs font-semibold transition-colors',
         active && tone && SIGNAL_FILTER_ON[tone],
-        active && !tone && 'border-indigo/30 bg-indigo-dim text-indigo-soft',
-        !active && 'border-bd-0 bg-bg-2 text-tx-3 hover:border-bd-1 hover:text-tx-1',
+        active && !tone && 'bg-indigo-dim text-indigo-soft',
+        !active && 'bg-bg-2 text-tx-3 hover:bg-bg-3 hover:text-tx-1',
       )}
     >
       {children}
@@ -508,10 +528,10 @@ function SourceListItem({
       type="button"
       onClick={onClick}
       className={cn(
-        'group flex w-full items-center gap-2.5 border-b border-bd-0 border-l-2 px-3 py-2.5 text-left',
+        'group mx-2 my-0.5 flex w-[calc(100%_-_16px)] items-center gap-2.5 rounded-md px-3 py-2.5 text-left',
         selected
-          ? 'border-l-indigo bg-indigo-dim/50'
-          : 'border-l-transparent hover:bg-bg-2',
+          ? 'bg-indigo-dim/60'
+          : 'hover:bg-bg-2',
       )}
     >
       <SourceIcon source={source} selected={selected} size="list" />
@@ -591,11 +611,11 @@ function SourceIcon({
   return (
     <span
       className={cn(
-        'grid shrink-0 place-items-center border transition-colors',
+        'grid shrink-0 place-items-center transition-colors',
         hero ? 'h-12 w-12 rounded-lg' : 'h-8 w-8 rounded-md',
         selected
-          ? 'border-indigo/25 bg-indigo-dim text-indigo-soft'
-          : 'border-bd-0 bg-bg-2 text-tx-2 group-hover:border-bd-1 group-hover:text-tx-0',
+          ? 'bg-indigo-dim text-indigo-soft'
+          : 'bg-bg-2 text-tx-2 group-hover:bg-bg-3 group-hover:text-tx-0',
       )}
       aria-hidden="true"
       title={source.name}
@@ -632,7 +652,7 @@ function Guide({
   const [configuredApplicationId, setConfiguredApplicationId] = React.useState(
     initialApplicationId,
   );
-  const context = useIngestContext({
+  const context = useIntakeContext({
     isRum,
     applicationId: configuredApplicationId,
   });
@@ -662,7 +682,7 @@ function Guide({
       const [health, summary] = await Promise.all([
         probeHealth(),
         isRum
-          ? rumIngestApi
+          ? rumIntakeApi
               .recentErrorSummary({
                 orgId: context.orgId,
                 applicationId: context.applicationId,
@@ -701,8 +721,8 @@ function Guide({
   };
 
   return (
-    <div className="mx-auto w-full max-w-[1040px] px-6 py-5">
-      <header className="flex flex-col gap-4 border-b border-bd-0 pb-5 xl:flex-row xl:items-start">
+    <div className="mx-auto w-full max-w-[1040px] space-y-[12px] px-6 py-5">
+      <header className="flex flex-col gap-4 pb-1 xl:flex-row xl:items-start">
         <div className="flex min-w-0 flex-1 items-start gap-3">
           <SourceIcon source={source} selected size="hero" />
           <div className="min-w-0">
@@ -745,7 +765,7 @@ function Guide({
         </div>
       </header>
 
-      <div className="border-b border-bd-0 py-4">
+      <div className="rounded-md bg-[var(--control-surface)] p-[12px]">
         <div className="mb-2 flex items-center justify-between gap-3">
           <span className={uiLabelClass}>{t('datasource_page.setup_progress')}</span>
           <span className="font-mono text-xs font-semibold text-indigo-soft">
@@ -766,12 +786,12 @@ function Guide({
             <div
               key={key}
               className={cn(
-                'flex min-h-11 items-center gap-2.5 rounded-md border px-3',
+                'flex min-h-11 items-center gap-2.5 rounded-md px-3',
                 done
-                  ? 'border-green/25 bg-green-dim text-green-soft'
+                  ? 'bg-green-dim text-green-soft'
                   : index + 1 === currentStep
-                    ? 'border-indigo/30 bg-indigo-dim text-indigo-soft'
-                    : 'border-bd-0 bg-bg-1 text-tx-3',
+                    ? 'bg-indigo-dim text-indigo-soft'
+                    : 'bg-[var(--functional-surface)] text-tx-3',
               )}
             >
               {done ? (
@@ -836,7 +856,7 @@ function Guide({
           {deploymentSteps.map((step, index) => (
             <Step key={`${step.title}-${index}`} index={index + 1} step={step} context={context} />
           ))}
-          <label className="flex cursor-pointer items-start gap-2.5 rounded-md border border-bd-0 bg-bg-1 px-3 py-2.5">
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-md bg-[var(--functional-surface)] px-3 py-2.5">
             <input
               type="checkbox"
               checked={deploymentConfirmed}
@@ -881,7 +901,7 @@ function Guide({
         status={completed ? 'complete' : verified ? 'active' : 'pending'}
       >
         {completed ? (
-          <div className="flex flex-col gap-3 rounded-lg border border-green/30 bg-green-dim px-4 py-4 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-3 rounded-md bg-green-dim px-4 py-4 sm:flex-row sm:items-center">
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-green/15 text-green-soft">
               <Check className="h-4 w-4 stroke-[3]" />
             </span>
@@ -908,7 +928,7 @@ function Guide({
             </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-3 rounded-md border border-bd-0 bg-bg-1 px-4 py-3 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-3 rounded-md bg-[var(--functional-surface)] px-4 py-3 sm:flex-row sm:items-center">
             <div className="min-w-0 flex-1">
               <div className="font-sans text-xs font-strong text-tx-0">
                 {verified
@@ -931,7 +951,7 @@ function Guide({
         )}
       </WizardSection>
 
-      <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-bd-0 py-4 font-sans text-xs text-tx-3">
+      <footer className="flex flex-wrap items-center justify-between gap-2 py-2 font-sans text-xs text-tx-3">
         <span>
           {t('datasource_page.catalogue_meta', {
             category: categoryLabel(source.category),
@@ -964,14 +984,14 @@ const WizardSection = React.forwardRef<
 >(function WizardSection({ number, title, description, status, children }, ref) {
   const { t } = useTranslation('onboarding');
   return (
-    <section ref={ref} className="scroll-mt-4 border-b border-bd-0 py-6">
+    <section ref={ref} className="scroll-mt-4 rounded-md bg-[var(--control-surface)] p-4">
       <div className="mb-4 flex items-start gap-3">
         <span
           className={cn(
-            'grid h-7 w-7 shrink-0 place-items-center rounded-full border font-mono text-xs font-bold',
-            status === 'complete' && 'border-green/30 bg-green-dim text-green-soft',
-            status === 'active' && 'border-indigo/30 bg-indigo-dim text-indigo-soft',
-            status === 'pending' && 'border-bd-1 bg-bg-1 text-tx-3',
+            'grid h-7 w-7 shrink-0 place-items-center rounded-full font-mono text-xs font-bold',
+            status === 'complete' && 'bg-green-dim text-green-soft',
+            status === 'active' && 'bg-indigo-dim text-indigo-soft',
+            status === 'pending' && 'bg-bg-2 text-tx-3',
           )}
         >
           {status === 'complete' ? <Check className="h-3.5 w-3.5 stroke-[3]" /> : number}
@@ -1009,18 +1029,18 @@ function endpointForSource(
     return '/api/v1/rum/errors';
   }
   if (signal && source.signals.includes(signal)) {
-    return ingestPathForSignal(signal, streamName);
+    return intakePathForSignal(signal, streamName);
   }
   if (source.signals.includes('profiles')) {
-    return ingestPathForSignal('profiles', streamName);
+    return intakePathForSignal('profiles', streamName);
   }
   if (source.signals.includes('traces')) {
-    return ingestPathForSignal('traces', streamName);
+    return intakePathForSignal('traces', streamName);
   }
   if (source.signals.includes('metrics')) {
-    return ingestPathForSignal('metrics', streamName);
+    return intakePathForSignal('metrics', streamName);
   }
-  return ingestPathForSignal('logs', streamName);
+  return intakePathForSignal('logs', streamName);
 }
 
 function categoryLabel(category: Category): string {
@@ -1032,7 +1052,7 @@ function EndpointPanel({ endpoint }: { endpoint: string }) {
   const [copied, setCopied] = React.useState(false);
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(endpoint);
+      await writeClipboardText(endpoint);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -1040,7 +1060,7 @@ function EndpointPanel({ endpoint }: { endpoint: string }) {
     }
   };
   return (
-    <div className="min-w-0 rounded-md border border-bd-0 bg-bg-1 p-3">
+    <div className="min-w-0 rounded-md bg-[var(--functional-surface)] p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className={uiLabelClass}>{t('datasource.endpoint')}</span>
         <span className="font-sans text-xs text-green-soft">
@@ -1048,7 +1068,10 @@ function EndpointPanel({ endpoint }: { endpoint: string }) {
         </span>
       </div>
       <div className="flex min-w-0 items-center gap-2">
-        <code className="min-w-0 flex-1 truncate rounded border border-bd-0 bg-bg-2 px-2.5 py-2 font-mono text-xs text-tx-1">
+        <code
+          data-ui="read-only-control"
+          className="min-w-0 flex-1 truncate rounded border-0 bg-[var(--control-surface)] px-2.5 py-2 font-mono text-xs text-tx-1"
+        >
           {endpoint}
         </code>
         <CopyIconButton
@@ -1072,7 +1095,7 @@ function Step({
 }: {
   index: number;
   step: GuideStep;
-  context: IngestContext;
+  context: IntakeContext;
 }) {
   const title = step.title.replace(/^\s*\d+[.)、]\s*/, '');
   return (
@@ -1097,7 +1120,7 @@ function Step({
         </div>
       )}
       {step.note && (
-        <div className="ml-6 mt-2 flex items-start gap-2 rounded-md border border-yellow/30 bg-yellow-dim p-2.5 font-sans text-xs text-yellow-soft">
+        <div className="ml-6 mt-2 flex items-start gap-2 rounded-md bg-yellow-dim p-2.5 font-sans text-xs text-yellow-soft">
           <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>{step.note}</span>
         </div>
@@ -1118,7 +1141,7 @@ function ValidationPanel({
   validation: ValidationState;
   passiveSummary: SourceSignalSummary;
   verificationSteps: GuideStep[];
-  context: IngestContext;
+  context: IntakeContext;
   onValidate: () => void;
 }) {
   const { t, i18n } = useTranslation('onboarding');
@@ -1140,14 +1163,14 @@ function ValidationPanel({
           : 'idle';
 
   return (
-    <div className="min-w-0 overflow-hidden rounded-lg border border-bd-0 bg-bg-1">
+    <div className="min-w-0 space-y-2 overflow-hidden rounded-md bg-[var(--functional-surface)] p-3">
       <div
         className={cn(
-          'flex flex-col gap-3 border-b px-4 py-3 sm:flex-row sm:items-center',
-          status === 'success' && 'border-green/25 bg-green-dim',
-          status === 'warning' && 'border-yellow/25 bg-yellow-dim',
-          status === 'error' && 'border-red/25 bg-red-dim',
-          status === 'idle' && 'border-bd-0',
+          'flex flex-col gap-3 rounded-md px-4 py-3 sm:flex-row sm:items-center',
+          status === 'success' && 'bg-green-dim',
+          status === 'warning' && 'bg-yellow-dim',
+          status === 'error' && 'bg-red-dim',
+          status === 'idle' && 'bg-[var(--control-surface)]',
         )}
       >
         <div className="min-w-0 flex-1">
@@ -1192,7 +1215,7 @@ function ValidationPanel({
         </ChromeButton>
       </div>
 
-      <dl className="grid divide-y divide-bd-0 sm:grid-cols-2 sm:divide-x sm:divide-y-0 xl:grid-cols-4">
+      <dl className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         <ValidationMetric
           icon={Gauge}
           label={t('datasource_page.validation_metrics.receiver')}
@@ -1242,7 +1265,7 @@ function ValidationPanel({
       </dl>
 
       {(status === 'warning' || status === 'error') && (
-        <div className="border-t border-bd-0 px-4 py-3">
+        <div className="rounded-md bg-[var(--control-surface)] px-4 py-3">
           <div className={uiLabelClass}>{t('datasource_page.possible_causes')}</div>
           <ul className="mt-2 space-y-1.5 pl-4 font-sans text-xs leading-relaxed text-tx-2">
             <li>{t('datasource_page.cause_collector')}</li>
@@ -1256,7 +1279,7 @@ function ValidationPanel({
       )}
 
       {verificationSteps.length > 0 && (
-        <div className="border-t border-bd-0 px-4 py-3">
+        <div className="rounded-md bg-[var(--control-surface)] px-4 py-3">
           <div className={uiLabelClass}>{t('datasource_page.troubleshooting_command')}</div>
           <div className="mt-2 flex min-w-0 flex-col gap-3">
             {verificationSteps.map((step, index) => (
@@ -1271,7 +1294,7 @@ function ValidationPanel({
         </div>
       )}
 
-      <div className="border-t border-bd-0 px-4 py-2.5 font-sans text-xs leading-relaxed text-tx-3">
+      <div className="px-4 py-2.5 font-sans text-xs leading-relaxed text-tx-3">
         {t('datasource_page.receiver_scope_note')}
       </div>
     </div>
@@ -1290,7 +1313,7 @@ function ValidationMetric({
   tone?: 'neutral' | 'green' | 'red';
 }) {
   return (
-    <div className="min-w-0 px-4 py-3">
+    <div className="min-w-0 rounded-md bg-[var(--control-surface)] px-4 py-3">
       <dt className="flex items-center gap-1.5 font-sans text-xs text-tx-3">
         <Icon className="h-3.5 w-3.5" />
         {label}
@@ -1331,7 +1354,7 @@ function TestEventButton({
   context,
 }: {
   source: Source;
-  context: IngestContext;
+  context: IntakeContext;
 }) {
   const { t } = useTranslation('onboarding');
   const supportedSignals = source.signals.filter((signal) => signal !== 'profiles');
@@ -1390,10 +1413,10 @@ function TestEventButton({
 
 async function sendTestEvent(
   source: Source,
-  context: IngestContext,
-): Promise<ingestionApi.IngestResult> {
+  context: IntakeContext,
+): Promise<intakeApi.IntakeResult> {
   if (source.rumPlatform) {
-    return rumIngestApi.sendTestError({
+    return rumIntakeApi.sendTestError({
       token: context.token,
       applicationId: context.applicationId,
       platform: source.rumPlatform,
@@ -1405,15 +1428,15 @@ async function sendTestEvent(
   );
   const calls = signals.map((signal) => {
     if (signal === 'traces') {
-      return ingestionApi.ingestTraces(DEFAULT_STREAM, [testTraceEvent(source)]);
+      return intakeApi.intakeTraces(DEFAULT_STREAM, [testTraceEvent(source)]);
     }
     if (signal === 'metrics') {
-      return ingestionApi.ingestMetrics(DEFAULT_STREAM, [testMetricEvent(source)]);
+      return intakeApi.intakeMetrics(DEFAULT_STREAM, [testMetricEvent(source)]);
     }
-    return ingestionApi.ingestLogs(DEFAULT_STREAM, [testLogEvent(source)]);
+    return intakeApi.intakeLogs(DEFAULT_STREAM, [testLogEvent(source)]);
   });
   const results = await Promise.all(calls);
-  return results.reduce<ingestionApi.IngestResult>(
+  return results.reduce<intakeApi.IntakeResult>(
     (accumulator, result) => ({
       accepted: accumulator.accepted + result.accepted,
       rejected: accumulator.rejected + result.rejected,
@@ -1461,7 +1484,7 @@ function testLogEvent(source: Source): Record<string, unknown> {
 }
 
 function rumSourceSummary(
-  receipt: rumIngestApi.RumReceiptSummary = {
+  receipt: rumIntakeApi.RumReceiptSummary = {
     rows: 0,
     lastReceivedAtMicros: null,
   },

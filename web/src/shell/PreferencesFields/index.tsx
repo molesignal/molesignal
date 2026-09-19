@@ -117,8 +117,8 @@ export function PreferencesFields({
       t('preferences.values.home_alerts'),
     ),
     homeOption(
-      '/intelligence/chat',
-      t('preferences.values.home_intelligence'),
+      '/agent/chat',
+      t('preferences.values.home_agent'),
     ),
   ];
   const canReadDashboards = hasPermission('dashboards.read', access);
@@ -428,7 +428,7 @@ function PreferenceRow({
       className={cn(
         'min-h-[52px]',
         surface === 'page'
-          ? 'grid grid-cols-1 items-start gap-3 min-[1100px]:grid-cols-[260px_minmax(420px,1fr)] min-[1100px]:gap-8'
+          ? 'grid grid-cols-1 items-start gap-3 min-[1100px]:grid-cols-[minmax(220px,280px)_minmax(420px,1fr)] min-[1100px]:gap-8'
           : 'grid grid-cols-1 gap-2 sm:grid-cols-[minmax(150px,1fr)_minmax(240px,320px)] sm:items-center sm:gap-6',
       )}
     >

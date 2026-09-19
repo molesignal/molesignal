@@ -94,6 +94,7 @@ export function ApmDependencies() {
               )}
             </Section>
             <CursorPagination
+              className="border-t-0 bg-transparent"
               pageSize={pagination.pageSize}
               pageSizeOptions={[20, 50, 100]}
               hasPrevious={Boolean(query.data.previous_cursor)}

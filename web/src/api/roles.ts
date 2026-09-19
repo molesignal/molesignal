@@ -6,6 +6,7 @@ export type { PermissionKey } from '@/product/permissions';
 export interface RoleUsage {
   memberships: number;
   api_tokens: number;
+  service_accounts: number;
   invitations: number;
   bindings: number;
   total: number;

@@ -319,7 +319,7 @@ export function Profiles() {
 
   const toolbar = (
     <div className="flex items-center gap-2">
-      <TimeRangeChip />
+      <TimeRangeChip className="border-0" />
       <Button size="sm" onClick={() => navigate('/profiles/compare')}>
         <GitCompare className="h-3.5 w-3.5" /> {t('compare.title')}
       </Button>
@@ -336,15 +336,16 @@ export function Profiles() {
   return (
     <>
       <ListPage
+        appearance="surface"
         title={t('title')}
         subtitle={t('subtitle') as string}
         toolbar={toolbar}
         state={listState ?? emptyState}
       >
-        <div className="space-y-4">
+        <div className="space-y-[12px]">
           {traceId && (
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-2 rounded-md border border-bd-1 bg-bg-2 px-2.5 py-1 font-sans text-xs text-tx-1">
+              <span className="inline-flex items-center gap-2 rounded-md bg-[var(--control-surface)] px-2.5 py-1 font-sans text-xs text-tx-1">
                 {t('detail.metadata.trace')}:{' '}
                 <code className="font-mono">{traceId.slice(0, 16)}</code>
                 {spanId && (
@@ -393,7 +394,7 @@ export function Profiles() {
 
           <section
             aria-label={t('analysis.workspace_aria')}
-            className="overflow-hidden rounded-md border border-bd-0 bg-bg-1"
+            className="overflow-hidden rounded-md bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]"
           >
             {noSelection ? (
               <QueryState
@@ -510,7 +511,7 @@ function ProfileFilterBar({
   return (
     <section
       aria-label={t('analysis.filter_bar_aria')}
-      className="flex min-w-0 flex-wrap items-end gap-3 rounded-md border border-bd-0 bg-bg-1 px-4 py-3"
+      className="flex min-w-0 flex-wrap items-end gap-3 rounded-md bg-[var(--functional-surface)] px-4 py-3 [box-shadow:var(--shadow-functional-surface)]"
     >
       <FilterControl label={t('filters.service')}>
         <ServiceSelect
@@ -590,8 +591,8 @@ function ProfileAnalysisSummary({
 }) {
   const { t } = useTranslation('profiles');
   return (
-    <section className="overflow-hidden rounded-md border border-bd-0 bg-bg-1">
-      <dl className="grid sm:grid-cols-2 xl:grid-cols-4">
+    <section className="overflow-hidden rounded-md bg-[var(--functional-surface)] p-[12px] [box-shadow:var(--shadow-functional-surface)]">
+      <dl className="grid gap-[8px] sm:grid-cols-2 xl:grid-cols-4">
         <SummaryMetric
           icon={Activity}
           iconClassName="text-orange-soft"
@@ -628,7 +629,7 @@ function ProfileAnalysisSummary({
         type="button"
         disabled={!hotFunction}
         onClick={() => hotFunction && onSelectHotFunction(hotFunction.name)}
-        className="grid min-h-12 w-full grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3 border-t border-bd-0 px-4 py-2.5 text-left font-sans text-xs hover:bg-bg-2 disabled:cursor-default disabled:hover:bg-transparent"
+        className="mt-[8px] grid min-h-12 w-full grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3 rounded-md bg-[var(--control-surface)] px-4 py-2.5 text-left font-sans text-xs hover:bg-bg-3 disabled:cursor-default disabled:hover:bg-[var(--control-surface)]"
       >
         <Flame className="h-4 w-4 text-orange-soft" />
         <span className="min-w-0">
@@ -673,8 +674,8 @@ function SummaryMetric({
   sub: string;
 }) {
   return (
-    <div className="flex min-w-0 gap-3 border-b border-bd-0 px-4 py-3 last:border-b-0 sm:[&:nth-last-child(-n+2)]:border-b-0 xl:border-b-0 xl:border-r xl:last:border-r-0">
-      <div className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-md border border-bd-0 bg-bg-2">
+    <div className="flex min-w-0 gap-3 rounded-md bg-[var(--control-surface)] px-4 py-3">
+      <div className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-md bg-[var(--functional-surface)]">
         <Icon className={cn('h-4 w-4', iconClassName)} />
       </div>
       <div className="min-w-0">
@@ -704,11 +705,11 @@ function ProfileSelectionPanel({
   const { t } = useTranslation('profiles');
   const [expanded, setExpanded] = React.useState(false);
   return (
-    <section className="overflow-hidden rounded-md border border-bd-0 bg-bg-1">
+    <section className="overflow-hidden rounded-md bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]">
       <button
         type="button"
         onClick={() => setExpanded((value) => !value)}
-        className="flex min-h-12 w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-bg-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo"
+        className="flex min-h-12 w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-bg-2 focus-visible:bg-bg-2"
         aria-expanded={expanded}
       >
         {expanded ? (
@@ -731,8 +732,8 @@ function ProfileSelectionPanel({
       </button>
 
       {expanded && (
-        <div className="border-t border-bd-0">
-          <div className="border-b border-bd-0 bg-bg-2 px-4 py-2 font-sans text-xs text-tx-2">
+        <div>
+          <div className="bg-[var(--control-surface)] px-4 py-2 font-sans text-xs text-tx-2">
             {t('selection.description')}
           </div>
           <div className="max-h-[360px] overflow-auto">

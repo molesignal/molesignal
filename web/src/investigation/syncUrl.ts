@@ -1,7 +1,8 @@
 import * as React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-import { encodeStack } from '@/shell/UrlHydration';
+import { encodeFilters, encodeStack } from '@/shell/UrlHydration';
+import { useFiltersStore } from '@/stores/useFiltersStore';
 import { useInvestigationStack } from '@/stores/useInvestigationStack';
 import { useTimeStore } from '@/stores/useTimeStore';
 
@@ -17,6 +18,7 @@ export function useSyncStateToUrl() {
   const location = useLocation();
   const navigate = useNavigate();
   const frames = useInvestigationStack((s) => s.frames);
+  const filters = useFiltersStore((s) => s.filters);
   const window = useTimeStore((s) => s.window);
   const anchor = useTimeStore((s) => s.anchor);
 
@@ -39,6 +41,9 @@ export function useSyncStateToUrl() {
       } else {
         next.set('stack', encodeStack(frames));
       }
+      // pinned filters
+      if (filters.length === 0) next.delete('filters');
+      else next.set('filters', encodeFilters(filters));
       const search = next.size > 0 ? `?${next}` : '';
       if (search === location.search) return;
       navigate(
@@ -51,5 +56,5 @@ export function useSyncStateToUrl() {
       );
     }, 80);
     return () => globalThis.clearTimeout(handle);
-  }, [anchor, frames, location.hash, location.pathname, location.search, navigate, window]);
+  }, [anchor, filters, frames, location.hash, location.pathname, location.search, navigate, window]);
 }

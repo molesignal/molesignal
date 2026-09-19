@@ -43,6 +43,7 @@ export function TracePagination({ model }: { model: TracePaginationModel }) {
         onPrevious={model.onPrevious}
         onNext={model.onNext}
         onPageSizeChange={model.onPageSizeChange}
+        className="border-t-0 bg-transparent"
       />
     );
   }
@@ -65,6 +66,7 @@ export function TracePagination({ model }: { model: TracePaginationModel }) {
       lastAriaLabel={t('explore.pagination.last_aria')}
       onPageChange={model.onPageChange}
       onPageSizeChange={model.onPageSizeChange}
+      className="border-t-0 bg-transparent"
     />
   );
 }

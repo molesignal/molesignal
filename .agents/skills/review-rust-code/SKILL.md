@@ -9,10 +9,10 @@ description: Review MoleSignal Rust diffs, pull requests, or working-tree change
 
 ## 当前项目背景
 
-- 后端是根 package `molesignal` 的单 crate，源码位于 `src/`。
-- 唯一子 crate 是 `src/sqlx-shim`，用于提供受控的 `sqlx` facade。
-- 逻辑分层为 `shared`、`domain`、`app`、`infra`、`api`、`bootstrap`。
-- integration test 位于根 `tests/`，很多 Docker 测试受 `MS_RUN_IT=1` 控制。
+- 后端是 virtual workspace；最终 package 位于 `bin/`，库位于分类后的 `crates/`，开发工具位于 `tools/`。
+- `crates/support/sqlx-shim` 提供受控的 `sqlx` facade。
+- 核心分类为 `core`、`engines`、`modules`、`transport`、`support`；应用 composition root 是 `bin/molesignal`。
+- integration test 位于 `bin/molesignal/tests/`，很多 Docker 测试受 `MS_RUN_IT=1` 控制。
 
 ## 审查流程
 
@@ -30,7 +30,7 @@ description: Review MoleSignal Rust diffs, pull requests, or working-tree change
 - 租户：`org_id` / `organization_id` 从入口贯穿 SQL、缓存、对象路径和事件。
 - License：商业能力在入口或 worker 周期边界调用 `LicenseGate::has_feature`。
 - Async：不持有同步锁跨 `.await`，不在热路径引入阻塞 IO 或无界并发。
-- 性能：ingest/query 热路径避免逐条 `format!`、JSON 序列化、大对象 clone 或高频日志。
+- 性能：intake/query 热路径避免逐条 `format!`、JSON 序列化、大对象 clone 或高频日志。
 - 可观测性：使用结构化 `tracing`，不记录 token、密钥、签名包或敏感原文。
 - 时间：内部统一微秒，外部协议单位在 `api` 边界转换。
 - 产物：proto 生成结果、migration 注册、SPDX 头和必要测试是否同步。

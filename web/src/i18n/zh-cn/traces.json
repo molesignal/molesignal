@@ -125,6 +125,14 @@
       "close_summary": "关闭链路详情",
       "summary_drawer_aria": "链路详情面板"
     },
+    "recovery": {
+      "query_failed": "链路查询失败",
+      "no_data_title": "没有匹配的链路",
+      "no_data_description": "当前时间范围内没有找到关联链路。可先清空查询或扩大时间范围，再考虑更换数据流。",
+      "expand_time": "扩大时间范围 4 倍",
+      "clear_filters": "清空查询并重试",
+      "query_docs": "链路查询文档"
+    },
     "sort": {
       "aria": "链路排序",
       "latest": "最新优先",
@@ -161,8 +169,12 @@
       "resize": "拖动调整字段宽度，双击恢复默认宽度",
       "filter_placeholder": "搜索字段",
       "filter_aria": "过滤链路字段",
-      "common_fields": "常用字段",
-      "other_fields": "其他字段",
+      "core_fields": "核心字段",
+      "attributes": "属性",
+      "show_field_aria": "显示 {{name}}",
+      "hide_field_aria": "隐藏 {{name}}",
+      "add_field_aria": "把 {{name}} 加入查询",
+      "no_top_values": "当前结果中没有可统计的值。",
       "json_query_required": "{{name}} 需要在 SQL 模式中使用 JSON 路径查询",
       "direct_query_unavailable": "{{name}} 不能直接查询",
       "fields_summary": "{{shown}} / {{total}} 字段"

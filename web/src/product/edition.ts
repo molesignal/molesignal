@@ -10,7 +10,7 @@ import type { PermissionKey } from '@/product/permissions';
 export type DeploymentMode = 'oss' | 'pro' | 'saas';
 export type TrialState = 'none' | 'active' | 'expired';
 export type FeatureKey =
-  | 'intelligence'
+  | 'agent'
   | 'domain-management'
   | 'federated-search'
   | 'saas-billing'
@@ -60,12 +60,12 @@ export interface FeatureGateResult {
 }
 
 export const FEATURE_DEFINITIONS: Record<FeatureKey, FeatureDefinition> = {
-  intelligence: {
-    key: 'intelligence',
-    labelKey: 'features.intelligence',
-    licenseFeature: 'intelligence',
+  agent: {
+    key: 'agent',
+    labelKey: 'features.agent',
+    licenseFeature: 'agent',
     deployments: ['pro', 'saas'],
-    requiredPermission: 'intelligence.manage',
+    requiredPermission: 'agent.manage',
     trialAvailable: true,
   },
   'domain-management': {

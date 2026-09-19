@@ -4,11 +4,9 @@ import * as React from 'react';
 import { cn } from '@/shell/lib/cn';
 
 /**
- * LoadingState — brief Principle "Empty/Error/Loading 都是头等公民".
- *
- * Skeletons match the real layout (not a generic shimmer of rectangles).
+ * LoadingState skeletons match the real layout.
  * After 3 seconds the strip surfaces an `elapsed` timer plus a Cancel
- * button. SREs at 3am don't want a spinner that lies to them.
+ * button, giving operators concrete progress feedback.
  *
  * `prefers-reduced-motion` is honored by tokens.css — the pulse becomes
  * a static state, the timer continues to tick.

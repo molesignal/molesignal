@@ -75,7 +75,10 @@ export function MetricCatalogPanel({
         </DialogHeader>
 
         <div className="border-b border-bd-0 p-4">
-          <div className="flex h-11 items-center gap-2 rounded-md border border-bd-1 bg-bg-1 px-3 font-sans text-xs">
+          <div
+            data-ui="input-control"
+            className="flex h-11 items-center gap-2 rounded-md border-0 bg-[var(--control-surface)] px-3 font-sans text-xs transition-colors hover:bg-bg-3 focus-within:bg-bg-3"
+          >
             <Search className="h-3.5 w-3.5 text-tx-3" aria-hidden="true" />
             <input
               autoFocus

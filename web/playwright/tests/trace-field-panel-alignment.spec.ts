@@ -67,7 +67,26 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/api/v1/web/traces**', (route) =>
     route.fulfill({
       json: {
-        items: [],
+        items: [
+          {
+            trace_id: 'trace-1',
+            service: 'checkout-api',
+            operation: 'POST /api/orders',
+            start_ns: 1_786_704_600_000_000_000,
+            duration_ms: 442,
+            span_count: 11,
+            error_count: 0,
+          },
+          {
+            trace_id: 'trace-2',
+            service: 'checkout-api',
+            operation: 'POST /api/orders',
+            start_ns: 1_786_704_599_000_000_000,
+            duration_ms: 2450,
+            span_count: 12,
+            error_count: 6,
+          },
+        ],
         next_cursor: null,
         previous_cursor: null,
         has_more: false,
@@ -76,38 +95,28 @@ test.beforeEach(async ({ page }) => {
   );
 });
 
-test('aligns trace field controls without an empty leading action slot', async ({ page }) => {
+test('matches log field rows and expands values without a redundant header', async ({ page }) => {
   await page.goto('/traces');
 
   const panel = page.locator('aside[data-variant="utility"]');
-  const rootAdd = panel.getByRole('button', { name: 'Add scope to query' });
-  const rootLabel = panel.getByText('scope', { exact: true });
-  const namespaceToggle = panel.getByRole('button', { name: 'Expand molesignal' });
-  const namespaceLabel = namespaceToggle.getByText('molesignal', { exact: true });
+  await expect(panel.getByText('Core fields', { exact: true })).toBeVisible();
+  await expect(panel.getByText('Attributes', { exact: true })).toBeVisible();
+  await expect(panel.getByText('Resource attributes', { exact: true })).toHaveCount(0);
+  await expect(panel.locator('[data-trace-field="service.name"]')).toBeVisible();
 
-  await rootAdd.scrollIntoViewIfNeeded();
-  await expect(rootAdd).toBeVisible();
-  await expect(namespaceToggle).toBeVisible();
+  const fieldRow = panel.locator('[data-trace-field="trace_id"]');
+  const label = fieldRow.getByText('trace_id', { exact: true });
+  const add = fieldRow.getByRole('button', { name: 'Add trace_id to query' });
+  await fieldRow.hover();
+  const [labelBox, addBox] = await Promise.all([boundingBox(label), boundingBox(add)]);
+  expect(addBox.x).toBeGreaterThan(labelBox.x + labelBox.width);
 
-  const [panelBox, rootAddBox, rootLabelBox, namespaceLabelBox] = await Promise.all([
-    boundingBox(panel),
-    boundingBox(rootAdd),
-    boundingBox(rootLabel),
-    boundingBox(namespaceLabel),
-  ]);
-
-  expect(rootAddBox.x - panelBox.x).toBeLessThanOrEqual(12);
-  expect(Math.abs(rootLabelBox.x - namespaceLabelBox.x)).toBeLessThanOrEqual(1);
-
-  await namespaceToggle.click();
-  const nestedAdd = panel.getByRole('button', {
-    name: 'Add molesignal.compaction.level to query',
-  });
-  await expect(nestedAdd).toBeVisible();
-  const nestedAddBox = await boundingBox(nestedAdd);
-
-  expect(nestedAddBox.x - rootAddBox.x).toBeGreaterThanOrEqual(11);
-  expect(nestedAddBox.x - rootAddBox.x).toBeLessThanOrEqual(15);
+  await fieldRow.locator('button').first().click();
+  const values = panel.locator('[data-trace-field-values="trace_id"]');
+  await expect(values.getByText('trace-1', { exact: true })).toBeVisible();
+  await expect(values.getByText('trace-2', { exact: true })).toBeVisible();
+  await expect(values.getByText('Top values', { exact: true })).toHaveCount(0);
+  await expect(values.getByText('Count', { exact: true })).toHaveCount(0);
 });
 
 test('drags the field panel in both directions and clamps its maximum width', async ({ page }) => {
@@ -135,9 +144,82 @@ test('drags the field panel in both directions and clamps its maximum width', as
   await expect(separator).toHaveAttribute('aria-valuenow', '480');
 
   await dragTo(0);
-  expect((await boundingBox(panel)).width).toBe(240);
-  await expect(separator).toHaveAttribute('aria-valuenow', '240');
+  expect((await boundingBox(panel)).width).toBe(260);
+  await expect(separator).toHaveAttribute('aria-valuenow', '260');
 
   await separator.dblclick();
-  expect((await boundingBox(panel)).width).toBe(240);
+  expect((await boundingBox(panel)).width).toBe(260);
+});
+
+test('uses canvas gutters and surface depth for the trace workbench hierarchy', async ({ page }) => {
+  await page.goto('/traces');
+
+  const shell = page.locator('[data-shell-layout="surface-workbench"]');
+  const topbar = page.getByRole('banner');
+  const sidebar = page.getByTestId('primary-sidebar');
+  const canvas = page.locator('[data-workspace="traces"]');
+  const pageHeader = page.getByTestId('page-header');
+  const querySurface = page.locator('[data-query-workbench-appearance="surface"]');
+  const workspace = page.locator('[data-trace-workspace-layout="surface-grid"]');
+  const fieldPanel = page.locator('aside[data-variant="utility"]');
+  const results = page.locator('[data-workspace-pane="trace-results"]');
+  const detail = page.locator('[data-workspace-pane="trace-detail"]');
+  const pagination = results.getByRole('navigation');
+  const primaryTabs = querySurface.locator('[data-query-tab-selection="underline"]');
+  const activeTab = primaryTabs.getByRole('tab', { name: /Spans/ });
+  const syntaxHelp = querySurface.getByRole('button', { name: /query syntax reference/i });
+  const timeRange = querySurface.getByRole('button', { name: /^Time range:/ });
+
+  await expect(shell).toBeVisible();
+  await expect(querySurface).toBeVisible();
+  await expect(pageHeader.getByTestId('page-header-module-icon')).toBeVisible();
+  await expect(topbar).toHaveCSS('border-bottom-width', '0px');
+  await expect(sidebar).toHaveCSS('border-right-width', '0px');
+  await expect(pageHeader).toHaveCSS('border-bottom-width', '0px');
+  await expect(pagination).toHaveCSS('border-top-width', '0px');
+  await expect(syntaxHelp).toHaveCSS('border-width', '0px');
+  await expect(timeRange).toHaveCSS('border-width', '0px');
+  await expect(activeTab).toHaveAttribute('aria-selected', 'true');
+  expect(
+    await activeTab.evaluate(
+      (element) => getComputedStyle(element, '::after').height,
+    ),
+  ).toBe('2px');
+  expect(
+    await activeTab.evaluate(
+      (element) => getComputedStyle(element, '::after').backgroundColor,
+    ),
+  ).not.toBe('rgba(0, 0, 0, 0)');
+  expect(await workspace.evaluate((element) => getComputedStyle(element).gap)).toBe('8px');
+  expect((await boundingBox(fieldPanel)).width).toBe(260);
+  expect((await boundingBox(results)).width).toBe(380);
+
+  const [canvasBox, headerBox, queryBox] = await Promise.all([
+    boundingBox(canvas),
+    boundingBox(pageHeader),
+    boundingBox(querySurface),
+  ]);
+  const titleTopGap = headerBox.y - canvasBox.y;
+  const titleBottomGap = queryBox.y - headerBox.y - headerBox.height;
+  expect(titleTopGap).toBe(12);
+  expect(titleBottomGap).toBe(titleTopGap);
+
+  const surfaceBackgrounds = await Promise.all(
+    [querySurface, fieldPanel, results, detail].map((locator) =>
+      locator.evaluate((element) => getComputedStyle(element).backgroundColor),
+    ),
+  );
+  expect(new Set(surfaceBackgrounds).size).toBe(1);
+  expect(
+    await canvas.evaluate((element) => getComputedStyle(element).backgroundColor),
+  ).not.toBe(surfaceBackgrounds[0]);
+  await expect(querySurface).not.toHaveCSS('box-shadow', 'none');
+
+  const traceHeaderHeight = headerBox.height;
+  await page.goto('/logs');
+  const logHeader = page.getByTestId('page-header');
+  await expect(logHeader).toBeVisible();
+  expect(
+    Math.abs((await boundingBox(logHeader)).height - traceHeaderHeight),
+  ).toBeLessThanOrEqual(1);
 });

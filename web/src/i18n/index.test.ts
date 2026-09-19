@@ -23,8 +23,8 @@ describe('i18n', () => {
     expect(i18n.t('settings-admin:subtitle')).toBe(
       'Manage organization, security, data plane, and automation capabilities.',
     );
-    expect(i18n.t('settings-admin:license.labels.max_ingest_bytes_per_day')).toBe(
-      'Max ingest per day (bytes)',
+    expect(i18n.t('settings-admin:license.labels.max_intake_bytes_per_day')).toBe(
+      'Max intake per day (bytes)',
     );
     expect(i18n.t('iam:users.toast_removed')).toBe(
       'Member removed from the current workspace',
@@ -55,7 +55,7 @@ describe('i18n', () => {
     expect(i18n.t('settings-admin:license.labels.expired')).toBe('已过期');
     expect(i18n.t('settings-admin:license.labels.issued_to')).toBe('授权对象');
     expect(i18n.t('settings-admin:license.labels.features')).toBe('功能');
-    expect(i18n.t('settings-admin:license.labels.max_ingest_bytes_per_day')).toBe(
+    expect(i18n.t('settings-admin:license.labels.max_intake_bytes_per_day')).toBe(
       '每日最大写入量（字节）',
     );
     expect(i18n.t('settings-admin:license.labels.expires_at')).toBe('到期时间');
@@ -64,7 +64,7 @@ describe('i18n', () => {
   });
 });
 
-/* ─── completeness + en-us ↔ zh-cn parity (P2-T4) ─────────────────────────── */
+/* ─── completeness + en-us ↔ zh-cn consistency ───────────────────────────── */
 
 type Bundle = Record<string, unknown>;
 
@@ -101,7 +101,29 @@ function leafValue(bundle: Bundle, dottedKey: string): unknown {
   }, bundle);
 }
 
-describe('i18n resource parity', () => {
+describe('builtin tool catalog translations', () => {
+  const enCatalog = leafValue(EN.agent ?? {}, 'tools') as Bundle;
+  const zhCatalog = leafValue(ZH.agent ?? {}, 'tools') as Bundle;
+
+  it('contains complete localized metadata for all builtin tools', () => {
+    expect(Object.keys(enCatalog)).toHaveLength(190);
+    expect(Object.keys(zhCatalog).sort()).toEqual(Object.keys(enCatalog).sort());
+
+    for (const [name, metadata] of Object.entries(enCatalog)) {
+      expect(name).toMatch(/^[a-z][a-z0-9_]*$/);
+      expect(metadata).toMatchObject({
+        title: expect.any(String),
+        description: expect.any(String),
+      });
+      expect(zhCatalog[name]).toMatchObject({
+        title: expect.any(String),
+        description: expect.any(String),
+      });
+    }
+  });
+});
+
+describe('i18n resource consistency', () => {
   const namespaces = Object.keys(EN);
 
   it('bundles the same namespaces for both locales', () => {

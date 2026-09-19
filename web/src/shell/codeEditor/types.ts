@@ -27,6 +27,10 @@ export interface CodeCompletionItem {
   insertTextFormat?: 'plain' | 'snippet';
   kind?: CodeCompletionKind;
   sortText?: string;
+  /** Fields-mode value suggestions are shown only while editing this field. */
+  field?: string;
+  /** Unquoted value used when completing inside an existing string literal. */
+  value?: string;
 }
 
 export interface CodeEditorMarker {
@@ -53,6 +57,7 @@ export interface CodeEditorProps {
   minHeight?: number;
   maxHeight?: number;
   fontSize?: number;
+  fontWeight?: number;
   lineHeight?: number;
   lineNumbers?: boolean;
   highlightCurrentLine?: boolean;
