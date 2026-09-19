@@ -22,7 +22,7 @@
 **请不要在公开 issue 里披露漏洞**，请从下面两个私密渠道里任选其一：
 
 - **GitHub 私密漏洞上报**：<https://github.com/molesignal/molesignal/security/advisories/new>
-- **邮件**：<security@molesignal.io>（需要 PGP 时请索要公钥）
+- **邮件**：<security@molesignal.com>（需要 PGP 时请索要公钥）
 
 请在报告里包含：
 

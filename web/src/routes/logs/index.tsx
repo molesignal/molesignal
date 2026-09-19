@@ -1128,7 +1128,7 @@ export function Logs() {
   const widenRecoveryRange = React.useCallback(() => {
     setTimeWindow(widenTimeWindow(timeWindow));
   }, [setTimeWindow, timeWindow]);
-  const queryDocsHref = `https://docs.molesignal.io/${
+  const queryDocsHref = `https://docs.molesignal.com/${
     (i18n.resolvedLanguage ?? i18n.language).toLowerCase().startsWith('zh') ? 'zh' : 'en'
   }/query/logs`;
 

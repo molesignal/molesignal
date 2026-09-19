@@ -22,5 +22,5 @@ export function rumDocumentationUrl(
   section: RumDocumentationSection,
 ): string {
   const locale = rumDocumentationLocale(language);
-  return `https://docs.molesignal.io/${locale}/rum/${DOCUMENTATION_PATHS[section]}`;
+  return `https://docs.molesignal.com/${locale}/rum/${DOCUMENTATION_PATHS[section]}`;
 }

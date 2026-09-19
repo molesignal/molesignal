@@ -16,7 +16,7 @@ spec:
       labels: { app: molesignal, role: alert-manager }
       annotations:
         # 自定义镜像未装 chromium 时，把 enabled 设 false 走 SVG fallback。
-        molesignal.io/scheduled-reports-renderer: "requires-chromium"
+        molesignal.com/scheduled-reports-renderer: "requires-chromium"
     spec:
       containers:
         - name: molesignal

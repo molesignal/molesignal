@@ -40,7 +40,7 @@
 
 辱骂、骚扰或其他不可接受行为可以通过下面任一私密渠道向社区领导者举报：
 
-- **邮件**：<security@molesignal.io> —— 请在主题前加 `[CoC]`。
+- **邮件**：<security@molesignal.com> —— 请在主题前加 `[CoC]`。
 - **GitHub 私密漏洞上报**：<https://github.com/molesignal/molesignal/security/advisories/new> —— 主题标注 "Code of Conduct"。
 
 所有投诉都将得到及时、公正的审查和调查。
@@ -81,6 +81,8 @@
 
 社区影响指南受 [Mozilla 的行为准则强制执行阶梯](https://github.com/mozilla/diversity) 启发。
 
-[homepage]: https://www.contributor-covenant.org
+
 
 有关本行为准则的常见问题，请见 <https://www.contributor-covenant.org/faq>，翻译版本见 <https://www.contributor-covenant.org/translations>。
+
+[homepage]: https://www.contributor-covenant.org

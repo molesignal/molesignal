@@ -327,7 +327,7 @@ export function Metrics() {
   const promqlDocsLocale = language.toLowerCase().startsWith('zh')
     ? 'zh-Hans'
     : 'en-US';
-  const promqlDocsHref = `https://docs.molesignal.io/${promqlDocsLocale}/query/promql-subset`;
+  const promqlDocsHref = `https://docs.molesignal.com/${promqlDocsLocale}/query/promql-subset`;
   const timeRangeSeconds =
     (chartWindow.to.getTime() - chartWindow.from.getTime()) / 1000;
 

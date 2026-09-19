@@ -20,7 +20,7 @@ describe('RUM documentation links', () => {
     ['session-replay', 'session-replay'],
   ] as const)('routes %s to its Chinese documentation page', (section, path) => {
     expect(rumDocumentationUrl('zh-CN', section)).toBe(
-      `https://docs.molesignal.io/zh-Hans/rum/${path}`,
+      `https://docs.molesignal.com/zh-Hans/rum/${path}`,
     );
   });
 });

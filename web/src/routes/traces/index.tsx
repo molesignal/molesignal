@@ -623,7 +623,7 @@ export function Traces() {
     onRetry: () => void traceListQuery.refetch(),
     onClearFilters: clearRecoveryFilters,
     onWidenRange: widenRecoveryRange,
-    docsHref: `https://docs.molesignal.io/${
+    docsHref: `https://docs.molesignal.com/${
       (i18n.resolvedLanguage ?? i18n.language).toLowerCase().startsWith('zh') ? 'zh' : 'en'
     }/query/traces`,
   };

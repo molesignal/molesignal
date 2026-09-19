@@ -22,7 +22,7 @@ After 1.0 ships, we will revisit this table and document an LTS policy.
 **Please do not file a public GitHub issue.** Pick one of the two private channels below:
 
 - **GitHub private vulnerability reporting**: <https://github.com/molesignal/molesignal/security/advisories/new>
-- **Email**: <security@molesignal.io> (PGP key on request)
+- **Email**: <security@molesignal.com> (PGP key on request)
 
 Include:
 

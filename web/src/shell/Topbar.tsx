@@ -268,7 +268,7 @@ export function Topbar({
           onAbout={() => setAboutOpen(true)}
           onDocs={() => {
             const docsLang = i18n.language?.toLowerCase().startsWith('zh') ? 'zh-Hans' : 'en-US';
-            window.open(`https://docs.molesignal.io/${docsLang}`, '_blank', 'noopener,noreferrer');
+            window.open(`https://docs.molesignal.com/${docsLang}`, '_blank', 'noopener,noreferrer');
           }}
           onKeyboard={() => window.dispatchEvent(new CustomEvent('molesignal:open-help'))}
         />

@@ -57,7 +57,7 @@ initRum({
     description: '使用 MoleSignal Flutter SDK 采集页面、交互、错误、资源、慢帧与会话回放。',
     signals: ['logs'],
     rumPlatform: 'flutter',
-    docsUrl: 'https://docs.molesignal.io/en-US/rum/flutter-sdk',
+    docsUrl: 'https://docs.molesignal.com/en-US/rum/flutter-sdk',
     steps: [
       {
         title: '1. 安装 Flutter SDK',

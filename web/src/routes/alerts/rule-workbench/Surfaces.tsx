@@ -127,7 +127,7 @@ export function QueryPreview({
             onRetry={onRun}
             help={{
               label: t('workbench.preview.query_docs'),
-              href: `https://docs.molesignal.io/${docsLocale}/query`,
+              href: `https://docs.molesignal.com/${docsLocale}/query`,
             }}
             className="min-h-[220px] justify-center border-0 bg-transparent"
           />
