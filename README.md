@@ -42,12 +42,18 @@ molesignal takes the third path: **one storage layer (Parquet on object store), 
 git clone https://github.com/molesignal/molesignal
 cd molesignal
 
-# 1-command sandbox (Postgres + MinIO + molesignal standalone)
+# 1-command sandbox (Postgres + RustFS + molesignal standalone)
 docker compose -f deploy/docker/docker-compose.yaml --profile standalone up
 
 # UI:        http://localhost:5080
-# S3 admin:  http://localhost:9001  (minioadmin / minioadmin)
+# S3 admin:  http://localhost:9001  (rustfsadmin / rustfsadmin)
 ```
+
+RustFS exposes the S3 API on `9000` and its console on `9001`. The `rustfs-init` service
+uses AWS CLI to create the `molesignal` bucket and enable anonymous downloads before
+the application starts. These credentials and permissions are for the local sandbox.
+Object data is stored in the `rustfsdata` volume; existing deployments must copy their
+objects through the S3 API before switching endpoints. Existing volumes are not migrated automatically.
 
 The Web UI is embedded in the `molesignal` binary and served from the same HTTP port (`5080`),
 so the standard release does not require a separate frontend service.
@@ -114,7 +120,7 @@ OTLP metric type and aggregation metadata are normalized according to the
 
 ### 🗃️ Storage & query — one engine for everything
 
-- **Columnar storage** — Parquet on S3 / GCS / Azure / MinIO; Postgres for metadata
+- **Columnar storage** — Parquet on S3 / GCS / Azure / RustFS; Postgres for metadata
 - **Tantivy inverted index** — file-level pruning at query time (typically ~99% reduction)
 - **DataFusion query engine** — full SQL with joins / CTEs / window functions across logs, metrics, traces
 - **PromQL subset** — `rate`, `increase`, `sum/avg/min/max/count by/without`, `histogram_quantile` ([roadmap](docs/promql_subset.md))

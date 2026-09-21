@@ -288,14 +288,14 @@ max_connections = 16
 backend = "local"
 # local 后端保存对象的根目录；云对象存储后端忽略此字段。
 root = "./data/objects"
-# s3 / S3 兼容（MinIO、R2、阿里 OSS S3 接口）：
+# s3 / S3 兼容（RustFS、R2、阿里 OSS S3 接口）：
 # S3 bucket 名称；使用 s3 后端时必填。
 # bucket = "molesignal"
 # S3 region；S3 兼容服务按其要求填写。
 # region = "us-east-1"
-# 自定义 S3 endpoint；AWS S3 可留空，MinIO 示例为 `http://localhost:9000`。
+# 自定义 S3 endpoint；AWS S3 可留空，RustFS 示例为 `http://localhost:9000`。
 # endpoint = ""
-# 默认 false，使用虚拟主机模式（适用于 AWS S3、华为云 OBS）；MinIO 等仅支持路径模式的服务设为 true。
+# 默认 false，使用虚拟主机模式（适用于 AWS S3、华为云 OBS）；RustFS 本地部署设为 true，使用路径模式。
 # path_style = false
 # 内联 access key；优先使用环境变量或 credentials_file。
 # access_key = ""

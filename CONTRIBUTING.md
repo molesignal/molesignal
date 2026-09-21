@@ -60,7 +60,7 @@ make fmt-check                                      # match the rustfmt config
 make lint                                           # builds web/dist, then runs Clippy
 make test                                           # fast: unit + bin tests only
 
-# Sandbox: Postgres + MinIO + molesignal standalone
+# Sandbox: Postgres + RustFS + molesignal standalone
 docker compose -f deploy/docker/docker-compose.yaml --profile standalone up
 ```
 
@@ -88,7 +88,7 @@ A pre-commit hook is installed via `make install-hooks` and enforces the license
 
 - Unit tests live next to the code they test (`#[cfg(test)] mod tests`).
 - Integration tests live in `bin/molesignal/tests/*_it_*.rs`.
-- Anything that needs Docker (Postgres testcontainer, MinIO, Pebble, …) goes behind `MS_RUN_IT=1`:
+- Anything that needs Docker (Postgres testcontainer, RustFS, Pebble, …) goes behind `MS_RUN_IT=1`:
 
   ```rust
   if common::skip_unless_enabled() { return; }

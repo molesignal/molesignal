@@ -22,8 +22,8 @@
     "5082": { "label": "molesignal gRPC", "onAutoForward": "ignore" },
     "5173": { "label": "vite dev (web)", "onAutoForward": "openBrowser" },
     "5432": { "label": "postgresql", "onAutoForward": "silent" },
-    "9000": { "label": "minio S3", "onAutoForward": "silent" },
-    "9001": { "label": "minio console", "onAutoForward": "openBrowserOnce" }
+    "9000": { "label": "rustfs S3", "onAutoForward": "silent" },
+    "9001": { "label": "rustfs console", "onAutoForward": "openBrowserOnce" }
   },
 
   "remoteUser": "vscode",
@@ -33,9 +33,10 @@
     "MS_STORE_OBJECT_BACKEND": "s3",
     "MS_STORE_OBJECT_BUCKET": "molesignal",
     "MS_STORE_OBJECT_REGION": "us-east-1",
-    "MS_STORE_OBJECT_ENDPOINT": "http://minio:9000",
-    "MS_STORE_OBJECT_ACCESS_KEY": "minioadmin",
-    "MS_STORE_OBJECT_SECRET_KEY": "minioadmin",
+    "MS_STORE_OBJECT_PATH_STYLE": "true",
+    "MS_STORE_OBJECT_ENDPOINT": "http://rustfs:9000",
+    "MS_STORE_OBJECT_ACCESS_KEY": "rustfsadmin",
+    "MS_STORE_OBJECT_SECRET_KEY": "rustfsadmin",
     "MS_CIPHER_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
   },
   // JWT signing secret: NOT set —— 让进程首启动从 DB auto-bootstrap（auth-hardening）。

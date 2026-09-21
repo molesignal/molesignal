@@ -43,12 +43,16 @@ MoleSignal 走第三条路：**一个存储层（对象存储上的 Parquet）+ 
 git clone https://github.com/molesignal/molesignal
 cd molesignal
 
-# 一行启动沙盒（Postgres + MinIO + molesignal standalone）
+# 一行启动沙盒（Postgres + RustFS + molesignal standalone）
 docker compose -f deploy/docker/docker-compose.yaml --profile standalone up
 
 # UI：       http://localhost:5080
-# S3 控制台： http://localhost:9001  (minioadmin / minioadmin)
+# S3 控制台： http://localhost:9001  (rustfsadmin / rustfsadmin)
 ```
+
+RustFS 的 S3 API 使用 `9000` 端口，控制台使用 `9001`。`rustfs-init` 通过 AWS CLI
+创建 `molesignal` 桶并启用匿名下载，完成后应用才会启动。上述凭据和权限用于本地沙盒。
+对象数据保存在 `rustfsdata` 卷中；已有部署切换 endpoint 前需通过 S3 API 复制对象，旧卷不会自动迁移。
 
 Web UI 已嵌入 `molesignal` 二进制，由同一个 `5080` HTTP 端口提供，无需单独部署前端服务。
 
@@ -107,7 +111,7 @@ Vector / Fluent Bit / OTel Collector / Prometheus remote_write 等完整对接�
 
 ### 🗃️ 存储与查询 — 一个引擎搞定全部
 
-- **列式存储** —— Parquet on S3 / GCS / Azure / MinIO；Postgres 存元数据
+- **列式存储** —— Parquet on S3 / GCS / Azure / RustFS；Postgres 存元数据
 - **Tantivy 倒排索引** —— 查询时文件级裁剪（典型 ~99% 减少扫描）
 - **查询引擎** —— 完整 SQL，含 join / CTE / window function，跨 logs / metrics / traces
 - **PromQL 子集** —— `rate` / `increase` / `sum/avg/min/max/count by/without` / `histogram_quantile`（[路线图](docs/promql_subset.md)）

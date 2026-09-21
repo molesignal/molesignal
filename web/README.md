@@ -133,7 +133,7 @@ docker build -t molesignal:dev -f deploy/docker/Dockerfile .
 # 独立 nginx（split-pod 部署）：仅前端
 docker build -t molesignal-web:dev -f deploy/docker/Dockerfile.web .
 
-# 起 minio + postgres 依赖（dev）
+# 起 rustfs + postgres 依赖（dev）
 bash scripts/dev-up.sh
 
 # 起 backend

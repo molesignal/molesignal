@@ -60,7 +60,7 @@ make fmt-check                                      # 使用仓库 rustfmt 配�
 make lint                                           # 先构建 web/dist，再执行 Clippy
 make test                                           # 快：仅单元 + bin 测试
 
-# Sandbox：Postgres + MinIO + molesignal standalone
+# Sandbox：Postgres + RustFS + molesignal standalone
 docker compose -f deploy/docker/docker-compose.yaml --profile standalone up
 ```
 
@@ -88,7 +88,7 @@ pnpm -C web dev          # vite dev server
 
 - 单元测试紧贴被测代码（`#[cfg(test)] mod tests`）。
 - 集成测试在 `bin/molesignal/tests/*_it_*.rs`。
-- 需要 Docker（Postgres testcontainer / MinIO / Pebble 等）的，必须放到 `MS_RUN_IT=1` 后面：
+- 需要 Docker（Postgres testcontainer / RustFS / Pebble 等）的，必须放到 `MS_RUN_IT=1` 后面：
 
   ```rust
   if common::skip_unless_enabled() { return; }

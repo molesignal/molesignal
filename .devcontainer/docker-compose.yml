@@ -1,11 +1,11 @@
-# Devcontainer compose：复用主仓 deploy/docker/docker-compose.yaml 的 postgresql + minio
+# Devcontainer compose：复用主仓 deploy/docker/docker-compose.yaml 的 postgresql + rustfs
 # 作为 dev 依赖，再叠加一个 `workspace` 服务跑 IDE / cargo / pnpm。
 #
 # 用法：VS Code "Reopen in Container" 自动起这套；命令行 `docker compose -f
 # .devcontainer/docker-compose.yml up workspace` 也行。
 
 services:
-  # ---- 复用主仓库 docker-compose 的依赖服务（postgresql + minio + minio-init） ----
+  # ---- 复用主仓库 docker-compose 的依赖服务（postgresql + rustfs + rustfs-init） ----
   # 注意：路径是 .devcontainer/ → ../deploy/docker/docker-compose.yaml
   postgresql:
     extends:
@@ -14,17 +14,17 @@ services:
     # 不暴露端口到 host；workspace 内通过 hostname `postgresql` 直连
     ports: []
 
-  minio:
+  rustfs:
     extends:
       file: ../deploy/docker/docker-compose.yaml
-      service: minio
+      service: rustfs
     ports: []
-    # workspace 内通过 hostname `minio` 直连；console 由 devcontainer.json 端口转发
+    # workspace 内通过 hostname `rustfs` 直连；console 由 devcontainer.json 端口转发
 
-  minio-init:
+  rustfs-init:
     extends:
       file: ../deploy/docker/docker-compose.yaml
-      service: minio-init
+      service: rustfs-init
 
   # ---- IDE / 开发环境主容器 ----
   workspace:
@@ -44,9 +44,9 @@ services:
     depends_on:
       postgresql:
         condition: service_healthy
-      minio:
+      rustfs:
         condition: service_healthy
-      minio-init:
+      rustfs-init:
         condition: service_completed_successfully
     environment:
       RUST_BACKTRACE: "1"
@@ -56,4 +56,4 @@ services:
 
 volumes:
   pgdata: {}
-  miniodata: {}
+  rustfsdata: {}

@@ -4,7 +4,7 @@
 #   docker compose up                          → 默认 + standalone profile（一个进程跑所有 role + Web UI）
 #   docker compose --profile multirole up      → 拆分模式（router/intake/querier/compactor/alert-manager/connector）
 #
-# postgresql + minio 总是启动；molesignal 容器走哪个 profile 由 docker compose --profile 选。
+# postgresql + rustfs 总是启动；molesignal 容器走哪个 profile 由 docker compose --profile 选。
 
 x-molesignal-base: &molesignal-base
   build:
@@ -17,8 +17,8 @@ x-molesignal-base: &molesignal-base
   depends_on:
     postgresql:
       condition: service_healthy
-    minio:
-      condition: service_healthy
+    rustfs-init:
+      condition: service_completed_successfully
   volumes:
     - ../../conf/config.toml:/app/conf/config.toml:ro
   environment: &molesignal-env
@@ -29,10 +29,10 @@ x-molesignal-base: &molesignal-base
     MS_STORE_OBJECT_BACKEND: s3
     MS_STORE_OBJECT_BUCKET: molesignal
     MS_STORE_OBJECT_REGION: us-east-1
-    MS_STORE_OBJECT_ENDPOINT: "http://minio:9000"
+    MS_STORE_OBJECT_ENDPOINT: "http://rustfs:9000"
     MS_STORE_OBJECT_PATH_STYLE: "true"
-    MS_STORE_OBJECT_ACCESS_KEY: minioadmin
-    MS_STORE_OBJECT_SECRET_KEY: minioadmin
+    MS_STORE_OBJECT_ACCESS_KEY: rustfsadmin
+    MS_STORE_OBJECT_SECRET_KEY: rustfsadmin
     # JWT signing secret 默认由 DB 自动 bootstrap（auth-hardening）；
     # 想 deterministic 锁定可设 MS_AUTH_JWT_SECRET_OVERRIDE。
     # 32B base64 cipher root key；dev 全零，生产换 openssl rand -base64 32
@@ -55,35 +55,41 @@ services:
       timeout: 3s
       retries: 10
 
-  minio:
-    image: minio/minio:latest
-    command: server /data --console-address ":9001"
+  rustfs:
+    image: rustfs/rustfs:latest
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      RUSTFS_VOLUMES: /data
+      RUSTFS_ADDRESS: "0.0.0.0:9000"
+      RUSTFS_CONSOLE_ADDRESS: "0.0.0.0:9001"
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_ACCESS_KEY: rustfsadmin
+      RUSTFS_SECRET_KEY: rustfsadmin
     ports:
       - "9000:9000"   # S3 API
       - "9001:9001"   # web console
     volumes:
-      - miniodata:/data
+      - rustfsdata:/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/ready"]
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/health"]
       interval: 5s
       timeout: 3s
       retries: 10
+      start_period: 40s
 
-  minio-init:
-    image: minio/mc:latest
+  rustfs-init:
+    image: public.ecr.aws/aws-cli/aws-cli:2
     depends_on:
-      minio:
+      rustfs:
         condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-      mc alias set local http://minio:9000 minioadmin minioadmin &&
-      (mc mb -p local/molesignal || true) &&
-      mc anonymous set download local/molesignal &&
-      echo 'bucket ready'
-      "
+    environment:
+      AWS_ACCESS_KEY_ID: rustfsadmin
+      AWS_SECRET_ACCESS_KEY: rustfsadmin
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_EC2_METADATA_DISABLED: "true"
+      AWS_PAGER: ""
+    volumes:
+      - ./rustfs/init-bucket.sh:/init-bucket.sh:ro
+    entrypoint: ["/bin/sh", "/init-bucket.sh"]
     restart: "no"
 
   # ============================================================
@@ -154,5 +160,5 @@ services:
 
 volumes:
   pgdata:
-  miniodata:
+  rustfsdata:
   obs-wal:

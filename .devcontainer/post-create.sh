@@ -41,8 +41,8 @@ cat <<'EOF'
  molesignal dev container ready.
 
   Postgres:   postgres:5432  (molesignal/molesignal/molesignal)
-  MinIO S3:   http://minio:9000  (minioadmin/minioadmin)
-  MinIO Web:  http://localhost:9001  (port-forwarded)
+  RustFS S3:   http://rustfs:9000  (rustfsadmin/rustfsadmin)
+  RustFS Web:  http://localhost:9001  (port-forwarded)
 
  常用命令：
    cargo run -p molesignal -- --config conf/config.toml

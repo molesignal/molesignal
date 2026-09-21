@@ -260,7 +260,7 @@ impl MeProfileResp {
 const AVATAR_MAX_BYTES: usize = 2 * 1024 * 1024;
 
 /// `POST /me/avatar`：body 是原始图片字节，`Content-Type` 决定图片类型。落对象
-/// 存储（即配置的后端：本地磁盘 / S3 / MinIO），并把 `user.avatar_url` 指到公开
+/// 存储（即配置的后端：本地磁盘 / S3 / RustFS），并把 `user.avatar_url` 指到公开
 /// 服务端点。返回更新后的 profile。
 async fn upload_avatar(
     State(state): State<AppState>,

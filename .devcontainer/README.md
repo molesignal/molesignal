@@ -12,7 +12,7 @@ VS Code / Cursor / 任何 [Dev Containers spec](https://containers.dev) 兼容�
 | Proto | `protoc` + `buf` 1.50 |
 | DB tools | `psql` + `sqlx-cli`（postgres feature） |
 | Dev tools | `cargo-watch` + `openspec` CLI + `gh` + `jq` |
-| Services | Postgres 17 + MinIO（来自 `deploy/docker/docker-compose.yaml`） |
+| Services | Postgres 17 + RustFS（来自 `deploy/docker/docker-compose.yaml`） |
 
 ## 启动
 
@@ -55,8 +55,8 @@ openspec validate <change-name> --strict
 | 5082 | molesignal gRPC（OTLP / Arrow Flight） |
 | 5173 | Vite dev server（web/） |
 | 5432 | Postgres |
-| 9000 | MinIO S3 API |
-| 9001 | MinIO Web Console |
+| 9000 | RustFS S3 API |
+| 9001 | RustFS Web Console |
 
 ## Volume
 
@@ -77,7 +77,7 @@ docker volume rm molesignal-cargo-cache molesignal-target molesignal-pnpm-cache
 | Var | Value |
 |---|---|
 | `MS_STORE_META_DSN` | `postgres://molesignal:molesignal@postgresql:5432/molesignal` |
-| `MS_STORE_OBJECT_*` | 指向 compose 内的 minio |
+| `MS_STORE_OBJECT_*` | 指向 compose 内的 rustfs |
 | `MS_CIPHER_KEY` | 32 字节全零 base64（**仅 dev**，cipher_keys envelope KEK；auth-hardening） |
 | `RUST_LOG` | `molesignal=debug,info` |
 
@@ -89,7 +89,7 @@ rust-analyzer / dependi / Even Better TOML / CodeLLDB / buf / ESLint / Prettier 
 
 **容器首启很慢？** 第一次构建 image + `cargo fetch` 全部依赖确实要几分钟。之后 named volume 缓存住，重开秒级。
 
-**MinIO bucket 不存在？** `minio-init` 服务每次启动会幂等地 `mc mb local/molesignal`，等它 `condition: service_completed_successfully` 就好。
+**RustFS bucket 不存在？** `rustfs-init` 使用 AWS CLI 幂等创建 `molesignal` 桶并配置匿名读取策略；workspace 会等待它 `condition: service_completed_successfully`。失败时查看 `docker compose -f .devcontainer/docker-compose.yml logs rustfs-init`。
 
 **sqlx-cli migrate 报"DB not ready"？** `depends_on: condition: service_healthy` 已等 Postgres healthcheck 过；若仍失败重跑 `bash .devcontainer/post-create.sh`。
 

@@ -19,7 +19,7 @@
 
 ## 依赖
 
-清单不包含 PostgreSQL / MinIO；自行部署或换托管：
+清单不包含 PostgreSQL / RustFS；自行部署或换托管：
 - PostgreSQL 17，默认 Service/DNS 名为 `postgresql`；DSN 写到
   `molesignal-config` ConfigMap 的 `store.meta.dsn`
 - 任意 S3 兼容对象存储；endpoint / bucket / region 写到 `store.object`，

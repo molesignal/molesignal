@@ -229,7 +229,7 @@ mod tests {
         let cfg = ObjectStoreSettings {
             backend: "s3".into(),
             bucket: "molesignal".into(),
-            endpoint: "http://minio:9000/".into(),
+            endpoint: "http://rustfs:9000/".into(),
             path_style: true,
             ..Default::default()
         };
@@ -241,7 +241,7 @@ mod tests {
         assert_eq!(
             endpoint,
             PreparedS3Endpoint {
-                url: "http://minio:9000".into(),
+                url: "http://rustfs:9000".into(),
                 allow_http: true,
             }
         );
