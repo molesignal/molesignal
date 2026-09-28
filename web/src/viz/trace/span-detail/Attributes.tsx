@@ -71,7 +71,7 @@ export function Attributes({ attributes }: { attributes: unknown }) {
             const startGroup = grouped && (index === 0 || attributeGroup(visible[index - 1]![0]) !== group);
             return (
               <div key={key}>
-                {startGroup && <div className="mt-2 flex justify-between text-[10px] font-semibold tracking-normal text-tx-3">{t(`attributes.groups.${group}`)}<span>{matches.filter(([k]) => attributeGroup(k) === group).length}</span></div>}
+                {startGroup && <div className="mt-2 flex justify-between text-xs font-semibold tracking-normal text-tx-3">{t(`attributes.groups.${group}`)}<span>{matches.filter(([k]) => attributeGroup(k) === group).length}</span></div>}
                 <div className="group min-w-0 border-b border-bd-0 py-1.5 last:border-b-0">
                   <dt className="truncate font-mono text-xs leading-4 text-tx-3" title={key}>{key}</dt>
                   <dd className="mt-0.5 flex min-w-0 items-center gap-1">
