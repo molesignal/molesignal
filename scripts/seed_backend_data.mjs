@@ -1407,7 +1407,7 @@ async function verify(api, { directDb = true } = {}) {
     catalogSegments = psql(
       `
         SELECT ls.stream_type || ':' || ls.name || '=' || COALESCE(SUM(ds.row_count),0)::TEXT
-          FROM data_segments ds
+          FROM catalog_segments ds
           JOIN physical_datasets pd
             ON pd.org_id = ds.org_id AND pd.id = ds.dataset_id
           JOIN logical_streams ls

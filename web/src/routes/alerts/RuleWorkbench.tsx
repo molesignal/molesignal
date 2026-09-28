@@ -613,7 +613,7 @@ export function AlertRuleWorkbench() {
                           preview.reset();
                         }}
                         className={cn(
-                          'rounded px-2.5 py-1 font-mono text-type-micro font-semibold uppercase transition-colors',
+                          'rounded px-2.5 py-1 font-mono text-type-micro font-semibold transition-colors',
                           queryLanguage === language
                             ? 'bg-bg-0 text-indigo-soft'
                             : 'text-tx-3 hover:text-tx-1',

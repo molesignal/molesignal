@@ -57,8 +57,8 @@ async fn catalog_pruning_uses_only_explicit_artifact_relationships() {
     let tmp = tempfile::tempdir().unwrap();
     let store: Arc<dyn ObjectStore> =
         Arc::new(LocalFileSystem::new_with_prefix(tmp.path()).unwrap());
-    let primary_key = "v1/artifacts/orga/dataset/p-0-00/segment/primary.parquet";
-    let explicit_index_key = "v1/artifacts/orga/dataset/p-0-00/segment/index-artifact.ttv";
+    let primary_key = "artifacts/v1/orga/dataset/p-0-00/segment/primary.parquet";
+    let explicit_index_key = "artifacts/v1/orga/dataset/p-0-00/segment/index-artifact.ttv";
     seed_archive(&store, explicit_index_key, &["healthy request"]).await;
 
     let handle_cache: Arc<IndexHandleCache<Arc<IndexHandle>>> =

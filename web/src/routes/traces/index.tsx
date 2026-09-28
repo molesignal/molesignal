@@ -27,6 +27,7 @@ import { useAuthStore } from '@/stores/auth';
 import { resolveWindow, type TimeWindow, useTimeStore } from '@/stores/useTimeStore';
 import type { QueryResult } from '@/types/query';
 import { formatTraceDurationMs } from '@/viz/trace/duration';
+import { AttributeFilterContext, appendAttributeClause, attributeClause } from '@/viz/trace/span-detail/model';
 import { TraceOperationName } from '@/viz/trace/TraceOperationName';
 
 import { TraceQueryPanel } from './explorer/QueryPanel';
@@ -675,6 +676,10 @@ export function Traces() {
         }
       >
         {tab === 'spans' && (
+          <AttributeFilterContext.Provider value={queryMode === 'sql' ? null : (key, value, operator) => {
+            setQueryDraft(current => appendAttributeClause(current, attributeClause(key, value, operator)));
+            setQueryEditorCollapsed(false);
+          }}>
           <TraceSpanExplorer
             traceList={pagedTraceList}
             fieldTraces={traceList}
@@ -699,6 +704,7 @@ export function Traces() {
             pagination={tracePaginationModel}
             onSortChange={changeTraceSort}
           />
+          </AttributeFilterContext.Provider>
         )}
 
         {tab === 'traces' && (
@@ -933,7 +939,7 @@ function LatencyDistribution({ edges }: { edges: webApi.TopologyEdge[] }) {
         ))}
       </div>
       <div className="rounded-md border border-bd-0 bg-bg-0 p-3">
-        <div className="mb-2 font-sans text-xs font-semibold uppercase tracking-normal text-tx-2">
+        <div className="mb-2 font-sans text-xs font-semibold tracking-normal text-tx-2">
           {t('explore.service_graph.slowest_edges')}
         </div>
         <div className="space-y-1.5">

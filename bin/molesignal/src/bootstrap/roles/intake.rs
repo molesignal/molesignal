@@ -164,6 +164,15 @@ impl IntakeSink for IntakeWorker {
         dataset_type: DatasetTypeId,
         batch: IntakeBatch,
     ) -> Result<IntakeResult> {
+        self.write_metered_dataset(dataset_type, batch, None).await
+    }
+
+    async fn write_metered_dataset(
+        &self,
+        dataset_type: DatasetTypeId,
+        batch: IntakeBatch,
+        collected_bytes: Option<u64>,
+    ) -> Result<IntakeResult> {
         let stream = self
             .streams
             .get(&batch.org_id, &batch.stream, batch.stream_type)
@@ -175,7 +184,10 @@ impl IntakeSink for IntakeWorker {
             .dataset
             .id
             .clone();
-        let result = self.sink.write_dataset(dataset_type, batch).await?;
+        let result = self
+            .sink
+            .write_metered_dataset(dataset_type, batch, collected_bytes)
+            .await?;
         if let Some(buffer) = self.buffer.get(&key)
             && buffer
                 .records()

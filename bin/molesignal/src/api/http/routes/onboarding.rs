@@ -80,8 +80,6 @@ async fn sample_data_status(
     Ok(Json(SampleDataStatus { loaded }))
 }
 
-/// 一键加载样例数据：三个流各 intake 一批。计费门禁特意跳过——样例数据量小、属
-/// onboarding 便利，不应占用租户配额，也避免新实例尚未配 billing 时被 402 挡住。
 #[permission("streams.write")]
 async fn load_sample_data(
     State(state): State<AppState>,

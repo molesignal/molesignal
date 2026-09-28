@@ -435,8 +435,7 @@ mod tests {
             credential_application_id: None,
             credential_service_account_id: None,
             scope: IamScope::System,
-            permissions: ["sys.licenses.read".to_string()].into_iter().collect(),
-            features: std::collections::BTreeSet::new(),
+            permissions: ["sys.telemetry.read".to_string()].into_iter().collect(),
             policy_version: 1,
         };
 
@@ -458,7 +457,6 @@ mod tests {
             credential_service_account_id: Some(Id::from_string("service-account")),
             scope: IamScope::ApiToken,
             permissions: std::collections::BTreeSet::new(),
-            features: std::collections::BTreeSet::new(),
             policy_version: 1,
         };
         assert!(matches!(

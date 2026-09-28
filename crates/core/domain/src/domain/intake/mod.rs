@@ -3,6 +3,8 @@
 
 //! 采集上下文：原始事件、批次、写入结果。
 
+pub mod usage;
+
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
@@ -63,8 +65,17 @@ pub trait IntakeSink: Send + Sync {
         false
     }
 
-    /// 写入内部派生的物理数据集。外部采集入口只调用 [`Self::write`]，因此始终进入
-    /// 该信号的主 Dataset；Trace/RUM/指标目录等应用服务可显式写独立摘要。
+    /// Metering is supplied by the trusted application boundary, never by clients.
+    async fn write_metered_dataset(
+        &self,
+        dataset_type: DatasetTypeId,
+        batch: IntakeBatch,
+        _collected_bytes: Option<u64>,
+    ) -> Result<IntakeResult> {
+        self.write_dataset(dataset_type, batch).await
+    }
+
+    /// Write a physical dataset without metering (legacy or derived data).
     async fn write_dataset(
         &self,
         dataset_type: DatasetTypeId,

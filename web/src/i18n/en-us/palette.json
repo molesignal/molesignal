@@ -36,8 +36,6 @@
     "create_dashboard": "Create dashboard",
     "create_alert": "Create alert",
     "create_pipeline": "Create pipeline",
-    "connect_source": "Connect data source",
-    "open_billing": "Open billing",
-    "open_support": "Open support"
+    "connect_source": "Connect data source"
   }
 }

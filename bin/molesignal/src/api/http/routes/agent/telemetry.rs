@@ -3,7 +3,7 @@
 
 //! Mole Agent 模型遥测查询路由。
 //!
-//! 模块无条件编译；未获得 `agent` License 的调用由 handler 返回 403。
+
 //!
 //! `/api/v1/agent/telemetry/*`：经 `QueryService::run` 跑 SQL
 //! over `agent_model_traces` stream。
@@ -17,7 +17,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::{
-    agent::telemetry::{AGENT_FEATURE, AGENT_STREAM, AgentStatsQuery},
+    agent::telemetry::{AGENT_STREAM, AgentStatsQuery},
     api::AppState,
     app::iam::IamContext,
     domain::{
@@ -26,7 +26,7 @@ use crate::{
         stream::StreamType,
     },
     shared::{
-        Error, Result,
+        Result,
         time::{TimeRange, TimestampMicros},
     },
 };
@@ -49,15 +49,6 @@ fn resolve_range(p: &AgentQueryParams) -> (i64, i64) {
     let to = p.to.unwrap_or_else(|| TimestampMicros::now().0);
     let from = p.from.unwrap_or(to.saturating_sub(60 * 60 * 1_000_000));
     (from, to)
-}
-
-fn require_agent_license(state: &AppState) -> Result<()> {
-    if !state.platform.license.has_feature(AGENT_FEATURE) {
-        return Err(Error::forbidden(format!(
-            "{AGENT_FEATURE} feature not licensed"
-        )));
-    }
-    Ok(())
 }
 
 async fn run_sql(
@@ -89,7 +80,6 @@ async fn stats(
     Extension(ctx): Extension<IamContext>,
     Query(p): Query<AgentQueryParams>,
 ) -> Result<Json<Value>> {
-    require_agent_license(&state)?;
     let (from, to) = resolve_range(&p);
     let q = AgentStatsQuery {
         org_id: ctx.org_id.clone(),
@@ -106,7 +96,6 @@ async fn top_models(
     Extension(ctx): Extension<IamContext>,
     Query(p): Query<AgentQueryParams>,
 ) -> Result<Json<Value>> {
-    require_agent_license(&state)?;
     let (from, to) = resolve_range(&p);
     let limit = p.limit.unwrap_or(10).clamp(1, 1000);
     let q = AgentStatsQuery {
@@ -124,7 +113,6 @@ async fn top_users(
     Extension(ctx): Extension<IamContext>,
     Query(p): Query<AgentQueryParams>,
 ) -> Result<Json<Value>> {
-    require_agent_license(&state)?;
     let (from, to) = resolve_range(&p);
     let limit = p.limit.unwrap_or(10).clamp(1, 1000);
     let q = AgentStatsQuery {

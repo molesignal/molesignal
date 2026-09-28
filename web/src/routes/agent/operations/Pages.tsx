@@ -686,7 +686,7 @@ function EmptyLine({ text }: { text: string }) {
 function LabeledText({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
     <div>
-      <div className="text-xs font-strong uppercase tracking-[0.08em] text-tx-3">{label}</div>
+      <div className="text-xs font-strong tracking-normal text-tx-3">{label}</div>
       <p className={cn('mt-1.5 text-sm leading-6 text-tx-1', mono && 'break-all font-mono text-xs')}>{value || '—'}</p>
     </div>
   );

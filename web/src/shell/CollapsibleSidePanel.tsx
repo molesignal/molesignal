@@ -171,7 +171,6 @@ export function CollapsibleSidePanel({
         <div
           className={cn(
             'mt-4 max-h-[180px] rotate-180 overflow-hidden text-ellipsis whitespace-nowrap font-sans text-xs font-strong tracking-normal text-tx-3 [writing-mode:vertical-rl]',
-            !utility && 'uppercase',
           )}
         >
           {title}
@@ -199,7 +198,7 @@ export function CollapsibleSidePanel({
           'flex shrink-0 items-center gap-2 font-sans text-xs font-strong',
           utility
             ? 'h-10 px-3 text-tx-1'
-            : 'h-11 border-b border-bd-0 px-3.5 uppercase tracking-wide text-tx-2',
+            : 'h-11 border-b border-bd-0 px-3.5 tracking-normal text-tx-2',
         )}
       >
         <span className="min-w-0 flex-1 truncate">{title}</span>

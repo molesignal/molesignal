@@ -1947,7 +1947,7 @@ function LogDetail({
               </div>
             </section>
             <section>
-              <div className="mb-2 font-semibold uppercase tracking-wide text-tx-2">
+              <div className="mb-2 font-semibold tracking-normal text-tx-2">
                 {t('explore.detail.overview_metadata')}
               </div>
               <dl className="overflow-hidden rounded-md border border-bd-0">
@@ -1959,7 +1959,7 @@ function LogDetail({
             </section>
             {relatedSignals.length > 0 && (
               <section>
-                <div className="mb-2 font-semibold uppercase tracking-wide text-tx-2">
+                <div className="mb-2 font-semibold tracking-normal text-tx-2">
                   {t('explore.detail.related_signals')}
                 </div>
                 <dl className="overflow-hidden rounded-md border border-bd-0">
@@ -1983,7 +1983,7 @@ function LogDetail({
             )}
             {primaryFields.length > 0 && (
               <section>
-                <div className="mb-2 font-semibold uppercase tracking-wide text-tx-2">
+                <div className="mb-2 font-semibold tracking-normal text-tx-2">
                   {t('explore.detail.primary_fields')}
                 </div>
                 <div className="overflow-hidden rounded-md border border-bd-0">

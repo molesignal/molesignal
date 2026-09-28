@@ -30,9 +30,6 @@ pub enum Error {
     #[error("forbidden: {0}")]
     Forbidden(String),
 
-    #[error("payment required: {0}")]
-    PaymentRequired(String),
-
     #[error("internal: {0}")]
     Internal(String),
 
@@ -84,11 +81,6 @@ impl Error {
         Self::Unauthorized(msg.into())
     }
 
-    /// 计费/订阅门禁（402 Payment Required）：license 过期 / 订阅停服时拒绝写入。
-    pub fn payment_required(msg: impl Into<String>) -> Self {
-        Self::PaymentRequired(msg.into())
-    }
-
     pub fn cancelled(msg: impl Into<String>) -> Self {
         Self::Cancelled(msg.into())
     }
@@ -116,7 +108,6 @@ impl Error {
             Error::Conflict(_) => 409,
             Error::InvalidArgument(_) | Error::Validation { .. } => 400,
             Error::Unauthorized(_) => 401,
-            Error::PaymentRequired(_) => 402,
             Error::Forbidden(_) => 403,
             Error::ResourceExhausted(_) => 429,
             Error::PayloadTooLarge(_) => 413,
@@ -135,7 +126,6 @@ impl Error {
             Error::InvalidArgument(_) => "invalid_argument",
             Error::Validation { .. } => "validation_failed",
             Error::Unauthorized(_) => "unauthorized",
-            Error::PaymentRequired(_) => "payment_required",
             Error::Forbidden(_) => "forbidden",
             Error::ResourceExhausted(_) => "resource_exhausted",
             Error::PayloadTooLarge(_) => "payload_too_large",
@@ -197,7 +187,6 @@ mod tests {
         assert_eq!(Error::InvalidArgument("x".into()).http_status_code(), 400);
         assert_eq!(Error::validation("x", Vec::new()).http_status_code(), 400);
         assert_eq!(Error::Unauthorized("x".into()).http_status_code(), 401);
-        assert_eq!(Error::PaymentRequired("x".into()).http_status_code(), 402);
         assert_eq!(Error::Forbidden("x".into()).http_status_code(), 403);
         assert_eq!(Error::Unavailable("x".into()).http_status_code(), 503);
         assert_eq!(Error::ResourceExhausted("x".into()).http_status_code(), 429);

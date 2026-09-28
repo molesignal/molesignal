@@ -8,7 +8,7 @@
 //! 3. 等 IntakeWorker flush → `/api/v1/query` 验证 span 落到 traces 流。
 //!
 //! 与 `it_grpc_intake`（内部 intake.v1，免鉴权、绕过 AppState）不同：OTLP gRPC 走完整
-//! `AppState`（鉴权 + 计费门禁 + intake），故复用 `common::TestServer` 的真实栈。
+
 //! 需 `MS_RUN_IT=1` + docker（postgres testcontainer）才跑。
 
 mod common;

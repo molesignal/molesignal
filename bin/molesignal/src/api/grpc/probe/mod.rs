@@ -422,9 +422,7 @@ fn to_status(error: Error) -> Status {
             Status::invalid_argument(message)
         }
         Error::Unauthorized(message) => Status::unauthenticated(message),
-        Error::Forbidden(message) | Error::PaymentRequired(message) => {
-            Status::permission_denied(message)
-        }
+        Error::Forbidden(message) => Status::permission_denied(message),
         Error::ResourceExhausted(message) | Error::PayloadTooLarge(message) => {
             Status::resource_exhausted(message)
         }

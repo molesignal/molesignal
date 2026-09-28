@@ -243,3 +243,5 @@ mod tests {
         assert!(errors[0].contains("bad"));
     }
 }
+
+pub mod processing;

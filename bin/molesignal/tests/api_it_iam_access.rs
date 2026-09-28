@@ -307,7 +307,7 @@ async fn system_capabilities_resolve_role_name_and_permissions_from_database() {
             .as_array()
             .expect("permissions array")
             .iter()
-            .any(|permission| permission == "sys.licenses.read")
+            .any(|permission| permission == "sys.telemetry.read")
     );
     assert!(
         capabilities["permissions"]
@@ -328,7 +328,7 @@ async fn system_capabilities_resolve_role_name_and_permissions_from_database() {
             .as_array()
             .expect("permissions array")
             .iter()
-            .any(|permission| permission == "sys.licenses.manage")
+            .any(|permission| permission == "sys.telemetry.manage")
     );
     assert!(
         capabilities["routes"]
@@ -408,11 +408,11 @@ async fn system_capabilities_resolve_role_name_and_permissions_from_database() {
 
     let read_response = server
         .client
-        .get(format!("{}/api/v1/system/license", server.base_url))
+        .get(format!("{}/api/v1/system/telemetry", server.base_url))
         .bearer_auth(&system_token)
         .send()
         .await
-        .expect("read license with database permission");
+        .expect("read trace policy with database permission");
     assert_eq!(read_response.status(), StatusCode::OK);
 
     let organizations: Value = server
@@ -600,46 +600,6 @@ async fn organization_identity_and_system_organization_are_immutable() {
         .service
         .issue_system_token(&server.root_user_id, &server.state.iam.system_org_id)
         .expect("issue system token");
-
-    let tenant_price_write = server
-        .client
-        .post(format!("{}/api/v1/model_prices", server.base_url))
-        .bearer_auth(&server.root_token)
-        .json(&json!({
-            "provider": "test",
-            "model": "tenant-denied",
-            "prompt_usd_per_1k": 0.001,
-            "completion_usd_per_1k": 0.002
-        }))
-        .send()
-        .await
-        .expect("tenant model price write");
-    assert_eq!(tenant_price_write.status(), StatusCode::FORBIDDEN);
-
-    server
-        .client
-        .post(format!("{}/api/v1/model_prices", server.base_url))
-        .bearer_auth(&system_token)
-        .json(&json!({
-            "provider": "test",
-            "model": "platform-managed",
-            "prompt_usd_per_1k": 0.001,
-            "completion_usd_per_1k": 0.002
-        }))
-        .send()
-        .await
-        .expect("platform model price write")
-        .error_for_status()
-        .expect("sys.settings.manage permits model price writes");
-    server
-        .client
-        .get(format!("{}/api/v1/model_prices", server.base_url))
-        .bearer_auth(&system_token)
-        .send()
-        .await
-        .expect("platform model price list")
-        .error_for_status()
-        .expect("sys.settings.manage permits model price reads");
 
     let delete_last = server
         .client

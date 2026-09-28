@@ -57,7 +57,8 @@
       "error": "Error",
       "paused": "Paused",
       "unknown": "Unknown",
-      "never": "Never run"
+      "never": "Never run",
+      "ready": "Ready for intake"
     },
     "run_states": {
       "succeeded": "Succeeded",
@@ -266,7 +267,6 @@
     "vrl_script": "VRL script",
     "vrl_function_hint": "Pick a built-in preset or a saved VRL function as this transform.",
     "vrl_function_placeholder": "Select a VRL function…",
-    "preset_label": "Built-in: {{name}}",
     "new_vrl_function": "New VRL function",
     "retry_policy": "Retry policy",
     "delete_node": "Delete node",
@@ -295,7 +295,10 @@
       "source_is_sink": "A source and sink share a name, forming a loop: {{name}}",
       "transform_name_missing": "Transform #{{index}} is missing a name.",
       "transform_script_missing": "Transform \"{{name}}\" is missing a VRL script.",
-      "connector_missing": "Referenced connector not found: {{id}}"
+      "connector_missing": "Referenced connector not found: {{id}}",
+      "realtime_logs": "Realtime mode currently supports logs.",
+      "realtime_nodes": "Realtime mode requires one source and one stream output.",
+      "realtime_routing": "Routing field and fallback stream are required."
     }
   },
   "drawer": {
@@ -334,5 +337,33 @@
       "fixed": "Fixed 5s × 3",
       "none": "No retry (drop)"
     }
+  },
+  "realtime": {
+    "mode": "Execution mode",
+    "title": "Realtime",
+    "scheduled": "Scheduled",
+    "enabled": "Process on intake",
+    "output": "Destination rule",
+    "fixed": "Fixed stream",
+    "field": "Route by field",
+    "field_name": "Field name",
+    "field_hint": "Matches literal keys first, then nested paths such as app.name.",
+    "prefix": "Stream prefix (optional)",
+    "fallback": "Fallback stream",
+    "fallback_hint": "Used for missing, non-string or invalid stream values. Storage failures still return errors.",
+    "auto_create": "Destination streams are created automatically.",
+    "retain": "Also retain in source stream",
+    "retain_hint": "Keep the original log in {{source}} after routing (masking still applies). Write once when source and destination match.",
+    "no_backfill": "Realtime pipelines run on intake and do not support backfill.",
+    "ready": "Ready for intake",
+    "logs_only": "Realtime mode currently supports logs."
+  },
+  "processing": {
+    "type": "Processing type",
+    "builtin": "Built-in logic",
+    "vrl": "VRL function",
+    "route": "Stream routing",
+    "output": "Stream output",
+    "output_hint": "Write to the destination selected by processing. Create the stream when it does not exist."
   }
 }

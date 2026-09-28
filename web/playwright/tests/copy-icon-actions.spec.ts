@@ -34,29 +34,5 @@ test.describe('copy icon actions', () => {
     await expect(page.locator('[data-settings-section]')).toHaveCount(4);
   });
 
-  test('separates account billing from platform Stripe configuration', async ({
-    page,
-  }) => {
-    await page.goto('/settings/general');
 
-    await expect(page.getByText('ACCOUNT', { exact: true })).toBeVisible();
-    await expect(
-      page.getByRole('link', { name: 'Plans & billing' }),
-    ).toHaveAttribute('href', '/account/billing');
-    await expect(
-      page.getByRole('link', { name: 'Stripe integration' }),
-    ).toHaveAttribute('href', '/settings/billing');
-  });
-
-  test('keeps only the page divider above the billing section', async ({
-    page,
-  }) => {
-    await page.goto('/settings/billing');
-
-    const stripeSection = page
-      .getByText('Stripe', { exact: true })
-      .locator('xpath=ancestor::section[1]');
-    await expect(stripeSection).toBeVisible();
-    await expect(stripeSection).toHaveCSS('border-top-width', '0px');
-  });
 });

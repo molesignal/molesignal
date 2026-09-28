@@ -45,9 +45,6 @@ pub struct LoginParams {
 }
 
 async fn login(State(state): State<AppState>, Query(p): Query<LoginParams>) -> Result<Response> {
-    if !state.platform.license.has_feature("sso") {
-        return Err(Error::forbidden("sso feature not licensed"));
-    }
     let provider = resolve_provider_for_login(&state, &p).await?;
     if provider.kind != SsoProviderKind::Saml {
         return Err(Error::invalid(format!(
@@ -82,9 +79,6 @@ async fn callback(
     State(state): State<AppState>,
     Form(form): Form<CallbackForm>,
 ) -> Result<Json<FederatedLoginResponse>> {
-    if !state.platform.license.has_feature("sso") {
-        return Err(Error::forbidden("sso feature not licensed"));
-    }
     let saml_response = form
         .saml_response
         .ok_or_else(|| Error::Unauthorized("callback missing SAMLResponse".into()))?;

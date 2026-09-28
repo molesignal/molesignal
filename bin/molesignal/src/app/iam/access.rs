@@ -15,7 +15,7 @@ use crate::{
         IamAssignedRole, IamPlatformAdministratorRepository, IamScope, access::IamRepository,
         navigation::IamRouteAccess,
     },
-    shared::{LicenseGate, Result, ids::Id},
+    shared::{Result, ids::Id},
 };
 
 mod capabilities;
@@ -53,7 +53,6 @@ pub struct IamCapabilitySnapshot {
     pub display_role: String,
     pub roles: Vec<IamAssignedRole>,
     pub permissions: Vec<String>,
-    pub features: Vec<String>,
     pub version: u64,
     pub route_catalog_version: u64,
     pub routes: Vec<IamRouteAccess>,
@@ -159,14 +158,13 @@ struct SnapshotCacheKey {
     version: u64,
     permission_catalog_version: u64,
     route_catalog_version: u64,
-    license_features: Vec<String>,
     root: bool,
 }
 
 pub struct IamAccessService {
     repository: Arc<dyn IamRepository>,
     iam_platform_administrators: Arc<dyn IamPlatformAdministratorRepository>,
-    license: Arc<dyn LicenseGate>,
+
     snapshots: DashMap<SnapshotCacheKey, Arc<IamCapabilitySnapshot>>,
 }
 
@@ -186,12 +184,11 @@ impl IamAccessService {
     pub fn new(
         repository: Arc<dyn IamRepository>,
         iam_platform_administrators: Arc<dyn IamPlatformAdministratorRepository>,
-        license: Arc<dyn LicenseGate>,
     ) -> Self {
         Self {
             repository,
             iam_platform_administrators,
-            license,
+
             snapshots: DashMap::new(),
         }
     }
@@ -204,7 +201,6 @@ impl IamAccessService {
     pub async fn enrich_context(&self, context: &mut IamContext) -> Result<IamCapabilitySnapshot> {
         let snapshot = self.capabilities(&IamSubject::from(&*context)).await?;
         context.permissions = snapshot.permissions.iter().cloned().collect();
-        context.features = snapshot.features.iter().cloned().collect();
         context.display_role = snapshot.display_role.clone();
         context.roles = snapshot.roles.clone();
         context.policy_version = snapshot.version;

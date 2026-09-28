@@ -26,7 +26,6 @@ pub struct IamRouteDefinition {
     pub scope: IamRouteScope,
     pub permission_mode: IamRoutePermissionMode,
     pub permissions: Vec<String>,
-    pub required_features: Vec<String>,
     pub navigation_group: Option<String>,
     pub navigation_position: Option<i32>,
     pub enabled: bool,

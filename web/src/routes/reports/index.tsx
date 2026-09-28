@@ -1710,7 +1710,7 @@ function QuickExportDialog({
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-lg border border-bd-0 bg-bg-2 p-3">
                 <div className={uiLabelClass}>{t('export_dialog.format')}</div>
-                <div className="mt-1.5 font-sans text-sm font-bold uppercase text-tx-0">
+                <div className="mt-1.5 font-sans text-sm font-bold text-tx-0">
                   {selected.format}
                 </div>
               </div>

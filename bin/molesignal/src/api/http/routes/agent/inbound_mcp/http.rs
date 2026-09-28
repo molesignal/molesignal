@@ -21,21 +21,15 @@ use super::{
     admission::AdmissionRejection, handler::InboundMcpHandler, runtime::InboundMcpAdapterRuntime,
 };
 use crate::{
-    agent::{
-        FEATURE,
-        inbound_mcp::{HARD_BODY_BYTES, InboundMcpSettings},
-    },
+    agent::inbound_mcp::{HARD_BODY_BYTES, InboundMcpSettings},
     api::{
         AppState,
-        http::{
-            billing::org_blocked_cached,
-            middleware::auth::{
-                AuthenticatedCredential, authenticate_api_token_identity_with_metadata,
-            },
+        http::middleware::auth::{
+            AuthenticatedCredential, authenticate_api_token_identity_with_metadata,
         },
     },
     domain::iam::api_token::ApiTokenKind,
-    shared::{Error, time::TimestampMicros, trace_context::update_current_trace_context},
+    shared::{Error, trace_context::update_current_trace_context},
 };
 
 pub(super) fn routes(state: AppState, runtime: Arc<InboundMcpAdapterRuntime>) -> Router<AppState> {
@@ -138,19 +132,7 @@ async fn prepare_request(
         .ensure_organization_access(&iam.org_id)
         .await
         .map_err(McpHttpRejection::from_error)?;
-    if org_blocked_cached(state, &iam.org_id, TimestampMicros::now().0)
-        .await
-        .map_err(McpHttpRejection::from_error)?
-    {
-        return Err(McpHttpRejection::from_error(Error::payment_required(
-            "organization access is paused",
-        )));
-    }
-    if !state.platform.license.has_feature(FEATURE) {
-        return Err(McpHttpRejection::forbidden(
-            "Inbound MCP requires the agent feature",
-        ));
-    }
+
     let capability_snapshot = state
         .iam
         .access

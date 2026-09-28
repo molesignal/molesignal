@@ -254,7 +254,7 @@ export function HistoryTable({
                   <div className="truncate font-sans text-sm font-bold text-tx-0">
                     {row.report.title}
                   </div>
-                  <div className="mt-0.5 text-xs uppercase text-tx-3">
+                  <div className="mt-0.5 text-xs text-tx-3">
                     {row.report.format}
                   </div>
                 </Td>

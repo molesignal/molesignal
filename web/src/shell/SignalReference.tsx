@@ -187,7 +187,7 @@ export function SignalReference({
         <header className="border-b border-bd-0 px-3 py-2.5">
           <div className="flex min-w-0 items-center gap-1.5">
             <Icon aria-hidden className="h-3.5 w-3.5 stroke-[1.6] text-tx-2" />
-            <span className="font-sans text-xs font-strong uppercase tracking-wider text-tx-2">
+            <span className="font-sans text-xs font-strong tracking-normalr text-tx-2">
               {t(meta.labelKey)}
             </span>
           </div>

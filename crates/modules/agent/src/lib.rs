@@ -31,6 +31,5 @@ pub mod telemetry;
 pub mod tool_control;
 pub mod tools;
 
-pub const FEATURE: &str = "agent";
 pub const PRODUCT_NAME: &str = "Mole Agent";
 pub const AGENT_NAME: &str = "Mole Agent";

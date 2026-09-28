@@ -21,8 +21,6 @@ pub mod shared {
     pub use kernel::{Error, Result, ids, time};
 }
 
-pub const DOMAIN_FEATURE: &str = "domain_management";
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DomainState {

@@ -16,6 +16,7 @@
 
 mod derived;
 pub mod pipeline;
+pub mod realtime;
 mod schema;
 
 use std::sync::Arc;
@@ -52,6 +53,7 @@ pub struct IntakeService {
     internal_usage_recorder: Option<InternalUsageRecorder>,
     /// 可选 pipeline 引擎；为 None 时直接走 schema 校验 + sink。
     pipeline_engine: Option<Arc<PipelineEngine>>,
+    realtime: Option<realtime::RealtimeEngine>,
     /// 可选脱敏规则源；非空时 pipeline 之后、落盘之前对事件字符串值就地脱敏。
     masking: Option<Arc<dyn MaskingProvider>>,
     /// 可选节点 drain 状态；退役中拒绝新写入（503），让 intake 把 pending flush 干净后下线。
@@ -68,6 +70,7 @@ impl IntakeService {
             system_org_id: None,
             internal_usage_recorder: None,
             pipeline_engine: None,
+            realtime: None,
             masking: None,
             drain: None,
             service_graph: None,
@@ -116,6 +119,25 @@ impl IntakeService {
             return Err(Error::forbidden(
                 "`_molesignal` is a protected system stream",
             ));
+        }
+        validate_stream_name(&batch.stream)?;
+        if self
+            .drain
+            .as_ref()
+            .is_some_and(|drain| !drain.accepts_writes())
+        {
+            return Err(Error::unavailable(
+                "node is draining; not accepting new writes",
+            ));
+        }
+        if batch.stream_type == StreamType::LOGS
+            && let Some(engine) = &self.realtime
+            && let Some(pipeline) = engine
+                .repository
+                .for_source(&batch.org_id, &batch.stream)
+                .await?
+        {
+            return self.route_realtime(batch, pipeline, engine).await;
         }
         let dataset_type = self.sink.primary_dataset_type(batch.stream_type)?;
         self.intake_with_origin(batch, IntakeOrigin::External, dataset_type)
@@ -204,9 +226,20 @@ impl IntakeService {
     )]
     async fn intake_with_origin(
         &self,
+        batch: IntakeBatch,
+        origin: IntakeOrigin,
+        dataset_type: DatasetTypeId,
+    ) -> Result<IntakeResult> {
+        self.intake_prepared(batch, origin, dataset_type, None)
+            .await
+    }
+
+    async fn intake_prepared(
+        &self,
         mut batch: IntakeBatch,
         origin: IntakeOrigin,
         dataset_type: DatasetTypeId,
+        sizes: Option<Vec<u64>>,
     ) -> Result<IntakeResult> {
         validate_stream_name(&batch.stream)?;
         // 节点退役中：停接新写入（让 pending 数据 flush 干净后安全下线）。
@@ -220,17 +253,20 @@ impl IntakeService {
 
         // 内部写入没有可复用的 wire body；以进入应用边界时的 RawEvent JSON 作为稳定的
         // 原始字节口径。必须在 pipeline / masking / schema 处理前采样。
-        let internal_usage = (origin != IntakeOrigin::External)
-            .then(|| {
-                serde_json::to_vec(&batch.events).ok().map(|payload| {
-                    (
-                        batch.org_id.clone(),
-                        batch.received_at,
-                        payload.len() as u64,
-                    )
-                })
+        let internal_usage = (matches!(
+            origin,
+            IntakeOrigin::InternalTelemetry | IntakeOrigin::SelfTelemetry
+        ))
+        .then(|| {
+            serde_json::to_vec(&batch.events).ok().map(|payload| {
+                (
+                    batch.org_id.clone(),
+                    batch.received_at,
+                    payload.len() as u64,
+                )
             })
-            .flatten();
+        })
+        .flatten();
 
         // schema-on-write（按需建流）：目标流存在则用；不存在则用本批
         // 推断的 schema 自动建流再写入。撤掉启动期预 seed 后，这是空实例首次接收数据
@@ -245,6 +281,14 @@ impl IntakeService {
             Err(e) => return Err(e),
         };
 
+        let mut event_sizes = match sizes {
+            Some(sizes) => sizes,
+            None => batch
+                .events
+                .iter()
+                .map(crate::domain::intake::usage::event_bytes)
+                .collect::<Result<Vec<_>>>()?,
+        };
         let mut errors: Vec<IntakeError> = Vec::new();
 
         // 1) Pipeline 变换
@@ -255,6 +299,12 @@ impl IntakeService {
             if !pipeline_errors.is_empty() {
                 let bad: std::collections::HashSet<usize> =
                     pipeline_errors.iter().map(|e| e.index).collect();
+                let mut size_index = 0;
+                event_sizes.retain(|_| {
+                    let keep = !bad.contains(&size_index);
+                    size_index += 1;
+                    keep
+                });
                 let mut idx = 0;
                 batch.events.retain(|_| {
                     let keep = !bad.contains(&idx);
@@ -279,10 +329,14 @@ impl IntakeService {
         }
 
         // 2) 类型冲突先在内存里剔除
+        let mut collected_bytes = 0_u64;
         let mut kept: Vec<RawEvent> = Vec::with_capacity(batch.events.len());
         for (idx, ev) in batch.events.drain(..).enumerate() {
             match check_event_types(&def.schema, &ev) {
-                Ok(()) => kept.push(ev),
+                Ok(()) => {
+                    collected_bytes = collected_bytes.saturating_add(event_sizes[idx]);
+                    kept.push(ev);
+                }
                 Err(reason) => errors.push(IntakeError { index: idx, reason }),
             }
         }
@@ -293,7 +347,10 @@ impl IntakeService {
         if let Some(new_schema) =
             infer_schema_extension(&def.schema, &batch.events, batch.stream_type)
         {
-            if origin == IntakeOrigin::External {
+            if matches!(
+                origin,
+                IntakeOrigin::External | IntakeOrigin::RoutedExternal
+            ) {
                 self.streams.update_schema(&def.id, new_schema).await?;
             } else {
                 self.streams
@@ -326,11 +383,17 @@ impl IntakeService {
         let mut result = if total_kept == 0 {
             IntakeResult {
                 accepted: 0,
-                rejected: errors.len(),
+                rejected: 0,
                 errors: Vec::new(),
             }
         } else {
-            self.sink.write_dataset(dataset_type, batch).await?
+            self.sink
+                .write_metered_dataset(
+                    dataset_type,
+                    batch,
+                    is_primary_dataset.then_some(collected_bytes),
+                )
+                .await?
         };
         if result.accepted > 0 {
             for (dataset_type, batch) in derived {
@@ -392,6 +455,7 @@ impl IntakeService {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum IntakeOrigin {
     External,
+    RoutedExternal,
     InternalTelemetry,
     SelfTelemetry,
 }
@@ -428,10 +492,20 @@ mod tests {
     #[derive(Default)]
     struct RecordingSink {
         batches: Arc<parking_lot::Mutex<Vec<IntakeBatch>>>,
+        metered: parking_lot::Mutex<Vec<Option<u64>>>,
     }
 
     #[async_trait::async_trait]
     impl IntakeSink for RecordingSink {
+        async fn write_metered_dataset(
+            &self,
+            _: DatasetTypeId,
+            batch: IntakeBatch,
+            bytes: Option<u64>,
+        ) -> Result<IntakeResult> {
+            self.metered.lock().push(bytes);
+            self.write(batch).await
+        }
         async fn write(&self, batch: IntakeBatch) -> Result<IntakeResult> {
             let accepted = batch.events.len();
             self.batches.lock().push(batch);
@@ -710,6 +784,56 @@ mod tests {
         async fn delete(&self, _: &Id) -> Result<()> {
             unreachable!()
         }
+    }
+
+    #[tokio::test]
+    async fn meters_only_accepted_events_before_generated_fields() {
+        let org_id = Id::new();
+        let now = TimestampMicros::now();
+        let streams = Arc::new(ExistingSystemStream {
+            def: StreamDefinition {
+                id: Id::new(),
+                org_id: org_id.clone(),
+                name: "metering".into(),
+                stream_type: StreamType::LOGS,
+                schema: Schema {
+                    fields: vec![FieldDef {
+                        name: "message".into(),
+                        data_type: FieldType::Utf8,
+                        nullable: false,
+                        index_type: None,
+                        indexed: false,
+                        encrypted: false,
+                        exact: false,
+                    }],
+                },
+                retention: None,
+                created_at: now,
+                updated_at: now,
+            },
+        });
+        let sink = Arc::new(RecordingSink::default());
+        let accepted = ev(json!({"message":"中文\n测试"}));
+        let expected = crate::domain::intake::usage::event_bytes(&accepted).unwrap();
+        let svc = IntakeService::new(sink.clone(), streams);
+        let result = svc
+            .intake(IntakeBatch {
+                batch_id: Id::new(),
+                org_id,
+                stream: "metering".into(),
+                stream_type: StreamType::LOGS,
+                events: vec![accepted, ev(json!({"message":42}))],
+                received_at: now,
+            })
+            .await
+            .unwrap();
+        assert_eq!((result.accepted, result.rejected), (1, 1));
+        assert_eq!(*sink.metered.lock(), vec![Some(expected)]);
+        assert!(
+            sink.batches.lock()[0].events[0]
+                .fields
+                .contains_key(EVENT_ID_FIELD)
+        );
     }
 
     #[tokio::test]

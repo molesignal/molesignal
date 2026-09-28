@@ -29,9 +29,6 @@ async fn login(
     State(state): State<AppState>,
     Json(request): Json<LoginRequest>,
 ) -> Result<Json<FederatedLoginResponse>> {
-    if !state.platform.license.has_feature("sso") {
-        return Err(Error::forbidden("sso feature not licensed"));
-    }
     let provider = state
         .iam
         .sso_providers

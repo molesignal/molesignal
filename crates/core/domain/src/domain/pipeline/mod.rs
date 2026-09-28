@@ -3,6 +3,8 @@
 
 //! Pipeline bounded context：intake-time 多步 function 链。
 
+pub mod realtime;
+
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
@@ -45,3 +47,5 @@ pub trait PipelineRepository: Send + Sync {
     ) -> Result<Vec<Pipeline>>;
     async fn delete(&self, org_id: &Id, id: &Id) -> Result<()>;
 }
+
+pub mod processing;

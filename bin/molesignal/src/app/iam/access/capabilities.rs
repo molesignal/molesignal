@@ -25,7 +25,6 @@ impl IamAccessService {
         if subject.scope == IamScope::System && !root {
             return Err(Error::forbidden("root system scope required"));
         }
-        let features = self.license.features().into_iter().collect::<BTreeSet<_>>();
         let version = self
             .repository
             .policy_version(&subject.organization_id)
@@ -52,7 +51,6 @@ impl IamAccessService {
             version,
             permission_catalog_version,
             route_catalog_version,
-            license_features: features.iter().cloned().collect(),
             root,
         };
         if let Some(snapshot) = self.snapshots.get(&cache_key) {
@@ -159,19 +157,14 @@ impl IamAccessService {
                 }
             }
         };
-        let routes = crate::app::iam::resolve_route_access(
-            &route_catalog,
-            subject.scope,
-            &permissions,
-            &features,
-        );
+        let routes =
+            crate::app::iam::resolve_route_access(&route_catalog, subject.scope, &permissions);
         let snapshot = IamCapabilitySnapshot {
             organization_id: subject.organization_id.0.clone(),
             scope: subject.scope,
             display_role,
             roles,
             permissions: permissions.into_iter().collect(),
-            features: features.into_iter().collect(),
             version,
             route_catalog_version: route_catalog.version,
             routes,

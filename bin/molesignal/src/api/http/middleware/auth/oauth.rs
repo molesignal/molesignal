@@ -69,7 +69,6 @@ pub(crate) async fn authenticate_access_token(
         credential_service_account_id: None,
         scope: IamScope::Organization,
         permissions: BTreeSet::new(),
-        features: BTreeSet::new(),
         policy_version: 0,
     };
     Ok((

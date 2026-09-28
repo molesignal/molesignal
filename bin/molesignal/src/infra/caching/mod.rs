@@ -13,13 +13,11 @@
 mod index_handle;
 mod query_result;
 
-pub mod billing_state;
 mod metrics;
 pub mod org_schema;
 pub mod stream_agg;
 pub mod tantivy;
 
-pub use billing_state::BillingStateCache;
 pub use index_handle::IndexHandleCache;
 pub use org_schema::OrgSchemaCache;
 pub use query_result::{QUERY_FRESH_WINDOW_MICROS, QueryResultCache};

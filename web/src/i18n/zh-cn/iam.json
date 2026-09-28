@@ -26,7 +26,6 @@
     "groups": "访问授权",
     "teams": "团队",
     "roles": "角色",
-    "quota": "配额",
     "invitations": "邀请",
     "email_domains": "邮箱域名",
     "sso": "SSO 服务商"
@@ -405,8 +404,6 @@
   },
   "permissions": {
     "sys_organizations_manage": "管理平台组织",
-    "sys_licenses_read": "查看平台许可证",
-    "sys_licenses_manage": "管理平台许可证",
     "sys_settings_manage": "管理平台设置",
     "sys_dashboards_read": "查看平台仪表盘",
     "sys_telemetry_read": "查看平台遥测数据",
@@ -421,8 +418,6 @@
     "iam_roles_manage": "管理角色",
     "iam_policies_read": "查看访问授权",
     "iam_policies_manage": "管理访问授权",
-    "org_billing_read": "查看计费信息",
-    "org_billing_manage": "管理计费信息",
     "api_tokens_read": "查看 API Token",
     "api_tokens_manage": "管理 API Token",
     "service_accounts_read": "查看服务账号",
@@ -484,8 +479,6 @@
   },
   "permissions_hint": {
     "sys_organizations_manage": "创建、更新和管理平台内的组织。",
-    "sys_licenses_read": "查看平台许可证状态、版本、功能和限制。",
-    "sys_licenses_manage": "上传、替换和管理平台许可证。",
     "sys_settings_manage": "修改影响整个平台的设置。",
     "sys_dashboards_read": "打开并查看系统组织中的只读仪表盘。",
     "sys_telemetry_read": "读取平台自身的日志、指标和链路。",
@@ -500,8 +493,6 @@
     "iam_roles_manage": "创建、更新和删除自定义角色。",
     "iam_policies_read": "查看组织级和资源级访问授权。",
     "iam_policies_manage": "创建和撤销角色绑定及跨组织授权。",
-    "org_billing_read": "查看套餐、配额与计费详情。",
-    "org_billing_manage": "管理计费与套餐设置。",
     "api_tokens_read": "查看 API Token 的元数据与状态。",
     "api_tokens_manage": "创建和撤销 API Token。",
     "service_accounts_read": "查看服务账号身份、角色和状态。",
@@ -621,22 +612,6 @@
     "toast_deleted": "角色已删除",
     "empty_title": "未返回角色",
     "empty_description": "当前组织未返回角色。"
-  },
-  "quota": {
-    "title": "配额",
-    "subtitle": "套餐限额与当前用量。",
-    "empty_title": "暂无配额快照",
-    "empty_description": "当前组织未返回许可证快照。",
-    "source_license": "来自当前许可证的限额",
-    "usage_unknown": "用量不可用",
-    "limit_unknown": "限额不可用",
-    "not_reported": "未上报",
-    "labels": {
-      "datasource": "每日数据源写入字节",
-      "dashboards": "仪表盘",
-      "alerts": "告警规则",
-      "reset": "重置 / 到期"
-    }
   },
   "invitations": {
     "title": "待处理邀请",

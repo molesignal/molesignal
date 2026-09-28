@@ -90,18 +90,14 @@ explicit empty state when no data is available.
 | `/iam/organizations` | ✓ | 🔌 organization routes |
 | `/iam/groups` | ✓ | 🔌 role bindings and cross-org grants |
 | `/iam/roles` | ✓ | 🚧 read-only permission matrix |
-| `/iam/quota` | ✓ | 🚧 explicit empty state |
 | `/iam/invitations` | ✓ | 🚧 explicit empty state |
 | `/settings/notify/*` | ✓ | 🔌 `routes/notify/*` |
 | `/settings/cipher_keys` | ✓ | 🔌 `routes/cipher_keys.rs` |
 | `/settings/regex_patterns` | ✓ | 🔌 `routes/regex_patterns.rs` |
-| `/settings/model_pricing` | ✓ | 🔌 `routes/model_prices.rs` |
 | `/settings/query_management` | ✓ | 🔌 running-query and cancellation routes |
 | `/settings/nodes` | ✓ | 🔌 `routes/clusters.rs` |
 | `/settings/domain_management` | ✓ | 🔌 `routes/domains.rs` |
-| `/settings/correlation` | ✓ | 🔌 read-only correlation routes |
 | `/settings/organization_management` | ✓ | 🔌 organization directory routes |
-| `/settings/license` | ✓ | 🔌 `routes/license.rs` |
 
 ## Investigation and secondary routes
 

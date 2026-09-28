@@ -12,7 +12,7 @@ pub mod api_tokens;
 pub mod apm;
 pub mod audit;
 pub mod auth;
-pub mod billing;
+
 pub mod cipher_keys;
 pub mod clusters;
 pub mod connectors;
@@ -32,11 +32,10 @@ pub mod instance;
 pub mod intake;
 pub mod invitations;
 pub mod jwt_secrets;
-pub mod license;
+
 pub mod log_patterns;
 pub mod me;
 pub mod metrics;
-pub mod model_prices;
 pub mod mutes;
 pub mod node;
 pub mod notify;
@@ -67,7 +66,6 @@ pub mod web;
 // 付费版路由集合。
 pub mod agent;
 pub mod domains;
-pub mod marketplace;
 
 pub fn api_v1(state: AppState) -> Router<AppState> {
     let r = Router::new()
@@ -79,7 +77,6 @@ pub fn api_v1(state: AppState) -> Router<AppState> {
         .merge(teams::routes())
         .merge(invitations::routes())
         .merge(email_domains::routes())
-        .merge(billing::routes())
         .merge(intake::routes())
         .merge(onboarding::routes())
         .merge(oauth::routes())
@@ -123,15 +120,12 @@ pub fn api_v1(state: AppState) -> Router<AppState> {
         .merge(node::routes())
         .merge(audit::routes())
         .merge(jwt_secrets::routes())
-        .merge(license::routes())
-        .merge(model_prices::routes())
         .merge(regex_patterns::routes())
         .merge(roles::routes())
         .merge(web::routes());
 
     let r = r
         .merge(agent::routes(state.clone()))
-        .merge(marketplace::routes())
         .merge(domains::routes());
 
     r.with_state(state)

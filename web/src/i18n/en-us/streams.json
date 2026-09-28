@@ -64,12 +64,22 @@
       "volume_window": "{{window}} compressed",
       "storage": "Current storage",
       "retention": "Retention",
-      "actions": "Actions"
+      "actions": "Actions",
+      "data_count": "Records",
+      "collected_size": "Collected size",
+      "stored_size": "Stored size",
+      "index_size": "Index size"
     },
     "explore": "Explore",
     "not_queryable": "Not queryable",
     "empty_title": "No streams yet",
-    "empty_description": "Create one or send events through a datasource to register the first stream."
+    "empty_description": "Create one or send events through a datasource to register the first stream.",
+    "storage_notes": {
+      "data_count": "Currently retained persisted records, independent of the health window.",
+      "collected_size": "Cumulative canonical JSON bytes of accepted events before transformations, updated after flush; excludes transport framing. ≥ indicates incomplete historical accounting; — indicates no measurement.",
+      "stored_size": "Physical bytes of active primary data files, excluding indexes.",
+      "index_size": "Physical bytes of ready index artifacts on active segments."
+    }
   },
   "drawer": {
     "title": "Create stream",

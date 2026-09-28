@@ -449,11 +449,6 @@ async fn generate_incident_rca(
     Path(id): Path<String>,
     Query(query): Query<IncidentRcaGenerateQuery>,
 ) -> Result<Json<Value>> {
-    if !state.platform.license.has_feature(crate::agent::FEATURE) {
-        return Err(Error::forbidden(
-            "AI agent is not enabled for this deployment",
-        ));
-    }
     let language = match query.locale {
         Some(locale) => locale,
         None => state.iam.user_preferences.get(&ctx.user_id).await?.language,

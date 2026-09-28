@@ -72,7 +72,7 @@ export function RumOnboarding() {
           </div>
         </div>
         <div className="rounded-md bg-[var(--control-surface)] p-5">
-          <div className="text-xs font-strong uppercase tracking-wide text-tx-3">
+          <div className="text-xs font-strong tracking-normal text-tx-3">
             {t('onboarding.progress_title')}
           </div>
           <ol className="mt-5 grid gap-4">

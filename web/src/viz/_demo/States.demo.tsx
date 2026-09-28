@@ -90,7 +90,7 @@ export function StatesDemo() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="font-sans text-sm font-display-strong uppercase tracking-wider text-tx-2">
+      <h2 className="font-sans text-sm font-display-strong tracking-normalr text-tx-2">
         {title}
       </h2>
       {children}
@@ -138,13 +138,7 @@ const EMPTY_STRATEGIES: ReadonlyArray<{
     description: 'This page queries a stream that hasn’t received data yet, or an endpoint not deployed in this build.',
     secondaryAction: { label: 'Check datasource', onClick: () => alert('datasource') },
   },
-  {
-    strategy: 'license-gated',
-    title: 'Mole Agent is a Pro feature',
-    description: 'Investigate incidents with assisted analysis and controlled operations.',
-    primaryAction: { label: 'Upgrade', onClick: () => alert('upgrade') },
-    secondaryAction: { label: 'Compare editions', onClick: () => alert('compare') },
-  },
+
   {
     strategy: 'permission-denied',
     title: 'You don’t have access to IAM',

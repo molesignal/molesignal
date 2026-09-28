@@ -17,10 +17,7 @@ use super::{
     metadata,
 };
 use crate::{
-    agent::{
-        FEATURE,
-        inbound_mcp::{InboundMcpAuthorizationCode, InboundMcpSettings},
-    },
+    agent::inbound_mcp::{InboundMcpAuthorizationCode, InboundMcpSettings},
     api::{
         AppState,
         http::middleware::{Permission, auth::AuthenticatedCredential},
@@ -57,9 +54,6 @@ pub(super) fn routes() -> Router<AppState> {
 }
 
 async fn require_available(state: &AppState, ctx: &IamContext) -> Result<InboundMcpSettings> {
-    if !state.platform.license.has_feature(FEATURE) {
-        return Err(Error::forbidden("Inbound MCP requires the agent feature"));
-    }
     Permission::require_key(ctx, "agent.use")?;
     let settings = state
         .agent

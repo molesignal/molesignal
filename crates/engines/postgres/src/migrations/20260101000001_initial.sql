@@ -168,7 +168,7 @@ CREATE INDEX IF NOT EXISTS idx_sso_providers_org_enabled
     ON sso_providers(org_id, enabled);
 
 -- ============================================================
--- Service accounts / API tokens / audit / quotas / signing secrets
+-- Service accounts / API tokens / audit / signing secrets
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS service_accounts (
@@ -265,29 +265,8 @@ CREATE TABLE IF NOT EXISTS audit_events (
 );
 CREATE INDEX IF NOT EXISTS idx_audit_org_ts ON audit_events(org_id, ts_micros DESC);
 
-CREATE TABLE IF NOT EXISTS quotas (
-    org_id              VARCHAR(64)  PRIMARY KEY,
-    max_intake_qps      INTEGER      NOT NULL DEFAULT 0,
-    max_query_qps       INTEGER      NOT NULL DEFAULT 0,
-    max_storage_bytes   BIGINT       NOT NULL DEFAULT 0,
-    max_streams         INTEGER      NOT NULL DEFAULT 0,
-    updated_at_micros   BIGINT       NOT NULL
-);
 
-CREATE TABLE IF NOT EXISTS license_usage_daily (
-    day                 VARCHAR(10)  NOT NULL,    -- 'YYYY-MM-DD'
-    org_id              VARCHAR(64)  NOT NULL,
-    intake_bytes        BIGINT       NOT NULL DEFAULT 0,
-    user_count          INTEGER      NOT NULL DEFAULT 0,
-    PRIMARY KEY (day, org_id)
-);
 
-CREATE TABLE IF NOT EXISTS license_features (
-    name                VARCHAR(64) PRIMARY KEY,
-    enabled             BOOLEAN     NOT NULL DEFAULT FALSE,
-    expires_at_micros   BIGINT,
-    notes               TEXT
-);
 
 CREATE TABLE IF NOT EXISTS signing_secrets (
     id                  VARCHAR(64)  PRIMARY KEY,
@@ -378,7 +357,7 @@ CREATE TABLE IF NOT EXISTS physical_datasets (
 );
 
 -- 一次 flush / compaction 形成的不可变数据单元。
-CREATE TABLE IF NOT EXISTS data_segments (
+CREATE TABLE IF NOT EXISTS catalog_segments (
     org_id                 VARCHAR(64) NOT NULL,
     id                     VARCHAR(64) NOT NULL,
     dataset_id             VARCHAR(64) NOT NULL,
@@ -400,22 +379,22 @@ CREATE TABLE IF NOT EXISTS data_segments (
     retired_at_version     BIGINT,
     created_at_micros      BIGINT      NOT NULL,
     PRIMARY KEY (org_id, id),
-    CONSTRAINT fk_data_segments_dataset
+    CONSTRAINT fk_catalog_segments_dataset
         FOREIGN KEY (org_id, dataset_id)
         REFERENCES physical_datasets (org_id, id)
         ON DELETE CASCADE
 );
-CREATE INDEX IF NOT EXISTS idx_data_segments_scan
-    ON data_segments(org_id, dataset_id, state, partition_start_micros);
-CREATE INDEX IF NOT EXISTS idx_data_segments_time
-    ON data_segments(org_id, dataset_id, min_event_micros, max_event_micros)
+CREATE INDEX IF NOT EXISTS idx_catalog_segments_scan
+    ON catalog_segments(org_id, dataset_id, state, partition_start_micros);
+CREATE INDEX IF NOT EXISTS idx_catalog_segments_time
+    ON catalog_segments(org_id, dataset_id, min_event_micros, max_event_micros)
     WHERE state = 'active';
-CREATE INDEX IF NOT EXISTS idx_data_segments_flush
-    ON data_segments(org_id, dataset_id, flush_id);
+CREATE INDEX IF NOT EXISTS idx_catalog_segments_flush
+    ON catalog_segments(org_id, dataset_id, flush_id);
 
 -- Segment 下的物理文件（Parquet 主数据、索引、统计、字典）。
 -- 格式判定只看 artifact_type + format_version，不看对象 key 后缀。
-CREATE TABLE IF NOT EXISTS artifacts (
+CREATE TABLE IF NOT EXISTS catalog_artifacts (
     org_id             VARCHAR(64) NOT NULL,
     id                 VARCHAR(64) NOT NULL,
     segment_id         VARCHAR(64) NOT NULL,
@@ -434,20 +413,20 @@ CREATE TABLE IF NOT EXISTS artifacts (
     created_at_micros  BIGINT      NOT NULL,
     updated_at_micros  BIGINT      NOT NULL,
     PRIMARY KEY (org_id, id),
-    CONSTRAINT fk_artifacts_segment
+    CONSTRAINT fk_catalog_artifacts_segment
         FOREIGN KEY (org_id, segment_id)
-        REFERENCES data_segments (org_id, id)
+        REFERENCES catalog_segments (org_id, id)
         ON DELETE CASCADE
 );
-CREATE UNIQUE INDEX IF NOT EXISTS uniq_artifacts_object_key
-    ON artifacts(org_id, object_key);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_catalog_artifacts_object_key
+    ON catalog_artifacts(org_id, object_key);
 -- 同一槽位只允许一个存活 Artifact；tombstoned 行等待延迟 GC 期间不占槽位，
 -- 这样 index rebuild 才能先插新行再回收旧行。
-CREATE UNIQUE INDEX IF NOT EXISTS uniq_artifacts_live_slot
-    ON artifacts(org_id, segment_id, role, artifact_type)
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_catalog_artifacts_live_slot
+    ON catalog_artifacts(org_id, segment_id, role, artifact_type)
     WHERE state IN ('pending', 'ready');
-CREATE INDEX IF NOT EXISTS idx_artifacts_rebuild_scan
-    ON artifacts(org_id, state)
+CREATE INDEX IF NOT EXISTS idx_catalog_artifacts_rebuild_scan
+    ON catalog_artifacts(org_id, state)
     WHERE state IN ('pending', 'failed');
 
 -- flush 幂等提交记录。唯一约束必须含 writer_node_id：多写入节点的
@@ -461,6 +440,7 @@ CREATE TABLE IF NOT EXISTS storage_flush_commits (
     sequence_start     BIGINT       NOT NULL,
     sequence_end       BIGINT       NOT NULL,
     committed_at_micros BIGINT      NOT NULL,
+    collected_bytes    BIGINT CHECK (collected_bytes >= 0),
     PRIMARY KEY (org_id, dataset_id, flush_id),
     CONSTRAINT uniq_storage_flush_commits_range
         UNIQUE (org_id, dataset_id, writer_node_id, writer_epoch,
@@ -530,8 +510,8 @@ CREATE TABLE IF NOT EXISTS object_gc_queue (
 );
 CREATE INDEX IF NOT EXISTS idx_object_gc_queue_due
     ON object_gc_queue(state, not_before_micros);
-CREATE INDEX IF NOT EXISTS idx_artifacts_rebuild
-    ON artifacts(org_id, state, updated_at_micros)
+CREATE INDEX IF NOT EXISTS idx_catalog_artifacts_rebuild
+    ON catalog_artifacts(org_id, state, updated_at_micros)
     WHERE role = 'index' AND state IN ('pending', 'failed');
 
 CREATE TABLE IF NOT EXISTS file_download_tokens (
@@ -1112,7 +1092,7 @@ CREATE TABLE IF NOT EXISTS remote_clusters (
 );
 
 -- ============================================================
--- : actions / copilot / marketplace / model pricing / domains / AI toolsets
+-- : actions / copilot / marketplace / domains / AI toolsets
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS actions (
@@ -1190,28 +1170,6 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 CREATE INDEX IF NOT EXISTS idx_chat_messages_session
     ON chat_messages(session_id, created_at_micros);
 
-CREATE TABLE IF NOT EXISTS marketplace_subscriptions (
-    id                 VARCHAR(64)  PRIMARY KEY,
-    org_id             VARCHAR(64)  NOT NULL,
-    provider           VARCHAR(16)  NOT NULL,    -- aws | azure
-    external_id        VARCHAR(255) NOT NULL,
-    state              VARCHAR(16)  NOT NULL,    -- pending | active | suspended | cancelled
-    plan_id            VARCHAR(128),
-    metadata           JSONB        NOT NULL DEFAULT '{}'::JSONB,
-    created_at_micros  BIGINT       NOT NULL,
-    updated_at_micros  BIGINT       NOT NULL
-);
-CREATE UNIQUE INDEX IF NOT EXISTS uniq_marketplace_provider_external
-    ON marketplace_subscriptions(provider, external_id);
-
-CREATE TABLE IF NOT EXISTS model_prices (
-    provider                VARCHAR(32) NOT NULL,
-    model                   VARCHAR(64) NOT NULL,
-    prompt_usd_per_1k       DOUBLE PRECISION NOT NULL,
-    completion_usd_per_1k   DOUBLE PRECISION NOT NULL,
-    updated_at_micros       BIGINT NOT NULL,
-    PRIMARY KEY (provider, model)
-);
 
 CREATE TABLE IF NOT EXISTS domains (
     id                    VARCHAR(64)  PRIMARY KEY,
@@ -1351,7 +1309,7 @@ CREATE INDEX IF NOT EXISTS idx_alert_subscriptions_org_enabled
     ON alert_subscriptions(org_id, enabled);
 
 -- ============================================================
--- Org config: email domains / billing / trials
+-- Org config: email domains
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS org_email_domains (
@@ -1363,27 +1321,6 @@ CREATE TABLE IF NOT EXISTS org_email_domains (
 CREATE INDEX IF NOT EXISTS idx_org_email_domains_org
     ON org_email_domains(org_id);
 
-CREATE TABLE IF NOT EXISTS billing_settings (
-    id                          VARCHAR(64)  PRIMARY KEY,
-    enabled                     BOOLEAN      NOT NULL DEFAULT FALSE,
-    signature_tolerance_secs    INTEGER      NOT NULL DEFAULT 300,
-    webhook_secret_ciphertext   BYTEA,
-    webhook_secret_nonce        BYTEA,
-    api_key_ciphertext          BYTEA,
-    api_key_nonce               BYTEA,
-    updated_at_micros           BIGINT       NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS org_trials (
-    org_id              VARCHAR(64)  PRIMARY KEY,
-    started_at_micros   BIGINT       NOT NULL,
-    ends_at_micros      BIGINT       NOT NULL,
-    state               VARCHAR(16)  NOT NULL DEFAULT 'active',
-    notified_stage      VARCHAR(16)  NOT NULL DEFAULT 'none',
-    created_at_micros   BIGINT       NOT NULL,
-    updated_at_micros   BIGINT       NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_org_trials_state ON org_trials(state);
 
 -- ============================================================
 -- Slow queries / search admission load
@@ -1541,21 +1478,10 @@ CREATE INDEX IF NOT EXISTS idx_seen_events_received ON seen_events(received_at_m
 
 -- 已有表的补充索引（增量迁移引入）。
 CREATE INDEX IF NOT EXISTS idx_domains_state ON domains(state);
-CREATE INDEX IF NOT EXISTS idx_marketplace_subscriptions_org
-    ON marketplace_subscriptions(org_id);
 
 -- ============================================================
 -- Seed data
 -- ============================================================
-
--- model_prices seed（使用 src/model_pricing::default_seed 的值）
-INSERT INTO model_prices (provider, model, prompt_usd_per_1k, completion_usd_per_1k, updated_at_micros)
-VALUES
-    ('openai',    'gpt-4o',             0.005,   0.015,   0),
-    ('openai',    'gpt-4o-mini',        0.00015, 0.0006,  0),
-    ('anthropic', 'claude-3-5-sonnet',  0.003,   0.015,   0),
-    ('anthropic', 'claude-3-haiku',     0.00025, 0.00125, 0)
-ON CONFLICT (provider, model) DO NOTHING;
 
 -- AI builtin prompt templates（稳定 builtin_key；scope = builtin，不可变）。
 INSERT INTO ai_prompt_templates
@@ -1665,7 +1591,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_password_reset_tokens_user_active
 
 -- Per-org hourly raw intake volume for operational overview pages.
 --
--- `license_usage_daily` remains the billing ledger. This table is deliberately
+-- Hourly intake usage is deliberately
 -- narrower and time-bucketed so the Home page can answer "how much data was
 -- received in this window?" without scanning telemetry payloads.
 CREATE TABLE IF NOT EXISTS intake_usage_hourly (
@@ -2552,7 +2478,7 @@ DROP TABLE IF EXISTS actions;
 -- Distributed tracing system scope
 -- ============================================================
 
--- System scope, immutable system resources, platform administrators, License history,
+-- System scope, immutable system resources, platform administrators,
 -- and dynamic Trace policy.
 
 ALTER TABLE organizations
@@ -2614,25 +2540,7 @@ CREATE TABLE IF NOT EXISTS platform_administrators (
 CREATE INDEX IF NOT EXISTS idx_platform_administrators_active
     ON platform_administrators (active) WHERE active;
 
-CREATE TABLE IF NOT EXISTS license_versions (
-    id                  VARCHAR(64) PRIMARY KEY,
-    system_org_id       VARCHAR(64) NOT NULL,
-    signed_package      JSONB NOT NULL,
-    payload_digest      VARCHAR(64) NOT NULL,
-    summary             JSONB NOT NULL DEFAULT '{}'::JSONB,
-    created_by          VARCHAR(64),
-    created_at_micros   BIGINT NOT NULL
-);
-CREATE UNIQUE INDEX IF NOT EXISTS uq_license_versions_digest
-    ON license_versions (payload_digest);
 
-CREATE TABLE IF NOT EXISTS active_license_version (
-    singleton_id        SMALLINT PRIMARY KEY DEFAULT 1,
-    version_id          VARCHAR(64) NOT NULL,
-    activated_by        VARCHAR(64),
-    activated_at_micros BIGINT NOT NULL,
-    CONSTRAINT chk_active_license_singleton CHECK (singleton_id = 1)
-);
 
 CREATE TABLE IF NOT EXISTS trace_runtime_policies (
     id                  VARCHAR(64) PRIMARY KEY,
@@ -2755,17 +2663,7 @@ CREATE TRIGGER trg_protect_system_stream
 BEFORE INSERT OR UPDATE OR DELETE ON logical_streams
 FOR EACH ROW EXECUTE FUNCTION protect_system_stream();
 
-CREATE OR REPLACE FUNCTION reject_license_version_mutation()
-RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN
-    RAISE EXCEPTION 'License versions are immutable';
-END
-$$;
 
-DROP TRIGGER IF EXISTS trg_license_versions_immutable ON license_versions;
-CREATE TRIGGER trg_license_versions_immutable
-BEFORE UPDATE OR DELETE ON license_versions
-FOR EACH ROW EXECUTE FUNCTION reject_license_version_mutation();
 
 CREATE OR REPLACE FUNCTION protect_last_platform_administrator()
 RETURNS trigger LANGUAGE plpgsql AS $$
@@ -3382,7 +3280,6 @@ CREATE TABLE IF NOT EXISTS iam_permissions (
     domain              VARCHAR(64)  NOT NULL,
     label_key           VARCHAR(160) NOT NULL,
     description_key     VARCHAR(160) NOT NULL,
-    feature             VARCHAR(64),
     catalog_version     BIGINT       NOT NULL,
     CONSTRAINT chk_iam_permissions_scope
         CHECK (scope IN ('platform', 'organization'))
@@ -3432,7 +3329,6 @@ CREATE TEMP TABLE iam_permission_seed (
     domain              VARCHAR(64)  NOT NULL,
     label_key           VARCHAR(160) NOT NULL,
     description_key     VARCHAR(160) NOT NULL,
-    feature             VARCHAR(64),
     builtin_roles       TEXT[]       NOT NULL
 ) ON COMMIT DROP;
 
@@ -3442,74 +3338,69 @@ INSERT INTO iam_permission_seed (
     domain,
     label_key,
     description_key,
-    feature,
     builtin_roles
 )
 VALUES
-    ('sys.organizations.manage', 'platform', 'platform', 'permissions.sys_organizations_manage', 'permissions_hint.sys_organizations_manage', NULL, ARRAY['platform_owner']::TEXT[]),
-    ('sys.licenses.read', 'platform', 'platform', 'permissions.sys_licenses_read', 'permissions_hint.sys_licenses_read', NULL, ARRAY['platform_owner']::TEXT[]),
-    ('sys.licenses.manage', 'platform', 'platform', 'permissions.sys_licenses_manage', 'permissions_hint.sys_licenses_manage', NULL, ARRAY['platform_owner']::TEXT[]),
-    ('sys.settings.manage', 'platform', 'platform', 'permissions.sys_settings_manage', 'permissions_hint.sys_settings_manage', NULL, ARRAY['platform_owner']::TEXT[]),
-    ('sys.telemetry.read', 'platform', 'platform', 'permissions.sys_telemetry_read', 'permissions_hint.sys_telemetry_read', NULL, ARRAY['platform_owner']::TEXT[]),
-    ('sys.telemetry.manage', 'platform', 'platform', 'permissions.sys_telemetry_manage', 'permissions_hint.sys_telemetry_manage', NULL, ARRAY['platform_owner']::TEXT[]),
-    ('sys.administrators.manage', 'platform', 'platform', 'permissions.sys_administrators_manage', 'permissions_hint.sys_administrators_manage', NULL, ARRAY['platform_owner']::TEXT[]),
-    ('sys.trace_debug.manage', 'platform', 'platform', 'permissions.sys_trace_debug_manage', 'permissions_hint.sys_trace_debug_manage', NULL, ARRAY['platform_owner']::TEXT[]),
-    ('org.settings.read', 'organization', 'organization', 'permissions.org_settings_read', 'permissions_hint.org_settings_read', NULL, ARRAY['owner', 'admin']::TEXT[]),
-    ('org.settings.manage', 'organization', 'organization', 'permissions.org_settings_manage', 'permissions_hint.org_settings_manage', NULL, ARRAY['owner', 'admin']::TEXT[]),
-    ('org.members.read', 'organization', 'iam', 'permissions.org_members_read', 'permissions_hint.org_members_read', NULL, ARRAY['owner', 'admin']::TEXT[]),
-    ('org.members.manage', 'organization', 'iam', 'permissions.org_members_manage', 'permissions_hint.org_members_manage', NULL, ARRAY['owner', 'admin']::TEXT[]),
-    ('iam.roles.read', 'organization', 'iam', 'permissions.iam_roles_read', 'permissions_hint.iam_roles_read', NULL, ARRAY['owner', 'admin']::TEXT[]),
-    ('iam.roles.manage', 'organization', 'iam', 'permissions.iam_roles_manage', 'permissions_hint.iam_roles_manage', NULL, ARRAY['owner', 'admin']::TEXT[]),
-    ('iam.policies.read', 'organization', 'iam', 'permissions.iam_policies_read', 'permissions_hint.iam_policies_read', NULL, ARRAY['owner', 'admin']::TEXT[]),
-    ('iam.policies.manage', 'organization', 'iam', 'permissions.iam_policies_manage', 'permissions_hint.iam_policies_manage', NULL, ARRAY['owner', 'admin']::TEXT[]),
-    ('org.billing.read', 'organization', 'organization', 'permissions.org_billing_read', 'permissions_hint.org_billing_read', NULL, ARRAY['owner', 'admin']::TEXT[]),
-    ('org.billing.manage', 'organization', 'organization', 'permissions.org_billing_manage', 'permissions_hint.org_billing_manage', NULL, ARRAY['owner', 'admin']::TEXT[]),
-    ('api_tokens.read', 'organization', 'iam', 'permissions.api_tokens_read', 'permissions_hint.api_tokens_read', NULL, ARRAY['owner', 'admin']::TEXT[]),
-    ('api_tokens.manage', 'organization', 'iam', 'permissions.api_tokens_manage', 'permissions_hint.api_tokens_manage', NULL, ARRAY['owner', 'admin']::TEXT[]),
-    ('service_accounts.read', 'organization', 'iam', 'permissions.service_accounts_read', 'permissions_hint.service_accounts_read', NULL, ARRAY['owner', 'admin']::TEXT[]),
-    ('service_accounts.manage', 'organization', 'iam', 'permissions.service_accounts_manage', 'permissions_hint.service_accounts_manage', NULL, ARRAY['owner', 'admin']::TEXT[]),
-    ('streams.read', 'organization', 'observability', 'permissions.streams_read', 'permissions_hint.streams_read', NULL, ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
-    ('streams.query', 'organization', 'observability', 'permissions.streams_query', 'permissions_hint.streams_query', NULL, ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
-    ('streams.write', 'organization', 'observability', 'permissions.streams_write', 'permissions_hint.streams_write', NULL, ARRAY['owner', 'admin', 'editor', 'intake']::TEXT[]),
-    ('rum.write', 'organization', 'observability', 'permissions.rum_write', 'permissions_hint.rum_write', NULL, ARRAY['owner', 'admin', 'editor', 'rum_client']::TEXT[]),
-    ('streams.create', 'organization', 'observability', 'permissions.streams_create', 'permissions_hint.streams_create', NULL, ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('streams.configure', 'organization', 'observability', 'permissions.streams_configure', 'permissions_hint.streams_configure', NULL, ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('streams.delete', 'organization', 'observability', 'permissions.streams_delete', 'permissions_hint.streams_delete', NULL, ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('dashboards.read', 'organization', 'dashboards', 'permissions.dashboards_read', 'permissions_hint.dashboards_read', NULL, ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
-    ('dashboards.edit', 'organization', 'dashboards', 'permissions.dashboards_edit', 'permissions_hint.dashboards_edit', NULL, ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('dashboards.create', 'organization', 'dashboards', 'permissions.dashboards_create', 'permissions_hint.dashboards_create', NULL, ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('dashboards.delete', 'organization', 'dashboards', 'permissions.dashboards_delete', 'permissions_hint.dashboards_delete', NULL, ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('dashboards.share', 'organization', 'dashboards', 'permissions.dashboards_share', 'permissions_hint.dashboards_share', NULL, ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('alerts.read', 'organization', 'alerts', 'permissions.alerts_read', 'permissions_hint.alerts_read', NULL, ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
-    ('alerts.manage', 'organization', 'alerts', 'permissions.alerts_manage', 'permissions_hint.alerts_manage', NULL, ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('alerts.acknowledge', 'organization', 'alerts', 'permissions.alerts_acknowledge', 'permissions_hint.alerts_acknowledge', NULL, ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('alerts.silence', 'organization', 'alerts', 'permissions.alerts_silence', 'permissions_hint.alerts_silence', NULL, ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('schedules.read', 'organization', 'alerts', 'permissions.schedules_read', 'permissions_hint.schedules_read', NULL, ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
-    ('schedules.manage', 'organization', 'alerts', 'permissions.schedules_manage', 'permissions_hint.schedules_manage', NULL, ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('saved_views.read', 'organization', 'observability', 'permissions.saved_views_read', 'permissions_hint.saved_views_read', NULL, ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
-    ('saved_views.create', 'organization', 'observability', 'permissions.saved_views_create', 'permissions_hint.saved_views_create', NULL, ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('saved_views.edit', 'organization', 'observability', 'permissions.saved_views_edit', 'permissions_hint.saved_views_edit', NULL, ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('saved_views.delete', 'organization', 'observability', 'permissions.saved_views_delete', 'permissions_hint.saved_views_delete', NULL, ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('pipelines.read', 'organization', 'pipelines', 'permissions.pipelines_read', 'permissions_hint.pipelines_read', NULL, ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
-    ('pipelines.create', 'organization', 'pipelines', 'permissions.pipelines_create', 'permissions_hint.pipelines_create', NULL, ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('pipelines.edit', 'organization', 'pipelines', 'permissions.pipelines_edit', 'permissions_hint.pipelines_edit', NULL, ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('pipelines.run', 'organization', 'pipelines', 'permissions.pipelines_run', 'permissions_hint.pipelines_run', NULL, ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('pipelines.pause', 'organization', 'pipelines', 'permissions.pipelines_pause', 'permissions_hint.pipelines_pause', NULL, ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('pipelines.delete', 'organization', 'pipelines', 'permissions.pipelines_delete', 'permissions_hint.pipelines_delete', NULL, ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('functions.read', 'organization', 'pipelines', 'permissions.functions_read', 'permissions_hint.functions_read', NULL, ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
-    ('functions.create', 'organization', 'pipelines', 'permissions.functions_create', 'permissions_hint.functions_create', NULL, ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('functions.edit', 'organization', 'pipelines', 'permissions.functions_edit', 'permissions_hint.functions_edit', NULL, ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('functions.run', 'organization', 'pipelines', 'permissions.functions_run', 'permissions_hint.functions_run', NULL, ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('functions.delete', 'organization', 'pipelines', 'permissions.functions_delete', 'permissions_hint.functions_delete', NULL, ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('reports.read', 'organization', 'reports', 'permissions.reports_read', 'permissions_hint.reports_read', NULL, ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
-    ('reports.create', 'organization', 'reports', 'permissions.reports_create', 'permissions_hint.reports_create', NULL, ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('reports.edit', 'organization', 'reports', 'permissions.reports_edit', 'permissions_hint.reports_edit', NULL, ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('reports.schedule', 'organization', 'reports', 'permissions.reports_schedule', 'permissions_hint.reports_schedule', NULL, ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('reports.delete', 'organization', 'reports', 'permissions.reports_delete', 'permissions_hint.reports_delete', NULL, ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('audit.read', 'organization', 'iam', 'permissions.audit_read', 'permissions_hint.audit_read', NULL, ARRAY['owner', 'admin']::TEXT[]),
-    ('agent.use', 'organization', 'agent', 'permissions.agent_use', 'permissions_hint.agent_use', 'agent', ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
-    ('agent.manage', 'organization', 'agent', 'permissions.agent_manage', 'permissions_hint.agent_manage', 'agent', ARRAY['owner', 'admin']::TEXT[]),
-    ('agent.approve', 'organization', 'agent', 'permissions.agent_approve', 'permissions_hint.agent_approve', 'agent', ARRAY['owner', 'admin']::TEXT[]);
+    ('sys.organizations.manage', 'platform', 'platform', 'permissions.sys_organizations_manage', 'permissions_hint.sys_organizations_manage', ARRAY['platform_owner']::TEXT[]),
+    ('sys.settings.manage', 'platform', 'platform', 'permissions.sys_settings_manage', 'permissions_hint.sys_settings_manage', ARRAY['platform_owner']::TEXT[]),
+    ('sys.telemetry.read', 'platform', 'platform', 'permissions.sys_telemetry_read', 'permissions_hint.sys_telemetry_read', ARRAY['platform_owner']::TEXT[]),
+    ('sys.telemetry.manage', 'platform', 'platform', 'permissions.sys_telemetry_manage', 'permissions_hint.sys_telemetry_manage', ARRAY['platform_owner']::TEXT[]),
+    ('sys.administrators.manage', 'platform', 'platform', 'permissions.sys_administrators_manage', 'permissions_hint.sys_administrators_manage', ARRAY['platform_owner']::TEXT[]),
+    ('sys.trace_debug.manage', 'platform', 'platform', 'permissions.sys_trace_debug_manage', 'permissions_hint.sys_trace_debug_manage', ARRAY['platform_owner']::TEXT[]),
+    ('org.settings.read', 'organization', 'organization', 'permissions.org_settings_read', 'permissions_hint.org_settings_read', ARRAY['owner', 'admin']::TEXT[]),
+    ('org.settings.manage', 'organization', 'organization', 'permissions.org_settings_manage', 'permissions_hint.org_settings_manage', ARRAY['owner', 'admin']::TEXT[]),
+    ('org.members.read', 'organization', 'iam', 'permissions.org_members_read', 'permissions_hint.org_members_read', ARRAY['owner', 'admin']::TEXT[]),
+    ('org.members.manage', 'organization', 'iam', 'permissions.org_members_manage', 'permissions_hint.org_members_manage', ARRAY['owner', 'admin']::TEXT[]),
+    ('iam.roles.read', 'organization', 'iam', 'permissions.iam_roles_read', 'permissions_hint.iam_roles_read', ARRAY['owner', 'admin']::TEXT[]),
+    ('iam.roles.manage', 'organization', 'iam', 'permissions.iam_roles_manage', 'permissions_hint.iam_roles_manage', ARRAY['owner', 'admin']::TEXT[]),
+    ('iam.policies.read', 'organization', 'iam', 'permissions.iam_policies_read', 'permissions_hint.iam_policies_read', ARRAY['owner', 'admin']::TEXT[]),
+    ('iam.policies.manage', 'organization', 'iam', 'permissions.iam_policies_manage', 'permissions_hint.iam_policies_manage', ARRAY['owner', 'admin']::TEXT[]),
+    ('api_tokens.read', 'organization', 'iam', 'permissions.api_tokens_read', 'permissions_hint.api_tokens_read', ARRAY['owner', 'admin']::TEXT[]),
+    ('api_tokens.manage', 'organization', 'iam', 'permissions.api_tokens_manage', 'permissions_hint.api_tokens_manage', ARRAY['owner', 'admin']::TEXT[]),
+    ('service_accounts.read', 'organization', 'iam', 'permissions.service_accounts_read', 'permissions_hint.service_accounts_read', ARRAY['owner', 'admin']::TEXT[]),
+    ('service_accounts.manage', 'organization', 'iam', 'permissions.service_accounts_manage', 'permissions_hint.service_accounts_manage', ARRAY['owner', 'admin']::TEXT[]),
+    ('streams.read', 'organization', 'observability', 'permissions.streams_read', 'permissions_hint.streams_read', ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
+    ('streams.query', 'organization', 'observability', 'permissions.streams_query', 'permissions_hint.streams_query', ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
+    ('streams.write', 'organization', 'observability', 'permissions.streams_write', 'permissions_hint.streams_write', ARRAY['owner', 'admin', 'editor', 'intake']::TEXT[]),
+    ('rum.write', 'organization', 'observability', 'permissions.rum_write', 'permissions_hint.rum_write', ARRAY['owner', 'admin', 'editor', 'rum_client']::TEXT[]),
+    ('streams.create', 'organization', 'observability', 'permissions.streams_create', 'permissions_hint.streams_create', ARRAY['owner', 'admin', 'editor']::TEXT[]),
+    ('streams.configure', 'organization', 'observability', 'permissions.streams_configure', 'permissions_hint.streams_configure', ARRAY['owner', 'admin', 'editor']::TEXT[]),
+    ('streams.delete', 'organization', 'observability', 'permissions.streams_delete', 'permissions_hint.streams_delete', ARRAY['owner', 'admin', 'editor']::TEXT[]),
+    ('dashboards.read', 'organization', 'dashboards', 'permissions.dashboards_read', 'permissions_hint.dashboards_read', ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
+    ('dashboards.edit', 'organization', 'dashboards', 'permissions.dashboards_edit', 'permissions_hint.dashboards_edit', ARRAY['owner', 'admin', 'editor']::TEXT[]),
+    ('dashboards.create', 'organization', 'dashboards', 'permissions.dashboards_create', 'permissions_hint.dashboards_create', ARRAY['owner', 'admin', 'editor']::TEXT[]),
+    ('dashboards.delete', 'organization', 'dashboards', 'permissions.dashboards_delete', 'permissions_hint.dashboards_delete', ARRAY['owner', 'admin', 'editor']::TEXT[]),
+    ('dashboards.share', 'organization', 'dashboards', 'permissions.dashboards_share', 'permissions_hint.dashboards_share', ARRAY['owner', 'admin', 'editor']::TEXT[]),
+    ('alerts.read', 'organization', 'alerts', 'permissions.alerts_read', 'permissions_hint.alerts_read', ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
+    ('alerts.manage', 'organization', 'alerts', 'permissions.alerts_manage', 'permissions_hint.alerts_manage', ARRAY['owner', 'admin', 'editor']::TEXT[]),
+    ('alerts.acknowledge', 'organization', 'alerts', 'permissions.alerts_acknowledge', 'permissions_hint.alerts_acknowledge', ARRAY['owner', 'admin', 'editor']::TEXT[]),
+    ('alerts.silence', 'organization', 'alerts', 'permissions.alerts_silence', 'permissions_hint.alerts_silence', ARRAY['owner', 'admin', 'editor']::TEXT[]),
+    ('schedules.read', 'organization', 'alerts', 'permissions.schedules_read', 'permissions_hint.schedules_read', ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
+    ('schedules.manage', 'organization', 'alerts', 'permissions.schedules_manage', 'permissions_hint.schedules_manage', ARRAY['owner', 'admin', 'editor']::TEXT[]),
+    ('saved_views.read', 'organization', 'observability', 'permissions.saved_views_read', 'permissions_hint.saved_views_read', ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
+    ('saved_views.create', 'organization', 'observability', 'permissions.saved_views_create', 'permissions_hint.saved_views_create', ARRAY['owner', 'admin', 'editor']::TEXT[]),
+    ('saved_views.edit', 'organization', 'observability', 'permissions.saved_views_edit', 'permissions_hint.saved_views_edit', ARRAY['owner', 'admin', 'editor']::TEXT[]),
+    ('saved_views.delete', 'organization', 'observability', 'permissions.saved_views_delete', 'permissions_hint.saved_views_delete', ARRAY['owner', 'admin', 'editor']::TEXT[]),
+    ('pipelines.read', 'organization', 'pipelines', 'permissions.pipelines_read', 'permissions_hint.pipelines_read', ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
+    ('pipelines.create', 'organization', 'pipelines', 'permissions.pipelines_create', 'permissions_hint.pipelines_create', ARRAY['owner', 'admin', 'editor']::TEXT[]),
+    ('pipelines.edit', 'organization', 'pipelines', 'permissions.pipelines_edit', 'permissions_hint.pipelines_edit', ARRAY['owner', 'admin', 'editor']::TEXT[]),
+    ('pipelines.run', 'organization', 'pipelines', 'permissions.pipelines_run', 'permissions_hint.pipelines_run', ARRAY['owner', 'admin', 'editor']::TEXT[]),
+    ('pipelines.pause', 'organization', 'pipelines', 'permissions.pipelines_pause', 'permissions_hint.pipelines_pause', ARRAY['owner', 'admin', 'editor']::TEXT[]),
+    ('pipelines.delete', 'organization', 'pipelines', 'permissions.pipelines_delete', 'permissions_hint.pipelines_delete', ARRAY['owner', 'admin', 'editor']::TEXT[]),
+    ('functions.read', 'organization', 'pipelines', 'permissions.functions_read', 'permissions_hint.functions_read', ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
+    ('functions.create', 'organization', 'pipelines', 'permissions.functions_create', 'permissions_hint.functions_create', ARRAY['owner', 'admin', 'editor']::TEXT[]),
+    ('functions.edit', 'organization', 'pipelines', 'permissions.functions_edit', 'permissions_hint.functions_edit', ARRAY['owner', 'admin', 'editor']::TEXT[]),
+    ('functions.run', 'organization', 'pipelines', 'permissions.functions_run', 'permissions_hint.functions_run', ARRAY['owner', 'admin', 'editor']::TEXT[]),
+    ('functions.delete', 'organization', 'pipelines', 'permissions.functions_delete', 'permissions_hint.functions_delete', ARRAY['owner', 'admin', 'editor']::TEXT[]),
+    ('reports.read', 'organization', 'reports', 'permissions.reports_read', 'permissions_hint.reports_read', ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
+    ('reports.create', 'organization', 'reports', 'permissions.reports_create', 'permissions_hint.reports_create', ARRAY['owner', 'admin', 'editor']::TEXT[]),
+    ('reports.edit', 'organization', 'reports', 'permissions.reports_edit', 'permissions_hint.reports_edit', ARRAY['owner', 'admin', 'editor']::TEXT[]),
+    ('reports.schedule', 'organization', 'reports', 'permissions.reports_schedule', 'permissions_hint.reports_schedule', ARRAY['owner', 'admin', 'editor']::TEXT[]),
+    ('reports.delete', 'organization', 'reports', 'permissions.reports_delete', 'permissions_hint.reports_delete', ARRAY['owner', 'admin', 'editor']::TEXT[]),
+    ('audit.read', 'organization', 'iam', 'permissions.audit_read', 'permissions_hint.audit_read', ARRAY['owner', 'admin']::TEXT[]),
+    ('agent.use', 'organization', 'agent', 'permissions.agent_use', 'permissions_hint.agent_use', ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
+    ('agent.manage', 'organization', 'agent', 'permissions.agent_manage', 'permissions_hint.agent_manage', ARRAY['owner', 'admin']::TEXT[]),
+    ('agent.approve', 'organization', 'agent', 'permissions.agent_approve', 'permissions_hint.agent_approve', ARRAY['owner', 'admin']::TEXT[]);
 
 INSERT INTO iam_permissions (
     permission_key,
@@ -3517,7 +3408,6 @@ INSERT INTO iam_permissions (
     domain,
     label_key,
     description_key,
-    feature,
     catalog_version
 )
 SELECT
@@ -3526,7 +3416,6 @@ SELECT
     domain,
     label_key,
     description_key,
-    feature,
     CASE WHEN permission_key = 'rum.write' THEN 7 ELSE 5 END
 FROM iam_permission_seed
 ON CONFLICT (permission_key) DO UPDATE
@@ -3534,7 +3423,6 @@ SET scope = EXCLUDED.scope,
     domain = EXCLUDED.domain,
     label_key = EXCLUDED.label_key,
     description_key = EXCLUDED.description_key,
-    feature = EXCLUDED.feature,
     catalog_version = EXCLUDED.catalog_version;
 
 -- Replace provisional built-in permission assignments before enforcing the
@@ -3703,7 +3591,6 @@ INSERT INTO iam_permissions (
     domain,
     label_key,
     description_key,
-    feature,
     catalog_version
 )
 VALUES (
@@ -3712,7 +3599,6 @@ VALUES (
     'reports',
     'permissions.reports_share',
     'permissions_hint.reports_share',
-    NULL,
     5
 )
 ON CONFLICT (permission_key) DO UPDATE
@@ -3720,7 +3606,6 @@ SET scope = EXCLUDED.scope,
     domain = EXCLUDED.domain,
     label_key = EXCLUDED.label_key,
     description_key = EXCLUDED.description_key,
-    feature = EXCLUDED.feature,
     catalog_version = EXCLUDED.catalog_version;
 
 INSERT INTO iam_builtin_role_permissions (role_key, permission_key)
@@ -3845,7 +3730,6 @@ INSERT INTO iam_permissions (
     domain,
     label_key,
     description_key,
-    feature,
     catalog_version
 )
 VALUES (
@@ -3854,7 +3738,6 @@ VALUES (
     'platform',
     'permissions.sys_dashboards_read',
     'permissions_hint.sys_dashboards_read',
-    NULL,
     6
 )
 ON CONFLICT (permission_key) DO UPDATE
@@ -3862,7 +3745,6 @@ SET scope = EXCLUDED.scope,
     domain = EXCLUDED.domain,
     label_key = EXCLUDED.label_key,
     description_key = EXCLUDED.description_key,
-    feature = EXCLUDED.feature,
     catalog_version = EXCLUDED.catalog_version;
 
 INSERT INTO iam_builtin_role_permissions (role_key, permission_key)
@@ -4993,19 +4875,18 @@ FOR EACH ROW EXECUTE FUNCTION enqueue_status_page_incident_notification();
 -- Copyright (c) 2026 MoleSignal Authors
 
 INSERT INTO iam_permissions (
-    permission_key, scope, domain, label_key, description_key, feature, catalog_version
+    permission_key, scope, domain, label_key, description_key, catalog_version
 )
 VALUES
     ('status_pages.read', 'organization', 'status_pages',
-     'permissions.status_pages_read', 'permissions_hint.status_pages_read', NULL, 8),
+     'permissions.status_pages_read', 'permissions_hint.status_pages_read', 8),
     ('status_pages.manage', 'organization', 'status_pages',
-     'permissions.status_pages_manage', 'permissions_hint.status_pages_manage', NULL, 8)
+     'permissions.status_pages_manage', 'permissions_hint.status_pages_manage', 8)
 ON CONFLICT (permission_key) DO UPDATE
 SET scope = EXCLUDED.scope,
     domain = EXCLUDED.domain,
     label_key = EXCLUDED.label_key,
     description_key = EXCLUDED.description_key,
-    feature = EXCLUDED.feature,
     catalog_version = EXCLUDED.catalog_version;
 
 UPDATE iam_permission_catalog_versions
@@ -5161,8 +5042,7 @@ CREATE INDEX idx_status_page_incident_updates_search
     ON status_page_incident_updates(org_id, status_page_id, incident_id, lower(message));
 
 -- Bind a Status Page to one globally reserved ACME domain. The Status Page
--- workflow is intentionally not license-gated even though the generic domain
--- management screen remains a separately licensed capability.
+-- workflow uses organization IAM permissions.
 ALTER TABLE domains
     ADD CONSTRAINT uq_domains_org_id_id UNIQUE (org_id, id);
 CREATE TABLE status_page_domain_configs (
@@ -5409,35 +5289,34 @@ $$ LANGUAGE plpgsql;
 -- between ordinary monitor management, private execution infrastructure, and
 -- write-only authentication material.
 INSERT INTO iam_permissions (
-    permission_key, scope, domain, label_key, description_key, feature, catalog_version
+    permission_key, scope, domain, label_key, description_key, catalog_version
 )
 VALUES
     ('synthetics.read', 'organization', 'synthetics',
-     'permissions.synthetics_read', 'permissions_hint.synthetics_read', NULL, 9),
+     'permissions.synthetics_read', 'permissions_hint.synthetics_read', 9),
     ('synthetics.manage', 'organization', 'synthetics',
-     'permissions.synthetics_manage', 'permissions_hint.synthetics_manage', NULL, 9),
+     'permissions.synthetics_manage', 'permissions_hint.synthetics_manage', 9),
     ('synthetics.locations.manage', 'organization', 'synthetics',
      'permissions.synthetics_locations_manage',
-     'permissions_hint.synthetics_locations_manage', NULL, 9),
+     'permissions_hint.synthetics_locations_manage', 9),
     ('synthetics.secrets.manage', 'organization', 'synthetics',
      'permissions.synthetics_secrets_manage',
-     'permissions_hint.synthetics_secrets_manage', NULL, 9),
+     'permissions_hint.synthetics_secrets_manage', 9),
     ('status_pages.publish', 'organization', 'status_pages',
-     'permissions.status_pages_publish', 'permissions_hint.status_pages_publish', NULL, 9),
+     'permissions.status_pages_publish', 'permissions_hint.status_pages_publish', 9),
     ('service_levels.read', 'organization', 'service_levels',
-     'permissions.service_levels_read', 'permissions_hint.service_levels_read', NULL, 9),
+     'permissions.service_levels_read', 'permissions_hint.service_levels_read', 9),
     ('service_levels.manage', 'organization', 'service_levels',
-     'permissions.service_levels_manage', 'permissions_hint.service_levels_manage', NULL, 9),
+     'permissions.service_levels_manage', 'permissions_hint.service_levels_manage', 9),
     ('postmortems.read', 'organization', 'postmortems',
-     'permissions.postmortems_read', 'permissions_hint.postmortems_read', NULL, 9),
+     'permissions.postmortems_read', 'permissions_hint.postmortems_read', 9),
     ('postmortems.manage', 'organization', 'postmortems',
-     'permissions.postmortems_manage', 'permissions_hint.postmortems_manage', NULL, 9)
+     'permissions.postmortems_manage', 'permissions_hint.postmortems_manage', 9)
 ON CONFLICT (permission_key) DO UPDATE
 SET scope = EXCLUDED.scope,
     domain = EXCLUDED.domain,
     label_key = EXCLUDED.label_key,
     description_key = EXCLUDED.description_key,
-    feature = EXCLUDED.feature,
     catalog_version = EXCLUDED.catalog_version;
 
 UPDATE iam_permission_catalog_versions

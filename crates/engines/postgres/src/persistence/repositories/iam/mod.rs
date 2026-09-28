@@ -77,7 +77,6 @@ impl IamRepository for PgIamRepository {
                  permission.domain,
                  permission.label_key,
                  permission.description_key,
-                 permission.feature,
                  COALESCE(
                      array_agg(builtin.role_key ORDER BY builtin.role_key)
                          FILTER (WHERE builtin.role_key IS NOT NULL),
@@ -90,8 +89,7 @@ impl IamRepository for PgIamRepository {
                     permission.scope,
                     permission.domain,
                     permission.label_key,
-                    permission.description_key,
-                    permission.feature
+                    permission.description_key
            ORDER BY permission.scope, permission.domain, permission.permission_key",
         )
         .fetch_all(&self.pool)
@@ -108,7 +106,6 @@ impl IamRepository for PgIamRepository {
                     label_key: row.try_get("label_key").map_err(sqlx_err)?,
                     description_key: row.try_get("description_key").map_err(sqlx_err)?,
                     builtin_roles: row.try_get("builtin_roles").map_err(sqlx_err)?,
-                    feature: row.try_get("feature").map_err(sqlx_err)?,
                 })
             })
             .collect::<Result<Vec<_>>>()?;
@@ -179,7 +176,6 @@ impl IamRepository for PgIamRepository {
                  route.path_pattern,
                  route.scope,
                  route.permission_mode,
-                 route.required_features,
                  route.navigation_group,
                  route.navigation_position,
                  route.enabled,
@@ -195,7 +191,6 @@ impl IamRepository for PgIamRepository {
                     route.path_pattern,
                     route.scope,
                     route.permission_mode,
-                    route.required_features,
                     route.navigation_group,
                     route.navigation_position,
                     route.enabled
@@ -215,7 +210,6 @@ impl IamRepository for PgIamRepository {
                     scope: route_scope_from_str(&scope)?,
                     permission_mode: route_permission_mode_from_str(&permission_mode)?,
                     permissions: row.try_get("permissions").map_err(sqlx_err)?,
-                    required_features: row.try_get("required_features").map_err(sqlx_err)?,
                     navigation_group: row.try_get("navigation_group").map_err(sqlx_err)?,
                     navigation_position: row.try_get("navigation_position").map_err(sqlx_err)?,
                     enabled: row.try_get("enabled").map_err(sqlx_err)?,

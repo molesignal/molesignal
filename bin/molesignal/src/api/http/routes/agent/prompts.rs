@@ -45,13 +45,6 @@ pub fn routes() -> Router<AppState> {
         )
 }
 
-fn require_license(state: &AppState) -> Result<()> {
-    if !state.platform.license.has_feature(crate::agent::FEATURE) {
-        return Err(Error::forbidden("agent feature not licensed"));
-    }
-    Ok(())
-}
-
 const PURPOSES: &[&str] = &[
     "system",
     "anomaly_analysis",
@@ -157,7 +150,6 @@ async fn list(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Vec<PromptResp>>> {
-    require_license(&state)?;
     let rows = state.agent.prompts.list(&ctx.org_id, &ctx.user_id).await?;
     Ok(Json(rows.into_iter().map(to_resp).collect()))
 }
@@ -167,7 +159,6 @@ async fn create(
     Extension(ctx): Extension<IamContext>,
     Json(req): Json<CreateReq>,
 ) -> Result<Json<PromptResp>> {
-    require_license(&state)?;
     validate_purpose(&req.purpose)?;
     if req.name.trim().is_empty() || req.body.trim().is_empty() {
         return Err(Error::invalid("name and body are required"));
@@ -231,7 +222,6 @@ async fn update(
     Path(id): Path<String>,
     Json(req): Json<UpdateReq>,
 ) -> Result<Json<PromptResp>> {
-    require_license(&state)?;
     if req.name.trim().is_empty() || req.body.trim().is_empty() {
         return Err(Error::invalid("name and body are required"));
     }
@@ -275,7 +265,6 @@ async fn set_default(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<PromptResp>> {
-    require_license(&state)?;
     let existing = state.agent.prompts.get(&Id(id.clone())).await?;
     authorize_scope(&ctx, &existing.scope, existing.user_id.as_deref())?;
     if existing.org_id.as_deref() != Some(ctx.org_id.0.as_str()) {
@@ -300,7 +289,6 @@ async fn restore(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<PromptResp>> {
-    require_license(&state)?;
     let existing = state.agent.prompts.get(&Id(id.clone())).await?;
     authorize_scope(&ctx, &existing.scope, existing.user_id.as_deref())?;
     if existing.org_id.as_deref() != Some(ctx.org_id.0.as_str()) {
@@ -340,7 +328,6 @@ async fn delete(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>> {
-    require_license(&state)?;
     let existing = state.agent.prompts.get(&Id(id.clone())).await?;
     authorize_scope(&ctx, &existing.scope, existing.user_id.as_deref())?;
     if existing.org_id.as_deref() != Some(ctx.org_id.0.as_str()) {

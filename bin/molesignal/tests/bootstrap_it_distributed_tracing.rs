@@ -12,9 +12,7 @@ use axum::{Router, extract::State, http::StatusCode, middleware::from_fn, routin
 use base64::Engine as _;
 use common::{TestServer, skip_unless_enabled, wait_until_async};
 use molesignal::{
-    domain::license::{LicenseVersion, LicenseVersionRepository},
-    infra::persistence::repositories::audit_events::AuditEvent,
-    shared::time::TimestampMicros,
+    infra::persistence::repositories::audit_events::AuditEvent, shared::time::TimestampMicros,
 };
 use object_store::{ObjectStore, ObjectStoreExt, PutPayload, path::Path as ObjectPath};
 use serde_json::{Value, json};
@@ -136,12 +134,7 @@ async fn http_sql_object_store_business_spans_and_logs_are_queryable_in_system_s
         .as_str()
         .expect("tenant API token plaintext")
         .to_owned();
-    for path in [
-        "/api/v1/system/telemetry",
-        "/api/v1/system/license",
-        "/api/v1/system/platform-admins",
-        "/api/v1/license",
-    ] {
+    for path in ["/api/v1/system/telemetry", "/api/v1/system/platform-admins"] {
         let response = server
             .client
             .get(format!("{}{path}", server.base_url))
@@ -215,11 +208,7 @@ async fn http_sql_object_store_business_spans_and_logs_are_queryable_in_system_s
         }),
         "platform administrators must discover `_sys` without IamMembership"
     );
-    for path in [
-        "/api/v1/system/telemetry",
-        "/api/v1/system/license",
-        "/api/v1/system/platform-admins",
-    ] {
+    for path in ["/api/v1/system/telemetry", "/api/v1/system/platform-admins"] {
         let response = server
             .client
             .get(format!("{}{path}", server.base_url))
@@ -233,11 +222,7 @@ async fn http_sql_object_store_business_spans_and_logs_are_queryable_in_system_s
             "a platform administrator must select `_sys` before accessing {path}"
         );
     }
-    for path in [
-        "/api/v1/system/telemetry",
-        "/api/v1/system/license",
-        "/api/v1/system/platform-admins",
-    ] {
+    for path in ["/api/v1/system/telemetry", "/api/v1/system/platform-admins"] {
         let response = server
             .client
             .get(format!("{}{path}", server.base_url))
@@ -376,11 +361,7 @@ async fn http_sql_object_store_business_spans_and_logs_are_queryable_in_system_s
     );
     assert_eq!(tenant_selection["org_name"].as_str(), Some("default"));
     assert_eq!(tenant_selection["system"].as_bool(), Some(false));
-    for path in [
-        "/api/v1/system/telemetry",
-        "/api/v1/system/license",
-        "/api/v1/system/platform-admins",
-    ] {
+    for path in ["/api/v1/system/telemetry", "/api/v1/system/platform-admins"] {
         let response = server
             .client
             .get(format!("{}{path}", server.base_url))
@@ -560,130 +541,6 @@ async fn http_sql_object_store_business_spans_and_logs_are_queryable_in_system_s
         );
     }
 
-    let license_versions = molesignal::infra::persistence::repositories::license_versions::
-        PgLicenseVersionRepository::new(pool.clone());
-    let first_license_id = molesignal::shared::ids::Id::new();
-    let first_digest = format!("trace-e2e-{}", first_license_id.as_str());
-    license_versions
-        .insert_and_activate(
-            LicenseVersion {
-                id: first_license_id.clone(),
-                system_org_id: server.state.iam.system_org_id.clone(),
-                signed_package: json!({
-                    "payload_b64": "fixture-a",
-                    "signature_b64": "fixture-a"
-                }),
-                payload_digest: first_digest.clone(),
-                summary: json!({"fixture": "a"}),
-                created_by: Some(server.root_user_id.clone()),
-                created_at: TimestampMicros::now(),
-            },
-            Some(&server.root_user_id),
-        )
-        .await
-        .expect("atomically insert and activate first License version");
-    let second_license_id = molesignal::shared::ids::Id::new();
-    license_versions
-        .insert_and_activate(
-            LicenseVersion {
-                id: second_license_id.clone(),
-                system_org_id: server.state.iam.system_org_id.clone(),
-                signed_package: json!({
-                    "payload_b64": "fixture-b",
-                    "signature_b64": "fixture-b"
-                }),
-                payload_digest: format!("trace-e2e-{}", second_license_id.as_str()),
-                summary: json!({"fixture": "b"}),
-                created_by: Some(server.root_user_id.clone()),
-                created_at: TimestampMicros::now(),
-            },
-            Some(&server.root_user_id),
-        )
-        .await
-        .expect("atomically insert and activate second License version");
-    license_versions
-        .activate(&first_license_id, &server.root_user_id)
-        .await
-        .expect("reactivate historical License version");
-    assert_eq!(
-        license_versions
-            .active()
-            .await
-            .expect("read active License")
-            .expect("active License pointer")
-            .version
-            .id,
-        first_license_id
-    );
-
-    let conflicting_license_id = molesignal::shared::ids::Id::new();
-    assert!(
-        license_versions
-            .insert_and_activate(
-                LicenseVersion {
-                    id: conflicting_license_id.clone(),
-                    system_org_id: server.state.iam.system_org_id.clone(),
-                    signed_package: json!({
-                        "payload_b64": "conflict",
-                        "signature_b64": "conflict"
-                    }),
-                    payload_digest: first_digest,
-                    summary: json!({"fixture": "conflict"}),
-                    created_by: Some(server.root_user_id.clone()),
-                    created_at: TimestampMicros::now(),
-                },
-                Some(&server.root_user_id),
-            )
-            .await
-            .is_err(),
-        "failed history insert must roll back active-pointer mutation"
-    );
-    assert!(
-        license_versions.get(&conflicting_license_id).await.is_err(),
-        "failed License transaction must not leave a history row"
-    );
-    assert_eq!(
-        license_versions
-            .active()
-            .await
-            .expect("read active License after rollback")
-            .expect("active License pointer after rollback")
-            .version
-            .id,
-        first_license_id,
-        "failed License transaction must not change the active pointer"
-    );
-    let reconnected_pool = PgPoolOptions::new()
-        .max_connections(1)
-        .connect(&server.settings.store.meta.dsn)
-        .await
-        .expect("reconnect License repository");
-    let reconnected_versions = molesignal::infra::persistence::repositories::license_versions::
-        PgLicenseVersionRepository::new(reconnected_pool);
-    assert_eq!(
-        reconnected_versions
-            .active()
-            .await
-            .expect("reload persisted active License")
-            .expect("persisted active License pointer")
-            .version
-            .id,
-        first_license_id,
-        "active License must persist across repository/process reconnection"
-    );
-    for statement in [
-        "UPDATE license_versions SET summary = '{\"tampered\": true}'::jsonb WHERE id = $1",
-        "DELETE FROM license_versions WHERE id = $1",
-    ] {
-        assert!(
-            sqlx::query(statement)
-                .bind(first_license_id.as_str())
-                .execute(&pool)
-                .await
-                .is_err(),
-            "database accepted immutable License history mutation: {statement}"
-        );
-    }
     assert!(
         sqlx::query("UPDATE iam_platform_administrators SET active = FALSE WHERE user_id = $1")
             .bind(server.root_user_id.as_str())

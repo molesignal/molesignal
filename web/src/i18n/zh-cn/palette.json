@@ -36,8 +36,6 @@
     "create_dashboard": "创建仪表盘",
     "create_alert": "创建告警",
     "create_pipeline": "创建流水线",
-    "connect_source": "接入数据源",
-    "open_billing": "打开账单",
-    "open_support": "打开支持"
+    "connect_source": "接入数据源"
   }
 }

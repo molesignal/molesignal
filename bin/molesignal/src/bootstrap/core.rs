@@ -12,7 +12,6 @@ use crate::{
     config::{Role, Settings},
     domain::{
         iam::{IamPlatformAdministratorRepository, Organization},
-        license::LicenseVersionRepository,
         trace_policy::{TraceDebugTokenRepository, TracePolicyRepository},
     },
     infra::{
@@ -36,7 +35,6 @@ use crate::{
                     platform_administrators::PgIamPlatformAdministratorRepository,
                 },
                 incidents::PgIncidentRepository,
-                license_versions::PgLicenseVersionRepository,
                 organizations::PgOrganizationRepository,
                 password_resets::{PasswordResetRepository, PgPasswordResetRepository},
                 saved_views::PgSavedViewRepository,
@@ -73,7 +71,6 @@ pub(super) struct Core {
     pub(super) password_resets: Arc<dyn PasswordResetRepository>,
     pub(super) iam_memberships: Arc<PgIamMembershipRepository>,
     pub(super) iam_platform_administrators: Arc<dyn IamPlatformAdministratorRepository>,
-    pub(super) license_versions: Arc<dyn LicenseVersionRepository>,
     pub(super) trace_policies: Arc<dyn TracePolicyRepository>,
     pub(super) trace_debug_tokens: Arc<dyn TraceDebugTokenRepository>,
     pub(super) teams: Arc<PgTeamRepository>,
@@ -142,8 +139,6 @@ impl Core {
         let iam_memberships = Arc::new(PgIamMembershipRepository::new(pool.clone()));
         let iam_platform_administrators: Arc<dyn IamPlatformAdministratorRepository> =
             Arc::new(PgIamPlatformAdministratorRepository::new(pool.clone()));
-        let license_versions: Arc<dyn LicenseVersionRepository> =
-            Arc::new(PgLicenseVersionRepository::new(pool.clone()));
         let trace_policies: Arc<dyn TracePolicyRepository> =
             Arc::new(PgTracePolicyRepository::new(pool.clone()));
         let trace_debug_tokens: Arc<dyn TraceDebugTokenRepository> =
@@ -242,7 +237,7 @@ impl Core {
             password_resets,
             iam_memberships,
             iam_platform_administrators,
-            license_versions,
+
             trace_policies,
             trace_debug_tokens,
             teams,

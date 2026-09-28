@@ -28,7 +28,6 @@ description: Review MoleSignal Rust diffs, pull requests, or working-tree change
 - 类型：使用 `crate::shared::ids::Id`、`TimestampMicros`、`TimeRange` 和领域 enum，避免长期使用 `Result<T, String>`。
 - 架构：不新增不必要的反向依赖；repository trait、PG 实现和 wire 装配位置正确。
 - 租户：`org_id` / `organization_id` 从入口贯穿 SQL、缓存、对象路径和事件。
-- License：商业能力在入口或 worker 周期边界调用 `LicenseGate::has_feature`。
 - Async：不持有同步锁跨 `.await`，不在热路径引入阻塞 IO 或无界并发。
 - 性能：intake/query 热路径避免逐条 `format!`、JSON 序列化、大对象 clone 或高频日志。
 - 可观测性：使用结构化 `tracing`，不记录 token、密钥、签名包或敏感原文。
@@ -37,7 +36,7 @@ description: Review MoleSignal Rust diffs, pull requests, or working-tree change
 - 文件组织：新增非测试、非生成的生产文件不超过 500 行；实质修改历史超限文件时未继续堆叠独立职责。
 - 模块聚合：同一功能拆成多个实现文件时使用专属目录，不在父目录散落同前缀文件，也不创建职责不清的杂物模块。
 
-若 diff 涉及 module boundary、租户隔离、License 或 SQL migration，再应用对应的专项技能，不加载无关专项。
+若 diff 涉及 module boundary、租户隔离或 SQL migration，再应用对应的专项技能，不加载无关专项。
 
 ## 输出
 

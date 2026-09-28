@@ -7,10 +7,6 @@
     "saving": "正在保存…",
     "error": "保存失败，请重试"
   },
-  "license_gated": {
-    "title": "需要付费版许可证",
-    "description": "当前 license 未启用 {{feature}} feature。请配置包含 \"{{feature}}\" 的签名付费版许可证后再访问此页。"
-  },
   "nav": {
     "group_account": "账户",
     "group_organization": "当前组织",
@@ -28,9 +24,6 @@
     "expand_group": "展开{{group}}",
     "collapse_group": "收起{{group}}",
     "general": "通用",
-    "account_billing": "套餐与账单",
-    "license": "许可证",
-    "billing_integration": "Stripe 集成",
     "notify_connectors": "连接器",
     "notify_users": "用户通知",
     "notify_policies": "通知策略",
@@ -40,7 +33,6 @@
     "pipeline_destinations": "流水线目标端",
     "client_ip": "客户端 IP 识别",
     "nodes": "节点 / 远程集群",
-    "correlation": "关联",
     "sso_providers": "SSO 服务",
     "cipher_keys": "加密密钥",
     "regex_patterns": "正则模式",
@@ -48,7 +40,6 @@
     "domain_management": "域名管理",
     "organization_management": "组织管理",
     "ai_toolsets": "AI 工具集",
-    "model_pricing": "模型计费",
     "query_management": "活动查询管理",
     "audit": "审计",
     "ai_providers": "AI 模型服务",
@@ -216,61 +207,6 @@
     "copied": "已复制",
     "no_changes": "没有未保存的修改。",
     "edit_drawer_title": "编辑组织"
-  },
-  "billing": {
-    "title": "Stripe 集成",
-    "subtitle": "配置平台级 Stripe 订阅与配额门禁；客户套餐和账单在账户设置中管理。",
-    "section_stripe": "Stripe",
-    "save": "保存",
-    "saving": "保存中…",
-    "toast_saved": "计费配置已保存",
-    "enabled_on": "启用",
-    "enabled_off": "停用",
-    "placeholder_set": "•••••••• （留空保持不变）",
-    "placeholder_unset": "未设置",
-    "fields": {
-      "enabled": "Stripe 计费",
-      "webhook_secret": "Webhook 签名密钥",
-      "api_key": "API secret key",
-      "tolerance": "签名时间容差（秒）"
-    },
-    "hints": {
-      "enabled": "按订阅状态与每日配额对写入路径做门禁。",
-      "webhook_secret": "Stripe `whsec_…`，用于校验 webhook 签名。留空保持原值。",
-      "api_key": "Stripe `sk_…`，加密存储。留空保持原值。",
-      "tolerance": "拒绝时间戳早于该秒数的 webhook（防重放）。"
-    }
-  },
-  "license": {
-    "title": "许可证",
-    "subtitle": "套餐与启用项。",
-    "current_title": "当前许可证",
-    "current_description": "查看已验证的版本、授权能力、限制和有效期。",
-    "empty_description": "后端未返回许可证快照。",
-    "labels": {
-      "edition": "版本",
-      "verified": "已验证",
-      "expired": "已过期",
-      "issued_to": "授权对象",
-      "features": "功能",
-      "max_intake_bytes_per_day": "每日最大写入量（字节）",
-      "expires_at": "到期时间"
-    },
-    "upload": {
-      "title": "上传许可证",
-      "subtitle": "粘贴签名后的 license 负载与分离签名，两个字段均为 base64 编码。",
-      "payload_label": "Payload（base64）",
-      "payload_placeholder": "eyJlZGl0aW9uIjoiZW50ZXJwcmlzZSIs…",
-      "signature_label": "Signature（base64）",
-      "signature_placeholder": "MEUCIQDk…",
-      "from_file": "或从 .license 文件加载",
-      "submit": "上传",
-      "submitting": "上传中…",
-      "toast_uploaded": "许可证已上传",
-      "toast_uploaded_unverified": "许可证已上传但签名验证失败",
-      "validation_required": "Payload 和 Signature 不能为空",
-      "validation_base64": "Payload 和 Signature 必须是合法的 base64"
-    }
   },
   "sso_providers": {
     "title": "SSO 服务",
@@ -560,7 +496,7 @@
     "subtitle": "管理本地数据面、跨集群联邦和远程查询目标。",
     "new_cluster": "添加集群",
     "remote_clusters_title": "远程集群",
-    "remote_clusters_description": "联邦查询目标；添加集群需要 federated_search 许可证。",
+    "remote_clusters_description": "配置联邦查询的远程集群。",
     "service_graph": {
       "title": "服务数据来源",
       "subtitle": "控制服务图如何从 Trace 构建，适配单节点或多 intake 节点部署。",
@@ -641,7 +577,6 @@
       "tls": "TLS",
       "enabled": "启用"
     },
-    "license_note": "联邦查询需许可证；OSS 部署无法配置远程集群。",
     "delete_confirm_title": "确认移除该集群?",
     "delete_confirm_description": "联邦查询将不再扇出到该目标。",
     "drawer_title": "添加远程集群",
@@ -686,27 +621,12 @@
       "toast_removed": "映射已移除"
     }
   },
-  "correlation": {
-    "title": "关联",
-    "subtitle": "跨信号 pivot 的提供者与预设。",
-    "empty_title": "尚未注册关联提供者",
-    "empty_description": "在关联提供者配置写入后，跨信号 pivot 将在此呈现。",
-    "enabled": "已启用",
-    "disabled": "已停用",
-    "columns": {
-      "provider": "提供者",
-      "from": "From",
-      "to": "To",
-      "enabled": "启用"
-    }
-  },
   "ai_toolsets": {
     "title": "AI 工具集",
     "subtitle": "Mole Agent 可调用的注册工具。",
     "empty_title": "暂无 AI 工具集",
     "empty_description": "启用 AI 运维后，注册受约束的 Mole Agent 工具。",
     "new_toolset": "新建工具集",
-    "license_hint": "需要启用 agent 功能",
     "delete_title": "确认删除该工具集?",
     "columns": {
       "name": "名称",
@@ -746,29 +666,6 @@
       "remove_header": "删除 Header",
       "input_schema": "输入 schema (JSON)"
     }
-  },
-  "model_pricing": {
-    "title": "模型计费",
-    "subtitle": "用于计费的 LLM 模型价格矩阵。",
-    "empty_title": "暂无模型价格",
-    "empty_description": "添加 provider/model 价格行，用于 LLM 成本核算。",
-    "new_price": "新建价格",
-    "override": "覆盖",
-    "delete_title": "确认删除该价格?",
-    "columns": {
-      "provider": "提供者",
-      "model": "模型",
-      "prompt": "Prompt $/1k",
-      "completion": "Completion $/1k",
-      "updated": "更新时间"
-    },
-    "drawer_title": "Upsert 模型价格",
-    "submit_label": "保存",
-    "field_provider": "提供者",
-    "field_model": "模型",
-    "field_prompt_k": "Prompt 每 1k token (USD)",
-    "field_completion_k": "Completion 每 1k token (USD)",
-    "toast_saved": "已保存"
   },
   "query_management": {
     "title": "活动查询管理",
@@ -889,7 +786,12 @@
     "drawer_subtitle": "规则按列表顺序首条命中；拖动列表可调整优先级。",
     "all_streams": "所有数据流",
     "all_types": "所有非 Metrics 类型",
-    "columns": { "rule": "规则", "match": "匹配范围", "algorithm": "算法", "status": "状态" },
+    "columns": {
+      "rule": "规则",
+      "match": "匹配范围",
+      "algorithm": "算法",
+      "status": "状态"
+    },
     "section_match": "匹配条件",
     "section_algorithm": "遮掩算法",
     "field_name": "规则名称",
@@ -908,7 +810,13 @@
     "field_suffix": "保留后缀字符数",
     "field_replacement": "替换内容",
     "field_replacement_hint": "命中区间使用一次该内容替换。",
-    "algorithms": { "full": "全遮掩", "range": "区间遮掩", "inner": "内部遮掩", "outer": "外部遮掩", "hash": "HMAC-SHA-256 哈希" },
+    "algorithms": {
+      "full": "全遮掩",
+      "range": "区间遮掩",
+      "inner": "内部遮掩",
+      "outer": "外部遮掩",
+      "hash": "HMAC-SHA-256 哈希"
+    },
     "algorithm_hints": {
       "full": "整个字段替换为固定内容。",
       "range": "遮掩 [起始, 结束) 字符区间。",

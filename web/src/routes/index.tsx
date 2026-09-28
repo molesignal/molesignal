@@ -7,7 +7,6 @@ import {
   useParams,
 } from 'react-router-dom';
 
-import { AccountBilling, AccountSupport } from './account';
 import { AccountSettingsLayout } from './account/AccountSettingsLayout';
 import { AccountNotify } from './account/Notify';
 import { AccountPreferences } from './account/Preferences';
@@ -75,7 +74,6 @@ import {
   IamLayout,
   Invitations as IamInvitations,
   Organizations as IamOrganizations,
-  Quota as IamQuota,
   Roles as IamRoles,
   ServiceAccounts as IamServiceAccounts,
   Teams as IamTeams,
@@ -117,15 +115,11 @@ import { SavedViews } from './SavedViews';
 import { SemanticGroups } from './SemanticGroups';
 import {
   Audit,
-  Billing,
   ClientIpSettings,
   CipherKeys,
-  Correlation,
   DomainManagement,
   FieldMasking,
   General,
-  License,
-  ModelPricing,
   Nodes,
   OrganizationManagement,
   PipelineDestinations,
@@ -447,7 +441,6 @@ export const router = createBrowserRouter([
             element: <IamTeams />,
           },
           { path: 'roles', element: <IamRoles /> },
-          { path: 'quota', element: <IamQuota /> },
           { path: 'invitations', element: <IamInvitations /> },
           { path: 'email-domains', element: <IamEmailDomains /> },
           { path: 'sso', element: <SsoProviders /> },
@@ -463,11 +456,8 @@ export const router = createBrowserRouter([
             path: 'organization',
             element: <Navigate to="/settings/general" replace />,
           },
-          { path: 'license', element: <License /> },
-          { path: 'billing', element: <Billing /> },
           { path: 'client_ip', element: <ClientIpSettings /> },
           { path: 'nodes', element: <Nodes /> },
-          { path: 'correlation', element: <Correlation /> },
           {
             path: 'notify',
             element: <Navigate to="/settings/notify/connectors" replace />,
@@ -484,7 +474,6 @@ export const router = createBrowserRouter([
           { path: 'field_masking', element: <FieldMasking /> },
           { path: 'domain_management', element: <DomainManagement /> },
           { path: 'organization_management', element: <OrganizationManagement /> },
-          { path: 'model_pricing', element: <ModelPricing /> },
           { path: 'query_management', element: <QueryManagement /> },
           {
             path: 'audit',
@@ -507,8 +496,6 @@ export const router = createBrowserRouter([
           { path: 'workspace', element: <AccountWorkspaceIdentity /> },
         ],
       },
-      { path: 'account/billing', element: <AccountBilling /> },
-      { path: 'account/support', element: <AccountSupport /> },
 
       /* Legacy and keyboard navigation routes. */
       { path: 'investigate', element: <Investigate /> },

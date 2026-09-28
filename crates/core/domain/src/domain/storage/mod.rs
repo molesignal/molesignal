@@ -46,4 +46,4 @@ pub use registry::{
 };
 pub use segment::{ColumnStats, DataSegment, Partition, SegmentState};
 pub use type_id::{ArtifactTypeId, DatasetTypeId, IndexTypeId, StreamTypeId, WalCodecId};
-pub use wal::{FlushProvenance, WalStreamId};
+pub use wal::{DatasetIntakeUsage, FlushProvenance, WalStreamId};

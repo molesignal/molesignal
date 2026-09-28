@@ -215,7 +215,7 @@ fn trace_default_alerts(
                 .sum::<u64>(),
         );
     let drop_rate_high = drops > 0 && drops as f64 / delivered.saturating_add(drops) as f64 > 0.01;
-    let system_load_failure = !(system.system_org && system.license && system.trace_policy);
+    let system_load_failure = !(system.system_org && system.trace_policy);
 
     vec![
         TraceDefaultAlertView {
@@ -240,7 +240,7 @@ fn trace_default_alerts(
             name: "trace_system_load_failure",
             active: system_load_failure,
             threshold: "any required component unhealthy",
-            summary: "_sys, License, or dynamic Trace policy failed to load cleanly.",
+            summary: "_sys or dynamic Trace policy failed to load cleanly.",
         },
     ]
 }
@@ -536,17 +536,16 @@ mod tests {
             credential_service_account_id: None,
             scope: IamScope::Organization,
             permissions: ["org.settings.manage".to_string()].into_iter().collect(),
-            features: std::collections::BTreeSet::new(),
             policy_version: 1,
         };
-        assert!(Permission::require_key(&tenant, "sys.licenses.read").is_err());
+        assert!(Permission::require_key(&tenant, "sys.telemetry.read").is_err());
 
         let system = IamContext {
             scope: IamScope::System,
-            permissions: ["sys.licenses.read".to_string()].into_iter().collect(),
+            permissions: ["sys.telemetry.read".to_string()].into_iter().collect(),
             ..tenant
         };
-        Permission::require_key(&system, "sys.licenses.read").unwrap();
+        Permission::require_key(&system, "sys.telemetry.read").unwrap();
     }
 
     #[test]
@@ -605,8 +604,7 @@ mod tests {
             &pipeline,
             TraceSystemLoadHealth {
                 system_org: true,
-                license: false,
-                trace_policy: true,
+                trace_policy: false,
             },
         );
         assert_eq!(alerts.len(), 4);
@@ -657,7 +655,6 @@ mod tests {
             &pipeline,
             TraceSystemLoadHealth {
                 system_org: true,
-                license: true,
                 trace_policy: true,
             },
         );

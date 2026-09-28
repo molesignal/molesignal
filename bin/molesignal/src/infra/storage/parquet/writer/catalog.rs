@@ -159,6 +159,7 @@ impl ParquetWriter {
         let parquet_type = ArtifactTypeId::builtin(type_id::builtin::ARTIFACT_PARQUET);
         let primary_key = StorageLayout::artifact_key(
             &dataset.organization_id,
+            stream.stream_type,
             &dataset.id,
             &partition,
             &segment_id,
@@ -182,6 +183,7 @@ impl ParquetWriter {
                     let artifact_type = ArtifactTypeId::builtin(type_id::builtin::ARTIFACT_TANTIVY);
                     let key = StorageLayout::artifact_key(
                         &dataset.organization_id,
+                        stream.stream_type,
                         &dataset.id,
                         &partition,
                         &segment_id,
@@ -201,6 +203,7 @@ impl ParquetWriter {
                     let artifact_type = ArtifactTypeId::builtin(type_id::builtin::ARTIFACT_TANTIVY);
                     let key = StorageLayout::artifact_key(
                         &dataset.organization_id,
+                        stream.stream_type,
                         &dataset.id,
                         &partition,
                         &segment_id,
@@ -490,7 +493,7 @@ mod tests {
             assert_eq!(segment.primary.role, ArtifactRole::PrimaryData);
             assert!(segment.primary.object.checksum.as_str().starts_with("b3:"));
             assert!(segment.primary.object.key.as_str().starts_with(&format!(
-                "v1/artifacts/{}/{}/",
+                "artifacts/v1/{}/logs/{}/",
                 stream.org_id, dataset.dataset.id
             )));
             assert!(!segment.primary.object.key.as_str().contains(&stream.name));

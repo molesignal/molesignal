@@ -32,6 +32,15 @@ impl WalStreamId {
     }
 }
 
+/// Cumulative canonical intake bytes committed for a physical dataset.
+#[derive(Debug, Clone)]
+pub struct DatasetIntakeUsage {
+    pub dataset_id: PhysicalDatasetId,
+    pub collected_bytes: Option<u64>,
+    /// False when historical flushes predate byte metering.
+    pub complete: bool,
+}
+
 /// 一次 flush 的提交溯源；进 `storage_flush_commits` 表并推进 WAL checkpoint。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FlushProvenance {
@@ -39,6 +48,9 @@ pub struct FlushProvenance {
     pub writer_node_id: WriterNodeId,
     pub writer_epoch: WriterEpoch,
     pub sequence: SequenceRange,
+    /// Canonical pre-transformation bytes; None for legacy/unmetered generations.
+    #[serde(default)]
+    pub collected_bytes: Option<u64>,
 }
 
 impl FlushProvenance {
@@ -49,6 +61,7 @@ impl FlushProvenance {
             writer_node_id: node,
             writer_epoch: epoch,
             sequence,
+            collected_bytes: None,
         }
     }
 }

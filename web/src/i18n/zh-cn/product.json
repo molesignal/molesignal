@@ -11,8 +11,7 @@
   },
   "actions": {
     "create": "创建",
-    "refresh": "刷新",
-    "review_license": "查看许可证"
+    "refresh": "刷新"
   },
   "fixture": {
     "alerts": "告警",
@@ -25,7 +24,6 @@
     "datasource": "数据源",
     "last_24h": "最近 24 小时",
     "latency": "延迟",
-    "license": "许可证",
     "month_to_date": "本月至今",
     "name": "名称",
     "organization": "组织",

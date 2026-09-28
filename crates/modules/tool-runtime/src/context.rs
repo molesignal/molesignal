@@ -248,7 +248,6 @@ mod tests {
             credential_service_account_id: None,
             scope: IamScope::ApiToken,
             permissions: ["streams.query".to_string()].into_iter().collect(),
-            features: Default::default(),
             policy_version: 0,
         };
 
@@ -296,7 +295,6 @@ mod tests {
             credential_service_account_id: None,
             scope: IamScope::Organization,
             permissions: Default::default(),
-            features: Default::default(),
             policy_version: 0,
         };
 
@@ -350,7 +348,6 @@ mod tests {
             credential_service_account_id: Some(Id("collector-agent".into())),
             scope: IamScope::ApiToken,
             permissions: Default::default(),
-            features: Default::default(),
             policy_version: 0,
         };
 

@@ -25,7 +25,6 @@ export interface ProductAccess {
   role: Role;
   scope: AuthScope;
   permissions: ReadonlySet<PermissionKey>;
-  features: ReadonlySet<string>;
   version: number;
   routeCatalogVersion: number;
   routes: readonly iamApi.IamRouteAccess[];
@@ -68,7 +67,6 @@ export function useProductAccess(): ProductAccess | null {
         role: normalizeRole(context.display_role),
         scope: normalizeAuthScope(context.scope),
         permissions: new Set<PermissionKey>(),
-        features: new Set<string>(),
         version: 0,
         routeCatalogVersion: 0,
         routes: [],
@@ -87,7 +85,6 @@ export function accessFromSnapshot(
     role: normalizeRole(snapshot.display_role),
     scope: normalizeAuthScope(snapshot.scope),
     permissions: new Set(snapshot.permissions),
-    features: new Set(snapshot.features),
     version: snapshot.version,
     routeCatalogVersion: snapshot.route_catalog_version ?? 0,
     routes: Array.isArray(snapshot.routes)

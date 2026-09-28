@@ -608,7 +608,6 @@ mod tests {
                 .iter()
                 .map(|value| (*value).to_string())
                 .collect(),
-            features: Default::default(),
             policy_version: 1,
         }
     }

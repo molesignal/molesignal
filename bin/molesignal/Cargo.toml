@@ -34,7 +34,6 @@ blake3.workspace = true
 bytes.workspace = true
 chrono.workspace = true
 chrono-tz.workspace = true
-cloud-marketplace = { path = "../../crates/modules/cloud-marketplace" }
 contracts = { path = "../../crates/core/contracts" }
 clap.workspace = true
 crc32c.workspace = true
@@ -43,7 +42,6 @@ dashmap.workspace = true
 datafusion.workspace = true
 domain-management = { path = "../../crates/modules/domain-management" }
 domain = { path = "../../crates/core/domain" }
-ed25519-dalek.workspace = true
 eventsource-stream.workspace = true
 figment.workspace = true
 flate2.workspace = true
@@ -63,13 +61,11 @@ jsonwebtoken.workspace = true
 kernel = { path = "../../crates/core/kernel", features = ["http"] }
 ldap3.workspace = true
 lettre.workspace = true
-license = { path = "../../crates/modules/license" }
 log.workspace = true
 lz4_flex.workspace = true
 maxminddb.workspace = true
 memmap2.workspace = true
 moka.workspace = true
-model-pricing = { path = "../../crates/modules/model-pricing" }
 permission-macro = { path = "../../crates/support/permission-macro" }
 notify.workspace = true
 object_store.workspace = true
@@ -142,7 +138,6 @@ query-language = { path = "../../crates/engines/query-language" }
 [features]
 default = ["jemalloc", "profiling-pprof", "ws", "js-runtime"]
 ws = ["axum/ws"]
-enterprise = []
 jemalloc = ["dep:tikv-jemallocator", "dep:tikv-jemalloc-ctl"]
 profiling-pprof = ["dep:pprof", "dep:pprof_util"]
 js-runtime = ["function-runtime/js-runtime", "postgres/js-runtime"]

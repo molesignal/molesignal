@@ -31,7 +31,6 @@ export function restrictActionAccess(
 
 interface ActionAccessOptions {
   permission?: PermissionKey;
-  feature?: string;
   enabled?: boolean;
   disabledReason?: string | undefined;
 }
@@ -39,7 +38,6 @@ interface ActionAccessOptions {
 interface ActionAccessCopy {
   loading: string;
   permissionRequired: (permission: PermissionKey) => string;
-  featureRequired: (feature: string) => string;
 }
 
 export function resolveActionAccess(
@@ -58,17 +56,6 @@ export function resolveActionAccess(
       allowed: false,
       disabled: true,
       reason: copy.permissionRequired(options.permission),
-    };
-  }
-  if (
-    options.feature &&
-    !access.features.has('*') &&
-    !access.features.has(options.feature)
-  ) {
-    return {
-      allowed: false,
-      disabled: true,
-      reason: copy.featureRequired(options.feature),
     };
   }
   if (options.enabled === false) {
@@ -94,7 +81,5 @@ export function useActionAccess(
     loading: t('access.loading'),
     permissionRequired: (permission) =>
       t('access.permission_required', { permission }),
-    featureRequired: (feature) =>
-      t('access.feature_required', { feature }),
   });
 }

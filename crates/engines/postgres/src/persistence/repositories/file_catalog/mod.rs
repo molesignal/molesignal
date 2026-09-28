@@ -3,7 +3,7 @@
 
 //! [`FileCatalog`] 的 PostgreSQL 实现：统一文件元数据的唯一事实来源。
 //!
-//! 表结构：`physical_datasets` → `data_segments` → `artifacts`，辅以
+//! 表结构：`physical_datasets` → `catalog_segments` → `catalog_artifacts`，辅以
 //! `storage_flush_commits`（flush 幂等）、`wal_checkpoints`（恢复与 Buffer
 //! 去重）、`object_gc_queue`（延迟删除）。所有查询显式携带 `org_id`，
 //! 子表通过 `(org_id, ...)` 复合外键关联，杜绝跨租户串行。
@@ -27,6 +27,7 @@ mod artifact;
 mod datasets;
 mod flush;
 mod gc;
+mod intake_usage;
 mod maintenance;
 mod manifest;
 mod replacement;
@@ -46,6 +47,13 @@ impl PgFileCatalog {
 
 #[async_trait]
 impl FileCatalog for PgFileCatalog {
+    async fn intake_usage(
+        &self,
+        scope: &OrganizationScope,
+    ) -> Result<Vec<crate::domain::storage::DatasetIntakeUsage>> {
+        intake_usage::read(&self.pool, scope).await
+    }
+
     async fn ensure_datasets(
         &self,
         scope: &OrganizationScope,

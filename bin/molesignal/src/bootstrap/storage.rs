@@ -220,6 +220,14 @@ impl StorageRuntime {
             IntakeService::new(worker.clone(), core.streams.clone())
                 .with_system_org_id(core.system_org.id.clone())
                 .with_pipeline(pipeline_engine)
+                .with_realtime(crate::app::intake::realtime::RealtimeEngine {
+                    repository: Arc::new(
+                        crate::infra::pipeline::realtime::PgRealtimePipelineRepository::new(
+                            core.pool.clone(),
+                        ),
+                    ),
+                    executor: function_executor.clone(),
+                })
                 .with_masking(core.masking_service.clone())
                 .with_drain(core.drain_controller.clone())
                 .with_internal_usage_recorder(internal_usage_recorder)

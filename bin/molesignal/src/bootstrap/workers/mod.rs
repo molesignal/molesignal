@@ -20,6 +20,5 @@ pub mod status_page_maintenance;
 pub mod status_page_notifications;
 pub mod storage_maintenance;
 pub mod synthetics;
-pub mod trial_sweeper;
 
 pub mod acme;

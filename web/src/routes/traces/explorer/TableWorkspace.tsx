@@ -126,7 +126,7 @@ export function TraceTableExplorer({
             <TimezoneSelect value={tzOverride} onChange={setTzOverride} className="h-8" />
           </div>
         </div>
-        <div className="grid shrink-0 grid-cols-[minmax(180px,1.4fr)_160px_minmax(180px,1fr)_72px_72px_96px_150px] gap-3 bg-[var(--control-surface)] px-3 py-2 font-sans text-xs font-strong uppercase tracking-normal text-tx-2">
+        <div className="grid shrink-0 grid-cols-[minmax(180px,1.4fr)_160px_minmax(180px,1fr)_72px_72px_96px_150px] gap-3 bg-[var(--control-surface)] px-3 py-2 font-sans text-xs font-strong tracking-normal text-tx-2">
           <span>{t('explore.table.trace')}</span>
           <span>{t('explore.table.service')}</span>
           <span>{t('explore.table.operation')}</span>
@@ -247,7 +247,7 @@ function TraceSummaryPanel({
         <TraceSummaryMetric label="errors" value={String(trace.errors)} {...(trace.errors > 0 ? { tone: 'text-red' } : {})} />
       </div>
       <div className="min-h-0 flex-1 overflow-auto p-4">
-        <div className="mb-2 font-sans text-xs font-strong uppercase tracking-normal text-tx-2">{t('explore.results.visible_labels')}</div>
+        <div className="mb-2 font-sans text-xs font-strong tracking-normal text-tx-2">{t('explore.results.visible_labels')}</div>
         <div className="flex flex-wrap gap-1.5">
           {visibleFields.map((field) => {
             const value = traceFieldValue(trace, field);
@@ -286,7 +286,7 @@ function TraceSummaryPanel({
 function TraceSummaryMetric({ label, value, tone }: { label: string; value: React.ReactNode; tone?: string }) {
   return (
     <div className="min-w-0 px-4 py-3">
-      <div className="font-sans text-xs font-semibold uppercase tracking-normal text-tx-3">{label}</div>
+      <div className="font-sans text-xs font-semibold tracking-normal text-tx-3">{label}</div>
       <div className={`mt-1 truncate font-sans text-sm font-semibold ${tone ?? 'text-tx-0'}`}>{value}</div>
     </div>
   );

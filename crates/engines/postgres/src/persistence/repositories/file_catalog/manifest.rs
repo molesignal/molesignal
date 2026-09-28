@@ -128,7 +128,7 @@ pub(super) async fn publish(
     if !command.seal_segment_ids.is_empty() {
         let ids = id_strings(&command.seal_segment_ids);
         sqlx::query(
-            "UPDATE data_segments SET state = 'sealed', retired_at_version = $4 \
+            "UPDATE catalog_segments SET state = 'sealed', retired_at_version = $4 \
              WHERE org_id = $1 AND dataset_id = $2 AND id = ANY($3) AND state = 'active'",
         )
         .bind(scope.organization_id.as_str())
@@ -142,7 +142,7 @@ pub(super) async fn publish(
     if !command.tombstone_segment_ids.is_empty() {
         let ids = id_strings(&command.tombstone_segment_ids);
         sqlx::query(
-            "UPDATE data_segments SET state = 'tombstoned', retired_at_version = $4 \
+            "UPDATE catalog_segments SET state = 'tombstoned', retired_at_version = $4 \
              WHERE org_id = $1 AND dataset_id = $2 AND id = ANY($3) \
                AND state IN ('active', 'sealed')",
         )
@@ -220,7 +220,7 @@ async fn validate_segment_rows(
         return Ok(());
     }
     let rows = sqlx::query(
-        "SELECT id FROM data_segments WHERE org_id = $1 AND dataset_id = $2 AND id = ANY($3) \
+        "SELECT id FROM catalog_segments WHERE org_id = $1 AND dataset_id = $2 AND id = ANY($3) \
          AND partition_start_micros = $4 AND partition_end_micros = $5 \
          AND partition_shard = $6 AND state = $7 FOR UPDATE",
     )
@@ -252,7 +252,7 @@ async fn validate_tombstones(
         return Ok(());
     }
     let rows = sqlx::query(
-        "SELECT id FROM data_segments WHERE org_id = $1 AND dataset_id = $2 AND id = ANY($3) \
+        "SELECT id FROM catalog_segments WHERE org_id = $1 AND dataset_id = $2 AND id = ANY($3) \
          AND partition_start_micros = $4 AND partition_end_micros = $5 \
          AND partition_shard = $6 AND state IN ('active', 'sealed') FOR UPDATE",
     )

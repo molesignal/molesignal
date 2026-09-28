@@ -130,7 +130,14 @@ impl PartitionManifestManager {
             .take(self.settings.batch_size.max(1) as usize)
         {
             if self
-                .publish_partition(scope, dataset, partition, seal_cutoff, retention_cutoff)
+                .publish_partition(
+                    stream.stream_type,
+                    scope,
+                    dataset,
+                    partition,
+                    seal_cutoff,
+                    retention_cutoff,
+                )
                 .await?
             {
                 switched += 1;
@@ -170,6 +177,7 @@ impl PartitionManifestManager {
 
     async fn publish_partition(
         &self,
+        stream_type: crate::domain::storage::StreamTypeId,
         scope: &OrganizationScope,
         dataset: &PhysicalDataset,
         work: &PartitionWork,
@@ -237,8 +245,15 @@ impl PartitionManifestManager {
             None
         } else {
             Some(
-                self.write_manifest(scope, dataset, work_partition(work), generation, segments)
-                    .await?,
+                self.write_manifest(
+                    stream_type,
+                    scope,
+                    dataset,
+                    work_partition(work),
+                    generation,
+                    segments,
+                )
+                .await?,
             )
         };
         let mut tombstones = expired_base;
@@ -294,6 +309,7 @@ impl PartitionManifestManager {
 
     async fn write_manifest(
         &self,
+        stream_type: crate::domain::storage::StreamTypeId,
         scope: &OrganizationScope,
         dataset: &PhysicalDataset,
         partition: Partition,
@@ -318,6 +334,7 @@ impl PartitionManifestManager {
         let checksum = ObjectChecksum::from_string(format!("b3:{}", blake3::hash(&bytes).to_hex()));
         let key = StorageLayout::manifest_key(
             &scope.organization_id,
+            stream_type,
             &dataset.id,
             &partition,
             generation,

@@ -37,6 +37,7 @@ import {
   pipelineGraphFromPipeline,
   signalTypeFromPipeline,
 } from './PipelineGraph';
+import { executionMode } from './PipelineGraph/model';
 import {
   getPipelineRunsTableLabels,
   PipelineRunsTable,
@@ -208,8 +209,8 @@ export function PipelineDetail() {
                   {t('flows.edit.history')}
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  disabled={runAccess.disabled}
-                  disabledReason={runAccess.reason}
+                  disabled={runAccess.disabled || executionMode(pipeline) === 'realtime'}
+                  disabledReason={executionMode(pipeline) === 'realtime' ? t('realtime.no_backfill') : runAccess.reason}
                   onSelect={() =>
                     runAccess.allowed &&
                     navigate(`/pipelines/${encodeURIComponent(id)}/backfill`)
@@ -247,11 +248,11 @@ export function PipelineDetail() {
           items={[
             {
               label: t('detail.metadata.schedule'),
-              value: formatSchedule(pipeline.cron, i18n.language),
+              value: executionMode(pipeline) === 'realtime' ? t('realtime.title') : formatSchedule(pipeline.cron, i18n.language),
             },
             {
               label: t('detail.metadata.lookback'),
-              value: formatLookback(pipeline.lookback_secs, i18n.language),
+              value: executionMode(pipeline) === 'realtime' ? '—' : formatLookback(pipeline.lookback_secs, i18n.language),
             },
             {
               label: t('detail.metadata.last_run'),

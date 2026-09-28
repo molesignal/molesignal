@@ -10,19 +10,16 @@ import type { PermissionKey } from './permissions';
 const copy = {
   loading: 'Permissions are loading',
   permissionRequired: (permission: string) => `Requires ${permission}`,
-  featureRequired: (feature: string) => `Requires feature ${feature}`,
 };
 
 function access(
   permissions: PermissionKey[],
-  features: string[] = [],
 ): ProductAccess {
   return {
     organizationId: 'org-a',
     role: 'Viewer',
     scope: 'organization',
     permissions: new Set(permissions),
-    features: new Set(features),
     version: 1,
     routeCatalogVersion: 1,
     routes: [],
@@ -74,21 +71,7 @@ describe('action access decisions', () => {
     },
   );
 
-  it('reports license and workflow restrictions without hiding the action', () => {
-    const missingFeature = resolveActionAccess(
-      access(['org.settings.manage']),
-      {
-        permission: 'org.settings.manage',
-        feature: 'domain_management',
-      },
-      copy,
-    );
-    expect(missingFeature).toEqual({
-      allowed: false,
-      disabled: true,
-      reason: 'Requires feature domain_management',
-    });
-
+  it('reports workflow restrictions without hiding the action', () => {
     const wrongState = restrictActionAccess(
       resolveActionAccess(
         access(['pipelines.run']),

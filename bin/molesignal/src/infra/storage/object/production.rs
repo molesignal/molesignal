@@ -480,7 +480,7 @@ mod tests {
                 3 => "replay/session.bin",
                 4 => "report/render.bin",
                 5 => "sourcemap/app.js.map",
-                6 => "v1/manifests/org/dataset/p-0-00/1.parquet",
+                6 => "manifests/v1/org/dataset/p-0-00/1.parquet",
                 _ => "unknown.bin",
             };
             let secret = format!("alice+{index}@example.com/private-token-{index:08}");

@@ -212,7 +212,6 @@
     "ldap_credentials_required": "请先输入用户名和密码",
     "or": "或",
     "no_account": "还没有账号？",
-    "request_trial": "申请试用 →",
     "version_line": "v{{version}} · {{channel}}",
     "sso_button_aria": "通过 {{name}} 登录",
     "sso_loading": "正在加载 SSO 服务…",

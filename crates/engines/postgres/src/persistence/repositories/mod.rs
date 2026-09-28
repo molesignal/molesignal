@@ -11,7 +11,6 @@ pub mod alert_rules;
 pub mod annotations;
 pub mod api_tokens;
 pub mod audit_events;
-pub mod billing_settings;
 pub mod cluster;
 pub mod dashboard_authoring;
 pub mod dashboard_contract_registry;
@@ -30,16 +29,14 @@ pub mod incidents;
 pub mod instance_settings;
 pub mod investigation_blobs;
 pub mod invitations;
-pub mod license_versions;
+
 pub mod log_patterns;
-pub mod marketplace;
-pub mod model_prices;
+
 pub mod mute_rules;
 pub mod notify;
 pub mod organizations;
 pub mod password_resets;
 pub mod pipelines;
-pub mod quotas;
 pub mod regex_patterns;
 pub mod report_templates;
 pub mod resource_shares;
@@ -56,7 +53,7 @@ pub mod streams;
 pub mod synthetics;
 pub mod teams;
 pub mod trace_policies;
-pub mod trials;
+
 pub mod usage;
 pub mod user_preferences;
 pub mod users;

@@ -6,7 +6,7 @@
 //! [`crate::api::rca::RcaGenerator`]（与 HTTP 按需触发同源，不漂移）。
 //!
 //! 单点周期任务（与告警后台同属 alert_manager 角色，只起一份）。RCA 是 agent 能力 ——
-//! 无对应 license feature 时整体跳过。成本护栏：每 tick 全局至多 `max_per_tick` 次生成；
+
 //! 无可用 provider 的 org 直接跳过；已有 RCA 的 incident 不重复生成。失败仅 warn、下个
 //! tick 自然重试（不落失败行）。
 
@@ -15,14 +15,13 @@ use std::{sync::Arc, time::Duration};
 use tokio::task::JoinHandle;
 
 use crate::{
-    agent::FEATURE,
     api::rca::{RcaGenerator, RcaOutputLocale},
     domain::{
         alerting::repositories::IncidentRepository,
         iam::{IamMembershipRepository, OrganizationRepository},
     },
     infra::persistence::repositories::user_preferences::UserPreferencesRepository,
-    shared::{LicenseGate, Result, time::TimestampMicros},
+    shared::{Result, time::TimestampMicros},
 };
 
 #[derive(Debug, Clone)]
@@ -46,7 +45,7 @@ pub struct RcaSweeper {
     memberships: Arc<dyn IamMembershipRepository>,
     user_preferences: Arc<dyn UserPreferencesRepository>,
     incidents: Arc<dyn IncidentRepository>,
-    license: Arc<dyn LicenseGate>,
+
     generator: Arc<RcaGenerator>,
     cfg: RcaSweeperConfig,
 }
@@ -57,7 +56,7 @@ impl RcaSweeper {
         memberships: Arc<dyn IamMembershipRepository>,
         user_preferences: Arc<dyn UserPreferencesRepository>,
         incidents: Arc<dyn IncidentRepository>,
-        license: Arc<dyn LicenseGate>,
+
         generator: Arc<RcaGenerator>,
         cfg: RcaSweeperConfig,
     ) -> Self {
@@ -66,7 +65,7 @@ impl RcaSweeper {
             memberships,
             user_preferences,
             incidents,
-            license,
+
             generator,
             cfg,
         }
@@ -93,10 +92,6 @@ impl RcaSweeper {
         fields(otel.kind = "internal", molesignal.worker.name = "rca_sweeper")
     )]
     async fn sweep_once(&self) -> Result<()> {
-        // RCA 是 agent 能力：无 license feature 时整体跳过。
-        if !self.license.has_feature(FEATURE) {
-            return Ok(());
-        }
         let now = TimestampMicros::now();
         let orgs = self.orgs.list().await?;
         let mut generated = 0usize;

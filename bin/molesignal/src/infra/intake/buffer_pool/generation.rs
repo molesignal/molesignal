@@ -50,6 +50,7 @@ pub struct BufferedRecordBatch {
     sequences: Arc<[WalSequence]>,
     accounted_size_bytes: usize,
     approximate_size_bytes: usize,
+    collected_bytes: Option<u64>,
 }
 
 impl std::fmt::Debug for BufferedRecordBatch {
@@ -71,6 +72,7 @@ impl BufferedRecordBatch {
         sequences: Vec<WalSequence>,
         accounted_size_bytes: usize,
         approximate_size_bytes: usize,
+        collected_bytes: Option<u64>,
     ) -> Result<Self> {
         if batch.num_rows() == 0 {
             return Err(anyhow!("buffer generation must not be empty"));
@@ -91,6 +93,7 @@ impl BufferedRecordBatch {
             sequences: sequences.into(),
             accounted_size_bytes,
             approximate_size_bytes,
+            collected_bytes,
         })
     }
 
@@ -108,11 +111,13 @@ impl BufferedRecordBatch {
     }
 
     pub fn provenance(&self) -> FlushProvenance {
-        FlushProvenance::derive(
+        let mut provenance = FlushProvenance::derive(
             self.writer.writer_node_id.clone(),
             self.writer.writer_epoch,
             self.sequence_range(),
-        )
+        );
+        provenance.collected_bytes = self.collected_bytes;
+        provenance
     }
 
     pub fn flush_id(&self) -> FlushId {
@@ -180,6 +185,14 @@ impl BufferedRecordBatch {
 }
 
 impl RecordBuilder {
+    /// Unknown legacy batches keep the entire generation explicitly incomplete.
+    pub fn add_collected_bytes(&mut self, bytes: Option<u64>) {
+        self.collected_bytes = self
+            .collected_bytes
+            .zip(bytes)
+            .map(|(total, bytes)| total.saturating_add(bytes));
+    }
+
     /// Rotate the oldest retry generation, or the current active generation, into in-flight.
     /// The in-flight clone stays owned by the builder so query snapshots cannot observe a gap.
     pub fn begin_flush(&mut self) -> Result<Option<BufferedRecordBatch>> {
@@ -251,6 +264,7 @@ impl RecordBuilder {
             sequences,
             accounted_size_bytes,
             approximate_size_bytes,
+            self.collected_bytes.replace(0),
         )
     }
 
@@ -275,6 +289,7 @@ impl RecordBuilder {
             self.active_sequences.clone(),
             self.accounted_size_bytes,
             self.approx_size_bytes,
+            self.collected_bytes,
         )
     }
 

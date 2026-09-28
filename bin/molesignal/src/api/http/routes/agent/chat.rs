@@ -17,7 +17,6 @@
 //! - tool 证据落 `agent_messages.evidence_json`，大原始结果 spill 到对象存储。
 //! - transcript 归档：对象存储 JSON + PG 元数据（object_key/sha256/bytes/status）+ 审计事件。
 //!
-//! `license.has_feature("agent")`；OSS 运行时拒绝。
 
 use std::{collections::HashMap, sync::Arc};
 
@@ -37,7 +36,6 @@ use serde_json::{Map, Value, json};
 use super::{tool_dispatcher::RealToolDispatcher, toolsets};
 use crate::{
     agent::{
-        FEATURE,
         capabilities::dashboard_authoring,
         chat::{
             AgentLoop, AgentStreamEvent, ChatMessage as ExternalChatMessage, MessageRole, Provider,
@@ -81,13 +79,6 @@ pub fn routes() -> Router<AppState> {
             axum::routing::post(archive_chat_route),
         )
         .route("/agent/chat/{id}", axum::routing::delete(delete_chat))
-}
-
-fn require_license(state: &AppState) -> Result<()> {
-    if !state.platform.license.has_feature(FEATURE) {
-        return Err(Error::forbidden(format!("{FEATURE} feature not licensed")));
-    }
-    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -190,7 +181,6 @@ async fn list_chats(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Vec<ChatResp>>> {
-    require_license(&state)?;
     Ok(Json(
         state
             .agent
@@ -209,7 +199,6 @@ async fn create_chat(
     Extension(ctx): Extension<IamContext>,
     Json(req): Json<CreateChatReq>,
 ) -> Result<Json<ChatResp>> {
-    require_license(&state)?;
     let now = TimestampMicros::now();
     let mut s = Chat::minimal(
         Id::new(),
@@ -239,7 +228,6 @@ async fn delete_chat(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>> {
-    require_license(&state)?;
     // 软删前先尽力归档，保证删除的会话仍有 transcript 留档（best-effort）。
     if let Ok(chat) = state
         .agent
@@ -259,7 +247,6 @@ async fn list_messages(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>> {
-    require_license(&state)?;
     let _ = state
         .agent
         .chats
@@ -338,7 +325,6 @@ async fn post_message(
     Path(chat_id): Path<String>,
     Json(req): Json<PostMessageReq>,
 ) -> Result<Response> {
-    require_license(&state)?;
     let chat = state
         .agent
         .chats
@@ -614,28 +600,7 @@ async fn post_message(
             }
         }
 
-        // 7) 终结：落 assistant row（prompt 元数据 + evidence）+ cost。
-        let price = persist_state
-            .platform
-            .model_prices
-            .get(&persist_chat.provider, &persist_chat.model)
-            .await
-            .ok()
-            .flatten();
-        let cost = price.as_ref().map(|p| {
-            crate::infra::persistence::repositories::model_prices::compute_cost_usd(
-                p,
-                prompt_tokens as i64,
-                completion_tokens as i64,
-            )
-        });
-        if price.is_none() {
-            tracing::warn!(
-                provider = %persist_chat.provider,
-                model = %persist_chat.model,
-                "model_prices missed; leaving cost_usd NULL"
-            );
-        }
+        // 7) 终结：落 assistant row（prompt 元数据 + evidence）。
         let assistant_content = match &error_msg {
             Some(err) => format!("[error: {err}]"),
             None => final_content.clone(),
@@ -651,7 +616,6 @@ async fn post_message(
             .append_message(ChatMessage {
                 prompt_tokens: Some(prompt_tokens as i64),
                 completion_tokens: Some(completion_tokens as i64),
-                cost_usd: cost,
                 prompt_template_id: prompt_meta.id.clone(),
                 prompt_builtin_key: prompt_meta.builtin_key.clone(),
                 prompt_version: prompt_meta.version,
@@ -685,7 +649,6 @@ async fn post_message(
             "model": persist_chat.model,
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,
-            "cost_usd": cost,
             "error": error_msg,
             "tool_calls": evidence.len(),
             "gen_ai_system": persist_chat.provider,
@@ -1146,7 +1109,6 @@ async fn archive_chat_route(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>> {
-    require_license(&state)?;
     let chat = state.agent.chats.get_chat(&ctx.org_id, &Id(id)).await?;
     let archive = archive_chat(&state, &ctx, &chat).await;
     Ok(Json(json!({

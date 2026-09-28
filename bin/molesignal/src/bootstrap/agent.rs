@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use super::{core::Core, iam::IamRuntime, license::LicenseRuntime};
+use super::{core::Core, iam::IamRuntime};
 use crate::{
     agent::{
         inbound_mcp::InboundMcpRepository, model::AgentRepository,
@@ -56,7 +56,7 @@ impl AgentRuntime {
     pub(super) fn build(
         core: &Core,
         iam: &IamRuntime,
-        license: &LicenseRuntime,
+
         model_providers: Arc<dyn ModelProviderRepository>,
     ) -> Self {
         let chats: Arc<dyn ChatRepository> = Arc::new(PgChatRepository::new(core.pool.clone()));
@@ -101,7 +101,6 @@ impl AgentRuntime {
                 core.iam_memberships.clone() as Arc<dyn IamMembershipRepository>,
                 iam.user_preferences.clone(),
                 core.incidents.clone(),
-                license.license.clone(),
                 rca_generator,
                 crate::bootstrap::workers::rca_sweeper::RcaSweeperConfig::default(),
             )

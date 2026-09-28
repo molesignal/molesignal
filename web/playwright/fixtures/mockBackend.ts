@@ -30,8 +30,6 @@ export const FROZEN_NOW_ISO = '2026-05-23T10:00:00.000Z';
 
 const MOCK_IAM_PLATFORM_PERMISSIONS = [
   'sys.organizations.manage',
-  'sys.licenses.read',
-  'sys.licenses.manage',
   'sys.settings.manage',
   'sys.dashboards.read',
   'sys.telemetry.read',
@@ -49,8 +47,6 @@ const MOCK_IAM_ORGANIZATION_PERMISSIONS = [
   'iam.roles.manage',
   'iam.policies.read',
   'iam.policies.manage',
-  'org.billing.read',
-  'org.billing.manage',
   'api_tokens.read',
   'api_tokens.manage',
   'service_accounts.read',
@@ -107,7 +103,6 @@ function mockCapabilityRoutes(
   const systemOnly = new Set([
     'iam.organizations',
     'settings.organization.management',
-    'settings.license',
     'settings.client_ip',
   ]);
   const systemTelemetryOwners = new Set([
@@ -125,7 +120,6 @@ function mockCapabilityRoutes(
     let allowed = scope !== 'system' && !systemOnly.has(route.id);
     if (scope === 'system') {
       allowed =
-        route.owner === 'account' ||
         (systemTelemetryOwners.has(route.owner) &&
           permissionSet.has('sys.telemetry.read')) ||
         (route.owner === 'dashboards' &&
@@ -134,8 +128,6 @@ function mockCapabilityRoutes(
           permissionSet.has('sys.organizations.manage')) ||
         (route.id === 'settings.organization.management' &&
           permissionSet.has('sys.organizations.manage')) ||
-        (route.id === 'settings.license' &&
-          permissionSet.has('sys.licenses.read')) ||
         (route.id === 'settings.client_ip' &&
           permissionSet.has('sys.settings.manage'));
     }
@@ -2069,7 +2061,6 @@ export function registerRoutes(app: Express): void {
         },
       ],
       permissions: MOCK_IAM_ROLE_PERMISSIONS.owner,
-      features: ['agent', 'domain_management', 'federated_search'],
       version: 1,
       route_catalog_version: 1,
       routes: mockCapabilityRoutes(
@@ -2364,22 +2355,6 @@ export function registerRoutes(app: Express): void {
     return res.json({ unlocked: true });
   });
 
-  // Pro license with all gated features unlocked, so dev:mock surfaces
-  // the same UI a paying pro/SaaS deployment sees.
-  const licenseSnapshot = {
-    edition: 'pro',
-    verified: true,
-    expired: false,
-    issued_to: 'dev',
-    features: ['agent', 'domain_management', 'federated_search'],
-    max_intake_bytes_per_day: null,
-    expires_at_micros: null,
-    active_version_id: 'license-dev',
-  };
-  app.get('/api/v1/system/license', (_req, res) => res.json(licenseSnapshot));
-  app.post('/api/v1/system/license/versions', (_req, res) =>
-    res.status(201).json(licenseSnapshot),
-  );
   const agentToolsets: Array<{
     id: string;
     name: string;
@@ -2435,7 +2410,6 @@ export async function mountMockRoutes(
     scope?: 'organization' | 'system' | 'api_token';
     platformPermissions?: string[];
     capabilityPermissions?: string[];
-    features?: string[];
   } = {},
 ): Promise<void> {
   const theme = opts.theme ?? 'light';
@@ -2535,8 +2509,6 @@ export async function mountMockRoutes(
       const platformPermissionMap: Record<string, string> = {
         system_telemetry_read: 'sys.telemetry.read',
         system_telemetry_manage: 'sys.telemetry.manage',
-        license_read: 'sys.licenses.read',
-        license_write: 'sys.licenses.manage',
         platform_admin_manage: 'sys.administrators.manage',
         trace_debug: 'sys.trace_debug.manage',
       };
@@ -2577,9 +2549,6 @@ export async function mountMockRoutes(
                   },
                 ],
           permissions,
-          features:
-            opts.features ??
-            ['agent', 'domain_management', 'federated_search'],
           version: 1,
           route_catalog_version: 1,
           routes: mockCapabilityRoutes(scope, permissions),

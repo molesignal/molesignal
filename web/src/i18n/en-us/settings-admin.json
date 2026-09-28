@@ -7,18 +7,14 @@
     "saving": "Saving…",
     "error": "Save failed. Try again"
   },
-  "license_gated": {
-    "title": "Pro license required",
-    "description": "The {{feature}} feature is not enabled by this license. Configure a signed pro license that includes \"{{feature}}\" to use this page."
-  },
   "nav": {
-    "group_account": "ACCOUNT",
-    "group_organization": "CURRENT ORGANIZATION",
-    "group_notify": "NOTIFY",
-    "group_data_plane": "DATA PLANE",
-    "group_security": "DATA SECURITY",
+    "group_account": "Account",
+    "group_organization": "Current organization",
+    "group_notify": "Notify",
+    "group_data_plane": "Data plane",
+    "group_security": "Data security",
     "group_ml_ops": "AI & ML",
-    "group_platform": "PLATFORM",
+    "group_platform": "Platform",
     "search_placeholder": "Search settings, permissions, or features…",
     "search_aria": "Search settings",
     "no_results": "No matching settings.",
@@ -28,9 +24,6 @@
     "expand_group": "Expand {{group}}",
     "collapse_group": "Collapse {{group}}",
     "general": "General",
-    "account_billing": "Plans & billing",
-    "license": "License",
-    "billing_integration": "Stripe integration",
     "notify_connectors": "Connectors",
     "notify_users": "User routing",
     "notify_policies": "Policies",
@@ -40,7 +33,6 @@
     "pipeline_destinations": "Pipeline destinations",
     "client_ip": "Client IP recognition",
     "nodes": "Nodes",
-    "correlation": "Correlation",
     "sso_providers": "SSO providers",
     "cipher_keys": "Cipher keys",
     "regex_patterns": "Regex patterns",
@@ -48,7 +40,6 @@
     "domain_management": "Domain management",
     "organization_management": "Organization management",
     "ai_toolsets": "AI toolsets",
-    "model_pricing": "Model pricing",
     "query_management": "Query management",
     "audit": "Audit",
     "ai_providers": "AI providers",
@@ -216,61 +207,6 @@
     "copied": "Copied",
     "no_changes": "There are no unsaved changes.",
     "edit_drawer_title": "Edit organization"
-  },
-  "billing": {
-    "title": "Stripe integration",
-    "subtitle": "Configure platform-level Stripe subscription and quota enforcement. Customer plans and invoices are managed in Account settings.",
-    "section_stripe": "Stripe",
-    "save": "Save",
-    "saving": "Saving…",
-    "toast_saved": "Billing settings saved",
-    "enabled_on": "Enabled",
-    "enabled_off": "Disabled",
-    "placeholder_set": "•••••••• (leave blank to keep)",
-    "placeholder_unset": "Not set",
-    "fields": {
-      "enabled": "Stripe billing",
-      "webhook_secret": "Webhook signing secret",
-      "api_key": "API secret key",
-      "tolerance": "Signature tolerance (seconds)"
-    },
-    "hints": {
-      "enabled": "Gate intake on subscription state and daily quota.",
-      "webhook_secret": "Stripe `whsec_…`; used to verify webhook signatures. Blank keeps the current value.",
-      "api_key": "Stripe `sk_…`; stored encrypted. Blank keeps the current value.",
-      "tolerance": "Reject webhooks whose timestamp is older than this (replay protection)."
-    }
-  },
-  "license": {
-    "title": "License",
-    "subtitle": "Active plan and entitlements.",
-    "current_title": "Current license",
-    "current_description": "Verified edition, entitlements, limits, and validity.",
-    "empty_description": "No license snapshot was returned by the backend.",
-    "labels": {
-      "edition": "Edition",
-      "verified": "Verified",
-      "expired": "Expired",
-      "issued_to": "Issued to",
-      "features": "Features",
-      "max_intake_bytes_per_day": "Max intake per day (bytes)",
-      "expires_at": "Expires at"
-    },
-    "upload": {
-      "title": "Upload license",
-      "subtitle": "Paste the signed license payload and detached signature. Both fields are base64-encoded.",
-      "payload_label": "Payload (base64)",
-      "payload_placeholder": "eyJlZGl0aW9uIjoiZW50ZXJwcmlzZSIs…",
-      "signature_label": "Signature (base64)",
-      "signature_placeholder": "MEUCIQDk…",
-      "from_file": "Or load from a .license file",
-      "submit": "Upload",
-      "submitting": "Uploading…",
-      "toast_uploaded": "License uploaded",
-      "toast_uploaded_unverified": "License uploaded but failed signature verification",
-      "validation_required": "Both payload and signature are required",
-      "validation_base64": "Payload and signature must be valid base64"
-    }
   },
   "sso_providers": {
     "title": "SSO providers",
@@ -560,7 +496,7 @@
     "subtitle": "Manage the local data plane, cluster federation, and remote query targets.",
     "new_cluster": "Add cluster",
     "remote_clusters_title": "Remote clusters",
-    "remote_clusters_description": "Federated query targets. Adding a cluster requires the federated_search license.",
+    "remote_clusters_description": "Federated query targets. ",
     "service_graph": {
       "title": "Service data source",
       "subtitle": "Control how the service map is built from traces for single-node or multi-intake deployments.",
@@ -641,7 +577,6 @@
       "tls": "TLS",
       "enabled": "Enabled"
     },
-    "license_note": "Federated search requires a license; OSS deployments cannot configure remote clusters.",
     "delete_confirm_title": "Remove this cluster?",
     "delete_confirm_description": "Federated queries will no longer fan out to this target.",
     "drawer_title": "Add remote cluster",
@@ -686,27 +621,12 @@
       "toast_removed": "Mapping removed"
     }
   },
-  "correlation": {
-    "title": "Correlation",
-    "subtitle": "Cross-signal pivot providers and presets.",
-    "empty_title": "No correlation providers registered",
-    "empty_description": "Cross-signal pivots will appear here once correlation provider configs are populated.",
-    "enabled": "enabled",
-    "disabled": "disabled",
-    "columns": {
-      "provider": "Provider",
-      "from": "From",
-      "to": "To",
-      "enabled": "Enabled"
-    }
-  },
   "ai_toolsets": {
     "title": "AI toolsets",
     "subtitle": "Registered tools Mole Agent can call.",
     "empty_title": "No AI toolsets",
     "empty_description": "Register constrained tools when Mole Agent is enabled.",
     "new_toolset": "New toolset",
-    "license_hint": "Requires the agent feature",
     "delete_title": "Delete toolset?",
     "columns": {
       "name": "Name",
@@ -746,29 +666,6 @@
       "remove_header": "Remove header",
       "input_schema": "Input schema (JSON)"
     }
-  },
-  "model_pricing": {
-    "title": "Model pricing",
-    "subtitle": "LLM model pricing matrix used for billing.",
-    "empty_title": "No model prices",
-    "empty_description": "Add provider/model pricing rows for LLM cost accounting.",
-    "new_price": "New price",
-    "override": "Override",
-    "delete_title": "Delete price?",
-    "columns": {
-      "provider": "Provider",
-      "model": "Model",
-      "prompt": "Prompt $/1k",
-      "completion": "Completion $/1k",
-      "updated": "Updated"
-    },
-    "drawer_title": "Upsert model price",
-    "submit_label": "Save",
-    "field_provider": "Provider",
-    "field_model": "Model",
-    "field_prompt_k": "Prompt USD per 1k tokens",
-    "field_completion_k": "Completion USD per 1k tokens",
-    "toast_saved": "Saved"
   },
   "query_management": {
     "title": "Query management",
@@ -889,7 +786,12 @@
     "drawer_subtitle": "The first matching rule wins. Drag rows to change priority.",
     "all_streams": "All streams",
     "all_types": "All non-metrics types",
-    "columns": { "rule": "Rule", "match": "Match", "algorithm": "Algorithm", "status": "Status" },
+    "columns": {
+      "rule": "Rule",
+      "match": "Match",
+      "algorithm": "Algorithm",
+      "status": "Status"
+    },
     "section_match": "Match conditions",
     "section_algorithm": "Masking algorithm",
     "field_name": "Rule name",
@@ -908,7 +810,13 @@
     "field_suffix": "Visible suffix characters",
     "field_replacement": "Replacement",
     "field_replacement_hint": "The matched region is replaced once with this value.",
-    "algorithms": { "full": "Full mask", "range": "Range mask", "inner": "Inner mask", "outer": "Outer mask", "hash": "HMAC-SHA-256 hash" },
+    "algorithms": {
+      "full": "Full mask",
+      "range": "Range mask",
+      "inner": "Inner mask",
+      "outer": "Outer mask",
+      "hash": "HMAC-SHA-256 hash"
+    },
     "algorithm_hints": {
       "full": "Replace the entire field with a fixed value.",
       "range": "Mask the [start, end) character range.",

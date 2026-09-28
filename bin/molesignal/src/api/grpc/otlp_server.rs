@@ -11,7 +11,7 @@
 //! 同一套前缀分发：`ms_` → API token，其余 → JWT）+ `StreamWrite` 权限。
 //!
 //! 传输层之外的语义与 OTLP/HTTP（[`crate::api::http::routes::intake::otlp`]）完全
-//! 一致：复用同一批 `*_to_events` 转换 + `normalize_otlp_profiles` + 计费门禁 +
+
 //! `IntakeService::intake`，只是 payload 由 tonic 解码而非手动 protobuf/JSON 解码。
 
 use opentelemetry_proto::tonic::collector::{
@@ -103,7 +103,6 @@ impl OtlpGrpc {
         Ok(ctx)
     }
 
-    /// 计费门禁 + intake（复用 OTLP/HTTP 的同名 helper）。
     async fn intake_events(
         &self,
         ctx: &IamContext,
@@ -147,9 +146,7 @@ fn error_to_status(e: MsError) -> Status {
             Status::invalid_argument(e.to_string())
         }
         MsError::Unauthorized(_) => Status::unauthenticated(e.to_string()),
-        MsError::Forbidden(_) | MsError::PaymentRequired(_) => {
-            Status::permission_denied(e.to_string())
-        }
+        MsError::Forbidden(_) => Status::permission_denied(e.to_string()),
         MsError::ResourceExhausted(_) | MsError::PayloadTooLarge(_) => {
             Status::resource_exhausted(e.to_string())
         }

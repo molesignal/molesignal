@@ -9,8 +9,6 @@ describe('i18n', () => {
     expect(i18n.t('shell:signin.version_line')).not.toBe('signin.version_line');
     expect(i18n.t('shell:about.editions.oss')).toBe('OpenSource Edition');
     expect(i18n.t('shell:about.editions.enterprise')).toBe('Enterprise Edition');
-    expect(i18n.t('design-system:states.license-gated.title')).toBe('Pro feature');
-    expect(i18n.t('edition:gates.pro-required.title')).toBe('Pro required');
     expect(i18n.t('onboarding:activation.title')).toBe('Quick start');
     expect(i18n.t('product:templates.overview')).toBe('Overview');
     expect(i18n.t('alerts:title')).toBe('Alerts');
@@ -23,9 +21,6 @@ describe('i18n', () => {
     expect(i18n.t('settings-admin:subtitle')).toBe(
       'Manage organization, security, data plane, and automation capabilities.',
     );
-    expect(i18n.t('settings-admin:license.labels.max_intake_bytes_per_day')).toBe(
-      'Max intake per day (bytes)',
-    );
     expect(i18n.t('iam:users.toast_removed')).toBe(
       'Member removed from the current workspace',
     );
@@ -37,7 +32,6 @@ describe('i18n', () => {
     expect(i18n.t('shell:about.editions.enterprise')).toBe('Enterprise Edition');
     expect(i18n.t('settings-admin:nav.general')).toBe('通用');
     expect(i18n.t('design-system:states.permission-denied.title')).toBe('需要权限');
-    expect(i18n.t('edition:gates.saas-only.title')).toBe('需要 SaaS 账号');
     expect(i18n.t('onboarding:datasource.endpoint')).toBe('端点');
     expect(i18n.t('product:templates.list')).toBe('列表');
     expect(i18n.t('alerts:title')).toBe('告警');
@@ -50,15 +44,6 @@ describe('i18n', () => {
     expect(i18n.t('settings-admin:subtitle')).toBe(
       '管理组织、安全、数据面和自动化能力。',
     );
-    expect(i18n.t('settings-admin:license.labels.edition')).toBe('版本');
-    expect(i18n.t('settings-admin:license.labels.verified')).toBe('已验证');
-    expect(i18n.t('settings-admin:license.labels.expired')).toBe('已过期');
-    expect(i18n.t('settings-admin:license.labels.issued_to')).toBe('授权对象');
-    expect(i18n.t('settings-admin:license.labels.features')).toBe('功能');
-    expect(i18n.t('settings-admin:license.labels.max_intake_bytes_per_day')).toBe(
-      '每日最大写入量（字节）',
-    );
-    expect(i18n.t('settings-admin:license.labels.expires_at')).toBe('到期时间');
     expect(i18n.t('iam:groups.toast_deleted')).toBe('访问授权已删除');
     expect(i18n.t('rum:upload_source_maps.uploading')).toBe('上传中…');
   });

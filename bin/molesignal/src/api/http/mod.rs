@@ -10,9 +10,9 @@ use tower_http::cors::CorsLayer;
 
 use crate::api::AppState;
 
-pub mod billing;
 pub(crate) mod client_ip;
 pub mod federation;
+pub(crate) mod intake_usage;
 pub mod middleware;
 pub mod pagination;
 pub mod routes;
@@ -48,13 +48,8 @@ pub(crate) fn build_router_with_client_ip(
     // /.well-known/acme-challenge/<token>：顶层公开（无 auth），仅
     let r = r.merge(routes::domains::challenge_routes().with_state(state.clone()));
 
-    // 层序（外→内）：auth_layer 先跑注入 IamContext，org_blocking_layer 紧随其后按 org 拦停服。
-    // `.layer()` 链中先加的更内层，故 org_blocking 放在 auth 之前一行。
+    // 认证层注入 IamContext，供路由执行组织隔离与权限校验。
     let api = r
-        .layer(from_fn_with_state(
-            state.clone(),
-            middleware::org_blocking_layer,
-        ))
         .layer(from_fn_with_state(state.clone(), middleware::auth_layer))
         .layer(from_fn(middleware::trace_context_layer))
         .layer(Extension(client_ip))

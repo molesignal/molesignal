@@ -10,20 +10,15 @@
 //!
 //! 火焰图聚合逻辑位于 [`merge`]，其余规范模型与编解码入口保留在本模块。
 
-use std::{
-    collections::{BTreeMap, HashMap},
-    sync::Arc,
-};
+use std::collections::{BTreeMap, HashMap};
 
-use bytes::Bytes;
-use object_store::{ObjectStore, ObjectStoreExt, path::Path as ObjPath};
 use prost::Message;
 use serde_json::{Map, Value};
 
 use crate::{
     domain::intake::RawEvent,
     protocol::pprof::profiles as pb,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+    shared::{Error, Result, time::TimestampMicros},
 };
 
 pub mod domain {
@@ -37,6 +32,12 @@ pub mod protocol {
 pub mod shared {
     pub use kernel::{Error, Result, ids, time};
 }
+
+mod archive;
+pub use archive::{
+    archive_key_date, archive_object_key, get_archive, put_archive, sweep_expired_archives,
+    zstd_compress, zstd_decompress,
+};
 
 pub mod merge;
 
@@ -598,158 +599,6 @@ pub fn encode_pprof_raw(p: &NormalizedProfile) -> Result<Vec<u8>> {
 
 // ===== 归档 + 元数据落盘（task 3.1 / 3.2 / 3.3）=====
 
-const PROFILE_ARCHIVE_LAYOUT_VERSION: &str = "v1";
-
-/// 归档对象 key：
-/// `profiles/v1/<org_id>/<service>/<profile_type>/<yyyymmdd>/<profile_id>.pprof.zst`。
-pub fn archive_object_key(
-    org_id: &Id,
-    service: &str,
-    profile_type: &str,
-    start_time_micros: i64,
-    profile_id: &Id,
-) -> String {
-    format!(
-        "profiles/{PROFILE_ARCHIVE_LAYOUT_VERSION}/{}/{}/{}/{}/{}.pprof.zst",
-        org_id.0,
-        sanitize_key_segment(service),
-        sanitize_key_segment(profile_type),
-        yyyymmdd(start_time_micros),
-        profile_id.0,
-    )
-}
-
-/// 把非路径安全字符折叠为 `_`，空串回退 `unknown`。
-fn sanitize_key_segment(s: &str) -> String {
-    let out: String = s
-        .chars()
-        .map(|c| {
-            if c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.' {
-                c
-            } else {
-                '_'
-            }
-        })
-        .collect();
-    if out.is_empty() {
-        "unknown".to_string()
-    } else {
-        out
-    }
-}
-
-/// micros since epoch → `YYYYMMDD`（civil_from_days，Howard Hinnant 算法，无依赖）。
-fn yyyymmdd(micros: i64) -> String {
-    let days = micros.div_euclid(86_400_000_000);
-    let z = days + 719_468;
-    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
-    let doe = z - era * 146_097; // [0, 146096]
-    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365; // [0, 399]
-    let y = yoe + era * 400;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100); // [0, 365]
-    let mp = (5 * doy + 2) / 153; // [0, 11]
-    let d = doy - (153 * mp + 2) / 5 + 1; // [1, 31]
-    let m = if mp < 10 { mp + 3 } else { mp - 9 }; // [1, 12]
-    let y = if m <= 2 { y + 1 } else { y };
-    format!("{y:04}{m:02}{d:02}")
-}
-
-/// zstd 压缩（level 3，与 RUM replay 归档一致）。
-pub fn zstd_compress(bytes: &[u8]) -> Result<Vec<u8>> {
-    zstd::stream::encode_all(bytes, 3).map_err(|e| Error::internal(format!("profile zstd: {e}")))
-}
-
-/// zstd 解压。
-pub fn zstd_decompress(bytes: &[u8]) -> Result<Vec<u8>> {
-    zstd::stream::decode_all(bytes).map_err(|e| Error::internal(format!("profile unzstd: {e}")))
-}
-
-/// 把裸 pprof protobuf zstd 归档到 object store，返回归档字节数（计入存储配额）。
-pub async fn put_archive(
-    object_store: &Arc<dyn ObjectStore>,
-    key: &str,
-    raw_pprof: &[u8],
-) -> Result<u64> {
-    let compressed = zstd_compress(raw_pprof)?;
-    let bytes = compressed.len() as u64;
-    let path =
-        ObjPath::parse(key).map_err(|e| Error::internal(format!("profile object path: {e}")))?;
-    object_store
-        .put(&path, Bytes::from(compressed).into())
-        .await
-        .map_err(|e| Error::internal(format!("profile archive put: {e}")))?;
-    Ok(bytes)
-}
-
-/// 读回归档对象并 zstd 解压为裸 pprof protobuf（聚合 / 下载用）。
-pub async fn get_archive(object_store: &Arc<dyn ObjectStore>, key: &str) -> Result<Vec<u8>> {
-    let path =
-        ObjPath::parse(key).map_err(|e| Error::internal(format!("profile object path: {e}")))?;
-    let got = object_store
-        .get(&path)
-        .await
-        .map_err(|e| Error::internal(format!("profile archive get: {e}")))?;
-    let bytes = got
-        .bytes()
-        .await
-        .map_err(|e| Error::internal(format!("profile archive read: {e}")))?;
-    zstd_decompress(&bytes)
-}
-
-/// 从 v1 归档 key 提取 `YYYYMMDD` 日期段；非归档 / 异常 key 返回 `None`。
-pub fn archive_key_date(key: &str) -> Option<&str> {
-    let mut segments = key.split('/');
-    if segments.next()? != "profiles"
-        || segments.next()? != PROFILE_ARCHIVE_LAYOUT_VERSION
-        || segments.next()?.is_empty()
-        || segments.next()?.is_empty()
-        || segments.next()?.is_empty()
-    {
-        return None;
-    }
-    let date = segments.next()?;
-    let file = segments.next()?;
-    if file.is_empty() || segments.next().is_some() {
-        return None;
-    }
-    (date.len() == 8 && date.bytes().all(|byte| byte.is_ascii_digit())).then_some(date)
-}
-
-/// 删除某 org `profiles/v1/<org>/` 前缀下日期早于 retention cutoff 的归档 blob。
-///
-/// profiles 主 Artifact 随 stream retention 由 FileCatalog tombstone + GC 自动清理；归档 blob 是
-/// object store 旁路对象、不在 FileCatalog 内，故 retention sweep 需调用本函数一并清理
-/// （storage spec：到期同时清理 parquet 元数据与归档 blob）。归档按 `yyyymmdd` 分桶，
-/// 比较到日级即可。best-effort：单个删除失败仅跳过，下一轮 sweep 兜底；返回成功删除数。
-pub async fn sweep_expired_archives(
-    object_store: &Arc<dyn ObjectStore>,
-    org_id: &Id,
-    cutoff_micros: i64,
-) -> Result<usize> {
-    use futures::TryStreamExt;
-    let cutoff = yyyymmdd(cutoff_micros);
-    let prefix = ObjPath::parse(format!(
-        "profiles/{PROFILE_ARCHIVE_LAYOUT_VERSION}/{}",
-        org_id.0
-    ))
-    .map_err(|e| Error::internal(format!("profile sweep prefix: {e}")))?;
-    let mut listing = object_store.list(Some(&prefix));
-    let mut deleted = 0usize;
-    while let Some(meta) = listing
-        .try_next()
-        .await
-        .map_err(|e| Error::internal(format!("profile sweep list: {e}")))?
-    {
-        let Some(date) = archive_key_date(meta.location.as_ref()) else {
-            continue;
-        };
-        if date < cutoff.as_str() && object_store.delete(&meta.location).await.is_ok() {
-            deleted += 1;
-        }
-    }
-    Ok(deleted)
-}
-
 /// 构造 profiles 元数据流的一行 [`RawEvent`]（task 3.2）。
 ///
 /// `timestamp` 由调用方决定（profile 自带时间则用之，否则用接收时间）。
@@ -896,78 +745,6 @@ pub fn parse_pyroscope_name(name: &str) -> (String, Option<String>, BTreeMap<Str
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn archive_key_date_extracts_day_segment() {
-        assert_eq!(
-            archive_key_date("profiles/v1/org1/api/cpu/20260618/abc.pprof.zst"),
-            Some("20260618")
-        );
-        // non-8-digit date segment → None
-        assert_eq!(
-            archive_key_date("profiles/v1/o/s/t/notadate/x.pprof.zst"),
-            None
-        );
-        // unversioned legacy paths are deliberately not interpreted.
-        assert_eq!(
-            archive_key_date("profiles/org1/api/cpu/20260618/abc.pprof.zst"),
-            None
-        );
-        assert_eq!(
-            archive_key_date("profiles/v2/org1/api/cpu/20260618/abc.pprof.zst"),
-            None
-        );
-        // too few segments (not an archive key) → None
-        assert_eq!(archive_key_date("rum/org1/sess/1.replay"), None);
-    }
-
-    #[tokio::test]
-    async fn sweep_expired_archives_filters_by_prefix_and_date() {
-        use object_store::memory::InMemory;
-        let store: Arc<dyn ObjectStore> = Arc::new(InMemory::new());
-        let org = Id::from_string("org1");
-        put_archive(
-            &store,
-            "profiles/v1/org1/api/cpu/20260101/a.pprof.zst",
-            b"x",
-        )
-        .await
-        .unwrap();
-        put_archive(
-            &store,
-            "profiles/v1/org1/api/cpu/20260620/b.pprof.zst",
-            b"y",
-        )
-        .await
-        .unwrap();
-        // unrelated prefix is never touched.
-        put_archive(&store, "rum/org1/sess/1.replay.zst", b"z")
-            .await
-            .unwrap();
-
-        // cutoff at epoch (1970) → nothing is older → nothing deleted.
-        assert_eq!(sweep_expired_archives(&store, &org, 0).await.unwrap(), 0);
-
-        // cutoff far in the future → both profiles archives are older → both gone.
-        let far_future_micros = 7_258_118_400_000_000;
-        assert_eq!(
-            sweep_expired_archives(&store, &org, far_future_micros)
-                .await
-                .unwrap(),
-            2
-        );
-        assert!(
-            get_archive(&store, "profiles/v1/org1/api/cpu/20260101/a.pprof.zst")
-                .await
-                .is_err()
-        );
-        // the unrelated object survives.
-        assert!(
-            get_archive(&store, "rum/org1/sess/1.replay.zst")
-                .await
-                .is_ok()
-        );
-    }
 
     fn frame(fun: &str) -> Frame {
         Frame {
@@ -1121,39 +898,11 @@ mod tests {
     }
 
     #[test]
-    fn archive_key_layout() {
-        let key = archive_object_key(
-            &Id::from_string("org123"),
-            "checkout svc",
-            "cpu",
-            1_700_000_000_000_000,
-            &Id::from_string("p1"),
-        );
-        assert_eq!(
-            key,
-            "profiles/v1/org123/checkout_svc/cpu/20231114/p1.pprof.zst"
-        );
-    }
-
-    #[test]
-    fn yyyymmdd_is_civil_date() {
-        assert_eq!(yyyymmdd(1_700_000_000_000_000), "20231114");
-        assert_eq!(yyyymmdd(0), "19700101");
-    }
-
-    #[test]
-    fn zstd_round_trips() {
-        let data = b"the quick brown fox jumps over the lazy dog".repeat(10);
-        let c = zstd_compress(&data).unwrap();
-        assert_eq!(zstd_decompress(&c).unwrap(), data);
-    }
-
-    #[test]
     fn metadata_event_carries_columns() {
         let p = cpu_profile();
         let ev = metadata_event(
             &p,
-            "profiles/v1/o/api/cpu/20231114/x.pprof.zst",
+            "blobs/v1/o/profiles/api/cpu/20231114/x.pprof.zst",
             4096,
             TimestampMicros(p.start_time_micros),
         );
@@ -1165,7 +914,7 @@ mod tests {
         assert_eq!(ev.fields["archived_bytes"], Value::from(4096_i64));
         assert_eq!(
             ev.fields["object_key"],
-            Value::from("profiles/v1/o/api/cpu/20231114/x.pprof.zst")
+            Value::from("blobs/v1/o/profiles/api/cpu/20231114/x.pprof.zst")
         );
         // trace_id / span_id 必须始终成列（无关联时为空串），否则 schema-on-write 缺列。
         assert!(ev.fields.contains_key("trace_id"));

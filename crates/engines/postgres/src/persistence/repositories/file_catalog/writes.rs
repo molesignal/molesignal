@@ -66,7 +66,7 @@ pub(super) async fn insert_segment(
 ) -> Result<()> {
     let now = TimestampMicros::now().0;
     sqlx::query(
-        "INSERT INTO data_segments (org_id, id, dataset_id, partition_start_micros, \
+        "INSERT INTO catalog_segments (org_id, id, dataset_id, partition_start_micros, \
          partition_end_micros, partition_shard, min_event_micros, max_event_micros, row_count, \
          schema_fingerprint, column_stats, flush_id, sequence_start, sequence_end, \
          output_ordinal, state, visible_from_version, retired_at_version, created_at_micros)
@@ -118,7 +118,7 @@ pub(super) async fn insert_artifact(
 ) -> Result<()> {
     let now = TimestampMicros::now().0;
     sqlx::query(
-        "INSERT INTO artifacts (org_id, id, segment_id, role, artifact_type, format_version, \
+        "INSERT INTO catalog_artifacts (org_id, id, segment_id, role, artifact_type, format_version, \
          object_key, size_bytes, checksum, etag, source_artifact_id, source_checksum, schema_fingerprint, \
          state, failure_reason, created_at_micros, updated_at_micros)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $16)",
@@ -194,7 +194,7 @@ pub(super) async fn tombstone_segment_artifacts(
         return Ok(0);
     }
     let rows = sqlx::query(
-        "SELECT object_key, checksum FROM artifacts \
+        "SELECT object_key, checksum FROM catalog_artifacts \
          WHERE org_id = $1 AND segment_id = ANY($2) AND state <> 'tombstoned'",
     )
     .bind(scope.organization_id.as_str())
@@ -204,7 +204,7 @@ pub(super) async fn tombstone_segment_artifacts(
     .map_err(sqlx_err)?;
 
     sqlx::query(
-        "UPDATE artifacts SET state = 'tombstoned', updated_at_micros = $3 \
+        "UPDATE catalog_artifacts SET state = 'tombstoned', updated_at_micros = $3 \
          WHERE org_id = $1 AND segment_id = ANY($2) AND state <> 'tombstoned'",
     )
     .bind(scope.organization_id.as_str())

@@ -194,5 +194,35 @@
       "empty": "No service catalog entries in the selected range.",
       "slowest_operations": "Slowest operations"
     }
+  },
+  "attributes": {
+    "title": "Tags",
+    "view": "Attribute view",
+    "list": "Table",
+    "json": "Raw JSON",
+    "search": "Search tags",
+    "copy_failed": "Could not copy to clipboard",
+    "empty": "No tags.",
+    "no_matches": "No matching tags.",
+    "copy_value_for": "Copy value for {{key}}",
+    "copied": "Copied",
+    "actions": "Actions for {{key}}",
+    "copy_key": "Copy key",
+    "copy_value": "Copy value",
+    "copy_pair": "Copy key=value",
+    "include": "Add to query",
+    "exclude": "Exclude this value",
+    "fields_only": "Switch to Fields mode to add this filter.",
+    "scalar_only": "Filtering requires a non-empty scalar value and a supported field name.",
+    "show_all": "Show all {{count}}",
+    "show_less": "Show less",
+    "groups": {
+      "database": "Database",
+      "service": "Service",
+      "deployment": "Deployment",
+      "telemetry": "Telemetry",
+      "resource": "Resource",
+      "other": "Other"
+    }
   }
 }

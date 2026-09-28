@@ -5,11 +5,8 @@ use std::collections::BTreeSet;
 
 use super::{OAuthError, OAuthResult, TokenResponse, random_secret};
 use crate::{
-    agent::{
-        FEATURE,
-        inbound_mcp::{InboundMcpOAuthToken, InboundMcpOAuthTokenKind, InboundMcpSettings},
-    },
-    api::{AppState, http::billing::org_blocked_cached},
+    agent::inbound_mcp::{InboundMcpOAuthToken, InboundMcpOAuthTokenKind, InboundMcpSettings},
+    api::AppState,
     app::iam::IamContext,
     domain::iam::IamScope,
     shared::{ids::Id, time::TimestampMicros},
@@ -113,11 +110,6 @@ pub(super) async fn ensure_grant_available(
     org_id: &Id,
     user_id: &Id,
 ) -> OAuthResult<()> {
-    if !state.platform.license.has_feature(FEATURE) {
-        return Err(OAuthError::invalid_grant(
-            "the organization is not licensed for Inbound MCP",
-        ));
-    }
     state
         .iam
         .service
@@ -130,12 +122,7 @@ pub(super) async fn ensure_grant_available(
         .ensure_organization_access(org_id)
         .await
         .map_err(|error| OAuthError::invalid_grant(error.to_string()))?;
-    if org_blocked_cached(state, org_id, TimestampMicros::now().0)
-        .await
-        .map_err(OAuthError::server)?
-    {
-        return Err(OAuthError::invalid_grant("organization access is paused"));
-    }
+
     let mut context = IamContext {
         user_id: user_id.clone(),
         org_id: org_id.clone(),
@@ -146,7 +133,6 @@ pub(super) async fn ensure_grant_available(
         credential_service_account_id: None,
         scope: IamScope::Organization,
         permissions: BTreeSet::new(),
-        features: BTreeSet::new(),
         policy_version: 0,
     };
     state

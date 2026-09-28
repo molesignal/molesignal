@@ -107,10 +107,6 @@ pub const WORKER_COVERAGE: &[WorkerCoverage] = &[
         source: "src/bootstrap/workers/synthetics/embedded.rs",
         policy: WorkerTracePolicy::RootPerRun,
     },
-    WorkerCoverage {
-        source: "src/bootstrap/workers/trial_sweeper.rs",
-        policy: WorkerTracePolicy::RootPerRun,
-    },
 ];
 
 pub const HTTP_CLIENT_COVERAGE: &[&str] = &[

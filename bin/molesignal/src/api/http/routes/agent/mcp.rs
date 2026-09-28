@@ -24,10 +24,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use crate::{
-    agent::{
-        FEATURE,
-        tool_control::{McpServer, McpServerInput},
-    },
+    agent::tool_control::{McpServer, McpServerInput},
     api::{AppState, http::routes::activity_audit},
     app::iam::IamContext,
     domain::iam::permission,
@@ -63,13 +60,6 @@ pub fn routes() -> Router<AppState> {
             post(synchronization::sync_server),
         )
         .route("/agent/mcp-servers/{id}/tools", get(list_server_tools))
-}
-
-fn require_license(state: &AppState) -> Result<()> {
-    if !state.platform.license.has_feature(FEATURE) {
-        return Err(Error::forbidden(format!("{FEATURE} feature not licensed")));
-    }
-    Ok(())
 }
 
 #[derive(Debug, Deserialize)]
@@ -254,7 +244,6 @@ async fn list_servers(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Value>> {
-    require_license(&state)?;
     let servers = state
         .agent
         .tool_control
@@ -285,7 +274,6 @@ async fn get_server(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>> {
-    require_license(&state)?;
     let id = Id(id);
     let server = state
         .agent
@@ -306,7 +294,6 @@ async fn create_server(
     Extension(ctx): Extension<IamContext>,
     Json(request): Json<McpServerRequest>,
 ) -> Result<Json<McpServer>> {
-    require_license(&state)?;
     let (input, credential) =
         normalize_server_request(request, Id::new(), ctx.org_id.clone(), ctx.user_id.clone())?;
     if input.auth_type != "none" && credential.is_none() {
@@ -343,7 +330,6 @@ async fn update_server(
     Path(id): Path<String>,
     Json(request): Json<McpServerRequest>,
 ) -> Result<Json<McpServer>> {
-    require_license(&state)?;
     let id = Id(id);
     let existing = state
         .agent
@@ -385,7 +371,6 @@ async fn delete_server(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>> {
-    require_license(&state)?;
     let id = Id(id);
     let tools = state
         .agent
@@ -432,7 +417,6 @@ async fn list_server_tools(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>> {
-    require_license(&state)?;
     let id = Id(id);
     let _ = state
         .agent

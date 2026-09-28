@@ -63,8 +63,8 @@ pub(super) async fn commit_flush(
 
     let inserted = sqlx::query(
         "INSERT INTO storage_flush_commits (org_id, dataset_id, flush_id, writer_node_id, \
-         writer_epoch, sequence_start, sequence_end, committed_at_micros)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         writer_epoch, sequence_start, sequence_end, committed_at_micros, collected_bytes)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          ON CONFLICT (org_id, dataset_id, flush_id) DO NOTHING",
     )
     .bind(scope.organization_id.as_str())
@@ -75,6 +75,12 @@ pub(super) async fn commit_flush(
     .bind(to_i64(provenance.sequence.start.0, "sequence_start")?)
     .bind(to_i64(provenance.sequence.end.0, "sequence_end")?)
     .bind(TimestampMicros::now().0)
+    .bind(
+        provenance
+            .collected_bytes
+            .map(|bytes| to_i64(bytes, "collected_bytes"))
+            .transpose()?,
+    )
     .execute(&mut *tx)
     .await
     .map_err(sqlx_err)?

@@ -57,7 +57,8 @@
       "error": "异常",
       "paused": "已暂停",
       "unknown": "状态未知",
-      "never": "尚未运行"
+      "never": "尚未运行",
+      "ready": "等待接收"
     },
     "run_states": {
       "succeeded": "成功",
@@ -266,7 +267,6 @@
     "vrl_script": "VRL 脚本",
     "vrl_function_hint": "选用内置预设或已保存的 VRL 函数作为此转换。",
     "vrl_function_placeholder": "选择 VRL 函数…",
-    "preset_label": "内置：{{name}}",
     "new_vrl_function": "新建 VRL 函数",
     "retry_policy": "重试策略",
     "delete_node": "删除节点",
@@ -295,7 +295,10 @@
       "source_is_sink": "来源与目标同名会形成回环：{{name}}",
       "transform_name_missing": "第 {{index}} 个转换缺少名称。",
       "transform_script_missing": "转换「{{name}}」缺少 VRL 脚本。",
-      "connector_missing": "引用的 connector 不存在：{{id}}"
+      "connector_missing": "引用的 connector 不存在：{{id}}",
+      "realtime_logs": "实时模式当前支持日志。",
+      "realtime_nodes": "实时模式需要一个来源和一个数据流输出节点。",
+      "realtime_routing": "请填写分流字段和兜底流。"
     }
   },
   "drawer": {
@@ -334,5 +337,33 @@
       "fixed": "固定 5s × 3",
       "none": "不重试（丢弃）"
     }
+  },
+  "realtime": {
+    "mode": "执行模式",
+    "title": "实时",
+    "scheduled": "定时",
+    "enabled": "写入时处理",
+    "output": "目标流规则",
+    "fixed": "固定数据流",
+    "field": "按字段动态分流",
+    "field_name": "字段名",
+    "field_hint": "优先匹配完整字段名，也支持 app.name 这样的嵌套路径。",
+    "prefix": "流名前缀（可选）",
+    "fallback": "兜底数据流",
+    "fallback_hint": "字段缺失、非字符串或流名无效时写入此流。存储故障仍返回错误。",
+    "auto_create": "目标流不存在时自动创建。",
+    "retain": "同时保留到源数据流",
+    "retain_hint": "分流成功后，额外保留处理前的原始日志到 {{source}}（仍执行脱敏）。目标与源流相同时只写一次。",
+    "no_backfill": "实时模式在写入时执行，不支持历史回填。",
+    "ready": "等待接收",
+    "logs_only": "实时模式当前支持日志。"
+  },
+  "processing": {
+    "type": "处理类型",
+    "builtin": "常用逻辑",
+    "vrl": "VRL 函数",
+    "route": "数据分流",
+    "output": "数据流输出",
+    "output_hint": "按处理节点决定的目标流写入；目标流不存在时自动创建。"
   }
 }

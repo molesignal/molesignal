@@ -36,8 +36,6 @@ spec:
               valueFrom: { secretKeyRef: { name: molesignal-secret, key: object_store_secret_key } }
             - name: MS_CIPHER_KEY
               valueFrom: { secretKeyRef: { name: molesignal-secret, key: cipher_key } }
-            - name: MS_LICENSE_FILE
-              value: "/etc/molesignal/license.json"
           ports:
             - { name: http, containerPort: 5080 }
             - { name: grpc, containerPort: 5082 }
@@ -49,12 +47,9 @@ spec:
           volumeMounts:
             - { name: cfg, mountPath: /app/conf }
             - { name: data, mountPath: /data }
-            - { name: license, mountPath: /etc/molesignal, readOnly: true }
       volumes:
         - name: cfg
           configMap: { name: molesignal-config }
-        - name: license
-          secret: { secretName: molesignal-license, optional: true }
   volumeClaimTemplates:
     - metadata: { name: data }
       spec:

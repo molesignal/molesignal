@@ -24,7 +24,7 @@ export function MatchersEditor({
   const { t } = useTranslation('alerts');
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="font-sans text-xs font-strong uppercase tracking-wide text-tx-3">
+      <span className="font-sans text-xs font-strong tracking-normal text-tx-3">
         {t('matchers.title', { defaultValue: 'Label matchers' })}
       </span>
       <FieldArray<LabelMatcher>

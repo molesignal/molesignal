@@ -199,6 +199,7 @@ impl IndexRebuildWorker {
         let artifact_type = ArtifactTypeId::builtin(type_id::builtin::ARTIFACT_TANTIVY);
         let key = StorageLayout::artifact_key(
             &scope.organization_id,
+            stream.stream_type,
             &task.dataset.id,
             &task.segment.partition,
             &task.segment.id,

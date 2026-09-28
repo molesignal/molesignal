@@ -41,13 +41,6 @@ pub fn routes() -> Router<AppState> {
         )
 }
 
-fn require_license(state: &AppState) -> Result<()> {
-    if !state.platform.license.has_feature(crate::agent::FEATURE) {
-        return Err(Error::forbidden("agent feature not licensed"));
-    }
-    Ok(())
-}
-
 const DEFAULT_TIMEOUT_MS: i64 = 30_000;
 
 #[derive(Debug, Serialize)]
@@ -134,7 +127,6 @@ async fn list(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Vec<ProviderResp>>> {
-    require_license(&state)?;
     let rows = state.agent.model_providers.list(&ctx.org_id).await?;
     Ok(Json(rows.into_iter().map(to_resp).collect()))
 }
@@ -145,7 +137,6 @@ async fn create(
     Extension(ctx): Extension<IamContext>,
     Json(req): Json<CreateReq>,
 ) -> Result<Json<ProviderResp>> {
-    require_license(&state)?;
     validate_provider(&req.provider)?;
     if req.name.trim().is_empty() || req.default_model.trim().is_empty() {
         return Err(Error::invalid("name and default_model are required"));
@@ -191,7 +182,6 @@ async fn update(
     Path(id): Path<String>,
     Json(req): Json<UpdateReq>,
 ) -> Result<Json<ProviderResp>> {
-    require_license(&state)?;
     validate_provider(&req.provider)?;
     let input = ModelProviderInput {
         id: Id(id.clone()),
@@ -229,7 +219,6 @@ async fn rotate_key(
     Path(id): Path<String>,
     Json(req): Json<RotateReq>,
 ) -> Result<Json<ProviderResp>> {
-    require_license(&state)?;
     if req.api_key.trim().is_empty() {
         return Err(Error::invalid("api_key is required"));
     }
@@ -256,7 +245,6 @@ async fn delete(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>> {
-    require_license(&state)?;
     state
         .agent
         .model_providers

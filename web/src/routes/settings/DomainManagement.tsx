@@ -9,7 +9,7 @@ import {
   type ActionAccess,
   useActionAccess,
 } from '@/product/actionAccess';
-import { ProductState, productStateFor, useLicenseErrorGate } from '@/product/states';
+import { ProductState, productStateFor } from '@/product/states';
 import { ChromeButton, Pill } from '@/shell/chrome';
 import {
   FormDrawer,
@@ -30,11 +30,9 @@ export function DomainManagement() {
   const qc = useQueryClient();
   const manageAccess = useActionAccess({
     permission: 'org.settings.manage',
-    feature: 'domain_management',
   });
   const [creating, setCreating] = React.useState(false);
   const [removing, setRemoving] = React.useState<domainsApi.Domain | null>(null);
-  const licenseGate = useLicenseErrorGate();
 
   const q = useQuery({
     queryKey: ['domains'],
@@ -43,7 +41,6 @@ export function DomainManagement() {
   const rows = q.data ?? [];
   const state = queryStateFor({ isLoading: q.isLoading, isError: q.isError, data: rows });
   const pageState =
-    (state === 'error' ? licenseGate(q.error, 'features.domain_management') : null) ??
     productStateFor(state, {
       error: q.error,
       emptyTitle: t('domain_management.empty_title'),

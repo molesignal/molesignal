@@ -238,7 +238,7 @@ export function UptimeDayTooltip({
         </p>
       ) : day.incidents.length > 0 ? (
         <div className="mt-3">
-          <p className="text-xs font-strong uppercase tracking-[0.08em] text-tx-3">
+          <p className="text-xs font-strong tracking-normal text-tx-3">
             {copy('public.uptime.related')}
           </p>
           <ul className="mt-2 space-y-1.5 text-sm leading-5 text-tx-1">

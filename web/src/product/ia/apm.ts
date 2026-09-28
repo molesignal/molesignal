@@ -11,7 +11,6 @@ import {
 import type { ProductRouteMeta } from '../ia';
 
 const BACKEND_ACCESS = {
-  edition: 'any',
   owner: 'apm',
   emptyStateStrategy: 'query-first',
   group: 'observe',

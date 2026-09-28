@@ -27,8 +27,8 @@ pub(super) async fn index_rebuild_tasks(
     limit: u32,
 ) -> Result<Vec<IndexRebuildTask>> {
     let candidates = sqlx::query(
-        "SELECT a.id, a.segment_id, s.dataset_id FROM artifacts a \
-         JOIN data_segments s ON s.org_id = a.org_id AND s.id = a.segment_id \
+        "SELECT a.id, a.segment_id, s.dataset_id FROM catalog_artifacts a \
+         JOIN catalog_segments s ON s.org_id = a.org_id AND s.id = a.segment_id \
          WHERE a.org_id = $1 AND a.role = 'index' \
            AND (a.state = 'pending' OR (a.state = 'failed' AND a.updated_at_micros <= $2)) \
            AND s.state = 'active' \
@@ -53,7 +53,7 @@ pub(super) async fn index_rebuild_tasks(
         .collect::<std::result::Result<Vec<_>, _>>()?;
 
     let segment_rows = sqlx::query(&format!(
-        "SELECT {SEGMENT_COLS} FROM data_segments WHERE org_id = $1 AND id = ANY($2)"
+        "SELECT {SEGMENT_COLS} FROM catalog_segments WHERE org_id = $1 AND id = ANY($2)"
     ))
     .bind(scope.organization_id.as_str())
     .bind(&segment_ids)
@@ -61,7 +61,7 @@ pub(super) async fn index_rebuild_tasks(
     .await
     .map_err(sqlx_err)?;
     let artifact_rows = sqlx::query(&format!(
-        "SELECT {ARTIFACT_COLS} FROM artifacts \
+        "SELECT {ARTIFACT_COLS} FROM catalog_artifacts \
          WHERE org_id = $1 AND segment_id = ANY($2) AND state <> 'tombstoned'"
     ))
     .bind(scope.organization_id.as_str())
@@ -135,7 +135,7 @@ pub(super) async fn catalog_objects(
     let artifact_rows = sqlx::query(
         "SELECT s.dataset_id, a.segment_id, a.id, a.role, a.state, a.object_key, \
                 a.size_bytes, a.checksum, a.etag \
-         FROM artifacts a JOIN data_segments s ON s.org_id = a.org_id AND s.id = a.segment_id \
+         FROM catalog_artifacts a JOIN catalog_segments s ON s.org_id = a.org_id AND s.id = a.segment_id \
          WHERE a.org_id = $1 AND ($2::TEXT IS NULL OR a.object_key > $2) \
            AND s.state IN ('active', 'sealed') AND a.state <> 'tombstoned' \
          ORDER BY a.object_key LIMIT $3",
@@ -254,13 +254,13 @@ pub(super) async fn object_is_referenced(
 ) -> Result<bool> {
     let row = sqlx::query(
         "SELECT \
-           EXISTS(SELECT 1 FROM artifacts a JOIN data_segments s \
+           EXISTS(SELECT 1 FROM catalog_artifacts a JOIN catalog_segments s \
                   ON s.org_id = a.org_id AND s.id = a.segment_id \
                   WHERE a.org_id = $1 AND a.object_key = $2 \
                     AND a.state <> 'tombstoned' AND s.state IN ('active', 'sealed')) \
            OR EXISTS(SELECT 1 FROM partition_manifests \
                      WHERE org_id = $1 AND object_key = $2 AND state = 'active') \
-           OR EXISTS(SELECT 1 FROM artifacts source JOIN artifacts derived \
+           OR EXISTS(SELECT 1 FROM catalog_artifacts source JOIN catalog_artifacts derived \
                      ON derived.org_id = source.org_id AND derived.source_artifact_id = source.id \
                      WHERE source.org_id = $1 AND source.object_key = $2 \
                        AND derived.state <> 'tombstoned') AS referenced",
@@ -315,17 +315,17 @@ pub(super) async fn catalog_invariant_issues(
               AND w.writer_node_id = c.writer_node_id AND w.writer_epoch = c.writer_epoch \
              WHERE w.committed_sequence IS DISTINCT FROM c.sequence_end) \
          SELECT \
-           (SELECT COUNT(*) FROM data_segments s \
+           (SELECT COUNT(*) FROM catalog_segments s \
             WHERE s.org_id = $1 AND s.state = 'active' AND NOT EXISTS ( \
-              SELECT 1 FROM artifacts a WHERE a.org_id = s.org_id AND a.segment_id = s.id \
+              SELECT 1 FROM catalog_artifacts a WHERE a.org_id = s.org_id AND a.segment_id = s.id \
                 AND a.role = 'primary_data' AND a.state = 'ready')) AS missing_primary, \
            (SELECT COUNT(*) FROM checkpoint_mismatches) AS checkpoint_mismatch, \
            (SELECT COUNT(*) FROM object_gc_queue q WHERE q.org_id = $1 \
               AND q.state IN ('pending', 'processing') AND q.attempt_count > 0 \
               AND q.updated_at_micros <= $2) AS gc_stuck, \
-           (SELECT COUNT(*) FROM artifacts a \
-              JOIN data_segments s ON s.org_id = a.org_id AND s.id = a.segment_id \
-              JOIN artifacts p ON p.org_id = s.org_id AND p.segment_id = s.id \
+           (SELECT COUNT(*) FROM catalog_artifacts a \
+              JOIN catalog_segments s ON s.org_id = a.org_id AND s.id = a.segment_id \
+              JOIN catalog_artifacts p ON p.org_id = s.org_id AND p.segment_id = s.id \
                AND p.role = 'primary_data' AND p.state = 'ready' \
             WHERE a.org_id = $1 AND s.state IN ('active', 'sealed') \
               AND a.role = 'index' AND a.state = 'ready' AND ( \
@@ -381,7 +381,7 @@ pub(super) async fn checksum_matches_retired_catalog(
 ) -> Result<bool> {
     let row = sqlx::query(
         "SELECT NOT EXISTS( \
-           SELECT 1 FROM artifacts WHERE org_id = $1 AND object_key = $2 AND checksum <> $3 \
+           SELECT 1 FROM catalog_artifacts WHERE org_id = $1 AND object_key = $2 AND checksum <> $3 \
            UNION ALL \
            SELECT 1 FROM partition_manifests \
              WHERE org_id = $1 AND object_key = $2 AND checksum <> $3) AS matches",

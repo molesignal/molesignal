@@ -498,7 +498,7 @@ mod tests {
         RegisteredObject {
             organization_id: Id::from_string("org-a"),
             object: StoredObject {
-                key: ObjectKey::from_string("v1/artifacts/a"),
+                key: ObjectKey::from_string("artifacts/v1/a"),
                 size_bytes: bytes.len() as u64,
                 checksum: ObjectChecksum::from_string(format!(
                     "b3:{}",

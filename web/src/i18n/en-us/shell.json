@@ -118,8 +118,8 @@
       "kpis": {
         "req_per_sec": "REQ / SEC (sum)",
         "p95": "P95 (max edge)",
-        "err_rate": "ERROR RATE",
-        "edges": "EDGES",
+        "err_rate": "Error rate",
+        "edges": "Edges",
         "connecting": "Connecting",
         "unavailable": "Data issue",
         "no_traffic": "No traffic"
@@ -141,29 +141,29 @@
         "health_empty": "No service traffic; the data query succeeded."
       },
       "table": {
-        "service": "SERVICE",
+        "service": "Service",
         "qps": "QPS",
         "p95": "P95",
-        "err_pct": "ERR%"
+        "err_pct": "Err%"
       },
       "status_bar": {
-        "incidents_active": "INCIDENTS ACTIVE",
-        "incidents_connecting": "CONNECTING TO ALERT DATA",
-        "incidents_unavailable": "ALERT DATA ISSUE",
-        "no_active_incidents": "NO ACTIVE INCIDENTS",
-        "nominal": "NOMINAL",
-        "data_connecting": "CONNECTING TO LIVE DATA",
-        "data_unavailable": "TELEMETRY UNAVAILABLE",
-        "no_traffic": "QUERY OK · NO TRAFFIC",
-        "data_ok": "LIVE DATA HEALTHY",
+        "incidents_active": "Incidents active",
+        "incidents_connecting": "Connecting to alert data",
+        "incidents_unavailable": "Alert data issue",
+        "no_active_incidents": "No active incidents",
+        "nominal": "Nominal",
+        "data_connecting": "Connecting to live data",
+        "data_unavailable": "Telemetry unavailable",
+        "no_traffic": "Query OK · No traffic",
+        "data_ok": "Live data healthy",
         "services": "{{count}} SERVICES",
         "req_per_sec_format": "{{value}} REQ/S",
-        "req_per_sec_empty": "NO TRAFFIC",
+        "req_per_sec_empty": "No traffic",
         "p95_format": "P95 {{value}}",
-        "p95_empty": "NO TRAFFIC",
+        "p95_empty": "No traffic",
         "crit": "{{count}} CRIT",
         "warn": "{{count}} WARN",
-        "live": "LIVE"
+        "live": "Live"
       },
       "dashboard_wallboard": {
         "title": "Dashboard Wallboard",
@@ -212,7 +212,6 @@
     "ldap_credentials_required": "Enter your username and password first",
     "or": "OR",
     "no_account": "No account yet?",
-    "request_trial": "Request trial →",
     "version_line": "v{{version}} · {{channel}}",
     "sso_button_aria": "Sign in with {{name}}",
     "sso_loading": "Loading SSO providers…",

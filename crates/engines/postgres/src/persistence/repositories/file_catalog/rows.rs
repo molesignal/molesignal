@@ -76,7 +76,7 @@ fn row_state<T: std::str::FromStr<Err = Error>>(value: &str) -> Result<T> {
     value.parse()
 }
 
-/// artifacts 行 → (所属 segment, Artifact)。
+/// catalog_artifacts 行 → (所属 segment, Artifact)。
 pub(super) fn artifact_from_row(row: &PgRow) -> Result<(SegmentId, Artifact)> {
     let segment_id =
         SegmentId::from_string(row.try_get::<String, _>("segment_id").map_err(sqlx_err)?);
@@ -117,7 +117,7 @@ pub(super) fn artifact_from_row(row: &PgRow) -> Result<(SegmentId, Artifact)> {
     Ok((segment_id, artifact))
 }
 
-/// data_segments 行 + 该段全部存活 Artifact → DataSegment。
+/// catalog_segments 行 + 该段全部存活 Artifact → DataSegment。
 pub(super) fn segment_from_row(row: &PgRow, artifacts: Vec<Artifact>) -> Result<DataSegment> {
     let id = SegmentId::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?);
     let state: String = row.try_get("state").map_err(sqlx_err)?;

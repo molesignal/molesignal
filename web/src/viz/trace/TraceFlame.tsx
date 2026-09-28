@@ -2,9 +2,7 @@ import {
   ChevronDown,
   ChevronRight,
   Circle,
-  GitBranch,
   Search,
-  X,
 } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -19,7 +17,6 @@ import { cn } from '@/shell/lib/cn';
 import {
   buildSignalJumps,
   SignalReference,
-  type SignalReferenceTime,
 } from '@/shell/SignalReference';
 import { Badge } from '@/shell/ui/badge';
 import { Button } from '@/shell/ui/button';
@@ -32,18 +29,15 @@ import { TraceOperationName } from '@/viz/trace/TraceOperationName';
 
 import { layoutTrace } from './layout';
 import { useTrace } from './loader';
-import type { LaidOutTrace, SpanNode } from './types';
+import { SpanInspector } from './span-detail/SpanInspector';
+import type { LaidOutTrace } from './types';
+import { flattenTrace, pct, signalLabelsForSpan, signalLabelsForTrace, traceContextWindow } from './waterfallModel';
 
 interface TraceFlameProps {
   traceId: string;
   initialSpanId?: string | undefined;
   /** Click on a span: typically push a new investigation frame. */
   onSpanClick?: (span: Span) => void;
-}
-
-interface TraceRow {
-  node: SpanNode;
-  children: SpanNode[];
 }
 
 const TIMELINE_TICKS = [0, 25, 50, 75, 100] as const;
@@ -295,7 +289,7 @@ function JaegerTraceView({
                 TRACE_WATERFALL_GRID,
               )}
             >
-              <div className="border-r border-bd-0 px-4 py-2 font-sans text-xs font-strong uppercase tracking-normal text-tx-2">
+              <div className="border-r border-bd-0 px-4 py-2 font-sans text-xs font-strong tracking-normal text-tx-2">
                 Service / operation
               </div>
               <div className="relative min-w-0 px-4 py-2">
@@ -494,229 +488,4 @@ function JaegerTraceView({
       </div>
     </div>
   );
-}
-
-function SpanInspector({
-  traceId,
-  span,
-  durationNs,
-  startOffsetNs,
-  totalNs,
-  time,
-  onClose,
-}: {
-  traceId: string;
-  span: Span;
-  durationNs: number;
-  startOffsetNs: number;
-  totalNs: number;
-  time?: SignalReferenceTime | undefined;
-  onClose: () => void;
-}) {
-  const { t } = useTranslation('traces');
-  const labels = signalLabelsForSpan(traceId, span);
-  const source = { type: 'trace' as const, id: traceId };
-  return (
-    <aside className="flex w-[380px] shrink-0 flex-col border-l border-bd-0 bg-bg-0">
-      <div className="flex items-start gap-3 border-b border-bd-0 px-4 py-3">
-        <div className="min-w-0 flex-1">
-          <SignalReference
-            type="span_id"
-            value={span.span_id}
-            labelName="span_id"
-            labels={labels}
-            time={time}
-            source={source}
-            showIcon={false}
-            className="max-w-full justify-start text-left text-tx-0 decoration-current/30"
-          >
-            <TraceOperationName
-              operation={span.operation}
-              className="font-sans text-sm font-strong text-tx-0"
-            />
-          </SignalReference>
-          <div className="mt-0.5 flex flex-wrap gap-3 font-sans text-xs text-tx-2">
-            <SignalReference
-              type="service"
-              value={span.service}
-              labelName="service.name"
-              labels={labels}
-              time={time}
-              source={source}
-              showIcon={false}
-              className="text-tx-2 decoration-current/30 hover:text-indigo-soft"
-            >
-              {span.service}
-            </SignalReference>
-            <span>{formatTraceDurationNs(durationNs)}</span>
-            <span>start {formatTraceDurationNs(startOffsetNs)}</span>
-            <span>{pct(startOffsetNs, totalNs).toFixed(1)}% into trace</span>
-          </div>
-        </div>
-        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={onClose} aria-label="Close span details">
-          <X className="h-3.5 w-3.5" />
-        </Button>
-      </div>
-      <div className="min-h-0 flex-1 overflow-auto">
-        <div className="border-b border-bd-0 px-4 py-3">
-          <div className="mb-2 font-sans text-xs font-strong uppercase tracking-normal text-tx-2">
-            Span id
-          </div>
-          <div className="flex items-center gap-2">
-            <code className="min-w-0 flex-1 truncate rounded border border-bd-0 bg-bg-1 px-2 py-1 font-mono text-xs text-tx-1">
-              {span.span_id}
-            </code>
-            <CopyIconButton
-              label={t('detail.copy_span_id')}
-              onClick={() => {
-                void writeClipboardText(span.span_id);
-              }}
-            />
-          </div>
-        </div>
-        <div className="grid grid-cols-3 border-b border-bd-0">
-          <DetailMetric label="duration" value={formatTraceDurationNs(durationNs)} />
-          <DetailMetric label="start" value={formatTraceDurationNs(startOffsetNs)} />
-          <DetailMetric label="offset" value={`${pct(startOffsetNs, totalNs).toFixed(1)}%`} />
-        </div>
-        <div className="min-w-0 border-b border-bd-0 p-4">
-          <div className="mb-2 flex items-center gap-2 font-sans text-xs font-strong uppercase tracking-normal text-tx-2">
-            <GitBranch className="h-3.5 w-3.5" /> Tags
-          </div>
-          <pre className="max-h-[280px] overflow-auto rounded-md border border-bd-0 bg-bg-1 p-3 font-mono text-xs leading-5 text-tx-1">
-            {formatJson(span.attributes)}
-          </pre>
-        </div>
-        <div className="min-w-0 p-4">
-          <div className="mb-2 font-sans text-xs font-strong uppercase tracking-normal text-tx-2">
-            Events
-          </div>
-          {span.events.length === 0 ? (
-            <div className="rounded-md border border-dashed border-bd-1 bg-bg-1 p-3 font-sans text-xs text-tx-3">
-              No span events.
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {span.events.map((event, index) => (
-                <div key={`${event.name}-${index}`} className="rounded-md border border-bd-0 bg-bg-1 p-2">
-                  <div className="font-sans text-xs font-strong text-tx-0">{event.name}</div>
-                  <pre className="mt-1 max-h-[120px] overflow-auto font-mono text-xs leading-4 text-tx-2">
-                    {formatJson(event.attributes)}
-                  </pre>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </aside>
-  );
-}
-
-function DetailMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0 border-r border-bd-0 px-4 py-3 last:border-r-0">
-      <div className="font-sans text-xs font-semibold uppercase tracking-normal text-tx-3">{label}</div>
-      <div className="mt-1 truncate font-sans text-sm font-semibold text-tx-0">{value}</div>
-    </div>
-  );
-}
-
-const TRACE_CONTEXT_PADDING_MS = 5 * 60 * 1000;
-
-function traceContextWindow(traceStartNs: number, totalNs: number): SignalReferenceTime | undefined {
-  const startMs = traceStartNs / 1_000_000;
-  const endMs = (traceStartNs + totalNs) / 1_000_000;
-  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || startMs <= 0 || endMs < startMs) {
-    return undefined;
-  }
-  const from = new Date(startMs - TRACE_CONTEXT_PADDING_MS);
-  const to = new Date(endMs + TRACE_CONTEXT_PADDING_MS);
-  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return undefined;
-  return { from: from.toISOString(), to: to.toISOString() };
-}
-
-function signalLabelsForTrace(traceId: string, span: Span): Record<string, string> {
-  return {
-    ...stringSignalAttributes(span.attributes),
-    trace_id: traceId,
-    service_name: span.service,
-    operation_name: span.operation,
-  };
-}
-
-function signalLabelsForSpan(traceId: string, span: Span): Record<string, string> {
-  return {
-    ...signalLabelsForTrace(traceId, span),
-    span_id: span.span_id,
-  };
-}
-
-function stringSignalAttributes(
-  attributes: Record<string, unknown>,
-  prefix = '',
-  depth = 0,
-): Record<string, string> {
-  const labels: Record<string, string> = {};
-  for (const [key, value] of Object.entries(attributes)) {
-    const qualifiedKey = prefix ? `${prefix}.${key}` : key;
-    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-      labels[qualifiedKey] = String(value);
-      continue;
-    }
-    if (depth < 1 && value && typeof value === 'object' && !Array.isArray(value)) {
-      Object.assign(
-        labels,
-        stringSignalAttributes(value as Record<string, unknown>, qualifiedKey, depth + 1),
-      );
-    }
-  }
-  return labels;
-}
-
-function flattenTrace(layout: LaidOutTrace, collapsed: Set<string>): TraceRow[] {
-  const byId = new Map(layout.nodes.map((node) => [node.span.span_id, node]));
-  const children = new Map<string, SpanNode[]>();
-  const roots: SpanNode[] = [];
-
-  for (const node of layout.nodes) {
-    const parentId = node.span.parent_span_id;
-    if (parentId && byId.has(parentId)) {
-      const list = children.get(parentId) ?? [];
-      list.push(node);
-      children.set(parentId, list);
-    } else {
-      roots.push(node);
-    }
-  }
-  for (const list of children.values()) {
-    list.sort((a, b) => a.startOffsetNs - b.startOffsetNs || a.span.operation.localeCompare(b.span.operation));
-  }
-  roots.sort((a, b) => a.startOffsetNs - b.startOffsetNs);
-
-  const rows: TraceRow[] = [];
-  const walk = (node: SpanNode) => {
-    const childRows = children.get(node.span.span_id) ?? [];
-    rows.push({ node, children: childRows });
-    if (collapsed.has(node.span.span_id)) return;
-    for (const child of childRows) walk(child);
-  };
-  for (const root of roots) walk(root);
-  return rows;
-}
-
-function pct(value: number, total: number): number {
-  if (!Number.isFinite(value) || !Number.isFinite(total) || total <= 0) return 0;
-  return Math.max(0, Math.min(100, (value / total) * 100));
-}
-
-function formatJson(value: unknown): string {
-  if (typeof value === 'string') {
-    try {
-      return JSON.stringify(JSON.parse(value), null, 2);
-    } catch {
-      return value;
-    }
-  }
-  return JSON.stringify(value ?? {}, null, 2);
 }

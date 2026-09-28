@@ -90,7 +90,7 @@ export function MoleAgentPanel() {
       </div>
 
       <div className="type-micro flex h-6 shrink-0 items-center gap-1.5 overflow-hidden border-b border-bd-0 bg-bg-2 px-3 font-mono text-tx-2">
-        <span className="shrink-0 uppercase tracking-normal text-tx-2">{t('agent_panel.context_label')}</span>
+        <span className="shrink-0 tracking-normal text-tx-2">{t('agent_panel.context_label')}</span>
         <span className="truncate">{location.pathname}</span>
         <span>·</span>
         <span className="truncate">{contextSummary}</span>

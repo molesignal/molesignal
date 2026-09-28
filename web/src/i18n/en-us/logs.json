@@ -60,7 +60,7 @@
       "empty_query_summary": "All log events",
       "collapse_editor": "Collapse query",
       "expand_editor": "Expand query",
-      "editor": "EDITOR",
+      "editor": "Editor",
       "mode_search_aria": "Search mode",
       "mode_patterns_aria": "Patterns mode"
     },

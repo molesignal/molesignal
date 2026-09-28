@@ -12,7 +12,7 @@ stdio are intentionally not exposed.
 
 ## Enable the server
 
-Inbound MCP requires the licensed Agent feature and is enabled by default for
+Inbound MCP is enabled by default for
 eligible organizations. An organization administrator with `agent.manage` can
 change the setting at **Mole Agent → Settings → Inbound MCP**.
 

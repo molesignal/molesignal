@@ -19,6 +19,8 @@ import {
   type PipelineGraphModel,
   type PipelineSignalType,
 } from './PipelineGraph';
+import { DEFAULT_VRL_SCRIPT } from './PipelineGraph/model';
+
 
 interface PipelineFormProps {
   formId: string;
@@ -67,10 +69,30 @@ export function PipelineForm({
     }));
   };
 
+  const changeMode = (mode: 'scheduled' | 'realtime') => {
+    setGraph((current) => ({
+      ...current,
+      mode,
+      ...(mode === 'realtime' && {
+        signalType: 'logs',
+        sources: [current.sources[0] ?? 'default'],
+        sinks: [current.sinks.find((sink) => !sink.startsWith('connector:')) ?? 'default'],
+        retainSource: current.retainSource ?? false,
+        transforms: current.transforms.length
+          ? current.transforms.map((step) => step.script === DEFAULT_VRL_SCRIPT
+            ? { ...step, script: '. = .' }
+            : step)
+          : [{ name: 'route-logs', script: '. = .' }],
+      }),
+    }));
+  };
+
   const changeSignalType = (signalType: PipelineSignalType) => {
     const defaults = pipelineGraphFromPipeline(null, signalType);
     setGraph((current) => ({
       ...defaults,
+      mode: current.mode ?? 'scheduled',
+      retainSource: current.retainSource ?? false,
       transforms: current.transforms,
       retryPolicy: current.retryPolicy,
     }));
@@ -94,7 +116,7 @@ export function PipelineForm({
         <div className="font-sans text-xs text-tx-3">{t('workspace.autosave_hint')}</div>
       </div>
 
-      <div className="grid gap-3 border-b border-bd-0 bg-bg-2 px-4 py-3 md:grid-cols-2 xl:grid-cols-[minmax(240px,2fr)_160px_190px_150px_190px]">
+      <div className="grid gap-3 border-b border-bd-0 bg-bg-2 px-4 py-3 md:grid-cols-2 xl:grid-cols-6">
         <FormField label={t('flows.form.name_label')} required>
           <FormInput
             value={name}
@@ -106,6 +128,17 @@ export function PipelineForm({
             required
           />
         </FormField>
+        <fieldset className="min-w-0"><legend className="mb-1.5 text-xs text-tx-3">{t('realtime.mode')}</legend>
+          <div className="flex h-9 rounded-md bg-bg-1 p-1" role="group" aria-label={t('realtime.mode')}>
+            {(['realtime', 'scheduled'] as const).map((mode) => (
+              <button key={mode} type="button" disabled={disabled} aria-pressed={(graph.mode ?? 'scheduled') === mode}
+                className={cn('flex-1 rounded px-3 text-xs font-medium disabled:opacity-50 focus-visible:bg-bg-3', (graph.mode ?? 'scheduled') === mode ? 'bg-indigo-dim text-indigo-soft' : 'text-tx-2 hover:bg-bg-2')}
+                onClick={() => changeMode(mode)}>
+                {t(mode === 'realtime' ? 'realtime.title' : 'realtime.scheduled')}
+              </button>
+            ))}
+          </div>
+        </fieldset>
         <FormField label={t('drawer.fields.signal_type')} required>
           <FormSelect
             value={graph.signalType}
@@ -116,10 +149,11 @@ export function PipelineForm({
               { value: 'traces', label: t('filters.traces') },
             ]}
             className="bg-bg-1"
-            disabled={disabled}
+            disabled={disabled || graph.mode === 'realtime'}
             disabledReason={disabledReason}
           />
         </FormField>
+        {graph.mode !== 'realtime' && <>
         <FormField label={t('flows.form.cron_label')} hint={t('flows.form.cron_hint')}>
           <FormInput
             value={cron}
@@ -140,6 +174,7 @@ export function PipelineForm({
             disabledReason={disabledReason}
           />
         </FormField>
+        </>}
         <FormField label={t('flows.form.enabled_label')}>
           <DisabledControl
             disabled={disabled || enabledDisabled}
@@ -160,7 +195,7 @@ export function PipelineForm({
                 aria-disabled={disabled || enabledDisabled || undefined}
                 onCheckedChange={(checked) => setEnabled(checked === true)}
               />
-              <span>{t('flows.form.run_on_schedule')}</span>
+              <span>{t(graph.mode === 'realtime' ? 'realtime.enabled' : 'flows.form.run_on_schedule')}</span>
             </span>
           </DisabledControl>
         </FormField>

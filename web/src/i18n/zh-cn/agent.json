@@ -954,8 +954,6 @@
       "two_person": "强制双人审批"
     }
   },
-  "unlicensed_title": "AI 运维未授权",
-  "unlicensed_description": "当前许可证未启用 agent 功能。",
   "starter_title": "今晚想调查什么？",
   "starter_title_named": "工作到很晚，{{name}}",
   "greeting": {

@@ -47,7 +47,6 @@ const IAM_GROUPS: IamSectionGroup[] = [
     sections: [
       { to: '/iam/roles', key: 'roles', contentWidth: 'table' },
       { to: '/iam/groups', key: 'groups', contentWidth: 'table' },
-      { to: '/iam/quota', key: 'quota', contentWidth: 'list' },
     ],
   },
   {

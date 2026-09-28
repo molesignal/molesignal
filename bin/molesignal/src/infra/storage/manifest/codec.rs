@@ -143,7 +143,7 @@ mod tests {
                     artifact_type: ArtifactTypeId::builtin(type_id::builtin::ARTIFACT_PARQUET),
                     format_version: 1,
                     object: StoredObject {
-                        key: ObjectKey::from_string("v1/artifacts/a"),
+                        key: ObjectKey::from_string("artifacts/v1/a"),
                         size_bytes: 1,
                         checksum: ObjectChecksum::from_string("b3:00"),
                         etag: None,

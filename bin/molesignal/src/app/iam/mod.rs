@@ -159,7 +159,6 @@ impl IamService {
                         credential_service_account_id: None,
                         scope: data.claims.scope,
                         permissions: BTreeSet::new(),
-                        features: BTreeSet::new(),
                         policy_version: 0,
                     });
                 }
@@ -429,7 +428,6 @@ mod tests {
             credential_service_account_id: None,
             scope: IamScope::System,
             permissions: ["sys.telemetry.read".to_string()].into_iter().collect(),
-            features: BTreeSet::new(),
             policy_version: 1,
         };
 

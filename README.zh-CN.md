@@ -142,7 +142,6 @@ Vector / Fluent Bit / OTel Collector / Prometheus remote_write 等完整对接�
 - **多租户** — planner 层 `org_id` 强制 rewrite，跨 org 数据零泄漏可能
 - **审计日志** — 覆盖所有写操作
 - **字段级加密** — AES-256-GCM + cipher root key envelope；VRL `encrypt()` / `decrypt()` 内置
-- **per-org 配额** — intake QPS / query QPS / 存储 cap
 
 ### 🤖 Mole Agent
 
@@ -222,7 +221,7 @@ Pre-1.0，**早期项目**。发布日期 YYYY-MM-DD。
 | 3 级缓存 + 磁盘缓存 | ✅ 已通 |
 | 多租户 planner rewrite | ✅ 已通 |
 | realtime + scheduled + anomaly 告警 | ✅ 已通 |
-| Cipher keys + audit + quotas | ✅ 已通 |
+| Cipher keys + audit | ✅ 已通 |
 | 跨信号关联 API | ✅ 已通 |
 | Web shell（⌘K + 调查栈） | ✅ 已通 |
 | SSO（OIDC / SAML / LDAP） | ✅ 已通 |

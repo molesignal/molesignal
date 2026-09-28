@@ -17,7 +17,6 @@
 //! - `?token=` 查询参数（Heroku 等无法设自定义头的平台）
 //!
 //! body 若带 `Content-Encoding: gzip`（Cloudflare Logpush 默认）则先解压。解析后统一走
-//! [`IntakeService`]（计费门禁 + schema-on-write + pipeline + sink），与其它接入同源。
 
 use std::io::Read as _;
 
@@ -117,7 +116,6 @@ fn decode_body(headers: &HeaderMap, body: &Bytes) -> Result<Vec<u8>> {
     }
 }
 
-/// 把解析出的事件喂进 intake（连同计费门禁），并 best-effort 记 connector last_run。
 async fn intake_events(
     state: &AppState,
     connector: &Connector,
@@ -130,14 +128,13 @@ async fn intake_events(
         .service
         .ensure_organization_access(&connector.org_id)
         .await?;
-    // 计费门禁 + 计量：用 connector 所属 org（推送端无 IamContext）。
-    crate::api::http::billing::ensure_intake_allowed(
+
+    crate::api::http::intake_usage::record_intake_usage(
         state,
         &connector.org_id,
         body_len as u64,
         TimestampMicros::now().0,
-    )
-    .await?;
+    );
     let accepted = if events.is_empty() {
         0
     } else {

@@ -8,10 +8,7 @@ pub mod shared {
         pub use ::contracts::*;
     }
 
-    pub use kernel::{
-        CommunityLicense, Error, LicenseGate, LicenseHolder, Probe, Result, cursor, drain, error,
-        health, ids, license, time,
-    };
+    pub use kernel::{Error, Probe, Result, cursor, drain, error, health, ids, time};
 }
 
 pub mod domain;

@@ -23,6 +23,10 @@ export interface DisplayStreamRuntime {
   rows: number;
   stored_bytes: number;
   current_stored_bytes: number;
+  total_rows?: number | null;
+  collected_bytes?: number | null;
+  collected_bytes_complete?: boolean;
+  index_bytes?: number | null;
   first_received_at_micros: number | null;
   last_received_at_micros: number | null;
   stats_available: boolean;
@@ -121,6 +125,15 @@ function aggregateRuntime(variants: DisplayStreamVariant[]): DisplayStreamRuntim
 
   return {
     status,
+    ...Object.fromEntries(
+      (['total_rows', 'collected_bytes', 'index_bytes'] as const).map((field) => [
+        field,
+        runtimes.length === variants.length && runtimes.every((runtime) => runtime.stats_available && runtime[field] != null)
+          ? runtimes.reduce((sum, runtime) => sum + runtime[field]!, 0)
+          : null,
+      ]),
+    ),
+    collected_bytes_complete: runtimes.length === variants.length && runtimes.every((runtime) => runtime.collected_bytes_complete === true),
     rows: runtimes.reduce((sum, runtime) => sum + runtime.rows, 0),
     stored_bytes: runtimes.reduce((sum, runtime) => sum + runtime.stored_bytes, 0),
     current_stored_bytes: runtimes.reduce(

@@ -10,7 +10,6 @@ import {
   canAccessProductPath,
   useProductAccess,
 } from '@/product/access';
-import { FEATURE_DEFINITIONS, selectFeatureGate, useEditionMetadata, type FeatureKey } from '@/product/edition';
 import { useTheme } from '@/shell/ThemeBootstrap';
 import {
   CommandDialog,
@@ -46,12 +45,11 @@ const ITEM_KIND_ICON: Record<webApi.WebSearchKind, LucideIcon> = {
 };
 
 export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
-  const { t } = useTranslation(['palette', 'errors', 'nav', 'edition']);
+  const { t } = useTranslation(['palette', 'errors', 'nav']);
   const [query, setQuery] = React.useState('');
   const [debounced, setDebounced] = React.useState('');
   const nav = useNavigate();
   const location = useLocation();
-  const editionMetadata = useEditionMetadata();
   const access = useProductAccess();
   const setWindow = useTimeStore((s) => s.setWindow);
   const togglePin = useTimeStore((s) => s.togglePin);
@@ -94,12 +92,10 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         },
         t: (key) => t(`palette:${key}`),
         tNav: (key) => t(`nav:${key}`),
-        tEdition: (key) => t(`edition:${key}`),
         currentPath: location.pathname,
         canAccessPath: (path) => canAccessProductPath(path, access),
-        gateStatus: (feature: FeatureKey) => selectFeatureGate(editionMetadata, FEATURE_DEFINITIONS[feature]).status,
       }),
-    [setWindow, toggleTheme, toggleDensity, togglePin, anchor, logout, nav, t, location.pathname, editionMetadata, access],
+    [setWindow, toggleTheme, toggleDensity, togglePin, anchor, logout, nav, t, location.pathname, access],
   );
 
   const remoteItems: ResultItem[] = React.useMemo(() => {
@@ -189,18 +185,13 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 
 function PaletteRow({ item, onSelect }: { item: ResultItem; onSelect: (mode: OpenMode) => void }) {
   const Icon = item.icon;
-  const disabled =
-    item.gateStatus !== undefined && item.gateStatus !== 'allowed';
   return (
     <CommandItem
       value={`${item.kind}:${item.id}:${item.label}`}
-      disabled={disabled}
-      aria-disabled={disabled || undefined}
       onSelect={() => {
-        if (!disabled) onSelect('replace');
+        onSelect('replace');
       }}
       onKeyDown={(e) => {
-        if (disabled) return;
         if (e.key === 'Enter') {
           if (e.metaKey || e.ctrlKey) {
             e.preventDefault();

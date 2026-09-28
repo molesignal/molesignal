@@ -8,7 +8,6 @@
 //!
 //! 与原生接入一致用 `Authorization: Bearer`（JWT 或 API token），经鉴权中间件拿
 //! `IamContext`。body 带 `Content-Encoding: gzip` 时自动解压。解析出的事件统一走
-//! [`IntakeService`]（计费门禁 + schema-on-write + pipeline + sink）。
 
 use std::{collections::BTreeMap, io::Read as _};
 
@@ -68,7 +67,6 @@ fn stream_name(headers: &HeaderMap, default: &str) -> String {
         .to_string()
 }
 
-/// 把一批事件写入指定 stream（计费门禁 + intake）。
 async fn intake_into(
     state: &AppState,
     org_id: &Id,
@@ -79,13 +77,12 @@ async fn intake_into(
     if events.is_empty() {
         return Ok(0);
     }
-    crate::api::http::billing::ensure_intake_allowed(
+    crate::api::http::intake_usage::record_intake_usage(
         state,
         org_id,
         body_len as u64,
         TimestampMicros::now().0,
-    )
-    .await?;
+    );
     let batch = IntakeBatch {
         batch_id: Id::new(),
         org_id: org_id.clone(),

@@ -27,7 +27,6 @@ export function DataPlaneRuntimeSettings() {
   });
   const federationAccess = useActionAccess({
     permission: 'org.settings.manage',
-    feature: 'federated_search',
   });
 
   return (

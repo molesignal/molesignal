@@ -11,7 +11,7 @@ use serde_json::{Value, json};
 
 use super::toolsets::resolve_toolsets;
 use crate::{
-    agent::{FEATURE, tools::BuiltinToolKind},
+    agent::tools::BuiltinToolKind,
     api::{
         AppState,
         http::{middleware::Permission, routes::activity_audit},
@@ -38,7 +38,6 @@ async fn capabilities(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Value>> {
-    require_feature(&state)?;
     Permission::require_key(&ctx, "dashboards.create")?;
     Ok(Json(
         serde_json::to_value(state.agent.dashboard_authoring.capabilities().await?)
@@ -52,7 +51,6 @@ async fn get_draft(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>> {
-    require_feature(&state)?;
     let draft = state
         .agent
         .dashboard_authoring
@@ -119,7 +117,6 @@ async fn propose(
     Path(id): Path<String>,
     Json(request): Json<ProposeRequest>,
 ) -> Result<Json<Value>> {
-    require_feature(&state)?;
     Permission::require_key(&ctx, "dashboards.create")?;
     let resolution = resolve_toolsets(&state, &ctx.org_id).await?;
     let tool_name = BuiltinToolKind::ProposeDashboardCreation.name();
@@ -160,12 +157,4 @@ async fn propose(
     )
     .await;
     Ok(Json(json!({"approval": approval})))
-}
-
-fn require_feature(state: &AppState) -> Result<()> {
-    if state.platform.license.has_feature(FEATURE) {
-        Ok(())
-    } else {
-        Err(Error::forbidden(format!("{FEATURE} feature not licensed")))
-    }
 }

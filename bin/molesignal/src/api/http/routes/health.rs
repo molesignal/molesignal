@@ -25,7 +25,7 @@ async fn version() -> impl IntoResponse {
             .unwrap_or(0),
         "build_id": option_env!("MOLESIGNAL_BUILD_ID").unwrap_or("unknown"),
         "release_channel": build_info::release_channel(),
-        "edition": if cfg!(feature = "enterprise") { "enterprise" } else { "oss" },
+        "edition": "oss",
     }))
     .into_response()
 }

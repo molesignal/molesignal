@@ -49,7 +49,6 @@ bootstrap -----> api/app/infra + workspace crates
 `bin/molesignal/src/app/**` 模块直接使用 adapter、protocol 或网络客户端。只审查
 本次 diff 是否扩大耦合；不要把未触及的既有例外当作本次问题。
 
-当前商业产品模块通常无条件编译，并通过运行时 License gate 控制；不要沿用旧文档中的空 `cfg=` 或要求不存在的商业 feature crate。
 
 ## 输出
 

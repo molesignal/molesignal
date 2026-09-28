@@ -180,9 +180,6 @@ pub struct ClustersParam {
     pub clusters: Option<String>,
 }
 
-/// 把 `?clusters=` csv 解析进 `req.federation_clusters`，并在指向非 `local` 远端时
-/// 施加 `federated_search` license 闸门（federated-search，社区版返 403）。
-/// 纯本地查询（空 / 仅 local）不受 license 限制。
 /// 解析 `?clusters=` csv → 集群名列表（去空白、去空项）。`None`/空串 → 空 vec。
 fn parse_clusters_csv(raw: Option<&str>) -> Vec<String> {
     raw.map(|s| {
@@ -195,24 +192,6 @@ fn parse_clusters_csv(raw: Option<&str>) -> Vec<String> {
     .unwrap_or_default()
 }
 
-fn apply_federation_clusters(
-    req: &mut QueryRequest,
-    cq: &ClustersParam,
-    state: &AppState,
-) -> Result<()> {
-    req.federation_clusters = parse_clusters_csv(cq.clusters.as_deref());
-    let has_remote = req
-        .federation_clusters
-        .iter()
-        .any(|c| !c.eq_ignore_ascii_case("local"));
-    if has_remote && !state.platform.license.has_feature("federated_search") {
-        return Err(Error::forbidden(
-            "feature 'federated_search' requires license",
-        ));
-    }
-    Ok(())
-}
-
 #[permission(any("streams.query", "sys.telemetry.read"))]
 async fn execute_query(
     State(state): State<AppState>,
@@ -222,7 +201,7 @@ async fn execute_query(
     Json(mut req): Json<QueryRequest>,
 ) -> Result<Response> {
     req.org_id = ctx.org_id.clone();
-    apply_federation_clusters(&mut req, &cq, &state)?;
+    req.federation_clusters = parse_clusters_csv(cq.clusters.as_deref());
 
     // spec query mod：`Prefer: respond-async` 头 → 转 async search-job，返 202；
     // 或：planner 估算 rows 超 `auto_async_threshold_rows` 也强制 async（除非

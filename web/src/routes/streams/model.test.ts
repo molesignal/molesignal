@@ -51,6 +51,9 @@ function runtime(
     rows,
     stored_bytes: rows * 2,
     current_stored_bytes: rows * 3,
+    total_rows: rows * 4,
+    collected_bytes: null,
+    index_bytes: rows,
     first_received_at_micros: 100 + rows,
     last_received_at_micros: 1_000 + rows,
     stats_available: true,
@@ -85,9 +88,23 @@ describe('groupStreamsByName', () => {
       rows: 40,
       stored_bytes: 80,
       current_stored_bytes: 120,
+      total_rows: 160,
+      collected_bytes: null,
+      index_bytes: 40,
       stats_available: true,
     });
     expect(grouped[0]?.retentionDays).toEqual([7, 30]);
+  });
+
+  it('aggregates collected bytes and preserves incomplete history', () => {
+    const definitions = [summary('logs-id', 'metered', 'logs'), summary('metrics-id', 'metered', 'metrics')];
+    const runtimes = [
+      { ...runtime('logs-id', 'metered', 'logs', 10, 'healthy'), collected_bytes: 1200, collected_bytes_complete: true },
+      { ...runtime('metrics-id', 'metered', 'metrics', 20, 'healthy'), collected_bytes: 800, collected_bytes_complete: true },
+    ];
+    expect(groupStreamsByName(definitions, runtimes)[0]?.runtime).toMatchObject({ collected_bytes: 2000, collected_bytes_complete: true });
+    runtimes[1]!.collected_bytes_complete = false;
+    expect(groupStreamsByName(definitions, runtimes)[0]?.runtime).toMatchObject({ collected_bytes: 2000, collected_bytes_complete: false });
   });
 
   it('uses the active type when choosing a concrete definition', () => {

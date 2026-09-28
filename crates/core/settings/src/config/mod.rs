@@ -31,7 +31,7 @@ mod cluster;
 mod env;
 mod features;
 mod intake;
-mod license;
+
 mod network;
 mod node;
 mod query;
@@ -54,7 +54,6 @@ use figment::{
     providers::{Format, Serialized, Toml},
 };
 pub use intake::*;
-pub use license::*;
 pub use network::*;
 pub use node::*;
 use once_cell::sync::OnceCell;
@@ -104,9 +103,6 @@ pub struct Settings {
     pub notify: NotifySettings,
     #[serde(default)]
     pub auth: AuthSettings,
-    /// `[license]`：仅控制首次导入/灾备来源；License 内容永不进入配置。
-    #[serde(default)]
-    pub license: LicenseSettings,
     #[serde(default)]
     pub cluster: ClusterSettings,
     #[serde(default)]
@@ -126,9 +122,8 @@ pub struct Settings {
     /// Chrome PDF/PNG 渲染资源。
     #[serde(default)]
     pub scheduled_reports: ScheduledReportsSettings,
-    /// Agent chat（`[agent]`）：提供默认 provider 提示。功能可用性由
-    /// License 决定。API key / base URL 走 env var
-    /// （`MS_AGENT_<PROVIDER>_API_KEY` / `_BASE_URL`），不进 TOML。
+    /// Agent chat（`[agent]`）：提供默认 provider 提示。API key / base URL 使用
+    /// `MS_AGENT_<PROVIDER>_API_KEY` / `_BASE_URL` 环境变量，不进 TOML。
     #[serde(default)]
     pub agent: AgentSettings,
     /// `[storage]` Catalog lifecycle, index maintenance, delayed GC, and reconciliation.

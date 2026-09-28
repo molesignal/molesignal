@@ -87,7 +87,7 @@ pub(crate) async fn publish_dataset_transform(
     }
 
     sqlx::query(
-        "UPDATE data_segments SET state = 'replaced', retired_at_version = $4 \
+        "UPDATE catalog_segments SET state = 'replaced', retired_at_version = $4 \
          WHERE org_id = $1 AND dataset_id = $2 AND id = ANY($3) \
            AND state IN ('active', 'sealed')",
     )
@@ -218,7 +218,7 @@ async fn validate_input_rows(
     input_ids: &[String],
 ) -> Result<()> {
     let input_rows = sqlx::query(
-        "SELECT id, state FROM data_segments WHERE org_id = $1 AND dataset_id = $2 \
+        "SELECT id, state FROM catalog_segments WHERE org_id = $1 AND dataset_id = $2 \
            AND id = ANY($3) AND partition_start_micros = $4 AND partition_end_micros = $5 \
            AND partition_shard = $6 FOR UPDATE",
     )
@@ -267,7 +267,7 @@ async fn validate_complete_sealed_base(
     selected: HashSet<String>,
 ) -> Result<()> {
     let rows = sqlx::query(
-        "SELECT id FROM data_segments WHERE org_id = $1 AND dataset_id = $2 \
+        "SELECT id FROM catalog_segments WHERE org_id = $1 AND dataset_id = $2 \
            AND partition_start_micros = $3 AND partition_end_micros = $4 \
            AND partition_shard = $5 AND state = 'sealed' FOR UPDATE",
     )

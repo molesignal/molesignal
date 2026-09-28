@@ -34,7 +34,6 @@ function access(routes: IamRouteAccess[]): ProductAccess {
     role: 'Viewer',
     scope: 'organization',
     permissions: new Set(['streams.query']),
-    features: new Set(),
     version: 3,
     routeCatalogVersion: 7,
     routes,
@@ -63,11 +62,11 @@ describe('database-backed product route access', () => {
   it('selects the most specific matching route policy', () => {
     const snapshot = access([
       decision('settings.section', '/settings/:section', true),
-      decision('settings.license', '/settings/license', false),
+      decision('settings.client_ip', '/settings/client_ip', false),
       decision('notify', '/settings/notify/*', true),
     ]);
     expect(canAccessProductPath('/settings/general', snapshot)).toBe(true);
-    expect(canAccessProductPath('/settings/license', snapshot)).toBe(false);
+    expect(canAccessProductPath('/settings/client_ip', snapshot)).toBe(false);
     expect(
       canAccessProductPath('/settings/notify/connectors', snapshot),
     ).toBe(true);
@@ -112,7 +111,7 @@ describe('database-backed product route access', () => {
 
   it('chooses the first allowed DB navigation destination as fallback', () => {
     const snapshot = access([
-      decision('settings.license', '/settings/license', false, 'admin', 30),
+      decision('settings.client_ip', '/settings/client_ip', false, 'admin', 30),
       decision(
         'iam.organizations',
         '/iam/organizations',
@@ -122,7 +121,7 @@ describe('database-backed product route access', () => {
       ),
       decision('traces', '/traces', true, 'observe', 40),
     ]);
-    expect(deniedProductRouteFallback('/settings/license', snapshot)).toBe(
+    expect(deniedProductRouteFallback('/settings/client_ip', snapshot)).toBe(
       '/traces',
     );
   });
@@ -144,7 +143,6 @@ describe('database-backed product route access', () => {
       display_role: 'Viewer',
       roles: [],
       permissions: ['streams.query'],
-      features: [],
       version: 3,
     };
 

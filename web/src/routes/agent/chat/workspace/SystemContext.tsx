@@ -130,7 +130,7 @@ export function SystemContext({
           data-agent-context-section="scope"
           className="rounded-md bg-[var(--functional-surface)] px-3 py-3.5"
         >
-          <h3 className="type-micro font-strong uppercase tracking-[0.08em] text-tx-3">
+          <h3 className="type-micro font-strong tracking-normal text-tx-3">
             {t('workspace.scope')}
           </h3>
           <dl className="mt-3 space-y-3">
@@ -156,7 +156,7 @@ export function SystemContext({
           data-agent-context-section="signals"
           className="rounded-md bg-[var(--functional-surface)] px-3 py-3.5"
         >
-          <h3 className="type-micro font-strong uppercase tracking-[0.08em] text-tx-3">
+          <h3 className="type-micro font-strong tracking-normal text-tx-3">
             {t('workspace.signals')}
           </h3>
           <div className="mt-2.5 flex flex-wrap gap-2">

@@ -67,9 +67,6 @@ const DEFAULT_MAX_MERGE: usize = 1_000;
 const SCAN_CEILING: usize = 50_000;
 /// 列表 / 聚合默认回看窗口（µs）：1 小时。
 const DEFAULT_LOOKBACK_US: i64 = 3_600 * 1_000_000;
-/// 增强型 profiling 能力的 license feature（diff / 跨服务大窗口聚合 / 长保留 /
-/// 服务端符号化 / Pyroscope render 出口）。OSS 核心不门禁，仅这些增强项门禁。
-const PROFILES_ENHANCED_FEATURE: &str = "profiling_enhanced";
 
 pub fn routes() -> Router<AppState> {
     Router::new()
@@ -93,22 +90,6 @@ struct IntakeAck {
 /// 单引号转义（SQL 字符串字面量）。
 fn sql_escape(s: &str) -> String {
     s.replace('\'', "''")
-}
-
-/// 增强型 profiling 门禁使用统一的 `license.has_feature` 模式。OSS 核心
-/// （三协议摄取、单窗口火焰图、列表、trace 关联）不调用此函数；diff 等增强项调用，
-/// 未授权时返 403 + 明确说明所需 edition（非裸 403，前端据此渲染门禁页）。
-fn require_profiles_enhanced(state: &AppState) -> Result<()> {
-    if !state
-        .platform
-        .license
-        .has_feature(PROFILES_ENHANCED_FEATURE)
-    {
-        return Err(Error::forbidden(
-            "differential profiling requires the profiling-enhanced feature (Pro edition)",
-        ));
-    }
-    Ok(())
 }
 
 fn col(res: &QueryResult, name: &str) -> Option<usize> {
@@ -228,14 +209,12 @@ pub(crate) async fn store_profile(
     raw_pprof: &[u8],
     request_bytes: usize,
 ) -> Result<()> {
-    // 计费 / 配额门禁（与 OTLP / native 摄取同源）。
-    crate::api::http::billing::ensure_intake_allowed(
+    crate::api::http::intake_usage::record_intake_usage(
         state,
         org_id,
         request_bytes as u64,
         TimestampMicros::now().0,
-    )
-    .await?;
+    );
 
     state
         .telemetry
@@ -910,8 +889,6 @@ async fn diff(
     Extension(ctx): Extension<IamContext>,
     Query(params): Query<DiffParams>,
 ) -> Result<Response> {
-    // 差分火焰图是增强项（Decision 6）：OSS 返 403 + 所需 edition，前端渲染门禁。
-    require_profiles_enhanced(&state)?;
     let comparison_range = time_range(params.from, params.to);
     let baseline_range = time_range(params.baseline_from, params.baseline_to);
     let mut conds: Vec<String> = Vec::new();

@@ -61,7 +61,7 @@ export function InboundMcpOAuthAuthorize() {
             <LogoMark size={28} />
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-strong uppercase tracking-wider text-indigo">
+            <p className="text-xs font-strong tracking-normalr text-indigo">
               {t('oauth.eyebrow')}
             </p>
             <h1 className="mt-1 text-xl font-strong text-tx-0">

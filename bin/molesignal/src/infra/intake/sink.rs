@@ -70,6 +70,7 @@ impl DurableIntakeSink {
         &self,
         dataset_type: DatasetTypeId,
         batch: IntakeBatch,
+        collected_bytes: Option<u64>,
     ) -> Result<IntakeResult> {
         if batch.events.is_empty() {
             return Ok(IntakeResult {
@@ -98,8 +99,11 @@ impl DurableIntakeSink {
         };
 
         let resolved = self.datasets.resolve(&stream, dataset_type.clone()).await?;
-        let payload = serde_json::to_vec(&batch)
-            .map_err(|e| Error::internal(format!("intake serialize: {e}")))?;
+        let payload = serde_json::to_vec(&crate::domain::intake::usage::MeteredBatch {
+            batch: &batch,
+            collected_bytes,
+        })
+        .map_err(|e| Error::internal(format!("intake serialize: {e}")))?;
         let reservation = self.buffer.try_reserve(stream.stream_type, payload.len())?;
         let buffer = self
             .buffer
@@ -128,6 +132,7 @@ impl DurableIntakeSink {
             molesignal.intake.event_count = accepted,
             molesignal.dataset.type = resolved.dataset.dataset_type.as_str()
         );
+        guard.add_collected_bytes(collected_bytes);
         buffer_span.in_scope(|| {
             for event in &batch.events {
                 guard
@@ -168,8 +173,17 @@ impl IntakeSink for DurableIntakeSink {
         )
     )]
     async fn write(&self, batch: IntakeBatch) -> Result<IntakeResult> {
-        self.write_inner(self.primary_dataset_type(batch.stream_type)?, batch)
+        self.write_inner(self.primary_dataset_type(batch.stream_type)?, batch, None)
             .await
+    }
+
+    async fn write_metered_dataset(
+        &self,
+        dataset_type: DatasetTypeId,
+        batch: IntakeBatch,
+        collected_bytes: Option<u64>,
+    ) -> Result<IntakeResult> {
+        self.write_inner(dataset_type, batch, collected_bytes).await
     }
 
     async fn write_dataset(
@@ -177,7 +191,7 @@ impl IntakeSink for DurableIntakeSink {
         dataset_type: DatasetTypeId,
         batch: IntakeBatch,
     ) -> Result<IntakeResult> {
-        self.write_inner(dataset_type, batch).await
+        self.write_inner(dataset_type, batch, None).await
     }
 }
 

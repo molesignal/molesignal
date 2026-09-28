@@ -246,7 +246,7 @@ function DefinitionTerm({
 }) {
   return (
     <div>
-      <dt className="text-type-micro uppercase tracking-wider text-tx-3">
+      <dt className="text-type-micro tracking-normalr text-tx-3">
         {label}
       </dt>
       <dd

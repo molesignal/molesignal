@@ -22,6 +22,7 @@ use crate::{
     shared::{Result, ids::Id, time::TimestampMicros},
 };
 
+mod configuration;
 pub mod repository;
 
 /// 注入式执行器：一次 pipeline run 的「读源窗口 → 函数链 → 写目标 stream → egress」。
@@ -73,6 +74,9 @@ impl ScheduledPipelineRunner {
         let now = TimestampMicros::now();
         let mut fired = 0usize;
         for p in pipelines {
+            if crate::domain::pipeline::realtime::is_realtime(&p.function_steps) {
+                continue;
+            }
             let due = match parse_every_secs(&p.cron) {
                 Some(secs) => match p.last_run_at {
                     Some(last) => now.0 - last.0 >= secs * 1_000_000,
@@ -149,18 +153,23 @@ pub(crate) fn map_exec_result(r: &Result<()>) -> (PipelineRunState, Option<Strin
     }
 }
 
-fn parse_every_secs(cron: &str) -> Option<i64> {
+pub(crate) fn parse_every_secs(cron: &str) -> Option<i64> {
     // 支持 `every:60s` / `every:5m` / `every:1h`
     let s = cron.trim();
     let rest = s.strip_prefix("every:")?;
     let (num, unit) = rest.split_at(rest.find(|c: char| !c.is_ascii_digit())?);
     let n: i64 = num.parse().ok()?;
-    Some(match unit {
-        "s" => n,
-        "m" => n * 60,
-        "h" => n * 3600,
+    if n <= 0 {
+        return None;
+    }
+    let multiplier = match unit {
+        "s" => 1,
+        "m" => 60,
+        "h" => 3600,
         _ => return None,
-    })
+    };
+    n.checked_mul(multiplier)
+        .filter(|seconds| seconds.checked_mul(1_000_000).is_some())
 }
 
 #[cfg(test)]

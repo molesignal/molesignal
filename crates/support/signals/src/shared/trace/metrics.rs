@@ -191,7 +191,7 @@ pub fn set_tail_cache(traces: usize, bytes: usize, capacity_traces: usize, capac
 
 pub fn set_system_load(component: &'static str, healthy: bool) {
     let component = match component {
-        "system_org" | "license" | "trace_policy" => component,
+        "system_org" | "trace_policy" => component,
         _ => "unknown",
     };
     metrics()

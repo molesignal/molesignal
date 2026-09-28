@@ -12,13 +12,12 @@ use crate::{
     app::iam::IamContext,
     domain::stream::{DEFAULT_PROFILE_STREAM, StreamType},
     infra::profiles::{self, NormalizedProfile, merge as profiles_merge},
-    shared::{Error, Result, time::TimeRange},
+    shared::{Result, time::TimeRange},
 };
 
 const DEFAULT_MAX_PROFILES: usize = 200;
 const HARD_MAX_PROFILES: usize = 1_000;
 const SCAN_LIMIT: usize = 10_000;
-const PROFILES_ENHANCED_FEATURE: &str = "profiling_enhanced";
 
 pub(super) async fn execute(
     runtime: &ToolRuntime,
@@ -128,11 +127,6 @@ struct CompareArgs {
 }
 
 async fn compare(runtime: &ToolRuntime, auth: &IamContext, arguments: Value) -> Result<ToolResult> {
-    if !runtime.license.has_feature(PROFILES_ENHANCED_FEATURE) {
-        return Err(Error::forbidden(
-            "compare_profiles requires the profiling-enhanced feature (Pro edition)",
-        ));
-    }
     let args: CompareArgs = parse_args(arguments)?;
     let filters = ProfileFilters {
         service: args.service,

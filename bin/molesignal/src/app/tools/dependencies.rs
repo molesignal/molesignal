@@ -52,7 +52,6 @@ use crate::{
         query::catalog_source::CatalogQuerySource,
         traces::ServiceGraphRepository,
     },
-    shared::LicenseGate,
 };
 
 #[derive(Clone)]
@@ -65,7 +64,6 @@ pub struct ToolRuntimeDependencies {
     pub status_pages: Arc<StatusPageService>,
     pub administration: AdministrationToolDependencies,
     pub agent: AgentToolDependencies,
-    pub license: Arc<dyn LicenseGate>,
 }
 
 #[derive(Clone)]

@@ -2,12 +2,10 @@ import { Bell, BellPlus } from 'lucide-react';
 
 import type {
   ProductBreadcrumbItem,
-  ProductEdition,
   ProductRouteMeta,
 } from '../ia';
 
-type RouteInput = Omit<ProductRouteMeta, 'edition'> &
-  Partial<Pick<ProductRouteMeta, 'edition'>>;
+type RouteInput = ProductRouteMeta;
 
 export const ALERT_PRODUCT_ROUTES = [
   route({
@@ -135,8 +133,8 @@ export const ALERT_PRODUCT_ROUTES = [
   }),
 ] as const satisfies readonly ProductRouteMeta[];
 
-function route<const T extends RouteInput>(value: T): T & { edition: ProductEdition } {
-  return { edition: 'any', ...value };
+function route<const T extends RouteInput>(value: T): T {
+  return value;
 }
 
 function crumb(labelKey: string, to?: string): ProductBreadcrumbItem {

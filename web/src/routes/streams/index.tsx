@@ -15,7 +15,6 @@ import {
   matchesStreamHealthFilter,
   streamHealthFilterFromParams,
   streamHealthWindowFromParams,
-  summarizeStreamHealth,
   type StreamHealthFilter,
 } from '@/investigation/streamHealth';
 import { formatMicrosActive } from '@/lib/time';
@@ -62,6 +61,7 @@ import {
   groupStreamsByName,
   selectStreamVariant,
 } from './model';
+import { streamStorageColumns } from './storageColumns';
 import { StreamPagination, useStreamPagination } from './StreamPagination';
 
 type StreamType = streamsApi.StreamType;
@@ -130,27 +130,11 @@ function streamExplorePath(streamName: string, variant: DisplayStreamVariant): s
   return `/streams/${encodeURIComponent(variant.id)}`;
 }
 
-function formatBytes(value: number | null | undefined): string {
-  if (value == null || !Number.isFinite(value)) return '—';
-  const abs = Math.abs(value);
-  if (abs < 1024) return `${Math.round(value)} B`;
-  if (abs < 1024 ** 2) return `${(value / 1024).toFixed(1)} KiB`;
-  if (abs < 1024 ** 3) return `${(value / 1024 ** 2).toFixed(1)} MiB`;
-  if (abs < 1024 ** 4) return `${(value / 1024 ** 3).toFixed(2)} GiB`;
-  return `${(value / 1024 ** 4).toFixed(2)} TiB`;
-}
-
 function formatCount(value: number): string {
   if (value < 1_000) return Math.round(value).toLocaleString();
   if (value < 1_000_000) return `${(value / 1_000).toFixed(1)}K`;
   if (value < 1_000_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
   return `${(value / 1_000_000_000).toFixed(2)}B`;
-}
-
-function formatRuntimeWindow(windowSecs: number): string {
-  if (windowSecs % 86_400 === 0) return `${windowSecs / 86_400}d`;
-  if (windowSecs % 3_600 === 0) return `${windowSecs / 3_600}h`;
-  return `${Math.round(windowSecs / 60)}m`;
 }
 
 function formatRowRate(stream: DisplayStream, windowSecs: number): string {
@@ -306,17 +290,7 @@ export function Streams() {
             }
           : null;
 
-  const healthSummary = summarizeStreamHealth(
-    runtimeQuery.data?.streams ?? [],
-  );
-  const rowsInWindow = streams.reduce((sum, item) => sum + (item.runtime?.rows ?? 0), 0);
-  const storedInWindow = streams.reduce((sum, item) => sum + (item.runtime?.stored_bytes ?? 0), 0);
-  const currentStored = streams.reduce(
-    (sum, item) => sum + (item.runtime?.current_stored_bytes ?? 0),
-    0,
-  );
   const runtimeWindowSecs = runtimeQuery.data?.window_secs ?? requestedRuntimeWindowSecs;
-  const runtimeWindowLabel = formatRuntimeWindow(runtimeWindowSecs);
   const generatedAt = runtimeQuery.data?.generated_at_micros;
 
   const changeStatusFilter = React.useCallback(
@@ -338,30 +312,6 @@ export function Streams() {
         appearance="surface"
         title={t('title')}
         subtitle={t('subtitle') as string}
-        kpis={[
-          {
-            label: t('list.kpis.healthy'),
-            value: runtimeQuery.isLoading ? '—' : healthSummary.receiving,
-            sub: t('list.kpis.healthy_sub', { total: healthSummary.total }),
-            tone: healthSummary.receiving === healthSummary.total && healthSummary.total > 0 ? 'good' : 'neutral',
-          },
-          {
-            label: t('list.kpis.attention'),
-            value: runtimeQuery.isLoading ? '—' : healthSummary.attention,
-            sub: t('list.kpis.attention_sub'),
-            tone: healthSummary.attention > 0 ? 'warn' : 'good',
-          },
-          {
-            label: t('list.kpis.compressed_window', { window: runtimeWindowLabel }),
-            value: runtimeQuery.isLoading ? '—' : formatBytes(storedInWindow),
-            sub: t('list.kpis.rows_window', { count: formatCount(rowsInWindow) }),
-          },
-          {
-            label: t('list.kpis.current_storage'),
-            value: runtimeQuery.isLoading ? '—' : formatBytes(currentStored),
-            sub: t('list.kpis.current_storage_sub'),
-          },
-        ]}
         toolbar={
           <>
             <ChromeButton onClick={refresh} disabled={listQuery.isFetching || runtimeQuery.isFetching}>
@@ -511,26 +461,7 @@ export function Streams() {
               ),
               width: 120,
             },
-            {
-              key: 'volume_24h',
-              header: t('list.columns.volume_window', { window: runtimeWindowLabel }),
-              cell: (s) => (
-                <span className="font-mono text-xs tabular-nums text-tx-1">
-                  {s.runtime?.stats_available ? formatBytes(s.runtime.stored_bytes) : '—'}
-                </span>
-              ),
-              width: 128,
-            },
-            {
-              key: 'storage',
-              header: t('list.columns.storage'),
-              cell: (s) => (
-                <span className="font-mono text-xs tabular-nums text-tx-1">
-                  {s.runtime?.stats_available ? formatBytes(s.runtime.current_stored_bytes) : '—'}
-                </span>
-              ),
-              width: 120,
-            },
+            ...streamStorageColumns(t),
             {
               key: 'retention',
               header: t('list.columns.retention'),

@@ -203,19 +203,6 @@ export interface CorrelationContext {
   prefill?: { sql?: string; promql?: string };
 }
 
-export interface CorrelationProvider {
-  id: string;
-  from_kind: string;
-  to_kind: string;
-  label: string;
-  enabled: boolean;
-}
-
-export async function correlationProviders(): Promise<CorrelationProvider[]> {
-  const { data } = await http.get<CorrelationProvider[]>('/web/correlation/providers');
-  return data;
-}
-
 export async function correlation(
   from: string,
   to: string,

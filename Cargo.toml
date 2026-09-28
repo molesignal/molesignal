@@ -155,9 +155,8 @@ jsonwebtoken = { version = "10", default-features = false, features = ["aws_lc_r
 blake3 = "1.8"
 base64 = "0.22"
 
-# crypto (cipher keys + license verification)
+# crypto (cipher keys and authentication)
 aes-gcm = { version = "0.10", features = ["std"] }
-ed25519-dalek = { version = "2", features = ["std", "pkcs8"] }
 
 # source-map、GeoIP 与通知能力
 sourcemap = "9"

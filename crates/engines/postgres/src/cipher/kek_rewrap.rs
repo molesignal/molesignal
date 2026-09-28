@@ -5,7 +5,7 @@
 //!
 //! 换 `MS_CIPHER_KEY` 时，DB 里所有用旧 KEK seal 的 `(nonce, ciphertext)` 必须用旧 KEK 解、
 //! 新 KEK 重封——否则换 key 后这些数据不可解。本模块用一份**显式表清单** [`SPECS`] 覆盖全部
-//! KEK-sealed 列（cipher_keys / cluster_secrets / billing_settings / api_tokens /
+//! KEK-sealed 列（cipher_keys / cluster_secrets / api_tokens /
 //! resource_shares / ai_model_provider_secrets / notify_connectors /
 //! synthetic_secret_versions），逐行
 //! open(old) → seal(new) → UPDATE，
@@ -39,14 +39,6 @@ const SPECS: &[RewrapSpec] = &[
         table: "cluster_secrets",
         pk: &["org_id", "ref_id"],
         pairs: &[("nonce", "ciphertext")],
-    },
-    RewrapSpec {
-        table: "billing_settings",
-        pk: &["id"],
-        pairs: &[
-            ("webhook_secret_nonce", "webhook_secret_ciphertext"),
-            ("api_key_nonce", "api_key_ciphertext"),
-        ],
     },
     RewrapSpec {
         table: "api_tokens",
@@ -229,11 +221,10 @@ mod tests {
 
     #[test]
     fn select_sql_lists_pk_then_pairs() {
-        let spec = &SPECS[2]; // billing_settings：id + 两组 pair
+        let spec = &SPECS[0]; // cipher_keys: id + sealed key
         assert_eq!(
             select_sql(spec),
-            "SELECT id::TEXT AS id, webhook_secret_nonce, webhook_secret_ciphertext, \
-             api_key_nonce, api_key_ciphertext FROM billing_settings"
+            "SELECT id::TEXT AS id, nonce, key_material_enc FROM cipher_keys"
         );
     }
 
@@ -256,7 +247,6 @@ mod tests {
         for t in [
             "cipher_keys",
             "cluster_secrets",
-            "billing_settings",
             "api_tokens",
             "resource_shares",
             "ai_model_provider_secrets",

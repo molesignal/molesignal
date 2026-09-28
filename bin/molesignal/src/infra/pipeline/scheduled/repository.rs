@@ -76,6 +76,7 @@ fn row_to(r: sqlx::postgres::PgRow) -> ScheduledPipeline {
 #[async_trait]
 impl ScheduledPipelineRepository for PgScheduledPipelineRepository {
     async fn create(&self, p: ScheduledPipeline) -> Result<ScheduledPipeline> {
+        let mut transaction = super::configuration::lock_and_validate(&self.pool, &p).await?;
         sqlx::query(
             "INSERT INTO scheduled_pipelines
                 (id, org_id, name, source_stream, target_stream, function_steps, cron,
@@ -94,13 +95,18 @@ impl ScheduledPipelineRepository for PgScheduledPipelineRepository {
         .bind(p.enabled)
         .bind(p.created_at.0)
         .bind(p.updated_at.0)
-        .execute(&self.pool)
+        .execute(&mut *transaction)
         .await
         .map_err(super::super::super::persistence::sqlx_err)?;
+        transaction
+            .commit()
+            .await
+            .map_err(crate::infra::persistence::sqlx_err)?;
         Ok(p)
     }
 
     async fn update(&self, p: ScheduledPipeline) -> Result<ScheduledPipeline> {
+        let mut transaction = super::configuration::lock_and_validate(&self.pool, &p).await?;
         sqlx::query(
             "UPDATE scheduled_pipelines SET
                 name = $3,
@@ -123,9 +129,13 @@ impl ScheduledPipelineRepository for PgScheduledPipelineRepository {
         .bind(p.lookback_secs)
         .bind(p.enabled)
         .bind(p.updated_at.0)
-        .execute(&self.pool)
+        .execute(&mut *transaction)
         .await
         .map_err(super::super::super::persistence::sqlx_err)?;
+        transaction
+            .commit()
+            .await
+            .map_err(crate::infra::persistence::sqlx_err)?;
         Ok(p)
     }
 

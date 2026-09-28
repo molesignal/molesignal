@@ -46,9 +46,6 @@ fn ensure_same_org(p: &SsoProvider, ctx: &IamContext) -> Result<()> {
 }
 
 async fn list_public(State(state): State<AppState>) -> Result<Json<Vec<PublicProviderResponse>>> {
-    if !state.platform.license.has_feature("sso") {
-        return Ok(Json(Vec::new()));
-    }
     let (oidc, saml, ldap) = tokio::try_join!(
         state
             .iam

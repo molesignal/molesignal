@@ -15,7 +15,6 @@ import {
   SquareCode,
 } from 'lucide-react';
 
-import type { FeatureGateStatus, FeatureKey } from '@/product/edition';
 import { PRODUCT_NAV_ITEMS } from '@/product/ia';
 import type { TimeWindow } from '@/stores/useTimeStore';
 
@@ -29,8 +28,6 @@ export interface ResultItem {
   icon?: LucideIcon | undefined;
   shortcut?: string | undefined;
   priority?: number | undefined;
-  feature?: FeatureKey | undefined;
-  gateStatus?: FeatureGateStatus | undefined;
   /** Static action: handler called with the open mode. Remote items: handled by their `kind` handler. */
   run?: (ctx: { mode: OpenMode; navigate: (to: string) => void }) => void;
 }
@@ -48,10 +45,8 @@ export interface StaticActionsApi {
   /** i18n translator scoped to the `palette` namespace. */
   t: (key: string) => string;
   tNav: (key: string) => string;
-  tEdition: (key: string) => string;
   currentPath?: string;
   canAccessPath?: (path: string) => boolean;
-  gateStatus?: (feature: FeatureKey) => FeatureGateStatus;
 }
 
 export function buildStaticActions(api: StaticActionsApi): ResultItem[] {
@@ -63,16 +58,6 @@ export function buildStaticActions(api: StaticActionsApi): ResultItem[] {
     icon: Clock,
     run: () => api.setTimeWindow(win),
   });
-  const gated = (feature: FeatureKey, item: ResultItem): ResultItem | null => {
-    const status = api.gateStatus?.(feature) ?? 'allowed';
-    if (status === 'permission-denied') return null;
-    return {
-      ...item,
-      feature,
-      gateStatus: status,
-      subtitle: status === 'allowed' ? item.subtitle : api.tEdition(`badges.${status}`),
-    };
-  };
   const pathGated = (
     path: string,
     item: ResultItem | null,
@@ -119,26 +104,7 @@ export function buildStaticActions(api: StaticActionsApi): ResultItem[] {
       priority: api.currentPath === '/home' ? -30 : -2,
       run: ({ navigate }) => navigate('/datasource'),
     }),
-    pathGated(
-      '/account/billing',
-      gated('saas-billing', {
-        kind: 'action',
-        id: 'account:billing',
-        label: t('actions.open_billing'),
-        icon: Settings,
-        run: ({ navigate }) => navigate('/account/billing'),
-      }),
-    ),
-    pathGated(
-      '/account/support',
-      gated('saas-support', {
-        kind: 'action',
-        id: 'account:support',
-        label: t('actions.open_support'),
-        icon: Settings,
-        run: ({ navigate }) => navigate('/account/support'),
-      }),
-    ),
+
   ];
   const navigationActions = [
     pathGated('/investigate', {

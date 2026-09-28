@@ -27,10 +27,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/shell/ui/dropdown-menu';
 import { toast } from '@/shell/ui/sonner';
@@ -209,8 +207,8 @@ export function DashboardView() {
         toolbar={
           definition ? (
             <>
-              {!definition.timeSettings.hideTimePicker && <TimeRangeChip />}
-              <div className="flex h-9 items-center overflow-hidden rounded-md border border-bd-1 bg-bg-2 text-tx-1 transition-colors hover:border-bd-2 hover:bg-bg-3">
+              {!definition.timeSettings.hideTimePicker && <TimeRangeChip className="border-0 bg-bg-2 hover:bg-bg-3 focus-visible:bg-bg-3" />}
+              <div className="flex h-9 items-center overflow-hidden rounded-md border-0 bg-bg-2 text-tx-1">
                 <button
                   type="button"
                   aria-label={t('detail.refresh')}
@@ -219,7 +217,7 @@ export function DashboardView() {
                     setRefreshNonce((value) => value + 1);
                     toast.success(t('detail.refreshed'));
                   }}
-                  className="grid h-full w-9 place-items-center text-tx-2 transition-colors hover:text-tx-0"
+                  className="grid h-full w-9 place-items-center text-tx-2 transition-colors hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-bg-3"
                 >
                   <RefreshCw
                     className={cn(
@@ -234,7 +232,7 @@ export function DashboardView() {
                       type="button"
                       aria-label={t('detail.refresh_menu')}
                       title={t('detail.refresh_menu')}
-                      className="flex h-full min-w-[4.75rem] items-center justify-between gap-2 px-3 font-sans text-sm font-strong text-tx-1 transition-colors hover:text-tx-0"
+                      className="flex h-full min-w-[4.75rem] items-center justify-between gap-2 px-3 font-sans text-sm font-strong text-tx-1 transition-colors hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-bg-3 data-[state=open]:bg-bg-3"
                     >
                       <span>
                         {formatRefreshSetting(
@@ -248,10 +246,6 @@ export function DashboardView() {
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="min-w-44">
-                    <DropdownMenuLabel>
-                      {t('detail.refresh_mode')}
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
                     <DropdownMenuRadioGroup
                       value={refreshSelection}
                       onValueChange={setRefreshSelection}
@@ -279,6 +273,7 @@ export function DashboardView() {
                 </DropdownMenu>
               </div>
               <ChromeButton
+                className="border-0 disabled:border-0 focus-visible:bg-bg-3"
                 disabled={shareAccess.disabled}
                 disabledReason={shareAccess.reason}
                 onClick={() => setShareOpen(true)}
@@ -287,6 +282,7 @@ export function DashboardView() {
                 {t('actions.share')}
               </ChromeButton>
               <ChromeButton
+                className="border-0 disabled:border-0 focus-visible:bg-bg-3"
                 onClick={() => {
                   if (!orgId || !definition.id) return;
                   setFullscreenDashboard(orgId, {
@@ -305,6 +301,7 @@ export function DashboardView() {
                 {t('actions.set_fullscreen')}
               </ChromeButton>
               <ChromeButton
+                className="border-0 disabled:border-0"
                 variant="primary"
                 disabled={editAccess.disabled}
                 disabledReason={editAccess.reason}
@@ -315,6 +312,7 @@ export function DashboardView() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <ChromeButton
+                    className="border-0 disabled:border-0 focus-visible:bg-bg-3"
                     aria-label={t('detail.more')}
                     title={t('detail.more')}
                   >

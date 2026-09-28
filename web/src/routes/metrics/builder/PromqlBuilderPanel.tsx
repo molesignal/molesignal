@@ -391,7 +391,7 @@ export function PromqlBuilderPanel({
       </div>
 
       <div className="flex min-h-11 items-center gap-3 border-t border-bd-0 bg-bg-2/50 px-3 py-2">
-        <span className="type-micro shrink-0 font-sans font-semibold uppercase tracking-wide text-tx-3">
+        <span className="type-micro shrink-0 font-sans font-semibold tracking-normal text-tx-3">
           {t('builder.editor_label')}
         </span>
         <code
@@ -414,7 +414,7 @@ function BuilderField({
 }) {
   return (
     <div className="min-w-0">
-      <span className="type-micro mb-1.5 block font-sans font-semibold uppercase tracking-wide text-tx-3">
+      <span className="type-micro mb-1.5 block font-sans font-semibold tracking-normal text-tx-3">
         {label}
       </span>
       {children}

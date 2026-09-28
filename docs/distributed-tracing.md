@@ -25,7 +25,7 @@ Private keys must start with `molesignal.`. They may contain opaque internal IDs
 bounded counts, sizes, durations, normalized operation names, or keyed
 fingerprints. They must not contain credentials, cookies, request/response
 bodies, query strings, email/name data, SQL values, complete object keys,
-License packages/signatures, prompts, model output, or tool arguments/results.
+prompts, model output, or tool arguments/results.
 
 ## Canonical storage
 
@@ -149,7 +149,7 @@ audit persistence. It removes forbidden nested keys and replaces credential,
 email, private-key, and complete-URL patterns before enqueue. The Trace sink
 performs a second non-mutating invariant check before self-intake or external
 export. SQL values, raw paths/query strings, full object keys, notification
-recipients/content, License packages/signatures, prompts/responses, and Tool
+recipients/content, prompts/responses, and Tool
 arguments/results are never attributes.
 
 `MS_TRACE_FINGERPRINT_KEY` may enable HMAC-SHA-256 fingerprints for SQL shapes
@@ -175,11 +175,11 @@ No Trace ID, organization ID, raw route, host path, or object key is a metric
 label. `GET /api/v1/system/telemetry` returns detailed sampler/router/sink
 health and the four default alert definitions: sustained exporter failure,
 queue or tail-cache occupancy above 80%, observed drops above 1%, and `_sys`,
-License, or dynamic-policy load failure. These conditions report `degraded` in
+or dynamic-policy load failure. These conditions report `degraded` in
 the detailed system view but do not fail otherwise healthy `/healthz` or
 `/readyz`.
 
-## `_sys`, platform administration, and License
+## `_sys`, platform administration
 
 `_sys` is a single permanent system organization. Its typed `_molesignal`
 streams are system-owned and protected by domain, repository, and PostgreSQL
@@ -205,16 +205,7 @@ system scope.
 - `GET /api/v1/system/telemetry/policies`
 - `GET/POST /api/v1/system/telemetry/debug-tokens`
 - `DELETE /api/v1/system/telemetry/debug-tokens/{id}`
-- `GET /api/v1/system/license`
-- `GET/POST /api/v1/system/license/versions`
-- `POST /api/v1/system/license/versions/{id}/activate`
 
-License versions are immutable, and activation changes a single transactional
-pointer before replacing the process `LicenseHolder`. Startup re-verifies the
-active package and expiration. An invalid active version degrades to Community
-and raises system-load health; environment/file import is allowed only for
-explicit first bootstrap or disaster fallback. The old `/api/v1/license` route
-does not exist.
 
 ## Configuration and failure semantics
 
@@ -246,7 +237,7 @@ The standalone acceptance path starts PostgreSQL with testcontainers and follows
 one correlated request through HTTP, a business Span, SQL, object storage,
 self-intake, and `_sys` trace queries. It also exercises
 system-scope switching, tenant-facing `404` boundaries, permanent system
-resources, immutable License history, and final-platform-administrator
+resources, final-platform-administrator
 protection:
 
 ```text
@@ -271,11 +262,11 @@ in `openspec/changes/add-backend-distributed-tracing/validation.md`.
 
 ## One-release rollout
 
-Ship the schema, propagation, sampler, sinks, system scope, and License changes
+Ship the schema, propagation, sampler, sinks, system scope changes
 together. For production:
 
 1. deploy with `telemetry.trace.force_disabled = true`;
-2. verify `_sys`, License/policy load, metrics, and CORS correlation headers;
+2. verify `_sys`, policy load, metrics, and CORS correlation headers;
 3. remove force-disable on a small canary set;
 4. validate privacy, queue occupancy, drop rate, sampling decisions, and both
    sink retained sets;

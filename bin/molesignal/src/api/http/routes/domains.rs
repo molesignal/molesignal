@@ -3,7 +3,7 @@
 
 //! Domain management CRUD（付费版独占）。
 //!
-//! 模块无条件编译，所有入口通过运行时 License gate 拒绝未授权调用。
+
 //! `/.well-known/acme-challenge/{token}` 不在此处挂载（要求顶层 + 无 auth），见 `mod.rs`。
 
 use axum::{
@@ -18,7 +18,7 @@ use crate::{
     api::AppState,
     app::iam::IamContext,
     domain::iam::permission,
-    domain_management::{DOMAIN_FEATURE, hostname_valid},
+    domain_management::hostname_valid,
     infra::persistence::repositories::domains::DomainRow,
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
@@ -28,15 +28,6 @@ pub fn routes() -> Router<AppState> {
         .route("/domains", get(list).post(create))
         .route("/domains/{id}", get(get_one).delete(delete))
         .route("/domains/{id}/renew", post(renew))
-}
-
-fn require_license(state: &AppState) -> Result<()> {
-    if !state.platform.license.has_feature(DOMAIN_FEATURE) {
-        return Err(Error::forbidden(format!(
-            "{DOMAIN_FEATURE} feature not licensed"
-        )));
-    }
-    Ok(())
 }
 
 #[derive(Debug, Deserialize)]
@@ -72,7 +63,6 @@ async fn list(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Vec<Resp>>> {
-    require_license(&state)?;
     Ok(Json(
         state
             .platform
@@ -91,7 +81,6 @@ async fn get_one(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<Resp>> {
-    require_license(&state)?;
     Ok(Json(to_resp(
         state.platform.domains.get(&ctx.org_id, &Id(id)).await?,
     )))
@@ -103,7 +92,6 @@ async fn create(
     Extension(ctx): Extension<IamContext>,
     Json(req): Json<CreateReq>,
 ) -> Result<Json<Resp>> {
-    require_license(&state)?;
     let hostname = req.hostname.trim().to_lowercase();
     hostname_valid(&hostname).map_err(|e| Error::invalid(format!("invalid hostname: {e}")))?;
     let now = TimestampMicros::now();
@@ -127,7 +115,6 @@ async fn delete(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>> {
-    require_license(&state)?;
     state.platform.domains.delete(&ctx.org_id, &Id(id)).await?;
     Ok(Json(serde_json::json!({"deleted": true})))
 }
@@ -138,7 +125,6 @@ async fn renew(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>> {
-    require_license(&state)?;
     // 真实 ACME 续期由 background runner 处理；这里仅标 "provisioning" 触发下一轮拉取。
     state
         .platform

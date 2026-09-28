@@ -112,7 +112,7 @@ export function CriticalAlertBanner({
     <div className="overflow-hidden rounded-lg border border-red/40 bg-red-dim">
       <div className="flex items-center gap-2.5 px-5 py-3">
         <AlertTriangle className="h-4.5 w-4.5 shrink-0 text-red-soft" />
-        <span className="font-sans text-xs font-bold uppercase tracking-wide text-red-soft">{title}</span>
+        <span className="font-sans text-xs font-bold tracking-normal text-red-soft">{title}</span>
         {onViewAll && (
           <button
             type="button"

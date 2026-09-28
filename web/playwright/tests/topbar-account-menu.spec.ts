@@ -174,8 +174,6 @@ test.describe('topbar account menu', () => {
       role: 'Owner',
       scope: 'system',
       platformPermissions: [
-        'license_read',
-        'license_write',
         'system_telemetry_read',
       ],
     });
@@ -199,7 +197,7 @@ test.describe('topbar account menu', () => {
         ],
       });
     });
-    await page.goto('/settings/license');
+    await page.goto('/home');
 
     await expect(page.getByTestId('org-switcher')).toHaveCount(0);
     await page.getByTestId('user-menu-trigger').click();

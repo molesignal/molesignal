@@ -253,14 +253,6 @@ instances_per_service_hour = 256
 # 一个版本进入版本对比分析所需的最少请求数，范围 1..10000000。
 min_requests_per_version = 1000
 
-[license]
-# 仅当 DB 中没有任何 License version 时允许从 MS_LICENSE_FILE 首次导入。
-bootstrap_from_environment = false
-# DB active version 损坏时是否显式允许从 MS_LICENSE_FILE 灾备回退。
-disaster_fallback_from_environment = false
-
-# 节点本地 pprof listener。兼容环境变量：
-# MS_PROFILING_ENABLED / MS_PROFILING_ALLOW_REMOTE。
 [profiling]
 # 是否启动节点本地 pprof listener；默认关闭。
 enabled = false

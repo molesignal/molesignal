@@ -4,7 +4,6 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import * as profilesApi from '@/api/profiles';
-import { toApiError } from '@/lib/http';
 import { type ProductStateProps } from '@/product/states';
 import { ListPage } from '@/product/templates';
 import { Button } from '@/shell/ui/button';
@@ -21,7 +20,6 @@ function durationMicros(expr: string): number {
 
 export function ProfilesCompare() {
   const { t } = useTranslation('profiles');
-  const { t: tEdition } = useTranslation('edition');
   const [service, setService] = React.useState('');
   const [type, setType] = React.useState('cpu');
   const [duration, setDuration] = React.useState('now-1h');
@@ -54,21 +52,9 @@ export function ProfilesCompare() {
     },
   });
 
-  // Diff is a license-gated enhancement; the backend answers 402/403 when the
-  // edition lacks it. Surface that as an edition gate, never a bare error.
   let errorState: ProductStateProps | null = null;
   if (diffQuery.isError) {
-    const status = toApiError(diffQuery.error).status;
-    if (status === 402 || status === 403) {
-      const feature = tEdition('features.profiling_enhanced');
-      errorState = {
-        variant: 'pro-required',
-        title: tEdition('gates.pro-required.title', { feature }),
-        description: tEdition('gates.pro-required.description', { feature }),
-      };
-    } else {
-      errorState = { variant: 'error', error: diffQuery.error };
-    }
+    errorState = { variant: 'error', error: diffQuery.error };
   }
 
   const filters = (

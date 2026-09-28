@@ -130,7 +130,6 @@ mod tests {
             credential_service_account_id: None,
             scope: IamScope::Organization,
             permissions: Default::default(),
-            features: Default::default(),
             policy_version: 0,
         };
         let context = ToolAuthContext::from_iam(&iam).with_chat(Some("chat-a".into()));

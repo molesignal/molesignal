@@ -5,7 +5,6 @@
     "read_only": "You have read-only access.",
     "page_unavailable": "Your current permissions do not allow access to this page.",
     "permission_required": "Requires the {{permission}} permission.",
-    "feature_required": "Requires the {{feature}} licensed feature.",
     "form_invalid": "Complete the required fields before saving.",
     "no_changes": "There are no unsaved changes.",
     "operation_pending": "Another request is still in progress.",

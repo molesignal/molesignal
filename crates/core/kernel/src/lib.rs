@@ -11,9 +11,8 @@ pub mod drain;
 pub mod error;
 pub mod health;
 pub mod ids;
-pub mod license;
+
 pub mod time;
 
 pub use error::{Error, Result};
 pub use health::Probe;
-pub use license::{CommunityLicense, LicenseGate, LicenseHolder};

@@ -97,7 +97,7 @@ export function QuickActions({ displayName, onPrime }: QuickActionsProps) {
       </p>
 
       <div className="mt-7">
-        <h3 className="type-micro font-strong uppercase tracking-[0.08em] text-tx-3">
+        <h3 className="type-micro font-strong tracking-normal text-tx-3">
           {t('quick_title')}
         </h3>
         <div

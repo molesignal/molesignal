@@ -42,7 +42,7 @@ description: Create or review MoleSignal Git commit messages and squash-merge PR
 优先使用当前模块或子系统：
 
 - 分层模块：`api`、`app`、`domain`、`infra`、`bootstrap`、`config`、`shared`、`protocol`
-- 产品与能力：`agent`、`iam`、`alerting`、`intake`、`query`、`profiling`、`tracing`、`license`、`marketplace`
+- 产品与能力：`agent`、`iam`、`alerting`、`intake`、`query`、`profiling`、`tracing`
 - 存储与运行时：`parquet`、`tantivy`、`wal`、`cache`、`runtime`
 - 其他：`web`、`ui`、`proto`、`ci`、`hooks`、`makefile`
 

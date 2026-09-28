@@ -6,7 +6,7 @@ import { ConfirmDialog, DataTable, PageHeader } from '@/admin';
 import * as clustersApi from '@/api/clusters';
 import { toApiError } from '@/lib/http';
 import { useActionAccess } from '@/product/actionAccess';
-import { ProductState, productStateFor, useLicenseErrorGate } from '@/product/states';
+import { ProductState, productStateFor } from '@/product/states';
 import { ChromeButton, Pill } from '@/shell/chrome';
 import { queryStateFor } from '@/shell/query/State';
 import { toast } from '@/shell/ui/sonner';
@@ -29,13 +29,10 @@ export function Nodes() {
   const [viewingNodes, setViewingNodes] = React.useState<clustersApi.RemoteCluster | null>(null);
   const manageAccess = useActionAccess({
     permission: 'org.settings.manage',
-    feature: 'federated_search',
   });
   const readAccess = useActionAccess({
     permission: 'org.settings.read',
-    feature: 'federated_search',
   });
-  const licenseGate = useLicenseErrorGate();
 
   const q = useQuery({
     queryKey: ['clusters'],
@@ -44,7 +41,6 @@ export function Nodes() {
   const rows = q.data ?? [];
   const state = queryStateFor({ isLoading: q.isLoading, isError: q.isError, data: rows });
   const pageState =
-    (state === 'error' ? licenseGate(q.error, 'features.federated_search') : null) ??
     productStateFor(state, {
       error: q.error,
       emptyTitle: t('nodes.empty_title'),
@@ -205,7 +201,6 @@ export function Nodes() {
                 ]}
               />
             )}
-            <p className="mt-3 font-sans text-xs text-tx-2">{t('nodes.license_note')}</p>
           </div>
         </SettingsSection>
       </SectionBody>

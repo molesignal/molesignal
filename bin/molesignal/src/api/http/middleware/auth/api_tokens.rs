@@ -167,7 +167,6 @@ pub(crate) async fn verify_api_token_with_metadata(
             credential_service_account_id: service_account_id,
             scope: IamScope::ApiToken,
             permissions: BTreeSet::new(),
-            features: BTreeSet::new(),
             policy_version: 0,
         },
         token_id,

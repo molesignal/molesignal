@@ -8,7 +8,6 @@ export interface IamCapabilitySnapshot {
   display_role: string;
   roles: AssignedRole[];
   permissions: PermissionKey[];
-  features: string[];
   version: number;
   /** Absent only on a rolling upgrade from a pre-route-catalog backend. */
   route_catalog_version?: number;

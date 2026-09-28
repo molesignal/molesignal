@@ -157,6 +157,13 @@ pub(crate) mod test_support {
 
     #[async_trait]
     impl FileCatalog for StubFileCatalog {
+        async fn intake_usage(
+            &self,
+            _: &OrganizationScope,
+        ) -> Result<Vec<crate::domain::storage::DatasetIntakeUsage>> {
+            Ok(Vec::new())
+        }
+
         async fn ensure_datasets(
             &self,
             scope: &OrganizationScope,

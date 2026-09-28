@@ -183,7 +183,7 @@ mod tests {
             artifact_type: ArtifactTypeId::builtin(builtin::ARTIFACT_PARQUET),
             format_version: 1,
             object: StoredObject {
-                key: ObjectKey::from_string("v1/artifacts/o/d/p/s/a.parquet"),
+                key: ObjectKey::from_string("artifacts/v1/o/d/p/s/a.parquet"),
                 size_bytes: 128,
                 checksum: ObjectChecksum::from_string("b3:00"),
                 etag: None,

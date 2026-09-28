@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use super::{core::Core, license::LicenseRuntime};
+use super::core::Core;
 use crate::{
     app::iam::{IamAccessService, IamService},
     config::Settings,
@@ -62,11 +62,7 @@ pub(super) struct IamRuntime {
 }
 
 impl IamRuntime {
-    pub(super) async fn build(
-        settings: &Settings,
-        core: &Core,
-        license: &LicenseRuntime,
-    ) -> Result<Self> {
+    pub(super) async fn build(settings: &Settings, core: &Core) -> Result<Self> {
         let signing_secrets: Arc<dyn SigningSecretRepository> =
             Arc::new(PgSigningSecretRepository::new(core.pool.clone()));
         let jwt_override = std::env::var("MS_AUTH_JWT_SECRET_OVERRIDE").ok();
@@ -118,7 +114,6 @@ impl IamRuntime {
         let access = Arc::new(IamAccessService::new(
             iam_repository,
             core.iam_platform_administrators.clone(),
-            license.license.clone(),
         ));
         let email_domains: Arc<dyn EmailDomainRepository> =
             Arc::new(PgEmailDomainRepository::new(core.pool.clone()));

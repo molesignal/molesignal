@@ -11,7 +11,7 @@ import { cn } from '@/shell/lib/cn';
  * first child so the variant set stays orthogonal to icon choice.
  *
  * Page-level use: this is for sticky notices that explain a state ("3
- * queries failed", "license expires in 7 days"). Use Toast for transient
+ * queries failed", "credentials expire in 7 days"). Use Toast for transient
  * confirmations, ErrorState for the in-place obstacle.
  */
 

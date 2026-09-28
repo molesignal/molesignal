@@ -105,14 +105,12 @@ async fn remote_write(
     Extension(ctx): Extension<IamContext>,
     body: Bytes,
 ) -> Result<StatusCode> {
-    // 计费门禁 + 计量：原始字节数用于配额/计量；license 过期 / 订阅停服 / 超 cap → 402。
-    crate::api::http::billing::ensure_intake_allowed(
+    crate::api::http::intake_usage::record_intake_usage(
         &state,
         &ctx.org_id,
         body.len() as u64,
         TimestampMicros::now().0,
-    )
-    .await?;
+    );
 
     let raw = snap::raw::Decoder::new()
         .decompress_vec(&body)

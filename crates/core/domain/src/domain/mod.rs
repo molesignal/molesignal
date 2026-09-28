@@ -18,20 +18,19 @@
 
 pub mod alerting;
 pub mod apm;
-pub mod billing;
+
 pub mod cluster;
 pub mod dashboard;
 pub mod federation;
 pub mod function;
 pub mod iam;
 pub mod intake;
-pub mod license;
+
 pub mod masking;
 pub mod metrics;
 pub mod notify;
 pub mod pipeline;
 pub mod query;
-pub mod quota;
 pub mod rum;
 pub mod saved_view;
 pub mod status_page;

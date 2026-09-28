@@ -19,22 +19,6 @@
     "permission-denied": {
       "title": "Permission required",
       "description": "Your current role cannot access this workflow."
-    },
-    "license-gated": {
-      "title": "Pro feature",
-      "description": "This workflow requires an Pro license or SaaS plan."
-    },
-    "pro-required": {
-      "title": "Pro required",
-      "description": "This workflow requires an Pro license or SaaS plan."
-    },
-    "saas-only": {
-      "title": "SaaS only",
-      "description": "This workflow is available only in MoleSignal Cloud."
-    },
-    "trial-available": {
-      "title": "Trial available",
-      "description": "This workflow can be enabled during an active trial."
     }
   }
 }

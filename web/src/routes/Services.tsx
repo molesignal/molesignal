@@ -225,7 +225,7 @@ function DepSection({
   const { t } = useTranslation('services');
   return (
     <section className="flex flex-col gap-2">
-      <h3 className="flex items-center gap-1.5 font-sans text-xs font-strong uppercase tracking-wider text-tx-3">
+      <h3 className="flex items-center gap-1.5 font-sans text-xs font-strong tracking-normalr text-tx-3">
         {icon}
         {title}
       </h3>

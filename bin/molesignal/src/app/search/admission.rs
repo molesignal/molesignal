@@ -3,7 +3,6 @@
 
 //! Search admission control：节点级 + 集群级并发槽位准入（与 QPS 限流互补）。
 //!
-//! 与 `infra::quotas`（per-org QPS 速率限制）不同，本控制器限制**同时执行**的查询数，
 //! 保护节点 / 集群资源不被并发搜索压垮。按 **work group** 分组（角色→组的可配映射）：
 //! - **节点上限** `groups`/`default_max_concurrent`（0=不限）：硬实时（本进程原子计数）；
 //! - **集群上限** `cluster_groups`/`cluster_default_max_concurrent`（0=不限）：软上限——本地

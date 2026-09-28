@@ -75,7 +75,7 @@ export function InspectorView({
         <div className="mt-4 grid grid-cols-2 gap-px bg-bd-0 sm:grid-cols-3">
           {stats.map(([label, value]) => (
             <div key={label} className="bg-bg-1 px-3 py-3">
-              <div className="type-micro font-sans uppercase tracking-wide text-tx-3">
+              <div className="type-micro font-sans tracking-normal text-tx-3">
                 {label}
               </div>
               <div className="mt-1 font-mono text-sm font-semibold tabular-nums text-tx-0">

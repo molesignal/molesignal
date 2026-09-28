@@ -13,7 +13,6 @@ import {
 import type { ProductRouteMeta } from '../ia';
 
 const RUM_ACCESS = {
-  edition: 'any',
   owner: 'rum',
   emptyStateStrategy: 'query-first',
   group: 'observe',

@@ -66,7 +66,7 @@ pub(super) async fn replace_segments(
         .ok_or_else(|| Error::internal("catalog version overflow"))?;
 
     let rows = sqlx::query(
-        "SELECT id, state FROM data_segments \
+        "SELECT id, state FROM catalog_segments \
          WHERE org_id = $1 AND dataset_id = $2 AND id = ANY($3) FOR UPDATE",
     )
     .bind(scope.organization_id.as_str())
@@ -91,7 +91,7 @@ pub(super) async fn replace_segments(
     }
 
     sqlx::query(
-        "UPDATE data_segments SET state = 'replaced', retired_at_version = $4 \
+        "UPDATE catalog_segments SET state = 'replaced', retired_at_version = $4 \
          WHERE org_id = $1 AND dataset_id = $2 AND id = ANY($3)",
     )
     .bind(scope.organization_id.as_str())
@@ -143,7 +143,7 @@ pub(super) async fn tombstone_segments(
         .ok_or_else(|| Error::internal("catalog version overflow"))?;
 
     let live: Vec<String> = sqlx::query(
-        "SELECT id FROM data_segments \
+        "SELECT id FROM catalog_segments \
          WHERE org_id = $1 AND dataset_id = $2 AND id = ANY($3) AND state = 'active' FOR UPDATE",
     )
     .bind(scope.organization_id.as_str())
@@ -162,7 +162,7 @@ pub(super) async fn tombstone_segments(
     }
 
     sqlx::query(
-        "UPDATE data_segments SET state = 'tombstoned', retired_at_version = $4 \
+        "UPDATE catalog_segments SET state = 'tombstoned', retired_at_version = $4 \
          WHERE org_id = $1 AND dataset_id = $2 AND id = ANY($3)",
     )
     .bind(scope.organization_id.as_str())

@@ -41,8 +41,8 @@ async fn lock_current(
     let row = sqlx::query(
         "SELECT a.state, a.role, a.artifact_type, a.object_key, a.checksum, \
                 a.source_artifact_id, a.source_checksum
-         FROM artifacts a
-         JOIN data_segments s ON s.org_id = a.org_id AND s.id = a.segment_id
+         FROM catalog_artifacts a
+         JOIN catalog_segments s ON s.org_id = a.org_id AND s.id = a.segment_id
          WHERE a.org_id = $1 AND a.id = $2 AND a.segment_id = $3 AND s.dataset_id = $4
            AND s.state = 'active'
          FOR UPDATE OF a",
@@ -98,7 +98,7 @@ pub(super) async fn update_artifact(
         ArtifactUpdate::MarkReady { object } => {
             ensure_transition(current.state, ArtifactState::Ready)?;
             sqlx::query(
-                "UPDATE artifacts SET state = 'ready', object_key = $3, size_bytes = $4, \
+                "UPDATE catalog_artifacts SET state = 'ready', object_key = $3, size_bytes = $4, \
                  checksum = $5, etag = $6, failure_reason = NULL, updated_at_micros = $7 \
                  WHERE org_id = $1 AND id = $2",
             )
@@ -116,7 +116,7 @@ pub(super) async fn update_artifact(
         ArtifactUpdate::MarkFailed { reason } => {
             ensure_transition(current.state, ArtifactState::Failed)?;
             sqlx::query(
-                "UPDATE artifacts SET state = 'failed', failure_reason = $3, \
+                "UPDATE catalog_artifacts SET state = 'failed', failure_reason = $3, \
                  updated_at_micros = $4 WHERE org_id = $1 AND id = $2",
             )
             .bind(scope.organization_id.as_str())
@@ -130,7 +130,7 @@ pub(super) async fn update_artifact(
         ArtifactUpdate::Retry => {
             ensure_transition(current.state, ArtifactState::Pending)?;
             sqlx::query(
-                "UPDATE artifacts SET state = 'pending', failure_reason = NULL, \
+                "UPDATE catalog_artifacts SET state = 'pending', failure_reason = NULL, \
                  updated_at_micros = $3 WHERE org_id = $1 AND id = $2",
             )
             .bind(scope.organization_id.as_str())
@@ -172,7 +172,7 @@ pub(super) async fn update_artifact(
                 ));
             }
             sqlx::query(
-                "UPDATE artifacts SET state = 'tombstoned', updated_at_micros = $3 \
+                "UPDATE catalog_artifacts SET state = 'tombstoned', updated_at_micros = $3 \
                  WHERE org_id = $1 AND id = $2",
             )
             .bind(scope.organization_id.as_str())

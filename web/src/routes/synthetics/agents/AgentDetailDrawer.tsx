@@ -103,7 +103,7 @@ export function AgentDetailDrawer({
               {agent.capabilities.map((capability) => (
                 <span
                   key={capability}
-                  className="rounded-full border border-bd-0 bg-bg-2 px-2.5 py-1 text-type-micro uppercase text-tx-1"
+                  className="rounded-full border border-bd-0 bg-bg-2 px-2.5 py-1 text-type-micro text-tx-1"
                 >
                   {capability}
                 </span>
@@ -168,7 +168,7 @@ export function AgentDetailDrawer({
 function AgentFact({ label, value }: { label: React.ReactNode; value: React.ReactNode }) {
   return (
     <div className="rounded-md border border-bd-0 bg-bg-2 p-3">
-      <div className="text-type-micro uppercase tracking-wide text-tx-3">{label}</div>
+      <div className="text-type-micro tracking-normal text-tx-3">{label}</div>
       <div className="mt-2 min-w-0 truncate text-sm font-strong text-tx-0">{value}</div>
     </div>
   );

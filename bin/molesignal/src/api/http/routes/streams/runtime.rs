@@ -68,6 +68,11 @@ struct StreamRuntime {
     rows: u64,
     stored_bytes: u64,
     current_stored_bytes: u64,
+    total_rows: u64,
+    /// Cumulative canonical pre-transformation bytes committed since metering began.
+    collected_bytes: Option<u64>,
+    collected_bytes_complete: bool,
+    index_bytes: u64,
     first_received_at_micros: Option<i64>,
     last_received_at_micros: Option<i64>,
     stats_available: bool,
@@ -115,12 +120,8 @@ pub(super) async fn handle(
         .into_iter()
         .filter(|definition| definition.stream_type != StreamType::EXTEND)
         .collect::<Vec<_>>();
-    let lifetime_start = definitions
-        .iter()
-        .map(|definition| definition.created_at.0.min(window.start.0))
-        .min()
-        .unwrap_or(window.start.0);
-    let lifetime = TimeRange::new(TimestampMicros(lifetime_start), generated_at);
+    // Include backfilled events that predate the stream definition.
+    let lifetime = TimeRange::new(TimestampMicros(i64::MIN), TimestampMicros(i64::MAX));
     let selections = definitions
         .iter()
         .map(|definition| {
@@ -130,6 +131,16 @@ pub(super) async fn handle(
             ))
         })
         .collect::<Result<Vec<_>>>()?;
+    let intake_usage = match state.storage.catalog_query.intake_usage(&ctx.org_id).await {
+        Ok(usage) => usage
+            .into_iter()
+            .map(|usage| (usage.dataset_id.clone(), usage))
+            .collect::<std::collections::HashMap<_, _>>(),
+        Err(error) => {
+            tracing::warn!(org_id = %ctx.org_id.0, %error, "stream intake accounting unavailable");
+            std::collections::HashMap::new()
+        }
+    };
     let mut streams: Vec<StreamRuntime> = match state
         .storage
         .catalog_query
@@ -140,13 +151,25 @@ pub(super) async fn handle(
             .into_iter()
             .zip(snapshots)
             .map(|(definition, snapshot)| {
-                summarize_runtime(
+                let mut runtime = summarize_runtime(
                     definition,
                     &snapshot.files(),
                     window,
                     generated_at.0,
                     bucket_count,
-                )
+                );
+                if let Ok(primary_type) =
+                    crate::domain::storage::primary_dataset_type(runtime.stream_type)
+                    && let Some(dataset) = snapshot.dataset(&primary_type)
+                    && let Some(usage) = intake_usage.get(&dataset.dataset_id)
+                {
+                    runtime.collected_bytes = usage.collected_bytes;
+                    runtime.collected_bytes_complete = usage.complete;
+                }
+                runtime.index_bytes = snapshot.datasets.iter().fold(0_u64, |total, dataset| {
+                    total.saturating_add(dataset.index_bytes)
+                });
+                runtime
             })
             .collect(),
         Err(error) => {
@@ -231,6 +254,12 @@ fn summarize_runtime(
         rows,
         stored_bytes,
         current_stored_bytes,
+        total_rows: files
+            .iter()
+            .fold(0_u64, |total, file| total.saturating_add(file.rows)),
+        collected_bytes: None,
+        collected_bytes_complete: false,
+        index_bytes: 0,
         first_received_at_micros,
         last_received_at_micros,
         stats_available: true,
@@ -251,6 +280,10 @@ fn unavailable_runtime(
         rows: 0,
         stored_bytes: 0,
         current_stored_bytes: 0,
+        total_rows: 0,
+        collected_bytes: None,
+        collected_bytes_complete: false,
+        index_bytes: 0,
         first_received_at_micros: None,
         last_received_at_micros: None,
         stats_available: false,
@@ -410,6 +443,8 @@ mod tests {
         assert_eq!(summary.rows, 10);
         assert_eq!(summary.stored_bytes, 100);
         assert_eq!(summary.current_stored_bytes, 300);
+        assert_eq!(summary.total_rows, 30);
+        assert_eq!(summary.collected_bytes, None);
         assert_eq!(summary.first_received_at_micros, Some(0));
         assert_eq!(summary.last_received_at_micros, Some(250));
         assert_eq!(

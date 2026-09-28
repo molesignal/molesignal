@@ -66,7 +66,7 @@ export function Sidebar({
         {!visuallyCollapsed && group !== 'home' && (
           // Group labels use the shell's micro role so they remain secondary.
           // Home is a stand-alone top item, so we skip a "HOME" label.
-          <div className="font-sidebar-face type-micro px-3.5 pb-1 pt-2.5 font-semibold uppercase tracking-wide text-tx-2">
+          <div className="font-sidebar-face type-micro px-3.5 pb-1 pt-2.5 font-semibold tracking-normal text-tx-2">
             {t(groupMeta.labelKey)}
           </div>
         )}
@@ -144,7 +144,7 @@ function MiniSection({ labelKey, children }: { labelKey: string; children: React
   const { t } = useTranslation('nav');
   return (
     <div className="mb-1.5">
-      <div className="font-sidebar-face type-micro px-3.5 pb-1 pt-2.5 font-semibold uppercase tracking-wide text-tx-3">
+      <div className="font-sidebar-face type-micro px-3.5 pb-1 pt-2.5 font-semibold tracking-normal text-tx-3">
         {t(labelKey)}
       </div>
       <div className="flex flex-col gap-0.5 px-1.5">{children}</div>

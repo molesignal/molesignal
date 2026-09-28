@@ -35,5 +35,5 @@ Scope:
 
 - Backend health: `GET /api/v1/healthz` returned `{"status":"ok"}`.
 - API automation: 40 checks passed, 0 failed. Covered auth login; roles; alert channels, escalations, rules; schedules and overrides; enrichment table rows; invitations; functions create/update/run/delete; report templates; correlation providers; audit recent.
-- Browser automation: Playwright headless login and page smoke passed on `/home`, `/alerts`, `/functions`, `/enrichment-tables`, `/iam/invitations`, `/settings/correlation`, `/reports`, and `/iam/roles`; no visible `backend pending`, `awaiting backend`, `not implemented`, or `等待后端` text was found.
+- Browser automation: Playwright headless login and page smoke passed on `/home`, `/alerts`, `/functions`, `/enrichment-tables`, `/iam/invitations`, `/reports`, and `/iam/roles`; no visible `backend pending`, `awaiting backend`, `not implemented`, or `等待后端` text was found.
 - Frontend validation: `pnpm -C web exec tsc --noEmit`, targeted `vitest`, and targeted `eslint` passed.

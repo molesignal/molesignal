@@ -1,12 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! `license_usage_daily` + `intake_usage_hourly` 表 Pg 实装（用量计量）。
-//!
-//! Per-org 每日 intake 字节累计。intake 计费门禁每批 upsert-increment 一次（按批不按
-//! 事件，开销可控），供用量观测 / 出量上报基础。`day` 为 `YYYY-MM-DD`（UTC）。
-//! 小时表记录所有部署的原始摄入字节，供首页等运营视图按时间窗读取；它不参与计费判定。
-
 use async_trait::async_trait;
 use sqlx::{PgPool, Row};
 
@@ -27,10 +21,6 @@ pub fn hour_bucket_start(timestamp_micros: i64) -> i64 {
 
 #[async_trait]
 pub trait UsageRepository: Send + Sync {
-    /// 累加某 org 当日 intake 字节（upsert-increment）。
-    async fn add_intake_bytes(&self, org_id: &Id, day: &str, bytes: i64) -> Result<()>;
-    /// 读取某 org 当日累计 intake 字节；无记录返回 0。
-    async fn get_intake_bytes(&self, org_id: &Id, day: &str) -> Result<i64>;
     /// 累加某 org 在给定小时内收到的原始 payload 字节。
     async fn add_hourly_intake_bytes(
         &self,
@@ -59,36 +49,6 @@ impl PgUsageRepository {
 
 #[async_trait]
 impl UsageRepository for PgUsageRepository {
-    async fn add_intake_bytes(&self, org_id: &Id, day: &str, bytes: i64) -> Result<()> {
-        sqlx::query(
-            "INSERT INTO license_usage_daily (day, org_id, intake_bytes, user_count)
-             VALUES ($1, $2, $3, 0)
-             ON CONFLICT (day, org_id) DO UPDATE
-                SET intake_bytes = license_usage_daily.intake_bytes + EXCLUDED.intake_bytes",
-        )
-        .bind(day)
-        .bind(&org_id.0)
-        .bind(bytes)
-        .execute(&self.pool)
-        .await
-        .map_err(sqlx_err)?;
-        Ok(())
-    }
-
-    async fn get_intake_bytes(&self, org_id: &Id, day: &str) -> Result<i64> {
-        let row = sqlx::query(
-            "SELECT intake_bytes FROM license_usage_daily WHERE day = $1 AND org_id = $2",
-        )
-        .bind(day)
-        .bind(&org_id.0)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(sqlx_err)?;
-        Ok(row
-            .map(|r| r.try_get::<i64, _>("intake_bytes").unwrap_or(0))
-            .unwrap_or(0))
-    }
-
     async fn add_hourly_intake_bytes(
         &self,
         org_id: &Id,

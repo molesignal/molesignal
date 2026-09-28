@@ -103,11 +103,11 @@ export function MappingsForm({
           {t(`sso_providers.drawer.mapping.${draft.kind}_hint`)}
         </div>
         <div className="grid grid-cols-[minmax(0,0.8fr)_20px_minmax(0,1.2fr)] items-center gap-x-2 gap-y-2">
-          <div className="font-sans text-xs font-semibold uppercase tracking-wide text-tx-3">
+          <div className="font-sans text-xs font-semibold tracking-normal text-tx-3">
             {t('sso_providers.drawer.mapping.platform_field')}
           </div>
           <span aria-hidden />
-          <div className="font-sans text-xs font-semibold uppercase tracking-wide text-tx-3">
+          <div className="font-sans text-xs font-semibold tracking-normal text-tx-3">
             {t('sso_providers.drawer.mapping.provider_field')}
           </div>
           {PLATFORM_FIELDS.map((field) => (

@@ -73,15 +73,6 @@ pub struct ClusterResp {
     pub updated_at_micros: i64,
 }
 
-/// federated search 是商业 feature；OSS 无许可证 → 任何 remote_clusters
-/// 操作 403。这等价于"禁止设置跨集群联邦"。
-fn require_federation_license(state: &AppState) -> Result<()> {
-    if !state.platform.license.has_feature("federated_search") {
-        return Err(Error::forbidden("federated_search feature not licensed"));
-    }
-    Ok(())
-}
-
 fn mask(c: RemoteCluster) -> ClusterResp {
     ClusterResp {
         id: c.id.0,
@@ -101,7 +92,6 @@ async fn list(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Vec<ClusterResp>>> {
-    require_federation_license(&state)?;
     Ok(Json(
         state
             .cluster
@@ -120,7 +110,6 @@ async fn get_one(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<ClusterResp>> {
-    require_federation_license(&state)?;
     let c = state.cluster.remote_clusters.get(&Id(id)).await?;
     Ok(Json(mask(c)))
 }
@@ -131,7 +120,6 @@ async fn create(
     Extension(ctx): Extension<IamContext>,
     Json(req): Json<CreateReq>,
 ) -> Result<Json<ClusterResp>> {
-    require_federation_license(&state)?;
     let now = TimestampMicros::now();
     let c = RemoteCluster {
         id: Id::new(),
@@ -155,7 +143,6 @@ async fn update(
     Path(id): Path<String>,
     Json(req): Json<UpdateReq>,
 ) -> Result<Json<ClusterResp>> {
-    require_federation_license(&state)?;
     let id = Id(id);
     let existing = state.cluster.remote_clusters.get(&id).await?;
     let c = RemoteCluster {
@@ -180,7 +167,6 @@ async fn delete(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>> {
-    require_federation_license(&state)?;
     state.cluster.remote_clusters.delete(&Id(id)).await?;
     Ok(Json(serde_json::json!({"deleted": true})))
 }
@@ -230,7 +216,6 @@ async fn list_org_map(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<Vec<OrgMapResp>>> {
-    require_federation_license(&state)?;
     let links = state.cluster.org_link.list(&Id(id)).await?;
     Ok(Json(links.into_iter().map(mask_link).collect()))
 }
@@ -242,7 +227,6 @@ async fn put_org_map(
     Path(id): Path<String>,
     Json(req): Json<OrgMapReq>,
 ) -> Result<Json<OrgMapResp>> {
-    require_federation_license(&state)?;
     if req.local_org_id.trim().is_empty() || req.remote_org_id.trim().is_empty() {
         return Err(Error::invalid(
             "local_org_id and remote_org_id are required",
@@ -266,7 +250,6 @@ async fn delete_org_map(
     Extension(ctx): Extension<IamContext>,
     Path((id, local_org_id)): Path<(String, String)>,
 ) -> Result<Json<serde_json::Value>> {
-    require_federation_license(&state)?;
     state
         .cluster
         .org_link
@@ -310,7 +293,6 @@ async fn list_nodes(
         protocol::cluster::v1::{NodeServiceListRequest, node_service_client::NodeServiceClient},
     };
 
-    require_federation_license(&state)?;
     let c = state.cluster.remote_clusters.get(&Id(id)).await?;
     let channel = grpc_channel::connect(&c.advertise_addr, c.tls_verify)
         .await

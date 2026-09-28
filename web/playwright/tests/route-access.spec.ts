@@ -5,6 +5,10 @@ test.describe('dynamic route access', () => {
     '/alerts/notify/connectors',
     '/alerts/channels',
     '/alerts/templates',
+    '/settings/license',
+    '/account/billing',
+    '/account/support',
+    '/iam/quota',
   ]) {
     test(`${path} is deleted without a compatibility redirect`, async ({
       page,
@@ -36,81 +40,6 @@ test.describe('dynamic route access', () => {
     await expect(
       page.getByRole('link', { name: 'Organization', exact: true }),
     ).toHaveCount(0);
-  });
-
-  test('tenant sessions neither discover nor mount the system License route', async ({
-    page,
-    mockServer,
-  }) => {
-    let licenseRequests = 0;
-    page.on('request', (request) => {
-      if (new URL(request.url()).pathname === '/api/v1/system/license') {
-        licenseRequests += 1;
-      }
-    });
-    await mountMockRoutes(page, mockServer.port, {
-      token: 'tenant-token',
-      role: 'Owner',
-      scope: 'organization',
-    });
-
-    await page.goto('/settings/license');
-
-    await expect(page).toHaveURL(/\/home(?:[?#]|$)/);
-    await expect(page.getByRole('link', { name: 'License' })).toHaveCount(0);
-    expect(licenseRequests).toBe(0);
-  });
-
-  test('system LicenseRead exposes the route and its navigation entry', async ({
-    page,
-    mockServer,
-  }) => {
-    await mountMockRoutes(page, mockServer.port, {
-      token: 'system-token',
-      orgId: 'system-org-id',
-      orgName: '_sys',
-      role: 'Viewer',
-      scope: 'system',
-      platformPermissions: ['license_read'],
-    });
-
-    await page.goto('/settings/license');
-
-    await expect(page).toHaveURL(/\/settings\/license(?:[?#]|$)/);
-    await expect(
-      page.getByText('Active plan and entitlements.', { exact: true }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole('link', { name: 'License' }).first(),
-    ).toBeVisible();
-    await expect(
-      page.getByRole('link', { name: 'General' }),
-    ).toHaveCount(0);
-    await expect(page.locator('a[href="/traces"]')).toHaveCount(0);
-    await expect(page.locator('a[href="/logs"]')).toHaveCount(0);
-    await expect(page.getByTestId('mole-agent-trigger')).toHaveCount(0);
-    await expect(
-      page.getByRole('button', { name: 'Upload', exact: true }),
-    ).toBeDisabled();
-  });
-
-  test('system scope without LicenseRead cannot discover or mount License', async ({
-    page,
-    mockServer,
-  }) => {
-    await mountMockRoutes(page, mockServer.port, {
-      token: 'system-token-without-license',
-      orgId: 'system-org-id',
-      orgName: '_sys',
-      role: 'Viewer',
-      scope: 'system',
-      platformPermissions: ['system_telemetry_read'],
-    });
-
-    await page.goto('/settings/license');
-
-    await expect(page).toHaveURL(/\/home(?:[?#]|$)/);
-    await expect(page.getByRole('link', { name: 'License' })).toHaveCount(0);
   });
 
   test('role controls follow IAM capabilities instead of the display role', async ({

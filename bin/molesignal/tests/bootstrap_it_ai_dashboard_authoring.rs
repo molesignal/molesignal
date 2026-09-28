@@ -35,7 +35,7 @@ use molesignal::{
         agent::toolsets::AgentToolset, dashboard_authoring::PgDashboardDraftRepository,
         dashboard_contract_registry::PgDashboardContractRepository,
     },
-    shared::{LicenseGate, ids::Id, time::TimestampMicros},
+    shared::{ids::Id, time::TimestampMicros},
 };
 use serde_json::{Value, json};
 use sqlx::{PgPool, Row};
@@ -48,32 +48,6 @@ const VALID_AUTHORING: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../../contracts/dashboard/fixtures/valid/authoring-v1-promql.json"
 ));
-
-struct AgentLicense;
-
-impl LicenseGate for AgentLicense {
-    fn has_feature(&self, name: &str) -> bool {
-        name == "agent"
-    }
-
-    fn add_intake_bytes(&self, _n: u64) -> bool {
-        true
-    }
-
-    fn expired(&self, _now_micros: i64) -> bool {
-        false
-    }
-
-    fn issued_to(&self) -> &str {
-        "dashboard-authoring-test"
-    }
-
-    fn reset_daily(&self) {}
-
-    fn features(&self) -> Vec<String> {
-        vec!["agent".into()]
-    }
-}
 
 fn draft(
     id: &str,
@@ -264,11 +238,7 @@ async fn dashboard_authoring_control_plane_is_tenant_safe_and_exactly_once() {
         return;
     }
     let server = common::TestServer::start().await;
-    server
-        .state
-        .platform
-        .license_holder
-        .replace(Arc::new(AgentLicense));
+
     let pool = PgPool::connect(&server.settings.store.meta.dsn)
         .await
         .unwrap();
@@ -580,11 +550,7 @@ async fn dashboard_authoring_runs_from_chat_intent_to_renderable_dashboard() {
         return;
     }
     let server = common::TestServer::start().await;
-    server
-        .state
-        .platform
-        .license_holder
-        .replace(Arc::new(AgentLicense));
+
     set_policy(&server, ToolExecutionMode::Confirmation, true).await;
 
     common::seed_stream(

@@ -34,6 +34,8 @@ pub struct QueryDatasetSnapshot {
     pub catalog_version: u64,
     pub schema: SchemaRef,
     pub files: Vec<QueryFile>,
+    /// Bytes occupied by ready index artifacts in this snapshot.
+    pub index_bytes: u64,
     /// Explicit Primary Artifact object key → Tantivy Artifact object key mapping.
     pub tantivy_indexes: HashMap<String, String>,
     pub buffered_batches: Vec<RecordBatch>,
@@ -100,6 +102,15 @@ pub struct CatalogQuerySource {
 }
 
 impl CatalogQuerySource {
+    pub async fn intake_usage(
+        &self,
+        organization_id: &Id,
+    ) -> Result<Vec<crate::domain::storage::DatasetIntakeUsage>> {
+        self.catalog
+            .intake_usage(&OrganizationScope::new(organization_id.clone()))
+            .await
+    }
+
     pub fn new(
         catalog: Arc<dyn FileCatalog>,
         buffers: Arc<BufferPool>,
@@ -345,6 +356,15 @@ fn build_dataset_snapshot(
         dataset_type,
         catalog_version: snapshot.catalog_version,
         schema: target_schema,
+        index_bytes: segments
+            .iter()
+            .flat_map(|segment| &segment.auxiliaries)
+            .filter(|artifact| {
+                artifact.role == ArtifactRole::Index && artifact.state == ArtifactState::Ready
+            })
+            .fold(0_u64, |total, artifact| {
+                total.saturating_add(artifact.object.size_bytes)
+            }),
         files,
         tantivy_indexes,
         buffered_batches: visible_buffers,

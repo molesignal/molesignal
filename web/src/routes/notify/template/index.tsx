@@ -369,7 +369,7 @@ function TemplateEditor({
             />
           </FormField>
           <section className="rounded-md border border-bd-0 bg-bg-2 p-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-tx-2">
+            <h3 className="text-xs font-semibold tracking-normal text-tx-2">
               {t('templates.preview')}
             </h3>
             {preview.error ? (

@@ -277,7 +277,7 @@ function DetailField({
 }) {
   return (
     <div className={cn(wide && 'sm:col-span-2 lg:col-span-3')}>
-      <dt className="text-xs font-strong uppercase tracking-[0.1em] text-tx-3">
+      <dt className="text-xs font-strong tracking-normal text-tx-3">
         {label}
       </dt>
       <dd className="mt-2 text-sm leading-6 text-tx-1">{children}</dd>

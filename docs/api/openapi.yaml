@@ -15,11 +15,11 @@ info:
     错误统一返 `{ "error": "<message>" }` body；状态码：
     - 400 invalid argument
     - 401 unauthorized (token 校验失败)
-    - 403 forbidden (IAM permission / license 不足)
+    - 403 forbidden (IAM permission 不足)
     - 404 not found / 跨 org lookup
     - 409 conflict (unique 约束 / 状态冲突)
     - 501 profiling kind unavailable on this build
-    - 413 quota exhausted
+    - 413 payload too large
     - 429 rate limited
 
     精确流名 `_molesignal` 保留给服务自身遥测。所有公共 intake 与 stream mutation
@@ -232,41 +232,6 @@ paths:
         '204': { description: Revoked }
         '404': { description: Hidden or token not found }
 
-  /api/v1/system/license:
-    get:
-      summary: Read the active system License snapshot
-      description: Requires LicenseRead in system scope. The former /api/v1/license route is removed.
-      responses:
-        '200': { description: Verified active License summary }
-        '404': { description: Hidden from tenant scope }
-
-  /api/v1/system/license/versions:
-    get:
-      summary: List immutable License versions
-      responses:
-        '200': { description: Redacted version summaries and active marker }
-        '404': { description: Hidden from tenant scope }
-    post:
-      summary: Verify, persist, and activate a new License version
-      description: Requires LicenseWrite. Signed package contents are never returned by list APIs.
-      responses:
-        '201': { description: New active immutable version }
-        '400': { description: Invalid signature, package, or expiration }
-        '404': { description: Hidden from tenant scope }
-
-  /api/v1/system/license/versions/{id}/activate:
-    post:
-      summary: Re-verify and atomically reactivate a historical License version
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string }
-      responses:
-        '200': { description: Version activated and runtime License replaced }
-        '400': { description: Version no longer verifies or is expired }
-        '404': { description: Hidden or version not found }
-
   /api/v1/auth/signin:
     post:
       summary: Email + password login
@@ -307,15 +272,14 @@ paths:
 
   /api/v1/auth/sso/login:
     get:
-      summary: SSO OIDC login redirect (license-gated)
+      summary: SSO OIDC login redirect
       security: []
       responses:
         '302': { description: redirect to IdP /authorize }
-        '403': { description: sso feature not licensed }
 
   /api/v1/auth/sso/callback:
     get:
-      summary: SSO OIDC callback (license-gated)
+      summary: SSO OIDC callback
       security: []
       parameters:
         - { in: query, name: code, required: true, schema: { type: string } }
@@ -323,7 +287,6 @@ paths:
       responses:
         '200': { description: JWT issued }
         '401': { description: IdP error / id_token invalid }
-        '403': { description: sso feature not licensed }
 
   /api/v1/auth/sso/providers:
     get:
@@ -346,7 +309,7 @@ paths:
 
   /api/v1/auth/sso/ldap/login:
     post:
-      summary: LDAP search and user simple-bind login (license-gated)
+      summary: LDAP search and user simple-bind login
       description: |
         Resolves exactly one user DN with the configured escaped search filter, binds as that
         user over LDAPS or StartTLS, applies the configured identity-field and group-to-role
@@ -366,7 +329,6 @@ paths:
       responses:
         '200': { description: Local JWT and organization context issued }
         '401': { description: Provider, user, or credentials invalid }
-        '403': { description: sso feature not licensed }
         '503': { description: LDAP directory unavailable }
 
   /api/v1/sso/providers:
@@ -410,7 +372,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/IntakeResult' }
-        '413': { description: storage quota exceeded }
+        '413': { description: payload too large }
         '429': { description: rate limited }
 
   /api/v1/intake/metrics/{stream}: { $ref: '#/paths/~1api~1v1~1intake~1logs~1{stream}' }
@@ -773,10 +735,6 @@ paths:
   /api/v1/audit:
     get: { summary: 'Audit log (?from&to&actor&action&page=, Admin+)' }
 
-  /api/v1/orgs/{id}/quota:
-    get: { summary: Read quota (Owner-only) }
-    put: { summary: Set quota }
-
   /api/v1/traces/service_graph:
     get:
       summary: Service graph edges
@@ -957,7 +915,7 @@ paths:
       responses: { '200': { description: "items, previous_cursor, next_cursor, and has_more" } }
 
   /api/v1/agent/stats:
-    get: { summary: Agent LLM overall stats (license-gated) }
+    get: { summary: Agent LLM overall stats }
   /api/v1/agent/top_models:
     get: { summary: Top models by call count }
   /api/v1/agent/top_users:
@@ -975,7 +933,7 @@ paths:
   /api/v1/agent/dashboard-authoring/capabilities:
     get:
       summary: Discover the server-owned Dashboard authoring contract, visualizations, query kinds, limits, and workflow
-      description: Requires `agent.use`, `dashboards.create`, and the `agent` license feature. The response is derived from the deployed compiler manifest.
+      description: Requires `agent.use`, `dashboards.create`. The response is derived from the deployed compiler manifest.
   /api/v1/agent/dashboard-drafts/{id}:
     get:
       summary: Read an organization-scoped persisted Dashboard draft for restricted preview
@@ -1057,7 +1015,7 @@ paths:
     get: { summary: Read an audited chat transcript (Admin or Owner) }
 
   /api/v1/clusters:
-    get: { summary: List remote clusters (Owner-only + federated_search license) }
+    get: { summary: List remote clusters (Owner-only) }
     post: { summary: Register remote cluster }
   /api/v1/clusters/{id}:
     put: { summary: Update }

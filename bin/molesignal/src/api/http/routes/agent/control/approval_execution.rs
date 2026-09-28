@@ -5,7 +5,7 @@
 
 use serde_json::{Value, json};
 
-use super::{dashboard_operation, execution_response, require_license, resource_operation};
+use super::{dashboard_operation, execution_response, resource_operation};
 use crate::{
     agent::model::{ApprovalRequest, ApprovalStatus, Execution, ExecutionStatus},
     api::{
@@ -31,7 +31,6 @@ pub(in crate::api::http::routes::agent) async fn execute_approved_operation(
     approval_id: &Id,
     idempotency_key: String,
 ) -> Result<OperationExecution> {
-    require_license(state)?;
     if idempotency_key.trim().is_empty() || idempotency_key.len() > 128 {
         return Err(Error::invalid(
             "idempotency_key length must be between 1 and 128",

@@ -10,31 +10,25 @@ use crate::{
     config::Settings,
     domain::{function::FunctionRepository, rum::DebugArtifactRepository},
     infra::{
-        caching::BillingStateCache,
         connectors::{ConnectorRepository, PgConnectorRepository},
         persistence::repositories::{
             annotations::{AnnotationRepository, PgAnnotationRepository},
-            billing_settings::{BillingSettingsRepository, PgBillingSettingsRepository},
             debug_artifacts::PgDebugArtifactRepository,
             domains::{DomainRepository, PgDomainRepository},
             file_download_tokens::{FileDownloadTokenRepository, PgFileDownloadTokenRepository},
             functions::PgFunctionRepository,
             log_patterns::{LogPatternRepository, PgLogPatternRepository},
-            marketplace::{MarketplaceRepository, PgMarketplaceRepository},
-            model_prices::{ModelPriceRepository, PgModelPriceRepository},
             pipelines::runs::{PgPipelineRunRepository, PipelineRunRepository},
             report_templates::{PgReportTemplateRepository, ReportTemplateRepository},
             resource_shares::{PgResourceShareRepository, ResourceShareRepository},
             scheduled_reports::{PgScheduledReportRepository, ScheduledReportRepository},
             search::jobs::{PgSearchJobRepository, SearchJobRepository},
-            trials::{PgTrialRepository, TrialRepository},
             web_search::{PgWebSearchRepository, WebSearchRepository},
         },
         pipeline::{
             ExtendKvRepository, ExtendTable, PgExtendKvRepository, PgScheduledPipelineRepository,
             ScheduledPipelineRepository,
         },
-        quotas::QuotaLimiter,
     },
     shared::{ReportRenderer, Result},
 };
@@ -56,15 +50,8 @@ pub(super) struct PlatformRuntime {
     pub(super) report_renderer_base_url: String,
     pub(super) file_download_tokens: Arc<dyn FileDownloadTokenRepository>,
     pub(super) web_search: Arc<dyn WebSearchRepository>,
-    pub(super) marketplace: Arc<dyn MarketplaceRepository>,
-    pub(super) model_prices: Arc<dyn ModelPriceRepository>,
     pub(super) domains: Arc<dyn DomainRepository>,
-    pub(super) billing_settings: Arc<dyn BillingSettingsRepository>,
-    pub(super) trials: Arc<dyn TrialRepository>,
-    pub(super) billing_enabled: Arc<std::sync::atomic::AtomicBool>,
-    pub(super) billing_state_cache: Arc<BillingStateCache>,
     pub(super) pipeline_runs: Arc<dyn PipelineRunRepository>,
-    pub(super) quotas: Arc<QuotaLimiter>,
 }
 
 impl PlatformRuntime {
@@ -172,32 +159,9 @@ impl PlatformRuntime {
         let web_search: Arc<dyn WebSearchRepository> =
             Arc::new(PgWebSearchRepository::new(core.pool.clone()));
 
-        let marketplace: Arc<dyn MarketplaceRepository> =
-            Arc::new(PgMarketplaceRepository::new(core.pool.clone()));
-        let model_prices: Arc<dyn ModelPriceRepository> =
-            Arc::new(PgModelPriceRepository::new(core.pool.clone()));
         let domains: Arc<dyn DomainRepository> =
             Arc::new(PgDomainRepository::new(core.pool.clone()));
-        let billing_settings: Arc<dyn BillingSettingsRepository> = Arc::new(
-            PgBillingSettingsRepository::new(core.pool.clone(), core.cipher_root_key.clone()),
-        );
-        let trials: Arc<dyn TrialRepository> = Arc::new(PgTrialRepository::new(core.pool.clone()));
-        let billing_enabled = Arc::new(std::sync::atomic::AtomicBool::new(
-            billing_settings
-                .get()
-                .await
-                .map(|settings| settings.enabled)
-                .unwrap_or(false),
-        ));
-        let billing_state_cache = Arc::new(BillingStateCache::new());
-        let _trial_sweeper = core.roles.run_alert_manager.then(|| {
-            crate::bootstrap::workers::trial_sweeper::TrialSweeper::new(
-                trials.clone(),
-                marketplace.clone(),
-                crate::bootstrap::workers::trial_sweeper::TrialSweeperConfig::default(),
-            )
-            .spawn()
-        });
+
         let pipeline_runs: Arc<dyn PipelineRunRepository> =
             Arc::new(PgPipelineRunRepository::new(core.pool.clone()));
         let _pipeline_runner_handle = core.roles.run_alert_manager.then(|| {
@@ -229,37 +193,6 @@ impl PlatformRuntime {
         let _ = mmdb.ensure_ready().await;
         let _mmdb_refresh = mmdb.spawn_refresh();
 
-        let quotas = Arc::new(QuotaLimiter::new());
-        {
-            let quotas = quotas.clone();
-            let quota_repo =
-                crate::infra::persistence::repositories::quotas::PgQuotaRepository::new(
-                    core.pool.clone(),
-                );
-            tokio::spawn(async move {
-                let mut tick = tokio::time::interval(std::time::Duration::from_secs(60));
-                loop {
-                    tick.tick().await;
-                    match quota_repo.load_quotas().await {
-                        Ok(map) => quotas.refresh(map),
-                        Err(error) => {
-                            tracing::warn!(error = %error, "quota limits refresh failed")
-                        }
-                    }
-                    match quota_repo.storage_usage().await {
-                        Ok(usage) => {
-                            for (org, bytes) in usage {
-                                quotas.update_storage_usage(&org, bytes);
-                            }
-                        }
-                        Err(error) => {
-                            tracing::warn!(error = %error, "quota storage usage refresh failed")
-                        }
-                    }
-                }
-            });
-        }
-
         Ok(Self {
             connectors,
             scheduled_pipelines,
@@ -277,15 +210,10 @@ impl PlatformRuntime {
             report_renderer_base_url,
             file_download_tokens,
             web_search,
-            marketplace,
-            model_prices,
+
             domains,
-            billing_settings,
-            trials,
-            billing_enabled,
-            billing_state_cache,
+
             pipeline_runs,
-            quotas,
         })
     }
 }

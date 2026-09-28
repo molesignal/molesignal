@@ -434,18 +434,9 @@ export function AgentChat({ embedded = false }: { embedded?: boolean } = {}) {
     resizeComposer(composerRef.current);
   }, [input]);
 
-  // License / permission gate derived from the chats query error.
+  // Permission errors remain distinct from request failures.
   const chatsErr = chatsQ.error ? toApiError(chatsQ.error) : null;
   if (chatsErr) {
-    if (chatsErr.status === 403 && /licens/i.test(chatsErr.message)) {
-      return (
-        <ProductState
-          variant="license-gated"
-          title={t('unlicensed_title')}
-          description={t('unlicensed_description')}
-        />
-      );
-    }
     if (chatsErr.status === 403) {
       return <ProductState variant="permission-denied" />;
     }
@@ -2081,7 +2072,7 @@ function qualitativeConfidence(value: number | 'high' | 'medium' | 'low'): 'high
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="mb-1 font-sans text-xs font-strong uppercase tracking-wide text-tx-3">
+      <div className="mb-1 font-sans text-xs font-strong tracking-normal text-tx-3">
         {title}
       </div>
       {children}

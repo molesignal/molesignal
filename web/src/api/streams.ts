@@ -86,6 +86,10 @@ export interface StreamRuntime {
   rows: number;
   stored_bytes: number;
   current_stored_bytes: number;
+  total_rows?: number | null;
+  collected_bytes?: number | null;
+  collected_bytes_complete?: boolean;
+  index_bytes?: number | null;
   first_received_at_micros: number | null;
   last_received_at_micros: number | null;
   stats_available: boolean;

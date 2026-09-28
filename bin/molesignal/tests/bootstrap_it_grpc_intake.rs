@@ -59,6 +59,13 @@ struct InMemFileCatalog {
 
 #[async_trait]
 impl FileCatalog for InMemFileCatalog {
+    async fn intake_usage(
+        &self,
+        _: &OrganizationScope,
+    ) -> Result<Vec<molesignal::domain::storage::DatasetIntakeUsage>> {
+        Ok(Vec::new())
+    }
+
     async fn ensure_datasets(
         &self,
         scope: &OrganizationScope,

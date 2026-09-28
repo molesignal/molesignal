@@ -138,7 +138,7 @@ export function QueryRecommendations({
     <div className={`rounded-md border border-bd-1 bg-bg-1 px-3 py-2 ${className ?? ''}`}>
       <div className="flex items-center gap-2">
         <Lightbulb className="h-3.5 w-3.5 text-yellow" />
-        <span className="font-sans text-xs font-bold uppercase tracking-wide text-tx-2">
+        <span className="font-sans text-xs font-bold tracking-normal text-tx-2">
           {t('query_recommendations.title', { defaultValue: 'Optimization tips' })}
         </span>
         <button

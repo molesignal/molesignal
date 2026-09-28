@@ -173,7 +173,7 @@ function InsightsDashboard({
       <section aria-labelledby="insights-summary" className="rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)]">
         <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="font-sans text-xs font-strong uppercase tracking-wider text-tx-3">{windowLabel}</p>
+            <p className="font-sans text-xs font-strong tracking-normalr text-tx-3">{windowLabel}</p>
             <h2 id="insights-summary" className="mt-1 font-sans text-2xl font-display-strong text-tx-0">
               {headline}
             </h2>
@@ -266,7 +266,7 @@ function SummaryMetric({
 }) {
   return (
     <div className="rounded-md bg-[var(--control-surface)] p-3">
-      <dt className="font-sans text-xs font-strong uppercase tracking-wider text-tx-3">{label}</dt>
+      <dt className="font-sans text-xs font-strong tracking-normalr text-tx-3">{label}</dt>
       <dd
         className={cn(
           'mt-1 font-sans text-xl font-display-strong tabular-nums text-tx-0',

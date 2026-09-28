@@ -1,17 +1,13 @@
 export { SettingsLayout } from './SettingsLayout';
 export { General } from './General';
-export { License } from './License';
-export { Billing } from './Billing';
 export { PipelineDestinations } from './PipelineDestinations';
 export { ClientIpSettings } from './ClientIpSettings';
 export { Nodes } from './Nodes';
-export { Correlation } from './Correlation';
 export { SsoProviders } from './SsoProviders/index';
 export { CipherKeys } from './CipherKeys';
 export { RegexPatterns } from './RegexPatterns';
 export { FieldMasking } from './FieldMasking';
 export { DomainManagement } from './DomainManagement';
 export { OrganizationManagement } from './OrganizationManagement';
-export { ModelPricing } from './ModelPricing';
 export { QueryManagement } from './QueryManagement';
 export { Audit } from './Audit';

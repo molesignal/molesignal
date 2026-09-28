@@ -14,7 +14,6 @@ use super::{
     alerting::AlertingRuntime,
     core::Core,
     iam::IamRuntime,
-    license::LicenseRuntime,
     platform::PlatformRuntime,
     query::QueryRuntime,
     storage::StorageRuntime,
@@ -134,8 +133,8 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         )
         .spawn()
     });
-    let license_runtime = LicenseRuntime::build(settings, &core).await;
-    let iam_runtime = IamRuntime::build(settings, &core, &license_runtime).await?;
+
+    let iam_runtime = IamRuntime::build(settings, &core).await?;
     let tracing_runtime = TracingRuntime::build(
         settings,
         &core,
@@ -146,12 +145,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
     .await?;
     let platform_runtime =
         PlatformRuntime::build(settings, &core, &query_runtime, &storage_runtime).await?;
-    let agent_runtime = AgentRuntime::build(
-        &core,
-        &iam_runtime,
-        &license_runtime,
-        agent_model_providers.clone(),
-    );
+    let agent_runtime = AgentRuntime::build(&core, &iam_runtime, agent_model_providers.clone());
     let dashboard_authoring = Arc::new(
         DashboardAuthoringService::new(
             core.dashboard_drafts.clone(),
@@ -170,7 +164,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         system_org,
         password_resets,
         iam_platform_administrators,
-        license_versions,
+
         trace_policies,
         trace_debug_tokens,
         teams,
@@ -228,11 +222,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         semantic_groups,
         evaluator,
     } = alerting_runtime;
-    let LicenseRuntime {
-        license,
-        holder: license_holder,
-        loaded: license_loaded,
-    } = license_runtime;
+
     let IamRuntime {
         iam,
         access: iam_access,
@@ -281,15 +271,10 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         report_renderer_base_url,
         file_download_tokens,
         web_search,
-        marketplace,
-        model_prices,
+
         domains,
-        billing_settings,
-        trials,
-        billing_enabled,
-        billing_state_cache,
+
         pipeline_runs,
-        quotas,
     } = platform_runtime;
     let AgentRuntime {
         chats: agent_chats,
@@ -368,7 +353,6 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         agent: AgentToolDependencies {
             repository: agent.clone(),
         },
-        license: license.clone(),
     }));
 
     Ok(AppState {
@@ -427,7 +411,6 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
             probe,
             system_load_health: TraceSystemLoadHealth {
                 system_org: true,
-                license: license_loaded,
                 trace_policy: trace_policy_loaded,
             },
             service_graph: service_graph_repo,
@@ -485,21 +468,13 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         platform: PlatformState {
             saved_view: saved_views,
             external_url: settings.http.external_url.clone(),
-            license,
-            license_holder,
-            license_versions,
+
             scheduled_reports,
             report_templates,
             report_renderer,
             report_renderer_base_url,
-            marketplace,
-            billing_settings,
+
             usage,
-            trials,
-            billing_enabled,
-            billing_state_cache,
-            quotas,
-            model_prices,
             domains,
         },
         agent: AgentState {
@@ -525,14 +500,10 @@ mod tests {
     use std::sync::Mutex;
 
     use crate::{
-        bootstrap::{
-            license::build_license, storage::build_fsync_policy,
-            tracing::prepare_self_telemetry_streams,
-        },
-        config::{SelfCollectSettings, Settings, WalFlushStrategy, WalSettings, WalSyncLevel},
+        bootstrap::{storage::build_fsync_policy, tracing::prepare_self_telemetry_streams},
+        config::{SelfCollectSettings, WalFlushStrategy, WalSettings, WalSyncLevel},
         domain::{
             iam::{Organization, OrganizationRepository},
-            license::{ActiveLicenseVersion, LicenseVersion, LicenseVersionRepository},
             stream::{
                 MOLESIGNAL_SYSTEM_STREAM, Retention, Schema, StreamDefinition, StreamRepository,
                 StreamType,
@@ -541,50 +512,6 @@ mod tests {
         infra::segment_wal::FsyncPolicy,
         shared::{Error, Result, ids::Id, time::TimestampMicros},
     };
-
-    struct TestLicenseVersions {
-        active: Option<ActiveLicenseVersion>,
-        fail_load: bool,
-    }
-
-    #[async_trait::async_trait]
-    impl LicenseVersionRepository for TestLicenseVersions {
-        async fn list(&self) -> Result<Vec<LicenseVersion>> {
-            Ok(self
-                .active
-                .as_ref()
-                .map(|active| vec![active.version.clone()])
-                .unwrap_or_default())
-        }
-
-        async fn get(&self, id: &Id) -> Result<LicenseVersion> {
-            self.active
-                .as_ref()
-                .filter(|active| &active.version.id == id)
-                .map(|active| active.version.clone())
-                .ok_or_else(|| Error::not_found("License version"))
-        }
-
-        async fn active(&self) -> Result<Option<ActiveLicenseVersion>> {
-            if self.fail_load {
-                Err(Error::internal("fixture License store unavailable"))
-            } else {
-                Ok(self.active.clone())
-            }
-        }
-
-        async fn insert_and_activate(
-            &self,
-            _version: LicenseVersion,
-            _actor_id: Option<&Id>,
-        ) -> Result<ActiveLicenseVersion> {
-            Err(Error::internal("not used by License load test"))
-        }
-
-        async fn activate(&self, _id: &Id, _actor_id: &Id) -> Result<ActiveLicenseVersion> {
-            Err(Error::internal("not used by License load test"))
-        }
-    }
 
     struct TestOrganizations {
         org: Option<Organization>,
@@ -881,59 +808,6 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(org_id, default_org().id);
         assert!(external_only.is_empty());
-    }
-
-    #[tokio::test]
-    async fn corrupt_persisted_license_degrades_to_community_and_unhealthy_load_state() {
-        let version = LicenseVersion {
-            id: Id::from_string("license-corrupt"),
-            system_org_id: Id::from_string("system-org"),
-            signed_package: serde_json::json!({
-                "payload_b64": "not-valid-base64!",
-                "signature_b64": "not-valid-base64!"
-            }),
-            payload_digest: "fixture-digest".into(),
-            summary: serde_json::json!({}),
-            created_by: None,
-            created_at: TimestampMicros(1),
-        };
-        let repository = TestLicenseVersions {
-            active: Some(ActiveLicenseVersion {
-                version,
-                activated_by: None,
-                activated_at: TimestampMicros(2),
-            }),
-            fail_load: false,
-        };
-
-        let (license, healthy) = build_license(
-            &repository,
-            &Id::from_string("system-org"),
-            &Settings::default(),
-        )
-        .await;
-
-        assert!(!healthy);
-        assert_eq!(license.edition(), "community");
-        assert!(!license.verified());
-    }
-
-    #[tokio::test]
-    async fn license_store_failure_degrades_to_community_without_blocking_startup() {
-        let repository = TestLicenseVersions {
-            active: None,
-            fail_load: true,
-        };
-
-        let (license, healthy) = build_license(
-            &repository,
-            &Id::from_string("system-org"),
-            &Settings::default(),
-        )
-        .await;
-
-        assert!(!healthy);
-        assert_eq!(license.edition(), "community");
     }
 
     #[test]

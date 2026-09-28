@@ -358,7 +358,6 @@ fn error_to_status(e: MsError) -> Status {
         MsError::Forbidden(_) => Status::permission_denied(e.to_string()),
         // gRPC 无 402 对应；订阅失效语义最贴近 permission_denied / resource_exhausted，
         // 取前者（与 Forbidden 同类，表"当前凭证不被允许"）。
-        MsError::PaymentRequired(_) => Status::permission_denied(e.to_string()),
         // gRPC 无 413 对应；配额超限语义最贴近 resource_exhausted（与 429 同类）。
         MsError::ResourceExhausted(_) | MsError::PayloadTooLarge(_) => {
             Status::resource_exhausted(e.to_string())
@@ -477,7 +476,6 @@ impl FlightSqlService for FlightSqlGrpc {
                     credential_service_account_id: None,
                     scope: crate::domain::iam::IamScope::Organization,
                     permissions: std::collections::BTreeSet::new(),
-                    features: std::collections::BTreeSet::new(),
                     policy_version: 0,
                 };
                 (jwt, ctx)

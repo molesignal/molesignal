@@ -954,8 +954,6 @@
       "two_person": "Mandatory two-person approval"
     }
   },
-  "unlicensed_title": "Mole Agent is not licensed",
-  "unlicensed_description": "The agent feature is not enabled by this license.",
   "starter_title": "What should we investigate tonight?",
   "starter_title_named": "Working late, {{name}}",
   "greeting": {

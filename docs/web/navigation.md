@@ -13,7 +13,7 @@ route breadcrumb/back metadata.
 | Observe | Daily signal investigation and monitoring. | Dashboards, Metrics, Logs, Traces, APM, RUM, Profiles, Alerts |
 | Data | Collection, shaping, enrichment, and scheduled outputs. | Intake, Streams, Pipelines, Functions, Enrichment tables, Reports |
 | Automate | Scheduled operational workflows. | Pipeline backfill metadata |
-| Admin | Governance, access, org, license, and platform settings. | IAM, Settings |
+| Admin | Governance, access, org, and platform settings. | IAM, Settings |
 
 ## Registry Rules
 

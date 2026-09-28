@@ -35,7 +35,6 @@ import 'reactflow/dist/style.css';
 
 import * as connectorsApi from '@/api/connectors';
 import * as functionsApi from '@/api/functions';
-import type { PipelineInput, ScheduledPipeline } from '@/api/pipelines';
 import * as streamsApi from '@/api/streams';
 import { ChromeButton, Pill, type PillTone } from '@/shell/chrome';
 import { CodeEditor } from '@/shell/codeEditor';
@@ -48,41 +47,21 @@ import {
   DropdownMenuTrigger,
 } from '@/shell/ui/dropdown-menu';
 
-export type PipelineSignalType = 'logs' | 'metrics' | 'traces';
-
-/** 单个 VRL 处理步骤（按顺序串行应用）。 */
-export interface TransformStep {
-  name: string;
-  script: string;
-}
-
-export interface PipelineGraphModel {
-  signalType: PipelineSignalType;
-  sources: string[];
-  sinks: string[];
-  transforms: TransformStep[];
-  retryPolicy: string;
-}
+import { DEFAULT_GRAPH, DEFAULT_VRL_SCRIPT, normalizedList, type PipelineGraphModel, type PipelineSignalType, type TransformStep } from './PipelineGraph/model';
+import { ProcessingEditor } from './PipelineGraph/ProcessingEditor';
+import { SourceRetention } from './PipelineGraph/SourceRetention';
+export { defaultPipelineGraph, pipelineGraphFromPipeline, pipelineInputFromGraph, signalTypeFromPipeline } from './PipelineGraph/model';
+export type { PipelineGraphModel, PipelineSignalType, TransformStep } from './PipelineGraph/model';
 
 type GraphNodeKind = 'source' | 'transform' | 'sink';
 
 interface GraphNodeData {
   kind: GraphNodeKind;
   label: string;
+  labelKey?: string;
   subtitleKey: string;
   tone: PillTone;
 }
-
-const DEFAULT_VRL_SCRIPT = `. = parse_json!(.message)
-
-.environment = "production"
-.cluster = "us-east-1"
-.level = downcase(.level || "info")
-
-if exists(.trace_id) {
-    .trace.id = .trace_id
-    del(.trace_id)
-}`;
 
 // 内置 VRL 转换预设目录已迁到后端（vrl_presets 表 + GET /vrl_presets），前端按需拉取。
 
@@ -131,13 +110,18 @@ export function validateGraph(
   if (sinks.length === 0) issues.push({ level: 'error', code: 'no_sink' });
   if (model.transforms.length === 0) issues.push({ level: 'error', code: 'no_transform' });
 
+  if (model.mode === 'realtime') {
+    if (model.signalType !== 'logs') issues.push({ level: 'error', code: 'realtime_logs' });
+    if (sources.length !== 1 || sinks.length !== 1 || sinks.some((sink) => sink.startsWith('connector:'))) issues.push({ level: 'error', code: 'realtime_nodes' });
+    if (model.routing?.kind === 'field' && (!model.routing.field.trim() || !model.routing.fallback.trim())) issues.push({ level: 'error', code: 'realtime_routing' });
+  }
   const dupSource = firstDuplicate(sources);
   if (dupSource) issues.push({ level: 'warning', code: 'duplicate_source', params: { name: dupSource } });
   const streamSinks = sinks.filter((sink) => !sink.startsWith('connector:'));
   const dupSink = firstDuplicate(streamSinks);
   if (dupSink) issues.push({ level: 'warning', code: 'duplicate_sink', params: { name: dupSink } });
   for (const sink of streamSinks) {
-    if (sources.includes(sink)) {
+    if (model.mode !== 'realtime' && sources.includes(sink)) {
       issues.push({ level: 'warning', code: 'source_is_sink', params: { name: sink } });
     }
   }
@@ -146,7 +130,10 @@ export function validateGraph(
     if (!step.name.trim()) {
       issues.push({ level: 'warning', code: 'transform_name_missing', params: { index: index + 1 } });
     }
-    if (!step.script.trim()) {
+    if (step.kind === 'builtin') {
+      const route = step.routing;
+      if (!route || (route.kind === 'fixed' ? !step.target?.trim() : !route.field.trim() || !route.fallback.trim())) issues.push({ level: 'error', code: 'realtime_routing' });
+    } else if (!step.script.trim()) {
       issues.push({
         level: 'error',
         code: 'transform_script_missing',
@@ -193,129 +180,7 @@ const SIGNAL_TONE: Record<PipelineSignalType, PillTone> = {
   traces: 'green',
 };
 
-const DEFAULT_GRAPH: Record<
-  PipelineSignalType,
-  { sources: string[]; sinks: string[]; transformName: string }
-> = {
-  logs: {
-    sources: ['app_logs'],
-    sinks: ['app_logs_enriched'],
-    transformName: 'normalize-logs',
-  },
-  metrics: {
-    sources: ['app_metrics'],
-    sinks: ['metrics_rollup'],
-    transformName: 'rollup-metrics',
-  },
-  traces: {
-    sources: ['app_traces'],
-    sinks: ['traces_normalized'],
-    transformName: 'normalize-traces',
-  },
-};
-
 const NODE_TYPES = { pipeline: PipelineGraphNode };
-
-export function signalTypeFromPipeline(
-  pipeline: ScheduledPipeline | null | undefined,
-  fallback: PipelineSignalType = 'logs',
-): PipelineSignalType {
-  const steps = stepObject(pipeline?.function_steps);
-  const candidates = [
-    steps.signal_type,
-    pipeline?.description,
-    pipeline?.source_stream,
-    pipeline?.target_stream,
-    pipeline?.name,
-    JSON.stringify(pipeline?.function_steps ?? ''),
-    fallback,
-  ]
-    .map((value) => String(value ?? '').toLowerCase())
-    .join(' ');
-  if (candidates.includes('metric')) return 'metrics';
-  if (candidates.includes('trace')) return 'traces';
-  return 'logs';
-}
-
-export function pipelineGraphFromPipeline(
-  pipeline: ScheduledPipeline | null | undefined,
-  fallbackType: PipelineSignalType = 'logs',
-): PipelineGraphModel {
-  const signalType = signalTypeFromPipeline(pipeline, fallbackType);
-  const defaults = DEFAULT_GRAPH[signalType];
-  const steps = stepObject(pipeline?.function_steps);
-  const stepSources = stringsFrom(steps.sources);
-  const stepSinks = stringsFrom(steps.sinks);
-  const connectorSinks = stringsFrom(steps.sink_connectors).map((id) => `connector:${id}`);
-  return {
-    signalType,
-    sources: unique(stepSources.length > 0 ? stepSources : stringsFrom(pipeline?.source_stream, defaults.sources)),
-    sinks: unique([
-      ...(stepSinks.length > 0 ? stepSinks : stringsFrom(pipeline?.target_stream, defaults.sinks)),
-      ...connectorSinks,
-    ]),
-    transforms: transformsFromSteps(pipeline?.function_steps, defaults.transformName),
-    retryPolicy: typeof steps.retry_policy === 'string' ? steps.retry_policy : 'exponential',
-  };
-}
-
-export function defaultPipelineGraph(signalType: PipelineSignalType = 'logs'): PipelineGraphModel {
-  const defaults = DEFAULT_GRAPH[signalType];
-  return {
-    signalType,
-    sources: [...defaults.sources],
-    sinks: [...defaults.sinks],
-    transforms: [{ name: defaults.transformName, script: DEFAULT_VRL_SCRIPT }],
-    retryPolicy: 'exponential',
-  };
-}
-
-export function pipelineInputFromGraph({
-  name,
-  graph,
-  cron,
-  lookbackSecs,
-  enabled,
-}: {
-  name: string;
-  graph: PipelineGraphModel;
-  cron: string;
-  lookbackSecs?: number;
-  enabled?: boolean;
-}): PipelineInput {
-  const defaults = DEFAULT_GRAPH[graph.signalType];
-  const sources = normalizedList(graph.sources, defaults.sources);
-  const allSinks = normalizedList(graph.sinks, defaults.sinks);
-  const streamSinks = allSinks.filter((sink) => !sink.startsWith('connector:'));
-  const connectorSinks = allSinks
-    .filter((sink) => sink.startsWith('connector:'))
-    .map((sink) => sink.slice('connector:'.length));
-  const sourceStream = sources[0] ?? defaults.sources[0] ?? `${graph.signalType}_source`;
-  const targetStream = streamSinks[0] ?? defaults.sinks[0] ?? `${graph.signalType}_target`;
-  const transforms = graph.transforms.length > 0
-    ? graph.transforms
-    : [{ name: defaults.transformName, script: DEFAULT_VRL_SCRIPT }];
-  return {
-    name,
-    source_stream: sourceStream,
-    target_stream: targetStream,
-    function_steps: {
-      language: 'vrl',
-      signal_type: graph.signalType,
-      sources,
-      sinks: streamSinks,
-      sink_connectors: connectorSinks,
-      retry_policy: graph.retryPolicy || 'exponential',
-      steps: transforms.map((step) => ({
-        transform_name: step.name.trim() ? step.name.trim() : defaults.transformName,
-        script: step.script.trim() ? step.script : DEFAULT_VRL_SCRIPT,
-      })),
-    },
-    cron,
-    ...(lookbackSecs !== undefined && { lookback_secs: lookbackSecs }),
-    ...(enabled !== undefined && { enabled }),
-  };
-}
 
 export function PipelineGraphView({
   model,
@@ -383,7 +248,7 @@ export function PipelineGraphEditor({
   const errorCount = issues.filter((issue) => issue.level === 'error').length;
   const stats = React.useMemo(() => pipelineGraphStats(value), [value]);
   const selected = parseNodeId(selectedId);
-  const selectedTransform = selected?.kind === 'transform'
+  const selectedTransform = selected?.kind === 'transform' && value.transforms[selected.index]?.kind !== 'builtin'
     ? value.transforms[selected.index] ?? null
     : null;
 
@@ -400,7 +265,7 @@ export function PipelineGraphEditor({
   };
   const addTransform = () => {
     if (readOnly) return;
-    onChange({ ...value, transforms: [...value.transforms, { name: '', script: DEFAULT_VRL_SCRIPT }] });
+    onChange({ ...value, transforms: [...value.transforms, { name: '', script: '. = .', kind: 'vrl' }] });
     setSelectedId(`transform-${value.transforms.length}`);
     setInspectorOpen(true);
   };
@@ -469,7 +334,7 @@ export function PipelineGraphEditor({
             </ChromeButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-44">
-            <DropdownMenuItem onSelect={addSource}>
+            <DropdownMenuItem disabled={value.mode === 'realtime'} onSelect={addSource}>
               <Database className="h-3.5 w-3.5 text-blue-soft" />
               {t('graph.add_source')}
             </DropdownMenuItem>
@@ -477,7 +342,7 @@ export function PipelineGraphEditor({
               <Filter className="h-3.5 w-3.5 text-indigo-soft" />
               {t('graph.add_transform')}
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={addSink}>
+            <DropdownMenuItem disabled={value.mode === 'realtime'} onSelect={addSink}>
               <Send className="h-3.5 w-3.5 text-green-soft" />
               {t('graph.add_sink')}
             </DropdownMenuItem>
@@ -670,7 +535,7 @@ function PipelineGraphCanvas({
   // 结构变化（增删节点 / 重命名）时按 id 重新播种，保留用户已拖动的坐标。
   // 不含选中态 - 纯点选由 React Flow 内部处理，避免重播种把用户刚画的连线重置掉。
   const structureKey = React.useMemo(
-    () => built.nodes.map((node) => `${node.id}:${node.data.label}`).join('|'),
+    () => built.nodes.map((node) => `${node.id}:${node.data.label}:${node.data.labelKey ?? ""}:${node.data.subtitleKey}`).join('|'),
     [built.nodes],
   );
   React.useEffect(() => {
@@ -755,7 +620,7 @@ function PipelineGraphNode({ data, selected }: NodeProps<GraphNodeData>) {
           <Icon className="h-4 w-4" />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="truncate font-sans text-xs font-semibold text-tx-0">{data.label}</div>
+          <div className="truncate font-sans text-xs font-semibold text-tx-0">{data.labelKey ? t(data.labelKey) : data.label}</div>
           <div className="mt-1 truncate font-sans text-xs text-tx-3">{t(data.subtitleKey)}</div>
         </div>
         <Pill tone={data.tone}>{t(`graph.node_kinds.${data.kind}`)}</Pill>
@@ -809,6 +674,7 @@ function GraphInspector({
         nodeName={value}
       >
         <div className="flex flex-col gap-4 p-4">
+          {model.mode === 'realtime' ? <FormField label={t('graph.source_name')}><FormInput value={value} onChange={(event) => onChange({ ...model, sources: [event.target.value] })} /></FormField> : <>
           <FormField label={t('graph.source_name')}>
             <FormSelect
               value={value}
@@ -837,6 +703,8 @@ function GraphInspector({
               </p>
             ) : null}
           </FormField>
+          </>}
+          {model.mode === 'realtime' && <SourceRetention source={value} checked={model.retainSource ?? false} onChange={(retainSource) => onChange({ ...model, retainSource })} />}
           <ChromeButton
             disabled={!canDelete}
             className="justify-center border-red text-red-soft disabled:cursor-not-allowed disabled:opacity-50"
@@ -870,9 +738,10 @@ function GraphInspector({
       <GraphInspectorPanel
         title={t('workspace.node_configuration')}
         nodeKind={t('graph.node_kinds.sink')}
-        nodeName={value}
+        nodeName={model.transforms.some((step) => step.kind === 'builtin') ? t('processing.output') : value}
       >
         <div className="flex flex-col gap-4 p-4">
+          {model.transforms.some((step) => step.kind === 'builtin') ? <p className="text-xs text-tx-3">{t('processing.output_hint')}</p> : model.mode === 'realtime' ? <FormField label={t('graph.sink_name')}><FormInput value={value} onChange={(event) => setSink(event.target.value)} /></FormField> : <>
           <FormField label={t('graph.sink_target')} hint={t('graph.sink_target_hint')}>
             <FormSelect
               value={connectorId ? `connector:${connectorId}` : '__stream'}
@@ -917,6 +786,7 @@ function GraphInspector({
               ) : null}
             </FormField>
           )}
+          </>}
           <ChromeButton
             disabled={!canDelete}
             className="justify-center border-red text-red-soft disabled:cursor-not-allowed disabled:opacity-50"
@@ -951,9 +821,10 @@ function GraphInspector({
       nodeName={transform.name || t('graph.transform')}
     >
       <div className="flex flex-col gap-4 p-4">
-        <FormField label={t('graph.transform_name')}>
-          <FormInput value={transform.name} onChange={(event) => setTransform({ name: event.target.value })} />
-        </FormField>
+        <ProcessingEditor step={transform} onChange={setTransform} vrlEditor={
+          <VrlFunctionField script={transform.script} onPick={(script) => setTransform({ script })} onOpenEditor={onOpenCodeEditor} />
+        } />
+        {model.mode !== 'realtime' && (
         <FormField label={t('graph.retry_policy')}>
           <FormSelect
             value={model.retryPolicy}
@@ -965,11 +836,8 @@ function GraphInspector({
             ]}
           />
         </FormField>
-        <VrlFunctionField
-          script={transform.script}
-          onPick={(script) => setTransform({ script })}
-          onOpenEditor={onOpenCodeEditor}
-        />
+        )}
+
         <ChromeButton
           disabled={!canDelete}
           className="justify-center border-red text-red-soft disabled:cursor-not-allowed disabled:opacity-50"
@@ -1062,7 +930,7 @@ function VrlFunctionField({
   const selected = vrlFns.find((fn) => fn.source === script);
   const options = vrlFns.map((fn) => ({
     value: fn.id,
-    label: fn.is_builtin ? t('graph.preset_label', { name: fn.name }) : fn.name,
+    label: fn.name,
   }));
 
   const handlePick = (id: string) => {
@@ -1143,7 +1011,7 @@ function buildElements(
       data: {
         kind: 'transform' as const,
         label: transform.name.trim() || defaults.transformName,
-        subtitleKey: 'graph.node_subtitles.vrl_transform',
+        subtitleKey: transform.kind === 'builtin' ? 'processing.route' : 'graph.node_subtitles.vrl_transform',
         tone: 'blue' as const,
       },
     })),
@@ -1158,6 +1026,7 @@ function buildElements(
         data: {
           kind: 'sink' as const,
           label: isConnector ? (connectorNames[connectorId] ?? connectorId) : sink,
+          ...(model.transforms.some((step) => step.kind === 'builtin') && !isConnector ? { label: '', labelKey: 'processing.output' } : {}),
           subtitleKey: isConnector
             ? 'graph.node_subtitles.connector_sink'
             : 'graph.node_subtitles.stream_output',
@@ -1203,71 +1072,4 @@ function parseNodeId(id: string): ParsedNode | null {
   const match = /^(source|sink|transform)-(\d+)$/.exec(id);
   if (!match) return null;
   return { kind: match[1] as 'source' | 'sink' | 'transform', index: Number(match[2]) };
-}
-
-function stepObject(value: unknown): Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
-}
-
-function stringsFrom(value: unknown, fallback?: string | string[]): string[] {
-  if (Array.isArray(value)) return value.map(String).map((item) => item.trim()).filter(Boolean);
-  if (typeof value === 'string' && value.trim()) return [value.trim()];
-  if (Array.isArray(fallback)) return fallback;
-  return fallback ? [fallback] : [];
-}
-
-function normalizedList(value: string[], fallback: string[]): string[] {
-  const normalized = unique(value.map((item) => item.trim()).filter(Boolean));
-  return normalized.length > 0 ? normalized : fallback;
-}
-
-function unique(value: string[]): string[] {
-  return [...new Set(value)];
-}
-
-function firstString(obj: Record<string, unknown>, keys: string[]): string {
-  for (const key of keys) {
-    const candidate = obj[key];
-    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim();
-  }
-  return '';
-}
-
-/**
- * 把 function_steps 解析成处理步骤列表。兼容三种历史/当前形态：
- * 新结构 `{ steps: [{transform_name, script}] }`、裸数组 `[{...}]`、以及旧单对象
- * `{ transform_name, script }`。任何形态都至少产出一个步骤。
- */
-function transformsFromSteps(value: unknown, fallbackName: string): TransformStep[] {
-  const obj = stepObject(value);
-  const rawSteps: unknown[] | null = Array.isArray(value)
-    ? value
-    : Array.isArray(obj.steps)
-      ? (obj.steps as unknown[])
-      : null;
-  if (rawSteps) {
-    const parsed: TransformStep[] = [];
-    for (const step of rawSteps) {
-      const so = stepObject(step);
-      const name = firstString(so, ['transform_name', 'function_name', 'name']);
-      const script = typeof so.script === 'string' ? so.script : '';
-      if (!name && !script) continue;
-      parsed.push({ name: name || fallbackName, script: script || DEFAULT_VRL_SCRIPT });
-    }
-    if (parsed.length > 0) return parsed;
-  }
-  if ('script' in obj || 'transform_name' in obj || 'function_name' in obj) {
-    return [
-      {
-        name: firstString(obj, ['transform_name', 'function_name', 'name']) || fallbackName,
-        script: typeof obj.script === 'string' ? obj.script : DEFAULT_VRL_SCRIPT,
-      },
-    ];
-  }
-  if (typeof value === 'string' && value.trim()) {
-    return [{ name: fallbackName, script: value }];
-  }
-  return [{ name: fallbackName, script: DEFAULT_VRL_SCRIPT }];
 }

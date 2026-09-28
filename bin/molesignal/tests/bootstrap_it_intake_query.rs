@@ -114,7 +114,7 @@ async fn intake_api_accepts_batch_and_query_api_returns_seeded_rows() {
             let organization_id = organization_id.clone();
             async move {
                 let row: (i64,) = sqlx::query_as(
-                    "SELECT COUNT(*) FROM data_segments WHERE org_id = $1 AND state = 'active'",
+                    "SELECT COUNT(*) FROM catalog_segments WHERE org_id = $1 AND state = 'active'",
                 )
                 .bind(organization_id)
                 .fetch_one(&pool)
@@ -241,7 +241,7 @@ async fn intake_auto_creates_missing_stream() {
             let organization_id = organization_id.clone();
             async move {
                 let row: (i64,) = sqlx::query_as(
-                    "SELECT COUNT(*) FROM data_segments WHERE org_id = $1 AND state = 'active'",
+                    "SELECT COUNT(*) FROM catalog_segments WHERE org_id = $1 AND state = 'active'",
                 )
                 .bind(organization_id)
                 .fetch_one(&pool)

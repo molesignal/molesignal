@@ -5,7 +5,7 @@
 //!
 //! - 启动期优先使用发布包内置的 `GeoLite2-City.mmdb`。
 //! - 若本地 db 不存在且 `license_key` 已设 → 异步 HTTP 下载 tar.gz + 提取到 `db_path`。
-//! - 周期 refresh 只有配置 license key 时启用；缺 key 仅禁用刷新，不阻塞启动。
+
 //!
 //! 下载实现：`reqwest` 拉 tar.gz → `flate2 + tar` 提取 → 写文件原子替换。
 //! 当前取消文件 atomic rename 兜底（写临时 + rename），简化为直写。

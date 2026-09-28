@@ -81,13 +81,12 @@ const WHITELIST_PREFIXES: &[&str] = &[
     "/api/v1/instance",  // 实例公开信息：signin 页读 signup_enabled
     "/api/v1/healthz",
     "/metrics",
-    "/s/",                            // 资源分享 token 交换 share session
-    "/api/v1/public/share",           // HttpOnly share session 自鉴权
-    "/api/v1/files/stream/",          // 文件下载 token 自带授权
-    "/api/v1/public/avatars/",        // 头像公开读：<img src> 不带 Bearer
-    "/api/v1/public/status-pages/",   // 客户状态页公开快照
-    "/api/v1/synthetics/artifacts/",  // Probe lease token 自鉴权的 Artifact 上传
-    "/api/v1/billing/stripe/webhook", // Stripe webhook：无 JWT，靠 HMAC 验签
+    "/s/",                           // 资源分享 token 交换 share session
+    "/api/v1/public/share",          // HttpOnly share session 自鉴权
+    "/api/v1/files/stream/",         // 文件下载 token 自带授权
+    "/api/v1/public/avatars/",       // 头像公开读：<img src> 不带 Bearer
+    "/api/v1/public/status-pages/",  // 客户状态页公开快照
+    "/api/v1/synthetics/artifacts/", // Probe lease token 自鉴权的 Artifact 上传
     // Push 型 connector 接入：外部平台带不了 Bearer，由 handler 用 X-Connector-Token 自鉴权。
     "/api/v1/_kinesis_firehose",
     "/api/v1/_cloudflare",

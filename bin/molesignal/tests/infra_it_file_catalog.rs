@@ -147,6 +147,7 @@ fn ready_parquet_for(
     let artifact_type = ArtifactTypeId::builtin(type_id::builtin::ARTIFACT_PARQUET);
     let key = StorageLayout::artifact_key(
         &h.scope.organization_id,
+        molesignal::domain::storage::StreamTypeId::LOGS,
         dataset_id,
         partition,
         segment_id,
@@ -182,6 +183,7 @@ fn pending_tantivy(
     let artifact_type = ArtifactTypeId::builtin(type_id::builtin::ARTIFACT_TANTIVY);
     let key = StorageLayout::artifact_key(
         &h.scope.organization_id,
+        molesignal::domain::storage::StreamTypeId::LOGS,
         &h.dataset_id,
         partition,
         segment_id,
@@ -294,7 +296,8 @@ async fn flush_publish_replace_and_tombstone_lifecycle() {
     let h = harness().await;
 
     // flush 发布 + 幂等重试。
-    let p1 = provenance("node-a", 1, 1, 10);
+    let mut p1 = provenance("node-a", 1, 1, 10);
+    p1.collected_bytes = Some(12345);
     let seg1 = segment(&h, &p1, 1, true);
     let commit = CommitFlush {
         dataset_id: h.dataset_id.clone(),
@@ -317,6 +320,15 @@ async fn flush_publish_replace_and_tombstone_lifecycle() {
     assert!(retry.already_committed, "same flush_id must be idempotent");
     assert_eq!(retry.catalog_version, 1);
     assert_eq!(snapshot_segments(&h).await.len(), 1, "no duplicate segment");
+
+    let usage = h
+        .catalog
+        .intake_usage(&h.scope)
+        .await
+        .expect("intake usage");
+    assert_eq!(usage.len(), 1);
+    assert_eq!(usage[0].collected_bytes, Some(12345));
+    assert!(usage[0].complete);
 
     // 快照带 checkpoint；pending 索引对查询可见（用于降级判断）。
     let snap = h
@@ -575,6 +587,7 @@ async fn manifest_generation_switches_atomically_and_can_retire_partition() {
         object: StoredObject {
             key: StorageLayout::manifest_key(
                 &h.scope.organization_id,
+                molesignal::domain::storage::StreamTypeId::LOGS,
                 &h.dataset_id,
                 &segment.partition,
                 1,
@@ -693,6 +706,7 @@ async fn cross_dataset_transform_retires_sealed_base_and_publishes_output_atomic
         object: StoredObject {
             key: StorageLayout::manifest_key(
                 &h.scope.organization_id,
+                molesignal::domain::storage::StreamTypeId::LOGS,
                 &h.dataset_id,
                 &input.partition,
                 1,

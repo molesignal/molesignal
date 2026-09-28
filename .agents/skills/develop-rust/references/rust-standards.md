@@ -55,13 +55,13 @@ HTTP/gRPC 可以接收字符串，但应尽早解析成领域 enum 或 ID。
 
 数据库错误通过 `crates/engines/postgres/src/persistence/mod.rs::sqlx_err` 统一处理常见 `RowNotFound` 与 SQLSTATE `23505`，或在确需特殊语义时显式映射。
 
-不要把内部错误文本、SQL、token、license 签名包或密钥返回给客户端。`Error` 的 5xx 响应会隐藏内部详情。
+不要把内部错误文本、SQL、token 或密钥返回给客户端。`Error` 的 5xx 响应会隐藏内部详情。
 
 ## Option、Result 与不变量
 
 - `Option` 表示值可能不存在。
 - `Result` 表示操作可能失败且失败有原因。
-- License 或权限失败返回明确错误，不用 `None` 或空成功响应吞掉。
+- 权限失败返回明确错误，不用 `None` 或空成功响应吞掉。
 - `unwrap()`、`expect()`、`panic!()` 只用于测试或外部输入无法触发的内部不变量；`expect` 信息要解释不变量。
 
 ## 所有权
@@ -94,7 +94,7 @@ tracing::info!(
 
 - `%` 用于 `Display`，`?` 用于受控的 `Debug`。
 - 不在 intake/query 热路径逐条记录 debug/info。
-- 不记录 access token、API key、密码、cookie、license signed package、模型 secret 或完整敏感 payload。
+- 不记录 access token、API key、密码、cookie、模型 secret 或完整敏感 payload。
 - 删除临时 `println!`、`eprintln!` 与 `dbg!`。
 
 ## 时间
@@ -113,20 +113,6 @@ OTLP nanoseconds 等外部单位在入口转换。不要新增单位不明的 `t
 - SQL 的 SELECT/UPDATE/DELETE/UPSERT 都要保留组织谓词。
 - cache key、对象路径、job key 和 broadcast topic 带组织维度。
 - system scope、platform administrator、public share 和 cross-org grant 必须有显式权限路径。
-
-## License
-
-受限功能在入口或 worker 周期边界调用：
-
-```rust
-if !state.platform.license.has_feature(FEATURE) {
-    return Err(Error::forbidden(format!(
-        "{FEATURE} feature not licensed"
-    )));
-}
-```
-
-不要缓存可能在 `LicenseHolder` 替换后失效的授权结果。社区版必须继续关闭商业 feature。
 
 ## Protocol 与序列化
 

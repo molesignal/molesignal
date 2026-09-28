@@ -312,7 +312,7 @@ function VersionSnapshot({
   const { t } = useTranslation('apm');
   return (
     <div className="bg-bg-1 p-4">
-      <span className="text-xs font-strong uppercase tracking-wide text-tx-3">{label}</span>
+      <span className="text-xs font-strong tracking-normal text-tx-3">{label}</span>
       <div className="mt-1 font-mono text-sm font-strong text-tx-0">{version}</div>
       <div className="mt-4 grid grid-cols-3 gap-3 text-xs">
         <Metric label={t('metrics.requests')} value={formatCount(red.request_count)} />

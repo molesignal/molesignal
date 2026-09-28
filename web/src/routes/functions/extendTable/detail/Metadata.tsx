@@ -59,7 +59,7 @@ export function TableMetadata({ table }: { table: ExtendTableSummary }) {
             <item.icon className="h-4 w-4" />
           </span>
           <span className="min-w-0">
-            <span className="block text-type-micro uppercase tracking-wider text-tx-3">
+            <span className="block text-type-micro tracking-normalr text-tx-3">
               {item.label}
             </span>
             <span

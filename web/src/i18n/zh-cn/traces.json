@@ -194,5 +194,35 @@
       "empty": "所选时间范围内没有服务目录条目。",
       "slowest_operations": "最慢操作"
     }
+  },
+  "attributes": {
+    "title": "标签",
+    "view": "属性视图",
+    "list": "表格",
+    "json": "原始 JSON",
+    "search": "搜索标签",
+    "copy_failed": "无法复制到剪贴板",
+    "empty": "暂无标签",
+    "no_matches": "没有匹配的标签",
+    "copy_value_for": "复制 {{key}} 的值",
+    "copied": "已复制",
+    "actions": "{{key}} 的操作",
+    "copy_key": "复制 Key",
+    "copy_value": "复制 Value",
+    "copy_pair": "复制 Key=Value",
+    "include": "添加到查询条件",
+    "exclude": "排除该值",
+    "fields_only": "切换到字段模式后添加筛选条件。",
+    "scalar_only": "仅支持非空标量值及有效字段名的筛选。",
+    "show_all": "展开全部 {{count}} 项",
+    "show_less": "收起",
+    "groups": {
+      "database": "数据库",
+      "service": "服务",
+      "deployment": "部署",
+      "telemetry": "遥测",
+      "resource": "资源",
+      "other": "其他"
+    }
   }
 }

@@ -70,16 +70,6 @@ impl ToolDispatcher for RealToolDispatcher {
 
 impl RealToolDispatcher {
     async fn dispatch_inner(&self, ctx: &ToolAuthContext, call: ToolCall) -> Result<ToolResult> {
-        if !self
-            .state
-            .platform
-            .license
-            .has_feature(crate::agent::FEATURE)
-        {
-            return Err(Error::forbidden(
-                "Mole Agent tools require the agent feature",
-            ));
-        }
         if ctx.is_query_generation_only() {
             return Ok(ToolResult::error(
                 "tool calls are disabled while query-generation-only mode is active",

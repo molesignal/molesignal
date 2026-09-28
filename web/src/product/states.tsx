@@ -1,4 +1,4 @@
-import { AlertTriangle, Ban, Database, Loader2, LockKeyhole, ServerCrash, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, Ban, Database, Loader2, ServerCrash, type LucideIcon } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -11,10 +11,6 @@ export type ProductStateVariant =
   | 'error'
   | 'backend-pending'
   | 'permission-denied'
-  | 'license-gated'
-  | 'pro-required'
-  | 'saas-only'
-  | 'trial-available';
 
 export interface ProductStateProps {
   variant: ProductStateVariant;
@@ -57,10 +53,6 @@ const STATE_ICON = {
   error: AlertTriangle,
   'backend-pending': ServerCrash,
   'permission-denied': Ban,
-  'license-gated': LockKeyhole,
-  'pro-required': LockKeyhole,
-  'saas-only': LockKeyhole,
-  'trial-available': LockKeyhole,
 } satisfies Record<ProductStateVariant, LucideIcon>;
 
 // State tones:
@@ -74,10 +66,6 @@ const STATE_TONE = {
   error: 'text-red-soft',
   'backend-pending': 'text-yellow-soft',
   'permission-denied': 'text-red-soft',
-  'license-gated': 'text-yellow-soft',
-  'pro-required': 'text-yellow-soft',
-  'saas-only': 'text-yellow-soft',
-  'trial-available': 'text-blue',
 } satisfies Record<ProductStateVariant, string>;
 
 export function ProductState({
@@ -122,38 +110,5 @@ export function ProductState({
       </div>
       {action && <div className="mt-1 flex flex-wrap items-center justify-center gap-2">{action}</div>}
     </section>
-  );
-}
-
-/**
- * 后端对未授权的 license 特性返回 402/403（如 `forbidden: <feature> feature not
- * licensed`）。本 hook 把这类错误转成本地化的 pro-required gate，避免把后端英文原文
- * 透传给用户。返回 `null` 表示该错误不是 license 拒绝，调用方应按普通 error 处理。
- *
- * 用法：
- * ```tsx
- * const licenseGate = useLicenseErrorGate();
- * const pageState = q.isError
- *   ? (licenseGate(q.error, 'features.agent') ?? { variant: 'error', error: q.error })
- *   : productStateFor(state, { ... });
- * ```
- */
-export function useLicenseErrorGate(): (
-  error: unknown,
-  featureLabelKey: string,
-) => ProductStateProps | null {
-  const { t } = useTranslation('edition');
-  return React.useCallback(
-    (error, featureLabelKey) => {
-      const status = toApiError(error).status;
-      if (status !== 402 && status !== 403) return null;
-      const feature = t(featureLabelKey);
-      return {
-        variant: 'pro-required',
-        title: t('gates.pro-required.title', { feature }),
-        description: t('gates.pro-required.description', { feature }),
-      };
-    },
-    [t],
   );
 }

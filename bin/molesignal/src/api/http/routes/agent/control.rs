@@ -14,7 +14,6 @@ use tool_runtime::{ToolSurface, catalog::tools_for_surface};
 
 use crate::{
     agent::{
-        FEATURE,
         model::{
             AgentProfile, ApprovalRequest, ApprovalStatus, Automation, ConfidenceLevel, Execution,
             FactStatus, HypothesisStatus, Investigation, InvestigationEvidence,
@@ -94,19 +93,11 @@ pub fn routes() -> Router<AppState> {
         )
 }
 
-fn require_license(state: &AppState) -> Result<()> {
-    if !state.platform.license.has_feature(FEATURE) {
-        return Err(Error::forbidden(format!("{FEATURE} feature not licensed")));
-    }
-    Ok(())
-}
-
 #[permission("agent.use")]
 async fn overview(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Value>> {
-    require_license(&state)?;
     let investigations = state
         .agent
         .repository
@@ -147,7 +138,6 @@ async fn list_investigations(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Value>> {
-    require_license(&state)?;
     Ok(Json(json!({
         "investigations": state.agent.repository.list_investigations(&ctx.org_id).await?
     })))
@@ -159,7 +149,6 @@ async fn create_investigation(
     Extension(ctx): Extension<IamContext>,
     Json(request): Json<CreateInvestigationRequest>,
 ) -> Result<Json<Investigation>> {
-    require_license(&state)?;
     if request.title.trim().is_empty() {
         return Err(Error::invalid("investigation title cannot be empty"));
     }
@@ -224,7 +213,6 @@ async fn get_investigation(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>> {
-    require_license(&state)?;
     Ok(Json(
         serde_json::to_value(
             state
@@ -268,7 +256,6 @@ async fn update_investigation(
     Path(id): Path<String>,
     Json(request): Json<UpdateInvestigationRequest>,
 ) -> Result<Json<Investigation>> {
-    require_license(&state)?;
     let mut item = state
         .agent
         .repository
@@ -341,7 +328,6 @@ async fn append_investigation_step(
     Path(id): Path<String>,
     Json(request): Json<AppendStepRequest>,
 ) -> Result<Json<InvestigationStep>> {
-    require_license(&state)?;
     let investigation_id = Id(id);
     state
         .agent
@@ -395,7 +381,6 @@ async fn append_investigation_evidence(
     Path(id): Path<String>,
     Json(request): Json<AppendEvidenceRequest>,
 ) -> Result<Json<InvestigationEvidence>> {
-    require_license(&state)?;
     let investigation_id = Id(id);
     state
         .agent
@@ -436,7 +421,6 @@ async fn upsert_investigation_hypothesis(
     Path(id): Path<String>,
     Json(request): Json<UpsertHypothesisRequest>,
 ) -> Result<Json<InvestigationHypothesis>> {
-    require_license(&state)?;
     let investigation_id = Id(id);
     state
         .agent
@@ -518,7 +502,6 @@ async fn list_automations(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Value>> {
-    require_license(&state)?;
     Ok(Json(json!({
         "automations": state.agent.repository.list_automations(&ctx.org_id).await?
     })))
@@ -530,7 +513,6 @@ async fn create_automation(
     Extension(ctx): Extension<IamContext>,
     Json(request): Json<AutomationRequest>,
 ) -> Result<Json<Automation>> {
-    require_license(&state)?;
     validate_allowed_tools(
         &state,
         &ctx.org_id,
@@ -566,7 +548,6 @@ async fn get_automation(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<Automation>> {
-    require_license(&state)?;
     Ok(Json(
         state
             .agent
@@ -583,7 +564,6 @@ async fn update_automation(
     Path(id): Path<String>,
     Json(request): Json<AutomationRequest>,
 ) -> Result<Json<Automation>> {
-    require_license(&state)?;
     validate_allowed_tools(
         &state,
         &ctx.org_id,
@@ -621,7 +601,6 @@ async fn dry_run_automation(
     Path(id): Path<String>,
     Json(event): Json<Value>,
 ) -> Result<Json<Value>> {
-    require_license(&state)?;
     let automation = state
         .agent
         .repository
@@ -667,7 +646,6 @@ async fn list_approvals(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Value>> {
-    require_license(&state)?;
     Ok(Json(json!({
         "approvals": state.agent.repository.list_approvals(&ctx.org_id).await?
     })))
@@ -679,7 +657,6 @@ async fn create_approval(
     Extension(ctx): Extension<IamContext>,
     Json(request): Json<CreateApprovalRequest>,
 ) -> Result<Json<ApprovalRequest>> {
-    require_license(&state)?;
     let saved = create_agent_approval(&state.tools, &ctx, request).await?;
     activity_audit::record(
         &state,
@@ -699,7 +676,6 @@ async fn get_approval(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<ApprovalRequest>> {
-    require_license(&state)?;
     Ok(Json(
         state
             .agent
@@ -723,7 +699,6 @@ async fn review_approval(
     Path(id): Path<String>,
     Json(request): Json<ReviewApprovalRequest>,
 ) -> Result<axum::response::Response> {
-    require_license(&state)?;
     let id = Id(id);
     let existing = state
         .agent
@@ -792,7 +767,6 @@ async fn execute_approval(
     Path(id): Path<String>,
     Json(request): Json<ExecuteApprovalRequest>,
 ) -> Result<axum::response::Response> {
-    require_license(&state)?;
     let result = execute_approved_operation(&state, &ctx, &Id(id), request.idempotency_key).await?;
     Ok(execution_response::response(result))
 }
@@ -802,7 +776,6 @@ async fn list_executions(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Value>> {
-    require_license(&state)?;
     Ok(Json(json!({
         "executions": state.agent.repository.list_executions(&ctx.org_id).await?
     })))
@@ -814,7 +787,6 @@ async fn get_execution(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<Execution>> {
-    require_license(&state)?;
     Ok(Json(
         state
             .agent
@@ -876,7 +848,6 @@ async fn list_profiles(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Value>> {
-    require_license(&state)?;
     Ok(Json(json!({
         "profiles": state.agent.repository.list_profiles(&ctx.org_id).await?
     })))
@@ -888,7 +859,6 @@ async fn create_profile(
     Extension(ctx): Extension<IamContext>,
     Json(request): Json<AgentProfileRequest>,
 ) -> Result<Json<AgentProfile>> {
-    require_license(&state)?;
     validate_profile_request(&request)?;
     validate_allowed_tools(
         &state,
@@ -927,7 +897,6 @@ async fn get_profile(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<AgentProfile>> {
-    require_license(&state)?;
     Ok(Json(
         state
             .agent
@@ -944,7 +913,6 @@ async fn update_profile(
     Path(id): Path<String>,
     Json(request): Json<AgentProfileRequest>,
 ) -> Result<Json<AgentProfile>> {
-    require_license(&state)?;
     validate_profile_request(&request)?;
     validate_allowed_tools(
         &state,

@@ -236,6 +236,12 @@ pub struct CatalogInvariantIssue {
 /// 持久化文件元数据的唯一入口。实现位于 PostgreSQL engine。
 #[async_trait]
 pub trait FileCatalog: Send + Sync {
+    /// Read tenant-scoped cumulative intake accounting. Flush retries do not add bytes twice.
+    async fn intake_usage(
+        &self,
+        scope: &OrganizationScope,
+    ) -> Result<Vec<super::DatasetIntakeUsage>>;
+
     /// 幂等建集：`(org, logical_stream, dataset_type)` 已存在的直接返回现有行。
     async fn ensure_datasets(
         &self,

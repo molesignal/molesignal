@@ -14,7 +14,7 @@ Inbound MCP adapter ┘                         └─ approval/execution coordi
 
 - `crates/modules/tool-runtime`：稳定工具名、JSON Schema、输出契约、风险、权限提示、
   exposure、可信调用上下文和协议中立 dispatcher trait。
-- `bin/molesignal/src/app/tools`：权限和 license 复核、参数校验、查询上限、租户隔离、
+- `bin/molesignal/src/app/tools`：权限复核、参数校验、查询上限、租户隔离、
   surface exposure 硬校验、审批请求创建及各领域 handler。即使客户端绕过 `tools/list`
   按名字调用未暴露 Tool，runtime 也会拒绝。
 - `api/http/routes/agent/builtin_execution.rs`：两种入口共用的执行策略、审批创建、Automatic
@@ -207,7 +207,7 @@ Catalog 的 exposure 既用于生成列表，也由 `ToolRuntime::authorize` 在
 
 每轮模型请求只固定暴露 meta、常用查询和 Dashboard 工作流工具。其余内置工具与健康、
 已授权的出站 MCP 工具通过 `tool_search` 发现，再由 `tools_call` 调用。目标工具仍执行
-自己的 Toolset、风险、超时、响应大小、权限、license 与审计策略；meta 工具不能递归
+自己的 Toolset、风险、超时、响应大小、权限与审计策略；meta 工具不能递归
 调用自身。
 
 每个 ToolSpec 同时声明 `required_permissions` 与 `permission_mode`（`all` / `any`），

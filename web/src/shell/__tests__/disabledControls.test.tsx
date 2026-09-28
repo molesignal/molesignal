@@ -152,9 +152,9 @@ describe('disabled action foundations', () => {
     const onFile = vi.fn();
     const { container } = withTooltips(
       <FilePicker
-        buttonLabel="Upload license"
+        buttonLabel="Upload configuration"
         disabled
-        disabledReason="Requires sys.licenses.manage"
+        disabledReason="Requires sys.telemetry.manage"
         onFile={onFile}
       />,
     );
@@ -164,7 +164,7 @@ describe('disabled action foundations', () => {
     expect((input as HTMLInputElement).disabled).toBe(true);
     expect(input?.getAttribute('aria-disabled')).toBe('true');
     fireEvent.change(input as HTMLInputElement, {
-      target: { files: [new File(['license'], 'license.txt')] },
+      target: { files: [new File(['configuration'], 'configuration.txt')] },
     });
     expect(onFile).not.toHaveBeenCalled();
   });

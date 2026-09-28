@@ -9,7 +9,6 @@ export const STATUS_PAGE_PRODUCT_ROUTES = [
     labelKey: 'status_pages',
     group: 'reliability',
     icon: RadioTower,
-    edition: 'any',
     owner: 'status_pages',
     emptyStateStrategy: 'create-first',
     nav: true,

@@ -91,11 +91,11 @@ export function ProductTemplateFixture() {
         subtitle={t('product:templates.fixture_subtitle')}
         toolbar={toolbar}
         state={{
-          variant: 'license-gated',
+          variant: 'permission-denied',
           action: (
             <ChromeButton variant="primary">
               <LockKeyhole className="h-3 w-3" />
-              {t('product:actions.review_license')}
+              {t('product:actions.review_permissions')}
             </ChromeButton>
           ),
         }}
@@ -238,7 +238,7 @@ function SampleSettingsNav() {
   const { t } = useTranslation('product');
   return (
     <nav className="rounded-md border border-bd-0 bg-bg-1 p-2">
-      {['general', 'organization', 'license'].map((key) => (
+      {['general', 'organization', 'security'].map((key) => (
         <button key={key} type="button" className="block h-7 w-full rounded px-2 text-left font-sans text-xs text-tx-1 hover:bg-bg-3">
           {t(`fixture.${key}`)}
         </button>

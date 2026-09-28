@@ -22,7 +22,6 @@ export interface PermissionDefinition {
   label_key: string;
   description_key: string;
   builtin_roles: string[];
-  feature?: string;
 }
 
 export interface PermissionBundle {

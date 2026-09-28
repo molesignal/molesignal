@@ -242,7 +242,7 @@ function OverallStatus({
         </div>
       </div>
       <div className="border-t border-bd-0 pt-4 md:border-l md:border-t-0 md:pl-7 md:pt-0">
-        <div className="text-xs font-strong uppercase tracking-[0.1em] text-tx-3">
+        <div className="text-xs font-strong tracking-normal text-tx-3">
           {copy('public.last_updated_label')}
         </div>
         <time

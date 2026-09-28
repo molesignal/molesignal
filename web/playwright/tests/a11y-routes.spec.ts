@@ -74,16 +74,13 @@ const ROUTES: Array<{ path: string; label: string }> = [
   { path: '/iam/organizations', label: 'iam-organizations' },
   { path: '/iam/groups', label: 'iam-groups' },
   { path: '/iam/roles', label: 'iam-roles' },
-  { path: '/iam/quota', label: 'iam-quota' },
   { path: '/iam/invitations', label: 'iam-invitations' },
 
   // Settings sub-routes.
   { path: '/settings/general', label: 'settings-general' },
-  { path: '/settings/license', label: 'settings-license' },
   { path: '/settings/storage_settings', label: 'settings-storage' },
   { path: '/settings/pipeline_destinations', label: 'settings-pipeline-destinations' },
   { path: '/settings/nodes', label: 'settings-nodes' },
-  { path: '/settings/correlation', label: 'settings-correlation' },
   { path: '/settings/cipher_keys', label: 'settings-cipher-keys' },
   { path: '/settings/regex_patterns', label: 'settings-regex-patterns' },
   { path: '/settings/domain_management', label: 'settings-domain-management' },

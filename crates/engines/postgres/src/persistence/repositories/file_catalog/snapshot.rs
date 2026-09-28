@@ -98,7 +98,7 @@ pub(super) async fn snapshot(
     }
 
     let mut segment_sql = format!(
-        "SELECT {SEGMENT_COLS} FROM data_segments \
+        "SELECT {SEGMENT_COLS} FROM catalog_segments \
          WHERE org_id = $1 AND dataset_id = ANY($2) AND state = 'active' \
            AND min_event_micros <= $3 AND max_event_micros >= $4"
     );
@@ -143,7 +143,7 @@ pub(super) async fn snapshot(
     let mut artifacts_by_segment: HashMap<String, Vec<Artifact>> = HashMap::new();
     if !segment_ids.is_empty() {
         let artifact_rows = sqlx::query(&format!(
-            "SELECT {ARTIFACT_COLS} FROM artifacts \
+            "SELECT {ARTIFACT_COLS} FROM catalog_artifacts \
              WHERE org_id = $1 AND segment_id = ANY($2) AND state <> 'tombstoned'"
         ))
         .bind(scope.organization_id.as_str())

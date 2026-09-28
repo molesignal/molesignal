@@ -84,7 +84,7 @@ export function ResultDrawer({
                   </pre>
                 )}
                 <div className="mt-3">
-                  <div className="mb-2 text-type-micro font-strong uppercase tracking-wide text-tx-3">{t('detail.step_evidence')}</div>
+                  <div className="mb-2 text-type-micro font-strong tracking-normal text-tx-3">{t('detail.step_evidence')}</div>
                   {attempt.evidence && attempt.evidence.length > 0 ? (
                     <div className="space-y-2">
                       {attempt.evidence.map((step, index) => (
@@ -190,7 +190,7 @@ export function ResultDrawer({
 }
 
 function Summary({ label, value }: { label: React.ReactNode; value: React.ReactNode }) {
-  return <div className="rounded-md border border-bd-0 bg-bg-2 px-3 py-3"><div className="text-type-micro font-strong uppercase tracking-wide text-tx-3">{label}</div><div className="mt-2 text-sm font-strong text-tx-0">{value}</div></div>;
+  return <div className="rounded-md border border-bd-0 bg-bg-2 px-3 py-3"><div className="text-type-micro font-strong tracking-normal text-tx-3">{label}</div><div className="mt-2 text-sm font-strong text-tx-0">{value}</div></div>;
 }
 
 function ArtifactPreview({ resultId, artifact }: { resultId: string; artifact: SyntheticResultArtifact }) {
@@ -278,7 +278,7 @@ function ArtifactPreview({ resultId, artifact }: { resultId: string; artifact: S
 }
 
 function Timing({ label, value }: { label: string; value: number | undefined }) {
-  return <div><div className="text-type-micro uppercase tracking-wide text-tx-3">{label}</div><div className="mt-0.5 font-code text-tx-1">{formatDuration(value)}</div></div>;
+  return <div><div className="text-type-micro tracking-normal text-tx-3">{label}</div><div className="mt-0.5 font-code text-tx-1">{formatDuration(value)}</div></div>;
 }
 
 function assertionMap(revision: MonitorRevision | undefined): Map<string, MonitorAssertion> {

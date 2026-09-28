@@ -10,7 +10,7 @@ mod alerting;
 mod composition;
 mod core;
 mod iam;
-mod license;
+
 pub mod llm_executor;
 mod platform;
 mod query;

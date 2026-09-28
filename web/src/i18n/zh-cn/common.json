@@ -5,7 +5,6 @@
     "read_only": "当前为只读访问。",
     "page_unavailable": "当前权限不能访问此页面。",
     "permission_required": "需要 {{permission}} 权限。",
-    "feature_required": "需要已授权的 {{feature}} 功能。",
     "form_invalid": "请先填写必填字段再保存。",
     "no_changes": "没有未保存的修改。",
     "operation_pending": "另一个请求仍在处理中。",

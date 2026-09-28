@@ -2658,13 +2658,13 @@ function CallRecords({
           </summary>
           <div className="space-y-3 border-t border-bd-0 bg-bg-2 p-3">
             <div>
-              <div className="mb-1 text-type-micro font-strong uppercase text-tx-3">
+              <div className="mb-1 text-type-micro font-strong text-tx-3">
                 {t('settings.tools.calls.arguments')}
               </div>
               <JsonBlock value={call.input} />
             </div>
             <div>
-              <div className="mb-1 text-type-micro font-strong uppercase text-tx-3">
+              <div className="mb-1 text-type-micro font-strong text-tx-3">
                 {t('settings.tools.calls.policy_decision')}
               </div>
               <JsonBlock value={call.policy_decision} />
@@ -2705,7 +2705,7 @@ function MiniStat({
 }) {
   return (
     <div className="rounded-md border border-bd-0 bg-bg-2 p-3">
-      <div className="text-type-micro uppercase tracking-[0.04em] text-tx-3">{label}</div>
+      <div className="text-type-micro tracking-normal text-tx-3">{label}</div>
       <div
         className={cn(
           'mt-1 font-mono text-sm font-strong tabular-nums text-tx-0',

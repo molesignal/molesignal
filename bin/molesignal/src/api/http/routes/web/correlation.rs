@@ -27,9 +27,7 @@ use serde_json::Value;
 use crate::{api::AppState, app::iam::IamContext, domain::iam::permission, shared::Error};
 
 pub fn routes() -> Router<AppState> {
-    Router::new()
-        .route("/correlation/providers", get(providers))
-        .route("/correlation/{from_kind}/{to_kind}", get(correlation))
+    Router::new().route("/correlation/{from_kind}/{to_kind}", get(correlation))
 }
 
 #[derive(Debug, Deserialize)]
@@ -63,46 +61,6 @@ pub struct CorrelationResponse {
     pub time_range: TimeRange,
     pub filters: Vec<Filter>,
     pub prefill: Prefill,
-}
-
-#[derive(Debug, Serialize)]
-pub struct CorrelationProvider {
-    pub id: &'static str,
-    pub from_kind: &'static str,
-    pub to_kind: &'static str,
-    pub label: &'static str,
-    pub enabled: bool,
-}
-
-#[permission(any("streams.query", "sys.telemetry.read"))]
-async fn providers(
-    Extension(ctx): Extension<IamContext>,
-) -> Result<Json<Vec<CorrelationProvider>>, Error> {
-    Ok(Json(vec![
-        provider("trace-log", "trace", "log", "Trace to logs"),
-        provider("trace-metric", "trace", "metric", "Trace to metrics"),
-        provider("trace-host", "trace", "host", "Trace to host"),
-        provider("metric-trace", "metric", "trace", "Metric to traces"),
-        provider("metric-log", "metric", "log", "Metric to logs"),
-        provider("log-trace", "log", "trace", "Log to traces"),
-        provider("log-metric", "log", "metric", "Log to metrics"),
-        provider("host-trace", "host", "trace", "Host to traces"),
-    ]))
-}
-
-fn provider(
-    id: &'static str,
-    from_kind: &'static str,
-    to_kind: &'static str,
-    label: &'static str,
-) -> CorrelationProvider {
-    CorrelationProvider {
-        id,
-        from_kind,
-        to_kind,
-        label,
-        enabled: true,
-    }
 }
 
 #[permission(any("streams.query", "sys.telemetry.read"))]

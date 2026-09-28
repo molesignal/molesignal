@@ -23,7 +23,7 @@ use molesignal::{
         chat::{AgentLoop, AgentStreamEvent, MessageRole, providers::OpenAiAdapter},
         tools::{ToolAuthContext, ToolCall, ToolDispatcher, ToolResult},
     },
-    shared::{LicenseGate, Result as SharedResult, ids::Id, time::TimestampMicros},
+    shared::{Result as SharedResult, ids::Id, time::TimestampMicros},
 };
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
@@ -66,7 +66,6 @@ fn test_tool_context() -> ToolAuthContext {
         credential_service_account_id: None,
         scope: molesignal::domain::iam::IamScope::Organization,
         permissions: Default::default(),
-        features: Default::default(),
         policy_version: 0,
     })
 }
@@ -106,27 +105,6 @@ async fn chatloop_provider_error_path_emits_error_event() {
 // HTTP handler 端到端（MS_RUN_IT gated）
 // ---------------------------------------------------------------------------
 
-/// 测试用 license：仅放开 `agent` feature。
-struct AgentLicense;
-impl LicenseGate for AgentLicense {
-    fn has_feature(&self, name: &str) -> bool {
-        name == "agent"
-    }
-    fn add_intake_bytes(&self, _n: u64) -> bool {
-        true
-    }
-    fn expired(&self, _now_micros: i64) -> bool {
-        false
-    }
-    fn issued_to(&self) -> &str {
-        "test"
-    }
-    fn reset_daily(&self) {}
-    fn features(&self) -> Vec<String> {
-        vec!["agent".into()]
-    }
-}
-
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn http_chat_prompt_metadata_and_archive() {
     if common::skip_unless_enabled() {
@@ -134,12 +112,6 @@ async fn http_chat_prompt_metadata_and_archive() {
         return;
     }
     let server = common::TestServer::start().await;
-    // 放开 agent license。
-    server
-        .state
-        .platform
-        .license_holder
-        .replace(Arc::new(AgentLicense));
 
     // 假 OpenAI：返一条简单 SSE completion（无 tool call）。
     let openai = MockServer::start().await;

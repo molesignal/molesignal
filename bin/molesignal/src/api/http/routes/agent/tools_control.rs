@@ -20,7 +20,6 @@ use super::{
 };
 use crate::{
     agent::{
-        FEATURE,
         model::{RiskLevel, ToolCallRecord},
         tool_control::{
             ManagedToolStatus, McpServer, McpTool, ToolExecutionMode, ToolPolicy,
@@ -54,19 +53,11 @@ pub fn routes() -> Router<AppState> {
         .route("/agent/tools/{id}/calls", get(tool_calls))
 }
 
-fn require_license(state: &AppState) -> Result<()> {
-    if !state.platform.license.has_feature(FEATURE) {
-        return Err(Error::forbidden(format!("{FEATURE} feature not licensed")));
-    }
-    Ok(())
-}
-
 #[permission("agent.use")]
 async fn list_tools(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Value>> {
-    require_license(&state)?;
     let tools = managed_tools(&state, &ctx).await?;
     let servers = state
         .agent
@@ -96,7 +87,6 @@ async fn get_tool(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>> {
-    require_license(&state)?;
     let tools = managed_tools(&state, &ctx).await?;
     let tool = tools
         .into_iter()
@@ -361,7 +351,6 @@ async fn update_tool_policy(
     Path(id): Path<String>,
     Json(request): Json<ToolPolicyRequest>,
 ) -> Result<Json<Value>> {
-    require_license(&state)?;
     let updated = apply_tool_policy(&state, &ctx, &id, request).await?;
     activity_audit::record(
         &state,
@@ -639,7 +628,6 @@ async fn enable_tool(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>> {
-    require_license(&state)?;
     let updated = apply_tool_policy(
         &state,
         &ctx,
@@ -674,7 +662,6 @@ async fn disable_tool(
     Path(id): Path<String>,
     Json(request): Json<DisableRequest>,
 ) -> Result<Json<Value>> {
-    require_license(&state)?;
     let name = resolve_tool_name(&state, &ctx.org_id, &id).await?;
     let dependencies = dependency_value(&state, &ctx.org_id, &name).await?;
     let count = dependencies["total"].as_u64().unwrap_or_default();
@@ -731,7 +718,6 @@ async fn tool_dependencies(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>> {
-    require_license(&state)?;
     let name = resolve_tool_name(&state, &ctx.org_id, &id).await?;
     Ok(Json(dependency_value(&state, &ctx.org_id, &name).await?))
 }
@@ -804,7 +790,6 @@ async fn tool_calls(
     Path(id): Path<String>,
     Query(query): Query<CallsQuery>,
 ) -> Result<Json<Value>> {
-    require_license(&state)?;
     let name = resolve_tool_name(&state, &ctx.org_id, &id).await?;
     let calls = state
         .agent
@@ -841,7 +826,6 @@ async fn test_tool(
     Path(id): Path<String>,
     Json(request): Json<ToolTestRequest>,
 ) -> Result<Json<Value>> {
-    require_license(&state)?;
     let tools = managed_tools(&state, &ctx).await?;
     let tool = tools
         .into_iter()
@@ -924,7 +908,6 @@ async fn get_policy_defaults(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<ToolPolicyDefaults>> {
-    require_license(&state)?;
     Ok(Json(
         state
             .agent
@@ -950,7 +933,6 @@ async fn update_policy_defaults(
     Extension(ctx): Extension<IamContext>,
     Json(request): Json<PolicyDefaultsRequest>,
 ) -> Result<Json<ToolPolicyDefaults>> {
-    require_license(&state)?;
     validate_default_modes(&request.risk_modes)?;
     validate_environment_overrides(&request.environment_overrides)?;
     let existing = state

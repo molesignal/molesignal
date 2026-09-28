@@ -3,11 +3,9 @@ import {
   Bell,
   BookOpen,
   Bot,
-  CreditCard,
   HelpCircle,
   Info,
   Keyboard,
-  LifeBuoy,
   LogOut,
   Monitor,
   Moon,
@@ -28,12 +26,6 @@ import {
   canAccessProductPath,
   useProductAccess,
 } from '@/product/access';
-import {
-  FEATURE_DEFINITIONS,
-  selectFeatureGate,
-  useEditionMetadata,
-} from '@/product/edition';
-import { useFeatureGateCopy } from '@/product/FeatureGate';
 import { AboutDialog } from '@/shell/AboutDialog';
 import { cn } from '@/shell/lib/cn';
 import { LogoMark } from '@/shell/LogoMark';
@@ -106,19 +98,6 @@ export function Topbar({
   const role = normalizeRole(profile?.display_role ?? ctx?.display_role);
   const access = useProductAccess();
   const canUseMoleAgent = canAccessProductPath('/agent', access);
-  const editionMetadata = useEditionMetadata();
-  const billingGate = selectFeatureGate(
-    editionMetadata,
-    FEATURE_DEFINITIONS['saas-billing'],
-  );
-  const supportGate = selectFeatureGate(
-    editionMetadata,
-    FEATURE_DEFINITIONS['saas-support'],
-  );
-  const billingGateCopy = useFeatureGateCopy(billingGate);
-  const supportGateCopy = useFeatureGateCopy(supportGate);
-  const showBillingEntry = canAccessProductPath('/account/billing', access);
-  const showSupportEntry = canAccessProductPath('/account/support', access);
   const avatarUrl = profile?.avatar_url?.trim() ?? '';
 
   const initial = displayName[0]?.toUpperCase() ?? 'M';
@@ -338,7 +317,7 @@ export function Topbar({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
 
-            <DropdownMenuLabel className="type-micro px-3 pb-1 pt-2 font-sans font-medium uppercase tracking-[0.06em] text-tx-3">
+            <DropdownMenuLabel className="type-micro px-3 pb-1 pt-2 font-sans font-medium tracking-normal text-tx-3">
               {t('shell:user_menu.current_workspace')}
             </DropdownMenuLabel>
             {orgOptions.length > 1 ? (
@@ -455,47 +434,6 @@ export function Topbar({
               <Bell className="h-4 w-4 text-tx-2" />
               {t('account:nav.items.notify')}
             </DropdownMenuItem>
-            {(showBillingEntry || showSupportEntry) && (
-              <DropdownMenuSeparator />
-            )}
-            {showBillingEntry && (
-              <DropdownMenuItem
-                className="min-h-10 rounded-md px-3"
-                disabled={billingGate.status !== 'allowed'}
-                disabledReason={
-                  billingGate.status !== 'allowed'
-                    ? billingGateCopy.description
-                    : undefined
-                }
-                onSelect={() => {
-                  if (billingGate.status === 'allowed') {
-                    nav('/account/billing');
-                  }
-                }}
-              >
-                <CreditCard className="h-4 w-4 text-tx-2" />
-                {t('nav:account_billing')}
-              </DropdownMenuItem>
-            )}
-            {showSupportEntry && (
-              <DropdownMenuItem
-                className="min-h-10 rounded-md px-3"
-                disabled={supportGate.status !== 'allowed'}
-                disabledReason={
-                  supportGate.status !== 'allowed'
-                    ? supportGateCopy.description
-                    : undefined
-                }
-                onSelect={() => {
-                  if (supportGate.status === 'allowed') {
-                    nav('/account/support');
-                  }
-                }}
-              >
-                <LifeBuoy className="h-4 w-4 text-tx-2" />
-                {t('nav:account_support')}
-              </DropdownMenuItem>
-            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="min-h-10 rounded-md px-3 text-tx-1 focus:bg-red-dim focus:text-red-soft"

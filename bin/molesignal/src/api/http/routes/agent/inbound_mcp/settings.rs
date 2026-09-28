@@ -12,10 +12,7 @@ use url::Url;
 
 use super::runtime::InboundMcpAdapterRuntime;
 use crate::{
-    agent::{
-        FEATURE,
-        inbound_mcp::{HARD_BODY_BYTES, InboundMcpSettings},
-    },
+    agent::inbound_mcp::{HARD_BODY_BYTES, InboundMcpSettings},
     api::AppState,
     app::iam::IamContext,
     domain::iam::permission,
@@ -51,10 +48,7 @@ struct UpdateSettingsRequest {
     read_timeout_ms: i64,
 }
 
-fn require_management(state: &AppState, ctx: &IamContext) -> Result<()> {
-    if !state.platform.license.has_feature(FEATURE) {
-        return Err(Error::forbidden("Inbound MCP requires the agent feature"));
-    }
+fn require_management(ctx: &IamContext) -> Result<()> {
     crate::api::http::middleware::Permission::require_key(ctx, "agent.manage")
 }
 
@@ -92,7 +86,7 @@ async fn get_settings(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Value>> {
-    require_management(&state, &ctx)?;
+    require_management(&ctx)?;
     let settings = state
         .agent
         .inbound_mcp
@@ -109,7 +103,7 @@ async fn update_settings(
     Extension(ctx): Extension<IamContext>,
     Json(request): Json<UpdateSettingsRequest>,
 ) -> Result<Json<Value>> {
-    require_management(&state, &ctx)?;
+    require_management(&ctx)?;
     validate_limits(&request)?;
     let origins = normalize_origins(request.allowed_origins)?;
     let now = TimestampMicros::now();
@@ -209,7 +203,7 @@ async fn list_oauth_connections(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Value>> {
-    require_management(&state, &ctx)?;
+    require_management(&ctx)?;
     let now = TimestampMicros::now();
     let connections = state
         .agent
@@ -225,7 +219,7 @@ async fn revoke_oauth_connection(
     Extension(ctx): Extension<IamContext>,
     Path(family_id): Path<String>,
 ) -> Result<Json<Value>> {
-    require_management(&state, &ctx)?;
+    require_management(&ctx)?;
     if family_id.is_empty() || family_id.len() > 128 {
         return Err(Error::invalid("invalid OAuth connection family id"));
     }

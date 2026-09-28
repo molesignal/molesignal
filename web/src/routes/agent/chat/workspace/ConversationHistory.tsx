@@ -78,7 +78,7 @@ export function ConversationHistory({
         ) : (
           groups.map((group) => (
             <section key={group.key} className="pt-3">
-              <h3 className="px-2 pb-1.5 font-sans text-type-micro font-strong uppercase tracking-[0.08em] text-tx-3">
+              <h3 className="px-2 pb-1.5 font-sans text-type-micro font-strong tracking-normal text-tx-3">
                 {t(`chat_groups.${group.key}`)}
               </h3>
               <div className="space-y-1">

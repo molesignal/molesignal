@@ -11,7 +11,7 @@
 //! 与 [`crate::infra::pipeline::exec`] 的分工：后者是纯计算（解析 steps + 串行 VRL），本模块
 //! 把它接到真实的 `IntakeSink` 与 connector egress 上。
 
-use std::sync::Arc;
+use std::{collections::BTreeMap, sync::Arc};
 
 use async_trait::async_trait;
 use serde_json::Value;
@@ -29,7 +29,7 @@ use crate::{
         pipeline::{
             PipelineExecutor, ScheduledPipeline, ScheduledPipelineRunner,
             exec::{
-                apply_steps, parse_signal_type, parse_sink_connectors, parse_steps,
+                parse_signal_type, parse_sink_connectors, processing::process_rows,
                 validate_pipeline_streams,
             },
         },
@@ -97,26 +97,30 @@ pub async fn transform_and_sink(
     function_steps: &Value,
     source_rows: Vec<Value>,
 ) -> Result<PipelineRunOutcome> {
-    let scanned = source_rows.len();
-    let steps = parse_steps(function_steps);
-
-    // 预编译校验：编译失败 = 配置错误 → 整批失败（区别于下面 apply_steps 里逐条的运行错误）。
-    for step in &steps {
-        vrl.compile(&step.script)
-            .map_err(|e| Error::invalid(format!("step `{}` compile: {e}", step.name)))?;
+    if crate::domain::pipeline::realtime::is_realtime(function_steps) {
+        return Err(Error::invalid(
+            "realtime pipelines cannot run as scheduled jobs",
+        ));
     }
-
-    let (transformed, mut errors) = apply_steps(vrl, &steps, source_rows);
-
-    // 写目标 stream（标准 intake 端口）。
+    let scanned = source_rows.len();
+    let processed = process_rows(vrl, function_steps, target_stream, source_rows)?;
+    let mut errors = processed.errors;
+    let mut transformed = Vec::with_capacity(processed.rows.len());
+    let mut destinations: BTreeMap<String, Vec<RawEvent>> = BTreeMap::new();
     let now = TimestampMicros::now();
-    let events: Vec<RawEvent> = transformed.iter().map(|v| to_raw_event(v, now)).collect();
-    let written = events.len();
-    if written > 0 {
+    for (destination, event) in processed.rows {
+        destinations
+            .entry(destination)
+            .or_default()
+            .push(to_raw_event(&event, now));
+        transformed.push(event);
+    }
+    let written = transformed.len();
+    for (destination, events) in destinations {
         sink.write(IntakeBatch {
             batch_id: Id::new(),
             org_id: org_id.clone(),
-            stream: target_stream.to_string(),
+            stream: destination,
             stream_type: target_stream_type,
             events,
             received_at: now,

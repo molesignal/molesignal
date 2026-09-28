@@ -437,6 +437,9 @@ function unquoteTraceValue(value: string): string {
   if (trimmed.length >= 2) {
     const first = trimmed[0];
     const last = trimmed[trimmed.length - 1];
+    if (first === '"' && last === '"') {
+      try { return JSON.parse(trimmed) as string; } catch { return trimmed.slice(1, -1); }
+    }
     if ((first === "'" && last === "'") || (first === '"' && last === '"')) {
       return trimmed.slice(1, -1);
     }

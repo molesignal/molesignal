@@ -198,6 +198,7 @@ pub struct RecordBuilder {
     approx_size_bytes: usize,
     /// 从进程级内存预算中为当前 generation（含 pending）保留的原始 payload 字节。
     accounted_size_bytes: usize,
+    collected_bytes: Option<u64>,
     /// 当前活跃 generation 首行完成写入的单调时钟时间。
     active_started_at: Option<Instant>,
     /// 当前 active generation 的 WAL namespace 与逐行 sequence sidecar。
@@ -251,6 +252,7 @@ impl RecordBuilder {
             row_count: 0,
             approx_size_bytes: 0,
             accounted_size_bytes: 0,
+            collected_bytes: Some(0),
             active_started_at: None,
             active_writer: None,
             active_sequences: Vec::new(),
@@ -573,6 +575,7 @@ mod tests {
             f.insert("level".into(), json!(lvl));
             b.push(&raw_event(ts, f), 1).unwrap();
         }
+        b.add_collected_bytes(Some(100));
         let batch = b.begin_flush().unwrap().unwrap();
         assert_eq!(batch.batch.num_rows(), 2);
 
@@ -585,7 +588,9 @@ mod tests {
         f.insert("level".into(), json!("c"));
         b.push(&raw_event(3_000_000, f), 2).unwrap();
 
+        b.add_collected_bytes(Some(200));
         let retry = b.begin_flush().unwrap().unwrap();
+        assert_eq!(retry.provenance().collected_bytes, Some(100));
         assert_eq!(retry.batch.num_rows(), 2, "retry generation 不与新写入混合");
         assert_eq!(retry.sequence_range().end, WalSequence(1));
         let levels = retry
@@ -599,6 +604,7 @@ mod tests {
         b.complete_flush(&retry.flush_id()).unwrap();
 
         let active = b.begin_flush().unwrap().unwrap();
+        assert_eq!(active.provenance().collected_bytes, Some(200));
         assert_eq!(active.batch.num_rows(), 1);
         assert_eq!(active.sequence_range().end, WalSequence(2));
         b.complete_flush(&active.flush_id()).unwrap();

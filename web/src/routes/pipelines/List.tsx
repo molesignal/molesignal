@@ -35,6 +35,7 @@ import {
   signalTypeFromPipeline,
   type PipelineSignalType,
 } from './PipelineGraph';
+import { executionMode } from './PipelineGraph/model';
 import {
   formatRelativeMicros,
   formatSchedule,
@@ -60,6 +61,7 @@ const HEALTH_TONE: Record<PipelineHealth, { pill: PillTone; dot: DotTone }> = {
   error: { pill: 'red', dot: 'red' },
   paused: { pill: 'dim', dot: 'dim' },
   unknown: { pill: 'yellow', dot: 'yellow' },
+  ready: { pill: 'blue', dot: 'blue' },
   never: { pill: 'yellow', dot: 'yellow' },
 };
 
@@ -247,7 +249,7 @@ export function Pipelines() {
               <SelectItem value="all" className="h-8 text-xs">
                 {t('overview.filters.all_statuses')}
               </SelectItem>
-              {(['healthy', 'running', 'error', 'paused', 'unknown', 'never'] as const).map(
+              {(['ready', 'healthy', 'running', 'error', 'paused', 'unknown', 'never'] as const).map(
                 (health) => (
                   <SelectItem key={health} value={health} className="h-8 text-xs">
                     {t(`overview.health.${health}`)}
@@ -296,7 +298,7 @@ export function Pipelines() {
               key: 'schedule',
               header: t('overview.columns.schedule'),
               width: 140,
-              cell: (pipeline) => formatSchedule(pipeline.cron, i18n.language),
+              cell: (pipeline) => executionMode(pipeline) === 'realtime' ? t('realtime.title') : formatSchedule(pipeline.cron, i18n.language),
             },
             {
               key: 'status',

@@ -152,7 +152,7 @@ mod tests {
         };
         let reader = ObjectReader::build(store, "s3", &settings).unwrap();
         let object = StoredObject {
-            key: ObjectKey::from_string("v1/artifacts/one"),
+            key: ObjectKey::from_string("artifacts/v1/one"),
             size_bytes: 1,
             checksum: ObjectChecksum::from_string("b3:one"),
             etag: None,

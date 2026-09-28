@@ -11,11 +11,11 @@ const catalog: PermissionCatalog = {
   version: 4,
   permissions: [
     {
-      key: 'sys.licenses.manage',
+      key: 'sys.telemetry.manage',
       scope: 'platform',
       domain: 'platform',
-      label_key: 'permissions.sys_licenses_manage',
-      description_key: 'permissions_hint.sys_licenses_manage',
+      label_key: 'permissions.sys_telemetry_manage',
+      description_key: 'permissions_hint.sys_telemetry_manage',
       builtin_roles: ['platform_owner'],
     },
     {

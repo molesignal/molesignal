@@ -58,7 +58,6 @@ pub struct ToolRuntime {
     pub(super) status_pages: Arc<crate::app::status_page::StatusPageService>,
     pub(super) administration: AdministrationToolDependencies,
     pub(super) agent: AgentToolDependencies,
-    pub(super) license: Arc<dyn crate::shared::LicenseGate>,
 }
 
 impl ToolRuntime {
@@ -72,7 +71,6 @@ impl ToolRuntime {
             status_pages: dependencies.status_pages,
             administration: dependencies.administration,
             agent: dependencies.agent,
-            license: dependencies.license,
         }
     }
 
@@ -330,18 +328,13 @@ impl ToolRuntime {
         }
     }
 
-    /// Apply protocol-neutral license, mode, and IAM checks before an adapter-specific action.
     pub fn authorize(&self, ctx: &ToolInvocationContext, kind: BuiltinToolKind) -> Result<()> {
         if ctx.is_query_generation_only() {
             return Err(Error::forbidden(
                 "tool calls are disabled while query-generation-only mode is active",
             ));
         }
-        if !self.license.has_feature(crate::agent::FEATURE) {
-            return Err(Error::forbidden(
-                "Mole Agent tools require the agent feature",
-            ));
-        }
+
         let spec = kind.spec();
         if !spec.exposure.available_on(ctx.source().surface()) {
             return Err(Error::forbidden(format!(

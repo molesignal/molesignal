@@ -24,7 +24,7 @@ MoleSignal 后端使用 virtual Cargo workspace。仓库根 `Cargo.toml` 只管�
 ├── crates/
 │   ├── core/
 │   │   ├── contracts/                 # 稳定 schema 与 validator
-│   │   ├── kernel/                    # Error/Result/Id/time/health/license primitives
+│   │   ├── kernel/                    # Error/Result/Id/time/health primitives
 │   │   ├── domain/                    # 领域模型与 ports/repository traits
 │   │   ├── protocol/                  # build.rs 生成到 OUT_DIR 的 protobuf/gRPC 类型
 │   │   └── settings/                  # 类型化配置与加载
@@ -37,10 +37,7 @@ MoleSignal 后端使用 virtual Cargo workspace。仓库根 `Cargo.toml` 只管�
 │   │   └── service-graph/             # service graph aggregation 与 persistence
 │   ├── modules/
 │   │   ├── agent/
-│   │   ├── cloud-marketplace/
-│   │   ├── domain-management/
-│   │   ├── license/
-│   │   └── model-pricing/
+│   │   └── domain-management/
 │   ├── transport/
 │   │   └── grpc-client/               # 共享 gRPC client/channel primitives
 │   └── support/
@@ -48,8 +45,6 @@ MoleSignal 后端使用 virtual Cargo workspace。仓库根 `Cargo.toml` 只管�
 │       ├── report-renderer/
 │       ├── signals/                   # logs/metrics/tracing/self-telemetry
 │       └── sqlx-shim/                 # Postgres-only traced sqlx facade
-└── tools/
-    └── license-sign/                  # license 签发 CLI
 ```
 
 ## 命名规则
@@ -90,3 +85,28 @@ adapter。PostgreSQL 实现位于 `crates/engines/postgres`。应用 use case、
 - migration 位于 `crates/engines/postgres/src/migrations/`，并必须显式注册到
   `crates/engines/postgres/src/persistence/pool.rs::embedded_migrator()`。
 - 主服务 integration test 位于 `bin/molesignal/tests/`。
+
+## 对象存储布局
+
+Catalog 管理的对象按组织、信号类型和数据集分层，路径由 `StorageLayout` 统一生成：
+
+```text
+artifacts/v1/{org}/{type}/{dataset}/p-{partition_start_secs}-{shard}/{segment}/{artifact}.{suffix}
+manifests/v1/{org}/{type}/{dataset}/p-{partition_start_secs}-{shard}/{generation}.parquet
+```
+
+`type` 使用 `logs`、`metrics`、`traces`、`profiles`；扩展信号使用经过校验的完整类型 ID。
+主数据与索引共用所属信号的目录，`catalog_artifacts.role` 继续区分 `primary_data` 和 `index`。
+读取使用 Catalog 中的完整 `object_key`；布局调整不会移动已有对象。孤儿扫描限定在
+`artifacts/v1/{org}/` 和 `manifests/v1/{org}/`，覆盖该组织在当前布局下的全部信号类型。
+
+Profile 原始归档与 RUM 回放采用独立的 blob 布局：
+
+```text
+blobs/v1/{org}/profiles/{service}/{profile_type}/{yyyymmdd}/{profile_id}.pprof.zst
+blobs/v1/{org}/rum/{application_hash}/{session_id}/{seq}-{content_hash}.ndjson.zst
+```
+
+Profile 日期解析与保留期扫描限定在 `blobs/v1/{org}/profiles/`；RUM 回放仍按元数据中的
+`object_key` 读取和清理。blob 不纳入 FileCatalog 孤儿扫描。路径变更仅影响新写入，
+已有对象继续按持久化的完整路径读取，不自动搬迁；旧目录不纳入新布局的前缀扫描。

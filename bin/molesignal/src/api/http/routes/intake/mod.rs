@@ -73,14 +73,12 @@ async fn intake(
     stream_type: StreamType,
     body: Bytes,
 ) -> Result<Json<IntakeResult>> {
-    // 计费门禁 + 计量：原始字节数用于配额/计量；license 过期 / 订阅停服 / 超 cap → 402。
-    crate::api::http::billing::ensure_intake_allowed(
+    crate::api::http::intake_usage::record_intake_usage(
         &state,
         &ctx.org_id,
         body.len() as u64,
         TimestampMicros::now().0,
-    )
-    .await?;
+    );
     let value: Value =
         serde_json::from_slice(&body).map_err(|e| Error::invalid(format!("intake body: {e}")))?;
     let events = events_from_body(value)?;

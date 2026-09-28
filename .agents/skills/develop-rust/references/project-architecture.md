@@ -16,13 +16,11 @@ crates/
     function-runtime/ index-format/ postgres/ profiles/
     query-language/ service-graph/
   modules/
-    agent/ cloud-marketplace/ domain-management/ license/ model-pricing/
+    agent/ domain-management/
   transport/
     grpc-client/
   support/
     permission-macro/ report-renderer/ signals/ sqlx-shim/
-tools/
-  license-sign/
 ```
 
 命名规则：分类目录使用 `modules`；PostgreSQL engine 名为 `postgres`；可观测性 support
@@ -99,12 +97,3 @@ crate 名为 `signals`；`sqlx-shim` 保持原名。除最终产品名外，单�
 - 修改这些模块时保持改动局部，不把例外扩散为默认模式。
 - 新增类似耦合时优先抽 domain port；确有必要则同步记录到 `ARCHITECTURE.md`。
 - review 只报告当前 diff 新增的问题，不把未触及的基线问题归责于本次任务。
-
-## License 形态
-
-商业能力以运行时 `LicenseGate::has_feature` 为主，模块通常无条件编译。
-`CommunityLicense` 永远不开放商业 feature，`SignedLicense` 由 Ed25519 签名包激活，
-`LicenseHolder` 支持运行时替换。
-
-技术性 Cargo features（`ws`、`jemalloc`、`profiling-pprof`、`js-runtime`）与商业
-License key 是两套机制。

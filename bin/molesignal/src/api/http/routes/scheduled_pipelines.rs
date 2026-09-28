@@ -39,6 +39,8 @@ use crate::{
     },
 };
 
+mod validation;
+
 const MAX_BACKFILL_WINDOW_MICROS: i64 = 31 * 24 * 3600 * 1_000_000;
 const OVERVIEW_WINDOW_MICROS: i64 = 24 * 3600 * 1_000_000;
 
@@ -231,8 +233,13 @@ async fn create(
 ) -> Result<Json<Resp>> {
     let source_stream = req.source_stream.trim().to_string();
     let target_stream = req.target_stream.trim().to_string();
-    let stream_type = parse_signal_type(&req.function_steps);
-    validate_pipeline_streams(&source_stream, &target_stream, stream_type)?;
+    validation::validate(
+        &source_stream,
+        &target_stream,
+        &req.function_steps,
+        &req.cron,
+        req.lookback_secs,
+    )?;
     let now = TimestampMicros::now();
     let p = ScheduledPipeline {
         id: Id::new(),
@@ -266,8 +273,13 @@ async fn update(
 ) -> Result<Json<Resp>> {
     let source_stream = req.source_stream.trim().to_string();
     let target_stream = req.target_stream.trim().to_string();
-    let stream_type = parse_signal_type(&req.function_steps);
-    validate_pipeline_streams(&source_stream, &target_stream, stream_type)?;
+    validation::validate(
+        &source_stream,
+        &target_stream,
+        &req.function_steps,
+        &req.cron,
+        req.lookback_secs,
+    )?;
     let p = ScheduledPipeline {
         id: existing.id,
         org_id: existing.org_id,
@@ -386,6 +398,9 @@ async fn submit_backfill(
     Path(id): Path<String>,
     Json(req): Json<BackfillReq>,
 ) -> Result<Response> {
+    if crate::domain::pipeline::realtime::is_realtime(&pipeline.function_steps) {
+        return Err(Error::invalid("realtime pipelines do not support backfill"));
+    }
     if req.end_micros <= req.start_micros {
         return Err(Error::invalid(
             "end_micros must be greater than start_micros",

@@ -24,6 +24,7 @@ const PIPELINE_HEALTH_TONE: Record<
   error: { pill: 'red', dot: 'red' },
   paused: { pill: 'dim', dot: 'dim' },
   unknown: { pill: 'yellow', dot: 'yellow' },
+  ready: { pill: 'blue', dot: 'blue' },
   never: { pill: 'yellow', dot: 'yellow' },
 };
 

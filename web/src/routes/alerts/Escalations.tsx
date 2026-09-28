@@ -427,7 +427,7 @@ function StepFields({
         </FormField>
       </div>
       <div className="flex flex-col gap-1.5">
-        <span className="font-sans text-xs font-strong uppercase tracking-wide text-tx-3">
+        <span className="font-sans text-xs font-strong tracking-normal text-tx-3">
           {t('escalations.fields.targets', { defaultValue: 'Targets' })}
         </span>
         <FieldArray<EscalationTarget>

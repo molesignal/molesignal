@@ -8,7 +8,6 @@ import enApm from './en-us/apm.json';
 import enCommon from './en-us/common.json';
 import enDashboards from './en-us/dashboards.json';
 import enDesignSystem from './en-us/design-system.json';
-import enEdition from './en-us/edition.json';
 import enErrors from './en-us/errors.json';
 import enFunctions from './en-us/functions.json';
 import enIam from './en-us/iam.json';
@@ -40,7 +39,6 @@ import zhApm from './zh-cn/apm.json';
 import zhCommon from './zh-cn/common.json';
 import zhDashboards from './zh-cn/dashboards.json';
 import zhDesignSystem from './zh-cn/design-system.json';
-import zhEdition from './zh-cn/edition.json';
 import zhErrors from './zh-cn/errors.json';
 import zhFunctions from './zh-cn/functions.json';
 import zhIam from './zh-cn/iam.json';
@@ -94,7 +92,6 @@ const NAMESPACES = [
   'shell',
   'product',
   'design-system',
-  'edition',
   'onboarding',
   'rum',
   'profiles',
@@ -130,7 +127,6 @@ const resources = {
     shell: enShell,
     product: enProduct,
     'design-system': enDesignSystem,
-    edition: enEdition,
     onboarding: enOnboarding,
     rum: enRum,
     profiles: enProfiles,
@@ -164,7 +160,6 @@ const resources = {
     shell: zhShell,
     product: zhProduct,
     'design-system': zhDesignSystem,
-    edition: zhEdition,
     onboarding: zhOnboarding,
     rum: zhRum,
     profiles: zhProfiles,

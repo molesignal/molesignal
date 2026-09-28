@@ -14,7 +14,6 @@ pub fn resolve_route_access(
     catalog: &IamRouteCatalog,
     scope: IamScope,
     permissions: &BTreeSet<String>,
-    features: &BTreeSet<String>,
 ) -> Vec<IamRouteAccess> {
     catalog
         .routes
@@ -28,10 +27,6 @@ pub fn resolve_route_access(
                 IamRouteScope::System => scope == IamScope::System,
                 IamRouteScope::None => false,
             };
-            let features_allowed = route
-                .required_features
-                .iter()
-                .all(|feature| features.contains("*") || features.contains(feature));
             let permissions_allowed = if route.permissions.is_empty() {
                 true
             } else {
@@ -49,7 +44,7 @@ pub fn resolve_route_access(
             IamRouteAccess {
                 id: route.id.clone(),
                 path_pattern: route.path_pattern.clone(),
-                allowed: route.enabled && scope_allowed && features_allowed && permissions_allowed,
+                allowed: route.enabled && scope_allowed && permissions_allowed,
                 navigation_group: route.navigation_group.clone(),
                 navigation_position: route.navigation_position,
             }
@@ -63,7 +58,7 @@ mod tests {
     use crate::domain::iam::navigation::{IamRouteDefinition, IamRoutePermissionMode};
 
     #[test]
-    fn route_decisions_apply_scope_features_and_permissions() {
+    fn route_decisions_apply_scope_and_permissions() {
         let catalog = IamRouteCatalog {
             version: 1,
             routes: vec![IamRouteDefinition {
@@ -72,7 +67,6 @@ mod tests {
                 scope: IamRouteScope::Organization,
                 permission_mode: IamRoutePermissionMode::All,
                 permissions: vec!["agent.use".into()],
-                required_features: vec!["agent".into()],
                 navigation_group: Some("investigate".into()),
                 navigation_position: Some(50),
                 enabled: true,
@@ -82,15 +76,16 @@ mod tests {
             &catalog,
             IamScope::Organization,
             &BTreeSet::from(["agent.use".into()]),
-            &BTreeSet::from(["agent".into()]),
         );
         assert!(allowed[0].allowed);
         let denied = resolve_route_access(
             &catalog,
             IamScope::System,
             &BTreeSet::from(["agent.use".into()]),
-            &BTreeSet::from(["agent".into()]),
         );
         assert!(!denied[0].allowed);
+        let missing_permission =
+            resolve_route_access(&catalog, IamScope::Organization, &BTreeSet::new());
+        assert!(!missing_permission[0].allowed);
     }
 }

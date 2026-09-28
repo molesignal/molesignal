@@ -13,8 +13,6 @@
 //!
 //! SAML 登录由 [`saml`] 子模块处理。
 //!
-//! License gate：所有路径走前先调 `state.platform.license.has_feature("sso")`，OSS / 未授
-//! 权 license 直接 403。
 
 use axum::{
     Json, Router,
@@ -59,9 +57,6 @@ pub struct LoginParams {
 }
 
 async fn login(State(state): State<AppState>, Query(p): Query<LoginParams>) -> Result<Response> {
-    if !state.platform.license.has_feature("sso") {
-        return Err(Error::forbidden("sso feature not licensed"));
-    }
     let provider = resolve_provider_for_login(&state, &p).await?;
     if provider.kind != SsoProviderKind::Oidc {
         return Err(Error::invalid(format!(
@@ -111,9 +106,6 @@ async fn callback_post(
 }
 
 async fn do_callback(state: AppState, p: CallbackParams) -> Result<Json<FederatedLoginResponse>> {
-    if !state.platform.license.has_feature("sso") {
-        return Err(Error::forbidden("sso feature not licensed"));
-    }
     if let Some(e) = p.error {
         return Err(Error::Unauthorized(format!(
             "idp returned error: {e} ({})",

@@ -151,7 +151,6 @@ OTLP metric type and aggregation metadata are normalized according to the
 - **Multi-tenant** — planner-level `org_id` rewrite; cross-org data leak impossible by construction
 - **Audit log** — every mutating operation recorded
 - **Field-level encryption** — AES-256-GCM + cipher root key envelope; VRL `encrypt()` / `decrypt()` builtins
-- **Per-org quotas** — intake QPS / query QPS / storage cap
 
 ### 🤖 Mole Agent
 
@@ -251,7 +250,7 @@ Pre-1.0, **early**. Released YYYY-MM-DD.
 | 3-level cache + disk cache | ✅ working |
 | Multi-tenant planner rewrite | ✅ working |
 | Real-time + scheduled + anomaly alerts | ✅ working |
-| Cipher keys + audit + quotas | ✅ working |
+| Cipher keys + audit | ✅ working |
 | Cross-signal correlation API | ✅ working |
 | Web shell (⌘K + investigation stack) | ✅ working |
 | SSO — OIDC / SAML / LDAP | ✅ working |

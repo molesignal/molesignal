@@ -8,7 +8,6 @@
 //! - `POST /alerts/incidents/{id}/rca`（HTTP）按需手动触发。
 //!
 //! provider key 解密即用即弃，绝不落库/日志；provider/model/token/prompt_hash 一并写
-//! `incident_rca` 可审计。RCA 是 agent 能力，是否启用由调用方按 license feature 决定。
 
 use std::sync::Arc;
 

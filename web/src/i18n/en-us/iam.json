@@ -26,7 +26,6 @@
     "groups": "Access grants",
     "teams": "Teams",
     "roles": "Roles",
-    "quota": "Quota",
     "invitations": "Invitations",
     "email_domains": "Email domains",
     "sso": "SSO providers"
@@ -405,8 +404,6 @@
   },
   "permissions": {
     "sys_organizations_manage": "Manage platform organizations",
-    "sys_licenses_read": "View platform license",
-    "sys_licenses_manage": "Manage platform license",
     "sys_settings_manage": "Manage platform settings",
     "sys_dashboards_read": "View platform dashboards",
     "sys_telemetry_read": "View platform telemetry",
@@ -421,8 +418,6 @@
     "iam_roles_manage": "Manage roles",
     "iam_policies_read": "View access grants",
     "iam_policies_manage": "Manage access grants",
-    "org_billing_read": "View billing",
-    "org_billing_manage": "Manage billing",
     "api_tokens_read": "View API tokens",
     "api_tokens_manage": "Manage API tokens",
     "service_accounts_read": "View service accounts",
@@ -484,8 +479,6 @@
   },
   "permissions_hint": {
     "sys_organizations_manage": "Create, update, and administer organizations across the platform.",
-    "sys_licenses_read": "View platform license status, edition, features, and limits.",
-    "sys_licenses_manage": "Upload, replace, and administer the platform license.",
     "sys_settings_manage": "Change settings that affect the entire platform.",
     "sys_dashboards_read": "Open and view read-only dashboards in the system organization.",
     "sys_telemetry_read": "Read the platform's own logs, metrics, and traces.",
@@ -500,8 +493,6 @@
     "iam_roles_manage": "Create, update, and delete custom roles.",
     "iam_policies_read": "View organization and resource access grants.",
     "iam_policies_manage": "Create and revoke role bindings and cross-organization grants.",
-    "org_billing_read": "View plan, quota, and billing details.",
-    "org_billing_manage": "Manage billing and plan settings.",
     "api_tokens_read": "View API token metadata and status.",
     "api_tokens_manage": "Create and revoke API tokens.",
     "service_accounts_read": "View service account identity, role, and status.",
@@ -585,7 +576,7 @@
       "data_analyst": "Explore observability data and create dashboards and saved views.",
       "pipeline_developer": "Read observability data and manage streams, pipelines, and functions.",
       "alert_administrator": "Read observability data and manage alert rules and schedules.",
-      "organization_administrator": "Manage organization settings, members, roles, access grants, billing, and API tokens."
+      "organization_administrator": "Manage organization settings, members, roles, access grants, and API tokens."
     },
     "type_builtin": "Built-in",
     "type_custom": "Custom",
@@ -621,22 +612,6 @@
     "toast_deleted": "Role deleted",
     "empty_title": "No roles returned",
     "empty_description": "No roles were returned for this organization."
-  },
-  "quota": {
-    "title": "Quota",
-    "subtitle": "Plan limits and current usage.",
-    "empty_title": "No quota snapshot",
-    "empty_description": "No license snapshot was returned for this organization.",
-    "source_license": "Limits from active license",
-    "usage_unknown": "usage unavailable",
-    "limit_unknown": "limit unavailable",
-    "not_reported": "not reported",
-    "labels": {
-      "datasource": "Datasource bytes / day",
-      "dashboards": "Dashboards",
-      "alerts": "Alert rules",
-      "reset": "Reset / expires"
-    }
   },
   "invitations": {
     "title": "Pending invitations",

@@ -235,6 +235,7 @@ export function PreferencesFields({
             disabled={controlsDisabled}
             disabledReason={controlsDisabledReason}
             value={value.language}
+            className="bg-indigo-dim font-strong text-indigo-soft enabled:hover:bg-indigo/20 focus-visible:bg-indigo/25 data-[state=open]:bg-indigo/25 data-[state=open]:text-indigo-soft data-[state=open]:[&>svg]:text-indigo-soft [&>svg]:opacity-100 disabled:[&>svg]:text-tx-3"
             onChange={(language) =>
               onChange({ language: language as meApi.PreferenceLanguage })
             }

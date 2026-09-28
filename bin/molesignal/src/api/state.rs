@@ -37,7 +37,6 @@ use crate::{
             TeamRepository, api_token::ApiTokenRepository,
             service_account::ServiceAccountRepository,
         },
-        license::LicenseVersionRepository,
         query::SlowQueryRepository,
         rum::DebugArtifactRepository,
         saved_view::SavedViewRepository,
@@ -46,7 +45,7 @@ use crate::{
         trace_policy::{TraceDebugTokenRepository, TracePolicyRepository},
     },
     infra::{
-        caching::{BillingStateCache, OrgSchemaCache},
+        caching::OrgSchemaCache,
         cipher::{CipherKeyRepository, FieldKeyService},
         cluster::{ClusterSecretRepository, RemoteClustersRepository},
         connectors::ConnectorRepository,
@@ -61,7 +60,6 @@ use crate::{
             },
             annotations::AnnotationRepository,
             audit_events::AuditEventRepository,
-            billing_settings::BillingSettingsRepository,
             cluster::{
                 events::{
                     ClusterEventOutboxRepository, ClusterOrgLinkRepository,
@@ -76,8 +74,6 @@ use crate::{
             investigation_blobs::InvestigationBlobRepository,
             invitations::InvitationRepository,
             log_patterns::LogPatternRepository,
-            marketplace::MarketplaceRepository,
-            model_prices::ModelPriceRepository,
             notify::NotifyTemplateManagementRepository,
             password_resets::PasswordResetRepository,
             pipelines::runs::PipelineRunRepository,
@@ -87,7 +83,6 @@ use crate::{
             scheduled_reports::ScheduledReportRepository,
             search::jobs::SearchJobRepository,
             signing_secrets::SigningSecretRepository,
-            trials::TrialRepository,
             usage::UsageRepository,
             user_preferences::UserPreferencesRepository,
             web_search::WebSearchRepository,
@@ -95,21 +90,18 @@ use crate::{
         },
         pipeline::{ExtendKvRepository, ExtendTable, ScheduledPipelineRepository},
         query::{catalog_source::CatalogQuerySource, federation_cancel::FederationCancelRegistry},
-        quotas::QuotaLimiter,
         rum::replay::RumReplayWriter,
         sso::{JwksCache, SsoSessionRepository, SsoStateStore},
         traces::ServiceGraphRepository,
     },
     shared::{
-        LicenseGate, LicenseHolder, ReportRenderer, drain::DrainController, health::Probe, ids::Id,
-        tail_sampling::TailSampler,
+        ReportRenderer, drain::DrainController, health::Probe, ids::Id, tail_sampling::TailSampler,
     },
 };
 
 #[derive(Debug, Clone, Copy, serde::Serialize)]
 pub struct TraceSystemLoadHealth {
     pub system_org: bool,
-    pub license: bool,
     pub trace_policy: bool,
 }
 
@@ -250,21 +242,11 @@ pub struct ClusterState {
 pub struct PlatformState {
     pub saved_view: Arc<dyn SavedViewRepository>,
     pub external_url: String,
-    pub license: Arc<dyn LicenseGate>,
-    pub license_holder: Arc<LicenseHolder>,
-    pub license_versions: Arc<dyn LicenseVersionRepository>,
     pub scheduled_reports: Arc<dyn ScheduledReportRepository>,
     pub report_templates: Arc<dyn ReportTemplateRepository>,
     pub report_renderer: Option<Arc<dyn ReportRenderer>>,
     pub report_renderer_base_url: String,
-    pub marketplace: Arc<dyn MarketplaceRepository>,
-    pub billing_settings: Arc<dyn BillingSettingsRepository>,
     pub usage: Arc<dyn UsageRepository>,
-    pub trials: Arc<dyn TrialRepository>,
-    pub billing_enabled: Arc<std::sync::atomic::AtomicBool>,
-    pub billing_state_cache: Arc<BillingStateCache>,
-    pub quotas: Arc<QuotaLimiter>,
-    pub model_prices: Arc<dyn ModelPriceRepository>,
     pub domains: Arc<dyn DomainRepository>,
 }
 

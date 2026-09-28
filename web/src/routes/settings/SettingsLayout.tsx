@@ -36,16 +36,6 @@ interface SectionGroup {
 
 const GROUPS: SectionGroup[] = [
   {
-    key: 'group_account',
-    sections: [
-      {
-        to: '/account/billing',
-        key: 'account_billing',
-        contentWidth: 'page',
-      },
-    ],
-  },
-  {
     key: 'group_organization',
     sections: [
       { to: '/settings/general', key: 'general', contentWidth: 'form' },
@@ -95,7 +85,6 @@ const GROUPS: SectionGroup[] = [
         contentWidth: 'form',
       },
       { to: '/settings/nodes', key: 'nodes', contentWidth: 'table' },
-      { to: '/settings/correlation', key: 'correlation', contentWidth: 'table' },
     ],
   },
   {
@@ -115,7 +104,6 @@ const GROUPS: SectionGroup[] = [
   {
     key: 'group_ml_ops',
     sections: [
-      { to: '/settings/model_pricing', key: 'model_pricing', contentWidth: 'table' },
       {
         to: '/settings/query_management',
         key: 'query_management',
@@ -130,12 +118,6 @@ const GROUPS: SectionGroup[] = [
         to: '/settings/organization_management',
         key: 'organization_management',
         contentWidth: 'table',
-      },
-      { to: '/settings/license', key: 'license', contentWidth: 'form' },
-      {
-        to: '/settings/billing',
-        key: 'billing_integration',
-        contentWidth: 'form',
       },
     ],
   },
@@ -188,11 +170,11 @@ function SettingsLayoutFrame() {
       headerIcon={SettingsIcon}
       bodyClassName="mx-auto w-full max-w-[2200px] gap-[12px] [&_[data-product-state]]:border-0"
     >
-      <div className="min-w-0">
+      <div className="min-w-0 p-4 sm:p-6 lg:p-8">
         <div
           data-settings-content-width={contentWidth}
           className={cn(
-            'w-full min-w-0',
+            'mx-auto w-full min-w-0',
             '[&>[data-admin-page-header]]:min-h-0 [&>[data-admin-page-header]]:border-b-0 [&>[data-admin-page-header]]:bg-transparent [&>[data-admin-page-header]]:px-0 [&>[data-admin-page-header]]:py-0',
             CONTENT_WIDTH_CLASS[contentWidth],
           )}

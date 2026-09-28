@@ -33,14 +33,12 @@ export const PRODUCT_NAV_GROUPS = [
 ] as const;
 
 export type ProductNavGroup = (typeof PRODUCT_NAV_GROUPS)[number];
-export type ProductEdition = 'any' | 'oss' | 'pro' | 'saas';
 export type ProductEmptyStateStrategy =
   | 'none'
   | 'activation'
   | 'query-first'
   | 'create-first'
   | 'backend-pending'
-  | 'license-gated'
   | 'permission-denied';
 
 export type ProductOwnerModule =
@@ -85,7 +83,6 @@ export interface ProductRouteMeta {
   labelKey: string;
   group: ProductNavGroup;
   icon: LucideIcon;
-  edition: ProductEdition;
   owner: ProductOwnerModule;
   emptyStateStrategy: ProductEmptyStateStrategy;
   nav?: boolean;
@@ -94,8 +91,7 @@ export interface ProductRouteMeta {
   backTo?: string;
 }
 
-type ProductRouteInput = Omit<ProductRouteMeta, 'edition'> &
-  Partial<Pick<ProductRouteMeta, 'edition'>>;
+type ProductRouteInput = ProductRouteMeta;
 
 export const PRODUCT_NAV_GROUP_META = {
   home: { labelKey: 'groups.home', icon: HomeIcon },
@@ -353,16 +349,6 @@ export const PRODUCT_ROUTES = [
     nav: true,
   }),
   route({
-    id: 'settings.license',
-    path: '/settings/license',
-    labelKey: 'breadcrumbs.license',
-    group: 'admin',
-    icon: ShieldCheck,
-    owner: 'settings',
-    emptyStateStrategy: 'none',
-    nav: true,
-  }),
-  route({
     id: 'settings.client_ip',
     path: '/settings/client_ip',
     labelKey: 'client_ip',
@@ -370,26 +356,6 @@ export const PRODUCT_ROUTES = [
     icon: ShieldCheck,
     owner: 'settings',
     emptyStateStrategy: 'none',
-  }),
-  route({
-    id: 'account.billing',
-    path: '/account/billing',
-    labelKey: 'account_billing',
-    group: 'admin',
-    icon: FileBarChart,
-    edition: 'saas',
-    owner: 'account',
-    emptyStateStrategy: 'license-gated',
-  }),
-  route({
-    id: 'account.support',
-    path: '/account/support',
-    labelKey: 'account_support',
-    group: 'admin',
-    icon: ShieldCheck,
-    edition: 'saas',
-    owner: 'account',
-    emptyStateStrategy: 'license-gated',
   }),
   route({
     id: 'investigate',
@@ -431,13 +397,8 @@ export function findProductRoute(pathname: string): ProductRouteMeta | undefined
   );
 }
 
-function route<const T extends ProductRouteInput>(
-  routeMeta: T,
-): T & { edition: ProductEdition } {
-  return {
-    edition: 'any',
-    ...routeMeta,
-  } as T & { edition: ProductEdition };
+function route<const T extends ProductRouteInput>(routeMeta: T): T {
+  return routeMeta;
 }
 
 function crumb(labelKey: string, to?: string): ProductBreadcrumbItem {

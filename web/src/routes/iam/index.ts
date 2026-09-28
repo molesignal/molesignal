@@ -7,6 +7,5 @@ export { Organizations } from './Organizations';
 export { Groups } from './Groups';
 export { Roles } from './Roles';
 export { Teams } from './Teams';
-export { Quota } from './Quota';
 export { Invitations } from './Invitations';
 export { EmailDomains } from './EmailDomains';

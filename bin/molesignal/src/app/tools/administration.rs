@@ -232,7 +232,6 @@ pub(super) async fn execute(
                 "roles": auth.roles,
                 "scope": auth.scope,
                 "permissions": auth.permissions,
-                "features": auth.features,
                 "policy_version": auth.policy_version,
             })))
         }
@@ -407,7 +406,6 @@ fn requested_user_id(auth: &IamContext, target_user_id: Option<String>) -> Resul
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeSet;
 
     use super::*;
     use crate::domain::iam::IamScope;
@@ -426,7 +424,6 @@ mod tests {
                 .iter()
                 .map(|value| (*value).to_string())
                 .collect(),
-            features: BTreeSet::new(),
             policy_version: 0,
         }
     }

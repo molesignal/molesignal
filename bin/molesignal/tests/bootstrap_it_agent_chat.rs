@@ -66,7 +66,6 @@ fn test_tool_context() -> ToolAuthContext {
         credential_service_account_id: None,
         scope: molesignal::domain::iam::IamScope::Organization,
         permissions: Default::default(),
-        features: Default::default(),
         policy_version: 0,
     })
 }

@@ -598,7 +598,7 @@ function ElementInspector({
         <div className="font-sans text-xs font-semibold text-tx-1">
           {tr('Element')}
         </div>
-        <div className="mt-0.5 font-mono text-type-micro uppercase tracking-wide text-tx-3">
+        <div className="mt-0.5 font-mono text-type-micro tracking-normal text-tx-3">
           {tr(element.kind)}
         </div>
       </div>
@@ -956,7 +956,7 @@ function PanelEditor({
 
       <section className="min-h-0 overflow-auto border-b border-bd-0 bg-bg-0 p-3 lg:col-start-1 lg:row-start-2">
         <div className="mb-2 flex items-center justify-between">
-          <span className="font-mono text-type-micro font-semibold uppercase tracking-wider text-tx-3">
+          <span className="font-mono text-type-micro font-semibold tracking-normalr text-tx-3">
             {tr('Live preview')}
           </span>
           <span className="rounded-sm bg-bg-2 px-2 py-1 font-mono text-type-micro text-tx-3">

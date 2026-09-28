@@ -10,7 +10,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-use super::{require_license, runtime, schema};
+use super::{runtime, schema};
 use crate::{
     agent::{
         model::RiskLevel,
@@ -53,7 +53,6 @@ pub(super) async fn test_server(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>> {
-    require_license(&state)?;
     let id = Id(id);
     let now = TimestampMicros::now();
     let result = discover_tools(&state, &ctx.org_id, &id).await;
@@ -126,7 +125,6 @@ pub(super) async fn sync_server(
     Path(id): Path<String>,
     Json(request): Json<SyncRequest>,
 ) -> Result<Json<Value>> {
-    require_license(&state)?;
     let id = Id(id);
     let server = state
         .agent

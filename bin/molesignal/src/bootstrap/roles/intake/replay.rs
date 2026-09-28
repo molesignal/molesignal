@@ -8,7 +8,7 @@ use std::sync::Arc;
 use super::IntakeWorker;
 use crate::{
     domain::{
-        intake::IntakeBatch,
+        intake::usage::MeteredBatch,
         storage::{OrganizationScope, WalSequence, WriterEpoch, WriterNodeId},
         stream::StreamDefinition,
     },
@@ -88,7 +88,7 @@ impl IntakeWorker {
                     if record.index <= committed_sequence.0 {
                         continue;
                     }
-                    let batch: IntakeBatch = match serde_json::from_slice(&record.payload) {
+                    let metered: MeteredBatch = match serde_json::from_slice(&record.payload) {
                         Ok(batch) => batch,
                         Err(error) => {
                             tracing::warn!(
@@ -99,6 +99,7 @@ impl IntakeWorker {
                             continue;
                         }
                     };
+                    let batch = metered.batch;
                     if batch.events.is_empty() {
                         continue;
                     }
@@ -176,6 +177,7 @@ impl IntakeWorker {
                     }
                     let reservation = self.buffer.force_reserve(record.payload.len())?;
                     guard.add_accounted_bytes(reservation.commit());
+                    guard.add_collected_bytes(metered.collected_bytes);
                     for event in &batch.events {
                         guard
                             .push_with_position(event, &writer, WalSequence(record.index))

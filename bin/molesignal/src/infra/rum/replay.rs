@@ -4,7 +4,7 @@
 //! RUM session-replay segment persistence.
 //!
 //! Segments are validated, NDJSON encoded, compressed, and stored under
-//! `rum/v1/{org}/...`. PostgreSQL metadata carries the independent payload
+//! `blobs/v1/{org}/rum/...`. PostgreSQL metadata carries the independent payload
 //! format version and supplies ordering, idempotency, availability filtering,
 //! quotas, and retention cleanup.
 
@@ -385,7 +385,7 @@ fn replay_object_key(
     content_hash_prefix: &str,
 ) -> String {
     format!(
-        "rum/{RUM_REPLAY_LAYOUT_VERSION}/{}/{application_hash_prefix}/{session_id}/{seq:010}-{content_hash_prefix}.ndjson.zst",
+        "blobs/{RUM_REPLAY_LAYOUT_VERSION}/{}/rum/{application_hash_prefix}/{session_id}/{seq:010}-{content_hash_prefix}.ndjson.zst",
         org_id.0
     )
 }
@@ -483,7 +483,7 @@ mod tests {
                 7,
                 "contenthash"
             ),
-            "rum/v1/org-1/apphash/session-1/0000000007-contenthash.ndjson.zst"
+            "blobs/v1/org-1/rum/apphash/session-1/0000000007-contenthash.ndjson.zst"
         );
     }
 }

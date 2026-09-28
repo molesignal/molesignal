@@ -1,7 +1,6 @@
 import {
   Construction,
   Inbox,
-  Lock,
   type LucideIcon,
   PlusCircle,
   Search,
@@ -53,7 +52,6 @@ const STRATEGY_ICON: Record<ProductEmptyStateStrategy, LucideIcon> = {
   'query-first': Search,
   'create-first': PlusCircle,
   'backend-pending': Construction,
-  'license-gated': Lock,
   'permission-denied': ShieldOff,
   none: Inbox,
 };

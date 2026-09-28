@@ -64,12 +64,22 @@
       "volume_window": "{{window}} 压缩数据",
       "storage": "当前存储",
       "retention": "保留期",
-      "actions": "操作"
+      "actions": "操作",
+      "data_count": "数据量",
+      "collected_size": "采集数据大小",
+      "stored_size": "实际存储大小",
+      "index_size": "索引大小"
     },
     "explore": "探索",
     "not_queryable": "不可查询",
     "empty_title": "尚无数据流",
-    "empty_description": "创建一个数据流，或通过数据源发送事件来注册第一条数据流。"
+    "empty_description": "创建一个数据流，或通过数据源发送事件来注册第一条数据流。",
+    "storage_notes": {
+      "data_count": "当前保留的已持久化记录数，不受健康状态时间窗口影响。",
+      "collected_size": "通过校验的事件在转换前的规范化 JSON 字节累计值，落盘后更新；不含传输封装。≥ 表示历史计量不完整，— 表示暂无计量。",
+      "stored_size": "当前有效主数据文件的实际字节数，不包含索引。",
+      "index_size": "当前有效且已就绪的独立索引文件大小。"
+    }
   },
   "drawer": {
     "title": "创建数据流",

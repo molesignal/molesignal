@@ -2,7 +2,7 @@
 
 > 中文版本 / Chinese version: [SECURITY.zh-CN.md](SECURITY.zh-CN.md)
 
-Thanks for taking the time to look at MoleSignal's security posture. The project is pre-1.0 and self-hosted; many of the features it ships (multi-tenant query rewriting, cipher-key envelope encryption, JWT signing-secret rotation, audit log, intake quotas) are explicitly security-sensitive, so we treat reports seriously.
+Thanks for taking the time to look at MoleSignal's security posture. The project is pre-1.0 and self-hosted; many of the features it ships (multi-tenant query rewriting, cipher-key envelope encryption, JWT signing-secret rotation, audit log) are explicitly security-sensitive, so we treat reports seriously.
 
 ## Supported Versions
 
@@ -64,7 +64,6 @@ If you run MoleSignal in production, the following knobs are not optional:
 - **Rotate the bootstrap JWT signing secret** (`POST /api/v1/auth/jwt/rotate`) after first start.
 - **Restrict `/api/v1/_*` and `/metrics`** at the ingress layer to internal callers — they expose admin-grade surface.
 - **Run the planner-rewrite tests in your fork** when you touch query code; the `it_multitenant.rs` suite is the contract that keeps tenants isolated.
-- **Enable per-org quotas** if your intake is shared — runaway producers should hit 413/429 before they degrade neighbours.
 
 Issues found while hardening a deployment are exactly the reports we want.
 

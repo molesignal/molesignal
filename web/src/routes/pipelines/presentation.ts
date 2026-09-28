@@ -1,7 +1,9 @@
 import type { ScheduledPipeline } from '@/api/pipelines';
 import type { PipelineRun } from '@/api/pipelines/runs';
 
-export type PipelineHealth = 'healthy' | 'running' | 'error' | 'paused' | 'unknown' | 'never';
+import { executionMode } from './PipelineGraph/model';
+
+export type PipelineHealth = 'healthy' | 'running' | 'error' | 'paused' | 'unknown' | 'never' | 'ready';
 export type PipelineDetailTab = 'overview' | 'topology' | 'runs' | 'configuration';
 
 export function parsePipelineDetailTab(value: string | null): PipelineDetailTab {
@@ -12,6 +14,7 @@ export function parsePipelineDetailTab(value: string | null): PipelineDetailTab 
 
 export function pipelineHealth(pipeline: ScheduledPipeline): PipelineHealth {
   if (pipeline.enabled === false) return 'paused';
+  if (executionMode(pipeline) === 'realtime') return 'ready';
   if (pipeline.last_run_state === 'failed') return 'error';
   if (pipeline.last_run_state === 'running') return 'running';
   if (pipeline.last_run_state === 'succeeded') return 'healthy';

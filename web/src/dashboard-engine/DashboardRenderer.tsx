@@ -557,7 +557,7 @@ function DashboardPanelCard({
           )}
           <span
             className={cn(
-              'rounded-sm border border-bd-0 px-1.5 py-0.5 font-mono text-type-micro uppercase tracking-wide text-tx-3 opacity-100 transition-opacity group-hover:opacity-0 group-focus-within:opacity-0',
+              'rounded-sm border border-bd-0 px-1.5 py-0.5 font-mono text-type-micro tracking-normal text-tx-3 opacity-100 transition-opacity group-hover:opacity-0 group-focus-within:opacity-0',
               data.state !== 'streaming' && 'ml-auto',
             )}
           >
@@ -824,7 +824,7 @@ function DashboardContainerCard({
           <ChevronDown className="h-3.5 w-3.5" />
         )}
         {interpolateVariables(element.title, variables)}
-        <span className="ml-auto font-mono text-type-micro uppercase text-tx-3">
+        <span className="ml-auto font-mono text-type-micro text-tx-3">
           {tr(element.kind)}
         </span>
       </button>

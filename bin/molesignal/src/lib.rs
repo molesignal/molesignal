@@ -20,8 +20,5 @@ pub mod tantivy;
 
 // Product modules are workspace crates and are re-exported for API compatibility.
 pub use ::agent;
-pub use ::cloud_marketplace;
 pub use ::domain_management;
-pub use ::license;
-pub use ::model_pricing;
 pub use ::report_renderer;

@@ -206,7 +206,7 @@ export function ExtendTables() {
           </ExtendTableListSurface>
         ) : (
           <ExtendTableListSurface className="overflow-hidden">
-            <div className="hidden min-h-10 grid-cols-[minmax(280px,1.7fr)_minmax(220px,1.3fr)_120px_150px_150px_136px] items-center gap-4 border-b border-bd-0 bg-bg-2 px-5 text-type-micro font-strong uppercase tracking-wider text-tx-3 xl:grid">
+            <div className="hidden min-h-10 grid-cols-[minmax(280px,1.7fr)_minmax(220px,1.3fr)_120px_150px_150px_136px] items-center gap-4 border-b border-bd-0 bg-bg-2 px-5 text-type-micro font-strong tracking-normalr text-tx-3 xl:grid">
               <span>{t('extend_tables.columns.name')}</span>
               <span>{t('extend_tables.columns.schema')}</span>
               <span>{t('extend_tables.columns.rows')}</span>
@@ -289,7 +289,7 @@ export function ExtendTables() {
                   data-testid="extend-table-status-cell"
                   className="relative flex items-center justify-between gap-2 xl:justify-center"
                 >
-                  <span className="xl:hidden text-type-micro uppercase tracking-wider text-tx-3">
+                  <span className="xl:hidden text-type-micro tracking-normalr text-tx-3">
                     {t('extend_tables.columns.status')}
                   </span>
                   <TableStatus populated={table.row_count > 0} />
@@ -396,7 +396,7 @@ function Metric({
 }) {
   return (
     <div className="flex min-w-0 items-center justify-between gap-3 pl-6 text-xs text-tx-1 xl:block xl:pl-0">
-      <span className="text-type-micro uppercase tracking-wider text-tx-3 xl:hidden">
+      <span className="text-type-micro tracking-normalr text-tx-3 xl:hidden">
         {label}
       </span>
       <span className="min-w-0 truncate">{value}</span>

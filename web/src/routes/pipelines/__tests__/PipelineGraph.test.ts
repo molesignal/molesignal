@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   defaultPipelineGraph,
+  pipelineInputFromGraph,
+  pipelineGraphFromPipeline,
   isValidGraphConnection,
   pipelineGraphStats,
   pipelineStreamOptions,
@@ -141,4 +143,40 @@ describe('pipelineStreamOptions', () => {
       pipelineStreamOptions([], 'logs', 'connector:archive'),
     ).toEqual([]);
   });
+});
+
+describe('realtime routing configuration', () => {
+  it('allows routing back to the source while rejecting multiple output nodes', () => {
+    const graph = { ...defaultPipelineGraph('logs'), mode: 'realtime' as const, sources: ['default'], sinks: ['default'], routing: { kind: 'field' as const, field: 'appname', prefix: 'app_', fallback: 'default', retain_source: true } };
+    expect(validateGraph(graph)).toEqual([]);
+    expect(validateGraph({ ...graph, sinks: ['a', 'b'] }).map((issue) => issue.code)).toContain('realtime_nodes');
+    expect(validateGraph({ ...graph, signalType: 'metrics' }).map((issue) => issue.code)).toContain('realtime_logs');
+  });
+});
+
+it('roundtrips realtime output settings and removes the schedule', () => {
+  const graph = { ...defaultPipelineGraph('logs'), mode: 'realtime' as const, sources: ['default'], sinks: ['default'], routing: { kind: 'field' as const, field: 'appname', prefix: 'app_', fallback: 'default', retain_source: true } };
+  const payload = pipelineInputFromGraph({ name: 'route', graph, cron: 'every:5m' });
+  expect(payload.cron).toBe('');
+  const restored = pipelineGraphFromPipeline({ ...payload, id: 'one' });
+  expect(restored.mode).toBe('realtime');
+  expect(restored.routing).toBeUndefined();
+  expect(restored.retainSource).toBe(true);
+  expect(restored.transforms.at(-1)).toMatchObject({ kind: 'builtin', operation: 'route', routing: { kind: 'field', field: 'appname' } });
+  expect((payload.function_steps as Record<string, unknown>).routing).toBeUndefined();
+  expect(restored.sources).toEqual(['default']);
+});
+
+it('roundtrips interleaved built-in and VRL steps without generating a script for routing', () => {
+  const graph = { ...defaultPipelineGraph('logs'), transforms: [
+    { name: 'parse', kind: 'vrl' as const, script: '.appname = "orders"' },
+    { name: 'route', kind: 'builtin' as const, operation: 'route' as const, script: '', target: 'orders', routing: { kind: 'fixed' as const, field: 'appname', prefix: '', fallback: 'default', retain_source: false } },
+    { name: 'enrich', kind: 'vrl' as const, script: '.processed = true' },
+  ] };
+  expect(validateGraph(graph)).toEqual([]);
+  const payload = pipelineInputFromGraph({ name: 'ordered', graph, cron: 'every:5m' });
+  const steps = (payload.function_steps as { steps: Record<string, unknown>[] }).steps;
+  expect(steps[1]).toMatchObject({ kind: 'builtin', operation: 'route', target: 'orders' });
+  expect(steps[1]).not.toHaveProperty('script');
+  expect(pipelineGraphFromPipeline({ ...payload, id: 'one' }).transforms.map((step) => step.kind ?? 'vrl')).toEqual(['vrl', 'builtin', 'vrl']);
 });

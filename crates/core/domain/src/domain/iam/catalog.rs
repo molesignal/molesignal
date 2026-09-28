@@ -30,8 +30,6 @@ pub struct IamPermissionDefinition {
     pub description_key: String,
     #[serde(default)]
     pub builtin_roles: Vec<String>,
-    #[serde(default)]
-    pub feature: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -24,7 +24,7 @@ export function NocEditBar({ onDone }: { onDone: () => void }) {
 
   return (
     <div className="mb-1 flex flex-wrap items-center gap-2 rounded-lg border border-bd-1 bg-bg-1 px-3 py-2 font-sans text-xs">
-      <span className="font-strong uppercase tracking-normal text-tx-2">
+      <span className="font-strong tracking-normal text-tx-2">
         {t('pages.noc.edit.presets')}
       </span>
       {(['platform', 'sre', 'executive'] as const).map((preset) => (

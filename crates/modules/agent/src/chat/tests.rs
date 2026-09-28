@@ -78,7 +78,6 @@ fn ctx() -> ToolAuthContext {
         credential_service_account_id: None,
         scope: domain::iam::IamScope::Organization,
         permissions: Default::default(),
-        features: Default::default(),
         policy_version: 0,
     })
 }

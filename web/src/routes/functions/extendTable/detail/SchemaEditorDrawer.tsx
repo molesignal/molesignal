@@ -160,7 +160,7 @@ export function SchemaEditorDrawer({
     >
       <dl className="grid gap-4 border-b border-bd-0 px-6 py-5 sm:grid-cols-2">
         <div>
-          <dt className="flex items-center gap-1.5 text-type-micro uppercase tracking-wider text-tx-3">
+          <dt className="flex items-center gap-1.5 text-type-micro tracking-normalr text-tx-3">
             <LockKeyhole className="h-3 w-3" />
             {t('extend_tables.columns.name')}
           </dt>
@@ -169,7 +169,7 @@ export function SchemaEditorDrawer({
           </dd>
         </div>
         <div>
-          <dt className="flex items-center gap-1.5 text-type-micro uppercase tracking-wider text-tx-3">
+          <dt className="flex items-center gap-1.5 text-type-micro tracking-normalr text-tx-3">
             <KeyRound className="h-3 w-3" />
             {t('extend_tables.key_field')}
           </dt>
@@ -233,7 +233,7 @@ export function SchemaEditorDrawer({
               return (
                 <div key={draft.id} className="py-4">
                   <div className="mb-3 flex min-h-8 items-center justify-between gap-3">
-                    <span className="font-mono text-type-micro uppercase tracking-wider text-tx-3">
+                    <span className="font-mono text-type-micro tracking-normalr text-tx-3">
                       {t('extend_tables.schema_field_number', {
                         number: index + 1,
                       })}

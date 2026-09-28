@@ -569,7 +569,7 @@ export function FormSubmitFooter({
   disabled?: boolean;
   /** The current draft does not satisfy the form's validation rules. */
   invalid?: boolean;
-  /** Explains a permission, license, or workflow restriction. */
+  /** Explains a permission or workflow restriction. */
   disabledReason?: React.ReactNode;
   cancelDisabled?: boolean;
   onCancel: () => void;

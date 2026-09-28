@@ -158,8 +158,6 @@ pub struct IamContext {
     pub scope: IamScope,
     /// Canonical, server-resolved capability keys for this request.
     pub permissions: BTreeSet<String>,
-    /// Active product features included in the capability snapshot.
-    pub features: BTreeSet<String>,
     /// Monotonic organization policy version used to resolve `permissions`.
     pub policy_version: u64,
 }

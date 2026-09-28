@@ -391,14 +391,12 @@ pub(crate) async fn intake(
     events: Vec<RawEvent>,
     bytes: usize,
 ) -> Result<usize> {
-    // 计费门禁 + 计量：原始字节数用于配额/计量；license 过期 / 订阅停服 / 超 cap → 402。
-    crate::api::http::billing::ensure_intake_allowed(
+    crate::api::http::intake_usage::record_intake_usage(
         state,
         &org_id,
         bytes as u64,
         TimestampMicros::now().0,
-    )
-    .await?;
+    );
     if events.is_empty() {
         return Ok(0);
     }
@@ -493,13 +491,12 @@ pub(crate) async fn submit_traces(
     trace_context: &crate::shared::trace_context::TraceContext,
     suppress_external: bool,
 ) -> Result<usize> {
-    crate::api::http::billing::ensure_intake_allowed(
+    crate::api::http::intake_usage::record_intake_usage(
         state,
         &org_id,
         bytes as u64,
         TimestampMicros::now().0,
-    )
-    .await?;
+    );
     let force_keep = match trace_context.trust {
         crate::shared::trace_context::TraceTrust::DebugToken if trace_context.force_keep => {
             crate::shared::tail_sampling::ForceKeep::DebugToken
