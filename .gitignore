@@ -17,6 +17,8 @@ Cargo.lock.bak
 *.sqlite
 *.sqlite-journal
 
+/openspec/*
+
 # logs
 *.log
 
