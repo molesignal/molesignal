@@ -179,7 +179,7 @@ function VersionSelect({
         value={value || EMPTY_VERSION_VALUE}
         onValueChange={(next) => onChange(next === EMPTY_VERSION_VALUE ? '' : next)}
       >
-        <SelectTrigger className="h-9 min-w-48 bg-bg-1 font-mono text-xs" aria-label={label}>
+        <SelectTrigger className="h-9 min-w-48 bg-[var(--control-surface)] font-mono text-xs" aria-label={label}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent align="start">

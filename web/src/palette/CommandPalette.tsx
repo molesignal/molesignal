@@ -87,7 +87,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
           window.dispatchEvent(new CustomEvent('molesignal:open-help'));
         },
         signOut: () => {
-          logout();
+          logout({ allTabs: true });
           nav('/signin');
         },
         t: (key) => t(`palette:${key}`),

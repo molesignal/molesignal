@@ -191,7 +191,8 @@
       "records": "数据记录",
       "schema": "字段结构",
       "usage": "使用位置",
-      "settings": "设置"
+      "settings": "设置",
+      "label": "扩展表分区"
     },
     "search_key_placeholder": "搜索 {{key}} 或字段值…",
     "records_visible": "显示 {{visible}} / {{total}} 条",

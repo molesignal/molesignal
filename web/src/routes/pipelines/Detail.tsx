@@ -21,6 +21,7 @@ import { ProductState } from '@/product/states';
 import { ChromeButton } from '@/shell/chrome';
 import { CodeEditor } from '@/shell/codeEditor';
 import { PageBody, PageHeader } from '@/shell/PageHeader';
+import { ModuleTabs } from '@/shell/tabs/ModuleTabs';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,7 +30,7 @@ import {
   DropdownMenuTrigger,
 } from '@/shell/ui/dropdown-menu';
 import { toast } from '@/shell/ui/sonner';
-import { Tabs, TabsContent, TabsList } from '@/shell/ui/tabs';
+import { Tabs, TabsContent } from '@/shell/ui/tabs';
 
 import { NotFound } from '../NotFound';
 import {
@@ -59,7 +60,6 @@ import {
   PipelineKpiBand,
   PipelineRunState,
   PipelineSection,
-  PipelineTabTrigger,
   PIPELINE_TYPE_TONE,
   pipelineFlatTableClassName,
 } from './Surfaces';
@@ -274,24 +274,19 @@ export function PipelineDetail() {
           onValueChange={setActiveTab}
           className="flex h-[calc(100%_-_48px)] min-h-0 flex-col"
         >
-          <div className="overflow-hidden rounded-md bg-[var(--functional-surface)] px-3 [box-shadow:var(--shadow-functional-surface)]">
-            <TabsList className="h-10 max-w-full justify-start overflow-x-auto rounded-none bg-transparent p-0">
-              <PipelineTabTrigger value="overview">
-                {t('detail.tabs.overview')}
-              </PipelineTabTrigger>
-              <PipelineTabTrigger value="topology">
-                {t('detail.tabs.topology')}
-              </PipelineTabTrigger>
-              <PipelineTabTrigger value="runs">
-                {t('detail.tabs.runs')}
-              </PipelineTabTrigger>
-              <PipelineTabTrigger value="configuration">
-                {t('detail.tabs.configuration')}
-              </PipelineTabTrigger>
-            </TabsList>
-          </div>
+          <ModuleTabs
+            label={t('detail.tabs.label')}
+            className="mx-0 mb-0"
+            value={activeTab}
+            onValueChange={setActiveTab}
+            tabIdPrefix="pipeline-tab"
+            items={(['overview', 'topology', 'runs', 'configuration'] as const).map((tab) => ({
+              key: tab,
+              label: t(`detail.tabs.${tab}`),
+            }))}
+          />
 
-          <TabsContent value="overview" className="m-0 min-h-0 flex-1 overflow-auto py-[12px]">
+          <TabsContent value="overview" aria-labelledby="pipeline-tab-overview" className="m-0 min-h-0 flex-1 overflow-auto py-[12px]">
             <div className="mx-auto flex w-full max-w-[2200px] flex-col gap-[12px]">
               <PipelineKpiBand
                 items={[
@@ -370,7 +365,7 @@ export function PipelineDetail() {
             </div>
           </TabsContent>
 
-          <TabsContent value="topology" className="m-0 min-h-0 flex-1 overflow-auto py-[12px]">
+          <TabsContent value="topology" aria-labelledby="pipeline-tab-topology" className="m-0 min-h-0 flex-1 overflow-auto py-[12px]">
             <div className="mx-auto w-full max-w-[2200px]">
               <PipelineSection
                 title={t('detail.graph')}
@@ -392,7 +387,7 @@ export function PipelineDetail() {
             </div>
           </TabsContent>
 
-          <TabsContent value="runs" className="m-0 min-h-0 flex-1 overflow-auto py-[12px]">
+          <TabsContent value="runs" aria-labelledby="pipeline-tab-runs" className="m-0 min-h-0 flex-1 overflow-auto py-[12px]">
             <div className="mx-auto w-full max-w-[2200px] overflow-hidden rounded-md bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]">
               {runsQuery.isError ? (
                 <ProductState
@@ -418,7 +413,7 @@ export function PipelineDetail() {
             </div>
           </TabsContent>
 
-          <TabsContent value="configuration" className="m-0 min-h-0 flex-1 overflow-auto py-[12px]">
+          <TabsContent value="configuration" aria-labelledby="pipeline-tab-configuration" className="m-0 min-h-0 flex-1 overflow-auto py-[12px]">
             <div className="mx-auto w-full max-w-[2200px]">
               <PipelineSection
                 title={t('detail.configuration')}

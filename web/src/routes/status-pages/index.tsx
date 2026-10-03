@@ -13,7 +13,7 @@ import { useActionAccess } from '@/product/actionAccess';
 import type { ProductStateProps } from '@/product/states';
 import { ListPage } from '@/product/templates';
 import { ChromeButton, IconButton, Pill } from '@/shell/chrome';
-import { cn } from '@/shell/lib/cn';
+import { ViewTabs } from '@/shell/tabs/ViewTabs';
 import { toast } from '@/shell/ui/sonner';
 
 import { PageFormDrawer, type PageFormSubmission } from './ConfigurationDrawers';
@@ -133,23 +133,15 @@ export function StatusPages() {
           </ChromeButton>
         }
         filters={
-          <div className="flex items-center gap-1">
-            {(['active', 'archived'] as const).map((item) => (
-              <button
-                type="button"
-                key={item}
-                onClick={() => setLifecycle(item)}
-                className={cn(
-                  'inline-flex h-10 items-center border-b-[3px] px-3 text-xs font-strong transition-colors duration-fast',
-                  lifecycle === item
-                    ? 'border-indigo text-tx-0'
-                    : 'border-transparent text-tx-2 hover:bg-bg-2 hover:text-tx-0 focus-visible:bg-bg-2 focus-visible:text-tx-0',
-                )}
-              >
-                {t(`lifecycle.${item}`)}
-              </button>
-            ))}
-          </div>
+          <ViewTabs
+            label={t('lifecycle_label')}
+            value={lifecycle}
+            onValueChange={setLifecycle}
+            items={(['active', 'archived'] as const).map((item) => ({
+              key: item,
+              label: t(`lifecycle.${item}`),
+            }))}
+          />
         }
         state={state}
       >

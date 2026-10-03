@@ -103,7 +103,7 @@
   /* text */
   --tx-0: #131825;        /* oklch(0.20 0.013 265) — primary (not pure black) */
   --tx-1: #404763;        /* oklch(0.36 0.018 265) — secondary */
-  --tx-2: #686f8d;        /* oklch(0.52 0.016 265) — muted */
+  --tx-2: #5a617e;        /* muted; 6.1:1 on white, 5.6:1 on the page canvas, AA on every surface up to bg-3 */
   --tx-3: #5f6682;        /* placeholder / dim; AA on bg-0..bg-3 */
   --tx-4: #b5b9c9;        /* oklch(0.76 0.010 265) — weakest */
 

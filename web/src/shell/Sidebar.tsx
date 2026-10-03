@@ -24,7 +24,6 @@ interface SidebarProps {
   mobileOpen?: boolean | undefined;
   onNavigate?: (() => void) | undefined;
   onHoverChange?: ((hovered: boolean) => void) | undefined;
-  surfaceWorkbench?: boolean;
 }
 
 export function Sidebar({
@@ -32,7 +31,6 @@ export function Sidebar({
   mobileOpen = false,
   onNavigate,
   onHoverChange,
-  surfaceWorkbench = false,
 }: SidebarProps) {
   const { t } = useTranslation('nav');
   const visuallyCollapsed = collapsed && !mobileOpen;
@@ -66,11 +64,11 @@ export function Sidebar({
         {!visuallyCollapsed && group !== 'home' && (
           // Group labels use the shell's micro role so they remain secondary.
           // Home is a stand-alone top item, so we skip a "HOME" label.
-          <div className="font-sidebar-face type-micro px-3.5 pb-1 pt-2.5 font-semibold tracking-normal text-tx-2">
+          <div className="font-sidebar-face type-micro px-[22px] pb-1 pt-2.5 font-semibold tracking-normal text-tx-2">
             {t(groupMeta.labelKey)}
           </div>
         )}
-        <div className="flex flex-col gap-0.5 px-1.5">
+        <div className="flex flex-col gap-0.5 px-[12px]">
           {groupItems.map((item) => (
             <NavRow
               key={item.id}
@@ -93,11 +91,9 @@ export function Sidebar({
       onMouseLeave={() => onHoverChange?.(false)}
       className={cn(
         'fixed bottom-0 left-0 top-topbar z-40 flex w-sidebar flex-col',
-        surfaceWorkbench
-          ? 'border-r-0 bg-[var(--sidebar-surface)]'
-          : 'border-r border-bd-0 bg-bg-1',
-        'transition-[transform,width] duration-normal ease-out-default',
-        mobileOpen ? 'translate-x-0 shadow-lg' : '-translate-x-full md:translate-x-0',
+        'border-0 bg-[var(--sidebar-surface)]',
+        'transition-[transform,width] duration-150 ease-out-default',
+        mobileOpen ? 'relative inset-auto h-full w-full translate-x-0' : '-translate-x-full md:translate-x-0',
         visuallyCollapsed ? 'md:w-sidebar-collapsed' : 'md:w-sidebar',
       )}
     >
@@ -144,10 +140,10 @@ function MiniSection({ labelKey, children }: { labelKey: string; children: React
   const { t } = useTranslation('nav');
   return (
     <div className="mb-1.5">
-      <div className="font-sidebar-face type-micro px-3.5 pb-1 pt-2.5 font-semibold tracking-normal text-tx-3">
+      <div className="font-sidebar-face type-micro px-[22px] pb-1 pt-2.5 font-semibold tracking-normal text-tx-3">
         {t(labelKey)}
       </div>
-      <div className="flex flex-col gap-0.5 px-1.5">{children}</div>
+      <div className="flex flex-col gap-0.5 px-[12px]">{children}</div>
     </div>
   );
 }
@@ -240,13 +236,13 @@ function MiniNavRow({
           `${cn(
             // Match NavRow metrics (h-sidebar-item / text-xs / text-tx-1) so the
             // Pinned rows share the fixed groups' density.
-            'relative flex h-sidebar-item items-center gap-2 rounded-md pl-2.5 text-xs font-strong text-tx-1',
+            'relative flex h-sidebar-item items-center gap-2 rounded-md pl-[10px] text-xs font-strong text-tx-1',
             // extra right padding for the grip + pin controls (grip only on pinned rows)
             drag ? 'pr-16' : 'pr-9',
             'transition-colors duration-fast ease-default hover:bg-bg-3 hover:text-tx-0',
             'focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none',
             isActive &&
-              'bg-indigo-dim text-indigo-soft hover:bg-indigo-dim hover:text-indigo-soft before:absolute before:-left-1.5 before:top-1/2 before:h-5 before:w-0.5 before:-translate-y-1/2 before:rounded-r before:bg-indigo',
+              'bg-indigo-dim text-indigo-soft hover:bg-indigo-dim hover:text-indigo-soft',
           )} font-sidebar-face`
         }
       >
@@ -320,7 +316,7 @@ function NavRow({
         `${cn(
           // Shell navigation stays stable across density modes; lighter,
           // caption-sized labels and 16px icons keep the compact rail balanced.
-          'group relative flex h-sidebar-item items-center gap-2 rounded-md pl-[18px] pr-2 text-xs font-strong text-tx-1',
+          'group relative flex h-sidebar-item items-center gap-2 rounded-md pl-[10px] pr-2 text-xs font-strong text-tx-1',
           'transition-colors duration-fast ease-default',
           'hover:bg-bg-3 hover:text-tx-0',
           'focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none',
@@ -330,20 +326,8 @@ function NavRow({
         )} font-sidebar-face`
       }
     >
-      {({ isActive }) => (
-        <>
-          {isActive && (
-            // Active state: a 2px indigo rail aligned with the sidebar edge
-            // and the brand treatment used by primary actions.
-            <span
-              aria-hidden
-              className="absolute -left-1.5 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r bg-indigo"
-            />
-          )}
-          <item.icon className="h-4 w-4 shrink-0 text-indigo-soft" />
-          {!collapsed && <span className="flex-1 truncate">{label}</span>}
-        </>
-      )}
+      <item.icon className="h-4 w-4 shrink-0 text-indigo-soft" />
+      {!collapsed && <span className="flex-1 truncate">{label}</span>}
     </NavLink>
   );
 

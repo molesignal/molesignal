@@ -96,7 +96,8 @@
       "overview": "Overview",
       "topology": "Topology",
       "runs": "Run history",
-      "configuration": "Configuration"
+      "configuration": "Configuration",
+      "label": "Pipeline sections"
     },
     "overview": {
       "last_run": "Last run",

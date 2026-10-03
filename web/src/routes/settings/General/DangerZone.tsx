@@ -22,10 +22,11 @@ export function DangerZone({ access }: { access: ActionAccess }) {
         controlClassName="justify-start min-[1100px]:justify-end"
       >
         <ChromeButton
+          variant="danger"
           disabled={access.disabled}
           disabledReason={access.reason}
           onClick={() => navigate('/settings/organization_management')}
-          className="h-11 border-red/30 bg-red-dim text-base text-red-soft enabled:hover:border-red/50 enabled:hover:bg-red-dim enabled:hover:text-tx-0 lg:h-9 lg:text-sm"
+          className="h-11 text-base lg:h-9 lg:text-sm"
         >
           {t('general.danger.manage_delete')}
         </ChromeButton>

@@ -86,7 +86,7 @@ export function FunctionsList() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t('list.search_placeholder') ?? ''}
-            className="h-8 w-full max-w-[280px] rounded-md border border-bd-1 bg-bg-2 px-2.5 font-sans text-xs text-tx-0 placeholder:text-tx-3 focus:outline-none"
+            className="h-8 w-full max-w-[280px] rounded-md border border-bd-1 bg-[var(--control-surface)] px-2.5 font-sans text-xs text-tx-0 placeholder:text-tx-3 focus:outline-none"
           />
         }
         state={listState}

@@ -607,7 +607,7 @@ function FilterSelect({
       aria-label={ariaLabel}
       value={value}
       onChange={(event) => onChange(event.target.value)}
-      className="h-9 rounded-md border-0 bg-bg-2 px-3 font-sans text-sm text-tx-1 transition-colors hover:bg-bg-3 focus:bg-bg-3 focus:outline-none"
+      className="h-9 rounded-md border-0 bg-[var(--control-surface)] px-3 font-sans text-sm text-tx-1 transition-colors hover:bg-bg-3 focus:bg-bg-3 focus:outline-none"
     >
       {options.map((option) => (
         <option key={option.value} value={option.value}>
@@ -939,7 +939,7 @@ function TemplateEditorDialog({
           </fieldset>
         </form>
 
-        <DialogFooter className="flex items-center justify-between space-x-0 border-t border-bd-0 bg-bg-2 px-6 py-4">
+        <DialogFooter className="flex items-center justify-between space-x-0 border-t border-bd-0 bg-[var(--functional-surface)] px-6 py-4">
           <div>
             {template?.serverId && (
               <ChromeButton
@@ -1491,7 +1491,7 @@ function ReportWorkbench({
           />
         </div>
 
-        <DialogFooter className="flex items-center justify-between space-x-0 border-t border-bd-0 bg-bg-2 px-6 py-4">
+        <DialogFooter className="flex items-center justify-between space-x-0 border-t border-bd-0 bg-[var(--functional-surface)] px-6 py-4">
           <div>
             {report && (
               <ChromeButton

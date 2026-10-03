@@ -69,14 +69,14 @@ export function LegendStatsControl({
         if (!nextOpen) setQuery('');
       }}
     >
-      <div className="relative min-w-0 rounded-md border border-bd-1 bg-bg-1">
+      <div className="relative min-w-0 rounded-md bg-[var(--control-surface)]">
         <PopoverTrigger asChild>
           <button
             type="button"
             role="combobox"
             aria-label={selectedLabel ? `${label}: ${selectedLabel}` : label}
             aria-expanded={open}
-            className="peer absolute inset-0 rounded-md bg-transparent outline-none hover:bg-bg-2 focus-visible:bg-bg-2 data-[state=open]:bg-bg-2"
+            className="peer absolute inset-0 rounded-md bg-transparent outline-none hover:bg-bg-3 focus-visible:bg-bg-3 data-[state=open]:bg-bg-3"
           />
         </PopoverTrigger>
         <div className="pointer-events-none relative z-10 flex min-h-11 min-w-0 items-center gap-1.5 px-2 py-1 sm:min-h-8">
@@ -87,7 +87,7 @@ export function LegendStatsControl({
                 return (
                   <span
                     key={stat}
-                    className="pointer-events-none inline-flex h-6 max-w-full items-center gap-1 rounded-sm bg-bg-3 pl-1.5 pr-1 font-sans text-type-micro font-semibold text-tx-1"
+                    className="pointer-events-none inline-flex h-6 max-w-full items-center gap-1 rounded-sm bg-[var(--functional-surface)] pl-1.5 pr-1 font-sans text-type-micro font-semibold text-tx-1"
                   >
                     <span className="truncate">{text}</span>
                     <button

@@ -32,7 +32,7 @@ export function NocEditBar({ onDone }: { onDone: () => void }) {
           key={preset}
           type="button"
           onClick={() => applyPreset(preset)}
-          className="rounded border border-bd-1 bg-bg-2 px-2 py-1 font-strong text-tx-1 hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none"
+          className="rounded bg-bg-2 px-2 py-1 font-strong text-tx-1 hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none"
         >
           {t(`pages.noc.edit.preset_${preset}`)}
         </button>

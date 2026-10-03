@@ -110,7 +110,7 @@ export function ValueMappingsEditor({
             { type: 'value', value: '', result: { text: '' } },
           ])
         }
-        className="inline-flex h-8 items-center gap-1.5 rounded-md border border-bd-1 px-2 font-sans text-xs font-medium text-tx-2 outline-none hover:bg-bg-2 hover:text-tx-1 focus-visible:bg-bg-2 focus-visible:text-tx-1"
+        className="inline-flex h-8 items-center gap-1.5 rounded-md border-0 bg-bg-2 px-2 font-sans text-xs font-medium text-tx-1 outline-none hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-bg-3 focus-visible:text-tx-0"
       >
         <Plus className="h-3.5 w-3.5" aria-hidden="true" />
         {tr('Add mapping')}

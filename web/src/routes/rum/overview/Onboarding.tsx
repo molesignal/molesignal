@@ -65,7 +65,7 @@ export function RumOnboarding() {
               href={docsHref}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex h-8 items-center rounded-md border border-bd-1 bg-bg-2 px-3 text-xs font-strong text-tx-1 hover:bg-bg-3 focus-visible:bg-bg-3"
+              className="inline-flex h-8 items-center rounded-md bg-bg-2 px-3 text-xs font-strong text-tx-1 hover:bg-bg-3 focus-visible:bg-bg-3"
             >
               {t('onboarding.view_docs')}
             </a>

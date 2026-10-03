@@ -77,7 +77,7 @@ export function DateTimeFormatPopover({
             aria-disabled={disabled || undefined}
             aria-label={t('preferences.fields.date_time_format')}
             aria-expanded={open}
-            className="flex h-9 w-full items-center justify-between gap-2 rounded-md border border-bd-1 bg-bg-2 px-3 font-sans text-sm text-tx-0 enabled:hover:border-bd-2 focus-visible:outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:border-bd-0 disabled:bg-bg-3 disabled:text-tx-3"
+            className="flex h-9 w-full items-center justify-between gap-2 rounded-md border-0 bg-[var(--control-surface)] px-3 font-sans text-sm text-tx-0 transition-colors enabled:hover:bg-[var(--floating-item-hover)] data-[state=open]:bg-[var(--floating-item-hover)] focus-visible:outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-bg-3 disabled:text-tx-3"
           >
             <span className="truncate">
               {DATE_SAMPLES[value.date_format]} · {timeLabel}
@@ -245,7 +245,7 @@ export function TimezoneCombobox({
             aria-disabled={disabled || undefined}
             aria-label={label}
             aria-expanded={open}
-            className="flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-bd-1 bg-bg-2 px-3 font-sans text-sm text-tx-0 transition-colors enabled:hover:border-bd-2 focus-visible:outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:border-bd-0 disabled:bg-bg-3 disabled:text-tx-3"
+            className="flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-md border-0 bg-[var(--control-surface)] px-3 font-sans text-sm text-tx-0 transition-colors enabled:hover:bg-[var(--floating-item-hover)] data-[state=open]:bg-[var(--floating-item-hover)] focus-visible:outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-bg-3 disabled:text-tx-3"
           >
             <span className="truncate text-left">
               {selected?.label ?? value}

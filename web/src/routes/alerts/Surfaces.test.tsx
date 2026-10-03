@@ -1,15 +1,17 @@
-import { render } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { ShieldCheck } from 'lucide-react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { AlertFilterTabs, AlertStateBand } from './Surfaces';
 
 describe('Alerts surface hierarchy', () => {
-  it('uses underline tabs for alert filters', () => {
+  it('shows alert filters as view tabs with their counts', () => {
+    const onChange = vi.fn();
     const { container } = render(
       <AlertFilterTabs
+        label="Incident status"
         value="active"
-        onChange={() => undefined}
+        onChange={onChange}
         options={[
           { value: 'active', label: 'Active', count: 2 },
           { value: 'resolved', label: 'Resolved', count: 4 },
@@ -18,11 +20,19 @@ describe('Alerts surface hierarchy', () => {
     );
 
     const root = container.querySelector('[data-alert-filter-tabs]');
+    expect(root).not.toBeNull();
+    // Flat, like the rest of the alert surfaces: no card, rule or shadow of its own.
     expect(root?.className).not.toMatch(/rounded|shadow|border/);
-    const active = root?.querySelector('button');
-    expect(active?.className).toContain('border-b-[3px]');
-    expect(active?.className).toContain('border-indigo');
-    expect(active?.className).not.toMatch(/rounded|shadow/);
+    const group = screen.getByRole('group', { name: 'Incident status' });
+    expect(within(group).getByRole('button', { name: 'Active 2' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    const resolved = within(group).getByRole('button', { name: 'Resolved 4' });
+    expect(resolved).toHaveAttribute('aria-pressed', 'false');
+
+    fireEvent.click(resolved);
+    expect(onChange).toHaveBeenCalledWith('resolved');
   });
 
   it('renders status content on a tonal surface', () => {

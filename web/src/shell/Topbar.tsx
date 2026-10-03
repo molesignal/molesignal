@@ -27,6 +27,7 @@ import {
   useProductAccess,
 } from '@/product/access';
 import { AboutDialog } from '@/shell/AboutDialog';
+import { chromeIconButtonSizeClass } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
 import { LogoMark } from '@/shell/LogoMark';
 import { NotificationCenter } from '@/shell/NotificationCenter';
@@ -204,7 +205,7 @@ export function Topbar({
       <button
         type="button"
         onClick={onPaletteOpen}
-        className="flex h-9 min-w-9 flex-1 items-center gap-2.5 rounded-md border-0 bg-bg-2 px-3 text-left text-tx-2 transition-colors duration-fast ease-default hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none sm:max-w-[720px]"
+        className="flex h-9 w-9 shrink-0 items-center justify-center gap-2.5 rounded-md border-0 bg-bg-2 px-0 sm:px-3 text-left text-tx-2 transition-colors duration-fast ease-default hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none sm:w-auto sm:max-w-[720px] sm:flex-1 sm:justify-start [@media(pointer:coarse)]:h-[44px] [@media(pointer:coarse)]:min-w-[44px]"
         aria-label={t('shell:chrome.command_palette')}
         data-ui="search-control"
         data-testid="command-palette-trigger"
@@ -271,7 +272,10 @@ export function Topbar({
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-indigo font-sans text-xs font-bold text-white focus:outline-none focus-visible:brightness-90 focus-visible:text-white focus-visible:outline-none"
+              className={cn(
+                'flex items-center justify-center overflow-hidden rounded-full bg-indigo font-sans text-xs font-bold text-white focus:outline-none focus-visible:brightness-90 focus-visible:text-white focus-visible:outline-none',
+                chromeIconButtonSizeClass,
+              )}
               aria-label={t('shell:chrome.user_menu')}
               data-testid="user-menu-trigger"
             >
@@ -438,7 +442,7 @@ export function Topbar({
             <DropdownMenuItem
               className="min-h-10 rounded-md px-3 text-tx-1 focus:bg-red-dim focus:text-red-soft"
               onSelect={() => {
-                logout();
+                logout({ allTabs: true });
                 useOrgStore.getState().reset();
                 nav('/signin');
               }}
@@ -480,7 +484,8 @@ function HelpMenu({
           title={title}
           aria-label={title}
           className={cn(
-            'relative hidden h-8 w-8 items-center justify-center rounded-md text-tx-2 md:flex',
+            'relative hidden items-center justify-center rounded-md text-tx-2 md:flex',
+            chromeIconButtonSizeClass,
             'hover:bg-bg-3 hover:text-tx-0',
             'focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none',
           )}
@@ -532,7 +537,8 @@ function IconBtn({
       aria-label={title}
       data-testid={testid}
       className={cn(
-        'relative flex h-8 w-8 items-center justify-center rounded-md text-tx-2',
+        'relative flex items-center justify-center rounded-md text-tx-2',
+        chromeIconButtonSizeClass,
         'hover:bg-bg-3 hover:text-tx-0',
         'focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none',
         className,

@@ -351,7 +351,7 @@ export function Datasource() {
           </label>
           <Select value={method} onValueChange={(value) => switchMethod(value as IntegrationMethod)}>
             <SelectTrigger
-              className="h-9 w-[168px] bg-bg-2 font-sans text-xs"
+              className="h-9 w-[168px] bg-[var(--control-surface)] font-sans text-xs"
               aria-label={t('datasource_page.method_filter')}
             >
               <SelectValue />

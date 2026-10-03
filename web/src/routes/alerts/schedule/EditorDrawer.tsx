@@ -478,7 +478,7 @@ function RotationEditor({
             </FormField>
           ) : (
             <FormField label={t('schedules.fields.handoff_time')}>
-              <div className="flex h-9 items-center gap-2 rounded-md border border-bd-1 bg-bg-2 px-3 text-sm text-tx-1">
+              <div className="flex h-9 items-center gap-2 rounded-md bg-[var(--control-surface)] px-3 text-sm text-tx-1">
                 <Clock3 className="h-3.5 w-3.5 text-tx-3" />
                 {new Date(rotation.start_at / 1000).toLocaleTimeString(
                   undefined,

@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { normalizeRole, useAuthStore } from './auth';
+import { normalizeRole, useAuthStore } from './index';
+import { tabSessionSharing } from './tabSession';
 
 describe('auth store', () => {
   beforeEach(() => {
@@ -24,6 +25,41 @@ describe('auth store', () => {
 
     expect(useAuthStore.getState().ctx?.display_role).toBe('SRE Operator');
     expect(useAuthStore.getState().ctx?.roles[0]?.id).toBe('role-1');
+  });
+
+  describe('logout', () => {
+    const signedIn = () =>
+      useAuthStore.getState().setSession('token', {
+        user_id: 'u1',
+        org_id: 'org1',
+        display_role: 'Owner',
+        roles: [],
+      });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('ends only this tab\'s session by default', () => {
+      const announce = vi.spyOn(tabSessionSharing, 'announceSignOut');
+      signedIn();
+
+      useAuthStore.getState().logout();
+
+      expect(useAuthStore.getState().token).toBeNull();
+      expect(useAuthStore.getState().ctx).toBeNull();
+      expect(announce).not.toHaveBeenCalled();
+    });
+
+    it('tells the other tabs when the user signs out on purpose', () => {
+      const announce = vi.spyOn(tabSessionSharing, 'announceSignOut').mockImplementation(() => {});
+      signedIn();
+
+      useAuthStore.getState().logout({ allTabs: true });
+
+      expect(useAuthStore.getState().token).toBeNull();
+      expect(announce).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('hydrates system scope from JWT claims', () => {

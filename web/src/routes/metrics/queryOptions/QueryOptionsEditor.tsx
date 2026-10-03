@@ -117,7 +117,7 @@ export function QueryOptionsEditor({ value, onChange }: QueryOptionsEditorProps)
               aria-label={t('explore.query.step')}
               aria-invalid={!stepValid || undefined}
               data-testid="metrics-option-step"
-              className="h-11 w-full rounded-md border border-bd-1 bg-bg-2 px-3 font-mono text-base text-tx-0 outline-none placeholder:text-tx-3 hover:border-bd-2 focus:bg-bg-3 sm:h-9 sm:text-sm"
+              className="h-11 w-full rounded-md border border-bd-1 bg-[var(--control-surface)] px-3 font-mono text-base text-tx-0 outline-none placeholder:text-tx-3 hover:border-bd-2 focus:bg-bg-3 sm:h-9 sm:text-sm"
             />
           </OptionField>
 
@@ -205,7 +205,7 @@ function OptionSelect({
       <SelectTrigger
         aria-label={ariaLabel}
         data-testid={testId}
-        className="h-11 bg-bg-2 text-base focus:bg-bg-3 sm:h-9 sm:text-sm"
+        className="h-11 bg-[var(--control-surface)] text-base focus:bg-bg-3 sm:h-9 sm:text-sm"
       >
         <SelectValue />
       </SelectTrigger>

@@ -37,6 +37,8 @@ import {
   FormTextarea,
 } from '@/shell/FormDrawer';
 import { queryStateFor } from '@/shell/query/State';
+import { StreamTypeTag } from '@/shell/StreamTypeTag';
+import { ViewTabs } from '@/shell/tabs/ViewTabs';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -68,14 +70,6 @@ type StreamType = streamsApi.StreamType;
 type StreamTab = 'all' | 'logs' | 'metrics' | 'traces' | 'profiles';
 type StatusFilter = StreamHealthFilter;
 
-const TYPE_TONE: Record<StreamType, 'orange' | 'blue' | 'green' | 'dim'> = {
-  logs: 'orange',
-  metrics: 'blue',
-  traces: 'green',
-  profiles: 'blue',
-  extend: 'dim',
-};
-
 const STATUS_TONE: Record<streamsApi.StreamRuntimeStatus, PillTone> = {
   healthy: 'green',
   idle: 'dim',
@@ -100,7 +94,7 @@ const STATUS_DOT: Record<
 function streamTypeLabel(t: (key: string) => string, type: StreamType): string {
   if (type === 'logs' || type === 'metrics' || type === 'traces') return t(`list.tabs.${type}`);
   if (type === 'profiles') return 'Profiles';
-  return 'Extend';
+  return t('list.tabs.extend');
 }
 
 const STREAM_TABS = ['all', 'logs', 'metrics', 'traces', 'profiles'] as const satisfies readonly StreamTab[];
@@ -329,24 +323,19 @@ export function Streams() {
         }
         filters={
           <div className="flex w-full flex-wrap items-center gap-3">
-            <div className="flex gap-1 rounded-md bg-[var(--control-surface)] p-0.5">
-              {STREAM_TABS.map((kind) => (
-                <button
-                  key={kind}
-                  onClick={() => setTab(kind)}
-                  className={`rounded px-2.5 py-1 font-sans text-xs font-strong ${
-                    tab === kind ? 'bg-bg-4 text-tx-0' : 'text-tx-2 hover:text-tx-0'
-                  }`}
-                >
-                  {t(`list.tabs.${kind}`)}{' '}
-                  <span className="ml-1 text-tx-3">
-                    {kind === 'all'
-                      ? streams.length
-                      : streams.filter((stream) => stream.types.includes(kind)).length}
-                  </span>
-                </button>
-              ))}
-            </div>
+            <ViewTabs
+              label={t('list.tabs_label')}
+              value={tab}
+              onValueChange={setTab}
+              items={STREAM_TABS.map((kind) => ({
+                key: kind,
+                label: t(`list.tabs.${kind}`),
+                count:
+                  kind === 'all'
+                    ? streams.length
+                    : streams.filter((stream) => stream.types.includes(kind)).length,
+              }))}
+            />
             <QueryInput
               value={filter}
               onChange={setFilter}
@@ -358,7 +347,7 @@ export function Streams() {
               onValueChange={(value) => changeStatusFilter(value as StatusFilter)}
             >
               <SelectTrigger
-                className="h-8 w-[132px] bg-bg-2 px-2.5 font-sans text-xs font-semibold text-tx-1"
+                className="h-8 w-[132px] bg-[var(--control-surface)] px-2.5 font-sans text-xs font-semibold text-tx-1"
                 aria-label={t('list.status_filter')}
               >
                 <SelectValue />
@@ -417,9 +406,7 @@ export function Streams() {
               cell: (s) => (
                 <div className="flex flex-wrap items-center gap-1">
                   {s.types.map((type) => (
-                    <Pill key={type} tone={TYPE_TONE[type]}>
-                      {streamTypeLabel(t, type)}
-                    </Pill>
+                    <StreamTypeTag key={type} type={type} label={streamTypeLabel(t, type)} />
                   ))}
                 </div>
               ),

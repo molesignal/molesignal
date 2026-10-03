@@ -54,6 +54,7 @@
       "profiles": "Profiles",
       "extend": "扩展表"
     },
+    "tabs_label": "数据流类型",
     "columns": {
       "stream": "数据流",
       "type": "类型",
@@ -164,6 +165,7 @@
       "usage": "使用位置",
       "settings": "设置"
     },
+    "tabs_label": "数据流分区",
     "index_options": {
       "none": "未索引",
       "full_text": "全文搜索",

@@ -19,7 +19,6 @@ import {
 } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 
 import type { KpiStripItem } from '@/admin';
 import type { MonitorKind, MonitorState, ProbeOutcome } from '@/api/synthetics';
@@ -28,82 +27,49 @@ import { uiLabelClass } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
 import {
   surfacePageRootClass,
-  surfaceModuleNavigationActiveClass,
-  surfaceModuleNavigationClass,
-  surfaceModuleNavigationItemClass,
-  surfaceModuleNavigationRowClass,
   SurfacePageBody,
   SurfacePageHeader,
 } from '@/shell/SurfaceWorkbench';
+import { ModuleTabs } from '@/shell/tabs/ModuleTabs';
 
+// Grouped by what they are for: the checks themselves, where and when they run,
+// and what comes out of them. Settings stands apart at the end.
 const NAV_ITEMS = [
-  ['overview', '/synthetics/overview', Radar],
-  ['checks', '/synthetics/checks', Activity],
-  ['browser', '/synthetics/browser-tests', MonitorPlay],
-  ['api', '/synthetics/api-tests', Braces],
-  ['network', '/synthetics/network', Network],
-  ['schedules', '/synthetics/schedules', Clock3],
-  ['locations', '/synthetics/locations', Globe2],
-  ['agents', '/synthetics/agents', ServerCog],
-  ['results', '/synthetics/results', CheckCircle2],
-  ['assertions', '/synthetics/assertions', ShieldCheck],
-  ['variables', '/synthetics/variables', KeyRound],
-  ['settings', '/synthetics/settings', Settings],
+  ['overview', '/synthetics/overview', Radar, 'checks'],
+  ['checks', '/synthetics/checks', Activity, 'checks'],
+  ['browser', '/synthetics/browser-tests', MonitorPlay, 'checks'],
+  ['api', '/synthetics/api-tests', Braces, 'checks'],
+  ['network', '/synthetics/network', Network, 'checks'],
+  ['schedules', '/synthetics/schedules', Clock3, 'runtime'],
+  ['locations', '/synthetics/locations', Globe2, 'runtime'],
+  ['agents', '/synthetics/agents', ServerCog, 'runtime'],
+  ['results', '/synthetics/results', CheckCircle2, 'outcomes'],
+  ['assertions', '/synthetics/assertions', ShieldCheck, 'outcomes'],
+  ['variables', '/synthetics/variables', KeyRound, 'outcomes'],
 ] as const;
 
 export function SyntheticsNavigation() {
   const { t } = useTranslation('synthetics');
-  const location = useLocation();
-  const navigate = useNavigate();
-  const activePath = NAV_ITEMS.find(
-    ([, to]) => location.pathname === to || location.pathname.startsWith(`${to}/`),
-  )?.[1];
   return (
-    <div
-      className={cn(
-        surfaceModuleNavigationClass,
-        'relative z-10 flex items-center',
-      )}
-    >
-      <select
-        aria-label={t('navigation_label')}
-        value={activePath ?? NAV_ITEMS[0][1]}
-        onChange={(event) => navigate(event.target.value)}
-        className="h-9 w-full rounded-md border border-bd-0 bg-bg-2 px-3 text-sm font-strong text-tx-0 focus:bg-bg-3 sm:hidden"
-      >
-        {NAV_ITEMS.map(([key, to]) => (
-          <option key={key} value={to}>
-            {t(`tabs.${key}`)}
-          </option>
-        ))}
-      </select>
-      <nav
-        aria-label={t('navigation_label')}
-        className={cn(
-          surfaceModuleNavigationRowClass,
-          'hidden min-w-0 flex-1 sm:flex',
-        )}
-      >
-        {NAV_ITEMS.map(([key, to, Icon]) => (
-          <NavLink
-            key={key}
-            to={to}
-            className={({ isActive }) =>
-              cn(
-                surfaceModuleNavigationItemClass,
-                'gap-1.5 whitespace-nowrap',
-                isActive
-                  ? surfaceModuleNavigationActiveClass
-                  : 'text-tx-2',
-              )
-            }
-          >
-            <Icon aria-hidden className="h-3.5 w-3.5" />
-            {t(`tabs.${key}`)}
-          </NavLink>
-        ))}
-      </nav>
-    </div>
+    <ModuleTabs
+      label={t('navigation_label')}
+      className="relative z-10"
+      items={NAV_ITEMS.map(([key, to, icon, group]) => ({
+        key,
+        to,
+        icon,
+        group,
+        label: t(`tabs.${key}`),
+      }))}
+      trailing={[
+        {
+          key: 'settings',
+          to: '/synthetics/settings',
+          icon: Settings,
+          label: t('tabs.settings'),
+        },
+      ]}
+    />
   );
 }
 

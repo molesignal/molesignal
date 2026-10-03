@@ -37,7 +37,7 @@ export function AccountSessions() {
   const navigate = useNavigate();
   const logout = useAuthStore((state) => state.logout);
   const signOut = () => {
-    logout();
+    logout({ allTabs: true });
     useOrgStore.getState().reset();
     navigate('/signin');
   };

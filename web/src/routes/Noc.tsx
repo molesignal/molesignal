@@ -248,8 +248,8 @@ export function Noc() {
             aria-label={t('pages.noc.edit.configure')}
             title={t('pages.noc.edit.configure')}
             className={cn(
-              'grid h-8 w-8 place-items-center rounded-md border text-tx-2 hover:text-tx-0 focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none',
-              editing ? 'border-indigo bg-indigo-dim text-indigo-soft' : 'border-bd-1 bg-bg-2 hover:bg-bg-3',
+              'grid h-8 w-8 place-items-center rounded-md text-tx-2 hover:text-tx-0 focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none',
+              editing ? 'bg-indigo-dim text-indigo-soft' : 'bg-bg-2 hover:bg-bg-3',
             )}
           >
             <Settings className="h-4 w-4" />
@@ -435,7 +435,7 @@ export function Noc() {
           <button
             type="button"
             onClick={returnToConsole}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-bd-1 bg-transparent px-2.5 text-tx-1 transition-colors hover:bg-bg-2 hover:text-tx-0 focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none"
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border-0 bg-bg-2 px-2.5 text-tx-1 transition-colors hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             {t('pages.noc.return_console')}

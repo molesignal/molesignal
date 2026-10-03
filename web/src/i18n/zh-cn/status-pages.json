@@ -162,6 +162,7 @@
     "active": "使用中",
     "archived": "已归档"
   },
+  "lifecycle_label": "状态页状态",
   "incident_status": {
     "investigating": "调查中",
     "identified": "已确认",
@@ -304,6 +305,7 @@
   },
   "publication_state": { "draft": "草稿", "published": "已发布" },
   "subscriber_views": { "list": "订阅者", "deliveries": "投递记录" },
+  "subscriber_views_label": "订阅者视图",
   "channels": { "email": "邮箱", "webhook": "Webhook" },
   "subscriber_status": { "pending": "待确认", "active": "有效", "unsubscribed": "已退订" },
   "delivery_status": { "pending": "待投递", "processing": "投递中", "delivered": "已投递", "failed": "失败" },

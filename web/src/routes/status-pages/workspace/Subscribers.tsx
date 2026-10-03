@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { RefreshCw, UserMinus } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { NavLink, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 
 import { ConfirmDialog, DataTable } from '@/admin';
 import * as statusPagesApi from '@/api/statusPages';
@@ -10,9 +10,9 @@ import type { StatusPageSubscriber } from '@/api/statusPages';
 import { toApiError } from '@/lib/http';
 import { formatMicrosActive } from '@/lib/time';
 import { IconButton, Pill } from '@/shell/chrome';
-import { cn } from '@/shell/lib/cn';
 import { PageBody } from '@/shell/PageHeader';
 import { ResultPagination } from '@/shell/ResultPagination';
+import { ViewTabs } from '@/shell/tabs/ViewTabs';
 import { toast } from '@/shell/ui/sonner';
 
 import { useStatusPageWorkspace } from './Layout';
@@ -68,25 +68,15 @@ export function StatusPageSubscribers({ view }: { view: 'list' | 'deliveries' })
   return (
     <PageBody className="space-y-0 pb-4 pt-2 lg:pb-6 lg:pt-2">
       <StatusPageCanvas>
-        <StatusPageBand className="flex flex-wrap items-center gap-2 py-0">
-          <div className="flex items-center gap-1">
-            {(['list', 'deliveries'] as const).map((item) => (
-              <NavLink
-                key={item}
-                to={`/status-pages/${pageId}/subscribers/${item}`}
-                className={({ isActive }) =>
-                  cn(
-                    'inline-flex h-12 items-center border-b-[3px] px-3 text-xs font-strong',
-                    isActive
-                      ? 'border-indigo text-tx-0'
-                      : 'border-transparent text-tx-2 hover:bg-bg-2 hover:text-tx-0',
-                  )
-                }
-              >
-                {t(`subscriber_views.${item}`)}
-              </NavLink>
-            ))}
-          </div>
+        <StatusPageBand className="flex flex-wrap items-center gap-2 py-[10px]">
+          <ViewTabs
+            label={t('subscriber_views_label')}
+            items={(['list', 'deliveries'] as const).map((item) => ({
+              key: item,
+              to: `/status-pages/${pageId}/subscribers/${item}`,
+              label: t(`subscriber_views.${item}`),
+            }))}
+          />
           <p className="ml-auto text-xs text-tx-3">
             {t('subscribers.retention_hint', { count: snapshot.page.delivery_retention_days })}
           </p>

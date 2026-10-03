@@ -204,6 +204,7 @@ function AlertIncidentsPage() {
         ]}
         filters={
           <AlertFilterTabs<IncidentTab>
+            label={t('center.incidents.tabs_label')}
             value={tab}
             onChange={setTab}
             options={[
@@ -454,10 +455,11 @@ function AlertRulesPage() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder={t('center.rules.search')}
-              className="h-9 w-full rounded-md border border-bd-1 bg-bg-2 pl-9 pr-3 font-sans text-sm text-tx-0 placeholder:text-tx-3 focus-visible:bg-bg-3"
+              className="h-9 w-full rounded-md border border-bd-1 bg-[var(--control-surface)] pl-9 pr-3 font-sans text-sm text-tx-0 placeholder:text-tx-3 focus-visible:bg-bg-3"
             />
           </label>
           <AlertFilterTabs<RuleTab>
+            label={t('center.rules.tabs_label')}
             value={tab}
             onChange={setTab}
             options={[
@@ -494,7 +496,9 @@ function AlertRulesPage() {
         />
       ) : (
         <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-xs text-tx-2">
+          {/* Same inset as the table cells below, so the line shares their left edge
+              instead of hugging the card. */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-row-pad-x pt-3 text-xs text-tx-2">
             <span>{t('center.rules.summary.total', { count: displayRules.length })}</span>
             <span className="text-green-soft">
               {t('center.rules.summary.enabled', { count: enabled.length })}

@@ -18,18 +18,18 @@ test.describe('Primary sidebar hover preview', () => {
     await expect(main).toHaveCSS('padding-left', '64px');
 
     await page.mouse.move(32, 132);
-    await expect(sidebar).toHaveCSS('width', '240px');
+    await expect(sidebar).toHaveCSS('width', '220px');
     await expect(main).toHaveCSS('padding-left', '64px');
 
     await page.mouse.move(600, 26);
     await expect(sidebar).toHaveCSS('width', '64px');
 
     await toggle.click();
-    await expect(sidebar).toHaveCSS('width', '240px');
-    await expect(main).toHaveCSS('padding-left', '240px');
+    await expect(sidebar).toHaveCSS('width', '220px');
+    await expect(main).toHaveCSS('padding-left', '220px');
 
     await page.mouse.move(600, 26);
-    await expect(sidebar).toHaveCSS('width', '240px');
+    await expect(sidebar).toHaveCSS('width', '220px');
 
     await toggle.click();
     await expect(sidebar).toHaveCSS('width', '64px');
@@ -88,7 +88,7 @@ test.describe('Primary sidebar hover preview', () => {
     await page.getByTestId('sidebar-toggle').click();
 
     const sidebar = page.getByTestId('primary-sidebar');
-    await expect(sidebar).toHaveCSS('width', '240px');
+    await expect(sidebar).toHaveCSS('width', '220px');
     await expect(sidebar.getByText('Recent', { exact: true })).toHaveCount(0);
   });
 });

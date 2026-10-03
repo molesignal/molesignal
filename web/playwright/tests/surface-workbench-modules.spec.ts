@@ -213,18 +213,29 @@ test('keeps module tabs underlined and Explorer columns separated by canvas gutt
     await expect(active).toBeVisible();
     await expect(active).toHaveCSS('border-bottom-width', '0px');
     await expect(active).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-    await expect(active).toHaveCSS('border-radius', '8px');
-    await expect(navigation).toHaveCSS('border-radius', '12px');
+    await expect(navigation).toHaveCSS('border-radius', '8px');
     await expect(navigation).toHaveCSS('overflow-x', 'hidden');
-    const underline = await active.evaluate((element) => {
-      const style = getComputedStyle(element, '::after');
-      return {
-        backgroundColor: style.backgroundColor,
-        height: style.height,
-      };
-    });
-    expect(underline.height).toBe('3px');
-    expect(underline.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
+    // One indicator, a 2px indigo bar that sits under the active tab.
+    const indicator = navigation.locator('[data-tab-indicator]');
+    await expect(indicator).toHaveCSS('opacity', '1');
+    await expect(indicator).toHaveCSS('height', '2px');
+    expect(
+      await indicator.evaluate((element) => getComputedStyle(element).backgroundColor),
+    ).not.toBe('rgba(0, 0, 0, 0)');
+    const [indicatorBox, activeBox] = await Promise.all([
+      indicator.boundingBox(),
+      active.boundingBox(),
+    ]);
+    expect(indicatorBox).not.toBeNull();
+    expect(activeBox).not.toBeNull();
+    expect(indicatorBox!.x).toBeGreaterThanOrEqual(activeBox!.x - 0.5);
+    expect(indicatorBox!.x + indicatorBox!.width).toBeLessThanOrEqual(
+      activeBox!.x + activeBox!.width + 0.5,
+    );
+    expect(indicatorBox!.y + indicatorBox!.height).toBeCloseTo(
+      activeBox!.y + activeBox!.height,
+      0,
+    );
     expect(
       await navigation.evaluate((element) => getComputedStyle(element).boxShadow),
     ).not.toBe('none');
@@ -285,8 +296,10 @@ test('uses Control Surface styling for shared and native selectors', async ({ pa
   await expect(firstSelector).toHaveAttribute('data-state', 'open');
   await expect(firstSelector).toHaveCSS('border-top-width', '0px');
 
-  await page.goto('/synthetics/overview');
+  // The reports filters are native <select>s.
+  await page.goto('/reports');
   const nativeSelector = page.locator('select').first();
+  await expect(nativeSelector).toBeVisible();
   await expect(nativeSelector).toHaveCSS('border-top-width', '0px');
   await expect(nativeSelector).toHaveCSS('border-right-width', '0px');
   await expect(nativeSelector).toHaveCSS('border-bottom-width', '0px');

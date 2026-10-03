@@ -375,7 +375,7 @@ export function RemoteNodesDrawer({
       onOpenChange={(value) => !value && onClose()}
       title={`${t('nodes.remote_nodes.title')}${cluster ? ` — ${cluster.name}` : ''}`}
       footer={
-        <ChromeButton variant="ghost" onClick={onClose}>
+        <ChromeButton onClick={onClose}>
           {tc('actions.close')}
         </ChromeButton>
       }

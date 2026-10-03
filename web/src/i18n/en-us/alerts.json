@@ -181,7 +181,8 @@
           "title": "No recently recovered incidents",
           "description": "Recovered incidents will remain visible here."
         }
-      }
+      },
+      "tabs_label": "Incident status"
     },
     "rules": {
       "title": "Alert rules",
@@ -226,7 +227,8 @@
       "no_match": {
         "title": "No matching rules",
         "description": "Try another keyword or status filter."
-      }
+      },
+      "tabs_label": "Rule status"
     }
   },
   "workbench": {

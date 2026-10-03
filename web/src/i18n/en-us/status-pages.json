@@ -162,6 +162,7 @@
     "active": "Active",
     "archived": "Archived"
   },
+  "lifecycle_label": "Status page lifecycle",
   "incident_status": {
     "investigating": "Investigating",
     "identified": "Identified",
@@ -304,6 +305,7 @@
   },
   "publication_state": { "draft": "Draft", "published": "Published" },
   "subscriber_views": { "list": "Subscribers", "deliveries": "Deliveries" },
+  "subscriber_views_label": "Subscriber views",
   "channels": { "email": "Email", "webhook": "Webhook" },
   "subscriber_status": { "pending": "Pending", "active": "Active", "unsubscribed": "Unsubscribed" },
   "delivery_status": { "pending": "Pending", "processing": "Processing", "delivered": "Delivered", "failed": "Failed" },

@@ -86,7 +86,7 @@ export function FormDrawer({
 
           {/* footer */}
           {footer && (
-            <div className="flex items-center justify-end gap-2 border-t border-bd-0 bg-bg-2 px-6 py-4">
+            <div className="flex items-center justify-end gap-2 border-t border-bd-0 bg-[var(--functional-surface)] px-6 py-4">
               {footer}
             </div>
           )}

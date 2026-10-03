@@ -162,7 +162,7 @@ export function ProfileEditorFields({
           <Button
             type="button"
             size="sm"
-            variant="ghost"
+            variant="outline"
             onClick={() => onChange({ allowedTools: tools.map((tool) => tool.name) })}
           >
             {t('settings.profiles.select_all_tools')}
@@ -170,7 +170,7 @@ export function ProfileEditorFields({
           <Button
             type="button"
             size="sm"
-            variant="ghost"
+            variant="outline"
             onClick={() => onChange({ allowedTools: [] })}
           >
             {t('settings.profiles.clear_tools')}

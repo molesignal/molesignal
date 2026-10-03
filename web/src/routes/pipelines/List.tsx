@@ -240,7 +240,7 @@ export function Pipelines() {
             }
           >
             <SelectTrigger
-              className="h-9 w-40 bg-bg-2 px-2.5 font-sans text-xs font-semibold text-tx-1"
+              className="h-9 w-40 bg-[var(--control-surface)] px-2.5 font-sans text-xs font-semibold text-tx-1"
               aria-label={t('overview.filters.all_statuses')}
             >
               <SelectValue />

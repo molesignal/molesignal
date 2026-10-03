@@ -169,7 +169,7 @@ export function PromptManagementPanel() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder={t('settings.prompts.search_placeholder')}
-              className="bg-bg-2 pl-9 shadow-none"
+              className="bg-[var(--control-surface)] pl-9 shadow-none"
             />
           </label>
         </div>
@@ -615,7 +615,7 @@ function PromptEditorDrawer({
             }
             readOnly={readOnly}
             placeholder={t('settings.prompts.name_placeholder')}
-            className="h-9 w-full rounded-md border border-bd-1 bg-bg-2 px-3 text-sm text-tx-0 placeholder:text-tx-3 focus:outline-none read-only:cursor-default read-only:opacity-75"
+            className="h-9 w-full rounded-md border border-bd-1 bg-[var(--control-surface)] px-3 text-sm text-tx-0 placeholder:text-tx-3 focus:outline-none read-only:cursor-default read-only:opacity-75"
           />
         </FormField>
 

@@ -14,8 +14,10 @@ const buttonVariants = cva(
           'bg-primary text-primary-foreground [&:not([aria-disabled=true])]:hover:bg-primary/90',
         destructive:
           'bg-destructive text-destructive-foreground [&:not([aria-disabled=true])]:hover:bg-destructive/90',
+        // A quiet button is a filled one, not a bordered one: the product's
+        // buttons carry no outline, only a gray fill that deepens on hover.
         outline:
-          'border border-border bg-transparent [&:not([aria-disabled=true])]:hover:bg-muted [&:not([aria-disabled=true])]:hover:text-foreground',
+          'border-0 bg-bg-2 text-tx-1 [&:not([aria-disabled=true])]:hover:bg-bg-3 [&:not([aria-disabled=true])]:hover:text-tx-0',
         secondary:
           'bg-secondary text-secondary-foreground [&:not([aria-disabled=true])]:hover:bg-secondary/80',
         ghost:

@@ -17,9 +17,14 @@ import { cn } from '@/shell/lib/cn';
  * "descending"` to TableHead to surface the sort indicator.
  */
 
-const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement>>(
-  ({ className, ...props }, ref) => (
-    <div className="relative w-full overflow-auto">
+type TableProps = React.HTMLAttributes<HTMLTableElement> & {
+  /** Classes for the scroll container around the `<table>`. */
+  containerClassName?: string | undefined;
+};
+
+const Table = React.forwardRef<HTMLTableElement, TableProps>(
+  ({ className, containerClassName, ...props }, ref) => (
+    <div className={cn('relative w-full overflow-auto', containerClassName)}>
       <table
         ref={ref}
         className={cn(
@@ -90,7 +95,7 @@ const TableHead = React.forwardRef<
     ref={ref}
     className={cn(
       'px-row-pad-x py-row-pad-y text-left align-middle',
-      'font-sans text-xs font-strong tracking-normalr text-tx-2',
+      'font-sans text-xs font-medium tracking-normal text-tx-2',
       // aria-sort surfaces the sorted column with an indigo top border.
       '[&[aria-sort=ascending]]:border-t-2 [&[aria-sort=ascending]]:border-t-indigo [&[aria-sort=ascending]]:text-tx-0',
       '[&[aria-sort=descending]]:border-t-2 [&[aria-sort=descending]]:border-t-indigo [&[aria-sort=descending]]:text-tx-0',

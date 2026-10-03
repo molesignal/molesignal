@@ -1,0 +1,46 @@
+/*
+ * Tab strips scroll sideways when they do not fit. The edge that still has
+ * content beyond it fades out (set from `useTabStrip`), so a tab is never cut
+ * off without a hint that there is more. Registered so the fade length can
+ * transition; where @property is missing the fade simply switches.
+ */
+@property --tabs-fade-start {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --tabs-fade-end {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+.tabs-scroll {
+  --tabs-fade-start: 0px;
+  --tabs-fade-end: 0px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  transition:
+    --tabs-fade-start var(--duration-normal, 200ms) var(--easing-out, ease-out),
+    --tabs-fade-end var(--duration-normal, 200ms) var(--easing-out, ease-out);
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--tabs-fade-start),
+    #000 calc(100% - var(--tabs-fade-end)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--tabs-fade-start),
+    #000 calc(100% - var(--tabs-fade-end)),
+    transparent 100%
+  );
+}
+
+.tabs-scroll::-webkit-scrollbar {
+  display: none;
+}

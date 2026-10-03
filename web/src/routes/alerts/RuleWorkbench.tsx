@@ -431,7 +431,7 @@ export function AlertRuleWorkbench() {
         subtitle={t('workbench.subtitle')}
         toolbar={
           <>
-            <ChromeButton variant="ghost" onClick={() => navigate('/alerts/rules')}>
+            <ChromeButton onClick={() => navigate('/alerts/rules')}>
               {t('workbench.actions.cancel')}
             </ChromeButton>
             {!isEdit && (
@@ -792,7 +792,7 @@ function ThresholdEditor({
                     { value: 'error', label: t('severity.error') },
                     { value: 'critical', label: t('severity.critical') },
                   ]}
-                  className="bg-bg-1"
+                  className="bg-[var(--control-surface)]"
                 />
               </FormField>
               <FormField label={t('workbench.threshold.operator')}>
@@ -805,7 +805,7 @@ function ThresholdEditor({
                     value: operator,
                     label: `${COMPARISON_LABEL[operator]} ${t(`workbench.operators.${operator}`)}`,
                   }))}
-                  className="bg-bg-1"
+                  className="bg-[var(--control-surface)]"
                 />
               </FormField>
               <FormField label={t('workbench.threshold.value')}>
@@ -816,7 +816,7 @@ function ThresholdEditor({
                   onChange={(event) =>
                     update(index, { threshold: Number(event.target.value) })
                   }
-                  className="bg-bg-1"
+                  className="bg-[var(--control-surface)]"
                 />
               </FormField>
               <FormField label={t('workbench.threshold.duration')}>
@@ -833,7 +833,7 @@ function ThresholdEditor({
                         ),
                       })
                     }
-                    className="bg-bg-1"
+                    className="bg-[var(--control-surface)]"
                   />
                   <span className="shrink-0 text-xs text-tx-2">
                     {t('workbench.threshold.minutes')}

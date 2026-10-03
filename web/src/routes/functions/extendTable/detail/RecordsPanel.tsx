@@ -72,7 +72,7 @@ export function RecordsPanel({
             placeholder={t('extend_tables.search_key_placeholder', {
               key: table.key_field,
             })}
-            className="h-9 w-full rounded-md border border-bd-1 bg-bg-2 pl-9 pr-3 text-sm text-tx-0 placeholder:text-tx-3 focus:outline-none focus-visible:bg-bg-3"
+            className="h-9 w-full rounded-md border border-bd-1 bg-[var(--control-surface)] pl-9 pr-3 text-sm text-tx-0 placeholder:text-tx-3 focus:outline-none focus-visible:bg-bg-3"
           />
         </label>
         <span className="text-xs text-tx-2 sm:ml-auto">

@@ -41,14 +41,14 @@ describe('ReportsPageCanvas', () => {
     expect(kpis?.firstElementChild?.className).toContain('shadow-functional-surface');
 
     const tablist = screen.getByRole('tablist', { name: 'Reports' });
-    expect(tablist.parentElement?.parentElement?.className).toContain('rounded-md');
-    expect(tablist.parentElement?.parentElement?.className).toContain('shadow-functional-surface');
-    expect(tablist.parentElement?.className).toContain('min-h-11');
-    expect(tablist.parentElement?.className).not.toContain('min-h-12');
-    expect(tablist.parentElement?.className).not.toMatch(/\bborder-b\b/);
+    const workspace = tablist.closest('[data-reports-workspace]');
+    expect(workspace?.className).toContain('rounded-md');
+    expect(workspace?.className).toContain('shadow-functional-surface');
+    // Flat: the tabs run straight into the content, with no rule between them.
+    expect(tablist.closest('[data-reports-navigation]')?.className).not.toMatch(/border/);
     const activeTab = screen.getByRole('tab', { name: 'Schedules 4' });
-    expect(activeTab.className).toContain('border-b-[3px]');
-    expect(activeTab.className).not.toContain('-mb-px');
+    expect(activeTab).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'History 2' })).toHaveAttribute('aria-selected', 'false');
     expect(screen.getByText('Filters').parentElement?.className).not.toMatch(/border/);
 
     fireEvent.click(screen.getByRole('tab', { name: 'Templates' }));

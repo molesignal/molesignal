@@ -8,7 +8,6 @@ import {
   type PillTone,
 } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
-import { TabsTrigger } from '@/shell/ui/tabs';
 
 import type { PipelineSignalType } from './PipelineGraph';
 import type { PipelineHealth } from './presentation';
@@ -157,23 +156,6 @@ export function PipelineConfigValue({ children }: { children: React.ReactNode })
     >
       {children}
     </div>
-  );
-}
-
-export function PipelineTabTrigger({
-  value,
-  children,
-}: {
-  value: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <TabsTrigger
-      value={value}
-      className="h-10 rounded-none border-b-[3px] border-transparent bg-transparent px-4 text-xs text-tx-2 shadow-none data-[state=active]:border-indigo data-[state=active]:bg-transparent data-[state=active]:text-tx-0 data-[state=active]:shadow-none"
-    >
-      {children}
-    </TabsTrigger>
   );
 }
 

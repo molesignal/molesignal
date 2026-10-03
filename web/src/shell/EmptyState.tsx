@@ -7,6 +7,7 @@ import {
   ShieldOff,
   Sparkles,
 } from 'lucide-react';
+import type * as React from 'react';
 import { Link } from 'react-router-dom';
 
 import type { ProductEmptyStateStrategy } from '@/product/ia';
@@ -40,6 +41,13 @@ interface EmptyStateProps {
   description?: string | undefined;
   /** Override the strategy-derived icon. */
   icon?: LucideIcon | undefined;
+  /** Replaces the icon with a custom illustration (decorative; hidden from AT). */
+  illustration?: React.ReactNode;
+  /**
+   * `compact` sits inside a card body: a smaller mark and heading, no forced
+   * min-height. `default` owns the whole region it is placed in.
+   */
+  size?: 'default' | 'compact' | undefined;
   primaryAction?: EmptyAction | undefined;
   secondaryAction?: EmptyAction | undefined;
   className?: string | undefined;
@@ -61,33 +69,57 @@ export function EmptyState({
   title,
   description,
   icon,
+  illustration,
+  size = 'default',
   primaryAction,
   secondaryAction,
   className,
   'data-testid': testId,
 }: EmptyStateProps) {
   const Icon = icon ?? STRATEGY_ICON[strategy];
+  const compact = size === 'compact';
+  const Heading = compact ? 'h3' : 'h2';
   return (
     <div
       role="status"
       data-testid={testId}
       data-strategy={strategy}
+      data-size={size}
       className={cn(
-        'flex h-full min-h-[280px] w-full flex-col items-center justify-center gap-3 px-6 py-8 text-center',
+        'flex h-full w-full flex-col items-center justify-center text-center',
+        compact ? 'min-h-0 gap-2 px-5 py-6' : 'min-h-[280px] gap-3 px-6 py-8',
         className,
       )}
     >
-      <Icon
-        aria-hidden
-        className="h-12 w-12 shrink-0 stroke-[1.5] text-tx-3"
-      />
-      <h2 className="max-w-md font-sans text-base font-display-strong text-tx-0">{title}</h2>
+      {illustration ?? (
+        <Icon
+          aria-hidden
+          className={cn(
+            'shrink-0 stroke-[1.5] text-tx-3',
+            compact ? 'h-8 w-8' : 'h-12 w-12',
+          )}
+        />
+      )}
+      <Heading
+        className={cn(
+          'max-w-md text-balance font-sans text-tx-0',
+          compact ? 'text-sm font-strong' : 'text-base font-display-strong',
+        )}
+      >
+        {title}
+      </Heading>
       {description && (
-        <p className="max-w-md font-sans text-xs leading-relaxed text-tx-2">{description}</p>
+        <p className="max-w-md text-pretty font-sans text-xs leading-relaxed text-tx-2">
+          {description}
+        </p>
       )}
       {(primaryAction || secondaryAction) && (
-        <div className="mt-2 flex items-center gap-3">
-          {primaryAction && <ActionButton action={primaryAction} variant="primary" />}
+        <div className={cn('flex items-center gap-3', compact ? 'mt-1' : 'mt-2')}>
+          {/* Inside a card the CTA stays neutral, so a page with several empty
+              cards keeps a single primary action. */}
+          {primaryAction && (
+            <ActionButton action={primaryAction} variant={compact ? 'secondary' : 'primary'} />
+          )}
           {secondaryAction && <ActionButton action={secondaryAction} variant="secondary" />}
         </div>
       )}
@@ -107,9 +139,9 @@ function ActionButton({
     'transition-colors duration-fast ease-default focus-visible:outline-none',
     variant === 'primary'
       ? 'bg-indigo text-white hover:brightness-90 focus-visible:brightness-90 focus-visible:text-white'
-      : 'border border-bd-1 bg-bg-2 text-tx-1 hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-indigo-dim focus-visible:text-indigo',
+      : 'bg-bg-2 text-tx-1 hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-indigo-dim focus-visible:text-indigo',
     action.disabled &&
-      'pointer-events-none cursor-not-allowed border-bd-0 bg-bg-2 text-tx-3 hover:bg-bg-2 hover:text-tx-3',
+      'pointer-events-none cursor-not-allowed bg-bg-2 text-tx-3 hover:bg-bg-2 hover:text-tx-3',
   );
   if (action.disabled) {
     return (

@@ -151,7 +151,6 @@ export function FunctionWorkbench({
                   </WorkbenchStatus>
                 </span>
                 <ChromeButton
-                  variant="ghost"
                   size="sm"
                   disabled={writeAccess.disabled}
                   disabledReason={writeAccess.reason}
@@ -238,7 +237,6 @@ export function FunctionWorkbench({
                   : t('edit.json_valid')}
               </span>
               <ChromeButton
-                variant="ghost"
                 size="sm"
                 onClick={onFormatInput}
                 disabled={runAccess.disabled || sampleInputError !== null}

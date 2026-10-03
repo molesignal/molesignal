@@ -11,9 +11,16 @@ import {
 } from '@/shell/ui/table';
 import { TimeRangeControl } from '@/time/TimePicker';
 
-export const uiLabelClass = 'type-label font-sans font-semibold tracking-normal text-tx-2';
+export const uiLabelClass = 'type-label font-sans font-medium tracking-normal text-tx-2';
 export const uiLabelStrongClass = 'type-label font-sans font-semibold tracking-normal text-tx-1';
-export const uiTableHeaderClass = 'type-caption font-sans font-semibold tracking-normal text-tx-2';
+export const uiTableHeaderClass = 'type-caption font-sans font-medium tracking-normal text-tx-2';
+/**
+ * Hit area for icon-only controls in the app chrome: the 32px icon-button
+ * token with a pointer, 44px under a coarse one. (`h-8` would be 27px here —
+ * rem tracks the 13.5px root size.)
+ */
+export const chromeIconButtonSizeClass =
+  'h-[var(--icon-button-size)] w-[var(--icon-button-size)] [@media(pointer:coarse)]:h-[44px] [@media(pointer:coarse)]:w-[44px]';
 export const cardTextActionClass =
   'inline-flex h-8 shrink-0 items-center gap-1 px-1 font-sans text-xs font-strong text-tx-2 transition-colors duration-fast ease-default hover:text-tx-0 focus-visible:outline-none focus-visible:text-tx-0 focus-visible:underline focus-visible:underline-offset-4';
 
@@ -55,7 +62,7 @@ export function Pill({
   return (
     <span
       className={cn(
-        'inline-flex h-[22px] items-center gap-1 whitespace-nowrap rounded-full border border-transparent px-2 font-sans text-xs font-semibold leading-none tracking-normal',
+        'inline-flex h-[22px] items-center gap-1 whitespace-nowrap rounded-full border border-transparent px-2 font-sans text-xs font-medium leading-none tracking-normal',
         PILL_TONE[tone],
         className,
       )}
@@ -141,7 +148,7 @@ export function CriticalAlertBanner({
 
 /* ───────────────────────── Button ───────────────────────── */
 
-type ButtonVariant = 'default' | 'primary' | 'ghost';
+type ButtonVariant = 'default' | 'primary' | 'ghost' | 'danger';
 type ButtonSize = 'sm' | 'md';
 
 export const ChromeButton = React.forwardRef<
@@ -170,7 +177,7 @@ export const ChromeButton = React.forwardRef<
       disabled={disabled}
       aria-disabled={disabled || undefined}
       className={cn(
-        'inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md font-sans font-strong transition-colors duration-fast ease-default disabled:pointer-events-none disabled:cursor-not-allowed disabled:border-bd-0 disabled:bg-bg-2 disabled:text-tx-3 disabled:opacity-100 disabled:shadow-none',
+        'inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md font-sans font-strong transition-colors duration-fast ease-default disabled:pointer-events-none disabled:cursor-not-allowed disabled:border-transparent disabled:bg-bg-2 disabled:text-tx-3 disabled:opacity-100 disabled:shadow-none',
         size === 'md' ? 'h-9 px-3 text-sm' : 'h-8 px-2.5 text-xs',
         variant === 'default' &&
           'border border-transparent bg-bg-2 text-tx-1 enabled:hover:bg-bg-3 enabled:hover:text-tx-0',
@@ -179,6 +186,9 @@ export const ChromeButton = React.forwardRef<
           'bg-indigo font-bold text-white enabled:hover:brightness-90 enabled:focus-visible:brightness-90',
         variant === 'ghost' &&
           'border border-transparent bg-transparent text-tx-1 enabled:hover:bg-bg-3',
+        // A destructive action that is not the final confirmation: tinted, not outlined.
+        variant === 'danger' &&
+          'border border-transparent bg-red-dim text-red-soft enabled:hover:bg-red/20',
         className,
       )}
     />
@@ -247,16 +257,21 @@ export function CardHeader({
   title,
   actions,
   className,
+  size = 'label',
 }: {
   title: React.ReactNode;
   actions?: React.ReactNode;
   className?: string;
+  /** `section` sets the title at the section-title step instead of the label step. */
+  size?: 'label' | 'section';
 }) {
   return (
     <div
       className={cn(
         'flex min-h-11 items-center gap-3 px-4 py-3',
-        uiLabelStrongClass,
+        size === 'section'
+          ? 'type-section-title font-sans font-strong tracking-normal text-tx-0'
+          : uiLabelStrongClass,
         className,
       )}
     >
@@ -324,59 +339,27 @@ export function StatCard({
   );
 }
 
-/* ───────────────────────── Tabs ───────────────────────── */
-
-export function TabBar({ children, className }: { children: React.ReactNode; className?: string }) {
-  return (
-    <div
-      className={cn(
-        'flex overflow-hidden rounded-md bg-[var(--functional-surface)] px-3 [box-shadow:var(--shadow-functional-surface)]',
-        className,
-      )}
-    >
-      {children}
-    </div>
-  );
-}
-
-export function TabItem({
-  active,
-  count,
-  onClick,
-  children,
-}: {
-  active?: boolean;
-  count?: number | string;
-  onClick?: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        '-mb-px flex min-h-9 items-center gap-2 border-b-[3px] px-3 py-2 font-sans text-sm font-strong',
-        active ? 'border-indigo font-bold text-tx-0' : 'border-transparent text-tx-2 hover:text-tx-0',
-      )}
-    >
-      {children}
-      {count !== undefined && (
-        <span className="grid min-h-5 min-w-5 place-items-center rounded-full bg-bg-3 px-1.5 font-sans text-xs text-tx-2">
-          {count}
-        </span>
-      )}
-    </button>
-  );
-}
-
 /* ───────────────────────── DataTable ───────────────────────── */
 
 // Thin pass-throughs over the token-aware shadcn Table primitive in
 // `shell/ui/table.tsx`. `TableShell` deliberately differs from the row/column
 // `admin/DataTable` API, so imports cannot silently select the wrong table.
 
-export function TableShell({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <ShadTable className={cn('font-strong', className)}>{children}</ShadTable>;
+export function TableShell({
+  children,
+  className,
+  containerClassName,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  /** Classes for the scroll container, e.g. `overflow-y-hidden` when the caller sizes rows to fit. */
+  containerClassName?: string | undefined;
+}) {
+  return (
+    <ShadTable className={cn('font-body', className)} containerClassName={containerClassName}>
+      {children}
+    </ShadTable>
+  );
 }
 
 export function Th({ children, className }: { children?: React.ReactNode; className?: string }) {
@@ -404,7 +387,7 @@ export function Tr({
 }: {
   children: React.ReactNode;
   className?: string;
-  onClick?: () => void;
+  onClick?: React.MouseEventHandler<HTMLTableRowElement>;
 }) {
   return (
     <ShadTableRow onClick={onClick} className={cn(onClick && 'cursor-pointer', className)}>

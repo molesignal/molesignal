@@ -93,7 +93,6 @@ export function StatusPageOverview() {
               action={
                 <ChromeButton
                   size="sm"
-                  variant="ghost"
                   disabled={!canMutate}
                   disabledReason={manageAccess.reason}
                   onClick={() => navigate(`/status-pages/${pageId}/incidents/new`)}
@@ -112,7 +111,6 @@ export function StatusPageOverview() {
               action={
                 <ChromeButton
                   size="sm"
-                  variant="ghost"
                   disabled={!canMutate}
                   disabledReason={manageAccess.reason}
                   onClick={() => navigate(`/status-pages/${pageId}/maintenance/new`)}

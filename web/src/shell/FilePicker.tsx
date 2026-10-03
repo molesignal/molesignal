@@ -47,11 +47,11 @@ export function FilePicker({
           htmlFor={disabled ? undefined : inputId}
           aria-disabled={disabled || undefined}
           className={cn(
-            'inline-flex h-[26px] items-center gap-1.5 rounded-md border border-bd-1 bg-bg-2 px-2.5',
+            'inline-flex h-[26px] items-center gap-1.5 rounded-md bg-bg-2 px-2.5',
             'font-sans text-xs font-strong text-tx-1 transition-colors',
             disabled
-              ? 'pointer-events-none cursor-not-allowed border-bd-0 text-tx-3'
-              : 'cursor-pointer hover:border-bd-2 hover:bg-bg-3 hover:text-tx-0',
+              ? 'pointer-events-none cursor-not-allowed text-tx-3'
+              : 'cursor-pointer hover:bg-bg-3 hover:text-tx-0',
             'focus-within:outline-none',
           )}
         >

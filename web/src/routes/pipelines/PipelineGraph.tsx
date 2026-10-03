@@ -690,7 +690,7 @@ function GraphInspector({
                   ? t('graph.stream_loading')
                   : t('graph.stream_select_placeholder')
               }
-              className="bg-bg-1"
+              className="bg-[var(--control-surface)]"
             />
             {streamsQuery.isError ? (
               <p className="mt-1 font-sans text-xs text-red-soft">
@@ -706,8 +706,9 @@ function GraphInspector({
           </>}
           {model.mode === 'realtime' && <SourceRetention source={value} checked={model.retainSource ?? false} onChange={(retainSource) => onChange({ ...model, retainSource })} />}
           <ChromeButton
+            variant="danger"
             disabled={!canDelete}
-            className="justify-center border-red text-red-soft disabled:cursor-not-allowed disabled:opacity-50"
+            className="justify-center disabled:cursor-not-allowed disabled:opacity-50"
             onClick={() => {
               if (!canDelete) return;
               onChange({
@@ -758,7 +759,7 @@ function GraphInspector({
                 })),
                 { value: '__new', label: t('graph.new_connector') },
               ]}
-              className="bg-bg-1"
+              className="bg-[var(--control-surface)]"
             />
           </FormField>
           {!connectorId && (
@@ -772,7 +773,7 @@ function GraphInspector({
                     ? t('graph.stream_loading')
                     : t('graph.stream_select_placeholder')
                 }
-                className="bg-bg-1"
+                className="bg-[var(--control-surface)]"
               />
               {streamsQuery.isError ? (
                 <p className="mt-1 font-sans text-xs text-red-soft">
@@ -788,8 +789,9 @@ function GraphInspector({
           )}
           </>}
           <ChromeButton
+            variant="danger"
             disabled={!canDelete}
-            className="justify-center border-red text-red-soft disabled:cursor-not-allowed disabled:opacity-50"
+            className="justify-center disabled:cursor-not-allowed disabled:opacity-50"
             onClick={() => {
               if (!canDelete) return;
               onChange({
@@ -839,8 +841,9 @@ function GraphInspector({
         )}
 
         <ChromeButton
+          variant="danger"
           disabled={!canDelete}
-          className="justify-center border-red text-red-soft disabled:cursor-not-allowed disabled:opacity-50"
+          className="justify-center disabled:cursor-not-allowed disabled:opacity-50"
           onClick={() => {
             if (!canDelete) return;
             onChange({
@@ -946,7 +949,7 @@ function VrlFunctionField({
           onChange={handlePick}
           options={options}
           placeholder={t('graph.vrl_function_placeholder')}
-          className="flex-1 bg-bg-1"
+          className="flex-1 bg-[var(--control-surface)]"
         />
         <ChromeButton
           type="button"

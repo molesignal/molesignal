@@ -293,19 +293,19 @@ export function FunctionsEdit() {
             {!isNew && (
               <ChromeButton
                 type="button"
+                variant="danger"
                 disabled={deleteAccess.disabled}
                 disabledReason={deleteAccess.reason}
                 onClick={() =>
                   deleteAccess.allowed && setConfirmDelete(true)
                 }
-                className="h-11 border-red text-red-soft enabled:hover:bg-red-dim sm:h-10"
+                className="h-11 sm:h-10"
               >
                 {t('edit.delete')}
               </ChromeButton>
             )}
             <ChromeButton
               type="button"
-              variant="ghost"
               onClick={() => navigate('/functions')}
               className="h-11 sm:h-10"
             >

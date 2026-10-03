@@ -1,22 +1,15 @@
 import { ChevronRight } from 'lucide-react';
 import type * as React from 'react';
 
-import type * as homeApi from '@/api/home';
-import { uiLabelClass, uiLabelStrongClass } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
 
 import './canvas.css';
 
-const STATUS_ICON_CLASS: Partial<Record<homeApi.HomeHealthStatus, string>> = {
-  healthy: 'bg-green-dim text-green-soft',
-  degraded: 'bg-red-dim text-red-soft',
-  delayed: 'bg-yellow-dim text-yellow-soft',
-};
-
+/** Vertical rhythm for Home: bands are separated by `--home-band-gap` (see canvas.css). */
 export function OperationsCanvas({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="home-operations-canvas mx-auto w-full max-w-[2200px] space-y-[12px] bg-[var(--page-canvas)]"
+      className="home-operations-canvas mx-auto w-full max-w-[2200px] bg-[var(--page-canvas)]"
       data-testid="home-operations-canvas"
     >
       {children}
@@ -32,71 +25,21 @@ export function CanvasSurfaceGrid({
   className?: string;
 }) {
   return (
-    <div
-      data-home-surface-grid
-      className={cn('home-canvas-surface-grid grid gap-[12px]', className)}
-    >
+    <div data-home-surface-grid className={cn('home-canvas-surface-grid', className)}>
       {children}
     </div>
   );
 }
 
-export function CanvasKpiStrip({ children, label }: { children: React.ReactNode; label: string }) {
-  return (
-    <section
-      aria-label={label}
-      className="home-canvas-kpi-grid grid gap-[12px] bg-[var(--page-canvas)]"
-    >
-      {children}
-    </section>
-  );
-}
-
-export function CanvasKpi({
-  label,
-  value,
-  detail,
-  icon,
-  status,
-  onClick,
+/** A stack of cards that keeps its own height instead of stretching to a grid row. */
+export function CanvasColumn({
+  children,
+  className,
 }: {
-  label: string;
-  value: React.ReactNode;
-  detail: React.ReactNode;
-  icon: React.ReactNode;
-  status?: homeApi.HomeHealthStatus | undefined;
-  onClick: () => void;
+  children: React.ReactNode;
+  className?: string;
 }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      data-home-surface="kpi"
-      className="home-canvas-kpi group relative min-w-0 rounded-md bg-[var(--functional-surface)] px-3 py-3 text-left transition-colors duration-fast [box-shadow:var(--shadow-functional-surface)] hover:bg-bg-2 focus-visible:bg-bg-2 focus-visible:text-tx-0 focus-visible:outline-none"
-    >
-      <div className="flex min-w-0 items-center gap-1.5">
-        <span
-          className={cn(
-            'grid h-4 w-4 shrink-0 place-items-center rounded bg-bg-2 text-tx-3 transition-colors group-hover:bg-bg-3 group-hover:text-tx-1 [&>svg]:h-3 [&>svg]:w-3',
-            status && STATUS_ICON_CLASS[status],
-          )}
-        >
-          {icon}
-        </span>
-        <span className={cn(uiLabelClass, 'min-w-0 flex-1 truncate')}>{label}</span>
-      </div>
-      <div className="mt-2.5 truncate font-sans text-2xl font-display-strong leading-none tracking-[-0.025em] text-tx-0">
-        {value}
-      </div>
-      <div className="mt-1.5 line-clamp-2 font-sans text-xs leading-snug text-tx-2">
-        {detail}
-      </div>
-      <ChevronRight
-        aria-hidden="true"
-        className="absolute bottom-3 right-3 h-3.5 w-3.5 translate-x-1 text-tx-3 opacity-0 transition-[opacity,transform] duration-fast group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100"
-      />
-    </button>
-  );
+  return <div className={cn('home-canvas-column', className)}>{children}</div>;
 }
 
 export function CanvasSection({
@@ -108,6 +51,7 @@ export function CanvasSection({
   bodyClassName,
   ariaLabel,
   testId,
+  riseIndex,
 }: {
   title: React.ReactNode;
   icon?: React.ReactNode;
@@ -117,27 +61,26 @@ export function CanvasSection({
   bodyClassName?: string;
   ariaLabel?: string;
   testId?: string;
+  /** Position in the entrance sequence; omit to render without an entrance. */
+  riseIndex?: number;
 }) {
   return (
     <section
       aria-label={ariaLabel}
       className={cn(
         'flex min-h-0 min-w-0 flex-col overflow-hidden rounded-md bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]',
+        riseIndex !== undefined && 'home-rise',
         className,
       )}
+      style={riseIndex !== undefined ? ({ '--rise-index': riseIndex } as React.CSSProperties) : undefined}
       data-home-surface="section"
       data-testid={testId}
     >
-      <div
-        className={cn(
-          'home-canvas-section-header flex min-h-10 shrink-0 items-center gap-3 px-4 py-2',
-          uiLabelStrongClass,
-        )}
-      >
-        <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-ellipsis whitespace-nowrap">
+      <div className="home-canvas-section-header type-section-title flex min-h-[48px] shrink-0 items-center gap-3 px-[20px] py-2 font-sans font-strong text-tx-0">
+        <h2 className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-ellipsis whitespace-nowrap">
           {icon}
           {title}
-        </div>
+        </h2>
         {actions && <div className="flex shrink-0 items-center gap-1.5">{actions}</div>}
       </div>
       <div className={cn('flex min-h-0 flex-1 flex-col', bodyClassName)}>{children}</div>
@@ -156,7 +99,7 @@ export function CanvasHeaderAction({
     <button
       type="button"
       onClick={onClick}
-      className="-mr-1 inline-flex h-8 shrink-0 items-center gap-1 px-1 font-sans text-xs font-strong text-tx-2 transition-colors duration-fast hover:text-tx-0 focus-visible:bg-bg-2 focus-visible:text-tx-0 focus-visible:outline-none"
+      className="-mr-1 inline-flex h-[32px] shrink-0 items-center gap-1 px-1 font-sans text-xs font-strong text-tx-2 transition-colors duration-fast hover:text-tx-0 focus-visible:bg-bg-2 focus-visible:text-tx-0 focus-visible:outline-none"
     >
       {label}
       <ChevronRight aria-hidden="true" className="h-3 w-3" />

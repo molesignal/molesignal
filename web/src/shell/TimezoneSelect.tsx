@@ -112,7 +112,7 @@ export function TimezoneSelect({
           aria-label={t('timezone.label')}
           aria-expanded={open}
           className={cn(
-            'flex h-9 min-w-0 max-w-[280px] items-center justify-between gap-2 rounded-md border border-bd-1 bg-bg-1 px-2.5 font-sans text-xs font-strong text-tx-1 hover:border-bd-2 focus-visible:outline-none',
+            'flex h-9 min-w-0 max-w-[280px] items-center justify-between gap-2 rounded-md border-0 bg-[var(--control-surface)] px-2.5 font-sans text-xs font-strong text-tx-1 transition-colors hover:bg-[var(--floating-item-hover)] data-[state=open]:bg-[var(--floating-item-hover)] focus-visible:outline-none',
             className,
           )}
         >

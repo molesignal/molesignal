@@ -67,7 +67,7 @@ export function QueryLegendControl({
         onChange={(event) =>
           onChange(event.target.value || QUERY_LEGEND_AUTO)
         }
-        className="h-11 min-w-0 rounded-md border border-bd-1 bg-bg-1 px-2 font-mono text-base text-tx-1 outline-none placeholder:text-tx-3 focus-visible:bg-bg-2 sm:h-8 sm:text-xs"
+        className="h-11 min-w-0 rounded-md border border-bd-1 bg-[var(--control-surface)] px-2 font-mono text-base text-tx-1 outline-none placeholder:text-tx-3 focus-visible:bg-bg-3 sm:h-8 sm:text-xs"
       />
     );
   }
@@ -82,7 +82,7 @@ export function QueryLegendControl({
     >
       <SelectTrigger
         aria-label={tr('Legend mode')}
-        className="h-11 bg-bg-1 px-2 text-base sm:h-8 sm:text-xs"
+        className="h-11 bg-[var(--control-surface)] px-2 text-base sm:h-8 sm:text-xs"
       >
         <span>{tr(LEGEND_MODES.find((item) => item.mode === mode)!.label)}</span>
       </SelectTrigger>

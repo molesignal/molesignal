@@ -136,7 +136,6 @@ export function MappingsForm({
             </span>
             <ChromeButton
               type="button"
-              variant="ghost"
               size="sm"
               disabled={disabled}
               onClick={onRetryRoles}
@@ -175,7 +174,6 @@ export function MappingsForm({
           </div>
           <ChromeButton
             type="button"
-            variant="ghost"
             size="sm"
             disabled={disabled || rolesUnavailable}
             disabledReason={

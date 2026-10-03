@@ -3,6 +3,7 @@ import type { LucideIcon } from 'lucide-react';
 import type * as React from 'react';
 
 import { cn } from '@/shell/lib/cn';
+import { ViewTabs } from '@/shell/tabs/ViewTabs';
 
 export const alertFlatTableClassName = 'rounded-none border-0 bg-transparent';
 
@@ -10,35 +11,26 @@ export function AlertFilterTabs<T extends string>({
   value,
   onChange,
   options,
+  label,
 }: {
   value: T;
   onChange: (value: T) => void;
   options: Array<{ value: T; label: string; count: number }>;
+  /** Names the group of filters for assistive technology. */
+  label: string;
 }) {
   return (
-    <div
-      data-alert-filter-tabs
-      className="flex max-w-full items-center gap-1 overflow-x-auto"
-    >
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          onClick={() => onChange(option.value)}
-          className={cn(
-            'inline-flex h-10 shrink-0 items-center border-b-[3px] px-3 font-sans text-xs font-strong transition-colors duration-fast',
-            value === option.value
-              ? 'border-indigo text-tx-0'
-              : 'border-transparent text-tx-2 hover:bg-bg-2 hover:text-tx-0 focus-visible:bg-bg-2 focus-visible:text-tx-0',
-          )}
-        >
-          {option.label}
-          <span className="ml-1.5 font-mono text-type-micro text-tx-3">
-            {option.count}
-          </span>
-        </button>
-      ))}
-    </div>
+    <ViewTabs<T>
+      label={label}
+      value={value}
+      onValueChange={onChange}
+      dataAttributes={{ 'data-alert-filter-tabs': '' }}
+      items={options.map((option) => ({
+        key: option.value,
+        label: option.label,
+        count: option.count,
+      }))}
+    />
   );
 }
 

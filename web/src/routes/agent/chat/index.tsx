@@ -66,6 +66,7 @@ import {
 import { toast } from '@/shell/ui/sonner';
 import { useAuthStore } from '@/stores/auth';
 import { useFiltersStore } from '@/stores/useFiltersStore';
+import { useMoleAgentStore } from '@/stores/useMoleAgentStore';
 import { formatWindowSummary, useTimeStore } from '@/stores/useTimeStore';
 
 import { type EvidenceRef, evidenceHref, parseStructuredAnswer } from '../answer';
@@ -306,6 +307,17 @@ export function AgentChat({ embedded = false }: { embedded?: boolean } = {}) {
   const composerRef = React.useRef<HTMLTextAreaElement>(null);
   const chatListWidthRef = React.useRef(chatListWidth);
   const resizeCleanupRef = React.useRef<(() => void) | null>(null);
+
+  // "Ask Mole Agent" entry points (e.g. the Home verdict) hand a question over
+  // through the shell store. It is prefilled for the operator to read and edit,
+  // never sent on their behalf.
+  const moleAgentSeed = useMoleAgentStore((state) => state.seed);
+  React.useEffect(() => {
+    if (!moleAgentSeed) return;
+    setInput(moleAgentSeed);
+    useMoleAgentStore.setState({ seed: null });
+    window.requestAnimationFrame(() => composerRef.current?.focus());
+  }, [moleAgentSeed]);
 
   const applyChatListWidth = React.useCallback((width: number, persist = false) => {
     const nextWidth = clampChatListWidth(width);
@@ -1251,7 +1263,7 @@ function AdvancedSelect({
       <Select value={value} onValueChange={onChange}>
         <SelectTrigger
           aria-label={label}
-          className="h-9 w-full border-bd-1 bg-bg-1 text-sm shadow-none"
+          className="h-9 w-full border-bd-1 bg-[var(--control-surface)] text-sm shadow-none"
         >
           <SelectValue />
         </SelectTrigger>
@@ -1363,7 +1375,7 @@ function ContextEditorPopover({
                 value={context[field]}
                 onChange={(event) => setField(field, event.target.value)}
                 placeholder={t(`context.${field}_placeholder`)}
-                className="h-9 w-full rounded-md border border-bd-1 bg-bg-2 px-3 font-sans text-sm text-tx-0 placeholder:text-tx-3 focus:outline-none"
+                className="h-9 w-full rounded-md border border-bd-1 bg-[var(--control-surface)] px-3 font-sans text-sm text-tx-0 placeholder:text-tx-3 focus:outline-none"
               />
             </label>
           ))}
@@ -2034,12 +2046,12 @@ function StructuredView({
                   {href ? (
                     <Link
                       to={href}
-                      className="inline-flex h-8 items-center rounded-md border border-bd-1 px-2.5 text-xs font-strong text-indigo hover:bg-bg-2"
+                      className="inline-flex h-8 items-center rounded-md bg-bg-2 px-2.5 text-xs font-strong text-indigo hover:bg-bg-3"
                     >
                       {l.label}
                     </Link>
                   ) : (
-                    <span className="inline-flex h-8 items-center rounded-md border border-bd-0 px-2.5 text-xs text-tx-2">
+                    <span className="inline-flex h-8 items-center rounded-md bg-bg-2 px-2.5 text-xs text-tx-3">
                       {l.label}
                     </span>
                   )}

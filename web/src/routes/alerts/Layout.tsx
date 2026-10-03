@@ -1,23 +1,17 @@
 import { useTranslation } from 'react-i18next';
-import { NavLink } from 'react-router-dom';
 
-import { cn } from '@/shell/lib/cn';
-import {
-  surfaceModuleNavigationActiveClass,
-  surfaceModuleNavigationClass,
-  surfaceModuleNavigationItemClass,
-  surfaceModuleNavigationRowClass,
-} from '@/shell/SurfaceWorkbench';
+import { ModuleTabs } from '@/shell/tabs/ModuleTabs';
 
+// What is happening and what defines it, then who is told and how.
 const ALERT_TABS = [
-  { to: '/alerts/insights', labelKey: 'subnav.insights', fallback: 'Insights' },
-  { to: '/alerts/incidents', labelKey: 'subnav.incidents', fallback: 'Incidents' },
-  { to: '/alerts/rules', labelKey: 'subnav.rules', fallback: 'Rules' },
-  { to: '/alerts/history', labelKey: 'subnav.history', fallback: 'History' },
-  { to: '/alerts/silences', labelKey: 'subnav.silences', fallback: 'Silences' },
-  { to: '/alerts/escalations', labelKey: 'subnav.escalations', fallback: 'Escalations' },
-  { to: '/alerts/schedules', labelKey: 'subnav.schedules', fallback: 'On-call schedules' },
-  { to: '/alerts/semantic-groups', labelKey: 'subnav.groups', fallback: 'Groups' },
+  { to: '/alerts/insights', labelKey: 'subnav.insights', fallback: 'Insights', group: 'overview' },
+  { to: '/alerts/incidents', labelKey: 'subnav.incidents', fallback: 'Incidents', group: 'overview' },
+  { to: '/alerts/rules', labelKey: 'subnav.rules', fallback: 'Rules', group: 'overview' },
+  { to: '/alerts/history', labelKey: 'subnav.history', fallback: 'History', group: 'overview' },
+  { to: '/alerts/silences', labelKey: 'subnav.silences', fallback: 'Silences', group: 'response' },
+  { to: '/alerts/escalations', labelKey: 'subnav.escalations', fallback: 'Escalations', group: 'response' },
+  { to: '/alerts/schedules', labelKey: 'subnav.schedules', fallback: 'On-call schedules', group: 'response' },
+  { to: '/alerts/semantic-groups', labelKey: 'subnav.groups', fallback: 'Groups', group: 'response' },
 ] as const;
 
 /**
@@ -29,32 +23,16 @@ export function AlertsSubNav() {
   const { t } = useTranslation('alerts');
 
   return (
-    <div
-      data-testid="alerts-subnav"
-      className={cn(surfaceModuleNavigationClass, 'relative z-10')}
-    >
-      <nav
-        aria-label={t('subnav.label', { defaultValue: 'Alerts views' })}
-        className={surfaceModuleNavigationRowClass}
-      >
-        {ALERT_TABS.map((tab) => (
-          <NavLink
-            key={tab.to}
-            to={tab.to}
-            className={({ isActive }) =>
-              cn(
-                surfaceModuleNavigationItemClass,
-                'whitespace-nowrap',
-                isActive
-                  ? surfaceModuleNavigationActiveClass
-                  : 'text-tx-2',
-              )
-            }
-          >
-            {t(tab.labelKey, { defaultValue: tab.fallback })}
-          </NavLink>
-        ))}
-      </nav>
-    </div>
+    <ModuleTabs
+      label={t('subnav.label', { defaultValue: 'Alerts views' })}
+      className="relative z-10"
+      dataAttributes={{ 'data-testid': 'alerts-subnav' }}
+      items={ALERT_TABS.map((tab) => ({
+        key: tab.to,
+        to: tab.to,
+        group: tab.group,
+        label: t(tab.labelKey, { defaultValue: tab.fallback }),
+      }))}
+    />
   );
 }

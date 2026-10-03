@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import * as statusPagesApi from '@/api/statusPages';
 import * as usersApi from '@/api/users';
 import { hasPermission, useProductAccess } from '@/product/access';
+import { chromeIconButtonSizeClass } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
 import { Popover, PopoverContent, PopoverTrigger } from '@/shell/ui/popover';
 import { useAuthStore } from '@/stores/auth';
@@ -97,7 +98,8 @@ export function NotificationCenter() {
         title={t('topbar.notifications')}
         aria-label={t('topbar.notifications')}
         className={cn(
-          'relative flex h-8 w-8 items-center justify-center rounded-md text-tx-2',
+          'relative flex items-center justify-center rounded-md text-tx-2',
+          chromeIconButtonSizeClass,
           'hover:bg-bg-3 hover:text-tx-0',
           'focus-visible:bg-bg-3 focus-visible:text-tx-0 focus-visible:outline-none',
         )}

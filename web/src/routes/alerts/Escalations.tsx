@@ -179,7 +179,7 @@ export function AlertsEscalations() {
                       size="sm"
                       disabled={manageAccess.disabled}
                       disabledReason={manageAccess.reason}
-                      className="text-tx-2 hover:border-red/40 hover:text-red-soft"
+                      className="text-tx-2 enabled:hover:bg-red-dim enabled:hover:text-red-soft"
                       onClick={(event) => {
                         event.stopPropagation();
                         setRemoving(r);

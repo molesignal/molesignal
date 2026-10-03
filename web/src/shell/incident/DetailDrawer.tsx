@@ -391,7 +391,7 @@ function IncidentRcaSection({ incidentId }: { incidentId: string }) {
         'inline-flex h-8 items-center gap-1.5 font-sans text-xs font-strong focus-visible:bg-indigo-dim focus-visible:text-indigo disabled:opacity-50',
         rca
           ? 'rounded px-1 text-tx-2 hover:text-indigo-soft'
-          : 'rounded-md border border-bd-1 bg-bg-2 px-3 text-tx-1 hover:bg-bg-3 hover:text-tx-0',
+          : 'rounded-md bg-bg-2 px-3 text-tx-1 hover:bg-bg-3 hover:text-tx-0',
       )}
       data-testid="incident-rca-generate"
     >

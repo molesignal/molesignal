@@ -51,7 +51,7 @@ export function EditorInput({
       placeholder={placeholder}
       onChange={(event) => onChange(event.target.value)}
       className={cn(
-        'h-8 min-w-0 rounded-md border border-bd-1 bg-bg-1 px-2 text-xs text-tx-1 outline-none placeholder:text-tx-3 focus-visible:bg-bg-2',
+        'h-8 min-w-0 rounded-md border border-bd-1 bg-[var(--control-surface)] px-2 text-xs text-tx-1 outline-none placeholder:text-tx-3 focus-visible:bg-bg-3',
         mono ? 'font-mono' : 'font-sans',
       )}
     />
@@ -79,7 +79,7 @@ export function EditorTextarea({
       spellCheck={!mono}
       onChange={(event) => onChange(event.target.value)}
       className={cn(
-        'min-w-0 resize-y rounded-md border border-bd-1 bg-bg-1 px-2 py-2 text-xs leading-5 text-tx-1 outline-none placeholder:text-tx-3 focus-visible:bg-bg-2',
+        'min-w-0 resize-y rounded-md border border-bd-1 bg-[var(--control-surface)] px-2 py-2 text-xs leading-5 text-tx-1 outline-none placeholder:text-tx-3 focus-visible:bg-bg-3',
         mono ? 'font-mono' : 'font-sans',
       )}
     />
@@ -100,7 +100,7 @@ export function EditorSelect({
     <select
       value={value}
       onChange={(event) => onChange(event.target.value)}
-      className="h-8 min-w-0 rounded-md border border-bd-1 bg-bg-1 px-2 font-sans text-xs text-tx-1 outline-none focus-visible:bg-bg-2"
+      className="h-8 min-w-0 rounded-md border border-bd-1 bg-[var(--control-surface)] px-2 font-sans text-xs text-tx-1 outline-none focus-visible:bg-bg-3"
     >
       {options.map(([optionValue, label]) => (
         <option key={optionValue} value={optionValue}>
@@ -132,7 +132,7 @@ export function EditorNumber({
         const parsed = Number(event.target.value);
         if (Number.isFinite(parsed)) onChange(parsed);
       }}
-      className="h-8 min-w-0 rounded-md border border-bd-1 bg-bg-1 px-2 font-mono text-xs text-tx-1 outline-none focus-visible:bg-bg-2"
+      className="h-8 min-w-0 rounded-md border border-bd-1 bg-[var(--control-surface)] px-2 font-mono text-xs text-tx-1 outline-none focus-visible:bg-bg-3"
     />
   );
 }
@@ -159,7 +159,7 @@ export function OptionalNumberInput({
         const parsed = Number(event.target.value);
         if (Number.isFinite(parsed)) onChange(parsed);
       }}
-      className="h-8 min-w-0 rounded-md border border-bd-1 bg-bg-1 px-2 font-mono text-xs text-tx-1 outline-none placeholder:text-tx-3 focus-visible:bg-bg-2"
+      className="h-8 min-w-0 rounded-md border border-bd-1 bg-[var(--control-surface)] px-2 font-mono text-xs text-tx-1 outline-none placeholder:text-tx-3 focus-visible:bg-bg-3"
     />
   );
 }

@@ -36,8 +36,8 @@ export function ProfileTagInput({
   return (
     <div
       className={cn(
-        'flex min-h-10 w-full flex-wrap items-center gap-1.5 rounded-md border border-bd-1 bg-bg-2 px-2 py-1.5',
-        'focus-within:bg-bg-1',
+        'flex min-h-10 w-full flex-wrap items-center gap-1.5 rounded-md bg-[var(--control-surface)] px-2 py-1.5 transition-colors',
+        'hover:bg-bg-3 focus-within:bg-bg-3',
       )}
       onClick={() => inputRef.current?.focus()}
     >

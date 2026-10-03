@@ -191,7 +191,8 @@
       "records": "Data records",
       "schema": "Schema",
       "usage": "Usage",
-      "settings": "Settings"
+      "settings": "Settings",
+      "label": "Table sections"
     },
     "search_key_placeholder": "Search {{key}} or field values…",
     "records_visible": "Showing {{visible}} / {{total}}",

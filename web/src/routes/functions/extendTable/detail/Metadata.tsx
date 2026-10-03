@@ -2,7 +2,6 @@ import {
   Braces,
   Clock3,
   KeyRound,
-  type LucideIcon,
   Rows3,
   Settings2,
   Workflow,
@@ -11,7 +10,7 @@ import { useTranslation } from 'react-i18next';
 
 import type { ExtendTableSummary } from '@/api/extendTables';
 import { cn } from '@/shell/lib/cn';
-import { Tabs, TabsList, TabsTrigger } from '@/shell/ui/tabs';
+import { ModuleTabs } from '@/shell/tabs/ModuleTabs';
 
 import type { DetailTab } from './types';
 import { formatRelativeMicros } from '../../../pipelines/presentation';
@@ -90,62 +89,33 @@ export function DetailTabs({
 }) {
   const { t } = useTranslation('functions');
   return (
-    <div className="overflow-hidden rounded-md bg-[var(--functional-surface)] px-3 [box-shadow:var(--shadow-functional-surface)]">
-      <Tabs value={value} onValueChange={(next) => onChange(next as DetailTab)}>
-        <TabsList className="h-10 max-w-full justify-start overflow-x-auto rounded-none bg-transparent p-0">
-          <DetailTabTrigger
-            value="records"
-            icon={Rows3}
-            label={t('extend_tables.tabs.records')}
-            count={table.row_count}
-          />
-          <DetailTabTrigger
-            value="schema"
-            icon={Braces}
-            label={t('extend_tables.tabs.schema')}
-            count={fieldCount + 1}
-          />
-          <DetailTabTrigger
-            value="usage"
-            icon={Workflow}
-            label={t('extend_tables.tabs.usage')}
-            count={table.usage_locations.length}
-          />
-          <DetailTabTrigger
-            value="settings"
-            icon={Settings2}
-            label={t('extend_tables.tabs.settings')}
-          />
-        </TabsList>
-      </Tabs>
-    </div>
-  );
-}
-
-function DetailTabTrigger({
-  value,
-  icon: Icon,
-  label,
-  count,
-}: {
-  value: DetailTab;
-  icon: LucideIcon;
-  label: string;
-  count?: number | undefined;
-}) {
-  return (
-    <TabsTrigger
+    <ModuleTabs
+      label={t('extend_tables.tabs.label')}
+      className="mx-0 mb-0"
       value={value}
-      className="h-10 gap-2 rounded-none border-b-[3px] border-transparent bg-transparent px-4 text-xs text-tx-2 shadow-none data-[state=active]:border-indigo data-[state=active]:bg-transparent data-[state=active]:text-tx-0 data-[state=active]:shadow-none"
-    >
-      <Icon className="h-3.5 w-3.5" />
-      {label}
-      {count !== undefined && (
-        <span className="rounded-full bg-bg-3 px-1.5 py-0.5 font-mono text-type-micro text-tx-2">
-          {count}
-        </span>
-      )}
-    </TabsTrigger>
+      onValueChange={(next) => onChange(next as DetailTab)}
+      items={[
+        {
+          key: 'records',
+          icon: Rows3,
+          label: t('extend_tables.tabs.records'),
+          count: table.row_count,
+        },
+        {
+          key: 'schema',
+          icon: Braces,
+          label: t('extend_tables.tabs.schema'),
+          count: fieldCount + 1,
+        },
+        {
+          key: 'usage',
+          icon: Workflow,
+          label: t('extend_tables.tabs.usage'),
+          count: table.usage_locations.length,
+        },
+        { key: 'settings', icon: Settings2, label: t('extend_tables.tabs.settings') },
+      ]}
+    />
   );
 }
 

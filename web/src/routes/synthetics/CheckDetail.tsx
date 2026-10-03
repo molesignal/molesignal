@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { TFunction } from 'i18next';
 import { Edit3, Pause, Play, RefreshCw, Upload } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Link, NavLink, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { DataTable, KpiStrip, MetadataStrip, type DataTableColumn } from '@/admin';
 import * as syntheticsApi from '@/api/synthetics';
@@ -15,11 +15,7 @@ import type {
 import { toApiError } from '@/lib/http';
 import { hasPermission, useProductAccess } from '@/product/access';
 import { ChromeButton } from '@/shell/chrome';
-import { cn } from '@/shell/lib/cn';
-import {
-  surfaceModuleNavigationActiveClass,
-  surfaceModuleNavigationItemClass,
-} from '@/shell/SurfaceWorkbench';
+import { ModuleTabs } from '@/shell/tabs/ModuleTabs';
 import { toast } from '@/shell/ui/sonner';
 
 import { KindLabel, Section, StatePill, SyntheticsPage, WorkspaceBoundary } from './components';
@@ -206,7 +202,18 @@ export function CheckDetail() {
 
 function DetailNavigation({ monitorId, currentTab }: { monitorId: string; currentTab: (typeof DETAIL_TABS)[number] }) {
   const { t } = useTranslation('synthetics');
-  return <nav aria-label={t('navigation_label')} className="flex min-h-11 min-w-0 gap-5 overflow-x-auto rounded-md bg-[var(--functional-surface)] px-3 [box-shadow:var(--shadow-functional-surface)]">{DETAIL_TABS.map((tab) => <NavLink key={tab} to={`/synthetics/checks/${monitorId}${tab === 'overview' ? '' : `/${tab}`}`} className={cn(surfaceModuleNavigationItemClass, 'text-xs', currentTab === tab && surfaceModuleNavigationActiveClass)}>{t(`detail.${tab}`)}</NavLink>)}</nav>;
+  return (
+    <ModuleTabs
+      label={t('navigation_label')}
+      className="mx-0 mb-0"
+      items={DETAIL_TABS.map((tab) => ({
+        key: tab,
+        to: `/synthetics/checks/${monitorId}${tab === 'overview' ? '' : `/${tab}`}`,
+        active: currentTab === tab,
+        label: t(`detail.${tab}`),
+      }))}
+    />
+  );
 }
 
 function OverviewTab({ monitor, revision, results, locations, locale }: { monitor: SyntheticMonitor; revision: MonitorRevision; results: SyntheticResult[]; locations: ProbeLocation[]; locale: string }) {

@@ -9,6 +9,7 @@
     "empty": "完成前三步即可让该组织进入可运营状态。",
     "remaining_single": "还有 1 个设置步骤",
     "remaining_multiple": "还有 {{count}} 个设置步骤",
+    "next": "下一步",
     "complete_action": "完成设置",
     "open": "打开",
     "steps": {
@@ -43,12 +44,14 @@
     "subtitle": "系统状态、异常与下一步操作",
     "loading": "加载中…",
     "view_all": "查看全部",
+    "connect_action": "接入数据源",
     "sidebar_label": "运维上下文",
-    "status": {
+    "condition": {
       "healthy": "正常",
-      "degraded": "异常",
-      "delayed": "延迟",
-      "no_data": "无数据",
+      "delayed": "接收延迟",
+      "interrupted": "断流",
+      "stale": "长期断流",
+      "inactive": "无数据",
       "unknown": "未知"
     },
     "critical": {
@@ -64,11 +67,57 @@
       "new_alert": "新建告警规则",
       "new_stream": "新建数据流",
       "new_pipeline": "新建流水线",
-      "new_function": "新建函数"
+      "new_function": "新建函数",
+      "updated": "更新于 {{time}}"
+    },
+    "hero": {
+      "eyebrow": "数据接入",
+      "ask_agent": "让 Mole Agent 分析",
+      "agent_prompt": "首页显示「{{title}}」（{{detail}}）。请帮我分析可能的原因，并给出优先排查的步骤。",
+      "verdict": {
+        "no_streams": {
+          "title": "尚未接入数据",
+          "detail": "接入第一个数据源，系统健康状态会在这里实时呈现。",
+          "action": "接入数据源"
+        },
+        "healthy": {
+          "title": "数据接入正常",
+          "detail": "{{receiving}} / {{total}} 个数据流正常接收。",
+          "detail_all": "全部 {{total}} 个数据流都在正常接收。",
+          "action": "查看数据流"
+        },
+        "delayed": {
+          "title": "部分数据流延迟",
+          "detail": "{{count}} / {{total}} 个数据流接收延迟。",
+          "detail_all": "全部 {{total}} 个数据流接收延迟。",
+          "action": "查看延迟的数据流"
+        },
+        "interrupted": {
+          "title": "数据流已断流",
+          "detail": "{{count}} / {{total}} 个数据流已停止接收数据。",
+          "detail_all": "全部 {{total}} 个数据流已停止接收数据。",
+          "action": "排查数据接入"
+        },
+        "stale": {
+          "title": "数据长期断流",
+          "detail": "{{count}} / {{total}} 个数据流已断流超过 24 小时。",
+          "detail_all": "全部 {{total}} 个数据流已断流超过 24 小时。",
+          "action": "检查数据接入"
+        },
+        "no_data": {
+          "title": "尚无数据",
+          "detail": "已注册 {{total}} 个数据流，但还没有收到任何数据。",
+          "action": "接入数据源"
+        },
+        "unknown": {
+          "title": "状态未知",
+          "detail": "暂时无法获取数据流的运行状态。",
+          "action": "重新获取"
+        }
+      }
     },
     "kpis": {
       "label": "系统关键指标",
-      "intake_status": "数据流健康状态",
       "last_received": "最后接收：{{when}}",
       "active_alerts": "当前告警",
       "alert_detail": "{{firing}} 个触发中 · {{acknowledged}} 个已确认",
@@ -77,19 +126,16 @@
       "stored_bytes": "压缩后数据量",
       "compression_pending": "等待原始摄入计量",
       "compression_saved": "较原始体积减少 {{percent}}%",
-      "compression_overhead": "小批量存储开销 +{{percent}}%",
-      "attention_streams": "需关注数据流",
-      "attention_detail": "共 {{total}} 个可观测数据流 · 数据截至{{asOf}}",
-      "active_sources": "正常接收",
-      "probe_detail": "{{succeeded}} / {{total}} 个元数据探测成功",
-      "receiving_detail": "{{inactive}} 个空闲或未使用 · 数据截至{{asOf}}"
+      "compression_overhead": "小批量存储开销 +{{percent}}%"
     },
     "health": {
       "title": "系统健康概览",
-      "total": "所选时段合计",
+      "total_window": "{{window}}合计",
       "signals": "信号状态",
       "empty": "尚未注册可观测数据流。",
       "no_window_data": "所选时段暂无数据",
+      "no_window_data_hint": "数据源可能已停止发送，恢复后这里会自动显示摄入趋势。",
+      "check_action": "检查数据接入",
       "metrics": {
         "intake": "原始摄入",
         "stored": "压缩存储",
@@ -126,6 +172,7 @@
       "arrange": "立即安排",
       "empty_title": "尚未配置值班排班",
       "empty_description": "配置排班后可在首页查看当前负责人。",
+      "empty_action": "配置排班",
       "gap_description": "当前无人值班，需要立即补齐覆盖。",
       "no_current": "当前暂无值班人",
       "unknown_member": "未知成员",

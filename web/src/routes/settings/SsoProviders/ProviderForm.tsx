@@ -75,7 +75,7 @@ export function ProviderForm({
                 })
               }
             >
-              <SelectTrigger className="h-8 rounded-md border-bd-1 bg-bg-2 px-2.5 font-sans text-xs text-tx-0">
+              <SelectTrigger className="h-8 rounded-md border-bd-1 bg-[var(--control-surface)] px-2.5 font-sans text-xs text-tx-0">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

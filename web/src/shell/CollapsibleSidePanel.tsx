@@ -163,7 +163,7 @@ export function CollapsibleSidePanel({
           title={expandLabel}
           className={cn(
             'mt-2 grid h-8 w-8 place-items-center rounded-md text-tx-2 hover:bg-bg-3 hover:text-tx-0',
-            !utility && 'border border-bd-1 bg-bg-2',
+            !utility && 'bg-bg-2',
           )}
         >
           <ChevronRight className="h-3.5 w-3.5" />

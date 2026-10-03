@@ -9,6 +9,7 @@
     "empty": "Finish the first three steps to make this org operational.",
     "remaining_single": "1 setup step remaining",
     "remaining_multiple": "{{count}} setup steps remaining",
+    "next": "Next",
     "complete_action": "Complete setup",
     "open": "Open",
     "steps": {
@@ -43,12 +44,14 @@
     "subtitle": "System status, anomalies, and next actions",
     "loading": "Loading…",
     "view_all": "View all",
+    "connect_action": "Connect a data source",
     "sidebar_label": "Operational context",
-    "status": {
+    "condition": {
       "healthy": "Healthy",
-      "degraded": "Degraded",
       "delayed": "Delayed",
-      "no_data": "No data",
+      "interrupted": "Interrupted",
+      "stale": "Stale",
+      "inactive": "No data",
       "unknown": "Unknown"
     },
     "critical": {
@@ -64,11 +67,57 @@
       "new_alert": "New alert rule",
       "new_stream": "New stream",
       "new_pipeline": "New pipeline",
-      "new_function": "New function"
+      "new_function": "New function",
+      "updated": "Updated {{time}}"
+    },
+    "hero": {
+      "eyebrow": "Data intake",
+      "ask_agent": "Ask Mole Agent",
+      "agent_prompt": "Home shows “{{title}}” ({{detail}}). Help me work out the likely causes and the first things to check.",
+      "verdict": {
+        "no_streams": {
+          "title": "No data connected yet",
+          "detail": "Connect your first data source and system health will show up here.",
+          "action": "Connect a data source"
+        },
+        "healthy": {
+          "title": "Intake is healthy",
+          "detail": "{{receiving}} of {{total}} streams are receiving normally.",
+          "detail_all": "All {{total}} streams are receiving normally.",
+          "action": "View streams"
+        },
+        "delayed": {
+          "title": "Some streams are delayed",
+          "detail": "{{count}} of {{total}} streams are receiving late.",
+          "detail_all": "All {{total}} streams are receiving late.",
+          "action": "Review delayed streams"
+        },
+        "interrupted": {
+          "title": "Streams interrupted",
+          "detail": "{{count}} of {{total}} streams stopped receiving data.",
+          "detail_all": "All {{total}} streams stopped receiving data.",
+          "action": "Investigate intake"
+        },
+        "stale": {
+          "title": "Data is stale",
+          "detail": "{{count}} of {{total}} streams have had no data for over 24 hours.",
+          "detail_all": "All {{total}} streams have had no data for over 24 hours.",
+          "action": "Check data intake"
+        },
+        "no_data": {
+          "title": "No data yet",
+          "detail": "{{total}} streams are registered, but none has received data.",
+          "action": "Connect a data source"
+        },
+        "unknown": {
+          "title": "Status unknown",
+          "detail": "Stream runtime status is unavailable right now.",
+          "action": "Try again"
+        }
+      }
     },
     "kpis": {
       "label": "System key metrics",
-      "intake_status": "Stream health",
       "last_received": "Last received: {{when}}",
       "active_alerts": "Active alerts",
       "alert_detail": "{{firing}} firing · {{acknowledged}} acknowledged",
@@ -77,19 +126,16 @@
       "stored_bytes": "Compressed data size",
       "compression_pending": "Waiting for raw intake metering",
       "compression_saved": "{{percent}}% smaller than raw",
-      "compression_overhead": "Small-batch storage overhead +{{percent}}%",
-      "attention_streams": "Needs attention",
-      "attention_detail": "{{total}} observable streams · as of {{asOf}}",
-      "active_sources": "Receiving normally",
-      "probe_detail": "{{succeeded}} / {{total}} metadata probes succeeded",
-      "receiving_detail": "{{inactive}} idle or unused · as of {{asOf}}"
+      "compression_overhead": "Small-batch storage overhead +{{percent}}%"
     },
     "health": {
       "title": "System health overview",
-      "total": "Selected-period total",
+      "total_window": "Total · {{window}}",
       "signals": "Signal status",
       "empty": "No observable streams registered yet.",
       "no_window_data": "No data in the selected period",
+      "no_window_data_hint": "A source may have stopped sending. The intake trend appears here once data flows again.",
+      "check_action": "Check data intake",
       "metrics": {
         "intake": "Raw intake",
         "stored": "Compressed",
@@ -126,6 +172,7 @@
       "arrange": "Assign now",
       "empty_title": "No on-call schedule configured",
       "empty_description": "Configure a schedule to see the current owner here.",
+      "empty_action": "Set up a schedule",
       "gap_description": "No one is currently on call. Coverage needs attention.",
       "no_current": "No one is currently on call",
       "unknown_member": "Unknown member",

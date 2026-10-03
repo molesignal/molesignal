@@ -354,7 +354,7 @@ function CreateDrawer({
                 value: k.kind,
                 label: t(`pipeline_destinations.kinds.${k.kind}`),
               }))}
-              className="bg-bg-1"
+              className="bg-[var(--control-surface)]"
             />
           </FormField>
         </FormSection>

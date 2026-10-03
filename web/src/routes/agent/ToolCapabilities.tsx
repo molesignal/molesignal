@@ -373,7 +373,7 @@ export function ToolCapabilitiesPanel({
           />
           <Select value={groupMode} onValueChange={(value) => setGroupMode(value as GroupMode)}>
             <SelectTrigger
-              className="h-8 w-full bg-bg-2 text-xs xl:w-[168px]"
+              className="h-8 w-full bg-[var(--control-surface)] text-xs xl:w-[168px]"
               aria-label={t('settings.tools.grouping.label')}
             >
               <SelectValue />
@@ -1138,7 +1138,7 @@ function SchemaSection({
   return (
     <FormSection title={title}>
       <div className="flex justify-end gap-2">
-        <Button size="sm" variant="ghost" onClick={() => setShowJson((value) => !value)}>
+        <Button size="sm" variant="outline" onClick={() => setShowJson((value) => !value)}>
           {t(showJson ? 'settings.tools.schema.form_view' : 'settings.tools.schema.json_view')}
         </Button>
         <CopyIconButton
@@ -2522,7 +2522,7 @@ function McpServerEditorDrawer({
             hint={t('settings.tools.mcp.fields.one_per_line')}
           >
             <textarea
-              className="min-h-24 rounded-md border border-bd-1 bg-bg-2 px-3 py-2 font-mono text-xs text-tx-0"
+              className="min-h-24 rounded-md border border-bd-1 bg-[var(--control-surface)] px-3 py-2 font-mono text-xs text-tx-0"
               value={allowedDomains}
               onChange={(event) => setAllowedDomains(event.target.value)}
             />
@@ -2532,7 +2532,7 @@ function McpServerEditorDrawer({
             hint={t('settings.tools.mcp.fields.one_per_line')}
           >
             <textarea
-              className="min-h-24 rounded-md border border-bd-1 bg-bg-2 px-3 py-2 font-mono text-xs text-tx-0"
+              className="min-h-24 rounded-md border border-bd-1 bg-[var(--control-surface)] px-3 py-2 font-mono text-xs text-tx-0"
               value={allowedCidrs}
               onChange={(event) => setAllowedCidrs(event.target.value)}
             />

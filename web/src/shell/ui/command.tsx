@@ -25,18 +25,30 @@ interface CommandDialogProps extends React.ComponentProps<typeof Dialog> {
   children: React.ReactNode;
 }
 
-const CommandDialog = ({ children, ...props }: CommandDialogProps) => (
-  <Dialog {...props}>
-    <DialogContent
-      className="w-[min(720px,calc(100vw-48px))] max-w-none overflow-hidden p-0 shadow-lg"
-      hideClose
-    >
-      <Command className="w-full [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[data-cmdk-input-wrapper]_svg]:h-4 [&_[data-cmdk-input-wrapper]_svg]:w-4 [&_[cmdk-item]]:px-3 [&_[cmdk-item]]:py-2 [&_[cmdk-item]_svg]:h-4 [&_[cmdk-item]_svg]:w-4">
-        {children}
-      </Command>
-    </DialogContent>
-  </Dialog>
-);
+const CommandDialog = ({ children, ...props }: CommandDialogProps) => {
+  const returnFocusRef = React.useRef<HTMLElement | null>(null);
+  return (
+    <Dialog {...props}>
+      <DialogContent
+        className="w-[min(720px,calc(100vw-48px))] max-w-none overflow-hidden p-0 shadow-lg"
+        hideClose
+        onOpenAutoFocus={() => {
+          returnFocusRef.current = document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : null;
+        }}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          if (returnFocusRef.current?.isConnected) returnFocusRef.current.focus();
+        }}
+      >
+        <Command className="w-full [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[data-cmdk-input-wrapper]_svg]:h-4 [&_[data-cmdk-input-wrapper]_svg]:w-4 [&_[cmdk-item]]:px-3 [&_[cmdk-item]]:py-2 [&_[cmdk-item]_svg]:h-4 [&_[cmdk-item]_svg]:w-4">
+          {children}
+        </Command>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 const CommandInput = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Input>,

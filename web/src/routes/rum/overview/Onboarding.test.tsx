@@ -37,11 +37,15 @@ describe('RUM onboarding navigation', () => {
       container.querySelector('a[href="/rum/settings/sdk"]'),
     ).not.toBeNull();
     expect(container.querySelector('a[href^="/datasource"]')).toBeNull();
+    // Same row height as the module tabs above it.
     expect(
       container.querySelector('[data-rum-subnavigation="settings"]')?.className,
-    ).toContain('min-h-11');
+    ).toContain('h-[40px]');
     expect(
-      container.querySelector('a[href="/rum/settings/sdk"]')?.className,
-    ).toContain('h-11');
+      container.querySelector('a[href="/rum/settings/sampling"]'),
+    ).toHaveAttribute('aria-current', 'page');
+    expect(
+      container.querySelector('a[href="/rum/settings/sdk"]'),
+    ).not.toHaveAttribute('aria-current');
   });
 });

@@ -349,7 +349,7 @@ test.describe('Mole Agent operations workspace', () => {
     expect(nativeDialogCount).toBe(0);
   });
 
-  test('keeps operational status compact and uses rounded active tabs', async ({
+  test('keeps operational status compact and marks the active module tab with one indicator', async ({
     page,
   }) => {
     await page.goto('/agent/chat');
@@ -370,14 +370,21 @@ test.describe('Mole Agent operations workspace', () => {
       .locator('.type-page-title')
       .filter({ hasText: 'Alert incidents' });
     await expect(alertTitle).toBeVisible();
-    const activeTab = page
-      .getByTestId('alerts-subnav')
-      .locator('a[href="/alerts/incidents"]');
+    const subnav = page.getByTestId('alerts-subnav');
+    const activeTab = subnav.locator('a[href="/alerts/incidents"]');
 
-    await expect(activeTab).toHaveClass(/rounded-md/);
-    await expect(activeTab).toHaveClass(/bg-transparent/);
-    await expect(activeTab).toHaveClass(/after:bg-indigo/);
-    await expect(activeTab).not.toHaveClass(/border-b-2/);
+    await expect(activeTab).toHaveAttribute('aria-current', 'page');
+    // The active tab has no fill or rule of its own; one indicator marks it.
+    await expect(activeTab).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+    await expect(activeTab).toHaveCSS('border-bottom-width', '0px');
+    const indicator = subnav.locator('[data-tab-indicator]');
+    await expect(indicator).toHaveCSS('opacity', '1');
+    const [tabBox, indicatorBox] = await Promise.all([
+      activeTab.boundingBox(),
+      indicator.boundingBox(),
+    ]);
+    expect(indicatorBox!.x).toBeGreaterThanOrEqual(tabBox!.x - 0.5);
+    expect(indicatorBox!.x + indicatorBox!.width).toBeLessThanOrEqual(tabBox!.x + tabBox!.width + 0.5);
   });
 
   test('keeps history visible and exposes context at the minimum supported width', async ({

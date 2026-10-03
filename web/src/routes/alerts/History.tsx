@@ -131,7 +131,7 @@ export function AlertsHistory() {
               onChange={(event) => setSearch(event.target.value)}
               placeholder={t('history.filters.search_placeholder')}
               aria-label={t('history.filters.search_label')}
-              className="h-9 w-full rounded-md border border-bd-1 bg-bg-2 pl-9 pr-3 font-sans text-sm text-tx-0 placeholder:text-tx-3 focus-visible:bg-bg-3"
+              className="h-9 w-full rounded-md border border-bd-1 bg-[var(--control-surface)] pl-9 pr-3 font-sans text-sm text-tx-0 placeholder:text-tx-3 focus-visible:bg-bg-3"
             />
           </label>
           <Select

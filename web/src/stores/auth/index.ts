@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { type StateStorage, createJSONStorage, persist } from 'zustand/middleware';
 
+import { tabSessionSharing } from './tabSession';
+
 export type Role = string;
 export type AuthScope = 'organization' | 'system' | 'api_token';
 
@@ -28,7 +30,8 @@ interface AuthState {
   token: string | null;
   ctx: AuthContext | null;
   setSession: (token: string, ctx: AuthContextInput, remember?: boolean) => void;
-  logout: () => void;
+  /** 结束本标签页的会话；`allTabs` 用于用户主动登出，同时让其它已打开的标签页一并登出。 */
+  logout: (options?: { allTabs?: boolean }) => void;
 }
 
 // 「记住我」标志：勾选时会话写 localStorage（持久），否则写 sessionStorage（关闭浏览器即清）。
@@ -76,7 +79,10 @@ export const useAuthStore = create<AuthState>()(
           },
         });
       },
-      logout: () => set({ token: null, ctx: null }),
+      logout: (options) => {
+        set({ token: null, ctx: null });
+        if (options?.allTabs) tabSessionSharing.announceSignOut();
+      },
     }),
     { name: 'molesignal-auth', storage: createJSONStorage(() => rememberAwareStorage) },
   ),

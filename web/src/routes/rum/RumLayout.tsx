@@ -1,21 +1,19 @@
 import { Settings } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 
 import { KpiStrip, type KpiStripItem } from '@/admin';
 import { ProductState, type ProductStateProps } from '@/product/states';
 import { cn } from '@/shell/lib/cn';
 import {
-  surfaceModuleNavigationActiveClass,
-  surfaceModuleNavigationClass,
-  surfaceModuleNavigationItemClass,
-  surfaceModuleNavigationRowClass,
   surfacePanelClass,
   surfacePageRootClass,
   SurfacePageBody,
   SurfacePageHeader,
 } from '@/shell/SurfaceWorkbench';
+import { ModuleTabs } from '@/shell/tabs/ModuleTabs';
+import { ViewTabs } from '@/shell/tabs/ViewTabs';
 import {
   Select,
   SelectContent,
@@ -24,14 +22,15 @@ import {
   SelectValue,
 } from '@/shell/ui/select';
 
-const TABS: Array<{ suffix: string; key: string }> = [
-  { suffix: '/overview', key: 'overview' },
-  { suffix: '/applications', key: 'applications' },
-  { suffix: '/sessions', key: 'sessions' },
-  { suffix: '/pages', key: 'pages' },
-  { suffix: '/errors', key: 'errors' },
-  { suffix: '/performance/overview', key: 'performance' },
-  { suffix: '/session-replay', key: 'session_replay' },
+// What is monitored, then what real users did there.
+const TABS: Array<{ suffix: string; key: string; group: string }> = [
+  { suffix: '/overview', key: 'overview', group: 'monitored' },
+  { suffix: '/applications', key: 'applications', group: 'monitored' },
+  { suffix: '/sessions', key: 'sessions', group: 'users' },
+  { suffix: '/pages', key: 'pages', group: 'users' },
+  { suffix: '/errors', key: 'errors', group: 'users' },
+  { suffix: '/performance/overview', key: 'performance', group: 'users' },
+  { suffix: '/session-replay', key: 'session_replay', group: 'users' },
 ];
 
 const PERFORMANCE_TABS: Array<{
@@ -56,77 +55,23 @@ export function RumLayout() {
   return <Outlet />;
 }
 
-export function RumTabs() {
-  const { t } = useTranslation('rum');
-  const basePath = useRumBasePath();
-  const location = useLocation();
-  return (
-    <nav
-      aria-label={t('title')}
-      className={surfaceModuleNavigationRowClass}
-    >
-      {TABS.map((tab) => {
-        const sectionActive =
-          tab.key === 'performance' &&
-          location.pathname.startsWith(`${basePath}/performance/`);
-        return (
-          <NavLink
-            key={tab.suffix}
-            to={`${basePath}${tab.suffix}`}
-            className={({ isActive }) =>
-              cn(
-                surfaceModuleNavigationItemClass,
-                (isActive || sectionActive) && surfaceModuleNavigationActiveClass,
-              )
-            }
-          >
-            {t(`nav.${tab.key}`)}
-          </NavLink>
-        );
-      })}
-      <NavLink
-        to={`${basePath}/settings/sdk`}
-        aria-label={t('settings.title')}
-        className={({ isActive }) =>
-          cn(
-            surfaceModuleNavigationItemClass,
-            'ml-auto gap-1.5 text-xs',
-            (isActive || location.pathname.startsWith(`${basePath}/settings/`)) &&
-              surfaceModuleNavigationActiveClass,
-          )
-        }
-      >
-        <Settings aria-hidden className="h-3.5 w-3.5" />
-        {t('settings.title')}
-      </NavLink>
-    </nav>
-  );
-}
-
 export function PerformanceTabs() {
   const { t } = useTranslation('rum');
   const basePath = useRumBasePath();
   return (
-    <nav
+    <div
       data-rum-subnavigation="performance"
-      aria-label={t('nav.performance')}
-      className="flex min-h-11 items-end gap-5 overflow-x-auto"
+      className="flex h-[40px] items-center px-[10px] [@media(pointer:coarse)]:h-[44px]"
     >
-      {PERFORMANCE_TABS.map((tab) => (
-        <NavLink
-          key={tab.suffix}
-          to={`${basePath}${tab.suffix}`}
-          className={({ isActive }) =>
-            cn(
-              'inline-flex h-11 shrink-0 items-center border-b-[3px] border-transparent px-0.5 font-sans text-xs font-strong text-tx-2 outline-none transition-colors duration-fast hover:bg-bg-2 hover:text-tx-0 focus-visible:bg-bg-2 focus-visible:text-tx-0',
-              isActive && 'border-indigo text-indigo-soft',
-            )
-          }
-        >
-          {t(`performance.${tab.key}`)}
-        </NavLink>
-      ))}
-    </nav>
+      <ViewTabs
+        label={t('nav.performance')}
+        items={PERFORMANCE_TABS.map((tab) => ({
+          key: tab.key,
+          to: `${basePath}${tab.suffix}`,
+          label: t(`performance.${tab.key}`),
+        }))}
+      />
+    </div>
   );
 }
 
@@ -134,26 +79,19 @@ export function RumSettingsTabs() {
   const { t } = useTranslation('rum');
   const basePath = useRumBasePath();
   return (
-    <nav
+    <div
       data-rum-subnavigation="settings"
-      aria-label={t('settings.title')}
-      className="flex min-h-11 items-end gap-5 overflow-x-auto"
+      className="flex h-[40px] items-center px-[10px] [@media(pointer:coarse)]:h-[44px]"
     >
-      {SETTINGS_TABS.map((tab) => (
-        <NavLink
-          key={tab.suffix}
-          to={`${basePath}${tab.suffix}`}
-          className={({ isActive }) =>
-            cn(
-              'inline-flex h-11 shrink-0 items-center border-b-[3px] border-transparent px-0.5 text-xs font-strong text-tx-2 transition-colors hover:bg-bg-2 hover:text-tx-0 focus-visible:bg-bg-2 focus-visible:text-tx-0',
-              isActive && 'border-indigo text-indigo-soft',
-            )
-          }
-        >
-          {t(`settings.nav.${tab.key}`)}
-        </NavLink>
-      ))}
-    </nav>
+      <ViewTabs
+        label={t('settings.title')}
+        items={SETTINGS_TABS.map((tab) => ({
+          key: tab.key,
+          to: `${basePath}${tab.suffix}`,
+          label: t(`settings.nav.${tab.key}`),
+        }))}
+      />
+    </div>
   );
 }
 
@@ -337,18 +275,39 @@ function RumNavigation({
   performance?: boolean | undefined;
   settings?: boolean | undefined;
 }) {
+  const { t } = useTranslation('rum');
+  const basePath = useRumBasePath();
+  const { pathname } = useLocation();
   return (
-    <div
-      data-rum-navigation="surface"
-      className={surfaceModuleNavigationClass}
+    <ModuleTabs
+      label={t('title')}
+      dataAttributes={{ 'data-rum-navigation': 'surface' }}
+      items={TABS.map((tab) => ({
+        key: tab.key,
+        to: `${basePath}${tab.suffix}`,
+        group: tab.group,
+        label: t(`nav.${tab.key}`),
+        // Performance is a section of four pages: all of them keep its tab lit.
+        ...(tab.key === 'performance'
+          ? { active: pathname.startsWith(`${basePath}/performance/`) }
+          : {}),
+      }))}
+      trailing={[
+        {
+          key: 'settings',
+          to: `${basePath}/settings/sdk`,
+          icon: Settings,
+          label: t('settings.title'),
+          active: pathname.startsWith(`${basePath}/settings/`),
+        },
+      ]}
     >
-      <RumTabs />
       {(performance || settings) && (
-        <div className="rounded-md bg-[var(--control-surface)] px-2">
+        <div className="border-t border-bd-0">
           {settings ? <RumSettingsTabs /> : <PerformanceTabs />}
         </div>
       )}
-    </div>
+    </ModuleTabs>
   );
 }
 

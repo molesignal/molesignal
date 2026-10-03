@@ -39,10 +39,15 @@
 
   /* Workbench depth: canvas gutters separate functional surfaces. */
   --app-header-surface:       var(--bg-1);
-  --sidebar-surface:          var(--bg-1);
+  --sidebar-surface:          #0b0e17;
   --page-canvas:              var(--bg-0);
   --functional-surface:       var(--bg-1);
-  --control-surface:          var(--bg-2);
+  --control-surface:          var(--control-surface-default);
+  --control-surface-default:  var(--bg-2);
+  /* On a raised panel (bg-2/3 or a floating surface) a field is the same step as
+     the panel, so it sinks to the card color instead: an inset well. */
+  --control-surface-on-muted: var(--bg-1);
+  --control-surface-on-floating: var(--bg-1);
   --floating-surface:         var(--bg-2);
   --floating-item-hover:      var(--bg-3);
   --floating-item-emphasis:   var(--bg-3);
@@ -115,7 +120,17 @@
   --sidebar-surface:          #f1f3f7;
   --page-canvas:              #f5f6f8;
   --functional-surface:       #ffffff;
-  --control-surface:          #f6f7f9;
+  /* Fields have no border, so the fill is their only edge. It has to read on the
+     page canvas (#f5f6f8, 1.09:1) as well as on white cards (1.17:1) — the old
+     #f6f7f9 was 1.01:1 on the canvas, i.e. invisible once forms left their
+     cards — while hover/focus (--bg-3) stays a distinct step darker. */
+  --control-surface:          var(--control-surface-default);
+  --control-surface-default:  #eaedf3;
+  /* A field on a gray panel (bg-bg-2 / bg-bg-3) is the same gray as the panel,
+     so it takes the next step up: a white well. Floating surfaces are already
+     white, so their fields keep the default. */
+  --control-surface-on-muted: #ffffff;
+  --control-surface-on-floating: var(--control-surface-default);
   --floating-surface:         #ffffff;
   --floating-item-hover:      #f5f6f8;
   --floating-item-emphasis:   var(--bg-3);
@@ -177,7 +192,7 @@
 /* layout sizing — chrome heights / sidebar widths / radii / motion */
 :root {
   --topbar-h:            52px;
-  --sidebar-w:           240px;
+  --sidebar-w:           220px;
   --sidebar-w-collapsed: 64px;
   --subsidebar-w:        224px;  /* Settings / IAM sub-sidebar */
   --pageheader-h:        0px;    /* live PageHeader height — written by PageHeader on mount, read by page bodies */
@@ -196,7 +211,9 @@
   --panel-header-h:   44px;
   --page-pad:         24px;
 
-  /* type weight scale */
+  /* type weight scale — body is Medium (500): PuHuiTi Regular is too thin at
+     12-13.5px on ordinary-density screens. Emphasis still has room above it:
+     600 for names and titles, 700 for display. */
   --fw-body:           500;
   --fw-strong:         600;
   --fw-display:        600;
@@ -204,12 +221,13 @@
 
   /* semantic type scale — stable across density modes */
   --font-page-title:    22px;
-  --font-section-title: 15px;
+  --font-section-title: 16px;
   --font-data:          13px;
   --font-label:         12.5px;
   --font-caption:       12px;
   --font-micro:         11px;
   --font-kpi:           32px;
+  --font-display:       28px;   /* a page verdict: a statement in a compact strip, not a banner */
 
   --font-alibaba-puhuiti: 'Alibaba PuHuiTi 3.0', 'PingFang SC', 'Microsoft YaHei', ui-sans-serif, system-ui, sans-serif;
   --font-sans: var(--font-alibaba-puhuiti);
@@ -318,6 +336,17 @@ body,
 .type-micro {
   font-size: var(--font-micro);
   line-height: 1.4;
+}
+
+/* Display steps: one verdict (`display`) and the figures beside it (`kpi`). */
+.type-display {
+  font-size: var(--font-display);
+  line-height: 1.2;
+}
+
+.type-kpi {
+  font-size: var(--font-kpi);
+  line-height: 1.05;
 }
 
 .font-sidebar-face {
@@ -451,7 +480,30 @@ textarea::placeholder,
   [role='tab']:not([aria-disabled='true']),
   [role='menuitem']:not([aria-disabled='true'])
 ):focus-visible {
-  filter: brightness(1.14) saturate(1.06);
+  background-color: var(--bg-2);
+  color: var(--tx-0);
+}
+
+/*
+ * Fields have no border, so their fill is the only edge and has to differ from
+ * the surface underneath. Gray panels get the lighter "well"; the lighter
+ * surfaces that can sit inside one restore the default, so the right fill is
+ * chosen by the nearest panel rather than by every form that happens to be
+ * drawn on a gray background.
+ */
+.bg-bg-2,
+.bg-bg-3 {
+  --control-surface: var(--control-surface-on-muted);
+}
+
+.bg-bg-0,
+.bg-bg-1,
+.bg-\[var\(--functional-surface\)\] {
+  --control-surface: var(--control-surface-default);
+}
+
+.bg-\[var\(--floating-surface\)\] {
+  --control-surface: var(--control-surface-on-floating);
 }
 
 /*

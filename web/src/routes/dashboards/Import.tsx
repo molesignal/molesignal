@@ -129,7 +129,7 @@ export function DashboardImport() {
             >
               <SelectTrigger
                 aria-label={t('editor.folder_label')}
-                className="h-8 rounded-md border-bd-1 bg-bg-2 px-2 font-sans text-sm font-strong text-tx-0"
+                className="h-8 rounded-md border-bd-1 bg-[var(--control-surface)] px-2 font-sans text-sm font-strong text-tx-0"
               >
                 <SelectValue />
               </SelectTrigger>

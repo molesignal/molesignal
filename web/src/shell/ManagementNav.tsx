@@ -120,7 +120,7 @@ export function ManagementNav({
             <button
               type="button"
               aria-label={mobileTriggerLabel}
-              className="flex h-11 w-full items-center gap-2 rounded-md border border-bd-0 bg-bg-1 px-3 font-sans text-base font-strong text-tx-1 hover:bg-bg-2 hover:text-tx-0 focus-visible:bg-bg-2 lg:hidden"
+              className="flex h-11 w-full items-center gap-2 rounded-md bg-bg-2 px-3 font-sans text-base font-strong text-tx-1 hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-bg-3 lg:hidden"
             >
               <PanelLeftOpen className="h-4 w-4 shrink-0 text-tx-3" />
               <span className="min-w-0 flex-1 truncate text-left">
@@ -165,7 +165,7 @@ export function ManagementNav({
             id={mobileNavId}
             value={currentSection?.to ?? groups[0]?.sections[0]?.to ?? ''}
             onChange={(event) => navigate(event.target.value)}
-            className="h-11 w-full appearance-none rounded-md border border-bd-1 bg-bg-1 px-3 pr-10 font-sans text-base text-tx-0 focus:bg-bg-2"
+            className="h-11 w-full appearance-none rounded-md border border-bd-1 bg-[var(--control-surface)] px-3 pr-10 font-sans text-base text-tx-0 focus:bg-bg-3"
           >
             {groups.map((group) => (
               <optgroup key={group.key} label={group.label}>

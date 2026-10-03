@@ -9,6 +9,7 @@ import {
   SurfacePageBody,
   SurfacePageHeader,
 } from '@/shell/SurfaceWorkbench';
+import { ModuleTabs } from '@/shell/tabs/ModuleTabs';
 
 import type { ReportTab } from '../reportTypes';
 
@@ -57,41 +58,22 @@ export function ReportsPageCanvas({
           >
             <header
               data-reports-navigation
-              className="flex min-h-11 min-w-0 items-end"
+              className="flex min-w-0 items-center"
             >
-              <div
-                role="tablist"
-                aria-label={title as string}
-                className="flex min-w-0 flex-1 items-end overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-              >
-                {tabs.map((tab) => {
-                  const active = activeTab === tab.id;
-                  return (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      role="tab"
-                      aria-selected={active}
-                      onClick={() => onTabChange(tab.id)}
-                      className={cn(
-                        'flex min-h-11 shrink-0 items-center gap-2 border-b-[3px] px-3 py-2 font-sans text-sm font-strong transition-colors focus-visible:bg-bg-2 focus-visible:outline-none',
-                        active
-                          ? 'border-indigo text-tx-0'
-                          : 'border-transparent text-tx-2 hover:text-tx-0',
-                      )}
-                    >
-                      {tab.label}
-                      {tab.count !== undefined && (
-                        <span className="grid min-h-5 min-w-5 place-items-center rounded-full bg-bg-2 px-1.5 font-sans text-xs text-tx-2">
-                          {tab.count}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+              <ModuleTabs
+                variant="inline"
+                label={title as string}
+                className="min-w-0 flex-1"
+                value={activeTab}
+                onValueChange={(tab) => onTabChange(tab as ReportTab)}
+                items={tabs.map((tab) => ({
+                  key: tab.id,
+                  label: tab.label,
+                  count: tab.count,
+                }))}
+              />
               {tabAction && (
-                <div className="ml-auto flex min-h-11 shrink-0 items-center px-3 py-1.5">
+                <div className="ml-auto flex shrink-0 items-center px-3">
                   {tabAction}
                 </div>
               )}

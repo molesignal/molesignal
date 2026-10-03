@@ -440,7 +440,7 @@ export function AlertsSchedules() {
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder={t('schedules.filters.search')}
-                  className="h-9 w-full rounded-md border border-bd-1 bg-bg-1 pl-9 pr-3 text-sm text-tx-0 placeholder:text-tx-3 focus-visible:bg-bg-2"
+                  className="h-9 w-full rounded-md border border-bd-1 bg-[var(--control-surface)] pl-9 pr-3 text-sm text-tx-0 placeholder:text-tx-3 focus-visible:bg-bg-3"
                 />
               </label>
               <ScheduleFilterSelect

@@ -21,7 +21,7 @@ export function ScheduleFilterSelect({
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger
         aria-label={label}
-        className="h-9 w-auto min-w-36 max-w-64 bg-bg-1 px-3 font-sans text-xs"
+        className="h-9 w-auto min-w-36 max-w-64 bg-[var(--control-surface)] px-3 font-sans text-xs"
       >
         <span className="mr-2 shrink-0 text-tx-3">{label}</span>
         <SelectValue />

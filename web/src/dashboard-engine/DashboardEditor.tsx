@@ -468,7 +468,7 @@ export function DashboardEditor() {
             commit((current) => ({ ...current, title: event.target.value }))
           }
           aria-label={tr('Dashboard title')}
-          className="min-w-0 flex-1 border-0 bg-transparent px-2 font-sans text-sm font-semibold text-tx-0 outline-none"
+          className="h-9 min-w-0 flex-1 rounded-md border-0 bg-[var(--control-surface)] px-3 font-sans text-sm font-semibold text-tx-0 outline-none transition-colors hover:bg-bg-3 focus:bg-bg-3"
         />
         {!definition.timeSettings.hideTimePicker && <TimeRangeChip />}
         <ChromeButton

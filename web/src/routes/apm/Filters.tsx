@@ -24,7 +24,7 @@ export function ApmFilters({
 }) {
   const { t } = useTranslation('apm');
   const control =
-    'h-8 rounded-md border border-bd-0 bg-bg-1 px-2.5 text-xs text-tx-1 outline-none transition-colors placeholder:text-tx-3 hover:bg-bg-2 focus-visible:bg-bg-2 focus-visible:text-tx-0';
+    'h-8 rounded-md border-0 bg-[var(--control-surface)] px-2.5 text-xs text-tx-1 outline-none transition-colors duration-fast placeholder:text-tx-2 hover:bg-bg-3 focus-visible:bg-bg-3 focus-visible:text-tx-0';
   const hasFilters = Boolean(
     filters.namespace ||
       filters.service ||
@@ -114,7 +114,7 @@ export function ApmFilters({
       />
       <TimeRangeControl
         align="end"
-        className="h-8 max-w-[180px] border-bd-0 bg-bg-1 px-2.5 text-xs"
+        className="h-8 max-w-[180px] border-0 bg-[var(--control-surface)] px-2.5 text-xs hover:bg-bg-3 focus-visible:bg-bg-3 data-[state=open]:bg-bg-3"
       />
       {hasFilters && (
         <button

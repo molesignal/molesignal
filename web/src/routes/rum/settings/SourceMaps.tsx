@@ -208,7 +208,7 @@ function SourceMapOnboarding({
             href={docsHref}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-bd-1 bg-bg-2 px-3 font-sans text-sm font-strong text-tx-1 transition-colors duration-fast ease-default hover:border-bd-2 hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-bg-3"
+            className="inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-md bg-bg-2 px-3 font-sans text-sm font-strong text-tx-1 transition-colors duration-fast ease-default hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-bg-3"
           >
             {t('source_maps.view_docs')}
           </a>

@@ -12,11 +12,8 @@ import { cn } from '@/shell/lib/cn';
 import { MoleAgentPanel } from '@/shell/MoleAgentPanel';
 import { Sidebar } from '@/shell/Sidebar';
 import { Topbar } from '@/shell/Topbar';
-import { UnsupportedScreen } from '@/shell/UnsupportedScreen';
-import {
-  DESKTOP_MIN_WIDTH,
-  useViewportWidth,
-} from '@/shell/useViewportWidth';
+import { Sheet, SheetContent, SheetTitle } from '@/shell/ui/sheet';
+import { useViewportWidth } from '@/shell/useViewportWidth';
 import { useMoleAgentStore } from '@/stores/useMoleAgentStore';
 
 interface AppShellProps {
@@ -25,6 +22,7 @@ interface AppShellProps {
 }
 
 const SURFACE_WORKBENCH_ROUTES = [
+  '/home',
   '/dashboards',
   '/logs',
   '/metrics',
@@ -101,6 +99,10 @@ export function AppShell(_props: AppShellProps) {
     if (!primarySidebarCollapsed) setTemporarilyExpanded(false);
   }, [primarySidebarCollapsed]);
 
+  React.useEffect(() => {
+    if (viewportWidth >= 768) setMobileNavOpen(false);
+  }, [viewportWidth]);
+
   // ⌘J / Ctrl-J toggles Mole Agent from anywhere in the app.
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -133,20 +135,12 @@ export function AppShell(_props: AppShellProps) {
     setCollapsed((v) => !v);
   };
 
-  // The product contract is desktop-only below 1024px, including Settings and
-  // IAM. Keeping one shell-wide threshold avoids suggesting that a narrow
-  // management drawer makes dense administrative tables mobile-supported.
-  // Hooks above run unconditionally so this early return stays hook-safe.
-  if (viewportWidth < DESKTOP_MIN_WIDTH) {
-    return <UnsupportedScreen width={viewportWidth} />;
-  }
-
   return (
     <div
       data-shell-layout={isSurfaceWorkbench ? 'surface-workbench' : undefined}
       className={cn(
         'h-screen min-w-0 overflow-hidden bg-bg-0 text-tx-0',
-        isSurfaceWorkbench && 'bg-[var(--page-canvas)] [--sidebar-w:216px] [--topbar-h:48px]',
+        isSurfaceWorkbench && 'bg-[var(--page-canvas)] [--topbar-h:48px]',
       )}
     >
       <a
@@ -163,29 +157,38 @@ export function AppShell(_props: AppShellProps) {
         surfaceWorkbench={isSurfaceWorkbench}
       />
 
-      {mobileNavOpen && (
-        <button
-          type="button"
-          aria-label={t('chrome.close_navigation')}
-          className="fixed inset-x-0 bottom-0 top-topbar z-30 bg-overlay md:hidden"
-          onClick={() => setMobileNavOpen(false)}
+      {viewportWidth < 768 ? (
+        <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+          <SheetContent
+            side="left"
+            aria-describedby={undefined}
+            className="w-[min(var(--sidebar-w),calc(100vw-32px))] p-0 pt-10"
+            onCloseAutoFocus={(event) => {
+              event.preventDefault();
+              document.querySelector<HTMLButtonElement>('[data-testid="sidebar-toggle"]')?.focus();
+            }}
+          >
+            <SheetTitle className="sr-only">{t('nav:primary_navigation')}</SheetTitle>
+            <Sidebar
+              collapsed={false}
+              mobileOpen
+              onNavigate={() => setMobileNavOpen(false)}
+            />
+          </SheetContent>
+        </Sheet>
+      ) : (
+        <Sidebar
+          collapsed={sidebarVisuallyCollapsed}
+          onHoverChange={(hovered) =>
+            setTemporarilyExpanded(primarySidebarCollapsed && hovered)
+          }
         />
       )}
-
-      <Sidebar
-        collapsed={sidebarVisuallyCollapsed}
-        mobileOpen={mobileNavOpen}
-        onNavigate={() => setMobileNavOpen(false)}
-        onHoverChange={(hovered) =>
-          setTemporarilyExpanded(primarySidebarCollapsed && hovered)
-        }
-        surfaceWorkbench={isSurfaceWorkbench}
-      />
 
       <main
         id="main"
         className={cn(
-          'h-screen min-w-0 overflow-x-hidden overflow-y-auto pt-topbar transition-[padding-left] duration-normal ease-out-default',
+          'h-screen min-w-0 overflow-x-hidden overflow-y-auto pt-topbar transition-[padding-left] duration-150 ease-out-default',
           primarySidebarCollapsed ? 'md:pl-sidebar-collapsed' : 'md:pl-sidebar',
         )}
       >

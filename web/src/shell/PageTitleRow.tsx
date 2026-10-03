@@ -18,8 +18,8 @@ interface PageTitleRowProps {
 /**
  * Shared title row for product pages and their routed sub-pages.
  *
- * The title and supporting copy always share one baseline and one fixed-height
- * row. Breadcrumbs and other resource navigation live outside this primitive,
+ * The title and supporting copy share one baseline; actions wrap on narrow
+ * screens. Breadcrumbs and other resource navigation live outside this primitive,
  * so they can add context without changing the title rhythm itself.
  */
 export function PageTitleRow({
@@ -43,7 +43,7 @@ export function PageTitleRow({
       data-page-title-row
       data-page-title-size={size}
       className={cn(
-        'flex h-[var(--page-title-row-h)] min-w-0 flex-nowrap items-center gap-2',
+        'flex min-h-[var(--page-title-row-h)] min-w-0 flex-wrap items-center gap-2',
         className,
       )}
     >
@@ -52,8 +52,9 @@ export function PageTitleRow({
         <Heading
           className={cn(
             'shrink-0 truncate font-sans font-display-strong text-tx-0',
+            // Negative tracking squeezes CJK glyphs (they are drawn to fill their em box).
             size === 'page'
-              ? 'type-page-title max-w-[48%] tracking-[-0.025em]'
+              ? 'type-page-title max-w-[48%] tracking-normal'
               : 'type-section-title max-w-[52%]',
             !hasDescription && !actions && 'max-w-full',
             titleClassName,
@@ -81,7 +82,7 @@ export function PageTitleRow({
       {actions && (
         <div
           className={cn(
-            'ml-auto flex max-w-[60%] shrink-0 items-center justify-end gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+            'ml-auto flex w-full min-w-0 flex-wrap items-center justify-start gap-2 sm:w-auto sm:max-w-[60%] sm:justify-end',
             actionsClassName,
           )}
         >

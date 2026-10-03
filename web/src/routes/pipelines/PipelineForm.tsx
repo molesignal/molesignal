@@ -122,7 +122,7 @@ export function PipelineForm({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="prod-app-logs"
-            className="bg-bg-1"
+            className="bg-[var(--control-surface)]"
             disabled={disabled}
             disabledReason={disabledReason}
             required
@@ -148,7 +148,7 @@ export function PipelineForm({
               { value: 'metrics', label: t('filters.metrics') },
               { value: 'traces', label: t('filters.traces') },
             ]}
-            className="bg-bg-1"
+            className="bg-[var(--control-surface)]"
             disabled={disabled || graph.mode === 'realtime'}
             disabledReason={disabledReason}
           />
@@ -158,7 +158,7 @@ export function PipelineForm({
           <FormInput
             value={cron}
             onChange={(e) => setCron(e.target.value)}
-            className="bg-bg-1 font-mono text-xs"
+            className="bg-[var(--control-surface)] font-mono text-xs"
             disabled={disabled}
             disabledReason={disabledReason}
             required
@@ -169,7 +169,7 @@ export function PipelineForm({
             value={lookback}
             onChange={(e) => setLookback(e.target.value)}
             type="number"
-            className="bg-bg-1"
+            className="bg-[var(--control-surface)]"
             disabled={disabled}
             disabledReason={disabledReason}
           />

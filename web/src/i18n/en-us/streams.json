@@ -54,6 +54,7 @@
       "profiles": "Profiles",
       "extend": "Lookup table"
     },
+    "tabs_label": "Stream types",
     "columns": {
       "stream": "Stream",
       "type": "Type",
@@ -164,6 +165,7 @@
       "usage": "Usage",
       "settings": "Settings"
     },
+    "tabs_label": "Stream sections",
     "index_options": {
       "none": "Not indexed",
       "full_text": "Full text search",

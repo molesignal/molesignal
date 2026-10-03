@@ -9,18 +9,15 @@ import {
   Workflow,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Link, NavLink, Outlet } from 'react-router-dom';
+import { Link, Outlet } from 'react-router-dom';
 
 import * as agentApi from '@/api/agent';
 import { cn } from '@/shell/lib/cn';
 import {
   surfacePageRootClass,
-  surfaceModuleNavigationActiveClass,
-  surfaceModuleNavigationClass,
-  surfaceModuleNavigationItemClass,
-  surfaceModuleNavigationRowClass,
   SurfacePageHeader,
 } from '@/shell/SurfaceWorkbench';
+import { ModuleTabs } from '@/shell/tabs/ModuleTabs';
 
 const MODULE_NAV = [
   { to: '/agent/chat', key: 'nav.chat', icon: MessageSquareText },
@@ -79,39 +76,15 @@ export function AgentLayout() {
           />
         </div>
 
-        <div className={surfaceModuleNavigationClass}>
-          <nav
-            aria-label={t('nav.label')}
-            className={cn(
-              surfaceModuleNavigationRowClass,
-              'grid grid-cols-6 gap-0 md:flex md:gap-5',
-            )}
-          >
-            {MODULE_NAV.map((item) => {
-              const Icon = item.icon;
-              return (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  title={t(item.key)}
-                  className={({ isActive }) =>
-                    cn(
-                      surfaceModuleNavigationItemClass,
-                      'min-w-0 justify-center gap-2 px-1 text-xs md:w-auto md:px-1',
-                      isActive && surfaceModuleNavigationActiveClass,
-                    )
-                  }
-                >
-                  <Icon
-                    className="h-4 w-4 shrink-0 md:h-3.5 md:w-3.5"
-                    strokeWidth={1.8}
-                  />
-                  <span className="hidden md:inline">{t(item.key)}</span>
-                </NavLink>
-              );
-            })}
-          </nav>
-        </div>
+        <ModuleTabs
+          label={t('nav.label')}
+          items={MODULE_NAV.map((item) => ({
+            key: item.to,
+            to: item.to,
+            icon: item.icon,
+            label: t(item.key),
+          }))}
+        />
       </header>
 
       <div className="min-h-0 flex-1 overflow-hidden px-[20px] pb-[20px]">

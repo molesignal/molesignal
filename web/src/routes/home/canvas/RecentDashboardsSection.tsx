@@ -6,6 +6,7 @@ import { ChromeButton } from '@/shell/chrome';
 import { formatRelativeMicros } from '@/time/relative';
 import type { Dashboard } from '@/types/dashboard';
 
+import { ListSkeleton } from './HomeSkeletons';
 import { CanvasHeaderAction, CanvasSection } from './layout';
 
 const HOME_DASHBOARD_LIMIT = 4;
@@ -21,6 +22,7 @@ export function RecentDashboardsSection({
   editDashboardDisabled,
   editDashboardDisabledReason,
   onViewAll,
+  riseIndex,
 }: {
   dashboards: Dashboard[];
   loading: boolean;
@@ -32,6 +34,7 @@ export function RecentDashboardsSection({
   editDashboardDisabled: boolean;
   editDashboardDisabledReason?: string | undefined;
   onViewAll: () => void;
+  riseIndex?: number;
 }) {
   const { t, i18n } = useTranslation('onboarding');
   const orderedDashboards = [...dashboards].sort(
@@ -48,11 +51,11 @@ export function RecentDashboardsSection({
     <CanvasSection
       className="home-canvas-footer-section"
       title={t('home.dashboards.title')}
+      {...(riseIndex !== undefined ? { riseIndex } : {})}
       actions={
         <>
           {!loading && recentDashboards.length === 0 && (
             <ChromeButton
-              variant="ghost"
               size="sm"
               disabled={
                 dashboardToBuild
@@ -81,13 +84,11 @@ export function RecentDashboardsSection({
       }
     >
       {loading ? (
-        <div className="grid min-h-14 place-items-center font-sans text-xs text-tx-2">
-          {t('home.loading')}
-        </div>
+        <ListSkeleton rows={2} className="pb-4" />
       ) : recentDashboards.length === 0 ? (
-        <div className="flex min-h-[52px] items-center px-4 py-1.5">
+        <div className="flex min-h-[52px] items-center px-[20px] py-1.5">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-purple-dim text-purple-soft">
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-bg-2 text-tx-2">
               <LayoutDashboard aria-hidden="true" className="h-3.5 w-3.5" />
             </span>
             <div className="min-w-0">
@@ -105,7 +106,7 @@ export function RecentDashboardsSection({
           </div>
         </div>
       ) : (
-        <ul className="px-2 pb-2">
+        <ul className="px-3 pb-2">
           {recentDashboards.map((dashboard) => {
             const panelCount = dashboardPanelCount(dashboard);
             const updated = formatRelativeMicros(
@@ -122,7 +123,7 @@ export function RecentDashboardsSection({
                   className="group grid min-h-14 w-full grid-cols-[minmax(0,1fr)_1rem] items-center gap-3 rounded-md px-3 py-2.5 text-left transition-colors duration-fast hover:bg-bg-2 focus-visible:bg-bg-2 focus-visible:outline-none md:grid-cols-[minmax(0,1fr)_7rem_10rem_1rem]"
                 >
                   <span className="flex min-w-0 items-center gap-3">
-                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-purple-dim text-purple-soft transition-colors duration-fast group-hover:bg-bg-3">
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-bg-2 text-tx-2 transition-colors duration-fast group-hover:bg-bg-3 group-hover:text-tx-1">
                       <LayoutDashboard
                         aria-hidden="true"
                         className="h-4 w-4"

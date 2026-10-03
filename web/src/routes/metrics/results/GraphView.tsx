@@ -200,7 +200,7 @@ function StackModeControl({
             ? t('explore.chart.stack_requires_multiple_series')
             : undefined
         }
-        className="h-11 w-[8.75rem] border-bd-0 bg-bg-2 px-2 text-base sm:h-8 sm:text-xs"
+        className="h-11 w-[8.75rem] border-bd-0 bg-[var(--control-surface)] px-2 text-base sm:h-8 sm:text-xs"
         data-testid="metrics-stack-mode"
       >
         <span className="flex min-w-0 items-center gap-1.5">

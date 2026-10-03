@@ -86,7 +86,7 @@ export function DashboardWallboard({
           <button
             type="button"
             onClick={onReturn}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-bd-1 bg-transparent px-2.5 text-tx-1 transition-colors hover:bg-bg-2 hover:text-tx-0 focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none"
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border-0 bg-bg-2 px-2.5 text-tx-1 transition-colors hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             {t('pages.noc.return_console')}

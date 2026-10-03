@@ -33,6 +33,16 @@ export function formatBytesCompact(value: number | null | undefined): string {
   return `${(value / 1024 ** 4).toFixed(1)} TiB`;
 }
 
+/**
+ * Splits a formatted metric ("1.2 GiB", "12.3K", "0 B") into number and unit,
+ * so the unit can be set smaller than the figure it qualifies.
+ */
+export function splitMetricValue(formatted: string): { number: string; unit: string } {
+  const match = /^(-?\d[\d.,]*)\s*(.*)$/.exec(formatted.trim());
+  if (!match) return { number: formatted, unit: '' };
+  return { number: match[1] ?? formatted, unit: match[2] ?? '' };
+}
+
 export function formatCount(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return '—';
   const abs = Math.abs(value);

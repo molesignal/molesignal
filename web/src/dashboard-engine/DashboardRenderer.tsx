@@ -316,7 +316,7 @@ function DashboardLinksBar({
             href={href}
             target={link.openInNewTab ? '_blank' : undefined}
             rel={link.openInNewTab ? 'noreferrer' : undefined}
-            className="inline-flex h-7 items-center gap-1 rounded-md border border-bd-0 bg-bg-1 px-2 font-sans text-xs text-tx-2 transition-colors hover:border-bd-2 hover:text-tx-0"
+            className="inline-flex h-7 items-center gap-1 rounded-md bg-bg-2 px-2 font-sans text-xs text-tx-2 transition-colors hover:bg-bg-3 hover:text-tx-0"
           >
             {link.title}
             {link.openInNewTab && <ExternalLink className="h-3 w-3" />}
@@ -1040,7 +1040,7 @@ function VariableControl({
           disabled={disabled}
           value={String(value ?? '')}
           onChange={(event) => onChange(event.target.value)}
-          className="h-8 min-w-36 rounded-md border border-bd-1 bg-bg-1 px-2 font-mono text-xs text-tx-1 outline-none focus-visible:bg-bg-2 disabled:cursor-not-allowed disabled:opacity-60"
+          className="h-8 min-w-36 rounded-md border border-bd-1 bg-[var(--control-surface)] px-2 font-mono text-xs text-tx-1 outline-none focus-visible:bg-bg-3 disabled:cursor-not-allowed disabled:opacity-60"
         />
       </label>
     );
@@ -1107,7 +1107,7 @@ function VariableControl({
           );
           onChange(option?.value ?? event.target.value);
         }}
-        className="h-8 min-w-36 rounded-md border border-bd-1 bg-bg-1 px-2 font-sans text-xs text-tx-1 outline-none focus-visible:bg-bg-2 disabled:cursor-not-allowed disabled:opacity-60"
+        className="h-8 min-w-36 rounded-md border border-bd-1 bg-[var(--control-surface)] px-2 font-sans text-xs text-tx-1 outline-none focus-visible:bg-bg-3 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {options.map((option) => (
           <option

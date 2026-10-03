@@ -67,6 +67,7 @@ const DropdownMenuSubContent = React.forwardRef<
     ref={ref}
     className={cn(
       floatingMenuContentClass,
+      'data-[state=open]:animate-fade-in',
       className,
     )}
     {...props}

@@ -16,7 +16,10 @@ import {
   Pill,
   uiLabelClass,
 } from '@/shell/chrome';
+import { EmptyIllustration } from '@/shell/EmptyIllustration';
+import { EmptyState } from '@/shell/EmptyState';
 import { cn } from '@/shell/lib/cn';
+import { Skeleton } from '@/shell/ui/skeleton';
 import type { UserLite } from '@/shell/useUsers';
 
 import type {
@@ -178,18 +181,22 @@ export function OnCallStatusCard({
   return (
     <Card
       className={cn(
-        'relative flex min-h-[250px] flex-1 overflow-hidden',
+        'relative flex flex-1 overflow-hidden',
+        // An empty or loading card should be as tall as its message, not a
+        // fixed slab; a populated card keeps room for the shift overview.
+        feature ? 'min-h-[250px]' : 'min-h-0',
         surface === 'card' && CARD_TREATMENT[tone],
         surface === 'canvas' &&
-          'home-canvas-primary-section h-full rounded-md border-0 bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]',
+          'rounded-md border-0 bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]',
         className,
       )}
       bodyClassName="flex min-h-0 flex-1 flex-col"
     >
       <CardHeader
+        size={surface === 'canvas' ? 'section' : 'label'}
         className={cn(
           'relative z-10 shrink-0',
-          surface === 'canvas' && 'border-b-0',
+          surface === 'canvas' && 'min-h-[48px] border-b-0 px-[20px] py-2',
           isGap && 'text-red-soft',
         )}
         title={
@@ -229,26 +236,39 @@ export function OnCallStatusCard({
       />
 
       {loading && !feature ? (
-        <div className="relative z-10 grid min-h-[204px] flex-1 place-items-center font-sans text-xs text-tx-2">
-          {t('home.loading')}
+        <div
+          role="status"
+          aria-busy="true"
+          className="relative z-10 flex items-center gap-3 px-[20px] pb-5 pt-2"
+        >
+          <Skeleton className="h-10 w-10 shrink-0 rounded-full" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <Skeleton className="h-4 w-1/2" />
+            <Skeleton className="h-3 w-3/4" />
+          </div>
         </div>
       ) : !feature ? (
-        <CardBody className="relative z-10 grid min-h-[204px] flex-1 place-items-center text-center">
-          <div>
-            <UserRoundCheck
-              aria-hidden="true"
-              className="mx-auto h-5 w-5 text-tx-3"
-            />
-            <div className="mt-2 font-sans text-sm font-strong text-tx-1">
-              {t('home.on_call.empty_title')}
-            </div>
-            <p className="mt-1 font-sans text-xs text-tx-2">
-              {t('home.on_call.empty_description')}
-            </p>
-          </div>
-        </CardBody>
+        <EmptyState
+          size="compact"
+          icon={UserRoundCheck}
+          illustration={<EmptyIllustration kind="schedule" />}
+          title={t('home.on_call.empty_title')}
+          description={t('home.on_call.empty_description')}
+          primaryAction={{
+            label: t('home.on_call.empty_action'),
+            onClick: onArrange,
+            disabled: arrangeDisabled,
+            disabledReason: arrangeDisabledReason,
+          }}
+          className="relative z-10"
+        />
       ) : isGap ? (
-        <CardBody className="relative z-10 flex min-h-[204px] flex-1 flex-col p-4">
+        <CardBody
+          className={cn(
+            'relative z-10 flex min-h-[204px] flex-1 flex-col p-4',
+            surface === 'canvas' && 'px-[20px]',
+          )}
+        >
           <div className="font-sans text-base font-strong text-tx-0">
             {feature.schedule.name}
           </div>
@@ -258,7 +278,8 @@ export function OnCallStatusCard({
           <div className="mt-auto flex flex-wrap items-center gap-2 pt-4">
             <ChromeButton
               size="sm"
-              className="h-11 border-red/30 text-red-soft enabled:hover:bg-red-dim sm:h-8"
+              variant="danger"
+              className="h-11 sm:h-8"
               disabled={arrangeDisabled}
               disabledReason={arrangeDisabledReason}
               onClick={onArrange}
@@ -277,26 +298,19 @@ export function OnCallStatusCard({
           </div>
         </CardBody>
       ) : !feature.current ? (
-        <CardBody className="relative z-10 grid min-h-[204px] flex-1 place-items-center text-center">
-          <div>
-            <Clock3
-              aria-hidden="true"
-              className="mx-auto h-5 w-5 text-tx-3"
-            />
-            <div className="mt-2 font-sans text-sm font-strong text-tx-1">
-              {t('home.on_call.no_current')}
-            </div>
-            <p className="mt-1 font-sans text-xs text-tx-2">
-              {feature.schedule.name}
-            </p>
-          </div>
-        </CardBody>
+        <EmptyState
+          size="compact"
+          icon={Clock3}
+          title={t('home.on_call.no_current')}
+          description={feature.schedule.name}
+          className="relative z-10"
+        />
       ) : (
         <CardBody
           className={cn(
             'relative z-10 flex min-h-[204px] flex-1 flex-col overflow-y-auto px-4 py-2',
             surface === 'canvas' &&
-              '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+              'px-[20px] pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
           )}
         >
           <div className="flex min-w-0 items-center gap-3">

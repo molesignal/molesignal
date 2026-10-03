@@ -181,7 +181,8 @@
           "title": "近期没有已恢复事件",
           "description": "事件恢复后会在这里保留最近记录。"
         }
-      }
+      },
+      "tabs_label": "告警事件状态"
     },
     "rules": {
       "title": "告警规则",
@@ -226,7 +227,8 @@
       "no_match": {
         "title": "没有匹配的规则",
         "description": "尝试调整关键词或状态筛选。"
-      }
+      },
+      "tabs_label": "规则状态"
     }
   },
   "workbench": {

@@ -96,7 +96,8 @@
       "overview": "概览",
       "topology": "拓扑",
       "runs": "运行历史",
-      "configuration": "配置"
+      "configuration": "配置",
+      "label": "管道分区"
     },
     "overview": {
       "last_run": "最近运行",

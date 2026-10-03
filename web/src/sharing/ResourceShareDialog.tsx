@@ -438,7 +438,7 @@ export function ResourceShareDialog({
                           : undefined
                       }
                       className={cn(
-                        'h-11 w-full rounded-md border border-bd-1 bg-bg-1 px-3 text-sm text-tx-1 outline-none focus:border-indigo',
+                        'h-11 w-full rounded-md border border-bd-1 bg-[var(--control-surface)] px-3 text-sm text-tx-1 outline-none focus:border-indigo',
                         validationAttempted &&
                           targetOrganizationMissing &&
                           'border-red focus:border-red',
@@ -497,7 +497,7 @@ export function ResourceShareDialog({
                         onChange={(event) =>
                           setExpiresInSecs(Number(event.target.value))
                         }
-                        className="h-11 w-full rounded-md border border-bd-1 bg-bg-1 px-3 text-sm text-tx-1 outline-none focus:border-indigo"
+                        className="h-11 w-full rounded-md border border-bd-1 bg-[var(--control-surface)] px-3 text-sm text-tx-1 outline-none focus:border-indigo"
                       >
                         {EXPIRY_OPTIONS.filter(
                           (option) =>
@@ -620,7 +620,7 @@ export function ResourceShareDialog({
                     onChange={(event) =>
                       setExpiresInSecs(Number(event.target.value))
                     }
-                    className="h-11 w-full rounded-md border border-bd-1 bg-bg-1 px-3 text-sm text-tx-1 outline-none focus:border-indigo md:max-w-xs"
+                    className="h-11 w-full rounded-md border border-bd-1 bg-[var(--control-surface)] px-3 text-sm text-tx-1 outline-none focus:border-indigo md:max-w-xs"
                   >
                     {EXPIRY_OPTIONS.map((option) => (
                       <option key={option.seconds} value={option.seconds}>
@@ -812,7 +812,7 @@ function DashboardConstraints({
         <select
           value={maxRangeSecs}
           onChange={(event) => onMaxRangeChange(Number(event.target.value))}
-          className="h-11 w-full rounded-md border border-bd-1 bg-bg-1 px-3 text-sm text-tx-1 outline-none focus:border-indigo md:max-w-xs"
+          className="h-11 w-full rounded-md border border-bd-1 bg-[var(--control-surface)] px-3 text-sm text-tx-1 outline-none focus:border-indigo md:max-w-xs"
         >
           <option value={3600}>{t('sharing.time_ranges.one_hour')}</option>
           <option value={6 * 3600}>{t('sharing.time_ranges.six_hours')}</option>
@@ -895,7 +895,7 @@ function GeneratedLink({
         {t('sharing.link_ready_hint')}
       </p>
       <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-        <div className="min-w-0 flex-1 truncate rounded-md border border-bd-1 bg-bg-1 px-3 py-2.5 font-mono text-xs text-tx-1">
+        <div className="min-w-0 flex-1 truncate rounded-md bg-[var(--control-surface)] px-3 py-2.5 font-mono text-xs text-tx-1">
           {url}
         </div>
         <CopyIconButton

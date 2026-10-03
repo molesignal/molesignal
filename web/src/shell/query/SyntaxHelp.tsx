@@ -118,7 +118,7 @@ export function QuerySyntaxHelp({
           variant="outline"
           size="icon"
           className={cn(
-            'h-[26px] w-[26px] rounded-md border-bd-1 bg-bg-2 text-tx-2 hover:bg-bg-3 hover:text-tx-0',
+            'h-[26px] w-[26px] rounded-md border-0 bg-bg-2 text-tx-2 hover:bg-bg-3 hover:text-tx-0',
             className,
           )}
           aria-label={resolvedAriaLabel}

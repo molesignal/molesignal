@@ -37,7 +37,7 @@ export function ApmToolbarSelect({
       <SelectTrigger
         aria-label={ariaLabel}
         className={cn(
-          'h-[44px] w-auto min-w-[112px] rounded-sm border-0 bg-[var(--control-surface)] px-[10px] py-0 text-xs font-medium text-tx-1 shadow-none hover:bg-bg-3 hover:text-tx-0 data-[state=open]:border-0 sm:h-[30px]',
+          'h-[44px] w-auto min-w-[112px] rounded-sm border-0 bg-[var(--control-surface)] px-[10px] py-0 text-xs font-medium text-tx-1 shadow-none hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-bg-3 data-[state=open]:bg-bg-3 data-[state=open]:border-0 sm:h-[30px]',
           className,
         )}
       >

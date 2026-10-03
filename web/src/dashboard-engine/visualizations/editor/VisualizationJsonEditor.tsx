@@ -10,7 +10,7 @@ import { useDashboardText } from '../../i18n';
 import type { VisualizationEditorProps } from '../shared/types';
 
 const CONTROL_CLASS =
-  'min-w-0 rounded-md border border-bd-1 bg-bg-1 px-2 text-xs text-tx-1 outline-none focus-visible:bg-bg-2 focus-visible:text-tx-0';
+  'min-w-0 rounded-md border-0 bg-[var(--control-surface)] px-2 text-xs text-tx-1 outline-none focus-visible:bg-bg-3 focus-visible:text-tx-0';
 
 export function VisualizationJsonEditor({
   options,

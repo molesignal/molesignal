@@ -1,22 +1,17 @@
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Database } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 
 import type * as homeApi from '@/api/home';
 import type * as streamsApi from '@/api/streams';
-import { runtimeStatusToHealthStatus } from '@/investigation/streamHealth';
-import {
-  Dot,
-  Pill,
-  type PillTone,
-  TableShell,
-  Td,
-  Th,
-  Tr,
-} from '@/shell/chrome';
+import { TableShell, Td, Th, Tr } from '@/shell/chrome';
+import { EmptyIllustration } from '@/shell/EmptyIllustration';
+import { EmptyState } from '@/shell/EmptyState';
 import { cn } from '@/shell/lib/cn';
 import { QueryState } from '@/shell/query/State';
 import type { queryStateFor } from '@/shell/query/State';
+import { StreamTypeTag } from '@/shell/StreamTypeTag';
 import { formatRelativeMicros } from '@/time/relative';
 
 import {
@@ -24,34 +19,15 @@ import {
   DEFAULT_HOME_STREAM_ROWS,
   shouldFillHomeStreamViewport,
 } from '../streamRows';
-import { formatEventRate } from './format';
+import { formatEventRate, streamExplorePath } from './format';
+import { TableSkeleton } from './HomeSkeletons';
 import { CanvasHeaderAction, CanvasSection } from './layout';
-
-const STATUS_TONE: Record<homeApi.HomeHealthStatus, PillTone> = {
-  healthy: 'green',
-  degraded: 'red',
-  delayed: 'yellow',
-  no_data: 'dim',
-  unknown: 'dim',
-};
-
-const STATUS_DOT: Record<
-  homeApi.HomeHealthStatus,
-  'green' | 'red' | 'yellow' | 'dim'
-> = {
-  healthy: 'green',
-  degraded: 'red',
-  delayed: 'yellow',
-  no_data: 'dim',
-  unknown: 'dim',
-};
-
-const STREAM_TONE: Record<homeApi.HomeStreamOverview['stream_type'], PillTone> = {
-  logs: 'orange',
-  metrics: 'blue',
-  traces: 'green',
-  profiles: 'purple',
-};
+import {
+  classifyStreamCondition,
+  type StreamCondition,
+  toMicros,
+} from './streamCondition';
+import { ConditionBadge } from './StreamTags';
 
 export function TopStreamsSection({
   overview,
@@ -60,6 +36,8 @@ export function TopStreamsSection({
   error,
   onOpen,
   onViewAll,
+  onConnect,
+  riseIndex,
 }: {
   overview: homeApi.HomeOverview | undefined;
   runtimeOverview: streamsApi.StreamRuntimeOverview | undefined;
@@ -67,8 +45,11 @@ export function TopStreamsSection({
   error: unknown;
   onOpen: (stream: homeApi.HomeStreamOverview) => void;
   onViewAll: () => void;
+  onConnect: () => void;
+  riseIndex?: number;
 }) {
   const { t, i18n } = useTranslation('onboarding');
+  const locale = i18n.resolvedLanguage ?? i18n.language;
   const streams = overview?.streams ?? [];
   const runtimeById = new Map(
     (runtimeOverview?.streams ?? []).map((stream) => [stream.id, stream]),
@@ -77,6 +58,8 @@ export function TopStreamsSection({
     runtimeOverview?.window_secs ?? overview?.window?.window_secs ?? 1;
   const generatedAtMicros =
     runtimeOverview?.generated_at_micros ?? overview?.generated_at_micros;
+  const nowMicros =
+    generatedAtMicros != null ? toMicros(generatedAtMicros) : Date.now() * 1000;
   const tableViewportRef = React.useRef<HTMLDivElement>(null);
   const [visibleRowCount, setVisibleRowCount] = React.useState(() =>
     Math.min(streams.length, DEFAULT_HOME_STREAM_ROWS),
@@ -137,78 +120,132 @@ export function TopStreamsSection({
     };
   }, [streams.length]);
 
+  const rows = streams.slice(0, visibleRowCount).map((stream) => {
+    const runtime = runtimeById.get(stream.id);
+    const lastReceived =
+      runtime?.last_received_at_micros ?? stream.last_received_at_micros;
+    const condition: StreamCondition = classifyStreamCondition({
+      status: runtime?.status ?? 'unknown',
+      lastReceivedAtMicros: lastReceived,
+      nowMicros,
+    });
+    return { stream, runtime, lastReceived, condition };
+  });
+  // A column of identical pills says one thing many times; the verdict card
+  // already says it once, so the rows fall back to quiet text.
+  const quiet =
+    rows.length > 1 && rows.every((row) => row.condition === rows[0]?.condition);
+
+  const body = () => {
+    if (state === 'loading') return <TableSkeleton />;
+    if (state === 'error') {
+      return (
+        <div className="grid h-full min-h-[254px] place-items-stretch">
+          <QueryState state="error" error={error} />
+        </div>
+      );
+    }
+    if (state === 'empty') {
+      return (
+        <EmptyState
+          size="compact"
+          icon={Database}
+          illustration={<EmptyIllustration kind="streams" />}
+          title={t('home.streams.empty')}
+          primaryAction={{ label: t('home.connect_action'), onClick: onConnect }}
+        />
+      );
+    }
+    return (
+      <div
+        ref={tableViewportRef}
+        className={cn(
+          'min-h-0 flex-1 overflow-hidden',
+          fillTableHeight && '[&>div]:h-full',
+        )}
+        data-testid="home-top-streams-viewport"
+      >
+        {/* Rows are sized to fit this viewport, so vertical scroll would only
+            ever expose a rounding-error sliver (and draw a second scrollbar). */}
+        <TableShell
+          className={cn('min-w-[620px]', fillTableHeight && 'h-full')}
+          containerClassName="overflow-y-hidden"
+        >
+          <thead>
+            <tr>
+              <Th className="pl-[20px]">{t('home.streams.columns.stream')}</Th>
+              <Th>{t('home.streams.columns.type')}</Th>
+              <Th>{t('home.streams.columns.status')}</Th>
+              <Th className="text-right">{t('home.streams.columns.rate')}</Th>
+              <Th>{t('home.streams.columns.last_received')}</Th>
+              <Th className="w-12 pr-[20px]">
+                <span className="sr-only">{t('home.streams.columns.action')}</span>
+              </Th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ stream, runtime, lastReceived, condition }) => (
+              <Tr
+                key={stream.id}
+                className="group focus-within:bg-bg-3"
+                onClick={(event) => {
+                  // The name is a real link (keyboard, middle-click, new tab);
+                  // the rest of the row is a larger mouse target for the same place.
+                  if ((event.target as HTMLElement).closest('a')) return;
+                  onOpen(stream);
+                }}
+              >
+                <Td className="pl-[20px] font-strong text-tx-0">
+                  <Link
+                    to={streamExplorePath(stream)}
+                    className="block truncate rounded-sm"
+                  >
+                    {stream.name}
+                  </Link>
+                </Td>
+                <Td>
+                  <StreamTypeTag type={stream.stream_type} />
+                </Td>
+                <Td>
+                  <ConditionBadge condition={condition} quiet={quiet} />
+                </Td>
+                <Td className="text-right tabular-nums">
+                  {formatEventRate(runtime?.rows ?? stream.rows, overviewWindowSecs)}
+                </Td>
+                <Td className="text-tx-2">
+                  {lastReceived != null ? (
+                    <time
+                      dateTime={new Date(toMicros(lastReceived) / 1000).toISOString()}
+                      title={new Date(toMicros(lastReceived) / 1000).toLocaleString(locale)}
+                    >
+                      {formatRelativeMicros(lastReceived, locale, generatedAtMicros)}
+                    </time>
+                  ) : (
+                    '—'
+                  )}
+                </Td>
+                <Td className="pr-[20px] text-right">
+                  <ChevronRight
+                    aria-hidden="true"
+                    className="ml-auto h-4 w-4 text-tx-3 transition-[color,transform] duration-fast group-hover:translate-x-0.5 group-hover:text-tx-1"
+                  />
+                </Td>
+              </Tr>
+            ))}
+          </tbody>
+        </TableShell>
+      </div>
+    );
+  };
+
   return (
     <CanvasSection
-      className="home-canvas-detail-section"
+      className="home-canvas-streams-section"
       title={t('home.streams.title')}
       actions={<CanvasHeaderAction label={t('home.view_all')} onClick={onViewAll} />}
+      {...(riseIndex !== undefined ? { riseIndex } : {})}
     >
-      {state ? (
-        <div className="grid h-full min-h-[254px] place-items-stretch">
-          <QueryState state={state} error={error} emptyLabel={t('home.streams.empty')} />
-        </div>
-      ) : (
-        <div
-          ref={tableViewportRef}
-          className={cn(
-            'min-h-0 flex-1 overflow-hidden',
-            fillTableHeight && '[&>div]:h-full',
-          )}
-          data-testid="home-top-streams-viewport"
-        >
-          <TableShell className={cn('min-w-[620px]', fillTableHeight && 'h-full')}>
-            <thead>
-              <tr>
-                <Th>{t('home.streams.columns.stream')}</Th>
-                <Th>{t('home.streams.columns.type')}</Th>
-                <Th>{t('home.streams.columns.status')}</Th>
-                <Th>{t('home.streams.columns.rate')}</Th>
-                <Th>{t('home.streams.columns.last_received')}</Th>
-                <Th className="w-16 whitespace-nowrap text-right">
-                  {t('home.streams.columns.action')}
-                </Th>
-              </tr>
-            </thead>
-            <tbody>
-              {streams.slice(0, visibleRowCount).map((stream) => {
-                const runtime = runtimeById.get(stream.id);
-                const status = runtime
-                  ? runtimeStatusToHealthStatus(runtime.status)
-                  : 'unknown';
-                return (
-                  <Tr key={stream.id} onClick={() => onOpen(stream)}>
-                    <Td className="font-strong text-tx-0">{stream.name}</Td>
-                    <Td>
-                      <Pill tone={STREAM_TONE[stream.stream_type]}>
-                        {stream.stream_type}
-                      </Pill>
-                    </Td>
-                    <Td>
-                      <Pill tone={STATUS_TONE[status]}>
-                        <Dot tone={STATUS_DOT[status]} />
-                        {t(`home.status.${status}`)}
-                      </Pill>
-                    </Td>
-                    <Td className="font-mono text-xs">
-                      {formatEventRate(runtime?.rows ?? stream.rows, overviewWindowSecs)}
-                    </Td>
-                    <Td className="text-tx-2">
-                      {formatRelativeMicros(
-                        runtime?.last_received_at_micros ?? stream.last_received_at_micros,
-                        i18n.resolvedLanguage ?? i18n.language,
-                        generatedAtMicros,
-                      )}
-                    </Td>
-                    <Td className="text-right">
-                      <ChevronRight className="ml-auto h-4 w-4 text-tx-3" />
-                    </Td>
-                  </Tr>
-                );
-              })}
-            </tbody>
-          </TableShell>
-        </div>
-      )}
+      {body()}
     </CanvasSection>
   );
 }

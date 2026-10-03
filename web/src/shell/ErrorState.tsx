@@ -188,7 +188,7 @@ function actionClass(variant: 'primary' | 'secondary'): string {
     'transition-colors duration-fast ease-default focus-visible:bg-indigo-dim focus-visible:text-indigo',
     variant === 'primary'
       ? 'bg-indigo text-white hover:brightness-90 focus-visible:brightness-90'
-      : 'border border-bd-1 bg-bg-2 text-tx-1 hover:bg-bg-3 hover:text-tx-0',
+      : 'bg-bg-2 text-tx-1 hover:bg-bg-3 hover:text-tx-0',
   );
 }
 

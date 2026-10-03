@@ -641,7 +641,6 @@ function RotationRuleCard({
       action={
         <ChromeButton
           size="sm"
-          variant="ghost"
           disabled={manageAccess.disabled}
           disabledReason={manageAccess.reason}
           onClick={onView}

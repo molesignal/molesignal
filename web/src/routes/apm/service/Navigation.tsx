@@ -1,14 +1,7 @@
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
 
 import type { ServiceIdentity, SignalFilterHandle } from '@/api/apm';
-import { cn } from '@/shell/lib/cn';
-import {
-  surfaceModuleNavigationActiveClass,
-  surfaceModuleNavigationClass,
-  surfaceModuleNavigationItemClass,
-  surfaceModuleNavigationRowClass,
-} from '@/shell/SurfaceWorkbench';
+import { ModuleTabs } from '@/shell/tabs/ModuleTabs';
 
 import { signalHref } from '../model';
 
@@ -52,28 +45,15 @@ export function ServiceNavigation({
   ];
 
   return (
-    <div
-      data-apm-navigation="surface"
-      className={surfaceModuleNavigationClass}
-    >
-      <nav
-        aria-label={t('services.navigation')}
-        className={surfaceModuleNavigationRowClass}
-      >
-        {items.map((item) => (
-          <Link
-            key={item.key}
-            to={item.to}
-            aria-current={item.key === active ? 'page' : undefined}
-            className={cn(
-              surfaceModuleNavigationItemClass,
-              item.key === active && surfaceModuleNavigationActiveClass,
-            )}
-          >
-            {t(`services.nav.${item.key}`)}
-          </Link>
-        ))}
-      </nav>
-    </div>
+    <ModuleTabs
+      label={t('services.navigation')}
+      dataAttributes={{ 'data-apm-navigation': 'surface' }}
+      items={items.map((item) => ({
+        key: item.key,
+        to: item.to,
+        active: item.key === active,
+        label: t(`services.nav.${item.key}`),
+      }))}
+    />
   );
 }

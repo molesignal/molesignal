@@ -1,91 +1,200 @@
+/*
+ * Home canvas.
+ *
+ * Spacing is a ladder, not a single gutter: cards inside a band sit
+ * --home-card-gap apart, bands (verdict, workspace, footer) sit
+ * --home-band-gap apart, so the page reads as grouped sections instead of one
+ * uniform grid. Widths are driven by the canvas container, not the viewport,
+ * so the layout holds when the sidebar changes the available space.
+ */
 .home-operations-canvas {
   container-name: home-canvas;
   container-type: inline-size;
-  --home-primary-height: 356px;
-  --home-detail-height: 344px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--home-band-gap);
+  --home-band-gap: 24px;
+  --home-card-gap: 16px;
+  --home-chart-height: 320px;
+  --home-streams-height: 392px;
+  /* The workspace band is exactly the evidence column's two fixed cards. */
+  --home-workspace-height: calc(
+    var(--home-chart-height) + var(--home-card-gap) + var(--home-streams-height)
+  );
 }
 
-.home-canvas-kpi-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
+/* ── verdict band ─────────────────────────────────────────────────────── */
 
-.home-canvas-kpi {
-  min-height: 104px;
-}
-
-.home-canvas-primary-section {
-  min-height: 312px;
-}
-
-.home-canvas-detail-section {
-  min-height: 300px;
-}
-
-.home-canvas-primary-grid,
-.home-canvas-detail-grid {
+.home-canvas-hero-strip,
+.home-canvas-metrics {
+  display: grid;
+  gap: var(--home-card-gap);
   grid-template-columns: minmax(0, 1fr);
 }
 
-.home-canvas-footer-section .home-canvas-section-header {
-  min-height: 36px;
-  padding-block: 6px;
+/* A compact strip: the verdict and the readouts are one glance, not a hero
+   section. Height is driven by content with this floor so the cards in a row
+   line up. */
+.home-canvas-hero,
+.home-canvas-metric {
+  min-height: 96px;
 }
 
-@container home-canvas (min-width: 700px) {
-  .home-canvas-kpi-grid {
+@container home-canvas (min-width: 560px) {
+  .home-canvas-metrics {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
-@container home-canvas (min-width: 980px) {
-  .home-canvas-primary-grid {
-    grid-template-columns: minmax(0, 2.15fr) minmax(340px, 0.85fr);
-  }
-
-  .home-canvas-detail-grid {
-    grid-template-columns: minmax(0, 2.15fr) minmax(340px, 0.85fr);
-  }
-
-  .home-canvas-primary-grid > *,
-  .home-canvas-primary-section {
-    height: var(--home-primary-height);
-    min-height: var(--home-primary-height);
-  }
-
-  .home-canvas-detail-section {
-    height: var(--home-detail-height);
-    min-height: var(--home-detail-height);
-  }
-}
-
 @container home-canvas (min-width: 1120px) {
-  .home-canvas-kpi-grid {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+  .home-canvas-hero-strip {
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 2fr);
   }
 }
 
-@container home-canvas (min-width: 1280px) {
-  .home-canvas-primary-grid > *,
-  .home-canvas-primary-section {
-    height: 336px;
-    min-height: 336px;
+.home-status-dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: var(--tone, var(--tx-3));
+}
+
+/* ── workspace band: evidence on the left, context on the right ───────── */
+
+.home-canvas-workspace {
+  display: grid;
+  gap: var(--home-card-gap);
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+.home-canvas-column {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--home-card-gap);
+}
+
+.home-canvas-chart-section,
+.home-canvas-streams-section {
+  min-height: 300px;
+}
+
+/* The on-call card is a shared component, so its place in the entrance
+   sequence is set here rather than through a prop. */
+.home-canvas-oncall {
+  --rise-index: 5;
+}
+
+@container home-canvas (min-width: 980px) {
+  /* One row with a fixed height. The context column fills it, so both columns
+     end on the same line whatever the on-call card and the activity list hold,
+     instead of each stopping wherever its own content happens to. */
+  .home-canvas-workspace {
+    grid-template-columns: minmax(0, 2.15fr) minmax(340px, 0.85fr);
+    grid-template-rows: var(--home-workspace-height);
+    align-items: stretch;
+  }
+
+  .home-canvas-chart-section {
+    height: var(--home-chart-height);
+  }
+
+  .home-canvas-streams-section {
+    height: var(--home-streams-height);
+  }
+
+  /* The on-call card keeps its own height; the activity list takes the rest. */
+  .home-canvas-column > .home-canvas-oncall {
+    flex: none;
+  }
+
+  .home-canvas-activity-section {
+    flex: 1 1 0;
   }
 }
 
-@container home-canvas (min-width: 1680px) {
-  .home-canvas-kpi {
-    min-height: 100px;
-    padding-inline: 16px;
+/* Chart on the left, signal list on the right once there is room for both. */
+.home-health-body {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@container home-canvas (min-width: 760px) {
+  .home-health-body {
+    grid-template-columns: minmax(0, 1fr) minmax(230px, 0.34fr);
+  }
+}
+
+/* ── footer band ──────────────────────────────────────────────────────── */
+
+.home-canvas-footer-section .home-canvas-section-header {
+  min-height: 44px;
+  padding-block: 6px;
+}
+
+/* ── motion ───────────────────────────────────────────────────────────────
+ * Entrance is staggered by --rise-index. `backwards` (not `both`) keeps the
+ * element free of transform / clip-path once the animation ends, so tooltips
+ * and menus anchored inside are never clipped. The global reduced-motion rule
+ * in tokens.css collapses these to their final state.
+ */
+@keyframes home-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
   }
 
-  .home-canvas-primary-grid > *,
-  .home-canvas-primary-section {
-    height: 320px;
-    min-height: 320px;
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.home-rise {
+  animation: home-rise 420ms var(--easing-out) backwards;
+  animation-delay: calc(var(--rise-index, 0) * 60ms);
+}
+
+/* Bars appear to grow from the baseline: the plot is revealed bottom-up. */
+@keyframes home-reveal-up {
+  from {
+    clip-path: inset(100% 0 0 0);
   }
 
-  .home-canvas-detail-section {
-    height: 392px;
-    min-height: 392px;
+  to {
+    clip-path: inset(0);
   }
+}
+
+.home-reveal-up {
+  animation: home-reveal-up 760ms var(--easing-out) 160ms backwards;
+}
+
+/* Without motion there is no entrance. The global rule only shortens durations,
+   so the stagger delays would still hold the cards invisible for up to half a
+   second before they appear. */
+@media (prefers-reduced-motion: reduce) {
+  .home-rise,
+  .home-reveal-up {
+    animation: none;
+  }
+}
+
+/* A slow ring for states that want attention without shouting. */
+@keyframes home-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--tone) 45%, transparent);
+  }
+
+  60% {
+    box-shadow: 0 0 0 7px transparent;
+  }
+}
+
+.home-breathe {
+  animation: home-breathe 2.4s ease-out infinite;
 }

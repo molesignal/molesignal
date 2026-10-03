@@ -3,7 +3,6 @@ import { ExternalLink, Globe2, LockKeyhole } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   Navigate,
-  NavLink,
   Outlet,
   useLocation,
   useOutletContext,
@@ -20,14 +19,8 @@ import { hasPermission, useProductAccess } from '@/product/access';
 import { useActionAccess, type ActionAccess } from '@/product/actionAccess';
 import { ProductState } from '@/product/states';
 import { ChromeButton, Pill } from '@/shell/chrome';
-import { cn } from '@/shell/lib/cn';
 import { PageBody, PageHeader } from '@/shell/PageHeader';
-import {
-  surfaceModuleNavigationActiveClass,
-  surfaceModuleNavigationClass,
-  surfaceModuleNavigationItemClass,
-  surfaceModuleNavigationRowClass,
-} from '@/shell/SurfaceWorkbench';
+import { ModuleTabs } from '@/shell/tabs/ModuleTabs';
 
 import { publicStatusPageUrl } from '../publicUrl';
 import {
@@ -162,30 +155,14 @@ export function StatusPageWorkspaceLayout() {
           </div>
         }
       />
-      <div className={surfaceModuleNavigationClass}>
-        <nav
-          aria-label={t('tabs.label')}
-          className={surfaceModuleNavigationRowClass}
-        >
-          {visibleTabs.map((tab) => (
-            <NavLink
-              key={tab}
-              to={`/status-pages/${pageId}/${tab}`}
-              className={({ isActive }) =>
-                cn(
-                  surfaceModuleNavigationItemClass,
-                  'whitespace-nowrap',
-                  isActive
-                    ? surfaceModuleNavigationActiveClass
-                    : 'text-tx-2',
-                )
-              }
-            >
-              {t(`tabs.${tab}`)}
-            </NavLink>
-          ))}
-        </nav>
-      </div>
+      <ModuleTabs
+        label={t('tabs.label')}
+        items={visibleTabs.map((tab) => ({
+          key: tab,
+          to: `/status-pages/${pageId}/${tab}`,
+          label: t(`tabs.${tab}`),
+        }))}
+      />
       {page.lifecycle === 'archived' && (
         <div className="mx-[20px] mb-[12px] rounded-md bg-yellow-dim px-4 py-2 text-xs text-yellow-soft">
           {t('states.archived_read_only')}

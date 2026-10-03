@@ -148,7 +148,7 @@ export function PromqlBuilderPanel({
           >
             <SelectTrigger
               aria-label={t('builder.metric_select_aria')}
-              className="h-11 rounded-md border-bd-1 bg-bg-2 text-base sm:h-9 sm:text-sm"
+              className="h-11 rounded-md border-bd-1 bg-[var(--control-surface)] text-base sm:h-9 sm:text-sm"
               disabled={pending || Boolean(error)}
             >
               <SelectValue
@@ -182,7 +182,7 @@ export function PromqlBuilderPanel({
           >
             <SelectTrigger
               aria-label={t('builder.function_select_aria')}
-              className="h-11 rounded-md border-bd-1 bg-bg-2 text-base sm:h-9 sm:text-sm"
+              className="h-11 rounded-md border-bd-1 bg-[var(--control-surface)] text-base sm:h-9 sm:text-sm"
             >
               <SelectValue>
                 {builderFunctionLabel(query.transform, t)}
@@ -228,7 +228,7 @@ export function PromqlBuilderPanel({
           >
             <SelectTrigger
               aria-label={t('builder.aggregation_select_aria')}
-              className="h-11 rounded-md border-bd-1 bg-bg-2 text-base sm:h-9 sm:text-sm"
+              className="h-11 rounded-md border-bd-1 bg-[var(--control-surface)] text-base sm:h-9 sm:text-sm"
             >
               <SelectValue />
             </SelectTrigger>
@@ -250,7 +250,7 @@ export function PromqlBuilderPanel({
           >
             <SelectTrigger
               aria-label={t('builder.range_select_aria')}
-              className="h-11 rounded-md border-bd-1 bg-bg-2 text-base sm:h-9 sm:text-sm"
+              className="h-11 rounded-md border-bd-1 bg-[var(--control-surface)] text-base sm:h-9 sm:text-sm"
             >
               <SelectValue />
             </SelectTrigger>
@@ -312,7 +312,7 @@ export function PromqlBuilderPanel({
                     aria-label={t('builder.matcher_name_aria', {
                       index: index + 1,
                     })}
-                    className="h-11 rounded-md border-bd-1 bg-bg-2 text-base sm:h-9 sm:text-sm"
+                    className="h-11 rounded-md border-bd-1 bg-[var(--control-surface)] text-base sm:h-9 sm:text-sm"
                   >
                     <SelectValue
                       placeholder={t('builder.matcher_name_placeholder')}
@@ -340,7 +340,7 @@ export function PromqlBuilderPanel({
                     aria-label={t('builder.matcher_op_aria', {
                       index: index + 1,
                     })}
-                    className="h-11 rounded-md border-bd-1 bg-bg-2 text-base sm:h-9 sm:text-sm"
+                    className="h-11 rounded-md border-bd-1 bg-[var(--control-surface)] text-base sm:h-9 sm:text-sm"
                   >
                     <SelectValue />
                   </SelectTrigger>
@@ -365,7 +365,7 @@ export function PromqlBuilderPanel({
                     index: index + 1,
                   })}
                   placeholder={t('builder.matcher_value_placeholder')}
-                  className="col-span-3 row-start-2 h-11 min-w-0 rounded-md border border-bd-1 bg-bg-2 px-3 font-sans text-base text-tx-0 placeholder:text-tx-3 focus:outline-none sm:col-span-1 sm:row-auto sm:h-9 sm:text-sm"
+                  className="col-span-3 row-start-2 h-11 min-w-0 rounded-md border border-bd-1 bg-[var(--control-surface)] px-3 font-sans text-base text-tx-0 placeholder:text-tx-3 focus:outline-none sm:col-span-1 sm:row-auto sm:h-9 sm:text-sm"
                 />
                 <button
                   type="button"

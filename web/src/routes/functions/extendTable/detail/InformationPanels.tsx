@@ -222,9 +222,10 @@ export function SettingsPanel({
           })}
         </p>
         <ChromeButton
+          variant="danger"
           disabled={deleteAccess.disabled}
           disabledReason={deleteAccess.reason}
-          className="mt-4 border-red/35 text-red enabled:hover:border-red enabled:hover:bg-red-dim enabled:hover:text-red"
+          className="mt-4"
           onClick={() => deleteAccess.allowed && onDelete()}
         >
           <Trash2 className="h-3.5 w-3.5" />

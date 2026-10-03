@@ -9,6 +9,7 @@ import {
   Database,
   Edit3,
   ExternalLink,
+  type LucideIcon,
   MoreHorizontal,
   Plus,
   RefreshCw,
@@ -53,6 +54,8 @@ import {
 } from '@/shell/FormDrawer';
 import { cn } from '@/shell/lib/cn';
 import { queryStateFor } from '@/shell/query/State';
+import { StreamTypeTag } from '@/shell/StreamTypeTag';
+import { ModuleTabs } from '@/shell/tabs/ModuleTabs';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -113,7 +116,7 @@ interface UsageSummary {
   unavailable: number;
 }
 
-const DETAIL_TABS: Array<{ id: DetailTab; labelKey: string; icon: React.ElementType }> = [
+const DETAIL_TABS: Array<{ id: DetailTab; labelKey: string; icon: LucideIcon }> = [
   { id: 'overview', labelKey: 'explore.tabs.overview', icon: Activity },
   { id: 'schema', labelKey: 'explore.tabs.schema', icon: Braces },
   { id: 'retention', labelKey: 'explore.tabs.retention', icon: Clock3 },
@@ -149,14 +152,6 @@ function queryPath(stream: streamsApi.StreamSummary): string {
   if (stream.stream_type === 'traces') return `/traces?stream=${encoded}`;
   if (stream.stream_type === 'profiles') return `/profiles?stream=${encoded}`;
   return `/streams/${encodeURIComponent(stream.id)}`;
-}
-
-function streamTypeTone(type: streamsApi.StreamType): PillTone {
-  if (type === 'logs') return 'orange';
-  if (type === 'metrics') return 'blue';
-  if (type === 'traces') return 'green';
-  if (type === 'profiles') return 'purple';
-  return 'dim';
 }
 
 function streamTypeLabel(
@@ -668,15 +663,14 @@ export function StreamExplore() {
                         const active = variant.id === stream.id;
                         const label = streamTypeLabel(t, variant.stream_type);
                         const pill = (
-                          <Pill
-                            tone={streamTypeTone(variant.stream_type)}
+                          <StreamTypeTag
+                            type={variant.stream_type}
+                            label={label}
                             className={cn(
                               !active &&
                                 'opacity-60 transition-opacity hover:opacity-100',
                             )}
-                          >
-                            {label}
-                          </Pill>
+                          />
                         );
                         return active ? (
                           <span
@@ -736,27 +730,18 @@ export function StreamExplore() {
       >
         {stream && draft && (
           <>
-            <div className="flex min-h-11 items-center gap-1 overflow-x-auto border-b border-bd-0">
-              {DETAIL_TABS.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setTab(item.id)}
-                    className={cn(
-                      'relative inline-flex h-11 shrink-0 items-center gap-2 px-3 font-sans text-sm font-semibold',
-                      tab === item.id
-                        ? 'text-tx-0 after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:bg-indigo'
-                        : 'text-tx-2 hover:text-tx-0',
-                    )}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {t(item.labelKey)}
-                  </button>
-                );
-              })}
-            </div>
+            <ModuleTabs
+              variant="inline"
+              divider
+              label={t('explore.tabs_label')}
+              value={tab}
+              onValueChange={(next) => setTab(next as DetailTab)}
+              items={DETAIL_TABS.map((item) => ({
+                key: item.id,
+                icon: item.icon,
+                label: t(item.labelKey),
+              }))}
+            />
 
             {dirty && (
               <UnsavedChanges
