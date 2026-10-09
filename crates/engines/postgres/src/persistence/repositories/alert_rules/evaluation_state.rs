@@ -3,6 +3,7 @@
 
 //! `alert_rule_eval_state` 表的 Pg 实装。
 //!
+//! - `claim_cycle`：认领一轮评估，同一个评估周期只放行一个节点（成员变化时两个节点可能同时拥有一条规则）。
 //! - `upsert_match`：单档去抖，`ON CONFLICT` 累加/清零 consecutive_matches（severity_streaks 不动）。
 //! - `upsert_state`：多档去抖，整行写回（含 per-severity streaks）。
 //! - `reset`：incident resolve / 规则阈值变更时清零（含 severity_streaks）。
@@ -45,6 +46,32 @@ fn row_to_state(row: &sqlx::postgres::PgRow) -> Result<AlertRuleEvalState> {
 
 #[async_trait]
 impl AlertRuleEvalStateRepository for PgAlertRuleEvalStateRepository {
+    async fn claim_cycle(
+        &self,
+        rule_id: &Id,
+        eval_at: TimestampMicros,
+        min_gap_micros: i64,
+    ) -> Result<bool> {
+        // 单条语句里完成「检查 + 推进」：并发的两个认领里只有一个能满足 WHERE。
+        let claimed = sqlx::query(
+            "INSERT INTO alert_rule_eval_state
+                (rule_id, consecutive_matches, last_eval_at_micros, last_matched)
+             VALUES ($1, 0, $2, FALSE)
+             ON CONFLICT (rule_id) DO UPDATE
+             SET last_eval_at_micros = EXCLUDED.last_eval_at_micros
+             WHERE alert_rule_eval_state.last_eval_at_micros
+                   <= EXCLUDED.last_eval_at_micros - $3",
+        )
+        .bind(&rule_id.0)
+        .bind(eval_at.0)
+        .bind(min_gap_micros)
+        .execute(&self.pool)
+        .await
+        .map_err(sqlx_err)?
+        .rows_affected();
+        Ok(claimed == 1)
+    }
+
     async fn upsert_match(
         &self,
         rule_id: &Id,
@@ -60,7 +87,9 @@ impl AlertRuleEvalStateRepository for PgAlertRuleEvalStateRepository {
                     CASE WHEN EXCLUDED.last_matched
                          THEN alert_rule_eval_state.consecutive_matches + 1
                          ELSE 0 END,
-                 last_eval_at_micros = EXCLUDED.last_eval_at_micros,
+                 last_eval_at_micros = GREATEST(
+                    alert_rule_eval_state.last_eval_at_micros,
+                    EXCLUDED.last_eval_at_micros),
                  last_matched = EXCLUDED.last_matched
              RETURNING rule_id, consecutive_matches, last_eval_at_micros, last_matched, severity_streaks",
         )
@@ -81,7 +110,9 @@ impl AlertRuleEvalStateRepository for PgAlertRuleEvalStateRepository {
              VALUES ($1, $2, $3, $4, $5)
              ON CONFLICT (rule_id) DO UPDATE
              SET consecutive_matches = EXCLUDED.consecutive_matches,
-                 last_eval_at_micros = EXCLUDED.last_eval_at_micros,
+                 last_eval_at_micros = GREATEST(
+                    alert_rule_eval_state.last_eval_at_micros,
+                    EXCLUDED.last_eval_at_micros),
                  last_matched = EXCLUDED.last_matched,
                  severity_streaks = EXCLUDED.severity_streaks",
         )

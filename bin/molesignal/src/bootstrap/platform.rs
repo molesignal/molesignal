@@ -63,12 +63,15 @@ impl PlatformRuntime {
     ) -> Result<Self> {
         let connectors: Arc<dyn ConnectorRepository> =
             Arc::new(PgConnectorRepository::new(core.pool.clone()));
+        // pull 类 connector 同一时刻只能有一个节点在拉：多个 alert 节点按 connector 分担，
+        // 开拉前先过运行准入。
         let _connector_runner = core.roles.run_alert.then(|| {
             crate::infra::connectors::ConnectorRunner::new(
                 connectors.clone(),
                 storage.intake.clone(),
                 30,
             )
+            .with_gate(core.alert_run_gate.clone())
             .spawn()
         });
 
@@ -149,7 +152,8 @@ impl PlatformRuntime {
                 crate::report_renderer::HeadlessChromeRenderer::new(config),
             ))
         };
-        // 定时报告的渲染需要无头 Chrome，由 alert 角色（含 standalone）的节点承担。
+        // 定时报告的渲染需要无头 Chrome，由 alert 角色（含 standalone）的节点承担；多个 alert 节点
+        // 按报告分担，开跑前先过运行准入。
         let _scheduled_reports_handle = core.roles.run_alert.then(|| {
             Arc::new(
                 crate::bootstrap::workers::scheduled_reports::ScheduledReportRunner::new(
@@ -157,7 +161,8 @@ impl PlatformRuntime {
                     core.store.clone(),
                     report_renderer.clone(),
                     report_renderer_base_url.clone(),
-                ),
+                )
+                .with_gate(core.alert_run_gate.clone()),
             )
             .spawn()
         });
@@ -185,7 +190,8 @@ impl PlatformRuntime {
                     scheduled_pipelines.clone(),
                     pipeline_runs.clone(),
                 )
-                .with_executor(executor),
+                .with_executor(executor)
+                .with_gate(core.alert_run_gate.clone()),
             );
             crate::bootstrap::workers::pipeline_exec::spawn_runner(runner, 15)
         });

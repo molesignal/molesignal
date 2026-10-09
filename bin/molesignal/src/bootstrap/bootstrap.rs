@@ -123,6 +123,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
             synthetics.clone(),
             alerting_runtime.status_pages.clone(),
         )
+        .with_ownership(core.alert_ownership.clone())
         .spawn()
     });
     let _embedded_probe_runner = embedded_probe_agent.map(|agent| {

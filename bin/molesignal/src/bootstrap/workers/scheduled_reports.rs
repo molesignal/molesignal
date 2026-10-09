@@ -4,7 +4,9 @@
 //! scheduled-reports render / deliver / cron tick worker。
 //!
 //! 设计：
-//! - tick 周期 60s；每次扫 `list_enabled_all`，对到期的 report 调 `run_once`。
+//! - tick 周期 60s；每次扫 `list_enabled_all`，对到期且本节点获准运行的 report 调 `run_once`。
+//! - 多个 alert 节点按 report id 分担：开跑前先过 [`RunGate`]（归属 + 运行租约），认领成功后重读
+//!   report 再确认仍然到期，成员变化时同一份报告不会被两个节点各发一遍。
 //! - 到期判定：cron 字段优先解析 `every:Ns/m/h`（与 scheduled-pipelines 一致），
 //!   解析失败则 fallback 到 24h（多数 ops 把 cron 写 `every:24h` 或 `0 0 * * *`，
 //!   完整 5 字段 cron 解析依赖 `cron` crate；上线后再开启）。
@@ -24,6 +26,7 @@ use tokio::task::JoinHandle;
 // 别名为 `render`，保持本文件既有 call sites / 测试不变。
 use crate::infra::reporting::{content_type_for, render_payload as render};
 use crate::{
+    domain::run_claim::{OpenGate, RunGate},
     infra::persistence::repositories::scheduled_reports::{
         DeliveryStatus, ReportDelivery, ReportRecipient, ScheduledReport, ScheduledReportRepository,
     },
@@ -34,6 +37,8 @@ use crate::{
 };
 
 const TICK_SECS: u64 = 60;
+/// 运行租约里这类工作的名字。
+const RUN_KIND: &str = "scheduled_report";
 /// cron 解析失败时 fallback 间隔（24h）。
 const FALLBACK_INTERVAL_SECS: i64 = 24 * 3600;
 fn report_recipient_kind(kind: &str) -> &'static str {
@@ -53,6 +58,8 @@ pub struct ScheduledReportRunner {
     /// `None` 时拒绝 png/pdf 渲染，禁止用 SVG 冒充目标格式。
     renderer: Option<Arc<dyn ReportRenderer>>,
     render_base_url: String,
+    /// 多个 alert 节点分担报告时的准入；默认每份到期的报告都跑。
+    gate: Arc<dyn RunGate>,
 }
 
 impl ScheduledReportRunner {
@@ -72,7 +79,14 @@ impl ScheduledReportRunner {
             object_store,
             renderer,
             render_base_url,
+            gate: Arc::new(OpenGate),
         }
+    }
+
+    /// 与其余 alert 节点分担报告：每份到期的报告开跑前先过 `gate`。
+    pub fn with_gate(mut self, gate: Arc<dyn RunGate>) -> Self {
+        self.gate = gate;
+        self
     }
 
     pub fn spawn(self: Arc<Self>) -> JoinHandle<()> {
@@ -100,11 +114,33 @@ impl ScheduledReportRunner {
         let now = TimestampMicros::now();
         let mut fired = 0usize;
         for r in reports {
-            if is_due(&r, now) {
-                if let Err(e) = self.run_once(&r, now).await {
-                    tracing::warn!(report_id = %r.id.0, error = %e, "report run failed");
+            if !is_due(&r, now) {
+                continue;
+            }
+            // 先认领再执行：归属决定谁来跑，运行租约兜住成员变化时的双跑。
+            let permit = match self.gate.admit(RUN_KIND, r.id.as_str()).await {
+                Ok(Some(permit)) => permit,
+                Ok(None) => continue,
+                Err(e) => {
+                    tracing::warn!(report_id = %r.id.0, error = %e, "report run admission failed");
+                    continue;
                 }
-                fired += 1;
+            };
+            // 认领后重读：另一个节点可能刚跑完并推进了 last_run_at，不能拿列表时的旧快照再发一遍。
+            match self.repo.get_by_id(&r.id).await {
+                Ok(fresh) if fresh.enabled && is_due(&fresh, now) => {
+                    if let Err(e) = self.run_once(&fresh, now).await {
+                        tracing::warn!(report_id = %r.id.0, error = %e, "report run failed");
+                    }
+                    fired += 1;
+                }
+                Ok(_) => {}
+                Err(e) => {
+                    tracing::warn!(report_id = %r.id.0, error = %e, "report reload failed");
+                }
+            }
+            if let Err(e) = permit.release().await {
+                tracing::warn!(report_id = %r.id.0, error = %e, "report run claim release failed");
             }
         }
         Ok(fired)
@@ -415,6 +451,165 @@ mod tests {
         let r = mk_report("png", None, "every:1d");
         let error = runner.render_report(&r).await.unwrap_err();
         assert!(matches!(error, Error::Unavailable(_)));
+    }
+
+    // ───────────── 多个 alert 节点分担报告：运行准入 ─────────────
+
+    /// `list_enabled_all` 返回调用方给定的（可能过期的）快照，`get_by_id` 返回最新的一份；
+    /// 记录 `last_run_at` 的推进次数。
+    struct Reports {
+        snapshot: Vec<ScheduledReport>,
+        fresh: std::sync::Mutex<Vec<ScheduledReport>>,
+        touches: std::sync::atomic::AtomicUsize,
+    }
+
+    impl Reports {
+        fn new(reports: Vec<ScheduledReport>) -> Arc<Self> {
+            Arc::new(Self {
+                snapshot: reports.clone(),
+                fresh: std::sync::Mutex::new(reports),
+                touches: std::sync::atomic::AtomicUsize::new(0),
+            })
+        }
+
+        fn touches(&self) -> usize {
+            self.touches.load(std::sync::atomic::Ordering::SeqCst)
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl ScheduledReportRepository for Reports {
+        async fn create(&self, _r: ScheduledReport) -> Result<ScheduledReport> {
+            unimplemented!()
+        }
+        async fn update(&self, _r: ScheduledReport) -> Result<ScheduledReport> {
+            unimplemented!()
+        }
+        async fn get(&self, _: &Id, id: &Id) -> Result<ScheduledReport> {
+            self.get_by_id(id).await
+        }
+        async fn get_by_id(&self, id: &Id) -> Result<ScheduledReport> {
+            self.fresh
+                .lock()
+                .unwrap()
+                .iter()
+                .find(|r| &r.id == id)
+                .cloned()
+                .ok_or_else(|| Error::not_found("report"))
+        }
+        async fn list(&self, _: &Id) -> Result<Vec<ScheduledReport>> {
+            unimplemented!()
+        }
+        async fn list_enabled_all(&self) -> Result<Vec<ScheduledReport>> {
+            Ok(self.snapshot.clone())
+        }
+        async fn delete(&self, _: &Id, _: &Id) -> Result<()> {
+            unimplemented!()
+        }
+        async fn touch_last_run(&self, id: &Id, ts: TimestampMicros) -> Result<()> {
+            if let Some(r) = self.fresh.lock().unwrap().iter_mut().find(|r| &r.id == id) {
+                r.last_run_at = Some(ts);
+            }
+            self.touches
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            Ok(())
+        }
+        async fn record_delivery(&self, _: ReportDelivery) -> Result<()> {
+            Ok(())
+        }
+        async fn list_deliveries(&self, _: &Id, _: &Id) -> Result<Vec<ReportDelivery>> {
+            Ok(vec![])
+        }
+    }
+
+    fn runner_with_gate(repo: Arc<Reports>, gate: Arc<dyn RunGate>) -> ScheduledReportRunner {
+        let store: Arc<dyn ObjectStore> = Arc::new(object_store::memory::InMemory::new());
+        ScheduledReportRunner::new(repo, store, None, "http://127.0.0.1:5080".into())
+            .with_gate(gate)
+    }
+
+    fn sharded_gate(
+        nodes: &Arc<crate::app::cluster::ownership::test_support::Nodes>,
+        node_id: &str,
+        claims: &Arc<crate::domain::run_claim::MemoryRunClaims>,
+    ) -> Arc<dyn RunGate> {
+        let ownership = crate::app::cluster::WorkOwnership::new(
+            nodes.clone(),
+            node_id,
+            crate::app::cluster::PeerRole::Alert,
+            Duration::ZERO,
+        );
+        Arc::new(crate::app::cluster::ShardedRunGate::new(
+            ownership,
+            claims.clone(),
+            node_id,
+        ))
+    }
+
+    #[tokio::test]
+    async fn a_due_report_runs_once_and_is_not_repeated_from_a_stale_listing() {
+        let repo = Reports::new(vec![mk_report("json", None, "every:1d")]);
+        let nodes = crate::app::cluster::ownership::test_support::Nodes::of(&[(
+            "a",
+            crate::app::cluster::PeerRole::Alert,
+        )]);
+        let claims = Arc::new(crate::domain::run_claim::MemoryRunClaims::default());
+        let runner = runner_with_gate(repo.clone(), sharded_gate(&nodes, "a", &claims));
+
+        assert_eq!(runner.tick_once().await.unwrap(), 1);
+        assert_eq!(repo.touches(), 1);
+        // 列表里的快照仍然显示「从未运行」，但认领后重读发现已经运行过：不会再发一遍。
+        assert_eq!(runner.tick_once().await.unwrap(), 0);
+        assert_eq!(repo.touches(), 1);
+    }
+
+    #[tokio::test]
+    async fn a_report_held_by_another_node_is_not_run() {
+        let report = mk_report("json", None, "every:1d");
+        let repo = Reports::new(vec![report.clone()]);
+        let claims = Arc::new(crate::domain::run_claim::MemoryRunClaims::default());
+        // 两个节点各自只看到自己，都认为自己拥有这份报告。
+        let mine = crate::app::cluster::ownership::test_support::Nodes::of(&[(
+            "b",
+            crate::app::cluster::PeerRole::Alert,
+        )]);
+        let theirs = crate::app::cluster::ownership::test_support::Nodes::of(&[(
+            "a",
+            crate::app::cluster::PeerRole::Alert,
+        )]);
+        let _running_on_a = sharded_gate(&theirs, "a", &claims)
+            .admit(RUN_KIND, report.id.as_str())
+            .await
+            .unwrap()
+            .expect("a claims the report");
+        let runner = runner_with_gate(repo.clone(), sharded_gate(&mine, "b", &claims));
+
+        assert_eq!(runner.tick_once().await.unwrap(), 0);
+        assert_eq!(repo.touches(), 0);
+    }
+
+    #[tokio::test]
+    async fn a_report_owned_by_another_node_is_left_alone() {
+        let reports: Vec<ScheduledReport> = (0..20)
+            .map(|_| mk_report("json", None, "every:1d"))
+            .collect();
+        let repo = Reports::new(reports);
+        let nodes = crate::app::cluster::ownership::test_support::Nodes::of(&[
+            ("a", crate::app::cluster::PeerRole::Alert),
+            ("b", crate::app::cluster::PeerRole::Alert),
+        ]);
+        let claims = Arc::new(crate::domain::run_claim::MemoryRunClaims::default());
+        let on_a = runner_with_gate(repo.clone(), sharded_gate(&nodes, "a", &claims));
+        let on_b = runner_with_gate(repo.clone(), sharded_gate(&nodes, "b", &claims));
+
+        let (ran_a, ran_b) = (
+            on_a.tick_once().await.unwrap(),
+            on_b.tick_once().await.unwrap(),
+        );
+        // 每份报告只被它的 owner 跑一次：两个节点都分到了，合计恰为全部。
+        assert!(ran_a > 0 && ran_b > 0, "{ran_a} + {ran_b}");
+        assert_eq!(ran_a + ran_b, 20);
+        assert_eq!(repo.touches(), 20);
     }
 
     // 一个永远空的 repo 仅供测试构造 runner 用。

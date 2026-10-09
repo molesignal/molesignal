@@ -3,7 +3,7 @@
 
 //! 告警、通知与 dashboard 运行时装配。
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use super::{core::Core, query::QueryRuntime};
 use crate::{
@@ -186,7 +186,8 @@ impl AlertingRuntime {
                 notify_engine.clone(),
             )
             .with_mute_rules(mute_rules.clone())
-            .with_schedules(core.schedules.clone()),
+            .with_schedules(core.schedules.clone())
+            .with_ownership(core.alert_ownership.clone()),
         );
         let incident_groups: Arc<dyn IncidentGroupRepository> =
             Arc::new(PgIncidentGroupRepository::new(core.pool.clone()));
@@ -202,7 +203,12 @@ impl AlertingRuntime {
             )
             .with_grouping(incident_groups.clone(), semantic_groups.clone())
             .with_notify_engine(notify_engine.clone())
-            .with_lifecycle_sink(lifecycle_sink),
+            .with_lifecycle_sink(lifecycle_sink)
+            // 多个 alert 节点按规则分担评估；同一规则两次评估相隔不足半个评估间隔视为同一周期。
+            .with_ownership(core.alert_ownership.clone())
+            .with_cycle_guard(Duration::from_millis(
+                u64::from(settings.alert.eval_interval_secs.max(1)) * 500,
+            )),
         );
         let oncall_events = Arc::new(OncallEventProducer::new(notify_engine.clone(), schedules));
         // 实时规则在接收写入的节点上求值：intake 与 standalone 角色运行匹配器的后台任务。
@@ -221,6 +227,7 @@ impl AlertingRuntime {
                 core.orgs.clone() as Arc<dyn OrganizationRepository>,
                 notify_engine.clone(),
                 oncall_events,
+                core.alert_ownership.clone(),
                 settings.alert.clone(),
             )
         });
@@ -240,6 +247,7 @@ impl AlertingRuntime {
                 status_pages.clone(),
                 Arc::new(StatusPageAssetCleaner::new(core.store.clone())),
             )
+            .with_ownership(core.alert_ownership.clone())
             .spawn()
         });
 

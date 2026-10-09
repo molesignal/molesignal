@@ -3,15 +3,16 @@
 
 //! Bootstrap 基础设施：存储连接、基础 repository、加密与节点角色规划。
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use object_store::ObjectStore;
 
 use crate::{
-    app::cluster::ClusterRegistry,
+    app::cluster::{ClusterRegistry, PeerRole, ShardedRunGate, WorkOwnership},
     config::{Role, Settings},
     domain::{
         iam::{IamPlatformAdministratorRepository, Organization},
+        run_claim::RunGate,
         trace_policy::{TraceDebugTokenRepository, TracePolicyRepository},
     },
     infra::{
@@ -37,6 +38,7 @@ use crate::{
                 incidents::PgIncidentRepository,
                 organizations::PgOrganizationRepository,
                 password_resets::{PasswordResetRepository, PgPasswordResetRepository},
+                run_claims::PgRunClaimRepository,
                 saved_views::PgSavedViewRepository,
                 schedules::PgScheduleRepository,
                 streams::PgStreamRepository,
@@ -101,6 +103,11 @@ pub(super) struct Core {
     pub(super) drain_controller: Arc<DrainController>,
     pub(super) node_id: String,
     pub(super) roles: RolePlan,
+    /// alert 角色下后台工作的分工：多个 alert 节点按规则、报告等分担，单点任务只在主节点运行。
+    /// 不承担 alert 角色的节点持有一个用不到的 solo 实例。
+    pub(super) alert_ownership: Arc<WorkOwnership>,
+    /// 定时报告、定时 pipeline、pull connector 的运行准入：先看归属，再认领运行租约。
+    pub(super) alert_run_gate: Arc<dyn RunGate>,
 }
 
 impl Core {
@@ -228,6 +235,26 @@ impl Core {
             run_alert: is_standalone || settings.node.roles.contains(&Role::Alert),
             run_querier: is_standalone || settings.node.roles.contains(&Role::Querier),
         };
+        // 多个 alert 节点分担后台工作；新节点预热一个存活窗口后才接管。
+        let alert_ownership = if roles.run_alert {
+            let ownership = WorkOwnership::new(
+                registry.clone(),
+                node_id.clone(),
+                PeerRole::Alert,
+                Duration::from_secs(u64::from(settings.cluster.peer_timeout_secs.max(1))),
+            );
+            let _watch = ownership.spawn_watch(Duration::from_secs(u64::from(
+                settings.cluster.heartbeat_interval_secs.max(1),
+            )));
+            ownership
+        } else {
+            WorkOwnership::solo(PeerRole::Alert)
+        };
+        let alert_run_gate: Arc<dyn RunGate> = Arc::new(ShardedRunGate::new(
+            alert_ownership.clone(),
+            Arc::new(PgRunClaimRepository::new(pool.clone())),
+            node_id.clone(),
+        ));
 
         Ok(Self {
             pool,
@@ -268,6 +295,8 @@ impl Core {
             drain_controller,
             node_id,
             roles,
+            alert_ownership,
+            alert_run_gate,
         })
     }
 }

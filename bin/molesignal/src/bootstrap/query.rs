@@ -231,6 +231,7 @@ impl QueryRuntime {
                 self.cluster_secrets.clone(),
                 (settings.grpc.max_message_size_mb as usize).saturating_mul(1024 * 1024),
             )
+            .with_ownership(core.alert_ownership.clone())
             .spawn()
         });
         let _cluster_gossip = core.roles.run_alert.then(|| {
@@ -240,6 +241,7 @@ impl QueryRuntime {
                 self.cluster_org_link.clone(),
                 self.cluster_secrets.clone(),
             )
+            .with_ownership(core.alert_ownership.clone())
             .spawn()
         });
     }

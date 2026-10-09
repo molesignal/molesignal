@@ -4,7 +4,7 @@
 //! 慢查询周期分析 worker：定期遍历各 org 最近的慢查询，跑 [`crate::app::recommendations`]
 //! 启发式引擎，对带 warning/critical 建议的慢查询发结构化日志事件（ops 可见 / 未来可接告警）。
 //!
-//! 单点周期任务（与告警后台同属 alert 角色，只起一份）。分析逻辑复用 app 引擎
+//! 单点周期任务：每个 alert 节点都起，但只有主节点（见 [`WorkOwnership::is_primary`]）执行。分析逻辑复用 app 引擎
 //! （纯函数），worker 只负责编排 + 发事件，不改查询、不写新表。
 
 use std::{sync::Arc, time::Duration};
@@ -12,7 +12,10 @@ use std::{sync::Arc, time::Duration};
 use tokio::task::JoinHandle;
 
 use crate::{
-    app::recommendations::{QueryProfile, RecommendationSeverity, analyze},
+    app::{
+        cluster::{PeerRole, WorkOwnership},
+        recommendations::{QueryProfile, RecommendationSeverity, analyze},
+    },
     domain::{iam::OrganizationRepository, query::SlowQueryRepository},
     shared::Result,
 };
@@ -37,6 +40,8 @@ pub struct SlowQueryAnalyzer {
     orgs: Arc<dyn OrganizationRepository>,
     slow_queries: Arc<dyn SlowQueryRepository>,
     cfg: SlowQueryAnalyzerConfig,
+    /// 只有 alert 主节点做分析；默认不分担（本节点就是主节点）。
+    ownership: Arc<WorkOwnership>,
 }
 
 impl SlowQueryAnalyzer {
@@ -49,7 +54,14 @@ impl SlowQueryAnalyzer {
             orgs,
             slow_queries,
             cfg,
+            ownership: WorkOwnership::solo(PeerRole::Alert),
         }
+    }
+
+    /// 与其余 alert 节点分担：只有主节点做分析。
+    pub fn with_ownership(mut self, ownership: Arc<WorkOwnership>) -> Self {
+        self.ownership = ownership;
+        self
     }
 
     pub fn spawn(self) -> JoinHandle<()> {
@@ -59,6 +71,9 @@ impl SlowQueryAnalyzer {
             tick.tick().await; // skip 首次（与其它周期任务一致）
             loop {
                 tick.tick().await;
+                if !self.ownership.is_primary().await {
+                    continue;
+                }
                 if let Err(e) = self.sweep_once().await {
                     tracing::warn!(error = %e, "slow query analysis sweep failed");
                 }

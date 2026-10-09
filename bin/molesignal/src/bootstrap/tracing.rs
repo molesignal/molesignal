@@ -144,15 +144,16 @@ impl TracingRuntime {
             ApmQueryConfig::from_settings(&settings.apm),
         ));
         let owns_trace_candidates = core.roles.run_intake || core.roles.run_querier;
-        let runs_apm_rollup = core.roles.run_alert;
-        let apm_runtime = (owns_trace_candidates || runs_apm_rollup)
+        // APM rollup 是单点任务：每个 alert 节点都起循环，只有主节点执行。
+        let apm_rollup = core.roles.run_alert.then(|| core.alert_ownership.clone());
+        let apm_runtime = (owns_trace_candidates || apm_rollup.is_some())
             .then(|| {
                 ApmRuntime::start(
                     core.node_id.clone(),
                     apm_repository.clone(),
                     &settings.apm,
                     owns_trace_candidates,
-                    runs_apm_rollup,
+                    apm_rollup,
                 )
             })
             .transpose()?;
@@ -238,6 +239,7 @@ impl TracingRuntime {
                 iam.instance_settings.clone(),
                 crate::bootstrap::workers::service_graph::recompute::ServiceGraphRecomputeConfig::default(),
             )
+            .with_ownership(core.alert_ownership.clone())
             .spawn()
         });
 

@@ -2,6 +2,9 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 //! Role-aware projector and rollup lifecycle.
+//!
+//! The rollup is a singleton job: every alert node starts the loop, but only the alert primary
+//! (see [`WorkOwnership::is_primary`]) runs it.
 
 use std::{
     sync::{
@@ -21,6 +24,7 @@ use super::{
     ApmRollupService, BufferedApmProjector, metrics,
 };
 use crate::{
+    app::cluster::WorkOwnership,
     config::ApmSettings,
     domain::apm::{ApmMaintenanceRepository, ApmRepository, ApmWriteRepository},
     shared::{Result, time::TimestampMicros},
@@ -66,7 +70,7 @@ impl ApmRuntime {
         repository: Arc<R>,
         settings: &ApmSettings,
         run_projector: bool,
-        run_rollup: bool,
+        rollup: Option<Arc<WorkOwnership>>,
     ) -> Result<Arc<Self>>
     where
         R: ApmRepository + 'static,
@@ -83,16 +87,18 @@ impl ApmRuntime {
         };
         let rollup_health = Arc::new(RollupHealth::default());
         let rollup_cancel = CancellationToken::new();
-        let rollup_join = run_rollup.then(|| {
+        let runs_rollup = rollup.is_some();
+        let rollup_join = rollup.map(|ownership| {
             let maintenance: Arc<dyn ApmMaintenanceRepository> = repository;
             spawn_rollup(
                 maintenance,
                 ApmRollupConfig::from_settings(settings),
                 rollup_health.clone(),
                 rollup_cancel.clone(),
+                ownership,
             )
         });
-        if run_rollup {
+        if runs_rollup {
             metrics::set_health("rollup", true);
         }
         Ok(Arc::new(Self {
@@ -152,6 +158,7 @@ fn spawn_rollup(
     config: ApmRollupConfig,
     health: Arc<RollupHealth>,
     cancel: CancellationToken,
+    ownership: Arc<WorkOwnership>,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
         let service = ApmRollupService::new(repository, config.clone());
@@ -161,6 +168,10 @@ fn spawn_rollup(
             tokio::select! {
                 _ = cancel.cancelled() => break,
                 _ = tick.tick() => {
+                    // 单点任务：非主节点跳过这一轮。
+                    if !ownership.is_primary().await {
+                        continue;
+                    }
                     let now = TimestampMicros::now();
                     match service.run_once(now).await {
                         Ok(run) => {

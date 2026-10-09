@@ -13,12 +13,19 @@
 
 use std::{
     collections::{BTreeMap, HashMap},
-    sync::{Arc, Mutex as StdMutex},
+    sync::{
+        Arc, Mutex as StdMutex,
+        atomic::{AtomicUsize, Ordering},
+    },
+    time::Duration,
 };
 
 use async_trait::async_trait;
 use molesignal::{
-    app::alerting::{AlertingService, RuleEvaluator},
+    app::{
+        alerting::{AlertingService, RuleEvaluator},
+        cluster::{ClusterRegistry, PeerInfo, PeerRole, WorkOwnership},
+    },
     domain::{
         alerting::{
             anomaly::AnomalyParams,
@@ -29,7 +36,10 @@ use molesignal::{
                 AlertRuleEvalState, AlertRuleEvalStateRepository, AlertRuleRepository,
                 EscalationPolicyRepository, IncidentRepository, ScheduleRepository,
             },
-            rule::{AlertQuery, AlertRule, AlertRuleKind, AlertTrigger, ComparisonOp, RuleState},
+            rule::{
+                AlertQuery, AlertRule, AlertRuleKind, AlertTrigger, ComparisonOp, RuleState,
+                SeverityThreshold,
+            },
             schedule::Schedule,
             semantic_group::{LabelMatcher, MatchOp, SemanticGroup, SemanticGroupRepository},
         },
@@ -195,6 +205,26 @@ struct InMemEvalState {
 }
 #[async_trait]
 impl AlertRuleEvalStateRepository for InMemEvalState {
+    async fn claim_cycle(
+        &self,
+        rule_id: &Id,
+        eval_at: TimestampMicros,
+        min_gap_micros: i64,
+    ) -> Result<bool> {
+        let mut g = self.inner.lock().unwrap();
+        let state = g.entry(rule_id.0.clone()).or_insert(AlertRuleEvalState {
+            rule_id: rule_id.clone(),
+            consecutive_matches: 0,
+            last_eval_at: TimestampMicros(i64::MIN / 2),
+            last_matched: false,
+            severity_streaks: Default::default(),
+        });
+        if state.last_eval_at.0 > eval_at.0 - min_gap_micros {
+            return Ok(false);
+        }
+        state.last_eval_at = eval_at;
+        Ok(true)
+    }
     async fn upsert_match(
         &self,
         rule_id: &Id,
@@ -1168,4 +1198,250 @@ async fn promql_rules_are_evaluated_by_the_promql_engine() {
     assert_eq!(all.len(), 1);
     let query = all[0].triggering_query.as_ref().expect("triggering query");
     assert_eq!(query.language, QueryLanguage::Promql);
+}
+
+// ───────────────── 多个 alert 节点分担评估 ─────────────────
+
+/// 固定成员表：节点只看到表里的 alert 节点。
+struct AlertMembers(Vec<PeerInfo>);
+
+#[async_trait]
+impl ClusterRegistry for AlertMembers {
+    async fn list_role(&self, _role: PeerRole) -> Vec<PeerInfo> {
+        self.0.clone()
+    }
+}
+
+fn alert_members(node_ids: &[&str]) -> Arc<AlertMembers> {
+    Arc::new(AlertMembers(
+        node_ids
+            .iter()
+            .map(|node_id| PeerInfo {
+                node_id: (*node_id).into(),
+                advertise_addr: format!("{node_id}:5082"),
+                roles: vec![PeerRole::Alert],
+            })
+            .collect(),
+    ))
+}
+
+/// 不需要预热的归属：测试里节点一加入就拥有自己的 key。
+fn ownership(members: &Arc<AlertMembers>, node_id: &str) -> Arc<WorkOwnership> {
+    WorkOwnership::new(members.clone(), node_id, PeerRole::Alert, Duration::ZERO)
+}
+
+/// 总返回同一个值、并记录被调用次数的引擎。
+struct ConstantEngine {
+    value: f64,
+    calls: AtomicUsize,
+}
+
+impl ConstantEngine {
+    fn new(value: f64) -> Arc<Self> {
+        Arc::new(Self {
+            value,
+            calls: AtomicUsize::new(0),
+        })
+    }
+
+    fn calls(&self) -> usize {
+        self.calls.load(Ordering::SeqCst)
+    }
+}
+
+#[async_trait]
+impl QueryEngine for ConstantEngine {
+    async fn execute(&self, _req: QueryRequest) -> Result<QueryResult> {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        Ok(QueryResult {
+            columns: vec!["v".into()],
+            rows: vec![vec![serde_json::json!(self.value)]],
+            scanned_rows: 1,
+            took_ms: 0,
+            federation: None,
+        })
+    }
+}
+
+fn rules_named(count: usize) -> Arc<InMemRules> {
+    let rules = (0..count)
+        .map(|index| {
+            let mut rule = sample_rule();
+            rule.id = Id::from_string(format!("rule-{index}"));
+            rule
+        })
+        .collect();
+    Arc::new(InMemRules {
+        inner: StdMutex::new(rules),
+    })
+}
+
+async fn matches_of(eval_state: &InMemEvalState, rule_id: &str) -> u32 {
+    eval_state
+        .get(&Id::from_string(rule_id))
+        .await
+        .unwrap()
+        .map_or(0, |state| state.consecutive_matches)
+}
+
+#[tokio::test]
+async fn alert_nodes_split_the_rules_between_them() {
+    let rules = rules_named(30);
+    let incidents = Arc::new(InMemIncidents::default());
+    let eval_state = Arc::new(InMemEvalState::default());
+    let members = alert_members(&["alert-a", "alert-b"]);
+    let engines = [ConstantEngine::new(15.0), ConstantEngine::new(15.0)];
+    let evaluators: Vec<RuleEvaluator> = ["alert-a", "alert-b"]
+        .iter()
+        .zip(&engines)
+        .map(|(node_id, engine)| {
+            RuleEvaluator::new(
+                rules.clone(),
+                incidents.clone(),
+                eval_state.clone(),
+                engine.clone(),
+                10,
+            )
+            .with_ownership(ownership(&members, node_id))
+        })
+        .collect();
+
+    for evaluator in &evaluators {
+        evaluator
+            .tick(TimestampMicros(1_000_000_000))
+            .await
+            .unwrap();
+    }
+
+    // 每条规则只被它的 owner 评估一次；两个节点都分到了规则。
+    let (on_a, on_b) = (engines[0].calls(), engines[1].calls());
+    assert_eq!(on_a + on_b, 30, "{on_a} + {on_b}");
+    assert!(on_a > 0 && on_b > 0, "{on_a} + {on_b}");
+    for index in 0..30 {
+        assert_eq!(matches_of(&eval_state, &format!("rule-{index}")).await, 1);
+    }
+}
+
+#[tokio::test]
+async fn a_departed_node_hands_its_rules_to_the_survivor() {
+    let rules = rules_named(30);
+    let eval_state = Arc::new(InMemEvalState::default());
+    let engine = ConstantEngine::new(15.0);
+    // 只剩 alert-a 一个成员：它拥有全部规则，包括原先归 alert-b 的那一半。
+    let survivor = RuleEvaluator::new(
+        rules,
+        Arc::new(InMemIncidents::default()),
+        eval_state,
+        engine.clone(),
+        10,
+    )
+    .with_ownership(ownership(&alert_members(&["alert-a"]), "alert-a"));
+
+    survivor.tick(TimestampMicros(1_000_000_000)).await.unwrap();
+
+    assert_eq!(engine.calls(), 30);
+}
+
+/// 两个节点各自只看到自己，都认为自己拥有规则：成员变化窗口里的双跑。
+fn overlapping_evaluators(
+    rules: &Arc<InMemRules>,
+    incidents: &Arc<InMemIncidents>,
+    eval_state: &Arc<InMemEvalState>,
+    engine: &Arc<ConstantEngine>,
+    cycle_guard: Option<Duration>,
+) -> [RuleEvaluator; 2] {
+    ["alert-a", "alert-b"].map(|node_id| {
+        let evaluator = RuleEvaluator::new(
+            rules.clone(),
+            incidents.clone(),
+            eval_state.clone(),
+            engine.clone(),
+            10,
+        )
+        .with_ownership(ownership(&alert_members(&[node_id]), node_id));
+        match cycle_guard {
+            Some(gap) => evaluator.with_cycle_guard(gap),
+            None => evaluator,
+        }
+    })
+}
+
+#[tokio::test]
+async fn an_overlapping_cycle_is_counted_once_with_the_cycle_guard() {
+    let rules = rules_named(1);
+    let incidents = Arc::new(InMemIncidents::default());
+    let eval_state = Arc::new(InMemEvalState::default());
+    let engine = ConstantEngine::new(15.0);
+    let [a, b] = overlapping_evaluators(
+        &rules,
+        &incidents,
+        &eval_state,
+        &engine,
+        Some(Duration::from_secs(15)),
+    );
+    let t0 = 1_000_000_000;
+    let at = |seconds: i64| TimestampMicros(t0 + seconds * 1_000_000);
+
+    a.tick(at(0)).await.unwrap();
+    // 5 秒后另一个节点也评估同一条规则：属于同一个周期，不计数、也不再执行查询。
+    b.tick(at(5)).await.unwrap();
+    assert_eq!(matches_of(&eval_state, "rule-0").await, 1);
+    assert_eq!(engine.calls(), 1);
+    assert!(incidents.inner.lock().unwrap().is_empty());
+
+    // 下一个周期（相隔一个评估间隔）正常计数：for_periods = 2 达成，开事件。
+    b.tick(at(30)).await.unwrap();
+    assert_eq!(matches_of(&eval_state, "rule-0").await, 2);
+    assert_eq!(incidents.inner.lock().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn without_the_cycle_guard_an_overlapping_cycle_is_counted_twice() {
+    let rules = rules_named(1);
+    let incidents = Arc::new(InMemIncidents::default());
+    let eval_state = Arc::new(InMemEvalState::default());
+    let engine = ConstantEngine::new(15.0);
+    let [a, b] = overlapping_evaluators(&rules, &incidents, &eval_state, &engine, None);
+
+    a.tick(TimestampMicros(1_000_000_000)).await.unwrap();
+    b.tick(TimestampMicros(1_005_000_000)).await.unwrap();
+
+    // 守卫要挡住的正是这种情况：同一个周期被算成两次，for_periods 被提前耗尽。
+    assert_eq!(matches_of(&eval_state, "rule-0").await, 2);
+    assert_eq!(incidents.inner.lock().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn multi_tier_rules_are_counted_once_per_cycle_too() {
+    let mut rule = sample_rule();
+    rule.thresholds = vec![SeverityThreshold {
+        severity: Severity::Warning,
+        operator: ComparisonOp::Gt,
+        threshold: 10.0,
+        for_periods: 3,
+    }];
+    let rules = Arc::new(InMemRules {
+        inner: StdMutex::new(vec![rule]),
+    });
+    let incidents = Arc::new(InMemIncidents::default());
+    let eval_state = Arc::new(InMemEvalState::default());
+    let engine = ConstantEngine::new(15.0);
+    let [a, b] = overlapping_evaluators(
+        &rules,
+        &incidents,
+        &eval_state,
+        &engine,
+        Some(Duration::from_secs(15)),
+    );
+
+    a.tick(TimestampMicros(1_000_000_000)).await.unwrap();
+    b.tick(TimestampMicros(1_005_000_000)).await.unwrap();
+
+    let state = eval_state
+        .get(&Id::from_string("rule-1"))
+        .await
+        .unwrap()
+        .expect("state row");
+    assert_eq!(state.consecutive_matches, 1);
+    assert_eq!(state.severity_streaks.values().sum::<u32>(), 1);
 }

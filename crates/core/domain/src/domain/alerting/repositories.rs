@@ -28,6 +28,17 @@ pub struct AlertRuleEvalState {
 
 #[async_trait]
 pub trait AlertRuleEvalStateRepository: Send + Sync {
+    /// 认领某规则的本轮评估，保证同一个评估周期的命中只被计一次。
+    ///
+    /// 距上一次认领不足 `min_gap_micros` 时返回 `false`：这个周期已被另一个节点评估过（成员变化
+    /// 的短暂窗口里两个节点同时拥有这条规则），调用方跳过本轮。否则把 `last_eval_at` 推进到
+    /// `eval_at` 并返回 `true`。`last_eval_at` 只会前进，晚到的旧认领不会把它拨回去。
+    async fn claim_cycle(
+        &self,
+        rule_id: &Id,
+        eval_at: TimestampMicros,
+        min_gap_micros: i64,
+    ) -> Result<bool>;
     /// 一次评估完后 upsert：matched=true 时累加 consecutive_matches，否则清零。
     async fn upsert_match(
         &self,

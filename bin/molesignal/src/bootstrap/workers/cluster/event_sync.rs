@@ -4,7 +4,7 @@
 //! 跨集群事件总线的**发送端** worker：周期把本地 outbox 里未投递的 CloudEvent
 //! 推到配了 org 映射的远端集群。
 //!
-//! 单点周期任务（alert 角色，只起一份）。每 tick：
+//! 单点周期任务：每个 alert 节点都起，但只有主节点（见 [`WorkOwnership::is_primary`]）执行。每 tick：
 //! 1. 遍历每个 enabled remote cluster C：按 C 的 org 映射取本地可发 org 的未投递事件
 //!    （`acked_seq` 游标之后），**按 org 分组、各用该 org 的 per-org token** 经
 //!    [`EventServiceClient`] 推过去；全组成功才推进 C 的投递游标（部分失败下 tick 重投，
@@ -24,6 +24,7 @@ use std::{
 use tokio::task::JoinHandle;
 
 use crate::{
+    app::cluster::{PeerRole, WorkOwnership},
     domain::iam::InstanceSettingsRepository,
     infra::{
         cluster::{
@@ -85,6 +86,8 @@ pub struct ClusterEventSync {
     seen_events: Arc<dyn SeenEventsRepository>,
     secrets: Arc<dyn ClusterSecretRepository>,
     max_message_size: usize,
+    /// 只有 alert 主节点推送事件；默认不分担（本节点就是主节点）。
+    ownership: Arc<WorkOwnership>,
 }
 
 impl ClusterEventSync {
@@ -106,7 +109,14 @@ impl ClusterEventSync {
             seen_events,
             secrets,
             max_message_size,
+            ownership: WorkOwnership::solo(PeerRole::Alert),
         }
+    }
+
+    /// 与其余 alert 节点分担：只有主节点推送事件。
+    pub fn with_ownership(mut self, ownership: Arc<WorkOwnership>) -> Self {
+        self.ownership = ownership;
+        self
     }
 
     pub fn spawn(self) -> JoinHandle<()> {
@@ -121,6 +131,9 @@ impl ClusterEventSync {
                 .max(1) as u64;
             loop {
                 tokio::time::sleep(Duration::from_secs(interval)).await;
+                if !self.ownership.is_primary().await {
+                    continue;
+                }
                 let settings = match self.instance_settings.get().await {
                     Ok(s) => s,
                     Err(e) => {

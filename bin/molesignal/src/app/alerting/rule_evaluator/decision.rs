@@ -94,7 +94,8 @@ impl RuleEvaluator {
     }
 
     /// 多档阈值评估：逐档比较首格值、每档独立去抖（severity_streaks），取最高命中档。
-    /// read-modify-write 依赖 alert 角色单实例运行（spawn_alert_loops 单进程）。
+    /// 读-改-写要求同一周期只有一个节点评估这条规则：多个 alert 节点按 `rule_id` 分担，
+    /// 交接时的重叠由周期守卫（`claim_cycle`，见 `RuleEvaluator::eval_one`）挡住。
     async fn eval_thresholds(
         &self,
         rule: &AlertRule,

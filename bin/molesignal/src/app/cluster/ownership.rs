@@ -13,6 +13,9 @@
 //!
 //! - 只有出现在视图里的节点才拥有 key：心跳过期的节点已被其余节点接管，不再处理任何工作。
 //! - 节点进入视图后先预热一个存活窗口再接管 key，让其余节点先看到它并让出这些 key。
+//!
+//! 只能单点运行的任务没有天然的 key，对常量 [`PRIMARY_KEY`] 求 owner：同一时刻只有一个节点是
+//! 主节点（[`WorkOwnership::is_primary`]），主节点离开后由其余节点中的一个接任。
 
 use std::{
     sync::{Arc, OnceLock},
@@ -23,8 +26,14 @@ use parking_lot::Mutex;
 use prometheus::IntGaugeVec;
 use tokio::{task::JoinHandle, time::MissedTickBehavior};
 
-use super::{ClusterRegistry, PeerRole};
+use super::{ClusterRegistry, PeerRole, StandaloneRegistry};
 use crate::shared::{metrics::register_int_gauge_vec, rendezvous};
+
+/// 单点任务用来求主节点的 key。
+pub const PRIMARY_KEY: &str = "primary";
+
+/// 归属指标里主节点那一项的名字：本节点是主节点时为 1，否则为 0。
+const PRIMARY_WORK: &str = "primary";
 
 /// 一个角色名下后台工作的归属判定。
 pub struct WorkOwnership {
@@ -53,10 +62,25 @@ impl WorkOwnership {
         })
     }
 
+    /// 不分担工作：本节点拥有全部 key，也不用预热。单进程运行与测试用。
+    pub fn solo(role: PeerRole) -> Arc<Self> {
+        Self::new(
+            StandaloneRegistry::new(""),
+            "standalone",
+            role,
+            Duration::ZERO,
+        )
+    }
+
     /// 本节点此刻是否拥有 `key`。每个工作单元开始前调用一次，耗时很长的一轮扫描才能在成员
     /// 变化后及时让出或接管。
     pub async fn owns(&self, key: &str) -> bool {
         self.view().await.owns(key)
+    }
+
+    /// 本节点此刻是否是主节点。只能单点运行的任务每轮开始前调用；非主节点跳过这一轮。
+    pub async fn is_primary(&self) -> bool {
+        self.owns(PRIMARY_KEY).await
     }
 
     /// 读取当前成员视图。
@@ -123,6 +147,9 @@ impl WorkOwnership {
                 active_gauge()
                     .with_label_values(&[role])
                     .set(i64::from(view.active));
+                owned_units()
+                    .with_label_values(&[role, PRIMARY_WORK])
+                    .set(i64::from(view.owns(PRIMARY_KEY)));
                 if last.as_ref() != Some(&view) {
                     tracing::info!(
                         role,

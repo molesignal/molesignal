@@ -1050,6 +1050,16 @@ CREATE INDEX IF NOT EXISTS idx_cluster_nodes_role
 CREATE INDEX IF NOT EXISTS idx_cluster_nodes_last_heartbeat
     ON cluster_nodes(last_heartbeat_at_micros);
 
+-- 后台工作单元（定时报告、定时 pipeline、pull connector）的运行租约：开跑前认领，跑完释放。
+-- 节点崩溃后租约到期，由别的节点重跑。
+CREATE TABLE IF NOT EXISTS run_claims (
+    kind                  VARCHAR(64)  NOT NULL,
+    claim_key             VARCHAR(128) NOT NULL,
+    holder                VARCHAR(255) NOT NULL,
+    claimed_until_micros  BIGINT       NOT NULL,
+    PRIMARY KEY (kind, claim_key)
+);
+
 CREATE TABLE IF NOT EXISTS cipher_keys (
     id                 VARCHAR(64)  PRIMARY KEY,
     org_id             VARCHAR(64)  NOT NULL,

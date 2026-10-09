@@ -5,7 +5,8 @@
 //! 对尚无 RCA 的，调 LLM 产出根因摘要写回 `incident_rca`。生成逻辑复用
 //! [`crate::api::rca::RcaGenerator`]（与 HTTP 按需触发同源，不漂移）。
 //!
-//! 单点周期任务（与告警后台同属 alert 角色，只起一份）。RCA 是 agent 能力 ——
+//! 单点周期任务：每个 alert 节点都起，但只有主节点（见 [`WorkOwnership::is_primary`]）执行，否则
+//! 同一个 incident 会被多个节点各调一次模型。RCA 是 agent 能力 ——
 
 //! 无可用 provider 的 org 直接跳过；已有 RCA 的 incident 不重复生成。失败仅 warn、下个
 //! tick 自然重试（不落失败行）。
@@ -16,6 +17,7 @@ use tokio::task::JoinHandle;
 
 use crate::{
     api::rca::{RcaGenerator, RcaOutputLocale},
+    app::cluster::{PeerRole, WorkOwnership},
     domain::{
         alerting::repositories::IncidentRepository,
         iam::{IamMembershipRepository, OrganizationRepository},
@@ -48,6 +50,8 @@ pub struct RcaSweeper {
 
     generator: Arc<RcaGenerator>,
     cfg: RcaSweeperConfig,
+    /// 只有 alert 主节点生成 RCA；默认不分担（本节点就是主节点）。
+    ownership: Arc<WorkOwnership>,
 }
 
 impl RcaSweeper {
@@ -68,7 +72,14 @@ impl RcaSweeper {
 
             generator,
             cfg,
+            ownership: WorkOwnership::solo(PeerRole::Alert),
         }
+    }
+
+    /// 与其余 alert 节点分担：只有主节点生成 RCA。
+    pub fn with_ownership(mut self, ownership: Arc<WorkOwnership>) -> Self {
+        self.ownership = ownership;
+        self
     }
 
     pub fn spawn(self) -> JoinHandle<()> {
@@ -78,6 +89,9 @@ impl RcaSweeper {
             tick.tick().await; // skip 首次（与其它周期任务一致）
             loop {
                 tick.tick().await;
+                if !self.ownership.is_primary().await {
+                    continue;
+                }
                 if let Err(e) = self.sweep_once().await {
                     tracing::warn!(error = %e, "rca sweep failed");
                 }

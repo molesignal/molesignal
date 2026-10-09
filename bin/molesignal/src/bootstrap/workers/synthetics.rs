@@ -7,7 +7,11 @@ use tokio::task::JoinHandle;
 
 use super::polling::PollingBackoff;
 use crate::{
-    app::{status_page::StatusPageService, synthetics::SyntheticService},
+    app::{
+        cluster::{PeerRole, WorkOwnership},
+        status_page::StatusPageService,
+        synthetics::SyntheticService,
+    },
     shared::{Result, time::TimestampMicros},
 };
 
@@ -15,10 +19,13 @@ mod embedded;
 
 pub use embedded::EmbeddedProbeRunner;
 
+/// 合成监控自动化：只在 alert 主节点上运行（见 [`WorkOwnership::is_primary`]）。
 pub struct SyntheticAutomationWorker {
     synthetics: Arc<SyntheticService>,
     status_pages: Arc<StatusPageService>,
     interval: Duration,
+    /// 默认不分担（本节点就是主节点）。
+    ownership: Arc<WorkOwnership>,
 }
 
 impl SyntheticAutomationWorker {
@@ -27,7 +34,14 @@ impl SyntheticAutomationWorker {
             synthetics,
             status_pages,
             interval: Duration::from_secs(2),
+            ownership: WorkOwnership::solo(PeerRole::Alert),
         }
+    }
+
+    /// 与其余 alert 节点分担：只有主节点做自动化。
+    pub fn with_ownership(mut self, ownership: Arc<WorkOwnership>) -> Self {
+        self.ownership = ownership;
+        self
     }
 
     pub fn spawn(self) -> JoinHandle<()> {
@@ -39,6 +53,11 @@ impl SyntheticAutomationWorker {
             );
             loop {
                 tokio::time::sleep(backoff.next_delay()).await;
+                if !self.ownership.is_primary().await {
+                    // 非主节点保持基础轮询间隔，接任主节点后立刻按正常节奏工作。
+                    backoff.reset();
+                    continue;
+                }
                 match self.sweep_once().await {
                     Ok(work) if work > 0 => backoff.reset(),
                     Ok(_) => {}

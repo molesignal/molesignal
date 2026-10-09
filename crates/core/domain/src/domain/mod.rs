@@ -32,6 +32,7 @@ pub mod notify;
 pub mod pipeline;
 pub mod query;
 pub mod rum;
+pub mod run_claim;
 pub mod saved_view;
 pub mod status_page;
 pub mod storage;

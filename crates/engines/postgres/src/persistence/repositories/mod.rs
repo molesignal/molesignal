@@ -40,6 +40,7 @@ pub mod pipelines;
 pub mod regex_patterns;
 pub mod report_templates;
 pub mod resource_shares;
+pub mod run_claims;
 pub mod saved_views;
 pub mod scheduled_reports;
 pub mod schedules;

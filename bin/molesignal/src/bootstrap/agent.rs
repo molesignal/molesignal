@@ -87,6 +87,7 @@ impl AgentRuntime {
                 slow_queries.clone(),
                 crate::bootstrap::workers::slow_query_analyzer::SlowQueryAnalyzerConfig::default(),
             )
+            .with_ownership(core.alert_ownership.clone())
             .spawn()
         });
         let rca_generator = Arc::new(crate::api::rca::RcaGenerator::new(
@@ -104,6 +105,7 @@ impl AgentRuntime {
                 rca_generator,
                 crate::bootstrap::workers::rca_sweeper::RcaSweeperConfig::default(),
             )
+            .with_ownership(core.alert_ownership.clone())
             .spawn()
         });
 

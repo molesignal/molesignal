@@ -3,7 +3,8 @@
 
 //! gossip 节点发现 worker（#12 super-cluster leader）。
 //!
-//! 单点周期任务（alert 角色）。每 tick 与每个 **enabled** peer 交换"已知集群"
+//! 单点周期任务：每个 alert 节点都起，但只有主节点（见 [`WorkOwnership::is_primary`]）执行。
+//! 每 tick 与每个 **enabled** peer 交换"已知集群"
 //! 拓扑（仅 id/name/addr，**绝不**传 token / org 映射）：对端回传的未知集群入库为
 //! `discovered=true, enabled=false` —— admin 在 clusters 页看到后手动启用 + 填 token +
 //! 配 org_map 才生效（自动发现拓扑、不自动信任）。
@@ -17,6 +18,7 @@ use std::{collections::HashSet, sync::Arc, time::Duration};
 use tokio::task::JoinHandle;
 
 use crate::{
+    app::cluster::{PeerRole, WorkOwnership},
     domain::iam::InstanceSettingsRepository,
     infra::{
         cluster::{
@@ -37,6 +39,8 @@ pub struct ClusterGossip {
     remote_clusters: Arc<dyn RemoteClustersRepository>,
     org_links: Arc<dyn ClusterOrgLinkRepository>,
     secrets: Arc<dyn ClusterSecretRepository>,
+    /// 只有 alert 主节点做 gossip；默认不分担（本节点就是主节点）。
+    ownership: Arc<WorkOwnership>,
 }
 
 impl ClusterGossip {
@@ -51,7 +55,14 @@ impl ClusterGossip {
             remote_clusters,
             org_links,
             secrets,
+            ownership: WorkOwnership::solo(PeerRole::Alert),
         }
+    }
+
+    /// 与其余 alert 节点分担：只有主节点做 gossip。
+    pub fn with_ownership(mut self, ownership: Arc<WorkOwnership>) -> Self {
+        self.ownership = ownership;
+        self
     }
 
     pub fn spawn(self) -> JoinHandle<()> {
@@ -65,6 +76,9 @@ impl ClusterGossip {
                 .max(1) as u64;
             loop {
                 tokio::time::sleep(Duration::from_secs(interval)).await;
+                if !self.ownership.is_primary().await {
+                    continue;
+                }
                 let settings = match self.instance_settings.get().await {
                     Ok(s) => s,
                     Err(e) => {

@@ -5,7 +5,7 @@
 //!
 //! 跨节点正确性方案：路由层无法按 trace_id 分片（批量转发不解析、一批混多 trace），故同一 trace
 //! 的父子 span 可能落到不同 intake 节点、各自的内存聚合器配不上对。本 worker 作为**单例**
-//! （alert 角色）周期从**共享存储**重算——查询近窗口的 trace span（此时见到完整集合，
+//! （每个 alert 节点都起，只有主节点执行）周期从**共享存储**重算——查询近窗口的 trace span（此时见到完整集合，
 //! 无视哪个节点接入），复用 [`ServiceGraphAggregator`] 配对出 caller→callee 边，**先删后插**
 //! 窗口内的边实现幂等（重算覆盖、含晚到 span）。
 //!
@@ -17,7 +17,10 @@ use std::{sync::Arc, time::Duration};
 use tokio::task::JoinHandle;
 
 use crate::{
-    app::query::QueryService,
+    app::{
+        cluster::{PeerRole, WorkOwnership},
+        query::QueryService,
+    },
     domain::{
         iam::{InstanceSettingsRepository, OrganizationRepository},
         query::{QueryLanguage, QueryRequest, StreamHint},
@@ -60,6 +63,8 @@ pub struct ServiceGraphRecomputer {
     repo: Arc<dyn ServiceGraphRepository>,
     instance_settings: Arc<dyn InstanceSettingsRepository>,
     cfg: ServiceGraphRecomputeConfig,
+    /// 只有 alert 主节点重算；默认不分担（本节点就是主节点）。
+    ownership: Arc<WorkOwnership>,
 }
 
 impl ServiceGraphRecomputer {
@@ -78,7 +83,14 @@ impl ServiceGraphRecomputer {
             repo,
             instance_settings,
             cfg,
+            ownership: WorkOwnership::solo(PeerRole::Alert),
         }
+    }
+
+    /// 与其余 alert 节点分担：只有主节点重算。
+    pub fn with_ownership(mut self, ownership: Arc<WorkOwnership>) -> Self {
+        self.ownership = ownership;
+        self
     }
 
     pub fn spawn(self) -> JoinHandle<()> {
@@ -86,6 +98,9 @@ impl ServiceGraphRecomputer {
             let mut tick = tokio::time::interval(Duration::from_secs(self.cfg.interval_secs));
             loop {
                 tick.tick().await;
+                if !self.ownership.is_primary().await {
+                    continue;
+                }
                 if let Err(e) = self.recompute_once().await {
                     tracing::warn!(error = %e, "service graph recompute failed");
                 }

@@ -3,9 +3,11 @@
 
 //! Compatibility façade for the cluster discovery domain port.
 
+pub mod gate;
 pub mod ownership;
 pub mod registry;
 
-pub use ownership::{OwnershipView, WorkOwnership};
+pub use gate::{ShardedRunGate, record_overlap_skipped};
+pub use ownership::{OwnershipView, PRIMARY_KEY, WorkOwnership};
 
 pub use crate::domain::cluster::*;
