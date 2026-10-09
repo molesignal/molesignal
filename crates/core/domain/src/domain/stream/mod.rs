@@ -35,9 +35,9 @@ pub fn validate_stream_name(name: &str) -> Result<()> {
         .chars()
         .all(|character| character.is_ascii_alphanumeric() || matches!(character, '_' | '-' | '.'))
     {
-        return Err(Error::invalid(
-            "stream name may only contain letters, numbers, '_', '-' and '.'",
-        ));
+        return Err(Error::invalid(format!(
+            "stream name `{name}` may only contain letters, numbers, '_', '-' and '.'"
+        )));
     }
     Ok(())
 }

@@ -32,11 +32,8 @@ use super::{
     polling::PollingBackoff,
 };
 use crate::{
-    app::query::QueryService,
-    domain::{
-        intake::IntakeSink,
-        query::{QueryRequest, QueryResult},
-    },
+    app::{intake::IntakeService, query::QueryService},
+    domain::query::{QueryRequest, QueryResult},
     infra::{
         connectors::{ConnectorDispatcher, ConnectorRepository},
         persistence::repositories::search::jobs::{SearchJob, SearchJobRepository},
@@ -76,7 +73,7 @@ pub struct SearchJobScheduler {
     /// backfill 任务（request_json 带 `pipeline_id`）执行编排需要的依赖：取 pipeline 定义、
     /// 写目标 stream、egress connector。
     scheduled_pipelines: Arc<dyn ScheduledPipelineRepository>,
-    intake_sink: Arc<dyn IntakeSink>,
+    intake: Arc<IntakeService>,
     connectors: Arc<dyn ConnectorRepository>,
     dispatcher: Arc<dyn ConnectorDispatcher>,
     cfg: SearchJobSchedulerConfig,
@@ -89,7 +86,7 @@ impl SearchJobScheduler {
         query: Arc<QueryService>,
         object_store: Arc<dyn ObjectStore>,
         scheduled_pipelines: Arc<dyn ScheduledPipelineRepository>,
-        intake_sink: Arc<dyn IntakeSink>,
+        intake: Arc<IntakeService>,
         connectors: Arc<dyn ConnectorRepository>,
         dispatcher: Arc<dyn ConnectorDispatcher>,
         cfg: SearchJobSchedulerConfig,
@@ -99,7 +96,7 @@ impl SearchJobScheduler {
             query,
             object_store,
             scheduled_pipelines,
-            intake_sink,
+            intake,
             connectors,
             dispatcher,
             cfg,
@@ -327,7 +324,7 @@ impl SearchJobScheduler {
         let vrl = VrlRuntime::new();
         let outcome = match transform_and_sink(
             &vrl,
-            self.intake_sink.as_ref(),
+            self.intake.as_ref(),
             self.connectors.as_ref(),
             self.dispatcher.as_ref(),
             &job.org_id,

@@ -268,18 +268,26 @@ impl StreamRepository for PgStreamRepository {
         .bind(&org_id.0)
         .bind(name)
         .bind(stream_type_to_str(stream_type))
-        .fetch_one(&self.pool)
+        .fetch_optional(&self.pool)
         .await
-        .map_err(sqlx_err)?;
+        .map_err(sqlx_err)?
+        // 不能让调用方只看到 `row not found`：要说清是哪个流不存在。
+        .ok_or_else(|| {
+            Error::not_found(format!(
+                "stream `{name}` of type `{}` does not exist",
+                stream_type.as_str()
+            ))
+        })?;
         row_to_stream(row)
     }
 
     async fn get_by_id(&self, id: &Id) -> Result<StreamDefinition> {
         let row = sqlx::query(&format!("SELECT {COLS} FROM logical_streams WHERE id = $1"))
             .bind(&id.0)
-            .fetch_one(&self.pool)
+            .fetch_optional(&self.pool)
             .await
-            .map_err(sqlx_err)?;
+            .map_err(sqlx_err)?
+            .ok_or_else(|| Error::not_found(format!("stream {}", id.0)))?;
         row_to_stream(row)
     }
 

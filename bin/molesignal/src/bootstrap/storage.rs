@@ -46,7 +46,6 @@ use crate::{
 };
 
 pub(super) struct StorageRuntime {
-    pub(super) worker: Arc<IntakeWorker>,
     pub(super) probe: Arc<Probe>,
     pub(super) intake: Arc<IntakeService>,
     pub(super) profile_storage: Arc<ProfileStorageService>,
@@ -329,7 +328,6 @@ impl StorageRuntime {
         });
 
         Ok(Self {
-            worker,
             probe,
             intake,
             profile_storage,

@@ -96,7 +96,7 @@ impl PlatformRuntime {
                     query.query.clone(),
                     core.store.clone(),
                     scheduled_pipelines.clone(),
-                    storage.worker.clone(),
+                    storage.intake.clone(),
                     connectors.clone(),
                     Arc::new(crate::infra::connectors::EgressDispatcher),
                     crate::bootstrap::workers::search_jobs::SearchJobSchedulerConfig {
@@ -180,7 +180,7 @@ impl PlatformRuntime {
             let executor: Arc<dyn crate::infra::pipeline::PipelineExecutor> = Arc::new(
                 crate::bootstrap::workers::pipeline_exec::BootstrapPipelineExecutor::new(
                     query.query.clone(),
-                    storage.worker.clone(),
+                    storage.intake.clone(),
                     connectors.clone(),
                     Arc::new(crate::infra::connectors::EgressDispatcher),
                 ),

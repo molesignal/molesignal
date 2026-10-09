@@ -168,6 +168,23 @@ impl IntakeService {
             .await
     }
 
+    /// 定时 pipeline 与 backfill 写目标流的入口。输出本身就是 pipeline 的产物，和实时 pipeline
+    /// 路由出来的批次一样不再套目标流上挂的 pipeline（不递归）；其余与标准写入一致：目标流不存在时
+    /// 按本批建流，新字段演化 schema，写入前脱敏，并对实时告警规则求值。保留系统流同样拒绝。
+    ///
+    /// 数据写进本节点自己的 WAL，不转发给 intake 节点：这类结果由产生它的节点负责落盘，
+    /// 不依赖 intake 节点是否在线。
+    pub(crate) async fn intake_pipeline_output(&self, batch: IntakeBatch) -> Result<IntakeResult> {
+        if is_reserved_system_stream(&batch.stream) {
+            return Err(Error::forbidden(
+                "`_molesignal` is a protected system stream",
+            ));
+        }
+        let dataset_type = self.sink.primary_dataset_type(batch.stream_type)?;
+        self.intake_prepared(batch, IntakeOrigin::RoutedExternal, dataset_type, None)
+            .await
+    }
+
     /// 可信的服务自身遥测写入入口。不是可反序列化字段，且只在 crate 内开放。
     pub(crate) async fn intake_self_telemetry(&self, batch: IntakeBatch) -> Result<IntakeResult> {
         let system_org_id = self.system_org_id.as_ref().ok_or_else(|| {
@@ -384,11 +401,13 @@ impl IntakeService {
         }
 
         // 3.5) 旁路观测 trace：从 span 派生服务间调用边（service graph）。仅 Traces 批、
-        // 仅已留存事件；纯内存累计、不阻塞写入；无观测器时零开销。
+        // 仅已留存事件；纯内存累计、不阻塞写入；无观测器时零开销。路由出来的批次（定时 pipeline
+        // 的输出）是已经观测过的 span 的副本，再观测会让调用边重复计数。
         let is_primary_dataset =
             dataset_type == self.sink.primary_dataset_type(batch.stream_type)?;
         if is_primary_dataset
             && batch.stream_type == StreamType::TRACES
+            && origin != IntakeOrigin::RoutedExternal
             && total_kept > 0
             && let Some(sg) = &self.service_graph
         {
@@ -797,6 +816,158 @@ mod tests {
             received_at: TimestampMicros::now(),
         };
         let err = svc.intake(batch).await.unwrap_err();
+        assert_eq!(err.http_status_code(), 403);
+    }
+
+    /// 可建流、可演化 schema 的内存流仓储。
+    #[derive(Default)]
+    struct MemStreams(parking_lot::Mutex<Vec<StreamDefinition>>);
+
+    #[async_trait::async_trait]
+    impl StreamRepository for MemStreams {
+        async fn create(&self, def: StreamDefinition) -> Result<StreamDefinition> {
+            self.0.lock().push(def.clone());
+            Ok(def)
+        }
+        async fn update_schema(&self, id: &Id, schema: Schema) -> Result<()> {
+            self.0
+                .lock()
+                .iter_mut()
+                .find(|stream| &stream.id == id)
+                .ok_or_else(|| Error::not_found("stream"))?
+                .schema = schema;
+            Ok(())
+        }
+        async fn get(
+            &self,
+            org_id: &Id,
+            name: &str,
+            stream_type: StreamType,
+        ) -> Result<StreamDefinition> {
+            self.0
+                .lock()
+                .iter()
+                .find(|stream| {
+                    &stream.org_id == org_id
+                        && stream.name == name
+                        && stream.stream_type == stream_type
+                })
+                .cloned()
+                .ok_or_else(|| Error::not_found(format!("stream `{name}`")))
+        }
+        async fn list(&self, _: &Id) -> Result<Vec<StreamDefinition>> {
+            Ok(self.0.lock().clone())
+        }
+        async fn delete(&self, _: &Id) -> Result<()> {
+            unreachable!()
+        }
+    }
+
+    /// 没有 intake 角色的节点装配的转发器：公共入口的批次要转走。
+    struct NeverForward;
+
+    #[async_trait::async_trait]
+    impl IntakeForwarder for NeverForward {
+        async fn forward(&self, _: IntakeBatch) -> Result<IntakeResult> {
+            unreachable!("pipeline output is written on the node that produced it")
+        }
+    }
+
+    fn pipeline_output(stream: &str, events: Vec<RawEvent>) -> IntakeBatch {
+        IntakeBatch {
+            batch_id: Id::new(),
+            org_id: Id::from_string("org-1"),
+            stream: stream.into(),
+            stream_type: StreamType::LOGS,
+            events,
+            received_at: TimestampMicros::now(),
+        }
+    }
+
+    #[tokio::test]
+    async fn pipeline_output_creates_the_missing_stream_and_stays_on_this_node() {
+        let streams = Arc::new(MemStreams::default());
+        let sink = Arc::new(RecordingSink::default());
+        let svc = IntakeService::new(sink.clone(), streams.clone())
+            .with_forwarder(Arc::new(NeverForward));
+
+        let result = svc
+            .intake_pipeline_output(pipeline_output(
+                "rollup",
+                vec![ev(json!({ "message": "a", "n": 1 }))],
+            ))
+            .await
+            .unwrap();
+
+        assert_eq!((result.accepted, result.rejected), (1, 0));
+        let created = streams.0.lock()[0].clone();
+        assert_eq!(created.name, "rollup");
+        let fields: Vec<_> = created
+            .schema
+            .fields
+            .iter()
+            .map(|f| f.name.as_str())
+            .collect();
+        assert!(
+            fields.contains(&"message") && fields.contains(&"n"),
+            "{fields:?}"
+        );
+        // 与标准写入一致：logs 事件带上不可变的批次+行号 id。
+        let batches = sink.batches.lock();
+        assert_eq!(batches.len(), 1);
+        assert!(batches[0].events[0].fields.contains_key(EVENT_ID_FIELD));
+    }
+
+    #[derive(Default)]
+    struct CountingObserver(std::sync::atomic::AtomicUsize);
+
+    impl ServiceGraphObserver for CountingObserver {
+        fn observe(&self, _: &Id, events: &[RawEvent]) {
+            self.0
+                .fetch_add(events.len(), std::sync::atomic::Ordering::SeqCst);
+        }
+    }
+
+    /// 定时 pipeline 的输出是已观测 span 的副本：写进目标 traces 流不能让服务调用边重复计数。
+    #[tokio::test]
+    async fn pipeline_output_is_not_observed_for_the_service_graph_again() {
+        let observer = Arc::new(CountingObserver::default());
+        let svc = IntakeService::new(
+            Arc::new(RecordingSink::default()),
+            Arc::new(MemStreams::default()),
+        )
+        .with_service_graph(observer.clone());
+        let span = || ev(json!({ "trace_id": "t", "span_id": "s", "service.name": "api" }));
+        let traces = |events| IntakeBatch {
+            stream_type: StreamType::TRACES,
+            ..pipeline_output("spans", events)
+        };
+
+        svc.intake(traces(vec![span()])).await.unwrap();
+        let observed = observer.0.load(std::sync::atomic::Ordering::SeqCst);
+        assert_eq!(observed, 1, "ordinary intake still feeds the service graph");
+
+        svc.intake_pipeline_output(traces(vec![span(), span()]))
+            .await
+            .unwrap();
+        assert_eq!(
+            observer.0.load(std::sync::atomic::Ordering::SeqCst),
+            observed
+        );
+    }
+
+    #[tokio::test]
+    async fn pipeline_output_cannot_target_the_system_stream() {
+        let svc = IntakeService::new(Arc::new(UnreachableSink), Arc::new(UnreachableStreams));
+
+        let err = svc
+            .intake_pipeline_output(pipeline_output(
+                crate::domain::stream::MOLESIGNAL_SYSTEM_STREAM,
+                vec![ev(json!({ "message": "spoof" }))],
+            ))
+            .await
+            .unwrap_err();
+
         assert_eq!(err.http_status_code(), 403);
     }
 
