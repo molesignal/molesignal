@@ -8,8 +8,8 @@ metadata:
   name: alert
   namespace: molesignal
 spec:
-  replicas: 1  # 单实例（避免重复评估 / 派发）；后续上 lease 表锁后再加副本
-  strategy: { type: Recreate }  # 先停旧 pod 再起新 pod：滚动更新期间也只有一个实例
+  replicas: 1  # 可加副本：多个 alert 节点按规则、报告、pipeline 分担后台工作，节点故障后由其余节点接管
+  strategy: { type: RollingUpdate }  # 新节点预热一个存活窗口后才接管工作，更新期间新旧节点重叠不会重复评估 / 派发
   selector:
     matchLabels: { app: molesignal, role: alert }
   template:
