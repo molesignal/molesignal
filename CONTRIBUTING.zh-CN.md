@@ -152,4 +152,4 @@ pnpm -C web dev          # vite dev server
 - 安全相关：[SECURITY.md](SECURITY.md)。
 - 行为规范相关：[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)。
 
-暂时还没有 Discord / Slack —— 等贡献者规模大到 GitHub 异步沟通跟不上节奏时再建。
+提问与交流：[Discord](https://discord.gg/JXG98xA6FH)。

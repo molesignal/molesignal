@@ -152,4 +152,4 @@ Day-to-day PRs target `alpha` (or `main` if there is no `alpha` branch yet — u
 - Security: see [SECURITY.md](SECURITY.md).
 - Conduct concerns: see [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
-There is no Discord/Slack yet — we'll set one up once the contributor base is large enough that GitHub asynchronous channels stop being enough.
+Questions and chat: [Discord](https://discord.gg/JXG98xA6FH).

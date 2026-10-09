@@ -96,7 +96,7 @@ monotonic counter 解释，保持兼容。
 |---|---|---|
 | native-histogram 函数（`histogram_count` / `histogram_sum` / `histogram_avg` / `histogram_stddev` / `histogram_stdvar`） | ❌ | classic bucket 模型下 N/A |
 | 向量匹配缺失侧填充（`default`） | ❌ | 未匹配项不填充 |
-| recording / alerting rules | 走独立模型 | 用 MoleSignal 自己的告警规则，不读 Prometheus rule 文件（二者格式不互通） |
+| recording / alerting rules | 走独立模型 | 用 MoleSignal 自己的告警规则，不读 Prometheus rule 文件（二者格式不互通）；规则的 `query.language` 设为 `promql` 时，评估器在窗口结束时刻按 instant 查询求值 |
 
 未支持的函数 / 语法返回 `Error::Invalid("promql function not yet supported: <name>")`；
 HTTP `POST /api/v1/query`（`language: "promql"`）映射为 400。

@@ -29,14 +29,14 @@
   "remoteUser": "vscode",
   "containerEnv": {
     "RUST_LOG": "molesignal=debug,info",
-    "MS_STORE_META_DSN": "postgres://molesignal:molesignal@postgresql:5432/molesignal",
-    "MS_STORE_OBJECT_BACKEND": "s3",
-    "MS_STORE_OBJECT_BUCKET": "molesignal",
-    "MS_STORE_OBJECT_REGION": "us-east-1",
-    "MS_STORE_OBJECT_PATH_STYLE": "true",
-    "MS_STORE_OBJECT_ENDPOINT": "http://rustfs:9000",
-    "MS_STORE_OBJECT_ACCESS_KEY": "rustfsadmin",
-    "MS_STORE_OBJECT_SECRET_KEY": "rustfsadmin",
+    "MS_META_DATABASE_DSN": "postgres://molesignal:molesignal@postgresql:5432/molesignal",
+    "MS_OBJECT_STORE_BACKEND": "s3",
+    "MS_OBJECT_STORE_BUCKET": "molesignal",
+    "MS_OBJECT_STORE_REGION": "us-east-1",
+    "MS_OBJECT_STORE_PATH_STYLE": "true",
+    "MS_OBJECT_STORE_ENDPOINT": "http://rustfs:9000",
+    "MS_OBJECT_STORE_ACCESS_KEY": "rustfsadmin",
+    "MS_OBJECT_STORE_SECRET_KEY": "rustfsadmin",
     "MS_CIPHER_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
   },
   // JWT signing secret: NOT set —— 让进程首启动从 DB auto-bootstrap（auth-hardening）。

@@ -82,11 +82,11 @@ Span names and dimensions are intentionally low-cardinality:
 | SQL | `db.transaction`, `db.query` | operation, normalized collection, keyed fingerprint, rows |
 | Object storage | `object_store.operation`, multipart session | backend, operation, object category, bytes, retry Events |
 | Intake | `intake.batch`, pipeline/mask/WAL/buffer/flush stages | protocol, stream type, counts and bytes |
-| Query | planning/DataFusion/PromQL/distributed/shard spans | language, stage, bounded shard role, row/byte counts |
+| Query | planning/DataFusion/PromQL spans and the `rpc.client` span of a query forwarded to a querier | language, stage, row/byte counts |
 | Background | compaction, reports, search jobs, service graph, replay, sync | static worker/operation names and result counts |
 | Agent | provider/tool stages and linked stream segments | provider, model, stage, tool name, token counts |
 
-Parallel shards are sibling spans. Retry attempts and multipart parts are
+Federated scans of remote clusters are sibling spans. Retry attempts and multipart parts are
 bounded Events on one logical Span. SSE, streaming HTTP, AI provider streams,
 gRPC, and Flight streams use a handshake Span plus linked independent session
 roots, rolling over every 30 seconds or 1,000 messages. Cancellation, terminal

@@ -29,7 +29,7 @@ molesignal takes the third path: **one storage layer (Parquet on object store), 
 | Data ownership | their cloud | self-hosted | **self-hosted** |
 | Setup time | 5 min (agents) | 6 hours+ (5 components + Grafana) | **1 cmd `docker compose up`** |
 | OpenTelemetry-native | yes | partial | **yes (9 intake protocols)** |
-| Real-time alerts (<1s) | yes | no (eval interval ≥ scrape interval) | **yes (`kind: realtime`)** |
+| Real-time alerts (<1s) | yes | no (eval interval ≥ scrape interval) | **yes** (`real_time` rules match records on the intake path) |
 | Multi-tenant out-of-box | yes (per-account) | no | **yes (planner-level org rewrite)** |
 
 > **Status:** early. Released **NOT YET** — currently pre-1.0, looking for first contributors and design partners. See [Status](#status).
@@ -100,11 +100,11 @@ A trace, its logs, and the host's metric for the same minute share **the same st
 
 | Protocol | Endpoint | Compatible clients / services |
 |---|---|---|
-| OTLP gRPC | `:5082` | OpenTelemetry SDK / Collector |
+| OTLP gRPC | `:4317` | OpenTelemetry SDK / Collector |
 | OTLP HTTP | `POST /api/v1/{logs,metrics,traces}` | OTel HTTP exporter |
 | Prometheus remote_write | `POST /api/v1/prometheus/api/v1/write` | Prometheus / VictoriaMetrics |
 | Elasticsearch `_bulk` | `POST /api/v1/_bulk` | Filebeat, Vector ES sink, Logstash |
-| Loki push | `POST /api/v1/loki/api/v1/push` | Promtail, Vector Loki sink |
+| Loki push (JSON body) | `POST /api/v1/loki/api/v1/push` | Vector Loki sink; not Promtail or Grafana Alloy, which send snappy protobuf |
 | Kinesis Firehose | `POST /api/v1/_kinesis_firehose` | AWS Firehose |
 | Cloudflare Logpush | `POST /api/v1/_cloudflare` | Cloudflare Logpush |
 | Heroku log drain | `POST /api/v1/_heroku` | Heroku |
@@ -124,7 +124,8 @@ OTLP metric type and aggregation metadata are normalized according to the
 - **Tantivy inverted index** — file-level pruning at query time (typically ~99% reduction)
 - **DataFusion query engine** — full SQL with joins / CTEs / window functions across logs, metrics, traces
 - **PromQL subset** — `rate`, `increase`, `sum/avg/min/max/count by/without`, `histogram_quantile` ([roadmap](docs/promql_subset.md))
-- **Distributed query via Arrow Flight** — coordinator shards by consistent hash, peers stream `RecordBatch` back
+- **Query forwarding in a role-split cluster** — the router sends each SQL or PromQL query to a querier node, which runs it in full against the shared Parquet files and the catalog
+- **Federated query via Arrow Flight** — a query can include registered remote clusters; their batches merge on the node that receives the request
 - **Unified object cache** — every remote Artifact and Manifest range read shares a checksum-bound fixed-block cache (`[cache.object]`); local filesystems bypass it
 - **Versioned FileCatalog** — immutable partition manifests use sealed base + overlay generations while queries merge manifests, hot Catalog segments, and live buffers from one snapshot
 
@@ -140,9 +141,9 @@ OTLP metric type and aggregation metadata are normalized according to the
 
 ### 🚨 Alerting
 
-- **Three rule kinds**: `scheduled` (periodic SQL eval), `realtime` (in-intake predicate match, fires <1s), `anomaly` (MAD + EWMA detectors; daily baseline with opt-in weekly seasonality; 0–1 score + human-readable reason)
+- **Three rule kinds**: `scheduled` (periodic SQL or PromQL eval), `real_time` (matched on the intake path: counts the records that match a condition in a sliding window and opens an incident as soon as the count meets the trigger), `anomaly` (MAD + EWMA detectors; daily baseline with opt-in weekly seasonality; 0–1 score + human-readable reason)
 - **Escalation policies** — multi-step with ack timeout, on-call rotations, overrides
-- **Channels** — Slack, email, and webhooks: generic + Lark/Feishu/WeCom/DingTalk group robots + PagerDuty / OpsGenie / Microsoft Teams; template variables
+- **Channels** — email (SMTP), Slack (app and incoming webhook), Lark/Feishu (app and custom bot), and generic webhooks; template variables
 
 ### 🛡️ Platform
 
@@ -201,7 +202,7 @@ molesignal.del("pw");
 
 ### ☸️ Operations
 
-- **6 stateless roles** — `router` / `intake(SF + PVC)` / `querier` / `compactor` / `alert-manager` / `connector`; only intake has local state (WAL, ≤ flush_interval window)
+- **5 roles** — `router` / `intake` (StatefulSet + PVC) / `querier` / `compactor` / `alert`. The router serves the full HTTP API and web UI, forwards writes to intake nodes, and sends queries to querier nodes; every other role listens on an internal health and metrics port. Intake nodes hold the WAL of the latest flush window
 - **Single binary** — same image serves all roles, selected by `MS_NODE_ROLES`
 - **Kubernetes manifests** in [deploy/k8s/](deploy/k8s/), Docker Compose with `standalone` + `multirole` profiles
 - **Prometheus `/metrics`** with rich cache / object_store / intake / compactor metrics
@@ -230,8 +231,8 @@ The source workspace layout and dependency rules are documented in
                               │ /query              │ object_store in S3/GCS/... │
                               ▼                     └────────────────────────────┘
                        ┌──────────────┐                          ▲
-                       │  querier(s)  │── Arrow Flight do_get ───┘
-                       └──────────────┘    (distributed scan by hash shard)
+                       │  querier(s)  │──── scan Parquet ────────┘
+                       └──────────────┘    (each query runs on one querier)
 ```
 
 **The crucial point:** logs, metrics, and traces all land in the **same** Parquet files (different streams, same physical storage). A SQL query can join across them natively — no cross-store federation, no manual trace_id reconciliation.
@@ -246,15 +247,17 @@ Pre-1.0, **early**. Released YYYY-MM-DD.
 |---|---|
 | Intake path (WAL + buffer + flush) | ✅ working |
 | 9 intake protocols | ✅ working |
-| Distributed query (Arrow Flight) | ✅ working |
+| Role-split cluster (router → intake / querier) | ✅ working |
+| Federated query (Arrow Flight) | ✅ working |
 | 3-level cache + disk cache | ✅ working |
 | Multi-tenant planner rewrite | ✅ working |
-| Real-time + scheduled + anomaly alerts | ✅ working |
+| Scheduled (SQL / PromQL) + anomaly alerts | ✅ working |
+| Real-time (in-intake) alert matching | ✅ working |
 | Cipher keys + audit | ✅ working |
 | Cross-signal correlation API | ✅ working |
 | Web shell (⌘K + investigation stack) | ✅ working |
 | SSO — OIDC / SAML / LDAP | ✅ working |
-| One-click sample data (first-run) | ⏳ pending |
+| One-click sample data (first-run) | ✅ working |
 | Production hardening | ⏳ needs real workloads |
 
 **If you try it, please [open an issue](https://github.com/molesignal/molesignal/issues) — every report shapes the next release.** Especially valued: install friction, missing protocol fields, cross-signal correlation gaps.
@@ -284,7 +287,7 @@ PRs welcome — start with the `tasks.md` files in `openspec/changes/*`. Convent
 - Integration tests live in `bin/molesignal/tests/*_it_*.rs`; gate behind `MS_RUN_IT=1` if they need Docker
 - `make fmt-check` + `make lint` before pushing
 
-Issues, RFCs, design discussions: all on GitHub. No Discord/Slack yet — we'll set one up after the first batch of users.
+Issues, RFCs, design discussions: all on GitHub. Questions and chat: [Discord](https://discord.gg/JXG98xA6FH).
 
 ### Contributors
 

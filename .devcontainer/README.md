@@ -76,8 +76,8 @@ docker volume rm molesignal-cargo-cache molesignal-target molesignal-pnpm-cache
 
 | Var | Value |
 |---|---|
-| `MS_STORE_META_DSN` | `postgres://molesignal:molesignal@postgresql:5432/molesignal` |
-| `MS_STORE_OBJECT_*` | 指向 compose 内的 rustfs |
+| `MS_META_DATABASE_DSN` | `postgres://molesignal:molesignal@postgresql:5432/molesignal` |
+| `MS_OBJECT_STORE_*` | 指向 compose 内的 rustfs |
 | `MS_CIPHER_KEY` | 32 字节全零 base64（**仅 dev**，cipher_keys envelope KEK；auth-hardening） |
 | `RUST_LOG` | `molesignal=debug,info` |
 

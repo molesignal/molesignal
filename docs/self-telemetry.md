@@ -48,7 +48,7 @@ profile_duration_secs = 10
 
 standalone/intake 节点直接调用可信内部 intake，继续经过 schema evolution、masking、WAL 和 drain gate，但跳过用户 pipeline。
 
-router、querier、compactor 和 alert-manager 节点从 cluster registry 选择 intake，通过带内部 origin 和 bearer 的 gRPC 发送。批次中的 resource identity 来自生产节点，不会被接收 intake 改写。远程发送最多尝试 3 次，并受 10 秒队列年龄上限约束。
+router、querier、compactor 和 alert 节点从 cluster registry 选择 intake，通过带内部 origin 和 bearer 的 gRPC 发送。批次中的 resource identity 来自生产节点，不会被接收 intake 改写。远程发送最多尝试 3 次，并受 10 秒队列年龄上限约束。
 
 ## 背压、递归和关闭
 
@@ -70,7 +70,7 @@ traces 使用独立有界队列。`tracing` callback 只执行 `try_send`，队�
 
 这些 labels 来自固定枚举，避免 exporter 健康指标产生高基数。
 
-元数据库连接池默认通过 `store.meta.min_connections = 2` 在启动阶段预热连接。`db_pool_acquire_duration_seconds` 直接记录 SQLx 从连接池取得连接的等待时间，不包含 SQL 执行时间。集群节点发现结果在每个进程内缓存 2 秒，不同角色的并发查询共享一次刷新，避免 router 或 self-telemetry 批次逐次查询 `cluster_nodes`。
+元数据库连接池默认通过 `meta_database.min_connections = 2` 在启动阶段预热连接。`db_pool_acquire_duration_seconds` 直接记录 SQLx 从连接池取得连接的等待时间，不包含 SQL 执行时间。集群节点发现结果在每个进程内缓存 2 秒，不同角色的并发查询共享一次刷新，避免 router 或 self-telemetry 批次逐次查询 `cluster_nodes`。
 
 ## 存储成本与查询示例
 

@@ -23,9 +23,19 @@ spec:
               value: '["router"]'
             - name: MS_AUTH_JWT_SECRET_OVERRIDE
               valueFrom: { secretKeyRef: { name: molesignal-secret, key: jwt_secret_override, optional: true } }
+            # 所有 role 启动时都会对对象存储做一次读写自检，router 也需要凭据。
+            - name: MS_OBJECT_STORE_ACCESS_KEY
+              valueFrom: { secretKeyRef: { name: molesignal-secret, key: object_store_access_key } }
+            - name: MS_OBJECT_STORE_SECRET_KEY
+              valueFrom: { secretKeyRef: { name: molesignal-secret, key: object_store_secret_key } }
+            - name: MS_CIPHER_KEY
+              valueFrom: { secretKeyRef: { name: molesignal-secret, key: cipher_key } }
+            - name: MS_SELF_TELEMETRY_CLUSTER_TOKEN
+              valueFrom: { secretKeyRef: { name: molesignal-secret, key: self_telemetry_cluster_token } }
+          # router 提供完整 HTTP API 与 Web UI，另接收 OTLP gRPC；写入转发给 intake，查询交给 querier。
           ports:
             - { name: http, containerPort: 5080 }
-            - { name: grpc, containerPort: 5082 }
+            - { name: otlp-grpc, containerPort: 4317 }
           volumeMounts:
             - { name: cfg, mountPath: /app/conf }
           readinessProbe:
@@ -45,5 +55,5 @@ spec:
   selector: { app: molesignal, role: router }
   ports:
     - { name: http, port: 5080, targetPort: http }
-    - { name: grpc, port: 5082, targetPort: grpc }
+    - { name: otlp-grpc, port: 4317, targetPort: otlp-grpc }
   type: ClusterIP

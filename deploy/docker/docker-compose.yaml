@@ -2,7 +2,7 @@
 #
 # 两种部署形态（用 profile 区分；默认 standalone 单进程）：
 #   docker compose up                          → 默认 + standalone profile（一个进程跑所有 role + Web UI）
-#   docker compose --profile multirole up      → 拆分模式（router/intake/querier/compactor/alert-manager/connector）
+#   docker compose --profile multirole up      → 拆分模式（router/intake/querier/compactor/alert）
 #
 # postgresql + rustfs 总是启动；molesignal 容器走哪个 profile 由 docker compose --profile 选。
 
@@ -24,19 +24,22 @@ x-molesignal-base: &molesignal-base
   environment: &molesignal-env
     RELEASE_CHANNEL: ${RELEASE_CHANNEL:-alpha}
     MS_TELEMETRY_LOG_LEVEL: info
-    MS_STORE_META_BACKEND: postgres
-    MS_STORE_META_DSN: "postgres://molesignal:molesignal@postgresql:5432/molesignal"
-    MS_STORE_OBJECT_BACKEND: s3
-    MS_STORE_OBJECT_BUCKET: molesignal
-    MS_STORE_OBJECT_REGION: us-east-1
-    MS_STORE_OBJECT_ENDPOINT: "http://rustfs:9000"
-    MS_STORE_OBJECT_PATH_STYLE: "true"
-    MS_STORE_OBJECT_ACCESS_KEY: rustfsadmin
-    MS_STORE_OBJECT_SECRET_KEY: rustfsadmin
+    MS_META_DATABASE_DSN: "postgres://molesignal:molesignal@postgresql:5432/molesignal"
+    MS_OBJECT_STORE_BACKEND: s3
+    MS_OBJECT_STORE_BUCKET: molesignal
+    MS_OBJECT_STORE_REGION: us-east-1
+    MS_OBJECT_STORE_ENDPOINT: "http://rustfs:9000"
+    MS_OBJECT_STORE_PATH_STYLE: "true"
+    MS_OBJECT_STORE_ACCESS_KEY: rustfsadmin
+    MS_OBJECT_STORE_SECRET_KEY: rustfsadmin
     # JWT signing secret 默认由 DB 自动 bootstrap（auth-hardening）；
     # 想 deterministic 锁定可设 MS_AUTH_JWT_SECRET_OVERRIDE。
     # 32B base64 cipher root key；dev 全零，生产换 openssl rand -base64 32
     MS_CIPHER_KEY: "Ahh6n0ilIjohKjrfNZNj/YnFU8476KGnYwjoRsuAtpE="
+    # 拆分角色节点之间转发 Trace 候选与自遥测时鉴权用的共享 token。Trace 采集默认开启，
+    # multirole 的每个节点都要设置同一个值，没有 intake 角色的节点缺少它会拒绝启动。
+    # 仅沙箱使用，生产换 openssl rand -base64 32。
+    MS_SELF_TELEMETRY_CLUSTER_TOKEN: "sandbox-cluster-token"
 
 services:
   postgresql:
@@ -109,13 +112,16 @@ services:
       MS_NODE_ROLES: '["standalone"]'
 
   # ============================================================
-  # multirole profile：拆 6 个 role；共享 image，靠 MS_NODE_ROLES 区分
+  # multirole profile：拆 5 个 role；共享 image，靠 MS_NODE_ROLES 区分。
+  # router 提供完整 HTTP API 与 Web UI（5080）和 OTLP gRPC（4317）；其余角色在 5080
+  # 上只提供探活、就绪与指标。
   # ============================================================
   molesignal-router:
     <<: *molesignal-base
     profiles: ["multirole"]
     ports:
       - "5080:5080"
+      - "4317:4317"
     environment:
       <<: *molesignal-env
       MS_NODE_ROLES: '["router"]'
@@ -144,19 +150,12 @@ services:
       <<: *molesignal-env
       MS_NODE_ROLES: '["compactor"]'
 
-  molesignal-alert-manager:
+  molesignal-alert:
     <<: *molesignal-base
     profiles: ["multirole"]
     environment:
       <<: *molesignal-env
-      MS_NODE_ROLES: '["alert_manager"]'
-
-  molesignal-connector:
-    <<: *molesignal-base
-    profiles: ["multirole"]
-    environment:
-      <<: *molesignal-env
-      MS_NODE_ROLES: '["connector"]'
+      MS_NODE_ROLES: '["alert"]'
 
 volumes:
   pgdata:

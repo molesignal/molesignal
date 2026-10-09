@@ -144,13 +144,13 @@ readiness.
 
 APM has no enable or kill-switch setting. The projector starts automatically on
 Trace candidate-owner roles, and the rollup worker starts automatically on the
-alert-manager role. Deploy the registered migration before or with the matching
+alert role. Deploy the registered migration before or with the matching
 binary and keep the tables during a binary rollback.
 
 ### 1. Staged Deployment
 
 Roll the binary through a small representative set of candidate-owner and
-alert-manager instances first. Run fixed synthetic HTTP, RPC, messaging,
+alert instances first. Run fixed synthetic HTTP, RPC, messaging,
 database, error, retry, and sampled-out traffic. Compare expected service
 request/error counts and merged histogram percentiles. Require no unexplained
 gaps, queue drops below 0.1%, healthy projector/repository metrics, and

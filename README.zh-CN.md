@@ -30,7 +30,7 @@ MoleSignal 走第三条路：**一个存储层（对象存储上的 Parquet）+ 
 | 数据归属 | 他们的云 | 自托管 | **自托管** |
 | 起步时间 | 5 分钟（配 agent） | 6 小时+（5 个组件 + Grafana） | **`docker compose up` 一行** |
 | OpenTelemetry 原生 | 是 | 部分 | **是（9 个采集协议）** |
-| 实时告警（<1s） | 是 | 否（评估周期 ≥ 抓取周期） | **是（`kind: realtime`）** |
+| 实时告警（<1s） | 是 | 否（评估周期 ≥ 抓取周期） | **是**（`real_time` 规则在接入路径上逐条匹配） |
 | 原生多租户 | 是（按账户） | 否 | **是（planner 层 org rewrite）** |
 
 > **状态：** 早期项目，**尚未正式发布**。目前 pre-1.0，欢迎首批贡献者与设计伙伴。详见 [现状](#现状)。
@@ -94,11 +94,11 @@ Vector / Fluent Bit / OTel Collector / Prometheus remote_write 等完整对接�
 
 | 协议 | Endpoint | 兼容客户端 / 服务 |
 |---|---|---|
-| OTLP gRPC | `:5082` | OpenTelemetry SDK / Collector |
+| OTLP gRPC | `:4317` | OpenTelemetry SDK / Collector |
 | OTLP HTTP | `POST /api/v1/{logs,metrics,traces}` | OTel HTTP exporter |
 | Prometheus remote_write | `POST /api/v1/prometheus/api/v1/write` | Prometheus / VictoriaMetrics |
 | Elasticsearch `_bulk` | `POST /api/v1/_bulk` | Filebeat / Vector ES sink / Logstash |
-| Loki push | `POST /api/v1/loki/api/v1/push` | Promtail / Vector Loki sink |
+| Loki push（JSON 请求体） | `POST /api/v1/loki/api/v1/push` | Vector Loki sink；不支持发送 snappy protobuf 的 Promtail 与 Grafana Alloy |
 | Kinesis Firehose | `POST /api/v1/_kinesis_firehose` | AWS Firehose |
 | Cloudflare Logpush | `POST /api/v1/_cloudflare` | Cloudflare Logpush |
 | Heroku log drain | `POST /api/v1/_heroku` | Heroku |
@@ -115,7 +115,8 @@ Vector / Fluent Bit / OTel Collector / Prometheus remote_write 等完整对接�
 - **Tantivy 倒排索引** —— 查询时文件级裁剪（典型 ~99% 减少扫描）
 - **查询引擎** —— 完整 SQL，含 join / CTE / window function，跨 logs / metrics / traces
 - **PromQL 子集** —— `rate` / `increase` / `sum/avg/min/max/count by/without` / `histogram_quantile`（[路线图](docs/promql_subset.md)）
-- **Arrow Flight 分布式查询** —— coordinator 按一致性哈希分片，peer 流式回传 `RecordBatch`
+- **分角色集群的查询转发** —— router 把每个 SQL 或 PromQL 查询交给一个 querier 节点，由它对共享的 Parquet 文件与目录完整执行
+- **Arrow Flight 联邦查询** —— 查询可以包含已注册的远端集群，远端的批次在接收请求的节点上合并
 - **统一对象缓存** —— 所有远端 Artifact / Manifest range read 共享按 checksum 绑定的固定块缓存（`[cache.object]`），本地文件系统自动旁路
 - **版本化 FileCatalog** —— 冷分区以 immutable manifest 的 sealed base + overlay generation 管理；查询在同一快照中合并 manifest、热 Catalog segment 与实时 buffer
 
@@ -131,7 +132,7 @@ Vector / Fluent Bit / OTel Collector / Prometheus remote_write 等完整对接�
 
 ### 🚨 告警
 
-- **三种规则类型**：`scheduled`（周期 SQL eval）/ `realtime`（入口谓词匹配，<1s 触发）/ `anomaly`（MAD 基线 + 3σ）
+- **三种规则类型**：`scheduled`（周期 SQL 或 PromQL eval）/ `real_time`（在接入路径上匹配：在滑动窗口内统计满足条件的记录数，计数达到触发条件时立即开启事件）/ `anomaly`（MAD 基线 + 3σ）
 - **升级策略** —— 多步 + ack 超时 + 排班轮值 + override
 - **Notify 管理** —— 加密 Connector、用户 Endpoint/Preference、策略匹配、三级兜底、确认升级与幂等投递
 
@@ -173,7 +174,7 @@ Vector / Fluent Bit / OTel Collector / Prometheus remote_write 等完整对接�
 
 ### ☸️ 运维
 
-- **6 个无状态 role** —— `router` / `intake(SF + PVC)` / `querier` / `compactor` / `alert-manager` / `connector`，只 intake 有本地状态（WAL，≤ flush_interval 窗口）
+- **5 个 role** —— `router` / `intake`（StatefulSet + PVC）/ `querier` / `compactor` / `alert`。router 提供完整的 HTTP API 与 Web UI，把写入转发给 intake 节点、把查询交给 querier 节点；其余角色监听内部健康与指标端口。intake 节点保存最近一个 flush 窗口的 WAL
 - **单二进制** —— 同一镜像跑所有 role，靠 `MS_NODE_ROLES` 区分
 - **Kubernetes manifest** 见 [deploy/k8s/](deploy/k8s/)，Docker Compose 提供 `standalone` 与 `multirole` 双 profile
 - **Prometheus `/metrics`** 默认暴露，含 cache / object_store / intake / compactor 各层指标
@@ -201,8 +202,8 @@ Vector / Fluent Bit / OTel Collector / Prometheus remote_write 等完整对接�
                               │ /query        │ object_store in S3/GCS/... │
                               ▼               └────────────────────────────┘
                        ┌──────────────┐                  ▲
-                       │  querier(s)  │── Arrow Flight ──┘
-                       └──────────────┘    do_get（按哈希分片分布式扫描）
+                       │  querier(s)  │── 扫描 Parquet ──┘
+                       └──────────────┘    （每个查询在一个 querier 上执行）
 ```
 
 **关键点：** logs、metrics、traces 全部落到**同一批** Parquet 文件里（不同 stream，相同物理存储）。一条 SQL 查询可以原生 join 三种信号——不需要跨 store 联邦，不需要人肉对 trace_id。
@@ -217,15 +218,17 @@ Pre-1.0，**早期项目**。发布日期 YYYY-MM-DD。
 |---|---|
 | 采集链路（WAL + buffer + flush） | ✅ 已通 |
 | 9 个采集协议 | ✅ 已通 |
-| Arrow Flight 分布式查询 | ✅ 已通 |
+| 分角色集群（router → intake / querier） | ✅ 已通 |
+| Arrow Flight 联邦查询 | ✅ 已通 |
 | 3 级缓存 + 磁盘缓存 | ✅ 已通 |
 | 多租户 planner rewrite | ✅ 已通 |
-| realtime + scheduled + anomaly 告警 | ✅ 已通 |
+| scheduled（SQL / PromQL）+ anomaly 告警 | ✅ 已通 |
+| realtime（入口匹配）告警 | ✅ 已通 |
 | Cipher keys + audit | ✅ 已通 |
 | 跨信号关联 API | ✅ 已通 |
 | Web shell（⌘K + 调查栈） | ✅ 已通 |
 | SSO（OIDC / SAML / LDAP） | ✅ 已通 |
-| 首启动 demo 数据集 | ⏳ 待做 |
+| 首启动 demo 数据集 | ✅ 已通 |
 | 生产硬化 | ⏳ 需真实负载验证 |
 
 **如果你试用了，请 [开 issue](https://github.com/molesignal/molesignal/issues) —— 每一条反馈都会影响下个版本。** 我们特别关心：安装阻力、协议字段缺失、跨信号关联的缺口。
@@ -255,7 +258,7 @@ RELEASE_CHANNEL=alpha ./target/release/molesignal --config conf/config.toml
 - 集成测试放在 `bin/molesignal/tests/*_it_*.rs`；依赖 Docker 的用 `MS_RUN_IT=1` 门控
 - push 前跑 `make fmt-check` + `make lint`
 
-Issue / RFC / 设计讨论都在 GitHub 上。Discord / Slack 暂未建，等第一批用户到位后再开。
+Issue / RFC / 设计讨论都在 GitHub 上。提问与交流：[Discord](https://discord.gg/JXG98xA6FH)。
 
 ### 贡献者
 

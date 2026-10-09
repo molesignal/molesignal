@@ -30,18 +30,23 @@ spec:
             # 设 jwt_secret_override 字段（kubectl edit secret/molesignal-secret）。
             - name: MS_AUTH_JWT_SECRET_OVERRIDE
               valueFrom: { secretKeyRef: { name: molesignal-secret, key: jwt_secret_override, optional: true } }
-            - name: MS_STORE_OBJECT_ACCESS_KEY
+            - name: MS_OBJECT_STORE_ACCESS_KEY
               valueFrom: { secretKeyRef: { name: molesignal-secret, key: object_store_access_key } }
-            - name: MS_STORE_OBJECT_SECRET_KEY
+            - name: MS_OBJECT_STORE_SECRET_KEY
               valueFrom: { secretKeyRef: { name: molesignal-secret, key: object_store_secret_key } }
             - name: MS_CIPHER_KEY
               valueFrom: { secretKeyRef: { name: molesignal-secret, key: cipher_key } }
+            - name: MS_SELF_TELEMETRY_CLUSTER_TOKEN
+              valueFrom: { secretKeyRef: { name: molesignal-secret, key: self_telemetry_cluster_token } }
+          # 5080 是运维 HTTP（探活、就绪、指标），5082 是集群内部 gRPC，4317 是对外 OTLP gRPC。
           ports:
             - { name: http, containerPort: 5080 }
             - { name: grpc, containerPort: 5082 }
+            - { name: otlp-grpc, containerPort: 4317 }
+          # 监听在 WAL replay 完成后才开始，readyz 通过即表示可以接收写入。
           readinessProbe:
-            httpGet: { path: /api/v1/healthz, port: http }
-            initialDelaySeconds: 10   # intake replay 期间会 503
+            httpGet: { path: /api/v1/readyz, port: http }
+            initialDelaySeconds: 10
             periodSeconds: 5
             failureThreshold: 12
           volumeMounts:
@@ -67,3 +72,4 @@ spec:
   ports:
     - { name: http, port: 5080, targetPort: http }
     - { name: grpc, port: 5082, targetPort: grpc }
+    - { name: otlp-grpc, port: 4317, targetPort: otlp-grpc }

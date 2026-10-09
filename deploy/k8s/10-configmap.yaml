@@ -24,13 +24,12 @@ data:
     log_level = "info,tantivy=warn"
     log_format = "json"
 
-    [store.meta]
-    backend = "postgres"
+    [meta_database]
     dsn = "postgres://molesignal:molesignal@postgresql:5432/molesignal"
     min_connections = 2
     max_connections = 16
 
-    [store.object]
+    [object_store]
     backend = "s3"
     bucket = "molesignal"
     region = "us-east-1"
@@ -44,7 +43,7 @@ data:
     op_timeout_secs = 30
     health_probe_interval_secs = 30
 
-    [store.object.retry]
+    [object_store.retry]
     max_attempts = 4
     base_backoff_ms = 100
     max_backoff_ms = 5000
@@ -96,7 +95,7 @@ data:
     max_concurrent_groups = 4
     retention_days = 30
 
-    [alert_manager]
+    [alert]
     eval_interval_secs = 30
     dispatch_interval_secs = 10
     eval_timeout_secs = 10

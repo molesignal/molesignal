@@ -11,25 +11,9 @@ if [ "$bucket" = "None" ]; then
   s3 create-bucket --bucket molesignal
 fi
 
-# Preserve the sandbox's public object downloads (including user avatars).
-cat > /tmp/bucket-policy.json <<'JSON'
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {"AWS": ["*"]},
-      "Action": ["s3:GetBucketLocation", "s3:ListBucket"],
-      "Resource": ["arn:aws:s3:::molesignal"]
-    },
-    {
-      "Effect": "Allow",
-      "Principal": {"AWS": ["*"]},
-      "Action": ["s3:GetObject"],
-      "Resource": ["arn:aws:s3:::molesignal/*"]
-    }
-  ]
-}
-JSON
-s3 put-bucket-policy --bucket molesignal --policy file:///tmp/bucket-policy.json
+# The bucket stays private: MoleSignal serves avatars and every other object itself.
+# Remove any bucket policy that an existing volume already carries.
+if s3 get-bucket-policy --bucket molesignal >/dev/null 2>&1; then
+  s3 delete-bucket-policy --bucket molesignal
+fi
 echo 'bucket ready'
