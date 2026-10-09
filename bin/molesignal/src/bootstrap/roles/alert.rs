@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! alert_manager 角色：
+//! alert 角色：
 //!
 //! 同时跑两个 `tokio::interval`：
 //! - evaluator tick（`eval_interval_secs`）：[`RuleEvaluator::tick`] 评估所有 enabled
@@ -20,18 +20,18 @@ use crate::{
         alerting::{EscalationDispatcher, RuleEvaluator},
         notify::{NotifyEngine, OncallEventProducer},
     },
-    config::AlertManagerSettings,
+    config::AlertSettings,
     domain::iam::OrganizationRepository,
     shared::time::TimestampMicros,
 };
 
-pub fn spawn_alert_manager_loops(
+pub fn spawn_alert_loops(
     evaluator: Arc<RuleEvaluator>,
     dispatcher: Arc<EscalationDispatcher>,
     orgs: Arc<dyn OrganizationRepository>,
     notify_engine: Arc<NotifyEngine>,
     oncall_events: Arc<OncallEventProducer>,
-    settings: AlertManagerSettings,
+    settings: AlertSettings,
 ) -> Vec<JoinHandle<()>> {
     let eval_interval = Duration::from_secs(settings.eval_interval_secs.max(1) as u64);
     let dispatch_interval = Duration::from_secs(settings.dispatch_interval_secs.max(1) as u64);
@@ -44,7 +44,7 @@ pub fn spawn_alert_manager_loops(
             loop {
                 ticker.tick().await;
                 if let Err(e) = evaluator.tick(TimestampMicros::now()).await {
-                    tracing::warn!(error = %e, "alert_manager evaluator tick failed");
+                    tracing::warn!(error = %e, "alert evaluator tick failed");
                 }
             }
         })
@@ -97,7 +97,7 @@ pub fn spawn_alert_manager_loops(
                         }
                     }
                     Err(e) => {
-                        tracing::warn!(error = %e, "alert_manager dispatcher: orgs.list failed");
+                        tracing::warn!(error = %e, "alert dispatcher: orgs.list failed");
                     }
                 }
             }

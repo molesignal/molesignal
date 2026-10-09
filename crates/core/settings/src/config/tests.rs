@@ -16,8 +16,7 @@ fn example_config_file_parses_all_sections() {
     assert_eq!(s.http.tls.plain_port, 80);
     assert_eq!(s.http.tls.port, 443);
     assert_eq!(s.http.tls.key_storage_dir, "/var/lib/molesignal/acme");
-    assert_eq!(s.store.object.retry.max_attempts, 4);
-    assert_eq!(s.agent.default_provider, "openai");
+    assert_eq!(s.object_store.retry.max_attempts, 4);
     assert_eq!(s.search_jobs.workers, 2);
     assert_eq!(s.querier.auto_async_threshold_rows, 50_000_000);
     assert_eq!(s.querier.estimate_throughput_per_sec, 1_000);
@@ -317,7 +316,6 @@ fn removed_service_switches_are_rejected() {
     for removed in [
         "[notify]\nenabled = false\n",
         "[scheduled_reports.renderer]\nenabled = false\n",
-        "[agent]\nenabled = true\n",
         "[otlp_grpc]\nenabled = false\n",
         "[telemetry.self_intake]\nenabled = true\n",
         "[telemetry.self]\nenabled = true\n",
@@ -334,15 +332,68 @@ fn removed_service_switches_are_rejected() {
 }
 
 #[test]
+fn meta_database_is_a_top_level_section() {
+    let s: Settings = toml::from_str(
+        "[meta_database]\ndsn = \"postgres://u:p@h:5432/db\"\nmax_connections = 8\n",
+    )
+    .expect("[meta_database] parses");
+    assert_eq!(s.meta_database.dsn, "postgres://u:p@h:5432/db");
+    assert_eq!(s.meta_database.min_connections, 2);
+    assert_eq!(s.meta_database.max_connections, 8);
+}
+
+#[test]
+fn unknown_keys_in_database_and_object_store_sections_are_rejected() {
+    // 写错的键必须报错。
+    for invalid in [
+        "[meta_database]\nunknown_key = 1\n",
+        "[object_store]\nunknown_key = 1\n",
+        "[object_store.retry]\nunknown_key = 1\n",
+    ] {
+        assert!(
+            toml::from_str::<Settings>(invalid).is_err(),
+            "unknown key must be rejected: {invalid}"
+        );
+    }
+}
+
+#[test]
+fn object_store_transfer_settings_are_bounded_and_validated() {
+    let defaults = Settings::default();
+    defaults
+        .object_store
+        .validate()
+        .expect("defaults are valid");
+
+    for invalid in [
+        "[object_store]\nmultipart_threshold_mb = 0\n",
+        "[object_store]\nmultipart_part_size_mb = 4\n",
+        "[object_store]\nmultipart_part_size_mb = 1025\n",
+        "[object_store]\nrange_threshold_mb = 0\n",
+        "[object_store]\nrange_chunk_mb = 0\n",
+        "[object_store]\nrange_chunk_mb = 1025\n",
+    ] {
+        let settings: Settings = toml::from_str(invalid).expect("valid TOML shape");
+        assert!(
+            settings.object_store.validate().is_err(),
+            "must be rejected: {invalid}"
+        );
+    }
+}
+
+#[test]
 fn defaults_roundtrip_through_toml() {
     let s: Settings = toml::from_str("").expect("empty TOML must parse with defaults");
     assert_eq!(s.http.port, 5080);
-    assert_eq!(s.store.meta.backend, "sqlite");
-    assert_eq!(s.store.meta.min_connections, 2);
-    assert_eq!(s.store.meta.max_connections, 16);
-    assert_eq!(s.store.object.backend, "local");
-    assert_eq!(s.alert_manager.dispatch_interval_secs, 10);
-    assert_eq!(s.alert_manager.eval_timeout_secs, 10);
+    assert_eq!(
+        s.meta_database.dsn,
+        "postgres://molesignal:molesignal@localhost:5432/molesignal"
+    );
+    assert_eq!(s.meta_database.min_connections, 2);
+    assert_eq!(s.meta_database.max_connections, 16);
+    assert_eq!(s.object_store.backend, "local");
+    assert_eq!(s.alert.dispatch_interval_secs, 10);
+    assert_eq!(s.alert.eval_timeout_secs, 10);
     assert_eq!(s.cluster.heartbeat_interval_secs, 5);
     assert_eq!(s.cluster.advertise_addr, "127.0.0.1:5082");
     assert_eq!(s.compactor.target_mb, 512);
@@ -356,7 +407,7 @@ fn defaults_roundtrip_through_toml() {
     // re-emit + re-parse must be lossless on defaults
     let text = toml::to_string(&s).unwrap();
     let s2: Settings = toml::from_str(&text).unwrap();
-    assert_eq!(s2.alert_manager.dispatch_interval_secs, 10);
+    assert_eq!(s2.alert.dispatch_interval_secs, 10);
     assert_eq!(s2.compactor.target_mb, 512);
     assert_eq!(s2.cluster.advertise_addr, "127.0.0.1:5082");
     assert_eq!(s2.cache.query_result.capacity, 1_000);

@@ -45,7 +45,7 @@ fn proto_role_to_app(v: i32) -> PeerRole {
         NodeRole::Intake => PeerRole::Intake,
         NodeRole::Querier => PeerRole::Querier,
         NodeRole::Compactor => PeerRole::Compactor,
-        NodeRole::AlertManager => PeerRole::AlertManager,
+        NodeRole::Alert => PeerRole::Alert,
         _ => PeerRole::Standalone,
     }
 }
@@ -57,7 +57,7 @@ fn app_role_to_proto(r: PeerRole) -> NodeRole {
         PeerRole::Intake => NodeRole::Intake,
         PeerRole::Querier => NodeRole::Querier,
         PeerRole::Compactor => NodeRole::Compactor,
-        PeerRole::AlertManager => NodeRole::AlertManager,
+        PeerRole::Alert => NodeRole::Alert,
     }
 }
 

@@ -42,7 +42,7 @@ async fn seed_stream(s: &TestServer) -> StreamDefinition {
     // 直接经 sqlx PgPool 建 StreamRepository（避免依赖 AppState 暴露原始 repo）
     let pool = sqlx::postgres::PgPoolOptions::new()
         .max_connections(2)
-        .connect(&s.settings.store.meta.dsn)
+        .connect(&s.settings.meta_database.dsn)
         .await
         .expect("test pool");
     let streams = PgStreamRepository::new(pool);
@@ -103,7 +103,7 @@ async fn intake_api_accepts_batch_and_query_api_returns_seeded_rows() {
     //     加上 Artifact 写 + Catalog 事务，通常 < 1s；这里给 10s 兜底防 CI 抖动）。
     let pool = sqlx::postgres::PgPoolOptions::new()
         .max_connections(2)
-        .connect(&s.settings.store.meta.dsn)
+        .connect(&s.settings.meta_database.dsn)
         .await
         .expect("test pool 2");
     let flushed = {
@@ -230,7 +230,7 @@ async fn intake_auto_creates_missing_stream() {
 
     let pool = sqlx::postgres::PgPoolOptions::new()
         .max_connections(2)
-        .connect(&s.settings.store.meta.dsn)
+        .connect(&s.settings.meta_database.dsn)
         .await
         .expect("test pool");
     let flushed = {

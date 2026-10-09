@@ -120,6 +120,76 @@ async fn cipher_keys_create_rejects_short_material() {
     assert!(!resp.status().is_success());
 }
 
+#[tokio::test]
+async fn cipher_keys_unknown_name_is_not_found_and_never_created() {
+    if common::skip_unless_enabled() {
+        return;
+    }
+    let s = common::TestServer::start().await;
+    let (hk, hv) = s.auth_header();
+
+    // rotate 不会顺手新建 key。
+    let resp = s
+        .client
+        .post(format!("{}{}/ghost/rotate", s.base_url, URL))
+        .header(hk, &hv)
+        .json(&serde_json::json!({"key_material_b64": b64_key(3)}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 404, "rotate of a missing key");
+
+    let resp = s
+        .client
+        .get(format!("{}{}/ghost", s.base_url, URL))
+        .header(hk, &hv)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 404, "rotate must not have created the key");
+
+    let resp = s
+        .client
+        .delete(format!("{}{}/ghost", s.base_url, URL))
+        .header(hk, &hv)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 404, "delete of a missing key");
+}
+
+#[tokio::test]
+async fn cipher_keys_duplicate_create_is_a_conflict() {
+    if common::skip_unless_enabled() {
+        return;
+    }
+    let s = common::TestServer::start().await;
+    let (hk, hv) = s.auth_header();
+    let body = serde_json::json!({"name": "dup-key", "key_material_b64": b64_key(5)});
+
+    let first = s
+        .client
+        .post(format!("{}{}", s.base_url, URL))
+        .header(hk, &hv)
+        .json(&body)
+        .send()
+        .await
+        .unwrap();
+    assert!(first.status().is_success());
+
+    let second = s
+        .client
+        .post(format!("{}{}", s.base_url, URL))
+        .header(hk, &hv)
+        .json(&body)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(second.status(), 409);
+    let text = second.text().await.unwrap();
+    assert!(text.contains("already exists"), "{text}");
+}
+
 // === rotate → encrypt(old) decrypt 仍 OK；新写走新 kid ===
 
 #[tokio::test]

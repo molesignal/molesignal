@@ -144,7 +144,7 @@ impl TracingRuntime {
             ApmQueryConfig::from_settings(&settings.apm),
         ));
         let owns_trace_candidates = core.roles.run_intake || core.roles.run_querier;
-        let runs_apm_rollup = core.roles.run_alert_manager;
+        let runs_apm_rollup = core.roles.run_alert;
         let apm_runtime = (owns_trace_candidates || runs_apm_rollup)
             .then(|| {
                 ApmRuntime::start(
@@ -229,7 +229,7 @@ impl TracingRuntime {
                 crate::bootstrap::workers::service_graph::flush::ServiceGraphFlushConfig::default(),
             )
             .spawn();
-        let _service_graph_recompute = core.roles.run_alert_manager.then(|| {
+        let _service_graph_recompute = core.roles.run_alert.then(|| {
             crate::bootstrap::workers::service_graph::recompute::ServiceGraphRecomputer::new(
                 query.query.clone(),
                 core.orgs.clone() as Arc<dyn OrganizationRepository>,

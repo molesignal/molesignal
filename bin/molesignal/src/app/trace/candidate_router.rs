@@ -127,6 +127,26 @@ struct RouterWorkerContext {
     local_pipeline: Arc<TracePipeline>,
     config: TraceCandidateRouterConfig,
     metrics: Arc<RouterMetrics>,
+    /// 每个 owner 一条复用的 gRPC 连接：候选 span 的投递频率很高，逐条建连会耗尽临时端口。
+    channels: parking_lot::Mutex<std::collections::HashMap<String, tonic::transport::Channel>>,
+}
+
+impl RouterWorkerContext {
+    async fn channel(&self, endpoint: &str) -> Result<tonic::transport::Channel, String> {
+        if let Some(channel) = self.channels.lock().get(endpoint) {
+            return Ok(channel.clone());
+        }
+        let channel = grpc_channel::connect(endpoint, false).await?;
+        self.channels
+            .lock()
+            .insert(endpoint.to_owned(), channel.clone());
+        Ok(channel)
+    }
+
+    /// 投递失败后丢弃连接，下一次投递重新建立。
+    fn drop_channel(&self, endpoint: &str) {
+        self.channels.lock().remove(endpoint);
+    }
 }
 
 pub struct TraceCandidateRouter {
@@ -169,6 +189,7 @@ impl TraceCandidateRouter {
             local_pipeline,
             config,
             metrics: metrics.clone(),
+            channels: parking_lot::Mutex::new(std::collections::HashMap::new()),
         });
         let mut joins = Vec::with_capacity(config.workers);
         for _ in 0..config.workers {
@@ -410,7 +431,7 @@ async fn deliver_candidate(context: &RouterWorkerContext, queued: QueuedCandidat
         };
         let request = build_request(context, &queued.candidate, canonical_json.clone(), token);
         let result = timeout(context.config.attempt_timeout, async {
-            let channel = grpc_channel::connect(&owner.endpoint, false).await?;
+            let channel = context.channel(&owner.endpoint).await?;
             let mut client = TraceCandidateServiceClient::new(channel);
             crate::shared::grpc_trace::call(
                 request,
@@ -447,6 +468,7 @@ async fn deliver_candidate(context: &RouterWorkerContext, queued: QueuedCandidat
                     .fetch_add(1, Ordering::Relaxed);
             }
             _ => {
+                context.drop_channel(&owner.endpoint);
                 failed_nodes.insert(owner.node_id);
             }
         }
@@ -674,6 +696,7 @@ mod tests {
             local_pipeline: local_pipeline(),
             config: TraceCandidateRouterConfig::default(),
             metrics: Arc::new(RouterMetrics::default()),
+            channels: Default::default(),
         };
         let peers = sampler_peers(&context).await;
         assert_eq!(

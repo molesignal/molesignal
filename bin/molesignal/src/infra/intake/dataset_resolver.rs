@@ -119,7 +119,7 @@ pub(crate) mod test_support {
             OrganizationScope, PhysicalDataset, PhysicalDatasetId, PhysicalDatasetSpec,
             PublishDatasetTransform, ReplaceSegments, SegmentState, TombstoneSegments,
             UpdateArtifact, WalCheckpointView, WalSequence, WriterEpoch, WriterNodeId,
-            builtin_registry,
+            builtin_registry, stale_writer_epoch,
         },
         shared::{Error, Result, ids::Id, time::TimestampMicros},
     };
@@ -144,6 +144,30 @@ pub(crate) mod test_support {
 
         pub(crate) fn fail_next_replace(&self) {
             self.fail_next_replace.store(true, Ordering::SeqCst);
+        }
+
+        /// 模拟数据集已被删除：之后针对它的 `commit_flush` 返回 `NotFound`。
+        pub(crate) fn forget_datasets(&self) {
+            self.datasets.clear();
+        }
+
+        /// 模拟另一个 writer 已以 `epoch` 提交过该 (dataset, node)，更低 epoch 的 flush 被栅栏拒绝。
+        pub(crate) fn record_foreign_commit(
+            &self,
+            organization_id: &Id,
+            dataset_id: &PhysicalDatasetId,
+            node_id: &str,
+            epoch: u64,
+        ) {
+            self.checkpoints.insert(
+                (
+                    organization_id.as_str().to_owned(),
+                    dataset_id.as_str().to_owned(),
+                    node_id.to_owned(),
+                    epoch,
+                ),
+                WalSequence(1),
+            );
         }
 
         pub(crate) fn committed_rows(&self) -> Vec<u64> {
@@ -306,6 +330,26 @@ pub(crate) mod test_support {
                 .ok_or_else(|| {
                     Error::not_found(format!("physical dataset {}", command.dataset_id))
                 })?;
+            // 与 PostgreSQL 实现一致：同一 (dataset, node) 有更高 epoch 提交过，旧 epoch 被栅栏拒绝。
+            let fenced_by = self
+                .checkpoints
+                .iter()
+                .filter(|entry| {
+                    entry.key().0 == scope.organization_id.as_str()
+                        && entry.key().1 == command.dataset_id.as_str()
+                        && entry.key().2 == command.provenance.writer_node_id.as_str()
+                })
+                .map(|entry| entry.key().3)
+                .max()
+                .filter(|max_epoch| *max_epoch > command.provenance.writer_epoch.0);
+            if let Some(max_epoch) = fenced_by {
+                return Err(stale_writer_epoch(
+                    command.provenance.writer_epoch,
+                    &command.dataset_id,
+                    &command.provenance.writer_node_id,
+                    max_epoch,
+                ));
+            }
             let version = {
                 let mut dataset = self
                     .datasets

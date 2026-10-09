@@ -19,6 +19,7 @@ use super::{
 use crate::{
     domain::storage::{
         ArtifactState, CommitFlush, FlushCommitResult, OrganizationScope, SegmentState,
+        stale_writer_epoch,
     },
     shared::{Error, Result, time::TimestampMicros},
 };
@@ -55,10 +56,12 @@ pub(super) async fn commit_flush(
     if let Some(max_epoch) = fenced_epoch
         && to_u64(max_epoch, "writer_epoch")? > provenance.writer_epoch.0
     {
-        return Err(Error::conflict(format!(
-            "stale writer epoch {} for dataset {} node {}: fenced by epoch {max_epoch}",
-            provenance.writer_epoch, command.dataset_id, provenance.writer_node_id
-        )));
+        return Err(stale_writer_epoch(
+            provenance.writer_epoch,
+            &command.dataset_id,
+            &provenance.writer_node_id,
+            max_epoch,
+        ));
     }
 
     let inserted = sqlx::query(

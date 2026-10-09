@@ -276,6 +276,7 @@ mod enabled {
                 .unwrap()
                 .into(),
                 received_at_micros: TimestampMicros::now().0,
+                stream_type_name: String::new(),
             }),
         )
         .await
@@ -429,7 +430,7 @@ mod enabled {
 
         let pool = sqlx::postgres::PgPoolOptions::new()
             .max_connections(2)
-            .connect(&server.settings.store.meta.dsn)
+            .connect(&server.settings.meta_database.dsn)
             .await
             .unwrap();
         let flushed_org_id = system_org_id.0.clone();

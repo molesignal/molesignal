@@ -1,11 +1,12 @@
 # MoleSignal 配置样例
 # 启动时使用 `molesignal --config /path/to/config.toml`
 # 也可通过环境变量覆盖：前缀 MS_，配置路径全部使用单下划线连接，
-# 例如 MS_HTTP_PORT=5081 / MS_STORE_META_DSN=...
+# 例如 MS_HTTP_PORT=5081 / MS_META_DATABASE_DSN=...
 
 [node]
-# 可选角色（可组合）：standalone / router / intake / querier / compactor / alert_manager
-# standalone 表示同进程内启用全部角色
+# 可选角色（可组合）：standalone / router / intake / querier / compactor / alert
+# standalone 表示同进程内启用全部角色。拆分角色时 router 提供完整 HTTP API 与 Web UI，
+# 其余角色在 [http] 端口上只提供探活、就绪与指标。
 roles = ["standalone"]
 # 节点唯一标识；留空默认使用 OS hostname，hostname 不可用时才生成 KSUID。
 # 同一 hostname 上运行多个 MoleSignal 进程时，必须为每个进程显式设置不同的 id。
@@ -54,7 +55,7 @@ port = 5082
 # gRPC 单条收发消息允许的最大大小，单位 MiB。
 max_message_size_mb = 32
 
-# Probe Agent register/control plane starts automatically on standalone and alert_manager nodes.
+# Probe Agent register/control plane starts automatically on standalone and alert nodes.
 # Register uses server-authenticated TLS; the control stream uses short-lived mTLS identities.
 [probe]
 bind = "0.0.0.0"
@@ -206,7 +207,7 @@ allow_self_export = false
 # client_key_file = "/etc/molesignal/otel-client-key.pem"
 
 # Application Performance Monitoring automatically starts on nodes that own
-# Trace candidates or run the alert-manager rollup role.
+# Trace candidates or run the alert rollup role.
 [apm]
 # APM 投影输入的有界队列容量，范围 1024..1048576。
 queue_capacity = 65536
@@ -263,19 +264,16 @@ port = 5084
 # 是否允许 pprof listener 绑定非 loopback 地址；远程暴露可能泄露运行时信息。
 allow_remote = false
 
-[store]
-
-[store.meta]
-# 元数据库：postgres
-backend = "postgres"
-# Postgres 示例：postgres://user:password@host:5432/dbname
+[meta_database]
+# 元数据库连接（PostgreSQL）。
+# 示例：postgres://user:password@host:5432/dbname
 dsn = "postgres://molesignal:molesignal@localhost:5432/molesignal"
 # 启动时同步预热的最小连接数；高于 max_connections 时按其上限夹紧。
 min_connections = 2
 # 元数据库连接池允许同时建立的最大连接数。
 max_connections = 16
 
-[store.object]
+[object_store]
 # 列式数据落地：local | s3 | azure | gcs
 backend = "local"
 # local 后端保存对象的根目录；云对象存储后端忽略此字段。
@@ -306,13 +304,14 @@ root = "./data/objects"
 # 凭据走 GOOGLE_APPLICATION_CREDENTIALS
 
 # multipart / range / 并发 / 超时
-# 预留的大对象 multipart 上传阈值，单位 MiB；当前运行时尚未消费该字段。
+# 写入对象达到该大小时改用 multipart 上传，单位 MiB，最小 1。create-if-absent 的写入先确认对象不存在再上传；
+# manifest 与带版本条件的写入始终是单次请求。
 multipart_threshold_mb = 32
-# 预留的 multipart 单分片大小，单位 MiB；当前运行时尚未消费该字段。
+# multipart 上传的单分片大小，单位 MiB，范围 5..1024；对象很大时按后端 10 000 分片的上限放大。
 multipart_part_size_mb = 8
-# 预留的分段读取启用阈值，单位 MiB；当前运行时尚未消费该字段。
+# 范围读取达到该大小时拆成多个块并发读取，单位 MiB，最小 1。
 range_threshold_mb = 16
-# 预留的分段读取块大小，单位 MiB；当前运行时尚未消费该字段。
+# 分段读取的单块大小，单位 MiB，范围 1..1024。
 range_chunk_mb = 8
 # 对象存储后端操作的进程内并发上限；0 按 1 处理。
 max_concurrency = 8
@@ -322,7 +321,7 @@ op_timeout_secs = 30
 health_probe_interval_secs = 30
 
 # 重试策略（s3 / azure / gcs 暂态错误）
-[store.object.retry]
+[object_store.retry]
 # 单次对象存储操作的总尝试次数；0 按 1 次处理。
 max_attempts = 4
 # 指数退避的初始等待时间，单位毫秒。
@@ -401,7 +400,8 @@ idle_ttl_secs = 900
 [querier]
 # datafusion 并行度，0=按 CPU 数
 concurrency = 0
-# 单查询最大扫描行数（防爆查）
+# 单次查询最多读取的行数（防爆查）：按候选文件与内存缓冲的行数在读取前判断，超过则以 400 拒绝；
+# PromQL 按单个 selector 计。0 = 不限制。
 max_scan_rows = 100_000_000
 # 估算行数超过该阈值时转异步搜索；0 = 禁用自动转异步
 auto_async_threshold_rows = 50_000_000
@@ -422,14 +422,14 @@ downsample_after_days = 0
 # 降采样时间桶宽度（秒）
 downsample_interval_secs = 3600
 
-[alert_manager]
+[alert]
 # 告警评估间隔（秒）
 eval_interval_secs = 30
 # 升级派发器 tick 间隔（秒）
 dispatch_interval_secs = 10
 # 单条规则评估超时（秒），超时记 alert_rule_eval_timeout_total，不阻塞下一轮
 eval_timeout_secs = 10
-# on-call 升级策略默认 ack 超时（秒）
+# 升级策略的步骤省略 ack_timeout_secs 时取该值（秒）。保存策略时写入步骤，之后修改本项不影响已保存的步骤。
 default_ack_timeout_secs = 300
 
 # 平台通用 SMTP（注册审批等非 Notify 投递场景）；Notify `email_smtp` 凭据保存在加密连接器中。
@@ -468,6 +468,8 @@ heartbeat_interval_secs = 5
 peer_timeout_secs = 15
 # 节点发现结果在每个进程内缓存 2 秒，并发刷新合并为一次数据库查询。
 
+# router 角色按已认证的组织限流 `/api/v1/intake/*` 与 `/api/v1/query*`，超限返回 429；
+# 每个 router 副本独立计数，standalone 不限流。
 [router.rate_limit]
 # 每 org 每秒 intake 请求上限；0 = 不限
 intake_qps = 1000
@@ -610,8 +612,3 @@ interval_secs = 300
 batch_size = 256
 orphan_grace_secs = 86400
 verify_checksums = true
-
-# === Agent ===
-[agent]
-# session.provider 为空时的 fallback；未来可用，当前仅文档化
-default_provider = "openai"

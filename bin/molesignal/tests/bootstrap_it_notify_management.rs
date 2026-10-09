@@ -45,7 +45,7 @@ async fn notify_connector_endpoint_and_preference_round_trip() {
 
     let pool = sqlx::postgres::PgPoolOptions::new()
         .max_connections(1)
-        .connect(&server.settings.store.meta.dsn)
+        .connect(&server.settings.meta_database.dsn)
         .await
         .unwrap();
     let sealed = sqlx::query(

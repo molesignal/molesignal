@@ -242,7 +242,7 @@ impl PipelineExecutor for BootstrapPipelineExecutor {
 }
 
 /// 起 cron 轮询循环：每 `poll_secs` 调一次 `runner.tick_once`（runner 内按各 pipeline 的
-/// cron + last_run_at 判定是否真的 fire）。调用方据角色（alert_manager / standalone）决定是否 spawn。
+/// cron + last_run_at 判定是否真的 fire）。调用方据角色（alert / standalone）决定是否 spawn。
 pub fn spawn_runner(runner: Arc<ScheduledPipelineRunner>, poll_secs: u64) -> JoinHandle<()> {
     tokio::spawn(async move {
         let mut ticker = tokio::time::interval(std::time::Duration::from_secs(poll_secs.max(1)));

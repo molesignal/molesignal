@@ -40,10 +40,12 @@ use crate::{
     },
 };
 
+mod discard;
 mod generation;
 mod memory;
 mod pool;
 
+pub use discard::Discarded;
 pub(crate) use generation::align_to_schema;
 pub use generation::{BufferWriter, BufferedRecordBatch};
 pub use memory::MemoryReservation;

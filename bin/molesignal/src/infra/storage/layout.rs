@@ -23,6 +23,16 @@ use crate::{
 pub struct StorageLayout;
 
 impl StorageLayout {
+    /// Artifact 数据对象的 key 前缀。
+    pub const ARTIFACT_PREFIX: &'static str = "artifacts/v1/";
+    /// 封存分区 Manifest 对象的 key 前缀。
+    pub const MANIFEST_PREFIX: &'static str = "manifests/v1/";
+
+    /// `key` 是否是 Manifest 对象。Manifest 靠单次条件写实现版本协议。
+    pub fn is_manifest_key(key: &str) -> bool {
+        key.starts_with(Self::MANIFEST_PREFIX)
+    }
+
     /// Artifact 数据对象 key。
     pub fn artifact_key(
         organization_id: &Id,
@@ -54,7 +64,8 @@ impl StorageLayout {
         generation: u64,
     ) -> ObjectKey {
         ObjectKey::from_string(format!(
-            "manifests/v1/{}/{}/{}/{}/{generation}.parquet",
+            "{}{}/{}/{}/{}/{generation}.parquet",
+            Self::MANIFEST_PREFIX,
             organization_id.as_str(),
             stream_type.external_name(),
             dataset_id.as_str(),
@@ -65,7 +76,7 @@ impl StorageLayout {
     /// Reconciler 做 orphan 扫描的合法前缀。object store 里还有 Catalog 之外的
     /// 合法对象（原始归档、会话回放等），孤儿判定只允许在这两个前缀内进行。
     pub fn catalog_scan_prefixes() -> [&'static str; 2] {
-        ["artifacts/v1/", "manifests/v1/"]
+        [Self::ARTIFACT_PREFIX, Self::MANIFEST_PREFIX]
     }
 
     pub fn catalog_scan_prefixes_for(organization_id: &Id) -> [String; 2] {
@@ -146,6 +157,23 @@ mod tests {
             &ArtifactTypeId::new("vendor.bloom").unwrap(),
         );
         assert!(custom.as_str().ends_with("/a"));
+    }
+
+    #[test]
+    fn manifest_keys_carry_the_manifest_prefix_and_artifact_keys_do_not() {
+        let org = Id::from_string("org1");
+        let manifest = StorageLayout::manifest_key(
+            &org,
+            StreamTypeId::LOGS,
+            &PhysicalDatasetId::from_string("ds1"),
+            &partition(),
+            3,
+        );
+        assert!(StorageLayout::is_manifest_key(manifest.as_str()));
+        assert!(!StorageLayout::is_manifest_key(
+            "artifacts/v1/org1/logs/ds1/p-0-00/seg/a.parquet"
+        ));
+        assert!(!StorageLayout::is_manifest_key("tenant/other.parquet"));
     }
 
     #[test]

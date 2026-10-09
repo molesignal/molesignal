@@ -3,7 +3,7 @@
 
 //! Federated DistributedEngine（spec federated-search）。
 //!
-//! 包装 inner（local / 集群内 distributed）引擎，在 coordinator path 上扇出到 remote
+//! 包装 inner（本节点引擎，或把查询交给 querier 节点的远程引擎），在 coordinator path 上扇出到 remote
 //! cluster：当 `QueryRequest.federation_clusters` 含非 `"local"` 集群时——
 //! 1. 本地扫描 `SELECT * FROM <stream>` → `RecordBatch`；
 //! 2. 对每个命中的 enabled remote，经 Arrow Flight `do_get` 跑同一份 scan SQL（携
@@ -15,8 +15,8 @@
 //! 无非 `local` 目标时 100% 透传 inner（OSS / 普通本地查询行为不变）。
 //!
 //! 已知限制（留 follow-up）：
-//! - 本地分支在 coordinator 单点扫描，不再走集群内分片（federation 优先正确性）。
-//! - 跨集群 schema 需一致（与集群内 distributed 同假设）；不一致时 UNION 会报错。
+//! - 本地分支在 coordinator 单点扫描（federation 优先正确性）。
+//! - 跨集群 schema 需一致；不一致时 UNION 会报错。
 //! - `tls_verify=false` 当前映射为明文 http；跳过证书校验的 https 需额外 tonic feature。
 
 use std::{collections::BTreeMap, sync::Arc};
@@ -47,21 +47,22 @@ use crate::{
         persistence::repositories::{
             log_patterns::LogPatternRepository, regex_patterns::RegexPatternRepository,
         },
-        query::{
-            catalog_source::CatalogQuerySource,
-            distributed::{batches_to_json, stream_type_to_proto},
-        },
+        query::catalog_source::CatalogQuerySource,
         secret::resolve_secret_ref,
     },
     protocol::query::v1::QueryShard,
     shared::{Error, Result},
 };
 
+mod batches;
 mod cancel_guard;
 mod local_scan;
 mod telemetry;
 
+use batches::stream_type_to_proto;
 use cancel_guard::DispatchGuard;
+
+use super::arrow_json::batches_to_json;
 
 pub struct FederatedDistributedEngine {
     inner: Arc<dyn QueryEngine>,

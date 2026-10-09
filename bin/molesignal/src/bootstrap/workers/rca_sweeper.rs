@@ -5,7 +5,7 @@
 //! 对尚无 RCA 的，调 LLM 产出根因摘要写回 `incident_rca`。生成逻辑复用
 //! [`crate::api::rca::RcaGenerator`]（与 HTTP 按需触发同源，不漂移）。
 //!
-//! 单点周期任务（与告警后台同属 alert_manager 角色，只起一份）。RCA 是 agent 能力 ——
+//! 单点周期任务（与告警后台同属 alert 角色，只起一份）。RCA 是 agent 能力 ——
 
 //! 无可用 provider 的 org 直接跳过；已有 RCA 的 incident 不重复生成。失败仅 warn、下个
 //! tick 自然重试（不落失败行）。

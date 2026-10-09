@@ -8,7 +8,9 @@ use std::sync::Arc;
 use super::{core::Core, query::QueryRuntime};
 use crate::{
     app::{
-        alerting::{AlertingService, EscalationDispatcher, RuleEvaluator},
+        alerting::{
+            AlertingService, EscalationDispatcher, RuleEvaluator, realtime::RealtimeAlertWorker,
+        },
         dashboard::{DashboardService, contract_registry::DashboardContractResolver},
         notify::{
             AlertOwnerResolver, ConnectorRegistry, CurrentOncallResolver, EventUsersResolver,
@@ -173,7 +175,9 @@ impl AlertingRuntime {
                 core.escalations.clone(),
             )
             .with_notify_engine(notify_engine.clone())
-            .with_lifecycle_sink(lifecycle_sink.clone()),
+            .with_lifecycle_sink(lifecycle_sink.clone())
+            .with_realtime_alerts(core.realtime_alerts.clone())
+            .with_default_ack_timeout_secs(settings.alert.default_ack_timeout_secs),
         );
         let dispatcher = Arc::new(
             EscalationDispatcher::new(
@@ -181,7 +185,8 @@ impl AlertingRuntime {
                 core.escalations.clone(),
                 notify_engine.clone(),
             )
-            .with_mute_rules(mute_rules.clone()),
+            .with_mute_rules(mute_rules.clone())
+            .with_schedules(core.schedules.clone()),
         );
         let incident_groups: Arc<dyn IncidentGroupRepository> =
             Arc::new(PgIncidentGroupRepository::new(core.pool.clone()));
@@ -192,22 +197,31 @@ impl AlertingRuntime {
                 core.alert_rules.clone(),
                 core.incidents.clone(),
                 eval_state,
-                query.sql_engine.clone(),
-                settings.alert_manager.eval_timeout_secs,
+                query.alert_engine.clone(),
+                settings.alert.eval_timeout_secs,
             )
             .with_grouping(incident_groups.clone(), semantic_groups.clone())
             .with_notify_engine(notify_engine.clone())
             .with_lifecycle_sink(lifecycle_sink),
         );
         let oncall_events = Arc::new(OncallEventProducer::new(notify_engine.clone(), schedules));
-        let _alert_handles = core.roles.run_alert_manager.then(|| {
-            crate::bootstrap::roles::alert_manager::spawn_alert_manager_loops(
+        // 实时规则在接收写入的节点上求值：intake 与 standalone 角色运行匹配器的后台任务。
+        let _realtime_alert_worker = core.roles.run_intake.then(|| {
+            RealtimeAlertWorker::new(
+                core.realtime_alerts.clone(),
+                core.alert_rules.clone(),
+                evaluator.clone(),
+            )
+            .spawn()
+        });
+        let _alert_handles = core.roles.run_alert.then(|| {
+            crate::bootstrap::roles::alert::spawn_alert_loops(
                 evaluator.clone(),
                 dispatcher,
                 core.orgs.clone() as Arc<dyn OrganizationRepository>,
                 notify_engine.clone(),
                 oncall_events,
-                settings.alert_manager.clone(),
+                settings.alert.clone(),
             )
         });
         let dashboard = Arc::new(
@@ -215,13 +229,13 @@ impl AlertingRuntime {
                 .with_draft_repository(core.dashboard_drafts.clone())
                 .with_contract_resolver(dashboard_contracts),
         );
-        let _status_page_notification_worker = core.roles.run_alert_manager.then(|| {
+        let _status_page_notification_worker = core.roles.run_alert.then(|| {
             crate::bootstrap::workers::status_page_notifications::StatusPageNotificationWorker::new(
                 status_pages.clone(),
             )
             .spawn()
         });
-        let _status_page_maintenance_worker = core.roles.run_alert_manager.then(|| {
+        let _status_page_maintenance_worker = core.roles.run_alert.then(|| {
             crate::bootstrap::workers::status_page_maintenance::StatusPageMaintenanceWorker::new(
                 status_pages.clone(),
                 Arc::new(StatusPageAssetCleaner::new(core.store.clone())),

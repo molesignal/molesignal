@@ -4,7 +4,7 @@
 //! 慢查询周期分析 worker：定期遍历各 org 最近的慢查询，跑 [`crate::app::recommendations`]
 //! 启发式引擎，对带 warning/critical 建议的慢查询发结构化日志事件（ops 可见 / 未来可接告警）。
 //!
-//! 单点周期任务（与告警后台同属 alert_manager 角色，只起一份）。分析逻辑复用 app 引擎
+//! 单点周期任务（与告警后台同属 alert 角色，只起一份）。分析逻辑复用 app 引擎
 //! （纯函数），worker 只负责编排 + 发事件，不改查询、不写新表。
 
 use std::{sync::Arc, time::Duration};

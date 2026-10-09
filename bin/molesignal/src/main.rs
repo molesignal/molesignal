@@ -176,7 +176,7 @@ fn role_str(r: &molesignal::config::Role) -> &'static str {
         Intake => "intake",
         Querier => "querier",
         Compactor => "compactor",
-        AlertManager => "alert_manager",
+        Alert => "alert",
     }
 }
 

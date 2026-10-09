@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use super::{
     escalation::EscalationPolicy,
     incident::{Incident, IncidentRca, IncidentStatus},
-    rule::AlertRule,
+    rule::{AlertRule, RuleState},
     schedule::Schedule,
 };
 use crate::shared::{Result, ids::Id, time::TimestampMicros};
@@ -45,18 +45,35 @@ pub trait AlertRuleEvalStateRepository: Send + Sync {
 #[async_trait]
 pub trait AlertRuleRepository: Send + Sync {
     async fn create(&self, rule: AlertRule) -> Result<AlertRule>;
+    /// 写回规则定义。`last_eval_at` 与 `last_state` 由评估器经
+    /// [`record_evaluation`](Self::record_evaluation) 维护，这里不写，避免用户编辑覆盖掉评估结果。
     async fn update(&self, rule: AlertRule) -> Result<AlertRule>;
     async fn get(&self, id: &Id) -> Result<AlertRule>;
     async fn list(&self, org_id: &Id) -> Result<Vec<AlertRule>>;
     async fn delete(&self, id: &Id) -> Result<()>;
-    /// 给 alert_manager 调度用：拉取所有启用的规则
+    /// 给 alert 调度用：拉取所有启用的规则
     async fn list_enabled(&self) -> Result<Vec<AlertRule>>;
+    /// 记录一次完成的评估，只写 `last_eval_at` 与 `last_state`。规则已被删除时静默忽略。
+    async fn record_evaluation(
+        &self,
+        id: &Id,
+        evaluated_at: TimestampMicros,
+        state: RuleState,
+    ) -> Result<()>;
 }
 
 #[async_trait]
 pub trait IncidentRepository: Send + Sync {
     async fn create(&self, incident: Incident) -> Result<Incident>;
     async fn update(&self, incident: Incident) -> Result<Incident>;
+    /// 仅当库中事件的当前状态属于 `expected` 时写入，返回写入后的事件；状态已被并发操作
+    /// （用户确认 / 解决、评估器自动解决）改变时不写入并返回 `None`。状态迁移都应走它，
+    /// 否则读到旧状态的一方会把对方的结果覆盖回去。
+    async fn update_if_status(
+        &self,
+        incident: Incident,
+        expected: &[IncidentStatus],
+    ) -> Result<Option<Incident>>;
     async fn get(&self, id: &Id) -> Result<Incident>;
     async fn list_active(&self, org_id: &Id) -> Result<Vec<Incident>>;
     async fn find_by_fingerprint(&self, org_id: &Id, fingerprint: &str)

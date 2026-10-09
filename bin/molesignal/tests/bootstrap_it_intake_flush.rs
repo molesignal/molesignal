@@ -71,8 +71,7 @@ async fn fixture() -> Fixture {
     let object_root = tempfile::tempdir().unwrap();
     let wal_root = tempfile::tempdir().unwrap();
 
-    let meta_cfg = molesignal::config::MetaStoreSettings {
-        backend: "postgres".into(),
+    let meta_cfg = molesignal::config::MetaDatabaseSettings {
         dsn,
         min_connections: 1,
         max_connections: 4,
@@ -121,7 +120,11 @@ async fn fixture() -> Fixture {
         root: object_root.path().to_string_lossy().into(),
         ..Default::default()
     };
-    let store = object::build(&object_cfg).unwrap();
+    let store = object::build(
+        &object_cfg,
+        &object::credentials::ResolvedCredentials::empty(),
+    )
+    .unwrap();
 
     let wal_pool = Arc::new(WalPool::new(
         wal_root.path(),
@@ -299,7 +302,11 @@ async fn it_5000_rows_flush_then_replay() {
         root: f.object_root.path().to_string_lossy().into(),
         ..Default::default()
     };
-    let store2 = object::build(&object_cfg).unwrap();
+    let store2 = object::build(
+        &object_cfg,
+        &object::credentials::ResolvedCredentials::empty(),
+    )
+    .unwrap();
     let parquet_writer2 = Arc::new(ParquetWriter::new(store2));
     let worker2 = Arc::new(IntakeWorker::new(
         wal_pool2,

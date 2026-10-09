@@ -106,10 +106,14 @@ impl FieldKeyService {
     }
 
     /// 轮换该 org 的字段加密 DEK（服务端生成新 raw key，写入新版本，失效缓存）。
-    /// 新写入用新版本；历史密文仍可解（`decrypt_map` 含全版本）。
+    /// 新写入用新版本；历史密文仍可解（`decrypt_map` 含全版本）。org 还没有字段 DEK 时，
+    /// 新 key 作为第一个版本直接 provision。
     pub async fn rotate_default(&self, org: &Id) -> Result<OrgFieldKey> {
         let raw = random_key()?;
-        let k = self.keys.rotate(org, FIELD_DEFAULT_KEY_NAME, &raw).await?;
+        let k = match self.keys.rotate(org, FIELD_DEFAULT_KEY_NAME, &raw).await {
+            Err(Error::NotFound(_)) => self.keys.create(org, FIELD_DEFAULT_KEY_NAME, &raw).await?,
+            other => other?,
+        };
         self.cache.invalidate(&org.0).await;
         Ok(OrgFieldKey {
             key_id: k.id.0,
@@ -165,13 +169,13 @@ mod tests {
         }
         async fn rotate(&self, org_id: &Id, name: &str, raw_key: &[u8]) -> Result<CipherKey> {
             let mut rows = self.rows.lock().unwrap();
-            let next = rows
+            let latest = rows
                 .iter()
                 .filter(|r| &r.org_id == org_id && r.name == name)
                 .map(|r| r.version)
                 .max()
-                .unwrap_or(0)
-                + 1;
+                .ok_or_else(|| Error::not_found("key"))?;
+            let next = latest + 1;
             let k = CipherKey {
                 id: Id::new(),
                 org_id: org_id.clone(),
@@ -223,10 +227,12 @@ mod tests {
             Ok(v)
         }
         async fn delete(&self, org_id: &Id, name: &str) -> Result<()> {
-            self.rows
-                .lock()
-                .unwrap()
-                .retain(|r| !(&r.org_id == org_id && r.name == name));
+            let mut rows = self.rows.lock().unwrap();
+            let before = rows.len();
+            rows.retain(|r| !(&r.org_id == org_id && r.name == name));
+            if rows.len() == before {
+                return Err(Error::not_found("key"));
+            }
             Ok(())
         }
     }
@@ -291,5 +297,18 @@ mod tests {
             "old version still decryptable"
         );
         assert!(map.contains_key(&v2.key_id), "new version decryptable");
+    }
+
+    #[tokio::test]
+    async fn rotate_default_provisions_the_first_version_when_absent() {
+        let repo = Arc::new(InMemKeys::default());
+        let svc = FieldKeyService::new(repo.clone());
+        let org = Id::from_string("org-1");
+
+        let first = svc.rotate_default(&org).await.unwrap();
+
+        assert_eq!(first.version, 1);
+        assert_eq!(svc.current(&org).await.unwrap().key_id, first.key_id);
+        assert_eq!(repo.list(&org).await.unwrap().len(), 1);
     }
 }

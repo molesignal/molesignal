@@ -3,7 +3,8 @@
 
 //! 对象存储凭据解析：三层优先级 env > credentials_file > inline TOML。
 //!
-//! 启动期被 `bootstrap::build_state` 调用一次，emit `object_store_credentials_source` info log。
+//! 启动期由 `bootstrap::core` 解析一次：结果交给 [`super::build`] 构造 S3 / Azure 客户端，
+//! 并 emit `object_store_credentials_source` info log。
 
 use crate::{
     config::ObjectStoreSettings,

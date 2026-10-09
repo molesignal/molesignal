@@ -123,7 +123,7 @@ fn environment_schema(defaults: &Settings) -> Settings {
     let mut schema = defaults.clone();
 
     schema.auth.deprecated_jwt_secret = Some(String::new());
-    schema.store.object.credentials_file = Some(std::path::PathBuf::new());
+    schema.object_store.credentials_file = Some(std::path::PathBuf::new());
     schema.telemetry.log_directory = Some(String::new());
     schema.telemetry.log_rotation = Some(String::new());
     schema.telemetry.log_max_files = Some(0);
@@ -168,12 +168,20 @@ mod tests {
     fn nested_paths_keep_field_name_underscores() {
         let paths = paths();
         assert_eq!(
-            paths.resolve("STORE_META_DSN").as_deref(),
-            Some("store.meta.dsn")
+            paths.resolve("META_DATABASE_DSN").as_deref(),
+            Some("meta_database.dsn")
         );
         assert_eq!(
             paths.resolve("CLUSTER_ADVERTISE_ADDR").as_deref(),
             Some("cluster.advertise_addr")
+        );
+        assert_eq!(
+            paths.resolve("OBJECT_STORE_SECRET_KEY").as_deref(),
+            Some("object_store.secret_key")
+        );
+        assert_eq!(
+            paths.resolve("OBJECT_STORE_RETRY_MAX_ATTEMPTS").as_deref(),
+            Some("object_store.retry.max_attempts")
         );
         assert_eq!(
             paths
@@ -221,14 +229,13 @@ mod tests {
         assert_eq!(paths.resolve("AGENT_OPENAI_API_KEY"), None);
         assert_eq!(paths.resolve("AUTH_JWT_SECRET_OVERRIDE"), None);
         assert_eq!(paths.resolve("LICENSE_FILE"), None);
-        assert_eq!(paths.resolve("OBJECT_STORE_SECRET_KEY"), None);
     }
 
     #[test]
     fn dotted_and_double_underscore_names_are_not_configuration_keys() {
         let paths = paths();
         assert_eq!(paths.resolve("HTTP.PORT"), None);
-        assert_eq!(paths.resolve("STORE__META__DSN"), None);
+        assert_eq!(paths.resolve("OBJECT_STORE__BUCKET"), None);
         assert_eq!(paths.resolve("RUN_IT"), None);
     }
 }

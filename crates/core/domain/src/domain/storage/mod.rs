@@ -26,7 +26,8 @@ pub use catalog::{
     ArtifactUpdate, CatalogInvariant, CatalogInvariantIssue, CatalogSnapshot, CommitFlush,
     DatasetSelection, DatasetSnapshot, DatasetTransformResult, FileCatalog, FlushCommitResult,
     GcQueueEntry, GcReason, IndexRebuildTask, OrganizationScope, PublishDatasetTransform,
-    ReplaceSegments, TombstoneSegments, UpdateArtifact, WalCheckpointView,
+    ReplaceSegments, TombstoneSegments, UpdateArtifact, WalCheckpointView, is_stale_writer_epoch,
+    stale_writer_epoch,
 };
 pub use dataset::{
     DatasetState, IndexPolicy, PartitionGranularity, PartitionPolicy, PhysicalDataset,

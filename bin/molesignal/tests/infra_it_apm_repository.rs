@@ -32,7 +32,7 @@ async fn apm_snapshots_rollups_retention_and_tenant_isolation_are_idempotent() {
     let server = common::TestServer::start().await;
     let pool = sqlx::postgres::PgPoolOptions::new()
         .max_connections(8)
-        .connect(&server.settings.store.meta.dsn)
+        .connect(&server.settings.meta_database.dsn)
         .await
         .expect("APM integration pool");
     let repository = Arc::new(PgApmRepository::new(pool.clone()));

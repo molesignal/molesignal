@@ -3,7 +3,7 @@
 
 //! gossip 节点发现 worker（#12 super-cluster leader）。
 //!
-//! 单点周期任务（alert_manager 角色）。每 tick 与每个 **enabled** peer 交换"已知集群"
+//! 单点周期任务（alert 角色）。每 tick 与每个 **enabled** peer 交换"已知集群"
 //! 拓扑（仅 id/name/addr，**绝不**传 token / org 映射）：对端回传的未知集群入库为
 //! `discovered=true, enabled=false` —— admin 在 clusters 页看到后手动启用 + 填 token +
 //! 配 org_map 才生效（自动发现拓扑、不自动信任）。

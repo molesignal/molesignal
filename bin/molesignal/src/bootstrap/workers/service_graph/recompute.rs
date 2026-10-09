@@ -5,7 +5,7 @@
 //!
 //! 跨节点正确性方案：路由层无法按 trace_id 分片（批量转发不解析、一批混多 trace），故同一 trace
 //! 的父子 span 可能落到不同 intake 节点、各自的内存聚合器配不上对。本 worker 作为**单例**
-//! （alert_manager 角色）周期从**共享存储**重算——查询近窗口的 trace span（此时见到完整集合，
+//! （alert 角色）周期从**共享存储**重算——查询近窗口的 trace span（此时见到完整集合，
 //! 无视哪个节点接入），复用 [`ServiceGraphAggregator`] 配对出 caller→callee 边，**先删后插**
 //! 窗口内的边实现幂等（重算覆盖、含晚到 span）。
 //!

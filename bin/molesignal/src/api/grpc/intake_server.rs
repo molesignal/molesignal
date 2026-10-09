@@ -19,6 +19,7 @@ use crate::{
         intake::{IntakeBatch, RawEvent},
         stream::StreamType,
     },
+    infra::cluster::grpc_status::error_to_status,
     protocol::intake::v1::{
         IntakeError as ProtoIntakeError, PushRequest, PushResponse, StreamType as ProtoStreamType,
         intake_service_server::{IntakeService as IntakeServiceTrait, IntakeServiceServer},
@@ -62,10 +63,16 @@ impl IntakeServiceTrait for IntakeGrpc {
             stream_type,
             payload,
             received_at_micros,
+            stream_type_name,
         } = request.into_inner();
 
-        let stream_type = proto_stream_type_to_domain(stream_type)
-            .ok_or_else(|| Status::invalid_argument("stream_type unspecified"))?;
+        let stream_type = if stream_type_name.is_empty() {
+            proto_stream_type_to_domain(stream_type)
+                .ok_or_else(|| Status::invalid_argument("stream_type unspecified"))?
+        } else {
+            StreamType::from_external_name(stream_type_name)
+                .map_err(|error| Status::invalid_argument(error.to_string()))?
+        };
 
         let events: Vec<RawEvent> = serde_json::from_slice(&payload)
             .map_err(|e| Status::invalid_argument(format!("payload decode: {e}")))?;
@@ -135,17 +142,6 @@ fn authenticate_internal_self_telemetry(
         return Err(Status::unauthenticated("invalid internal bearer"));
     }
     Ok(true)
-}
-
-fn error_to_status(error: crate::shared::Error) -> Status {
-    match error {
-        crate::shared::Error::InvalidArgument(message) => Status::invalid_argument(message),
-        crate::shared::Error::Validation { message, .. } => Status::invalid_argument(message),
-        crate::shared::Error::Unauthorized(message) => Status::unauthenticated(message),
-        crate::shared::Error::Forbidden(message) => Status::permission_denied(message),
-        crate::shared::Error::Unavailable(message) => Status::unavailable(message),
-        other => Status::internal(format!("intake: {other}")),
-    }
 }
 
 fn proto_stream_type_to_domain(v: i32) -> Option<StreamType> {

@@ -3,7 +3,9 @@
 
 //! Intake role 自身的 metric（与 caching 共享同一全局 registry）。
 //!
-//! - `intake_flush_errors_total{step}`：step ∈ {parquet_write, file_catalog_commit, wal_seal, wal_truncate}。
+//! - `intake_flush_errors_total{step}`：step ∈ {parquet_write, file_catalog_commit, wal_seal,
+//!   wal_truncate}；永远无法发布、整体丢出内存的数据另记 {stream_gone, dataset_gone,
+//!   writer_fenced}，每次丢弃计一次。
 //! - `intake_rotations_total{stream_type,reason}`：reason ∈ {size, age, retry, forced}。
 //! - `intake_flush_inflight{stream_type}`：正在执行完整 flush transaction 的并发数。
 //! - `wal_append_lock_wait_seconds{dataset_type}`：WAL per-dataset 互斥锁等待延迟 Histogram。

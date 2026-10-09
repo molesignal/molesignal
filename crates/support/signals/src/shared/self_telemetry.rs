@@ -471,7 +471,7 @@ fn normalize_execution_role(role: &str) -> Option<&'static str> {
         "querier" => Some("querier"),
         "intake" => Some("intake"),
         "compactor" => Some("compactor"),
-        "alert_manager" => Some("alert_manager"),
+        "alert" => Some("alert"),
         "standalone" => Some("standalone"),
         _ => None,
     }
@@ -486,7 +486,7 @@ fn classify_execution_role(name: &str, target: &str) -> Option<&'static str> {
         || name.starts_with("alert.")
         || name.starts_with("notification.")
     {
-        Some("alert_manager")
+        Some("alert")
     } else if target.contains("::query")
         || target.contains("flight")
         || name.starts_with("query.")
@@ -885,7 +885,7 @@ mod tests {
         let mut explicit = Map::new();
         explicit.insert(
             "molesignal.execution.role".into(),
-            Value::String("alert-manager".into()),
+            Value::String("alert".into()),
         );
         assert_eq!(
             execution_role(
@@ -895,7 +895,7 @@ mod tests {
                 None,
                 "router"
             ),
-            "alert_manager"
+            "alert"
         );
         assert_eq!(
             execution_role(

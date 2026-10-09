@@ -20,7 +20,7 @@ use super::{BufferPool, BufferWriter, DatasetResolver, WalPool, physical_schema}
 use crate::{
     domain::{
         intake::{IntakeBatch, IntakeResult, IntakeSink},
-        storage::{DatasetTypeId, WriterNodeId},
+        storage::{DatasetTypeId, WriterEpoch, WriterNodeId},
         stream::StreamRepository,
     },
     infra::cipher::FieldKeyService,
@@ -108,6 +108,15 @@ impl DurableIntakeSink {
         let buffer = self
             .buffer
             .get_or_create_dataset(&stream, resolved.clone())?;
+        // 被栅栏的 writer 永远无法发布数据：写入直接拒绝。
+        if let Some(epoch) = self.wal.current_epoch(&resolved.dataset.id)
+            && buffer.is_fenced(WriterEpoch(epoch))
+        {
+            return Err(Error::unavailable(format!(
+                "dataset {} was fenced by a newer writer epoch; every node needs a unique node id",
+                resolved.dataset.id
+            )));
+        }
 
         // This mutex is the per-dataset ordering discipline shared with flush rotation. Holding it
         // across append + push closes the historical window where a flush high-watermark could

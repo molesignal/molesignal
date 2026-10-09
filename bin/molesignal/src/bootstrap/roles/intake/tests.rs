@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-use std::sync::Arc;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 
 use async_trait::async_trait;
 use futures::StreamExt;
@@ -13,17 +16,21 @@ use super::*;
 use crate::{
     domain::{
         intake::RawEvent,
-        storage::{FileCatalog, primary_dataset_type},
+        storage::{FileCatalog, is_stale_writer_epoch, primary_dataset_type},
         stream::{FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamType},
     },
     infra::{
         intake::dataset_resolver::test_support::{StubFileCatalog, test_catalog_and_resolver},
-        segment_wal::{FsyncPolicy, SegmentWal},
+        segment_wal::{FsyncPolicy, SegmentWal, scan_segment_max_index},
     },
     shared::{Error, ids::Id, time::TimestampMicros},
 };
 
-struct OneStreamRepository(StreamDefinition);
+/// 只有一条流的仓库；`gone` 置位后这条流对读取表现为已被删除。
+struct OneStreamRepository {
+    stream: StreamDefinition,
+    gone: Arc<AtomicBool>,
+}
 
 #[async_trait]
 impl StreamRepository for OneStreamRepository {
@@ -41,19 +48,20 @@ impl StreamRepository for OneStreamRepository {
         name: &str,
         stream_type: StreamType,
     ) -> Result<StreamDefinition> {
-        if self.0.org_id == *organization_id
-            && self.0.name == name
-            && self.0.stream_type == stream_type
+        if !self.gone.load(Ordering::SeqCst)
+            && self.stream.org_id == *organization_id
+            && self.stream.name == name
+            && self.stream.stream_type == stream_type
         {
-            Ok(self.0.clone())
+            Ok(self.stream.clone())
         } else {
             Err(Error::not_found(format!("stream {name}")))
         }
     }
 
     async fn list(&self, organization_id: &Id) -> Result<Vec<StreamDefinition>> {
-        Ok((self.0.org_id == *organization_id)
-            .then(|| self.0.clone())
+        Ok((self.stream.org_id == *organization_id)
+            .then(|| self.stream.clone())
             .into_iter()
             .collect())
     }
@@ -109,10 +117,15 @@ struct WorkerFixture {
     buffer: Arc<BufferPool>,
     store: Arc<InMemory>,
     stream: StreamDefinition,
+    stream_gone: Arc<AtomicBool>,
     _wal_dir: tempfile::TempDir,
 }
 
 fn fixture(settings: IntakeSettings) -> WorkerFixture {
+    fixture_with_budget(settings, usize::MAX)
+}
+
+fn fixture_with_budget(settings: IntakeSettings, memory_budget_bytes: usize) -> WorkerFixture {
     let wal_dir = tempdir().unwrap();
     let stream = stream_definition();
     let wal = Arc::new(WalPool::new(
@@ -121,13 +134,17 @@ fn fixture(settings: IntakeSettings) -> WorkerFixture {
         64 * 1024,
         FsyncPolicy::none_default(),
     ));
-    let buffer = Arc::new(BufferPool::new());
+    let buffer = Arc::new(BufferPool::with_memory_limit_bytes(memory_budget_bytes));
     let (catalog, resolver) = test_catalog_and_resolver();
     let store = Arc::new(InMemory::new());
+    let stream_gone = Arc::new(AtomicBool::new(false));
     let worker = Arc::new(IntakeWorker::new(
         wal,
         buffer.clone(),
-        Arc::new(OneStreamRepository(stream.clone())),
+        Arc::new(OneStreamRepository {
+            stream: stream.clone(),
+            gone: stream_gone.clone(),
+        }),
         resolver.clone(),
         catalog.clone() as Arc<dyn FileCatalog>,
         Arc::new(ParquetWriter::new(store.clone())),
@@ -141,6 +158,7 @@ fn fixture(settings: IntakeSettings) -> WorkerFixture {
         buffer,
         store,
         stream,
+        stream_gone,
         _wal_dir: wal_dir,
     }
 }
@@ -271,4 +289,176 @@ async fn due_flush_waits_for_age_threshold() {
         .await
         .unwrap();
     assert_eq!(fixture.catalog.committed_rows(), vec![1]);
+}
+
+/// 数据集 WAL 在当前 epoch 目录下仍保留着多少条已写入的记录所在的 segment。
+fn wal_segments_with_records(fixture: &WorkerFixture, key: &PhysicalDatasetId) -> usize {
+    SegmentWal::segment_paths_sorted(
+        fixture
+            .worker
+            .wal
+            .root()
+            .join(fixture.worker.wal.node_id())
+            .join(key.as_str())
+            .join("1"),
+    )
+    .unwrap()
+    .iter()
+    .filter(|path| scan_segment_max_index(path).unwrap().is_some())
+    .count()
+}
+
+#[tokio::test]
+async fn deleted_stream_discards_the_buffer_and_returns_its_memory() {
+    let fixture = fixture(IntakeSettings::default());
+    fixture
+        .worker
+        .write(batch(&fixture.stream, 1_000_000, 3))
+        .await
+        .unwrap();
+    let key = raw_dataset_key(&fixture).await;
+    assert!(fixture.buffer.reserved_bytes() > 0);
+
+    fixture.stream_gone.store(true, Ordering::SeqCst);
+    fixture.worker.flush_one(&key).await.unwrap();
+
+    assert_eq!(
+        fixture.buffer.reserved_bytes(),
+        0,
+        "budget must be returned"
+    );
+    assert!(fixture.catalog.committed_rows().is_empty());
+    assert!(
+        fixture
+            .buffer
+            .snapshot_dataset(&key)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(
+        wal_segments_with_records(&fixture, &key),
+        0,
+        "discarded rows must not stay in the WAL"
+    );
+    // 之后的 flush 是安静的空操作，不会反复报错。
+    fixture.worker.flush_one(&key).await.unwrap();
+}
+
+#[tokio::test]
+async fn dataset_missing_from_the_catalog_discards_the_buffer() {
+    let fixture = fixture(IntakeSettings::default());
+    fixture
+        .worker
+        .write(batch(&fixture.stream, 1_000_000, 2))
+        .await
+        .unwrap();
+    let key = raw_dataset_key(&fixture).await;
+
+    fixture.catalog.forget_datasets();
+    fixture.worker.flush_one(&key).await.unwrap();
+
+    assert_eq!(fixture.buffer.reserved_bytes(), 0);
+    assert!(fixture.catalog.committed_rows().is_empty());
+    assert!(
+        fixture
+            .buffer
+            .snapshot_dataset(&key)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
+async fn fenced_writer_drops_memory_refuses_new_writes_and_keeps_the_wal() {
+    let fixture = fixture(IntakeSettings::default());
+    fixture
+        .worker
+        .write(batch(&fixture.stream, 1_000_000, 2))
+        .await
+        .unwrap();
+    let key = raw_dataset_key(&fixture).await;
+    // 另一个进程用同一个 node id、更高的 epoch 提交过：本进程的 epoch 1 被栅栏。
+    fixture
+        .catalog
+        .record_foreign_commit(&fixture.stream.org_id, &key, "node-test", 5);
+
+    let error = fixture.worker.flush_one(&key).await.unwrap_err();
+
+    assert!(is_stale_writer_epoch(&error), "{error}");
+    assert_eq!(
+        fixture.buffer.reserved_bytes(),
+        0,
+        "budget must be returned"
+    );
+    assert!(
+        fixture
+            .buffer
+            .snapshot_dataset(&key)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(fixture.catalog.committed_rows().is_empty());
+    assert_eq!(
+        wal_segments_with_records(&fixture, &key),
+        1,
+        "fenced rows stay in the WAL for an operator"
+    );
+
+    let refused = fixture
+        .worker
+        .write(batch(&fixture.stream, 2_000_000, 1))
+        .await
+        .unwrap_err();
+    assert!(matches!(refused, Error::Unavailable(_)), "{refused}");
+    assert_eq!(
+        fixture.buffer.reserved_bytes(),
+        0,
+        "a refused write must not hold budget"
+    );
+}
+
+/// 一个永远发布不出去的数据集不能耗尽共享的内存预算，否则所有数据集的写入都会被限流。
+#[tokio::test]
+async fn discarding_a_stuck_dataset_lets_new_writes_through_again() {
+    let fixture = fixture_with_budget(IntakeSettings::default(), 4096);
+    let key = {
+        fixture
+            .worker
+            .write(batch(&fixture.stream, 1_000_000, 1))
+            .await
+            .unwrap();
+        raw_dataset_key(&fixture).await
+    };
+    let mut accepted = 1;
+    loop {
+        match fixture
+            .worker
+            .write(batch(&fixture.stream, 1_000_000 + accepted, 1))
+            .await
+        {
+            Ok(_) => accepted += 1,
+            Err(Error::ResourceExhausted(_)) => break,
+            Err(other) => panic!("unexpected write error: {other}"),
+        }
+    }
+    assert!(
+        accepted > 1,
+        "budget must have admitted several batches first"
+    );
+
+    // 流被删除，buffer 里的数据永远发布不出去。
+    fixture.stream_gone.store(true, Ordering::SeqCst);
+    fixture.worker.flush_one(&key).await.unwrap();
+    assert_eq!(fixture.buffer.reserved_bytes(), 0);
+
+    // 流重建后，新的写入重新被接受。
+    fixture.stream_gone.store(false, Ordering::SeqCst);
+    fixture
+        .worker
+        .write(batch(&fixture.stream, 9_000_000, 1))
+        .await
+        .expect("budget was returned");
 }

@@ -83,3 +83,37 @@ message QueryFileRef {
   // Persisted open Dataset type ID; peers must not infer it from the object key.
   string dataset_type = 12;
 }
+
+// 没有 querier 角色的节点（router、alert 等）把查询交给 querier 节点执行。
+// querier 用本地引擎完整执行（裁剪、UDF、聚合都在 querier 上），只把最终结果返回。
+// 请求与结果都是 JSON 编码；失败用 gRPC 状态码表达。
+service QueryExecutionService {
+  rpc Execute(ExecuteRequest) returns (ExecuteResponse);
+}
+
+enum ExecuteOp {
+  EXECUTE_OP_UNSPECIFIED = 0;
+  // SQL 查询：request = QueryRequest，result = QueryResult。
+  EXECUTE_OP_SQL = 1;
+  // 读模型数据集上的 SQL 查询：额外带 dataset_type。
+  EXECUTE_OP_SQL_DATASET = 2;
+  // 只规划不执行：result = 逻辑计划文本。
+  EXECUTE_OP_SQL_EXPLAIN = 3;
+  // PromQL 查询：request = QueryRequest，result = QueryResult。
+  EXECUTE_OP_PROMQL = 4;
+  // PromQL exemplar 查询：result = PrometheusExemplarQueryResult。
+  EXECUTE_OP_PROMQL_EXEMPLARS = 5;
+}
+
+message ExecuteRequest {
+  ExecuteOp op = 1;
+  // QueryRequest 的 JSON。
+  bytes request = 2;
+  // EXECUTE_OP_SQL_DATASET 的物理数据集类型。
+  string dataset_type = 3;
+}
+
+message ExecuteResponse {
+  // 与 op 对应的结果 JSON。
+  bytes result = 1;
+}

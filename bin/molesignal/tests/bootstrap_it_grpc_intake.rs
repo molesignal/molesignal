@@ -247,7 +247,11 @@ async fn grpc_push_100_events_lands_in_buffer_and_flush() {
         root: object_root.path().to_string_lossy().into(),
         ..Default::default()
     };
-    let store = object::build(&object_cfg).unwrap();
+    let store = object::build(
+        &object_cfg,
+        &object::credentials::ResolvedCredentials::empty(),
+    )
+    .unwrap();
     let wal_pool = Arc::new(WalPool::new(
         wal_root.path(),
         "node-test",
@@ -329,6 +333,7 @@ async fn grpc_push_100_events_lands_in_buffer_and_flush() {
             stream_type: ProtoStreamType::Logs as i32,
             payload: payload.into(),
             received_at_micros: 0,
+            stream_type_name: String::new(),
         })
         .await
         .expect("push");

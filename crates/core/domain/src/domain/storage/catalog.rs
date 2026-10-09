@@ -24,7 +24,27 @@ use super::{
     segment::{DataSegment, Partition},
     wal::FlushProvenance,
 };
-use crate::shared::{Result, ids::Id, time::TimeRange};
+use crate::shared::{Error, Result, ids::Id, time::TimeRange};
+
+/// 僵尸 writer 栅栏拒绝 flush 时，冲突信息的固定前缀。
+const STALE_WRITER_EPOCH: &str = "stale writer epoch";
+
+/// 同一 (dataset, node) 已有更高 epoch 提交过 checkpoint 时，旧 epoch 的 flush 收到的冲突。
+pub fn stale_writer_epoch(
+    epoch: WriterEpoch,
+    dataset_id: &PhysicalDatasetId,
+    node_id: &WriterNodeId,
+    fenced_by: impl std::fmt::Display,
+) -> Error {
+    Error::conflict(format!(
+        "{STALE_WRITER_EPOCH} {epoch} for dataset {dataset_id} node {node_id}: fenced by epoch {fenced_by}"
+    ))
+}
+
+/// `error` 是否来自上面的栅栏。被栅栏的 writer 永远无法再发布数据，重试没有意义。
+pub fn is_stale_writer_epoch(error: &Error) -> bool {
+    matches!(error, Error::Conflict(message) if message.starts_with(STALE_WRITER_EPOCH))
+}
 
 /// 租户作用域。所有 Catalog 操作显式携带，杜绝只凭 dataset_id 绕过组织过滤。
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -399,5 +419,29 @@ pub trait FileCatalog: Send + Sync {
         _gc_stuck_before_micros: i64,
     ) -> Result<Vec<CatalogInvariantIssue>> {
         Ok(Vec::new())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stale_writer_epoch_is_recognized_and_other_errors_are_not() {
+        let error = stale_writer_epoch(
+            WriterEpoch(1),
+            &PhysicalDatasetId::from_string("ds"),
+            &WriterNodeId::new("node-a"),
+            6,
+        );
+
+        assert!(is_stale_writer_epoch(&error));
+        assert!(error.to_string().contains("fenced by epoch 6"), "{error}");
+        assert!(!is_stale_writer_epoch(&Error::conflict(
+            "segment is no longer active"
+        )));
+        assert!(!is_stale_writer_epoch(&Error::not_found(
+            "stale writer epoch"
+        )));
     }
 }

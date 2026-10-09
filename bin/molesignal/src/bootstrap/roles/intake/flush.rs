@@ -13,7 +13,9 @@ use tokio::task::JoinHandle;
 
 use super::{IntakeWorker, PendingWalCleanup};
 use crate::{
-    domain::storage::{CommitFlush, FlushId, OrganizationScope, PhysicalDatasetId},
+    domain::storage::{
+        CommitFlush, FlushId, OrganizationScope, PhysicalDatasetId, is_stale_writer_epoch,
+    },
     infra::intake::{
         BufferKey, DatasetBuffer, FlushInflightGuard, RotationReason, inc_flush_error, inc_rotation,
     },
@@ -50,14 +52,23 @@ impl IntakeWorker {
         let Some(buffer) = self.buffer.get(key) else {
             return Ok(());
         };
-        let stream_definition = self
+        let stream_definition = match self
             .streams
             .get(
                 &buffer.organization_id,
                 &buffer.stream_name,
                 buffer.stream_type,
             )
-            .await?;
+            .await
+        {
+            Ok(stream) if stream.id == buffer.logical_stream_id => stream,
+            // 流已被删除，或同名重建成了另一条流：旧数据集里的数据没有去处。
+            Ok(_) | Err(Error::NotFound(_)) => {
+                self.discard_dataset_gone(&buffer, key, "stream_gone").await;
+                return Ok(());
+            }
+            Err(error) => return Err(error),
+        };
 
         let mut guard = buffer.records().lock().await;
         if guard.is_empty() {
@@ -130,6 +141,18 @@ impl IntakeWorker {
             .await
         {
             inc_flush_error("file_catalog_commit");
+            // 物理数据集已从 catalog 删除（例如流被删除后又重建）：这批数据没有去处。
+            if matches!(error, Error::NotFound(_)) {
+                self.discard_dataset_gone(&buffer, key, "dataset_gone")
+                    .await;
+                return Ok(());
+            }
+            // 同一 (dataset, node) 已有更高 epoch 提交过：本 epoch 永远无法发布，重试没有意义。
+            if is_stale_writer_epoch(&error) {
+                self.discard_fenced_writer(&buffer, key, &generation.writer, &error)
+                    .await;
+                return Err(error);
+            }
             self.fail_generation(&buffer, &flush_id).await?;
             return Err(error);
         }
@@ -189,7 +212,7 @@ impl IntakeWorker {
             .map_err(|error| Error::internal(format!("restore failed flush generation: {error}")))
     }
 
-    fn remember_pending_wal_cleanup(&self, key: &BufferKey, high_watermark_seq: u64) {
+    pub(super) fn remember_pending_wal_cleanup(&self, key: &BufferKey, high_watermark_seq: u64) {
         self.pending_wal_cleanup
             .entry(key.clone())
             .and_modify(|pending| {
@@ -221,7 +244,7 @@ impl IntakeWorker {
         }
     }
 
-    async fn cleanup_wal(
+    pub(super) async fn cleanup_wal(
         &self,
         dataset_id: &PhysicalDatasetId,
         high_watermark_seq: u64,

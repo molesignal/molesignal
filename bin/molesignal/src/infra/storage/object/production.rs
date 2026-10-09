@@ -4,6 +4,8 @@
 //! Production ObjectStore decorator：所有生产对象 I/O 都从这里获得一致的
 //! timeout/retry/concurrency、低基数 metrics 与脱敏 Span。对象完整 key 永不进入
 //! Span；multipart part/retry 使用有界 Event，不为每个 part 创建子 Span。
+//!
+//! 达到 `[object_store]` 阈值的大对象写入与范围读取由 `transfer` 拆成多个后端请求。
 
 use std::{
     fmt,
@@ -14,20 +16,23 @@ use std::{
 };
 
 use bytes::Bytes;
-use futures::{FutureExt, StreamExt, stream::BoxStream};
+use futures::{StreamExt, stream::BoxStream};
 use object_store::{
     CopyOptions, GetOptions, GetResult, ListResult, MultipartUpload, ObjectMeta, ObjectStore,
     PutMultipartOptions, PutOptions, PutPayload, PutResult, RenameOptions,
-    Result as ObjectStoreResult, UploadPart, path::Path as ObjPath,
+    Result as ObjectStoreResult, path::Path as ObjPath,
 };
-use tokio::sync::Semaphore;
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tracing::Instrument;
 
 use crate::config::ObjectStoreSettings;
 
+mod multipart;
 mod retry;
 mod telemetry;
+mod transfer;
 
+use multipart::InstrumentedMultipartUpload;
 use retry::RetryPolicy;
 pub use telemetry::health_dur;
 use telemetry::{
@@ -72,6 +77,24 @@ impl ProductionObjectStore {
         &self,
         operation: &'static str,
         location: Option<&ObjPath>,
+        call: F,
+        success_bytes: B,
+    ) -> ObjectStoreResult<T>
+    where
+        F: FnMut() -> Fut,
+        Fut: Future<Output = ObjectStoreResult<T>>,
+        B: Fn(&T) -> u64,
+    {
+        self.run_with(operation, location, Budget::Request, call, success_bytes)
+            .await
+    }
+
+    /// 统一的并发许可、超时、重试与指标。
+    async fn run_with<T, F, Fut, B>(
+        &self,
+        operation: &'static str,
+        location: Option<&ObjPath>,
+        budget: Budget,
         mut call: F,
         success_bytes: B,
     ) -> ObjectStoreResult<T>
@@ -84,16 +107,19 @@ impl ProductionObjectStore {
         let started = Instant::now();
         let policy = RetryPolicy::from(&self.settings);
         let result = async {
-            let _permit = tokio::time::timeout(self.op_timeout(), self.semaphore.acquire())
-                .await
-                .map_err(|_| timeout_error(self.backend, "concurrency_wait"))?
-                .map_err(|_| timeout_error(self.backend, "concurrency_closed"))?;
+            let _permit = match budget {
+                Budget::Request => Some(self.acquire_permit().await?),
+                Budget::Composite => None,
+            };
             let mut retries = 0_u32;
             loop {
                 let attempt = retries + 1;
-                let result = tokio::time::timeout(self.op_timeout(), call())
-                    .await
-                    .unwrap_or_else(|_| Err(timeout_error(self.backend, operation)));
+                let result = match budget {
+                    Budget::Request => tokio::time::timeout(self.op_timeout(), call())
+                        .await
+                        .unwrap_or_else(|_| Err(timeout_error(self.backend, operation))),
+                    Budget::Composite => call().await,
+                };
                 match result {
                     Ok(value) => {
                         span.record("molesignal.object.retry_count", retries);
@@ -141,6 +167,22 @@ impl ProductionObjectStore {
             .observe(started.elapsed().as_secs_f64());
         result
     }
+
+    async fn acquire_permit(&self) -> ObjectStoreResult<OwnedSemaphorePermit> {
+        tokio::time::timeout(self.op_timeout(), self.semaphore.clone().acquire_owned())
+            .await
+            .map_err(|_| timeout_error(self.backend, "concurrency_wait"))?
+            .map_err(|_| timeout_error(self.backend, "concurrency_closed"))
+    }
+}
+
+/// 一次 `run_with` 的资源预算。
+#[derive(Clone, Copy)]
+enum Budget {
+    /// 单个后端请求：占用一个并发许可，每次尝试受 `op_timeout_secs` 约束。
+    Request,
+    /// 由多个后端请求组成的传输：外层只负责整体重试，每个内部请求各自占用许可并计时。
+    Composite,
 }
 
 impl fmt::Debug for ProductionObjectStore {
@@ -171,6 +213,9 @@ impl ObjectStore for ProductionObjectStore {
         payload: PutPayload,
         options: PutOptions,
     ) -> ObjectStoreResult<PutResult> {
+        if self.wants_multipart(location, &payload, &options) {
+            return self.put_in_parts(location, payload, options).await;
+        }
         let bytes = payload.content_length() as u64;
         self.run(
             "put",
@@ -197,13 +242,11 @@ impl ObjectStore for ProductionObjectStore {
                 |_| 0,
             )
             .await?;
-        Ok(Box::new(InstrumentedMultipartUpload {
-            inner: upload,
-            span: operation_span(self.backend, "multipart_session", Some(location)),
-            backend: self.backend,
-            parts: 0,
-            bytes: 0,
-        }))
+        Ok(Box::new(InstrumentedMultipartUpload::new(
+            upload,
+            operation_span(self.backend, "multipart_session", Some(location)),
+            self.backend,
+        )))
     }
 
     async fn get_opts(
@@ -211,6 +254,9 @@ impl ObjectStore for ProductionObjectStore {
         location: &ObjPath,
         options: GetOptions,
     ) -> ObjectStoreResult<GetResult> {
+        if let Some(range) = self.chunked_range(&options) {
+            return self.get_range_in_chunks(location, options, range).await;
+        }
         let operation = if options.head {
             "head"
         } else if options.range.is_some() {
@@ -222,7 +268,8 @@ impl ObjectStore for ProductionObjectStore {
             operation,
             Some(location),
             || self.inner.get_opts(location, options.clone()),
-            |result| result.meta.size,
+            // 请求实际返回的字节范围；范围读取不计整个对象的大小。
+            |result| result.range.end.saturating_sub(result.range.start),
         )
         .await
     }
@@ -232,14 +279,7 @@ impl ObjectStore for ProductionObjectStore {
         location: &ObjPath,
         ranges: &[Range<u64>],
     ) -> ObjectStoreResult<Vec<Bytes>> {
-        let ranges = ranges.to_vec();
-        self.run(
-            "get_ranges",
-            Some(location),
-            || self.inner.get_ranges(location, &ranges),
-            |values| values.iter().map(|value| value.len() as u64).sum(),
-        )
-        .await
+        self.get_ranges_split(location, ranges).await
     }
 
     fn delete_stream(
@@ -325,105 +365,6 @@ impl ObjectStore for ProductionObjectStore {
             |_| 0,
         )
         .await
-    }
-}
-
-struct InstrumentedMultipartUpload {
-    inner: Box<dyn MultipartUpload>,
-    span: tracing::Span,
-    backend: &'static str,
-    parts: u32,
-    bytes: u64,
-}
-
-impl fmt::Debug for InstrumentedMultipartUpload {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter
-            .debug_struct("InstrumentedMultipartUpload")
-            .field("backend", &self.backend)
-            .field("parts", &self.parts)
-            .field("bytes", &self.bytes)
-            .finish_non_exhaustive()
-    }
-}
-
-#[async_trait::async_trait]
-impl MultipartUpload for InstrumentedMultipartUpload {
-    fn put_part(&mut self, data: PutPayload) -> UploadPart {
-        self.parts = self.parts.saturating_add(1);
-        self.bytes = self
-            .bytes
-            .saturating_add(data.content_length().try_into().unwrap_or(u64::MAX));
-        let part = self.parts;
-        if part <= 128 {
-            self.span.in_scope(|| {
-                tracing::info!(
-                    molesignal.span_event = true,
-                    otel.event.name = "object_store.multipart_part",
-                    multipart.part_number = part,
-                    multipart.part_bytes = data.content_length() as u64,
-                );
-            });
-        }
-        let future = self.inner.put_part(data);
-        let span = self.span.clone();
-        async move {
-            let result = future.instrument(span.clone()).await;
-            if let Err(error) = &result {
-                span.record("error.type", error_reason(error));
-            }
-            result
-        }
-        .boxed()
-    }
-
-    async fn complete(&mut self) -> ObjectStoreResult<PutResult> {
-        let span = self.span.clone();
-        let result = self.inner.complete().instrument(span.clone()).await;
-        span.record("molesignal.object.bytes", self.bytes);
-        span.record("molesignal.object.retry_count", 0);
-        span.in_scope(|| {
-            tracing::info!(
-                molesignal.span_event = true,
-                otel.event.name = "object_store.multipart_complete",
-                multipart.part_count = self.parts,
-                multipart.total_bytes = self.bytes,
-            );
-        });
-        match &result {
-            Ok(_) => {
-                ops_total()
-                    .with_label_values(&[self.backend, "multipart_complete"])
-                    .inc();
-                bytes_total()
-                    .with_label_values(&[self.backend, "multipart_complete"])
-                    .inc_by(self.bytes);
-            }
-            Err(error) => {
-                let reason = error_reason(error);
-                span.record("error.type", reason);
-                errors_total()
-                    .with_label_values(&[self.backend, "multipart_complete", reason])
-                    .inc();
-            }
-        }
-        result
-    }
-
-    async fn abort(&mut self) -> ObjectStoreResult<()> {
-        let span = self.span.clone();
-        let result = self.inner.abort().instrument(span.clone()).await;
-        span.in_scope(|| {
-            tracing::info!(
-                molesignal.span_event = true,
-                otel.event.name = "object_store.multipart_abort",
-                multipart.part_count = self.parts,
-            );
-        });
-        if let Err(error) = &result {
-            span.record("error.type", error_reason(error));
-        }
-        result
     }
 }
 

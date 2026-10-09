@@ -2,7 +2,8 @@
 // promises (fields / set / del / now / log / parse_json / encode_json / sha256).
 // 注意：
 // - 不引入 deno_runtime，所以 globalThis 上没有 fetch / setTimeout / Promise scheduler，
-//   `crypto.subtle` 也缺；sha256 退化成 pure-JS 实现，避免每次落到 Rust op。
+//   `crypto.subtle` 与 `TextEncoder` 也缺；sha256 退化成 pure-JS 实现（含 UTF-8 编码），
+//   避免每次落到 Rust op。
 // - `__reset` / `__dump` 是内部 hook，Rust 侧每条 event 调用；用户不要碰。
 
 globalThis.molesignal = (() => {
@@ -24,9 +25,41 @@ globalThis.molesignal = (() => {
     0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
   ]);
   const rotr = (x, n) => (x >>> n) | (x << (32 - n));
+  // UTF-8 编码。裸 deno_core 没有 TextEncoder；孤立 surrogate 与 TextEncoder 一致，替换为 U+FFFD。
+  function utf8Bytes(str) {
+    const out = [];
+    for (let i = 0; i < str.length; i++) {
+      let c = str.charCodeAt(i);
+      if (c >= 0xd800 && c <= 0xdbff && i + 1 < str.length) {
+        const d = str.charCodeAt(i + 1);
+        if (d >= 0xdc00 && d <= 0xdfff) {
+          c = 0x10000 + ((c - 0xd800) << 10) + (d - 0xdc00);
+          i++;
+        } else {
+          c = 0xfffd;
+        }
+      } else if (c >= 0xd800 && c <= 0xdfff) {
+        c = 0xfffd;
+      }
+      if (c < 0x80) {
+        out.push(c);
+      } else if (c < 0x800) {
+        out.push(0xc0 | (c >> 6), 0x80 | (c & 0x3f));
+      } else if (c < 0x10000) {
+        out.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f));
+      } else {
+        out.push(
+          0xf0 | (c >> 18),
+          0x80 | ((c >> 12) & 0x3f),
+          0x80 | ((c >> 6) & 0x3f),
+          0x80 | (c & 0x3f),
+        );
+      }
+    }
+    return new Uint8Array(out);
+  }
   function sha256(input) {
-    const enc = new TextEncoder();
-    const bytes = enc.encode(String(input));
+    const bytes = utf8Bytes(String(input));
     const bitLen = bytes.length * 8;
     // pad to multiple of 64 bytes; last 8 bytes hold bit length BE.
     const padLen = (bytes.length + 9 + 63) & ~63;

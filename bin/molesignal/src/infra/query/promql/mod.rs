@@ -249,6 +249,8 @@ pub struct PromQLEngine {
     /// `None` = 不校验（保持历史单测行为）。
     streams: Option<Arc<dyn StreamRepository>>,
     catalog_source: Option<Arc<CatalogQuerySource>>,
+    /// 单个 selector 读取行数上限（`[querier].max_scan_rows`）；0 = 不限制。
+    max_scan_rows: u64,
 }
 
 impl PromQLEngine {
@@ -259,7 +261,14 @@ impl PromQLEngine {
             streaming: None,
             streams: None,
             catalog_source: None,
+            max_scan_rows: 0,
         }
+    }
+
+    /// 单个 selector 读取行数上限（`[querier].max_scan_rows`）；0 = 不限制。
+    pub fn with_max_scan_rows(mut self, max_rows: u64) -> Self {
+        self.max_scan_rows = max_rows;
+        self
     }
 
     /// 注入 StreamRepository：metric stream 标记为不可查询（`settings.queryable == false`，

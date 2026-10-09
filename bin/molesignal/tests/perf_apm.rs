@@ -17,7 +17,7 @@ use molesignal::{
         ApmAggregator, ApmCandidateProjector, ApmCardinalityLimiter, ApmProjectorConfig,
         ApmQueryConfig, ApmQueryRequest, ApmQueryService, BufferedApmProjector,
     },
-    config::{ApmSettings, MetaStoreSettings},
+    config::{ApmSettings, MetaDatabaseSettings},
     domain::apm::{
         APM_FACT_SCHEMA_VERSION, APM_PERSISTENCE_SCHEMA_VERSION, ApmMaintenanceRepository,
         ApmOutcome, ApmQueryRepository, ApmSpanFact, ApmSpanKind, ApmWriteRepository,
@@ -61,8 +61,7 @@ async fn apm_capacity_gate() {
     let settings = ApmSettings::default();
     let projection = measure_projection(&settings).await;
 
-    let store = MetaStore::connect(&MetaStoreSettings {
-        backend: "postgres".into(),
+    let store = MetaStore::connect(&MetaDatabaseSettings {
         dsn,
         min_connections: 2,
         max_connections: 16,

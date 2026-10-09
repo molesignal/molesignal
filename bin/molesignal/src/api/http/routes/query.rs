@@ -653,13 +653,15 @@ async fn search_around(
         federation_clusters: Vec::new(),
     };
 
+    // 流名按标识符转义后加引号（名称可含 `-` 与 `.`）；指针是微秒整数，显式转成时间戳比较。
+    let table = crate::infra::query::escape_sql_ident(&req.stream);
     let before_sql = format!(
-        "SELECT * FROM {} WHERE _timestamp <= {} ORDER BY _timestamp DESC LIMIT {}",
-        req.stream, ts, before
+        "SELECT * FROM \"{table}\" WHERE _timestamp <= to_timestamp_micros({ts}) \
+         ORDER BY _timestamp DESC LIMIT {before}"
     );
     let after_sql = format!(
-        "SELECT * FROM {} WHERE _timestamp > {} ORDER BY _timestamp ASC LIMIT {}",
-        req.stream, ts, after
+        "SELECT * FROM \"{table}\" WHERE _timestamp > to_timestamp_micros({ts}) \
+         ORDER BY _timestamp ASC LIMIT {after}"
     );
     let wide = TimeRange::new(
         TimestampMicros(ts.saturating_sub(24 * 3600 * 1_000_000)),

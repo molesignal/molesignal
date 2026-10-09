@@ -6,6 +6,7 @@
 //! 当前挂载的 services：
 //! - `intake.v1.IntakeService`（5.x） — 已上线
 //! - `arrow_flight.FlightService`（9.x） — 已上线（do_get 实装，其余 RPC 返 Unimplemented）
+//! - `query.v1.QueryExecutionService` — 其它节点把查询交给本节点的引擎执行
 //! - `cluster.v1.NodeService`（11.x） — 已上线（Heartbeat / List）
 //!
 //! 另有独立端口的对外 Flight SQL server（spec flight-sql）：[`serve_flight_sql`]，
@@ -17,6 +18,7 @@ pub mod flight;
 pub mod intake_server;
 pub mod otlp_server;
 pub mod probe;
+pub mod query_server;
 pub mod trace;
 
 use std::{net::SocketAddr, sync::Arc};
@@ -31,6 +33,7 @@ use crate::{
             event_server::EventServiceGrpc,
             flight::{FlightGrpc, sql::server::FlightSqlGrpc},
             intake_server::IntakeGrpc,
+            query_server::QueryExecutionGrpc,
         },
     },
     config::{FlightSqlSettings, GrpcSettings, OtlpGrpcSettings, ProbeGrpcSettings},
@@ -123,6 +126,14 @@ pub async fn serve_grpc(
         .with_iam(state.iam.service.clone())
         .with_cancel_registry(state.cluster.federation_cancel.clone())
         .into_server();
+    // 其它节点把查询交给本节点执行：用本节点的引擎，对本地数据完整执行。
+    let query_execution = QueryExecutionGrpc::new(
+        state.cluster.query_engines.sql.clone(),
+        state.cluster.query_engines.promql.clone(),
+    )
+    .into_server()
+    .max_decoding_message_size(max_recv)
+    .max_encoding_message_size(max_recv);
     let cluster =
         ClusterGrpc::new(state.cluster.repository.clone(), alive_window_secs).into_server();
     let trace_candidates = trace::candidate_server::TraceCandidateGrpc::new(
@@ -142,6 +153,7 @@ pub async fn serve_grpc(
         .layer(trace::layer::GrpcTraceLayer)
         .add_service(intake)
         .add_service(flight)
+        .add_service(query_execution)
         .add_service(cluster)
         .add_service(trace_candidates)
         .add_service(events)

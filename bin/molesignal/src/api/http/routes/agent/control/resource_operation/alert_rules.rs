@@ -20,6 +20,7 @@ use crate::{
     domain::{
         alerting::{
             anomaly::{AnomalyParams, MAX_ANOMALY_LOOKBACK_DAYS, SUPPORTED_DETECTORS},
+            escalation::DEFAULT_POLICY_ID,
             incident::Severity,
             rule::{
                 AlertQuery, AlertRule, AlertRuleKind, AlertTrigger, RuleState, SeverityThreshold,
@@ -99,7 +100,7 @@ async fn create(
             severity: request.severity,
             escalation_policy_id: request
                 .escalation_policy_id
-                .unwrap_or_else(|| Id::from_string("default")),
+                .unwrap_or_else(|| Id::from_string(DEFAULT_POLICY_ID)),
             labels: request.labels,
             annotations: request.annotations,
             last_eval_at: None,

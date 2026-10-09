@@ -6,9 +6,11 @@
 use std::{collections::HashSet, sync::Arc, time::Instant};
 
 use arrow::datatypes::{DataType, Schema as ArrowSchema, TimeUnit};
-use datafusion::{common::TableReference, execution::object_store::ObjectStoreUrl};
+use datafusion::{
+    common::TableReference, error::DataFusionError, execution::object_store::ObjectStoreUrl,
+};
 
-use super::{DataFusionEngine, dataset, resolve_stream_type, result};
+use super::{DataFusionEngine, dataset, resolve_stream_type};
 use crate::{
     domain::{
         masking::Masker,
@@ -18,10 +20,12 @@ use crate::{
     },
     infra::{
         query::{
+            arrow_json::batches_to_json,
             catalog_source::StreamSnapshotSelection,
             parquet_table::PrunedParquetTable,
             parser::{extract_equality_predicates, extract_referenced_tables, parse_sample_hint},
             planner::ensure_stream_in_org,
+            scan_limit::ensure_within_scan_limit,
             skip_pruner,
             tantivy_pruner::{MatchPredicate, extract_match_predicates, match_text_fields},
             udfs::{build_extract_pattern_udf, build_mask_udf, compile_patterns},
@@ -67,7 +71,7 @@ pub(super) async fn run(
 
     let store = engine.object_store.clone();
     let reader = ParquetReader::new(store.clone());
-    let ctx = crate::infra::query::analyzer::session_context_with_guard(engine.max_result_rows);
+    let ctx = crate::infra::query::analyzer::session_context(engine.max_result_rows);
     let object_store_url = ObjectStoreUrl::parse("molesignal://query")
         .map_err(|error| Error::internal(format!("object store URL: {error}")))?;
     ctx.runtime_env()
@@ -186,6 +190,7 @@ pub(super) async fn run(
                     .map(|batch| batch.num_rows() as u64)
                     .sum::<u64>(),
             );
+        ensure_within_scan_limit(scanned_rows, engine.max_scan_rows)?;
 
         let schema: Arc<ArrowSchema> = match stream_definition {
             Some(definition) => {
@@ -240,11 +245,8 @@ pub(super) async fn run(
     } else {
         dataframe
     };
-    let batches = dataframe
-        .collect()
-        .await
-        .map_err(|error| Error::internal(format!("datafusion collect: {error}")))?;
-    let (columns, rows) = result::batches_to_json(&batches);
+    let batches = dataframe.collect().await.map_err(collect_error)?;
+    let (columns, rows) = batches_to_json(&batches);
     Ok(QueryResult {
         columns,
         rows,
@@ -252,6 +254,20 @@ pub(super) async fn run(
         took_ms: started.elapsed().as_millis() as u64,
         federation: None,
     })
+}
+
+/// `collect()` 才会触发 DataFusion 的惰性分析（类型强制等），这类失败是 SQL 本身的问题，
+/// 按无效请求应答 400；其余执行期错误是内部错误。
+fn collect_error(error: DataFusionError) -> Error {
+    let root = error.find_root();
+    if matches!(
+        root,
+        DataFusionError::Plan(_) | DataFusionError::SchemaError(..)
+    ) {
+        tracing::warn!(%error, "query planning failed");
+        return Error::invalid(format!("query could not be planned: {root}"));
+    }
+    Error::internal(format!("datafusion collect: {error}"))
 }
 
 /// 校验 SQL 中所有 `MATCH_TEXT(field, ...)` 调用的字段前提（设计 D2/D3、spec
@@ -373,4 +389,27 @@ async fn register_query_udfs(
         ctx.register_udf(build_mask_udf(Arc::new(masker)));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn planning_failures_raised_by_collect_are_client_errors() {
+        let planning = DataFusionError::Context(
+            "type_coercion".into(),
+            Box::new(DataFusionError::Plan(
+                "Cannot infer common argument type for comparison operation".into(),
+            )),
+        );
+        assert!(matches!(
+            collect_error(planning),
+            Error::InvalidArgument(message) if message.contains("could not be planned")
+        ));
+        assert!(matches!(
+            collect_error(DataFusionError::Execution("boom".into())),
+            Error::Internal(_)
+        ));
+    }
 }

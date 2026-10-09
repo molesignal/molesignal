@@ -5,4 +5,5 @@
 //! 服务（`do_get` → 读 parquet → 跑 shard SQL），由 [`super::run`] 在角色集含
 //! `querier`（或 `standalone`）时统一起 [`crate::api::grpc::serve_grpc`]。
 //!
-//! 协调端 `DistributedDataFusionEngine` 通过 `list_role(Querier)` 发现本节点并散播分片。
+//! 没有 querier 角色的节点用 `RemoteSqlEngine` / `RemotePromqlEngine` 经内部 gRPC
+//! （`query.v1.QueryExecutionService`）把查询交给 querier 节点；querier 用本地引擎完整执行。

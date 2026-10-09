@@ -29,7 +29,7 @@ use crate::{
     domain::{
         alerting::{
             anomaly::{AnomalyParams, MAX_ANOMALY_LOOKBACK_DAYS, SUPPORTED_DETECTORS},
-            escalation::{EscalationPolicy, EscalationStep},
+            escalation::{DEFAULT_POLICY_ID, EscalationPolicy, EscalationStepInput},
             incident::{Incident, IncidentStatus, Severity},
             rule::{
                 AlertQuery, AlertRule, AlertRuleKind, AlertTrigger, RuleState, SeverityThreshold,
@@ -151,7 +151,7 @@ fn normalize_anomaly(
 struct EscalationWriteReq {
     name: String,
     #[serde(default)]
-    steps: Vec<EscalationStep>,
+    steps: Vec<EscalationStepInput>,
     #[serde(default)]
     repeat: bool,
     #[serde(default = "default_max_loops")]
@@ -208,7 +208,7 @@ async fn create_rule(
         anomaly_params,
         escalation_policy_id: req
             .escalation_policy_id
-            .unwrap_or_else(|| Id::from_string("default")),
+            .unwrap_or_else(|| Id::from_string(DEFAULT_POLICY_ID)),
         labels: req.labels,
         annotations: req.annotations,
         last_eval_at: None,
@@ -660,7 +660,7 @@ async fn create_escalation(
         id: Id::new(),
         org_id: ctx.org_id.clone(),
         name: req.name,
-        steps: req.steps,
+        steps: state.alerting.service.escalation_steps(req.steps),
         repeat: req.repeat,
         max_loops: req.max_loops.max(1),
     };
@@ -708,7 +708,7 @@ async fn update_escalation(
         id: existing.id,
         org_id: existing.org_id,
         name: req.name,
-        steps: req.steps,
+        steps: state.alerting.service.escalation_steps(req.steps),
         repeat: req.repeat,
         max_loops: req.max_loops.max(1),
     };

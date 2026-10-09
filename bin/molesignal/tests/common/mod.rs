@@ -14,10 +14,7 @@ use std::sync::Arc;
 use arrow::array::RecordBatch;
 use molesignal::{
     api::http,
-    config::{
-        AuthSettings, MetaStoreSettings, NotifySettings, ObjectStoreSettings, Settings,
-        StoreSettings,
-    },
+    config::{AuthSettings, MetaDatabaseSettings, NotifySettings, ObjectStoreSettings, Settings},
     domain::{
         iam::{IamMembership, IamMembershipRepository, Organization, OrganizationRepository},
         storage::{
@@ -80,18 +77,15 @@ impl TestServer {
         let object_root = tempfile::tempdir().expect("tmpdir for object_store");
 
         let mut settings = Settings::default();
-        settings.store = StoreSettings {
-            meta: MetaStoreSettings {
-                backend: "postgres".into(),
-                dsn: dsn.clone(),
-                min_connections: 1,
-                max_connections: 5,
-            },
-            object: ObjectStoreSettings {
-                backend: "local".into(),
-                root: object_root.path().to_string_lossy().into(),
-                ..Default::default()
-            },
+        settings.meta_database = MetaDatabaseSettings {
+            dsn: dsn.clone(),
+            min_connections: 1,
+            max_connections: 5,
+        };
+        settings.object_store = ObjectStoreSettings {
+            backend: "local".into(),
+            root: object_root.path().to_string_lossy().into(),
+            ..Default::default()
         };
         settings.auth = AuthSettings {
             deprecated_jwt_secret: None,

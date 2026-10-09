@@ -73,6 +73,43 @@ const COLS: &str =
      created_at_micros, acknowledged_at_micros, acknowledged_by,
      resolved_at_micros, resolved_by";
 
+/// `$21` 为 `NULL` 时无条件更新；否则仅当库中状态在该集合内才更新。
+const UPDATE_SQL: &str = "UPDATE incidents SET
+        status = $2, severity = $3, summary = $4, fingerprint = $5,
+        current_step = $6, current_step_started_at_micros = $7, assignees = $8,
+        acknowledged_at_micros = $9, acknowledged_by = $10,
+        resolved_at_micros = $11, resolved_by = $12,
+        escalation_policy_id = $13,
+        labels = $14, annotations = $15,
+        trace_ids = $16, host_ids = $17, affected_services = $18,
+        triggering_query = $19, current_loop = $20
+     WHERE id = $1 AND ($21::text[] IS NULL OR status = ANY($21))";
+
+fn bind_update<'q>(query: sqlx::TracedQuery<'q>, i: &'q Incident) -> sqlx::TracedQuery<'q> {
+    let assignees: Vec<String> = i.assignees.iter().map(|x| x.0.clone()).collect();
+    query
+        .bind(&i.id.0)
+        .bind(status_to_str(i.status))
+        .bind(severity_to_str(i.severity))
+        .bind(&i.summary)
+        .bind(&i.fingerprint)
+        .bind(i.current_step as i32)
+        .bind(i.current_step_started_at.0)
+        .bind(Json(assignees))
+        .bind(i.acknowledged_at.map(|t| t.0))
+        .bind(i.acknowledged_by.as_ref().map(|x| &x.0))
+        .bind(i.resolved_at.map(|t| t.0))
+        .bind(i.resolved_by.as_ref().map(|x| &x.0))
+        .bind(&i.escalation_policy_id.0)
+        .bind(Json(&i.labels))
+        .bind(Json(&i.annotations))
+        .bind(Json(&i.trace_ids))
+        .bind(Json(&i.host_ids))
+        .bind(Json(&i.affected_services))
+        .bind(i.triggering_query.as_ref().map(Json))
+        .bind(i.current_loop as i32)
+}
+
 fn row_to_incident(row: sqlx::postgres::PgRow) -> Result<Incident> {
     let status: String = row.try_get("status").map_err(sqlx_err)?;
     let severity: String = row.try_get("severity").map_err(sqlx_err)?;
@@ -168,43 +205,29 @@ impl IncidentRepository for PgIncidentRepository {
     }
 
     async fn update(&self, i: Incident) -> Result<Incident> {
-        let assignees: Vec<String> = i.assignees.iter().map(|x| x.0.clone()).collect();
-        sqlx::query(
-            "UPDATE incidents SET
-                status = $2, severity = $3, summary = $4, fingerprint = $5,
-                current_step = $6, current_step_started_at_micros = $7, assignees = $8,
-                acknowledged_at_micros = $9, acknowledged_by = $10,
-                resolved_at_micros = $11, resolved_by = $12,
-                escalation_policy_id = $13,
-                labels = $14, annotations = $15,
-                trace_ids = $16, host_ids = $17, affected_services = $18,
-                triggering_query = $19, current_loop = $20
-             WHERE id = $1",
-        )
-        .bind(&i.id.0)
-        .bind(status_to_str(i.status))
-        .bind(severity_to_str(i.severity))
-        .bind(&i.summary)
-        .bind(&i.fingerprint)
-        .bind(i.current_step as i32)
-        .bind(i.current_step_started_at.0)
-        .bind(Json(&assignees))
-        .bind(i.acknowledged_at.map(|t| t.0))
-        .bind(i.acknowledged_by.as_ref().map(|x| &x.0))
-        .bind(i.resolved_at.map(|t| t.0))
-        .bind(i.resolved_by.as_ref().map(|x| &x.0))
-        .bind(&i.escalation_policy_id.0)
-        .bind(Json(&i.labels))
-        .bind(Json(&i.annotations))
-        .bind(Json(&i.trace_ids))
-        .bind(Json(&i.host_ids))
-        .bind(Json(&i.affected_services))
-        .bind(i.triggering_query.as_ref().map(Json))
-        .bind(i.current_loop as i32)
-        .execute(&self.pool)
-        .await
-        .map_err(sqlx_err)?;
+        bind_update(sqlx::query(UPDATE_SQL), &i)
+            .bind(None::<Vec<String>>)
+            .execute(&self.pool)
+            .await
+            .map_err(sqlx_err)?;
         Ok(i)
+    }
+
+    async fn update_if_status(
+        &self,
+        i: Incident,
+        expected: &[IncidentStatus],
+    ) -> Result<Option<Incident>> {
+        let expected: Vec<String> = expected
+            .iter()
+            .map(|status| status_to_str(*status).to_owned())
+            .collect();
+        let result = bind_update(sqlx::query(UPDATE_SQL), &i)
+            .bind(Some(expected))
+            .execute(&self.pool)
+            .await
+            .map_err(sqlx_err)?;
+        Ok((result.rows_affected() > 0).then_some(i))
     }
 
     async fn get(&self, id: &Id) -> Result<Incident> {

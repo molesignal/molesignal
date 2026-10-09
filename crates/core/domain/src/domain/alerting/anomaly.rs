@@ -4,7 +4,7 @@
 //! Anomaly detector（spec anomaly-detection capability）。
 //!
 //! - [`AnomalyParams`]：[`super::rule::AlertRule`] 上 `kind = Anomaly` 时携带的算法参数。
-//! - [`AnomalyDetector`] trait：alert_manager evaluator 按 `AlertRule.kind` 分发。
+//! - [`AnomalyDetector`] trait：alert evaluator 按 `AlertRule.kind` 分发。
 //! - [`MadDetector`]：1.4826·MAD 鲁棒 σ 基线 + 默认 k=3 触发；按同时刻历史样本的
 //!   中位数作"应该值"。其它 detector（EWMA / Prophet / IF）仅留 stub 占位。
 //!

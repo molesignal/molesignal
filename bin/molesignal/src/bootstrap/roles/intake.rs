@@ -3,6 +3,7 @@
 
 //! Intake role composition: durable append, bounded replay, and ordered catalog publication.
 
+mod discard;
 mod flush;
 mod replay;
 

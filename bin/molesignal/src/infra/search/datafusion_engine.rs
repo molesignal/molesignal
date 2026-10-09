@@ -41,7 +41,6 @@ use crate::{
 
 mod dataset;
 mod execute;
-mod result;
 
 pub struct DataFusionEngine {
     files: Arc<dyn QueryFileSource>,
@@ -54,6 +53,8 @@ pub struct DataFusionEngine {
     regex_patterns: Option<Arc<dyn RegexPatternRepository>>,
     /// 结果行安全上限（`ResultRowGuard` AnalyzerRule）；0 = 关闭。
     max_result_rows: usize,
+    /// 单查询读取行数上限（`[querier].max_scan_rows`）；0 = 不限制。
+    max_scan_rows: u64,
     /// 字段加密 DEK 服务；非空时 SQL 可用 `decrypt(col)`（执行期按 org 预载 DEK 还原密文）。
     field_keys: Option<Arc<crate::infra::cipher::FieldKeyService>>,
     /// FileCatalog + local buffer snapshot source. `None` preserves isolated unit-test fixtures.
@@ -73,6 +74,7 @@ impl DataFusionEngine {
             log_patterns: None,
             regex_patterns: None,
             max_result_rows: 0,
+            max_scan_rows: 0,
             field_keys: None,
             catalog_source: None,
             explicit_tantivy_indexes: HashMap::new(),
@@ -83,6 +85,16 @@ impl DataFusionEngine {
     pub fn with_max_result_rows(mut self, max_rows: usize) -> Self {
         self.max_result_rows = max_rows;
         self
+    }
+
+    /// 单查询读取行数上限（`[querier].max_scan_rows`）；0 = 不限制。
+    pub fn with_max_scan_rows(mut self, max_rows: u64) -> Self {
+        self.max_scan_rows = max_rows;
+        self
+    }
+
+    pub fn max_scan_rows(&self) -> u64 {
+        self.max_scan_rows
     }
 
     pub fn with_tantivy_pruner(mut self, pruner: Arc<TantivyPruner>) -> Self {
@@ -188,7 +200,7 @@ impl QueryEngine for DataFusionEngine {
         .await?;
         let (_preds, rewritten_sql) = extract_match_predicates(&statement);
 
-        let ctx = crate::infra::query::analyzer::session_context_with_guard(self.max_result_rows);
+        let ctx = crate::infra::query::analyzer::session_context(self.max_result_rows);
         ctx.register_udaf(crate::infra::query::udafs::approx_topk_udf());
         if let Some(svc) = &self.field_keys {
             let keys = svc.decrypt_map(&req.org_id).await?;

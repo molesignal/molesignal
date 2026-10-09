@@ -11,8 +11,9 @@ use crate::{
 
 /// 规则求值类型。不同 kind 分派到不同评估管线：
 /// - [`Scheduled`](AlertRuleKind::Scheduled)：周期性阈值评估（默认，向后兼容）。
-/// - [`RealTime`](AlertRuleKind::RealTime)：intake 内逐事件匹配（当前 evaluator 仍按
-///   scheduled 周期跑，realtime matcher 接入是单独 follow-up）。
+/// - [`RealTime`](AlertRuleKind::RealTime)：写入路径上的匹配器逐条求值，统计最近
+///   `period_secs` 秒内满足条件的记录数并与触发条件比较（语句形态见 `SELECT count(*) FROM
+///   <stream> [WHERE ...]`）。匹配器不支持的语句仍由周期评估器评估。
 /// - [`Anomaly`](AlertRuleKind::Anomaly)：基线对比，携带 [`AnomalyParams`]。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

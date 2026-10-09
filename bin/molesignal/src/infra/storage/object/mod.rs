@@ -9,6 +9,7 @@ use object_store::{
 };
 use url::Url;
 
+use self::credentials::ResolvedCredentials;
 use crate::{
     config::ObjectStoreSettings,
     shared::{Error, Result},
@@ -19,11 +20,16 @@ pub mod production;
 
 /// 按 `[object_store]` 配置构造对象存储客户端。
 /// 支持四种 backend：local / s3 / azure / gcs。
-pub fn build(cfg: &ObjectStoreSettings) -> Result<Arc<dyn ObjectStore>> {
+///
+/// 访问密钥使用 [`credentials::resolve`] 解析出的结果（env > credentials_file > inline）。
+pub fn build(
+    cfg: &ObjectStoreSettings,
+    credentials: &ResolvedCredentials,
+) -> Result<Arc<dyn ObjectStore>> {
     match cfg.backend.as_str() {
         "local" => build_local(cfg),
-        "s3" => build_s3(cfg),
-        "azure" => build_azure(cfg),
+        "s3" => build_s3(cfg, credentials),
+        "azure" => build_azure(cfg, credentials),
         "gcs" => build_gcs(cfg),
         other => Err(Error::invalid(format!(
             "unsupported object_store backend: {other}"
@@ -39,7 +45,10 @@ fn build_local(cfg: &ObjectStoreSettings) -> Result<Arc<dyn ObjectStore>> {
     Ok(Arc::new(fs))
 }
 
-fn build_s3(cfg: &ObjectStoreSettings) -> Result<Arc<dyn ObjectStore>> {
+fn build_s3(
+    cfg: &ObjectStoreSettings,
+    credentials: &ResolvedCredentials,
+) -> Result<Arc<dyn ObjectStore>> {
     let bucket = cfg.bucket.trim();
     if bucket.is_empty() {
         return Err(Error::invalid("object_store.bucket required for s3"));
@@ -57,11 +66,10 @@ fn build_s3(cfg: &ObjectStoreSettings) -> Result<Arc<dyn ObjectStore>> {
             b = b.with_allow_http(true);
         }
     }
-    if !cfg.access_key.is_empty() {
-        b = b.with_access_key_id(&cfg.access_key);
-    }
-    if !cfg.secret_key.is_empty() {
-        b = b.with_secret_access_key(&cfg.secret_key);
+    if credentials.is_set() {
+        b = b
+            .with_access_key_id(&credentials.access_key)
+            .with_secret_access_key(&credentials.secret_key);
     }
     let store = b
         .build()
@@ -140,15 +148,18 @@ fn prepare_s3_endpoint(
     Ok(Some(PreparedS3Endpoint { url, allow_http }))
 }
 
-fn build_azure(cfg: &ObjectStoreSettings) -> Result<Arc<dyn ObjectStore>> {
+fn build_azure(
+    cfg: &ObjectStoreSettings,
+    credentials: &ResolvedCredentials,
+) -> Result<Arc<dyn ObjectStore>> {
     if cfg.bucket.is_empty() {
         return Err(Error::invalid("object_store.bucket required for azure"));
     }
     // Azure 的 account / access_key 优先走环境变量
     // AZURE_STORAGE_ACCOUNT / AZURE_STORAGE_ACCESS_KEY；显式配置覆盖之。
     let mut b = MicrosoftAzureBuilder::from_env().with_container_name(&cfg.bucket);
-    if !cfg.access_key.is_empty() {
-        b = b.with_access_key(&cfg.access_key);
+    if !credentials.access_key.is_empty() {
+        b = b.with_access_key(&credentials.access_key);
     }
     let store = b
         .build()
@@ -180,7 +191,7 @@ mod tests {
             root: tmp.path().to_string_lossy().into(),
             ..Default::default()
         };
-        let _store = build(&cfg).expect("build local");
+        let _store = build(&cfg, &ResolvedCredentials::empty()).expect("build local");
     }
 
     #[test]
@@ -189,7 +200,7 @@ mod tests {
             backend: "foo".into(),
             ..Default::default()
         };
-        let err = build(&cfg).unwrap_err();
+        let err = build(&cfg, &ResolvedCredentials::empty()).unwrap_err();
         assert!(err.to_string().contains("unsupported object_store backend"));
     }
 
@@ -199,7 +210,7 @@ mod tests {
             backend: "s3".into(),
             ..Default::default()
         };
-        assert!(build(&cfg).is_err());
+        assert!(build(&cfg, &ResolvedCredentials::empty()).is_err());
     }
 
     #[test]
@@ -256,7 +267,8 @@ mod tests {
             ..Default::default()
         };
 
-        let err = build(&cfg).expect_err("quoted endpoint must be rejected");
+        let err = build(&cfg, &ResolvedCredentials::empty())
+            .expect_err("quoted endpoint must be rejected");
         assert!(err.to_string().contains("absolute HTTP(S) URL"));
     }
 }

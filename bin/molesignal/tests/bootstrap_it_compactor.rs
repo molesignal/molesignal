@@ -92,8 +92,7 @@ async fn it_compactor_merges_5_files_into_1_via_pg() {
     let host = pg.get_host().await.unwrap();
     let dsn = format!("postgres://postgres:postgres@{host}:{port}/postgres");
 
-    let meta_cfg = molesignal::config::MetaStoreSettings {
-        backend: "postgres".into(),
+    let meta_cfg = molesignal::config::MetaDatabaseSettings {
         dsn,
         min_connections: 1,
         max_connections: 4,
@@ -132,7 +131,11 @@ async fn it_compactor_merges_5_files_into_1_via_pg() {
         root: object_root.path().to_string_lossy().into(),
         ..Default::default()
     };
-    let store = object::build(&object_cfg).unwrap();
+    let store = object::build(
+        &object_cfg,
+        &object::credentials::ResolvedCredentials::empty(),
+    )
+    .unwrap();
     let writer = Arc::new(ParquetWriter::new(store.clone()));
     let object_reader =
         ObjectReader::build(store.clone(), "local", &ObjectCacheSettings::default()).unwrap();

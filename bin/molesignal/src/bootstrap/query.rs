@@ -7,9 +7,10 @@ use std::sync::Arc;
 
 use super::{core::Core, iam::IamRuntime, storage::StorageRuntime};
 use crate::{
-    app::{cluster::PeerRole, query::QueryService},
+    api::state::LocalQueryEngines,
+    app::query::QueryService,
     config::Settings,
-    domain::query::QueryEngine,
+    domain::query::{PromqlEngine, QueryEngine},
     infra::{
         caching::QueryResultCache,
         cluster::{
@@ -23,8 +24,11 @@ use crate::{
             SeenEventsRepository,
         },
         query::{
-            distributed::DistributedDataFusionEngine, federated::FederatedDistributedEngine,
-            promql::PromQLEngine, tantivy_pruner::TantivyPruner,
+            federated::FederatedDistributedEngine,
+            language_router::LanguageRoutedEngine,
+            promql::PromQLEngine,
+            remote::{RemotePromqlEngine, RemoteQueryClient, RemoteSqlEngine},
+            tantivy_pruner::TantivyPruner,
         },
         search::{datafusion_engine::DataFusionEngine, tantivy_index::IndexHandle},
     },
@@ -32,7 +36,10 @@ use crate::{
 
 pub(super) struct QueryRuntime {
     pub(super) query: Arc<QueryService>,
-    pub(super) sql_engine: Arc<dyn QueryEngine>,
+    /// 告警评估器的查询入口：SQL 与 PromQL 规则各走自己的引擎。
+    pub(super) alert_engine: Arc<dyn QueryEngine>,
+    /// 本节点用本地数据执行查询的引擎；querier 角色经内部 gRPC 提供给其它节点。
+    pub(super) local_engines: LocalQueryEngines,
     pub(super) remote_clusters: Arc<dyn RemoteClustersRepository>,
     pub(super) cluster_event_outbox: Arc<dyn ClusterEventOutboxRepository>,
     pub(super) cluster_resource_version: Arc<dyn ClusterResourceVersionRepository>,
@@ -75,22 +82,51 @@ impl QueryRuntime {
                 .with_log_patterns(log_patterns.clone())
                 .with_regex_patterns(core.regex_patterns.clone())
                 .with_max_result_rows(settings.search.max_result_rows)
+                .with_max_scan_rows(settings.querier.max_scan_rows)
                 .with_field_keys(core.field_key_service.clone()),
         );
 
-        core.spawn_cluster_maintenance(settings);
-
-        let peers = core.registry.list_role(PeerRole::Querier).await;
-        let sql_engine: Arc<dyn QueryEngine> = if peers.len() >= 2 {
-            Arc::new(DistributedDataFusionEngine::new(
-                local_engine.clone(),
-                core.registry.clone(),
-                storage.catalog_files.clone(),
-                read_store.clone(),
-            ))
-        } else {
-            local_engine
+        let local_promql: Arc<PromQLEngine> = {
+            let engine = PromQLEngine::new(storage.catalog_files.clone(), read_store.clone())
+                .with_streams(core.streams.clone())
+                .with_catalog_source(storage.catalog_query.clone())
+                .with_max_scan_rows(settings.querier.max_scan_rows);
+            let settings = &settings.search.stream_agg_cache;
+            let engine = if settings.capacity > 0 {
+                let cache = Arc::new(crate::infra::caching::StreamingAggCache::new(settings));
+                engine.with_streaming_cache(
+                    cache,
+                    std::time::Duration::from_secs(settings.safe_lookback_secs),
+                )
+            } else {
+                engine
+            };
+            Arc::new(engine)
         };
+        let local_sql: Arc<dyn QueryEngine> = local_engine;
+        let local_engines = LocalQueryEngines {
+            sql: local_sql.clone(),
+            promql: local_promql.clone(),
+        };
+        // querier 角色（含 standalone）用本节点的引擎；其余节点把 SQL 与 PromQL 查询交给
+        // querier 节点执行，由它用本地引擎完整执行。
+        let (sql_engine, promql_engine): (Arc<dyn QueryEngine>, Arc<dyn PromqlEngine>) =
+            if core.roles.run_querier {
+                (local_sql, local_promql)
+            } else {
+                let client = RemoteQueryClient::new(
+                    core.registry.clone(),
+                    (settings.grpc.max_message_size_mb as usize).saturating_mul(1024 * 1024),
+                );
+                (
+                    Arc::new(RemoteSqlEngine::new(client.clone())),
+                    Arc::new(RemotePromqlEngine::new(client)),
+                )
+            };
+        let alert_engine: Arc<dyn QueryEngine> = Arc::new(LanguageRoutedEngine::new(
+            sql_engine.clone(),
+            promql_engine.clone(),
+        ));
 
         let remote_clusters: Arc<dyn RemoteClustersRepository> =
             Arc::new(PgRemoteClustersRepository::new(core.pool.clone()));
@@ -122,22 +158,7 @@ impl QueryRuntime {
             .with_catalog_source(storage.catalog_query.clone())
             .with_streams(core.streams.clone()),
         );
-        let promql_engine = {
-            let engine = PromQLEngine::new(storage.catalog_files.clone(), read_store)
-                .with_streams(core.streams.clone())
-                .with_catalog_source(storage.catalog_query.clone());
-            let settings = &settings.search.stream_agg_cache;
-            let engine = if settings.capacity > 0 {
-                let cache = Arc::new(crate::infra::caching::StreamingAggCache::new(settings));
-                engine.with_streaming_cache(
-                    cache,
-                    std::time::Duration::from_secs(settings.safe_lookback_secs),
-                )
-            } else {
-                engine
-            };
-            Arc::new(engine)
-        };
+
         let admission = Arc::new(crate::app::search::AdmissionController::new(
             crate::app::search::AdmissionConfig {
                 default_max_concurrent: settings.search.admission.default_max_concurrent,
@@ -182,7 +203,8 @@ impl QueryRuntime {
 
         Self {
             query,
-            sql_engine,
+            alert_engine,
+            local_engines,
             remote_clusters,
             cluster_event_outbox,
             cluster_resource_version,
@@ -199,7 +221,7 @@ impl QueryRuntime {
         core: &Core,
         iam: &IamRuntime,
     ) {
-        let _cluster_event_sync = core.roles.run_alert_manager.then(|| {
+        let _cluster_event_sync = core.roles.run_alert.then(|| {
             crate::bootstrap::workers::cluster::event_sync::ClusterEventSync::new(
                 iam.instance_settings.clone(),
                 self.remote_clusters.clone(),
@@ -211,7 +233,7 @@ impl QueryRuntime {
             )
             .spawn()
         });
-        let _cluster_gossip = core.roles.run_alert_manager.then(|| {
+        let _cluster_gossip = core.roles.run_alert.then(|| {
             crate::bootstrap::workers::cluster::gossip::ClusterGossip::new(
                 iam.instance_settings.clone(),
                 self.remote_clusters.clone(),

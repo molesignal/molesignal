@@ -21,6 +21,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use crate::shared::{
+    rendezvous,
     time::TimestampMicros,
     trace_metrics,
     trace_normalization::{
@@ -945,13 +946,10 @@ pub struct SamplerNode {
 
 /// Highest-random-weight rendezvous hashing；与 `(org_id, stream)` WAL 分片无关。
 pub fn rendezvous_owner<'a>(trace_id: &str, nodes: &'a [SamplerNode]) -> Option<&'a SamplerNode> {
-    nodes.iter().filter(|node| node.healthy).max_by_key(|node| {
-        let mut hasher = blake3::Hasher::new();
-        hasher.update(trace_id.as_bytes());
-        hasher.update(&[0]);
-        hasher.update(node.node_id.as_bytes());
-        u128::from_be_bytes(hasher.finalize().as_bytes()[..16].try_into().unwrap())
-    })
+    nodes
+        .iter()
+        .filter(|node| node.healthy)
+        .max_by_key(|node| rendezvous::weight(trace_id, &node.node_id))
 }
 
 fn now_millis() -> u64 {
@@ -1064,6 +1062,23 @@ mod tests {
             })
             .collect();
         assert!(owners.len() > 1);
+    }
+
+    #[test]
+    fn rendezvous_owner_matches_the_shared_hash_and_skips_unhealthy_nodes() {
+        let node = |node_id: &str, healthy| SamplerNode {
+            node_id: node_id.into(),
+            endpoint: format!("{node_id}:1"),
+            healthy,
+        };
+        let nodes = vec![node("a", true), node("b", false), node("c", true)];
+        for i in 0..100 {
+            let trace_id = format!("trace-{i}");
+            assert_eq!(
+                rendezvous_owner(&trace_id, &nodes).map(|node| node.node_id.as_str()),
+                rendezvous::owner(&trace_id, ["a", "c"])
+            );
+        }
     }
 
     #[test]

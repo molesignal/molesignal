@@ -261,7 +261,7 @@ async fn system_capabilities_resolve_role_name_and_permissions_from_database() {
 
     let pool = sqlx::postgres::PgPoolOptions::new()
         .max_connections(1)
-        .connect(&server.settings.store.meta.dsn)
+        .connect(&server.settings.meta_database.dsn)
         .await
         .expect("connect test database");
     let role_id: String = sqlx::query_scalar(

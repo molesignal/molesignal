@@ -28,6 +28,15 @@ pub(crate) fn build_router_with_client_ip(
     state: AppState,
     client_ip: client_ip::ClientIpResolverHandle,
 ) -> Router {
+    build_router_with_limits(state, client_ip, None)
+}
+
+/// `rate_limits` 非空时，写入与查询路由按组织限流（router 角色）。
+pub(crate) fn build_router_with_limits(
+    state: AppState,
+    client_ip: client_ip::ClientIpResolverHandle,
+    rate_limits: Option<std::sync::Arc<middleware::RouterRateLimits>>,
+) -> Router {
     let r = Router::new()
         .nest("/api/v1", routes::api_v1(state.clone()))
         // /metrics：在 auth layer 之外（白名单路径）单独挂顶层
@@ -47,6 +56,12 @@ pub(crate) fn build_router_with_client_ip(
 
     // /.well-known/acme-challenge/<token>：顶层公开（无 auth），仅
     let r = r.merge(routes::domains::challenge_routes().with_state(state.clone()));
+
+    // 限流在认证层之内：此时请求已带有 IamContext，限流按已认证的组织计数。
+    let r = match rate_limits {
+        Some(limits) => r.layer(from_fn_with_state(limits, middleware::rate_limit_layer)),
+        None => r,
+    };
 
     // 认证层注入 IamContext，供路由执行组织隔离与权限校验。
     let api = r

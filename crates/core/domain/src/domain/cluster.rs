@@ -16,7 +16,7 @@ pub enum PeerRole {
     Intake,
     Querier,
     Compactor,
-    AlertManager,
+    Alert,
 }
 
 #[derive(Debug, Clone)]
@@ -59,7 +59,7 @@ impl StandaloneRegistry {
                     PeerRole::Intake,
                     PeerRole::Querier,
                     PeerRole::Compactor,
-                    PeerRole::AlertManager,
+                    PeerRole::Alert,
                 ],
             },
         })

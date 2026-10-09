@@ -4,7 +4,7 @@
 //! 跨集群事件总线的**发送端** worker：周期把本地 outbox 里未投递的 CloudEvent
 //! 推到配了 org 映射的远端集群。
 //!
-//! 单点周期任务（alert_manager 角色，只起一份）。每 tick：
+//! 单点周期任务（alert 角色，只起一份）。每 tick：
 //! 1. 遍历每个 enabled remote cluster C：按 C 的 org 映射取本地可发 org 的未投递事件
 //!    （`acked_seq` 游标之后），**按 org 分组、各用该 org 的 per-org token** 经
 //!    [`EventServiceClient`] 推过去；全组成功才推进 C 的投递游标（部分失败下 tick 重投，

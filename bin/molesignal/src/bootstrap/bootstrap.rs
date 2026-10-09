@@ -49,7 +49,7 @@ pub async fn rewrap_kek(settings: &Settings, old_key_b64: &str) -> Result<Vec<(S
         .map_err(|e| Error::invalid(format!("old KEK invalid: {e}")))?;
     let new = CipherRootKey::from_env()
         .map_err(|e| Error::invalid(format!("new KEK (MS_CIPHER_KEY) invalid: {e}")))?;
-    let meta = MetaStore::connect(&settings.store.meta).await?;
+    let meta = MetaStore::connect(&settings.meta_database).await?;
     crate::infra::cipher::kek_rewrap::rewrap_all(&meta.pool, &old, &new).await
 }
 
@@ -118,7 +118,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         settings.probe.resolved_control_endpoint(),
         probe_artifact_base_url.clone(),
     )));
-    let _synthetic_automation_worker = core.roles.run_alert_manager.then(|| {
+    let _synthetic_automation_worker = core.roles.run_alert.then(|| {
         crate::bootstrap::workers::synthetics::SyntheticAutomationWorker::new(
             synthetics.clone(),
             alerting_runtime.status_pages.clone(),
@@ -187,6 +187,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
     let read_store = object_reader.store();
     let QueryRuntime {
         query,
+        local_engines,
         remote_clusters,
         cluster_event_outbox,
         cluster_resource_version,
@@ -454,6 +455,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         },
         cluster: ClusterState {
             node_id,
+            query_engines: local_engines,
             drain: drain_controller,
             registry,
             repository: cluster_repo,

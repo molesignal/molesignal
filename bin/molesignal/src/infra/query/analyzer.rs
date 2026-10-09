@@ -9,6 +9,11 @@
 //!
 //! 安全性：已有 LIMIT（结果已有界，尊重用户）或含 Aggregate（注入 LIMIT 会截断分组，
 //! 语义不安全）时**不注入**。默认 `max_rows = 0` → 关闭（OSS 零行为变化）。
+//!
+//! `TimestampIntegerLiteral`：把 `_timestamp` 与整数字面量的比较按微秒解释，见
+//! [`timestamp_literal`]。它每个查询都生效。
+
+mod timestamp_literal;
 
 use std::sync::Arc;
 
@@ -17,9 +22,10 @@ use datafusion::{
     error::Result as DfResult,
     execution::SessionStateBuilder,
     logical_expr::{LogicalPlan, LogicalPlanBuilder},
-    optimizer::AnalyzerRule,
+    optimizer::{Analyzer, AnalyzerRule},
     prelude::SessionContext,
 };
+use timestamp_literal::TimestampIntegerLiteral;
 
 #[derive(Debug)]
 pub struct ResultRowGuard {
@@ -57,17 +63,20 @@ impl AnalyzerRule for ResultRowGuard {
     }
 }
 
-/// 构造一个 `SessionContext`：`max_rows > 0` 时注册 [`ResultRowGuard`]，否则用默认 ctx
-/// （零行为变化）。engine 与单测共用，确保规则注册路径被真实覆盖。
-pub fn session_context_with_guard(max_rows: usize) -> SessionContext {
-    if max_rows == 0 {
-        return SessionContext::new();
-    }
-    let state = SessionStateBuilder::new()
+/// 构造查询用的 `SessionContext`：始终注册 [`TimestampIntegerLiteral`]（必须排在内建
+/// `TypeCoercion` 之前，否则后者先报类型推断错误）；`max_rows > 0` 时再追加
+/// [`ResultRowGuard`]。engine 与单测共用，确保规则注册路径被真实覆盖。
+pub fn session_context(max_rows: usize) -> SessionContext {
+    let mut rules: Vec<Arc<dyn AnalyzerRule + Send + Sync>> =
+        vec![Arc::new(TimestampIntegerLiteral)];
+    rules.extend(Analyzer::new().rules);
+    let mut builder = SessionStateBuilder::new()
         .with_default_features()
-        .with_analyzer_rule(Arc::new(ResultRowGuard::new(max_rows)))
-        .build();
-    SessionContext::new_with_state(state)
+        .with_analyzer_rules(rules);
+    if max_rows > 0 {
+        builder = builder.with_analyzer_rule(Arc::new(ResultRowGuard::new(max_rows)));
+    }
+    SessionContext::new_with_state(builder.build())
 }
 
 #[cfg(test)]
@@ -84,7 +93,7 @@ mod tests {
     use super::*;
 
     async fn ctx_with_table(max_rows: usize) -> SessionContext {
-        let ctx = session_context_with_guard(max_rows);
+        let ctx = session_context(max_rows);
         let schema = Arc::new(Schema::new(vec![Field::new("v", DataType::Int64, true)]));
         let arr: ArrayRef = Arc::new(Int64Array::from(vec![1, 2, 3]));
         let batch = RecordBatch::try_new(schema.clone(), vec![arr]).unwrap();

@@ -1,29 +1,33 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use std::sync::Arc;
+
 use crate::{
-    api::{AppState, grpc, http, http::client_ip::ClientIpResolverHandle},
-    config::Settings,
+    api::{
+        AppState, http,
+        http::{client_ip::ClientIpResolverHandle, middleware::RouterRateLimits},
+    },
+    config::{Role, Settings},
 };
 
 const CLIENT_IP_SETTINGS_REFRESH_SECS: u64 = 30;
 
-/// 启动 HTTP（axum）+ gRPC（tonic）服务器：同进程，`tokio::try_join!` 并行。
-/// standalone / router 角色默认走这条路径。
+/// 启动完整的 HTTP API 与 Web UI（axum）。standalone 与 router 角色走这条路径；
+/// gRPC、OTLP gRPC 等监听由 [`super::run`] 按角色集单独起。
 ///
 /// 当 `cfg.http.tls.enabled=true`（仅  feature 实际可达）时，HTTP 分支
 /// 切到双绑：80 端口纯 plain（健康检查 + ACME challenge + 301 redirect），443 端口
 /// 跑完整 rustls 服务器配 SNI cert resolver（change `domain-acme-tls`）。
 pub async fn serve(state: AppState, cfg: Settings) -> anyhow::Result<()> {
-    let grpc_cfg = cfg.grpc.clone();
-    let alive_window = cfg.cluster.peer_timeout_secs as i64;
     let client_ip = load_client_ip_resolver(&state).await;
+    let rate_limits = router_rate_limits(&cfg);
 
     if cfg.http.tls.enabled {
-        return serve_tls(state, cfg, grpc_cfg, alive_window, client_ip).await;
+        return serve_tls(state, cfg, client_ip, rate_limits).await;
     }
 
-    let app = http::build_router_with_client_ip(state.clone(), client_ip.clone());
+    let app = http::build_router_with_limits(state.clone(), client_ip.clone(), rate_limits);
     let addr: std::net::SocketAddr = format!("{}:{}", cfg.http.bind, cfg.http.port).parse()?;
     let listener = tokio::net::TcpListener::bind(addr).await?;
     tracing::info!(%addr, "http server listening");
@@ -36,59 +40,25 @@ pub async fn serve(state: AppState, cfg: Settings) -> anyhow::Result<()> {
         .await
         .map_err(|e| anyhow::anyhow!("http serve: {e}"))
     };
-    let client_ip_refresh_fut = refresh_client_ip_resolver(state.clone(), client_ip);
-    let flight_sql_fut = flight_sql_future(state.clone(), cfg.flight_sql.clone());
-    let otlp_grpc_fut = otlp_grpc_future(state.clone(), cfg.otlp_grpc.clone());
-    let probe_grpc_fut = probe_grpc_future(state.clone(), cfg.probe.clone());
-    let grpc_fut = async move { grpc::serve_grpc(state, &grpc_cfg, alive_window).await };
+    let client_ip_refresh_fut = refresh_client_ip_resolver(state, client_ip);
 
-    tokio::try_join!(
-        http_fut,
-        grpc_fut,
-        flight_sql_fut,
-        otlp_grpc_fut,
-        probe_grpc_fut,
-        client_ip_refresh_fut
-    )?;
+    tokio::try_join!(http_fut, client_ip_refresh_fut)?;
     Ok(())
 }
 
-/// 对外 Flight SQL listener（spec flight-sql）：`flight_sql.enabled = false`
-/// （默认）时立即返回 Ok，`try_join!` 继续等其它 server。
-async fn flight_sql_future(
-    state: AppState,
-    cfg: crate::config::FlightSqlSettings,
-) -> anyhow::Result<()> {
-    if !cfg.enabled {
-        return Ok(());
-    }
-    grpc::serve_flight_sql(state, &cfg).await
-}
-
-/// 对外 OTLP gRPC listener（标准 :4317）。
-async fn otlp_grpc_future(
-    state: AppState,
-    cfg: crate::config::OtlpGrpcSettings,
-) -> anyhow::Result<()> {
-    grpc::serve_otlp_grpc(state, &cfg).await
-}
-
-async fn probe_grpc_future(
-    state: AppState,
-    cfg: crate::config::ProbeGrpcSettings,
-) -> anyhow::Result<()> {
-    grpc::serve_probe_grpc(state, &cfg).await
+/// 只有 router 角色限流；standalone 同时含 router 角色时不限流。
+fn router_rate_limits(cfg: &Settings) -> Option<Arc<RouterRateLimits>> {
+    let roles = &cfg.node.roles;
+    (roles.contains(&Role::Router) && !roles.contains(&Role::Standalone))
+        .then(|| RouterRateLimits::new(cfg.router.rate_limit.clone()))
 }
 
 async fn serve_tls(
     state: AppState,
     cfg: Settings,
-    grpc_cfg: crate::config::GrpcSettings,
-    alive_window: i64,
     client_ip: ClientIpResolverHandle,
+    rate_limits: Option<Arc<RouterRateLimits>>,
 ) -> anyhow::Result<()> {
-    use std::sync::Arc;
-
     use axum::{Router, response::Redirect, routing::get};
 
     use crate::bootstrap::{acme::AcmeClient, tls::SniCertResolver, workers::acme::AcmeRunner};
@@ -121,7 +91,7 @@ async fn serve_tls(
     let _runner_handles = runner.spawn();
 
     // 443: full router + rustls
-    let full_app = http::build_router_with_client_ip(state.clone(), client_ip.clone());
+    let full_app = http::build_router_with_limits(state.clone(), client_ip.clone(), rate_limits);
     let https_addr: std::net::SocketAddr = format!("{}:{}", cfg.http.bind, tls.port).parse()?;
     let rustls_config = {
         use rustls::ServerConfig;
@@ -183,21 +153,9 @@ async fn serve_tls(
             .await
             .map_err(|e| anyhow::anyhow!("rustls serve: {e}"))
     };
-    let client_ip_refresh_fut = refresh_client_ip_resolver(state.clone(), client_ip);
-    let flight_sql_fut = flight_sql_future(state.clone(), cfg.flight_sql.clone());
-    let otlp_grpc_fut = otlp_grpc_future(state.clone(), cfg.otlp_grpc.clone());
-    let probe_grpc_fut = probe_grpc_future(state.clone(), cfg.probe.clone());
-    let grpc_fut = async move { grpc::serve_grpc(state, &grpc_cfg, alive_window).await };
+    let client_ip_refresh_fut = refresh_client_ip_resolver(state, client_ip);
 
-    tokio::try_join!(
-        plain_fut,
-        https_fut,
-        grpc_fut,
-        flight_sql_fut,
-        otlp_grpc_fut,
-        probe_grpc_fut,
-        client_ip_refresh_fut
-    )?;
+    tokio::try_join!(plain_fut, https_fut, client_ip_refresh_fut)?;
     Ok(())
 }
 

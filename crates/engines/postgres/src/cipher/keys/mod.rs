@@ -32,14 +32,21 @@ pub struct CipherKey {
 
 #[async_trait]
 pub trait CipherKeyRepository: Send + Sync {
+    /// 新建 version 1；同 org 已有同名 key 时返回冲突。
     async fn create(&self, org_id: &Id, name: &str, raw_key: &[u8]) -> Result<CipherKey>;
-    /// rotation：插入 `version = max+1`，复用同 name。
+    /// rotation：插入 `version = max+1`，复用同 name。key 不存在时返回 `NotFound`；
+    /// 新建 key 使用 [`create`](Self::create)。
     async fn rotate(&self, org_id: &Id, name: &str, raw_key: &[u8]) -> Result<CipherKey>;
     async fn get_latest(&self, org_id: &Id, name: &str) -> Result<CipherKey>;
     async fn get_by_id_version(&self, org_id: &Id, key_id: &str, version: i32)
     -> Result<CipherKey>;
     async fn list(&self, org_id: &Id) -> Result<Vec<CipherKey>>;
+    /// 删除该 name 的全部版本；key 不存在时返回 `NotFound`。
     async fn delete(&self, org_id: &Id, name: &str) -> Result<()>;
+}
+
+fn key_not_found(name: &str) -> crate::shared::Error {
+    crate::shared::Error::not_found(format!("cipher key `{name}` does not exist"))
 }
 
 pub struct PgCipherKeyRepository {
@@ -109,7 +116,12 @@ impl CipherKeyRepository for PgCipherKeyRepository {
         .bind(created.0)
         .execute(&self.pool)
         .await
-        .map_err(super::super::persistence::sqlx_err)?;
+        .map_err(|error| match super::super::persistence::sqlx_err(error) {
+            Error::Conflict(_) => Error::conflict(format!(
+                "cipher key `{name}` already exists; rotate it to add a version"
+            )),
+            other => other,
+        })?;
         Ok(CipherKey {
             id,
             org_id: org_id.clone(),
@@ -127,16 +139,19 @@ impl CipherKeyRepository for PgCipherKeyRepository {
         if raw_key.len() != 32 {
             return Err(Error::invalid("cipher key material must be 32 bytes"));
         }
-        // 当前 max version + 1
+        // 当前 max version + 1；没有任何版本说明 key 不存在。
         let row = sqlx::query(
-            "SELECT COALESCE(MAX(version), 0) AS v FROM cipher_keys WHERE org_id = $1 AND name = $2",
+            "SELECT MAX(version) AS v FROM cipher_keys WHERE org_id = $1 AND name = $2",
         )
         .bind(&org_id.0)
         .bind(name)
         .fetch_one(&self.pool)
         .await
         .map_err(super::super::persistence::sqlx_err)?;
-        let next: i32 = row.try_get("v").unwrap_or(0) + 1;
+        let latest: Option<i32> = row
+            .try_get("v")
+            .map_err(super::super::persistence::sqlx_err)?;
+        let next = latest.ok_or_else(|| key_not_found(name))? + 1;
         let (nonce, enc) = self
             .mk
             .seal(raw_key)
@@ -180,9 +195,10 @@ impl CipherKeyRepository for PgCipherKeyRepository {
         let row = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(name)
-            .fetch_one(&self.pool)
+            .fetch_optional(&self.pool)
             .await
-            .map_err(super::super::persistence::sqlx_err)?;
+            .map_err(super::super::persistence::sqlx_err)?
+            .ok_or_else(|| key_not_found(name))?;
         row_to(row, &self.mk)
     }
 
@@ -220,12 +236,16 @@ impl CipherKeyRepository for PgCipherKeyRepository {
     }
 
     async fn delete(&self, org_id: &Id, name: &str) -> Result<()> {
-        sqlx::query("DELETE FROM cipher_keys WHERE org_id = $1 AND name = $2")
+        let deleted = sqlx::query("DELETE FROM cipher_keys WHERE org_id = $1 AND name = $2")
             .bind(&org_id.0)
             .bind(name)
             .execute(&self.pool)
             .await
-            .map_err(super::super::persistence::sqlx_err)?;
+            .map_err(super::super::persistence::sqlx_err)?
+            .rows_affected();
+        if deleted == 0 {
+            return Err(key_not_found(name));
+        }
         Ok(())
     }
 }

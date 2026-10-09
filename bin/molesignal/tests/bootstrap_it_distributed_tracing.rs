@@ -447,7 +447,7 @@ async fn http_sql_object_store_business_spans_and_logs_are_queryable_in_system_s
 
     let pool = PgPoolOptions::new()
         .max_connections(2)
-        .connect(&server.settings.store.meta.dsn)
+        .connect(&server.settings.meta_database.dsn)
         .await
         .expect("connect trace probe pool");
     let first_org_repo =

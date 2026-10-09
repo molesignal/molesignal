@@ -11,7 +11,7 @@ use molesignal::{
         },
         validation::{DashboardValidationMode, validate_dashboard_model},
     },
-    config::MetaStoreSettings,
+    config::MetaDatabaseSettings,
     domain::dashboard::{
         Dashboard,
         authoring::{
@@ -48,8 +48,7 @@ async fn boot() -> MetaStore {
     let port = pg.get_host_port_ipv4(5432).await.expect("postgres port");
     let host = pg.get_host().await.expect("postgres host");
     let dsn = format!("postgres://postgres:postgres@{host}:{port}/postgres");
-    let store = MetaStore::connect(&MetaStoreSettings {
-        backend: "postgres".into(),
+    let store = MetaStore::connect(&MetaDatabaseSettings {
         dsn,
         min_connections: 1,
         max_connections: 5,

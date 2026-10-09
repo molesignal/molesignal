@@ -3,6 +3,9 @@
 
 //! Compatibility façade for the cluster discovery domain port.
 
+pub mod ownership;
 pub mod registry;
+
+pub use ownership::{OwnershipView, WorkOwnership};
 
 pub use crate::domain::cluster::*;

@@ -13,7 +13,6 @@
 //! - [`messaging`]     节点间或进程内消息总线
 //! - [`intake_sink`]   `IntakeSink` 的 当前内存实现
 
-pub mod alerting;
 pub mod apm;
 pub mod caching;
 pub use ::postgres::cipher;

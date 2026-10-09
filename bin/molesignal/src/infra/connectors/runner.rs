@@ -9,7 +9,7 @@
 //!   把事件经 [`IntakeService`] 写入 connector 的 `target_stream`，成功后 `touch_last_run`；
 //! - push 类不进 runner，由 HTTP layer 直接 dispatch。
 //!
-//! **单点运行**：应作为单例起（如 alert_manager 角色），避免多节点重复拉取同一外部源。
+//! **单点运行**：应作为单例起（如 alert 角色），避免多节点重复拉取同一外部源。
 
 use std::{sync::Arc, time::Duration};
 

@@ -3,7 +3,7 @@ syntax = "proto3";
 package cluster.v1;
 
 // 集群节点心跳与发现。
-// 节点（intake / querier / compactor / alert_manager）周期 Heartbeat，
+// 节点（intake / querier / compactor / alert）周期 Heartbeat，
 // router 调 List 取健康节点表。
 service NodeService {
   rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
@@ -53,7 +53,7 @@ enum NodeRole {
   NODE_ROLE_INTAKE = 3;
   NODE_ROLE_QUERIER = 4;
   NODE_ROLE_COMPACTOR = 5;
-  NODE_ROLE_ALERT_MANAGER = 6;
+  NODE_ROLE_ALERT = 6;
 }
 
 message NodeInfo {

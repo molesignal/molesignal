@@ -171,6 +171,7 @@ impl Delivery for RemoteDelivery {
                     stream_type: proto_stream_type(signal) as i32,
                     payload: payload.clone().into(),
                     received_at_micros: TimestampMicros::now().0,
+                    stream_type_name: String::new(),
                 });
                 grpc_channel::with_bearer(&mut request, &self.token)?;
                 request.metadata_mut().insert(

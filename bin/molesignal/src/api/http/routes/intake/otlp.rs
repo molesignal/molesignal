@@ -50,6 +50,7 @@ use crate::{
     },
 };
 
+mod json;
 mod metrics;
 
 pub(crate) use metrics::metrics_to_events;
@@ -98,8 +99,13 @@ where
     match enc {
         OtlpEncoding::Protobuf => T::decode(body.as_ref())
             .map_err(|e| Error::invalid(format!("OTLP protobuf decode: {e}"))),
-        OtlpEncoding::Json => serde_json::from_slice(body.as_ref())
-            .map_err(|e| Error::invalid(format!("OTLP/JSON decode: {e}"))),
+        OtlpEncoding::Json => {
+            let mut value: Value = serde_json::from_slice(body.as_ref())
+                .map_err(|e| Error::invalid(format!("OTLP/JSON decode: {e}")))?;
+            json::normalize_as_int(&mut value);
+            serde_json::from_value(value)
+                .map_err(|e| Error::invalid(format!("OTLP/JSON decode: {e}")))
+        }
     }
 }
 

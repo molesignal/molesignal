@@ -50,7 +50,7 @@ async fn realtime_configuration_is_unique_and_cannot_be_backfilled() {
     let repo = molesignal::infra::pipeline::realtime::PgRealtimePipelineRepository::new(
         sqlx::postgres::PgPoolOptions::new()
             .max_connections(2)
-            .connect(&s.settings.store.meta.dsn)
+            .connect(&s.settings.meta_database.dsn)
             .await
             .unwrap(),
     );

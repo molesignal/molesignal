@@ -2,7 +2,7 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 //! 可选功能与集成：`[functions]`（VRL/JS/LLM 运行时）、`[mmdb]`（GeoIP）、
-//! `[scheduled_reports]`（headless 渲染）、`[agent]`（AI chat 默认配置）。
+//! `[scheduled_reports]`（headless 渲染）。
 
 use serde::{Deserialize, Serialize};
 
@@ -108,25 +108,5 @@ impl RendererSettings {
             );
         }
         Ok(())
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AgentSettings {
-    /// session.provider 为空时的 fallback；未来可用，当前仅文档化。
-    #[serde(default = "default_agent_provider")]
-    pub default_provider: String,
-}
-
-fn default_agent_provider() -> String {
-    "openai".into()
-}
-
-impl Default for AgentSettings {
-    fn default() -> Self {
-        Self {
-            default_provider: default_agent_provider(),
-        }
     }
 }

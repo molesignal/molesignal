@@ -275,7 +275,7 @@ fn role_name(v: i32) -> String {
         NodeRole::Intake => "intake",
         NodeRole::Querier => "querier",
         NodeRole::Compactor => "compactor",
-        NodeRole::AlertManager => "alert_manager",
+        NodeRole::Alert => "alert",
         NodeRole::Standalone => "standalone",
         NodeRole::Unspecified => "unspecified",
     }

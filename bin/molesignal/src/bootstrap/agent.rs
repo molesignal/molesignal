@@ -81,7 +81,7 @@ impl AgentRuntime {
         let slow_queries: Arc<dyn SlowQueryRepository> =
             Arc::new(PgSlowQueryRepository::new(core.pool.clone()));
 
-        let _slow_query_analyzer = core.roles.run_alert_manager.then(|| {
+        let _slow_query_analyzer = core.roles.run_alert.then(|| {
             crate::bootstrap::workers::slow_query_analyzer::SlowQueryAnalyzer::new(
                 core.orgs.clone() as Arc<dyn OrganizationRepository>,
                 slow_queries.clone(),
@@ -95,7 +95,7 @@ impl AgentRuntime {
             incident_rca.clone(),
             crate::api::rca::RcaGenConfig::default(),
         ));
-        let _rca_sweeper = core.roles.run_alert_manager.then(|| {
+        let _rca_sweeper = core.roles.run_alert.then(|| {
             crate::bootstrap::workers::rca_sweeper::RcaSweeper::new(
                 core.orgs.clone() as Arc<dyn OrganizationRepository>,
                 core.iam_memberships.clone() as Arc<dyn IamMembershipRepository>,

@@ -20,7 +20,7 @@ use sqlx::{
 };
 
 use crate::{
-    config::MetaStoreSettings,
+    config::MetaDatabaseSettings,
     shared::{Error, Result, metrics::global_registry},
 };
 
@@ -37,15 +37,9 @@ pub struct MetaStore {
 
 impl MetaStore {
     /// 建池并跑迁移；失败 fail-fast。
-    pub async fn connect(cfg: &MetaStoreSettings) -> Result<Self> {
-        if cfg.backend != "postgres" {
-            return Err(Error::invalid(format!(
-                "meta_store.backend must be 'postgres', got '{}'",
-                cfg.backend
-            )));
-        }
+    pub async fn connect(cfg: &MetaDatabaseSettings) -> Result<Self> {
         let mut opts = PgConnectOptions::from_str(&cfg.dsn)
-            .map_err(|e| Error::invalid(format!("meta_store.dsn parse: {e}")))?;
+            .map_err(|e| Error::invalid(format!("meta_database.dsn parse: {e}")))?;
         // SQLx's built-in debug event includes the full statement text. Keep it
         // disabled: the local sqlx facade emits sanitized query spans instead.
         opts = opts.log_statements(tracing::log::LevelFilter::Off);
@@ -65,9 +59,9 @@ impl MetaStore {
     }
 
     /// 已知 schema 就绪时旁路用（测试 fixture 等）。
-    pub async fn connect_no_migrate(cfg: &MetaStoreSettings) -> Result<Self> {
+    pub async fn connect_no_migrate(cfg: &MetaDatabaseSettings) -> Result<Self> {
         let opts = PgConnectOptions::from_str(&cfg.dsn)
-            .map_err(|e| Error::invalid(format!("meta_store.dsn parse: {e}")))?;
+            .map_err(|e| Error::invalid(format!("meta_database.dsn parse: {e}")))?;
         let opts = opts.log_statements(tracing::log::LevelFilter::Off);
         let pool = pool_options(cfg)
             .connect_with(opts)
@@ -78,7 +72,7 @@ impl MetaStore {
     }
 }
 
-fn pool_options(cfg: &MetaStoreSettings) -> PgPoolOptions {
+fn pool_options(cfg: &MetaDatabaseSettings) -> PgPoolOptions {
     PgPoolOptions::new()
         .max_connections(cfg.max_connections)
         .min_connections(cfg.min_connections.min(cfg.max_connections))
@@ -210,8 +204,7 @@ mod tests {
 
     #[test]
     fn pool_options_prewarms_the_configured_minimum() {
-        let cfg = MetaStoreSettings {
-            backend: "postgres".into(),
+        let cfg = MetaDatabaseSettings {
             dsn: "postgres://localhost/molesignal".into(),
             min_connections: 3,
             max_connections: 8,
@@ -225,8 +218,7 @@ mod tests {
 
     #[test]
     fn pool_options_clamps_minimum_to_maximum() {
-        let cfg = MetaStoreSettings {
-            backend: "postgres".into(),
+        let cfg = MetaDatabaseSettings {
             dsn: "postgres://localhost/molesignal".into(),
             min_connections: 9,
             max_connections: 4,

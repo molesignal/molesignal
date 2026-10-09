@@ -15,16 +15,19 @@
 //! 类型冲突 / pipeline 单步错误的事件单条剔除并填到 `IntakeResult.errors`。
 
 mod derived;
+mod forward;
 pub mod pipeline;
 pub mod realtime;
 mod schema;
 
 use std::sync::Arc;
 
+pub use forward::IntakeForwarder;
 pub use pipeline::{FunctionExecutor, NoopFunctionExecutor, PipelineEngine};
 pub use schema::{check_event_types, infer_schema_extension};
 
 use crate::{
+    app::alerting::realtime::RealtimeAlerts,
     domain::{
         intake::{
             EVENT_ID_FIELD, IntakeBatch, IntakeError, IntakeResult, IntakeSink, RawEvent,
@@ -60,6 +63,10 @@ pub struct IntakeService {
     drain: Option<Arc<DrainController>>,
     /// 可选 trace 观测器；非空时对 Traces 批旁路派生服务调用边（service graph）。
     service_graph: Option<Arc<dyn ServiceGraphObserver>>,
+    /// 可选实时告警匹配器；非空时写入成功的记录逐条对 `real_time` 规则求值。
+    realtime_alerts: Option<Arc<RealtimeAlerts>>,
+    /// 没有 intake 角色的节点：公共入口收到的批次转发给 intake 节点处理。
+    forwarder: Option<Arc<dyn IntakeForwarder>>,
 }
 
 impl IntakeService {
@@ -74,7 +81,15 @@ impl IntakeService {
             masking: None,
             drain: None,
             service_graph: None,
+            realtime_alerts: None,
+            forwarder: None,
         }
+    }
+
+    /// 注入转发器：公共入口收到的批次交给 intake 节点，本节点不再处理。
+    pub fn with_forwarder(mut self, forwarder: Arc<dyn IntakeForwarder>) -> Self {
+        self.forwarder = Some(forwarder);
+        self
     }
 
     pub fn with_pipeline(mut self, engine: Arc<PipelineEngine>) -> Self {
@@ -97,6 +112,12 @@ impl IntakeService {
     /// 注入 trace 观测器；非空时 Traces 批写入后旁路派生服务调用边。
     pub fn with_service_graph(mut self, observer: Arc<dyn ServiceGraphObserver>) -> Self {
         self.service_graph = Some(observer);
+        self
+    }
+
+    /// 注入实时告警匹配器；写入成功的外部来源记录会对 `real_time` 规则求值。
+    pub fn with_realtime_alerts(mut self, alerts: Arc<RealtimeAlerts>) -> Self {
+        self.realtime_alerts = Some(alerts);
         self
     }
 
@@ -129,6 +150,9 @@ impl IntakeService {
             return Err(Error::unavailable(
                 "node is draining; not accepting new writes",
             ));
+        }
+        if let Some(forwarder) = &self.forwarder {
+            return forwarder.forward(batch).await;
         }
         if batch.stream_type == StreamType::LOGS
             && let Some(engine) = &self.realtime
@@ -371,6 +395,26 @@ impl IntakeService {
             sg.observe(&batch.org_id, &batch.events);
         }
 
+        // 3.6) 实时告警：对将要写入的记录求值，写入成功后再计入规则窗口。只看外部来源写入的
+        // 主数据集；内部遥测与派生数据集不属于规则面向的数据。
+        let realtime_hits = if is_primary_dataset
+            && total_kept > 0
+            && matches!(
+                origin,
+                IntakeOrigin::External | IntakeOrigin::RoutedExternal
+            ) {
+            self.realtime_alerts.as_ref().and_then(|alerts| {
+                alerts.observe(
+                    &batch.org_id,
+                    &batch.stream,
+                    batch.stream_type,
+                    &batch.events,
+                )
+            })
+        } else {
+            None
+        };
+
         // 原始批次完成全部用户可见变换后再投影内部读模型，保证摘要与权威数据使用
         // 同一份脱敏、类型校验结果。测试/内存 sink 不声明能力时保持原有单批语义。
         let derived = if is_primary_dataset && self.sink.supports_derived_datasets() {
@@ -395,6 +439,11 @@ impl IntakeService {
                 )
                 .await?
         };
+        if result.accepted > 0
+            && let (Some(hits), Some(alerts)) = (realtime_hits, &self.realtime_alerts)
+        {
+            alerts.record(hits, &result.errors, TimestampMicros::now());
+        }
         if result.accepted > 0 {
             for (dataset_type, batch) in derived {
                 let derived_result = self.sink.write_dataset(dataset_type.clone(), batch).await?;

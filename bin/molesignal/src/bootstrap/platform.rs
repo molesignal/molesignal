@@ -63,7 +63,7 @@ impl PlatformRuntime {
     ) -> Result<Self> {
         let connectors: Arc<dyn ConnectorRepository> =
             Arc::new(PgConnectorRepository::new(core.pool.clone()));
-        let _connector_runner = core.roles.run_alert_manager.then(|| {
+        let _connector_runner = core.roles.run_alert.then(|| {
             crate::infra::connectors::ConnectorRunner::new(
                 connectors.clone(),
                 storage.intake.clone(),
@@ -83,30 +83,34 @@ impl PlatformRuntime {
         let annotations: Arc<dyn AnnotationRepository> =
             Arc::new(PgAnnotationRepository::new(core.pool.clone()));
         let search_job_repository = Arc::new(PgSearchJobRepository::new(core.pool.clone()));
-        let search_job_notification_listener = search_job_repository
-            .clone()
-            .spawn_notification_listener(settings.store.meta.dsn.clone());
-        let search_jobs: Arc<dyn SearchJobRepository> = search_job_repository;
+        let search_jobs: Arc<dyn SearchJobRepository> = search_job_repository.clone();
         let search_jobs_settings = &settings.search_jobs;
-        let mut search_jobs_handles = Arc::new(
-            crate::bootstrap::workers::search_jobs::SearchJobScheduler::new(
-                search_jobs.clone(),
-                query.query.clone(),
-                core.store.clone(),
-                scheduled_pipelines.clone(),
-                storage.worker.clone(),
-                connectors.clone(),
-                Arc::new(crate::infra::connectors::EgressDispatcher),
-                crate::bootstrap::workers::search_jobs::SearchJobSchedulerConfig {
-                    max_concurrent_jobs: search_jobs_settings.workers.max(1) as usize,
-                    idle_poll_secs: search_jobs_settings.idle_poll_secs,
-                    cleanup_interval_secs: search_jobs_settings.cleanup_interval_secs,
-                },
-            ),
-        )
-        .spawn();
-        search_jobs_handles.push(search_job_notification_listener);
-        let _search_jobs_handles = Arc::new(search_jobs_handles);
+        // 搜索 job 由 querier 角色（含 standalone）的节点领取并执行；其它节点只创建与读取 job。
+        let _search_jobs_handles = core.roles.run_querier.then(|| {
+            let mut handles = Arc::new(
+                crate::bootstrap::workers::search_jobs::SearchJobScheduler::new(
+                    search_jobs.clone(),
+                    query.query.clone(),
+                    core.store.clone(),
+                    scheduled_pipelines.clone(),
+                    storage.worker.clone(),
+                    connectors.clone(),
+                    Arc::new(crate::infra::connectors::EgressDispatcher),
+                    crate::bootstrap::workers::search_jobs::SearchJobSchedulerConfig {
+                        max_concurrent_jobs: search_jobs_settings.workers.max(1) as usize,
+                        idle_poll_secs: search_jobs_settings.idle_poll_secs,
+                        cleanup_interval_secs: search_jobs_settings.cleanup_interval_secs,
+                    },
+                ),
+            )
+            .spawn();
+            handles.push(
+                search_job_repository
+                    .clone()
+                    .spawn_notification_listener(settings.meta_database.dsn.clone()),
+            );
+            Arc::new(handles)
+        });
 
         let functions: Arc<dyn FunctionRepository> =
             Arc::new(PgFunctionRepository::new(core.pool.clone()));
@@ -145,15 +149,18 @@ impl PlatformRuntime {
                 crate::report_renderer::HeadlessChromeRenderer::new(config),
             ))
         };
-        let _scheduled_reports_handle = Arc::new(
-            crate::bootstrap::workers::scheduled_reports::ScheduledReportRunner::new(
-                scheduled_reports.clone(),
-                core.store.clone(),
-                report_renderer.clone(),
-                report_renderer_base_url.clone(),
-            ),
-        )
-        .spawn();
+        // 定时报告的渲染需要无头 Chrome，由 alert 角色（含 standalone）的节点承担。
+        let _scheduled_reports_handle = core.roles.run_alert.then(|| {
+            Arc::new(
+                crate::bootstrap::workers::scheduled_reports::ScheduledReportRunner::new(
+                    scheduled_reports.clone(),
+                    core.store.clone(),
+                    report_renderer.clone(),
+                    report_renderer_base_url.clone(),
+                ),
+            )
+            .spawn()
+        });
         let file_download_tokens: Arc<dyn FileDownloadTokenRepository> =
             Arc::new(PgFileDownloadTokenRepository::new(core.pool.clone()));
         let web_search: Arc<dyn WebSearchRepository> =
@@ -164,7 +171,7 @@ impl PlatformRuntime {
 
         let pipeline_runs: Arc<dyn PipelineRunRepository> =
             Arc::new(PgPipelineRunRepository::new(core.pool.clone()));
-        let _pipeline_runner_handle = core.roles.run_alert_manager.then(|| {
+        let _pipeline_runner_handle = core.roles.run_alert.then(|| {
             let executor: Arc<dyn crate::infra::pipeline::PipelineExecutor> = Arc::new(
                 crate::bootstrap::workers::pipeline_exec::BootstrapPipelineExecutor::new(
                     query.query.clone(),

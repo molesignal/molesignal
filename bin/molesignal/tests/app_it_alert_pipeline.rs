@@ -18,23 +18,26 @@ use std::{
 
 use async_trait::async_trait;
 use molesignal::{
-    app::alerting::RuleEvaluator,
+    app::alerting::{AlertingService, RuleEvaluator},
     domain::{
         alerting::{
             anomaly::AnomalyParams,
-            incident::{Incident, IncidentStatus},
+            escalation::{DEFAULT_POLICY_ID, EscalationPolicy},
+            incident::{Incident, IncidentStatus, Severity},
             incident_group::{IncidentGroup, IncidentGroupRepository, IncidentGroupState},
             repositories::{
                 AlertRuleEvalState, AlertRuleEvalStateRepository, AlertRuleRepository,
-                IncidentRepository,
+                EscalationPolicyRepository, IncidentRepository, ScheduleRepository,
             },
             rule::{AlertQuery, AlertRule, AlertRuleKind, AlertTrigger, ComparisonOp, RuleState},
+            schedule::Schedule,
             semantic_group::{LabelMatcher, MatchOp, SemanticGroup, SemanticGroupRepository},
         },
-        query::{QueryEngine, QueryLanguage, QueryRequest, QueryResult, StreamHint},
+        query::{PromqlEngine, QueryEngine, QueryLanguage, QueryRequest, QueryResult, StreamHint},
         stream::StreamType,
     },
-    shared::{Result, ids::Id, time::TimestampMicros},
+    infra::query::language_router::LanguageRoutedEngine,
+    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 // ---- in-mem AlertRuleRepository ----
@@ -79,6 +82,18 @@ impl AlertRuleRepository for InMemRules {
             .cloned()
             .collect())
     }
+    async fn record_evaluation(
+        &self,
+        id: &Id,
+        evaluated_at: TimestampMicros,
+        state: RuleState,
+    ) -> Result<()> {
+        if let Some(rule) = self.inner.lock().unwrap().iter_mut().find(|r| &r.id == id) {
+            rule.last_eval_at = Some(evaluated_at);
+            rule.last_state = state;
+        }
+        Ok(())
+    }
 }
 
 // ---- in-mem IncidentRepository ----
@@ -98,6 +113,20 @@ impl IncidentRepository for InMemIncidents {
             *e = i.clone();
         }
         Ok(i)
+    }
+    async fn update_if_status(
+        &self,
+        i: Incident,
+        expected: &[IncidentStatus],
+    ) -> Result<Option<Incident>> {
+        let mut g = self.inner.lock().unwrap();
+        match g.iter_mut().find(|x| x.id == i.id) {
+            Some(existing) if expected.contains(&existing.status) => {
+                *existing = i.clone();
+                Ok(Some(i))
+            }
+            _ => Ok(None),
+        }
     }
     async fn get(&self, id: &Id) -> Result<Incident> {
         self.inner
@@ -692,4 +721,451 @@ async fn evaluator_groups_by_rule_when_no_semantic_group_matches() {
         ups[0].1, "rule-1",
         "no match => scope falls back to rule id"
     );
+}
+
+// ---- AlertingService / 评估状态 / 静默 / PromQL 路由 ----
+
+struct InMemPolicies {
+    inner: StdMutex<Vec<EscalationPolicy>>,
+}
+#[async_trait]
+impl EscalationPolicyRepository for InMemPolicies {
+    async fn create(&self, policy: EscalationPolicy) -> Result<EscalationPolicy> {
+        self.inner.lock().unwrap().push(policy.clone());
+        Ok(policy)
+    }
+    async fn update(&self, policy: EscalationPolicy) -> Result<EscalationPolicy> {
+        Ok(policy)
+    }
+    async fn get(&self, id: &Id) -> Result<EscalationPolicy> {
+        self.inner
+            .lock()
+            .unwrap()
+            .iter()
+            .find(|p| &p.id == id)
+            .cloned()
+            .ok_or_else(|| Error::not_found("policy"))
+    }
+    async fn list(&self, org_id: &Id) -> Result<Vec<EscalationPolicy>> {
+        Ok(self
+            .inner
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|p| &p.org_id == org_id)
+            .cloned()
+            .collect())
+    }
+    async fn delete(&self, _id: &Id) -> Result<()> {
+        Ok(())
+    }
+}
+
+struct NoSchedules;
+#[async_trait]
+impl ScheduleRepository for NoSchedules {
+    async fn create(&self, schedule: Schedule) -> Result<Schedule> {
+        Ok(schedule)
+    }
+    async fn update(&self, schedule: Schedule) -> Result<Schedule> {
+        Ok(schedule)
+    }
+    async fn get(&self, _id: &Id) -> Result<Schedule> {
+        Err(Error::not_found("schedule"))
+    }
+    async fn list(&self, _org_id: &Id) -> Result<Vec<Schedule>> {
+        Ok(Vec::new())
+    }
+    async fn delete(&self, _id: &Id) -> Result<()> {
+        Ok(())
+    }
+}
+
+fn policy(id: &str, org: &str, name: &str) -> EscalationPolicy {
+    EscalationPolicy {
+        id: Id::from_string(id),
+        org_id: Id::from_string(org),
+        name: name.into(),
+        steps: Vec::new(),
+        repeat: false,
+        max_loops: 1,
+    }
+}
+
+fn alerting_service(
+    rules: Arc<InMemRules>,
+    incidents: Arc<InMemIncidents>,
+    policies: Vec<EscalationPolicy>,
+) -> AlertingService {
+    AlertingService::new(
+        rules,
+        incidents,
+        Arc::new(NoSchedules),
+        Arc::new(InMemPolicies {
+            inner: StdMutex::new(policies),
+        }),
+    )
+}
+
+fn open_incident_fixture() -> Incident {
+    Incident {
+        id: Id::from_string("incident-1"),
+        org_id: Id::from_string("org-a"),
+        rule_id: Id::from_string("rule-1"),
+        escalation_policy_id: Id::from_string("pol-1"),
+        status: IncidentStatus::Open,
+        severity: Severity::Warning,
+        summary: "high latency".into(),
+        fingerprint: "fp".into(),
+        current_step: 0,
+        current_loop: 0,
+        current_step_started_at: TimestampMicros(0),
+        assignees: Vec::new(),
+        labels: BTreeMap::new(),
+        annotations: BTreeMap::new(),
+        trace_ids: Vec::new(),
+        host_ids: Vec::new(),
+        affected_services: Vec::new(),
+        triggering_query: None,
+        created_at: TimestampMicros(0),
+        acknowledged_at: None,
+        acknowledged_by: None,
+        resolved_at: None,
+        resolved_by: None,
+    }
+}
+
+fn empty_rules() -> Arc<InMemRules> {
+    Arc::new(InMemRules {
+        inner: StdMutex::new(Vec::new()),
+    })
+}
+
+#[tokio::test]
+async fn acknowledge_and_resolve_follow_the_incident_state_machine() {
+    let incidents = Arc::new(InMemIncidents::default());
+    let open = open_incident_fixture();
+    incidents.create(open.clone()).await.unwrap();
+    let service = alerting_service(empty_rules(), incidents.clone(), Vec::new());
+    let user = |name: &str| Id::from_string(name);
+
+    let acked = service
+        .acknowledge(&open.id, user("u1"), TimestampMicros(10))
+        .await
+        .unwrap();
+    assert_eq!(acked.status, IncidentStatus::Acknowledged);
+    assert_eq!(acked.acknowledged_by, Some(user("u1")));
+    assert_eq!(acked.assignees, vec![user("u1")]);
+
+    // 重复确认幂等：保留最初的确认人与时间。
+    let again = service
+        .acknowledge(&open.id, user("u2"), TimestampMicros(20))
+        .await
+        .unwrap();
+    assert_eq!(again.acknowledged_by, Some(user("u1")));
+    assert_eq!(again.acknowledged_at.map(|t| t.0), Some(10));
+
+    let resolved = service
+        .resolve(&open.id, user("u3"), TimestampMicros(30))
+        .await
+        .unwrap();
+    assert_eq!(resolved.status, IncidentStatus::Resolved);
+    assert_eq!(resolved.resolved_by, Some(user("u3")));
+
+    // 重复解决幂等：不覆盖解决人与时间。
+    let again = service
+        .resolve(&open.id, user("u4"), TimestampMicros(40))
+        .await
+        .unwrap();
+    assert_eq!(again.resolved_by, Some(user("u3")));
+    assert_eq!(again.resolved_at.map(|t| t.0), Some(30));
+
+    // 已解决的事件不能再被确认，状态保持 resolved。
+    let error = service
+        .acknowledge(&open.id, user("u5"), TimestampMicros(50))
+        .await
+        .unwrap_err();
+    assert!(matches!(error, Error::Conflict(_)), "{error}");
+    let stored = incidents.get(&open.id).await.unwrap();
+    assert_eq!(stored.status, IncidentStatus::Resolved);
+    assert_eq!(stored.acknowledged_by, Some(user("u1")));
+}
+
+#[tokio::test]
+async fn open_incident_can_be_resolved_without_acknowledgement() {
+    let incidents = Arc::new(InMemIncidents::default());
+    let open = open_incident_fixture();
+    incidents.create(open.clone()).await.unwrap();
+    let service = alerting_service(empty_rules(), incidents, Vec::new());
+
+    let resolved = service
+        .resolve(&open.id, Id::from_string("u1"), TimestampMicros(5))
+        .await
+        .unwrap();
+
+    assert_eq!(resolved.status, IncidentStatus::Resolved);
+    assert!(resolved.acknowledged_by.is_none());
+}
+
+#[tokio::test]
+async fn rule_policy_reference_must_exist_unless_it_is_the_default_alias() {
+    let rules = empty_rules();
+    let service = alerting_service(
+        rules.clone(),
+        Arc::new(InMemIncidents::default()),
+        vec![
+            policy("pol-1", "org-a", "primary"),
+            policy("other-org", "org-b", "x"),
+        ],
+    );
+    let mut rule = sample_rule();
+
+    service
+        .create_rule(rule.clone())
+        .await
+        .expect("existing policy");
+
+    rule.id = Id::from_string("rule-2");
+    rule.escalation_policy_id = Id::from_string(DEFAULT_POLICY_ID);
+    service
+        .create_rule(rule.clone())
+        .await
+        .expect("default alias");
+
+    for unknown in ["nope", "other-org"] {
+        rule.id = Id::from_string("rule-3");
+        rule.escalation_policy_id = Id::from_string(unknown);
+        let error = service.create_rule(rule.clone()).await.unwrap_err();
+        assert!(
+            matches!(error, Error::InvalidArgument(_)),
+            "{unknown}: {error}"
+        );
+    }
+
+    // 只校验被改动的引用：未改动的引用即便策略已不存在，也不阻止改其它字段。
+    let mut stored = rules.get(&Id::from_string("rule-1")).await.unwrap();
+    stored.name = "renamed".into();
+    let service = alerting_service(
+        rules.clone(),
+        Arc::new(InMemIncidents::default()),
+        Vec::new(),
+    );
+    service
+        .update_rule(stored.clone())
+        .await
+        .expect("unchanged reference");
+    stored.escalation_policy_id = Id::from_string("nope");
+    let error = service.update_rule(stored).await.unwrap_err();
+    assert!(matches!(error, Error::InvalidArgument(_)), "{error}");
+}
+
+fn evaluator_with(
+    rules: Arc<InMemRules>,
+    incidents: Arc<InMemIncidents>,
+    engine: Arc<dyn QueryEngine>,
+) -> (RuleEvaluator, Arc<InMemEvalState>) {
+    let eval_state = Arc::new(InMemEvalState::default());
+    let evaluator = RuleEvaluator::new(rules, incidents, eval_state.clone(), engine, 10);
+    (evaluator, eval_state)
+}
+
+fn scripted(values: Vec<f64>) -> Arc<ScriptedEngine> {
+    // 引擎从栈顶取值，脚本按相反顺序压入。
+    Arc::new(ScriptedEngine {
+        values: StdMutex::new(values.into_iter().rev().collect()),
+    })
+}
+
+#[tokio::test]
+async fn evaluator_records_last_eval_and_state_on_the_rule() {
+    let rules = Arc::new(InMemRules {
+        inner: StdMutex::new(vec![sample_rule()]),
+    });
+    let (evaluator, _) = evaluator_with(
+        rules.clone(),
+        Arc::new(InMemIncidents::default()),
+        scripted(vec![15.0, 15.0, 5.0]),
+    );
+    let rule_id = Id::from_string("rule-1");
+    let at = |n: i64| TimestampMicros(1_000_000_000 + n * 60_000_000);
+
+    evaluator.tick(at(0)).await.unwrap();
+    let rule = rules.get(&rule_id).await.unwrap();
+    assert_eq!(rule.last_eval_at, Some(at(0)));
+    assert_eq!(rule.last_state, RuleState::Pending(1));
+
+    evaluator.tick(at(1)).await.unwrap();
+    let rule = rules.get(&rule_id).await.unwrap();
+    assert_eq!(rule.last_eval_at, Some(at(1)));
+    assert_eq!(rule.last_state, RuleState::Firing);
+
+    evaluator.tick(at(2)).await.unwrap();
+    let rule = rules.get(&rule_id).await.unwrap();
+    assert_eq!(rule.last_eval_at, Some(at(2)));
+    assert_eq!(rule.last_state, RuleState::Healthy);
+}
+
+#[tokio::test]
+async fn failed_query_leaves_the_rule_evaluation_untouched() {
+    struct Failing;
+    #[async_trait]
+    impl QueryEngine for Failing {
+        async fn execute(&self, _req: QueryRequest) -> Result<QueryResult> {
+            Err(Error::invalid("query could not be planned"))
+        }
+    }
+    let rules = Arc::new(InMemRules {
+        inner: StdMutex::new(vec![sample_rule()]),
+    });
+    let (evaluator, _) = evaluator_with(
+        rules.clone(),
+        Arc::new(InMemIncidents::default()),
+        Arc::new(Failing),
+    );
+
+    evaluator.tick(TimestampMicros(1)).await.unwrap();
+
+    let rule = rules.get(&Id::from_string("rule-1")).await.unwrap();
+    assert!(rule.last_eval_at.is_none());
+    assert_eq!(rule.last_state, RuleState::default());
+}
+
+#[tokio::test]
+async fn silence_secs_suppresses_a_new_incident_inside_the_cool_down() {
+    let mut rule = sample_rule();
+    rule.trigger.for_periods = 1;
+    rule.trigger.silence_secs = 300;
+    let rules = Arc::new(InMemRules {
+        inner: StdMutex::new(vec![rule]),
+    });
+    let incidents = Arc::new(InMemIncidents::default());
+    // 命中 → 恢复 → 再命中（静默期内）→ 再恢复 → 再命中（静默期外）
+    let (evaluator, _) = evaluator_with(
+        rules,
+        incidents.clone(),
+        scripted(vec![15.0, 5.0, 15.0, 5.0, 15.0]),
+    );
+    let base = 1_000_000_000_i64;
+    let at = |secs: i64| TimestampMicros(base + secs * 1_000_000);
+
+    evaluator.tick(at(0)).await.unwrap();
+    assert_eq!(incidents.inner.lock().unwrap().len(), 1);
+
+    evaluator.tick(at(60)).await.unwrap();
+    assert_eq!(
+        incidents.inner.lock().unwrap()[0].status,
+        IncidentStatus::Resolved
+    );
+
+    evaluator.tick(at(120)).await.unwrap();
+    assert_eq!(
+        incidents.inner.lock().unwrap().len(),
+        1,
+        "re-fire inside silence_secs must not open a new incident"
+    );
+
+    evaluator.tick(at(180)).await.unwrap();
+    evaluator.tick(at(400)).await.unwrap();
+    let all = incidents.inner.lock().unwrap();
+    assert_eq!(
+        all.len(),
+        2,
+        "re-fire after silence_secs opens a new incident"
+    );
+    assert_eq!(all[1].status, IncidentStatus::Open);
+}
+
+#[tokio::test]
+async fn zero_silence_secs_reopens_immediately() {
+    let mut rule = sample_rule();
+    rule.trigger.for_periods = 1;
+    rule.trigger.silence_secs = 0;
+    let rules = Arc::new(InMemRules {
+        inner: StdMutex::new(vec![rule]),
+    });
+    let incidents = Arc::new(InMemIncidents::default());
+    let (evaluator, _) = evaluator_with(rules, incidents.clone(), scripted(vec![15.0, 5.0, 15.0]));
+
+    for step in 0..3 {
+        evaluator
+            .tick(TimestampMicros(1_000_000_000 + step * 60_000_000))
+            .await
+            .unwrap();
+    }
+
+    assert_eq!(incidents.inner.lock().unwrap().len(), 2);
+}
+
+#[tokio::test]
+async fn acknowledged_incident_is_neither_duplicated_nor_auto_resolved() {
+    let mut rule = sample_rule();
+    rule.trigger.for_periods = 1;
+    let rules = Arc::new(InMemRules {
+        inner: StdMutex::new(vec![rule]),
+    });
+    let incidents = Arc::new(InMemIncidents::default());
+    let (evaluator, _) = evaluator_with(
+        rules.clone(),
+        incidents.clone(),
+        scripted(vec![15.0, 15.0, 5.0]),
+    );
+    let service = alerting_service(rules, incidents.clone(), Vec::new());
+    let at = |n: i64| TimestampMicros(1_000_000_000 + n * 60_000_000);
+
+    evaluator.tick(at(0)).await.unwrap();
+    let id = incidents.inner.lock().unwrap()[0].id.clone();
+    service
+        .acknowledge(&id, Id::from_string("u1"), at(0))
+        .await
+        .unwrap();
+
+    // 仍在触发：同一指纹已有活跃事件，不再开新的。
+    evaluator.tick(at(1)).await.unwrap();
+    assert_eq!(incidents.inner.lock().unwrap().len(), 1);
+
+    // 不再命中：已确认的事件保持 acknowledged，等人来解决。
+    evaluator.tick(at(2)).await.unwrap();
+    let all = incidents.inner.lock().unwrap();
+    assert_eq!(all.len(), 1);
+    assert_eq!(all[0].status, IncidentStatus::Acknowledged);
+}
+
+#[tokio::test]
+async fn promql_rules_are_evaluated_by_the_promql_engine() {
+    struct ScriptedPromql(f64);
+    #[async_trait]
+    impl PromqlEngine for ScriptedPromql {
+        async fn execute(&self, req: QueryRequest) -> Result<QueryResult> {
+            assert_eq!(req.language, QueryLanguage::Promql);
+            Ok(QueryResult {
+                columns: vec!["value".into()],
+                rows: vec![vec![serde_json::json!(self.0)]],
+                scanned_rows: 1,
+                took_ms: 0,
+                federation: None,
+            })
+        }
+    }
+
+    let mut rule = sample_rule();
+    rule.query.language = QueryLanguage::Promql;
+    rule.query.statement = "queue_depth".into();
+    rule.trigger.for_periods = 1;
+    let rules = Arc::new(InMemRules {
+        inner: StdMutex::new(vec![rule]),
+    });
+    let incidents = Arc::new(InMemIncidents::default());
+    // SQL 引擎对任何请求都返回 0，若 PromQL 规则被误送到这里就不会触发。
+    let engine = LanguageRoutedEngine::new(scripted(Vec::new()), Arc::new(ScriptedPromql(42.0)));
+    let (evaluator, _) = evaluator_with(rules, incidents.clone(), Arc::new(engine));
+
+    evaluator
+        .tick(TimestampMicros(1_000_000_000))
+        .await
+        .unwrap();
+
+    let all = incidents.inner.lock().unwrap();
+    assert_eq!(all.len(), 1);
+    let query = all[0].triggering_query.as_ref().expect("triggering query");
+    assert_eq!(query.language, QueryLanguage::Promql);
 }

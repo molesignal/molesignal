@@ -4,7 +4,7 @@
 //! ScheduledPipelineRunner（pipeline-runs-and-backfill）。
 //!
 //! 当前 cron 解析：仅支持 `every:Ns` 简化语法（每 N 秒一次），完整 cron 解析留
-//! follow-up。alert_manager role 内调 `tick_once`；按 last_run_at 决定是否要触发。
+//! follow-up。alert role 内调 `tick_once`；按 last_run_at 决定是否要触发。
 //!
 //! pipeline-runs-and-backfill：每次 fire 都向 `pipeline_runs` 写一行，
 //! `record_start` 进入 → 真实工作 → `record_finish` 退出。RAII guard 保证 panic

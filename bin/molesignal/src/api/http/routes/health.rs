@@ -31,7 +31,9 @@ async fn version() -> impl IntoResponse {
 }
 
 /// 综合健康：`probe.is_healthy()`；任意 sub-system degraded → 503 + JSON body。
-async fn healthz(State(state): State<AppState>) -> impl IntoResponse {
+///
+/// 运维监听（`bootstrap::roles::ops_server`）也复用它。
+pub(crate) async fn healthz(State(state): State<AppState>) -> impl IntoResponse {
     let (healthy, reason) = state.telemetry.probe.snapshot();
     if healthy {
         (StatusCode::OK, Json(json!({"status": "ok"}))).into_response()
@@ -49,7 +51,7 @@ async fn healthz(State(state): State<AppState>) -> impl IntoResponse {
 
 /// `readyz` 单独检查 replay：未 replay 完返 503，已 replay 完即使 object_store degraded 也返 ready
 /// （便于 k8s 在写路径降级时仍认为 pod 可被读流量使用）。
-async fn readyz(State(state): State<AppState>) -> impl IntoResponse {
+pub(crate) async fn readyz(State(state): State<AppState>) -> impl IntoResponse {
     if state.telemetry.probe.is_replay_done() {
         (StatusCode::OK, Json(json!({"status": "ready"}))).into_response()
     } else {

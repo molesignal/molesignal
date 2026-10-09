@@ -13,10 +13,13 @@ use crate::{
         escalation::EscalationPolicy,
         incident::{Incident, IncidentStatus, Severity},
         mute::{MuteRuleRepository, match_labels_for_incident},
-        repositories::{EscalationPolicyRepository, IncidentRepository},
+        repositories::{EscalationPolicyRepository, IncidentRepository, ScheduleRepository},
     },
     shared::{Result, ids::Id, time::TimestampMicros},
 };
+
+mod assignees;
+use assignees::{ScheduleCache, apply_assignees};
 
 pub struct EscalationDispatcher {
     incidents: Arc<dyn IncidentRepository>,
@@ -24,6 +27,8 @@ pub struct EscalationDispatcher {
     notify_engine: Arc<NotifyEngine>,
     /// 告警屏蔽（可选）：命中时暂停派发与升级推进。未注入 = 不屏蔽。
     mute_rules: Option<Arc<dyn MuteRuleRepository>>,
+    /// 排班（可选）：用来解析 `schedule` 目标此刻的值班人并记为事件负责人。
+    schedules: Option<Arc<dyn ScheduleRepository>>,
 }
 
 impl EscalationDispatcher {
@@ -37,12 +42,19 @@ impl EscalationDispatcher {
             policies,
             notify_engine,
             mute_rules: None,
+            schedules: None,
         }
     }
 
     /// 注入告警屏蔽仓库；接上后命中 mute 的 incident 暂停派发。
     pub fn with_mute_rules(mut self, mute_rules: Arc<dyn MuteRuleRepository>) -> Self {
         self.mute_rules = Some(mute_rules);
+        self
+    }
+
+    /// 注入排班仓库；接上后 `schedule` 目标的值班人会写进事件的 `assignees`。
+    pub fn with_schedules(mut self, schedules: Arc<dyn ScheduleRepository>) -> Self {
+        self.schedules = Some(schedules);
         self
     }
 
@@ -54,64 +66,112 @@ impl EscalationDispatcher {
         fields(otel.kind = "internal", molesignal.worker.name = "alert_dispatcher")
     )]
     pub async fn tick(&self, org_id: &Id, now: TimestampMicros) -> Result<()> {
-        let actives = self.incidents.list_active(org_id).await?;
-        for incident in actives {
-            if incident.status != IncidentStatus::Open {
-                continue;
-            }
-            if let Err(error) = self.advance(incident, now).await {
+        let open: Vec<Incident> = self
+            .incidents
+            .list_active(org_id)
+            .await?
+            .into_iter()
+            .filter(|incident| incident.status == IncidentStatus::Open)
+            .collect();
+        if open.is_empty() {
+            return Ok(());
+        }
+        let policies = self.policies.list(org_id).await?;
+        let mut schedules = ScheduleCache::new(self.schedules.as_deref());
+        for incident in open {
+            if let Err(error) = self.advance(incident, &policies, &mut schedules, now).await {
                 tracing::warn!(error = %error, "dispatcher step failed");
             }
         }
         Ok(())
     }
 
-    async fn advance(&self, mut incident: Incident, now: TimestampMicros) -> Result<()> {
+    async fn advance(
+        &self,
+        mut incident: Incident,
+        policies: &[EscalationPolicy],
+        schedules: &mut ScheduleCache<'_>,
+        now: TimestampMicros,
+    ) -> Result<()> {
         if self.is_muted(&incident, now).await {
             return Ok(());
         }
 
-        let policy = self.policies.get(&incident.escalation_policy_id).await?;
+        // 别名 `default` 落到同名策略；找不到策略的事件没有可升级的对象。
+        let Some(policy) = EscalationPolicy::resolve(policies, &incident.escalation_policy_id)
+        else {
+            return Ok(());
+        };
         let severity = incident.severity;
         let Some(step_index) =
-            next_applicable_step(&policy, incident.current_step as usize, severity)
+            next_applicable_step(policy, incident.current_step as usize, severity)
         else {
             return Ok(());
         };
 
+        let mut changed = false;
+        if incident.escalation_policy_id != policy.id {
+            // 把别名固化成真实策略 id：之后改名或另建 default 策略都不会让进行中的事件换策略。
+            incident.escalation_policy_id = policy.id.clone();
+            changed = true;
+        }
         if step_index as u32 != incident.current_step {
             incident.current_step = step_index as u32;
             incident.current_step_started_at = now;
-            incident = self.incidents.update(incident).await?;
+            changed = true;
+        }
+        changed |= apply_assignees(&mut incident, &policy.steps[step_index], schedules, now).await;
+        if changed {
+            // 事件在评估到写入之间被确认或解决时，写入落空，不再继续升级。
+            let Some(updated) = self
+                .incidents
+                .update_if_status(incident, &[IncidentStatus::Open])
+                .await?
+            else {
+                return Ok(());
+            };
+            incident = updated;
         }
 
         // enqueue 使用稳定事件 ID，重复 tick 不会产生重复事件或重复投递。
-        self.dispatch_step(&incident, &policy, step_index).await;
+        self.dispatch_step(&incident, policy, step_index).await;
 
-        let Some(step) = policy.steps.get(step_index) else {
-            return Ok(());
-        };
+        let step = &policy.steps[step_index];
         if !incident.step_timed_out(step.ack_timeout_secs, now) {
             return Ok(());
         }
 
-        if let Some(next) = next_applicable_step(&policy, step_index + 1, severity) {
+        if let Some(next) = next_applicable_step(policy, step_index + 1, severity) {
             incident.current_step = next as u32;
             incident.current_step_started_at = now;
-            let incident = self.incidents.update(incident).await?;
-            self.dispatch_step(&incident, &policy, next).await;
+            apply_assignees(&mut incident, &policy.steps[next], schedules, now).await;
+            let Some(incident) = self
+                .incidents
+                .update_if_status(incident, &[IncidentStatus::Open])
+                .await?
+            else {
+                return Ok(());
+            };
+            self.dispatch_step(&incident, policy, next).await;
             return Ok(());
         }
 
         if policy.repeat
             && incident.current_loop + 1 < policy.max_loops.max(1)
-            && let Some(first) = next_applicable_step(&policy, 0, severity)
+            && let Some(first) = next_applicable_step(policy, 0, severity)
         {
             incident.current_loop += 1;
             incident.current_step = first as u32;
             incident.current_step_started_at = now;
-            let incident = self.incidents.update(incident).await?;
-            self.dispatch_step(&incident, &policy, first).await;
+            apply_assignees(&mut incident, &policy.steps[first], schedules, now).await;
+            let Some(incident) = self
+                .incidents
+                .update_if_status(incident, &[IncidentStatus::Open])
+                .await?
+            else {
+                return Ok(());
+            };
+            self.dispatch_step(&incident, policy, first).await;
         }
         Ok(())
     }

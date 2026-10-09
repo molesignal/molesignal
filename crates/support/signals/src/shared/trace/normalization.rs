@@ -470,7 +470,7 @@ pub fn effective_service_name(
         .filter(|role| {
             matches!(
                 role.as_str(),
-                "router" | "querier" | "intake" | "compactor" | "alert_manager" | "standalone"
+                "router" | "querier" | "intake" | "compactor" | "alert" | "standalone"
             )
         })
         .filter(|_| {

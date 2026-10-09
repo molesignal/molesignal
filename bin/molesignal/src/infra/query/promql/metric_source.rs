@@ -123,6 +123,15 @@ impl PromQLEngine {
                 .then_with(|| left.id.0.cmp(&right.id.0))
         });
         files.dedup_by(|left, right| left.id == right.id);
+        let candidate_rows = files.iter().map(|file| file.rows).sum::<u64>()
+            + buffered_batches
+                .iter()
+                .map(|batch| batch.num_rows() as u64)
+                .sum::<u64>();
+        crate::infra::query::scan_limit::ensure_within_scan_limit(
+            candidate_rows,
+            self.max_scan_rows,
+        )?;
         Ok(MetricStorageSnapshot {
             files,
             buffered_batches,

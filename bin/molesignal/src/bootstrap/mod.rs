@@ -17,6 +17,8 @@ mod query;
 pub mod roles;
 mod storage;
 mod synthetics;
+#[cfg(test)]
+pub(crate) mod test_support;
 mod tracing;
 pub mod workers;
 

@@ -3,12 +3,15 @@
 
 //! 摄取、WAL、对象存储写入与 compactor 运行时装配。
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use super::core::Core;
 use crate::{
     app::{
-        intake::IntakeService, profile_storage::ProfileStorageService, profiling::ProfilingService,
+        cluster::{PeerRole, WorkOwnership},
+        intake::IntakeService,
+        profile_storage::ProfileStorageService,
+        profiling::ProfilingService,
     },
     bootstrap::{
         roles::{compactor::spawn_compactor_loop, intake::IntakeWorker},
@@ -140,14 +143,13 @@ impl StorageRuntime {
             .with_drain(core.drain_controller.clone()),
         );
         worker.recover_and_replay().await?;
-        let _flush_handle = core
-            .roles
-            .run_intake
-            .then(|| worker.clone().spawn_flush_loop());
+        // 每个节点都 flush 自己缓冲的数据：intake 角色缓冲外部写入，其余角色缓冲
+        // 本节点产生的内部数据（派生数据集、pipeline 结果等）。
+        let _flush_handle = worker.clone().spawn_flush_loop();
         let _probe_handle = crate::bootstrap::roles::health_probe::spawn_probe(
             core.store.clone(),
             probe.clone(),
-            settings.store.object.health_probe_interval_secs,
+            settings.object_store.health_probe_interval_secs,
         );
 
         let functions: Arc<dyn crate::domain::function::FunctionRepository> = Arc::new(
@@ -216,25 +218,33 @@ impl StorageRuntime {
                 });
             },
         );
-        let intake = Arc::new(
-            IntakeService::new(worker.clone(), core.streams.clone())
-                .with_system_org_id(core.system_org.id.clone())
-                .with_pipeline(pipeline_engine)
-                .with_realtime(crate::app::intake::realtime::RealtimeEngine {
-                    repository: Arc::new(
-                        crate::infra::pipeline::realtime::PgRealtimePipelineRepository::new(
-                            core.pool.clone(),
-                        ),
+        let intake_service = IntakeService::new(worker.clone(), core.streams.clone())
+            .with_system_org_id(core.system_org.id.clone())
+            .with_pipeline(pipeline_engine)
+            .with_realtime(crate::app::intake::realtime::RealtimeEngine {
+                repository: Arc::new(
+                    crate::infra::pipeline::realtime::PgRealtimePipelineRepository::new(
+                        core.pool.clone(),
                     ),
-                    executor: function_executor.clone(),
-                })
-                .with_masking(core.masking_service.clone())
-                .with_drain(core.drain_controller.clone())
-                .with_internal_usage_recorder(internal_usage_recorder)
-                .with_service_graph(Arc::new(ServiceGraphObserverImpl::new(
-                    service_graph_aggregator.clone(),
-                ))),
-        );
+                ),
+                executor: function_executor.clone(),
+            })
+            .with_masking(core.masking_service.clone())
+            .with_drain(core.drain_controller.clone())
+            .with_realtime_alerts(core.realtime_alerts.clone())
+            .with_internal_usage_recorder(internal_usage_recorder)
+            .with_service_graph(Arc::new(ServiceGraphObserverImpl::new(
+                service_graph_aggregator.clone(),
+            )));
+        // 没有 intake 角色的节点（router、alert 等）把公共入口收到的写入转发给 intake 节点。
+        let intake_service = if core.roles.run_intake {
+            intake_service
+        } else {
+            intake_service.with_forwarder(Arc::new(
+                crate::infra::cluster::GrpcIntakeForwarder::new(core.registry.clone()),
+            ))
+        };
+        let intake = Arc::new(intake_service);
         let profile_storage = Arc::new(ProfileStorageService::new(
             core.store.clone(),
             intake.clone(),
@@ -257,18 +267,31 @@ impl StorageRuntime {
                 core.pool.clone(),
             ),
         );
-        let _compactor_handle = core.roles.run_compactor.then(|| {
+        // 多个 compactor 节点按数据流、组织分担后台工作；新节点预热一个存活窗口后才接管。
+        let compactor_ownership = core.roles.run_compactor.then(|| {
+            let ownership = WorkOwnership::new(
+                core.registry.clone(),
+                core.node_id.clone(),
+                PeerRole::Compactor,
+                Duration::from_secs(u64::from(settings.cluster.peer_timeout_secs.max(1))),
+            );
+            let _watch = ownership.spawn_watch(Duration::from_secs(u64::from(
+                settings.cluster.heartbeat_interval_secs.max(1),
+            )));
+            ownership
+        });
+        let _compactor_handle = compactor_ownership.clone().map(|ownership| {
             spawn_compactor_loop(
                 compactor,
                 core.orgs.clone() as Arc<dyn OrganizationRepository>,
                 core.streams.clone() as Arc<dyn StreamRepository>,
+                ownership,
                 investigation_blobs.clone(),
                 core.store.clone(),
-                settings.compactor.clone(),
                 core.drain_controller.clone(),
             )
         });
-        let _storage_maintenance_handles = core.roles.run_compactor.then(|| {
+        let _storage_maintenance_handles = compactor_ownership.map(|ownership| {
             storage_maintenance::spawn(
                 Arc::new(IndexRebuildWorker::new(
                     file_catalog.clone(),
@@ -300,6 +323,7 @@ impl StorageRuntime {
                 )),
                 core.orgs.clone() as Arc<dyn OrganizationRepository>,
                 core.streams.clone() as Arc<dyn StreamRepository>,
+                ownership,
                 core.drain_controller.clone(),
             )
         });

@@ -189,7 +189,7 @@ async fn otlp_grpc_traces_authz_and_lands() {
     // 3) 等 flush 出 query_file，再 query 验证 span 落到 traces/otel_traces 流。
     let pool = sqlx::postgres::PgPoolOptions::new()
         .max_connections(2)
-        .connect(&s.settings.store.meta.dsn)
+        .connect(&s.settings.meta_database.dsn)
         .await
         .expect("test pool");
     let flushed = {

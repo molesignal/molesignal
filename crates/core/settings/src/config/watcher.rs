@@ -25,9 +25,9 @@ use crate::shared::{Error, Result};
 
 /// immutable 字段路径列表（点分隔 TOML 路径）。命中这些字段的变化只 warn。
 pub const IMMUTABLE_FIELDS: &[&str] = &[
-    "store.meta.dsn",
-    "store.meta.min_connections",
-    "store.meta.max_connections",
+    "meta_database.dsn",
+    "meta_database.min_connections",
+    "meta_database.max_connections",
     "wal.dir",
     "http.port",
     "grpc.port",
@@ -207,30 +207,30 @@ log_level = "debug""#,
     #[test]
     fn diff_marks_immutable_meta_dsn() {
         // auth-hardening：原本 auth.jwt_secret 被列为 immutable，现已从
-        // Settings 删除（DB 持久化）；改用 store.meta.dsn 校验 immutable 行为。
+        // Settings 删除（DB 持久化）；改用 meta_database.dsn 校验 immutable 行为。
         let old = parse(
-            r#"[store.meta]
+            r#"[meta_database]
 dsn = "postgres://a""#,
         );
         let new = parse(
-            r#"[store.meta]
+            r#"[meta_database]
 dsn = "postgres://b""#,
         );
         let diffs = diff_toml(&old, &new);
         assert_eq!(diffs.len(), 1);
-        assert_eq!(diffs[0].path, "store.meta.dsn");
+        assert_eq!(diffs[0].path, "meta_database.dsn");
         assert!(diffs[0].immutable);
     }
 
     #[test]
     fn diff_marks_pool_bounds_immutable() {
         let old = parse(
-            r#"[store.meta]
+            r#"[meta_database]
 min_connections = 1
 max_connections = 8"#,
         );
         let new = parse(
-            r#"[store.meta]
+            r#"[meta_database]
 min_connections = 2
 max_connections = 16"#,
         );

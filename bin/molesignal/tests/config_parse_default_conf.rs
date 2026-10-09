@@ -11,12 +11,11 @@ fn repo_default_conf_parses() {
     )
     .expect("read conf");
     let s: Settings = toml::from_str(&raw).expect("parse conf");
-    assert_eq!(s.store.meta.backend, "postgres");
-    assert_eq!(s.store.meta.min_connections, 2);
-    assert_eq!(s.store.meta.max_connections, 16);
-    assert_eq!(s.store.object.backend, "local");
-    assert_eq!(s.alert_manager.dispatch_interval_secs, 10);
-    assert_eq!(s.alert_manager.eval_timeout_secs, 10);
+    assert_eq!(s.meta_database.min_connections, 2);
+    assert_eq!(s.meta_database.max_connections, 16);
+    assert_eq!(s.object_store.backend, "local");
+    assert_eq!(s.alert.dispatch_interval_secs, 10);
+    assert_eq!(s.alert.eval_timeout_secs, 10);
     assert_eq!(s.router.rate_limit.intake_qps, 1000);
     assert_eq!(s.cluster.heartbeat_interval_secs, 5);
     assert_eq!(s.cluster.advertise_addr, "127.0.0.1:5082");
@@ -38,10 +37,9 @@ fn k8s_configmap_conf_parses() {
     let embedded = extract_configmap_toml(&raw);
     let s: Settings = toml::from_str(&embedded).expect("parse k8s configmap conf");
 
-    assert_eq!(s.store.meta.backend, "postgres");
-    assert_eq!(s.store.meta.min_connections, 2);
-    assert_eq!(s.store.meta.max_connections, 16);
-    assert_eq!(s.store.object.backend, "s3");
+    assert_eq!(s.meta_database.min_connections, 2);
+    assert_eq!(s.meta_database.max_connections, 16);
+    assert_eq!(s.object_store.backend, "s3");
     assert_eq!(s.wal.batch_max_delay_ms, 50);
     assert_eq!(s.querier.auto_async_threshold_rows, 50_000_000);
     assert_eq!(s.compactor.retention_days, 30);

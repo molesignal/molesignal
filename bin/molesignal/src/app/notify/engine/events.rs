@@ -46,7 +46,7 @@ impl NotifyEngine {
     }
 
     /// 持久化后立即处理；用于显式调用和测试。事件源通常只调用 `enqueue_event`，
-    /// 再由 alert-manager 周期批量消费。
+    /// 再由 alert 周期批量消费。
     pub async fn handle_event(&self, dispatch: NotifyDispatch) -> Result<NotifyEventOutcome> {
         self.enqueue_record(dispatch.clone()).await?;
         let now = TimestampMicros::now();

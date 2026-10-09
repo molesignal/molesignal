@@ -45,7 +45,7 @@ pub trait ClusterNodesRepository: Send + Sync {
     ) -> Result<()>;
     async fn list_alive(&self, since: TimestampMicros) -> Result<Vec<ClusterNodeRow>>;
     async fn sweep_stale(&self, older_than: TimestampMicros) -> Result<u64>;
-    /// 主动注销本节点行（drain 退役时调用）；各进程最迟在 2 秒节点发现缓存过期后摘除。
+    /// 主动注销本节点行（关停或 drain 退役时调用）；各进程最迟在 2 秒节点发现缓存过期后摘除。
     async fn delete(&self, node_id: &str) -> Result<()>;
 }
 
@@ -66,7 +66,7 @@ fn peer_role_to_str(r: PeerRole) -> &'static str {
         PeerRole::Intake => "intake",
         PeerRole::Querier => "querier",
         PeerRole::Compactor => "compactor",
-        PeerRole::AlertManager => "alert_manager",
+        PeerRole::Alert => "alert",
     }
 }
 
@@ -76,7 +76,7 @@ fn peer_role_from_str(s: &str) -> PeerRole {
         "intake" => PeerRole::Intake,
         "querier" => PeerRole::Querier,
         "compactor" => PeerRole::Compactor,
-        "alert_manager" => PeerRole::AlertManager,
+        "alert" => PeerRole::Alert,
         _ => PeerRole::Standalone,
     }
 }

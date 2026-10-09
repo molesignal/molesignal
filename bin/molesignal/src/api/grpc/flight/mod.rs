@@ -118,8 +118,7 @@ impl FlightGrpc {
         FlightServiceServer::new(self)
     }
 
-    /// 共享给 [`crate::api::grpc::serve_grpc`]：让单进程内的 DistributedDataFusionEngine 也能
-    /// 直接调 do_get（in-proc shortcut，省去 tonic 一跳）。
+    /// 执行一个分片并返回全部批次。
     pub async fn execute_shard(
         &self,
         shard: QueryShard,

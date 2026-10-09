@@ -12,7 +12,7 @@
 //! ```
 
 use molesignal::{
-    config::MetaStoreSettings,
+    config::MetaDatabaseSettings,
     domain::iam::{Organization, OrganizationRepository, User, UserRepository},
     infra::persistence::{
         MetaStore,
@@ -39,8 +39,7 @@ async fn custom_migration_table_and_repository_roundtrip() {
     let host = pg.get_host().await.expect("pg host");
     let dsn = format!("postgres://postgres:postgres@{host}:{port}/postgres");
 
-    let store = MetaStore::connect(&MetaStoreSettings {
-        backend: "postgres".into(),
+    let store = MetaStore::connect(&MetaDatabaseSettings {
         dsn,
         min_connections: 1,
         max_connections: 5,

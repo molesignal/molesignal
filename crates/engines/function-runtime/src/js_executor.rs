@@ -339,6 +339,46 @@ mod tests {
         assert!(err.to_string().contains("timeout"), "{err}");
     }
 
+    /// 裸 deno_core 没有 `TextEncoder`：sha256 自带 UTF-8 编码，多字节与代理对也要与标准哈希一致。
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn js_sha256_hashes_utf8_text() {
+        let ex = JsFunctionExecutor::with_defaults();
+        let f = mk_fn(
+            r#"
+            for (const text of ["abc", "", "中文", "héllo", "😀 emoji"]) {
+                molesignal.set("h:" + text, molesignal.sha256(text));
+            }
+            "#,
+            5,
+        );
+        let mut ev = json!({});
+        ex.run(&f, &mut ev).await.unwrap();
+        for (text, expected) in [
+            (
+                "abc",
+                "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+            ),
+            (
+                "",
+                "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            ),
+            (
+                "中文",
+                "72726d8818f693066ceb69afa364218b692e62ea92b385782363780f47529c21",
+            ),
+            (
+                "héllo",
+                "3c48591d8d098a4538f5e013dfcf406e948eac4d3277b10bf614e295d6068179",
+            ),
+            (
+                "😀 emoji",
+                "c5db20e64d86b693d8e312b379cfdd211311f63f3743831e6f4139344b39d762",
+            ),
+        ] {
+            assert_eq!(ev[format!("h:{text}")], expected, "sha256({text:?})");
+        }
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn js_syntax_error_caught_at_compile() {
         let ex = JsFunctionExecutor::with_defaults();

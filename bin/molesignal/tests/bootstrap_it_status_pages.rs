@@ -173,7 +173,7 @@ async fn custom_domain_routes_only_after_dns_and_tls_activation() {
 
     // DNS and ACME are external systems. Simulate their persisted terminal
     // state after verifying that pending configuration cannot route.
-    let pool = sqlx::PgPool::connect(&server.settings.store.meta.dsn)
+    let pool = sqlx::PgPool::connect(&server.settings.meta_database.dsn)
         .await
         .expect("connect status-page test pool");
     let domain_id = molesignal::shared::ids::Id::new();

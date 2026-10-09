@@ -20,7 +20,7 @@ pub struct WorkerCoverage {
 
 pub const WORKER_COVERAGE: &[WorkerCoverage] = &[
     WorkerCoverage {
-        source: "src/bootstrap/roles/alert_manager.rs",
+        source: "src/bootstrap/roles/alert.rs",
         policy: WorkerTracePolicy::ChildOfActiveRun,
     },
     WorkerCoverage {
@@ -112,7 +112,6 @@ pub const WORKER_COVERAGE: &[WorkerCoverage] = &[
 pub const HTTP_CLIENT_COVERAGE: &[&str] = &[
     "src/api/http/routes/agent/mcp/runtime.rs",
     "src/app/trace/export.rs",
-    "src/bootstrap/roles/router.rs",
     "src/bootstrap/workers/scheduled_reports.rs",
     "src/infra/connectors/cloudwatch_logs.rs",
     "src/infra/enrichment/mmdb_downloader.rs",
@@ -133,8 +132,9 @@ pub const GRPC_CLIENT_COVERAGE: &[&str] = &[
     "src/app/trace/export.rs",
     "src/bootstrap/workers/cluster/event_sync.rs",
     "src/bootstrap/workers/cluster/gossip.rs",
-    "src/infra/query/distributed.rs",
+    "src/infra/cluster/intake_forwarder.rs",
     "src/infra/query/federated.rs",
+    "src/infra/query/remote.rs",
 ];
 
 #[cfg(test)]

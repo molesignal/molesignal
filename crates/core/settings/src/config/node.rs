@@ -99,7 +99,7 @@ pub enum Role {
     Intake,
     Querier,
     Compactor,
-    AlertManager,
+    Alert,
 }
 
 #[cfg(test)]

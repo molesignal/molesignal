@@ -202,6 +202,47 @@ async fn count_and_aggregate_round_trip() {
     assert_eq!(empty.scanned_rows, 0);
 }
 
+#[tokio::test]
+async fn max_scan_rows_rejects_queries_that_read_too_many_rows() {
+    let tmp = tempfile::tempdir().unwrap();
+    let store: Arc<dyn ObjectStore> =
+        Arc::new(LocalFileSystem::new_with_prefix(tmp.path()).unwrap());
+    let org = Id::from_string("org-1");
+    let stream = sample_stream(&org);
+    let meta = write_parquet_fixture(
+        &ParquetWriter::new(store.clone()),
+        &stream,
+        sample_batch(&stream),
+    )
+    .await;
+    let repo = Arc::new(MemQueryFileRepo::new());
+    repo.insert(meta).await.unwrap();
+    let request = || QueryRequest {
+        org_id: org.clone(),
+        language: QueryLanguage::Sql,
+        statement: "SELECT COUNT(*) AS cnt FROM app".into(),
+        time_range: TimeRange::new(TimestampMicros(0), TimestampMicros(10_000_000)),
+        stream: Some(StreamHint {
+            name: "app".into(),
+            stream_type: StreamType::LOGS,
+        }),
+        limit: None,
+        federation_clusters: Vec::new(),
+    };
+
+    // 文件有 3 行：上限正好 3 行时放行，低于 3 行时以 400 拒绝，0 表示不限制。
+    let at_limit = DataFusionEngine::new(repo.clone(), store.clone()).with_max_scan_rows(3);
+    assert_eq!(at_limit.execute(request()).await.unwrap().scanned_rows, 3);
+
+    let below_limit = DataFusionEngine::new(repo.clone(), store.clone()).with_max_scan_rows(2);
+    let error = below_limit.execute(request()).await.unwrap_err();
+    assert_eq!(error.http_status_code(), 400);
+    assert!(error.to_string().contains("3 rows"), "{error}");
+
+    let unlimited = DataFusionEngine::new(repo, store).with_max_scan_rows(0);
+    assert_eq!(unlimited.execute(request()).await.unwrap().scanned_rows, 3);
+}
+
 /// 内存版 `StreamRepository`：只实现 `get`（门槛校验需要），其余 stub。
 struct MemStreamRepository {
     def: StreamDefinition,

@@ -37,7 +37,7 @@ use crate::{
             TeamRepository, api_token::ApiTokenRepository,
             service_account::ServiceAccountRepository,
         },
-        query::SlowQueryRepository,
+        query::{PromqlEngine, QueryEngine, SlowQueryRepository},
         rum::DebugArtifactRepository,
         saved_view::SavedViewRepository,
         storage::QueryFileSource,
@@ -223,9 +223,17 @@ pub struct StorageState {
     pub field_masking: Arc<FieldMaskingService>,
 }
 
+/// 本节点用本地数据执行查询的引擎。querier 角色经内部 gRPC 把它们提供给其它节点。
+#[derive(Clone)]
+pub struct LocalQueryEngines {
+    pub sql: Arc<dyn QueryEngine>,
+    pub promql: Arc<dyn PromqlEngine>,
+}
+
 #[derive(Clone)]
 pub struct ClusterState {
     pub node_id: String,
+    pub query_engines: LocalQueryEngines,
     pub drain: Arc<DrainController>,
     pub registry: Arc<dyn ClusterRegistry>,
     pub repository: Arc<dyn ClusterNodesRepository>,

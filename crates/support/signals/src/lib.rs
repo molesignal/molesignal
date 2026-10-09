@@ -11,6 +11,7 @@ pub mod domain {
 
 pub mod shared {
     pub mod metrics;
+    pub mod rendezvous;
     pub mod self_telemetry;
     pub mod tail_sampling;
     pub mod telemetry;
@@ -25,7 +26,7 @@ pub mod shared {
 }
 
 pub use shared::{
-    grpc_trace, http_trace, metrics, self_telemetry, tail_sampling, telemetry, trace,
+    grpc_trace, http_trace, metrics, rendezvous, self_telemetry, tail_sampling, telemetry, trace,
     trace_context, trace_coverage, trace_fixtures, trace_metrics, trace_normalization,
     trace_stream,
 };

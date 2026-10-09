@@ -5,6 +5,7 @@
 
 pub mod dispatcher;
 mod lifecycle;
+pub mod realtime;
 pub mod rule_evaluator;
 pub mod service;
 

@@ -7,7 +7,10 @@ use object_store::{Error as OsError, path::Path as ObjPath};
 use prometheus::{HistogramVec, IntCounterVec};
 use tracing::field;
 
-use crate::shared::metrics::{register_histogram_vec, register_int_counter_vec};
+use crate::{
+    infra::storage::layout::StorageLayout,
+    shared::metrics::{register_histogram_vec, register_int_counter_vec},
+};
 
 pub(super) fn operation_span(
     backend: &'static str,
@@ -34,7 +37,7 @@ pub(super) fn operation_span(
 
 pub(super) fn object_category(path: &ObjPath) -> &'static str {
     let value = path.as_ref().to_ascii_lowercase();
-    if value.contains("/manifests/") {
+    if StorageLayout::is_manifest_key(&value) || value.contains("/manifests/") {
         "metadata"
     } else if value.ends_with(".parquet") {
         "parquet"

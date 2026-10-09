@@ -1,56 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! `[store]` —— 元数据库（`store.meta`）与对象存储（`store.object`）凭据与底层参数。
+//! `[object_store]` —— 对象存储（本地目录、S3、Azure、GCS）后端、凭据与传输参数。
 
 use serde::{Deserialize, Serialize};
 
-/// `[store]` 段：元数据库与对象存储统一容器。
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct StoreSettings {
-    #[serde(default)]
-    pub meta: MetaStoreSettings,
-    #[serde(default)]
-    pub object: ObjectStoreSettings,
-}
-
+/// `[object_store]`：对象存储后端、凭据与传输参数。
+///
+/// 拒绝未知键：写错的键名会让启动失败。
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MetaStoreSettings {
-    #[serde(default = "default_meta_backend")]
-    pub backend: String,
-    #[serde(default = "default_meta_dsn")]
-    pub dsn: String,
-    #[serde(default = "default_meta_min_conns")]
-    pub min_connections: u32,
-    #[serde(default = "default_meta_conns")]
-    pub max_connections: u32,
-}
-
-fn default_meta_backend() -> String {
-    "sqlite".into()
-}
-fn default_meta_dsn() -> String {
-    "sqlite://./data/meta.db?mode=rwc".into()
-}
-fn default_meta_min_conns() -> u32 {
-    2
-}
-fn default_meta_conns() -> u32 {
-    16
-}
-
-impl Default for MetaStoreSettings {
-    fn default() -> Self {
-        Self {
-            backend: default_meta_backend(),
-            dsn: default_meta_dsn(),
-            min_connections: default_meta_min_conns(),
-            max_connections: default_meta_conns(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ObjectStoreSettings {
     #[serde(default = "default_object_backend")]
     pub backend: String,
@@ -71,12 +30,16 @@ pub struct ObjectStoreSettings {
     /// 三层凭据来源优先级：env > credentials_file > inline TOML
     #[serde(default)]
     pub credentials_file: Option<std::path::PathBuf>,
+    /// 写入对象达到该大小（MiB）时改用 multipart 上传。
     #[serde(default = "default_multipart_threshold_mb")]
     pub multipart_threshold_mb: u32,
+    /// multipart 上传的单分片大小（MiB）。
     #[serde(default = "default_multipart_part_size_mb")]
     pub multipart_part_size_mb: u32,
+    /// 范围读取达到该大小（MiB）时拆成多个块并发读取。
     #[serde(default = "default_range_threshold_mb")]
     pub range_threshold_mb: u32,
+    /// 分段读取的单块大小（MiB）。
     #[serde(default = "default_range_chunk_mb")]
     pub range_chunk_mb: u32,
     #[serde(default = "default_max_concurrency")]
@@ -90,6 +53,7 @@ pub struct ObjectStoreSettings {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RetrySettings {
     #[serde(default = "default_retry_max_attempts")]
     pub max_attempts: u32,
@@ -151,6 +115,34 @@ fn default_op_timeout_secs() -> u32 {
 }
 fn default_health_probe_interval_secs() -> u32 {
     30
+}
+
+/// S3 要求除最后一个分片外，每个分片至少 5 MiB。
+const MIN_MULTIPART_PART_SIZE_MB: u32 = 5;
+/// 单个分片或读取块的上限，避免一次请求占用过多内存。
+const MAX_TRANSFER_UNIT_MB: u32 = 1024;
+
+impl ObjectStoreSettings {
+    pub fn validate(&self) -> anyhow::Result<()> {
+        if self.multipart_threshold_mb == 0 {
+            anyhow::bail!("object_store.multipart_threshold_mb must be at least 1");
+        }
+        if !(MIN_MULTIPART_PART_SIZE_MB..=MAX_TRANSFER_UNIT_MB)
+            .contains(&self.multipart_part_size_mb)
+        {
+            anyhow::bail!(
+                "object_store.multipart_part_size_mb must be in \
+                 {MIN_MULTIPART_PART_SIZE_MB}..={MAX_TRANSFER_UNIT_MB}"
+            );
+        }
+        if self.range_threshold_mb == 0 {
+            anyhow::bail!("object_store.range_threshold_mb must be at least 1");
+        }
+        if !(1..=MAX_TRANSFER_UNIT_MB).contains(&self.range_chunk_mb) {
+            anyhow::bail!("object_store.range_chunk_mb must be in 1..={MAX_TRANSFER_UNIT_MB}");
+        }
+        Ok(())
+    }
 }
 
 impl Default for ObjectStoreSettings {

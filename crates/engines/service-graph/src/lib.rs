@@ -640,12 +640,8 @@ mod tests {
         assert_eq!(snaps[0].client_service, "molesignal-router");
         assert_eq!(snaps[0].server_service, "molesignal-querier");
         assert_eq!(
-            effective_service_name(
-                Some("molesignal"),
-                Some("molesignal"),
-                Some("alert_manager")
-            ),
-            "molesignal-alert-manager"
+            effective_service_name(Some("molesignal"), Some("molesignal"), Some("alert")),
+            "molesignal-alert"
         );
         assert_eq!(
             effective_service_name(Some("checkout"), None, Some("router")),

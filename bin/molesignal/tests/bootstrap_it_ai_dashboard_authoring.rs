@@ -239,7 +239,7 @@ async fn dashboard_authoring_control_plane_is_tenant_safe_and_exactly_once() {
     }
     let server = common::TestServer::start().await;
 
-    let pool = PgPool::connect(&server.settings.store.meta.dsn)
+    let pool = PgPool::connect(&server.settings.meta_database.dsn)
         .await
         .unwrap();
     let drafts = PgDashboardDraftRepository::new(pool.clone());
@@ -573,7 +573,7 @@ async fn dashboard_authoring_runs_from_chat_intent_to_renderable_dashboard() {
         .unwrap();
     assert_eq!(response.status(), 200);
 
-    let pool = PgPool::connect(&server.settings.store.meta.dsn)
+    let pool = PgPool::connect(&server.settings.meta_database.dsn)
         .await
         .unwrap();
     let flush_pool = pool.clone();

@@ -29,7 +29,8 @@ pub mod sink;
 pub mod wal_pool;
 
 pub use buffer_pool::{
-    BufferKey, BufferPool, BufferWriter, BufferedRecordBatch, DatasetBuffer, RecordBuilder,
+    BufferKey, BufferPool, BufferWriter, BufferedRecordBatch, DatasetBuffer, Discarded,
+    RecordBuilder,
 };
 pub use cardinality::{PrometheusSeriesAdmission, SeriesIdentity, SeriesLimitReason};
 pub use dataset_resolver::{DatasetResolver, ResolvedDataset};

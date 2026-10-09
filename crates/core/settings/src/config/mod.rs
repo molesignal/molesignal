@@ -11,7 +11,7 @@
 //! 环境变量约定：前缀 `MS_`，配置路径中的所有层级都用单下划线连接。例：
 //!
 //! - `MS_HTTP_PORT=5081`
-//! - `MS_STORE_META_DSN=postgres://...`
+//! - `MS_META_DATABASE_DSN=postgres://...`
 //! - `MS_NOTIFY_SMTP_HOST=smtp.example.com`
 //! - `MS_AUTH_JWT_SECRET_OVERRIDE=...`
 //!
@@ -20,7 +20,7 @@
 //!
 //! 全局唯一入口：`config::load(path)` → `&'static Settings`
 //!
-//! 数据模型按 TOML section 域拆到各子模块（`node` / `network` / `store` / …），
+//! 数据模型按 TOML section 域拆到各子模块（`node` / `network` / `object_store` / …），
 //! 全部 `pub use` 到 crate 根——对外是扁平的 `crate::config::XxxSettings`。
 
 mod alerting;
@@ -31,12 +31,12 @@ mod cluster;
 mod env;
 mod features;
 mod intake;
-
+mod meta_database;
 mod network;
 mod node;
+mod object_store;
 mod query;
 mod storage;
-mod store;
 mod telemetry;
 mod wal;
 pub mod watcher;
@@ -54,13 +54,14 @@ use figment::{
     providers::{Format, Serialized, Toml},
 };
 pub use intake::*;
+pub use meta_database::*;
 pub use network::*;
 pub use node::*;
+pub use object_store::*;
 use once_cell::sync::OnceCell;
 pub use query::*;
 use serde::{Deserialize, Serialize};
 pub use storage::*;
-pub use store::*;
 pub use telemetry::*;
 pub use wal::*;
 
@@ -84,9 +85,12 @@ pub struct Settings {
     /// `[profiling]`：节点本地 pprof listener，默认关闭。
     #[serde(default)]
     pub profiling: ProfilingSettings,
-    /// 元数据库 + 对象存储统一在 `[store]` 段下（`store.meta` / `store.object`）。
+    /// `[meta_database]`：元数据库连接（PostgreSQL）。
     #[serde(default)]
-    pub store: StoreSettings,
+    pub meta_database: MetaDatabaseSettings,
+    /// `[object_store]`：对象存储后端、凭据与传输参数。
+    #[serde(default)]
+    pub object_store: ObjectStoreSettings,
     #[serde(default)]
     pub wal: WalSettings,
     #[serde(default)]
@@ -98,7 +102,7 @@ pub struct Settings {
     #[serde(default)]
     pub compactor: CompactorSettings,
     #[serde(default)]
-    pub alert_manager: AlertManagerSettings,
+    pub alert: AlertSettings,
     #[serde(default)]
     pub notify: NotifySettings,
     #[serde(default)]
@@ -122,10 +126,6 @@ pub struct Settings {
     /// Chrome PDF/PNG 渲染资源。
     #[serde(default)]
     pub scheduled_reports: ScheduledReportsSettings,
-    /// Agent chat（`[agent]`）：提供默认 provider 提示。API key / base URL 使用
-    /// `MS_AGENT_<PROVIDER>_API_KEY` / `_BASE_URL` 环境变量，不进 TOML。
-    #[serde(default)]
-    pub agent: AgentSettings,
     /// `[storage]` Catalog lifecycle, index maintenance, delayed GC, and reconciliation.
     #[serde(default)]
     pub storage: StorageSettings,
@@ -178,6 +178,7 @@ impl Settings {
         self.intake.validate()?;
         self.probe.validate()?;
         self.cache.object.validate()?;
+        self.object_store.validate()?;
         Ok(())
     }
 }

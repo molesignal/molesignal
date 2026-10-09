@@ -4,7 +4,7 @@
 pub mod build_info;
 
 pub use signals::{
-    grpc_trace, http_trace, metrics, self_telemetry, tail_sampling, telemetry, trace,
+    grpc_trace, http_trace, metrics, rendezvous, self_telemetry, tail_sampling, telemetry, trace,
     trace_context, trace_coverage, trace_fixtures, trace_metrics, trace_normalization,
     trace_stream,
 };

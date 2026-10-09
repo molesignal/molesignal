@@ -18,7 +18,7 @@
 //! ```
 
 use molesignal::{
-    config::MetaStoreSettings,
+    config::MetaDatabaseSettings,
     domain::federation::{CloudEvent, CudAction, ResourceKind, wins},
     infra::persistence::{
         MetaStore,
@@ -43,8 +43,7 @@ async fn boot() -> MetaStore {
     let port = pg.get_host_port_ipv4(5432).await.expect("pg port");
     let host = pg.get_host().await.expect("pg host");
     let dsn = format!("postgres://postgres:postgres@{host}:{port}/postgres");
-    let store = MetaStore::connect(&MetaStoreSettings {
-        backend: "postgres".into(),
+    let store = MetaStore::connect(&MetaDatabaseSettings {
         dsn,
         min_connections: 1,
         max_connections: 5,

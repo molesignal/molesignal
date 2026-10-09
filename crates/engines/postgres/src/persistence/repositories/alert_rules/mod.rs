@@ -135,9 +135,8 @@ impl AlertRuleRepository for PgAlertRuleRepository {
             "UPDATE alert_rules SET
                name = $2, description = $3, enabled = $4, kind = $5, query = $6,
                trigger = $7, anomaly_params_json = $8, escalation_policy_id = $9,
-               labels = $10, annotations = $11, last_eval_at_micros = $12,
-               last_state = $13, updated_at_micros = $14,
-               thresholds = $15, severity = $16
+               labels = $10, annotations = $11, updated_at_micros = $12,
+               thresholds = $13, severity = $14
              WHERE id = $1",
         )
         .bind(&r.id.0)
@@ -151,8 +150,6 @@ impl AlertRuleRepository for PgAlertRuleRepository {
         .bind(&r.escalation_policy_id.0)
         .bind(Json(&r.labels))
         .bind(Json(&r.annotations))
-        .bind(r.last_eval_at.map(|t| t.0))
-        .bind(Json(&r.last_state))
         .bind(r.updated_at.0)
         .bind(Json(&r.thresholds))
         .bind(r.severity.map(|s| s.as_str()))
@@ -197,6 +194,24 @@ impl AlertRuleRepository for PgAlertRuleRepository {
         .await
         .map_err(sqlx_err)?;
         Ok(collect_valid_rules(rows, "list_enabled"))
+    }
+
+    async fn record_evaluation(
+        &self,
+        id: &Id,
+        evaluated_at: TimestampMicros,
+        state: RuleState,
+    ) -> Result<()> {
+        sqlx::query(
+            "UPDATE alert_rules SET last_eval_at_micros = $2, last_state = $3 WHERE id = $1",
+        )
+        .bind(&id.0)
+        .bind(evaluated_at.0)
+        .bind(Json(&state))
+        .execute(&self.pool)
+        .await
+        .map_err(sqlx_err)?;
+        Ok(())
     }
 }
 

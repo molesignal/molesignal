@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! `[alert_manager]` 与 `[notify]` —— 告警评估/派发节奏与 SMTP 通知通道。
+//! `[alert]` 与 `[notify]` —— 告警评估/派发节奏与 SMTP 通知通道。
 
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AlertManagerSettings {
+pub struct AlertSettings {
     #[serde(default = "default_eval_interval")]
     pub eval_interval_secs: u32,
     #[serde(default = "default_dispatch_interval")]
@@ -30,7 +30,7 @@ fn default_ack_timeout() -> u32 {
     300
 }
 
-impl Default for AlertManagerSettings {
+impl Default for AlertSettings {
     fn default() -> Self {
         Self {
             eval_interval_secs: default_eval_interval(),

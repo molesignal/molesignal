@@ -8,7 +8,7 @@ use std::sync::Arc;
 use object_store::ObjectStore;
 
 use crate::{
-    app::cluster::{ClusterRegistry, PeerRole},
+    app::cluster::ClusterRegistry,
     config::{Role, Settings},
     domain::{
         iam::{IamPlatformAdministratorRepository, Organization},
@@ -57,7 +57,7 @@ use crate::{
 pub(super) struct RolePlan {
     pub(super) run_intake: bool,
     pub(super) run_compactor: bool,
-    pub(super) run_alert_manager: bool,
+    pub(super) run_alert: bool,
     pub(super) run_querier: bool,
 }
 
@@ -85,6 +85,8 @@ pub(super) struct Core {
     pub(super) incidents: Arc<PgIncidentRepository>,
     pub(super) schedules: Arc<PgScheduleRepository>,
     pub(super) escalations: Arc<PgEscalationPolicyRepository>,
+    /// 实时告警匹配器：写入路径与告警服务共享，由 `RealtimeAlertWorker` 执行其命令。
+    pub(super) realtime_alerts: Arc<crate::app::alerting::realtime::RealtimeAlerts>,
     pub(super) email_sender: Option<Arc<crate::infra::notify::EmailSender>>,
     pub(super) cipher_root_key: CipherRootKey,
     pub(super) cipher_keys: Arc<dyn CipherKeyRepository>,
@@ -103,22 +105,22 @@ pub(super) struct Core {
 
 impl Core {
     pub(super) async fn build(settings: &Settings) -> Result<Self> {
-        let meta = MetaStore::connect(&settings.store.meta).await?;
+        let meta = MetaStore::connect(&settings.meta_database).await?;
         let pool = meta.pool.clone();
 
         let credentials =
-            crate::infra::storage::object::credentials::resolve(&settings.store.object)?;
+            crate::infra::storage::object::credentials::resolve(&settings.object_store)?;
         tracing::info!(
             object_store_credentials_source = credentials.source.as_str(),
             "resolved object_store credentials"
         );
-        let raw_store = object::build(&settings.store.object)?;
+        let raw_store = object::build(&settings.object_store, &credentials)?;
         let store: Arc<dyn ObjectStore> =
-            ProductionObjectStore::wrap(raw_store, settings.store.object.clone());
+            ProductionObjectStore::wrap(raw_store, settings.object_store.clone());
         crate::bootstrap::roles::health_probe::startup_ping(store.as_ref()).await?;
         let object_reader = ObjectReader::build(
             store.clone(),
-            &settings.store.object.backend,
+            &settings.object_store.backend,
             &settings.cache.object,
         )?;
 
@@ -223,7 +225,7 @@ impl Core {
         let roles = RolePlan {
             run_intake: is_standalone || settings.node.roles.contains(&Role::Intake),
             run_compactor: is_standalone || settings.node.roles.contains(&Role::Compactor),
-            run_alert_manager: is_standalone || settings.node.roles.contains(&Role::AlertManager),
+            run_alert: is_standalone || settings.node.roles.contains(&Role::Alert),
             run_querier: is_standalone || settings.node.roles.contains(&Role::Querier),
         };
 
@@ -252,6 +254,7 @@ impl Core {
             incidents,
             schedules,
             escalations,
+            realtime_alerts: crate::app::alerting::realtime::RealtimeAlerts::new(),
             email_sender,
             cipher_root_key,
             cipher_keys,
@@ -266,34 +269,5 @@ impl Core {
             node_id,
             roles,
         })
-    }
-
-    pub(super) fn spawn_cluster_maintenance(&self, settings: &Settings) {
-        let mut peer_roles: Vec<PeerRole> = settings
-            .node
-            .roles
-            .iter()
-            .map(|role| match role {
-                Role::Router => PeerRole::Router,
-                Role::Intake => PeerRole::Intake,
-                Role::Querier => PeerRole::Querier,
-                Role::Compactor => PeerRole::Compactor,
-                Role::AlertManager => PeerRole::AlertManager,
-                Role::Standalone => PeerRole::Standalone,
-            })
-            .collect();
-        if peer_roles.is_empty() {
-            peer_roles.push(PeerRole::Standalone);
-        }
-        let _heartbeat = crate::bootstrap::roles::heartbeat::HeartbeatTask::new(
-            self.cluster_repo.clone(),
-            self.node_id.clone(),
-            peer_roles,
-            settings.cluster.advertise_addr.clone(),
-            settings.cluster.heartbeat_interval_secs,
-        )
-        .with_drain(self.drain_controller.clone())
-        .spawn();
-        let _sweeper = crate::bootstrap::roles::heartbeat::spawn_sweeper(self.cluster_repo.clone());
     }
 }
