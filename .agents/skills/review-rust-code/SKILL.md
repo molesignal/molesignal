@@ -33,7 +33,7 @@ description: Review MoleSignal Rust diffs, pull requests, or working-tree change
 - 可观测性：使用结构化 `tracing`，不记录 token、密钥、签名包或敏感原文。
 - 时间：内部统一微秒，外部协议单位在 `api` 边界转换。
 - 产物：proto 生成结果、migration 注册、SPDX 头和必要测试是否同步。
-- 文件组织：新增非测试、非生成的生产文件不超过 500 行；实质修改历史超限文件时未继续堆叠独立职责。
+- 文件组织：新增非测试、非生成的生产文件不超过 500 个非空行（空行不计）；实质修改历史超限文件时未继续堆叠独立职责。
 - 模块聚合：同一功能拆成多个实现文件时使用专属目录，不在父目录散落同前缀文件，也不创建职责不清的杂物模块。
 
 若 diff 涉及 module boundary、租户隔离或 SQL migration，再应用对应的专项技能，不加载无关专项。

@@ -27,7 +27,7 @@ description: Implement, modify, debug, or refactor the MoleSignal Rust backend u
 - 以后端当前的 virtual workspace 为准：最终 package 位于 `bin/`，可复用 crate 位于 `crates/`，开发工具位于 `tools/`。
 - 新的单一职责 crate 不使用 `molesignal-` 前缀；按 `core`、`engines`、`modules`、`transport`、`support` 分类放置。
 - 优先复用已有领域类型、repository trait、service 和错误类型，不创建平行抽象。
-- 除生成代码和测试代码外，新建生产实现文件不得超过 500 行；生产源码内的测试模块不计入上限。
+- 除生成代码和测试代码外，新建生产实现文件不得超过 500 行（按非空行统计，空行不计入）；生产源码内的测试模块不计入上限。
 - 当前任务实质修改已有超限文件时，按职责拆出本次涉及的内聚逻辑；极小孤立修复不要求重构无关历史代码，但不得继续堆叠独立职责。
 - 同一功能或模块拆成两个及以上实现文件时，建立专属目录集中放置，禁止将同前缀文件散落在父目录，也禁止使用无明确归属的 `utils`、`helpers`、`common` 或 `misc` 作为容器。
 - 新增 repository 实现或运行时依赖时，检查 `bin/molesignal/src/bootstrap/bootstrap.rs` 的总编排及对应功能装配文件。
