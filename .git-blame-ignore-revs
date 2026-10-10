@@ -1,0 +1,6 @@
+# Commits that only change layout. GitHub's blame view reads this file by
+# itself. For git blame, run this once in each clone:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# style: separate logical steps in Rust code with blank lines
+d1d2befdb1af84aa714c81651aa56c7fe75f4be6
