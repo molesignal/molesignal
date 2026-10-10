@@ -64,9 +64,11 @@ pub fn rows_to_objects(result: &QueryResult) -> Vec<Value> {
         .iter()
         .map(|row| {
             let mut obj = serde_json::Map::with_capacity(result.columns.len());
+
             for (i, col) in result.columns.iter().enumerate() {
                 obj.insert(col.clone(), row.get(i).cloned().unwrap_or(Value::Null));
             }
+
             Value::Object(obj)
         })
         .collect()
@@ -109,22 +111,27 @@ pub async fn transform_and_sink(
             "realtime pipelines cannot run as scheduled jobs",
         ));
     }
+
     let scanned = source_rows.len();
     let processed = process_rows(vrl, function_steps, target_stream, source_rows)?;
     let mut errors = processed.errors;
     let mut transformed = Vec::with_capacity(processed.rows.len());
     let mut destinations: BTreeMap<String, Vec<RawEvent>> = BTreeMap::new();
     let now = TimestampMicros::now();
+
     for (destination, event) in processed.rows {
         destinations
             .entry(destination)
             .or_default()
             .push(to_raw_event(&event, now));
+
         transformed.push(event);
     }
+
     let mut written = 0;
     let mut rejected = 0;
     let mut rejections = Vec::new();
+
     for (destination, events) in destinations {
         let result = intake
             .intake_pipeline_output(IntakeBatch {
@@ -136,10 +143,12 @@ pub async fn transform_and_sink(
                 received_at: now,
             })
             .await?;
+
         written += result.accepted;
         rejected += result.rejected;
         rejections.extend(rejection_summaries(&destination, &result.errors));
     }
+
     errors.extend(rejections.iter().cloned());
 
     // egress 到声明的 sink connectors（best-effort：逐个失败只记录，不阻断写目标的成功）。
@@ -173,12 +182,15 @@ const MAX_REJECTION_REASONS: usize = 5;
 /// 通常整批事件的原因都一样，逐条列出会灌出成千上万行。
 fn rejection_summaries(destination: &str, rejected: &[IntakeError]) -> Vec<String> {
     let mut by_reason: BTreeMap<&str, usize> = BTreeMap::new();
+
     for error in rejected {
         *by_reason.entry(error.reason.as_str()).or_default() += 1;
     }
+
     let mut reasons: Vec<_> = by_reason.into_iter().collect();
     reasons.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
     let more = reasons.len().saturating_sub(MAX_REJECTION_REASONS);
+
     let mut lines: Vec<String> = reasons
         .into_iter()
         .take(MAX_REJECTION_REASONS)
@@ -186,11 +198,13 @@ fn rejection_summaries(destination: &str, rejected: &[IntakeError]) -> Vec<Strin
             format!("target stream `{destination}` rejected {count} event(s): {reason}")
         })
         .collect();
+
     if more > 0 {
         lines.push(format!(
             "target stream `{destination}` rejected events for {more} more reason(s)"
         ));
     }
+
     lines
 }
 
@@ -209,14 +223,17 @@ fn to_raw_event(value: &Value, fallback: TimestampMicros) -> RawEvent {
             m
         }
     };
+
     let system_timestamp = fields.remove("_timestamp");
     fields.retain(|_, value| !value.is_null());
+
     let timestamp = system_timestamp
         .as_ref()
         .or_else(|| fields.get("timestamp"))
         .and_then(Value::as_i64)
         .map(TimestampMicros)
         .unwrap_or(fallback);
+
     RawEvent { timestamp, fields }
 }
 
@@ -258,11 +275,13 @@ impl PipelineExecutor for BootstrapPipelineExecutor {
         let now = TimestampMicros::now();
         let lookback_micros = i64::from(pipeline.lookback_secs.max(0)) * 1_000_000;
         let stream_type = parse_signal_type(&pipeline.function_steps);
+
         validate_pipeline_streams(
             &pipeline.source_stream,
             &pipeline.target_stream,
             stream_type,
         )?;
+
         let req = QueryRequest {
             org_id: pipeline.org_id.clone(),
             language: QueryLanguage::Sql,
@@ -275,9 +294,11 @@ impl PipelineExecutor for BootstrapPipelineExecutor {
             limit: None,
             federation_clusters: Vec::new(),
         };
+
         let result = self.query.run_raw(req).await?;
         let source_rows = rows_to_objects(&result);
         let vrl = VrlRuntime::new();
+
         let outcome = transform_and_sink(
             &vrl,
             self.intake.as_ref(),
@@ -290,6 +311,7 @@ impl PipelineExecutor for BootstrapPipelineExecutor {
             source_rows,
         )
         .await?;
+
         if !outcome.errors.is_empty() {
             tracing::warn!(
                 pipeline_id = %pipeline.id.0,
@@ -299,6 +321,7 @@ impl PipelineExecutor for BootstrapPipelineExecutor {
                 "scheduled pipeline completed with non-fatal errors"
             );
         }
+
         Ok(outcome.written as u64)
     }
 }
@@ -309,8 +332,10 @@ pub fn spawn_runner(runner: Arc<ScheduledPipelineRunner>, poll_secs: u64) -> Joi
     tokio::spawn(async move {
         let mut ticker = tokio::time::interval(std::time::Duration::from_secs(poll_secs.max(1)));
         ticker.tick().await;
+
         loop {
             ticker.tick().await;
+
             if let Err(e) = runner.tick_once().await {
                 tracing::warn!(error = %e, "scheduled_pipelines tick failed");
             }

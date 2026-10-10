@@ -76,6 +76,7 @@ impl IamRuntime {
 
         let instance_settings: Arc<dyn InstanceSettingsRepository> =
             Arc::new(PgInstanceSettingsRepository::new(core.pool.clone()));
+
         let iam = Arc::new(IamService::new(
             core.users.clone(),
             core.orgs.clone(),
@@ -83,13 +84,16 @@ impl IamRuntime {
             settings.auth.clone(),
             jwt_active_secrets,
         ));
+
         let api_tokens: Arc<dyn ApiTokenRepository> = Arc::new(
             PgApiTokenRepository::new(core.pool.clone()).with_cipher(core.cipher_root_key.clone()),
         );
+
         let service_accounts: Arc<dyn ServiceAccountRepository> =
             Arc::new(PgServiceAccountRepository::new(core.pool.clone()));
         let user_preferences: Arc<dyn UserPreferencesRepository> =
             Arc::new(PgUserPreferencesRepository::new(core.pool.clone()));
+
         let workspace_preference_defaults: Arc<dyn WorkspacePreferenceDefaultsRepository> =
             Arc::new(PgWorkspacePreferenceDefaultsRepository::new(
                 core.pool.clone(),
@@ -102,6 +106,7 @@ impl IamRuntime {
             settings,
         )
         .await?;
+
         bootstrap_platform_administrator(&iam, core.iam_platform_administrators.as_ref(), settings)
             .await?;
 
@@ -111,20 +116,24 @@ impl IamRuntime {
             Arc::new(PgIamRoleRepository::new(core.pool.clone()));
         let iam_repository: Arc<dyn crate::domain::iam::access::IamRepository> =
             Arc::new(PgIamRepository::new(core.pool.clone()));
+
         let access = Arc::new(IamAccessService::new(
             iam_repository,
             core.iam_platform_administrators.clone(),
         ));
+
         let email_domains: Arc<dyn EmailDomainRepository> =
             Arc::new(PgEmailDomainRepository::new(core.pool.clone()));
         let audit_events: Arc<dyn AuditEventRepository> =
             Arc::new(PgAuditEventRepository::new(core.pool.clone()));
 
         let sso_state_store = Arc::new(SsoStateStore::new(600));
+
         let sso_jwks_cache = Arc::new(
             JwksCache::new(3600)
                 .map_err(|error| Error::internal(format!("init jwks cache: {error}")))?,
         );
+
         let sso_sessions: Arc<dyn SsoSessionRepository> =
             Arc::new(PgSsoSessionRepository::new(core.pool.clone()));
         let sso_providers: Arc<dyn SsoProviderRepository> =
@@ -160,9 +169,11 @@ pub(super) async fn seed_root_if_needed(
     if settings.auth.root_email.is_empty() || settings.auth.root_password.is_empty() {
         return Ok(());
     }
+
     if iam.users.count().await? > 0 {
         return Ok(());
     }
+
     let org = match orgs.get_by_slug("default").await {
         Ok(org) => org,
         Err(Error::NotFound(_)) => {
@@ -178,6 +189,7 @@ pub(super) async fn seed_root_if_needed(
         }
         Err(error) => return Err(error),
     };
+
     let user = iam
         .create_user(
             settings.auth.root_email.clone(),
@@ -185,9 +197,11 @@ pub(super) async fn seed_root_if_needed(
             &settings.auth.root_password,
         )
         .await?;
+
     let role_id = iam_memberships
         .role_id_for_purpose(&org.id, "organization_bootstrap")
         .await?;
+
     iam_memberships
         .upsert(
             IamMembership {
@@ -199,6 +213,7 @@ pub(super) async fn seed_root_if_needed(
             &user.id,
         )
         .await?;
+
     tracing::info!(email = %settings.auth.root_email, "seeded root user + default org");
     Ok(())
 }
@@ -209,9 +224,11 @@ pub(super) async fn bootstrap_platform_administrator(
     settings: &Settings,
 ) -> Result<()> {
     let root_email = settings.auth.root_email.trim();
+
     if root_email.is_empty() {
         return Ok(());
     }
+
     let root = iam.users.get_by_email(root_email).await.map_err(|error| {
         if matches!(error, Error::NotFound(_)) {
             Error::invalid("configured root user does not exist for platform bootstrap")
@@ -219,11 +236,13 @@ pub(super) async fn bootstrap_platform_administrator(
             error
         }
     })?;
+
     if iam_platform_administrators.bootstrap_root(&root.id).await? {
         tracing::info!(
             user_id = %root.id.0,
             "reconciled configured root as the only platform administrator"
         );
     }
+
     Ok(())
 }

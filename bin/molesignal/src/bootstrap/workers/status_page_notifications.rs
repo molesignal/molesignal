@@ -30,6 +30,7 @@ impl StatusPageNotificationWorker {
                 Duration::from_secs(30),
                 "status-page-notifications",
             );
+
             loop {
                 match self.sweep_once().await {
                     Ok(processed) if processed > 0 => backoff.reset(),
@@ -38,6 +39,7 @@ impl StatusPageNotificationWorker {
                         tracing::warn!(%error, "status-page notification sweep failed");
                     }
                 }
+
                 tokio::time::sleep(backoff.next_delay()).await;
             }
         })

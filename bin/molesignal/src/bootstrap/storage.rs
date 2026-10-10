@@ -71,9 +71,11 @@ impl StorageRuntime {
         let segment_bytes = (settings.wal.segment_size_mb as usize)
             .saturating_mul(1024 * 1024)
             .max(64 * 1024);
+
         std::fs::create_dir_all(&settings.wal.dir).map_err(|error| {
             Error::internal(format!("create wal dir {}: {error}", settings.wal.dir))
         })?;
+
         let fsync_policy = build_fsync_policy(&settings.wal);
         tracing::info!(
             wal_dir = %settings.wal.dir,
@@ -91,31 +93,39 @@ impl StorageRuntime {
                 segment_bytes,
                 fsync_policy,
             );
+
             let pool = if settings.wal.encrypt {
                 pool.with_cipher(core.cipher_root_key.clone())
             } else {
                 pool
             };
+
             Arc::new(pool)
         };
+
         let buffer_pool = Arc::new(BufferPool::with_memory_limit_bytes(
             (settings.intake.max_buffer_memory_mb as usize).saturating_mul(1024 * 1024),
         ));
+
         let prometheus_series_admission = Arc::new(PrometheusSeriesAdmission::new(
             settings.intake.prometheus.cardinality.clone(),
         ));
+
         let parquet_writer = Arc::new(ParquetWriter::new(core.store.clone()));
         let probe = Arc::new(Probe::new());
 
         let file_catalog: Arc<dyn FileCatalog> = Arc::new(PgFileCatalog::new(core.pool.clone()));
+
         let manifest_reader = Arc::new(PartitionManifestReader::new(
             core.object_reader.clone(),
             settings.storage.catalog.manifest_cache_bytes,
         ));
+
         let dataset_resolver = Arc::new(DatasetResolver::new(
             file_catalog.clone(),
             Arc::new(builtin_registry()),
         ));
+
         let catalog_query = Arc::new(CatalogQuerySource::new(
             file_catalog.clone(),
             buffer_pool.clone(),
@@ -123,9 +133,11 @@ impl StorageRuntime {
             core.object_reader.clone(),
             manifest_reader.clone(),
         ));
+
         let catalog_files: Arc<dyn QueryFileSource> = catalog_query.clone();
         let replay_byte_cap =
             (settings.wal.max_replay_mb.max(1) as usize).saturating_mul(1024 * 1024);
+
         let worker = Arc::new(
             IntakeWorker::new(
                 wal_pool,
@@ -141,10 +153,12 @@ impl StorageRuntime {
             .with_field_keys(core.field_key_service.clone())
             .with_drain(core.drain_controller.clone()),
         );
+
         worker.recover_and_replay().await?;
         // 每个节点都 flush 自己缓冲的数据：intake 角色缓冲外部写入，其余角色缓冲
         // 本节点产生的内部数据（派生数据集、pipeline 结果等）。
         let _flush_handle = worker.clone().spawn_flush_loop();
+
         let _probe_handle = crate::bootstrap::roles::health_probe::spawn_probe(
             core.store.clone(),
             probe.clone(),
@@ -156,53 +170,65 @@ impl StorageRuntime {
                 core.pool.clone(),
             ),
         );
+
         let pipelines: Arc<dyn crate::domain::pipeline::PipelineRepository> = Arc::new(
             crate::infra::persistence::repositories::pipelines::PgPipelineRepository::new(
                 core.pool.clone(),
             ),
         );
+
         let vrl_executor = Arc::new(crate::infra::runtime::VrlFunctionExecutor::new());
+
         let js_executor: Option<Arc<dyn crate::app::intake::FunctionExecutor>> = {
             #[cfg(feature = "js-runtime")]
             {
                 tracing::info!("JS function runtime enabled (deno_core compiled in)");
+
                 Some(Arc::new(
                     crate::infra::runtime::JsFunctionExecutor::with_defaults(),
                 ))
             }
+
             #[cfg(not(feature = "js-runtime"))]
             {
                 None
             }
         };
+
         let llm_executor: Option<Arc<dyn crate::app::intake::FunctionExecutor>> =
             if settings.functions.llm_eval_enabled {
                 tracing::info!("LLM eval function runtime enabled");
+
                 Some(Arc::new(
                     crate::bootstrap::llm_executor::LlmFunctionExecutor::new(model_providers),
                 ))
             } else {
                 None
             };
+
         let function_executor: Arc<dyn crate::app::intake::FunctionExecutor> =
             Arc::new(crate::infra::runtime::ChainedFunctionExecutor::new(
                 vrl_executor,
                 js_executor,
                 llm_executor,
             ));
+
         let pipeline_engine = Arc::new(crate::app::intake::PipelineEngine::new(
             pipelines,
             functions,
             function_executor.clone(),
         ));
+
         let functions_js_runtime_enabled = cfg!(feature = "js-runtime");
 
         let service_graph_aggregator = Arc::new(ServiceGraphAggregator::new());
         let usage: Arc<dyn UsageRepository> = Arc::new(PgUsageRepository::new(core.pool.clone()));
         let internal_usage = usage.clone();
+
         let internal_usage_recorder = Arc::new(
             move |org_id: Id, received_at: TimestampMicros, bytes: u64| {
                 let usage = internal_usage.clone();
+
                 tokio::spawn(async move {
                     if let Err(error) = usage
                         .add_hourly_intake_bytes(&org_id, received_at.0, bytes as i64)
@@ -217,6 +243,7 @@ impl StorageRuntime {
                 });
             },
         );
+
         let intake_service = IntakeService::new(worker.clone(), core.streams.clone())
             .with_system_org_id(core.system_org.id.clone())
             .with_pipeline(pipeline_engine)
@@ -235,6 +262,7 @@ impl StorageRuntime {
             .with_service_graph(Arc::new(ServiceGraphObserverImpl::new(
                 service_graph_aggregator.clone(),
             )));
+
         // 没有 intake 角色的节点（router、alert 等）把公共入口收到的写入转发给 intake 节点。
         let intake_service = if core.roles.run_intake {
             intake_service
@@ -243,11 +271,14 @@ impl StorageRuntime {
                 crate::infra::cluster::GrpcIntakeForwarder::new(core.registry.clone()),
             ))
         };
+
         let intake = Arc::new(intake_service);
+
         let profile_storage = Arc::new(ProfileStorageService::new(
             core.store.clone(),
             intake.clone(),
         ));
+
         let profiling_service = ProfilingService::new();
 
         let compactor = Arc::new(Compactor::new(
@@ -259,6 +290,7 @@ impl StorageRuntime {
             settings.compactor.clone(),
             settings.storage.gc.grace_period_secs,
         ));
+
         let investigation_blobs: Arc<
             dyn crate::infra::persistence::repositories::investigation_blobs::InvestigationBlobRepository,
         > = Arc::new(
@@ -266,6 +298,7 @@ impl StorageRuntime {
                 core.pool.clone(),
             ),
         );
+
         // 多个 compactor 节点按数据流、组织分担后台工作；新节点预热一个存活窗口后才接管。
         let compactor_ownership = core.roles.run_compactor.then(|| {
             let ownership = WorkOwnership::new(
@@ -274,11 +307,14 @@ impl StorageRuntime {
                 PeerRole::Compactor,
                 Duration::from_secs(u64::from(settings.cluster.peer_timeout_secs.max(1))),
             );
+
             let _watch = ownership.spawn_watch(Duration::from_secs(u64::from(
                 settings.cluster.heartbeat_interval_secs.max(1),
             )));
+
             ownership
         });
+
         let _compactor_handle = compactor_ownership.clone().map(|ownership| {
             spawn_compactor_loop(
                 compactor,
@@ -290,6 +326,7 @@ impl StorageRuntime {
                 core.drain_controller.clone(),
             )
         });
+
         let _storage_maintenance_handles = compactor_ownership.map(|ownership| {
             storage_maintenance::spawn(
                 Arc::new(IndexRebuildWorker::new(
@@ -351,6 +388,7 @@ pub(super) fn build_fsync_policy(wal: &WalSettings) -> FsyncPolicy {
         WalSyncLevel::Data => SyncLevel::DATA,
         WalSyncLevel::All => SyncLevel::ALL,
     };
+
     match wal.flush_strategy {
         WalFlushStrategy::None => FsyncPolicy::None { sync_level },
         WalFlushStrategy::EveryWrite => FsyncPolicy::EveryWrite { sync_level },

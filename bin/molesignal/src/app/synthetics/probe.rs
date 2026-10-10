@@ -78,14 +78,18 @@ impl ProbeControlService {
         validate_register(&input)?;
         let now = TimestampMicros::now();
         let token_hash = Sha256::digest(input.register_token.as_bytes()).to_vec();
+
         let grant = self
             .repository
             .get_registration_grant(&token_hash, now)
             .await?;
+
         let agent_id = Id::new();
+
         let issued = self
             .authority
             .issue_agent(&agent_id, &input.public_key_der)?;
+
         let agent = self
             .repository
             .register_probe(
@@ -114,6 +118,7 @@ impl ProbeControlService {
                 now,
             )
             .await?;
+
         Ok(ProbeRegisterOutcome {
             agent,
             certificate_chain_pem: issued.certificate_chain_pem,
@@ -127,22 +132,26 @@ impl ProbeControlService {
     pub async fn authenticate_certificate(&self, certificate_der: &[u8]) -> Result<ProbeAgent> {
         let certificate = x509_cert::Certificate::from_der(certificate_der)
             .map_err(|_| Error::unauthorized("invalid Probe client certificate"))?;
+
         let serial = certificate
             .tbs_certificate
             .serial_number
             .to_string()
             .to_ascii_lowercase();
+
         let agent = self
             .repository
             .get_agent_by_certificate_serial(&serial)
             .await
             .map_err(|_| Error::unauthorized("unknown or revoked Probe identity"))?;
+
         if agent
             .certificate_expires_at
             .is_none_or(|expires| expires <= TimestampMicros::now())
         {
             return Err(Error::unauthorized("Probe client certificate expired"));
         }
+
         Ok(agent)
     }
 
@@ -160,6 +169,7 @@ impl ProbeControlService {
                 "Probe hello identity does not match its certificate",
             ));
         }
+
         validate_protocol(protocol_version)?;
         agent.status = AgentStatus::Online;
         agent.agent_version = agent_version;
@@ -183,6 +193,7 @@ impl ProbeControlService {
         } else {
             AgentStatus::Online
         };
+
         agent.capacity = capacity;
         agent.last_heartbeat_at = Some(observed_at);
         agent.updated_at = TimestampMicros::now();
@@ -200,6 +211,7 @@ impl ProbeControlService {
         lease_token: &str,
     ) -> Result<ProbeTask> {
         let hash = hex::encode(Sha256::digest(lease_token.as_bytes()));
+
         self.repository
             .get_leased_task(task_id, &agent.id, &hash, TimestampMicros::now())
             .await
@@ -212,6 +224,7 @@ impl ProbeControlService {
         lease_token: &str,
     ) -> Result<ProbeTask> {
         let hash = hex::encode(Sha256::digest(lease_token.as_bytes()));
+
         self.repository
             .get_leased_task_by_token(task_id, &hash, TimestampMicros::now())
             .await
@@ -280,6 +293,7 @@ impl ProbeControlService {
 
 pub(super) fn collect_secret_references(spec: &MonitorSpec) -> Result<BTreeMap<String, Id>> {
     let mut references = BTreeMap::new();
+
     let mut add = |value: &ValueSource| -> Result<()> {
         let ValueSource::Secret {
             reference,
@@ -288,6 +302,7 @@ pub(super) fn collect_secret_references(spec: &MonitorSpec) -> Result<BTreeMap<S
         else {
             return Ok(());
         };
+
         if let Some(existing) = references.get(reference)
             && existing != secret_id
         {
@@ -295,16 +310,20 @@ pub(super) fn collect_secret_references(spec: &MonitorSpec) -> Result<BTreeMap<S
                 "secret reference `{reference}` points to more than one Secret"
             )));
         }
+
         references.insert(reference.clone(), secret_id.clone());
         Ok(())
     };
+
     match spec {
         MonitorSpec::Http(spec) => {
             for step in &spec.steps {
                 add(&step.url)?;
+
                 if let Some(body) = &step.body {
                     add(body)?;
                 }
+
                 for value in step.headers.iter().chain(&step.query) {
                     add(&value.value)?;
                 }
@@ -312,12 +331,14 @@ pub(super) fn collect_secret_references(spec: &MonitorSpec) -> Result<BTreeMap<S
         }
         MonitorSpec::Tcp(spec) => {
             add(&spec.host)?;
+
             if let Some(send) = &spec.send {
                 add(send)?;
             }
         }
         MonitorSpec::Ssh(spec) => {
             add(&spec.host)?;
+
             if let Some(authentication) = &spec.authentication {
                 match authentication {
                     SshAuthentication::Password { username, password } => {
@@ -331,12 +352,14 @@ pub(super) fn collect_secret_references(spec: &MonitorSpec) -> Result<BTreeMap<S
                     } => {
                         add(username)?;
                         add(private_key)?;
+
                         if let Some(passphrase) = passphrase {
                             add(passphrase)?;
                         }
                     }
                 }
             }
+
             if let Some(command) = &spec.command {
                 add(command)?;
             }
@@ -362,23 +385,29 @@ pub(super) fn collect_secret_references(spec: &MonitorSpec) -> Result<BTreeMap<S
         | MonitorSpec::Tls(_)
         | MonitorSpec::Heartbeat => {}
     }
+
     Ok(references)
 }
 
 fn validate_register(input: &ProbeRegisterInput) -> Result<()> {
     validate_protocol(input.protocol_version)?;
+
     if input.register_token.len() < 32 || input.register_token.len() > 256 {
         return Err(Error::unauthorized("invalid Probe register token"));
     }
+
     if input.hostname.trim().is_empty() || input.hostname.len() > 255 {
         return Err(Error::invalid("invalid Probe hostname"));
     }
+
     if input.agent_version.trim().is_empty() || input.agent_version.len() > 64 {
         return Err(Error::invalid("invalid Probe Agent version"));
     }
+
     if input.capabilities.is_empty() {
         return Err(Error::invalid("Probe Agent must advertise capabilities"));
     }
+
     Ok(())
 }
 
@@ -388,5 +417,6 @@ fn validate_protocol(version: u32) -> Result<()> {
             "unsupported Probe protocol {version}; server supports {PROBE_PROTOCOL_VERSION}"
         )));
     }
+
     Ok(())
 }

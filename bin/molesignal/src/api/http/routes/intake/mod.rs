@@ -79,9 +79,11 @@ async fn intake(
         body.len() as u64,
         TimestampMicros::now().0,
     );
+
     let value: Value =
         serde_json::from_slice(&body).map_err(|e| Error::invalid(format!("intake body: {e}")))?;
     let events = events_from_body(value)?;
+
     let batch = IntakeBatch {
         batch_id: Id::new(),
         org_id: ctx.org_id.clone(),
@@ -90,6 +92,7 @@ async fn intake(
         events,
         received_at: TimestampMicros::now(),
     };
+
     let result = state.intake.intake(batch).await?;
     Ok(Json(result))
 }
@@ -104,19 +107,24 @@ fn events_from_body(body: Value) -> Result<Vec<RawEvent>> {
             )));
         }
     };
+
     let mut out = Vec::with_capacity(arr.len());
+
     for (i, item) in arr.into_iter().enumerate() {
         let Value::Object(mut fields) = item else {
             return Err(crate::shared::Error::invalid(format!(
                 "event #{i} must be a JSON object"
             )));
         };
+
         let timestamp = fields
             .remove("_timestamp")
             .and_then(|v| v.as_i64())
             .map(TimestampMicros)
             .unwrap_or_else(TimestampMicros::now);
+
         out.push(RawEvent { timestamp, fields });
     }
+
     Ok(out)
 }

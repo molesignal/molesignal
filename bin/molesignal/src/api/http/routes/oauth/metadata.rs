@@ -50,9 +50,11 @@ async fn documentation() -> ([(&'static str, &'static str); 2], &'static str) {
 
 pub(crate) fn external_base(state: &AppState, headers: &HeaderMap) -> Result<String> {
     let configured = state.platform.external_url.trim().trim_end_matches('/');
+
     if !configured.is_empty() {
         let parsed = Url::parse(configured)
             .map_err(|error| Error::internal(format!("invalid external URL: {error}")))?;
+
         if !matches!(parsed.scheme(), "http" | "https")
             || parsed.host_str().is_none()
             || !parsed.username().is_empty()
@@ -65,25 +67,32 @@ pub(crate) fn external_base(state: &AppState, headers: &HeaderMap) -> Result<Str
                 "configured external URL is not a safe HTTP origin",
             ));
         }
+
         if parsed.scheme() != "https" && !parsed.host_str().is_some_and(is_loopback_host) {
             return Err(Error::internal(
                 "OAuth requires an HTTPS external URL except on loopback",
             ));
         }
+
         return Ok(configured.to_string());
     }
+
     let host_headers = headers.get_all(http::header::HOST);
     let mut hosts = host_headers.iter();
+
     let host = hosts
         .next()
         .and_then(|value| value.to_str().ok())
         .filter(|value| !value.is_empty())
         .ok_or_else(|| Error::forbidden("missing Host header"))?;
+
     if hosts.next().is_some() {
         return Err(Error::forbidden("multiple Host headers are not allowed"));
     }
+
     let parsed = Url::parse(&format!("http://{host}"))
         .map_err(|_| Error::forbidden("invalid Host header"))?;
+
     if !parsed.username().is_empty()
         || parsed.password().is_some()
         || parsed.path() != "/"
@@ -92,12 +101,15 @@ pub(crate) fn external_base(state: &AppState, headers: &HeaderMap) -> Result<Str
     {
         return Err(Error::forbidden("invalid Host header"));
     }
+
     let loopback = parsed.host_str().is_some_and(is_loopback_host);
+
     if !loopback {
         return Err(Error::forbidden(
             "configure http.external_url before exposing OAuth on a non-loopback host",
         ));
     }
+
     Ok(format!("http://{host}"))
 }
 
@@ -117,6 +129,7 @@ async fn protected_resource_metadata(
     headers: HeaderMap,
 ) -> Result<Json<Value>> {
     let base = external_base(&state, &headers)?;
+
     Ok(Json(json!({
         "resource": format!("{base}/api/v1/mcp"),
         "authorization_servers": [base],

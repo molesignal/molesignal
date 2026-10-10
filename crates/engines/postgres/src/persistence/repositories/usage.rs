@@ -56,6 +56,7 @@ impl UsageRepository for PgUsageRepository {
         bytes: i64,
     ) -> Result<()> {
         let bucket_start_micros = hour_bucket_start(timestamp_micros);
+
         sqlx::query(
             "INSERT INTO intake_usage_hourly (org_id, bucket_start_micros, intake_bytes)
              VALUES ($1, $2, $3)
@@ -68,6 +69,7 @@ impl UsageRepository for PgUsageRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -78,6 +80,7 @@ impl UsageRepository for PgUsageRepository {
         end_micros: i64,
     ) -> Result<Vec<IntakeUsageBucket>> {
         let first_bucket = hour_bucket_start(start_micros);
+
         let rows = sqlx::query(
             "SELECT bucket_start_micros, intake_bytes
              FROM intake_usage_hourly
@@ -92,6 +95,7 @@ impl UsageRepository for PgUsageRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter()
             .map(|row| {
                 Ok(IntakeUsageBucket {

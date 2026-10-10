@@ -32,6 +32,7 @@ pub(super) async fn spawn_read(
     arguments: Value,
 ) -> Result<CreateTaskResult, ErrorData> {
     let now = TimestampMicros::now();
+
     let task = handler
         .state
         .agent
@@ -56,14 +57,18 @@ pub(super) async fn spawn_read(
         })
         .await
         .map_err(protocol_error)?;
+
     let cancellation = CancellationToken::new();
+
     handler
         .runtime
         .task_cancellations
         .insert(task.id.0.clone(), cancellation.clone());
+
     let worker_handler = handler.clone();
     let worker_data = data.clone();
     let worker_task = task.clone();
+
     crate::shared::trace_context::spawn_with_current_trace_context(async move {
         run_task(
             worker_handler,
@@ -75,6 +80,7 @@ pub(super) async fn spawn_read(
         )
         .await;
     });
+
     Ok(CreateTaskResult::new(base_task(&task)))
 }
 
@@ -92,6 +98,7 @@ async fn run_task(
     let mut cancellation_poll =
         tokio::time::interval(std::time::Duration::from_millis(TASK_POLL_INTERVAL_MS));
     cancellation_poll.set_missed_tick_behavior(MissedTickBehavior::Skip);
+
     let result = loop {
         tokio::select! {
             result = &mut execution => break result,
@@ -119,7 +126,9 @@ async fn run_task(
             }
         }
     };
+
     task.updated_at = TimestampMicros::now();
+
     if cancellation.is_cancelled() {
         task.status = InboundMcpTaskStatus::Cancelled;
         task.status_message = Some("Task was cancelled".into());
@@ -128,6 +137,7 @@ async fn run_task(
             Ok(result) if result.is_error => {
                 task.status = InboundMcpTaskStatus::Failed;
                 task.status_message = Some("Tool call failed".into());
+
                 task.error = Some(json!({
                     "code": -32603,
                     "message": result.first_text().unwrap_or_else(|| "tool call failed".into()),
@@ -145,6 +155,7 @@ async fn run_task(
             }
         }
     }
+
     if let Err(error) = handler
         .state
         .agent
@@ -154,6 +165,7 @@ async fn run_task(
     {
         tracing::warn!(error = %error, task_id = %task.id.0, "failed to persist Inbound MCP task result");
     }
+
     handler.runtime.task_cancellations.remove(&task.id.0);
 }
 
@@ -167,12 +179,14 @@ pub(super) async fn get(
     let task = load(handler, &data, &request.task_id).await?;
     let payload_bytes = serde_json::to_vec(&(&task.input_requests, &task.result, &task.error))
         .map_err(|error| ErrorData::internal_error(error.to_string(), None))?;
+
     if payload_bytes.len() > data.settings.max_response_bytes.max(1) as usize {
         return Err(ErrorData::invalid_request(
             "task payload exceeds the current response limit",
             None,
         ));
     }
+
     Ok(GetTaskResult::new(detailed_task(&task)?))
 }
 
@@ -184,17 +198,20 @@ pub(super) async fn update(
     validate_task_id(&request.task_id)?;
     let data = request_data(handler, context)?;
     let mut task = load(handler, &data, &request.task_id).await?;
+
     if task.status != InboundMcpTaskStatus::InputRequired {
         return Err(ErrorData::invalid_request(
             "task is not waiting for input",
             None,
         ));
     }
+
     let outstanding = task
         .input_requests
         .as_ref()
         .and_then(Value::as_object)
         .ok_or_else(|| ErrorData::internal_error("task input requests are invalid", None))?;
+
     if request.input_responses.is_empty()
         || request
             .input_responses
@@ -206,8 +223,10 @@ pub(super) async fn update(
             None,
         ));
     }
+
     task.input_responses = serde_json::to_value(request.input_responses).ok();
     task.updated_at = TimestampMicros::now();
+
     handler
         .state
         .agent
@@ -215,6 +234,7 @@ pub(super) async fn update(
         .update_task(task)
         .await
         .map_err(protocol_error)?;
+
     Ok(())
 }
 
@@ -226,6 +246,7 @@ pub(super) async fn cancel(
     validate_task_id(&request.task_id)?;
     let data = request_data(handler, context)?;
     let task = load(handler, &data, &request.task_id).await?;
+
     handler
         .state
         .agent
@@ -238,9 +259,11 @@ pub(super) async fn cancel(
         )
         .await
         .map_err(protocol_error)?;
+
     if let Some(cancellation) = handler.runtime.task_cancellations.get(&task.id.0) {
         cancellation.cancel();
     }
+
     Ok(())
 }
 
@@ -261,9 +284,11 @@ async fn load(
         )
         .await
         .map_err(protocol_error)?;
+
     if task.expires_at.0 <= TimestampMicros::now().0 {
         return Err(ErrorData::resource_not_found("task has expired", None));
     }
+
     Ok(task)
 }
 
@@ -299,6 +324,7 @@ fn detailed_task(task: &InboundMcpTask) -> Result<DetailedTask, ErrorData> {
             error: object_payload(task.error.clone(), "error")?,
         },
     };
+
     Ok(DetailedTask::new(base_task(task), payload))
 }
 

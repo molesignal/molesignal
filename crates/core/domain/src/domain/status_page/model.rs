@@ -415,7 +415,9 @@ impl StatusPageSnapshot {
                     .map(|event| event.ended_at.unwrap_or(event.created_at)),
             )
             .fold(page.updated_at, std::cmp::max);
+
         components.sort_by_key(|component| (component.position, component.name.clone()));
+
         let mut overall_status = components
             .iter()
             .filter(|component| {
@@ -425,6 +427,7 @@ impl StatusPageSnapshot {
             .fold(ComponentStatus::Operational, |current, component| {
                 ComponentStatus::worst(current, component.status)
             });
+
         let mut active_incidents = Vec::new();
         let mut scheduled_maintenance = Vec::new();
         let mut history = Vec::new();
@@ -433,6 +436,7 @@ impl StatusPageSnapshot {
             if incident.publication_state == StatusPagePublicationState::Draft {
                 continue;
             }
+
             if incident.status.is_terminal_for(incident.kind) {
                 history.push(incident);
             } else if incident.kind == StatusPageIncidentKind::Maintenance
@@ -442,6 +446,7 @@ impl StatusPageSnapshot {
                 scheduled_maintenance.push(incident);
             } else {
                 let impact_status = incident.impact.component_status();
+
                 if components.iter().any(|component| {
                     component.visibility == ComponentVisibility::Enabled
                         && component.lifecycle == ComponentLifecycle::Active
@@ -449,11 +454,14 @@ impl StatusPageSnapshot {
                 }) {
                     overall_status = ComponentStatus::worst(overall_status, impact_status);
                 }
+
                 active_incidents.push(incident);
             }
         }
+
         active_incidents.sort_by_key(|incident| std::cmp::Reverse(incident.started_at));
         scheduled_maintenance.sort_by_key(|incident| incident.started_at);
+
         history.sort_by_key(|incident| {
             std::cmp::Reverse(incident.ended_at.unwrap_or(incident.started_at))
         });

@@ -96,6 +96,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         ),
         _ => unreachable!("alerting catalog received unrelated kind"),
     };
+
     let permissions = if matches!(
         kind,
         BuiltinToolKind::CreateAlertRule
@@ -108,6 +109,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
     } else {
         &["alerts.read"][..]
     };
+
     let tool = ToolSpec::read(
         kind.name(),
         description,
@@ -118,6 +120,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         permissions,
         &tags,
     );
+
     match kind {
         BuiltinToolKind::CreateAlertRule | BuiltinToolKind::UpdateAlertRule => {
             tool.managed_mutation(RiskLevel::L2, false, false)
@@ -130,6 +133,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
 
 fn alert_rule_input(id_field: Option<&str>) -> serde_json::Value {
     let mut required = vec!["name", "query", "trigger", "reason", "impact"];
+
     let mut properties = json!({
         "name": {"type": "string", "minLength": 1},
         "description": {"type": "string"},
@@ -147,13 +151,16 @@ fn alert_rule_input(id_field: Option<&str>) -> serde_json::Value {
         "impact": {"type": "string", "minLength": 1, "maxLength": 2000},
         "expires_at_micros": {"type": "integer"}
     });
+
     if let Some(field) = id_field {
         required.insert(0, field);
+
         properties
             .as_object_mut()
             .expect("alert rule properties")
             .insert(field.into(), json!({"type": "string", "minLength": 1}));
     }
+
     json!({
         "type": "object",
         "required": required,

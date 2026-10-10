@@ -87,6 +87,7 @@ impl WorkspacePreferenceDefaultsRepository for PgWorkspacePreferenceDefaultsRepo
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(preferences)
     }
 }

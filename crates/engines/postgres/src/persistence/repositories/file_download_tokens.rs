@@ -44,6 +44,7 @@ impl PgFileDownloadTokenRepository {
 
 fn row_to(r: sqlx::postgres::PgRow) -> FileDownloadToken {
     let keys: Json<Vec<String>> = r.try_get("object_keys_json").unwrap_or(Json(Vec::new()));
+
     FileDownloadToken {
         token: r.try_get::<String, _>("token").unwrap_or_default(),
         org_id: Id(r.try_get::<String, _>("org_id").unwrap_or_default()),
@@ -71,6 +72,7 @@ impl FileDownloadTokenRepository for PgFileDownloadTokenRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(t)
     }
 
@@ -83,6 +85,7 @@ impl FileDownloadTokenRepository for PgFileDownloadTokenRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(row.map(row_to))
     }
 
@@ -92,6 +95,7 @@ impl FileDownloadTokenRepository for PgFileDownloadTokenRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(res.rows_affected())
     }
 }
@@ -102,6 +106,7 @@ pub fn generate_token() -> String {
     const ALPHA: &[u8] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
     let mut buf = [0u8; 32];
     rand::rngs::SysRng.try_fill_bytes(&mut buf).expect("rng");
+
     buf.iter()
         .map(|b| ALPHA[(*b as usize) % ALPHA.len()] as char)
         .collect()

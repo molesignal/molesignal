@@ -71,14 +71,17 @@ async fn topology(
 ) -> Result<Json<TopologyResponse>, Error> {
     let from = parse_ts(&q.from)?;
     let to = parse_ts(&q.to)?;
+
     if to < from {
         return Err(Error::invalid("`to` must be >= `from`"));
     }
+
     let snapshots = state
         .telemetry
         .service_graph
         .query(&ctx.org_id, from, to, None)
         .await?;
+
     let resp = aggregate(&snapshots, (to - from).max(1));
     Ok(Json(resp))
 }
@@ -107,6 +110,7 @@ fn aggregate(snapshots: &[EdgeSnapshot], window_micros: i64) -> TopologyResponse
         let e = edges.entry(key).or_default();
         e.request_count += s.request_count;
         e.error_count += s.error_count;
+
         if let Some(p95) = s.p95_us {
             e.p95_us_max = e.p95_us_max.max(p95);
         }
@@ -114,6 +118,7 @@ fn aggregate(snapshots: &[EdgeSnapshot], window_micros: i64) -> TopologyResponse
         let n_client = nodes.entry(s.client_service.clone()).or_default();
         n_client.request_count += s.request_count;
         n_client.error_count += s.error_count;
+
         if let Some(p95) = s.p95_us {
             n_client.p95_us_max = n_client.p95_us_max.max(p95);
         }
@@ -121,6 +126,7 @@ fn aggregate(snapshots: &[EdgeSnapshot], window_micros: i64) -> TopologyResponse
         let n_server = nodes.entry(s.server_service.clone()).or_default();
         n_server.request_count += s.request_count;
         n_server.error_count += s.error_count;
+
         if let Some(p95) = s.p95_us {
             n_server.p95_us_max = n_server.p95_us_max.max(p95);
         }
@@ -141,6 +147,7 @@ fn aggregate(snapshots: &[EdgeSnapshot], window_micros: i64) -> TopologyResponse
             span_count: acc.request_count as i64,
         })
         .collect();
+
     node_out.sort_by(|a, b| a.name.cmp(&b.name));
 
     let mut edge_out: Vec<TopologyEdge> = edges
@@ -157,6 +164,7 @@ fn aggregate(snapshots: &[EdgeSnapshot], window_micros: i64) -> TopologyResponse
             p95_ms: (acc.p95_us_max as f64) / 1_000.0,
         })
         .collect();
+
     edge_out.sort_by(|a, b| a.source.cmp(&b.source).then(a.target.cmp(&b.target)));
 
     TopologyResponse {

@@ -68,6 +68,7 @@ impl SsoSessionRepository for PgSsoSessionRepository {
         .execute(&self.pool)
         .await
         .map_err(super::super::persistence::sqlx_err)?;
+
         Ok(())
     }
 
@@ -82,6 +83,7 @@ impl SsoSessionRepository for PgSsoSessionRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(super::super::persistence::sqlx_err)?;
+
         Ok(row.map(row_to_sess))
     }
 
@@ -94,6 +96,7 @@ impl SsoSessionRepository for PgSsoSessionRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(super::super::persistence::sqlx_err)?;
+
         Ok(rows.into_iter().map(row_to_sess).collect())
     }
 }

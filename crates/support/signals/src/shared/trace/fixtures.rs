@@ -20,26 +20,32 @@ fn base(trace: u8, span: u8, name: &str, duration_ns: u64) -> CanonicalSpan {
         1_000_000_000,
         1_000_000_000 + duration_ns,
     );
+
     value
         .resource
         .attributes
         .insert("service.namespace".into(), json!("molesignal"));
+
     value
         .resource
         .attributes
         .insert("service.name".into(), json!("molesignal-router"));
+
     value
 }
 
 pub fn canonical_http_trace() -> Vec<CanonicalSpan> {
     let mut server = base(1, 1, "GET /api/v1/query", 20_000_000);
     server.kind = 2;
+
     server
         .attributes
         .insert("http.request.method".into(), json!("GET"));
+
     server
         .attributes
         .insert("http.route".into(), json!("/api/v1/query"));
+
     server
         .attributes
         .insert("http.response.status_code".into(), json!(200));
@@ -71,10 +77,12 @@ pub fn canonical_sql_trace() -> Vec<CanonicalSpan> {
         .insert("db.operation.name".into(), json!("SELECT"));
     span.attributes
         .insert("db.collection.name".into(), json!("streams"));
+
     span.attributes.insert(
         "molesignal.db.query.fingerprint".into(),
         json!("select_stream_by_id"),
     );
+
     vec![span]
 }
 
@@ -93,6 +101,7 @@ pub fn canonical_object_store_trace() -> Vec<CanonicalSpan> {
 pub fn canonical_async_link_trace() -> Vec<CanonicalSpan> {
     let producer = base(5, 1, "pipeline.enqueue", 1_000_000);
     let mut consumer = base(6, 1, "pipeline.execute", 4_000_000);
+
     consumer.links.push(CanonicalLink {
         trace_id: producer.trace_id.clone(),
         span_id: producer.span_id.clone(),
@@ -101,12 +110,14 @@ pub fn canonical_async_link_trace() -> Vec<CanonicalSpan> {
         attributes: Default::default(),
         dropped_attributes_count: 0,
     });
+
     vec![producer, consumer]
 }
 
 pub fn canonical_streaming_trace() -> Vec<CanonicalSpan> {
     let handshake = base(7, 1, "GET /api/v1/stream", 2_000_000);
     let mut segment = base(8, 1, "stream.session", 30_000_000_000);
+
     segment.links.push(CanonicalLink {
         trace_id: handshake.trace_id.clone(),
         span_id: handshake.span_id.clone(),
@@ -115,6 +126,7 @@ pub fn canonical_streaming_trace() -> Vec<CanonicalSpan> {
         attributes: Default::default(),
         dropped_attributes_count: 0,
     });
+
     segment.events.push(CanonicalEvent {
         time_unix_nano: segment.start_time_unix_nano + 1_000,
         name: "stream.checkpoint".into(),
@@ -123,6 +135,7 @@ pub fn canonical_streaming_trace() -> Vec<CanonicalSpan> {
             .collect(),
         dropped_attributes_count: 0,
     });
+
     vec![handshake, segment]
 }
 
@@ -149,6 +162,7 @@ pub fn canonical_high_fanout_trace(span_count: usize) -> Vec<CanonicalSpan> {
     let root = base(12, 1, "query.execute", 10_000_000_000);
     let root_id = root.span_id.clone();
     let mut spans = vec![root];
+
     for index in 1..count {
         let mut child = base(
             12,
@@ -156,15 +170,18 @@ pub fn canonical_high_fanout_trace(span_count: usize) -> Vec<CanonicalSpan> {
             "query.shard",
             1_000_000 + index as u64,
         );
+
         child.span_id = format!("{:016x}", index + 1);
         child.parent_span_id = Some(root_id.clone());
         spans.push(child);
     }
+
     if spans.len() > 1_000 {
         for span in &mut spans {
             span.mark_partial(PartialReason::SpanLimit);
         }
     }
+
     spans
 }
 

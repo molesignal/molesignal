@@ -206,6 +206,7 @@ fn chat_row(r: sqlx::postgres::PgRow) -> Chat {
 fn message_row(r: sqlx::postgres::PgRow) -> ChatMessage {
     let tools: Option<Json<Value>> = r.try_get("tool_calls_json").ok();
     let evidence: Option<Json<Value>> = r.try_get("evidence_json").ok();
+
     ChatMessage {
         id: Id(r.try_get::<String, _>("id").unwrap_or_default()),
         chat_id: Id(r.try_get::<String, _>("chat_id").unwrap_or_default()),
@@ -267,6 +268,7 @@ impl ChatRepository for PgChatRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(s)
     }
 
@@ -280,6 +282,7 @@ impl ChatRepository for PgChatRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(chat_row(row))
     }
 
@@ -292,6 +295,7 @@ impl ChatRepository for PgChatRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(chat_row(row))
     }
 
@@ -306,6 +310,7 @@ impl ChatRepository for PgChatRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(rows.into_iter().map(chat_row).collect())
     }
 
@@ -316,6 +321,7 @@ impl ChatRepository for PgChatRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -331,6 +337,7 @@ impl ChatRepository for PgChatRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -341,6 +348,7 @@ impl ChatRepository for PgChatRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -365,6 +373,7 @@ impl ChatRepository for PgChatRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -391,6 +400,7 @@ impl ChatRepository for PgChatRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -421,6 +431,7 @@ impl ChatRepository for PgChatRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(m)
     }
 
@@ -434,6 +445,7 @@ impl ChatRepository for PgChatRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(rows.into_iter().map(message_row).collect())
     }
 }

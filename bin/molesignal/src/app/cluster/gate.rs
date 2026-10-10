@@ -60,9 +60,11 @@ impl RunGate for ShardedRunGate {
         if !self.ownership.owns(key).await {
             return Ok(None);
         }
+
         let now = TimestampMicros::now();
         let lease_micros = i64::try_from(self.lease.as_micros()).unwrap_or(i64::MAX);
         let until = TimestampMicros(now.0.saturating_add(lease_micros));
+
         if self
             .claims
             .try_claim(kind, key, &self.holder, now, until)
@@ -84,6 +86,7 @@ impl RunGate for ShardedRunGate {
 /// 记一次「另一个节点已经在这个周期里跑过它」而被跳过的工作单元。
 pub fn record_overlap_skipped(work: &str) {
     static METRIC: OnceLock<IntCounterVec> = OnceLock::new();
+
     METRIC
         .get_or_init(|| {
             register_int_counter_vec(

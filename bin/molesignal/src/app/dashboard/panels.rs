@@ -21,9 +21,11 @@ impl DashboardService {
     ) -> Result<Dashboard> {
         ensure_version(&dashboard, expected_version)?;
         let panel_id = panel_id(&panel)?.to_string();
+
         if find_element(&dashboard.model, &panel_id).is_some() {
             return Err(Error::conflict("dashboard element id already exists"));
         }
+
         let elements = container_elements_mut(&mut dashboard.model, container_id)?;
         let position = position.unwrap_or(elements.len()).min(elements.len());
         elements.insert(position, panel);
@@ -41,12 +43,15 @@ impl DashboardService {
         expected_version: Option<u32>,
     ) -> Result<Dashboard> {
         ensure_version(&dashboard, expected_version)?;
+
         if panel_id(&panel)? != panel_id_from_path {
             return Err(Error::invalid("panel body id must match the path panel id"));
         }
+
         if !replace_panel(&mut dashboard.model, panel_id_from_path, panel) {
             return Err(Error::not_found("dashboard panel not found"));
         }
+
         let folder_id = dashboard.folder_id.clone();
         let model = dashboard.model.clone();
         self.update_model(dashboard, folder_id, actor, model).await
@@ -60,9 +65,11 @@ impl DashboardService {
         expected_version: Option<u32>,
     ) -> Result<Dashboard> {
         ensure_version(&dashboard, expected_version)?;
+
         if remove_panel(&mut dashboard.model, panel_id).is_none() {
             return Err(Error::not_found("dashboard panel not found"));
         }
+
         let folder_id = dashboard.folder_id.clone();
         let model = dashboard.model.clone();
         self.update_model(dashboard, folder_id, actor, model).await
@@ -103,9 +110,11 @@ fn panel_id(panel: &Value) -> Result<&str> {
     let object = panel
         .as_object()
         .ok_or_else(|| Error::invalid("panel must be an object"))?;
+
     if object.get("kind").and_then(Value::as_str) != Some("panel") {
         return Err(Error::invalid("dashboard panel kind must be `panel`"));
     }
+
     object
         .get("id")
         .and_then(Value::as_str)
@@ -133,6 +142,7 @@ fn container_elements_mut<'a>(
                 .and_then(Value::as_array)
                 .and_then(|elements| container_pointer(elements, id, "/elements"))
                 .ok_or_else(|| Error::not_found("dashboard panel container not found"))?;
+
             model
                 .pointer_mut(&pointer)
                 .and_then(Value::as_array_mut)
@@ -144,6 +154,7 @@ fn container_elements_mut<'a>(
 fn container_pointer(elements: &[Value], id: &str, prefix: &str) -> Option<String> {
     for (element_index, element) in elements.iter().enumerate() {
         let element_prefix = format!("{prefix}/{element_index}");
+
         if element.get("id").and_then(Value::as_str) == Some(id)
             && matches!(
                 element.get("kind").and_then(Value::as_str),
@@ -152,18 +163,22 @@ fn container_pointer(elements: &[Value], id: &str, prefix: &str) -> Option<Strin
         {
             return Some(format!("{element_prefix}/elements"));
         }
+
         if let Some(children) = element.get("elements").and_then(Value::as_array)
             && let Some(found) =
                 container_pointer(children, id, &format!("{element_prefix}/elements"))
         {
             return Some(found);
         }
+
         if let Some(tabs) = element.get("tabs").and_then(Value::as_array) {
             for (tab_index, tab) in tabs.iter().enumerate() {
                 let tab_prefix = format!("{element_prefix}/tabs/{tab_index}");
+
                 if tab.get("id").and_then(Value::as_str) == Some(id) {
                     return Some(format!("{tab_prefix}/elements"));
                 }
+
                 if let Some(children) = tab.get("elements").and_then(Value::as_array)
                     && let Some(found) =
                         container_pointer(children, id, &format!("{tab_prefix}/elements"))
@@ -173,6 +188,7 @@ fn container_pointer(elements: &[Value], id: &str, prefix: &str) -> Option<Strin
             }
         }
     }
+
     None
 }
 
@@ -185,6 +201,7 @@ fn find_in_elements<'a>(elements: &'a [Value], id: &str) -> Option<&'a Value> {
         if element.get("id").and_then(Value::as_str) == Some(id) {
             return Some(element);
         }
+
         if let Some(found) = element
             .get("elements")
             .and_then(Value::as_array)
@@ -192,11 +209,13 @@ fn find_in_elements<'a>(elements: &'a [Value], id: &str) -> Option<&'a Value> {
         {
             return Some(found);
         }
+
         if let Some(tabs) = element.get("tabs").and_then(Value::as_array) {
             for tab in tabs {
                 if tab.get("id").and_then(Value::as_str) == Some(id) {
                     return Some(tab);
                 }
+
                 if let Some(found) = tab
                     .get("elements")
                     .and_then(Value::as_array)
@@ -207,6 +226,7 @@ fn find_in_elements<'a>(elements: &'a [Value], id: &str) -> Option<&'a Value> {
             }
         }
     }
+
     None
 }
 
@@ -222,11 +242,13 @@ fn replace_in_elements(elements: &mut [Value], id: &str, replacement: Value) -> 
             *element = replacement;
             return true;
         }
+
         if let Some(children) = element.get_mut("elements").and_then(Value::as_array_mut)
             && replace_in_elements(children, id, replacement.clone())
         {
             return true;
         }
+
         if let Some(tabs) = element.get_mut("tabs").and_then(Value::as_array_mut) {
             for tab in tabs {
                 if let Some(children) = tab.get_mut("elements").and_then(Value::as_array_mut)
@@ -237,6 +259,7 @@ fn replace_in_elements(elements: &mut [Value], id: &str, replacement: Value) -> 
             }
         }
     }
+
     false
 }
 
@@ -251,12 +274,14 @@ fn remove_from_elements(elements: &mut Vec<Value>, id: &str) -> Option<Value> {
     }) {
         return Some(elements.remove(index));
     }
+
     for element in elements {
         if let Some(children) = element.get_mut("elements").and_then(Value::as_array_mut)
             && let Some(panel) = remove_from_elements(children, id)
         {
             return Some(panel);
         }
+
         if let Some(tabs) = element.get_mut("tabs").and_then(Value::as_array_mut) {
             for tab in tabs {
                 if let Some(children) = tab.get_mut("elements").and_then(Value::as_array_mut)
@@ -267,5 +292,6 @@ fn remove_from_elements(elements: &mut Vec<Value>, id: &str) -> Option<Value> {
             }
         }
     }
+
     None
 }

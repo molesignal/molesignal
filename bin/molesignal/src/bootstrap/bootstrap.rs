@@ -60,19 +60,23 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
     let storage_runtime =
         StorageRuntime::build(settings, &core, agent_model_providers.clone()).await?;
     let query_runtime = QueryRuntime::build(settings, &core, &storage_runtime).await;
+
     let dashboard_contract_registry = Arc::new(DashboardContractRegistryService::new(
         core.dashboard_contracts.clone(),
     ));
+
     dashboard_contract_registry.publish_builtins().await?;
     let dashboard_contracts: Arc<dyn DashboardContractResolver> = dashboard_contract_registry;
     let alerting_runtime =
         AlertingRuntime::build(settings, &core, &query_runtime, dashboard_contracts.clone())?;
+
     let pg_synthetic_repository = Arc::new(
         crate::infra::persistence::repositories::synthetics::PgSyntheticRepository::new(
             core.pool.clone(),
             core.cipher_root_key.clone(),
         ),
     );
+
     let embedded_probe_agent = if settings.node.roles.contains(&Role::Standalone) {
         Some(
             pg_synthetic_repository
@@ -86,8 +90,10 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
     } else {
         None
     };
+
     let synthetic_repository: Arc<dyn crate::domain::synthetics::SyntheticRepository> =
         pg_synthetic_repository;
+
     let probe_authority = Arc::new(
         crate::infra::synthetics::ProbeCertificateAuthority::load_or_create(
             &core.pool,
@@ -97,6 +103,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         )
         .await?,
     );
+
     let synthetics = Arc::new(
         crate::app::synthetics::SyntheticService::new(synthetic_repository.clone())
             .with_probe_configuration(
@@ -110,7 +117,9 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
                 ),
             )),
     );
+
     let probe_artifact_base_url = super::synthetics::artifact_base_url(settings);
+
     let probe_control = Some(Arc::new(crate::app::synthetics::ProbeControlService::new(
         synthetic_repository,
         synthetics.clone(),
@@ -118,6 +127,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         settings.probe.resolved_control_endpoint(),
         probe_artifact_base_url.clone(),
     )));
+
     let _synthetic_automation_worker = core.roles.run_alert.then(|| {
         crate::bootstrap::workers::synthetics::SyntheticAutomationWorker::new(
             synthetics.clone(),
@@ -126,6 +136,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         .with_ownership(core.alert_ownership.clone())
         .spawn()
     });
+
     let _embedded_probe_runner = embedded_probe_agent.map(|agent| {
         crate::bootstrap::workers::synthetics::EmbeddedProbeRunner::new(
             synthetics.clone(),
@@ -136,6 +147,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
     });
 
     let iam_runtime = IamRuntime::build(settings, &core).await?;
+
     let tracing_runtime = TracingRuntime::build(
         settings,
         &core,
@@ -144,9 +156,11 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         &iam_runtime,
     )
     .await?;
+
     let platform_runtime =
         PlatformRuntime::build(settings, &core, &query_runtime, &storage_runtime).await?;
     let agent_runtime = AgentRuntime::build(&core, &iam_runtime, agent_model_providers.clone());
+
     let dashboard_authoring = Arc::new(
         DashboardAuthoringService::new(
             core.dashboard_drafts.clone(),
@@ -158,7 +172,9 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         )
         .with_contract_resolver(dashboard_contracts),
     );
+
     query_runtime.spawn_federation_workers(settings, &core, &iam_runtime);
+
     let Core {
         store,
         object_reader,
@@ -185,7 +201,9 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         node_id,
         ..
     } = core;
+
     let read_store = object_reader.store();
+
     let QueryRuntime {
         query,
         local_engines,
@@ -198,6 +216,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         cluster_secrets,
         ..
     } = query_runtime;
+
     let StorageRuntime {
         probe,
         intake,
@@ -212,6 +231,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         catalog_files,
         ..
     } = storage_runtime;
+
     let AlertingRuntime {
         alerting,
         notify,
@@ -243,6 +263,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         sso_sessions,
         sso_providers,
     } = iam_runtime;
+
     let TracingRuntime {
         policy_loaded: trace_policy_loaded,
         tail_sampler,
@@ -256,6 +277,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         apm_query,
         apm_runtime,
     } = tracing_runtime;
+
     let PlatformRuntime {
         connectors,
         scheduled_pipelines,
@@ -278,6 +300,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
 
         pipeline_runs,
     } = platform_runtime;
+
     let AgentRuntime {
         chats: agent_chats,
         agent,
@@ -290,12 +313,15 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         incident_rca,
         slow_queries,
     } = agent_runtime;
+
     let stream_repository: Arc<dyn StreamRepository> = streams.clone();
+
     let search_job_service = Arc::new(crate::app::query::jobs::SearchJobService::new(
         search_jobs.clone(),
         store.clone(),
         query.clone(),
     ));
+
     let tools = Arc::new(ToolRuntime::new(ToolRuntimeDependencies {
         observability: ObservabilityToolDependencies {
             query: query.clone(),

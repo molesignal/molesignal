@@ -24,6 +24,7 @@ fn seal(
             "Synthetic Secret material must contain 1 to 65536 bytes",
         ));
     }
+
     repository
         .cipher
         .seal(&material.0)
@@ -42,8 +43,10 @@ impl SyntheticSecretRepository for PgSyntheticRepository {
                 "new Synthetic Secrets must start at version 1",
             ));
         }
+
         let (nonce, ciphertext) = seal(self, &material)?;
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
+
         let sql = format!(
             "INSERT INTO synthetic_secrets
                 (id, organization_id, name, description, current_version, created_by,
@@ -51,6 +54,7 @@ impl SyntheticSecretRepository for PgSyntheticRepository {
              VALUES ($1, $2, $3, $4, 1, $5, $6, $7, NULL)
              RETURNING {SECRET_COLS}"
         );
+
         let row = sqlx::query(&sql)
             .bind(&secret.id.0)
             .bind(&secret.organization_id.0)
@@ -62,6 +66,7 @@ impl SyntheticSecretRepository for PgSyntheticRepository {
             .fetch_one(&mut *transaction)
             .await
             .map_err(super::sqlx_err)?;
+
         sqlx::query(
             "INSERT INTO synthetic_secret_versions
                 (secret_id, organization_id, version, nonce, ciphertext, created_by,
@@ -77,6 +82,7 @@ impl SyntheticSecretRepository for PgSyntheticRepository {
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
+
         let secret = row_to_secret(row)?;
         transaction.commit().await.map_err(super::sqlx_err)?;
         Ok(secret)
@@ -89,6 +95,7 @@ impl SyntheticSecretRepository for PgSyntheticRepository {
     ) -> Result<SyntheticSecret> {
         let (nonce, ciphertext) = seal(self, &material)?;
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
+
         let current: i32 = sqlx::query_scalar(
             "SELECT current_version FROM synthetic_secrets
              WHERE organization_id = $1 AND id = $2 AND archived_at_micros IS NULL
@@ -99,6 +106,7 @@ impl SyntheticSecretRepository for PgSyntheticRepository {
         .fetch_one(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
+
         if version.version != current as u32 + 1 {
             return Err(Error::conflict(format!(
                 "Synthetic Secret next version is {}, received {}",
@@ -106,6 +114,7 @@ impl SyntheticSecretRepository for PgSyntheticRepository {
                 version.version
             )));
         }
+
         sqlx::query(
             "INSERT INTO synthetic_secret_versions
                 (secret_id, organization_id, version, nonce, ciphertext, created_by,
@@ -122,12 +131,14 @@ impl SyntheticSecretRepository for PgSyntheticRepository {
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
+
         let sql = format!(
             "UPDATE synthetic_secrets
              SET current_version = $3, updated_at_micros = $4
              WHERE organization_id = $1 AND id = $2
              RETURNING {SECRET_COLS}"
         );
+
         let row = sqlx::query(&sql)
             .bind(&version.organization_id.0)
             .bind(&version.secret_id.0)
@@ -136,6 +147,7 @@ impl SyntheticSecretRepository for PgSyntheticRepository {
             .fetch_one(&mut *transaction)
             .await
             .map_err(super::sqlx_err)?;
+
         let secret = row_to_secret(row)?;
         transaction.commit().await.map_err(super::sqlx_err)?;
         Ok(secret)
@@ -164,12 +176,15 @@ impl SyntheticSecretRepository for PgSyntheticRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(super::sqlx_err)?;
+
         let nonce: Vec<u8> = row.try_get("nonce").map_err(super::sqlx_err)?;
         let ciphertext: Vec<u8> = row.try_get("ciphertext").map_err(super::sqlx_err)?;
+
         let plaintext = self
             .cipher
             .open(&nonce, &ciphertext)
             .map_err(|error| Error::internal(format!("decrypt Synthetic Secret: {error}")))?;
+
         Ok((
             SyntheticSecretVersion {
                 secret_id: secret_id.clone(),
@@ -189,12 +204,14 @@ impl SyntheticSecretRepository for PgSyntheticRepository {
             "SELECT {SECRET_COLS} FROM synthetic_secrets
              WHERE organization_id = $1 AND id = $2"
         );
+
         let row = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&secret_id.0)
             .fetch_one(&self.pool)
             .await
             .map_err(super::sqlx_err)?;
+
         row_to_secret(row)
     }
 
@@ -204,6 +221,7 @@ impl SyntheticSecretRepository for PgSyntheticRepository {
              WHERE organization_id = $1
              ORDER BY archived_at_micros NULLS FIRST, name, id"
         );
+
         sqlx::query(&sql)
             .bind(&org_id.0)
             .fetch_all(&self.pool)

@@ -63,6 +63,7 @@ impl PlatformRuntime {
     ) -> Result<Self> {
         let connectors: Arc<dyn ConnectorRepository> =
             Arc::new(PgConnectorRepository::new(core.pool.clone()));
+
         // pull 类 connector 同一时刻只能有一个节点在拉：多个 alert 节点按 connector 分担，
         // 开拉前先过运行准入。
         let _connector_runner = core.roles.run_alert.then(|| {
@@ -80,14 +81,17 @@ impl PlatformRuntime {
         let extend_kv: Arc<dyn ExtendKvRepository> =
             Arc::new(PgExtendKvRepository::new(core.pool.clone()));
         let extend_table = Arc::new(ExtendTable::new());
+
         let resource_shares: Arc<dyn ResourceShareRepository> = Arc::new(
             PgResourceShareRepository::new(core.pool.clone(), core.cipher_root_key.clone()),
         );
+
         let annotations: Arc<dyn AnnotationRepository> =
             Arc::new(PgAnnotationRepository::new(core.pool.clone()));
         let search_job_repository = Arc::new(PgSearchJobRepository::new(core.pool.clone()));
         let search_jobs: Arc<dyn SearchJobRepository> = search_job_repository.clone();
         let search_jobs_settings = &settings.search_jobs;
+
         // 搜索 job 由 querier 角色（含 standalone）的节点领取并执行；其它节点只创建与读取 job。
         let _search_jobs_handles = core.roles.run_querier.then(|| {
             let mut handles = Arc::new(
@@ -107,11 +111,13 @@ impl PlatformRuntime {
                 ),
             )
             .spawn();
+
             handles.push(
                 search_job_repository
                     .clone()
                     .spawn_notification_listener(settings.meta_database.dsn.clone()),
             );
+
             Arc::new(handles)
         });
 
@@ -126,12 +132,14 @@ impl PlatformRuntime {
             Arc::new(PgScheduledReportRepository::new(core.pool.clone()));
         let report_templates: Arc<dyn ReportTemplateRepository> =
             Arc::new(PgReportTemplateRepository::new(core.pool.clone()));
+
         let report_renderer_base_url = settings
             .scheduled_reports
             .renderer
             .base_url
             .trim_end_matches('/')
             .to_string();
+
         let report_renderer: Option<Arc<dyn ReportRenderer>> = {
             let renderer = &settings.scheduled_reports.renderer;
             tracing::info!(
@@ -140,6 +148,7 @@ impl PlatformRuntime {
                 render_timeout_secs = renderer.render_timeout_secs,
                 "scheduled-reports headless renderer configured"
             );
+
             let config = crate::report_renderer::RendererConfig {
                 concurrent_renders: renderer.concurrent_renders as usize,
                 render_timeout_secs: renderer.render_timeout_secs as u64,
@@ -148,10 +157,12 @@ impl PlatformRuntime {
                     height: renderer.viewport_height,
                 },
             };
+
             Some(Arc::new(
                 crate::report_renderer::HeadlessChromeRenderer::new(config),
             ))
         };
+
         // 定时报告的渲染需要无头 Chrome，由 alert 角色（含 standalone）的节点承担；多个 alert 节点
         // 按报告分担，开跑前先过运行准入。
         let _scheduled_reports_handle = core.roles.run_alert.then(|| {
@@ -166,6 +177,7 @@ impl PlatformRuntime {
             )
             .spawn()
         });
+
         let file_download_tokens: Arc<dyn FileDownloadTokenRepository> =
             Arc::new(PgFileDownloadTokenRepository::new(core.pool.clone()));
         let web_search: Arc<dyn WebSearchRepository> =
@@ -176,6 +188,7 @@ impl PlatformRuntime {
 
         let pipeline_runs: Arc<dyn PipelineRunRepository> =
             Arc::new(PgPipelineRunRepository::new(core.pool.clone()));
+
         let _pipeline_runner_handle = core.roles.run_alert.then(|| {
             let executor: Arc<dyn crate::infra::pipeline::PipelineExecutor> = Arc::new(
                 crate::bootstrap::workers::pipeline_exec::BootstrapPipelineExecutor::new(
@@ -185,6 +198,7 @@ impl PlatformRuntime {
                     Arc::new(crate::infra::connectors::EgressDispatcher),
                 ),
             );
+
             let runner = Arc::new(
                 crate::infra::pipeline::ScheduledPipelineRunner::with_runs(
                     scheduled_pipelines.clone(),
@@ -193,6 +207,7 @@ impl PlatformRuntime {
                 .with_executor(executor)
                 .with_gate(core.alert_run_gate.clone()),
             );
+
             crate::bootstrap::workers::pipeline_exec::spawn_runner(runner, 15)
         });
 
@@ -203,6 +218,7 @@ impl PlatformRuntime {
                 refresh_interval_secs: settings.mmdb.refresh_interval_secs,
             },
         );
+
         let _ = mmdb.ensure_ready().await;
         let _mmdb_refresh = mmdb.spawn_refresh();
 

@@ -226,10 +226,12 @@ impl ToolSpec {
 
     pub fn mole_agent_only(mut self) -> Self {
         let pinned = self.exposure.pinned;
+
         self.exposure = ToolExposure {
             pinned,
             ..ToolExposure::MOLE_AGENT_ONLY
         };
+
         self
     }
 
@@ -264,6 +266,7 @@ impl ToolSpec {
     ) -> Self {
         self.risk = risk;
         self.access = ToolAccess::ManagedMutation;
+
         self.annotations = ToolAnnotations {
             read_only: false,
             destructive,
@@ -272,6 +275,7 @@ impl ToolSpec {
             supports_dry_run: true,
             streaming: false,
         };
+
         self
     }
 

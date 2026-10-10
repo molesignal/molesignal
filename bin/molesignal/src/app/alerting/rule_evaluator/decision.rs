@@ -67,6 +67,7 @@ impl RuleEvaluator {
                 .await
                 .map(Some);
         }
+
         let (matched, deviation_ratio) = match rule.kind {
             AlertRuleKind::Anomaly => {
                 let Some(decision) = self
@@ -75,6 +76,7 @@ impl RuleEvaluator {
                 else {
                     return Ok(None);
                 };
+
                 (decision.firing, Some(decision.deviation_ratio()))
             }
             // 写入路径匹配器不支持的 real_time 规则按 scheduled 周期评估。
@@ -83,7 +85,9 @@ impl RuleEvaluator {
                 None,
             ),
         };
+
         let state = self.eval_state.upsert_match(&rule.id, matched, now).await?;
+
         Ok(Some(Decision {
             firing: matched && state.consecutive_matches >= rule.trigger.for_periods,
             severity: None,
@@ -113,18 +117,23 @@ impl RuleEvaluator {
                     last_matched: false,
                     severity_streaks: BTreeMap::new(),
                 });
+
         let value = first_cell_f64(query_result).filter(|v| !v.is_nan());
         let mut matched_any = false;
         let mut fired: Option<Severity> = None;
+
         for tier in &rule.thresholds {
             let key = tier.severity.as_str().to_string();
+
             let hit = value
                 .map(|v| compare_value(v, &tier.operator, tier.threshold))
                 .unwrap_or(false);
+
             if hit {
                 matched_any = true;
                 let c = state.severity_streaks.entry(key).or_insert(0);
                 *c += 1;
+
                 if *c >= tier.for_periods {
                     fired = Some(fired.map_or(tier.severity, |f| f.max(tier.severity)));
                 }
@@ -132,15 +141,19 @@ impl RuleEvaluator {
                 state.severity_streaks.insert(key, 0);
             }
         }
+
         state.last_matched = matched_any;
         state.last_eval_at = now;
+
         state.consecutive_matches = if matched_any {
             state.consecutive_matches.saturating_add(1)
         } else {
             0
         };
+
         let consecutive = state.consecutive_matches;
         self.eval_state.upsert_state(state).await?;
+
         Ok(Decision {
             firing: fired.is_some(),
             severity: fired,
@@ -176,6 +189,7 @@ impl RuleEvaluator {
             );
             return None;
         };
+
         let current = first_cell_f64(current_result)?;
         // evaluator 不信任持久化里的 lookback_days（route 收口前写入 / 旁路写入都可能越界）。
         let lookback = params.lookback_days.clamp(1, MAX_ANOMALY_LOOKBACK_DAYS) as i64;
@@ -184,15 +198,18 @@ impl RuleEvaluator {
         // 周季节性 opt-in：仅保留与当前「同星期几」的同时刻历史点（d 为 7 的倍数），
         // 消解工作日/周末模式差异。默认逐日（step=1，`d % 1 == 0` 恒真，行为不变）。
         let step_days = if params.weekly_seasonality { 7 } else { 1 };
+
         // 按时间升序（最早 → 最近）遍历，满足 AnomalyDetector::detect 的入参契约：
         // MAD 与顺序无关，但 EWMA 依赖时序。d=lookback 是最早一天，d=1 是昨天。
         for d in (1..=lookback).rev() {
             if d % step_days != 0 {
                 continue;
             }
+
             let center = now.0 - d * DAY_MICROS;
             let from = TimestampMicros(center - period_us);
             let to = TimestampMicros(center);
+
             match self.run_window(rule, stream, from, to).await {
                 // Some(q) 但无数值 = 那天确实没数据（空桶），不算失败，只是少一个样本。
                 Some(q) => {
@@ -204,6 +221,7 @@ impl RuleEvaluator {
                 None => fetch_failures += 1,
             }
         }
+
         if fetch_failures > 0 || history.is_empty() {
             tracing::warn!(
                 rule_id = %rule.id,
@@ -213,7 +231,9 @@ impl RuleEvaluator {
             );
             return None;
         }
+
         let decision = detector_for(params).detect(current, &history);
+
         if decision.firing {
             tracing::info!(
                 rule_id = %rule.id,
@@ -225,6 +245,7 @@ impl RuleEvaluator {
                 "anomaly detector fired"
             );
         }
+
         Some(decision)
     }
 }

@@ -63,13 +63,16 @@ impl LarkAppConfig {
                 "lark_app app_id and app_secret cannot be empty",
             ));
         }
+
         validate_http_url(&self.api_base_url, "lark_app api_base_url")?;
+
         if !matches!(
             self.receive_id_type.as_str(),
             "open_id" | "user_id" | "union_id" | "email" | "chat_id"
         ) {
             return Err(Error::invalid("lark_app receive_id_type is not supported"));
         }
+
         validate_timeout(self.timeout_secs, "lark_app")
     }
 }
@@ -140,6 +143,7 @@ impl ConnectorAdapter for LarkAppConnectorAdapter {
                 "lark_app target must be a user identity or chat ID",
             ));
         }
+
         Ok(())
     }
 
@@ -152,11 +156,14 @@ impl ConnectorAdapter for LarkAppConnectorAdapter {
         let config = LarkAppConfig::parse(config)?;
         config.validate()?;
         self.validate_target(target)?;
+
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(config.timeout_secs))
             .build()
             .map_err(|_| Error::internal("lark_app HTTP client could not be initialized"))?;
+
         let base = config.api_base_url.trim_end_matches('/');
+
         let token_response = http_trace::send(
             &client,
             client
@@ -169,28 +176,33 @@ impl ConnectorAdapter for LarkAppConnectorAdapter {
         )
         .await
         .map_err(|_| Error::unavailable("lark_app token request failed"))?;
+
         if !token_response.status().is_success() {
             return Err(Error::unavailable(format!(
                 "lark_app token endpoint returned HTTP {}",
                 token_response.status().as_u16()
             )));
         }
+
         let token: LarkTokenResponse = token_response
             .json()
             .await
             .map_err(|_| Error::unavailable("lark_app token response was invalid"))?;
+
         if token.code != 0 || token.tenant_access_token.is_empty() {
             return Err(Error::unavailable(format!(
                 "lark_app token request was rejected: {}",
                 safe_provider_message(&token.msg)
             )));
         }
+
         let receive_id_type = match target.target_type {
             NotifyTargetType::FixedGroup => "chat_id",
             NotifyTargetType::FixedAddress => "email",
             NotifyTargetType::DirectUser => config.receive_id_type.as_str(),
             NotifyTargetType::Webhook => unreachable!("target was validated above"),
         };
+
         let content = json!({
             "zh_cn": {
                 "title": message.title,
@@ -200,7 +212,9 @@ impl ConnectorAdapter for LarkAppConnectorAdapter {
                 }]]
             }
         });
+
         let started = Instant::now();
+
         let response = http_trace::send(
             &client,
             client
@@ -217,22 +231,26 @@ impl ConnectorAdapter for LarkAppConnectorAdapter {
         )
         .await
         .map_err(|_| Error::unavailable("lark_app message request failed"))?;
+
         if !response.status().is_success() {
             return Err(Error::unavailable(format!(
                 "lark_app message endpoint returned HTTP {}",
                 response.status().as_u16()
             )));
         }
+
         let response: LarkSendResponse = response
             .json()
             .await
             .map_err(|_| Error::unavailable("lark_app message response was invalid"))?;
+
         if response.code != 0 {
             return Err(Error::unavailable(format!(
                 "lark_app rejected the message: {}",
                 safe_provider_message(&response.msg)
             )));
         }
+
         Ok(ConnectorDeliveryResult {
             provider_message_id: response.data.and_then(|data| data.message_id),
             delivered: true,
@@ -312,6 +330,7 @@ impl ConnectorAdapter for LarkWebhookConnectorAdapter {
                 "lark_webhook target_type must be webhook or fixed_group",
             ));
         }
+
         if target.target_type == NotifyTargetType::Webhook {
             validate_http_url(&target.value, "lark_webhook target")
         } else if target.value.trim().is_empty() {
@@ -330,30 +349,37 @@ impl ConnectorAdapter for LarkWebhookConnectorAdapter {
         let config = LarkWebhookConfig::parse(config)?;
         config.validate()?;
         self.validate_target(target)?;
+
         let url = if target.target_type == NotifyTargetType::Webhook {
             target.value.trim()
         } else {
             config.webhook_url.trim()
         };
+
         let text = format!("{}\n{}", message.title, message.text)
             .trim()
             .to_string();
+
         let mut body = json!({
             "msg_type": "text",
             "content": {
                 "text": text
             }
         });
+
         if !config.secret.is_empty() {
             let timestamp = unix_seconds()?;
             body["timestamp"] = json!(timestamp.to_string());
             body["sign"] = json!(lark_signature(timestamp, &config.secret));
         }
+
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(config.timeout_secs))
             .build()
             .map_err(|_| Error::internal("lark_webhook HTTP client could not be initialized"))?;
+
         let started = Instant::now();
+
         let response = http_trace::send(
             &client,
             client.post(url).json(&body),
@@ -361,22 +387,26 @@ impl ConnectorAdapter for LarkWebhookConnectorAdapter {
         )
         .await
         .map_err(|_| Error::unavailable("lark_webhook request failed"))?;
+
         if !response.status().is_success() {
             return Err(Error::unavailable(format!(
                 "lark_webhook returned HTTP {}",
                 response.status().as_u16()
             )));
         }
+
         let response: LarkWebhookResponse = response
             .json()
             .await
             .map_err(|_| Error::unavailable("lark_webhook response was invalid"))?;
+
         if response.code.or(response.status_code).unwrap_or(0) != 0 {
             return Err(Error::unavailable(format!(
                 "lark_webhook rejected the message: {}",
                 safe_provider_message(&response.msg)
             )));
         }
+
         Ok(ConnectorDeliveryResult {
             provider_message_id: None,
             delivered: true,
@@ -399,14 +429,17 @@ fn validate_timeout(timeout_secs: u64, connector: &str) -> Result<()> {
 fn validate_http_url(value: &str, field: &str) -> Result<()> {
     let parsed = Url::parse(value.trim())
         .map_err(|_| Error::invalid(format!("{field} must be an absolute URL")))?;
+
     if !matches!(parsed.scheme(), "http" | "https") || parsed.host_str().is_none() {
         return Err(Error::invalid(format!("{field} must use http or https")));
     }
+
     Ok(())
 }
 
 fn safe_provider_message(message: &str) -> &str {
     let message = message.trim();
+
     if message.is_empty() {
         "unknown_error"
     } else {
@@ -425,6 +458,7 @@ fn unix_seconds() -> Result<i64> {
         .duration_since(UNIX_EPOCH)
         .map_err(|_| Error::internal("system time is before unix epoch"))?
         .as_secs();
+
     i64::try_from(seconds).map_err(|_| Error::internal("unix seconds overflow"))
 }
 

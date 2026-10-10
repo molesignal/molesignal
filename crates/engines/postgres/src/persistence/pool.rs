@@ -63,10 +63,12 @@ impl MetaStore {
         let opts = PgConnectOptions::from_str(&cfg.dsn)
             .map_err(|e| Error::invalid(format!("meta_database.dsn parse: {e}")))?;
         let opts = opts.log_statements(tracing::log::LevelFilter::Off);
+
         let pool = pool_options(cfg)
             .connect_with(opts)
             .await
             .map_err(|e| Error::internal(format!("meta_store connect: {e}")))?;
+
         observe_meta_pool(&pool);
         Ok(Self { pool })
     }
@@ -90,8 +92,10 @@ fn observe_meta_pool(pool: &PgPool) {
     *observed_meta_pool()
         .write()
         .expect("meta pool metrics lock poisoned") = Some(pool.clone());
+
     META_POOL_COLLECTOR_REGISTERED.get_or_init(|| {
         let collector = MetaPoolCollector::new();
+
         match global_registry().register(Box::new(collector)) {
             Ok(()) | Err(prometheus::Error::AlreadyReg) => {}
             Err(error) => panic!("register meta pool metrics: {error}"),
@@ -128,10 +132,12 @@ impl Collector for MetaPoolCollector {
             .read()
             .expect("meta pool metrics lock poisoned")
             .clone();
+
         if let Some(pool) = pool {
             let total = i64::from(pool.size());
             let idle = pool.num_idle() as i64;
             let checked_out = total.saturating_sub(idle);
+
             let values = [
                 ("total", total),
                 ("idle", idle),
@@ -139,12 +145,14 @@ impl Collector for MetaPoolCollector {
                 ("min", i64::from(pool.options().get_min_connections())),
                 ("max", i64::from(pool.options().get_max_connections())),
             ];
+
             for (state, value) in values {
                 self.connections
                     .with_label_values(&["meta", state])
                     .set(value);
             }
         }
+
         self.connections.collect()
     }
 }
@@ -176,6 +184,7 @@ fn embedded_migrator() -> Migrator {
         ]),
         ..Migrator::DEFAULT
     };
+
     migrator.dangerous_set_table_name(MIGRATION_TABLE_NAME);
     migrator
 }

@@ -52,11 +52,13 @@ pub fn is_realtime(config: &Value) -> bool {
 
 pub fn public_stream(name: &str) -> Result<()> {
     validate_stream_name(name)?;
+
     if is_reserved_system_stream(name) {
         return Err(Error::invalid(
             "pipeline cannot target the protected system stream",
         ));
     }
+
     Ok(())
 }
 
@@ -66,8 +68,10 @@ pub fn validate_config(config: &Value, source: &str, target: &str) -> Result<Opt
         Some("realtime") => (),
         _ => return Err(Error::invalid("unknown pipeline execution mode")),
     }
+
     public_stream(source)?;
     public_stream(target)?;
+
     if config
         .get("signal_type")
         .and_then(Value::as_str)
@@ -76,11 +80,13 @@ pub fn validate_config(config: &Value, source: &str, target: &str) -> Result<Opt
     {
         return Err(Error::invalid("realtime pipelines currently support logs"));
     }
+
     for (key, expected) in [("sources", source), ("sinks", target)] {
         if let Some(value) = config.get(key) {
             let values = value
                 .as_array()
                 .ok_or_else(|| Error::invalid("pipeline streams must be arrays"))?;
+
             if values.len() != 1 || values[0].as_str() != Some(expected) {
                 return Err(Error::invalid(
                     "realtime pipelines require one source and one output node",
@@ -88,12 +94,14 @@ pub fn validate_config(config: &Value, source: &str, target: &str) -> Result<Opt
             }
         }
     }
+
     if config
         .get("sink_connectors")
         .is_some_and(|v| v.as_array().is_none_or(|a| !a.is_empty()))
     {
         return Err(Error::invalid("realtime output must be a data stream"));
     }
+
     let mut routing: Routing = serde_json::from_value(
         config
             .get("routing")
@@ -101,12 +109,15 @@ pub fn validate_config(config: &Value, source: &str, target: &str) -> Result<Opt
             .unwrap_or_else(|| serde_json::json!({})),
     )
     .map_err(|_| Error::invalid("invalid realtime routing configuration"))?;
+
     routing.validate()?;
+
     if let Some(retain_source) = config.get("retain_source") {
         routing.retain_source = retain_source
             .as_bool()
             .ok_or_else(|| Error::invalid("retain_source must be a boolean"))?;
     }
+
     super::processing::parse_processing_steps(config)?;
     Ok(Some(routing))
 }
@@ -117,7 +128,9 @@ impl Routing {
             if self.field.trim().is_empty() || self.field.len() > 255 {
                 return Err(Error::invalid("routing field is required"));
             }
+
             public_stream(&self.fallback)?;
+
             if self.prefix.len() > 254
                 || !self
                     .prefix
@@ -127,6 +140,7 @@ impl Routing {
                 return Err(Error::invalid("invalid stream prefix"));
             }
         }
+
         Ok(())
     }
 
@@ -135,15 +149,19 @@ impl Routing {
         if self.kind == OutputKind::Fixed {
             return fixed.to_owned();
         }
+
         let value = event
             .get(&self.field)
             .or_else(|| self.field.split('.').try_fold(event, |v, key| v.get(key)));
+
         if let Some(value) = value.and_then(Value::as_str).filter(|v| !v.is_empty()) {
             let stream = format!("{}{value}", self.prefix);
+
             if public_stream(&stream).is_ok() {
                 return stream;
             }
         }
+
         self.fallback.clone()
     }
 }

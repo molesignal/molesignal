@@ -24,6 +24,7 @@ pub fn evict_old_segments(
                 if is_protected(oldest) {
                     break;
                 }
+
                 let old_path =
                     wal_dir.join(format!("{WAL_SEGMENT_PREFIX}{oldest:06}{WAL_SEGMENT_EXT}"));
                 let _ = std::fs::remove_file(old_path);
@@ -43,9 +44,11 @@ pub fn evict_old_segments(
                     std::fs::metadata(p).map(|m| m.len()).unwrap_or(0)
                 })
                 .sum();
+
             if total <= limit {
                 break;
             }
+
             if segments.len() <= 1 {
                 if protected_idx.is_some() {
                     anyhow::bail!(
@@ -54,16 +57,21 @@ pub fn evict_old_segments(
                         limit
                     );
                 }
+
                 break;
             }
+
             let oldest = segments.remove(0);
+
             if is_protected(oldest) {
                 anyhow::bail!("WAL watermark exceeded on active segment");
             }
+
             let old_path =
                 wal_dir.join(format!("{WAL_SEGMENT_PREFIX}{oldest:06}{WAL_SEGMENT_EXT}"));
             let _ = std::fs::remove_file(old_path);
         }
     }
+
     Ok(())
 }

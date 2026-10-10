@@ -93,19 +93,23 @@ impl Schedule {
         if !self.enabled {
             return None;
         }
+
         // 1. Override 优先
         for ov in &self.overrides {
             if ov.start_at.0 <= at.0 && at.0 < ov.end_at.0 {
                 return Some(ov.user_id.clone());
             }
         }
+
         // 2. 否则按 rotation；timezone 与 active_window 判定一起喂给 rotation
         let tz = parse_tz(&self.timezone);
+
         for rot in &self.rotations {
             if let Some(uid) = rot.resolve_in_tz(at, tz) {
                 return Some(uid);
             }
         }
+
         None
     }
 }
@@ -115,6 +119,7 @@ fn parse_tz(name: &str) -> chrono_tz::Tz {
     if name.is_empty() {
         return chrono_tz::UTC;
     }
+
     name.parse::<chrono_tz::Tz>().unwrap_or(chrono_tz::UTC)
 }
 
@@ -126,16 +131,20 @@ impl Rotation {
         if self.members.is_empty() {
             return None;
         }
+
         let at_dt: DateTime<Utc> = at.to_datetime();
         let start_dt: DateTime<Utc> = self.start_at.to_datetime();
+
         if at_dt < start_dt {
             return None;
         }
+
         let period = match self.kind {
             RotationKind::Daily => Duration::days(1),
             RotationKind::Weekly => Duration::weeks(1),
             RotationKind::Custom { period_secs } => Duration::seconds(period_secs as i64),
         };
+
         let elapsed = at_dt - start_dt;
         let idx = (elapsed.num_seconds() / period.num_seconds().max(1)) as usize;
         let member = &self.members[idx % self.members.len()];
@@ -145,6 +154,7 @@ impl Rotation {
         {
             return None;
         }
+
         Some(member.clone())
     }
 
@@ -159,6 +169,7 @@ impl ActiveWindow {
     pub fn contains(&self, at_utc: DateTime<Utc>, tz: chrono_tz::Tz) -> bool {
         use chrono::{Datelike, Timelike};
         let local = at_utc.with_timezone(&tz);
+
         // 约定 weekday_mask bit0=周日, bit6=周六
         let weekday_idx: u8 = match local.weekday() {
             chrono::Weekday::Sun => 0,
@@ -169,10 +180,13 @@ impl ActiveWindow {
             chrono::Weekday::Fri => 5,
             chrono::Weekday::Sat => 6,
         };
+
         if (self.weekday_mask & (1 << weekday_idx)) == 0 {
             return false;
         }
+
         let hour = local.hour() as u8;
+
         if self.hour_start <= self.hour_end {
             self.hour_start <= hour && hour < self.hour_end
         } else {

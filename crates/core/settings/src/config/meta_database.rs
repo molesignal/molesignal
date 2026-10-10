@@ -22,9 +22,11 @@ pub struct MetaDatabaseSettings {
 fn default_meta_dsn() -> String {
     "postgres://molesignal:molesignal@localhost:5432/molesignal".into()
 }
+
 fn default_meta_min_conns() -> u32 {
     2
 }
+
 fn default_meta_conns() -> u32 {
     16
 }

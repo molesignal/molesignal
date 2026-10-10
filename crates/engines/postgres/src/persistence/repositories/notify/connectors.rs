@@ -27,6 +27,7 @@ impl PgNotifyConnectorRepository {
     fn seal_config(&self, connector: &NotifyConnector) -> Result<(Vec<u8>, Vec<u8>)> {
         let plaintext = serde_json::to_vec(&connector.config)
             .map_err(|error| Error::invalid(format!("notify connector config: {error}")))?;
+
         self.cipher
             .seal(&plaintext)
             .map_err(|error| Error::internal(format!("notify connector config seal: {error}")))
@@ -37,21 +38,25 @@ impl PgNotifyConnectorRepository {
             .cipher
             .open(nonce, ciphertext)
             .map_err(|_| Error::internal("notify connector config decrypt failed"))?;
+
         serde_json::from_slice(&plaintext)
             .map_err(|_| Error::internal("notify connector config is not valid JSON"))
     }
 
     fn row_to_connector(&self, row: sqlx::postgres::PgRow) -> Result<NotifyConnector> {
         let status: String = row.try_get("status").map_err(sqlx_err)?;
+
         let test_status = row
             .try_get::<Option<String>, _>("last_test_status")
             .map_err(sqlx_err)?
             .map(|value| ConnectorTestStatus::parse(&value))
             .transpose()?;
+
         let capabilities: Json<ConnectorCapabilities> =
             row.try_get("capabilities").map_err(sqlx_err)?;
         let ciphertext: Vec<u8> = row.try_get("config_ciphertext").map_err(sqlx_err)?;
         let nonce: Vec<u8> = row.try_get("config_nonce").map_err(sqlx_err)?;
+
         Ok(NotifyConnector {
             id: Id::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?),
             organization_id: Id::from_string(
@@ -85,6 +90,7 @@ const COLS: &str = "id, organization_id, name, connector_type,
 impl NotifyConnectorRepository for PgNotifyConnectorRepository {
     async fn create(&self, connector: NotifyConnector) -> Result<NotifyConnector> {
         let (nonce, ciphertext) = self.seal_config(&connector)?;
+
         sqlx::query(
             "INSERT INTO notify_connectors (
                  id, organization_id, name, connector_type,
@@ -113,11 +119,13 @@ impl NotifyConnectorRepository for PgNotifyConnectorRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(connector)
     }
 
     async fn update(&self, connector: NotifyConnector) -> Result<NotifyConnector> {
         let (nonce, ciphertext) = self.seal_config(&connector)?;
+
         let updated = sqlx::query(
             "UPDATE notify_connectors
                 SET name = $3,
@@ -141,9 +149,11 @@ impl NotifyConnectorRepository for PgNotifyConnectorRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         if updated.rows_affected() == 0 {
             return Err(Error::not_found("notify connector"));
         }
+
         Ok(connector)
     }
 
@@ -158,6 +168,7 @@ impl NotifyConnectorRepository for PgNotifyConnectorRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         self.row_to_connector(row)
     }
 
@@ -172,6 +183,7 @@ impl NotifyConnectorRepository for PgNotifyConnectorRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter()
             .map(|row| self.row_to_connector(row))
             .collect()
@@ -189,6 +201,7 @@ impl NotifyConnectorRepository for PgNotifyConnectorRepository {
             ConnectorTestStatus::Success => ConnectorStatus::Connected,
             ConnectorTestStatus::Failed => ConnectorStatus::Error,
         };
+
         let updated = sqlx::query(
             "UPDATE notify_connectors
                 SET status = $3,
@@ -207,9 +220,11 @@ impl NotifyConnectorRepository for PgNotifyConnectorRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         if updated.rows_affected() == 0 {
             return Err(Error::not_found("notify connector"));
         }
+
         self.get(organization_id, id).await
     }
 
@@ -221,9 +236,11 @@ impl NotifyConnectorRepository for PgNotifyConnectorRepository {
                 .execute(&self.pool)
                 .await
                 .map_err(sqlx_err)?;
+
         if deleted.rows_affected() == 0 {
             return Err(Error::not_found("notify connector"));
         }
+
         Ok(())
     }
 }

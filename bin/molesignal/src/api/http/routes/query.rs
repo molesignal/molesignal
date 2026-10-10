@@ -78,6 +78,7 @@ async fn query_recommendations(
     Json(profile): Json<crate::app::recommendations::QueryProfile>,
 ) -> Result<Json<Value>> {
     let recommendations = crate::app::recommendations::analyze(&profile);
+
     Ok(Json(
         serde_json::json!({ "recommendations": recommendations }),
     ))
@@ -94,11 +95,13 @@ async fn inspect_query(
 ) -> Result<Json<Value>> {
     let started = std::time::Instant::now();
     req.org_id = ctx.org_id.clone();
+
     // 优化后逻辑计划（schema-only 规划，不执行）；规划失败时降级为提示文本而非整体失败。
     let logical_plan = match state.query.explain(req.clone()).await {
         Ok(p) => p,
         Err(e) => format!("<plan unavailable: {e}>"),
     };
+
     let stream_name = req
         .stream
         .as_ref()
@@ -162,9 +165,11 @@ fn should_auto_async(req: &QueryRequest, state: &AppState) -> bool {
     // AppState 暂未保存 QuerierSettings；通过 config 单例读取
     let cfg = crate::config::get();
     let threshold = cfg.querier.auto_async_threshold_rows;
+
     if threshold == 0 {
         return false;
     }
+
     let throughput = cfg.querier.estimate_throughput_per_sec.max(1);
     let window_secs = (req.time_range.end.0 - req.time_range.start.0).max(0) / 1_000_000;
     let estimated_rows = (window_secs as u64).saturating_mul(throughput);
@@ -212,6 +217,7 @@ async fn execute_query(
     let auto_async =
         !prefer_sync_explicit && should_auto_async(&req, &state) && !prefer_async_explicit;
     let prefer_async = prefer_async_explicit || auto_async;
+
     if prefer_async {
         let job = state
             .search_jobs
@@ -223,11 +229,13 @@ async fn execute_query(
                 None,
             )
             .await?;
+
         let body = serde_json::json!({
             "job_id": job.id.0,
             "monitor": format!("/api/v1/query/jobs/{}", job.id.0),
             "state": "pending",
         });
+
         return Response::builder()
             .status(202)
             .header(CONTENT_TYPE, "application/json")
@@ -257,10 +265,12 @@ async fn execute_query(
     let cap_stmt = req.statement.clone();
     let cap_lang = req.language;
     let cap_range_secs = (req.time_range.end.0 - req.time_range.start.0).max(0) / 1_000_000;
+
     let out = state
         .query
         .run_tracked(req, ctx.user_id.clone(), ctx.organization_role_key())
         .await?;
+
     maybe_record_slow_query(
         &state,
         &ctx.org_id,
@@ -269,6 +279,7 @@ async fn execute_query(
         cap_range_secs,
         &out,
     );
+
     Response::builder()
         .status(200)
         .header(CONTENT_TYPE, "application/json")
@@ -292,8 +303,10 @@ fn maybe_record_slow_query(
     if out.took_ms < SLOW_QUERY_CAPTURE_MS {
         return;
     }
+
     let repo = state.agent.slow_queries.clone();
     let now = TimestampMicros::now();
+
     let row = crate::domain::query::SlowQuery {
         id: Id::new(),
         org_id: org_id.clone(),
@@ -308,6 +321,7 @@ fn maybe_record_slow_query(
         first_seen: now,
         last_seen: now,
     };
+
     crate::shared::trace_context::spawn_with_current_trace_context(async move {
         if let Err(e) = repo.record(row).await {
             tracing::warn!(error = %e, "record slow query failed");
@@ -357,6 +371,7 @@ async fn update_admission(
             cluster_default_max_concurrent: req.cluster_default_max_concurrent,
             cluster_groups: req.cluster_groups,
         });
+
     let groups = state.query.admission().stats();
     Ok(Json(serde_json::json!({ "groups": groups })))
 }
@@ -372,15 +387,18 @@ async fn list_slow_queries(
         .slow_queries
         .list_recent(&ctx.org_id, 50)
         .await?;
+
     let items: Vec<Value> = rows
         .iter()
         .map(|sq| {
             let recommendations = crate::app::recommendations::analyze(
                 &crate::app::recommendations::QueryProfile::from(sq),
             );
+
             serde_json::json!({ "slow_query": sq, "recommendations": recommendations })
         })
         .collect();
+
     Ok(Json(serde_json::json!({ "items": items })))
 }
 
@@ -392,23 +410,29 @@ fn ndjson_response(out: QueryResult) -> Response {
     let columns = out.columns;
     let scanned_rows = out.scanned_rows;
     let took_ms = out.took_ms;
+
     let row_iter = out.rows.into_iter().map(move |row| {
         let mut obj = serde_json::Map::with_capacity(columns.len());
+
         for (i, col) in columns.iter().enumerate() {
             obj.insert(col.clone(), row.get(i).cloned().unwrap_or(Value::Null));
         }
+
         let mut line = serde_json::to_string(&Value::Object(obj)).unwrap_or_default();
         line.push('\n');
         Ok::<_, std::convert::Infallible>(bytes::Bytes::from(line))
     });
+
     let trailer = {
         let mut s = serde_json::to_string(&serde_json::json!({
             "__meta__": { "scanned_rows": scanned_rows, "took_ms": took_ms }
         }))
         .unwrap_or_default();
+
         s.push('\n');
         Ok::<_, std::convert::Infallible>(bytes::Bytes::from(s))
     };
+
     let body_stream = segmented_result_stream(
         stream::iter(row_iter).chain(stream::once(async move { trailer })),
         "query.http.stream",
@@ -450,6 +474,7 @@ async fn stream_query_get(
     if q.to < q.from {
         return Err(Error::invalid("`to` must be >= `from`"));
     }
+
     let req = QueryRequest {
         org_id: ctx.org_id.clone(),
         language: QueryLanguage::Sql,
@@ -462,6 +487,7 @@ async fn stream_query_get(
         limit: q.limit,
         federation_clusters: Vec::new(),
     };
+
     Ok(ndjson_response(
         state
             .query
@@ -479,6 +505,7 @@ async fn stream_query_post(
     Json(mut req): Json<QueryRequest>,
 ) -> Result<Response> {
     req.org_id = ctx.org_id.clone();
+
     Ok(ndjson_response(
         state
             .query
@@ -508,13 +535,17 @@ async fn cancel_query(
     Path(id): Path<String>,
 ) -> Result<Json<Value>> {
     let registry = state.query.registry();
+
     let owner_org = registry
         .lookup_org(&id)
         .ok_or_else(|| Error::not_found("query not found"))?;
+
     if owner_org != ctx.org_id {
         return Err(Error::not_found("query not found"));
     }
+
     registry.cancel(&id)?;
+
     // 联邦查询：除本地丢弃 future（gRPC 流断开兜底）外，向**实际参与**的远端定向 fan-out
     // 显式 CancelQuery（coordinator 记录的派发集群，不广播全网）。后台 fire-and-forget。
     if let Some(fed_id) = registry.federation_query_id(&id)
@@ -524,10 +555,12 @@ async fn cancel_query(
         let remotes = state.cluster.remote_clusters.clone();
         let org_links = state.cluster.org_link.clone();
         let secrets = state.cluster.secrets.clone();
+
         crate::shared::trace_context::spawn_with_current_trace_context(async move {
             fan_out_cancel(&fed_id, &cluster_ids, remotes, org_links, secrets).await
         });
     }
+
     Ok(Json(serde_json::json!({"cancelled": true})))
 }
 
@@ -551,6 +584,7 @@ async fn fan_out_cancel(
         let Ok(c) = remotes.get(&Id(cid.clone())).await else {
             continue;
         };
+
         let per_org: Vec<(Id, Option<String>)> = org_links
             .list(&c.id)
             .await
@@ -558,22 +592,28 @@ async fn fan_out_cancel(
             .into_iter()
             .map(|l| (l.local_org_id, l.token_secret_ref))
             .collect();
+
         let Some(token) =
             resolve_cluster_control_token(&c.token_secret_ref, &per_org, Some(secrets.as_ref()))
                 .await
         else {
             continue;
         };
+
         let Ok(channel) = grpc_channel::connect(&c.advertise_addr, c.tls_verify).await else {
             continue;
         };
+
         let mut req = tonic::Request::new(CancelQueryRequest {
             federation_query_id: fed_id.to_string(),
         });
+
         if grpc_channel::with_bearer(&mut req, &token).is_err() {
             continue;
         }
+
         let mut client = EventServiceClient::new(channel);
+
         let _ = crate::shared::grpc_trace::call(
             req,
             "cluster.v1.EventService",
@@ -621,6 +661,7 @@ async fn search_around(
         .get(&ctx.org_id, &req.stream, req.stream_type)
         .await
         .is_ok();
+
     if !stream_exists {
         let empty = QueryResult {
             columns: Vec::new(),
@@ -629,6 +670,7 @@ async fn search_around(
             took_ms: 0,
             federation: None,
         };
+
         return Ok(Json(serde_json::json!({
             "pointer": {
                 "ts": ts,
@@ -655,14 +697,17 @@ async fn search_around(
 
     // 流名按标识符转义后加引号（名称可含 `-` 与 `.`）；指针是微秒整数，显式转成时间戳比较。
     let table = crate::infra::query::escape_sql_ident(&req.stream);
+
     let before_sql = format!(
         "SELECT * FROM \"{table}\" WHERE _timestamp <= to_timestamp_micros({ts}) \
          ORDER BY _timestamp DESC LIMIT {before}"
     );
+
     let after_sql = format!(
         "SELECT * FROM \"{table}\" WHERE _timestamp > to_timestamp_micros({ts}) \
          ORDER BY _timestamp ASC LIMIT {after}"
     );
+
     let wide = TimeRange::new(
         TimestampMicros(ts.saturating_sub(24 * 3600 * 1_000_000)),
         TimestampMicros(ts.saturating_add(24 * 3600 * 1_000_000)),

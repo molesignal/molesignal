@@ -52,14 +52,18 @@ struct EnvKeyPaths {
 impl EnvKeyPaths {
     fn from_defaults(defaults: &Settings) -> anyhow::Result<Self> {
         let value = toml::Value::try_from(environment_schema(defaults))?;
+
         let mut paths = Self {
             exact: HashMap::new(),
             dynamic_tables: Vec::new(),
         };
+
         paths.collect(&value, &mut Vec::new())?;
+
         paths
             .dynamic_tables
             .sort_by_key(|(flattened, _)| Reverse(flattened.len()));
+
         Ok(paths)
     }
 
@@ -67,6 +71,7 @@ impl EnvKeyPaths {
         if !path.is_empty() {
             let flattened = path.join("_");
             let dotted = path.join(".");
+
             if let Some(existing) = self.exact.insert(flattened.clone(), dotted.clone())
                 && existing != dotted
             {
@@ -83,16 +88,19 @@ impl EnvKeyPaths {
                     self.dynamic_tables.push((path.join("_"), path.join(".")));
                     continue;
                 }
+
                 path.push(key.clone());
                 self.collect(child, path)?;
                 path.pop();
             }
         }
+
         Ok(())
     }
 
     fn resolve(&self, key: &str) -> Option<String> {
         let flattened = key.to_ascii_lowercase();
+
         if flattened.is_empty()
             || flattened.contains('.')
             || flattened.contains("__")
@@ -137,16 +145,19 @@ fn environment_schema(defaults: &Settings) -> Settings {
         .external
         .headers
         .insert(DYNAMIC_KEY_SENTINEL.into(), String::new());
+
     schema
         .search
         .admission
         .groups
         .insert(DYNAMIC_KEY_SENTINEL.into(), 0);
+
     schema
         .search
         .admission
         .role_map
         .insert(DYNAMIC_KEY_SENTINEL.into(), String::new());
+
     schema
         .search
         .admission

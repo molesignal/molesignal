@@ -50,6 +50,7 @@ pub(crate) async fn cpu_profile(
     if let Some(response) = preflight(&state, &headers, false).await {
         return response;
     }
+
     match state
         .telemetry
         .profiling_service
@@ -65,6 +66,7 @@ pub(crate) async fn heap_profile(State(state): State<AppState>, headers: HeaderM
     if let Some(response) = preflight(&state, &headers, false).await {
         return response;
     }
+
     match state.telemetry.profiling_service.capture_heap().await {
         Ok(captured) => capture_response(&state, "heap", captured),
         Err(error) => capture_error_response(error),
@@ -79,6 +81,7 @@ async fn cpu_profile_alias(
     if let Some(response) = preflight(&state, &headers, true).await {
         return response;
     }
+
     match state
         .telemetry
         .profiling_service
@@ -94,6 +97,7 @@ async fn heap_profile_alias(State(state): State<AppState>, headers: HeaderMap) -
     if let Some(response) = preflight(&state, &headers, true).await {
         return response;
     }
+
     match state.telemetry.profiling_service.capture_heap().await {
         Ok(captured) => capture_response(&state, "heap", captured),
         Err(error) => capture_error_response(error),
@@ -129,6 +133,7 @@ fn access_policy(
     if !settings.enabled {
         return ProfileAccess::Hidden;
     }
+
     // 独立 listener 由 validated loopback bind 保护；主 API 上的兼容别名可能对外，
     // 因此无论 allow_remote 配置如何都要求 Administrator。
     if compatibility_alias || settings.allow_remote {
@@ -144,18 +149,22 @@ async fn authorize_administrator(state: &AppState, headers: &HeaderMap) -> Resul
         .and_then(|value| value.to_str().ok())
         .and_then(|value| value.strip_prefix("Bearer "))
         .ok_or_else(|| Error::unauthorized("remote profiling requires an Administrator token"))?;
+
     let mut context = authenticate_bearer(
         token,
         state.iam.service.as_ref(),
         state.iam.api_tokens.clone(),
     )
     .await?;
+
     state.iam.access.enrich_context(&mut context).await?;
+
     if !context.has_permission("org.settings.manage") {
         return Err(Error::forbidden(
             "remote profiling requires org.settings.manage",
         ));
     }
+
     Ok(())
 }
 
@@ -197,6 +206,7 @@ fn profile_download_response(
     raw_pprof: &[u8],
 ) -> std::result::Result<Response, String> {
     let body = profiles::gzip_pprof(raw_pprof).map_err(|error| error.to_string())?;
+
     Ok((
         StatusCode::OK,
         [

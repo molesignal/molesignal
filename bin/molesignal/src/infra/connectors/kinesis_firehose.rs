@@ -41,21 +41,27 @@ pub struct FirehoseRecord {
 pub fn parse_firehose_request(req: FirehoseRequest) -> Result<Vec<RawEvent>> {
     use base64::Engine as _;
     let mut out = Vec::with_capacity(req.records.len());
+
     for r in req.records {
         let bytes = base64::engine::general_purpose::STANDARD
             .decode(r.data.as_bytes())
             .map_err(|e| Error::invalid(format!("firehose record b64: {e}")))?;
+
         let s = String::from_utf8_lossy(&bytes);
+
         for line in s.lines() {
             let l = line.trim();
+
             if l.is_empty() {
                 continue;
             }
+
             let v: Value = serde_json::from_str(l).unwrap_or_else(|_| {
                 let mut m = Map::new();
                 m.insert("message".to_string(), Value::String(l.to_string()));
                 Value::Object(m)
             });
+
             let map = match v {
                 Value::Object(m) => m,
                 other => {
@@ -64,12 +70,14 @@ pub fn parse_firehose_request(req: FirehoseRequest) -> Result<Vec<RawEvent>> {
                     m
                 }
             };
+
             out.push(RawEvent {
                 timestamp: TimestampMicros::now(),
                 fields: map,
             });
         }
     }
+
     Ok(out)
 }
 

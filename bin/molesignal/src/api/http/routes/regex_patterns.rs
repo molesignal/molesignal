@@ -74,12 +74,16 @@ async fn create(
     if req.name.trim().is_empty() {
         return Err(Error::invalid("name must not be empty"));
     }
+
     regex::Regex::new(&req.pattern).map_err(|e| Error::invalid(format!("invalid regex: {e}")))?;
     let existing = state.storage.regex_patterns.list(&ctx.org_id).await?;
+
     if existing.iter().any(|p| p.name == req.name) {
         return Err(Error::conflict("pattern name already exists"));
     }
+
     let now = TimestampMicros::now();
+
     let p = RegexPattern {
         id: Id::new(),
         org_id: ctx.org_id.clone(),
@@ -91,8 +95,10 @@ async fn create(
         created_at: now,
         updated_at: now,
     };
+
     let saved = state.storage.regex_patterns.create(p).await?;
     state.storage.masking.invalidate(&ctx.org_id).await;
+
     crate::api::http::federation::emit_cud(
         &state,
         &ctx.org_id,
@@ -102,6 +108,7 @@ async fn create(
         &saved,
     )
     .await;
+
     Ok(Json(saved))
 }
 
@@ -115,17 +122,21 @@ async fn update(
     if req.name.trim().is_empty() {
         return Err(Error::invalid("name must not be empty"));
     }
+
     regex::Regex::new(&req.pattern).map_err(|e| Error::invalid(format!("invalid regex: {e}")))?;
     let existing = state.storage.regex_patterns.list(&ctx.org_id).await?;
+
     // name 唯一性：排除自身。
     if existing.iter().any(|p| p.name == req.name && p.id.0 != id) {
         return Err(Error::conflict("pattern name already exists"));
     }
+
     let created_at = existing
         .iter()
         .find(|p| p.id.0 == id)
         .map(|p| p.created_at)
         .ok_or_else(|| Error::not_found("regex pattern"))?;
+
     let p = RegexPattern {
         id: Id(id),
         org_id: ctx.org_id.clone(),
@@ -137,8 +148,10 @@ async fn update(
         created_at,
         updated_at: TimestampMicros::now(),
     };
+
     let saved = state.storage.regex_patterns.update(p).await?;
     state.storage.masking.invalidate(&ctx.org_id).await;
+
     crate::api::http::federation::emit_cud(
         &state,
         &ctx.org_id,
@@ -148,6 +161,7 @@ async fn update(
         &saved,
     )
     .await;
+
     Ok(Json(saved))
 }
 
@@ -162,7 +176,9 @@ async fn delete(
         .regex_patterns
         .delete(&ctx.org_id, &Id(id.clone()))
         .await?;
+
     state.storage.masking.invalidate(&ctx.org_id).await;
+
     crate::api::http::federation::emit_cud(
         &state,
         &ctx.org_id,
@@ -172,5 +188,6 @@ async fn delete(
         &crate::api::http::federation::delete_payload(&id),
     )
     .await;
+
     Ok(Json(serde_json::json!({"deleted": true})))
 }

@@ -28,6 +28,7 @@ struct TraceMetrics {
 
 fn metrics() -> &'static TraceMetrics {
     static METRICS: OnceLock<TraceMetrics> = OnceLock::new();
+
     METRICS.get_or_init(|| TraceMetrics {
         spans: register_int_counter_vec(
             "molesignal_trace_spans_total",
@@ -128,10 +129,12 @@ pub fn record_decision(kept: bool, reason: &'static str, count: u64, latency: Du
         .decisions
         .with_label_values(&[if kept { "keep" } else { "drop" }, reason])
         .inc();
+
     metrics()
         .latency
         .with_label_values(&["decision", "sampler"])
         .observe(latency.as_secs_f64());
+
     record_spans("sampler", if kept { "kept" } else { "dropped" }, count);
 }
 
@@ -146,10 +149,12 @@ pub fn record_export(sink: &str, result: &'static str, span_count: u64, latency:
     let sink = bounded_sink(sink);
     let result = bounded_result(result);
     metrics().batches.with_label_values(&[sink, result]).inc();
+
     metrics()
         .latency
         .with_label_values(&["export", sink])
         .observe(latency.as_secs_f64());
+
     record_spans(
         if sink == "self_intake" {
             "self_intake"
@@ -165,10 +170,12 @@ pub fn record_export(sink: &str, result: &'static str, span_count: u64, latency:
 
 pub fn set_queue(queue: &'static str, depth: usize, capacity: usize) {
     let queue = bounded_queue(queue);
+
     metrics()
         .queue_depth
         .with_label_values(&[queue])
         .set(saturating_i64(depth));
+
     metrics()
         .queue_capacity
         .with_label_values(&[queue])
@@ -194,6 +201,7 @@ pub fn set_system_load(component: &'static str, healthy: bool) {
         "system_org" | "trace_policy" => component,
         _ => "unknown",
     };
+
     metrics()
         .system_load
         .with_label_values(&[component])

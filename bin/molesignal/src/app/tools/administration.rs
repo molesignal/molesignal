@@ -69,13 +69,16 @@ pub(super) async fn execute(
         BuiltinToolKind::GetUserProfile => {
             let args: UserTargetArgs = parse_args(arguments)?;
             let target_user_id = resolve_target_user(runtime, auth, args.target_user_id).await?;
+
             let user = runtime
                 .administration
                 .iam
                 .users
                 .get(&target_user_id)
                 .await?;
+
             let org = runtime.administration.iam.orgs.get(&auth.org_id).await?;
+
             let (display_role, roles) = if target_user_id == auth.user_id {
                 (auth.display_role.clone(), auth.roles.clone())
             } else {
@@ -85,13 +88,16 @@ pub(super) async fn execute(
                     .iam_memberships
                     .assigned_roles(&target_user_id, &auth.org_id)
                     .await?;
+
                 let display_role = roles
                     .iter()
                     .map(|role| role.name.as_str())
                     .collect::<Vec<_>>()
                     .join(", ");
+
                 (display_role, roles)
             };
+
             Ok(ToolResult::json(serde_json::json!({
                 "user_id": user.id,
                 "email": user.email,
@@ -109,11 +115,13 @@ pub(super) async fn execute(
         BuiltinToolKind::GetUserPreferences => {
             let args: UserTargetArgs = parse_args(arguments)?;
             let target_user_id = resolve_target_user(runtime, auth, args.target_user_id).await?;
+
             let preferences = runtime
                 .administration
                 .user_preferences
                 .get(&target_user_id)
                 .await?;
+
             Ok(ToolResult::json(serde_json::json!({
                 "user_id": target_user_id,
                 "theme": preferences.theme,
@@ -128,6 +136,7 @@ pub(super) async fn execute(
         }
         BuiltinToolKind::ListOrganizationMembers => {
             let args: LimitArgs = parse_args(arguments)?;
+
             let memberships = bounded(
                 runtime
                     .administration
@@ -138,10 +147,12 @@ pub(super) async fn execute(
                 args.limit,
                 500,
             );
+
             let user_ids = memberships
                 .iter()
                 .map(|membership| membership.user_id.clone())
                 .collect::<Vec<_>>();
+
             let mut users = runtime
                 .administration
                 .iam
@@ -151,6 +162,7 @@ pub(super) async fn execute(
                 .into_iter()
                 .map(|user| (user.id.0.clone(), user))
                 .collect::<HashMap<_, _>>();
+
             let mut roles = runtime
                 .administration
                 .iam
@@ -160,12 +172,16 @@ pub(super) async fn execute(
                 .into_iter()
                 .map(|(user_id, roles)| (user_id.0, roles))
                 .collect::<HashMap<_, _>>();
+
             let mut members = Vec::with_capacity(memberships.len());
+
             for membership in memberships {
                 let user = users.remove(&membership.user_id.0).ok_or_else(|| {
                     Error::internal("organization membership references a missing user")
                 })?;
+
                 let assigned_roles = roles.remove(&membership.user_id.0).unwrap_or_default();
+
                 members.push(serde_json::json!({
                     "user_id": user.id,
                     "email": user.email,
@@ -178,10 +194,12 @@ pub(super) async fn execute(
                     "roles": assigned_roles,
                 }));
             }
+
             Ok(ToolResult::json(serde_json::Value::Array(members)))
         }
         BuiltinToolKind::ListTeams => {
             let args: LimitArgs = parse_args(arguments)?;
+
             json_result(&bounded(
                 runtime.administration.teams.list(&auth.org_id).await?,
                 args.limit,
@@ -190,6 +208,7 @@ pub(super) async fn execute(
         }
         BuiltinToolKind::ListRoles => {
             let args: LimitArgs = parse_args(arguments)?;
+
             json_result(&bounded(
                 runtime.administration.roles.list(&auth.org_id).await?,
                 args.limit,
@@ -198,6 +217,7 @@ pub(super) async fn execute(
         }
         BuiltinToolKind::ListAuditEvents => {
             let args: AuditArgs = parse_args(arguments)?;
+
             let query = AuditQuery {
                 from_micros: args.from_micros,
                 to_micros: args.to_micros,
@@ -209,20 +229,24 @@ pub(super) async fn execute(
                 limit: i64::try_from(args.limit.unwrap_or(50).clamp(1, 200)).unwrap_or(200),
                 cursor: None,
             };
+
             let events = runtime
                 .administration
                 .audit_events
                 .query(&auth.org_id, &query)
                 .await?;
+
             let safe = serde_json::to_value(events)
                 .map(|value| redact_credentials(&value))
                 .map_err(|error| {
                     crate::shared::Error::internal(format!("serialize audit events: {error}"))
                 })?;
+
             Ok(ToolResult::json(safe))
         }
         BuiltinToolKind::GetIamCapabilities => {
             let _: EmptyArgs = parse_args(arguments)?;
+
             Ok(ToolResult::json(serde_json::json!({
                 "org_id": auth.org_id,
                 "user_id": auth.user_id,
@@ -237,6 +261,7 @@ pub(super) async fn execute(
         }
         BuiltinToolKind::ListServiceAccounts => {
             let args: LimitArgs = parse_args(arguments)?;
+
             let accounts = bounded(
                 runtime
                     .administration
@@ -246,10 +271,12 @@ pub(super) async fn execute(
                 args.limit,
                 500,
             );
+
             let role_ids = accounts
                 .iter()
                 .map(|account| account.role_id.clone())
                 .collect::<Vec<_>>();
+
             let roles = runtime
                 .administration
                 .iam_access
@@ -259,38 +286,45 @@ pub(super) async fn execute(
                 .into_iter()
                 .map(|role| (role.id.0.clone(), role))
                 .collect::<HashMap<_, _>>();
+
             let values = accounts
                 .into_iter()
                 .map(|account| {
                     let role = roles.get(&account.role_id.0).cloned().ok_or_else(|| {
                         Error::internal("service account references a missing IAM role")
                     })?;
+
                     Ok(service_account_json(account, role))
                 })
                 .collect::<Result<Vec<_>>>()?;
+
             Ok(ToolResult::json(
                 serde_json::json!({"service_accounts": values}),
             ))
         }
         BuiltinToolKind::GetServiceAccount => {
             let args: ServiceAccountArgs = parse_args(arguments)?;
+
             let account = runtime
                 .administration
                 .service_accounts
                 .get(&auth.org_id, &Id(args.service_account_id))
                 .await?;
+
             Ok(ToolResult::json(
                 resolve_service_account_json(runtime, auth, account).await?,
             ))
         }
         BuiltinToolKind::ListApiTokens => {
             let args: ApiTokenArgs = parse_args(arguments)?;
+
             let service_account_id = args
                 .service_account_id
                 .as_deref()
                 .map(str::trim)
                 .filter(|value| !value.is_empty())
                 .map(Id::from_string);
+
             let tokens = bounded(
                 runtime
                     .administration
@@ -324,6 +358,7 @@ pub(super) async fn execute(
                 })
             })
             .collect::<Vec<_>>();
+
             Ok(ToolResult::json(serde_json::json!({"api_tokens": tokens})))
         }
         _ => unreachable!("administration executor received unrelated tool"),
@@ -358,6 +393,7 @@ async fn resolve_service_account_json(
         .role_summary(&auth.org_id, &account.role_id)
         .await?
         .ok_or_else(|| Error::internal("service account references a missing IAM role"))?;
+
     Ok(service_account_json(account, role))
 }
 
@@ -367,9 +403,11 @@ async fn resolve_target_user(
     target_user_id: Option<String>,
 ) -> Result<Id> {
     let target_user_id = requested_user_id(auth, target_user_id)?;
+
     if target_user_id == auth.user_id {
         return Ok(target_user_id);
     }
+
     if !runtime
         .administration
         .iam_access
@@ -379,6 +417,7 @@ async fn resolve_target_user(
     {
         return Err(Error::not_found("organization user"));
     }
+
     Ok(target_user_id)
 }
 
@@ -389,18 +428,24 @@ fn requested_user_id(auth: &IamContext, target_user_id: Option<String>) -> Resul
                 "target_user_id is required when the authenticated principal is a service account",
             ));
         }
+
         return Ok(auth.user_id.clone());
     };
+
     let target_user_id = target_user_id.trim();
+
     if target_user_id.is_empty() {
         return Err(Error::invalid("target_user_id must not be empty"));
     }
+
     let target_user_id = Id::from_string(target_user_id);
+
     if target_user_id != auth.user_id && !auth.has_permission("org.members.read") {
         return Err(Error::forbidden(
             "org.members.read permission is required for another user's data",
         ));
     }
+
     Ok(target_user_id)
 }
 

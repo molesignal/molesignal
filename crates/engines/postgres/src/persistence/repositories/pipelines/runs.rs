@@ -98,6 +98,7 @@ const COLS: &str =
 fn row_to(r: sqlx::postgres::PgRow) -> PipelineRun {
     let state_str: String = r.try_get::<String, _>("state").unwrap_or_default();
     let state = state_from_str(&state_str);
+
     PipelineRun {
         id: Id(r.try_get::<String, _>("id").unwrap_or_default()),
         pipeline_id: Id(r.try_get::<String, _>("pipeline_id").unwrap_or_default()),
@@ -141,6 +142,7 @@ impl PipelineRunRepository for PgPipelineRunRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -165,6 +167,7 @@ impl PipelineRunRepository for PgPipelineRunRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -176,6 +179,7 @@ impl PipelineRunRepository for PgPipelineRunRepository {
         before_micros: Option<i64>,
     ) -> Result<Vec<PipelineRun>> {
         let limit = limit.clamp(1, 500);
+
         let rows = match before_micros {
             Some(before) => {
                 let sql = format!(
@@ -184,6 +188,7 @@ impl PipelineRunRepository for PgPipelineRunRepository {
                        ORDER BY started_at_micros DESC
                        LIMIT $4"
                 );
+
                 sqlx::query(&sql)
                     .bind(&org_id.0)
                     .bind(&pipeline_id.0)
@@ -200,6 +205,7 @@ impl PipelineRunRepository for PgPipelineRunRepository {
                        ORDER BY started_at_micros DESC
                        LIMIT $3"
                 );
+
                 sqlx::query(&sql)
                     .bind(&org_id.0)
                     .bind(&pipeline_id.0)
@@ -209,6 +215,7 @@ impl PipelineRunRepository for PgPipelineRunRepository {
                     .map_err(sqlx_err)?
             }
         };
+
         Ok(rows.into_iter().map(row_to).collect())
     }
 
@@ -256,6 +263,7 @@ impl PipelineRunRepository for PgPipelineRunRepository {
                 let state = row
                     .try_get::<String, _>("state")
                     .unwrap_or_else(|_| "running".to_string());
+
                 PipelineRunSummary {
                     pipeline_id: Id(row.try_get::<String, _>("pipeline_id").unwrap_or_default()),
                     last_state: state_from_str(&state),

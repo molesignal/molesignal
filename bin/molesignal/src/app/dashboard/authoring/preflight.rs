@@ -48,6 +48,7 @@ impl DashboardQueryPreflight for RuntimeDashboardQueryPreflight {
     ) -> Result<PreflightReport> {
         let mut report = PreflightReport::default();
         let now = TimestampMicros::now();
+
         let time_range = match authoring_time_range(spec, now) {
             Ok(range) => range,
             Err(issue) => {
@@ -55,10 +56,13 @@ impl DashboardQueryPreflight for RuntimeDashboardQueryPreflight {
                 return Ok(report);
             }
         };
+
         let available_streams = self.streams.list(org_id).await?;
+
         for (panel_path, panel) in authoring_panels(spec) {
             for (query_index, query) in panel.queries.iter().enumerate() {
                 let path = format!("{panel_path}/queries/{query_index}");
+
                 match self
                     .preflight_query(org_id, &available_streams, query, &path, time_range)
                     .await
@@ -74,6 +78,7 @@ impl DashboardQueryPreflight for RuntimeDashboardQueryPreflight {
                                 ),
                             });
                         }
+
                         report.panels.push(PanelPreflight {
                             path,
                             title: panel.title.clone(),
@@ -94,6 +99,7 @@ impl DashboardQueryPreflight for RuntimeDashboardQueryPreflight {
                 }
             }
         }
+
         Ok(report)
     }
 }
@@ -110,10 +116,12 @@ impl RuntimeDashboardQueryPreflight {
         let request = build_query_request(org_id, available_streams, query, path, time_range)?;
         let limits = &visualization_manifest().limits;
         let timeout = Duration::from_millis(limits.preflight_timeout_ms);
+
         let result = tokio::time::timeout(timeout, async {
             if request.language == QueryLanguage::Sql {
                 self.query.explain(request.clone()).await?;
             }
+
             self.query.run_raw(request).await
         })
         .await
@@ -128,6 +136,7 @@ impl RuntimeDashboardQueryPreflight {
             )
         })?
         .map_err(|error| query_error(path, error))?;
+
         enforce_result_budget(&result, path)?;
         Ok(result)
     }
@@ -139,6 +148,7 @@ fn enforce_result_budget(
 ) -> std::result::Result<(), ContractIssue> {
     let limits = &visualization_manifest().limits;
     let result_bytes = serde_json::to_vec(&result.rows).map_or(usize::MAX, |bytes| bytes.len());
+
     if result.rows.len() > limits.preflight_max_rows || result_bytes > limits.preflight_max_bytes {
         return Err(issue(
             "PREFLIGHT_BUDGET_EXCEEDED",
@@ -149,6 +159,7 @@ fn enforce_result_budget(
             ),
         ));
     }
+
     Ok(())
 }
 
@@ -160,12 +171,14 @@ fn build_query_request(
     time_range: TimeRange,
 ) -> std::result::Result<QueryRequest, ContractIssue> {
     let limits = &visualization_manifest().limits;
+
     let (language, statement, stream) = match query {
         AuthoringQuery::Promql {
             expression, stream, ..
         } => {
             promql_parser::parse(expression)
                 .map_err(|error| issue("INVALID_QUERY", path, error))?;
+
             let hint = match stream {
                 Some(stream) => Some(resolve_stream(
                     streams,
@@ -175,6 +188,7 @@ fn build_query_request(
                 )?),
                 None => None,
             };
+
             (QueryLanguage::Promql, expression.clone(), hint)
         }
         AuthoringQuery::Sql {
@@ -184,6 +198,7 @@ fn build_query_request(
                 prepare_flight_sql_select(statement).map_err(|error| query_error(path, error))?;
             let references =
                 extract_referenced_tables(statement).map_err(|error| query_error(path, error))?;
+
             if references.iter().any(|reference| reference.name != *stream) {
                 return Err(issue(
                     "QUERY_STREAM_SCOPE_MISMATCH",
@@ -191,6 +206,7 @@ fn build_query_request(
                     "SQL may reference only its declared stream",
                 ));
             }
+
             let hint = resolve_stream(streams, stream, None, path)?;
             (QueryLanguage::Sql, prepared.sql, Some(hint))
         }
@@ -201,6 +217,7 @@ fn build_query_request(
             ..
         } => {
             let hint = resolve_stream(streams, stream, Some(StreamType::TRACES), path)?;
+
             let statement = if query
                 .trim_start()
                 .to_ascii_lowercase()
@@ -216,6 +233,7 @@ fn build_query_request(
                     query
                 )
             };
+
             (QueryLanguage::Sql, statement, Some(hint))
         }
         AuthoringQuery::Profile {
@@ -226,6 +244,7 @@ fn build_query_request(
         } => {
             validate_read_only_filter(query, path)?;
             let hint = resolve_stream(streams, stream, Some(StreamType::PROFILES), path)?;
+
             (
                 QueryLanguage::Sql,
                 format!(
@@ -237,6 +256,7 @@ fn build_query_request(
             )
         }
     };
+
     Ok(QueryRequest {
         org_id: org_id.clone(),
         language,
@@ -260,6 +280,7 @@ fn resolve_stream(
             stream.name == name && expected_type.is_none_or(|kind| stream.stream_type == kind)
         })
         .collect::<Vec<_>>();
+
     match matches.as_slice() {
         [stream] => Ok(StreamHint {
             name: stream.name.clone(),
@@ -286,10 +307,12 @@ fn authoring_time_range(
         .time_range
         .as_ref()
         .map_or("now-6h", |range| range.from.as_str());
+
     let to = spec
         .time_range
         .as_ref()
         .map_or("now", |range| range.to.as_str());
+
     let start = parse_time(from, now).ok_or_else(|| {
         issue(
             "INVALID_TIME_RANGE",
@@ -297,6 +320,7 @@ fn authoring_time_range(
             "timeRange.from must be an RFC3339 timestamp or now-<duration>",
         )
     })?;
+
     let end = parse_time(to, now).ok_or_else(|| {
         issue(
             "INVALID_TIME_RANGE",
@@ -304,6 +328,7 @@ fn authoring_time_range(
             "timeRange.to must be an RFC3339 timestamp or now-<duration>",
         )
     })?;
+
     if start >= end {
         return Err(issue(
             "INVALID_TIME_RANGE",
@@ -311,10 +336,12 @@ fn authoring_time_range(
             "time range start must be before end",
         ));
     }
+
     let max_lookback = visualization_manifest()
         .limits
         .max_lookback_seconds
         .saturating_mul(1_000_000) as i64;
+
     if end.0.saturating_sub(start.0) > max_lookback {
         return Err(issue(
             "PREFLIGHT_LOOKBACK_EXCEEDED",
@@ -322,20 +349,25 @@ fn authoring_time_range(
             "time range exceeds the Dashboard authoring preflight lookback budget",
         ));
     }
+
     Ok(TimeRange::new(start, end))
 }
 
 fn parse_time(value: &str, now: TimestampMicros) -> Option<TimestampMicros> {
     let value = value.trim();
+
     if value == "now" {
         return Some(now);
     }
+
     if let Some(duration) = value.strip_prefix("now-") {
         let split = duration
             .find(|character: char| !character.is_ascii_digit())
             .unwrap_or(duration.len());
+
         let amount = duration[..split].parse::<i64>().ok()?;
         let unit = &duration[split..];
+
         let seconds = match unit {
             "s" => amount,
             "m" => amount.saturating_mul(60),
@@ -344,10 +376,12 @@ fn parse_time(value: &str, now: TimestampMicros) -> Option<TimestampMicros> {
             "w" => amount.saturating_mul(604_800),
             _ => return None,
         };
+
         return Some(TimestampMicros(
             now.0.saturating_sub(seconds.saturating_mul(1_000_000)),
         ));
     }
+
     DateTime::parse_from_rfc3339(value)
         .ok()
         .map(|value| TimestampMicros(value.timestamp_micros()))
@@ -355,6 +389,7 @@ fn parse_time(value: &str, now: TimestampMicros) -> Option<TimestampMicros> {
 
 fn authoring_panels(spec: &DashboardAuthoringSpec) -> Vec<(String, &PanelAuthoringSpec)> {
     let mut panels = Vec::new();
+
     for (index, element) in spec.elements.iter().enumerate() {
         match element {
             AuthoringElement::Panel(panel) => panels.push((format!("/elements/{index}"), panel)),
@@ -368,11 +403,13 @@ fn authoring_panels(spec: &DashboardAuthoringSpec) -> Vec<(String, &PanelAuthori
             AuthoringElement::Text(_) => {}
         }
     }
+
     panels
 }
 
 fn validate_read_only_filter(filter: &str, path: &str) -> std::result::Result<(), ContractIssue> {
     let normalized = filter.to_ascii_lowercase();
+
     if filter.contains(';')
         || [
             " insert ", " update ", " delete ", " drop ", " alter ", " create ",
@@ -386,11 +423,13 @@ fn validate_read_only_filter(filter: &str, path: &str) -> std::result::Result<()
             "profile filter must be a single read-only expression",
         ));
     }
+
     Ok(())
 }
 
 fn query_error(path: &str, error: Error) -> ContractIssue {
     let message = error.to_string();
+
     issue(
         "INVALID_QUERY",
         path,

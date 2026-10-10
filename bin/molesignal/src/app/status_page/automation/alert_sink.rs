@@ -41,24 +41,30 @@ impl AlertIncidentLifecycleSink for StatusPageAlertIncidentSink {
             incident.status,
             IncidentStatus::Open | IncidentStatus::Acknowledged
         );
+
         let mut labels = incident.labels.clone();
         labels.insert("incident_summary".to_string(), incident.summary.clone());
         labels.insert("alert_rule_id".to_string(), incident.rule_id.to_string());
+
         labels.insert(
             "incident_status".to_string(),
             incident.status.as_str().to_string(),
         );
+
         let mute_labels = match_labels_for_incident(&incident.labels, &incident.id);
+
         let observed_at = incident
             .resolved_at
             .or(incident.acknowledged_at)
             .unwrap_or(incident.created_at);
+
         let muted = self
             .mute_rules
             .list_enabled(&incident.org_id)
             .await?
             .into_iter()
             .any(|rule| rule.is_muting(&mute_labels, observed_at));
+
         let observation = AutomationSourceObservation {
             organization_id: incident.org_id.clone(),
             source_kind: AutomationSourceKind::AlertIncident,
@@ -70,6 +76,7 @@ impl AlertIncidentLifecycleSink for StatusPageAlertIncidentSink {
             muted,
             observed_at,
         };
+
         if active && !muted {
             self.status_pages
                 .observe_automation_source(observation)
@@ -79,6 +86,7 @@ impl AlertIncidentLifecycleSink for StatusPageAlertIncidentSink {
                 .recover_automation_source(observation)
                 .await?;
         }
+
         Ok(())
     }
 }

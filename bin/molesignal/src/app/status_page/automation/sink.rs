@@ -38,15 +38,19 @@ impl SyntheticTransitionSink for StatusPageSyntheticTransitionSink {
         else {
             return Ok(());
         };
+
         let mut labels = BTreeMap::new();
+
         labels.insert(
             "synthetic_state".to_string(),
             transition.current_state.as_str().to_string(),
         );
+
         labels.insert(
             "previous_synthetic_state".to_string(),
             transition.previous_state.as_str().to_string(),
         );
+
         let observation = AutomationSourceObservation {
             organization_id: transition.organization_id.clone(),
             source_kind: AutomationSourceKind::SyntheticMonitor,
@@ -58,6 +62,7 @@ impl SyntheticTransitionSink for StatusPageSyntheticTransitionSink {
             muted: false,
             observed_at: transition.created_at,
         };
+
         if active {
             self.status_pages
                 .observe_automation_source(observation)
@@ -67,6 +72,7 @@ impl SyntheticTransitionSink for StatusPageSyntheticTransitionSink {
                 .recover_automation_source(observation)
                 .await?;
         }
+
         Ok(())
     }
 }

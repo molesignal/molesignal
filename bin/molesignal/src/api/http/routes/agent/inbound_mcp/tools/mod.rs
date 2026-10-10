@@ -38,19 +38,23 @@ pub(super) async fn list(
     context: &RequestContext<RoleServer>,
 ) -> Result<ListToolsResult, ErrorData> {
     let request = request_data(handler, context)?;
+
     let tools = catalog::advertised(handler, &request.iam)
         .await
         .map_err(protocol_error)?;
+
     let response_too_large = match serde_json::to_vec(&tools) {
         Ok(encoded) => encoded.len() > request.settings.max_response_bytes.max(1) as usize,
         Err(_) => true,
     };
+
     if response_too_large {
         return Err(ErrorData::invalid_request(
             "tool list exceeds the configured response limit",
             None,
         ));
     }
+
     Ok(ListToolsResult {
         tools,
         ..Default::default()
@@ -68,12 +72,15 @@ pub(super) async fn call(
     let name = request.name.as_ref();
     let arguments = Value::Object(request.arguments.clone().unwrap_or_default());
     execution::notify_progress(context, 0.0, "MoleSignal tool call started").await;
+
     let response = match name {
         "tool_search" => {
             reject_round_trip_fields(&request)?;
+
             let value = catalog::search(handler, &data.iam, arguments)
                 .await
                 .map_err(protocol_error)?;
+
             if serde_json::to_vec(&value).is_ok_and(|encoded| {
                 encoded.len() <= data.settings.max_response_bytes.max(1) as usize
             }) {
@@ -106,6 +113,7 @@ pub(super) async fn call(
             None,
         )),
     };
+
     execution::notify_progress(context, 1.0, "MoleSignal tool call finished").await;
     response
 }
@@ -130,6 +138,7 @@ fn adapter_tool(
     idempotent: bool,
 ) -> Tool {
     let input: JsonObject = schema.as_object().cloned().unwrap_or_default();
+
     Tool::new(name, description, Arc::new(input)).with_annotations(
         ToolAnnotations::new()
             .read_only(read_only)

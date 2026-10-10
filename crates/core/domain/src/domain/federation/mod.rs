@@ -100,6 +100,7 @@ pub fn event_type(kind: ResourceKind, action: CudAction) -> String {
 pub fn parse_event_type(s: &str) -> Option<(ResourceKind, CudAction)> {
     let rest = s.strip_prefix(EVENT_TYPE_PREFIX)?;
     let (kind_s, action_s) = rest.rsplit_once('.')?;
+
     Some((
         ResourceKind::from_str(kind_s)?,
         CudAction::from_str(action_s)?,

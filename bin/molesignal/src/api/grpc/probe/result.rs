@@ -29,6 +29,7 @@ pub(crate) fn result_from_wire(
     validate_result(task, &value)?;
     let received_at = TimestampMicros::now();
     let targets = artifact_targets(task, &value.lease_token);
+
     Ok(SyntheticResult {
         id: Id::new(),
         organization_id: task.organization_id.clone(),
@@ -71,15 +72,19 @@ fn validate_result(task: &ProbeTask, value: &wire::ProbeResult) -> Result<()> {
             "Probe result task does not match its lease",
         ));
     }
+
     if value.result_sequence == 0 {
         return Err(Error::invalid("Probe result sequence must be positive"));
     }
+
     if value.started_at_micros <= 0 || value.finished_at_micros < value.started_at_micros {
         return Err(Error::invalid("invalid Probe result time window"));
     }
+
     if value.attempts.is_empty() || value.attempts.len() > MAX_ATTEMPTS {
         return Err(Error::invalid("Probe result must contain 1 to 3 Attempts"));
     }
+
     if value.attempts.iter().any(|attempt| {
         attempt.started_at_micros < value.started_at_micros
             || attempt.finished_at_micros > value.finished_at_micros
@@ -88,9 +93,11 @@ fn validate_result(task: &ProbeTask, value: &wire::ProbeResult) -> Result<()> {
             "Probe Attempt falls outside its result window",
         ));
     }
+
     if value.assertions.len() > 256 {
         return Err(Error::invalid("Probe result contains too many Assertions"));
     }
+
     if !metadata_is_bounded(&value.metadata, MAX_METADATA_ENTRIES)
         || value.secret_versions.len() > 64
         || value
@@ -100,6 +107,7 @@ fn validate_result(task: &ProbeTask, value: &wire::ProbeResult) -> Result<()> {
     {
         return Err(Error::invalid("Probe result metadata is too large"));
     }
+
     if !value.artifacts.is_empty() {
         let total_bytes = value
             .artifacts
@@ -108,10 +116,13 @@ fn validate_result(task: &ProbeTask, value: &wire::ProbeResult) -> Result<()> {
                 total.checked_add(artifact.content_length)
             })
             .ok_or_else(|| Error::invalid("Probe Artifact size overflow"))?;
+
         if value.artifacts.len() > MAX_ARTIFACTS || total_bytes > MAX_ARTIFACT_BYTES {
             return Err(Error::invalid("Probe result contains too many Artifacts"));
         }
+
         let mut artifact_ids = HashSet::with_capacity(value.artifacts.len());
+
         for artifact in &value.artifacts {
             if artifact.artifact_id.is_empty()
                 || artifact.artifact_id.len() > 128
@@ -129,6 +140,7 @@ fn validate_result(task: &ProbeTask, value: &wire::ProbeResult) -> Result<()> {
             }
         }
     }
+
     Ok(())
 }
 
@@ -142,6 +154,7 @@ fn artifact_from_wire(
         .iter()
         .find(|target| target.id == value.artifact_id)
         .ok_or_else(|| Error::unauthorized("Probe Artifact was not issued for this task lease"))?;
+
     if value.kind != target.kind
         || value.name != target.name
         || value.content_length > target.max_bytes
@@ -150,6 +163,7 @@ fn artifact_from_wire(
             "Probe Artifact receipt does not match its upload target",
         ));
     }
+
     Ok(SyntheticResultArtifact {
         id: Id::from_string(value.artifact_id),
         name: value.name,
@@ -179,7 +193,9 @@ fn attempt_from_wire(value: wire::ProbeAttempt) -> Result<ProbeAttempt> {
     {
         return Err(Error::invalid("invalid Probe Attempt"));
     }
+
     let timing = value.timing.unwrap_or_default();
+
     Ok(ProbeAttempt {
         number: value.number,
         started_at: TimestampMicros(value.started_at_micros),
@@ -219,6 +235,7 @@ fn step_evidence_from_wire(value: wire::StepEvidence) -> Result<ProbeStepEvidenc
     {
         return Err(Error::invalid("invalid Probe Step Evidence"));
     }
+
     Ok(ProbeStepEvidence {
         step_id: Id::from_string(value.step_id),
         name: value.name,
@@ -240,11 +257,13 @@ fn assertion_from_wire(value: wire::AssertionResult) -> Result<AssertionObservat
     {
         return Err(Error::invalid("invalid Probe Assertion result"));
     }
+
     let severity = match wire::AssertionSeverity::try_from(value.severity).ok() {
         Some(wire::AssertionSeverity::Warning) => AssertionSeverity::Warning,
         Some(wire::AssertionSeverity::Critical) => AssertionSeverity::Critical,
         _ => return Err(Error::invalid("invalid Probe Assertion severity")),
     };
+
     Ok(AssertionObservation {
         assertion_id: Id::from_string(value.assertion_id),
         severity,

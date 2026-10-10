@@ -49,6 +49,7 @@ where
     let context = current_trace_context()
         .map(|context| context.child())
         .unwrap_or_else(|| TraceContext::new_root(Id::new().0));
+
     context.inject_grpc(request.metadata_mut(), target.is_internal());
 
     let span = tracing::info_span!(
@@ -65,10 +66,13 @@ where
         molesignal.rpc.target = target.label(),
         error.type = field::Empty,
     );
+
     let instrument_span = span.clone();
+
     let result = with_current_trace_context(context, invoke(request))
         .instrument(instrument_span)
         .await;
+
     match &result {
         Ok(_) => {
             span.record("rpc.grpc.status_code", Code::Ok as i32);
@@ -78,6 +82,7 @@ where
             span.record("error.type", grpc_error_type(status.code()));
         }
     }
+
     result
 }
 

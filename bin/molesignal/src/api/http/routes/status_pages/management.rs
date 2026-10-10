@@ -142,6 +142,7 @@ async fn create_page(
         .status_pages
         .create_page(&context.org_id, request.into())
         .await?;
+
     activity_audit::record(
         &state,
         &context,
@@ -151,6 +152,7 @@ async fn create_page(
         serde_json::json!({"visibility": page.visibility}),
     )
     .await;
+
     Ok((StatusCode::CREATED, Json(page)))
 }
 
@@ -176,18 +178,23 @@ async fn update_page(
     Json(request): Json<PageWriteRequest>,
 ) -> Result<Json<StatusPage>> {
     let page_id = Id(page_id);
+
     let existing = state
         .status_pages
         .get_page(&context.org_id, &page_id)
         .await?;
+
     let mut input: StatusPageInput = request.into();
     input.logo_url = logo::rewrite_managed_logo_url(&existing, &input.slug, input.logo_url);
     input.custom_domain = existing.custom_domain.clone();
+
     let updated = state
         .status_pages
         .update_page(&context.org_id, &page_id, input)
         .await?;
+
     logo::cleanup_replaced_logo(&state, &existing, Some(&updated)).await;
+
     activity_audit::record(
         &state,
         &context,
@@ -202,6 +209,7 @@ async fn update_page(
         }),
     )
     .await;
+
     Ok(Json(updated))
 }
 
@@ -212,10 +220,12 @@ async fn archive_page(
     Path(page_id): Path<String>,
 ) -> Result<Json<StatusPage>> {
     let page_id = Id(page_id);
+
     let page = state
         .status_pages
         .archive_page(&context.org_id, &page_id)
         .await?;
+
     activity_audit::record(
         &state,
         &context,
@@ -225,6 +235,7 @@ async fn archive_page(
         serde_json::json!({"purge_after": page.purge_after}),
     )
     .await;
+
     Ok(Json(page))
 }
 
@@ -235,10 +246,12 @@ async fn restore_page(
     Path(page_id): Path<String>,
 ) -> Result<Json<StatusPage>> {
     let page_id = Id(page_id);
+
     let page = state
         .status_pages
         .restore_page(&context.org_id, &page_id)
         .await?;
+
     activity_audit::record(
         &state,
         &context,
@@ -248,6 +261,7 @@ async fn restore_page(
         serde_json::json!({}),
     )
     .await;
+
     Ok(Json(page))
 }
 
@@ -258,15 +272,19 @@ async fn delete_page(
     Path(page_id): Path<String>,
 ) -> Result<Json<serde_json::Value>> {
     let page_id = Id(page_id);
+
     let existing = state
         .status_pages
         .get_page(&context.org_id, &page_id)
         .await?;
+
     state
         .status_pages
         .delete_page(&context.org_id, &page_id)
         .await?;
+
     logo::cleanup_replaced_logo(&state, &existing, None).await;
+
     activity_audit::record(
         &state,
         &context,
@@ -276,6 +294,7 @@ async fn delete_page(
         serde_json::json!({"lifecycle": "archived"}),
     )
     .await;
+
     Ok(Json(serde_json::json!({"deleted": true})))
 }
 
@@ -287,10 +306,12 @@ async fn create_component(
     Json(request): Json<ComponentWriteRequest>,
 ) -> Result<(StatusCode, Json<StatusPageComponent>)> {
     let page_id = Id(page_id);
+
     let component = state
         .status_pages
         .create_component(&context.org_id, &page_id, request.into())
         .await?;
+
     record_component_audit(&state, &context, &component, "create").await;
     Ok((StatusCode::CREATED, Json(component)))
 }
@@ -311,6 +332,7 @@ async fn update_component(
             request.into(),
         )
         .await?;
+
     record_component_audit(&state, &context, &component, "update").await;
     Ok(Json(component))
 }
@@ -325,6 +347,7 @@ async fn delete_component(
         .status_pages
         .delete_component(&context.org_id, &Id(page_id), &Id(component_id.clone()))
         .await?;
+
     activity_audit::record(
         &state,
         &context,
@@ -334,6 +357,7 @@ async fn delete_component(
         serde_json::json!({}),
     )
     .await;
+
     Ok(Json(serde_json::json!({"deleted": true})))
 }
 
@@ -363,30 +387,39 @@ async fn record_component_audit(
 fn default_brand_color() -> String {
     "#4F46E5".into()
 }
+
 fn default_timezone() -> String {
     "UTC".into()
 }
+
 fn default_language() -> String {
     "en-us".into()
 }
+
 fn default_history_days() -> i32 {
     crate::app::status_page::DEFAULT_STATUS_PAGE_HISTORY_DAYS
 }
+
 fn default_delivery_retention_days() -> i32 {
     crate::app::status_page::DEFAULT_STATUS_PAGE_DELIVERY_RETENTION_DAYS
 }
+
 fn default_private_session_days() -> i32 {
     crate::app::status_page::DEFAULT_STATUS_PAGE_PRIVATE_SESSION_DAYS
 }
+
 fn default_visibility() -> StatusPageVisibility {
     StatusPageVisibility::Public
 }
+
 fn default_component_status() -> ComponentStatus {
     ComponentStatus::Operational
 }
+
 fn default_component_visibility() -> ComponentVisibility {
     ComponentVisibility::Enabled
 }
+
 fn default_component_lifecycle() -> ComponentLifecycle {
     ComponentLifecycle::Active
 }

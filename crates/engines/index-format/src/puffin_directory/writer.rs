@@ -38,6 +38,7 @@ impl PuffinDirWriter {
         let tempdir = tempfile::tempdir().map_err(|e| anyhow!("puffin writer tempdir: {e}"))?;
         let mmap =
             MmapDirectory::open(tempdir.path()).map_err(|e| anyhow!("puffin writer mmap: {e}"))?;
+
         Ok(Self {
             mmap: Arc::new(mmap),
             file_paths: Arc::new(RwLock::new(HashSet::default())),
@@ -58,37 +59,48 @@ impl PuffinDirWriter {
     /// [`BlobTypes::TantivyFooterV1`] blob 放 segment-meta cache 占位。
     pub fn to_puffin_bytes(&self) -> Result<Vec<u8>> {
         let mut out: Vec<u8> = Vec::new();
+
         {
             let mut writer = PuffinBytesWriter::new(&mut out);
+
             for (k, v) in self.properties.read().expect("poisoned").iter() {
                 writer.set_property(k.clone(), v.clone());
             }
+
             let paths = self.file_paths.read().expect("poisoned");
             // sort for deterministic output (tests + diffability)
             let mut sorted: Vec<PathBuf> = paths.iter().cloned().collect();
             sorted.sort();
+
             for path in sorted {
                 if !is_allowed(&path) {
                     continue;
                 }
+
                 let file_data = self
                     .mmap
                     .open_read(&path)
                     .map_err(|e| anyhow!("puffin open_read {path:?}: {e}"))?;
+
                 let bytes = file_data
                     .read_bytes()
                     .map_err(|e| anyhow!("puffin read_bytes {path:?}: {e}"))?;
+
                 let tag = path.to_string_lossy().into_owned();
                 writer.add_blob(&bytes, BlobTypes::TantivySegmentV1, tag)?;
             }
+
             let footer_cache = build_footer_cache_for_test_only();
+
             writer.add_blob(
                 &footer_cache,
                 BlobTypes::TantivyFooterV1,
                 FOOTER_CACHE_BLOB_TAG.to_string(),
             )?;
+
             writer.finish()?;
         }
+
         Ok(out)
     }
 }
@@ -99,6 +111,7 @@ fn is_allowed(path: &Path) -> bool {
     {
         return true;
     }
+
     path.to_str() == Some(META_JSON)
         || path
             .file_name()
@@ -142,6 +155,7 @@ impl Directory for PuffinDirWriter {
             .write()
             .expect("poisoned")
             .insert(path.to_path_buf());
+
         self.mmap.open_write(path)
     }
 
@@ -154,6 +168,7 @@ impl Directory for PuffinDirWriter {
             .write()
             .expect("poisoned")
             .insert(path.to_path_buf());
+
         self.mmap.atomic_write(path, data)
     }
 

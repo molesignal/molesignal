@@ -32,32 +32,39 @@ pub fn split_by_partition(
     if batch.num_rows() == 0 {
         return Ok(Vec::new());
     }
+
     let timestamp_index = batch
         .schema()
         .index_of(TS_COL)
         .map_err(|_| Error::internal(format!("batch missing column {TS_COL}")))?;
+
     let timestamp_column = batch.column(timestamp_index);
+
     let DataType::Timestamp(TimeUnit::Microsecond, _) = timestamp_column.data_type() else {
         return Err(Error::internal(format!(
             "{TS_COL} must be Timestamp(Microsecond), got {:?}",
             timestamp_column.data_type()
         )));
     };
+
     let timestamps = timestamp_column
         .as_any()
         .downcast_ref::<TimestampMicrosecondArray>()
         .ok_or_else(|| Error::internal(format!("downcast {TS_COL}")))?;
 
     let mut rows_by_partition: BTreeMap<i64, Vec<u32>> = BTreeMap::new();
+
     for row in 0..batch.num_rows() {
         if timestamps.is_null(row) {
             return Err(Error::invalid(format!(
                 "{TS_COL} contains null at row {row}"
             )));
         }
+
         let row_index = u32::try_from(row)
             .map_err(|_| Error::invalid("record batch exceeds u32 row index capacity"))?;
         let partition = partition_policy.bucket_start_micros(timestamps.value(row));
+
         rows_by_partition
             .entry(partition)
             .or_default()
@@ -65,8 +72,10 @@ pub fn split_by_partition(
     }
 
     let mut partitions = Vec::with_capacity(rows_by_partition.len());
+
     for indices in rows_by_partition.into_values() {
         let indices = UInt32Array::from(indices);
+
         let columns = batch
             .columns()
             .iter()
@@ -75,11 +84,13 @@ pub fn split_by_partition(
                     .map_err(|error| Error::internal(format!("partition take: {error}")))
             })
             .collect::<Result<Vec<_>>>()?;
+
         partitions.push(
             RecordBatch::try_new(batch.schema(), columns)
                 .map_err(|error| Error::internal(format!("partition batch: {error}")))?,
         );
     }
+
     Ok(partitions)
 }
 
@@ -94,10 +105,12 @@ pub fn sort_for_storage(batch: RecordBatch, dataset_type: &DatasetTypeId) -> Res
 
     let schema = batch.schema();
     let names = storage_sort_column_names(schema.as_ref(), Some(dataset_type));
+
     let options = SortOptions {
         descending: true,
         nulls_first: false,
     };
+
     let sort_columns = names
         .into_iter()
         .filter_map(|name| schema.index_of(name).ok())
@@ -106,8 +119,10 @@ pub fn sort_for_storage(batch: RecordBatch, dataset_type: &DatasetTypeId) -> Res
             options: Some(options),
         })
         .collect::<Vec<_>>();
+
     let indices = lexsort_to_indices(&sort_columns, None)
         .map_err(|error| Error::internal(format!("storage lexsort: {error}")))?;
+
     let columns = batch
         .columns()
         .iter()
@@ -116,6 +131,7 @@ pub fn sort_for_storage(batch: RecordBatch, dataset_type: &DatasetTypeId) -> Res
                 .map_err(|error| Error::internal(format!("storage sort take: {error}")))
         })
         .collect::<Result<Vec<_>>>()?;
+
     RecordBatch::try_new(schema, columns)
         .map_err(|error| Error::internal(format!("storage sorted batch: {error}")))
 }
@@ -137,6 +153,7 @@ pub(crate) fn storage_sort_column_names(
         }
         _ => vec![TS_COL],
     };
+
     match dataset_type.map(DatasetTypeId::as_str) {
         Some(builtin::DATASET_TRACE_SUMMARY) => names.extend(["trace_id"]),
         Some(builtin::DATASET_RUM_SESSION_SUMMARY) => {
@@ -145,6 +162,7 @@ pub(crate) fn storage_sort_column_names(
             } else {
                 names.push("session_id");
             }
+
             names.push(EVENT_ID_FIELD);
         }
         Some(builtin::DATASET_RUM_ACTION_SUMMARY) => {
@@ -157,10 +175,12 @@ pub(crate) fn storage_sort_column_names(
             } else if schema.index_of("error_id").is_ok() {
                 names.push("error_id");
             }
+
             names.push(EVENT_ID_FIELD);
         }
         _ => names.extend([EVENT_ID_FIELD, "trace_id", "span_id"]),
     }
+
     names
 }
 

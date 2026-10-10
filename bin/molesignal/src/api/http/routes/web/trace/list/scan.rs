@@ -59,6 +59,7 @@ pub(super) async fn run(
 ) -> Result<Vec<TraceListRow>> {
     let range = TimeRange::new(TimestampMicros(context.from), TimestampMicros(context.to));
     let summary_type = DatasetTypeId::builtin(builtin::DATASET_TRACE_SUMMARY);
+
     let snapshot = state
         .storage
         .catalog_query
@@ -70,26 +71,33 @@ pub(super) async fn run(
             range,
         )
         .await?;
+
     let dataset = snapshot.dataset(&summary_type);
+
     let mut files = order_files(
         dataset
             .map(|dataset| dataset.files.clone())
             .unwrap_or_default(),
         context,
     );
+
     let buffered_batches = dataset
         .map(|dataset| dataset.buffered_batches.clone())
         .unwrap_or_default();
+
     let reader = ParquetReader::new(state.storage.read_store.clone());
     let mut top = Vec::with_capacity(fetch_limit);
+
     let from_ns = context
         .from
         .checked_mul(1_000)
         .ok_or_else(|| Error::invalid("trace time_from is out of range"))?;
+
     let to_ns = context
         .to
         .checked_mul(1_000)
         .ok_or_else(|| Error::invalid("trace time_to is out of range"))?;
+
     let mut scanned_files = 0_usize;
     let mut scanned_rows = 0_usize;
 
@@ -104,10 +112,12 @@ pub(super) async fn run(
         if !file_may_match_cursor(&file, context) || !file_may_match_filters(&file, context) {
             continue;
         }
+
         let options = ReadOptions::new()
             .with_time_range(context.from, context.to)
             .with_columns(COLUMNS)
             .with_known_size(file.size_bytes);
+
         let mut batches = match reader
             .stream_from_store(state.storage.read_store.clone(), &file.object_key, options)
             .await
@@ -119,10 +129,13 @@ pub(super) async fn run(
             }
             Err(error) => return Err(error),
         };
+
         scanned_files += 1;
+
         while let Some(batch) = batches.next().await {
             let batch = batch?;
             scanned_rows += batch.num_rows();
+
             if collect_batch(&batch, context, from_ns, to_ns, fetch_limit, &mut top, true)? {
                 break;
             }
@@ -136,6 +149,7 @@ pub(super) async fn run(
             break;
         }
     }
+
     top.sort_by(|left, right| effective_cmp(left, right, context));
     tracing::debug!(
         scanned_files,
@@ -158,20 +172,26 @@ fn collect_batch(
 ) -> Result<bool> {
     let physically_ordered =
         allow_physical_short_circuit && physical_order_matches_effective(context);
+
     for row_index in 0..batch.num_rows() {
         let Some(trace_id) = string_at(batch, "trace_id", row_index) else {
             continue;
         };
+
         let start_ns = integer_at(batch, TRACE_SUMMARY_START_NS_FIELD, row_index).unwrap_or(0);
+
         if start_ns < from_ns || start_ns >= to_ns {
             if physically_ordered && start_ns < from_ns {
                 return Ok(true);
             }
+
             continue;
         }
+
         let duration_ns = integer_at(batch, TRACE_SUMMARY_DURATION_NS_FIELD, row_index)
             .unwrap_or_default()
             .max(0);
+
         let candidate = TraceListRow {
             item: super::TraceListItem {
                 trace_id: trace_id.to_string(),
@@ -190,11 +210,13 @@ fn collect_batch(
             },
             duration_ns,
         };
+
         if matches_text_and_filters(batch, row_index, context)
             && matches_cursor(&candidate, context)
         {
             push_top_k(top, candidate.clone(), limit, context);
         }
+
         if physically_ordered
             && top.len() >= limit
             && top
@@ -209,6 +231,7 @@ fn collect_batch(
             return Ok(true);
         }
     }
+
     Ok(false)
 }
 
@@ -236,18 +259,22 @@ fn push_top_k(
         if effective_cmp(&candidate, &top[existing], context) == Ordering::Less {
             top[existing] = candidate;
         }
+
         return;
     }
+
     if top.len() < limit {
         top.push(candidate);
         return;
     }
+
     let worst = top
         .iter()
         .enumerate()
         .max_by(|(_, left), (_, right)| effective_cmp(left, right, context))
         .map(|(index, _)| index)
         .unwrap_or_default();
+
     if effective_cmp(&candidate, &top[worst], context) == Ordering::Less {
         top[worst] = candidate;
     }
@@ -262,9 +289,11 @@ fn canonical_cmp(left: &TraceListRow, right: &TraceListRow, sort: TraceListSort)
         TraceListSort::SpanCountDesc => right.item.span_count.cmp(&left.item.span_count),
         TraceListSort::ErrorsDesc => right.item.error_count.cmp(&left.item.error_count),
     };
+
     if primary != Ordering::Equal {
         return primary;
     }
+
     match sort {
         TraceListSort::Latest => right.item.trace_id.cmp(&left.item.trace_id),
         TraceListSort::Earliest => left.item.trace_id.cmp(&right.item.trace_id),
@@ -282,6 +311,7 @@ fn effective_cmp(
     context: &TraceListContext,
 ) -> Ordering {
     let canonical = canonical_cmp(left, right, context.sort);
+
     if context.boundary.as_ref().map(|value| value.direction) == Some(CursorDirection::Before) {
         canonical.reverse()
     } else {
@@ -293,7 +323,9 @@ fn matches_cursor(row: &TraceListRow, context: &TraceListContext) -> bool {
     let Some(boundary) = context.boundary.as_ref() else {
         return true;
     };
+
     let position = &boundary.position;
+
     let edge = TraceListRow {
         item: super::TraceListItem {
             trace_id: position.trace_id.clone(),
@@ -321,7 +353,9 @@ fn matches_cursor(row: &TraceListRow, context: &TraceListContext) -> bool {
             0
         },
     };
+
     let ordering = canonical_cmp(row, &edge, context.sort);
+
     match boundary.direction {
         CursorDirection::After => ordering == Ordering::Greater,
         CursorDirection::Before => ordering == Ordering::Less,
@@ -334,19 +368,24 @@ fn matches_text_and_filters(batch: &RecordBatch, row: usize, context: &TraceList
             .into_iter()
             .filter_map(|field| string_at(batch, field, row))
     };
+
     if let Some(query) = context.q.as_deref() {
         let query = query.to_ascii_lowercase();
+
         if !values().any(|value| value.to_ascii_lowercase().contains(&query)) {
             return false;
         }
     }
+
     context.filters.iter().all(|filter| {
         let Some(field) = filter.summary_column() else {
             return false;
         };
+
         match filter.data_type {
             FieldType::Utf8 => {
                 let value = string_at(batch, field, row).unwrap_or_default();
+
                 match filter.op.as_str() {
                     "=" => value == filter.value,
                     "!=" => value != filter.value,
@@ -415,9 +454,11 @@ fn string_at<'a>(batch: &'a RecordBatch, name: &str, row: usize) -> Option<&'a s
 
 fn integer_at(batch: &RecordBatch, name: &str, row: usize) -> Option<i64> {
     let column = batch.column_by_name(name)?;
+
     if column.is_null(row) {
         return None;
     }
+
     match column.data_type() {
         DataType::Int64 => Some(column.as_any().downcast_ref::<Int64Array>()?.value(row)),
         DataType::UInt64 => {
@@ -438,9 +479,11 @@ fn integer_at(batch: &RecordBatch, name: &str, row: usize) -> Option<i64> {
 
 fn numeric_at(batch: &RecordBatch, name: &str, row: usize) -> Option<f64> {
     let column = batch.column_by_name(name)?;
+
     if column.is_null(row) {
         return None;
     }
+
     match column.data_type() {
         DataType::Float64 => Some(column.as_any().downcast_ref::<Float64Array>()?.value(row)),
         _ => integer_at(batch, name, row).map(|value| value as f64),
@@ -449,9 +492,11 @@ fn numeric_at(batch: &RecordBatch, name: &str, row: usize) -> Option<f64> {
 
 fn bool_at(batch: &RecordBatch, name: &str, row: usize) -> Option<bool> {
     let column = batch.column_by_name(name)?;
+
     if column.is_null(row) {
         return None;
     }
+
     column
         .as_any()
         .downcast_ref::<arrow::array::BooleanArray>()

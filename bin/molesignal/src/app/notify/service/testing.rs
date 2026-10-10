@@ -36,13 +36,16 @@ impl NotifyService {
         message: NotifyMessage,
     ) -> Result<ConnectorTestOutcome> {
         let endpoint = self.endpoints.get(organization_id, user_id, id).await?;
+
         if !endpoint.enabled {
             return Err(Error::invalid("user notify endpoint is disabled"));
         }
+
         let connector = self
             .connectors
             .get(organization_id, &endpoint.connector_id)
             .await?;
+
         self.test_target(
             connector,
             NotifyTarget {
@@ -68,6 +71,7 @@ impl NotifyService {
         if !connector.enabled {
             return Err(Error::invalid("notify connector is disabled"));
         }
+
         let adapter = self.registry.get(&connector.connector_type)?;
         adapter.validate_config(&connector.config)?;
         adapter.validate_target(&target)?;
@@ -75,6 +79,7 @@ impl NotifyService {
         let tested_at = TimestampMicros::now();
         let test_id = Id::new();
         let event_id = format!("notify.test:{}", test_id.as_str());
+
         let claim = self
             .deliveries
             .claim(NotifyDelivery {
@@ -106,6 +111,7 @@ impl NotifyService {
                 created_at: tested_at,
             })
             .await?;
+
         if !claim.acquired {
             return Err(Error::conflict("notify test delivery was already claimed"));
         }
@@ -115,9 +121,11 @@ impl NotifyService {
         let finished_at = TimestampMicros::now();
         let (sent, provider_message_id, elapsed_ms, error, status, completion) =
             completion_from_result(result, started, finished_at);
+
         self.deliveries
             .complete(&connector.organization_id, &claim.delivery.id, completion)
             .await?;
+
         self.connectors
             .record_test_result(
                 &connector.organization_id,
@@ -127,6 +135,7 @@ impl NotifyService {
                 error.clone(),
             )
             .await?;
+
         Ok(ConnectorTestOutcome {
             sent,
             tested_at,
@@ -152,6 +161,7 @@ fn completion_from_result(
     match result {
         Ok(result) if result.delivered => {
             let elapsed_ms = result.latency_ms;
+
             (
                 true,
                 result.provider_message_id,
@@ -170,6 +180,7 @@ fn completion_from_result(
         Ok(result) => {
             let error = "notify provider did not confirm delivery".to_string();
             let elapsed_ms = result.latency_ms;
+
             (
                 false,
                 result.provider_message_id,
@@ -188,6 +199,7 @@ fn completion_from_result(
         Err(send_error) => {
             let error = truncate_error(&send_error.to_string());
             let elapsed_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
+
             (
                 false,
                 None,

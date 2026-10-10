@@ -73,6 +73,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         ),
         _ => unreachable!("notification catalog received unrelated kind"),
     };
+
     let permissions = if matches!(kind, BuiltinToolKind::AcknowledgeNotificationDelivery) {
         &["alerts.acknowledge"][..]
     } else if matches!(kind, BuiltinToolKind::RetryNotificationDelivery) {
@@ -80,6 +81,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
     } else {
         &["alerts.read"][..]
     };
+
     let tool = ToolSpec::read(
         kind.name(),
         description,
@@ -90,6 +92,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         permissions,
         &tags,
     );
+
     match kind {
         BuiltinToolKind::RetryNotificationDelivery
         | BuiltinToolKind::AcknowledgeNotificationDelivery => {

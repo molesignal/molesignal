@@ -31,6 +31,7 @@ impl ConnectorDispatcher for EgressDispatcher {
         if events.is_empty() {
             return Ok(());
         }
+
         match connector.kind.parse::<ConnectorKind>()? {
             ConnectorKind::S3 => dispatch_s3(connector, events).await,
             ConnectorKind::Kafka => dispatch_kafka(connector, events).await,
@@ -53,18 +54,21 @@ fn cfg_str<'a>(connector: &'a Connector, key: &str) -> &'a str {
 /// 批量事件 → JSON Lines（每行一个 JSON 对象）。
 fn to_json_lines(events: &[Value]) -> String {
     let mut body = String::new();
+
     for ev in events {
         if let Ok(line) = serde_json::to_string(ev) {
             body.push_str(&line);
             body.push('\n');
         }
     }
+
     body
 }
 
 /// 规整对象 key 前缀：去首部 `/`，非空时确保末尾 `/`。
 fn normalize_prefix(prefix: &str) -> String {
     let trimmed = prefix.trim().trim_start_matches('/');
+
     if trimmed.is_empty() {
         String::new()
     } else if trimmed.ends_with('/') {
@@ -78,26 +82,36 @@ async fn dispatch_s3(connector: &Connector, events: &[Value]) -> Result<()> {
     use object_store::{ObjectStoreExt, PutPayload, aws::AmazonS3Builder, path::Path};
 
     let bucket = cfg_str(connector, "bucket");
+
     if bucket.is_empty() {
         return Err(Error::invalid("s3 connector requires `bucket`"));
     }
+
     let mut builder = AmazonS3Builder::new().with_bucket_name(bucket);
     let region = cfg_str(connector, "region");
+
     if !region.is_empty() {
         builder = builder.with_region(region);
     }
+
     let endpoint = cfg_str(connector, "endpoint");
+
     if !endpoint.is_empty() {
         builder = builder.with_endpoint(endpoint).with_allow_http(true);
     }
+
     let access_key = cfg_str(connector, "access_key");
+
     if !access_key.is_empty() {
         builder = builder.with_access_key_id(access_key);
     }
+
     let secret_key = cfg_str(connector, "secret_key");
+
     if !secret_key.is_empty() {
         builder = builder.with_secret_access_key(secret_key);
     }
+
     let store = builder
         .build()
         .map_err(|e| Error::internal(format!("s3 egress build: {e}")))?;
@@ -105,10 +119,12 @@ async fn dispatch_s3(connector: &Connector, events: &[Value]) -> Result<()> {
     let prefix = normalize_prefix(cfg_str(connector, "prefix"));
     let key = format!("{prefix}{}.jsonl", Id::new().0);
     let body = to_json_lines(events).into_bytes();
+
     store
         .put(&Path::from(key), PutPayload::from(body))
         .await
         .map_err(|e| Error::internal(format!("s3 egress put: {e}")))?;
+
     Ok(())
 }
 
@@ -122,14 +138,17 @@ async fn dispatch_kafka(connector: &Connector, events: &[Value]) -> Result<()> {
 
     let brokers = cfg_str(connector, "brokers");
     let topic = cfg_str(connector, "topic");
+
     if brokers.is_empty() || topic.is_empty() {
         return Err(Error::invalid(
             "kafka connector requires `brokers` and `topic`",
         ));
     }
+
     let mut client = ClientConfig::new();
     client.set("bootstrap.servers", brokers);
     let sasl_user = cfg_str(connector, "sasl_username");
+
     if !sasl_user.is_empty() {
         client
             .set("security.protocol", "sasl_plaintext")
@@ -137,6 +156,7 @@ async fn dispatch_kafka(connector: &Connector, events: &[Value]) -> Result<()> {
             .set("sasl.username", sasl_user)
             .set("sasl.password", cfg_str(connector, "sasl_password"));
     }
+
     let producer: FutureProducer = client
         .create()
         .map_err(|e| Error::internal(format!("kafka producer: {e}")))?;
@@ -144,11 +164,13 @@ async fn dispatch_kafka(connector: &Connector, events: &[Value]) -> Result<()> {
     for ev in events {
         let payload = serde_json::to_string(ev).unwrap_or_default();
         let record: FutureRecord<'_, str, String> = FutureRecord::to(topic).payload(&payload);
+
         producer
             .send(record, Duration::from_secs(5))
             .await
             .map_err(|(e, _)| Error::internal(format!("kafka send: {e}")))?;
     }
+
     Ok(())
 }
 

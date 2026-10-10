@@ -35,6 +35,7 @@ pub(super) async fn execute(
                 .dashboard_authoring
                 .prepare(auth.org_id.clone(), auth.user_id.clone(), arguments)
                 .await?;
+
             result_json(&prepared)
         }
         BuiltinToolKind::ProposeDashboardCreation => {
@@ -74,11 +75,13 @@ async fn propose_dashboard(
     require_proposal_policy(ctx)?;
     let args: DashboardProposalArgs = parse_args(arguments)?;
     let draft_id = Id(args.draft_id);
+
     let draft = runtime
         .content
         .dashboard_authoring
         .validate_reference(&auth.org_id, &auth.user_id, &draft_id, &args.expected_hash)
         .await?;
+
     let approval = create_agent_approval(
         runtime,
         auth,
@@ -94,6 +97,7 @@ async fn propose_dashboard(
         },
     )
     .await?;
+
     Ok(ToolResult::json(json!({
         "approval": approval, "draft_id": draft.id, "model_hash": draft.model_hash,
         "message": "The dashboard creation proposal was submitted. No dashboard will be created until it is explicitly confirmed or approved and executed.",
@@ -121,6 +125,7 @@ async fn propose_operation(
 ) -> Result<ToolResult> {
     require_proposal_policy(ctx)?;
     let args: OperationProposalArgs = parse_args(arguments)?;
+
     let approval = create_agent_approval(
         runtime,
         auth,
@@ -136,6 +141,7 @@ async fn propose_operation(
         },
     )
     .await?;
+
     Ok(ToolResult::json(json!({
         "approval": approval,
         "message": "Mole Agent created an approval request. The operation will not run before approval.",
@@ -166,6 +172,7 @@ async fn propose_typed_operation(
 ) -> Result<ToolResult> {
     require_proposal_policy(ctx)?;
     let args: TypedOperationProposalArgs = parse_args(arguments)?;
+
     let (target, allowed) = match kind {
         BuiltinToolKind::ProposeAlertAction => (
             args.incident_id,
@@ -206,6 +213,7 @@ async fn propose_typed_operation(
         ),
         _ => unreachable!("typed operation helper received unrelated tool"),
     };
+
     if !allowed.contains(&args.action.as_str()) {
         return Err(Error::invalid(format!(
             "action '{}' is not valid for tool '{}'",
@@ -213,9 +221,11 @@ async fn propose_typed_operation(
             kind.name()
         )));
     }
+
     let target = target
         .filter(|value| !value.trim().is_empty())
         .ok_or_else(|| Error::invalid("operation target is required"))?;
+
     let approval = create_agent_approval(
         runtime,
         auth,
@@ -231,6 +241,7 @@ async fn propose_typed_operation(
         },
     )
     .await?;
+
     Ok(ToolResult::json(json!({
         "approval": approval,
         "message": "Mole Agent created an approval request. The operation will not run before approval.",
@@ -339,6 +350,7 @@ pub(crate) async fn create_agent_approval(
     request: CreateApprovalRequest,
 ) -> Result<ApprovalRequest> {
     let (risk, required_permission) = operation_policy(&request.action)?;
+
     if request.action == "create_api_token"
         && auth.principal_type() != crate::domain::iam::access::IamPrincipalType::User
     {
@@ -346,31 +358,37 @@ pub(crate) async fn create_agent_approval(
             "personal API tokens can only be requested by an authenticated user",
         ));
     }
+
     if !operation_permission_allowed(auth, &request.action, required_permission) {
         return Err(Error::forbidden(format!(
             "operation '{}' requires permission '{}'",
             request.action, required_permission
         )));
     }
+
     if request.target.trim().is_empty() {
         return Err(Error::invalid("operation target cannot be empty"));
     }
+
     if request.reason.trim().is_empty() || request.reason.chars().count() > 2_000 {
         return Err(Error::invalid(
             "operation reason must contain 1 to 2000 characters",
         ));
     }
+
     if request.impact.trim().is_empty() || request.impact.chars().count() > 2_000 {
         return Err(Error::invalid(
             "operation impact must contain 1 to 2000 characters",
         ));
     }
+
     let draft_expiry = if request.action == "create_dashboard" {
         let expected_hash = request
             .parameters
             .get("expected_hash")
             .and_then(Value::as_str)
             .ok_or_else(|| Error::invalid("create_dashboard requires expected_hash"))?;
+
         if request
             .parameters
             .as_object()
@@ -380,6 +398,7 @@ pub(crate) async fn create_agent_approval(
                 "create_dashboard parameters may contain only expected_hash",
             ));
         }
+
         Some(
             runtime
                 .content
@@ -396,15 +415,20 @@ pub(crate) async fn create_agent_approval(
     } else {
         None
     };
+
     let now = TimestampMicros::now();
+
     let required_approvals = request
         .required_approvals_override
         .unwrap_or_else(|| risk.required_approvals())
         .clamp(0, 2);
+
     let expires_at = request
         .expires_at_micros
         .unwrap_or(now.0.saturating_add(DEFAULT_APPROVAL_TTL_MICROS));
+
     let expires_at = draft_expiry.map_or(expires_at, |draft| expires_at.min(draft.0));
+
     runtime
         .agent
         .repository

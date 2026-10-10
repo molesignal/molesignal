@@ -48,14 +48,17 @@ pub fn gather_structured() -> Vec<MetricSample> {
     use prometheus::proto::MetricType;
 
     let mut out = Vec::new();
+
     for family in global_registry().gather() {
         let family_name = family.name();
+
         for metric in family.get_metric() {
             let labels = metric
                 .get_label()
                 .iter()
                 .map(|pair| (pair.name().to_string(), pair.value().to_string()))
                 .collect::<BTreeMap<_, _>>();
+
             let mut push = |metric_name: String,
                             metric_kind: &'static str,
                             value: f64,
@@ -101,9 +104,11 @@ pub fn gather_structured() -> Vec<MetricSample> {
                 ),
                 MetricType::HISTOGRAM => {
                     let histogram = metric.get_histogram();
+
                     for bucket in histogram.get_bucket() {
                         let mut bucket_labels = labels.clone();
                         bucket_labels.insert("le".into(), format_bound(bucket.upper_bound()));
+
                         push(
                             format!("{family_name}_bucket"),
                             "histogram_bucket",
@@ -111,20 +116,24 @@ pub fn gather_structured() -> Vec<MetricSample> {
                             bucket_labels,
                         );
                     }
+
                     let mut inf_labels = labels.clone();
                     inf_labels.insert("le".into(), "+Inf".into());
+
                     push(
                         format!("{family_name}_bucket"),
                         "histogram_bucket",
                         histogram.get_sample_count() as f64,
                         inf_labels,
                     );
+
                     push(
                         format!("{family_name}_count"),
                         "histogram_count",
                         histogram.get_sample_count() as f64,
                         labels.clone(),
                     );
+
                     push(
                         format!("{family_name}_sum"),
                         "histogram_sum",
@@ -134,10 +143,12 @@ pub fn gather_structured() -> Vec<MetricSample> {
                 }
                 MetricType::SUMMARY => {
                     let summary = metric.get_summary();
+
                     for quantile in summary.get_quantile() {
                         let mut quantile_labels = labels.clone();
                         quantile_labels
                             .insert("quantile".into(), format_bound(quantile.quantile()));
+
                         push(
                             family_name.to_string(),
                             "summary_quantile",
@@ -145,12 +156,14 @@ pub fn gather_structured() -> Vec<MetricSample> {
                             quantile_labels,
                         );
                     }
+
                     push(
                         format!("{family_name}_count"),
                         "summary_count",
                         summary.sample_count() as f64,
                         labels.clone(),
                     );
+
                     push(
                         format!("{family_name}_sum"),
                         "summary_sum",
@@ -161,6 +174,7 @@ pub fn gather_structured() -> Vec<MetricSample> {
             }
         }
     }
+
     out
 }
 
@@ -255,8 +269,10 @@ where
         if event.metadata().target() != "sqlx::pool::acquire" {
             return;
         }
+
         let mut visitor = AcquireDurationVisitor::default();
         event.record(&mut visitor);
+
         if let Some(seconds) = visitor.seconds {
             db_pool_acquire_duration()
                 .with_label_values(&[META_POOL_LABEL])

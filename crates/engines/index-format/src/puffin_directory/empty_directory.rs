@@ -36,20 +36,25 @@ fn build() -> HashMap<String, Bytes> {
     drop(writer);
     drop(index);
     let mut map = HashMap::new();
+
     for entry in fs::read_dir(tmp.path()).expect("read tempdir") {
         let entry = match entry {
             Ok(e) => e,
             Err(_) => continue,
         };
+
         let path = entry.path();
+
         let Some(ext) = path.extension().and_then(|e| e.to_str()) else {
             continue;
         };
+
         if let Ok(bytes) = fs::read(&path) {
             map.entry(ext.to_string())
                 .or_insert_with(|| Bytes::from(bytes));
         }
     }
+
     map
 }
 

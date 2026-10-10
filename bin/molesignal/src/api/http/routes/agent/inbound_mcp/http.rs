@@ -35,6 +35,7 @@ use crate::{
 pub(super) fn routes(state: AppState, runtime: Arc<InboundMcpAdapterRuntime>) -> Router<AppState> {
     let handler_state = state.clone();
     let handler_runtime = runtime;
+
     let service: StreamableHttpService<InboundMcpHandler, LocalSessionManager> =
         StreamableHttpService::new(
             move || {
@@ -52,6 +53,7 @@ pub(super) fn routes(state: AppState, runtime: Arc<InboundMcpAdapterRuntime>) ->
                 .disable_allowed_hosts()
                 .disable_allowed_origins(),
         );
+
     Router::new()
         .route_service("/mcp", service)
         .layer(middleware::from_fn_with_state(state, inbound_mcp_layer))
@@ -70,9 +72,11 @@ async fn inbound_mcp_layer(
         }
         Err(rejection) => rejection.into_response(&state, request.headers()),
     };
+
     response
         .headers_mut()
         .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+
     response
 }
 
@@ -81,10 +85,13 @@ async fn prepare_request(
     request: &mut Request,
 ) -> Result<super::admission::AdmissionGuard, McpHttpRejection> {
     validate_host(state, request.headers())?;
+
     let resource =
         crate::api::http::routes::oauth::metadata::resource_uri(state, request.headers())
             .map_err(McpHttpRejection::from_error)?;
+
     let token = bearer_token(request.headers())?;
+
     let (mut iam, credential) = if token.starts_with("ms_") || token.starts_with("msrum_") {
         let identity = authenticate_api_token_identity_with_metadata(
             token,
@@ -93,10 +100,12 @@ async fn prepare_request(
         )
         .await
         .map_err(McpHttpRejection::from_error)?;
+
         let credential = AuthenticatedCredential::ApiToken {
             token_id: identity.token_id,
             token_kind: identity.token_kind,
         };
+
         (identity.context, credential)
     } else if token.starts_with("msoauth_") {
         crate::api::http::middleware::auth::oauth::authenticate_access_token(
@@ -109,11 +118,13 @@ async fn prepare_request(
             "Inbound MCP accepts personal, service-account, or OAuth access tokens",
         ));
     };
+
     if !credential.is_inbound_mcp_credential() {
         return Err(McpHttpRejection::unauthorized(
             "this API token type cannot access Inbound MCP",
         ));
     }
+
     if matches!(
         &credential,
         AuthenticatedCredential::ApiToken {
@@ -139,11 +150,13 @@ async fn prepare_request(
         .enrich_context(&mut iam)
         .await
         .map_err(McpHttpRejection::from_error)?;
+
     if !iam.has_permission("agent.use") {
         return Err(McpHttpRejection::forbidden(
             "missing permission `agent.use`",
         ));
     }
+
     let settings = state
         .agent
         .inbound_mcp
@@ -151,11 +164,13 @@ async fn prepare_request(
         .await
         .map_err(McpHttpRejection::from_error)?
         .unwrap_or_else(|| InboundMcpSettings::defaults(iam.org_id.clone()));
+
     if !settings.enabled {
         return Err(McpHttpRejection::forbidden(
             "Inbound MCP is disabled for this organization",
         ));
     }
+
     validate_origin(state, request.headers(), &settings)?;
     enforce_body_limit(request, settings.max_request_bytes).await?;
 
@@ -164,7 +179,9 @@ async fn prepare_request(
         .get::<Arc<InboundMcpAdapterRuntime>>()
         .cloned()
         .ok_or_else(|| McpHttpRejection::internal("Inbound MCP runtime is unavailable"))?;
+
     let credential_key = credential.stable_key(&iam.org_id);
+
     let guard = runtime
         .admit(
             credential_key,
@@ -179,9 +196,11 @@ async fn prepare_request(
     {
         trace_context.set_authenticated_org(iam.org_id.as_str());
     }
+
     update_current_trace_context(|trace_context| {
         trace_context.set_authenticated_org(iam.org_id.as_str());
     });
+
     tracing::Span::current().record("molesignal.org.id", iam.org_id.as_str());
     tracing::Span::current().record("molesignal.user.id", iam.user_id.as_str());
     request.extensions_mut().insert(capability_snapshot);
@@ -195,11 +214,13 @@ fn bearer_token(headers: &HeaderMap) -> Result<&str, McpHttpRejection> {
     let authorization_headers = headers.get_all(header::AUTHORIZATION);
     let mut values = authorization_headers.iter();
     let value = values.next();
+
     if values.next().is_some() {
         return Err(McpHttpRejection::unauthorized(
             "multiple Authorization headers are not allowed",
         ));
     }
+
     value
         .and_then(|value| value.to_str().ok())
         .and_then(|value| value.split_once(' '))
@@ -219,9 +240,11 @@ async fn enforce_body_limit(
 ) -> Result<(), McpHttpRejection> {
     let limit = configured_limit.clamp(1, HARD_BODY_BYTES) as usize;
     let body = std::mem::replace(request.body_mut(), Body::empty());
+
     let bytes = to_bytes(body, limit)
         .await
         .map_err(|_| McpHttpRejection::payload_too_large(limit))?;
+
     *request.body_mut() = Body::from(bytes);
     Ok(())
 }
@@ -229,34 +252,43 @@ async fn enforce_body_limit(
 fn validate_host(state: &AppState, headers: &HeaderMap) -> Result<(), McpHttpRejection> {
     let host_headers = headers.get_all(header::HOST);
     let mut hosts = host_headers.iter();
+
     let host = hosts
         .next()
         .and_then(|value| value.to_str().ok())
         .ok_or_else(|| McpHttpRejection::forbidden("missing or invalid Host header"))?;
+
     if hosts.next().is_some() {
         return Err(McpHttpRejection::forbidden(
             "multiple Host headers are not allowed",
         ));
     }
+
     let configured = state.platform.external_url.trim();
+
     if !configured.is_empty() {
         let expected = Url::parse(configured)
             .map_err(|_| McpHttpRejection::internal("configured external URL is invalid"))?;
+
         if !host_matches_origin(host, &expected) {
             return Err(McpHttpRejection::forbidden(
                 "Host does not match the configured external URL",
             ));
         }
+
         return Ok(());
     }
+
     let parsed = Url::parse(&format!("http://{host}"))
         .map_err(|_| McpHttpRejection::forbidden("invalid Host header"))?;
+
     let loopback = parsed.host_str().is_some_and(|value| {
         value.eq_ignore_ascii_case("localhost")
             || value
                 .parse::<std::net::IpAddr>()
                 .is_ok_and(|ip| ip.is_loopback())
     });
+
     if loopback {
         Ok(())
     } else {
@@ -273,26 +305,32 @@ fn validate_origin(
 ) -> Result<(), McpHttpRejection> {
     let origin_headers = headers.get_all(header::ORIGIN);
     let mut origins = origin_headers.iter();
+
     let Some(origin) = origins.next() else {
         return Ok(());
     };
+
     if origins.next().is_some() {
         return Err(McpHttpRejection::forbidden(
             "multiple Origin headers are not allowed",
         ));
     }
+
     let origin = origin
         .to_str()
         .map_err(|_| McpHttpRejection::forbidden("invalid Origin header"))?;
+
     let parsed =
         Url::parse(origin).map_err(|_| McpHttpRejection::forbidden("invalid Origin header"))?;
     let normalized = origin_value(&parsed)
         .ok_or_else(|| McpHttpRejection::forbidden("invalid Origin header"))?;
+
     let same_origin = crate::api::http::routes::oauth::metadata::external_base(state, headers)
         .ok()
         .and_then(|base| Url::parse(&base).ok())
         .and_then(|url| origin_value(&url))
         .is_some_and(|expected| expected.eq_ignore_ascii_case(&normalized));
+
     if same_origin
         || settings
             .allowed_origins
@@ -311,6 +349,7 @@ fn host_matches_origin(host: &str, expected: &Url) -> bool {
     let Ok(presented) = Url::parse(&format!("{}://{host}", expected.scheme())) else {
         return false;
     };
+
     presented.username().is_empty()
         && presented.password().is_none()
         && presented.path() == "/"
@@ -334,6 +373,7 @@ fn origin_value(url: &Url) -> Option<String> {
     {
         return None;
     }
+
     Some(url.origin().ascii_serialization())
 }
 
@@ -391,12 +431,14 @@ impl McpHttpRejection {
         let status = StatusCode::from_u16(error.http_status_code())
             .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
         let authenticate = status == StatusCode::UNAUTHORIZED;
+
         let message = if status.is_server_error() {
             tracing::warn!(error = %error, "Inbound MCP request failed");
             "internal error".into()
         } else {
             error.to_string()
         };
+
         Self::new(status, error.http_error_code(), message, authenticate)
     }
 
@@ -410,6 +452,7 @@ impl McpHttpRejection {
                 Some(retry_after_seconds),
             ),
         };
+
         Self {
             status: StatusCode::TOO_MANY_REQUESTS,
             code: "resource_exhausted",
@@ -425,11 +468,13 @@ impl McpHttpRejection {
             axum::Json(json!({ "error": self.code, "message": self.message })),
         )
             .into_response();
+
         if self.authenticate
             && let Ok(base) =
                 crate::api::http::routes::oauth::metadata::external_base(state, headers)
         {
             let metadata = format!("{base}/.well-known/oauth-protected-resource/api/v1/mcp");
+
             if let Ok(value) =
                 HeaderValue::from_str(&format!("Bearer resource_metadata=\"{metadata}\""))
             {
@@ -438,11 +483,13 @@ impl McpHttpRejection {
                     .insert(header::WWW_AUTHENTICATE, value);
             }
         }
+
         if let Some(retry_after) = self.retry_after
             && let Ok(value) = HeaderValue::from_str(&retry_after.to_string())
         {
             response.headers_mut().insert(header::RETRY_AFTER, value);
         }
+
         response
     }
 }

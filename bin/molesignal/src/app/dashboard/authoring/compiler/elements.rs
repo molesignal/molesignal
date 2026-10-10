@@ -22,6 +22,7 @@ pub(super) fn compile_elements(
     manifest: &VisualizationManifest,
 ) -> Result<Vec<Value>> {
     let mut cursor = LayoutCursor::default();
+
     elements
         .iter()
         .map(|element| match element {
@@ -42,6 +43,7 @@ fn compile_section(
 ) -> Result<Value> {
     let id = context.element_id("section");
     let mut child_cursor = LayoutCursor::default();
+
     let children = section
         .elements
         .iter()
@@ -54,10 +56,12 @@ fn compile_section(
             }
         })
         .collect::<Result<Vec<_>>>()?;
+
     let dimensions = crate::domain::dashboard::authoring::GridDimensions {
         w: manifest.grid.columns,
         h: child_cursor.bottom().max(8),
     };
+
     let mut compiled = json!({
         "kind": "row",
         "id": id,
@@ -66,9 +70,11 @@ fn compile_section(
         "collapsed": section.collapsed,
         "elements": children
     });
+
     if let Some(description) = &section.description {
         compiled["description"] = Value::String(description.clone());
     }
+
     Ok(compiled)
 }
 
@@ -87,9 +93,11 @@ fn compile_text(
         "mode": text.mode.map_or("markdown", |mode| mode.as_str()),
         "transparent": text.transparent.unwrap_or(false)
     });
+
     if text.title.is_none() {
         compiled["title"] = Value::String(String::new());
     }
+
     compiled
 }
 
@@ -116,15 +124,18 @@ fn compile_panel(
             )],
         ));
     };
+
     let mut options = capability.default_options.clone();
     merge_visualization_options(&mut options, panel);
     let field_config = compile_field_config(panel);
+
     let queries = panel
         .queries
         .iter()
         .enumerate()
         .map(|(index, query)| {
             let compiled = compile_query(query);
+
             let mut value = json!({
                 "refId": ref_id(index),
                 "enabled": true,
@@ -132,12 +143,15 @@ fn compile_panel(
                 "query": compiled.payload,
                 "format": compiled.format
             });
+
             if let Some(legend) = compiled.legend {
                 value["legend"] = Value::String(legend);
             }
+
             value
         })
         .collect::<Vec<_>>();
+
     let mut compiled = json!({
         "kind": "panel",
         "id": context.element_id("panel"),
@@ -159,27 +173,33 @@ fn compile_panel(
         "links": [],
         "transparent": panel.transparent.unwrap_or(false)
     });
+
     if let Some(description) = &panel.description {
         compiled["description"] = Value::String(description.clone());
     }
+
     Ok(compiled)
 }
 
 fn merge_visualization_options(options: &mut Map<String, Value>, panel: &PanelAuthoringSpec) {
     let visualization = &panel.visualization;
+
     if let Some(reducer) = &visualization.reducer {
         options.insert("calculation".into(), Value::String(reducer.clone()));
     }
+
     if let Some(legend) = &visualization.legend {
         if let Some(mode) = legend.mode {
             options.insert("legendMode".into(), Value::String(mode.as_str().into()));
         }
+
         if let Some(placement) = legend.placement {
             options.insert(
                 "legendPlacement".into(),
                 Value::String(placement.as_str().into()),
             );
         }
+
         if !legend.stats.is_empty() {
             options.insert("legendStats".into(), json!(legend.stats));
         }
@@ -189,20 +209,25 @@ fn merge_visualization_options(options: &mut Map<String, Value>, panel: &PanelAu
 fn compile_field_config(panel: &PanelAuthoringSpec) -> Value {
     let visualization = &panel.visualization;
     let mut config = Map::new();
+
     if let Some(unit) = &visualization.unit
         && unit != "none"
     {
         config.insert("unit".into(), Value::String(unit.clone()));
     }
+
     if let Some(decimals) = visualization.decimals {
         config.insert("decimals".into(), Value::from(decimals));
     }
+
     if let Some(minimum) = visualization.min {
         config.insert("min".into(), Value::from(minimum));
     }
+
     if let Some(maximum) = visualization.max {
         config.insert("max".into(), Value::from(maximum));
     }
+
     if !visualization.thresholds.is_empty() {
         config.insert(
             "thresholds".into(),
@@ -212,6 +237,7 @@ fn compile_field_config(panel: &PanelAuthoringSpec) -> Value {
             }),
         );
     }
+
     Value::Object(config)
 }
 

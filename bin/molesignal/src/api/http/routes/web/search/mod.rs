@@ -45,6 +45,7 @@ async fn search(
     if q.q.is_empty() {
         return Ok(Json(SearchResponse { items: Vec::new() }));
     }
+
     // 长度上限必须在打 DB 之前拦：下游是 6 表 UNION ALL 上的 pg_trgm 扫描，
     // 且那条查询的 statement_timeout 长期是失效的，没有别的兜底。
     validate_query(&q.q).map_err(Error::invalid)?;
@@ -57,6 +58,7 @@ async fn search(
         .web_search
         .search(&ctx.org_id, &q.q, &kinds, limit)
         .await?;
+
     let items = hits
         .into_iter()
         .map(|h| SearchItem {
@@ -66,5 +68,6 @@ async fn search(
             subtitle: h.subtitle,
         })
         .collect();
+
     Ok(Json(SearchResponse { items }))
 }

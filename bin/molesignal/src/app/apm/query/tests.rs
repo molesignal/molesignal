@@ -33,9 +33,11 @@ struct FixtureRepository {
 impl ApmQueryRepository for FixtureRepository {
     async fn query_buckets(&self, query: &BucketQuery) -> Result<Vec<MergedBucket>> {
         self.seen_bucket_queries.lock().push(query.clone());
+
         if query.org_id != self.org_id {
             return Ok(Vec::new());
         }
+
         Ok(self
             .buckets
             .iter()
@@ -60,9 +62,11 @@ impl ApmQueryRepository for FixtureRepository {
 
     async fn list_services(&self, query: &CatalogQuery) -> Result<Vec<ServiceObservation>> {
         self.seen_catalog_queries.lock().push(query.clone());
+
         if query.org_id != self.org_id {
             return Ok(Vec::new());
         }
+
         Ok(self
             .services
             .iter()
@@ -122,6 +126,7 @@ fn fixture() -> Arc<FixtureRepository> {
     let mut latency = LatencyHistogram::empty(&schema);
     latency.observe(&schema, 10_000).expect("observe");
     let transaction_latency = latency.clone();
+
     Arc::new(FixtureRepository {
         org_id: org_id.clone(),
         services: vec![ServiceObservation {

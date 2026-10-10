@@ -78,6 +78,7 @@ impl ReportTemplateRepository for PgReportTemplateRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(rows.into_iter().map(row_to).collect())
     }
 
@@ -90,6 +91,7 @@ impl ReportTemplateRepository for PgReportTemplateRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(row_to(row))
     }
 
@@ -112,6 +114,7 @@ impl ReportTemplateRepository for PgReportTemplateRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(template)
     }
 
@@ -133,6 +136,7 @@ impl ReportTemplateRepository for PgReportTemplateRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(template)
     }
 
@@ -143,6 +147,7 @@ impl ReportTemplateRepository for PgReportTemplateRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(())
     }
 }

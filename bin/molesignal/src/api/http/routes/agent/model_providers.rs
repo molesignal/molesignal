@@ -138,10 +138,13 @@ async fn create(
     Json(req): Json<CreateReq>,
 ) -> Result<Json<ProviderResp>> {
     validate_provider(&req.provider)?;
+
     if req.name.trim().is_empty() || req.default_model.trim().is_empty() {
         return Err(Error::invalid("name and default_model are required"));
     }
+
     let id = Id::new();
+
     let input = ModelProviderInput {
         id: id.clone(),
         org_id: ctx.org_id.clone(),
@@ -153,8 +156,10 @@ async fn create(
         timeout_ms: req.timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS),
         max_tokens: req.max_tokens,
     };
+
     let api_key = req.api_key.as_deref().filter(|k| !k.is_empty());
     let saved = state.agent.model_providers.create(input, api_key).await?;
+
     // 审计：含 masked 元数据，不含明文/密文。
     activity_audit::record(
         &state,
@@ -172,6 +177,7 @@ async fn create(
         }),
     )
     .await;
+
     Ok(Json(to_resp(saved)))
 }
 
@@ -183,6 +189,7 @@ async fn update(
     Json(req): Json<UpdateReq>,
 ) -> Result<Json<ProviderResp>> {
     validate_provider(&req.provider)?;
+
     let input = ModelProviderInput {
         id: Id(id.clone()),
         org_id: ctx.org_id.clone(),
@@ -194,7 +201,9 @@ async fn update(
         timeout_ms: req.timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS),
         max_tokens: req.max_tokens,
     };
+
     let saved = state.agent.model_providers.update(input).await?;
+
     activity_audit::record(
         &state,
         &ctx,
@@ -209,6 +218,7 @@ async fn update(
         }),
     )
     .await;
+
     Ok(Json(to_resp(saved)))
 }
 
@@ -222,11 +232,13 @@ async fn rotate_key(
     if req.api_key.trim().is_empty() {
         return Err(Error::invalid("api_key is required"));
     }
+
     let saved = state
         .agent
         .model_providers
         .rotate_key(&ctx.org_id, &Id(id.clone()), &req.api_key)
         .await?;
+
     activity_audit::record(
         &state,
         &ctx,
@@ -236,6 +248,7 @@ async fn rotate_key(
         json!({ "key_last4": saved.key_last4 }),
     )
     .await;
+
     Ok(Json(to_resp(saved)))
 }
 
@@ -250,6 +263,7 @@ async fn delete(
         .model_providers
         .delete(&ctx.org_id, &Id(id.clone()))
         .await?;
+
     activity_audit::record(
         &state,
         &ctx,
@@ -259,5 +273,6 @@ async fn delete(
         json!({}),
     )
     .await;
+
     Ok(Json(json!({ "deleted": true })))
 }

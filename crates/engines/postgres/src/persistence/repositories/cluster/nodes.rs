@@ -98,6 +98,7 @@ fn roles_from_csv(s: &str) -> Vec<PeerRole> {
         .filter(|seg| !seg.is_empty())
         .map(peer_role_from_str)
         .collect();
+
     if roles.is_empty() {
         vec![PeerRole::Standalone]
     } else {
@@ -130,6 +131,7 @@ impl ClusterNodesRepository for PgClusterNodesRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -143,6 +145,7 @@ impl ClusterNodesRepository for PgClusterNodesRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(rows
             .into_iter()
             .map(|r| ClusterNodeRow {
@@ -163,6 +166,7 @@ impl ClusterNodesRepository for PgClusterNodesRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(res.rows_affected())
     }
 
@@ -172,6 +176,7 @@ impl ClusterNodesRepository for PgClusterNodesRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(())
     }
 }
@@ -226,6 +231,7 @@ impl PgClusterRegistry {
         // expiry, concurrent router requests wait for the same SELECT instead of fanning out one
         // cluster_nodes query per request.
         let mut cache = self.cache.lock().await;
+
         if cache
             .refreshed_at
             .is_some_and(|refreshed_at| refreshed_at.elapsed() < self.cache_ttl)
@@ -234,6 +240,7 @@ impl PgClusterRegistry {
         }
 
         let since = TimestampMicros(TimestampMicros::now().0 - self.alive_window_secs * 1_000_000);
+
         let rows = match self.repo.list_alive(since).await {
             Ok(rows) => rows,
             Err(error) => {
@@ -241,6 +248,7 @@ impl PgClusterRegistry {
                 Vec::new()
             }
         };
+
         cache.refreshed_at = Some(Instant::now());
         cache.rows = rows.clone();
         rows
@@ -265,10 +273,13 @@ impl ClusterRegistry for PgClusterRegistry {
     async fn pick_intake(&self, org_id: &Id, stream: &str) -> Option<PeerInfo> {
         // FNV-1a 一致性哈希按 (org_id, stream) 选 intake
         let peers = self.list_role(PeerRole::Intake).await;
+
         if peers.is_empty() {
             return None;
         }
+
         let mut h: u64 = 0xcbf29ce484222325;
+
         for &b in org_id
             .0
             .as_bytes()
@@ -279,6 +290,7 @@ impl ClusterRegistry for PgClusterRegistry {
             h ^= b as u64;
             h = h.wrapping_mul(0x100000001b3);
         }
+
         let idx = (h as usize) % peers.len();
         peers.into_iter().nth(idx)
     }
@@ -286,13 +298,16 @@ impl ClusterRegistry for PgClusterRegistry {
     async fn pick_querier(&self) -> Option<PeerInfo> {
         // 朴素轮询：用当前时间纳秒做 mod；当前即可
         let peers = self.list_role(PeerRole::Querier).await;
+
         if peers.is_empty() {
             return None;
         }
+
         let now_ns = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_nanos())
             .unwrap_or(0);
+
         let idx = (now_ns as usize) % peers.len();
         peers.into_iter().nth(idx)
     }

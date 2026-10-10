@@ -23,6 +23,7 @@ pub(super) struct MetricCatalogCursor {
 
 pub(super) fn decode(iam: &IamService, org_id: &Id, token: &str) -> Result<MetricCatalogCursor> {
     let payload = decode_signed_cursor::<MetricCatalogCursor>(iam, org_id, PURPOSE, token)?;
+
     if payload.version != VERSION
         || payload.metric_name.is_empty()
         || payload.metric_name.len() > 512
@@ -30,6 +31,7 @@ pub(super) fn decode(iam: &IamService, org_id: &Id, token: &str) -> Result<Metri
     {
         return Err(Error::invalid("invalid metric catalog cursor"));
     }
+
     Ok(payload)
 }
 

@@ -43,6 +43,7 @@ impl IntakeSink for MemoryIntakeSink {
     async fn write(&self, batch: IntakeBatch) -> Result<IntakeResult> {
         let accepted = batch.events.len();
         self.batches.lock().push(batch);
+
         Ok(IntakeResult {
             accepted,
             rejected: 0,

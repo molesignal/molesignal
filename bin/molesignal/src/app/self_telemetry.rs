@@ -55,6 +55,7 @@ use crate::{
 
 /// 分角色内部 RPC 的共享 token。该 token 只来自进程环境，不写入日志或数据流。
 pub const CLUSTER_TOKEN_ENV: &str = "MS_SELF_TELEMETRY_CLUSTER_TOKEN";
+
 const INTERNAL_ORIGIN_HEADER: &str = "x-molesignal-internal-origin";
 const INTERNAL_ORIGIN_VALUE: &str = "self-telemetry";
 const MAX_REMOTE_ATTEMPTS: usize = 3;
@@ -78,6 +79,7 @@ pub fn cluster_token_matches(expected: &str, presented: &str) -> bool {
     if expected.len() != presented.len() {
         return false;
     }
+
     expected
         .as_bytes()
         .iter()
@@ -113,6 +115,7 @@ impl Delivery for LocalDelivery {
             .intake_self_telemetry(make_batch(org_id, signal, events))
             .await
             .map_err(|error| error.to_string())?;
+
         if result.rejected == 0 {
             Ok(())
         } else {
@@ -141,16 +144,21 @@ impl Delivery for RemoteDelivery {
         let payload =
             serde_json::to_vec(&events).map_err(|error| format!("encode failed: {error}"))?;
         let mut last_error = "no intake available".to_string();
+
         for attempt in 0..MAX_REMOTE_ATTEMPTS {
             if attempt > 0 {
                 record_retry(signal, retry_reason(&last_error));
                 let backoff = Duration::from_millis(100u64 << (attempt - 1));
+
                 if started.elapsed().saturating_add(backoff) >= MAX_REMOTE_DELIVERY_AGE {
                     break;
                 }
+
                 sleep(backoff).await;
             }
+
             let remaining = MAX_REMOTE_DELIVERY_AGE.saturating_sub(started.elapsed());
+
             if remaining.is_zero() {
                 break;
             }
@@ -161,9 +169,11 @@ impl Delivery for RemoteDelivery {
                     .pick_intake(org_id, MOLESIGNAL_SYSTEM_STREAM)
                     .await
                     .ok_or_else(|| "no intake available".to_string())?;
+
                 let channel = grpc_channel::connect(&peer.advertise_addr, false)
                     .await
                     .map_err(|error| format!("connect failed: {error}"))?;
+
                 let mut request = tonic::Request::new(PushRequest {
                     batch_id: Id::new().0,
                     org_id: org_id.0.clone(),
@@ -173,14 +183,18 @@ impl Delivery for RemoteDelivery {
                     received_at_micros: TimestampMicros::now().0,
                     stream_type_name: String::new(),
                 });
+
                 grpc_channel::with_bearer(&mut request, &self.token)?;
+
                 request.metadata_mut().insert(
                     INTERNAL_ORIGIN_HEADER,
                     INTERNAL_ORIGIN_VALUE
                         .parse()
                         .map_err(|_| "invalid internal origin metadata".to_string())?,
                 );
+
                 let mut client = IntakeServiceClient::new(channel);
+
                 let response = crate::shared::grpc_trace::call(
                     request,
                     "intake.v1.IntakeService",
@@ -190,6 +204,7 @@ impl Delivery for RemoteDelivery {
                 )
                 .await
                 .map_err(|status| format!("push failed: {}", status.code()))?;
+
                 if response.get_ref().rejected == 0 {
                     Ok(())
                 } else {
@@ -200,6 +215,7 @@ impl Delivery for RemoteDelivery {
                 }
             })
             .await;
+
             match attempt_result {
                 Ok(Ok(())) => return Ok(()),
                 Ok(Err(error)) => last_error = error,
@@ -209,6 +225,7 @@ impl Delivery for RemoteDelivery {
                 }
             }
         }
+
         Err(last_error)
     }
 }
@@ -332,6 +349,7 @@ impl SelfTelemetryRuntime {
                 "{CLUSTER_TOKEN_ENV} must be set on split-role nodes when self intake is enabled"
             )));
         }
+
         Ok(Self::start(
             hub,
             org_id,
@@ -356,6 +374,7 @@ impl SelfTelemetryRuntime {
                 "{CLUSTER_TOKEN_ENV} must be set on split-role nodes when self intake is enabled"
             )));
         }
+
         Ok(Self::start(
             hub,
             org_id,
@@ -376,6 +395,7 @@ impl SelfTelemetryRuntime {
     ) -> Arc<Self> {
         let (stop_tx, stop_rx) = watch::channel(false);
         let mut handles = Vec::new();
+
         let worker_context = WorkerContext {
             hub: hub.clone(),
             org_id: org_id.clone(),
@@ -439,8 +459,10 @@ impl SelfTelemetryRuntime {
         if self.stopped.swap(true, Ordering::AcqRel) {
             return;
         }
+
         self.hub.stop_accepting();
         let _ = self.stop_tx.send(true);
+
         let Some(mut handles) = self
             .handles
             .lock()
@@ -456,14 +478,18 @@ impl SelfTelemetryRuntime {
             }
         })
         .await;
+
         if joined.is_err() {
             for handle in handles {
                 handle.abort();
             }
+
             let pending = self.hub.pending_depth(SelfTelemetrySignal::Traces);
+
             if pending > 0 {
                 record_drop(SelfTelemetrySignal::Traces, "flush_timeout", pending as u64);
             }
+
             tracing::warn!(
                 target: "molesignal::app::self_telemetry",
                 timeout_secs = self.flush_timeout.as_secs(),
@@ -482,6 +508,7 @@ impl SelfTelemetryRuntime {
             .profile_context
             .as_ref()
             .ok_or_else(|| "self profile persistence is disabled".to_string())?;
+
         persist_profile_with(
             self.hub.as_ref(),
             &self.org_id,
@@ -510,12 +537,15 @@ async fn run_signal_worker(
             }
             event = receiver.recv() => event,
         };
+
         let Some(first) = first else {
             break;
         };
+
         let mut batch = vec![first];
         let deadline = sleep(settings.max_delay);
         tokio::pin!(deadline);
+
         while batch.len() < settings.max_events {
             tokio::select! {
                 biased;
@@ -530,10 +560,12 @@ async fn run_signal_worker(
                     None => break,
                 },
             }
+
             if *stop_rx.borrow() {
                 break;
             }
         }
+
         flush_batch(
             settings.signal,
             context.hub.as_ref(),
@@ -543,6 +575,7 @@ async fn run_signal_worker(
             batch,
         )
         .await;
+
         if *stop_rx.borrow() {
             break;
         }
@@ -551,15 +584,18 @@ async fn run_signal_worker(
     // sender 由 hub 持有，不会自然 close；收到 stop 后显式 drain 当前缓冲。
     loop {
         let mut batch = Vec::with_capacity(settings.max_events);
+
         while batch.len() < settings.max_events {
             match receiver.try_recv() {
                 Ok(event) => batch.push(event),
                 Err(_) => break,
             }
         }
+
         if batch.is_empty() {
             break;
         }
+
         flush_batch(
             settings.signal,
             context.hub.as_ref(),
@@ -582,10 +618,12 @@ async fn flush_batch(
 ) {
     let count = batch.len();
     hub.record_dequeued(signal, count);
+
     if signal == SelfTelemetrySignal::Traces
         && let Some(trace_candidates) = trace_candidates
     {
         let mut dropped = 0_u64;
+
         for event in batch {
             match CanonicalSpan::try_from_raw_event(&event) {
                 Ok(span) => {
@@ -604,12 +642,16 @@ async fn flush_batch(
                 Err(_) => dropped += 1,
             }
         }
+
         record_batch(signal, dropped == 0);
+
         if dropped > 0 {
             record_drop(signal, "trace_candidate_queue", dropped);
         }
+
         return;
     }
+
     match delivery.deliver(org_id, signal, batch).await {
         Ok(()) => record_batch(signal, true),
         Err(error) => {
@@ -633,6 +675,7 @@ async fn run_metrics_worker(
 ) {
     let mut tick = tokio::time::interval_at(Instant::now() + interval, interval);
     tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
     loop {
         tokio::select! {
             biased;
@@ -683,6 +726,7 @@ async fn run_profiles_worker(
 ) {
     let mut tick = tokio::time::interval_at(Instant::now() + settings.interval, settings.interval);
     tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
     loop {
         tokio::select! {
             biased;
@@ -755,11 +799,13 @@ async fn persist_profile_with(
 ) -> std::result::Result<(), String> {
     captured.normalized.labels.extend(hub.resource().labels());
     record_accepted(SelfTelemetrySignal::Profiles, 1);
+
     let event = context
         .storage
         .archive_metadata_event(org_id, &captured.normalized, &captured.raw_pprof)
         .await
         .map_err(|error| error.to_string())?;
+
     match delivery
         .deliver(org_id, SelfTelemetrySignal::Profiles, vec![event])
         .await

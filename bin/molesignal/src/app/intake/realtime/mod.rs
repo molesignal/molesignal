@@ -34,6 +34,7 @@ struct Output {
     sizes: Vec<u64>,
     indices: Vec<usize>,
 }
+
 impl Output {
     fn push(&mut self, event: RawEvent, size: u64, index: usize) {
         self.events.push(event);
@@ -57,7 +58,9 @@ impl IntakeService {
         if pipeline.org_id != batch.org_id {
             return Err(Error::forbidden("pipeline organization mismatch"));
         }
+
         let total = batch.events.len();
+
         let functions: Vec<_> = pipeline
             .steps
             .iter()
@@ -73,6 +76,7 @@ impl IntakeService {
                 updated_at: pipeline.updated_at,
             })
             .collect();
+
         let IntakeBatch {
             batch_id,
             org_id,
@@ -81,8 +85,10 @@ impl IntakeService {
             events,
             received_at,
         } = batch;
+
         let mut outputs: BTreeMap<String, Output> = BTreeMap::new();
         let mut errors = Vec::new();
+
         for (index, mut event) in events.into_iter().enumerate() {
             let size = event_bytes(&event)?;
             let original = pipeline.routing.retain_source.then(|| event.clone());
@@ -90,40 +96,50 @@ impl IntakeService {
             let mut failed = false;
             let mut destination = pipeline.target.clone();
             let mut routed = false;
+
             for (step, function) in pipeline.steps.iter().zip(&functions) {
                 if step.kind == ProcessingKind::Builtin {
                     destination = step.routing.destination(&value, &step.target);
                     routed = true;
                     continue;
                 }
+
                 if engine.executor.run(function, &mut value).await.is_err() {
                     errors.push(IntakeError {
                         index,
                         reason: format!("realtime transform `{}` failed", function.name),
                     });
+
                     failed = true;
                     break;
                 }
             }
+
             if failed {
                 continue;
             }
+
             // Preserve earlier configurations until they are saved as a built-in step.
             if !routed {
                 destination = pipeline.routing.destination(&value, &pipeline.target);
             }
+
             let Value::Object(fields) = value else {
                 errors.push(IntakeError {
                     index,
                     reason: "realtime transform must produce an object".into(),
                 });
+
                 continue;
             };
+
             event.fields = fields;
+
             outputs
                 .entry(destination.clone())
                 .or_default()
                 .push(event, size, index);
+
             // When destination equals source, keep just the processed event.
             if destination != stream
                 && let Some(original) = original
@@ -134,7 +150,9 @@ impl IntakeService {
                     .push(original, size, index);
             }
         }
+
         let dataset_type = self.sink.primary_dataset_type(StreamType::LOGS)?;
+
         for (destination, output) in outputs {
             let result = self
                 .intake_prepared(
@@ -151,12 +169,14 @@ impl IntakeService {
                     Some(output.sizes),
                 )
                 .await?;
+
             // An input is accepted once, even when both source and destination were written.
             if result.rejected > result.errors.len() {
                 return Err(Error::internal(
                     "routed sink rejected rows without error details",
                 ));
             }
+
             for error in result.errors {
                 errors.push(IntakeError {
                     index: output.indices[error.index],
@@ -164,11 +184,13 @@ impl IntakeService {
                 });
             }
         }
+
         let rejected = errors
             .iter()
             .map(|e| e.index)
             .collect::<BTreeSet<_>>()
             .len();
+
         Ok(IntakeResult {
             accepted: total - rejected,
             rejected,

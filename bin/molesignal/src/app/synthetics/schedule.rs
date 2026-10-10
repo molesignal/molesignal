@@ -23,6 +23,7 @@ pub fn next_due_at(
             let mut bytes = [0u8; 8];
             bytes.copy_from_slice(&hash.as_bytes()[..8]);
             let jitter = (u64::from_le_bytes(bytes) % jitter_window as u64) as i64;
+
             Ok(Some(TimestampMicros(
                 after.0.saturating_add(base).saturating_add(jitter),
             )))
@@ -36,6 +37,7 @@ pub fn next_due_at(
             let schedule = cron::Schedule::from_str(expression)
                 .map_err(|error| Error::invalid(format!("invalid Cron expression: {error}")))?;
             let after = after.to_datetime().with_timezone(&timezone);
+
             Ok(schedule
                 .after(&after)
                 .next()

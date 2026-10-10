@@ -33,12 +33,15 @@ pub struct CatalogSettings {
 fn default_seal_after_hours() -> u32 {
     24 * 7
 }
+
 fn default_manifest_cache_bytes() -> u64 {
     256 * 1024 * 1024
 }
+
 fn default_catalog_interval_secs() -> u32 {
     300
 }
+
 fn default_catalog_batch_size() -> u32 {
     64
 }
@@ -71,12 +74,15 @@ pub struct IndexMaintenanceSettings {
 fn default_index_interval_secs() -> u32 {
     30
 }
+
 fn default_index_batch_size() -> u32 {
     64
 }
+
 fn default_index_concurrency() -> usize {
     2
 }
+
 fn default_index_retry_after_secs() -> u32 {
     300
 }
@@ -112,15 +118,19 @@ pub struct GarbageCollectionSettings {
 fn default_gc_interval_secs() -> u32 {
     30
 }
+
 fn default_gc_grace_period_secs() -> u32 {
     3600
 }
+
 fn default_gc_lease_secs() -> u32 {
     900
 }
+
 fn default_gc_batch_size() -> u32 {
     128
 }
+
 fn default_gc_concurrency() -> usize {
     4
 }
@@ -155,15 +165,19 @@ pub struct ReconcilerSettings {
 fn default_true() -> bool {
     true
 }
+
 fn default_reconciler_interval_secs() -> u32 {
     300
 }
+
 fn default_reconciler_batch_size() -> u32 {
     256
 }
+
 fn default_reconciler_orphan_grace_secs() -> u32 {
     24 * 3600
 }
+
 fn default_reconciler_verify_checksums() -> bool {
     true
 }

@@ -25,16 +25,19 @@ where
     pub fn new(settings: CacheLayerSettings) -> Self {
         let metrics = CacheMetrics::register("index_handle");
         let evict = metrics.evictions();
+
         let inner = Cache::builder()
             .max_capacity(settings.capacity)
             .time_to_live(Duration::from_secs(settings.ttl_secs))
             .async_eviction_listener(move |_k, _v, _cause| {
                 let evict = evict.clone();
+
                 Box::pin(async move {
                     evict.inc();
                 })
             })
             .build();
+
         Self { inner, metrics }
     }
 
@@ -49,7 +52,9 @@ where
             self.metrics.record_hit();
             return Ok(v);
         }
+
         self.metrics.record_miss();
+
         self.inner
             .try_get_with(key, async move { load().await })
             .await
@@ -58,6 +63,7 @@ where
 
     pub fn hit_ratio(&self) -> f64 {
         let (h, m) = self.metrics.snapshot();
+
         if h + m == 0 {
             0.0
         } else {

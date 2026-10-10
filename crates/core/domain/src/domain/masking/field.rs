@@ -76,6 +76,7 @@ impl FieldMaskingAlgorithm {
             Self::Inner { replacement, .. } => (None, Some(replacement)),
             Self::Hash => (None, None),
         };
+
         if let Some((start, end)) = range
             && start >= end
         {
@@ -83,11 +84,13 @@ impl FieldMaskingAlgorithm {
                 "masking range start must be less than end",
             ));
         }
+
         if replacement.is_some_and(|value| value.len() > 1024) {
             return Err(crate::shared::Error::invalid(
                 "masking replacement must not exceed 1024 bytes",
             ));
         }
+
         Ok(())
     }
 }

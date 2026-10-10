@@ -25,29 +25,36 @@ pub(super) async fn execute(
         BuiltinToolKind::ListAlertRules => {
             let args: ListEnabledArgs = parse_args(arguments)?;
             let mut rules = runtime.alerting.service.list_rules(&auth.org_id).await?;
+
             if args.enabled_only {
                 rules.retain(|rule| rule.enabled);
             }
+
             json_result(&bounded(rules, args.limit, 500))
         }
         BuiltinToolKind::GetAlertRule => {
             let args: IdArg = parse_args(arguments)?;
+
             let rule = runtime
                 .alerting
                 .service
                 .get_rule(&Id(args.rule_id()?))
                 .await?;
+
             ensure_org(&rule.org_id, auth)?;
             json_result(&rule)
         }
         BuiltinToolKind::TestAlertRule => {
             let args: IdArg = parse_args(arguments)?;
+
             let rule = runtime
                 .alerting
                 .service
                 .get_rule(&Id(args.rule_id()?))
                 .await?;
+
             ensure_org(&rule.org_id, auth)?;
+
             json_result(
                 &runtime
                     .alerting
@@ -59,6 +66,7 @@ pub(super) async fn execute(
         BuiltinToolKind::ListIncidentGroups => {
             let args: IncidentGroupArgs = parse_args(arguments)?;
             let state = args.status.as_deref().map(parse_group_state).transpose()?;
+
             json_result(
                 &runtime
                     .alerting
@@ -73,6 +81,7 @@ pub(super) async fn execute(
         }
         BuiltinToolKind::GetIncidentGroup => {
             let args: IdArg = parse_args(arguments)?;
+
             json_result(
                 &runtime
                     .alerting
@@ -84,18 +93,22 @@ pub(super) async fn execute(
         BuiltinToolKind::ListMuteRules => {
             let args: ListEnabledArgs = parse_args(arguments)?;
             let mut rules = runtime.alerting.mute_rules.list(&auth.org_id).await?;
+
             if args.enabled_only {
                 rules.retain(|rule| rule.enabled);
             }
+
             json_result(&bounded(rules, args.limit, 500))
         }
         BuiltinToolKind::GetMuteRule => {
             let args: IdArg = parse_args(arguments)?;
+
             let rule = runtime
                 .alerting
                 .mute_rules
                 .get(&Id(args.mute_id()?))
                 .await?;
+
             ensure_org(&rule.org_id, auth)?;
             json_result(&rule)
         }
@@ -106,11 +119,13 @@ pub(super) async fn execute(
         }
         BuiltinToolKind::GetEscalationPolicy => {
             let args: IdArg = parse_args(arguments)?;
+
             let policy = runtime
                 .alerting
                 .service
                 .get_policy(&Id(args.policy_id()?))
                 .await?;
+
             ensure_org(&policy.org_id, auth)?;
             json_result(&policy)
         }
@@ -164,12 +179,15 @@ impl IdArg {
     fn rule_id(&self) -> Result<String> {
         self.value(&self.rule_id, "rule_id")
     }
+
     fn group_id(&self) -> Result<String> {
         self.value(&self.group_id, "group_id")
     }
+
     fn mute_id(&self) -> Result<String> {
         self.value(&self.mute_id, "mute_id")
     }
+
     fn policy_id(&self) -> Result<String> {
         self.value(&self.policy_id, "policy_id")
     }

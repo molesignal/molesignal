@@ -63,13 +63,16 @@ fn validate_request(request: &WriteRequest) -> Result<String> {
     if request.name.trim().is_empty() {
         return Err(Error::invalid("name must not be empty"));
     }
+
     validate_notify_template_body(&request.body)?;
     let format = request.format.as_deref().unwrap_or("text");
+
     if !ALLOWED_FORMATS.contains(&format) {
         return Err(Error::invalid(
             "format must be one of: text | markdown | html",
         ));
     }
+
     Ok(format.to_string())
 }
 
@@ -88,12 +91,14 @@ async fn list_fields(
 ) -> Result<Json<TemplateFieldsResponse>> {
     let mut label_keys = BTreeSet::new();
     let mut annotation_keys = BTreeSet::new();
+
     if let Ok(rules) = state.alerting.service.list_rules(&context.org_id).await {
         for rule in rules {
             label_keys.extend(rule.labels.keys().cloned());
             annotation_keys.extend(rule.annotations.keys().cloned());
         }
     }
+
     if let Ok(incidents) = state
         .alerting
         .service
@@ -105,6 +110,7 @@ async fn list_fields(
             annotation_keys.extend(incident.annotations.keys().cloned());
         }
     }
+
     Ok(Json(TemplateFieldsResponse {
         fields: notify_template_field_catalog(),
         presets: notify_template_preset_catalog(),
@@ -129,13 +135,16 @@ async fn create(
 ) -> Result<Json<NotifyTemplateRecord>> {
     let format = validate_request(&request)?;
     let existing = state.alerting.templates.list(&context.org_id).await?;
+
     if existing
         .iter()
         .any(|template| template.name == request.name)
     {
         return Err(Error::conflict("notify template name already exists"));
     }
+
     let now = TimestampMicros::now();
+
     let saved = state
         .alerting
         .templates
@@ -150,6 +159,7 @@ async fn create(
             updated_at: now,
         })
         .await?;
+
     emit_cud(
         &state,
         &context.org_id,
@@ -159,6 +169,7 @@ async fn create(
         &saved,
     )
     .await;
+
     Ok(Json(saved))
 }
 
@@ -185,11 +196,13 @@ async fn update(
     Json(request): Json<WriteRequest>,
 ) -> Result<Json<NotifyTemplateRecord>> {
     let format = validate_request(&request)?;
+
     let existing = state
         .alerting
         .templates
         .get(&context.org_id, &Id::from_string(id))
         .await?;
+
     if state
         .alerting
         .templates
@@ -200,6 +213,7 @@ async fn update(
     {
         return Err(Error::conflict("notify template name already exists"));
     }
+
     let saved = state
         .alerting
         .templates
@@ -214,6 +228,7 @@ async fn update(
             updated_at: TimestampMicros::now(),
         })
         .await?;
+
     emit_cud(
         &state,
         &context.org_id,
@@ -223,6 +238,7 @@ async fn update(
         &saved,
     )
     .await;
+
     Ok(Json(saved))
 }
 
@@ -233,6 +249,7 @@ async fn delete(
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>> {
     let id = Id::from_string(id);
+
     if state
         .alerting
         .notify_engine
@@ -245,11 +262,13 @@ async fn delete(
             "notify template is referenced by a notify policy",
         ));
     }
+
     state
         .alerting
         .templates
         .delete(&context.org_id, &id)
         .await?;
+
     emit_cud(
         &state,
         &context.org_id,
@@ -259,5 +278,6 @@ async fn delete(
         &delete_payload(&id.0),
     )
     .await;
+
     Ok(Json(serde_json::json!({"deleted": true})))
 }

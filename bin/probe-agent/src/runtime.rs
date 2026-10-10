@@ -48,11 +48,14 @@ pub async fn register(options: RegisterOptions) -> Result<()> {
     if options.state_dir.join("identity.json").exists() {
         bail!("this Probe Agent is already registered; revoke it before replacing its identity");
     }
+
     let ca = base64::engine::general_purpose::STANDARD
         .decode(&options.ca_certificate_base64)
         .context("decode Probe CA certificate")?;
+
     let ca = String::from_utf8(ca).context("Probe CA certificate is not UTF-8 PEM")?;
     let pending = PendingKey::generate()?;
+
     let hostname = options
         .hostname
         .or_else(|| {
@@ -62,7 +65,9 @@ pub async fn register(options: RegisterOptions) -> Result<()> {
         })
         .filter(|value| !value.trim().is_empty())
         .unwrap_or_else(|| "molesignal-probe".to_string());
+
     let mut client = ProbeServiceClient::new(connect_tls(&options.endpoint, &ca, None).await?);
+
     let response = client
         .register(RegisterRequest {
             register_token: options.token,
@@ -76,11 +81,14 @@ pub async fn register(options: RegisterOptions) -> Result<()> {
         .await
         .context("register Probe Agent")?
         .into_inner();
+
     let returned_ca = String::from_utf8(response.ca_certificate_pem.to_vec())
         .context("server returned invalid Probe CA PEM")?;
+
     if returned_ca.as_bytes() != ca.as_bytes() {
         bail!("registration response CA does not match the pinned Probe CA");
     }
+
     let identity = AgentIdentity {
         metadata: StoredIdentity {
             agent_id: response.agent_id,
@@ -94,6 +102,7 @@ pub async fn register(options: RegisterOptions) -> Result<()> {
             .context("server returned invalid Agent certificate PEM")?,
         ca_certificate_pem: returned_ca,
     };
+
     identity.persist(&options.state_dir)?;
     tracing::info!(agent_id = %identity.metadata.agent_id, "Probe Agent registered");
     Ok(())
@@ -101,6 +110,7 @@ pub async fn register(options: RegisterOptions) -> Result<()> {
 
 pub async fn run(options: RunOptions) -> Result<()> {
     let spool = ResultSpool::open(options.state_dir.clone())?;
+
     let sequence = Arc::new(AtomicU64::new(
         spool
             .pending()?
@@ -109,13 +119,17 @@ pub async fn run(options: RunOptions) -> Result<()> {
             .max()
             .unwrap_or(0),
     ));
+
     let mut delay = Duration::from_secs(1);
+
     loop {
         let identity = AgentIdentity::load(&options.state_dir)?;
+
         match run_session(&options, identity, spool.clone(), sequence.clone()).await {
             Ok(()) => tracing::warn!("Probe control stream closed"),
             Err(error) => tracing::warn!(%error, "Probe control stream failed"),
         }
+
         tokio::time::sleep(delay).await;
         delay = (delay * 2).min(Duration::from_secs(30));
     }
@@ -133,12 +147,15 @@ async fn run_session(
         Some((&identity.certificate_chain_pem, &identity.private_key_pem)),
     )
     .await?;
+
     let mut client = ProbeServiceClient::new(channel);
     let (outbound, receiver) = mpsc::channel::<AgentFrame>(64);
+
     let response = client
         .control_stream(ReceiverStream::new(receiver))
         .await
         .context("open Probe control stream")?;
+
     let mut inbound = response.into_inner();
     let active_tasks = Arc::new(AtomicU32::new(0));
     let semaphore = Arc::new(Semaphore::new(options.max_concurrent.clamp(1, 32) as usize));
@@ -155,22 +172,27 @@ async fn run_session(
             last_acked_result_sequence: sequence.load(Ordering::Relaxed),
         })))
         .await?;
+
     let first = inbound
         .message()
         .await?
         .ok_or_else(|| anyhow::anyhow!("Probe stream ended before HelloAck"))?;
+
     if !matches!(first.payload, Some(control_frame::Payload::HelloAck(_))) {
         bail!("Probe server did not acknowledge Hello");
     }
+
     for entry in spool.pending()? {
         outbound
             .send(frame(agent_frame::Payload::Result(entry.result)))
             .await?;
     }
+
     maybe_request_rotation(&identity, &outbound, &pending_rotation).await?;
 
     let mut heartbeat = tokio::time::interval(Duration::from_secs(15));
     heartbeat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
     loop {
         tokio::select! {
             _ = heartbeat.tick() => {
@@ -217,6 +239,7 @@ async fn handle_control(
             let is_browser = matches!(task.spec.as_ref(), Some(wire::probe_task::Spec::Browser(_)));
             let permits = try_acquire_task(semaphore, browser_semaphore, is_browser);
             let accepted = permits.is_ok();
+
             outbound
                 .send(frame(agent_frame::Payload::TaskAck(TaskAck {
                     task_id: task.task_id.clone(),
@@ -228,15 +251,18 @@ async fn handle_control(
                         .map_or_else(String::new, |rejection| rejection.code().into()),
                 })))
                 .await?;
+
             if let Ok(permits) = permits {
                 let outbound = outbound.clone();
                 let spool = spool.clone();
                 let sequence = sequence.clone();
                 let active_tasks = active_tasks.clone();
                 active_tasks.fetch_add(1, Ordering::Relaxed);
+
                 tokio::spawn(async move {
                     let result_sequence = sequence.fetch_add(1, Ordering::SeqCst) + 1;
                     let result = execute_with_lease_renewal(task, result_sequence, &outbound).await;
+
                     match result {
                         Ok(result) => {
                             if let Err(error) = spool.store(&result) {
@@ -253,6 +279,7 @@ async fn handle_control(
                             tracing::error!(%error, "Probe task execution failed internally")
                         }
                     }
+
                     active_tasks.fetch_sub(1, Ordering::Relaxed);
                     drop(permits);
                 });
@@ -265,7 +292,9 @@ async fn handle_control(
             let Some(pending) = pending_rotation.lock().await.take() else {
                 bail!("received an unsolicited Probe certificate rotation");
             };
+
             let mut installed = AgentIdentity::load(&options.state_dir)?;
+
             installed.install_rotated(
                 &options.state_dir,
                 pending,
@@ -273,6 +302,7 @@ async fn handle_control(
                 String::from_utf8(rotated.ca_certificate_pem.to_vec())?,
                 rotated.expires_at_micros,
             )?;
+
             tracing::info!("rotated Probe Agent certificate; reconnecting with new identity");
             return Err(anyhow::anyhow!("Probe identity rotated"));
         }
@@ -289,6 +319,7 @@ async fn handle_control(
         Some(control_frame::Payload::HelloAck(_)) => {}
         None => bail!("Probe control frame has no payload"),
     }
+
     Ok(())
 }
 
@@ -302,10 +333,12 @@ async fn execute_with_lease_renewal(
     let deadline = task.deadline_micros;
     let execution = executor::execute(task, result_sequence);
     tokio::pin!(execution);
+
     let mut renewal = tokio::time::interval_at(
         tokio::time::Instant::now() + Duration::from_secs(25),
         Duration::from_secs(25),
     );
+
     loop {
         tokio::select! {
             result = &mut execution => return result,
@@ -340,9 +373,11 @@ async fn maybe_request_rotation(
     {
         return Ok(());
     }
+
     let pending = PendingKey::generate()?;
     let public_key_der = pending.public_key_der();
     *pending_rotation.lock().await = Some(pending);
+
     outbound
         .send(frame(agent_frame::Payload::CertificateRotation(
             CertificateRotationRequest {
@@ -350,6 +385,7 @@ async fn maybe_request_rotation(
             },
         )))
         .await?;
+
     Ok(())
 }
 
@@ -359,18 +395,23 @@ async fn connect_tls(
     identity: Option<(&str, &str)>,
 ) -> Result<Channel> {
     let url = Url::parse(endpoint).context("parse Probe endpoint")?;
+
     if url.scheme() != "https" {
         bail!("Probe endpoint must use https");
     }
+
     let domain = url
         .host_str()
         .ok_or_else(|| anyhow::anyhow!("Probe endpoint has no host"))?;
+
     let mut tls = ClientTlsConfig::new()
         .domain_name(domain.to_string())
         .ca_certificate(Certificate::from_pem(ca_pem));
+
     if let Some((certificate, private_key)) = identity {
         tls = tls.identity(Identity::from_pem(certificate, private_key));
     }
+
     Endpoint::from_shared(endpoint.to_string())?
         .tls_config(tls)?
         .connect()
@@ -384,6 +425,7 @@ fn capacity(
     browser_semaphore: &Semaphore,
 ) -> wire::AgentCapacity {
     let available = semaphore.available_permits().min(32) as u32;
+
     wire::AgentCapacity {
         max_concurrent: options.max_concurrent.clamp(1, 32),
         max_browser_concurrent: max_browser_concurrent(options),
@@ -429,10 +471,12 @@ fn try_acquire_task(
         .clone()
         .try_acquire_owned()
         .map_err(|_| CapacityRejection::General)?;
+
     let browser = is_browser
         .then(|| browser_semaphore.clone().try_acquire_owned())
         .transpose()
         .map_err(|_| CapacityRejection::Browser)?;
+
     Ok(TaskPermits {
         _general: general,
         _browser: browser,

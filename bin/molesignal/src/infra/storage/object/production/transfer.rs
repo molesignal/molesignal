@@ -28,6 +28,7 @@ use crate::infra::storage::layout::StorageLayout;
 mod tests;
 
 const MIB: u64 = 1024 * 1024;
+
 /// 单次 multipart 上传最多 10 000 个分片（S3 上限）。
 const MAX_PARTS: u64 = 10_000;
 
@@ -102,12 +103,15 @@ impl ProductionObjectStore {
         if matches!(options.mode, PutMode::Create) {
             self.ensure_absent(location).await?;
         }
+
         let part_size = self.part_size(payload.content_length() as u64);
+
         let options = PutMultipartOptions {
             tags: options.tags,
             attributes: options.attributes,
             extensions: options.extensions,
         };
+
         self.run_with(
             "put_multipart",
             Some(location),
@@ -127,6 +131,7 @@ impl ProductionObjectStore {
         options: PutMultipartOptions,
     ) -> ObjectStoreResult<PutResult> {
         let mut upload = self.put_multipart_opts(location, options).await?;
+
         match self.send_parts(upload.as_mut(), payload, part_size).await {
             Ok(result) => Ok(result),
             Err(error) => {
@@ -147,25 +152,32 @@ impl ProductionObjectStore {
         let timeout = self.op_timeout();
         let backend = self.backend;
         let mut in_flight = FuturesUnordered::new();
+
         for part in split_payload(payload, part_size) {
             while in_flight.len() >= parallelism {
                 if let Some(result) = in_flight.next().await {
                     result?;
                 }
             }
+
             let permit = self.acquire_permit().await?;
             let sending = upload.put_part(part);
+
             in_flight.push(async move {
                 let _permit = permit;
+
                 tokio::time::timeout(timeout, sending)
                     .await
                     .unwrap_or_else(|_| Err(timeout_error(backend, "multipart_part")))
             });
         }
+
         while let Some(result) = in_flight.next().await {
             result?;
         }
+
         let _permit = self.acquire_permit().await?;
+
         tokio::time::timeout(timeout, upload.complete())
             .await
             .unwrap_or_else(|_| Err(timeout_error(backend, "multipart_complete")))
@@ -176,6 +188,7 @@ impl ProductionObjectStore {
         if options.head {
             return None;
         }
+
         match options.range.as_ref()? {
             GetRange::Bounded(range)
                 if range.end > range.start && range.end - range.start >= self.range_threshold() =>
@@ -196,6 +209,7 @@ impl ProductionObjectStore {
     ) -> ObjectStoreResult<GetResult> {
         let chunk_size = self.range_chunk();
         let first_end = range.start.saturating_add(chunk_size).min(range.end);
+
         let first = self
             .read_chunk(
                 location,
@@ -205,26 +219,31 @@ impl ProductionObjectStore {
                 },
             )
             .await?;
+
         let Chunk {
             bytes: first_bytes,
             meta,
             attributes,
         } = first;
+
         let resume = range.start + first_bytes.len() as u64;
         let end = range.end.min(meta.size);
 
         let store = self.clone();
         let location = location.clone();
         let etag = meta.e_tag.clone();
+
         let rest = stream::iter(chunk_ranges(resume..end, chunk_size))
             .map(move |chunk| {
                 let store = store.clone();
                 let location = location.clone();
+
                 let options = GetOptions {
                     if_match: etag.clone(),
                     range: Some(GetRange::Bounded(chunk)),
                     ..GetOptions::default()
                 };
+
                 async move {
                     store
                         .read_chunk(&location, options)
@@ -233,9 +252,11 @@ impl ProductionObjectStore {
                 }
             })
             .buffered(self.transfer_parallelism());
+
         let payload = stream::once(future::ready(Ok(first_bytes)))
             .chain(rest)
             .boxed();
+
         Ok(GetResult {
             payload: GetResultPayload::Stream(payload),
             meta,
@@ -254,10 +275,12 @@ impl ProductionObjectStore {
             Some(location),
             || {
                 let options = options.clone();
+
                 async move {
                     let result = self.inner.get_opts(location, options).await?;
                     let (meta, attributes) = (result.meta.clone(), result.attributes.clone());
                     let bytes = result.bytes().await?;
+
                     Ok(Chunk {
                         bytes,
                         meta,
@@ -279,15 +302,19 @@ impl ProductionObjectStore {
         let threshold = self.range_threshold();
         let is_large =
             |range: &Range<u64>| range.end > range.start && range.end - range.start >= threshold;
+
         if !ranges.iter().any(is_large) {
             return self.get_ranges_whole(location, ranges).await;
         }
+
         let (large, small): (Vec<_>, Vec<_>) = ranges
             .iter()
             .cloned()
             .enumerate()
             .partition(|(_, range)| is_large(range));
+
         let small_ranges: Vec<_> = small.iter().map(|(_, range)| range.clone()).collect();
+
         let (small_bytes, large_bytes) = futures::try_join!(
             async {
                 if small_ranges.is_empty() {
@@ -303,13 +330,17 @@ impl ProductionObjectStore {
                     .await
             })),
         )?;
+
         let mut out = vec![Bytes::new(); ranges.len()];
+
         for ((index, _), bytes) in small.into_iter().zip(small_bytes) {
             out[index] = bytes;
         }
+
         for ((index, _), bytes) in large.into_iter().zip(large_bytes) {
             out[index] = bytes;
         }
+
         Ok(out)
     }
 
@@ -319,6 +350,7 @@ impl ProductionObjectStore {
         ranges: &[Range<u64>],
     ) -> ObjectStoreResult<Vec<Bytes>> {
         let ranges = ranges.to_vec();
+
         self.run(
             "get_ranges",
             Some(location),
@@ -342,20 +374,25 @@ fn split_payload(payload: &PutPayload, part_size: usize) -> Vec<PutPayload> {
     let mut parts = Vec::new();
     let mut current: Vec<Bytes> = Vec::new();
     let mut current_len = 0_usize;
+
     for chunk in payload.iter() {
         let mut rest = chunk.clone();
+
         while !rest.is_empty() {
             let take = (part_size - current_len).min(rest.len());
             current.push(rest.split_to(take));
             current_len += take;
+
             if current_len == part_size {
                 parts.push(current.drain(..).collect());
                 current_len = 0;
             }
         }
     }
+
     if !current.is_empty() {
         parts.push(current.drain(..).collect());
     }
+
     parts
 }

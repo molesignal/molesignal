@@ -17,6 +17,7 @@ impl SyntheticTaskRepository for PgSyntheticRepository {
     async fn create_tasks(&self, tasks: Vec<ProbeTask>) -> Result<Vec<ProbeTask>> {
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
         let mut persisted = Vec::with_capacity(tasks.len());
+
         for task in tasks {
             let sql = format!(
                 "INSERT INTO synthetic_probe_tasks
@@ -38,6 +39,7 @@ impl SyntheticTaskRepository for PgSyntheticRepository {
                  DO UPDATE SET id = synthetic_probe_tasks.id
                  RETURNING {TASK_COLS}"
             );
+
             let row = sqlx::query(&sql)
                 .bind(&task.id.0)
                 .bind(&task.organization_id.0)
@@ -55,8 +57,10 @@ impl SyntheticTaskRepository for PgSyntheticRepository {
                 .fetch_one(&mut *transaction)
                 .await
                 .map_err(super::sqlx_err)?;
+
             persisted.push(row_to_task(row)?);
         }
+
         transaction.commit().await.map_err(super::sqlx_err)?;
         Ok(persisted)
     }
@@ -75,6 +79,7 @@ impl SyntheticTaskRepository for PgSyntheticRepository {
         ) {
             return Err(Error::conflict("Probe Agent is not accepting tasks"));
         }
+
         let sql = format!(
             "WITH candidate AS (
                  SELECT task.id AS task_id
@@ -97,6 +102,7 @@ impl SyntheticTaskRepository for PgSyntheticRepository {
              WHERE task.id = candidate.task_id
              RETURNING {TASK_COLS}"
         );
+
         sqlx::query(&sql)
             .bind(&agent.location_id.0)
             .bind(agent.organization_id.as_ref().map(Id::as_str))
@@ -140,9 +146,11 @@ impl SyntheticTaskRepository for PgSyntheticRepository {
         .await
         .map_err(super::sqlx_err)?
         .rows_affected();
+
         if rows == 0 {
             return Err(Error::not_found("leased Probe task"));
         }
+
         Ok(())
     }
 
@@ -165,6 +173,7 @@ impl SyntheticTaskRepository for PgSyntheticRepository {
         .execute(&self.pool)
         .await
         .map_err(super::sqlx_err)?;
+
         Ok(result.rows_affected())
     }
 
@@ -181,6 +190,7 @@ impl SyntheticTaskRepository for PgSyntheticRepository {
                AND ((state IN ('leased', 'running') AND leased_until_micros > $4)
                     OR state = 'completed')"
         );
+
         let row = sqlx::query(&sql)
             .bind(&task_id.0)
             .bind(&agent_id.0)
@@ -189,6 +199,7 @@ impl SyntheticTaskRepository for PgSyntheticRepository {
             .fetch_one(&self.pool)
             .await
             .map_err(super::sqlx_err)?;
+
         row_to_task(row)
     }
 
@@ -203,6 +214,7 @@ impl SyntheticTaskRepository for PgSyntheticRepository {
              WHERE id = $1 AND lease_token_hash = $2
                AND state IN ('leased', 'running') AND leased_until_micros > $3"
         );
+
         let row = sqlx::query(&sql)
             .bind(&task_id.0)
             .bind(lease_token_hash)
@@ -210,6 +222,7 @@ impl SyntheticTaskRepository for PgSyntheticRepository {
             .fetch_one(&self.pool)
             .await
             .map_err(super::sqlx_err)?;
+
         row_to_task(row)
     }
 
@@ -242,11 +255,13 @@ impl SyntheticTaskRepository for PgSyntheticRepository {
         .await
         .map_err(super::sqlx_err)?
         .rows_affected();
+
         if rows == 0 {
             return Err(Error::conflict(
                 "Probe task acknowledgement no longer owns its lease",
             ));
         }
+
         Ok(())
     }
 
@@ -260,6 +275,7 @@ impl SyntheticTaskRepository for PgSyntheticRepository {
     ) -> Result<TimestampMicros> {
         let maximum = TimestampMicros(now.0.saturating_add(120 * 1_000_000));
         let requested = requested_until.0.max(now.0).min(maximum.0);
+
         let value: Option<i64> = sqlx::query_scalar(
             "UPDATE synthetic_probe_tasks
              SET leased_until_micros = LEAST(deadline_at_micros, $5),
@@ -276,6 +292,7 @@ impl SyntheticTaskRepository for PgSyntheticRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(super::sqlx_err)?;
+
         value
             .map(TimestampMicros)
             .ok_or_else(|| Error::conflict("Probe task lease cannot be renewed"))

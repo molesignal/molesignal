@@ -87,11 +87,14 @@ impl RcaSweeper {
             let mut tick =
                 tokio::time::interval(Duration::from_secs(self.cfg.interval_secs.max(1)));
             tick.tick().await; // skip 首次（与其它周期任务一致）
+
             loop {
                 tick.tick().await;
+
                 if !self.ownership.is_primary().await {
                     continue;
                 }
+
                 if let Err(e) = self.sweep_once().await {
                     tracing::warn!(error = %e, "rca sweep failed");
                 }
@@ -109,24 +112,30 @@ impl RcaSweeper {
         let now = TimestampMicros::now();
         let orgs = self.orgs.list().await?;
         let mut generated = 0usize;
+
         for org in orgs {
             if generated >= self.cfg.max_per_tick {
                 break;
             }
+
             // 选 org 的可用 provider（enabled + key_set）；无则跳过该 org。
             let Some(provider) = self.generator.pick_provider_for(&org.id).await? else {
                 continue;
             };
+
             let locale = self.preferred_locale_for_org(&org.id).await?;
             let actives = self.incidents.list_active(&org.id).await?;
+
             for incident in actives {
                 if generated >= self.cfg.max_per_tick {
                     break;
                 }
+
                 // 仅对尚无 RCA 的 incident 生成。
                 if self.generator.has_rca(&incident.id).await? {
                     continue;
                 }
+
                 match self
                     .generator
                     .generate_with_provider_for_locale(&org.id, &provider, &incident, now, locale)
@@ -144,9 +153,11 @@ impl RcaSweeper {
                 }
             }
         }
+
         if generated > 0 {
             tracing::info!(generated, "incident rca sweep generated summaries");
         }
+
         Ok(())
     }
 
@@ -158,9 +169,11 @@ impl RcaSweeper {
     ) -> Result<RcaOutputLocale> {
         let mut memberships = self.memberships.list_for_org(org_id).await?;
         memberships.sort_by_key(|membership| membership.joined_at.0);
+
         let Some(primary_member) = memberships.first() else {
             return Ok(RcaOutputLocale::EnUs);
         };
+
         let preferences = self.user_preferences.get(&primary_member.user_id).await?;
         Ok(RcaOutputLocale::from_language_tag(&preferences.language))
     }

@@ -34,6 +34,7 @@ impl IncidentGroupState {
             Self::Resolved => "resolved",
         }
     }
+
     pub fn parse(s: &str) -> Self {
         match s {
             "acked" => Self::Acked,

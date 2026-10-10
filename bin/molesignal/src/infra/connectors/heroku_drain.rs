@@ -15,19 +15,24 @@ use crate::{
 
 pub fn parse_text(body: &str) -> Result<Vec<RawEvent>> {
     let mut out = Vec::new();
+
     for line in body.lines() {
         let l = line.trim();
+
         if l.is_empty() {
             continue;
         }
+
         let mut m = Map::new();
         m.insert("message".to_string(), Value::String(l.to_string()));
         m.insert("source".to_string(), Value::String("heroku".to_string()));
+
         out.push(RawEvent {
             timestamp: TimestampMicros::now(),
             fields: m,
         });
     }
+
     Ok(out)
 }
 

@@ -71,8 +71,10 @@ impl ConnectorRunner {
 
     pub fn spawn(self) -> JoinHandle<()> {
         let interval = self.pull_interval;
+
         tokio::spawn(async move {
             let mut tick = tokio::time::interval(interval);
+
             loop {
                 tick.tick().await;
                 self.tick_once().await;
@@ -89,11 +91,14 @@ impl ConnectorRunner {
                 return 0;
             }
         };
+
         let mut pulled = 0;
+
         for c in connectors {
             if !is_pull(&c) {
                 continue; // push / egress 类不进 runner
             }
+
             let permit = match self.gate.admit(RUN_KIND, c.id.as_str()).await {
                 Ok(Some(permit)) => permit,
                 Ok(None) => continue,
@@ -102,6 +107,7 @@ impl ConnectorRunner {
                     continue;
                 }
             };
+
             // 认领后重读：游标 `last_run_at` 可能刚被另一个节点推进。
             match self.repo.get(&c.org_id, &c.id).await {
                 Ok(fresh) if fresh.enabled => {
@@ -113,20 +119,24 @@ impl ConnectorRunner {
                     tracing::warn!(error = %e, connector_id = %c.id.0, "connector reload failed");
                 }
             }
+
             if let Err(e) = permit.release().await {
                 tracing::warn!(error = %e, connector_id = %c.id.0, "connector claim release failed");
             }
         }
+
         pulled
     }
 
     async fn pull_once(&self, c: &Connector) {
         let pull = (self.pull_factory)(c);
+
         let ctx = PullContext {
             org_id: c.org_id.clone(),
             connector_id: c.id.clone(),
             last_run_at_micros: c.last_run_at.map(|t| t.0),
         };
+
         match pull.run_once(&ctx).await {
             Ok(events) => {
                 if !events.is_empty() {
@@ -138,12 +148,14 @@ impl ConnectorRunner {
                         events,
                         received_at: TimestampMicros::now(),
                     };
+
                     if let Err(e) = self.intake.intake(batch).await {
                         // 不推进 last_run → 下个 tick 重试同窗口，不丢数据。
                         tracing::warn!(error = %e, connector_id = %c.id.0, "connector intake failed");
                         return;
                     }
                 }
+
                 let _ = self
                     .repo
                     .touch_last_run(&c.id, TimestampMicros::now())
@@ -174,6 +186,7 @@ fn cfg_str(c: &Connector, key: &str) -> String {
 
 fn target_stream(c: &Connector) -> String {
     let t = cfg_str(c, "target_stream");
+
     if t.trim().is_empty() {
         "default".to_string()
     } else {
@@ -183,6 +196,7 @@ fn target_stream(c: &Connector) -> String {
 
 fn build_pull(c: &Connector) -> Box<dyn PullConnector> {
     let session_token = cfg_str(c, "session_token");
+
     Box::new(CloudWatchLogsConnector {
         region: cfg_str(c, "region"),
         log_group: cfg_str(c, "log_group"),

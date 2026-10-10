@@ -99,15 +99,19 @@ impl DurableIntakeSink {
         };
 
         let resolved = self.datasets.resolve(&stream, dataset_type.clone()).await?;
+
         let payload = serde_json::to_vec(&crate::domain::intake::usage::MeteredBatch {
             batch: &batch,
             collected_bytes,
         })
         .map_err(|e| Error::internal(format!("intake serialize: {e}")))?;
+
         let reservation = self.buffer.try_reserve(stream.stream_type, payload.len())?;
+
         let buffer = self
             .buffer
             .get_or_create_dataset(&stream, resolved.clone())?;
+
         // 被栅栏的 writer 永远无法发布数据：写入直接拒绝。
         if let Some(epoch) = self.wal.current_epoch(&resolved.dataset.id)
             && buffer.is_fenced(WriterEpoch(epoch))
@@ -123,31 +127,38 @@ impl DurableIntakeSink {
         // cover a WAL record that had not entered the memory buffer yet.
         let mut guard = buffer.records().lock().await;
         guard.sync_schema(&physical_schema::project(&stream, &dataset_type));
+
         let position = self
             .wal
             .append_position(&resolved.wal_identity(), payload)
             .await
             .map_err(|e| Error::internal(format!("wal append: {e}")))?;
+
         if let Some(dek) = field_dek {
             guard.set_field_key(dek);
         }
+
         guard.add_accounted_bytes(reservation.commit());
         let accepted = batch.events.len();
         let writer =
             BufferWriter::new(WriterNodeId::new(self.wal.node_id()), position.writer_epoch);
+
         let buffer_span = tracing::info_span!(
             "intake.buffer",
             otel.kind = "internal",
             molesignal.intake.event_count = accepted,
             molesignal.dataset.type = resolved.dataset.dataset_type.as_str()
         );
+
         guard.add_collected_bytes(collected_bytes);
+
         buffer_span.in_scope(|| {
             for event in &batch.events {
                 guard
                     .push_with_position(event, &writer, position.sequence)
                     .map_err(|e| Error::internal(format!("buffer push: {e}")))?;
             }
+
             Ok::<(), Error>(())
         })?;
 

@@ -50,6 +50,7 @@ impl ResolvedDashboardContracts {
         visualization_schema_hash: &str,
     ) -> bool {
         let selection = &self.binding.selection;
+
         self.binding.revision == binding_revision
             && selection.authoring.schema_hash == authoring_schema_hash
             && selection.model.schema_hash == model_schema_hash
@@ -79,9 +80,11 @@ impl DashboardContractRegistryService {
     pub async fn publish_builtins(&self) -> Result<Arc<ResolvedDashboardContracts>> {
         let now = TimestampMicros::now();
         let (versions, selection) = builtin_publication(now)?;
+
         self.repository
             .publish_builtin(&versions, &selection, now)
             .await?;
+
         *self.cache.write().await = None;
         self.active().await
     }
@@ -92,11 +95,13 @@ impl DashboardContractRegistryService {
         selection: DashboardContractSelection,
     ) -> Result<Arc<ResolvedDashboardContracts>> {
         let documents = self.repository.load_documents(&selection).await?;
+
         let candidate = DashboardContractBinding {
             selection: selection.clone(),
             revision: 1,
             updated_at: TimestampMicros::now(),
         };
+
         resolve_bundle(
             DashboardContractBundle {
                 binding: candidate,
@@ -104,9 +109,11 @@ impl DashboardContractRegistryService {
             },
             false,
         )?;
+
         self.repository
             .activate(&selection, TimestampMicros::now())
             .await?;
+
         *self.cache.write().await = None;
         self.active().await
     }
@@ -119,11 +126,13 @@ impl DashboardContractResolver for DashboardContractRegistryService {
             .repository
             .load_active(DASHBOARD_AUTHORING_CAPABILITY)
             .await?;
+
         if let Some(cached) = self.cache.read().await.as_ref()
             && cached.binding == bundle.binding
         {
             return Ok(Arc::clone(cached));
         }
+
         let resolved = Arc::new(resolve_bundle(bundle, true)?);
         *self.cache.write().await = Some(Arc::clone(&resolved));
         Ok(resolved)
@@ -150,6 +159,7 @@ static BUILTIN_CONTRACTS: LazyLock<Arc<ResolvedDashboardContracts>> = LazyLock::
         builtin_publication(now).expect("built-in Dashboard contracts must be valid");
     let documents = documents_from_versions(&versions)
         .expect("built-in Dashboard contract kinds must be complete");
+
     Arc::new(
         resolve_bundle(
             DashboardContractBundle {
@@ -171,14 +181,17 @@ fn builtin_publication(
 ) -> Result<(Vec<DashboardContractVersion>, DashboardContractSelection)> {
     let model_document: Value = serde_json::from_str(DASHBOARD_MODEL_V2_SCHEMA)
         .map_err(|error| Error::internal(format!("built-in Dashboard model schema: {error}")))?;
+
     let authoring_document: Value =
         serde_json::from_str(DASHBOARD_AUTHORING_V1_SCHEMA).map_err(|error| {
             Error::internal(format!("built-in Dashboard authoring schema: {error}"))
         })?;
+
     let visualization_document: Value = serde_json::from_str(DASHBOARD_VISUALIZATIONS_V1)
         .map_err(|error| Error::internal(format!("built-in visualization manifest: {error}")))?;
     let manifest = VisualizationManifest::from_value(visualization_document.clone())
         .map_err(|error| Error::internal(format!("built-in visualization manifest: {error}")))?;
+
     let versions = vec![
         contract_version(
             DASHBOARD_MODEL_CONTRACT,
@@ -205,7 +218,9 @@ fn builtin_publication(
             published_at,
         ),
     ];
+
     let documents = documents_from_versions(&versions)?;
+
     let selection = DashboardContractSelection {
         capability_key: DASHBOARD_AUTHORING_CAPABILITY.into(),
         model: documents.model.reference(),
@@ -214,6 +229,7 @@ fn builtin_publication(
         compiler_version: manifest.compiler_version,
         enabled: true,
     };
+
     Ok((versions, selection))
 }
 
@@ -247,6 +263,7 @@ fn documents_from_versions(
             .cloned()
             .ok_or_else(|| Error::internal("built-in Dashboard contract kind is missing"))
     };
+
     Ok(DashboardContractDocuments {
         model: find(DashboardContractKind::DashboardModel)?,
         authoring: find(DashboardContractKind::DashboardAuthoring)?,
@@ -259,50 +276,60 @@ fn resolve_bundle(
     require_enabled: bool,
 ) -> Result<ResolvedDashboardContracts> {
     let selection = &bundle.binding.selection;
+
     if selection.capability_key != DASHBOARD_AUTHORING_CAPABILITY {
         return Err(registry_error("unexpected Dashboard capability binding"));
     }
+
     if require_enabled && !selection.enabled {
         return Err(registry_error(
             "Dashboard authoring contract binding is disabled",
         ));
     }
+
     validate_document(
         &bundle.documents.model,
         &selection.model,
         DashboardContractKind::DashboardModel,
         JSON_SCHEMA_2020_12_DIALECT,
     )?;
+
     validate_document(
         &bundle.documents.authoring,
         &selection.authoring,
         DashboardContractKind::DashboardAuthoring,
         JSON_SCHEMA_2020_12_DIALECT,
     )?;
+
     validate_document(
         &bundle.documents.visualization,
         &selection.visualization,
         DashboardContractKind::VisualizationManifest,
         VISUALIZATION_MANIFEST_DIALECT,
     )?;
+
     let model_validator = Arc::new(
         ContractValidator::compile(bundle.documents.model.document.clone())
             .map_err(|error| registry_error(format!("model schema cannot compile: {error}")))?,
     );
+
     let authoring_validator = Arc::new(
         ContractValidator::compile(bundle.documents.authoring.document.clone())
             .map_err(|error| registry_error(format!("authoring schema cannot compile: {error}")))?,
     );
+
     let manifest = Arc::new(
         VisualizationManifest::from_value(bundle.documents.visualization.document)
             .map_err(registry_error)?,
     );
+
     validate_compatibility(
         selection,
         &bundle.documents.model.document,
         &bundle.documents.authoring.document,
         &manifest,
     )?;
+
     Ok(ResolvedDashboardContracts {
         binding: bundle.binding,
         model_validator,
@@ -318,6 +345,7 @@ fn validate_document(
     expected_dialect: &str,
 ) -> Result<()> {
     let actual_hash = sha256_hex(canonical_json_bytes(&document.document));
+
     if document.contract_key != reference.contract_key
         || document.version != reference.version
         || document.schema_hash != reference.schema_hash
@@ -331,6 +359,7 @@ fn validate_document(
             reference.contract_key
         )));
     }
+
     Ok(())
 }
 
@@ -341,6 +370,7 @@ fn validate_compatibility(
     manifest: &VisualizationManifest,
 ) -> Result<()> {
     let built_in = visualization_manifest();
+
     if selection.compiler_version != manifest.compiler_version
         || manifest.compiler_version != built_in.compiler_version
         || schema_version(model_schema, "schemaVersion") != Some(manifest.dashboard_model_version)
@@ -351,9 +381,11 @@ fn validate_compatibility(
             "Dashboard contract bundle is incompatible with the running compiler",
         ));
     }
+
     let supported_queries = built_in.query_kinds.iter().collect::<HashSet<_>>();
     let supported_units = built_in.units.iter().collect::<HashSet<_>>();
     let supported_reducers = built_in.reducers.iter().collect::<HashSet<_>>();
+
     let supported_visualizations = built_in
         .visualizations
         .iter()
@@ -364,6 +396,7 @@ fn validate_compatibility(
             )
         })
         .collect::<std::collections::HashMap<_, _>>();
+
     let compatible = manifest
         .query_kinds
         .iter()
@@ -380,11 +413,13 @@ fn validate_compatibility(
             supported_visualizations.get(&capability.visualization_type)
                 == Some(&capability.option_schema_version)
         });
+
     if !compatible {
         return Err(registry_error(
             "Dashboard contract bundle advertises unsupported compiler capabilities",
         ));
     }
+
     Ok(())
 }
 

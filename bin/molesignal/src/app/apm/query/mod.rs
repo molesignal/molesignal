@@ -40,7 +40,9 @@ impl ApmQueryConfig {
             .iter()
             .map(|value| value.saturating_mul(1_000))
             .collect::<Vec<_>>();
+
         upper_bounds_micros.push(u64::MAX);
+
         Self {
             max_range_micros: i64::from(settings.max_query_range_days)
                 .saturating_mul(86_400_000_000),

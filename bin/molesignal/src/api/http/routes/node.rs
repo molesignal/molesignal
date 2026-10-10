@@ -34,6 +34,7 @@ async fn begin_drain(
 ) -> Result<Json<DrainResp>> {
     let newly_started = state.cluster.drain.begin_drain();
     tracing::info!(org = %ctx.org_id.0, newly_started, "node drain requested");
+
     Ok(Json(DrainResp {
         phase: state.cluster.drain.phase().as_str(),
         accepts_writes: state.cluster.drain.accepts_writes(),

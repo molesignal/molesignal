@@ -124,9 +124,11 @@ impl Compactor {
     ) -> Result<usize> {
         let datasets = self.datasets_for_stream(stream).await?;
         let mut total = 0;
+
         for dataset in &datasets {
             total += self.sweep_dataset(stream, dataset, time_range).await?;
         }
+
         Ok(total)
     }
 
@@ -139,6 +141,7 @@ impl Compactor {
         let target_bytes = (self.settings.target_mb as u64).saturating_mul(1024 * 1024);
         let segments = self.snapshot_dataset(stream, dataset, time_range).await?;
         let mut candidates = Vec::new();
+
         for segment in segments {
             if valid_primary(&segment) && segment.primary.object.size_bytes < target_bytes {
                 candidates.push(segment);
@@ -146,6 +149,7 @@ impl Compactor {
                 failures()
                     .with_label_values(&["invalid_primary_artifact"])
                     .inc();
+
                 tracing::error!(
                     dataset_id = %dataset.id,
                     segment_id = %segment.id,
@@ -153,7 +157,9 @@ impl Compactor {
                 );
             }
         }
+
         let (groups, invalid) = build_groups(candidates, target_bytes);
+
         for segment in invalid {
             failures().with_label_values(&["invalid_partition"]).inc();
             tracing::error!(
@@ -166,6 +172,7 @@ impl Compactor {
         }
 
         let mut merged_groups = 0;
+
         for group in groups {
             match self.merge_group(stream, dataset, &group).await {
                 Ok(true) => {
@@ -182,6 +189,7 @@ impl Compactor {
                 ),
             }
         }
+
         Ok(merged_groups)
     }
 
@@ -202,10 +210,12 @@ impl Compactor {
         validate_group(group, &dataset.id)?;
         let mut batches = Vec::new();
         let mut missing = Vec::new();
+
         for segment in group {
             self.object_reader
                 .register_segment(&stream.org_id, segment)?;
             let key = segment.primary.object.key.as_str();
+
             match self.reader.read_all(key).await {
                 Ok(read) => batches.extend(read),
                 Err(Error::NotFound(_)) => {
@@ -224,10 +234,12 @@ impl Compactor {
                 }
             }
         }
+
         if !missing.is_empty() {
             self.tombstone_missing(stream, dataset, &missing).await?;
             return Ok(false);
         }
+
         if batches.is_empty() {
             return Err(Error::internal(
                 "compactor group produced no record batches",
@@ -237,6 +249,7 @@ impl Compactor {
         let physical_stream =
             crate::infra::intake::physical_schema::project(stream, &dataset.dataset_type);
         let schema = crate::infra::storage::arrow_schema::to_arrow(&physical_stream.schema);
+
         let aligned = batches
             .iter()
             .map(|batch| {
@@ -244,31 +257,38 @@ impl Compactor {
                     .map_err(|error| Error::internal(format!("compactor align schema: {error}")))
             })
             .collect::<Result<Vec<_>>>()?;
+
         let merged_batch = concat_batches(&schema, &aligned)
             .map_err(|error| Error::internal(format!("concat_batches: {error}")))?;
+
         let replacements = self
             .writer
             .write_compaction_catalog(&physical_stream, dataset, merged_batch)
             .await?;
+
         if replacements.len() != 1 || replacements[0].partition != group[0].partition {
             self.writer.delete_catalog_outputs(&replacements).await;
+
             return Err(Error::internal(
                 "one compaction group must produce exactly one replacement in the same partition",
             ));
         }
 
         let scope = OrganizationScope::new(stream.org_id.clone());
+
         let command = ReplaceSegments {
             dataset_id: dataset.id.clone(),
             replaced: group.iter().map(|segment| segment.id.clone()).collect(),
             replacements: replacements.clone(),
             gc_not_before_micros: self.gc_not_before(),
         };
+
         if let Err(error) = self.catalog.replace_segments(&scope, command).await {
             failures().with_label_values(&["replace"]).inc();
             self.writer.delete_catalog_outputs(&replacements).await;
             return Err(error);
         }
+
         Ok(true)
     }
 
@@ -281,6 +301,7 @@ impl Compactor {
         if segment_ids.is_empty() {
             return Ok(());
         }
+
         self.catalog
             .tombstone_segments(
                 &OrganizationScope::new(stream.org_id.clone()),
@@ -299,6 +320,7 @@ impl Compactor {
         let stream_retention = stream.effective_retention_days(self.settings.retention_days);
         let profile_cutoff =
             now.saturating_sub(i64::from(stream_retention).saturating_mul(DAY_MICROS));
+
         if stream.stream_type == StreamType::PROFILES {
             match crate::infra::profiles::sweep_expired_archives(
                 &self.object_store,
@@ -324,12 +346,15 @@ impl Compactor {
         let datasets = self.datasets_for_stream(stream).await?;
         let scope = OrganizationScope::new(stream.org_id.clone());
         let mut total = 0;
+
         for dataset in datasets {
             let retention_days = dataset
                 .storage_policy
                 .retention_days
                 .unwrap_or(stream_retention);
+
             let cutoff = now.saturating_sub(i64::from(retention_days).saturating_mul(DAY_MICROS));
+
             let segments = self
                 .snapshot_dataset(
                     stream,
@@ -337,14 +362,17 @@ impl Compactor {
                     TimeRange::new(TimestampMicros(i64::MIN), TimestampMicros(cutoff)),
                 )
                 .await?;
+
             let segment_ids = segments
                 .into_iter()
                 .filter(|segment| segment.time_range.end.0 <= cutoff)
                 .map(|segment| segment.id)
                 .collect::<Vec<_>>();
+
             if segment_ids.is_empty() {
                 continue;
             }
+
             self.catalog
                 .tombstone_segments(
                     &scope,
@@ -355,8 +383,10 @@ impl Compactor {
                     },
                 )
                 .await?;
+
             total += segment_ids.len();
         }
+
         retention_deleted().inc_by(total as u64);
         Ok(total)
     }
@@ -367,6 +397,7 @@ impl Compactor {
 
     async fn datasets_for_stream(&self, stream: &StreamDefinition) -> Result<Vec<PhysicalDataset>> {
         let scope = OrganizationScope::new(stream.org_id.clone());
+
         Ok(self
             .catalog
             .list_datasets(&scope, &stream.id)
@@ -393,6 +424,7 @@ impl Compactor {
                 },
             )
             .await?;
+
         snapshot
             .dataset(&dataset.id)
             .map(|dataset| dataset.segments.clone())

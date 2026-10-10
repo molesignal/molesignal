@@ -79,12 +79,15 @@ impl Default for RetrySettings {
 fn default_retry_max_attempts() -> u32 {
     4
 }
+
 fn default_retry_base_backoff_ms() -> u64 {
     100
 }
+
 fn default_retry_max_backoff_ms() -> u64 {
     5_000
 }
+
 fn default_retry_jitter_ratio() -> f32 {
     0.2
 }
@@ -92,33 +95,42 @@ fn default_retry_jitter_ratio() -> f32 {
 fn default_object_backend() -> String {
     "local".into()
 }
+
 fn default_object_root() -> String {
     "./data/objects".into()
 }
+
 fn default_multipart_threshold_mb() -> u32 {
     32
 }
+
 fn default_multipart_part_size_mb() -> u32 {
     8
 }
+
 fn default_range_threshold_mb() -> u32 {
     16
 }
+
 fn default_range_chunk_mb() -> u32 {
     8
 }
+
 fn default_max_concurrency() -> u32 {
     8
 }
+
 fn default_op_timeout_secs() -> u32 {
     30
 }
+
 fn default_health_probe_interval_secs() -> u32 {
     30
 }
 
 /// S3 要求除最后一个分片外，每个分片至少 5 MiB。
 const MIN_MULTIPART_PART_SIZE_MB: u32 = 5;
+
 /// 单个分片或读取块的上限，避免一次请求占用过多内存。
 const MAX_TRANSFER_UNIT_MB: u32 = 1024;
 
@@ -127,6 +139,7 @@ impl ObjectStoreSettings {
         if self.multipart_threshold_mb == 0 {
             anyhow::bail!("object_store.multipart_threshold_mb must be at least 1");
         }
+
         if !(MIN_MULTIPART_PART_SIZE_MB..=MAX_TRANSFER_UNIT_MB)
             .contains(&self.multipart_part_size_mb)
         {
@@ -135,12 +148,15 @@ impl ObjectStoreSettings {
                  {MIN_MULTIPART_PART_SIZE_MB}..={MAX_TRANSFER_UNIT_MB}"
             );
         }
+
         if self.range_threshold_mb == 0 {
             anyhow::bail!("object_store.range_threshold_mb must be at least 1");
         }
+
         if !(1..=MAX_TRANSFER_UNIT_MB).contains(&self.range_chunk_mb) {
             anyhow::bail!("object_store.range_chunk_mb must be in 1..={MAX_TRANSFER_UNIT_MB}");
         }
+
         Ok(())
     }
 }

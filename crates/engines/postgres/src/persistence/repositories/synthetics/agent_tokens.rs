@@ -17,6 +17,7 @@ const TOKEN_COLS: &str = "token.id, token.organization_id, token.location_id, to
 
 pub(super) fn row_to_agent_token(row: sqlx::postgres::PgRow) -> Result<ProbeAgentToken> {
     let status: String = row.try_get("status").map_err(super::sqlx_err)?;
+
     Ok(ProbeAgentToken {
         id: Id(row.try_get("id").map_err(super::sqlx_err)?),
         organization_id: Id(row.try_get("organization_id").map_err(super::sqlx_err)?),
@@ -68,6 +69,7 @@ impl SyntheticAgentTokenRepository for PgSyntheticRepository {
                AND location.lifecycle = 'active'
              RETURNING {TOKEN_COLS}"
         );
+
         let row = sqlx::query(&query)
             .bind(&token.id.0)
             .bind(&token.organization_id.0)
@@ -82,6 +84,7 @@ impl SyntheticAgentTokenRepository for PgSyntheticRepository {
             .await
             .map_err(super::sqlx_err)?
             .ok_or_else(|| Error::not_found("active organization AgentPool Location"))?;
+
         row_to_agent_token(row)
     }
 
@@ -91,6 +94,7 @@ impl SyntheticAgentTokenRepository for PgSyntheticRepository {
              WHERE token.organization_id = $1
              ORDER BY token.created_at_micros DESC, token.id DESC"
         );
+
         sqlx::query(&query)
             .bind(&org_id.0)
             .fetch_all(&self.pool)
@@ -118,6 +122,7 @@ impl SyntheticAgentTokenRepository for PgSyntheticRepository {
              WHERE token.organization_id = $1 AND token.id = $2
              RETURNING {TOKEN_COLS}"
         );
+
         let row = sqlx::query(&query)
             .bind(&org_id.0)
             .bind(&token_id.0)
@@ -129,6 +134,7 @@ impl SyntheticAgentTokenRepository for PgSyntheticRepository {
             .await
             .map_err(super::sqlx_err)?
             .ok_or_else(|| Error::not_found("Probe Agent Token"))?;
+
         row_to_agent_token(row)
     }
 
@@ -145,6 +151,7 @@ impl SyntheticAgentTokenRepository for PgSyntheticRepository {
              WHERE token.organization_id = $1 AND token.id = $2
              RETURNING {TOKEN_COLS}"
         );
+
         let row = sqlx::query(&query)
             .bind(&org_id.0)
             .bind(&token_id.0)
@@ -153,6 +160,7 @@ impl SyntheticAgentTokenRepository for PgSyntheticRepository {
             .await
             .map_err(super::sqlx_err)?
             .ok_or_else(|| Error::not_found("Probe Agent Token"))?;
+
         row_to_agent_token(row)
     }
 }

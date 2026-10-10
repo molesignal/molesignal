@@ -18,6 +18,7 @@ pub(super) fn validate(
 ) -> Result<()> {
     let steps = crate::domain::pipeline::processing::parse_processing_steps(config)?;
     let runtime = crate::infra::runtime::VrlRuntime::new();
+
     for step in &steps {
         if step.kind == crate::domain::pipeline::processing::ProcessingKind::Vrl {
             runtime
@@ -25,9 +26,11 @@ pub(super) fn validate(
                 .map_err(|_| Error::invalid("invalid pipeline VRL script"))?;
         }
     }
+
     if validate_config(config, source, target)?.is_some() {
         return Ok(());
     }
+
     if steps
         .iter()
         .any(|step| step.kind == crate::domain::pipeline::processing::ProcessingKind::Builtin)
@@ -40,11 +43,14 @@ pub(super) fn validate(
             "built-in scheduled processing must declare its source stream",
         ));
     }
+
     validate_pipeline_streams(source, target, parse_signal_type(config))?;
+
     if crate::infra::pipeline::scheduled::parse_every_secs(cron).is_none() || lookback <= 0 {
         return Err(Error::invalid(
             "scheduled pipelines require every:Ns/m/h and a positive lookback",
         ));
     }
+
     Ok(())
 }

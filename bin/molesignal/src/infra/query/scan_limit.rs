@@ -16,6 +16,7 @@ pub fn ensure_within_scan_limit(candidate_rows: u64, max_scan_rows: u64) -> Resu
              per query; narrow the time range or add filters"
         )));
     }
+
     Ok(())
 }
 

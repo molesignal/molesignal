@@ -120,6 +120,7 @@ impl NotifyService {
         let adapter = self.registry.get(&input.connector_type)?;
         adapter.validate_config(&input.config)?;
         let now = TimestampMicros::now();
+
         self.connectors
             .create(NotifyConnector {
                 id: Id::new(),
@@ -155,10 +156,12 @@ impl NotifyService {
     ) -> Result<NotifyConnector> {
         validate_name(&input.name)?;
         let mut connector = self.connectors.get(organization_id, id).await?;
+
         connector.config = match input.config {
             Some(config) => merge_masked_config(&connector.config, &config),
             None => connector.config,
         };
+
         let adapter = self.registry.get(&connector.connector_type)?;
         adapter.validate_config(&connector.config)?;
         connector.name = input.name;
@@ -173,15 +176,18 @@ impl NotifyService {
             .endpoints
             .count_for_connector(organization_id, id)
             .await?;
+
         let route_references = self
             .route_references
             .count_for_connector(organization_id, id)
             .await?;
+
         if endpoint_references > 0 || route_references > 0 {
             return Err(Error::conflict(
                 "notify connector is referenced by user endpoints, policies, or default routes",
             ));
         }
+
         self.connectors.delete(organization_id, id).await
     }
 
@@ -195,12 +201,15 @@ impl NotifyService {
             .connectors
             .get(organization_id, &input.connector_id)
             .await?;
+
         validate_endpoint_identity(
             self.registry.as_ref(),
             &connector.connector_type,
             &input.external_identity,
         )?;
+
         let now = TimestampMicros::now();
+
         self.endpoints
             .create(UserNotifyEndpoint {
                 id: Id::new(),
@@ -251,15 +260,18 @@ impl NotifyService {
         input: UpdateUserNotifyEndpoint,
     ) -> Result<UserNotifyEndpoint> {
         let mut endpoint = self.endpoints.get(organization_id, user_id, id).await?;
+
         let connector = self
             .connectors
             .get(organization_id, &input.connector_id)
             .await?;
+
         validate_endpoint_identity(
             self.registry.as_ref(),
             &connector.connector_type,
             &input.external_identity,
         )?;
+
         endpoint.connector_id = connector.id;
         endpoint.provider_type = connector.connector_type;
         endpoint.external_identity = input.external_identity.trim().to_string();
@@ -283,6 +295,7 @@ impl NotifyService {
                 "user notify endpoint is referenced by a notify preference",
             ));
         }
+
         self.endpoints.delete(organization_id, user_id, id).await
     }
 
@@ -302,17 +315,21 @@ impl NotifyService {
                 "notify preference supports at most 20 endpoints",
             ));
         }
+
         let mut seen = HashSet::new();
+
         for endpoint_id in &endpoint_ids {
             if !seen.insert(endpoint_id.0.clone()) {
                 return Err(Error::invalid(
                     "notify preference endpoint_ids must be unique",
                 ));
             }
+
             self.endpoints
                 .get(organization_id, user_id, endpoint_id)
                 .await?;
         }
+
         let quiet_hours = quiet_hours
             .map(|value| -> Result<Value> {
                 let value = normalize_object(value, "quiet_hours")?;
@@ -320,14 +337,18 @@ impl NotifyService {
                 Ok(value)
             })
             .transpose()?;
+
         let existing = self
             .preferences
             .get(organization_id, user_id, category)
             .await?;
+
         let now = TimestampMicros::now();
+
         let (id, created_at) = existing
             .map(|value| (value.id, value.created_at))
             .unwrap_or_else(|| (Id::new(), now));
+
         let steps = endpoint_ids
             .into_iter()
             .enumerate()
@@ -339,6 +360,7 @@ impl NotifyService {
                 created_at: now,
             })
             .collect();
+
         self.preferences
             .upsert(UserNotifyPreference {
                 id,

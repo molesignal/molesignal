@@ -70,9 +70,11 @@ impl Probe {
         if !self.is_replay_done() {
             return (false, Some("intake wal replay in progress"));
         }
+
         if self.is_object_store_degraded() {
             return (false, Some("object store unreachable"));
         }
+
         (true, None)
     }
 }

@@ -26,28 +26,36 @@ impl StatusPageService {
             component_ids,
             note,
         } = input;
+
         let note = note
             .map(|note| note.trim().to_string())
             .filter(|note| !note.is_empty());
+
         validate_decision_note(note.as_deref())?;
+
         if title.trim().is_empty() || message.trim().is_empty() || component_ids.is_empty() {
             return Err(Error::invalid(
                 "approval requires a title, customer update, and affected Components",
             ));
         }
+
         let candidate = self
             .get_automation_candidate(org_id, page_id, candidate_id)
             .await?;
+
         if candidate.state != AutomationCandidateState::PendingApproval {
             return Err(Error::conflict(
                 "automation Candidate is no longer pending approval",
             ));
         }
+
         let incident_id = candidate
             .status_incident_id
             .clone()
             .ok_or_else(|| Error::internal("approval Candidate has no draft Incident"))?;
+
         let incident = self.get_event(org_id, page_id, &incident_id).await?;
+
         self.update_incident_draft(
             org_id,
             page_id,
@@ -67,6 +75,7 @@ impl StatusPageService {
         .await?;
 
         let now = TimestampMicros::now();
+
         let candidate = self
             .repository
             .mark_automation_candidate(
@@ -80,6 +89,7 @@ impl StatusPageService {
                 now,
             )
             .await?;
+
         self.enqueue_candidate_work(&candidate, "publish", now)
             .await?;
         Ok(candidate)
@@ -98,6 +108,7 @@ impl StatusPageService {
         let note = note.ok_or_else(|| Error::invalid("rejection note is required"))?;
         self.get_automation_candidate(org_id, page_id, candidate_id)
             .await?;
+
         self.repository
             .mark_automation_candidate(
                 org_id,

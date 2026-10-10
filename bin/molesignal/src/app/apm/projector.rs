@@ -62,7 +62,9 @@ impl ApmProjectorConfig {
             .iter()
             .map(|value| value.saturating_mul(1_000))
             .collect::<Vec<_>>();
+
         upper_bounds_micros.push(u64::MAX);
+
         Self {
             queue_capacity: settings.queue_capacity,
             flush_interval: Duration::from_millis(settings.flush_interval_ms),
@@ -142,6 +144,7 @@ impl BufferedApmProjector {
         metrics::set_queue(0, config.queue_capacity);
         metrics::set_health("projector", true);
         metrics::set_health("repository", true);
+
         let join = tokio::spawn(run_worker(
             owner_id,
             repository,
@@ -151,6 +154,7 @@ impl BufferedApmProjector {
             gaps.clone(),
             cancel.clone(),
         ));
+
         Ok(Arc::new(Self {
             sender,
             capacity: config.queue_capacity,
@@ -166,6 +170,7 @@ impl BufferedApmProjector {
         let timestamp = |value: u64| {
             (value != 0).then(|| TimestampMicros(i64::try_from(value).unwrap_or(i64::MAX)))
         };
+
         ApmProjectorHealthSnapshot {
             accepting: self.health.accepting.load(Ordering::Acquire),
             queue_depth: self.health.queue_depth.load(Ordering::Relaxed),
@@ -189,23 +194,30 @@ impl BufferedApmProjector {
         if !self.health.accepting.swap(false, Ordering::AcqRel) {
             return;
         }
+
         self.cancel.cancel();
+
         let Some(mut join) = self.join.lock().await.take() else {
             return;
         };
+
         if timeout(self.shutdown_timeout, &mut join).await.is_err() {
             join.abort();
             let residue = self.health.queue_depth.swap(0, Ordering::Relaxed);
+
             self.health
                 .queue_drops
                 .fetch_add(residue as u64, Ordering::Relaxed);
+
             self.health.degraded.store(true, Ordering::Release);
             *self.health.last_error.write() = Some("projector shutdown timed out".into());
+
             self.gaps.record_now(
                 None,
                 ProjectionGapReason::ShutdownTimeout,
                 residue.max(1) as u64,
             );
+
             metrics::set_queue(0, self.capacity);
             metrics::set_health("projector", false);
             tracing::warn!(
@@ -220,9 +232,11 @@ impl BufferedApmProjector {
 impl ApmCandidateProjector for BufferedApmProjector {
     fn extract(&self, org_id: &str, span: &CanonicalSpan) -> Option<ApmSpanFact> {
         let fact = extract_apm_fact(org_id, span);
+
         if fact.is_none() {
             metrics::record_fact("extract_failed");
         }
+
         fact
     }
 
@@ -246,22 +260,28 @@ impl ApmCandidateProjector for BufferedApmProjector {
                 return;
             }
         };
+
         if !self.health.accepting.load(Ordering::Acquire) {
             self.health.queue_drops.fetch_add(1, Ordering::Relaxed);
+
             self.gaps.record(
                 &fact.org_id,
                 fact.event_time,
                 ProjectionGapReason::QueueFull,
                 1,
             );
+
             metrics::record_fact("stopped");
             return;
         }
+
         self.health.queue_depth.fetch_add(1, Ordering::Relaxed);
+
         metrics::set_queue(
             self.health.queue_depth.load(Ordering::Relaxed),
             self.capacity,
         );
+
         match self.sender.try_send(ProjectionCommand {
             fact,
             trace_available,
@@ -274,16 +294,19 @@ impl ApmCandidateProjector for BufferedApmProjector {
             | Err(mpsc::error::TrySendError::Closed(command)) => {
                 self.health.queue_depth.fetch_sub(1, Ordering::Relaxed);
                 self.health.queue_drops.fetch_add(1, Ordering::Relaxed);
+
                 self.gaps.record(
                     &command.fact.org_id,
                     command.fact.event_time,
                     ProjectionGapReason::QueueFull,
                     1,
                 );
+
                 metrics::set_queue(
                     self.health.queue_depth.load(Ordering::Relaxed),
                     self.capacity,
                 );
+
                 metrics::record_fact("queue_full");
             }
         }

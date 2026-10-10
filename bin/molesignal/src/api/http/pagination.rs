@@ -25,6 +25,7 @@ pub struct PageQuery {
 fn default_page() -> u32 {
     1
 }
+
 fn default_page_size() -> u32 {
     DEFAULT_PAGE_SIZE
 }
@@ -70,6 +71,7 @@ pub struct PageResponse<T> {
 impl<T> PageResponse<T> {
     pub fn from_slice(items: Vec<T>, total: u64, q: &PageQuery) -> Self {
         let q = q.clamp();
+
         Self {
             items,
             total,

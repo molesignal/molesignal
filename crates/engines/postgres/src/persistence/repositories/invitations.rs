@@ -80,6 +80,7 @@ impl InvitationRepository for PgInvitationRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(invitation)
     }
 
@@ -92,6 +93,7 @@ impl InvitationRepository for PgInvitationRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         row_to(row)
     }
 
@@ -103,6 +105,7 @@ impl InvitationRepository for PgInvitationRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to).collect()
     }
 
@@ -130,6 +133,7 @@ impl InvitationRepository for PgInvitationRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         row_to(row)
     }
 }

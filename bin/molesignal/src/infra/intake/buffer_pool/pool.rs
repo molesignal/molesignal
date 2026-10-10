@@ -113,7 +113,9 @@ impl BufferPool {
                 dataset.dataset.id, stream.id
             )));
         }
+
         let key = dataset.dataset.id.clone();
+
         match self.buffers.entry(key.clone()) {
             Entry::Occupied(entry) => {
                 if entry.get().logical_stream_id != stream.id {
@@ -122,11 +124,13 @@ impl BufferPool {
                         key
                     )));
                 }
+
                 Ok(entry.get().clone())
             }
             Entry::Vacant(entry) => {
                 let physical_stream =
                     physical_schema::project(stream, &dataset.dataset.dataset_type);
+
                 Ok(entry
                     .insert(Arc::new(DatasetBuffer {
                         dataset,

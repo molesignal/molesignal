@@ -69,13 +69,16 @@ pub(super) async fn enrich_rows(
     if rows.is_empty() {
         return Ok(());
     }
+
     let ids = rows
         .iter()
         .map(|row| row.session_id.clone())
         .collect::<HashSet<_>>();
+
     let session_ids = ids.iter().cloned().collect::<Vec<_>>();
     let range = action_range(rows);
     let mut actions = HashMap::<String, ActionSummary>::new();
+
     let (action_stats, replay_ids) = tokio::try_join!(
         reader.visit_actions_for_sessions(&iam.org_id, range, &ids, ACTION_COLUMNS, |record| {
             collect_action(&mut actions, record);
@@ -85,20 +88,24 @@ pub(super) async fn enrich_rows(
             .rum_replay
             .existing_session_ids(&iam.org_id, &session_ids),
     )?;
+
     tracing::debug!(
         scanned_files = action_stats.files,
         scanned_rows = action_stats.rows,
         selected_sessions = ids.len(),
         "RUM session action enrichment completed"
     );
+
     for row in rows {
         let summary = actions.remove(&row.session_id).unwrap_or_default();
         apply_summary(&mut row.item, summary);
+
         row.item.insert(
             "replay_available".into(),
             Value::Bool(replay_ids.contains(&row.session_id)),
         );
     }
+
     Ok(())
 }
 
@@ -106,6 +113,7 @@ fn collect_action(actions: &mut HashMap<String, ActionSummary>, record: RumActio
     let page = record.page_key().map(str::to_string);
     let summary = actions.entry(record.session_id).or_default();
     summary.has_actions = true;
+
     if let Some(page) = page {
         if record.event_type == "view" {
             summary.journey.push((record.timestamp_micros, page));
@@ -117,22 +125,28 @@ fn collect_action(actions: &mut HashMap<String, ActionSummary>, record: RumActio
             summary.fallback_page = Some((record.timestamp_micros, page));
         }
     }
+
     summary.rage_clicks += i64::from(matches!(
         record.event_type.as_str(),
         "rage_click" | "rageclick"
     ));
+
     summary.dead_clicks += i64::from(matches!(
         record.event_type.as_str(),
         "dead_click" | "deadclick"
     ));
+
     summary.crashes += i64::from(record.event_type == "crash");
+
     summary.failed_requests += i64::from(
         record.status.unwrap_or_default() >= 400
             || matches!(record.event_type.as_str(), "error" | "network_error"),
     );
+
     summary.slow_resources += i64::from(
         record.event_type == "resource" && record.duration_ms.unwrap_or_default() >= 1_000.0,
     );
+
     maximize(&mut summary.lcp, record.lcp_ms);
     maximize(&mut summary.fid, record.fid_ms);
     maximize(&mut summary.inp, record.inp_ms);
@@ -152,30 +166,37 @@ fn apply_summary(item: &mut Map<String, Value>, mut summary: ActionSummary) {
         .get("error_count")
         .and_then(Value::as_i64)
         .unwrap_or_default();
+
     let experience = classify_experience(error_count, &summary);
     summary.journey.sort_by_key(|(timestamp, _)| *timestamp);
     let mut journey = Vec::<String>::new();
+
     for (_, page) in summary.journey {
         if journey.last() != Some(&page) {
             journey.push(page);
         }
     }
+
     if journey.is_empty()
         && let Some((_, page)) = summary.fallback_page
     {
         journey.push(page);
     }
+
     item.insert("journey".into(), json!(journey));
+
     if !item.contains_key("landing_page")
         && let Some(page) = journey.first()
     {
         item.insert("landing_page".into(), json!(page));
     }
+
     if !item.contains_key("last_page")
         && let Some(page) = journey.last()
     {
         item.insert("last_page".into(), json!(page));
     }
+
     for (name, value) in [
         ("rage_click_count", summary.rage_clicks),
         ("dead_click_count", summary.dead_clicks),
@@ -185,6 +206,7 @@ fn apply_summary(item: &mut Map<String, Value>, mut summary: ActionSummary) {
     ] {
         item.insert(name.into(), json!(value));
     }
+
     insert_number(item, "lcp_ms", summary.lcp);
     insert_number(item, "fid_ms", summary.fid);
     insert_number(item, "inp_ms", summary.inp);

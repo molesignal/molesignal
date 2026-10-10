@@ -41,6 +41,7 @@ impl RetryPolicy {
             | OsError::NotImplemented { .. } => false,
             OsError::Generic { source, .. } => {
                 let msg = source.to_string().to_lowercase();
+
                 msg.contains("timeout")
                     || msg.contains("slowdown")
                     || msg.contains("throttl")
@@ -55,18 +56,23 @@ impl RetryPolicy {
         let exp = self
             .base_backoff_ms
             .saturating_mul(1u64 << (attempt.saturating_sub(1).min(20)));
+
         let capped = exp.min(self.max_backoff_ms);
         let jitter_max = (capped as f32 * self.jitter_ratio) as u64;
+
         let jitter = if jitter_max > 0 {
             use std::time::SystemTime;
+
             let nanos = SystemTime::now()
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .map(|duration| duration.subsec_nanos() as u64)
                 .unwrap_or(0);
+
             (nanos % (jitter_max * 2 + 1)) as i64 - jitter_max as i64
         } else {
             0
         };
+
         let wait_ms = (capped as i64 + jitter).max(0) as u64;
         tokio::time::sleep(Duration::from_millis(wait_ms)).await;
     }

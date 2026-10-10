@@ -17,11 +17,14 @@ pub(super) fn validate_panel(
     state.panel_count += 1;
     let manifest = state.manifest;
     let visualization = panel.get("visualization").and_then(Value::as_object);
+
     let visualization_type = visualization
         .and_then(|value| value.get("type"))
         .and_then(Value::as_str)
         .unwrap_or_default();
+
     let capability = manifest.visualization(visualization_type);
+
     if capability.is_none() {
         state.issue(
             "UNSUPPORTED_VISUALIZATION",
@@ -29,6 +32,7 @@ pub(super) fn validate_panel(
             format!("unsupported visualization: {visualization_type}"),
         );
     }
+
     if let (Some(config), Some(capability)) = (visualization, capability) {
         if config.get("schemaVersion").and_then(Value::as_u64)
             != Some(u64::from(capability.option_schema_version))
@@ -39,6 +43,7 @@ pub(super) fn validate_panel(
                 "visualization option schema version is not supported",
             );
         }
+
         validate_visualization_semantics(panel, config, capability, path, state);
     }
 
@@ -47,6 +52,7 @@ pub(super) fn validate_panel(
         .and_then(Value::as_array)
         .map(Vec::as_slice)
         .unwrap_or_default();
+
     if queries.is_empty() && visualization_type != "text" {
         state.issue(
             "EMPTY_PANEL_QUERIES",
@@ -54,6 +60,7 @@ pub(super) fn validate_panel(
             "non-text panels require at least one query",
         );
     }
+
     if queries.len() > manifest.limits.max_queries_per_panel {
         state.issue(
             "QUERY_BUDGET_EXCEEDED",
@@ -65,13 +72,17 @@ pub(super) fn validate_panel(
             ),
         );
     }
+
     let mut refs = HashSet::new();
+
     for (index, query) in queries.iter().enumerate() {
         let query_path = format!("{path}/queries/{index}");
+
         let ref_id = query
             .get("refId")
             .and_then(Value::as_str)
             .unwrap_or_default();
+
         if !refs.insert(ref_id.to_string()) {
             state.issue(
                 "DUPLICATE_QUERY_REF_ID",
@@ -79,7 +90,9 @@ pub(super) fn validate_panel(
                 format!("duplicate query refId: {ref_id}"),
             );
         }
+
         validate_query(query, capability, &query_path, state);
+
         if let Some(shared) = query.get("sharedQuery").and_then(Value::as_object)
             && let (Some(source_panel), Some(source_ref)) = (
                 shared.get("sourcePanelId").and_then(Value::as_str),
@@ -93,6 +106,7 @@ pub(super) fn validate_panel(
             ));
         }
     }
+
     state.panel_refs.insert(panel_id.to_string(), refs);
 }
 
@@ -119,6 +133,7 @@ fn validate_visualization_semantics(
             format!("unit {unit} is not supported by this visualization"),
         );
     }
+
     if let Some(reducer) = visualization
         .get("options")
         .and_then(Value::as_object)
@@ -147,10 +162,12 @@ fn validate_query(
     let Some(config) = query.get("query").and_then(Value::as_object) else {
         return;
     };
+
     let source = query
         .get("dataSourceType")
         .and_then(Value::as_str)
         .unwrap_or_default();
+
     let (kind, default_shape, expression_required) = match source {
         "metrics" => ("promql", "time_series", true),
         "logs" => ("sql", "logs", true),
@@ -159,8 +176,10 @@ fn validate_query(
         "profiles" => ("profile", "profiles", false),
         _ => return,
     };
+
     if let Some(language) = config.get("language").and_then(Value::as_str) {
         let expected = if kind == "promql" { "promql" } else { "sql" };
+
         if kind != "profile" && kind != "trace" && language != expected {
             state.issue(
                 "INVALID_QUERY_LANGUAGE",
@@ -169,7 +188,9 @@ fn validate_query(
             );
         }
     }
+
     let expression = first_string(config, &["expression", "statement", "sql", "query"]);
+
     if expression_required && expression.is_none_or(|value| value.trim().is_empty()) {
         state.issue(
             "INVALID_TYPED_QUERY",
@@ -177,7 +198,9 @@ fn validate_query(
             format!("{kind} query text must not be empty"),
         );
     }
+
     let query_length = string_bytes(config);
+
     if query_length > state.manifest.limits.max_query_length {
         state.issue(
             "QUERY_LENGTH_EXCEEDED",
@@ -188,6 +211,7 @@ fn validate_query(
             ),
         );
     }
+
     if kind == "profile" && first_string(config, &["profileType", "type"]).is_none_or(str::is_empty)
     {
         state.issue(
@@ -196,9 +220,11 @@ fn validate_query(
             "profile query requires profileType",
         );
     }
+
     if let Some(capability) = capability {
         validate_compatibility(query, kind, default_shape, capability, path, state);
     }
+
     collect_variable_references(config, &format!("{path}/query"), state);
 }
 
@@ -224,10 +250,12 @@ fn validate_compatibility(
             ),
         );
     }
+
     let shape = query
         .get("format")
         .and_then(Value::as_str)
         .unwrap_or(default_shape);
+
     if !capability
         .compatible_data_shapes
         .iter()

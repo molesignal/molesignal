@@ -18,6 +18,7 @@ pub(super) fn compile_variables(
 
 fn compile_variable(variable: &AuthoringVariable, context: &mut CompileContext) -> Value {
     let id = context.variable_id();
+
     match variable {
         AuthoringVariable::Custom {
             name,
@@ -28,6 +29,7 @@ fn compile_variable(variable: &AuthoringVariable, context: &mut CompileContext) 
             include_all,
         } => {
             let selected = default_value.as_ref().or_else(|| values.first());
+
             json!({
                 "id": id,
                 "name": name,
@@ -56,6 +58,7 @@ fn compile_variable(variable: &AuthoringVariable, context: &mut CompileContext) 
             refresh,
         } => {
             let query = compile_query(query);
+
             json!({
                 "id": id,
                 "name": name,
@@ -100,6 +103,7 @@ fn compile_variable(variable: &AuthoringVariable, context: &mut CompileContext) 
             default_value,
         } => {
             let selected = default_value.as_ref().or_else(|| values.first());
+
             json!({
                 "id": id,
                 "name": name,

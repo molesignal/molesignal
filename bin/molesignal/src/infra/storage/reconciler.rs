@@ -60,11 +60,15 @@ impl StorageReconciler {
         if !self.settings.enabled {
             return Ok(0);
         }
+
         let now = TimestampMicros::now().0;
+
         let stuck_after_secs = u64::from(self.settings.interval_secs)
             .saturating_mul(3)
             .max(300);
+
         let mut issues = 0_usize;
+
         for invariant in self
             .catalog
             .catalog_invariant_issues(
@@ -82,18 +86,22 @@ impl StorageReconciler {
             issues =
                 issues.saturating_add(usize::try_from(invariant.occurrences).unwrap_or(usize::MAX));
         }
+
         let cursor = self
             .catalog_cursors
             .lock()
             .get(scope.organization_id.as_str())
             .cloned();
+
         let objects = self
             .catalog
             .catalog_objects(&scope, cursor.as_ref(), self.settings.batch_size)
             .await?;
+
         for object in &objects {
             issues += self.check_catalog_object(&scope, object).await?;
         }
+
         self.advance_catalog_cursor(&scope, &objects);
         issues += self.scan_orphans(&scope).await?;
         Ok(issues)
@@ -111,6 +119,7 @@ impl StorageReconciler {
                 issue("primary", "not_ready");
                 return Ok(1);
             }
+
             if catalog_object.role == Some(ArtifactRole::Index) {
                 issue(
                     "index",
@@ -120,11 +129,15 @@ impl StorageReconciler {
                         "failed"
                     },
                 );
+
                 return Ok(1);
             }
+
             return Ok(0);
         }
+
         let path = Path::from(catalog_object.object.key.as_str());
+
         let actual = match self.origin.head(&path).await {
             Ok(actual) => actual,
             Err(object_store::Error::NotFound { .. }) => {
@@ -137,22 +150,28 @@ impl StorageReconciler {
                 return Ok(1);
             }
         };
+
         if actual.size != catalog_object.object.size_bytes {
             issue(object_kind(catalog_object), "size_mismatch");
             return Ok(1);
         }
+
         if let Some(pointer) = &catalog_object.manifest {
             if self.manifests.load(pointer).await.is_err() {
                 issue("manifest", "corrupt");
                 return Ok(1);
             }
+
             return Ok(0);
         }
+
         if !self.settings.verify_checksums {
             return Ok(0);
         }
+
         self.object_reader
             .register(&scope.organization_id, &catalog_object.object)?;
+
         let bytes = match self.object_reader.store().get(&path).await {
             Ok(result) => result
                 .bytes()
@@ -164,28 +183,33 @@ impl StorageReconciler {
                 return Ok(1);
             }
         };
+
         if let Some(expected) = catalog_object.object.checksum.as_str().strip_prefix("b3:")
             && blake3::hash(&bytes).to_hex().as_str() != expected
         {
             issue(object_kind(catalog_object), "checksum_mismatch");
             return Ok(1);
         }
+
         Ok(0)
     }
 
     async fn scan_orphans(&self, scope: &OrganizationScope) -> Result<usize> {
         let mut found = 0;
         let per_prefix = (self.settings.batch_size.max(2) / 2) as usize;
+
         for prefix in StorageLayout::catalog_scan_prefixes_for(&scope.organization_id) {
             let prefix_path = Path::from(prefix.as_str());
             let cursor_key = (scope.organization_id.as_str().to_owned(), prefix.clone());
             let cursor = self.orphan_cursors.lock().get(&cursor_key).cloned();
+
             let stream = match cursor.as_ref() {
                 Some(cursor) => self
                     .origin
                     .list_with_offset(Some(&prefix_path), &Path::from(cursor.as_str())),
                 None => self.origin.list(Some(&prefix_path)),
             };
+
             let objects = stream
                 .take(per_prefix)
                 .try_collect::<Vec<_>>()
@@ -193,29 +217,36 @@ impl StorageReconciler {
                 .map_err(|error| {
                     crate::shared::Error::internal(format!("list catalog objects: {error}"))
                 })?;
+
             for object in &objects {
                 let key = ObjectKey::from_string(object.location.as_ref());
+
                 if !self.catalog.object_is_referenced(scope, &key).await? {
                     let not_before = TimestampMicros::now()
                         .0
                         .saturating_add(i64::from(self.settings.orphan_grace_secs) * 1_000_000);
+
                     self.catalog.enqueue_orphan(scope, &key, not_before).await?;
                     issue("orphan", "queued");
                     found += 1;
                 }
             }
+
             let mut cursors = self.orphan_cursors.lock();
+
             if objects.len() < per_prefix {
                 cursors.remove(&cursor_key);
             } else if let Some(last) = objects.last() {
                 cursors.insert(cursor_key, ObjectKey::from_string(last.location.as_ref()));
             }
         }
+
         Ok(found)
     }
 
     fn advance_catalog_cursor(&self, scope: &OrganizationScope, objects: &[CatalogObject]) {
         let mut cursors = self.catalog_cursors.lock();
+
         if objects.len() < self.settings.batch_size.max(1) as usize {
             cursors.remove(scope.organization_id.as_str());
         } else if let Some(last) = objects.last() {
@@ -258,6 +289,7 @@ fn invariant_labels(invariant: CatalogInvariant) -> (&'static str, &'static str)
 
 fn issues_total() -> &'static IntCounterVec {
     static METRIC: OnceLock<IntCounterVec> = OnceLock::new();
+
     METRIC.get_or_init(|| {
         crate::shared::metrics::register_int_counter_vec(
             "storage_reconciler_issues_total",

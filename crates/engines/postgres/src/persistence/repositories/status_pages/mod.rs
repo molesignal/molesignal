@@ -51,8 +51,10 @@ async fn touch_page(
     .execute(transaction)
     .await
     .map_err(sqlx_err)?;
+
     if result.rows_affected() == 0 {
         return Err(crate::shared::Error::not_found("status page not found"));
     }
+
     Ok(())
 }

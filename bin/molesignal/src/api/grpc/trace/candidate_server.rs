@@ -54,11 +54,13 @@ impl TraceCandidateService for TraceCandidateGrpc {
     ) -> Result<Response<TraceCandidateServiceSubmitResponse>, Status> {
         authenticate_cluster_candidate(&request, self.cluster_token.as_deref())?;
         let candidate = decode_candidate(request.into_inner())?;
+
         let disposition = match self.pipeline.try_submit(candidate) {
             Ok(()) => TraceCandidateDisposition::Accepted,
             Err(TraceSubmitError::Full) => TraceCandidateDisposition::Overloaded,
             Err(TraceSubmitError::Stopped) => TraceCandidateDisposition::Stopped,
         };
+
         Ok(Response::new(TraceCandidateServiceSubmitResponse {
             disposition: disposition as i32,
         }))
@@ -73,22 +75,27 @@ fn authenticate_cluster_candidate<T>(
         .metadata()
         .get(TRACE_CANDIDATE_ORIGIN_HEADER)
         .and_then(|value| value.to_str().ok());
+
     if origin != Some(TRACE_CANDIDATE_ORIGIN_VALUE) {
         return Err(Status::permission_denied(
             "internal Trace candidate origin required",
         ));
     }
+
     let expected = expected_token
         .ok_or_else(|| Status::unauthenticated("cluster candidate transport is not configured"))?;
+
     let presented = request
         .metadata()
         .get("authorization")
         .and_then(|value| value.to_str().ok())
         .and_then(|value| value.strip_prefix("Bearer "))
         .ok_or_else(|| Status::unauthenticated("missing cluster bearer"))?;
+
     if !crate::app::self_telemetry::cluster_token_matches(expected, presented) {
         return Err(Status::unauthenticated("invalid cluster bearer"));
     }
+
     Ok(())
 }
 
@@ -96,9 +103,11 @@ fn decode_candidate(request: TraceCandidateServiceSubmitRequest) -> Result<Trace
     if request.org_id.is_empty() || request.org_id.len() > 256 {
         return Err(Status::invalid_argument("invalid org_id"));
     }
+
     if request.producer_node_id.is_empty() || request.producer_node_id.len() > 256 {
         return Err(Status::invalid_argument("invalid producer_node_id"));
     }
+
     if request.canonical_span_json.is_empty()
         || request.canonical_span_json.len() > MAX_TRACE_CANDIDATE_BYTES
     {
@@ -106,22 +115,28 @@ fn decode_candidate(request: TraceCandidateServiceSubmitRequest) -> Result<Trace
             "CanonicalSpan candidate size is out of bounds",
         ));
     }
+
     let stream = if request.system_self_trace {
         if !request.stream.is_empty() {
             return Err(Status::invalid_argument(
                 "system Trace candidate must not carry a tenant stream",
             ));
         }
+
         None
     } else {
         let stream = request.stream.trim();
+
         if stream.is_empty() || stream.len() > 256 {
             return Err(Status::invalid_argument("invalid tenant Trace stream"));
         }
+
         Some(stream.to_owned())
     };
+
     let span: CanonicalSpan = serde_json::from_slice(&request.canonical_span_json)
         .map_err(|_| Status::invalid_argument("invalid CanonicalSpan candidate"))?;
+
     if span.schema_version != CANONICAL_SPAN_SCHEMA_VERSION
         || !valid_hex_id(&span.trace_id, 32)
         || !valid_hex_id(&span.span_id, 16)
@@ -134,12 +149,14 @@ fn decode_candidate(request: TraceCandidateServiceSubmitRequest) -> Result<Trace
             "unsupported or malformed CanonicalSpan candidate",
         ));
     }
+
     let force_keep =
         match TraceForceKeep::try_from(request.force_keep).unwrap_or(TraceForceKeep::Unspecified) {
             TraceForceKeep::Unspecified => ForceKeep::None,
             TraceForceKeep::TrustedInternal => ForceKeep::TrustedInternal,
             TraceForceKeep::DebugToken => ForceKeep::DebugToken,
         };
+
     Ok(TraceCandidate {
         org_id: request.org_id,
         stream,

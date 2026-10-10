@@ -29,6 +29,7 @@ use crate::{
 
 /// root_cause prompt 的 purpose（与迁移 seed 的 builtin 行一致）。
 const RCA_PURPOSE: &str = "root_cause";
+
 /// 证据文本里样本行上限（incident 已裁到 20，这里再压一层控制 prompt 体积）。
 const MAX_EVIDENCE_SAMPLES: usize = 10;
 
@@ -177,6 +178,7 @@ impl RcaGenerator {
         let provider = self.pick_provider_for(org_id).await?.ok_or_else(|| {
             Error::invalid("no enabled AI provider with an API key is configured for this org")
         })?;
+
         self.generate_with_provider_for_locale(org_id, &provider, incident, now, locale)
             .await
     }
@@ -214,6 +216,7 @@ impl RcaGenerator {
             .get_plaintext_key(org_id, &provider.id)
             .await?
             .ok_or_else(|| Error::invalid("provider key not set"))?;
+
         let adapter = adapter_from_parts(
             Provider::parse(&provider.provider)?,
             provider.base_url.clone(),
@@ -225,6 +228,7 @@ impl RcaGenerator {
             .agent_prompts
             .resolve(org_id, &system_user_id(), RCA_PURPOSE)
             .await?;
+
         let rendered = render_prompt(&tmpl.body, &render_vars(incident, locale));
         let system_body = format!("{rendered}\n\n{}", locale.system_instruction());
         let phash = prompt_hash(&system_body);
@@ -233,6 +237,7 @@ impl RcaGenerator {
             msg(MessageRole::System, system_body, now),
             msg(MessageRole::User, build_evidence(incident, locale), now),
         ];
+
         let req = CompletionRequest {
             model: provider.default_model.clone(),
             messages,
@@ -244,11 +249,14 @@ impl RcaGenerator {
                 .or(Some(self.cfg.default_max_tokens)),
             temperature: Some(self.cfg.temperature),
         };
+
         let resp = adapter.complete(req).await?;
         let summary = resp.content.unwrap_or_default();
+
         if summary.trim().is_empty() {
             return Err(Error::internal("llm returned empty rca summary"));
         }
+
         let rca = IncidentRca {
             incident_id: incident.id.clone(),
             org_id: org_id.clone(),
@@ -263,6 +271,7 @@ impl RcaGenerator {
             created_at: now,
             updated_at: now,
         };
+
         self.incident_rca.upsert(rca).await
     }
 }
@@ -280,19 +289,24 @@ pub fn pick_provider(providers: &[ModelProvider]) -> Option<ModelProvider> {
 /// 构造 prompt 模板变量：incident 上下文 + 受控输出语言。
 fn render_vars(incident: &Incident, locale: RcaOutputLocale) -> Map<String, Value> {
     let mut m = Map::new();
+
     m.insert(
         "time_range".to_string(),
         Value::String(time_range_str(incident)),
     );
+
     m.insert("streams".to_string(), Value::String(streams_str(incident)));
+
     m.insert(
         "locale".to_string(),
         Value::String(locale.language_tag().to_string()),
     );
+
     m.insert(
         "output_language".to_string(),
         Value::String(locale.output_language().to_string()),
     );
+
     m
 }
 
@@ -316,12 +330,15 @@ fn build_evidence(incident: &Incident, locale: RcaOutputLocale) -> String {
     s.push_str(&format!("Severity: {:?}\n", incident.severity));
     s.push_str(&format!("Status: {:?}\n", incident.status));
     s.push_str(&format!("Created: {}\n", iso(incident.created_at)));
+
     s.push_str(&format!(
         "Affected services: {}\n",
         join_or_na(&incident.affected_services)
     ));
+
     s.push_str(&format!("Hosts: {}\n", join_or_na(&incident.host_ids)));
     s.push_str(&format!("Trace IDs: {}\n", join_or_na(&incident.trace_ids)));
+
     if !incident.labels.is_empty() {
         let labels = incident
             .labels
@@ -329,8 +346,10 @@ fn build_evidence(incident: &Incident, locale: RcaOutputLocale) -> String {
             .map(|(k, v)| format!("{k}={v}"))
             .collect::<Vec<_>>()
             .join(", ");
+
         s.push_str(&format!("Labels: {labels}\n"));
     }
+
     if !incident.annotations.is_empty() {
         let ann = incident
             .annotations
@@ -338,20 +357,25 @@ fn build_evidence(incident: &Incident, locale: RcaOutputLocale) -> String {
             .map(|(k, v)| format!("{k}={v}"))
             .collect::<Vec<_>>()
             .join(", ");
+
         s.push_str(&format!("Annotations: {ann}\n"));
     }
+
     if let Some(q) = &incident.triggering_query {
         s.push_str(&format!(
             "Triggering query ({:?}): {}\n",
             q.language, q.statement
         ));
+
         if !q.sample_values.is_empty() {
             s.push_str("Sample values:\n");
+
             for sample in q.sample_values.iter().take(MAX_EVIDENCE_SAMPLES) {
                 s.push_str(&format!("- ts={} value={}\n", iso(sample.ts), sample.value));
             }
         }
     }
+
     s.push('\n');
     s.push_str(locale.evidence_instruction());
     s
@@ -369,6 +393,7 @@ fn join_or_na(v: &[String]) -> String {
 fn iso(ts: TimestampMicros) -> String {
     let secs = ts.0.div_euclid(1_000_000);
     let nanos = (ts.0.rem_euclid(1_000_000) * 1000) as u32;
+
     chrono::DateTime::from_timestamp(secs, nanos)
         .map(|d| d.to_rfc3339())
         .unwrap_or_else(|| ts.0.to_string())

@@ -16,11 +16,13 @@ use crate::shared::{Error, Result};
 /// events, replay segments, and debug artifacts.
 pub fn validate_application_id(value: &str) -> Result<&str> {
     let value = value.trim();
+
     if value.is_empty() || value.len() > 128 {
         return Err(Error::invalid(
             "application_id must contain between 1 and 128 characters",
         ));
     }
+
     if !value
         .chars()
         .all(|character| character.is_ascii_alphanumeric() || "._:-".contains(character))
@@ -29,12 +31,14 @@ pub fn validate_application_id(value: &str) -> Result<&str> {
             "application_id may only contain letters, digits, '.', '_', ':', and '-'",
         ));
     }
+
     Ok(value)
 }
 
 /// Canonicalize common ABI spellings used by Android, Apple, and Flutter.
 pub fn normalize_architecture(value: &str) -> String {
     let value = value.trim().to_ascii_lowercase();
+
     match value.as_str() {
         "aarch64" | "arm64-v8a" | "android-arm64" | "ios-arm64" => "arm64".into(),
         "armeabi-v7a" | "armv7" | "armv7a" | "android-arm" | "ios-arm" => "arm".into(),
@@ -51,8 +55,10 @@ pub fn normalize_debug_id(value: &str) -> String {
         .trim_start_matches('{')
         .trim_end_matches('}')
         .to_ascii_lowercase();
+
     let value = value.strip_prefix("0x").unwrap_or(&value);
     let compact = value.replace('-', "");
+
     if !compact.is_empty() && compact.bytes().all(|byte| byte.is_ascii_hexdigit()) {
         compact
     } else {

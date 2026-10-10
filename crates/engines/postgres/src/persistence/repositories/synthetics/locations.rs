@@ -20,6 +20,7 @@ impl SyntheticLocationRepository for PgSyntheticRepository {
                 "platform Locations must be global and organization Locations must be scoped",
             ));
         }
+
         let sql = format!(
             "INSERT INTO synthetic_probe_locations
                 (id, organization_id, name, code, description, scope, execution, lifecycle,
@@ -27,6 +28,7 @@ impl SyntheticLocationRepository for PgSyntheticRepository {
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
              RETURNING {LOCATION_COLS}"
         );
+
         let row = sqlx::query(&sql)
             .bind(&location.id.0)
             .bind(location.organization_id.as_ref().map(|id| id.as_str()))
@@ -44,6 +46,7 @@ impl SyntheticLocationRepository for PgSyntheticRepository {
             .fetch_one(&self.pool)
             .await
             .map_err(super::sqlx_err)?;
+
         row_to_location(row)
     }
 
@@ -56,6 +59,7 @@ impl SyntheticLocationRepository for PgSyntheticRepository {
                AND NOT system_managed
              RETURNING {LOCATION_COLS}"
         );
+
         let row = sqlx::query(&sql)
             .bind(&location.id.0)
             .bind(location.organization_id.as_ref().map(|id| id.as_str()))
@@ -68,6 +72,7 @@ impl SyntheticLocationRepository for PgSyntheticRepository {
             .fetch_one(&self.pool)
             .await
             .map_err(super::sqlx_err)?;
+
         row_to_location(row)
     }
 
@@ -76,12 +81,14 @@ impl SyntheticLocationRepository for PgSyntheticRepository {
             "SELECT {LOCATION_COLS} FROM synthetic_probe_locations
              WHERE id = $2 AND (organization_id = $1 OR organization_id IS NULL)"
         );
+
         let row = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&location_id.0)
             .fetch_one(&self.pool)
             .await
             .map_err(super::sqlx_err)?;
+
         row_to_location(row)
     }
 
@@ -91,6 +98,7 @@ impl SyntheticLocationRepository for PgSyntheticRepository {
              WHERE organization_id = $1 OR organization_id IS NULL
              ORDER BY scope, name, id"
         );
+
         sqlx::query(&sql)
             .bind(&org_id.0)
             .fetch_all(&self.pool)

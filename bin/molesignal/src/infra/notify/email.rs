@@ -30,6 +30,7 @@ impl EmailSender {
         if cfg.host.is_empty() {
             return Err(Error::invalid("notify.smtp.host is empty"));
         }
+
         if cfg.from.is_empty() {
             return Err(Error::invalid("notify.smtp.from is empty"));
         }
@@ -44,6 +45,7 @@ impl EmailSender {
             SmtpTls::Tls => {
                 let params = TlsParameters::new(cfg.host.clone())
                     .map_err(|e| Error::internal(format!("smtp tls params: {e}")))?;
+
                 SmtpTransport::relay(&cfg.host)
                     .map_err(|e| Error::internal(format!("smtp relay: {e}")))?
                     .port(port)
@@ -113,44 +115,57 @@ impl EmailSender {
         if to.is_empty() {
             return Err(Error::invalid("email has empty `to` list"));
         }
+
         let from = self.from.parse().map_err(|e| {
             Error::internal(format!("smtp from address parse '{}': {e}", self.from))
         })?;
+
         let mut builder = Message::builder().from(from).subject(subject.to_string());
+
         for addr in to {
             let parsed = addr
                 .parse()
                 .map_err(|e| Error::invalid(format!("smtp to '{addr}': {e}")))?;
+
             builder = builder.to(parsed);
         }
+
         for addr in cc {
             let parsed = addr
                 .parse()
                 .map_err(|e| Error::invalid(format!("smtp cc '{addr}': {e}")))?;
+
             builder = builder.cc(parsed);
         }
+
         for addr in bcc {
             let parsed = addr
                 .parse()
                 .map_err(|e| Error::invalid(format!("smtp bcc '{addr}': {e}")))?;
+
             builder = builder.bcc(parsed);
         }
+
         if let Some(addr) = reply_to.filter(|addr| !addr.trim().is_empty()) {
             let parsed = addr
                 .parse()
                 .map_err(|e| Error::invalid(format!("smtp reply-to '{addr}': {e}")))?;
+
             builder = builder.reply_to(parsed);
         }
+
         let msg = builder
             .header(content_type)
             .body(body.to_string())
             .map_err(|e| Error::internal(format!("smtp build: {e}")))?;
 
         let transport = self.transport.clone();
+
         tokio::task::spawn_blocking(move || transport.send(&msg))
             .await
             .map_err(|e| Error::internal(format!("smtp blocking task: {e}")))?
             .map_err(|e| Error::internal(format!("smtp send: {e}")))?;
+
         Ok(())
     }
 }

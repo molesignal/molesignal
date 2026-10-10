@@ -189,19 +189,23 @@ async fn subscribe(
     Json<crate::app::status_page::StatusPageSubscriptionOutcome>,
 )> {
     let metadata = state.status_pages.access_metadata(&slug).await?;
+
     let outcome = if metadata.visibility == StatusPageVisibility::Private {
         if request.channel != StatusPageSubscriberChannel::Email {
             return Err(Error::invalid(
                 "private status pages only support verified email subscriptions",
             ));
         }
+
         let cookie_name = state
             .status_pages
             .access_cookie_name_for_slug(&slug)
             .await?;
+
         let token = cookie_value(&headers, &cookie_name)
             .ok_or_else(|| Error::unauthorized("private status page access is required"))?;
         let origin = request_hostname(&headers).unwrap_or_default();
+
         state
             .status_pages
             .subscribe_private_email(&slug, token, &origin)
@@ -218,6 +222,7 @@ async fn subscribe(
             )
             .await?
     };
+
     Ok((StatusCode::ACCEPTED, Json(outcome)))
 }
 
@@ -270,10 +275,12 @@ async fn revoke_subscriber(
     Path((page_id, subscriber_id)): Path<(String, String)>,
 ) -> Result<Json<SubscriberResponse>> {
     let page_id = Id(page_id);
+
     let subscriber = state
         .status_pages
         .revoke_subscriber(&context.org_id, &page_id, &Id(subscriber_id.clone()))
         .await?;
+
     record_subscriber_audit(&state, &context, "revoke", &page_id, &subscriber_id).await;
     Ok(Json(subscriber.into()))
 }
@@ -285,10 +292,12 @@ async fn resend_confirmation(
     Path((page_id, subscriber_id)): Path<(String, String)>,
 ) -> Result<Json<SubscriberResponse>> {
     let page_id = Id(page_id);
+
     let subscriber = state
         .status_pages
         .resend_pending_confirmation(&context.org_id, &page_id, &Id(subscriber_id.clone()))
         .await?;
+
     record_subscriber_audit(&state, &context, "resend", &page_id, &subscriber_id).await;
     Ok(Json(subscriber.into()))
 }
@@ -334,10 +343,12 @@ fn mask_target(channel: StatusPageSubscriberChannel, target: &str) -> String {
             .ok()
             .and_then(|url| {
                 let host = url.host_str()?;
+
                 let port = url
                     .port()
                     .map(|port| format!(":{port}"))
                     .unwrap_or_default();
+
                 Some(format!("{}://{host}{port}/***", url.scheme()))
             })
             .unwrap_or_else(|| "***".into()),

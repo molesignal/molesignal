@@ -83,24 +83,29 @@ fn normalize_and_validate(mut req: WriteReq) -> Result<WriteReq> {
     if req.name.is_empty() || req.name.len() > 255 {
         return Err(Error::invalid("name must contain 1 to 255 characters"));
     }
+
     if req.description.len() > 4_000 {
         return Err(Error::invalid(
             "description must not exceed 4000 characters",
         ));
     }
+
     if !matches!(req.target_type.as_str(), "dashboard" | "saved_view") {
         return Err(Error::invalid(
             "target_type must be dashboard or saved_view",
         ));
     }
+
     if !matches!(req.format.as_str(), "pdf" | "csv" | "json") {
         return Err(Error::invalid("format must be one of pdf | csv | json"));
     }
+
     if req.target_type == "dashboard" && req.format != "pdf" {
         return Err(Error::invalid(
             "dashboard templates only support pdf format",
         ));
     }
+
     if !matches!(
         req.time_range_preset.as_str(),
         "previous-24-hours"
@@ -114,6 +119,7 @@ fn normalize_and_validate(mut req: WriteReq) -> Result<WriteReq> {
             "time_range_preset is not a supported report template range",
         ));
     }
+
     Ok(req)
 }
 
@@ -123,6 +129,7 @@ async fn list(
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Vec<Resp>>> {
     let mut templates = builtins();
+
     templates.extend(
         state
             .platform
@@ -132,6 +139,7 @@ async fn list(
             .into_iter()
             .map(to_resp),
     );
+
     Ok(Json(templates))
 }
 
@@ -144,11 +152,13 @@ async fn get_one(
     if let Some(template) = builtins().into_iter().find(|template| template.id == id) {
         return Ok(Json(template));
     }
+
     let template = state
         .platform
         .report_templates
         .get(&ctx.org_id, &Id(id))
         .await?;
+
     Ok(Json(to_resp(template)))
 }
 
@@ -160,6 +170,7 @@ async fn create(
 ) -> Result<Json<Resp>> {
     let req = normalize_and_validate(req)?;
     let now = TimestampMicros::now();
+
     let template = state
         .platform
         .report_templates
@@ -175,6 +186,7 @@ async fn create(
             updated_at: now,
         })
         .await?;
+
     Ok(Json(to_resp(template)))
 }
 
@@ -186,11 +198,13 @@ async fn update(
     Json(req): Json<WriteReq>,
 ) -> Result<Json<Resp>> {
     let req = normalize_and_validate(req)?;
+
     let existing = state
         .platform
         .report_templates
         .get(&ctx.org_id, &Id(id))
         .await?;
+
     let template = state
         .platform
         .report_templates
@@ -206,6 +220,7 @@ async fn update(
             updated_at: TimestampMicros::now(),
         })
         .await?;
+
     Ok(Json(to_resp(template)))
 }
 
@@ -220,6 +235,7 @@ async fn delete(
         .report_templates
         .delete(&ctx.org_id, &Id(id))
         .await?;
+
     Ok(Json(serde_json::json!({ "deleted": true })))
 }
 

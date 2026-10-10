@@ -66,7 +66,9 @@ impl ProbeService for ProbeGrpc {
                 "Register is only available on the Probe registration endpoint",
             ));
         }
+
         let value = request.into_inner();
+
         let outcome = self
             .service
             .register(ProbeRegisterInput {
@@ -80,6 +82,7 @@ impl ProbeService for ProbeGrpc {
             })
             .await
             .map_err(to_status)?;
+
         Ok(Response::new(wire::RegisterResponse {
             agent_id: outcome.agent.id.0,
             location_id: outcome.agent.location_id.0,
@@ -103,26 +106,32 @@ impl ProbeService for ProbeGrpc {
                 "ControlStream is only available on the Probe control endpoint",
             ));
         }
+
         let certificate = request
             .peer_certs()
             .and_then(|chain| chain.first().cloned())
             .ok_or_else(|| Status::unauthenticated("Probe client certificate is required"))?;
+
         let mut agent = self
             .service
             .authenticate_certificate(certificate.as_ref())
             .await
             .map_err(to_status)?;
+
         let mut input = request.into_inner();
+
         let first = tokio::time::timeout(Duration::from_secs(15), input.message())
             .await
             .map_err(|_| Status::deadline_exceeded("Probe Hello timed out"))?
             .map_err(|_| Status::invalid_argument("invalid Probe Hello frame"))?
             .ok_or_else(|| Status::invalid_argument("Probe stream ended before Hello"))?;
+
         let Some(agent_frame::Payload::Hello(hello)) = first.payload else {
             return Err(Status::failed_precondition(
                 "the first Probe frame must be Hello",
             ));
         };
+
         agent = self
             .service
             .accept_hello(
@@ -139,6 +148,7 @@ impl ProbeService for ProbeGrpc {
         let (output, receiver) = mpsc::channel(64);
         let service = self.service.clone();
         let object_store = self.object_store.clone();
+
         tokio::spawn(async move {
             if output
                 .send(Ok(control_frame(control_frame::Payload::HelloAck(
@@ -155,8 +165,10 @@ impl ProbeService for ProbeGrpc {
             {
                 return;
             }
+
             run_stream(service, object_store, input, output, agent).await;
         });
+
         Ok(Response::new(Box::pin(ReceiverStream::new(receiver))))
     }
 }
@@ -171,6 +183,7 @@ async fn run_stream(
     let mut in_flight = HashMap::new();
     let mut dispatch = tokio::time::interval(Duration::from_secs(2));
     dispatch.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
     loop {
         let outcome = tokio::select! {
             frame = input.next() => match frame {
@@ -184,6 +197,7 @@ async fn run_stream(
                 &service, &output, &agent, &mut in_flight,
             ).await,
         };
+
         if let Err(status) = outcome {
             let _ = output.send(Err(status)).await;
             break;
@@ -202,6 +216,7 @@ async fn handle_frame(
     if frame.frame_id.is_empty() || frame.frame_id.len() > 128 {
         return Err(Status::invalid_argument("invalid Probe frame id"));
     }
+
     match frame.payload {
         Some(agent_frame::Payload::Hello(_)) => Err(Status::failed_precondition(
             "Probe Hello was already accepted",
@@ -216,17 +231,21 @@ async fn handle_frame(
                 )
                 .await
                 .map_err(to_status)?;
+
             dispatch_tasks(service, output, agent, in_flight).await
         }
         Some(agent_frame::Payload::TaskAck(value)) => {
             let task_id = Id::from_string(value.task_id);
+
             service
                 .acknowledge_task(agent, &task_id, &value.lease_token, value.accepted)
                 .await
                 .map_err(to_status)?;
+
             if !value.accepted {
                 in_flight.remove(&task_id);
             }
+
             Ok(())
         }
         Some(agent_frame::Payload::LeaseRenewal(value)) => {
@@ -239,21 +258,27 @@ async fn handle_frame(
                 )
                 .await
                 .map_err(to_status)?;
+
             Ok(())
         }
         Some(agent_frame::Payload::Result(value)) => {
             let task_id = Id::from_string(value.task_id.clone());
+
             let task = service
                 .verify_lease(agent, &task_id, &value.lease_token)
                 .await
                 .map_err(to_status)?;
+
             let sequence = value.result_sequence;
             let result = result_from_wire(agent, &task, value).map_err(to_status)?;
+
             verify_artifact_objects(object_store, &result)
                 .await
                 .map_err(to_status)?;
+
             service.process_result(result).await.map_err(to_status)?;
             in_flight.remove(&task_id);
+
             output
                 .send(Ok(control_frame(control_frame::Payload::ResultAck(
                     wire::ResultAck {
@@ -266,10 +291,12 @@ async fn handle_frame(
         }
         Some(agent_frame::Payload::Drain(_)) => {
             agent.status = AgentStatus::Draining;
+
             *agent = service
                 .heartbeat(agent.clone(), agent.capacity, true, TimestampMicros::now())
                 .await
                 .map_err(to_status)?;
+
             Ok(())
         }
         Some(agent_frame::Payload::CertificateRotation(value)) => {
@@ -277,10 +304,12 @@ async fn handle_frame(
                 .rotate_certificate(agent, &value.public_key_der)
                 .await
                 .map_err(to_status)?;
+
             agent.public_key_der = value.public_key_der.to_vec();
             agent.certificate_serial = Some(issued.serial);
             agent.certificate_expires_at = Some(issued.expires_at);
             let tls = service.server_tls();
+
             output
                 .send(Ok(control_frame(
                     control_frame::Payload::RotateCertificate(wire::RotateCertificate {
@@ -304,6 +333,7 @@ async fn verify_artifact_objects(
         let path = ObjectPath::parse(&artifact.object_key).map_err(|error| {
             Error::invalid(format!("invalid Probe Artifact object key: {error}"))
         })?;
+
         let body = object_store
             .get(&path)
             .await
@@ -311,6 +341,7 @@ async fn verify_artifact_objects(
             .bytes()
             .await
             .map_err(|_| Error::invalid("Probe Artifact object cannot be read"))?;
+
         if body.len() as u64 != artifact.content_length
             || hex::encode(Sha256::digest(&body)) != artifact.sha256
         {
@@ -319,6 +350,7 @@ async fn verify_artifact_objects(
             ));
         }
     }
+
     Ok(())
 }
 
@@ -331,16 +363,20 @@ async fn dispatch_tasks(
     if agent.status == AgentStatus::Draining {
         return Ok(());
     }
+
     let browser_in_flight = in_flight.values().filter(|is_browser| **is_browser).count();
     let (mut available, mut available_browser) =
         dispatch_budgets(agent.capacity, in_flight.len(), browser_in_flight);
+
     while available > 0 {
         let mut dispatch_agent = agent.clone();
+
         if available_browser == 0 {
             dispatch_agent
                 .capabilities
                 .retain(|capability| capability != &ProbeCapability::Browser);
         }
+
         let Some((task, token)) = service
             .lease_next(&dispatch_agent)
             .await
@@ -348,11 +384,14 @@ async fn dispatch_tasks(
         else {
             break;
         };
+
         let task_id = task.id.clone();
         let is_browser = matches!(&task.spec, MonitorSpec::Browser(_));
+
         let wire = async {
             let location = service.task_location(&task).await?;
             let secrets = service.resolve_task_secrets(&task).await?;
+
             task::task_to_wire(
                 task,
                 token.clone(),
@@ -362,25 +401,31 @@ async fn dispatch_tasks(
             )
         }
         .await;
+
         let wire = match wire {
             Ok(value) => value,
             Err(error) => {
                 let _ = service
                     .acknowledge_task(agent, &task_id, &token, false)
                     .await;
+
                 return Err(to_status(error));
             }
         };
+
         in_flight.insert(task_id, is_browser);
         available -= 1;
+
         if is_browser {
             available_browser = available_browser.saturating_sub(1);
         }
+
         output
             .send(Ok(control_frame(control_frame::Payload::Task(wire))))
             .await
             .map_err(|_| Status::cancelled("Probe stream closed"))?;
     }
+
     Ok(())
 }
 
@@ -392,9 +437,11 @@ fn dispatch_budgets(
     let max = capacity.max_concurrent.min(32) as usize;
     let available = (capacity.available.min(32) as usize).min(max.saturating_sub(in_flight));
     let max_browser = (capacity.max_browser_concurrent.min(4) as usize).min(max);
+
     let available_browser = (capacity.available_browser.min(4) as usize)
         .min(max_browser.saturating_sub(browser_in_flight))
         .min(available);
+
     (available, available_browser)
 }
 

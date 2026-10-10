@@ -22,9 +22,11 @@ pub(super) async fn read(
     .fetch_all(pool)
     .await
     .map_err(sqlx_err)?;
+
     rows.into_iter()
         .map(|row| {
             let bytes: Option<i64> = row.try_get("collected_bytes").map_err(sqlx_err)?;
+
             Ok(DatasetIntakeUsage {
                 dataset_id: PhysicalDatasetId::from_string(
                     row.try_get::<String, _>("dataset_id").map_err(sqlx_err)?,

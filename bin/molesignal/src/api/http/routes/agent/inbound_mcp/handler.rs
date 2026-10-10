@@ -49,6 +49,7 @@ impl InboundMcpHandler {
         peer: rmcp::service::Peer<RoleServer>,
     ) {
         let cancellation = CancellationToken::new();
+
         if let Some(previous) = self
             .legacy_catalog_watcher
             .lock()
@@ -57,11 +58,14 @@ impl InboundMcpHandler {
         {
             previous.cancel();
         }
+
         let mut events = self.runtime.subscribe(&data.iam.org_id);
+
         crate::shared::trace_context::spawn_with_current_trace_context(async move {
             let mut refresh = tokio::time::interval(std::time::Duration::from_secs(30));
             refresh.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             refresh.tick().await;
+
             loop {
                 let notify_all = tokio::select! {
                     () = cancellation.cancelled() => break,
@@ -88,6 +92,7 @@ impl InboundMcpHandler {
                         Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
                     }
                 };
+
                 if notify_all {
                     let _ = peer.notify_tool_list_changed().await;
                     let _ = peer.notify_prompt_list_changed().await;
@@ -112,25 +117,31 @@ pub(super) fn request_data(
         .extensions
         .get::<axum::http::request::Parts>()
         .ok_or_else(|| ErrorData::internal_error("missing authenticated HTTP context", None))?;
+
     let iam = parts
         .extensions
         .get::<IamContext>()
         .cloned()
         .ok_or_else(|| ErrorData::internal_error("missing authenticated identity", None))?;
+
     let settings = parts
         .extensions
         .get::<InboundMcpSettings>()
         .cloned()
         .ok_or_else(|| ErrorData::internal_error("missing Inbound MCP settings", None))?;
+
     let credential = parts
         .extensions
         .get::<AuthenticatedCredential>()
         .ok_or_else(|| ErrorData::internal_error("missing authenticated credential", None))?;
+
     let principal = credential.stable_key(&iam.org_id);
+
     let mut bound = handler
         .session_principal
         .lock()
         .map_err(|_| ErrorData::internal_error("MCP session identity lock failed", None))?;
+
     match bound.as_ref() {
         Some(existing) if existing != &principal => {
             return Err(ErrorData::invalid_request(
@@ -141,6 +152,7 @@ pub(super) fn request_data(
         None => *bound = Some(principal),
         Some(_) => {}
     }
+
     Ok(InboundRequestData { iam, settings })
 }
 
@@ -169,16 +181,19 @@ impl ServerHandler for InboundMcpHandler {
         let data = request_data(self, &context)?;
         context.peer.set_peer_info(request.clone());
         let mut info = self.get_info();
+
         if self
             .supported_protocol_versions()
             .contains(&request.protocol_version)
         {
             info.protocol_version = request.protocol_version;
         }
+
         if info.protocol_version < ProtocolVersion::V_2026_07_28 {
             self.start_legacy_catalog_watcher(&data, context.peer.clone())
                 .await;
         }
+
         Ok(info)
     }
 
@@ -187,6 +202,7 @@ impl ServerHandler for InboundMcpHandler {
         context: RequestContext<RoleServer>,
     ) -> Result<DiscoverResult, ErrorData> {
         let _ = request_data(self, &context)?;
+
         Ok(DiscoverResult::from_server_info(
             self.supported_protocol_versions().into_owned(),
             self.get_info(),
@@ -290,17 +306,21 @@ impl ServerHandler for InboundMcpHandler {
         requested: &SubscriptionFilter,
     ) -> Option<SubscriptionFilter> {
         let mut accepted = requested.supported_by(&self.get_info().capabilities);
+
         if let Some(uris) = accepted.resource_subscriptions.as_mut() {
             uris.retain(|uri| resources::is_subscribable(uri));
+
             if uris.is_empty() {
                 accepted.resource_subscriptions = None;
             }
         }
+
         Some(accepted)
     }
 
     async fn listen(&self, context: SubscriptionContext) -> Result<(), ErrorData> {
         let data = request_data(self, context.request_context())?;
+
         for uri in context
             .accepted()
             .resource_subscriptions
@@ -309,10 +329,12 @@ impl ServerHandler for InboundMcpHandler {
         {
             resources::authorize_subscription(self, &data.iam, &uri).await?;
         }
+
         let mut events = self.runtime.subscribe(&data.iam.org_id);
         let mut resource_refresh = tokio::time::interval(std::time::Duration::from_secs(30));
         resource_refresh.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         resource_refresh.tick().await;
+
         loop {
             tokio::select! {
                 () = context.cancelled() => return Ok(()),
@@ -365,14 +387,17 @@ impl ServerHandler for InboundMcpHandler {
         context: RequestContext<RoleServer>,
     ) -> Result<(), ErrorData> {
         let data = request_data(self, &context)?;
+
         if !resources::is_subscribable(&request.uri) {
             return Err(ErrorData::resource_not_found(
                 format!("resource `{}` is not subscribable", request.uri),
                 None,
             ));
         }
+
         resources::authorize_subscription(self, &data.iam, &request.uri).await?;
         let cancellation = CancellationToken::new();
+
         if let Some(previous) = self
             .legacy_resource_subscriptions
             .lock()
@@ -381,13 +406,16 @@ impl ServerHandler for InboundMcpHandler {
         {
             previous.cancel();
         }
+
         let peer = context.peer;
         let uri = request.uri;
         let mut events = self.runtime.subscribe(&data.iam.org_id);
+
         crate::shared::trace_context::spawn_with_current_trace_context(async move {
             let mut refresh = tokio::time::interval(std::time::Duration::from_secs(30));
             refresh.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             refresh.tick().await;
+
             loop {
                 let notify = tokio::select! {
                     () = cancellation.cancelled() => break,
@@ -399,6 +427,7 @@ impl ServerHandler for InboundMcpHandler {
                         Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
                     },
                 };
+
                 if notify
                     && peer
                         .notify_resource_updated(ResourceUpdatedNotificationParam::new(uri.clone()))
@@ -409,6 +438,7 @@ impl ServerHandler for InboundMcpHandler {
                 }
             }
         });
+
         Ok(())
     }
 
@@ -419,6 +449,7 @@ impl ServerHandler for InboundMcpHandler {
         context: RequestContext<RoleServer>,
     ) -> Result<(), ErrorData> {
         let _ = request_data(self, &context)?;
+
         if let Some(cancellation) = self
             .legacy_resource_subscriptions
             .lock()
@@ -427,6 +458,7 @@ impl ServerHandler for InboundMcpHandler {
         {
             cancellation.cancel();
         }
+
         Ok(())
     }
 

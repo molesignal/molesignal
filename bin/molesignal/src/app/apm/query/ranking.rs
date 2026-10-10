@@ -26,11 +26,13 @@ impl ApmQueryService {
             .repository
             .query_buckets(&self.bucket_query(context, BucketKind::Transaction))
             .await?;
+
         let items = transaction_summaries(context, &buckets, &self.config.histogram)?;
         let latency_partial = items.iter().any(|item| item.red.latency_partial);
         let overflows = overflow_dimensions(&buckets);
         let (items, previous_cursor, next_cursor) = paginate(items, context)?;
         let has_more = next_cursor.is_some();
+
         Ok(PagedResponse {
             meta: self
                 .response_meta(context, overflows, latency_partial)
@@ -50,6 +52,7 @@ impl ApmQueryService {
         kind: Option<TransactionKind>,
     ) -> Result<TransactionDetailResponse> {
         let transaction_name = transaction_name.trim();
+
         if transaction_name.is_empty() || transaction_name.len() > 512 {
             return Err(Error::not_found("APM transaction"));
         }
@@ -58,6 +61,7 @@ impl ApmQueryService {
         let error_query = self.bucket_query(context, BucketKind::Error);
         let group_query = self.error_group_query(context, None);
         let catalog_query = self.catalog_query(context);
+
         let (transaction_buckets, error_buckets, groups, versions) = tokio::try_join!(
             self.repository.query_buckets(&transaction_query),
             self.repository.query_buckets(&error_query),
@@ -76,6 +80,7 @@ impl ApmQueryService {
                 )
             })
             .collect::<Vec<_>>();
+
         let identities = matching
             .iter()
             .filter_map(|bucket| match &bucket.dimension {
@@ -87,11 +92,13 @@ impl ApmQueryService {
                 _ => None,
             })
             .collect::<BTreeSet<_>>();
+
         if identities.len() > 1 {
             return Err(Error::invalid(
                 "APM transaction identity is ambiguous; provide service, namespace, environment, and kind",
             ));
         }
+
         let (service, transaction) = identities
             .into_iter()
             .next()
@@ -101,11 +108,14 @@ impl ApmQueryService {
             .iter()
             .map(|bucket| bucket.dimension.version().map(str::to_owned))
             .collect::<BTreeSet<_>>();
+
         let version = (observed_versions.len() == 1)
             .then(|| observed_versions.into_iter().next())
             .flatten()
             .flatten();
+
         let red = red_from_buckets(&matching, &self.config.histogram)?;
+
         let transaction_summary = TransactionSummary {
             traces: signal_handle(
                 context,
@@ -136,6 +146,7 @@ impl ApmQueryService {
                 )
             })
             .collect::<Vec<_>>();
+
         let matching_groups = groups
             .into_iter()
             .filter(|group| {
@@ -143,18 +154,21 @@ impl ApmQueryService {
                     && group.error.transaction_name.as_deref() == Some(transaction_name)
             })
             .collect::<Vec<_>>();
+
         let mut errors = error_summaries(
             context,
             &matching_groups,
             &matching_error_buckets,
             &self.config.histogram,
         )?;
+
         errors.sort_by(|left, right| {
             right
                 .occurrence_count
                 .cmp(&left.occurrence_count)
                 .then_with(|| left.error.fingerprint.cmp(&right.error.fingerprint))
         });
+
         errors.truncate(10);
 
         let mut versions = versions
@@ -162,6 +176,7 @@ impl ApmQueryService {
             .filter(|version| version.service == service)
             .map(version_summary)
             .collect::<Vec<_>>();
+
         versions.sort_by(|left, right| {
             right
                 .last_seen_at
@@ -173,6 +188,7 @@ impl ApmQueryService {
             || errors.iter().any(|error| error.red.latency_partial);
         let mut overflows = overflow_dimensions(&matching);
         overflows.extend(overflow_dimensions(&matching_error_buckets));
+
         Ok(TransactionDetailResponse {
             meta: self
                 .response_meta(context, overflows, latency_partial)
@@ -192,11 +208,13 @@ impl ApmQueryService {
             .repository
             .query_buckets(&self.bucket_query(context, BucketKind::Dependency))
             .await?;
+
         let items = dependency_summaries(context, &buckets, &self.config.histogram)?;
         let latency_partial = items.iter().any(|item| item.red.latency_partial);
         let overflows = overflow_dimensions(&buckets);
         let (items, previous_cursor, next_cursor) = paginate(items, context)?;
         let has_more = next_cursor.is_some();
+
         Ok(PagedResponse {
             meta: self
                 .response_meta(context, overflows, latency_partial)
@@ -216,6 +234,7 @@ pub(super) fn transaction_summaries(
     histogram: &crate::domain::apm::HistogramSchema,
 ) -> Result<Vec<TransactionSummary>> {
     let mut grouped = HashMap::new();
+
     for bucket in buckets {
         if let BucketDimension::Transaction {
             service,
@@ -229,10 +248,12 @@ pub(super) fn transaction_summaries(
                 .push(bucket.clone());
         }
     }
+
     grouped
         .into_iter()
         .map(|((service, version, transaction), buckets)| {
             let red = red_from_buckets(&buckets, histogram)?;
+
             Ok(TransactionSummary {
                 traces: signal_handle(
                     context,
@@ -258,6 +279,7 @@ pub(super) fn dependency_summaries(
     histogram: &crate::domain::apm::HistogramSchema,
 ) -> Result<Vec<DependencySummary>> {
     let mut grouped = HashMap::new();
+
     for bucket in buckets {
         if let BucketDimension::Dependency {
             service,
@@ -271,10 +293,12 @@ pub(super) fn dependency_summaries(
                 .push(bucket.clone());
         }
     }
+
     grouped
         .into_iter()
         .map(|((service, version, dependency), buckets)| {
             let red = red_from_buckets(&buckets, histogram)?;
+
             Ok(DependencySummary {
                 traces: signal_handle(
                     context,

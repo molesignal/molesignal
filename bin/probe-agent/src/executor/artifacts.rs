@@ -28,6 +28,7 @@ pub(super) async fn upload(
     captured: Vec<ArtifactPayload>,
 ) -> UploadOutcome {
     let captured_count = captured.len();
+
     if captured.is_empty() {
         return UploadOutcome {
             captured_count,
@@ -35,6 +36,7 @@ pub(super) async fn upload(
             error: None,
         };
     }
+
     if task.artifact_uploads.is_empty() {
         return UploadOutcome {
             captured_count,
@@ -47,33 +49,41 @@ pub(super) async fn upload(
         .timeout(UPLOAD_TIMEOUT)
         .redirect(reqwest::redirect::Policy::none())
         .build();
+
     let mut receipts = Vec::new();
     let mut used = HashSet::new();
     let mut errors = Vec::new();
+
     match client {
         Ok(client) => {
             let mut pending = Vec::with_capacity(captured.len());
+
             for artifact in captured {
                 let target = task.artifact_uploads.iter().find(|target| {
                     !used.contains(&target.artifact_id)
                         && target.kind == artifact.kind
                         && (target.name.is_empty() || target.name == artifact.name)
                 });
+
                 let Some(target) = target else {
                     errors.push(format!(
                         "no upload target for {} `{}`",
                         artifact.kind, artifact.name
                     ));
+
                     continue;
                 };
+
                 used.insert(target.artifact_id.clone());
                 pending.push((target.clone(), artifact));
             }
+
             let mut uploads = stream::iter(pending.into_iter().map(|(target, artifact)| {
                 let client = client.clone();
                 async move { upload_one(&client, &target, artifact).await }
             }))
             .buffer_unordered(MAX_UPLOAD_CONCURRENCY);
+
             while let Some(uploaded) = uploads.next().await {
                 match uploaded {
                     Ok(receipt) => receipts.push(receipt),
@@ -99,16 +109,21 @@ async fn upload_one(
     if target.artifact_id.is_empty() || target.kind.is_empty() {
         bail!("invalid Artifact upload target");
     }
+
     if target.expires_at_micros <= now_micros() {
         bail!("Artifact upload target `{}` expired", target.artifact_id);
     }
+
     if target.max_bytes == 0 || artifact.bytes.len() as u64 > target.max_bytes {
         bail!("Artifact `{}` exceeds its upload limit", artifact.name);
     }
+
     let url = Url::parse(&target.upload_url).context("parse Artifact upload URL")?;
+
     if !matches!(url.scheme(), "http" | "https") {
         bail!("Artifact upload URL must use http or https");
     }
+
     let mut headers = target
         .upload_headers
         .iter()
@@ -119,12 +134,15 @@ async fn upload_one(
             ))
         })
         .collect::<Result<HeaderMap>>()?;
+
     let content_length = artifact.bytes.len() as u64;
     let sha256 = Sha256::digest(&artifact.bytes).to_vec();
+
     headers.insert(
         HeaderName::from_static("x-molesignal-content-sha256"),
         HeaderValue::from_str(&hex::encode(&sha256))?,
     );
+
     let response = client
         .put(url)
         .headers(headers)
@@ -132,6 +150,7 @@ async fn upload_one(
         .send()
         .await
         .with_context(|| format!("upload Artifact `{}`", artifact.name))?;
+
     if !response.status().is_success() {
         return Err(anyhow!(
             "upload Artifact `{}` returned HTTP {}",
@@ -139,6 +158,7 @@ async fn upload_one(
             response.status()
         ));
     }
+
     Ok(Artifact {
         artifact_id: target.artifact_id.clone(),
         kind: target.kind.clone(),
@@ -153,6 +173,7 @@ fn truncate(mut value: String, max: usize) -> String {
     if value.len() <= max {
         return value;
     }
+
     value.truncate(max);
     value
 }

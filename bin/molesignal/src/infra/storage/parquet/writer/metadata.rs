@@ -26,26 +26,33 @@ pub(super) fn timestamp_range(batch: &RecordBatch) -> Result<(i64, i64)> {
         .schema()
         .index_of(TS_COL)
         .map_err(|_| Error::internal(format!("batch missing column {TS_COL}")))?;
+
     let column = batch.column(index);
+
     let DataType::Timestamp(TimeUnit::Microsecond, _) = column.data_type() else {
         return Err(Error::internal(format!(
             "{TS_COL} must be Timestamp(Microsecond), got {:?}",
             column.data_type()
         )));
     };
+
     let timestamps = column
         .as_any()
         .downcast_ref::<arrow::array::TimestampMicrosecondArray>()
         .ok_or_else(|| Error::internal("downcast _timestamp"))?;
+
     if timestamps.is_empty() {
         return Err(Error::internal("empty _timestamp column"));
     }
+
     let mut minimum = i64::MAX;
     let mut maximum = i64::MIN;
+
     for timestamp in timestamps.iter().flatten() {
         minimum = minimum.min(timestamp);
         maximum = maximum.max(timestamp);
     }
+
     Ok((minimum, maximum))
 }
 
@@ -58,6 +65,7 @@ pub(super) fn zone_maps(
 ) {
     let mut minimums = serde_json::Map::new();
     let mut maximums = serde_json::Map::new();
+
     // Sort fields need zone maps even when users did not explicitly index them. The dedicated
     // Trace scanner uses these bounds to prove that later files cannot enter its retained Top-K.
     let sort_fields = [
@@ -66,6 +74,7 @@ pub(super) fn zone_maps(
         TRACE_SUMMARY_SPAN_COUNT_FIELD,
         TRACE_SUMMARY_ERROR_COUNT_FIELD,
     ];
+
     for field in stream.schema.fields.iter().filter(|field| {
         field.effective_index_type() != StreamIndexType::None
             || sort_fields.contains(&field.name.as_str())
@@ -73,14 +82,18 @@ pub(super) fn zone_maps(
         let Ok(index) = batch.schema().index_of(&field.name) else {
             continue;
         };
+
         let column = batch.column(index);
+
         if let Some(value) = scalar_min(column) {
             minimums.insert(field.name.clone(), value);
         }
+
         if let Some(value) = scalar_max(column) {
             maximums.insert(field.name.clone(), value);
         }
     }
+
     (minimums, maximums)
 }
 
@@ -92,15 +105,19 @@ fn scalar_min(array: &dyn Array) -> Option<serde_json::Value> {
     if let Some(values) = array.as_any().downcast_ref::<Int64Array>() {
         return array_min(values).map(serde_json::Value::from);
     }
+
     if let Some(values) = array.as_any().downcast_ref::<Float64Array>() {
         return finite_f64_extreme(values.iter().flatten(), f64::min);
     }
+
     if let Some(values) = array.as_any().downcast_ref::<BooleanArray>() {
         return values.iter().flatten().min().map(serde_json::Value::from);
     }
+
     if let Some(values) = array.as_any().downcast_ref::<TimestampMicrosecondArray>() {
         return values.iter().flatten().min().map(serde_json::Value::from);
     }
+
     array
         .as_any()
         .downcast_ref::<StringArray>()
@@ -121,15 +138,19 @@ fn scalar_max(array: &dyn Array) -> Option<serde_json::Value> {
     if let Some(values) = array.as_any().downcast_ref::<Int64Array>() {
         return array_max(values).map(serde_json::Value::from);
     }
+
     if let Some(values) = array.as_any().downcast_ref::<Float64Array>() {
         return finite_f64_extreme(values.iter().flatten(), f64::max);
     }
+
     if let Some(values) = array.as_any().downcast_ref::<BooleanArray>() {
         return values.iter().flatten().max().map(serde_json::Value::from);
     }
+
     if let Some(values) = array.as_any().downcast_ref::<TimestampMicrosecondArray>() {
         return values.iter().flatten().max().map(serde_json::Value::from);
     }
+
     array
         .as_any()
         .downcast_ref::<StringArray>()
@@ -147,12 +168,15 @@ fn finite_f64_extreme(
     select: impl Fn(f64, f64) -> f64,
 ) -> Option<serde_json::Value> {
     let mut extreme: Option<f64> = None;
+
     for value in values {
         if !value.is_finite() {
             return None;
         }
+
         extreme = Some(extreme.map_or(value, |current| select(current, value)));
     }
+
     extreme
         .and_then(serde_json::Number::from_f64)
         .map(serde_json::Value::Number)

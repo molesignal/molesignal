@@ -62,13 +62,17 @@ pub(super) struct ReadModelContext {
 impl ReadModelContext {
     pub(super) fn resolve(request: ReadModelQuery) -> Result<Self> {
         let now = TimestampMicros::now().0;
+
         let from = request
             .from
             .unwrap_or_else(|| now.saturating_sub(DEFAULT_WINDOW_MICROS));
+
         let to = request.to.unwrap_or(now);
+
         if to <= from {
             return Err(Error::invalid("RUM range end must be greater than start"));
         }
+
         Ok(Self {
             from,
             to,

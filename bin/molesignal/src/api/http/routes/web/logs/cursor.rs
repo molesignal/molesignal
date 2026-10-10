@@ -40,6 +40,7 @@ pub(super) struct LogCursorBoundary {
 
 pub(super) fn decode(iam: &IamService, org_id: &Id, token: &str) -> Result<LogCursorPayload> {
     let payload = decode_signed_cursor::<LogCursorPayload>(iam, org_id, PURPOSE, token)?;
+
     if payload.version != VERSION
         || payload.stream.is_empty()
         || payload.to <= payload.from
@@ -48,6 +49,7 @@ pub(super) fn decode(iam: &IamService, org_id: &Id, token: &str) -> Result<LogCu
     {
         return Err(Error::invalid("invalid log cursor payload"));
     }
+
     Ok(payload)
 }
 

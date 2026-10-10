@@ -30,6 +30,7 @@ pub(super) async fn lock_dataset_version(
     .await
     .map_err(sqlx_err)?
     .ok_or_else(|| Error::not_found(format!("physical dataset {dataset_id}")))?;
+
     super::rows::to_u64(
         row.try_get::<i64, _>("catalog_version").map_err(sqlx_err)?,
         "catalog_version",
@@ -53,6 +54,7 @@ pub(super) async fn bump_dataset_version(
     .execute(conn)
     .await
     .map_err(sqlx_err)?;
+
     Ok(())
 }
 
@@ -65,6 +67,7 @@ pub(super) async fn insert_segment(
     visible_from_version: u64,
 ) -> Result<()> {
     let now = TimestampMicros::now().0;
+
     sqlx::query(
         "INSERT INTO catalog_segments (org_id, id, dataset_id, partition_start_micros, \
          partition_end_micros, partition_shard, min_event_micros, max_event_micros, row_count, \
@@ -107,6 +110,7 @@ pub(super) async fn insert_segment(
     for artifact in segment.artifacts() {
         insert_artifact(conn, scope, &segment.id, artifact).await?;
     }
+
     Ok(())
 }
 
@@ -117,6 +121,7 @@ pub(super) async fn insert_artifact(
     artifact: &Artifact,
 ) -> Result<()> {
     let now = TimestampMicros::now().0;
+
     sqlx::query(
         "INSERT INTO catalog_artifacts (org_id, id, segment_id, role, artifact_type, format_version, \
          object_key, size_bytes, checksum, etag, source_artifact_id, source_checksum, schema_fingerprint, \
@@ -142,6 +147,7 @@ pub(super) async fn insert_artifact(
     .execute(conn)
     .await
     .map_err(sqlx_err)?;
+
     Ok(())
 }
 
@@ -155,6 +161,7 @@ pub(super) async fn enqueue_object_gc(
     not_before_micros: i64,
 ) -> Result<()> {
     let now = TimestampMicros::now().0;
+
     sqlx::query(
         "INSERT INTO object_gc_queue (org_id, object_key, checksum, reason, not_before_micros, \
          attempt_count, state, last_error, created_at_micros, updated_at_micros)
@@ -178,6 +185,7 @@ pub(super) async fn enqueue_object_gc(
     .execute(conn)
     .await
     .map_err(sqlx_err)?;
+
     Ok(())
 }
 
@@ -193,6 +201,7 @@ pub(super) async fn tombstone_segment_artifacts(
     if segment_ids.is_empty() {
         return Ok(0);
     }
+
     let rows = sqlx::query(
         "SELECT object_key, checksum FROM catalog_artifacts \
          WHERE org_id = $1 AND segment_id = ANY($2) AND state <> 'tombstoned'",
@@ -218,6 +227,7 @@ pub(super) async fn tombstone_segment_artifacts(
         let key = ObjectKey::from_string(row.try_get::<String, _>("object_key").map_err(sqlx_err)?);
         let checksum =
             ObjectChecksum::from_string(row.try_get::<String, _>("checksum").map_err(sqlx_err)?);
+
         enqueue_object_gc(
             conn,
             scope,
@@ -228,5 +238,6 @@ pub(super) async fn tombstone_segment_artifacts(
         )
         .await?;
     }
+
     Ok(rows.len())
 }

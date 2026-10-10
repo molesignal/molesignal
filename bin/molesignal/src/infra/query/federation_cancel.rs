@@ -62,6 +62,7 @@ impl FederationCancelRegistry {
         if fed_id.is_empty() {
             return;
         }
+
         self.dispatch
             .write()
             .insert(fed_id.to_string(), cluster_ids);

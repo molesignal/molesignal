@@ -104,6 +104,7 @@ async fn list(
     push_string_filter(&mut filters, "application", args.application.as_deref());
     push_string_filter(&mut filters, "environment", args.environment.as_deref());
     push_string_filter(&mut filters, "session_id", args.session_id.as_deref());
+
     match stream {
         "rum_sessions" => push_string_filter(&mut filters, "user_id", args.end_user_id.as_deref()),
         "rum_errors" => {
@@ -111,12 +112,14 @@ async fn list(
         }
         _ => push_string_filter(&mut filters, "type", args.action_type.as_deref()),
     }
+
     let statement = format!(
         "SELECT * FROM {}{} ORDER BY {} DESC LIMIT {limit}",
         quote_ident(stream),
         where_clause(&filters),
         quote_ident(order_column),
     );
+
     let Some(result) = run_optional_stream_query(
         runtime,
         &auth.org_id,
@@ -133,6 +136,7 @@ async fn list(
             "message": format!("{stream} has not received data yet"),
         })));
     };
+
     Ok(ToolResult::json(json!({
         (result_key): rows_as_objects(&result), "stream_available": true,
         "scanned_rows": result.scanned_rows, "took_ms": result.took_ms,
@@ -159,6 +163,7 @@ async fn get_session(
     let limit = args.event_limit.unwrap_or(100).clamp(1, 500);
     let session =
         query_by_session(runtime, auth, "rum_sessions", range, &args.session_id, 1).await?;
+
     let Some(session) = session.and_then(|result| rows_as_objects(&result).into_iter().next())
     else {
         return Ok(ToolResult::error(format!(
@@ -166,14 +171,17 @@ async fn get_session(
             args.session_id
         )));
     };
+
     let actions = query_by_session(runtime, auth, "rum_actions", range, &args.session_id, limit)
         .await?
         .map(|result| rows_as_objects(&result))
         .unwrap_or_default();
+
     let errors = query_by_session(runtime, auth, "rum_errors", range, &args.session_id, limit)
         .await?
         .map(|result| rows_as_objects(&result))
         .unwrap_or_default();
+
     Ok(ToolResult::json(json!({
         "session": session, "actions": actions, "errors": errors,
         "events_truncated": actions.len() == limit || errors.len() == limit,
@@ -193,6 +201,7 @@ async fn query_by_session(
         quote_ident(stream),
         sql_literal(session_id),
     );
+
     run_optional_stream_query(
         runtime,
         &auth.org_id,
@@ -223,17 +232,21 @@ async fn related_traces(
     let args: RelatedArgs = parse_args(arguments)?;
     let range = rum_range(args.time_range)?;
     let limit = args.limit.unwrap_or(20).clamp(1, 100);
+
     let Some(trace_stream) = resolve_traces_stream(runtime, &auth.org_id).await? else {
         return Ok(ToolResult::json(json!({
             "session_id": args.session_id, "traces": [], "trace_stream_available": false,
         })));
     };
+
     let direct = direct_trace_ids(runtime, auth, range, &args.session_id).await?;
+
     let reader = TraceSummaryReader::new(
         runtime.observability.catalog_files.clone(),
         runtime.observability.object_store.clone(),
     )
     .with_catalog_source(runtime.observability.catalog_query.clone());
+
     let (trace_ids, relation, scan_range) = if direct.is_empty() {
         let Some(session) =
             query_by_session(runtime, auth, "rum_sessions", range, &args.session_id, 1)
@@ -244,15 +257,19 @@ async fn related_traces(
                 json!({"session_id": args.session_id, "traces": []}),
             ));
         };
+
         let started = session.get("started_at_micros").and_then(value_i64);
         let duration_ms = session.get("duration_ms").and_then(value_f64);
+
         let Some(started) = started else {
             return Ok(ToolResult::json(
                 json!({"session_id": args.session_id, "traces": []}),
             ));
         };
+
         let end =
             started.saturating_add((duration_ms.unwrap_or(60_000.0) as i64).max(60_000) * 1_000);
+
         (
             None,
             "time_correlated",
@@ -261,6 +278,7 @@ async fn related_traces(
     } else {
         (Some(direct), "direct", range)
     };
+
     let rows = reader
         .scan(
             &auth.org_id,
@@ -278,6 +296,7 @@ async fn related_traces(
             },
         )
         .await?;
+
     let traces = rows
         .into_iter()
         .map(|row| {
@@ -288,6 +307,7 @@ async fn related_traces(
             })
         })
         .collect::<Vec<_>>();
+
     Ok(ToolResult::json(json!({
         "session_id": args.session_id, "traces": traces,
         "trace_stream_available": true,
@@ -304,6 +324,7 @@ async fn direct_trace_ids(
         "SELECT DISTINCT trace_id FROM rum_actions WHERE session_id = '{}' AND trace_id IS NOT NULL AND trace_id != '' LIMIT 100",
         sql_literal(session_id),
     );
+
     let Some(result) = run_optional_stream_query(
         runtime,
         &auth.org_id,
@@ -317,10 +338,12 @@ async fn direct_trace_ids(
     else {
         return Ok(HashSet::new());
     };
+
     let index = result
         .columns
         .iter()
         .position(|column| column == "trace_id");
+
     Ok(result
         .rows
         .iter()
@@ -337,6 +360,7 @@ fn rum_range(value: Option<TimeRangeArg>) -> Result<TimeRange> {
     value.map(time_range).transpose().map(|range| {
         range.unwrap_or_else(|| {
             let end = TimestampMicros::now();
+
             TimeRange::new(
                 TimestampMicros(end.0.saturating_sub(RUM_LOOKBACK_MICROS)),
                 end,

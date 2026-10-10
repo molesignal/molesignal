@@ -58,6 +58,7 @@ impl FieldMaskingService {
         rules: &[FieldMaskingRule],
     ) -> Result<EffectiveFieldMasking> {
         let settings = self.streams.get_settings(&definition.id).await?;
+
         Ok(resolve_effective(
             definition,
             &settings.field_masking,
@@ -67,6 +68,7 @@ impl FieldMaskingService {
 
     async fn query_definitions(&self, request: &QueryRequest) -> Result<Vec<StreamDefinition>> {
         let mut definitions = Vec::new();
+
         if let Some(hint) = &request.stream {
             definitions.push(
                 self.streams
@@ -74,9 +76,11 @@ impl FieldMaskingService {
                     .await?,
             );
         }
+
         if request.language != QueryLanguage::Sql {
             if request.language == QueryLanguage::Promql {
                 let mut needs_system_fallback = false;
+
                 for name in
                     crate::infra::query::promql::referenced_metric_names(&request.statement)?
                 {
@@ -90,6 +94,7 @@ impl FieldMaskingService {
                         Err(error) => return Err(error),
                     }
                 }
+
                 if needs_system_fallback {
                     match self
                         .streams
@@ -105,9 +110,11 @@ impl FieldMaskingService {
                         Err(error) => return Err(error),
                     }
                 }
+
                 definitions.sort_by(|left, right| left.id.0.cmp(&right.id.0));
                 definitions.dedup_by(|left, right| left.id == right.id);
             }
+
             return Ok(definitions);
         }
 
@@ -118,15 +125,19 @@ impl FieldMaskingService {
             .into_iter()
             .map(|table| table.name)
             .collect::<HashSet<_>>();
+
         if names.is_empty() {
             return Ok(definitions);
         }
+
         let primary_name = request.stream.as_ref().map(|hint| hint.name.as_str());
         let catalog = self.streams.list(&request.org_id).await?;
+
         for name in names {
             if primary_name == Some(name.as_str()) {
                 continue;
             }
+
             // 与 SQL join planner 的类型解析顺序保持一致；primary table 则始终使用
             // 已校验的 stream hint。这样同名 metrics/logs 不会彼此污染遮掩策略。
             if let Some(definition) = catalog
@@ -141,6 +152,7 @@ impl FieldMaskingService {
                 definitions.push(definition);
             }
         }
+
         Ok(definitions)
     }
 
@@ -151,19 +163,24 @@ impl FieldMaskingService {
         if request.language == QueryLanguage::Promql {
             return Ok(HashMap::new());
         }
+
         let definitions = self
             .query_definitions(request)
             .await?
             .into_iter()
             .filter(|definition| definition.stream_type != StreamType::METRICS)
             .collect::<Vec<_>>();
+
         if definitions.is_empty() {
             return Ok(HashMap::new());
         }
+
         let rules = self.rules.list(&request.org_id).await?;
         let mut algorithms = HashMap::new();
+
         for definition in &definitions {
             let effective = self.effective_for_definition(definition, &rules).await?;
+
             for field in effective.fields.into_iter().filter(|field| field.masked) {
                 if let Some(algorithm) = field.algorithm {
                     insert_algorithm(
@@ -174,6 +191,7 @@ impl FieldMaskingService {
                 }
             }
         }
+
         propagate_derived_algorithms(request, &mut algorithms)?;
         Ok(algorithms)
     }
@@ -216,10 +234,12 @@ fn resolve_effective(
                 .collect(),
         };
     }
+
     let overrides = stream_overrides
         .iter()
         .map(|item| (item.field.as_str(), item))
         .collect::<HashMap<_, _>>();
+
     let fields = definition
         .schema
         .fields
@@ -228,6 +248,7 @@ fn resolve_effective(
             let inherited = rules.iter().find(|rule| {
                 rule_matches(rule, &field.name, &definition.name, definition.stream_type)
             });
+
             if let Some(overridden) = overrides.get(field.name.as_str()) {
                 return EffectiveFieldMaskingEntry {
                     field: field.name.clone(),
@@ -241,6 +262,7 @@ fn resolve_effective(
                     inherited_rule_name: inherited.map(|rule| rule.name.clone()),
                 };
             }
+
             if let Some(rule) = inherited {
                 return EffectiveFieldMaskingEntry {
                     field: field.name.clone(),
@@ -254,6 +276,7 @@ fn resolve_effective(
                     inherited_rule_name: Some(rule.name.clone()),
                 };
             }
+
             EffectiveFieldMaskingEntry {
                 field: field.name.clone(),
                 masked: false,
@@ -267,6 +290,7 @@ fn resolve_effective(
             }
         })
         .collect();
+
     EffectiveFieldMasking {
         stream_id: definition.id.clone(),
         fields,
@@ -281,12 +305,15 @@ impl FieldMaskingProvider for FieldMaskingService {
         stream_id: &Id,
     ) -> Result<EffectiveFieldMasking> {
         let definition = self.streams.get_by_id(stream_id).await?;
+
         if &definition.org_id != org_id {
             return Err(crate::shared::Error::not_found("stream"));
         }
+
         if definition.stream_type == StreamType::METRICS {
             return Ok(resolve_effective(&definition, &[], &[]));
         }
+
         let rules = self.rules.list(org_id).await?;
         self.effective_for_definition(&definition, &rules).await
     }
@@ -295,12 +322,15 @@ impl FieldMaskingProvider for FieldMaskingService {
         if result.rows.is_empty() || result.columns.is_empty() {
             return Ok(());
         }
+
         let algorithms = self.algorithms_for_request(request).await?;
+
         if algorithms.is_empty() {
             return Ok(());
         }
 
         let columns = sensitive_columns(&result.columns, &algorithms);
+
         for row in &mut result.rows {
             for (index, algorithm) in &columns {
                 if let Some(value) = row.get_mut(*index) {
@@ -308,6 +338,7 @@ impl FieldMaskingProvider for FieldMaskingService {
                 }
             }
         }
+
         Ok(())
     }
 
@@ -317,6 +348,7 @@ impl FieldMaskingProvider for FieldMaskingService {
         result: &mut PrometheusExemplarQueryResult,
     ) -> Result<()> {
         let algorithms = self.algorithms_for_request(request).await?;
+
         if [
             "value",
             "_timestamp",
@@ -330,6 +362,7 @@ impl FieldMaskingProvider for FieldMaskingService {
                 "masked exemplar value, timestamp, or label container cannot be represented by the Prometheus API",
             ));
         }
+
         for series in &mut result.series {
             mask_label_set(
                 &mut series.series_labels,
@@ -337,6 +370,7 @@ impl FieldMaskingProvider for FieldMaskingService {
                 &self.root_key,
                 &request.org_id,
             );
+
             for exemplar in &mut series.exemplars {
                 mask_label_set(
                     &mut exemplar.labels,
@@ -346,6 +380,7 @@ impl FieldMaskingProvider for FieldMaskingService {
                 );
             }
         }
+
         Ok(())
     }
 }
@@ -372,11 +407,14 @@ fn wildcard_matches(pattern: &str, value: &str) -> bool {
     let value = value.chars().collect::<Vec<_>>();
     let mut previous = vec![false; value.len() + 1];
     previous[0] = true;
+
     for token in pattern {
         let mut current = vec![false; value.len() + 1];
+
         if token == '*' {
             current[0] = previous[0];
         }
+
         for index in 1..=value.len() {
             current[index] = match token {
                 '*' => previous[index] || current[index - 1],
@@ -384,8 +422,10 @@ fn wildcard_matches(pattern: &str, value: &str) -> bool {
                 literal => previous[index - 1] && literal == value[index - 1],
             };
         }
+
         previous = current;
     }
+
     previous[value.len()]
 }
 
@@ -422,23 +462,28 @@ fn mask_value(
     if value.is_null() {
         return;
     }
+
     if matches!(algorithm, FieldMaskingAlgorithm::Hash) {
         let input = match &*value {
             serde_json::Value::String(text) => text.as_bytes().to_vec(),
             other => canonical_json_bytes(other),
         };
+
         *value = serde_json::Value::String(root_key.org_hmac_sha256(&org_id.0, &input));
         return;
     }
+
     let input = match &*value {
         serde_json::Value::String(text) => text.clone(),
         other => serde_json::to_string(other).unwrap_or_default(),
     };
+
     *value = serde_json::Value::String(mask_text(&input, algorithm));
 }
 
 fn mask_text(input: &str, algorithm: &FieldMaskingAlgorithm) -> String {
     let chars = input.chars().collect::<Vec<_>>();
+
     match algorithm {
         FieldMaskingAlgorithm::Full { replacement } => replacement.clone(),
         FieldMaskingAlgorithm::Range {
@@ -479,9 +524,11 @@ fn mask_text(input: &str, algorithm: &FieldMaskingAlgorithm) -> String {
 fn replace_range(chars: &[char], start: usize, end: usize, replacement: &str) -> String {
     let start = start.min(chars.len());
     let end = end.min(chars.len()).max(start);
+
     if start == end {
         return replacement.to_string();
     }
+
     let mut output = chars[..start].iter().collect::<String>();
     output.push_str(replacement);
     output.extend(&chars[end..]);

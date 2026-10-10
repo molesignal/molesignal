@@ -39,6 +39,7 @@ pub(crate) fn task_to_wire(
     artifact_base_url: Option<&str>,
 ) -> Result<wire::ProbeTask> {
     let spec = spec_to_wire(&task.spec)?;
+
     let artifact_uploads = artifact_base_url
         .map(|base_url| {
             artifact_targets(&task, &lease_token)
@@ -63,6 +64,7 @@ pub(crate) fn task_to_wire(
                 .collect()
         })
         .unwrap_or_default();
+
     Ok(wire::ProbeTask {
         task_id: task.id.0,
         organization_id: task.organization_id.0,
@@ -105,6 +107,7 @@ fn egress_to_wire(policy: EgressPolicy) -> wire::EgressPolicy {
 
 fn spec_to_wire(spec: &MonitorSpec) -> Result<wire::probe_task::Spec> {
     use wire::probe_task::Spec;
+
     Ok(match spec {
         MonitorSpec::Http(value) => Spec::Http(wire::HttpJourneySpec {
             steps: value
@@ -263,6 +266,7 @@ fn spec_to_wire(spec: &MonitorSpec) -> Result<wire::probe_task::Spec> {
 
 fn browser_action_to_wire(action: &BrowserAction) -> wire::browser_step::Action {
     use wire::browser_step::Action;
+
     match action {
         BrowserAction::Navigate { url, wait_until } => Action::Navigate(wire::BrowserNavigate {
             url: Some(value_to_wire(url)),
@@ -331,6 +335,7 @@ fn headers_to_wire(values: &[HeaderValue]) -> Vec<wire::HeaderValue> {
 
 fn value_to_wire(value: &ValueSource) -> wire::Value {
     use wire::value::Source;
+
     wire::Value {
         source: Some(match value {
             ValueSource::Literal { value } => Source::Literal(value.clone()),
@@ -352,6 +357,7 @@ fn assertion_to_wire(assertion: &MonitorAssertion) -> wire::Assertion {
         AssertionOperator::JsonSchema { schema } => ("json_schema", Some(schema.to_string())),
         AssertionOperator::Exists => ("exists", None),
     };
+
     wire::Assertion {
         id: assertion.id.0.clone(),
         name: assertion.name.clone(),

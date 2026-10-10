@@ -94,7 +94,9 @@ pub async fn begin(pool: &PgPool) -> Result<TracedTransaction<'static>, Error> {
         db.transaction.duration_ms = field::Empty,
         error.type = field::Empty,
     );
+
     let started = Instant::now();
+
     let inner = match pool.begin().instrument(span.clone()).await {
         Ok(transaction) => transaction,
         Err(error) => {
@@ -102,19 +104,24 @@ pub async fn begin(pool: &PgPool) -> Result<TracedTransaction<'static>, Error> {
                 "molesignal.db.pool_wait_ms",
                 started.elapsed().as_secs_f64() * 1_000.0,
             );
+
             span.record("db.transaction.outcome", "begin_error");
+
             span.record(
                 "db.transaction.duration_ms",
                 started.elapsed().as_secs_f64() * 1_000.0,
             );
+
             span.record("error.type", sql_error_type(&error));
             return Err(error);
         }
     };
+
     span.record(
         "molesignal.db.pool_wait_ms",
         started.elapsed().as_secs_f64() * 1_000.0,
     );
+
     Ok(TracedTransaction {
         inner: Some(inner),
         span,
@@ -135,12 +142,14 @@ impl TracedTransaction<'_> {
     pub async fn rollback(mut self) -> Result<(), Error> {
         let inner = self.inner.take().expect("transaction already finished");
         let result = inner.rollback().instrument(self.span.clone()).await;
+
         finish_transaction_span(
             &self.span,
             self.started,
             "rolled_back",
             result.as_ref().err(),
         );
+
         self.finished = true;
         result
     }
@@ -224,12 +233,14 @@ impl<'q> TracedQuery<'q> {
         let Self { inner, metadata } = self;
         let span = metadata.span();
         let result = executor.execute(inner).instrument(span.clone()).await;
+
         finish_query_span(
             &span,
             result.as_ref().ok().map(|result| result.rows_affected()),
             None,
             result.as_ref().err(),
         );
+
         result
     }
 
@@ -241,12 +252,14 @@ impl<'q> TracedQuery<'q> {
         let Self { inner, metadata } = self;
         let span = metadata.span();
         let result = executor.fetch_all(inner).instrument(span.clone()).await;
+
         finish_query_span(
             &span,
             None,
             result.as_ref().ok().map(|rows| rows.len() as u64),
             result.as_ref().err(),
         );
+
         result
     }
 
@@ -258,12 +271,14 @@ impl<'q> TracedQuery<'q> {
         let Self { inner, metadata } = self;
         let span = metadata.span();
         let result = executor.fetch_one(inner).instrument(span.clone()).await;
+
         finish_query_span(
             &span,
             None,
             result.as_ref().ok().map(|_| 1),
             result.as_ref().err(),
         );
+
         result
     }
 
@@ -274,16 +289,19 @@ impl<'q> TracedQuery<'q> {
     {
         let Self { inner, metadata } = self;
         let span = metadata.span();
+
         let result = executor
             .fetch_optional(inner)
             .instrument(span.clone())
             .await;
+
         finish_query_span(
             &span,
             None,
             result.as_ref().ok().map(|row| u64::from(row.is_some())),
             result.as_ref().err(),
         );
+
         result
     }
 }
@@ -309,12 +327,14 @@ where
         let Self { inner, metadata } = self;
         let span = metadata.span();
         let result = inner.fetch_all(executor).instrument(span.clone()).await;
+
         finish_query_span(
             &span,
             None,
             result.as_ref().ok().map(|rows| rows.len() as u64),
             result.as_ref().err(),
         );
+
         result
     }
 
@@ -327,12 +347,14 @@ where
         let Self { inner, metadata } = self;
         let span = metadata.span();
         let result = inner.fetch_one(executor).instrument(span.clone()).await;
+
         finish_query_span(
             &span,
             None,
             result.as_ref().ok().map(|_| 1),
             result.as_ref().err(),
         );
+
         result
     }
 
@@ -344,16 +366,19 @@ where
     {
         let Self { inner, metadata } = self;
         let span = metadata.span();
+
         let result = inner
             .fetch_optional(executor)
             .instrument(span.clone())
             .await;
+
         finish_query_span(
             &span,
             None,
             result.as_ref().ok().map(|row| u64::from(row.is_some())),
             result.as_ref().err(),
         );
+
         result
     }
 }
@@ -380,12 +405,14 @@ where
         let Self { inner, metadata } = self;
         let span = metadata.span();
         let result = inner.fetch_all(executor).instrument(span.clone()).await;
+
         finish_query_span(
             &span,
             None,
             result.as_ref().ok().map(|rows| rows.len() as u64),
             result.as_ref().err(),
         );
+
         result
     }
 
@@ -398,12 +425,14 @@ where
         let Self { inner, metadata } = self;
         let span = metadata.span();
         let result = inner.fetch_one(executor).instrument(span.clone()).await;
+
         finish_query_span(
             &span,
             None,
             result.as_ref().ok().map(|_| 1),
             result.as_ref().err(),
         );
+
         result
     }
 
@@ -415,16 +444,19 @@ where
     {
         let Self { inner, metadata } = self;
         let span = metadata.span();
+
         let result = inner
             .fetch_optional(executor)
             .instrument(span.clone())
             .await;
+
         finish_query_span(
             &span,
             None,
             result.as_ref().ok().map(|row| u64::from(row.is_some())),
             result.as_ref().err(),
         );
+
         result
     }
 }
@@ -439,6 +471,7 @@ struct SqlTraceMetadata {
 impl SqlTraceMetadata {
     fn from_sql(sql: &str) -> Self {
         let normalized = normalize_sql_shape(sql);
+
         Self {
             operation: sql_operation(&normalized),
             collection: sql_collection(&normalized),
@@ -460,9 +493,11 @@ impl SqlTraceMetadata {
             db.response.returned_rows = field::Empty,
             error.type = field::Empty,
         );
+
         if let Some(fingerprint) = &self.fingerprint {
             span.record("molesignal.db.query.fingerprint", fingerprint);
         }
+
         span
     }
 }
@@ -476,9 +511,11 @@ fn finish_query_span(
     if let Some(rows) = affected_rows {
         span.record("db.response.affected_rows", rows);
     }
+
     if let Some(rows) = returned_rows {
         span.record("db.response.returned_rows", rows);
     }
+
     if let Some(error) = error {
         span.record("error.type", sql_error_type(error));
     }
@@ -498,10 +535,12 @@ fn finish_transaction_span(
             successful_outcome
         },
     );
+
     span.record(
         "db.transaction.duration_ms",
         started.elapsed().as_secs_f64() * 1_000.0,
     );
+
     if let Some(error) = error {
         span.record("error.type", sql_error_type(error));
     }
@@ -545,6 +584,7 @@ fn normalize_sql_shape(sql: &str) -> String {
         if output.len() >= 4096 {
             break;
         }
+
         if in_single_quote {
             if character == '\'' {
                 if chars.peek() == Some(&'\'') {
@@ -553,44 +593,55 @@ fn normalize_sql_shape(sql: &str) -> String {
                     in_single_quote = false;
                 }
             }
+
             if !emitted_placeholder {
                 output.push('?');
                 emitted_placeholder = true;
                 previous_space = false;
             }
+
             continue;
         }
+
         if character == '\'' {
             in_single_quote = true;
             emitted_placeholder = false;
             continue;
         }
+
         if character == '$' && chars.peek().is_some_and(char::is_ascii_digit) {
             while chars.peek().is_some_and(char::is_ascii_digit) {
                 chars.next();
             }
+
             output.push('?');
             previous_space = false;
             continue;
         }
+
         if character.is_ascii_digit() {
             while chars.peek().is_some_and(char::is_ascii_digit) {
                 chars.next();
             }
+
             output.push('?');
             previous_space = false;
             continue;
         }
+
         if character.is_whitespace() {
             if !previous_space {
                 output.push(' ');
                 previous_space = true;
             }
+
             continue;
         }
+
         output.extend(character.to_lowercase());
         previous_space = false;
     }
+
     output.trim().to_owned()
 }
 
@@ -620,7 +671,9 @@ fn sql_collection(normalized: &str) -> String {
             token.trim_matches(|character: char| matches!(character, '(' | ')' | ',' | ';' | '"'))
         })
         .collect::<Vec<_>>();
+
     let operation = sql_operation(normalized);
+
     let marker = match operation {
         "INSERT" => "into",
         "SELECT" | "DELETE" => "from",
@@ -628,6 +681,7 @@ fn sql_collection(normalized: &str) -> String {
         "CREATE" | "ALTER" | "DROP" | "TRUNCATE" => "table",
         _ => return "unknown".into(),
     };
+
     let candidate = tokens
         .iter()
         .position(|token| *token == marker)
@@ -635,6 +689,7 @@ fn sql_collection(normalized: &str) -> String {
         .copied()
         .unwrap_or("unknown")
         .trim_matches('"');
+
     if candidate.is_empty()
         || candidate.len() > 128
         || !candidate
@@ -649,6 +704,7 @@ fn sql_collection(normalized: &str) -> String {
 
 fn sql_fingerprint(normalized: &str) -> Option<String> {
     static KEY: OnceLock<Option<Vec<u8>>> = OnceLock::new();
+
     let key = KEY
         .get_or_init(|| {
             std::env::var("MS_TRACE_FINGERPRINT_KEY")
@@ -657,6 +713,7 @@ fn sql_fingerprint(normalized: &str) -> Option<String> {
                 .filter(|value| value.len() >= 16)
         })
         .as_deref()?;
+
     keyed_sql_fingerprint(normalized, key)
 }
 
@@ -664,12 +721,15 @@ fn keyed_sql_fingerprint(normalized: &str, key: &[u8]) -> Option<String> {
     if key.len() < 16 {
         return None;
     }
+
     let mut mac = Hmac::<Sha256>::new_from_slice(key).ok()?;
     mac.update(normalized.as_bytes());
     let mut output = String::with_capacity(64);
+
     for byte in mac.finalize().into_bytes() {
         write!(&mut output, "{byte:02x}").expect("writing to String cannot fail");
     }
+
     Some(output)
 }
 

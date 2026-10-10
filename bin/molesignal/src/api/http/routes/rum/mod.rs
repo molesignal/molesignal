@@ -62,6 +62,7 @@ async fn intake_stream(
     payload: Value,
 ) -> Result<IntakeResult> {
     let events = normalize::flatten(payload)?;
+
     let batch = IntakeBatch {
         batch_id: Id::new(),
         org_id: ctx.org_id.clone(),
@@ -70,6 +71,7 @@ async fn intake_stream(
         events,
         received_at: TimestampMicros::now(),
     };
+
     state.intake.intake(batch).await
 }
 
@@ -84,6 +86,7 @@ async fn receive_sessions(
 ) -> Result<Json<IntakeResult>> {
     bind_application(&mut body, &ctx)?;
     overwrite_client_ip_fields(&mut body, resolve_client_ip(&resolver, &headers, peer));
+
     Ok(Json(
         intake_stream(&state, &ctx, "rum_sessions", body).await?,
     ))
@@ -100,6 +103,7 @@ async fn receive_actions(
 ) -> Result<Json<IntakeResult>> {
     bind_application(&mut body, &ctx)?;
     overwrite_client_ip_fields(&mut body, resolve_client_ip(&resolver, &headers, peer));
+
     Ok(Json(
         intake_stream(&state, &ctx, "rum_actions", body).await?,
     ))
@@ -117,6 +121,7 @@ async fn receive_errors(
     bind_application(&mut body, &ctx)?;
     overwrite_client_ip_fields(&mut body, resolve_client_ip(&resolver, &headers, peer));
     let translated = symbolication::translate_body(&state, &ctx, body).await;
+
     Ok(Json(
         intake_stream(&state, &ctx, "rum_errors", translated).await?,
     ))
@@ -138,13 +143,16 @@ fn overwrite_client_ip_fields(body: &mut Value, resolved: Option<IpAddr>) {
         Value::Object(_) => std::slice::from_mut(body),
         _ => return,
     };
+
     for event in events {
         let Some(object) = event.as_object_mut() else {
             continue;
         };
+
         for key in ["ip_address", "client_ip", "ip"] {
             object.remove(key);
         }
+
         if let Some(ip) = resolved {
             object.insert("ip_address".into(), Value::String(ip.to_string()));
         }
@@ -157,10 +165,12 @@ fn bind_application(body: &mut Value, context: &IamContext) -> Result<()> {
         Value::Object(_) => std::slice::from_mut(body),
         _ => return Err(Error::invalid("RUM payload must be an object or array")),
     };
+
     for event in events {
         let object = event
             .as_object_mut()
             .ok_or_else(|| Error::invalid("RUM payload item must be an object"))?;
+
         let supplied = object
             .get("application")
             .or_else(|| object.get("application_id"))
@@ -170,16 +180,19 @@ fn bind_application(body: &mut Value, context: &IamContext) -> Result<()> {
                     .ok_or_else(|| Error::invalid("RUM application must be a string"))
             })
             .transpose()?;
+
         let application =
             canonical_application(supplied, context.credential_application_id.as_deref())?;
         object.remove("application_id");
         object.insert("application".into(), Value::String(application));
     }
+
     Ok(())
 }
 
 fn canonical_application(value: Option<&str>, credential: Option<&str>) -> Result<String> {
     let supplied = value.map(validate_application_id).transpose()?;
+
     match (credential, supplied) {
         (Some(expected), Some(actual)) if expected != actual => Err(Error::forbidden(
             "RUM client token is bound to a different application",
@@ -209,6 +222,7 @@ async fn receive_replay(
         body.application.as_deref(),
         ctx.credential_application_id.as_deref(),
     )?;
+
     let rec = state
         .telemetry
         .rum_replay
@@ -220,6 +234,7 @@ async fn receive_replay(
             &body.events,
         )
         .await?;
+
     Ok(Json(serde_json::json!({
         "id": rec.id.0,
         "application": rec.application_id,
@@ -245,6 +260,7 @@ async fn read_replay(
         .rum_replay
         .get_session_events(&ctx.org_id, &session_id)
         .await?;
+
     Ok(Json(serde_json::json!({
         "session_id": session_id,
         "segment_count": segment_count,

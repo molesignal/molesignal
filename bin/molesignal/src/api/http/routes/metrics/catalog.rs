@@ -88,6 +88,7 @@ async fn list(
     Query(request): Query<MetricCatalogQuery>,
 ) -> Result<Json<CursorPage<MetricCatalogEntry>>> {
     let (query, page_size, boundary) = resolve_page_context(&state, &ctx, request)?;
+
     // 复用 StreamRead 权限：能看 streams 就能看 metric 目录。
     let metric_streams = state
         .telemetry
@@ -97,9 +98,11 @@ async fn list(
         .into_iter()
         .filter(|s| s.stream_type == StreamType::METRICS)
         .collect::<Vec<_>>();
+
     let self_metric_stream = metric_streams
         .iter()
         .find(|stream| stream.name == MOLESIGNAL_SYSTEM_STREAM);
+
     let self_metric_names = if ctx.is_system_scope()
         && ctx.org_id == state.iam.system_org_id
         && self_metric_stream.is_some()
@@ -111,26 +114,34 @@ async fn list(
                 .iter()
                 .any(|field| field.name == METRIC_NAME_FIELD)
         });
+
         discover_self_metric_names(&state, &ctx, persisted_schema_ready).await
     } else {
         HashSet::new()
     };
+
     let mut metrics = build_catalog(&metric_streams, &self_metric_names);
+
     if let Some(query) = query.as_deref() {
         metrics.retain(|metric| metric_matches(metric, query));
     }
+
     let direction = boundary.as_ref().map(|boundary| boundary.0);
+
     if let Some((direction, metric_name)) = boundary.as_ref() {
         metrics.retain(|metric| match direction {
             CursorDirection::After => metric.name > *metric_name,
             CursorDirection::Before => metric.name < *metric_name,
         });
+
         if *direction == CursorDirection::Before {
             metrics.reverse();
         }
     }
+
     metrics.truncate(page_size.saturating_add(1));
     let page = trim_cursor_page(metrics, page_size, direction);
+
     let previous_cursor = if page.has_previous {
         page.items
             .first()
@@ -148,6 +159,7 @@ async fn list(
     } else {
         None
     };
+
     let next_cursor = if page.has_next {
         page.items
             .last()
@@ -165,6 +177,7 @@ async fn list(
     } else {
         None
     };
+
     Ok(Json(CursorPage {
         items: page.items,
         has_more: next_cursor.is_some(),
@@ -181,6 +194,7 @@ fn resolve_page_context(
     if let Some(token) = request.cursor.as_deref() {
         let payload = cursor::decode(state.iam.service.as_ref(), &ctx.org_id, token)?;
         let requested_query = normalize_query(request.q);
+
         if (requested_query.is_some() && requested_query != payload.query)
             || request
                 .limit
@@ -190,12 +204,14 @@ fn resolve_page_context(
                 "metric catalog cursor does not match active query",
             ));
         }
+
         return Ok((
             payload.query,
             payload.page_size,
             Some((payload.direction, payload.metric_name)),
         ));
     }
+
     Ok((
         normalize_query(request.q),
         request
@@ -245,10 +261,13 @@ async fn discover_self_metric_names(
         .into_iter()
         .map(|sample| sample.metric_name)
         .collect::<HashSet<_>>();
+
     if !persisted_schema_ready {
         return names;
     }
+
     let now = TimestampMicros::now();
+
     let request = QueryRequest {
         org_id: ctx.org_id.clone(),
         language: QueryLanguage::Sql,
@@ -268,6 +287,7 @@ async fn discover_self_metric_names(
         limit: Some(MAX_SELF_METRIC_NAMES),
         federation_clusters: Vec::new(),
     };
+
     match state
         .query
         .run_dataset(
@@ -297,6 +317,7 @@ async fn discover_self_metric_names(
             );
         }
     }
+
     names
 }
 
@@ -318,10 +339,12 @@ fn build_catalog(
             }
         })
         .collect::<Vec<_>>();
+
     let metric_names = expanded
         .iter()
         .map(|(name, _)| name.clone())
         .collect::<HashSet<_>>();
+
     let mut metrics = expanded
         .into_iter()
         .map(|(name, stream)| MetricCatalogEntry {
@@ -331,6 +354,7 @@ fn build_catalog(
             field_count: visible_field_count(&stream.schema.fields),
         })
         .collect::<Vec<_>>();
+
     metrics.sort_by(|left, right| left.name.cmp(&right.name));
     metrics
 }
@@ -356,11 +380,13 @@ fn infer_metric_type(
     if normalized.ends_with("_bucket") {
         return MetricType::Histogram;
     }
+
     if let Some(family) = normalized
         .strip_suffix("_sum")
         .or_else(|| normalized.strip_suffix("_count"))
     {
         let bucket_name = format!("{family}_bucket");
+
         if metric_names
             .iter()
             .any(|candidate| candidate.eq_ignore_ascii_case(&bucket_name))
@@ -394,6 +420,7 @@ fn metric_labels(fields: &[FieldDef]) -> Vec<String> {
                 && !is_prometheus_exemplar_storage_field(name)
         })
         .collect::<Vec<_>>();
+
     labels.sort();
     labels.dedup();
     labels

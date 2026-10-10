@@ -28,11 +28,14 @@ impl IntakeWorker {
     )]
     pub async fn recover_and_replay(&self) -> Result<()> {
         tracing::info!("intake wal replay starting");
+
         let sources = self
             .wal
             .recovery_sources()
             .map_err(|error| Error::internal(format!("wal recover: {error}")))?;
+
         let mut total_rows = 0usize;
+
         for source in sources {
             match self.replay_dataset(&source).await {
                 Ok(rows) => total_rows += rows,
@@ -43,6 +46,7 @@ impl IntakeWorker {
                 ),
             }
         }
+
         tracing::info!(rows = total_rows, "intake replay finished");
         self.probe.set_replay_done(true);
         tracing::info!("intake ready");
@@ -51,10 +55,12 @@ impl IntakeWorker {
 
     async fn replay_dataset(&self, source: &WalRecoverySource) -> Result<usize> {
         let scope = OrganizationScope::new(source.organization_id.clone());
+
         let checkpoints = self
             .file_catalog
             .wal_checkpoints(&scope, &source.dataset_id)
             .await?;
+
         let writer_node_id = WriterNodeId::new(self.wal.node_id());
         let mut rows = 0usize;
         let mut buffer_entry: Option<Arc<DatasetBuffer>> = None;
@@ -70,6 +76,7 @@ impl IntakeWorker {
                 })
                 .map(|checkpoint| checkpoint.committed_sequence)
                 .unwrap_or_default();
+
             let writer = BufferWriter::new(writer_node_id.clone(), WriterEpoch(epoch.epoch));
             let mut pending_bytes = 0usize;
 
@@ -78,6 +85,7 @@ impl IntakeWorker {
                     .wal
                     .read_segment_records(segment, position + 1 == epoch.segments.len())
                     .map_err(|error| Error::internal(format!("wal read segment: {error}")))?;
+
                 for record in records {
                     if record.term != epoch.epoch {
                         return Err(Error::internal(format!(
@@ -85,9 +93,11 @@ impl IntakeWorker {
                             record.term, epoch.epoch
                         )));
                     }
+
                     if record.index <= committed_sequence.0 {
                         continue;
                     }
+
                     let metered: MeteredBatch = match serde_json::from_slice(&record.payload) {
                         Ok(batch) => batch,
                         Err(error) => {
@@ -99,10 +109,13 @@ impl IntakeWorker {
                             continue;
                         }
                     };
+
                     let batch = metered.batch;
+
                     if batch.events.is_empty() {
                         continue;
                     }
+
                     if batch.org_id != source.organization_id {
                         tracing::error!(
                             dataset = %source.dataset_id,
@@ -128,6 +141,7 @@ impl IntakeWorker {
                             }
                         }
                     }
+
                     let Some(definition) = stream_definition.as_ref() else {
                         break 'epochs;
                     };
@@ -137,12 +151,14 @@ impl IntakeWorker {
                             .datasets
                             .resolve(definition, source.dataset_type.clone())
                             .await?;
+
                         if resolved.dataset.id != source.dataset_id {
                             return Err(Error::conflict(format!(
                                 "wal dataset {} resolves to catalog dataset {}",
                                 source.dataset_id, resolved.dataset.id
                             )));
                         }
+
                         buffer_entry =
                             Some(self.buffer.get_or_create_dataset(definition, resolved)?);
                     }
@@ -170,23 +186,30 @@ impl IntakeWorker {
                     let entry = buffer_entry
                         .as_ref()
                         .expect("buffer entry initialized above");
+
                     let mut guard = entry.records().lock().await;
                     guard.sync_schema(&physical_schema::project(definition, &source.dataset_type));
+
                     if let Some(field_key) = field_key {
                         guard.set_field_key(field_key);
                     }
+
                     let reservation = self.buffer.force_reserve(record.payload.len())?;
                     guard.add_accounted_bytes(reservation.commit());
                     guard.add_collected_bytes(metered.collected_bytes);
+
                     for event in &batch.events {
                         guard
                             .push_with_position(event, &writer, WalSequence(record.index))
                             .map_err(|error| Error::internal(format!("replay push: {error}")))?;
+
                         rows += 1;
                     }
+
                     drop(guard);
 
                     pending_bytes += record.payload.len();
+
                     if pending_bytes >= self.replay_byte_cap {
                         self.flush_one(&source.dataset_id).await?;
                         pending_bytes = 0;
@@ -204,15 +227,18 @@ impl IntakeWorker {
             Some(entry) => entry.records().lock().await.is_empty(),
             None => true,
         };
+
         if !drained {
             return Err(Error::internal(format!(
                 "replayed dataset {} was not fully published",
                 source.dataset_id
             )));
         }
+
         self.wal
             .purge_epoch_dirs(&source.epoch_dirs)
             .map_err(|error| Error::internal(format!("wal purge: {error}")))?;
+
         Ok(rows)
     }
 }

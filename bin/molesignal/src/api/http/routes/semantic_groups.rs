@@ -67,17 +67,21 @@ fn validate(req: &GroupWriteReq) -> Result<()> {
     if req.name.trim().is_empty() {
         return Err(Error::invalid("name cannot be empty"));
     }
+
     if req.name.len() > 255 {
         return Err(Error::invalid("name must be 255 chars or fewer"));
     }
+
     for m in &req.matchers {
         if m.label.trim().is_empty() {
             return Err(Error::invalid("matcher.label cannot be empty"));
         }
     }
+
     if req.group_by.iter().any(|k| k.trim().is_empty()) {
         return Err(Error::invalid("group_by keys cannot be empty"));
     }
+
     Ok(())
 }
 
@@ -114,6 +118,7 @@ async fn create(
     let now = TimestampMicros::now();
     let group = build(req, Id::new(), ctx.org_id.clone(), now);
     let saved = state.alerting.semantic_groups.create(group).await?;
+
     emit_cud(
         &state,
         &ctx.org_id,
@@ -123,6 +128,7 @@ async fn create(
         &saved,
     )
     .await;
+
     Ok(Json(saved))
 }
 
@@ -137,9 +143,11 @@ async fn get_one(
         .semantic_groups
         .get(&Id::from_string(id))
         .await?;
+
     if g.org_id != ctx.org_id {
         return Err(Error::forbidden("semantic group belongs to another org"));
     }
+
     Ok(Json(g))
 }
 
@@ -151,19 +159,24 @@ async fn update(
     Json(req): Json<GroupWriteReq>,
 ) -> Result<Json<SemanticGroup>> {
     validate(&req)?;
+
     let existing = state
         .alerting
         .semantic_groups
         .get(&Id::from_string(id))
         .await?;
+
     if existing.org_id != ctx.org_id {
         return Err(Error::forbidden("semantic group belongs to another org"));
     }
+
     let group = SemanticGroup {
         created_at: existing.created_at,
         ..build(req, existing.id, ctx.org_id.clone(), TimestampMicros::now())
     };
+
     let saved = state.alerting.semantic_groups.update(group).await?;
+
     emit_cud(
         &state,
         &ctx.org_id,
@@ -173,6 +186,7 @@ async fn update(
         &saved,
     )
     .await;
+
     Ok(Json(saved))
 }
 
@@ -187,10 +201,13 @@ async fn delete_one(
         .semantic_groups
         .get(&Id::from_string(id))
         .await?;
+
     if existing.org_id != ctx.org_id {
         return Err(Error::forbidden("semantic group belongs to another org"));
     }
+
     state.alerting.semantic_groups.delete(&existing.id).await?;
+
     emit_cud(
         &state,
         &ctx.org_id,
@@ -200,6 +217,7 @@ async fn delete_one(
         &delete_payload(&existing.id.0),
     )
     .await;
+
     Ok("deleted")
 }
 
@@ -214,20 +232,25 @@ async fn import(
     if req.groups.is_empty() {
         return Err(Error::invalid("groups cannot be empty"));
     }
+
     for g in &req.groups {
         validate(g)?;
     }
+
     let now = TimestampMicros::now();
+
     let groups: Vec<_> = req
         .groups
         .into_iter()
         .map(|g| build(g, Id::new(), ctx.org_id.clone(), now))
         .collect();
+
     let imported = state
         .alerting
         .semantic_groups
         .create_many(groups.clone())
         .await?;
+
     // 批量导入逐条传播（事务成功后才发，避免回滚的半截事件）。
     for g in &groups {
         emit_cud(
@@ -240,5 +263,6 @@ async fn import(
         )
         .await;
     }
+
     Ok(Json(ImportResp { imported }))
 }

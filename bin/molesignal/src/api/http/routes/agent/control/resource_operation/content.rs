@@ -50,12 +50,14 @@ async fn create(
     approval: &ApprovalRequest,
 ) -> Result<OperationOutcome> {
     let parameters: CreateAnnotation = parse(&approval.parameters)?;
+
     let (title, tags) = validate_annotation(
         parameters.title,
         parameters.tags,
         parameters.time_start_micros,
         parameters.time_end_micros,
     )?;
+
     let annotation = state
         .storage
         .annotations
@@ -73,6 +75,7 @@ async fn create(
             created_at: TimestampMicros::now(),
         })
         .await?;
+
     outcome("annotation created", annotation)
 }
 
@@ -82,6 +85,7 @@ async fn update(
     approval: &ApprovalRequest,
 ) -> Result<OperationOutcome> {
     let parameters = parameter_map(&approval.parameters)?;
+
     reject_unknown(
         parameters,
         &[
@@ -94,43 +98,54 @@ async fn update(
             "stream_name",
         ],
     )?;
+
     if parameters.is_empty() {
         return Err(Error::invalid(
             "update_annotation requires at least one field",
         ));
     }
+
     let mut annotation = state
         .storage
         .annotations
         .get(&ctx.org_id, &Id(approval.target.clone()))
         .await?;
+
     if let Some(value) = parameters.get("title") {
         annotation.title = parse(value)?;
     }
+
     if let Some(value) = parameters.get("description") {
         annotation.description = parse(value)?;
     }
+
     if let Some(value) = parameters.get("tags") {
         annotation.tags = parse(value)?;
     }
+
     if let Some(value) = parameters.get("time_start_micros") {
         annotation.time_start = TimestampMicros(parse(value)?);
     }
+
     if let Some(value) = parameters.get("time_end_micros") {
         annotation.time_end = TimestampMicros(parse(value)?);
     }
+
     if let Some(value) = parameters.get("dashboard_id") {
         annotation.dashboard_id = optional_id(parse(value)?, "dashboard_id")?;
     }
+
     if let Some(value) = parameters.get("stream_name") {
         annotation.stream_name = optional_text(parse(value)?, "stream_name")?;
     }
+
     let (title, tags) = validate_annotation(
         annotation.title,
         annotation.tags,
         annotation.time_start.0,
         annotation.time_end.0,
     )?;
+
     annotation.title = title;
     annotation.tags = tags;
     let annotation = state.storage.annotations.update(annotation).await?;
@@ -146,6 +161,7 @@ async fn delete(
     let id = Id(approval.target.clone());
     state.storage.annotations.get(&ctx.org_id, &id).await?;
     state.storage.annotations.delete(&ctx.org_id, &id).await?;
+
     Ok(OperationOutcome {
         summary: "annotation deleted".into(),
         verification: json!({"verified": true, "annotation_id": id, "deleted": true}),
@@ -166,16 +182,19 @@ fn validate_annotation(
     end: i64,
 ) -> Result<(String, Vec<String>)> {
     let title = title.trim().to_string();
+
     if title.is_empty() || title.chars().count() > 500 {
         return Err(Error::invalid(
             "title must contain between 1 and 500 characters",
         ));
     }
+
     if end < start {
         return Err(Error::invalid(
             "time_end_micros must be greater than or equal to time_start_micros",
         ));
     }
+
     let tags = tags
         .into_iter()
         .map(|tag| tag.trim().to_string())
@@ -183,11 +202,13 @@ fn validate_annotation(
         .collect::<BTreeSet<_>>()
         .into_iter()
         .collect::<Vec<_>>();
+
     if tags.len() > 64 || tags.iter().any(|tag| tag.len() > 128) {
         return Err(Error::invalid(
             "annotations support at most 64 tags of 128 bytes each",
         ));
     }
+
     Ok((title, tags))
 }
 
@@ -195,6 +216,7 @@ fn optional_id(value: Option<String>, field: &str) -> Result<Option<Id>> {
     value
         .map(|value| {
             let value = value.trim();
+
             if value.is_empty() {
                 Err(Error::invalid(format!("{field} must not be empty")))
             } else {
@@ -208,6 +230,7 @@ fn optional_text(value: Option<String>, field: &str) -> Result<Option<String>> {
     value
         .map(|value| {
             let value = value.trim();
+
             if value.is_empty() || value.chars().count() > 500 {
                 Err(Error::invalid(format!(
                     "{field} must contain between 1 and 500 characters"

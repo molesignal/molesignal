@@ -49,9 +49,11 @@ impl IntakeWorker {
         let flush_lock = self.flush_lock(key);
         let _single_flight = flush_lock.lock().await;
         self.retry_pending_wal_cleanup(key).await;
+
         let Some(buffer) = self.buffer.get(key) else {
             return Ok(());
         };
+
         let stream_definition = match self
             .streams
             .get(
@@ -71,9 +73,11 @@ impl IntakeWorker {
         };
 
         let mut guard = buffer.records().lock().await;
+
         if guard.is_empty() {
             return Ok(());
         }
+
         let reason = match due_at {
             None => RotationReason::Forced,
             Some(now) => {
@@ -83,10 +87,12 @@ impl IntakeWorker {
                 }
             }
         };
+
         let generation = guard
             .begin_flush()
             .map_err(|error| Error::internal(format!("buffer rotation: {error}")))?
             .ok_or_else(|| Error::internal("non-empty buffer produced no flush generation"))?;
+
         drop(guard);
 
         let stream_type = buffer.stream_type.as_str();
@@ -95,15 +101,18 @@ impl IntakeWorker {
         let _inflight = FlushInflightGuard::enter(stream_type);
         let provenance = generation.provenance();
         let flush_id = provenance.flush_id.clone();
+
         let estimated_raw_bytes = if generation.accounted_size_bytes() > 0 {
             generation.accounted_size_bytes()
         } else {
             generation.approximate_size_bytes()
         };
+
         let physical_stream = crate::infra::intake::physical_schema::project(
             &stream_definition,
             &buffer.dataset.dataset.dataset_type,
         );
+
         let segments = match self
             .parquet_writer
             .flush_catalog(
@@ -121,6 +130,7 @@ impl IntakeWorker {
                 return Err(error);
             }
         };
+
         let encoded_size_bytes = segments
             .iter()
             .flat_map(|segment| segment.artifacts())
@@ -128,6 +138,7 @@ impl IntakeWorker {
             .sum();
 
         let scope = OrganizationScope::new(buffer.organization_id.clone());
+
         if let Err(error) = self
             .file_catalog
             .commit_flush(
@@ -141,18 +152,21 @@ impl IntakeWorker {
             .await
         {
             inc_flush_error("file_catalog_commit");
+
             // 物理数据集已从 catalog 删除（例如流被删除后又重建）：这批数据没有去处。
             if matches!(error, Error::NotFound(_)) {
                 self.discard_dataset_gone(&buffer, key, "dataset_gone")
                     .await;
                 return Ok(());
             }
+
             // 同一 (dataset, node) 已有更高 epoch 提交过：本 epoch 永远无法发布，重试没有意义。
             if is_stale_writer_epoch(&error) {
                 self.discard_fenced_writer(&buffer, key, &generation.writer, &error)
                     .await;
                 return Err(error);
             }
+
             self.fail_generation(&buffer, &flush_id).await?;
             return Err(error);
         }
@@ -163,11 +177,13 @@ impl IntakeWorker {
             .await
             .complete_flush(&flush_id)
             .map_err(|error| Error::internal(format!("buffer retirement: {error}")))?;
+
         self.buffer.release_memory(accounted_size_bytes);
         self.adaptive_rotation
             .observe(key, dataset_type, estimated_raw_bytes, encoded_size_bytes);
 
         let high_watermark_seq = generation.sequence_range().end.0;
+
         match self.cleanup_wal(key, high_watermark_seq).await {
             Ok(()) => {
                 self.pending_wal_cleanup.remove(key);
@@ -182,6 +198,7 @@ impl IntakeWorker {
                 );
             }
         }
+
         Ok(())
     }
 
@@ -195,6 +212,7 @@ impl IntakeWorker {
                     } else {
                         self.flush_one_if_due(&key).await
                     };
+
                     if let Err(error) = result {
                         tracing::error!(?key, %error, phase, "intake flush failed");
                     }
@@ -228,6 +246,7 @@ impl IntakeWorker {
         let Some(pending) = self.pending_wal_cleanup.get(key).map(|entry| entry.clone()) else {
             return;
         };
+
         match self
             .cleanup_wal(&pending.dataset_id, pending.high_watermark_seq)
             .await
@@ -253,6 +272,7 @@ impl IntakeWorker {
             inc_flush_error("wal_seal");
             return Err(Error::internal(format!("wal seal_active: {error}")));
         }
+
         if let Err(error) = self
             .wal
             .truncate_up_to(dataset_id, high_watermark_seq)
@@ -261,6 +281,7 @@ impl IntakeWorker {
             inc_flush_error("wal_truncate");
             return Err(Error::internal(format!("wal truncate: {error}")));
         }
+
         Ok(())
     }
 
@@ -270,13 +291,16 @@ impl IntakeWorker {
             let mut interval = tokio::time::interval(Duration::from_secs(
                 self.settings.flush_interval_secs.max(1) as u64,
             ));
+
             interval.tick().await;
+
             loop {
                 tokio::select! {
                     _ = interval.tick() => {}
                     _ = self.flush_notify.notified() => {}
                     _ = drain_tripwire(&self.drain) => {}
                 }
+
                 if let Some(drain) = &self.drain
                     && drain.is_draining()
                 {
@@ -288,6 +312,7 @@ impl IntakeWorker {
                     tracing::info!("intake drained: pending buffers flushed; flush loop exiting");
                     break;
                 }
+
                 self.flush_keys(self.buffer.snapshot_keys(), false, "steady")
                     .await;
             }

@@ -121,8 +121,10 @@ async fn create(
     if req.name.is_empty() || req.category.is_empty() {
         return Err(Error::invalid("name and category must not be empty"));
     }
+
     compile_check(&req.regex)?;
     let now = TimestampMicros::now();
+
     let p = LogPattern {
         id: Id::new(),
         org_id: ctx.org_id.clone(),
@@ -135,7 +137,9 @@ async fn create(
         created_at: now,
         updated_at: now,
     };
+
     let p = state.storage.log_patterns.create(p).await?;
+
     emit_cud(
         &state,
         &ctx.org_id,
@@ -145,6 +149,7 @@ async fn create(
         &p,
     )
     .await;
+
     Ok(Json(to_resp(p)))
 }
 
@@ -157,6 +162,7 @@ async fn update(
 ) -> Result<Json<Resp>> {
     compile_check(&req.regex)?;
     let existing = state.storage.log_patterns.get(&ctx.org_id, &Id(id)).await?;
+
     let p = LogPattern {
         id: existing.id,
         org_id: ctx.org_id.clone(),
@@ -169,7 +175,9 @@ async fn update(
         created_at: existing.created_at,
         updated_at: TimestampMicros::now(),
     };
+
     let p = state.storage.log_patterns.update(p).await?;
+
     emit_cud(
         &state,
         &ctx.org_id,
@@ -179,6 +187,7 @@ async fn update(
         &p,
     )
     .await;
+
     Ok(Json(to_resp(p)))
 }
 
@@ -193,6 +202,7 @@ async fn delete(
         .log_patterns
         .delete(&ctx.org_id, &Id(id.clone()))
         .await?;
+
     emit_cud(
         &state,
         &ctx.org_id,
@@ -202,5 +212,6 @@ async fn delete(
         &delete_payload(&id),
     )
     .await;
+
     Ok(Json(serde_json::json!({"deleted": true})))
 }

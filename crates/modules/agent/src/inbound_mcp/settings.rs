@@ -30,6 +30,7 @@ pub struct InboundMcpSettings {
 impl InboundMcpSettings {
     pub fn defaults(org_id: Id) -> Self {
         let now = TimestampMicros::now();
+
         Self {
             org_id,
             enabled: true,

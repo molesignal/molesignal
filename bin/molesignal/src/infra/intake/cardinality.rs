@@ -51,10 +51,12 @@ impl SeriesIdentity {
         let mut series_hasher = Sha256::new();
         update_segment(&mut series_hasher, b"series");
         update_segment(&mut series_hasher, metric_name.as_bytes());
+
         for (name, value) in labels {
             update_segment(&mut series_hasher, name.as_bytes());
             update_segment(&mut series_hasher, value.as_bytes());
         }
+
         Self {
             metric,
             series: finish_fingerprint(series_hasher),
@@ -135,31 +137,41 @@ impl OrgSeriesState {
 
     fn expire_idle(&mut self, now: Instant, idle_ttl: Duration) -> usize {
         let mut removed = 0usize;
+
         while let Some(Reverse((expires_at, fingerprint))) = self.expiry.peek().copied() {
             if expires_at > now {
                 break;
             }
+
             self.expiry.pop();
+
             let Some(entry) = self.active.get(&fingerprint).copied() else {
                 continue;
             };
+
             let current_expiry = entry
                 .last_seen
                 .checked_add(idle_ttl)
                 .expect("validated series idle TTL must fit Instant");
+
             if current_expiry > now {
                 self.expiry.push(Reverse((current_expiry, fingerprint)));
                 continue;
             }
+
             self.active.remove(&fingerprint);
+
             if let Some(count) = self.metric_counts.get_mut(&entry.metric) {
                 *count -= 1;
+
                 if *count == 0 {
                     self.metric_counts.remove(&entry.metric);
                 }
             }
+
             removed += 1;
         }
+
         removed
     }
 
@@ -196,10 +208,12 @@ impl PrometheusSeriesAdmission {
         if !self.settings.enabled {
             return Ok(SeriesAdmissionOutcome::default());
         }
+
         let unique = identities
             .into_iter()
             .map(|identity| (identity.series, identity.metric))
             .collect::<HashMap<_, _>>();
+
         if unique.is_empty() {
             return Ok(SeriesAdmissionOutcome::default());
         }
@@ -209,17 +223,21 @@ impl PrometheusSeriesAdmission {
             .entry(org_id.clone())
             .or_insert_with(|| Arc::new(Mutex::new(OrgSeriesState::new(now))))
             .clone();
+
         let mut state = org.lock();
         let removed = state.expire_idle(now, Duration::from_secs(self.settings.idle_ttl_secs));
+
         if removed > 0 {
             self.active_process.fetch_sub(removed, Ordering::AcqRel);
             add_active_series(-count_as_i64(removed));
         }
+
         state.reset_rate_window_if_due(now);
 
         let mut new_by_metric: HashMap<Fingerprint, usize> = HashMap::new();
         let mut new_identities = Vec::new();
         let mut existing_series = 0usize;
+
         for (series, metric) in unique {
             if let Some(entry) = state.active.get_mut(&series) {
                 entry.last_seen = now;
@@ -229,7 +247,9 @@ impl PrometheusSeriesAdmission {
                 new_identities.push((series, metric));
             }
         }
+
         let new_series = new_identities.len();
+
         if new_series == 0 {
             return Ok(SeriesAdmissionOutcome {
                 existing_series,
@@ -240,24 +260,30 @@ impl PrometheusSeriesAdmission {
         if state.active.len().saturating_add(new_series) > self.settings.max_active_series_per_org {
             return Err(self.reject(SeriesLimitReason::OrganizationActive));
         }
+
         for (metric, count) in &new_by_metric {
             let active = state.metric_counts.get(metric).copied().unwrap_or(0);
+
             if active.saturating_add(*count) > self.settings.max_active_series_per_metric {
                 return Err(self.reject(SeriesLimitReason::MetricActive));
             }
         }
+
         if state.new_in_window.saturating_add(new_series) > self.settings.max_new_series_per_minute
         {
             return Err(self.reject(SeriesLimitReason::NewSeriesRate));
         }
+
         if !self.try_reserve_process(new_series) {
             return Err(self.reject(SeriesLimitReason::ProcessActive));
         }
 
         let idle_ttl = Duration::from_secs(self.settings.idle_ttl_secs);
+
         let expires_at = now
             .checked_add(idle_ttl)
             .expect("validated series idle TTL must fit Instant");
+
         for (series, metric) in new_identities {
             state.active.insert(
                 series,
@@ -266,11 +292,14 @@ impl PrometheusSeriesAdmission {
                     last_seen: now,
                 },
             );
+
             *state.metric_counts.entry(metric).or_default() += 1;
             state.expiry.push(Reverse((expires_at, series)));
         }
+
         state.new_in_window += new_series;
         add_active_series(count_as_i64(new_series));
+
         Ok(SeriesAdmissionOutcome {
             existing_series,
             new_series,
@@ -300,6 +329,7 @@ impl PrometheusSeriesAdmission {
 impl Drop for PrometheusSeriesAdmission {
     fn drop(&mut self) {
         let active = self.active_process.load(Ordering::Acquire);
+
         if active > 0 {
             add_active_series(-count_as_i64(active));
         }

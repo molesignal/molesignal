@@ -35,9 +35,11 @@ async fn login(
         .get(&Id::from_string(request.provider_id))
         .await
         .map_err(|_| Error::unauthorized("invalid LDAP credentials"))?;
+
     if !provider.enabled || provider.kind != SsoProviderKind::Ldap {
         return Err(Error::unauthorized("invalid LDAP credentials"));
     }
+
     let config = match &provider.config {
         SsoProviderConfig::Ldap(config) => config.clone(),
         _ => return Err(Error::unauthorized("invalid LDAP credentials")),
@@ -46,6 +48,7 @@ async fn login(
     let identity = LdapLoginFlow::new(to_flow_config(&config))?
         .authenticate(&request.username, &request.password)
         .await?;
+
     let response = complete_login(
         &state,
         &provider,
@@ -59,6 +62,7 @@ async fn login(
         config.default_role_id.as_deref(),
     )
     .await?;
+
     Ok(Json(response))
 }
 

@@ -20,15 +20,18 @@ impl ApmQueryService {
     pub async fn errors(&self, context: &ApmQueryContext) -> Result<PagedResponse<ErrorSummary>> {
         let group_query = self.error_group_query(context, None);
         let bucket_query = self.bucket_query(context, BucketKind::Error);
+
         let (groups, buckets) = tokio::try_join!(
             self.repository.list_error_groups(&group_query),
             self.repository.query_buckets(&bucket_query),
         )?;
+
         let items = error_summaries(context, &groups, &buckets, &self.config.histogram)?;
         let latency_partial = items.iter().any(|item| item.red.latency_partial);
         let overflows = overflow_dimensions(&buckets);
         let (items, previous_cursor, next_cursor) = paginate(items, context)?;
         let has_more = next_cursor.is_some();
+
         Ok(PagedResponse {
             meta: self
                 .response_meta(context, overflows, latency_partial)
@@ -49,9 +52,11 @@ impl ApmQueryService {
         if fingerprint.is_empty() || fingerprint.len() > 192 {
             return Err(Error::not_found("APM error group"));
         }
+
         let group_query = self.error_group_query(context, Some(fingerprint.to_owned()));
         let error_query = self.bucket_query(context, BucketKind::Error);
         let transaction_query = self.bucket_query(context, BucketKind::Transaction);
+
         let (groups, error_buckets, transaction_buckets, samples) = tokio::try_join!(
             self.repository.list_error_groups(&group_query),
             self.repository.query_buckets(&error_query),
@@ -59,10 +64,12 @@ impl ApmQueryService {
             self.repository
                 .list_error_samples(&context.org_id, fingerprint),
         )?;
+
         let group = groups
             .into_iter()
             .next()
             .ok_or_else(|| Error::not_found("APM error group"))?;
+
         let matching = error_buckets
             .into_iter()
             .filter(|bucket| {
@@ -73,6 +80,7 @@ impl ApmQueryService {
                 )
             })
             .collect::<Vec<_>>();
+
         let summary = error_summaries(
             context,
             std::slice::from_ref(&group),
@@ -82,7 +90,9 @@ impl ApmQueryService {
         .into_iter()
         .next()
         .ok_or_else(|| Error::not_found("APM error group"))?;
+
         let transaction_name = group.error.transaction_name.as_deref();
+
         let affected_transactions =
             transaction_summaries(context, &transaction_buckets, &self.config.histogram)?
                 .into_iter()
@@ -91,13 +101,16 @@ impl ApmQueryService {
                 })
                 .take(20)
                 .collect();
+
         let mut affected_versions = matching
             .iter()
             .filter_map(|bucket| bucket.dimension.version().map(str::to_owned))
             .collect::<Vec<_>>();
+
         affected_versions.sort();
         affected_versions.dedup();
         let latency_partial = summary.red.latency_partial;
+
         Ok(ErrorDetailResponse {
             meta: self
                 .response_meta(context, overflow_dimensions(&matching), latency_partial)
@@ -132,6 +145,7 @@ pub(super) fn error_summaries(
     histogram: &crate::domain::apm::HistogramSchema,
 ) -> Result<Vec<ErrorSummary>> {
     let mut by_fingerprint = HashMap::<String, Vec<MergedBucket>>::new();
+
     for bucket in buckets {
         if let BucketDimension::Error { error, .. } = &bucket.dimension {
             by_fingerprint
@@ -140,13 +154,16 @@ pub(super) fn error_summaries(
                 .push(bucket.clone());
         }
     }
+
     groups
         .iter()
         .map(|group| {
             let matching = by_fingerprint
                 .remove(&group.error.fingerprint)
                 .unwrap_or_default();
+
             let red = red_from_buckets(&matching, histogram)?;
+
             Ok(ErrorSummary {
                 traces: signal_handle(
                     context,

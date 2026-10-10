@@ -55,11 +55,13 @@ pub(crate) async fn authenticate_api_token_identity_with_metadata(
     repo: Arc<dyn ApiTokenRepository>,
 ) -> Result<VerifiedApiTokenIdentity, Error> {
     let identity = verify_api_token_with_metadata(token, repo).await?;
+
     if identity.context.credential_application_id.is_none()
         && identity.context.credential_service_account_id.is_none()
     {
         iam.ensure_user_access(&identity.context.user_id).await?;
     }
+
     Ok(identity)
 }
 
@@ -80,6 +82,7 @@ async fn authenticate_api_token_identity(
     repo: Arc<dyn ApiTokenRepository>,
 ) -> Result<IamContext, Error> {
     let context = verify_api_token_with_metadata(token, repo).await?.context;
+
     // A public RUM credential is owned by the application, not by the user who
     // originally created it. Revocation and organization state remain enforced.
     if context.credential_application_id.is_none()
@@ -87,6 +90,7 @@ async fn authenticate_api_token_identity(
     {
         iam.ensure_user_access(&context.user_id).await?;
     }
+
     Ok(context)
 }
 
@@ -117,45 +121,56 @@ pub(crate) async fn verify_api_token_with_metadata(
             ApiTokenKind::Personal,
         )
     };
+
     let row = repo
         .find_by_prefix(prefix)
         .await
         .map_err(|error| Error::unauthorized(format!("api token lookup: {error}")))?
         .ok_or_else(|| Error::unauthorized("api token not found"))?;
+
     let kind_matches = match presented_kind {
         ApiTokenKind::RumClient => row.token_kind == ApiTokenKind::RumClient,
         _ => row.token_kind != ApiTokenKind::RumClient,
     };
+
     if !kind_matches {
         return Err(Error::unauthorized(
             "api token type does not match its prefix",
         ));
     }
+
     if row.revoked {
         return Err(Error::unauthorized("api token revoked"));
     }
+
     let now = TimestampMicros::now();
+
     if let Some(expires_at) = row.expires_at
         && expires_at.0 <= now.0
     {
         return Err(Error::unauthorized("api token expired"));
     }
+
     let secret_valid = match row.token_kind {
         ApiTokenKind::RumClient => verify_rum_secret(secret, &row.secret_hash),
         _ => verify_secret(secret, &row.secret_hash),
     };
+
     if !secret_valid {
         return Err(Error::unauthorized("api token secret invalid"));
     }
 
     let prefix_owned = prefix.to_string();
     let repo_clone = repo.clone();
+
     crate::shared::trace_context::spawn_with_current_trace_context(async move {
         let _ = repo_clone.touch_last_used(&prefix_owned, now).await;
     });
+
     let service_account_id = row.service_account_id.clone();
     let token_id = row.id.clone();
     let token_kind = row.token_kind;
+
     Ok(VerifiedApiTokenIdentity {
         context: IamContext {
             user_id: service_account_id.clone().unwrap_or(Id(row.user_id.0)),

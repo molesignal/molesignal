@@ -41,6 +41,7 @@ pub(super) async fn run(
     primary_dataset: Option<DatasetTypeId>,
 ) -> Result<QueryResult> {
     let started = Instant::now();
+
     let StreamHint { name, stream_type } = req.stream.clone().ok_or_else(|| {
         Error::invalid("query.stream hint is required; caller must name the target table")
     })?;
@@ -50,6 +51,7 @@ pub(super) async fn run(
     }
 
     let (sample_cap, statement) = parse_sample_hint(&req.statement);
+
     validate_match_text_fields(
         engine.streams.as_deref(),
         &req,
@@ -58,7 +60,9 @@ pub(super) async fn run(
         &statement,
     )
     .await?;
+
     let (mut predicates, rewritten_sql) = extract_match_predicates(&statement);
+
     constrain_tantivy_predicates(
         engine,
         &req,
@@ -80,11 +84,13 @@ pub(super) async fn run(
     register_query_udfs(engine, &req, &rewritten_sql, &ctx).await?;
 
     let mut tables = vec![(name.clone(), stream_type, primary_dataset)];
+
     if let Some(streams) = &engine.streams {
         for reference in extract_referenced_tables(&rewritten_sql).unwrap_or_default() {
             if reference.name == name {
                 continue;
             }
+
             if let Some(stream_type) =
                 resolve_stream_type(streams.as_ref(), &req.org_id, &reference.name).await
             {
@@ -96,17 +102,20 @@ pub(super) async fn run(
     }
 
     let mut stream_definitions = Vec::with_capacity(tables.len());
+
     for (table_name, stream_type, _) in &tables {
         let definition = match &engine.streams {
             Some(streams) => Some(streams.get(&req.org_id, table_name, *stream_type).await?),
             None => None,
         };
+
         stream_definitions.push(definition);
     }
 
     let mut catalog_snapshots = std::iter::repeat_with(|| None)
         .take(tables.len())
         .collect::<Vec<_>>();
+
     if let Some(source) = &engine.catalog_source
         && stream_definitions.iter().all(Option::is_some)
     {
@@ -118,12 +127,14 @@ pub(super) async fn run(
                     Some(dataset_type) => vec![dataset_type],
                     None => crate::domain::storage::logical_query_dataset_types(*stream_type)?,
                 };
+
                 Ok(StreamSnapshotSelection::new(
                     definition.clone().expect("all definitions checked above"),
                     dataset_types,
                 ))
             })
             .collect::<Result<Vec<_>>>()?;
+
         catalog_snapshots = source
             .snapshot_streams(&selections, req.time_range)
             .await?
@@ -133,8 +144,10 @@ pub(super) async fn run(
     }
 
     let mut scanned_rows = 0_u64;
+
     for (index, (table_name, stream_type, selected_dataset)) in tables.iter().enumerate() {
         let stream_definition = stream_definitions[index].clone();
+
         let loaded = if let Some(snapshot) = catalog_snapshots[index].take() {
             dataset::LoadedDataset::from_catalog_snapshot(snapshot)
         } else {
@@ -153,14 +166,17 @@ pub(super) async fn run(
             )
             .await?
         };
+
         let mut files = loaded.files;
         let tantivy_indexes = loaded.tantivy_indexes;
         let buffered_batches = loaded.buffered_batches;
+
         if table_name == &name
             && let Some(definition) = stream_definition.as_ref()
         {
             files = skip_pruner::prune(files, &statement, &definition.schema);
         }
+
         if !predicates.is_empty()
             && table_name == &name
             && let Some(pruner) = &engine.tantivy_pruner
@@ -170,18 +186,22 @@ pub(super) async fn run(
                 .await
                 .map_err(|error| Error::internal(format!("tantivy prune: {error}")))?;
         }
+
         if let Some(cap) = sample_cap
             && table_name == &name
         {
             let mut candidate_rows = 0_u64;
+
             files.retain(|file| {
                 if candidate_rows >= cap {
                     return false;
                 }
+
                 candidate_rows = candidate_rows.saturating_add(file.rows);
                 true
             });
         }
+
         scanned_rows = scanned_rows
             .saturating_add(files.iter().map(|file| file.rows).sum::<u64>())
             .saturating_add(
@@ -190,6 +210,7 @@ pub(super) async fn run(
                     .map(|batch| batch.num_rows() as u64)
                     .sum::<u64>(),
             );
+
         ensure_within_scan_limit(scanned_rows, engine.max_scan_rows)?;
 
         let schema: Arc<ArrowSchema> = match stream_definition {
@@ -200,6 +221,7 @@ pub(super) async fn run(
                         crate::infra::intake::physical_schema::project(&definition, dataset_type)
                     })
                     .unwrap_or(definition);
+
                 crate::infra::storage::arrow_schema::to_arrow(&definition.schema)
             }
             None => match files.first() {
@@ -220,6 +242,7 @@ pub(super) async fn run(
                     }),
             },
         };
+
         let table = PrunedParquetTable::new(
             schema,
             &files,
@@ -228,16 +251,19 @@ pub(super) async fn run(
             selected_dataset.clone(),
         )
         .with_buffered_batches(buffered_batches);
+
         ctx.register_table(TableReference::bare(table_name.clone()), Arc::new(table))
             .map_err(|error| Error::internal(format!("datafusion register: {error}")))?;
     }
 
     let dataframe = ctx.sql(&rewritten_sql).await.map_err(|error| {
         tracing::warn!(%error, sql = %rewritten_sql, "query planning failed");
+
         Error::invalid(
             "query could not be planned: check the SQL syntax and that every referenced field exists in the stream",
         )
     })?;
+
     let dataframe = if let Some(limit) = req.limit {
         dataframe
             .limit(0, Some(limit))
@@ -245,8 +271,10 @@ pub(super) async fn run(
     } else {
         dataframe
     };
+
     let batches = dataframe.collect().await.map_err(collect_error)?;
     let (columns, rows) = batches_to_json(&batches);
+
     Ok(QueryResult {
         columns,
         rows,
@@ -260,6 +288,7 @@ pub(super) async fn run(
 /// 按无效请求应答 400；其余执行期错误是内部错误。
 fn collect_error(error: DataFusionError) -> Error {
     let root = error.find_root();
+
     if matches!(
         root,
         DataFusionError::Plan(_) | DataFusionError::SchemaError(..)
@@ -267,6 +296,7 @@ fn collect_error(error: DataFusionError) -> Error {
         tracing::warn!(%error, "query planning failed");
         return Error::invalid(format!("query could not be planned: {root}"));
     }
+
     Error::internal(format!("datafusion collect: {error}"))
 }
 
@@ -284,19 +314,24 @@ pub(super) async fn validate_match_text_fields(
     sql: &str,
 ) -> Result<()> {
     let fields = match_text_fields(sql);
+
     if fields.is_empty() {
         return Ok(());
     }
+
     let Some(streams) = streams else {
         return Ok(());
     };
+
     let Ok(definition) = streams.get(&req.org_id, stream, stream_type).await else {
         return Ok(());
     };
+
     for field in fields {
         let configured = definition.schema.fields.iter().any(|def| {
             def.name == field && def.effective_index_type() == StreamIndexType::FullText
         });
+
         if !configured {
             return Err(Error::invalid(format!(
                 "MATCH_TEXT: field `{field}` has no full-text index configured; \
@@ -304,6 +339,7 @@ pub(super) async fn validate_match_text_fields(
             )));
         }
     }
+
     Ok(())
 }
 
@@ -319,14 +355,17 @@ async fn constrain_tantivy_predicates(
     predicates: &mut Vec<MatchPredicate>,
 ) {
     let exact = extract_equality_predicates(statement);
+
     let Some(streams) = &engine.streams else {
         predicates.clear();
         return;
     };
+
     let Ok(definition) = streams.get(&req.org_id, stream, stream_type).await else {
         predicates.clear();
         return;
     };
+
     let full_text = definition
         .schema
         .fields
@@ -336,6 +375,7 @@ async fn constrain_tantivy_predicates(
         })
         .map(|field| field.name.as_str())
         .collect::<HashSet<_>>();
+
     predicates.retain(|predicate| full_text.contains(predicate.field.as_str()));
 
     let exact_fields = definition
@@ -349,6 +389,7 @@ async fn constrain_tantivy_predicates(
         })
         .map(|field| field.name.as_str())
         .collect::<HashSet<_>>();
+
     predicates.extend(
         exact
             .into_iter()
@@ -367,27 +408,34 @@ async fn register_query_udfs(
         let keys = service.decrypt_map(&req.org_id).await?;
         ctx.register_udf(crate::infra::query::udfs::build_decrypt_udf(keys));
     }
+
     if statement.contains("extract_pattern(")
         && let Some(repository) = &engine.log_patterns
     {
         let patterns = repository.list(&req.org_id).await.unwrap_or_default();
+
         let rows = patterns
             .into_iter()
             .map(|pattern| (pattern.regex, pattern.category, pattern.priority))
             .collect();
+
         ctx.register_udf(build_extract_pattern_udf(compile_patterns(rows)));
     }
+
     if statement.contains("mask(")
         && let Some(repository) = &engine.regex_patterns
     {
         let patterns = repository.list(&req.org_id).await.unwrap_or_default();
+
         let masker = Masker::compile(
             patterns
                 .into_iter()
                 .map(|pattern| (pattern.pattern, pattern.replacement)),
         );
+
         ctx.register_udf(build_mask_udf(Arc::new(masker)));
     }
+
     Ok(())
 }
 

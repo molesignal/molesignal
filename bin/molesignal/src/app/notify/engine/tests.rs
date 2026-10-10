@@ -67,6 +67,7 @@ impl NotifyConnectorRepository for MemoryStore {
             .lock()
             .unwrap()
             .insert(connector.id.0.clone(), connector.clone());
+
         Ok(connector)
     }
 
@@ -104,10 +105,12 @@ impl NotifyConnectorRepository for MemoryStore {
         error: Option<String>,
     ) -> Result<NotifyConnector> {
         let mut connectors = self.connectors.lock().unwrap();
+
         let connector = connectors
             .get_mut(id.as_str())
             .filter(|connector| connector.organization_id == *organization_id)
             .ok_or_else(|| Error::not_found("notify connector"))?;
+
         connector.last_tested_at = Some(tested_at);
         connector.last_test_status = Some(status);
         connector.last_test_error = error;
@@ -128,6 +131,7 @@ impl UserNotifyEndpointRepository for MemoryStore {
             .lock()
             .unwrap()
             .insert(endpoint.id.0.clone(), endpoint.clone());
+
         Ok(endpoint)
     }
 
@@ -244,6 +248,7 @@ impl UserNotifyPreferenceRepository for MemoryStore {
             .lock()
             .unwrap()
             .insert(preference.id.0.clone(), preference.clone());
+
         Ok(preference)
     }
 }
@@ -252,18 +257,21 @@ impl UserNotifyPreferenceRepository for MemoryStore {
 impl NotifyDeliveryRepository for MemoryStore {
     async fn record_once(&self, delivery: NotifyDelivery) -> Result<NotifyDelivery> {
         let mut deliveries = self.deliveries.lock().unwrap();
+
         if let Some(existing) = deliveries
             .values()
             .find(|existing| existing.idempotency_key == delivery.idempotency_key)
         {
             return Ok(existing.clone());
         }
+
         deliveries.insert(delivery.id.0.clone(), delivery.clone());
         Ok(delivery)
     }
 
     async fn claim(&self, mut delivery: NotifyDelivery) -> Result<DeliveryClaim> {
         let mut deliveries = self.deliveries.lock().unwrap();
+
         if let Some(existing) = deliveries
             .values_mut()
             .find(|existing| existing.idempotency_key == delivery.idempotency_key)
@@ -277,18 +285,22 @@ impl NotifyDeliveryRepository for MemoryStore {
                 existing.sent_at = delivery.sent_at;
                 existing.error_code = None;
                 existing.error_message = None;
+
                 return Ok(DeliveryClaim {
                     delivery: existing.clone(),
                     acquired: true,
                 });
             }
+
             return Ok(DeliveryClaim {
                 delivery: existing.clone(),
                 acquired: false,
             });
         }
+
         delivery.status = DeliveryStatus::Sending;
         deliveries.insert(delivery.id.0.clone(), delivery.clone());
+
         Ok(DeliveryClaim {
             delivery,
             acquired: true,
@@ -302,10 +314,12 @@ impl NotifyDeliveryRepository for MemoryStore {
         completion: DeliveryCompletion,
     ) -> Result<NotifyDelivery> {
         let mut deliveries = self.deliveries.lock().unwrap();
+
         let delivery = deliveries
             .get_mut(id.as_str())
             .filter(|delivery| delivery.organization_id == *organization_id)
             .ok_or_else(|| Error::not_found("notify delivery"))?;
+
         delivery.status = completion.status;
         delivery.error_code = completion.error_code;
         delivery.error_message = completion.error_message;
@@ -364,6 +378,7 @@ impl NotifyDeliveryRepository for MemoryStore {
     ) -> Result<u64> {
         let mut deliveries = self.deliveries.lock().unwrap();
         let mut count = 0;
+
         for delivery in deliveries.values_mut().filter(|delivery| {
             delivery.organization_id == *organization_id
                 && delivery.event_id == event_id
@@ -376,6 +391,7 @@ impl NotifyDeliveryRepository for MemoryStore {
             delivery.acknowledged_at = Some(acknowledged_at);
             count += 1;
         }
+
         Ok(count)
     }
 
@@ -386,6 +402,7 @@ impl NotifyDeliveryRepository for MemoryStore {
         limit: u32,
     ) -> Result<Vec<NotifyDelivery>> {
         let policies = self.policies.lock().unwrap();
+
         Ok(self
             .deliveries
             .lock()
@@ -395,9 +412,11 @@ impl NotifyDeliveryRepository for MemoryStore {
                 let Some(policy_id) = &delivery.policy_id else {
                     return false;
                 };
+
                 let Some(policy) = policies.get(policy_id.as_str()) else {
                     return false;
                 };
+
                 delivery.organization_id == *organization_id
                     && delivery.status == DeliveryStatus::Success
                     && delivery.acknowledged_at.is_none()
@@ -424,10 +443,12 @@ impl NotifyDeliveryRepository for MemoryStore {
         escalated_at: TimestampMicros,
     ) -> Result<NotifyDelivery> {
         let mut deliveries = self.deliveries.lock().unwrap();
+
         let delivery = deliveries
             .get_mut(id.as_str())
             .filter(|delivery| delivery.organization_id == *organization_id)
             .ok_or_else(|| Error::not_found("notify delivery"))?;
+
         delivery.escalated_at = Some(escalated_at);
         Ok(delivery.clone())
     }
@@ -458,21 +479,25 @@ impl NotifyEventRepository for MemoryStore {
     ) -> Result<NotifyEventClaim> {
         let key = format!("{organization_id}:{id}");
         let mut events = self.events.lock().unwrap();
+
         let record = events
             .get_mut(&key)
             .ok_or_else(|| Error::not_found("notify event"))?;
+
         let acquired = (record.status == NotifyEventStatus::Pending
             && record.next_attempt_at.0 <= now.0)
             || (record.status == NotifyEventStatus::Processing
                 && record
                     .claimed_at
                     .is_some_and(|claimed| claimed.0 <= now.0 - 300_000_000));
+
         if acquired {
             record.status = NotifyEventStatus::Processing;
             record.attempt += 1;
             record.claimed_at = Some(now);
             record.updated_at = now;
         }
+
         Ok(NotifyEventClaim {
             record: record.clone(),
             acquired,
@@ -487,19 +512,23 @@ impl NotifyEventRepository for MemoryStore {
     ) -> Result<NotifyEventClaim> {
         let key = format!("{organization_id}:{id}");
         let mut events = self.events.lock().unwrap();
+
         let record = events
             .get_mut(&key)
             .ok_or_else(|| Error::not_found("notify event"))?;
+
         let acquired = record.status != NotifyEventStatus::Processing
             || record
                 .claimed_at
                 .is_some_and(|claimed| claimed.0 <= now.0 - 300_000_000);
+
         if acquired {
             record.status = NotifyEventStatus::Processing;
             record.attempt += 1;
             record.claimed_at = Some(now);
             record.updated_at = now;
         }
+
         Ok(NotifyEventClaim {
             record: record.clone(),
             acquired,
@@ -514,6 +543,7 @@ impl NotifyEventRepository for MemoryStore {
     ) -> Result<Vec<NotifyEventRecord>> {
         let mut events = self.events.lock().unwrap();
         let mut records = Vec::new();
+
         for record in events.values_mut().filter(|record| {
             record.event.organization_id == *organization_id
                 && ((record.status == NotifyEventStatus::Pending
@@ -528,10 +558,12 @@ impl NotifyEventRepository for MemoryStore {
             record.claimed_at = Some(now);
             record.updated_at = now;
             records.push(record.clone());
+
             if records.len() >= limit as usize {
                 break;
             }
         }
+
         Ok(records)
     }
 
@@ -546,9 +578,11 @@ impl NotifyEventRepository for MemoryStore {
     ) -> Result<NotifyEventRecord> {
         let key = format!("{organization_id}:{id}");
         let mut events = self.events.lock().unwrap();
+
         let record = events
             .get_mut(&key)
             .ok_or_else(|| Error::not_found("notify event"))?;
+
         record.status = status;
         record.next_attempt_at = next_attempt_at;
         record.claimed_at = None;
@@ -565,6 +599,7 @@ impl NotifyPolicyRepository for MemoryStore {
             .lock()
             .unwrap()
             .insert(policy.id.0.clone(), policy.clone());
+
         Ok(policy)
     }
 
@@ -658,6 +693,7 @@ impl TeamNotifyDefaultRepository for MemoryStore {
             .lock()
             .unwrap()
             .insert(defaults.id.0.clone(), defaults.clone());
+
         Ok(defaults)
     }
 
@@ -671,6 +707,7 @@ impl TeamNotifyDefaultRepository for MemoryStore {
             .await?
             .ok_or_else(|| Error::not_found("team notify default"))?
             .id;
+
         self.team_defaults.lock().unwrap().remove(id.as_str());
         Ok(())
     }
@@ -713,6 +750,7 @@ impl OrganizationNotifyDefaultRepository for MemoryStore {
             .lock()
             .unwrap()
             .insert(defaults.id.0.clone(), defaults.clone());
+
         Ok(defaults)
     }
 
@@ -721,10 +759,12 @@ impl OrganizationNotifyDefaultRepository for MemoryStore {
             .await?
             .ok_or_else(|| Error::not_found("organization notify default"))?
             .id;
+
         self.organization_defaults
             .lock()
             .unwrap()
             .remove(id.as_str());
+
         Ok(())
     }
 }
@@ -747,6 +787,7 @@ impl TeamRepository for MemoryStore {
             .lock()
             .unwrap()
             .insert(team.id.0.clone(), team.clone());
+
         Ok(team)
     }
 
@@ -792,11 +833,13 @@ impl RecipientResolver for StaticResolver {
         if config.get("user_id").and_then(Value::as_str).is_none() {
             return Err(Error::invalid("static_test requires user_id"));
         }
+
         Ok(())
     }
 
     async fn resolve(&self, _event: &NotifyEvent, config: &Value) -> Result<Vec<NotifyRecipient>> {
         self.validate_config(config)?;
+
         Ok(vec![NotifyRecipient {
             user_id: Id::from_string(config["user_id"].as_str().unwrap()),
             team_id: config
@@ -857,15 +900,18 @@ impl ConnectorAdapter for FakeAdapter {
         _message: &NotifyMessage,
     ) -> Result<ConnectorDeliveryResult> {
         self.total.fetch_add(1, Ordering::SeqCst);
+
         *self
             .sends
             .lock()
             .unwrap()
             .entry(target.value.clone())
             .or_default() += 1;
+
         if target.value.starts_with("fail-") {
             return Err(Error::unavailable("simulated provider failure"));
         }
+
         Ok(ConnectorDeliveryResult {
             provider_message_id: Some("provider-message".into()),
             delivered: true,

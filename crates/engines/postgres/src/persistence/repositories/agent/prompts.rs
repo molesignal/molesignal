@@ -81,6 +81,7 @@ const COLS: &str = "id, org_id, user_id, scope, builtin_key, purpose, name, body
 
 fn row_to(r: sqlx::postgres::PgRow) -> Result<AgentPromptTemplate> {
     let schema: Json<Value> = r.try_get("variables_schema").map_err(sqlx_err)?;
+
     Ok(AgentPromptTemplate {
         id: Id(r.try_get::<String, _>("id").map_err(sqlx_err)?),
         org_id: r.try_get("org_id").map_err(sqlx_err)?,
@@ -118,6 +119,7 @@ impl AgentPromptRepository for PgAgentPromptRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to).collect()
     }
 
@@ -130,6 +132,7 @@ impl AgentPromptRepository for PgAgentPromptRepository {
         .await
         .map_err(sqlx_err)?
         .ok_or_else(|| Error::not_found(format!("ai prompt `{}` not found", id.0)))?;
+
         row_to(row)
     }
 
@@ -143,6 +146,7 @@ impl AgentPromptRepository for PgAgentPromptRepository {
         .await
         .map_err(sqlx_err)?
         .ok_or_else(|| Error::not_found(format!("builtin prompt `{builtin_key}` not found")))?;
+
         row_to(row)
     }
 
@@ -150,6 +154,7 @@ impl AgentPromptRepository for PgAgentPromptRepository {
         if t.scope == "builtin" {
             return Err(Error::invalid("cannot create builtin prompt via API"));
         }
+
         sqlx::query(
             "INSERT INTO agent_prompt_templates
                 (id, org_id, user_id, scope, builtin_key, purpose, name, body, variables_schema,
@@ -176,15 +181,19 @@ impl AgentPromptRepository for PgAgentPromptRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         self.get(&t.id).await
     }
 
     async fn update(&self, t: AgentPromptTemplate) -> Result<AgentPromptTemplate> {
         let existing = self.get(&t.id).await?;
+
         if existing.scope == "builtin" {
             return Err(Error::invalid("builtin prompts are immutable"));
         }
+
         let now = TimestampMicros::now();
+
         sqlx::query(
             "UPDATE agent_prompt_templates SET
                 name = $2, body = $3, variables_schema = $4, enabled = $5,
@@ -201,6 +210,7 @@ impl AgentPromptRepository for PgAgentPromptRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         self.get(&t.id).await
     }
 
@@ -211,11 +221,14 @@ impl AgentPromptRepository for PgAgentPromptRepository {
     )]
     async fn set_default(&self, id: &Id) -> Result<()> {
         let t = self.get(id).await?;
+
         if t.scope == "builtin" {
             return Err(Error::invalid("builtin defaults are managed by the system"));
         }
+
         let now = TimestampMicros::now();
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         // 清掉同 scope + owner + purpose 的其它默认。
         sqlx::query(
             "UPDATE agent_prompt_templates SET is_default = FALSE, updated_at_micros = $5
@@ -230,6 +243,7 @@ impl AgentPromptRepository for PgAgentPromptRepository {
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
+
         sqlx::query(
             "UPDATE agent_prompt_templates SET is_default = TRUE, enabled = TRUE, updated_at_micros = $2
              WHERE id = $1",
@@ -239,20 +253,24 @@ impl AgentPromptRepository for PgAgentPromptRepository {
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
+
         tx.commit().await.map_err(sqlx_err)?;
         Ok(())
     }
 
     async fn delete(&self, id: &Id) -> Result<()> {
         let t = self.get(id).await?;
+
         if t.scope == "builtin" {
             return Err(Error::invalid("builtin prompts cannot be deleted"));
         }
+
         sqlx::query("DELETE FROM agent_prompt_templates WHERE id = $1")
             .bind(&id.0)
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -281,6 +299,7 @@ impl AgentPromptRepository for PgAgentPromptRepository {
         .await
         .map_err(sqlx_err)?
         .ok_or_else(|| Error::not_found(format!("no prompt resolved for purpose `{purpose}`")))?;
+
         row_to(row)
     }
 }
@@ -294,6 +313,7 @@ pub fn referenced_variables(body: &str) -> Vec<String> {
     let mut out = Vec::new();
     let bytes = body.as_bytes();
     let mut i = 0;
+
     while i + 1 < bytes.len() {
         if bytes[i] == b'{'
             && bytes[i + 1] == b'{'
@@ -301,14 +321,18 @@ pub fn referenced_variables(body: &str) -> Vec<String> {
         {
             let raw = &body[i + 2..i + 2 + end];
             let name = raw.trim().to_string();
+
             if !name.is_empty() && !out.contains(&name) {
                 out.push(name);
             }
+
             i = i + 2 + end + 2;
             continue;
         }
+
         i += 1;
     }
+
     out
 }
 
@@ -324,6 +348,7 @@ pub fn allowed_variables(variables_schema: &Value) -> Vec<String> {
 /// 校验 body 只引用 `variables_schema` 允许的变量；否则返 `InvalidArgument`。
 pub fn validate_template_variables(body: &str, variables_schema: &Value) -> Result<()> {
     let allowed = allowed_variables(variables_schema);
+
     for var in referenced_variables(body) {
         if !allowed.contains(&var) {
             return Err(Error::invalid(format!(
@@ -331,6 +356,7 @@ pub fn validate_template_variables(body: &str, variables_schema: &Value) -> Resu
             )));
         }
     }
+
     Ok(())
 }
 
@@ -339,6 +365,7 @@ pub fn render_prompt(body: &str, vars: &Map<String, Value>) -> String {
     let mut out = String::with_capacity(body.len());
     let bytes = body.as_bytes();
     let mut i = 0;
+
     while i < body.len() {
         if i + 1 < bytes.len()
             && bytes[i] == b'{'
@@ -346,6 +373,7 @@ pub fn render_prompt(body: &str, vars: &Map<String, Value>) -> String {
             && let Some(end) = body[i + 2..].find("}}")
         {
             let name = body[i + 2..i + 2 + end].trim();
+
             let val = vars
                 .get(name)
                 .map(|v| match v {
@@ -353,15 +381,18 @@ pub fn render_prompt(body: &str, vars: &Map<String, Value>) -> String {
                     other => other.to_string(),
                 })
                 .unwrap_or_default();
+
             out.push_str(&val);
             i = i + 2 + end + 2;
             continue;
         }
+
         // 推进一个 UTF-8 char，避免在多字节边界切割。
         let ch_len = body[i..].chars().next().map(|c| c.len_utf8()).unwrap_or(1);
         out.push_str(&body[i..i + ch_len]);
         i += ch_len;
     }
+
     out
 }
 
@@ -372,10 +403,12 @@ pub fn prompt_hash(rendered: &str) -> String {
     h.update(rendered.as_bytes());
     let digest = h.finalize();
     let mut s = String::with_capacity(64);
+
     for b in digest {
         use std::fmt::Write as _;
         let _ = write!(s, "{b:02x}");
     }
+
     s
 }
 

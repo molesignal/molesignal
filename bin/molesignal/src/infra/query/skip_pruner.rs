@@ -116,12 +116,15 @@ impl SkipPredicate {
         let Some(minimum) = file.min_values.get(&self.field) else {
             return true;
         };
+
         let Some(maximum) = file.max_values.get(&self.field) else {
             return true;
         };
+
         let Some(minimum_ordering) = compare_bound(minimum, &self.literal, self.data_type) else {
             return true;
         };
+
         let Some(maximum_ordering) = compare_bound(maximum, &self.literal, self.data_type) else {
             return true;
         };
@@ -144,9 +147,11 @@ impl SkipPredicate {
 /// 用 `skip` 字段的文件级 min/max 排除不可能命中的候选文件。
 pub fn prune(files: Vec<QueryFile>, statement: &str, schema: &Schema) -> Vec<QueryFile> {
     let predicates = extract_predicates(statement, schema);
+
     if predicates.is_empty() {
         return files;
     }
+
     files
         .into_iter()
         .filter(|file| {
@@ -164,6 +169,7 @@ fn extract_predicates(statement: &str, schema: &Schema) -> Vec<SkipPredicate> {
         .filter(|field| !field.encrypted && field.effective_index_type() == StreamIndexType::Skip)
         .map(|field| (field.name.as_str(), field.data_type))
         .collect();
+
     if skip_fields.is_empty() {
         return Vec::new();
     }
@@ -171,10 +177,13 @@ fn extract_predicates(statement: &str, schema: &Schema) -> Vec<SkipPredicate> {
     let Ok(statements) = Parser::parse_sql(&GenericDialect, statement) else {
         return Vec::new();
     };
+
     if statements.len() != 1 {
         return Vec::new();
     }
+
     let mut predicates = Vec::new();
+
     for statement in &statements {
         if let Statement::Query(query) = statement
             && let SetExpr::Select(select) = query.body.as_ref()
@@ -183,6 +192,7 @@ fn extract_predicates(statement: &str, schema: &Schema) -> Vec<SkipPredicate> {
             collect_conjuncts(selection, &skip_fields, &mut predicates);
         }
     }
+
     predicates
 }
 
@@ -204,6 +214,7 @@ fn collect_conjuncts(
             let Some(comparison) = Comparison::from_binary(op) else {
                 return;
             };
+
             if let Some(predicate) = predicate(left, right, comparison, fields)
                 .or_else(|| predicate(right, left, comparison.mirrored(), fields))
             {
@@ -224,9 +235,11 @@ fn predicate(
     let field = unqualified_column(column)?;
     let data_type = *fields.get(field)?;
     let literal = Literal::from_expr(value)?;
+
     if !literal.supports(data_type) {
         return None;
     }
+
     Some(SkipPredicate {
         field: field.to_string(),
         data_type,

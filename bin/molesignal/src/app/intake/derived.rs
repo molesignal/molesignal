@@ -143,6 +143,7 @@ fn project_rows(
                 timestamp: event.timestamp,
                 fields: retain_fields(&event.fields, fields),
             };
+
             if use_started_at
                 && let Some(timestamp) = projected
                     .fields
@@ -151,9 +152,11 @@ fn project_rows(
             {
                 projected.timestamp = TimestampMicros(timestamp);
             }
+
             projected
         })
         .collect::<Vec<_>>();
+
     (!events.is_empty()).then(|| (dataset_type, derived_batch(batch, events)))
 }
 
@@ -161,6 +164,7 @@ fn project_rows(
 /// 每批每个指标仅写一行目录项，避免目录查询扫描宽样本列。
 fn metric_catalog(batch: &IntakeBatch) -> Option<(DatasetTypeId, IntakeBatch)> {
     let mut entries = BTreeMap::<String, RawEvent>::new();
+
     for event in &batch.events {
         let Some(name) = event
             .fields
@@ -170,19 +174,24 @@ fn metric_catalog(batch: &IntakeBatch) -> Option<(DatasetTypeId, IntakeBatch)> {
         else {
             continue;
         };
+
         entries.entry(name.to_string()).or_insert_with(|| {
             let mut fields = Map::new();
             fields.insert(METRIC_NAME_FIELD.into(), Value::String(name.to_string()));
+
             if let Some(kind) = event.fields.get(METRIC_KIND_FIELD) {
                 fields.insert(METRIC_KIND_FIELD.into(), kind.clone());
             }
+
             RawEvent {
                 timestamp: event.timestamp,
                 fields,
             }
         });
     }
+
     let events = entries.into_values().collect::<Vec<_>>();
+
     (!events.is_empty()).then(|| {
         (
             DatasetTypeId::builtin(builtin::DATASET_METRIC_CATALOG),

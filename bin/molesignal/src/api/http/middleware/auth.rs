@@ -118,9 +118,11 @@ pub async fn auth_layer(
 ) -> Result<Response, Error> {
     materialize_http2_authority(&mut req);
     let path = req.uri().path().to_string();
+
     if is_whitelisted_path(&path) {
         return Ok(next.run(req).await);
     }
+
     let token = req
         .headers()
         .get(http::header::AUTHORIZATION)
@@ -137,6 +139,7 @@ pub async fn auth_layer(
             state.iam.api_tokens.clone(),
         )
         .await?;
+
         (
             identity.context,
             AuthenticatedCredential::ApiToken {
@@ -146,22 +149,28 @@ pub async fn auth_layer(
         )
     } else {
         let context = state.iam.service.verify_token(token)?;
+
         state
             .iam
             .service
             .ensure_user_access(&context.user_id)
             .await?;
+
         (context, AuthenticatedCredential::UserJwt)
     };
+
     let capability_snapshot = state.iam.access.enrich_context(&mut ctx).await?;
+
     let debug_token = req
         .headers()
         .get(crate::shared::trace_context::TRACE_DEBUG_TOKEN)
         .and_then(|value| value.to_str().ok())
         .filter(|value| value.starts_with("mstd_") && value.len() <= 160)
         .map(str::to_owned);
+
     if let Some(debug_token) = debug_token {
         let token_hash = blake3::hash(debug_token.as_bytes()).to_hex().to_string();
+
         if let Some(grant) = state
             .telemetry
             .trace_debug_tokens
@@ -180,10 +189,12 @@ pub async fn auth_layer(
                 trace_context.trust = TraceTrust::DebugToken;
                 trace_context.apply_trusted_force(true);
             }
+
             update_current_trace_context(|trace_context| {
                 trace_context.trust = TraceTrust::DebugToken;
                 trace_context.apply_trusted_force(true);
             });
+
             let _ = state
                 .iam
                 .audit_events
@@ -207,15 +218,18 @@ pub async fn auth_layer(
                 .await;
         }
     }
+
     if let Some(trace_context) = req
         .extensions_mut()
         .get_mut::<crate::shared::trace_context::TraceContext>()
     {
         trace_context.set_authenticated_org(ctx.org_id.as_str());
     }
+
     update_current_trace_context(|trace_context| {
         trace_context.set_authenticated_org(ctx.org_id.as_str());
     });
+
     tracing::Span::current().record("molesignal.org.id", ctx.org_id.as_str());
     tracing::Span::current().record("molesignal.user.id", ctx.user_id.as_str());
     req.extensions_mut().insert(capability_snapshot);
@@ -231,7 +245,9 @@ fn materialize_http2_authority(req: &mut Request) {
     if req.headers().contains_key(http::header::HOST) {
         return;
     }
+
     let authority = req.uri().authority().map(|value| value.as_str().to_owned());
+
     if let Some(authority) = authority
         && let Ok(value) = http::HeaderValue::from_str(&authority)
     {

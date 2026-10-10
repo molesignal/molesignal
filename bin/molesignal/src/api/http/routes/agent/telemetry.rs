@@ -70,6 +70,7 @@ async fn run_sql(
         limit: None,
         federation_clusters: Vec::new(),
     };
+
     let out = state.query.run(req).await?;
     Ok(serde_json::to_value(out).unwrap_or(Value::Null))
 }
@@ -81,11 +82,13 @@ async fn stats(
     Query(p): Query<AgentQueryParams>,
 ) -> Result<Json<Value>> {
     let (from, to) = resolve_range(&p);
+
     let q = AgentStatsQuery {
         org_id: ctx.org_id.clone(),
         from_micros: from,
         to_micros: to,
     };
+
     let v = run_sql(&state, &ctx, q.overall_sql(), from, to).await?;
     Ok(Json(v))
 }
@@ -98,11 +101,13 @@ async fn top_models(
 ) -> Result<Json<Value>> {
     let (from, to) = resolve_range(&p);
     let limit = p.limit.unwrap_or(10).clamp(1, 1000);
+
     let q = AgentStatsQuery {
         org_id: ctx.org_id.clone(),
         from_micros: from,
         to_micros: to,
     };
+
     let v = run_sql(&state, &ctx, q.top_models_sql(limit), from, to).await?;
     Ok(Json(v))
 }
@@ -115,11 +120,13 @@ async fn top_users(
 ) -> Result<Json<Value>> {
     let (from, to) = resolve_range(&p);
     let limit = p.limit.unwrap_or(10).clamp(1, 1000);
+
     let q = AgentStatsQuery {
         org_id: ctx.org_id.clone(),
         from_micros: from,
         to_micros: to,
     };
+
     let v = run_sql(&state, &ctx, q.top_users_sql(limit), from, to).await?;
     Ok(Json(v))
 }

@@ -21,11 +21,13 @@ pub(super) async fn list(
     value: Value,
 ) -> Result<ToolResult> {
     let args: ListArgs = parse_args(value)?;
+
     let jobs = runtime
         .data
         .search_jobs
         .list(&auth.org_id, args.limit.unwrap_or(50).clamp(1, 200) as i64)
         .await?;
+
     jobs_result(jobs)
 }
 
@@ -35,6 +37,7 @@ pub(super) async fn get(
     value: Value,
 ) -> Result<ToolResult> {
     let args: JobArgs = parse_args(value)?;
+
     jobs_result(vec![
         runtime
             .data
@@ -50,6 +53,7 @@ pub(super) async fn results(
     value: Value,
 ) -> Result<ToolResult> {
     let args: JobArgs = parse_args(value)?;
+
     json_result(
         &runtime
             .data
@@ -83,6 +87,7 @@ fn jobs_result(jobs: Vec<SearchJob>) -> Result<ToolResult> {
             })
         })
         .collect::<Vec<_>>();
+
     Ok(ToolResult::json(json!({"jobs": safe})))
 }
 
@@ -105,6 +110,7 @@ struct JobArgs {
 
 fn required_job_id(value: &str) -> Result<String> {
     let value = value.trim();
+
     if value.is_empty() {
         Err(Error::invalid("job_id is required"))
     } else {

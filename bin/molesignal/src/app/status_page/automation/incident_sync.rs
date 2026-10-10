@@ -17,6 +17,7 @@ impl StatusPageService {
             && (incident.title != candidate.title
                 || incident.impact != candidate.impact
                 || incident.component_ids != candidate.component_ids);
+
         !metadata_changed
             && incident
                 .updates
@@ -33,13 +34,16 @@ impl StatusPageService {
         let changed = incident.title != candidate.title
             || incident.impact != candidate.impact
             || incident.component_ids != candidate.component_ids;
+
         if !candidate.automatic || !changed {
             return Ok(incident);
         }
+
         incident.title.clone_from(&candidate.title);
         incident.impact = candidate.impact;
         incident.component_ids.clone_from(&candidate.component_ids);
         incident.updated_at = updated_at;
+
         self.repository
             .update_status_incident_metadata(incident)
             .await

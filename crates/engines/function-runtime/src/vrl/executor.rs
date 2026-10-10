@@ -34,9 +34,11 @@ impl VrlFunctionExecutor {
 
     fn compile_cached(&self, f: &Function) -> Result<Arc<CompiledProgram>> {
         let key = (f.id.0.clone(), f.updated_at.0);
+
         if let Some(hit) = self.cache.get(&key) {
             return Ok(hit.clone());
         }
+
         let compiled = Arc::new(self.runtime.compile(&f.source)?);
         self.cache.insert(key, compiled.clone());
         // 清理同 function_id 的旧版本，避免缓存膨胀

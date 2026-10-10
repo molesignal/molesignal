@@ -49,18 +49,22 @@ pub fn spawn_compactor_loop(
     let max = settings.max_concurrent_groups.max(1) as usize;
     let sem = Arc::new(Semaphore::new(max));
     let interval = Duration::from_secs(settings.interval_secs.max(1) as u64);
+
     tokio::spawn(async move {
         let mut ticker = tokio::time::interval(interval);
         // 第一次 tick 立刻触发（spec 没强制 skip），但为避免与 intake replay 抢资源稍微 delay 一下
         ticker.tick().await;
         let mut blob_sweep_at = TimestampMicros::now().0;
+
         loop {
             ticker.tick().await;
+
             // 节点退役：停接新活——结束 compaction loop（合并/降采样可中断，下次启动续做）。
             if drain.is_draining() {
                 tracing::info!("compactor draining; stopping compaction loop");
                 break;
             }
+
             match run_once(
                 &compactor,
                 orgs.as_ref(),
@@ -73,14 +77,18 @@ pub fn spawn_compactor_loop(
                 Ok(owned) => ownership.record_owned(WORK, owned),
                 Err(e) => tracing::warn!(error = %e, "compactor tick failed"),
             }
+
             // 投资栈 blob retention 一天一次即可
             let now = TimestampMicros::now().0;
+
             if now - blob_sweep_at >= 86_400 * 1_000_000 {
                 blob_sweep_at = now;
                 let cutoff = now - INVESTIGATION_BLOB_TTL_SECS * 1_000_000;
+
                 match investigation_blobs.delete_older_than(cutoff).await {
                     Ok(keys) if !keys.is_empty() => {
                         tracing::info!(rows = keys.len(), "swept investigation blobs");
+
                         // 顺带清掉对象存储里对应的 blob 对象，避免孤儿（best-effort）。
                         for key in keys {
                             if let Ok(path) = ObjPath::parse(&key) {
@@ -107,47 +115,60 @@ async fn run_once(
     let org_list = orgs.list().await?;
     let now = TimestampMicros::now();
     let mut handles = Vec::new();
+
     for org in org_list {
         let stream_list = streams.list(&org.id).await?;
+
         for stream in stream_list {
             let permit = sem.clone().acquire_owned().await?;
+
             // 拿到并发名额后再判定归属：排在前面的数据流可能跑了很久，成员视图已经变了。
             if !ownership.owns(stream.id.as_str()).await {
                 continue;
             }
+
             let compactor = compactor.clone();
             let stream = stream.clone();
+
             let h = tokio::spawn(async move {
                 let _permit = permit;
                 let retention_days =
                     stream.effective_retention_days(compactor.settings().retention_days);
+
                 let lookback =
                     TimestampMicros(now.0.saturating_sub(
                         i64::from(retention_days).saturating_mul(86_400 * 1_000_000),
                     ));
+
                 if let Err(e) = compactor
                     .sweep_one(&stream, TimeRange::new(lookback, now))
                     .await
                 {
                     tracing::warn!(stream = %stream.name, error = %e, "sweep_one failed");
                 }
+
                 // 降采样：把早于阈值的 metrics 预聚合成时间桶（关闭时 no-op）。
                 if let Err(e) = compactor.downsample_sweep(&stream).await {
                     tracing::warn!(stream = %stream.name, error = %e, "downsample_sweep failed");
                 }
+
                 // Retention runs after derivation so an aggressive cutoff cannot remove raw
                 // inputs before an enabled raw-to-rollup transform has a chance to publish.
                 if let Err(e) = compactor.retention_sweep(&stream).await {
                     tracing::warn!(stream = %stream.name, error = %e, "retention_sweep failed");
                 }
             });
+
             handles.push(h);
         }
     }
+
     let owned = handles.len();
+
     for h in handles {
         let _ = h.await;
     }
+
     Ok(owned)
 }
 

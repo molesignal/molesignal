@@ -145,6 +145,7 @@ pub trait QueryEngine: Send + Sync {
             )?),
             None => None,
         };
+
         if primary.as_ref() == Some(&dataset_type) {
             self.execute(req).await
         } else {

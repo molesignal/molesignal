@@ -19,6 +19,7 @@ use crate::{
 
 /// list/detail 暴露的 trace_id 最多保留多少条；过多会让 drawer 拥挤、payload 膨胀。
 const MAX_TRACE_IDS_PER_INCIDENT: usize = 10;
+
 /// 触发查询样本最多保留多少行，控制 detail payload 体积。
 const MAX_SAMPLE_VALUES_PER_INCIDENT: usize = 20;
 
@@ -53,9 +54,11 @@ pub(super) fn derive_incident_context(rule: &AlertRule, q: &QueryResult) -> Inci
         if let Some(idx) = trace_col {
             push_unique_string(&mut trace_ids, row.get(idx));
         }
+
         if let Some(idx) = host_col {
             push_unique_string(&mut host_ids, row.get(idx));
         }
+
         if let Some(idx) = service_col {
             push_unique_string(&mut affected_services, row.get(idx));
         }
@@ -72,6 +75,7 @@ pub(super) fn derive_incident_context(rule: &AlertRule, q: &QueryResult) -> Inci
         {
             labels.insert("service".to_string(), v);
         }
+
         if let Some(idx) = host_col
             && let Some(v) = first.get(idx).and_then(json_as_string)
         {
@@ -112,6 +116,7 @@ fn find_col(columns: &[String], candidates: &[&str]) -> Option<usize> {
             return Some(idx);
         }
     }
+
     None
 }
 
@@ -120,12 +125,14 @@ fn first_numeric_col(q: &QueryResult) -> Option<usize> {
     // 跳过时间戳列：触发查询往往以 `_timestamp` 作为首列，把它当作数值会让
     // sample_values.value 变成微秒时间戳。
     let ts_names = ["_timestamp", "ts", "time", "timestamp"];
+
     row.iter().enumerate().find_map(|(idx, v)| {
         let is_ts = q
             .columns
             .get(idx)
             .map(|c| ts_names.iter().any(|t| c.eq_ignore_ascii_case(t)))
             .unwrap_or(false);
+
         if !is_ts && (v.is_f64() || v.is_i64() || v.is_u64()) {
             Some(idx)
         } else {

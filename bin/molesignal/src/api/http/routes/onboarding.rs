@@ -34,6 +34,7 @@ const SAMPLE_TRACES: &str = "sample_app_traces";
 
 /// 调用链上的服务，按 span 父子顺序排列（frontend 为根）。
 const SERVICES: [&str; 4] = ["frontend", "checkout", "payment", "db"];
+
 /// 各 service 的基线时延（毫秒），叶子（db）最小。
 const BASE_LATENCY_MS: [f64; 4] = [120.0, 90.0, 60.0, 25.0];
 
@@ -77,6 +78,7 @@ async fn sample_data_status(
         .get(&ctx.org_id, SAMPLE_LOGS, StreamType::LOGS)
         .await
         .is_ok();
+
     Ok(Json(SampleDataStatus { loaded }))
 }
 
@@ -89,8 +91,10 @@ async fn load_sample_data(
 
     let mut streams = Vec::new();
     let mut total_rows = 0;
+
     for (stream_type, name, events) in sample_batches(now_us) {
         let rows = events.len();
+
         let batch = IntakeBatch {
             batch_id: Id::new(),
             org_id: ctx.org_id.clone(),
@@ -99,8 +103,10 @@ async fn load_sample_data(
             events,
             received_at: TimestampMicros::now(),
         };
+
         state.intake.intake(batch).await?;
         total_rows += rows;
+
         streams.push(LoadedStream {
             stream: name.to_string(),
             rows,
@@ -150,11 +156,13 @@ fn is_error_trace(t: i64) -> bool {
 
 fn sample_traces(now_us: i64) -> Vec<RawEvent> {
     let mut out = Vec::new();
+
     for t in 0..SAMPLE_TRACES_COUNT {
         let tid = trace_id(t);
         let err = is_error_trace(t);
         let mut span_start = trace_start_us(now_us, t);
         let mut parent = String::new();
+
         for (i, svc) in SERVICES.iter().enumerate() {
             let span_id = format!("{:016x}", ((t as u64) << 16) | (i as u64 + 1));
             // 故障链的 payment span 时延翻倍并标 error，其余 OK。
@@ -175,17 +183,21 @@ fn sample_traces(now_us: i64) -> Vec<RawEvent> {
             span_start += (dur_ms * 0.2 * 1_000_000.0) as i64;
         }
     }
+
     out
 }
 
 fn sample_logs(now_us: i64) -> Vec<RawEvent> {
     let mut out = Vec::new();
+
     for t in 0..SAMPLE_TRACES_COUNT {
         let tid = trace_id(t);
         let err = is_error_trace(t);
         let base = trace_start_us(now_us, t);
+
         for (i, svc) in SERVICES.iter().enumerate() {
             let payment_fault = err && *svc == "payment";
+
             let (level, message) = if payment_fault {
                 (
                     "error",
@@ -194,6 +206,7 @@ fn sample_logs(now_us: i64) -> Vec<RawEvent> {
             } else {
                 ("info", format!("{svc} handled request ok"))
             };
+
             let mut f = Map::new();
             f.insert("trace_id".into(), json!(tid));
             f.insert("service".into(), json!(svc));
@@ -202,6 +215,7 @@ fn sample_logs(now_us: i64) -> Vec<RawEvent> {
             out.push(event(base + (i as i64) * 5 * 1_000_000, f));
         }
     }
+
     out
 }
 
@@ -210,8 +224,10 @@ fn sample_metrics(now_us: i64) -> Vec<RawEvent> {
     const STEPS: i64 = 37;
     const STEP_US: i64 = 5 * MIN_US;
     let mut out = Vec::new();
+
     for (i, svc) in SERVICES.iter().enumerate() {
         let base = BASE_LATENCY_MS[i];
+
         for step in 0..STEPS {
             let ts = now_us - (STEPS - 1 - step) * STEP_US;
             // 确定性日内波动 + 轻微随服务相位偏移，给 Metrics 页一条可看的曲线。
@@ -223,6 +239,7 @@ fn sample_metrics(now_us: i64) -> Vec<RawEvent> {
             out.push(event(ts, f));
         }
     }
+
     out
 }
 

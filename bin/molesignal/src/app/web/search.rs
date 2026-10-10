@@ -22,12 +22,15 @@ pub fn parse_kinds(types: Option<&str>) -> Vec<&str> {
 
 pub fn validate_query(q: &str) -> Result<(), &'static str> {
     let len = q.chars().count();
+
     if len < MIN_QUERY_CHARS {
         return Err("query must be at least 1 character");
     }
+
     if len > MAX_QUERY_CHARS {
         return Err("query too long (max 256 characters)");
     }
+
     Ok(())
 }
 

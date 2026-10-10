@@ -15,10 +15,12 @@ const PROTO_FILES: &[&str] = &[
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let proto_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../proto");
+
     let protos = PROTO_FILES
         .iter()
         .map(|path| proto_root.join(path))
         .collect::<Vec<_>>();
+
     for proto in &protos {
         println!("cargo:rerun-if-changed={}", proto.display());
     }
@@ -29,5 +31,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // flag for the proto3 optional fields used by probe.proto.
         .protoc_arg("--experimental_allow_proto3_optional")
         .compile_protos(&protos, std::slice::from_ref(&proto_root))?;
+
     Ok(())
 }

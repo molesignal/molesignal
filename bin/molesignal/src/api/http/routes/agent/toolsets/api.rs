@@ -64,8 +64,10 @@ async fn create(
     if req.name.trim().is_empty() {
         return Err(Error::invalid("name must not be empty"));
     }
+
     super::validate_toolset_schema(&req.schema)?;
     let now = TimestampMicros::now();
+
     let t = AgentToolset {
         id: Id::new(),
         org_id: ctx.org_id.clone(),
@@ -75,6 +77,7 @@ async fn create(
         created_at: now,
         updated_at: now,
     };
+
     let saved = state.agent.toolsets.create(t).await?;
     Ok(Json(saved))
 }

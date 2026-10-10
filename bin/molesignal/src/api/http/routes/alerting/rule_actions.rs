@@ -37,6 +37,7 @@ async fn test_rule(
         .evaluator
         .test_rule(&rule, TimestampMicros::now())
         .await?;
+
     Ok(Json(serde_json::to_value(result).map_err(|error| {
         Error::internal(format!("serialize alert test: {error}"))
     })?))
@@ -58,6 +59,7 @@ async fn trigger_rule(
         .evaluator
         .trigger_rule(&rule, &context.user_id, TimestampMicros::now())
         .await?;
+
     Ok(Json(serde_json::to_value(incident).map_err(|error| {
         Error::internal(format!("serialize incident: {error}"))
     })?))

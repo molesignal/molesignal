@@ -87,6 +87,7 @@ const UPDATE_SQL: &str = "UPDATE incidents SET
 
 fn bind_update<'q>(query: sqlx::TracedQuery<'q>, i: &'q Incident) -> sqlx::TracedQuery<'q> {
     let assignees: Vec<String> = i.assignees.iter().map(|x| x.0.clone()).collect();
+
     query
         .bind(&i.id.0)
         .bind(status_to_str(i.status))
@@ -129,6 +130,7 @@ fn row_to_incident(row: sqlx::postgres::PgRow) -> Result<Incident> {
     let res_by: Option<String> = row.try_get("resolved_by").map_err(sqlx_err)?;
     let current_step: i32 = row.try_get("current_step").map_err(sqlx_err)?;
     let current_loop: i32 = row.try_get("current_loop").map_err(sqlx_err)?;
+
     Ok(Incident {
         id: Id::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?),
         org_id: Id::from_string(row.try_get::<String, _>("org_id").map_err(sqlx_err)?),
@@ -166,6 +168,7 @@ fn row_to_incident(row: sqlx::postgres::PgRow) -> Result<Incident> {
 impl IncidentRepository for PgIncidentRepository {
     async fn create(&self, i: Incident) -> Result<Incident> {
         let assignees: Vec<String> = i.assignees.iter().map(|x| x.0.clone()).collect();
+
         sqlx::query(
             "INSERT INTO incidents
              (id, org_id, rule_id, escalation_policy_id, status, severity, summary, fingerprint,
@@ -201,6 +204,7 @@ impl IncidentRepository for PgIncidentRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(i)
     }
 
@@ -210,6 +214,7 @@ impl IncidentRepository for PgIncidentRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(i)
     }
 
@@ -222,11 +227,13 @@ impl IncidentRepository for PgIncidentRepository {
             .iter()
             .map(|status| status_to_str(*status).to_owned())
             .collect();
+
         let result = bind_update(sqlx::query(UPDATE_SQL), &i)
             .bind(Some(expected))
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok((result.rows_affected() > 0).then_some(i))
     }
 
@@ -236,6 +243,7 @@ impl IncidentRepository for PgIncidentRepository {
             .fetch_one(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         row_to_incident(row)
     }
 
@@ -248,6 +256,7 @@ impl IncidentRepository for PgIncidentRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to_incident).collect()
     }
 
@@ -266,6 +275,7 @@ impl IncidentRepository for PgIncidentRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         row.map(row_to_incident).transpose()
     }
 
@@ -278,6 +288,7 @@ impl IncidentRepository for PgIncidentRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to_incident).collect()
     }
 
@@ -295,6 +306,7 @@ impl IncidentRepository for PgIncidentRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to_incident).collect()
     }
 }

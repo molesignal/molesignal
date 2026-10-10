@@ -8,6 +8,7 @@ use regex::Regex;
 
 static RE_EMAIL: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"(?i)[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}").unwrap());
+
 static RE_PHONE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\+?\d[\d\s().-]{8,}\d").unwrap());
 static RE_CC: Lazy<Regex> = Lazy::new(|| Regex::new(r"\b\d{13,19}\b").unwrap());
 

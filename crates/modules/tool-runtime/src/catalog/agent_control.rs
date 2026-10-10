@@ -74,6 +74,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         ),
         _ => unreachable!("agent-control catalog received unrelated kind"),
     };
+
     ToolSpec::read(
         kind.name(),
         description,

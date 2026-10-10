@@ -53,6 +53,7 @@ pub(super) fn redact_credentials(value: &Value) -> Value {
         "credential",
         "private_key",
     ];
+
     match value {
         Value::Object(values) => Value::Object(
             values
@@ -66,6 +67,7 @@ pub(super) fn redact_credentials(value: &Value) -> Value {
                     } else {
                         redact_credentials(value)
                     };
+
                     (key.clone(), value)
                 })
                 .collect(),
@@ -81,6 +83,7 @@ pub(super) fn time_range(value: TimeRangeArg) -> Result<TimeRange> {
             "time_range.start_micros must be less than or equal to end_micros",
         ));
     }
+
     Ok(TimeRange::new(
         TimestampMicros(value.start_micros),
         TimestampMicros(value.end_micros),
@@ -91,6 +94,7 @@ pub(super) fn optional_time_range(value: Option<TimeRangeArg>) -> Result<TimeRan
     value.map_or_else(
         || {
             let end = TimestampMicros::now();
+
             Ok(TimeRange::new(
                 TimestampMicros(end.0.saturating_sub(DEFAULT_LOOKBACK_MICROS)),
                 end,
@@ -228,14 +232,17 @@ pub(super) async fn require_stream(
         .streams
         .get(org_id, name, stream_type)
         .await?;
+
     let settings = runtime
         .observability
         .streams
         .get_settings(&stream.id)
         .await?;
+
     if !settings.queryable {
         return Err(Error::forbidden("stream is not queryable"));
     }
+
     Ok(stream)
 }
 
@@ -262,7 +269,9 @@ pub(super) async fn resolve_traces_stream(
             stream.stream_type == StreamType::TRACES && schema_has(&stream.schema, "trace_id")
         })
         .collect::<Vec<_>>();
+
     candidates.sort_by_key(|stream| (stream.name != "default", stream.name.clone()));
+
     for stream in candidates {
         if runtime
             .observability
@@ -274,6 +283,7 @@ pub(super) async fn resolve_traces_stream(
             return Ok(Some(stream));
         }
     }
+
     Ok(None)
 }
 
@@ -286,6 +296,7 @@ pub(super) fn validate_trace_id(trace_id: &str) -> Result<()> {
     {
         return Err(Error::invalid("trace_id must be 1..=128 safe characters"));
     }
+
     Ok(())
 }
 

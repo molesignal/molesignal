@@ -18,6 +18,7 @@ pub async fn serve(state: AppState, settings: ProfilingSettings) -> anyhow::Resu
         allow_remote = settings.allow_remote,
         "pprof profiling listener active"
     );
+
     axum::serve(listener, pprof_routes().with_state(state))
         .await
         .map_err(|error| anyhow::anyhow!("pprof listener: {error}"))

@@ -66,8 +66,10 @@ impl ServiceGraphFlusher {
     pub fn spawn(self) -> JoinHandle<()> {
         tokio::spawn(async move {
             let mut tick = tokio::time::interval(Duration::from_secs(self.cfg.interval_secs));
+
             loop {
                 tick.tick().await;
+
                 if let Err(e) = self.flush_once().await {
                     tracing::warn!(error = %e, "service graph flush failed");
                 }
@@ -86,6 +88,7 @@ impl ServiceGraphFlusher {
         // 只 drain 已完成的分钟桶；当前进行中的分钟保留继续累计。
         let cutoff = (now / BUCKET_SIZE_US) * BUCKET_SIZE_US;
         let snaps = self.agg.flush_due(cutoff);
+
         // storage 模式下由单例重算 worker 落库 → 这里只 drain+丢弃（避免双写），仍 prune 控内存。
         let storage = self
             .instance_settings
@@ -93,11 +96,13 @@ impl ServiceGraphFlusher {
             .await
             .map(|s| s.service_graph_storage_mode())
             .unwrap_or(false);
+
         if !storage && !snaps.is_empty() {
             let n = snaps.len();
             self.repo.insert_many(&snaps).await?;
             tracing::debug!(edges = n, "flushed service graph edges");
         }
+
         // 清理超 TTL 的未配对 span。
         let span_cutoff = now - (self.cfg.span_ttl_secs as i64) * 1_000_000;
         self.agg.prune(span_cutoff);

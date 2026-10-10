@@ -37,6 +37,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         ),
         _ => unreachable!("reports catalog received unrelated kind"),
     };
+
     ToolSpec::read(
         kind.name(),
         description,

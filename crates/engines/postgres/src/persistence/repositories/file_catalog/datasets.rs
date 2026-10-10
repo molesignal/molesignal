@@ -23,6 +23,7 @@ pub(super) async fn ensure_datasets(
     specs: &[PhysicalDatasetSpec],
 ) -> Result<Vec<PhysicalDataset>> {
     let now = TimestampMicros::now().0;
+
     for spec in specs {
         sqlx::query(
             "INSERT INTO physical_datasets (org_id, id, logical_stream_id, dataset_type, \
@@ -46,6 +47,7 @@ pub(super) async fn ensure_datasets(
     }
 
     let datasets = list_datasets(pool, scope, logical_stream_id).await?;
+
     specs
         .iter()
         .map(|spec| {
@@ -77,5 +79,6 @@ pub(super) async fn list_datasets(
     .fetch_all(pool)
     .await
     .map_err(sqlx_err)?;
+
     rows.iter().map(dataset_from_row).collect()
 }

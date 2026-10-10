@@ -41,15 +41,18 @@ async fn serve(
     let received = Arc::new(Mutex::new(Vec::new()));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap().to_string();
+
     let service = FakeIntake {
         received: received.clone(),
         reply,
     };
+
     tokio::spawn(
         Server::builder()
             .add_service(IntakeServiceServer::new(service))
             .serve_with_incoming(TcpListenerStream::new(listener)),
     );
+
     (addr, received)
 }
 

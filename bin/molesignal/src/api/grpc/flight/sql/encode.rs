@@ -51,12 +51,14 @@ pub fn query_result_to_batch(out: &QueryResult) -> Result<RecordBatch, ArrowErro
 
     let mut fields = Vec::with_capacity(out.columns.len());
     let mut arrays: Vec<ArrayRef> = Vec::with_capacity(out.columns.len());
+
     for (idx, name) in out.columns.iter().enumerate() {
         let ty = infer_column(name, &out.rows, idx);
         let (data_type, array) = build_column(ty, &out.rows, idx);
         fields.push(Field::new(name, data_type, true));
         arrays.push(array);
     }
+
     RecordBatch::try_new(Arc::new(Schema::new(fields)), arrays)
 }
 
@@ -65,6 +67,7 @@ fn infer_column(name: &str, rows: &[Vec<Value>], idx: usize) -> ColType {
     let mut saw_int = false;
     let mut saw_float = false;
     let mut saw_text = false;
+
     for row in rows {
         match row.get(idx).unwrap_or(&Value::Null) {
             Value::Null => {}
@@ -79,6 +82,7 @@ fn infer_column(name: &str, rows: &[Vec<Value>], idx: usize) -> ColType {
             Value::String(_) | Value::Array(_) | Value::Object(_) => saw_text = true,
         }
     }
+
     let ty = if saw_text || (saw_bool && (saw_int || saw_float)) {
         ColType::Text
     } else if saw_bool {
@@ -91,15 +95,18 @@ fn infer_column(name: &str, rows: &[Vec<Value>], idx: usize) -> ColType {
         // 全 null：可空 Utf8。
         ColType::Text
     };
+
     // `_timestamp` 是引擎注入的 epoch-micros 列；编码成时间类型方便 DB 客户端显示。
     if name == "_timestamp" && ty == ColType::Int {
         return ColType::TimestampMicros;
     }
+
     ty
 }
 
 fn build_column(ty: ColType, rows: &[Vec<Value>], idx: usize) -> (DataType, ArrayRef) {
     let cell = |row: &Vec<Value>| row.get(idx).cloned().unwrap_or(Value::Null);
+
     match ty {
         ColType::Bool => {
             let it = rows.iter().map(|r| cell(r).as_bool());
@@ -111,6 +118,7 @@ fn build_column(ty: ColType, rows: &[Vec<Value>], idx: usize) -> (DataType, Arra
         }
         ColType::TimestampMicros => {
             let it = rows.iter().map(|r| cell(r).as_i64());
+
             (
                 DataType::Timestamp(TimeUnit::Microsecond, None),
                 Arc::new(TimestampMicrosecondArray::from_iter(it)),
@@ -127,6 +135,7 @@ fn build_column(ty: ColType, rows: &[Vec<Value>], idx: usize) -> (DataType, Arra
                 // 数字 / bool / 嵌套值按 JSON 原文转字符串。
                 other => Some(other.to_string()),
             });
+
             (DataType::Utf8, Arc::new(StringArray::from_iter(it)))
         }
     }

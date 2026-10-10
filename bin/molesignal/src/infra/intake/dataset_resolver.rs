@@ -71,6 +71,7 @@ impl DatasetResolver {
         dataset_type: DatasetTypeId,
     ) -> Result<Arc<ResolvedDataset>> {
         let cache_key = (stream.id.clone(), dataset_type.clone());
+
         if let Some(hit) = self.cache.get(&cache_key) {
             return Ok(hit.clone());
         }
@@ -78,20 +79,24 @@ impl DatasetResolver {
         let descriptor = self
             .registry
             .dataset_type(&stream.stream_type, &dataset_type)?;
+
         let spec = descriptor.to_spec();
         let wal_codec = spec.wal_codec.clone();
 
         let scope = OrganizationScope::new(stream.org_id.clone());
+
         let datasets = self
             .catalog
             .ensure_datasets(&scope, &stream.id, std::slice::from_ref(&spec))
             .await?;
+
         let dataset = datasets.into_iter().next().ok_or_else(|| {
             crate::shared::Error::internal(format!(
                 "file catalog omitted ensured dataset `{dataset_type}` for stream {}",
                 stream.id
             ))
         })?;
+
         let resolved = Arc::new(ResolvedDataset { dataset, wal_codec });
         self.cache.insert(cache_key, resolved.clone());
         Ok(resolved)

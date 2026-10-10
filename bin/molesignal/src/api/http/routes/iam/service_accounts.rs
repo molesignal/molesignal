@@ -119,6 +119,7 @@ async fn resolve_account_resp(
         .role_summary(&account.org_id, &account.role_id)
         .await?
         .ok_or_else(|| Error::internal("service account references a missing IAM role"))?;
+
     Ok(account_resp(account, role))
 }
 
@@ -128,10 +129,12 @@ async fn list(
 ) -> Result<Json<Vec<ServiceAccountResp>>> {
     require(&context, "service_accounts.read")?;
     let accounts = state.iam.service_accounts.list(&context.org_id).await?;
+
     let role_ids = accounts
         .iter()
         .map(|account| account.role_id.clone())
         .collect::<Vec<_>>();
+
     let roles = state
         .iam
         .access
@@ -141,6 +144,7 @@ async fn list(
         .into_iter()
         .map(|role| (role.id.0.clone(), role))
         .collect::<HashMap<_, _>>();
+
     let responses = accounts
         .into_iter()
         .map(|account| {
@@ -148,9 +152,11 @@ async fn list(
                 .get(&account.role_id.0)
                 .cloned()
                 .ok_or_else(|| Error::internal("service account references a missing IAM role"))?;
+
             Ok(account_resp(account, role))
         })
         .collect::<Result<Vec<_>>>()?;
+
     Ok(Json(responses))
 }
 
@@ -160,11 +166,13 @@ async fn get_one(
     Path(id): Path<String>,
 ) -> Result<Json<ServiceAccountResp>> {
     require(&context, "service_accounts.read")?;
+
     let account = state
         .iam
         .service_accounts
         .get(&context.org_id, &Id(id))
         .await?;
+
     Ok(Json(resolve_account_resp(&state, account).await?))
 }
 
@@ -183,6 +191,7 @@ async fn create(
     let token_name = format!("{name} initial API token");
     let (prefix, secret) = generate_token_parts();
     let plaintext = assemble_token(&prefix, &secret);
+
     let initial_token = ApiToken {
         id: Id::new(),
         prefix,
@@ -202,6 +211,7 @@ async fn create(
         application_id: None,
         service_account_id: Some(account_id.clone()),
     };
+
     let (saved_account, saved_token) = state
         .iam
         .service_accounts
@@ -220,7 +230,9 @@ async fn create(
             initial_token,
         )
         .await?;
+
     let service_account = resolve_account_resp(&state, saved_account).await?;
+
     Ok(secret_response(ProvisionedServiceAccountResp {
         api_token: InitialApiTokenResp {
             id: saved_token.id.0,
@@ -257,22 +269,27 @@ async fn update(
     Json(request): Json<UpdateReq>,
 ) -> Result<Json<ServiceAccountResp>> {
     require(&context, "service_accounts.manage")?;
+
     let mut account = state
         .iam
         .service_accounts
         .get(&context.org_id, &Id(id))
         .await?;
+
     if let Some(name) = request.name {
         account.name = validate_name(&name)?;
     }
+
     if let Some(description) = request.description {
         account.description = validate_description(&description)?;
     }
+
     if let Some(role_id) = request.role_id {
         let role_id = Id(role_id);
         validate_role(&state, &context, &role_id).await?;
         account.role_id = role_id;
     }
+
     account.updated_at = TimestampMicros::now();
     let saved = state.iam.service_accounts.update(account).await?;
     Ok(Json(resolve_account_resp(&state, saved).await?))
@@ -301,11 +318,13 @@ async fn set_disabled(
     disabled: bool,
 ) -> Result<Json<ServiceAccountResp>> {
     require(&context, "service_accounts.manage")?;
+
     let account = state
         .iam
         .service_accounts
         .set_disabled(&context.org_id, &Id(id), disabled, TimestampMicros::now())
         .await?;
+
     Ok(Json(resolve_account_resp(&state, account).await?))
 }
 
@@ -315,26 +334,31 @@ async fn delete(
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>> {
     require(&context, "service_accounts.manage")?;
+
     state
         .iam
         .service_accounts
         .delete(&context.org_id, &Id(id), TimestampMicros::now())
         .await?;
+
     Ok(Json(serde_json::json!({"deleted": true})))
 }
 
 async fn validate_role(state: &AppState, context: &IamContext, role_id: &Id) -> Result<()> {
     let role = state.iam.roles.get(&context.org_id, role_id).await?;
+
     if role.role_type != "organization" || role.scope != "organization" {
         return Err(Error::invalid(
             "service account role must have organization type and scope",
         ));
     }
+
     if role.key == "rum_client" {
         return Err(Error::invalid(
             "rum_client API tokens are application-scoped and cannot authenticate a service account",
         ));
     }
+
     if role
         .permissions
         .iter()
@@ -344,24 +368,29 @@ async fn validate_role(state: &AppState, context: &IamContext, role_id: &Id) -> 
             "service account role permissions cannot exceed caller IAM capabilities",
         ));
     }
+
     Ok(())
 }
 
 pub(super) fn validate_name(value: &str) -> Result<String> {
     let value = value.trim();
+
     if value.is_empty() || value.chars().count() > 128 {
         return Err(Error::invalid(
             "name must contain between 1 and 128 characters",
         ));
     }
+
     Ok(value.to_string())
 }
 
 fn validate_description(value: &str) -> Result<String> {
     let value = value.trim();
+
     if value.chars().count() > 2000 {
         return Err(Error::invalid("description cannot exceed 2000 characters"));
     }
+
     Ok(value.to_string())
 }
 
@@ -369,6 +398,7 @@ pub(super) fn require(context: &IamContext, permission: &str) -> Result<()> {
     if context.is_system_scope() {
         return Err(Error::not_found("service accounts"));
     }
+
     Permission::require_key(context, permission)
 }
 

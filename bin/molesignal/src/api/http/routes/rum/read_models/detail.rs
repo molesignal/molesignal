@@ -61,11 +61,13 @@ pub(super) async fn session(
     if session_id.is_empty() {
         return Err(Error::invalid("empty session id"));
     }
+
     let range = resolve_range(query)?;
     let ids = HashSet::from([session_id.clone()]);
     let reader = reader(&state);
     let mut sessions = Vec::new();
     let mut actions = Vec::new();
+
     let (session_stats, action_stats, replay_ids) = tokio::try_join!(
         reader.visit_raw_sessions_for_ids(&iam.org_id, range, &ids, |record| {
             sessions.push(record);
@@ -78,6 +80,7 @@ pub(super) async fn session(
             .rum_replay
             .existing_session_ids(&iam.org_id, std::slice::from_ref(&session_id)),
     )?;
+
     tracing::debug!(
         session_files = session_stats.files,
         action_files = action_stats.files,
@@ -87,10 +90,12 @@ pub(super) async fn session(
     sessions.sort_by_key(|record| std::cmp::Reverse(record.timestamp_micros));
     actions.sort_by_key(|record| record.timestamp_micros);
     actions.truncate(MAX_SESSION_EVENTS);
+
     let session = sessions
         .into_iter()
         .next()
         .map(|record| session_map(record, &actions, replay_ids.contains(&session_id)));
+
     let events = actions.into_iter().map(action_map).collect();
     Ok(Json(SessionDetailResponse { session, events }))
 }
@@ -105,14 +110,17 @@ pub(super) async fn error(
     if fingerprint.is_empty() {
         return Err(Error::invalid("empty RUM error fingerprint"));
     }
+
     let range = resolve_range(query)?;
     let reader = reader(&state);
     let mut records = Vec::new();
+
     let stats = reader
         .visit_raw_errors_by_fingerprint(&iam.org_id, range, &fingerprint, |record| {
             records.push(record);
         })
         .await?;
+
     records.sort_by_key(|record| std::cmp::Reverse(record.timestamp_micros));
     records.truncate(MAX_ERROR_SAMPLES);
     trace_detail_stats("error", stats.files, stats.rows, records.len());
@@ -125,10 +133,12 @@ fn session_map(
     replay_available: bool,
 ) -> Map<String, Value> {
     let mut item = Map::new();
+
     item.insert(
         "session_id".into(),
         Value::String(record.session_id.clone()),
     );
+
     insert_string(&mut item, "user_id", record.user_id);
     insert_string(&mut item, "ip_address", record.ip_address);
     insert_string(&mut item, "country", record.country);
@@ -151,6 +161,7 @@ fn session_map(
     let mut slow = 0_i64;
     let mut failed = 0_i64;
     let mut crashes = 0_i64;
+
     for action in actions {
         if action.event_type == "view"
             && let Some(page) = action.page_key()
@@ -158,29 +169,36 @@ fn session_map(
         {
             journey.push(page.to_string());
         }
+
         rage += i64::from(matches!(
             action.event_type.as_str(),
             "rage_click" | "rageclick"
         ));
+
         dead += i64::from(matches!(
             action.event_type.as_str(),
             "dead_click" | "deadclick"
         ));
+
         crashes += i64::from(action.event_type == "crash");
+
         failed += i64::from(
             action.status.unwrap_or_default() >= 400
                 || matches!(action.event_type.as_str(), "error" | "network_error"),
         );
+
         slow += i64::from(
             action.event_type == "resource" && action.duration_ms.unwrap_or_default() >= 1_000.0,
         );
     }
+
     item.insert("journey".into(), json!(journey));
     item.insert("rage_click_count".into(), json!(rage));
     item.insert("dead_click_count".into(), json!(dead));
     item.insert("slow_resource_count".into(), json!(slow));
     item.insert("failed_request_count".into(), json!(failed));
     item.insert("crash_count".into(), json!(crashes));
+
     let experience = if record.error_count > 0 || rage > 0 || dead > 0 || failed > 0 || crashes > 0
     {
         "poor"
@@ -191,6 +209,7 @@ fn session_map(
     } else {
         "good"
     };
+
     item.insert("experience".into(), json!(experience));
     item
 }
@@ -200,19 +219,24 @@ fn action_map(record: RumActionRecord) -> Map<String, Value> {
     item.insert("ts_micros".into(), json!(record.timestamp_micros));
     item.insert("type".into(), json!(record.event_type));
     insert_string(&mut item, "name", record.name);
+
     insert_string(
         &mut item,
         "url",
         record.page.filter(|value| !value.is_empty()).or(record.url),
     );
+
     insert_number(&mut item, "duration_ms", record.duration_ms);
+
     if let Some(status) = record.status {
         item.insert("status".into(), json!(status));
     }
+
     item.insert(
         "payload".into(),
         record.payload.unwrap_or_else(|| Value::Object(Map::new())),
     );
+
     insert_string(&mut item, "service", record.service);
     insert_string(&mut item, "trace_id", record.trace_id);
     insert_string(&mut item, "parent_span_id", record.parent_span_id);
@@ -226,39 +250,46 @@ fn build_error_detail(
     let first = records.first()?;
     let message = first.message.clone().unwrap_or_default();
     let stack = error_stack(first.error.as_ref());
+
     let users = records
         .iter()
         .filter_map(|record| record.user_id.as_deref())
         .collect::<HashSet<_>>()
         .len();
+
     let recent_sessions = unique_in_order(
         records
             .iter()
             .filter_map(|record| record.session_id.clone()),
         10,
     );
+
     let pages = records
         .iter()
         .filter_map(|record| record.page.clone())
         .collect::<BTreeSet<_>>()
         .into_iter()
         .collect();
+
     let versions = records
         .iter()
         .filter_map(|record| record.version.clone())
         .collect::<BTreeSet<_>>()
         .into_iter()
         .collect();
+
     let first_seen_micros = records
         .iter()
         .map(|record| record.timestamp_micros)
         .min()
         .unwrap_or_default();
+
     let last_seen_micros = records
         .iter()
         .map(|record| record.timestamp_micros)
         .max()
         .unwrap_or_default();
+
     Some(ErrorDetailResponse {
         fingerprint,
         message,
@@ -283,6 +314,7 @@ fn error_stack(error: Option<&Value>) -> Vec<Value> {
 
 fn unique_in_order(values: impl IntoIterator<Item = String>, limit: usize) -> Vec<String> {
     let mut seen = HashSet::new();
+
     values
         .into_iter()
         .filter(|value| seen.insert(value.clone()))
@@ -292,13 +324,17 @@ fn unique_in_order(values: impl IntoIterator<Item = String>, limit: usize) -> Ve
 
 fn resolve_range(query: DetailQuery) -> Result<TimeRange> {
     let now = TimestampMicros::now().0;
+
     let from = query
         .from
         .unwrap_or_else(|| now.saturating_sub(DEFAULT_WINDOW_MICROS));
+
     let to = query.to.unwrap_or(now);
+
     if to <= from {
         return Err(Error::invalid("RUM range end must be greater than start"));
     }
+
     Ok(TimeRange::new(TimestampMicros(from), TimestampMicros(to)))
 }
 

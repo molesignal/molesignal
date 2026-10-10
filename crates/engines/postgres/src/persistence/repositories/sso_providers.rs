@@ -49,6 +49,7 @@ fn row_to_provider(row: sqlx::postgres::PgRow) -> Result<SsoProvider> {
     let kind = kind_from_str(&kind_str)?;
     let config_json: Json<serde_json::Value> = row.try_get("config").map_err(sqlx_err)?;
     let config_value = upgrade_config(kind, config_json.0);
+
     // 用 kind 引导 deserialize，让 Oidc/Saml variant 不被 untagged 误判。
     let config: SsoProviderConfig = match kind {
         SsoProviderKind::Oidc => SsoProviderConfig::Oidc(
@@ -64,6 +65,7 @@ fn row_to_provider(row: sqlx::postgres::PgRow) -> Result<SsoProvider> {
                 .map_err(|e| Error::internal(format!("sso ldap config decode: {e}")))?,
         ),
     };
+
     Ok(SsoProvider {
         id: Id::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?),
         org_id: Id::from_string(row.try_get::<String, _>("org_id").map_err(sqlx_err)?),
@@ -84,9 +86,11 @@ fn upgrade_config(kind: SsoProviderKind, mut value: serde_json::Value) -> serde_
     {
         return value;
     }
+
     let Some(config) = value.as_object_mut() else {
         return value;
     };
+
     let legacy = |name: &str, fallback: &str| -> String {
         config
             .get(name)
@@ -94,9 +98,11 @@ fn upgrade_config(kind: SsoProviderKind, mut value: serde_json::Value) -> serde_
             .unwrap_or(fallback)
             .to_owned()
     };
+
     let email = legacy("email_attribute", "mail");
     let display_name = legacy("display_name_attribute", "displayName");
     let groups = legacy("group_attribute", "memberOf");
+
     config.insert(
         "field_mapping".into(),
         serde_json::json!({
@@ -106,6 +112,7 @@ fn upgrade_config(kind: SsoProviderKind, mut value: serde_json::Value) -> serde_
             "groups": groups,
         }),
     );
+
     value
 }
 
@@ -136,6 +143,7 @@ impl SsoProviderRepository for PgSsoProviderRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(p)
     }
 
@@ -158,9 +166,11 @@ impl SsoProviderRepository for PgSsoProviderRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         if res.rows_affected() == 0 {
             return Err(Error::not_found(format!("sso_provider {}", p.id.0)));
         }
+
         Ok(p)
     }
 
@@ -171,6 +181,7 @@ impl SsoProviderRepository for PgSsoProviderRepository {
             .await
             .map_err(sqlx_err)?
             .ok_or_else(|| Error::not_found(format!("sso_provider {}", id.0)))?;
+
         row_to_provider(row)
     }
 
@@ -182,6 +193,7 @@ impl SsoProviderRepository for PgSsoProviderRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to_provider).collect()
     }
 
@@ -195,6 +207,7 @@ impl SsoProviderRepository for PgSsoProviderRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to_provider).collect()
     }
 
@@ -208,11 +221,13 @@ impl SsoProviderRepository for PgSsoProviderRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to_provider).collect()
     }
 
     async fn set_enabled(&self, id: &Id, enabled: bool) -> Result<SsoProvider> {
         let now = TimestampMicros::now().0;
+
         let res = sqlx::query(
             "UPDATE sso_providers SET enabled = $2, updated_at_micros = $3 WHERE id = $1",
         )
@@ -222,9 +237,11 @@ impl SsoProviderRepository for PgSsoProviderRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         if res.rows_affected() == 0 {
             return Err(Error::not_found(format!("sso_provider {}", id.0)));
         }
+
         self.get(id).await
     }
 
@@ -234,9 +251,11 @@ impl SsoProviderRepository for PgSsoProviderRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         if res.rows_affected() == 0 {
             return Err(Error::not_found(format!("sso_provider {}", id.0)));
         }
+
         Ok(())
     }
 }

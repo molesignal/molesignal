@@ -105,6 +105,7 @@ pub(super) fn build_revision(
 ) -> Result<MonitorRevision> {
     let content = serde_json::to_vec(&input)
         .map_err(|error| Error::internal(format!("serialize Monitor Revision: {error}")))?;
+
     let revision = MonitorRevision {
         id: Id::new(),
         organization_id: org_id.clone(),
@@ -128,32 +129,38 @@ pub(super) fn build_revision(
         created_at: now,
         content_hash: blake3::hash(&content).to_hex().to_string(),
     };
+
     validate_revision(&revision)?;
     Ok(revision)
 }
 
 pub(super) fn validate_name(value: &str, max: usize, label: &str) -> Result<()> {
     let length = value.trim().chars().count();
+
     if length == 0 || length > max {
         return Err(Error::invalid(format!(
             "{label} must contain 1 to {max} characters"
         )));
     }
+
     Ok(())
 }
 
 pub(super) fn validate_code(value: &str) -> Result<()> {
     let value = value.trim();
+
     let valid = !value.is_empty()
         && value.len() <= 64
         && value
             .split('-')
             .all(|part| !part.is_empty() && part.chars().all(|ch| ch.is_ascii_alphanumeric()));
+
     if !valid {
         return Err(Error::invalid(
             "Location code must use lowercase letters, numbers, and single hyphens",
         ));
     }
+
     Ok(())
 }
 
@@ -165,6 +172,7 @@ pub(super) fn validate_tags(tags: &[String]) -> Result<()> {
     {
         return Err(Error::invalid("Monitors support up to 50 non-empty tags"));
     }
+
     Ok(())
 }
 
@@ -178,23 +186,30 @@ pub(super) fn normalize_agent_labels(
     current_labels: &BTreeMap<String, String>,
 ) -> Result<BTreeMap<String, String>> {
     let mut normalized = BTreeMap::new();
+
     for (key, value) in labels {
         let key = key.trim();
+
         if RESERVED_AGENT_LABELS.contains(&key) {
             continue;
         }
+
         let key_chars = key.chars().count();
+
         if key_chars == 0 || key_chars > MAX_AGENT_LABEL_KEY_CHARS {
             return Err(Error::invalid(format!(
                 "Agent label keys must contain 1 to {MAX_AGENT_LABEL_KEY_CHARS} characters"
             )));
         }
+
         let value = value.trim();
+
         if value.chars().count() > MAX_AGENT_LABEL_VALUE_CHARS {
             return Err(Error::invalid(format!(
                 "Agent label values cannot exceed {MAX_AGENT_LABEL_VALUE_CHARS} characters"
             )));
         }
+
         if normalized
             .insert(key.to_string(), value.to_string())
             .is_some()
@@ -202,16 +217,19 @@ pub(super) fn normalize_agent_labels(
             return Err(Error::invalid("Agent label keys must be unique"));
         }
     }
+
     for reserved in RESERVED_AGENT_LABELS {
         if let Some(value) = current_labels.get(reserved) {
             normalized.insert(reserved.to_string(), value.clone());
         }
     }
+
     if normalized.len() > MAX_AGENT_LABELS {
         return Err(Error::invalid(format!(
             "Agents support up to {MAX_AGENT_LABELS} labels"
         )));
     }
+
     Ok(normalized)
 }
 

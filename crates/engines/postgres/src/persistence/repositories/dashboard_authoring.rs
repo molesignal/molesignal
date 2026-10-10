@@ -47,6 +47,7 @@ fn row_to_draft(row: sqlx::postgres::PgRow) -> Result<DashboardDraft> {
         row.try_get("compiled_model").map_err(sqlx_err)?;
     let warnings: Json<Vec<PreflightWarningRecord>> = row.try_get("warnings").map_err(sqlx_err)?;
     let preflight: Json<PreflightReport> = row.try_get("preflight").map_err(sqlx_err)?;
+
     Ok(DashboardDraft {
         id: Id::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?),
         org_id: Id::from_string(row.try_get::<String, _>("org_id").map_err(sqlx_err)?),
@@ -118,6 +119,7 @@ impl DashboardDraftRepository for PgDashboardDraftRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(draft)
     }
 
@@ -139,6 +141,7 @@ impl DashboardDraftRepository for PgDashboardDraftRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         let row = sqlx::query(&format!(
             "SELECT {DRAFT_COLS} FROM agent_dashboard_drafts
              WHERE id = $1 AND org_id = $2"
@@ -149,11 +152,13 @@ impl DashboardDraftRepository for PgDashboardDraftRepository {
         .await
         .map_err(sqlx_err)?
         .ok_or_else(draft_not_found)?;
+
         row_to_draft(row)
     }
 
     async fn consume_and_create(&self, request: ConsumeDashboardDraft) -> Result<DraftConsumption> {
         let mut transaction = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         let row = sqlx::query(&format!(
             "SELECT {DRAFT_COLS} FROM agent_dashboard_drafts
              WHERE id = $1 AND org_id = $2 FOR UPDATE"
@@ -164,14 +169,18 @@ impl DashboardDraftRepository for PgDashboardDraftRepository {
         .await
         .map_err(sqlx_err)?
         .ok_or_else(draft_not_found)?;
+
         let draft = row_to_draft(row)?;
+
         if draft.created_by != request.actor {
             return Err(draft_not_found());
         }
+
         if draft.status == DashboardDraftStatus::Consumed {
             let dashboard_id = draft
                 .dashboard_id
                 .ok_or_else(|| Error::internal("consumed draft is missing dashboard_id"))?;
+
             let dashboard = sqlx::query(&format!(
                 "SELECT {DASHBOARD_COLS} FROM dashboards WHERE id = $1 AND org_id = $2"
             ))
@@ -181,9 +190,11 @@ impl DashboardDraftRepository for PgDashboardDraftRepository {
             .await
             .map_err(sqlx_err)?
             .ok_or_else(|| Error::internal("consumed draft Dashboard is missing"))?;
+
             transaction.commit().await.map_err(sqlx_err)?;
             return Ok(DraftConsumption::Replay(row_to_dashboard(dashboard)?));
         }
+
         if draft.status == DashboardDraftStatus::Expired || draft.expires_at <= request.now {
             sqlx::query(
                 "UPDATE agent_dashboard_drafts SET status = 'expired'
@@ -194,27 +205,33 @@ impl DashboardDraftRepository for PgDashboardDraftRepository {
             .execute(&mut *transaction)
             .await
             .map_err(sqlx_err)?;
+
             transaction.commit().await.map_err(sqlx_err)?;
+
             return Err(draft_issue(
                 "DRAFT_EXPIRED",
                 "Dashboard draft has expired; prepare it again",
             ));
         }
+
         if draft.model_hash != request.expected_hash {
             return Err(draft_issue(
                 "DRAFT_HASH_MISMATCH",
                 "Dashboard draft hash does not match the reviewed preview",
             ));
         }
+
         if draft.compiler_version != request.compiler_version {
             return Err(draft_issue(
                 "DRAFT_STALE",
                 "Dashboard draft was compiled by an incompatible compiler revision",
             ));
         }
+
         ensure_active_contract_binding(&mut transaction, &draft).await?;
         validate_candidate(&request)?;
         insert_dashboard(&mut transaction, &request.dashboard).await?;
+
         sqlx::query(
             "UPDATE agent_dashboard_drafts
              SET status = 'consumed', dashboard_id = $3, consumed_at_micros = $4
@@ -227,6 +244,7 @@ impl DashboardDraftRepository for PgDashboardDraftRepository {
         .execute(&mut *transaction)
         .await
         .map_err(sqlx_err)?;
+
         transaction.commit().await.map_err(sqlx_err)?;
         Ok(DraftConsumption::Created(request.dashboard))
     }
@@ -253,6 +271,7 @@ async fn ensure_active_contract_binding(
             "Dashboard authoring contract binding is unavailable",
         )
     })?;
+
     let matches = row.try_get::<bool, _>("enabled").map_err(sqlx_err)?
         && row.try_get::<i64, _>("revision").map_err(sqlx_err)? == draft.contract_binding_revision
         && row
@@ -271,6 +290,7 @@ async fn ensure_active_contract_binding(
             .try_get::<String, _>("compiler_version")
             .map_err(sqlx_err)?
             == draft.compiler_version;
+
     if matches {
         Ok(())
     } else {
@@ -306,16 +326,19 @@ async fn insert_dashboard(
     .execute(&mut *transaction)
     .await
     .map_err(sqlx_err)?;
+
     Ok(())
 }
 
 fn validate_candidate(request: &ConsumeDashboardDraft) -> Result<()> {
     let dashboard = &request.dashboard;
+
     if dashboard.org_id != request.org_id || dashboard.created_by != request.actor {
         return Err(Error::internal(
             "atomic Dashboard draft consumption received mismatched trusted identity",
         ));
     }
+
     Ok(())
 }
 

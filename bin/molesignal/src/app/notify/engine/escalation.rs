@@ -46,11 +46,13 @@ impl NotifyEngine {
         acknowledged_at: TimestampMicros,
     ) -> Result<NotifyDelivery> {
         let delivery = self.deliveries.get(organization_id, delivery_id).await?;
+
         if delivery.policy_id.is_none() {
             return Err(Error::invalid(
                 "notify test deliveries cannot be acknowledged",
             ));
         }
+
         self.acknowledge_event(organization_id, &delivery.event_id, acknowledged_at)
             .await?;
         self.deliveries.get(organization_id, delivery_id).await
@@ -66,7 +68,9 @@ impl NotifyEngine {
             .deliveries
             .list_due_ack(organization_id, now, limit)
             .await?;
+
         let count = u32::try_from(due.len()).unwrap_or(u32::MAX);
+
         for delivery in due {
             if let Err(error) = self.escalate_delivery(&delivery, now).await {
                 tracing::warn!(
@@ -77,6 +81,7 @@ impl NotifyEngine {
                 );
             }
         }
+
         Ok(count)
     }
 
@@ -94,14 +99,18 @@ impl NotifyEngine {
             }
             (Some(_), Some(_)) => {}
         }
+
         let config = parse_escalation(input.escalation_config.as_ref())?;
+
         let resolver_config = config
             .resolver_config
             .as_ref()
             .unwrap_or(&input.resolver_config);
+
         self.resolver_registry
             .get(config.recipient_resolver.trim())?
             .validate_config(resolver_config)?;
+
         self.validate_delivery_selection(
             organization_id,
             config.delivery_mode,
@@ -119,13 +128,17 @@ impl NotifyEngine {
             self.deliveries
                 .mark_escalated(&delivery.organization_id, &delivery.id, now)
                 .await?;
+
             return Ok(());
         };
+
         let policy = self
             .policies
             .get(&delivery.organization_id, policy_id)
             .await?;
+
         let config = parse_escalation(policy.escalation_config.as_ref())?;
+
         let event_record = match self
             .events
             .get(&delivery.organization_id, &delivery.event_id)
@@ -136,10 +149,13 @@ impl NotifyEngine {
                 self.deliveries
                     .mark_escalated(&delivery.organization_id, &delivery.id, now)
                     .await?;
+
                 return Err(error);
             }
         };
+
         let escalation_policy = escalation_policy(&policy, config);
+
         let outcome = self
             .execute_policy(
                 &escalation_policy,
@@ -148,9 +164,11 @@ impl NotifyEngine {
                 Some(DeliveryStage::Escalation),
             )
             .await;
+
         if let Some(error) = outcome.error {
             return Err(Error::unavailable(error));
         }
+
         if outcome.recipients.is_empty()
             || outcome
                 .recipients
@@ -161,9 +179,11 @@ impl NotifyEngine {
                 "notify escalation did not reach every resolved recipient",
             ));
         }
+
         self.deliveries
             .mark_escalated(&delivery.organization_id, &delivery.id, now)
             .await?;
+
         Ok(())
     }
 }
@@ -178,6 +198,7 @@ fn escalation_policy(policy: &NotifyPolicy, config: EscalationConfig) -> NotifyP
     let resolver_config = config
         .resolver_config
         .unwrap_or_else(|| policy.resolver_config.clone());
+
     NotifyPolicy {
         id: policy.id.clone(),
         organization_id: policy.organization_id.clone(),

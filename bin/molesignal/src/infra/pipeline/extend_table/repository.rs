@@ -83,6 +83,7 @@ const COLS: &str = "id, org_id, table_name, key, value_json, updated_at_micros";
 
 fn row_to(r: sqlx::postgres::PgRow) -> ExtendRow {
     let v: Json<Value> = r.try_get("value_json").unwrap_or(Json(Value::Null));
+
     ExtendRow {
         id: Id(r.try_get::<String, _>("id").unwrap_or_default()),
         org_id: Id(r.try_get::<String, _>("org_id").unwrap_or_default()),
@@ -112,6 +113,7 @@ impl ExtendKvRepository for PgExtendKvRepository {
         .execute(&self.pool)
         .await
         .map_err(super::super::super::persistence::sqlx_err)?;
+
         Ok(table)
     }
 
@@ -147,6 +149,7 @@ impl ExtendKvRepository for PgExtendKvRepository {
         .execute(&self.pool)
         .await
         .map_err(super::super::super::persistence::sqlx_err)?;
+
         Ok(result.rows_affected() == 1)
     }
 
@@ -159,21 +162,25 @@ impl ExtendKvRepository for PgExtendKvRepository {
         let mut tx = sqlx::begin(&self.pool)
             .await
             .map_err(super::super::super::persistence::sqlx_err)?;
+
         sqlx::query("DELETE FROM extend_kv WHERE org_id = $1 AND table_name = $2")
             .bind(&org.0)
             .bind(table)
             .execute(&mut *tx)
             .await
             .map_err(super::super::super::persistence::sqlx_err)?;
+
         sqlx::query("DELETE FROM extend_table_definitions WHERE org_id = $1 AND table_name = $2")
             .bind(&org.0)
             .bind(table)
             .execute(&mut *tx)
             .await
             .map_err(super::super::super::persistence::sqlx_err)?;
+
         tx.commit()
             .await
             .map_err(super::super::super::persistence::sqlx_err)?;
+
         Ok(())
     }
 
@@ -195,6 +202,7 @@ impl ExtendKvRepository for PgExtendKvRepository {
         .execute(&self.pool)
         .await
         .map_err(super::super::super::persistence::sqlx_err)?;
+
         Ok(())
     }
 
@@ -206,6 +214,7 @@ impl ExtendKvRepository for PgExtendKvRepository {
             .execute(&self.pool)
             .await
             .map_err(super::super::super::persistence::sqlx_err)?;
+
         Ok(())
     }
 
@@ -213,12 +222,14 @@ impl ExtendKvRepository for PgExtendKvRepository {
         let sql = format!(
             "SELECT {COLS} FROM extend_kv WHERE org_id = $1 AND table_name = $2 ORDER BY key"
         );
+
         let rows = sqlx::query(&sql)
             .bind(&org.0)
             .bind(table)
             .fetch_all(&self.pool)
             .await
             .map_err(super::super::super::persistence::sqlx_err)?;
+
         Ok(rows.into_iter().map(row_to).collect())
     }
 
@@ -234,6 +245,7 @@ impl ExtendKvRepository for PgExtendKvRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(super::super::super::persistence::sqlx_err)?;
+
         let stats = sqlx::query(
             "SELECT rows.table_name,
                     COUNT(DISTINCT rows.key)::BIGINT AS row_count,
@@ -260,12 +272,15 @@ impl ExtendKvRepository for PgExtendKvRepository {
         .map_err(super::super::super::persistence::sqlx_err)?;
 
         let mut summaries = BTreeMap::<String, ExtendTableSummary>::new();
+
         for row in definitions {
             let table_name = row.try_get::<String, _>("table_name").unwrap_or_default();
+
             let fields = row
                 .try_get::<Json<Vec<ExtendValueField>>, _>("value_fields_json")
                 .map(|value| value.0)
                 .unwrap_or_default();
+
             summaries.insert(
                 table_name.clone(),
                 ExtendTableSummary {
@@ -287,10 +302,12 @@ impl ExtendKvRepository for PgExtendKvRepository {
         for row in stats {
             let table_name = row.try_get::<String, _>("table_name").unwrap_or_default();
             let row_count = row.try_get::<i64, _>("row_count").unwrap_or_default();
+
             let updated_at = TimestampMicros(
                 row.try_get::<i64, _>("updated_at_micros")
                     .unwrap_or_default(),
             );
+
             let inferred_fields = row
                 .try_get::<Vec<String>, _>("inferred_fields")
                 .unwrap_or_default()
@@ -302,11 +319,13 @@ impl ExtendKvRepository for PgExtendKvRepository {
                     description: String::new(),
                 })
                 .collect::<Vec<_>>();
+
             summaries
                 .entry(table_name.clone())
                 .and_modify(|summary| {
                     summary.row_count = row_count;
                     summary.updated_at = TimestampMicros(summary.updated_at.0.max(updated_at.0));
+
                     if summary.value_fields.is_empty() {
                         summary.value_fields.clone_from(&inferred_fields);
                     }
@@ -320,6 +339,7 @@ impl ExtendKvRepository for PgExtendKvRepository {
                     updated_at,
                 });
         }
+
         Ok(summaries.into_values().collect())
     }
 }

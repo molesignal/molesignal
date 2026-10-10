@@ -74,6 +74,7 @@ impl StreamResponse {
         let effective_retention = Retention {
             days: def.effective_retention_days(global_retention_days),
         };
+
         Self {
             id: def.id.0,
             org_id: def.org_id.0,
@@ -168,6 +169,7 @@ fn resolve_create_index_type(
 
 async fn response_for(state: &AppState, def: StreamDefinition) -> Result<StreamResponse> {
     let settings = state.telemetry.streams.get_settings(&def.id).await?;
+
     Ok(StreamResponse::new(
         def,
         settings,
@@ -177,11 +179,13 @@ async fn response_for(state: &AppState, def: StreamDefinition) -> Result<StreamR
 
 fn validate_public_stream_name(name: &str) -> Result<()> {
     crate::domain::stream::validate_stream_name(name)?;
+
     if is_reserved_system_stream(name) {
         return Err(Error::forbidden(
             "`_molesignal` is a protected system stream",
         ));
     }
+
     Ok(())
 }
 
@@ -191,6 +195,7 @@ fn ensure_stream_mutable(def: &StreamDefinition) -> Result<()> {
             "`_molesignal` is a protected system stream",
         ));
     }
+
     Ok(())
 }
 
@@ -198,6 +203,7 @@ fn validate_days(days: u32) -> Result<()> {
     if days == 0 || days > 3650 {
         return Err(Error::invalid("retention_days must be between 1 and 3650"));
     }
+
     Ok(())
 }
 
@@ -215,15 +221,18 @@ fn validate_full_text_data_type(
              field `{field_name}` has type `{data_type:?}`"
         )));
     }
+
     Ok(())
 }
 
 fn validate_settings(settings: &StreamSettings) -> Result<()> {
     let mut indexed_fields = std::collections::HashSet::new();
+
     for rule in &settings.index_rules {
         if rule.field.trim().is_empty() {
             return Err(Error::invalid("index rule field cannot be empty"));
         }
+
         if !indexed_fields.insert(rule.field.as_str()) {
             return Err(Error::invalid(format!(
                 "duplicate index rule for field `{}`",
@@ -231,19 +240,23 @@ fn validate_settings(settings: &StreamSettings) -> Result<()> {
             )));
         }
     }
+
     for condition in &settings.keep_conditions {
         if let Some(days) = condition.retention_days {
             validate_days(days)?;
         }
+
         if condition.name.trim().is_empty() {
             return Err(Error::invalid("retention condition name cannot be empty"));
         }
+
         if condition.expression.trim().is_empty() {
             return Err(Error::invalid(
                 "retention condition expression cannot be empty",
             ));
         }
     }
+
     Ok(())
 }
 
@@ -254,14 +267,17 @@ async fn list(
 ) -> Result<Json<Vec<StreamResponse>>> {
     let streams = state.telemetry.streams.list(&ctx.org_id).await?;
     let mut out = Vec::with_capacity(streams.len());
+
     for def in streams {
         out.push(response_for(&state, def).await?);
     }
+
     out.sort_by(|a, b| {
         a.name
             .cmp(&b.name)
             .then(format!("{:?}", a.stream_type).cmp(&format!("{:?}", b.stream_type)))
     });
+
     Ok(Json(out))
 }
 
@@ -287,6 +303,7 @@ async fn create(
 ) -> Result<Json<StreamResponse>> {
     let name = req.name.trim().to_string();
     validate_public_stream_name(&name)?;
+
     match state
         .telemetry
         .streams
@@ -302,8 +319,10 @@ async fn create(
         Err(Error::NotFound(_)) => {}
         Err(error) => return Err(error),
     }
+
     let settings = req.settings.unwrap_or_default();
     validate_settings(&settings)?;
+
     let retention = match req.retention_days {
         Some(days) => {
             validate_days(days)?;
@@ -311,7 +330,9 @@ async fn create(
         }
         None => None,
     };
+
     let now = TimestampMicros::now();
+
     let def = StreamDefinition {
         id: Id::new(),
         org_id: ctx.org_id.clone(),
@@ -326,8 +347,10 @@ async fn create(
                         .index_rules
                         .iter()
                         .find(|rule| rule.field == field.name);
+
                     let requested = rule.map_or(field.index_type, |rule| rule.index_type);
                     validate_full_text_data_type(&field.name, field.data_type, requested)?;
+
                     let index_type = match rule {
                         Some(rule) if rule.enabled => rule.index_type,
                         Some(_) => StreamIndexType::None,
@@ -337,6 +360,7 @@ async fn create(
                             field.index_type,
                         ),
                     };
+
                     Ok(FieldDef {
                         name: field.name,
                         data_type: field.data_type,
@@ -353,13 +377,16 @@ async fn create(
         created_at: now,
         updated_at: now,
     };
+
     validate_field_masking(&settings, &def.schema, def.stream_type)?;
     let created = state.telemetry.streams.create(def).await?;
+
     let settings = state
         .telemetry
         .streams
         .update_settings(&created.id, settings)
         .await?;
+
     Ok(Json(StreamResponse::new(
         created,
         settings,
@@ -398,16 +425,19 @@ async fn update_settings(
             }
             RetentionDaysUpdate::Clear(()) => None,
         };
+
         state
             .telemetry
             .streams
             .update_retention(&id, retention)
             .await?;
+
         def.retention = retention;
     }
 
     let mut settings = req.settings.unwrap_or_else(|| current_settings.clone());
     let fields_were_provided = req.fields.is_some();
+
     if let Some(field_settings) = req.fields {
         settings.index_rules = field_settings
             .into_iter()
@@ -425,10 +455,12 @@ async fn update_settings(
             })
             .collect();
     }
+
     validate_settings(&settings)?;
 
     let schema_changed =
         fields_were_provided || settings.index_rules != current_settings.index_rules;
+
     if schema_changed {
         for rule in &settings.index_rules {
             if let Some(field) = def
@@ -444,9 +476,11 @@ async fn update_settings(
     }
 
     validate_field_masking(&settings, &def.schema, def.stream_type)?;
+
     if system_stream {
         validate_system_settings_update(&current_settings, &settings)?;
     }
+
     if schema_changed {
         state
             .telemetry
@@ -460,6 +494,7 @@ async fn update_settings(
         .streams
         .update_settings(&id, settings)
         .await?;
+
     let updated = state.telemetry.streams.get_by_id(&id).await?;
     Ok(Json(response_for(&state, updated).await?))
 }

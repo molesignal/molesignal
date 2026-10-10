@@ -56,16 +56,20 @@ struct ReorderRequest {
 fn normalize_request(request: RuleRequest) -> Result<RuleRequest> {
     let name = request.name.trim().to_string();
     let field_pattern = request.field_pattern.trim().to_string();
+
     if name.is_empty() || name.len() > 255 {
         return Err(Error::invalid("name must be 1..255 characters"));
     }
+
     if field_pattern.is_empty() || field_pattern.len() > 255 {
         return Err(Error::invalid("field_pattern must be 1..255 characters"));
     }
+
     let stream_pattern = request
         .stream_pattern
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty());
+
     if stream_pattern
         .as_ref()
         .is_some_and(|value| value.len() > 255)
@@ -74,12 +78,15 @@ fn normalize_request(request: RuleRequest) -> Result<RuleRequest> {
             "stream_pattern must not exceed 255 characters",
         ));
     }
+
     if request.stream_type == Some(StreamType::METRICS) {
         return Err(Error::invalid(
             "metrics streams do not support field masking",
         ));
     }
+
     request.algorithm.validate()?;
+
     Ok(RuleRequest {
         name,
         field_pattern,
@@ -106,6 +113,7 @@ async fn create(
 ) -> Result<Json<FieldMaskingRule>> {
     let request = normalize_request(request)?;
     let now = TimestampMicros::now();
+
     let rule = FieldMaskingRule {
         id: Id::new(),
         org_id: ctx.org_id,
@@ -120,6 +128,7 @@ async fn create(
         created_at: now,
         updated_at: now,
     };
+
     Ok(Json(state.storage.field_masking_rules.create(rule).await?))
 }
 
@@ -132,10 +141,12 @@ async fn update(
 ) -> Result<Json<FieldMaskingRule>> {
     let request = normalize_request(request)?;
     let existing = state.storage.field_masking_rules.list(&ctx.org_id).await?;
+
     let current = existing
         .into_iter()
         .find(|rule| rule.id.0 == id)
         .ok_or_else(|| Error::not_found("field masking rule"))?;
+
     let rule = FieldMaskingRule {
         id: current.id,
         org_id: ctx.org_id,
@@ -149,6 +160,7 @@ async fn update(
         created_at: current.created_at,
         updated_at: TimestampMicros::now(),
     };
+
     Ok(Json(state.storage.field_masking_rules.update(rule).await?))
 }
 
@@ -163,6 +175,7 @@ async fn delete(
         .field_masking_rules
         .delete(&ctx.org_id, &Id::from_string(id))
         .await?;
+
     Ok(Json(serde_json::json!({"deleted": true})))
 }
 
@@ -177,6 +190,7 @@ async fn reorder(
         .field_masking_rules
         .reorder(&ctx.org_id, &request.ids, TimestampMicros::now())
         .await?;
+
     Ok(Json(
         state.storage.field_masking_rules.list(&ctx.org_id).await?,
     ))

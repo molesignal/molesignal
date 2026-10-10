@@ -129,6 +129,7 @@ async fn list(
         from_micros: p.from,
         to_micros: p.to,
     };
+
     Ok(Json(
         state
             .storage
@@ -173,6 +174,7 @@ async fn create(
         created_by: ctx.user_id.clone(),
         created_at: TimestampMicros::now(),
     };
+
     normalize_annotation(&mut a)?;
     let a = state.storage.annotations.create(a).await?;
     Ok(Json(to_resp(a)))
@@ -191,27 +193,35 @@ async fn update(
         .get(&ctx.org_id, &Id(id))
         .await
         .map_err(|_| Error::not_found("annotation not found"))?;
+
     if let Some(title) = req.title {
         annotation.title = title;
     }
+
     if let Patch::Value(description) = req.description {
         annotation.description = description;
     }
+
     if let Some(tags) = req.tags {
         annotation.tags = tags;
     }
+
     if let Some(time_start) = req.time_start_micros {
         annotation.time_start = TimestampMicros(time_start);
     }
+
     if let Some(time_end) = req.time_end_micros {
         annotation.time_end = TimestampMicros(time_end);
     }
+
     if let Patch::Value(dashboard_id) = req.dashboard_id {
         annotation.dashboard_id = dashboard_id.map(Id);
     }
+
     if let Patch::Value(stream_name) = req.stream_name {
         annotation.stream_name = stream_name;
     }
+
     normalize_annotation(&mut annotation)?;
     let saved = state.storage.annotations.update(annotation).await?;
     Ok(Json(to_resp(saved)))
@@ -219,39 +229,47 @@ async fn update(
 
 fn normalize_annotation(annotation: &mut Annotation) -> Result<()> {
     annotation.title = annotation.title.trim().to_string();
+
     validate_annotation(
         &annotation.title,
         annotation.time_start.0,
         annotation.time_end.0,
     )?;
+
     annotation.tags = annotation
         .tags
         .drain(..)
         .map(|tag| tag.trim().to_string())
         .filter(|tag| !tag.is_empty())
         .collect();
+
     annotation.tags.sort();
     annotation.tags.dedup();
+
     if annotation.tags.len() > 64 || annotation.tags.iter().any(|tag| tag.len() > 128) {
         return Err(Error::invalid(
             "annotations support at most 64 tags of 128 bytes each",
         ));
     }
+
     Ok(())
 }
 
 fn validate_annotation(title: &str, start: i64, end: i64) -> Result<()> {
     let title = title.trim();
+
     if title.is_empty() || title.chars().count() > 500 {
         return Err(Error::invalid(
             "title must contain between 1 and 500 characters",
         ));
     }
+
     if end < start {
         return Err(Error::invalid(
             "time_end_micros must be greater than or equal to time_start_micros",
         ));
     }
+
     Ok(())
 }
 
@@ -266,6 +284,7 @@ async fn delete(
         .annotations
         .delete(&ctx.org_id, &Id(id))
         .await?;
+
     Ok(Json(serde_json::json!({"deleted": true})))
 }
 

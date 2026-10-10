@@ -66,13 +66,16 @@ impl IndexRebuildWorker {
         if !self.settings.enabled {
             return Ok(0);
         }
+
         let retry_before = TimestampMicros::now()
             .0
             .saturating_sub(i64::from(self.settings.retry_after_secs) * 1_000_000);
+
         let tasks = self
             .catalog
             .index_rebuild_tasks(&scope, retry_before, self.settings.batch_size)
             .await?;
+
         let completed = stream::iter(tasks)
             .map(|task| self.rebuild(&scope, task))
             .buffer_unordered(self.settings.max_concurrency.max(1))
@@ -86,11 +89,13 @@ impl IndexRebuildWorker {
                 }
             })
             .await;
+
         Ok(completed)
     }
 
     async fn rebuild(&self, scope: &OrganizationScope, task: IndexRebuildTask) -> Result<()> {
         let started = Instant::now();
+
         if task.artifact.state == ArtifactState::Failed {
             self.catalog
                 .update_artifact(
@@ -104,12 +109,15 @@ impl IndexRebuildWorker {
                 )
                 .await?;
         }
+
         let result = self.build_uploaded(scope, &task).await;
+
         let replacement = match result {
             Ok(replacement) => replacement,
             Err(error) => {
                 failed_total().inc();
                 let reason = truncate_error(&error.to_string());
+
                 let _ = self
                     .catalog
                     .update_artifact(
@@ -122,10 +130,13 @@ impl IndexRebuildWorker {
                         },
                     )
                     .await;
+
                 return Err(error);
             }
         };
+
         let replacement_key = replacement.object.key.clone();
+
         let update = self
             .catalog
             .update_artifact(
@@ -143,6 +154,7 @@ impl IndexRebuildWorker {
                 },
             )
             .await;
+
         if let Err(error) = update {
             let _ = self
                 .catalog
@@ -154,8 +166,10 @@ impl IndexRebuildWorker {
                         .saturating_add(self.gc_grace_micros),
                 )
                 .await;
+
             return Err(error);
         }
+
         built_total().inc();
         build_duration().observe(started.elapsed().as_secs_f64());
         Ok(())
@@ -173,30 +187,37 @@ impl IndexRebuildWorker {
         {
             return Err(Error::invalid("unsupported or stale index rebuild task"));
         }
+
         let stream = self
             .streams
             .get_by_id(&task.dataset.logical_stream_id)
             .await?;
+
         if stream.org_id != scope.organization_id {
             return Err(Error::invalid(
                 "index rebuild stream crossed organization scope",
             ));
         }
+
         self.objects
             .register_segment(&scope.organization_id, &task.segment)?;
+
         let batches = ParquetReader::new(self.objects.store())
             .read_all(task.segment.primary.object.key.as_str())
             .await?;
+
         let schema = batches
             .first()
             .map(|batch| batch.schema())
             .ok_or_else(|| Error::internal("primary artifact contained no record batches"))?;
+
         let batch = concat_batches(&schema, &batches)
             .map_err(|error| Error::internal(format!("concat index source batches: {error}")))?;
         let bytes = build_tantivy_bytes_for_batch(&stream, &batch)?
             .ok_or_else(|| Error::invalid("stream has no supported indexed columns"))?;
         let artifact_id = ArtifactId::generate();
         let artifact_type = ArtifactTypeId::builtin(type_id::builtin::ARTIFACT_TANTIVY);
+
         let key = StorageLayout::artifact_key(
             &scope.organization_id,
             stream.stream_type,
@@ -206,7 +227,9 @@ impl IndexRebuildWorker {
             &artifact_id,
             &artifact_type,
         );
+
         let bytes = Bytes::from(bytes);
+
         let put = self
             .origin
             .put_opts(
@@ -219,6 +242,7 @@ impl IndexRebuildWorker {
             )
             .await
             .map_err(|error| Error::internal(format!("upload rebuilt index: {error}")))?;
+
         Ok(Artifact {
             id: artifact_id,
             role: ArtifactRole::Index,
@@ -248,6 +272,7 @@ fn truncate_error(error: &str) -> String {
 
 fn build_duration() -> &'static Histogram {
     static METRIC: OnceLock<Histogram> = OnceLock::new();
+
     METRIC.get_or_init(|| {
         crate::shared::metrics::register_histogram(
             "index_build_duration_seconds",
@@ -259,6 +284,7 @@ fn build_duration() -> &'static Histogram {
 
 fn built_total() -> &'static IntCounter {
     static METRIC: OnceLock<IntCounter> = OnceLock::new();
+
     METRIC.get_or_init(|| {
         crate::shared::metrics::register_int_counter(
             "index_rebuilt_total",
@@ -269,6 +295,7 @@ fn built_total() -> &'static IntCounter {
 
 fn failed_total() -> &'static IntCounter {
     static METRIC: OnceLock<IntCounter> = OnceLock::new();
+
     METRIC.get_or_init(|| {
         crate::shared::metrics::register_int_counter(
             "index_rebuild_failed_total",

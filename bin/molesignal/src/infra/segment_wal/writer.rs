@@ -111,6 +111,7 @@ impl SegmentWal {
     /// 底层写入：32 字节头（含 CRC32C）+ payload。
     fn write_record(&mut self, entry_type: WalEntryType, raw: &[u8], index: u64) -> Result<()> {
         let compressed = compress_prepend_size(raw);
+
         let (flag, payload) = if compressed.len() < raw.len() {
             (entry_type as u8 | FLAG_LZ4_BIT, compressed.as_slice())
         } else {
@@ -161,6 +162,7 @@ impl SegmentWal {
                     inc_fsync_error(fsync_kind::EVERY_WRITE);
                     return Err(e.into());
                 }
+
                 Ok(())
             }
 
@@ -172,16 +174,20 @@ impl SegmentWal {
                 if sync_level.is_none() {
                     return Ok(());
                 }
+
                 self.pending_sync += 1;
                 let elapsed = self.last_sync.elapsed().as_millis() as u64;
+
                 if self.pending_sync >= max_pending || elapsed >= max_delay_ms {
                     if let Err(e) = sync_file(self.writer.get_ref(), sync_level) {
                         inc_fsync_error(fsync_kind::BATCH_FLUSH);
                         return Err(e.into());
                     }
+
                     self.pending_sync = 0;
                     self.last_sync = std::time::Instant::now();
                 }
+
                 Ok(())
             }
         }
@@ -197,15 +203,18 @@ impl SegmentWal {
                 inc_fsync_error(fsync_kind::SEGMENT_ROTATE);
                 return Err(e.into());
             }
+
             self.pending_sync = 0;
             self.last_sync = std::time::Instant::now();
         }
+
         Ok(())
     }
 
     /// 打开最新 segment 或创建新 segment。
     fn open_latest_or_create(wal_dir: &Path) -> Result<(u64, u64, File)> {
         let segments = list_segments(wal_dir)?;
+
         if segments.is_empty() {
             let path = wal_dir.join(format!("{WAL_SEGMENT_PREFIX}{:06}{WAL_SEGMENT_EXT}", 0));
             let file = OpenOptions::new().create(true).append(true).open(&path)?;
@@ -214,9 +223,11 @@ impl SegmentWal {
         }
 
         let last_idx = *segments.last().unwrap();
+
         let path = wal_dir.join(format!(
             "{WAL_SEGMENT_PREFIX}{last_idx:06}{WAL_SEGMENT_EXT}"
         ));
+
         let file = OpenOptions::new().create(true).append(true).open(&path)?;
         let size = file.metadata()?.len();
         Ok((last_idx, size, file))
@@ -227,10 +238,12 @@ impl SegmentWal {
         self.drain_pending_batch_sync()?;
         self.segment_idx += 1;
         self.current_size = 0;
+
         let path = self.wal_dir.join(format!(
             "{WAL_SEGMENT_PREFIX}{:06}{WAL_SEGMENT_EXT}",
             self.segment_idx
         ));
+
         let cap = self.writer.capacity();
         let file = OpenOptions::new().create(true).append(true).open(path)?;
         self.writer = BufWriter::with_capacity(cap, file);
@@ -247,11 +260,13 @@ impl SegmentWal {
         if self.current_size == 0 {
             return Ok(());
         }
+
         self.rotate()
     }
 
     fn enforce_limits(&mut self) -> Result<()> {
         let segments = list_segments(&self.wal_dir)?;
+
         evict_old_segments(
             &self.wal_dir,
             segments,
@@ -264,18 +279,23 @@ impl SegmentWal {
     /// 读取 WAL 目录中所有 segment 的记录，返回 `(records, had_truncation)`。
     pub fn read_records<P: AsRef<Path>>(wal_dir: P) -> Result<(Vec<WalRecord>, bool)> {
         let wal_dir = wal_dir.as_ref();
+
         if !wal_dir.exists() {
             return Ok((Vec::new(), false));
         }
+
         let mut all = Vec::new();
         let mut truncated = false;
+
         for path in Self::segment_paths_from_dir(wal_dir)? {
             let (records, seg_truncated) = read_segment_file(&path)?;
             all.extend(records);
+
             if seg_truncated {
                 truncated = true;
             }
         }
+
         Ok((all, truncated))
     }
 
@@ -284,12 +304,15 @@ impl SegmentWal {
         let wal_dir = wal_dir.as_ref();
         let mut records = Vec::new();
         let mut errors = Vec::new();
+
         if !wal_dir.exists() {
             return Ok(WalReadonlyScan { records, errors });
         }
+
         for path in Self::segment_paths_from_dir(wal_dir)? {
             let scan = scan_segment_file_readonly(&path)?;
             records.extend(scan.records);
+
             if let (Some(off), Some(msg)) = (scan.tail_error_offset, scan.tail_error) {
                 errors.push(WalDirScanError {
                     segment_path: path,
@@ -298,6 +321,7 @@ impl SegmentWal {
                 });
             }
         }
+
         Ok(WalReadonlyScan { records, errors })
     }
 
@@ -313,6 +337,7 @@ impl SegmentWal {
         after_index: u64,
     ) -> Result<Vec<WalRecord>> {
         let (records, _) = Self::read_records(wal_dir)?;
+
         Ok(records
             .into_iter()
             .filter(|r| r.index > after_index)
@@ -326,9 +351,11 @@ impl SegmentWal {
         max_total_size_bytes: Option<u64>,
     ) -> Result<()> {
         let wal_dir = wal_dir.as_ref();
+
         if !wal_dir.exists() {
             return Ok(());
         }
+
         let segments = list_segments(wal_dir)?;
         evict_old_segments(wal_dir, segments, max_segments, max_total_size_bytes, None)
     }
@@ -339,11 +366,14 @@ pub(crate) fn list_segments(wal_dir: &Path) -> Result<Vec<u64>> {
     if !wal_dir.exists() {
         return Ok(Vec::new());
     }
+
     let mut segments = Vec::new();
+
     for e in std::fs::read_dir(wal_dir)? {
         let e = e?;
         let name = e.file_name();
         let s = name.to_string_lossy();
+
         if s.starts_with(WAL_SEGMENT_PREFIX)
             && s.ends_with(WAL_SEGMENT_EXT)
             && let Ok(num) =
@@ -352,6 +382,7 @@ pub(crate) fn list_segments(wal_dir: &Path) -> Result<Vec<u64>> {
             segments.push(num);
         }
     }
+
     segments.sort_unstable();
     Ok(segments)
 }

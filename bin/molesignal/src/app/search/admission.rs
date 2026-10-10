@@ -102,6 +102,7 @@ impl AdmissionController {
     /// 某工作组当前配置的节点并发上限。
     fn limit_for(&self, name: &str) -> usize {
         let cfg = self.cfg.read();
+
         cfg.groups
             .get(name)
             .copied()
@@ -111,6 +112,7 @@ impl AdmissionController {
     /// 某工作组当前配置的集群并发上限。
     fn cluster_limit_for(&self, name: &str) -> usize {
         let cfg = self.cfg.read();
+
         cfg.cluster_groups
             .get(name)
             .copied()
@@ -121,16 +123,20 @@ impl AdmissionController {
         if let Some(s) = self.groups.read().get(name) {
             return s.clone();
         }
+
         let mut g = self.groups.write();
+
         if let Some(s) = g.get(name) {
             return s.clone();
         }
+
         let s = Arc::new(GroupState {
             limit: AtomicUsize::new(self.limit_for(name)),
             in_flight: AtomicUsize::new(0),
             acquired_total: AtomicU64::new(0),
             rejected_total: AtomicU64::new(0),
         });
+
         g.insert(name.to_string(), s.clone());
         s
     }
@@ -142,22 +148,27 @@ impl AdmissionController {
         let limit = state.limit.load(Ordering::Relaxed);
         let cluster_limit = self.cluster_limit_for(group);
         let others = self.cluster_view.read().get(group).copied().unwrap_or(0);
+
         loop {
             let cur = state.in_flight.load(Ordering::Relaxed);
+
             if limit > 0 && cur >= limit {
                 state.rejected_total.fetch_add(1, Ordering::Relaxed);
                 return None;
             }
+
             if cluster_limit > 0 && others + cur >= cluster_limit {
                 state.rejected_total.fetch_add(1, Ordering::Relaxed);
                 return None;
             }
+
             if state
                 .in_flight
                 .compare_exchange_weak(cur, cur + 1, Ordering::Relaxed, Ordering::Relaxed)
                 .is_ok()
             {
                 state.acquired_total.fetch_add(1, Ordering::Relaxed);
+
                 return Some(SlotGuard {
                     state: state.clone(),
                 });
@@ -176,6 +187,7 @@ impl AdmissionController {
     pub fn refresh(&self, cfg: AdmissionConfig) {
         *self.cfg.write() = cfg;
         let groups = self.groups.read();
+
         for (name, state) in groups.iter() {
             state.limit.store(self.limit_for(name), Ordering::Relaxed);
         }
@@ -199,6 +211,7 @@ impl AdmissionController {
     pub fn stats(&self) -> Vec<AdmissionStats> {
         let view = self.cluster_view.read();
         let g = self.groups.read();
+
         let mut out: Vec<AdmissionStats> = g
             .iter()
             .map(|(name, s)| AdmissionStats {
@@ -211,6 +224,7 @@ impl AdmissionController {
                 rejected_total: s.rejected_total.load(Ordering::Relaxed),
             })
             .collect();
+
         out.sort_by(|a, b| a.group.cmp(&b.group));
         out
     }

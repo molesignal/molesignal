@@ -25,6 +25,7 @@ pub fn flatten(payload: Value) -> Result<Vec<RawEvent>> {
         Value::Object(map) => Ok(vec![into_event(map)?]),
         Value::Array(items) => {
             let mut out = Vec::with_capacity(items.len());
+
             for it in items {
                 match it {
                     Value::Object(m) => out.push(into_event(m)?),
@@ -35,6 +36,7 @@ pub fn flatten(payload: Value) -> Result<Vec<RawEvent>> {
                     }
                 }
             }
+
             Ok(out)
         }
         _ => Err(Error::invalid("rum payload must be object or array")),
@@ -44,23 +46,29 @@ pub fn flatten(payload: Value) -> Result<Vec<RawEvent>> {
 /// NDJSON：按行解析。
 pub fn flatten_ndjson(body: &str) -> Result<Vec<RawEvent>> {
     let mut out = Vec::new();
+
     for line in body.lines() {
         let l = line.trim();
+
         if l.is_empty() {
             continue;
         }
+
         let v: Value =
             serde_json::from_str(l).map_err(|e| Error::invalid(format!("rum ndjson: {e}")))?;
+
         match v {
             Value::Object(m) => out.push(into_event(m)?),
             _ => return Err(Error::invalid("rum ndjson line must be object")),
         }
     }
+
     Ok(out)
 }
 
 fn into_event(mut m: Map<String, Value>) -> Result<RawEvent> {
     let ts = extract_timestamp(&mut m);
+
     Ok(RawEvent {
         timestamp: ts,
         fields: m,
@@ -79,10 +87,12 @@ fn extract_timestamp(m: &mut Map<String, Value>) -> TimestampMicros {
             } else {
                 n
             };
+
             m.insert(key.to_string(), Value::from(us));
             return TimestampMicros(us);
         }
     }
+
     TimestampMicros::now()
 }
 

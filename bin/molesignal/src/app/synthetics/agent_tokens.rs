@@ -42,6 +42,7 @@ impl SyntheticService {
         validate_expiry_days(input.expires_in_days)?;
         let now = TimestampMicros::now();
         let plaintext = generate_token()?;
+
         let token = self
             .repository
             .create_agent_token(
@@ -63,6 +64,7 @@ impl SyntheticService {
                 Sha256::digest(plaintext.as_bytes()).to_vec(),
             )
             .await?;
+
         Ok(self.agent_token_instructions(token, plaintext))
     }
 
@@ -80,6 +82,7 @@ impl SyntheticService {
         validate_expiry_days(input.expires_in_days)?;
         let now = TimestampMicros::now();
         let plaintext = generate_token()?;
+
         let token = self
             .repository
             .rotate_agent_token(
@@ -91,6 +94,7 @@ impl SyntheticService {
                 now,
             )
             .await?;
+
         Ok(self.agent_token_instructions(token, plaintext))
     }
 
@@ -107,6 +111,7 @@ impl SyntheticService {
         {
             return Err(Error::unavailable("Probe registration is not configured"));
         }
+
         Ok(())
     }
 
@@ -118,12 +123,14 @@ impl SyntheticService {
         let ca_base64 = base64::engine::general_purpose::STANDARD
             .encode(self.probe_ca_certificate_pem.as_bytes());
         let ca_sha256 = hex::encode(Sha256::digest(self.probe_ca_certificate_pem.as_bytes()));
+
         let command = format!(
             "docker run --rm -v molesignal-probe:/var/lib/molesignal-probe \
              ghcr.io/molesignal/probe-agent:latest register \
              --endpoint {} --token {} --ca-certificate-base64 {}",
             self.register_endpoint, plaintext, ca_base64
         );
+
         ProbeAgentTokenInstructions {
             token,
             agent_token: plaintext,
@@ -142,6 +149,7 @@ fn validate_expiry_days(days: u32) -> Result<()> {
             "Agent Token expiry must be between 1 and 3650 days, or 0 for no expiry",
         ));
     }
+
     Ok(())
 }
 
@@ -156,9 +164,11 @@ fn expires_at(now: TimestampMicros, days: u32) -> Option<TimestampMicros> {
 
 fn generate_token() -> Result<String> {
     let mut bytes = [0_u8; 32];
+
     rand::rngs::SysRng
         .try_fill_bytes(&mut bytes)
         .map_err(|error| Error::internal(format!("generate Agent Token: {error}")))?;
+
     Ok(format!(
         "ms_probe_{}",
         base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)

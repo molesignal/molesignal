@@ -141,7 +141,9 @@ impl IntakeService {
                 "`_molesignal` is a protected system stream",
             ));
         }
+
         validate_stream_name(&batch.stream)?;
+
         if self
             .drain
             .as_ref()
@@ -151,9 +153,11 @@ impl IntakeService {
                 "node is draining; not accepting new writes",
             ));
         }
+
         if let Some(forwarder) = &self.forwarder {
             return forwarder.forward(batch).await;
         }
+
         if batch.stream_type == StreamType::LOGS
             && let Some(engine) = &self.realtime
             && let Some(pipeline) = engine
@@ -163,6 +167,7 @@ impl IntakeService {
         {
             return self.route_realtime(batch, pipeline, engine).await;
         }
+
         let dataset_type = self.sink.primary_dataset_type(batch.stream_type)?;
         self.intake_with_origin(batch, IntakeOrigin::External, dataset_type)
             .await
@@ -180,6 +185,7 @@ impl IntakeService {
                 "`_molesignal` is a protected system stream",
             ));
         }
+
         let dataset_type = self.sink.primary_dataset_type(batch.stream_type)?;
         self.intake_prepared(batch, IntakeOrigin::RoutedExternal, dataset_type, None)
             .await
@@ -190,11 +196,13 @@ impl IntakeService {
         let system_org_id = self.system_org_id.as_ref().ok_or_else(|| {
             Error::internal("self telemetry system organization is not configured")
         })?;
+
         if &batch.org_id != system_org_id || !is_reserved_system_stream(&batch.stream) {
             return Err(Error::forbidden(
                 "self telemetry may only target `_sys/_molesignal`",
             ));
         }
+
         let dataset_type = self.sink.primary_dataset_type(batch.stream_type)?;
         self.intake_with_origin(batch, IntakeOrigin::SelfTelemetry, dataset_type)
             .await
@@ -211,6 +219,7 @@ impl IntakeService {
                 "internal telemetry must target a protected non-self stream",
             ));
         }
+
         let dataset_type = self.sink.primary_dataset_type(batch.stream_type)?;
         self.intake_with_origin(batch, IntakeOrigin::InternalTelemetry, dataset_type)
             .await
@@ -226,11 +235,13 @@ impl IntakeService {
         if dataset_type == self.sink.primary_dataset_type(batch.stream_type)? {
             return Err(Error::invalid("derived dataset type must not be primary"));
         }
+
         if is_reserved_system_stream(&batch.stream) {
             return Err(Error::forbidden(
                 "reserved self telemetry requires the dedicated derived entry point",
             ));
         }
+
         self.intake_with_origin(batch, IntakeOrigin::InternalTelemetry, dataset_type)
             .await
     }
@@ -243,6 +254,7 @@ impl IntakeService {
         let system_org_id = self.system_org_id.as_ref().ok_or_else(|| {
             Error::internal("self telemetry system organization is not configured")
         })?;
+
         if dataset_type == self.sink.primary_dataset_type(batch.stream_type)?
             || &batch.org_id != system_org_id
             || !is_reserved_system_stream(&batch.stream)
@@ -251,6 +263,7 @@ impl IntakeService {
                 "derived self telemetry must target `_sys/_molesignal`",
             ));
         }
+
         self.intake_with_origin(batch, IntakeOrigin::SelfTelemetry, dataset_type)
             .await
     }
@@ -283,6 +296,7 @@ impl IntakeService {
         sizes: Option<Vec<u64>>,
     ) -> Result<IntakeResult> {
         validate_stream_name(&batch.stream)?;
+
         // 节点退役中：停接新写入（让 pending 数据 flush 干净后安全下线）。
         if let Some(drain) = &self.drain
             && !drain.accepts_writes()
@@ -330,6 +344,7 @@ impl IntakeService {
                 .map(crate::domain::intake::usage::event_bytes)
                 .collect::<Result<Vec<_>>>()?,
         };
+
         let mut errors: Vec<IntakeError> = Vec::new();
 
         // 1) Pipeline 变换
@@ -337,21 +352,26 @@ impl IntakeService {
             && let Some(engine) = &self.pipeline_engine
         {
             let pipeline_errors = engine.apply(&mut batch).await?;
+
             if !pipeline_errors.is_empty() {
                 let bad: std::collections::HashSet<usize> =
                     pipeline_errors.iter().map(|e| e.index).collect();
                 let mut size_index = 0;
+
                 event_sizes.retain(|_| {
                     let keep = !bad.contains(&size_index);
                     size_index += 1;
                     keep
                 });
+
                 let mut idx = 0;
+
                 batch.events.retain(|_| {
                     let keep = !bad.contains(&idx);
                     idx += 1;
                     keep
                 });
+
                 errors.extend(pipeline_errors);
             }
         }
@@ -372,6 +392,7 @@ impl IntakeService {
         // 2) 类型冲突先在内存里剔除
         let mut collected_bytes = 0_u64;
         let mut kept: Vec<RawEvent> = Vec::with_capacity(batch.events.len());
+
         for (idx, ev) in batch.events.drain(..).enumerate() {
             match check_event_types(&def.schema, &ev) {
                 Ok(()) => {
@@ -381,6 +402,7 @@ impl IntakeService {
                 Err(reason) => errors.push(IntakeError { index: idx, reason }),
             }
         }
+
         let total_kept = kept.len();
         batch.events = kept;
 
@@ -405,6 +427,7 @@ impl IntakeService {
         // 的输出）是已经观测过的 span 的副本，再观测会让调用边重复计数。
         let is_primary_dataset =
             dataset_type == self.sink.primary_dataset_type(batch.stream_type)?;
+
         if is_primary_dataset
             && batch.stream_type == StreamType::TRACES
             && origin != IntakeOrigin::RoutedExternal
@@ -458,14 +481,17 @@ impl IntakeService {
                 )
                 .await?
         };
+
         if result.accepted > 0
             && let (Some(hits), Some(alerts)) = (realtime_hits, &self.realtime_alerts)
         {
             alerts.record(hits, &result.errors, TimestampMicros::now());
         }
+
         if result.accepted > 0 {
             for (dataset_type, batch) in derived {
                 let derived_result = self.sink.write_dataset(dataset_type.clone(), batch).await?;
+
                 if derived_result.rejected != 0 {
                     return Err(Error::internal(format!(
                         "physical dataset `{dataset_type}` rejected {} derived rows",
@@ -474,8 +500,10 @@ impl IntakeService {
                 }
             }
         }
+
         result.rejected += errors.len();
         result.errors.extend(errors);
+
         if result.accepted > 0
             && let Some((org_id, received_at, bytes)) = internal_usage
             && bytes > 0
@@ -483,6 +511,7 @@ impl IntakeService {
         {
             recorder(org_id, received_at, bytes);
         }
+
         Ok(result)
     }
 
@@ -494,7 +523,9 @@ impl IntakeService {
         let schema =
             infer_schema_extension(&Schema { fields: vec![] }, &batch.events, batch.stream_type)
                 .unwrap_or(Schema { fields: vec![] });
+
         let now = TimestampMicros::now();
+
         let def = StreamDefinition {
             id: Id::new(),
             org_id: batch.org_id.clone(),
@@ -505,6 +536,7 @@ impl IntakeService {
             created_at: now,
             updated_at: now,
         };
+
         match self.streams.create(def.clone()).await {
             Ok(created) => {
                 tracing::info!(
@@ -533,6 +565,7 @@ fn mask_events(masker: &Masker, events: &mut [RawEvent]) {
     if masker.is_empty() {
         return;
     }
+
     for ev in events {
         masker.mask_fields(&mut ev.fields);
     }

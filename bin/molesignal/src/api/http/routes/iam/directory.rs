@@ -73,6 +73,7 @@ struct UserView {
     joined_at_micros: Option<i64>,
     created_at_micros: i64,
 }
+
 impl UserView {
     fn from_user(u: User, configured_root_email: &str) -> Self {
         let status = match u.status {
@@ -80,7 +81,9 @@ impl UserView {
             UserStatus::Pending => "pending",
             UserStatus::Rejected => "rejected",
         };
+
         let is_root = is_root_user(&u, configured_root_email);
+
         Self {
             id: u.id.0,
             email: u.email,
@@ -109,11 +112,13 @@ impl UserView {
         configured_root_email: &str,
     ) -> Self {
         let mut view = Self::from_user(u, configured_root_email);
+
         let display_role = roles
             .iter()
             .map(|role| role.name.as_str())
             .collect::<Vec<_>>()
             .join(", ");
+
         view.display_role = (!display_role.is_empty()).then_some(display_role);
         view.roles = roles;
         view.team_names = team_names;
@@ -126,6 +131,7 @@ impl UserView {
 
 fn teams_by_user(teams: Vec<crate::domain::iam::Team>) -> HashMap<String, Vec<String>> {
     let mut by_user = HashMap::<String, Vec<String>>::new();
+
     for team in teams {
         for member_id in team.member_ids {
             by_user
@@ -134,9 +140,11 @@ fn teams_by_user(teams: Vec<crate::domain::iam::Team>) -> HashMap<String, Vec<St
                 .push(team.name.clone());
         }
     }
+
     for names in by_user.values_mut() {
         names.sort();
     }
+
     by_user
 }
 
@@ -152,30 +160,36 @@ async fn list_users(
     axum::Extension(ctx): axum::Extension<IamContext>,
 ) -> Result<Json<Vec<UserView>>> {
     require_key(&ctx, "org.members.read")?;
+
     let memberships = state
         .iam
         .service
         .iam_memberships
         .list_for_org(&ctx.org_id)
         .await?;
+
     let mut team_names = teams_by_user(state.iam.teams.list(&ctx.org_id).await?);
     let mut users = Vec::with_capacity(memberships.len());
 
     for membership in memberships {
         let user = state.iam.service.users.get(&membership.user_id).await?;
+
         let sessions = state
             .iam
             .sso_sessions
             .list_for_user(&membership.user_id)
             .await?;
+
         let latest_session = sessions.first();
         let member_team_names = team_names.remove(&membership.user_id.0).unwrap_or_default();
+
         let roles = state
             .iam
             .service
             .iam_memberships
             .assigned_roles(&membership.user_id, &ctx.org_id)
             .await?;
+
         users.push(UserView::for_membership(
             user,
             membership,
@@ -186,12 +200,14 @@ async fn list_users(
             &state.iam.service.auth_settings().root_email,
         ));
     }
+
     users.sort_by(|a, b| {
         a.display_name
             .to_lowercase()
             .cmp(&b.display_name.to_lowercase())
             .then_with(|| a.email.cmp(&b.email))
     });
+
     Ok(Json(users))
 }
 
@@ -201,11 +217,13 @@ async fn create_user(
     Json(req): Json<CreateUserReq>,
 ) -> Result<(StatusCode, Json<UserView>)> {
     require_key(&ctx, "org.members.manage")?;
+
     let user = state
         .iam
         .service
         .create_user(req.email, req.display_name, &req.password)
         .await?;
+
     Ok((
         StatusCode::CREATED,
         Json(UserView::from_user(
@@ -223,14 +241,17 @@ async fn approve_user(
 ) -> Result<Json<UserView>> {
     require_key(&ctx, "org.members.manage")?;
     let target = Id::from_string(id);
+
     state
         .iam
         .service
         .users
         .set_status(&target, UserStatus::Active)
         .await?;
+
     let user = state.iam.service.users.get(&target).await?;
     notify_user_decision(&state, &user.email, true).await;
+
     Ok(Json(UserView::from_user(
         user,
         &state.iam.service.auth_settings().root_email,
@@ -245,14 +266,17 @@ async fn reject_user(
 ) -> Result<Json<UserView>> {
     require_key(&ctx, "org.members.manage")?;
     let target = Id::from_string(id);
+
     state
         .iam
         .service
         .users
         .set_status(&target, UserStatus::Rejected)
         .await?;
+
     let user = state.iam.service.users.get(&target).await?;
     notify_user_decision(&state, &user.email, false).await;
+
     Ok(Json(UserView::from_user(
         user,
         &state.iam.service.auth_settings().root_email,
@@ -268,7 +292,9 @@ async fn collect_org_admin_emails(state: &AppState, org_id: &Id) -> Vec<String> 
             return Vec::new();
         }
     };
+
     let mut emails = Vec::new();
+
     for m in members {
         let can_manage_members = state
             .iam
@@ -283,10 +309,12 @@ async fn collect_org_admin_emails(state: &AppState, org_id: &Id) -> Vec<String> 
             })
             .await
             .is_ok_and(|capabilities| capabilities.has("org.members.manage"));
+
         if can_manage_members && let Ok(u) = state.iam.service.users.get(&m.user_id).await {
             emails.push(u.email);
         }
     }
+
     emails
 }
 
@@ -295,12 +323,16 @@ pub(crate) async fn notify_admins_pending_user(state: &AppState, org_id: &Id, pe
     let Some(sender) = state.iam.email_sender.as_ref() else {
         return;
     };
+
     let admins = collect_org_admin_emails(state, org_id).await;
+
     if admins.is_empty() {
         return;
     }
+
     let subject = "MoleSignal: a new user is awaiting approval";
     let base = state.platform.external_url.trim_end_matches('/');
+
     let body = if base.is_empty() {
         format!(
             "A new user has signed up and is awaiting your approval:\n\n  {pending_email}\n\nReview pending registrations in IAM \u{2192} Approvals.\n"
@@ -310,6 +342,7 @@ pub(crate) async fn notify_admins_pending_user(state: &AppState, org_id: &Id, pe
             "A new user has signed up and is awaiting your approval:\n\n  {pending_email}\n\nReview: {base}/iam/approvals\n"
         )
     };
+
     if let Err(e) = sender.send_text(&admins, subject, &body).await {
         tracing::warn!(error = %e, "approval-notify: send to admins failed");
     }
@@ -320,7 +353,9 @@ async fn notify_user_decision(state: &AppState, email: &str, approved: bool) {
     let Some(sender) = state.iam.email_sender.as_ref() else {
         return;
     };
+
     let base = state.platform.external_url.trim_end_matches('/');
+
     let (subject, body) = if approved {
         let body = if base.is_empty() {
             "Good news \u{2014} your registration has been approved. You can now sign in.\n"
@@ -330,6 +365,7 @@ async fn notify_user_decision(state: &AppState, email: &str, approved: bool) {
                 "Good news \u{2014} your registration has been approved. Sign in: {base}/signin\n"
             )
         };
+
         ("MoleSignal: your account has been approved", body)
     } else {
         (
@@ -337,6 +373,7 @@ async fn notify_user_decision(state: &AppState, email: &str, approved: bool) {
             "Your registration request has been declined by an administrator.\n".to_string(),
         )
     };
+
     if let Err(e) = sender.send_text(&[email.to_string()], subject, &body).await {
         tracing::warn!(error = %e, approved, "approval-notify: send to user failed");
     }
@@ -348,11 +385,14 @@ async fn get_user(
     Path(id): Path<String>,
 ) -> Result<Json<UserView>> {
     let target = Id::from_string(id);
+
     // 自己或拥有成员读取权限的管理员。
     if target != ctx.user_id && !ctx.has_permission("org.members.read") {
         return Err(Error::forbidden("not allowed"));
     }
+
     let user = state.iam.service.users.get(&target).await?;
+
     Ok(Json(UserView::from_user(
         user,
         &state.iam.service.auth_settings().root_email,
@@ -377,37 +417,51 @@ async fn update_user(
     Json(req): Json<UpdateUserReq>,
 ) -> Result<Json<UserView>> {
     let target = Id::from_string(id);
+
     if target != ctx.user_id && !ctx.has_permission("org.members.manage") {
         return Err(Error::forbidden("not allowed"));
     }
+
     let mut user = state.iam.service.users.get(&target).await?;
+
     if req.email.is_some() {
         return Err(Error::invalid("user email is immutable"));
     }
+
     if let Some(display_name) = req.display_name {
         let display_name = display_name.trim().to_string();
+
         if display_name.is_empty() {
             return Err(Error::invalid("display_name must not be empty"));
         }
+
         user.display_name = display_name;
     }
+
     if let Some(avatar_url) = req.avatar_url {
         user.avatar_url = normalize_avatar_url(avatar_url)?;
     }
+
     if let Some(disabled) = req.disabled {
         require_key(&ctx, "org.members.manage")?;
+
         if target == ctx.user_id && disabled {
             return Err(Error::invalid("cannot disable your own account"));
         }
+
         if is_root_user(&user, &state.iam.service.auth_settings().root_email) {
             return Err(Error::forbidden("root user cannot be disabled"));
         }
+
         if disabled {
             ensure_platform_admin_remains(&state, &target).await?;
         }
+
         user.disabled = disabled;
     }
+
     let user = state.iam.service.users.update(user).await?;
+
     Ok(Json(UserView::from_user(
         user,
         &state.iam.service.auth_settings().root_email,
@@ -421,9 +475,11 @@ async fn delete_user(
 ) -> Result<StatusCode> {
     require_key(&ctx, "org.members.manage")?;
     let target = Id::from_string(id);
+
     if target == ctx.user_id {
         return Err(Error::invalid("cannot delete your own account"));
     }
+
     let user = state.iam.service.users.get(&target).await?;
     ensure_user_removable(&user, &state.iam.service.auth_settings().root_email)?;
     ensure_platform_admin_remains(&state, &target).await?;
@@ -445,14 +501,17 @@ async fn upsert_membership(
     Json(req): Json<MembershipReq>,
 ) -> Result<StatusCode> {
     let target_org = Id::from_string(org_id);
+
     if state.iam.service.orgs.get(&target_org).await?.system {
         return Err(Error::forbidden(
             "system organization does not accept membership",
         ));
     }
+
     if ctx.org_id != target_org || !ctx.has_permission("org.members.manage") {
         return Err(Error::forbidden("not allowed"));
     }
+
     let joined_at = state
         .iam
         .service
@@ -463,13 +522,16 @@ async fn upsert_membership(
         .find(|membership| membership.user_id.0 == req.user_id)
         .map(|membership| membership.joined_at)
         .unwrap_or_else(TimestampMicros::now);
+
     let user_id = Id::from_string(req.user_id);
     state.iam.service.users.get(&user_id).await?;
+
     let role_ids = req
         .role_ids
         .into_iter()
         .map(Id::from_string)
         .collect::<Vec<_>>();
+
     state
         .iam
         .service
@@ -484,6 +546,7 @@ async fn upsert_membership(
             &ctx.user_id,
         )
         .await?;
+
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -493,28 +556,34 @@ async fn remove_membership(
     Path((org_id, user_id)): Path<(String, String)>,
 ) -> Result<StatusCode> {
     let target_org = Id::from_string(org_id);
+
     if state.iam.service.orgs.get(&target_org).await?.system {
         return Err(Error::forbidden(
             "system organization membership is immutable",
         ));
     }
+
     if ctx.org_id != target_org || !ctx.has_permission("org.members.manage") {
         return Err(Error::forbidden("not allowed"));
     }
+
     let target_user = Id::from_string(user_id);
     let user = state.iam.service.users.get(&target_user).await?;
     ensure_user_removable(&user, &state.iam.service.auth_settings().root_email)?;
+
     if ctx.user_id == target_user {
         return Err(Error::invalid(
             "cannot remove your own membership from the active organization",
         ));
     }
+
     state
         .iam
         .service
         .iam_memberships
         .remove(&target_user, &target_org)
         .await?;
+
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -554,6 +623,7 @@ async fn ensure_platform_admin_remains(state: &AppState, user_id: &Id) -> Result
 
 fn is_root_user(user: &User, configured_root_email: &str) -> bool {
     let configured_root_email = configured_root_email.trim();
+
     if configured_root_email.is_empty() {
         user.display_name.trim().eq_ignore_ascii_case("root")
     } else {
@@ -573,15 +643,19 @@ fn ensure_user_removable(user: &User, configured_root_email: &str) -> Result<()>
 
 fn normalize_avatar_url(value: String) -> Result<Option<String>> {
     let value = value.trim().to_string();
+
     if value.is_empty() {
         return Ok(None);
     }
+
     if value.len() > 2048 {
         return Err(Error::invalid("avatar_url must be at most 2048 characters"));
     }
+
     if !(value.starts_with("https://") || value.starts_with("http://")) {
         return Err(Error::invalid("avatar_url must be an http(s) URL"));
     }
+
     Ok(Some(value))
 }
 

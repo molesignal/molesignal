@@ -61,10 +61,13 @@ use crate::{
 
 /// 单条 tool 原始结果内联上限（字节）；超此值 spill 到对象存储，evidence 只留 object_key + 摘要。
 const INLINE_TOOL_RESULT_LIMIT: usize = 16 * 1024;
+
 /// evidence 摘要文本上限。
 const EVIDENCE_SUMMARY_CAP: usize = 500;
+
 /// Agent chat 对象目录布局版本，与 transcript JSON schema 版本独立演进。
 const CHAT_OBJECT_LAYOUT_VERSION: &str = "v1";
+
 const CHAT_TRANSCRIPT_SCHEMA_VERSION: u32 = 1;
 
 pub fn routes() -> Router<AppState> {
@@ -139,6 +142,7 @@ pub struct ChatMessageResp {
 fn to_chat_resp(s: Chat) -> ChatResp {
     let capability = (s.analysis_mode.as_deref() == Some("dashboard"))
         .then(|| "dashboard_authoring".to_string());
+
     ChatResp {
         id: s.id.0,
         provider: s.provider,
@@ -200,6 +204,7 @@ async fn create_chat(
     Json(req): Json<CreateChatReq>,
 ) -> Result<Json<ChatResp>> {
     let now = TimestampMicros::now();
+
     let mut s = Chat::minimal(
         Id::new(),
         ctx.org_id.clone(),
@@ -209,7 +214,9 @@ async fn create_chat(
         req.title,
         now,
     );
+
     s.provider_id = req.provider_id;
+
     s.analysis_mode = match req.capability.as_deref() {
         Some("dashboard_authoring") => Some("dashboard".into()),
         Some(other) => {
@@ -219,6 +226,7 @@ async fn create_chat(
         }
         None => req.analysis_mode,
     };
+
     Ok(Json(to_chat_resp(state.agent.chats.create_chat(s).await?)))
 }
 
@@ -237,6 +245,7 @@ async fn delete_chat(
     {
         let _ = archive_chat(&state, &ctx, &chat).await;
     }
+
     state.agent.chats.delete_chat(&ctx.org_id, &Id(id)).await?;
     Ok(Json(json!({ "deleted": true })))
 }
@@ -252,7 +261,9 @@ async fn list_messages(
         .chats
         .get_chat(&ctx.org_id, &Id(id.clone()))
         .await?;
+
     let msgs = state.agent.chats.list_messages(&Id(id)).await?;
+
     Ok(Json(json!({
         "messages": msgs.into_iter().map(to_message_resp).collect::<Vec<_>>()
     })))
@@ -330,6 +341,7 @@ async fn post_message(
         .chats
         .get_chat(&ctx.org_id, &Id(chat_id.clone()))
         .await?;
+
     let dashboard_activation = dashboard_authoring::resolve(
         req.capability.as_deref(),
         req.analysis_mode.as_deref(),
@@ -337,11 +349,13 @@ async fn post_message(
         &req.content,
         req.time_range.is_some(),
     )?;
+
     let effective_analysis_mode = if dashboard_activation.is_some() {
         Some("dashboard")
     } else {
         req.analysis_mode.as_deref()
     };
+
     let now = TimestampMicros::now();
 
     // 1) 普通发送落 user 消息；重新生成则复用指定 user 消息，并截断传给模型的
@@ -368,8 +382,10 @@ async fn post_message(
                 )
             })
             .await?;
+
         state.agent.chats.list_messages(&chat.id).await?
     };
+
     let _ = state
         .agent
         .chats
@@ -394,13 +410,16 @@ async fn post_message(
         Ok(r) => r,
         Err(e) => return error_stream_response(&state, &ctx, &chat, e.to_string()).await,
     };
+
     let mut effective_chat = chat.clone();
     effective_chat.provider = resolved.provider.as_str().to_string();
     effective_chat.model = resolved.model.clone();
     effective_chat.provider_id = resolved.provider_id.clone();
+
     if dashboard_activation.is_some() {
         effective_chat.analysis_mode = Some("dashboard".into());
     }
+
     let _ = state
         .agent
         .chats
@@ -426,15 +445,18 @@ async fn post_message(
     // 5) tool dispatch：org/user 身份恒取自 IamContext（忽略 model 传入的身份字段）。
     //    默认 Agent Profile 与组织级工具集都只能进一步收窄编译期内置白名单。
     let requested_profile_id = req.agent_profile_id.as_deref().map(|id| Id(id.to_string()));
+
     let resolution =
         toolsets::resolve_toolsets_for_profile(&state, &ctx.org_id, requested_profile_id.as_ref())
             .await?;
+
     let initial_tool_choice = if let Some(activation) = dashboard_activation {
         let enabled_tools = builtin_tools()
             .into_iter()
             .filter(|tool| tool.exposure.mole_agent && resolution.builtin_enabled(&tool.name))
             .map(|tool| tool.name)
             .collect::<Vec<_>>();
+
         let compatibility = dashboard_authoring::validate_compatibility(
             enabled_tools,
             &state
@@ -444,6 +466,7 @@ async fn post_message(
                 .await?
                 .authoring_versions,
         )?;
+
         if compatibility.preview_only
             || req.execution_policy.unwrap_or_default() != AgentExecutionPolicy::Policy
         {
@@ -452,6 +475,7 @@ async fn post_message(
                     .into(),
             );
         }
+
         if activation.input_complete {
             ToolChoice::Specific("prepare_dashboard".into())
         } else {
@@ -468,12 +492,15 @@ async fn post_message(
     let dispatcher: Arc<dyn ToolDispatcher> =
         Arc::new(RealToolDispatcher::new(state.clone()).with_toolsets(resolution.clone()));
     let agent_loop = Arc::new(AgentLoop::new(resolved.adapter.clone(), dispatcher));
+
     let tool_ctx = ToolAuthContext::from_iam(&ctx)
         .with_chat(Some(chat.id.0.clone()))
         .with_investigation(req.investigation_id.clone())
         .with_execution_policy(req.execution_policy.unwrap_or_default())
         .query_generation_only(req.analysis_mode.as_deref() == Some("query_generation"));
+
     let tools_schema = tools_schema_for(resolved.provider, &resolution);
+
     let event_stream = agent_loop.clone().run_stream_with_tool_choice(
         tool_ctx,
         resolved.model.clone(),
@@ -488,11 +515,13 @@ async fn post_message(
     let (sse_tx, sse_rx) = tokio::sync::mpsc::channel::<
         std::result::Result<bytes::Bytes, std::convert::Infallible>,
     >(64);
+
     let persist_state = state.clone();
     let persist_ctx = ctx.clone();
     let persist_chat = effective_chat.clone();
     let assistant_id = Id::new();
     let resolved_provider_id = resolved.provider_id.clone();
+
     crate::shared::trace_context::spawn_with_current_trace_context(async move {
         use futures::StreamExt;
         let mut events = event_stream;
@@ -518,6 +547,7 @@ async fn post_message(
                     let args: Value =
                         serde_json::from_str(arguments).unwrap_or(Value::String(arguments.clone()));
                     tool_args.insert(id.clone(), (name.clone(), args.clone()));
+
                     format!(
                         "event: tool_start\ndata: {}\n\n",
                         json!({ "id": id, "name": name, "arguments": arguments })
@@ -532,6 +562,7 @@ async fn post_message(
                         .get(id)
                         .cloned()
                         .unwrap_or_else(|| ("unknown".into(), Value::Null));
+
                     let entry = build_evidence(
                         &persist_state,
                         &persist_ctx.org_id,
@@ -544,6 +575,7 @@ async fn post_message(
                         *is_error,
                     )
                     .await;
+
                     // 审计只记录摘要，不写原始可观测数据。
                     activity_audit::record(
                         &persist_state,
@@ -559,7 +591,9 @@ async fn post_message(
                         }),
                     )
                     .await;
+
                     evidence.push(entry);
+
                     format!(
                         "event: tool_end\ndata: {}\n\n",
                         json!({ "id": id, "result": result, "is_error": is_error })
@@ -574,8 +608,10 @@ async fn post_message(
                     if !content.is_empty() {
                         final_content = content.clone();
                     }
+
                     prompt_tokens = *pt;
                     completion_tokens = *ct;
+
                     format!(
                         "event: done\ndata: {}\n\n",
                         json!({
@@ -590,6 +626,7 @@ async fn post_message(
                     format!("event: error\ndata: {}\n\n", json!({ "message": msg }))
                 }
             };
+
             if sse_tx
                 .send(Ok::<_, std::convert::Infallible>(bytes::Bytes::from(line)))
                 .await
@@ -605,11 +642,13 @@ async fn post_message(
             Some(err) => format!("[error: {err}]"),
             None => final_content.clone(),
         };
+
         let evidence_json = if evidence.is_empty() {
             None
         } else {
             Some(json!(evidence))
         };
+
         let _ = persist_state
             .agent
             .chats
@@ -631,6 +670,7 @@ async fn post_message(
                 )
             })
             .await;
+
         let _ = persist_state
             .agent
             .chats
@@ -654,6 +694,7 @@ async fn post_message(
             "gen_ai_system": persist_chat.provider,
             "gen_ai_request_model": persist_chat.model,
         });
+
         let _ = persist_state
             .intake
             .intake_internal_telemetry(IntakeBatch {
@@ -675,6 +716,7 @@ async fn post_message(
         "agent.http.sse",
         "sse",
     );
+
     Ok(Response::builder()
         .status(200)
         .header(CONTENT_TYPE, "text/event-stream")
@@ -693,12 +735,15 @@ fn regeneration_history(
         .iter()
         .position(|message| message.id.0 == message_id && message.role == "user")
         .ok_or_else(|| Error::invalid("regenerate target must be a user message in this chat"))?;
+
     let original = &rows[position];
+
     if original.content.trim() != content.trim() {
         return Err(Error::invalid(
             "regenerate content must match the original user message",
         ));
     }
+
     rows.truncate(position + 1);
     Ok(rows)
 }
@@ -749,14 +794,18 @@ async fn resolve_provider(
                 p.id.0
             )));
         }
+
         let provider = Provider::parse(&p.provider)?;
+
         let key = state
             .agent
             .model_providers
             .get_plaintext_key(&ctx.org_id, &p.id)
             .await?
             .ok_or_else(|| Error::invalid(format!("model provider `{}` has no API key", p.id.0)))?;
+
         let adapter = adapter_from_parts(provider, p.base_url.clone(), key)?;
+
         let model = explicit_model
             .map(str::trim)
             .filter(|m| !m.is_empty())
@@ -768,6 +817,7 @@ async fn resolve_provider(
                     chat.model.clone()
                 }
             });
+
         return Ok(ResolvedProvider {
             model,
             adapter,
@@ -780,11 +830,13 @@ async fn resolve_provider(
     // 2) env fallback（dev）。
     let provider = Provider::parse(&chat.provider)?;
     let adapter = adapter_from_env(provider)?;
+
     let model = explicit_model
         .map(str::trim)
         .filter(|m| !m.is_empty())
         .unwrap_or(chat.model.as_str())
         .to_string();
+
     Ok(ResolvedProvider {
         model,
         adapter,
@@ -836,6 +888,7 @@ async fn resolve_prompts(
     dashboard_capability_active: bool,
 ) -> (Vec<String>, PromptMeta) {
     let now = TimestampMicros::now();
+
     let org_name = state
         .iam
         .service
@@ -844,7 +897,9 @@ async fn resolve_prompts(
         .await
         .map(|o| o.name)
         .unwrap_or_else(|_| ctx.org_id.0.clone());
+
     let current_time = now.to_datetime().to_rfc3339();
+
     let time_range_str = match &req.time_range {
         Some(t) => format!(
             "{} to {}",
@@ -853,6 +908,7 @@ async fn resolve_prompts(
         ),
         None => "unspecified".into(),
     };
+
     let streams_str = if req.stream_hints.is_empty() {
         "all available streams".to_string()
     } else {
@@ -879,14 +935,17 @@ async fn resolve_prompts(
         .await
     {
         let rendered = render_prompt(&sys.body, &system_vars);
+
         active = PromptMeta {
             id: Some(sys.id.0.clone()),
             builtin_key: sys.builtin_key.clone(),
             version: Some(sys.version),
             hash: Some(prompt_hash(&rendered)),
         };
+
         system_texts.push(rendered);
     }
+
     system_texts.push(
         match req.execution_policy.unwrap_or_default() {
             AgentExecutionPolicy::AdviceOnly => {
@@ -901,6 +960,7 @@ async fn resolve_prompts(
         }
         .to_string(),
     );
+
     if req.analysis_mode.as_deref() == Some("query_generation") {
         system_texts.push(
             "The user selected Generate query only. Generate the query text, but do not call tools or execute the query."
@@ -941,23 +1001,28 @@ async fn resolve_prompts(
 
     if let Some(t) = task {
         let rendered = render_prompt(&t.body, &task_vars);
+
         active = PromptMeta {
             id: Some(t.id.0.clone()),
             builtin_key: t.builtin_key.clone(),
             version: Some(t.version),
             hash: Some(prompt_hash(&rendered)),
         };
+
         system_texts.push(rendered);
     } else if dashboard_capability_active {
         let instruction = dashboard_authoring::INSTRUCTIONS.to_string();
+
         active = PromptMeta {
             id: None,
             builtin_key: Some("dashboard.authoring.v1".into()),
             version: Some(1),
             hash: Some(prompt_hash(&instruction)),
         };
+
         system_texts.push(instruction);
     }
+
     system_texts.push(
         answer_presentation_instruction(req.analysis_mode.as_deref() == Some("query_generation"))
             .to_string(),
@@ -970,6 +1035,7 @@ fn answer_presentation_instruction(query_generation_only: bool) -> &'static str 
     if query_generation_only {
         return "Write only the requested query plus a short explanation of what it returns. Do not expose internal tool names, function names, parameter names, data-stream discovery attempts, hidden reasoning, or implementation failures.";
     }
+
     r#"Your final response is a product-facing operations result, not a debug trace. Never expose internal tool/function names, raw parameter names, hidden reasoning, data-stream discovery attempts, or implementation failures. Do not narrate "I first tried..." or similar process language. Return one JSON object without a Markdown fence using this shape: {"summary":"concise conclusion","evidence":[{"label":"user-facing fact","kind":"logs|metrics|trace|alert|schedule|other","route":"optional in-app route"}],"likely_causes":["optional cause"],"limitations":["what could not be confirmed"],"suggested_next_steps":["clear next action"],"related_links":[{"label":"action label","route":"optional in-app route"}],"confidence":"high|medium|low"}. Keep empty sections as empty arrays. Tool execution transparency is rendered separately by the product from recorded evidence."#
 }
 
@@ -995,6 +1061,7 @@ async fn build_evidence(
     is_error: bool,
 ) -> Value {
     let (row_count, scanned_rows, took_ms, summary) = summarize_tool_result(result_json);
+
     let mut entry = json!({
         "tool_call_id": tool_call_id,
         "tool": name,
@@ -1002,18 +1069,22 @@ async fn build_evidence(
         "status": if is_error { "error" } else { "success" },
         "summary": summary,
     });
+
     if let Some(v) = row_count {
         entry["row_count"] = json!(v);
     }
+
     if let Some(v) = scanned_rows {
         entry["scanned_rows"] = json!(v);
     }
+
     if let Some(v) = took_ms {
         entry["took_ms"] = json!(v);
     }
 
     if result_json.len() > INLINE_TOOL_RESULT_LIMIT {
         let object_key = tool_result_object_key(org_id, chat_id, message_id, tool_call_id);
+
         match ObjPath::parse(&object_key) {
             Ok(path) => {
                 match state
@@ -1037,6 +1108,7 @@ async fn build_evidence(
             }
         }
     }
+
     entry
 }
 
@@ -1059,16 +1131,19 @@ fn summarize_tool_result(result_json: &str) -> (Option<i64>, Option<i64>, Option
     let mut scanned = None;
     let mut took = None;
     let mut text_summary = String::new();
+
     if let Some(arr) = parsed.as_array() {
         for item in arr {
             match item.get("type").and_then(|t| t.as_str()) {
                 Some("json") => {
                     let j = item.get("json").cloned().unwrap_or(Value::Null);
+
                     for key in ["rows", "incidents", "streams", "spans"] {
                         if let Some(a) = j.get(key).and_then(|v| v.as_array()) {
                             row_count = Some(a.len() as i64);
                         }
                     }
+
                     scanned = j.get("scanned_rows").and_then(|v| v.as_i64()).or(scanned);
                     took = j.get("took_ms").and_then(|v| v.as_i64()).or(took);
                 }
@@ -1081,6 +1156,7 @@ fn summarize_tool_result(result_json: &str) -> (Option<i64>, Option<i64>, Option
             }
         }
     }
+
     let summary = if !text_summary.is_empty() {
         cap_str(&text_summary, EVIDENCE_SUMMARY_CAP)
     } else if let Some(n) = row_count {
@@ -1088,6 +1164,7 @@ fn summarize_tool_result(result_json: &str) -> (Option<i64>, Option<i64>, Option
     } else {
         "ok".to_string()
     };
+
     (row_count, scanned, took, summary)
 }
 
@@ -1095,6 +1172,7 @@ fn cap_str(s: &str, max: usize) -> String {
     if s.chars().count() <= max {
         return s.to_string();
     }
+
     let truncated: String = s.chars().take(max).collect();
     format!("{truncated}…")
 }
@@ -1111,6 +1189,7 @@ async fn archive_chat_route(
 ) -> Result<Json<Value>> {
     let chat = state.agent.chats.get_chat(&ctx.org_id, &Id(id)).await?;
     let archive = archive_chat(&state, &ctx, &chat).await;
+
     Ok(Json(json!({
         "status": archive.status,
         "object_key": archive.object_key,
@@ -1135,10 +1214,12 @@ async fn archive_chat(
         .list_messages(&chat.id)
         .await
         .unwrap_or_default();
+
     let total_prompt: i64 = messages.iter().filter_map(|m| m.prompt_tokens).sum();
     let total_completion: i64 = messages.iter().filter_map(|m| m.completion_tokens).sum();
     let total_cost: f64 = messages.iter().filter_map(|m| m.cost_usd).sum();
     let archived_at = TimestampMicros::now();
+
     let transcript = json!({
         "schema_version": CHAT_TRANSCRIPT_SCHEMA_VERSION,
         "chat": {
@@ -1195,6 +1276,7 @@ async fn archive_chat(
                 .chats
                 .set_archive_object_key(&chat.id, &object_key)
                 .await;
+
             ChatArchive {
                 id: Id::new(),
                 chat_id: chat.id.clone(),
@@ -1210,6 +1292,7 @@ async fn archive_chat(
         }
         Err(err) => {
             tracing::warn!(error = %err, chat = %chat.id.0, "chat archive write failed");
+
             ChatArchive {
                 id: Id::new(),
                 chat_id: chat.id.clone(),
@@ -1231,6 +1314,7 @@ async fn archive_chat(
         .record(archive.clone())
         .await
         .unwrap_or(archive);
+
     // 审计：含 object_key / checksum / status，不含 transcript 原文。
     activity_audit::record(
         state,
@@ -1247,6 +1331,7 @@ async fn archive_chat(
         }),
     )
     .await;
+
     saved
 }
 
@@ -1280,12 +1365,15 @@ async fn error_stream_response(
             TimestampMicros::now(),
         ))
         .await;
+
     let body = format!("event: error\ndata: {}\n\n", json!({ "message": msg }));
+
     let stream = segmented_result_stream(
         stream::once(async move { Ok::<_, std::convert::Infallible>(bytes::Bytes::from(body)) }),
         "agent.http.sse",
         "sse",
     );
+
     Ok(Response::builder()
         .status(200)
         .header(CONTENT_TYPE, "text/event-stream")
@@ -1323,6 +1411,7 @@ fn tools_schema_for(provider: Provider, resolution: &toolsets::ToolsetResolution
         })
         .map(|t| tool_schema_entry(provider, &t.name, &t.description, &t.input_schema))
         .collect();
+
     arr.sort_by(|left, right| tool_schema_name(left).cmp(tool_schema_name(right)));
     Value::Array(arr)
 }

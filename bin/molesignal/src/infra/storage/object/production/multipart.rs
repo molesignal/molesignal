@@ -52,10 +52,13 @@ impl InstrumentedMultipartUpload {
 impl MultipartUpload for InstrumentedMultipartUpload {
     fn put_part(&mut self, data: PutPayload) -> UploadPart {
         self.parts = self.parts.saturating_add(1);
+
         self.bytes = self
             .bytes
             .saturating_add(data.content_length().try_into().unwrap_or(u64::MAX));
+
         let part = self.parts;
+
         if part <= 128 {
             self.span.in_scope(|| {
                 tracing::info!(
@@ -66,13 +69,17 @@ impl MultipartUpload for InstrumentedMultipartUpload {
                 );
             });
         }
+
         let future = self.inner.put_part(data);
         let span = self.span.clone();
+
         async move {
             let result = future.instrument(span.clone()).await;
+
             if let Err(error) = &result {
                 span.record("error.type", error_reason(error));
             }
+
             result
         }
         .boxed()
@@ -83,6 +90,7 @@ impl MultipartUpload for InstrumentedMultipartUpload {
         let result = self.inner.complete().instrument(span.clone()).await;
         span.record("molesignal.object.bytes", self.bytes);
         span.record("molesignal.object.retry_count", 0);
+
         span.in_scope(|| {
             tracing::info!(
                 molesignal.span_event = true,
@@ -91,11 +99,13 @@ impl MultipartUpload for InstrumentedMultipartUpload {
                 multipart.total_bytes = self.bytes,
             );
         });
+
         match &result {
             Ok(_) => {
                 ops_total()
                     .with_label_values(&[self.backend, "multipart_complete"])
                     .inc();
+
                 bytes_total()
                     .with_label_values(&[self.backend, "multipart_complete"])
                     .inc_by(self.bytes);
@@ -103,17 +113,20 @@ impl MultipartUpload for InstrumentedMultipartUpload {
             Err(error) => {
                 let reason = error_reason(error);
                 span.record("error.type", reason);
+
                 errors_total()
                     .with_label_values(&[self.backend, "multipart_complete", reason])
                     .inc();
             }
         }
+
         result
     }
 
     async fn abort(&mut self) -> ObjectStoreResult<()> {
         let span = self.span.clone();
         let result = self.inner.abort().instrument(span.clone()).await;
+
         span.in_scope(|| {
             tracing::info!(
                 molesignal.span_event = true,
@@ -121,9 +134,11 @@ impl MultipartUpload for InstrumentedMultipartUpload {
                 multipart.part_count = self.parts,
             );
         });
+
         if let Err(error) = &result {
             span.record("error.type", error_reason(error));
         }
+
         result
     }
 }

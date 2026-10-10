@@ -107,6 +107,7 @@ impl DashboardService {
         validation_mode: DashboardValidationMode,
     ) -> Result<Dashboard> {
         let contracts = self.contracts.active().await?;
+
         let dashboard = build_dashboard(
             org_id,
             folder_id,
@@ -115,6 +116,7 @@ impl DashboardService {
             validation_mode,
             &contracts,
         )?;
+
         self.dashboards.create(dashboard).await
     }
 
@@ -128,9 +130,11 @@ impl DashboardService {
         let now = TimestampMicros::now();
         let contracts = self.contracts.active().await?;
         validate_executable_draft(&draft, &org_id, &actor, &expected_hash, now, &contracts)?;
+
         if let Some(folder_id) = &draft.folder_id {
             self.folders.get(&org_id, folder_id).await?;
         }
+
         let dashboard = build_dashboard(
             org_id.clone(),
             draft.folder_id.clone(),
@@ -139,10 +143,12 @@ impl DashboardService {
             DashboardValidationMode::Native,
             &contracts,
         )?;
+
         let drafts = self
             .drafts
             .as_ref()
             .ok_or_else(|| Error::internal("Dashboard draft repository is not configured"))?;
+
         drafts
             .consume_and_create(ConsumeDashboardDraft {
                 org_id,
@@ -158,6 +164,7 @@ impl DashboardService {
 
     pub async fn validate_draft_model(&self, draft: &DashboardDraft) -> Result<()> {
         let contracts = self.contracts.active().await?;
+
         ensure_dashboard_model_with(
             &draft.compiled_model,
             DashboardValidationMode::Native,
@@ -191,6 +198,7 @@ impl DashboardService {
     ) -> Result<Dashboard> {
         let expected_version = dashboard.version;
         let next_version = expected_version.saturating_add(1);
+
         apply_server_model_fields(
             &mut model,
             &dashboard.id,
@@ -198,13 +206,16 @@ impl DashboardService {
             next_version,
             folder_id.as_ref(),
         )?;
+
         let contracts = self.contracts.active().await?;
+
         ensure_dashboard_model_with(
             &model,
             DashboardValidationMode::Native,
             &contracts.model_validator,
             &contracts.manifest,
         )?;
+
         let (_, title, tags) = dashboard_model_metadata(&model)?;
 
         dashboard.folder_id = folder_id;
@@ -214,6 +225,7 @@ impl DashboardService {
         dashboard.version = next_version;
         dashboard.updated_at = TimestampMicros::now();
         dashboard.updated_by = actor;
+
         self.dashboards
             .update_if_version(dashboard, expected_version)
             .await
@@ -244,6 +256,7 @@ fn build_dashboard(
 ) -> Result<Dashboard> {
     let now = TimestampMicros::now();
     let id = Id::new();
+
     let uid = model
         .get("uid")
         .and_then(Value::as_str)
@@ -251,14 +264,18 @@ fn build_dashboard(
         .filter(|value| !value.is_empty())
         .map(str::to_string)
         .unwrap_or_else(|| Id::new().0);
+
     apply_server_model_fields(&mut model, &id, &uid, 1, folder_id.as_ref())?;
+
     ensure_dashboard_model_with(
         &model,
         validation_mode,
         &contracts.model_validator,
         &contracts.manifest,
     )?;
+
     let (_, title, tags) = dashboard_model_metadata(&model)?;
+
     let dashboard = Dashboard {
         id,
         org_id,
@@ -273,6 +290,7 @@ fn build_dashboard(
         created_by: creator.clone(),
         updated_by: creator,
     };
+
     Ok(dashboard)
 }
 
@@ -287,7 +305,9 @@ fn validate_executable_draft(
     if &draft.org_id != org_id || &draft.created_by != actor {
         return Err(Error::not_found("dashboard draft not found"));
     }
+
     let manifest = &contracts.manifest;
+
     if !manifest
         .authoring_versions
         .contains(&draft.authoring_version)
@@ -305,18 +325,21 @@ fn validate_executable_draft(
             "Dashboard draft is not compatible with the active compiler",
         ));
     }
+
     if draft.is_expired_at(now) {
         return Err(draft_validation_error(
             "DRAFT_EXPIRED",
             "Dashboard draft has expired; prepare it again",
         ));
     }
+
     if draft.model_hash != expected_hash {
         return Err(draft_validation_error(
             "DRAFT_HASH_MISMATCH",
             "Dashboard draft hash does not match the reviewed preview",
         ));
     }
+
     ensure_dashboard_model_with(
         &draft.compiled_model,
         DashboardValidationMode::Native,
@@ -355,9 +378,11 @@ fn apply_server_model_fields(
             )],
         )
     })?;
+
     object.insert("id".to_string(), Value::String(id.0.clone()));
     object.insert("uid".to_string(), Value::String(uid.to_string()));
     object.insert("version".to_string(), Value::from(version));
+
     match folder_id {
         Some(folder_id) => {
             object.insert("folderId".to_string(), Value::String(folder_id.0.clone()));
@@ -366,6 +391,7 @@ fn apply_server_model_fields(
             object.remove("folderId");
         }
     }
+
     Ok(())
 }
 
@@ -373,17 +399,21 @@ fn dashboard_model_metadata(model: &Value) -> Result<(String, String, Vec<String
     let object = model
         .as_object()
         .ok_or_else(|| Error::invalid("dashboard model must be an object"))?;
+
     if object.get("engine").and_then(Value::as_str) != Some("molesignal-dashboard") {
         return Err(Error::invalid(
             "dashboard model engine must be molesignal-dashboard",
         ));
     }
+
     if object.get("schemaVersion").and_then(Value::as_u64) != Some(2) {
         return Err(Error::invalid("unsupported dashboard schemaVersion"));
     }
+
     if !object.get("elements").is_some_and(Value::is_array) {
         return Err(Error::invalid("dashboard model elements must be an array"));
     }
+
     for key in ["tags", "variables", "annotations", "links"] {
         if !object.get(key).is_some_and(Value::is_array) {
             return Err(Error::invalid(format!(
@@ -391,18 +421,22 @@ fn dashboard_model_metadata(model: &Value) -> Result<(String, String, Vec<String
             )));
         }
     }
+
     if !object.get("timeSettings").is_some_and(Value::is_object) {
         return Err(Error::invalid(
             "dashboard model timeSettings must be an object",
         ));
     }
+
     if !object.get("layout").is_some_and(Value::is_object) {
         return Err(Error::invalid("dashboard model layout must be an object"));
     }
+
     let refresh = object
         .get("refreshSettings")
         .and_then(Value::as_object)
         .ok_or_else(|| Error::invalid("dashboard model refreshSettings must be an object"))?;
+
     if !matches!(
         refresh.get("mode").and_then(Value::as_str),
         Some("off" | "interval" | "live")
@@ -411,6 +445,7 @@ fn dashboard_model_metadata(model: &Value) -> Result<(String, String, Vec<String
             "dashboard model refreshSettings.mode must be off, interval or live",
         ));
     }
+
     let title = object
         .get("title")
         .and_then(Value::as_str)
@@ -428,6 +463,7 @@ fn dashboard_model_metadata(model: &Value) -> Result<(String, String, Vec<String
             )
         })?
         .to_string();
+
     let uid = object
         .get("uid")
         .and_then(Value::as_str)
@@ -435,6 +471,7 @@ fn dashboard_model_metadata(model: &Value) -> Result<(String, String, Vec<String
         .filter(|value| !value.is_empty())
         .map(str::to_string)
         .unwrap_or_else(|| Id::new().0);
+
     let tags = object
         .get("tags")
         .and_then(Value::as_array)
@@ -446,5 +483,6 @@ fn dashboard_model_metadata(model: &Value) -> Result<(String, String, Vec<String
                 .collect()
         })
         .unwrap_or_default();
+
     Ok((uid, title, tags))
 }

@@ -35,6 +35,7 @@ pub(super) async fn claim_entries(
     .fetch_all(pool)
     .await
     .map_err(sqlx_err)?;
+
     rows.into_iter()
         .map(|row| {
             Ok(GcQueueEntry {
@@ -68,27 +69,34 @@ pub(super) async fn entry_is_safe(
     .fetch_optional(pool)
     .await
     .map_err(sqlx_err)?;
+
     let Some(queued) = queued else {
         return Ok(false);
     };
+
     if queued.try_get::<String, _>("state").map_err(sqlx_err)? != "processing" {
         return Ok(false);
     }
+
     let checksum = queued
         .try_get::<Option<String>, _>("checksum")
         .map_err(sqlx_err)?;
+
     if checksum.as_deref() != entry.checksum.as_ref().map(ObjectChecksum::as_str) {
         return Ok(false);
     }
+
     if maintenance::object_is_referenced(pool, scope, &entry.object_key).await? {
         return Ok(false);
     }
+
     if let Some(checksum) = &entry.checksum
         && !maintenance::checksum_matches_retired_catalog(pool, scope, &entry.object_key, checksum)
             .await?
     {
         return Ok(false);
     }
+
     Ok(true)
 }
 
@@ -107,6 +115,7 @@ pub(super) async fn complete_entry(
     .execute(pool)
     .await
     .map_err(sqlx_err)?;
+
     Ok(())
 }
 
@@ -130,6 +139,7 @@ pub(super) async fn retry_entry(
     .execute(pool)
     .await
     .map_err(sqlx_err)?;
+
     Ok(())
 }
 

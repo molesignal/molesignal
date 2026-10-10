@@ -43,6 +43,7 @@ fn sanitize_key_segment(s: &str) -> String {
             }
         })
         .collect();
+
     if out.is_empty() {
         "unknown".to_string()
     } else {
@@ -86,10 +87,12 @@ pub async fn put_archive(
     let bytes = compressed.len() as u64;
     let path =
         ObjPath::parse(key).map_err(|e| Error::internal(format!("profile object path: {e}")))?;
+
     object_store
         .put(&path, Bytes::from(compressed).into())
         .await
         .map_err(|e| Error::internal(format!("profile archive put: {e}")))?;
+
     Ok(bytes)
 }
 
@@ -97,20 +100,24 @@ pub async fn put_archive(
 pub async fn get_archive(object_store: &Arc<dyn ObjectStore>, key: &str) -> Result<Vec<u8>> {
     let path =
         ObjPath::parse(key).map_err(|e| Error::internal(format!("profile object path: {e}")))?;
+
     let got = object_store
         .get(&path)
         .await
         .map_err(|e| Error::internal(format!("profile archive get: {e}")))?;
+
     let bytes = got
         .bytes()
         .await
         .map_err(|e| Error::internal(format!("profile archive read: {e}")))?;
+
     zstd_decompress(&bytes)
 }
 
 /// 从 v1 归档 key 提取 `YYYYMMDD` 日期段；非归档 / 异常 key 返回 `None`。
 pub fn archive_key_date(key: &str) -> Option<&str> {
     let mut segments = key.split('/');
+
     if segments.next()? != "blobs"
         || segments.next()? != PROFILE_ARCHIVE_LAYOUT_VERSION
         || segments.next()?.is_empty()
@@ -120,11 +127,14 @@ pub fn archive_key_date(key: &str) -> Option<&str> {
     {
         return None;
     }
+
     let date = segments.next()?;
     let file = segments.next()?;
+
     if file.is_empty() || segments.next().is_some() {
         return None;
     }
+
     (date.len() == 8 && date.bytes().all(|byte| byte.is_ascii_digit())).then_some(date)
 }
 
@@ -141,13 +151,16 @@ pub async fn sweep_expired_archives(
 ) -> Result<usize> {
     use futures::TryStreamExt;
     let cutoff = yyyymmdd(cutoff_micros);
+
     let prefix = ObjPath::parse(format!(
         "blobs/{PROFILE_ARCHIVE_LAYOUT_VERSION}/{}/profiles",
         org_id.0
     ))
     .map_err(|e| Error::internal(format!("profile sweep prefix: {e}")))?;
+
     let mut listing = object_store.list(Some(&prefix));
     let mut deleted = 0usize;
+
     while let Some(meta) = listing
         .try_next()
         .await
@@ -156,10 +169,12 @@ pub async fn sweep_expired_archives(
         let Some(date) = archive_key_date(meta.location.as_ref()) else {
             continue;
         };
+
         if date < cutoff.as_str() && object_store.delete(&meta.location).await.is_ok() {
             deleted += 1;
         }
     }
+
     Ok(deleted)
 }
 

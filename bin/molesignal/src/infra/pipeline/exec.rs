@@ -49,17 +49,20 @@ pub fn validate_pipeline_streams(
 ) -> Result<()> {
     let source_stream = source_stream.trim();
     let target_stream = target_stream.trim();
+
     if source_stream.is_empty() || target_stream.is_empty() {
         return Err(Error::invalid(
             "pipeline source_stream and target_stream cannot be empty",
         ));
     }
+
     if source_stream == target_stream {
         return Err(Error::conflict(format!(
             "pipeline source and target stream `{source_stream}` cannot be the same for type `{}`",
             stream_type.as_str()
         )));
     }
+
     Ok(())
 }
 
@@ -70,22 +73,27 @@ pub fn parse_steps(function_steps: &Value) -> Vec<TransformStep> {
         .get("steps")
         .and_then(Value::as_array)
         .or_else(|| function_steps.as_array());
+
     if let Some(arr) = raw {
         let steps: Vec<TransformStep> = arr.iter().filter_map(step_from).collect();
+
         if !steps.is_empty() {
             return steps;
         }
     }
+
     if function_steps.get("script").is_some()
         && let Some(step) = step_from(function_steps)
     {
         return vec![step];
     }
+
     Vec::new()
 }
 
 fn step_from(v: &Value) -> Option<TransformStep> {
     let script = v.get("script")?.as_str()?.to_string();
+
     let name = v
         .get("transform_name")
         .or_else(|| v.get("function_name"))
@@ -93,6 +101,7 @@ fn step_from(v: &Value) -> Option<TransformStep> {
         .and_then(Value::as_str)
         .unwrap_or("transform")
         .to_string();
+
     Some(TransformStep { name, script })
 }
 
@@ -118,19 +127,23 @@ pub fn apply_steps(
 ) -> (Vec<Value>, Vec<String>) {
     let mut errors = Vec::new();
     let mut programs = Vec::with_capacity(steps.len());
+
     for step in steps {
         match runtime.compile(&step.script) {
             Ok(program) => programs.push(program),
             Err(e) => errors.push(format!("step `{}` compile: {e}", step.name)),
         }
     }
+
     if !errors.is_empty() {
         return (Vec::new(), errors);
     }
 
     let mut out = Vec::with_capacity(events.len());
+
     for mut event in events {
         let mut ok = true;
+
         for (program, step) in programs.iter().zip(steps) {
             if let Err(e) = runtime.run(program, &mut event) {
                 errors.push(format!("step `{}` run: {e}", step.name));
@@ -138,10 +151,12 @@ pub fn apply_steps(
                 break;
             }
         }
+
         if ok {
             out.push(event);
         }
     }
+
     (out, errors)
 }
 

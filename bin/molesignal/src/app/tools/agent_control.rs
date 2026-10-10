@@ -28,6 +28,7 @@ pub(super) async fn execute(
     arguments: serde_json::Value,
 ) -> Result<ToolResult> {
     let args: AgentArgs = parse_args(arguments)?;
+
     match kind {
         BuiltinToolKind::ListAgentInvestigations => json_result(&bounded(
             runtime
@@ -44,6 +45,7 @@ pub(super) async fn execute(
                 .filter(|value| !value.trim().is_empty())
                 .map(Id)
                 .ok_or_else(|| Error::invalid("investigation_id is required"))?;
+
             json_result(
                 &runtime
                     .agent
@@ -63,6 +65,7 @@ pub(super) async fn execute(
         )),
         BuiltinToolKind::GetAgentApproval => {
             let id = required_id(args.approval_id, "approval_id")?;
+
             json_result(
                 &runtime
                     .agent
@@ -82,11 +85,13 @@ pub(super) async fn execute(
         )),
         BuiltinToolKind::GetAgentExecution => {
             let id = required_id(args.execution_id, "execution_id")?;
+
             let execution = runtime
                 .agent
                 .repository
                 .get_execution(&auth.org_id, &id)
                 .await?;
+
             json_result(&execution)
         }
         BuiltinToolKind::ListAgentAutomations => json_result(&bounded(

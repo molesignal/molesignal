@@ -89,6 +89,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         ),
         _ => unreachable!("status-page catalog received unrelated kind"),
     };
+
     let permissions = if matches!(
         kind,
         BuiltinToolKind::ArchiveStatusPage
@@ -100,6 +101,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
     } else {
         &["status_pages.read"][..]
     };
+
     let tool = ToolSpec::read(
         kind.name(),
         description,
@@ -110,6 +112,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         permissions,
         &tags,
     );
+
     match kind {
         BuiltinToolKind::RestoreStatusPage
         | BuiltinToolKind::PauseStatusPageAutomation

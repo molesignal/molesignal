@@ -19,6 +19,7 @@ pub(super) async fn reorder(
     let mut tx = sqlx::begin(&repository.pool)
         .await
         .map_err(super::super::sqlx_err)?;
+
     let existing: Vec<String> = sqlx::query_scalar(
         "SELECT id FROM status_page_automation_rules
          WHERE organization_id=$1 AND status_page_id=$2 AND lifecycle <> 'archived'
@@ -29,10 +30,12 @@ pub(super) async fn reorder(
     .fetch_all(&mut *tx)
     .await
     .map_err(super::super::sqlx_err)?;
+
     let requested = rule_ids
         .iter()
         .map(|id| id.0.clone())
         .collect::<HashSet<_>>();
+
     if existing.len() != rule_ids.len()
         || requested.len() != rule_ids.len()
         || existing.iter().any(|id| !requested.contains(id))
@@ -41,7 +44,9 @@ pub(super) async fn reorder(
             "automation Rule order must contain every active Rule exactly once",
         ));
     }
+
     let ordered_ids = rule_ids.iter().map(|id| id.0.clone()).collect::<Vec<_>>();
+
     let rows = sqlx::query(
         "UPDATE status_page_automation_rules rule
          SET position=(ordered.position - 1)::INTEGER, updated_at_micros=$4
@@ -57,11 +62,13 @@ pub(super) async fn reorder(
     .await
     .map_err(super::super::sqlx_err)?
     .rows_affected();
+
     if rows != rule_ids.len() as u64 {
         return Err(Error::conflict(
             "automation Rule set changed while it was being reordered",
         ));
     }
+
     tx.commit().await.map_err(super::super::sqlx_err)?;
     repository.list_automation_rules(org_id, page_id).await
 }

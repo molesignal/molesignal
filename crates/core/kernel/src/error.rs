@@ -151,15 +151,18 @@ mod axum_impl {
         fn into_response(self) -> Response {
             let status = StatusCode::from_u16(self.http_status_code())
                 .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+
             // 5xx 把详情记到 tracing（客户端看不到，避免泄露内部细节，但 ops 能定位）。
             if status.is_server_error() {
                 tracing::error!(error = ?self, "request failed with server error");
             }
+
             // 客户端响应：5xx 抹去 message；4xx 把 message 直接吐出去更便于客户端理解。
             let message = match &self {
                 Error::Internal(_) | Error::Other(_) => "internal error".to_string(),
                 other => other.to_string(),
             };
+
             let body = match &self {
                 Error::Validation { issues, .. } => Json(json!({
                     "error": self.http_error_code(),
@@ -171,6 +174,7 @@ mod axum_impl {
                     "message": message,
                 })),
             };
+
             (status, body).into_response()
         }
     }

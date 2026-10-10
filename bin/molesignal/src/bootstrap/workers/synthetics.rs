@@ -51,13 +51,16 @@ impl SyntheticAutomationWorker {
                 Duration::from_secs(10),
                 "synthetics-automation",
             );
+
             loop {
                 tokio::time::sleep(backoff.next_delay()).await;
+
                 if !self.ownership.is_primary().await {
                     // 非主节点保持基础轮询间隔，接任主节点后立刻按正常节奏工作。
                     backoff.reset();
                     continue;
                 }
+
                 match self.sweep_once().await {
                     Ok(work) if work > 0 => backoff.reset(),
                     Ok(_) => {}
@@ -79,10 +82,12 @@ impl SyntheticAutomationWorker {
         let now = TimestampMicros::now();
         let expired = self.synthetics.expire_task_leases(now, 500).await?;
         let tasks = self.synthetics.materialize_due_tasks(now, 200).await?;
+
         let candidates = self
             .status_pages
             .process_due_automation_candidates(200)
             .await?;
+
         let outbox = self.status_pages.process_automation_outbox(200).await?;
         tracing::debug!(
             expired_leases = expired,
@@ -91,6 +96,7 @@ impl SyntheticAutomationWorker {
             processed_outbox = outbox,
             "synthetic automation sweep completed"
         );
+
         Ok(expired
             .saturating_add(u64::try_from(tasks.len()).unwrap_or(u64::MAX))
             .saturating_add(u64::from(candidates))

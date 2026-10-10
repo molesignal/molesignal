@@ -118,6 +118,7 @@ impl PasswordResetRepository for PgPasswordResetRepository {
             // 并发签发输掉唯一索引竞争时，保留获胜请求写入的令牌。
             tx.rollback().await.map_err(sqlx_err)?;
         }
+
         Ok(inserted)
     }
 
@@ -133,6 +134,7 @@ impl PasswordResetRepository for PgPasswordResetRepository {
         now: TimestampMicros,
     ) -> Result<bool> {
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         let row = sqlx::query(
             "SELECT prt.user_id
              FROM password_reset_tokens prt
@@ -154,6 +156,7 @@ impl PasswordResetRepository for PgPasswordResetRepository {
             tx.rollback().await.map_err(sqlx_err)?;
             return Ok(false);
         };
+
         let user_id: String = row.try_get("user_id").map_err(sqlx_err)?;
 
         let updated = sqlx::query("UPDATE users SET password_hash = $2 WHERE id = $1")
@@ -163,8 +166,10 @@ impl PasswordResetRepository for PgPasswordResetRepository {
             .await
             .map_err(sqlx_err)?
             .rows_affected();
+
         if updated != 1 {
             tx.rollback().await.map_err(sqlx_err)?;
+
             return Err(Error::internal(
                 "password reset token references a missing user",
             ));

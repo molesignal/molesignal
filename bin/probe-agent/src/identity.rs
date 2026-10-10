@@ -54,6 +54,7 @@ impl AgentIdentity {
             &fs::read(state_dir.join(IDENTITY_FILE)).context("read Agent identity metadata")?,
         )
         .context("parse Agent identity metadata")?;
+
         Ok(Self {
             metadata,
             private_key_pem: read_utf8(&state_dir.join(PRIVATE_KEY_FILE))?,
@@ -65,18 +66,22 @@ impl AgentIdentity {
     pub fn persist(&self, state_dir: &Path) -> Result<()> {
         fs::create_dir_all(state_dir).context("create Agent state directory")?;
         restrict_directory(state_dir)?;
+
         write_private(
             &state_dir.join(IDENTITY_FILE),
             &serde_json::to_vec_pretty(&self.metadata)?,
         )?;
+
         write_private(
             &state_dir.join(PRIVATE_KEY_FILE),
             self.private_key_pem.as_bytes(),
         )?;
+
         write_private(
             &state_dir.join(CERTIFICATE_FILE),
             self.certificate_chain_pem.as_bytes(),
         )?;
+
         write_private(&state_dir.join(CA_FILE), self.ca_certificate_pem.as_bytes())
     }
 
@@ -130,5 +135,6 @@ fn restrict_file(path: &Path) -> Result<()> {
     if !path.exists() {
         anyhow::bail!("Agent identity file was not created")
     }
+
     Ok(())
 }

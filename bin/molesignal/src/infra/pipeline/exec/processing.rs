@@ -22,6 +22,7 @@ pub fn process_rows(
     events: Vec<Value>,
 ) -> Result<ProcessedRows> {
     let steps = parse_processing_steps(config)?;
+
     let programs = steps
         .iter()
         .map(|step| {
@@ -34,11 +35,14 @@ pub fn process_rows(
             }
         })
         .collect::<Result<Vec<_>>>()?;
+
     let mut rows = Vec::new();
     let mut errors = Vec::new();
+
     for mut event in events {
         let mut destination = fallback_target.to_owned();
         let mut failed = false;
+
         for (step, program) in steps.iter().zip(&programs) {
             if let Some(program) = program {
                 if let Err(error) = runtime.run(program, &mut event) {
@@ -50,6 +54,7 @@ pub fn process_rows(
                 destination = step.routing.destination(&event, &step.target);
             }
         }
+
         if !failed {
             if config
                 .get("sources")
@@ -60,9 +65,11 @@ pub fn process_rows(
                     "scheduled routing cannot write to a source stream",
                 ));
             }
+
             rows.push((destination, event));
         }
     }
+
     Ok(ProcessedRows { rows, errors })
 }
 

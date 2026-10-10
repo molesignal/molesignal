@@ -18,12 +18,14 @@ const PROBE_PATHS: &[&str] = &["/api/v1/healthz", "/healthz", "/readyz"];
 /// 提取 W3C 上下文、创建低基数 HTTP server Span，并为所有响应回写关联 ID。
 pub async fn trace_context_layer(mut request: Request, next: Next) -> Response {
     let context = TraceContext::extract_http(request.headers(), TraceTrust::External);
+
     let route = request
         .extensions()
         .get::<MatchedPath>()
         .map(MatchedPath::as_str)
         .unwrap_or("unmatched")
         .to_string();
+
     let method = request.method().clone();
     request.extensions_mut().insert(context.clone());
 
@@ -45,17 +47,21 @@ pub async fn trace_context_layer(mut request: Request, next: Next) -> Response {
             molesignal.user.id = field::Empty,
             error.type = field::Empty,
         );
+
         let response = with_current_trace_context(context.clone(), next.run(request))
             .instrument(span.clone())
             .await;
+
         let status = response.status();
         span.record("http.response.status_code", status.as_u16());
+
         if is_server_error(status) {
             span.record(
                 "error.type",
                 status.canonical_reason().unwrap_or("server_error"),
             );
         }
+
         response
     };
 

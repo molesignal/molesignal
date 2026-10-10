@@ -43,6 +43,7 @@ where
 {
     type Response = Response<R>;
     type Error = S::Error;
+
     type Future =
         Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
 
@@ -53,10 +54,12 @@ where
     fn call(&mut self, mut request: Request<B>) -> Self::Future {
         let context = TraceContext::extract_http(request.headers(), TraceTrust::External);
         let path = request.uri().path().trim_start_matches('/');
+
         let (service, method) = path
             .rsplit_once('/')
             .map(|(service, method)| (service.to_string(), method.to_string()))
             .unwrap_or_else(|| ("unknown".into(), "unknown".into()));
+
         request.extensions_mut().insert(context.clone());
 
         let span = tracing::info_span!(
@@ -73,24 +76,29 @@ where
             request.id = %context.request_id,
             error.type = field::Empty,
         );
+
         let mut inner = self.inner.clone();
         let instrument_span = span.clone();
+
         Box::pin(
             with_current_trace_context(context.clone(), async move {
                 match inner.call(request).await {
                     Ok(mut response) => {
                         insert_header(&mut response, TRACE_ID, &context.trace_id);
                         insert_header(&mut response, REQUEST_ID, &context.request_id);
+
                         if let Some(code) = response
                             .headers()
                             .get("grpc-status")
                             .and_then(|value| value.to_str().ok())
                         {
                             span.record("rpc.grpc.status_code", code);
+
                             if code != "0" {
                                 span.record("error.type", format!("grpc_status_{code}"));
                             }
                         }
+
                         Ok(response)
                     }
                     Err(error) => {

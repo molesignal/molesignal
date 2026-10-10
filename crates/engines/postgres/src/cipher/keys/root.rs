@@ -39,17 +39,22 @@ impl CipherRootKey {
 
     pub fn from_base64(b64: &str) -> Result<Self, CipherRootKeyError> {
         use base64::Engine as _;
+
         let bytes = base64::engine::general_purpose::STANDARD
             .decode(b64.trim())
             .map_err(|e| CipherRootKeyError::BadEncoding(e.to_string()))?;
+
         if bytes.len() != 32 {
             return Err(CipherRootKeyError::BadLen(bytes.len()));
         }
+
         let hmac_key: [u8; 32] = bytes
             .as_slice()
             .try_into()
             .map_err(|_| CipherRootKeyError::BadLen(bytes.len()))?;
+
         let key = aes_gcm::Key::<Aes256Gcm>::from_slice(&hmac_key);
+
         Ok(Self {
             cipher: Aes256Gcm::new(key),
             hmac_key,
@@ -60,14 +65,18 @@ impl CipherRootKey {
     pub fn seal(&self, plaintext: &[u8]) -> Result<(Vec<u8>, Vec<u8>), CipherRootKeyError> {
         use rand::TryRng as _;
         let mut nonce_bytes = [0u8; 12];
+
         rand::rngs::SysRng
             .try_fill_bytes(&mut nonce_bytes)
             .map_err(|e| CipherRootKeyError::Aead(format!("rng: {e}")))?;
+
         let nonce = Nonce::from_slice(&nonce_bytes);
+
         let ct = self
             .cipher
             .encrypt(nonce, plaintext)
             .map_err(|e| CipherRootKeyError::Aead(e.to_string()))?;
+
         Ok((nonce_bytes.to_vec(), ct))
     }
 
@@ -78,7 +87,9 @@ impl CipherRootKey {
                 nonce.len()
             )));
         }
+
         let nonce = Nonce::from_slice(nonce);
+
         self.cipher
             .decrypt(nonce, ciphertext)
             .map_err(|e| CipherRootKeyError::Aead(e.to_string()))
@@ -104,6 +115,7 @@ impl CipherRootKey {
         let mut context = b"molesignal/derived-key/v1\0".to_vec();
         context.extend_from_slice(purpose);
         let derived = hmac::sign(&root, &context);
+
         derived
             .as_ref()
             .try_into()

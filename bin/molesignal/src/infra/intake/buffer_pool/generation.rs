@@ -77,6 +77,7 @@ impl BufferedRecordBatch {
         if batch.num_rows() == 0 {
             return Err(anyhow!("buffer generation must not be empty"));
         }
+
         if batch.num_rows() != sequences.len() {
             return Err(anyhow!(
                 "buffer sequence sidecar has {} rows for {} Arrow rows",
@@ -84,9 +85,11 @@ impl BufferedRecordBatch {
                 batch.num_rows()
             ));
         }
+
         if sequences.windows(2).any(|pair| pair[0] > pair[1]) {
             return Err(anyhow!("buffer WAL sequences are not monotonic"));
         }
+
         Ok(Self {
             batch,
             writer,
@@ -116,6 +119,7 @@ impl BufferedRecordBatch {
             self.writer.writer_epoch,
             self.sequence_range(),
         );
+
         provenance.collected_bytes = self.collected_bytes;
         provenance
     }
@@ -144,13 +148,16 @@ impl BufferedRecordBatch {
             .schema()
             .index_of(TS_COL)
             .map_err(|_| anyhow!("buffer batch missing {TS_COL}"))?;
+
         let timestamp_column = self.batch.column(timestamp_index);
+
         let DataType::Timestamp(TimeUnit::Microsecond, _) = timestamp_column.data_type() else {
             return Err(anyhow!(
                 "buffer {TS_COL} must be Timestamp(Microsecond), got {:?}",
                 timestamp_column.data_type()
             ));
         };
+
         let timestamps = timestamp_column
             .as_any()
             .downcast_ref::<TimestampMicrosecondArray>()
@@ -158,6 +165,7 @@ impl BufferedRecordBatch {
 
         let mut all_visible = true;
         let mut any_visible = false;
+
         let mask = self
             .sequences
             .iter()
@@ -167,17 +175,21 @@ impl BufferedRecordBatch {
                     && *sequence > committed_sequence
                     && timestamps.value(row) >= time_range.start.0
                     && timestamps.value(row) < time_range.end.0;
+
                 all_visible &= visible;
                 any_visible |= visible;
                 visible
             })
             .collect::<Vec<_>>();
+
         if !any_visible {
             return Ok(None);
         }
+
         if all_visible {
             return Ok(Some(self.batch.clone()));
         }
+
         filter_record_batch(&self.batch, &BooleanArray::from(mask))
             .map(Some)
             .map_err(|error| anyhow!("filter buffer query snapshot: {error}"))
@@ -199,11 +211,13 @@ impl RecordBuilder {
         if self.inflight.is_some() {
             return Err(anyhow!("buffer generation is already being flushed"));
         }
+
         let generation = match self.pending.pop_front() {
             Some(generation) => generation,
             None if self.row_count > 0 => self.finish_active()?,
             None => return Ok(None),
         };
+
         self.inflight = Some(generation.clone());
         Ok(Some(generation))
     }
@@ -228,11 +242,14 @@ impl RecordBuilder {
                 + usize::from(self.inflight.is_some())
                 + usize::from(self.row_count > 0),
         );
+
         batches.extend(self.pending.iter().cloned());
         batches.extend(self.inflight.iter().cloned());
+
         if self.row_count > 0 {
             batches.push(self.snapshot_active()?);
         }
+
         Ok(batches)
     }
 
@@ -247,17 +264,21 @@ impl RecordBuilder {
                     .map(ColumnBuilder::finish)
             })
             .collect::<Result<Vec<_>>>()?;
+
         let batch = RecordBatch::try_new(Arc::new(ArrowSchema::new(self.fields.clone())), arrays)
             .map_err(|error| anyhow!("RecordBatch::try_new failed: {error}"))?;
+
         let writer = self
             .active_writer
             .take()
             .ok_or_else(|| anyhow!("active buffer rows have no WAL writer identity"))?;
+
         let sequences = std::mem::take(&mut self.active_sequences);
         let accounted_size_bytes = std::mem::take(&mut self.accounted_size_bytes);
         let approximate_size_bytes = std::mem::take(&mut self.approx_size_bytes);
         self.row_count = 0;
         self.active_started_at = None;
+
         BufferedRecordBatch::new(
             batch,
             writer,
@@ -279,8 +300,10 @@ impl RecordBuilder {
                     .map(ColumnBuilder::finish_cloned)
             })
             .collect::<Result<Vec<_>>>()?;
+
         let batch = RecordBatch::try_new(Arc::new(ArrowSchema::new(self.fields.clone())), arrays)
             .map_err(|error| anyhow!("RecordBatch snapshot failed: {error}"))?;
+
         BufferedRecordBatch::new(
             batch,
             self.active_writer
@@ -298,12 +321,15 @@ impl RecordBuilder {
             .inflight
             .take()
             .ok_or_else(|| anyhow!("buffer has no in-flight generation"))?;
+
         if generation.flush_id() != *flush_id {
             self.inflight = Some(generation);
+
             return Err(anyhow!(
                 "in-flight buffer generation does not match flush {flush_id}"
             ));
         }
+
         Ok(generation)
     }
 }
@@ -316,15 +342,18 @@ pub(crate) fn align_to_schema(
     if batch.schema() == *target {
         return Ok(batch);
     }
+
     let rows = batch.num_rows();
     let source = batch.schema();
     let mut columns: Vec<ArrayRef> = Vec::with_capacity(target.fields().len());
+
     for field in target.fields() {
         match source.index_of(field.name()) {
             Ok(index) => columns.push(batch.column(index).clone()),
             Err(_) => columns.push(new_null_array(field.data_type(), rows)),
         }
     }
+
     RecordBatch::try_new(target.clone(), columns)
         .map_err(|error| anyhow!("align pending batch to evolved schema: {error}"))
 }

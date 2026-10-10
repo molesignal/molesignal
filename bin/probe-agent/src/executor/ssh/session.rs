@@ -27,12 +27,14 @@ pub(super) async fn authenticate(
                     .as_ref()
                     .ok_or_else(|| anyhow!("SSH username is required"))?,
             )?;
+
             let password = context.resolve(
                 value
                     .password
                     .as_ref()
                     .ok_or_else(|| anyhow!("SSH password is required"))?,
             )?;
+
             Ok((
                 "password",
                 session
@@ -48,20 +50,24 @@ pub(super) async fn authenticate(
                     .as_ref()
                     .ok_or_else(|| anyhow!("SSH username is required"))?,
             )?;
+
             let private_key = context.resolve(
                 value
                     .private_key
                     .as_ref()
                     .ok_or_else(|| anyhow!("SSH private key is required"))?,
             )?;
+
             let passphrase = value
                 .passphrase
                 .as_ref()
                 .map(|value| context.resolve(value))
                 .transpose()?;
+
             let private_key = decode_secret_key(&private_key, passphrase.as_deref())
                 .context("cannot decode SSH private key")?;
             let hash = session.best_supported_rsa_hash().await?.flatten();
+
             Ok((
                 "public_key",
                 session
@@ -91,6 +97,7 @@ pub(super) async fn execute_command(
     let mut output = Vec::new();
     let mut exit_status = None;
     let mut truncated = false;
+
     while let Some(message) = channel.wait().await {
         match message {
             ChannelMsg::Data { data } | ChannelMsg::ExtendedData { data, .. } => {
@@ -106,6 +113,7 @@ pub(super) async fn execute_command(
             _ => {}
         }
     }
+
     Ok(CommandResult {
         output,
         exit_status,

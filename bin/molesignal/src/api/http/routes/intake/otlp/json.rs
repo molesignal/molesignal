@@ -17,9 +17,11 @@ pub(super) fn normalize_as_int(value: &mut Value) {
                 Some(Value::String(text)) => text.trim().parse::<i64>().ok(),
                 _ => None,
             };
+
             if let Some(int) = parsed {
                 map.insert("asInt".to_owned(), Value::from(int));
             }
+
             for child in map.values_mut() {
                 normalize_as_int(child);
             }

@@ -69,6 +69,7 @@ const COLS: &str = "id, org_id, actor_kind, actor_id, action, target_kind, targe
 
 fn row_to(row: sqlx::postgres::PgRow) -> Result<AuditEvent> {
     let payload: Json<Value> = row.try_get("payload").map_err(sqlx_err)?;
+
     Ok(AuditEvent {
         id: Id(row.try_get::<String, _>("id").map_err(sqlx_err)?),
         org_id: Id(row.try_get::<String, _>("org_id").map_err(sqlx_err)?),
@@ -87,17 +88,22 @@ fn row_to(row: sqlx::postgres::PgRow) -> Result<AuditEvent> {
 fn sanitize_audit_event(event: &mut AuditEvent) {
     let mut fields = Map::new();
     fields.insert("payload".into(), std::mem::take(&mut event.payload));
+
     if let Some(ip) = event.ip.take() {
         fields.insert("ip".into(), Value::String(ip));
     }
+
     if let Some(user_agent) = event.user_agent.take() {
         fields.insert("user_agent".into(), Value::String(user_agent));
     }
+
     sanitize_telemetry_fields(&mut fields, 4 * 1024);
     event.payload = fields.remove("payload").unwrap_or(Value::Null);
+
     event.ip = fields
         .remove("ip")
         .and_then(|value| value.as_str().map(str::to_owned));
+
     event.user_agent = fields
         .remove("user_agent")
         .and_then(|value| value.as_str().map(str::to_owned));
@@ -109,6 +115,7 @@ impl AuditEventRepository for PgAuditEventRepository {
         // 审计是最后一道持久化边界；即使调用方误把 credential 放进 payload，
         // 原值也不能进入 `_sys` 或后续配置 diff 查询。
         sanitize_audit_event(&mut e);
+
         sqlx::query(
             "INSERT INTO audit_events
                 (id, org_id, actor_kind, actor_id, action, target_kind, target_id,
@@ -129,6 +136,7 @@ impl AuditEventRepository for PgAuditEventRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -141,6 +149,7 @@ impl AuditEventRepository for PgAuditEventRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to).collect()
     }
 
@@ -151,6 +160,7 @@ impl AuditEventRepository for PgAuditEventRepository {
             Some((ts, id)) => (Some(*ts), Some(id.clone())),
             None => (None, None),
         };
+
         let rows = sqlx::query(&format!(
             "SELECT {COLS} FROM audit_events
              WHERE org_id = $1
@@ -179,6 +189,7 @@ impl AuditEventRepository for PgAuditEventRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to).collect()
     }
 }

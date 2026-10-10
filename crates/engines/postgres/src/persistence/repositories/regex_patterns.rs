@@ -73,11 +73,13 @@ fn row_to(r: sqlx::postgres::PgRow) -> RegexPattern {
 impl RegexPatternRepository for PgRegexPatternRepository {
     async fn list(&self, org_id: &Id) -> Result<Vec<RegexPattern>> {
         let sql = format!("SELECT {COLS} FROM regex_patterns WHERE org_id = $1 ORDER BY name ASC");
+
         let rows = sqlx::query(&sql)
             .bind(&org_id.0)
             .fetch_all(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(rows.into_iter().map(row_to).collect())
     }
 
@@ -100,6 +102,7 @@ impl RegexPatternRepository for PgRegexPatternRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(p)
     }
 
@@ -121,9 +124,11 @@ impl RegexPatternRepository for PgRegexPatternRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         if res.rows_affected() == 0 {
             return Err(crate::shared::Error::not_found("regex pattern"));
         }
+
         Ok(p)
     }
 
@@ -134,6 +139,7 @@ impl RegexPatternRepository for PgRegexPatternRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(())
     }
 }

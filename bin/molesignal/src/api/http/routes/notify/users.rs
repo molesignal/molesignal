@@ -46,6 +46,7 @@ async fn list(
         .into_iter()
         .map(|membership| membership.user_id)
         .collect::<HashSet<_>>();
+
     let mut endpoints = group_by_user(
         state
             .alerting
@@ -54,6 +55,7 @@ async fn list(
             .await?,
         |endpoint| endpoint.user_id.clone(),
     );
+
     let mut preferences = group_by_user(
         state
             .alerting
@@ -62,6 +64,7 @@ async fn list(
             .await?,
         |preference| preference.user_id.clone(),
     );
+
     let mut users = state
         .iam
         .service
@@ -81,22 +84,26 @@ async fn list(
             status: user.status,
         })
         .collect::<Vec<_>>();
+
     users.sort_by(|left, right| {
         left.display_name
             .to_lowercase()
             .cmp(&right.display_name.to_lowercase())
             .then_with(|| left.email.cmp(&right.email))
     });
+
     Ok(Json(users))
 }
 
 fn group_by_user<T>(values: Vec<T>, user_id: impl Fn(&T) -> Id) -> HashMap<Id, Vec<T>> {
     let mut grouped = HashMap::new();
+
     for value in values {
         grouped
             .entry(user_id(&value))
             .or_insert_with(Vec::new)
             .push(value);
     }
+
     grouped
 }

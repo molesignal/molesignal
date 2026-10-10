@@ -48,6 +48,7 @@ pub mod shared {
 
 const BUCKET_SIZE_US: i64 = 60 * 1_000_000;
 const SAMPLE_CAP: usize = 1024;
+
 /// 未配对 span 暂存上限（防 span_id 永不配对时内存无界增长）。
 const SPAN_CAP: usize = 100_000;
 
@@ -117,18 +118,22 @@ impl ServiceGraphAggregator {
         is_error: bool,
     ) {
         let bucket_at = (ts.0 / BUCKET_SIZE_US) * BUCKET_SIZE_US;
+
         let key = EdgeKey {
             org_id: org_id.clone(),
             client_service: client_service.to_string(),
             server_service: server_service.to_string(),
             bucket_at_micros: bucket_at,
         };
+
         let entry = self.buckets.entry(key).or_default();
         let mut b = entry.lock();
         b.request_count += 1;
+
         if is_error {
             b.error_count += 1;
         }
+
         if b.samples_us.len() < SAMPLE_CAP {
             b.samples_us.push(duration_us.max(0));
         }
@@ -157,6 +162,7 @@ impl ServiceGraphAggregator {
         if trace_id.is_empty() || span_id.is_empty() {
             return;
         }
+
         let me = PendingSpan {
             service: service.to_string(),
             ts,
@@ -169,6 +175,7 @@ impl ServiceGraphAggregator {
         if let Some(parent) = parent_span_id.filter(|p| !p.is_empty()) {
             let pk = (org_id.clone(), trace_id.to_string(), parent.to_string());
             let parent_service = self.pending.get(&pk).map(|p| p.service.clone());
+
             match parent_service {
                 Some(psvc) if psvc != service => {
                     self.record(org_id, &psvc, service, ts, me.duration_us, is_error);
@@ -182,6 +189,7 @@ impl ServiceGraphAggregator {
 
         // 2) 记录自身，供后到的子 span 配对；超上限只跳过存储（不影响已存配对）。
         let myk = (org_id.clone(), trace_id.to_string(), span_id.to_string());
+
         if self.pending.len() < SPAN_CAP {
             self.pending.insert(myk.clone(), me.clone());
         }
@@ -207,6 +215,7 @@ impl ServiceGraphAggregator {
     /// 由 flush worker 每个 tick 调一次。
     pub fn prune(&self, cutoff_micros: i64) {
         self.pending.retain(|_, v| v.seen_at_us >= cutoff_micros);
+
         self.waiting.retain(|_, v| {
             v.retain(|c| c.seen_at_us >= cutoff_micros);
             !v.is_empty()
@@ -216,17 +225,21 @@ impl ServiceGraphAggregator {
     /// 把所有 `bucket_at_micros < cutoff` 的桶 drain 出来转 snapshot。
     pub fn flush_due(&self, cutoff_micros: i64) -> Vec<EdgeSnapshot> {
         let mut drained: Vec<EdgeKey> = Vec::new();
+
         for kv in self.buckets.iter() {
             if kv.key().bucket_at_micros < cutoff_micros {
                 drained.push(kv.key().clone());
             }
         }
+
         let mut snaps = Vec::with_capacity(drained.len());
+
         for key in drained {
             if let Some((k, m)) = self.buckets.remove(&key) {
                 let b = m.into_inner();
                 let mut s = b.samples_us;
                 s.sort_unstable();
+
                 let p = |q: f64| -> Option<i64> {
                     if s.is_empty() {
                         None
@@ -236,6 +249,7 @@ impl ServiceGraphAggregator {
                         Some(s[idx])
                     }
                 };
+
                 snaps.push(EdgeSnapshot {
                     id: Id::new(),
                     org_id: k.org_id,
@@ -250,6 +264,7 @@ impl ServiceGraphAggregator {
                 });
             }
         }
+
         snaps
     }
 }
@@ -292,6 +307,7 @@ impl ServiceGraphRepository for PgServiceGraphRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -304,7 +320,9 @@ impl ServiceGraphRepository for PgServiceGraphRepository {
         if edges.is_empty() {
             return Ok(());
         }
+
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         for e in edges {
             sqlx::query(
                 "INSERT INTO service_graph_edges
@@ -326,6 +344,7 @@ impl ServiceGraphRepository for PgServiceGraphRepository {
             .await
             .map_err(sqlx_err)?;
         }
+
         tx.commit().await.map_err(sqlx_err)?;
         Ok(())
     }
@@ -371,6 +390,7 @@ impl ServiceGraphRepository for PgServiceGraphRepository {
         .map_err(sqlx_err)?;
 
         let mut out = Vec::with_capacity(rows.len());
+
         for r in rows {
             out.push(EdgeSnapshot {
                 id: Id(r.try_get::<String, _>("id").unwrap_or_default()),
@@ -385,6 +405,7 @@ impl ServiceGraphRepository for PgServiceGraphRepository {
                 p99_us: r.try_get::<Option<i64>, _>("p99_us").unwrap_or_default(),
             });
         }
+
         Ok(out)
     }
 }
@@ -407,28 +428,35 @@ impl ServiceGraphObserver for ServiceGraphObserverImpl {
     fn observe(&self, org_id: &Id, events: &[RawEvent]) {
         for ev in events {
             let f = &ev.fields;
+
             let Some(trace_id) = f.get("trace_id").and_then(|v| v.as_str()) else {
                 continue;
             };
+
             let Some(span_id) = f.get("span_id").and_then(|v| v.as_str()) else {
                 continue;
             };
+
             let service = effective_service_name(
                 f.get("service.name").and_then(|v| v.as_str()),
                 f.get("service.namespace").and_then(|v| v.as_str()),
                 f.get("molesignal.execution.role").and_then(|v| v.as_str()),
             );
+
             let parent = f.get("parent_span_id").and_then(|v| v.as_str());
+
             let duration_us = f
                 .get("duration_ns")
                 .and_then(|v| v.as_i64().or_else(|| v.as_u64().map(|u| u as i64)))
                 .unwrap_or(0)
                 / 1_000;
+
             let is_error = f
                 .get("status_code")
                 .and_then(|v| v.as_str())
                 .map(|s| s.eq_ignore_ascii_case("ERROR"))
                 .unwrap_or(false);
+
             self.agg.observe_span(
                 org_id,
                 trace_id,

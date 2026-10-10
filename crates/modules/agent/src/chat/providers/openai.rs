@@ -52,30 +52,39 @@ impl OpenAiAdapter {
                     MessageRole::Tool => "tool",
                     MessageRole::System => "system",
                 };
+
                 let mut v = serde_json::json!({ "role": role, "content": m.content });
+
                 if let Some(tcid) = &m.tool_call_id {
                     v["tool_call_id"] = serde_json::Value::String(tcid.clone());
                 }
+
                 if !m.tool_calls.is_null() {
                     v["tool_calls"] = m.tool_calls.clone();
                 }
+
                 v
             })
             .collect();
+
         let mut body = serde_json::json!({
             "model": req.model,
             "messages": messages,
             "stream": stream,
         });
+
         if let Some(t) = req.temperature {
             body["temperature"] = serde_json::json!(t);
         }
+
         if let Some(mt) = req.max_tokens {
             body["max_tokens"] = serde_json::json!(mt);
         }
+
         if let Some(tools) = &req.tools {
             body["tools"] = tools.clone();
         }
+
         body["tool_choice"] = match &req.tool_choice {
             ToolChoice::Auto => serde_json::json!("auto"),
             ToolChoice::None => serde_json::json!("none"),
@@ -85,9 +94,11 @@ impl OpenAiAdapter {
                 "function": {"name": name}
             }),
         };
+
         if stream {
             body["stream_options"] = serde_json::json!({ "include_usage": true });
         }
+
         body
     }
 
@@ -108,11 +119,13 @@ impl OpenAiAdapter {
     ) -> Result<reqwest::Response> {
         req.validate_tool_choice()?;
         let url = format!("{}/chat/completions", self.base_url.trim_end_matches('/'));
+
         let request = self
             .client
             .post(&url)
             .bearer_auth(&self.api_key)
             .json(&self.body(req, stream));
+
         let resp = crate::shared::http_trace::send(
             &self.client,
             request,
@@ -120,11 +133,13 @@ impl OpenAiAdapter {
         )
         .await
         .map_err(|e| Error::internal(format!("openai request: {e}")))?;
+
         if !resp.status().is_success() {
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
             return Err(Error::internal(format!("openai status {status}: {body}")));
         }
+
         Ok(resp)
     }
 }
@@ -137,13 +152,16 @@ impl ProviderAdapter for OpenAiAdapter {
 
     async fn complete(&self, req: CompletionRequest) -> Result<CompletionResponse> {
         let resp = self.send(&req, false).await?;
+
         let v: serde_json::Value = resp
             .json()
             .await
             .map_err(|e| Error::internal(format!("openai decode: {e}")))?;
+
         let choice = &v["choices"][0];
         let content = choice["message"]["content"].as_str().map(|s| s.to_string());
         let mut tool_calls = Vec::new();
+
         if let Some(tcs) = choice["message"]["tool_calls"].as_array() {
             for tc in tcs {
                 tool_calls.push(crate::agent::chat::RequestedToolCall {
@@ -159,6 +177,7 @@ impl ProviderAdapter for OpenAiAdapter {
                 });
             }
         }
+
         Ok(CompletionResponse {
             content,
             tool_calls,
@@ -177,9 +196,11 @@ impl ProviderAdapter for OpenAiAdapter {
 
         // 用 channel 暴露 stream，逐 SSE 帧解析并 push 增量；arguments buffer 在闭包内。
         let (tx, rx) = tokio::sync::mpsc::channel::<Result<ChunkOrToolCall>>(32);
+
         crate::shared::trace_context::spawn_with_current_trace_context(async move {
             // tool_calls buffer：(index -> (id, name, accumulated args))
             let mut tc_bufs: HashMap<i64, (String, String, String)> = HashMap::new();
+
             while let Some(item) = sse.next().await {
                 let evt = match item {
                     Ok(e) => e,
@@ -188,9 +209,11 @@ impl ProviderAdapter for OpenAiAdapter {
                         return;
                     }
                 };
+
                 if evt.data == "[DONE]" {
                     continue;
                 }
+
                 let v: serde_json::Value = match serde_json::from_str(&evt.data) {
                     Ok(v) => v,
                     Err(e) => {
@@ -198,6 +221,7 @@ impl ProviderAdapter for OpenAiAdapter {
                         continue;
                     }
                 };
+
                 // usage 终结块（choices == []，但 usage 存在）。
                 if let Some(usage) = v.get("usage").and_then(|u| u.as_object())
                     && !usage.is_empty()
@@ -206,10 +230,12 @@ impl ProviderAdapter for OpenAiAdapter {
                         .get("prompt_tokens")
                         .and_then(|x| x.as_i64())
                         .unwrap_or(0) as i32;
+
                     let ct = usage
                         .get("completion_tokens")
                         .and_then(|x| x.as_i64())
                         .unwrap_or(0) as i32;
+
                     let _ = tx
                         .send(Ok(ChunkOrToolCall::Usage {
                             prompt_tokens: pt,
@@ -217,42 +243,52 @@ impl ProviderAdapter for OpenAiAdapter {
                         }))
                         .await;
                 }
+
                 let Some(choice) = v["choices"].get(0) else {
                     continue;
                 };
+
                 let delta = &choice["delta"];
+
                 if let Some(text) = delta["content"].as_str()
                     && !text.is_empty()
                 {
                     let _ = tx.send(Ok(ChunkOrToolCall::Text(text.to_string()))).await;
                 }
+
                 if let Some(tcs) = delta["tool_calls"].as_array() {
                     for tc in tcs {
                         let idx = tc["index"].as_i64().unwrap_or(0);
+
                         let entry = tc_bufs
                             .entry(idx)
                             .or_insert_with(|| ("".to_string(), "".to_string(), "".to_string()));
+
                         if let Some(id) = tc["id"].as_str()
                             && !id.is_empty()
                         {
                             entry.0 = id.to_string();
                         }
+
                         if let Some(name) = tc["function"]["name"].as_str()
                             && !name.is_empty()
                         {
                             entry.1 = name.to_string();
                         }
+
                         if let Some(args) = tc["function"]["arguments"].as_str() {
                             entry.2.push_str(args);
                         }
                     }
                 }
+
                 if let Some(fr) = choice["finish_reason"].as_str()
                     && (fr == "tool_calls" || fr == "stop" || fr == "length")
                 {
                     // 把 buffered tool_calls flush 出去
                     let mut indices: Vec<i64> = tc_bufs.keys().copied().collect();
                     indices.sort_unstable();
+
                     for idx in indices {
                         if let Some((id, name, args)) = tc_bufs.remove(&idx) {
                             let _ = tx
@@ -264,10 +300,12 @@ impl ProviderAdapter for OpenAiAdapter {
                                 .await;
                         }
                     }
+
                     let _ = tx.send(Ok(ChunkOrToolCall::Done(fr.to_string()))).await;
                 }
             }
         });
+
         Ok(segmented_result_stream(
             tokio_stream::wrappers::ReceiverStream::new(rx),
             "gen_ai.provider.stream",

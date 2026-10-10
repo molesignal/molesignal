@@ -47,6 +47,7 @@ impl AnthropicAdapter {
         let (system, messages): (Option<String>, Vec<serde_json::Value>) = {
             let mut sys: Option<String> = None;
             let mut out: Vec<serde_json::Value> = Vec::new();
+
             for m in &req.messages {
                 match m.role {
                     MessageRole::System => {
@@ -71,23 +72,29 @@ impl AnthropicAdapter {
                     }
                 }
             }
+
             (sys, out)
         };
+
         let mut body = serde_json::json!({
             "model": req.model,
             "messages": messages,
             "max_tokens": req.max_tokens.unwrap_or(1024),
             "stream": stream,
         });
+
         if let Some(s) = system {
             body["system"] = serde_json::Value::String(s);
         }
+
         if let Some(t) = req.temperature {
             body["temperature"] = serde_json::json!(t);
         }
+
         if let Some(tools) = &req.tools {
             body["tools"] = tools.clone();
         }
+
         body["tool_choice"] = match &req.tool_choice {
             ToolChoice::Auto => serde_json::json!({"type": "auto"}),
             ToolChoice::None => serde_json::json!({"type": "none"}),
@@ -96,6 +103,7 @@ impl AnthropicAdapter {
                 serde_json::json!({"type": "tool", "name": name})
             }
         };
+
         body
     }
 
@@ -112,12 +120,14 @@ impl AnthropicAdapter {
     async fn send(&self, req: &CompletionRequest, stream: bool) -> Result<reqwest::Response> {
         req.validate_tool_choice()?;
         let url = format!("{}/v1/messages", self.base_url.trim_end_matches('/'));
+
         let request = self
             .client
             .post(&url)
             .header("x-api-key", &self.api_key)
             .header("anthropic-version", ANTHROPIC_VERSION)
             .json(&self.body(req, stream));
+
         let resp = crate::shared::http_trace::send(
             &self.client,
             request,
@@ -125,13 +135,16 @@ impl AnthropicAdapter {
         )
         .await
         .map_err(|e| Error::internal(format!("anthropic request: {e}")))?;
+
         if !resp.status().is_success() {
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
+
             return Err(Error::internal(format!(
                 "anthropic status {status}: {body}"
             )));
         }
+
         Ok(resp)
     }
 }
@@ -144,12 +157,15 @@ impl ProviderAdapter for AnthropicAdapter {
 
     async fn complete(&self, req: CompletionRequest) -> Result<CompletionResponse> {
         let resp = self.send(&req, false).await?;
+
         let v: serde_json::Value = resp
             .json()
             .await
             .map_err(|e| Error::internal(format!("anthropic decode: {e}")))?;
+
         let mut content = String::new();
         let mut tool_calls = Vec::new();
+
         if let Some(blocks) = v["content"].as_array() {
             for b in blocks {
                 match b["type"].as_str() {
@@ -169,6 +185,7 @@ impl ProviderAdapter for AnthropicAdapter {
                 }
             }
         }
+
         Ok(CompletionResponse {
             content: Some(content),
             tool_calls,
@@ -183,11 +200,13 @@ impl ProviderAdapter for AnthropicAdapter {
         let mut sse = response_to_sse(resp);
 
         let (tx, rx) = tokio::sync::mpsc::channel::<Result<ChunkOrToolCall>>(32);
+
         crate::shared::trace_context::spawn_with_current_trace_context(async move {
             // content_block_start 时记录 index → (kind, id, name)；text_delta / input_json_delta 引用它
             let mut blocks: HashMap<i64, (String, String, String, String)> = HashMap::new();
             let mut input_tokens: i32 = 0;
             let mut output_tokens: i32 = 0;
+
             while let Some(item) = sse.next().await {
                 let evt = match item {
                     Ok(e) => e,
@@ -196,10 +215,12 @@ impl ProviderAdapter for AnthropicAdapter {
                         return;
                     }
                 };
+
                 let v: serde_json::Value = match serde_json::from_str(&evt.data) {
                     Ok(v) => v,
                     Err(_) => continue,
                 };
+
                 match evt.event.as_str() {
                     "message_start" => {
                         if let Some(u) = v["message"]["usage"].as_object() {
@@ -209,23 +230,28 @@ impl ProviderAdapter for AnthropicAdapter {
                     }
                     "content_block_start" => {
                         let idx = v["index"].as_i64().unwrap_or(0);
+
                         let kind = v["content_block"]["type"]
                             .as_str()
                             .unwrap_or("text")
                             .to_string();
+
                         let id = v["content_block"]["id"]
                             .as_str()
                             .unwrap_or_default()
                             .to_string();
+
                         let name = v["content_block"]["name"]
                             .as_str()
                             .unwrap_or_default()
                             .to_string();
+
                         blocks.insert(idx, (kind, id, name, String::new()));
                     }
                     "content_block_delta" => {
                         let idx = v["index"].as_i64().unwrap_or(0);
                         let dtype = v["delta"]["type"].as_str().unwrap_or("");
+
                         if dtype == "text_delta" {
                             if let Some(t) = v["delta"]["text"].as_str()
                                 && !t.is_empty()
@@ -241,6 +267,7 @@ impl ProviderAdapter for AnthropicAdapter {
                     }
                     "content_block_stop" => {
                         let idx = v["index"].as_i64().unwrap_or(0);
+
                         if let Some((kind, id, name, args)) = blocks.remove(&idx)
                             && kind == "tool_use"
                         {
@@ -266,12 +293,14 @@ impl ProviderAdapter for AnthropicAdapter {
                                 completion_tokens: output_tokens,
                             }))
                             .await;
+
                         let _ = tx.send(Ok(ChunkOrToolCall::Done("stop".into()))).await;
                     }
                     _ => {}
                 }
             }
         });
+
         Ok(segmented_result_stream(
             tokio_stream::wrappers::ReceiverStream::new(rx),
             "gen_ai.provider.stream",

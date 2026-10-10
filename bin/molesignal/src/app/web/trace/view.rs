@@ -92,18 +92,22 @@ impl TraceResponse {
                     .map(|span| span.span_id.clone())
                     .unwrap_or_default()
             });
+
         let mut partial_reasons = Vec::new();
         let mut sampling_reasons = Vec::new();
+
         for span in &spans {
             for reason in &span.partial_reasons {
                 if !partial_reasons.contains(reason) {
                     partial_reasons.push(*reason);
                 }
             }
+
             if !sampling_reasons.contains(&span.sampling_reason) {
                 sampling_reasons.push(span.sampling_reason);
             }
         }
+
         Self {
             trace_id,
             root_span_id,
@@ -157,6 +161,7 @@ pub fn rows_to_spans(out: &QueryResult) -> (Vec<Span>, bool) {
     let late = col_idx("late");
     let duplicate = col_idx("duplicate");
     let conflict = col_idx("conflict");
+
     // Canonical rows contain nested `attributes`; older/public streams may only have
     // flattened attribute columns. Merge both without duplicating canonical metadata.
     let attr_cols: Vec<(usize, &str)> = out
@@ -177,6 +182,7 @@ pub fn rows_to_spans(out: &QueryResult) -> (Vec<Span>, bool) {
         let pick = |idx: Option<usize>| -> Value {
             idx.and_then(|i| r.get(i).cloned()).unwrap_or(Value::Null)
         };
+
         let pick_str =
             |idx: Option<usize>| -> String { pick(idx).as_str().unwrap_or_default().to_string() };
         let pick_i64 = |idx: Option<usize>| -> i64 { value_i64(&pick(idx)) };
@@ -184,6 +190,7 @@ pub fn rows_to_spans(out: &QueryResult) -> (Vec<Span>, bool) {
         let pick_bool = |idx: Option<usize>| -> bool { pick(idx).as_bool().unwrap_or_default() };
 
         let span_id_value = pick_str(span_id);
+
         if span_id_value.is_empty() || !seen_span_ids.insert(span_id_value.clone()) {
             continue;
         }
@@ -191,6 +198,7 @@ pub fn rows_to_spans(out: &QueryResult) -> (Vec<Span>, bool) {
         let attributes = {
             let mut map = parse_json::<serde_json::Map<String, Value>>(pick(attributes_col))
                 .unwrap_or_default();
+
             for (i, name) in &attr_cols {
                 match r.get(*i) {
                     Some(v) if !v.is_null() => {
@@ -199,6 +207,7 @@ pub fn rows_to_spans(out: &QueryResult) -> (Vec<Span>, bool) {
                     _ => {}
                 }
             }
+
             Value::Object(map)
         };
 
@@ -232,6 +241,7 @@ pub fn rows_to_spans(out: &QueryResult) -> (Vec<Span>, bool) {
             },
             semantic_conventions_version: {
                 let value = pick_str(semconv_version);
+
                 if value.is_empty() {
                     SEMCONV_VERSION.into()
                 } else {
@@ -245,6 +255,7 @@ pub fn rows_to_spans(out: &QueryResult) -> (Vec<Span>, bool) {
             duplicate: pick_bool(duplicate),
             conflict: pick_bool(conflict),
         };
+
         // 粗估序列化大小，避免对每条 span 调一次 serde_json::to_string（昂贵）
         byte_total += span.span_id.len()
             + span.operation.len()
@@ -255,12 +266,15 @@ pub fn rows_to_spans(out: &QueryResult) -> (Vec<Span>, bool) {
             + span.events.len() * 64
             + span.links.len() * 96
             + 128;
+
         if byte_total > RESPONSE_HARD_CAP {
             truncated = true;
             break;
         }
+
         spans.push(span);
     }
+
     (spans, truncated)
 }
 
@@ -304,12 +318,15 @@ fn is_core_span_column(name: &str) -> bool {
 
 fn parse_events(v: Value) -> Vec<SpanEvent> {
     let v = decode_json(v);
+
     let Some(arr) = v.as_array() else {
         return Vec::new();
     };
+
     arr.iter()
         .filter_map(|e| {
             let obj = e.as_object()?;
+
             Some(SpanEvent {
                 ts_ns: obj
                     .get("time_unix_nano")

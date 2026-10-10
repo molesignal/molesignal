@@ -34,6 +34,7 @@ impl GeoIp {
     pub fn open(path: &Path) -> Result<Arc<Self>> {
         let reader = maxminddb::Reader::open_readfile(path)
             .map_err(|e| Error::internal(format!("mmdb open {}: {e}", path.display())))?;
+
         Ok(Arc::new(Self {
             inner: Inner::Db(reader),
         }))
@@ -48,10 +49,12 @@ impl GeoIp {
             Inner::Db(r) => r,
             Inner::Noop => return None,
         };
+
         // maxminddb 0.27：reader.lookup(ip) → Result<LookupResult, Error>；
         // LookupResult::decode::<T>() 返 `Result<Option<T>, Error>`。
         let lookup = reader.lookup(ip).ok()?;
         let city: maxminddb::geoip2::City = lookup.decode().ok()??;
+
         Some(GeoLocation {
             country: city.country.iso_code.map(String::from),
             region: city

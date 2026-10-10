@@ -22,6 +22,7 @@ impl JavascriptSourceMap {
         else {
             return OriginalFrame::default();
         };
+
         OriginalFrame {
             file: token.get_source().map(String::from),
             function: token.get_name().map(String::from),

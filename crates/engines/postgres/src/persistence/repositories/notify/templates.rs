@@ -54,6 +54,7 @@ const COLS: &str = "id, org_id, name, body, format, category, created_at_micros,
 
 fn row_to_record(row: sqlx::postgres::PgRow) -> Result<NotifyTemplateRecord> {
     let category: String = row.try_get("category").map_err(sqlx_err)?;
+
     Ok(NotifyTemplateRecord {
         id: Id::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?),
         organization_id: Id::from_string(row.try_get::<String, _>("org_id").map_err(sqlx_err)?),
@@ -79,6 +80,7 @@ impl NotifyTemplateManagementRepository for PgNotifyTemplateRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to_record).collect()
     }
 
@@ -93,6 +95,7 @@ impl NotifyTemplateManagementRepository for PgNotifyTemplateRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         row_to_record(row)
     }
 
@@ -113,6 +116,7 @@ impl NotifyTemplateManagementRepository for PgNotifyTemplateRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(template)
     }
 
@@ -136,6 +140,7 @@ impl NotifyTemplateManagementRepository for PgNotifyTemplateRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(template)
     }
 
@@ -146,6 +151,7 @@ impl NotifyTemplateManagementRepository for PgNotifyTemplateRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(())
     }
 }
@@ -163,7 +169,9 @@ impl NotifyTemplateRepository for PgNotifyTemplateRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         let category: String = row.try_get("category").map_err(sqlx_err)?;
+
         Ok(NotifyTemplate {
             id: Id::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?),
             organization_id: Id::from_string(row.try_get::<String, _>("org_id").map_err(sqlx_err)?),

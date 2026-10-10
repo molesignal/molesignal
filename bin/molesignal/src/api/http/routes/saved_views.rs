@@ -76,6 +76,7 @@ struct WriteReq {
 /// `name` / `stream` columns are VARCHAR(255); guard here so over-length
 /// input is a clean 400 instead of a Postgres truncation surfacing as 500.
 const MAX_NAME_LEN: usize = 255;
+
 /// Upper bound on the look-back window (~1 year). Also keeps `time_range_secs`
 /// well inside i32 so the `as i32` store cast never wraps negative.
 const MAX_RANGE_SECS: u32 = 366 * 24 * 3600;
@@ -84,22 +85,27 @@ fn validate(req: &WriteReq) -> Result<()> {
     if req.name.trim().is_empty() {
         return Err(Error::invalid("name cannot be empty"));
     }
+
     if req.name.chars().count() > MAX_NAME_LEN {
         return Err(Error::invalid("name must be at most 255 characters"));
     }
+
     if req.statement.trim().is_empty() {
         return Err(Error::invalid("statement cannot be empty"));
     }
+
     if let Some(stream) = &req.stream
         && stream.chars().count() > MAX_NAME_LEN
     {
         return Err(Error::invalid("stream must be at most 255 characters"));
     }
+
     if req.time_range_secs == 0 || req.time_range_secs > MAX_RANGE_SECS {
         return Err(Error::invalid(
             "time_range_secs must be between 1 and 31622400",
         ));
     }
+
     Ok(())
 }
 
@@ -140,6 +146,7 @@ async fn create(
 ) -> Result<Json<SavedView>> {
     validate(&req)?;
     let now = TimestampMicros::now();
+
     let view = SavedView {
         id: Id::new(),
         org_id: ctx.org_id.clone(),
@@ -154,6 +161,7 @@ async fn create(
         created_at: now,
         updated_at: now,
     };
+
     Ok(Json(state.platform.saved_view.create(view).await?))
 }
 
@@ -170,6 +178,7 @@ async fn update(
     Json(req): Json<WriteReq>,
 ) -> Result<Json<SavedView>> {
     validate(&req)?;
+
     let view = SavedView {
         id: existing.id,
         org_id: existing.org_id,
@@ -184,6 +193,7 @@ async fn update(
         created_at: existing.created_at,
         updated_at: TimestampMicros::now(),
     };
+
     Ok(Json(state.platform.saved_view.update(view).await?))
 }
 
@@ -203,5 +213,6 @@ async fn delete(
         .saved_view
         .delete(&view.org_id, &view.id)
         .await?;
+
     Ok("deleted")
 }

@@ -77,6 +77,7 @@ impl ApmRuntime {
     {
         let projector = if run_projector {
             let writer: Arc<dyn ApmWriteRepository> = repository.clone();
+
             Some(BufferedApmProjector::start(
                 owner_id,
                 writer,
@@ -85,11 +86,14 @@ impl ApmRuntime {
         } else {
             None
         };
+
         let rollup_health = Arc::new(RollupHealth::default());
         let rollup_cancel = CancellationToken::new();
         let runs_rollup = rollup.is_some();
+
         let rollup_join = rollup.map(|ownership| {
             let maintenance: Arc<dyn ApmMaintenanceRepository> = repository;
+
             spawn_rollup(
                 maintenance,
                 ApmRollupConfig::from_settings(settings),
@@ -98,9 +102,11 @@ impl ApmRuntime {
                 ownership,
             )
         });
+
         if runs_rollup {
             metrics::set_health("rollup", true);
         }
+
         Ok(Arc::new(Self {
             projector,
             rollup_health,
@@ -120,10 +126,12 @@ impl ApmRuntime {
             .rollup_health
             .last_success_at_micros
             .load(Ordering::Relaxed);
+
         let rollup_running = match self.rollup_join.try_lock() {
             Ok(guard) => guard.is_some(),
             Err(_) => true,
         };
+
         ApmRuntimeHealthSnapshot {
             enabled: true,
             candidate_owner: self.projector.is_some(),
@@ -146,7 +154,9 @@ impl ApmRuntime {
         if let Some(projector) = &self.projector {
             projector.shutdown().await;
         }
+
         self.rollup_cancel.cancel();
+
         if let Some(join) = self.rollup_join.lock().await.take() {
             let _ = join.await;
         }
@@ -164,6 +174,7 @@ fn spawn_rollup(
         let service = ApmRollupService::new(repository, config.clone());
         let mut tick = tokio::time::interval(Duration::from_secs(60));
         tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
         loop {
             tokio::select! {
                 _ = cancel.cancelled() => break,

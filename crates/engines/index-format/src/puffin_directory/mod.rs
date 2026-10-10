@@ -81,6 +81,7 @@ impl TantivyFooter {
         let meta_size = serde_json::to_vec(&*self.puffin_meta)
             .map(|v| v.len())
             .unwrap_or(0);
+
         let atomic_size: usize = self.atomic_files.values().map(|b| b.len()).sum();
         meta_size + self.footer_payload_bytes.len() + atomic_size + 1024
     }

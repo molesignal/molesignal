@@ -102,6 +102,7 @@ pub struct RealtimeAlerts {
 impl Default for RealtimeAlerts {
     fn default() -> Self {
         let (commands, inbox) = mpsc::channel(COMMAND_QUEUE);
+
         Self {
             entries: RwLock::new(Arc::new(HashMap::new())),
             commands,
@@ -132,6 +133,7 @@ impl RealtimeAlerts {
     ) -> Option<PendingHits> {
         let entries = self.entries.read().clone();
         let rules = entries.get(&(org_id.clone(), stream_type, stream.to_owned()))?;
+
         let hits: Vec<_> = rules
             .iter()
             .filter_map(|entry| {
@@ -141,9 +143,11 @@ impl RealtimeAlerts {
                     .filter(|(_, event)| entry.runtime.spec.matches(&event.fields))
                     .map(|(index, _)| index)
                     .collect();
+
                 (!indexes.is_empty()).then(|| (entry.clone(), indexes))
             })
             .collect();
+
         (!hits.is_empty()).then_some(PendingHits { hits })
     }
 
@@ -151,29 +155,36 @@ impl RealtimeAlerts {
     pub fn record(&self, pending: PendingHits, rejected: &[IntakeError], now: TimestampMicros) {
         let rejected: HashSet<usize> = rejected.iter().map(|error| error.index).collect();
         let second = now.0.div_euclid(1_000_000);
+
         for (entry, indexes) in pending.hits {
             let accepted = indexes
                 .iter()
                 .filter(|index| !rejected.contains(index))
                 .count() as u64;
+
             if accepted == 0 {
                 continue;
             }
+
             let mut state = entry.runtime.state.lock();
             state.window.add(second, accepted);
             let count = state.window.count(second, entry.runtime.spec.window_secs);
+
             let Some(level) = entry.runtime.spec.level(count) else {
                 continue;
             };
+
             if state.firing && level <= state.severity {
                 continue;
             }
+
             let sent = self.commands.try_send(Command::Fire {
                 rule: entry.rule.clone(),
                 count,
                 severity: level,
                 at: now,
             });
+
             match sent {
                 Ok(()) => {
                     state.firing = true;
@@ -191,19 +202,25 @@ impl RealtimeAlerts {
     pub(super) fn sweep(&self, now: TimestampMicros) {
         let second = now.0.div_euclid(1_000_000);
         let entries = self.entries.read().clone();
+
         for entry in entries.values().flatten() {
             let mut state = entry.runtime.state.lock();
+
             if !state.firing {
                 continue;
             }
+
             let count = state.window.count(second, entry.runtime.spec.window_secs);
+
             if entry.runtime.spec.level(count).is_some() {
                 continue;
             }
+
             let sent = self.commands.try_send(Command::Clear {
                 rule: entry.rule.clone(),
                 at: now,
             });
+
             if sent.is_ok() {
                 state.firing = false;
                 state.severity = None;
@@ -217,6 +234,7 @@ impl RealtimeAlerts {
         let mut next: HashMap<Key, Vec<Entry>> = HashMap::new();
         let mut invalid = HashSet::new();
         let mut warned = self.invalid.lock();
+
         for rule in rules
             .into_iter()
             .filter(|rule| rule.enabled && rule.kind == AlertRuleKind::RealTime)
@@ -232,11 +250,14 @@ impl RealtimeAlerts {
                             "real_time rule cannot run at intake; the scheduled evaluator keeps it"
                         );
                     }
+
                     invalid.insert(rule.id.clone());
                     continue;
                 }
             };
+
             let key = (rule.org_id.clone(), spec.stream_type, spec.stream.clone());
+
             let runtime = previous
                 .get(&key)
                 .and_then(|entries| {
@@ -251,11 +272,13 @@ impl RealtimeAlerts {
                         state: Mutex::new(State::default()),
                     })
                 });
+
             next.entry(key).or_default().push(Entry {
                 rule: Arc::new(rule),
                 runtime,
             });
         }
+
         *warned = invalid;
         drop(warned);
         *self.entries.write() = Arc::new(next);

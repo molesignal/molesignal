@@ -60,6 +60,7 @@ impl SyntheticResultRepository for PgSyntheticRepository {
     async fn record_result(&self, result: SyntheticResult) -> Result<(SyntheticResult, bool)> {
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
         let sql = insert_result_sql();
+
         let row = sqlx::query(&sql)
             .bind(&result.id.0)
             .bind(&result.organization_id.0)
@@ -82,11 +83,13 @@ impl SyntheticResultRepository for PgSyntheticRepository {
             .fetch_optional(&mut *transaction)
             .await
             .map_err(super::sqlx_err)?;
+
         let Some(row) = row else {
             return Err(Error::conflict(
                 "Probe result does not match its organization-scoped task lease",
             ));
         };
+
         sqlx::query(
             "UPDATE synthetic_probe_tasks
              SET state = 'completed', updated_at_micros = $3
@@ -98,6 +101,7 @@ impl SyntheticResultRepository for PgSyntheticRepository {
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
+
         if let (Some(agent_id), Some(sequence)) = (&result.agent_id, result.result_sequence) {
             sqlx::query(UPDATE_AGENT_RESULT_SEQUENCE_SQL)
                 .bind(result.organization_id.as_str())
@@ -108,14 +112,19 @@ impl SyntheticResultRepository for PgSyntheticRepository {
                 .await
                 .map_err(super::sqlx_err)?;
         }
+
         let inserted: bool = row.try_get("inserted").map_err(super::sqlx_err)?;
+
         if inserted {
             insert_artifacts(&mut transaction, &result).await?;
         }
+
         let mut persisted = row_to_result(row)?;
+
         persisted.artifacts =
             load_artifacts_in_transaction(&mut transaction, &result.organization_id, &persisted.id)
                 .await?;
+
         transaction.commit().await.map_err(super::sqlx_err)?;
         Ok((persisted, inserted))
     }
@@ -133,6 +142,7 @@ impl SyntheticResultRepository for PgSyntheticRepository {
                AND ($3::BIGINT IS NULL OR finished_at_micros < $3)
              ORDER BY finished_at_micros DESC, id DESC LIMIT $4"
         );
+
         let mut results = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&monitor_id.0)
@@ -144,6 +154,7 @@ impl SyntheticResultRepository for PgSyntheticRepository {
             .into_iter()
             .map(row_to_result)
             .collect::<Result<Vec<_>>>()?;
+
         attach_artifacts(&self.pool, org_id, &mut results).await?;
         Ok(results)
     }
@@ -155,6 +166,7 @@ impl SyntheticResultRepository for PgSyntheticRepository {
     ) -> Result<SyntheticResultPage> {
         let count_sql =
             format!("SELECT COUNT(*) AS total FROM synthetic_results WHERE {RESULT_PAGE_FILTERS}");
+
         let total: i64 = sqlx::query(&count_sql)
             .bind(org_id.as_str())
             .bind(query.check_query.as_deref())
@@ -171,8 +183,10 @@ impl SyntheticResultRepository for PgSyntheticRepository {
              WHERE {RESULT_PAGE_FILTERS}
              ORDER BY finished_at_micros DESC, id DESC LIMIT $5 OFFSET $6"
         );
+
         let limit = i64::from(query.limit.clamp(1, 500));
         let offset = i64::try_from(query.offset).unwrap_or(i64::MAX);
+
         let mut rows = sqlx::query(&page_sql)
             .bind(org_id.as_str())
             .bind(query.check_query.as_deref())
@@ -186,6 +200,7 @@ impl SyntheticResultRepository for PgSyntheticRepository {
             .into_iter()
             .map(row_to_result)
             .collect::<Result<Vec<_>>>()?;
+
         attach_artifacts(&self.pool, org_id, &mut rows).await?;
 
         Ok(SyntheticResultPage {
@@ -200,12 +215,14 @@ impl SyntheticResultRepository for PgSyntheticRepository {
             "SELECT {RESULT_COLS} FROM synthetic_results
              WHERE organization_id = $1 AND id = $2"
         );
+
         let row = sqlx::query(&sql)
             .bind(org_id.as_str())
             .bind(result_id.as_str())
             .fetch_one(&self.pool)
             .await
             .map_err(super::sqlx_err)?;
+
         let mut result = row_to_result(row)?;
         attach_artifacts(&self.pool, org_id, std::slice::from_mut(&mut result)).await?;
         Ok(result)
@@ -218,6 +235,7 @@ async fn insert_artifacts(connection: &mut PgConnection, result: &SyntheticResul
             .map_err(|_| Error::invalid("invalid synthetic Artifact SHA-256"))?;
         let content_length = i64::try_from(artifact.content_length)
             .map_err(|_| Error::invalid("synthetic Artifact is too large"))?;
+
         let inserted = sqlx::query(
             "INSERT INTO synthetic_result_artifacts
                 (id, organization_id, result_id, kind, name, object_key, content_type,
@@ -241,12 +259,14 @@ async fn insert_artifacts(connection: &mut PgConnection, result: &SyntheticResul
         .await
         .map_err(super::sqlx_err)?
         .rows_affected();
+
         if inserted != 1 {
             return Err(Error::conflict(
                 "synthetic Artifact does not match its organization-scoped result",
             ));
         }
     }
+
     Ok(())
 }
 
@@ -280,10 +300,12 @@ async fn attach_artifacts(
     if results.is_empty() {
         return Ok(());
     }
+
     let result_ids = results
         .iter()
         .map(|result| result.id.as_str().to_string())
         .collect::<Vec<_>>();
+
     let rows = sqlx::query(
         "SELECT id, result_id, kind, name, object_key, content_type, content_length, sha256,
                 expires_at_micros, created_at_micros
@@ -296,17 +318,22 @@ async fn attach_artifacts(
     .fetch_all(pool)
     .await
     .map_err(super::sqlx_err)?;
+
     let mut by_result: HashMap<String, Vec<SyntheticResultArtifact>> = HashMap::new();
+
     for row in rows {
         let result_id: String = row.try_get("result_id").map_err(super::sqlx_err)?;
+
         by_result
             .entry(result_id)
             .or_default()
             .push(row_to_artifact(row)?);
     }
+
     for result in results {
         result.artifacts = by_result.remove(result.id.as_str()).unwrap_or_default();
     }
+
     Ok(())
 }
 
@@ -316,7 +343,9 @@ fn row_to_artifact(row: sqlx::postgres::PgRow) -> Result<SyntheticResultArtifact
             .map_err(super::sqlx_err)?,
     )
     .map_err(|_| Error::internal("negative synthetic Artifact length"))?;
+
     let sha256: Vec<u8> = row.try_get("sha256").map_err(super::sqlx_err)?;
+
     Ok(SyntheticResultArtifact {
         id: Id::from_string(row.try_get::<String, _>("id").map_err(super::sqlx_err)?),
         name: row.try_get("name").map_err(super::sqlx_err)?,

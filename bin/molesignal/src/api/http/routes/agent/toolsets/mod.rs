@@ -69,9 +69,11 @@ impl ToolsetResolution {
     pub fn execution_mode_for_builtin(&self, name: &str) -> ToolExecutionMode {
         let risk = risk_for_tool(name).unwrap_or(RiskLevel::L4);
         let policy = self.builtin_policies.get(name);
+
         let base = policy
             .map(|policy| policy.execution_mode)
             .unwrap_or_else(|| self.default_mode_for_risk(risk));
+
         self.apply_environment_override(
             risk,
             base,
@@ -81,9 +83,11 @@ impl ToolsetResolution {
 
     pub fn execution_mode_for_mcp(&self, tool: &McpTool) -> ToolExecutionMode {
         let policy = self.builtin_policies.get(&tool.name);
+
         let base = policy
             .map(|policy| policy.execution_mode)
             .unwrap_or(tool.execution_mode);
+
         self.apply_environment_override(
             tool.risk,
             base,
@@ -93,6 +97,7 @@ impl ToolsetResolution {
 
     fn default_mode_for_risk(&self, risk: RiskLevel) -> ToolExecutionMode {
         let key = format!("{risk:?}").to_ascii_lowercase();
+
         self.default_risk_modes
             .get(&key)
             .and_then(serde_json::Value::as_str)
@@ -108,6 +113,7 @@ impl ToolsetResolution {
         tool_overrides: Option<&serde_json::Value>,
     ) -> ToolExecutionMode {
         let risk_key = format!("{risk:?}").to_ascii_lowercase();
+
         self.active_environments
             .iter()
             .map(|environment| {
@@ -183,6 +189,7 @@ impl Default for ToolsetResolution {
 pub(crate) fn validate_toolset_schema(value: &serde_json::Value) -> Result<()> {
     let schema: ToolsetSchema = serde_json::from_value(value.clone())
         .map_err(|error| Error::invalid(format!("invalid toolset schema: {error}")))?;
+
     if let Some(names) = schema.builtin {
         for name in names {
             if !is_builtin_tool(&name) {
@@ -190,6 +197,7 @@ pub(crate) fn validate_toolset_schema(value: &serde_json::Value) -> Result<()> {
             }
         }
     }
+
     Ok(())
 }
 
@@ -213,6 +221,7 @@ pub async fn resolve_inbound_tool_policies(
         .into_iter()
         .map(|policy| (policy.tool_name.clone(), policy))
         .collect();
+
     let defaults = state
         .agent
         .tool_control
@@ -221,6 +230,7 @@ pub async fn resolve_inbound_tool_policies(
         .unwrap_or_else(|| {
             ToolPolicyDefaults::system_defaults(org_id.clone(), Id::from_string("system"))
         });
+
     Ok(ToolsetResolution {
         builtin_policies: policies,
         default_risk_modes: defaults.risk_modes,
@@ -236,6 +246,7 @@ pub async fn resolve_toolsets_for_profile(
 ) -> Result<ToolsetResolution> {
     let toolsets = state.agent.toolsets.list(org_id).await?;
     let mut builtin_allowed: Option<HashSet<String>> = None;
+
     for toolset in toolsets.into_iter().filter(|toolset| toolset.enabled) {
         let parsed: ToolsetSchema = serde_json::from_value(toolset.schema).map_err(|error| {
             Error::invalid(format!(
@@ -243,8 +254,10 @@ pub async fn resolve_toolsets_for_profile(
                 toolset.name
             ))
         })?;
+
         if let Some(names) = parsed.builtin {
             let allowed = builtin_allowed.get_or_insert_with(HashSet::new);
+
             for name in names {
                 if !is_builtin_tool(&name) {
                     return Err(Error::invalid(format!(
@@ -252,11 +265,14 @@ pub async fn resolve_toolsets_for_profile(
                         toolset.name
                     )));
                 }
+
                 allowed.insert(name);
             }
         }
     }
+
     let profiles = state.agent.repository.list_profiles(org_id).await?;
+
     let active_profile = if let Some(profile_id) = requested_profile_id {
         Some(
             profiles
@@ -274,16 +290,20 @@ pub async fn resolve_toolsets_for_profile(
             .into_iter()
             .find(|profile| profile.enabled && profile.is_default)
     };
+
     let mcp_tools = state
         .agent
         .tool_control
         .list_mcp_tools(org_id, None)
         .await?;
+
     let registered_mcp: HashSet<String> = mcp_tools.iter().map(|tool| tool.name.clone()).collect();
+
     let profile_allowed = active_profile
         .as_ref()
         .map(|profile| -> Result<HashSet<String>> {
             let mut allowed = HashSet::new();
+
             for name in &profile.allowed_tools {
                 if !is_builtin_tool(name) && !registered_mcp.contains(name) {
                     return Err(Error::invalid(format!(
@@ -291,11 +311,14 @@ pub async fn resolve_toolsets_for_profile(
                         profile.name
                     )));
                 }
+
                 allowed.insert(name.clone());
             }
+
             Ok(allowed)
         })
         .transpose()?;
+
     let policies = state
         .agent
         .tool_control
@@ -304,6 +327,7 @@ pub async fn resolve_toolsets_for_profile(
         .into_iter()
         .map(|policy| (policy.tool_name.clone(), policy))
         .collect();
+
     let defaults = state
         .agent
         .tool_control
@@ -312,6 +336,7 @@ pub async fn resolve_toolsets_for_profile(
         .unwrap_or_else(|| {
             ToolPolicyDefaults::system_defaults(org_id.clone(), Id("system".into()))
         });
+
     let mcp_servers = state
         .agent
         .tool_control
@@ -328,6 +353,7 @@ pub async fn resolve_toolsets_for_profile(
             .cloned()
             .collect()
     });
+
     let active_environments = active_profile
         .as_ref()
         .and_then(|profile| profile.data_scope.get("environments"))

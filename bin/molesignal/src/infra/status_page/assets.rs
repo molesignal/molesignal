@@ -26,15 +26,19 @@ impl StatusPageAssetCleaner {
         let prefix = ObjPath::from(format!("status-page-logos/{}/{}/", page.org_id, page.id));
         let mut objects = self.object_store.list(Some(&prefix));
         let mut deleted = 0_u64;
+
         while let Some(object) = objects.next().await {
             let object = object
                 .map_err(|error| Error::internal(format!("status page asset list: {error}")))?;
+
             self.object_store
                 .delete(&object.location)
                 .await
                 .map_err(|error| Error::internal(format!("status page asset delete: {error}")))?;
+
             deleted = deleted.saturating_add(1);
         }
+
         Ok(deleted)
     }
 }

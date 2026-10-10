@@ -27,6 +27,7 @@ pub(super) async fn execute(
     if ctx.is_system_scope() {
         return Err(Error::not_found("API tokens"));
     }
+
     match approval.action.as_str() {
         "create_api_token" => create(state, ctx, approval).await,
         "revoke_api_token" => revoke(state, ctx, approval).await,
@@ -54,13 +55,16 @@ async fn create(
             "personal API tokens can only be created by an authenticated user",
         ));
     }
+
     let parameters: CreateToken = parse(&approval.parameters)?;
     let name = parameters.name.trim();
+
     if name.is_empty() || name.chars().count() > 255 {
         return Err(Error::invalid(
             "name must contain between 1 and 255 characters",
         ));
     }
+
     let role_id = match parameters.role_id {
         Some(role_id) => Id(role_id),
         None => {
@@ -72,17 +76,21 @@ async fn create(
                 .await?
         }
     };
+
     let role = state.iam.roles.get(&ctx.org_id, &role_id).await?;
+
     if role.role_type != "organization" || role.scope != "organization" {
         return Err(Error::invalid(
             "API token role must have organization type and scope",
         ));
     }
+
     if role.key == "rum_client" {
         return Err(Error::invalid(
             "RUM client credentials must be issued through the application-bound token flow",
         ));
     }
+
     if role
         .permissions
         .iter()
@@ -92,13 +100,16 @@ async fn create(
             "token role permissions cannot exceed executor IAM capabilities",
         ));
     }
+
     let (prefix, secret) = generate_token_parts();
     let plaintext = assemble_token(&prefix, &secret);
     let now = TimestampMicros::now();
+
     let expires_at = parameters.expires_in_days.map(|days| {
         let micros = days.clamp(1, 365 * 5).saturating_mul(86_400 * 1_000_000);
         TimestampMicros(now.0.saturating_add(micros))
     });
+
     let token = state
         .iam
         .api_tokens
@@ -120,6 +131,7 @@ async fn create(
             service_account_id: None,
         })
         .await?;
+
     Ok(OperationOutcome::with_one_time_result(
         "personal API token created",
         json!({
@@ -161,9 +173,11 @@ async fn revoke(
     let _: Empty = parse(&approval.parameters)?;
     let id = Id(approval.target.clone());
     let token = state.iam.api_tokens.get(&ctx.org_id, &id).await?;
+
     if !token.revoked {
         state.iam.api_tokens.mark_revoked(&ctx.org_id, &id).await?;
     }
+
     Ok(OperationOutcome {
         summary: "API token revoked".into(),
         verification: json!({"verified": true, "token_id": id, "revoked": true}),

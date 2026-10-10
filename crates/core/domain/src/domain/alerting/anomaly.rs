@@ -78,6 +78,7 @@ impl AnomalyDecision {
         if self.baseline.is_nan() {
             return 0.0;
         }
+
         self.deviation / self.baseline.abs().max(f64::EPSILON)
     }
 
@@ -107,9 +108,11 @@ impl AnomalyDecision {
             // 有界单调分数：deviation = k·σ（恰好阈值）→ 0.5，远超 → 趋近 1。
             let score = (deviation / (deviation + k * sigma)).clamp(0.0, 1.0);
             let sigma_mult = deviation / sigma;
+
             let reason = format!(
                 "{algorithm}: current {current:.3} is {sigma_mult:.1}σ from baseline {baseline:.3} (threshold {k:.1}σ)"
             );
+
             (deviation > k * sigma, score, reason)
         } else {
             // 基线完全恒定（σ=0）：任何超过相对 epsilon 的偏移即异常。epsilon 随基线
@@ -120,6 +123,7 @@ impl AnomalyDecision {
                 format!("{algorithm}: current {current:.3} vs flat baseline {baseline:.3}");
             (firing, if firing { 1.0 } else { 0.0 }, reason)
         };
+
         Self {
             firing,
             current,
@@ -154,6 +158,7 @@ impl AnomalyDetector for MadDetector {
         if history.is_empty() {
             return AnomalyDecision::inconclusive("mad", current);
         }
+
         let median = percentile(history, 0.5);
         let abs_dev: Vec<f64> = history.iter().map(|v| (v - median).abs()).collect();
         let mad = percentile(&abs_dev, 0.5);
@@ -201,15 +206,18 @@ impl AnomalyDetector for EwmaDetector {
         if history.is_empty() {
             return AnomalyDecision::inconclusive("ewma", current);
         }
+
         // detect 是判定层，不信任入参越界的 α（route 已收口，evaluator 旁路写入仍可能脏）。
         let alpha = self.alpha.clamp(f64::EPSILON, 1.0);
         // history 按契约时间升序：用上一拍 EWMA 作为对每个样本的一步预测，收集残差。
         let mut ewma = history[0];
         let mut residuals: Vec<f64> = Vec::with_capacity(history.len().saturating_sub(1));
+
         for &x in &history[1..] {
             residuals.push(x - ewma);
             ewma = alpha * x + (1.0 - alpha) * ewma;
         }
+
         // 纳入最后一个样本后的平滑值 = 对 current 的预测基线。
         let baseline = ewma;
         let deviation = (current - baseline).abs();
@@ -217,6 +225,7 @@ impl AnomalyDetector for EwmaDetector {
         // σ：残差总体标准差；样本不足（≤1 个残差）或残差恒为 0 时，退回历史整体
         // stddev（与 MAD 同思路），最终仍为 0 则由 evaluate 走恒定基线 epsilon 兜底。
         let resid_sigma = stddev(&residuals, mean(&residuals));
+
         let sigma = if resid_sigma > 0.0 {
             resid_sigma
         } else {
@@ -231,6 +240,7 @@ fn mean(samples: &[f64]) -> f64 {
     if samples.is_empty() {
         return f64::NAN;
     }
+
     samples.iter().sum::<f64>() / samples.len() as f64
 }
 
@@ -238,6 +248,7 @@ fn stddev(samples: &[f64], mean: f64) -> f64 {
     if samples.len() < 2 {
         return 0.0;
     }
+
     let var = samples.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / samples.len() as f64;
     var.sqrt()
 }
@@ -248,17 +259,22 @@ fn percentile(samples: &[f64], q: f64) -> f64 {
     if samples.is_empty() {
         return f64::NAN;
     }
+
     let mut v: Vec<f64> = samples.to_vec();
     v.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+
     if v.len() == 1 {
         return v[0];
     }
+
     let rank = q.clamp(0.0, 1.0) * (v.len() - 1) as f64;
     let lo = rank.floor() as usize;
     let hi = rank.ceil() as usize;
+
     if lo == hi {
         return v[lo];
     }
+
     let frac = rank - lo as f64;
     v[lo] * (1.0 - frac) + v[hi] * frac
 }

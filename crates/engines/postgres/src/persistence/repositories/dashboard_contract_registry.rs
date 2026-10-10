@@ -42,6 +42,7 @@ impl PgDashboardContractRepository {
         .await
         .map_err(sqlx_err)?
         .ok_or_else(|| Error::unavailable("Dashboard contract binding is not published"))?;
+
         row_to_binding(&row)
     }
 
@@ -62,6 +63,7 @@ impl PgDashboardContractRepository {
         .await
         .map_err(sqlx_err)?
         .ok_or_else(|| Error::unavailable("Dashboard contract publication is missing"))?;
+
         row_to_version(&row, "")
     }
 }
@@ -75,6 +77,7 @@ impl DashboardContractRepository for PgDashboardContractRepository {
         now: TimestampMicros,
     ) -> Result<DashboardContractBinding> {
         let mut transaction = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         for version in versions {
             sqlx::query(
                 "INSERT INTO agent_contract_versions
@@ -105,8 +108,10 @@ impl DashboardContractRepository for PgDashboardContractRepository {
             .fetch_one(&mut *transaction)
             .await
             .map_err(sqlx_err)?;
+
             let stored_document: Json<serde_json::Value> =
                 stored.try_get("document").map_err(sqlx_err)?;
+
             let matches = stored.try_get::<String, _>("kind").map_err(sqlx_err)?
                 == version.kind.as_str()
                 && stored.try_get::<String, _>("dialect").map_err(sqlx_err)? == version.dialect
@@ -117,6 +122,7 @@ impl DashboardContractRepository for PgDashboardContractRepository {
                     == version.schema_hash
                 && stored.try_get::<String, _>("status").map_err(sqlx_err)?
                     == version.status.as_str();
+
             if !matches {
                 return Err(Error::conflict(format!(
                     "Dashboard contract {} version {} is immutable and differs from the deployed publication",
@@ -171,12 +177,15 @@ impl DashboardContractRepository for PgDashboardContractRepository {
         .await
         .map_err(sqlx_err)?
         .ok_or_else(|| Error::unavailable("Dashboard contract binding is not published"))?;
+
         let binding = row_to_binding(&row)?;
+
         let documents = DashboardContractDocuments {
             model: row_to_version(&row, "model_version_")?,
             authoring: row_to_version(&row, "authoring_version_")?,
             visualization: row_to_version(&row, "visualization_version_")?,
         };
+
         Ok(DashboardContractBundle { binding, documents })
     }
 
@@ -197,6 +206,7 @@ impl DashboardContractRepository for PgDashboardContractRepository {
         now: TimestampMicros,
     ) -> Result<DashboardContractBinding> {
         let mut transaction = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         let row = sqlx::query(&format!(
             "INSERT INTO agent_capability_contract_bindings
              ({BINDING_COLUMNS})
@@ -233,6 +243,7 @@ impl DashboardContractRepository for PgDashboardContractRepository {
         .fetch_one(&mut *transaction)
         .await
         .map_err(sqlx_err)?;
+
         let binding = row_to_binding(&row)?;
         transaction.commit().await.map_err(sqlx_err)?;
         Ok(binding)
@@ -270,6 +281,7 @@ async fn insert_default_binding(
     .execute(transaction)
     .await
     .map_err(sqlx_err)?;
+
     Ok(())
 }
 
@@ -292,6 +304,7 @@ fn contract_ref(row: &PgRow, prefix: &str) -> Result<DashboardContractRef> {
     let version: i32 = row
         .try_get(format!("{prefix}_contract_version").as_str())
         .map_err(sqlx_err)?;
+
     Ok(DashboardContractRef {
         contract_key: row
             .try_get(format!("{prefix}_contract_key").as_str())
@@ -310,6 +323,7 @@ fn row_to_version(row: &PgRow, prefix: &str) -> Result<DashboardContractVersion>
     let version: i32 = row.try_get(column("version").as_str()).map_err(sqlx_err)?;
     let document: Json<serde_json::Value> =
         row.try_get(column("document").as_str()).map_err(sqlx_err)?;
+
     Ok(DashboardContractVersion {
         contract_key: row
             .try_get(column("contract_key").as_str())

@@ -42,6 +42,7 @@ impl Provider {
             Self::OpenAiCompatible => "openai_compatible",
         }
     }
+
     pub fn parse(s: &str) -> Result<Self> {
         match s {
             "openai" => Ok(Self::OpenAi),
@@ -142,6 +143,7 @@ impl CompletionRequest {
                             .and_then(serde_json::Value::as_str)
                             == Some(name.as_str())
                     });
+
                 if exists {
                     Ok(())
                 } else {
@@ -185,11 +187,13 @@ pub trait ProviderAdapter: Send + Sync {
         // 默认实装：fall back 到非流式 complete()，作为单 chunk 返回。
         let resp = self.complete(req).await?;
         let mut chunks: Vec<Result<ChunkOrToolCall>> = Vec::new();
+
         if let Some(text) = resp.content
             && !text.is_empty()
         {
             chunks.push(Ok(ChunkOrToolCall::Text(text)));
         }
+
         for tc in resp.tool_calls {
             chunks.push(Ok(ChunkOrToolCall::ToolCall {
                 id: tc.id,
@@ -197,10 +201,12 @@ pub trait ProviderAdapter: Send + Sync {
                 arguments: serde_json::to_string(&tc.arguments).unwrap_or_default(),
             }));
         }
+
         chunks.push(Ok(ChunkOrToolCall::Usage {
             prompt_tokens: resp.prompt_tokens,
             completion_tokens: resp.completion_tokens,
         }));
+
         chunks.push(Ok(ChunkOrToolCall::Done(resp.finish_reason)));
         Ok(Box::pin(futures::stream::iter(chunks)))
     }
@@ -241,6 +247,7 @@ pub fn adapter_from_env(provider: Provider) -> Result<Arc<dyn ProviderAdapter>> 
         Provider::Anthropic => "MS_AGENT_ANTHROPIC",
         Provider::OpenAiCompatible => "MS_AGENT_COMPATIBLE",
     };
+
     match provider {
         Provider::OpenAi => Ok(providers::openai::from_env(prefix)?),
         Provider::Anthropic => Ok(providers::anthropic::from_env(prefix)?),
@@ -261,7 +268,9 @@ pub fn adapter_from_parts(
     if api_key.is_empty() {
         return Err(Error::invalid("provider api key is empty"));
     }
+
     let base_url = base_url.filter(|s| !s.trim().is_empty());
+
     let adapter: Arc<dyn ProviderAdapter> = match provider {
         Provider::OpenAi => {
             let url = base_url.unwrap_or_else(|| "https://api.openai.com/v1".into());
@@ -274,11 +283,13 @@ pub fn adapter_from_parts(
         Provider::OpenAiCompatible => {
             let url = base_url
                 .ok_or_else(|| Error::invalid("openai_compatible provider requires base_url"))?;
+
             Arc::new(providers::openai_compatible::OpenAiCompatibleAdapter::new(
                 url, api_key,
             ))
         }
     };
+
     Ok(adapter)
 }
 
@@ -332,6 +343,7 @@ const INVALID_FINAL_RESPONSE_FALLBACK_MESSAGE: &str = "\
 
 fn contains_internal_tool_transport(content: &str) -> bool {
     let normalized = content.replace('｜', "|").to_ascii_lowercase();
+
     normalized.contains("dsml")
         && (normalized.contains("tool_calls")
             || normalized.contains("invoke")
@@ -373,6 +385,7 @@ fn tool_failure_result(error: Error) -> ToolResult {
             text: format!("tool error: {other}"),
         },
     };
+
     ToolResult {
         content: vec![content],
         is_error: true,
@@ -458,6 +471,7 @@ impl AgentLoop {
                 max_tokens,
                 temperature: Some(0.2),
             };
+
             req.validate_tool_choice()?;
             let resp = self.provider.complete(req).await?;
             total_prompt += resp.prompt_tokens;
@@ -466,6 +480,7 @@ impl AgentLoop {
             if resp.tool_calls.is_empty() {
                 // 最终回答
                 let content = resp.content.unwrap_or_default();
+
                 return Ok(AgentLoopResult {
                     assistant_content: product_answer_or_fallback(
                         &content,
@@ -506,19 +521,24 @@ impl AgentLoop {
                 prompt_tokens: None,
                 completion_tokens: None,
             });
+
             // 跑 tool calls，把结果作为 Tool message 追加，再回 LLM
             for tc in &resp.tool_calls {
                 tool_calls_made += 1;
+
                 let call = ToolCall {
                     name: tc.name.clone(),
                     arguments: tc.arguments.clone(),
                 };
+
                 let result: ToolResult = self
                     .dispatcher
                     .dispatch(ctx, call)
                     .await
                     .unwrap_or_else(tool_failure_result);
+
                 let result_json = serde_json::to_string(&result.content).unwrap_or_default();
+
                 messages.push(ChatMessage {
                     id: Id::new(),
                     chat_id: Id("".into()), // 占位；持久化时由 caller 填
@@ -540,6 +560,7 @@ impl AgentLoop {
         }
 
         messages.push(tool_budget_final_prompt());
+
         let req = CompletionRequest {
             model,
             messages,
@@ -548,10 +569,12 @@ impl AgentLoop {
             max_tokens,
             temperature: Some(0.2),
         };
+
         let resp = self.provider.complete(req).await?;
         total_prompt += resp.prompt_tokens;
         total_completion += resp.completion_tokens;
         let content = resp.content.unwrap_or_default();
+
         Ok(AgentLoopResult {
             assistant_content: product_answer_or_fallback(&content, TOOL_BUDGET_FALLBACK_MESSAGE),
             tool_calls_made,
@@ -595,12 +618,14 @@ impl AgentLoop {
     ) -> AgentEventStream {
         use futures::StreamExt;
         let (tx, rx) = tokio::sync::mpsc::channel::<AgentStreamEvent>(64);
+
         crate::shared::trace_context::spawn_with_current_trace_context(async move {
             let mut messages = history;
             let mut total_prompt = 0i32;
             let mut total_completion = 0i32;
             let mut assistant_content = String::new();
             let mut finish_reason = String::from("stop");
+
             for loop_idx in 0..MAX_TOOL_LOOPS {
                 let req = CompletionRequest {
                     model: model.clone(),
@@ -614,10 +639,12 @@ impl AgentLoop {
                     max_tokens,
                     temperature: Some(0.2),
                 };
+
                 if let Err(error) = req.validate_tool_choice() {
                     let _ = tx.send(AgentStreamEvent::Error(error.to_string())).await;
                     return;
                 }
+
                 let mut stream = match self.provider.complete_stream(req).await {
                     Ok(s) => s,
                     Err(e) => {
@@ -625,8 +652,10 @@ impl AgentLoop {
                         return;
                     }
                 };
+
                 let mut iter_text = String::new();
                 let mut tool_calls: Vec<RequestedToolCall> = Vec::new();
+
                 while let Some(item) = stream.next().await {
                     match item {
                         Ok(ChunkOrToolCall::Text(t)) => {
@@ -644,6 +673,7 @@ impl AgentLoop {
                                     arguments: arguments.clone(),
                                 })
                                 .await;
+
                             tool_calls.push(RequestedToolCall {
                                 id,
                                 name,
@@ -667,13 +697,16 @@ impl AgentLoop {
                         }
                     }
                 }
+
                 if tool_calls.is_empty() {
                     let final_output = product_answer_or_fallback(
                         &iter_text,
                         INVALID_FINAL_RESPONSE_FALLBACK_MESSAGE,
                     );
+
                     assistant_content.push_str(&final_output);
                     let _ = tx.send(AgentStreamEvent::Chunk(final_output)).await;
+
                     let _ = tx
                         .send(AgentStreamEvent::Done {
                             content: assistant_content,
@@ -682,8 +715,10 @@ impl AgentLoop {
                             finish_reason,
                         })
                         .await;
+
                     return;
                 }
+
                 // OpenAI/兼容 API 要求：tool 结果消息前必须先有一条携带 tool_calls 的 assistant
                 // 消息，否则 400 "Messages with role 'tool' must be a response to a preceding
                 // message with 'tool_calls'"。
@@ -713,17 +748,21 @@ impl AgentLoop {
                     prompt_tokens: None,
                     completion_tokens: None,
                 });
+
                 // 跑 tools 一遍并把结果作为 Tool message 追加。
                 for tc in &tool_calls {
                     let call = ToolCall {
                         name: tc.name.clone(),
                         arguments: tc.arguments.clone(),
                     };
+
                     let result: ToolResult = match self.dispatcher.dispatch(&ctx, call).await {
                         Ok(r) => r,
                         Err(e) => tool_failure_result(e),
                     };
+
                     let result_json = serde_json::to_string(&result.content).unwrap_or_default();
+
                     let _ = tx
                         .send(AgentStreamEvent::ToolEnd {
                             id: tc.id.clone(),
@@ -731,6 +770,7 @@ impl AgentLoop {
                             is_error: result.is_error,
                         })
                         .await;
+
                     messages.push(ChatMessage {
                         id: Id::new(),
                         chat_id: Id("".into()),
@@ -745,7 +785,9 @@ impl AgentLoop {
                 }
                 // 中间轮次的说明只回灌给模型，不进入用户可见回答。
             }
+
             messages.push(tool_budget_final_prompt());
+
             let req = CompletionRequest {
                 model,
                 messages,
@@ -754,13 +796,16 @@ impl AgentLoop {
                 max_tokens,
                 temperature: Some(0.2),
             };
+
             let mut stream = match self.provider.complete_stream(req).await {
                 Ok(s) => s,
                 Err(_) => {
                     assistant_content.push_str(TOOL_BUDGET_FALLBACK_MESSAGE);
+
                     let _ = tx
                         .send(AgentStreamEvent::Chunk(TOOL_BUDGET_FALLBACK_MESSAGE.into()))
                         .await;
+
                     let _ = tx
                         .send(AgentStreamEvent::Done {
                             content: assistant_content,
@@ -769,10 +814,13 @@ impl AgentLoop {
                             finish_reason: "tool_budget_exhausted".into(),
                         })
                         .await;
+
                     return;
                 }
             };
+
             let mut final_text = String::new();
+
             while let Some(item) = stream.next().await {
                 match item {
                     Ok(ChunkOrToolCall::Text(t)) => {
@@ -790,10 +838,12 @@ impl AgentLoop {
                     Err(_) => break,
                 }
             }
+
             let final_output =
                 product_answer_or_fallback(&final_text, TOOL_BUDGET_FALLBACK_MESSAGE);
             assistant_content.push_str(&final_output);
             let _ = tx.send(AgentStreamEvent::Chunk(final_output)).await;
+
             let _ = tx
                 .send(AgentStreamEvent::Done {
                     content: assistant_content,
@@ -803,6 +853,7 @@ impl AgentLoop {
                 })
                 .await;
         });
+
         Box::pin(tokio_stream::wrappers::ReceiverStream::new(rx))
     }
 }

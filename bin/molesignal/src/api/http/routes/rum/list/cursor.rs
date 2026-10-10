@@ -71,6 +71,7 @@ pub(super) fn decode_session(
 ) -> Result<SessionCursorPayload> {
     let payload =
         decode_signed_cursor::<SessionCursorPayload>(iam, org_id, SESSION_PURPOSE, token)?;
+
     if payload.version != VERSION
         || payload.to <= payload.from
         || payload.session_id.is_empty()
@@ -79,6 +80,7 @@ pub(super) fn decode_session(
     {
         return Err(Error::invalid("invalid RUM session cursor"));
     }
+
     Ok(payload)
 }
 
@@ -116,6 +118,7 @@ pub(super) fn decode_error(
     token: &str,
 ) -> Result<ErrorCursorPayload> {
     let payload = decode_signed_cursor::<ErrorCursorPayload>(iam, org_id, ERROR_PURPOSE, token)?;
+
     if payload.version != VERSION
         || payload.to <= payload.from
         || payload.fingerprint.is_empty()
@@ -123,6 +126,7 @@ pub(super) fn decode_error(
     {
         return Err(Error::invalid("invalid RUM error cursor"));
     }
+
     Ok(payload)
 }
 

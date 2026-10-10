@@ -40,6 +40,7 @@ impl ServiceIdentity {
                     .map(str::trim)
                     .filter(|value| !value.is_empty())
             });
+
         Self {
             namespace: normalized_or(namespace, DEFAULT_SERVICE_NAMESPACE),
             name: normalized_or(name, DEFAULT_SERVICE_NAME),

@@ -49,6 +49,7 @@ impl PuffinDirReader {
         let source = PuffinBytesReader::new(store, location, size);
         let (meta, _footer_payload) = source.parse_footer().await?;
         let (blobs, atomic_files) = build_maps(&meta, &source).await?;
+
         Ok(Self {
             source: Arc::new(source),
             blobs: Arc::new(blobs),
@@ -66,15 +67,19 @@ impl PuffinDirReader {
     ) -> Self {
         let source = PuffinBytesReader::new(store, location, size);
         let mut blobs = HashMap::new();
+
         for blob in &footer.puffin_meta.blobs {
             let Some(tag) = blob.properties.get("blob_tag") else {
                 continue;
             };
+
             if tag == FOOTER_CACHE_BLOB_TAG {
                 continue;
             }
+
             blobs.insert(PathBuf::from(tag), Arc::new(blob.clone()));
         }
+
         Self {
             source: Arc::new(source),
             blobs: Arc::new(blobs),
@@ -89,16 +94,20 @@ pub async fn build_atomic_files(
     source: &PuffinBytesReader,
 ) -> Result<HashMap<PathBuf, Bytes>> {
     let mut out = HashMap::new();
+
     for blob in &meta.blobs {
         let Some(tag) = blob.properties.get("blob_tag") else {
             continue;
         };
+
         if !SYNC_ATOMIC_READ_TARGETS.contains(&tag.as_str()) {
             continue;
         }
+
         let bytes = source.read_blob_bytes(blob, None).await?;
         out.insert(PathBuf::from(tag), bytes);
     }
+
     Ok(out)
 }
 
@@ -107,15 +116,19 @@ async fn build_maps(
     source: &PuffinBytesReader,
 ) -> Result<(HashMap<PathBuf, Arc<BlobMetadata>>, HashMap<PathBuf, Bytes>)> {
     let mut blobs = HashMap::new();
+
     for blob in &meta.blobs {
         let Some(tag) = blob.properties.get("blob_tag") else {
             continue;
         };
+
         if tag == FOOTER_CACHE_BLOB_TAG {
             continue;
         }
+
         blobs.insert(PathBuf::from(tag), Arc::new(blob.clone()));
     }
+
     let atomic_files = build_atomic_files(meta, source).await?;
     Ok((blobs, atomic_files))
 }
@@ -150,9 +163,11 @@ impl PuffinSliceHandle {
         if let Some(b) = self.materialized.get() {
             return Ok(b);
         }
+
         let source = self.source.clone();
         let meta = self.meta.clone();
         let (tx, rx) = std::sync::mpsc::channel();
+
         std::thread::spawn(move || {
             let rt = match tokio::runtime::Builder::new_current_thread()
                 .enable_all()
@@ -164,17 +179,21 @@ impl PuffinSliceHandle {
                     return;
                 }
             };
+
             let res = rt.block_on(async move {
                 source
                     .read_blob_bytes(&meta, None)
                     .await
                     .map_err(|e| io::Error::other(format!("puffin materialize: {e}")))
             });
+
             let _ = tx.send(res);
         });
+
         let bytes = rx
             .recv()
             .map_err(|e| io::Error::other(format!("materialize channel: {e}")))??;
+
         // OnceLock::set 可能因别人先 set 而 Err（rare race in tantivy reads），不致命。
         let _ = self.materialized.set(bytes);
         Ok(self.materialized.get().expect("just set"))
@@ -194,6 +213,7 @@ impl FileHandle for PuffinSliceHandle {
         if byte_range.is_empty() {
             return Ok(OwnedBytes::empty());
         }
+
         self.ensure_materialized_blocking()?;
         Ok(self.slice_range(byte_range))
     }
@@ -202,17 +222,20 @@ impl FileHandle for PuffinSliceHandle {
         if byte_range.is_empty() {
             return Ok(OwnedBytes::empty());
         }
+
         // async 路径：直接 sub-range，不走 materialize；commiserate with tantivy
         // 当前 async API（如果未来 tantivy 全 async，这条更省内存）。
         let sub = Range {
             start: byte_range.start as u64,
             end: byte_range.end as u64,
         };
+
         let bytes = self
             .source
             .read_blob_bytes(&self.meta, Some(sub))
             .await
             .map_err(|e| io::Error::other(format!("puffin slice read: {e}")))?;
+
         Ok(OwnedBytes::new(bytes.to_vec()))
     }
 }
@@ -234,6 +257,7 @@ impl FileHandle for StaticBytesHandle {
         let slice = self
             .bytes
             .slice(byte_range.start..byte_range.end.min(self.bytes.len()));
+
         Ok(OwnedBytes::new(slice.to_vec()))
     }
 }
@@ -251,12 +275,14 @@ impl Directory for PuffinDirReader {
                 materialized: std::sync::OnceLock::new(),
             }));
         }
+
         // Fall back to bundled empty puffin dir for optional segment files.
         if let Some(ext) = path.extension().and_then(|e| e.to_str())
             && let Some(bytes) = get_empty_file_bytes(ext)
         {
             return Ok(Arc::new(StaticBytesHandle { bytes }));
         }
+
         Err(OpenReadError::FileDoesNotExist(path.to_path_buf()))
     }
 
@@ -268,6 +294,7 @@ impl Directory for PuffinDirReader {
         if self.blobs.contains_key(path) {
             return Ok(true);
         }
+
         Ok(path
             .extension()
             .and_then(|e| e.to_str())
@@ -288,12 +315,14 @@ impl Directory for PuffinDirReader {
         if let Some(bytes) = self.atomic_files.get(path) {
             return Ok(bytes.to_vec());
         }
+
         // 兜底：空 puffin directory 的对应扩展名（与 get_file_handle 路径对称）。
         if let Some(ext) = path.extension().and_then(|e| e.to_str())
             && let Some(bytes) = get_empty_file_bytes(ext)
         {
             return Ok(bytes.to_vec());
         }
+
         Err(OpenReadError::FileDoesNotExist(path.to_path_buf()))
     }
 

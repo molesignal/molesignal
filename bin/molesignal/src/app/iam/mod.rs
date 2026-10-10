@@ -68,6 +68,7 @@ impl IamService {
             !jwt_secrets.is_empty(),
             "IamService requires at least one JWT signing secret (primary)"
         );
+
         Self {
             users,
             orgs,
@@ -90,9 +91,11 @@ impl IamService {
             Ok(u) => u,
             Err(_) => return Err(Error::unauthorized("invalid credentials")),
         };
+
         if let Some(reason) = user_access_denial(&user) {
             return Err(Error::forbidden(reason));
         }
+
         verify_password(password, &user.password_hash)?;
         Ok(user)
     }
@@ -100,6 +103,7 @@ impl IamService {
     /// 签发 JWT；用当前 primary secret。
     pub fn issue_token(&self, user_id: &Id, org_id: &Id) -> Result<String> {
         let now = chrono::Utc::now().timestamp() as usize;
+
         let claims = Claims {
             sub: user_id.0.clone(),
             org_id: org_id.0.clone(),
@@ -108,8 +112,10 @@ impl IamService {
             exp: now + self.auth.token_ttl_secs as usize,
             iss: JWT_ISSUER.to_owned(),
         };
+
         let secrets = self.jwt_secrets.read();
         let primary = secrets.first().expect("primary jwt secret");
+
         encode(
             &Header::default(),
             &claims,
@@ -122,6 +128,7 @@ impl IamService {
     /// platform-administrator assignment；本函数不接受 API token。
     pub fn issue_system_token(&self, user_id: &Id, system_org_id: &Id) -> Result<String> {
         let now = chrono::Utc::now().timestamp() as usize;
+
         let claims = Claims {
             sub: user_id.0.clone(),
             org_id: system_org_id.0.clone(),
@@ -130,8 +137,10 @@ impl IamService {
             exp: now + (self.auth.token_ttl_secs as usize).min(3_600),
             iss: JWT_ISSUER.to_owned(),
         };
+
         let secrets = self.jwt_secrets.read();
         let primary = secrets.first().expect("primary jwt secret");
+
         encode(
             &Header::default(),
             &claims,
@@ -146,6 +155,7 @@ impl IamService {
         validation.set_issuer(&[JWT_ISSUER]);
         let secrets = self.jwt_secrets.read();
         let mut last_err: Option<String> = None;
+
         for s in secrets.iter() {
             match decode::<Claims>(token, &DecodingKey::from_secret(s), &validation) {
                 Ok(data) => {
@@ -167,6 +177,7 @@ impl IamService {
                 }
             }
         }
+
         Err(Error::unauthorized(format!(
             "jwt verify failed against all {} active secret(s): {}",
             secrets.len(),
@@ -185,9 +196,11 @@ impl IamService {
             }
             Err(error) => return Err(error),
         };
+
         if let Some(reason) = user_access_denial(&user) {
             return Err(Error::unauthorized(reason));
         }
+
         Ok(())
     }
 
@@ -203,6 +216,7 @@ impl IamService {
             }
             Err(error) => return Err(error),
         };
+
         organization.ensure_enabled()
     }
 
@@ -218,6 +232,7 @@ impl IamService {
         password_plain: &str,
     ) -> Result<User> {
         let hash = hash_password(password_plain)?;
+
         let user = User {
             id: Id::new(),
             email,
@@ -229,6 +244,7 @@ impl IamService {
             status: UserStatus::Active,
             created_at: crate::shared::time::TimestampMicros::now(),
         };
+
         self.users.create(user).await
     }
 
@@ -245,12 +261,15 @@ impl IamService {
             domain::iam::{IamMembership, Organization},
             shared::time::TimestampMicros,
         };
+
         let count = self.users.count().await?;
+
         if count > 0 {
             return Err(Error::forbidden(
                 "create_user_with_default_org allowed only when users table is empty",
             ));
         }
+
         let org = self
             .orgs
             .create(Organization {
@@ -262,13 +281,16 @@ impl IamService {
                 created_at: TimestampMicros::now(),
             })
             .await?;
+
         let user = self
             .create_user(email, display_name, password_plain)
             .await?;
+
         let bootstrap_role_id = self
             .iam_memberships
             .role_id_for_purpose(&org.id, "organization_bootstrap")
             .await?;
+
         self.iam_memberships
             .upsert(
                 IamMembership {
@@ -280,6 +302,7 @@ impl IamService {
                 &user.id,
             )
             .await?;
+
         Ok((user, org))
     }
 
@@ -294,12 +317,14 @@ impl IamService {
         status: UserStatus,
     ) -> Result<User> {
         use crate::{domain::iam::IamMembership, shared::time::TimestampMicros};
+
         // 已存在邮箱：仅当此前被「拒绝」时允许重新申请（复用既有 user + membership，
         // 更新资料/密码并重置状态，重新走审批/激活）。其余状态一律拒绝重复注册。
         if let Ok(existing) = self.users.get_by_email(&email).await {
             if existing.status != UserStatus::Rejected {
                 return Err(Error::invalid("email already registered"));
             }
+
             let org = self.enabled_tenant_organization().await?;
             let mut user = existing;
             user.display_name = display_name;
@@ -307,10 +332,12 @@ impl IamService {
             user.status = status;
             let user = self.users.update(user).await?;
             self.users.set_status(&user.id, status).await?;
+
             let signup_role_id = self
                 .iam_memberships
                 .role_id_for_purpose(&org.id, "self_service_signup")
                 .await?;
+
             self.iam_memberships
                 .upsert(
                     IamMembership {
@@ -322,10 +349,13 @@ impl IamService {
                     &user.id,
                 )
                 .await?;
+
             return Ok(user);
         }
+
         let org = self.enabled_tenant_organization().await?;
         let hash = hash_password(password_plain)?;
+
         let user = User {
             id: Id::new(),
             email,
@@ -337,11 +367,14 @@ impl IamService {
             status,
             created_at: TimestampMicros::now(),
         };
+
         let user = self.users.create(user).await?;
+
         let signup_role_id = self
             .iam_memberships
             .role_id_for_purpose(&org.id, "self_service_signup")
             .await?;
+
         self.iam_memberships
             .upsert(
                 IamMembership {
@@ -353,6 +386,7 @@ impl IamService {
                 &user.id,
             )
             .await?;
+
         Ok(user)
     }
 
@@ -374,6 +408,7 @@ fn user_access_denial(user: &User) -> Option<&'static str> {
     if user.disabled {
         return Some("user disabled");
     }
+
     match user.status {
         UserStatus::Pending => Some("account pending approval"),
         UserStatus::Rejected => Some("account registration was rejected"),
@@ -383,16 +418,19 @@ fn user_access_denial(user: &User) -> Option<&'static str> {
 
 pub fn hash_password(plain: &str) -> Result<String> {
     let salt = SaltString::generate(&mut OsRng);
+
     let hash = Argon2::default()
         .hash_password(plain.as_bytes(), &salt)
         .map_err(|e| Error::internal(format!("argon2 hash: {e}")))?
         .to_string();
+
     Ok(hash)
 }
 
 pub fn verify_password(plain: &str, hash: &str) -> Result<()> {
     let parsed =
         PasswordHash::new(hash).map_err(|e| Error::internal(format!("argon2 parse hash: {e}")))?;
+
     Argon2::default()
         .verify_password(plain.as_bytes(), &parsed)
         .map_err(|_| Error::unauthorized("invalid credentials"))

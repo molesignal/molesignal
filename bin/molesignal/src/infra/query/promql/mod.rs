@@ -136,11 +136,13 @@ fn range_step_us(req: &QueryRequest) -> i64 {
         .0
         .saturating_sub(req.time_range.start.0)
         .max(1);
+
     let target = req
         .limit
         .map(|l| l as i64)
         .unwrap_or(MAX_RANGE_STEPS)
         .clamp(1, MAX_RANGE_STEPS);
+
     (span_us / target).max(1)
 }
 
@@ -167,6 +169,7 @@ fn collect_metric_names(expr: &Expr, out: &mut std::collections::BTreeSet<String
         }
         Expr::Aggregate(a) => {
             collect_metric_names(&a.expr, out);
+
             if let Some(param) = &a.param {
                 collect_metric_names(param, out);
             }
@@ -204,6 +207,7 @@ fn collect_derived_label_dependencies(
         }
         Expr::Aggregate(aggregate) => {
             collect_derived_label_dependencies(&aggregate.expr, output)?;
+
             if let Some(parameter) = &aggregate.param {
                 collect_derived_label_dependencies(parameter, output)?;
             }
@@ -223,12 +227,14 @@ fn collect_derived_label_dependencies(
                 }
                 _ => {}
             }
+
             for argument in &call.args.args {
                 collect_derived_label_dependencies(argument, output)?;
             }
         }
         _ => {}
     }
+
     Ok(())
 }
 
@@ -289,17 +295,22 @@ impl PromQLEngine {
         let Some(streams) = &self.streams else {
             return Ok(());
         };
+
         let mut names = std::collections::BTreeSet::new();
         collect_metric_names(expr, &mut names);
+
         for name in names {
             let source = self.resolve_metric_source(&req.org_id, &name).await?;
+
             let Some(stream_id) = source.stream_id else {
                 continue;
             };
+
             if !streams.get_settings(&stream_id).await?.queryable {
                 return Err(Error::forbidden(format!("stream is not queryable: {name}")));
             }
         }
+
         Ok(())
     }
 
@@ -315,6 +326,7 @@ impl PromQLEngine {
             cache,
             safe_lookback_us: safe_lookback.as_micros() as i64,
         });
+
         self
     }
 }
@@ -338,6 +350,7 @@ impl PromqlEngine for PromQLEngine {
 
         let should_range = req.limit.is_some_and(|limit| limit > 1)
             && req.time_range.end.0 > req.time_range.start.0;
+
         if should_range && let Some(vec) = self.eval_range(&expr, &req).await? {
             // `range_step_us` bounds evaluation work per series. The result
             // adapter then applies the request-wide row limit with
@@ -388,6 +401,7 @@ impl PromQLEngine {
         let Some(inner) = Box::pin(self.eval_range(&unary.expr, req)).await? else {
             return Ok(None);
         };
+
         Ok(Some(negate_range_vector(inner)))
     }
 
@@ -400,21 +414,25 @@ impl PromQLEngine {
 
         let lhs_is_scalar = expr_is_scalar(binary.lhs.as_ref());
         let rhs_is_scalar = expr_is_scalar(binary.rhs.as_ref());
+
         match (lhs_is_scalar, rhs_is_scalar) {
             (true, true) => Ok(None),
             (true, false) => {
                 let lhs =
                     Box::pin(self.eval(binary.lhs.as_ref(), req, req.time_range.end.0)).await?;
                 let lhs = scalar_value(lhs, "binary lhs")?;
+
                 let Some(rhs) = Box::pin(self.eval_range(binary.rhs.as_ref(), req)).await? else {
                     return Ok(None);
                 };
+
                 apply_binary_range_scalar(binary, lhs, rhs, true).map(Some)
             }
             (false, true) => {
                 let Some(lhs) = Box::pin(self.eval_range(binary.lhs.as_ref(), req)).await? else {
                     return Ok(None);
                 };
+
                 let rhs =
                     Box::pin(self.eval(binary.rhs.as_ref(), req, req.time_range.end.0)).await?;
                 let rhs = scalar_value(rhs, "binary rhs")?;
@@ -424,9 +442,11 @@ impl PromQLEngine {
                 let Some(lhs) = Box::pin(self.eval_range(binary.lhs.as_ref(), req)).await? else {
                     return Ok(None);
                 };
+
                 let Some(rhs) = Box::pin(self.eval_range(binary.rhs.as_ref(), req)).await? else {
                     return Ok(None);
                 };
+
                 apply_binary_range(binary, lhs, rhs).map(Some)
             }
         }
@@ -440,13 +460,16 @@ impl PromQLEngine {
         let Some(inner) = Box::pin(self.eval_range(&agg.expr, req)).await? else {
             return Ok(None);
         };
+
         let op_name = agg.op.to_string();
         let modifier = agg.modifier.clone();
+
         match op_name.as_str() {
             "topk" | "bottomk" => {
                 let k = self
                     .eval_aggregate_param(agg, req, req.time_range.end.0)
                     .await?;
+
                 return apply_topk_bottomk_range(op_name.as_str(), k, inner, modifier.as_ref())
                     .map(Some);
             }
@@ -454,16 +477,19 @@ impl PromQLEngine {
                 let k = self
                     .eval_aggregate_param(agg, req, req.time_range.end.0)
                     .await?;
+
                 return apply_limitk_range(k, inner, modifier.as_ref()).map(Some);
             }
             "limit_ratio" => {
                 let ratio = self
                     .eval_aggregate_param(agg, req, req.time_range.end.0)
                     .await?;
+
                 return apply_limit_ratio_range(ratio, inner).map(Some);
             }
             _ => {}
         }
+
         let param = match op_name.as_str() {
             "quantile" => Some(AggregateParam::Scalar(
                 self.eval_aggregate_param(agg, req, req.time_range.end.0)
@@ -474,8 +500,10 @@ impl PromQLEngine {
         };
 
         let mut grouped: HashMap<(i64, LabelSet), Vec<f64>> = HashMap::new();
+
         for point in inner.points {
             let key = project_labels(&point.labels, modifier.as_ref());
+
             grouped
                 .entry((point.ts_us, key))
                 .or_default()
@@ -483,6 +511,7 @@ impl PromQLEngine {
         }
 
         let mut points = Vec::with_capacity(grouped.len());
+
         for ((ts_us, labels), values) in grouped {
             for (labels, value) in
                 apply_regular_aggregate(op_name.as_str(), labels, values, param.as_ref())?
@@ -504,6 +533,7 @@ impl PromQLEngine {
         req: &QueryRequest,
     ) -> Result<Option<RangeVector>> {
         let func_name = call.func.name;
+
         match func_name {
             name if capabilities::is_function_category(
                 name,
@@ -511,9 +541,11 @@ impl PromQLEngine {
             ) =>
             {
                 let arg = expr_arg(&call.args, 0, func_name)?;
+
                 if let Some(ms) = self.cacheable_matrix(arg) {
                     let range = ms.range;
                     let range_secs = range.as_secs_f64().max(1.0);
+
                     let rv = self
                         .eval_windowed_cached(
                             &ms.vs,
@@ -527,11 +559,14 @@ impl PromQLEngine {
                             },
                         )
                         .await?;
+
                     return Ok(Some(rv));
                 }
+
                 let Some((series, range)) = self.eval_matrix_input_range(arg, req).await? else {
                     return Ok(None);
                 };
+
                 Ok(Some(apply_rate_like_range(
                     func_name,
                     series,
@@ -544,8 +579,10 @@ impl PromQLEngine {
             name if is_over_time_function(name) => {
                 let (quantile, matrix_idx) = over_time_args(name, &call.args)?;
                 let arg = expr_arg(&call.args, matrix_idx, name)?;
+
                 if let Some(ms) = self.cacheable_matrix(arg) {
                     let func_key = format!("{name}|q={quantile:?}");
+
                     let rv = self
                         .eval_windowed_cached(
                             &ms.vs,
@@ -555,11 +592,14 @@ impl PromQLEngine {
                             move |_t, win, _metadata| apply_over_time_value(name, quantile, win),
                         )
                         .await?;
+
                     return Ok(Some(rv));
                 }
+
                 let Some((series, range)) = self.eval_matrix_input_range(arg, req).await? else {
                     return Ok(None);
                 };
+
                 Ok(Some(apply_over_time_range(
                     name,
                     quantile,
@@ -573,11 +613,13 @@ impl PromQLEngine {
             name if is_range_vector_function(name) => {
                 let params = range_vector_args(name, &call.args)?;
                 let arg = expr_arg(&call.args, 0, name)?;
+
                 if let Some(ms) = self.cacheable_matrix(arg) {
                     let func_key = format!(
                         "{name}|pt={}|sf={}|tf={}",
                         params.predict_t, params.hw_sf, params.hw_tf
                     );
+
                     let rv = self
                         .eval_windowed_cached(
                             &ms.vs,
@@ -587,11 +629,14 @@ impl PromQLEngine {
                             move |t, win, _metadata| range_vector_value(name, win, t, params),
                         )
                         .await?;
+
                     return Ok(Some(rv));
                 }
+
                 let Some((series, range)) = self.eval_matrix_input_range(arg, req).await? else {
                     return Ok(None);
                 };
+
                 Ok(Some(apply_range_vector_func_range(
                     name,
                     series,
@@ -604,26 +649,33 @@ impl PromQLEngine {
             }
             "label_replace" => {
                 let args = label_replace_args(&call.args)?;
+
                 let Some(inner) = Box::pin(self.eval_range(&args.expr, req)).await? else {
                     return Ok(None);
                 };
+
                 Ok(Some(apply_label_replace_range(inner, &args)))
             }
             "label_join" => {
                 let args = label_join_args(&call.args)?;
+
                 let Some(inner) = Box::pin(self.eval_range(&args.expr, req)).await? else {
                     return Ok(None);
                 };
+
                 Ok(Some(apply_label_join_range(inner, &args)))
             }
             name if is_sample_math_function(name) => {
                 let input_expr = expr_arg(&call.args, 0, name)?;
+
                 let Some(inner) = Box::pin(self.eval_range(input_expr, req)).await? else {
                     return Ok(None);
                 };
+
                 let params = self
                     .sample_math_params(name, &call.args, req, req.time_range.end.0)
                     .await?;
+
                 apply_sample_math_range(name, inner, params).map(Some)
             }
             name if is_datetime_function(name) => {
@@ -632,17 +684,22 @@ impl PromQLEngine {
                 if call.args.is_empty() {
                     return Ok(None);
                 }
+
                 let input_expr = expr_arg(&call.args, 0, name)?;
+
                 let Some(inner) = Box::pin(self.eval_range(input_expr, req)).await? else {
                     return Ok(None);
                 };
+
                 Ok(Some(apply_datetime_range(name, inner)))
             }
             "timestamp" => {
                 let input_expr = expr_arg(&call.args, 0, "timestamp")?;
+
                 let Some(inner) = Box::pin(self.eval_range(input_expr, req)).await? else {
                     return Ok(None);
                 };
+
                 Ok(Some(apply_timestamp_range(inner)))
             }
             _ => Ok(None),
@@ -662,6 +719,7 @@ impl PromQLEngine {
                 req,
             )
             .await?;
+
         Ok(samples_to_range_vector(
             series,
             req.time_range.start.0,
@@ -729,8 +787,10 @@ impl PromQLEngine {
             .0
             .saturating_sub(req.time_range.start.0)
             .max(1);
+
         let matrix_us = (matrix_range.as_micros() as i64).max(1);
         let total_us = span_us.saturating_add(matrix_us).max(1);
+
         self.load_matrix(
             vs,
             Duration::from_micros(total_us as u64),
@@ -755,10 +815,12 @@ impl PromQLEngine {
                 req,
             )
             .await?;
+
         let items: Vec<_> = series
             .into_iter()
             .filter_map(|s| s.samples.last().map(|&(_, v)| (s.labels, v)))
             .collect();
+
         Ok(InstantVector { items })
     }
 
@@ -771,6 +833,7 @@ impl PromQLEngine {
         let inner = Box::pin(self.eval(&agg.expr, req, at_us)).await?;
         let op_name = agg.op.to_string();
         let modifier = agg.modifier.clone();
+
         match op_name.as_str() {
             "topk" | "bottomk" => {
                 let k = self.eval_aggregate_param(agg, req, at_us).await?;
@@ -786,6 +849,7 @@ impl PromQLEngine {
             }
             _ => {}
         }
+
         let param = match op_name.as_str() {
             "quantile" => Some(AggregateParam::Scalar(
                 self.eval_aggregate_param(agg, req, at_us).await?,
@@ -796,6 +860,7 @@ impl PromQLEngine {
 
         let grouped = group_by(&inner, modifier.as_ref());
         let mut out = Vec::with_capacity(grouped.len());
+
         for (key, values) in grouped {
             out.extend(apply_regular_aggregate(
                 op_name.as_str(),
@@ -804,6 +869,7 @@ impl PromQLEngine {
                 param.as_ref(),
             )?);
         }
+
         Ok(InstantVector { items: out })
     }
 
@@ -816,6 +882,7 @@ impl PromQLEngine {
         let param = agg.param.as_ref().ok_or_else(|| {
             Error::invalid(format!("promql aggregate requires parameter: {}", agg.op))
         })?;
+
         let value = Box::pin(self.eval(param, req, at_us)).await?;
         scalar_value(value, "aggregate parameter")
     }
@@ -827,6 +894,7 @@ impl PromQLEngine {
         at_us: i64,
     ) -> Result<InstantVector> {
         let func_name = call.func.name;
+
         match func_name {
             name if capabilities::is_function_category(
                 name,
@@ -856,12 +924,15 @@ impl PromQLEngine {
             }
             "histogram_fraction" => {
                 ensure_arg_count("histogram_fraction", &call.args, 3)?;
+
                 let lower = self
                     .eval_scalar_function_arg(&call.args, 0, req, at_us, "histogram_fraction lower")
                     .await?;
+
                 let upper = self
                     .eval_scalar_function_arg(&call.args, 1, req, at_us, "histogram_fraction upper")
                     .await?;
+
                 let inner_expr = expr_arg(&call.args, 2, "histogram_fraction")?;
                 let inner = Box::pin(self.eval(inner_expr, req, at_us)).await?;
                 Ok(apply_histogram_fraction(lower, upper, inner))
@@ -886,6 +957,7 @@ impl PromQLEngine {
                 let labels = sort_by_label_labels(&call.args)?;
                 let input_expr = expr_arg(&call.args, 0, func_name)?;
                 let inner = Box::pin(self.eval(input_expr, req, at_us)).await?;
+
                 Ok(sort_instant_vector_by_label(
                     inner,
                     &labels,
@@ -911,12 +983,14 @@ impl PromQLEngine {
             }
             name if is_datetime_function(name) => {
                 ensure_arg_range(name, &call.args, 0, 1)?;
+
                 let inner = if call.args.is_empty() {
                     time_instant_vector(at_us)
                 } else {
                     let input_expr = expr_arg(&call.args, 0, name)?;
                     Box::pin(self.eval(input_expr, req, at_us)).await?
                 };
+
                 Ok(apply_datetime(name, inner))
             }
             "timestamp" => {
@@ -939,6 +1013,7 @@ impl PromQLEngine {
             }
             "pi" => {
                 ensure_arg_count("pi", &call.args, 0)?;
+
                 Ok(InstantVector {
                     items: vec![(LabelSet::new(), std::f64::consts::PI)],
                 })
@@ -946,9 +1021,11 @@ impl PromQLEngine {
             name if is_sample_math_function(name) => {
                 let input_expr = expr_arg(&call.args, 0, name)?;
                 let inner = Box::pin(self.eval(input_expr, req, at_us)).await?;
+
                 let params = self
                     .sample_math_params(name, &call.args, req, at_us)
                     .await?;
+
                 apply_sample_math(name, inner, params)
             }
             other => Err(Error::invalid(format!(
@@ -967,36 +1044,45 @@ impl PromQLEngine {
         match name {
             "round" => {
                 ensure_arg_range("round", args, 1, 2)?;
+
                 let nearest = if args.len() == 2 {
                     self.eval_scalar_function_arg(args, 1, req, at_us, "round to_nearest")
                         .await?
                 } else {
                     1.0
                 };
+
                 Ok(SampleMathParams::Round { nearest })
             }
             "clamp" => {
                 ensure_arg_count("clamp", args, 3)?;
+
                 let min = self
                     .eval_scalar_function_arg(args, 1, req, at_us, "clamp min")
                     .await?;
+
                 let max = self
                     .eval_scalar_function_arg(args, 2, req, at_us, "clamp max")
                     .await?;
+
                 Ok(SampleMathParams::Clamp { min, max })
             }
             "clamp_min" => {
                 ensure_arg_count("clamp_min", args, 2)?;
+
                 let min = self
                     .eval_scalar_function_arg(args, 1, req, at_us, "clamp_min min")
                     .await?;
+
                 Ok(SampleMathParams::ClampMin { min })
             }
             "clamp_max" => {
                 ensure_arg_count("clamp_max", args, 2)?;
+
                 let max = self
                     .eval_scalar_function_arg(args, 1, req, at_us, "clamp_max max")
                     .await?;
+
                 Ok(SampleMathParams::ClampMax { max })
             }
             _ => {
@@ -1033,6 +1119,7 @@ impl PromQLEngine {
             .name
             .clone()
             .ok_or_else(|| Error::invalid("VectorSelector missing metric name"))?;
+
         let source = self.resolve_metric_source(&req.org_id, &metric).await?;
         // 选择器上的 `@` / `offset` 修饰：先把求值时刻平移到生效时刻。
         let at_us = effective_eval_time(vs, at_us, req);
@@ -1049,15 +1136,19 @@ impl PromQLEngine {
                 ),
             )
             .await?;
+
         if storage.files.is_empty() && storage.buffered_batches.is_empty() {
             return Ok(Vec::new());
         }
+
         let reader = ParquetReader::new(self.object_store.clone());
         let mut batches: Vec<RecordBatch> = Vec::new();
+
         let projection = source
             .sample_columns
             .as_ref()
             .map(|columns| columns.iter().map(String::as_str).collect::<Vec<_>>());
+
         for fm in &storage.files {
             // 时间窗口下推：按 `_timestamp` row-group 统计裁剪，边界文件只解码
             // 与窗口相交的 row group；QueryFile 里的权威 size 避免每文件
@@ -1065,15 +1156,20 @@ impl PromQLEngine {
             let mut options = ReadOptions::new()
                 .with_time_range(start_us, at_us)
                 .with_known_size(fm.size_bytes);
+
             if let Some(columns) = projection.as_deref() {
                 options = options.with_columns(columns);
             }
+
             let bs = reader
                 .read_from_store(self.object_store.clone(), &fm.object_key, options)
                 .await?;
+
             batches.extend(bs);
         }
+
         batches.extend(storage.buffered_batches);
+
         if batches.is_empty() {
             return Ok(Vec::new());
         }
@@ -1123,6 +1219,7 @@ impl PromQLEngine {
                 let series = self
                     .load_matrix_for_query_range(&ms.vs, ms.range, req)
                     .await?;
+
                 Ok(Some((series, ms.range)))
             }
             Expr::Subquery(_) => Ok(None),
@@ -1143,28 +1240,36 @@ impl PromQLEngine {
     ) -> Result<Vec<Series>> {
         const DEFAULT_STEP_US: i64 = 60_000_000;
         const MAX_STEPS: i64 = 11_000;
+
         let step_us = sq
             .step
             .map(|d| (d.as_micros() as i64).max(1))
             .unwrap_or(DEFAULT_STEP_US);
+
         let range_us = (sq.range.as_micros() as i64).max(1);
+
         if range_us / step_us > MAX_STEPS {
             return Err(Error::invalid(
                 "subquery resolution too fine (exceeds 11000 steps)",
             ));
         }
+
         let end_us = subquery_eval_end(sq, at_us, req);
         let start_us = end_us - range_us;
 
         let mut series_map: BTreeMap<LabelSet, Vec<(i64, f64)>> = BTreeMap::new();
         let mut t = start_us;
+
         while t <= end_us {
             let iv = Box::pin(self.eval(&sq.expr, req, t)).await?;
+
             for (labels, value) in iv.items {
                 series_map.entry(labels).or_default().push((t, value));
             }
+
             t += step_us;
         }
+
         Ok(series_map
             .into_iter()
             .map(|(labels, samples)| Series {

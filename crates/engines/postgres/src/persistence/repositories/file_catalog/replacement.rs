@@ -35,8 +35,10 @@ pub(super) async fn replace_segments(
     if command.replaced.is_empty() {
         return Err(Error::invalid("replace_segments requires replaced ids"));
     }
+
     for segment in &command.replacements {
         segment.validate()?;
+
         if segment.organization_id != scope.organization_id
             || segment.dataset_id != command.dataset_id
         {
@@ -45,6 +47,7 @@ pub(super) async fn replace_segments(
                 segment.id
             )));
         }
+
         if segment.primary.state != ArtifactState::Ready {
             return Err(Error::invalid(format!(
                 "replacement segment {} primary artifact must be ready",
@@ -61,6 +64,7 @@ pub(super) async fn replace_segments(
 
     let mut tx = sqlx::begin(pool).await.map_err(sqlx_err)?;
     let current = lock_dataset_version(&mut tx, scope, &command.dataset_id).await?;
+
     let new_version = current
         .checked_add(1)
         .ok_or_else(|| Error::internal("catalog version overflow"))?;
@@ -75,15 +79,19 @@ pub(super) async fn replace_segments(
     .fetch_all(&mut *tx)
     .await
     .map_err(sqlx_err)?;
+
     if rows.len() != replaced_ids.len() {
         return Err(Error::conflict(
             "some replaced segments no longer exist in this dataset",
         ));
     }
+
     for row in &rows {
         let state: String = row.try_get("state").map_err(sqlx_err)?;
+
         if state.parse::<SegmentState>()? != SegmentState::Active {
             let id: String = row.try_get("id").map_err(sqlx_err)?;
+
             return Err(Error::conflict(format!(
                 "segment {id} was already {state}; concurrent compaction won"
             )));
@@ -130,6 +138,7 @@ pub(super) async fn tombstone_segments(
     if command.segment_ids.is_empty() {
         return Err(Error::invalid("tombstone_segments requires segment ids"));
     }
+
     let segment_ids: Vec<String> = command
         .segment_ids
         .iter()
@@ -138,6 +147,7 @@ pub(super) async fn tombstone_segments(
 
     let mut tx = sqlx::begin(pool).await.map_err(sqlx_err)?;
     let current = lock_dataset_version(&mut tx, scope, &command.dataset_id).await?;
+
     let new_version = current
         .checked_add(1)
         .ok_or_else(|| Error::internal("catalog version overflow"))?;

@@ -20,12 +20,15 @@ pub struct AlertSettings {
 fn default_eval_interval() -> u32 {
     30
 }
+
 fn default_dispatch_interval() -> u32 {
     10
 }
+
 fn default_eval_timeout() -> u32 {
     10
 }
+
 fn default_ack_timeout() -> u32 {
     300
 }

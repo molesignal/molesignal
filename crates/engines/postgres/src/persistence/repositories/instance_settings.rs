@@ -40,6 +40,7 @@ impl InstanceSettingsRepository for PgInstanceSettingsRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         match row {
             Some(r) => Ok(InstanceSettings {
                 signup_enabled: r.try_get("signup_enabled").map_err(sqlx_err)?,
@@ -140,6 +141,7 @@ impl InstanceSettingsRepository for PgInstanceSettingsRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(s)
     }
 }

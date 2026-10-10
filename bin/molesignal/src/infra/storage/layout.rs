@@ -25,6 +25,7 @@ pub struct StorageLayout;
 impl StorageLayout {
     /// Artifact 数据对象的 key 前缀。
     pub const ARTIFACT_PREFIX: &'static str = "artifacts/v1/";
+
     /// 封存分区 Manifest 对象的 key 前缀。
     pub const MANIFEST_PREFIX: &'static str = "manifests/v1/";
 

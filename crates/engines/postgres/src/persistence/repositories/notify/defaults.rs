@@ -50,6 +50,7 @@ impl PgOrganizationNotifyDefaultRepository {
 fn row_to_team_default(row: sqlx::postgres::PgRow) -> Result<TeamNotifyDefault> {
     let category: String = row.try_get("category").map_err(sqlx_err)?;
     let routes: Json<Vec<NotifyDefaultRoute>> = row.try_get("routes").map_err(sqlx_err)?;
+
     Ok(TeamNotifyDefault {
         id: Id::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?),
         organization_id: Id::from_string(
@@ -68,6 +69,7 @@ fn row_to_team_default(row: sqlx::postgres::PgRow) -> Result<TeamNotifyDefault> 
 fn row_to_organization_default(row: sqlx::postgres::PgRow) -> Result<OrganizationNotifyDefault> {
     let category: String = row.try_get("category").map_err(sqlx_err)?;
     let routes: Json<Vec<NotifyDefaultRoute>> = row.try_get("routes").map_err(sqlx_err)?;
+
     Ok(OrganizationNotifyDefault {
         id: Id::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?),
         organization_id: Id::from_string(
@@ -102,6 +104,7 @@ impl TeamNotifyDefaultRepository for PgTeamNotifyDefaultRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         row.map(row_to_team_default).transpose()
     }
 
@@ -118,6 +121,7 @@ impl TeamNotifyDefaultRepository for PgTeamNotifyDefaultRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to_team_default).collect()
     }
 
@@ -144,6 +148,7 @@ impl TeamNotifyDefaultRepository for PgTeamNotifyDefaultRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         route.id = Id::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?);
         route.created_at = TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?);
         Ok(route)
@@ -165,9 +170,11 @@ impl TeamNotifyDefaultRepository for PgTeamNotifyDefaultRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         if deleted.rows_affected() == 0 {
             return Err(Error::not_found("team notify default"));
         }
+
         Ok(())
     }
 }
@@ -190,6 +197,7 @@ impl OrganizationNotifyDefaultRepository for PgOrganizationNotifyDefaultReposito
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         row.map(row_to_organization_default).transpose()
     }
 
@@ -205,6 +213,7 @@ impl OrganizationNotifyDefaultRepository for PgOrganizationNotifyDefaultReposito
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to_organization_default).collect()
     }
 
@@ -233,6 +242,7 @@ impl OrganizationNotifyDefaultRepository for PgOrganizationNotifyDefaultReposito
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         route.id = Id::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?);
         route.created_at = TimestampMicros(row.try_get("created_at_micros").map_err(sqlx_err)?);
         Ok(route)
@@ -248,9 +258,11 @@ impl OrganizationNotifyDefaultRepository for PgOrganizationNotifyDefaultReposito
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         if deleted.rows_affected() == 0 {
             return Err(Error::not_found("organization notify default"));
         }
+
         Ok(())
     }
 }
@@ -311,6 +323,7 @@ impl NotifyRouteReferenceRepository for PgNotifyRouteReferenceRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         u64::try_from(count).map_err(|_| Error::internal("negative notify route reference count"))
     }
 }

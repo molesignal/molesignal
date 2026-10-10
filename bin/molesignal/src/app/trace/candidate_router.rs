@@ -82,6 +82,7 @@ impl TraceCandidateRouterConfig {
         {
             return Err("Trace candidate routing bounds must be non-zero".into());
         }
+
         Ok(self)
     }
 }
@@ -136,10 +137,13 @@ impl RouterWorkerContext {
         if let Some(channel) = self.channels.lock().get(endpoint) {
             return Ok(channel.clone());
         }
+
         let channel = grpc_channel::connect(endpoint, false).await?;
+
         self.channels
             .lock()
             .insert(endpoint.to_owned(), channel.clone());
+
         Ok(channel)
     }
 
@@ -180,6 +184,7 @@ impl TraceCandidateRouter {
         trace_metrics::set_queue("routing", 0, config.queue_capacity);
         let metrics = Arc::new(RouterMetrics::default());
         let cancel = CancellationToken::new();
+
         let context = Arc::new(RouterWorkerContext {
             registry,
             local_node_id,
@@ -191,12 +196,15 @@ impl TraceCandidateRouter {
             metrics: metrics.clone(),
             channels: parking_lot::Mutex::new(std::collections::HashMap::new()),
         });
+
         let mut joins = Vec::with_capacity(config.workers);
+
         for _ in 0..config.workers {
             let receiver = receiver.clone();
             let depth = depth.clone();
             let cancel = cancel.clone();
             let context = context.clone();
+
             joins.push(tokio::spawn(async move {
                 loop {
                     let queued = tokio::select! {
@@ -211,19 +219,24 @@ impl TraceCandidateRouter {
                             receiver.recv().await
                         } => queued,
                     };
+
                     let Some(queued) = queued else {
                         break;
                     };
+
                     depth.fetch_sub(1, Ordering::Relaxed);
+
                     trace_metrics::set_queue(
                         "routing",
                         depth.load(Ordering::Relaxed),
                         context.config.queue_capacity,
                     );
+
                     deliver_candidate(context.as_ref(), queued).await;
                 }
             }));
         }
+
         Ok(Arc::new(Self {
             sender,
             depth,
@@ -246,17 +259,22 @@ impl TraceCandidateRouter {
             trace_metrics::record_spans("routing", "stopped", 1);
             return Err(TraceCandidateSubmitError::Stopped);
         }
+
         sanitize_and_limit_span(&mut candidate.span, self.limits);
+
         let encoded_len = serde_json::to_vec(&candidate.span)
             .map(|encoded| encoded.len())
             .unwrap_or(usize::MAX);
+
         if encoded_len > MAX_TRACE_CANDIDATE_BYTES {
             self.metrics.invalid.fetch_add(1, Ordering::Relaxed);
             trace_metrics::record_spans("routing", "invalid", 1);
             return Err(TraceCandidateSubmitError::Invalid);
         }
+
         self.depth.fetch_add(1, Ordering::Relaxed);
         trace_metrics::set_queue("routing", self.depth.load(Ordering::Relaxed), self.capacity);
+
         match self.sender.try_send(QueuedCandidate {
             candidate,
             enqueued_at: Instant::now(),
@@ -265,21 +283,25 @@ impl TraceCandidateRouter {
             Err(mpsc::error::TrySendError::Full(_)) => {
                 self.depth.fetch_sub(1, Ordering::Relaxed);
                 self.metrics.queue_full.fetch_add(1, Ordering::Relaxed);
+
                 trace_metrics::set_queue(
                     "routing",
                     self.depth.load(Ordering::Relaxed),
                     self.capacity,
                 );
+
                 trace_metrics::record_spans("routing", "queue_full", 1);
                 Err(TraceCandidateSubmitError::Full)
             }
             Err(mpsc::error::TrySendError::Closed(_)) => {
                 self.depth.fetch_sub(1, Ordering::Relaxed);
+
                 trace_metrics::set_queue(
                     "routing",
                     self.depth.load(Ordering::Relaxed),
                     self.capacity,
                 );
+
                 trace_metrics::record_spans("routing", "stopped", 1);
                 Err(TraceCandidateSubmitError::Stopped)
             }
@@ -307,10 +329,13 @@ impl TraceCandidateRouter {
         if !self.accepting.swap(false, Ordering::AcqRel) {
             return;
         }
+
         self.cancel.cancel();
+
         let Some(mut joins) = self.joins.lock().await.take() else {
             return;
         };
+
         if timeout(self.shutdown_timeout, async {
             for join in &mut joins {
                 let _ = join.await;
@@ -322,10 +347,13 @@ impl TraceCandidateRouter {
             for join in joins {
                 join.abort();
             }
+
             let residue = self.depth.swap(0, Ordering::Relaxed);
+
             self.metrics
                 .expired
                 .fetch_add(residue as u64, Ordering::Relaxed);
+
             trace_metrics::set_queue("routing", 0, self.capacity);
             trace_metrics::record_spans("routing", "dropped", residue as u64);
             tracing::warn!(
@@ -347,6 +375,7 @@ pub enum TraceCandidateSubmitError {
 async fn deliver_candidate(context: &RouterWorkerContext, queued: QueuedCandidate) {
     let mut failed_nodes = HashSet::new();
     let mut last_failure_was_no_owner = false;
+
     let canonical_json = match serde_json::to_vec(&queued.candidate.span) {
         Ok(value) if value.len() <= MAX_TRACE_CANDIDATE_BYTES => value,
         _ => {
@@ -355,19 +384,23 @@ async fn deliver_candidate(context: &RouterWorkerContext, queued: QueuedCandidat
             return;
         }
     };
+
     for attempt in 0..context.config.max_attempts {
         if queued.enqueued_at.elapsed() >= context.config.max_delivery_age {
             context.metrics.expired.fetch_add(1, Ordering::Relaxed);
             trace_metrics::record_spans("routing", "dropped", 1);
             return;
         }
+
         if attempt > 0 {
             trace_metrics::record_retry("routing", "delivery_failed");
             let shift = (attempt - 1).min(16) as u32;
+
             let backoff = context
                 .config
                 .initial_backoff
                 .saturating_mul(1_u32 << shift);
+
             if queued.enqueued_at.elapsed().saturating_add(backoff)
                 >= context.config.max_delivery_age
             {
@@ -375,26 +408,32 @@ async fn deliver_candidate(context: &RouterWorkerContext, queued: QueuedCandidat
                 trace_metrics::record_spans("routing", "dropped", 1);
                 return;
             }
+
             sleep(backoff).await;
         }
 
         let peers = sampler_peers(context).await;
+
         let mut nodes = peers
             .iter()
             .filter(|peer| !failed_nodes.contains(&peer.node_id))
             .map(peer_to_sampler_node)
             .collect::<Vec<_>>();
+
         let mut owner = rendezvous_owner(&queued.candidate.span.trace_id, &nodes).cloned();
+
         if owner.is_none() && !failed_nodes.is_empty() {
             // 单 owner 集群仍允许在下一次 bounded attempt 重试原节点。
             failed_nodes.clear();
             nodes = peers.iter().map(peer_to_sampler_node).collect();
             owner = rendezvous_owner(&queued.candidate.span.trace_id, &nodes).cloned();
         }
+
         let Some(owner) = owner else {
             last_failure_was_no_owner = true;
             continue;
         };
+
         last_failure_was_no_owner = false;
 
         if context.local_accepts_candidates && owner.node_id == context.local_node_id {
@@ -404,6 +443,7 @@ async fn deliver_candidate(context: &RouterWorkerContext, queued: QueuedCandidat
                         .metrics
                         .delivered_local
                         .fetch_add(1, Ordering::Relaxed);
+
                     trace_metrics::record_spans("routing", "accepted", 1);
                     return;
                 }
@@ -412,6 +452,7 @@ async fn deliver_candidate(context: &RouterWorkerContext, queued: QueuedCandidat
                         .metrics
                         .owner_overloaded
                         .fetch_add(1, Ordering::Relaxed);
+
                     continue;
                 }
                 Err(TraceSubmitError::Stopped) => {
@@ -426,13 +467,17 @@ async fn deliver_candidate(context: &RouterWorkerContext, queued: QueuedCandidat
                 .metrics
                 .transport_failed
                 .fetch_add(1, Ordering::Relaxed);
+
             trace_metrics::record_spans("routing", "dropped", 1);
             return;
         };
+
         let request = build_request(context, &queued.candidate, canonical_json.clone(), token);
+
         let result = timeout(context.config.attempt_timeout, async {
             let channel = context.channel(&owner.endpoint).await?;
             let mut client = TraceCandidateServiceClient::new(channel);
+
             crate::shared::grpc_trace::call(
                 request,
                 "cluster.v1.TraceCandidateService",
@@ -444,6 +489,7 @@ async fn deliver_candidate(context: &RouterWorkerContext, queued: QueuedCandidat
             .map_err(|status| format!("candidate submit failed: {}", status.code()))
         })
         .await;
+
         match result {
             Ok(Ok(response))
                 if TraceCandidateDisposition::try_from(response.get_ref().disposition)
@@ -454,6 +500,7 @@ async fn deliver_candidate(context: &RouterWorkerContext, queued: QueuedCandidat
                     .metrics
                     .delivered_remote
                     .fetch_add(1, Ordering::Relaxed);
+
                 trace_metrics::record_spans("routing", "accepted", 1);
                 return;
             }
@@ -473,6 +520,7 @@ async fn deliver_candidate(context: &RouterWorkerContext, queued: QueuedCandidat
             }
         }
     }
+
     if last_failure_was_no_owner {
         context.metrics.no_owner.fetch_add(1, Ordering::Relaxed);
     } else {
@@ -481,6 +529,7 @@ async fn deliver_candidate(context: &RouterWorkerContext, queued: QueuedCandidat
             .transport_failed
             .fetch_add(1, Ordering::Relaxed);
     }
+
     trace_metrics::record_spans("routing", "dropped", 1);
 }
 
@@ -499,6 +548,7 @@ async fn sampler_peers(context: &RouterWorkerContext) -> Vec<PeerInfo> {
             })
         })
         .collect::<Vec<_>>();
+
     if context.local_accepts_candidates
         && !peers
             .iter()
@@ -510,6 +560,7 @@ async fn sampler_peers(context: &RouterWorkerContext) -> Vec<PeerInfo> {
             roles: vec![PeerRole::Standalone],
         });
     }
+
     peers.sort_by(|left, right| left.node_id.cmp(&right.node_id));
     peers.dedup_by(|left, right| left.node_id == right.node_id);
     peers
@@ -534,6 +585,7 @@ fn build_request(
         ForceKeep::TrustedInternal => TraceForceKeep::TrustedInternal,
         ForceKeep::DebugToken => TraceForceKeep::DebugToken,
     };
+
     let mut request = tonic::Request::new(TraceCandidateServiceSubmitRequest {
         org_id: candidate.org_id.clone(),
         stream: candidate.stream.clone().unwrap_or_default(),
@@ -543,13 +595,16 @@ fn build_request(
         producer_node_id: context.local_node_id.clone(),
         produced_at_micros: TimestampMicros::now().0,
     });
+
     // Both headers are required. Metadata construction cannot fail for these static values and
     // the token was already parsed from a process environment variable.
     let _ = grpc_channel::with_bearer(&mut request, token);
+
     request.metadata_mut().insert(
         TRACE_CANDIDATE_ORIGIN_HEADER,
         TRACE_CANDIDATE_ORIGIN_VALUE.parse().unwrap(),
     );
+
     request
 }
 

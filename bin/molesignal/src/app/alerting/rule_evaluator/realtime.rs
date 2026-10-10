@@ -31,6 +31,7 @@ impl RuleEvaluator {
             took_ms: 0,
             federation: None,
         };
+
         let decision = Decision {
             firing: true,
             severity,
@@ -38,11 +39,14 @@ impl RuleEvaluator {
             deviation_ratio: None,
             consecutive: 1,
         };
+
         let fingerprint = compute_fingerprint(rule);
+
         let existing = self
             .incidents
             .find_by_fingerprint(&rule.org_id, &fingerprint)
             .await?;
+
         self.on_firing(rule, &decision, existing, &result, &fingerprint, now)
             .await?;
         self.record_evaluation(rule, &decision, now).await;
@@ -58,10 +62,12 @@ impl RuleEvaluator {
             deviation_ratio: None,
             consecutive: 0,
         };
+
         let existing = self
             .incidents
             .find_by_fingerprint(&rule.org_id, &compute_fingerprint(rule))
             .await?;
+
         self.on_cleared(rule, existing, now).await?;
         self.record_evaluation(rule, &decision, now).await;
         Ok(())

@@ -220,6 +220,7 @@ impl NormalizedProfile {
     /// 主采样值的合计（用于元数据 `total_value` 列与排序 / 概览）。
     pub fn total_value(&self) -> i64 {
         let idx = self.default_value_index;
+
         self.samples
             .iter()
             .map(|s| s.values.get(idx).copied().unwrap_or(0))
@@ -255,9 +256,11 @@ fn maybe_gunzip(bytes: &[u8]) -> Result<Vec<u8>> {
         use std::io::Read;
         let mut decoder = flate2::read::GzDecoder::new(bytes);
         let mut out = Vec::new();
+
         decoder
             .read_to_end(&mut out)
             .map_err(|e| Error::invalid(format!("pprof gunzip: {e}")))?;
+
         Ok(out)
     } else {
         Ok(bytes.to_vec())
@@ -268,9 +271,11 @@ fn maybe_gunzip(bytes: &[u8]) -> Result<Vec<u8>> {
 pub fn gzip_pprof(bytes: &[u8]) -> Result<Vec<u8>> {
     use std::io::Write;
     let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+
     encoder
         .write_all(bytes)
         .map_err(|e| Error::internal(format!("pprof gzip: {e}")))?;
+
     encoder
         .finish()
         .map_err(|e| Error::internal(format!("pprof gzip finish: {e}")))
@@ -301,6 +306,7 @@ pub fn normalize_pprof(
             .map(String::as_str)
             .unwrap_or("")
     };
+
     let funcs: HashMap<u64, &pb::Function> = profile.function.iter().map(|f| (f.id, f)).collect();
     let locs: HashMap<u64, &pb::Location> = profile.location.iter().map(|l| (l.id, l)).collect();
     let mappings: HashMap<u64, &pb::Mapping> = profile.mapping.iter().map(|m| (m.id, m)).collect();
@@ -312,12 +318,15 @@ pub fn normalize_pprof(
         .collect();
 
     let mut samples = Vec::with_capacity(profile.sample.len());
+
     for s in &profile.sample {
         let mut stack = Vec::new();
+
         for loc_id in &s.location_id {
             let Some(loc) = locs.get(loc_id) else {
                 continue;
             };
+
             if loc.line.is_empty() {
                 // 未符号化帧：仅地址 + build_id。
                 let build_id = (loc.mapping_id != 0)
@@ -325,6 +334,7 @@ pub fn normalize_pprof(
                     .flatten()
                     .map(|m| st(m.build_id).to_string())
                     .filter(|s| !s.is_empty());
+
                 stack.push(Frame {
                     function: String::new(),
                     file: None,
@@ -337,10 +347,12 @@ pub fn normalize_pprof(
                 for ln in &loc.line {
                     let func = funcs.get(&ln.function_id);
                     let function = func.map(|f| st(f.name).to_string()).unwrap_or_default();
+
                     let file = func
                         .map(|f| st(f.filename))
                         .filter(|s| !s.is_empty())
                         .map(|s| s.to_string());
+
                     stack.push(Frame {
                         function,
                         file,
@@ -351,21 +363,27 @@ pub fn normalize_pprof(
                 }
             }
         }
+
         // pprof 是叶子在前；翻转为根在前（NormalizedProfile 约定）。
         stack.reverse();
         let mut labels = BTreeMap::new();
+
         for lab in &s.label {
             let key = st(lab.key);
+
             if key.is_empty() {
                 continue;
             }
+
             let value = if lab.str != 0 {
                 st(lab.str).to_string()
             } else {
                 lab.num.to_string()
             };
+
             labels.insert(key.to_string(), value);
         }
+
         samples.push(Sample {
             stack,
             values: s.value.clone(),
@@ -376,6 +394,7 @@ pub fn normalize_pprof(
     // 主采样值下标：default_sample_type 命中则用之，否则取最后一路（pprof 约定）。
     let default_value_index = if profile.default_sample_type != 0 {
         let name = st(profile.default_sample_type);
+
         sample_types
             .iter()
             .position(|vt| vt.ty == name)
@@ -421,25 +440,31 @@ fn extract_trace_ids(
 ) -> (Option<String>, Option<String>) {
     const TRACE_KEYS: [&str; 3] = ["trace_id", "traceID", "traceid"];
     const SPAN_KEYS: [&str; 3] = ["span_id", "spanID", "spanid"];
+
     let pick = |labels: &BTreeMap<String, String>, keys: &[&str]| -> Option<String> {
         keys.iter()
             .find_map(|k| labels.get(*k))
             .filter(|v| !v.is_empty())
             .cloned()
     };
+
     let mut trace = pick(profile_labels, &TRACE_KEYS);
     let mut span = pick(profile_labels, &SPAN_KEYS);
+
     for s in samples {
         if trace.is_none() {
             trace = pick(&s.labels, &TRACE_KEYS);
         }
+
         if span.is_none() {
             span = pick(&s.labels, &SPAN_KEYS);
         }
+
         if trace.is_some() && span.is_some() {
             break;
         }
     }
+
     (trace, span)
 }
 
@@ -453,6 +478,7 @@ impl Interner {
     fn new() -> Self {
         let mut map = HashMap::new();
         map.insert(String::new(), 0);
+
         Self {
             strings: vec![String::new()],
             map,
@@ -463,6 +489,7 @@ impl Interner {
         if let Some(&i) = self.map.get(s) {
             return i;
         }
+
         let i = self.strings.len() as i64;
         self.strings.push(s.to_string());
         self.map.insert(s.to_string(), i);
@@ -479,6 +506,7 @@ pub fn encode_pprof(p: &NormalizedProfile) -> Result<Vec<u8>> {
 /// [`NormalizedProfile`] → 裸 pprof protobuf（无 gzip）。归档前的规范形态。
 pub fn encode_pprof_raw(p: &NormalizedProfile) -> Result<Vec<u8>> {
     let mut interner = Interner::new();
+
     let sample_type: Vec<pb::ValueType> = p
         .sample_types
         .iter()
@@ -496,6 +524,7 @@ pub fn encode_pprof_raw(p: &NormalizedProfile) -> Result<Vec<u8>> {
 
     for s in &p.samples {
         let mut location_id = Vec::with_capacity(s.stack.len());
+
         // NormalizedProfile 根在前；pprof location_id 叶子在前，翻转写入。
         for fr in s.stack.iter().rev() {
             // 先 intern 字符串，避免与 entry() 闭包争借 interner。
@@ -504,13 +533,16 @@ pub fn encode_pprof_raw(p: &NormalizedProfile) -> Result<Vec<u8>> {
             } else {
                 interner.intern(&fr.function)
             };
+
             let file_idx = fr.file.as_deref().map(|f| interner.intern(f)).unwrap_or(0);
+
             let fn_id = if fr.function.is_empty() {
                 0
             } else if let Some(&id) = fn_ids.get(&fr.function) {
                 id
             } else {
                 let id = functions.len() as u64 + 1;
+
                 functions.push(pb::Function {
                     id,
                     name: name_idx,
@@ -518,16 +550,20 @@ pub fn encode_pprof_raw(p: &NormalizedProfile) -> Result<Vec<u8>> {
                     filename: file_idx,
                     start_line: 0,
                 });
+
                 fn_ids.insert(fr.function.clone(), id);
                 id
             };
+
             let line = fr.line.unwrap_or(0);
             let addr = fr.address.unwrap_or(0);
             let key = format!("{fn_id}|{line}|{addr}");
+
             let loc_id = if let Some(&id) = loc_ids.get(&key) {
                 id
             } else {
                 let id = locations.len() as u64 + 1;
+
                 let lines = if fn_id != 0 {
                     vec![pb::Line {
                         function_id: fn_id,
@@ -537,6 +573,7 @@ pub fn encode_pprof_raw(p: &NormalizedProfile) -> Result<Vec<u8>> {
                 } else {
                     Vec::new()
                 };
+
                 locations.push(pb::Location {
                     id,
                     mapping_id: 0,
@@ -544,11 +581,14 @@ pub fn encode_pprof_raw(p: &NormalizedProfile) -> Result<Vec<u8>> {
                     line: lines,
                     is_folded: false,
                 });
+
                 loc_ids.insert(key, id);
                 id
             };
+
             location_id.push(loc_id);
         }
+
         let label: Vec<pb::Label> = s
             .labels
             .iter()
@@ -559,6 +599,7 @@ pub fn encode_pprof_raw(p: &NormalizedProfile) -> Result<Vec<u8>> {
                 num_unit: 0,
             })
             .collect();
+
         samples_out.push(pb::Sample {
             location_id,
             value: s.values.clone(),
@@ -570,6 +611,7 @@ pub fn encode_pprof_raw(p: &NormalizedProfile) -> Result<Vec<u8>> {
         r#type: interner.intern(&vt.ty),
         unit: interner.intern(&vt.unit),
     });
+
     let default_sample_type = p
         .sample_types
         .get(p.default_value_index)
@@ -591,9 +633,11 @@ pub fn encode_pprof_raw(p: &NormalizedProfile) -> Result<Vec<u8>> {
     };
 
     let mut buf = Vec::new();
+
     profile
         .encode(&mut buf)
         .map_err(|e| Error::internal(format!("pprof encode: {e}")))?;
+
     Ok(buf)
 }
 
@@ -610,22 +654,29 @@ pub fn metadata_event(
 ) -> RawEvent {
     let mut fields = Map::new();
     fields.insert("service".into(), Value::from(profile.service.clone()));
+
     fields.insert(
         "profile_type".into(),
         Value::from(profile.profile_type.as_str().to_string()),
     );
+
     fields.insert("duration_nanos".into(), Value::from(profile.duration_nanos));
+
     fields.insert(
         "sample_count".into(),
         Value::from(profile.sample_count() as i64),
     );
+
     fields.insert("total_value".into(), Value::from(profile.total_value()));
+
     let labels: Map<String, Value> = profile
         .labels
         .iter()
         .map(|(k, v)| (k.clone(), Value::from(v.clone())))
         .collect();
+
     fields.insert("labels".into(), Value::Object(labels));
+
     // trace_id / span_id 始终写入（无关联时为空串）：保证 schema-on-write 建出这两列，
     // 否则首条无 trace 关联的 profile 会让流缺列，后续按列名 SELECT 无法 plan。
     // 查询侧已把空串视作"无关联"（`.filter(|s| !s.is_empty())`）。
@@ -633,10 +684,12 @@ pub fn metadata_event(
         "trace_id".into(),
         Value::from(profile.trace_id.clone().unwrap_or_default()),
     );
+
     fields.insert(
         "span_id".into(),
         Value::from(profile.span_id.clone().unwrap_or_default()),
     );
+
     fields.insert("object_key".into(), Value::from(object_key.to_string()));
     fields.insert("unsymbolized".into(), Value::from(profile.unsymbolized()));
     fields.insert("archived_bytes".into(), Value::from(archived_bytes as i64));
@@ -657,17 +710,22 @@ pub fn parse_folded(
     extra_labels: &BTreeMap<String, String>,
 ) -> Result<NormalizedProfile> {
     let mut samples = Vec::new();
+
     for (idx, raw) in text.lines().enumerate() {
         let line = raw.trim();
+
         if line.is_empty() || line.starts_with('#') {
             continue;
         }
+
         let (stack_str, count_str) = line
             .rsplit_once(char::is_whitespace)
             .ok_or_else(|| Error::invalid(format!("folded line {}: missing count", idx + 1)))?;
+
         let count: i64 = count_str.trim().parse().map_err(|_| {
             Error::invalid(format!("folded line {}: bad count '{count_str}'", idx + 1))
         })?;
+
         let stack: Vec<Frame> = stack_str
             .split(';')
             .map(str::trim)
@@ -680,24 +738,30 @@ pub fn parse_folded(
                 build_id: None,
             })
             .collect();
+
         if stack.is_empty() {
             continue;
         }
+
         samples.push(Sample {
             stack,
             values: vec![count],
             labels: BTreeMap::new(),
         });
     }
+
     if samples.is_empty() {
         return Err(Error::invalid("folded profile contains no samples"));
     }
+
     let type_name = if profile_type_name.is_empty() {
         "samples"
     } else {
         profile_type_name
     };
+
     let (trace_id, span_id) = extract_trace_ids(&samples, extra_labels);
+
     Ok(NormalizedProfile {
         service: service.into(),
         profile_type: ProfileType::from_name(type_name),
@@ -722,23 +786,29 @@ pub fn parse_pyroscope_name(name: &str) -> (String, Option<String>, BTreeMap<Str
         Some((a, rest)) => (a.trim(), rest.trim_end_matches('}')),
         None => (name.trim(), ""),
     };
+
     let mut labels = BTreeMap::new();
+
     for pair in labels_str.split(',') {
         let pair = pair.trim();
+
         if pair.is_empty() {
             continue;
         }
+
         if let Some((k, v)) = pair.split_once('=') {
             let value = v.trim().trim_matches('"');
             labels.insert(k.trim().to_string(), value.to_string());
         }
     }
+
     if let Some((prefix, suffix)) = app.rsplit_once('.')
         && !prefix.is_empty()
         && !matches!(ProfileType::from_name(suffix), ProfileType::Other(_))
     {
         return (prefix.to_string(), Some(suffix.to_string()), labels);
     }
+
     (app.to_string(), None, labels)
 }
 

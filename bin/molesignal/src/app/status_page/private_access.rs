@@ -47,6 +47,7 @@ pub struct StatusPageAccessMetadata {
 impl StatusPageService {
     pub async fn access_metadata(&self, slug: &str) -> Result<StatusPageAccessMetadata> {
         let page = self.get_customer_page(slug).await?;
+
         Ok(StatusPageAccessMetadata {
             name: page.name,
             slug: page.slug,
@@ -70,13 +71,16 @@ impl StatusPageService {
         input: StatusPageAccessRuleInput,
     ) -> Result<StatusPageAccessRule> {
         let page = self.repository.get_page(org_id, page_id).await?;
+
         if page.lifecycle != crate::domain::status_page::StatusPageLifecycle::Active {
             return Err(Error::conflict(
                 "access rules cannot be changed on an archived status page",
             ));
         }
+
         let value = normalize_access_rule(input.kind, &input.value)?;
         let now = TimestampMicros::now();
+
         self.repository
             .create_access_rule(StatusPageAccessRule {
                 id: Id::new(),
@@ -101,11 +105,13 @@ impl StatusPageService {
 
     pub async fn delete_access_rule(&self, org_id: &Id, page_id: &Id, rule_id: &Id) -> Result<()> {
         let page = self.repository.get_page(org_id, page_id).await?;
+
         if page.lifecycle != crate::domain::status_page::StatusPageLifecycle::Active {
             return Err(Error::conflict(
                 "access rules cannot be changed on an archived status page",
             ));
         }
+
         self.repository
             .delete_access_rule(org_id, page_id, rule_id)
             .await
@@ -118,15 +124,19 @@ impl StatusPageService {
         requested_origin: &str,
     ) -> Result<StatusPageAccessRequestOutcome> {
         let page = self.get_customer_page(slug).await?;
+
         if page.visibility != StatusPageVisibility::Private {
             return Err(Error::conflict("status page is not private"));
         }
+
         let origin_host = self.allowed_origin_host(&page, requested_origin).await?;
         let email = normalize_email(email)?;
+
         let domain = email
             .rsplit_once('@')
             .map(|(_, domain)| domain)
             .ok_or_else(|| Error::invalid("email is invalid"))?;
+
         let Some(rule) = self
             .repository
             .find_access_rule_for_email(&page.org_id, &page.id, &email, domain)
@@ -134,8 +144,10 @@ impl StatusPageService {
         else {
             return Ok(StatusPageAccessRequestOutcome { accepted: true });
         };
+
         let raw_token = opaque_token(32);
         let now = TimestampMicros::now();
+
         let created = self
             .repository
             .create_magic_link(crate::domain::status_page::StatusPageMagicLink {
@@ -151,9 +163,11 @@ impl StatusPageService {
                 created_at: now,
             })
             .await?;
+
         if !created {
             return Ok(StatusPageAccessRequestOutcome { accepted: true });
         }
+
         let Some(sender) = self.notification_sender.as_ref() else {
             tracing::error!(
                 status_page_id = %page.id,
@@ -161,6 +175,7 @@ impl StatusPageService {
             );
             return Ok(StatusPageAccessRequestOutcome { accepted: true });
         };
+
         let access_url = match self.magic_link_url(&page, &origin_host, &raw_token) {
             Ok(url) => url,
             Err(error) => {
@@ -168,6 +183,7 @@ impl StatusPageService {
                 return Ok(StatusPageAccessRequestOutcome { accepted: true });
             }
         };
+
         if let Err(error) = sender
             .send(
                 StatusPageSubscriberChannel::Email,
@@ -190,6 +206,7 @@ impl StatusPageService {
         {
             tracing::error!(status_page_id = %page.id, error = %error, "private status-page access email delivery failed");
         }
+
         Ok(StatusPageAccessRequestOutcome { accepted: true })
     }
 
@@ -201,12 +218,15 @@ impl StatusPageService {
     ) -> Result<StatusPageAccessSessionOutcome> {
         validate_access_token(raw_token)?;
         let page = self.get_customer_page(slug).await?;
+
         if page.visibility != StatusPageVisibility::Private {
             return Err(Error::conflict("status page is not private"));
         }
+
         let origin_host = self.allowed_origin_host(&page, requested_origin).await?;
         let raw_session_token = opaque_token(32);
         let now = TimestampMicros::now();
+
         let consumed = self
             .repository
             .consume_magic_link(StatusPageMagicLinkExchange {
@@ -221,6 +241,7 @@ impl StatusPageService {
                 now,
             })
             .await?;
+
         Ok(StatusPageAccessSessionOutcome {
             page,
             session: consumed.session,
@@ -248,6 +269,7 @@ impl StatusPageService {
         let Some(page) = self.resolve_customer_page_by_domain(domain).await? else {
             return Ok(None);
         };
+
         self.authorize_customer_page(&page, raw_session_token, domain)
             .await?;
         self.build_snapshot(page, true).await.map(Some)
@@ -262,10 +284,13 @@ impl StatusPageService {
         if page.visibility == StatusPageVisibility::Public {
             return Ok(None);
         }
+
         let raw_session_token = raw_session_token
             .filter(|token| !token.is_empty())
             .ok_or_else(|| Error::unauthorized("private status page access is required"))?;
+
         let origin_host = self.allowed_origin_host(page, requested_origin).await?;
+
         self.repository
             .find_access_session(
                 &page.id,
@@ -284,6 +309,7 @@ impl StatusPageService {
         page_id: &Id,
     ) -> Result<Vec<StatusPageAccessSession>> {
         self.repository.get_page(org_id, page_id).await?;
+
         self.repository
             .list_access_sessions(org_id, page_id, TimestampMicros::now())
             .await
@@ -321,18 +347,22 @@ impl StatusPageService {
             .trim()
             .trim_end_matches('.')
             .to_ascii_lowercase();
+
         let platform = Url::parse(self.external_url.trim().trim_end_matches('/'))
             .ok()
             .and_then(|url| url.host_str().map(str::to_owned))
             .ok_or_else(|| Error::unavailable("http.external_url is not configured"))?;
+
         if requested.is_empty() || requested == platform {
             return Ok(platform);
         }
+
         if normalize_domain_lookup(&requested).is_some() {
             let custom = self
                 .repository
                 .get_domain_config(&page.org_id, &page.id)
                 .await?;
+
             if custom.is_some_and(|config| {
                 config.hostname == requested
                     && matches!(
@@ -343,6 +373,7 @@ impl StatusPageService {
                 return Ok(requested);
             }
         }
+
         Err(Error::unauthorized(
             "request host is not allowed for this private status page",
         ))
@@ -357,6 +388,7 @@ impl StatusPageService {
         let platform = Url::parse(self.external_url.trim().trim_end_matches('/'))
             .map_err(|_| Error::unavailable("http.external_url is not configured"))?;
         let platform_host = platform.host_str().unwrap_or_default();
+
         let mut url = if origin_host == platform_host {
             platform
                 .join(&format!("/status/{}", page.slug))
@@ -365,6 +397,7 @@ impl StatusPageService {
             Url::parse(&format!("https://{origin_host}/"))
                 .map_err(|_| Error::internal("custom-domain access URL could not be built"))?
         };
+
         url.query_pairs_mut().append_pair("access_token", raw_token);
         Ok(url.to_string())
     }
@@ -381,9 +414,11 @@ pub fn token_hash(raw: &str) -> String {
 
 pub(super) fn opaque_token(bytes: usize) -> String {
     let mut value = vec![0u8; bytes];
+
     rand::rngs::SysRng
         .try_fill_bytes(&mut value)
         .expect("operating-system random source");
+
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(value)
 }
 
@@ -395,14 +430,17 @@ fn validate_access_token(token: &str) -> Result<()> {
     {
         return Err(Error::invalid("status-page access token is invalid"));
     }
+
     Ok(())
 }
 
 fn normalize_email(value: &str) -> Result<String> {
     let value = value.trim().to_ascii_lowercase();
+
     let Some((local, domain)) = value.rsplit_once('@') else {
         return Err(Error::invalid("email is invalid"));
     };
+
     if local.is_empty()
         || local.len() > 64
         || normalize_domain_lookup(domain).is_none()
@@ -411,6 +449,7 @@ fn normalize_email(value: &str) -> Result<String> {
     {
         return Err(Error::invalid("email is invalid"));
     }
+
     Ok(value)
 }
 
@@ -422,6 +461,7 @@ fn normalize_access_rule(
         crate::domain::status_page::StatusPageAccessRuleKind::Email => normalize_email(value),
         crate::domain::status_page::StatusPageAccessRuleKind::Domain => {
             let domain = value.trim().trim_start_matches('@').to_ascii_lowercase();
+
             normalize_domain_lookup(&domain)
                 .map(|domain| format!("@{domain}"))
                 .ok_or_else(|| Error::invalid("access-rule domain is invalid"))

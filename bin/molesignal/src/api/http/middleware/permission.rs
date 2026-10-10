@@ -48,6 +48,7 @@ where
     R: ProtectedResource,
 {
     let resource = R::load(state, id).await?;
+
     Permission::require_resource(
         state,
         context,
@@ -57,6 +58,7 @@ where
         resource.resource_id(),
     )
     .await?;
+
     Ok(resource)
 }
 
@@ -72,6 +74,7 @@ where
     R: ProtectedResource,
 {
     let resource = R::load(state, id).await?;
+
     Permission::require_any_resource(
         state,
         context,
@@ -81,6 +84,7 @@ where
         resource.resource_id(),
     )
     .await?;
+
     Ok(resource)
 }
 
@@ -98,6 +102,7 @@ where
 {
     let resource = R::load(state, id).await?;
     let permission = resolve_permission(&resource)?;
+
     Permission::require_resource(
         state,
         context,
@@ -107,6 +112,7 @@ where
         resource.resource_id(),
     )
     .await?;
+
     Ok(resource)
 }
 
@@ -125,11 +131,13 @@ where
 {
     let resource = R::load(state, id).await?;
     let permissions = resolve_permissions(&resource)?;
+
     if permissions.is_empty() {
         return Err(Error::invalid(
             "resource permission resolver returned no actions",
         ));
     }
+
     for permission in permissions {
         Permission::require_resource(
             state,
@@ -141,6 +149,7 @@ where
         )
         .await?;
     }
+
     Ok(resource)
 }
 
@@ -201,6 +210,7 @@ impl Permission {
                 },
             )
             .await?;
+
         if decision.allowed {
             Ok(())
         } else if *organization_id != ctx.org_id {
@@ -226,7 +236,9 @@ impl Permission {
                 "resource permission check requires at least one permission",
             ));
         }
+
         let mut denial_reasons = Vec::with_capacity(permissions.len());
+
         for permission in permissions {
             let decision = state
                 .iam
@@ -246,11 +258,14 @@ impl Permission {
                     },
                 )
                 .await?;
+
             if decision.allowed {
                 return Ok(());
             }
+
             denial_reasons.push(format!("{permission}: {:?}", decision.reason));
         }
+
         if *organization_id != ctx.org_id {
             Err(Error::not_found(format!("{resource_type} not found")))
         } else {

@@ -43,7 +43,9 @@ impl PgToolControlRepository {
             .cipher
             .seal(credential.as_bytes())
             .map_err(|error| Error::internal(format!("MCP credential seal: {error}")))?;
+
         let now = TimestampMicros::now();
+
         sqlx::query(
             "INSERT INTO agent_mcp_server_secrets
                 (server_id,org_id,ciphertext,nonce,created_at_micros,updated_at_micros)
@@ -60,6 +62,7 @@ impl PgToolControlRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -73,15 +76,19 @@ impl PgToolControlRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         let Some(row) = row else {
             return Ok(None);
         };
+
         let ciphertext: Vec<u8> = row.try_get("ciphertext").map_err(sqlx_err)?;
         let nonce: Vec<u8> = row.try_get("nonce").map_err(sqlx_err)?;
+
         let plaintext = self
             .cipher
             .open(&nonce, &ciphertext)
             .map_err(|error| Error::internal(format!("MCP credential open: {error}")))?;
+
         String::from_utf8(plaintext)
             .map(Some)
             .map_err(|error| Error::internal(format!("MCP credential is not UTF-8: {error}")))
@@ -90,12 +97,15 @@ impl PgToolControlRepository {
 
 const POLICY_COLS: &str = "org_id,tool_name,enabled,execution_mode,environment_overrides,\
     timeout_ms,max_calls_per_run,max_response_bytes,updated_by,created_at_micros,updated_at_micros";
+
 const DEFAULTS_COLS: &str = "org_id,risk_modes,environment_overrides,updated_by,\
     created_at_micros,updated_at_micros";
+
 const SERVER_COLS: &str = "id,org_id,name,transport,endpoint_url,command_template,auth_type,\
     auth_header,credential_last4,credential_set,private_only,allowed_domains,allowed_cidrs,\
     follow_redirects,tls_verify,timeout_ms,max_response_bytes,enabled,status,last_error,\
     last_tested_at_micros,last_synced_at_micros,created_by,created_at_micros,updated_at_micros";
+
 const MCP_TOOL_COLS: &str = "id,org_id,server_id,remote_name,name,display_name,description,\
     input_schema,schema_hash,schema_dialect,schema_synced_at_micros,unavailable_diagnostic,\
     output_schema,minimum_risk,risk,execution_mode,capabilities,tags,enabled,status,\
@@ -174,6 +184,7 @@ fn json_string_vec(row: &sqlx::postgres::PgRow, column: &str) -> Result<Vec<Stri
 
 fn policy_row(row: sqlx::postgres::PgRow) -> Result<ToolPolicy> {
     let overrides: Json<Value> = row.try_get("environment_overrides").map_err(sqlx_err)?;
+
     Ok(ToolPolicy {
         org_id: Id(row.try_get("org_id").map_err(sqlx_err)?),
         tool_name: row.try_get("tool_name").map_err(sqlx_err)?,
@@ -197,6 +208,7 @@ fn defaults_row(row: sqlx::postgres::PgRow) -> Result<ToolPolicyDefaults> {
     let risk_modes: Json<Value> = row.try_get("risk_modes").map_err(sqlx_err)?;
     let environment_overrides: Json<Value> =
         row.try_get("environment_overrides").map_err(sqlx_err)?;
+
     Ok(ToolPolicyDefaults {
         org_id: Id(row.try_get("org_id").map_err(sqlx_err)?),
         risk_modes: risk_modes.0,
@@ -247,6 +259,7 @@ fn mcp_tool_row(row: sqlx::postgres::PgRow) -> Result<McpTool> {
     let input_schema: Json<Value> = row.try_get("input_schema").map_err(sqlx_err)?;
     let output_schema: Option<Json<Value>> = row.try_get("output_schema").map_err(sqlx_err)?;
     let capabilities: Json<Value> = row.try_get("capabilities").map_err(sqlx_err)?;
+
     Ok(McpTool {
         id: Id(row.try_get("id").map_err(sqlx_err)?),
         org_id: Id(row.try_get("org_id").map_err(sqlx_err)?),
@@ -291,6 +304,7 @@ fn mcp_tool_row(row: sqlx::postgres::PgRow) -> Result<McpTool> {
 
 fn credential_last4(value: &str) -> String {
     let characters: Vec<char> = value.chars().collect();
+
     characters[characters.len().saturating_sub(4)..]
         .iter()
         .collect()
@@ -307,6 +321,7 @@ impl ToolControlRepository for PgToolControlRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(policy_row).collect()
     }
 
@@ -320,6 +335,7 @@ impl ToolControlRepository for PgToolControlRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         row.map(policy_row).transpose()
     }
 
@@ -350,6 +366,7 @@ impl ToolControlRepository for PgToolControlRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         self.get_policy(&policy.org_id, &policy.tool_name)
             .await?
             .ok_or_else(|| Error::internal("saved tool policy disappeared"))
@@ -363,6 +380,7 @@ impl ToolControlRepository for PgToolControlRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         row.map(defaults_row).transpose()
     }
 
@@ -389,6 +407,7 @@ impl ToolControlRepository for PgToolControlRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         self.get_policy_defaults(&defaults.org_id)
             .await?
             .ok_or_else(|| Error::internal("saved tool policy defaults disappeared"))
@@ -403,6 +422,7 @@ impl ToolControlRepository for PgToolControlRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(server_row).collect()
     }
 
@@ -416,6 +436,7 @@ impl ToolControlRepository for PgToolControlRepository {
         .await
         .map_err(sqlx_err)?
         .ok_or_else(|| Error::not_found(format!("MCP Server `{}` not found", id.0)))?;
+
         server_row(row)
     }
 
@@ -432,6 +453,7 @@ impl ToolControlRepository for PgToolControlRepository {
         credential: Option<&str>,
     ) -> Result<McpServer> {
         let now = TimestampMicros::now();
+
         sqlx::query(
             "INSERT INTO agent_mcp_servers
                 (id,org_id,name,transport,endpoint_url,command_template,auth_type,auth_header,
@@ -464,10 +486,12 @@ impl ToolControlRepository for PgToolControlRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         if let Some(credential) = credential {
             self.seal_server_secret(&input.org_id, &input.id, credential)
                 .await?;
         }
+
         self.get_mcp_server(&input.org_id, &input.id).await
     }
 
@@ -477,6 +501,7 @@ impl ToolControlRepository for PgToolControlRepository {
         credential: Option<&str>,
     ) -> Result<McpServer> {
         let now = TimestampMicros::now();
+
         let result = sqlx::query(
             "UPDATE agent_mcp_servers SET
                 name=$3,transport=$4,endpoint_url=$5,command_template=$6,auth_type=$7,
@@ -505,15 +530,18 @@ impl ToolControlRepository for PgToolControlRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         if result.rows_affected() == 0 {
             return Err(Error::not_found(format!(
                 "MCP Server `{}` not found",
                 input.id.0
             )));
         }
+
         if let Some(credential) = credential {
             self.seal_server_secret(&input.org_id, &input.id, credential)
                 .await?;
+
             sqlx::query(
                 "UPDATE agent_mcp_servers SET
                     credential_last4=$3,credential_set=TRUE,updated_at_micros=$4
@@ -527,6 +555,7 @@ impl ToolControlRepository for PgToolControlRepository {
             .await
             .map_err(sqlx_err)?;
         }
+
         self.get_mcp_server(&input.org_id, &input.id).await
     }
 
@@ -540,6 +569,7 @@ impl ToolControlRepository for PgToolControlRepository {
         synced_at: Option<TimestampMicros>,
     ) -> Result<McpServer> {
         let now = TimestampMicros::now();
+
         let result = sqlx::query(
             "UPDATE agent_mcp_servers SET
                 status=$3,last_error=$4,
@@ -558,9 +588,11 @@ impl ToolControlRepository for PgToolControlRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         if result.rows_affected() == 0 {
             return Err(Error::not_found(format!("MCP Server `{}` not found", id.0)));
         }
+
         self.get_mcp_server(org_id, id).await
     }
 
@@ -571,27 +603,32 @@ impl ToolControlRepository for PgToolControlRepository {
     )]
     async fn delete_mcp_server(&self, org_id: &Id, id: &Id) -> Result<()> {
         let mut transaction = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         sqlx::query("DELETE FROM agent_mcp_tools WHERE org_id=$1 AND server_id=$2")
             .bind(&org_id.0)
             .bind(&id.0)
             .execute(&mut *transaction)
             .await
             .map_err(sqlx_err)?;
+
         sqlx::query("DELETE FROM agent_mcp_server_secrets WHERE org_id=$1 AND server_id=$2")
             .bind(&org_id.0)
             .bind(&id.0)
             .execute(&mut *transaction)
             .await
             .map_err(sqlx_err)?;
+
         let result = sqlx::query("DELETE FROM agent_mcp_servers WHERE org_id=$1 AND id=$2")
             .bind(&org_id.0)
             .bind(&id.0)
             .execute(&mut *transaction)
             .await
             .map_err(sqlx_err)?;
+
         if result.rows_affected() == 0 {
             return Err(Error::not_found(format!("MCP Server `{}` not found", id.0)));
         }
+
         transaction.commit().await.map_err(sqlx_err)?;
         Ok(())
     }
@@ -617,6 +654,7 @@ impl ToolControlRepository for PgToolControlRepository {
             .await
             .map_err(sqlx_err)?
         };
+
         rows.into_iter().map(mcp_tool_row).collect()
     }
 
@@ -630,6 +668,7 @@ impl ToolControlRepository for PgToolControlRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         row.map(mcp_tool_row).transpose()
     }
 
@@ -642,15 +681,18 @@ impl ToolControlRepository for PgToolControlRepository {
         if tools.is_empty() {
             return Ok(Vec::new());
         }
+
         let org_id = tools[0].org_id.clone();
         let server_id = tools[0].server_id.clone();
         let mut transaction = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         for tool in &tools {
             if tool.org_id != org_id || tool.server_id != server_id {
                 return Err(Error::invalid(
                     "MCP tool batch must belong to one organization and server",
                 ));
             }
+
             sqlx::query(
                 "INSERT INTO agent_mcp_tools
                     (id,org_id,server_id,remote_name,name,display_name,description,input_schema,
@@ -699,6 +741,7 @@ impl ToolControlRepository for PgToolControlRepository {
             .await
             .map_err(sqlx_err)?;
         }
+
         transaction.commit().await.map_err(sqlx_err)?;
         self.list_mcp_tools(&org_id, Some(&server_id)).await
     }
@@ -719,12 +762,14 @@ impl ToolControlRepository for PgToolControlRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         if result.rows_affected() == 0 {
             return Err(Error::not_found(format!(
                 "MCP tool `{}` not found",
                 tool.id.0
             )));
         }
+
         self.get_mcp_tool_by_name(&tool.org_id, &tool.name)
             .await?
             .ok_or_else(|| Error::internal("updated MCP tool disappeared"))

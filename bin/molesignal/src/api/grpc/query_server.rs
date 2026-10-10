@@ -55,8 +55,10 @@ impl QueryExecutionService for QueryExecutionGrpc {
             request,
             dataset_type,
         } = request.into_inner();
+
         let req: QueryRequest = serde_json::from_slice(&request)
             .map_err(|error| Status::invalid_argument(format!("query decode: {error}")))?;
+
         let result = match ExecuteOp::try_from(op).unwrap_or(ExecuteOp::Unspecified) {
             ExecuteOp::Sql => encode(self.sql.execute(req).await)?,
             ExecuteOp::SqlDataset => {
@@ -71,6 +73,7 @@ impl QueryExecutionService for QueryExecutionGrpc {
                 return Err(Status::invalid_argument("execute op unspecified"));
             }
         };
+
         Ok(Response::new(ExecuteResponse {
             result: result.into(),
         }))

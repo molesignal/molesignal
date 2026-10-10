@@ -79,6 +79,7 @@ fn mask_config(mut v: Value) -> Value {
             }
         }
     }
+
     v
 }
 
@@ -130,6 +131,7 @@ async fn create(
 ) -> Result<Json<ConnectorResp>> {
     let _kind = req.kind.parse::<ConnectorKind>()?;
     let now = TimestampMicros::now();
+
     let c = Connector {
         id: Id::new(),
         org_id: ctx.org_id.clone(),
@@ -141,6 +143,7 @@ async fn create(
         created_at: now,
         updated_at: now,
     };
+
     let c = state.storage.connectors.create(c).await?;
     Ok(Json(to_resp(c)))
 }
@@ -154,6 +157,7 @@ async fn update(
 ) -> Result<Json<ConnectorResp>> {
     let _kind = req.kind.parse::<ConnectorKind>()?;
     let existing = state.storage.connectors.get(&ctx.org_id, &Id(id)).await?;
+
     let c = Connector {
         id: existing.id,
         org_id: ctx.org_id.clone(),
@@ -165,6 +169,7 @@ async fn update(
         created_at: existing.created_at,
         updated_at: TimestampMicros::now(),
     };
+
     let c = state.storage.connectors.update(c).await?;
     Ok(Json(to_resp(c)))
 }
@@ -180,5 +185,6 @@ async fn delete(
         .connectors
         .delete(&ctx.org_id, &Id(id))
         .await?;
+
     Ok(Json(serde_json::json!({"deleted": true})))
 }

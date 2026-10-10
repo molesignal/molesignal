@@ -97,6 +97,7 @@ impl QueryRegistry {
 
     pub fn list_for(&self, org_id: Option<&Id>) -> Vec<ActiveQuerySnapshot> {
         let g = self.inner.read();
+
         g.values()
             .filter(|q| match org_id {
                 Some(o) => &q.org_id == o,
@@ -128,6 +129,7 @@ impl QueryRegistry {
 
     pub fn cancel(&self, id: &str) -> Result<()> {
         let g = self.inner.read();
+
         match g.get(id) {
             Some(q) => {
                 q.cancel.store(true, Ordering::Relaxed);
@@ -211,6 +213,7 @@ impl QueryService {
                 "physical dataset selection is only available for SQL",
             ));
         }
+
         let mut result = self.sql.execute_dataset(req.clone(), dataset_type).await?;
         self.mask_result(&req, &mut result).await?;
         Ok(result)
@@ -230,10 +233,13 @@ impl QueryService {
                 "search admission: too many concurrent queries for your work group; retry shortly",
             )
         })?;
+
         let mut result = self.promql.query_exemplars(req.clone()).await?;
+
         if let Some(masking) = &self.field_masking {
             masking.mask_exemplars(&req, &mut result).await?;
         }
+
         Ok(result)
     }
 
@@ -272,6 +278,7 @@ impl QueryService {
                 "search admission: too many concurrent queries for your work group; retry shortly",
             )
         })?;
+
         let (cancel, fed_id, _guard) = self.track_query(&req, user_id, Id::new());
 
         let Some(cache) = self.result_cache.clone() else {
@@ -279,14 +286,17 @@ impl QueryService {
             self.mask_result(&req, &mut result).await?;
             return Ok(result);
         };
+
         // 角色进缓存键：不同角色可见的数据范围不同，不能共用一份结果。
         // 时间窗未封闭时 get/put 都是 no-op，实时查询照常直通。
         let role_filter = role_key.to_string();
         let now = TimestampMicros::now().0;
+
         if let Some(mut hit) = cache.get(&req, &role_filter, now).await {
             self.mask_result(&req, &mut hit).await?;
             return Ok(hit);
         }
+
         let raw = self.run_cancellable(req.clone(), &cancel, fed_id).await?;
         cache.put(&req, &role_filter, now, raw.clone()).await;
         let mut result = raw;
@@ -311,12 +321,15 @@ impl QueryService {
                 "search admission: too many concurrent queries for your work group; retry shortly",
             )
         })?;
+
         let execution_id = jobs::execution_id(&job_id, attempt);
         let (cancel, fed_id, _guard) = self.track_query(&req, user_id, execution_id);
         let mut result = self.run_cancellable(req.clone(), &cancel, fed_id).await?;
+
         if !raw {
             self.mask_result(&req, &mut result).await?;
         }
+
         Ok(result)
     }
 
@@ -327,11 +340,13 @@ impl QueryService {
         id: Id,
     ) -> (Arc<AtomicBool>, Option<String>, ActiveQueryGuard) {
         let cancel = Arc::new(AtomicBool::new(false));
+
         let fed_id = req
             .federation_clusters
             .iter()
             .any(|cluster| !cluster.eq_ignore_ascii_case("local"))
             .then(|| Id::new().0);
+
         self.registry.insert(ActiveQuery {
             id: id.clone(),
             org_id: req.org_id.clone(),
@@ -341,10 +356,12 @@ impl QueryService {
             cancel: cancel.clone(),
             federation_query_id: fed_id.clone(),
         });
+
         let guard = ActiveQueryGuard {
             registry: self.registry.clone(),
             id: id.0,
         };
+
         (cancel, fed_id, guard)
     }
 
@@ -368,6 +385,7 @@ impl QueryService {
     ) -> Result<QueryResult> {
         let run_fut = self.run_fed(req, fed_id);
         tokio::pin!(run_fut);
+
         loop {
             tokio::select! {
                 biased;
@@ -385,6 +403,7 @@ impl QueryService {
         if let Some(masking) = &self.field_masking {
             masking.mask_result(req, result).await?;
         }
+
         Ok(())
     }
 }

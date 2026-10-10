@@ -64,6 +64,7 @@ impl PartitionManifestManager {
     /// Seal cold partitions, fold late overlays into the next generation, and apply retention.
     pub async fn maintain_stream(&self, stream: &StreamDefinition) -> Result<usize> {
         let scope = OrganizationScope::new(stream.org_id.clone());
+
         let datasets = self
             .catalog
             .list_datasets(&scope, &stream.id)
@@ -71,10 +72,13 @@ impl PartitionManifestManager {
             .into_iter()
             .filter(|dataset| dataset.state == DatasetState::Active)
             .collect::<Vec<_>>();
+
         let mut switched = 0;
+
         for dataset in datasets {
             switched += self.maintain_dataset(stream, &scope, &dataset).await?;
         }
+
         Ok(switched)
     }
 
@@ -98,26 +102,33 @@ impl PartitionManifestManager {
                 },
             )
             .await?;
+
         let dataset_snapshot = snapshot
             .dataset(&dataset.id)
             .ok_or_else(|| Error::internal(format!("catalog omitted dataset {}", dataset.id)))?;
+
         let work = self.partition_work(dataset_snapshot).await?;
         let now = TimestampMicros::now().0;
+
         let seal_after_hours = dataset
             .storage_policy
             .seal_after_hours
             .unwrap_or(self.settings.seal_after_hours);
+
         let seal_cutoff = (seal_after_hours > 0).then(|| {
             now.saturating_sub(i64::from(seal_after_hours).saturating_mul(60 * 60 * 1_000_000))
         });
+
         let retention_days = dataset
             .storage_policy
             .retention_days
             .unwrap_or_else(|| stream.effective_retention_days(self.default_retention_days));
+
         let retention_cutoff =
             now.saturating_sub(i64::from(retention_days).saturating_mul(24 * 60 * 60 * 1_000_000));
         let mut switched = 0;
         let mut partitions = work.into_iter().collect::<Vec<_>>();
+
         partitions.sort_by_key(|(partition, _)| {
             (
                 partition.end_micros,
@@ -125,6 +136,7 @@ impl PartitionManifestManager {
                 partition.shard,
             )
         });
+
         for (_, partition) in partitions
             .iter()
             .take(self.settings.batch_size.max(1) as usize)
@@ -143,6 +155,7 @@ impl PartitionManifestManager {
                 switched += 1;
             }
         }
+
         Ok(switched)
     }
 
@@ -151,8 +164,10 @@ impl PartitionManifestManager {
         snapshot: &crate::domain::storage::DatasetSnapshot,
     ) -> Result<HashMap<Partition, PartitionWork>> {
         let mut work = HashMap::new();
+
         for pointer in &snapshot.manifests {
             let manifest = self.reader.load(pointer).await?;
+
             work.insert(
                 pointer.partition,
                 PartitionWork {
@@ -162,6 +177,7 @@ impl PartitionManifestManager {
                 },
             );
         }
+
         for segment in &snapshot.segments {
             work.entry(segment.partition)
                 .or_insert_with(|| PartitionWork {
@@ -172,6 +188,7 @@ impl PartitionManifestManager {
                 .overlay
                 .push(segment.clone());
         }
+
         Ok(work)
     }
 
@@ -190,21 +207,25 @@ impl PartitionManifestManager {
                     .first()
                     .is_some_and(|segment| segment.partition.end_micros <= cutoff)
             });
+
         if !is_cold {
             return Ok(false);
         }
+
         let expired_base = work
             .base
             .iter()
             .filter(|segment| segment.time_range.end.0 <= retention_cutoff)
             .map(|segment| segment.id.clone())
             .collect::<Vec<_>>();
+
         let expired_overlay = work
             .overlay
             .iter()
             .filter(|segment| segment.time_range.end.0 <= retention_cutoff)
             .map(|segment| segment.id.clone())
             .collect::<Vec<_>>();
+
         let sealable = work
             .overlay
             .iter()
@@ -218,8 +239,10 @@ impl PartitionManifestManager {
             })
             .cloned()
             .collect::<Vec<_>>();
+
         let changed =
             !sealable.is_empty() || !expired_base.is_empty() || !expired_overlay.is_empty();
+
         if !changed {
             return Ok(false);
         }
@@ -230,10 +253,12 @@ impl PartitionManifestManager {
             .filter(|segment| segment.time_range.end.0 > retention_cutoff)
             .cloned()
             .collect::<Vec<_>>();
+
         segments.extend(sealable.iter().cloned());
         segments
             .sort_by_key(|segment| (segment.time_range.start.0, segment.id.as_str().to_owned()));
         segments.dedup_by(|left, right| left.id == right.id);
+
         let generation = match &work.pointer {
             Some(pointer) => pointer
                 .generation
@@ -241,6 +266,7 @@ impl PartitionManifestManager {
                 .ok_or_else(|| Error::internal("partition manifest generation overflow"))?,
             None => 1,
         };
+
         let new_pointer = if segments.is_empty() {
             None
         } else {
@@ -256,8 +282,10 @@ impl PartitionManifestManager {
                 .await?,
             )
         };
+
         let mut tombstones = expired_base;
         tombstones.extend(expired_overlay);
+
         let command = PublishPartitionManifest {
             dataset_id: dataset.id.clone(),
             partition: work_partition(work),
@@ -269,6 +297,7 @@ impl PartitionManifestManager {
                 .0
                 .saturating_add(self.gc_grace_micros),
         };
+
         match self
             .catalog
             .publish_partition_manifest(scope, command)
@@ -302,6 +331,7 @@ impl PartitionManifestManager {
                         ),
                     }
                 }
+
                 Err(error)
             }
         }
@@ -323,6 +353,7 @@ impl PartitionManifestManager {
                 segment
             })
             .collect();
+
         let manifest = PartitionManifest {
             organization_id: scope.organization_id.clone(),
             dataset_id: dataset.id.clone(),
@@ -330,8 +361,10 @@ impl PartitionManifestManager {
             generation,
             segments,
         };
+
         let bytes = encode_manifest(&manifest)?;
         let checksum = ObjectChecksum::from_string(format!("b3:{}", blake3::hash(&bytes).to_hex()));
+
         let key = StorageLayout::manifest_key(
             &scope.organization_id,
             stream_type,
@@ -339,6 +372,7 @@ impl PartitionManifestManager {
             &partition,
             generation,
         );
+
         let put = self
             .object_store
             .put_opts(
@@ -350,10 +384,12 @@ impl PartitionManifestManager {
                 },
             )
             .await;
+
         let etag = match put {
             Ok(put) => put.e_tag,
             Err(object_store::Error::AlreadyExists { .. }) => {
                 let path = Path::from(key.as_str());
+
                 let existing = self
                     .object_store
                     .get(&path)
@@ -366,12 +402,14 @@ impl PartitionManifestManager {
                     .map_err(|error| {
                         Error::internal(format!("collect existing partition manifest: {error}"))
                     })?;
+
                 if existing.len() != bytes.len() || blake3::hash(&existing) != blake3::hash(&bytes)
                 {
                     return Err(Error::conflict(format!(
                         "manifest generation key {key} already contains different bytes"
                     )));
                 }
+
                 self.object_store
                     .head(&path)
                     .await
@@ -386,6 +424,7 @@ impl PartitionManifestManager {
                 )));
             }
         };
+
         Ok(PartitionManifestPointer {
             organization_id: scope.organization_id.clone(),
             dataset_id: dataset.id.clone(),

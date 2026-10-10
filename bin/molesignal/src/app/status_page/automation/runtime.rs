@@ -28,12 +28,15 @@ impl StatusPageService {
         if !observation.active || observation.muted {
             return self.recover_automation_source(observation).await;
         }
+
         let rules = self
             .repository
             .list_matching_automation_rules(&observation)
             .await?;
+
         let mut matched_pages = HashSet::new();
         let mut candidates = Vec::new();
+
         for rule in rules
             .into_iter()
             .filter(|rule| complete_match(rule, &observation))
@@ -41,18 +44,23 @@ impl StatusPageService {
             if !matched_pages.insert(rule.rule.status_page_id.clone()) {
                 continue;
             }
+
             let candidate = materialize_candidate(&rule, &observation)?;
             let automatic = candidate.automatic;
+
             let persisted = self
                 .repository
                 .observe_automation_source(candidate, observation.clone(), automatic)
                 .await?;
+
             if persisted.state == AutomationCandidateState::Published && persisted.automatic {
                 self.enqueue_candidate_work(&persisted, "publish", observation.observed_at)
                     .await?;
             }
+
             candidates.push(persisted);
         }
+
         Ok(candidates)
     }
 
@@ -61,26 +69,32 @@ impl StatusPageService {
         mut observation: AutomationSourceObservation,
     ) -> Result<Vec<AutomationCandidate>> {
         observation.active = false;
+
         let candidates = self
             .repository
             .recover_automation_source(observation.clone())
             .await?;
+
         for candidate in &candidates {
             if candidate.state == AutomationCandidateState::Published {
                 self.enqueue_candidate_work(candidate, "resolve", observation.observed_at)
                     .await?;
             }
         }
+
         Ok(candidates)
     }
 
     pub async fn process_due_automation_candidates(&self, limit: u32) -> Result<u32> {
         let now = TimestampMicros::now();
+
         let candidates = self
             .repository
             .list_due_automation_candidates(now, limit.min(500))
             .await?;
+
         let count = u32::try_from(candidates.len()).unwrap_or(u32::MAX);
+
         for candidate in candidates {
             if candidate.automatic {
                 self.enqueue_candidate_work(&candidate, "publish", candidate.due_at)
@@ -91,19 +105,24 @@ impl StatusPageService {
                     .await?;
             }
         }
+
         Ok(count)
     }
 
     pub async fn process_automation_outbox(&self, limit: u32) -> Result<u32> {
         let now = TimestampMicros::now();
+
         let items = self
             .repository
             .claim_automation_outbox(now, limit.min(OUTBOX_BATCH_LIMIT))
             .await?;
+
         let count = u32::try_from(items.len()).unwrap_or(u32::MAX);
+
         for item in items {
             let result = self.process_automation_item(&item).await;
             let completed_at = TimestampMicros::now();
+
             match result {
                 Ok(()) => {
                     self.repository
@@ -116,9 +135,11 @@ impl StatusPageService {
                             .0
                             .saturating_add(retry_delay_micros(item.attempts)),
                     );
+
                     self.repository
                         .fail_automation_outbox(&item.id, &error.to_string(), retry_at)
                         .await?;
+
                     tracing::warn!(
                         candidate_id = %item.candidate_id,
                         outbox_id = %item.id,
@@ -129,6 +150,7 @@ impl StatusPageService {
                 }
             }
         }
+
         Ok(count)
     }
 
@@ -137,6 +159,7 @@ impl StatusPageService {
             .repository
             .get_automation_candidate(&item.organization_id, &item.candidate_id)
             .await?;
+
         match item.kind.as_str() {
             "publish" => self
                 .publish_automation_candidate(candidate)
@@ -153,6 +176,7 @@ impl StatusPageService {
                     candidate_id = %candidate.id,
                     "status-page automation Candidate requires approval"
                 );
+
                 if candidate.state == AutomationCandidateState::Failed {
                     self.repository
                         .mark_automation_candidate(
@@ -167,6 +191,7 @@ impl StatusPageService {
                         )
                         .await?;
                 }
+
                 Ok(())
             }
             _ => Err(Error::internal(
@@ -184,6 +209,7 @@ impl StatusPageService {
             .status_incident_id
             .clone()
             .unwrap_or_else(|| candidate.id.clone());
+
         match self
             .repository
             .get_status_incident(
@@ -205,6 +231,7 @@ impl StatusPageService {
                         candidate_input(&candidate, StatusPagePublicationState::Draft),
                     )
                     .await?;
+
                 if let Err(error) = self.repository.create_status_incident(incident).await
                     && !matches!(error, Error::Conflict(_))
                 {
@@ -213,6 +240,7 @@ impl StatusPageService {
             }
             Err(error) => return Err(error),
         }
+
         self.repository
             .mark_automation_candidate(
                 &candidate.organization_id,
@@ -242,11 +270,14 @@ impl StatusPageService {
         ) {
             return Ok(candidate);
         }
+
         let now = TimestampMicros::now();
+
         let incident_id = candidate
             .status_incident_id
             .clone()
             .unwrap_or_else(|| candidate.id.clone());
+
         let existing = self
             .repository
             .get_status_incident(
@@ -255,6 +286,7 @@ impl StatusPageService {
                 &incident_id,
             )
             .await;
+
         match existing {
             Ok(incident) if incident.publication_state == StatusPagePublicationState::Draft => {
                 self.publish_incident_draft(
@@ -269,9 +301,11 @@ impl StatusPageService {
             Ok(_) if !candidate.automatic => {}
             Ok(incident) => {
                 let duplicate = self.automation_incident_update_is_duplicate(&candidate, &incident);
+
                 let incident = self
                     .sync_automation_incident_metadata(&candidate, incident, now)
                     .await?;
+
                 if !duplicate {
                     self.append_incident_update(
                         &candidate.organization_id,
@@ -296,10 +330,12 @@ impl StatusPageService {
                         candidate_input(&candidate, StatusPagePublicationState::Published),
                     )
                     .await?;
+
                 self.repository.create_status_incident(incident).await?;
             }
             Err(error) => return Err(error),
         }
+
         let published = self
             .repository
             .mark_automation_candidate(
@@ -320,10 +356,12 @@ impl StatusPageService {
                 now,
             )
             .await?;
+
         let detail = self
             .repository
             .get_automation_candidate_detail(&published.organization_id, &published.id)
             .await?;
+
         if !detail
             .sources
             .iter()
@@ -332,6 +370,7 @@ impl StatusPageService {
             self.enqueue_candidate_work(&published, "resolve", TimestampMicros::now())
                 .await?;
         }
+
         Ok(published)
     }
 
@@ -345,12 +384,15 @@ impl StatusPageService {
         ) {
             return Ok(candidate);
         }
+
         let incident_id = candidate
             .status_incident_id
             .clone()
             .ok_or_else(|| Error::internal("published automation Candidate has no Incident"))?;
+
         validate_message(&candidate.resolved_message)?;
         let now = TimestampMicros::now();
+
         Ok(self
             .repository
             .resolve_automation_candidate_if_inactive(

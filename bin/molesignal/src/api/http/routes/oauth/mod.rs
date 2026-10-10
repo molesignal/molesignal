@@ -86,6 +86,7 @@ impl OAuthError {
 
     fn server(error: Error) -> Self {
         tracing::warn!(error = %error, "OAuth request failed");
+
         Self {
             status: StatusCode::INTERNAL_SERVER_ERROR,
             code: "server_error",
@@ -97,6 +98,7 @@ impl OAuthError {
 impl IntoResponse for OAuthError {
     fn into_response(self) -> Response {
         let authenticate = self.code == "invalid_client";
+
         let mut response = (
             self.status,
             [
@@ -109,12 +111,14 @@ impl IntoResponse for OAuthError {
             }),
         )
             .into_response();
+
         if authenticate {
             response.headers_mut().insert(
                 header::WWW_AUTHENTICATE,
                 http::HeaderValue::from_static("Basic realm=\"MoleSignal OAuth token endpoint\""),
             );
         }
+
         response
     }
 }

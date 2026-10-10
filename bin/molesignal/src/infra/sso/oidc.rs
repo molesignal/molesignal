@@ -66,6 +66,7 @@ impl OidcLoginFlow {
             .timeout(std::time::Duration::from_secs(15))
             .build()
             .map_err(|e| Error::internal(format!("oidc http client: {e}")))?;
+
         Ok(Self { cfg, http })
     }
 
@@ -73,11 +74,13 @@ impl OidcLoginFlow {
     pub fn build_authz_url(&self, state: &str, nonce: &str) -> Result<Url> {
         let mut url = Url::parse(&self.cfg.authorize_url)
             .map_err(|e| Error::invalid(format!("authorize_url: {e}")))?;
+
         let scopes = if self.cfg.scopes.is_empty() {
             "openid profile email".to_string()
         } else {
             self.cfg.scopes.join(" ")
         };
+
         url.query_pairs_mut()
             .append_pair("response_type", "code")
             .append_pair("client_id", &self.cfg.client_id)
@@ -85,6 +88,7 @@ impl OidcLoginFlow {
             .append_pair("scope", &scopes)
             .append_pair("state", state)
             .append_pair("nonce", nonce);
+
         Ok(url)
     }
 
@@ -97,6 +101,7 @@ impl OidcLoginFlow {
             ("client_id", &self.cfg.client_id),
             ("client_secret", &self.cfg.client_secret),
         ]);
+
         let resp = crate::shared::http_trace::send(
             &self.http,
             request,
@@ -104,15 +109,18 @@ impl OidcLoginFlow {
         )
         .await
         .map_err(|e| Error::internal(format!("oidc token http: {e}")))?;
+
         if !resp.status().is_success() {
             let s = resp.status();
             let body = resp.text().await.unwrap_or_default();
             return Err(Error::Unauthorized(format!("idp /token {s}: {body}")));
         }
+
         let tokens: OidcTokens = resp
             .json()
             .await
             .map_err(|e| Error::internal(format!("oidc token decode: {e}")))?;
+
         Ok(tokens)
     }
 
@@ -121,7 +129,9 @@ impl OidcLoginFlow {
         let url = self.cfg.userinfo_url.as_ref().ok_or_else(|| {
             Error::invalid("userinfo_url not configured; use id_token decode instead")
         })?;
+
         let request = self.http.get(url).bearer_auth(access_token);
+
         let resp = crate::shared::http_trace::send(
             &self.http,
             request,
@@ -129,14 +139,17 @@ impl OidcLoginFlow {
         )
         .await
         .map_err(|e| Error::internal(format!("oidc userinfo http: {e}")))?;
+
         if !resp.status().is_success() {
             let s = resp.status();
             return Err(Error::Unauthorized(format!("idp /userinfo {s}")));
         }
+
         let v: serde_json::Value = resp
             .json()
             .await
             .map_err(|e| Error::internal(format!("oidc userinfo decode: {e}")))?;
+
         parse_userinfo(&v, &self.cfg.field_mapping)
     }
 
@@ -156,19 +169,24 @@ impl OidcLoginFlow {
             // equality so CSRF protection survives, but signature is not checked.
             let user = self.decode_id_token(id_token)?;
             let parts: Vec<&str> = id_token.split('.').collect();
+
             if parts.len() == 3 {
                 let payload = base64_url::decode(parts[1])
                     .map_err(|e| Error::Unauthorized(format!("id_token b64: {e}")))?;
                 let v: serde_json::Value = serde_json::from_slice(&payload)
                     .map_err(|e| Error::Unauthorized(format!("id_token json: {e}")))?;
                 let actual = v.get("nonce").and_then(|x| x.as_str()).unwrap_or_default();
+
                 if actual != expected_nonce {
                     return Err(Error::Unauthorized("id_token nonce mismatch".into()));
                 }
             }
+
             return Ok(user);
         }
+
         let jwks = jwks_cache.get(&self.cfg.jwks_uri).await?;
+
         let claims = crate::infra::sso::verify_rs256_id_token(
             id_token,
             &jwks,
@@ -176,6 +194,7 @@ impl OidcLoginFlow {
             &self.cfg.issuer,
             expected_nonce,
         )?;
+
         parse_userinfo(&claims, &self.cfg.field_mapping)
     }
 
@@ -183,9 +202,11 @@ impl OidcLoginFlow {
     /// 新代码请用 [`Self::verify_id_token`]。
     pub fn decode_id_token(&self, id_token: &str) -> Result<OidcUser> {
         let parts: Vec<&str> = id_token.split('.').collect();
+
         if parts.len() != 3 {
             return Err(Error::Unauthorized("id_token must be a JWT".into()));
         }
+
         let payload = base64_url::decode(parts[1])
             .map_err(|e| Error::Unauthorized(format!("id_token b64: {e}")))?;
         let v: serde_json::Value = serde_json::from_slice(&payload)
@@ -201,16 +222,19 @@ fn parse_userinfo(v: &serde_json::Value, mapping: &SsoFieldMapping) -> Result<Oi
             mapping.subject
         ))
     })?;
+
     let email = claim_string(v, &mapping.email).ok_or_else(|| {
         Error::unauthorized(format!(
             "OIDC identity is missing mapped email claim `{}`",
             mapping.email
         ))
     })?;
+
     let name = claim_string(v, &mapping.display_name);
     let mut groups = claim_strings(v, &mapping.groups);
     groups.sort();
     groups.dedup();
+
     Ok(OidcUser {
         subject,
         email,
@@ -238,6 +262,7 @@ fn claim_strings(value: &serde_json::Value, path: &str) -> Vec<String> {
     let Some(value) = claim_at_path(value, path) else {
         return Vec::new();
     };
+
     match value {
         serde_json::Value::Array(values) => values
             .iter()
@@ -260,6 +285,7 @@ mod base64_url {
         let mut s = s.to_string();
         let pad = (4 - s.len() % 4) % 4;
         s.extend(std::iter::repeat_n('=', pad));
+
         // 先试 NO_PAD（标准）
         URL_SAFE_NO_PAD
             .decode(s.trim_end_matches('='))

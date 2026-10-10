@@ -71,13 +71,17 @@ impl PipelineEngine {
             .pipelines
             .list_for_stream(&batch.org_id, &batch.stream, batch.stream_type)
             .await?;
+
         if pipelines.is_empty() {
             return Ok(Vec::new());
         }
+
         // 把所有 step 引用到的 function 一次性 fetch（小规模 N 步，逐个调用）
         let mut errors: Vec<IntakeError> = Vec::new();
+
         for (idx, ev) in batch.events.iter_mut().enumerate() {
             let mut value: serde_json::Value = serde_json::to_value(&ev.fields).unwrap_or_default();
+
             'this_event: for pipeline in &pipelines {
                 for step in &pipeline.steps {
                     let f = match self.functions.get(&batch.org_id, &step.function_id).await {
@@ -87,9 +91,11 @@ impl PipelineEngine {
                                 index: idx,
                                 reason: format!("pipeline {} step missing fn: {e}", pipeline.name),
                             });
+
                             break 'this_event;
                         }
                     };
+
                     if let Err(e) = self.executor.run(&f, &mut value).await {
                         errors.push(IntakeError {
                             index: idx,
@@ -98,15 +104,18 @@ impl PipelineEngine {
                                 pipeline.name, f.name
                             ),
                         });
+
                         break 'this_event;
                     }
                 }
             }
+
             // 把 value 转回 RawEvent.fields（fields 是 `serde_json::Map`，直接 swap）
             if let serde_json::Value::Object(obj) = value {
                 ev.fields = obj;
             }
         }
+
         Ok(errors)
     }
 }

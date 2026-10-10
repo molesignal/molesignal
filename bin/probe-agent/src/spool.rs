@@ -40,7 +40,9 @@ impl ResultSpool {
             .filter_map(|entry| entry.ok().map(|entry| entry.path()))
             .filter(|path| path.extension().is_some_and(|extension| extension == "pb"))
             .collect::<Vec<_>>();
+
         paths.sort();
+
         paths
             .into_iter()
             .map(|path| {
@@ -55,6 +57,7 @@ impl ResultSpool {
 
     pub fn acknowledge(&self, task_id: &str, result_sequence: u64) -> Result<()> {
         let path = self.path_for(task_id, result_sequence);
+
         match fs::remove_file(path) {
             Ok(()) => Ok(()),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),

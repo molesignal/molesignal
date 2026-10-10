@@ -18,17 +18,21 @@ impl ConnectorRegistry {
         let mut registry = Self {
             adapters: HashMap::new(),
         };
+
         for adapter in adapters {
             let connector_type = adapter.connector_type();
+
             if connector_type.trim().is_empty() {
                 return Err(Error::internal("connector adapter type cannot be empty"));
             }
+
             if registry.adapters.insert(connector_type, adapter).is_some() {
                 return Err(Error::internal(format!(
                     "duplicate connector adapter: {connector_type}"
                 )));
             }
         }
+
         Ok(registry)
     }
 
@@ -49,6 +53,7 @@ impl ConnectorRegistry {
             .iter()
             .map(|(connector_type, adapter)| (*connector_type, adapter.capabilities()))
             .collect::<Vec<_>>();
+
         supported.sort_by_key(|(connector_type, _)| *connector_type);
         supported
     }

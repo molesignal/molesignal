@@ -132,41 +132,51 @@ impl ResourceIdentity {
             "service.namespace".into(),
             Value::String("molesignal".into()),
         );
+
         fields.insert(
             "service.name".into(),
             Value::String(self.service_name.clone()),
         );
+
         fields.insert(
             "service.version".into(),
             Value::String(self.service_version.clone()),
         );
+
         fields.insert(
             "deployment.environment.name".into(),
             Value::String(self.deployment_environment.clone()),
         );
+
         if include_instance_id {
             fields.insert(
                 "service.instance.id".into(),
                 Value::String(self.service_instance_id.clone()),
             );
         }
+
         fields.insert(
             "service.role".into(),
             Value::String(self.service_role.clone()),
         );
+
         fields.insert(
             "telemetry.sdk.language".into(),
             Value::String("rust".into()),
         );
+
         fields.insert(
             "telemetry.sdk.name".into(),
             Value::String("molesignal".into()),
         );
+
         fields.insert(
             "telemetry.sdk.version".into(),
             Value::String(self.service_version.clone()),
         );
+
         fields.insert("process.runtime.name".into(), Value::String("rust".into()));
+
         fields.insert(
             "node.id".into(),
             Value::String(self.node_id.read().expect("resource node id lock").clone()),
@@ -190,6 +200,7 @@ struct SignalQueue {
 impl SignalQueue {
     fn new(capacity: usize) -> Self {
         let (sender, receiver) = mpsc::channel(capacity);
+
         Self {
             sender,
             receiver: Mutex::new(Some(receiver)),
@@ -209,17 +220,20 @@ impl SelfTelemetryHub {
         let traces = init
             .traces_enabled
             .then(|| SignalQueue::new(init.queue_capacity));
+
         let hub = Arc::new(Self {
             traces,
             accepting: AtomicBool::new(true),
             resource: init.resource,
         });
+
         if hub.queue(SelfTelemetrySignal::Traces).is_some() {
             health()
                 .queue_capacity
                 .with_label_values(&[SelfTelemetrySignal::Traces.as_str()])
                 .set(init.queue_capacity as i64);
         }
+
         hub
     }
 
@@ -239,20 +253,25 @@ impl SelfTelemetryHub {
         if !self.is_accepting() || is_suppressed() {
             return false;
         }
+
         let Some(queue) = self.queue(signal) else {
             return false;
         };
+
         match queue.sender.try_send(event) {
             Ok(()) => {
                 let depth = queue.depth.fetch_add(1, Ordering::Relaxed) + 1;
+
                 health()
                     .accepted
                     .with_label_values(&[signal.as_str()])
                     .inc();
+
                 health()
                     .queue_depth
                     .with_label_values(&[signal.as_str()])
                     .set(depth as i64);
+
                 true
             }
             Err(mpsc::error::TrySendError::Full(_)) => {
@@ -278,6 +297,7 @@ impl SelfTelemetryHub {
         let Some(queue) = self.queue(signal) else {
             return;
         };
+
         let remaining = queue
             .depth
             .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |previous| {
@@ -285,6 +305,7 @@ impl SelfTelemetryHub {
             })
             .unwrap_or_default()
             .saturating_sub(count);
+
         health()
             .queue_depth
             .with_label_values(&[signal.as_str()])
@@ -318,6 +339,7 @@ struct SelfTelemetryHealth {
 
 fn health() -> &'static SelfTelemetryHealth {
     static HEALTH: OnceLock<SelfTelemetryHealth> = OnceLock::new();
+
     HEALTH.get_or_init(|| SelfTelemetryHealth {
         accepted: register_int_counter_vec(
             "self_telemetry_accepted_total",
@@ -381,11 +403,13 @@ pub fn record_batch(signal: SelfTelemetrySignal, success: bool) {
         .batches
         .with_label_values(&[signal.as_str(), if success { "success" } else { "error" }])
         .inc();
+
     if success {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs() as i64;
+
         health()
             .last_success_unixtime
             .with_label_values(&[signal.as_str()])
@@ -539,6 +563,7 @@ where
         if is_suppressed() || deny_target(attrs.metadata().target()) {
             return;
         }
+
         let parent = attrs
             .parent()
             .and_then(|parent_id| ctx.span(parent_id))
@@ -548,6 +573,7 @@ where
                     .then(|| ctx.lookup_current())
                     .flatten()
             });
+
         let parent_data = parent.as_ref().and_then(|span| {
             span.extensions().get::<SpanData>().map(|data| {
                 (
@@ -557,8 +583,10 @@ where
                 )
             })
         });
+
         let mut attributes = Map::new();
         attrs.record(&mut JsonVisitor::new(&mut attributes));
+
         let execution_role = execution_role(
             attrs.metadata().name(),
             attrs.metadata().target(),
@@ -567,23 +595,28 @@ where
             &self.hub.resource.service_role,
         )
         .to_owned();
+
         attributes.insert(
             "molesignal.execution.role".into(),
             Value::String(execution_role.clone()),
         );
+
         let explicit_trace_id = attributes
             .remove("otel.trace_id")
             .or_else(|| attributes.remove("trace_id"))
             .and_then(|value| value.as_str().map(str::to_owned));
+
         let explicit_span_id = attributes
             .remove("otel.span_id")
             .or_else(|| attributes.remove("span_id"))
             .and_then(|value| value.as_str().map(str::to_owned));
+
         let explicit_parent_span_id = attributes
             .remove("otel.parent_span_id")
             .or_else(|| attributes.remove("parent_span_id"))
             .and_then(|value| value.as_str().map(str::to_owned))
             .filter(|value| !value.is_empty());
+
         let data = SpanData {
             trace_id: explicit_trace_id
                 .or_else(|| {
@@ -603,6 +636,7 @@ where
             attributes,
             events: Vec::new(),
         };
+
         if let Some(span) = ctx.span(id) {
             span.extensions_mut().insert(data);
         }
@@ -612,9 +646,12 @@ where
         let Some(span) = ctx.span(id) else {
             return;
         };
+
         let mut extensions = span.extensions_mut();
+
         if let Some(data) = extensions.get_mut::<SpanData>() {
             values.record(&mut JsonVisitor::new(&mut data.attributes));
+
             if let Some(role) = data
                 .attributes
                 .get("molesignal.execution.role")
@@ -622,6 +659,7 @@ where
                 .and_then(normalize_execution_role)
             {
                 data.execution_role = role.to_owned();
+
                 data.attributes.insert(
                     "molesignal.execution.role".into(),
                     Value::String(role.to_owned()),
@@ -634,20 +672,25 @@ where
         if is_suppressed() || deny_target(event.metadata().target()) {
             return;
         }
+
         let mut fields = Map::new();
         event.record(&mut JsonVisitor::new(&mut fields));
+
         let explicit_span_event = fields
             .remove("molesignal.span_event")
             .and_then(|value| value.as_bool())
             .unwrap_or(false);
+
         let explicit_event_name = fields
             .remove("otel.event.name")
             .and_then(|value| value.as_str().map(str::to_owned));
+
         let explicit_event_attributes: BTreeMap<String, Value> =
             fields.clone().into_iter().collect();
 
         if explicit_span_event && let Some(span) = ctx.lookup_current() {
             let mut extensions = span.extensions_mut();
+
             if let Some(data) = extensions.get_mut::<SpanData>() {
                 data.events.push(CanonicalEvent {
                     time_unix_nano: (TimestampMicros::now().0.max(0) as u64).saturating_mul(1_000),
@@ -663,19 +706,24 @@ where
         if is_suppressed() {
             return;
         }
+
         let Some(span) = ctx.span(&id) else {
             return;
         };
+
         let Some(data) = span.extensions_mut().remove::<SpanData>() else {
             return;
         };
+
         if deny_target(&data.target) {
             return;
         }
+
         let duration_ns = data.started.elapsed().as_nanos().min(u64::MAX as u128) as u64;
         let start_ns = (data.started_at.0.max(0) as u64).saturating_mul(1_000);
         let end_ns = start_ns.saturating_add(duration_ns);
         let mut fields = data.attributes;
+
         for key in ["links", "events"] {
             if let Some(Value::String(encoded)) = fields.get(key) {
                 match serde_json::from_str::<Value>(encoded) {
@@ -688,24 +736,30 @@ where
                 }
             }
         }
+
         fields.insert("target".into(), Value::String(data.target));
+
         fields.insert(
             "molesignal.execution.role".into(),
             Value::String(data.execution_role),
         );
+
         let status = match fields.get("otel.status_code").and_then(Value::as_str) {
             Some("ERROR" | "error") => "ERROR",
             Some("OK" | "ok") => "OK",
             _ if fields.get("error").and_then(Value::as_bool) == Some(true) => "ERROR",
             _ => "UNSET",
         };
+
         if !data.events.is_empty() {
             fields.insert(
                 "events".into(),
                 serde_json::to_value(data.events).unwrap_or(Value::Array(Vec::new())),
             );
         }
+
         self.hub.resource.enrich(&mut fields);
+
         let event = finished_span_to_event(
             fields,
             FinishedSpan {
@@ -720,17 +774,21 @@ where
                 status_message: None,
             },
         );
+
         let partial = event
             .fields
             .get("partial")
             .and_then(Value::as_bool)
             .unwrap_or(false);
+
         let accepted = self.hub.try_send(SelfTelemetrySignal::Traces, event);
+
         trace_metrics::record_spans(
             "generated",
             if accepted { "accepted" } else { "dropped" },
             1,
         );
+
         if partial {
             trace_metrics::record_spans("generated", "partial", 1);
         }
@@ -797,19 +855,23 @@ pub fn metric_samples_to_events(
         .map(|sample| {
             let mut fields = Map::new();
             fields.insert(METRIC_NAME_FIELD.into(), Value::String(sample.metric_name));
+
             fields.insert(
                 METRIC_KIND_FIELD.into(),
                 Value::String(sample.metric_kind.into()),
             );
+
             fields.insert(
                 "value".into(),
                 Number::from_f64(sample.value)
                     .map(Value::Number)
                     .unwrap_or(Value::Null),
             );
+
             for (key, value) in sample.labels {
                 fields.insert(key, Value::String(value));
             }
+
             resource.enrich_metric(&mut fields);
             RawEvent { timestamp, fields }
         })

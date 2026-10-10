@@ -23,6 +23,7 @@ impl EgressGuard {
         let policy = policy.unwrap_or_default();
         let allowed = parse_cidrs(&policy.allowed_cidrs)?;
         let denied = parse_cidrs(&policy.denied_cidrs)?;
+
         Ok(Self {
             policy,
             allowed,
@@ -35,39 +36,49 @@ impl EgressGuard {
         self.validate_port(port)?;
         let resolved = tokio::net::lookup_host((host, port)).await?;
         let mut approved = Vec::new();
+
         for address in resolved {
             if self.ip_allowed(address.ip()) {
                 approved.push(address);
             }
         }
+
         approved.sort_unstable();
         approved.dedup();
+
         if approved.is_empty() {
             bail!("egress policy rejected every resolved address for {host}");
         }
+
         Ok(approved)
     }
 
     pub fn resolve_blocking(&self, host: &str, port: u16) -> Result<Vec<SocketAddr>> {
         self.validate_domain(host)?;
         self.validate_port(port)?;
+
         let mut approved = (host, port)
             .to_socket_addrs()?
             .filter(|address| self.ip_allowed(address.ip()))
             .collect::<Vec<_>>();
+
         approved.sort_unstable();
         approved.dedup();
+
         if approved.is_empty() {
             bail!("egress policy rejected every resolved address for {host}");
         }
+
         Ok(approved)
     }
 
     fn validate_domain(&self, host: &str) -> Result<()> {
         let host = host.trim_end_matches('.').to_ascii_lowercase();
+
         if host.is_empty() || !host.is_ascii() {
             bail!("target hostname is invalid");
         }
+
         if self
             .policy
             .denied_domains
@@ -76,6 +87,7 @@ impl EgressGuard {
         {
             bail!("target hostname is denied by egress policy");
         }
+
         if !self.policy.allowed_domains.is_empty()
             && !self
                 .policy
@@ -85,6 +97,7 @@ impl EgressGuard {
         {
             bail!("target hostname is outside the egress allowlist");
         }
+
         Ok(())
     }
 
@@ -92,11 +105,13 @@ impl EgressGuard {
         if port == 0 {
             bail!("target port is invalid");
         }
+
         if !self.policy.allowed_ports.is_empty()
             && !self.policy.allowed_ports.contains(&(u32::from(port)))
         {
             bail!("target port is outside the egress allowlist");
         }
+
         Ok(())
     }
 
@@ -104,15 +119,19 @@ impl EgressGuard {
         if self.denied.iter().any(|network| network.contains(&ip)) {
             return false;
         }
+
         if !self.allowed.is_empty() && !self.allowed.iter().any(|network| network.contains(&ip)) {
             return false;
         }
+
         if is_loopback(ip) && !self.policy.allow_loopback {
             return false;
         }
+
         if is_private_or_special(ip) && !is_loopback(ip) && !self.policy.allow_private_networks {
             return false;
         }
+
         true
     }
 }
@@ -126,6 +145,7 @@ fn parse_cidrs(values: &[String]) -> Result<Vec<IpNet>> {
 
 fn domain_matches(host: &str, pattern: &str) -> bool {
     let pattern = pattern.trim_end_matches('.').to_ascii_lowercase();
+
     if let Some(suffix) = pattern.strip_prefix("*.") {
         host != suffix && host.ends_with(&format!(".{suffix}"))
     } else {
@@ -149,6 +169,7 @@ fn is_private_or_special(ip: IpAddr) -> bool {
 
 fn ipv4_private_or_special(value: Ipv4Addr) -> bool {
     let octets = value.octets();
+
     value.is_private()
         || value.is_loopback()
         || value.is_link_local()
@@ -167,6 +188,7 @@ fn ipv4_private_or_special(value: Ipv4Addr) -> bool {
 
 fn ipv6_private_or_special(value: Ipv6Addr) -> bool {
     let segments = value.segments();
+
     value.is_loopback()
         || value.is_unspecified()
         || value.is_multicast()

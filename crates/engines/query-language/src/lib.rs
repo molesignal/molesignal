@@ -63,15 +63,19 @@ pub struct TableRef {
 /// 用速度换近似——适合大表探索。N 必须为正整数。
 pub fn parse_sample_hint(sql: &str) -> (Option<u64>, String) {
     let trimmed = sql.trim_start();
+
     if !trimmed.starts_with("/*+") {
         return (None, sql.to_string());
     }
+
     let Some(end) = trimmed.find("*/") else {
         return (None, sql.to_string());
     };
+
     let hint = &trimmed[3..end];
     let rest = trimmed[end + 2..].trim_start().to_string();
     let lower = hint.to_lowercase();
+
     // 在 hint 内找 `sample` 后的第一组括号内整数。
     let parsed = lower.find("sample").and_then(|i| {
         let after = &hint[i + "sample".len()..];
@@ -79,6 +83,7 @@ pub fn parse_sample_hint(sql: &str) -> (Option<u64>, String) {
         let rp = after[lp..].find(')')? + lp;
         after[lp + 1..rp].trim().parse::<u64>().ok()
     });
+
     match parsed {
         Some(n) if n > 0 => (Some(n), rest),
         // 提示存在但不是合法 sample → 不改写，按普通查询交给 DataFusion（注释本身合法 SQL）。
@@ -95,12 +100,14 @@ pub fn extract_referenced_tables(stmt: &str) -> Result<Vec<TableRef>> {
 
     let mut seen: BTreeSet<String> = BTreeSet::new();
     let mut out: Vec<TableRef> = Vec::new();
+
     for s in &statements {
         // 仅 Query 类才有 FROM；其余 (INSERT/UPDATE 等) 当前不参与 multi-stream planner。
         if let Statement::Query(q) = s {
             visit_query(q, &mut Vec::new(), &mut seen, &mut out);
         }
     }
+
     Ok(out)
 }
 
@@ -119,7 +126,9 @@ pub fn extract_equality_predicates(sql: &str) -> Vec<(String, String)> {
     let Ok(statements) = Parser::parse_sql(&GenericDialect, sql) else {
         return Vec::new();
     };
+
     let mut out: Vec<(String, String)> = Vec::new();
+
     for stmt in &statements {
         // 只看顶层 SELECT 的 WHERE：子查询/CTE 的谓词作用于别的表，不能用来裁主表候选。
         if let Statement::Query(q) = stmt
@@ -129,6 +138,7 @@ pub fn extract_equality_predicates(sql: &str) -> Vec<(String, String)> {
             collect_conjunct_equalities(selection, &mut out);
         }
     }
+
     out
 }
 
@@ -169,9 +179,11 @@ fn eq_col_literal(col_expr: &Expr, lit_expr: &Expr) -> Option<(String, String)> 
         Expr::CompoundIdentifier(parts) => parts.last()?.value.clone(),
         _ => return None,
     };
+
     let Expr::Value(vws) = lit_expr else {
         return None;
     };
+
     match &vws.value {
         Value::SingleQuotedString(s) => Some((col, s.clone())),
         _ => None,
@@ -199,10 +211,13 @@ pub struct FlightSqlSelect {
 pub fn prepare_flight_sql_select(stmt: &str) -> Result<FlightSqlSelect> {
     let mut statements = Parser::parse_sql(&GenericDialect, stmt)
         .map_err(|e| Error::invalid(format!("sqlparser: {e}")))?;
+
     if statements.len() != 1 {
         return Err(Error::invalid("expected exactly one SQL statement"));
     }
+
     let mut statement = statements.pop().expect("len checked above");
+
     if !matches!(statement, Statement::Query(_)) {
         return Err(Error::invalid(
             "only SELECT statements are supported over Flight SQL",
@@ -212,6 +227,7 @@ pub fn prepare_flight_sql_select(stmt: &str) -> Result<FlightSqlSelect> {
     // CTE-aware 抽 base table；所有限定符必须是合法 stream_type（防 typo 落到
     // 引擎层变成难懂的 table-not-found）。
     let refs = extract_referenced_tables(stmt)?;
+
     for r in &refs {
         if let Some(q) = r.schema.as_deref()
             && stream_type_from_qualifier(q).is_none()
@@ -221,12 +237,14 @@ pub fn prepare_flight_sql_select(stmt: &str) -> Result<FlightSqlSelect> {
             )));
         }
     }
+
     let stream = refs.first().map(|r| {
         let st = r
             .schema
             .as_deref()
             .and_then(stream_type_from_qualifier)
             .unwrap_or(StreamType::LOGS);
+
         (r.name.clone(), st)
     });
 
@@ -239,6 +257,7 @@ pub fn prepare_flight_sql_select(stmt: &str) -> Result<FlightSqlSelect> {
             part.as_ident()
                 .is_some_and(|i| stream_type_from_qualifier(&i.value).is_some())
         };
+
         match name.0.len() {
             2 if is_stream_qualifier(&name.0[0]) => {
                 name.0.remove(0);
@@ -248,6 +267,7 @@ pub fn prepare_flight_sql_select(stmt: &str) -> Result<FlightSqlSelect> {
             }
             _ => {}
         }
+
         ControlFlow::Continue(())
     });
 
@@ -277,19 +297,24 @@ fn visit_query(
 ) {
     // 进入当前 Query 作用域：把它的 CTE alias 推到 stack；body 走完再 pop。
     let mut local: BTreeSet<String> = BTreeSet::new();
+
     if let Some(with) = &q.with {
         for cte in &with.cte_tables {
             local.insert(cte_alias(cte));
         }
+
         // CTE 内部仍要 walk（找内层 base table），但 CTE 名本身不算引用。
         // 注意：CTE body 应该看得到「同级 CTE 的别名」吗？标准 SQL 中前置 CTE 可以被
         // 同 WITH 里后面的 CTE 引用。这里把同级 alias 也合到当前作用域里再 walk body。
         cte_scopes.push(local.clone());
+
         for cte in &with.cte_tables {
             visit_query(&cte.query, cte_scopes, seen, out);
         }
+
         cte_scopes.pop();
     }
+
     cte_scopes.push(local);
     visit_set_expr(&q.body, cte_scopes, seen, out);
     cte_scopes.pop();
@@ -331,6 +356,7 @@ fn visit_table_with_joins(
     out: &mut Vec<TableRef>,
 ) {
     visit_table_factor(&twj.relation, cte_scopes, seen, out);
+
     for join in &twj.joins {
         visit_table_factor(&join.relation, cte_scopes, seen, out);
     }
@@ -345,10 +371,12 @@ fn visit_table_factor(
     match factor {
         TableFactor::Table { name, alias, .. } => {
             let (schema, bare) = split_object_name(name);
+
             // CTE alias 命中 → 跳过（仅在 schema 为空时；`schema.cte_name` 几乎不可能合法）。
             if schema.is_none() && in_any_scope(cte_scopes, &bare) {
                 return;
             }
+
             if seen.insert(bare.clone()) {
                 out.push(TableRef {
                     name: bare,
@@ -377,6 +405,7 @@ fn cte_alias(cte: &Cte) -> String {
 
 fn split_object_name(name: &ObjectName) -> (Option<String>, String) {
     let parts: Vec<String> = name.0.iter().map(object_name_part_value).collect();
+
     match parts.len() {
         0 => (None, String::new()),
         1 => (None, parts.into_iter().next().unwrap()),
@@ -393,6 +422,7 @@ fn split_object_name(name: &ObjectName) -> (Option<String>, String) {
 /// `Ident` 是其中一个变体；这里只关心 ident 段，函数式调用段跳过。
 fn object_name_part_value(part: &sqlparser::ast::ObjectNamePart) -> String {
     use sqlparser::ast::ObjectNamePart;
+
     match part {
         ObjectNamePart::Identifier(id) => id.value.clone(),
         // Function-call style (e.g. `unnest(...)` in some dialects) — 取 debug 名兜底。

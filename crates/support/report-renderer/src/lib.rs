@@ -116,6 +116,7 @@ pub fn validate_report_bytes(format: ReportFormat, bytes: &[u8]) -> Result<()> {
             bytes.starts_with(&[0x89, b'P', b'N', b'G', b'\r', b'\n', 0x1a, b'\n'])
         }
     };
+
     if valid {
         Ok(())
     } else {

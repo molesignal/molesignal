@@ -54,11 +54,15 @@ impl RuleEvaluator {
             rule.query.stream.clone().ok_or_else(|| {
                 crate::shared::Error::invalid("alert rule query.stream is required")
             })?;
+
         let period_us = i64::from(rule.query.period_secs).saturating_mul(1_000_000);
+
         let query_result = self
             .run_window_result(rule, &stream, TimestampMicros(now.0 - period_us), now)
             .await?;
+
         let value = first_cell_f64(&query_result).filter(|value| !value.is_nan());
+
         let (matched, severity, anomaly) = if rule.kind == AlertRuleKind::Anomaly {
             let decision = self
                 .eval_anomaly(rule, &stream, &query_result, now, period_us)
@@ -68,6 +72,7 @@ impl RuleEvaluator {
                         "anomaly rule could not build a complete baseline",
                     )
                 })?;
+
             let severity = decision.firing.then(|| {
                 resolve_incident_severity(
                     None,
@@ -76,6 +81,7 @@ impl RuleEvaluator {
                     Some(decision.deviation_ratio()),
                 )
             });
+
             (
                 decision.firing,
                 severity,
@@ -90,6 +96,7 @@ impl RuleEvaluator {
             let matched = value.is_some_and(|value| {
                 compare_value(value, &rule.trigger.operator, rule.trigger.threshold)
             });
+
             (
                 matched,
                 matched.then(|| resolve_incident_severity(None, rule.severity, &rule.labels, None)),
@@ -105,8 +112,10 @@ impl RuleEvaluator {
                     .map(|threshold| threshold.severity)
                     .max()
             });
+
             (severity.is_some(), severity, None)
         };
+
         Ok(AlertRuleTestResult {
             matched,
             value,
@@ -128,6 +137,7 @@ impl RuleEvaluator {
         now: TimestampMicros,
     ) -> Result<Incident> {
         let fingerprint = compute_fingerprint(rule);
+
         if let Some(existing) = self
             .incidents
             .find_by_fingerprint(&rule.org_id, &fingerprint)
@@ -139,8 +149,10 @@ impl RuleEvaluator {
         {
             return Ok(existing);
         }
+
         let mut annotations = rule.annotations.clone();
         annotations.insert("manual_triggered_by".into(), actor.0.clone());
+
         let affected_services = rule
             .labels
             .get("service")
@@ -148,6 +160,7 @@ impl RuleEvaluator {
             .cloned()
             .into_iter()
             .collect::<Vec<_>>();
+
         let candidate = Incident {
             id: Id::new(),
             org_id: rule.org_id.clone(),
@@ -177,6 +190,7 @@ impl RuleEvaluator {
             resolved_at: None,
             resolved_by: None,
         };
+
         let (incident, created) = match self.incidents.create(candidate.clone()).await {
             Ok(incident) => (incident, true),
             Err(Error::Conflict(_)) => {
@@ -184,6 +198,7 @@ impl RuleEvaluator {
                     .incidents
                     .find_by_fingerprint(&rule.org_id, &fingerprint)
                     .await?;
+
                 match existing {
                     Some(incident)
                         if matches!(
@@ -198,16 +213,20 @@ impl RuleEvaluator {
             }
             Err(error) => return Err(error),
         };
+
         if !created {
             return Ok(incident);
         }
+
         emit_lifecycle(self.lifecycle_sink.as_ref(), &incident).await;
+
         enqueue_notify_event(
             self.notify_engine.as_ref(),
             &incident,
             ALERT_TRIGGERED_EVENT,
         )
         .await;
+
         self.assign_to_group(rule, &rule.labels, &fingerprint, now)
             .await;
         Ok(incident)

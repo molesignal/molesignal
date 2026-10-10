@@ -59,11 +59,13 @@ async fn list_tools(
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Value>> {
     let tools = managed_tools(&state, &ctx).await?;
+
     let servers = state
         .agent
         .tool_control
         .list_mcp_servers(&ctx.org_id)
         .await?;
+
     Ok(Json(json!({
         "tools": tools,
         "dynamic_http": false,
@@ -88,12 +90,14 @@ async fn get_tool(
     Path(id): Path<String>,
 ) -> Result<Json<Value>> {
     let tools = managed_tools(&state, &ctx).await?;
+
     let tool = tools
         .into_iter()
         .find(|tool| {
             tool["id"].as_str() == Some(id.as_str()) || tool["name"].as_str() == Some(id.as_str())
         })
         .ok_or_else(|| Error::not_found(format!("tool `{id}` not found")))?;
+
     let dependencies =
         dependency_value(&state, &ctx.org_id, tool["name"].as_str().unwrap_or("")).await?;
     Ok(Json(json!({"tool": tool, "dependencies": dependencies})))
@@ -101,6 +105,7 @@ async fn get_tool(
 
 async fn managed_tools(state: &AppState, ctx: &IamContext) -> Result<Vec<Value>> {
     let resolution = toolsets::resolve_toolsets(state, &ctx.org_id).await?;
+
     let policies = state
         .agent
         .tool_control
@@ -109,11 +114,13 @@ async fn managed_tools(state: &AppState, ctx: &IamContext) -> Result<Vec<Value>>
         .into_iter()
         .map(|policy| (policy.tool_name.clone(), policy))
         .collect::<HashMap<_, _>>();
+
     let calls = state
         .agent
         .repository
         .list_tool_calls(&ctx.org_id, None, 500)
         .await?;
+
     let servers = state
         .agent
         .tool_control
@@ -122,7 +129,9 @@ async fn managed_tools(state: &AppState, ctx: &IamContext) -> Result<Vec<Value>>
         .into_iter()
         .map(|server| (server.id.0.clone(), server))
         .collect::<HashMap<_, _>>();
+
     let mut result = Vec::new();
+
     for tool in builtin_tools() {
         let policy = policies.get(&tool.name);
         let execution_mode = resolution.execution_mode_for_builtin(&tool.name);
@@ -130,6 +139,7 @@ async fn managed_tools(state: &AppState, ctx: &IamContext) -> Result<Vec<Value>>
             && execution_mode != ToolExecutionMode::Disabled;
         let available_to_agent = tool.exposure.mole_agent && resolution.builtin_enabled(&tool.name);
         let stats = call_stats(&calls, &tool.name);
+
         result.push(json!({
             "id": tool.name,
             "name": tool.name,
@@ -161,17 +171,20 @@ async fn managed_tools(state: &AppState, ctx: &IamContext) -> Result<Vec<Value>>
             "statistics": stats
         }));
     }
+
     let mcp_tools = state
         .agent
         .tool_control
         .list_mcp_tools(&ctx.org_id, None)
         .await?;
+
     for tool in mcp_tools {
         let server = servers.get(&tool.server_id.0);
         let policy = policies.get(&tool.name);
         let execution_mode = resolution.execution_mode_for_mcp(&tool);
         let available_to_agent = resolution.mcp_tool(&tool.name).is_some();
         let stats = call_stats(&calls, &tool.name);
+
         result.push(mcp_tool_value(
             &tool,
             server,
@@ -181,6 +194,7 @@ async fn managed_tools(state: &AppState, ctx: &IamContext) -> Result<Vec<Value>>
             stats,
         ));
     }
+
     result.sort_by(|left, right| {
         left["domain"]
             .as_str()
@@ -193,6 +207,7 @@ async fn managed_tools(state: &AppState, ctx: &IamContext) -> Result<Vec<Value>>
                     .cmp(right["name"].as_str().unwrap_or_default())
             })
     });
+
     Ok(result)
 }
 
@@ -205,10 +220,13 @@ fn mcp_tool_value(
     statistics: Value,
 ) -> Value {
     let read_only = tool.capabilities["read_only"].as_bool().unwrap_or(false);
+
     let configured_enabled = tool.enabled
         && policy.is_none_or(|policy| policy.enabled)
         && execution_mode != ToolExecutionMode::Disabled;
+
     let server_healthy = server.is_some_and(|server| server.enabled && server.status == "healthy");
+
     json!({
         "id": tool.id,
         "name": tool.name,
@@ -250,6 +268,7 @@ fn mcp_tool_value(
 fn domain_for_mcp_tool(tool: &McpTool) -> &'static str {
     let text =
         format!("{} {} {}", tool.name, tool.description, tool.tags.join(" ")).to_ascii_lowercase();
+
     if text.contains("alert") || text.contains("oncall") || text.contains("on-call") {
         "alerts_on_call"
     } else if text.contains("dashboard") || text.contains("report") {
@@ -274,34 +293,44 @@ fn domain_for_mcp_tool(tool: &McpTool) -> &'static str {
 
 fn call_stats(calls: &[ToolCallRecord], tool_name: &str) -> Value {
     let cutoff = TimestampMicros::now().0 - 86_400_000_000;
+
     let mut matching = calls
         .iter()
         .filter(|call| call.tool_name == tool_name && call.created_at.0 >= cutoff)
         .collect::<Vec<_>>();
+
     let total = matching.len();
+
     let successes = matching
         .iter()
         .filter(|call| call.status == "success")
         .count();
+
     let success_rate = if total == 0 {
         None
     } else {
         Some((successes as f64 / total as f64) * 100.0)
     };
+
     matching.sort_by_key(|call| call.duration_ms);
+
     let p95_ms = (!matching.is_empty()).then(|| {
         let index = ((matching.len() as f64 * 0.95).ceil() as usize)
             .saturating_sub(1)
             .min(matching.len() - 1);
+
         matching[index].duration_ms
     });
+
     let last_called_at = matching.iter().map(|call| call.created_at.0).max();
+
     let last_error = calls
         .iter()
         .find(|call| {
             call.tool_name == tool_name && call.created_at.0 >= cutoff && call.status != "success"
         })
         .and_then(|call| call.error.as_deref());
+
     json!({
         "calls_24h": total,
         "success_rate": success_rate,
@@ -313,6 +342,7 @@ fn call_stats(calls: &[ToolCallRecord], tool_name: &str) -> Value {
 
 fn default_mode_from_value(value: &Value, risk: RiskLevel) -> ToolExecutionMode {
     let key = format!("{risk:?}").to_ascii_lowercase();
+
     value
         .get(&key)
         .and_then(Value::as_str)
@@ -352,6 +382,7 @@ async fn update_tool_policy(
     Json(request): Json<ToolPolicyRequest>,
 ) -> Result<Json<Value>> {
     let updated = apply_tool_policy(&state, &ctx, &id, request).await?;
+
     activity_audit::record(
         &state,
         &ctx,
@@ -365,6 +396,7 @@ async fn update_tool_policy(
         }),
     )
     .await;
+
     Ok(Json(updated))
 }
 
@@ -379,11 +411,13 @@ async fn apply_tool_policy(
             .into_iter()
             .find(|tool| tool.name == id)
             .ok_or_else(|| Error::internal("builtin tool registry is inconsistent"))?;
+
         if request.risk.is_some_and(|risk| risk != definition.risk) {
             return Err(Error::invalid(
                 "the risk level of a built-in tool cannot be changed",
             ));
         }
+
         let defaults = state
             .agent
             .tool_control
@@ -392,18 +426,22 @@ async fn apply_tool_policy(
             .unwrap_or_else(|| {
                 ToolPolicyDefaults::system_defaults(ctx.org_id.clone(), ctx.user_id.clone())
             });
+
         let existing = state.agent.tool_control.get_policy(&ctx.org_id, id).await?;
         let now = TimestampMicros::now();
+
         let execution_mode = request
             .execution_mode
             .or_else(|| existing.as_ref().map(|policy| policy.execution_mode))
             .unwrap_or_else(|| default_mode_from_value(&defaults.risk_modes, definition.risk));
+
         if !execution_mode.allowed_for_risk(definition.risk) {
             return Err(Error::invalid(format!(
                 "{execution_mode:?} is below the hard policy floor for {:?}",
                 definition.risk
             )));
         }
+
         let environment_overrides = request
             .environment_overrides
             .or_else(|| {
@@ -412,7 +450,9 @@ async fn apply_tool_policy(
                     .map(|policy| policy.environment_overrides.clone())
             })
             .unwrap_or_else(|| json!({}));
+
         validate_tool_environment_overrides(&environment_overrides, definition.risk)?;
+
         let policy = ToolPolicy {
             org_id: ctx.org_id.clone(),
             tool_name: id.to_string(),
@@ -457,7 +497,9 @@ async fn apply_tool_policy(
                 .unwrap_or(now),
             updated_at: now,
         };
+
         let saved = state.agent.tool_control.upsert_policy(policy).await?;
+
         return Ok(json!({
             "id": id,
             "name": id,
@@ -472,38 +514,47 @@ async fn apply_tool_policy(
             }
         }));
     }
+
     let tools = state
         .agent
         .tool_control
         .list_mcp_tools(&ctx.org_id, None)
         .await?;
+
     let mut tool = tools
         .into_iter()
         .find(|tool| tool.id.0 == id || tool.name == id)
         .ok_or_else(|| Error::not_found(format!("tool `{id}` not found")))?;
+
     let existing_policy = state
         .agent
         .tool_control
         .get_policy(&ctx.org_id, &tool.name)
         .await?;
+
     let server = state
         .agent
         .tool_control
         .get_mcp_server(&ctx.org_id, &tool.server_id)
         .await?;
+
     let risk = request.risk.unwrap_or(tool.risk);
+
     if risk < tool.minimum_risk {
         return Err(Error::invalid(format!(
             "risk cannot be lower than the MCP tool floor {:?}",
             tool.minimum_risk
         )));
     }
+
     let execution_mode = request.execution_mode.unwrap_or(tool.execution_mode);
+
     if !execution_mode.allowed_for_risk(risk) {
         return Err(Error::invalid(format!(
             "{execution_mode:?} is below the hard policy floor for {risk:?}"
         )));
     }
+
     let environment_overrides = request
         .environment_overrides
         .or_else(|| {
@@ -512,13 +563,17 @@ async fn apply_tool_policy(
                 .map(|policy| policy.environment_overrides.clone())
         })
         .unwrap_or_else(|| json!({}));
+
     validate_tool_environment_overrides(&environment_overrides, risk)?;
+
     let enabled = request
         .enabled
         .or_else(|| existing_policy.as_ref().map(|policy| policy.enabled))
         .unwrap_or(tool.enabled)
         && execution_mode != ToolExecutionMode::Disabled;
+
     let now = TimestampMicros::now();
+
     let policy = ToolPolicy {
         org_id: ctx.org_id.clone(),
         tool_name: tool.name.clone(),
@@ -567,21 +622,27 @@ async fn apply_tool_policy(
             .unwrap_or(now),
         updated_at: now,
     };
+
     tool.risk = risk;
     tool.execution_mode = execution_mode;
     tool.enabled = enabled;
+
     tool.status = if tool.enabled {
         ManagedToolStatus::Healthy
     } else {
         ManagedToolStatus::Disabled
     };
+
     tool.updated_at = now;
+
     let saved = state
         .agent
         .tool_control
         .update_mcp_tool_policy(tool)
         .await?;
+
     let saved_policy = state.agent.tool_control.upsert_policy(policy).await?;
+
     Ok(json!({
         "id": saved.id,
         "name": saved.name,
@@ -604,6 +665,7 @@ fn checked_i64(value: i64, minimum: i64, maximum: i64, name: &str) -> Result<i64
             "{name} must be between {minimum} and {maximum}"
         )));
     }
+
     Ok(value)
 }
 
@@ -613,6 +675,7 @@ fn checked_i32(value: i32, minimum: i32, maximum: i32, name: &str) -> Result<i32
             "{name} must be between {minimum} and {maximum}"
         )));
     }
+
     Ok(value)
 }
 
@@ -643,6 +706,7 @@ async fn enable_tool(
         },
     )
     .await?;
+
     activity_audit::record(
         &state,
         &ctx,
@@ -652,6 +716,7 @@ async fn enable_tool(
         json!({}),
     )
     .await;
+
     Ok(Json(updated))
 }
 
@@ -665,11 +730,13 @@ async fn disable_tool(
     let name = resolve_tool_name(&state, &ctx.org_id, &id).await?;
     let dependencies = dependency_value(&state, &ctx.org_id, &name).await?;
     let count = dependencies["total"].as_u64().unwrap_or_default();
+
     if count > 0 && !request.force {
         return Err(Error::conflict(format!(
             "tool `{name}` has {count} active dependencies; confirm force disable"
         )));
     }
+
     let updated = apply_tool_policy(
         &state,
         &ctx,
@@ -685,6 +752,7 @@ async fn disable_tool(
         },
     )
     .await?;
+
     activity_audit::record(
         &state,
         &ctx,
@@ -694,6 +762,7 @@ async fn disable_tool(
         json!({"forced": request.force, "dependency_count": count}),
     )
     .await;
+
     Ok(Json(json!({"tool": updated, "dependencies": dependencies})))
 }
 
@@ -701,6 +770,7 @@ async fn resolve_tool_name(state: &AppState, org_id: &Id, id: &str) -> Result<St
     if is_builtin_tool(id) {
         return Ok(id.into());
     }
+
     state
         .agent
         .tool_control
@@ -743,6 +813,7 @@ pub(crate) async fn dependency_value(
             })
         })
         .collect::<Vec<_>>();
+
     let automations = state
         .agent
         .repository
@@ -763,7 +834,9 @@ pub(crate) async fn dependency_value(
             })
         })
         .collect::<Vec<_>>();
+
     let total = profiles.len() + automations.len();
+
     Ok(json!({
         "tool_name": tool_name,
         "total": total,
@@ -791,6 +864,7 @@ async fn tool_calls(
     Query(query): Query<CallsQuery>,
 ) -> Result<Json<Value>> {
     let name = resolve_tool_name(&state, &ctx.org_id, &id).await?;
+
     let calls = state
         .agent
         .repository
@@ -802,6 +876,7 @@ async fn tool_calls(
             call
         })
         .collect::<Vec<_>>();
+
     Ok(Json(json!({"calls": calls})))
 }
 
@@ -827,20 +902,24 @@ async fn test_tool(
     Json(request): Json<ToolTestRequest>,
 ) -> Result<Json<Value>> {
     let tools = managed_tools(&state, &ctx).await?;
+
     let tool = tools
         .into_iter()
         .find(|tool| {
             tool["id"].as_str() == Some(id.as_str()) || tool["name"].as_str() == Some(id.as_str())
         })
         .ok_or_else(|| Error::not_found(format!("tool `{id}` not found")))?;
+
     validate_schema(&tool["input_schema"], &request.arguments)?;
     let read_only = tool["capabilities"]["read_only"].as_bool().unwrap_or(false);
+
     if request.validate_only || !read_only {
         if !read_only && !request.dry_run {
             return Err(Error::forbidden(
                 "write-capable tools can only be tested with dry_run=true",
             ));
         }
+
         return Ok(Json(json!({
             "success": true,
             "validated": true,
@@ -855,6 +934,7 @@ async fn test_tool(
             "request": redact_sensitive_value(&request.arguments)
         })));
     }
+
     if tool["execution_mode"] != "automatic" {
         return Ok(Json(json!({
             "success": true,
@@ -865,9 +945,11 @@ async fn test_tool(
             "message": "工具策略要求确认或审批；测试仅完成参数校验。"
         })));
     }
+
     let resolution = toolsets::resolve_toolsets(&state, &ctx.org_id).await?;
     let dispatcher = RealToolDispatcher::new(state.clone()).with_toolsets(resolution);
     let started = Instant::now();
+
     let result = dispatcher
         .dispatch(
             &ToolAuthContext::from_iam(&ctx),
@@ -877,7 +959,9 @@ async fn test_tool(
             },
         )
         .await?;
+
     let duration_ms = i64::try_from(started.elapsed().as_millis()).unwrap_or(i64::MAX);
+
     activity_audit::record(
         &state,
         &ctx,
@@ -891,6 +975,7 @@ async fn test_tool(
         }),
     )
     .await;
+
     Ok(Json(json!({
         "success": !result.is_error,
         "validated": true,
@@ -935,12 +1020,15 @@ async fn update_policy_defaults(
 ) -> Result<Json<ToolPolicyDefaults>> {
     validate_default_modes(&request.risk_modes)?;
     validate_environment_overrides(&request.environment_overrides)?;
+
     let existing = state
         .agent
         .tool_control
         .get_policy_defaults(&ctx.org_id)
         .await?;
+
     let now = TimestampMicros::now();
+
     let saved = state
         .agent
         .tool_control
@@ -956,6 +1044,7 @@ async fn update_policy_defaults(
             updated_at: now,
         })
         .await?;
+
     activity_audit::record(
         &state,
         &ctx,
@@ -968,6 +1057,7 @@ async fn update_policy_defaults(
         }),
     )
     .await;
+
     Ok(Json(saved))
 }
 
@@ -975,6 +1065,7 @@ fn validate_default_modes(value: &Value) -> Result<()> {
     let object = value
         .as_object()
         .ok_or_else(|| Error::invalid("risk_modes must be an object"))?;
+
     for risk in [
         RiskLevel::L0,
         RiskLevel::L1,
@@ -983,17 +1074,20 @@ fn validate_default_modes(value: &Value) -> Result<()> {
         RiskLevel::L4,
     ] {
         let key = format!("{risk:?}").to_ascii_lowercase();
+
         let mode = object
             .get(&key)
             .and_then(Value::as_str)
             .and_then(parse_execution_mode)
             .ok_or_else(|| Error::invalid(format!("risk_modes.{key} is invalid")))?;
+
         if !mode.allowed_for_risk(risk) {
             return Err(Error::invalid(format!(
                 "risk_modes.{key} violates the hard risk floor"
             )));
         }
     }
+
     Ok(())
 }
 
@@ -1001,6 +1095,7 @@ fn validate_environment_overrides(value: &Value) -> Result<()> {
     let environments = value
         .as_object()
         .ok_or_else(|| Error::invalid("environment_overrides must be an object"))?;
+
     for (environment, modes) in environments {
         if !matches!(
             environment.as_str(),
@@ -1010,11 +1105,13 @@ fn validate_environment_overrides(value: &Value) -> Result<()> {
                 "unsupported policy environment `{environment}`"
             )));
         }
+
         if !modes.is_object() {
             return Err(Error::invalid(format!(
                 "environment override `{environment}` must be an object"
             )));
         }
+
         for (risk_key, mode_value) in modes.as_object().into_iter().flatten() {
             let risk = match risk_key.as_str() {
                 "l0" => RiskLevel::L0,
@@ -1028,10 +1125,12 @@ fn validate_environment_overrides(value: &Value) -> Result<()> {
                     )));
                 }
             };
+
             let mode = mode_value
                 .as_str()
                 .and_then(parse_execution_mode)
                 .ok_or_else(|| Error::invalid("invalid environment execution mode"))?;
+
             if !mode.allowed_for_risk(risk) {
                 return Err(Error::invalid(format!(
                     "{environment}.{risk_key} violates the hard risk floor"
@@ -1039,6 +1138,7 @@ fn validate_environment_overrides(value: &Value) -> Result<()> {
             }
         }
     }
+
     Ok(())
 }
 
@@ -1046,6 +1146,7 @@ fn validate_tool_environment_overrides(value: &Value, risk: RiskLevel) -> Result
     let environments = value
         .as_object()
         .ok_or_else(|| Error::invalid("tool environment_overrides must be an object"))?;
+
     for (environment, mode_value) in environments {
         if !matches!(
             environment.as_str(),
@@ -1055,6 +1156,7 @@ fn validate_tool_environment_overrides(value: &Value, risk: RiskLevel) -> Result
                 "unsupported tool policy environment `{environment}`"
             )));
         }
+
         let mode = mode_value
             .as_str()
             .and_then(parse_execution_mode)
@@ -1063,12 +1165,14 @@ fn validate_tool_environment_overrides(value: &Value, risk: RiskLevel) -> Result
                     "tool environment override `{environment}` is invalid"
                 ))
             })?;
+
         if !mode.allowed_for_risk(risk) {
             return Err(Error::invalid(format!(
                 "{environment} override violates the hard {risk:?} floor"
             )));
         }
     }
+
     Ok(())
 }
 

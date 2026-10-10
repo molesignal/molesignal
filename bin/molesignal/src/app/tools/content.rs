@@ -25,37 +25,45 @@ pub(super) async fn execute(
         BuiltinToolKind::ListDashboards => {
             let args: DashboardListArgs = parse_args(arguments)?;
             let folder_id = args.folder_id.map(Id::from_string);
+
             let dashboards = runtime
                 .content
                 .dashboard
                 .list(&auth.org_id, folder_id.as_ref())
                 .await?;
+
             json_result(&bounded(dashboards, args.limit, 500))
         }
         BuiltinToolKind::GetDashboard => {
             let args: IdArg = parse_args(arguments)?;
+
             let dashboard = runtime
                 .content
                 .dashboard
                 .get(&Id(args.required("dashboard_id")?))
                 .await?;
+
             if dashboard.org_id != auth.org_id {
                 return Err(crate::shared::Error::not_found("dashboard not found"));
             }
+
             json_result(&dashboard)
         }
         BuiltinToolKind::ListFolders => {
             let args: ListArgs = parse_args(arguments)?;
+
             let folders = runtime
                 .content
                 .dashboard
                 .folders()
                 .list(&auth.org_id)
                 .await?;
+
             json_result(&bounded(folders, args.limit, 500))
         }
         BuiltinToolKind::GetFolder => {
             let args: IdArg = parse_args(arguments)?;
+
             json_result(
                 &runtime
                     .content
@@ -68,6 +76,7 @@ pub(super) async fn execute(
         BuiltinToolKind::ListAnnotations => {
             let args: AnnotationListArgs = parse_args(arguments)?;
             let range = args.time_range.map(time_range).transpose()?;
+
             let annotations = runtime
                 .content
                 .annotations
@@ -81,10 +90,12 @@ pub(super) async fn execute(
                     },
                 )
                 .await?;
+
             json_result(&bounded(annotations, args.limit, 500))
         }
         BuiltinToolKind::GetAnnotation => {
             let args: IdArg = parse_args(arguments)?;
+
             json_result(
                 &runtime
                     .content
@@ -140,6 +151,7 @@ impl IdArg {
             "annotation_id" => &self.annotation_id,
             _ => unreachable!(),
         };
+
         value
             .as_ref()
             .filter(|value| !value.trim().is_empty())

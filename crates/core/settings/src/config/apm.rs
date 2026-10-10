@@ -61,9 +61,11 @@ impl ApmSettings {
         if !(1_024..=1_048_576).contains(&self.queue_capacity) {
             anyhow::bail!("apm.queue_capacity must be between 1024 and 1048576");
         }
+
         if !(100..=60_000).contains(&self.flush_interval_ms) {
             anyhow::bail!("apm.flush_interval_ms must be between 100 and 60000");
         }
+
         if self.flush_max_snapshots == 0
             || self.flush_max_snapshots > 100_000
             || self.shutdown_drain_secs == 0
@@ -73,11 +75,13 @@ impl ApmSettings {
                 "apm flush_max_snapshots and shutdown_drain_secs must be within bounded limits"
             );
         }
+
         if self.late_grace_secs == 0
             || self.late_grace_secs >= u64::from(self.hot_retention_hours) * 3_600
         {
             anyhow::bail!("apm.late_grace_secs must be non-zero and shorter than hot retention");
         }
+
         if !(1..=168).contains(&self.hot_retention_hours)
             || !(1..=3_650).contains(&self.rollup_retention_days)
             || self.max_query_range_days == 0
@@ -85,11 +89,13 @@ impl ApmSettings {
         {
             anyhow::bail!("apm retention and max_query_range_days are inconsistent");
         }
+
         if !(1..=16).contains(&self.max_exemplars_per_bucket)
             || !(1..=64).contains(&self.max_error_samples_per_group)
         {
             anyhow::bail!("apm exemplar and error sample limits are out of bounds");
         }
+
         self.histogram.validate()?;
         self.cardinality.validate()?;
         self.version_comparison.validate()
@@ -119,11 +125,13 @@ impl ApmHistogramSettings {
         if self.schema_version == 0 || !(2..=64).contains(&self.boundaries_ms.len()) {
             anyhow::bail!("apm.histogram schema_version/bucket count is invalid");
         }
+
         if self.boundaries_ms.contains(&0)
             || self.boundaries_ms.windows(2).any(|pair| pair[0] >= pair[1])
         {
             anyhow::bail!("apm.histogram.boundaries_ms must be strictly increasing");
         }
+
         Ok(())
     }
 }
@@ -167,9 +175,11 @@ impl ApmCardinalitySettings {
             self.versions_per_service_hour,
             self.instances_per_service_hour,
         ];
+
         if values.contains(&0) || values.iter().any(|value| *value > 100_000) {
             anyhow::bail!("apm.cardinality limits must be between 1 and 100000");
         }
+
         Ok(())
     }
 }
@@ -195,6 +205,7 @@ impl ApmVersionComparisonSettings {
                 "apm.version_comparison.min_requests_per_version must be between 1 and 10000000"
             );
         }
+
         Ok(())
     }
 }
@@ -202,59 +213,77 @@ impl ApmVersionComparisonSettings {
 fn default_queue_capacity() -> usize {
     65_536
 }
+
 fn default_flush_interval_ms() -> u64 {
     5_000
 }
+
 fn default_flush_max_snapshots() -> usize {
     10_000
 }
+
 fn default_shutdown_drain_secs() -> u64 {
     10
 }
+
 fn default_late_grace_secs() -> u64 {
     300
 }
+
 fn default_hot_retention_hours() -> u32 {
     24
 }
+
 fn default_rollup_retention_days() -> u32 {
     30
 }
+
 fn default_max_query_range_days() -> u32 {
     30
 }
+
 fn default_max_exemplars_per_bucket() -> usize {
     3
 }
+
 fn default_max_error_samples_per_group() -> usize {
     8
 }
+
 fn default_histogram_schema_version() -> u16 {
     1
 }
+
 fn default_histogram_boundaries_ms() -> Vec<u64> {
     vec![
         1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1_000, 2_000, 4_000, 8_000, 16_000, 30_000, 60_000,
     ]
 }
+
 fn default_service_limit() -> usize {
     200
 }
+
 fn default_transaction_limit() -> usize {
     32
 }
+
 fn default_dependency_limit() -> usize {
     16
 }
+
 fn default_error_group_limit() -> usize {
     16
 }
+
 fn default_version_limit() -> usize {
     16
 }
+
 fn default_instance_limit() -> usize {
     256
 }
+
 fn default_min_requests_per_version() -> u64 {
     1_000
 }

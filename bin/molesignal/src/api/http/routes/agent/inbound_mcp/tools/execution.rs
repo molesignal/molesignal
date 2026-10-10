@@ -42,10 +42,12 @@ pub(super) async fn call_read(
 ) -> Result<CallToolResponse, ErrorData> {
     let args: ReadCallArgs = serde_json::from_value(arguments)
         .map_err(|error| ErrorData::invalid_params(error.to_string(), None))?;
+
     let resolved = match catalog::resolve(handler, &data.iam, &args.name).await {
         Ok(resolved) => resolved,
         Err(error) => return Ok(visible_error(error)),
     };
+
     if !matches!(
         resolved.spec.access,
         ToolAccess::ReadOnly | ToolAccess::Preflight
@@ -55,6 +57,7 @@ pub(super) async fn call_read(
             args.name
         )));
     }
+
     if args.as_task {
         if !context
             .client_capabilities()
@@ -65,10 +68,12 @@ pub(super) async fn call_read(
                 None,
             ));
         }
+
         return super::super::tasks::spawn_read(handler, data, resolved, args.arguments)
             .await
             .map(Into::into);
     }
+
     execute_for_request(handler, context, data, resolved, args.arguments).await
 }
 
@@ -83,6 +88,7 @@ pub(super) async fn call_direct(
         Ok(resolved) => resolved,
         Err(error) => return Ok(visible_error(error)),
     };
+
     if !matches!(
         resolved.spec.access,
         ToolAccess::ReadOnly | ToolAccess::Preflight
@@ -91,6 +97,7 @@ pub(super) async fn call_direct(
             "managed tool `{name}` must be called through call_managed_tool"
         )));
     }
+
     execute_for_request(handler, context, data, resolved, arguments).await
 }
 
@@ -103,6 +110,7 @@ async fn execute_for_request(
 ) -> Result<CallToolResponse, ErrorData> {
     let cancellation = context.ct.child_token();
     let result = execute_resolved(handler, data, resolved, arguments, cancellation).await;
+
     Ok(match result {
         Ok(result) => into_mcp_result(result).into(),
         Err(error) => visible_error(error),
@@ -117,18 +125,22 @@ pub(in crate::api::http::routes::agent::inbound_mcp) async fn execute_resolved(
     cancellation: CancellationToken,
 ) -> Result<ToolResult> {
     let started = Instant::now();
+
     let timeout_ms = resolved
         .timeout_ms
         .unwrap_or(data.settings.read_timeout_ms)
         .clamp(1, 300_000);
+
     let tool_name = resolved.spec.name.clone();
     let execution_mode = resolved.invocation.execution_mode();
+
     let execution = builtin_execution::execute(
         &handler.state,
         &resolved.invocation,
         resolved.kind,
         arguments.clone(),
     );
+
     let outcome = tokio::select! {
         () = cancellation.cancelled() => Err(Error::cancelled(format!("tool `{tool_name}` was cancelled"))),
         result = tokio::time::timeout(Duration::from_millis(timeout_ms as u64), execution) => {
@@ -143,6 +155,7 @@ pub(in crate::api::http::routes::agent::inbound_mcp) async fn execute_resolved(
             .unwrap_or(data.settings.max_response_bytes)
             .min(data.settings.max_response_bytes)
             .max(1) as usize;
+
         if result.serialized_len() > configured {
             ToolResult::error(format!(
                 "tool `{tool_name}` response exceeded the configured {configured} byte limit"
@@ -151,6 +164,7 @@ pub(in crate::api::http::routes::agent::inbound_mcp) async fn execute_resolved(
             result
         }
     });
+
     if let Err(error) = audit(
         handler,
         data,
@@ -164,6 +178,7 @@ pub(in crate::api::http::routes::agent::inbound_mcp) async fn execute_resolved(
     {
         tracing::warn!(error = %error, tool = %tool_name, "failed to record Inbound MCP tool audit");
     }
+
     outcome
 }
 
@@ -188,6 +203,7 @@ async fn audit(
                     }
                 })
                 .map(|value| value.chars().take(1_000).collect());
+
             (
                 if result.is_error { "error" } else { "success" },
                 result.is_error.then(|| result.first_text()).flatten(),
@@ -197,6 +213,7 @@ async fn audit(
         }
         Err(error) => ("error", Some(error.to_string()), None, None),
     };
+
     handler
         .state
         .agent
@@ -228,6 +245,7 @@ async fn audit(
             created_at: TimestampMicros::now(),
         })
         .await?;
+
     Ok(())
 }
 
@@ -255,6 +273,7 @@ pub(super) fn sanitize_result(mut result: ToolResult) -> ToolResult {
             },
         })
         .collect();
+
     result
 }
 
@@ -262,6 +281,7 @@ fn sanitize_value(value: Value) -> Value {
     match value {
         Value::Object(mut map) => {
             let withheld = map.remove("one_time_result").is_some();
+
             for (key, value) in &mut map {
                 if is_secret_key(key) {
                     *value =
@@ -270,12 +290,14 @@ fn sanitize_value(value: Value) -> Value {
                     *value = sanitize_value(std::mem::take(value));
                 }
             }
+
             if withheld {
                 map.insert(
                     "credential_delivery".into(),
                     Value::String("Credential created successfully. View or copy it only in MoleSignal Web UI.".into()),
                 );
             }
+
             Value::Object(map)
         }
         Value::Array(values) => Value::Array(values.into_iter().map(sanitize_value).collect()),
@@ -295,6 +317,7 @@ fn redact_credentials_in_text(text: &str) -> String {
         )
         .expect("credential redaction regex must compile")
     });
+
     CREDENTIAL.replace_all(text, "<withheld>").into_owned()
 }
 
@@ -304,6 +327,7 @@ fn is_secret_key(key: &str) -> bool {
         .filter(|character| character.is_ascii_alphanumeric())
         .flat_map(char::to_lowercase)
         .collect::<String>();
+
     matches!(
         normalized.as_str(),
         "token"
@@ -323,6 +347,7 @@ pub(in crate::api::http::routes::agent::inbound_mcp) fn into_mcp_result(
 ) -> CallToolResult {
     let mut content = Vec::new();
     let mut structured = Vec::new();
+
     for item in result.content {
         match item {
             ToolContent::Text { text } => content.push(ContentBlock::text(text)),
@@ -332,16 +357,19 @@ pub(in crate::api::http::routes::agent::inbound_mcp) fn into_mcp_result(
             }
         }
     }
+
     let structured = match structured.len() {
         0 => None,
         1 => structured.pop(),
         _ => Some(json!({ "items": structured })),
     };
+
     let mut response = if result.is_error {
         CallToolResult::error(content)
     } else {
         CallToolResult::success(content)
     };
+
     response.structured_content = structured;
     response
 }

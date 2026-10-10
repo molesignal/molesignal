@@ -52,6 +52,7 @@ async fn topology(
     let args: TopologyArgs = parse_args(arguments)?;
     let range = time_range(args.time_range)?;
     let limit = args.limit.unwrap_or(100).clamp(1, 500);
+
     let snapshots = runtime
         .observability
         .service_graph
@@ -62,18 +63,23 @@ async fn topology(
             args.service.as_deref(),
         )
         .await?;
+
     let mut aggregate = BTreeMap::<(String, String), EdgeAggregate>::new();
+
     for edge in snapshots {
         let item = aggregate
             .entry((edge.client_service, edge.server_service))
             .or_default();
+
         item.request_count = item.request_count.saturating_add(edge.request_count);
         item.error_count = item.error_count.saturating_add(edge.error_count);
+
         item.p95_us = match (item.p95_us, edge.p95_us) {
             (Some(left), Some(right)) => Some(left.max(right)),
             (left, right) => left.or(right),
         };
     }
+
     let mut edges = aggregate
         .into_iter()
         .map(|((client, server), edge)| json!({
@@ -83,9 +89,11 @@ async fn topology(
             "p95_us": edge.p95_us,
         }))
         .collect::<Vec<_>>();
+
     edges.sort_by_key(|edge| std::cmp::Reverse(edge["request_count"].as_u64().unwrap_or(0)));
     let truncated = edges.len() > limit;
     edges.truncate(limit);
+
     Ok(ToolResult::json(json!({
         "edges": edges, "truncated": truncated,
     })))
@@ -111,34 +119,42 @@ async fn correlate(
     arguments: Value,
 ) -> Result<ToolResult> {
     let args: CorrelateArgs = parse_args(arguments)?;
+
     if args.service.is_none() && args.trace_id.is_none() && args.incident_id.is_none() {
         return Err(Error::invalid(
             "at least one of service, trace_id, or incident_id is required",
         ));
     }
+
     if let Some(trace_id) = args.trace_id.as_deref() {
         validate_trace_id(trace_id)?;
     }
+
     let limit = args.limit_per_signal.unwrap_or(20).clamp(1, 100);
     let range = time_range(args.time_range)?;
+
     let incident = if let Some(id) = args.incident_id.as_deref() {
         let incident = runtime
             .alerting
             .service
             .get_incident(&Id(id.to_string()))
             .await?;
+
         if incident.org_id != auth.org_id {
             return Err(Error::not_found("incident not found"));
         }
+
         Some(incident)
     } else {
         None
     };
+
     let service = args.service.clone().or_else(|| {
         incident
             .as_ref()
             .and_then(|incident| incident.affected_services.first().cloned())
     });
+
     let trace_id = args.trace_id.clone().or_else(|| {
         incident
             .as_ref()
@@ -154,6 +170,7 @@ async fn correlate(
             "trace_id": trace_id, "limit": limit,
         }),
     );
+
     let profiles = profiles::execute(
         runtime,
         auth,
@@ -163,6 +180,7 @@ async fn correlate(
             "trace_id": trace_id, "limit": limit,
         }),
     );
+
     let rum = correlated_rum(
         runtime,
         auth,
@@ -171,12 +189,15 @@ async fn correlate(
         trace_id.as_deref(),
         limit,
     );
+
     let topology = topology(
         runtime,
         auth,
         json!({"time_range": args.time_range, "service": service, "limit": limit}),
     );
+
     let (traces, profiles, rum, topology) = tokio::join!(traces, profiles, rum, topology);
+
     Ok(ToolResult::json(json!({
         "resolved_context": {"service": service, "trace_id": trace_id},
         "incident": incident,
@@ -199,10 +220,12 @@ async fn correlated_rum(
     let mut filters = Vec::new();
     push_string_filter(&mut filters, "service", service);
     push_string_filter(&mut filters, "trace_id", trace_id);
+
     let statement = format!(
         "SELECT * FROM rum_actions{} ORDER BY ts_micros DESC LIMIT {limit}",
         where_clause(&filters),
     );
+
     let result = run_optional_stream_query(
         runtime,
         &auth.org_id,
@@ -213,6 +236,7 @@ async fn correlated_rum(
         limit,
     )
     .await?;
+
     Ok(json!({
         "events": result.as_ref().map(rows_as_objects).unwrap_or_default(),
         "stream_available": result.is_some(),

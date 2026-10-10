@@ -35,18 +35,22 @@ pub(super) struct ObjectRegistry {
 impl ObjectRegistry {
     fn register(&self, organization_id: &Id, object: &StoredObject) -> Result<()> {
         let key = object.key.as_str().to_owned();
+
         let registered = RegisteredObject {
             organization_id: organization_id.clone(),
             object: object.clone(),
         };
+
         if let Some(existing) = self.objects.get(&key) {
             if *existing == registered {
                 return Ok(());
             }
+
             return Err(Error::internal(format!(
                 "immutable object key {key} was registered with different Catalog identity"
             )));
         }
+
         self.objects.insert(key, registered);
         Ok(())
     }
@@ -72,8 +76,10 @@ impl ObjectReader {
     ) -> Result<Arc<Self>> {
         let registry = Arc::new(ObjectRegistry::default());
         let cache_enabled = backend != "local" && settings.is_effectively_enabled();
+
         let read_store: Arc<dyn ObjectStore> = if cache_enabled {
             let cache = Arc::new(RangeBlockCache::new(settings)?);
+
             Arc::new(CachedObjectStore::new(
                 origin.clone(),
                 registry.clone(),
@@ -82,6 +88,7 @@ impl ObjectReader {
         } else {
             origin.clone()
         };
+
         if backend == "local" {
             tracing::info!(object_backend = "local", object_cache = "bypassed");
         } else if cache_enabled {
@@ -94,6 +101,7 @@ impl ObjectReader {
         } else {
             tracing::info!(object_backend = "remote", object_cache = "disabled");
         }
+
         Ok(Arc::new(Self {
             origin,
             read_store,
@@ -120,9 +128,11 @@ impl ObjectReader {
 
     pub fn register_segment(&self, organization_id: &Id, segment: &DataSegment) -> Result<()> {
         self.register(organization_id, &segment.primary.object)?;
+
         for artifact in &segment.auxiliaries {
             self.register(organization_id, &artifact.object)?;
         }
+
         Ok(())
     }
 }

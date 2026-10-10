@@ -13,6 +13,7 @@ use tonic::transport::{Channel, ClientTlsConfig};
 
 /// 连接超时（与联邦查询一致）。
 pub const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+
 /// 请求超时（与联邦查询一致）。
 pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
@@ -32,15 +33,18 @@ pub fn endpoint_url(advertise_addr: &str, tls_verify: bool) -> String {
 /// 失败返回泛化文案（不含 secret / 内部指针），供调用方记入 degraded / 仅 warn。
 pub async fn connect(advertise_addr: &str, tls_verify: bool) -> Result<Channel, String> {
     let url = endpoint_url(advertise_addr, tls_verify);
+
     let mut endpoint = Channel::from_shared(url.clone())
         .map_err(|e| format!("invalid endpoint: {e}"))?
         .connect_timeout(CONNECT_TIMEOUT)
         .timeout(REQUEST_TIMEOUT);
+
     if url.starts_with("https://") {
         endpoint = endpoint
             .tls_config(ClientTlsConfig::new().with_webpki_roots())
             .map_err(|e| format!("tls config: {e}"))?;
     }
+
     endpoint
         .connect()
         .await
@@ -50,11 +54,13 @@ pub async fn connect(advertise_addr: &str, tls_verify: bool) -> Result<Channel, 
 /// 给一个 tonic 请求挂 `authorization: Bearer <token>` 头。明文 token 绝不入日志。
 pub fn with_bearer<T>(req: &mut tonic::Request<T>, token: &str) -> Result<(), String> {
     let bearer = format!("Bearer {token}");
+
     req.metadata_mut().insert(
         "authorization",
         bearer
             .parse()
             .map_err(|_| "invalid bearer token bytes".to_string())?,
     );
+
     Ok(())
 }

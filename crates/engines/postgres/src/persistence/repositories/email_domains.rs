@@ -41,6 +41,7 @@ impl EmailDomainRepository for PgEmailDomainRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(rows
             .into_iter()
             .map(|r| r.try_get::<String, _>("domain").unwrap_or_default())
@@ -59,6 +60,7 @@ impl EmailDomainRepository for PgEmailDomainRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -69,6 +71,7 @@ impl EmailDomainRepository for PgEmailDomainRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(())
     }
 }

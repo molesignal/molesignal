@@ -53,7 +53,9 @@ impl InboundMcpAdapterRuntime {
             .entry(credential_key)
             .or_insert_with(|| Arc::new(CredentialAdmission::default()))
             .clone();
+
         let guard = admission.enter(max_concurrent, calls_per_minute)?;
+
         if self
             .admission_requests
             .fetch_add(1, Ordering::Relaxed)
@@ -63,6 +65,7 @@ impl InboundMcpAdapterRuntime {
             self.admissions
                 .retain(|_, admission| !admission.is_idle_at(now));
         }
+
         Ok(guard)
     }
 

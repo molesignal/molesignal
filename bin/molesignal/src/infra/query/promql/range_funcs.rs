@@ -38,6 +38,7 @@ pub(super) fn apply_range_vector_func(
             range_vector_value(func, &s.samples, at_us, params).map(|value| (s.labels, value))
         })
         .collect();
+
     InstantVector { items }
 }
 
@@ -53,11 +54,13 @@ pub(super) fn apply_range_vector_func_range(
 ) -> RangeVector {
     let range_us = (range.as_micros() as i64).max(1);
     let mut points = Vec::new();
+
     for s in series {
         each_step_window(&s.samples, start_us, end_us, step_us, range_us, |t, win| {
             let Some(value) = range_vector_value(func, win, t, params) else {
                 return;
             };
+
             points.push(RangePoint {
                 ts_us: t,
                 labels: s.labels.clone(),
@@ -65,6 +68,7 @@ pub(super) fn apply_range_vector_func_range(
             });
         });
     }
+
     RangeVector { points }
 }
 
@@ -84,6 +88,7 @@ pub(super) fn range_vector_value(
             if samples.len() < 2 {
                 return None;
             }
+
             let last = samples[samples.len() - 1].1;
             let prev = samples[samples.len() - 2].1;
             Some(last - prev)
@@ -114,23 +119,29 @@ fn linear_regression(samples: &[(i64, f64)], at_us: i64) -> Option<(f64, f64)> {
     if samples.len() < 2 {
         return None;
     }
+
     let n = samples.len() as f64;
+
     let xs: Vec<f64> = samples
         .iter()
         .map(|(ts, _)| (ts - at_us) as f64 / 1_000_000.0)
         .collect();
+
     let mean_x = xs.iter().sum::<f64>() / n;
     let mean_y = samples.iter().map(|(_, v)| *v).sum::<f64>() / n;
     let mut cov = 0.0;
     let mut var = 0.0;
+
     for (x, (_, y)) in xs.iter().zip(samples.iter()) {
         let dx = x - mean_x;
         cov += dx * (y - mean_y);
         var += dx * dx;
     }
+
     if var == 0.0 {
         return None;
     }
+
     let slope = cov / var;
     let intercept = mean_y - slope * mean_x;
     Some((slope, intercept))
@@ -139,11 +150,14 @@ fn linear_regression(samples: &[(i64, f64)], at_us: i64) -> Option<(f64, f64)> {
 /// Prometheus `holt_winters` 双指数平滑，返回末端平滑值。`sf`/`tf` 须在 (0,1)。
 fn holt_winters_value(samples: &[(i64, f64)], sf: f64, tf: f64) -> Option<f64> {
     let l = samples.len();
+
     if l < 2 {
         return None;
     }
+
     let mut s1 = samples[0].1;
     let mut b = samples[1].1 - samples[0].1;
+
     for sample in samples.iter().skip(1) {
         let x = sf * sample.1;
         let y = (1.0 - sf) * (s1 + b);
@@ -151,5 +165,6 @@ fn holt_winters_value(samples: &[(i64, f64)], sf: f64, tf: f64) -> Option<f64> {
         s1 = x + y;
         b = tf * (s1 - s0) + (1.0 - tf) * b;
     }
+
     Some(s1)
 }

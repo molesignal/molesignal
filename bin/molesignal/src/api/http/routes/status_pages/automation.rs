@@ -143,10 +143,12 @@ async fn create_rule(
     Json(input): Json<AutomationRuleInput>,
 ) -> Result<(StatusCode, Json<ActiveAutomationRule>)> {
     let page_id = Id(page_id);
+
     let rule = state
         .status_pages
         .create_automation_rule(&context.org_id, &page_id, &context.user_id, input)
         .await?;
+
     audit_rule(&state, &context, &rule.rule, "create").await;
     Ok((StatusCode::CREATED, Json(rule)))
 }
@@ -159,10 +161,12 @@ async fn reorder_rules(
     Json(input): Json<AutomationRuleOrderInput>,
 ) -> Result<Json<Vec<ActiveAutomationRule>>> {
     let page_id = Id(page_id);
+
     let rules = state
         .status_pages
         .reorder_automation_rules(&context.org_id, &page_id, &input.rule_ids)
         .await?;
+
     activity_audit::record(
         &state,
         &context,
@@ -172,6 +176,7 @@ async fn reorder_rules(
         serde_json::json!({ "rule_ids": input.rule_ids }),
     )
     .await;
+
     Ok(Json(rules))
 }
 
@@ -192,6 +197,7 @@ async fn create_revision(
             input,
         )
         .await?;
+
     Ok((StatusCode::CREATED, Json(revision)))
 }
 
@@ -210,6 +216,7 @@ async fn activate_revision(
             &Id(revision_id),
         )
         .await?;
+
     audit_rule(&state, &context, &active.rule, "activate").await;
     Ok(Json(active))
 }
@@ -225,6 +232,7 @@ async fn set_lifecycle(
         .status_pages
         .set_automation_rule_lifecycle(&context.org_id, &Id(page_id), &Id(rule_id), input.lifecycle)
         .await?;
+
     audit_rule(&state, &context, &rule, rule.lifecycle.as_str()).await;
     Ok(Json(rule))
 }
@@ -239,6 +247,7 @@ async fn simulate(
     let source_instance_id = input
         .source_instance_id
         .unwrap_or_else(|| input.source_id.clone());
+
     Ok(Json(
         state
             .status_pages
@@ -319,6 +328,7 @@ async fn approve_candidate(
             input,
         )
         .await?;
+
     audit_candidate(&state, &context, &candidate, "approve").await;
     Ok(Json(candidate))
 }
@@ -340,6 +350,7 @@ async fn reject_candidate(
             input.note.as_deref(),
         )
         .await?;
+
     audit_candidate(&state, &context, &candidate, "reject").await;
     Ok(Json(candidate))
 }
@@ -359,6 +370,7 @@ async fn retry_candidate(
             &context.user_id,
         )
         .await?;
+
     audit_candidate(&state, &context, &candidate, "retry").await;
     Ok(Json(candidate))
 }
@@ -373,6 +385,7 @@ async fn get_settings(
         .status_pages
         .get_automation_settings(&context.org_id, &Id(page_id))
         .await?;
+
     Ok(Json(SettingsView {
         paused: settings.is_some_and(|settings| settings.paused),
     }))
@@ -386,10 +399,12 @@ async fn set_settings(
     Json(input): Json<AutomationSettingsInput>,
 ) -> Result<Json<SettingsView>> {
     let page_id = Id(page_id);
+
     let settings = state
         .status_pages
         .set_automation_paused(&context.org_id, &page_id, &context.user_id, input.paused)
         .await?;
+
     activity_audit::record(
         &state,
         &context,
@@ -403,6 +418,7 @@ async fn set_settings(
         serde_json::json!({ "paused": settings.paused }),
     )
     .await;
+
     Ok(Json(SettingsView {
         paused: settings.paused,
     }))

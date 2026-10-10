@@ -19,6 +19,7 @@ pub(super) async fn enqueue_notify_event(
     let Some(engine) = engine else {
         return;
     };
+
     if event_type == ALERT_RESOLVED_EVENT
         && let Err(error) = engine
             .acknowledge_event(
@@ -34,6 +35,7 @@ pub(super) async fn enqueue_notify_event(
             "notify alert resolved acknowledgement update failed"
         );
     }
+
     if let Err(error) = engine
         .enqueue_event(alert_dispatch(incident, event_type))
         .await

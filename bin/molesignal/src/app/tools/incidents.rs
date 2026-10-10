@@ -53,12 +53,15 @@ async fn list_recent(
     arguments: Value,
 ) -> Result<ToolResult> {
     let args: RecentArgs = parse_args(arguments)?;
+
     let mut incidents = runtime
         .alerting
         .service
         .list_incidents_active(&auth.org_id)
         .await?;
+
     sort_and_limit(&mut incidents, args.limit.unwrap_or(50).clamp(1, 500));
+
     Ok(ToolResult::json(
         json!({"incidents": incidents, "status": "active"}),
     ))
@@ -85,6 +88,7 @@ async fn list_incidents(
     arguments: Value,
 ) -> Result<ToolResult> {
     let args: ListIncidentsArgs = parse_args(arguments)?;
+
     let mut incidents = match args.status.as_str() {
         "active" => {
             runtime
@@ -99,6 +103,7 @@ async fn list_incidents(
                 .service
                 .list_incidents_by_status(&auth.org_id, IncidentStatus::Resolved)
                 .await?;
+
             incidents.extend(
                 runtime
                     .alerting
@@ -106,6 +111,7 @@ async fn list_incidents(
                     .list_incidents_by_status(&auth.org_id, IncidentStatus::Closed)
                     .await?,
             );
+
             incidents
         }
         "all" => {
@@ -118,14 +124,18 @@ async fn list_incidents(
         }
         _ => return Err(Error::invalid("status must be active, resolved, or all")),
     };
+
     if args.time_range.is_some() {
         let range = optional_time_range(args.time_range)?;
+
         incidents.retain(|incident| {
             incident.created_at >= range.start && incident.created_at <= range.end
         });
     }
+
     let limit = args.limit.unwrap_or(50).clamp(1, 500);
     sort_and_limit(&mut incidents, limit);
+
     Ok(ToolResult::json(json!({
         "incidents": incidents, "status": args.status, "limit": limit,
     })))
@@ -148,19 +158,24 @@ async fn get_incident(
     arguments: Value,
 ) -> Result<ToolResult> {
     let args: IncidentArgs = parse_args(arguments)?;
+
     let incident = runtime
         .alerting
         .service
         .get_incident(&Id(args.incident_id))
         .await?;
+
     ensure_tenant(auth, &incident.org_id)?;
+
     let rule = runtime
         .alerting
         .service
         .get_rule(&incident.rule_id)
         .await
         .ok();
+
     let rca = runtime.alerting.incident_rca.get(&incident.id).await?;
+
     Ok(ToolResult::json(json!({
         "incident": incident, "rule": rule, "rca_available": rca.is_some(),
     })))
@@ -176,6 +191,7 @@ async fn get_incident_rca(
     let incident = runtime.alerting.service.get_incident(&incident_id).await?;
     ensure_tenant(auth, &incident.org_id)?;
     let rca = runtime.alerting.incident_rca.get(&incident_id).await?;
+
     Ok(ToolResult::json(json!({
         "incident_id": incident_id, "rca": rca,
         "available": rca.is_some(),
@@ -198,6 +214,7 @@ async fn get_incident_insights(
 ) -> Result<ToolResult> {
     let args: IncidentInsightsArgs = parse_args(arguments)?;
     let range = optional_time_range(args.time_range)?;
+
     let incidents = runtime
         .alerting
         .service
@@ -207,14 +224,17 @@ async fn get_incident_insights(
         .into_iter()
         .filter(|incident| incident.created_at <= range.end)
         .collect::<Vec<_>>();
+
     let mut status = BTreeMap::new();
     let mut severity = BTreeMap::new();
     let mut services = BTreeMap::new();
     let mut rules = BTreeMap::new();
+
     for incident in &incidents {
         increment(&mut status, incident.status.as_str());
         increment(&mut severity, incident.severity.as_str());
         increment(&mut rules, incident.rule_id.as_str());
+
         if incident.affected_services.is_empty() {
             increment(&mut services, "unknown");
         } else {
@@ -223,7 +243,9 @@ async fn get_incident_insights(
             }
         }
     }
+
     let limit = args.limit.unwrap_or(20).clamp(1, 100);
+
     Ok(ToolResult::json(json!({
         "time_range": range,
         "incident_count": incidents.len(),
@@ -243,9 +265,11 @@ fn top_counts(counts: BTreeMap<String, usize>, limit: usize) -> Vec<Value> {
         .into_iter()
         .map(|(value, count)| json!({"value": value, "count": count}))
         .collect::<Vec<_>>();
+
     rows.sort_by_key(|row| {
         std::cmp::Reverse(row.get("count").and_then(Value::as_u64).unwrap_or_default())
     });
+
     rows.truncate(limit);
     rows
 }
@@ -275,6 +299,7 @@ async fn list_on_call_schedules(
     let args: ScheduleArgs = parse_args(arguments)?;
     let at = TimestampMicros(args.at_micros.unwrap_or_else(|| TimestampMicros::now().0));
     let mut rows = Vec::new();
+
     for schedule in runtime
         .alerting
         .service
@@ -284,10 +309,12 @@ async fn list_on_call_schedules(
         if args.enabled_only.unwrap_or(true) && !schedule.enabled {
             continue;
         }
+
         let user = match schedule.who_is_on_call(at) {
             Some(user_id) => on_call_user(runtime, &user_id).await,
             None => Value::Null,
         };
+
         rows.push(json!({
             "schedule_id": schedule.id, "name": schedule.name,
             "description": schedule.description, "team_id": schedule.team_id,
@@ -296,6 +323,7 @@ async fn list_on_call_schedules(
             "override_count": schedule.overrides.len(), "current_on_call": user,
         }));
     }
+
     Ok(ToolResult::json(json!({
         "at_micros": at, "schedule_count": rows.len(), "schedules": rows,
     })))
@@ -313,14 +341,17 @@ async fn get_on_call_schedule(
     arguments: Value,
 ) -> Result<ToolResult> {
     let args: GetScheduleArgs = parse_args(arguments)?;
+
     let schedule = runtime
         .alerting
         .service
         .get_schedule(&Id(args.schedule_id))
         .await?;
+
     if schedule.org_id != auth.org_id {
         return Err(Error::not_found("schedule not found"));
     }
+
     Ok(ToolResult::json(json!({"schedule": schedule})))
 }
 
@@ -340,11 +371,14 @@ async fn current_on_call(
 ) -> Result<ToolResult> {
     let args: CurrentOnCallArgs = parse_args(arguments)?;
     let at = TimestampMicros(args.at_micros.unwrap_or_else(|| TimestampMicros::now().0));
+
     let schedules = if let Some(id) = args.schedule_id {
         let schedule = runtime.alerting.service.get_schedule(&Id(id)).await?;
+
         if schedule.org_id != auth.org_id {
             return Err(Error::not_found("schedule not found"));
         }
+
         vec![schedule]
     } else {
         runtime
@@ -353,7 +387,9 @@ async fn current_on_call(
             .list_schedules(&auth.org_id)
             .await?
     };
+
     let mut rows = Vec::new();
+
     for schedule in schedules.into_iter().filter(|schedule| schedule.enabled) {
         if let Some(user_id) = schedule.who_is_on_call(at) {
             rows.push(json!({
@@ -362,11 +398,13 @@ async fn current_on_call(
             }));
         }
     }
+
     Ok(ToolResult::json(json!({"at_micros": at, "on_call": rows})))
 }
 
 async fn on_call_user(runtime: &ToolRuntime, user_id: &Id) -> Value {
     let user = runtime.administration.iam.current_user(user_id).await.ok();
+
     json!({
         "id": user_id,
         "display_name": user.as_ref().map(|user| user.display_name.as_str()),

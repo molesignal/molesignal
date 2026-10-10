@@ -41,6 +41,7 @@ impl ProfileStorageService {
         let event = self
             .archive_metadata_event(org_id, normalized, raw_pprof)
             .await?;
+
         let batch = IntakeBatch {
             batch_id: Id::new(),
             org_id: org_id.clone(),
@@ -49,6 +50,7 @@ impl ProfileStorageService {
             events: vec![event],
             received_at: TimestampMicros::now(),
         };
+
         self.intake.intake(batch).await?;
         Ok(())
     }
@@ -66,7 +68,9 @@ impl ProfileStorageService {
         } else {
             TimestampMicros::now()
         };
+
         let profile_id = Id::new();
+
         let object_key = profiles::archive_object_key(
             org_id,
             &normalized.service,
@@ -74,11 +78,14 @@ impl ProfileStorageService {
             timestamp.0,
             &profile_id,
         );
+
         let archived = profiles::put_archive(&self.object_store, &object_key, raw_pprof).await?;
         let mut event = profiles::metadata_event(normalized, &object_key, archived, timestamp);
+
         event
             .fields
             .insert("id".into(), Value::from(profile_id.to_string()));
+
         Ok(event)
     }
 }

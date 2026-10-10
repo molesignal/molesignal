@@ -12,16 +12,22 @@ use crate::shared::time::TimestampMicros;
 /// Container-style metric streams (OTLP and self telemetry) persist the
 /// logical Prometheus metric identity alongside each sample.
 pub const METRIC_NAME_FIELD: &str = "metric_name";
+
 /// Persisted metric metadata used by catalogs; it is not a Prometheus label.
 pub const METRIC_KIND_FIELD: &str = "metric_kind";
+
 /// Human-readable OTLP metric description.
 pub const METRIC_DESCRIPTION_FIELD: &str = "metric_description";
+
 /// OTLP metric unit.
 pub const METRIC_UNIT_FIELD: &str = "metric_unit";
+
 /// OTLP aggregation temporality normalized to a stable string.
 pub const METRIC_TEMPORALITY_FIELD: &str = "metric_temporality";
+
 /// Whether an OTLP Sum is monotonic.
 pub const METRIC_MONOTONIC_FIELD: &str = "metric_monotonic";
+
 /// Aggregation interval start in Unix nanoseconds.
 pub const METRIC_START_TIME_UNIX_NANO_FIELD: &str = "metric_start_time_unix_nano";
 
@@ -52,6 +58,7 @@ pub fn is_metric_query_semantics_storage_field(name: &str) -> bool {
 ///
 /// 这些字段必须保留，避免远端 series label 覆盖内部标记后被普通 PromQL 当作样本。
 pub const PROMETHEUS_EXEMPLAR_MARKER_FIELD: &str = "__molesignal_exemplar";
+
 pub const PROMETHEUS_EXEMPLAR_VALUE_FIELD: &str = "__molesignal_exemplar_value";
 pub const PROMETHEUS_EXEMPLAR_LABELS_FIELD: &str = "__molesignal_exemplar_labels";
 

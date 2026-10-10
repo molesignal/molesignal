@@ -113,15 +113,19 @@ pub(crate) fn project(stream: &StreamDefinition, dataset_type: &DatasetTypeId) -
         builtin::DATASET_METRIC_CATALOG => Some(METRIC_CATALOG_FIELDS),
         _ => None,
     };
+
     let Some(fields) = fields else {
         return stream.clone();
     };
+
     let fields = fields.iter().copied().collect::<HashSet<_>>();
     let mut projected = stream.clone();
+
     projected
         .schema
         .fields
         .retain(|field| fields.contains(field.name.as_str()));
+
     projected
 }
 

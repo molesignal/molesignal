@@ -35,6 +35,7 @@ pub(super) async fn load(
         state.storage.read_store.clone(),
     )
     .with_catalog_source(state.storage.catalog_query.clone());
+
     let scope = RumScope {
         application: context.application.as_deref(),
         environment: context.environment.as_deref(),
@@ -42,55 +43,68 @@ pub(super) async fn load(
         country: context.country.as_deref(),
         device: context.device.as_deref(),
     };
+
     let mut seen_sessions = HashSet::new();
     let mut users = HashSet::new();
     let mut error_free_sessions = 0_i64;
     let mut browser_devices = BTreeMap::<String, i64>::new();
     let mut regions = BTreeMap::<String, i64>::new();
     let mut aggregate = SessionAggregate::default();
+
     let stats = reader
         .visit_sessions(&iam.org_id, context.time_range(), COLUMNS, |record| {
             if !record.matches_scope(scope) || !seen_sessions.insert(record.session_id.clone()) {
                 return;
             }
+
             users.insert(record.user_id.clone().unwrap_or(record.session_id.clone()));
             error_free_sessions += i64::from(record.error_count == 0);
+
             if !context.summary_only {
                 let browser = record.browser.as_deref().unwrap_or_default();
                 let device = record.device.as_deref().unwrap_or_default();
+
                 let browser_device = match (browser.is_empty(), device.is_empty()) {
                     (false, false) => format!("{browser} · {device}"),
                     (false, true) => browser.to_string(),
                     (true, false) => device.to_string(),
                     (true, true) => "—".into(),
                 };
+
                 *browser_devices.entry(browser_device).or_default() += 1;
+
                 *regions
                     .entry(record.country.clone().unwrap_or_else(|| "—".into()))
                     .or_default() += 1;
+
                 push_facet(
                     &mut aggregate,
                     "facet_application",
                     record.application.as_deref(),
                 );
+
                 push_facet(
                     &mut aggregate,
                     "facet_environment",
                     record.environment.as_deref(),
                 );
+
                 push_facet(&mut aggregate, "facet_version", record.version.as_deref());
                 push_facet(&mut aggregate, "facet_country", record.country.as_deref());
                 push_facet(&mut aggregate, "facet_device", record.device.as_deref());
             }
         })
         .await?;
+
     aggregate.users = i64::try_from(users.len()).unwrap_or(i64::MAX);
     aggregate.sessions = i64::try_from(seen_sessions.len()).unwrap_or(i64::MAX);
+
     aggregate.error_free_rate = if aggregate.sessions == 0 {
         0.0
     } else {
         error_free_sessions as f64 / aggregate.sessions as f64
     };
+
     aggregate.browser_devices = browser_devices.into_iter().collect();
     aggregate.regions = regions.into_iter().collect();
     tracing::debug!(

@@ -52,6 +52,7 @@ struct ExtractPatternUdf {
 impl ExtractPatternUdf {
     fn new(mut patterns: Vec<CompiledPattern>) -> Self {
         patterns.sort_by_key(|p| std::cmp::Reverse(p.priority));
+
         Self {
             signature: Signature::exact(vec![DataType::Utf8], Volatility::Immutable),
             patterns,
@@ -85,12 +86,14 @@ impl ScalarUDFImpl for ExtractPatternUdf {
                 ));
             }
         };
+
         let array = match value {
             ColumnarValue::Array(a) => a,
             ColumnarValue::Scalar(s) => s.to_array_of_size(1).map_err(|e| {
                 datafusion::error::DataFusionError::Execution(format!("scalar→array: {e}"))
             })?,
         };
+
         let str_arr = array
             .as_any()
             .downcast_ref::<StringArray>()
@@ -101,12 +104,15 @@ impl ScalarUDFImpl for ExtractPatternUdf {
             })?;
 
         let mut out: Vec<Option<String>> = Vec::with_capacity(str_arr.len());
+
         for i in 0..str_arr.len() {
             if str_arr.is_null(i) {
                 out.push(None);
                 continue;
             }
+
             let s = str_arr.value(i);
+
             // 现场 try-compile：常见用法每条 UDF 只用几条规则，开销很小
             let hit = self.patterns.iter().find_map(|p| {
                 regex::Regex::new(&p.regex_source).ok().and_then(|re| {
@@ -117,8 +123,10 @@ impl ScalarUDFImpl for ExtractPatternUdf {
                     }
                 })
             });
+
             out.push(hit);
         }
+
         let arr: ArrayRef = Arc::new(StringArray::from(out));
         Ok(ColumnarValue::Array(arr))
     }
@@ -148,7 +156,9 @@ impl PartialEq for DecryptUdf {
         self.signature == other.signature
     }
 }
+
 impl Eq for DecryptUdf {}
+
 impl std::hash::Hash for DecryptUdf {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.signature.hash(state);
@@ -184,12 +194,14 @@ impl ScalarUDFImpl for DecryptUdf {
         let value = args.args.into_iter().next().ok_or_else(|| {
             datafusion::error::DataFusionError::Execution("decrypt requires 1 argument".into())
         })?;
+
         let array = match value {
             ColumnarValue::Array(a) => a,
             ColumnarValue::Scalar(s) => s.to_array_of_size(1).map_err(|e| {
                 datafusion::error::DataFusionError::Execution(format!("scalar→array: {e}"))
             })?,
         };
+
         let str_arr = array
             .as_any()
             .downcast_ref::<StringArray>()
@@ -198,14 +210,17 @@ impl ScalarUDFImpl for DecryptUdf {
             })?;
 
         let mut out: Vec<Option<String>> = Vec::with_capacity(str_arr.len());
+
         for i in 0..str_arr.len() {
             if str_arr.is_null(i) {
                 out.push(None);
                 continue;
             }
+
             // 密文 → 明文；非密文原样透传；解密失败 → NULL（见 decrypt_field 语义）。
             out.push(decrypt_field(&self.keys, str_arr.value(i)));
         }
+
         let arr: ArrayRef = Arc::new(StringArray::from(out));
         Ok(ColumnarValue::Array(arr))
     }
@@ -234,7 +249,9 @@ impl PartialEq for MaskUdf {
         self.signature == other.signature
     }
 }
+
 impl Eq for MaskUdf {}
+
 impl std::hash::Hash for MaskUdf {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.signature.hash(state);
@@ -270,12 +287,14 @@ impl ScalarUDFImpl for MaskUdf {
         let value = args.args.into_iter().next().ok_or_else(|| {
             datafusion::error::DataFusionError::Execution("mask requires 1 argument".into())
         })?;
+
         let array = match value {
             ColumnarValue::Array(a) => a,
             ColumnarValue::Scalar(s) => s.to_array_of_size(1).map_err(|e| {
                 datafusion::error::DataFusionError::Execution(format!("scalar→array: {e}"))
             })?,
         };
+
         let str_arr = array
             .as_any()
             .downcast_ref::<StringArray>()
@@ -284,13 +303,16 @@ impl ScalarUDFImpl for MaskUdf {
             })?;
 
         let mut out: Vec<Option<String>> = Vec::with_capacity(str_arr.len());
+
         for i in 0..str_arr.len() {
             if str_arr.is_null(i) {
                 out.push(None);
                 continue;
             }
+
             out.push(Some(self.masker.mask_str(str_arr.value(i)).into_owned()));
         }
+
         let arr: ArrayRef = Arc::new(StringArray::from(out));
         Ok(ColumnarValue::Array(arr))
     }
@@ -299,6 +321,7 @@ impl ScalarUDFImpl for MaskUdf {
 /// 把 DB 行整理成 UDF 可用形式；不可解析的 regex 仅 warn 跳过。
 pub fn compile_patterns(rows: Vec<(String, String, i32)>) -> Vec<CompiledPattern> {
     let mut out = Vec::with_capacity(rows.len());
+
     for (re_src, category, priority) in rows {
         match regex::Regex::new(&re_src) {
             Ok(_) => out.push(CompiledPattern {
@@ -313,6 +336,7 @@ pub fn compile_patterns(rows: Vec<(String, String, i32)>) -> Vec<CompiledPattern
             ),
         }
     }
+
     out
 }
 

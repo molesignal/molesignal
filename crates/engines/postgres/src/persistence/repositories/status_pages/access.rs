@@ -15,9 +15,11 @@ use crate::{
 
 const RULE_COLS: &str = "id, org_id, status_page_id, kind, value_ciphertext,
     value_nonce, created_at_micros, updated_at_micros";
+
 const SESSION_COLS: &str = "id, org_id, status_page_id, access_rule_id,
     email_ciphertext, email_nonce, session_token_hash, origin_host,
     expires_at_micros, revoked_at_micros, last_seen_at_micros, created_at_micros";
+
 const SESSION_UPDATE_COLS: &str = "session.id AS id, session.org_id AS org_id,
     session.status_page_id AS status_page_id, session.access_rule_id AS access_rule_id,
     session.email_ciphertext AS email_ciphertext, session.email_nonce AS email_nonce,
@@ -44,6 +46,7 @@ impl PgStatusPageRepository {
             .cipher
             .open(nonce, ciphertext)
             .map_err(|_| Error::internal("status-page access value decryption failed"))?;
+
         String::from_utf8(plaintext)
             .map_err(|_| Error::internal("status-page access value is not UTF-8"))
     }
@@ -54,6 +57,7 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
     async fn create_access_rule(&self, rule: StatusPageAccessRule) -> Result<StatusPageAccessRule> {
         let (nonce, ciphertext) = self.seal_access_value(&rule.value)?;
         let hash = self.access_hash(&rule.org_id, &rule.value);
+
         let sql = format!(
             "INSERT INTO status_page_access_rules
                 (id, org_id, status_page_id, kind, value_ciphertext, value_nonce,
@@ -61,6 +65,7 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
              RETURNING {RULE_COLS}"
         );
+
         let row = sqlx::query(&sql)
             .bind(&rule.id.0)
             .bind(&rule.org_id.0)
@@ -74,6 +79,7 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
             .fetch_one(&self.pool)
             .await
             .map_err(super::sqlx_err)?;
+
         self.row_to_access_rule(row)
     }
 
@@ -87,6 +93,7 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
              WHERE org_id = $1 AND status_page_id = $2
              ORDER BY kind, created_at_micros, id LIMIT 1000"
         );
+
         sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&page_id.0)
@@ -107,6 +114,7 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
     ) -> Result<Option<StatusPageAccessRule>> {
         let email_hash = self.access_hash(org_id, email);
         let domain_hash = self.access_hash(org_id, &format!("@{domain}"));
+
         let sql = format!(
             "SELECT {RULE_COLS} FROM status_page_access_rules
              WHERE org_id = $1 AND status_page_id = $2
@@ -114,6 +122,7 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
                     OR (kind = 'domain' AND value_hash = $4))
              ORDER BY (kind = 'email') DESC LIMIT 1"
         );
+
         sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&page_id.0)
@@ -137,9 +146,11 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
         .execute(&self.pool)
         .await
         .map_err(super::sqlx_err)?;
+
         if result.rows_affected() == 0 {
             return Err(Error::not_found("status-page access rule not found"));
         }
+
         Ok(())
     }
 
@@ -147,15 +158,18 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
         let (nonce, ciphertext) = self.seal_access_value(&link.email)?;
         let email_hash = self.access_hash(&link.org_id, &link.email);
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
+
         let lock_key = format!(
             "status-page-magic-link:{}:{}:{}",
             link.org_id, link.status_page_id, email_hash
         );
+
         sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))")
             .bind(lock_key)
             .execute(&mut *transaction)
             .await
             .map_err(super::sqlx_err)?;
+
         let suppressed: bool = sqlx::query_scalar(
             "SELECT
                 EXISTS (
@@ -176,10 +190,12 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
         .fetch_one(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
+
         if suppressed {
             transaction.commit().await.map_err(super::sqlx_err)?;
             return Ok(false);
         }
+
         sqlx::query(
             "INSERT INTO status_page_magic_links
                 (id, org_id, status_page_id, access_rule_id, email_ciphertext,
@@ -202,6 +218,7 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
+
         transaction.commit().await.map_err(super::sqlx_err)?;
         Ok(true)
     }
@@ -219,7 +236,9 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
             session_expires_at,
             now,
         } = exchange;
+
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
+
         let row = sqlx::query(
             "SELECT link.id, link.org_id, link.status_page_id, link.access_rule_id,
                     link.email_ciphertext, link.email_nonce, link.token_hash,
@@ -244,7 +263,9 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
         .fetch_one(&mut *transaction)
         .await
         .map_err(|error| access_token_error(error, "magic link is invalid or expired"))?;
+
         let link = self.row_to_magic_link(&row)?;
+
         sqlx::query(
             "UPDATE status_page_magic_links SET consumed_at_micros = $2
              WHERE id = $1 AND consumed_at_micros IS NULL",
@@ -254,9 +275,11 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
+
         let email_ciphertext: Vec<u8> = row.try_get("email_ciphertext").map_err(super::sqlx_err)?;
         let email_nonce: Vec<u8> = row.try_get("email_nonce").map_err(super::sqlx_err)?;
         let email_hash = self.access_hash(&link.org_id, &link.email);
+
         let sql = format!(
             "INSERT INTO status_page_access_sessions
                 (id, org_id, status_page_id, access_rule_id, email_ciphertext,
@@ -266,6 +289,7 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NULL, $11, $11)
              RETURNING {SESSION_COLS}"
         );
+
         let session_row = sqlx::query(&sql)
             .bind(&session_id.0)
             .bind(&link.org_id.0)
@@ -281,6 +305,7 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
             .fetch_one(&mut *transaction)
             .await
             .map_err(super::sqlx_err)?;
+
         let session = self.row_to_access_session(session_row)?;
         transaction.commit().await.map_err(super::sqlx_err)?;
         Ok(ConsumedStatusPageMagicLink { link, session })
@@ -305,6 +330,7 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
                AND rule.id = session.access_rule_id
              RETURNING {SESSION_UPDATE_COLS}"
         );
+
         sqlx::query(&sql)
             .bind(&page_id.0)
             .bind(token_hash)
@@ -329,6 +355,7 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
                AND revoked_at_micros IS NULL AND expires_at_micros > $3
              ORDER BY last_seen_at_micros DESC, id DESC LIMIT 1000"
         );
+
         sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&page_id.0)
@@ -360,11 +387,13 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
         .execute(&self.pool)
         .await
         .map_err(super::sqlx_err)?;
+
         if result.rows_affected() == 0 {
             return Err(Error::not_found(
                 "active status-page access session not found",
             ));
         }
+
         Ok(())
     }
 
@@ -394,6 +423,7 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
     ) -> Result<u64> {
         let limit = i64::from(limit.min(1000));
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
+
         let sessions = sqlx::query(
             "WITH expired AS (
                 SELECT id FROM status_page_access_sessions
@@ -409,6 +439,7 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
         .await
         .map_err(super::sqlx_err)?
         .rows_affected();
+
         let links = sqlx::query(
             "WITH expired AS (
                 SELECT id FROM status_page_magic_links
@@ -424,6 +455,7 @@ impl StatusPageAccessRepository for PgStatusPageRepository {
         .await
         .map_err(super::sqlx_err)?
         .rows_affected();
+
         transaction.commit().await.map_err(super::sqlx_err)?;
         Ok(sessions.saturating_add(links))
     }

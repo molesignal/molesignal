@@ -31,9 +31,11 @@ impl RecordBuilder {
     /// 丢弃所有尚未发布的数据：等待重试的、正在发布的和活跃的 generation。
     pub fn discard_all(&mut self) -> Discarded {
         let mut discarded = Discarded::default();
+
         for batch in self.pending.drain(..).chain(self.inflight.take()) {
             discarded.add_batch(&batch);
         }
+
         discarded.add(self.discard_active());
         discarded
     }
@@ -41,13 +43,17 @@ impl RecordBuilder {
     /// 只丢弃属于 `writer` 的未发布数据；其它 writer（例如重启后新 epoch 的写入）不受影响。
     pub fn discard_writer(&mut self, writer: &BufferWriter) -> Discarded {
         let mut discarded = Discarded::default();
+
         self.pending.retain(|batch| {
             let doomed = batch.writer == *writer;
+
             if doomed {
                 discarded.add_batch(batch);
             }
+
             !doomed
         });
+
         if self
             .inflight
             .as_ref()
@@ -56,9 +62,11 @@ impl RecordBuilder {
         {
             discarded.add_batch(&batch);
         }
+
         if self.active_writer.as_ref() == Some(writer) {
             discarded.add(self.discard_active());
         }
+
         discarded
     }
 
@@ -66,13 +74,16 @@ impl RecordBuilder {
         if self.row_count == 0 {
             return Discarded::default();
         }
+
         let discarded = Discarded {
             rows: self.row_count,
             accounted_bytes: self.accounted_size_bytes,
         };
+
         for column in self.columns.values_mut() {
             let _ = column.finish();
         }
+
         self.active_sequences.clear();
         self.active_writer = None;
         self.accounted_size_bytes = 0;

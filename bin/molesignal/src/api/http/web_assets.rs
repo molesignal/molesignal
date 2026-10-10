@@ -22,10 +22,12 @@ use bytes::Bytes;
 const HTML_CACHE_CONTROL: &str = "no-store, max-age=0";
 const IMMUTABLE_CACHE_CONTROL: &str = "public, max-age=31536000, immutable";
 const ROOT_ASSET_CACHE_CONTROL: &str = "public, max-age=3600";
+
 const STATIC_EXTENSIONS: &[&str] = &[
     "css", "ico", "jpeg", "jpg", "js", "json", "map", "mjs", "png", "svg", "ttf", "txt", "wasm",
     "webp", "woff", "woff2", "xml",
 ];
+
 const BACKEND_PREFIXES: &[&str] = &[
     "/api",
     "/metrics",
@@ -53,12 +55,14 @@ pub(crate) fn with_embedded_web(router: Router) -> Router {
 
 async fn serve(request: Request) -> Response {
     let method = request.method();
+
     if method != Method::GET && method != Method::HEAD {
         return StatusCode::NOT_FOUND.into_response();
     }
 
     let path = request.uri().path();
     let asset_path = path.strip_prefix('/').unwrap_or(path);
+
     if let Some(asset) = find_asset(if asset_path.is_empty() {
         "index.html"
     } else {
@@ -76,6 +80,7 @@ async fn serve(request: Request) -> Response {
         .get(ACCEPT)
         .and_then(|value| value.to_str().ok())
         .is_some_and(|value| value.to_ascii_lowercase().contains("text/html"));
+
     if path == "/" || accepts_html || request.headers().get(ACCEPT).is_none() {
         return asset_response(index_asset(), method == Method::HEAD);
     }
@@ -102,28 +107,35 @@ fn asset_response(asset: &'static EmbeddedWebAsset, head_only: bool) -> Response
     } else {
         ROOT_ASSET_CACHE_CONTROL
     };
+
     let body = if head_only {
         Body::empty()
     } else {
         Body::from(Bytes::from_static(asset.body))
     };
+
     let mut response = Response::new(body);
     *response.status_mut() = StatusCode::OK;
+
     response
         .headers_mut()
         .insert(CONTENT_TYPE, HeaderValue::from_static(asset.content_type));
+
     response
         .headers_mut()
         .insert(CACHE_CONTROL, HeaderValue::from_static(cache_control));
+
     response.headers_mut().insert(
         CONTENT_LENGTH,
         HeaderValue::from_str(&asset.body.len().to_string())
             .expect("usize always formats as a valid Content-Length"),
     );
+
     response.headers_mut().insert(
         "x-content-type-options",
         HeaderValue::from_static("nosniff"),
     );
+
     response
 }
 
@@ -140,10 +152,13 @@ fn looks_like_missing_asset(path: &str) -> bool {
     if path.starts_with("/assets/") {
         return true;
     }
+
     let segment = path.rsplit_once('/').map_or(path, |(_, segment)| segment);
+
     let Some((_, extension)) = segment.rsplit_once('.') else {
         return false;
     };
+
     STATIC_EXTENSIONS
         .iter()
         .any(|candidate| extension.eq_ignore_ascii_case(candidate))

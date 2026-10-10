@@ -10,6 +10,7 @@ pub(crate) fn record_intake_usage(state: &AppState, org_id: &Id, bytes: u64, now
     if bytes > 0 {
         let usage = state.platform.usage.clone();
         let usage_org_id = org_id.clone();
+
         crate::shared::trace_context::spawn_with_current_trace_context(async move {
             if let Err(e) = usage
                 .add_hourly_intake_bytes(&usage_org_id, now_micros, bytes as i64)

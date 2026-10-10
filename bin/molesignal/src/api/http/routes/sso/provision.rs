@@ -42,13 +42,16 @@ pub(in crate::api::http::routes) async fn complete_login(
     default_role_id: Option<&str>,
 ) -> Result<FederatedLoginResponse> {
     let email = identity.email.trim().to_ascii_lowercase();
+
     if email.is_empty() || !email.contains('@') {
         return Err(Error::unauthorized(
             "external identity does not contain a valid email address",
         ));
     }
+
     let org = state.iam.service.orgs.get(&provider.org_id).await?;
     org.ensure_enabled()?;
+
     let display_name = match identity.display_name.trim() {
         "" => email.clone(),
         name => name.to_owned(),
@@ -59,6 +62,7 @@ pub(in crate::api::http::routes) async fn complete_login(
         Err(Error::NotFound(_)) => {
             super::super::email_domains::ensure_email_allowed(state, &provider.org_id, &email)
                 .await?;
+
             state
                 .iam
                 .service
@@ -67,6 +71,7 @@ pub(in crate::api::http::routes) async fn complete_login(
         }
         Err(error) => return Err(error),
     };
+
     state.iam.service.ensure_user_access(&user.id).await?;
 
     let memberships = state
@@ -75,14 +80,18 @@ pub(in crate::api::http::routes) async fn complete_login(
         .iam_memberships
         .list_for_user(&user.id)
         .await?;
+
     let membership = memberships
         .iter()
         .find(|membership| membership.org_id == provider.org_id)
         .cloned();
+
     if membership.is_none() {
         super::super::email_domains::ensure_email_allowed(state, &provider.org_id, &email).await?;
     }
+
     let mut role_ids = map_role_ids(&identity.groups, group_role_mapping, default_role_id);
+
     if membership.is_none() && role_ids.is_empty() {
         role_ids.push(
             state
@@ -93,6 +102,7 @@ pub(in crate::api::http::routes) async fn complete_login(
                 .await?,
         );
     }
+
     if membership.is_none() || !role_ids.is_empty() {
         state
             .iam
@@ -113,6 +123,7 @@ pub(in crate::api::http::routes) async fn complete_login(
     }
 
     let now = TimestampMicros::now();
+
     state
         .iam
         .sso_sessions
@@ -132,11 +143,13 @@ pub(in crate::api::http::routes) async fn complete_login(
         .iam_memberships
         .assigned_roles(&user.id, &provider.org_id)
         .await?;
+
     let display_role = roles
         .iter()
         .map(|role| role.name.as_str())
         .collect::<Vec<_>>()
         .join(", ");
+
     let token = state.iam.service.issue_token(&user.id, &provider.org_id)?;
 
     Ok(FederatedLoginResponse {
@@ -161,11 +174,13 @@ fn map_role_ids(
         .filter_map(|group| mapping.get(group))
         .map(|role_id| Id::from_string(role_id.clone()))
         .collect::<Vec<_>>();
+
     if role_ids.is_empty()
         && let Some(role_id) = fallback
     {
         role_ids.push(Id::from_string(role_id));
     }
+
     role_ids.sort_by(|left, right| left.0.cmp(&right.0));
     role_ids.dedup();
     role_ids
@@ -182,9 +197,11 @@ fn provider_kind_name(kind: SsoProviderKind) -> &'static str {
 fn random_password() -> String {
     let mut bytes = [0_u8; 32];
     use rand::TryRng as _;
+
     rand::rngs::SysRng
         .try_fill_bytes(&mut bytes)
         .expect("operating-system RNG");
+
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
 }
 

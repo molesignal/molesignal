@@ -49,12 +49,14 @@ impl ProtocolStatus {
         {
             return ApmOutcome::Error;
         }
+
         if self.otel_status.eq_ignore_ascii_case("ok")
             || self.http_status_code.is_some_and(|code| code < 500)
             || self.rpc_status_code == Some(0)
         {
             return ApmOutcome::Success;
         }
+
         ApmOutcome::Unknown
     }
 }

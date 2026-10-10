@@ -47,6 +47,7 @@ impl AnalyzerRule for ResultRowGuard {
         if self.max_rows == 0 {
             return Ok(plan);
         }
+
         // 已有 LIMIT（结果有界）或含聚合（注入会截断分组）→ 不注入。
         let bounded_or_agg = plan.exists(|n| {
             Ok(matches!(
@@ -54,9 +55,11 @@ impl AnalyzerRule for ResultRowGuard {
                 LogicalPlan::Limit(_) | LogicalPlan::Aggregate(_)
             ))
         })?;
+
         if bounded_or_agg {
             return Ok(plan);
         }
+
         LogicalPlanBuilder::from(plan)
             .limit(0, Some(self.max_rows))?
             .build()
@@ -70,12 +73,15 @@ pub fn session_context(max_rows: usize) -> SessionContext {
     let mut rules: Vec<Arc<dyn AnalyzerRule + Send + Sync>> =
         vec![Arc::new(TimestampIntegerLiteral)];
     rules.extend(Analyzer::new().rules);
+
     let mut builder = SessionStateBuilder::new()
         .with_default_features()
         .with_analyzer_rules(rules);
+
     if max_rows > 0 {
         builder = builder.with_analyzer_rule(Arc::new(ResultRowGuard::new(max_rows)));
     }
+
     SessionContext::new_with_state(builder.build())
 }
 

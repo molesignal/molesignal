@@ -102,24 +102,30 @@ impl AlertingService {
         self.rules_changed();
         Ok(created)
     }
+
     pub async fn get_rule(&self, id: &Id) -> Result<AlertRule> {
         self.rules.get(id).await
     }
+
     pub async fn update_rule(&self, rule: AlertRule) -> Result<AlertRule> {
         realtime::validate(&rule)?;
         // 只校验被改动的引用：策略事后被删的规则仍可继续编辑其它字段。
         let existing = self.rules.get(&rule.id).await?;
+
         if existing.escalation_policy_id != rule.escalation_policy_id {
             self.ensure_policy_exists(&rule.org_id, &rule.escalation_policy_id)
                 .await?;
         }
+
         let updated = self.rules.update(rule).await?;
         self.rules_changed();
         Ok(updated)
     }
+
     pub async fn list_rules(&self, org_id: &Id) -> Result<Vec<AlertRule>> {
         self.rules.list(org_id).await
     }
+
     pub async fn delete_rule(&self, id: &Id) -> Result<()> {
         self.rules.delete(id).await?;
         self.rules_changed();
@@ -130,18 +136,23 @@ impl AlertingService {
     pub async fn create_schedule(&self, s: Schedule) -> Result<Schedule> {
         self.schedules.create(s).await
     }
+
     pub async fn get_schedule(&self, id: &Id) -> Result<Schedule> {
         self.schedules.get(id).await
     }
+
     pub async fn list_schedules(&self, org_id: &Id) -> Result<Vec<Schedule>> {
         self.schedules.list(org_id).await
     }
+
     pub async fn update_schedule(&self, s: Schedule) -> Result<Schedule> {
         self.schedules.update(s).await
     }
+
     pub async fn delete_schedule(&self, id: &Id) -> Result<()> {
         self.schedules.delete(id).await
     }
+
     pub async fn who_is_on_call(
         &self,
         schedule_id: &Id,
@@ -155,15 +166,19 @@ impl AlertingService {
     pub async fn create_policy(&self, p: EscalationPolicy) -> Result<EscalationPolicy> {
         self.escalations.create(p).await
     }
+
     pub async fn get_policy(&self, id: &Id) -> Result<EscalationPolicy> {
         self.escalations.get(id).await
     }
+
     pub async fn list_policies(&self, org_id: &Id) -> Result<Vec<EscalationPolicy>> {
         self.escalations.list(org_id).await
     }
+
     pub async fn update_policy(&self, p: EscalationPolicy) -> Result<EscalationPolicy> {
         self.escalations.update(p).await
     }
+
     pub async fn delete_policy(&self, id: &Id) -> Result<()> {
         self.escalations.delete(id).await
     }
@@ -172,9 +187,11 @@ impl AlertingService {
     pub async fn get_incident(&self, id: &Id) -> Result<Incident> {
         self.incidents.get(id).await
     }
+
     pub async fn list_incidents_active(&self, org_id: &Id) -> Result<Vec<Incident>> {
         self.incidents.list_active(org_id).await
     }
+
     pub async fn list_incidents_by_status(
         &self,
         org_id: &Id,
@@ -193,6 +210,7 @@ impl AlertingService {
         at: TimestampMicros,
     ) -> Result<Incident> {
         let mut next = self.incidents.get(incident_id).await?;
+
         match next.status {
             IncidentStatus::Acknowledged => return Ok(next),
             IncidentStatus::Resolved | IncidentStatus::Closed => {
@@ -200,12 +218,15 @@ impl AlertingService {
             }
             IncidentStatus::Open => {}
         }
+
         next.status = IncidentStatus::Acknowledged;
         next.acknowledged_at = Some(at);
         next.acknowledged_by = Some(by.clone());
+
         if !next.assignees.contains(&by) {
             next.assignees.push(by);
         }
+
         let Some(incident) = self
             .incidents
             .update_if_status(next, &[IncidentStatus::Open])
@@ -213,11 +234,13 @@ impl AlertingService {
         else {
             // 读到状态之后被并发操作抢先：以库里的最新状态为准。
             let latest = self.incidents.get(incident_id).await?;
+
             return match latest.status {
                 IncidentStatus::Acknowledged => Ok(latest),
                 _ => Err(Error::conflict("only an open incident can be acknowledged")),
             };
         };
+
         self.emit_lifecycle(&incident).await;
         self.notify_transition(&incident, ALERT_ACKNOWLEDGED_EVENT, at)
             .await;
@@ -227,21 +250,25 @@ impl AlertingService {
     /// 解决一个 `open` 或 `acknowledged` 事件。已解决或关闭的事件原样返回。
     pub async fn resolve(&self, incident_id: &Id, by: Id, at: TimestampMicros) -> Result<Incident> {
         let mut next = self.incidents.get(incident_id).await?;
+
         if matches!(
             next.status,
             IncidentStatus::Resolved | IncidentStatus::Closed
         ) {
             return Ok(next);
         }
+
         next.status = IncidentStatus::Resolved;
         next.resolved_at = Some(at);
         next.resolved_by = Some(by);
+
         let Some(incident) = self
             .incidents
             .update_if_status(next, &[IncidentStatus::Open, IncidentStatus::Acknowledged])
             .await?
         else {
             let latest = self.incidents.get(incident_id).await?;
+
             return match latest.status {
                 IncidentStatus::Resolved | IncidentStatus::Closed => Ok(latest),
                 _ => Err(Error::conflict(
@@ -249,6 +276,7 @@ impl AlertingService {
                 )),
             };
         };
+
         self.emit_lifecycle(&incident).await;
         self.notify_transition(&incident, ALERT_RESOLVED_EVENT, at)
             .await;
@@ -265,6 +293,7 @@ impl AlertingService {
         let Some(engine) = &self.notify_engine else {
             return;
         };
+
         if let Err(error) = engine
             .acknowledge_event(&incident.org_id, &triggered_event_id(&incident.id), at)
             .await
@@ -276,6 +305,7 @@ impl AlertingService {
                 "notify triggered event acknowledgement update failed"
             );
         }
+
         if let Err(error) = engine
             .enqueue_event(alert_dispatch(incident, event_type))
             .await
@@ -294,10 +324,13 @@ impl AlertingService {
         if policy_id.0 == DEFAULT_POLICY_ID {
             return Ok(());
         }
+
         let policies = self.escalations.list(org_id).await?;
+
         if policies.iter().any(|policy| policy.id == *policy_id) {
             return Ok(());
         }
+
         Err(Error::invalid(format!(
             "escalation_policy_id `{policy_id}` does not match an escalation policy in this organization"
         )))

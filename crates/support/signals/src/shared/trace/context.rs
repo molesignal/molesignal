@@ -115,12 +115,14 @@ impl TraceContext {
                 .and_then(|value| value.to_str().ok())
                 .unwrap_or_default(),
         );
+
         let request_id = validated_or_new_request_id(
             headers
                 .get(REQUEST_ID)
                 .and_then(|value| value.to_str().ok())
                 .or_else(|| baggage.get("request.id").map(String::as_str)),
         );
+
         let parsed = headers
             .get(TRACEPARENT)
             .and_then(|value| value.to_str().ok())
@@ -152,23 +154,27 @@ impl TraceContext {
                 root
             }
         };
+
         context.apply_trusted_force(
             headers
                 .get(TRACE_FORCE)
                 .and_then(|value| value.to_str().ok())
                 == Some("1"),
         );
+
         // Correlation baggage always mirrors the one validated request ID selected above.
         // Tenant org is removed for external callers and supplied only after auth.
         context
             .baggage
             .insert("request.id".into(), context.request_id.clone());
+
         context.clear_untrusted_org();
         context
     }
 
     pub fn extract_grpc(metadata: &MetadataMap, trust: TraceTrust) -> Self {
         let mut headers = HeaderMap::new();
+
         for name in [TRACEPARENT, TRACESTATE, BAGGAGE, REQUEST_ID, TRACE_FORCE] {
             if let Some(value) = metadata.get(name).and_then(|value| value.to_str().ok())
                 && let Ok(value) = HeaderValue::from_str(value)
@@ -176,6 +182,7 @@ impl TraceContext {
                 headers.insert(HeaderName::from_static(name), value);
             }
         }
+
         Self::extract_http(&headers, trust)
     }
 
@@ -228,14 +235,18 @@ impl TraceContext {
 
     pub fn inject_http(&self, headers: &mut HeaderMap, internal_target: bool) {
         insert_http(headers, TRACEPARENT, &self.traceparent());
+
         if !self.trace_state.is_empty() {
             insert_http(headers, TRACESTATE, &self.trace_state);
         } else {
             headers.remove(TRACESTATE);
         }
+
         insert_http(headers, REQUEST_ID, &self.request_id);
+
         if internal_target {
             let baggage = self.baggage_header();
+
             if !baggage.is_empty() {
                 insert_http(headers, BAGGAGE, &baggage);
             } else {
@@ -250,14 +261,18 @@ impl TraceContext {
 
     pub fn inject_grpc(&self, metadata: &mut MetadataMap, internal_target: bool) {
         insert_metadata(metadata, TRACEPARENT, &self.traceparent());
+
         if !self.trace_state.is_empty() {
             insert_metadata(metadata, TRACESTATE, &self.trace_state);
         } else {
             metadata.remove(TRACESTATE);
         }
+
         insert_metadata(metadata, REQUEST_ID, &self.request_id);
+
         if internal_target {
             let baggage = self.baggage_header();
+
             if !baggage.is_empty() {
                 insert_metadata(metadata, BAGGAGE, &baggage);
             } else {
@@ -312,6 +327,7 @@ pub fn linked_execution_root(
     let context = link
         .map(SerializedTraceLink::new_execution_root)
         .unwrap_or_else(|| TraceContext::new_root(Uuid::now_v7().to_string()));
+
     let links = link
         .map(|link| {
             serde_json::json!([{
@@ -325,6 +341,7 @@ pub fn linked_execution_root(
             .to_string()
         })
         .unwrap_or_else(|| "[]".into());
+
     let span = tracing::info_span!(
         parent: None,
         "async.execution",
@@ -335,6 +352,7 @@ pub fn linked_execution_root(
         molesignal.async.operation = operation,
         links = %links,
     );
+
     (context, span)
 }
 
@@ -348,11 +366,13 @@ fn parse_traceparent(value: &str) -> Option<ParsedTraceparent> {
     if value.len() != 55 {
         return None;
     }
+
     let mut parts = value.split('-');
     let version = parts.next()?;
     let trace_id = parts.next()?;
     let parent_span_id = parts.next()?;
     let flags = parts.next()?;
+
     if parts.next().is_some()
         || version.len() != 2
         || version.eq_ignore_ascii_case("ff")
@@ -368,6 +388,7 @@ fn parse_traceparent(value: &str) -> Option<ParsedTraceparent> {
     {
         return None;
     }
+
     Some(ParsedTraceparent {
         trace_id: trace_id.into(),
         parent_span_id: parent_span_id.into(),
@@ -389,6 +410,7 @@ fn valid_tracestate(value: &str) -> Option<String> {
     {
         return None;
     }
+
     Some(value.trim().to_string())
 }
 
@@ -396,6 +418,7 @@ fn extract_baggage(value: &str) -> BTreeMap<String, String> {
     if value.len() > MAX_BAGGAGE_BYTES {
         return BTreeMap::new();
     }
+
     value
         .split(',')
         .filter_map(|member| {
@@ -403,9 +426,11 @@ fn extract_baggage(value: &str) -> BTreeMap<String, String> {
             let (key, value) = pair.split_once('=')?;
             let key = key.trim();
             let value = value.trim();
+
             if !matches!(key, "org.id" | "request.id") || !valid_correlation_value(value) {
                 return None;
             }
+
             Some((key.to_string(), value.to_string()))
         })
         .collect()
@@ -437,9 +462,11 @@ pub(crate) fn new_trace_id() -> String {
 pub(crate) fn new_span_id() -> String {
     loop {
         let mut bytes = [0_u8; 8];
+
         rand::rngs::SysRng
             .try_fill_bytes(&mut bytes)
             .expect("operating-system random source");
+
         if bytes != [0; 8] {
             return hex::encode(bytes);
         }

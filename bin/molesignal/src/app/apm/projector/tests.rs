@@ -33,6 +33,7 @@ impl ApmWriteRepository for MemoryWriter {
         if self.fail.load(Ordering::Relaxed) {
             return Err(crate::shared::Error::internal("unavailable"));
         }
+
         Ok(())
     }
 
@@ -41,6 +42,7 @@ impl ApmWriteRepository for MemoryWriter {
         snapshots: &[OwnerSnapshot],
     ) -> Result<SnapshotWriteStats> {
         self.snapshots.lock().extend_from_slice(snapshots);
+
         Ok(SnapshotWriteStats {
             attempted: snapshots.len() as u64,
             applied: snapshots.len() as u64,

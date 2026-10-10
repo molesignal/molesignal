@@ -103,11 +103,13 @@ fn ch_row(r: sqlx::postgres::PgRow) -> AcmeChallenge {
 impl DomainRepository for PgDomainRepository {
     async fn create(&self, d: DomainRow) -> Result<DomainRow> {
         let mut transaction = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))")
             .bind(format!("custom-domain:{}", d.hostname))
             .execute(&mut *transaction)
             .await
             .map_err(sqlx_err)?;
+
         let reserved_by_status_page: bool = sqlx::query_scalar(
             "SELECT EXISTS (
                  SELECT 1 FROM status_page_domain_configs WHERE hostname = $1
@@ -117,11 +119,13 @@ impl DomainRepository for PgDomainRepository {
         .fetch_one(&mut *transaction)
         .await
         .map_err(sqlx_err)?;
+
         if reserved_by_status_page {
             return Err(Error::conflict(
                 "domain is already reserved by a status page",
             ));
         }
+
         sqlx::query(
             "INSERT INTO domains
                 (id, org_id, hostname, state, cert_pem, cert_not_after_micros, last_error,
@@ -140,48 +144,57 @@ impl DomainRepository for PgDomainRepository {
         .execute(&mut *transaction)
         .await
         .map_err(sqlx_err)?;
+
         transaction.commit().await.map_err(sqlx_err)?;
         Ok(d)
     }
 
     async fn get(&self, org_id: &Id, id: &Id) -> Result<DomainRow> {
         let sql = format!("SELECT {COLS} FROM domains WHERE org_id = $1 AND id = $2");
+
         let row = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&id.0)
             .fetch_one(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(row_to(row))
     }
 
     async fn find_by_hostname(&self, hostname: &str) -> Result<Option<DomainRow>> {
         let sql = format!("SELECT {COLS} FROM domains WHERE hostname = $1");
+
         let row = sqlx::query(&sql)
             .bind(hostname)
             .fetch_optional(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(row.map(row_to))
     }
 
     async fn list(&self, org_id: &Id) -> Result<Vec<DomainRow>> {
         let sql = format!("SELECT {COLS} FROM domains WHERE org_id = $1 ORDER BY hostname");
+
         let rows = sqlx::query(&sql)
             .bind(&org_id.0)
             .fetch_all(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(rows.into_iter().map(row_to).collect())
     }
 
     async fn list_by_state(&self, state: &str) -> Result<Vec<DomainRow>> {
         let sql = format!("SELECT {COLS} FROM domains WHERE state = $1 ORDER BY hostname");
+
         let rows = sqlx::query(&sql)
             .bind(state)
             .fetch_all(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(rows.into_iter().map(row_to).collect())
     }
 
@@ -207,6 +220,7 @@ impl DomainRepository for PgDomainRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -217,6 +231,7 @@ impl DomainRepository for PgDomainRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -235,6 +250,7 @@ impl DomainRepository for PgDomainRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -247,6 +263,7 @@ impl DomainRepository for PgDomainRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(row.map(ch_row))
     }
 
@@ -256,6 +273,7 @@ impl DomainRepository for PgDomainRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(res.rows_affected())
     }
 }

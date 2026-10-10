@@ -50,6 +50,7 @@ fn build_s3(
     credentials: &ResolvedCredentials,
 ) -> Result<Arc<dyn ObjectStore>> {
     let bucket = cfg.bucket.trim();
+
     if bucket.is_empty() {
         return Err(Error::invalid("object_store.bucket required for s3"));
     }
@@ -57,23 +58,29 @@ fn build_s3(
     let mut b = AmazonS3Builder::new()
         .with_bucket_name(bucket)
         .with_virtual_hosted_style_request(!cfg.path_style);
+
     if !cfg.region.trim().is_empty() {
         b = b.with_region(cfg.region.trim());
     }
+
     if let Some(endpoint) = prepare_s3_endpoint(cfg, bucket)? {
         b = b.with_endpoint(endpoint.url);
+
         if endpoint.allow_http {
             b = b.with_allow_http(true);
         }
     }
+
     if credentials.is_set() {
         b = b
             .with_access_key_id(&credentials.access_key)
             .with_secret_access_key(&credentials.secret_key);
     }
+
     let store = b
         .build()
         .map_err(|e| Error::internal(format!("s3 object_store build: {e}")))?;
+
     Ok(Arc::new(store))
 }
 
@@ -91,6 +98,7 @@ fn prepare_s3_endpoint(
     bucket: &str,
 ) -> Result<Option<PreparedS3Endpoint>> {
     let raw = cfg.endpoint.trim();
+
     if raw.is_empty() {
         return Ok(None);
     }
@@ -100,20 +108,24 @@ fn prepare_s3_endpoint(
             "object_store.endpoint must be an absolute HTTP(S) URL: {e}"
         ))
     })?;
+
     if !matches!(endpoint.scheme(), "http" | "https") {
         return Err(Error::invalid(
             "object_store.endpoint scheme must be http or https",
         ));
     }
+
     let host = endpoint
         .host_str()
         .ok_or_else(|| Error::invalid("object_store.endpoint must include a host"))?
         .to_owned();
+
     if !endpoint.username().is_empty() || endpoint.password().is_some() {
         return Err(Error::invalid(
             "object_store.endpoint must not include credentials",
         ));
     }
+
     if endpoint.query().is_some() || endpoint.fragment().is_some() {
         return Err(Error::invalid(
             "object_store.endpoint must not include a query or fragment",
@@ -122,8 +134,10 @@ fn prepare_s3_endpoint(
 
     if !cfg.path_style {
         let expected_prefix = format!("{}.", bucket.to_ascii_lowercase());
+
         if !host.to_ascii_lowercase().starts_with(&expected_prefix) {
             let virtual_host = format!("{bucket}.{host}");
+
             endpoint.set_host(Some(&virtual_host)).map_err(|e| {
                 Error::invalid(format!(
                     "object_store bucket cannot be used in a virtual-hosted endpoint: {e}"
@@ -134,11 +148,13 @@ fn prepare_s3_endpoint(
 
     let allow_http = endpoint.scheme() == "http";
     let url = endpoint.as_str().trim_end_matches('/').to_owned();
+
     let request_url = if cfg.path_style {
         format!("{url}/{bucket}/_health/probe")
     } else {
         format!("{url}/_health/probe")
     };
+
     request_url.parse::<http::Uri>().map_err(|e| {
         Error::invalid(format!(
             "object_store endpoint produces an invalid request URI: {e}"
@@ -155,15 +171,19 @@ fn build_azure(
     if cfg.bucket.is_empty() {
         return Err(Error::invalid("object_store.bucket required for azure"));
     }
+
     // Azure 的 account / access_key 优先走环境变量
     // AZURE_STORAGE_ACCOUNT / AZURE_STORAGE_ACCESS_KEY；显式配置覆盖之。
     let mut b = MicrosoftAzureBuilder::from_env().with_container_name(&cfg.bucket);
+
     if !credentials.access_key.is_empty() {
         b = b.with_access_key(&credentials.access_key);
     }
+
     let store = b
         .build()
         .map_err(|e| Error::internal(format!("azure object_store build: {e}")))?;
+
     Ok(Arc::new(store))
 }
 
@@ -171,11 +191,13 @@ fn build_gcs(cfg: &ObjectStoreSettings) -> Result<Arc<dyn ObjectStore>> {
     if cfg.bucket.is_empty() {
         return Err(Error::invalid("object_store.bucket required for gcs"));
     }
+
     // GCS 凭据走 GOOGLE_APPLICATION_CREDENTIALS（指向 service account json）。
     let store = GoogleCloudStorageBuilder::from_env()
         .with_bucket_name(&cfg.bucket)
         .build()
         .map_err(|e| Error::internal(format!("gcs object_store build: {e}")))?;
+
     Ok(Arc::new(store))
 }
 

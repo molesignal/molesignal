@@ -36,19 +36,23 @@ pub(in crate::api::http::routes::agent) async fn execute_approved_operation(
             "idempotency_key length must be between 1 and 128",
         ));
     }
+
     let approval = state
         .agent
         .repository
         .get_approval(&ctx.org_id, approval_id)
         .await?;
+
     authorize_execution_actor(ctx, &approval)?;
     let (_, required_permission) = operation_policy(&approval.action)?;
+
     if !operation_permission_allowed(ctx, &approval.action, required_permission) {
         return Err(Error::forbidden(format!(
             "operation '{}' requires permission '{}'",
             approval.action, required_permission
         )));
     }
+
     if let Some(existing) = state
         .agent
         .repository
@@ -60,11 +64,13 @@ pub(in crate::api::http::routes::agent) async fn execute_approved_operation(
                 "idempotency_key is already bound to another approval",
             ));
         }
+
         return Ok(OperationExecution {
             execution: existing,
             one_time_result: None,
         });
     }
+
     if approval.status == ApprovalStatus::Executed {
         return state
             .agent
@@ -79,15 +85,18 @@ pub(in crate::api::http::routes::agent) async fn execute_approved_operation(
             })
             .ok_or_else(|| Error::internal("executed approval is missing its execution"));
     }
+
     if approval.status != ApprovalStatus::Approved {
         return Err(Error::conflict("approval has not reached approved status"));
     }
+
     if approval
         .expires_at
         .is_some_and(|expires| expires.0 <= TimestampMicros::now().0)
     {
         return Err(Error::conflict("approval has expired"));
     }
+
     let approved_by = approval
         .reviews
         .as_array()
@@ -97,7 +106,9 @@ pub(in crate::api::http::routes::agent) async fn execute_approved_operation(
         .filter_map(|review| review["reviewer_id"].as_str())
         .map(|id| Id(id.to_string()))
         .collect::<Vec<_>>();
+
     let now = TimestampMicros::now();
+
     let mut execution = Execution {
         id: Id::new(),
         org_id: ctx.org_id.clone(),
@@ -118,22 +129,27 @@ pub(in crate::api::http::routes::agent) async fn execute_approved_operation(
         created_at: now,
         updated_at: now,
     };
+
     let proposed_execution_id = execution.id.clone();
     execution = state.agent.repository.create_execution(execution).await?;
+
     if execution.id != proposed_execution_id {
         if execution.approval_request_id != approval.id {
             return Err(Error::conflict(
                 "idempotency_key is already bound to another approval",
             ));
         }
+
         return Ok(OperationExecution {
             execution,
             one_time_result: None,
         });
     }
+
     let outcome = run_registered_operation(state, ctx, &approval).await;
     let finished = TimestampMicros::now();
     let mut one_time_result = None;
+
     match outcome {
         Ok(mut outcome) => {
             one_time_result = execution_response::take_one_time_result(&mut outcome.verification);
@@ -147,14 +163,17 @@ pub(in crate::api::http::routes::agent) async fn execute_approved_operation(
             execution.verification = json!({"verified": false});
         }
     }
+
     execution.finished_at = Some(finished);
     execution.updated_at = finished;
     execution = state.agent.repository.update_execution(execution).await?;
+
     let _ = state
         .agent
         .repository
         .mark_approval_executed(&ctx.org_id, approval_id, finished)
         .await?;
+
     activity_audit::record(
         state,
         ctx,
@@ -170,6 +189,7 @@ pub(in crate::api::http::routes::agent) async fn execute_approved_operation(
         }),
     )
     .await;
+
     Ok(OperationExecution {
         execution,
         one_time_result,
@@ -200,14 +220,18 @@ async fn run_registered_operation(
     if approval.action == "create_dashboard" {
         return dashboard_operation::execute(state, ctx, approval).await;
     }
+
     if resource_operation::supports(&approval.action) {
         return resource_operation::execute(state, ctx, approval).await;
     }
+
     let incident_id = Id(approval.target.clone());
     let incident = state.alerting.service.get_incident(&incident_id).await?;
+
     if incident.org_id != ctx.org_id {
         return Err(Error::forbidden("alert belongs to another organization"));
     }
+
     match approval.action.as_str() {
         "acknowledge_alert" => match incident.status {
             IncidentStatus::Acknowledged => Ok(OperationOutcome::verified(
@@ -223,6 +247,7 @@ async fn run_registered_operation(
                         TimestampMicros::now(),
                     )
                     .await?;
+
                 Ok(OperationOutcome::verified(
                     "alert acknowledged and state re-read successfully",
                 ))
@@ -243,6 +268,7 @@ async fn run_registered_operation(
                         TimestampMicros::now(),
                     )
                     .await?;
+
                 Ok(OperationOutcome::verified(
                     "alert resolved and state re-read successfully",
                 ))

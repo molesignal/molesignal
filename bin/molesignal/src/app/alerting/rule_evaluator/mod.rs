@@ -144,20 +144,25 @@ impl RuleEvaluator {
     pub async fn tick(&self, now: TimestampMicros) -> Result<()> {
         let rules = self.rules.list_enabled().await?;
         let mut owned = 0;
+
         for rule in rules {
             // 写入路径上的匹配器负责的实时规则在记录写入时求值，评估器跳过它们。
             if is_matched_at_intake(&rule) {
                 continue;
             }
+
             // 每条规则开评前判定归属：一轮评估可能很长，成员变化后要及时让出或接管。
             if !self.ownership.owns(rule.id.as_str()).await {
                 continue;
             }
+
             owned += 1;
+
             if let Err(e) = self.eval_one(&rule, now).await {
                 tracing::warn!(rule_id = %rule.id, error = %e, "rule eval failed");
             }
         }
+
         self.ownership.record_owned(WORK, owned);
         Ok(())
     }
@@ -177,6 +182,7 @@ impl RuleEvaluator {
             );
             return Ok(());
         };
+
         let period_us = (rule.query.period_secs as i64) * 1_000_000;
 
         // 同一周期只评估一次：别的节点已经评估过本周期（成员变化时两个节点都拥有这条规则）就跳过。
@@ -206,6 +212,7 @@ impl RuleEvaluator {
         };
 
         let fingerprint = compute_fingerprint(rule);
+
         let existing = self
             .incidents
             .find_by_fingerprint(&rule.org_id, &fingerprint)
@@ -218,6 +225,7 @@ impl RuleEvaluator {
             // 所有档都不命中 → resolve open incident（命中但未到 for_periods 的 pending 不动）。
             self.on_cleared(rule, existing, now).await?;
         }
+
         self.record_evaluation(rule, &decision, now).await;
         Ok(())
     }

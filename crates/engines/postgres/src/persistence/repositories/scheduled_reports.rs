@@ -47,6 +47,7 @@ pub enum DeliveryStatus {
     Sent,
     Failed,
 }
+
 impl DeliveryStatus {
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -55,6 +56,7 @@ impl DeliveryStatus {
             Self::Failed => "failed",
         }
     }
+
     pub fn parse(s: &str) -> Self {
         match s {
             "sent" => Self::Sent,
@@ -110,6 +112,7 @@ fn row_to(r: sqlx::postgres::PgRow) -> ScheduledReport {
     let recipients: Json<Vec<ReportRecipient>> =
         r.try_get("recipients_json").unwrap_or(Json(Vec::new()));
     let time_range: Json<Value> = r.try_get("time_range_json").unwrap_or(Json(Value::Null));
+
     ScheduledReport {
         id: Id(r.try_get::<String, _>("id").unwrap_or_default()),
         org_id: Id(r.try_get::<String, _>("org_id").unwrap_or_default()),
@@ -180,6 +183,7 @@ impl ScheduledReportRepository for PgScheduledReportRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(r)
     }
 
@@ -205,37 +209,44 @@ impl ScheduledReportRepository for PgScheduledReportRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(r)
     }
 
     async fn get(&self, org_id: &Id, id: &Id) -> Result<ScheduledReport> {
         let sql = format!("SELECT {COLS} FROM scheduled_reports WHERE org_id = $1 AND id = $2");
+
         let row = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&id.0)
             .fetch_one(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(row_to(row))
     }
 
     async fn get_by_id(&self, id: &Id) -> Result<ScheduledReport> {
         let sql = format!("SELECT {COLS} FROM scheduled_reports WHERE id = $1");
+
         let row = sqlx::query(&sql)
             .bind(&id.0)
             .fetch_one(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(row_to(row))
     }
 
     async fn list(&self, org_id: &Id) -> Result<Vec<ScheduledReport>> {
         let sql = format!("SELECT {COLS} FROM scheduled_reports WHERE org_id = $1 ORDER BY name");
+
         let rows = sqlx::query(&sql)
             .bind(&org_id.0)
             .fetch_all(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(rows.into_iter().map(row_to).collect())
     }
 
@@ -243,10 +254,12 @@ impl ScheduledReportRepository for PgScheduledReportRepository {
         let sql = format!(
             "SELECT {COLS} FROM scheduled_reports WHERE enabled = TRUE ORDER BY org_id, name"
         );
+
         let rows = sqlx::query(&sql)
             .fetch_all(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(rows.into_iter().map(row_to).collect())
     }
 
@@ -257,6 +270,7 @@ impl ScheduledReportRepository for PgScheduledReportRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -267,6 +281,7 @@ impl ScheduledReportRepository for PgScheduledReportRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -289,6 +304,7 @@ impl ScheduledReportRepository for PgScheduledReportRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -306,6 +322,7 @@ impl ScheduledReportRepository for PgScheduledReportRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(rows.into_iter().map(delivery_row_to).collect())
     }
 }

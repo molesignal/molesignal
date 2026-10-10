@@ -7,6 +7,7 @@ use super::SemanticState;
 
 pub(super) fn validate_references(state: &mut SemanticState<'_>) {
     let variable_references = std::mem::take(&mut state.variable_references);
+
     for (path, variable) in variable_references {
         if !state.variable_names.contains(&variable) {
             state.issue(
@@ -16,7 +17,9 @@ pub(super) fn validate_references(state: &mut SemanticState<'_>) {
             );
         }
     }
+
     let shared_queries = std::mem::take(&mut state.shared_queries);
+
     for (path, panel, ref_id) in shared_queries {
         if !state
             .panel_refs
@@ -65,33 +68,42 @@ pub(super) fn variable_names(text: &str) -> Vec<String> {
     let chars = text.chars().collect::<Vec<_>>();
     let mut names = Vec::new();
     let mut index = 0;
+
     while index < chars.len() {
         if chars[index] != '$' {
             index += 1;
             continue;
         }
+
         index += 1;
         let braced = chars.get(index) == Some(&'{');
+
         if braced {
             index += 1;
         }
+
         let start = index;
+
         while chars
             .get(index)
             .is_some_and(|character| character.is_ascii_alphanumeric() || *character == '_')
         {
             index += 1;
         }
+
         if index > start {
             let name = chars[start..index].iter().collect::<String>();
+
             if !name.starts_with("__") {
                 names.push(name);
             }
         }
+
         if braced && chars.get(index) == Some(&'}') {
             index += 1;
         }
     }
+
     names
 }
 

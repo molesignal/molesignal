@@ -21,10 +21,12 @@ impl NotifyEngine {
         let Some(template_id) = &policy.template_id else {
             return Ok(message.clone());
         };
+
         let template = self
             .templates
             .get(&event.organization_id, template_id)
             .await?;
+
         validate_template_for_notify(&template)?;
         render_message(&template, event, message)
     }
@@ -38,11 +40,13 @@ pub fn validate_notify_template_body(body: &str) -> Result<()> {
     if body.trim().is_empty() {
         return Err(Error::invalid("notify template body must not be empty"));
     }
+
     if let Some(path) = placeholder_paths(body).find(|path| path.len() > 128) {
         return Err(Error::invalid(format!(
             "notify template placeholder is too long: {path}"
         )));
     }
+
     Ok(())
 }
 
@@ -52,6 +56,7 @@ fn render_message(
     message: &NotifyMessage,
 ) -> Result<NotifyMessage> {
     let body = render_template(&template.body, event, message);
+
     match template.format.as_str() {
         "text" => Ok(NotifyMessage {
             title: message.title.clone(),
@@ -90,12 +95,14 @@ fn collect_attribute_values(values: &mut BTreeMap<String, String>, value: &Value
     let Some(fields) = value.as_object() else {
         return;
     };
+
     for (key, value) in fields {
         let path = if prefix.is_empty() {
             key.clone()
         } else {
             format!("{prefix}.{key}")
         };
+
         if value.is_object() {
             collect_attribute_values(values, value, &path);
         } else {
@@ -110,6 +117,7 @@ fn alias(values: &mut BTreeMap<String, String>, target: &str, sources: &[&str]) 
     if values.contains_key(target) {
         return;
     }
+
     if let Some(value) = sources
         .iter()
         .find_map(|source| values.get(*source))
@@ -130,32 +138,39 @@ fn template_values(event: &NotifyEvent, message: &NotifyMessage) -> BTreeMap<Str
 
     alias(&mut values, "occurred_at", &["event.occurred_at"]);
     alias(&mut values, "rule.id", &["rule_id"]);
+
     alias(
         &mut values,
         "rule.name",
         &["rule_name", "summary", "incident.summary"],
     );
+
     alias(&mut values, "rule.description", &["rule_description"]);
     values.entry("rule.description".into()).or_default();
     alias(&mut values, "incident.id", &["incident_id", "alert_id"]);
     alias(&mut values, "incident.fingerprint", &["fingerprint"]);
     alias(&mut values, "incident.status", &["status"]);
     alias(&mut values, "incident.summary", &["summary"]);
+
     alias(
         &mut values,
         "evaluated_at",
         &["evaluated_at_micros", "event.occurred_at"],
     );
+
     alias(
         &mut values,
         "evaluated_at_micros",
         &["evaluated_at", "event.occurred_at"],
     );
+
     alias(&mut values, "rule_name", &["rule.name", "summary"]);
     alias(&mut values, "incident_id", &["incident.id", "alert_id"]);
+
     values
         .entry("value".into())
         .or_insert_with(|| "null".into());
+
     values
         .entry("threshold".into())
         .or_insert_with(|| "null".into());
@@ -166,18 +181,22 @@ fn template_values(event: &NotifyEvent, message: &NotifyMessage) -> BTreeMap<Str
     alias(&mut values, "schedule.timezone", &["timezone"]);
     alias(&mut values, "oncall.current_user_id", &["current_user_id"]);
     alias(&mut values, "oncall.next_user_id", &["next_user_id"]);
+
     alias(
         &mut values,
         "oncall.transition_at",
         &["transition_at_micros"],
     );
+
     alias(&mut values, "override.id", &["override_id"]);
     alias(&mut values, "override.user_id", &["override_user_id"]);
+
     alias(
         &mut values,
         "override.original_user_id",
         &["original_user_id"],
     );
+
     alias(&mut values, "override.start_at", &["start_at_micros"]);
     alias(&mut values, "override.end_at", &["end_at_micros"]);
     alias(&mut values, "override.reason", &["reason"]);
@@ -195,15 +214,19 @@ fn render_template(body: &str, event: &NotifyEvent, message: &NotifyMessage) -> 
     let values = template_values(event, message);
     let mut output = String::with_capacity(body.len());
     let mut rest = body;
+
     while let Some(start) = rest.find("{{") {
         output.push_str(&rest[..start]);
         let after_open = &rest[start + 2..];
+
         let Some(end) = after_open.find("}}") else {
             output.push_str(&rest[start..]);
             return output;
         };
+
         let raw_path = &after_open[..end];
         let path = raw_path.trim();
+
         if let Some(value) = values.get(path) {
             output.push_str(value);
         } else {
@@ -211,8 +234,10 @@ fn render_template(body: &str, event: &NotifyEvent, message: &NotifyMessage) -> 
             output.push_str(raw_path);
             output.push_str("}}");
         }
+
         rest = &after_open[end + 2..];
     }
+
     output.push_str(rest);
     output
 }

@@ -80,9 +80,11 @@ fn rewrap_blob(
     ct: &[u8],
 ) -> crate::shared::Result<(Vec<u8>, Vec<u8>)> {
     use crate::shared::Error;
+
     let raw = old
         .open(nonce, ct)
         .map_err(|e| Error::invalid(format!("rewrap open with old KEK: {e}")))?;
+
     new.seal(&raw)
         .map_err(|e| Error::internal(format!("rewrap seal with new KEK: {e}")))
 }
@@ -93,15 +95,18 @@ fn select_sql(spec: &RewrapSpec) -> String {
         .iter()
         .map(|column| format!("{column}::TEXT AS {column}"))
         .collect();
+
     for (n, c) in spec.pairs {
         cols.push((*n).to_string());
         cols.push((*c).to_string());
     }
+
     format!("SELECT {} FROM {}", cols.join(", "), spec.table)
 }
 
 fn update_sql(table: &str, set_cols: &[&str], pk: &[&str]) -> String {
     let mut idx = 1;
+
     let sets: Vec<String> = set_cols
         .iter()
         .map(|c| {
@@ -110,6 +115,7 @@ fn update_sql(table: &str, set_cols: &[&str], pk: &[&str]) -> String {
             s
         })
         .collect();
+
     let wheres: Vec<String> = pk
         .iter()
         .map(|c| {
@@ -118,6 +124,7 @@ fn update_sql(table: &str, set_cols: &[&str], pk: &[&str]) -> String {
             s
         })
         .collect();
+
     format!(
         "UPDATE {} SET {} WHERE {}",
         table,
@@ -136,14 +143,18 @@ async fn rewrap_table(
         .fetch_all(pool)
         .await
         .map_err(sqlx_err)?;
+
     let mut updated = 0usize;
+
     for row in &rows {
         // 重包本行所有非空 pair。
         let mut set_cols: Vec<&str> = Vec::new();
         let mut set_vals: Vec<Vec<u8>> = Vec::new();
+
         for (ncol, ccol) in spec.pairs {
             let nonce: Option<Vec<u8>> = row.try_get(*ncol).map_err(sqlx_err)?;
             let ct: Option<Vec<u8>> = row.try_get(*ccol).map_err(sqlx_err)?;
+
             if let (Some(n), Some(c)) = (nonce, ct) {
                 let (nn, nc) = rewrap_blob(old, new, &n, &c)?;
                 set_cols.push(ncol);
@@ -152,25 +163,32 @@ async fn rewrap_table(
                 set_vals.push(nc);
             }
         }
+
         if set_cols.is_empty() {
             continue; // 该行无（已配的）密文列
         }
+
         let pk_vals: Vec<String> = spec
             .pk
             .iter()
             .map(|c| row.try_get::<String, _>(*c).map_err(sqlx_err))
             .collect::<crate::shared::Result<_>>()?;
+
         let sql = update_sql(spec.table, &set_cols, spec.pk);
         let mut q = sqlx::query(&sql);
+
         for v in &set_vals {
             q = q.bind(v.as_slice());
         }
+
         for pk in &pk_vals {
             q = q.bind(pk.as_str());
         }
+
         q.execute(pool).await.map_err(sqlx_err)?;
         updated += 1;
     }
+
     Ok(updated)
 }
 
@@ -181,10 +199,12 @@ pub async fn rewrap_all(
     new: &CipherRootKey,
 ) -> crate::shared::Result<Vec<(String, usize)>> {
     let mut report = Vec::with_capacity(SPECS.len());
+
     for spec in SPECS {
         let n = rewrap_table(pool, old, new, spec).await?;
         report.push((spec.table.to_string(), n));
     }
+
     Ok(report)
 }
 

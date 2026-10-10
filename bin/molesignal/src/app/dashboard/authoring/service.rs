@@ -73,6 +73,7 @@ impl DashboardAuthoringService {
     pub async fn capabilities(&self) -> Result<DashboardAuthoringCapabilities> {
         let contracts = self.contracts.active().await?;
         let manifest = &contracts.manifest;
+
         Ok(DashboardAuthoringCapabilities {
             authoring_versions: manifest.authoring_versions.clone(),
             dashboard_model_version: manifest.dashboard_model_version,
@@ -102,12 +103,14 @@ impl DashboardAuthoringService {
         let contracts = self.contracts.active().await?;
         ensure_supported_authoring_version(&input, &contracts.manifest)?;
         let contract_issues = contracts.authoring_validator.validate(&input);
+
         if !contract_issues.is_empty() {
             return Err(Error::validation(
                 "dashboard authoring specification is invalid",
                 contract_issues,
             ));
         }
+
         let spec: DashboardAuthoringSpec = serde_json::from_value(input).map_err(|error| {
             Error::validation(
                 "dashboard authoring specification is invalid",
@@ -119,22 +122,28 @@ impl DashboardAuthoringService {
                 )],
             )
         })?;
+
         let folder_id = spec.folder_id.as_deref().map(Id::from_string);
+
         if let Some(folder_id) = &folder_id {
             self.dashboard.folders().get(&org_id, folder_id).await?;
         }
+
         let compiled = DashboardAuthoringCompiler::compile_with_contracts(
             &spec,
             &contracts.manifest,
             &contracts.model_validator,
         )?;
+
         let preflight = self.preflight.preflight(&org_id, &actor, &spec).await?;
+
         if !preflight.issues.is_empty() {
             return Err(Error::validation(
                 "dashboard query preflight failed",
                 preflight.issues,
             ));
         }
+
         self.persist_ready_draft(
             ReadyDraftInput {
                 org_id,
@@ -157,9 +166,11 @@ impl DashboardAuthoringService {
     ) -> Result<DashboardDraft> {
         let now = TimestampMicros::now();
         let draft = self.drafts.get(org_id, draft_id, now).await?;
+
         if &draft.created_by != actor {
             return Err(Error::not_found("dashboard draft not found"));
         }
+
         let contracts = self.contracts.active().await?;
         validate_current_draft(&draft, now, &contracts)?;
         Ok(draft)
@@ -177,6 +188,7 @@ impl DashboardAuthoringService {
             .drafts
             .get(org_id, draft_id, TimestampMicros::now())
             .await?;
+
         let contracts = self.contracts.active().await?;
         validate_draft_contracts(&draft, &contracts)?;
         Ok(draft)
@@ -190,12 +202,14 @@ impl DashboardAuthoringService {
         expected_hash: &str,
     ) -> Result<DashboardDraft> {
         let draft = self.get_draft(org_id, actor, draft_id).await?;
+
         if draft.model_hash != expected_hash {
             return Err(draft_error(
                 "DRAFT_HASH_MISMATCH",
                 "Dashboard draft hash does not match the reviewed preview",
             ));
         }
+
         Ok(draft)
     }
 
@@ -209,6 +223,7 @@ impl DashboardAuthoringService {
         let draft = self
             .validate_reference(&org_id, &actor, &draft_id, &expected_hash)
             .await?;
+
         self.dashboard
             .create_from_draft(org_id, actor, draft, expected_hash)
             .await
@@ -227,11 +242,13 @@ impl DashboardAuthoringService {
             compiled,
             preflight,
         } = input;
+
         let now = TimestampMicros::now();
         let ttl_micros = i64::try_from(self.draft_ttl.as_micros()).unwrap_or(i64::MAX);
         let expires_at = TimestampMicros(now.0.saturating_add(ttl_micros));
         let normalized_spec =
             serde_json::to_value(&spec).map_err(|error| Error::internal(error.to_string()))?;
+
         let warnings = preflight
             .warnings
             .iter()
@@ -241,6 +258,7 @@ impl DashboardAuthoringService {
                 message: warning.message.clone(),
             })
             .collect::<Vec<_>>();
+
         let draft = DashboardDraft {
             id: Id::new(),
             org_id,
@@ -269,7 +287,9 @@ impl DashboardAuthoringService {
             expires_at,
             consumed_at: None,
         };
+
         let draft = self.drafts.create(draft).await?;
+
         Ok(PreparedDashboardDraft {
             draft_id: draft.id.clone(),
             model_hash: draft.model_hash.clone(),
@@ -290,6 +310,7 @@ fn ensure_supported_authoring_version(
         .get("authoringVersion")
         .and_then(Value::as_u64)
         .and_then(|value| u32::try_from(value).ok());
+
     if version.is_none_or(|version| !manifest.authoring_versions.contains(&version)) {
         return Err(Error::validation(
             "unsupported Dashboard authoring contract version",
@@ -304,6 +325,7 @@ fn ensure_supported_authoring_version(
             )],
         ));
     }
+
     Ok(())
 }
 
@@ -318,6 +340,7 @@ fn validate_current_draft(
             "Dashboard draft has expired; prepare it again",
         ));
     }
+
     validate_draft_contracts(draft, contracts)
 }
 
@@ -326,6 +349,7 @@ fn validate_draft_contracts(
     contracts: &ResolvedDashboardContracts,
 ) -> Result<()> {
     let manifest = &contracts.manifest;
+
     if !manifest
         .authoring_versions
         .contains(&draft.authoring_version)
@@ -343,15 +367,18 @@ fn validate_draft_contracts(
             "Dashboard draft was compiled by an incompatible contract revision",
         ));
     }
+
     let actual_hash = contracts
         .model_validator
         .canonical_hash(&draft.compiled_model);
+
     if actual_hash != draft.model_hash {
         return Err(draft_error(
             "DRAFT_HASH_MISMATCH",
             "Dashboard draft content no longer matches its integrity hash",
         ));
     }
+
     ensure_dashboard_model_with(
         &draft.compiled_model,
         DashboardValidationMode::Native,
@@ -371,6 +398,7 @@ fn draft_summary(spec: &DashboardAuthoringSpec) -> Value {
     let mut panels = 0usize;
     let mut text_blocks = 0usize;
     let mut queries = 0usize;
+
     for element in &spec.elements {
         match element {
             AuthoringElement::Panel(panel) => {
@@ -391,6 +419,7 @@ fn draft_summary(spec: &DashboardAuthoringSpec) -> Value {
             }
         }
     }
+
     json!({
         "title": spec.title,
         "panels": panels,

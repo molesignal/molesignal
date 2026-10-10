@@ -34,29 +34,34 @@ pub(super) fn validate_field_update(
     }
 
     let mut seen = HashSet::new();
+
     let value_fields = fields
         .into_iter()
         .map(|field| normalize_field(field, &mut seen))
         .collect::<Result<Vec<_>>>()?;
 
     let mut require_empty = false;
+
     for current in &existing.value_fields {
         let Some(next) = value_fields
             .iter()
             .find(|candidate| candidate.name == current.name)
         else {
             require_empty = true;
+
             if existing.row_count > 0 {
                 return Err(Error::conflict(format!(
                     "field {} cannot be removed or renamed while the table contains records",
                     current.name
                 )));
             }
+
             continue;
         };
 
         if next.field_type != current.field_type {
             require_empty = true;
+
             if existing.row_count > 0 {
                 return Err(Error::conflict(format!(
                     "field {} type cannot change while the table contains records",

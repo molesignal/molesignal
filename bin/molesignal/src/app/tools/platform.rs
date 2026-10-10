@@ -24,6 +24,7 @@ pub(super) async fn execute(
         BuiltinToolKind::GetPlatformCapabilities => {
             let _: EmptyArgs = parse_args(arguments)?;
             let mut domains = BTreeMap::<String, Vec<Value>>::new();
+
             for tool in tools_for_surface(ctx.source().surface()) {
                 domains.entry(tool.domain.clone()).or_default().push(json!({
                     "name": tool.name,
@@ -35,6 +36,7 @@ pub(super) async fn execute(
                     "exposure": tool.exposure,
                 }));
             }
+
             Ok(ToolResult::json(json!({
                 "builtin_tool_count": domains.values().map(Vec::len).sum::<usize>(),
                 "surface": ctx.source().surface(),

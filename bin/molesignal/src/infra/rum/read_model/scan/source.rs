@@ -22,6 +22,7 @@ impl ScanInput {
         let Some(dataset) = dataset else {
             return Self::default();
         };
+
         Self {
             files: dataset
                 .files
@@ -54,6 +55,7 @@ impl RumReadModelReader {
         F: FnMut(&RecordBatch, TimeRange),
     {
         let mut stats = ScanStats::default();
+
         for buffered in input.batches {
             stats.rows += buffered.batch.num_rows();
             visitor(&buffered.batch, buffered.range);
@@ -61,19 +63,25 @@ impl RumReadModelReader {
 
         let reads = stream::iter(input.files).map(|file| {
             let store = self.object_store.clone();
+
             async move {
                 let reader = ParquetReader::new(store.clone());
+
                 let options = ReadOptions::new()
                     .with_time_range(file.range.start.0, file.range.end.0)
                     .with_columns(columns)
                     .with_known_size(file.meta.size_bytes);
+
                 let result = reader
                     .read_from_store(store, &file.meta.object_key, options)
                     .await;
+
                 (file, result)
             }
         });
+
         let mut reads = reads.buffer_unordered(FILE_READ_CONCURRENCY);
+
         while let Some((file, result)) = reads.next().await {
             let batches = match result {
                 Ok(batches) => batches,
@@ -86,12 +94,15 @@ impl RumReadModelReader {
                 }
                 Err(error) => return Err(error),
             };
+
             stats.files += 1;
+
             for batch in batches {
                 stats.rows += batch.num_rows();
                 visitor(&batch, file.range);
             }
         }
+
         tracing::debug!(
             scanned_files = stats.files,
             scanned_rows = stats.rows,

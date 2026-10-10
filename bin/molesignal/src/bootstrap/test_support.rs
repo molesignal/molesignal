@@ -26,8 +26,10 @@ pub(crate) fn tenants(
     let now = TimestampMicros::now();
     let mut orgs = Vec::new();
     let mut streams = Vec::new();
+
     for org_index in 0..organizations {
         let org_id = Id::from_string(format!("org-{org_index}"));
+
         orgs.push(Organization {
             id: org_id.clone(),
             name: format!("Organization {org_index}"),
@@ -36,6 +38,7 @@ pub(crate) fn tenants(
             disabled: false,
             created_at: now,
         });
+
         for stream_index in 0..streams_each {
             streams.push(StreamDefinition {
                 id: Id::from_string(format!("org-{org_index}-stream-{stream_index}")),
@@ -49,6 +52,7 @@ pub(crate) fn tenants(
             });
         }
     }
+
     (FixedOrganizations(orgs), FixedStreams(streams))
 }
 

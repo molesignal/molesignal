@@ -53,6 +53,7 @@ impl RunClaimRepository for PgRunClaimRepository {
         .await
         .map_err(sqlx_err)?
         .rows_affected();
+
         Ok(claimed == 1)
     }
 
@@ -64,6 +65,7 @@ impl RunClaimRepository for PgRunClaimRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(())
     }
 }

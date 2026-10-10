@@ -59,6 +59,7 @@ impl TracingRuntime {
         iam: &IamRuntime,
     ) -> Result<Self> {
         let configured_policy = settings.telemetry.trace.runtime_policy();
+
         let (active_policy, policy_loaded) = match core.trace_policies.active().await {
             Ok(Some(persisted)) => match persisted.policy.validate() {
                 Ok(()) => (persisted.policy, true),
@@ -72,6 +73,7 @@ impl TracingRuntime {
             },
             Ok(None) => {
                 let bootstrap_actor = Id("system-bootstrap".into());
+
                 match core
                     .trace_policies
                     .publish(
@@ -99,6 +101,7 @@ impl TracingRuntime {
                 (configured_policy, false)
             }
         };
+
         crate::shared::trace_metrics::set_system_load("trace_policy", policy_loaded);
 
         let trace_limits = TraceLimits {
@@ -108,6 +111,7 @@ impl TracingRuntime {
             max_string_bytes: settings.telemetry.trace.max_string_bytes,
             max_spans_per_trace: settings.telemetry.trace.max_spans_per_trace,
         };
+
         let tail_sampler = Arc::new(
             TailSampler::new(
                 active_policy,
@@ -116,6 +120,7 @@ impl TracingRuntime {
             )
             .map_err(Error::invalid)?,
         );
+
         let self_trace_sink: Option<Arc<dyn TraceSink>> =
             settings.telemetry.self_collect.enabled.then(|| {
                 Arc::new(SelfIntakeTraceSink::new(
@@ -123,6 +128,7 @@ impl TracingRuntime {
                     core.system_org.id.clone(),
                 )) as Arc<dyn TraceSink>
             });
+
         let mut local_trace_endpoints = vec![
             format!(
                 "http://{}:{}",
@@ -131,21 +137,27 @@ impl TracingRuntime {
             format!("http://{}:{}", settings.grpc.bind, settings.grpc.port),
             format!("http://{}:{}", settings.http.bind, settings.http.port),
         ];
+
         if !settings.http.external_url.trim().is_empty() {
             local_trace_endpoints.push(settings.http.external_url.clone());
         }
+
         let external_trace_sink: Option<Arc<dyn TraceSink>> =
             ExternalOtlpTraceSink::new(&settings.telemetry.trace.external, &local_trace_endpoints)
                 .map_err(Error::invalid)?
                 .map(|sink| sink as Arc<dyn TraceSink>);
+
         let apm_repository = Arc::new(PgApmRepository::new(core.pool.clone()));
+
         let apm_query = Arc::new(ApmQueryService::new(
             apm_repository.clone() as Arc<dyn crate::domain::apm::ApmQueryRepository>,
             ApmQueryConfig::from_settings(&settings.apm),
         ));
+
         let owns_trace_candidates = core.roles.run_intake || core.roles.run_querier;
         // APM rollup 是单点任务：每个 alert 节点都起循环，只有主节点执行。
         let apm_rollup = core.roles.run_alert.then(|| core.alert_ownership.clone());
+
         let apm_runtime = (owns_trace_candidates || apm_rollup.is_some())
             .then(|| {
                 ApmRuntime::start(
@@ -157,6 +169,7 @@ impl TracingRuntime {
                 )
             })
             .transpose()?;
+
         let pipeline = TracePipeline::start_with_apm(
             tail_sampler.clone(),
             apm_runtime.as_ref().and_then(|runtime| runtime.projector()),
@@ -191,8 +204,10 @@ impl TracingRuntime {
             trace_limits,
         )
         .map_err(Error::invalid)?;
+
         let cluster_token =
             crate::app::self_telemetry::configured_cluster_token().map(Arc::<str>::from);
+
         let candidates = TraceCandidateRouter::start(
             core.registry.clone(),
             core.node_id.clone(),
@@ -212,6 +227,7 @@ impl TracingRuntime {
         .map_err(Error::invalid)?;
 
         let trace_capture_enabled = settings.telemetry.trace.effective_enabled();
+
         let self_telemetry_org_id = prepare_self_telemetry_streams(
             core.orgs.as_ref(),
             core.streams.as_ref(),
@@ -222,6 +238,7 @@ impl TracingRuntime {
 
         let service_graph: Arc<dyn ServiceGraphRepository> =
             Arc::new(PgServiceGraphRepository::new(core.pool.clone()));
+
         let _service_graph_flush =
             crate::bootstrap::workers::service_graph::flush::ServiceGraphFlusher::new(
                 storage.service_graph_aggregator.clone(),
@@ -230,6 +247,7 @@ impl TracingRuntime {
                 crate::bootstrap::workers::service_graph::flush::ServiceGraphFlushConfig::default(),
             )
             .spawn();
+
         let _service_graph_recompute = core.roles.run_alert.then(|| {
             crate::bootstrap::workers::service_graph::recompute::ServiceGraphRecomputer::new(
                 query.query.clone(),
@@ -245,6 +263,7 @@ impl TracingRuntime {
 
         let rum_replay_meta = Arc::new(PgRumReplayMetaRepository::new(core.pool.clone()));
         let rum_replay = Arc::new(RumReplayWriter::new(core.store.clone(), rum_replay_meta));
+
         let _rum_replay_retention = core.roles.run_compactor.then(|| {
             crate::bootstrap::workers::rum_replay_retention::spawn(
                 rum_replay.clone(),
@@ -279,20 +298,24 @@ pub fn activate_self_telemetry(
 ) -> Result<()> {
     let self_telemetry_enabled = settings.telemetry.self_collect.enabled;
     let trace_capture_enabled = settings.telemetry.trace.effective_enabled();
+
     if !self_telemetry_enabled && !trace_capture_enabled {
         hub.stop_accepting();
         return Ok(());
     }
+
     let org_id = state
         .telemetry
         .self_telemetry_org_id
         .clone()
         .ok_or_else(|| Error::internal("self telemetry system organization was not resolved"))?;
+
     if org_id != state.iam.system_org_id {
         return Err(Error::internal(
             "self telemetry target does not match the `_sys` organization",
         ));
     }
+
     hub.resource().set_node_id(state.cluster.node_id.clone());
     state.telemetry.self_telemetry_resource = Some(hub.resource().clone());
 
@@ -301,12 +324,14 @@ pub fn activate_self_telemetry(
         .roles
         .contains(&crate::config::Role::Standalone)
         || settings.node.roles.contains(&crate::config::Role::Intake);
+
     let profile_context = (self_telemetry_enabled
         && settings.telemetry.self_collect.profiles_enabled)
         .then(|| crate::app::self_telemetry::SelfProfileContext {
             profiling: state.telemetry.profiling_service.clone(),
             storage: state.telemetry.profile_storage.clone(),
         });
+
     let runtime = if has_local_intake {
         crate::app::self_telemetry::SelfTelemetryRuntime::start_local_with_trace_candidates(
             hub,
@@ -328,6 +353,7 @@ pub fn activate_self_telemetry(
                     crate::app::self_telemetry::CLUSTER_TOKEN_ENV
                 ))
             })?;
+
         crate::app::self_telemetry::SelfTelemetryRuntime::start_remote_with_trace_candidates(
             hub,
             org_id,
@@ -338,6 +364,7 @@ pub fn activate_self_telemetry(
             state.telemetry.trace_candidates.clone(),
         )?
     };
+
     state.telemetry.self_telemetry_runtime = Some(runtime);
     tracing::info!(
         delivery = if has_local_intake { "local" } else { "cluster" },
@@ -363,11 +390,13 @@ pub(super) async fn prepare_self_telemetry_streams(
             error
         }
     })?;
+
     org.validate_system_invariants().map_err(|error| {
         Error::internal(format!(
             "invalid self telemetry system organization: {error}"
         ))
     })?;
+
     if !org.system {
         return Err(Error::internal(
             "self telemetry target must be the `_sys` system organization",
@@ -391,12 +420,14 @@ pub(super) async fn prepare_self_telemetry_streams(
             settings.profiles_retention_days,
         ),
     ];
+
     for (_, stream_type, retention_days) in
         enabled_types.into_iter().filter(|(enabled, _, _)| *enabled)
     {
         let retention = Some(Retention {
             days: retention_days,
         });
+
         match streams
             .get(&org.id, MOLESIGNAL_SYSTEM_STREAM, stream_type)
             .await
@@ -408,6 +439,7 @@ pub(super) async fn prepare_self_telemetry_streams(
             }
             Err(Error::NotFound(_)) => {
                 let now = TimestampMicros::now();
+
                 streams
                     .create(StreamDefinition {
                         id: Id::new(),

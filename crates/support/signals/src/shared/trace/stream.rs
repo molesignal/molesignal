@@ -79,6 +79,7 @@ impl<S> SegmentedResultStream<S> {
 
     fn begin_segment(&mut self) {
         let context = self.handshake.new_execution_root();
+
         let links = serde_json::json!([{
             "trace_id": self.handshake.trace_id,
             "span_id": self.handshake.span_id,
@@ -88,6 +89,7 @@ impl<S> SegmentedResultStream<S> {
             "dropped_attributes_count": 0
         }])
         .to_string();
+
         let span = tracing::info_span!(
             parent: None,
             "stream.session",
@@ -104,11 +106,13 @@ impl<S> SegmentedResultStream<S> {
             error.type = field::Empty,
             links = %links,
         );
+
         self.active = Some(ActiveSegment {
             span,
             started: Instant::now(),
             messages: 0,
         });
+
         self.segment_index = self.segment_index.saturating_add(1);
     }
 
@@ -122,19 +126,24 @@ impl<S> SegmentedResultStream<S> {
         let Some(segment) = self.active.take() else {
             return;
         };
+
         segment
             .span
             .record("molesignal.stream.messages", segment.messages);
+
         segment.span.record(
             "molesignal.stream.duration_ms",
             segment.started.elapsed().as_millis().min(u64::MAX as u128) as u64,
         );
+
         segment
             .span
             .record("molesignal.stream.completed", completed);
+
         segment
             .span
             .record("molesignal.stream.cancelled", cancelled);
+
         if failed {
             segment.span.record("error.type", "stream_error");
         }
@@ -149,6 +158,7 @@ where
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.get_mut();
+
         let result = match this.active.as_ref() {
             Some(segment) => {
                 let _entered = segment.span.enter();
@@ -156,21 +166,26 @@ where
             }
             None => this.inner.as_mut().poll_next(cx),
         };
+
         match result {
             Poll::Ready(Some(item)) => {
                 if this.segment_due() {
                     this.finish_segment(false, false, false);
                 }
+
                 if this.active.is_none() {
                     this.begin_segment();
                 }
+
                 if let Some(segment) = this.active.as_mut() {
                     segment.messages = segment.messages.saturating_add(1);
                 }
+
                 if item.is_err() {
                     this.finish_segment(true, false, true);
                     this.completed = true;
                 }
+
                 Poll::Ready(Some(item))
             }
             Poll::Ready(None) => {

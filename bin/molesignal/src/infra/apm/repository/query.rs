@@ -32,12 +32,15 @@ impl ApmQueryRepository for PgApmRepository {
         if query.range.end.0 < query.range.start.0 {
             return Err(Error::invalid("APM query range end precedes start"));
         }
+
         let resolution = resolve_resolution(query.resolution, query.range.duration_micros());
+
         let table = match resolution {
             QueryResolution::Minute => minute_table(query.kind),
             QueryResolution::Hour => hourly_table(query.kind),
             QueryResolution::Auto => unreachable!("auto resolution is resolved above"),
         };
+
         let sql = format!(
             "SELECT bucket_at_micros, dimension_key, histogram_schema_version,
                     dimension, measurements
@@ -51,6 +54,7 @@ impl ApmQueryRepository for PgApmRepository {
              ORDER BY bucket_at_micros ASC, dimension_key ASC,
                       histogram_schema_version ASC"
         );
+
         let rows = sqlx::query(&sql)
             .bind(query.org_id.as_str())
             .bind(query.range.start.0)
@@ -62,10 +66,12 @@ impl ApmQueryRepository for PgApmRepository {
             .fetch_all(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         let rows = rows
             .into_iter()
             .map(row_to_bucket)
             .collect::<Result<Vec<_>>>()?;
+
         merge_rows(rows)
     }
 
@@ -104,6 +110,7 @@ impl ApmQueryRepository for PgApmRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         row.map(|row| {
             Ok(ProjectionState {
                 org_id: org_id.clone(),
@@ -132,6 +139,7 @@ impl ApmQueryRepository for PgApmRepository {
         if range.end.0 < range.start.0 {
             return Err(Error::invalid("APM gap range end precedes start"));
         }
+
         let rows = sqlx::query(
             "SELECT range_start_micros, range_end_micros, reason,
                     dropped_facts, recorded_at_micros
@@ -147,12 +155,14 @@ impl ApmQueryRepository for PgApmRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter()
             .map(|row| {
                 let reason: String = row.try_get("reason").map_err(sqlx_err)?;
                 let reason = ProjectionGapReason::parse(&reason)
                     .ok_or_else(|| Error::internal("unknown persisted APM gap reason"))?;
                 let dropped: i64 = row.try_get("dropped_facts").map_err(sqlx_err)?;
+
                 Ok(ProjectionGap {
                     org_id: org_id.clone(),
                     range: TimeRange::new(

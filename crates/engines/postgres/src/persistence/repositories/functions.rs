@@ -36,6 +36,7 @@ fn lang_str(l: FunctionLanguage) -> &'static str {
         FunctionLanguage::Llm => "llm",
     }
 }
+
 fn lang_parse(s: &str) -> FunctionLanguage {
     match s {
         "js" => FunctionLanguage::Js,
@@ -48,6 +49,7 @@ fn row_to(r: sqlx::postgres::PgRow) -> Function {
     let params: Json<serde_json::Value> = r
         .try_get("params_schema")
         .unwrap_or(Json(serde_json::Value::Object(Default::default())));
+
     Function {
         id: Id(r.try_get::<String, _>("id").unwrap_or_default()),
         org_id: Id(r.try_get::<String, _>("org_id").unwrap_or_default()),
@@ -80,6 +82,7 @@ impl FunctionRepository for PgFunctionRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(f)
     }
 
@@ -100,16 +103,19 @@ impl FunctionRepository for PgFunctionRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(f)
     }
 
     async fn get_by_id(&self, id: &Id) -> Result<Function> {
         let sql = format!("SELECT {COLS} FROM functions WHERE id = $1");
+
         let row = sqlx::query(&sql)
             .bind(&id.0)
             .fetch_one(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(row_to(row))
     }
 
@@ -118,12 +124,14 @@ impl FunctionRepository for PgFunctionRepository {
         let sql = format!(
             "SELECT {COLS} FROM functions WHERE (org_id = $1 OR org_id = '__builtin__') AND id = $2"
         );
+
         let row = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&id.0)
             .fetch_one(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(row_to(row))
     }
 
@@ -132,11 +140,13 @@ impl FunctionRepository for PgFunctionRepository {
         let sql = format!(
             "SELECT {COLS} FROM functions WHERE org_id = $1 OR org_id = '__builtin__' ORDER BY (org_id = '__builtin__'), name"
         );
+
         let rows = sqlx::query(&sql)
             .bind(&org_id.0)
             .fetch_all(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(rows.into_iter().map(row_to).collect())
     }
 
@@ -147,6 +157,7 @@ impl FunctionRepository for PgFunctionRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(())
     }
 }
@@ -166,12 +177,15 @@ pub fn precheck_compile(
     js_runtime_enabled: bool,
 ) -> Result<()> {
     use crate::shared::Error;
+
     if source.is_empty() {
         return Err(Error::invalid("function source must not be empty"));
     }
+
     if source.len() > 64 * 1024 {
         return Err(Error::invalid("function source exceeds 64 KiB"));
     }
+
     match language {
         FunctionLanguage::Vrl => {
             // 真编译：VRL 解释器 stdlib `del` / `parse_json` / 字段赋值 全在。
@@ -185,10 +199,12 @@ pub fn precheck_compile(
                     "javascript runtime is not included in this build",
                 ));
             }
+
             #[cfg(feature = "js-runtime")]
             {
                 crate::infra::runtime::js_executor::JsFunctionExecutor::parse_only(source)
             }
+
             #[cfg(not(feature = "js-runtime"))]
             {
                 Err(Error::invalid(

@@ -107,20 +107,25 @@ fn update_permissions(existing: &ScheduledPipeline, request: &UpdateReq) -> Vec<
         || existing.function_steps != request.function_steps
         || existing.cron != request.cron
         || existing.lookback_secs != request.lookback_secs;
+
     let enabled_changed = existing.enabled != request.enabled;
     let mut permissions = Vec::with_capacity(2);
+
     if configuration_changed || !enabled_changed {
         permissions.push("pipelines.edit");
     }
+
     if enabled_changed {
         permissions.push("pipelines.pause");
     }
+
     permissions
 }
 
 fn default_lookback() -> i32 {
     300
 }
+
 fn default_true() -> bool {
     true
 }
@@ -192,6 +197,7 @@ async fn list(
 ) -> Result<Json<Vec<ListResp>>> {
     let pipelines = state.storage.scheduled_pipelines.list(&ctx.org_id).await?;
     let since = TimestampMicros::now().0 - OVERVIEW_WINDOW_MICROS;
+
     let summaries: HashMap<String, PipelineRunSummary> = state
         .storage
         .pipeline_runs
@@ -200,6 +206,7 @@ async fn list(
         .into_iter()
         .map(|summary| (summary.pipeline_id.0.clone(), summary))
         .collect();
+
     Ok(Json(
         pipelines
             .into_iter()
@@ -233,6 +240,7 @@ async fn create(
 ) -> Result<Json<Resp>> {
     let source_stream = req.source_stream.trim().to_string();
     let target_stream = req.target_stream.trim().to_string();
+
     validation::validate(
         &source_stream,
         &target_stream,
@@ -240,7 +248,9 @@ async fn create(
         &req.cron,
         req.lookback_secs,
     )?;
+
     let now = TimestampMicros::now();
+
     let p = ScheduledPipeline {
         id: Id::new(),
         org_id: ctx.org_id.clone(),
@@ -255,6 +265,7 @@ async fn create(
         created_at: now,
         updated_at: now,
     };
+
     let p = state.storage.scheduled_pipelines.create(p).await?;
     Ok(Json(to_resp(p)))
 }
@@ -273,6 +284,7 @@ async fn update(
 ) -> Result<Json<Resp>> {
     let source_stream = req.source_stream.trim().to_string();
     let target_stream = req.target_stream.trim().to_string();
+
     validation::validate(
         &source_stream,
         &target_stream,
@@ -280,6 +292,7 @@ async fn update(
         &req.cron,
         req.lookback_secs,
     )?;
+
     let p = ScheduledPipeline {
         id: existing.id,
         org_id: existing.org_id,
@@ -294,6 +307,7 @@ async fn update(
         created_at: existing.created_at,
         updated_at: TimestampMicros::now(),
     };
+
     let p = state.storage.scheduled_pipelines.update(p).await?;
     Ok(Json(to_resp(p)))
 }
@@ -314,6 +328,7 @@ async fn delete(
         .scheduled_pipelines
         .delete(&pipeline.org_id, &pipeline.id)
         .await?;
+
     Ok(Json(serde_json::json!({"deleted": true})))
 }
 
@@ -370,6 +385,7 @@ async fn list_runs(
         .pipeline_runs
         .list(&pipeline.org_id, &pipeline.id, q.limit, q.before_micros)
         .await?;
+
     Ok(Json(rows.into_iter().map(to_run_resp).collect()))
 }
 
@@ -401,17 +417,22 @@ async fn submit_backfill(
     if crate::domain::pipeline::realtime::is_realtime(&pipeline.function_steps) {
         return Err(Error::invalid("realtime pipelines do not support backfill"));
     }
+
     if req.end_micros <= req.start_micros {
         return Err(Error::invalid(
             "end_micros must be greater than start_micros",
         ));
     }
+
     let window = req.end_micros - req.start_micros;
+
     if window > MAX_BACKFILL_WINDOW_MICROS {
         return Err(Error::invalid("backfill window must be <= 31 days"));
     }
+
     let pipeline_id = pipeline.id.clone();
     let stream_type = parse_signal_type(&pipeline.function_steps);
+
     validate_pipeline_streams(
         &pipeline.source_stream,
         &pipeline.target_stream,
@@ -436,6 +457,7 @@ async fn submit_backfill(
         limit: None,
         federation_clusters: Vec::new(),
     };
+
     let job = state
         .search_jobs
         .submit_backfill(
@@ -448,14 +470,17 @@ async fn submit_backfill(
             None,
         )
         .await?;
+
     let body = BackfillResp {
         job_id: job.id.0.clone(),
         monitor: format!("/api/v1/query/jobs/{}", job.id.0),
     };
+
     let resp = Response::builder()
         .status(202)
         .header(CONTENT_TYPE, "application/json")
         .body(Body::from(serde_json::to_vec(&body).unwrap_or_default()))
         .map_err(|e| Error::internal(format!("response build: {e}")))?;
+
     Ok(resp)
 }

@@ -21,19 +21,23 @@ impl LayoutCursor {
             self.x = 0;
             self.row_height = 0;
         }
+
         let position = json!({
             "x": self.x,
             "y": self.y,
             "w": dimensions.w,
             "h": dimensions.h
         });
+
         self.x = self.x.saturating_add(dimensions.w);
         self.row_height = self.row_height.max(dimensions.h);
+
         if self.x >= columns {
             self.y = self.y.saturating_add(self.row_height);
             self.x = 0;
             self.row_height = 0;
         }
+
         position
     }
 
@@ -51,6 +55,7 @@ pub(super) fn panel_dimensions(
         Some(value) => value.as_str(),
         None => capability.default_size.as_str(),
     };
+
     dimensions_for(size, manifest)
 }
 
@@ -63,6 +68,7 @@ pub(super) fn text_dimensions(
 
 fn dimensions_for(size: &str, manifest: &VisualizationManifest) -> GridDimensions {
     let sizes = &manifest.grid.sizes;
+
     match size {
         "small" => sizes.small,
         "medium" => sizes.medium,

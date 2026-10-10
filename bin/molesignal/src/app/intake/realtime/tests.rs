@@ -16,6 +16,7 @@ use crate::{
 
 #[derive(Default)]
 struct Streams(Mutex<Vec<StreamDefinition>>);
+
 #[async_trait]
 impl StreamRepository for Streams {
     async fn get(&self, org: &Id, name: &str, kind: StreamType) -> Result<StreamDefinition> {
@@ -26,10 +27,12 @@ impl StreamRepository for Streams {
             .cloned()
             .ok_or_else(|| Error::not_found("stream"))
     }
+
     async fn create(&self, def: StreamDefinition) -> Result<StreamDefinition> {
         self.0.lock().push(def.clone());
         Ok(def)
     }
+
     async fn update_schema(&self, id: &Id, schema: Schema) -> Result<()> {
         self.0
             .lock()
@@ -37,8 +40,10 @@ impl StreamRepository for Streams {
             .find(|s| &s.id == id)
             .unwrap()
             .schema = schema;
+
         Ok(())
     }
+
     async fn list(&self, org: &Id) -> Result<Vec<StreamDefinition>> {
         Ok(self
             .0
@@ -48,20 +53,24 @@ impl StreamRepository for Streams {
             .cloned()
             .collect())
     }
+
     async fn delete(&self, _: &Id) -> Result<()> {
         unreachable!()
     }
 }
+
 #[derive(Default)]
 struct Sink {
     writes: Mutex<Vec<(IntakeBatch, Option<u64>)>>,
     fail_stream: Option<String>,
 }
+
 #[async_trait]
 impl crate::domain::intake::IntakeSink for Sink {
     async fn write(&self, _: IntakeBatch) -> Result<IntakeResult> {
         unreachable!()
     }
+
     async fn write_metered_dataset(
         &self,
         _: crate::domain::storage::DatasetTypeId,
@@ -71,16 +80,20 @@ impl crate::domain::intake::IntakeSink for Sink {
         if self.fail_stream.as_ref() == Some(&batch.stream) {
             return Err(Error::unavailable("storage unavailable"));
         }
+
         let result = IntakeResult {
             accepted: batch.events.len(),
             rejected: 0,
             errors: vec![],
         };
+
         self.writes.lock().push((batch, size));
         Ok(result)
     }
 }
+
 struct Repo(RealtimePipeline);
+
 #[async_trait]
 impl RealtimePipelineRepository for Repo {
     async fn for_source(&self, org: &Id, source: &str) -> Result<Option<RealtimePipeline>> {
@@ -89,6 +102,7 @@ impl RealtimePipelineRepository for Repo {
         Ok((&self.0.org_id == org).then(|| self.0.clone()))
     }
 }
+
 fn pipeline(retain: bool) -> RealtimePipeline {
     RealtimePipeline {
         id: Id("pipeline".into()),
@@ -109,6 +123,7 @@ fn pipeline(retain: bool) -> RealtimePipeline {
         }],
     }
 }
+
 fn batch(values: Vec<Value>) -> IntakeBatch {
     IntakeBatch {
         batch_id: Id("batch".into()),
@@ -125,12 +140,14 @@ fn batch(values: Vec<Value>) -> IntakeBatch {
         received_at: TimestampMicros(2),
     }
 }
+
 fn service(pipeline: RealtimePipeline, sink: Arc<Sink>) -> IntakeService {
     IntakeService::new(sink, Arc::new(Streams::default())).with_realtime(RealtimeEngine {
         repository: Arc::new(Repo(pipeline)),
         executor: Arc::new(crate::infra::runtime::vrl::executor::VrlFunctionExecutor::new()),
     })
 }
+
 #[tokio::test]
 async fn routes_mixed_batch_and_meters_original_bytes_per_stream() {
     let sink = Arc::new(Sink::default());
@@ -156,6 +173,7 @@ async fn routes_mixed_batch_and_meters_original_bytes_per_stream() {
     assert_eq!(output("default").1, Some(sizes[2] + sizes[3]));
     assert_eq!(output("orders").0.events[0].fields["processed"], true);
 }
+
 #[tokio::test]
 async fn retains_original_and_counts_each_input_once_without_self_duplicates() {
     let sink = Arc::new(Sink::default());
@@ -179,6 +197,7 @@ async fn retains_original_and_counts_each_input_once_without_self_duplicates() {
     assert!(!original.events[0].fields.contains_key("processed"));
     assert_eq!(original.events[1].fields["processed"], true);
 }
+
 #[tokio::test]
 async fn storage_failure_does_not_silently_fall_back() {
     let sink = Arc::new(Sink {
@@ -193,6 +212,7 @@ async fn storage_failure_does_not_silently_fall_back() {
     );
     assert!(sink.writes.lock().is_empty());
 }
+
 #[tokio::test]
 async fn failed_transforms_report_original_indices_and_do_not_copy() {
     let sink = Arc::new(Sink::default());
@@ -217,6 +237,7 @@ async fn failed_transforms_report_original_indices_and_do_not_copy() {
         2
     );
 }
+
 #[tokio::test]
 async fn another_organization_does_not_run_the_route() {
     let sink = Arc::new(Sink::default());

@@ -104,12 +104,15 @@ impl ParquetWriter {
                 dataset.id, stream.id
             )));
         }
+
         let partitions = split_by_partition(&batch, &dataset.partition_policy)?;
+
         if partitions.is_empty() {
             return Err(Error::invalid("catalog write called with empty batch"));
         }
 
         let mut segments = Vec::with_capacity(partitions.len());
+
         for (ordinal, partition_batch) in partitions.into_iter().enumerate() {
             let result = self
                 .write_catalog_partition(
@@ -121,6 +124,7 @@ impl ParquetWriter {
                     partition_batch,
                 )
                 .await;
+
             match result {
                 Ok(segment) => segments.push(segment),
                 Err(error) => {
@@ -130,6 +134,7 @@ impl ParquetWriter {
                 }
             }
         }
+
         Ok(segments)
     }
 
@@ -146,6 +151,7 @@ impl ParquetWriter {
         let batch = sort_for_storage(batch, &dataset.dataset_type)?;
         let (start_micros, end_micros) = timestamp_range(&batch)?;
         let partition_start = dataset.partition_policy.bucket_start_micros(start_micros);
+
         let partition = Partition {
             start_micros: partition_start,
             end_micros: partition_start
@@ -157,6 +163,7 @@ impl ParquetWriter {
         let segment_id = SegmentId::generate();
         let primary_id = ArtifactId::generate();
         let parquet_type = ArtifactTypeId::builtin(type_id::builtin::ARTIFACT_PARQUET);
+
         let primary_key = StorageLayout::artifact_key(
             &dataset.organization_id,
             stream.stream_type,
@@ -166,6 +173,7 @@ impl ParquetWriter {
             &primary_id,
             &parquet_type,
         );
+
         let parquet_bytes = encode_parquet(stream, &batch)?;
         let parquet_size_bytes = parquet_bytes.len() as u64;
         let parquet_checksum = checksum(&parquet_bytes);
@@ -176,11 +184,13 @@ impl ParquetWriter {
             .indexers
             .iter()
             .any(|index| index == &IndexTypeId::builtin(type_id::builtin::INDEX_TANTIVY));
+
         let index_output = if wants_tantivy {
             match build_tantivy_bytes_for_batch(stream, &batch) {
                 Ok(Some(bytes)) => {
                     let artifact_id = ArtifactId::generate();
                     let artifact_type = ArtifactTypeId::builtin(type_id::builtin::ARTIFACT_TANTIVY);
+
                     let key = StorageLayout::artifact_key(
                         &dataset.organization_id,
                         stream.stream_type,
@@ -190,6 +200,7 @@ impl ParquetWriter {
                         &artifact_id,
                         &artifact_type,
                     );
+
                     Some(IndexBuild::Ready {
                         artifact_id,
                         artifact_type,
@@ -201,6 +212,7 @@ impl ParquetWriter {
                 Err(error) => {
                     let artifact_id = ArtifactId::generate();
                     let artifact_type = ArtifactTypeId::builtin(type_id::builtin::ARTIFACT_TANTIVY);
+
                     let key = StorageLayout::artifact_key(
                         &dataset.organization_id,
                         stream.stream_type,
@@ -210,6 +222,7 @@ impl ParquetWriter {
                         &artifact_id,
                         &artifact_type,
                     );
+
                     Some(IndexBuild::Failed {
                         artifact_id,
                         artifact_type,
@@ -223,6 +236,7 @@ impl ParquetWriter {
         };
 
         let primary_put = put_immutable(store, &primary_key, parquet_bytes).await?;
+
         let primary = Artifact {
             id: primary_id.clone(),
             role: ArtifactRole::PrimaryData,
@@ -242,6 +256,7 @@ impl ParquetWriter {
         };
 
         let mut auxiliaries = Vec::with_capacity(usize::from(index_output.is_some()));
+
         if let Some(index_output) = index_output {
             let (artifact_id, artifact_type, object, state, failure_reason) = match index_output {
                 IndexBuild::Ready {
@@ -252,6 +267,7 @@ impl ParquetWriter {
                 } => {
                     let size_bytes = bytes.len() as u64;
                     let object_checksum = checksum(&bytes);
+
                     match put_immutable(store, &key, Bytes::from(bytes)).await {
                         Ok(put) => (
                             artifact_id,
@@ -287,6 +303,7 @@ impl ParquetWriter {
                     Some(reason),
                 ),
             };
+
             auxiliaries.push(Artifact {
                 id: artifact_id,
                 role: ArtifactRole::Index,
@@ -302,6 +319,7 @@ impl ParquetWriter {
         }
 
         let (min_values, max_values) = zone_maps(stream, &batch);
+
         Ok(DataSegment {
             id: segment_id,
             organization_id: dataset.organization_id.clone(),
@@ -389,12 +407,14 @@ fn truncate_failure(error: &str) -> String {
 
 fn schema_fingerprint(schema: &arrow::datatypes::Schema) -> SchemaFingerprint {
     let mut hasher = blake3::Hasher::new();
+
     for field in schema.fields() {
         hasher.update(field.name().as_bytes());
         hasher.update(&[0]);
         hasher.update(format!("{:?}", field.data_type()).as_bytes());
         hasher.update(&[u8::from(field.is_nullable())]);
     }
+
     let digest = hasher.finalize();
     let mut value = [0_u8; 8];
     value.copy_from_slice(&digest.as_bytes()[..8]);

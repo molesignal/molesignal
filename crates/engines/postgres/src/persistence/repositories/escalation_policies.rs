@@ -28,6 +28,7 @@ const COLS: &str = r#"id, org_id, name, steps, "repeat", max_loops"#;
 fn row_to_policy(row: sqlx::postgres::PgRow) -> Result<EscalationPolicy> {
     let steps: Json<Vec<EscalationStep>> = row.try_get("steps").map_err(sqlx_err)?;
     let max_loops: i32 = row.try_get("max_loops").map_err(sqlx_err)?;
+
     Ok(EscalationPolicy {
         id: Id::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?),
         org_id: Id::from_string(row.try_get::<String, _>("org_id").map_err(sqlx_err)?),
@@ -55,6 +56,7 @@ impl EscalationPolicyRepository for PgEscalationPolicyRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(p)
     }
 
@@ -72,6 +74,7 @@ impl EscalationPolicyRepository for PgEscalationPolicyRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(p)
     }
 
@@ -83,6 +86,7 @@ impl EscalationPolicyRepository for PgEscalationPolicyRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         row_to_policy(row)
     }
 
@@ -94,6 +98,7 @@ impl EscalationPolicyRepository for PgEscalationPolicyRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to_policy).collect()
     }
 
@@ -103,6 +108,7 @@ impl EscalationPolicyRepository for PgEscalationPolicyRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(())
     }
 }

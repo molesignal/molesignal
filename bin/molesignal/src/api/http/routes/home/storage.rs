@@ -46,11 +46,14 @@ pub(super) fn summarize_stream(
         else {
             continue;
         };
+
         rows = rows.saturating_add(file_rows);
         stored_bytes = stored_bytes.saturating_add(file_bytes);
+
         first_received_at_micros = Some(
             first_received_at_micros.map_or(overlap_start, |current| current.min(overlap_start)),
         );
+
         last_received_at_micros =
             Some(last_received_at_micros.map_or(overlap_end, |current| current.max(overlap_end)));
         let midpoint = overlap_start.saturating_add(overlap_end.saturating_sub(overlap_start) / 2);
@@ -60,6 +63,7 @@ pub(super) fn summarize_stream(
     }
 
     let status = stream_status(last_received_at_micros, generated_at_micros);
+
     StreamScan {
         overview: StreamOverview {
             id: definition.id.0,
@@ -97,21 +101,28 @@ fn file_contribution(file: &QueryFile, window: TimeRange) -> Option<(u64, u64, i
     if !file.time_range.overlaps(window) {
         return None;
     }
+
     let overlap_start = file.time_range.start.0.max(window.start.0);
     let overlap_end = file.time_range.end.0.min(window.end.0);
+
     let file_duration = file
         .time_range
         .end
         .0
         .saturating_sub(file.time_range.start.0);
+
     if file_duration <= 0 {
         return Some((file.rows, file.size_bytes, overlap_start, overlap_end));
     }
+
     let overlap_duration = overlap_end.saturating_sub(overlap_start);
+
     if overlap_duration <= 0 {
         return None;
     }
+
     let ratio = (overlap_duration as f64 / file_duration as f64).clamp(0.0, 1.0);
+
     Some((
         prorate(file.rows, ratio),
         prorate(file.size_bytes, ratio),
@@ -124,9 +135,11 @@ fn prorate(value: u64, ratio: f64) -> u64 {
     if value == 0 || ratio <= 0.0 {
         return 0;
     }
+
     if ratio >= 1.0 {
         return value;
     }
+
     ((value as f64 * ratio).round() as u64).max(1).min(value)
 }
 
@@ -156,17 +169,22 @@ pub(super) fn signal_overviews(streams: &[StreamOverview]) -> Vec<SignalOverview
             .iter()
             .filter(|stream| stream.stream_type == stream_type)
             .collect::<Vec<_>>();
+
         let total_streams = matching.len();
         let active_streams = matching.iter().filter(|stream| stream.rows > 0).count();
+
         let has_healthy = matching
             .iter()
             .any(|stream| stream.status == HealthStatus::Healthy);
+
         let has_unknown = matching
             .iter()
             .any(|stream| stream.status == HealthStatus::Unknown);
+
         let has_degraded = matching
             .iter()
             .any(|stream| stream.status == HealthStatus::Degraded);
+
         let status = if has_degraded {
             HealthStatus::Degraded
         } else if has_unknown {
@@ -178,6 +196,7 @@ pub(super) fn signal_overviews(streams: &[StreamOverview]) -> Vec<SignalOverview
         } else {
             HealthStatus::Delayed
         };
+
         SignalOverview {
             stream_type,
             status,
@@ -204,11 +223,13 @@ pub(super) fn bucket_raw_usage(
     bucket_count: usize,
 ) -> Vec<u64> {
     let mut output = vec![0_u64; bucket_count];
+
     for item in usage {
         let midpoint = item.bucket_start_micros.saturating_add(HOUR_MICROS / 2);
         let index = bucket_index(window, bucket_count, midpoint);
         output[index] = output[index].saturating_add(item.intake_bytes.max(0) as u64);
     }
+
     output
 }
 
@@ -219,12 +240,14 @@ pub(super) fn build_buckets(
 ) -> Vec<OverviewBucket> {
     let count = totals.len().max(1);
     let duration = window.duration_micros().max(1);
+
     (0..totals.len())
         .map(|index| {
             let start = window
                 .start
                 .0
                 .saturating_add(((duration as i128 * index as i128) / count as i128) as i64);
+
             let end = if index + 1 == count {
                 window.end.0
             } else {
@@ -232,6 +255,7 @@ pub(super) fn build_buckets(
                     ((duration as i128 * (index + 1) as i128) / count as i128) as i64,
                 )
             };
+
             OverviewBucket {
                 start_micros: start,
                 end_micros: end,
@@ -245,9 +269,11 @@ pub(super) fn build_buckets(
 
 fn bucket_index(window: TimeRange, bucket_count: usize, timestamp_micros: i64) -> usize {
     let duration = window.duration_micros().max(1);
+
     let offset = timestamp_micros
         .saturating_sub(window.start.0)
         .clamp(0, duration.saturating_sub(1));
+
     (((offset as i128 * bucket_count as i128) / duration as i128) as usize)
         .min(bucket_count.saturating_sub(1))
 }

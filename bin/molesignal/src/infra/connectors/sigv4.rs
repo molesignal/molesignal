@@ -12,10 +12,12 @@ use sha2::{Digest, Sha256};
 
 fn hex_lower(bytes: &[u8]) -> String {
     let mut s = String::with_capacity(bytes.len() * 2);
+
     for b in bytes {
         use std::fmt::Write as _;
         let _ = write!(s, "{b:02x}");
     }
+
     s
 }
 
@@ -60,15 +62,19 @@ pub fn sign_post_json(
         ("x-amz-date", amz_date.to_string()),
         ("x-amz-target", target.to_string()),
     ];
+
     if let Some(tok) = session_token.filter(|t| !t.is_empty()) {
         headers.push(("x-amz-security-token", tok.to_string()));
     }
+
     headers.sort_by(|a, b| a.0.cmp(b.0));
+
     let signed_headers = headers
         .iter()
         .map(|(k, _)| *k)
         .collect::<Vec<_>>()
         .join(";");
+
     let canonical_headers: String = headers
         .iter()
         .map(|(k, v)| format!("{k}:{}\n", v.trim()))
@@ -77,6 +83,7 @@ pub fn sign_post_json(
     let canonical_request =
         format!("POST\n/\n\n{canonical_headers}\n{signed_headers}\n{payload_hash}");
     let scope = format!("{date}/{region}/{service}/aws4_request");
+
     let string_to_sign = format!(
         "AWS4-HMAC-SHA256\n{amz_date}\n{scope}\n{}",
         sha256_hex(canonical_request.as_bytes())
@@ -91,6 +98,7 @@ pub fn sign_post_json(
     let authorization = format!(
         "AWS4-HMAC-SHA256 Credential={access_key}/{scope}, SignedHeaders={signed_headers}, Signature={signature}"
     );
+
     SignedHeaders {
         authorization,
         amz_date: amz_date.to_string(),

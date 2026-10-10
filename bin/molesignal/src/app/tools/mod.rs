@@ -81,6 +81,7 @@ impl ToolRuntime {
         arguments: serde_json::Value,
     ) -> Result<ToolResult> {
         self.authorize(ctx, kind)?;
+
         if matches!(
             kind,
             BuiltinToolKind::ToolSearch | BuiltinToolKind::ToolsCall
@@ -318,6 +319,7 @@ impl ToolRuntime {
             ),
             BuiltinToolKind::ToolSearch | BuiltinToolKind::ToolsCall => unreachable!(),
         }?;
+
         if result.serialized_len() > HARD_RESULT_BYTES {
             Ok(ToolResult::error(format!(
                 "tool `{}` response exceeded the platform hard limit",
@@ -336,6 +338,7 @@ impl ToolRuntime {
         }
 
         let spec = kind.spec();
+
         if !spec.exposure.available_on(ctx.source().surface()) {
             return Err(Error::forbidden(format!(
                 "tool `{}` is not exposed on the `{}` surface",
@@ -343,18 +346,21 @@ impl ToolRuntime {
                 ctx.source().as_str()
             )));
         }
+
         if ctx.execution_mode() == ToolExecutionMode::Disabled {
             return Err(Error::forbidden(format!(
                 "tool `{}` is disabled by the active Tool Policy",
                 kind.name()
             )));
         }
+
         if !ctx.execution_mode().allowed_for_risk(spec.risk) {
             return Err(Error::forbidden(format!(
                 "execution mode is below the minimum risk policy for tool `{}`",
                 kind.name()
             )));
         }
+
         if matches!(spec.access, ToolAccess::ReadOnly | ToolAccess::Preflight)
             && ctx.execution_mode() != ToolExecutionMode::Automatic
         {
@@ -363,6 +369,7 @@ impl ToolRuntime {
                 kind.name()
             )));
         }
+
         if spec.access == ToolAccess::ExecutesApprovedOperation
             && matches!(
                 ctx.execution_mode(),
@@ -373,6 +380,7 @@ impl ToolRuntime {
                 "execute_agent_approval cannot itself require another approval",
             ));
         }
+
         if matches!(
             spec.access,
             ToolAccess::ManagedMutation
@@ -384,6 +392,7 @@ impl ToolRuntime {
                 "the current execution policy does not allow managed mutations",
             ));
         }
+
         authorize(kind, ctx.iam_context())
     }
 }
@@ -392,6 +401,7 @@ fn authorize(kind: BuiltinToolKind, auth: &IamContext) -> Result<()> {
     let has = |key: &str| auth.permissions.contains(key);
     let telemetry = || has("streams.query") || has("sys.telemetry.read");
     let spec = kind.spec();
+
     let allowed = if matches!(kind, BuiltinToolKind::PrepareDashboard) {
         has("agent.use") && has("dashboards.create") && telemetry()
     } else {
@@ -400,6 +410,7 @@ fn authorize(kind: BuiltinToolKind, auth: &IamContext) -> Result<()> {
             PermissionMode::Any => spec.required_permissions.iter().any(|key| has(key)),
         }
     };
+
     if allowed {
         Ok(())
     } else {

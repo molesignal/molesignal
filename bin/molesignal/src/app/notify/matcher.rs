@@ -12,21 +12,25 @@ pub fn validate_matchers(matchers: &Value) -> Result<()> {
     let fields = matchers
         .as_object()
         .ok_or_else(|| Error::invalid("notify policy matchers must be a JSON object"))?;
+
     for (path, expected) in fields {
         if path.trim().is_empty() {
             return Err(Error::invalid("notify policy matcher path cannot be empty"));
         }
+
         if expected.is_object() {
             return Err(Error::invalid(format!(
                 "notify policy matcher `{path}` must be a scalar or array"
             )));
         }
+
         if expected.as_array().is_some_and(Vec::is_empty) {
             return Err(Error::invalid(format!(
                 "notify policy matcher `{path}` array cannot be empty"
             )));
         }
     }
+
     Ok(())
 }
 
@@ -34,7 +38,9 @@ pub fn policy_matches(policy: &NotifyPolicy, event: &NotifyEvent) -> Result<bool
     if policy.event_type != event.event_type {
         return Ok(false);
     }
+
     validate_matchers(&policy.matchers)?;
+
     Ok(policy.matchers.as_object().is_some_and(|matchers| {
         matchers.iter().all(|(path, expected)| {
             value_at_path(&event.attributes, path)

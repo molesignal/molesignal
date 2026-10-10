@@ -86,12 +86,15 @@ async fn register(
     super::metadata::external_base(&state, &headers)
         .map_err(|error| OAuthError::invalid_request(error.to_string()))?;
     let client_name = request.client_name.trim();
+
     if client_name.is_empty() || client_name.chars().count() > 255 {
         return Err(OAuthError::invalid_request(
             "client_name must contain 1 to 255 characters",
         ));
     }
+
     validate_redirect_uris(&request.redirect_uris).map_err(OAuthError::invalid_request)?;
+
     if request.grant_types.is_empty()
         || !request
             .grant_types
@@ -111,7 +114,9 @@ async fn register(
             "only authorization_code, refresh_token, and response_type code are supported",
         ));
     }
+
     validate_client_uri(request.client_uri.as_deref()).map_err(OAuthError::invalid_request)?;
+
     if request
         .software_id
         .as_ref()
@@ -125,6 +130,7 @@ async fn register(
             "software_id and software_version must contain 1 to 255 bytes when present",
         ));
     }
+
     if !matches!(
         request.token_endpoint_auth_method.as_str(),
         "none" | "client_secret_basic" | "client_secret_post"
@@ -133,17 +139,21 @@ async fn register(
             "unsupported token_endpoint_auth_method",
         ));
     }
+
     let scopes =
         super::client::normalize_scope(&request.scope).map_err(OAuthError::invalid_request)?;
     let client_id = format!("msmcp_client_{}", super::token::random_secret(18));
     let client_secret = (request.token_endpoint_auth_method != "none")
         .then(|| format!("msmcp_secret_{}", super::token::random_secret(32)));
+
     let secret_hash = client_secret
         .as_deref()
         .map(hash_password)
         .transpose()
         .map_err(OAuthError::server)?;
+
     let issued_at = chrono::Utc::now().timestamp();
+
     let saved = state
         .agent
         .inbound_mcp
@@ -164,9 +174,11 @@ async fn register(
         })
         .await
         .map_err(OAuthError::server)?;
+
     let client_secret_expires_at = client_secret
         .as_ref()
         .map(|_| saved.client_secret_expires_at.unwrap_or(0));
+
     Ok((
         StatusCode::CREATED,
         [

@@ -104,18 +104,23 @@ impl Parse for PermissionRequirement {
         if input.peek(LitStr) {
             return input.parse().map(Self::One);
         }
+
         let operator: Ident = input.parse()?;
+
         if operator != "any" {
             return Err(syn::Error::new(
                 operator.span(),
                 "expected a permission string or any(\"key\", ...)",
             ));
         }
+
         let content;
         parenthesized!(content in input);
+
         let permissions = Punctuated::<LitStr, Token![,]>::parse_terminated(&content)?
             .into_iter()
             .collect();
+
         Ok(Self::Any(permissions))
     }
 }
@@ -132,11 +137,13 @@ impl Parse for ResourceAction {
         if input.peek(Ident) {
             let fork = input.fork();
             let operator: Ident = fork.parse()?;
+
             if operator == "dynamic" || operator == "resolve" || operator == "resolve_all" {
                 let operator: Ident = input.parse()?;
                 let content;
                 parenthesized!(content in input);
                 let expression = content.parse()?;
+
                 return Ok(match operator.to_string().as_str() {
                     "dynamic" => Self::Dynamic(expression),
                     "resolve" => Self::Resolve(expression),
@@ -145,6 +152,7 @@ impl Parse for ResourceAction {
                 });
             }
         }
+
         input.parse().map(ResourceAction::Permission)
     }
 }
@@ -166,6 +174,7 @@ impl Parse for ResourcePermissionArgs {
         while !input.is_empty() {
             let key: Ident = input.parse()?;
             input.parse::<Token![=]>()?;
+
             match key.to_string().as_str() {
                 "action" => set_once(&mut action, input.parse()?, &key)?,
                 "resource" => set_once(&mut resource, input.parse()?, &key)?,
@@ -178,6 +187,7 @@ impl Parse for ResourcePermissionArgs {
                     ));
                 }
             }
+
             if !input.is_empty() {
                 input.parse::<Token![,]>()?;
             }
@@ -208,9 +218,11 @@ fn expand_permission(
     mut function: ItemFn,
 ) -> syn::Result<TokenStream2> {
     let context = auth_context_binding(&function)?;
+
     let check: Stmt = match requirement {
         PermissionRequirement::One(permission) => {
             validate_permission(&permission)?;
+
             parse_quote_spanned! {permission.span()=>
                 crate::api::http::middleware::Permission::require_key(&#context, #permission)?;
             }
@@ -222,9 +234,11 @@ fn expand_permission(
                     "any(...) requires at least one permission",
                 ));
             };
+
             for permission in &permissions {
                 validate_permission(permission)?;
             }
+
             parse_quote_spanned! {first.span()=>
                 crate::api::http::middleware::Permission::require_any_key(
                     &#context,
@@ -233,6 +247,7 @@ fn expand_permission(
             }
         }
     };
+
     function.block.stmts.insert(0, check);
     Ok(quote!(#function))
 }
@@ -243,15 +258,18 @@ fn expand_resource_permission(
 ) -> syn::Result<TokenStream2> {
     let context = auth_context_binding(&function)?;
     let state = app_state_binding(&function)?;
+
     let ResourcePermissionArgs {
         action,
         resource,
         id,
         bind,
     } = arguments;
+
     let load: Stmt = match action {
         ResourceAction::Permission(PermissionRequirement::One(permission)) => {
             validate_permission(&permission)?;
+
             parse_quote_spanned! {permission.span()=>
                 let #bind: #resource =
                     crate::api::http::middleware::authorize_resource::<#resource>(
@@ -270,9 +288,11 @@ fn expand_resource_permission(
                     "any(...) requires at least one permission",
                 ));
             };
+
             for permission in &permissions {
                 validate_permission(permission)?;
             }
+
             parse_quote_spanned! {first.span()=>
                 let #bind: #resource =
                     crate::api::http::middleware::authorize_resource_any::<#resource>(
@@ -323,18 +343,21 @@ fn expand_resource_permission(
             }
         }
     };
+
     function.block.stmts.insert(0, load);
     Ok(quote!(#function))
 }
 
 fn validate_permission(permission: &LitStr) -> syn::Result<()> {
     let value = permission.value();
+
     if value.is_empty() {
         return Err(syn::Error::new(
             permission.span(),
             "permission must not be empty",
         ));
     }
+
     if !value.contains('.')
         || value.split('.').any(str::is_empty)
         || !value.bytes().all(|byte| {
@@ -346,30 +369,36 @@ fn validate_permission(permission: &LitStr) -> syn::Result<()> {
             "permission must use the canonical lowercase key format",
         ));
     }
+
     Ok(())
 }
 
 fn auth_context_binding(function: &ItemFn) -> syn::Result<Ident> {
     let mut binding = None;
+
     for input in &function.sig.inputs {
         let FnArg::Typed(argument) = input else {
             continue;
         };
+
         if !is_auth_extension(&argument.ty) {
             continue;
         }
+
         let Pat::TupleStruct(extractor) = argument.pat.as_ref() else {
             return Err(syn::Error::new(
                 argument.pat.span(),
                 "permission handler must bind Extension<IamContext>",
             ));
         };
+
         let Some(Pat::Ident(ident)) = extractor.elems.first() else {
             return Err(syn::Error::new(
                 extractor.span(),
                 "permission handler must bind Extension<IamContext> to an identifier",
             ));
         };
+
         if binding.replace(ident.ident.clone()).is_some() {
             return Err(syn::Error::new(
                 argument.span(),
@@ -377,6 +406,7 @@ fn auth_context_binding(function: &ItemFn) -> syn::Result<Ident> {
             ));
         }
     }
+
     binding.ok_or_else(|| {
         syn::Error::new(
             function.sig.ident.span(),
@@ -387,25 +417,30 @@ fn auth_context_binding(function: &ItemFn) -> syn::Result<Ident> {
 
 fn app_state_binding(function: &ItemFn) -> syn::Result<Ident> {
     let mut binding = None;
+
     for input in &function.sig.inputs {
         let FnArg::Typed(argument) = input else {
             continue;
         };
+
         if !is_app_state_extractor(&argument.ty) {
             continue;
         }
+
         let Pat::TupleStruct(extractor) = argument.pat.as_ref() else {
             return Err(syn::Error::new(
                 argument.pat.span(),
                 "resource permission handler must bind State<AppState>",
             ));
         };
+
         let Some(Pat::Ident(ident)) = extractor.elems.first() else {
             return Err(syn::Error::new(
                 extractor.span(),
                 "resource permission handler must bind State<AppState> to an identifier",
             ));
         };
+
         if binding.replace(ident.ident.clone()).is_some() {
             return Err(syn::Error::new(
                 argument.span(),
@@ -413,6 +448,7 @@ fn app_state_binding(function: &ItemFn) -> syn::Result<Ident> {
             ));
         }
     }
+
     binding.ok_or_else(|| {
         syn::Error::new(
             function.sig.ident.span(),
@@ -433,19 +469,24 @@ fn is_extractor_with_inner(ty: &Type, extractor_name: &str, inner_names: &[&str]
     let Type::Path(type_path) = ty else {
         return false;
     };
+
     let Some(extension) = type_path.path.segments.last() else {
         return false;
     };
+
     if extension.ident != extractor_name {
         return false;
     }
+
     let PathArguments::AngleBracketed(arguments) = &extension.arguments else {
         return false;
     };
+
     arguments.args.iter().any(|argument| {
         let GenericArgument::Type(Type::Path(inner)) = argument else {
             return false;
         };
+
         inner
             .path
             .segments

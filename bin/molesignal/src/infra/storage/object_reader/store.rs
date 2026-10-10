@@ -77,14 +77,17 @@ impl ObjectStore for CachedObjectStore {
         let Some(registered) = self.registry.get(location.as_ref()) else {
             return self.origin.get_opts(location, options).await;
         };
+
         if options.version.is_some()
             || options.if_modified_since.is_some()
             || options.if_unmodified_since.is_some()
         {
             return self.origin.get_opts(location, options).await;
         }
+
         let meta = object_meta(location.clone(), &registered.object);
         options.check_preconditions(&meta)?;
+
         if options.head {
             return Ok(GetResult {
                 payload: GetResultPayload::Stream(futures::stream::empty().boxed()),
@@ -93,6 +96,7 @@ impl ObjectStore for CachedObjectStore {
                 attributes: Attributes::default(),
             });
         }
+
         let range = match options.range.as_ref() {
             Some(range) => range
                 .as_range(registered.object.size_bytes)
@@ -102,12 +106,16 @@ impl ObjectStore for CachedObjectStore {
                 })?,
             None => 0..registered.object.size_bytes,
         };
+
         let timer = ReadTimer::start();
+
         let bytes = self
             .cache
             .read_range(&self.origin, &registered, range.clone())
             .await?;
+
         timer.finish(bytes.len());
+
         Ok(GetResult {
             payload: GetResultPayload::Stream(
                 futures::stream::once(async move { Ok(bytes) }).boxed(),
@@ -126,6 +134,7 @@ impl ObjectStore for CachedObjectStore {
         if self.registry.get(location.as_ref()).is_none() {
             return self.origin.get_ranges(location, ranges).await;
         }
+
         futures::future::try_join_all(ranges.iter().cloned().map(|range| {
             self.get_opts(location, GetOptions::new().with_range(Some(range)))
                 .and_then(GetResult::bytes)

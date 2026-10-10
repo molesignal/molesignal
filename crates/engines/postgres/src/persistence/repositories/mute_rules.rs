@@ -31,6 +31,7 @@ const COLS: &str = "id, org_id, name, enabled, matchers, time_window, comment,
 fn row_to(row: sqlx::postgres::PgRow) -> Result<MuteRule> {
     let matchers: Json<Vec<LabelMatcher>> = row.try_get("matchers").map_err(sqlx_err)?;
     let window: Json<MuteWindow> = row.try_get("time_window").map_err(sqlx_err)?;
+
     Ok(MuteRule {
         id: Id::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?),
         org_id: Id::from_string(row.try_get::<String, _>("org_id").map_err(sqlx_err)?),
@@ -70,6 +71,7 @@ impl MuteRuleRepository for PgMuteRuleRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(r)
     }
 
@@ -90,6 +92,7 @@ impl MuteRuleRepository for PgMuteRuleRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(r)
     }
 
@@ -99,6 +102,7 @@ impl MuteRuleRepository for PgMuteRuleRepository {
             .fetch_one(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         row_to(row)
     }
 
@@ -110,6 +114,7 @@ impl MuteRuleRepository for PgMuteRuleRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to).collect()
     }
 
@@ -119,6 +124,7 @@ impl MuteRuleRepository for PgMuteRuleRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -130,6 +136,7 @@ impl MuteRuleRepository for PgMuteRuleRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to).collect()
     }
 }

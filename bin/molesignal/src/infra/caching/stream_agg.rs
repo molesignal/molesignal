@@ -85,6 +85,7 @@ impl SealedSeries {
         if sealed_from > sealed_through {
             return; // 没有可封存的桶（活跃区为空 / 水位早于查询）
         }
+
         if self.series.is_empty() {
             self.stable_from = sealed_from;
             self.stable_through = sealed_through;
@@ -97,6 +98,7 @@ impl SealedSeries {
             if buckets.is_empty() {
                 continue;
             }
+
             if let Some(existing) = self.series.get_mut(&labels) {
                 existing.extend(buckets);
             } else if max_series == 0 || self.series.len() < max_series {
@@ -109,11 +111,13 @@ impl SealedSeries {
         if step_us > 0 && max_buckets > 0 {
             let span = (max_buckets as i64).saturating_mul(step_us);
             let retain_from = self.stable_through.saturating_sub(span);
+
             if retain_from > self.stable_from {
                 self.series.retain(|_, m| {
                     *m = m.split_off(&retain_from);
                     !m.is_empty()
                 });
+
                 self.stable_from = retain_from;
             }
         }
@@ -125,13 +129,16 @@ impl SealedSeries {
         if lo > hi {
             return 0;
         }
+
         let mut n = 0u64;
+
         for (labels, buckets) in &self.series {
             for (&ts, &v) in buckets.range(lo..=hi) {
                 emit(labels, ts, v);
                 n += 1;
             }
         }
+
         n
     }
 }
@@ -147,16 +154,19 @@ impl StreamingAggCache {
     pub fn new(settings: &StreamAggCacheSettings) -> Self {
         let metrics = CacheMetrics::register("streaming_agg");
         let evict = metrics.evictions();
+
         let inner = Cache::builder()
             .max_capacity(settings.capacity)
             .time_to_live(Duration::from_secs(settings.ttl_secs))
             .async_eviction_listener(move |_k, _v, _cause| {
                 let evict = evict.clone();
+
                 Box::pin(async move {
                     evict.inc();
                 })
             })
             .build();
+
         Self {
             inner,
             metrics,
@@ -192,6 +202,7 @@ impl StreamingAggCache {
     /// 命中率（含本缓存实例累计的 hit/miss），观测 + 测试用。
     pub fn hit_ratio(&self) -> f64 {
         let (h, m) = self.metrics.snapshot();
+
         if h + m == 0 {
             0.0
         } else {

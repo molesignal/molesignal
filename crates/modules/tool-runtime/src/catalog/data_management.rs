@@ -20,6 +20,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
     ) {
         return mutations::spec(kind);
     }
+
     let (description, category, input, permissions, tags) = match kind {
         BuiltinToolKind::ListSavedViews => entry(
             "List saved SQL and PromQL views.",
@@ -232,6 +233,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         ),
         _ => unreachable!("data-management catalog received unrelated kind"),
     };
+
     let tool = ToolSpec::read(
         kind.name(),
         description,
@@ -242,6 +244,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         &permissions,
         &tags,
     );
+
     let tool = if matches!(
         kind,
         BuiltinToolKind::ListSearchJobs
@@ -256,6 +259,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
     } else {
         tool
     };
+
     match kind {
         BuiltinToolKind::SubmitSearchJob | BuiltinToolKind::CancelSearchJob => {
             tool.managed_mutation(RiskLevel::L1, false, false)
@@ -357,6 +361,7 @@ fn search_job_operation(description: &'static str, tags: &[&'static str]) -> Ent
 
 fn proposal_schema(required: Vec<&str>, properties: Value) -> Value {
     let mut properties = properties.as_object().cloned().unwrap_or_default();
+
     properties.extend(
         json!({
             "reason": {"type": "string", "minLength": 1, "maxLength": 2000},
@@ -367,6 +372,7 @@ fn proposal_schema(required: Vec<&str>, properties: Value) -> Value {
         .cloned()
         .expect("static approval schema"),
     );
+
     json!({
         "type": "object",
         "required": required.into_iter().chain(["reason", "impact"]).collect::<Vec<_>>(),

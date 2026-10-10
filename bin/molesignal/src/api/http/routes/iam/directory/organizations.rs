@@ -52,6 +52,7 @@ impl OrgView {
             .map(|role| role.name.as_str())
             .collect::<Vec<_>>()
             .join(", ");
+
         Self {
             id: organization.id.0,
             name: organization.name,
@@ -86,6 +87,7 @@ async fn organization_root_role(state: &AppState, organization_id: &Id) -> Resul
         .iam_memberships
         .role_id_for_purpose(organization_id, "organization_bootstrap")
         .await?;
+
     state
         .iam
         .access
@@ -105,19 +107,24 @@ async fn list_orgs(
             .platform_administrators
             .is_active(&context.user_id)
             .await?;
+
     if root {
         if context.scope == IamScope::System {
             require_system_organization_management(&state.iam.system_org_id, &context)?;
         }
+
         let mut views = Vec::new();
+
         for organization in state.iam.service.orgs.list().await? {
             let role = if organization.system {
                 system_assigned_role(&state).await?
             } else {
                 organization_root_role(&state, &organization.id).await?
             };
+
             views.push(OrgView::from_org(organization, vec![role]));
         }
+
         return Ok(Json(views));
     }
 
@@ -132,12 +139,15 @@ async fn list_orgs(
         .iam_memberships
         .list_for_user(&context.user_id)
         .await?;
+
     let mut organizations = Vec::new();
     let mut seen = HashSet::new();
+
     for membership in memberships {
         if !seen.insert(membership.org_id.clone()) {
             continue;
         }
+
         if let Ok(organization) = state.iam.service.orgs.get(&membership.org_id).await {
             let roles = state
                 .iam
@@ -145,6 +155,7 @@ async fn list_orgs(
                 .iam_memberships
                 .assigned_roles(&context.user_id, &membership.org_id)
                 .await?;
+
             organizations.push(OrgView::from_org(organization, roles));
         }
     }
@@ -166,14 +177,17 @@ async fn create_org(
     require_system_organization_management(&state.iam.system_org_id, &context)?;
     let name = request.name.trim().to_string();
     let slug = request.slug.trim().to_string();
+
     if name.is_empty() {
         return Err(Error::invalid("name must not be empty"));
     }
+
     if slug.is_empty() {
         return Err(Error::invalid("slug must not be empty"));
     }
 
     let now = TimestampMicros::now();
+
     let organization = state
         .iam
         .service
@@ -187,7 +201,9 @@ async fn create_org(
             created_at: now,
         })
         .await?;
+
     let roles = vec![organization_root_role(&state, &organization.id).await?];
+
     Ok((
         StatusCode::CREATED,
         Json(OrgView::from_org(organization, roles)),
@@ -212,16 +228,20 @@ async fn update_org(
     require_system_organization_management(&state.iam.system_org_id, &context)?;
     let current = state.iam.service.orgs.get(&target_org_id).await?;
     current.ensure_mutable()?;
+
     if request.slug.is_some() {
         return Err(Error::invalid(
             "organization slug is immutable after creation",
         ));
     }
+
     let organization = if let Some(name) = request.name {
         let name = name.trim().to_string();
+
         if name.is_empty() {
             return Err(Error::invalid("name must not be empty"));
         }
+
         state
             .iam
             .service
@@ -231,6 +251,7 @@ async fn update_org(
     } else {
         current
     };
+
     let roles = vec![organization_root_role(&state, &organization.id).await?];
     Ok(Json(OrgView::from_org(organization, roles)))
 }
@@ -249,17 +270,20 @@ async fn set_org_status(
 ) -> Result<Json<OrgView>> {
     require_system_organization_management(&state.iam.system_org_id, &context)?;
     let target_org_id = Id::from_string(id);
+
     let organization = state
         .iam
         .service
         .orgs
         .set_disabled(&target_org_id, request.disabled)
         .await?;
+
     let action = if request.disabled {
         "organization.disable"
     } else {
         "organization.enable"
     };
+
     let _ = state
         .iam
         .audit_events
@@ -277,6 +301,7 @@ async fn set_org_status(
             ts: TimestampMicros::now(),
         })
         .await;
+
     let roles = vec![organization_root_role(&state, &organization.id).await?];
     Ok(Json(OrgView::from_org(organization, roles)))
 }
@@ -290,6 +315,7 @@ async fn delete_org(
     require_system_organization_management(&state.iam.system_org_id, &context)?;
     let target = state.iam.service.orgs.get(&target_org_id).await?;
     target.ensure_mutable()?;
+
     if target_org_id == context.org_id {
         return Err(Error::invalid(
             "switch to another organization before deleting this one",
@@ -305,9 +331,11 @@ async fn delete_org(
         .into_iter()
         .filter(|organization| !organization.system)
         .collect::<Vec<_>>();
+
     if tenants.len() <= 1 {
         return Err(Error::invalid("cannot delete the last organization"));
     }
+
     if !target.disabled
         && tenants
             .iter()
@@ -319,6 +347,7 @@ async fn delete_org(
             "cannot delete the last enabled tenant organization",
         ));
     }
+
     state.iam.service.orgs.delete(&target_org_id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
@@ -342,16 +371,19 @@ async fn select_org(
     let target_org_id = Id::from_string(id);
     let organization = state.iam.service.orgs.get(&target_org_id).await?;
     organization.ensure_enabled()?;
+
     let root = context.scope != IamScope::ApiToken
         && state
             .iam
             .platform_administrators
             .is_active(&context.user_id)
             .await?;
+
     if organization.system {
         if !root {
             return Err(Error::not_found("organization"));
         }
+
         return select_system_organization(state, context, target_org_id, organization).await;
     }
 
@@ -367,6 +399,7 @@ async fn select_org(
             .into_iter()
             .find(|membership| membership.org_id == target_org_id)
             .ok_or_else(|| Error::forbidden("not a member of this organization"))?;
+
         state
             .iam
             .service
@@ -374,15 +407,18 @@ async fn select_org(
             .assigned_roles(&context.user_id, &target_org_id)
             .await?
     };
+
     let display_role = roles
         .iter()
         .map(|role| role.name.as_str())
         .collect::<Vec<_>>()
         .join(", ");
+
     let token = state
         .iam
         .service
         .issue_token(&context.user_id, &target_org_id)?;
+
     Ok(Json(SelectOrgResp {
         token,
         user_id: context.user_id.0,
@@ -402,10 +438,12 @@ async fn select_system_organization(
 ) -> Result<Json<SelectOrgResp>> {
     let role = system_assigned_role(&state).await?;
     let display_role = role.name.clone();
+
     let token = state
         .iam
         .service
         .issue_system_token(&context.user_id, &target_org_id)?;
+
     let _ = state
         .iam
         .audit_events
@@ -427,6 +465,7 @@ async fn select_system_organization(
             ts: TimestampMicros::now(),
         })
         .await;
+
     Ok(Json(SelectOrgResp {
         token,
         user_id: context.user_id.0,

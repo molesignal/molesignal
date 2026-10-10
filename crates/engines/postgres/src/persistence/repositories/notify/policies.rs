@@ -41,6 +41,7 @@ fn row_to_policy(row: sqlx::postgres::PgRow) -> Result<NotifyPolicy> {
         row.try_get("delivery_config").map_err(sqlx_err)?;
     let escalation_config: Option<Json<serde_json::Value>> =
         row.try_get("escalation_config").map_err(sqlx_err)?;
+
     Ok(NotifyPolicy {
         id: Id::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?),
         organization_id: Id::from_string(
@@ -105,6 +106,7 @@ impl NotifyPolicyRepository for PgNotifyPolicyRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(policy)
     }
 
@@ -148,9 +150,11 @@ impl NotifyPolicyRepository for PgNotifyPolicyRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         if updated.rows_affected() == 0 {
             return Err(Error::not_found("notify policy"));
         }
+
         Ok(policy)
     }
 
@@ -165,6 +169,7 @@ impl NotifyPolicyRepository for PgNotifyPolicyRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         row_to_policy(row)
     }
 
@@ -179,6 +184,7 @@ impl NotifyPolicyRepository for PgNotifyPolicyRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to_policy).collect()
     }
 
@@ -200,6 +206,7 @@ impl NotifyPolicyRepository for PgNotifyPolicyRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to_policy).collect()
     }
 
@@ -211,9 +218,11 @@ impl NotifyPolicyRepository for PgNotifyPolicyRepository {
                 .execute(&self.pool)
                 .await
                 .map_err(sqlx_err)?;
+
         if deleted.rows_affected() == 0 {
             return Err(Error::not_found("notify policy"));
         }
+
         Ok(())
     }
 }

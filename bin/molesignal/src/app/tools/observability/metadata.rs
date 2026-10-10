@@ -46,11 +46,13 @@ async fn stream_settings(
 ) -> Result<ToolResult> {
     let args: StreamArgs = parse_args(arguments)?;
     let stream = require_stream(runtime, &auth.org_id, &args.stream, args.stream_type).await?;
+
     let settings = runtime
         .observability
         .streams
         .get_settings(&stream.id)
         .await?;
+
     Ok(ToolResult::json(json!({
         "stream": stream.name,
         "stream_type": stream.stream_type,
@@ -75,6 +77,7 @@ async fn metric_labels(
     let args: MetricArgs = parse_args(arguments)?;
     let stream = require_stream(runtime, &auth.org_id, &args.metric, StreamType::METRICS).await?;
     let labels = label_names(&stream.schema);
+
     Ok(ToolResult::json(json!({
         "metric": args.metric,
         "labels": labels,
@@ -101,32 +104,40 @@ async fn metric_series(
     let stream = require_stream(runtime, &auth.org_id, &args.metric, StreamType::METRICS).await?;
     let labels = label_names(&stream.schema);
     let limit = args.limit.unwrap_or(200).clamp(1, 1_000);
+
     if labels.is_empty() {
         return Ok(ToolResult::json(json!({
             "metric": args.metric,
             "series": [{"__name__": args.metric}],
         })));
     }
+
     let mut filters = Vec::new();
+
     for (label, value) in &args.match_labels {
         let field = require_field(&stream.schema, label)?;
+
         if !labels.iter().any(|candidate| candidate == field) {
             return Err(crate::shared::Error::invalid(format!(
                 "field `{label}` is not a metric label"
             )));
         }
+
         filters.push(format!("{} = '{}'", quote_ident(field), sql_literal(value)));
     }
+
     let selected = labels
         .iter()
         .map(|label| quote_ident(label))
         .collect::<Vec<_>>();
+
     let statement = format!(
         "SELECT DISTINCT {} FROM {}{} LIMIT {limit}",
         selected.join(", "),
         quote_ident(&args.metric),
         where_clause(&filters),
     );
+
     let result = run_query(
         runtime,
         &auth.org_id,
@@ -137,15 +148,18 @@ async fn metric_series(
         limit,
     )
     .await?;
+
     let series = rows_as_objects(&result)
         .into_iter()
         .map(|mut row| {
             if let Value::Object(fields) = &mut row {
                 fields.insert("__name__".into(), Value::String(args.metric.clone()));
             }
+
             row
         })
         .collect::<Vec<_>>();
+
     Ok(ToolResult::json(json!({
         "metric": args.metric,
         "labels": labels,
@@ -168,6 +182,7 @@ fn label_names(schema: &crate::domain::stream::Schema) -> Vec<String> {
                 && !is_prometheus_exemplar_storage_field(name)
         })
         .collect::<Vec<_>>();
+
     labels.sort();
     labels.dedup();
     labels

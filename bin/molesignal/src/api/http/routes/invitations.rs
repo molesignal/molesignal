@@ -71,6 +71,7 @@ async fn resolve_resp(state: &AppState, invitation: Invitation) -> Result<Resp> 
         .role_summary(&invitation.org_id, &invitation.role_id)
         .await?
         .ok_or_else(|| Error::internal("invitation references a missing IAM role"))?;
+
     Ok(to_resp(invitation, role))
 }
 
@@ -80,10 +81,12 @@ async fn list(
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Vec<Resp>>> {
     let invitations = state.iam.invitations.list(&ctx.org_id).await?;
+
     let role_ids = invitations
         .iter()
         .map(|invitation| invitation.role_id.clone())
         .collect::<Vec<_>>();
+
     let roles = state
         .iam
         .access
@@ -93,6 +96,7 @@ async fn list(
         .into_iter()
         .map(|role| (role.id.0.clone(), role))
         .collect::<HashMap<_, _>>();
+
     let responses = invitations
         .into_iter()
         .map(|invitation| {
@@ -100,9 +104,11 @@ async fn list(
                 .get(&invitation.role_id.0)
                 .cloned()
                 .ok_or_else(|| Error::internal("invitation references a missing IAM role"))?;
+
             Ok(to_resp(invitation, role))
         })
         .collect::<Result<Vec<_>>>()?;
+
     Ok(Json(responses))
 }
 
@@ -113,11 +119,14 @@ async fn create(
     Json(req): Json<CreateReq>,
 ) -> Result<Json<Resp>> {
     let email = req.email.trim().to_lowercase();
+
     if !email.contains('@') {
         return Err(Error::invalid("email must be valid"));
     }
+
     // org 配置了邮箱域白名单时，拒绝邀请名单外的域（空名单 = 不限制）。
     super::email_domains::ensure_email_allowed(&state, &ctx.org_id, &email).await?;
+
     let role_id = match req.role_id {
         Some(role_id) => Id::from_string(role_id),
         None => {
@@ -129,6 +138,7 @@ async fn create(
                 .await?
         }
     };
+
     state
         .iam
         .access
@@ -136,7 +146,9 @@ async fn create(
         .role_summary(&ctx.org_id, &role_id)
         .await?
         .ok_or_else(|| Error::invalid("role_id must reference an IAM role in this organization"))?;
+
     let now = TimestampMicros::now();
+
     let invitation = Invitation {
         id: Id::new(),
         org_id: ctx.org_id.clone(),
@@ -147,6 +159,7 @@ async fn create(
         sent_at: now,
         updated_at: now,
     };
+
     let invitation = state.iam.invitations.create(invitation).await?;
     Ok(Json(resolve_resp(&state, invitation).await?))
 }
@@ -158,11 +171,13 @@ async fn resend(
     Path(id): Path<String>,
 ) -> Result<Json<Resp>> {
     let now = TimestampMicros::now();
+
     let invitation = state
         .iam
         .invitations
         .update_status(&ctx.org_id, &Id::from_string(id), "pending", Some(now), now)
         .await?;
+
     Ok(Json(resolve_resp(&state, invitation).await?))
 }
 
@@ -173,10 +188,12 @@ async fn revoke(
     Path(id): Path<String>,
 ) -> Result<Json<Resp>> {
     let now = TimestampMicros::now();
+
     let invitation = state
         .iam
         .invitations
         .update_status(&ctx.org_id, &Id::from_string(id), "revoked", None, now)
         .await?;
+
     Ok(Json(resolve_resp(&state, invitation).await?))
 }

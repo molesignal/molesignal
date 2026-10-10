@@ -80,14 +80,17 @@ async fn get_one(
     Path(monitor_id): Path<String>,
 ) -> Result<Json<MonitorDetail>> {
     let monitor_id = Id(monitor_id);
+
     let monitor = state
         .synthetics
         .get_monitor(&context.org_id, &monitor_id)
         .await?;
+
     let revisions = state
         .synthetics
         .list_revisions(&context.org_id, &monitor_id)
         .await?;
+
     Ok(Json(MonitorDetail { monitor, revisions }))
 }
 
@@ -101,6 +104,7 @@ async fn create(
         .synthetics
         .create_monitor(&context.org_id, &context.user_id, input)
         .await?;
+
     audit(&state, &context, &created.monitor, "create", None).await;
     Ok((StatusCode::CREATED, Json(created)))
 }
@@ -113,14 +117,17 @@ async fn create_revision(
     Json(input): Json<CreateMonitorInput>,
 ) -> Result<(StatusCode, Json<MonitorRevision>)> {
     let monitor_id = Id(monitor_id);
+
     let revision = state
         .synthetics
         .create_draft_revision(&context.org_id, &context.user_id, &monitor_id, input)
         .await?;
+
     let monitor = state
         .synthetics
         .get_monitor(&context.org_id, &monitor_id)
         .await?;
+
     audit(
         &state,
         &context,
@@ -129,6 +136,7 @@ async fn create_revision(
         Some(&revision),
     )
     .await;
+
     Ok((StatusCode::CREATED, Json(revision)))
 }
 
@@ -142,6 +150,7 @@ async fn test_revision(
         .synthetics
         .create_test_run(&context.org_id, &Id(monitor_id), &Id(revision_id))
         .await?;
+
     Ok((StatusCode::ACCEPTED, Json(tasks)))
 }
 
@@ -155,6 +164,7 @@ async fn publish_revision(
         .synthetics
         .publish_revision(&context.org_id, &Id(monitor_id), &Id(revision_id))
         .await?;
+
     audit(
         &state,
         &context,
@@ -163,6 +173,7 @@ async fn publish_revision(
         Some(&published.revision),
     )
     .await;
+
     Ok(Json(published))
 }
 
@@ -176,6 +187,7 @@ async fn run_monitor(
         .synthetics
         .run_monitor(&context.org_id, &Id(monitor_id))
         .await?;
+
     Ok((StatusCode::ACCEPTED, Json(tasks)))
 }
 
@@ -236,6 +248,7 @@ async fn lifecycle(
         .synthetics
         .set_lifecycle(&context.org_id, &monitor_id, lifecycle)
         .await?;
+
     audit(state, context, &monitor, lifecycle.as_str(), None).await;
     Ok(Json(monitor))
 }

@@ -23,18 +23,23 @@ impl PollingBackoff {
         let base_millis = duration_millis(base).max(1);
         let max_millis = duration_millis(max).max(base_millis);
         let mut random_state = 0xcbf2_9ce4_8422_2325_u64;
+
         for byte in worker_key.bytes() {
             random_state ^= u64::from(byte);
             random_state = random_state.wrapping_mul(0x1000_0000_01b3);
         }
+
         random_state ^= u64::from(std::process::id());
+
         random_state ^= std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_nanos() as u64;
+
         if random_state == 0 {
             random_state = 0x9e37_79b9_7f4a_7c15;
         }
+
         Self {
             base_millis,
             max_millis,
@@ -49,10 +54,12 @@ impl PollingBackoff {
 
     pub fn next_delay(&mut self) -> Duration {
         let multiplier = 1_u64 << self.attempts.min(20);
+
         let capped = self
             .base_millis
             .saturating_mul(multiplier)
             .min(self.max_millis);
+
         self.attempts = self.attempts.saturating_add(1);
 
         let delta = (capped / 5).max(1);

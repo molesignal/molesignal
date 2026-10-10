@@ -109,6 +109,7 @@ impl StatusPageService {
 
 fn deduplicate_ids(ids: Vec<Id>) -> Vec<Id> {
     let mut seen = HashSet::new();
+
     ids.into_iter()
         .filter(|id| seen.insert(id.as_str().to_string()))
         .collect()

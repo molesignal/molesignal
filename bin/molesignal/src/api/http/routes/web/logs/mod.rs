@@ -87,6 +87,7 @@ async fn list(
     Json(request): Json<LogListRequest>,
 ) -> Result<Json<CursorPage<Map<String, Value>>>> {
     let context = resolve_context(&state, &iam, request)?;
+
     let stream = match state
         .telemetry
         .streams
@@ -97,20 +98,24 @@ async fn list(
         Err(Error::NotFound(_)) => return Ok(Json(CursorPage::empty())),
         Err(error) => return Err(error),
     };
+
     let has_event_id = stream
         .schema
         .fields
         .iter()
         .any(|field| field.name == EVENT_ID_FIELD);
+
     if !has_event_id {
         return Err(Error::invalid(
             "log stream has no stable event id for cursor pagination",
         ));
     }
+
     validate_filter_fields(&context, &stream.schema.fields)?;
 
     let fetch_limit = context.page_size.saturating_add(1);
     let sql = list_sql(&context, fetch_limit, &stream.schema.fields)?;
+
     let output = state
         .query
         .run(QueryRequest {
@@ -126,6 +131,7 @@ async fn list(
             federation_clusters: Vec::new(),
         })
         .await?;
+
     let direction = context.boundary.as_ref().map(|boundary| boundary.direction);
     let page = trim_cursor_page(rows_from_query(output), context.page_size, direction);
 
@@ -145,6 +151,7 @@ async fn list(
     } else {
         None
     };
+
     let next_cursor = if page.has_next {
         page.items
             .last()
@@ -178,6 +185,7 @@ fn resolve_context(
     if let Some(token) = request.cursor.as_deref() {
         let payload = cursor::decode(state.iam.service.as_ref(), &iam.org_id, token)?;
         validate_cursor_request(&request, &payload)?;
+
         return Ok(LogListContext {
             stream: payload.stream,
             from: payload.from,
@@ -195,19 +203,25 @@ fn resolve_context(
 
     let stream = clean_required(request.stream, "log stream is required", 128)?;
     let now = TimestampMicros::now().0;
+
     let from = request
         .from
         .unwrap_or_else(|| now.saturating_sub(DEFAULT_WINDOW_MICROS));
+
     let to = request.to.unwrap_or(now);
+
     if to <= from {
         return Err(Error::invalid("log range end must be greater than start"));
     }
+
     let page_size = request
         .limit
         .unwrap_or(DEFAULT_PAGE_SIZE)
         .clamp(1, MAX_PAGE_SIZE);
+
     let filters = normalize_filters(request.filters)?;
     let free_text = normalize_free_text(request.free_text)?;
+
     Ok(LogListContext {
         stream,
         from,
@@ -222,6 +236,7 @@ fn resolve_context(
 fn validate_cursor_request(request: &LogListRequest, payload: &LogCursorPayload) -> Result<()> {
     let filters = normalize_filters(request.filters.clone())?;
     let free_text = normalize_free_text(request.free_text.clone())?;
+
     let mismatch = request
         .stream
         .as_deref()
@@ -233,9 +248,11 @@ fn validate_cursor_request(request: &LogListRequest, payload: &LogCursorPayload)
             .is_some_and(|value| value.clamp(1, MAX_PAGE_SIZE) != payload.page_size)
         || (!filters.is_empty() && filters != payload.filters)
         || (!free_text.is_empty() && free_text != payload.free_text);
+
     if mismatch {
         return Err(Error::invalid("log cursor does not match the active query"));
     }
+
     Ok(())
 }
 
@@ -247,6 +264,7 @@ fn normalize_free_text(values: Vec<String>) -> Result<Vec<String>> {
     if values.len() > MAX_FREE_TEXT {
         return Err(Error::invalid("too many log free-text clauses"));
     }
+
     values
         .into_iter()
         .map(|value| clean_required(Some(value), "empty log search text", 512))
@@ -256,9 +274,11 @@ fn normalize_free_text(values: Vec<String>) -> Result<Vec<String>> {
 fn clean_required(value: Option<String>, error: &str, max: usize) -> Result<String> {
     let value = value.unwrap_or_default();
     let value = value.trim();
+
     if value.is_empty() || value.len() > max || value.contains('\0') {
         return Err(Error::invalid(error));
     }
+
     Ok(value.to_string())
 }
 
@@ -267,9 +287,11 @@ fn validate_filter_fields(
     fields: &[crate::domain::stream::FieldDef],
 ) -> Result<()> {
     filter::validate(&context.filters, fields)?;
+
     if !context.free_text.is_empty() && !fields.iter().any(|field| field.name == "message") {
         return Err(Error::invalid("log stream has no message field"));
     }
+
     Ok(())
 }
 
@@ -289,13 +311,16 @@ fn list_sql(
     let timestamp_order = "_timestamp";
     let event_id_expr = format!("COALESCE(\"{EVENT_ID_FIELD}\", '')");
     let event_id_order = format!("\"{EVENT_ID_FIELD}\"");
+
     let mut where_clauses = vec![
         format!("{timestamp_expr} >= {}", context.from),
         format!("{timestamp_expr} < {}", context.to),
     ];
+
     for filter in &context.filters {
         where_clauses.push(filter::to_sql(filter, fields)?);
     }
+
     for value in &context.free_text {
         if crate::infra::query::tantivy_pruner::can_prune_match_term(value) {
             where_clauses.push(format!("MATCH(message, {})", sql_literal(value)));
@@ -306,14 +331,18 @@ fn list_sql(
             ));
         }
     }
+
     if let Some(boundary) = &context.boundary {
         where_clauses.push(cursor::seek_predicate(boundary, &event_id_expr));
     }
+
     let reverse = context
         .boundary
         .as_ref()
         .is_some_and(|boundary| boundary.direction == CursorDirection::Before);
+
     let order = if reverse { "ASC" } else { "DESC" };
+
     Ok(format!(
         "SELECT *, {timestamp_expr} AS __cursor_timestamp, \
                 {event_id_expr} AS __cursor_event_id \
@@ -331,10 +360,12 @@ fn rows_from_query(output: crate::domain::query::QueryResult) -> Vec<LogListRow>
         .columns
         .iter()
         .position(|column| column == "__cursor_timestamp");
+
     let event_id_index = output
         .columns
         .iter()
         .position(|column| column == "__cursor_event_id");
+
     output
         .rows
         .into_iter()
@@ -342,12 +373,15 @@ fn rows_from_query(output: crate::domain::query::QueryResult) -> Vec<LogListRow>
             let timestamp_micros = timestamp_index
                 .and_then(|index| row.get(index))
                 .and_then(value_i64)?;
+
             let event_id = event_id_index
                 .and_then(|index| row.get(index))
                 .and_then(Value::as_str)
                 .unwrap_or_default()
                 .to_string();
+
             let mut item = Map::new();
+
             for (index, column) in output.columns.iter().enumerate() {
                 if column == "__cursor_timestamp"
                     || column == "__cursor_event_id"
@@ -355,11 +389,13 @@ fn rows_from_query(output: crate::domain::query::QueryResult) -> Vec<LogListRow>
                 {
                     continue;
                 }
+
                 item.insert(
                     column.clone(),
                     row.get(index).cloned().unwrap_or(Value::Null),
                 );
             }
+
             Some(LogListRow {
                 item,
                 timestamp_micros,

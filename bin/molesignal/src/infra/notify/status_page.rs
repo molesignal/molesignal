@@ -48,6 +48,7 @@ impl StatusPageNotificationSender for StatusPageNotifyAdapter {
                     .trim()
                     .parse::<Mailbox>()
                     .map_err(|_| Error::invalid("subscription email address is invalid"))?;
+
                 Ok(())
             }
             StatusPageSubscriberChannel::Webhook => {
@@ -68,6 +69,7 @@ impl StatusPageNotificationSender for StatusPageNotifyAdapter {
                 let sender = self.email.as_ref().ok_or_else(|| {
                     Error::unavailable("status-page email delivery is not configured")
                 })?;
+
                 sender
                     .send_text(
                         &[target.trim().to_ascii_lowercase()],
@@ -83,12 +85,14 @@ impl StatusPageNotificationSender for StatusPageNotifyAdapter {
 
 async fn send_webhook(target: &str, message: &StatusPageNotificationMessage) -> Result<()> {
     let (url, host, address) = resolve_public_webhook(target).await?;
+
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(10))
         .redirect(Policy::none())
         .resolve(&host, address)
         .build()
         .map_err(|_| Error::internal("status-page webhook client initialization failed"))?;
+
     let response = http_trace::send(
         &client,
         client
@@ -99,41 +103,50 @@ async fn send_webhook(target: &str, message: &StatusPageNotificationMessage) -> 
     )
     .await
     .map_err(|_| Error::unavailable("status-page webhook request failed"))?;
+
     if !response.status().is_success() {
         return Err(Error::unavailable(format!(
             "status-page webhook returned HTTP {}",
             response.status().as_u16()
         )));
     }
+
     Ok(())
 }
 
 async fn resolve_public_webhook(target: &str) -> Result<(Url, String, SocketAddr)> {
     let url = Url::parse(target.trim())
         .map_err(|_| Error::invalid("webhook URL must be an absolute HTTPS URL"))?;
+
     if url.scheme() != "https" || !url.username().is_empty() || url.password().is_some() {
         return Err(Error::invalid(
             "webhook URL must use HTTPS and cannot contain credentials",
         ));
     }
+
     let host = url
         .host_str()
         .filter(|host| !host.is_empty())
         .ok_or_else(|| Error::invalid("webhook URL must include a host"))?
         .to_ascii_lowercase();
+
     if host == "localhost" || host.ends_with(".localhost") || host.ends_with(".local") {
         return Err(Error::invalid("webhook URL must use a public host"));
     }
+
     let port = url.port_or_known_default().unwrap_or(443);
+
     let addresses: Vec<SocketAddr> = tokio::net::lookup_host((host.as_str(), port))
         .await
         .map_err(|_| Error::invalid("webhook host could not be resolved"))?
         .filter(|address| is_public_ip(address.ip()))
         .collect();
+
     let address = addresses
         .into_iter()
         .next()
         .ok_or_else(|| Error::invalid("webhook host does not resolve to a public address"))?;
+
     Ok((url, host, address))
 }
 
@@ -146,6 +159,7 @@ fn is_public_ip(address: IpAddr) -> bool {
 
 fn is_public_ipv4(address: Ipv4Addr) -> bool {
     let [a, b, c, _] = address.octets();
+
     !(address.is_private()
         || address.is_loopback()
         || address.is_link_local()
@@ -163,9 +177,11 @@ fn is_public_ipv4(address: Ipv4Addr) -> bool {
 
 fn is_public_ipv6(address: Ipv6Addr) -> bool {
     let segments = address.segments();
+
     if let Some(mapped) = address.to_ipv4_mapped() {
         return is_public_ipv4(mapped);
     }
+
     !(address.is_unspecified()
         || address.is_loopback()
         || address.is_multicast()

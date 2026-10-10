@@ -71,6 +71,7 @@ pub fn aggregate(samples: &[RawEdgeSample<'_>], window_micros: i64) -> TopologyR
         let e = edges.entry(key).or_default();
         e.request_count += s.request_count;
         e.error_count += s.error_count;
+
         if let Some(p95) = s.p95_us {
             e.p95_us_max = e.p95_us_max.max(p95);
         }
@@ -79,6 +80,7 @@ pub fn aggregate(samples: &[RawEdgeSample<'_>], window_micros: i64) -> TopologyR
             let n = nodes.entry(svc.to_string()).or_default();
             n.request_count += s.request_count;
             n.error_count += s.error_count;
+
             if let Some(p95) = s.p95_us {
                 n.p95_us_max = n.p95_us_max.max(p95);
             }
@@ -96,6 +98,7 @@ pub fn aggregate(samples: &[RawEdgeSample<'_>], window_micros: i64) -> TopologyR
             span_count: acc.request_count as i64,
         })
         .collect();
+
     node_out.sort_by(|a, b| a.name.cmp(&b.name));
 
     let mut edge_out: Vec<TopologyEdge> = edges
@@ -108,6 +111,7 @@ pub fn aggregate(samples: &[RawEdgeSample<'_>], window_micros: i64) -> TopologyR
             p95_ms: (acc.p95_us_max as f64) / 1_000.0,
         })
         .collect();
+
     edge_out.sort_by(|a, b| a.source.cmp(&b.source).then(a.target.cmp(&b.target)));
 
     TopologyResponse {

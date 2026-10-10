@@ -53,10 +53,12 @@ impl FieldKeyService {
         if let Some(k) = self.cache.get(&org.0).await {
             return Ok(k);
         }
+
         // `list` 按 (name, version DESC) 排序：每个 name 的第一行即最大版本。
         let all = self.keys.list(org).await?;
         let mut by_id: HashMap<String, Vec<u8>> = HashMap::with_capacity(all.len());
         let mut default_current: Option<OrgFieldKey> = None;
+
         for k in all {
             if k.name == FIELD_DEFAULT_KEY_NAME && default_current.is_none() {
                 default_current = Some(OrgFieldKey {
@@ -65,12 +67,15 @@ impl FieldKeyService {
                     raw_key: k.raw_key.clone(),
                 });
             }
+
             by_id.insert(k.id.0, k.raw_key);
         }
+
         let arc = Arc::new(OrgKeyset {
             default_current,
             by_id: Arc::new(by_id),
         });
+
         self.cache.insert(org.0.clone(), arc.clone()).await;
         Ok(arc)
     }
@@ -80,12 +85,16 @@ impl FieldKeyService {
         if let Some(c) = self.load(org).await?.default_current.clone() {
             return Ok(c);
         }
+
         // provision：生成 32B → create。并发首写竞态 / 已存在 → 忽略错误后重读。
         let raw = random_key()?;
+
         if let Err(e) = self.keys.create(org, FIELD_DEFAULT_KEY_NAME, &raw).await {
             tracing::debug!(org = %org.0, error = %e, "field DEK create raced or failed; reloading");
         }
+
         self.cache.invalidate(&org.0).await;
+
         self.load(org)
             .await?
             .default_current
@@ -110,11 +119,14 @@ impl FieldKeyService {
     /// 新 key 作为第一个版本直接 provision。
     pub async fn rotate_default(&self, org: &Id) -> Result<OrgFieldKey> {
         let raw = random_key()?;
+
         let k = match self.keys.rotate(org, FIELD_DEFAULT_KEY_NAME, &raw).await {
             Err(Error::NotFound(_)) => self.keys.create(org, FIELD_DEFAULT_KEY_NAME, &raw).await?,
             other => other?,
         };
+
         self.cache.invalidate(&org.0).await;
+
         Ok(OrgFieldKey {
             key_id: k.id.0,
             version: k.version,
@@ -126,9 +138,11 @@ impl FieldKeyService {
 fn random_key() -> Result<Vec<u8>> {
     use rand::TryRng as _;
     let mut buf = [0u8; 32];
+
     rand::rngs::SysRng
         .try_fill_bytes(&mut buf)
         .map_err(|e| Error::internal(format!("rng: {e}")))?;
+
     Ok(buf.to_vec())
 }
 

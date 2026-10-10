@@ -36,6 +36,7 @@ pub fn parse_from_tables(stmt: &str) -> Vec<String> {
     let mut out: Vec<String> = crate::infra::query::parser::extract_referenced_tables(stmt)
         .map(|refs| refs.into_iter().map(|r| r.name).collect())
         .unwrap_or_default();
+
     // 旧 API 排序后返；保持现有 caller 的稳定输出。
     out.sort();
     out.dedup();
@@ -60,9 +61,11 @@ pub async fn ensure_stream_in_org(
         }
         Err(e) => return Err(e),
     };
+
     if !streams.get_settings(&def.id).await?.queryable {
         return Err(Error::forbidden(format!("stream is not queryable: {name}")));
     }
+
     Ok(())
 }
 

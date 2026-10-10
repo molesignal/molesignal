@@ -54,6 +54,7 @@ where
 {
     tracing::subscriber::set_global_default(subscriber)
         .map_err(|error| format!("failed to set global tracing subscriber: {error}"))?;
+
     safe_log_tracer()
         .init()
         .map_err(|error| format!("failed to install log compatibility tracer: {error}"))
@@ -191,10 +192,12 @@ impl LoggerBuilder {
             .map_err(|error| anyhow::anyhow!("invalid telemetry.trace.filter: {error}"))?;
         let format = self.format;
         let subscriber_self_telemetry = self_telemetry.clone();
+
         let initialization = SUBSCRIBER_INIT.get_or_init(move || {
             let log_filter = || {
                 EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(level.clone()))
             };
+
             let span_filter =
                 || EnvFilter::try_new(trace_filter.clone()).expect("Trace filter prevalidated");
 
@@ -203,6 +206,7 @@ impl LoggerBuilder {
                     let self_trace_layer = subscriber_self_telemetry
                         .clone()
                         .map(|hub| SelfTelemetryLayer::traces(hub).with_filter(span_filter()));
+
                     install_global_subscriber(
                         tracing_subscriber::registry()
                             .with(SqlxPoolAcquireMetricsLayer.with_filter(
@@ -231,6 +235,7 @@ impl LoggerBuilder {
                     let self_trace_layer = subscriber_self_telemetry
                         .clone()
                         .map(|hub| SelfTelemetryLayer::traces(hub).with_filter(span_filter()));
+
                     install_global_subscriber(
                         tracing_subscriber::registry()
                             .with(SqlxPoolAcquireMetricsLayer.with_filter(
@@ -255,6 +260,7 @@ impl LoggerBuilder {
                 }
             }
         });
+
         if let Err(error) = initialization {
             anyhow::bail!(error.clone());
         }
@@ -282,6 +288,7 @@ fn make_writer(output: &LogOutput) -> (NonBlocking, WorkerGuard) {
                 .filename_suffix("log")
                 .build(directory)
                 .expect("create log file appender failed");
+
             tracing_appender::non_blocking(file_appender)
         }
     }
@@ -309,14 +316,17 @@ pub fn init_full_with_self_telemetry(init: FullTelemetryInit<'_>) -> anyhow::Res
         trace_filter,
         self_telemetry,
     } = init;
+
     let mut builder = LoggerBuilder::new()
         .level(log_level)
         .trace_filter(trace_filter)
         .format(format)
         .output(output);
+
     if let Some(init) = self_telemetry {
         builder = builder.self_telemetry(init);
     }
+
     builder.init()
 }
 

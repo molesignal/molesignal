@@ -55,6 +55,7 @@ impl RuleEvaluator {
                     );
                     return Ok(());
                 }
+
                 self.open_incident(rule, decision, query_result, fingerprint, now)
                     .await
             }
@@ -71,8 +72,10 @@ impl RuleEvaluator {
         let Some(mut incident) = existing.filter(|inc| inc.status == IncidentStatus::Open) else {
             return Ok(());
         };
+
         incident.status = IncidentStatus::Resolved;
         incident.resolved_at = Some(now);
+
         // 评估期间被用户确认或解决时写入落空，保留用户的结果。
         let Some(incident) = self
             .incidents
@@ -81,6 +84,7 @@ impl RuleEvaluator {
         else {
             return Ok(());
         };
+
         emit_lifecycle(self.lifecycle_sink.as_ref(), &incident).await;
         enqueue_notify_event(self.notify_engine.as_ref(), &incident, ALERT_RESOLVED_EVENT).await;
         self.eval_state.reset(&rule.id).await
@@ -100,17 +104,21 @@ impl RuleEvaluator {
             &incident.labels,
             decision.deviation_ratio,
         );
+
         if new_severity == incident.severity {
             return Ok(());
         }
+
         let mut updated = incident.clone();
         updated.severity = new_severity;
+
         // 升级（更高档）：重置升级进度，重新从头 page；降级仅更新字段。
         if new_severity > incident.severity {
             updated.current_step = 0;
             updated.current_loop = 0;
             updated.current_step_started_at = now;
         }
+
         if let Some(incident) = self
             .incidents
             .update_if_status(updated, &[IncidentStatus::Open])
@@ -118,6 +126,7 @@ impl RuleEvaluator {
         {
             emit_lifecycle(self.lifecycle_sink.as_ref(), &incident).await;
         }
+
         Ok(())
     }
 
@@ -132,13 +141,16 @@ impl RuleEvaluator {
     ) -> Result<()> {
         let context = derive_incident_context(rule, query_result);
         let group_labels = context.labels.clone();
+
         let severity = resolve_incident_severity(
             decision.severity,
             rule.severity,
             &context.labels,
             decision.deviation_ratio,
         );
+
         let summary = generate_title(&rule.name, &context.affected_services);
+
         let incident = Incident {
             id: Id::new(),
             org_id: rule.org_id.clone(),
@@ -168,14 +180,17 @@ impl RuleEvaluator {
             resolved_at: None,
             resolved_by: None,
         };
+
         let incident = self.incidents.create(incident).await?;
         emit_lifecycle(self.lifecycle_sink.as_ref(), &incident).await;
+
         enqueue_notify_event(
             self.notify_engine.as_ref(),
             &incident,
             ALERT_TRIGGERED_EVENT,
         )
         .await;
+
         self.assign_to_group(rule, &group_labels, fingerprint, now)
             .await;
         Ok(())
@@ -199,6 +214,7 @@ impl RuleEvaluator {
         let (Some(groups), Some(semantic)) = (&self.incident_groups, &self.semantic_groups) else {
             return;
         };
+
         let enabled = match semantic.list_enabled(&rule.org_id).await {
             Ok(g) => g,
             Err(e) => {
@@ -206,10 +222,12 @@ impl RuleEvaluator {
                 return;
             }
         };
+
         let (scope_id, group_fp) = match enabled.iter().find(|g| g.matches(incident_labels)) {
             Some(g) => (g.id.clone(), g.group_key(incident_labels)),
             None => (rule.id.clone(), incident_fingerprint.to_string()),
         };
+
         if let Err(e) = groups
             .upsert_for_incident(&rule.org_id, &scope_id, &group_fp, now, GROUP_WINDOW_SECS)
             .await

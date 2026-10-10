@@ -58,18 +58,22 @@ impl AcmeRunner {
             let this = self.clone();
             tokio::spawn(async move { this.issue_loop().await })
         };
+
         let renewal_handle = {
             let this = self.clone();
             tokio::spawn(async move { this.renewal_loop().await })
         };
+
         (issue_handle, renewal_handle)
     }
 
     async fn issue_loop(&self) {
         let mut tick = tokio::time::interval(self.issue_interval);
         tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
         loop {
             tick.tick().await;
+
             if let Err(e) = self.scan_pending().await {
                 tracing::warn!(error = %e, "acme_runner: pending scan failed");
             }
@@ -79,8 +83,10 @@ impl AcmeRunner {
     async fn renewal_loop(&self) {
         let mut tick = tokio::time::interval(self.renewal_interval);
         tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
         loop {
             tick.tick().await;
+
             if let Err(e) = self.scan_renewals().await {
                 tracing::warn!(error = %e, "acme_runner: renewal scan failed");
             }
@@ -90,11 +96,13 @@ impl AcmeRunner {
     /// 扫 `state="pending"` 的 domain，逐个尝试签发（cooldown 自动防抖、失败仅记日志续跑）。
     async fn scan_pending(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let rows = self.domains.list_by_state("pending").await?;
+
         for row in &rows {
             if let Err(e) = self.issue_one(row).await {
                 tracing::warn!(hostname = %row.hostname, error = %e, "acme_runner: issue failed");
             }
         }
+
         Ok(())
     }
 
@@ -102,11 +110,13 @@ impl AcmeRunner {
     async fn scan_renewals(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let rows = self.domains.list_by_state("active").await?;
         let now = TimestampMicros::now().0;
+
         for row in due_for_renewal(&rows, now) {
             if let Err(e) = self.issue_one(row).await {
                 tracing::warn!(hostname = %row.hostname, error = %e, "acme_runner: renewal failed");
             }
         }
+
         Ok(())
     }
 
@@ -125,6 +135,7 @@ impl AcmeRunner {
         if self.is_in_cooldown(&row.hostname) {
             return Ok(());
         }
+
         self.cooldown.insert(row.hostname.clone(), Instant::now());
 
         match self.client.issue(&row.hostname, &row.id).await {
@@ -138,11 +149,13 @@ impl AcmeRunner {
                         None,
                     )
                     .await?;
+
                 self.resolver.invalidate(&row.hostname);
                 Ok(())
             }
             Err(e) => {
                 let msg = e.to_string();
+
                 self.domains
                     .update_state(
                         &row.id,
@@ -156,6 +169,7 @@ impl AcmeRunner {
                         Some(&msg),
                     )
                     .await?;
+
                 Err(e.into())
             }
         }

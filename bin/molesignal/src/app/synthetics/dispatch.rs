@@ -19,12 +19,15 @@ impl SyntheticService {
         agent: &ProbeAgent,
     ) -> Result<Option<(ProbeTask, String)>> {
         let mut bytes = [0u8; 32];
+
         rand::rngs::SysRng
             .try_fill_bytes(&mut bytes)
             .map_err(|error| Error::internal(format!("generate Probe lease: {error}")))?;
+
         let plaintext = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes);
         let now = TimestampMicros::now();
         let leased_until = TimestampMicros(now.0.saturating_add(60 * 1_000_000));
+
         Ok(self
             .repository
             .lease_task(agent, now, leased_until, lease_hash(&plaintext))
@@ -74,11 +77,13 @@ impl SyntheticService {
     ) -> Result<Vec<ResolvedProbeSecret>> {
         let references = collect_secret_references(&task.spec)?;
         let mut resolved = Vec::with_capacity(references.len());
+
         for (reference, secret_id) in references {
             let (version, material) = self
                 .repository
                 .resolve_secret(&task.organization_id, &secret_id, None)
                 .await?;
+
             resolved.push(ResolvedProbeSecret {
                 reference,
                 secret_id,
@@ -86,6 +91,7 @@ impl SyntheticService {
                 material,
             });
         }
+
         Ok(resolved)
     }
 

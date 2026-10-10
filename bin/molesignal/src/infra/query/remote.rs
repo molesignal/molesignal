@@ -33,6 +33,7 @@ use crate::{
 
 /// 一次转发最多尝试的 querier 节点数。
 const MAX_ATTEMPTS: usize = 3;
+
 /// 单个查询在 querier 上的最长执行时间。更长的查询走异步 job。
 const QUERY_TIMEOUT: Duration = Duration::from_secs(300);
 
@@ -54,11 +55,13 @@ impl RemoteQueryClient {
     /// 按尝试顺序排好的 querier 节点：轮询选出的节点在前。
     async fn candidates(&self) -> Vec<PeerInfo> {
         let mut peers = self.registry.list_role(PeerRole::Querier).await;
+
         if let Some(first) = self.registry.pick_querier().await
             && let Some(position) = peers.iter().position(|peer| peer.node_id == first.node_id)
         {
             peers.swap(0, position);
         }
+
         peers
     }
 
@@ -66,7 +69,9 @@ impl RemoteQueryClient {
         if let Some(channel) = self.channels.lock().get(addr) {
             return Ok(channel.clone());
         }
+
         let url = grpc_channel::endpoint_url(addr, false);
+
         let channel = Channel::from_shared(url)
             .map_err(|error| Status::unavailable(format!("invalid endpoint: {error}")))?
             .connect_timeout(grpc_channel::CONNECT_TIMEOUT)
@@ -74,9 +79,11 @@ impl RemoteQueryClient {
             .connect()
             .await
             .map_err(|error| Status::unavailable(format!("connect: {error}")))?;
+
         self.channels
             .lock()
             .insert(addr.to_owned(), channel.clone());
+
         Ok(channel)
     }
 
@@ -87,9 +94,11 @@ impl RemoteQueryClient {
         dataset_type: Option<&DatasetTypeId>,
     ) -> Result<Res> {
         let peers = self.candidates().await;
+
         if peers.is_empty() {
             return Err(Error::unavailable("no querier node is available"));
         }
+
         let message = ExecuteRequest {
             op: op as i32,
             request: serde_json::to_vec(request)
@@ -99,7 +108,9 @@ impl RemoteQueryClient {
                 .map(|dataset| dataset.as_str().to_owned())
                 .unwrap_or_default(),
         };
+
         let mut unreachable = String::new();
+
         for peer in peers.into_iter().take(MAX_ATTEMPTS) {
             match self.send(&peer.advertise_addr, message.clone()).await {
                 Ok(bytes) => {
@@ -119,6 +130,7 @@ impl RemoteQueryClient {
                 Err(status) => return Err(status_to_error(status)),
             }
         }
+
         Err(Error::unavailable(format!(
             "no querier node could run the query: {unreachable}"
         )))
@@ -132,6 +144,7 @@ impl RemoteQueryClient {
         let mut client = QueryExecutionServiceClient::new(self.channel(addr).await?)
             .max_decoding_message_size(self.max_message_bytes)
             .max_encoding_message_size(self.max_message_bytes);
+
         let response = crate::shared::grpc_trace::call(
             tonic::Request::new(message),
             "query.v1.QueryExecutionService",
@@ -140,6 +153,7 @@ impl RemoteQueryClient {
             |request| client.execute(request),
         )
         .await?;
+
         Ok(response.into_inner().result)
     }
 }

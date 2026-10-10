@@ -53,6 +53,7 @@ impl PuffinBytesReader {
     pub async fn parse_footer(&self) -> Result<(PuffinMeta, Bytes)> {
         let started = std::time::Instant::now();
         directory_open_total().inc();
+
         ensure!(
             self.size >= MIN_FILE_SIZE,
             "Puffin file too small: {} < {}",
@@ -62,32 +63,39 @@ impl PuffinBytesReader {
 
         // 1) tail 12 bytes
         let tail_range = (self.size - FOOTER_SIZE)..self.size;
+
         let tail = self
             .store
             .get_range(&self.location, tail_range.start..tail_range.end)
             .await
             .map_err(|e| anyhow!("puffin footer tail get_range: {e}"))?;
+
         footer_bytes_read().inc_by(tail.len() as u64);
+
         ensure!(
             tail.len() == FOOTER_SIZE as usize,
             "puffin footer tail short read: {}",
             tail.len()
         );
+
         let payload_size = u32::from_le_bytes(
             tail[0..FOOTER_PAYLOAD_SIZE_SIZE as usize]
                 .try_into()
                 .expect("4 bytes"),
         ) as u64;
+
         let flags_bytes = &tail[FOOTER_PAYLOAD_SIZE_SIZE as usize
             ..(FOOTER_PAYLOAD_SIZE_SIZE + super::FLAGS_SIZE) as usize];
         let flags_u32 = u32::from_le_bytes(flags_bytes.try_into().expect("4 bytes"));
         let flags = PuffinFooterFlags::from_bits(flags_u32)
             .ok_or_else(|| anyhow!("puffin footer flags invalid: 0x{:x}", flags_u32))?;
+
         // The tail must end with MAGIC.
         ensure!(
             tail[(FOOTER_PAYLOAD_SIZE_SIZE + super::FLAGS_SIZE) as usize..] == MAGIC[..],
             "puffin tail MAGIC mismatch"
         );
+
         let _ = flags; // currently no compression on payload supported
 
         // 2) inner MAGIC + JSON payload
@@ -101,19 +109,24 @@ impl PuffinBytesReader {
                     payload_size
                 )
             })?;
+
         let payload_range = payload_start..(self.size - FOOTER_SIZE);
+
         let payload_bytes = self
             .store
             .get_range(&self.location, payload_range.start..payload_range.end)
             .await
             .map_err(|e| anyhow!("puffin footer payload get_range: {e}"))?;
+
         footer_bytes_read().inc_by(payload_bytes.len() as u64);
+
         ensure!(
             payload_bytes.len() == (payload_size + MAGIC_SIZE) as usize,
             "puffin payload short read: {} expected {}",
             payload_bytes.len(),
             payload_size + MAGIC_SIZE
         );
+
         ensure!(
             payload_bytes[..MAGIC_SIZE as usize] == MAGIC[..],
             "puffin inner MAGIC mismatch"
@@ -139,13 +152,16 @@ impl PuffinBytesReader {
                 codec
             ));
         }
+
         let range = meta.absolute_range(sub);
         blob_range_reads().inc();
+
         let bytes = self
             .store
             .get_range(&self.location, range.start..range.end)
             .await
             .map_err(|e| anyhow!("puffin blob get_range: {e}"))?;
+
         Ok(bytes)
     }
 }

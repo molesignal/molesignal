@@ -26,16 +26,19 @@ impl QueryResultCache {
     pub fn new(settings: CacheLayerSettings) -> Self {
         let metrics = CacheMetrics::register("query_result");
         let evict = metrics.evictions();
+
         let inner = Cache::builder()
             .max_capacity(settings.capacity)
             .time_to_live(Duration::from_secs(settings.ttl_secs))
             .async_eviction_listener(move |_k, _v, _cause| {
                 let evict = evict.clone();
+
                 Box::pin(async move {
                     evict.inc();
                 })
             })
             .build();
+
         Self { inner, metrics }
     }
 
@@ -56,11 +59,14 @@ impl QueryResultCache {
             let res = run().await?;
             return Ok((res, false));
         }
+
         let key = Self::key_for(req, role_filter);
+
         if let Some(v) = self.inner.get(&key).await {
             self.metrics.record_hit();
             return Ok(((*v).clone(), true));
         }
+
         self.metrics.record_miss();
         let res = run().await?;
         self.inner.insert(key, Arc::new(res.clone())).await;
@@ -80,14 +86,17 @@ impl QueryResultCache {
             QueryLanguage::Sql => "sql",
             QueryLanguage::Promql => "promql",
         };
+
         let stream = req
             .stream
             .as_ref()
             .map(|s| format!("{}:{:?}", s.name, s.stream_type))
             .unwrap_or_default();
+
         // 排序后再拼：集群列表的顺序不影响结果，不该分裂缓存键。
         let mut clusters: Vec<&str> = req.federation_clusters.iter().map(|c| c.as_str()).collect();
         clusters.sort_unstable();
+
         let payload = format!(
             "{}|{}|{}|{}|{}|{}|{}|{}|{}",
             req.org_id,
@@ -100,6 +109,7 @@ impl QueryResultCache {
             stream,
             clusters.join(","),
         );
+
         blake3::hash(payload.as_bytes()).to_hex().to_string()
     }
 
@@ -110,6 +120,7 @@ impl QueryResultCache {
 
     pub fn hit_ratio(&self) -> f64 {
         let (h, m) = self.metrics.snapshot();
+
         if h + m == 0 {
             0.0
         } else {
@@ -129,7 +140,9 @@ impl crate::domain::query::QueryResultCachePort for QueryResultCache {
         if Self::window_open(req, now_micros) {
             return None;
         }
+
         let key = Self::key_for(req, role_filter);
+
         match self.inner.get(&key).await {
             Some(v) => {
                 self.metrics.record_hit();
@@ -152,6 +165,7 @@ impl crate::domain::query::QueryResultCachePort for QueryResultCache {
         if Self::window_open(req, now_micros) {
             return;
         }
+
         self.inner
             .insert(Self::key_for(req, role_filter), Arc::new(result))
             .await;

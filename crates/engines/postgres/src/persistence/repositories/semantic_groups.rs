@@ -28,6 +28,7 @@ const COLS: &str =
 fn row_to(row: sqlx::postgres::PgRow) -> Result<SemanticGroup> {
     let matchers: Json<Vec<LabelMatcher>> = row.try_get("matchers").map_err(sqlx_err)?;
     let group_by: Json<Vec<String>> = row.try_get("group_by").map_err(sqlx_err)?;
+
     Ok(SemanticGroup {
         id: Id::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?),
         org_id: Id::from_string(row.try_get::<String, _>("org_id").map_err(sqlx_err)?),
@@ -60,6 +61,7 @@ impl SemanticGroupRepository for PgSemanticGroupRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(g)
     }
 
@@ -78,6 +80,7 @@ impl SemanticGroupRepository for PgSemanticGroupRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(g)
     }
 
@@ -87,6 +90,7 @@ impl SemanticGroupRepository for PgSemanticGroupRepository {
             .fetch_one(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         row_to(row)
     }
 
@@ -100,6 +104,7 @@ impl SemanticGroupRepository for PgSemanticGroupRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to).collect()
     }
 
@@ -109,6 +114,7 @@ impl SemanticGroupRepository for PgSemanticGroupRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -122,6 +128,7 @@ impl SemanticGroupRepository for PgSemanticGroupRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to).collect()
     }
 
@@ -134,6 +141,7 @@ impl SemanticGroupRepository for PgSemanticGroupRepository {
     async fn create_many(&self, groups: Vec<SemanticGroup>) -> Result<usize> {
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
         let mut n = 0;
+
         for g in &groups {
             sqlx::query(
                 "INSERT INTO semantic_groups
@@ -152,8 +160,10 @@ impl SemanticGroupRepository for PgSemanticGroupRepository {
             .execute(&mut *tx)
             .await
             .map_err(sqlx_err)?;
+
             n += 1;
         }
+
         tx.commit().await.map_err(sqlx_err)?;
         Ok(n)
     }

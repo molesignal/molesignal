@@ -21,6 +21,7 @@ pub(super) async fn list(
            AND candidate.state IN ('pending_approval','failed')
          ORDER BY candidate.updated_at_micros DESC,candidate.id DESC LIMIT $2"
     );
+
     sqlx::query(&sql)
         .bind(&org_id.0)
         .bind(i64::from(limit.clamp(1, 500)))

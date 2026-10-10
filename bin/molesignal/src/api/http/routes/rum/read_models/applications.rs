@@ -28,6 +28,7 @@ const SESSION_COLUMNS: &[&str] = &[
     "environment",
     "version",
 ];
+
 const ACTION_COLUMNS: &[&str] = &[
     "_timestamp",
     "ts_micros",
@@ -78,19 +79,23 @@ pub(super) async fn summary(
     Query(request): Query<ReadModelQuery>,
 ) -> Result<Json<ApplicationsResponse>> {
     let context = ReadModelContext::resolve(request)?;
+
     let reader = RumReadModelReader::new(
         state.storage.catalog_files.clone(),
         state.storage.read_store.clone(),
     )
     .with_catalog_source(state.storage.catalog_query.clone());
+
     let scope = RumScope {
         environment: context.environment.as_deref(),
         version: context.version.as_deref(),
         ..RumScope::default()
     };
+
     let mut sessions = SessionAccumulator::default();
     let mut lcp_by_session = HashMap::<(String, String), f64>::new();
     let range = context.time_range();
+
     let (session_stats, action_stats) = tokio::try_join!(
         reader.visit_sessions(&iam.org_id, range, SESSION_COLUMNS, |record| {
             if !record.matches_scope(scope)
@@ -125,6 +130,7 @@ pub(super) async fn summary(
                 .or_insert(lcp);
         }),
     )?;
+
     tracing::debug!(
         session_files = session_stats.files,
         session_rows = session_stats.rows,
@@ -134,14 +140,17 @@ pub(super) async fn summary(
     );
 
     let mut lcp_by_application = BTreeMap::<String, Vec<f64>>::new();
+
     for ((application, _), lcp) in lcp_by_session {
         lcp_by_application.entry(application).or_default().push(lcp);
     }
+
     let mut items = sessions
         .applications
         .into_iter()
         .map(|(application, item)| {
             let sessions = item.sessions;
+
             ApplicationSummary {
                 lcp_p75: lcp_by_application
                     .get_mut(&application)
@@ -160,12 +169,14 @@ pub(super) async fn summary(
             }
         })
         .collect::<Vec<_>>();
+
     items.sort_by(|left, right| {
         right
             .sessions
             .cmp(&left.sessions)
             .then_with(|| left.application.cmp(&right.application))
     });
+
     Ok(Json(ApplicationsResponse { items }))
 }
 
@@ -173,10 +184,13 @@ fn percentile(values: &mut [f64], quantile: f64) -> f64 {
     if values.is_empty() {
         return 0.0;
     }
+
     values.sort_by(f64::total_cmp);
+
     let index = ((values.len() as f64 * quantile).ceil() as usize)
         .saturating_sub(1)
         .min(values.len() - 1);
+
     values[index]
 }
 

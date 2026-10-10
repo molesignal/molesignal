@@ -36,17 +36,21 @@ impl PartitionManifestReader {
             .max_capacity(max_cache_bytes)
             .weigher(|_key: &String, value: &Arc<CachedManifest>| value.weight)
             .build();
+
         Self { objects, cache }
     }
 
     pub async fn load(&self, pointer: &PartitionManifestPointer) -> Result<Arc<PartitionManifest>> {
         let key = pointer.cache_key();
+
         if let Some(cached) = self.cache.get(&key).await {
             return Ok(cached.manifest.clone());
         }
+
         let started = Instant::now();
         self.objects
             .register(&pointer.organization_id, &pointer.object)?;
+
         let bytes = self
             .objects
             .store()
@@ -56,15 +60,18 @@ impl PartitionManifestReader {
             .bytes()
             .await
             .map_err(|error| Error::internal(format!("collect partition manifest: {error}")))?;
+
         if let Some(expected) = pointer.object.checksum.as_str().strip_prefix("b3:")
             && blake3::hash(&bytes).to_hex().as_str() != expected
         {
             corrupt_total().inc();
+
             return Err(Error::internal(format!(
                 "partition manifest {} checksum mismatch",
                 pointer.object.key
             )));
         }
+
         let manifest = match codec::decode(bytes.clone()) {
             Ok(manifest) => manifest,
             Err(error) => {
@@ -72,6 +79,7 @@ impl PartitionManifestReader {
                 return Err(error);
             }
         };
+
         if manifest.organization_id != pointer.organization_id
             || manifest.dataset_id != pointer.dataset_id
             || manifest.partition != pointer.partition
@@ -79,12 +87,15 @@ impl PartitionManifestReader {
             || manifest.segments.len() != pointer.segment_count as usize
         {
             corrupt_total().inc();
+
             return Err(Error::internal(format!(
                 "partition manifest {} identity does not match Catalog pointer",
                 pointer.object.key
             )));
         }
+
         let manifest = Arc::new(manifest);
+
         self.cache
             .insert(
                 key,
@@ -94,6 +105,7 @@ impl PartitionManifestReader {
                 }),
             )
             .await;
+
         load_duration().observe(started.elapsed().as_secs_f64());
         Ok(manifest)
     }
@@ -101,6 +113,7 @@ impl PartitionManifestReader {
 
 fn load_duration() -> &'static Histogram {
     static METRIC: OnceLock<Histogram> = OnceLock::new();
+
     METRIC.get_or_init(|| {
         register_histogram(
             "partition_manifest_load_duration_seconds",
@@ -112,6 +125,7 @@ fn load_duration() -> &'static Histogram {
 
 fn corrupt_total() -> &'static IntCounter {
     static METRIC: OnceLock<IntCounter> = OnceLock::new();
+
     METRIC.get_or_init(|| {
         register_int_counter(
             "partition_manifest_corrupt_total",

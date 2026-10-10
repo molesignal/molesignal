@@ -51,7 +51,9 @@ impl RuleEvaluator {
             limit: Some(1),
             federation_clusters: Vec::new(),
         };
+
         let timeout = Duration::from_secs(self.eval_timeout_secs as u64);
+
         tokio::time::timeout(timeout, self.query_engine.execute(req))
             .await
             .map_err(|_| Error::cancelled("alert rule test timed out"))?

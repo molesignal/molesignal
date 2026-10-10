@@ -26,8 +26,10 @@ pub(super) fn compile_query(query: &AuthoringQuery) -> CompiledQuery {
                 "language": "promql",
                 "expression": expression
             });
+
             insert_optional(&mut payload, "streamName", stream.as_deref());
             insert_optional(&mut payload, "step", step.as_deref());
+
             CompiledQuery {
                 data_source_type: "metrics",
                 payload,
@@ -43,13 +45,16 @@ pub(super) fn compile_query(query: &AuthoringQuery) -> CompiledQuery {
             format,
         } => {
             let format = format.clone().unwrap_or_else(|| "table".into());
+
             let mut payload = json!({
                 "kind": "sql",
                 "language": "sql",
                 "statement": statement,
                 "streamName": stream
             });
+
             insert_optional(&mut payload, "timeColumn", time_column.as_deref());
+
             CompiledQuery {
                 data_source_type: if format == "logs" { "logs" } else { "sql" },
                 payload,
@@ -76,6 +81,7 @@ pub(super) fn compile_query(query: &AuthoringQuery) -> CompiledQuery {
                     query
                 )
             };
+
             CompiledQuery {
                 data_source_type: "traces",
                 payload: json!({

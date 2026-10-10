@@ -163,6 +163,7 @@ fn spec_with_panels(panels: Vec<PanelAuthoringSpec>) -> DashboardAuthoringSpec {
 
 fn text_spec() -> DashboardAuthoringSpec {
     let mut spec = spec_with_panels(Vec::new());
+
     spec.elements
         .push(AuthoringElement::Text(TextAuthoringSpec {
             title: Some("Context".into()),
@@ -171,6 +172,7 @@ fn text_spec() -> DashboardAuthoringSpec {
             size: Some(AuthoringSize::Full),
             transparent: Some(false),
         }));
+
     spec
 }
 

@@ -22,6 +22,7 @@ impl PgFolderRepository {
 
 fn row_to_folder(row: sqlx::postgres::PgRow) -> Result<Folder> {
     let parent: Option<String> = row.try_get("parent_id").map_err(sqlx_err)?;
+
     Ok(Folder {
         id: Id::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?),
         org_id: Id::from_string(row.try_get::<String, _>("org_id").map_err(sqlx_err)?),
@@ -41,6 +42,7 @@ impl FolderRepository for PgFolderRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(folder)
     }
 
@@ -51,6 +53,7 @@ impl FolderRepository for PgFolderRepository {
             .await
             .map_err(sqlx_err)?
             .ok_or_else(|| Error::not_found(format!("folder {}", id.0)))?;
+
         row_to_folder(row)
     }
 
@@ -64,6 +67,7 @@ impl FolderRepository for PgFolderRepository {
         .await
         .map_err(sqlx_err)?
         .ok_or_else(|| Error::not_found(format!("folder {}", id.0)))?;
+
         row_to_folder(row)
     }
 
@@ -73,6 +77,7 @@ impl FolderRepository for PgFolderRepository {
             .fetch_all(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to_folder).collect()
     }
 
@@ -84,9 +89,11 @@ impl FolderRepository for PgFolderRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         if res.rows_affected() == 0 {
             return Err(Error::not_found(format!("folder {}", folder.id.0)));
         }
+
         Ok(folder)
     }
 
@@ -96,6 +103,7 @@ impl FolderRepository for PgFolderRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(())
     }
 }

@@ -125,6 +125,7 @@ impl Predicate {
         match self {
             Self::Compare { field, op, value } => {
                 let ordering = compare(present(fields, field)?, value)?;
+
                 Some(match op {
                     Cmp::Eq => ordering == Ordering::Equal,
                     Cmp::NotEq => ordering != Ordering::Equal,
@@ -140,9 +141,11 @@ impl Predicate {
                 negated,
             } => {
                 let value = present(fields, field)?;
+
                 let found = values
                     .iter()
                     .any(|literal| compare(value, literal) == Some(Ordering::Equal));
+
                 Some(found != *negated)
             }
             Self::Like {
@@ -154,6 +157,7 @@ impl Predicate {
                 let Json::String(text) = present(fields, field)? else {
                     return None;
                 };
+
                 Some(like_matches(text, pattern, *case_insensitive) != *negated)
             }
             Self::Between {
@@ -205,6 +209,7 @@ fn compile_binary(left: &Expr, op: &BinaryOperator, right: &Expr) -> Result<Pred
         BinaryOperator::GtEq => Cmp::GtEq,
         other => return Err(format!("unsupported operator `{other}`")),
     };
+
     // `field OP literal`，或字段在右侧时翻转比较方向。
     if let (Ok(field), Ok(value)) = (field_name(left), literal(right)) {
         return Ok(Predicate::Compare {
@@ -213,6 +218,7 @@ fn compile_binary(left: &Expr, op: &BinaryOperator, right: &Expr) -> Result<Pred
             value,
         });
     }
+
     if let (Ok(value), Ok(field)) = (literal(left), field_name(right)) {
         let flipped = match cmp {
             Cmp::Lt => Cmp::Gt,
@@ -221,12 +227,14 @@ fn compile_binary(left: &Expr, op: &BinaryOperator, right: &Expr) -> Result<Pred
             Cmp::GtEq => Cmp::LtEq,
             same => same,
         };
+
         return Ok(Predicate::Compare {
             field,
             op: flipped,
             value,
         });
     }
+
     Err(format!(
         "`{left} {op} {right}` must compare a field with a literal"
     ))
@@ -241,11 +249,13 @@ fn compile_like(
     let Literal::Str(pattern) = literal(pattern)? else {
         return Err("LIKE needs a string pattern".into());
     };
+
     let pattern = if case_insensitive {
         pattern.to_lowercase()
     } else {
         pattern
     };
+
     Ok(Predicate::Like {
         field: field_name(expr)?,
         pattern: pattern.chars().collect(),
@@ -319,8 +329,10 @@ fn like_matches(text: &str, pattern: &[char], case_insensitive: bool) -> bool {
     } else {
         text.chars().collect()
     };
+
     let (mut at, mut next) = (0, 0);
     let mut resume: Option<(usize, usize)> = None;
+
     while at < text.len() {
         match pattern.get(next) {
             Some('%') => {
@@ -341,6 +353,7 @@ fn like_matches(text: &str, pattern: &[char], case_insensitive: bool) -> bool {
             },
         }
     }
+
     pattern[next..].iter().all(|symbol| *symbol == '%')
 }
 

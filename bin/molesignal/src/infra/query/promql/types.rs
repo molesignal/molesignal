@@ -36,6 +36,7 @@ impl MetricSampleMetadata {
             (MetricTemporality::Delta, _) => 2_u64,
             (MetricTemporality::Cumulative, _) => 0_u64,
         };
+
         let start = if temporality == MetricTemporality::Delta {
             start_time_us
                 .and_then(|value| u64::try_from(value).ok())
@@ -45,6 +46,7 @@ impl MetricSampleMetadata {
         } else {
             0
         };
+
         Self((semantics << Self::SEMANTICS_SHIFT) | start)
     }
 
@@ -81,10 +83,12 @@ impl Series {
             self.samples.push(sample);
             return;
         }
+
         if self.sample_metadata.is_empty() {
             self.sample_metadata
                 .resize(self.samples.len(), MetricSampleMetadata::default());
         }
+
         self.samples.push(sample);
         self.sample_metadata.push(metadata);
     }

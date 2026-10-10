@@ -101,6 +101,7 @@ async fn list(
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Vec<RoleResp>>> {
     state.iam.roles.ensure_builtin_roles(&ctx.org_id).await?;
+
     Ok(Json(
         state
             .iam
@@ -121,6 +122,7 @@ async fn create(
 ) -> Result<Json<RoleResp>> {
     state.iam.roles.ensure_builtin_roles(&ctx.org_id).await?;
     let key = normalize_key(&req.key)?;
+
     if state
         .iam
         .roles
@@ -131,9 +133,11 @@ async fn create(
     {
         return Err(Error::conflict("role key already exists"));
     }
+
     let name = normalize_name(&req.name)?;
     let permissions = normalize_permissions(req.permissions);
     let now = TimestampMicros::now();
+
     let role = IamRole {
         id: Id::new(),
         org_id: ctx.org_id.clone(),
@@ -147,12 +151,15 @@ async fn create(
         created_at: now,
         updated_at: now,
     };
+
     let saved = state.iam.roles.create(role).await?;
+
     let usage = state
         .iam
         .roles
         .usage_by_key(&ctx.org_id, &saved.key)
         .await?;
+
     Ok(Json(to_resp(saved, usage)))
 }
 
@@ -165,9 +172,11 @@ async fn update(
 ) -> Result<Json<RoleResp>> {
     state.iam.roles.ensure_builtin_roles(&ctx.org_id).await?;
     let existing = state.iam.roles.get(&ctx.org_id, &Id(id)).await?;
+
     if existing.builtin {
         return Err(Error::forbidden("built-in roles cannot be edited"));
     }
+
     let role = IamRole {
         id: existing.id,
         org_id: existing.org_id,
@@ -181,12 +190,15 @@ async fn update(
         created_at: existing.created_at,
         updated_at: TimestampMicros::now(),
     };
+
     let saved = state.iam.roles.update(role).await?;
+
     let usage = state
         .iam
         .roles
         .usage_by_key(&ctx.org_id, &saved.key)
         .await?;
+
     Ok(Json(to_resp(saved, usage)))
 }
 
@@ -199,9 +211,11 @@ async fn delete(
     state.iam.roles.ensure_builtin_roles(&ctx.org_id).await?;
     let id = Id(id);
     let role = state.iam.roles.get(&ctx.org_id, &id).await?;
+
     if role.builtin {
         return Err(Error::forbidden("built-in roles cannot be deleted"));
     }
+
     if state
         .iam
         .sso_providers
@@ -214,7 +228,9 @@ async fn delete(
             "role is referenced by an SSO provider mapping",
         ));
     }
+
     let usage = state.iam.roles.usage_by_key(&ctx.org_id, &role.key).await?;
+
     if usage.total() > 0 {
         return Err(Error::conflict(format!(
             "role is in use: memberships={}, api_tokens={}, service_accounts={}, invitations={}, bindings={}",
@@ -225,38 +241,48 @@ async fn delete(
             usage.bindings
         )));
     }
+
     state.iam.roles.delete(&ctx.org_id, &id).await?;
     Ok(Json(serde_json::json!({ "deleted": true })))
 }
 
 fn normalize_key(input: &str) -> Result<String> {
     let key = input.trim().to_lowercase();
+
     if !(2..=64).contains(&key.len()) {
         return Err(Error::invalid("role key must be 2..64 characters"));
     }
+
     let mut chars = key.chars();
+
     let Some(first) = chars.next() else {
         return Err(Error::invalid("role key must not be empty"));
     };
+
     if !first.is_ascii_lowercase() {
         return Err(Error::invalid("role key must start with a letter"));
     }
+
     if !chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_') {
         return Err(Error::invalid(
             "role key can only contain lowercase letters, numbers, and underscore",
         ));
     }
+
     Ok(key)
 }
 
 fn normalize_name(input: &str) -> Result<String> {
     let name = input.trim();
+
     if name.is_empty() {
         return Err(Error::invalid("role name must not be empty"));
     }
+
     if name.len() > 128 {
         return Err(Error::invalid("role name must be <= 128 characters"));
     }
+
     Ok(name.to_string())
 }
 
@@ -265,6 +291,7 @@ fn normalize_permissions(input: Vec<String>) -> Vec<String> {
         .into_iter()
         .map(|permission| permission.trim().to_ascii_lowercase())
         .collect::<Vec<_>>();
+
     permissions.sort();
     permissions.dedup();
     permissions

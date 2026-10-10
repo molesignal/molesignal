@@ -43,23 +43,28 @@ impl CredentialAdmission {
         calls_per_minute: usize,
     ) -> Result<AdmissionGuard, AdmissionRejection> {
         let previous = self.in_flight.fetch_add(1, Ordering::AcqRel);
+
         if previous >= max_concurrent {
             self.in_flight.fetch_sub(1, Ordering::AcqRel);
             return Err(AdmissionRejection::Concurrent);
         }
 
         let now = Instant::now();
+
         *self
             .last_seen
             .lock()
             .unwrap_or_else(|error| error.into_inner()) = now;
+
         let mut calls = self.calls.lock().unwrap_or_else(|error| error.into_inner());
+
         while calls
             .front()
             .is_some_and(|started| now.saturating_duration_since(*started) >= RATE_WINDOW)
         {
             calls.pop_front();
         }
+
         if calls.len() >= calls_per_minute {
             let retry_after_seconds = calls
                 .front()
@@ -70,12 +75,15 @@ impl CredentialAdmission {
                         .max(1)
                 })
                 .unwrap_or(1);
+
             drop(calls);
             self.in_flight.fetch_sub(1, Ordering::AcqRel);
+
             return Err(AdmissionRejection::RateLimited {
                 retry_after_seconds,
             });
         }
+
         calls.push_back(now);
         drop(calls);
 

@@ -27,9 +27,12 @@ impl PartitionManifest {
                 "partition manifest requires a positive generation, valid partition, and segments",
             ));
         }
+
         let mut segment_ids = std::collections::HashSet::with_capacity(self.segments.len());
+
         for segment in &self.segments {
             segment.validate()?;
+
             if segment.organization_id != self.organization_id
                 || segment.dataset_id != self.dataset_id
                 || segment.partition != self.partition
@@ -42,6 +45,7 @@ impl PartitionManifest {
                 )));
             }
         }
+
         Ok(())
     }
 }

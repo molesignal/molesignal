@@ -127,6 +127,7 @@ async fn delete_team(
             parse_category(&category)?,
         )
         .await?;
+
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -187,5 +188,6 @@ async fn delete_organization(
         .notify_engine
         .delete_organization_default(&ctx.org_id, parse_category(&category)?)
         .await?;
+
     Ok(StatusCode::NO_CONTENT)
 }

@@ -62,15 +62,19 @@ impl PgCipherKeyRepository {
 
 fn row_to(r: sqlx::postgres::PgRow, mk: &CipherRootKey) -> Result<CipherKey> {
     use crate::shared::Error;
+
     let enc: Vec<u8> = r
         .try_get("key_material_enc")
         .map_err(|e| Error::internal(e.to_string()))?;
+
     let nonce: Vec<u8> = r
         .try_get("nonce")
         .map_err(|e| Error::internal(e.to_string()))?;
+
     let raw = mk
         .open(&nonce, &enc)
         .map_err(|e| Error::internal(format!("cipher key open: {e}")))?;
+
     Ok(CipherKey {
         id: Id(r.try_get::<String, _>("id").unwrap_or_default()),
         org_id: Id(r.try_get::<String, _>("org_id").unwrap_or_default()),
@@ -93,15 +97,19 @@ const COLS: &str = "id, org_id, name, alg, version, key_material_enc, nonce,
 impl CipherKeyRepository for PgCipherKeyRepository {
     async fn create(&self, org_id: &Id, name: &str, raw_key: &[u8]) -> Result<CipherKey> {
         use crate::shared::Error;
+
         if raw_key.len() != 32 {
             return Err(Error::invalid("cipher key material must be 32 bytes"));
         }
+
         let (nonce, enc) = self
             .mk
             .seal(raw_key)
             .map_err(|e| Error::internal(format!("cipher seal: {e}")))?;
+
         let id = Id::new();
         let created = TimestampMicros::now();
+
         sqlx::query(
             "INSERT INTO cipher_keys
                 (id, org_id, name, alg, version, key_material_enc, nonce,
@@ -122,6 +130,7 @@ impl CipherKeyRepository for PgCipherKeyRepository {
             )),
             other => other,
         })?;
+
         Ok(CipherKey {
             id,
             org_id: org_id.clone(),
@@ -136,9 +145,11 @@ impl CipherKeyRepository for PgCipherKeyRepository {
 
     async fn rotate(&self, org_id: &Id, name: &str, raw_key: &[u8]) -> Result<CipherKey> {
         use crate::shared::Error;
+
         if raw_key.len() != 32 {
             return Err(Error::invalid("cipher key material must be 32 bytes"));
         }
+
         // 当前 max version + 1；没有任何版本说明 key 不存在。
         let row = sqlx::query(
             "SELECT MAX(version) AS v FROM cipher_keys WHERE org_id = $1 AND name = $2",
@@ -148,16 +159,21 @@ impl CipherKeyRepository for PgCipherKeyRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(super::super::persistence::sqlx_err)?;
+
         let latest: Option<i32> = row
             .try_get("v")
             .map_err(super::super::persistence::sqlx_err)?;
+
         let next = latest.ok_or_else(|| key_not_found(name))? + 1;
+
         let (nonce, enc) = self
             .mk
             .seal(raw_key)
             .map_err(|e| Error::internal(format!("cipher seal: {e}")))?;
+
         let id = Id::new();
         let now = TimestampMicros::now();
+
         sqlx::query(
             "INSERT INTO cipher_keys
                 (id, org_id, name, alg, version, key_material_enc, nonce,
@@ -174,6 +190,7 @@ impl CipherKeyRepository for PgCipherKeyRepository {
         .execute(&self.pool)
         .await
         .map_err(super::super::persistence::sqlx_err)?;
+
         Ok(CipherKey {
             id,
             org_id: org_id.clone(),
@@ -192,6 +209,7 @@ impl CipherKeyRepository for PgCipherKeyRepository {
              WHERE org_id = $1 AND name = $2
              ORDER BY version DESC LIMIT 1"
         );
+
         let row = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(name)
@@ -199,6 +217,7 @@ impl CipherKeyRepository for PgCipherKeyRepository {
             .await
             .map_err(super::super::persistence::sqlx_err)?
             .ok_or_else(|| key_not_found(name))?;
+
         row_to(row, &self.mk)
     }
 
@@ -212,6 +231,7 @@ impl CipherKeyRepository for PgCipherKeyRepository {
             "SELECT {COLS} FROM cipher_keys
              WHERE org_id = $1 AND id = $2 AND version = $3"
         );
+
         let row = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(key_id)
@@ -219,6 +239,7 @@ impl CipherKeyRepository for PgCipherKeyRepository {
             .fetch_one(&self.pool)
             .await
             .map_err(super::super::persistence::sqlx_err)?;
+
         row_to(row, &self.mk)
     }
 
@@ -227,11 +248,13 @@ impl CipherKeyRepository for PgCipherKeyRepository {
             "SELECT {COLS} FROM cipher_keys
              WHERE org_id = $1 ORDER BY name, version DESC"
         );
+
         let rows = sqlx::query(&sql)
             .bind(&org_id.0)
             .fetch_all(&self.pool)
             .await
             .map_err(super::super::persistence::sqlx_err)?;
+
         rows.into_iter().map(|r| row_to(r, &self.mk)).collect()
     }
 
@@ -243,9 +266,11 @@ impl CipherKeyRepository for PgCipherKeyRepository {
             .await
             .map_err(super::super::persistence::sqlx_err)?
             .rows_affected();
+
         if deleted == 0 {
             return Err(key_not_found(name));
         }
+
         Ok(())
     }
 }

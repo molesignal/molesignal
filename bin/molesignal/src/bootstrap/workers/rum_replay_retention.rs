@@ -25,12 +25,16 @@ pub fn spawn(
     tokio::spawn(async move {
         let start = tokio::time::Instant::now() + STARTUP_DELAY;
         let mut ticker = tokio::time::interval_at(start, SWEEP_INTERVAL);
+
         loop {
             ticker.tick().await;
+
             if drain.is_draining() {
                 break;
             }
+
             let removed = sweep_once(&writer, retention_days).await;
+
             if removed > 0 {
                 tracing::info!(segments = removed, "swept expired RUM replay segments");
             }
@@ -48,12 +52,15 @@ async fn sweep_once(writer: &RumReplayWriter, retention_days: u32) -> usize {
     let retention_micros = i64::from(retention_days.max(1))
         .saturating_mul(86_400)
         .saturating_mul(1_000_000);
+
     let cutoff = TimestampMicros::now().0.saturating_sub(retention_micros);
     let mut removed = 0_usize;
+
     for _ in 0..MAX_BATCHES_PER_TICK {
         match writer.sweep_expired(cutoff, BATCH_SIZE).await {
             Ok(count) => {
                 removed += count;
+
                 if count < BATCH_SIZE {
                     break;
                 }
@@ -64,5 +71,6 @@ async fn sweep_once(writer: &RumReplayWriter, retention_days: u32) -> usize {
             }
         }
     }
+
     removed
 }

@@ -46,6 +46,7 @@ fn row_to(r: sqlx::postgres::PgRow) -> AgentToolset {
     let schema: Json<Value> = r
         .try_get("schema")
         .unwrap_or(Json(Value::Object(Default::default())));
+
     AgentToolset {
         id: Id(r.try_get::<String, _>("id").unwrap_or_default()),
         org_id: Id(r.try_get::<String, _>("org_id").unwrap_or_default()),
@@ -63,11 +64,13 @@ impl AgentToolsetRepository for PgAgentToolsetRepository {
         let sql = format!(
             "SELECT {COLS} FROM agent_toolsets WHERE org_id = $1 ORDER BY updated_at_micros DESC, name ASC"
         );
+
         let rows = sqlx::query(&sql)
             .bind(&org_id.0)
             .fetch_all(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(rows.into_iter().map(row_to).collect())
     }
 
@@ -87,6 +90,7 @@ impl AgentToolsetRepository for PgAgentToolsetRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(t)
     }
 
@@ -97,6 +101,7 @@ impl AgentToolsetRepository for PgAgentToolsetRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(())
     }
 }
@@ -121,11 +126,13 @@ impl AgentToolsetRepository for EmptyAgentToolsetRepository {
     async fn list(&self, _org_id: &Id) -> Result<Vec<AgentToolset>> {
         Ok(Vec::new())
     }
+
     async fn create(&self, _t: AgentToolset) -> Result<AgentToolset> {
         Err(Error::forbidden(
             "agent_toolsets repository is not configured",
         ))
     }
+
     async fn delete(&self, _org_id: &Id, _id: &Id) -> Result<()> {
         Err(Error::forbidden(
             "agent_toolsets repository is not configured",

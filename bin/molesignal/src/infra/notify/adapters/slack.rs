@@ -52,12 +52,15 @@ impl SlackAppConfig {
         if self.bot_token.trim().is_empty() {
             return Err(Error::invalid("slack_app bot_token cannot be empty"));
         }
+
         validate_http_base(&self.api_base_url, "slack_app api_base_url")?;
+
         if !(1..=60).contains(&self.timeout_secs) {
             return Err(Error::invalid(
                 "slack_app timeout_secs must be between 1 and 60",
             ));
         }
+
         Ok(())
     }
 }
@@ -86,11 +89,13 @@ impl SlackWebhookConfig {
 
     fn validate(&self) -> Result<()> {
         validate_http_base(&self.webhook_url, "slack_webhook webhook_url")?;
+
         if !(1..=60).contains(&self.timeout_secs) {
             return Err(Error::invalid(
                 "slack_webhook timeout_secs must be between 1 and 60",
             ));
         }
+
         Ok(())
     }
 }
@@ -134,12 +139,15 @@ impl ConnectorAdapter for SlackAppConnectorAdapter {
                 "slack_app target_type must be direct_user or fixed_group",
             ));
         }
+
         let value = target.value.trim();
+
         if value.is_empty() || value.chars().any(char::is_whitespace) {
             return Err(Error::invalid(
                 "slack_app target must be a Slack user or channel ID",
             ));
         }
+
         Ok(())
     }
 
@@ -152,17 +160,21 @@ impl ConnectorAdapter for SlackAppConnectorAdapter {
         let config = SlackAppConfig::parse(config)?;
         config.validate()?;
         self.validate_target(target)?;
+
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(config.timeout_secs))
             .build()
             .map_err(|_| Error::internal("slack_app HTTP client could not be initialized"))?;
+
         let body = message
             .markdown
             .as_deref()
             .filter(|value| !value.trim().is_empty())
             .unwrap_or(&message.text);
+
         let text = format!("{}\n{}", message.title, body).trim().to_string();
         let started = Instant::now();
+
         let response = http_trace::send(
             &client,
             client
@@ -181,23 +193,28 @@ impl ConnectorAdapter for SlackAppConnectorAdapter {
         )
         .await
         .map_err(|_| Error::unavailable("slack_app request failed"))?;
+
         let status = response.status();
+
         if !status.is_success() {
             return Err(Error::unavailable(format!(
                 "slack_app returned HTTP {}",
                 status.as_u16()
             )));
         }
+
         let response: SlackResponse = response
             .json()
             .await
             .map_err(|_| Error::unavailable("slack_app returned an invalid response"))?;
+
         if !response.ok {
             return Err(Error::unavailable(format!(
                 "slack_app rejected the message: {}",
                 response.error.as_deref().unwrap_or("unknown_error")
             )));
         }
+
         Ok(ConnectorDeliveryResult {
             provider_message_id: response.ts,
             delivered: true,
@@ -246,6 +263,7 @@ impl ConnectorAdapter for SlackWebhookConnectorAdapter {
                 "slack_webhook target_type must be fixed_group or webhook",
             ));
         }
+
         if target.target_type == NotifyTargetType::Webhook {
             validate_http_base(&target.value, "slack_webhook target")
         } else if target.value.trim().is_empty() {
@@ -264,22 +282,28 @@ impl ConnectorAdapter for SlackWebhookConnectorAdapter {
         let config = SlackWebhookConfig::parse(config)?;
         config.validate()?;
         self.validate_target(target)?;
+
         let url = if target.target_type == NotifyTargetType::Webhook {
             target.value.trim()
         } else {
             config.webhook_url.trim()
         };
+
         let body = message
             .markdown
             .as_deref()
             .filter(|value| !value.trim().is_empty())
             .unwrap_or(&message.text);
+
         let text = format!("{}\n{}", message.title, body).trim().to_string();
+
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(config.timeout_secs))
             .build()
             .map_err(|_| Error::internal("slack_webhook HTTP client could not be initialized"))?;
+
         let started = Instant::now();
+
         let response = http_trace::send(
             &client,
             client.post(url).json(&json!({"text": text})),
@@ -287,12 +311,14 @@ impl ConnectorAdapter for SlackWebhookConnectorAdapter {
         )
         .await
         .map_err(|_| Error::unavailable("slack_webhook request failed"))?;
+
         if !response.status().is_success() {
             return Err(Error::unavailable(format!(
                 "slack_webhook returned HTTP {}",
                 response.status().as_u16()
             )));
         }
+
         Ok(ConnectorDeliveryResult {
             provider_message_id: None,
             delivered: true,
@@ -305,9 +331,11 @@ impl ConnectorAdapter for SlackWebhookConnectorAdapter {
 fn validate_http_base(value: &str, field: &str) -> Result<()> {
     let parsed = Url::parse(value.trim())
         .map_err(|_| Error::invalid(format!("{field} must be an absolute URL")))?;
+
     if !matches!(parsed.scheme(), "http" | "https") || parsed.host_str().is_none() {
         return Err(Error::invalid(format!("{field} must use http or https")));
     }
+
     Ok(())
 }
 

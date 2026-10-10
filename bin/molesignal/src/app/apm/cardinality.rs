@@ -86,11 +86,14 @@ impl ApmCardinalityLimiter {
     pub fn admit(&mut self, fact: &mut ApmSpanFact) -> CardinalityDecision {
         let hour_at = fact.event_time.0.div_euclid(HOUR_MICROS) * HOUR_MICROS;
         self.prune(hour_at);
+
         let org_key = OrgWindowKey {
             org_id: fact.org_id.clone(),
             hour_at,
         };
+
         let services = self.org_services.entry(org_key).or_default();
+
         if !admit_value(
             services,
             fact.service.clone(),
@@ -110,6 +113,7 @@ impl ApmCardinalityLimiter {
                 service: fact.service.clone(),
             })
             .or_default();
+
         let mut reasons = Vec::new();
 
         if let Some(transaction) = fact.transaction.as_mut()
@@ -122,6 +126,7 @@ impl ApmCardinalityLimiter {
             *transaction = TransactionIdentity::other();
             reasons.push(CardinalityReason::TransactionOverflow);
         }
+
         if let Some(dependency) = fact.dependency.as_mut()
             && !admit_value(
                 &mut window.dependencies,
@@ -132,6 +137,7 @@ impl ApmCardinalityLimiter {
             *dependency = DependencyIdentity::other(dependency.category);
             reasons.push(CardinalityReason::DependencyOverflow);
         }
+
         if let Some(error) = fact.error.as_mut()
             && !admit_value(
                 &mut window.errors,
@@ -142,6 +148,7 @@ impl ApmCardinalityLimiter {
             *error = overflow_error(&fact.org_id, &fact.service);
             reasons.push(CardinalityReason::ErrorOverflow);
         }
+
         if let Some(version) = fact.service_version.as_ref()
             && !admit_value(
                 &mut window.versions,
@@ -152,6 +159,7 @@ impl ApmCardinalityLimiter {
             fact.service_version = None;
             reasons.push(CardinalityReason::VersionSuppressed);
         }
+
         if let Some(instance) = fact.service_instance_id.as_ref()
             && !admit_value(
                 &mut window.instances,
@@ -185,15 +193,18 @@ where
     if values.contains(&value) {
         return true;
     }
+
     if values.len() >= limit {
         return false;
     }
+
     values.insert(value);
     true
 }
 
 fn overflow_error(org_id: &Id, service: &ServiceIdentity) -> ErrorIdentity {
     let seed = format!("{}\u{0}{}\u{0}__other__", org_id, service.stable_key());
+
     ErrorIdentity {
         fingerprint: blake3::hash(seed.as_bytes()).to_hex()[..32].to_owned(),
         error_type: crate::domain::apm::OTHER_DIMENSION.to_owned(),

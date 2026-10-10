@@ -57,6 +57,7 @@ impl VrlRuntime {
     pub fn compile(&self, source: &str) -> Result<CompiledProgram> {
         let result = vrl::compiler::compile(source, &self.fns)
             .map_err(|diags| Error::invalid(format!("vrl compile: {diags:?}")))?;
+
         Ok(CompiledProgram {
             program: Arc::new(result.program),
         })
@@ -66,16 +67,20 @@ impl VrlRuntime {
     /// 返回 `Ok(())` 即可（程序末尾表达式值忽略，pipeline 关心的是 mutated event）。
     pub fn run(&self, program: &CompiledProgram, event: &mut serde_json::Value) -> Result<()> {
         let target_value = std::mem::take(event);
+
         let mut target = TargetValue {
             value: VrlValue::from(target_value),
             metadata: VrlValue::Object(Default::default()),
             secrets: Secrets::default(),
         };
+
         let timezone = vrl::compiler::TimeZone::default();
         let mut rt = Runtime::default();
+
         let _ret = rt
             .resolve(&mut target, &program.program, &timezone)
             .map_err(|e| Error::internal(format!("vrl run: {e}")))?;
+
         // 转回 serde_json::Value
         *event = vrl_to_json(target.value);
         Ok(())
@@ -86,6 +91,7 @@ impl VrlRuntime {
 fn vrl_to_json(v: VrlValue) -> serde_json::Value {
     use serde_json::Value as J;
     use vrl::value::Value as V;
+
     match v {
         V::Bytes(b) => match std::str::from_utf8(&b) {
             Ok(s) => J::String(s.to_string()),
@@ -102,9 +108,11 @@ fn vrl_to_json(v: VrlValue) -> serde_json::Value {
         V::Array(arr) => J::Array(arr.into_iter().map(vrl_to_json).collect()),
         V::Object(obj) => {
             let mut map = serde_json::Map::with_capacity(obj.len());
+
             for (k, val) in obj {
                 map.insert(k.to_string(), vrl_to_json(val));
             }
+
             J::Object(map)
         }
     }

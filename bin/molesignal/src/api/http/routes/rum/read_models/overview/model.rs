@@ -149,6 +149,7 @@ impl OverviewFacets {
             "facet_device" => &mut self.devices,
             _ => return,
         };
+
         if !target.contains(&value) {
             target.push(value);
             target.sort();
@@ -158,6 +159,7 @@ impl OverviewFacets {
 
 fn shares(mut values: Vec<(String, i64)>, total: i64) -> Vec<DimensionShare> {
     values.sort_by(|left, right| right.1.cmp(&left.1).then_with(|| left.0.cmp(&right.0)));
+
     values
         .into_iter()
         .take(6)

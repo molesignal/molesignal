@@ -56,7 +56,9 @@ impl ProductionObjectStore {
             "local" => "local",
             _ => "unknown",
         };
+
         let permits = settings.max_concurrency.max(1) as usize;
+
         Arc::new(Self {
             inner,
             backend,
@@ -106,33 +108,41 @@ impl ProductionObjectStore {
         let span = operation_span(self.backend, operation, location);
         let started = Instant::now();
         let policy = RetryPolicy::from(&self.settings);
+
         let result = async {
             let _permit = match budget {
                 Budget::Request => Some(self.acquire_permit().await?),
                 Budget::Composite => None,
             };
+
             let mut retries = 0_u32;
+
             loop {
                 let attempt = retries + 1;
+
                 let result = match budget {
                     Budget::Request => tokio::time::timeout(self.op_timeout(), call())
                         .await
                         .unwrap_or_else(|_| Err(timeout_error(self.backend, operation))),
                     Budget::Composite => call().await,
                 };
+
                 match result {
                     Ok(value) => {
                         span.record("molesignal.object.retry_count", retries);
                         let bytes = success_bytes(&value);
                         span.record("molesignal.object.bytes", bytes);
+
                         ops_total()
                             .with_label_values(&[self.backend, operation])
                             .inc();
+
                         if bytes > 0 {
                             bytes_total()
                                 .with_label_values(&[self.backend, operation])
                                 .inc_by(bytes);
                         }
+
                         return Ok(value);
                     }
                     Err(error)
@@ -152,9 +162,11 @@ impl ProductionObjectStore {
                         let reason = error_reason(&error);
                         span.record("molesignal.object.retry_count", retries);
                         span.record("error.type", reason);
+
                         errors_total()
                             .with_label_values(&[self.backend, operation, reason])
                             .inc();
+
                         return Err(error);
                     }
                 }
@@ -162,9 +174,11 @@ impl ProductionObjectStore {
         }
         .instrument(span.clone())
         .await;
+
         op_dur()
             .with_label_values(&[self.backend, operation])
             .observe(started.elapsed().as_secs_f64());
+
         result
     }
 
@@ -216,7 +230,9 @@ impl ObjectStore for ProductionObjectStore {
         if self.wants_multipart(location, &payload, &options) {
             return self.put_in_parts(location, payload, options).await;
         }
+
         let bytes = payload.content_length() as u64;
+
         self.run(
             "put",
             Some(location),
@@ -242,6 +258,7 @@ impl ObjectStore for ProductionObjectStore {
                 |_| 0,
             )
             .await?;
+
         Ok(Box::new(InstrumentedMultipartUpload::new(
             upload,
             operation_span(self.backend, "multipart_session", Some(location)),
@@ -257,6 +274,7 @@ impl ObjectStore for ProductionObjectStore {
         if let Some(range) = self.chunked_range(&options) {
             return self.get_range_in_chunks(location, options, range).await;
         }
+
         let operation = if options.head {
             "head"
         } else if options.range.is_some() {
@@ -264,6 +282,7 @@ impl ObjectStore for ProductionObjectStore {
         } else {
             "get"
         };
+
         self.run(
             operation,
             Some(location),
@@ -288,20 +307,24 @@ impl ObjectStore for ProductionObjectStore {
     ) -> BoxStream<'static, ObjectStoreResult<ObjPath>> {
         let backend = self.backend;
         let span = operation_span(backend, "delete", None);
+
         self.inner
             .delete_stream(locations)
             .map(move |result| {
                 let _entered = span.enter();
+
                 match &result {
                     Ok(_) => ops_total().with_label_values(&[backend, "delete"]).inc(),
                     Err(error) => {
                         let reason = error_reason(error);
                         span.record("error.type", reason);
+
                         errors_total()
                             .with_label_values(&[backend, "delete", reason])
                             .inc();
                     }
                 }
+
                 result
             })
             .boxed()
@@ -311,17 +334,21 @@ impl ObjectStore for ProductionObjectStore {
         let backend = self.backend;
         let span = operation_span(backend, "list", prefix);
         ops_total().with_label_values(&[backend, "list"]).inc();
+
         self.inner
             .list(prefix)
             .map(move |result| {
                 let _entered = span.enter();
+
                 if let Err(error) = &result {
                     let reason = error_reason(error);
                     span.record("error.type", reason);
+
                     errors_total()
                         .with_label_values(&[backend, "list", reason])
                         .inc();
                 }
+
                 result
             })
             .boxed()

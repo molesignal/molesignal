@@ -25,29 +25,36 @@ pub fn triggered_event_id(incident_id: &crate::shared::ids::Id) -> String {
 pub fn alert_dispatch(incident: &Incident, event_type: &str) -> NotifyDispatch {
     let mut attributes = Map::new();
     attributes.insert("alert_id".into(), Value::String(incident.id.to_string()));
+
     attributes.insert(
         "rule_id".into(),
         Value::String(incident.rule_id.to_string()),
     );
+
     attributes.insert(
         "severity".into(),
         Value::String(incident.severity.as_str().into()),
     );
+
     attributes.insert(
         "status".into(),
         Value::String(incident.status.as_str().into()),
     );
+
     attributes.insert("summary".into(), Value::String(incident.summary.clone()));
     attributes.insert("rule_name".into(), Value::String(incident.summary.clone()));
     attributes.insert("incident_id".into(), Value::String(incident.id.to_string()));
+
     attributes.insert(
         "fingerprint".into(),
         Value::String(incident.fingerprint.clone()),
     );
+
     attributes.insert(
         "evaluated_at_micros".into(),
         Value::Number(event_occurred_at(incident, event_type).0.into()),
     );
+
     attributes.insert(
         "rule".into(),
         serde_json::json!({
@@ -56,6 +63,7 @@ pub fn alert_dispatch(incident: &Incident, event_type: &str) -> NotifyDispatch {
             "description": ""
         }),
     );
+
     attributes.insert(
         "incident".into(),
         serde_json::json!({
@@ -65,6 +73,7 @@ pub fn alert_dispatch(incident: &Incident, event_type: &str) -> NotifyDispatch {
             "summary": incident.summary
         }),
     );
+
     attributes.insert(
         "assignee_user_ids".into(),
         Value::Array(
@@ -75,6 +84,7 @@ pub fn alert_dispatch(incident: &Incident, event_type: &str) -> NotifyDispatch {
                 .collect(),
         ),
     );
+
     attributes.insert(
         "affected_services".into(),
         Value::Array(
@@ -86,24 +96,29 @@ pub fn alert_dispatch(incident: &Incident, event_type: &str) -> NotifyDispatch {
                 .collect(),
         ),
     );
+
     attributes.insert(
         "labels".into(),
         serde_json::to_value(&incident.labels).unwrap_or_else(|_| Value::Object(Map::new())),
     );
+
     attributes.insert(
         "annotations".into(),
         serde_json::to_value(&incident.annotations).unwrap_or_else(|_| Value::Object(Map::new())),
     );
+
     copy_context_attribute(&mut attributes, incident, "service");
     copy_context_attribute(&mut attributes, incident, "environment");
     copy_context_attribute(&mut attributes, incident, "schedule_id");
     copy_context_attribute(&mut attributes, incident, "team_id");
     copy_context_attribute(&mut attributes, incident, "owner_user_id");
+
     if !attributes.contains_key("service")
         && let Some(service) = incident.affected_services.first()
     {
         attributes.insert("service".into(), Value::String(service.clone()));
     }
+
     if let Some(value) = incident
         .triggering_query
         .as_ref()
@@ -114,9 +129,11 @@ pub fn alert_dispatch(incident: &Incident, event_type: &str) -> NotifyDispatch {
     {
         attributes.insert("value".into(), Value::Number(number));
     }
+
     if let Some(user_id) = &incident.acknowledged_by {
         attributes.insert("acknowledged_by".into(), Value::String(user_id.to_string()));
     }
+
     if let Some(user_id) = &incident.resolved_by {
         attributes.insert("resolved_by".into(), Value::String(user_id.to_string()));
     }
@@ -124,6 +141,7 @@ pub fn alert_dispatch(incident: &Incident, event_type: &str) -> NotifyDispatch {
     let mut metadata = BTreeMap::new();
     metadata.insert("alert_id".into(), incident.id.to_string());
     metadata.insert("event_type".into(), event_type.to_string());
+
     NotifyDispatch {
         event: NotifyEvent {
             id: format!("{event_type}:{}", incident.id),
@@ -163,21 +181,27 @@ pub fn alert_escalation_dispatch(
     target: &EscalationTarget,
 ) -> NotifyDispatch {
     let mut dispatch = alert_dispatch(incident, ALERT_ESCALATED_EVENT);
+
     dispatch.event.id = format!(
         "{ALERT_ESCALATED_EVENT}:{}:{loop_index}:{step_index}:{target_index}",
         incident.id
     );
+
     dispatch.event.occurred_at = incident.current_step_started_at;
+
     let attributes = dispatch
         .event
         .attributes
         .as_object_mut()
         .expect("alert dispatch attributes are an object");
+
     attributes.insert("step_index".into(), Value::from(step_index));
     attributes.insert("loop_index".into(), Value::from(loop_index));
+
     match target {
         EscalationTarget::User { user_id } => {
             attributes.insert("target_kind".into(), Value::String("user".into()));
+
             attributes.insert(
                 "user_ids".into(),
                 Value::Array(vec![Value::String(user_id.to_string())]),
@@ -192,11 +216,14 @@ pub fn alert_escalation_dispatch(
             attributes.insert("team_id".into(), Value::String(team_id.to_string()));
         }
     }
+
     dispatch.message.title = format!("ESCALATION · {}", incident.summary);
+
     dispatch
         .message
         .metadata
         .insert("step_index".into(), step_index.to_string());
+
     dispatch
 }
 

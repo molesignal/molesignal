@@ -50,17 +50,21 @@ impl EmailSmtpConfig {
         if self.host.trim().is_empty() {
             return Err(Error::invalid("email_smtp host cannot be empty"));
         }
+
         if self.from.trim().is_empty() {
             return Err(Error::invalid("email_smtp from cannot be empty"));
         }
+
         self.from
             .parse::<Mailbox>()
             .map_err(|_| Error::invalid("email_smtp from must be a valid email address"))?;
+
         if !(1..=60).contains(&self.timeout_secs) {
             return Err(Error::invalid(
                 "email_smtp timeout_secs must be between 1 and 60",
             ));
         }
+
         Ok(())
     }
 
@@ -116,11 +120,13 @@ impl ConnectorAdapter for EmailSmtpConnectorAdapter {
                 "email_smtp target_type must be direct_user or fixed_address",
             ));
         }
+
         target
             .value
             .trim()
             .parse::<Mailbox>()
             .map_err(|_| Error::invalid("email_smtp target must be a valid email address"))?;
+
         Ok(())
     }
 
@@ -134,6 +140,7 @@ impl ConnectorAdapter for EmailSmtpConnectorAdapter {
         let config = EmailSmtpConfig::parse(config)?;
         config.validate()?;
         let sender = EmailSender::new(&config.into_settings())?;
+
         let (body, html) = match message.html.as_deref() {
             Some(html) if !html.trim().is_empty() => (html, true),
             _ => (
@@ -145,7 +152,9 @@ impl ConnectorAdapter for EmailSmtpConnectorAdapter {
                 false,
             ),
         };
+
         let started = Instant::now();
+
         sender
             .send_message(
                 &[target.value.trim().to_string()],
@@ -157,6 +166,7 @@ impl ConnectorAdapter for EmailSmtpConnectorAdapter {
                 html,
             )
             .await?;
+
         Ok(ConnectorDeliveryResult {
             provider_message_id: None,
             delivered: true,

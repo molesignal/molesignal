@@ -100,9 +100,11 @@ pub(super) async fn resolve_client(
             "OAuth client_id must contain 1 to 2048 bytes",
         ));
     }
+
     if client_id.starts_with("https://") {
         return fetch_client_metadata(client_id).await;
     }
+
     state
         .agent
         .inbound_mcp
@@ -123,6 +125,7 @@ pub(super) fn authenticate_client(
     {
         return Err(Error::unauthorized("OAuth client secret has expired"));
     }
+
     match client.token_endpoint_auth_method.as_str() {
         "none" if method == ClientAuthenticationMethod::None && presented_secret.is_none() => {
             Ok(())
@@ -151,10 +154,12 @@ fn verify_client_secret(
 ) -> Result<()> {
     let secret =
         presented_secret.ok_or_else(|| Error::unauthorized("OAuth client secret is required"))?;
+
     let hash = client
         .client_secret_hash
         .as_deref()
         .ok_or_else(|| Error::unauthorized("OAuth client has no secret"))?;
+
     verify_password(secret, hash)
         .map_err(|_| Error::unauthorized("OAuth client authentication failed"))
 }
@@ -163,7 +168,9 @@ pub(super) fn normalize_scope(scope: &str) -> std::result::Result<String, String
     if scope.len() > 256 {
         return Err("OAuth scope exceeds 256 bytes".into());
     }
+
     let values = scope.split_ascii_whitespace().collect::<Vec<_>>();
+
     if !values.contains(&"mcp")
         || values
             .iter()
@@ -171,6 +178,7 @@ pub(super) fn normalize_scope(scope: &str) -> std::result::Result<String, String
     {
         return Err("scope must include mcp and may additionally include offline_access".into());
     }
+
     Ok(if values.contains(&"offline_access") {
         "mcp offline_access".into()
     } else {
@@ -190,15 +198,19 @@ pub(super) fn validate_redirect_uris(redirect_uris: &[String]) -> std::result::R
     if redirect_uris.is_empty() || redirect_uris.len() > 20 {
         return Err("redirect_uris must contain between 1 and 20 entries".into());
     }
+
     for redirect_uri in redirect_uris {
         if redirect_uri.len() > 2_048 {
             return Err("redirect URI exceeds 2048 characters".into());
         }
+
         let url = Url::parse(redirect_uri)
             .map_err(|error| format!("invalid redirect URI `{redirect_uri}`: {error}"))?;
+
         if url.fragment().is_some() || !url.username().is_empty() || url.password().is_some() {
             return Err("redirect URIs must not include fragments or credentials".into());
         }
+
         match url.scheme() {
             "https" if url.host_str().is_some() => {}
             "http" if is_loopback_host(url.host_str().unwrap_or_default()) => {}
@@ -211,6 +223,7 @@ pub(super) fn validate_redirect_uris(redirect_uris: &[String]) -> std::result::R
             _ => {}
         }
     }
+
     Ok(())
 }
 
@@ -218,13 +231,17 @@ pub(super) fn validate_client_uri(client_uri: Option<&str>) -> std::result::Resu
     let Some(client_uri) = client_uri else {
         return Ok(());
     };
+
     if client_uri.len() > 2_048 {
         return Err("client_uri exceeds 2048 characters".into());
     }
+
     let url = Url::parse(client_uri).map_err(|error| format!("invalid client_uri: {error}"))?;
+
     if url.fragment().is_some() || !url.username().is_empty() || url.password().is_some() {
         return Err("client_uri must not include a fragment or credentials".into());
     }
+
     match url.scheme() {
         "https" if url.host_str().is_some() => Ok(()),
         "http" if is_loopback_host(url.host_str().unwrap_or_default()) => Ok(()),
@@ -243,8 +260,10 @@ async fn fetch_client_metadata(client_id: &str) -> Result<ResolvedOAuthClient> {
     if client_id.len() > 2_048 {
         return Err(Error::invalid("OAuth client metadata URL is too long"));
     }
+
     let url = Url::parse(client_id)
         .map_err(|error| Error::invalid(format!("invalid client metadata URL: {error}")))?;
+
     if url.scheme() != "https"
         || url.host_str().is_none()
         || !url.username().is_empty()
@@ -255,17 +274,21 @@ async fn fetch_client_metadata(client_id: &str) -> Result<ResolvedOAuthClient> {
             "client metadata documents require a credential-free HTTPS URL",
         ));
     }
+
     let host = url.host_str().expect("checked host").to_ascii_lowercase();
     let port = url.port_or_known_default().unwrap_or(443);
+
     let addresses = tokio::net::lookup_host((host.as_str(), port))
         .await
         .map_err(|error| Error::unavailable(format!("client metadata DNS lookup: {error}")))?
         .collect::<Vec<SocketAddr>>();
+
     if addresses.is_empty() || addresses.iter().any(|address| !is_public_ip(address.ip())) {
         return Err(Error::forbidden(
             "client metadata documents may resolve only to public addresses",
         ));
     }
+
     let client = reqwest::Client::builder()
         .no_proxy()
         .redirect(Policy::none())
@@ -273,6 +296,7 @@ async fn fetch_client_metadata(client_id: &str) -> Result<ResolvedOAuthClient> {
         .resolve_to_addrs(&host, &addresses)
         .build()
         .map_err(|error| Error::internal(format!("client metadata HTTP client: {error}")))?;
+
     let response = crate::shared::http_trace::send(
         &client,
         client
@@ -282,12 +306,14 @@ async fn fetch_client_metadata(client_id: &str) -> Result<ResolvedOAuthClient> {
     )
     .await
     .map_err(|error| Error::unavailable(format!("client metadata request: {error}")))?;
+
     if !response.status().is_success() {
         return Err(Error::unauthorized(format!(
             "client metadata endpoint returned HTTP {}",
             response.status().as_u16()
         )));
     }
+
     let content_type_is_json = response
         .headers()
         .get(http::header::CONTENT_TYPE)
@@ -298,37 +324,47 @@ async fn fetch_client_metadata(client_id: &str) -> Result<ResolvedOAuthClient> {
                 .next()
                 .is_some_and(|mime| mime.trim().eq_ignore_ascii_case("application/json"))
         });
+
     if !content_type_is_json {
         return Err(Error::invalid(
             "client metadata endpoint must return application/json",
         ));
     }
+
     let mut body = Vec::new();
     let mut stream = response.bytes_stream();
+
     while let Some(chunk) = stream.next().await {
         let chunk =
             chunk.map_err(|error| Error::unavailable(format!("client metadata body: {error}")))?;
+
         if body.len().saturating_add(chunk.len()) > MAX_CLIENT_METADATA_BYTES {
             return Err(Error::payload_too_large(
                 "client metadata document exceeds 64 KiB",
             ));
         }
+
         body.extend_from_slice(&chunk);
     }
+
     let document: ClientMetadataDocument = serde_json::from_slice(&body)
         .map_err(|error| Error::invalid(format!("invalid client metadata document: {error}")))?;
+
     if document.client_id != client_id || document.token_endpoint_auth_method != "none" {
         return Err(Error::unauthorized(
             "client metadata must bind the exact client_id and use token auth method none",
         ));
     }
+
     if document.client_name.trim().is_empty() || document.client_name.chars().count() > 255 {
         return Err(Error::invalid(
             "client metadata client_name must contain 1 to 255 characters",
         ));
     }
+
     validate_redirect_uris(&document.redirect_uris).map_err(Error::invalid)?;
     validate_client_uri(document.client_uri.as_deref()).map_err(Error::invalid)?;
+
     if !document
         .grant_types
         .iter()
@@ -342,6 +378,7 @@ async fn fetch_client_metadata(client_id: &str) -> Result<ResolvedOAuthClient> {
             "client metadata may support only authorization_code and refresh_token",
         ));
     }
+
     if document.response_types.len() != 1
         || document
             .response_types
@@ -352,7 +389,9 @@ async fn fetch_client_metadata(client_id: &str) -> Result<ResolvedOAuthClient> {
             "client metadata must use response_type code",
         ));
     }
+
     let scope = normalize_scope(&document.scope).map_err(Error::invalid)?;
+
     Ok(ResolvedOAuthClient {
         client_id: document.client_id,
         client_name: document.client_name,
@@ -371,6 +410,7 @@ fn is_public_ip(ip: IpAddr) -> bool {
     match ip {
         IpAddr::V4(ip) => {
             let octets = ip.octets();
+
             !ip.is_private()
                 && !ip.is_loopback()
                 && !ip.is_link_local()
@@ -390,6 +430,7 @@ fn is_public_ip(ip: IpAddr) -> bool {
         IpAddr::V6(ip) => {
             let segments = ip.segments();
             let mapped = ip.to_ipv4_mapped();
+
             !ip.is_loopback()
                 && !ip.is_unique_local()
                 && !ip.is_unicast_link_local()

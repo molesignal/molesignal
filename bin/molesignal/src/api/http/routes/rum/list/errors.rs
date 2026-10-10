@@ -95,12 +95,15 @@ pub(super) async fn list(
     let context = resolve_context(&state, &iam, request)?;
     let midpoint = context.from + (context.to - context.from) / 2;
     let new_threshold = context.from + (context.to - context.from) * 3 / 4;
+
     let reader = RumReadModelReader::new(
         state.storage.catalog_files.clone(),
         state.storage.read_store.clone(),
     )
     .with_catalog_source(state.storage.catalog_query.clone());
+
     let mut groups = HashMap::<String, ErrorGroup>::new();
+
     let stats = reader
         .visit_errors(
             &iam.org_id,
@@ -110,18 +113,23 @@ pub(super) async fn list(
                 let group = groups.entry(record.fingerprint).or_default();
                 group.count += 1;
                 group.previous_count += i64::from(record.timestamp_micros < midpoint);
+
                 if group.first_seen == 0 || record.timestamp_micros < group.first_seen {
                     group.first_seen = record.timestamp_micros;
                 }
+
                 group.last_seen = group.last_seen.max(record.timestamp_micros);
+
                 if let Some(message) = record.message
                     && (group.message.is_empty() || message < group.message)
                 {
                     group.message = message;
                 }
+
                 update_min(&mut group.page, record.page);
                 update_min(&mut group.version, record.version);
                 update_min(&mut group.error_type, record.error_type);
+
                 if let Some(user) = record.user_id {
                     group
                         .users
@@ -129,6 +137,7 @@ pub(super) async fn list(
                         .and_modify(|seen| *seen = (*seen).max(record.timestamp_micros))
                         .or_insert(record.timestamp_micros);
                 }
+
                 if let Some(session) = record.session_id {
                     group
                         .sessions
@@ -139,6 +148,7 @@ pub(super) async fn list(
             },
         )
         .await?;
+
     tracing::debug!(
         scanned_files = stats.files,
         scanned_rows = stats.rows,
@@ -151,14 +161,17 @@ pub(super) async fn list(
         .filter(|row| matches_filters(row, &context))
         .filter(|row| matches_boundary(row, context.boundary.as_ref()))
         .collect::<Vec<_>>();
+
     let before = context
         .boundary
         .as_ref()
         .is_some_and(|boundary| boundary.direction == CursorDirection::Before);
+
     rows.sort_by(|left, right| effective_cmp(left, right, before));
     rows.truncate(context.page_size.saturating_add(1));
     let direction = context.boundary.as_ref().map(|boundary| boundary.direction);
     let page = trim_cursor_page(rows, context.page_size, direction);
+
     let previous_cursor = if page.has_previous {
         page.items
             .first()
@@ -175,6 +188,7 @@ pub(super) async fn list(
     } else {
         None
     };
+
     let next_cursor = if page.has_next {
         page.items
             .last()
@@ -191,6 +205,7 @@ pub(super) async fn list(
     } else {
         None
     };
+
     Ok(Json(CursorPage {
         items: page.items.into_iter().map(|row| row.item).collect(),
         has_more: next_cursor.is_some(),
@@ -201,13 +216,16 @@ pub(super) async fn list(
 
 fn group_to_row(fingerprint: String, group: ErrorGroup, new_threshold: i64) -> ErrorRow {
     let recent = group.count.saturating_sub(group.previous_count);
+
     let trend_pct = if group.previous_count == 0 {
         i64::from(recent > 0) * 100
     } else {
         ((recent - group.previous_count) as f64 / group.previous_count as f64 * 100.0).round()
             as i64
     };
+
     let first_seen_micros = group.first_seen;
+
     ErrorRow {
         item: RumErrorSummary {
             fingerprint,
@@ -235,6 +253,7 @@ fn group_to_row(fingerprint: String, group: ErrorGroup, new_threshold: i64) -> E
 fn latest_keys(values: HashMap<String, i64>, limit: usize) -> Vec<String> {
     let mut values = values.into_iter().collect::<Vec<_>>();
     values.sort_by(|left, right| right.1.cmp(&left.1).then_with(|| left.0.cmp(&right.0)));
+
     values
         .into_iter()
         .take(limit)
@@ -250,9 +269,11 @@ fn matches_filters(row: &ErrorRow, context: &ErrorContext) -> bool {
     {
         return false;
     }
+
     let Some(query) = context.query.as_deref() else {
         return true;
     };
+
     [
         Some(row.item.fingerprint.as_str()),
         Some(row.item.message.as_str()),
@@ -283,16 +304,19 @@ fn matches_boundary(row: &ErrorRow, boundary: Option<&ErrorBoundary>) -> bool {
     let Some(boundary) = boundary else {
         return true;
     };
+
     let position = (
         boundary.count,
         boundary.last_seen_micros,
         boundary.fingerprint.as_str(),
     );
+
     let current = (
         row.item.count,
         row.item.last_seen_micros,
         row.item.fingerprint.as_str(),
     );
+
     match boundary.direction {
         CursorDirection::After => current < position,
         CursorDirection::Before => current > position,
@@ -303,6 +327,7 @@ fn resolve_context(state: &AppState, iam: &IamContext, request: ListQuery) -> Re
     if let Some(token) = request.cursor.as_deref() {
         let payload = cursor::decode_error(state.iam.service.as_ref(), &iam.org_id, token)?;
         validate_cursor_request(&request, &payload)?;
+
         return Ok(ErrorContext {
             from: payload.from,
             to: payload.to,
@@ -317,7 +342,9 @@ fn resolve_context(state: &AppState, iam: &IamContext, request: ListQuery) -> Re
             }),
         });
     }
+
     let (from, to, page_size) = initial_page_context(&request)?;
+
     Ok(ErrorContext {
         from,
         to,
@@ -334,28 +361,33 @@ fn validate_cursor_request(request: &ListQuery, payload: &ErrorCursorPayload) ->
     } else {
         None
     };
+
     let mismatch = shared_cursor_mismatch(request, payload.from, payload.to, payload.page_size)
         || request
             .q
             .as_ref()
             .is_some_and(|value| normalize_text(Some(value.clone()), 256) != payload.query)
         || (request.status.is_some() && requested_status != payload.status);
+
     if mismatch {
         return Err(Error::invalid(
             "RUM error cursor does not match active query",
         ));
     }
+
     Ok(())
 }
 
 fn normalize_status(value: Option<String>) -> Result<Option<String>> {
     let value = normalize_text(value, 16).map(|value| value.to_ascii_lowercase());
+
     if value
         .as_deref()
         .is_some_and(|value| !matches!(value, "new" | "ongoing"))
     {
         return Err(Error::invalid("unsupported RUM error status"));
     }
+
     Ok(value)
 }
 

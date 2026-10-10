@@ -59,15 +59,18 @@ pub struct KeyResp {
 
 fn decode_b64_32(s: &str) -> Result<Vec<u8>> {
     use base64::Engine as _;
+
     let bytes = base64::engine::general_purpose::STANDARD
         .decode(s.trim())
         .map_err(|e| Error::invalid(format!("key_material b64: {e}")))?;
+
     if bytes.len() != 32 {
         return Err(Error::invalid(format!(
             "key_material must be 32 bytes, got {}",
             bytes.len()
         )));
     }
+
     Ok(bytes)
 }
 
@@ -102,6 +105,7 @@ async fn get_latest(
         .cipher_keys
         .get_latest(&ctx.org_id, &name)
         .await?;
+
     Ok(Json(to_resp(&k)))
 }
 
@@ -112,11 +116,13 @@ async fn create(
     Json(req): Json<CreateReq>,
 ) -> Result<Json<KeyResp>> {
     let raw = decode_b64_32(&req.key_material_b64)?;
+
     let k = state
         .storage
         .cipher_keys
         .create(&ctx.org_id, &req.name, &raw)
         .await?;
+
     // 任何 key 增删 / 轮换都影响该 org 的字段解密映射，失效缓存即时生效。
     state.storage.field_keys.invalidate(&ctx.org_id).await;
     Ok(Json(to_resp(&k)))
@@ -130,11 +136,13 @@ async fn rotate(
     Json(req): Json<RotateReq>,
 ) -> Result<Json<KeyResp>> {
     let raw = decode_b64_32(&req.key_material_b64)?;
+
     let k = state
         .storage
         .cipher_keys
         .rotate(&ctx.org_id, &name, &raw)
         .await?;
+
     state.storage.field_keys.invalidate(&ctx.org_id).await;
     Ok(Json(to_resp(&k)))
 }
@@ -164,6 +172,7 @@ async fn rotate_field_default(
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<FieldKeyResp>> {
     let k = state.storage.field_keys.rotate_default(&ctx.org_id).await?;
+
     Ok(Json(FieldKeyResp {
         key_id: k.key_id,
         version: k.version,

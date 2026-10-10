@@ -51,16 +51,19 @@ impl FunctionExecutor for LlmFunctionExecutor {
     async fn run(&self, function: &Function, event: &mut Value) -> Result<()> {
         // 选 org 的可用 provider（enabled + key_set）。
         let providers = self.agent_model_providers.list(&function.org_id).await?;
+
         let provider = pick_provider(&providers).ok_or_else(|| {
             Error::invalid(
                 "llm eval: no enabled AI provider with an API key configured for this org",
             )
         })?;
+
         let key = self
             .agent_model_providers
             .get_plaintext_key(&function.org_id, &provider.id)
             .await?
             .ok_or_else(|| Error::invalid("llm eval: provider key not set"))?;
+
         let adapter = adapter_from_parts(
             Provider::parse(&provider.provider)?,
             provider.base_url.clone(),
@@ -70,6 +73,7 @@ impl FunctionExecutor for LlmFunctionExecutor {
         let now = TimestampMicros::now();
         // 指令 = function.source；输入 = 当前事件 JSON（紧凑）。
         let input = serde_json::to_string(event).unwrap_or_default();
+
         let req = CompletionRequest {
             model: provider.default_model.clone(),
             messages: vec![
@@ -84,14 +88,17 @@ impl FunctionExecutor for LlmFunctionExecutor {
                 .or(Some(self.default_max_tokens)),
             temperature: Some(self.temperature),
         };
+
         let resp = adapter.complete(req).await?;
         let text = resp.content.unwrap_or_default();
 
         // 写回结果到配置的输出字段（缺省 `_llm_eval`）。
         let field = output_field(&function.params_schema);
+
         if let Value::Object(map) = event {
             map.insert(field, Value::String(text));
         }
+
         Ok(())
     }
 }

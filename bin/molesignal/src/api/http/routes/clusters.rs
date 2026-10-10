@@ -121,6 +121,7 @@ async fn create(
     Json(req): Json<CreateReq>,
 ) -> Result<Json<ClusterResp>> {
     let now = TimestampMicros::now();
+
     let c = RemoteCluster {
         id: Id::new(),
         name: req.name,
@@ -132,6 +133,7 @@ async fn create(
         created_at: now,
         updated_at: now,
     };
+
     let c = state.cluster.remote_clusters.create(c).await?;
     Ok(Json(mask(c)))
 }
@@ -145,6 +147,7 @@ async fn update(
 ) -> Result<Json<ClusterResp>> {
     let id = Id(id);
     let existing = state.cluster.remote_clusters.get(&id).await?;
+
     let c = RemoteCluster {
         id: existing.id,
         name: req.name,
@@ -157,6 +160,7 @@ async fn update(
         created_at: existing.created_at,
         updated_at: TimestampMicros::now(),
     };
+
     let c = state.cluster.remote_clusters.update(c).await?;
     Ok(Json(mask(c)))
 }
@@ -232,14 +236,17 @@ async fn put_org_map(
             "local_org_id and remote_org_id are required",
         ));
     }
+
     // 集群必须存在。
     let _ = state.cluster.remote_clusters.get(&Id(id.clone())).await?;
+
     let link = OrgLink {
         remote_cluster_id: Id(id),
         local_org_id: Id(req.local_org_id),
         remote_org_id: Id(req.remote_org_id),
         token_secret_ref: req.token_secret_ref.filter(|s| !s.trim().is_empty()),
     };
+
     state.cluster.org_link.upsert(link.clone()).await?;
     Ok(Json(mask_link(link)))
 }
@@ -255,6 +262,7 @@ async fn delete_org_map(
         .org_link
         .delete(&Id(id), &Id(local_org_id))
         .await?;
+
     Ok(Json(serde_json::json!({"deleted": true})))
 }
 
@@ -270,6 +278,7 @@ pub struct RemoteNodeResp {
 
 fn role_name(v: i32) -> String {
     use crate::protocol::cluster::v1::NodeRole;
+
     match NodeRole::try_from(v).unwrap_or(NodeRole::Unspecified) {
         NodeRole::Router => "router",
         NodeRole::Intake => "intake",
@@ -294,10 +303,13 @@ async fn list_nodes(
     };
 
     let c = state.cluster.remote_clusters.get(&Id(id)).await?;
+
     let channel = grpc_channel::connect(&c.advertise_addr, c.tls_verify)
         .await
         .map_err(|e| Error::internal(format!("connect remote cluster: {e}")))?;
+
     let mut req = tonic::Request::new(NodeServiceListRequest { roles: vec![] });
+
     // token best-effort（NodeService 在可信端口不强校验；解析失败则不带 bearer）。
     if let Ok(token) = resolve_secret_ref(
         &c.token_secret_ref,
@@ -309,7 +321,9 @@ async fn list_nodes(
         grpc_channel::with_bearer(&mut req, &token)
             .map_err(|e| Error::internal(format!("bearer: {e}")))?;
     }
+
     let mut client = NodeServiceClient::new(channel);
+
     let resp = crate::shared::grpc_trace::call(
         req,
         "cluster.v1.NodeService",
@@ -319,6 +333,7 @@ async fn list_nodes(
     )
     .await
     .map_err(|s| Error::internal(format!("remote NodeService.List: {}", s.message())))?;
+
     let nodes = resp
         .into_inner()
         .nodes
@@ -330,5 +345,6 @@ async fn list_nodes(
             version: n.version,
         })
         .collect();
+
     Ok(Json(nodes))
 }

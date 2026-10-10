@@ -26,6 +26,7 @@ struct ApmMetrics {
 
 fn metrics() -> &'static ApmMetrics {
     static METRICS: OnceLock<ApmMetrics> = OnceLock::new();
+
     METRICS.get_or_init(|| ApmMetrics {
         facts: register_int_counter_vec(
             "molesignal_apm_facts_total",
@@ -94,6 +95,7 @@ pub(super) fn record_fact(result: &'static str) {
         | "flush_failed" => result,
         _ => "unknown",
     };
+
     metrics().facts.with_label_values(&[result]).inc();
 }
 
@@ -107,6 +109,7 @@ pub(super) fn record_cardinality(reason: &'static str) {
         | "instance_suppressed" => reason,
         _ => "unknown",
     };
+
     metrics().cardinality.with_label_values(&[reason]).inc();
 }
 
@@ -115,6 +118,7 @@ pub(super) fn set_queue(depth: usize, capacity: usize) {
         .queue
         .with_label_values(&["depth"])
         .set(saturating_i64(depth));
+
     metrics()
         .queue
         .with_label_values(&["capacity"])
@@ -126,6 +130,7 @@ pub(super) fn record_flush(success: bool, elapsed: Duration) {
         .flushes
         .with_label_values(&[if success { "success" } else { "failure" }])
         .inc();
+
     metrics().flush_latency.observe(elapsed.as_secs_f64());
 }
 
@@ -134,6 +139,7 @@ pub(super) fn record_rollup(success: bool, source_rows: u64, rollup_rows: u64, d
         .rollups
         .with_label_values(&[if success { "success" } else { "failure" }])
         .inc();
+
     for (kind, value) in [
         ("source", source_rows),
         ("rollup", rollup_rows),
@@ -151,6 +157,7 @@ pub(super) fn set_lag(stage: &'static str, micros: i64) {
         "projection" | "rollup" => stage,
         _ => "unknown",
     };
+
     metrics()
         .lag_seconds
         .with_label_values(&[stage])
@@ -162,6 +169,7 @@ pub(super) fn set_health(component: &'static str, healthy: bool) {
         "projector" | "repository" | "rollup" => component,
         _ => "unknown",
     };
+
     metrics()
         .health
         .with_label_values(&[component])
@@ -174,6 +182,7 @@ pub(super) fn record_api(endpoint: &'static str, elapsed: Duration) {
         | "error_detail" | "version_compare" | "health" => endpoint,
         _ => "unknown",
     };
+
     metrics()
         .api_latency
         .with_label_values(&[endpoint])

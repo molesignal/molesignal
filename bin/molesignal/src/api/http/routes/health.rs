@@ -35,6 +35,7 @@ async fn version() -> impl IntoResponse {
 /// 运维监听（`bootstrap::roles::ops_server`）也复用它。
 pub(crate) async fn healthz(State(state): State<AppState>) -> impl IntoResponse {
     let (healthy, reason) = state.telemetry.probe.snapshot();
+
     if healthy {
         (StatusCode::OK, Json(json!({"status": "ok"}))).into_response()
     } else {

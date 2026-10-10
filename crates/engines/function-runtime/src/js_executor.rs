@@ -64,11 +64,13 @@ impl JsFunctionExecutor {
 
     fn get_or_init(&self, f: &Function) -> Result<Arc<IsolateWorker>> {
         let key = (f.id.0.clone(), f.updated_at.0);
+
         if let Some(slot) = self.workers.get(&key)
             && !slot.is_dirty()
         {
             return Ok(slot.clone());
         }
+
         let worker = Arc::new(IsolateWorker::spawn(f.source.clone(), self.heap_max_bytes)?);
         self.workers.insert(key, worker.clone());
         // 旧版本同 function_id 清理。
@@ -82,6 +84,7 @@ impl JsFunctionExecutor {
     pub fn parse_only(source: &str) -> Result<()> {
         let mut runtime = JsRuntime::new(RuntimeOptions::default());
         let wrapped = format!("(function(){{\n{source}\n}})");
+
         runtime
             .execute_script("[molesignal:parse-check]", wrapped)
             .map(|_| ())
@@ -97,12 +100,14 @@ impl FunctionExecutor for JsFunctionExecutor {
                 "JsFunctionExecutor only accepts language=Js; wrap with ChainedFunctionExecutor",
             ));
         }
+
         let worker = self.get_or_init(function)?;
         let timeout = self.timeout;
 
         let event_json =
             serde_json::to_string(event).map_err(|e| Error::internal(format!("encode: {e}")))?;
         let (reply_tx, reply_rx) = oneshot::channel();
+
         worker
             .submit(Job::Run {
                 event_json,
@@ -112,6 +117,7 @@ impl FunctionExecutor for JsFunctionExecutor {
 
         // wall-clock timer：超时把 isolate terminate；worker 那条 evaluate 会带 error 返。
         let handle = worker.handle();
+
         let terminator = tokio::spawn(async move {
             tokio::time::sleep(timeout).await;
             handle.terminate_execution();
@@ -121,6 +127,7 @@ impl FunctionExecutor for JsFunctionExecutor {
             worker.mark_dirty();
             Error::internal("js worker dropped reply channel")
         })?;
+
         terminator.abort();
 
         match outcome {
@@ -132,17 +139,21 @@ impl FunctionExecutor for JsFunctionExecutor {
             }
             Err(e) => {
                 let msg = e.to_string();
+
                 if msg.contains("terminated") {
                     worker.mark_dirty();
+
                     return Err(Error::invalid(format!(
                         "js timeout {}ms",
                         timeout.as_millis()
                     )));
                 }
+
                 if msg.contains("heap") || msg.contains("Maximum") {
                     worker.mark_dirty();
                     return Err(Error::invalid("js heap exhausted"));
                 }
+
                 Err(e)
             }
         }
@@ -181,10 +192,13 @@ impl IsolateWorker {
                         return;
                     }
                 };
+
                 let v8_handle = runtime.v8_isolate().thread_safe_handle();
+
                 if handle_tx.send(Ok(v8_handle)).is_err() {
                     return;
                 }
+
                 drop(handle_tx);
 
                 while let Ok(job) = rx.recv() {
@@ -202,6 +216,7 @@ impl IsolateWorker {
         let handle = handle_rx
             .recv()
             .map_err(|_| Error::internal("js worker died during init"))??;
+
         Ok(Self {
             tx,
             handle,
@@ -234,6 +249,7 @@ impl Drop for IsolateWorker {
         // 优雅退出：先 terminate 醒来阻塞的 evaluate；再投 Shutdown。
         self.handle.terminate_execution();
         let _ = self.tx.send(Job::Shutdown);
+
         if let Ok(mut slot) = self._thread.lock()
             && let Some(t) = slot.take()
         {
@@ -244,24 +260,31 @@ impl Drop for IsolateWorker {
 
 fn build_runtime(source: &str, heap_max_bytes: usize) -> Result<JsRuntime> {
     let create_params = v8::CreateParams::default().heap_limits(0, heap_max_bytes);
+
     let mut runtime = JsRuntime::new(RuntimeOptions {
         create_params: Some(create_params),
         ..Default::default()
     });
+
     // 接近 heap 上限 → terminate 当前 evaluate；返回 current 表示「不再扩张」。
     let handle = runtime.v8_isolate().thread_safe_handle();
+
     runtime.add_near_heap_limit_callback(move |current, _initial| {
         handle.terminate_execution();
         current
     });
+
     runtime
         .execute_script("[molesignal:prelude]", PRELUDE)
         .map_err(|e| Error::invalid(format!("js prelude: {e}")))?;
+
     // user source 包成函数，编译只发生一次。
     let wrapped = format!("globalThis.__obsv_user = function() {{\n{source}\n}};");
+
     runtime
         .execute_script("[molesignal:user-compile]", wrapped)
         .map_err(|e| Error::invalid(format!("js compile: {e}")))?;
+
     Ok(runtime)
 }
 
@@ -269,21 +292,26 @@ fn run_once(runtime: &mut JsRuntime, event_json: &str) -> Result<String> {
     // 双层 JSON：内层是 fields object 序列化；外层包成 JS string literal。
     let arg_literal = serde_json::to_string(event_json)
         .map_err(|e| Error::internal(format!("encode event literal: {e}")))?;
+
     let src = format!(
         "globalThis.molesignal.__reset({arg_literal}); globalThis.__obsv_user(); globalThis.molesignal.__dump()"
     );
+
     let global = runtime
         .execute_script("[molesignal:run]", src)
         .map_err(|e| Error::invalid(format!("js: {e}")))?;
+
     // deno_core 0.403 dropped JsRuntime::handle_scope(); use the v8 pinned-scope
     // macros against the runtime's isolate + main context instead.
     let context = runtime.main_context();
     let isolate = runtime.v8_isolate();
     v8::scope_with_context!(let scope, isolate, &context);
     let local = v8::Local::new(scope, global);
+
     let s = local
         .to_string(scope)
         .ok_or_else(|| Error::internal("js: __dump did not return string"))?;
+
     Ok(s.to_rust_string_lossy(scope))
 }
 

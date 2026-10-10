@@ -64,7 +64,9 @@ impl SamlLoginFlow {
                 "saml: idp_sso_url and sp_entity_id required",
             ));
         }
+
         let request_id = format!("_{}", rand_hex(16));
+
         let issue_instant =
             chrono::DateTime::<chrono::Utc>::from_timestamp_micros(TimestampMicros::now().0)
                 .map(|dt| dt.format("%Y-%m-%dT%H:%M:%SZ").to_string())
@@ -81,12 +83,15 @@ impl SamlLoginFlow {
 
         // RFC 1951 raw DEFLATE（no zlib header），SAML spec 要求的形式
         let mut encoder = DeflateEncoder::new(Vec::new(), Compression::default());
+
         encoder
             .write_all(xml.as_bytes())
             .map_err(|e| Error::internal(format!("saml deflate: {e}")))?;
+
         let compressed = encoder
             .finish()
             .map_err(|e| Error::internal(format!("saml deflate finish: {e}")))?;
+
         let b64 = general_purpose::STANDARD.encode(&compressed);
         let encoded_request = url_encode(&b64);
         let encoded_relay = url_encode(relay_state);
@@ -96,6 +101,7 @@ impl SamlLoginFlow {
         } else {
             "?"
         };
+
         Ok(format!(
             "{}{sep}SAMLRequest={encoded_request}&RelayState={encoded_relay}",
             self.cfg.idp_sso_url
@@ -107,6 +113,7 @@ impl SamlLoginFlow {
         let xml_bytes = general_purpose::STANDARD
             .decode(saml_response_b64.trim())
             .map_err(|e| Error::unauthorized(format!("saml b64: {e}")))?;
+
         // 严格 XMLDSig 验签：见 xmldsig.rs（raw-bytes 路径 + exclusive C14N 回退）。
         self.verify_signature(&xml_bytes)?;
         // 验签通过后再做 SP 侧条件校验（有效期 / audience / recipient）。
@@ -123,6 +130,7 @@ impl SamlLoginFlow {
             Document::parse(xml_text).map_err(|e| Error::unauthorized(format!("saml xml: {e}")))?;
 
         let root = doc.root_element();
+
         let assertion = root
             .descendants()
             .find(|n| n.tag_name().name() == "Assertion")
@@ -137,14 +145,17 @@ impl SamlLoginFlow {
             .to_owned();
 
         let mut attributes = BTreeMap::<String, Vec<String>>::new();
+
         for attr in assertion
             .descendants()
             .filter(|n| n.tag_name().name() == "Attribute")
         {
             let attr_name = attr.attribute("Name").unwrap_or("").trim();
+
             if attr_name.is_empty() {
                 continue;
             }
+
             let values = attr
                 .children()
                 .filter(|c| c.tag_name().name() == "AttributeValue")
@@ -153,6 +164,7 @@ impl SamlLoginFlow {
                 .filter(|value| !value.is_empty())
                 .map(str::to_owned)
                 .collect::<Vec<_>>();
+
             if !values.is_empty() {
                 attributes
                     .entry(attr_name.to_owned())
@@ -175,6 +187,7 @@ impl SamlLoginFlow {
                 self.cfg.field_mapping.subject
             ))
         })?;
+
         let mut email_values = mapped_saml_values(
             &self.cfg.field_mapping.email,
             &name_id,
@@ -185,18 +198,21 @@ impl SamlLoginFlow {
                 "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress",
             ],
         );
+
         if email_values.is_empty()
             && self.cfg.field_mapping.email == "email"
             && name_id.contains('@')
         {
             email_values.push(name_id.clone());
         }
+
         let email = email_values.into_iter().next().ok_or_else(|| {
             Error::unauthorized(format!(
                 "SAML identity is missing mapped email field `{}`",
                 self.cfg.field_mapping.email
             ))
         })?;
+
         let name = mapped_saml_values(
             &self.cfg.field_mapping.display_name,
             &name_id,
@@ -209,12 +225,14 @@ impl SamlLoginFlow {
         )
         .into_iter()
         .next();
+
         let mut groups = mapped_saml_values(
             &self.cfg.field_mapping.groups,
             &name_id,
             &attributes,
             &["groups", "memberOf", "Role", "Roles"],
         );
+
         groups.sort();
         groups.dedup();
 
@@ -235,6 +253,7 @@ impl SamlLoginFlow {
             .map_err(|e| Error::unauthorized(format!("saml utf8: {e}")))?;
         let doc =
             Document::parse(xml_text).map_err(|e| Error::unauthorized(format!("saml xml: {e}")))?;
+
         let assertion = doc
             .root_element()
             .descendants()
@@ -255,6 +274,7 @@ impl SamlLoginFlow {
                     "saml: assertion not yet valid (Conditions/NotBefore)".to_string(),
                 ));
             }
+
             if let Some(na) = cond.attribute("NotOnOrAfter").and_then(parse_saml_time)
                 && now - SKEW_US >= na
             {
@@ -262,11 +282,13 @@ impl SamlLoginFlow {
                     "saml: assertion expired (Conditions/NotOnOrAfter)".to_string(),
                 ));
             }
+
             let audiences: Vec<String> = cond
                 .descendants()
                 .filter(|n| n.tag_name().name() == "Audience")
                 .filter_map(|n| n.text().map(|s| s.trim().to_string()))
                 .collect();
+
             if !audiences.is_empty()
                 && !self.cfg.sp_entity_id.is_empty()
                 && !audiences.iter().any(|a| a == &self.cfg.sp_entity_id)
@@ -288,6 +310,7 @@ impl SamlLoginFlow {
                     "saml: subject confirmation expired".to_string(),
                 ));
             }
+
             if let Some(recipient) = scd.attribute("Recipient")
                 && !self.cfg.assertion_consumer_url.is_empty()
                 && recipient != self.cfg.assertion_consumer_url
@@ -297,6 +320,7 @@ impl SamlLoginFlow {
                 ));
             }
         }
+
         Ok(())
     }
 
@@ -310,6 +334,7 @@ impl SamlLoginFlow {
                 "saml: idp_x509_cert not configured".to_string(),
             ));
         }
+
         super::xmldsig::verify_assertion_signature(xml_bytes, &self.cfg.idp_x509_cert)
     }
 }
@@ -327,6 +352,7 @@ fn mapped_saml_values(
             vec![name_id.to_owned()]
         };
     }
+
     let names = std::iter::once(field).chain(
         default_aliases
             .first()
@@ -334,6 +360,7 @@ fn mapped_saml_values(
             .into_iter()
             .flat_map(|_| default_aliases.iter().copied().skip(1)),
     );
+
     names
         .filter_map(|name| attributes.get(name))
         .flatten()
@@ -352,6 +379,7 @@ fn xml_escape(s: &str) -> String {
 /// 仅 percent-encode 必要字符；SAML 兼容性优先，多余字符也编一遍。
 fn url_encode(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
+
     for b in s.bytes() {
         match b {
             b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
@@ -362,6 +390,7 @@ fn url_encode(s: &str) -> String {
             }
         }
     }
+
     out
 }
 

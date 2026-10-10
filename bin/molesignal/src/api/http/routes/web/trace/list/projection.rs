@@ -22,6 +22,7 @@ pub(super) async fn available(state: &AppState, ctx: &IamContext, stream: &str) 
     else {
         return false;
     };
+
     [
         TRACE_SUMMARY_MARKER_FIELD,
         TRACE_SUMMARY_START_NS_FIELD,

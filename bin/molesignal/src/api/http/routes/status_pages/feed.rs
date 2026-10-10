@@ -22,6 +22,7 @@ pub(super) async fn rss(
 ) -> Result<Response<Body>> {
     let snapshot = state.status_pages.get_public_snapshot(&slug).await?;
     let body = render_rss(&snapshot, &state.platform.external_url);
+
     Response::builder()
         .status(200)
         .header(CONTENT_TYPE, "application/rss+xml; charset=utf-8")
@@ -39,12 +40,14 @@ fn render_rss(snapshot: &StatusPageSnapshot, external_url: &str) -> String {
         external_url.trim().trim_end_matches('/'),
         snapshot.page.slug
     );
+
     let mut incidents: Vec<&StatusPageIncident> = snapshot
         .active_incidents
         .iter()
         .chain(snapshot.scheduled_maintenance.iter())
         .chain(snapshot.history.iter())
         .collect();
+
     incidents.sort_by_key(|incident| std::cmp::Reverse(incident.updated_at));
     incidents.truncate(100);
 
@@ -52,12 +55,14 @@ fn render_rss(snapshot: &StatusPageSnapshot, external_url: &str) -> String {
         .into_iter()
         .map(|incident| {
             let link = format!("{page_url}/incidents/{}", incident.id);
+
             let description = incident
                 .updates
                 .iter()
                 .max_by_key(|update| update.created_at)
                 .map(|update| update.message.as_str())
                 .unwrap_or_default();
+
             format!(
                 "<item><title>{}</title><link>{}</link><guid isPermaLink=\"false\">{}</guid><description>{}</description><pubDate>{}</pubDate></item>",
                 xml_escape(&incident.title),

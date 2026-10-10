@@ -25,9 +25,11 @@ struct Fake {
 impl Fake {
     fn answer(&self, tag: &str, req: &QueryRequest) -> Result<QueryResult> {
         self.seen.lock().push(format!("{tag}:{}", req.statement));
+
         if self.fail {
             return Err(Error::invalid("query could not be planned"));
         }
+
         Ok(QueryResult {
             columns: vec![tag.to_owned()],
             rows: vec![vec![serde_json::json!(req.statement)]],
@@ -68,6 +70,7 @@ impl PromqlEngine for Fake {
         self.seen
             .lock()
             .push(format!("exemplars:{}", req.statement));
+
         Ok(PrometheusExemplarQueryResult {
             series: Vec::new(),
             truncated: true,
@@ -79,11 +82,13 @@ async fn serve(engine: Arc<Fake>) -> String {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap().to_string();
     let service = QueryExecutionGrpc::new(engine.clone(), engine).into_server();
+
     tokio::spawn(
         Server::builder()
             .add_service(service)
             .serve_with_incoming(TcpListenerStream::new(listener)),
     );
+
     addr
 }
 

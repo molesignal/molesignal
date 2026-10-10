@@ -88,6 +88,7 @@ impl ChatArchiveRepository for PgChatArchiveRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(a)
     }
 
@@ -100,6 +101,7 @@ impl ChatArchiveRepository for PgChatArchiveRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to).collect()
     }
 
@@ -113,6 +115,7 @@ impl ChatArchiveRepository for PgChatArchiveRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to).collect()
     }
 
@@ -124,6 +127,7 @@ impl ChatArchiveRepository for PgChatArchiveRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(rows
             .into_iter()
             .filter_map(|r| r.try_get::<Option<String>, _>("object_key").ok().flatten())

@@ -16,5 +16,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // flag for the proto3 optional fields used by probe.proto.
         .protoc_arg("--experimental_allow_proto3_optional")
         .compile_protos(&[proto], std::slice::from_ref(&proto_root))?;
+
     Ok(())
 }

@@ -34,29 +34,36 @@ pub struct OriginalFrame {
 /// Decode a gzip artifact with a strict expanded-size bound.
 pub fn decode_artifact(filename: &str, bytes: &[u8]) -> Result<Vec<u8>> {
     let gzip = filename.to_ascii_lowercase().ends_with(".gz") || bytes.starts_with(&[0x1f, 0x8b]);
+
     if !gzip {
         if bytes.len() as u64 > MAX_DECOMPRESSED_BYTES {
             return Err(Error::invalid(
                 "debug artifact exceeds 256 MiB expanded limit",
             ));
         }
+
         return Ok(bytes.to_vec());
     }
+
     let mut decoded = Vec::new();
+
     GzDecoder::new(bytes)
         .take(MAX_DECOMPRESSED_BYTES + 1)
         .read_to_end(&mut decoded)
         .map_err(|error| Error::invalid(format!("gzip debug artifact: {error}")))?;
+
     if decoded.len() as u64 > MAX_DECOMPRESSED_BYTES {
         return Err(Error::invalid(
             "debug artifact expands beyond the 256 MiB limit",
         ));
     }
+
     Ok(decoded)
 }
 
 pub fn validate_artifact(kind: DebugArtifactKind, filename: &str, bytes: &[u8]) -> Result<()> {
     let decoded = decode_artifact(filename, bytes)?;
+
     match kind {
         DebugArtifactKind::JavascriptSourcemap => javascript::validate(&decoded),
         DebugArtifactKind::AndroidMapping => android_mapping::validate(&decoded),

@@ -53,20 +53,25 @@ pub(super) struct QueryRuntime {
 impl QueryRuntime {
     pub(super) async fn build(settings: &Settings, core: &Core, storage: &StorageRuntime) -> Self {
         let read_store = core.object_reader.store();
+
         let index_handle_cache = Arc::new(crate::infra::caching::IndexHandleCache::<
             Arc<IndexHandle>,
         >::new(settings.cache.index_handle.clone()));
+
         let tantivy_result_cache = Arc::new(crate::infra::caching::TantivyResultCache::new(
             &settings.cache.tantivy_result,
         ));
+
         let tantivy_footer_cache = Arc::new(crate::infra::caching::TantivyFooterCache::new(
             &settings.cache.tantivy_footer,
         ));
+
         let tantivy_pruner = Arc::new(
             TantivyPruner::new(index_handle_cache, read_store.clone())
                 .with_result_cache(tantivy_result_cache)
                 .with_footer_cache(tantivy_footer_cache),
         );
+
         let log_patterns: Arc<
             dyn crate::infra::persistence::repositories::log_patterns::LogPatternRepository,
         > = Arc::new(
@@ -74,6 +79,7 @@ impl QueryRuntime {
                 core.pool.clone(),
             ),
         );
+
         let local_engine = Arc::new(
             DataFusionEngine::new(storage.catalog_files.clone(), read_store.clone())
                 .with_tantivy_pruner(tantivy_pruner)
@@ -91,9 +97,12 @@ impl QueryRuntime {
                 .with_streams(core.streams.clone())
                 .with_catalog_source(storage.catalog_query.clone())
                 .with_max_scan_rows(settings.querier.max_scan_rows);
+
             let settings = &settings.search.stream_agg_cache;
+
             let engine = if settings.capacity > 0 {
                 let cache = Arc::new(crate::infra::caching::StreamingAggCache::new(settings));
+
                 engine.with_streaming_cache(
                     cache,
                     std::time::Duration::from_secs(settings.safe_lookback_secs),
@@ -101,13 +110,17 @@ impl QueryRuntime {
             } else {
                 engine
             };
+
             Arc::new(engine)
         };
+
         let local_sql: Arc<dyn QueryEngine> = local_engine;
+
         let local_engines = LocalQueryEngines {
             sql: local_sql.clone(),
             promql: local_promql.clone(),
         };
+
         // querier 角色（含 standalone）用本节点的引擎；其余节点把 SQL 与 PromQL 查询交给
         // querier 节点执行，由它用本地引擎完整执行。
         let (sql_engine, promql_engine): (Arc<dyn QueryEngine>, Arc<dyn PromqlEngine>) =
@@ -118,11 +131,13 @@ impl QueryRuntime {
                     core.registry.clone(),
                     (settings.grpc.max_message_size_mb as usize).saturating_mul(1024 * 1024),
                 );
+
                 (
                     Arc::new(RemoteSqlEngine::new(client.clone())),
                     Arc::new(RemotePromqlEngine::new(client)),
                 )
             };
+
         let alert_engine: Arc<dyn QueryEngine> = Arc::new(LanguageRoutedEngine::new(
             sql_engine.clone(),
             promql_engine.clone(),
@@ -140,9 +155,11 @@ impl QueryRuntime {
             Arc::new(PgSeenEventsRepository::new(core.pool.clone()));
         let federation_cancel =
             Arc::new(crate::infra::query::federation_cancel::FederationCancelRegistry::new());
+
         let cluster_secrets: Arc<dyn ClusterSecretRepository> = Arc::new(
             PgClusterSecretRepository::new(core.pool.clone(), core.cipher_root_key.clone()),
         );
+
         let federated_engine: Arc<dyn QueryEngine> = Arc::new(
             FederatedDistributedEngine::new(
                 sql_engine.clone(),
@@ -171,18 +188,22 @@ impl QueryRuntime {
                 cluster_groups: settings.search.admission.cluster_groups.clone(),
             },
         ));
+
         let query_result_cache =
             Arc::new(QueryResultCache::new(settings.cache.query_result.clone()));
         let mut query_service = QueryService::new(federated_engine, promql_engine, admission)
             .with_field_masking(core.field_masking_service.clone());
+
         if settings.cache.query_result.capacity > 0 {
             query_service = query_service.with_result_cache(query_result_cache);
         }
+
         let query = Arc::new(query_service);
 
         let cluster_admission_enabled = settings.search.admission.cluster_default_max_concurrent
             > 0
             || !settings.search.admission.cluster_groups.is_empty();
+
         let _admission_sync = (core.roles.run_querier && cluster_admission_enabled).then(|| {
             let repository: Arc<
                 dyn crate::infra::persistence::repositories::search::admission_load::SearchAdmissionLoadRepository,
@@ -191,6 +212,7 @@ impl QueryRuntime {
                     core.pool.clone(),
                 ),
             );
+
             crate::bootstrap::workers::admission_load_sync::AdmissionLoadSync::new(
                 core.node_id.clone(),
                 query.admission(),
@@ -234,6 +256,7 @@ impl QueryRuntime {
             .with_ownership(core.alert_ownership.clone())
             .spawn()
         });
+
         let _cluster_gossip = core.roles.run_alert.then(|| {
             crate::bootstrap::workers::cluster::gossip::ClusterGossip::new(
                 iam.instance_settings.clone(),

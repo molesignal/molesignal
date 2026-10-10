@@ -46,6 +46,7 @@ impl PgWebSearchRepository {
 
     async fn list_stream_hits(&self, org_id: &Id, limit: u32) -> Result<Vec<WebSearchHit>> {
         let limit = limit.clamp(1, 50) as i64;
+
         let rows = sqlx::query(
             "SELECT id::text AS id, name AS label, stream_type AS subtitle
                FROM logical_streams
@@ -142,8 +143,10 @@ impl WebSearchRepository for PgWebSearchRepository {
             if kinds.contains(&"stream") {
                 return self.list_stream_hits(org_id, limit).await;
             }
+
             return Ok(Vec::new());
         }
+
         let limit = limit.clamp(1, 50) as i64;
 
         let parts: Vec<&str> = ALL
@@ -151,11 +154,13 @@ impl WebSearchRepository for PgWebSearchRepository {
             .filter(|kq| kinds.is_empty() || kinds.contains(&kq.kind))
             .map(|kq| kq.sql)
             .collect();
+
         if parts.is_empty() {
             return Ok(Vec::new());
         }
 
         let union = parts.join(" UNION ALL ");
+
         let sql = format!(
             "WITH hits AS ({union})
              SELECT kind, id, label, subtitle, rk
@@ -167,6 +172,7 @@ impl WebSearchRepository for PgWebSearchRepository {
         // 200ms statement timeout。必须开显式事务：`SET LOCAL` 的作用域是事务块，
         // 在裸连接上执行完当场就失效，下面那条 6 表 UNION 会完全不受保护地跑下去。
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         sqlx::query("SET LOCAL statement_timeout = 200")
             .execute(&mut *tx)
             .await
@@ -179,12 +185,15 @@ impl WebSearchRepository for PgWebSearchRepository {
             .fetch_all(&mut *tx)
             .await
             .map_err(sqlx_err)?;
+
         // 只读事务，commit 与 rollback 等价；commit 让连接干净地归还连接池。
         tx.commit().await.map_err(sqlx_err)?;
 
         let mut out = Vec::with_capacity(rows.len());
+
         for r in rows {
             let kind: String = r.try_get("kind").unwrap_or_default();
+
             let kind_static: &'static str = match kind.as_str() {
                 "stream" => "stream",
                 "dashboard" => "dashboard",
@@ -194,6 +203,7 @@ impl WebSearchRepository for PgWebSearchRepository {
                 "service" => "service",
                 _ => continue,
             };
+
             out.push(WebSearchHit {
                 kind: kind_static,
                 id: r.try_get("id").unwrap_or_default(),
@@ -202,6 +212,7 @@ impl WebSearchRepository for PgWebSearchRepository {
                 rank: r.try_get::<f32, _>("rk").unwrap_or(0.0),
             });
         }
+
         Ok(out)
     }
 }

@@ -21,18 +21,22 @@ pub struct MeteredBatch<T = IntakeBatch> {
 /// The canonical event includes its timestamp and fields, but no transport/batch framing.
 pub fn event_bytes(event: &RawEvent) -> Result<u64> {
     struct Counter(u64);
+
     impl Write for Counter {
         fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
             self.0 = self
                 .0
                 .checked_add(bytes.len() as u64)
                 .ok_or_else(|| io::Error::other("intake byte count overflow"))?;
+
             Ok(bytes.len())
         }
+
         fn flush(&mut self) -> io::Result<()> {
             Ok(())
         }
     }
+
     let mut counter = Counter(0);
     serde_json::to_writer(&mut counter, event)
         .map_err(|error| Error::internal(format!("measure intake event: {error}")))?;

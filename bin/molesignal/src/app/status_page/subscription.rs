@@ -54,10 +54,12 @@ impl StatusPageService {
         origin_host: &str,
     ) -> Result<StatusPageSubscriptionOutcome> {
         let page = self.get_customer_page(slug).await?;
+
         let session = self
             .authorize_customer_page(&page, Some(raw_session_token), origin_host)
             .await?
             .ok_or_else(|| Error::conflict("status page is not private"))?;
+
         self.subscribe_to_page(
             page,
             StatusPageSubscriptionInput {
@@ -79,6 +81,7 @@ impl StatusPageService {
         let token = subscription_token();
         let token_hash = token_hash(&token);
         let now = TimestampMicros::now();
+
         let pending = self
             .repository
             .upsert_pending_subscriber(
@@ -111,9 +114,11 @@ impl StatusPageService {
                     self.repository
                         .reset_pending_confirmation(&pending.subscriber.id, &token_hash)
                         .await?;
+
                     return Err(error);
                 }
             };
+
             if let Err(error) = sender
                 .send(
                     pending.subscriber.channel,
@@ -125,6 +130,7 @@ impl StatusPageService {
                 self.repository
                     .reset_pending_confirmation(&pending.subscriber.id, &token_hash)
                     .await?;
+
                 return Err(error);
             }
         }
@@ -142,6 +148,7 @@ impl StatusPageService {
     ) -> Result<StatusPageSubscriptionOutcome> {
         let page = self.get_customer_page(slug).await?;
         validate_token(token)?;
+
         self.repository
             .confirm_subscriber(
                 &page.org_id,
@@ -150,6 +157,7 @@ impl StatusPageService {
                 TimestampMicros::now(),
             )
             .await?;
+
         Ok(StatusPageSubscriptionOutcome {
             accepted: true,
             confirmation_required: false,
@@ -163,6 +171,7 @@ impl StatusPageService {
     ) -> Result<StatusPageSubscriptionOutcome> {
         let page = self.get_customer_page(slug).await?;
         validate_token(token)?;
+
         self.repository
             .unsubscribe_subscriber(
                 &page.org_id,
@@ -171,6 +180,7 @@ impl StatusPageService {
                 TimestampMicros::now(),
             )
             .await?;
+
         Ok(StatusPageSubscriptionOutcome {
             accepted: true,
             confirmation_required: false,
@@ -184,6 +194,7 @@ impl StatusPageService {
         page: u32,
     ) -> Result<StatusPageSubscriberPage> {
         self.repository.get_page(org_id, page_id).await?;
+
         self.repository
             .list_subscribers(org_id, page_id, page.max(1), 25)
             .await
@@ -196,6 +207,7 @@ impl StatusPageService {
         subscriber_id: &Id,
     ) -> Result<StatusPageSubscriber> {
         self.repository.get_page(org_id, page_id).await?;
+
         self.repository
             .revoke_subscriber(org_id, page_id, subscriber_id, TimestampMicros::now())
             .await
@@ -208,26 +220,32 @@ impl StatusPageService {
         subscriber_id: &Id,
     ) -> Result<StatusPageSubscriber> {
         let page = self.repository.get_page(org_id, page_id).await?;
+
         if page.lifecycle != StatusPageLifecycle::Active {
             return Err(Error::conflict(
                 "subscription confirmations cannot be resent for an archived status page",
             ));
         }
+
         let existing = self
             .repository
             .get_subscriber(org_id, page_id, subscriber_id)
             .await?;
+
         if existing.status != StatusPageSubscriberStatus::Pending {
             return Err(Error::conflict(
                 "only a pending subscription can resend confirmation",
             ));
         }
+
         let token = subscription_token();
         let now = TimestampMicros::now();
+
         let subscriber = self
             .repository
             .refresh_pending_confirmation(org_id, page_id, subscriber_id, &token_hash(&token), now)
             .await?;
+
         let message = match self
             .notification_page_url(&page)
             .await
@@ -238,9 +256,11 @@ impl StatusPageService {
                 self.repository
                     .reset_pending_confirmation(&subscriber.id, &subscriber.token_hash)
                     .await?;
+
                 return Err(error);
             }
         };
+
         if let Err(error) = self
             .notification_sender()?
             .send(subscriber.channel, &subscriber.target, &message)
@@ -249,8 +269,10 @@ impl StatusPageService {
             self.repository
                 .reset_pending_confirmation(&subscriber.id, &subscriber.token_hash)
                 .await?;
+
             return Err(error);
         }
+
         Ok(subscriber)
     }
 
@@ -261,6 +283,7 @@ impl StatusPageService {
         page: u32,
     ) -> Result<StatusPageDeliveryPage> {
         self.repository.get_page(org_id, page_id).await?;
+
         self.repository
             .list_notification_deliveries(org_id, page_id, page.max(1), 25)
             .await
@@ -269,12 +292,15 @@ impl StatusPageService {
     pub async fn process_pending_notifications(&self, limit: u32) -> Result<u32> {
         let sender = self.notification_sender()?;
         let now = TimestampMicros::now();
+
         let deliveries = self
             .repository
             .claim_notification_deliveries(now, limit.min(500))
             .await?;
+
         let count = u32::try_from(deliveries.len()).unwrap_or(u32::MAX);
         let mut page_urls: HashMap<Id, String> = HashMap::new();
+
         for delivery in deliveries {
             let page_url = if let Some(page_url) = page_urls.get(&delivery.status_page_id) {
                 Ok(page_url.clone())
@@ -290,7 +316,9 @@ impl StatusPageService {
                     Err(error) => Err(error),
                 }
             };
+
             let message = page_url.and_then(|page_url| delivery_message(&delivery, &page_url));
+
             let result = match message {
                 Ok(message) => {
                     sender
@@ -299,7 +327,9 @@ impl StatusPageService {
                 }
                 Err(error) => Err(error),
             };
+
             let completed_at = TimestampMicros::now();
+
             let (status, next_attempt_at, last_error) = match result {
                 Ok(()) => (StatusPageDeliveryStatus::Delivered, completed_at, None),
                 Err(error) if delivery.attempts >= MAX_DELIVERY_ATTEMPTS => (
@@ -317,6 +347,7 @@ impl StatusPageService {
                     Some(truncate_error(&error.to_string())),
                 ),
             };
+
             if let Err(error) = self
                 .repository
                 .complete_notification_delivery(
@@ -335,6 +366,7 @@ impl StatusPageService {
                 );
             }
         }
+
         Ok(count)
     }
 
@@ -357,21 +389,25 @@ impl StatusPageService {
             .repository
             .get_domain_config(&page.org_id, &page.id)
             .await?;
+
         if let Some(domain) = domain.filter(|domain| {
             domain.state == crate::domain::status_page::StatusPageDomainState::Active
                 && domain.routing_valid
         }) {
             return custom_page_url(&domain.hostname);
         }
+
         platform_page_url(&self.external_url, &page.slug)
     }
 }
 
 fn normalize_target(channel: StatusPageSubscriberChannel, raw: &str) -> Result<String> {
     let target = raw.trim();
+
     if !(3..=2048).contains(&target.len()) || target.chars().any(char::is_control) {
         return Err(Error::invalid("subscription target is invalid"));
     }
+
     Ok(match channel {
         StatusPageSubscriberChannel::Email => target.to_ascii_lowercase(),
         StatusPageSubscriberChannel::Webhook => target.to_string(),
@@ -390,6 +426,7 @@ fn validate_token(token: &str) -> Result<()> {
     {
         return Err(Error::invalid("subscription token is invalid"));
     }
+
     Ok(())
 }
 

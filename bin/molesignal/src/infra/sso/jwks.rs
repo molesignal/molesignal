@@ -54,6 +54,7 @@ impl JwksCache {
             .timeout(std::time::Duration::from_secs(10))
             .build()
             .map_err(|e| Error::internal(format!("jwks http client: {e}")))?;
+
         Ok(Self {
             cache: RwLock::new(HashMap::new()),
             ttl_us: (ttl_secs as i64).saturating_mul(1_000_000),
@@ -64,14 +65,17 @@ impl JwksCache {
     /// 取一个 `jwks_uri` 对应的 JWK set；缓存命中直接返。miss/expired 时去拉。
     pub async fn get(&self, jwks_uri: &str) -> Result<JwkSet> {
         let now = TimestampMicros::now().0;
+
         {
             let g = self.cache.read().expect("jwks cache poisoned");
+
             if let Some(c) = g.get(jwks_uri)
                 && c.expires_at_us > now
             {
                 return Ok(c.set.clone());
             }
         }
+
         // refresh
         let resp = crate::shared::http_trace::send(
             &self.http,
@@ -80,17 +84,21 @@ impl JwksCache {
         )
         .await
         .map_err(|e| Error::internal(format!("jwks fetch: {e}")))?;
+
         if !resp.status().is_success() {
             return Err(Error::internal(format!(
                 "jwks fetch status {}",
                 resp.status()
             )));
         }
+
         let set: JwkSet = resp
             .json()
             .await
             .map_err(|e| Error::internal(format!("jwks decode: {e}")))?;
+
         let mut w = self.cache.write().expect("jwks cache poisoned");
+
         w.insert(
             jwks_uri.to_string(),
             CachedSet {
@@ -98,6 +106,7 @@ impl JwksCache {
                 expires_at_us: now + self.ttl_us,
             },
         );
+
         Ok(set)
     }
 }
@@ -122,40 +131,49 @@ pub fn verify_rs256_id_token(
     let header = decode_header(id_token)
         .map_err(|e| Error::unauthorized(format!("id_token header: {e}")))?;
     let kid = header.kid.as_deref();
+
     let jwk = jwks
         .keys
         .iter()
         .find(|k| kid.is_some() && k.kid.as_deref() == kid)
         .or_else(|| jwks.keys.first())
         .ok_or_else(|| Error::unauthorized("no matching JWK in jwks_uri set".to_string()))?;
+
     if jwk.kty != "RSA" {
         return Err(Error::unauthorized(format!(
             "unsupported jwk kty: {} (only RSA today)",
             jwk.kty
         )));
     }
+
     let key = DecodingKey::from_rsa_components(&jwk.n, &jwk.e)
         .map_err(|e| Error::unauthorized(format!("rsa components: {e}")))?;
     let mut validation = Validation::new(Algorithm::RS256);
     validation.validate_exp = true;
     validation.validate_nbf = false;
+
     if !expected_audience.is_empty() {
         validation.set_audience(&[expected_audience]);
     } else {
         validation.validate_aud = false;
     }
+
     if !expected_issuer.is_empty() {
         validation.set_issuer(&[expected_issuer]);
     }
+
     let data = decode::<serde_json::Value>(id_token, &key, &validation)
         .map_err(|e| Error::unauthorized(format!("id_token verify: {e}")))?;
+
     let actual_nonce = data
         .claims
         .get("nonce")
         .and_then(|v| v.as_str())
         .unwrap_or_default();
+
     if actual_nonce != expected_nonce {
         return Err(Error::unauthorized("id_token nonce mismatch".to_string()));
     }
+
     Ok(data.claims)
 }

@@ -34,15 +34,18 @@ pub fn extract_apm_fact(org_id: &str, span: &CanonicalSpan) -> Option<ApmSpanFac
     let service_name = safe_resource_dimension(resource, "service.name");
     let preferred_environment = safe_resource_dimension(resource, "deployment.environment.name");
     let legacy_environment = safe_resource_dimension(resource, "deployment.environment");
+
     let service = ServiceIdentity::new(
         namespace.as_deref(),
         service_name.as_deref(),
         preferred_environment.as_deref(),
         legacy_environment.as_deref(),
     );
+
     let span_kind = map_span_kind(span.kind);
     let transaction = transaction_identity(span);
     let dependency = dependency_identity(span, span_kind);
+
     let protocol = ProtocolStatus {
         otel_status: span.status_code.clone(),
         http_status_code: integer_attr(span, &["http.response.status_code", "http.status_code"])
@@ -50,12 +53,15 @@ pub fn extract_apm_fact(org_id: &str, span: &CanonicalSpan) -> Option<ApmSpanFac
         rpc_status_code: integer_attr(span, &["rpc.grpc.status_code", "rpc.response.status_code"])
             .and_then(|value| i32::try_from(value).ok()),
     };
+
     let exception = normalized_exception(span);
+
     let outcome = if exception.is_some() {
         ApmOutcome::Error
     } else {
         protocol.outcome()
     };
+
     let error = (outcome == ApmOutcome::Error)
         .then(|| error_identity(span, transaction.as_ref(), exception.as_ref(), &protocol));
 
@@ -108,20 +114,25 @@ fn transaction_identity(span: &CanonicalSpan) -> Option<TransactionIdentity> {
     ) {
         return None;
     }
+
     if let Some(method) = safe_attr(span, &["http.request.method", "http.method"]) {
         let route = safe_attr(span, &["http.route"]);
+
         return Some(TransactionIdentity {
             name: route.map_or(method.clone(), |route| format!("{method} {route}")),
             kind: TransactionKind::Http,
         });
     }
+
     if let Some(service) = safe_attr(span, &["rpc.service"]) {
         let method = safe_attr(span, &["rpc.method"]);
+
         return Some(TransactionIdentity {
             name: method.map_or(service.clone(), |method| format!("{service}/{method}")),
             kind: TransactionKind::Rpc,
         });
     }
+
     if let Some(operation) = safe_attr(span, &["messaging.operation.name", "messaging.operation"]) {
         let destination = safe_attr(
             span,
@@ -130,11 +141,13 @@ fn transaction_identity(span: &CanonicalSpan) -> Option<TransactionIdentity> {
                 "messaging.destination.name",
             ],
         );
+
         return Some(TransactionIdentity {
             name: destination.map_or(operation.clone(), |target| format!("{operation} {target}")),
             kind: TransactionKind::Messaging,
         });
     }
+
     safe_low_cardinality_name(&span.name).map(|name| TransactionIdentity {
         name,
         kind: TransactionKind::Span,
@@ -145,6 +158,7 @@ fn dependency_identity(span: &CanonicalSpan, kind: ApmSpanKind) -> Option<Depend
     if !matches!(kind, ApmSpanKind::Client | ApmSpanKind::Producer) {
         return None;
     }
+
     if let Some(target) = safe_attr(span, &["peer.service"]) {
         return Some(DependencyIdentity {
             category: DependencyCategory::Service,
@@ -152,21 +166,25 @@ fn dependency_identity(span: &CanonicalSpan, kind: ApmSpanKind) -> Option<Depend
             operation: safe_low_cardinality_name(&span.name),
         });
     }
+
     if let Some(system) = safe_attr(span, &["db.system.name", "db.system"]) {
         let namespace = safe_attr(span, &["db.namespace", "db.name", "db.collection.name"])
             .and_then(|value| optional_hmac_fingerprint(&value));
         let target = namespace.map_or(system.clone(), |hash| format!("{system}:{hash}"));
+
         let category = if matches!(system.as_str(), "redis" | "memcached" | "valkey") {
             DependencyCategory::Cache
         } else {
             DependencyCategory::Database
         };
+
         return Some(DependencyIdentity {
             category,
             target,
             operation: safe_attr(span, &["db.operation.name", "db.operation"]),
         });
     }
+
     if let Some(system) = safe_attr(span, &["messaging.system"]) {
         return Some(DependencyIdentity {
             category: DependencyCategory::Messaging,
@@ -181,6 +199,7 @@ fn dependency_identity(span: &CanonicalSpan, kind: ApmSpanKind) -> Option<Depend
             operation: safe_attr(span, &["messaging.operation.name", "messaging.operation"]),
         });
     }
+
     if let Some(service) = safe_attr(span, &["rpc.service"]) {
         return Some(DependencyIdentity {
             category: DependencyCategory::ExternalRpc,
@@ -188,10 +207,12 @@ fn dependency_identity(span: &CanonicalSpan, kind: ApmSpanKind) -> Option<Depend
             operation: safe_attr(span, &["rpc.method"]),
         });
     }
+
     let host = safe_attr(
         span,
         &["server.address", "network.peer.address", "net.peer.name"],
     );
+
     if host.is_some()
         || string_attr(&span.attributes, "http.request.method").is_some()
         || string_attr(&span.attributes, "http.method").is_some()
@@ -202,6 +223,7 @@ fn dependency_identity(span: &CanonicalSpan, kind: ApmSpanKind) -> Option<Depend
             operation: safe_attr(span, &["http.request.method", "http.method"]),
         });
     }
+
     Some(DependencyIdentity {
         category: DependencyCategory::Other,
         target: crate::domain::apm::OTHER_DIMENSION.to_owned(),
@@ -214,20 +236,24 @@ fn normalized_exception(span: &CanonicalSpan) -> Option<SanitizedException> {
         .events
         .iter()
         .find(|event| event.name.eq_ignore_ascii_case("exception"));
+
     let error_type = event
         .and_then(|event| event_string(event, "exception.type"))
         .or_else(|| safe_attr(span, &["exception.type", "error.type"]))?;
+
     let message = event
         .and_then(|event| event_string(event, "exception.message"))
         .or_else(|| {
             string_attr(&span.attributes, "exception.message").and_then(normalize_exception_message)
         });
+
     let stack = event
         .and_then(|event| event_string(event, "exception.stacktrace"))
         .or_else(|| {
             string_attr(&span.attributes, "exception.stacktrace").and_then(bounded_stack_text)
         })
         .unwrap_or_default();
+
     Some(SanitizedException {
         error_type,
         message,
@@ -253,16 +279,20 @@ fn error_identity(
                 "Error".to_owned()
             }
         });
+
     let application_frame = exception
         .and_then(|value| value.stack_frames.first())
         .cloned();
+
     let transaction_name = transaction.map(|value| value.name.clone());
+
     let seed = format!(
         "{}\u{0}{}\u{0}{}",
         error_type,
         application_frame.as_deref().unwrap_or_default(),
         transaction_name.as_deref().unwrap_or_default()
     );
+
     ErrorIdentity {
         fingerprint: blake3::hash(seed.as_bytes()).to_hex()[..32].to_owned(),
         error_type,
@@ -307,6 +337,7 @@ fn safe_resource_dimension(attributes: &BTreeMap<String, Value>, key: &str) -> O
 fn safe_dimension(value: &str) -> Option<String> {
     let value = bounded_text(value, MAX_DIMENSION_BYTES)?;
     let lower = value.to_ascii_lowercase();
+
     if value == "[REDACTED]"
         || value.contains("://")
         || value.contains('?')
@@ -321,27 +352,33 @@ fn safe_dimension(value: &str) -> Option<String> {
     {
         return None;
     }
+
     Some(value)
 }
 
 fn safe_low_cardinality_name(value: &str) -> Option<String> {
     let value = safe_dimension(value)?;
+
     if uuid_or_long_number_regex().is_match(&value) {
         return None;
     }
+
     Some(value)
 }
 
 fn bounded_text(value: &str, max_bytes: usize) -> Option<String> {
     let value = value.trim();
+
     if value.is_empty() || value.len() > max_bytes {
         return None;
     }
+
     Some(value.to_owned())
 }
 
 fn event_string(event: &CanonicalEvent, key: &str) -> Option<String> {
     let value = event.attributes.get(key)?.as_str()?;
+
     match key {
         "exception.message" => normalize_exception_message(value),
         "exception.stacktrace" => bounded_stack_text(value),
@@ -351,9 +388,11 @@ fn event_string(event: &CanonicalEvent, key: &str) -> Option<String> {
 
 fn normalize_exception_message(value: &str) -> Option<String> {
     let value = bounded_text(value, MAX_EXCEPTION_MESSAGE_BYTES)?;
+
     if value == "[REDACTED]" || value.contains("://") || value.contains('?') {
         return None;
     }
+
     let masked = volatile_exception_regex().replace_all(&value, "#");
     safe_dimension(masked.as_ref())
 }
@@ -362,6 +401,7 @@ fn bounded_stack_text(value: &str) -> Option<String> {
     if value.len() > MAX_STACK_FRAMES * MAX_STACK_FRAME_BYTES * 4 {
         return None;
     }
+
     Some(value.to_owned())
 }
 
@@ -370,13 +410,17 @@ fn normalize_stack_frames(stack: &str) -> Vec<String> {
         .lines()
         .filter_map(|line| {
             let line = line.trim();
+
             if line.is_empty() || line.contains("://") || line.contains('?') {
                 return None;
             }
+
             let mut end = line.len().min(MAX_STACK_FRAME_BYTES);
+
             while end > 0 && !line.is_char_boundary(end) {
                 end -= 1;
             }
+
             safe_dimension(&line[..end])
         })
         .take(MAX_STACK_FRAMES)
@@ -385,6 +429,7 @@ fn normalize_stack_frames(stack: &str) -> Vec<String> {
 
 fn uuid_or_long_number_regex() -> &'static Regex {
     static REGEX: OnceLock<Regex> = OnceLock::new();
+
     REGEX.get_or_init(|| {
         Regex::new(r"(?i)(?:[0-9a-f]{8}-[0-9a-f-]{27,}|(?:^|[^0-9])[0-9]{5,}(?:[^0-9]|$))")
             .expect("static APM low-cardinality regex")
@@ -393,6 +438,7 @@ fn uuid_or_long_number_regex() -> &'static Regex {
 
 fn volatile_exception_regex() -> &'static Regex {
     static REGEX: OnceLock<Regex> = OnceLock::new();
+
     REGEX.get_or_init(|| {
         Regex::new(r"(?i)(?:[0-9a-f]{8}-[0-9a-f-]{27,}|\b0x[0-9a-f]+\b|\b[0-9]{3,}\b)")
             .expect("static APM exception normalization regex")

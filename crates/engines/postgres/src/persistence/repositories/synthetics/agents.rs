@@ -49,9 +49,11 @@ impl SyntheticAgentRepository for PgSyntheticRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(super::sqlx_err)?;
+
         if expected_org.as_deref() != agent.organization_id.as_ref().map(Id::as_str) {
             return Err(Error::forbidden("Agent Location scope mismatch"));
         }
+
         sqlx::query(
             "INSERT INTO synthetic_probe_agents
                 (id, location_id, name, hostname, status, agent_version, protocol_version,
@@ -88,6 +90,7 @@ impl SyntheticAgentRepository for PgSyntheticRepository {
         .execute(&self.pool)
         .await
         .map_err(super::sqlx_err)?;
+
         self.get_agent_for_scope(agent.organization_id.as_ref(), &agent.id)
             .await
     }
@@ -130,9 +133,11 @@ impl SyntheticAgentRepository for PgSyntheticRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(super::sqlx_err)?;
+
         if id.is_none() {
             return Err(Error::not_found("Probe Agent"));
         }
+
         self.get_agent_for_scope(agent.organization_id.as_ref(), &agent.id)
             .await
     }
@@ -170,9 +175,11 @@ impl SyntheticAgentRepository for PgSyntheticRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(super::sqlx_err)?;
+
         if configured_agent_id.is_none() {
             return Err(Error::not_found("Probe Agent"));
         }
+
         self.get_agent(org_id, agent_id).await
     }
 
@@ -185,6 +192,7 @@ impl SyntheticAgentRepository for PgSyntheticRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(super::sqlx_err)?;
+
         row_to_agent(row)
     }
 
@@ -196,6 +204,7 @@ impl SyntheticAgentRepository for PgSyntheticRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(super::sqlx_err)?;
+
         row_to_agent(row)
     }
 
@@ -251,13 +260,16 @@ impl PgSyntheticRepository {
             available: EMBEDDED_MAX_CONCURRENT,
             available_browser: 1,
         };
+
         let labels = BTreeMap::from([
             ("execution".to_string(), "embedded".to_string()),
             ("system_managed".to_string(), "true".to_string()),
         ]);
+
         let capabilities = vec![
             "http", "tcp", "ssh", "dns", "icmp", "tls", "grpc", "browser",
         ];
+
         let rows = sqlx::query(
             "INSERT INTO synthetic_probe_agents AS agent
                 (id, location_id, name, hostname, status, agent_version, protocol_version,
@@ -292,9 +304,11 @@ impl PgSyntheticRepository {
         .await
         .map_err(super::sqlx_err)?
         .rows_affected();
+
         if rows == 0 {
             return Err(Error::not_found("built-in Local Probe Location"));
         }
+
         self.get_agent_for_scope(None, &Id::from_string(BUILTIN_LOCAL_AGENT_ID))
             .await
     }
@@ -312,6 +326,7 @@ impl PgSyntheticRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(super::sqlx_err)?;
+
         row_to_agent(row)
     }
 }

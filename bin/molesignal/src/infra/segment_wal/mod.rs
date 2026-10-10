@@ -39,5 +39,6 @@ pub use writer::SegmentWal;
 
 /// segment 文件命名前缀。
 pub const WAL_SEGMENT_PREFIX: &str = "wal-";
+
 /// segment 文件扩展名。
 pub const WAL_SEGMENT_EXT: &str = ".seg";

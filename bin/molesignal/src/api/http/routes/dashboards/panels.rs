@@ -86,6 +86,7 @@ async fn add(
             request.expected_version,
         )
         .await?;
+
     emit_update(&state, &saved).await;
     Ok(Json(saved))
 }
@@ -112,6 +113,7 @@ async fn update(
             request.expected_version,
         )
         .await?;
+
     emit_update(&state, &saved).await;
     Ok(Json(saved))
 }
@@ -137,6 +139,7 @@ async fn delete(
             payload.expected_version,
         )
         .await?;
+
     emit_update(&state, &saved).await;
     Ok(Json(saved))
 }
@@ -164,6 +167,7 @@ async fn move_panel(
             request.expected_version,
         )
         .await?;
+
     emit_update(&state, &saved).await;
     Ok(Json(saved))
 }

@@ -79,11 +79,13 @@ impl SigningSecretRepository for PgSigningSecretRepository {
         let sql = format!(
             "SELECT {COLS} FROM signing_secrets WHERE kind = $1 AND is_primary = TRUE LIMIT 1"
         );
+
         let row = sqlx::query(&sql)
             .bind(kind)
             .fetch_optional(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(row.map(row_to))
     }
 
@@ -94,18 +96,21 @@ impl SigningSecretRepository for PgSigningSecretRepository {
         now: TimestampMicros,
     ) -> Result<Vec<SigningSecret>> {
         let cutoff = now.0 - window_micros;
+
         let sql = format!(
             "SELECT {COLS} FROM signing_secrets
              WHERE kind = $1
                AND (retired_at_micros IS NULL OR retired_at_micros > $2)
              ORDER BY is_primary DESC, created_at_micros DESC"
         );
+
         let rows = sqlx::query(&sql)
             .bind(kind)
             .bind(cutoff)
             .fetch_all(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(rows.into_iter().map(row_to).collect())
     }
 
@@ -117,6 +122,7 @@ impl SigningSecretRepository for PgSigningSecretRepository {
     async fn rotate(&self, kind: &str, new_secret: &[u8]) -> Result<Id> {
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
         let now = TimestampMicros::now();
+
         sqlx::query(
             "UPDATE signing_secrets
              SET is_primary = FALSE, retired_at_micros = $2
@@ -127,7 +133,9 @@ impl SigningSecretRepository for PgSigningSecretRepository {
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
+
         let new_id = Id::new();
+
         sqlx::query(
             "INSERT INTO signing_secrets
                 (id, kind, secret, is_primary, created_at_micros)
@@ -140,6 +148,7 @@ impl SigningSecretRepository for PgSigningSecretRepository {
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
+
         tx.commit().await.map_err(sqlx_err)?;
         Ok(new_id)
     }
@@ -147,6 +156,7 @@ impl SigningSecretRepository for PgSigningSecretRepository {
     async fn insert_primary_if_absent(&self, kind: &str, secret: &[u8]) -> Result<Id> {
         let id = Id::new();
         let now = TimestampMicros::now();
+
         // partial unique index uq_signing_primary 保护并发抢插
         let res = sqlx::query(
             "INSERT INTO signing_secrets
@@ -159,6 +169,7 @@ impl SigningSecretRepository for PgSigningSecretRepository {
         .bind(now.0)
         .execute(&self.pool)
         .await;
+
         match res {
             Ok(_) => Ok(id),
             Err(e) => {
@@ -170,6 +181,7 @@ impl SigningSecretRepository for PgSigningSecretRepository {
                         "signing_secret primary for kind={kind} already exists"
                     )));
                 }
+
                 Err(sqlx_err(e))
             }
         }
@@ -182,6 +194,7 @@ impl SigningSecretRepository for PgSigningSecretRepository {
         {
             return Ok(existing.id);
         }
+
         self.rotate(kind, secret).await
     }
 
@@ -191,11 +204,13 @@ impl SigningSecretRepository for PgSigningSecretRepository {
             "SELECT {COLS} FROM signing_secrets WHERE kind = $1
              ORDER BY is_primary DESC, created_at_micros DESC"
         );
+
         let rows = sqlx::query(&sql)
             .bind(kind)
             .fetch_all(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(rows.into_iter().map(row_to).collect())
     }
 }
@@ -229,14 +244,17 @@ pub async fn bootstrap_or_load_jwt_secret(
         && !raw.trim().is_empty()
     {
         use base64::Engine as _;
+
         let bytes = base64::engine::general_purpose::STANDARD
             .decode(raw.trim())
             .map_err(|e| Error::invalid(format!("MS_AUTH_JWT_SECRET_OVERRIDE b64: {e}")))?;
+
         if bytes.len() < 32 {
             return Err(Error::invalid(
                 "MS_AUTH_JWT_SECRET_OVERRIDE must be at least 32 bytes after base64 decode",
             ));
         }
+
         let id = repo.upsert_override_primary("jwt", &bytes).await?;
         tracing::info!(
             kid = %id.0,
@@ -254,6 +272,7 @@ pub async fn bootstrap_or_load_jwt_secret(
     // 3) 首启动生成
     let secret = generate_csprng_32()?;
     let res = repo.insert_primary_if_absent("jwt", &secret).await;
+
     let kid = match res {
         Ok(id) => {
             tracing::info!(
@@ -266,14 +285,17 @@ pub async fn bootstrap_or_load_jwt_secret(
             tracing::warn!(
                 "race during jwt bootstrap; another worker won the INSERT, re-reading primary"
             );
+
             let winner = repo
                 .get_primary("jwt")
                 .await?
                 .ok_or_else(|| Error::internal("primary missing after unique-violation"))?;
+
             winner.id.0
         }
         Err(e) => return Err(e),
     };
+
     load_active(repo, kid).await
 }
 
@@ -282,25 +304,31 @@ async fn load_active(
     primary_kid: String,
 ) -> Result<(Vec<Vec<u8>>, String)> {
     let now = TimestampMicros::now();
+
     let mut all = repo
         .list_active("jwt", DEFAULT_RETIRE_WINDOW_MICROS, now)
         .await?;
+
     all.sort_by_key(|s| std::cmp::Reverse(s.is_primary));
     let secrets: Vec<Vec<u8>> = all.into_iter().map(|s| s.secret).collect();
+
     if secrets.is_empty() {
         return Err(Error::internal(
             "jwt active secret set empty after bootstrap",
         ));
     }
+
     Ok((secrets, primary_kid))
 }
 
 fn generate_csprng_32() -> Result<Vec<u8>> {
     use rand::TryRng as _;
     let mut buf = [0u8; 32];
+
     rand::rngs::SysRng
         .try_fill_bytes(&mut buf)
         .map_err(|e| Error::internal(format!("csprng: {e}")))?;
+
     Ok(buf.to_vec())
 }
 

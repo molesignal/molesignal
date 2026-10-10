@@ -21,6 +21,7 @@ pub(super) fn apply_datetime(func: &str, input: InstantVector) -> InstantVector 
         .into_iter()
         .map(|(labels, value)| (labels, datetime_field(func, value)))
         .collect();
+
     InstantVector { items }
 }
 
@@ -28,17 +29,20 @@ pub(super) fn apply_datetime_range(func: &str, mut input: RangeVector) -> RangeV
     for point in &mut input.points {
         point.value = datetime_field(func, point.value);
     }
+
     input
 }
 
 /// `timestamp(v)`：instant 路径下样本取自求值时刻，故每条返回 `at_us` 对应的秒。
 pub(super) fn apply_timestamp(input: InstantVector, at_us: i64) -> InstantVector {
     let seconds = at_us as f64 / 1_000_000.0;
+
     let items = input
         .items
         .into_iter()
         .map(|(labels, _)| (labels, seconds))
         .collect();
+
     InstantVector { items }
 }
 
@@ -47,6 +51,7 @@ pub(super) fn apply_timestamp_range(mut input: RangeVector) -> RangeVector {
     for point in &mut input.points {
         point.value = point.ts_us as f64 / 1_000_000.0;
     }
+
     input
 }
 
@@ -54,6 +59,7 @@ fn datetime_field(func: &str, value: f64) -> f64 {
     let Some(dt) = unix_seconds_to_utc(value) else {
         return f64::NAN;
     };
+
     match func {
         "minute" => dt.minute() as f64,
         "hour" => dt.hour() as f64,
@@ -72,6 +78,7 @@ fn unix_seconds_to_utc(value: f64) -> Option<DateTime<Utc>> {
     if !value.is_finite() {
         return None;
     }
+
     DateTime::from_timestamp(value as i64, 0)
 }
 
@@ -81,8 +88,10 @@ fn days_in_month(year: i32, month: u32) -> u32 {
     } else {
         (year, month + 1)
     };
+
     let first_this = chrono::NaiveDate::from_ymd_opt(year, month, 1);
     let first_next = chrono::NaiveDate::from_ymd_opt(next_year, next_month, 1);
+
     match (first_this, first_next) {
         (Some(a), Some(b)) => (b - a).num_days() as u32,
         _ => 30,

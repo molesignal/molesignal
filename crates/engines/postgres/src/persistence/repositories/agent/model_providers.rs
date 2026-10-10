@@ -119,7 +119,9 @@ impl PgModelProviderRepository {
             .mk
             .seal(api_key.as_bytes())
             .map_err(|e| Error::internal(format!("ai provider key seal: {e}")))?;
+
         let now = TimestampMicros::now();
+
         sqlx::query(
             "INSERT INTO agent_model_provider_secrets
                 (provider_id, org_id, ciphertext, nonce, created_at_micros, updated_at_micros)
@@ -137,6 +139,7 @@ impl PgModelProviderRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(())
     }
 }
@@ -152,6 +155,7 @@ impl ModelProviderRepository for PgModelProviderRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to).collect()
     }
 
@@ -165,6 +169,7 @@ impl ModelProviderRepository for PgModelProviderRepository {
         .await
         .map_err(sqlx_err)?
         .ok_or_else(|| Error::not_found(format!("ai provider `{}` not found", id.0)))?;
+
         row_to(row)
     }
 
@@ -176,6 +181,7 @@ impl ModelProviderRepository for PgModelProviderRepository {
         let now = TimestampMicros::now();
         let key_last4 = api_key.map(last4);
         let key_set = api_key.is_some();
+
         sqlx::query(
             "INSERT INTO agent_model_providers
                 (id, org_id, provider, name, base_url, default_model, enabled, timeout_ms,
@@ -197,14 +203,17 @@ impl ModelProviderRepository for PgModelProviderRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         if let Some(k) = api_key {
             self.seal_secret(&input.org_id, &input.id, k).await?;
         }
+
         self.get(&input.org_id, &input.id).await
     }
 
     async fn update(&self, input: ModelProviderInput) -> Result<ModelProvider> {
         let now = TimestampMicros::now();
+
         let res = sqlx::query(
             "UPDATE agent_model_providers SET
                 provider = $3, name = $4, base_url = $5, default_model = $6,
@@ -224,12 +233,14 @@ impl ModelProviderRepository for PgModelProviderRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         if res.rows_affected() == 0 {
             return Err(Error::not_found(format!(
                 "ai provider `{}` not found",
                 input.id.0
             )));
         }
+
         self.get(&input.org_id, &input.id).await
     }
 
@@ -238,6 +249,7 @@ impl ModelProviderRepository for PgModelProviderRepository {
         let _ = self.get(org_id, id).await?;
         self.seal_secret(org_id, id, api_key).await?;
         let now = TimestampMicros::now();
+
         sqlx::query(
             "UPDATE agent_model_providers SET key_last4 = $3, key_set = TRUE, updated_at_micros = $4
              WHERE org_id = $1 AND id = $2",
@@ -249,6 +261,7 @@ impl ModelProviderRepository for PgModelProviderRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         self.get(org_id, id).await
     }
 
@@ -261,12 +274,14 @@ impl ModelProviderRepository for PgModelProviderRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         sqlx::query("DELETE FROM agent_model_providers WHERE org_id = $1 AND id = $2")
             .bind(&org_id.0)
             .bind(&id.0)
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -280,16 +295,20 @@ impl ModelProviderRepository for PgModelProviderRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         let Some(row) = row else {
             return Ok(None);
         };
+
         let ct: Vec<u8> = row.try_get("ciphertext").map_err(sqlx_err)?;
         let nonce: Vec<u8> = row.try_get("nonce").map_err(sqlx_err)?;
+
         let plain = self
             .mk
             .open(&nonce, &ct)
             // 错误信息只提 id，绝不带明文/密文片段。
             .map_err(|_| Error::internal(format!("ai provider `{}` key decrypt failed", id.0)))?;
+
         let s = String::from_utf8(plain)
             .map_err(|_| Error::internal(format!("ai provider `{}` key not utf-8", id.0)))?;
         Ok(Some(s))

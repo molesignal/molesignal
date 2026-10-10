@@ -47,6 +47,7 @@ async fn create(
 ) -> Result<OperationOutcome> {
     let parameters: DashboardWrite = parse(&approval.parameters)?;
     let folder_id = optional_id(parameters.folder_id);
+
     if let Some(folder_id) = &folder_id {
         state
             .dashboard
@@ -54,6 +55,7 @@ async fn create(
             .get(&ctx.org_id, folder_id)
             .await?;
     }
+
     let dashboard = state
         .dashboard
         .create(
@@ -63,6 +65,7 @@ async fn create(
             parameters.model,
         )
         .await?;
+
     emit_cud(
         state,
         &dashboard.org_id,
@@ -72,6 +75,7 @@ async fn create(
         &dashboard,
     )
     .await;
+
     Ok(OperationOutcome {
         summary: "dashboard created".into(),
         verification: json!({"verified": true, "dashboard": dashboard}),
@@ -86,6 +90,7 @@ async fn update(
     let parameters: DashboardWrite = parse(&approval.parameters)?;
     let dashboard = load_authorized(state, ctx, &approval.target, "dashboards.edit").await?;
     let folder_id = optional_id(parameters.folder_id);
+
     if let Some(folder_id) = &folder_id {
         state
             .dashboard
@@ -93,6 +98,7 @@ async fn update(
             .get(&dashboard.org_id, folder_id)
             .await?;
     }
+
     let dashboard = state
         .dashboard
         .update_model(
@@ -102,6 +108,7 @@ async fn update(
             parameters.model,
         )
         .await?;
+
     emit_cud(
         state,
         &dashboard.org_id,
@@ -111,6 +118,7 @@ async fn update(
         &dashboard,
     )
     .await;
+
     Ok(OperationOutcome {
         summary: "dashboard updated".into(),
         verification: json!({"verified": true, "dashboard": dashboard}),
@@ -125,6 +133,7 @@ async fn delete(
     let _: Empty = parse(&approval.parameters)?;
     let dashboard = load_authorized(state, ctx, &approval.target, "dashboards.delete").await?;
     state.dashboard.delete(&dashboard.id).await?;
+
     emit_cud(
         state,
         &dashboard.org_id,
@@ -134,6 +143,7 @@ async fn delete(
         &delete_payload(&dashboard.id.0),
     )
     .await;
+
     Ok(OperationOutcome {
         summary: "dashboard deleted".into(),
         verification: json!({"verified": true, "dashboard_id": dashboard.id, "deleted": true}),
@@ -147,9 +157,11 @@ async fn load_authorized(
     permission: &str,
 ) -> Result<crate::domain::dashboard::Dashboard> {
     let dashboard = state.dashboard.get(&Id(id.to_string())).await?;
+
     if dashboard.org_id != ctx.org_id {
         return Err(Error::not_found("dashboard not found"));
     }
+
     Permission::require_resource(
         state,
         ctx,
@@ -159,6 +171,7 @@ async fn load_authorized(
         &dashboard.id.0,
     )
     .await?;
+
     Ok(dashboard)
 }
 

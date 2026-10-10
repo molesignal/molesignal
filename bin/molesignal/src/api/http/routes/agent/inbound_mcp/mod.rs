@@ -23,6 +23,7 @@ pub fn routes(state: AppState) -> Router<AppState> {
     let runtime = Arc::new(runtime::InboundMcpAdapterRuntime::new(
         state.agent.inbound_mcp_request_state_key,
     ));
+
     Router::new()
         .merge(settings::routes())
         .merge(http::routes(state, runtime.clone()))

@@ -46,17 +46,21 @@ impl RecipientResolverRegistry {
         let mut registry = Self {
             resolvers: HashMap::new(),
         };
+
         for resolver in resolvers {
             let resolver_type = resolver.resolver_type();
+
             if resolver_type.trim().is_empty() {
                 return Err(Error::internal("recipient resolver type cannot be empty"));
             }
+
             if registry.resolvers.insert(resolver_type, resolver).is_some() {
                 return Err(Error::internal(format!(
                     "duplicate recipient resolver: {resolver_type}"
                 )));
             }
         }
+
         Ok(registry)
     }
 
@@ -85,24 +89,29 @@ struct FixedUsersConfig {
 fn parse_fixed_users_config(config: &Value) -> Result<FixedUsersConfig> {
     let config: FixedUsersConfig = serde_json::from_value(config.clone())
         .map_err(|error| Error::invalid(format!("invalid fixed_users config: {error}")))?;
+
     if config.user_ids.is_empty() {
         return Err(Error::invalid(
             "fixed_users config requires at least one user_id",
         ));
     }
+
     if config.user_ids.len() > 500 {
         return Err(Error::invalid(
             "fixed_users config supports at most 500 users",
         ));
     }
+
     let unique = config
         .user_ids
         .iter()
         .map(|user_id| user_id.0.as_str())
         .collect::<HashSet<_>>();
+
     if unique.len() != config.user_ids.len() {
         return Err(Error::invalid("fixed_users user_ids must be unique"));
     }
+
     Ok(config)
 }
 
@@ -128,6 +137,7 @@ impl RecipientResolver for FixedUsersResolver {
 
     async fn resolve(&self, event: &NotifyEvent, config: &Value) -> Result<Vec<NotifyRecipient>> {
         let config = parse_fixed_users_config(config)?;
+
         let members = self
             .memberships
             .list_for_org(&event.organization_id)
@@ -135,6 +145,7 @@ impl RecipientResolver for FixedUsersResolver {
             .into_iter()
             .map(|membership| membership.user_id)
             .collect::<HashSet<_>>();
+
         if config
             .user_ids
             .iter()
@@ -144,6 +155,7 @@ impl RecipientResolver for FixedUsersResolver {
                 "fixed_users contains a user outside the event organization",
             ));
         }
+
         Ok(config
             .user_ids
             .into_iter()
@@ -187,6 +199,7 @@ impl RecipientResolver for CurrentOncallResolver {
 
     async fn resolve(&self, event: &NotifyEvent, config: &Value) -> Result<Vec<NotifyRecipient>> {
         let config = parse_current_oncall_config(config)?;
+
         let schedule = self
             .schedules
             .list(&event.organization_id)
@@ -194,6 +207,7 @@ impl RecipientResolver for CurrentOncallResolver {
             .into_iter()
             .find(|schedule| schedule.id == config.schedule_id)
             .ok_or_else(|| Error::not_found("on-call schedule"))?;
+
         Ok(schedule
             .who_is_on_call(event.occurred_at)
             .map(|user_id| {

@@ -61,10 +61,13 @@ use crate::{
 
 /// `_timestamp` 隐式时间列（匹配存储层 `arrow_schema::TS_COL`）。
 const TS_COL: &str = "_timestamp";
+
 /// 火焰图窗口内合并 profile 数默认上限；超限均匀采样 + `truncated`。
 const DEFAULT_MAX_MERGE: usize = 1_000;
+
 /// 聚合时扫描元数据行的硬上限（防止超大窗口拉爆）。
 const SCAN_CEILING: usize = 50_000;
+
 /// 列表 / 聚合默认回看窗口（µs）：1 小时。
 const DEFAULT_LOOKBACK_US: i64 = 3_600 * 1_000_000;
 
@@ -119,6 +122,7 @@ fn parse_label(s: &str) -> Option<(String, String)> {
 fn parse_time_param(s: Option<&str>) -> Option<i64> {
     let s = s?.trim();
     let n: i64 = s.parse().ok()?;
+
     Some(if n >= 1_000_000_000_000_000 {
         n // micros
     } else if n >= 1_000_000_000_000 {
@@ -164,9 +168,11 @@ async fn run_query(
         Err(Error::NotFound(_)) => return Ok(empty_query_result()),
         Err(error) => return Err(error),
     };
+
     if !schema_contains_fields(&definition.schema, required_fields) {
         return Ok(empty_query_result());
     }
+
     state
         .query
         .run(QueryRequest {
@@ -247,19 +253,23 @@ async fn upload(
         .as_deref()
         .unwrap_or("pprof")
         .to_ascii_lowercase();
+
     if format == "jfr" {
         return Err(Error::invalid(
             "JFR upload not yet implemented; send pprof (task 2.6)",
         ));
     }
+
     if format != "pprof" {
         return Err(Error::invalid(format!(
             "unsupported upload format: {format}"
         )));
     }
+
     if body.is_empty() {
         return Err(Error::invalid("empty profile body"));
     }
+
     let service = params
         .service
         .clone()
@@ -269,6 +279,7 @@ async fn upload(
     let raw = profiles::decompress_pprof_input(&body)?;
     let profile = profiles::decode_pprof(&raw)?;
     let mut normalized = profiles::normalize_pprof(&profile, service, &BTreeMap::new());
+
     if let Some(t) = params.r#type.as_deref().filter(|t| !t.is_empty()) {
         normalized.profile_type = ProfileType::from_name(t);
     }
@@ -295,11 +306,13 @@ async fn pyroscope_intake(
 ) -> Result<Response> {
     let name = params.name.unwrap_or_default();
     let (service_raw, type_hint, labels) = profiles::parse_pyroscope_name(&name);
+
     let service = if service_raw.is_empty() {
         "unknown".to_string()
     } else {
         service_raw
     };
+
     let format = params
         .format
         .as_deref()
@@ -336,8 +349,10 @@ async fn pyroscope_intake(
     if let Some(t) = type_hint.as_deref() {
         normalized.profile_type = ProfileType::from_name(t);
     }
+
     if let Some(from_us) = parse_time_param(params.from.as_deref()) {
         normalized.start_time_micros = from_us;
+
         if let Some(until_us) = parse_time_param(params.until.as_deref()) {
             normalized.duration_nanos = (until_us - from_us).max(0).saturating_mul(1_000);
         }
@@ -363,11 +378,13 @@ async fn otlp_profiles(
     let req: ExportProfilesServiceRequest = decode_otlp(enc, &body)?;
     let normalized = normalize_otlp_profiles(&req);
     let mut accepted = 0usize;
+
     for profile in &normalized {
         let raw = profiles::encode_pprof_raw(profile)?;
         store_profile(&state, &ctx.org_id, profile, &raw, body.len()).await?;
         accepted += 1;
     }
+
     Ok((StatusCode::OK, Json(IntakeAck { accepted })).into_response())
 }
 
@@ -381,10 +398,13 @@ pub(crate) fn normalize_otlp_profiles(
     let Some(dict) = req.dictionary.as_ref() else {
         return Vec::new();
     };
+
     let mut out = Vec::new();
+
     for rp in &req.resource_profiles {
         let mut base_labels: BTreeMap<String, String> = BTreeMap::new();
         let mut service = String::new();
+
         if let Some(res) = rp.resource.as_ref() {
             for kv in &res.attributes {
                 let v = kv
@@ -392,17 +412,22 @@ pub(crate) fn normalize_otlp_profiles(
                     .as_ref()
                     .map(any_value_to_label)
                     .unwrap_or_default();
+
                 if kv.key == "service.name" {
                     service = v.clone();
                 }
+
                 base_labels.insert(kv.key.clone(), v);
             }
         }
+
         if service.is_empty() {
             service = "unknown".to_string();
         }
+
         for sp in &rp.scope_profiles {
             let mut labels = base_labels.clone();
+
             if let Some(scope) = sp.scope.as_ref() {
                 for kv in &scope.attributes {
                     let v = kv
@@ -410,14 +435,17 @@ pub(crate) fn normalize_otlp_profiles(
                         .as_ref()
                         .map(any_value_to_label)
                         .unwrap_or_default();
+
                     labels.insert(kv.key.clone(), v);
                 }
             }
+
             for p in &sp.profiles {
                 out.push(convert_otlp_profile(p, dict, &service, &labels));
             }
         }
     }
+
     out
 }
 
@@ -437,6 +465,7 @@ fn convert_otlp_profile(
             )
         })
         .unwrap_or_else(|| ValueType::new("samples", "count"));
+
     let period_type = p.period_type.as_ref().map(|vt| {
         ValueType::new(
             dict_str(dict, vt.type_strindex),
@@ -445,6 +474,7 @@ fn convert_otlp_profile(
     });
 
     let mut labels = base_labels.clone();
+
     for &ai in &p.attribute_indices {
         if let Some((k, v)) = dict_attr(dict, ai) {
             labels.insert(k, v);
@@ -454,13 +484,16 @@ fn convert_otlp_profile(
     let mut samples = Vec::with_capacity(p.samples.len());
     let mut trace_id: Option<String> = None;
     let mut span_id: Option<String> = None;
+
     for s in &p.samples {
         let mut stack: Vec<Frame> = Vec::new();
+
         if let Some(stk) = dict.stack_table.get(s.stack_index.max(0) as usize) {
             for &loc_idx in &stk.location_indices {
                 let Some(loc) = dict.location_table.get(loc_idx.max(0) as usize) else {
                     continue;
                 };
+
                 if loc.lines.is_empty() {
                     // 未符号化帧：仅地址 + mapping build_id（OTLP 里 build_id 是属性）。
                     stack.push(Frame {
@@ -473,14 +506,17 @@ fn convert_otlp_profile(
                 } else {
                     for ln in &loc.lines {
                         let func = dict.function_table.get(ln.function_index.max(0) as usize);
+
                         let name = func
                             .map(|f| dict_str(dict, f.name_strindex))
                             .unwrap_or("")
                             .to_string();
+
                         let file = func
                             .map(|f| dict_str(dict, f.filename_strindex))
                             .filter(|s| !s.is_empty())
                             .map(str::to_string);
+
                         stack.push(Frame {
                             function: name,
                             file,
@@ -492,6 +528,7 @@ fn convert_otlp_profile(
                 }
             }
         }
+
         stack.reverse(); // OTLP/pprof 叶子在前 → NormalizedProfile 根在前
 
         // values：多值求和成标量；仅有时间戳时按观测计数（NormalizedProfile 是聚合视图）。
@@ -502,6 +539,7 @@ fn convert_otlp_profile(
         };
 
         let mut sample_labels: BTreeMap<String, String> = BTreeMap::new();
+
         for &ai in &s.attribute_indices {
             if let Some((k, v)) = dict_attr(dict, ai) {
                 sample_labels.insert(k, v);
@@ -515,6 +553,7 @@ fn convert_otlp_profile(
             if trace_id.is_none() && !link.trace_id.is_empty() {
                 trace_id = Some(hex(&link.trace_id));
             }
+
             if span_id.is_none() && !link.span_id.is_empty() {
                 span_id = Some(hex(&link.span_id));
             }
@@ -531,6 +570,7 @@ fn convert_otlp_profile(
     if trace_id.is_none() {
         trace_id = labels.get("trace_id").filter(|v| !v.is_empty()).cloned();
     }
+
     if span_id.is_none() {
         span_id = labels.get("span_id").filter(|v| !v.is_empty()).cloned();
     }
@@ -556,6 +596,7 @@ fn dict_str(dict: &ProfilesDictionary, i: i32) -> &str {
     if i <= 0 {
         return "";
     }
+
     dict.string_table
         .get(i as usize)
         .map(String::as_str)
@@ -567,16 +608,20 @@ fn dict_attr(dict: &ProfilesDictionary, i: i32) -> Option<(String, String)> {
     if i <= 0 {
         return None;
     }
+
     let kv = dict.attribute_table.get(i as usize)?;
     let key = dict_str(dict, kv.key_strindex).to_string();
+
     if key.is_empty() {
         return None;
     }
+
     let val = kv
         .value
         .as_ref()
         .map(any_value_to_label)
         .unwrap_or_default();
+
     Some((key, val))
 }
 
@@ -585,7 +630,9 @@ fn mapping_build_id(dict: &ProfilesDictionary, mapping_index: i32) -> Option<Str
     if mapping_index <= 0 {
         return None;
     }
+
     let m = dict.mapping_table.get(mapping_index as usize)?;
+
     for &ai in &m.attribute_indices {
         if let Some((k, v)) = dict_attr(dict, ai)
             && k.contains("build_id")
@@ -594,6 +641,7 @@ fn mapping_build_id(dict: &ProfilesDictionary, mapping_index: i32) -> Option<Str
             return Some(v);
         }
     }
+
     None
 }
 
@@ -648,27 +696,35 @@ async fn list_profiles(
 ) -> Result<Response> {
     let range = time_range(params.from, params.to);
     let mut conds: Vec<String> = Vec::new();
+
     if let Some(s) = params.service.as_deref().filter(|s| !s.is_empty()) {
         conds.push(format!("service = '{}'", sql_escape(s)));
     }
+
     if let Some(t) = params.r#type.as_deref().filter(|t| !t.is_empty()) {
         conds.push(format!("profile_type = '{}'", sql_escape(t)));
     }
+
     if let Some(t) = params.trace_id.as_deref().filter(|t| !t.is_empty()) {
         conds.push(format!("trace_id = '{}'", sql_escape(t)));
     }
+
     let where_clause = if conds.is_empty() {
         String::new()
     } else {
         format!(" WHERE {}", conds.join(" AND "))
     };
+
     let stream = profiles_stream(ctx.scope);
+
     let statement = format!(
         "SELECT id, service, profile_type, total_value, sample_count, duration_nanos, \
          unsymbolized, trace_id, span_id, labels, {TS_COL} FROM \"{stream}\"{where_clause} \
          ORDER BY {TS_COL} DESC"
     );
+
     let limit = params.limit.unwrap_or(200).min(1_000);
+
     let res = run_query(
         &state,
         &ctx.org_id,
@@ -692,16 +748,19 @@ async fn list_profiles(
     .await?;
 
     let want_label = params.label.as_deref().and_then(parse_label);
+
     let (id_i, svc_i, type_i) = (
         col(&res, "id"),
         col(&res, "service"),
         col(&res, "profile_type"),
     );
+
     let (tv_i, sc_i, dur_i) = (
         col(&res, "total_value"),
         col(&res, "sample_count"),
         col(&res, "duration_nanos"),
     );
+
     let (uns_i, trace_i, span_i, lbl_i, ts_i) = (
         col(&res, "unsymbolized"),
         col(&res, "trace_id"),
@@ -711,10 +770,12 @@ async fn list_profiles(
     );
 
     let mut profiles_out = Vec::with_capacity(res.rows.len());
+
     for row in &res.rows {
         if !row_matches_label(cell(row, lbl_i), &want_label) {
             continue;
         }
+
         profiles_out.push(ProfileEntry {
             id: str_cell(row, id_i).unwrap_or_default(),
             service: str_cell(row, svc_i).unwrap_or_default(),
@@ -728,6 +789,7 @@ async fn list_profiles(
             span_id: str_cell(row, span_i).filter(|s| !s.is_empty()),
         });
     }
+
     Ok(Json(ListResponse {
         profiles: profiles_out,
     })
@@ -738,6 +800,7 @@ fn row_matches_label(labels: Option<&Value>, want: &Option<(String, String)>) ->
     let Some((k, v)) = want else {
         return true;
     };
+
     labels
         .and_then(Value::as_object)
         .and_then(|m| m.get(k))
@@ -781,18 +844,23 @@ async fn flamegraph(
 ) -> Result<Response> {
     let range = time_range(params.from, params.to);
     let mut conds: Vec<String> = Vec::new();
+
     if let Some(s) = params.service.as_deref().filter(|s| !s.is_empty()) {
         conds.push(format!("service = '{}'", sql_escape(s)));
     }
+
     if let Some(t) = params.r#type.as_deref().filter(|t| !t.is_empty()) {
         conds.push(format!("profile_type = '{}'", sql_escape(t)));
     }
+
     if let Some(t) = params.trace_id.as_deref().filter(|t| !t.is_empty()) {
         conds.push(format!("trace_id = '{}'", sql_escape(t)));
     }
+
     if let Some(s) = params.span_id.as_deref().filter(|s| !s.is_empty()) {
         conds.push(format!("span_id = '{}'", sql_escape(s)));
     }
+
     let max_merge = params.max_merge.unwrap_or(DEFAULT_MAX_MERGE).max(1);
     let want_label = params.label.as_deref().and_then(parse_label);
 
@@ -805,6 +873,7 @@ async fn flamegraph(
         &want_label,
     )
     .await?;
+
     Ok(Json(build_flamegraph_response(&state, keys, max_merge).await).into_response())
 }
 
@@ -824,8 +893,10 @@ async fn flamegraph_selection(
         .map(|id| id.trim().to_string())
         .filter(|id| !id.is_empty())
         .collect::<Vec<_>>();
+
     profile_ids.sort();
     profile_ids.dedup();
+
     if profile_ids.len() > DEFAULT_MAX_MERGE {
         return Err(Error::invalid(format!(
             "at most {DEFAULT_MAX_MERGE} profiles can be selected"
@@ -840,8 +911,10 @@ async fn flamegraph_selection(
             .map(|id| format!("'{}'", sql_escape(id)))
             .collect::<Vec<_>>()
             .join(", ");
+
         let conds = vec![format!("id IN ({selected})")];
         let range = TimeRange::new(TimestampMicros(0), TimestampMicros::now());
+
         fetch_object_keys(
             &state,
             &ctx.org_id,
@@ -852,10 +925,12 @@ async fn flamegraph_selection(
         )
         .await?
     };
+
     let max_merge = req
         .max_merge
         .unwrap_or(DEFAULT_MAX_MERGE)
         .clamp(1, DEFAULT_MAX_MERGE);
+
     Ok(Json(build_flamegraph_response(&state, keys, max_merge).await).into_response())
 }
 
@@ -892,16 +967,20 @@ async fn diff(
     let comparison_range = time_range(params.from, params.to);
     let baseline_range = time_range(params.baseline_from, params.baseline_to);
     let mut conds: Vec<String> = Vec::new();
+
     if let Some(s) = params.service.as_deref().filter(|s| !s.is_empty()) {
         conds.push(format!("service = '{}'", sql_escape(s)));
     }
+
     if let Some(t) = params.r#type.as_deref().filter(|t| !t.is_empty()) {
         conds.push(format!("profile_type = '{}'", sql_escape(t)));
     }
+
     let max_merge = params.max_merge.unwrap_or(DEFAULT_MAX_MERGE).max(1);
     let want_label = params.label.as_deref().and_then(parse_label);
 
     let stream = profiles_stream(ctx.scope);
+
     let base_keys = fetch_object_keys(
         &state,
         &ctx.org_id,
@@ -911,6 +990,7 @@ async fn diff(
         &want_label,
     )
     .await?;
+
     let comp_keys = fetch_object_keys(
         &state,
         &ctx.org_id,
@@ -920,16 +1000,20 @@ async fn diff(
         &want_label,
     )
     .await?;
+
     let (base_sampled, base_trunc) = profiles_merge::even_sample(base_keys, max_merge);
     let (comp_sampled, comp_trunc) = profiles_merge::even_sample(comp_keys, max_merge);
 
     let mut baseline = Vec::with_capacity(base_sampled.len());
+
     for key in &base_sampled {
         if let Some(p) = load_profile(&state, key).await {
             baseline.push(p);
         }
     }
+
     let mut comparison = Vec::with_capacity(comp_sampled.len());
+
     for key in &comp_sampled {
         if let Some(p) = load_profile(&state, key).await {
             comparison.push(p);
@@ -937,6 +1021,7 @@ async fn diff(
     }
 
     let flamebearer = profiles_merge::build_diff(&baseline, &comparison);
+
     Ok(Json(DiffResponse {
         flamebearer,
         truncated: base_trunc || comp_trunc,
@@ -954,11 +1039,14 @@ async fn download(
     Path(id): Path<String>,
 ) -> Result<Response> {
     let stream = profiles_stream(ctx.scope);
+
     let statement = format!(
         "SELECT object_key FROM \"{stream}\" WHERE id = '{}' LIMIT 1",
         sql_escape(&id)
     );
+
     let range = TimeRange::new(TimestampMicros(0), TimestampMicros::now());
+
     let res = run_query(
         &state,
         &ctx.org_id,
@@ -969,6 +1057,7 @@ async fn download(
         Some(1),
     )
     .await?;
+
     let key = res
         .rows
         .first()
@@ -996,8 +1085,10 @@ async fn fetch_object_keys(
     } else {
         format!(" WHERE {}", conds.join(" AND "))
     };
+
     let statement =
         format!("SELECT object_key, labels FROM \"{stream}\"{where_clause} ORDER BY {TS_COL} DESC");
+
     let res = run_query(
         state,
         org_id,
@@ -1008,17 +1099,21 @@ async fn fetch_object_keys(
         Some(SCAN_CEILING),
     )
     .await?;
+
     let key_i = col(&res, "object_key");
     let lbl_i = col(&res, "labels");
     let mut keys = Vec::with_capacity(res.rows.len());
+
     for row in &res.rows {
         if !row_matches_label(cell(row, lbl_i), want_label) {
             continue;
         }
+
         if let Some(key) = str_cell(row, key_i).filter(|s| !s.is_empty()) {
             keys.push(key);
         }
     }
+
     Ok(keys)
 }
 
@@ -1027,6 +1122,7 @@ async fn load_profile(state: &AppState, key: &str) -> Option<NormalizedProfile> 
     let raw = profiles::get_archive(&state.storage.object_store, key)
         .await
         .ok()?;
+
     let profile = profiles::decode_pprof(&raw).ok()?;
     Some(profiles::normalize_pprof(&profile, "", &BTreeMap::new()))
 }
@@ -1038,11 +1134,13 @@ async fn build_flamegraph_response(
 ) -> FlamegraphResponse {
     let (sampled, truncated) = profiles_merge::even_sample(keys, max_merge);
     let mut merged = Vec::with_capacity(sampled.len());
+
     for key in &sampled {
         if let Some(profile) = load_profile(state, key).await {
             merged.push(profile);
         }
     }
+
     FlamegraphResponse {
         flamebearer: profiles_merge::build_flamebearer(&merged),
         truncated,

@@ -41,6 +41,7 @@ impl From<SsoProvider> for ProviderResponse {
             SsoProviderConfig::Saml(config) => (None, Some(SamlConfigResponse::from(config)), None),
             SsoProviderConfig::Ldap(config) => (None, None, Some(LdapConfigResponse::from(config))),
         };
+
         Self {
             id: provider.id.0,
             org_id: provider.org_id.0,
@@ -276,14 +277,18 @@ pub(super) fn build_config(
         saml,
         ldap,
     } = request;
+
     let name = name.trim();
+
     if name.is_empty() || name.len() > 128 {
         return Err(Error::invalid("name must be 1..128 characters"));
     }
+
     let config = match kind {
         SsoProviderKind::Oidc => {
             let dto =
                 oidc.ok_or_else(|| Error::invalid("kind = oidc requires `oidc` config block"))?;
+
             if dto.issuer.is_empty()
                 || dto.authorize_url.is_empty()
                 || dto.token_url.is_empty()
@@ -294,9 +299,11 @@ pub(super) fn build_config(
                     "oidc.issuer/authorize_url/token_url/client_id/redirect_uri are required",
                 ));
             }
+
             let field_mapping = normalize_field_mapping(dto.field_mapping, SsoProviderKind::Oidc)?;
             let (group_role_mapping, default_role_id) =
                 normalize_role_mapping(dto.group_role_mapping, dto.default_role_id)?;
+
             SsoProviderConfig::Oidc(SsoOidcConfig {
                 issuer: dto.issuer,
                 authorize_url: dto.authorize_url,
@@ -324,6 +331,7 @@ pub(super) fn build_config(
         SsoProviderKind::Saml => {
             let dto =
                 saml.ok_or_else(|| Error::invalid("kind = saml requires `saml` config block"))?;
+
             if dto.sp_entity_id.is_empty()
                 || dto.idp_entity_id.is_empty()
                 || dto.idp_sso_url.is_empty()
@@ -334,9 +342,11 @@ pub(super) fn build_config(
                     "saml.sp_entity_id/idp_entity_id/idp_sso_url/idp_x509_cert/assertion_consumer_url are required",
                 ));
             }
+
             let field_mapping = normalize_field_mapping(dto.field_mapping, SsoProviderKind::Saml)?;
             let (group_role_mapping, default_role_id) =
                 normalize_role_mapping(dto.group_role_mapping, dto.default_role_id)?;
+
             SsoProviderConfig::Saml(SsoSamlConfig {
                 sp_entity_id: dto.sp_entity_id,
                 idp_entity_id: dto.idp_entity_id,
@@ -351,6 +361,7 @@ pub(super) fn build_config(
         SsoProviderKind::Ldap => {
             let dto =
                 ldap.ok_or_else(|| Error::invalid("kind = ldap requires `ldap` config block"))?;
+
             let bind_password = if dto.bind_dn.trim().is_empty() {
                 String::new()
             } else {
@@ -364,9 +375,11 @@ pub(super) fn build_config(
                     },
                 )
             };
+
             let field_mapping = normalize_field_mapping(dto.field_mapping, SsoProviderKind::Ldap)?;
             let (group_role_mapping, default_role_id) =
                 normalize_role_mapping(dto.group_role_mapping, dto.default_role_id)?;
+
             let config = SsoLdapConfig {
                 url: dto.url,
                 start_tls: dto.start_tls,
@@ -378,10 +391,12 @@ pub(super) fn build_config(
                 group_role_mapping,
                 default_role_id,
             };
+
             LdapLoginFlow::new(ldap_flow_config(&config))?;
             SsoProviderConfig::Ldap(config)
         }
     };
+
     Ok((name.to_owned(), kind, enabled, config))
 }
 

@@ -54,6 +54,7 @@ impl LdapLoginFlow {
     /// servers interpret an empty simple-bind password as anonymous access.
     pub async fn authenticate(&self, username: &str, password: &str) -> Result<LdapUser> {
         let username = username.trim();
+
         if username.is_empty()
             || username.len() > 320
             || password.is_empty()
@@ -63,6 +64,7 @@ impl LdapLoginFlow {
         }
 
         let mut ldap = self.connect().await?;
+
         if !self.cfg.bind_dn.trim().is_empty() {
             ldap.with_timeout(OPERATION_TIMEOUT)
                 .simple_bind(&self.cfg.bind_dn, &self.cfg.bind_password)
@@ -74,6 +76,7 @@ impl LdapLoginFlow {
 
         let filter = render_user_filter(&self.cfg.user_filter, username);
         let mut attributes: Vec<&str> = Vec::with_capacity(4);
+
         for attribute in [
             self.cfg.field_mapping.subject.as_str(),
             self.cfg.field_mapping.email.as_str(),
@@ -88,15 +91,18 @@ impl LdapLoginFlow {
                 attributes.push(attribute);
             }
         }
+
         let search = ldap
             .with_search_options(SearchOptions::new().sizelimit(2).timelimit(10))
             .with_timeout(OPERATION_TIMEOUT)
             .search(&self.cfg.base_dn, Scope::Subtree, &filter, attributes)
             .await
             .map_err(|error| ldap_unavailable("user search", error))?;
+
         let (entries, _) = search
             .success()
             .map_err(|error| ldap_unavailable("user search", error))?;
+
         if entries.len() != 1 {
             tracing::warn!(
                 match_count = entries.len(),
@@ -112,6 +118,7 @@ impl LdapLoginFlow {
                 .next()
                 .expect("exactly one LDAP entry checked above"),
         );
+
         let user = user_from_entry(&entry, &self.cfg)?;
 
         let authenticated = ldap
@@ -119,11 +126,13 @@ impl LdapLoginFlow {
             .simple_bind(&entry.dn, password)
             .await
             .and_then(|result| result.success());
+
         if let Err(error) = authenticated {
             tracing::debug!(error = %error, "LDAP user bind rejected");
             let _ = ldap.unbind().await;
             return Err(Error::unauthorized("invalid LDAP credentials"));
         }
+
         let _ = ldap.unbind().await;
         Ok(user)
     }
@@ -132,14 +141,17 @@ impl LdapLoginFlow {
         let settings = LdapConnSettings::new()
             .set_conn_timeout(CONNECT_TIMEOUT)
             .set_starttls(self.cfg.start_tls);
+
         let (connection, ldap) = LdapConnAsync::with_settings(settings, &self.cfg.url)
             .await
             .map_err(|error| ldap_unavailable("connect", error))?;
+
         tokio::spawn(async move {
             if let Err(error) = connection.drive().await {
                 tracing::debug!(error = %error, "LDAP connection driver stopped");
             }
         });
+
         Ok(ldap)
     }
 }
@@ -147,11 +159,13 @@ impl LdapLoginFlow {
 fn validate_config(cfg: &LdapConfig) -> Result<()> {
     let parsed =
         Url::parse(cfg.url.trim()).map_err(|_| Error::invalid("ldap.url must be a valid URL"))?;
+
     if parsed.host_str().is_none() || !parsed.username().is_empty() || parsed.password().is_some() {
         return Err(Error::invalid(
             "ldap.url must contain a host and must not embed credentials",
         ));
     }
+
     match parsed.scheme() {
         "ldaps" if cfg.start_tls => {
             return Err(Error::invalid(
@@ -171,19 +185,23 @@ fn validate_config(cfg: &LdapConfig) -> Result<()> {
             ));
         }
     }
+
     if cfg.bind_dn.trim().is_empty() != cfg.bind_password.is_empty() {
         return Err(Error::invalid(
             "ldap.bind_dn and ldap.bind_password must either both be set or both be empty",
         ));
     }
+
     if cfg.base_dn.trim().is_empty() {
         return Err(Error::invalid("ldap.base_dn is required"));
     }
+
     if !cfg.user_filter.contains("{username}") || cfg.user_filter.len() > 2048 {
         return Err(Error::invalid(
             "ldap.user_filter must contain {username} and be at most 2048 characters",
         ));
     }
+
     for (field, value) in [
         ("subject", cfg.field_mapping.subject.as_str()),
         ("email", cfg.field_mapping.email.as_str()),
@@ -196,6 +214,7 @@ fn validate_config(cfg: &LdapConfig) -> Result<()> {
             )));
         }
     }
+
     Ok(())
 }
 
@@ -216,6 +235,7 @@ fn user_from_entry(entry: &SearchEntry, cfg: &LdapConfig) -> Result<LdapUser> {
             Error::unauthorized("invalid LDAP credentials")
         })?
     };
+
     let Some(email) = first_attribute(entry, &cfg.field_mapping.email) else {
         tracing::warn!(
             attribute = %cfg.field_mapping.email,
@@ -223,9 +243,11 @@ fn user_from_entry(entry: &SearchEntry, cfg: &LdapConfig) -> Result<LdapUser> {
         );
         return Err(Error::unauthorized("invalid LDAP credentials"));
     };
+
     let email = email.to_ascii_lowercase();
     let display_name =
         first_attribute(entry, &cfg.field_mapping.display_name).unwrap_or_else(|| email.clone());
+
     let mut groups = attribute_values(entry, &cfg.field_mapping.groups)
         .into_iter()
         .flatten()
@@ -233,8 +255,10 @@ fn user_from_entry(entry: &SearchEntry, cfg: &LdapConfig) -> Result<LdapUser> {
         .filter(|group| !group.is_empty())
         .map(str::to_owned)
         .collect::<Vec<_>>();
+
     groups.sort();
     groups.dedup();
+
     Ok(LdapUser {
         subject,
         email,

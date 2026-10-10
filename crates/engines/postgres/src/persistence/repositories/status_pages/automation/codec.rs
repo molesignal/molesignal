@@ -37,6 +37,7 @@ pub(super) const OUTBOX_COLS: &str = "id, organization_id, candidate_id, kind,
 
 pub(super) fn row_to_active(row: sqlx::postgres::PgRow) -> Result<ActiveAutomationRule> {
     let lifecycle: String = row.try_get("lifecycle").map_err(super::super::sqlx_err)?;
+
     Ok(ActiveAutomationRule {
         rule: StatusAutomationRule {
             id: Id(row.try_get("rule_id").map_err(super::super::sqlx_err)?),
@@ -110,6 +111,7 @@ pub(super) fn row_to_active(row: sqlx::postgres::PgRow) -> Result<ActiveAutomati
 pub(super) fn row_to_candidate(row: sqlx::postgres::PgRow) -> Result<AutomationCandidate> {
     let state: String = row.try_get("state").map_err(super::super::sqlx_err)?;
     let impact: String = row.try_get("impact").map_err(super::super::sqlx_err)?;
+
     Ok(AutomationCandidate {
         id: Id(row.try_get("id").map_err(super::super::sqlx_err)?),
         organization_id: Id(row

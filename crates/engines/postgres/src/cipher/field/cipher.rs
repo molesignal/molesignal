@@ -44,6 +44,7 @@ pub fn decrypt_field(keys: &HashMap<String, Vec<u8>>, stored: &str) -> Option<St
     if !stored.starts_with("kid:") {
         return Some(stored.to_string());
     }
+
     let payload = payload_decode(stored).ok()?;
     let raw = keys.get(&payload.key_id)?;
     let pt = decrypt_with_raw(&payload, raw).ok()?;

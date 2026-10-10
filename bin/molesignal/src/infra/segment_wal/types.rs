@@ -115,12 +115,15 @@ pub fn sync_dir_parent_of(path: &Path, sync_level: SyncLevel) -> std::io::Result
     if sync_level.0 != 2 {
         return Ok(());
     }
+
     let Some(parent) = path.parent() else {
         return Ok(());
     };
+
     if parent.as_os_str().is_empty() {
         return Ok(());
     }
+
     let dir = File::open(parent)?;
     dir.sync_all()
 }

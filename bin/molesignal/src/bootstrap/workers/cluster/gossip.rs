@@ -74,11 +74,14 @@ impl ClusterGossip {
                 .map(|s| s.federation_gossip_interval_secs)
                 .unwrap_or(60)
                 .max(1) as u64;
+
             loop {
                 tokio::time::sleep(Duration::from_secs(interval)).await;
+
                 if !self.ownership.is_primary().await {
                     continue;
                 }
+
                 let settings = match self.instance_settings.get().await {
                     Ok(s) => s,
                     Err(e) => {
@@ -86,10 +89,13 @@ impl ClusterGossip {
                         continue;
                     }
                 };
+
                 interval = settings.federation_gossip_interval_secs.max(1) as u64;
+
                 if !settings.federation_enabled() {
                     continue;
                 }
+
                 let self_id = settings.federation_cluster_id.trim().to_string();
                 self.gossip_round(&self_id).await;
             }
@@ -104,6 +110,7 @@ impl ClusterGossip {
     )]
     async fn gossip_round(&self, self_id: &str) {
         let mine = self.remote_clusters.list().await.unwrap_or_default();
+
         // 本端已知拓扑（仅 id/name/addr）。
         let known_refs: Vec<ClusterRef> = mine
             .iter()
@@ -114,6 +121,7 @@ impl ClusterGossip {
                 advertise_addr: c.advertise_addr.clone(),
             })
             .collect();
+
         let known_ids: HashSet<String> = mine.iter().map(|c| c.id.0.clone()).collect();
 
         for peer in mine.iter().filter(|c| c.enabled) {
@@ -127,6 +135,7 @@ impl ClusterGossip {
                 .into_iter()
                 .map(|l| (l.local_org_id, l.token_secret_ref))
                 .collect();
+
             let Some(token) = resolve_cluster_control_token(
                 &peer.token_secret_ref,
                 &per_org,
@@ -136,17 +145,22 @@ impl ClusterGossip {
             else {
                 continue; // 无任何可解析 token → 跳过该 peer。
             };
+
             let Ok(channel) = grpc_channel::connect(&peer.advertise_addr, peer.tls_verify).await
             else {
                 continue;
             };
+
             let mut req = tonic::Request::new(EventServiceGossipClustersRequest {
                 known: known_refs.clone(),
             });
+
             if grpc_channel::with_bearer(&mut req, &token).is_err() {
                 continue;
             }
+
             let mut client = EventServiceClient::new(channel);
+
             let resp = match crate::shared::grpc_trace::call(
                 req,
                 "cluster.v1.EventService",
@@ -162,11 +176,13 @@ impl ClusterGossip {
                     continue;
                 }
             };
+
             // 合并对端拓扑：未知集群（排除自身）入库为 discovered。
             for r in resp.known {
                 if r.id.is_empty() || r.id == self_id || known_ids.contains(&r.id) {
                     continue;
                 }
+
                 if let Ok(n) = self
                     .remote_clusters
                     .insert_discovered(&r.id, &r.name, &r.advertise_addr)

@@ -142,6 +142,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         ),
         _ => unreachable!("administration catalog received unrelated kind"),
     };
+
     let tool = ToolSpec::read(
         kind.name(),
         description,
@@ -152,6 +153,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         &permissions,
         &tags,
     );
+
     match kind {
         BuiltinToolKind::CreateServiceAccount => tool
             .managed_mutation(RiskLevel::L2, false, false)
@@ -194,6 +196,7 @@ fn id_input(field: &str) -> Value {
 
 fn proposal_schema(required: Vec<&str>, properties: Value) -> Value {
     let mut properties = properties.as_object().cloned().unwrap_or_default();
+
     properties.extend(
         json!({
             "reason": {"type": "string", "minLength": 1, "maxLength": 2000},
@@ -204,6 +207,7 @@ fn proposal_schema(required: Vec<&str>, properties: Value) -> Value {
         .cloned()
         .expect("static approval schema"),
     );
+
     json!({
         "type": "object",
         "required": required.into_iter().chain(["reason", "impact"]).collect::<Vec<_>>(),

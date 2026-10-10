@@ -51,6 +51,7 @@ const COLS: &str = "id, org_id, name, kind, config_json, enabled, last_run_at_mi
 
 fn row_to(r: sqlx::postgres::PgRow) -> Connector {
     let cfg: Json<Value> = r.try_get("config_json").unwrap_or(Json(Value::Null));
+
     Connector {
         id: Id(r.try_get::<String, _>("id").unwrap_or_default()),
         org_id: Id(r.try_get::<String, _>("org_id").unwrap_or_default()),
@@ -87,6 +88,7 @@ impl ConnectorRepository for PgConnectorRepository {
         .execute(&self.pool)
         .await
         .map_err(super::super::persistence::sqlx_err)?;
+
         Ok(c)
     }
 
@@ -110,6 +112,7 @@ impl ConnectorRepository for PgConnectorRepository {
         .execute(&self.pool)
         .await
         .map_err(super::super::persistence::sqlx_err)?;
+
         Ok(c)
     }
 
@@ -120,17 +123,20 @@ impl ConnectorRepository for PgConnectorRepository {
             .execute(&self.pool)
             .await
             .map_err(super::super::persistence::sqlx_err)?;
+
         Ok(())
     }
 
     async fn get(&self, org_id: &Id, id: &Id) -> Result<Connector> {
         let sql = format!("SELECT {COLS} FROM connectors WHERE org_id = $1 AND id = $2");
+
         let row = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&id.0)
             .fetch_one(&self.pool)
             .await
             .map_err(super::super::persistence::sqlx_err)?;
+
         Ok(row_to(row))
     }
 
@@ -141,26 +147,31 @@ impl ConnectorRepository for PgConnectorRepository {
             .execute(&self.pool)
             .await
             .map_err(super::super::persistence::sqlx_err)?;
+
         Ok(())
     }
 
     async fn list(&self, org_id: &Id) -> Result<Vec<Connector>> {
         let sql = format!("SELECT {COLS} FROM connectors WHERE org_id = $1 ORDER BY name");
+
         let rows = sqlx::query(&sql)
             .bind(&org_id.0)
             .fetch_all(&self.pool)
             .await
             .map_err(super::super::persistence::sqlx_err)?;
+
         Ok(rows.into_iter().map(row_to).collect())
     }
 
     async fn list_enabled(&self) -> Result<Vec<Connector>> {
         let sql =
             format!("SELECT {COLS} FROM connectors WHERE enabled = TRUE ORDER BY org_id, name");
+
         let rows = sqlx::query(&sql)
             .fetch_all(&self.pool)
             .await
             .map_err(super::super::persistence::sqlx_err)?;
+
         Ok(rows.into_iter().map(row_to).collect())
     }
 
@@ -170,12 +181,14 @@ impl ConnectorRepository for PgConnectorRepository {
              WHERE kind = $1 AND enabled = TRUE AND config_json->>'push_token' = $2
              LIMIT 1"
         );
+
         let row = sqlx::query(&sql)
             .bind(kind)
             .bind(push_token)
             .fetch_optional(&self.pool)
             .await
             .map_err(super::super::persistence::sqlx_err)?;
+
         Ok(row.map(row_to))
     }
 }

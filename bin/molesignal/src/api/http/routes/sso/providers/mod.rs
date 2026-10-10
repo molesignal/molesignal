@@ -42,6 +42,7 @@ fn ensure_same_org(p: &SsoProvider, ctx: &IamContext) -> Result<()> {
     if p.org_id != ctx.org_id {
         return Err(Error::forbidden("cross-org sso_provider"));
     }
+
     Ok(())
 }
 
@@ -60,12 +61,14 @@ async fn list_public(State(state): State<AppState>) -> Result<Json<Vec<PublicPro
             .sso_providers
             .list_enabled_by_kind(SsoProviderKind::Ldap),
     )?;
+
     let mut providers = oidc
         .into_iter()
         .chain(saml)
         .chain(ldap)
         .map(PublicProviderResponse::from)
         .collect::<Vec<_>>();
+
     providers.sort_by(|left, right| left.name.cmp(&right.name));
     Ok(Json(providers))
 }
@@ -76,6 +79,7 @@ async fn list_assignable_roles(
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Vec<AssignableRoleResponse>>> {
     state.iam.roles.ensure_builtin_roles(&ctx.org_id).await?;
+
     let roles = state
         .iam
         .roles
@@ -85,6 +89,7 @@ async fn list_assignable_roles(
         .filter(|role| role.role_type == "organization" && role.scope == "organization")
         .map(|role| AssignableRoleResponse::new(role.id.0, role.name))
         .collect();
+
     Ok(Json(roles))
 }
 
@@ -94,6 +99,7 @@ async fn list(
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Vec<ProviderResponse>>> {
     let providers = state.iam.sso_providers.list(&ctx.org_id).await?;
+
     Ok(Json(
         providers.into_iter().map(ProviderResponse::from).collect(),
     ))
@@ -119,6 +125,7 @@ async fn create(
     let (name, kind, enabled, config) = build_config(req, None)?;
     mapping::ensure_roles_exist(&state, &ctx.org_id, &config).await?;
     let now = TimestampMicros::now();
+
     let p = SsoProvider {
         id: Id::new(),
         org_id: ctx.org_id.clone(),
@@ -129,6 +136,7 @@ async fn create(
         created_at: now,
         updated_at: now,
     };
+
     Ok(Json(state.iam.sso_providers.create(p).await?.into()))
 }
 
@@ -144,6 +152,7 @@ async fn update(
     ensure_same_org(&existing, &ctx)?;
     let (name, kind, enabled, config) = build_config(req, Some(&existing.config))?;
     mapping::ensure_roles_exist(&state, &ctx.org_id, &config).await?;
+
     let updated = SsoProvider {
         id,
         org_id: existing.org_id,
@@ -154,6 +163,7 @@ async fn update(
         created_at: existing.created_at,
         updated_at: TimestampMicros::now(),
     };
+
     Ok(Json(state.iam.sso_providers.update(updated).await?.into()))
 }
 
@@ -197,6 +207,7 @@ async fn set_enabled(
     let id = Id::from_string(id);
     let existing = state.iam.sso_providers.get(&id).await?;
     ensure_same_org(&existing, &ctx)?;
+
     Ok(Json(
         state
             .iam

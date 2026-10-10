@@ -59,11 +59,13 @@ async fn add(
     Json(req): Json<AddReq>,
 ) -> Result<Json<Resp>> {
     let domain = normalize_domain(&req.domain)?;
+
     state
         .iam
         .email_domains
         .add(&ctx.org_id, &domain, TimestampMicros::now())
         .await?;
+
     let domains = state.iam.email_domains.list(&ctx.org_id).await?;
     Ok(Json(Resp { domains }))
 }
@@ -88,11 +90,13 @@ fn normalize_domain(raw: &str) -> Result<String> {
         .trim_start_matches('@')
         .trim_start_matches('.')
         .to_ascii_lowercase();
+
     if d.is_empty() || !d.contains('.') || d.contains(char::is_whitespace) || d.contains('@') {
         return Err(Error::invalid(
             "domain must be a bare hostname like example.com",
         ));
     }
+
     Ok(d)
 }
 
@@ -100,6 +104,7 @@ fn normalize_domain(raw: &str) -> Result<String> {
 /// 空名单（org 未配置）放行——保持默认行为向后兼容。供邀请 / SSO 开户路径复用。
 pub(crate) async fn ensure_email_allowed(state: &AppState, org_id: &Id, email: &str) -> Result<()> {
     let allowed = state.iam.email_domains.list(org_id).await?;
+
     if email_domain_allowed(email, &allowed) {
         Ok(())
     } else {

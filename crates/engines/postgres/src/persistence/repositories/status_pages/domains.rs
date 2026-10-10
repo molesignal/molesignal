@@ -36,11 +36,13 @@ impl StatusPageDomainRepository for PgStatusPageRepository {
         config: StatusPageDomainConfig,
     ) -> Result<StatusPageDomainConfig> {
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
+
         sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))")
             .bind(format!("custom-domain:{}", config.hostname))
             .execute(&mut *transaction)
             .await
             .map_err(super::sqlx_err)?;
+
         let previous_domain_id: Option<String> = sqlx::query_scalar(
             "SELECT domain_id FROM status_page_domain_configs
              WHERE org_id = $1 AND status_page_id = $2 FOR UPDATE",
@@ -51,6 +53,7 @@ impl StatusPageDomainRepository for PgStatusPageRepository {
         .await
         .map_err(super::sqlx_err)?
         .flatten();
+
         let reserved_by_generic_domain: bool = sqlx::query_scalar(
             "SELECT EXISTS (
                  SELECT 1 FROM domains
@@ -62,11 +65,13 @@ impl StatusPageDomainRepository for PgStatusPageRepository {
         .fetch_one(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
+
         if reserved_by_generic_domain {
             return Err(Error::conflict(
                 "custom domain is already reserved by another domain configuration",
             ));
         }
+
         sqlx::query(
             "DELETE FROM status_page_domain_configs
              WHERE org_id = $1 AND status_page_id = $2",
@@ -76,6 +81,7 @@ impl StatusPageDomainRepository for PgStatusPageRepository {
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
+
         if let Some(domain_id) = previous_domain_id {
             sqlx::query("DELETE FROM domains WHERE org_id = $1 AND id = $2")
                 .bind(&config.org_id.0)
@@ -84,6 +90,7 @@ impl StatusPageDomainRepository for PgStatusPageRepository {
                 .await
                 .map_err(super::sqlx_err)?;
         }
+
         sqlx::query(
             "INSERT INTO status_page_domain_configs
                 (org_id, status_page_id, hostname, verification_token, state, domain_id,
@@ -104,6 +111,7 @@ impl StatusPageDomainRepository for PgStatusPageRepository {
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
+
         let updated = sqlx::query(
             "UPDATE status_pages SET custom_domain = $3, updated_at_micros = $4
              WHERE org_id = $1 AND id = $2 AND lifecycle = 'active'",
@@ -115,10 +123,13 @@ impl StatusPageDomainRepository for PgStatusPageRepository {
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
+
         if updated.rows_affected() != 1 {
             return Err(Error::not_found("active status page not found"));
         }
+
         transaction.commit().await.map_err(super::sqlx_err)?;
+
         self.get_domain_config(&config.org_id, &config.status_page_id)
             .await?
             .ok_or_else(|| Error::internal("custom domain configuration was not persisted"))
@@ -136,6 +147,7 @@ impl StatusPageDomainRepository for PgStatusPageRepository {
                ON domain.org_id = config.org_id AND domain.id = config.domain_id
              WHERE config.org_id = $1 AND config.status_page_id = $2"
         );
+
         sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&page_id.0)
@@ -164,6 +176,7 @@ impl StatusPageDomainRepository for PgStatusPageRepository {
              ORDER BY config.last_checked_at_micros NULLS FIRST, config.updated_at_micros
              LIMIT $2"
         );
+
         sqlx::query(&sql)
             .bind(checked_before.0)
             .bind(i64::from(limit.min(100)))
@@ -188,7 +201,9 @@ impl StatusPageDomainRepository for PgStatusPageRepository {
             checked_at,
             provision_tls,
         } = update;
+
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
+
         let row = sqlx::query(
             "SELECT hostname, domain_id FROM status_page_domain_configs
              WHERE org_id = $1 AND status_page_id = $2 FOR UPDATE",
@@ -198,11 +213,14 @@ impl StatusPageDomainRepository for PgStatusPageRepository {
         .fetch_one(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
+
         let hostname: String = row.try_get("hostname").map_err(super::sqlx_err)?;
         let mut domain_id: Option<String> = row.try_get("domain_id").map_err(super::sqlx_err)?;
+
         let stored_state = if provision_tls {
             if domain_id.is_none() {
                 let new_domain_id = Id::new();
+
                 sqlx::query(
                     "INSERT INTO domains
                         (id, org_id, hostname, state, cert_pem, cert_not_after_micros,
@@ -216,12 +234,15 @@ impl StatusPageDomainRepository for PgStatusPageRepository {
                 .execute(&mut *transaction)
                 .await
                 .map_err(super::sqlx_err)?;
+
                 domain_id = Some(new_domain_id.0);
             }
+
             StatusPageDomainState::ProvisioningTls
         } else {
             state
         };
+
         sqlx::query(
             "UPDATE status_page_domain_configs SET
                  state = $3, domain_id = $4, routing_valid = $5,
@@ -239,7 +260,9 @@ impl StatusPageDomainRepository for PgStatusPageRepository {
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
+
         transaction.commit().await.map_err(super::sqlx_err)?;
+
         self.get_domain_config(&org_id, &status_page_id)
             .await?
             .ok_or_else(|| Error::not_found("custom domain configuration not found"))
@@ -252,6 +275,7 @@ impl StatusPageDomainRepository for PgStatusPageRepository {
         updated_at: TimestampMicros,
     ) -> Result<StatusPageDomainConfig> {
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
+
         let domain_id: String = sqlx::query_scalar(
             "SELECT domain_id FROM status_page_domain_configs
              WHERE org_id = $1 AND status_page_id = $2
@@ -263,6 +287,7 @@ impl StatusPageDomainRepository for PgStatusPageRepository {
         .fetch_one(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
+
         sqlx::query(
             "UPDATE domains SET state = 'pending', last_error = NULL,
                  updated_at_micros = $3
@@ -274,6 +299,7 @@ impl StatusPageDomainRepository for PgStatusPageRepository {
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
+
         sqlx::query(
             "UPDATE status_page_domain_configs SET state = 'provisioning_tls',
                  last_error = NULL, updated_at_micros = $3
@@ -285,7 +311,9 @@ impl StatusPageDomainRepository for PgStatusPageRepository {
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
+
         transaction.commit().await.map_err(super::sqlx_err)?;
+
         self.get_domain_config(org_id, page_id)
             .await?
             .ok_or_else(|| Error::not_found("custom domain configuration not found"))
@@ -312,14 +340,17 @@ impl StatusPageDomainRepository for PgStatusPageRepository {
         .execute(&self.pool)
         .await
         .map_err(super::sqlx_err)?;
+
         if result.rows_affected() != 1 {
             return Err(Error::not_found("custom domain configuration not found"));
         }
+
         Ok(())
     }
 
     async fn delete_domain_config(&self, org_id: &Id, page_id: &Id) -> Result<()> {
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
+
         let domain_id: Option<String> = sqlx::query_scalar(
             "DELETE FROM status_page_domain_configs
              WHERE org_id = $1 AND status_page_id = $2
@@ -331,6 +362,7 @@ impl StatusPageDomainRepository for PgStatusPageRepository {
         .await
         .map_err(super::sqlx_err)?
         .flatten();
+
         sqlx::query(
             "UPDATE status_pages SET custom_domain = NULL, updated_at_micros = $3
              WHERE org_id = $1 AND id = $2",
@@ -341,6 +373,7 @@ impl StatusPageDomainRepository for PgStatusPageRepository {
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
+
         if let Some(domain_id) = domain_id {
             sqlx::query("DELETE FROM domains WHERE org_id = $1 AND id = $2")
                 .bind(&org_id.0)
@@ -349,12 +382,14 @@ impl StatusPageDomainRepository for PgStatusPageRepository {
                 .await
                 .map_err(super::sqlx_err)?;
         }
+
         transaction.commit().await.map_err(super::sqlx_err)
     }
 }
 
 fn row_to_domain_config(row: sqlx::postgres::PgRow) -> Result<StatusPageDomainConfig> {
     let state: String = row.try_get("effective_state").map_err(super::sqlx_err)?;
+
     Ok(StatusPageDomainConfig {
         org_id: Id(row.try_get("org_id").map_err(super::sqlx_err)?),
         status_page_id: Id(row.try_get("status_page_id").map_err(super::sqlx_err)?),

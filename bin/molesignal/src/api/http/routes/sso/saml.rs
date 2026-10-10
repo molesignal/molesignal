@@ -46,23 +46,28 @@ pub struct LoginParams {
 
 async fn login(State(state): State<AppState>, Query(p): Query<LoginParams>) -> Result<Response> {
     let provider = resolve_provider_for_login(&state, &p).await?;
+
     if provider.kind != SsoProviderKind::Saml {
         return Err(Error::invalid(format!(
             "provider {} is kind={:?}; /auth/sso/saml/login expects SAML",
             provider.id.0, provider.kind
         )));
     }
+
     let saml_cfg = match &provider.config {
         SsoProviderConfig::Saml(c) => c.clone(),
         _ => unreachable!("kind == Saml enforced above"),
     };
+
     let flow = SamlLoginFlow::new(to_flow_config(&saml_cfg));
     let relay = rand_b64(24);
+
     // nonce 槽位塞空字符串 — SAML 没 OIDC 的 nonce 概念，但复用 store。
     state
         .iam
         .sso_state_store
         .put(relay.clone(), provider.id.0.clone(), String::new());
+
     let url = flow.build_authz_url(&relay)?;
     Ok(Redirect::temporary(&url).into_response())
 }
@@ -82,26 +87,31 @@ async fn callback(
     let saml_response = form
         .saml_response
         .ok_or_else(|| Error::Unauthorized("callback missing SAMLResponse".into()))?;
+
     let relay = form
         .relay_state
         .ok_or_else(|| Error::Unauthorized("callback missing RelayState".into()))?;
+
     let entry = state
         .iam
         .sso_state_store
         .take(&relay)
         .ok_or_else(|| Error::Unauthorized("invalid or expired RelayState".into()))?;
+
     let provider = state
         .iam
         .sso_providers
         .get(&Id::from_string(entry.provider_id))
         .await
         .map_err(|_| Error::Unauthorized("sso provider not found".into()))?;
+
     if !provider.enabled {
         return Err(Error::forbidden(format!(
             "provider {} is disabled",
             provider.id.0
         )));
     }
+
     let saml_cfg = match &provider.config {
         SsoProviderConfig::Saml(c) => c.clone(),
         _ => {
@@ -128,6 +138,7 @@ async fn callback(
         saml_cfg.default_role_id.as_deref(),
     )
     .await?;
+
     Ok(Json(response))
 }
 
@@ -138,31 +149,39 @@ async fn resolve_provider_for_login(state: &AppState, p: &LoginParams) -> Result
             .sso_providers
             .get(&Id::from_string(id.to_string()))
             .await?;
+
         if !p.enabled {
             return Err(Error::invalid(format!("provider {} is disabled", p.id.0)));
         }
+
         return Ok(p);
     }
+
     let mut candidates = state
         .iam
         .sso_providers
         .list_enabled_by_kind(SsoProviderKind::Saml)
         .await?;
+
     if let Some(name) = p.provider.as_deref() {
         candidates.retain(|c| c.name == name);
     }
+
     if candidates.is_empty() {
         return Err(Error::invalid(
             "no enabled SAML provider configured; create one via POST /api/v1/sso/providers",
         ));
     }
+
     if candidates.len() > 1 {
         let names: Vec<String> = candidates.iter().map(|c| c.name.clone()).collect();
+
         return Err(Error::invalid(format!(
             "multiple enabled SAML providers ({}); add ?provider_id=<id> to choose",
             names.join(", ")
         )));
     }
+
     Ok(candidates.remove(0))
 }
 

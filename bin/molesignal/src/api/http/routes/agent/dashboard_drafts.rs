@@ -39,6 +39,7 @@ async fn capabilities(
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Value>> {
     Permission::require_key(&ctx, "dashboards.create")?;
+
     Ok(Json(
         serde_json::to_value(state.agent.dashboard_authoring.capabilities().await?)
             .map_err(|error| Error::internal(error.to_string()))?,
@@ -56,11 +57,13 @@ async fn get_draft(
         .dashboard_authoring
         .get_draft_for_preview(&ctx.org_id, &Id(id))
         .await?;
+
     if draft.created_by != ctx.user_id {
         Permission::require_key(&ctx, "agent.approve")?;
     } else {
         Permission::require_key(&ctx, "dashboards.create")?;
     }
+
     let approval = state
         .agent
         .repository
@@ -68,6 +71,7 @@ async fn get_draft(
         .await?
         .into_iter()
         .find(|approval| approval.action == "create_dashboard" && approval.target == draft.id.0);
+
     let operation = approval.map(|approval| {
         let review_count = approval
             .reviews
@@ -76,6 +80,7 @@ async fn get_draft(
             .flatten()
             .filter(|review| review["decision"] == "approved")
             .count();
+
         json!({
             "approval_id": approval.id,
             "status": approval.status,
@@ -84,6 +89,7 @@ async fn get_draft(
             "expires_at": approval.expires_at,
         })
     });
+
     Ok(Json(json!({
         "draft_id": draft.id,
         "model_hash": draft.model_hash,
@@ -120,13 +126,16 @@ async fn propose(
     Permission::require_key(&ctx, "dashboards.create")?;
     let resolution = resolve_toolsets(&state, &ctx.org_id).await?;
     let tool_name = BuiltinToolKind::ProposeDashboardCreation.name();
+
     if !resolution.builtin_enabled(tool_name) {
         return Err(Error::forbidden(
             "Dashboard creation proposals are disabled by the active Agent Profile or Toolset",
         ));
     }
+
     let required_approvals =
         dashboard_required_approvals(resolution.execution_mode_for_builtin(tool_name))?;
+
     let approval = create_agent_approval(
         &state.tools,
         &ctx,
@@ -142,6 +151,7 @@ async fn propose(
         },
     )
     .await?;
+
     activity_audit::record(
         &state,
         &ctx,
@@ -156,5 +166,6 @@ async fn propose(
         }),
     )
     .await;
+
     Ok(Json(json!({"approval": approval})))
 }

@@ -33,6 +33,7 @@ fn row_to_state(row: &sqlx::postgres::PgRow) -> Result<AlertRuleEvalState> {
     let streaks: Json<BTreeMap<String, u32>> = row
         .try_get("severity_streaks")
         .unwrap_or_else(|_| Json(BTreeMap::new()));
+
     Ok(AlertRuleEvalState {
         rule_id: Id::from_string(row.try_get::<String, _>("rule_id").map_err(sqlx_err)?),
         consecutive_matches: row
@@ -69,6 +70,7 @@ impl AlertRuleEvalStateRepository for PgAlertRuleEvalStateRepository {
         .await
         .map_err(sqlx_err)?
         .rows_affected();
+
         Ok(claimed == 1)
     }
 
@@ -100,6 +102,7 @@ impl AlertRuleEvalStateRepository for PgAlertRuleEvalStateRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         row_to_state(&row)
     }
 
@@ -124,6 +127,7 @@ impl AlertRuleEvalStateRepository for PgAlertRuleEvalStateRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(state)
     }
 
@@ -137,6 +141,7 @@ impl AlertRuleEvalStateRepository for PgAlertRuleEvalStateRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         match row {
             Some(r) => Ok(Some(row_to_state(&r)?)),
             None => Ok(None),
@@ -157,6 +162,7 @@ impl AlertRuleEvalStateRepository for PgAlertRuleEvalStateRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(())
     }
 }

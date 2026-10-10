@@ -103,9 +103,11 @@ async fn overview(
         .repository
         .list_investigations(&ctx.org_id)
         .await?;
+
     let approvals = state.agent.repository.list_approvals(&ctx.org_id).await?;
     let executions = state.agent.repository.list_executions(&ctx.org_id).await?;
     let automations = state.agent.repository.list_automations(&ctx.org_id).await?;
+
     Ok(Json(json!({
         "active_investigations": investigations.iter().filter(|item| matches!(
             item.status,
@@ -152,7 +154,9 @@ async fn create_investigation(
     if request.title.trim().is_empty() {
         return Err(Error::invalid("investigation title cannot be empty"));
     }
+
     let now = TimestampMicros::now();
+
     let item = Investigation {
         id: Id::new(),
         org_id: ctx.org_id.clone(),
@@ -169,11 +173,14 @@ async fn create_investigation(
         created_at: now,
         updated_at: now,
     };
+
     let saved = state.agent.repository.create_investigation(item).await?;
+
     for (position, title) in request.steps.into_iter().enumerate() {
         if title.trim().is_empty() {
             continue;
         }
+
         state
             .agent
             .repository
@@ -195,6 +202,7 @@ async fn create_investigation(
             })
             .await?;
     }
+
     activity_audit::record(
         &state,
         &ctx,
@@ -204,6 +212,7 @@ async fn create_investigation(
         json!({"title": saved.title}),
     )
     .await;
+
     Ok(Json(saved))
 }
 
@@ -262,34 +271,45 @@ async fn update_investigation(
         .get_investigation(&ctx.org_id, &Id(id))
         .await?
         .investigation;
+
     if &item.created_by != ctx.principal_id() {
         Permission::require_key(&ctx, "agent.manage")?;
     }
+
     if let Some(title) = request.title {
         if title.trim().is_empty() {
             return Err(Error::invalid("investigation title cannot be empty"));
         }
+
         item.title = title;
     }
+
     if let Some(status) = request.status {
         item.status = status;
     }
+
     if let Some(summary) = request.summary {
         item.summary = summary;
     }
+
     if let Some(confidence) = request.confidence {
         item.confidence = confidence;
     }
+
     if let Some(current_step) = request.current_step {
         item.current_step = current_step;
     }
+
     if let Some(context) = request.context {
         item.context = context;
     }
+
     let now = TimestampMicros::now();
+
     if item.status == InvestigationStatus::Running && item.started_at.is_none() {
         item.started_at = Some(now);
     }
+
     if matches!(
         item.status,
         InvestigationStatus::Completed
@@ -299,7 +319,9 @@ async fn update_investigation(
     ) {
         item.completed_at = Some(now);
     }
+
     item.updated_at = now;
+
     Ok(Json(
         state.agent.repository.update_investigation(item).await?,
     ))
@@ -329,11 +351,13 @@ async fn append_investigation_step(
     Json(request): Json<AppendStepRequest>,
 ) -> Result<Json<InvestigationStep>> {
     let investigation_id = Id(id);
+
     state
         .agent
         .repository
         .get_investigation(&ctx.org_id, &investigation_id)
         .await?;
+
     if let Some(tool) = request.tool_name.as_deref()
         && !builtin_tools()
             .iter()
@@ -341,6 +365,7 @@ async fn append_investigation_step(
     {
         return Err(Error::invalid(format!("tool `{tool}` is not registered")));
     }
+
     let item = InvestigationStep {
         id: Id::new(),
         investigation_id,
@@ -357,6 +382,7 @@ async fn append_investigation_step(
         ended_at: request.ended_at_micros.map(TimestampMicros),
         created_at: TimestampMicros::now(),
     };
+
     Ok(Json(state.agent.repository.append_step(item).await?))
 }
 
@@ -382,11 +408,13 @@ async fn append_investigation_evidence(
     Json(request): Json<AppendEvidenceRequest>,
 ) -> Result<Json<InvestigationEvidence>> {
     let investigation_id = Id(id);
+
     state
         .agent
         .repository
         .get_investigation(&ctx.org_id, &investigation_id)
         .await?;
+
     let item = InvestigationEvidence {
         id: Id::new(),
         investigation_id,
@@ -401,6 +429,7 @@ async fn append_investigation_evidence(
         summary: request.summary,
         created_at: TimestampMicros::now(),
     };
+
     Ok(Json(state.agent.repository.append_evidence(item).await?))
 }
 
@@ -422,12 +451,15 @@ async fn upsert_investigation_hypothesis(
     Json(request): Json<UpsertHypothesisRequest>,
 ) -> Result<Json<InvestigationHypothesis>> {
     let investigation_id = Id(id);
+
     state
         .agent
         .repository
         .get_investigation(&ctx.org_id, &investigation_id)
         .await?;
+
     let now = TimestampMicros::now();
+
     let item = InvestigationHypothesis {
         id: request.id.unwrap_or_else(Id::new),
         investigation_id,
@@ -439,6 +471,7 @@ async fn upsert_investigation_hypothesis(
         created_at: now,
         updated_at: now,
     };
+
     Ok(Json(state.agent.repository.upsert_hypothesis(item).await?))
 }
 
@@ -480,6 +513,7 @@ async fn validate_allowed_tools(
         .into_iter()
         .map(|tool| tool.name)
         .collect::<std::collections::HashSet<_>>();
+
     registered.extend(
         state
             .agent
@@ -489,11 +523,13 @@ async fn validate_allowed_tools(
             .into_iter()
             .map(|tool| tool.name),
     );
+
     for tool in tools {
         if !registered.contains(tool) {
             return Err(Error::invalid(format!("tool `{tool}` is not registered")));
         }
     }
+
     Ok(())
 }
 
@@ -520,7 +556,9 @@ async fn create_automation(
         ToolSurface::MoleAgent,
     )
     .await?;
+
     let now = TimestampMicros::now();
+
     let item = Automation {
         id: Id::new(),
         org_id: ctx.org_id.clone(),
@@ -539,6 +577,7 @@ async fn create_automation(
         created_at: now,
         updated_at: now,
     };
+
     Ok(Json(state.agent.repository.create_automation(item).await?))
 }
 
@@ -571,11 +610,13 @@ async fn update_automation(
         ToolSurface::MoleAgent,
     )
     .await?;
+
     let existing = state
         .agent
         .repository
         .get_automation(&ctx.org_id, &Id(id))
         .await?;
+
     let item = Automation {
         name: request.name,
         description: request.description,
@@ -591,6 +632,7 @@ async fn update_automation(
         updated_at: TimestampMicros::now(),
         ..existing
     };
+
     Ok(Json(state.agent.repository.update_automation(item).await?))
 }
 
@@ -606,6 +648,7 @@ async fn dry_run_automation(
         .repository
         .get_automation(&ctx.org_id, &Id(id))
         .await?;
+
     validate_allowed_tools(
         &state,
         &ctx.org_id,
@@ -613,11 +656,13 @@ async fn dry_run_automation(
         ToolSurface::MoleAgent,
     )
     .await?;
+
     let actions = automation
         .output_actions
         .as_array()
         .cloned()
         .unwrap_or_default();
+
     let approvals = actions
         .iter()
         .filter_map(|action| action["action"].as_str())
@@ -630,6 +675,7 @@ async fn dry_run_automation(
             })
         })
         .collect::<Vec<_>>();
+
     Ok(Json(json!({
         "dry_run": true,
         "matched": automation.enabled,
@@ -658,6 +704,7 @@ async fn create_approval(
     Json(request): Json<CreateApprovalRequest>,
 ) -> Result<Json<ApprovalRequest>> {
     let saved = create_agent_approval(&state.tools, &ctx, request).await?;
+
     activity_audit::record(
         &state,
         &ctx,
@@ -667,6 +714,7 @@ async fn create_approval(
         json!({"action": saved.action, "target": saved.target, "risk": saved.risk}),
     )
     .await;
+
     Ok(Json(saved))
 }
 
@@ -700,16 +748,19 @@ async fn review_approval(
     Json(request): Json<ReviewApprovalRequest>,
 ) -> Result<axum::response::Response> {
     let id = Id(id);
+
     let existing = state
         .agent
         .repository
         .get_approval(&ctx.org_id, &id)
         .await?;
+
     if existing.required_approvals > 0 && &existing.requested_by == ctx.principal_id() {
         return Err(Error::forbidden(
             "requester cannot approve their own reviewed operation",
         ));
     }
+
     let mut saved = state
         .agent
         .repository
@@ -722,6 +773,7 @@ async fn review_approval(
             TimestampMicros::now(),
         )
         .await?;
+
     activity_audit::record(
         &state,
         &ctx,
@@ -735,6 +787,7 @@ async fn review_approval(
         json!({"comment": request.comment, "status": saved.status}),
     )
     .await;
+
     let execution = if request.approve && saved.status == ApprovalStatus::Approved {
         let execution = execute_approved_operation(
             &state,
@@ -743,15 +796,18 @@ async fn review_approval(
             format!("approval:{}:approved", saved.id.0),
         )
         .await?;
+
         saved = state
             .agent
             .repository
             .get_approval(&ctx.org_id, &saved.id)
             .await?;
+
         Some(execution)
     } else {
         None
     };
+
     Ok(execution_response::review_response(saved, execution))
 }
 
@@ -826,12 +882,15 @@ struct AgentProfileRequest {
 fn blocked_network() -> NetworkAccess {
     NetworkAccess::Blocked
 }
+
 fn default_context_tokens() -> i32 {
     32_000
 }
+
 fn default_investigation_secs() -> i32 {
     1_800
 }
+
 fn default_tool_calls() -> i32 {
     32
 }
@@ -840,6 +899,7 @@ fn validate_profile_request(request: &AgentProfileRequest) -> Result<()> {
     if request.max_tool_calls < 1 || request.max_tool_calls > 256 {
         return Err(Error::invalid("max_tool_calls must be between 1 and 256"));
     }
+
     Ok(())
 }
 
@@ -860,6 +920,7 @@ async fn create_profile(
     Json(request): Json<AgentProfileRequest>,
 ) -> Result<Json<AgentProfile>> {
     validate_profile_request(&request)?;
+
     validate_allowed_tools(
         &state,
         &ctx.org_id,
@@ -867,7 +928,9 @@ async fn create_profile(
         ToolSurface::MoleAgent,
     )
     .await?;
+
     let now = TimestampMicros::now();
+
     let profile = AgentProfile {
         id: Id::new(),
         org_id: ctx.org_id.clone(),
@@ -888,6 +951,7 @@ async fn create_profile(
         created_at: now,
         updated_at: now,
     };
+
     Ok(Json(state.agent.repository.create_profile(profile).await?))
 }
 
@@ -914,6 +978,7 @@ async fn update_profile(
     Json(request): Json<AgentProfileRequest>,
 ) -> Result<Json<AgentProfile>> {
     validate_profile_request(&request)?;
+
     validate_allowed_tools(
         &state,
         &ctx.org_id,
@@ -921,11 +986,13 @@ async fn update_profile(
         ToolSurface::MoleAgent,
     )
     .await?;
+
     let existing = state
         .agent
         .repository
         .get_profile(&ctx.org_id, &Id(id))
         .await?;
+
     let profile = AgentProfile {
         name: request.name,
         description: request.description,
@@ -943,6 +1010,7 @@ async fn update_profile(
         updated_at: TimestampMicros::now(),
         ..existing
     };
+
     Ok(Json(state.agent.repository.update_profile(profile).await?))
 }
 

@@ -89,6 +89,7 @@ impl Builder {
             name_idx: HashMap::new(),
             root: Node::new(0),
         };
+
         b.intern("total"); // index 0
         b
     }
@@ -97,6 +98,7 @@ impl Builder {
         if let Some(&i) = self.name_idx.get(name) {
             return i;
         }
+
         let i = self.names.len();
         self.names.push(name.to_string());
         self.name_idx.insert(name.to_string(), i);
@@ -105,23 +107,29 @@ impl Builder {
 
     fn add(&mut self, p: &NormalizedProfile) {
         let vi = p.default_value_index;
+
         for s in &p.samples {
             let v = s.values.get(vi).copied().unwrap_or(0);
+
             if v <= 0 {
                 continue;
             }
+
             // 先 intern（结束对 self 的可变借用），再走树。
             let idxs: Vec<usize> = s
                 .stack
                 .iter()
                 .map(|fr| self.intern(&fr.display_name()))
                 .collect();
+
             self.root.total += v;
             let mut node = &mut self.root;
+
             for &idx in &idxs {
                 node = node.children.entry(idx).or_insert_with(|| Node::new(idx));
                 node.total += v;
             }
+
             node.self_val += v;
         }
     }
@@ -147,16 +155,20 @@ fn walk(
         levels.push(Vec::new());
         prev_end.push(0);
     }
+
     let offset = x_start - prev_end[depth];
     levels[depth].extend_from_slice(&[offset, node.total, node.self_val, node.name_idx as i64]);
     prev_end[depth] = x_start + node.total;
+
     if node.self_val > *max_self {
         *max_self = node.self_val;
     }
+
     let mut kids: Vec<&Node> = node.children.values().collect();
     // 宽优先稳定排序：total 降序，再 name_idx 升序。
     kids.sort_by(|a, b| b.total.cmp(&a.total).then(a.name_idx.cmp(&b.name_idx)));
     let mut cx = x_start;
+
     for kid in kids {
         walk(kid, depth + 1, cx, levels, prev_end, max_self);
         cx += kid.total;
@@ -166,11 +178,14 @@ fn walk(
 /// 合并多份 profile 为单窗口 flamebearer。
 pub fn build_flamebearer(profiles: &[NormalizedProfile]) -> Flamebearer {
     let mut b = Builder::new();
+
     for p in profiles {
         b.add(p);
     }
+
     let num_ticks = b.root.total;
     let (levels, max_self) = b.flatten();
+
     Flamebearer {
         names: b.names,
         levels,
@@ -217,6 +232,7 @@ impl DiffBuilder {
             name_idx: HashMap::new(),
             root: DiffNode::new(0),
         };
+
         b.intern("total");
         b
     }
@@ -225,6 +241,7 @@ impl DiffBuilder {
         if let Some(&i) = self.name_idx.get(name) {
             return i;
         }
+
         let i = self.names.len();
         self.names.push(name.to_string());
         self.name_idx.insert(name.to_string(), i);
@@ -233,33 +250,41 @@ impl DiffBuilder {
 
     fn add(&mut self, p: &NormalizedProfile, right: bool) {
         let vi = p.default_value_index;
+
         for s in &p.samples {
             let v = s.values.get(vi).copied().unwrap_or(0);
+
             if v <= 0 {
                 continue;
             }
+
             let idxs: Vec<usize> = s
                 .stack
                 .iter()
                 .map(|fr| self.intern(&fr.display_name()))
                 .collect();
+
             if right {
                 self.root.right += v;
             } else {
                 self.root.left += v;
             }
+
             let mut node = &mut self.root;
+
             for &idx in &idxs {
                 node = node
                     .children
                     .entry(idx)
                     .or_insert_with(|| DiffNode::new(idx));
+
                 if right {
                     node.right += v;
                 } else {
                     node.left += v;
                 }
             }
+
             if right {
                 node.right_self += v;
             } else {
@@ -273,6 +298,7 @@ impl DiffBuilder {
         let mut prev_end: Vec<i64> = Vec::new();
         let mut max_self = 0;
         let mut max_abs_delta = 0;
+
         diff_walk(
             &self.root,
             0,
@@ -282,6 +308,7 @@ impl DiffBuilder {
             &mut max_self,
             &mut max_abs_delta,
         );
+
         (levels, max_self, max_abs_delta)
     }
 }
@@ -300,25 +327,32 @@ fn diff_walk(
         levels.push(Vec::new());
         prev_end.push(0);
     }
+
     let total = node.left + node.right;
     let self_val = node.left_self + node.right_self;
     let delta = node.right - node.left;
     let offset = x_start - prev_end[depth];
     levels[depth].extend_from_slice(&[offset, total, self_val, node.name_idx as i64, delta]);
     prev_end[depth] = x_start + total;
+
     if self_val > *max_self {
         *max_self = self_val;
     }
+
     if delta.abs() > *max_abs_delta {
         *max_abs_delta = delta.abs();
     }
+
     let mut kids: Vec<&DiffNode> = node.children.values().collect();
+
     kids.sort_by(|a, b| {
         (b.left + b.right)
             .cmp(&(a.left + a.right))
             .then(a.name_idx.cmp(&b.name_idx))
     });
+
     let mut cx = x_start;
+
     for kid in kids {
         diff_walk(
             kid,
@@ -329,6 +363,7 @@ fn diff_walk(
             max_self,
             max_abs_delta,
         );
+
         cx += kid.left + kid.right;
     }
 }
@@ -339,19 +374,24 @@ pub fn build_diff(
     comparison: &[NormalizedProfile],
 ) -> DiffFlamebearer {
     let mut b = DiffBuilder::new();
+
     for p in baseline {
         b.add(p, false);
     }
+
     for p in comparison {
         b.add(p, true);
     }
+
     let num_ticks = b.root.left + b.root.right;
     let (levels, max_self, max_abs_delta) = b.flatten();
+
     let units = if !comparison.is_empty() {
         units_of(comparison)
     } else {
         units_of(baseline)
     };
+
     DiffFlamebearer {
         names: b.names,
         levels,
@@ -368,21 +408,26 @@ pub fn build_diff(
 /// 否则原样返回、`truncated = false`。`max == 0` 视为不限制。
 pub fn even_sample<T>(items: Vec<T>, max: usize) -> (Vec<T>, bool) {
     let n = items.len();
+
     if max == 0 || n <= max {
         return (items, false);
     }
+
     if max == 1 {
         let mut it = items.into_iter();
         return (it.next().into_iter().collect(), true);
     }
+
     let picked: BTreeSet<usize> = (0..max)
         .map(|i| (i as u128 * (n as u128 - 1) / (max as u128 - 1)) as usize)
         .collect();
+
     let out = items
         .into_iter()
         .enumerate()
         .filter_map(|(i, it)| picked.contains(&i).then_some(it))
         .collect();
+
     (out, true)
 }
 

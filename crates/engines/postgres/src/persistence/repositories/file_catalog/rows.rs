@@ -48,6 +48,7 @@ pub(super) fn dataset_from_row(row: &PgRow) -> Result<PhysicalDataset> {
     let index_policy: Json<IndexPolicy> = row.try_get("index_policy").map_err(sqlx_err)?;
     let state: String = row.try_get("state").map_err(sqlx_err)?;
     let kind: String = row.try_get("dataset_type").map_err(sqlx_err)?;
+
     Ok(PhysicalDataset {
         id: PhysicalDatasetId::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?),
         organization_id: Id::from_string(row.try_get::<String, _>("org_id").map_err(sqlx_err)?),
@@ -83,6 +84,7 @@ pub(super) fn artifact_from_row(row: &PgRow) -> Result<(SegmentId, Artifact)> {
     let role: String = row.try_get("role").map_err(sqlx_err)?;
     let kind: String = row.try_get("artifact_type").map_err(sqlx_err)?;
     let state: String = row.try_get("state").map_err(sqlx_err)?;
+
     let artifact = Artifact {
         id: ArtifactId::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?),
         role: role.parse()?,
@@ -114,6 +116,7 @@ pub(super) fn artifact_from_row(row: &PgRow) -> Result<(SegmentId, Artifact)> {
         state: row_state::<ArtifactState>(&state)?,
         failure_reason: row.try_get("failure_reason").map_err(sqlx_err)?,
     };
+
     Ok((segment_id, artifact))
 }
 
@@ -124,6 +127,7 @@ pub(super) fn segment_from_row(row: &PgRow, artifacts: Vec<Artifact>) -> Result<
     let column_stats: Json<ColumnStats> = row.try_get("column_stats").map_err(sqlx_err)?;
     let sequence_start: Option<i64> = row.try_get("sequence_start").map_err(sqlx_err)?;
     let sequence_end: Option<i64> = row.try_get("sequence_end").map_err(sqlx_err)?;
+
     let sequence_range = match (sequence_start, sequence_end) {
         (Some(start), Some(end)) => Some(SequenceRange::new(
             WalSequence(to_u64(start, "sequence_start")?),
@@ -134,6 +138,7 @@ pub(super) fn segment_from_row(row: &PgRow, artifacts: Vec<Artifact>) -> Result<
 
     let mut primary = None;
     let mut auxiliaries = Vec::new();
+
     for artifact in artifacts {
         if artifact.role == ArtifactRole::PrimaryData && artifact.state != ArtifactState::Tombstoned
         {
@@ -142,11 +147,13 @@ pub(super) fn segment_from_row(row: &PgRow, artifacts: Vec<Artifact>) -> Result<
                     "segment {id} has multiple live primary artifacts"
                 )));
             }
+
             primary = Some(artifact);
         } else {
             auxiliaries.push(artifact);
         }
     }
+
     let primary = primary
         .ok_or_else(|| Error::internal(format!("segment {id} has no live primary artifact")))?;
 

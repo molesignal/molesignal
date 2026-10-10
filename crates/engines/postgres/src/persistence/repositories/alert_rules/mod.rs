@@ -46,13 +46,16 @@ fn row_to_rule(row: sqlx::postgres::PgRow) -> Result<AlertRule> {
     let kind = AlertRuleKind::parse(&row.try_get::<String, _>("kind").map_err(sqlx_err)?);
     let anomaly_params: Option<Json<AnomalyParams>> =
         row.try_get("anomaly_params_json").map_err(sqlx_err)?;
+
     let thresholds: Json<Vec<SeverityThreshold>> = row
         .try_get("thresholds")
         .unwrap_or_else(|_| Json(Vec::new()));
+
     let severity = row
         .try_get::<Option<String>, _>("severity")
         .map_err(sqlx_err)?
         .and_then(|s| Severity::from_label(&s));
+
     Ok(AlertRule {
         id,
         org_id: Id::from_string(row.try_get::<String, _>("org_id").map_err(sqlx_err)?),
@@ -127,6 +130,7 @@ impl AlertRuleRepository for PgAlertRuleRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(r)
     }
 
@@ -156,6 +160,7 @@ impl AlertRuleRepository for PgAlertRuleRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(r)
     }
 
@@ -165,6 +170,7 @@ impl AlertRuleRepository for PgAlertRuleRepository {
             .fetch_one(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         row_to_rule(row)
     }
 
@@ -174,6 +180,7 @@ impl AlertRuleRepository for PgAlertRuleRepository {
             .fetch_all(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(collect_valid_rules(rows, "list"))
     }
 
@@ -183,6 +190,7 @@ impl AlertRuleRepository for PgAlertRuleRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -193,6 +201,7 @@ impl AlertRuleRepository for PgAlertRuleRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(collect_valid_rules(rows, "list_enabled"))
     }
 
@@ -211,6 +220,7 @@ impl AlertRuleRepository for PgAlertRuleRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(())
     }
 }

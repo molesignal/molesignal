@@ -51,33 +51,41 @@ impl TantivyArchiveBuilder {
     pub fn try_new(stream: &StreamDefinition) -> Result<Option<Self>> {
         let mut sb = Schema::builder();
         let mut fields = HashMap::new();
+
         for f in &stream.schema.fields {
             if !matches!(f.data_type, FieldType::Utf8 | FieldType::Json) {
                 continue;
             }
+
             // 加密字段列里是密文，明文查询（等值或全文）必然 miss；索引它只会让 pruner
             // 误裁。直接跳过——加密与「可被文本检索」本就互斥。
             if f.encrypted {
                 continue;
             }
+
             let options = match f.effective_index_type() {
                 StreamIndexType::Exact => STRING,
                 StreamIndexType::FullText => TEXT,
                 StreamIndexType::None | StreamIndexType::Bloom | StreamIndexType::Skip => continue,
             };
+
             let tf = sb.add_text_field(&f.name, options);
             fields.insert(f.name.clone(), tf);
         }
+
         if fields.is_empty() {
             return Ok(None);
         }
+
         let schema = sb.build();
         let dir = PuffinDirWriter::new().map_err(|e| anyhow!("puffin writer: {e}"))?;
         let index = Index::create(dir.clone(), schema, tantivy::IndexSettings::default())
             .map_err(|e| anyhow!("tantivy index create: {e}"))?;
+
         let writer: tantivy::IndexWriter = index
             .writer(WRITER_HEAP_BYTES)
             .map_err(|e| anyhow!("tantivy writer: {e}"))?;
+
         Ok(Some(Self {
             dir,
             index,
@@ -89,14 +97,17 @@ impl TantivyArchiveBuilder {
     /// 把一行追加为 tantivy doc：`field_name → value` 仅对已注册的 indexed 字段生效。
     pub fn add_doc(&mut self, field_values: &HashMap<&str, &str>) -> Result<()> {
         let mut doc = TantivyDocument::default();
+
         for (name, val) in field_values {
             if let Some(tf) = self.fields.get(*name) {
                 doc.add_text(*tf, val);
             }
         }
+
         self.writer
             .add_document(doc)
             .map_err(|e| anyhow!("tantivy add_document: {e}"))?;
+
         Ok(())
     }
 
@@ -109,6 +120,7 @@ impl TantivyArchiveBuilder {
         self.writer
             .commit()
             .map_err(|e| anyhow!("tantivy commit: {e}"))?;
+
         drop(self.writer);
         drop(self.index);
         self.dir.set_property("ms_format_version", "1");
@@ -138,15 +150,20 @@ impl IndexHandle {
             .schema
             .get_field(field_name)
             .map_err(|e| anyhow!("tantivy field {field_name}: {e}"))?;
+
         let q = TermQuery::new(Term::from_field_text(field, term), IndexRecordOption::Basic);
+
         let reader = self
             .index
             .reader()
             .map_err(|e| anyhow!("tantivy reader: {e}"))?;
+
         let searcher = reader.searcher();
+
         let count = searcher
             .search(&q, &Count)
             .map_err(|e| anyhow!("tantivy search: {e}"))?;
+
         Ok(count)
     }
 }
@@ -180,6 +197,7 @@ impl TantivyArchiveOpener {
     fn index_from_dir(puffin_dir: PuffinDirReader) -> Result<IndexHandle> {
         let index = Index::open(puffin_dir.clone()).map_err(|e| anyhow!("tantivy open: {e}"))?;
         let schema = index.schema();
+
         Ok(IndexHandle {
             index,
             schema,

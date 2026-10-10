@@ -28,6 +28,7 @@ impl PgNotifyEventRepository {
 const COLS: &str = "id, organization_id, event_type, occurred_at_micros, attributes,
     message, status, attempt, next_attempt_at_micros, claimed_at_micros,
     last_error, created_at_micros, updated_at_micros";
+
 const QUALIFIED_COLS: &str = "event.id, event.organization_id, event.event_type,
     event.occurred_at_micros, event.attributes, event.message, event.status,
     event.attempt, event.next_attempt_at_micros, event.claimed_at_micros,
@@ -37,6 +38,7 @@ fn row_to_event(row: sqlx::postgres::PgRow) -> Result<NotifyEventRecord> {
     let attributes: Json<serde_json::Value> = row.try_get("attributes").map_err(sqlx_err)?;
     let message: Json<NotifyMessage> = row.try_get("message").map_err(sqlx_err)?;
     let status: String = row.try_get("status").map_err(sqlx_err)?;
+
     Ok(NotifyEventRecord {
         event: NotifyEvent {
             id: row.try_get("id").map_err(sqlx_err)?,
@@ -87,6 +89,7 @@ impl NotifyEventRepository for PgNotifyEventRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         self.get(&record.event.organization_id, &record.event.id)
             .await
     }
@@ -102,6 +105,7 @@ impl NotifyEventRepository for PgNotifyEventRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         row_to_event(row)
     }
 
@@ -131,12 +135,14 @@ impl NotifyEventRepository for PgNotifyEventRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         if let Some(row) = row {
             return Ok(NotifyEventClaim {
                 record: row_to_event(row)?,
                 acquired: true,
             });
         }
+
         Ok(NotifyEventClaim {
             record: self.get(organization_id, id).await?,
             acquired: false,
@@ -169,12 +175,14 @@ impl NotifyEventRepository for PgNotifyEventRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         if let Some(row) = row {
             return Ok(NotifyEventClaim {
                 record: row_to_event(row)?,
                 acquired: true,
             });
         }
+
         Ok(NotifyEventClaim {
             record: self.get(organization_id, id).await?,
             acquired: false,
@@ -218,6 +226,7 @@ impl NotifyEventRepository for PgNotifyEventRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to_event).collect()
     }
 
@@ -235,6 +244,7 @@ impl NotifyEventRepository for PgNotifyEventRepository {
                 "notify event finish status cannot be processing",
             ));
         }
+
         let row = sqlx::query(&format!(
             "UPDATE notify_events
                 SET status = $3,
@@ -254,6 +264,7 @@ impl NotifyEventRepository for PgNotifyEventRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         row_to_event(row)
     }
 }

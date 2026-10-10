@@ -69,6 +69,7 @@ fn row_to(row: sqlx::postgres::PgRow) -> ApiToken {
         .ok()
         .and_then(|value| ApiTokenKind::parse(&value))
         .unwrap_or(ApiTokenKind::Personal);
+
     ApiToken {
         id: Id(row.try_get::<String, _>("id").unwrap_or_default()),
         prefix: row.try_get::<String, _>("prefix").unwrap_or_default(),
@@ -129,11 +130,13 @@ impl ApiTokenRepository for PgApiTokenRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         if token.token_kind != ApiTokenKind::ServiceAccount {
             self.tokens
                 .insert(token.prefix.clone(), Some(token.clone()))
                 .await;
         }
+
         Ok(token)
     }
 
@@ -141,6 +144,7 @@ impl ApiTokenRepository for PgApiTokenRepository {
         if let Some(cached) = self.tokens.get(prefix).await {
             return Ok(cached);
         }
+
         let sql = format!(
             "SELECT {COLS} FROM api_tokens token
              WHERE prefix = $1
@@ -155,18 +159,21 @@ impl ApiTokenRepository for PgApiTokenRepository {
                    )
                )"
         );
+
         let token = sqlx::query(&sql)
             .bind(prefix)
             .fetch_optional(&self.pool)
             .await
             .map_err(sqlx_err)?
             .map(row_to);
+
         if token
             .as_ref()
             .is_none_or(|token| token.token_kind != ApiTokenKind::ServiceAccount)
         {
             self.tokens.insert(prefix.to_string(), token.clone()).await;
         }
+
         Ok(token)
     }
 
@@ -176,22 +183,26 @@ impl ApiTokenRepository for PgApiTokenRepository {
              WHERE org_id = $1
              ORDER BY created_at_micros DESC LIMIT 500"
         );
+
         let rows = sqlx::query(&sql)
             .bind(&org_id.0)
             .fetch_all(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(rows.into_iter().map(row_to).collect())
     }
 
     async fn get(&self, org_id: &Id, id: &Id) -> Result<ApiToken> {
         let sql = format!("SELECT {COLS} FROM api_tokens WHERE org_id = $1 AND id = $2");
+
         let row = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&id.0)
             .fetch_one(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(row_to(row))
     }
 
@@ -205,11 +216,13 @@ impl ApiTokenRepository for PgApiTokenRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         if let Some(row) = row {
             let prefix = row.try_get::<String, _>("prefix").unwrap_or_default();
             self.tokens.invalidate(&prefix).await;
             self.last_used_writes.remove(&prefix);
         }
+
         Ok(())
     }
 
@@ -221,7 +234,9 @@ impl ApiTokenRepository for PgApiTokenRepository {
         {
             return Ok(());
         }
+
         self.last_used_writes.insert(prefix.to_string(), at.0);
+
         sqlx::query(
             "UPDATE api_tokens SET last_used_at_micros = $2
              WHERE prefix = $1
@@ -233,6 +248,7 @@ impl ApiTokenRepository for PgApiTokenRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -245,11 +261,13 @@ impl ApiTokenRepository for PgApiTokenRepository {
         let cipher = self.cipher()?;
         let lock_key = format!("default-intake-token:{}:{}", org_id.0, user_id.0);
         let mut transaction = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))")
             .bind(lock_key)
             .execute(&mut *transaction)
             .await
             .map_err(sqlx_err)?;
+
         let existing = sqlx::query(
             "SELECT id, prefix, role_id, created_at_micros, plaintext_sealed, plaintext_nonce
              FROM api_tokens
@@ -262,6 +280,7 @@ impl ApiTokenRepository for PgApiTokenRepository {
         .fetch_optional(&mut *transaction)
         .await
         .map_err(sqlx_err)?;
+
         if let Some(row) = existing
             && let Some(token) =
                 open_managed_token(cipher, row, role_id, ApiTokenKind::DefaultIntake, None)?
@@ -272,6 +291,7 @@ impl ApiTokenRepository for PgApiTokenRepository {
                 .execute(&mut *transaction)
                 .await
                 .map_err(sqlx_err)?;
+
             transaction.commit().await.map_err(sqlx_err)?;
             self.tokens.invalidate(&token.prefix).await;
             return Ok(token);
@@ -280,11 +300,14 @@ impl ApiTokenRepository for PgApiTokenRepository {
         let (prefix, secret) = generate_token_parts();
         let plaintext = assemble_token(&prefix, &secret);
         let secret_hash = hash_secret(&secret)?;
+
         let (nonce, sealed) = cipher
             .seal(plaintext.as_bytes())
             .map_err(|error| Error::internal(format!("default intake token seal: {error}")))?;
+
         let id = Id::new();
         let now = TimestampMicros::now();
+
         let revoked_prefixes = sqlx::query_scalar::<String>(
             "UPDATE api_tokens SET revoked = TRUE
              WHERE org_id = $1 AND user_id = $2
@@ -296,6 +319,7 @@ impl ApiTokenRepository for PgApiTokenRepository {
         .fetch_all(&mut *transaction)
         .await
         .map_err(sqlx_err)?;
+
         sqlx::query(
             "INSERT INTO api_tokens
                 (id, prefix, secret_hash, org_id, user_id, role_id, name,
@@ -316,8 +340,10 @@ impl ApiTokenRepository for PgApiTokenRepository {
         .execute(&mut *transaction)
         .await
         .map_err(sqlx_err)?;
+
         transaction.commit().await.map_err(sqlx_err)?;
         self.invalidate_prefixes(revoked_prefixes).await;
+
         Ok(ManagedApiToken {
             id,
             prefix,
@@ -339,11 +365,13 @@ impl ApiTokenRepository for PgApiTokenRepository {
         let cipher = self.cipher()?;
         let lock_key = format!("rum-client-token:{}:{application_id}", org_id.0);
         let mut transaction = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))")
             .bind(lock_key)
             .execute(&mut *transaction)
             .await
             .map_err(sqlx_err)?;
+
         let existing = sqlx::query(
             "SELECT id, prefix, role_id, created_at_micros, plaintext_sealed, plaintext_nonce
              FROM api_tokens
@@ -356,6 +384,7 @@ impl ApiTokenRepository for PgApiTokenRepository {
         .fetch_optional(&mut *transaction)
         .await
         .map_err(sqlx_err)?;
+
         if let Some(row) = existing
             && let Some(token) = open_managed_token(
                 cipher,
@@ -371,6 +400,7 @@ impl ApiTokenRepository for PgApiTokenRepository {
                 .execute(&mut *transaction)
                 .await
                 .map_err(sqlx_err)?;
+
             transaction.commit().await.map_err(sqlx_err)?;
             self.tokens.invalidate(&token.prefix).await;
             return Ok(token);
@@ -387,14 +417,18 @@ impl ApiTokenRepository for PgApiTokenRepository {
         .fetch_all(&mut *transaction)
         .await
         .map_err(sqlx_err)?;
+
         let (prefix, secret) = generate_token_parts();
         let plaintext = assemble_rum_token(&prefix, &secret);
         let secret_hash = hash_rum_secret(&secret);
+
         let (nonce, sealed) = cipher
             .seal(plaintext.as_bytes())
             .map_err(|error| Error::internal(format!("RUM client token seal: {error}")))?;
+
         let id = Id::new();
         let now = TimestampMicros::now();
+
         sqlx::query(
             "INSERT INTO api_tokens
                 (id, prefix, secret_hash, org_id, user_id, role_id, name,
@@ -417,8 +451,10 @@ impl ApiTokenRepository for PgApiTokenRepository {
         .execute(&mut *transaction)
         .await
         .map_err(sqlx_err)?;
+
         transaction.commit().await.map_err(sqlx_err)?;
         self.invalidate_prefixes(revoked_prefixes).await;
+
         Ok(ManagedApiToken {
             id,
             prefix,
@@ -451,18 +487,23 @@ fn open_managed_token(
         .try_get::<Option<Vec<u8>>, _>("plaintext_sealed")
         .ok()
         .flatten();
+
     let nonce = row
         .try_get::<Option<Vec<u8>>, _>("plaintext_nonce")
         .ok()
         .flatten();
+
     let (Some(sealed), Some(nonce)) = (sealed, nonce) else {
         return Ok(None);
     };
+
     let plaintext = cipher
         .open(&nonce, &sealed)
         .map_err(|_| Error::internal("managed API token decrypt failed"))?;
+
     let token = String::from_utf8(plaintext)
         .map_err(|_| Error::internal("managed API token is not UTF-8"))?;
+
     Ok(Some(ManagedApiToken {
         id: Id(row.try_get::<String, _>("id").unwrap_or_default()),
         prefix: row.try_get::<String, _>("prefix").unwrap_or_default(),

@@ -17,6 +17,7 @@ pub(super) const SUBSCRIBER_COLS: &str = "id, org_id, status_page_id, channel,
     target_ciphertext, target_nonce, status, token_hash,
     confirmation_sent_at_micros, confirmed_at_micros,
     unsubscribed_at_micros, created_at_micros, updated_at_micros";
+
 const MAX_SUBSCRIBERS_PER_PAGE: i64 = 10_000;
 
 impl PgStatusPageRepository {
@@ -36,6 +37,7 @@ impl PgStatusPageRepository {
             .cipher
             .open(nonce, ciphertext)
             .map_err(|_| Error::internal("status-page subscriber target decryption failed"))?;
+
         String::from_utf8(plaintext)
             .map_err(|_| Error::internal("status-page subscriber target is not UTF-8"))
     }
@@ -51,20 +53,24 @@ impl StatusPageSubscriberRepository for PgStatusPageRepository {
         let target_hash = self.target_hash(&subscriber.org_id, &subscriber.target);
         let (target_nonce, target_ciphertext) = self.seal_target(&subscriber.target)?;
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
+
         let lock_key = format!(
             "status-page-subscribers:{}:{}",
             subscriber.org_id, subscriber.status_page_id
         );
+
         sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))")
             .bind(lock_key)
             .execute(&mut *transaction)
             .await
             .map_err(super::sqlx_err)?;
+
         let select_sql = format!(
             "SELECT {SUBSCRIBER_COLS} FROM status_page_subscribers
              WHERE org_id = $1 AND status_page_id = $2 AND channel = $3
                AND target_hash = $4 FOR UPDATE"
         );
+
         let existing = sqlx::query(&select_sql)
             .bind(&subscriber.org_id.0)
             .bind(&subscriber.status_page_id.0)
@@ -75,17 +81,21 @@ impl StatusPageSubscriberRepository for PgStatusPageRepository {
             .map_err(super::sqlx_err)?
             .map(|row| self.row_to_subscriber(row))
             .transpose()?;
+
         if let Some(existing) = existing {
             let cooling_down = existing
                 .confirmation_sent_at
                 .is_some_and(|sent_at| sent_at > resend_before);
+
             if existing.status == StatusPageSubscriberStatus::Active || cooling_down {
                 transaction.commit().await.map_err(super::sqlx_err)?;
+
                 return Ok(PendingStatusPageSubscription {
                     subscriber: existing,
                     should_send_confirmation: false,
                 });
             }
+
             let update_sql = format!(
                 "UPDATE status_page_subscribers SET
                     target_ciphertext = $4, target_nonce = $5, target_hash = $6,
@@ -95,6 +105,7 @@ impl StatusPageSubscriberRepository for PgStatusPageRepository {
                  WHERE org_id = $1 AND status_page_id = $2 AND id = $3
                  RETURNING {SUBSCRIBER_COLS}"
             );
+
             let row = sqlx::query(&update_sql)
                 .bind(&existing.org_id.0)
                 .bind(&existing.status_page_id.0)
@@ -107,13 +118,16 @@ impl StatusPageSubscriberRepository for PgStatusPageRepository {
                 .fetch_one(&mut *transaction)
                 .await
                 .map_err(super::sqlx_err)?;
+
             let subscriber = self.row_to_subscriber(row)?;
             transaction.commit().await.map_err(super::sqlx_err)?;
+
             return Ok(PendingStatusPageSubscription {
                 subscriber,
                 should_send_confirmation: true,
             });
         }
+
         let active_count: i64 = sqlx::query_scalar(
             "SELECT count(*) FROM status_page_subscribers
              WHERE org_id = $1 AND status_page_id = $2 AND status <> 'unsubscribed'",
@@ -123,11 +137,13 @@ impl StatusPageSubscriberRepository for PgStatusPageRepository {
         .fetch_one(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
+
         if active_count >= MAX_SUBSCRIBERS_PER_PAGE {
             return Err(Error::resource_exhausted(
                 "status page subscriber limit reached",
             ));
         }
+
         let insert_sql = format!(
             "INSERT INTO status_page_subscribers
                 (id, org_id, status_page_id, channel, target_ciphertext, target_nonce,
@@ -137,6 +153,7 @@ impl StatusPageSubscriberRepository for PgStatusPageRepository {
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NULL, NULL, $11, $12)
              RETURNING {SUBSCRIBER_COLS}"
         );
+
         let row = sqlx::query(&insert_sql)
             .bind(&subscriber.id.0)
             .bind(&subscriber.org_id.0)
@@ -153,8 +170,10 @@ impl StatusPageSubscriberRepository for PgStatusPageRepository {
             .fetch_one(&mut *transaction)
             .await
             .map_err(super::sqlx_err)?;
+
         let subscriber = self.row_to_subscriber(row)?;
         transaction.commit().await.map_err(super::sqlx_err)?;
+
         Ok(PendingStatusPageSubscription {
             subscriber,
             should_send_confirmation: true,
@@ -175,6 +194,7 @@ impl StatusPageSubscriberRepository for PgStatusPageRepository {
              WHERE org_id = $1 AND status_page_id = $2 AND token_hash = $3
                AND status IN ('pending', 'active') RETURNING {SUBSCRIBER_COLS}"
         );
+
         let row = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&page_id.0)
@@ -183,6 +203,7 @@ impl StatusPageSubscriberRepository for PgStatusPageRepository {
             .fetch_one(&self.pool)
             .await
             .map_err(|error| token_lookup_error(error, "subscription confirmation is invalid"))?;
+
         self.row_to_subscriber(row)
     }
 
@@ -196,6 +217,7 @@ impl StatusPageSubscriberRepository for PgStatusPageRepository {
         .execute(&self.pool)
         .await
         .map_err(super::sqlx_err)?;
+
         Ok(())
     }
 
@@ -226,6 +248,7 @@ impl StatusPageSubscriberRepository for PgStatusPageRepository {
     ) -> Result<StatusPageSubscriberPage> {
         let per_page = per_page.clamp(1, 100);
         let offset = u64::from(page.saturating_sub(1)).saturating_mul(u64::from(per_page));
+
         let total: i64 = sqlx::query_scalar(
             "SELECT count(*) FROM status_page_subscribers
              WHERE org_id = $1 AND status_page_id = $2",
@@ -235,11 +258,13 @@ impl StatusPageSubscriberRepository for PgStatusPageRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(super::sqlx_err)?;
+
         let sql = format!(
             "SELECT {SUBSCRIBER_COLS} FROM status_page_subscribers
              WHERE org_id = $1 AND status_page_id = $2
              ORDER BY updated_at_micros DESC, id DESC LIMIT $3 OFFSET $4"
         );
+
         let items = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&page_id.0)
@@ -251,6 +276,7 @@ impl StatusPageSubscriberRepository for PgStatusPageRepository {
             .into_iter()
             .map(|row| self.row_to_subscriber(row))
             .collect::<Result<Vec<_>>>()?;
+
         Ok(StatusPageSubscriberPage {
             items,
             page,
@@ -269,6 +295,7 @@ impl StatusPageSubscriberRepository for PgStatusPageRepository {
             "SELECT {SUBSCRIBER_COLS} FROM status_page_subscribers
              WHERE org_id = $1 AND status_page_id = $2 AND id = $3"
         );
+
         let row = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&page_id.0)
@@ -276,6 +303,7 @@ impl StatusPageSubscriberRepository for PgStatusPageRepository {
             .fetch_one(&self.pool)
             .await
             .map_err(super::sqlx_err)?;
+
         self.row_to_subscriber(row)
     }
 
@@ -311,6 +339,7 @@ impl StatusPageSubscriberRepository for PgStatusPageRepository {
              WHERE org_id = $1 AND status_page_id = $2 AND id = $3 AND status = 'pending'
              RETURNING {SUBSCRIBER_COLS}"
         );
+
         let row = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&page_id.0)
@@ -320,6 +349,7 @@ impl StatusPageSubscriberRepository for PgStatusPageRepository {
             .fetch_one(&self.pool)
             .await
             .map_err(super::sqlx_err)?;
+
         self.row_to_subscriber(row)
     }
 }
@@ -333,6 +363,7 @@ impl PgStatusPageRepository {
         let status: String = row.try_get("status").map_err(super::sqlx_err)?;
         let ciphertext: Vec<u8> = row.try_get("target_ciphertext").map_err(super::sqlx_err)?;
         let nonce: Vec<u8> = row.try_get("target_nonce").map_err(super::sqlx_err)?;
+
         Ok(StatusPageSubscriber {
             id: Id(row.try_get("id").map_err(super::sqlx_err)?),
             org_id: Id(row.try_get("org_id").map_err(super::sqlx_err)?),
@@ -363,6 +394,7 @@ async fn update_subscriber_to_unsubscribed(
     let mut transaction = sqlx::begin(&repository.pool)
         .await
         .map_err(super::sqlx_err)?;
+
     let sql = format!(
         "UPDATE status_page_subscribers SET status = 'unsubscribed',
              unsubscribed_at_micros = $4, updated_at_micros = $4
@@ -370,6 +402,7 @@ async fn update_subscriber_to_unsubscribed(
            AND status IN ('pending', 'active', 'unsubscribed')
          RETURNING {SUBSCRIBER_COLS}"
     );
+
     let row = sqlx::query(&sql)
         .bind(&org_id.0)
         .bind(&page_id.0)
@@ -378,7 +411,9 @@ async fn update_subscriber_to_unsubscribed(
         .fetch_one(&mut *transaction)
         .await
         .map_err(|error| token_lookup_error(error, "subscription not found"))?;
+
     let subscriber = repository.row_to_subscriber(row)?;
+
     sqlx::query(
         "UPDATE status_page_notification_deliveries SET status = 'failed',
              claimed_at_micros = NULL, last_error = 'subscriber unsubscribed',
@@ -393,6 +428,7 @@ async fn update_subscriber_to_unsubscribed(
     .execute(&mut *transaction)
     .await
     .map_err(super::sqlx_err)?;
+
     transaction.commit().await.map_err(super::sqlx_err)?;
     Ok(subscriber)
 }

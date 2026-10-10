@@ -13,9 +13,11 @@ pub fn canonical_json(value: &Value) -> Value {
             let mut keys = values.keys().collect::<Vec<_>>();
             keys.sort_unstable();
             let mut canonical = Map::with_capacity(values.len());
+
             for key in keys {
                 canonical.insert(key.clone(), canonical_json(&values[key]));
             }
+
             Value::Object(canonical)
         }
         scalar => scalar.clone(),

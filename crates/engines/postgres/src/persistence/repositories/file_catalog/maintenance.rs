@@ -40,13 +40,16 @@ pub(super) async fn index_rebuild_tasks(
     .fetch_all(pool)
     .await
     .map_err(sqlx_err)?;
+
     if candidates.is_empty() {
         return Ok(Vec::new());
     }
+
     let segment_ids = candidates
         .iter()
         .map(|row| row.try_get::<String, _>("segment_id").map_err(sqlx_err))
         .collect::<std::result::Result<Vec<_>, _>>()?;
+
     let dataset_ids = candidates
         .iter()
         .map(|row| row.try_get::<String, _>("dataset_id").map_err(sqlx_err))
@@ -60,6 +63,7 @@ pub(super) async fn index_rebuild_tasks(
     .fetch_all(pool)
     .await
     .map_err(sqlx_err)?;
+
     let artifact_rows = sqlx::query(&format!(
         "SELECT {ARTIFACT_COLS} FROM catalog_artifacts \
          WHERE org_id = $1 AND segment_id = ANY($2) AND state <> 'tombstoned'"
@@ -69,6 +73,7 @@ pub(super) async fn index_rebuild_tasks(
     .fetch_all(pool)
     .await
     .map_err(sqlx_err)?;
+
     let dataset_rows = sqlx::query(&format!(
         "SELECT {DATASET_COLS} FROM physical_datasets WHERE org_id = $1 AND id = ANY($2)"
     ))
@@ -79,33 +84,42 @@ pub(super) async fn index_rebuild_tasks(
     .map_err(sqlx_err)?;
 
     let mut artifacts: HashMap<String, Vec<Artifact>> = HashMap::new();
+
     for row in &artifact_rows {
         let (segment_id, artifact) = artifact_from_row(row)?;
+
         artifacts
             .entry(segment_id.as_str().to_owned())
             .or_default()
             .push(artifact);
     }
+
     let mut segments = HashMap::new();
+
     for row in &segment_rows {
         let id: String = row.try_get("id").map_err(sqlx_err)?;
         let segment = segment_from_row(row, artifacts.remove(&id).unwrap_or_default())?;
         segments.insert(id, segment);
     }
+
     let mut datasets = HashMap::new();
+
     for row in &dataset_rows {
         let dataset = dataset_from_row(row)?;
         datasets.insert(dataset.id.as_str().to_owned(), dataset);
     }
 
     let mut tasks = Vec::with_capacity(candidates.len());
+
     for row in candidates {
         let artifact_id: String = row.try_get("id").map_err(sqlx_err)?;
         let segment_id: String = row.try_get("segment_id").map_err(sqlx_err)?;
         let dataset_id: String = row.try_get("dataset_id").map_err(sqlx_err)?;
+
         let Some(segment) = segments.get(&segment_id).cloned() else {
             continue;
         };
+
         let Some(artifact) = segment
             .auxiliaries
             .iter()
@@ -114,15 +128,18 @@ pub(super) async fn index_rebuild_tasks(
         else {
             continue;
         };
+
         let Some(dataset) = datasets.get(&dataset_id).cloned() else {
             continue;
         };
+
         tasks.push(IndexRebuildTask {
             dataset,
             segment,
             artifact,
         });
     }
+
     Ok(tasks)
 }
 
@@ -146,7 +163,9 @@ pub(super) async fn catalog_objects(
     .fetch_all(pool)
     .await
     .map_err(sqlx_err)?;
+
     let mut objects = Vec::with_capacity(artifact_rows.len());
+
     for row in artifact_rows {
         objects.push(CatalogObject {
             dataset_id: PhysicalDatasetId::from_string(
@@ -184,6 +203,7 @@ pub(super) async fn catalog_objects(
             manifest: None,
         });
     }
+
     {
         let manifest_rows = sqlx::query(
             "SELECT dataset_id, partition_start_micros, partition_end_micros, partition_shard, \
@@ -199,6 +219,7 @@ pub(super) async fn catalog_objects(
         .fetch_all(pool)
         .await
         .map_err(sqlx_err)?;
+
         for row in manifest_rows {
             let object = StoredObject {
                 key: ObjectKey::from_string(
@@ -213,9 +234,11 @@ pub(super) async fn catalog_objects(
                 ),
                 etag: row.try_get("etag").map_err(sqlx_err)?,
             };
+
             let dataset_id = PhysicalDatasetId::from_string(
                 row.try_get::<String, _>("dataset_id").map_err(sqlx_err)?,
             );
+
             objects.push(CatalogObject {
                 dataset_id: dataset_id.clone(),
                 segment_id: None,
@@ -242,6 +265,7 @@ pub(super) async fn catalog_objects(
             });
         }
     }
+
     objects.sort_by(|left, right| left.object.key.as_str().cmp(right.object.key.as_str()));
     objects.truncate(limit.max(1) as usize);
     Ok(objects)
@@ -270,6 +294,7 @@ pub(super) async fn object_is_referenced(
     .fetch_one(pool)
     .await
     .map_err(sqlx_err)?;
+
     row.try_get("referenced").map_err(sqlx_err)
 }
 
@@ -280,6 +305,7 @@ pub(super) async fn enqueue_orphan(
     not_before_micros: i64,
 ) -> Result<()> {
     let now = crate::shared::time::TimestampMicros::now().0;
+
     sqlx::query(
         "INSERT INTO object_gc_queue (org_id, object_key, checksum, reason, not_before_micros, \
          attempt_count, state, last_error, created_at_micros, updated_at_micros) \
@@ -293,6 +319,7 @@ pub(super) async fn enqueue_orphan(
     .execute(pool)
     .await
     .map_err(sqlx_err)?;
+
     Ok(())
 }
 
@@ -359,6 +386,7 @@ pub(super) async fn catalog_invariant_issues(
             row.try_get::<i64, _>("stale_index").map_err(sqlx_err)?,
         ),
     ];
+
     counts
         .into_iter()
         .filter(|(_, count)| *count > 0)
@@ -392,5 +420,6 @@ pub(super) async fn checksum_matches_retired_catalog(
     .fetch_one(pool)
     .await
     .map_err(sqlx_err)?;
+
     row.try_get("matches").map_err(sqlx_err)
 }

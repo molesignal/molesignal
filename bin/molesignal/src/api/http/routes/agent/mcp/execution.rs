@@ -25,11 +25,13 @@ pub(crate) async fn execute_tool(
     if !server.enabled || server.status != "healthy" {
         return Ok(tool_error("MCP Server is not available"));
     }
+
     if tool.status != ManagedToolStatus::Healthy || tool.unavailable_diagnostic.is_some() {
         return Ok(tool_error(
             "MCP tool schema is unavailable; synchronize the server before execution",
         ));
     }
+
     call_with_validated_arguments(
         &tool.input_schema,
         &tool.schema_hash,
@@ -40,6 +42,7 @@ pub(crate) async fn execute_tool(
                 .tool_control
                 .get_mcp_server_runtime(org_id, &server.id)
                 .await?;
+
             super::runtime::rpc_request(
                 &runtime,
                 "tools/call",
@@ -67,6 +70,7 @@ where
     schema::validate_schema_revision(schema, expected_hash, &arguments)?;
     let result = call(strip_untrusted_identity_fields(&arguments)).await?;
     let is_error = result["isError"].as_bool().unwrap_or(false);
+
     Ok(ToolResult {
         content: vec![ToolContent::Json { json: result }],
         is_error,
@@ -93,6 +97,7 @@ fn strip_untrusted_identity_fields(value: &Value) -> Value {
         "approval_id",
         "actor_id",
     ];
+
     match value {
         Value::Object(map) => Value::Object(
             map.iter()

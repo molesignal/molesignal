@@ -72,6 +72,7 @@ impl RumReplayMetaRepository for PgRumReplayMetaRepository {
         .execute(&self.pool)
         .await
         .map_err(crate::infra::persistence::sqlx_err)?;
+
         Ok(result.rows_affected() == 1)
     }
 
@@ -113,12 +114,15 @@ impl RumReplayMetaRepository for PgRumReplayMetaRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(crate::infra::persistence::sqlx_err)?;
+
         let total = row
             .try_get::<i64, _>("total")
             .map_err(crate::infra::persistence::sqlx_err)?;
+
         let segments = row
             .try_get::<i64, _>("segments")
             .map_err(crate::infra::persistence::sqlx_err)?;
+
         Ok((total.max(0) as u64, segments.max(0) as usize))
     }
 
@@ -130,6 +134,7 @@ impl RumReplayMetaRepository for PgRumReplayMetaRepository {
         if session_ids.is_empty() {
             return Ok(HashSet::new());
         }
+
         let rows = sqlx::query(
             "SELECT DISTINCT session_id FROM rum_replay_events
              WHERE org_id = $1 AND session_id = ANY($2) AND has_full_snapshot = TRUE
@@ -141,6 +146,7 @@ impl RumReplayMetaRepository for PgRumReplayMetaRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(crate::infra::persistence::sqlx_err)?;
+
         Ok(rows
             .into_iter()
             .map(|row| row.get::<String, _>("session_id"))
@@ -169,6 +175,7 @@ impl RumReplayMetaRepository for PgRumReplayMetaRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(crate::infra::persistence::sqlx_err)?;
+
         Ok(rows
             .into_iter()
             .map(|row| row.get::<String, _>("session_id"))
@@ -194,11 +201,13 @@ impl RumReplayMetaRepository for PgRumReplayMetaRepository {
         if ids.is_empty() {
             return Ok(());
         }
+
         sqlx::query("DELETE FROM rum_replay_events WHERE id = ANY($1)")
             .bind(ids)
             .execute(&self.pool)
             .await
             .map_err(crate::infra::persistence::sqlx_err)?;
+
         Ok(())
     }
 }

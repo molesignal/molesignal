@@ -139,6 +139,7 @@ impl CatalogQuerySource {
             .streams
             .get(organization_id, stream_name, stream_type)
             .await?;
+
         self.snapshot_stream(&stream, dataset_types, time_range)
             .await
     }
@@ -155,6 +156,7 @@ impl CatalogQuerySource {
             .streams
             .get(organization_id, stream_name, stream_type)
             .await?;
+
         Ok(arrow_schema::to_arrow(&stream.schema))
     }
 
@@ -163,6 +165,7 @@ impl CatalogQuerySource {
         if let Some(object) = file.stored_object() {
             self.object_reader.register(&file.org_id, &object)?;
         }
+
         Ok(())
     }
 
@@ -194,6 +197,7 @@ impl CatalogQuerySource {
         let Some(first) = selections.first() else {
             return Ok(Vec::new());
         };
+
         if selections
             .iter()
             .any(|selection| selection.stream.org_id != first.stream.org_id)
@@ -202,17 +206,21 @@ impl CatalogQuerySource {
                 "one catalog snapshot cannot span multiple organizations",
             ));
         }
+
         let scope = OrganizationScope::new(first.stream.org_id.clone());
         let mut selected_by_stream = Vec::with_capacity(selections.len());
+
         for selection in selections {
             if selection.dataset_types.is_empty() {
                 selected_by_stream.push(Vec::new());
                 continue;
             }
+
             let available = self
                 .catalog
                 .list_datasets(&scope, &selection.stream.id)
                 .await?;
+
             selected_by_stream.push(select_datasets(&selection.dataset_types, available));
         }
 
@@ -220,6 +228,7 @@ impl CatalogQuerySource {
         let mut buffer_snapshots = HashMap::with_capacity(dataset_count);
         let mut dataset_ids = Vec::with_capacity(dataset_count);
         let mut seen_dataset_ids = HashSet::with_capacity(dataset_count);
+
         for selected in &selected_by_stream {
             for (_, dataset) in selected {
                 if seen_dataset_ids.insert(dataset.id.clone()) {
@@ -227,6 +236,7 @@ impl CatalogQuerySource {
                         dataset.id.clone(),
                         self.buffers.snapshot_dataset(&dataset.id).await?,
                     );
+
                     dataset_ids.push(dataset.id.clone());
                 }
             }
@@ -248,10 +258,13 @@ impl CatalogQuerySource {
         };
 
         let mut manifest_segments = HashMap::new();
+
         for dataset in &catalog.datasets {
             let mut segments = Vec::new();
+
             for pointer in &dataset.manifests {
                 let manifest = self.manifests.load(pointer).await?;
+
                 segments.extend(
                     manifest
                         .segments
@@ -260,12 +273,15 @@ impl CatalogQuerySource {
                         .cloned(),
                 );
             }
+
             manifest_segments.insert(dataset.dataset_id.clone(), segments);
         }
 
         let mut output = Vec::with_capacity(selections.len());
+
         for (selection, selected) in selections.iter().zip(selected_by_stream) {
             let mut datasets = Vec::with_capacity(selected.len());
+
             for (_, dataset) in selected {
                 datasets.push(build_dataset_snapshot(
                     &selection.stream,
@@ -280,8 +296,10 @@ impl CatalogQuerySource {
                     &self.object_reader,
                 )?);
             }
+
             output.push(StreamStorageSnapshot { datasets });
         }
+
         Ok(output)
     }
 }
@@ -314,32 +332,39 @@ fn build_dataset_snapshot(
     object_reader: &ObjectReader,
 ) -> Result<QueryDatasetSnapshot> {
     let dataset_type = dataset.dataset_type.clone();
+
     let snapshot = catalog
         .dataset(&dataset.id)
         .ok_or_else(|| Error::internal(format!("catalog omitted dataset {}", dataset.id)))?;
+
     let segments = snapshot
         .segments
         .iter()
         .cloned()
         .chain(manifest_segments)
         .collect::<Vec<_>>();
+
     for segment in &segments {
         object_reader.register_segment(&stream.org_id, segment)?;
     }
+
     let files = segments
         .iter()
         .map(|segment| segment_to_query_file(stream, &dataset_type, segment))
         .collect::<Result<Vec<_>>>()?;
+
     let tantivy_indexes = segments.iter().filter_map(segment_tantivy_index).collect();
 
     let physical_stream = physical_schema::project(stream, &dataset_type);
     let target_schema = arrow_schema::to_arrow(&physical_stream.schema);
     let mut visible_buffers = Vec::new();
+
     for buffered in buffer_batches {
         let committed = snapshot.committed_sequence(
             &buffered.writer.writer_node_id,
             buffered.writer.writer_epoch,
         );
+
         if let Some(batch) = buffered
             .visible_after(committed, time_range)
             .map_err(|error| Error::internal(format!("filter buffer snapshot: {error}")))?
@@ -405,6 +430,7 @@ fn segment_to_query_file(
     segment: &crate::domain::storage::DataSegment,
 ) -> Result<QueryFile> {
     let primary = &segment.primary;
+
     if primary.role != ArtifactRole::PrimaryData
         || primary.state != ArtifactState::Ready
         || primary.artifact_type.as_str() != type_id::builtin::ARTIFACT_PARQUET
@@ -415,6 +441,7 @@ fn segment_to_query_file(
             segment.id
         )));
     }
+
     Ok(QueryFile {
         id: segment.id.0.clone(),
         org_id: stream.org_id.clone(),

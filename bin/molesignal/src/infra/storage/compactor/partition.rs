@@ -18,12 +18,15 @@ pub(super) fn build_groups(
 ) -> (Vec<Vec<DataSegment>>, Vec<DataSegment>) {
     let mut partitions: BTreeMap<PartitionKey, Vec<DataSegment>> = BTreeMap::new();
     let mut invalid = Vec::new();
+
     for segment in segments {
         if !time_range_within_partition(&segment) {
             invalid.push(segment);
             continue;
         }
+
         let partition = segment.partition;
+
         partitions
             .entry((
                 partition.start_micros,
@@ -35,6 +38,7 @@ pub(super) fn build_groups(
     }
 
     let mut groups = Vec::new();
+
     for segments in partitions.values_mut() {
         segments.sort_by(|left, right| {
             left.time_range
@@ -42,25 +46,32 @@ pub(super) fn build_groups(
                 .cmp(&right.time_range.start)
                 .then_with(|| left.id.as_str().cmp(right.id.as_str()))
         });
+
         let mut current = Vec::new();
         let mut size = 0_u64;
+
         for segment in segments.drain(..) {
             let segment_size = segment.primary.object.size_bytes;
+
             if !current.is_empty() && size.saturating_add(segment_size) > target_bytes {
                 if current.len() >= 2 {
                     groups.push(std::mem::take(&mut current));
                 } else {
                     current.clear();
                 }
+
                 size = 0;
             }
+
             size = size.saturating_add(segment_size);
             current.push(segment);
         }
+
         if current.len() >= 2 {
             groups.push(current);
         }
     }
+
     (groups, invalid)
 }
 
@@ -71,6 +82,7 @@ pub(super) fn validate_group(
     let first = group
         .first()
         .ok_or_else(|| Error::invalid("compactor group is empty"))?;
+
     for segment in group {
         if segment.dataset_id != *dataset_id
             || segment.organization_id != first.organization_id
@@ -82,6 +94,7 @@ pub(super) fn validate_group(
             ));
         }
     }
+
     Ok(first.partition)
 }
 

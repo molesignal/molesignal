@@ -15,11 +15,14 @@ use crate::{
 
 pub fn parse_ndjson(body: &str) -> Result<Vec<RawEvent>> {
     let mut out = Vec::new();
+
     for line in body.lines() {
         let l = line.trim();
+
         if l.is_empty() {
             continue;
         }
+
         let v: Value = match serde_json::from_str(l) {
             Ok(v) => v,
             Err(_) => {
@@ -28,6 +31,7 @@ pub fn parse_ndjson(body: &str) -> Result<Vec<RawEvent>> {
                 Value::Object(m)
             }
         };
+
         let map = match v {
             Value::Object(m) => m,
             other => {
@@ -36,11 +40,13 @@ pub fn parse_ndjson(body: &str) -> Result<Vec<RawEvent>> {
                 m
             }
         };
+
         out.push(RawEvent {
             timestamp: TimestampMicros::now(),
             fields: map,
         });
     }
+
     Ok(out)
 }
 

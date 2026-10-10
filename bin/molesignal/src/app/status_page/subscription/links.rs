@@ -18,6 +18,7 @@ pub(super) fn platform_page_url(external_url: &str, slug: &str) -> Result<String
         external_url,
         "http.external_url is required for status-page subscriptions",
     )?;
+
     base.join(&format!("/status/{slug}"))
         .map(|url| url.to_string())
         .map_err(|_| Error::internal("status-page URL could not be built"))
@@ -38,6 +39,7 @@ pub(super) fn confirmation_message(
 ) -> Result<StatusPageNotificationMessage> {
     let confirm_url = subscription_action_url(page_url, "confirm", token)?;
     let unsubscribe_url = subscription_action_url(page_url, "unsubscribe", token)?;
+
     Ok(StatusPageNotificationMessage {
         title: format!("Confirm updates from {}", page.name),
         text: format!(
@@ -63,10 +65,12 @@ pub(super) fn delivery_message(
 ) -> Result<StatusPageNotificationMessage> {
     let payload = &delivery.payload;
     let page_name = payload_text(payload, "page_name", "Status page")?;
+
     match payload.get("type").and_then(Value::as_str) {
         Some("component_status_changed") => {
             let component = payload_text(payload, "component_name", "component")?;
             let status = payload_text(payload, "status", "component status")?;
+
             Ok(StatusPageNotificationMessage {
                 title: format!("{page_name}: {component} is {status}"),
                 text: format!("{component} changed to {status}.\n\n{page_url}"),
@@ -77,6 +81,7 @@ pub(super) fn delivery_message(
             let title = payload_text(payload, "title", "incident title")?;
             let status = payload_text(payload, "status", "incident status")?;
             let message = payload_text(payload, "message", "incident message")?;
+
             Ok(StatusPageNotificationMessage {
                 title: format!("{page_name}: {title} · {status}"),
                 text: format!("{title}\n{status}\n\n{message}\n\n{page_url}"),
@@ -89,19 +94,23 @@ pub(super) fn delivery_message(
 
 fn subscription_action_url(page_url: &str, action: &str, token: &str) -> Result<String> {
     let mut url = http_url(page_url, "status-page subscription URL is invalid")?;
+
     let fragment = url::form_urlencoded::Serializer::new(String::new())
         .append_pair("subscription_action", action)
         .append_pair("subscription_token", token)
         .finish();
+
     url.set_fragment(Some(&fragment));
     Ok(url.to_string())
 }
 
 fn http_url(value: &str, error: &'static str) -> Result<Url> {
     let url = Url::parse(value.trim()).map_err(|_| Error::unavailable(error))?;
+
     if !matches!(url.scheme(), "http" | "https") {
         return Err(Error::unavailable(error));
     }
+
     Ok(url)
 }
 

@@ -52,6 +52,7 @@ async fn create(
 ) -> Result<Json<CreateResponse>, Error> {
     let bytes = serde_json::to_vec(&req.0)
         .map_err(|e| Error::invalid(format!("serialize payload: {e}")))?;
+
     if bytes.len() > MAX_PAYLOAD_BYTES {
         return Err(Error::invalid(format!(
             "payload exceeds {MAX_PAYLOAD_BYTES} bytes"
@@ -62,17 +63,20 @@ async fn create(
     let object_key = format!("investigations/{}/{}.json", ctx.org_id.0, id.0);
     let path =
         ObjPath::parse(&object_key).map_err(|e| Error::internal(format!("blob path: {e}")))?;
+
     state
         .storage
         .object_store
         .put(&path, PutPayload::from(bytes))
         .await
         .map_err(|e| Error::internal(format!("blob store put: {e}")))?;
+
     state
         .storage
         .investigation_blobs
         .create(&id, &ctx.org_id, &object_key)
         .await?;
+
     Ok(Json(CreateResponse { blob_id: id.0 }))
 }
 
@@ -87,22 +91,27 @@ async fn fetch(
         .investigation_blobs
         .fetch(&ctx.org_id, &Id(id))
         .await?;
+
     if let Some(key) = stored.object_key {
         let path = ObjPath::parse(&key).map_err(|e| Error::internal(format!("blob path: {e}")))?;
+
         let result = state
             .storage
             .object_store
             .get(&path)
             .await
             .map_err(|e| Error::internal(format!("blob store get: {e}")))?;
+
         let bytes = result
             .bytes()
             .await
             .map_err(|e| Error::internal(format!("blob read: {e}")))?;
+
         let value: Value = serde_json::from_slice(&bytes)
             .map_err(|e| Error::internal(format!("blob parse: {e}")))?;
         return Ok(Json(value));
     }
+
     // 旧行：payload 还在 PG。
     Ok(Json(stored.legacy_payload.unwrap_or(Value::Null)))
 }

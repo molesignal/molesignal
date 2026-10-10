@@ -58,12 +58,14 @@ pub struct LoginParams {
 
 async fn login(State(state): State<AppState>, Query(p): Query<LoginParams>) -> Result<Response> {
     let provider = resolve_provider_for_login(&state, &p).await?;
+
     if provider.kind != SsoProviderKind::Oidc {
         return Err(Error::invalid(format!(
             "provider {} is kind={:?}; /auth/sso/login currently handles OIDC only",
             provider.id.0, provider.kind
         )));
     }
+
     let oidc_cfg = match &provider.config {
         SsoProviderConfig::Oidc(c) => c.clone(),
         _ => unreachable!("kind == Oidc enforced above"),
@@ -72,10 +74,12 @@ async fn login(State(state): State<AppState>, Query(p): Query<LoginParams>) -> R
     let flow = OidcLoginFlow::new(to_flow_config(&oidc_cfg))?;
     let state_str = rand_b64(24);
     let nonce_str = rand_b64(24);
+
     state
         .iam
         .sso_state_store
         .put(state_str.clone(), provider.id.0.clone(), nonce_str.clone());
+
     let url = flow.build_authz_url(&state_str, &nonce_str)?;
     Ok(Redirect::temporary(url.as_str()).into_response())
 }
@@ -112,26 +116,31 @@ async fn do_callback(state: AppState, p: CallbackParams) -> Result<Json<Federate
             p.error_description.unwrap_or_default()
         )));
     }
+
     let state_param = p
         .state
         .ok_or_else(|| Error::Unauthorized("callback missing state".into()))?;
+
     let entry = state
         .iam
         .sso_state_store
         .take(&state_param)
         .ok_or_else(|| Error::Unauthorized("invalid or expired state".into()))?;
+
     let provider = state
         .iam
         .sso_providers
         .get(&Id::from_string(entry.provider_id.clone()))
         .await
         .map_err(|_| Error::Unauthorized("sso provider not found".into()))?;
+
     if !provider.enabled {
         return Err(Error::forbidden(format!(
             "provider {} is disabled",
             provider.id.0
         )));
     }
+
     let oidc_cfg = match &provider.config {
         SsoProviderConfig::Oidc(c) => c.clone(),
         _ => {
@@ -144,13 +153,16 @@ async fn do_callback(state: AppState, p: CallbackParams) -> Result<Json<Federate
 
     let flow = OidcLoginFlow::new(to_flow_config(&oidc_cfg))?;
     let tokens = flow.exchange_code(&p.code).await?;
+
     let id_token = tokens
         .id_token
         .as_deref()
         .ok_or_else(|| Error::Unauthorized("idp returned no id_token".into()))?;
+
     let oidc_user = flow
         .verify_id_token(id_token, state.iam.sso_jwks_cache.as_ref(), &entry.nonce)
         .await?;
+
     if oidc_user.email.is_empty() {
         return Err(Error::Unauthorized("idp id_token lacks email claim".into()));
     }
@@ -171,6 +183,7 @@ async fn do_callback(state: AppState, p: CallbackParams) -> Result<Json<Federate
         oidc_cfg.default_role_id.as_deref(),
     )
     .await?;
+
     Ok(Json(response))
 }
 
@@ -181,31 +194,39 @@ async fn resolve_provider_for_login(state: &AppState, p: &LoginParams) -> Result
             .sso_providers
             .get(&Id::from_string(id.to_string()))
             .await?;
+
         if !p.enabled {
             return Err(Error::invalid(format!("provider {} is disabled", p.id.0)));
         }
+
         return Ok(p);
     }
+
     let mut candidates = state
         .iam
         .sso_providers
         .list_enabled_by_kind(SsoProviderKind::Oidc)
         .await?;
+
     if let Some(name) = p.provider.as_deref() {
         candidates.retain(|c| c.name == name);
     }
+
     if candidates.is_empty() {
         return Err(Error::invalid(
             "no enabled OIDC provider configured; create one via POST /api/v1/sso/providers",
         ));
     }
+
     if candidates.len() > 1 {
         let names: Vec<String> = candidates.iter().map(|c| c.name.clone()).collect();
+
         return Err(Error::invalid(format!(
             "multiple enabled OIDC providers ({}); add ?provider_id=<id> to choose",
             names.join(", ")
         )));
     }
+
     Ok(candidates.remove(0))
 }
 

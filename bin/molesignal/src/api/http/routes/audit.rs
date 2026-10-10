@@ -139,20 +139,26 @@ struct AuditChatTranscriptResp {
 /// 解析时间：绝对 micros 整数，或相对串 `now` / `now-<N>{s,m,h,d}`。
 fn parse_time(s: &str) -> Result<i64> {
     let s = s.trim();
+
     if let Ok(n) = s.parse::<i64>() {
         return Ok(n);
     }
+
     if s == "now" {
         return Ok(TimestampMicros::now().0);
     }
+
     if let Some(rest) = s.strip_prefix("now-") {
         if rest.len() < 2 {
             return Err(Error::invalid(format!("bad relative time: {s}")));
         }
+
         let (num, unit) = rest.split_at(rest.len() - 1);
+
         let n: i64 = num
             .parse()
             .map_err(|_| Error::invalid(format!("bad relative time: {s}")))?;
+
         let mult = match unit {
             "s" => 1_000_000,
             "m" => 60_000_000,
@@ -160,8 +166,10 @@ fn parse_time(s: &str) -> Result<i64> {
             "d" => 86_400_000_000,
             _ => return Err(Error::invalid(format!("bad time unit in: {s}"))),
         };
+
         return Ok(TimestampMicros::now().0 - n * mult);
     }
+
     Err(Error::invalid(format!("unparseable time: {s}")))
 }
 
@@ -173,13 +181,17 @@ fn encode_cursor(ts: i64, id: &str) -> String {
 
 fn decode_cursor(s: &str) -> Result<(i64, String)> {
     use base64::Engine as _;
+
     let bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
         .decode(s.trim())
         .map_err(|_| Error::invalid("invalid cursor"))?;
+
     let text = String::from_utf8(bytes).map_err(|_| Error::invalid("invalid cursor"))?;
+
     let (ts, id) = text
         .split_once(':')
         .ok_or_else(|| Error::invalid("invalid cursor"))?;
+
     let ts: i64 = ts.parse().map_err(|_| Error::invalid("invalid cursor"))?;
     Ok((ts, id.to_string()))
 }
@@ -192,6 +204,7 @@ async fn query_audit(
 ) -> Result<Json<AuditPage>> {
     // Admin / Owner only（Viewer / Editor → 403）。
     let page_size = params.limit.clamp(1, MAX_LIMIT);
+
     let q = AuditQuery {
         from_micros: params.from.as_deref().map(parse_time).transpose()?,
         to_micros: params.to.as_deref().map(parse_time).transpose()?,
@@ -206,6 +219,7 @@ async fn query_audit(
     };
 
     let mut rows = state.iam.audit_events.query(&ctx.org_id, &q).await?;
+
     let next_cursor = if rows.len() as i64 > page_size {
         let last = &rows[(page_size - 1) as usize];
         let c = encode_cursor(last.ts.0, &last.id.0);
@@ -236,6 +250,7 @@ async fn query_audit_for_org(
     params: AuditQueryParams,
 ) -> Result<Json<AuditPage>> {
     let page_size = params.limit.clamp(1, MAX_LIMIT);
+
     let query = AuditQuery {
         from_micros: params.from.as_deref().map(parse_time).transpose()?,
         to_micros: params.to.as_deref().map(parse_time).transpose()?,
@@ -247,7 +262,9 @@ async fn query_audit_for_org(
         limit: page_size + 1,
         cursor: params.cursor.as_deref().map(decode_cursor).transpose()?,
     };
+
     let mut rows = state.iam.audit_events.query(org_id, &query).await?;
+
     let next_cursor = if rows.len() as i64 > page_size {
         let last = &rows[(page_size - 1) as usize];
         let cursor = encode_cursor(last.ts.0, &last.id.0);
@@ -256,6 +273,7 @@ async fn query_audit_for_org(
     } else {
         None
     };
+
     Ok(Json(AuditPage {
         items: rows.into_iter().map(to_resp).collect(),
         next_cursor,
@@ -269,11 +287,13 @@ async fn get_agent_chat_transcript(
     Path(id): Path<String>,
 ) -> Result<Json<AuditChatTranscriptResp>> {
     let chat_id = Id(id);
+
     let chat = state
         .agent
         .chats
         .get_chat_any(&ctx.org_id, &chat_id)
         .await?;
+
     let messages = state.agent.chats.list_messages(&chat.id).await?;
 
     Ok(Json(AuditChatTranscriptResp {

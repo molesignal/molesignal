@@ -31,6 +31,7 @@ fn lang_str(l: QueryLanguage) -> &'static str {
         QueryLanguage::Promql => "promql",
     }
 }
+
 fn lang_parse(s: &str) -> QueryLanguage {
     match s {
         "promql" => QueryLanguage::Promql,
@@ -90,6 +91,7 @@ impl SlowQueryRepository for PgSlowQueryRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -103,6 +105,7 @@ impl SlowQueryRepository for PgSlowQueryRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(rows.into_iter().map(row_to).collect())
     }
 }

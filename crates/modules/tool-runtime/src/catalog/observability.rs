@@ -165,6 +165,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         ),
         _ => unreachable!("observability catalog received unrelated kind"),
     };
+
     let tool = ToolSpec::read(
         kind.name(),
         description,
@@ -175,7 +176,9 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         &["streams.query", "sys.telemetry.read"],
         &tags,
     );
+
     let tool = tool.any_permission();
+
     if matches!(
         kind,
         BuiltinToolKind::QueryLogs

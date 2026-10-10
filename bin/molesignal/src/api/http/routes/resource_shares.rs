@@ -91,9 +91,11 @@ enum ShareableResourceId {
 impl ShareableResourceId {
     fn new(resource_type: &str, resource_id: &str) -> Result<Self> {
         let resource_id = resource_id.trim();
+
         if resource_id.is_empty() {
             return Err(Error::invalid("resource_id is required"));
         }
+
         match resource_type {
             "dashboard" => Ok(Self::Dashboard(Id::from_string(resource_id))),
             "report" => Ok(Self::Report(Id::from_string(resource_id))),
@@ -274,9 +276,11 @@ async fn create(
         .resource_shares
         .get_policy(&context.org_id)
         .await?;
+
     let expires_at = expiration_for(&request, &policy, now)?;
     let mut normalized_constraints = request.constraints.clone();
     let mut allow_download = request.allow_download;
+
     let password_hash = if request.share_mode == ResourceShareMode::PublicLink {
         validate_public_policy(
             &policy,
@@ -287,6 +291,7 @@ async fn create(
             &resource_id,
         )
         .await?;
+
         normalized_constraints = normalize_public_constraints(
             &request.resource_type,
             &request.constraints,
@@ -294,19 +299,23 @@ async fn create(
             &resource_id,
         )
         .await?;
+
         if request.resource_type == "dashboard" {
             allow_download = false;
         }
+
         let password = request
             .password
             .as_deref()
             .map(str::trim)
             .filter(|v| !v.is_empty());
+
         validate_public_share_password(
             &request.resource_type,
             policy.require_public_report_password,
             password,
         )?;
+
         password.map(hash_password).transpose()?
     } else {
         None
@@ -318,9 +327,11 @@ async fn create(
         }
         ResourceShareMode::CrossOrg => {
             Permission::require_key(&context, "iam.policies.manage")?;
+
             let grant =
                 create_cross_org_grant(&state, &context, &request, &resource_id, expires_at)
                     .await?;
+
             (
                 Some(grant.id),
                 json!([read_permission(&request.resource_type)?]),
@@ -336,6 +347,7 @@ async fn create(
     };
 
     let raw_token = generate_share_token();
+
     let mut share = ResourceShare {
         id: share_id,
         organization_id: context.org_id.clone(),
@@ -374,6 +386,7 @@ async fn create(
     }
 
     let share = state.storage.resource_shares.create(share).await?;
+
     record_audit(
         &state,
         &share,
@@ -406,6 +419,7 @@ async fn list(
     Query(query): Query<ListQuery>,
 ) -> Result<Json<Vec<ResourceShareView>>> {
     let resource_id = query.resource_id.map(Id::from_string);
+
     match (query.resource_type.as_deref(), resource_id.as_ref()) {
         (Some(resource_type), Some(resource_id)) => {
             authorize_shareable_filter(&state, &context, resource_type, resource_id).await?;
@@ -417,6 +431,7 @@ async fn list(
             ));
         }
     }
+
     let shares = state
         .storage
         .resource_shares
@@ -426,6 +441,7 @@ async fn list(
             resource_id.as_ref(),
         )
         .await?;
+
     Ok(Json(
         shares
             .into_iter()
@@ -461,6 +477,7 @@ async fn revoke(
     Path(id): Path<String>,
 ) -> Result<Json<ResourceShareView>> {
     let id = existing.id.clone();
+
     if let Some(grant_id) = &existing.cross_org_grant_id {
         let _ = state
             .iam
@@ -475,11 +492,13 @@ async fn revoke(
             )
             .await?;
     }
+
     let share = state
         .storage
         .resource_shares
         .revoke(&context.org_id, &id, TimestampMicros::now())
         .await?;
+
     record_audit(
         &state,
         &share,
@@ -490,6 +509,7 @@ async fn revoke(
         json!({}),
     )
     .await?;
+
     Ok(Json(resource_share_view(share)))
 }
 
@@ -506,11 +526,13 @@ async fn rotate(
 ) -> Result<Json<RotateResponse>> {
     let id = existing.id.clone();
     let raw_token = generate_share_token();
+
     let share = state
         .storage
         .resource_shares
         .rotate_token(&context.org_id, &id, &token_hash(&raw_token), &raw_token)
         .await?;
+
     record_audit(
         &state,
         &share,
@@ -521,6 +543,7 @@ async fn rotate(
         json!({}),
     )
     .await?;
+
     Ok(Json(RotateResponse {
         share: resource_share_view(share),
         url: format!("/s/{raw_token}"),
@@ -557,6 +580,7 @@ async fn update_policy(
             "max_public_expiry_secs must be between 3600 and 2592000",
         ));
     }
+
     let policy = state
         .storage
         .resource_shares
@@ -572,6 +596,7 @@ async fn update_policy(
             updated_at: TimestampMicros::now(),
         })
         .await?;
+
     state
         .iam
         .audit_events
@@ -596,6 +621,7 @@ async fn update_policy(
             ts: TimestampMicros::now(),
         })
         .await?;
+
     Ok(Json(policy))
 }
 
@@ -605,17 +631,20 @@ async fn resolve_share_link(
     headers: HeaderMap,
 ) -> Result<Response> {
     let now = TimestampMicros::now();
+
     let share = state
         .storage
         .resource_shares
         .find_by_token_hash(&token_hash(&token))
         .await?
         .ok_or_else(|| Error::not_found("resource share not found"))?;
+
     state
         .iam
         .service
         .ensure_organization_access(&share.organization_id)
         .await?;
+
     if !share_is_active(&share, now) {
         return Ok((
             StatusCode::GONE,
@@ -627,6 +656,7 @@ async fn resolve_share_link(
 
     if share.share_mode != ResourceShareMode::PublicLink {
         let location = authenticated_target(&share)?;
+
         record_audit(
             &state,
             &share,
@@ -637,6 +667,7 @@ async fn resolve_share_link(
             json!({"result": "redirect_to_authenticated_resource"}),
         )
         .await?;
+
         return Ok((
             StatusCode::FOUND,
             [
@@ -649,6 +680,7 @@ async fn resolve_share_link(
     }
 
     let raw_session = generate_opaque_token();
+
     let session = ResourceShareSession {
         id: Id::new(),
         share_id: share.id.clone(),
@@ -663,17 +695,21 @@ async fn resolve_share_link(
         ip: request_ip(&headers),
         user_agent: header_text(&headers, USER_AGENT),
     };
+
     let share = state
         .storage
         .resource_shares
         .create_session(session, now)
         .await?;
+
     let mut cookie = format!(
         "{SHARE_SESSION_COOKIE}={raw_session}; Path=/; Max-Age={SHARE_SESSION_SECS}; HttpOnly; SameSite=Lax"
     );
+
     if state.platform.external_url.trim().starts_with("https://") {
         cookie.push_str("; Secure");
     }
+
     record_audit(
         &state,
         &share,
@@ -684,6 +720,7 @@ async fn resolve_share_link(
         json!({"result": "session_created", "view_count": share.view_count}),
     )
     .await?;
+
     Response::builder()
         .status(StatusCode::FOUND)
         .header(LOCATION, "/shared")
@@ -696,12 +733,15 @@ async fn resolve_share_link(
 
 async fn public_metadata(State(state): State<AppState>, headers: HeaderMap) -> Result<Json<Value>> {
     let (session, share) = public_share_context(&state, &headers, false).await?;
+
     state
         .storage
         .resource_shares
         .touch_session(&session.id, TimestampMicros::now())
         .await?;
+
     let requires_password = share.password_hash.is_some() && !session.password_verified;
+
     if requires_password {
         return Ok(Json(json!({
             "kind": share.resource_type,
@@ -715,6 +755,7 @@ async fn public_metadata(State(state): State<AppState>, headers: HeaderMap) -> R
             let dashboard = state.dashboard.get(&share.resource_id).await?;
             let definition =
                 sanitize_dashboard_model(dashboard.model, &share.id, &share.constraints);
+
             json!({
                 "kind": "dashboard",
                 "title": dashboard.title,
@@ -734,6 +775,7 @@ async fn public_metadata(State(state): State<AppState>, headers: HeaderMap) -> R
                 .scheduled_reports
                 .get_by_id(&share.resource_id)
                 .await?;
+
             json!({
                 "kind": "report",
                 "title": report.name,
@@ -751,6 +793,7 @@ async fn public_metadata(State(state): State<AppState>, headers: HeaderMap) -> R
         }
         _ => return Err(Error::invalid("unsupported shared resource type")),
     };
+
     Ok(Json(value))
 }
 
@@ -765,9 +808,11 @@ async fn public_unlock(
     Json(request): Json<UnlockRequest>,
 ) -> Result<Json<Value>> {
     let (session, share) = public_share_context(&state, &headers, false).await?;
+
     let Some(password_hash) = share.password_hash.as_deref() else {
         return Ok(Json(json!({"unlocked": true})));
     };
+
     if verify_password(&request.password, password_hash).is_err() {
         record_audit(
             &state,
@@ -779,13 +824,16 @@ async fn public_unlock(
             json!({"result": "denied"}),
         )
         .await?;
+
         return Err(Error::unauthorized("invalid share password"));
     }
+
     state
         .storage
         .resource_shares
         .mark_password_verified(&session.id)
         .await?;
+
     record_audit(
         &state,
         &share,
@@ -796,6 +844,7 @@ async fn public_unlock(
         json!({"result": "allowed"}),
     )
     .await?;
+
     Ok(Json(json!({"unlocked": true})))
 }
 
@@ -815,35 +864,43 @@ async fn public_query(
     Json(request): Json<PublicQueryRequest>,
 ) -> Result<Json<crate::domain::query::QueryResult>> {
     let (_session, share) = public_share_context(&state, &headers, true).await?;
+
     if share.resource_type != "dashboard" {
         return Err(Error::invalid(
             "public query is only available for dashboard shares",
         ));
     }
+
     let dashboard = state.dashboard.get(&share.resource_id).await?;
     let query = find_saved_panel_query(&dashboard.model, &request.panel_id, &request.ref_id)
         .ok_or_else(|| Error::not_found("shared dashboard query not found"))?;
     let variables = validated_variables(&dashboard.model, &share.constraints, &request.variables)?;
+
     let config = query
         .get("query")
         .and_then(Value::as_object)
         .ok_or_else(|| Error::invalid("saved dashboard query is invalid"))?;
+
     let source_type = query
         .get("dataSourceType")
         .and_then(Value::as_str)
         .unwrap_or("sql");
+
     if source_type == "profiles" {
         return Err(Error::forbidden(
             "profiles are not available through public dashboard shares",
         ));
     }
+
     let expression = ["expression", "statement", "sql", "query"]
         .into_iter()
         .find_map(|key| config.get(key).and_then(Value::as_str))
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .ok_or_else(|| Error::invalid("saved dashboard query has no expression"))?;
+
     let statement = interpolate_saved_expression(expression, &variables)?;
+
     let language = if config.get("language").and_then(Value::as_str) == Some("sql")
         || source_type != "metrics"
     {
@@ -851,40 +908,49 @@ async fn public_query(
     } else {
         QueryLanguage::Promql
     };
+
     let max_range_secs = constraint_i64(
         &share.constraints,
         "max_time_range_secs",
         DEFAULT_DASHBOARD_RANGE_SECS,
     )
     .clamp(60, MAX_DASHBOARD_RANGE_SECS);
+
     let now = TimestampMicros::now().0;
     let end = request.to_micros.min(now);
+
     let start = request
         .from_micros
         .max(end.saturating_sub(max_range_secs.saturating_mul(1_000_000)));
+
     if start >= end {
         return Err(Error::invalid("invalid public dashboard time range"));
     }
+
     let stream_name = ["streamName", "stream"]
         .into_iter()
         .find_map(|key| config.get(key).and_then(Value::as_str))
         .map(|value| interpolate_saved_expression(value, &variables))
         .transpose()?
         .filter(|value| !value.trim().is_empty());
+
     let stream_type = config
         .get("streamType")
         .and_then(Value::as_str)
         .and_then(parse_stream_type)
         .or_else(|| parse_stream_type(source_type));
+
     let stream = match (stream_name, stream_type) {
         (Some(name), Some(stream_type)) => Some(StreamHint { name, stream_type }),
         _ => None,
     };
+
     let limit = config
         .get("limit")
         .and_then(Value::as_u64)
         .unwrap_or(1000)
         .clamp(1, 1000) as usize;
+
     let result = state
         .query
         .run_tracked(
@@ -901,6 +967,7 @@ async fn public_query(
             "viewer",
         )
         .await?;
+
     record_audit(
         &state,
         &share,
@@ -919,6 +986,7 @@ async fn public_query(
         }),
     )
     .await?;
+
     Ok(Json(result))
 }
 
@@ -934,36 +1002,45 @@ async fn public_file(
     Query(query): Query<PublicFileQuery>,
 ) -> Result<Response> {
     let (_session, share) = public_share_context(&state, &headers, true).await?;
+
     if !matches!(share.resource_type.as_str(), "report" | "report_file") {
         return Err(Error::invalid("shared resource is not a report"));
     }
+
     if query.download && !share.allow_download {
         return Err(Error::forbidden("download is disabled for this share"));
     }
+
     let object_key = share
         .snapshot_object_key
         .as_deref()
         .ok_or_else(|| Error::unavailable("report snapshot is not available"))?;
+
     let object = state
         .storage
         .object_store
         .get(&ObjectPath::from(object_key))
         .await
         .map_err(|error| Error::internal(format!("read report snapshot: {error}")))?;
+
     let bytes = object
         .bytes()
         .await
         .map_err(|error| Error::internal(format!("read report snapshot bytes: {error}")))?;
+
     let content_type = share
         .snapshot_content_type
         .as_deref()
         .unwrap_or("application/octet-stream");
+
     let filename = share.snapshot_filename.as_deref().unwrap_or("report.bin");
+
     let disposition = if query.download {
         format!("attachment; filename=\"{}\"", header_filename(filename))
     } else {
         format!("inline; filename=\"{}\"", header_filename(filename))
     };
+
     record_audit(
         &state,
         &share,
@@ -978,6 +1055,7 @@ async fn public_file(
         json!({"download": query.download, "bytes": bytes.len()}),
     )
     .await?;
+
     Response::builder()
         .status(StatusCode::OK)
         .header(CONTENT_TYPE, content_type)
@@ -997,16 +1075,19 @@ fn expiration_for(
         let seconds = request
             .expires_in_secs
             .unwrap_or(policy.max_public_expiry_secs);
+
         if seconds < 3600 || seconds > policy.max_public_expiry_secs {
             return Err(Error::invalid(format!(
                 "public link expiry must be between 3600 and {} seconds",
                 policy.max_public_expiry_secs
             )));
         }
+
         return Ok(Some(TimestampMicros(
             now.0.saturating_add(seconds.saturating_mul(1_000_000)),
         )));
     }
+
     match request.expires_in_secs {
         Some(seconds) if seconds <= 0 => {
             Err(Error::invalid("expires_in_secs must be greater than zero"))
@@ -1026,11 +1107,13 @@ fn validate_public_share_password(
     if resource_type == "dashboard" && password.is_none() {
         return Err(Error::invalid("public dashboard shares require a password"));
     }
+
     if resource_type == "report" && require_public_report_password && password.is_none() {
         return Err(Error::invalid(
             "workspace policy requires a password for public reports",
         ));
     }
+
     Ok(())
 }
 
@@ -1047,14 +1130,17 @@ async fn validate_public_policy(
             "public links are disabled by workspace policy",
         ));
     }
+
     if request.resource_type == "dashboard" {
         if !policy.allow_public_dashboards {
             return Err(Error::forbidden(
                 "public dashboard links are disabled by workspace policy",
             ));
         }
+
         if policy.deny_production_public_shares {
             let dashboard = state.dashboard.get(resource_id).await?;
+
             if dashboard
                 .tags
                 .iter()
@@ -1066,6 +1152,7 @@ async fn validate_public_policy(
             }
         }
     }
+
     if let Some(report) = report
         && request.allow_download
         && report.format == "csv"
@@ -1075,6 +1162,7 @@ async fn validate_public_policy(
             "public CSV download is disabled by workspace policy",
         ));
     }
+
     Ok(())
 }
 
@@ -1090,11 +1178,14 @@ async fn normalize_public_constraints(
             "watermark": requested.get("watermark").and_then(Value::as_bool).unwrap_or(true),
         }));
     }
+
     let dashboard = state.dashboard.get(resource_id).await?;
+
     let known_variables = dashboard_variables(&dashboard.model)
         .into_iter()
         .filter_map(|variable| variable.get("name").and_then(Value::as_str))
         .collect::<BTreeSet<_>>();
+
     let allowed_variables = requested
         .get("allowed_variables")
         .and_then(Value::as_array)
@@ -1105,11 +1196,13 @@ async fn normalize_public_constraints(
         .take(32)
         .map(str::to_owned)
         .collect::<Vec<_>>();
+
     let max_range = requested
         .get("max_time_range_secs")
         .and_then(Value::as_i64)
         .unwrap_or(DEFAULT_DASHBOARD_RANGE_SECS)
         .clamp(60, MAX_DASHBOARD_RANGE_SECS);
+
     Ok(json!({
         "read_only": true,
         "max_time_range_secs": max_range,
@@ -1147,25 +1240,31 @@ async fn create_cross_org_grant(
             .as_deref()
             .ok_or_else(|| Error::invalid("target_organization_id is required"))?,
     );
+
     if target_organization_id == context.org_id {
         return Err(Error::invalid(
             "cross-org share target must be another organization",
         ));
     }
+
     state.iam.service.orgs.get(&target_organization_id).await?;
+
     let grantee_type = request
         .grantee_type
         .unwrap_or(IamPrincipalType::Organization);
+
     let grantee_id = Id::from_string(
         request
             .grantee_id
             .clone()
             .unwrap_or_else(|| target_organization_id.0.clone()),
     );
+
     match grantee_type {
         IamPrincipalType::Organization if grantee_id == target_organization_id => {}
         IamPrincipalType::Team => {
             let team = state.iam.teams.get(&grantee_id).await?;
+
             if team.org_id != target_organization_id {
                 return Err(Error::invalid(
                     "grantee team must belong to the target organization",
@@ -1181,6 +1280,7 @@ async fn create_cross_org_grant(
                 .await?
                 .iter()
                 .any(|membership| membership.user_id == grantee_id);
+
             if !found {
                 return Err(Error::invalid(
                     "grantee user must belong to the target organization",
@@ -1193,6 +1293,7 @@ async fn create_cross_org_grant(
             ));
         }
     }
+
     let grant = IamCrossOrgGrant {
         id: Id::new(),
         source_organization_id: context.org_id.clone(),
@@ -1213,12 +1314,14 @@ async fn create_cross_org_grant(
         created_by: context.user_id.clone(),
         created_at: TimestampMicros::now(),
     };
+
     let (grant, _) = state
         .iam
         .access
         .repository()
         .create_cross_org_grant(grant)
         .await?;
+
     Ok(grant)
 }
 
@@ -1238,11 +1341,14 @@ async fn render_report_snapshot(
         let renderer = state.platform.report_renderer.as_ref().ok_or_else(|| {
             Error::unavailable("report PDF/PNG renderer is unavailable; verify the Chrome runtime")
         })?;
+
         let url = super::reports::scheduled::report_render_url(
             &state.platform.report_renderer_base_url,
             report,
         )?;
+
         let browser_auth_storage = super::reports::scheduled::browser_auth_storage(state, context)?;
+
         let bytes = renderer
             .render(
                 &url,
@@ -1251,16 +1357,20 @@ async fn render_report_snapshot(
                 Some(&browser_auth_storage),
             )
             .await?;
+
         validate_report_bytes(format, &bytes)?;
         bytes.to_vec()
     } else {
         crate::infra::reporting::render_payload(report)?
     };
+
     let extension = report.format.to_ascii_lowercase();
+
     let object_key = format!(
         "resource-shares/{}/{}/report.{}",
         context.org_id.0, share_id.0, extension
     );
+
     state
         .storage
         .object_store
@@ -1270,6 +1380,7 @@ async fn render_report_snapshot(
         )
         .await
         .map_err(|error| Error::internal(format!("store report snapshot: {error}")))?;
+
     Ok(ReportSnapshot {
         object_key,
         content_type: crate::infra::reporting::content_type_for(&report.format).to_string(),
@@ -1285,28 +1396,34 @@ async fn public_share_context(
     let raw_session = cookie_value(headers, SHARE_SESSION_COOKIE)
         .ok_or_else(|| Error::unauthorized("missing share session"))?;
     let now = TimestampMicros::now();
+
     let session = state
         .storage
         .resource_shares
         .find_session(&token_hash(raw_session), now)
         .await?
         .ok_or_else(|| Error::unauthorized("share session expired"))?;
+
     let share = state
         .storage
         .resource_shares
         .get_by_id(&session.share_id)
         .await?;
+
     state
         .iam
         .service
         .ensure_organization_access(&share.organization_id)
         .await?;
+
     if share.share_mode != ResourceShareMode::PublicLink || !share_is_active(&share, now) {
         return Err(Error::unauthorized("resource share unavailable"));
     }
+
     if require_password && share.password_hash.is_some() && !session.password_verified {
         return Err(Error::unauthorized("share password required"));
     }
+
     Ok((session, share))
 }
 
@@ -1314,15 +1431,19 @@ fn sanitize_dashboard_model(mut model: Value, share_id: &Id, constraints: &Value
     let Some(object) = model.as_object_mut() else {
         return model;
     };
+
     object.insert("id".into(), Value::String(String::new()));
+
     object.insert(
         "uid".into(),
         Value::String(format!("public-{}", share_id.0)),
     );
+
     object.insert("editable".into(), Value::Bool(false));
     object.insert("defaultDashboard".into(), Value::Bool(false));
     object.insert("annotations".into(), Value::Array(Vec::new()));
     object.insert("links".into(), Value::Array(Vec::new()));
+
     object.insert(
         "refreshSettings".into(),
         json!({
@@ -1332,8 +1453,10 @@ fn sanitize_dashboard_model(mut model: Value, share_id: &Id, constraints: &Value
             "allowedIntervals": ["off"],
         }),
     );
+
     let allowed_variables = constraint_strings(constraints, "allowed_variables");
     let uses_current_schema = object.get("elements").is_some_and(Value::is_array);
+
     if let Some(variables) = object.get_mut("variables").and_then(Value::as_array_mut) {
         variables.retain(|variable| {
             variable
@@ -1341,6 +1464,7 @@ fn sanitize_dashboard_model(mut model: Value, share_id: &Id, constraints: &Value
                 .and_then(Value::as_str)
                 .is_some_and(|name| allowed_variables.contains(name))
         });
+
         for variable in variables {
             if let Some(variable) = variable.as_object_mut() {
                 variable.remove("query");
@@ -1348,16 +1472,19 @@ fn sanitize_dashboard_model(mut model: Value, share_id: &Id, constraints: &Value
             }
         }
     }
+
     if uses_current_schema {
         if let Some(elements) = object.get_mut("elements").and_then(Value::as_array_mut) {
             sanitize_elements(elements, &allowed_variables);
         }
     } else {
         sanitize_legacy_variables(object, &allowed_variables);
+
         if let Some(panels) = object.get_mut("panels").and_then(Value::as_array_mut) {
             sanitize_legacy_panels(panels);
         }
     }
+
     object.remove("createdBy");
     object.remove("updatedBy");
     model
@@ -1368,9 +1495,11 @@ fn sanitize_elements(elements: &mut [Value], allowed_variables: &BTreeSet<String
         let Some(object) = element.as_object_mut() else {
             continue;
         };
+
         match object.get("kind").and_then(Value::as_str) {
             Some("panel") => {
                 object.insert("links".into(), Value::Array(Vec::new()));
+
                 if let Some(repeat) = object
                     .get("repeat")
                     .and_then(|value| value.get("variable"))
@@ -1379,6 +1508,7 @@ fn sanitize_elements(elements: &mut [Value], allowed_variables: &BTreeSet<String
                 {
                     object.remove("repeat");
                 }
+
                 if let Some(queries) = object.get_mut("queries").and_then(Value::as_array_mut) {
                     for query in queries {
                         if let Some(query) = query.as_object_mut() {
@@ -1421,19 +1551,23 @@ fn sanitize_legacy_variables(
     else {
         return;
     };
+
     variables.retain(|variable| {
         variable
             .get("name")
             .and_then(Value::as_str)
             .is_some_and(|name| allowed_variables.contains(name))
     });
+
     for variable in variables {
         let Some(variable) = variable.as_object_mut() else {
             continue;
         };
+
         for key in ["query", "datasource", "definition", "regex", "allValue"] {
             variable.remove(key);
         }
+
         variable.insert("refresh".into(), Value::String("never".into()));
     }
 }
@@ -1443,9 +1577,11 @@ fn sanitize_legacy_panels(panels: &mut [Value]) {
         let Some(panel) = panel.as_object_mut() else {
             continue;
         };
+
         let panel_context = panel.clone();
         panel.insert("links".into(), Value::Array(Vec::new()));
         panel.remove("datasource");
+
         if let Some(targets) = panel.get_mut("targets").and_then(Value::as_array_mut) {
             *targets = targets
                 .iter()
@@ -1453,6 +1589,7 @@ fn sanitize_legacy_panels(panels: &mut [Value]) {
                 .filter_map(|(index, target)| sanitize_legacy_target(target, &panel_context, index))
                 .collect();
         }
+
         if let Some(children) = panel.get_mut("panels").and_then(Value::as_array_mut) {
             sanitize_legacy_panels(children);
         }
@@ -1468,6 +1605,7 @@ fn sanitize_legacy_target(
     let statement = legacy_statement(target)?;
     let language = legacy_language(target, statement);
     let source_type = legacy_source_type(target, panel, language, statement);
+
     let mut sanitized = Map::from_iter([
         ("refId".into(), Value::String(legacy_ref_id(target, index))),
         (
@@ -1477,6 +1615,7 @@ fn sanitize_legacy_target(
         ("language".into(), Value::String(language.into())),
         ("stream_type".into(), Value::String(source_type.into())),
     ]);
+
     if language == "promql" {
         sanitized.insert(
             "expr".into(),
@@ -1485,11 +1624,13 @@ fn sanitize_legacy_target(
     } else {
         sanitized.insert("rawSql".into(), Value::String("SELECT 1".into()));
     }
+
     for key in ["legendFormat", "format"] {
         if let Some(value) = target.get(key).and_then(Value::as_str) {
             sanitized.insert(key.into(), Value::String(value.into()));
         }
     }
+
     Some(Value::Object(sanitized))
 }
 
@@ -1497,6 +1638,7 @@ fn find_saved_panel_query(model: &Value, panel_id: &str, ref_id: &str) -> Option
     if let Some(elements) = model.get("elements").and_then(Value::as_array) {
         let query = find_query_in_elements(elements, panel_id, ref_id)?;
         let shared = query.get("sharedQuery").and_then(Value::as_object);
+
         return match shared {
             Some(shared) => {
                 let source_panel = shared.get("sourcePanelId")?.as_str()?;
@@ -1506,6 +1648,7 @@ fn find_saved_panel_query(model: &Value, panel_id: &str, ref_id: &str) -> Option
             None => Some(query),
         };
     }
+
     model
         .get("panels")
         .and_then(Value::as_array)
@@ -1515,6 +1658,7 @@ fn find_saved_panel_query(model: &Value, panel_id: &str, ref_id: &str) -> Option
 fn find_legacy_query_in_panels(panels: &[Value], panel_id: &str, ref_id: &str) -> Option<Value> {
     for (panel_index, panel) in panels.iter().enumerate() {
         let panel = panel.as_object()?;
+
         if legacy_panel_id(panel, panel_index) == panel_id
             && let Some((target_index, target)) = panel
                 .get("targets")
@@ -1530,6 +1674,7 @@ fn find_legacy_query_in_panels(panels: &[Value], panel_id: &str, ref_id: &str) -
         {
             return normalize_legacy_query(target, panel, target_index);
         }
+
         if let Some(found) = panel
             .get("panels")
             .and_then(Value::as_array)
@@ -1538,6 +1683,7 @@ fn find_legacy_query_in_panels(panels: &[Value], panel_id: &str, ref_id: &str) -
             return Some(found);
         }
     }
+
     None
 }
 
@@ -1551,6 +1697,7 @@ fn normalize_legacy_query(
     let language = legacy_language(target, statement);
     let source_type = legacy_source_type(target, panel, language, statement);
     let mut config = Map::from_iter([("language".into(), Value::String(language.to_string()))]);
+
     config.insert(
         if language == "promql" {
             "expression".into()
@@ -1559,14 +1706,17 @@ fn normalize_legacy_query(
         },
         Value::String(statement.to_string()),
     );
+
     if let Some(stream_name) = legacy_stream_name(target) {
         config.insert("streamName".into(), Value::String(stream_name.into()));
         let stream_type = legacy_stream_type(target).unwrap_or(source_type);
         config.insert("streamType".into(), Value::String(stream_type.into()));
     }
+
     if let Some(limit) = target.get("limit").and_then(Value::as_u64) {
         config.insert("limit".into(), Value::from(limit));
     }
+
     Some(json!({
         "refId": legacy_ref_id(target, index),
         "enabled": !target.get("hide").and_then(Value::as_bool).unwrap_or(false),
@@ -1596,9 +1746,11 @@ fn legacy_language(target: &Map<String, Value>, statement: &str) -> &'static str
         })
         .unwrap_or_default()
         .to_ascii_lowercase();
+
     if configured.contains("prom") || configured == "metrics" {
         return "promql";
     }
+
     if configured.contains("sql")
         || configured.contains("postgres")
         || configured.contains("mysql")
@@ -1606,6 +1758,7 @@ fn legacy_language(target: &Map<String, Value>, statement: &str) -> &'static str
     {
         return "sql";
     }
+
     if statement.to_ascii_lowercase().contains("select") {
         "sql"
     } else {
@@ -1638,24 +1791,30 @@ fn legacy_source_type(
     .collect::<Vec<_>>()
     .join(" ")
     .to_ascii_lowercase();
+
     if configured.contains("trace") || configured.contains("tempo") {
         return "traces";
     }
+
     if configured.contains("profile") {
         return "profiles";
     }
+
     if configured.contains("log")
         || configured.contains("loki")
         || configured.contains("elasticsearch")
     {
         return "logs";
     }
+
     if configured.contains("metric") || configured.contains("prom") {
         return "metrics";
     }
+
     if language == "promql" {
         return "metrics";
     }
+
     let hint = format!(
         "{} {statement}",
         panel
@@ -1664,6 +1823,7 @@ fn legacy_source_type(
             .unwrap_or_default()
     )
     .to_ascii_lowercase();
+
     if hint.contains("trace") {
         "traces"
     } else if hint.contains("profile") {
@@ -1724,12 +1884,14 @@ fn legacy_ref_id(target: &Map<String, Value>, index: usize) -> String {
 
 fn legacy_panel_id(panel: &Map<String, Value>, index: usize) -> String {
     let fallback = (index + 1).to_string();
+
     let raw = match panel.get("id") {
         Some(Value::String(value)) => value.clone(),
         Some(Value::Number(value)) => value.to_string(),
         Some(Value::Bool(value)) => value.to_string(),
         _ => fallback.clone(),
     };
+
     let safe = raw
         .trim()
         .chars()
@@ -1741,6 +1903,7 @@ fn legacy_panel_id(panel: &Map<String, Value>, index: usize) -> String {
             }
         })
         .collect::<String>();
+
     let safe = if safe.is_empty() { fallback } else { safe };
     format!("legacy-{safe}-{}", index + 1)
 }
@@ -1748,6 +1911,7 @@ fn legacy_panel_id(panel: &Map<String, Value>, index: usize) -> String {
 fn find_query_in_elements(elements: &[Value], panel_id: &str, ref_id: &str) -> Option<Value> {
     for element in elements {
         let object = element.as_object()?;
+
         match object.get("kind").and_then(Value::as_str) {
             Some("panel") if object.get("id").and_then(Value::as_str) == Some(panel_id) => {
                 if let Some(query) = object
@@ -1788,6 +1952,7 @@ fn find_query_in_elements(elements: &[Value], panel_id: &str, ref_id: &str) -> O
             _ => {}
         }
     }
+
     None
 }
 
@@ -1797,37 +1962,47 @@ fn validated_variables(
     requested: &BTreeMap<String, Value>,
 ) -> Result<BTreeMap<String, Value>> {
     let allowed_names = constraint_strings(constraints, "allowed_variables");
+
     let allow_changes = constraints
         .get("allow_variable_changes")
         .and_then(Value::as_bool)
         .unwrap_or(false);
+
     let mut values = BTreeMap::new();
+
     for variable in dashboard_variables(model) {
         let Some(name) = variable.get("name").and_then(Value::as_str) else {
             continue;
         };
+
         if !allowed_names.contains(name) {
             continue;
         }
+
         let default =
             variable_default_value(variable).unwrap_or_else(|| Value::String(String::new()));
+
         let candidate = if allow_changes {
             requested.get(name).cloned().unwrap_or(default)
         } else {
             default
         };
+
         if !variable_value_allowed(variable, &candidate) {
             return Err(Error::forbidden(format!(
                 "variable {name} is outside the shared allowlist"
             )));
         }
+
         values.insert(name.to_string(), candidate);
     }
+
     if requested.keys().any(|name| !allowed_names.contains(name)) {
         return Err(Error::forbidden(
             "one or more dashboard variables are not shared",
         ));
     }
+
     Ok(values)
 }
 
@@ -1835,6 +2010,7 @@ fn dashboard_variables(model: &Value) -> Vec<&Value> {
     if let Some(variables) = model.get("variables").and_then(Value::as_array) {
         return variables.iter().collect();
     }
+
     model
         .get("templating")
         .and_then(Value::as_object)
@@ -1881,12 +2057,14 @@ fn variable_value_allowed(variable: &Value, candidate: &Value) -> bool {
                 .collect::<Vec<_>>()
         })
         .unwrap_or_default();
+
     if !options.is_empty() {
         return match candidate {
             Value::Array(values) => values.iter().all(|value| options.contains(&value)),
             value => options.contains(&value),
         };
     }
+
     variable_default_value(variable)
         .as_ref()
         .is_some_and(|default| default == candidate)
@@ -1900,6 +2078,7 @@ fn interpolate_saved_expression(
     let regex =
         Regex::new(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?::([A-Za-z]+))?\}|\$([A-Za-z_][A-Za-z0-9_]*)")
             .map_err(|error| Error::internal(format!("compile variable expression: {error}")))?;
+
     Ok(regex
         .replace_all(expression, |captures: &regex::Captures<'_>| {
             let name = captures
@@ -1907,6 +2086,7 @@ fn interpolate_saved_expression(
                 .or_else(|| captures.get(3))
                 .map(|value| value.as_str())
                 .unwrap_or_default();
+
             let Some(value) = variables.get(name) else {
                 return captures
                     .get(0)
@@ -1914,6 +2094,7 @@ fn interpolate_saved_expression(
                     .unwrap_or_default()
                     .to_string();
             };
+
             format_variable_value(
                 value,
                 captures.get(2).map(|value| value.as_str()).unwrap_or("raw"),
@@ -1927,6 +2108,7 @@ fn format_variable_value(value: &Value, format: &str) -> String {
         .as_array()
         .map(Vec::as_slice)
         .unwrap_or_else(|| std::slice::from_ref(value));
+
     match format {
         "json" => value.to_string(),
         "sqlstring" => values
@@ -2031,22 +2213,27 @@ fn resource_share_view(share: ResourceShare) -> ResourceShareView {
     } else {
         None
     };
+
     ResourceShareView { share, url }
 }
 
 fn generate_share_token() -> String {
     let mut bytes = [0u8; 9];
+
     rand::rngs::SysRng
         .try_fill_bytes(&mut bytes)
         .expect("operating-system random source");
+
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
 }
 
 fn generate_opaque_token() -> String {
     let mut bytes = [0u8; 32];
+
     rand::rngs::SysRng
         .try_fill_bytes(&mut bytes)
         .expect("operating-system random source");
+
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
 }
 
@@ -2141,7 +2328,9 @@ fn safe_filename(value: &str) -> String {
             }
         })
         .collect::<String>();
+
     let value = value.trim_matches('-');
+
     if value.is_empty() {
         "report".into()
     } else {

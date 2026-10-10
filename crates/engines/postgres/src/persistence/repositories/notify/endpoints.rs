@@ -26,6 +26,7 @@ const COLS: &str = "id, organization_id, user_id, connector_id, provider_type,
 
 fn row_to_endpoint(row: sqlx::postgres::PgRow) -> Result<UserNotifyEndpoint> {
     let metadata: Json<serde_json::Value> = row.try_get("metadata").map_err(sqlx_err)?;
+
     Ok(UserNotifyEndpoint {
         id: Id::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?),
         organization_id: Id::from_string(
@@ -70,6 +71,7 @@ impl UserNotifyEndpointRepository for PgUserNotifyEndpointRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(endpoint)
     }
 
@@ -100,9 +102,11 @@ impl UserNotifyEndpointRepository for PgUserNotifyEndpointRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         if updated.rows_affected() == 0 {
             return Err(Error::not_found("user notify endpoint"));
         }
+
         Ok(endpoint)
     }
 
@@ -118,6 +122,7 @@ impl UserNotifyEndpointRepository for PgUserNotifyEndpointRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         row_to_endpoint(row)
     }
 
@@ -133,6 +138,7 @@ impl UserNotifyEndpointRepository for PgUserNotifyEndpointRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to_endpoint).collect()
     }
 
@@ -147,6 +153,7 @@ impl UserNotifyEndpointRepository for PgUserNotifyEndpointRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to_endpoint).collect()
     }
 
@@ -161,6 +168,7 @@ impl UserNotifyEndpointRepository for PgUserNotifyEndpointRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         u64::try_from(count).map_err(|_| Error::internal("negative endpoint count"))
     }
 
@@ -175,9 +183,11 @@ impl UserNotifyEndpointRepository for PgUserNotifyEndpointRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         if deleted.rows_affected() == 0 {
             return Err(Error::not_found("user notify endpoint"));
         }
+
         Ok(())
     }
 }

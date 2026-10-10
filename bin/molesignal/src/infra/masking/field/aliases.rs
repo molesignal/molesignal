@@ -36,6 +36,7 @@ impl Visitor for AliasCollector {
                     .push((normalize_identifier(&alias.value), expression_fields(expr))),
                 SelectItem::ExprWithAliases { expr, aliases } => {
                     let fields = expression_fields(expr);
+
                     self.aliases.extend(
                         aliases
                             .iter()
@@ -45,12 +46,14 @@ impl Visitor for AliasCollector {
                 _ => {}
             }
         }
+
         ControlFlow::Continue(())
     }
 }
 
 fn expression_fields(expression: &Expr) -> Vec<String> {
     let mut fields = Vec::new();
+
     let _ = visit_expressions(expression, |nested| {
         match nested {
             Expr::Identifier(identifier) => {
@@ -63,8 +66,10 @@ fn expression_fields(expression: &Expr) -> Vec<String> {
             }
             _ => {}
         }
+
         ControlFlow::<()>::Continue(())
     });
+
     fields.sort();
     fields.dedup();
     fields
@@ -89,26 +94,33 @@ pub(super) fn propagate_derived_algorithms(
 
     for _ in 0..=aliases.len() {
         let mut changed = false;
+
         for (alias, dependencies) in &aliases {
             let alias = normalize_identifier(alias);
+
             if algorithms.contains_key(&alias) {
                 continue;
             }
+
             let inherited = dependencies
                 .iter()
                 .filter_map(|field| algorithms.get(&normalize_identifier(field)).cloned())
                 .collect::<Vec<_>>();
+
             if !inherited.is_empty() {
                 for algorithm in inherited {
                     insert_algorithm(algorithms, alias.clone(), algorithm);
                 }
+
                 changed = true;
             }
         }
+
         if !changed {
             break;
         }
     }
+
     Ok(())
 }
 

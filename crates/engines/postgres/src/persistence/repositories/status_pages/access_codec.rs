@@ -20,6 +20,7 @@ impl PgStatusPageRepository {
         let kind: String = row.try_get("kind").map_err(super::sqlx_err)?;
         let ciphertext: Vec<u8> = row.try_get("value_ciphertext").map_err(super::sqlx_err)?;
         let nonce: Vec<u8> = row.try_get("value_nonce").map_err(super::sqlx_err)?;
+
         Ok(StatusPageAccessRule {
             id: Id(row.try_get("id").map_err(super::sqlx_err)?),
             org_id: Id(row.try_get("org_id").map_err(super::sqlx_err)?),
@@ -38,6 +39,7 @@ impl PgStatusPageRepository {
     ) -> Result<StatusPageMagicLink> {
         let ciphertext: Vec<u8> = row.try_get("email_ciphertext").map_err(super::sqlx_err)?;
         let nonce: Vec<u8> = row.try_get("email_nonce").map_err(super::sqlx_err)?;
+
         Ok(StatusPageMagicLink {
             id: Id(row.try_get("id").map_err(super::sqlx_err)?),
             org_id: Id(row.try_get("org_id").map_err(super::sqlx_err)?),
@@ -61,6 +63,7 @@ impl PgStatusPageRepository {
     ) -> Result<StatusPageAccessSession> {
         let ciphertext: Vec<u8> = row.try_get("email_ciphertext").map_err(super::sqlx_err)?;
         let nonce: Vec<u8> = row.try_get("email_nonce").map_err(super::sqlx_err)?;
+
         Ok(StatusPageAccessSession {
             id: Id(row.try_get("id").map_err(super::sqlx_err)?),
             org_id: Id(row.try_get("org_id").map_err(super::sqlx_err)?),

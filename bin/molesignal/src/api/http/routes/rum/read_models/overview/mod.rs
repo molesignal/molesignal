@@ -23,10 +23,12 @@ pub(super) async fn read(
     Query(request): Query<ReadModelQuery>,
 ) -> Result<Json<OverviewSummaryResponse>> {
     let context = ReadModelContext::resolve(request)?;
+
     let (sessions, actions) = tokio::try_join!(
         sessions::load(&state, &iam, &context),
         actions::load_metrics(&state, &iam, &context),
     )?;
+
     Ok(Json(OverviewSummaryResponse::from_parts(sessions, actions)))
 }
 
@@ -37,10 +39,12 @@ pub(super) async fn insights(
     Query(request): Query<ReadModelQuery>,
 ) -> Result<Json<OverviewInsightsResponse>> {
     let context = ReadModelContext::resolve(request)?;
+
     let (actions, frequent_errors) = tokio::try_join!(
         actions::load_insights(&state, &iam, &context),
         errors::load(&state, &iam, &context),
     )?;
+
     Ok(Json(OverviewInsightsResponse::from_parts(
         actions,
         frequent_errors,

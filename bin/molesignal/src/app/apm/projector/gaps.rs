@@ -43,18 +43,23 @@ impl GapLedger {
         count: u64,
     ) {
         let minute_at = TimestampMicros(event_time.0.div_euclid(MINUTE_MICROS) * MINUTE_MICROS);
+
         let key = GapKey {
             org_id: org_id.clone(),
             minute_at,
             reason,
         };
+
         let mut values = self.values.lock();
+
         if values.len() >= self.capacity && !values.contains_key(&key) {
             if let Some((_, current)) = values.iter_mut().next() {
                 *current = current.saturating_add(count);
             }
+
             return;
         }
+
         values
             .entry(key)
             .and_modify(|current| *current = current.saturating_add(count))
@@ -70,6 +75,7 @@ impl GapLedger {
     pub(super) fn take(&self) -> Vec<ProjectionGap> {
         let values = std::mem::take(&mut *self.values.lock());
         let now = TimestampMicros::now();
+
         values
             .into_iter()
             .map(|(key, dropped_facts)| ProjectionGap {

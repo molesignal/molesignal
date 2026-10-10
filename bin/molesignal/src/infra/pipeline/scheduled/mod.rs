@@ -90,10 +90,12 @@ impl ScheduledPipelineRunner {
         let pipelines = self.repo.list_enabled_all().await?;
         let now = TimestampMicros::now();
         let mut fired = 0usize;
+
         for p in pipelines {
             if !is_due(&p, now) {
                 continue;
             }
+
             // 先认领再执行：归属决定谁来跑，运行租约兜住成员变化时的双跑。
             let permit = match self.gate.admit(RUN_KIND, p.id.as_str()).await {
                 Ok(Some(permit)) => permit,
@@ -103,6 +105,7 @@ impl ScheduledPipelineRunner {
                     continue;
                 }
             };
+
             // 认领后重读：另一个节点可能刚跑完并推进了 schedule，不能拿列表时的旧快照再跑一遍。
             match self.repo.get_by_id(&p.id).await {
                 Ok(fresh) if is_due(&fresh, now) => {
@@ -114,10 +117,12 @@ impl ScheduledPipelineRunner {
                     tracing::warn!(pipeline_id = %p.id.0, error = %e, "scheduled pipeline reload failed");
                 }
             }
+
             if let Err(e) = permit.release().await {
                 tracing::warn!(pipeline_id = %p.id.0, error = %e, "pipeline run claim release failed");
             }
         }
+
         Ok(fired)
     }
 
@@ -131,6 +136,7 @@ impl ScheduledPipelineRunner {
 
         // 写入 running 行（如果有 runs repo 注入）。
         let run_id = Id::new();
+
         if let Some(runs) = &self.runs {
             let row = PipelineRun {
                 id: run_id.clone(),
@@ -142,6 +148,7 @@ impl ScheduledPipelineRunner {
                 scanned_rows: 0,
                 error: None,
             };
+
             if let Err(e) = runs.record_start(row).await {
                 tracing::warn!(error = %e, "pipeline_runs record_start failed");
             }
@@ -153,6 +160,7 @@ impl ScheduledPipelineRunner {
             Some(exec) => exec.execute(p).await,
             None => Ok(0u64),
         };
+
         // 无论成败都 touch_last_run 推进 schedule，避免失败 pipeline 每 tick 热重试。
         let _ = self.repo.touch_last_run(&p.id, now).await;
         let finished = TimestampMicros::now();
@@ -180,6 +188,7 @@ fn is_due(p: &ScheduledPipeline, now: TimestampMicros) -> bool {
     if !p.enabled || crate::domain::pipeline::realtime::is_realtime(&p.function_steps) {
         return false;
     }
+
     match parse_every_secs(&p.cron) {
         Some(secs) => match p.last_run_at {
             Some(last) => now.0 - last.0 >= secs * 1_000_000,
@@ -207,15 +216,18 @@ pub(crate) fn parse_every_secs(cron: &str) -> Option<i64> {
     let rest = s.strip_prefix("every:")?;
     let (num, unit) = rest.split_at(rest.find(|c: char| !c.is_ascii_digit())?);
     let n: i64 = num.parse().ok()?;
+
     if n <= 0 {
         return None;
     }
+
     let multiplier = match unit {
         "s" => 1,
         "m" => 60,
         "h" => 3600,
         _ => return None,
     };
+
     n.checked_mul(multiplier)
         .filter(|seconds| seconds.checked_mul(1_000_000).is_some())
 }

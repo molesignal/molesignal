@@ -47,6 +47,7 @@ impl StatusPageMaintenanceWorker {
         tokio::spawn(async move {
             let mut cadence =
                 PollingBackoff::new(self.interval, self.interval, "status-page-maintenance");
+
             loop {
                 // 非主节点很快再看一眼：刚启动或刚接任主节点时不必等满一个维护周期。
                 let delay = if self.ownership.is_primary().await {
@@ -55,6 +56,7 @@ impl StatusPageMaintenanceWorker {
                 } else {
                     NOT_PRIMARY_RECHECK
                 };
+
                 tokio::time::sleep(delay).await;
                 cadence.reset();
             }
@@ -71,6 +73,7 @@ impl StatusPageMaintenanceWorker {
         if let Err(error) = self.service.verify_domains_due(100).await {
             tracing::warn!(error = %error, "status-page domain sweep failed");
         }
+
         if let Err(error) = self
             .service
             .purge_terminal_notification_deliveries(1000)
@@ -78,6 +81,7 @@ impl StatusPageMaintenanceWorker {
         {
             tracing::warn!(error = %error, "status-page delivery retention sweep failed");
         }
+
         match self.service.purge_archived_pages(100).await {
             Ok(pages) => {
                 for page in pages {
@@ -94,6 +98,7 @@ impl StatusPageMaintenanceWorker {
                 tracing::warn!(error = %error, "status-page archive retention sweep failed");
             }
         }
+
         if let Err(error) = self.service.purge_expired_access_artifacts(1000).await {
             tracing::warn!(error = %error, "status-page private-access sweep failed");
         }

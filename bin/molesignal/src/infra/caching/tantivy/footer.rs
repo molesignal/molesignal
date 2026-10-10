@@ -35,27 +35,33 @@ pub struct TantivyFooterCache {
 impl TantivyFooterCache {
     pub fn new(settings: &TantivyFooterCacheSettings) -> Self {
         let _ = metrics();
+
         if settings.capacity == 0 {
             return Self { inner: None };
         }
+
         let evict = metrics().evictions.clone();
+
         let cache = Cache::builder()
             .max_capacity(settings.capacity)
             .time_to_live(Duration::from_secs(u64::from(settings.ttl_secs)))
             .support_invalidation_closures()
             .async_eviction_listener(move |_k, _v, _cause| {
                 let evict = evict.clone();
+
                 Box::pin(async move {
                     evict.inc();
                 })
             })
             .build();
+
         Self { inner: Some(cache) }
     }
 
     pub async fn get(&self, index_object_key: &str) -> Option<Arc<TantivyFooter>> {
         let m = metrics();
         let cache = self.inner.as_ref()?;
+
         match cache.get(index_object_key).await {
             Some(v) => {
                 m.hits.inc();
@@ -82,6 +88,7 @@ impl TantivyFooterCache {
         let Some(cache) = self.inner.as_ref() else {
             return;
         };
+
         for k in index_object_keys {
             cache.invalidate(k).await;
         }
@@ -91,6 +98,7 @@ impl TantivyFooterCache {
         let m = metrics();
         let h = m.hits_view.load(Ordering::Relaxed);
         let mi = m.misses_view.load(Ordering::Relaxed);
+
         if h + mi == 0 {
             0.0
         } else {
@@ -115,34 +123,41 @@ struct Metrics {
 
 fn metrics() -> &'static Metrics {
     static M: OnceLock<Metrics> = OnceLock::new();
+
     M.get_or_init(|| {
         let hits = register_int_counter(
             "cache_tantivy_footer_hits_total",
             "tantivy footer cache hits",
         );
+
         let misses = register_int_counter(
             "cache_tantivy_footer_misses_total",
             "tantivy footer cache misses",
         );
+
         let evictions = register_int_counter(
             "cache_tantivy_footer_evictions_total",
             "tantivy footer cache LRU/TTL evictions",
         );
+
         let errors = register_int_counter(
             "cache_tantivy_footer_errors_total",
             "tantivy footer cache internal errors (falls through to full parse)",
         );
+
         let hit_ratio = {
             let g = Gauge::with_opts(Opts::new(
                 "cache_tantivy_footer_hit_ratio",
                 "tantivy footer cache hit ratio in [0.0, 1.0]",
             ))
             .expect("create gauge");
+
             match global_registry().register(Box::new(g.clone())) {
                 Ok(()) | Err(prometheus::Error::AlreadyReg) => g,
                 Err(e) => panic!("register gauge: {e}"),
             }
         };
+
         Metrics {
             hits,
             misses,

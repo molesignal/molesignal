@@ -46,6 +46,7 @@ fn row_to_view(row: sqlx::postgres::PgRow) -> Result<SavedView> {
     let tags: Json<Vec<String>> = row.try_get("tags").map_err(sqlx_err)?;
     let language: String = row.try_get("language").map_err(sqlx_err)?;
     let time_range_secs: i32 = row.try_get("time_range_secs").map_err(sqlx_err)?;
+
     Ok(SavedView {
         id: Id::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?),
         org_id: Id::from_string(row.try_get::<String, _>("org_id").map_err(sqlx_err)?),
@@ -89,6 +90,7 @@ impl SavedViewRepository for PgSavedViewRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(v)
     }
 
@@ -113,6 +115,7 @@ impl SavedViewRepository for PgSavedViewRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(v)
     }
 
@@ -122,6 +125,7 @@ impl SavedViewRepository for PgSavedViewRepository {
             .fetch_one(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         row_to_view(row)
     }
 
@@ -134,6 +138,7 @@ impl SavedViewRepository for PgSavedViewRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         row_to_view(row)
     }
 
@@ -151,11 +156,13 @@ impl SavedViewRepository for PgSavedViewRepository {
                  ORDER BY pinned DESC, updated_at_micros DESC"
             )
         };
+
         let rows = sqlx::query(&sql)
             .bind(&org_id.0)
             .fetch_all(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to_view).collect()
     }
 
@@ -166,6 +173,7 @@ impl SavedViewRepository for PgSavedViewRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(())
     }
 }

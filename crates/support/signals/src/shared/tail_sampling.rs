@@ -81,9 +81,11 @@ impl TraceRuntimePolicy {
         {
             return Err("normal_sample_ratio must be between 0 and 1".into());
         }
+
         if !(5_000..=120_000).contains(&self.decision_window_ms) {
             return Err("decision_window_ms must be between 5000 and 120000".into());
         }
+
         if self.root_grace_ms == 0
             || self.decision_cache_ms < self.decision_window_ms
             || self.max_traces == 0
@@ -92,15 +94,19 @@ impl TraceRuntimePolicy {
         {
             return Err("Trace policy limits and timeouts must be greater than zero".into());
         }
+
         self.slow_thresholds_ms.validate()?;
+
         for (route, threshold) in &self.route_slow_thresholds_ms {
             if route.is_empty() || *threshold == 0 {
                 return Err("route slow-threshold entries must be non-empty/non-zero".into());
             }
         }
+
         for rule in &self.rules {
             rule.validate()?;
         }
+
         Ok(())
     }
 }
@@ -156,6 +162,7 @@ impl SlowThresholds {
         {
             return Err("slow thresholds must be greater than zero".into());
         }
+
         Ok(())
     }
 
@@ -194,14 +201,17 @@ impl SamplingRule {
         if self.name.trim().is_empty() {
             return Err("sampling rule name must not be empty".into());
         }
+
         if matches!(self.minimum_duration_ms, Some(0)) {
             return Err("sampling rule duration must be non-zero".into());
         }
+
         if let SamplingRuleAction::Ratio(ratio) = self.action
             && (!ratio.is_finite() || !(0.0..=1.0).contains(&ratio))
         {
             return Err("sampling rule ratio must be between 0 and 1".into());
         }
+
         Ok(())
     }
 
@@ -216,21 +226,25 @@ impl SamplingRule {
         {
             return false;
         }
+
         if let Some(route) = &self.route
             && span.attributes.get("http.route").and_then(Value::as_str) != Some(route)
         {
             return false;
         }
+
         if let Some(operation) = &self.operation
             && span.name != *operation
         {
             return false;
         }
+
         if let Some(duration) = self.minimum_duration_ms
             && span.duration_ns < duration.saturating_mul(1_000_000)
         {
             return false;
         }
+
         !self.require_error || span_is_error(span)
     }
 }
@@ -386,6 +400,7 @@ impl TailSampler {
         span_limits: TraceLimits,
     ) -> Result<Self, String> {
         policy.validate()?;
+
         Ok(Self {
             deployment_force_disabled,
             policy: RwLock::new(Arc::new(policy)),
@@ -421,13 +436,16 @@ impl TailSampler {
     pub fn accept_at(&self, mut candidate: TraceCandidate, now_ms: u64) -> SamplerOutput {
         sanitize_and_limit_span(&mut candidate.span, self.span_limits);
         trace_metrics::record_spans("candidate", "accepted", 1);
+
         if candidate.span.partial {
             trace_metrics::record_spans("candidate", "partial", 1);
         }
+
         let key = TraceKey {
             org_id: candidate.org_id.clone(),
             trace_id: candidate.span.trace_id.clone(),
         };
+
         let span_id = candidate.span.span_id.clone();
         let digest = candidate.span.content_digest();
         let size = estimated_span_bytes(&candidate.span);
@@ -453,6 +471,7 @@ impl TailSampler {
                     candidate.span.sampling_reason = cached.reason;
                     self.metrics.late_kept.fetch_add(1, Ordering::Relaxed);
                     trace_metrics::record_spans("sampler", "late", 1);
+
                     output.decided.push(DecidedTrace {
                         org_id: key.org_id.clone(),
                         stream: cached.stream.clone(),
@@ -462,6 +481,7 @@ impl TailSampler {
                         reason: cached.reason,
                         spans: vec![candidate.span],
                     });
+
                     CandidateDisposition::LateKept
                 }
                 None => {
@@ -471,6 +491,7 @@ impl TailSampler {
                     CandidateDisposition::LateDropped
                 }
             });
+
             self.observe_cache(&state);
             return output;
         }
@@ -481,6 +502,7 @@ impl TailSampler {
                 output.disposition = Some(CandidateDisposition::ConflictingDuplicate);
                 return output;
             }
+
             output.disposition = Some(match pending.digests.get(&span_id) {
                 Some(previous) if previous == &digest => {
                     self.metrics.duplicates.fetch_add(1, Ordering::Relaxed);
@@ -495,6 +517,7 @@ impl TailSampler {
                     {
                         original.conflict = true;
                     }
+
                     self.metrics.conflicts.fetch_add(1, Ordering::Relaxed);
                     trace_metrics::record_spans("sampler", "conflict", 1);
                     CandidateDisposition::ConflictingDuplicate
@@ -503,9 +526,11 @@ impl TailSampler {
                     pending.digests.insert(span_id, digest);
                     pending.estimated_bytes = pending.estimated_bytes.saturating_add(size);
                     pending.force_keep = stronger_force(pending.force_keep, candidate.force_keep);
+
                     if candidate.span.parent_span_id.is_none() {
                         pending.root_ended_ms.get_or_insert(now_ms);
                     }
+
                     pending.spans.push(candidate.span);
                     state.estimated_bytes = state.estimated_bytes.saturating_add(size);
                     self.metrics.accepted.fetch_add(1, Ordering::Relaxed);
@@ -514,6 +539,7 @@ impl TailSampler {
             });
         } else {
             let policy = self.policy.read().clone();
+
             let mut pending = PendingTrace {
                 policy,
                 stream: candidate.stream,
@@ -524,9 +550,11 @@ impl TailSampler {
                 estimated_bytes: size,
                 force_keep: candidate.force_keep,
             };
+
             if pending.spans[0].parent_span_id.is_none() {
                 pending.root_ended_ms = Some(now_ms);
             }
+
             state.estimated_bytes = state.estimated_bytes.saturating_add(size);
             state.traces.insert(key, pending);
             self.metrics.accepted.fetch_add(1, Ordering::Relaxed);
@@ -556,6 +584,7 @@ impl TailSampler {
         let mut state = self.state.lock();
         let keys: Vec<_> = state.traces.keys().cloned().collect();
         let now_ms = now_millis();
+
         let decided = keys
             .into_iter()
             .filter_map(|key| {
@@ -569,6 +598,7 @@ impl TailSampler {
                 )
             })
             .collect();
+
         self.observe_cache(&state);
         decided
     }
@@ -579,9 +609,11 @@ impl TailSampler {
         let count = state.traces.len();
         state.traces.clear();
         state.estimated_bytes = 0;
+
         self.metrics
             .unresolved_loss
             .fetch_add(count as u64, Ordering::Relaxed);
+
         self.observe_cache(&state);
         count
     }
@@ -589,12 +621,14 @@ impl TailSampler {
     pub fn metrics(&self) -> TailSamplerMetricSnapshot {
         let state = self.state.lock();
         let policy = self.policy.read();
+
         trace_metrics::set_tail_cache(
             state.traces.len(),
             state.estimated_bytes,
             policy.max_traces,
             policy.memory_bytes,
         );
+
         TailSamplerMetricSnapshot {
             accepted: self.metrics.accepted.load(Ordering::Relaxed),
             kept: self.metrics.kept.load(Ordering::Relaxed),
@@ -614,6 +648,7 @@ impl TailSampler {
 
     fn observe_cache(&self, state: &SamplerState) {
         let policy = self.policy.read();
+
         trace_metrics::set_tail_cache(
             state.traces.len(),
             state.estimated_bytes,
@@ -637,6 +672,7 @@ impl TailSampler {
             })
             .map(|(key, _)| key.clone())
             .collect();
+
         output.extend(due.into_iter().filter_map(|key| {
             remove_and_decide(
                 state,
@@ -660,18 +696,23 @@ impl TailSampler {
             let over = state.traces.len() > active.max_traces
                 || state.estimated_bytes > active.memory_bytes;
             drop(active);
+
             if !over {
                 break;
             }
+
             let victim = state
                 .traces
                 .iter()
                 .min_by_key(|(_, pending)| (pending.priority(), pending.first_seen_ms))
                 .map(|(key, pending)| (key.clone(), pending.priority()));
+
             let Some((key, priority)) = victim else {
                 break;
             };
+
             let override_reason = (priority == 0).then_some(SamplingReason::PressureRatio);
+
             if let Some(decided) = remove_and_decide(
                 state,
                 &key,
@@ -683,6 +724,7 @@ impl TailSampler {
                 self.metrics
                     .pressure_decisions
                     .fetch_add(1, Ordering::Relaxed);
+
                 output.push(decided);
             }
         }
@@ -701,15 +743,19 @@ fn remove_and_decide(
     let span_count = pending.spans.len() as u64;
     let decision_latency =
         std::time::Duration::from_millis(now_ms.saturating_sub(pending.first_seen_ms));
+
     state.estimated_bytes = state
         .estimated_bytes
         .saturating_sub(pending.estimated_bytes);
+
     let (kept, mut reason) = decide(&pending, deployment_force_disabled);
+
     let kept = if override_reason == Some(SamplingReason::PressureRatio) {
         deterministic_keep(&key.trace_id, pending.policy.normal_sample_ratio)
     } else {
         kept
     };
+
     if override_reason == Some(SamplingReason::PressureRatio) {
         reason = if kept {
             SamplingReason::PressureRatio
@@ -720,15 +766,19 @@ fn remove_and_decide(
 
     if kept {
         enforce_span_cap(&mut pending.spans, pending.policy.max_spans_per_trace);
+
         for span in &mut pending.spans {
             span.sampling_reason = reason;
         }
+
         metrics.kept.fetch_add(1, Ordering::Relaxed);
     } else {
         pending.spans.clear();
         metrics.dropped.fetch_add(1, Ordering::Relaxed);
     }
+
     trace_metrics::record_decision(kept, reason.as_str(), span_count, decision_latency);
+
     state.decisions.insert(
         key.clone(),
         CachedDecision {
@@ -740,6 +790,7 @@ fn remove_and_decide(
             digests: pending.digests,
         },
     );
+
     Some(DecidedTrace {
         org_id: key.org_id.clone(),
         stream: pending.stream,
@@ -755,17 +806,21 @@ fn decide(pending: &PendingTrace, deployment_force_disabled: bool) -> (bool, Sam
     if deployment_force_disabled || !pending.policy.enabled {
         return (false, SamplingReason::Disabled);
     }
+
     match pending.force_keep {
         ForceKeep::TrustedInternal => return (true, SamplingReason::TrustedForced),
         ForceKeep::DebugToken => return (true, SamplingReason::DebugForced),
         ForceKeep::None => {}
     }
+
     if pending.saw_error() {
         return (true, SamplingReason::Error);
     }
+
     if pending.saw_slow() {
         return (true, SamplingReason::Slow);
     }
+
     for rule in &pending.policy.rules {
         if pending.spans.iter().any(|span| rule.matches(span)) {
             return match rule.action {
@@ -778,6 +833,7 @@ fn decide(pending: &PendingTrace, deployment_force_disabled: bool) -> (bool, Sam
             };
         }
     }
+
     (
         deterministic_keep(
             &pending.spans[0].trace_id,
@@ -800,6 +856,7 @@ fn span_is_slow(span: &CanonicalSpan, policy: &TraceRuntimePolicy) -> bool {
         .and_then(Value::as_str)
         .and_then(|route| policy.route_slow_thresholds_ms.get(route))
         .copied();
+
     let threshold_ms = route_override.unwrap_or_else(|| policy.slow_thresholds_ms.for_span(span));
     span.duration_ns >= threshold_ms.saturating_mul(1_000_000)
 }
@@ -851,6 +908,7 @@ fn enforce_span_cap(spans: &mut Vec<CanonicalSpan>, cap: usize) {
     if spans.len() <= cap {
         return;
     }
+
     spans.sort_by_key(|span| {
         (
             Reverse(span_is_error(span)),
@@ -858,17 +916,23 @@ fn enforce_span_cap(spans: &mut Vec<CanonicalSpan>, cap: usize) {
             span.start_time_unix_nano,
         )
     });
+
     let real_cap = cap.saturating_sub(1);
     let excess = spans.split_off(real_cap);
     let aggregate_count = excess.len();
+
     let aggregate_duration = excess
         .iter()
         .fold(0_u64, |total, span| total.saturating_add(span.duration_ns));
+
     let mut operation_counts: BTreeMap<String, u64> = BTreeMap::new();
+
     for span in &excess {
         *operation_counts.entry(span.name.clone()).or_default() += 1;
     }
+
     let template = excess.first().expect("excess is non-empty");
+
     let mut aggregate = CanonicalSpan::new(
         template.trace_id.clone(),
         hex::encode(&blake3::hash(template.trace_id.as_bytes()).as_bytes()[..8]),
@@ -885,23 +949,30 @@ fn enforce_span_cap(spans: &mut Vec<CanonicalSpan>, cap: usize) {
             .max()
             .unwrap_or(0),
     );
+
     aggregate.duration_ns = aggregate_duration;
+
     aggregate.attributes.insert(
         "molesignal.trace.excess_span_count".into(),
         json!(aggregate_count),
     );
+
     aggregate.attributes.insert(
         "molesignal.trace.excess_duration_ns".into(),
         json!(aggregate_duration),
     );
+
     aggregate.attributes.insert(
         "molesignal.trace.excess_operation_counts".into(),
         serde_json::to_value(operation_counts).unwrap_or(Value::Null),
     );
+
     aggregate.mark_partial(PartialReason::SpanLimit);
+
     for span in spans.iter_mut() {
         span.mark_partial(PartialReason::SpanLimit);
     }
+
     spans.push(aggregate);
 }
 
@@ -929,9 +1000,11 @@ pub fn deterministic_keep(trace_id: &str, ratio: f64) -> bool {
     if ratio <= 0.0 {
         return false;
     }
+
     if ratio >= 1.0 {
         return true;
     }
+
     let digest = blake3::hash(trace_id.as_bytes());
     let value = u64::from_be_bytes(digest.as_bytes()[..8].try_into().unwrap());
     (value as f64) / (u64::MAX as f64) < ratio
@@ -959,45 +1032,59 @@ fn now_millis() -> u64 {
 fn default_true() -> bool {
     true
 }
+
 fn default_ratio() -> f64 {
     0.1
 }
+
 fn default_decision_window_ms() -> u64 {
     30_000
 }
+
 fn default_root_grace_ms() -> u64 {
     1_000
 }
+
 fn default_decision_cache_ms() -> u64 {
     300_000
 }
+
 fn default_max_traces() -> usize {
     10_000
 }
+
 fn default_memory_bytes() -> usize {
     256 * 1024 * 1024
 }
+
 fn default_max_spans() -> usize {
     1_000
 }
+
 fn default_http_ms() -> u64 {
     1_000
 }
+
 fn default_query_ms() -> u64 {
     5_000
 }
+
 fn default_intake_ms() -> u64 {
     2_000
 }
+
 fn default_database_ms() -> u64 {
     200
 }
+
 fn default_object_store_ms() -> u64 {
     500
 }
+
 fn default_external_ms() -> u64 {
     1_000
 }
+
 fn default_background_ms() -> u64 {
     30_000
 }

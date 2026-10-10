@@ -22,6 +22,7 @@ pub use sso::*;
 
 pub const SYSTEM_ORG_NAME: &str = "_sys";
 pub const SYSTEM_ORG_SLUG: &str = "_sys";
+
 /// Stable business purpose whose concrete `_sys` role is selected by
 /// `iam_builtin_role_purposes`. This is deliberately not a role key or name.
 pub const PLATFORM_ADMINISTRATOR_ROLE_PURPOSE: &str = "platform_administrator";
@@ -42,6 +43,7 @@ impl Organization {
     pub fn validate_system_invariants(&self) -> Result<()> {
         let uses_reserved_system_name =
             self.name == SYSTEM_ORG_NAME || self.slug == SYSTEM_ORG_SLUG;
+
         if self.system
             && (self.name != SYSTEM_ORG_NAME || self.slug != SYSTEM_ORG_SLUG || self.disabled)
         {
@@ -49,11 +51,13 @@ impl Organization {
                 "system organization must be enabled and its name and slug must both be `_sys`",
             ));
         }
+
         if !self.system && uses_reserved_system_name {
             return Err(crate::shared::Error::forbidden(
                 "`_sys` is reserved for the system organization",
             ));
         }
+
         Ok(())
     }
 
@@ -215,9 +219,11 @@ pub trait UserRepository: Send + Sync {
     /// non-database adapters source-compatible.
     async fn get_many(&self, ids: &[Id]) -> Result<Vec<User>> {
         let mut users = Vec::with_capacity(ids.len());
+
         for id in ids {
             users.push(self.get(id).await?);
         }
+
         Ok(users)
     }
     async fn get_by_email(&self, email: &str) -> Result<User>;
@@ -349,9 +355,11 @@ pub trait IamMembershipRepository: Send + Sync {
         org_id: &Id,
     ) -> Result<Vec<(Id, Vec<IamAssignedRole>)>> {
         let mut roles = Vec::with_capacity(user_ids.len());
+
         for user_id in user_ids {
             roles.push((user_id.clone(), self.assigned_roles(user_id, org_id).await?));
         }
+
         Ok(roles)
     }
     async fn role_id_for_purpose(&self, org_id: &Id, purpose: &str) -> Result<Id>;
@@ -387,6 +395,7 @@ pub fn email_domain_allowed(email: &str, allowed: &[String]) -> bool {
     if allowed.is_empty() {
         return true;
     }
+
     let Some(domain) = email
         .rsplit('@')
         .next()
@@ -394,16 +403,19 @@ pub fn email_domain_allowed(email: &str, allowed: &[String]) -> bool {
     else {
         return false;
     };
+
     // rsplit 对无 '@' 的串会返回整串本身——显式排掉没有 '@' 或域名为空的情况。
     if domain.is_empty() || !email.contains('@') {
         return false;
     }
+
     allowed.iter().any(|raw| {
         let pat = raw
             .trim()
             .trim_start_matches('@')
             .trim_start_matches('.')
             .to_ascii_lowercase();
+
         !pat.is_empty() && (domain == pat || domain.ends_with(&format!(".{pat}")))
     })
 }

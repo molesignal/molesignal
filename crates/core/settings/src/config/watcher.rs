@@ -54,18 +54,22 @@ pub fn diff_toml(old: &toml::Value, new: &toml::Value) -> Vec<FieldDiff> {
 
 fn diff_recurse(prefix: &str, old: &toml::Value, new: &toml::Value, out: &mut Vec<FieldDiff>) {
     use toml::Value::Table;
+
     match (old, new) {
         (Table(a), Table(b)) => {
             let mut keys: std::collections::BTreeSet<&str> = a.keys().map(String::as_str).collect();
+
             for k in b.keys() {
                 keys.insert(k);
             }
+
             for k in keys {
                 let next_prefix = if prefix.is_empty() {
                     k.to_string()
                 } else {
                     format!("{prefix}.{k}")
                 };
+
                 match (a.get(k), b.get(k)) {
                     (Some(av), Some(bv)) if av != bv => diff_recurse(&next_prefix, av, bv, out),
                     (None, Some(bv)) => {
@@ -121,6 +125,7 @@ where
     let last_snapshot = Arc::new(parking_lot::Mutex::new(initial_snapshot));
     let path_for_callback = path.clone();
     let snapshot_for_callback = last_snapshot.clone();
+
     let mut watcher = RecommendedWatcher::new(
         move |res: notify::Result<notify::Event>| {
             let event = match res {
@@ -130,9 +135,11 @@ where
                     return;
                 }
             };
+
             if !matches!(event.kind, EventKind::Modify(_) | EventKind::Create(_)) {
                 return;
             }
+
             let diffs = match reload_and_diff(&path_for_callback, &snapshot_for_callback) {
                 Ok(d) => d,
                 Err(e) => {
@@ -140,9 +147,11 @@ where
                     return;
                 }
             };
+
             if diffs.is_empty() {
                 return;
             }
+
             // 标记 immutable 字段
             for d in &diffs {
                 if d.immutable {
@@ -152,14 +161,17 @@ where
                     );
                 }
             }
+
             on_change(diffs);
         },
         Config::default().with_poll_interval(Duration::from_secs(2)),
     )
     .map_err(|e| Error::internal(format!("config watcher: {e}")))?;
+
     watcher
         .watch(&path, RecursiveMode::NonRecursive)
         .map_err(|e| Error::internal(format!("config watch: {e}")))?;
+
     Ok(Arc::new(watcher))
 }
 

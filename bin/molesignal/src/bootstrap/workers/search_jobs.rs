@@ -134,6 +134,7 @@ impl SearchJobScheduler {
                             max_concurrent,
                             "claimed search job"
                         );
+
                         running.spawn(async move {
                             if let Err(error) = scheduler.process(job).await {
                                 tracing::warn!(
@@ -158,6 +159,7 @@ impl SearchJobScheduler {
             }
 
             let delay = backoff.next_delay();
+
             if running.is_empty() {
                 let _ = self.repo.wait_for_pending(delay).await;
             } else {
@@ -176,6 +178,7 @@ impl SearchJobScheduler {
             job.trace_link.as_ref(),
             "search_job",
         );
+
         crate::shared::trace_context::with_current_trace_context(
             context,
             self.process_inner(job).instrument(span),
@@ -188,6 +191,7 @@ impl SearchJobScheduler {
             Ok(r) => r,
             Err(e) => {
                 let finished = TimestampMicros::now();
+
                 self.repo
                     .mark_failed(
                         &job.org_id,
@@ -197,6 +201,7 @@ impl SearchJobScheduler {
                         finished,
                     )
                     .await?;
+
                 return Ok(());
             }
         };
@@ -220,6 +225,7 @@ impl SearchJobScheduler {
                 pipeline_id.is_some(),
             )
             .await;
+
         let result = match query_result {
             Ok(r) => r,
             Err(e) => {
@@ -232,6 +238,7 @@ impl SearchJobScheduler {
                         TimestampMicros::now(),
                     )
                     .await?;
+
                 return Ok(());
             }
         };
@@ -248,8 +255,10 @@ impl SearchJobScheduler {
             "{}/search_jobs/{}-{}.ndjson",
             job.org_id.0, job.id.0, job.attempt
         );
+
         let bytes = encode_ndjson(result);
         let rows = result.rows.len() as i64;
+
         self.object_store
             .put(
                 &Path::from(key.clone()),
@@ -257,6 +266,7 @@ impl SearchJobScheduler {
             )
             .await
             .map_err(|e| crate::shared::Error::internal(format!("upload result: {e}")))?;
+
         let committed = self
             .repo
             .mark_done(
@@ -268,9 +278,11 @@ impl SearchJobScheduler {
                 TimestampMicros::now(),
             )
             .await?;
+
         if !committed {
             let _ = self.object_store.delete(&Path::from(key)).await;
         }
+
         Ok(())
     }
 
@@ -298,11 +310,13 @@ impl SearchJobScheduler {
                         TimestampMicros::now(),
                     )
                     .await?;
+
                 return Ok(());
             }
         };
 
         let stream_type = parse_signal_type(&pipeline.function_steps);
+
         if let Err(error) = validate_pipeline_streams(
             &pipeline.source_stream,
             &pipeline.target_stream,
@@ -317,11 +331,13 @@ impl SearchJobScheduler {
                     TimestampMicros::now(),
                 )
                 .await?;
+
             return Ok(());
         }
 
         let source_rows = rows_to_objects(&result);
         let vrl = VrlRuntime::new();
+
         let outcome = match transform_and_sink(
             &vrl,
             self.intake.as_ref(),
@@ -346,6 +362,7 @@ impl SearchJobScheduler {
                         TimestampMicros::now(),
                     )
                     .await?;
+
                 return Ok(());
             }
         };
@@ -365,7 +382,9 @@ impl SearchJobScheduler {
             "{}/search_jobs/{}-{}.ndjson",
             job.org_id.0, job.id.0, job.attempt
         );
+
         let bytes = encode_objects_ndjson(&outcome.transformed);
+
         self.object_store
             .put(
                 &Path::from(key.clone()),
@@ -373,6 +392,7 @@ impl SearchJobScheduler {
             )
             .await
             .map_err(|e| crate::shared::Error::internal(format!("upload result: {e}")))?;
+
         let committed = self
             .repo
             .mark_done(
@@ -384,9 +404,11 @@ impl SearchJobScheduler {
                 TimestampMicros::now(),
             )
             .await?;
+
         if !committed {
             let _ = self.object_store.delete(&Path::from(key)).await;
         }
+
         Ok(())
     }
 
@@ -394,8 +416,10 @@ impl SearchJobScheduler {
         let interval = Duration::from_secs(self.cfg.cleanup_interval_secs.max(60));
         let max_delay = interval.saturating_mul(8);
         let mut backoff = PollingBackoff::new(interval, max_delay, "search-jobs-cleanup");
+
         loop {
             tokio::time::sleep(backoff.next_delay()).await;
+
             match self.cleanup_once().await {
                 Ok(()) => backoff.reset(),
                 Err(error) => {
@@ -414,12 +438,15 @@ impl SearchJobScheduler {
     async fn cleanup_once(&self) -> Result<()> {
         let now = TimestampMicros::now();
         let expired = self.repo.list_expired(now, 1000).await?;
+
         for j in expired {
             if let Some(key) = j.result_object_key.as_deref() {
                 let _ = self.object_store.delete(&Path::from(key.to_string())).await;
             }
+
             self.repo.delete(&j.org_id, &j.id).await?;
         }
+
         Ok(())
     }
 }
@@ -432,31 +459,37 @@ fn observe_job_completion(completed: Option<std::result::Result<(), tokio::task:
 
 fn encode_ndjson(result: &QueryResult) -> Vec<u8> {
     let mut out = Vec::with_capacity(result.rows.len() * 128);
+
     for row in &result.rows {
         let mut obj = serde_json::Map::with_capacity(result.columns.len());
+
         for (i, col) in result.columns.iter().enumerate() {
             obj.insert(
                 col.clone(),
                 row.get(i).cloned().unwrap_or(serde_json::Value::Null),
             );
         }
+
         if let Ok(line) = serde_json::to_string(&serde_json::Value::Object(obj)) {
             out.extend_from_slice(line.as_bytes());
             out.push(b'\n');
         }
     }
+
     out
 }
 
 /// 变换后的事件（已是 JSON 对象）→ NDJSON（每行一个对象）。backfill 产出落库复用。
 fn encode_objects_ndjson(events: &[Value]) -> Vec<u8> {
     let mut out = Vec::with_capacity(events.len() * 128);
+
     for ev in events {
         if let Ok(line) = serde_json::to_string(ev) {
             out.extend_from_slice(line.as_bytes());
             out.push(b'\n');
         }
     }
+
     out
 }
 

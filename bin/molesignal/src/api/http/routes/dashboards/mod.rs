@@ -85,6 +85,7 @@ async fn create(
     Json(body): Json<CreateReq>,
 ) -> Result<Json<Dashboard>> {
     let folder_id = body.folder_id.map(Id::from_string);
+
     if let Some(folder_id) = &folder_id {
         state
             .dashboard
@@ -92,6 +93,7 @@ async fn create(
             .get(&ctx.org_id, folder_id)
             .await?;
     }
+
     let dashboard = state
         .dashboard
         .create(
@@ -101,6 +103,7 @@ async fn create(
             body.model,
         )
         .await?;
+
     emit_cud(
         &state,
         &ctx.org_id,
@@ -110,6 +113,7 @@ async fn create(
         &dashboard,
     )
     .await;
+
     Ok(Json(dashboard))
 }
 
@@ -140,6 +144,7 @@ async fn update(
     Json(body): Json<UpdateReq>,
 ) -> Result<Json<Dashboard>> {
     let folder_id = body.folder_id.map(Id::from_string);
+
     if let Some(folder_id) = &folder_id {
         state
             .dashboard
@@ -147,10 +152,12 @@ async fn update(
             .get(&dashboard.org_id, folder_id)
             .await?;
     }
+
     let saved = state
         .dashboard
         .update_model(dashboard, folder_id, ctx.user_id.clone(), body.model)
         .await?;
+
     emit_cud(
         &state,
         &saved.org_id,
@@ -160,6 +167,7 @@ async fn update(
         &saved,
     )
     .await;
+
     Ok(Json(saved))
 }
 
@@ -176,6 +184,7 @@ async fn delete(
 ) -> Result<&'static str> {
     let rid = dashboard.id.clone();
     state.dashboard.delete(&rid).await?;
+
     emit_cud(
         &state,
         &dashboard.org_id,
@@ -185,5 +194,6 @@ async fn delete(
         &delete_payload(&rid.0),
     )
     .await;
+
     Ok("deleted")
 }

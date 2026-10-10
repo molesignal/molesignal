@@ -84,6 +84,7 @@ impl PrunedParquetTable {
                 )
             })
             .collect::<Vec<_>>();
+
         LexOrdering::new(columns).into_iter().collect()
     }
 }
@@ -117,13 +118,17 @@ impl TableProvider for PrunedParquetTable {
                 .map(|indices| self.schema.project(indices).map(Arc::new))
                 .transpose()?
                 .unwrap_or_else(|| self.schema.clone());
+
             return Ok(Arc::new(EmptyExec::new(schema)));
         }
+
         let mut plans: Vec<Arc<dyn ExecutionPlan>> = Vec::with_capacity(2);
+
         if !self.files.is_empty() {
             // QueryRequest 的绝对时间窗在物理扫描层强制执行。使用带 UTC 类型的 literal，
             // 避免 Timestamp(µs, UTC) 与 Int64 比较时的规划错误。
             let timezone = Some("UTC".into());
+
             let time_filter = col("_timestamp")
                 .gt_eq(lit(ScalarValue::TimestampMicrosecond(
                     Some(self.time_range.start.0),
@@ -133,6 +138,7 @@ impl TableProvider for PrunedParquetTable {
                     Some(self.time_range.end.0),
                     timezone,
                 ))));
+
             let mut predicates = filters.to_vec();
             predicates.push(time_filter);
             let logical_filter = conjunction(predicates).unwrap_or_else(|| lit(true));
@@ -143,12 +149,14 @@ impl TableProvider for PrunedParquetTable {
                 .with_predicate(physical_filter)
                 .with_pushdown_filters(true)
                 .with_bloom_filter_on_read(true);
+
             let file_groups = self
                 .files
                 .iter()
                 .cloned()
                 .map(|file| FileGroup::new(vec![file]))
                 .collect();
+
             let config =
                 FileScanConfigBuilder::new(self.object_store_url.clone(), Arc::new(source))
                     .with_projection_indices(projection.cloned())?
@@ -156,8 +164,10 @@ impl TableProvider for PrunedParquetTable {
                     .with_file_groups(file_groups)
                     .with_output_ordering(self.physical_ordering())
                     .build();
+
             plans.push(Arc::new(DataSourceExec::new(Arc::new(config))));
         }
+
         if !self.buffered_batches.is_empty() {
             plans.push(MemorySourceConfig::try_new_exec(
                 std::slice::from_ref(&self.buffered_batches),
@@ -165,6 +175,7 @@ impl TableProvider for PrunedParquetTable {
                 projection.cloned(),
             )?);
         }
+
         UnionExec::try_new(plans)
     }
 }

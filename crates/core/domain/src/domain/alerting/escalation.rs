@@ -38,6 +38,7 @@ impl EscalationPolicy {
                 if reference.0 != DEFAULT_POLICY_ID {
                     return None;
                 }
+
                 policies
                     .iter()
                     .find(|policy| policy.name.trim().eq_ignore_ascii_case(DEFAULT_POLICY_ID))

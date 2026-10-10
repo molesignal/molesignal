@@ -38,6 +38,7 @@ async fn service_graph(
         .service_graph
         .query(&ctx.org_id, p.from, p.to, p.service.as_deref())
         .await?;
+
     Ok(Json(serde_json::json!({
         "edges": edges,
         "count": edges.len(),

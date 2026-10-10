@@ -86,9 +86,11 @@ pub(super) fn routes() -> Router<AppState> {
 
 pub(super) fn random_secret(bytes: usize) -> String {
     let mut value = vec![0u8; bytes];
+
     rand::rngs::SysRng
         .try_fill_bytes(&mut value)
         .expect("operating system RNG must be available");
+
     URL_SAFE_NO_PAD.encode(value)
 }
 
@@ -102,6 +104,7 @@ async fn exchange(
         "refresh_token" => exchange_refresh_token(&state, &headers, request).await?,
         _ => return Err(OAuthError::unsupported_grant_type()),
     };
+
     Ok(no_store_json(response))
 }
 
@@ -115,6 +118,7 @@ async fn exchange_authorization_code(
             "authorization_code requests must not include refresh_token or scope",
         ));
     }
+
     let code = required(request.code, "code")?;
     validate_credential(&code, "mscode_", "authorization code")?;
     let redirect_uri = required(request.redirect_uri, "redirect_uri")?;
@@ -122,21 +126,26 @@ async fn exchange_authorization_code(
     let resource = required(request.resource, "resource")?;
     let (client_id, client_secret, authentication_method) =
         client_credentials(headers, request.client_id, request.client_secret)?;
+
     let client = resolve_client(state, &client_id)
         .await
         .map_err(|error| OAuthError::invalid_client(error.to_string()))?;
+
     authenticate_client(&client, authentication_method, client_secret.as_deref())
         .map_err(|error| OAuthError::invalid_client(error.to_string()))?;
     let expected_resource = metadata::resource_uri(state, headers)
         .map_err(|error| OAuthError::invalid_grant(error.to_string()))?;
+
     if resource != expected_resource {
         return Err(OAuthError::invalid_grant(
             "authorization code resource does not match this endpoint",
         ));
     }
+
     let code_challenge = pkce_challenge(&verifier)
         .ok_or_else(|| OAuthError::invalid_grant("PKCE code_verifier is malformed"))?;
     let now = TimestampMicros::now();
+
     let grant = state
         .agent
         .inbound_mcp
@@ -151,6 +160,7 @@ async fn exchange_authorization_code(
         .await
         .map_err(OAuthError::server)?
         .ok_or_else(|| OAuthError::invalid_grant("authorization code is invalid or expired"))?;
+
     if grant.client_id != client.client_id
         || grant.redirect_uri != redirect_uri
         || grant.resource != resource
@@ -160,7 +170,9 @@ async fn exchange_authorization_code(
             "authorization code binding or PKCE verification failed",
         ));
     }
+
     ensure_grant_available(state, &grant.org_id, &grant.user_id).await?;
+
     issue_tokens(
         state,
         client.client_id,
@@ -185,16 +197,20 @@ async fn exchange_refresh_token(
             "refresh_token requests must not include authorization-code fields",
         ));
     }
+
     let plaintext = required(request.refresh_token, "refresh_token")?;
     validate_credential(&plaintext, "msrefresh_", "refresh token")?;
     let requested_resource = required(request.resource, "resource")?;
     let (client_id, client_secret, authentication_method) =
         client_credentials(headers, request.client_id, request.client_secret)?;
+
     let client = resolve_client(state, &client_id)
         .await
         .map_err(|error| OAuthError::invalid_client(error.to_string()))?;
+
     authenticate_client(&client, authentication_method, client_secret.as_deref())
         .map_err(|error| OAuthError::invalid_client(error.to_string()))?;
+
     if !client
         .grant_types
         .iter()
@@ -204,7 +220,9 @@ async fn exchange_refresh_token(
             "OAuth client is not registered for refresh_token",
         ));
     }
+
     let token_hash = crate::api::http::middleware::auth::oauth::token_hash(&plaintext);
+
     let record = state
         .agent
         .inbound_mcp
@@ -212,9 +230,11 @@ async fn exchange_refresh_token(
         .await
         .map_err(OAuthError::server)?
         .ok_or_else(|| OAuthError::invalid_grant("refresh token is invalid"))?;
+
     let now = TimestampMicros::now();
     let expected_resource = metadata::resource_uri(state, headers)
         .map_err(|error| OAuthError::invalid_grant(error.to_string()))?;
+
     if record.revoked_at.is_some() {
         state
             .agent
@@ -222,10 +242,12 @@ async fn exchange_refresh_token(
             .revoke_oauth_family(&record.org_id, &record.family_id, now)
             .await
             .map_err(OAuthError::server)?;
+
         return Err(OAuthError::invalid_grant(
             "refresh token reuse was detected; the token family was revoked",
         ));
     }
+
     if record.token_kind != InboundMcpOAuthTokenKind::Refresh
         || record.expires_at.0 <= now.0
         || record.client_id != client.client_id
@@ -236,19 +258,24 @@ async fn exchange_refresh_token(
             "refresh token is expired or does not match this client and resource",
         ));
     }
+
     let scope = match request.scope {
         Some(scope) => {
             let normalized = normalize_scope(&scope).map_err(OAuthError::invalid_scope)?;
+
             if !scope_allowed(&normalized, &record.scope) {
                 return Err(OAuthError::invalid_grant(
                     "refresh scope exceeds the original grant",
                 ));
             }
+
             normalized
         }
         None => record.scope.clone(),
     };
+
     ensure_grant_available(state, &record.org_id, &record.user_id).await?;
+
     issue_tokens(
         state,
         record.client_id,
@@ -274,15 +301,20 @@ async fn revoke(
     let _ = request.token_type_hint;
     let (client_id, client_secret, authentication_method) =
         client_credentials(&headers, request.client_id, request.client_secret)?;
+
     let client = resolve_client(&state, &client_id)
         .await
         .map_err(|error| OAuthError::invalid_client(error.to_string()))?;
+
     authenticate_client(&client, authentication_method, client_secret.as_deref())
         .map_err(|error| OAuthError::invalid_client(error.to_string()))?;
+
     if request.token.len() > 256 {
         return Ok(no_store_status(StatusCode::OK));
     }
+
     let token_hash = crate::api::http::middleware::auth::oauth::token_hash(&request.token);
+
     let Some(record) = state
         .agent
         .inbound_mcp
@@ -292,10 +324,13 @@ async fn revoke(
     else {
         return Ok(no_store_status(StatusCode::OK));
     };
+
     if client_id != record.client_id {
         return Ok(no_store_status(StatusCode::OK));
     }
+
     let now = TimestampMicros::now();
+
     if record.token_kind == InboundMcpOAuthTokenKind::Refresh {
         state
             .agent
@@ -311,6 +346,7 @@ async fn revoke(
             .await
             .map_err(OAuthError::server)?;
     }
+
     Ok(no_store_status(StatusCode::OK))
 }
 
@@ -349,6 +385,7 @@ fn client_credentials(
 ) -> OAuthResult<(String, Option<String>, ClientAuthenticationMethod)> {
     let authorization_values = headers.get_all(http::header::AUTHORIZATION);
     let mut authorization_headers = authorization_values.iter();
+
     let authorization = authorization_headers
         .next()
         .map(|value| {
@@ -357,11 +394,13 @@ fn client_credentials(
                 .map_err(|_| OAuthError::invalid_client("malformed Authorization header"))
         })
         .transpose()?;
+
     if authorization_headers.next().is_some() {
         return Err(OAuthError::invalid_client(
             "multiple Authorization headers are not allowed",
         ));
     }
+
     if let Some(authorization) = authorization {
         let (_, encoded) = authorization
             .split_once(' ')
@@ -373,35 +412,43 @@ fn client_credentials(
             .ok_or_else(|| {
                 OAuthError::invalid_client("expected HTTP Basic client authentication")
             })?;
+
         if body_id.is_some() || body_secret.is_some() {
             return Err(OAuthError::invalid_request(
                 "client credentials must use only one authentication method",
             ));
         }
+
         let decoded = STANDARD
             .decode(encoded)
             .map_err(|_| OAuthError::invalid_client("malformed HTTP Basic credentials"))?;
+
         let decoded = String::from_utf8(decoded)
             .map_err(|_| OAuthError::invalid_client("malformed HTTP Basic credentials"))?;
+
         let (client_id, secret) = decoded
             .split_once(':')
             .ok_or_else(|| OAuthError::invalid_client("malformed HTTP Basic credentials"))?;
+
         let decode = |value: &str| {
             url::form_urlencoded::parse(value.as_bytes())
                 .next()
                 .map(|(value, _)| value.into_owned())
                 .unwrap_or_default()
         };
+
         let client_id = decode(client_id);
         let secret = decode(secret);
         validate_client_credential_lengths(&client_id, Some(&secret))?;
         return Ok((client_id, Some(secret), ClientAuthenticationMethod::Basic));
     }
+
     let method = if body_secret.is_some() {
         ClientAuthenticationMethod::Post
     } else {
         ClientAuthenticationMethod::None
     };
+
     let client_id = required(body_id, "client_id")?;
     validate_client_credential_lengths(&client_id, body_secret.as_deref())?;
     Ok((client_id, body_secret, method))
@@ -416,6 +463,7 @@ fn validate_client_credential_lengths(
             "OAuth client credentials exceed the allowed length",
         ));
     }
+
     Ok(())
 }
 
@@ -430,6 +478,7 @@ fn validate_credential(value: &str, prefix: &str, label: &str) -> OAuthResult<()
     {
         return Err(OAuthError::invalid_grant(format!("{label} is malformed")));
     }
+
     Ok(())
 }
 
@@ -445,6 +494,7 @@ fn pkce_challenge(verifier: &str) -> Option<String> {
     {
         return None;
     }
+
     Some(URL_SAFE_NO_PAD.encode(Sha256::digest(verifier.as_bytes())))
 }
 

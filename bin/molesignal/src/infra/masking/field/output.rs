@@ -22,6 +22,7 @@ pub(super) fn mask_label_set(
         let Some(algorithm) = algorithms.get(&normalize_identifier(field)) else {
             continue;
         };
+
         let mut json = serde_json::Value::String(value.clone());
         mask_value(&mut json, algorithm, root_key, org_id);
         *value = json.as_str().unwrap_or_default().to_string();

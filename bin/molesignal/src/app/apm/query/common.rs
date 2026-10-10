@@ -59,14 +59,18 @@ impl ApmQueryService {
             self.repository
                 .projection_gaps(&context.org_id, context.range),
         )?;
+
         if latency_partial {
             overflow_dimensions.push("histogram_schema_mismatch".into());
         }
+
         overflow_dimensions.sort();
         overflow_dimensions.dedup();
+
         let activation_boundary = state
             .as_ref()
             .is_some_and(|state| context.range.start < state.projection_started_at);
+
         Ok(ApmResponseMeta {
             range: ApmQueryRange {
                 from: context.range.start,
@@ -117,6 +121,7 @@ pub(super) fn overflow_dimensions(buckets: &[crate::domain::apm::MergedBucket]) 
         .filter(|bucket| bucket.measurements.overflow_count > 0)
         .map(|bucket| format!("{:?}", bucket.dimension.kind()).to_ascii_lowercase())
         .collect::<Vec<_>>();
+
     dimensions.sort();
     dimensions.dedup();
     dimensions

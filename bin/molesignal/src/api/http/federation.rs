@@ -32,10 +32,13 @@ pub async fn emit_cud<T: Serialize>(
             return;
         }
     };
+
     if !settings.federation_enabled() {
         return;
     }
+
     let cluster = settings.federation_cluster_id.trim();
+
     // 原子拿单调 Lamport 版本（writer = 本集群）。
     let version = match state
         .cluster
@@ -49,6 +52,7 @@ pub async fn emit_cud<T: Serialize>(
             return;
         }
     };
+
     let data = match serde_json::to_value(resource) {
         Ok(v) => v,
         Err(e) => {
@@ -56,6 +60,7 @@ pub async fn emit_cud<T: Serialize>(
             return;
         }
     };
+
     let ev = CloudEvent::new(
         Id::new().0,
         cluster,
@@ -67,6 +72,7 @@ pub async fn emit_cud<T: Serialize>(
         data,
         TimestampMicros::now().to_datetime().to_rfc3339(),
     );
+
     if let Err(e) = state.cluster.event_outbox.append(org_id, &ev).await {
         tracing::warn!(error = %e, kind = kind.as_str(), "federation: outbox append failed; event dropped");
     }

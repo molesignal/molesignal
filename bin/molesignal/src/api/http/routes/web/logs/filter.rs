@@ -19,12 +19,14 @@ pub(super) fn normalize(filters: Vec<LogFilter>, maximum: usize) -> Result<Vec<L
     if filters.len() > maximum {
         return Err(Error::invalid("too many log filters"));
     }
+
     filters
         .into_iter()
         .map(|filter| {
             let field = clean_required(Some(filter.field), "empty log filter field", 128)?;
             let op = clean_required(Some(filter.op), "empty log filter operator", 16)?
                 .to_ascii_lowercase();
+
             let op = match op.as_str() {
                 "=" | "eq" => "=",
                 "!=" | "ne" => "!=",
@@ -35,15 +37,19 @@ pub(super) fn normalize(filters: Vec<LogFilter>, maximum: usize) -> Result<Vec<L
                 _ => return Err(Error::invalid("unsupported log filter operator")),
             }
             .to_string();
+
             let value = if matches!(op.as_str(), "match" | "match_text") {
                 let value = filter.value;
+
                 if value.len() > 512 || value.contains('\0') {
                     return Err(Error::invalid("invalid log search value"));
                 }
+
                 value
             } else {
                 clean_required(Some(filter.value), "empty log filter value", 512)?
             };
+
             Ok(LogFilter {
                 field,
                 op,
@@ -60,10 +66,12 @@ pub(super) fn validate(filters: &[LogFilter], fields: &[FieldDef]) -> Result<()>
             .ok_or_else(|| Error::invalid(format!("unknown log filter field: {}", filter.field)))?;
         validate_operator(filter, field_type)?;
         validate_search_function(filter, fields)?;
+
         if !matches!(filter.op.as_str(), "match" | "match_text") {
             typed_value(filter, field_type)?;
         }
     }
+
     Ok(())
 }
 
@@ -73,36 +81,45 @@ pub(super) fn to_sql(filter: &LogFilter, fields: &[FieldDef]) -> Result<String> 
     validate_operator(filter, field_type)?;
     validate_search_function(filter, fields)?;
     let field = format!("\"{}\"", escape_sql_ident(&filter.field));
+
     if filter.op == "match" {
         if filter.value.is_empty() {
             return Ok("FALSE".to_string());
         }
+
         let pattern = format!("%{}%", escape_like_literal_text(&filter.value));
+
         return Ok(format!(
             "CAST({field} AS VARCHAR) ILIKE {}",
             sql_literal(&pattern)
         ));
     }
+
     if filter.op == "match_text" {
         if filter.value.trim().is_empty() {
             return Ok("FALSE".to_string());
         }
+
         let function_field = match_text_identifier(&filter.field)?;
+
         return Ok(format!(
             "MATCH_TEXT({function_field}, {})",
             sql_literal(&filter.value)
         ));
     }
+
     let expression = match field_type {
         FieldType::Timestamp => format!("CAST({field} AS BIGINT)"),
         _ => field,
     };
+
     if filter.op == "contains" {
         return Ok(format!(
             "CAST({expression} AS VARCHAR) LIKE {}",
             sql_literal(&format!("%{}%", filter.value)),
         ));
     }
+
     Ok(format!(
         "{expression} {} {}",
         filter.op,
@@ -125,6 +142,7 @@ fn validate_operator(filter: &LogFilter, field_type: FieldType) -> Result<()> {
     if filter.op == "match" {
         return Ok(());
     }
+
     let supported = match field_type {
         FieldType::Utf8 => matches!(filter.op.as_str(), "=" | "!=" | "contains" | "match_text"),
         FieldType::Int64 | FieldType::Float64 | FieldType::Timestamp => {
@@ -133,15 +151,18 @@ fn validate_operator(filter: &LogFilter, field_type: FieldType) -> Result<()> {
         FieldType::Bool => matches!(filter.op.as_str(), "=" | "!="),
         FieldType::Json => false,
     };
+
     if supported {
         return Ok(());
     }
+
     if field_type == FieldType::Json {
         return Err(Error::invalid(format!(
             "log field `{}` requires a JSON path query in SQL mode",
             filter.field
         )));
     }
+
     Err(Error::invalid(format!(
         "operator `{}` is not supported for log field `{}`",
         filter.op, filter.field
@@ -152,11 +173,13 @@ fn validate_search_function(filter: &LogFilter, fields: &[FieldDef]) -> Result<(
     if filter.op != "match_text" {
         return Ok(());
     }
+
     let configured = fields.iter().any(|field| {
         field.name == filter.field
             && field.data_type == FieldType::Utf8
             && field.effective_index_type() == StreamIndexType::FullText
     });
+
     if !configured {
         return Err(Error::invalid(format!(
             "MATCH_TEXT: field `{}` has no full-text index configured; configure `index_type = \
@@ -164,18 +187,22 @@ fn validate_search_function(filter: &LogFilter, fields: &[FieldDef]) -> Result<(
             filter.field
         )));
     }
+
     match_text_identifier(&filter.field)?;
     Ok(())
 }
 
 fn match_text_identifier(field: &str) -> Result<&str> {
     let mut chars = field.chars();
+
     let valid_start = chars
         .next()
         .is_some_and(|character| character.is_ascii_alphabetic() || character == '_');
+
     if valid_start && chars.all(|character| character.is_ascii_alphanumeric() || character == '_') {
         return Ok(field);
     }
+
     Err(Error::invalid(format!(
         "MATCH_TEXT does not support the log field name `{field}` in Fields mode; use SQL mode"
     )))
@@ -183,12 +210,15 @@ fn match_text_identifier(field: &str) -> Result<&str> {
 
 fn escape_like_literal_text(value: &str) -> String {
     let mut escaped = String::with_capacity(value.len());
+
     for character in value.chars() {
         if matches!(character, '%' | '_' | '\\') {
             escaped.push('\\');
         }
+
         escaped.push(character);
     }
+
     escaped
 }
 

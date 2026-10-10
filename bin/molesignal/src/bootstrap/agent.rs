@@ -63,15 +63,19 @@ impl AgentRuntime {
         let agent: Arc<dyn AgentRepository> = Arc::new(PgAgentRepository::new(core.pool.clone()));
         let toolsets: Arc<dyn AgentToolsetRepository> =
             Arc::new(PgAgentToolsetRepository::new(core.pool.clone()));
+
         let tool_control: Arc<dyn ToolControlRepository> = Arc::new(PgToolControlRepository::new(
             core.pool.clone(),
             core.cipher_root_key.clone(),
         ));
+
         let inbound_mcp: Arc<dyn InboundMcpRepository> =
             Arc::new(PgInboundMcpRepository::new(core.pool.clone()));
+
         let inbound_mcp_request_state_key = core
             .cipher_root_key
             .derive_key(b"inbound-mcp/request-state/v1");
+
         let prompts: Arc<dyn AgentPromptRepository> =
             Arc::new(PgAgentPromptRepository::new(core.pool.clone()));
         let chat_archives: Arc<dyn ChatArchiveRepository> =
@@ -90,12 +94,14 @@ impl AgentRuntime {
             .with_ownership(core.alert_ownership.clone())
             .spawn()
         });
+
         let rca_generator = Arc::new(crate::api::rca::RcaGenerator::new(
             model_providers,
             prompts.clone(),
             incident_rca.clone(),
             crate::api::rca::RcaGenConfig::default(),
         ));
+
         let _rca_sweeper = core.roles.run_alert.then(|| {
             crate::bootstrap::workers::rca_sweeper::RcaSweeper::new(
                 core.orgs.clone() as Arc<dyn OrganizationRepository>,

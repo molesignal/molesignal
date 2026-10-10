@@ -39,6 +39,7 @@ impl ApmMaintenanceRepository for PgApmRepository {
         if limit == 0 {
             return Ok(Vec::new());
         }
+
         let rows = sqlx::query(
             "WITH minute_rows AS (
                 SELECT org_id, bucket_at_micros FROM apm_service_buckets
@@ -62,6 +63,7 @@ impl ApmMaintenanceRepository for PgApmRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter()
             .map(|row| {
                 Ok(RollupCandidate {
@@ -83,9 +85,11 @@ impl ApmMaintenanceRepository for PgApmRepository {
                 "APM rollup hour must align to a UTC hour boundary",
             ));
         }
+
         let hour_end = request.hour_at.0.saturating_add(HOUR_MICROS);
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
         let lock_key = format!("apm-rollup:{}:{}", request.org_id, request.hour_at.0);
+
         sqlx::query("SELECT pg_advisory_xact_lock(hashtext($1))")
             .bind(lock_key)
             .execute(&mut *tx)
@@ -94,6 +98,7 @@ impl ApmMaintenanceRepository for PgApmRepository {
 
         let completed_at = TimestampMicros::now();
         let mut stats = RollupStats::default();
+
         for kind in BUCKET_KINDS {
             let source = load_source_rows(
                 &mut tx,
@@ -103,13 +108,16 @@ impl ApmMaintenanceRepository for PgApmRepository {
                 hour_end,
             )
             .await?;
+
             stats.source_rows = stats.source_rows.saturating_add(source.len() as u64);
             let rollups = rollup_rows(source)?;
             let mut schema_versions = BTreeSet::new();
+
             for rollup in &rollups {
                 schema_versions.insert(rollup.histogram_schema_version);
                 upsert_rollup(&mut tx, hourly_table(kind), request, rollup, completed_at).await?;
             }
+
             stats.rollup_rows = stats.rollup_rows.saturating_add(rollups.len() as u64);
 
             let delete_source_sql = format!(
@@ -117,6 +125,7 @@ impl ApmMaintenanceRepository for PgApmRepository {
                  AND bucket_at_micros >= $2 AND bucket_at_micros < $3",
                 minute_table(kind)
             );
+
             let deleted = sqlx::query(&delete_source_sql)
                 .bind(request.org_id.as_str())
                 .bind(request.hour_at.0)
@@ -124,6 +133,7 @@ impl ApmMaintenanceRepository for PgApmRepository {
                 .execute(&mut *tx)
                 .await
                 .map_err(sqlx_err)?;
+
             stats.deleted_hot_rows = stats
                 .deleted_hot_rows
                 .saturating_add(deleted.rows_affected());
@@ -158,12 +168,14 @@ impl ApmMaintenanceRepository for PgApmRepository {
                 "DELETE FROM {} WHERE org_id = $1 AND bucket_at_micros < $2",
                 minute_table(kind)
             );
+
             let deleted = sqlx::query(&hot_retention_sql)
                 .bind(request.org_id.as_str())
                 .bind(request.hot_retention_cutoff.0)
                 .execute(&mut *tx)
                 .await
                 .map_err(sqlx_err)?;
+
             stats.deleted_hot_rows = stats
                 .deleted_hot_rows
                 .saturating_add(deleted.rows_affected());
@@ -172,12 +184,14 @@ impl ApmMaintenanceRepository for PgApmRepository {
                 "DELETE FROM {} WHERE org_id = $1 AND bucket_at_micros < $2",
                 hourly_table(kind)
             );
+
             let deleted = sqlx::query(&rollup_retention_sql)
                 .bind(request.org_id.as_str())
                 .bind(request.rollup_retention_cutoff.0)
                 .execute(&mut *tx)
                 .await
                 .map_err(sqlx_err)?;
+
             stats.deleted_rollup_rows = stats
                 .deleted_rollup_rows
                 .saturating_add(deleted.rows_affected());
@@ -216,6 +230,7 @@ async fn load_source_rows(
          ORDER BY bucket_at_micros, dimension_key, owner_id
          FOR UPDATE"
     );
+
     sqlx::query(&sql)
         .bind(org_id)
         .bind(hour_start)
@@ -236,6 +251,7 @@ async fn upsert_rollup(
     completed_at: TimestampMicros,
 ) -> Result<()> {
     let service = rollup.dimension.service();
+
     let sql = format!(
         "INSERT INTO {table} (
             org_id, service_namespace, service_name, environment, version,
@@ -256,6 +272,7 @@ async fn upsert_rollup(
             source_minute_count = EXCLUDED.source_minute_count,
             completed_at_micros = EXCLUDED.completed_at_micros"
     );
+
     sqlx::query(&sql)
         .bind(request.org_id.as_str())
         .bind(&service.namespace)
@@ -279,5 +296,6 @@ async fn upsert_rollup(
         .execute(&mut **tx)
         .await
         .map_err(sqlx_err)?;
+
     Ok(())
 }

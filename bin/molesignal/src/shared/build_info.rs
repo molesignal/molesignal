@@ -8,6 +8,7 @@ pub const RELEASE_CHANNEL_ENV: &str = "RELEASE_CHANNEL";
 /// 当前部署的交付成熟度。它是运行时元数据，不参与二进制构建。
 pub fn release_channel() -> &'static str {
     static RELEASE_CHANNEL: OnceLock<&'static str> = OnceLock::new();
+
     RELEASE_CHANNEL.get_or_init(|| {
         std::env::var(RELEASE_CHANNEL_ENV)
             .ok()

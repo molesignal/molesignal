@@ -27,6 +27,7 @@ use datafusion::{
 
 /// 默认返回的高频项数（`approx_topk(col)` 不带 k 时）。
 const DEFAULT_K: usize = 10;
+
 /// 计数表上限（有界内存）；超出按 space-saving 驱逐最小项。
 const MAX_TRACKED: usize = 1024;
 
@@ -71,17 +72,21 @@ impl AggregateUDFImpl for ApproxTopK {
     fn name(&self) -> &str {
         "approx_topk"
     }
+
     fn signature(&self) -> &Signature {
         &self.signature
     }
+
     fn return_type(&self, _arg_types: &[DataType]) -> DfResult<DataType> {
         Ok(DataType::Utf8)
     }
+
     fn accumulator(&self, acc_args: AccumulatorArgs) -> DfResult<Box<dyn Accumulator>> {
         Ok(Box::new(ApproxTopKAccumulator::with_k(k_from_args(
             &acc_args,
         ))))
     }
+
     fn state_fields(&self, _args: StateFieldsArgs) -> DfResult<Vec<FieldRef>> {
         // 单个 Utf8 字段：序列化后的计数表 JSON。
         Ok(vec![Arc::new(Field::new("counts", DataType::Utf8, true))])
@@ -117,6 +122,7 @@ impl ApproxTopKAccumulator {
             *c += by;
             return;
         }
+
         if self.counts.len() >= MAX_TRACKED
             && let Some((min_k, min_c)) = self
                 .counts
@@ -128,6 +134,7 @@ impl ApproxTopKAccumulator {
             self.counts.insert(key, min_c + by);
             return;
         }
+
         self.counts.insert(key, by);
     }
 
@@ -144,6 +151,7 @@ fn as_utf8(arr: &ArrayRef) -> DfResult<ArrayRef> {
     if arr.data_type() == &DataType::Utf8 {
         return Ok(arr.clone());
     }
+
     arrow::compute::cast(arr, &DataType::Utf8)
         .map_err(|e| DataFusionError::Execution(format!("approx_topk cast to utf8: {e}")))
 }
@@ -153,18 +161,22 @@ impl Accumulator for ApproxTopKAccumulator {
         let Some(arr) = values.first() else {
             return Ok(());
         };
+
         let casted = as_utf8(arr)?;
+
         let sa = casted
             .as_any()
             .downcast_ref::<StringArray>()
             .ok_or_else(|| {
                 DataFusionError::Execution("approx_topk expects a castable-to-utf8 column".into())
             })?;
+
         for i in 0..sa.len() {
             if !sa.is_null(i) {
                 self.bump(sa.value(i).to_string(), 1);
             }
         }
+
         Ok(())
     }
 
@@ -174,6 +186,7 @@ impl Accumulator for ApproxTopKAccumulator {
             .into_iter()
             .map(|(value, count)| serde_json::json!({ "value": value, "count": count }))
             .collect();
+
         Ok(ScalarValue::Utf8(Some(
             serde_json::to_string(&arr).unwrap_or_else(|_| "[]".into()),
         )))
@@ -193,19 +206,23 @@ impl Accumulator for ApproxTopKAccumulator {
         let Some(arr) = states.first() else {
             return Ok(());
         };
+
         let sa = arr.as_any().downcast_ref::<StringArray>().ok_or_else(|| {
             DataFusionError::Execution("approx_topk merge expects utf8 state".into())
         })?;
+
         for i in 0..sa.len() {
             if sa.is_null(i) {
                 continue;
             }
+
             if let Ok(map) = serde_json::from_str::<HashMap<String, i64>>(sa.value(i)) {
                 for (k, c) in map {
                     self.bump(k, c);
                 }
             }
         }
+
         Ok(())
     }
 }

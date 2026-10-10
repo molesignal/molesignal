@@ -29,6 +29,7 @@ pub async fn serve(state: AppState, cfg: Settings) -> anyhow::Result<()> {
     let addr: std::net::SocketAddr = format!("{}:{}", cfg.http.bind, cfg.http.port).parse()?;
     let listener = tokio::net::TcpListener::bind(addr).await?;
     tracing::info!(%addr, "ops http server listening");
+
     axum::serve(listener, build_router(state))
         .await
         .map_err(|error| anyhow::anyhow!("ops http serve: {error}"))

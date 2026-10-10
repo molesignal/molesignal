@@ -84,29 +84,38 @@ async fn update_profile(
     Json(req): Json<UpdateProfileReq>,
 ) -> Result<Json<MeProfileResp>> {
     let mut user = state.iam.service.users.get(&ctx.user_id).await?;
+
     if let Some(name) = req.display_name.or(req.username) {
         let name = name.trim().to_string();
+
         if name.is_empty() {
             return Err(Error::invalid("display_name must not be empty"));
         }
+
         if name.chars().count() > 255 {
             return Err(Error::invalid(
                 "display_name must be at most 255 characters",
             ));
         }
+
         user.display_name = name;
     }
+
     // email 不可修改：忽略请求里的 email。
     if let Some(avatar_url) = req.avatar_url {
         user.avatar_url = normalize_avatar_url(avatar_url)?;
     }
+
     if let Some(bio) = req.bio {
         let bio = bio.trim().to_string();
+
         if bio.chars().count() > 500 {
             return Err(Error::invalid("bio must be at most 500 characters"));
         }
+
         user.bio = bio;
     }
+
     let user = state.iam.service.users.update(user).await?;
     let org = state.iam.service.orgs.get(&ctx.org_id).await?;
     Ok(Json(MeProfileResp::from_parts(user, org, ctx.display_role)))
@@ -124,6 +133,7 @@ async fn get_preferences(
     {
         return Ok(Json(personal));
     }
+
     Ok(Json(
         state
             .iam
@@ -139,6 +149,7 @@ async fn update_preferences(
     Json(mut preferences): Json<UserPreferences>,
 ) -> Result<Json<UserPreferences>> {
     normalize_and_validate(&mut preferences)?;
+
     Ok(Json(
         state
             .iam
@@ -169,6 +180,7 @@ async fn update_workspace_preferences(
     Json(mut preferences): Json<UserPreferences>,
 ) -> Result<Json<UserPreferences>> {
     normalize_and_validate(&mut preferences)?;
+
     Ok(Json(
         state
             .iam
@@ -180,9 +192,11 @@ async fn update_workspace_preferences(
 
 fn normalize_and_validate(preferences: &mut UserPreferences) -> Result<()> {
     preferences.default_home_route = preferences.default_home_route.trim().to_string();
+
     if !matches!(preferences.theme.as_str(), "system" | "dark" | "light") {
         return Err(Error::invalid("theme must be system, dark, or light"));
     }
+
     if !matches!(
         preferences.density.as_str(),
         "compact" | "normal" | "comfortable"
@@ -191,24 +205,30 @@ fn normalize_and_validate(preferences: &mut UserPreferences) -> Result<()> {
             "density must be compact, normal, or comfortable",
         ));
     }
+
     if !matches!(preferences.language.as_str(), "en-us" | "zh-cn") {
         return Err(Error::invalid("language must be en-us or zh-cn"));
     }
+
     if !matches!(preferences.time_format.as_str(), "iso_24h" | "local_12h") {
         return Err(Error::invalid("time_format must be iso_24h or local_12h"));
     }
+
     if !matches!(
         preferences.date_format.as_str(),
         "yyyy_mm_dd_dash" | "yyyy_mm_dd_slash" | "dd_mm_yyyy_slash" | "mm_dd_yyyy_slash"
     ) {
         return Err(Error::invalid("unsupported date_format"));
     }
+
     preferences.timezone = preferences.timezone.trim().to_string();
+
     if !is_valid_timezone(&preferences.timezone) {
         return Err(Error::invalid(
             "timezone must be empty or a valid IANA name",
         ));
     }
+
     if preferences.default_home_route != "last_visited"
         && (preferences.default_home_route.is_empty()
             || !preferences.default_home_route.starts_with('/')
@@ -218,6 +238,7 @@ fn normalize_and_validate(preferences: &mut UserPreferences) -> Result<()> {
             "default_home_route must be last_visited or an absolute app route",
         ));
     }
+
     Ok(())
 }
 
@@ -226,6 +247,7 @@ fn is_valid_timezone(tz: &str) -> bool {
     if tz.is_empty() {
         return true;
     }
+
     tz.len() <= 64
         && tz
             .chars()
@@ -272,11 +294,14 @@ async fn upload_avatar(
         .get(CONTENT_TYPE)
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
+
     let ext = avatar_ext_for_content_type(content_type)
         .ok_or_else(|| Error::invalid("avatar must be a PNG, JPEG, WEBP, or GIF image"))?;
+
     if body.is_empty() {
         return Err(Error::invalid("avatar file is empty"));
     }
+
     if body.len() > AVATAR_MAX_BYTES {
         return Err(Error::invalid("avatar must be at most 2 MiB"));
     }
@@ -286,6 +311,7 @@ async fn upload_avatar(
     let file = format!("{}.{ext}", Id::new().0);
     let key = format!("avatars/{}/{}", user.id.0, file);
     let path = ObjPath::parse(&key).map_err(|e| Error::internal(format!("avatar path: {e}")))?;
+
     state
         .storage
         .object_store
@@ -319,21 +345,25 @@ async fn serve_avatar(
     if !is_safe_path_segment(&user_id) || !is_safe_avatar_file(&file) {
         return Err(Error::not_found("avatar not found"));
     }
+
     let ext = file.rsplit('.').next().unwrap_or_default();
     let content_type =
         avatar_content_type_for_ext(ext).ok_or_else(|| Error::not_found("avatar not found"))?;
     let key = format!("avatars/{user_id}/{file}");
     let path = ObjPath::parse(&key).map_err(|_| Error::not_found("avatar not found"))?;
+
     let result = state
         .storage
         .object_store
         .get(&path)
         .await
         .map_err(|_| Error::not_found("avatar not found"))?;
+
     let bytes = result
         .bytes()
         .await
         .map_err(|e| Error::internal(format!("avatar read: {e}")))?;
+
     Response::builder()
         .status(200)
         .header(CONTENT_TYPE, content_type)
@@ -387,6 +417,7 @@ fn is_safe_avatar_file(file: &str) -> bool {
 fn avatar_object_key_from_url(url: &str) -> Option<String> {
     let rest = url.strip_prefix("/api/v1/public/avatars/")?;
     let (user, file) = rest.split_once('/')?;
+
     if is_safe_path_segment(user) && is_safe_avatar_file(file) {
         Some(format!("avatars/{user}/{file}"))
     } else {
@@ -396,15 +427,19 @@ fn avatar_object_key_from_url(url: &str) -> Option<String> {
 
 fn normalize_avatar_url(value: String) -> Result<Option<String>> {
     let value = value.trim().to_string();
+
     if value.is_empty() {
         return Ok(None);
     }
+
     if value.len() > 2048 {
         return Err(Error::invalid("avatar_url must be at most 2048 characters"));
     }
+
     if !(value.starts_with("https://") || value.starts_with("http://")) {
         return Err(Error::invalid("avatar_url must be an http(s) URL"));
     }
+
     Ok(Some(value))
 }
 

@@ -71,6 +71,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         ),
         _ => unreachable!("data mutation catalog received unrelated kind"),
     };
+
     ToolSpec::read(
         kind.name(),
         description,
@@ -86,6 +87,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
 
 fn saved_view_schema(id_field: Option<&str>) -> Value {
     let mut required = vec!["name", "language", "statement", "time_range_secs"];
+
     let mut properties = json!({
         "name": {"type": "string", "minLength": 1, "maxLength": 255},
         "language": {"type": "string", "enum": ["sql", "promql"]},
@@ -95,31 +97,38 @@ fn saved_view_schema(id_field: Option<&str>) -> Value {
         "tags": {"type": "array", "items": {"type": "string"}},
         "pinned": {"type": "boolean", "default": false}
     });
+
     if let Some(field) = id_field {
         required.insert(0, field);
+
         properties
             .as_object_mut()
             .expect("saved view properties")
             .insert(field.into(), json!({"type": "string", "minLength": 1}));
     }
+
     proposal_schema(&required, properties)
 }
 
 fn function_schema(id_field: Option<&str>) -> Value {
     let mut required = vec!["name", "language", "source"];
+
     let mut properties = json!({
         "name": {"type": "string", "minLength": 1},
         "language": {"type": "string", "enum": ["vrl", "js", "llm"]},
         "source": {"type": "string"},
         "params_schema": {"type": "object"}
     });
+
     if let Some(field) = id_field {
         required.insert(0, field);
+
         properties
             .as_object_mut()
             .expect("function properties")
             .insert(field.into(), json!({"type": "string", "minLength": 1}));
     }
+
     proposal_schema(&required, properties)
 }
 
@@ -132,6 +141,7 @@ fn proposal_id_schema(field: &str) -> Value {
 
 fn proposal_schema(required: &[&str], properties: Value) -> Value {
     let mut properties = properties.as_object().cloned().unwrap_or_default();
+
     properties.extend(
         json!({
             "reason": {"type": "string", "minLength": 1, "maxLength": 2000},
@@ -142,8 +152,10 @@ fn proposal_schema(required: &[&str], properties: Value) -> Value {
         .cloned()
         .expect("static approval properties"),
     );
+
     let mut required = required.to_vec();
     required.extend(["reason", "impact"]);
+
     json!({
         "type": "object",
         "required": required,

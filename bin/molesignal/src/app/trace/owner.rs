@@ -46,10 +46,12 @@ pub(super) fn spawn_candidate_owner(runtime: CandidateOwnerRuntime) -> JoinHandl
         self_endpoint,
         external_endpoint,
     } = runtime;
+
     tokio::spawn(async move {
         let mut tick =
             tokio::time::interval_at(Instant::now() + config.decision_tick, config.decision_tick);
         tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
         loop {
             tokio::select! {
                 biased;
@@ -74,10 +76,13 @@ pub(super) fn spawn_candidate_owner(runtime: CandidateOwnerRuntime) -> JoinHandl
                 }
             }
         }
+
         accepting.store(false, Ordering::Release);
         receiver.close();
+
         while let Ok(candidate) = receiver.try_recv() {
             decrement_depth(&depth, config.candidate_capacity);
+
             accept_candidate(
                 sampler.as_ref(),
                 apm_projector.as_deref(),
@@ -86,6 +91,7 @@ pub(super) fn spawn_candidate_owner(runtime: CandidateOwnerRuntime) -> JoinHandl
                 external_endpoint.as_ref(),
             );
         }
+
         fanout(
             sampler.flush(),
             self_endpoint.as_ref(),
@@ -105,11 +111,13 @@ fn accept_candidate(
     let fact =
         apm_projector.and_then(|projector| projector.extract(&candidate.org_id, &candidate.span));
     let output = sampler.accept(candidate);
+
     if let (Some(projector), Some(fact), Some(disposition)) =
         (apm_projector, fact, output.disposition)
     {
         projector.project(fact, disposition);
     }
+
     fanout(output.decided, self_endpoint, external_endpoint);
 }
 

@@ -40,9 +40,11 @@ impl SyntheticRegisterRepository for PgSyntheticRepository {
         .await
         .map_err(super::sqlx_err)?
         .rows_affected();
+
         if rows == 0 {
             return Err(Error::not_found("organization AgentPool Location"));
         }
+
         Ok(token)
     }
 
@@ -85,6 +87,7 @@ impl SyntheticRegisterRepository for PgSyntheticRepository {
             }
             other => super::sqlx_err(other),
         })?;
+
         Ok(ProbeRegistrationGrant {
             organization_id: Id(row.try_get("organization_id").map_err(super::sqlx_err)?),
             location_id: Id(row.try_get("location_id").map_err(super::sqlx_err)?),
@@ -102,7 +105,9 @@ impl SyntheticRegisterRepository for PgSyntheticRepository {
                 "organization register tokens cannot create platform Agents",
             ));
         };
+
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
+
         let register_token_id: Option<String> = sqlx::query_scalar(
             "SELECT token.id
              FROM synthetic_probe_register_tokens token
@@ -120,6 +125,7 @@ impl SyntheticRegisterRepository for PgSyntheticRepository {
         .fetch_optional(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
+
         let agent_token_id: Option<String> = if register_token_id.is_none() {
             sqlx::query_scalar(
                 "SELECT token.id
@@ -143,11 +149,13 @@ impl SyntheticRegisterRepository for PgSyntheticRepository {
         } else {
             None
         };
+
         if register_token_id.is_none() && agent_token_id.is_none() {
             return Err(Error::unauthorized(
                 "invalid, expired, disabled, or already-used Probe credential",
             ));
         }
+
         sqlx::query(
             "INSERT INTO synthetic_probe_agents
                 (id, location_id, name, hostname, status, agent_version, protocol_version,
@@ -180,6 +188,7 @@ impl SyntheticRegisterRepository for PgSyntheticRepository {
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
+
         if let Some(token_id) = register_token_id {
             sqlx::query(
                 "UPDATE synthetic_probe_register_tokens
@@ -202,6 +211,7 @@ impl SyntheticRegisterRepository for PgSyntheticRepository {
             .await
             .map_err(super::sqlx_err)?;
         }
+
         transaction.commit().await.map_err(super::sqlx_err)?;
         self.get_agent(org_id, &agent.id).await
     }

@@ -76,6 +76,7 @@ async fn configure_domain(
     Json(request): Json<DomainRequest>,
 ) -> Result<Json<StatusPageDomainInstructions>> {
     let page_id = Id(page_id);
+
     let result = state
         .status_pages
         .configure_custom_domain(
@@ -86,6 +87,7 @@ async fn configure_domain(
             },
         )
         .await?;
+
     record_access_audit(
         &state,
         &context,
@@ -97,6 +99,7 @@ async fn configure_domain(
         }),
     )
     .await;
+
     Ok(Json(result))
 }
 
@@ -107,10 +110,12 @@ async fn verify_domain(
     Path(page_id): Path<String>,
 ) -> Result<Json<StatusPageDomainInstructions>> {
     let page_id = Id(page_id);
+
     let result = state
         .status_pages
         .verify_custom_domain(&context.org_id, &page_id)
         .await?;
+
     record_access_audit(
         &state,
         &context,
@@ -122,6 +127,7 @@ async fn verify_domain(
         }),
     )
     .await;
+
     Ok(Json(result))
 }
 
@@ -132,10 +138,12 @@ async fn retry_domain(
     Path(page_id): Path<String>,
 ) -> Result<Json<StatusPageDomainInstructions>> {
     let page_id = Id(page_id);
+
     let result = state
         .status_pages
         .retry_custom_domain_tls(&context.org_id, &page_id)
         .await?;
+
     record_access_audit(
         &state,
         &context,
@@ -146,6 +154,7 @@ async fn retry_domain(
         }),
     )
     .await;
+
     Ok(Json(result))
 }
 
@@ -156,10 +165,12 @@ async fn remove_domain(
     Path(page_id): Path<String>,
 ) -> Result<Json<serde_json::Value>> {
     let page_id = Id(page_id);
+
     state
         .status_pages
         .remove_custom_domain(&context.org_id, &page_id)
         .await?;
+
     record_access_audit(
         &state,
         &context,
@@ -168,5 +179,6 @@ async fn remove_domain(
         serde_json::json!({}),
     )
     .await;
+
     Ok(Json(serde_json::json!({"deleted": true})))
 }

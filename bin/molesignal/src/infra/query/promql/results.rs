@@ -6,11 +6,13 @@ use super::*;
 /// 把 instant 结果转为 [`QueryResult`] —— 列布局 `[ts, value, ...labels]`。
 pub(super) fn instant_to_query_result(v: InstantVector, started: Instant) -> QueryResult {
     let mut all_labels: BTreeMap<String, ()> = BTreeMap::new();
+
     for (ls, _) in &v.items {
         for k in ls.keys() {
             all_labels.insert(k.clone(), ());
         }
     }
+
     let mut columns = vec!["value".to_string()];
     columns.extend(all_labels.keys().cloned());
 
@@ -19,6 +21,7 @@ pub(super) fn instant_to_query_result(v: InstantVector, started: Instant) -> Que
         .into_iter()
         .map(|(ls, val)| {
             let mut row = vec![serde_json::json!(val)];
+
             for k in all_labels.keys() {
                 row.push(
                     ls.get(k)
@@ -26,10 +29,13 @@ pub(super) fn instant_to_query_result(v: InstantVector, started: Instant) -> Que
                         .unwrap_or(serde_json::Value::Null),
                 );
             }
+
             row
         })
         .collect();
+
     let scanned = rows.len() as u64;
+
     QueryResult {
         columns,
         rows,
@@ -47,15 +53,19 @@ fn limit_range_points(points: Vec<RangePoint>, limit: Option<usize>) -> Vec<Rang
     let Some(limit) = limit.filter(|limit| *limit > 0) else {
         return points;
     };
+
     if points.len() <= limit {
         return points;
     }
 
     let mut grouped: BTreeMap<LabelSet, Vec<RangePoint>> = BTreeMap::new();
+
     for point in points {
         grouped.entry(point.labels.clone()).or_default().push(point);
     }
+
     let mut series = grouped.into_values().collect::<Vec<_>>();
+
     for points in &mut series {
         points.sort_by_key(|point| point.ts_us);
     }
@@ -63,6 +73,7 @@ fn limit_range_points(points: Vec<RangePoint>, limit: Option<usize>) -> Vec<Rang
     let series_count = series.len();
     let base = limit / series_count;
     let remainder = limit % series_count;
+
     let mut budgets = series
         .iter()
         .enumerate()
@@ -72,20 +83,25 @@ fn limit_range_points(points: Vec<RangePoint>, limit: Option<usize>) -> Vec<Rang
     // Short series may not consume their equal share. Redistribute that
     // capacity deterministically among series that still have points.
     let mut unused = limit.saturating_sub(budgets.iter().sum());
+
     while unused > 0 {
         let active = budgets
             .iter()
             .enumerate()
             .filter_map(|(index, budget)| (*budget < series[index].len()).then_some(index))
             .collect::<Vec<_>>();
+
         if active.is_empty() {
             break;
         }
+
         let share = (unused / active.len()).max(1);
+
         for index in active {
             let added = share.min(series[index].len() - budgets[index]).min(unused);
             budgets[index] += added;
             unused -= added;
+
             if unused == 0 {
                 break;
             }
@@ -93,6 +109,7 @@ fn limit_range_points(points: Vec<RangePoint>, limit: Option<usize>) -> Vec<Rang
     }
 
     let mut limited = Vec::with_capacity(limit);
+
     for (points, budget) in series.into_iter().zip(budgets) {
         match budget {
             0 => {}
@@ -105,8 +122,10 @@ fn limit_range_points(points: Vec<RangePoint>, limit: Option<usize>) -> Vec<Rang
             budget => {
                 let last = points.len() - 1;
                 let mut points = points.into_iter().map(Some).collect::<Vec<_>>();
+
                 for slot in 0..budget {
                     let index = slot * last / (budget - 1);
+
                     if let Some(point) = points[index].take() {
                         limited.push(point);
                     }
@@ -114,6 +133,7 @@ fn limit_range_points(points: Vec<RangePoint>, limit: Option<usize>) -> Vec<Rang
             }
         }
     }
+
     limited
 }
 
@@ -128,6 +148,7 @@ pub(super) fn range_to_query_result(
         .sort_by(|a, b| a.ts_us.cmp(&b.ts_us).then_with(|| a.labels.cmp(&b.labels)));
 
     let mut all_labels: BTreeMap<String, ()> = BTreeMap::new();
+
     for point in &v.points {
         for k in point.labels.keys() {
             all_labels.insert(k.clone(), ());
@@ -145,6 +166,7 @@ pub(super) fn range_to_query_result(
                 serde_json::json!(point.ts_us),
                 serde_json::json!(point.value),
             ];
+
             for k in all_labels.keys() {
                 row.push(
                     point
@@ -154,10 +176,13 @@ pub(super) fn range_to_query_result(
                         .unwrap_or(serde_json::Value::Null),
                 );
             }
+
             row
         })
         .collect();
+
     let scanned = rows.len() as u64;
+
     QueryResult {
         columns,
         rows,

@@ -135,11 +135,14 @@ pub struct RumSessionRecord {
 impl RumSessionRecord {
     pub(super) fn from_batch(batch: &RecordBatch, row: usize) -> Option<Self> {
         let session_id = string_at(batch, "session_id", row)?.to_string();
+
         if session_id.is_empty() {
             return None;
         }
+
         let timestamp_micros =
             i64_at(batch, "_timestamp", row).or_else(|| i64_at(batch, "started_at_micros", row))?;
+
         Some(Self {
             timestamp_micros,
             event_id: string_at(batch, EVENT_ID_FIELD, row)
@@ -210,9 +213,11 @@ impl RumActionRecord {
     pub(super) fn from_batch(batch: &RecordBatch, row: usize) -> Option<Self> {
         let timestamp_micros =
             i64_at(batch, "ts_micros", row).or_else(|| i64_at(batch, "_timestamp", row))?;
+
         let session_id = string_at(batch, "session_id", row)
             .unwrap_or_default()
             .to_string();
+
         Some(Self {
             timestamp_micros,
             event_id: string_at(batch, EVENT_ID_FIELD, row)
@@ -282,9 +287,11 @@ pub struct RumErrorRecord {
 impl RumErrorRecord {
     pub(super) fn from_batch(batch: &RecordBatch, row: usize) -> Option<Self> {
         let fingerprint = string_at(batch, "fingerprint", row)?.to_string();
+
         if fingerprint.is_empty() {
             return None;
         }
+
         Some(Self {
             timestamp_micros: i64_at(batch, "_timestamp", row)?,
             event_id: string_at(batch, EVENT_ID_FIELD, row)

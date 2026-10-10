@@ -70,6 +70,7 @@ pub(crate) async fn resolve_traces_stream_definition(
         .into_iter()
         .filter(|s| s.stream_type == StreamType::TRACES)
         .collect();
+
     choose_traces_stream(traces)
 }
 
@@ -83,6 +84,7 @@ fn choose_traces_stream(mut traces: Vec<StreamDefinition>) -> Option<StreamDefin
             .cmp(&trace_stream_rank(left))
             .then_with(|| left.name.cmp(&right.name))
     });
+
     traces.into_iter().next()
 }
 
@@ -96,6 +98,7 @@ fn trace_stream_rank(stream: &StreamDefinition) -> u8 {
         "end_time_unix_nano",
         "status_code",
     ];
+
     let canonical = REQUIRED_FIELDS.iter().all(|required| {
         stream
             .schema
@@ -103,6 +106,7 @@ fn trace_stream_rank(stream: &StreamDefinition) -> u8 {
             .iter()
             .any(|field| field.name == *required)
     });
+
     match (canonical, stream.name.as_str() == "default") {
         (true, true) => 3,
         (true, false) => 2,
@@ -120,13 +124,16 @@ async fn trace(
     validate_trace_id(&trace_id).map_err(Error::invalid)?;
 
     let now = TimestampMicros::now();
+
     let range = TimeRange::new(
         TimestampMicros(now.0 - DEFAULT_WINDOW_SECS * 1_000_000),
         now,
     );
+
     let Some(stream) = resolve_traces_stream(&state, &ctx.org_id).await else {
         return Err(Error::not_found(format!("trace {trace_id} not found")));
     };
+
     // `SELECT *`：OTLP intake 把 span/resource 属性扁平成各自的带点列（无单独的
     // `attributes`/`events` JSON 列），所以取全列让 `rows_to_spans` 按 canonical 名
     // 提取核心字段、把其余扁平列聚成 attributes。按 `_timestamp`（恒在）排序做 LIMIT 裁剪。

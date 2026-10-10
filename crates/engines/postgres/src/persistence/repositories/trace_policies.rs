@@ -50,6 +50,7 @@ impl TracePolicyRepository for PgTracePolicyRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         row.map(row_to_policy).transpose()
     }
 
@@ -80,16 +81,20 @@ impl TracePolicyRepository for PgTracePolicyRepository {
     ) -> Result<PersistedTracePolicy> {
         policy.validate().map_err(Error::invalid)?;
         let mut transaction = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         sqlx::query("SELECT pg_advisory_xact_lock(hashtext('molesignal.trace.policy'))")
             .execute(&mut *transaction)
             .await
             .map_err(sqlx_err)?;
+
         let version: i64 =
             sqlx::query_scalar("SELECT COALESCE(MAX(version), 0) + 1 FROM trace_runtime_policies")
                 .fetch_one(&mut *transaction)
                 .await
                 .map_err(sqlx_err)?;
+
         policy.version = version.max(1) as u64;
+
         let persisted = PersistedTracePolicy {
             id: Id::new(),
             system_org_id: system_org_id.clone(),
@@ -97,6 +102,7 @@ impl TracePolicyRepository for PgTracePolicyRepository {
             created_by: Some(actor_id.clone()),
             created_at: TimestampMicros::now(),
         };
+
         sqlx::query(
             "INSERT INTO trace_runtime_policies
                 (id, system_org_id, version, policy, created_by, created_at_micros)
@@ -111,6 +117,7 @@ impl TracePolicyRepository for PgTracePolicyRepository {
         .execute(&mut *transaction)
         .await
         .map_err(sqlx_err)?;
+
         sqlx::query(
             "INSERT INTO active_trace_runtime_policy
                 (singleton_id, policy_id, activated_by, activated_at_micros)
@@ -126,6 +133,7 @@ impl TracePolicyRepository for PgTracePolicyRepository {
         .execute(&mut *transaction)
         .await
         .map_err(sqlx_err)?;
+
         transaction.commit().await.map_err(sqlx_err)?;
         Ok(persisted)
     }
@@ -200,6 +208,7 @@ impl TraceDebugTokenRepository for PgTraceDebugTokenRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(token)
     }
 
@@ -214,9 +223,11 @@ impl TraceDebugTokenRepository for PgTraceDebugTokenRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         if result.rows_affected() == 0 {
             return Err(Error::not_found("trace debug token"));
         }
+
         Ok(())
     }
 
@@ -245,6 +256,7 @@ impl TraceDebugTokenRepository for PgTraceDebugTokenRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         row.map(row_to_debug_token).transpose()
     }
 }

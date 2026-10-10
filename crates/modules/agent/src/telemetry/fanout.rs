@@ -26,35 +26,43 @@ impl AgentFanoutHook {
     /// 输入一条 trace 事件，输出可能的 LLM 派生事件。
     pub fn extract(&self, ev: &RawEvent) -> Option<RawEvent> {
         let has_gen_ai = ev.fields.keys().any(|k| k.starts_with("gen_ai."));
+
         if !has_gen_ai {
             return None;
         }
+
         let mut out: Map<String, Value> = Map::new();
+
         let copy = |dst: &mut Map<String, Value>, src: &Map<String, Value>, k: &str, dk: &str| {
             if let Some(v) = src.get(k) {
                 dst.insert(dk.to_string(), v.clone());
             }
         };
+
         copy(&mut out, &ev.fields, "gen_ai.system", "provider");
         copy(&mut out, &ev.fields, "gen_ai.request.model", "model");
+
         copy(
             &mut out,
             &ev.fields,
             "gen_ai.usage.prompt_tokens",
             "prompt_tokens",
         );
+
         copy(
             &mut out,
             &ev.fields,
             "gen_ai.usage.completion_tokens",
             "completion_tokens",
         );
+
         copy(
             &mut out,
             &ev.fields,
             "gen_ai.usage.total_tokens",
             "total_tokens",
         );
+
         copy(&mut out, &ev.fields, "gen_ai.usage.cost_usd", "cost_usd");
         copy(&mut out, &ev.fields, "duration_ms", "latency_ms");
         copy(&mut out, &ev.fields, "status", "status");
@@ -63,6 +71,7 @@ impl AgentFanoutHook {
         if let Some(Value::String(p)) = ev.fields.get("gen_ai.prompt") {
             out.insert("prompt_redacted".to_string(), Value::String(redact_pii(p)));
         }
+
         if let Some(Value::String(c)) = ev.fields.get("gen_ai.completion") {
             out.insert(
                 "completion_redacted".to_string(),

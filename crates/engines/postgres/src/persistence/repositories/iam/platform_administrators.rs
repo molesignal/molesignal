@@ -51,6 +51,7 @@ impl IamPlatformAdministratorRepository for PgIamPlatformAdministratorRepository
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to_assignment).collect()
     }
 
@@ -70,6 +71,7 @@ impl IamPlatformAdministratorRepository for PgIamPlatformAdministratorRepository
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         row.try_get("active").map_err(sqlx_err)
     }
 
@@ -80,10 +82,12 @@ impl IamPlatformAdministratorRepository for PgIamPlatformAdministratorRepository
     )]
     async fn bootstrap_root(&self, user_id: &Id) -> Result<bool> {
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         sqlx::query("SELECT pg_advisory_xact_lock(hashtext('molesignal.platform.admins'))")
             .execute(&mut *tx)
             .await
             .map_err(sqlx_err)?;
+
         let valid_root: bool = sqlx::query_scalar(
             "SELECT EXISTS (
                 SELECT 1 FROM users
@@ -94,6 +98,7 @@ impl IamPlatformAdministratorRepository for PgIamPlatformAdministratorRepository
         .fetch_one(&mut *tx)
         .await
         .map_err(sqlx_err)?;
+
         if !valid_root {
             return Err(Error::invalid(
                 "configured root user is not active and cannot become platform administrator",
@@ -110,6 +115,7 @@ impl IamPlatformAdministratorRepository for PgIamPlatformAdministratorRepository
         .fetch_one(&mut *tx)
         .await
         .map_err(sqlx_err)?;
+
         if already_reconciled {
             tx.commit().await.map_err(sqlx_err)?;
             return Ok(false);
@@ -119,7 +125,9 @@ impl IamPlatformAdministratorRepository for PgIamPlatformAdministratorRepository
             .execute(&mut *tx)
             .await
             .map_err(sqlx_err)?;
+
         let now = TimestampMicros::now();
+
         sqlx::query(
             "UPDATE iam_platform_administrators
                 SET active = FALSE,
@@ -132,6 +140,7 @@ impl IamPlatformAdministratorRepository for PgIamPlatformAdministratorRepository
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
+
         let reconciled = sqlx::query(
             "INSERT INTO iam_platform_administrators
                 (user_id, active, granted_by, granted_at_micros, revoked_by, revoked_at_micros)
@@ -149,9 +158,11 @@ impl IamPlatformAdministratorRepository for PgIamPlatformAdministratorRepository
         .await
         .map_err(sqlx_err)?
         .rows_affected();
+
         if reconciled != 1 {
             return Err(Error::internal("failed to reconcile configured root user"));
         }
+
         tx.commit().await.map_err(sqlx_err)?;
         Ok(true)
     }

@@ -80,6 +80,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         ),
         _ => unreachable!("synthetics catalog received unrelated kind"),
     };
+
     let tool = ToolSpec::read(
         kind.name(),
         description,
@@ -90,6 +91,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         &permissions,
         &tags,
     );
+
     match kind {
         BuiltinToolKind::RunSyntheticMonitor
         | BuiltinToolKind::PauseSyntheticMonitor

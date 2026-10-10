@@ -21,13 +21,16 @@ pub(super) fn admit_exemplar(values: &mut Vec<TraceExemplar>, value: TraceExempl
     {
         return;
     }
+
     values.push(value);
+
     values.sort_by(|left, right| {
         right
             .duration_micros
             .cmp(&left.duration_micros)
             .then_with(|| left.trace_id.cmp(&right.trace_id))
     });
+
     values.truncate(limit);
 }
 
@@ -39,8 +42,10 @@ pub(super) fn admit_error_sample(values: &mut Vec<ErrorSample>, value: ErrorSamp
         if value.event_time >= existing.event_time {
             *existing = value;
         }
+
         return;
     }
+
     values.push(value);
     values.sort_by_key(|sample| std::cmp::Reverse(sample.event_time));
     values.truncate(limit);

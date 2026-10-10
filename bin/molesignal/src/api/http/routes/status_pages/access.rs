@@ -147,6 +147,7 @@ async fn create_rule(
     Json(request): Json<RuleRequest>,
 ) -> Result<(StatusCode, Json<AccessRuleResponse>)> {
     let page_id = Id(page_id);
+
     let rule = state
         .status_pages
         .create_access_rule(
@@ -158,7 +159,9 @@ async fn create_rule(
             },
         )
         .await?;
+
     let rule_id = rule.id.clone();
+
     record_access_audit(
         &state,
         &context,
@@ -170,6 +173,7 @@ async fn create_rule(
         }),
     )
     .await;
+
     Ok((StatusCode::CREATED, Json(rule.into())))
 }
 
@@ -180,10 +184,12 @@ async fn delete_rule(
     Path((page_id, rule_id)): Path<(String, String)>,
 ) -> Result<Json<serde_json::Value>> {
     let page_id = Id(page_id);
+
     state
         .status_pages
         .delete_access_rule(&context.org_id, &page_id, &Id(rule_id.clone()))
         .await?;
+
     record_access_audit(
         &state,
         &context,
@@ -194,6 +200,7 @@ async fn delete_rule(
         }),
     )
     .await;
+
     Ok(Json(serde_json::json!({"deleted": true})))
 }
 
@@ -221,10 +228,12 @@ async fn revoke_session(
     Path((page_id, session_id)): Path<(String, String)>,
 ) -> Result<Json<serde_json::Value>> {
     let page_id = Id(page_id);
+
     state
         .status_pages
         .revoke_access_session(&context.org_id, &page_id, &Id(session_id.clone()))
         .await?;
+
     record_access_audit(
         &state,
         &context,
@@ -235,6 +244,7 @@ async fn revoke_session(
         }),
     )
     .await;
+
     Ok(Json(serde_json::json!({"revoked": true})))
 }
 
@@ -245,10 +255,12 @@ async fn revoke_all_sessions(
     Path(page_id): Path<String>,
 ) -> Result<Json<serde_json::Value>> {
     let page_id = Id(page_id);
+
     let count = state
         .status_pages
         .revoke_all_access_sessions(&context.org_id, &page_id)
         .await?;
+
     record_access_audit(
         &state,
         &context,
@@ -259,6 +271,7 @@ async fn revoke_all_sessions(
         }),
     )
     .await;
+
     Ok(Json(serde_json::json!({"revoked": count})))
 }
 
@@ -279,10 +292,12 @@ async fn request_access(
     Json<crate::app::status_page::StatusPageAccessRequestOutcome>,
 )> {
     let origin = request_hostname(&headers).unwrap_or_default();
+
     let outcome = state
         .status_pages
         .request_private_access(&slug, &request.email, &origin)
         .await?;
+
     Ok((StatusCode::ACCEPTED, Json(outcome)))
 }
 
@@ -293,22 +308,27 @@ async fn consume_access(
     Json(request): Json<AccessConsumeRequest>,
 ) -> Result<Response> {
     let origin = request_hostname(&headers).unwrap_or_default();
+
     let outcome = state
         .status_pages
         .consume_private_access(&slug, &request.token, &origin)
         .await?;
+
     let cookie_name = crate::app::status_page::access_cookie_name(&outcome.page.id);
+
     let max_age = outcome
         .session
         .expires_at
         .0
         .saturating_sub(TimestampMicros::now().0)
         / 1_000_000;
+
     let mut cookie = format!(
         "{cookie_name}={}; Path=/; Max-Age={}; HttpOnly; SameSite=Lax",
         outcome.raw_session_token,
         max_age.max(0),
     );
+
     if state.platform.external_url.trim().starts_with("https://")
         || headers
             .get("x-forwarded-proto")
@@ -317,17 +337,20 @@ async fn consume_access(
     {
         cookie.push_str("; Secure");
     }
+
     let mut response = Json(serde_json::json!({
         "authenticated": true,
         "expires_at": outcome.session.expires_at,
     }))
     .into_response();
+
     response.headers_mut().insert(
         SET_COOKIE,
         cookie
             .parse()
             .map_err(|_| Error::internal("status-page session cookie is invalid"))?,
     );
+
     Ok(response)
 }
 
@@ -356,6 +379,7 @@ fn mask_sensitive_target(kind: StatusPageAccessRuleKind, value: &str) -> String 
             let value = value.trim_start_matches('@');
             let (first, rest) = value.split_once('.').unwrap_or((value, ""));
             let first = first.chars().next().unwrap_or('*');
+
             if rest.is_empty() {
                 format!("@{first}***")
             } else {
@@ -369,5 +393,6 @@ pub(super) fn mask_email(value: &str) -> String {
     let Some((local, domain)) = value.rsplit_once('@') else {
         return "***".into();
     };
+
     format!("{}***@{domain}", local.chars().next().unwrap_or('*'))
 }

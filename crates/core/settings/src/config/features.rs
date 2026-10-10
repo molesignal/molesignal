@@ -27,12 +27,15 @@ pub struct MmdbSettings {
     #[serde(default = "default_mmdb_refresh")]
     pub refresh_interval_secs: u64,
 }
+
 fn default_mmdb_path() -> String {
     "/usr/share/molesignal/mmdb/GeoLite2-City.mmdb".into()
 }
+
 fn default_mmdb_refresh() -> u64 {
     7 * 24 * 3600
 }
+
 impl Default for MmdbSettings {
     fn default() -> Self {
         Self {
@@ -72,15 +75,19 @@ pub struct RendererSettings {
 fn default_concurrent_renders() -> u32 {
     2
 }
+
 fn default_renderer_base_url() -> String {
     "http://127.0.0.1:5173".into()
 }
+
 fn default_render_timeout_secs() -> u32 {
     30
 }
+
 fn default_viewport_width() -> u32 {
     1280
 }
+
 fn default_viewport_height() -> u32 {
     800
 }
@@ -102,11 +109,13 @@ impl RendererSettings {
         let url = url::Url::parse(&self.base_url).map_err(|error| {
             anyhow::anyhow!("invalid scheduled_reports.renderer.base_url: {error}")
         })?;
+
         if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
             anyhow::bail!(
                 "scheduled_reports.renderer.base_url must be an absolute http or https URL"
             );
         }
+
         Ok(())
     }
 }

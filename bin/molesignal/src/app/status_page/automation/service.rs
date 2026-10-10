@@ -25,13 +25,16 @@ impl StatusPageService {
         self.repository.get_page(org_id, page_id).await?;
         self.validate_automation_input(org_id, page_id, &input)
             .await?;
+
         let existing = self
             .repository
             .list_automation_rules(org_id, page_id)
             .await?;
+
         let now = TimestampMicros::now();
         let rule_id = Id::new();
         let revision = materialize_revision(org_id, page_id, actor_id, &rule_id, 1, &input, now)?;
+
         self.repository
             .create_automation_rule(
                 StatusAutomationRule {
@@ -62,14 +65,17 @@ impl StatusPageService {
     ) -> Result<StatusAutomationRevision> {
         self.validate_automation_input(org_id, page_id, &input)
             .await?;
+
         let existing = self
             .repository
             .list_automation_rules(org_id, page_id)
             .await?;
+
         let view = existing
             .iter()
             .find(|view| &view.rule.id == rule_id)
             .ok_or_else(|| Error::not_found("Status Page automation Rule"))?;
+
         let revision = materialize_revision(
             org_id,
             page_id,
@@ -79,6 +85,7 @@ impl StatusPageService {
             &input,
             TimestampMicros::now(),
         )?;
+
         self.repository
             .create_automation_revision(revision, input.name.trim(), input.position)
             .await
@@ -136,11 +143,13 @@ impl StatusPageService {
         rule_ids: &[Id],
     ) -> Result<Vec<ActiveAutomationRule>> {
         self.repository.get_page(org_id, page_id).await?;
+
         if rule_ids.len() > 500 {
             return Err(Error::invalid(
                 "automation Rule order cannot contain more than 500 Rules",
             ));
         }
+
         self.repository
             .reorder_automation_rules(org_id, page_id, rule_ids, TimestampMicros::now())
             .await
@@ -154,6 +163,7 @@ impl StatusPageService {
         limit: u32,
     ) -> Result<Vec<AutomationCandidate>> {
         self.repository.get_page(org_id, page_id).await?;
+
         self.repository
             .list_automation_candidates(org_id, page_id, state, limit)
             .await
@@ -179,9 +189,11 @@ impl StatusPageService {
             .repository
             .get_automation_candidate(org_id, candidate_id)
             .await?;
+
         if &candidate.status_page_id != page_id {
             return Err(Error::not_found("Status Page automation Candidate"));
         }
+
         Ok(candidate)
     }
 
@@ -195,9 +207,11 @@ impl StatusPageService {
             .repository
             .get_automation_candidate_detail(org_id, candidate_id)
             .await?;
+
         if &detail.candidate.status_page_id != page_id {
             return Err(Error::not_found("Status Page automation Candidate"));
         }
+
         Ok(detail)
     }
 
@@ -210,6 +224,7 @@ impl StatusPageService {
     ) -> Result<AutomationCandidate> {
         self.get_automation_candidate(org_id, page_id, candidate_id)
             .await?;
+
         self.repository
             .retry_automation_candidate(org_id, candidate_id, actor_id, TimestampMicros::now())
             .await
@@ -221,6 +236,7 @@ impl StatusPageService {
         page_id: &Id,
     ) -> Result<Option<AutomationSettings>> {
         self.repository.get_page(org_id, page_id).await?;
+
         self.repository
             .get_automation_settings(org_id, page_id)
             .await
@@ -234,6 +250,7 @@ impl StatusPageService {
         paused: bool,
     ) -> Result<AutomationSettings> {
         self.repository.get_page(org_id, page_id).await?;
+
         self.repository
             .set_automation_paused(org_id, page_id, paused, actor_id, TimestampMicros::now())
             .await
@@ -248,6 +265,7 @@ impl StatusPageService {
             .repository
             .list_matching_automation_rules(observation)
             .await?;
+
         if let Some(rule) = rules
             .into_iter()
             .filter(|rule| &rule.rule.status_page_id == page_id)
@@ -259,6 +277,7 @@ impl StatusPageService {
                 reason: "first complete ordered match".to_string(),
             });
         }
+
         Ok(AutomationSimulation {
             matched_rule_id: None,
             matched_revision_id: None,
@@ -277,26 +296,31 @@ impl StatusPageService {
                 "automation Rule name must contain 1 to 255 characters",
             ));
         }
+
         if input.position.is_some_and(|position| position < 0) {
             return Err(Error::invalid(
                 "automation Rule position cannot be negative",
             ));
         }
+
         if input.action.component_ids.is_empty() || input.action.component_ids.len() > 500 {
             return Err(Error::invalid(
                 "automation Rule must select 1 to 500 Components",
             ));
         }
+
         if input.action.sustained_delay_seconds > 86_400 {
             return Err(Error::invalid(
                 "automation sustained delay cannot exceed 24 hours",
             ));
         }
+
         if input.action.correlation_key_template.trim().is_empty()
             || input.action.correlation_key_template.chars().count() > 255
         {
             return Err(Error::invalid("automation correlation template is invalid"));
         }
+
         if input.action.templates.title.trim().is_empty()
             || input.action.templates.title.chars().count() > 200
         {
@@ -304,6 +328,7 @@ impl StatusPageService {
                 "automation title Template must contain 1 to 200 characters",
             ));
         }
+
         for template in [
             &input.action.templates.investigating,
             &input.action.templates.update,
@@ -315,6 +340,7 @@ impl StatusPageService {
                 ));
             }
         }
+
         for template in [
             &input.action.templates.title,
             &input.action.templates.investigating,
@@ -324,12 +350,14 @@ impl StatusPageService {
         ] {
             validate_template_tokens(template)?;
         }
+
         let selected = input
             .action
             .component_ids
             .iter()
             .map(Id::as_str)
             .collect::<HashSet<_>>();
+
         let available = self
             .repository
             .list_components(org_id, page_id)
@@ -340,39 +368,49 @@ impl StatusPageService {
             })
             .map(|component| component.id.0)
             .collect::<HashSet<_>>();
+
         if selected.iter().any(|id| !available.contains(*id)) {
             return Err(Error::not_found("automation Component not found"));
         }
+
         Ok(())
     }
 }
 
 fn validate_template_tokens(template: &str) -> Result<()> {
     let mut remaining = template;
+
     while let Some(start) = remaining.find("{{") {
         let after = &remaining[start + 2..];
+
         let end = after
             .find("}}")
             .ok_or_else(|| Error::invalid("automation Template has an unclosed token"))?;
+
         let token = after[..end].trim();
+
         let allowed = matches!(
             token,
             "source.id" | "source.kind" | "monitor.id" | "incident.id" | "severity"
         ) || token
             .strip_prefix("labels.")
             .is_some_and(|label| !label.is_empty() && label.len() <= 128);
+
         if !allowed {
             return Err(Error::invalid(format!(
                 "unsupported automation Template token: {token}"
             )));
         }
+
         remaining = &after[end + 2..];
     }
+
     if remaining.contains("}}") {
         return Err(Error::invalid(
             "automation Template has a closing token without an opening token",
         ));
     }
+
     Ok(())
 }
 
@@ -381,6 +419,7 @@ pub(super) fn complete_match(
     observation: &AutomationSourceObservation,
 ) -> bool {
     let matchers = &rule.revision.matchers;
+
     matchers.source_kind == observation.source_kind
         && matchers
             .source_id
@@ -406,6 +445,7 @@ fn materialize_revision(
 ) -> Result<StatusAutomationRevision> {
     let content = serde_json::to_vec(input)
         .map_err(|error| Error::internal(format!("serialize automation Revision: {error}")))?;
+
     Ok(StatusAutomationRevision {
         id: Id::new(),
         organization_id: org_id.clone(),

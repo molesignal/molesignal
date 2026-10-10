@@ -67,6 +67,7 @@ impl RecipientResolver for NextOncallResolver {
     async fn resolve(&self, event: &NotifyEvent, config: &Value) -> Result<Vec<NotifyRecipient>> {
         let config = parse_config(config, NEXT_ONCALL_RESOLVER)?;
         let schedule = get_schedule(self.schedules.as_ref(), event, &config.schedule_id).await?;
+
         let user_id = event
             .attributes
             .get("next_user_id")
@@ -75,6 +76,7 @@ impl RecipientResolver for NextOncallResolver {
             .map(Id::from_string)
             .filter(|user_id| schedule_user_ids(&schedule).contains(user_id))
             .or_else(|| next_oncall_user(&schedule, event.occurred_at));
+
         Ok(user_id
             .map(|user_id| {
                 vec![NotifyRecipient {
@@ -110,6 +112,7 @@ impl RecipientResolver for ScheduleMembersResolver {
         let config = parse_config(config, SCHEDULE_MEMBERS_RESOLVER)?;
         let schedule = get_schedule(self.schedules.as_ref(), event, &config.schedule_id).await?;
         let team_id = schedule.team_id.clone();
+
         Ok(schedule_user_ids(&schedule)
             .into_iter()
             .map(|user_id| NotifyRecipient {
@@ -137,23 +140,31 @@ fn next_oncall_user(schedule: &Schedule, at: TimestampMicros) -> Option<Id> {
     const HORIZON: i64 = 370 * 24 * 60 * 60 * 1_000_000;
     let mut previous_at = at.0;
     let mut offset = STEP;
+
     while offset <= HORIZON {
         let candidate_at = TimestampMicros(at.0.saturating_add(offset));
         let candidate = schedule.who_is_on_call(candidate_at);
+
         if candidate.is_some() && candidate != current {
             let mut probe = previous_at.saturating_add(60 * 1_000_000);
+
             while probe <= candidate_at.0 {
                 let resolved = schedule.who_is_on_call(TimestampMicros(probe));
+
                 if resolved.is_some() && resolved != current {
                     return resolved;
                 }
+
                 probe = probe.saturating_add(60 * 1_000_000);
             }
+
             return candidate;
         }
+
         previous_at = candidate_at.0;
         offset = offset.saturating_add(STEP);
     }
+
     None
 }
 

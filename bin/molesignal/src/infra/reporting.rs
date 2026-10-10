@@ -28,15 +28,18 @@ pub fn render_payload(r: &ScheduledReport) -> Result<Vec<u8>> {
         "generated_at": chrono::Utc::now().to_rfc3339(),
         "format": r.format,
     });
+
     let bytes = match r.format.as_str() {
         "json" => serde_json::to_vec_pretty(&payload).unwrap_or_default(),
         "csv" => {
             let mut out = String::from("field,value\n");
+
             if let Some(obj) = payload.as_object() {
                 for (k, v) in obj.iter() {
                     out.push_str(&format!("{k},{v}\n"));
                 }
             }
+
             out.into_bytes()
         }
         "svg" => format!(
@@ -59,6 +62,7 @@ pub fn render_payload(r: &ScheduledReport) -> Result<Vec<u8>> {
             )));
         }
     };
+
     Ok(bytes)
 }
 

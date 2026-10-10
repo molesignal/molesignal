@@ -38,16 +38,19 @@ pub(super) async fn execute(
     arguments: serde_json::Value,
 ) -> Result<ToolResult> {
     let args: StatusPageArgs = parse_args(arguments)?;
+
     match kind {
         BuiltinToolKind::ListStatusPages => {
             let pages = runtime
                 .status_pages
                 .list_pages(&auth.org_id, args.lifecycle)
                 .await?;
+
             json_result(&bounded(pages, args.limit, 500))
         }
         BuiltinToolKind::GetStatusPage => {
             let page_id = required_id(args.page_id, "page_id")?;
+
             json_result(
                 &runtime
                     .status_pages
@@ -57,6 +60,7 @@ pub(super) async fn execute(
         }
         BuiltinToolKind::ListStatusPageIncidents => {
             let page_id = required_id(args.page_id, "page_id")?;
+
             json_result(
                 &runtime
                     .status_pages
@@ -72,6 +76,7 @@ pub(super) async fn execute(
         BuiltinToolKind::GetStatusPageIncident => {
             let page_id = required_id(args.page_id, "page_id")?;
             let event_id = required_id(args.event_id, "event_id")?;
+
             json_result(
                 &runtime
                     .status_pages
@@ -81,10 +86,12 @@ pub(super) async fn execute(
         }
         BuiltinToolKind::ListStatusPageSubscribers => {
             let page_id = required_id(args.page_id, "page_id")?;
+
             let page = runtime
                 .status_pages
                 .list_subscribers(&auth.org_id, &page_id, args.page.unwrap_or(1))
                 .await?;
+
             let items = page
                 .items
                 .into_iter()
@@ -102,6 +109,7 @@ pub(super) async fn execute(
                     })
                 })
                 .collect::<Vec<_>>();
+
             Ok(ToolResult::json(json!({
                 "items": items,
                 "page": page.page,
@@ -111,10 +119,12 @@ pub(super) async fn execute(
         }
         BuiltinToolKind::ListStatusPageDeliveries => {
             let page_id = required_id(args.page_id, "page_id")?;
+
             let page = runtime
                 .status_pages
                 .list_notification_deliveries(&auth.org_id, &page_id, args.page.unwrap_or(1))
                 .await?;
+
             let items = page
                 .items
                 .into_iter()
@@ -135,6 +145,7 @@ pub(super) async fn execute(
                     })
                 })
                 .collect::<Vec<_>>();
+
             Ok(ToolResult::json(json!({
                 "items": items,
                 "page": page.page,
@@ -144,6 +155,7 @@ pub(super) async fn execute(
         }
         BuiltinToolKind::ListStatusPageAutomationRules => {
             let page_id = required_id(args.page_id, "page_id")?;
+
             json_result(
                 &runtime
                     .status_pages
@@ -154,6 +166,7 @@ pub(super) async fn execute(
         BuiltinToolKind::ListStatusPageAutomationCandidates => {
             let page_id = required_id(args.page_id, "page_id")?;
             let limit = args.limit.unwrap_or(50).clamp(1, 100);
+
             json_result(
                 &runtime
                     .status_pages
@@ -168,6 +181,7 @@ pub(super) async fn execute(
         }
         BuiltinToolKind::GetStatusPageAutomationSettings => {
             let page_id = required_id(args.page_id, "page_id")?;
+
             Ok(ToolResult::json(serde_json::json!({
                 "settings": runtime
                     .status_pages
@@ -192,16 +206,19 @@ fn mask_target(channel: StatusPageSubscriberChannel, target: &str) -> String {
             let Some((local, domain)) = target.rsplit_once('@') else {
                 return "***".into();
             };
+
             format!("{}***@{domain}", local.chars().next().unwrap_or('*'))
         }
         StatusPageSubscriberChannel::Webhook => Url::parse(target)
             .ok()
             .and_then(|url| {
                 let host = url.host_str()?;
+
                 let port = url
                     .port()
                     .map(|port| format!(":{port}"))
                     .unwrap_or_default();
+
                 Some(format!("{}://{host}{port}/***", url.scheme()))
             })
             .unwrap_or_else(|| "***".into()),

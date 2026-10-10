@@ -56,6 +56,7 @@ pub(super) async fn test_server(
     let id = Id(id);
     let now = TimestampMicros::now();
     let result = discover_tools(&state, &ctx.org_id, &id).await;
+
     match result {
         Ok(tools) => {
             let server = state
@@ -70,6 +71,7 @@ pub(super) async fn test_server(
                     None,
                 )
                 .await?;
+
             activity_audit::record(
                 &state,
                 &ctx,
@@ -79,6 +81,7 @@ pub(super) async fn test_server(
                 json!({"success": true, "discovered_tools": tools.len()}),
             )
             .await;
+
             Ok(Json(json!({
                 "success": true,
                 "server": server,
@@ -87,6 +90,7 @@ pub(super) async fn test_server(
         }
         Err(error) => {
             let message = safe_runtime_error(&error);
+
             let server = state
                 .agent
                 .tool_control
@@ -99,6 +103,7 @@ pub(super) async fn test_server(
                     None,
                 )
                 .await?;
+
             activity_audit::record(
                 &state,
                 &ctx,
@@ -108,6 +113,7 @@ pub(super) async fn test_server(
                 json!({"success": false, "error": message}),
             )
             .await;
+
             Ok(Json(json!({
                 "success": false,
                 "server": server,
@@ -126,13 +132,16 @@ pub(super) async fn sync_server(
     Json(request): Json<SyncRequest>,
 ) -> Result<Json<Value>> {
     let id = Id(id);
+
     let server = state
         .agent
         .tool_control
         .get_mcp_server(&ctx.org_id, &id)
         .await?;
+
     let discovered = discover_tools(&state, &ctx.org_id, &id).await?;
     let selection: HashSet<&str> = request.selected_tools.iter().map(String::as_str).collect();
+
     let existing = state
         .agent
         .tool_control
@@ -141,30 +150,39 @@ pub(super) async fn sync_server(
         .into_iter()
         .map(|tool| (tool.remote_name.clone(), tool))
         .collect::<HashMap<_, _>>();
+
     let now = TimestampMicros::now();
     let mut imported = Vec::new();
+
     for remote in discovered {
         if !selection.is_empty() && !selection.contains(remote.name.as_str()) {
             continue;
         }
+
         let minimum_risk = inferred_minimum_risk(&remote.annotations);
         let old = existing.get(&remote.name);
+
         let risk = old
             .map(|tool| tool.risk.max(minimum_risk))
             .unwrap_or(minimum_risk);
+
         let execution_mode = old
             .map(|tool| tool.execution_mode)
             .filter(|mode| mode.allowed_for_risk(risk))
             .unwrap_or_else(|| ToolExecutionMode::default_for_risk(risk));
+
         let enabled = old.is_some_and(|tool| tool.enabled);
         let remote_input_schema = remote.input_schema;
         let synchronized_schema = schema::synchronize(remote_input_schema.clone());
+
         let (input_schema, schema_hash, schema_dialect, unavailable_diagnostic) =
             match synchronized_schema {
                 Ok(schema) => (schema.schema, schema.hash, schema.dialect, None),
                 Err(error) => unavailable_schema(&remote_input_schema, &error),
             };
+
         let schema_available = unavailable_diagnostic.is_none();
+
         imported.push(McpTool {
             id: old.map(|tool| tool.id.clone()).unwrap_or_else(Id::new),
             org_id: ctx.org_id.clone(),
@@ -205,12 +223,15 @@ pub(super) async fn sync_server(
             updated_at: now,
         });
     }
+
     let tools = state.agent.tool_control.upsert_mcp_tools(imported).await?;
+
     let server = state
         .agent
         .tool_control
         .update_mcp_server_runtime_status(&ctx.org_id, &id, "healthy", None, Some(now), Some(now))
         .await?;
+
     activity_audit::record(
         &state,
         &ctx,
@@ -223,6 +244,7 @@ pub(super) async fn sync_server(
         }),
     )
     .await;
+
     Ok(Json(json!({"server": server, "tools": tools})))
 }
 
@@ -234,6 +256,7 @@ fn unavailable_schema(
     let raw = crate::shared::contracts::canonical_json(schema_value);
     let hash =
         crate::shared::contracts::sha256_hex(crate::shared::contracts::canonical_json_bytes(&raw));
+
     let dialect = schema_value
         .get("$schema")
         .and_then(Value::as_str)
@@ -241,6 +264,7 @@ fn unavailable_schema(
         .chars()
         .take(128)
         .collect();
+
     (raw, hash, dialect, Some(diagnostic))
 }
 
@@ -258,6 +282,7 @@ fn registry_name(server_name: &str, remote_name: &str) -> String {
     fn slug(value: &str) -> String {
         let mut result = String::new();
         let mut last_separator = false;
+
         for character in value.chars().flat_map(char::to_lowercase) {
             if character.is_ascii_alphanumeric() || character == '_' {
                 result.push(character);
@@ -267,8 +292,10 @@ fn registry_name(server_name: &str, remote_name: &str) -> String {
                 last_separator = true;
             }
         }
+
         result.trim_matches('_').chars().take(60).collect()
     }
+
     format!("mcp__{}__{}", slug(server_name), slug(remote_name))
 }
 
@@ -291,6 +318,7 @@ async fn discover_tools(
         .tool_control
         .get_mcp_server_runtime(org_id, server_id)
         .await?;
+
     let result = runtime::rpc_request(&runtime, "tools/list", json!({})).await?;
     serde_json::from_value(result["tools"].clone())
         .map_err(|error| Error::invalid(format!("invalid MCP tools/list response: {error}")))

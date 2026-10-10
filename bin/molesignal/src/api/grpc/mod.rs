@@ -46,6 +46,7 @@ pub async fn serve_probe_grpc(state: AppState, settings: &ProbeGrpcSettings) -> 
         .probe_control
         .clone()
         .ok_or_else(|| anyhow::anyhow!("Probe control service is not initialized"))?;
+
     let tls = control.server_tls();
     let register_addr: SocketAddr =
         format!("{}:{}", settings.bind, settings.register_port).parse()?;
@@ -60,12 +61,15 @@ pub async fn serve_probe_grpc(state: AppState, settings: &ProbeGrpcSettings) -> 
     )
     .into_server()
     .max_decoding_message_size(max_recv);
+
     let register_tls = ServerTlsConfig::new().identity(Identity::from_pem(
         tls.certificate_chain_pem.clone(),
         tls.private_key_pem.clone(),
     ));
+
     let register_server = async move {
         tracing::info!(addr = %register_addr, "Probe registration gRPC server listening");
+
         Server::builder()
             .tls_config(register_tls)?
             .layer(trace::layer::GrpcTraceLayer)
@@ -82,14 +86,17 @@ pub async fn serve_probe_grpc(state: AppState, settings: &ProbeGrpcSettings) -> 
     )
     .into_server()
     .max_decoding_message_size(max_recv);
+
     let control_tls = ServerTlsConfig::new()
         .identity(Identity::from_pem(
             tls.certificate_chain_pem,
             tls.private_key_pem,
         ))
         .client_ca_root(Certificate::from_pem(tls.ca_certificate_pem));
+
     let control_server = async move {
         tracing::info!(addr = %control_addr, "Probe control mTLS gRPC server listening");
+
         Server::builder()
             .tls_config(control_tls)?
             .layer(trace::layer::GrpcTraceLayer)
@@ -118,6 +125,7 @@ pub async fn serve_grpc(
         .with_self_telemetry_token(state.telemetry.self_telemetry_cluster_token.clone())
         .into_server()
         .max_decoding_message_size(max_recv);
+
     // Flight server 收到 do_get 后用集群默认 store 读分片。
     let flight = FlightGrpc::new(state.storage.read_store.clone())
         .with_files(state.storage.catalog_files.clone())
@@ -126,6 +134,7 @@ pub async fn serve_grpc(
         .with_iam(state.iam.service.clone())
         .with_cancel_registry(state.cluster.federation_cancel.clone())
         .into_server();
+
     // 其它节点把查询交给本节点执行：用本节点的引擎，对本地数据完整执行。
     let query_execution = QueryExecutionGrpc::new(
         state.cluster.query_engines.sql.clone(),
@@ -134,14 +143,17 @@ pub async fn serve_grpc(
     .into_server()
     .max_decoding_message_size(max_recv)
     .max_encoding_message_size(max_recv);
+
     let cluster =
         ClusterGrpc::new(state.cluster.repository.clone(), alive_window_secs).into_server();
+
     let trace_candidates = trace::candidate_server::TraceCandidateGrpc::new(
         state.telemetry.trace_pipeline.clone(),
         state.telemetry.self_telemetry_cluster_token.clone(),
     )
     .into_server()
     .max_decoding_message_size(max_recv);
+
     // 跨集群事件总线接收端：远端推 CloudEvent 进来，handler 自做 per-org token 鉴权
     // （与联邦 Flight `do_get` 同模型——可信网络端口上对联邦/跨集群调用自校验 bearer）。
     let events = EventServiceGrpc::new(state.clone())
@@ -149,6 +161,7 @@ pub async fn serve_grpc(
         .max_decoding_message_size(max_recv);
 
     tracing::info!(addr = %addr, "grpc server listening");
+
     Server::builder()
         .layer(trace::layer::GrpcTraceLayer)
         .add_service(intake)
@@ -182,6 +195,7 @@ pub async fn serve_otlp_grpc(state: AppState, settings: &OtlpGrpcSettings) -> an
     let svc = OtlpGrpc::new(state);
 
     tracing::info!(addr = %addr, "otlp grpc server listening");
+
     Server::builder()
         .layer(trace::layer::GrpcTraceLayer)
         .add_service(TraceServiceServer::new(svc.clone()).max_decoding_message_size(max_recv))
@@ -214,6 +228,7 @@ pub async fn serve_flight_sql(state: AppState, settings: &FlightSqlSettings) -> 
     .max_decoding_message_size(max_recv);
 
     tracing::info!(addr = %addr, "flight sql server listening");
+
     Server::builder()
         .layer(trace::layer::GrpcTraceLayer)
         .add_service(flight_sql)

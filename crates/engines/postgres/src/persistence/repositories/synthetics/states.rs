@@ -43,11 +43,13 @@ fn next_location_state(
     } else {
         1
     };
+
     let threshold = if observation.observed_state == MonitorState::Healthy {
         observation.recovery_threshold.max(1)
     } else {
         observation.failure_threshold.max(1)
     };
+
     if count >= threshold {
         (observation.observed_state, None, 0)
     } else {
@@ -58,6 +60,7 @@ fn next_location_state(
 fn row_to_location_state(row: sqlx::postgres::PgRow) -> Result<MonitorLocationState> {
     let current: String = row.try_get("current_state").map_err(super::sqlx_err)?;
     let candidate: Option<String> = row.try_get("candidate_state").map_err(super::sqlx_err)?;
+
     Ok(MonitorLocationState {
         organization_id: Id(row.try_get("organization_id").map_err(super::sqlx_err)?),
         monitor_id: Id(row.try_get("monitor_id").map_err(super::sqlx_err)?),
@@ -85,6 +88,7 @@ fn row_to_location_state(row: sqlx::postgres::PgRow) -> Result<MonitorLocationSt
 fn row_to_transition(row: sqlx::postgres::PgRow) -> Result<SyntheticStateTransition> {
     let previous: String = row.try_get("previous_state").map_err(super::sqlx_err)?;
     let current: String = row.try_get("current_state").map_err(super::sqlx_err)?;
+
     Ok(SyntheticStateTransition {
         id: Id(row.try_get("id").map_err(super::sqlx_err)?),
         organization_id: Id(row.try_get("organization_id").map_err(super::sqlx_err)?),
@@ -129,6 +133,7 @@ async fn insert_transition(
     .execute(&mut *connection)
     .await
     .map_err(super::sqlx_err)?;
+
     let sql = format!(
         "INSERT INTO synthetic_state_transitions
             (id, organization_id, monitor_id, monitor_revision_id, location_id,
@@ -137,6 +142,7 @@ async fn insert_transition(
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NULL, $11)
          RETURNING {TRANSITION_COLS}"
     );
+
     let row = sqlx::query(&sql)
         .bind(&transition.id.0)
         .bind(&transition.organization_id.0)
@@ -152,6 +158,7 @@ async fn insert_transition(
         .fetch_one(&mut *connection)
         .await
         .map_err(super::sqlx_err)?;
+
     row_to_transition(row)
 }
 
@@ -162,6 +169,7 @@ impl SyntheticStateRepository for PgSyntheticRepository {
         observation: StateObservation,
     ) -> Result<LocationStateUpdate> {
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
+
         let existing = sqlx::query(
             "SELECT organization_id, monitor_id, monitor_revision_id, location_id,
                     current_state, candidate_state, candidate_count, last_result_id,
@@ -180,17 +188,22 @@ impl SyntheticStateRepository for PgSyntheticRepository {
         .map_err(super::sqlx_err)?
         .map(row_to_location_state)
         .transpose()?;
+
         let previous = existing
             .as_ref()
             .map(|state| state.current_state)
             .unwrap_or(MonitorState::Unknown);
+
         let old_candidate = existing.as_ref().and_then(|state| state.candidate_state);
+
         let old_count = existing
             .as_ref()
             .map(|state| state.candidate_count)
             .unwrap_or(0);
+
         let (current, candidate, count) =
             next_location_state(previous, old_candidate, old_count, &observation);
+
         let row = sqlx::query(
             "INSERT INTO synthetic_monitor_location_states
                 (organization_id, monitor_id, monitor_revision_id, location_id,
@@ -220,7 +233,9 @@ impl SyntheticStateRepository for PgSyntheticRepository {
         .fetch_one(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
+
         let state = row_to_location_state(row)?;
+
         let transition = if current != previous {
             Some(
                 insert_transition(
@@ -248,6 +263,7 @@ impl SyntheticStateRepository for PgSyntheticRepository {
         } else {
             None
         };
+
         transaction.commit().await.map_err(super::sqlx_err)?;
         Ok(LocationStateUpdate { state, transition })
     }
@@ -284,6 +300,7 @@ impl SyntheticStateRepository for PgSyntheticRepository {
         if transition.previous_state == transition.current_state {
             return Err(Error::invalid("state transition must change state"));
         }
+
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
         let transition = insert_transition(&mut transaction, &transition).await?;
         transaction.commit().await.map_err(super::sqlx_err)?;
@@ -303,6 +320,7 @@ impl SyntheticStateRepository for PgSyntheticRepository {
                AND ($3::BIGINT IS NULL OR started_at_micros < $3)
              ORDER BY started_at_micros DESC, id DESC LIMIT $4"
         );
+
         sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&monitor_id.0)

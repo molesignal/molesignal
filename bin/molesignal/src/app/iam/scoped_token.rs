@@ -71,6 +71,7 @@ where
 {
     let now = chrono::Utc::now().timestamp().max(0) as usize;
     let ttl = ttl_secs.clamp(1, MAX_SCOPED_TOKEN_TTL_SECS) as usize;
+
     let claims = ScopedTokenClaims {
         iss: JWT_ISSUER.to_owned(),
         aud: purpose.to_owned(),
@@ -79,6 +80,7 @@ where
         exp: now.saturating_add(ttl),
         payload,
     };
+
     encode(
         &Header::default(),
         &claims,
@@ -101,6 +103,7 @@ where
         else {
             continue;
         };
+
         if data.claims.org_id == org_id.0 {
             return Ok(data.claims.payload);
         }

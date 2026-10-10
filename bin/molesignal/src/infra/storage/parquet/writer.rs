@@ -46,8 +46,10 @@ pub(crate) fn build_tantivy_bytes_for_batch(
         Some(builder) => builder,
         None => return Ok(None),
     };
+
     let schema = batch.schema();
     let mut indexed_arrays: Vec<(String, &StringArray)> = Vec::new();
+
     for field in &stream.schema.fields {
         if !matches!(
             field.effective_index_type(),
@@ -55,34 +57,42 @@ pub(crate) fn build_tantivy_bytes_for_batch(
         ) {
             continue;
         }
+
         if let Ok(index) = schema.index_of(&field.name)
             && let Some(array) = batch.column(index).as_any().downcast_ref::<StringArray>()
         {
             indexed_arrays.push((field.name.clone(), array));
         }
     }
+
     if indexed_arrays.is_empty() {
         return Ok(None);
     }
+
     for row in 0..batch.num_rows() {
         let mut values: HashMap<&str, &str> = HashMap::new();
+
         for (name, array) in &indexed_arrays {
             if !array.is_null(row) {
                 values.insert(name.as_str(), array.value(row));
             }
         }
+
         builder
             .add_doc(&values)
             .map_err(|error| Error::internal(format!("tantivy add_doc: {error}")))?;
     }
+
     let bytes = builder
         .commit_and_archive()
         .map_err(|error| Error::internal(format!("tantivy commit_and_archive: {error}")))?;
+
     Ok(Some(bytes))
 }
 
 pub(super) fn encode_parquet(stream: &StreamDefinition, batch: &RecordBatch) -> Result<Bytes> {
     let mut properties = WriterProperties::builder().set_compression(Compression::SNAPPY);
+
     for field in stream.schema.fields.iter().filter(|field| {
         matches!(
             field.effective_index_type(),
@@ -95,18 +105,23 @@ pub(super) fn encode_parquet(stream: &StreamDefinition, batch: &RecordBatch) -> 
                 .set_column_bloom_filter_fpp(ColumnPath::from(field.name.clone()), 0.01);
         }
     }
+
     let properties = properties.build();
     let mut buffer = Vec::with_capacity(64 * 1024);
+
     {
         let mut writer = ArrowWriter::try_new(&mut buffer, batch.schema(), Some(properties))
             .map_err(|error| Error::internal(format!("ArrowWriter::try_new: {error}")))?;
+
         writer
             .write(batch)
             .map_err(|error| Error::internal(format!("ArrowWriter::write: {error}")))?;
+
         writer
             .close()
             .map_err(|error| Error::internal(format!("ArrowWriter::close: {error}")))?;
     }
+
     Ok(Bytes::from(buffer))
 }
 

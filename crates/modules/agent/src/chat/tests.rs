@@ -22,14 +22,17 @@ fn provider_string_roundtrip() {
 struct ScriptedProvider {
     calls: Mutex<usize>,
 }
+
 #[async_trait]
 impl ProviderAdapter for ScriptedProvider {
     fn provider(&self) -> Provider {
         Provider::OpenAi
     }
+
     async fn complete(&self, _req: CompletionRequest) -> Result<CompletionResponse> {
         let mut n = self.calls.lock().unwrap();
         *n += 1;
+
         if *n == 1 {
             Ok(CompletionResponse {
                 content: Some("I will inspect the internal data first.".into()),
@@ -55,6 +58,7 @@ impl ProviderAdapter for ScriptedProvider {
 }
 
 struct EchoDispatcher;
+
 #[async_trait]
 impl ToolDispatcher for EchoDispatcher {
     async fn dispatch(&self, _ctx: &ToolAuthContext, call: ToolCall) -> Result<ToolResult> {
@@ -121,11 +125,13 @@ async fn loop_executes_one_tool_call_then_stops() {
 
 // Provider 永远返 tool_call → 触发 MAX_TOOL_LOOPS 后走无工具收尾。
 struct LoopForeverProvider;
+
 #[async_trait]
 impl ProviderAdapter for LoopForeverProvider {
     fn provider(&self) -> Provider {
         Provider::OpenAi
     }
+
     async fn complete(&self, _req: CompletionRequest) -> Result<CompletionResponse> {
         Ok(CompletionResponse {
             content: None,
@@ -259,6 +265,7 @@ impl ProviderAdapter for DsmlAfterBudgetProvider {
                 finish_reason: "stop".into(),
             });
         }
+
         Ok(CompletionResponse {
             content: Some("Let me run another query.".into()),
             tool_calls: vec![RequestedToolCall {
@@ -351,6 +358,7 @@ impl ProviderAdapter for DashboardAuthoringProvider {
             choices.push(req.tool_choice.clone());
             choices.len()
         };
+
         let tool_call = |id: &str, name: &str, arguments| CompletionResponse {
             content: None,
             tool_calls: vec![RequestedToolCall {
@@ -362,6 +370,7 @@ impl ProviderAdapter for DashboardAuthoringProvider {
             completion_tokens: 5,
             finish_reason: "tool_calls".into(),
         };
+
         match call_number {
             1 => Ok(tool_call(
                 "prepare-invalid",
@@ -374,6 +383,7 @@ impl ProviderAdapter for DashboardAuthoringProvider {
                         && message.content.contains("CONTRACT_REQUIRED")
                         && message.content.contains("/title")
                 }));
+
                 Ok(tool_call(
                     "prepare-repaired",
                     "prepare_dashboard",
@@ -391,6 +401,7 @@ impl ProviderAdapter for DashboardAuthoringProvider {
                         && message.content.contains("/ai/dashboard-drafts/draft-1")
                         && message.content.contains("0123456789abcdef")
                 }));
+
                 Ok(tool_call(
                     "propose",
                     "propose_dashboard_creation",
@@ -426,6 +437,7 @@ struct DashboardAuthoringDispatcher {
 impl ToolDispatcher for DashboardAuthoringDispatcher {
     async fn dispatch(&self, _ctx: &ToolAuthContext, call: ToolCall) -> Result<ToolResult> {
         self.calls.lock().unwrap().push(call.name.clone());
+
         match call.name.as_str() {
             "prepare_dashboard" => {
                 let attempt = {
@@ -433,6 +445,7 @@ impl ToolDispatcher for DashboardAuthoringDispatcher {
                     *attempts += 1;
                     *attempts
                 };
+
                 if attempt == 1 && self.repair_first {
                     return Err(Error::validation(
                         "dashboard authoring specification is invalid",
@@ -444,6 +457,7 @@ impl ToolDispatcher for DashboardAuthoringDispatcher {
                         )],
                     ));
                 }
+
                 Ok(ToolResult {
                     content: vec![ToolContent::Json {
                         json: serde_json::json!({
@@ -531,6 +545,7 @@ impl ProviderAdapter for PreviewOnlyProvider {
             choices.push(req.tool_choice.clone());
             choices.len()
         };
+
         if call_number == 1 {
             return Ok(CompletionResponse {
                 content: None,
@@ -544,6 +559,7 @@ impl ProviderAdapter for PreviewOnlyProvider {
                 finish_reason: "tool_calls".into(),
             });
         }
+
         assert!(req.tools.as_ref().is_some_and(|tools| {
             tools.as_array().is_some_and(|tools| {
                 tools
@@ -551,6 +567,7 @@ impl ProviderAdapter for PreviewOnlyProvider {
                     .all(|tool| tool["name"].as_str() != Some("propose_dashboard_creation"))
             })
         }));
+
         Ok(CompletionResponse {
             content: Some("Preview ready; creation is unavailable in this chat.".into()),
             tool_calls: Vec::new(),

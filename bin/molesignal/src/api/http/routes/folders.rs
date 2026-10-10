@@ -91,16 +91,19 @@ async fn create(
 ) -> Result<Json<Folder>> {
     let name = clean_name(&req.name)?;
     let parent_id = normalize_parent(req.parent_id);
+
     if let Some(parent) = &parent_id {
         let all = state.dashboard.folders().list(&ctx.org_id).await?;
         ensure_folder_depth(&all, None, Some(parent))?;
     }
+
     let folder = Folder {
         id: Id::new(),
         org_id: ctx.org_id.clone(),
         name,
         parent_id,
     };
+
     Ok(Json(state.dashboard.folders().create(folder).await?))
 }
 
@@ -122,17 +125,21 @@ async fn update(
     let name = clean_name(&req.name)?;
     let parent_id = normalize_parent(req.parent_id);
     let all = state.dashboard.folders().list(&org_id).await?;
+
     if let Some(parent) = &parent_id {
         if parent == &id {
             return Err(Error::invalid("folder cannot be its own parent"));
         }
+
         if !all.iter().any(|f| &f.id == parent) {
             return Err(Error::not_found(format!("parent folder {}", parent.0)));
         }
+
         if creates_cycle(&all, &id, parent) {
             return Err(Error::invalid("folder move would create a cycle"));
         }
     }
+
     ensure_folder_depth(&all, Some(&id), parent_id.as_ref())?;
     folder.name = name;
     folder.parent_id = parent_id;
@@ -152,6 +159,7 @@ async fn delete(
 ) -> Result<Json<Value>> {
     let id = folder.id;
     let org_id = folder.org_id;
+
     // 非空保护：有子文件夹或仪表盘时拒删，避免悬挂引用（folders / dashboards 表无外键级联）。
     let has_child_folder = state
         .dashboard
@@ -160,24 +168,30 @@ async fn delete(
         .await?
         .iter()
         .any(|f| f.parent_id.as_ref() == Some(&id));
+
     let has_dashboards = !state.dashboard.list(&org_id, Some(&id)).await?.is_empty();
+
     if has_child_folder || has_dashboards {
         return Err(Error::conflict(
             "folder is not empty: move or delete its dashboards and sub-folders first",
         ));
     }
+
     state.dashboard.folders().delete(&id).await?;
     Ok(Json(json!({ "deleted": id.0 })))
 }
 
 fn clean_name(name: &str) -> Result<String> {
     let trimmed = name.trim();
+
     if trimmed.is_empty() {
         return Err(Error::invalid("folder name must not be empty"));
     }
+
     if trimmed.chars().count() > MAX_NAME_LEN {
         return Err(Error::invalid("folder name must be at most 255 characters"));
     }
+
     Ok(trimmed.to_string())
 }
 
@@ -196,19 +210,25 @@ fn creates_cycle(all: &[Folder], folder_id: &Id, proposed_parent: &Id) -> bool {
         .iter()
         .map(|f| (f.id.0.as_str(), f.parent_id.as_ref()))
         .collect();
+
     let mut cur = Some(proposed_parent);
     let mut steps = 0;
+
     while let Some(c) = cur {
         if c == folder_id {
             return true;
         }
+
         steps += 1;
+
         if steps > all.len() + 1 {
             // 防御：数据里已存在环时不至于死循环。
             return true;
         }
+
         cur = parent_of.get(c.0.as_str()).copied().flatten();
     }
+
     false
 }
 
@@ -221,13 +241,16 @@ fn ensure_folder_depth(
         .map(|parent| folder_depth(all, parent))
         .transpose()?
         .unwrap_or(0);
+
     let subtree_height = moving_folder_id
         .map(|folder_id| folder_subtree_height(all, folder_id))
         .transpose()?
         .unwrap_or(1);
+
     if parent_depth + subtree_height > MAX_FOLDER_LEVELS {
         return Err(Error::invalid("folders support at most 3 levels"));
     }
+
     Ok(())
 }
 
@@ -236,17 +259,22 @@ fn folder_depth(all: &[Folder], folder_id: &Id) -> Result<usize> {
         .iter()
         .map(|folder| (folder.id.as_str(), folder.parent_id.as_ref()))
         .collect();
+
     let mut current = Some(folder_id);
     let mut depth = 0;
+
     while let Some(folder) = current {
         depth += 1;
+
         if depth > all.len() + 1 {
             return Err(Error::invalid("folder hierarchy contains a cycle"));
         }
+
         current = *parent_of
             .get(folder.as_str())
             .ok_or_else(|| Error::not_found(format!("parent folder {}", folder.0)))?;
     }
+
     Ok(depth)
 }
 
@@ -255,28 +283,37 @@ fn folder_subtree_height(all: &[Folder], folder_id: &Id) -> Result<usize> {
         .iter()
         .map(|folder| (folder.id.as_str(), folder.parent_id.as_ref()))
         .collect();
+
     let mut height = 1;
+
     for candidate in all {
         if candidate.id == *folder_id {
             continue;
         }
+
         let mut current = &candidate.id;
         let mut distance = 0;
+
         loop {
             distance += 1;
+
             if distance > all.len() + 1 {
                 return Err(Error::invalid("folder hierarchy contains a cycle"));
             }
+
             let Some(parent) = parent_of.get(current.as_str()).copied().flatten() else {
                 break;
             };
+
             if parent == folder_id {
                 height = height.max(distance + 1);
                 break;
             }
+
             current = parent;
         }
     }
+
     Ok(height)
 }
 

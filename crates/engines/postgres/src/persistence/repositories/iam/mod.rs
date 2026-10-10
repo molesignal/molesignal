@@ -56,6 +56,7 @@ impl IamRepository for PgIamRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         u64::try_from(version)
             .map_err(|_| Error::internal("negative IAM permission catalog version"))
     }
@@ -95,10 +96,12 @@ impl IamRepository for PgIamRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         let permissions = permission_rows
             .into_iter()
             .map(|row| {
                 let scope: String = row.try_get("scope").map_err(sqlx_err)?;
+
                 Ok(IamPermissionDefinition {
                     key: row.try_get("permission_key").map_err(sqlx_err)?,
                     scope: permission_scope_from_str(&scope)?,
@@ -129,6 +132,7 @@ impl IamRepository for PgIamRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         let bundles = bundle_rows
             .into_iter()
             .map(|row| {
@@ -158,6 +162,7 @@ impl IamRepository for PgIamRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         u64::try_from(version).map_err(|_| Error::internal("negative IAM route catalog version"))
     }
 
@@ -170,6 +175,7 @@ impl IamRepository for PgIamRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         let rows = sqlx::query(
             "SELECT
                  route.route_key,
@@ -199,11 +205,13 @@ impl IamRepository for PgIamRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         let routes = rows
             .into_iter()
             .map(|row| {
                 let scope: String = row.try_get("scope").map_err(sqlx_err)?;
                 let permission_mode: String = row.try_get("permission_mode").map_err(sqlx_err)?;
+
                 Ok(IamRouteDefinition {
                     id: row.try_get("route_key").map_err(sqlx_err)?,
                     path_pattern: row.try_get("path_pattern").map_err(sqlx_err)?,
@@ -216,6 +224,7 @@ impl IamRepository for PgIamRepository {
                 })
             })
             .collect::<Result<Vec<_>>>()?;
+
         Ok(IamRouteCatalog {
             version: u64::try_from(version)
                 .map_err(|_| Error::internal("negative IAM route catalog version"))?,
@@ -233,6 +242,7 @@ impl IamRepository for PgIamRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         scope
             .map(|scope| permission_scope_from_str(&scope))
             .transpose()
@@ -280,6 +290,7 @@ impl IamRepository for PgIamRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         row.map(|row| {
             Ok(IamAssignedRole {
                 id: Id::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?),
@@ -302,9 +313,11 @@ impl IamRepository for PgIamRepository {
             .collect::<BTreeSet<_>>()
             .into_iter()
             .collect::<Vec<_>>();
+
         if role_ids.is_empty() {
             return Ok(Vec::new());
         }
+
         let rows = sqlx::query(
             "SELECT id, role_key, name, builtin
                FROM iam_roles
@@ -317,6 +330,7 @@ impl IamRepository for PgIamRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter()
             .map(|row| {
                 Ok(IamAssignedRole {
@@ -347,6 +361,7 @@ impl IamRepository for PgIamRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         row.map(|row| {
             Ok(IamAssignedRole {
                 id: Id::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?),
@@ -367,10 +382,13 @@ impl IamRepository for PgIamRepository {
             .iter()
             .map(|key| key.trim().to_ascii_lowercase())
             .collect::<BTreeSet<_>>();
+
         if normalized.is_empty() {
             return Ok(Vec::new());
         }
+
         let normalized = normalized.into_iter().collect::<Vec<_>>();
+
         let rows = sqlx::query(
             "SELECT permission_key, scope
                FROM iam_permissions
@@ -383,32 +401,40 @@ impl IamRepository for PgIamRepository {
         .map_err(sqlx_err)?;
 
         let mut validated = Vec::with_capacity(rows.len());
+
         for row in rows {
             let permission_key: String = row.try_get("permission_key").map_err(sqlx_err)?;
             let scope: String = row.try_get("scope").map_err(sqlx_err)?;
             let actual_scope = permission_scope_from_str(&scope)?;
+
             if actual_scope != expected_scope {
                 return Err(Error::invalid(format!(
                     "permission {permission_key} has {scope} scope, expected {}",
                     expected_scope.as_str()
                 )));
             }
+
             validated.push(permission_key);
         }
+
         if validated.len() != normalized.len() {
             let validated = validated.iter().collect::<BTreeSet<_>>();
+
             let unknown = normalized
                 .iter()
                 .find(|key| !validated.contains(key))
                 .cloned()
                 .unwrap_or_default();
+
             return Err(Error::invalid(format!("unknown permission: {unknown}")));
         }
+
         Ok(validated)
     }
 
     async fn policy_version(&self, organization_id: &Id) -> Result<u64> {
         let now = TimestampMicros::now();
+
         sqlx::query(
             "INSERT INTO iam_policy_versions (organization_id, version, updated_at_micros)
              VALUES ($1, 1, $2)
@@ -419,6 +445,7 @@ impl IamRepository for PgIamRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         let version: i64 = sqlx::query_scalar(
             "SELECT version FROM iam_policy_versions WHERE organization_id = $1",
         )
@@ -426,6 +453,7 @@ impl IamRepository for PgIamRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         u64::try_from(version).map_err(|_| Error::internal("negative IAM policy version"))
     }
 
@@ -514,9 +542,11 @@ impl IamRepository for PgIamRepository {
         .map_err(sqlx_err)?;
 
         let mut resolved = BTreeMap::<String, ResolvedIamRoleBinding>::new();
+
         for row in rows {
             let binding = row_to_binding(&row)?;
             let id = binding.id.0.clone();
+
             let entry = resolved
                 .entry(id)
                 .or_insert_with(|| ResolvedIamRoleBinding {
@@ -526,6 +556,7 @@ impl IamRepository for PgIamRepository {
                     role_builtin: row.try_get("role_builtin").unwrap_or(false),
                     permissions: Vec::new(),
                 });
+
             if let Some(permission) = row
                 .try_get::<Option<String>, _>("permission_key")
                 .map_err(sqlx_err)?
@@ -534,6 +565,7 @@ impl IamRepository for PgIamRepository {
                 entry.permissions.push(permission);
             }
         }
+
         Ok(resolved.into_values().collect())
     }
 
@@ -550,11 +582,13 @@ impl IamRepository for PgIamRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.iter().map(row_to_binding).collect()
     }
 
     async fn create_role_binding(&self, binding: IamRoleBinding) -> Result<(IamRoleBinding, u64)> {
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         sqlx::query(
             "INSERT INTO iam_role_bindings (
                  id, organization_id, role_id, principal_type, principal_id,
@@ -577,6 +611,7 @@ impl IamRepository for PgIamRepository {
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
+
         let version = bump_version(&mut tx, &binding.organization_id).await?;
         tx.commit().await.map_err(sqlx_err)?;
         Ok((binding, version))
@@ -584,6 +619,7 @@ impl IamRepository for PgIamRepository {
 
     async fn delete_role_binding(&self, organization_id: &Id, binding_id: &Id) -> Result<u64> {
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         let result = sqlx::query(
             "DELETE FROM iam_role_bindings
               WHERE organization_id = $1 AND id = $2",
@@ -593,9 +629,11 @@ impl IamRepository for PgIamRepository {
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
+
         if result.rows_affected() == 0 {
             return Err(Error::not_found("role binding not found"));
         }
+
         let version = bump_version(&mut tx, organization_id).await?;
         tx.commit().await.map_err(sqlx_err)?;
         Ok(version)
@@ -617,6 +655,7 @@ impl IamRepository for PgIamRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.iter().map(row_to_relationship).collect()
     }
 
@@ -682,6 +721,7 @@ impl IamRepository for PgIamRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.iter()
             .map(|row| {
                 Ok(ResolvedIamResourceRelationship {
@@ -698,6 +738,7 @@ impl IamRepository for PgIamRepository {
         relationship: IamResourceRelationship,
     ) -> Result<(IamResourceRelationship, u64)> {
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         sqlx::query(
             "INSERT INTO iam_relationships (
                  id, organization_id, resource_type, resource_id, role_id,
@@ -719,6 +760,7 @@ impl IamRepository for PgIamRepository {
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
+
         let version = bump_version(&mut tx, &relationship.organization_id).await?;
         tx.commit().await.map_err(sqlx_err)?;
         Ok((relationship, version))
@@ -726,6 +768,7 @@ impl IamRepository for PgIamRepository {
 
     async fn delete_relationship(&self, organization_id: &Id, relationship_id: &Id) -> Result<u64> {
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         let result = sqlx::query(
             "DELETE FROM iam_relationships
               WHERE organization_id = $1 AND id = $2",
@@ -735,9 +778,11 @@ impl IamRepository for PgIamRepository {
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
+
         if result.rows_affected() == 0 {
             return Err(Error::not_found("relationship not found"));
         }
+
         let version = bump_version(&mut tx, organization_id).await?;
         tx.commit().await.map_err(sqlx_err)?;
         Ok(version)
@@ -758,6 +803,7 @@ impl IamRepository for PgIamRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.iter().map(row_to_grant).collect()
     }
 
@@ -811,6 +857,7 @@ impl IamRepository for PgIamRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.iter().map(row_to_grant).collect()
     }
 
@@ -819,6 +866,7 @@ impl IamRepository for PgIamRepository {
         grant: IamCrossOrgGrant,
     ) -> Result<(IamCrossOrgGrant, u64)> {
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         sqlx::query(
             "INSERT INTO iam_cross_org_grants (
                  id, source_organization_id, target_organization_id,
@@ -851,6 +899,7 @@ impl IamRepository for PgIamRepository {
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
+
         let version = bump_version(&mut tx, &grant.source_organization_id).await?;
         tx.commit().await.map_err(sqlx_err)?;
         Ok((grant, version))
@@ -865,6 +914,7 @@ impl IamRepository for PgIamRepository {
         now: TimestampMicros,
     ) -> Result<(IamCrossOrgGrant, u64)> {
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         let row = match status {
             IamCrossOrgGrantStatus::Active => sqlx::query(
                 "UPDATE iam_cross_org_grants
@@ -918,9 +968,11 @@ impl IamRepository for PgIamRepository {
 
         let grant = row_to_grant(&row)?;
         let source_version = bump_version(&mut tx, &grant.source_organization_id).await?;
+
         if grant.target_organization_id != grant.source_organization_id {
             let _ = bump_version(&mut tx, &grant.target_organization_id).await?;
         }
+
         tx.commit().await.map_err(sqlx_err)?;
         Ok((grant, source_version))
     }
@@ -1079,6 +1131,7 @@ async fn bump_version(tx: &mut sqlx::PgConnection, organization_id: &Id) -> Resu
         .fetch_one(&mut *tx)
         .await
         .map_err(sqlx_err)?;
+
     u64::try_from(version).map_err(|_| Error::internal("negative IAM policy version"))
 }
 

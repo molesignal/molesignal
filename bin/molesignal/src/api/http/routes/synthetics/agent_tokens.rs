@@ -48,6 +48,7 @@ async fn create(
         .synthetics
         .create_agent_token(&context.org_id, &context.user_id, input)
         .await?;
+
     activity_audit::record(
         &state,
         &context,
@@ -60,6 +61,7 @@ async fn create(
         }),
     )
     .await;
+
     Ok((StatusCode::CREATED, no_store_headers(), Json(instructions)))
 }
 
@@ -74,6 +76,7 @@ async fn rotate(
         .synthetics
         .rotate_agent_token(&context.org_id, &Id(token_id), input)
         .await?;
+
     activity_audit::record(
         &state,
         &context,
@@ -83,6 +86,7 @@ async fn rotate(
         serde_json::json!({"expires_at": instructions.token.expires_at}),
     )
     .await;
+
     Ok((no_store_headers(), Json(instructions)))
 }
 
@@ -96,6 +100,7 @@ async fn disable(
         .synthetics
         .disable_agent_token(&context.org_id, &Id(token_id))
         .await?;
+
     activity_audit::record(
         &state,
         &context,
@@ -105,6 +110,7 @@ async fn disable(
         serde_json::json!({"location_id": token.location_id}),
     )
     .await;
+
     Ok(Json(token))
 }
 

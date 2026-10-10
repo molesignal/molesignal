@@ -43,11 +43,13 @@ impl ProtectedResource for FunctionResource {
 
     async fn load(state: &AppState, (id, caller_org_id): Self::Id) -> Result<Self> {
         let value = state.storage.functions.get_by_id(&id).await?;
+
         let authorization_org_id = if value.org_id.as_str() == "__builtin__" {
             caller_org_id
         } else {
             value.org_id.clone()
         };
+
         Ok(Self {
             value,
             authorization_org_id,
@@ -122,12 +124,14 @@ pub struct Resp {
 
 fn to_resp(f: Function) -> Resp {
     let is_builtin = f.org_id.0 == "__builtin__";
+
     let description = f
         .params_schema
         .get("description")
         .and_then(Value::as_str)
         .unwrap_or_default()
         .to_string();
+
     Resp {
         id: f.id.0,
         name: f.name,
@@ -181,13 +185,16 @@ async fn create(
     if req.name.is_empty() {
         return Err(Error::invalid("name cannot be empty"));
     }
+
     // POST 时同步编译校验（js-runtime-functions）
     precheck_compile(
         req.language,
         &req.source,
         state.storage.functions_js_runtime_enabled,
     )?;
+
     let now = TimestampMicros::now();
+
     let f = Function {
         id: Id::new(),
         org_id: ctx.org_id.clone(),
@@ -198,6 +205,7 @@ async fn create(
         created_at: now,
         updated_at: now,
     };
+
     let f = state.storage.functions.create(f).await?;
     Ok(Json(to_resp(f)))
 }
@@ -219,8 +227,10 @@ async fn update(
         &req.source,
         state.storage.functions_js_runtime_enabled,
     )?;
+
     let existing = function.value;
     reject_builtin_write(&existing)?;
+
     let f = Function {
         id: existing.id,
         org_id: existing.org_id,
@@ -231,6 +241,7 @@ async fn update(
         created_at: existing.created_at,
         updated_at: TimestampMicros::now(),
     };
+
     let f = state.storage.functions.update(f).await?;
     Ok(Json(to_resp(f)))
 }
@@ -247,11 +258,13 @@ async fn delete(
     Path(id): Path<String>,
 ) -> Result<Json<Value>> {
     reject_builtin_write(&function.value)?;
+
     state
         .storage
         .functions
         .delete(&function.value.org_id, &function.value.id)
         .await?;
+
     Ok(Json(serde_json::json!({"deleted": true})))
 }
 
@@ -266,7 +279,9 @@ async fn run(
         &req.source,
         state.storage.functions_js_runtime_enabled,
     )?;
+
     let now = TimestampMicros::now();
+
     let function = Function {
         id: Id::from_string("dry-run"),
         org_id: ctx.org_id.clone(),
@@ -277,11 +292,14 @@ async fn run(
         created_at: now,
         updated_at: now,
     };
+
     let mut output = req.input;
+
     state
         .storage
         .function_executor
         .run(&function, &mut output)
         .await?;
+
     Ok(Json(RunResp { output }))
 }

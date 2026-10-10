@@ -56,6 +56,7 @@ pub struct ToolPolicyDefaults {
 impl ToolPolicyDefaults {
     pub fn system_defaults(org_id: Id, actor: Id) -> Self {
         let now = TimestampMicros::now();
+
         Self {
             org_id,
             risk_modes: serde_json::json!({

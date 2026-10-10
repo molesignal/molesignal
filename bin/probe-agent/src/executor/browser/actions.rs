@@ -42,10 +42,12 @@ pub(super) fn execute_step(
     step: &wire::BrowserStep,
 ) -> Result<StepExecution> {
     runtime.prepare_command()?;
+
     let action = step
         .action
         .as_ref()
         .ok_or_else(|| anyhow!("Browser step has no action"))?;
+
     let executed = match match action {
         browser_step::Action::Navigate(action) => navigate(runtime, action),
         browser_step::Action::Click(action) => click(runtime, action),
@@ -62,10 +64,12 @@ pub(super) fn execute_step(
                 return Err(violation)
                     .with_context(|| format!("{} step `{}` failed", action_name(step), step.name));
             }
+
             return Err(error)
                 .with_context(|| format!("{} step `{}` failed", action_name(step), step.name));
         }
     };
+
     runtime.check_egress_violation()?;
     Ok(executed)
 }
@@ -77,8 +81,10 @@ fn navigate(runtime: &mut BrowserRuntime, action: &wire::BrowserNavigate) -> Res
             .as_ref()
             .ok_or_else(|| anyhow!("Browser navigation URL is required"))?,
     )?;
+
     let target = runtime.validate_navigation(&target)?;
     runtime.tab.navigate_to(target.as_str())?;
+
     match action.wait_until.trim().to_ascii_lowercase().as_str() {
         "" | "load" => wait_for_expression(runtime, "document.readyState === 'complete'")?,
         "domcontentloaded" => wait_for_expression(
@@ -88,14 +94,17 @@ fn navigate(runtime: &mut BrowserRuntime, action: &wire::BrowserNavigate) -> Res
         "networkidle" | "network_idle" => {
             wait_for_expression(runtime, "document.readyState === 'complete'")?;
             let quiet = Duration::from_millis(500);
+
             if runtime.remaining()? < quiet {
                 bail!("Browser Journey timed out while waiting for network idle");
             }
+
             thread::sleep(quiet);
         }
         "commit" | "none" => {}
         value => bail!("unsupported Browser navigation wait condition `{value}`"),
     }
+
     Ok(success(HashMap::from([
         ("url".into(), runtime.context.redact(target.as_str())),
         ("wait_until".into(), action.wait_until.clone()),
@@ -118,14 +127,17 @@ fn click(runtime: &mut BrowserRuntime, action: &wire::BrowserClick) -> Result<St
 
 fn fill(runtime: &mut BrowserRuntime, action: &wire::BrowserFill) -> Result<StepExecution> {
     require_selector(&action.selector)?;
+
     let value = runtime.context.resolve(
         action
             .value
             .as_ref()
             .ok_or_else(|| anyhow!("Browser fill Value is required"))?,
     )?;
+
     let element = runtime.tab.wait_until_visible(&action.selector)?;
     runtime.prepare_command()?;
+
     element.call_js_fn(
         r#"function(value) {
             const prototype = this instanceof HTMLTextAreaElement
@@ -139,19 +151,23 @@ fn fill(runtime: &mut BrowserRuntime, action: &wire::BrowserFill) -> Result<Step
         vec![json!(value)],
         false,
     )?;
+
     Ok(success(selector_metadata(runtime, &action.selector)))
 }
 
 fn select(runtime: &mut BrowserRuntime, action: &wire::BrowserSelect) -> Result<StepExecution> {
     require_selector(&action.selector)?;
+
     let value = runtime.context.resolve(
         action
             .value
             .as_ref()
             .ok_or_else(|| anyhow!("Browser select Value is required"))?,
     )?;
+
     let element = runtime.tab.wait_until_visible(&action.selector)?;
     runtime.prepare_command()?;
+
     let selected = element
         .call_js_fn(
             r#"function(value) {
@@ -168,14 +184,17 @@ fn select(runtime: &mut BrowserRuntime, action: &wire::BrowserSelect) -> Result<
         .value
         .and_then(|value| value.as_bool())
         .unwrap_or(false);
+
     if !selected {
         bail!("Browser select target or option is invalid");
     }
+
     Ok(success(selector_metadata(runtime, &action.selector)))
 }
 
 fn wait(runtime: &mut BrowserRuntime, action: &wire::BrowserWait) -> Result<StepExecution> {
     let mut metadata = HashMap::new();
+
     match action
         .condition
         .as_ref()
@@ -185,10 +204,13 @@ fn wait(runtime: &mut BrowserRuntime, action: &wire::BrowserWait) -> Result<Step
             if *duration_millis > 30_000 {
                 bail!("Browser wait cannot exceed 30 seconds");
             }
+
             let duration = Duration::from_millis(u64::from(*duration_millis));
+
             if runtime.remaining()? < duration {
                 bail!("Browser Journey timed out while waiting");
             }
+
             thread::sleep(duration);
             metadata.insert("duration_millis".into(), duration_millis.to_string());
         }
@@ -202,10 +224,12 @@ fn wait(runtime: &mut BrowserRuntime, action: &wire::BrowserWait) -> Result<Step
             if expression.trim().is_empty() {
                 bail!("Browser wait expression is empty");
             }
+
             wait_for_expression(runtime, expression)?;
             metadata.insert("expression".into(), truncate(expression, 512));
         }
     }
+
     Ok(success(metadata))
 }
 
@@ -213,15 +237,19 @@ fn extract(runtime: &mut BrowserRuntime, action: &wire::BrowserExtract) -> Resul
     if action.variable.trim().is_empty() {
         bail!("Browser extraction variable is empty");
     }
+
     runtime.prepare_command()?;
+
     let value = source_value(
         &runtime.tab,
         (!action.selector.trim().is_empty()).then_some(action.selector.as_str()),
         &action.source,
     )?;
+
     runtime
         .context
         .insert_variable(action.variable.clone(), value);
+
     Ok(success(HashMap::from([
         ("variable".into(), action.variable.clone()),
         ("source".into(), action.source.clone()),
@@ -234,7 +262,9 @@ fn assertion(runtime: &mut BrowserRuntime, action: &wire::BrowserAssert) -> Resu
         .assertion
         .as_ref()
         .ok_or_else(|| anyhow!("Browser Assertion is required"))?;
+
     runtime.prepare_command()?;
+
     let actual = if let Some(expression) = action
         .page_expression
         .as_deref()
@@ -244,13 +274,16 @@ fn assertion(runtime: &mut BrowserRuntime, action: &wire::BrowserAssert) -> Resu
     } else {
         source_value(&runtime.tab, action.selector.as_deref(), &assertion.source)?
     };
+
     let expected = assertion
         .expected
         .as_ref()
         .map(|value| runtime.context.resolve(value))
         .transpose()?
         .unwrap_or_default();
+
     let passed = evaluate_operator(&assertion.operator, &actual, &expected)?;
+
     let result = AssertionResult {
         assertion_id: assertion.id.clone(),
         severity: assertion.severity,
@@ -262,6 +295,7 @@ fn assertion(runtime: &mut BrowserRuntime, action: &wire::BrowserAssert) -> Resu
             format!("{} assertion failed", assertion.name)
         },
     };
+
     let outcome = if passed {
         ProbeOutcome::Healthy
     } else if assertion.severity == AssertionSeverity::Critical as i32 {
@@ -269,6 +303,7 @@ fn assertion(runtime: &mut BrowserRuntime, action: &wire::BrowserAssert) -> Resu
     } else {
         ProbeOutcome::Degraded
     };
+
     Ok(StepExecution {
         outcome,
         assertions: vec![result],
@@ -289,6 +324,7 @@ fn screenshot(
     } else {
         action.name.trim()
     };
+
     let metadata = runtime.capture_screenshot(name, action.full_page)?;
     Ok(success(metadata))
 }
@@ -311,9 +347,11 @@ fn source_value(tab: &Tab, selector: Option<&str>, source: &str) -> Result<Strin
         (Some(selector), "inner_html") => element_value(tab, selector, "this.innerHTML || ''"),
         (Some(selector), source) if source.starts_with("attribute:") => {
             let attribute = &source[10..];
+
             if attribute.is_empty() {
                 bail!("Browser attribute source has no name");
             }
+
             Ok(tab
                 .wait_for_element(selector)?
                 .get_attribute_value(attribute)?
@@ -334,6 +372,7 @@ fn element_value(tab: &Tab, selector: &str, expression: &str) -> Result<String> 
         )?
         .value
         .ok_or_else(|| anyhow!("Browser element expression returned no value"))?;
+
     json_value_to_string(value)
 }
 
@@ -357,14 +396,18 @@ fn evaluate_operator(operator: &str, actual: &str, expected: &str) -> Result<boo
 
 fn wait_for_expression(runtime: &BrowserRuntime, expression: &str) -> Result<()> {
     let deadline = Instant::now() + runtime.remaining()?;
+
     loop {
         runtime.prepare_command()?;
+
         if evaluate_bool(&runtime.tab, expression)? {
             return Ok(());
         }
+
         if Instant::now() >= deadline {
             bail!("Browser expression did not become true before timeout");
         }
+
         thread::sleep(Duration::from_millis(100));
     }
 }
@@ -374,6 +417,7 @@ fn evaluate_bool(tab: &Tab, expression: &str) -> Result<bool> {
         .evaluate(expression, true)?
         .value
         .ok_or_else(|| anyhow!("Browser expression returned no value"))?;
+
     value
         .as_bool()
         .ok_or_else(|| anyhow!("Browser wait expression must return a boolean"))
@@ -384,6 +428,7 @@ pub(super) fn evaluate_string(tab: &Tab, expression: &str) -> Result<String> {
         .evaluate(expression, true)?
         .value
         .ok_or_else(|| anyhow!("Browser expression returned no value"))?;
+
     json_value_to_string(value)
 }
 
@@ -411,6 +456,7 @@ fn require_selector(selector: &str) -> Result<()> {
     if selector.trim().is_empty() {
         bail!("Browser selector is empty");
     }
+
     Ok(())
 }
 
@@ -418,9 +464,12 @@ fn truncate(value: &str, max: usize) -> String {
     if value.len() <= max {
         return value.to_string();
     }
+
     let mut end = max;
+
     while !value.is_char_boundary(end) {
         end -= 1;
     }
+
     value[..end].to_string()
 }

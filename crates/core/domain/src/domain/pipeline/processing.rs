@@ -44,8 +44,10 @@ pub fn parse_processing_steps(config: &Value) -> Result<Vec<ProcessingStep>> {
     } else {
         serde_json::json!([])
     };
+
     let steps: Vec<ProcessingStep> = serde_json::from_value(raw)
         .map_err(|_| Error::invalid("invalid pipeline processing steps"))?;
+
     for step in &steps {
         match step.kind {
             ProcessingKind::Vrl if step.script.trim().is_empty() => {
@@ -55,13 +57,16 @@ pub fn parse_processing_steps(config: &Value) -> Result<Vec<ProcessingStep>> {
                 if step.operation != "route" {
                     return Err(Error::invalid("unknown built-in pipeline operation"));
                 }
+
                 if step.routing.kind == OutputKind::Fixed {
                     public_stream(&step.target)?;
                 }
+
                 step.routing.validate()?;
             }
             _ => (),
         }
     }
+
     Ok(steps)
 }

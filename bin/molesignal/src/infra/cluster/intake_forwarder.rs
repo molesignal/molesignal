@@ -48,11 +48,13 @@ impl GrpcIntakeForwarder {
     /// 按尝试顺序排好的 intake 节点：哈希选出的节点在前，其余节点随后。
     async fn candidates(&self, org_id: &Id, stream: &str) -> Vec<PeerInfo> {
         let mut peers = self.registry.list_role(PeerRole::Intake).await;
+
         if let Some(first) = self.registry.pick_intake(org_id, stream).await
             && let Some(position) = peers.iter().position(|peer| peer.node_id == first.node_id)
         {
             peers.swap(0, position);
         }
+
         peers
     }
 
@@ -60,12 +62,15 @@ impl GrpcIntakeForwarder {
         if let Some(channel) = self.channels.lock().get(addr) {
             return Ok(channel.clone());
         }
+
         let channel = grpc_channel::connect(addr, false)
             .await
             .map_err(Status::unavailable)?;
+
         self.channels
             .lock()
             .insert(addr.to_owned(), channel.clone());
+
         Ok(channel)
     }
 
@@ -75,6 +80,7 @@ impl GrpcIntakeForwarder {
         request: PushRequest,
     ) -> std::result::Result<PushResponse, Status> {
         let mut client = IntakeServiceClient::new(self.channel(addr).await?);
+
         let response = crate::shared::grpc_trace::call(
             tonic::Request::new(request),
             "intake.v1.IntakeService",
@@ -83,6 +89,7 @@ impl GrpcIntakeForwarder {
             |request| client.push(request),
         )
         .await?;
+
         Ok(response.into_inner())
     }
 }
@@ -91,11 +98,14 @@ impl GrpcIntakeForwarder {
 impl IntakeForwarder for GrpcIntakeForwarder {
     async fn forward(&self, batch: IntakeBatch) -> Result<IntakeResult> {
         let peers = self.candidates(&batch.org_id, &batch.stream).await;
+
         if peers.is_empty() {
             return Err(Error::unavailable("no intake node is available"));
         }
+
         let request = push_request(&batch)?;
         let mut unreachable = String::new();
+
         for peer in peers.into_iter().take(MAX_ATTEMPTS) {
             match self.push(&peer.advertise_addr, request.clone()).await {
                 Ok(response) => return Ok(into_result(response)),
@@ -112,6 +122,7 @@ impl IntakeForwarder for GrpcIntakeForwarder {
                 Err(status) => return Err(status_to_error(status)),
             }
         }
+
         Err(Error::unavailable(format!(
             "no intake node accepted the batch: {unreachable}"
         )))
@@ -121,6 +132,7 @@ impl IntakeForwarder for GrpcIntakeForwarder {
 fn push_request(batch: &IntakeBatch) -> Result<PushRequest> {
     let payload = serde_json::to_vec(&batch.events)
         .map_err(|error| Error::internal(format!("encode intake batch: {error}")))?;
+
     Ok(PushRequest {
         batch_id: batch.batch_id.0.clone(),
         org_id: batch.org_id.0.clone(),

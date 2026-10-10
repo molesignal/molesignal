@@ -33,6 +33,7 @@ pub(super) async fn issue_tokens(
     now: TimestampMicros,
 ) -> OAuthResult<TokenResponse> {
     let access_plaintext = format!("msoauth_{}", random_secret(32));
+
     let access = InboundMcpOAuthToken {
         id: Id::new(),
         token_hash: crate::api::http::middleware::auth::oauth::token_hash(&access_plaintext),
@@ -48,10 +49,12 @@ pub(super) async fn issue_tokens(
         rotated_from: None,
         created_at: now,
     };
+
     let refresh_plaintext = scope
         .split_ascii_whitespace()
         .any(|value| value == "offline_access")
         .then(|| format!("msrefresh_{}", random_secret(32)));
+
     let refresh = refresh_plaintext
         .as_ref()
         .map(|plaintext| InboundMcpOAuthToken {
@@ -69,6 +72,7 @@ pub(super) async fn issue_tokens(
             rotated_from: rotation.as_ref().map(|value| value.token_id.clone()),
             created_at: now,
         });
+
     let rotated = if let Some(rotation) = rotation {
         state
             .agent
@@ -83,8 +87,10 @@ pub(super) async fn issue_tokens(
             .create_oauth_token_pair(access, refresh)
             .await
             .map_err(OAuthError::server)?;
+
         true
     };
+
     if !rotated {
         state
             .agent
@@ -92,10 +98,12 @@ pub(super) async fn issue_tokens(
             .revoke_oauth_family(&org_id, &family_id, now)
             .await
             .map_err(OAuthError::server)?;
+
         return Err(OAuthError::invalid_grant(
             "refresh token reuse was detected; the token family was revoked",
         ));
     }
+
     Ok(TokenResponse {
         access_token: access_plaintext,
         token_type: "Bearer",
@@ -116,6 +124,7 @@ pub(super) async fn ensure_grant_available(
         .ensure_user_access(user_id)
         .await
         .map_err(|error| OAuthError::invalid_grant(error.to_string()))?;
+
     state
         .iam
         .service
@@ -135,17 +144,20 @@ pub(super) async fn ensure_grant_available(
         permissions: BTreeSet::new(),
         policy_version: 0,
     };
+
     state
         .iam
         .access
         .enrich_context(&mut context)
         .await
         .map_err(|error| OAuthError::invalid_grant(error.to_string()))?;
+
     if !context.has_permission("agent.use") {
         return Err(OAuthError::invalid_grant(
             "the user no longer has permission to use Mole Agent",
         ));
     }
+
     let settings = state
         .agent
         .inbound_mcp
@@ -153,10 +165,12 @@ pub(super) async fn ensure_grant_available(
         .await
         .map_err(OAuthError::server)?
         .unwrap_or_else(|| InboundMcpSettings::defaults(org_id.clone()));
+
     if !settings.enabled {
         return Err(OAuthError::invalid_grant(
             "Inbound MCP is disabled for the organization",
         ));
     }
+
     Ok(())
 }

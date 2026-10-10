@@ -42,10 +42,12 @@ impl PgUserNotifyPreferenceRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         let preference_ids = rows
             .iter()
             .map(|row| row.try_get::<String, _>("id").map_err(sqlx_err))
             .collect::<Result<Vec<_>>>()?;
+
         let step_rows = if preference_ids.is_empty() {
             Vec::new()
         } else {
@@ -60,9 +62,12 @@ impl PgUserNotifyPreferenceRepository {
             .await
             .map_err(sqlx_err)?
         };
+
         let mut steps: BTreeMap<String, Vec<UserNotifyPreferenceStep>> = BTreeMap::new();
+
         for row in step_rows {
             let preference_id: String = row.try_get("preference_id").map_err(sqlx_err)?;
+
             steps
                 .entry(preference_id.clone())
                 .or_default()
@@ -78,12 +83,14 @@ impl PgUserNotifyPreferenceRepository {
                     ),
                 });
         }
+
         rows.into_iter()
             .map(|row| {
                 let id: String = row.try_get("id").map_err(sqlx_err)?;
                 let category: String = row.try_get("category").map_err(sqlx_err)?;
                 let quiet_hours: Option<Json<serde_json::Value>> =
                     row.try_get("quiet_hours").map_err(sqlx_err)?;
+
                 Ok(UserNotifyPreference {
                     id: Id::from_string(id.clone()),
                     organization_id: Id::from_string(
@@ -140,6 +147,7 @@ impl UserNotifyPreferenceRepository for PgUserNotifyPreferenceRepository {
 
     async fn upsert(&self, mut preference: UserNotifyPreference) -> Result<UserNotifyPreference> {
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         let row = sqlx::query(
             "INSERT INTO user_notify_preferences (
                  id, organization_id, user_id, category, enabled, quiet_hours,
@@ -164,6 +172,7 @@ impl UserNotifyPreferenceRepository for PgUserNotifyPreferenceRepository {
         .fetch_one(&mut *tx)
         .await
         .map_err(sqlx_err)?;
+
         let persisted_id: String = row.try_get("id").map_err(sqlx_err)?;
         preference.id = Id::from_string(persisted_id.clone());
         preference.created_at =
@@ -174,6 +183,7 @@ impl UserNotifyPreferenceRepository for PgUserNotifyPreferenceRepository {
             .execute(&mut *tx)
             .await
             .map_err(sqlx_err)?;
+
         for step in &preference.steps {
             sqlx::query(
                 "INSERT INTO user_notify_preference_steps (
@@ -189,7 +199,9 @@ impl UserNotifyPreferenceRepository for PgUserNotifyPreferenceRepository {
             .await
             .map_err(sqlx_err)?;
         }
+
         tx.commit().await.map_err(sqlx_err)?;
+
         self.get(
             &preference.organization_id,
             &preference.user_id,

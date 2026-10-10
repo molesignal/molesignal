@@ -54,6 +54,7 @@ fn require_management(ctx: &IamContext) -> Result<()> {
 
 fn endpoint(state: &AppState) -> String {
     let base = state.platform.external_url.trim().trim_end_matches('/');
+
     if base.is_empty() {
         "/api/v1/mcp".into()
     } else {
@@ -64,6 +65,7 @@ fn endpoint(state: &AppState) -> String {
 fn settings_response(state: &AppState, settings: InboundMcpSettings) -> Value {
     let endpoint = endpoint(state);
     let base = endpoint.strip_suffix("/api/v1/mcp").unwrap_or_default();
+
     json!({
         "settings": settings,
         "endpoint": endpoint,
@@ -87,12 +89,14 @@ async fn get_settings(
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Value>> {
     require_management(&ctx)?;
+
     let settings = state
         .agent
         .inbound_mcp
         .get_settings(&ctx.org_id)
         .await?
         .unwrap_or_else(|| InboundMcpSettings::defaults(ctx.org_id));
+
     Ok(Json(settings_response(&state, settings)))
 }
 
@@ -107,12 +111,14 @@ async fn update_settings(
     validate_limits(&request)?;
     let origins = normalize_origins(request.allowed_origins)?;
     let now = TimestampMicros::now();
+
     let created_at = state
         .agent
         .inbound_mcp
         .get_settings(&ctx.org_id)
         .await?
         .map_or(now, |settings| settings.created_at);
+
     let settings = state
         .agent
         .inbound_mcp
@@ -130,6 +136,7 @@ async fn update_settings(
             updated_at: now,
         })
         .await?;
+
     runtime.notify_catalog_changed(&settings.org_id);
     Ok(Json(settings_response(&state, settings)))
 }
@@ -140,26 +147,31 @@ fn validate_limits(request: &UpdateSettingsRequest) -> Result<()> {
             "max_request_bytes must be between 1024 and {HARD_BODY_BYTES}"
         )));
     }
+
     if !(1_024..=HARD_BODY_BYTES).contains(&request.max_response_bytes) {
         return Err(Error::invalid(format!(
             "max_response_bytes must be between 1024 and {HARD_BODY_BYTES}"
         )));
     }
+
     if !(1..=128).contains(&request.max_concurrent_calls) {
         return Err(Error::invalid(
             "max_concurrent_calls must be between 1 and 128",
         ));
     }
+
     if !(1..=10_000).contains(&request.calls_per_minute) {
         return Err(Error::invalid(
             "calls_per_minute must be between 1 and 10000",
         ));
     }
+
     if !(100..=300_000).contains(&request.read_timeout_ms) {
         return Err(Error::invalid(
             "read_timeout_ms must be between 100 and 300000",
         ));
     }
+
     Ok(())
 }
 
@@ -168,11 +180,14 @@ fn normalize_origins(origins: Vec<String>) -> Result<Vec<String>> {
         .into_iter()
         .map(|origin| {
             let origin = origin.trim();
+
             if origin.len() > 2_048 {
                 return Err(Error::invalid("allowed origin exceeds 2048 bytes"));
             }
+
             let parsed = Url::parse(origin)
                 .map_err(|error| Error::invalid(format!("invalid allowed origin: {error}")))?;
+
             if !matches!(parsed.scheme(), "http" | "https")
                 || parsed.host_str().is_none()
                 || !parsed.username().is_empty()
@@ -185,16 +200,20 @@ fn normalize_origins(origins: Vec<String>) -> Result<Vec<String>> {
                     "allowed origins must be exact http(s) origins without path, query, or credentials",
                 ));
             }
+
             Ok(parsed.origin().ascii_serialization())
         })
         .collect::<Result<Vec<_>>>()?;
+
     normalized.sort();
     normalized.dedup();
+
     if normalized.len() > 64 {
         return Err(Error::invalid(
             "at most 64 allowed origins may be configured",
         ));
     }
+
     Ok(normalized)
 }
 
@@ -205,11 +224,13 @@ async fn list_oauth_connections(
 ) -> Result<Json<Value>> {
     require_management(&ctx)?;
     let now = TimestampMicros::now();
+
     let connections = state
         .agent
         .inbound_mcp
         .list_oauth_connections(&ctx.org_id, now)
         .await?;
+
     Ok(Json(json!({ "connections": connections })))
 }
 
@@ -220,9 +241,11 @@ async fn revoke_oauth_connection(
     Path(family_id): Path<String>,
 ) -> Result<Json<Value>> {
     require_management(&ctx)?;
+
     if family_id.is_empty() || family_id.len() > 128 {
         return Err(Error::invalid("invalid OAuth connection family id"));
     }
+
     state
         .agent
         .inbound_mcp
@@ -232,6 +255,7 @@ async fn revoke_oauth_connection(
             TimestampMicros::now(),
         )
         .await?;
+
     Ok(Json(json!({ "revoked": true })))
 }
 

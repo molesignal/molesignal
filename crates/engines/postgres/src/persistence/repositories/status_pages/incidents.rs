@@ -31,13 +31,16 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
             }
             _ => {}
         }
+
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
         insert_incident(&mut transaction, &incident).await?;
         replace_component_links(&mut transaction, &incident).await?;
+
         if let Some(initial_update) = incident.updates.first() {
             insert_update(&mut transaction, initial_update)
                 .await
                 .map_err(super::sqlx_err)?;
+
             touch_page(
                 &mut transaction,
                 &incident.org_id,
@@ -46,7 +49,9 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
             )
             .await?;
         }
+
         transaction.commit().await.map_err(super::sqlx_err)?;
+
         fetch_incident(
             &self.pool,
             &incident.org_id,
@@ -64,6 +69,7 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
         updated_at: TimestampMicros,
     ) -> Result<StatusPageIncident> {
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
+
         let result = sqlx::query(
             "UPDATE status_page_incidents
              SET status = $5, ended_at_micros = $6, updated_at_micros = $7
@@ -80,14 +86,17 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
+
         if result.rows_affected() == 0 {
             return Err(Error::conflict(
                 "status-page event changed while the update was being published",
             ));
         }
+
         insert_update(&mut transaction, &update)
             .await
             .map_err(super::sqlx_err)?;
+
         touch_page(
             &mut transaction,
             &update.org_id,
@@ -95,7 +104,9 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
             updated_at,
         )
         .await?;
+
         transaction.commit().await.map_err(super::sqlx_err)?;
+
         fetch_incident(
             &self.pool,
             &update.org_id,
@@ -110,6 +121,7 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
         incident: StatusPageIncident,
     ) -> Result<StatusPageIncident> {
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
+
         let result = sqlx::query(
             "UPDATE status_page_incidents SET
                  source_incident_id = $4, kind = $5, title = $6, impact = $7,
@@ -132,11 +144,14 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
+
         if result.rows_affected() == 0 {
             return Err(Error::conflict("draft event is no longer editable"));
         }
+
         replace_component_links(&mut transaction, &incident).await?;
         transaction.commit().await.map_err(super::sqlx_err)?;
+
         fetch_incident(
             &self.pool,
             &incident.org_id,
@@ -151,6 +166,7 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
         incident: StatusPageIncident,
     ) -> Result<StatusPageIncident> {
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
+
         let result = sqlx::query(
             "UPDATE status_page_incidents SET
                  title=$4,impact=$5,updated_at_micros=$6
@@ -166,12 +182,15 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
+
         if result.rows_affected() == 0 {
             return Err(Error::conflict(
                 "published status-page Incident is no longer active",
             ));
         }
+
         replace_component_links(&mut transaction, &incident).await?;
+
         touch_page(
             &mut transaction,
             &incident.org_id,
@@ -179,7 +198,9 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
             incident.updated_at,
         )
         .await?;
+
         transaction.commit().await.map_err(super::sqlx_err)?;
+
         fetch_incident(
             &self.pool,
             &incident.org_id,
@@ -197,7 +218,9 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
         let published_at = incident
             .published_at
             .ok_or_else(|| Error::invalid("published_at is required"))?;
+
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
+
         let result = sqlx::query(
             "UPDATE status_page_incidents SET
                  source_incident_id = $4, kind = $5, title = $6, impact = $7,
@@ -219,13 +242,17 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
+
         if result.rows_affected() == 0 {
             return Err(Error::conflict("draft event is no longer publishable"));
         }
+
         replace_component_links(&mut transaction, &incident).await?;
+
         insert_update(&mut transaction, &initial_update)
             .await
             .map_err(super::sqlx_err)?;
+
         touch_page(
             &mut transaction,
             &incident.org_id,
@@ -233,7 +260,9 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
             published_at,
         )
         .await?;
+
         transaction.commit().await.map_err(super::sqlx_err)?;
+
         fetch_incident(
             &self.pool,
             &incident.org_id,
@@ -249,6 +278,7 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
         update: StatusPageIncidentUpdate,
     ) -> Result<StatusPageIncident> {
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
+
         let result = sqlx::query(
             "UPDATE status_page_incidents SET
                  title = $4, started_at_micros = $5, updated_at_micros = $6
@@ -265,15 +295,19 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
+
         if result.rows_affected() != 1 {
             return Err(Error::conflict(
                 "scheduled maintenance is no longer editable",
             ));
         }
+
         replace_component_links(&mut transaction, &incident).await?;
+
         insert_update(&mut transaction, &update)
             .await
             .map_err(super::sqlx_err)?;
+
         touch_page(
             &mut transaction,
             &incident.org_id,
@@ -281,7 +315,9 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
             incident.updated_at,
         )
         .await?;
+
         transaction.commit().await.map_err(super::sqlx_err)?;
+
         fetch_incident(
             &self.pool,
             &incident.org_id,
@@ -321,6 +357,7 @@ async fn insert_incident(
     .execute(transaction)
     .await
     .map_err(super::sqlx_err)?;
+
     Ok(())
 }
 
@@ -338,6 +375,7 @@ async fn replace_component_links(
     .execute(&mut *transaction)
     .await
     .map_err(super::sqlx_err)?;
+
     for component_id in &incident.component_ids {
         sqlx::query(
             "INSERT INTO status_page_incident_components
@@ -352,6 +390,7 @@ async fn replace_component_links(
         .await
         .map_err(super::sqlx_err)?;
     }
+
     Ok(())
 }
 

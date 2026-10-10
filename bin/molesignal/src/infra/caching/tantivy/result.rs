@@ -54,28 +54,34 @@ pub struct TantivyResultCache {
 impl TantivyResultCache {
     pub fn new(settings: &TantivyResultCacheSettings) -> Self {
         let _ = metrics();
+
         if settings.capacity == 0 {
             return Self { inner: None };
         }
+
         let evict = &metrics().evictions;
         let evict = evict.clone();
+
         let cache = Cache::builder()
             .max_capacity(settings.capacity)
             .time_to_live(Duration::from_secs(u64::from(settings.ttl_secs)))
             .support_invalidation_closures()
             .async_eviction_listener(move |_k, _v, _cause| {
                 let evict = evict.clone();
+
                 Box::pin(async move {
                     evict.inc();
                 })
             })
             .build();
+
         Self { inner: Some(cache) }
     }
 
     pub async fn get(&self, key: &TantivyResultKey) -> Option<u64> {
         let m = metrics();
         let cache = self.inner.as_ref()?;
+
         match cache.get(key).await {
             Some(v) => {
                 m.hits.inc();
@@ -104,10 +110,13 @@ impl TantivyResultCache {
         let Some(cache) = self.inner.as_ref() else {
             return;
         };
+
         if index_object_keys.is_empty() {
             return;
         }
+
         let prefixes: Vec<String> = index_object_keys.to_vec();
+
         cache
             .invalidate_entries_if(move |k, _v| prefixes.iter().any(|a| a == &k.index_object_key))
             .ok();
@@ -115,6 +124,7 @@ impl TantivyResultCache {
 
     pub fn hit_ratio(&self) -> f64 {
         let (h, m) = snapshot();
+
         if h + m == 0 {
             0.0
         } else {
@@ -140,34 +150,41 @@ struct Metrics {
 
 fn metrics() -> &'static Metrics {
     static M: OnceLock<Metrics> = OnceLock::new();
+
     M.get_or_init(|| {
         let hits = register_int_counter(
             "cache_tantivy_result_hits_total",
             "tantivy result cache hits",
         );
+
         let misses = register_int_counter(
             "cache_tantivy_result_misses_total",
             "tantivy result cache misses",
         );
+
         let evictions = register_int_counter(
             "cache_tantivy_result_evictions_total",
             "tantivy result cache LRU/TTL evictions",
         );
+
         let errors = register_int_counter(
             "cache_tantivy_result_errors_total",
             "tantivy result cache internal errors (falls through to direct query)",
         );
+
         let hit_ratio = {
             let g = Gauge::with_opts(Opts::new(
                 "cache_tantivy_result_hit_ratio",
                 "tantivy result cache hit ratio in [0.0, 1.0]",
             ))
             .expect("create gauge");
+
             match global_registry().register(Box::new(g.clone())) {
                 Ok(()) | Err(prometheus::Error::AlreadyReg) => g,
                 Err(e) => panic!("register gauge: {e}"),
             }
         };
+
         Metrics {
             hits,
             misses,
@@ -190,6 +207,7 @@ fn refresh_ratio(m: &Metrics) {
 
 fn snapshot() -> (u64, u64) {
     let m = metrics();
+
     (
         m.hits_view.load(Ordering::Relaxed),
         m.misses_view.load(Ordering::Relaxed),

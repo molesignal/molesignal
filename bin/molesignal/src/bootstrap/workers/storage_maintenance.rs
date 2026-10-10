@@ -65,14 +65,18 @@ fn spawn_index_loop(
     drain: Arc<DrainController>,
 ) -> JoinHandle<()> {
     let interval = Duration::from_secs(worker.settings().interval_secs.max(1) as u64);
+
     tokio::spawn(async move {
         let mut ticker = tokio::time::interval(interval);
         ticker.tick().await;
+
         loop {
             ticker.tick().await;
+
             if drain.is_draining() {
                 break;
             }
+
             let result = for_each_scope(
                 "index_rebuild",
                 organizations.as_ref(),
@@ -80,6 +84,7 @@ fn spawn_index_loop(
                 |scope| worker.run_scope(scope),
             )
             .await;
+
             record_health("index_rebuild", &result);
         }
     })
@@ -91,19 +96,24 @@ fn spawn_gc_loop(
     drain: Arc<DrainController>,
 ) -> JoinHandle<()> {
     let interval = Duration::from_secs(worker.settings().interval_secs.max(1) as u64);
+
     tokio::spawn(async move {
         let mut ticker = tokio::time::interval(interval);
         ticker.tick().await;
+
         loop {
             ticker.tick().await;
+
             if drain.is_draining() {
                 break;
             }
+
             // GC 条目逐条租约认领，多个节点同时扫同一个组织也不会重复删除。
             let result = for_each_scope("object_gc", organizations.as_ref(), None, |scope| {
                 worker.run_scope(scope)
             })
             .await;
+
             record_health("object_gc", &result);
         }
     })
@@ -116,14 +126,18 @@ fn spawn_reconciler_loop(
     drain: Arc<DrainController>,
 ) -> JoinHandle<()> {
     let interval = Duration::from_secs(worker.settings().interval_secs.max(1) as u64);
+
     tokio::spawn(async move {
         let mut ticker = tokio::time::interval(interval);
         ticker.tick().await;
+
         loop {
             ticker.tick().await;
+
             if drain.is_draining() {
                 break;
             }
+
             let result = for_each_scope(
                 "storage_reconciler",
                 organizations.as_ref(),
@@ -131,6 +145,7 @@ fn spawn_reconciler_loop(
                 |scope| worker.run_scope(scope),
             )
             .await;
+
             record_health("storage_reconciler", &result);
         }
     })
@@ -144,15 +159,20 @@ fn spawn_manifest_loop(
     drain: Arc<DrainController>,
 ) -> JoinHandle<()> {
     let interval = Duration::from_secs(manager.settings().interval_secs.max(1) as u64);
+
     tokio::spawn(async move {
         let mut ticker = tokio::time::interval(interval);
         ticker.tick().await;
+
         loop {
             ticker.tick().await;
+
             if drain.is_draining() {
                 break;
             }
+
             let manifests = manager.as_ref();
+
             let result = for_each_stream(
                 "partition_manifest",
                 organizations.as_ref(),
@@ -161,6 +181,7 @@ fn spawn_manifest_loop(
                 |stream| async move { manifests.maintain_stream(&stream).await },
             )
             .await;
+
             record_health("partition_manifest", &result);
         }
     })
@@ -185,18 +206,22 @@ where
 {
     let mut completed = 0;
     let mut units = 0;
+
     for organization in organizations.list().await? {
         if let Some(ownership) = ownership
             && !ownership.owns(organization.id.as_str()).await
         {
             continue;
         }
+
         units += 1;
         completed += operation(OrganizationScope::new(organization.id)).await?;
     }
+
     if let Some(ownership) = ownership {
         ownership.record_owned(worker_name, units);
     }
+
     Ok(completed)
 }
 
@@ -220,15 +245,18 @@ where
 {
     let mut completed = 0;
     let mut units = 0;
+
     for organization in organizations.list().await? {
         for stream in streams.list(&organization.id).await? {
             if !ownership.owns(stream.id.as_str()).await {
                 continue;
             }
+
             units += 1;
             completed += operation(stream).await?;
         }
     }
+
     ownership.record_owned(worker_name, units);
     Ok(completed)
 }
@@ -237,6 +265,7 @@ fn record_health(name: &'static str, result: &Result<usize>) {
     worker_health()
         .with_label_values(&[name])
         .set(if result.is_ok() { 1 } else { 0 });
+
     match result {
         Ok(completed) => tracing::debug!(worker = name, completed, "storage worker tick completed"),
         Err(error) => tracing::warn!(worker = name, %error, "storage worker tick failed"),
@@ -245,6 +274,7 @@ fn record_health(name: &'static str, result: &Result<usize>) {
 
 fn worker_health() -> &'static IntGaugeVec {
     static METRIC: OnceLock<IntGaugeVec> = OnceLock::new();
+
     METRIC.get_or_init(|| {
         crate::shared::metrics::register_int_gauge_vec(
             "storage_worker_healthy",

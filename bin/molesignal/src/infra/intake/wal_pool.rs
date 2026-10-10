@@ -104,9 +104,11 @@ fn wal_encrypt(kek: &CipherRootKey, payload: &[u8]) -> Result<Vec<u8>> {
 fn wal_decrypt_body(kek: Option<&CipherRootKey>, stored: &[u8]) -> Result<Vec<u8>> {
     let kek = kek.ok_or_else(|| anyhow!("wal record is encrypted but no cipher key configured"))?;
     let body = &stored[WAL_ENC_MAGIC.len()..];
+
     if body.len() < 12 {
         return Err(anyhow!("wal encrypted record too short"));
     }
+
     let (nonce, ct) = body.split_at(12);
     kek.open(nonce, ct).map_err(|e| anyhow!("wal open: {e}"))
 }
@@ -114,6 +116,7 @@ fn wal_decrypt_body(kek: Option<&CipherRootKey>, stored: &[u8]) -> Result<Vec<u8
 /// 原子写小文件：tmp + sync_all + rename + 父目录 sync_all。
 fn write_file_durable(path: &Path, contents: &[u8]) -> Result<()> {
     let tmp = path.with_extension("tmp");
+
     {
         let mut file =
             std::fs::File::create(&tmp).with_context(|| format!("create {}", tmp.display()))?;
@@ -121,6 +124,7 @@ fn write_file_durable(path: &Path, contents: &[u8]) -> Result<()> {
         file.write_all(contents)?;
         file.sync_all()?;
     }
+
     std::fs::rename(&tmp, path)
         .with_context(|| format!("rename {} -> {}", tmp.display(), path.display()))?;
     sync_dir_parent_of(path, crate::infra::segment_wal::SyncLevel::ALL)?;
@@ -192,6 +196,7 @@ impl WalPool {
     /// 读取 `CURRENT`；缺失 = 0，损坏显式报错（静默归零会造成 epoch 复用）。
     fn read_current_epoch(dataset_dir: &Path) -> Result<u64> {
         let path = dataset_dir.join(CURRENT_FILE);
+
         match std::fs::read_to_string(&path) {
             Ok(raw) => raw
                 .trim()
@@ -205,39 +210,48 @@ impl WalPool {
     /// 目录中现存 epoch 子目录的最大编号（防 `CURRENT` 写入与建目录间崩溃后回退）。
     fn max_existing_epoch(dataset_dir: &Path) -> Result<u64> {
         let mut max = 0u64;
+
         if dataset_dir.exists() {
             for entry in std::fs::read_dir(dataset_dir)? {
                 let entry = entry?;
+
                 if !entry.file_type()?.is_dir() {
                     continue;
                 }
+
                 if let Ok(epoch) = entry.file_name().to_string_lossy().parse::<u64>() {
                     max = max.max(epoch);
                 }
             }
         }
+
         Ok(max)
     }
 
     /// 全部现存 epoch 目录里最大的 record index；新 epoch 的 sequence 从其 +1 续走。
     fn max_existing_sequence(dataset_dir: &Path) -> Result<u64> {
         let mut max = 0u64;
+
         if !dataset_dir.exists() {
             return Ok(max);
         }
+
         for entry in std::fs::read_dir(dataset_dir)? {
             let entry = entry?;
+
             if !entry.file_type()?.is_dir()
                 || entry.file_name().to_string_lossy().parse::<u64>().is_err()
             {
                 continue;
             }
+
             for segment in SegmentWal::segment_paths_sorted(entry.path())? {
                 if let Some(index) = scan_segment_max_index(&segment)? {
                     max = max.max(index);
                 }
             }
         }
+
         Ok(max)
     }
 
@@ -250,7 +264,9 @@ impl WalPool {
         let epoch = Self::read_current_epoch(&dataset_dir)?
             .max(Self::max_existing_epoch(&dataset_dir)?)
             + 1;
+
         let next_seq = Self::max_existing_sequence(&dataset_dir)? + 1;
+
         write_file_durable(
             &dataset_dir.join(CURRENT_FILE),
             epoch.to_string().as_bytes(),
@@ -258,6 +274,7 @@ impl WalPool {
 
         let epoch_dir = dataset_dir.join(epoch.to_string());
         std::fs::create_dir_all(&epoch_dir)?;
+
         let manifest = EpochIdentity {
             format_version: EPOCH_IDENTITY_FORMAT_VERSION,
             organization_id: identity.organization_id.as_str().to_owned(),
@@ -267,6 +284,7 @@ impl WalPool {
             epoch,
             wal_codec: identity.wal_codec.as_str().to_owned(),
         };
+
         write_file_durable(
             &epoch_dir.join(IDENTITY_FILE),
             &serde_json::to_vec_pretty(&manifest)?,
@@ -282,6 +300,7 @@ impl WalPool {
             epoch,
         )
         .with_context(|| format!("open wal at {}", epoch_dir.display()))?;
+
         Ok(DatasetWal {
             epoch,
             epoch_dir,
@@ -294,12 +313,14 @@ impl WalPool {
         if let Some(entry) = self.pools.get(&identity.dataset_id) {
             return Ok(entry.clone());
         }
+
         // 竞争建 entry：entry() 持 shard 锁串行化同 dataset 的 acquire，
         // 保证一个进程内每个 dataset 只推进一次 epoch。
         let entry = self
             .pools
             .entry(identity.dataset_id.clone())
             .or_try_insert_with(|| self.acquire(identity).map(Arc::new))?;
+
         Ok(entry.clone())
     }
 
@@ -335,17 +356,21 @@ impl WalPool {
         let entry = self.open_or_create(identity)?;
         let writer_epoch = WriterEpoch(entry.epoch);
         let dataset_type_label = identity.dataset_type.as_str().to_owned();
+
         let payload = match &self.cipher {
             Some(k) => wal_encrypt(k, &payload)?,
             None => payload,
         };
+
         let lock_started = Instant::now();
+
         tokio::task::spawn_blocking(move || {
             let mut guard = entry.wal.blocking_lock();
             observe_wal_lock_wait(&dataset_type_label, lock_started.elapsed().as_secs_f64());
             let _inflight = WalInflightGuard::enter(&dataset_type_label);
             let seq = entry.next_seq.fetch_add(1, Ordering::SeqCst);
             guard.write_raw(WalEntryType::Normal, &payload, seq)?;
+
             Ok(WalAppendPosition {
                 writer_epoch,
                 sequence: WalSequence(seq),
@@ -363,6 +388,7 @@ impl WalPool {
         let Some(entry) = self.pools.get(dataset_id).map(|entry| entry.clone()) else {
             return Ok(());
         };
+
         let mut guard = entry.wal.lock().await;
         guard.seal_active()?;
         Ok(())
@@ -374,7 +400,9 @@ impl WalPool {
         let Some(entry) = self.pools.get(dataset_id).map(|entry| entry.clone()) else {
             return Ok(());
         };
+
         let dir = entry.epoch_dir.clone();
+
         tokio::task::spawn_blocking(move || truncate_dir_blocking(&dir, seq))
             .await
             .map_err(|e| anyhow!("truncate join: {e}"))?
@@ -386,12 +414,16 @@ fn truncate_dir_blocking(dir: &Path, seq: u64) -> Result<()> {
     if !dir.exists() {
         return Ok(());
     }
+
     let segments = SegmentWal::segment_paths_sorted(dir)?;
+
     if segments.len() <= 1 {
         // 0 segments or only the active (head) one - nothing to seal
         return Ok(());
     }
+
     let active_idx = segments.len() - 1;
+
     for seg_path in segments.iter().take(active_idx) {
         // 只读 header 链取 max index：这里只需判断本段是否全部 ≤ seq，
         // 没必要为此把每条记录解压 + 拷贝一遍。
@@ -403,6 +435,7 @@ fn truncate_dir_blocking(dir: &Path, seq: u64) -> Result<()> {
             Some(_) => break,
         }
     }
+
     Ok(())
 }
 

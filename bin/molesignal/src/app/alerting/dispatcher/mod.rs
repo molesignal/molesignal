@@ -84,17 +84,21 @@ impl EscalationDispatcher {
     pub async fn tick(&self, org_id: &Id, now: TimestampMicros) -> Result<usize> {
         let view = self.ownership.view().await;
         let open = owned_open_incidents(self.incidents.list_active(org_id).await?, &view);
+
         if open.is_empty() {
             return Ok(0);
         }
+
         let policies = self.policies.list(org_id).await?;
         let mut schedules = ScheduleCache::new(self.schedules.as_deref());
         let owned = open.len();
+
         for incident in open {
             if let Err(error) = self.advance(incident, &policies, &mut schedules, now).await {
                 tracing::warn!(error = %error, "dispatcher step failed");
             }
         }
+
         Ok(owned)
     }
 
@@ -114,7 +118,9 @@ impl EscalationDispatcher {
         else {
             return Ok(());
         };
+
         let severity = incident.severity;
+
         let Some(step_index) =
             next_applicable_step(policy, incident.current_step as usize, severity)
         else {
@@ -122,17 +128,21 @@ impl EscalationDispatcher {
         };
 
         let mut changed = false;
+
         if incident.escalation_policy_id != policy.id {
             // 把别名固化成真实策略 id：之后改名或另建 default 策略都不会让进行中的事件换策略。
             incident.escalation_policy_id = policy.id.clone();
             changed = true;
         }
+
         if step_index as u32 != incident.current_step {
             incident.current_step = step_index as u32;
             incident.current_step_started_at = now;
             changed = true;
         }
+
         changed |= apply_assignees(&mut incident, &policy.steps[step_index], schedules, now).await;
+
         if changed {
             // 事件在评估到写入之间被确认或解决时，写入落空，不再继续升级。
             let Some(updated) = self
@@ -142,6 +152,7 @@ impl EscalationDispatcher {
             else {
                 return Ok(());
             };
+
             incident = updated;
         }
 
@@ -149,6 +160,7 @@ impl EscalationDispatcher {
         self.dispatch_step(&incident, policy, step_index).await;
 
         let step = &policy.steps[step_index];
+
         if !incident.step_timed_out(step.ack_timeout_secs, now) {
             return Ok(());
         }
@@ -157,6 +169,7 @@ impl EscalationDispatcher {
             incident.current_step = next as u32;
             incident.current_step_started_at = now;
             apply_assignees(&mut incident, &policy.steps[next], schedules, now).await;
+
             let Some(incident) = self
                 .incidents
                 .update_if_status(incident, &[IncidentStatus::Open])
@@ -164,6 +177,7 @@ impl EscalationDispatcher {
             else {
                 return Ok(());
             };
+
             self.dispatch_step(&incident, policy, next).await;
             return Ok(());
         }
@@ -176,6 +190,7 @@ impl EscalationDispatcher {
             incident.current_step = first as u32;
             incident.current_step_started_at = now;
             apply_assignees(&mut incident, &policy.steps[first], schedules, now).await;
+
             let Some(incident) = self
                 .incidents
                 .update_if_status(incident, &[IncidentStatus::Open])
@@ -183,8 +198,10 @@ impl EscalationDispatcher {
             else {
                 return Ok(());
             };
+
             self.dispatch_step(&incident, policy, first).await;
         }
+
         Ok(())
     }
 
@@ -197,6 +214,7 @@ impl EscalationDispatcher {
         let Some(step) = policy.steps.get(step_index) else {
             return;
         };
+
         for (target_index, target) in step.targets.iter().enumerate() {
             let dispatch = alert_escalation_dispatch(
                 incident,
@@ -205,6 +223,7 @@ impl EscalationDispatcher {
                 target_index,
                 target,
             );
+
             if let Err(error) = self.notify_engine.enqueue_event(dispatch).await {
                 tracing::warn!(
                     incident_id = %incident.id,
@@ -222,7 +241,9 @@ impl EscalationDispatcher {
         let Some(repo) = &self.mute_rules else {
             return false;
         };
+
         let match_labels = match_labels_for_incident(&incident.labels, &incident.id);
+
         match repo.list_enabled(&incident.org_id).await {
             Ok(rules) => rules.iter().any(|rule| rule.is_muting(&match_labels, now)),
             Err(error) => {

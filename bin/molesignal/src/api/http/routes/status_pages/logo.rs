@@ -35,10 +35,12 @@ pub(super) async fn upload_logo(
 ) -> Result<Json<StatusPage>> {
     let page_id = Id(page_id);
     let existing = state.status_pages.get_page(&ctx.org_id, &page_id).await?;
+
     let content_type = headers
         .get(CONTENT_TYPE)
         .and_then(|value| value.to_str().ok())
         .unwrap_or_default();
+
     let extension = extension_for_content_type(content_type)
         .ok_or_else(|| Error::invalid("logo must be a PNG, JPEG, or WEBP image"))?;
     validate_image_body(content_type, &body)?;
@@ -47,6 +49,7 @@ pub(super) async fn upload_logo(
     let object_key = logo_object_key(&existing, &file);
     let object_path = ObjPath::parse(&object_key)
         .map_err(|error| Error::internal(format!("status page logo path: {error}")))?;
+
     state
         .storage
         .object_store
@@ -55,6 +58,7 @@ pub(super) async fn upload_logo(
         .map_err(|error| Error::internal(format!("status page logo store put: {error}")))?;
 
     let logo_url = public_logo_url(&existing.slug, &file);
+
     let updated = match state
         .status_pages
         .update_logo_url(&ctx.org_id, &page_id, Some(logo_url))
@@ -66,7 +70,9 @@ pub(super) async fn upload_logo(
             return Err(error);
         }
     };
+
     cleanup_replaced_logo(&state, &existing, Some(&updated)).await;
+
     activity_audit::record(
         &state,
         &ctx,
@@ -76,6 +82,7 @@ pub(super) async fn upload_logo(
         serde_json::json!({"managed_upload": true}),
     )
     .await;
+
     Ok(Json(updated))
 }
 
@@ -89,6 +96,7 @@ pub(super) async fn get_logo(
         .status_pages
         .get_page(&ctx.org_id, &Id(page_id))
         .await?;
+
     let file =
         managed_logo_file(&page).ok_or_else(|| Error::not_found("status page logo not found"))?;
     serve_logo_object(&state, &page, &file, false).await
@@ -101,10 +109,13 @@ pub(super) async fn serve_public_logo(
     if !is_safe_logo_file(&file) {
         return Err(Error::not_found("status page logo not found"));
     }
+
     let page = state.status_pages.get_customer_branding_page(&slug).await?;
+
     if managed_logo_file(&page).as_deref() != Some(file.as_str()) {
         return Err(Error::not_found("status page logo not found"));
     }
+
     serve_logo_object(&state, &page, &file, true).await
 }
 
@@ -118,16 +129,19 @@ async fn serve_logo_object(
         .ok_or_else(|| Error::not_found("status page logo not found"))?;
     let object_path = ObjPath::parse(logo_object_key(page, file))
         .map_err(|_| Error::not_found("status page logo not found"))?;
+
     let result = state
         .storage
         .object_store
         .get(&object_path)
         .await
         .map_err(|_| Error::not_found("status page logo not found"))?;
+
     let bytes = result
         .bytes()
         .await
         .map_err(|error| Error::internal(format!("status page logo read: {error}")))?;
+
     Response::builder()
         .status(200)
         .header(CONTENT_TYPE, content_type)
@@ -152,6 +166,7 @@ pub(super) fn rewrite_managed_logo_url(
     if requested_url.as_deref() != page.logo_url.as_deref() {
         return requested_url;
     }
+
     managed_logo_file(page)
         .map(|file| public_logo_url(new_slug, &file))
         .or(requested_url)
@@ -164,6 +179,7 @@ pub(super) async fn cleanup_replaced_logo(
 ) {
     let previous_key = managed_logo_object_key(previous);
     let current_key = current.and_then(managed_logo_object_key);
+
     if let Some(previous_key) = previous_key
         && Some(previous_key.as_str()) != current_key.as_deref()
         && let Ok(path) = ObjPath::parse(previous_key)
@@ -176,20 +192,24 @@ fn validate_image_body(content_type: &str, body: &[u8]) -> Result<()> {
     if body.is_empty() {
         return Err(Error::invalid("logo file is empty"));
     }
+
     if body.len() > LOGO_MAX_BYTES {
         return Err(Error::invalid("logo must be at most 2 MiB"));
     }
+
     let valid_signature = match extension_for_content_type(content_type) {
         Some("png") => body.starts_with(b"\x89PNG\r\n\x1a\n"),
         Some("jpg") => body.starts_with(&[0xff, 0xd8, 0xff]),
         Some("webp") => body.len() >= 12 && body.starts_with(b"RIFF") && &body[8..12] == b"WEBP",
         _ => false,
     };
+
     if !valid_signature {
         return Err(Error::invalid(
             "logo file contents do not match its image type",
         ));
     }
+
     Ok(())
 }
 
@@ -215,6 +235,7 @@ fn is_safe_logo_file(file: &str) -> bool {
     let Some((stem, extension)) = file.rsplit_once('.') else {
         return false;
     };
+
     !stem.is_empty()
         && stem.len() <= 64
         && stem

@@ -14,15 +14,19 @@ use serde_json::Value;
 
 pub(super) fn string_at<'a>(batch: &'a RecordBatch, name: &str, row: usize) -> Option<&'a str> {
     let column = batch.column_by_name(name)?;
+
     if column.is_null(row) {
         return None;
     }
+
     if let Some(values) = column.as_any().downcast_ref::<StringArray>() {
         return Some(values.value(row));
     }
+
     if let Some(values) = column.as_any().downcast_ref::<LargeStringArray>() {
         return Some(values.value(row));
     }
+
     column
         .as_any()
         .downcast_ref::<StringViewArray>()
@@ -41,9 +45,11 @@ pub(super) fn string_any<'a>(
 
 pub(super) fn i64_at(batch: &RecordBatch, name: &str, row: usize) -> Option<i64> {
     let column = batch.column_by_name(name)?;
+
     if column.is_null(row) {
         return None;
     }
+
     match column.data_type() {
         DataType::Int64 => Some(column.as_any().downcast_ref::<Int64Array>()?.value(row)),
         DataType::Int32 => Some(i64::from(
@@ -76,9 +82,11 @@ pub(super) fn i64_at(batch: &RecordBatch, name: &str, row: usize) -> Option<i64>
 
 pub(super) fn f64_at(batch: &RecordBatch, name: &str, row: usize) -> Option<f64> {
     let column = batch.column_by_name(name)?;
+
     if column.is_null(row) {
         return None;
     }
+
     match column.data_type() {
         DataType::Float64 => Some(column.as_any().downcast_ref::<Float64Array>()?.value(row)),
         DataType::Float32 => Some(f64::from(
@@ -100,6 +108,7 @@ pub(super) fn f64_at(batch: &RecordBatch, name: &str, row: usize) -> Option<f64>
 
 pub(super) fn json_at(batch: &RecordBatch, name: &str, row: usize) -> Option<Value> {
     let value = string_at(batch, name, row)?;
+
     serde_json::from_str(value)
         .ok()
         .or_else(|| Some(Value::String(value.to_string())))

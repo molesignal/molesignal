@@ -75,6 +75,7 @@ impl ProfilingService {
             cpu: Arc::new(NativeCpuBackend),
             heap: Arc::new(NativeHeapBackend),
         });
+
         set_profile_available("cpu", service.cpu_available());
         set_profile_available("heap", service.heap_available());
         service
@@ -97,9 +98,11 @@ impl ProfilingService {
         if !(1..=120).contains(&seconds) {
             return Err(CaptureError::InvalidDuration);
         }
+
         if !self.cpu.available() {
             return Err(CaptureError::Unavailable("cpu"));
         }
+
         let _permit = CpuCapturePermit::try_acquire()?;
         self.cpu.capture(seconds).await
     }
@@ -108,6 +111,7 @@ impl ProfilingService {
         if !self.heap.available() {
             return Err(CaptureError::Unavailable("heap"));
         }
+
         self.heap.capture(0).await
     }
 }
@@ -124,11 +128,13 @@ impl CaptureBackend for NativeCpuBackend {
         #[cfg(all(feature = "profiling-pprof", unix))]
         {
             let started_at = TimestampMicros::now().0;
+
             tokio::task::spawn_blocking(move || {
                 use pprof::protos::Message as _;
 
                 let mut builder =
                     pprof::ProfilerGuardBuilder::default().frequency(CPU_SAMPLE_FREQUENCY_HZ);
+
                 #[cfg(any(
                     target_arch = "x86_64",
                     target_arch = "aarch64",
@@ -138,17 +144,22 @@ impl CaptureBackend for NativeCpuBackend {
                 {
                     builder = builder.blocklist(&["libc", "libgcc", "pthread", "vdso"]);
                 }
+
                 let guard = builder
                     .build()
                     .map_err(|error| CaptureError::Failed(error.to_string()))?;
+
                 std::thread::sleep(std::time::Duration::from_secs(seconds as u64));
+
                 let report = guard
                     .report()
                     .build()
                     .map_err(|error| CaptureError::Failed(error.to_string()))?;
+
                 let profile = report
                     .pprof()
                     .map_err(|error| CaptureError::Failed(error.to_string()))?;
+
                 let raw_pprof = profile.encode_to_vec();
                 let decoded = profiles::decode_pprof(&raw_pprof)
                     .map_err(|error| CaptureError::Failed(error.to_string()))?;
@@ -156,6 +167,7 @@ impl CaptureBackend for NativeCpuBackend {
                     profiles::normalize_pprof(&decoded, "molesignal", &BTreeMap::new());
                 normalized.start_time_micros = started_at;
                 normalized.duration_nanos = i64::from(seconds).saturating_mul(1_000_000_000);
+
                 Ok(CapturedProfile {
                     raw_pprof,
                     normalized,
@@ -164,6 +176,7 @@ impl CaptureBackend for NativeCpuBackend {
             .await
             .map_err(|error| CaptureError::Failed(error.to_string()))?
         }
+
         #[cfg(not(all(feature = "profiling-pprof", unix)))]
         {
             let _ = seconds;
@@ -200,6 +213,7 @@ impl CaptureBackend for NativeHeapBackend {
             .await
             .map_err(|error| CaptureError::Failed(error.to_string()))?
         }
+
         #[cfg(not(all(
             feature = "profiling-pprof",
             feature = "jemalloc",
@@ -247,24 +261,30 @@ pub fn dump_heap_profile_native() -> Result<Vec<u8>, String> {
 
     let prof_built = unsafe { raw::read::<bool>(b"opt.prof\0") }
         .map_err(|error| format!("read opt.prof: {error}"))?;
+
     if !prof_built {
         return Err("jemalloc built/started without prof (opt.prof=false)".into());
     }
+
     unsafe { raw::write::<bool>(b"prof.active\0", true) }
         .map_err(|error| format!("write prof.active: {error}"))?;
 
     static SEQUENCE: AtomicU64 = AtomicU64::new(0);
     let sequence = SEQUENCE.fetch_add(1, Ordering::Relaxed);
+
     let path = std::env::temp_dir().join(format!(
         "molesignal-heap.{}.{}.prof",
         std::process::id(),
         sequence
     ));
+
     let path_str = path.to_str().ok_or("non-utf8 temp path")?;
     let c_path = CString::new(path_str).map_err(|error| format!("path to CString: {error}"))?;
+
     let dumped = unsafe { raw::write::<*const c_char>(b"prof.dump\0", c_path.as_ptr()) }
         .map_err(|error| format!("write prof.dump: {error}"))
         .and_then(|()| std::fs::read(&path).map_err(|error| format!("read dump file: {error}")));
+
     let _ = std::fs::remove_file(&path);
     dumped
 }

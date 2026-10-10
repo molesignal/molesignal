@@ -49,6 +49,7 @@ struct Tier {
 impl Tier {
     fn holds(&self, count: u64) -> bool {
         let count = count as f64;
+
         match self.op {
             CountOp::Gt => count > self.threshold,
             CountOp::Gte => count >= self.threshold,
@@ -73,17 +74,21 @@ impl RealtimeSpec {
         if rule.query.language != QueryLanguage::Sql {
             return Err("the query language must be sql".into());
         }
+
         let hint = rule
             .query
             .stream
             .as_ref()
             .ok_or("query.stream is required")?;
+
         if rule.query.period_secs == 0 || rule.query.period_secs > MAX_WINDOW_SECS {
             return Err(format!(
                 "query.period_secs must be between 1 and {MAX_WINDOW_SECS}"
             ));
         }
+
         let predicate = parse_statement(&rule.query.statement, &hint.name)?;
+
         Ok(Self {
             stream: hint.name.clone(),
             stream_type: hint.stream_type,
@@ -121,6 +126,7 @@ pub fn validate(rule: &AlertRule) -> Result<()> {
     if rule.kind != crate::domain::alerting::rule::AlertRuleKind::RealTime {
         return Ok(());
     }
+
     RealtimeSpec::from_rule(rule)
         .map(|_| ())
         .map_err(|reason| Error::invalid(format!("invalid real_time rule: {reason}")))
@@ -130,6 +136,7 @@ fn tiers(rule: &AlertRule) -> std::result::Result<Vec<Tier>, String> {
     if rule.anomaly_params.is_some() {
         return Err("anomaly_params applies to anomaly rules only".into());
     }
+
     let tier =
         |severity: Option<Severity>, operator: ComparisonOp, threshold: f64, for_periods: u32| {
             let op = match operator {
@@ -137,9 +144,11 @@ fn tiers(rule: &AlertRule) -> std::result::Result<Vec<Tier>, String> {
                 ComparisonOp::Gte => CountOp::Gte,
                 _ => return Err("the trigger operator must be gt or gte".to_string()),
             };
+
             if !threshold.is_finite() || threshold < 0.0 {
                 return Err("the trigger threshold must be a non-negative number".to_string());
             }
+
             if for_periods > 1 {
                 return Err(
                     "for_periods must be 0 or 1; a real_time rule fires as soon as the \
@@ -147,14 +156,17 @@ fn tiers(rule: &AlertRule) -> std::result::Result<Vec<Tier>, String> {
                         .to_string(),
                 );
             }
+
             Ok(Tier {
                 severity,
                 op,
                 threshold,
             })
         };
+
     if rule.thresholds.is_empty() {
         let trigger = &rule.trigger;
+
         return Ok(vec![tier(
             None,
             trigger.operator,
@@ -162,6 +174,7 @@ fn tiers(rule: &AlertRule) -> std::result::Result<Vec<Tier>, String> {
             trigger.for_periods,
         )?]);
     }
+
     rule.thresholds
         .iter()
         .map(|t| tier(Some(t.severity), t.operator, t.threshold, t.for_periods))
@@ -176,38 +189,47 @@ fn parse_statement(
     const SHAPE: &str = "the statement must be `SELECT count(*) FROM <stream> [WHERE <condition>]`";
     let mut statements =
         Parser::parse_sql(&GenericDialect, statement).map_err(|error| format!("{error}"))?;
+
     let (Some(Statement::Query(mut query)), true) = (statements.pop(), statements.is_empty())
     else {
         return Err(SHAPE.into());
     };
+
     let SetExpr::Select(select) = query.body.as_mut() else {
         return Err(SHAPE.into());
     };
+
     if !matches!(select.projection.as_slice(),
         [SelectItem::UnnamedExpr(expr)] | [SelectItem::ExprWithAlias { expr, .. }] if is_count_all(expr))
     {
         return Err(SHAPE.into());
     }
+
     let table = single_table(select).ok_or(SHAPE)?;
+
     if table != stream {
         return Err(format!(
             "the statement selects from `{table}` but query.stream is `{stream}`"
         ));
     }
+
     // 去掉 WHERE 与别名后，其余部分必须与规范形态逐字一致：GROUP BY、JOIN、ORDER BY、
     // LIMIT 等任何额外子句都会让两者不同。
     let selection = select.selection.take();
     let canonical = format!("SELECT count(*) FROM {}", select.from[0]);
     select.projection = canonical_projection()?;
+
     if query.to_string() != canonical {
         return Err(SHAPE.into());
     }
+
     selection.as_ref().map(Predicate::compile).transpose()
 }
 
 fn canonical_projection() -> std::result::Result<Vec<SelectItem>, String> {
     let mut statements =
         Parser::parse_sql(&GenericDialect, "SELECT count(*)").map_err(|error| error.to_string())?;
+
     match statements.pop() {
         Some(Statement::Query(query)) => match *query.body {
             SetExpr::Select(select) => Ok(select.projection),
@@ -221,9 +243,11 @@ fn is_count_all(expr: &Expr) -> bool {
     let Expr::Function(function) = expr else {
         return false;
     };
+
     let FunctionArguments::List(list) = &function.args else {
         return false;
     };
+
     object_name_ident(&function.name).is_some_and(|name| name.eq_ignore_ascii_case("count"))
         && function.filter.is_none()
         && function.over.is_none()
@@ -254,6 +278,7 @@ fn single_table(select: &Select) -> Option<String> {
     else {
         return None;
     };
+
     joins.is_empty().then(|| object_name_ident(name)).flatten()
 }
 

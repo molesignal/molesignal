@@ -36,9 +36,11 @@ impl ProviderAdapter for OpenAiCompatibleAdapter {
     fn provider(&self) -> Provider {
         Provider::OpenAiCompatible
     }
+
     async fn complete(&self, req: CompletionRequest) -> Result<CompletionResponse> {
         self.inner.complete(req).await
     }
+
     async fn complete_stream(&self, req: CompletionRequest) -> Result<ChatStream> {
         self.inner.complete_stream(req).await
     }

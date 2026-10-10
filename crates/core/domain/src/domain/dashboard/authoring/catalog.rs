@@ -108,25 +108,31 @@ impl VisualizationManifest {
         {
             return Err("unsupported Dashboard visualization manifest version".into());
         }
+
         if self.grid.columns != 24 || self.grid.row_height == 0 {
             return Err("Dashboard authoring grid must use 24 non-zero columns".into());
         }
+
         let query_kinds = self
             .query_kinds
             .iter()
             .map(String::as_str)
             .collect::<HashSet<_>>();
+
         let units = self
             .units
             .iter()
             .map(String::as_str)
             .collect::<HashSet<_>>();
+
         let reducers = self
             .reducers
             .iter()
             .map(String::as_str)
             .collect::<HashSet<_>>();
+
         let mut visualization_types = HashSet::new();
+
         for capability in &self.visualizations {
             if !visualization_types.insert(capability.visualization_type.as_str()) {
                 return Err(format!(
@@ -134,6 +140,7 @@ impl VisualizationManifest {
                     capability.visualization_type
                 ));
             }
+
             if capability.option_schema_version == 0
                 || !matches!(
                     capability.default_size.as_str(),
@@ -145,6 +152,7 @@ impl VisualizationManifest {
                     capability.visualization_type
                 ));
             }
+
             if !capability
                 .compatible_query_kinds
                 .iter()
@@ -164,6 +172,7 @@ impl VisualizationManifest {
                 ));
             }
         }
+
         for dimensions in [
             self.grid.sizes.small,
             self.grid.sizes.medium,
@@ -174,6 +183,7 @@ impl VisualizationManifest {
                 return Err("invalid Dashboard authoring grid dimensions".into());
             }
         }
+
         Ok(())
     }
 }

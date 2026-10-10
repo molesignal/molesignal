@@ -31,6 +31,7 @@ impl<'a> ScheduleCache<'a> {
 
     async fn on_call(&mut self, schedule_id: &Id, at: TimestampMicros) -> Option<Id> {
         let repo = self.repo?;
+
         if !self.loaded.contains_key(schedule_id) {
             let schedule = match repo.get(schedule_id).await {
                 Ok(schedule) => Some(schedule),
@@ -43,8 +44,10 @@ impl<'a> ScheduleCache<'a> {
                     None
                 }
             };
+
             self.loaded.insert(schedule_id.clone(), schedule);
         }
+
         self.loaded.get(schedule_id)?.as_ref()?.who_is_on_call(at)
     }
 }
@@ -60,21 +63,25 @@ pub(super) async fn apply_assignees(
     at: TimestampMicros,
 ) -> bool {
     let mut desired: Vec<Id> = Vec::new();
+
     for target in &step.targets {
         let user = match target {
             EscalationTarget::User { user_id } => Some(user_id.clone()),
             EscalationTarget::Schedule { schedule_id } => schedules.on_call(schedule_id, at).await,
             EscalationTarget::Team { .. } => None,
         };
+
         if let Some(user) = user
             && !desired.contains(&user)
         {
             desired.push(user);
         }
     }
+
     if desired.is_empty() || incident.assignees == desired {
         return false;
     }
+
     incident.assignees = desired;
     true
 }

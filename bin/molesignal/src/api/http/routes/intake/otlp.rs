@@ -81,6 +81,7 @@ pub(crate) fn detect_encoding(headers: &HeaderMap) -> Result<OtlpEncoding> {
         .and_then(|v| v.to_str().ok())
         .unwrap_or("")
         .to_ascii_lowercase();
+
     if ct.contains("application/json") {
         Ok(OtlpEncoding::Json)
     } else if ct.is_empty() || ct.contains("protobuf") || ct.contains("application/octet-stream") {
@@ -152,10 +153,12 @@ pub(super) fn nanos_to_micros(ns: u64) -> TimestampMicros {
 
 pub(crate) fn hex(bytes: &[u8]) -> String {
     let mut s = String::with_capacity(bytes.len() * 2);
+
     for b in bytes {
         use std::fmt::Write as _;
         let _ = write!(s, "{b:02x}");
     }
+
     s
 }
 
@@ -171,14 +174,17 @@ pub(crate) fn any_value_to_json(v: &AnyValue) -> Value {
         }
         Some(any_value::Value::KvlistValue(kv)) => {
             let mut m = Map::new();
+
             for k in &kv.values {
                 let val = k
                     .value
                     .as_ref()
                     .map(any_value_to_json)
                     .unwrap_or(Value::Null);
+
                 m.insert(k.key.clone(), val);
             }
+
             Value::Object(m)
         }
         Some(any_value::Value::BytesValue(b)) => Value::String(hex(b)),
@@ -194,6 +200,7 @@ pub(super) fn put_attrs(map: &mut Map<String, Value>, attrs: &[KeyValue]) {
             .as_ref()
             .map(any_value_to_json)
             .unwrap_or(Value::Null);
+
         map.insert(kv.key.clone(), v);
     }
 }
@@ -219,52 +226,67 @@ pub(super) fn base_fields(
     scope: Option<&InstrumentationScope>,
 ) -> Map<String, Value> {
     let mut m = Map::new();
+
     if let Some(r) = resource {
         put_attrs(&mut m, &r.attributes);
     }
+
     if let Some(s) = scope {
         if !s.name.is_empty() {
             m.insert("scope_name".into(), Value::String(s.name.clone()));
         }
+
         if !s.version.is_empty() {
             m.insert("scope_version".into(), Value::String(s.version.clone()));
         }
+
         put_attrs(&mut m, &s.attributes);
     }
+
     m
 }
 
 pub(crate) fn logs_to_events(req: ExportLogsServiceRequest) -> Vec<RawEvent> {
     let mut out = Vec::new();
+
     for rl in &req.resource_logs {
         for sl in &rl.scope_logs {
             let base = base_fields(rl.resource.as_ref(), sl.scope.as_ref());
+
             for lr in &sl.log_records {
                 let mut f = base.clone();
+
                 if lr.severity_number != 0 {
                     f.insert("severity_number".into(), Value::from(lr.severity_number));
                 }
+
                 if !lr.severity_text.is_empty() {
                     f.insert(
                         "severity_text".into(),
                         Value::String(lr.severity_text.clone()),
                     );
                 }
+
                 if let Some(body) = &lr.body {
                     f.insert("body".into(), any_value_to_json(body));
                 }
+
                 if !lr.trace_id.is_empty() {
                     f.insert("trace_id".into(), Value::String(hex(&lr.trace_id)));
                 }
+
                 if !lr.span_id.is_empty() {
                     f.insert("span_id".into(), Value::String(hex(&lr.span_id)));
                 }
+
                 put_attrs(&mut f, &lr.attributes);
+
                 let ts = if lr.time_unix_nano != 0 {
                     lr.time_unix_nano
                 } else {
                     lr.observed_time_unix_nano
                 };
+
                 out.push(RawEvent {
                     timestamp: nanos_to_micros(ts),
                     fields: f,
@@ -272,6 +294,7 @@ pub(crate) fn logs_to_events(req: ExportLogsServiceRequest) -> Vec<RawEvent> {
             }
         }
     }
+
     out
 }
 
@@ -288,10 +311,12 @@ fn status_code_label(code: i32) -> String {
 
 pub(crate) fn traces_to_canonical(req: ExportTraceServiceRequest) -> Vec<CanonicalSpan> {
     let mut out = Vec::new();
+
     for rs in &req.resource_spans {
         for ss in &rs.scope_spans {
             for sp in &ss.spans {
                 let status = sp.status.as_ref();
+
                 let mut canonical = CanonicalSpan::new(
                     hex(&sp.trace_id),
                     hex(&sp.span_id),
@@ -300,15 +325,18 @@ pub(crate) fn traces_to_canonical(req: ExportTraceServiceRequest) -> Vec<Canonic
                     sp.start_time_unix_nano,
                     sp.end_time_unix_nano,
                 );
+
                 canonical.parent_span_id =
                     (!sp.parent_span_id.is_empty()).then(|| hex(&sp.parent_span_id));
                 canonical.trace_flags = sp.flags;
                 canonical.trace_state = sp.trace_state.clone();
                 canonical.status_code =
                     status_code_label(status.map(|value| value.code).unwrap_or(0));
+
                 canonical.status_message = status
                     .map(|value| value.message.clone())
                     .filter(|message| !message.is_empty());
+
                 canonical.resource = CanonicalResource {
                     attributes: rs
                         .resource
@@ -322,6 +350,7 @@ pub(crate) fn traces_to_canonical(req: ExportTraceServiceRequest) -> Vec<Canonic
                         .unwrap_or_default(),
                     schema_url: (!rs.schema_url.is_empty()).then(|| rs.schema_url.clone()),
                 };
+
                 canonical.scope = CanonicalScope {
                     name: ss
                         .scope
@@ -345,7 +374,9 @@ pub(crate) fn traces_to_canonical(req: ExportTraceServiceRequest) -> Vec<Canonic
                         .unwrap_or_default(),
                     schema_url: (!ss.schema_url.is_empty()).then(|| ss.schema_url.clone()),
                 };
+
                 canonical.attributes = attrs_to_btree(&sp.attributes);
+
                 canonical.events = sp
                     .events
                     .iter()
@@ -356,6 +387,7 @@ pub(crate) fn traces_to_canonical(req: ExportTraceServiceRequest) -> Vec<Canonic
                         dropped_attributes_count: event.dropped_attributes_count,
                     })
                     .collect();
+
                 canonical.links = sp
                     .links
                     .iter()
@@ -368,6 +400,7 @@ pub(crate) fn traces_to_canonical(req: ExportTraceServiceRequest) -> Vec<Canonic
                         dropped_attributes_count: link.dropped_attributes_count,
                     })
                     .collect();
+
                 canonical.dropped_attributes_count = sp.dropped_attributes_count;
                 canonical.dropped_events_count = sp.dropped_events_count;
                 canonical.dropped_links_count = sp.dropped_links_count;
@@ -376,6 +409,7 @@ pub(crate) fn traces_to_canonical(req: ExportTraceServiceRequest) -> Vec<Canonic
             }
         }
     }
+
     out
 }
 
@@ -403,9 +437,11 @@ pub(crate) async fn intake(
         bytes as u64,
         TimestampMicros::now().0,
     );
+
     if events.is_empty() {
         return Ok(0);
     }
+
     let batch = IntakeBatch {
         batch_id: Id::new(),
         org_id,
@@ -414,6 +450,7 @@ pub(crate) async fn intake(
         events,
         received_at: TimestampMicros::now(),
     };
+
     let r = state.intake.intake(batch).await?;
     Ok(r.accepted)
 }
@@ -430,6 +467,7 @@ async fn otlp_logs(
     let req: ExportLogsServiceRequest = decode_otlp(enc, &body)?;
     let stream = stream_name(&headers, DEFAULT_STREAM);
     let events = logs_to_events(req);
+
     intake(
         &state,
         StreamType::LOGS,
@@ -439,6 +477,7 @@ async fn otlp_logs(
         body.len(),
     )
     .await?;
+
     Ok(otlp_ok(enc, ExportLogsServiceResponse::default()))
 }
 
@@ -452,6 +491,7 @@ async fn otlp_metrics(
     let req: ExportMetricsServiceRequest = decode_otlp(enc, &body)?;
     let stream = stream_name(&headers, DEFAULT_STREAM);
     let events = metrics_to_events(req);
+
     intake(
         &state,
         StreamType::METRICS,
@@ -461,6 +501,7 @@ async fn otlp_metrics(
         body.len(),
     )
     .await?;
+
     Ok(otlp_ok(enc, ExportMetricsServiceResponse::default()))
 }
 
@@ -475,6 +516,7 @@ async fn otlp_traces(
     let req: ExportTraceServiceRequest = decode_otlp(enc, &body)?;
     let stream = stream_name(&headers, DEFAULT_STREAM);
     let spans = traces_to_canonical(req);
+
     submit_traces(
         &state,
         ctx.org_id,
@@ -485,6 +527,7 @@ async fn otlp_traces(
         headers.contains_key(crate::app::trace::export::SELF_EXPORT_MARKER),
     )
     .await?;
+
     Ok(otlp_ok(enc, ExportTraceServiceResponse::default()))
 }
 
@@ -503,6 +546,7 @@ pub(crate) async fn submit_traces(
         bytes as u64,
         TimestampMicros::now().0,
     );
+
     let force_keep = match trace_context.trust {
         crate::shared::trace_context::TraceTrust::DebugToken if trace_context.force_keep => {
             crate::shared::tail_sampling::ForceKeep::DebugToken
@@ -512,7 +556,9 @@ pub(crate) async fn submit_traces(
         }
         _ => crate::shared::tail_sampling::ForceKeep::None,
     };
+
     let count = spans.len();
+
     for span in &mut spans {
         if suppress_external {
             span.attributes.insert(
@@ -521,6 +567,7 @@ pub(crate) async fn submit_traces(
             );
         }
     }
+
     for span in spans {
         // Queue exhaustion is an explicitly measured fail-open drop; OTLP producer success
         // must not backpressure the caller.
@@ -533,6 +580,7 @@ pub(crate) async fn submit_traces(
             },
         );
     }
+
     Ok(count)
 }
 

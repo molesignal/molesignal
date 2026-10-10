@@ -90,20 +90,25 @@ impl From<StatusPageSnapshot> for PublicStatusPageSnapshot {
             history_days: snapshot.page.history_days,
             visibility: snapshot.page.visibility,
         };
+
         let active_incidents = snapshot.active_incidents;
+
         let mut components: Vec<_> = snapshot
             .components
             .into_iter()
             .map(PublicStatusPageComponent::from)
             .collect();
+
         for incident in &active_incidents {
             let impact_status = incident.impact.component_status();
+
             for component in &mut components {
                 if incident.component_ids.contains(&component.id) {
                     component.status = ComponentStatus::worst(component.status, impact_status);
                 }
             }
         }
+
         Self {
             page,
             overall_status: snapshot.overall_status,

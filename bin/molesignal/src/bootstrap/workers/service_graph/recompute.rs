@@ -96,11 +96,14 @@ impl ServiceGraphRecomputer {
     pub fn spawn(self) -> JoinHandle<()> {
         tokio::spawn(async move {
             let mut tick = tokio::time::interval(Duration::from_secs(self.cfg.interval_secs));
+
             loop {
                 tick.tick().await;
+
                 if !self.ownership.is_primary().await {
                     continue;
                 }
+
                 if let Err(e) = self.recompute_once().await {
                     tracing::warn!(error = %e, "service graph recompute failed");
                 }
@@ -122,9 +125,11 @@ impl ServiceGraphRecomputer {
             .await
             .map(|s| s.service_graph_storage_mode())
             .unwrap_or(false);
+
         if !storage {
             return Ok(());
         }
+
         let now = TimestampMicros::now().0;
         let from = now - (self.cfg.lookback_secs as i64) * 1_000_000;
         let from_bucket = (from / BUCKET_SIZE_US) * BUCKET_SIZE_US;
@@ -139,11 +144,14 @@ impl ServiceGraphRecomputer {
                 .filter(|s| s.stream_type == StreamType::TRACES)
                 .map(|s| s.name)
                 .collect();
+
             if traces.is_empty() {
                 continue;
             }
+
             let agg = ServiceGraphAggregator::new();
             let mut queried_ok = false;
+
             for stream in &traces {
                 match self.query_into(&org.id, stream, from, now, &agg).await {
                     Ok(()) => queried_ok = true,
@@ -154,17 +162,21 @@ impl ServiceGraphRecomputer {
                     ),
                 }
             }
+
             // 全部流查询失败 → 不删既有边（避免误清）。
             if !queried_ok {
                 continue;
             }
+
             let snaps = agg.flush_due(i64::MAX);
             // 窗口幂等：先删窗口内既有边，再插重算结果（snaps 为空 → 仅清空窗口、正确）。
             self.repo.delete_range(&org.id, from_bucket, now).await?;
+
             if !snaps.is_empty() {
                 self.repo.insert_many(&snaps).await?;
             }
         }
+
         Ok(())
     }
 
@@ -181,11 +193,13 @@ impl ServiceGraphRecomputer {
         if stream.contains('"') || stream.contains('\\') {
             return Ok(());
         }
+
         let sql = format!(
             "SELECT _timestamp, trace_id, span_id, parent_span_id, \"service.name\", \
                     \"service.namespace\", \"molesignal.execution.role\", duration_ns, status_code \
              FROM \"{stream}\" WHERE _timestamp BETWEEN {from} AND {to}"
         );
+
         let req = QueryRequest {
             org_id: org_id.clone(),
             language: QueryLanguage::Sql,
@@ -198,33 +212,43 @@ impl ServiceGraphRecomputer {
             limit: Some(self.cfg.max_rows),
             federation_clusters: Vec::new(),
         };
+
         let result = self.query.run_raw(req).await?;
+
         for row in &result.rows {
             if row.len() < 9 {
                 continue;
             }
+
             let ts = TimestampMicros(row[0].as_i64().unwrap_or(0));
+
             let Some(trace_id) = row[1].as_str().filter(|s| !s.is_empty()) else {
                 continue;
             };
+
             let Some(span_id) = row[2].as_str().filter(|s| !s.is_empty()) else {
                 continue;
             };
+
             let parent = row[3].as_str().filter(|s| !s.is_empty());
+
             let service = crate::infra::traces::service_graph::effective_service_name(
                 row[4].as_str(),
                 row[5].as_str(),
                 row[6].as_str(),
             );
+
             let duration_us = row[7]
                 .as_i64()
                 .or_else(|| row[7].as_u64().map(|u| u as i64))
                 .unwrap_or(0)
                 / 1_000;
+
             let is_error = row[8]
                 .as_str()
                 .map(|s| s.eq_ignore_ascii_case("ERROR"))
                 .unwrap_or(false);
+
             agg.observe_span(
                 org_id,
                 trace_id,
@@ -236,6 +260,7 @@ impl ServiceGraphRecomputer {
                 is_error,
             );
         }
+
         Ok(())
     }
 }

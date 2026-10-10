@@ -91,6 +91,7 @@ impl WorkOwnership {
     async fn view_at(&self, now: Instant) -> OwnershipView {
         let peers = self.registry.list_all().await;
         let discovered = !peers.is_empty();
+
         let mut members = peers
             .into_iter()
             .filter(|peer| {
@@ -100,11 +101,13 @@ impl WorkOwnership {
             })
             .map(|peer| peer.node_id)
             .collect::<Vec<_>>();
+
         members.sort_unstable();
         members.dedup();
 
         let active = {
             let mut present_since = self.present_since.lock();
+
             if members.contains(&self.local_node_id) {
                 now.saturating_duration_since(*present_since.get_or_insert(now)) >= self.warmup
             } else {
@@ -113,9 +116,11 @@ impl WorkOwnership {
                 if discovered {
                     *present_since = None;
                 }
+
                 false
             }
         };
+
         OwnershipView {
             members,
             local_node_id: self.local_node_id.clone(),
@@ -133,23 +138,29 @@ impl WorkOwnership {
     /// 周期观察成员视图：让预热从心跳可见那一刻开始计时，并在成员变化时留下日志与指标。
     pub fn spawn_watch(self: &Arc<Self>, period: Duration) -> JoinHandle<()> {
         let ownership = self.clone();
+
         tokio::spawn(async move {
             let role = role_label(ownership.role);
             let mut ticker = tokio::time::interval(period.max(Duration::from_secs(1)));
             ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
             let mut last = None;
+
             loop {
                 ticker.tick().await;
                 let view = ownership.view().await;
+
                 members_gauge()
                     .with_label_values(&[role])
                     .set(i64::try_from(view.members.len()).unwrap_or(i64::MAX));
+
                 active_gauge()
                     .with_label_values(&[role])
                     .set(i64::from(view.active));
+
                 owned_units()
                     .with_label_values(&[role, PRIMARY_WORK])
                     .set(i64::from(view.owns(PRIMARY_KEY)));
+
                 if last.as_ref() != Some(&view) {
                     tracing::info!(
                         role,
@@ -208,6 +219,7 @@ fn role_label(role: PeerRole) -> &'static str {
 
 fn members_gauge() -> &'static IntGaugeVec {
     static METRIC: OnceLock<IntGaugeVec> = OnceLock::new();
+
     METRIC.get_or_init(|| {
         register_int_gauge_vec(
             "work_ownership_members",
@@ -219,6 +231,7 @@ fn members_gauge() -> &'static IntGaugeVec {
 
 fn active_gauge() -> &'static IntGaugeVec {
     static METRIC: OnceLock<IntGaugeVec> = OnceLock::new();
+
     METRIC.get_or_init(|| {
         register_int_gauge_vec(
             "work_ownership_active",
@@ -230,6 +243,7 @@ fn active_gauge() -> &'static IntGaugeVec {
 
 fn owned_units() -> &'static IntGaugeVec {
     static METRIC: OnceLock<IntGaugeVec> = OnceLock::new();
+
     METRIC.get_or_init(|| {
         register_int_gauge_vec(
             "work_ownership_owned_units",

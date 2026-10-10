@@ -33,6 +33,7 @@ use crate::{
 /// 把保存后的 schedule 既序列化返回、又发一条 Updated 事件（override 增删也走这条）。
 async fn saved_schedule_response(state: &AppState, org: &Id, s: Schedule) -> Json<Value> {
     let body = serde_json::to_value(&s).unwrap_or(Value::Null);
+
     emit_cud(
         state,
         org,
@@ -42,6 +43,7 @@ async fn saved_schedule_response(state: &AppState, org: &Id, s: Schedule) -> Jso
         &s,
     )
     .await;
+
     Json(body)
 }
 
@@ -119,6 +121,7 @@ async fn list(
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Value>> {
     let items = state.alerting.service.list_schedules(&ctx.org_id).await?;
+
     Ok(Json(
         serde_json::to_value(items).unwrap_or(Value::Array(vec![])),
     ))
@@ -133,7 +136,9 @@ async fn create(
     if req.name.trim().is_empty() {
         return Err(crate::shared::Error::invalid("name cannot be empty"));
     }
+
     let now = TimestampMicros::now();
+
     let schedule = Schedule {
         id: Id::new(),
         org_id: ctx.org_id.clone(),
@@ -149,7 +154,9 @@ async fn create(
         created_at: now,
         updated_at: now,
     };
+
     let saved = state.alerting.service.create_schedule(schedule).await?;
+
     emit_cud(
         &state,
         &ctx.org_id,
@@ -159,6 +166,7 @@ async fn create(
         &saved,
     )
     .await;
+
     activity_audit::record(
         &state,
         &ctx,
@@ -174,6 +182,7 @@ async fn create(
         }),
     )
     .await;
+
     Ok(Json(serde_json::to_value(saved).unwrap_or(Value::Null)))
 }
 
@@ -206,12 +215,15 @@ async fn update(
     if req.name.trim().is_empty() {
         return Err(crate::shared::Error::invalid("name cannot be empty"));
     }
+
     let enabled = req.enabled.unwrap_or(existing.enabled);
+
     let action = match (existing.enabled, enabled) {
         (true, false) => "schedule.paused",
         (false, true) => "schedule.resumed",
         _ => "schedule.updated",
     };
+
     let schedule = Schedule {
         id: existing.id,
         org_id: existing.org_id,
@@ -227,7 +239,9 @@ async fn update(
         created_at: existing.created_at,
         updated_at: TimestampMicros::now(),
     };
+
     let saved = state.alerting.service.update_schedule(schedule).await?;
+
     activity_audit::record(
         &state,
         &ctx,
@@ -244,6 +258,7 @@ async fn update(
         }),
     )
     .await;
+
     let org_id = saved.org_id.clone();
     Ok(saved_schedule_response(&state, &org_id, saved).await)
 }
@@ -261,6 +276,7 @@ async fn delete(
 ) -> Result<&'static str> {
     let rid = existing.id.clone();
     state.alerting.service.delete_schedule(&rid).await?;
+
     emit_cud(
         &state,
         &existing.org_id,
@@ -270,6 +286,7 @@ async fn delete(
         &delete_payload(&rid.0),
     )
     .await;
+
     activity_audit::record(
         &state,
         &ctx,
@@ -279,6 +296,7 @@ async fn delete(
         json!({ "name": existing.name }),
     )
     .await;
+
     Ok("deleted")
 }
 
@@ -299,8 +317,10 @@ async fn add_override(
             "end_at_micros must be greater than start_at_micros",
         ));
     }
+
     let mut schedule = schedule;
     validate_override_window(&schedule, None, req.start_at_micros, req.end_at_micros)?;
+
     let schedule_override = ScheduleOverride {
         id: Id::new(),
         user_id: req.user_id,
@@ -308,10 +328,12 @@ async fn add_override(
         end_at: TimestampMicros(req.end_at_micros),
         reason: req.reason,
     };
+
     schedule.overrides.push(schedule_override.clone());
     schedule.updated_by = Some(ctx.user_id.clone());
     schedule.updated_at = TimestampMicros::now();
     let saved = state.alerting.service.update_schedule(schedule).await?;
+
     if let Err(error) = state
         .alerting
         .notify_engine
@@ -328,6 +350,7 @@ async fn add_override(
             "on-call override notify event enqueue failed"
         );
     }
+
     activity_audit::record(
         &state,
         &ctx,
@@ -343,6 +366,7 @@ async fn add_override(
         }),
     )
     .await;
+
     let org_id = saved.org_id.clone();
     Ok(saved_schedule_response(&state, &org_id, saved).await)
 }
@@ -364,18 +388,22 @@ async fn update_override(
             "end_at_micros must be greater than start_at_micros",
         ));
     }
+
     let mut schedule = schedule;
+
     validate_override_window(
         &schedule,
         Some(&override_id),
         req.start_at_micros,
         req.end_at_micros,
     )?;
+
     let schedule_override = schedule
         .overrides
         .iter_mut()
         .find(|ov| ov.id.0 == override_id)
         .ok_or_else(|| crate::shared::Error::not_found("schedule override not found"))?;
+
     schedule_override.user_id = req.user_id;
     schedule_override.start_at = TimestampMicros(req.start_at_micros);
     schedule_override.end_at = TimestampMicros(req.end_at_micros);
@@ -384,6 +412,7 @@ async fn update_override(
     schedule.updated_by = Some(ctx.user_id.clone());
     schedule.updated_at = TimestampMicros::now();
     let saved = state.alerting.service.update_schedule(schedule).await?;
+
     activity_audit::record(
         &state,
         &ctx,
@@ -399,6 +428,7 @@ async fn update_override(
         }),
     )
     .await;
+
     let org_id = saved.org_id.clone();
     Ok(saved_schedule_response(&state, &org_id, saved).await)
 }
@@ -415,16 +445,19 @@ async fn remove_override(
     Path((id, override_id)): Path<(String, String)>,
 ) -> Result<Json<Value>> {
     let mut schedule = schedule;
+
     let removed = schedule
         .overrides
         .iter()
         .find(|ov| ov.id.0 == override_id)
         .cloned()
         .ok_or_else(|| crate::shared::Error::not_found("schedule override not found"))?;
+
     schedule.overrides.retain(|ov| ov.id.0 != override_id);
     schedule.updated_by = Some(ctx.user_id.clone());
     schedule.updated_at = TimestampMicros::now();
     let saved = state.alerting.service.update_schedule(schedule).await?;
+
     activity_audit::record(
         &state,
         &ctx,
@@ -440,6 +473,7 @@ async fn remove_override(
         }),
     )
     .await;
+
     let org_id = saved.org_id.clone();
     Ok(saved_schedule_response(&state, &org_id, saved).await)
 }
@@ -459,6 +493,7 @@ async fn who_is_on_call(
     let at =
         q.at.map(TimestampMicros)
             .unwrap_or_else(TimestampMicros::now);
+
     let user = schedule.who_is_on_call(at);
     Ok(Json(json!({ "user_id": user.map(|u| u.0) })))
 }
@@ -474,21 +509,25 @@ fn validate_override_window(
             && start_at_micros < existing.end_at.0
             && end_at_micros > existing.start_at.0
     });
+
     if overlaps {
         return Err(crate::shared::Error::invalid(
             "override overlaps an existing override",
         ));
     }
+
     Ok(())
 }
 
 fn member_count(schedule: &Schedule) -> usize {
     let mut members = std::collections::HashSet::new();
+
     for rotation in &schedule.rotations {
         for member in &rotation.members {
             members.insert(&member.0);
         }
     }
+
     members.len()
 }
 

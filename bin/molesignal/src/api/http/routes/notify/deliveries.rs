@@ -80,6 +80,7 @@ async fn list(
     {
         return Err(Error::invalid("from_micros must not exceed to_micros"));
     }
+
     let filter = DeliveryFilter {
         event_id: query.event_id,
         policy_id: query.policy_id,
@@ -91,6 +92,7 @@ async fn list(
         to: query.to_micros.map(TimestampMicros),
         limit: query.limit.unwrap_or(100),
     };
+
     Ok(Json(
         state
             .alerting

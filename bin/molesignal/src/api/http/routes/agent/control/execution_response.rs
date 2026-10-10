@@ -26,6 +26,7 @@ pub(super) fn attach_one_time_result(mut verification: Value, result: Value) -> 
     if let Some(object) = verification.as_object_mut() {
         object.insert(ONE_TIME_RESULT_KEY.into(), result);
     }
+
     verification
 }
 
@@ -61,6 +62,7 @@ pub(super) fn review_response(
         execution: result.execution,
         one_time_result: result.one_time_result,
     });
+
     (
         [(CACHE_CONTROL, "private, no-store"), (PRAGMA, "no-cache")],
         Json(ReviewApprovalResponse {

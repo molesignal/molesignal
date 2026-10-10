@@ -45,6 +45,7 @@ async fn create(
         .synthetics
         .create_secret(&context.org_id, &context.user_id, input)
         .await?;
+
     audit(&state, &context, &secret, "create").await;
     Ok((StatusCode::CREATED, Json(secret)))
 }
@@ -65,6 +66,7 @@ async fn rotate(
             request.value,
         )
         .await?;
+
     audit(&state, &context, &secret, "rotate").await;
     Ok(Json(secret))
 }

@@ -84,26 +84,31 @@ impl SniCertResolver {
         {
             return Some(entry.key.clone());
         }
+
         // miss / 过期 → 重读。rustls handshake 跑在普通 worker，但 tokio block_on
         // 在 worker 内部禁止；用 `block_in_place` + `Handle::block_on` 让 runtime
         // 把其他 task 临时搬走，再同步等查询。
         let domains = self.domains.clone();
         let handle = self.runtime.clone();
         let host = hostname.to_string();
+
         let row = tokio::task::block_in_place(|| {
             handle.block_on(async move { domains.find_by_hostname(&host).await })
         })
         .ok()
         .flatten()?;
+
         if row.state != "active" {
             return None;
         }
+
         let cert_pem = row.cert_pem?;
         let key_path = self.key_dir.join(format!("{hostname}.key.pem"));
         let key_pem = std::fs::read_to_string(&key_path).ok()?;
 
         let certified = build_certified_key(&cert_pem, &key_pem)?;
         let arc = Arc::new(certified);
+
         self.cache.insert(
             hostname.to_string(),
             CachedEntry {
@@ -111,6 +116,7 @@ impl SniCertResolver {
                 at: Instant::now(),
             },
         );
+
         Some(arc)
     }
 }
@@ -131,17 +137,20 @@ fn build_certified_key(cert_pem: &str, key_pem: &str) -> Option<CertifiedKey> {
     // parse cert chain
     let mut cert_reader = BufReader::new(cert_pem.as_bytes());
     let mut chain = Vec::new();
+
     for item in rustls_pemfile::read_all(&mut cert_reader).flatten() {
         if let Item::X509Certificate(c) = item {
             chain.push(c);
         }
     }
+
     if chain.is_empty() {
         return None;
     }
 
     // parse private key (first PKCS8 / RSA / SEC1)
     let mut key_reader = BufReader::new(key_pem.as_bytes());
+
     let key_der = rustls_pemfile::private_key(&mut key_reader)
         .ok()
         .flatten()?;
@@ -149,6 +158,7 @@ fn build_certified_key(cert_pem: &str, key_pem: &str) -> Option<CertifiedKey> {
     let provider = CryptoProvider::get_default()
         .cloned()
         .unwrap_or_else(rustls_default_provider);
+
     let signing_key = provider.key_provider.load_private_key(key_der).ok()?;
     Some(CertifiedKey::new(chain, signing_key))
 }

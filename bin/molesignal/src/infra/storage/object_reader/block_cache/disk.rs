@@ -9,6 +9,7 @@ pub(super) fn available_bytes(path: &Path) -> Option<u64> {
     // SAFETY: `path` is a valid, NUL-terminated filesystem path and `stats` points to writable
     // storage for one `statvfs` value. The value is read only when libc reports success.
     let result = unsafe { libc::statvfs(path.as_ptr(), stats.as_mut_ptr()) };
+
     (result == 0).then(|| {
         // SAFETY: a successful `statvfs` call initialized the output value.
         let stats = unsafe { stats.assume_init() };

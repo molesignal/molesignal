@@ -233,6 +233,7 @@ impl CanonicalSpan {
 
     pub fn mark_partial(&mut self, reason: PartialReason) {
         self.partial = true;
+
         if !self.partial_reasons.contains(&reason) {
             self.partial_reasons.push(reason);
         }
@@ -248,6 +249,7 @@ impl CanonicalSpan {
     /// tracing callback queue 在 AppState/TracePipeline 激活后无损接管。
     pub fn try_from_raw_event(event: &RawEvent) -> Result<Self> {
         let fields = &event.fields;
+
         let required_string = |name: &str| -> Result<String> {
             fields
                 .get(name)
@@ -255,18 +257,21 @@ impl CanonicalSpan {
                 .map(str::to_owned)
                 .ok_or_else(|| Error::invalid(format!("canonical Trace row missing `{name}`")))
         };
+
         let required_u64 = |name: &str| -> Result<u64> {
             fields
                 .get(name)
                 .and_then(Value::as_u64)
                 .ok_or_else(|| Error::invalid(format!("canonical Trace row missing `{name}`")))
         };
+
         let deserialize = |name: &str| -> Result<Value> {
             fields
                 .get(name)
                 .cloned()
                 .ok_or_else(|| Error::invalid(format!("canonical Trace row missing `{name}`")))
         };
+
         Ok(Self {
             trace_id: required_string("trace_id")?,
             span_id: required_string("span_id")?,
@@ -362,23 +367,29 @@ impl CanonicalSpan {
         let mut fields = Map::new();
         fields.insert("trace_id".into(), Value::String(self.trace_id));
         fields.insert("span_id".into(), Value::String(self.span_id));
+
         if let Some(parent_span_id) = self.parent_span_id {
             fields.insert("parent_span_id".into(), Value::String(parent_span_id));
         }
+
         fields.insert("trace_flags".into(), Value::from(self.trace_flags));
         fields.insert("trace_state".into(), Value::String(self.trace_state));
         fields.insert("name".into(), Value::String(self.name));
         fields.insert("kind".into(), Value::from(self.kind));
+
         fields.insert(
             "start_time_unix_nano".into(),
             Value::from(self.start_time_unix_nano),
         );
+
         fields.insert(
             "end_time_unix_nano".into(),
             Value::from(self.end_time_unix_nano),
         );
+
         fields.insert("duration_ns".into(), Value::from(self.duration_ns));
         fields.insert("status_code".into(), Value::String(self.status_code));
+
         if let Some(status_message) = self.status_message {
             fields.insert("status_message".into(), Value::String(status_message));
         }
@@ -386,12 +397,15 @@ impl CanonicalSpan {
         for (key, value) in &self.resource.attributes {
             fields.insert(key.clone(), value.clone());
         }
+
         for (key, value) in &self.attributes {
             fields.insert(key.clone(), value.clone());
         }
+
         fields
             .entry("service.name")
             .or_insert_with(|| Value::String("unknown_service".into()));
+
         let effective_service = effective_service_name(
             fields.get("service.name").and_then(Value::as_str),
             fields.get("service.namespace").and_then(Value::as_str),
@@ -399,54 +413,68 @@ impl CanonicalSpan {
                 .get("molesignal.execution.role")
                 .and_then(Value::as_str),
         );
+
         fields.insert("service.name".into(), Value::String(effective_service));
 
         fields.insert(
             "resource".into(),
             serde_json::to_value(&self.resource).unwrap_or(Value::Null),
         );
+
         fields.insert(
             "scope".into(),
             serde_json::to_value(&self.scope).unwrap_or(Value::Null),
         );
+
         fields.insert(
             "attributes".into(),
             serde_json::to_value(&self.attributes).unwrap_or(Value::Null),
         );
+
         fields.insert(
             "events".into(),
             serde_json::to_value(&self.events).unwrap_or(Value::Null),
         );
+
         fields.insert(
             "links".into(),
             serde_json::to_value(&self.links).unwrap_or(Value::Null),
         );
+
         fields.insert(
             "dropped_attributes_count".into(),
             Value::from(self.dropped_attributes_count),
         );
+
         fields.insert(
             "dropped_events_count".into(),
             Value::from(self.dropped_events_count),
         );
+
         fields.insert(
             "dropped_links_count".into(),
             Value::from(self.dropped_links_count),
         );
+
         fields.insert("schema_version".into(), Value::from(self.schema_version));
+
         fields.insert(
             "semantic_conventions_version".into(),
             Value::String(self.semantic_conventions_version),
         );
+
         fields.insert(
             "sampling_reason".into(),
             serde_json::to_value(self.sampling_reason).unwrap_or(Value::Null),
         );
+
         fields.insert("partial".into(), Value::Bool(self.partial));
+
         fields.insert(
             "partial_reasons".into(),
             serde_json::to_value(self.partial_reasons).unwrap_or(Value::Null),
         );
+
         fields.insert("late".into(), Value::Bool(self.late));
         fields.insert("duplicate".into(), Value::Bool(self.duplicate));
         fields.insert("conflict".into(), Value::Bool(self.conflict));
@@ -478,6 +506,7 @@ pub fn effective_service_name(
                 || service
                     .is_some_and(|name| name == "molesignal" || name.starts_with("molesignal-"))
         });
+
     match role {
         Some(role) => format!("molesignal-{}", role.replace('_', "-")),
         None => service.unwrap_or("unknown_service").to_owned(),
@@ -515,6 +544,7 @@ impl TraceLimits {
         {
             return Err(Error::invalid("all Trace limits must be greater than zero"));
         }
+
         Ok(self)
     }
 }
@@ -531,6 +561,7 @@ pub fn canonical_trace_schema() -> Schema {
         encrypted: false,
         exact,
     };
+
     Schema {
         fields: vec![
             field("trace_id", FieldType::Utf8, true, true),
@@ -615,6 +646,7 @@ const PRIORITY_ATTRIBUTES: &[&str] = &[
 
 fn forbidden_key(key: &str) -> bool {
     let key = key.to_ascii_lowercase().replace(['-', '_'], ".");
+
     matches!(
         key.as_str(),
         "authorization"
@@ -688,10 +720,13 @@ fn truncate_utf8(value: &str, limit: usize) -> String {
     if value.len() <= limit {
         return value.to_string();
     }
+
     let mut end = limit;
+
     while end > 0 && !value.is_char_boundary(end) {
         end -= 1;
     }
+
     value[..end].to_string()
 }
 
@@ -700,12 +735,14 @@ fn truncate_utf8(value: &str, limit: usize) -> String {
 /// 返回 None，调用方不得退回 unkeyed hash（后者容易被字典反推）。
 pub fn optional_hmac_fingerprint(value: &str) -> Option<String> {
     static KEY: OnceLock<Option<Vec<u8>>> = OnceLock::new();
+
     let key = KEY.get_or_init(|| {
         std::env::var(TRACE_FINGERPRINT_KEY_ENV)
             .ok()
             .map(|value| value.into_bytes())
             .filter(|value| value.len() >= 16)
     });
+
     key.as_deref()
         .map(|key| hex::encode(&hmac_sha256(key, value.as_bytes())[..16]))
 }
@@ -713,17 +750,21 @@ pub fn optional_hmac_fingerprint(value: &str) -> Option<String> {
 fn hmac_sha256(key: &[u8], value: &[u8]) -> [u8; 32] {
     const BLOCK_BYTES: usize = 64;
     let mut normalized = [0_u8; BLOCK_BYTES];
+
     if key.len() > BLOCK_BYTES {
         normalized[..32].copy_from_slice(&Sha256::digest(key));
     } else {
         normalized[..key.len()].copy_from_slice(key);
     }
+
     let mut inner_pad = [0x36_u8; BLOCK_BYTES];
     let mut outer_pad = [0x5c_u8; BLOCK_BYTES];
+
     for index in 0..BLOCK_BYTES {
         inner_pad[index] ^= normalized[index];
         outer_pad[index] ^= normalized[index];
     }
+
     let mut inner = Sha256::new();
     inner.update(inner_pad);
     inner.update(value);
@@ -736,6 +777,7 @@ fn hmac_sha256(key: &[u8], value: &[u8]) -> [u8; 32] {
 
 fn sensitive_value_regex() -> &'static Regex {
     static REGEX: OnceLock<Regex> = OnceLock::new();
+
     REGEX.get_or_init(|| {
         Regex::new(
             r#"(?i)\b(?:bearer|basic)\s+[a-z0-9._~+/=-]{4,}|\b(?:password|passwd|pwd|secret|token|api[_-]?key|authorization|cookie)\s*[:=]\s*[^\s,;]+|\beyj[a-z0-9_-]{8,}\.[a-z0-9_-]{8,}\.[a-z0-9_-]{4,}\b|\b(?:sk-|ms_|mstd_)[a-z0-9_-]{8,}\b|[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@(?:[a-z0-9-]+\.)+[a-z]{2,}|-----begin[^\r\n]*(?:private key|certificate)-----"#,
@@ -778,6 +820,7 @@ fn sanitize_map(map: &mut Map<String, Value>, max_string_bytes: usize, stats: &m
             stats.removed = stats.removed.saturating_add(1);
             return false;
         }
+
         sanitize_value(value, max_string_bytes, stats);
         true
     });
@@ -806,6 +849,7 @@ fn sanitize_btree(
             stats.removed = stats.removed.saturating_add(1);
             return false;
         }
+
         sanitize_value(value, max_string_bytes, stats);
         true
     });
@@ -815,18 +859,23 @@ fn truncate_attributes(attributes: &mut BTreeMap<String, Value>, maximum: usize)
     if attributes.len() <= maximum {
         return 0;
     }
+
     let mut keep = HashSet::with_capacity(maximum);
+
     for key in PRIORITY_ATTRIBUTES {
         if attributes.contains_key(*key) && keep.len() < maximum {
             keep.insert((*key).to_string());
         }
     }
+
     for key in attributes.keys() {
         if keep.len() == maximum {
             break;
         }
+
         keep.insert(key.clone());
     }
+
     let dropped = attributes.len().saturating_sub(keep.len()) as u32;
     attributes.retain(|key, _| keep.contains(key));
     dropped
@@ -835,62 +884,79 @@ fn truncate_attributes(attributes: &mut BTreeMap<String, Value>, maximum: usize)
 /// 入队前与每个 sink 前都调用同一个函数。它不会保留禁止字段的原值。
 pub fn sanitize_and_limit_span(span: &mut CanonicalSpan, limits: TraceLimits) -> SanitizeStats {
     let mut stats = SanitizeStats::default();
+
     sanitize_btree(
         &mut span.resource.attributes,
         limits.max_string_bytes,
         &mut stats,
     );
+
     sanitize_btree(
         &mut span.scope.attributes,
         limits.max_string_bytes,
         &mut stats,
     );
+
     sanitize_btree(&mut span.attributes, limits.max_string_bytes, &mut stats);
+
     for event in &mut span.events {
         sanitize_string(&mut event.name, limits.max_string_bytes, &mut stats);
         sanitize_btree(&mut event.attributes, limits.max_string_bytes, &mut stats);
     }
+
     for link in &mut span.links {
         sanitize_btree(&mut link.attributes, limits.max_string_bytes, &mut stats);
     }
+
     sanitize_string(&mut span.name, limits.max_string_bytes, &mut stats);
+
     if let Some(schema_url) = span.resource.schema_url.as_mut() {
         sanitize_string(schema_url, limits.max_string_bytes, &mut stats);
     }
+
     sanitize_string(&mut span.scope.name, limits.max_string_bytes, &mut stats);
     sanitize_string(&mut span.scope.version, limits.max_string_bytes, &mut stats);
+
     if let Some(schema_url) = span.scope.schema_url.as_mut() {
         sanitize_string(schema_url, limits.max_string_bytes, &mut stats);
     }
+
     sanitize_string(&mut span.trace_state, limits.max_string_bytes, &mut stats);
+
     if let Some(message) = span.status_message.as_mut() {
         sanitize_string(message, limits.max_string_bytes, &mut stats);
     }
 
     let dropped = truncate_attributes(&mut span.attributes, limits.max_attributes_per_span);
+
     if dropped > 0 {
         span.dropped_attributes_count = span.dropped_attributes_count.saturating_add(dropped);
         span.mark_partial(PartialReason::AttributeLimit);
     }
+
     if span.events.len() > limits.max_events_per_span {
         let dropped = span.events.len() - limits.max_events_per_span;
         span.events.truncate(limits.max_events_per_span);
         span.dropped_events_count = span.dropped_events_count.saturating_add(dropped as u32);
         span.mark_partial(PartialReason::EventLimit);
     }
+
     if span.links.len() > limits.max_links_per_span {
         let dropped = span.links.len() - limits.max_links_per_span;
         span.links.truncate(limits.max_links_per_span);
         span.dropped_links_count = span.dropped_links_count.saturating_add(dropped as u32);
         span.mark_partial(PartialReason::LinkLimit);
     }
+
     if stats.truncated > 0 {
         span.mark_partial(PartialReason::StringLimit);
     }
+
     span.dropped_attributes_count = span
         .dropped_attributes_count
         .saturating_add(stats.removed)
         .saturating_add(stats.redacted);
+
     stats
 }
 
@@ -902,6 +968,7 @@ fn validate_value(value: &Value, max_string_bytes: usize) -> Result<()> {
                     "canonical telemetry contains an oversized string",
                 ));
             }
+
             if forbidden_value(text) {
                 return Err(Error::invalid(
                     "canonical telemetry contains a forbidden value",
@@ -916,6 +983,7 @@ fn validate_value(value: &Value, max_string_bytes: usize) -> Result<()> {
         Value::Object(values) => validate_map(values, max_string_bytes)?,
         _ => {}
     }
+
     Ok(())
 }
 
@@ -926,8 +994,10 @@ fn validate_map(map: &Map<String, Value>, max_string_bytes: usize) -> Result<()>
                 "canonical telemetry contains forbidden attribute `{key}`"
             )));
         }
+
         validate_value(value, max_string_bytes)?;
     }
+
     Ok(())
 }
 
@@ -946,17 +1016,20 @@ pub fn validate_sink_invariants(span: &CanonicalSpan, limits: TraceLimits) -> Re
             "canonical trace_id must be 32 hexadecimal characters",
         ));
     }
+
     if span.span_id.len() != 16 || !span.span_id.bytes().all(|byte| byte.is_ascii_hexdigit()) {
         return Err(Error::invalid(
             "canonical span_id must be 16 hexadecimal characters",
         ));
     }
+
     if span.attributes.len() > limits.max_attributes_per_span
         || span.events.len() > limits.max_events_per_span
         || span.links.len() > limits.max_links_per_span
     {
         return Err(Error::invalid("canonical span exceeds configured limits"));
     }
+
     for attributes in [
         &span.resource.attributes,
         &span.scope.attributes,
@@ -965,19 +1038,23 @@ pub fn validate_sink_invariants(span: &CanonicalSpan, limits: TraceLimits) -> Re
         let fields: Map<String, Value> = attributes.clone().into_iter().collect();
         validate_map(&fields, limits.max_string_bytes)?;
     }
+
     for event in &span.events {
         if event.name.len() > limits.max_string_bytes || forbidden_value(&event.name) {
             return Err(Error::invalid(
                 "canonical span contains an invalid event name",
             ));
         }
+
         let fields: Map<String, Value> = event.attributes.clone().into_iter().collect();
         validate_map(&fields, limits.max_string_bytes)?;
     }
+
     for link in &span.links {
         let fields: Map<String, Value> = link.attributes.clone().into_iter().collect();
         validate_map(&fields, limits.max_string_bytes)?;
     }
+
     for text in [
         Some(span.name.as_str()),
         Some(span.trace_state.as_str()),
@@ -996,6 +1073,7 @@ pub fn validate_sink_invariants(span: &CanonicalSpan, limits: TraceLimits) -> Re
             ));
         }
     }
+
     Ok(())
 }
 
@@ -1021,6 +1099,7 @@ fn take_btree(
         .filter(|key| predicate(key))
         .cloned()
         .collect();
+
     keys.into_iter()
         .filter_map(|key| fields.remove(&key).map(|value| (key, value)))
         .collect()
@@ -1030,6 +1109,7 @@ fn take_btree(
 pub fn finished_span_to_event(mut fields: Map<String, Value>, span: FinishedSpan) -> RawEvent {
     let trace_id = span.trace_id.unwrap_or_else(|| "0".repeat(32));
     let span_id = span.span_id.unwrap_or_else(|| "0".repeat(16));
+
     let mut canonical = CanonicalSpan::new(
         trace_id,
         span_id,
@@ -1038,6 +1118,7 @@ pub fn finished_span_to_event(mut fields: Map<String, Value>, span: FinishedSpan
         span.start_time_unix_nano,
         span.end_time_unix_nano,
     );
+
     canonical.parent_span_id = span.parent_span_id;
     canonical.status_code = span.status_code;
     canonical.status_message = span.status_message;
@@ -1051,22 +1132,27 @@ pub fn finished_span_to_event(mut fields: Map<String, Value>, span: FinishedSpan
             || key.starts_with("cluster.")
             || key.starts_with("cloud.")
     });
+
     canonical.scope.name = fields
         .remove("scope_name")
         .and_then(|value| value.as_str().map(str::to_owned))
         .unwrap_or_default();
+
     canonical.scope.version = fields
         .remove("scope_version")
         .and_then(|value| value.as_str().map(str::to_owned))
         .unwrap_or_default();
+
     canonical.events = fields
         .remove("events")
         .and_then(|value| serde_json::from_value(value).ok())
         .unwrap_or_default();
+
     canonical.links = fields
         .remove("links")
         .and_then(|value| serde_json::from_value(value).ok())
         .unwrap_or_default();
+
     canonical.attributes = fields.into_iter().collect();
     sanitize_and_limit_span(&mut canonical, TraceLimits::default());
     canonical.into_raw_event()

@@ -69,6 +69,7 @@ impl SelfCollectSettings {
         if !(1..=3650).contains(&self.retention_days) {
             anyhow::bail!("telemetry.self_collect.retention_days must be between 1 and 3650");
         }
+
         for (signal, days) in [
             ("metrics", self.metrics_retention_days),
             ("traces", self.traces_retention_days),
@@ -80,24 +81,31 @@ impl SelfCollectSettings {
                 );
             }
         }
+
         if self.enabled && self.metrics_enabled && self.metrics_interval_secs == 0 {
             anyhow::bail!("telemetry.self_collect.metrics_interval_secs must be greater than zero");
         }
+
         if self.queue_capacity == 0 {
             anyhow::bail!("telemetry.self_collect.queue_capacity must be greater than zero");
         }
+
         if self.batch_max_events == 0 {
             anyhow::bail!("telemetry.self_collect.batch_max_events must be greater than zero");
         }
+
         if self.batch_max_delay_ms == 0 {
             anyhow::bail!("telemetry.self_collect.batch_max_delay_ms must be greater than zero");
         }
+
         if self.flush_timeout_secs == 0 {
             anyhow::bail!("telemetry.self_collect.flush_timeout_secs must be greater than zero");
         }
+
         if self.enabled && self.profiles_enabled {
             self.validate_profiles()?;
         }
+
         Ok(())
     }
 
@@ -122,12 +130,15 @@ impl SelfCollectSettings {
         if self.profile_interval_secs == 0 {
             anyhow::bail!("telemetry.self_collect.profile_interval_secs must be greater than zero");
         }
+
         if !(1..=120).contains(&self.profile_duration_secs) {
             anyhow::bail!("telemetry.self_collect.profile_duration_secs must be between 1 and 120");
         }
+
         if self.profile_kinds.is_empty() {
             anyhow::bail!("telemetry.self_collect.profile_kinds must not be empty");
         }
+
         for kind in &self.profile_kinds {
             if !matches!(kind.as_str(), "cpu" | "heap") {
                 anyhow::bail!(
@@ -135,6 +146,7 @@ impl SelfCollectSettings {
                 );
             }
         }
+
         Ok(())
     }
 }

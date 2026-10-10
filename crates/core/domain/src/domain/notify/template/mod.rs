@@ -89,18 +89,21 @@ pub fn notify_template_field_catalog() -> Vec<NotifyTemplateField> {
 
     let all = [Alert, Oncall, Escalation, Report, Security, System];
     let alert_categories = [Alert, Escalation];
+
     let alert_events = [
         "alert.triggered",
         "alert.acknowledged",
         "alert.resolved",
         "alert.escalated",
     ];
+
     let oncall_events = [
         "oncall.shift.starting",
         "oncall.shift.started",
         "oncall.override.created",
         "oncall.coverage.missing",
     ];
+
     vec![
         field(
             "event_id",

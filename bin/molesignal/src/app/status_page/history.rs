@@ -17,10 +17,12 @@ impl StatusPageService {
         self.repository.get_page(org_id, page_id).await?;
         query.page = query.page.max(1);
         query.per_page = 25;
+
         query.search = query
             .search
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty());
+
         if query
             .search
             .as_ref()
@@ -30,9 +32,11 @@ impl StatusPageService {
                 "history search cannot exceed 200 characters",
             ));
         }
+
         if query.from.zip(query.to).is_some_and(|(from, to)| from > to) {
             return Err(Error::invalid("history date range is invalid"));
         }
+
         self.repository
             .query_status_history(org_id, page_id, &query)
             .await

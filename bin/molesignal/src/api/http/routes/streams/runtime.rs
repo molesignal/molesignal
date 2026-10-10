@@ -98,11 +98,14 @@ pub(super) async fn handle(
         .window_secs
         .unwrap_or(DEFAULT_WINDOW_SECS)
         .clamp(MIN_WINDOW_SECS, MAX_WINDOW_SECS);
+
     let bucket_count = params
         .bucket_count
         .unwrap_or(DEFAULT_BUCKET_COUNT)
         .clamp(MIN_BUCKET_COUNT, MAX_BUCKET_COUNT);
+
     let generated_at = TimestampMicros::now();
+
     let window = TimeRange::new(
         TimestampMicros(
             generated_at
@@ -120,8 +123,10 @@ pub(super) async fn handle(
         .into_iter()
         .filter(|definition| definition.stream_type != StreamType::EXTEND)
         .collect::<Vec<_>>();
+
     // Include backfilled events that predate the stream definition.
     let lifetime = TimeRange::new(TimestampMicros(i64::MIN), TimestampMicros(i64::MAX));
+
     let selections = definitions
         .iter()
         .map(|definition| {
@@ -131,6 +136,7 @@ pub(super) async fn handle(
             ))
         })
         .collect::<Result<Vec<_>>>()?;
+
     let intake_usage = match state.storage.catalog_query.intake_usage(&ctx.org_id).await {
         Ok(usage) => usage
             .into_iter()
@@ -141,6 +147,7 @@ pub(super) async fn handle(
             std::collections::HashMap::new()
         }
     };
+
     let mut streams: Vec<StreamRuntime> = match state
         .storage
         .catalog_query
@@ -158,6 +165,7 @@ pub(super) async fn handle(
                     generated_at.0,
                     bucket_count,
                 );
+
                 if let Ok(primary_type) =
                     crate::domain::storage::primary_dataset_type(runtime.stream_type)
                     && let Some(dataset) = snapshot.dataset(&primary_type)
@@ -166,9 +174,11 @@ pub(super) async fn handle(
                     runtime.collected_bytes = usage.collected_bytes;
                     runtime.collected_bytes_complete = usage.complete;
                 }
+
                 runtime.index_bytes = snapshot.datasets.iter().fold(0_u64, |total, dataset| {
                     total.saturating_add(dataset.index_bytes)
                 });
+
                 runtime
             })
             .collect(),
@@ -178,12 +188,14 @@ pub(super) async fn handle(
                 %error,
                 "stream runtime catalog snapshot failed"
             );
+
             definitions
                 .into_iter()
                 .map(|definition| unavailable_runtime(definition, window, bucket_count))
                 .collect()
         }
     };
+
     streams.sort_by(|a, b| {
         runtime_status_rank(a.status)
             .cmp(&runtime_status_rank(b.status))
@@ -216,11 +228,13 @@ fn summarize_runtime(
 
     for file in files {
         current_stored_bytes = current_stored_bytes.saturating_add(file.size_bytes);
+
         first_received_at_micros = Some(
             first_received_at_micros.map_or(file.time_range.start.0, |current| {
                 current.min(file.time_range.start.0)
             }),
         );
+
         last_received_at_micros = Some(
             last_received_at_micros.map_or(file.time_range.end.0, |current| {
                 current.max(file.time_range.end.0)
@@ -232,6 +246,7 @@ fn summarize_runtime(
         else {
             continue;
         };
+
         rows = rows.saturating_add(file_rows);
         stored_bytes = stored_bytes.saturating_add(file_bytes);
         let midpoint = overlap_start.saturating_add(overlap_end.saturating_sub(overlap_start) / 2);
@@ -315,21 +330,28 @@ fn runtime_file_contribution(file: &QueryFile, window: TimeRange) -> Option<(u64
     if !file.time_range.overlaps(window) {
         return None;
     }
+
     let overlap_start = file.time_range.start.0.max(window.start.0);
     let overlap_end = file.time_range.end.0.min(window.end.0);
+
     let file_duration = file
         .time_range
         .end
         .0
         .saturating_sub(file.time_range.start.0);
+
     if file_duration <= 0 {
         return Some((file.rows, file.size_bytes, overlap_start, overlap_end));
     }
+
     let overlap_duration = overlap_end.saturating_sub(overlap_start);
+
     if overlap_duration <= 0 {
         return None;
     }
+
     let ratio = (overlap_duration as f64 / file_duration as f64).clamp(0.0, 1.0);
+
     Some((
         runtime_prorate(file.rows, ratio),
         runtime_prorate(file.size_bytes, ratio),
@@ -342,20 +364,24 @@ fn runtime_prorate(value: u64, ratio: f64) -> u64 {
     if value == 0 || ratio <= 0.0 {
         return 0;
     }
+
     if ratio >= 1.0 {
         return value;
     }
+
     ((value as f64 * ratio).round() as u64).max(1).min(value)
 }
 
 fn runtime_buckets(window: TimeRange, bucket_count: usize) -> Vec<RuntimeBucket> {
     let duration = window.duration_micros().max(1);
+
     (0..bucket_count)
         .map(|index| {
             let start_micros = window
                 .start
                 .0
                 .saturating_add(((duration as i128 * index as i128) / bucket_count as i128) as i64);
+
             let end_micros = if index + 1 == bucket_count {
                 window.end.0
             } else {
@@ -363,6 +389,7 @@ fn runtime_buckets(window: TimeRange, bucket_count: usize) -> Vec<RuntimeBucket>
                     ((duration as i128 * (index + 1) as i128) / bucket_count as i128) as i64,
                 )
             };
+
             RuntimeBucket {
                 start_micros,
                 end_micros,
@@ -375,9 +402,11 @@ fn runtime_buckets(window: TimeRange, bucket_count: usize) -> Vec<RuntimeBucket>
 
 fn runtime_bucket_index(window: TimeRange, bucket_count: usize, timestamp_micros: i64) -> usize {
     let duration = window.duration_micros().max(1);
+
     let offset = timestamp_micros
         .saturating_sub(window.start.0)
         .clamp(0, duration.saturating_sub(1));
+
     (((offset as i128 * bucket_count as i128) / duration as i128) as usize)
         .min(bucket_count.saturating_sub(1))
 }

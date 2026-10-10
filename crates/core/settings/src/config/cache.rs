@@ -76,6 +76,7 @@ pub struct TantivyResultCacheSettings {
 fn default_tantivy_result_capacity() -> u64 {
     1_000_000
 }
+
 fn default_tantivy_result_ttl_secs() -> u32 {
     600
 }
@@ -106,6 +107,7 @@ fn default_tantivy_footer_capacity() -> u64 {
     // not complete archive bytes.
     100_000
 }
+
 fn default_tantivy_footer_ttl_secs() -> u32 {
     3600
 }
@@ -188,17 +190,21 @@ impl ObjectCacheSettings {
 
     pub fn validate(&self) -> anyhow::Result<()> {
         const MIB: u64 = 1024 * 1024;
+
         if !(MIB..=16 * MIB).contains(&self.block_size_bytes) {
             anyhow::bail!("cache.object.block_size_bytes must be between 1 MiB and 16 MiB");
         }
+
         if self.max_concurrent_fetches == 0 {
             anyhow::bail!("cache.object.max_concurrent_fetches must be greater than zero");
         }
+
         if self.max_concurrent_fetches_per_object == 0 {
             anyhow::bail!(
                 "cache.object.max_concurrent_fetches_per_object must be greater than zero"
             );
         }
+
         Ok(())
     }
 }

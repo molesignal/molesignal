@@ -159,6 +159,7 @@ impl Incident {
         if self.status != IncidentStatus::Open {
             return false;
         }
+
         let elapsed_us = now.0.saturating_sub(self.current_step_started_at.0);
         elapsed_us >= (ack_timeout_secs as i64) * 1_000_000
     }
@@ -178,14 +179,17 @@ pub fn determine_severity(
     if let Some(sev) = labels.get("severity").and_then(|v| Severity::from_label(v)) {
         return sev;
     }
+
     if let Some(ratio) = deviation_ratio {
         if ratio >= 10.0 {
             return Severity::Critical;
         }
+
         if ratio >= 3.0 {
             return Severity::Error;
         }
     }
+
     Severity::Warning
 }
 
@@ -209,12 +213,14 @@ pub fn generate_title(rule_name: &str, affected_services: &[String]) -> String {
     if affected_services.is_empty() {
         return rule_name.to_string();
     }
+
     let shown = affected_services
         .iter()
         .take(2)
         .map(String::as_str)
         .collect::<Vec<_>>()
         .join(", ");
+
     if affected_services.len() > 2 {
         format!("{rule_name} · {shown} +{}", affected_services.len() - 2)
     } else {

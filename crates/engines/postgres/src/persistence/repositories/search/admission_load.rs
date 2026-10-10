@@ -66,6 +66,7 @@ impl SearchAdmissionLoadRepository for PgSearchAdmissionLoadRepository {
             .await
             .map_err(sqlx_err)?;
         }
+
         Ok(())
     }
 
@@ -85,12 +86,15 @@ impl SearchAdmissionLoadRepository for PgSearchAdmissionLoadRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         let mut out = HashMap::new();
+
         for r in rows {
             let group: String = r.try_get("work_group").map_err(sqlx_err)?;
             let total: i64 = r.try_get("total").map_err(sqlx_err)?;
             out.insert(group, total);
         }
+
         Ok(out)
     }
 }

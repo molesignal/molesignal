@@ -22,16 +22,19 @@ impl ApmQueryService {
     ) -> Result<VersionCompareResponse> {
         validate_version(baseline)?;
         validate_version(candidate)?;
+
         if baseline == candidate {
             return Err(Error::invalid(
                 "baseline and candidate versions must differ",
             ));
         }
+
         if context.service_name.is_none() {
             return Err(Error::invalid(
                 "version comparison requires a service filter",
             ));
         }
+
         let mut baseline_context = context.clone();
         baseline_context.version = Some(baseline.to_owned());
         let mut candidate_context = context.clone();
@@ -45,6 +48,7 @@ impl ApmQueryService {
         let baseline_error_query = self.bucket_query(&baseline_context, BucketKind::Error);
         let candidate_error_query = self.bucket_query(&candidate_context, BucketKind::Error);
         let error_group_query = self.error_group_query(context, None);
+
         let (
             baseline_service,
             candidate_service,
@@ -62,31 +66,38 @@ impl ApmQueryService {
             self.repository.query_buckets(&candidate_error_query),
             self.repository.list_error_groups(&error_group_query),
         )?;
+
         let baseline_red = red_from_buckets(&baseline_service, &self.config.histogram)?;
         let candidate_red = red_from_buckets(&candidate_service, &self.config.histogram)?;
         let sufficient_data = baseline_red.request_count >= self.config.minimum_version_requests
             && candidate_red.request_count >= self.config.minimum_version_requests;
         let delta = red_delta(&baseline_red, &candidate_red);
+
         let mut regressed_transactions = regressed_transactions(
             context,
             &baseline_transactions,
             &candidate_transactions,
             &self.config.histogram,
         )?;
+
         regressed_transactions.truncate(20);
+
         let mut regressed_errors = error_summaries(
             &candidate_context,
             &error_groups,
             &candidate_errors,
             &self.config.histogram,
         )?;
+
         regressed_errors.sort_by(|left, right| {
             right
                 .occurrence_count
                 .cmp(&left.occurrence_count)
                 .then_with(|| left.error.fingerprint.cmp(&right.error.fingerprint))
         });
+
         regressed_errors.truncate(20);
+
         let status = if !sufficient_data {
             "insufficient_data"
         } else if delta.error_rate_absolute > 0.0
@@ -100,6 +111,7 @@ impl ApmQueryService {
         } else {
             "neutral"
         };
+
         let latency_partial = baseline_red.latency_partial || candidate_red.latency_partial;
         let mut overflows = overflow_dimensions(&baseline_service);
         overflows.extend(overflow_dimensions(&candidate_service));
@@ -107,6 +119,7 @@ impl ApmQueryService {
         overflows.extend(overflow_dimensions(&candidate_transactions));
         overflows.extend(overflow_dimensions(&baseline_errors));
         overflows.extend(overflow_dimensions(&candidate_errors));
+
         Ok(VersionCompareResponse {
             meta: self
                 .response_meta(context, overflows, latency_partial)
@@ -134,6 +147,7 @@ fn validate_version(value: &str) -> Result<()> {
     if value.trim().is_empty() || value.len() > 192 || value.contains('\0') {
         return Err(Error::invalid("invalid APM version"));
     }
+
     Ok(())
 }
 
@@ -177,7 +191,9 @@ fn regressed_transactions(
         .into_iter()
         .map(|item| (item.transaction.name.clone(), item.red))
         .collect::<HashMap<_, _>>();
+
     let mut candidate = transaction_summaries(context, candidate, histogram)?;
+
     candidate.sort_by(|left, right| {
         regression_score(&right.red, baseline.get(&right.transaction.name))
             .total_cmp(&regression_score(
@@ -186,6 +202,7 @@ fn regressed_transactions(
             ))
             .then_with(|| left.transaction.name.cmp(&right.transaction.name))
     });
+
     Ok(candidate)
 }
 
@@ -193,6 +210,7 @@ fn regression_score(candidate: &RedSummary, baseline: Option<&RedSummary>) -> f6
     let Some(baseline) = baseline else {
         return candidate.error_rate + candidate.p95_micros.unwrap_or_default() as f64;
     };
+
     (candidate.error_rate - baseline.error_rate).max(0.0) * 1_000_000.0
         + candidate
             .p95_micros

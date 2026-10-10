@@ -69,6 +69,7 @@ struct QueryParams {
 impl QueryParams {
     fn request(&self) -> ApmQueryRequest {
         let to = self.to.unwrap_or_else(|| TimestampMicros::now().0);
+
         ApmQueryRequest {
             from: self.from.unwrap_or_else(|| to.saturating_sub(DAY_MICROS)),
             to,
@@ -92,12 +93,14 @@ async fn overview(
     Query(params): Query<QueryParams>,
 ) -> Result<Json<OverviewResponse>> {
     let started = Instant::now();
+
     let context = state.telemetry.apm_query.context(
         ctx.org_id,
         params.request(),
         &["request_count", "error_rate", "p95", "total_time"],
         "total_time",
     )?;
+
     let response = state.telemetry.apm_query.overview(&context).await?;
     record_apm_query_latency("overview", started.elapsed());
     Ok(Json(response))
@@ -111,12 +114,14 @@ async fn services(
 ) -> Result<Json<PagedResponse<ServiceSummary>>> {
     let started = Instant::now();
     let request = cursor::request(&state, &ctx, &params, cursor::SERVICES)?;
+
     let context = state.telemetry.apm_query.context(
         ctx.org_id.clone(),
         request,
         &["request_count", "error_rate", "p95", "name"],
         "request_count",
     )?;
+
     let response = state.telemetry.apm_query.services(&context).await?;
     let response = cursor::sign_page(&state, &ctx, cursor::SERVICES, &context, response)?;
     record_apm_query_latency("services", started.elapsed());
@@ -132,12 +137,14 @@ async fn service_detail(
 ) -> Result<Json<ServiceDetailResponse>> {
     let started = Instant::now();
     params.service = Some(service);
+
     let context = state.telemetry.apm_query.context(
         ctx.org_id,
         params.request(),
         &["request_count"],
         "request_count",
     )?;
+
     let response = state.telemetry.apm_query.service_detail(&context).await?;
     record_apm_query_latency("service_detail", started.elapsed());
     Ok(Json(response))
@@ -151,12 +158,14 @@ async fn transactions(
 ) -> Result<Json<PagedResponse<TransactionSummary>>> {
     let started = Instant::now();
     let request = cursor::request(&state, &ctx, &params, cursor::TRANSACTIONS)?;
+
     let context = state.telemetry.apm_query.context(
         ctx.org_id.clone(),
         request,
         &["request_count", "error_rate", "p95", "total_time"],
         "request_count",
     )?;
+
     let response = state.telemetry.apm_query.transactions(&context).await?;
     let response = cursor::sign_page(&state, &ctx, cursor::TRANSACTIONS, &context, response)?;
     record_apm_query_latency("transactions", started.elapsed());
@@ -171,17 +180,20 @@ async fn transaction_detail(
     Query(params): Query<QueryParams>,
 ) -> Result<Json<TransactionDetailResponse>> {
     let started = Instant::now();
+
     let context = state.telemetry.apm_query.context(
         ctx.org_id,
         params.request(),
         &["request_count"],
         "request_count",
     )?;
+
     let response = state
         .telemetry
         .apm_query
         .transaction_detail(&context, &transaction, params.kind)
         .await?;
+
     record_apm_query_latency("transaction_detail", started.elapsed());
     Ok(Json(response))
 }
@@ -194,12 +206,14 @@ async fn dependencies(
 ) -> Result<Json<PagedResponse<DependencySummary>>> {
     let started = Instant::now();
     let request = cursor::request(&state, &ctx, &params, cursor::DEPENDENCIES)?;
+
     let context = state.telemetry.apm_query.context(
         ctx.org_id.clone(),
         request,
         &["request_count", "error_rate", "p95", "total_time"],
         "total_time",
     )?;
+
     let response = state.telemetry.apm_query.dependencies(&context).await?;
     let response = cursor::sign_page(&state, &ctx, cursor::DEPENDENCIES, &context, response)?;
     record_apm_query_latency("dependencies", started.elapsed());
@@ -214,12 +228,14 @@ async fn errors(
 ) -> Result<Json<PagedResponse<ErrorSummary>>> {
     let started = Instant::now();
     let request = cursor::request(&state, &ctx, &params, cursor::ERRORS)?;
+
     let context = state.telemetry.apm_query.context(
         ctx.org_id.clone(),
         request,
         &["occurrence_count", "error_rate", "last_seen"],
         "occurrence_count",
     )?;
+
     let response = state.telemetry.apm_query.errors(&context).await?;
     let response = cursor::sign_page(&state, &ctx, cursor::ERRORS, &context, response)?;
     record_apm_query_latency("errors", started.elapsed());
@@ -234,17 +250,20 @@ async fn error_detail(
     Query(params): Query<QueryParams>,
 ) -> Result<Json<ErrorDetailResponse>> {
     let started = Instant::now();
+
     let context = state.telemetry.apm_query.context(
         ctx.org_id,
         params.request(),
         &["occurrence_count"],
         "occurrence_count",
     )?;
+
     let response = state
         .telemetry
         .apm_query
         .error_detail(&context, &fingerprint)
         .await?;
+
     record_apm_query_latency("error_detail", started.elapsed());
     Ok(Json(response))
 }
@@ -256,25 +275,30 @@ async fn version_compare(
     Query(params): Query<QueryParams>,
 ) -> Result<Json<VersionCompareResponse>> {
     let started = Instant::now();
+
     let baseline = params
         .baseline
         .as_deref()
         .ok_or_else(|| crate::shared::Error::invalid("baseline version is required"))?;
+
     let candidate = params
         .candidate
         .as_deref()
         .ok_or_else(|| crate::shared::Error::invalid("candidate version is required"))?;
+
     let context = state.telemetry.apm_query.context(
         ctx.org_id,
         params.request(),
         &["request_count"],
         "request_count",
     )?;
+
     let response = state
         .telemetry
         .apm_query
         .compare_versions(&context, baseline, candidate)
         .await?;
+
     record_apm_query_latency("version_compare", started.elapsed());
     Ok(Json(response))
 }
@@ -286,17 +310,20 @@ async fn health(
     Query(params): Query<QueryParams>,
 ) -> Result<Json<ApmTenantHealthResponse>> {
     let started = Instant::now();
+
     let context = state.telemetry.apm_query.context(
         ctx.org_id,
         params.request(),
         &["request_count"],
         "request_count",
     )?;
+
     let response = state
         .telemetry
         .apm_query
         .tenant_health(&context, state.telemetry.apm_runtime.as_deref())
         .await?;
+
     record_apm_query_latency("health", started.elapsed());
     Ok(Json(response))
 }

@@ -148,9 +148,11 @@ impl ParquetReader {
     ) -> Result<SchemaRef> {
         let location = Path::from(object_key);
         let reader = ParquetObjectReader::new(store, location).with_file_size(size_bytes);
+
         let builder = ParquetRecordBatchStreamBuilder::new(reader)
             .await
             .map_err(|error| Error::internal(format!("parquet schema footer: {error}")))?;
+
         Ok(builder.schema().clone())
     }
 
@@ -163,9 +165,11 @@ impl ParquetReader {
     ) -> Result<Vec<RecordBatch>> {
         let mut stream = self.stream_from_store(store, object_key, opts).await?;
         let mut out = Vec::new();
+
         while let Some(batch) = stream.next().await {
             out.push(batch?);
         }
+
         Ok(out)
     }
 
@@ -178,6 +182,7 @@ impl ParquetReader {
         opts: ReadOptions<'_>,
     ) -> Result<BoxStream<'static, Result<RecordBatch>>> {
         let path = Path::from(object_key);
+
         // 调用方给了 Catalog 权威 size 就直接用，省一次往返；否则 head 一次拿。
         let (location, size) = match opts.size_bytes {
             Some(size) => (path, size),
@@ -186,10 +191,13 @@ impl ParquetReader {
                     .head(&path)
                     .await
                     .map_err(|e| head_err(object_key, e))?;
+
                 (meta.location, meta.size)
             }
         };
+
         let reader = ParquetObjectReader::new(store.clone(), location).with_file_size(size);
+
         let mut builder = ParquetRecordBatchStreamBuilder::new(reader)
             .await
             .map_err(|e| Error::internal(format!("parquet builder: {e}")))?;
@@ -198,6 +206,7 @@ impl ParquetReader {
             // arrow field 下标 == parquet leaf 下标仅对平铺 schema 成立（molesignal
             // 的流 schema 均为平铺）；不成立时跳过裁剪。
             let flat = builder.parquet_schema().num_columns() == builder.schema().fields().len();
+
             if let (true, Ok(ts_col)) = (flat, builder.schema().index_of("_timestamp")) {
                 let keep: Vec<usize> = builder
                     .metadata()
@@ -212,12 +221,15 @@ impl ParquetReader {
                             },
                             _ => true,
                         };
+
                         overlaps.then_some(i)
                     })
                     .collect();
+
                 if keep.is_empty() {
                     return Ok(futures::stream::empty().boxed());
                 }
+
                 if keep.len() < builder.metadata().num_row_groups() {
                     builder = builder.with_row_groups(keep);
                 }
@@ -226,16 +238,19 @@ impl ParquetReader {
 
         if let Some(column_names) = opts.columns {
             let schema = builder.parquet_schema().clone();
+
             let indices: Vec<usize> = column_names
                 .iter()
                 .filter_map(|name| schema.columns().iter().position(|c| c.name() == *name))
                 .collect();
+
             builder = builder.with_projection(ProjectionMask::leaves(&schema, indices));
         }
 
         let stream = builder
             .build()
             .map_err(|e| Error::internal(format!("parquet stream: {e}")))?;
+
         Ok(stream
             .map(|batch| batch.map_err(|e| Error::internal(format!("parquet read: {e}"))))
             .boxed())

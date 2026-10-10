@@ -27,6 +27,7 @@ pub fn error_to_status(error: Error) -> Status {
 
 pub fn status_to_error(status: Status) -> Error {
     let message = status.message().to_owned();
+
     match status.code() {
         Code::InvalidArgument => Error::invalid(message),
         Code::Unauthenticated => Error::unauthorized(message),

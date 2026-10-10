@@ -25,16 +25,20 @@ pub fn fold_edge(samples: &[EdgeSample], window_secs: f64) -> EdgeMetrics {
     if samples.is_empty() || window_secs <= 0.0 {
         return EdgeMetrics::default();
     }
+
     let mut total_req = 0u64;
     let mut total_err = 0u64;
     let mut p95_max = 0i64;
+
     for s in samples {
         total_req += s.request_count;
         total_err += s.error_count;
+
         if let Some(p) = s.p95_us {
             p95_max = p95_max.max(p);
         }
     }
+
     EdgeMetrics {
         rps: (total_req as f64) / window_secs,
         err_rate: if total_req == 0 {

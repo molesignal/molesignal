@@ -54,11 +54,13 @@ fn optional_ts(value: Option<i64>) -> Option<TimestampMicros> {
 
 fn investigation_row(row: sqlx::postgres::PgRow) -> Result<Investigation> {
     let context: Json<Value> = row.try_get("context").map_err(sqlx_err)?;
+
     let confidence = row
         .try_get::<Option<String>, _>("confidence")
         .map_err(sqlx_err)?
         .map(|value| parse_enum(value, "investigation confidence"))
         .transpose()?;
+
     Ok(Investigation {
         id: Id(row.try_get("id").map_err(sqlx_err)?),
         org_id: Id(row.try_get("org_id").map_err(sqlx_err)?),
@@ -85,6 +87,7 @@ fn investigation_row(row: sqlx::postgres::PgRow) -> Result<Investigation> {
 
 fn step_row(row: sqlx::postgres::PgRow) -> Result<InvestigationStep> {
     let input: Json<Value> = row.try_get("input").map_err(sqlx_err)?;
+
     Ok(InvestigationStep {
         id: Id(row.try_get("id").map_err(sqlx_err)?),
         investigation_id: Id(row.try_get("investigation_id").map_err(sqlx_err)?),
@@ -109,6 +112,7 @@ fn step_row(row: sqlx::postgres::PgRow) -> Result<InvestigationStep> {
 fn evidence_row(row: sqlx::postgres::PgRow) -> Result<InvestigationEvidence> {
     let source_ref: Json<Value> = row.try_get("source_ref").map_err(sqlx_err)?;
     let parameters: Json<Value> = row.try_get("parameters").map_err(sqlx_err)?;
+
     Ok(InvestigationEvidence {
         id: Id(row.try_get("id").map_err(sqlx_err)?),
         investigation_id: Id(row.try_get("investigation_id").map_err(sqlx_err)?),
@@ -133,6 +137,7 @@ fn evidence_row(row: sqlx::postgres::PgRow) -> Result<InvestigationEvidence> {
 
 fn hypothesis_row(row: sqlx::postgres::PgRow) -> Result<InvestigationHypothesis> {
     let evidence_ids: Json<Vec<Id>> = row.try_get("evidence_ids").map_err(sqlx_err)?;
+
     Ok(InvestigationHypothesis {
         id: Id(row.try_get("id").map_err(sqlx_err)?),
         investigation_id: Id(row.try_get("investigation_id").map_err(sqlx_err)?),
@@ -161,6 +166,7 @@ fn automation_row(row: sqlx::postgres::PgRow) -> Result<Automation> {
     let output_actions: Json<Value> = row.try_get("output_actions").map_err(sqlx_err)?;
     let failure_policy: Json<Value> = row.try_get("failure_policy").map_err(sqlx_err)?;
     let notification: Json<Value> = row.try_get("notification").map_err(sqlx_err)?;
+
     Ok(Automation {
         id: Id(row.try_get("id").map_err(sqlx_err)?),
         org_id: Id(row.try_get("org_id").map_err(sqlx_err)?),
@@ -184,6 +190,7 @@ fn automation_row(row: sqlx::postgres::PgRow) -> Result<Automation> {
 fn approval_row(row: sqlx::postgres::PgRow) -> Result<ApprovalRequest> {
     let parameters: Json<Value> = row.try_get("parameters").map_err(sqlx_err)?;
     let reviews: Json<Value> = row.try_get("reviews").map_err(sqlx_err)?;
+
     Ok(ApprovalRequest {
         id: Id(row.try_get("id").map_err(sqlx_err)?),
         org_id: Id(row.try_get("org_id").map_err(sqlx_err)?),
@@ -212,6 +219,7 @@ fn execution_row(row: sqlx::postgres::PgRow) -> Result<Execution> {
     let parameters: Json<Value> = row.try_get("parameters").map_err(sqlx_err)?;
     let approved_by: Json<Vec<Id>> = row.try_get("approved_by").map_err(sqlx_err)?;
     let verification: Json<Value> = row.try_get("verification").map_err(sqlx_err)?;
+
     Ok(Execution {
         id: Id(row.try_get("id").map_err(sqlx_err)?),
         org_id: Id(row.try_get("org_id").map_err(sqlx_err)?),
@@ -240,6 +248,7 @@ fn execution_row(row: sqlx::postgres::PgRow) -> Result<Execution> {
 fn tool_call_row(row: sqlx::postgres::PgRow) -> Result<ToolCallRecord> {
     let input: Json<Value> = row.try_get("input").map_err(sqlx_err)?;
     let policy_decision: Json<Value> = row.try_get("policy_decision").map_err(sqlx_err)?;
+
     Ok(ToolCallRecord {
         id: Id(row.try_get("id").map_err(sqlx_err)?),
         org_id: Id(row.try_get("org_id").map_err(sqlx_err)?),
@@ -285,6 +294,7 @@ fn profile_row(row: sqlx::postgres::PgRow) -> Result<AgentProfile> {
     let allowed_tools: Json<Vec<String>> = row.try_get("allowed_tools").map_err(sqlx_err)?;
     let data_scope: Json<Value> = row.try_get("data_scope").map_err(sqlx_err)?;
     let risk_policy: Json<Value> = row.try_get("risk_policy").map_err(sqlx_err)?;
+
     Ok(AgentProfile {
         id: Id(row.try_get("id").map_err(sqlx_err)?),
         org_id: Id(row.try_get("org_id").map_err(sqlx_err)?),
@@ -324,6 +334,7 @@ impl AgentRepository for PgAgentRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(investigation_row).collect()
     }
 
@@ -337,6 +348,7 @@ impl AgentRepository for PgAgentRepository {
                 .map_err(sqlx_err)?
                 .ok_or_else(|| Error::not_found(format!("investigation `{}` not found", id.0)))
                 .and_then(investigation_row)?;
+
         let steps = sqlx::query(
             "SELECT * FROM agent_investigation_steps
              WHERE org_id = $1 AND investigation_id = $2 ORDER BY position ASC",
@@ -349,6 +361,7 @@ impl AgentRepository for PgAgentRepository {
         .into_iter()
         .map(step_row)
         .collect::<Result<Vec<_>>>()?;
+
         let evidence = sqlx::query(
             "SELECT * FROM agent_investigation_evidence
              WHERE org_id = $1 AND investigation_id = $2 ORDER BY created_at_micros ASC",
@@ -361,6 +374,7 @@ impl AgentRepository for PgAgentRepository {
         .into_iter()
         .map(evidence_row)
         .collect::<Result<Vec<_>>>()?;
+
         let hypotheses = sqlx::query(
             "SELECT * FROM agent_investigation_hypotheses
              WHERE org_id = $1 AND investigation_id = $2 ORDER BY updated_at_micros DESC",
@@ -373,6 +387,7 @@ impl AgentRepository for PgAgentRepository {
         .into_iter()
         .map(hypothesis_row)
         .collect::<Result<Vec<_>>>()?;
+
         Ok(InvestigationDetail {
             investigation,
             steps,
@@ -406,6 +421,7 @@ impl AgentRepository for PgAgentRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(item)
     }
 
@@ -430,12 +446,14 @@ impl AgentRepository for PgAgentRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         if result.rows_affected() == 0 {
             return Err(Error::not_found(format!(
                 "investigation `{}` not found",
                 item.id.0
             )));
         }
+
         Ok(item)
     }
 
@@ -464,6 +482,7 @@ impl AgentRepository for PgAgentRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(item)
     }
 
@@ -489,6 +508,7 @@ impl AgentRepository for PgAgentRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(item)
     }
 
@@ -518,6 +538,7 @@ impl AgentRepository for PgAgentRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(item)
     }
 
@@ -530,6 +551,7 @@ impl AgentRepository for PgAgentRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(automation_row).collect()
     }
 
@@ -571,6 +593,7 @@ impl AgentRepository for PgAgentRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(item)
     }
 
@@ -599,12 +622,14 @@ impl AgentRepository for PgAgentRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         if result.rows_affected() == 0 {
             return Err(Error::not_found(format!(
                 "automation `{}` not found",
                 item.id.0
             )));
         }
+
         Ok(item)
     }
 
@@ -617,6 +642,7 @@ impl AgentRepository for PgAgentRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(approval_row).collect()
     }
 
@@ -659,6 +685,7 @@ impl AgentRepository for PgAgentRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(item)
     }
 
@@ -677,6 +704,7 @@ impl AgentRepository for PgAgentRepository {
         now: TimestampMicros,
     ) -> Result<ApprovalRequest> {
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         let row = sqlx::query(
             "SELECT * FROM agent_approval_requests
              WHERE org_id=$1 AND id=$2 FOR UPDATE",
@@ -687,13 +715,16 @@ impl AgentRepository for PgAgentRepository {
         .await
         .map_err(sqlx_err)?
         .ok_or_else(|| Error::not_found(format!("approval `{}` not found", id.0)))?;
+
         let mut item = approval_row(row)?;
+
         if item.status != ApprovalStatus::Pending {
             return Err(Error::conflict(format!(
                 "approval is already {}",
                 enum_string(&item.status)
             )));
         }
+
         if item.expires_at.is_some_and(|expires| expires.0 <= now.0) {
             item.status = ApprovalStatus::Expired;
             item.decided_at = Some(now);
@@ -702,6 +733,7 @@ impl AgentRepository for PgAgentRepository {
                 .reviews
                 .as_array_mut()
                 .ok_or_else(|| Error::internal("approval reviews must be an array"))?;
+
             if reviews
                 .iter()
                 .any(|review| review["reviewer_id"].as_str() == Some(&reviewer.0))
@@ -710,12 +742,14 @@ impl AgentRepository for PgAgentRepository {
                     "reviewer has already reviewed this request",
                 ));
             }
+
             reviews.push(json!({
                 "reviewer_id": reviewer.0,
                 "decision": if approve { "approved" } else { "rejected" },
                 "comment": comment,
                 "reviewed_at_micros": now.0,
             }));
+
             if !approve {
                 item.status = ApprovalStatus::Rejected;
                 item.decided_at = Some(now);
@@ -724,13 +758,16 @@ impl AgentRepository for PgAgentRepository {
                     .iter()
                     .filter(|review| review["decision"] == "approved")
                     .count() as i32;
+
                 if approved >= item.required_approvals {
                     item.status = ApprovalStatus::Approved;
                     item.decided_at = Some(now);
                 }
             }
         }
+
         item.updated_at = now;
+
         sqlx::query(
             "UPDATE agent_approval_requests
              SET status=$3,reviews=$4,decided_at_micros=$5,updated_at_micros=$6
@@ -745,6 +782,7 @@ impl AgentRepository for PgAgentRepository {
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
+
         tx.commit().await.map_err(sqlx_err)?;
         Ok(item)
     }
@@ -766,9 +804,11 @@ impl AgentRepository for PgAgentRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         if result.rows_affected() == 0 {
             return Err(Error::conflict("approval is not executable"));
         }
+
         self.get_approval(org_id, id).await
     }
 
@@ -781,6 +821,7 @@ impl AgentRepository for PgAgentRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(execution_row).collect()
     }
 
@@ -836,15 +877,18 @@ impl AgentRepository for PgAgentRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         if result.rows_affected() == 1 {
             return Ok(item);
         }
+
         if let Some(existing) = self
             .find_execution_by_key(&item.org_id, &item.idempotency_key)
             .await?
         {
             return Ok(existing);
         }
+
         sqlx::query(
             "SELECT * FROM agent_executions
              WHERE org_id=$1 AND approval_request_id=$2",
@@ -877,12 +921,14 @@ impl AgentRepository for PgAgentRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         if result.rows_affected() == 0 {
             return Err(Error::not_found(format!(
                 "execution `{}` not found",
                 item.id.0
             )));
         }
+
         Ok(item)
     }
 
@@ -916,6 +962,7 @@ impl AgentRepository for PgAgentRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(item)
     }
 
@@ -926,6 +973,7 @@ impl AgentRepository for PgAgentRepository {
         limit: usize,
     ) -> Result<Vec<ToolCallRecord>> {
         let limit = i64::try_from(limit.clamp(1, 500)).unwrap_or(500);
+
         let rows = if let Some(tool_name) = tool_name {
             sqlx::query(
                 "SELECT * FROM agent_tool_calls
@@ -949,6 +997,7 @@ impl AgentRepository for PgAgentRepository {
             .await
             .map_err(sqlx_err)?
         };
+
         rows.into_iter().map(tool_call_row).collect()
     }
 
@@ -961,6 +1010,7 @@ impl AgentRepository for PgAgentRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(profile_row).collect()
     }
 
@@ -982,6 +1032,7 @@ impl AgentRepository for PgAgentRepository {
     )]
     async fn create_profile(&self, item: AgentProfile) -> Result<AgentProfile> {
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         if item.is_default {
             sqlx::query(
                 "UPDATE agent_profiles SET is_default=FALSE
@@ -992,6 +1043,7 @@ impl AgentRepository for PgAgentRepository {
             .await
             .map_err(sqlx_err)?;
         }
+
         sqlx::query(
             "INSERT INTO agent_profiles
              (id,org_id,name,description,model_provider_id,model,allowed_tools,data_scope,
@@ -1020,6 +1072,7 @@ impl AgentRepository for PgAgentRepository {
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
+
         tx.commit().await.map_err(sqlx_err)?;
         Ok(item)
     }
@@ -1031,6 +1084,7 @@ impl AgentRepository for PgAgentRepository {
     )]
     async fn update_profile(&self, item: AgentProfile) -> Result<AgentProfile> {
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         if item.is_default {
             sqlx::query(
                 "UPDATE agent_profiles SET is_default=FALSE
@@ -1042,6 +1096,7 @@ impl AgentRepository for PgAgentRepository {
             .await
             .map_err(sqlx_err)?;
         }
+
         let result = sqlx::query(
             "UPDATE agent_profiles SET
               name=$3,description=$4,model_provider_id=$5,model=$6,allowed_tools=$7,
@@ -1069,12 +1124,14 @@ impl AgentRepository for PgAgentRepository {
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
+
         if result.rows_affected() == 0 {
             return Err(Error::not_found(format!(
                 "agent profile `{}` not found",
                 item.id.0
             )));
         }
+
         tx.commit().await.map_err(sqlx_err)?;
         Ok(item)
     }

@@ -28,6 +28,7 @@ impl EventMetadata {
             .ok_or_else(|| Error::invalid("RUM service is missing"))?;
         let release = string_at(event, &["/version", "/release"])
             .ok_or_else(|| Error::invalid("RUM version/release is missing"))?;
+
         let runtime = string_at(
             event,
             &[
@@ -40,9 +41,11 @@ impl EventMetadata {
         )
         .unwrap_or_default()
         .to_ascii_lowercase();
+
         let flutter = runtime.contains("flutter")
             || string_at(event, &["/framework"])
                 .is_some_and(|value| value.eq_ignore_ascii_case("flutter"));
+
         let platform = normalize_platform(
             string_at(
                 event,
@@ -56,6 +59,7 @@ impl EventMetadata {
             )
             .unwrap_or(if flutter { "flutter" } else { "web" }),
         );
+
         Ok(Self {
             application_id: application_id.to_string(),
             service: service.to_string(),
@@ -103,6 +107,7 @@ impl FramePlan {
                 "/pc",
             ],
         );
+
         if let Some(mut address) = address {
             if frame.get("relative_address").is_none()
                 && let Some(image_address) = address_at(
@@ -118,6 +123,7 @@ impl FramePlan {
             {
                 address -= image_address;
             }
+
             let kind = explicit_native_kind(frame, event).or_else(|| {
                 if event.flutter {
                     Some(DebugArtifactKind::FlutterSymbols)
@@ -129,6 +135,7 @@ impl FramePlan {
                     None
                 }
             })?;
+
             return Some(Self {
                 kind,
                 filename: string_at(
@@ -149,6 +156,7 @@ impl FramePlan {
 
         let class_name = string_at(frame, &["/class", "/class_name"]);
         let function = string_at(frame, &["/function", "/method", "/name"]);
+
         if event.platform == "android"
             && let (Some(class_name), Some(function)) = (class_name, function)
         {
@@ -166,13 +174,16 @@ impl FramePlan {
 
         let file = string_at(frame, &["/file", "/filename", "/url"])?;
         let line = integer_at(frame, &["/line", "/line_number"])?;
+
         let looks_javascript = event.platform == "web"
             || file.split(['?', '#']).next().is_some_and(|path| {
                 path.ends_with(".js") || path.ends_with(".mjs") || path.ends_with(".cjs")
             });
+
         if !looks_javascript {
             return None;
         }
+
         Some(Self {
             kind: DebugArtifactKind::JavascriptSourcemap,
             filename: Some(format!("{}.map", basename(file))),
@@ -222,8 +233,10 @@ fn integer_at(value: &Value, paths: &[&str]) -> Option<u32> {
 fn address_at(value: &Value, paths: &[&str]) -> Option<u64> {
     paths.iter().find_map(|path| {
         let value = value.pointer(path)?;
+
         value.as_u64().or_else(|| {
             let text = value.as_str()?.trim();
+
             if let Some(hex) = text.strip_prefix("0x").or_else(|| text.strip_prefix("0X")) {
                 u64::from_str_radix(hex, 16).ok()
             } else {
@@ -237,6 +250,7 @@ fn address_at(value: &Value, paths: &[&str]) -> Option<u64> {
 
 fn normalize_platform(value: &str) -> String {
     let value = value.to_ascii_lowercase();
+
     if value.contains("android") {
         "android".into()
     } else if value.contains("ios") || value.contains("iphone") || value.contains("ipad") {

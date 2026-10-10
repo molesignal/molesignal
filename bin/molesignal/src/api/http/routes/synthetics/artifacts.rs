@@ -50,40 +50,50 @@ async fn upload(
     body: Bytes,
 ) -> Result<StatusCode> {
     let lease_token = bearer_token(&headers)?;
+
     let control = state
         .probe_control
         .as_ref()
         .ok_or_else(|| Error::unavailable("Probe control plane is unavailable"))?;
+
     let task = control
         .verify_artifact_lease(&Id::from_string(task_id), lease_token)
         .await?;
+
     let target = artifact_targets(&task, lease_token)
         .into_iter()
         .find(|target| target.id == artifact_id)
         .ok_or_else(|| Error::unauthorized("invalid Probe Artifact target"))?;
+
     if target.expires_at <= TimestampMicros::now() {
         return Err(Error::unauthorized("Probe Artifact target expired"));
     }
+
     if body.is_empty() || body.len() as u64 > target.max_bytes {
         return Err(Error::payload_too_large(
             "Probe Artifact exceeds its upload limit",
         ));
     }
+
     let content_type = headers
         .get(CONTENT_TYPE)
         .and_then(|value| value.to_str().ok())
         .unwrap_or_default();
+
     if content_type != target.content_type {
         return Err(Error::invalid(
             "Probe Artifact content type does not match its target",
         ));
     }
+
     let expected_sha = headers
         .get(CONTENT_SHA256)
         .and_then(|value| value.to_str().ok())
         .filter(|value| value.len() == 64)
         .ok_or_else(|| Error::invalid("Probe Artifact SHA-256 header is required"))?;
+
     let actual_sha = hex::encode(Sha256::digest(&body));
+
     if !constant_time_eq(expected_sha.as_bytes(), actual_sha.as_bytes()) {
         return Err(Error::invalid(
             "Probe Artifact SHA-256 does not match its content",
@@ -93,6 +103,7 @@ async fn upload(
     let object_key = artifact_object_key(&task, &artifact_id);
     let path = ObjectPath::parse(&object_key)
         .map_err(|error| Error::internal(format!("invalid Probe Artifact object key: {error}")))?;
+
     let stored = state
         .storage
         .object_store
@@ -105,6 +116,7 @@ async fn upload(
             },
         )
         .await;
+
     match stored {
         Ok(_) => Ok(StatusCode::NO_CONTENT),
         Err(object_store::Error::AlreadyExists { .. }) => {
@@ -119,7 +131,9 @@ async fn upload(
                 .map_err(|error| {
                     Error::internal(format!("read existing Probe Artifact body: {error}"))
                 })?;
+
             let existing_sha = hex::encode(Sha256::digest(&existing));
+
             if existing.len() == body.len()
                 && constant_time_eq(existing_sha.as_bytes(), actual_sha.as_bytes())
             {
@@ -144,16 +158,20 @@ async fn download(
         .synthetics
         .get_result(&context.org_id, &Id::from_string(result_id))
         .await?;
+
     let artifact = result
         .artifacts
         .into_iter()
         .find(|artifact| artifact.id.as_str() == artifact_id)
         .ok_or_else(|| Error::not_found("synthetic Artifact not found"))?;
+
     if artifact.expires_at <= TimestampMicros::now() {
         return Err(Error::not_found("synthetic Artifact expired"));
     }
+
     let path = ObjectPath::parse(&artifact.object_key)
         .map_err(|error| Error::internal(format!("invalid Probe Artifact object key: {error}")))?;
+
     let body = state
         .storage
         .object_store
@@ -168,6 +186,7 @@ async fn download(
         .bytes()
         .await
         .map_err(|error| Error::internal(format!("read synthetic Artifact body: {error}")))?;
+
     if body.len() as u64 != artifact.content_length
         || !constant_time_eq(
             hex::encode(Sha256::digest(&body)).as_bytes(),
@@ -176,6 +195,7 @@ async fn download(
     {
         return Err(Error::internal("synthetic Artifact integrity check failed"));
     }
+
     Response::builder()
         .status(StatusCode::OK)
         .header(CONTENT_TYPE, artifact.content_type)

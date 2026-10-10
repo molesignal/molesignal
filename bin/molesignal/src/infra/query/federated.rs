@@ -235,15 +235,19 @@ impl FederatedDistributedEngine {
             stream_type: stream_type_to_proto(stream.stream_type),
             federation_query_id: fed_id.unwrap_or_default().to_string(),
         };
+
         let mut buf = Vec::with_capacity(shard.encoded_len());
+
         shard
             .encode(&mut buf)
             .map_err(|e| (format!("shard encode: {e}"), false))?;
+
         let mut request = tonic::Request::new(Ticket { ticket: buf.into() });
         crate::infra::cluster::grpc_channel::with_bearer(&mut request, &token)
             .map_err(|e| (e, false))?;
 
         let mut client = FlightServiceClient::new(channel);
+
         let resp = crate::shared::grpc_trace::call(
             request,
             "arrow.flight.protocol.FlightService",
@@ -257,11 +261,14 @@ impl FederatedDistributedEngine {
                 status.code(),
                 tonic::Code::Unauthenticated | tonic::Code::PermissionDenied
             );
+
             (format!("do_get: {}", status.message()), is_auth)
         })?;
+
         let inbound = resp.into_inner().map_err(FlightError::from);
         let mut s = FlightRecordBatchStream::new_from_flight_data(inbound);
         let mut batches = Vec::new();
+
         while let Some(b) = s
             .try_next()
             .await
@@ -269,6 +276,7 @@ impl FederatedDistributedEngine {
         {
             batches.push(b);
         }
+
         Ok(batches)
     }
 }
@@ -293,6 +301,7 @@ impl QueryEngine for FederatedDistributedEngine {
                 "physical read models cannot be queried across federation",
             ));
         }
+
         self.inner.execute_dataset(req, dataset_type).await
     }
 
@@ -322,11 +331,13 @@ impl FederatedDistributedEngine {
             .federation_clusters
             .iter()
             .any(|c| !c.eq_ignore_ascii_case("local"));
+
         if !has_remote {
             return self.inner.execute(req).await;
         }
 
         let started = std::time::Instant::now();
+
         let stream = req
             .stream
             .clone()
@@ -361,12 +372,14 @@ impl FederatedDistributedEngine {
             .list_enabled()
             .await
             .unwrap_or_default();
+
         let requested: Vec<String> = req
             .federation_clusters
             .iter()
             .filter(|c| !c.eq_ignore_ascii_case("local"))
             .cloned()
             .collect();
+
         // 记录本次查询实际派发到的集群 id，cancel 路由据此只通知参与者；RAII 在查询结束清理。
         let _dispatch_guard = match (&self.cancel_registry, fed_id.as_deref()) {
             (Some(reg), Some(fid)) if !fid.is_empty() => {
@@ -375,17 +388,20 @@ impl FederatedDistributedEngine {
                     .filter_map(|name| enabled.iter().find(|c| c.name == *name || c.id.0 == *name))
                     .map(|c| c.id.0.clone())
                     .collect();
+
                 reg.track_dispatch(fid, participants);
                 Some(DispatchGuard::new(reg.clone(), fid.to_string()))
             }
             _ => None,
         };
+
         // 未知 / 已禁用的集群不涉及 IO，先就地标降级；其余每个集群一个 future 并发扇出，
         // 延迟取决于最慢的那个远端而非所有远端之和。
         // 各 future 只借用这些，别让 async move 把它们整个搬进第一个 future。
         let (req_ref, stream_ref, scan_sql_ref) = (&req, &stream, scan_sql.as_str());
         let fed_id_ref = fed_id.as_deref();
         let mut fan_outs = Vec::new();
+
         for name in &requested {
             match enabled.iter().find(|c| c.name == *name || c.id.0 == *name) {
                 None => {
@@ -397,11 +413,13 @@ impl FederatedDistributedEngine {
                         let r = self
                             .fan_out_one(cluster, req_ref, stream_ref, scan_sql_ref, fed_id_ref)
                             .await;
+
                         (name, r)
                     });
                 }
             }
         }
+
         // join_all 而非 try_join_all：联邦是降级语义，单个远端失败只标 degraded，
         // 不能让整条查询失败。
         for (name, result) in futures::future::join_all(fan_outs).await {
@@ -416,6 +434,7 @@ impl FederatedDistributedEngine {
                             .with_label_values(&[name.as_str()])
                             .inc();
                     }
+
                     degraded_clusters.push(name.clone());
                     degraded_reason.insert(name.clone(), reason);
                 }
@@ -441,19 +460,23 @@ impl FederatedDistributedEngine {
 
         // 3. UNION → 本地 final user SQL（聚合只跑一次）。
         let scanned_rows: u64 = all_batches.iter().map(|b| b.num_rows() as u64).sum();
+
         let schema = all_batches
             .first()
             .map(|b| b.schema())
             .unwrap_or_else(|| Arc::new(ArrowSchema::empty()));
+
         let ctx = SessionContext::new();
         // 联邦 coordinator 跑完整 user SQL，需注册同样的 UDAF（如 approx_topk）。
         ctx.register_udaf(crate::infra::query::udafs::approx_topk_udf());
+
         // 字段级加密：注册 `decrypt(col)`。远端已各自解密、回传明文（未加标记），本地 final
         // SQL 的 decrypt 对明文幂等透传；故即便本节点 DEK 不同也安全。
         if let Some(svc) = &self.field_keys {
             let keys = svc.decrypt_map(&req.org_id).await?;
             ctx.register_udf(crate::infra::query::udfs::build_decrypt_udf(keys));
         }
+
         // 脱敏：含 `mask(` 的 final SQL 注册 `mask(col)`。远端各自脱敏后回传，本地 `mask()` 对
         // 已脱敏文本幂等（`[REDACTED]` 不再匹配原正则），故跨集群安全（与上方 decrypt 同理）。
         if req.statement.contains("mask(")
@@ -463,32 +486,39 @@ impl FederatedDistributedEngine {
             let masker = Masker::compile(pats.into_iter().map(|p| (p.pattern, p.replacement)));
             ctx.register_udf(crate::infra::query::udfs::build_mask_udf(Arc::new(masker)));
         }
+
         if req.statement.contains("extract_pattern(")
             && let Some(repo) = &self.log_patterns
         {
             let pats = repo.list(&req.org_id).await.unwrap_or_default();
+
             let rows: Vec<(String, String, i32)> = pats
                 .into_iter()
                 .map(|p| (p.regex, p.category, p.priority))
                 .collect();
+
             ctx.register_udf(crate::infra::query::udfs::build_extract_pattern_udf(
                 crate::infra::query::udfs::compile_patterns(rows),
             ));
         }
+
         let mem = MemTable::try_new(schema, vec![all_batches])
             .map_err(|e| Error::internal(format!("federated memtable: {e}")))?;
         ctx.register_table(TableReference::bare(stream.name.clone()), Arc::new(mem))
             .map_err(|e| Error::internal(format!("federated register: {e}")))?;
+
         // datafusion/sqlparser 原始 error（含内部列名 / schema 细节）只进服务端 log，
         // 对外给泛化提示——与单机 DataFusionEngine 一致，别在联邦路径漏内部细节。
         let df = ctx.sql(&req.statement).await.map_err(|e| {
             tracing::warn!(error = %e, sql = %req.statement, "federated query planning failed");
             Error::invalid("query could not be planned: check the SQL syntax and that every referenced field exists in the stream")
         })?;
+
         let out = df
             .collect()
             .await
             .map_err(|e| Error::internal(format!("federated collect: {e}")))?;
+
         let (columns, rows) = batches_to_json(&out);
 
         Ok(QueryResult {

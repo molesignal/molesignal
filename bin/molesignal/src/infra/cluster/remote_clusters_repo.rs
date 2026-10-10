@@ -93,6 +93,7 @@ impl RemoteClustersRepository for PgRemoteClustersRepository {
         .execute(&self.pool)
         .await
         .map_err(super::super::persistence::sqlx_err)?;
+
         Ok(c)
     }
 
@@ -120,11 +121,13 @@ impl RemoteClustersRepository for PgRemoteClustersRepository {
         .execute(&self.pool)
         .await
         .map_err(super::super::persistence::sqlx_err)?;
+
         Ok(c)
     }
 
     async fn insert_discovered(&self, id: &str, name: &str, advertise_addr: &str) -> Result<u64> {
         let now = TimestampMicros::now().0;
+
         let res = sqlx::query(
             "INSERT INTO remote_clusters
                 (id, name, advertise_addr, token_secret_ref, tls_verify, enabled, discovered,
@@ -139,6 +142,7 @@ impl RemoteClustersRepository for PgRemoteClustersRepository {
         .execute(&self.pool)
         .await
         .map_err(super::super::persistence::sqlx_err)?;
+
         Ok(res.rows_affected())
     }
 
@@ -148,34 +152,41 @@ impl RemoteClustersRepository for PgRemoteClustersRepository {
             .execute(&self.pool)
             .await
             .map_err(super::super::persistence::sqlx_err)?;
+
         Ok(())
     }
 
     async fn get(&self, id: &Id) -> Result<RemoteCluster> {
         let sql = format!("SELECT {COLS} FROM remote_clusters WHERE id = $1");
+
         let row = sqlx::query(&sql)
             .bind(&id.0)
             .fetch_one(&self.pool)
             .await
             .map_err(super::super::persistence::sqlx_err)?;
+
         Ok(row_to(row))
     }
 
     async fn list(&self) -> Result<Vec<RemoteCluster>> {
         let sql = format!("SELECT {COLS} FROM remote_clusters ORDER BY name");
+
         let rows = sqlx::query(&sql)
             .fetch_all(&self.pool)
             .await
             .map_err(super::super::persistence::sqlx_err)?;
+
         Ok(rows.into_iter().map(row_to).collect())
     }
 
     async fn list_enabled(&self) -> Result<Vec<RemoteCluster>> {
         let sql = format!("SELECT {COLS} FROM remote_clusters WHERE enabled = TRUE ORDER BY name");
+
         let rows = sqlx::query(&sql)
             .fetch_all(&self.pool)
             .await
             .map_err(super::super::persistence::sqlx_err)?;
+
         Ok(rows.into_iter().map(row_to).collect())
     }
 }

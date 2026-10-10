@@ -48,6 +48,7 @@ fn row_to_stream(row: sqlx::postgres::PgRow) -> Result<StreamDefinition> {
     let schema: Json<Schema> = row.try_get("schema").map_err(sqlx_err)?;
     let retention: Option<Json<Retention>> = row.try_get("retention").map_err(sqlx_err)?;
     let stream_type: String = row.try_get("stream_type").map_err(sqlx_err)?;
+
     Ok(StreamDefinition {
         id: Id::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?),
         org_id: Id::from_string(row.try_get::<String, _>("org_id").map_err(sqlx_err)?),
@@ -99,11 +100,14 @@ impl StreamRepository for PgStreamRepository {
             .await
             .map_err(sqlx_err)?
             .ok_or_else(|| Error::not_found("organization"))?;
+
         let org_is_system: bool = org_row.try_get("system").map_err(sqlx_err)?;
         let system = org_is_system && def.name == MOLESIGNAL_SYSTEM_STREAM;
+
         if (org_is_system || def.name == MOLESIGNAL_SYSTEM_STREAM) && !system {
             return Err(Error::forbidden("invalid system stream identity"));
         }
+
         let insert = sqlx::query(
             "INSERT INTO logical_streams (id, org_id, name, stream_type, schema, retention, system,
                                           created_at_micros, updated_at_micros)
@@ -120,6 +124,7 @@ impl StreamRepository for PgStreamRepository {
         .bind(def.updated_at.0)
         .execute(&self.pool)
         .await;
+
         if let Err(error) = insert {
             if let sqlx::Error::Database(database_error) = &error
                 && database_error.code().as_deref() == Some("23505")
@@ -131,13 +136,16 @@ impl StreamRepository for PgStreamRepository {
                     def.stream_type.as_str()
                 )));
             }
+
             return Err(sqlx_err(error));
         }
+
         Ok(def)
     }
 
     async fn update_schema(&self, id: &Id, schema: Schema) -> Result<()> {
         let now = TimestampMicros::now().0;
+
         // 先读出 (org, name, stream_type) 供 cache invalidate（在 UPDATE 之前以拿当前 schema）
         let row = sqlx::query(
             "SELECT org_id, name, stream_type, schema, system FROM logical_streams WHERE id = $1",
@@ -149,8 +157,10 @@ impl StreamRepository for PgStreamRepository {
         .ok_or_else(|| Error::not_found(format!("stream {}", id.0)))?;
 
         let system = row.try_get::<bool, _>("system").map_err(sqlx_err)?;
+
         if system {
             let current: Json<Schema> = row.try_get("schema").map_err(sqlx_err)?;
+
             if !system_schema_settings_only(&current.0, &schema) {
                 return Err(Error::forbidden(
                     "system stream field names, types, nullability and encryption are immutable",
@@ -160,10 +170,12 @@ impl StreamRepository for PgStreamRepository {
 
         if system {
             let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
             sqlx::query("SELECT set_config('molesignal.internal_system_mutation', 'true', true)")
                 .execute(&mut *tx)
                 .await
                 .map_err(sqlx_err)?;
+
             sqlx::query(
                 "UPDATE logical_streams SET schema = $2, updated_at_micros = $3 WHERE id = $1",
             )
@@ -173,6 +185,7 @@ impl StreamRepository for PgStreamRepository {
             .execute(&mut *tx)
             .await
             .map_err(sqlx_err)?;
+
             tx.commit().await.map_err(sqlx_err)?;
         } else {
             sqlx::query(
@@ -201,6 +214,7 @@ impl StreamRepository for PgStreamRepository {
     async fn update_schema_internal(&self, id: &Id, schema: Schema) -> Result<()> {
         let now = TimestampMicros::now().0;
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         let row = sqlx::query(
             "SELECT org_id, name, stream_type FROM logical_streams WHERE id = $1 FOR UPDATE",
         )
@@ -209,10 +223,12 @@ impl StreamRepository for PgStreamRepository {
         .await
         .map_err(sqlx_err)?
         .ok_or_else(|| Error::not_found(format!("stream {}", id.0)))?;
+
         sqlx::query("SELECT set_config('molesignal.internal_system_mutation', 'true', true)")
             .execute(&mut *tx)
             .await
             .map_err(sqlx_err)?;
+
         sqlx::query("UPDATE logical_streams SET schema = $2, updated_at_micros = $3 WHERE id = $1")
             .bind(&id.0)
             .bind(Json(&schema))
@@ -220,6 +236,7 @@ impl StreamRepository for PgStreamRepository {
             .execute(&mut *tx)
             .await
             .map_err(sqlx_err)?;
+
         tx.commit().await.map_err(sqlx_err)?;
 
         let org_id: String = row.try_get("org_id").unwrap_or_default();
@@ -231,6 +248,7 @@ impl StreamRepository for PgStreamRepository {
 
     async fn update_retention(&self, id: &Id, retention: Option<Retention>) -> Result<()> {
         let now = TimestampMicros::now().0;
+
         let row =
             sqlx::query("SELECT org_id, name, stream_type FROM logical_streams WHERE id = $1")
                 .bind(&id.0)
@@ -278,6 +296,7 @@ impl StreamRepository for PgStreamRepository {
                 stream_type.as_str()
             ))
         })?;
+
         row_to_stream(row)
     }
 
@@ -288,6 +307,7 @@ impl StreamRepository for PgStreamRepository {
             .await
             .map_err(sqlx_err)?
             .ok_or_else(|| Error::not_found(format!("stream {}", id.0)))?;
+
         row_to_stream(row)
     }
 
@@ -299,6 +319,7 @@ impl StreamRepository for PgStreamRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to_stream).collect()
     }
 
@@ -309,12 +330,14 @@ impl StreamRepository for PgStreamRepository {
             .await
             .map_err(sqlx_err)?
             .ok_or_else(|| Error::not_found(format!("stream {}", id.0)))?;
+
         let settings: Option<Json<StreamSettings>> = row.try_get("settings").map_err(sqlx_err)?;
         Ok(settings.map(|value| value.0).unwrap_or_default())
     }
 
     async fn update_settings(&self, id: &Id, settings: StreamSettings) -> Result<StreamSettings> {
         let now = TimestampMicros::now().0;
+
         let row =
             sqlx::query("SELECT org_id, name, stream_type FROM logical_streams WHERE id = $1")
                 .bind(&id.0)
@@ -369,6 +392,7 @@ impl StreamRepository for PgStreamRepository {
             let st: String = r.try_get("stream_type").unwrap_or_default();
             invalidate_stream_cache(&self.mutation_observer, &org_id, &name, &st);
         }
+
         Ok(())
     }
 }

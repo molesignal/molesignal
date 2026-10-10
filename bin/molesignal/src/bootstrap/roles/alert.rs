@@ -46,11 +46,14 @@ pub fn spawn_alert_loops(
 
     let eval_handle = {
         let evaluator = evaluator.clone();
+
         tokio::spawn(async move {
             let mut ticker = tokio::time::interval(eval_interval);
             ticker.tick().await; // skip 首次（与 intake/compactor 一致）
+
             loop {
                 ticker.tick().await;
+
                 if let Err(e) = evaluator.tick(TimestampMicros::now()).await {
                     tracing::warn!(error = %e, "alert evaluator tick failed");
                 }
@@ -64,22 +67,28 @@ pub fn spawn_alert_loops(
         let orgs = orgs.clone();
         let notify_engine = notify_engine.clone();
         let oncall_events = oncall_events.clone();
+
         tokio::spawn(async move {
             let mut ticker = tokio::time::interval(dispatch_interval);
             ticker.tick().await;
+
             loop {
                 ticker.tick().await;
+
                 match orgs.list().await {
                     Ok(org_list) => {
                         let mut escalated = 0;
+
                         for org in org_list {
                             let now = TimestampMicros::now();
+
                             match dispatcher.tick(&org.id, now).await {
                                 Ok(owned) => escalated += owned,
                                 Err(e) => {
                                     tracing::warn!(org=%org.id, error=%e, "dispatcher tick failed");
                                 }
                             }
+
                             if let Err(e) = oncall_events.tick(&org.id, now).await {
                                 tracing::warn!(
                                     org=%org.id,
@@ -87,6 +96,7 @@ pub fn spawn_alert_loops(
                                     "on-call notify event producer tick failed"
                                 );
                             }
+
                             if let Err(e) = notify_engine
                                 .process_pending_events(&org.id, now, 100)
                                 .await
@@ -97,6 +107,7 @@ pub fn spawn_alert_loops(
                                     "notify event delivery tick failed"
                                 );
                             }
+
                             if let Err(e) = notify_engine
                                 .process_due_escalations(&org.id, now, 100)
                                 .await
@@ -108,6 +119,7 @@ pub fn spawn_alert_loops(
                                 );
                             }
                         }
+
                         ownership.record_owned(ESCALATION_WORK, escalated);
                     }
                     Err(e) => {

@@ -38,6 +38,7 @@ impl client::Handler for HostKeyVerifier {
         let fingerprint = server_public_key
             .fingerprint(ssh_key::HashAlg::Sha256)
             .to_string();
+
         *self.observed.lock().expect("SSH fingerprint lock poisoned") = Some(fingerprint.clone());
         Ok(fingerprint == self.expected)
     }
@@ -53,12 +54,16 @@ pub(super) async fn execute(
             .as_ref()
             .ok_or_else(|| anyhow!("SSH host is required"))?,
     )?;
+
     let port = u16::try_from(spec.port).context("SSH port is out of range")?;
+
     let address = EgressGuard::new(task.egress_policy.clone())?
         .resolve(&host, port)
         .await?
         .remove(0);
+
     let timeout = Duration::from_millis(u64::from(task.timeout_millis.max(1)));
+
     tokio::time::timeout(timeout, execute_inner(address, spec, context))
         .await
         .context("SSH check timed out")?
@@ -72,6 +77,7 @@ async fn execute_inner(
     let started_at = now_micros();
     let identification = exchange_identification(address).await?;
     let identification_finished = now_micros();
+
     let Some(identification) = identification else {
         return Ok(failure(
             "ssh_identification_missing",
@@ -89,12 +95,14 @@ async fn execute_inner(
             Vec::new(),
         ));
     };
+
     let identification_matches = spec
         .expected_identification_regex
         .as_ref()
         .map(|pattern| Regex::new(pattern).map(|regex| regex.is_match(&identification)))
         .transpose()?
         .unwrap_or(true);
+
     let identification_evidence = evidence(
         "identification",
         started_at,
@@ -116,10 +124,12 @@ async fn execute_inner(
         },
         HashMap::from([("server_identification".into(), identification.clone())]),
     );
+
     let base_metadata = HashMap::from([
         ("remote_address".into(), address.to_string()),
         ("server_identification".into(), identification.clone()),
     ]);
+
     if !identification_matches {
         return Ok(failure(
             "ssh_identification_mismatch",
@@ -129,9 +139,11 @@ async fn execute_inner(
             context.redact(&identification).into_bytes(),
         ));
     }
+
     let Some(authentication) = &spec.authentication else {
         return Ok(success(base_metadata, vec![identification_evidence]));
     };
+
     authenticated_check(
         address,
         spec,
@@ -155,25 +167,33 @@ async fn authenticated_check(
         .expected_host_key_sha256
         .clone()
         .ok_or_else(|| anyhow!("SSH authentication requires a host key fingerprint"))?;
+
     let observed = Arc::new(std::sync::Mutex::new(None));
+
     let verifier = HostKeyVerifier {
         expected: expected_fingerprint.clone(),
         observed: observed.clone(),
     };
+
     let stream = TcpStream::connect(address).await?;
+
     let config = Arc::new(client::Config {
         inactivity_timeout: None,
         ..Default::default()
     });
+
     let auth_started = now_micros();
     let connected = client::connect_stream(config, stream, verifier).await;
+
     let observed_fingerprint = observed
         .lock()
         .expect("SSH fingerprint lock poisoned")
         .clone();
+
     if let Some(fingerprint) = &observed_fingerprint {
         metadata.insert("host_key_sha256".into(), fingerprint.clone());
     }
+
     let mut session = match connected {
         Ok(session) => session,
         Err(_)
@@ -182,6 +202,7 @@ async fn authenticated_check(
                 .is_some_and(|value| value != expected_fingerprint) =>
         {
             let finished = now_micros();
+
             return Ok(failure(
                 "ssh_host_key_mismatch",
                 "SSH host key fingerprint did not match",
@@ -203,9 +224,11 @@ async fn authenticated_check(
         }
         Err(error) => return Err(error),
     };
+
     let (method, authenticated) = authenticate(&mut session, authentication, context).await?;
     let auth_finished = now_micros();
     metadata.insert("auth_method".into(), method.to_string());
+
     let auth_evidence = evidence(
         "authentication",
         auth_started,
@@ -227,6 +250,7 @@ async fn authenticated_check(
         },
         HashMap::from([("auth_method".into(), method.to_string())]),
     );
+
     if !authenticated {
         return Ok(failure(
             "ssh_authentication_failed",
@@ -236,33 +260,40 @@ async fn authenticated_check(
             Vec::new(),
         ));
     }
+
     let Some(command) = &spec.command else {
         return Ok(success(
             metadata,
             vec![identification_evidence, auth_evidence],
         ));
     };
+
     let command = context.resolve(command)?;
     let command_started = now_micros();
     let result = execute_command(&mut session, &command).await?;
     let command_finished = now_micros();
     let output = String::from_utf8_lossy(&result.output);
+
     let output_matches = spec
         .expected_output_regex
         .as_ref()
         .map(|pattern| Regex::new(pattern).map(|regex| regex.is_match(&output)))
         .transpose()?
         .unwrap_or(true);
+
     let expected_status = spec.expected_exit_status.unwrap_or(0);
     let status_matches = result.exit_status == Some(expected_status);
     let passed = output_matches && status_matches;
+
     metadata.insert(
         "command_exit_status".into(),
         result
             .exit_status
             .map_or_else(|| "missing".into(), |status| status.to_string()),
     );
+
     metadata.insert("output_truncated".into(), result.truncated.to_string());
+
     let command_evidence = evidence(
         "command",
         command_started,
@@ -289,7 +320,9 @@ async fn authenticated_check(
             ("output_truncated".into(), result.truncated.to_string()),
         ]),
     );
+
     let evidence = vec![identification_evidence, auth_evidence, command_evidence];
+
     if passed {
         Ok(success(metadata, evidence))
     } else {
@@ -313,31 +346,40 @@ async fn exchange_identification(address: std::net::SocketAddr) -> Result<Option
 async fn read_identification(stream: &mut (impl AsyncRead + Unpin)) -> Result<Option<String>> {
     let mut line = Vec::with_capacity(IDENTIFICATION_MAX_BYTES);
     let mut byte = [0_u8; 1];
+
     for _ in 0..PRE_BANNER_MAX_LINES {
         line.clear();
+
         loop {
             if line.len() == IDENTIFICATION_MAX_BYTES || stream.read(&mut byte).await? == 0 {
                 return Ok(None);
             }
+
             line.push(byte[0]);
+
             if byte[0] == b'\n' {
                 break;
             }
         }
+
         let identification = line.strip_suffix(b"\n").unwrap_or(&line);
         let identification = identification.strip_suffix(b"\r").unwrap_or(identification);
         let supported =
             identification.starts_with(b"SSH-2.0-") || identification.starts_with(b"SSH-1.99-");
+
         let printable = identification
             .iter()
             .all(|byte| byte.is_ascii_graphic() || *byte == b' ');
+
         if supported && printable {
             return Ok(Some(String::from_utf8(identification.to_vec())?));
         }
+
         if identification.starts_with(b"SSH-") {
             return Ok(None);
         }
     }
+
     Ok(None)
 }
 

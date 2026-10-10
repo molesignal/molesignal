@@ -23,12 +23,15 @@ const SCHEMA_VERSION: u32 = 1;
 
 pub(crate) fn encode(manifest: &PartitionManifest) -> Result<Bytes> {
     manifest.validate()?;
+
     let schema = Arc::new(Schema::new(vec![
         Field::new("schema_version", DataType::UInt32, false),
         Field::new("manifest_json", DataType::Utf8, false),
     ]));
+
     let json = serde_json::to_string(manifest)
         .map_err(|error| Error::internal(format!("serialize partition manifest: {error}")))?;
+
     let batch = RecordBatch::try_new(
         schema.clone(),
         vec![
@@ -37,60 +40,73 @@ pub(crate) fn encode(manifest: &PartitionManifest) -> Result<Bytes> {
         ],
     )
     .map_err(|error| Error::internal(format!("build partition manifest batch: {error}")))?;
+
     let properties = WriterProperties::builder()
         .set_compression(Compression::SNAPPY)
         .build();
+
     let mut output = Vec::with_capacity(64 * 1024);
     let mut writer = ArrowWriter::try_new(&mut output, schema, Some(properties))
         .map_err(|error| Error::internal(format!("open manifest parquet writer: {error}")))?;
+
     writer
         .write(&batch)
         .map_err(|error| Error::internal(format!("write manifest parquet: {error}")))?;
+
     writer
         .close()
         .map_err(|error| Error::internal(format!("close manifest parquet: {error}")))?;
+
     Ok(Bytes::from(output))
 }
 
 pub(super) fn decode(bytes: Bytes) -> Result<PartitionManifest> {
     let builder = ParquetRecordBatchReaderBuilder::try_new(bytes)
         .map_err(|error| Error::internal(format!("open manifest parquet: {error}")))?;
+
     let mut reader = builder
         .with_batch_size(1)
         .build()
         .map_err(|error| Error::internal(format!("build manifest parquet reader: {error}")))?;
+
     let batch = reader
         .next()
         .transpose()
         .map_err(|error| Error::internal(format!("read manifest parquet: {error}")))?
         .ok_or_else(|| Error::internal("partition manifest parquet is empty"))?;
+
     let has_extra_batch = reader
         .next()
         .transpose()
         .map_err(|error| Error::internal(format!("read manifest parquet: {error}")))?
         .is_some();
+
     if batch.num_rows() != 1 || has_extra_batch {
         return Err(Error::internal(
             "partition manifest parquet must contain exactly one row",
         ));
     }
+
     let version = batch
         .column_by_name("schema_version")
         .and_then(|array| array.as_any().downcast_ref::<UInt32Array>())
         .filter(|array| !array.is_null(0))
         .map(|array| array.value(0))
         .ok_or_else(|| Error::internal("manifest schema_version column is invalid"))?;
+
     if version != SCHEMA_VERSION {
         return Err(Error::internal(format!(
             "unsupported partition manifest schema version {version}"
         )));
     }
+
     let json = batch
         .column_by_name("manifest_json")
         .and_then(|array| array.as_any().downcast_ref::<StringArray>())
         .filter(|array| !array.is_null(0))
         .map(|array| array.value(0))
         .ok_or_else(|| Error::internal("manifest_json column is invalid"))?;
+
     let manifest: PartitionManifest = serde_json::from_str(json)
         .map_err(|error| Error::internal(format!("decode partition manifest: {error}")))?;
     manifest.validate()?;

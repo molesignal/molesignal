@@ -71,18 +71,22 @@ impl NodeService for ClusterGrpc {
         let node = node.ok_or_else(|| Status::invalid_argument("node missing"))?;
         // 一节点可有多个角色：整组存库，list_role 按成员匹配命中。
         let mut roles: Vec<PeerRole> = node.roles.iter().copied().map(proto_role_to_app).collect();
+
         if roles.is_empty() {
             roles.push(PeerRole::Standalone);
         }
+
         let ts = if ts_micros == 0 {
             TimestampMicros::now()
         } else {
             TimestampMicros(ts_micros)
         };
+
         self.repo
             .upsert(&node.node_id, &roles, &node.advertise_addr, ts)
             .await
             .map_err(|e| Status::internal(format!("upsert: {e}")))?;
+
         Ok(Response::new(HeartbeatResponse {
             server_ts_micros: TimestampMicros::now().0,
         }))
@@ -94,16 +98,19 @@ impl NodeService for ClusterGrpc {
     ) -> Result<Response<NodeServiceListResponse>, Status> {
         let NodeServiceListRequest { roles } = req.into_inner();
         let since = TimestampMicros(TimestampMicros::now().0 - self.alive_window_secs * 1_000_000);
+
         let rows = self
             .repo
             .list_alive(since)
             .await
             .map_err(|e| Status::internal(format!("list_alive: {e}")))?;
+
         let role_filter: Option<std::collections::HashSet<PeerRole>> = if roles.is_empty() {
             None
         } else {
             Some(roles.into_iter().map(proto_role_to_app).collect())
         };
+
         let nodes: Vec<NodeInfo> = rows
             .into_iter()
             .filter(|r| {
@@ -123,6 +130,7 @@ impl NodeService for ClusterGrpc {
                 version: env!("CARGO_PKG_VERSION").to_string(),
             })
             .collect();
+
         Ok(Response::new(NodeServiceListResponse { nodes }))
     }
 }

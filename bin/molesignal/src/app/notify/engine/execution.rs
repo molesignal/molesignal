@@ -30,11 +30,14 @@ impl NotifyEngine {
         dispatch: NotifyDispatch,
     ) -> Result<NotifyEventOutcome> {
         validate_event(&dispatch.event)?;
+
         let policies = self
             .policies
             .list_enabled_for_event(&dispatch.event.organization_id, &dispatch.event.event_type)
             .await?;
+
         let mut outcomes = Vec::new();
+
         for policy in policies {
             match policy_matches(&policy, &dispatch.event) {
                 Ok(true) => {
@@ -51,6 +54,7 @@ impl NotifyEngine {
                 }),
             }
         }
+
         Ok(NotifyEventOutcome {
             event_id: dispatch.event.id,
             policies: outcomes,
@@ -74,6 +78,7 @@ impl NotifyEngine {
                 };
             }
         };
+
         let recipients = match self.resolve_recipients(policy, event).await {
             Ok(recipients) => recipients,
             Err(error) => {
@@ -84,13 +89,16 @@ impl NotifyEngine {
                 };
             }
         };
+
         let mut outcomes = Vec::with_capacity(recipients.len());
+
         for recipient in recipients {
             outcomes.push(
                 self.deliver_recipient(policy, event, recipient, &message, stage_override)
                     .await,
             );
         }
+
         NotifyPolicyOutcome {
             policy_id: policy.id.clone(),
             recipients: outcomes,
@@ -109,6 +117,7 @@ impl NotifyEngine {
                 "notify preview event organization does not match tenant context",
             ));
         }
+
         validate_event(&event)?;
         let policy = self.policies.get(organization_id, policy_id).await?;
         self.preview_policy_record(policy, event).await
@@ -120,6 +129,7 @@ impl NotifyEngine {
         event: NotifyEvent,
     ) -> Result<NotifyPolicyPreview> {
         let matched = policy_matches(&policy, &event)?;
+
         if !matched {
             return Ok(NotifyPolicyPreview {
                 policy_id: policy.id,
@@ -127,10 +137,13 @@ impl NotifyEngine {
                 recipients: Vec::new(),
             });
         }
+
         let recipients = self.resolve_recipients(&policy, &event).await?;
         let mut plans = Vec::with_capacity(recipients.len());
+
         for recipient in recipients {
             let routes = self.resolve_routes(&policy, &event, &recipient).await?;
+
             plans.push(NotifyRecipientPlan {
                 user_id: recipient.user_id,
                 team_id: recipient.team_id,
@@ -148,6 +161,7 @@ impl NotifyEngine {
                     .collect(),
             });
         }
+
         Ok(NotifyPolicyPreview {
             policy_id: policy.id,
             matched: true,
@@ -186,30 +200,37 @@ impl NotifyEngine {
                 };
             }
         };
+
         let mut attempts = Vec::new();
         let multi_connector = policy.delivery_mode
             == crate::domain::notify::policy::NotifyDeliveryMode::MultiConnector;
         let mut user_route_succeeded = false;
+
         for mut route in routes {
             let primary_route =
                 route.stage == crate::domain::notify::delivery::DeliveryStage::UserPrimary;
+
             if multi_connector && user_route_succeeded && !primary_route {
                 break;
             }
+
             if let Some(stage) = stage_override {
                 route.stage = stage;
             }
+
             match self
                 .attempt_route(policy, event, &recipient, route, message)
                 .await
             {
                 Ok((delivered, delivery)) => {
                     attempts.push(delivery);
+
                     if delivered {
                         if multi_connector && primary_route {
                             user_route_succeeded = true;
                             continue;
                         }
+
                         return NotifyRecipientOutcome {
                             user_id: recipient.user_id,
                             team_id: recipient.team_id,
@@ -230,6 +251,7 @@ impl NotifyEngine {
                 }
             }
         }
+
         NotifyRecipientOutcome {
             user_id: recipient.user_id,
             team_id: recipient.team_id,
@@ -249,6 +271,7 @@ impl NotifyEngine {
     ) -> Result<(bool, NotifyDelivery)> {
         let sent_at = TimestampMicros::now();
         let idempotency_key = idempotency_key(policy, event, recipient, &route);
+
         let claim = self
             .deliveries
             .claim(NotifyDelivery {
@@ -275,21 +298,26 @@ impl NotifyEngine {
                 created_at: sent_at,
             })
             .await?;
+
         if !claim.acquired {
             let delivered = matches!(
                 claim.delivery.status,
                 DeliveryStatus::Sending | DeliveryStatus::Success | DeliveryStatus::Acknowledged
             );
+
             return Ok((delivered, claim.delivery));
         }
 
         let adapter = self
             .connector_registry
             .get(&route.connector.connector_type)?;
+
         let started = Instant::now();
+
         let result = adapter
             .validate_config(&route.connector.config)
             .and_then(|_| adapter.validate_target(&route.target));
+
         let result = match result {
             Ok(()) => {
                 adapter
@@ -298,7 +326,9 @@ impl NotifyEngine {
             }
             Err(error) => Err(error),
         };
+
         let finished_at = TimestampMicros::now();
+
         let (delivered, completion) = match result {
             Ok(result) if result.delivered => (
                 true,
@@ -333,10 +363,12 @@ impl NotifyEngine {
                 },
             ),
         };
+
         let delivery = self
             .deliveries
             .complete(&event.organization_id, &claim.delivery.id, completion)
             .await?;
+
         Ok((delivered, delivery))
     }
 }
@@ -347,14 +379,17 @@ pub(super) fn validate_event(event: &NotifyEvent) -> Result<()> {
             "notify event id must contain between 1 and 255 bytes",
         ));
     }
+
     if event.event_type.trim().is_empty() || event.event_type.len() > 128 {
         return Err(Error::invalid(
             "notify event type must contain between 1 and 128 bytes",
         ));
     }
+
     if !event.attributes.is_object() {
         return Err(Error::invalid("notify event attributes must be an object"));
     }
+
     Ok(())
 }
 
@@ -365,11 +400,13 @@ fn idempotency_key(
     route: &ResolvedRoute,
 ) -> String {
     let mut hasher = blake3::Hasher::new();
+
     let recipient_scope = if route.target.target_type == NotifyTargetType::DirectUser {
         recipient.user_id.as_str()
     } else {
         ""
     };
+
     for part in [
         event.organization_id.as_str(),
         &event.id,
@@ -387,6 +424,7 @@ fn idempotency_key(
         hasher.update(&(part.len() as u64).to_le_bytes());
         hasher.update(part.as_bytes());
     }
+
     format!("notify:{}", hasher.finalize().to_hex())
 }
 

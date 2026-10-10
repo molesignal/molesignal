@@ -16,6 +16,7 @@ use crate::{
 
 /// MoleSignal 自身遥测使用的精确保留流名。仅该名字保留，其他 `_` 前缀不受影响。
 pub const MOLESIGNAL_SYSTEM_STREAM: &str = "_molesignal";
+
 /// 所有公共 continuous-profile 入口固定使用的 metadata stream。
 pub const DEFAULT_PROFILE_STREAM: &str = "default";
 
@@ -28,9 +29,11 @@ pub fn validate_stream_name(name: &str) -> Result<()> {
     if name.is_empty() || name.len() > 255 {
         return Err(Error::invalid("stream name must be 1..255 characters"));
     }
+
     if matches!(name, "." | "..") {
         return Err(Error::invalid("stream name must not be a path segment"));
     }
+
     if !name
         .chars()
         .all(|character| character.is_ascii_alphanumeric() || matches!(character, '_' | '-' | '.'))
@@ -39,6 +42,7 @@ pub fn validate_stream_name(name: &str) -> Result<()> {
             "stream name `{name}` may only contain letters, numbers, '_', '-' and '.'"
         )));
     }
+
     Ok(())
 }
 
@@ -113,6 +117,7 @@ impl FieldDef {
         } else {
             StreamIndexType::None
         };
+
         self.index_type = Some(index_type);
         self.indexed = index_type != StreamIndexType::None;
         self.exact = index_type == StreamIndexType::Exact;

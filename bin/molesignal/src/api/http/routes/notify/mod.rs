@@ -36,6 +36,7 @@ pub(super) fn parse_category(
     value: &str,
 ) -> Result<crate::domain::notify::preference::NotifyCategory> {
     use crate::domain::notify::preference::NotifyCategory;
+
     match value {
         "alert" => Ok(NotifyCategory::Alert),
         "oncall" => Ok(NotifyCategory::Oncall),
@@ -56,16 +57,19 @@ pub(super) async fn ensure_user_scope(
     if &context.user_id == user_id {
         return Ok(());
     }
+
     let permission = if write {
         "org.members.manage"
     } else {
         "org.members.read"
     };
+
     if !context.has_permission(permission) {
         return Err(Error::forbidden(format!(
             "{permission} permission is required for another user's notify settings"
         )));
     }
+
     let is_member = state
         .iam
         .service
@@ -74,8 +78,10 @@ pub(super) async fn ensure_user_scope(
         .await?
         .into_iter()
         .any(|membership| membership.user_id == *user_id);
+
     if !is_member {
         return Err(Error::not_found("organization user"));
     }
+
     Ok(())
 }

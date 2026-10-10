@@ -42,6 +42,7 @@ impl SsoStateStore {
         let expires_at = now + self.ttl_us;
         let mut g = self.inner.lock().expect("sso state store poisoned");
         g.retain(|_, e| e.expires_at_us > now);
+
         g.insert(
             state,
             SsoStateEntry {
@@ -50,6 +51,7 @@ impl SsoStateStore {
                 expires_at_us: expires_at,
             },
         );
+
         expires_at
     }
 
@@ -58,6 +60,7 @@ impl SsoStateStore {
         let now = TimestampMicros::now().0;
         let mut g = self.inner.lock().expect("sso state store poisoned");
         let entry = g.remove(state)?;
+
         if entry.expires_at_us > now {
             Some(entry)
         } else {

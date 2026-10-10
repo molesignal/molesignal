@@ -24,15 +24,18 @@ pub(super) async fn execute(
     match kind {
         BuiltinToolKind::ListNotificationConnectors => {
             let args: ListArgs = parse_args(arguments)?;
+
             let connectors = runtime
                 .alerting
                 .notify
                 .list_connectors(&auth.org_id)
                 .await?;
+
             json_result(&bounded(connectors, args.limit, 500))
         }
         BuiltinToolKind::GetNotificationConnector => {
             let args: IdArg = parse_args(arguments)?;
+
             json_result(
                 &runtime
                     .alerting
@@ -43,15 +46,18 @@ pub(super) async fn execute(
         }
         BuiltinToolKind::ListNotificationPolicies => {
             let args: ListArgs = parse_args(arguments)?;
+
             let policies = runtime
                 .alerting
                 .notify_engine
                 .list_policies(&auth.org_id)
                 .await?;
+
             json_result(&bounded(policies, args.limit, 500))
         }
         BuiltinToolKind::GetNotificationPolicy => {
             let args: IdArg = parse_args(arguments)?;
+
             json_result(
                 &runtime
                     .alerting
@@ -67,6 +73,7 @@ pub(super) async fn execute(
         }
         BuiltinToolKind::GetNotificationTemplate => {
             let args: IdArg = parse_args(arguments)?;
+
             json_result(
                 &runtime
                     .alerting
@@ -77,11 +84,13 @@ pub(super) async fn execute(
         }
         BuiltinToolKind::ListNotificationDeliveries => {
             let args: DeliveryArgs = parse_args(arguments)?;
+
             let status = args
                 .status
                 .as_deref()
                 .map(parse_delivery_status)
                 .transpose()?;
+
             json_result(
                 &runtime
                     .alerting
@@ -100,6 +109,7 @@ pub(super) async fn execute(
         }
         BuiltinToolKind::GetNotificationDelivery => {
             let args: IdArg = parse_args(arguments)?;
+
             json_result(
                 &runtime
                     .alerting
@@ -148,6 +158,7 @@ impl IdArg {
             "delivery_id" => &self.delivery_id,
             _ => unreachable!(),
         };
+
         value
             .as_ref()
             .filter(|value| !value.trim().is_empty())

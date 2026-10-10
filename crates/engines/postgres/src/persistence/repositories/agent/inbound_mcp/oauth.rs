@@ -17,6 +17,7 @@ const CLIENT_COLS: &str = "client_id,client_name,redirect_uris,grant_types,respo
     token_endpoint_auth_method,scope,client_secret_hash,client_id_issued_at,\
     client_secret_expires_at,client_uri,software_id,software_version,\
     created_at_micros,updated_at_micros";
+
 const TOKEN_COLS: &str = "id,token_hash,token_kind,family_id,client_id,org_id,user_id,scope,\
     resource,expires_at_micros,revoked_at_micros,rotated_from,created_at_micros";
 
@@ -53,6 +54,7 @@ pub(super) async fn create_client(
     client: NewInboundMcpOAuthClient,
 ) -> Result<InboundMcpOAuthClient> {
     let now = TimestampMicros::now();
+
     let row = sqlx::query(&format!(
         "INSERT INTO inbound_mcp_oauth_clients ({CLIENT_COLS})
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$14)
@@ -75,6 +77,7 @@ pub(super) async fn create_client(
     .fetch_one(pool)
     .await
     .map_err(sqlx_err)?;
+
     client_row(row)
 }
 
@@ -112,6 +115,7 @@ pub(super) async fn delete_client(pool: &PgPool, client_id: &str) -> Result<()> 
         .execute(pool)
         .await
         .map_err(sqlx_err)?;
+
     Ok(())
 }
 
@@ -136,6 +140,7 @@ pub(super) async fn create_code(pool: &PgPool, code: InboundMcpAuthorizationCode
     .execute(pool)
     .await
     .map_err(sqlx_err)?;
+
     Ok(())
 }
 
@@ -247,11 +252,13 @@ async fn insert_token(
     .await
     .map_err(sqlx_err)?
     .rows_affected();
+
     if inserted != 1 {
         return Err(Error::unauthorized(
             "OAuth client was removed before token issuance completed",
         ));
     }
+
     Ok(())
 }
 
@@ -262,9 +269,11 @@ pub(super) async fn create_token_pair(
 ) -> Result<()> {
     let mut transaction = sqlx::begin(pool).await.map_err(sqlx_err)?;
     insert_token(&mut transaction, access).await?;
+
     if let Some(refresh) = refresh {
         insert_token(&mut transaction, refresh).await?;
     }
+
     transaction.commit().await.map_err(sqlx_err)?;
     Ok(())
 }
@@ -277,6 +286,7 @@ pub(super) async fn rotate_token_pair(
     refresh: Option<InboundMcpOAuthToken>,
 ) -> Result<bool> {
     let mut transaction = sqlx::begin(pool).await.map_err(sqlx_err)?;
+
     let consumed = sqlx::query(
         "UPDATE inbound_mcp_oauth_tokens SET revoked_at_micros=$2
          WHERE token_hash=$1 AND token_kind='refresh' AND revoked_at_micros IS NULL
@@ -288,14 +298,18 @@ pub(super) async fn rotate_token_pair(
     .await
     .map_err(sqlx_err)?
     .rows_affected();
+
     if consumed != 1 {
         transaction.rollback().await.map_err(sqlx_err)?;
         return Ok(false);
     }
+
     insert_token(&mut transaction, access).await?;
+
     if let Some(refresh) = refresh {
         insert_token(&mut transaction, refresh).await?;
     }
+
     transaction.commit().await.map_err(sqlx_err)?;
     Ok(true)
 }
@@ -366,6 +380,7 @@ pub(super) async fn list_connections(
     .fetch_all(pool)
     .await
     .map_err(sqlx_err)?;
+
     rows.into_iter()
         .map(|row| {
             Ok(InboundMcpOAuthConnection {
@@ -400,6 +415,7 @@ pub(super) async fn revoke_token(
     .execute(pool)
     .await
     .map_err(sqlx_err)?;
+
     Ok(())
 }
 
@@ -419,6 +435,7 @@ pub(super) async fn revoke_family(
     .execute(pool)
     .await
     .map_err(sqlx_err)?;
+
     Ok(())
 }
 
@@ -438,5 +455,6 @@ pub(super) async fn revoke_client_tokens(
     .execute(pool)
     .await
     .map_err(sqlx_err)?;
+
     Ok(())
 }

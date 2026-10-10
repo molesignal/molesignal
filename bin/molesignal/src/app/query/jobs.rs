@@ -93,9 +93,11 @@ impl SearchJobService {
         request.org_id = org_id.clone();
         let mut request_json = serde_json::to_value(request)
             .map_err(|error| Error::internal(format!("request json: {error}")))?;
+
         let object = request_json
             .as_object_mut()
             .ok_or_else(|| Error::internal("search job request must serialize as an object"))?;
+
         object.insert("pipeline_id".into(), Value::String(pipeline_id.0));
         object.insert("backfill_window_micros".into(), window_micros.into());
         self.submit_json_with_id(Id::new(), org_id, user_id, role_key, request_json, ttl_secs)
@@ -113,6 +115,7 @@ impl SearchJobService {
     ) -> Result<SearchJob> {
         let now = TimestampMicros::now();
         let ttl = ttl_secs.unwrap_or(DEFAULT_TTL_SECS).clamp(60, 30 * 86_400);
+
         self.repository
             .create(SearchJob {
                 id,
@@ -153,10 +156,12 @@ impl SearchJobService {
         let job = self.repository.get(org_id, id).await?;
         let page = page.max(1);
         let page_size = page_size.clamp(1, 10_000);
+
         let rows = if job.state == SearchJobState::Done {
             let key = job.result_object_key.as_deref().ok_or_else(|| {
                 Error::internal("completed search job is missing its result object")
             })?;
+
             let bytes = self
                 .object_store
                 .get(&ObjectPath::from(key))
@@ -167,7 +172,9 @@ impl SearchJobService {
                 .map_err(|error| {
                     Error::internal(format!("read search job result bytes: {error}"))
                 })?;
+
             let offset = page.saturating_sub(1).saturating_mul(page_size) as usize;
+
             bytes
                 .split(|byte| *byte == b'\n')
                 .filter(|line| !line.is_empty())
@@ -182,9 +189,11 @@ impl SearchJobService {
         } else {
             Vec::new()
         };
+
         let has_more = job
             .result_rows
             .is_some_and(|total| page.saturating_mul(page_size) < total);
+
         Ok(SearchJobResultPage {
             state: job.state,
             result_rows: job.result_rows,
@@ -201,42 +210,51 @@ impl SearchJobService {
             .repository
             .cancel(org_id, id, TimestampMicros::now())
             .await?;
+
         let _ = self
             .query
             .registry()
             .cancel(&execution_id(id, job.attempt).0);
+
         Ok(job)
     }
 
     pub async fn retry(&self, org_id: &Id, id: &Id) -> Result<SearchJob> {
         let previous = self.repository.get(org_id, id).await?;
         let now = TimestampMicros::now();
+
         let ttl = previous
             .expires_at
             .0
             .saturating_sub(previous.submitted_at.0)
             .max(60 * 1_000_000);
+
         let job = self
             .repository
             .retry(org_id, id, now, TimestampMicros(now.0.saturating_add(ttl)))
             .await?;
+
         if let Some(key) = previous.result_object_key {
             let _ = self.object_store.delete(&ObjectPath::from(key)).await;
         }
+
         Ok(job)
     }
 
     pub async fn delete(&self, org_id: &Id, id: &Id) -> Result<()> {
         let job = self.repository.get(org_id, id).await?;
+
         if matches!(job.state, SearchJobState::Pending | SearchJobState::Running) {
             let _ = self
                 .query
                 .registry()
                 .cancel(&execution_id(id, job.attempt).0);
         }
+
         if let Some(key) = job.result_object_key {
             let _ = self.object_store.delete(&ObjectPath::from(key)).await;
         }
+
         self.repository.delete(org_id, id).await
     }
 }

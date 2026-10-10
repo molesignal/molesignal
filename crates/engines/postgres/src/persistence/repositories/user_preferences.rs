@@ -125,6 +125,7 @@ impl UserPreferencesRepository for PgUserPreferencesRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         row.map(row_to_preferences).transpose()
     }
 
@@ -167,6 +168,7 @@ impl UserPreferencesRepository for PgUserPreferencesRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(preferences)
     }
 }

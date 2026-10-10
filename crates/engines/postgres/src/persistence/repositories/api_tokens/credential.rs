@@ -9,13 +9,16 @@ pub fn generate_token_parts() -> (String, String) {
     use rand::TryRng as _;
     const ALPHA: &[u8] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
     let mut bytes = [0_u8; 48];
+
     rand::rngs::SysRng
         .try_fill_bytes(&mut bytes)
         .expect("operating system RNG");
+
     let value: String = bytes
         .iter()
         .map(|byte| ALPHA[(*byte as usize) % ALPHA.len()] as char)
         .collect();
+
     (value[..16].to_string(), value[16..].to_string())
 }
 
@@ -46,8 +49,10 @@ pub fn hash_secret(secret: &str) -> Result<String> {
         Algorithm, Argon2, Params, Version,
         password_hash::{PasswordHasher, SaltString, rand_core::OsRng},
     };
+
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, Params::default());
+
     argon2
         .hash_password(secret.as_bytes(), &salt)
         .map(|hash| hash.to_string())
@@ -59,9 +64,11 @@ pub fn verify_secret(secret: &str, hash: &str) -> bool {
         Argon2,
         password_hash::{PasswordHash, PasswordVerifier},
     };
+
     let Ok(parsed) = PasswordHash::new(hash) else {
         return false;
     };
+
     Argon2::default()
         .verify_password(secret.as_bytes(), &parsed)
         .is_ok()
@@ -75,6 +82,7 @@ pub fn verify_rum_secret(secret: &str, hash: &str) -> bool {
     let Some(expected) = hash.strip_prefix("sha256:") else {
         return false;
     };
+
     constant_time_eq(
         expected.as_bytes(),
         hex::encode(Sha256::digest(secret.as_bytes())).as_bytes(),
@@ -85,6 +93,7 @@ fn constant_time_eq(left: &[u8], right: &[u8]) -> bool {
     if left.len() != right.len() {
         return false;
     }
+
     left.iter()
         .zip(right)
         .fold(0_u8, |difference, (left, right)| {

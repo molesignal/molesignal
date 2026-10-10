@@ -36,6 +36,7 @@ fn optional_json(row: &sqlx::postgres::PgRow, column: &str) -> Result<Option<Val
 
 fn task_row(row: sqlx::postgres::PgRow) -> Result<InboundMcpTask> {
     let request: Json<Value> = row.try_get("request").map_err(sqlx_err)?;
+
     Ok(InboundMcpTask {
         id: Id(row.try_get("id").map_err(sqlx_err)?),
         org_id: Id(row.try_get("org_id").map_err(sqlx_err)?),
@@ -81,6 +82,7 @@ pub(super) async fn create(pool: &PgPool, task: InboundMcpTask) -> Result<Inboun
     .fetch_one(pool)
     .await
     .map_err(sqlx_err)?;
+
     task_row(row)
 }
 
@@ -103,6 +105,7 @@ pub(super) async fn get(
     .await
     .map_err(sqlx_err)?
     .ok_or_else(|| Error::not_found("inbound MCP task"))?;
+
     task_row(row)
 }
 
@@ -111,6 +114,7 @@ pub(super) async fn update(pool: &PgPool, task: InboundMcpTask) -> Result<Inboun
     let principal_type = task.principal_type.clone();
     let principal_id = task.principal_id.clone();
     let task_id = task.id.clone();
+
     let row = sqlx::query(&format!(
         "UPDATE inbound_mcp_tasks SET status=$6,status_message=$7,input_requests=$8,
             input_responses=$9,result=$10,error=$11,cancel_requested=$12,
@@ -142,6 +146,7 @@ pub(super) async fn update(pool: &PgPool, task: InboundMcpTask) -> Result<Inboun
     .fetch_optional(pool)
     .await
     .map_err(sqlx_err)?;
+
     match row {
         Some(row) => task_row(row),
         None => get(pool, &org_id, &principal_type, &principal_id, &task_id).await,
@@ -170,8 +175,10 @@ pub(super) async fn request_cancellation(
     .execute(pool)
     .await
     .map_err(sqlx_err)?;
+
     if updated.rows_affected() == 0 {
         let _ = get(pool, org_id, principal_type, principal_id, task_id).await?;
     }
+
     Ok(())
 }

@@ -53,6 +53,7 @@ impl IncidentRcaRepository for PgIncidentRcaRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(row.map(row_to))
     }
 
@@ -89,6 +90,7 @@ impl IncidentRcaRepository for PgIncidentRcaRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(self.get(&rca.incident_id).await?.unwrap_or(rca))
     }
 }

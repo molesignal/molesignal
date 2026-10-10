@@ -27,21 +27,26 @@ impl NotifyEngine {
         delivery_id: &Id,
     ) -> Result<NotifyEventOutcome> {
         let delivery = self.deliveries.get(organization_id, delivery_id).await?;
+
         if delivery.policy_id.is_none() {
             return Err(Error::invalid("notify test deliveries cannot be retried"));
         }
+
         if delivery.status != DeliveryStatus::Failed {
             return Err(Error::invalid(
                 "only failed notify deliveries can be retried",
             ));
         }
+
         let claim = self
             .events
             .claim_retry(organization_id, &delivery.event_id, TimestampMicros::now())
             .await?;
+
         if !claim.acquired {
             return Err(Error::conflict("notify event is already being processed"));
         }
+
         self.process_claimed(claim.record).await
     }
 
@@ -50,10 +55,12 @@ impl NotifyEngine {
     pub async fn handle_event(&self, dispatch: NotifyDispatch) -> Result<NotifyEventOutcome> {
         self.enqueue_record(dispatch.clone()).await?;
         let now = TimestampMicros::now();
+
         let claim = self
             .events
             .claim(&dispatch.event.organization_id, &dispatch.event.id, now)
             .await?;
+
         if !claim.acquired {
             return match claim.record.status {
                 NotifyEventStatus::Completed => {
@@ -68,6 +75,7 @@ impl NotifyEngine {
                 )),
             };
         }
+
         self.process_claimed(claim.record).await
     }
 
@@ -87,7 +95,9 @@ impl NotifyEngine {
                 },
             )
             .await?;
+
         let mut grouped = CompletedDeliveries::new();
+
         for delivery in deliveries
             .into_iter()
             .filter(|delivery| delivery.event_id == event_id)
@@ -98,6 +108,7 @@ impl NotifyEngine {
             ) else {
                 continue;
             };
+
             grouped
                 .entry(policy_id.0.clone())
                 .or_insert_with(|| (policy_id, BTreeMap::new()))
@@ -107,6 +118,7 @@ impl NotifyEngine {
                 .1
                 .push(delivery);
         }
+
         let policies = grouped
             .into_values()
             .map(|(policy_id, recipients)| NotifyPolicyOutcome {
@@ -121,12 +133,14 @@ impl NotifyEngine {
                                 delivery.id.0.clone(),
                             )
                         });
+
                         let delivered = attempts.iter().any(|delivery| {
                             matches!(
                                 delivery.status,
                                 DeliveryStatus::Success | DeliveryStatus::Acknowledged
                             )
                         });
+
                         NotifyRecipientOutcome {
                             user_id,
                             team_id: None,
@@ -139,6 +153,7 @@ impl NotifyEngine {
                 error: None,
             })
             .collect();
+
         Ok(NotifyEventOutcome {
             event_id: event_id.to_string(),
             policies,
@@ -161,7 +176,9 @@ impl NotifyEngine {
             .events
             .claim_pending(organization_id, now, limit)
             .await?;
+
         let count = u32::try_from(records.len()).unwrap_or(u32::MAX);
+
         for record in records {
             if let Err(error) = self.process_claimed(record).await {
                 tracing::warn!(
@@ -171,12 +188,14 @@ impl NotifyEngine {
                 );
             }
         }
+
         Ok(count)
     }
 
     async fn enqueue_record(&self, dispatch: NotifyDispatch) -> Result<NotifyEventRecord> {
         super::execution::validate_event(&dispatch.event)?;
         let now = TimestampMicros::now();
+
         self.events
             .enqueue(NotifyEventRecord {
                 event: dispatch.event,
@@ -196,13 +215,16 @@ impl NotifyEngine {
         let organization_id = record.event.organization_id.clone();
         let event_id = record.event.id.clone();
         let attempt = record.attempt;
+
         let result = self
             .execute_dispatch_checked(NotifyDispatch {
                 event: record.event,
                 message: record.message,
             })
             .await;
+
         let now = TimestampMicros::now();
+
         match result {
             Ok(outcome) => {
                 self.events
@@ -215,12 +237,14 @@ impl NotifyEngine {
                         now,
                     )
                     .await?;
+
                 Ok(outcome)
             }
             Err(error) => {
                 let terminal = attempt >= MAX_EVENT_ATTEMPTS;
                 let next_attempt_at =
                     TimestampMicros(now.0.saturating_add(retry_delay_micros(attempt.max(1))));
+
                 self.events
                     .finish(
                         &organization_id,
@@ -235,6 +259,7 @@ impl NotifyEngine {
                         now,
                     )
                     .await?;
+
                 Err(error)
             }
         }
@@ -245,9 +270,11 @@ impl NotifyEngine {
         dispatch: NotifyDispatch,
     ) -> Result<NotifyEventOutcome> {
         let outcome = self.execute_dispatch(dispatch).await?;
+
         if let Some(error) = delivery_failure(&outcome) {
             return Err(Error::unavailable(error));
         }
+
         Ok(outcome)
     }
 }
@@ -271,6 +298,7 @@ fn delivery_failure(outcome: &NotifyEventOutcome) -> Option<String> {
                 policy.policy_id
             ));
         }
+
         for recipient in &policy.recipients {
             if !recipient.delivered {
                 return Some(format!(
@@ -285,6 +313,7 @@ fn delivery_failure(outcome: &NotifyEventOutcome) -> Option<String> {
             }
         }
     }
+
     None
 }
 

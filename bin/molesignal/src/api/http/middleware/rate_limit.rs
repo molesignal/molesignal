@@ -62,12 +62,16 @@ impl RouterRateLimits {
             RouteClass::Intake => self.rate.intake_qps,
             RouteClass::Query => self.rate.query_qps,
         };
+
         let qps = NonZeroU32::new(qps)?;
+
         let burst = qps
             .get()
             .saturating_mul(self.rate.burst_multiplier)
             .max(qps.get());
+
         let mut limiters = self.limiters.lock();
+
         let limiter = limiters
             .entry((org_id.to_owned(), class))
             .or_insert_with(|| {
@@ -75,12 +79,14 @@ impl RouterRateLimits {
                     .allow_burst(NonZeroU32::new(burst).expect("burst is at least qps"));
                 Arc::new(RateLimiter::direct(quota))
             });
+
         Some(limiter.clone())
     }
 
     /// `None` 表示放行，`Some(秒)` 是建议的重试等待。
     fn check(&self, org_id: &str, class: RouteClass) -> Option<u64> {
         let limiter = self.limiter(org_id, class)?;
+
         limiter.check().err().map(|not_until| {
             not_until
                 .wait_time_from(DefaultClock::default().now())
@@ -97,21 +103,26 @@ pub async fn rate_limit_layer(
     next: Next,
 ) -> Response {
     let class = RouteClass::of(req.uri().path());
+
     let org_id = req
         .extensions()
         .get::<IamContext>()
         .map(|context| context.org_id.0.clone());
+
     if let (Some(class), Some(org_id)) = (class, org_id)
         && let Some(retry_after) = limits.check(&org_id, class)
     {
         let mut response = Error::resource_exhausted("rate limit exceeded").into_response();
+
         response.headers_mut().insert(
             "Retry-After",
             HeaderValue::from_str(&retry_after.to_string())
                 .unwrap_or_else(|_| HeaderValue::from_static("1")),
         );
+
         return response;
     }
+
     next.run(req).await
 }
 

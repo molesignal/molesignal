@@ -35,9 +35,11 @@ async fn insert_revision(
     .fetch_one(&mut *connection)
     .await
     .map_err(super::sqlx_err)?;
+
     if kind != revision.spec.kind().as_str() {
         return Err(Error::invalid("Monitor Revision type cannot change"));
     }
+
     let expected_number: i32 = sqlx::query_scalar(
         "SELECT COALESCE(MAX(revision_number), 0) + 1
          FROM synthetic_monitor_revisions
@@ -48,13 +50,16 @@ async fn insert_revision(
     .fetch_one(&mut *connection)
     .await
     .map_err(super::sqlx_err)?;
+
     if revision.number != expected_number as u32 {
         return Err(Error::conflict(format!(
             "next Monitor Revision is {expected_number}, received {}",
             revision.number
         )));
     }
+
     validate_locations(connection, revision).await?;
+
     sqlx::query(
         "INSERT INTO synthetic_monitor_revisions
             (id, organization_id, monitor_id, revision_number, spec, schedule,
@@ -89,6 +94,7 @@ async fn insert_revision(
     .execute(&mut *connection)
     .await
     .map_err(super::sqlx_err)?;
+
     for (position, location_id) in revision.location_ids.iter().enumerate() {
         sqlx::query(
             "INSERT INTO synthetic_monitor_revision_locations
@@ -103,6 +109,7 @@ async fn insert_revision(
         .await
         .map_err(super::sqlx_err)?;
     }
+
     Ok(())
 }
 
@@ -114,18 +121,22 @@ async fn validate_locations(
         if !revision.location_ids.is_empty() {
             return Err(Error::invalid("Heartbeat Monitors do not use Locations"));
         }
+
         return Ok(());
     }
+
     if revision.location_ids.is_empty() {
         return Err(Error::invalid(
             "active probe Monitors require at least one Location",
         ));
     }
+
     let ids = revision
         .location_ids
         .iter()
         .map(Id::as_str)
         .collect::<Vec<_>>();
+
     let count: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM synthetic_probe_locations
          WHERE id = ANY($2) AND lifecycle = 'active'
@@ -136,11 +147,13 @@ async fn validate_locations(
     .fetch_one(&mut *connection)
     .await
     .map_err(super::sqlx_err)?;
+
     if count != ids.len() as i64 {
         return Err(Error::invalid(
             "Monitor Revision contains unavailable or cross-organization Locations",
         ));
     }
+
     Ok(())
 }
 
@@ -154,6 +167,7 @@ async fn load_revision(
         "SELECT {REVISION_COLS} FROM synthetic_monitor_revisions
          WHERE organization_id = $1 AND monitor_id = $2 AND id = $3"
     );
+
     let row = sqlx::query(&sql)
         .bind(&org_id.0)
         .bind(&monitor_id.0)
@@ -161,6 +175,7 @@ async fn load_revision(
         .fetch_one(pool)
         .await
         .map_err(super::sqlx_err)?;
+
     let location_ids = sqlx::query_scalar::<String>(
         "SELECT location_id FROM synthetic_monitor_revision_locations
          WHERE organization_id = $1 AND revision_id = $2
@@ -174,6 +189,7 @@ async fn load_revision(
     .into_iter()
     .map(Id)
     .collect();
+
     row_to_revision(row, location_ids)
 }
 
@@ -191,7 +207,9 @@ impl SyntheticMonitorRepository for PgSyntheticRepository {
         {
             return Err(Error::invalid("Monitor and first Revision do not match"));
         }
+
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
+
         let sql = format!(
             "INSERT INTO synthetic_monitors
                 (id, organization_id, name, description, kind, lifecycle, state, team_id,
@@ -201,6 +219,7 @@ impl SyntheticMonitorRepository for PgSyntheticRepository {
                      $9, $10, $11, NULL)
              RETURNING {MONITOR_COLS}"
         );
+
         let row = sqlx::query(&sql)
             .bind(&monitor.id.0)
             .bind(&monitor.organization_id.0)
@@ -216,7 +235,9 @@ impl SyntheticMonitorRepository for PgSyntheticRepository {
             .fetch_one(&mut *transaction)
             .await
             .map_err(super::sqlx_err)?;
+
         insert_revision(&mut transaction, &revision).await?;
+
         sqlx::query(
             "UPDATE synthetic_monitors SET draft_revision_id = $3
              WHERE organization_id = $1 AND id = $2",
@@ -227,6 +248,7 @@ impl SyntheticMonitorRepository for PgSyntheticRepository {
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
+
         let mut monitor = row_to_monitor(row)?;
         monitor.draft_revision_id = Some(revision.id.clone());
         transaction.commit().await.map_err(super::sqlx_err)?;
@@ -236,6 +258,7 @@ impl SyntheticMonitorRepository for PgSyntheticRepository {
     async fn create_draft_revision(&self, revision: MonitorRevision) -> Result<MonitorRevision> {
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
         insert_revision(&mut transaction, &revision).await?;
+
         sqlx::query(
             "UPDATE synthetic_monitors
              SET draft_revision_id = $3, updated_at_micros = $4
@@ -248,6 +271,7 @@ impl SyntheticMonitorRepository for PgSyntheticRepository {
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
+
         transaction.commit().await.map_err(super::sqlx_err)?;
         Ok(revision)
     }
@@ -272,10 +296,13 @@ impl SyntheticMonitorRepository for PgSyntheticRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(super::sqlx_err)?;
+
         let mut revisions = Vec::with_capacity(ids.len());
+
         for id in ids {
             revisions.push(load_revision(&self.pool, org_id, monitor_id, &Id(id)).await?);
         }
+
         Ok(revisions)
     }
 
@@ -288,6 +315,7 @@ impl SyntheticMonitorRepository for PgSyntheticRepository {
         updated_at: TimestampMicros,
     ) -> Result<ActiveMonitorRevision> {
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
+
         let can_publish: bool = sqlx::query_scalar(REVISION_CAN_PUBLISH_SQL)
             .bind(&org_id.0)
             .bind(&monitor_id.0)
@@ -295,11 +323,13 @@ impl SyntheticMonitorRepository for PgSyntheticRepository {
             .fetch_one(&mut *transaction)
             .await
             .map_err(super::sqlx_err)?;
+
         if !can_publish {
             return Err(Error::conflict(
                 "Monitor Revision must pass a Test Run before publishing",
             ));
         }
+
         let sql = format!(
             "UPDATE synthetic_monitors
              SET active_revision_id = $3,
@@ -309,6 +339,7 @@ impl SyntheticMonitorRepository for PgSyntheticRepository {
              WHERE organization_id = $1 AND id = $2 AND lifecycle <> 'archived'
              RETURNING {MONITOR_COLS}"
         );
+
         let row = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&monitor_id.0)
@@ -318,6 +349,7 @@ impl SyntheticMonitorRepository for PgSyntheticRepository {
             .fetch_one(&mut *transaction)
             .await
             .map_err(super::sqlx_err)?;
+
         let monitor = row_to_monitor(row)?;
         transaction.commit().await.map_err(super::sqlx_err)?;
         let revision = load_revision(&self.pool, org_id, monitor_id, revision_id).await?;
@@ -350,11 +382,13 @@ impl SyntheticMonitorRepository for PgSyntheticRepository {
         .await
         .map_err(super::sqlx_err)?
         .rows_affected();
+
         if rows == 0 {
             return Err(Error::conflict(
                 "Test Run did not pass this Monitor Revision",
             ));
         }
+
         load_revision(&self.pool, org_id, monitor_id, revision_id).await
     }
 
@@ -375,6 +409,7 @@ impl SyntheticMonitorRepository for PgSyntheticRepository {
              WHERE organization_id = $1 AND id = $2
              RETURNING {MONITOR_COLS}"
         );
+
         let row = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&monitor_id.0)
@@ -385,6 +420,7 @@ impl SyntheticMonitorRepository for PgSyntheticRepository {
             .fetch_one(&self.pool)
             .await
             .map_err(super::sqlx_err)?;
+
         row_to_monitor(row)
     }
 
@@ -393,12 +429,14 @@ impl SyntheticMonitorRepository for PgSyntheticRepository {
             "SELECT {MONITOR_COLS} FROM synthetic_monitors
              WHERE organization_id = $1 AND id = $2"
         );
+
         let row = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&monitor_id.0)
             .fetch_one(&self.pool)
             .await
             .map_err(super::sqlx_err)?;
+
         row_to_monitor(row)
     }
 
@@ -408,9 +446,11 @@ impl SyntheticMonitorRepository for PgSyntheticRepository {
         monitor_id: &Id,
     ) -> Result<Option<ActiveMonitorRevision>> {
         let monitor = self.get_monitor(org_id, monitor_id).await?;
+
         let Some(revision_id) = &monitor.active_revision_id else {
             return Ok(None);
         };
+
         let revision = load_revision(&self.pool, org_id, monitor_id, revision_id).await?;
         Ok(Some(ActiveMonitorRevision { monitor, revision }))
     }
@@ -421,6 +461,7 @@ impl SyntheticMonitorRepository for PgSyntheticRepository {
              WHERE organization_id = $1
              ORDER BY archived_at_micros NULLS FIRST, updated_at_micros DESC, id DESC"
         );
+
         sqlx::query(&sql)
             .bind(&org_id.0)
             .fetch_all(&self.pool)
@@ -442,6 +483,7 @@ impl SyntheticMonitorRepository for PgSyntheticRepository {
                AND next_due_at_micros <= $1
              ORDER BY next_due_at_micros, id LIMIT $2"
         );
+
         let monitors = sqlx::query(&sql)
             .bind(due_at.0)
             .bind(i64::from(limit.min(1000)))
@@ -451,12 +493,15 @@ impl SyntheticMonitorRepository for PgSyntheticRepository {
             .into_iter()
             .map(row_to_monitor)
             .collect::<Result<Vec<_>>>()?;
+
         let mut due = Vec::with_capacity(monitors.len());
+
         for monitor in monitors {
             let revision_id = monitor
                 .active_revision_id
                 .as_ref()
                 .ok_or_else(|| Error::internal("due Monitor has no active Revision"))?;
+
             let revision = load_revision(
                 &self.pool,
                 &monitor.organization_id,
@@ -464,8 +509,10 @@ impl SyntheticMonitorRepository for PgSyntheticRepository {
                 revision_id,
             )
             .await?;
+
             due.push(ActiveMonitorRevision { monitor, revision });
         }
+
         Ok(due)
     }
 }

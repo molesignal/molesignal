@@ -53,6 +53,7 @@ async fn get_team(
     let team_id = configured
         .or_else(|| event_team_id(event))
         .ok_or_else(|| Error::invalid("team resolver requires team_id in config or event"))?;
+
     teams
         .list(&event.organization_id)
         .await?
@@ -87,6 +88,7 @@ impl RecipientResolver for TeamMembersResolver {
         let config: TeamConfig = serde_json::from_value(config.clone())
             .map_err(|error| Error::invalid(format!("invalid team_members config: {error}")))?;
         let team = get_team(self.teams.as_ref(), event, config.team_id).await?;
+
         Ok(team
             .member_ids
             .into_iter()
@@ -117,14 +119,17 @@ impl RecipientResolver for TeamLeadResolver {
     fn validate_config(&self, config: &Value) -> Result<()> {
         let config: TeamLeadConfig = serde_json::from_value(config.clone())
             .map_err(|error| Error::invalid(format!("invalid team_lead config: {error}")))?;
+
         if config.user_ids.len() > 20 {
             return Err(Error::invalid(
                 "team_lead config supports at most 20 leader users",
             ));
         }
+
         if config.user_ids.iter().collect::<HashSet<_>>().len() != config.user_ids.len() {
             return Err(Error::invalid("team_lead user_ids must be unique"));
         }
+
         Ok(())
     }
 
@@ -133,6 +138,7 @@ impl RecipientResolver for TeamLeadResolver {
             .map_err(|error| Error::invalid(format!("invalid team_lead config: {error}")))?;
         let team = get_team(self.teams.as_ref(), event, config.team_id).await?;
         let member_ids = team.member_ids.iter().collect::<HashSet<_>>();
+
         if config
             .user_ids
             .iter()
@@ -142,6 +148,7 @@ impl RecipientResolver for TeamLeadResolver {
                 "team_lead contains a user outside the selected team",
             ));
         }
+
         // Team 当前没有独立 owner 列；未显式配置时沿用成员顺序中的第一位，
         // 让现有数据无需迁移即可启用团队负责人升级。
         let leaders = if config.user_ids.is_empty() {
@@ -149,6 +156,7 @@ impl RecipientResolver for TeamLeadResolver {
         } else {
             config.user_ids
         };
+
         Ok(leaders
             .into_iter()
             .map(|user_id| NotifyRecipient {

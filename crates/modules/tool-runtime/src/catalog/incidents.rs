@@ -93,6 +93,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         ),
         _ => unreachable!("incident catalog received unrelated kind"),
     };
+
     let tool = ToolSpec::read(
         kind.name(),
         description,
@@ -103,6 +104,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         &permissions,
         &tags,
     );
+
     match kind {
         BuiltinToolKind::GetIncident => tool.pinned(),
         BuiltinToolKind::AcknowledgeIncident | BuiltinToolKind::ResolveIncident => {

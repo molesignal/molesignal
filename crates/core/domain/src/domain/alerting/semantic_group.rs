@@ -42,6 +42,7 @@ impl LabelMatcher {
     /// 「匹配一切」、把所有 incident 吸进该 group）。
     pub fn matches(&self, labels: &BTreeMap<String, String>) -> bool {
         let actual = labels.get(&self.label).map(String::as_str).unwrap_or("");
+
         match self.op {
             MatchOp::Eq => actual == self.value,
             MatchOp::Neq => actual != self.value,
@@ -50,6 +51,7 @@ impl LabelMatcher {
                     // 编译失败：Re / Nre 都返回「不命中」，绝不反转成 match-everything。
                     return false;
                 };
+
                 if self.op == MatchOp::Re {
                     is_match
                 } else {
@@ -63,6 +65,7 @@ impl LabelMatcher {
 /// 整串正则匹配；编译失败返回 None（caller 把它当「该 matcher 不命中」）。
 fn try_full_match_regex(pattern: &str, value: &str) -> Option<bool> {
     let anchored = format!("^(?:{pattern})$");
+
     regex::Regex::new(&anchored)
         .ok()
         .map(|re| re.is_match(value))
@@ -94,11 +97,14 @@ impl SemanticGroup {
         if self.group_by.is_empty() {
             return format!("group:{}", self.name);
         }
+
         let mut parts = Vec::with_capacity(self.group_by.len());
+
         for key in &self.group_by {
             let val = labels.get(key).map(String::as_str).unwrap_or("");
             parts.push(format!("{key}={val}"));
         }
+
         parts.join(";")
     }
 }
@@ -117,10 +123,12 @@ pub trait SemanticGroupRepository: Send + Sync {
     /// 中途失败整体回滚。
     async fn create_many(&self, groups: Vec<SemanticGroup>) -> Result<usize> {
         let mut n = 0;
+
         for g in groups {
             self.create(g).await?;
             n += 1;
         }
+
         Ok(n)
     }
 }

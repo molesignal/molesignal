@@ -29,11 +29,13 @@ impl DnsStatusPageDomainVerifier {
                     "http.external_url must include a hostname for custom-domain routing",
                 )
             })?;
+
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(8))
             .redirect(reqwest::redirect::Policy::none())
             .build()
             .map_err(|_| Error::internal("DNS verification client could not be built"))?;
+
         Ok(Self {
             client,
             routing_target: routing_target.trim_end_matches('.').to_ascii_lowercase(),
@@ -43,10 +45,12 @@ impl DnsStatusPageDomainVerifier {
     async fn query(&self, name: &str, record_type: &str) -> Result<Vec<DnsAnswer>> {
         let mut url = Url::parse(DNS_GOOGLE_RESOLVE)
             .map_err(|_| Error::internal("DNS verification provider URL is invalid"))?;
+
         url.query_pairs_mut()
             .append_pair("name", name)
             .append_pair("type", record_type)
             .append_pair("cd", "false");
+
         let response = self
             .client
             .get(url)
@@ -54,21 +58,25 @@ impl DnsStatusPageDomainVerifier {
             .send()
             .await
             .map_err(|_| Error::unavailable("DNS verification provider is unavailable"))?;
+
         if !response.status().is_success() {
             return Err(Error::unavailable(
                 "DNS verification provider returned an error",
             ));
         }
+
         let response: DnsResponse = response
             .json()
             .await
             .map_err(|_| Error::unavailable("DNS verification response is invalid"))?;
+
         if response.status != 0 && response.status != 3 {
             return Err(Error::unavailable(format!(
                 "DNS lookup failed with resolver status {}",
                 response.status
             )));
         }
+
         Ok(response.answer.unwrap_or_default())
     }
 
@@ -80,6 +88,7 @@ impl DnsStatusPageDomainVerifier {
             self.query(&self.routing_target, "A"),
             self.query(&self.routing_target, "AAAA"),
         )?;
+
         let cname_matches = custom_cname.iter().any(|answer| {
             answer.record_type == 5
                 && answer
@@ -87,11 +96,14 @@ impl DnsStatusPageDomainVerifier {
                     .trim_end_matches('.')
                     .eq_ignore_ascii_case(&self.routing_target)
         });
+
         if cname_matches {
             return Ok(true);
         }
+
         let custom_addresses = address_set(custom_a.into_iter().chain(custom_aaaa));
         let target_addresses = address_set(target_a.into_iter().chain(target_aaaa));
+
         Ok(!custom_addresses.is_empty()
             && custom_addresses
                 .intersection(&target_addresses)
@@ -109,16 +121,20 @@ impl StatusPageDomainVerifier for DnsStatusPageDomainVerifier {
     ) -> Result<StatusPageDomainCheck> {
         let txt_name = format!("_molesignal-verification.{hostname}");
         let txt = self.query(&txt_name, "TXT").await?;
+
         let ownership_verified = txt.iter().any(|answer| {
             answer.record_type == 16 && normalize_txt(&answer.data) == verification_token
         });
+
         let routing_valid = self.routing_matches(hostname).await?;
+
         let error = match (ownership_verified, routing_valid) {
             (false, false) => Some("DNS TXT ownership and routing records are not ready".into()),
             (false, true) => Some("DNS TXT ownership record is not ready".into()),
             (true, false) => Some("DNS routing record does not target MoleSignal".into()),
             (true, true) => None,
         };
+
         Ok(StatusPageDomainCheck {
             ownership_verified,
             routing_valid,
@@ -155,9 +171,11 @@ fn address_set(answers: impl Iterator<Item = DnsAnswer>) -> HashSet<String> {
 
 fn normalize_txt(value: &str) -> String {
     let value = value.trim();
+
     if !value.contains('"') {
         return value.to_string();
     }
+
     value
         .split('"')
         .enumerate()

@@ -11,8 +11,10 @@ pub(super) fn sort_instant_vector(mut input: InstantVector, descending: bool) ->
             a.1.partial_cmp(&b.1)
         }
         .unwrap_or(std::cmp::Ordering::Equal);
+
         value_order.then_with(|| a.0.cmp(&b.0))
     });
+
     input
 }
 
@@ -24,16 +26,20 @@ pub(super) fn sort_instant_vector_by_label(
 ) -> InstantVector {
     input.items.sort_by(|a, b| {
         let mut order = std::cmp::Ordering::Equal;
+
         for label in labels {
             let av = a.0.get(label).map(String::as_str).unwrap_or("");
             let bv = b.0.get(label).map(String::as_str).unwrap_or("");
             order = av.cmp(bv);
+
             if order != std::cmp::Ordering::Equal {
                 break;
             }
         }
+
         if descending { order.reverse() } else { order }
     });
+
     input
 }
 
@@ -42,10 +48,12 @@ pub(super) fn absent_vector(expr: &Expr, inner: InstantVector) -> InstantVector 
     if !inner.items.is_empty() {
         return InstantVector::default();
     }
+
     let labels = match expr {
         Expr::VectorSelector(vs) => absent_labels(&vs.matchers),
         _ => LabelSet::new(),
     };
+
     InstantVector {
         items: vec![(labels, 1.0)],
     }
@@ -56,6 +64,7 @@ pub(super) fn absent_over_time_vector(ms: &MatrixSelector, present: bool) -> Ins
     if present {
         return InstantVector::default();
     }
+
     InstantVector {
         items: vec![(absent_labels(&ms.vs.matchers), 1.0)],
     }
@@ -64,11 +73,13 @@ pub(super) fn absent_over_time_vector(ms: &MatrixSelector, present: bool) -> Ins
 /// 从匹配器里抽出等值（`=`）标签，供 absent 系列填充结果 label 集。
 pub(super) fn absent_labels(matchers: &Matchers) -> LabelSet {
     let mut out = LabelSet::new();
+
     for m in &matchers.matchers {
         if m.name != "__name__" && matches!(m.op, MatchOp::Equal) {
             out.insert(m.name.clone(), m.value.clone());
         }
     }
+
     out
 }
 
@@ -84,10 +95,12 @@ pub(super) fn vector_from_scalar(value: f64) -> InstantVector {
 
 pub(super) fn scalar_from_vector(input: InstantVector) -> InstantVector {
     let mut items = input.items.into_iter();
+
     let value = match (items.next(), items.next()) {
         (Some((_, value)), None) => value,
         _ => f64::NAN,
     };
+
     vector_from_scalar(value)
 }
 
@@ -102,6 +115,7 @@ pub(super) fn apply_over_time(
             apply_over_time_value(func, quantile, &s.samples).map(|value| (s.labels, value))
         })
         .collect();
+
     InstantVector { items }
 }
 
@@ -116,11 +130,13 @@ pub(super) fn apply_over_time_range(
 ) -> RangeVector {
     let range_us = (range.as_micros() as i64).max(1);
     let mut points = Vec::new();
+
     for s in series {
         each_step_window(&s.samples, start_us, end_us, step_us, range_us, |t, win| {
             let Some(value) = apply_over_time_value(func, quantile, win) else {
                 return;
             };
+
             points.push(RangePoint {
                 ts_us: t,
                 labels: s.labels.clone(),
@@ -128,6 +144,7 @@ pub(super) fn apply_over_time_range(
             });
         });
     }
+
     RangeVector { points }
 }
 
@@ -139,7 +156,9 @@ pub(super) fn apply_over_time_value(
     if samples.is_empty() {
         return None;
     }
+
     let values: Vec<f64> = samples.iter().map(|(_, value)| *value).collect();
+
     match func {
         "avg_over_time" => Some(values.iter().sum::<f64>() / values.len() as f64),
         "min_over_time" => Some(values.iter().copied().fold(f64::INFINITY, f64::min)),
@@ -160,28 +179,36 @@ pub(super) fn quantile_value(mut values: Vec<f64>, q: f64) -> f64 {
     if q.is_nan() {
         return f64::NAN;
     }
+
     if q < 0.0 {
         return f64::NEG_INFINITY;
     }
+
     if q > 1.0 {
         return f64::INFINITY;
     }
+
     values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+
     if values.len() == 1 {
         return values[0];
     }
+
     let rank = q * (values.len() - 1) as f64;
     let lower = rank.floor() as usize;
     let upper = rank.ceil() as usize;
+
     if lower == upper {
         return values[lower];
     }
+
     let weight = rank - lower as f64;
     values[lower] + (values[upper] - values[lower]) * weight
 }
 
 pub(super) fn stdvar_value(values: &[f64]) -> f64 {
     let mean = values.iter().sum::<f64>() / values.len() as f64;
+
     values
         .iter()
         .map(|value| {
@@ -194,10 +221,12 @@ pub(super) fn stdvar_value(values: &[f64]) -> f64 {
 
 pub(super) fn mad_value(values: Vec<f64>) -> f64 {
     let median = quantile_value(values.clone(), 0.5);
+
     let deviations = values
         .into_iter()
         .map(|value| (value - median).abs())
         .collect();
+
     quantile_value(deviations, 0.5)
 }
 
@@ -210,6 +239,7 @@ pub(super) fn samples_to_range_vector(
     step_us: i64,
 ) -> RangeVector {
     let mut points = Vec::new();
+
     for s in series {
         each_step_window(
             &s.samples,
@@ -221,6 +251,7 @@ pub(super) fn samples_to_range_vector(
                 let Some(&(_, value)) = win.last() else {
                     return;
                 };
+
                 points.push(RangePoint {
                     ts_us: t,
                     labels: s.labels.clone(),
@@ -229,6 +260,7 @@ pub(super) fn samples_to_range_vector(
             },
         );
     }
+
     RangeVector { points }
 }
 
@@ -240,6 +272,7 @@ pub(super) fn samples_to_range_vector(
 pub fn apply_histogram_quantile(q: f64, inner: InstantVector) -> InstantVector {
     // group key = labels without "le"
     let mut grouped: HashMap<LabelSet, Vec<(f64, f64)>> = HashMap::new();
+
     for (mut labels, value) in inner.items {
         let le = match labels.remove("le") {
             Some(s) => match s.parse::<f64>() {
@@ -249,33 +282,43 @@ pub fn apply_histogram_quantile(q: f64, inner: InstantVector) -> InstantVector {
             },
             None => continue,
         };
+
         grouped.entry(labels).or_default().push((le, value));
     }
+
     let items: Vec<(LabelSet, f64)> = grouped
         .into_iter()
         .filter_map(|(labels, mut buckets)| {
             buckets.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
             let total = buckets.last()?.1;
+
             if total <= 0.0 {
                 return Some((labels, f64::NAN));
             }
+
             let target = q * total;
             let mut prev = (0.0f64, 0.0f64);
+
             for &(le, cum) in &buckets {
                 if cum >= target {
                     // 线性插值（与 Prometheus 默认行为接近）
                     let span = cum - prev.1;
+
                     if span <= 0.0 {
                         return Some((labels, le));
                     }
+
                     let frac = (target - prev.1) / span;
                     return Some((labels, prev.0 + frac * (le - prev.0)));
                 }
+
                 prev = (le, cum);
             }
+
             buckets.last().map(|(le, _)| (labels.clone(), *le))
         })
         .collect();
+
     InstantVector { items }
 }
 
@@ -293,6 +336,7 @@ pub(super) fn apply_histogram_fraction(
 ) -> InstantVector {
     // group key = labels without "le"（与 apply_histogram_quantile 一致）
     let mut grouped: HashMap<LabelSet, Vec<(f64, f64)>> = HashMap::new();
+
     for (mut labels, value) in inner.items {
         let le = match labels.remove("le") {
             Some(s) => match s.parse::<f64>() {
@@ -302,22 +346,28 @@ pub(super) fn apply_histogram_fraction(
             },
             None => continue,
         };
+
         grouped.entry(labels).or_default().push((le, value));
     }
+
     let items: Vec<(LabelSet, f64)> = grouped
         .into_iter()
         .filter_map(|(labels, mut buckets)| {
             buckets.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
             let total = buckets.last()?.1;
+
             if total <= 0.0 {
                 return Some((labels, f64::NAN));
             }
+
             let frac = (histogram_bucket_rank(&buckets, upper)
                 - histogram_bucket_rank(&buckets, lower))
                 / total;
+
             Some((labels, frac))
         })
         .collect();
+
     InstantVector { items }
 }
 
@@ -331,21 +381,28 @@ fn histogram_bucket_rank(buckets: &[(f64, f64)], x: f64) -> f64 {
     if x <= 0.0 {
         return 0.0;
     }
+
     let mut prev = (0.0f64, 0.0f64);
+
     for &(le, cum) in buckets {
         if le.is_infinite() {
             return if x.is_infinite() { cum } else { prev.1 };
         }
+
         if x <= le {
             let span = le - prev.0;
+
             if span <= 0.0 {
                 return cum;
             }
+
             let frac = (x - prev.0) / span;
             return prev.1 + frac * (cum - prev.1);
         }
+
         prev = (le, cum);
     }
+
     prev.1
 }
 
@@ -354,10 +411,12 @@ pub(super) fn group_by(
     modifier: Option<&LabelModifier>,
 ) -> Vec<(LabelSet, Vec<f64>)> {
     let mut groups: HashMap<LabelSet, Vec<f64>> = HashMap::new();
+
     for (ls, v) in &input.items {
         let key = project_labels(ls, modifier);
         groups.entry(key).or_default().push(*v);
     }
+
     groups.into_iter().collect()
 }
 
@@ -366,18 +425,22 @@ pub(super) fn project_labels(ls: &LabelSet, modifier: Option<&LabelModifier>) ->
         None => LabelSet::new(), // aggregate without modifier → drop all labels
         Some(LabelModifier::Include(labels)) => {
             let mut out = LabelSet::new();
+
             for k in labels.labels.iter() {
                 if let Some(v) = ls.get(k) {
                     out.insert(k.clone(), v.clone());
                 }
             }
+
             out
         }
         Some(LabelModifier::Exclude(labels)) => {
             let mut out = ls.clone();
+
             for k in labels.labels.iter() {
                 out.remove(k);
             }
+
             out
         }
     }

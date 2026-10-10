@@ -27,9 +27,11 @@ pub(super) async fn publish(
     validate_command(scope, &command)?;
     let mut tx = sqlx::begin(pool).await.map_err(sqlx_err)?;
     let current_version = lock_dataset_version(&mut tx, scope, &command.dataset_id).await?;
+
     let new_version = current_version
         .checked_add(1)
         .ok_or_else(|| Error::internal("catalog version overflow"))?;
+
     let active = sqlx::query(
         "SELECT generation, object_key, checksum FROM partition_manifests \
          WHERE org_id = $1 AND dataset_id = $2 AND partition_start_micros = $3 \
@@ -42,6 +44,7 @@ pub(super) async fn publish(
     .fetch_optional(&mut *tx)
     .await
     .map_err(sqlx_err)?;
+
     let active_generation = active
         .as_ref()
         .map(|row| {
@@ -51,6 +54,7 @@ pub(super) async fn publish(
             )
         })
         .transpose()?;
+
     if active_generation != command.expected_generation {
         return Err(Error::conflict(format!(
             "manifest generation changed: expected {:?}, found {:?}",
@@ -66,6 +70,7 @@ pub(super) async fn publish(
         &command.seal_segment_ids,
     )
     .await?;
+
     validate_tombstones(&mut tx, scope, &command).await?;
 
     if let Some(active) = active {
@@ -81,6 +86,7 @@ pub(super) async fn publish(
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
+
         enqueue_object_gc(
             &mut tx,
             scope,
@@ -127,6 +133,7 @@ pub(super) async fn publish(
 
     if !command.seal_segment_ids.is_empty() {
         let ids = id_strings(&command.seal_segment_ids);
+
         sqlx::query(
             "UPDATE catalog_segments SET state = 'sealed', retired_at_version = $4 \
              WHERE org_id = $1 AND dataset_id = $2 AND id = ANY($3) AND state = 'active'",
@@ -139,8 +146,10 @@ pub(super) async fn publish(
         .await
         .map_err(sqlx_err)?;
     }
+
     if !command.tombstone_segment_ids.is_empty() {
         let ids = id_strings(&command.tombstone_segment_ids);
+
         sqlx::query(
             "UPDATE catalog_segments SET state = 'tombstoned', retired_at_version = $4 \
              WHERE org_id = $1 AND dataset_id = $2 AND id = ANY($3) \
@@ -153,6 +162,7 @@ pub(super) async fn publish(
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
+
         tombstone_segment_artifacts(
             &mut tx,
             scope,
@@ -170,6 +180,7 @@ pub(super) async fn publish(
 
 fn validate_command(scope: &OrganizationScope, command: &PublishPartitionManifest) -> Result<()> {
     let seals: HashSet<_> = command.seal_segment_ids.iter().collect();
+
     if seals.len() != command.seal_segment_ids.len()
         || command
             .tombstone_segment_ids
@@ -180,6 +191,7 @@ fn validate_command(scope: &OrganizationScope, command: &PublishPartitionManifes
             "manifest seal/tombstone segment ids must be unique and disjoint",
         ));
     }
+
     match &command.new_manifest {
         Some(pointer) => {
             let expected_generation = command
@@ -187,6 +199,7 @@ fn validate_command(scope: &OrganizationScope, command: &PublishPartitionManifes
                 .unwrap_or(0)
                 .checked_add(1)
                 .ok_or_else(|| Error::invalid("manifest generation overflow"))?;
+
             if pointer.organization_id != scope.organization_id
                 || pointer.dataset_id != command.dataset_id
                 || pointer.partition != command.partition
@@ -206,6 +219,7 @@ fn validate_command(scope: &OrganizationScope, command: &PublishPartitionManifes
         }
         None => {}
     }
+
     Ok(())
 }
 
@@ -219,6 +233,7 @@ async fn validate_segment_rows(
     if ids.is_empty() {
         return Ok(());
     }
+
     let rows = sqlx::query(
         "SELECT id FROM catalog_segments WHERE org_id = $1 AND dataset_id = $2 AND id = ANY($3) \
          AND partition_start_micros = $4 AND partition_end_micros = $5 \
@@ -234,11 +249,13 @@ async fn validate_segment_rows(
     .fetch_all(conn)
     .await
     .map_err(sqlx_err)?;
+
     if rows.len() != ids.len() {
         return Err(Error::conflict(
             "manifest input segments changed before generation switch",
         ));
     }
+
     Ok(())
 }
 
@@ -248,9 +265,11 @@ async fn validate_tombstones(
     command: &PublishPartitionManifest,
 ) -> Result<()> {
     let ids = &command.tombstone_segment_ids;
+
     if ids.is_empty() {
         return Ok(());
     }
+
     let rows = sqlx::query(
         "SELECT id FROM catalog_segments WHERE org_id = $1 AND dataset_id = $2 AND id = ANY($3) \
          AND partition_start_micros = $4 AND partition_end_micros = $5 \
@@ -265,11 +284,13 @@ async fn validate_tombstones(
     .fetch_all(conn)
     .await
     .map_err(sqlx_err)?;
+
     if rows.len() != ids.len() {
         return Err(Error::conflict(
             "manifest retention inputs changed before generation switch",
         ));
     }
+
     Ok(())
 }
 

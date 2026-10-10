@@ -101,8 +101,10 @@ pub(super) async fn list_traces(
     let Some(definition) = resolve_traces_stream_definition(&state, &ctx.org_id).await else {
         return Ok(Json(CursorPage::empty()));
     };
+
     let context = resolve_context(&state, &ctx, query, &definition.schema)?;
     let stream = definition.name.clone();
+
     if !projection::available(&state, &ctx, &stream).await {
         // Cursor pagination is backed exclusively by the write-time summary
         // projection. Legacy span-only streams intentionally stay empty
@@ -111,11 +113,13 @@ pub(super) async fn list_traces(
     }
 
     let fetch_limit = context.page_size.saturating_add(1);
+
     let rows = if context.filters.iter().any(TraceFilter::is_span_filter) {
         span_filter::run(&state, &definition, &context, fetch_limit).await?
     } else {
         scan::run(&state, &ctx.org_id, &stream, &context, fetch_limit).await?
     };
+
     let direction = context.boundary.as_ref().map(|boundary| boundary.direction);
     let page = trim_cursor_page(rows, context.page_size, direction);
 
@@ -135,6 +139,7 @@ pub(super) async fn list_traces(
     } else {
         None
     };
+
     let next_cursor = if page.has_next {
         page.items
             .last()
@@ -167,10 +172,12 @@ fn resolve_context(
     schema: &crate::domain::stream::Schema,
 ) -> Result<TraceListContext> {
     let requested_page_size = query.limit.clamp(1, MAX_TRACE_PAGE_SIZE);
+
     if let Some(token) = query.cursor.as_deref() {
         let payload = cursor::decode(state.iam.service.as_ref(), &ctx.org_id, token)?;
         validate_cursor_request(&query, requested_page_size, &payload, schema)?;
         filter::validate(&payload.filters, schema)?;
+
         return Ok(TraceListContext {
             from: payload.from,
             to: payload.to,
@@ -188,9 +195,11 @@ fn resolve_context(
     let now = TimestampMicros::now().0;
     let from = query.from.unwrap_or(now - DEFAULT_WINDOW_SECS * 1_000_000);
     let to = query.to.unwrap_or(now);
+
     if to <= from {
         return Err(Error::invalid("to must be greater than from"));
     }
+
     Ok(TraceListContext {
         from,
         to,
@@ -221,16 +230,19 @@ fn validate_cursor_request(
                 .map(|parsed| parsed != payload.filters)
                 .unwrap_or(true)
         });
+
     if mismatched {
         return Err(Error::invalid(
             "trace cursor does not match the active query",
         ));
     }
+
     Ok(())
 }
 
 fn clean_input(value: &str) -> Option<String> {
     let trimmed = value.trim();
+
     if trimmed.is_empty() {
         None
     } else {

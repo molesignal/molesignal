@@ -102,10 +102,13 @@ impl TraceSummaryReader {
             order,
             limit,
         } = query;
+
         if limit == 0 || trace_ids.is_some_and(HashSet::is_empty) {
             return Ok(Vec::new());
         }
+
         let summary_type = DatasetTypeId::builtin(builtin::DATASET_TRACE_SUMMARY);
+
         let (mut files, buffered_batches) = match &self.catalog_source {
             Some(source) => {
                 let snapshot = source
@@ -117,7 +120,9 @@ impl TraceSummaryReader {
                         range,
                     )
                     .await?;
+
                 let dataset = snapshot.dataset(&summary_type);
+
                 (
                     dataset
                         .map(|dataset| dataset.files.clone())
@@ -134,6 +139,7 @@ impl TraceSummaryReader {
                 Vec::new(),
             ),
         };
+
         files.sort_by(|left, right| match order {
             SummaryOrder::Latest => right
                 .time_range
@@ -148,16 +154,19 @@ impl TraceSummaryReader {
         });
 
         let reader = ParquetReader::new(self.object_store.clone());
+
         let from_ns = range
             .start
             .0
             .checked_mul(1_000)
             .ok_or_else(|| Error::invalid("trace range start is out of range"))?;
+
         let to_ns = range
             .end
             .0
             .checked_mul(1_000)
             .ok_or_else(|| Error::invalid("trace range end is out of range"))?;
+
         let mut files = VecDeque::from(files);
         let mut rows = Vec::with_capacity(limit.min(trace_ids.map_or(limit, HashSet::len)));
         let mut found = HashSet::new();
@@ -185,6 +194,7 @@ impl TraceSummaryReader {
                 .with_time_range(range.start.0, range.end.0)
                 .with_columns(COLUMNS)
                 .with_known_size(file.size_bytes);
+
             let mut batches = match reader
                 .stream_from_store(self.object_store.clone(), &file.object_key, options)
                 .await
@@ -196,8 +206,10 @@ impl TraceSummaryReader {
                 }
                 Err(error) => return Err(error),
             };
+
             while let Some(batch) = batches.next().await {
                 let batch = batch?;
+
                 if append_batch(
                     &batch,
                     trace_ids,
@@ -212,6 +224,7 @@ impl TraceSummaryReader {
                     break 'files;
                 }
             }
+
             if trace_ids.is_none()
                 && rows.len() >= limit
                 && files
@@ -244,15 +257,19 @@ fn append_batch(
         let Some(trace_id) = string_at(batch, "trace_id", row) else {
             continue;
         };
+
         if let Some(ids) = trace_ids
             && (!ids.contains(trace_id) || !found.insert(trace_id.to_string()))
         {
             continue;
         }
+
         let start_ns = integer_at(batch, TRACE_SUMMARY_START_NS_FIELD, row).unwrap_or_default();
+
         let duration_ns = integer_at(batch, TRACE_SUMMARY_DURATION_NS_FIELD, row)
             .unwrap_or_default()
             .max(0);
+
         if start_ns < from_ns
             || start_ns >= to_ns
             || (require_contained && start_ns.saturating_add(duration_ns) > to_ns)
@@ -260,6 +277,7 @@ fn append_batch(
             found.remove(trace_id);
             continue;
         }
+
         let candidate = TraceSummaryRecord {
             trace_id: trace_id.to_string(),
             service: string_at(batch, "service.name", row)
@@ -271,15 +289,18 @@ fn append_batch(
                 .unwrap_or_default()
                 .max(0) as u64,
         };
+
         if trace_ids.is_some() {
             rows.push(candidate);
         } else {
             push_top_k(rows, candidate, limit, order);
         }
+
         if trace_ids.is_some_and(|ids| found.len() == ids.len()) {
             return true;
         }
     }
+
     false
 }
 
@@ -309,18 +330,22 @@ fn push_top_k(
         if compare(&candidate, &rows[existing], order) == Ordering::Less {
             rows[existing] = candidate;
         }
+
         return;
     }
+
     if rows.len() < limit {
         rows.push(candidate);
         return;
     }
+
     let worst = rows
         .iter()
         .enumerate()
         .max_by(|(_, left), (_, right)| compare(left, right, order))
         .map(|(index, _)| index)
         .unwrap_or_default();
+
     if compare(&candidate, &rows[worst], order) == Ordering::Less {
         rows[worst] = candidate;
     }
@@ -337,6 +362,7 @@ fn file_cannot_beat(
     else {
         return false;
     };
+
     match order {
         SummaryOrder::Latest => {
             file.max_values
@@ -369,9 +395,11 @@ fn string_at<'a>(batch: &'a RecordBatch, name: &str, row: usize) -> Option<&'a s
 
 fn integer_at(batch: &RecordBatch, name: &str, row: usize) -> Option<i64> {
     let column = batch.column_by_name(name)?;
+
     if column.is_null(row) {
         return None;
     }
+
     match column.data_type() {
         DataType::Int64 => Some(column.as_any().downcast_ref::<Int64Array>()?.value(row)),
         DataType::UInt64 => {

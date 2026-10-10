@@ -53,6 +53,7 @@ impl Masker {
                     .map(|regex| MaskRule { regex, replacement })
             })
             .collect();
+
         Self { rules }
     }
 
@@ -66,20 +67,25 @@ impl Masker {
         if self.rules.is_empty() {
             return Cow::Borrowed(input);
         }
+
         let mut owned: Option<String> = None;
+
         for rule in &self.rules {
             // 借用在内层块内结束，随后才可能改写 `owned`。
             let next = {
                 let src: &str = owned.as_deref().unwrap_or(input);
+
                 match rule.regex.replace_all(src, rule.replacement.as_str()) {
                     Cow::Owned(s) => Some(s),
                     Cow::Borrowed(_) => None,
                 }
             };
+
             if let Some(s) = next {
                 owned = Some(s);
             }
         }
+
         match owned {
             Some(s) => Cow::Owned(s),
             None => Cow::Borrowed(input),
@@ -113,6 +119,7 @@ impl Masker {
         if self.rules.is_empty() {
             return;
         }
+
         for v in fields.values_mut() {
             self.mask_value(v);
         }

@@ -19,10 +19,12 @@ struct QuietHoursConfig {
 fn parse(value: &Value) -> Result<(QuietHoursConfig, chrono_tz::Tz, NaiveTime, NaiveTime)> {
     let config: QuietHoursConfig = serde_json::from_value(value.clone())
         .map_err(|error| Error::invalid(format!("invalid quiet_hours: {error}")))?;
+
     let timezone = config
         .timezone
         .parse::<chrono_tz::Tz>()
         .map_err(|_| Error::invalid("quiet_hours timezone must be a valid IANA timezone"))?;
+
     let start = NaiveTime::parse_from_str(&config.start, "%H:%M")
         .map_err(|_| Error::invalid("quiet_hours start must use HH:MM"))?;
     let end = NaiveTime::parse_from_str(&config.end, "%H:%M")
@@ -38,16 +40,21 @@ pub fn quiet_hours_active(value: &Value, at: TimestampMicros) -> bool {
     let Ok((config, timezone, start, end)) = parse(value) else {
         return false;
     };
+
     if !config.enabled {
         return false;
     }
+
     let local = at.to_datetime().with_timezone(&timezone);
+
     let Some(now) = NaiveTime::from_hms_opt(local.hour(), local.minute(), 0) else {
         return false;
     };
+
     if start == end {
         return true;
     }
+
     if start < end {
         start <= now && now < end
     } else {

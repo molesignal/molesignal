@@ -24,12 +24,15 @@ pub struct IntakeSettings {
 fn default_buffer_max() -> u32 {
     256
 }
+
 fn default_max_buffer_memory() -> u32 {
     1024
 }
+
 fn default_flush_interval() -> u32 {
     30
 }
+
 fn default_flush_parallel() -> u32 {
     4
 }
@@ -59,6 +62,7 @@ impl IntakeSettings {
                 anyhow::bail!("intake.{name} must be greater than zero");
             }
         }
+
         self.rotation.validate(self.buffer_max_mb)?;
         self.prometheus.validate()
     }
@@ -109,12 +113,15 @@ impl ParquetRotationSettings {
         if self.target_file_size_mb == 0 {
             anyhow::bail!("intake.rotation.target_file_size_mb must be greater than zero");
         }
+
         if self.min_buffer_mb == 0 || self.min_buffer_mb > max_buffer_mb {
             anyhow::bail!("intake.rotation.min_buffer_mb must be in 1..=intake.buffer_max_mb");
         }
+
         if !self.ewma_alpha.is_finite() || self.ewma_alpha <= 0.0 || self.ewma_alpha > 1.0 {
             anyhow::bail!("intake.rotation.ewma_alpha must be finite and in (0, 1]");
         }
+
         Ok(())
     }
 }
@@ -178,6 +185,7 @@ impl PrometheusIntakeSettings {
                 anyhow::bail!("intake.prometheus.{name} must be greater than zero");
             }
         }
+
         self.cardinality.validate()
     }
 }
@@ -239,6 +247,7 @@ impl PrometheusCardinalitySettings {
         if !self.enabled {
             return Ok(());
         }
+
         for (name, value) in [
             (
                 "max_active_series_per_process",
@@ -255,21 +264,25 @@ impl PrometheusCardinalitySettings {
                 anyhow::bail!("intake.prometheus.cardinality.{name} must be greater than zero");
             }
         }
+
         if self.idle_ttl_secs == 0 || self.idle_ttl_secs > MAX_SERIES_IDLE_TTL_SECS {
             anyhow::bail!(
                 "intake.prometheus.cardinality.idle_ttl_secs must be in 1..={MAX_SERIES_IDLE_TTL_SECS}"
             );
         }
+
         if self.max_active_series_per_process < self.max_active_series_per_org {
             anyhow::bail!(
                 "intake.prometheus.cardinality.max_active_series_per_process must be >= max_active_series_per_org"
             );
         }
+
         if self.max_active_series_per_org < self.max_active_series_per_metric {
             anyhow::bail!(
                 "intake.prometheus.cardinality.max_active_series_per_org must be >= max_active_series_per_metric"
             );
         }
+
         Ok(())
     }
 }
@@ -297,15 +310,19 @@ pub struct CompactorSettings {
 fn default_compact_interval() -> u32 {
     300
 }
+
 fn default_compact_size() -> u32 {
     512
 }
+
 fn default_compact_concurrency() -> u32 {
     4
 }
+
 fn default_stream_retention_days() -> u32 {
     30
 }
+
 fn default_downsample_interval() -> u32 {
     3600
 }

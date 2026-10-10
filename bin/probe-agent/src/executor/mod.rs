@@ -61,6 +61,7 @@ impl ExecutionContext {
 
     pub fn resolve(&self, value: &wire::Value) -> Result<String> {
         use wire::value::Source;
+
         match value.source.as_ref() {
             Some(Source::Literal(value)) => Ok(value.clone()),
             Some(Source::SecretReference(reference)) => String::from_utf8(
@@ -90,18 +91,22 @@ impl ExecutionContext {
                 let Ok(secret) = std::str::from_utf8(bytes) else {
                     return text;
                 };
+
                 if secret.is_empty() {
                     return text;
                 }
+
                 let encoded =
                     url::form_urlencoded::byte_serialize(secret.as_bytes()).collect::<String>();
                 let encoded_space = encoded.replace('+', "%20");
                 let text = text.replace(secret, "[REDACTED]");
+
                 let text = if encoded != secret {
                     text.replace(&encoded, "[REDACTED]")
                 } else {
                     text
                 };
+
                 if encoded_space != encoded {
                     text.replace(&encoded_space, "[REDACTED]")
                 } else {
@@ -118,11 +123,13 @@ pub async fn execute(task: wire::ProbeTask, result_sequence: u64) -> Result<Prob
     let mut final_outcome = ProbeOutcome::Unknown;
     let mut captured_artifacts = Vec::new();
     let max_attempts = task.max_attempts.clamp(1, 3);
+
     for number in 1..=max_attempts {
         let attempt_started = now_micros();
         let mut context = ExecutionContext::new(&task);
         let executed = run_once(&task, &mut context).await;
         let attempt_finished = now_micros();
+
         let mut outcome = match executed {
             Ok(outcome) => outcome,
             Err(error) => AttemptOutcome {
@@ -136,10 +143,12 @@ pub async fn execute(task: wire::ProbeTask, result_sequence: u64) -> Result<Prob
                 artifacts: Vec::new(),
             },
         };
+
         normalize_attempt(&mut outcome);
         final_outcome = outcome.outcome;
         final_assertions = outcome.assertions.clone();
         captured_artifacts.extend(outcome.artifacts);
+
         attempts.push(ProbeAttempt {
             number,
             started_at_micros: attempt_started,
@@ -155,6 +164,7 @@ pub async fn execute(task: wire::ProbeTask, result_sequence: u64) -> Result<Prob
             metadata: outcome.metadata,
             evidence: outcome.evidence,
         });
+
         if matches!(
             outcome.outcome,
             ProbeOutcome::Healthy | ProbeOutcome::Flaky | ProbeOutcome::Degraded
@@ -162,33 +172,42 @@ pub async fn execute(task: wire::ProbeTask, result_sequence: u64) -> Result<Prob
             break;
         }
     }
+
     let flaky = recovered_after_retry(&attempts, final_outcome);
+
     if flaky {
         final_outcome = ProbeOutcome::Flaky;
     }
+
     let finished_at = now_micros();
     let upload = artifacts::upload(&task, captured_artifacts).await;
     let mut metadata = HashMap::new();
+
     if upload.captured_count > 0 {
         metadata.insert(
             "artifact_capture_count".into(),
             upload.captured_count.to_string(),
         );
+
         metadata.insert(
             "artifact_upload_count".into(),
             upload.receipts.len().to_string(),
         );
     }
+
     if let Some(error) = upload.error {
         metadata.insert("artifact_upload_error".into(), error);
     }
+
     if flaky {
         metadata.insert("flaky".into(), "true".into());
+
         metadata.insert(
             "flaky_recovered_on_attempt".into(),
             attempts.len().to_string(),
         );
     }
+
     Ok(ProbeResult {
         task_id: task.task_id,
         lease_token: task.lease_token,
@@ -216,6 +235,7 @@ async fn run_once(
         .spec
         .as_ref()
         .ok_or_else(|| anyhow!("Probe task has no Spec"))?;
+
     match spec {
         probe_task::Spec::Http(spec) => http::execute(task, spec, context).await,
         probe_task::Spec::Tcp(spec) => network::execute_tcp(task, spec, context).await,
@@ -254,11 +274,14 @@ fn normalize_attempt(outcome: &mut AttemptOutcome) {
     outcome.error_message = truncate_string(std::mem::take(&mut outcome.error_message), 4096);
     outcome.response_excerpt.truncate(MAX_EXCERPT_BYTES);
     outcome.metadata = bound_metadata(std::mem::take(&mut outcome.metadata), MAX_METADATA_ENTRIES);
+
     for assertion in &mut outcome.assertions {
         assertion.actual = truncate_string(std::mem::take(&mut assertion.actual), 4096);
         assertion.message = truncate_string(std::mem::take(&mut assertion.message), 4096);
     }
+
     outcome.evidence.truncate(100);
+
     for evidence in &mut outcome.evidence {
         evidence.step_id = truncate_string(std::mem::take(&mut evidence.step_id), 128);
         evidence.name = truncate_string(std::mem::take(&mut evidence.name), 256);
@@ -266,6 +289,7 @@ fn normalize_attempt(outcome: &mut AttemptOutcome) {
         evidence.error_category =
             truncate_string(std::mem::take(&mut evidence.error_category), 128);
         evidence.error_message = truncate_string(std::mem::take(&mut evidence.error_message), 4096);
+
         evidence.metadata = bound_metadata(
             std::mem::take(&mut evidence.metadata),
             MAX_STEP_METADATA_ENTRIES,
@@ -300,10 +324,13 @@ fn truncate_string(mut value: String, max: usize) -> String {
     if value.len() <= max {
         return value;
     }
+
     let mut end = max;
+
     while !value.is_char_boundary(end) {
         end -= 1;
     }
+
     value.truncate(end);
     value
 }

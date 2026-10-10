@@ -91,6 +91,7 @@ impl RumReadModelReader {
                 range,
             )
             .await?;
+
         self.visit_files(input, columns, |batch, scan_range| {
             for row in 0..batch.num_rows() {
                 if let Some(record) = RumSessionRecord::from_batch(batch, row)
@@ -121,6 +122,7 @@ impl RumReadModelReader {
                 range,
             )
             .await?;
+
         self.visit_files(input, columns, |batch, scan_range| {
             for row in 0..batch.num_rows() {
                 if let Some(record) = RumActionRecord::from_batch(batch, row)
@@ -147,6 +149,7 @@ impl RumReadModelReader {
         if session_ids.is_empty() {
             return Ok(ScanStats::default());
         }
+
         let mut input = self
             .source_files(
                 org_id,
@@ -155,9 +158,11 @@ impl RumReadModelReader {
                 range,
             )
             .await?;
+
         input
             .files
             .retain(|file| file_may_contain_session(&file.meta, session_ids));
+
         self.visit_files(input, columns, |batch, scan_range| {
             for row in 0..batch.num_rows() {
                 if let Some(record) = RumActionRecord::from_batch(batch, row)
@@ -182,9 +187,11 @@ impl RumReadModelReader {
         F: FnMut(RumSessionRecord),
     {
         let mut input = self.raw_files(org_id, "rum_sessions", range).await?;
+
         input
             .files
             .retain(|file| file_may_contain_session(&file.meta, session_ids));
+
         self.visit_files(input, SESSION_COLUMNS, |batch, scan_range| {
             for row in 0..batch.num_rows() {
                 if let Some(record) = RumSessionRecord::from_batch(batch, row)
@@ -209,9 +216,11 @@ impl RumReadModelReader {
         F: FnMut(RumActionRecord),
     {
         let mut input = self.raw_files(org_id, "rum_actions", range).await?;
+
         input
             .files
             .retain(|file| file_may_contain_session(&file.meta, session_ids));
+
         self.visit_files(input, ACTION_DETAIL_COLUMNS, |batch, scan_range| {
             for row in 0..batch.num_rows() {
                 if let Some(record) = RumActionRecord::from_batch(batch, row)
@@ -236,9 +245,11 @@ impl RumReadModelReader {
         F: FnMut(RumErrorRecord),
     {
         let mut input = self.raw_files(org_id, "rum_errors", range).await?;
+
         input
             .files
             .retain(|file| file_may_contain_value(&file.meta, "fingerprint", fingerprint));
+
         self.visit_files(input, ERROR_DETAIL_COLUMNS, |batch, scan_range| {
             for row in 0..batch.num_rows() {
                 if let Some(record) = RumErrorRecord::from_batch(batch, row)
@@ -270,6 +281,7 @@ impl RumReadModelReader {
                 range,
             )
             .await?;
+
         self.visit_files(input, columns, |batch, scan_range| {
             for row in 0..batch.num_rows() {
                 if let Some(record) = RumErrorRecord::from_batch(batch, row)
@@ -290,6 +302,7 @@ impl RumReadModelReader {
         range: TimeRange,
     ) -> Result<ScanInput> {
         let raw_type = primary_dataset_type(StreamType::LOGS)?;
+
         let (mut summaries, mut raw) = match &self.catalog_source {
             Some(source) => {
                 let snapshot = source
@@ -301,6 +314,7 @@ impl RumReadModelReader {
                         range,
                     )
                     .await?;
+
                 (
                     ScanInput::from_catalog(snapshot.dataset(&summary_type), range),
                     ScanInput::from_catalog(snapshot.dataset(&raw_type), range),
@@ -313,6 +327,7 @@ impl RumReadModelReader {
                     self.files
                         .find_dataset(org_id, stream, StreamType::LOGS, raw_type, range,),
                 )?;
+
                 (
                     ScanInput {
                         files: summaries
@@ -331,6 +346,7 @@ impl RumReadModelReader {
                 )
             }
         };
+
         if summaries.is_empty() {
             return Ok(raw);
         }
@@ -350,8 +366,10 @@ impl RumReadModelReader {
             )
             .min()
             .unwrap_or(range.start.0);
+
         if summary_start > range.start.0 {
             let prefix = TimeRange::new(range.start, TimestampMicros(summary_start));
+
             summaries
                 .files
                 .extend(raw.files.drain(..).filter_map(|mut file| {
@@ -360,6 +378,7 @@ impl RumReadModelReader {
                         file
                     })
                 }));
+
             summaries
                 .batches
                 .extend(raw.batches.drain(..).map(|mut batch| {
@@ -367,11 +386,13 @@ impl RumReadModelReader {
                     batch
                 }));
         }
+
         Ok(summaries)
     }
 
     async fn raw_files(&self, org_id: &Id, stream: &str, range: TimeRange) -> Result<ScanInput> {
         let raw_type = primary_dataset_type(StreamType::LOGS)?;
+
         match &self.catalog_source {
             Some(source) => {
                 let snapshot = source
@@ -383,6 +404,7 @@ impl RumReadModelReader {
                         range,
                     )
                     .await?;
+
                 Ok(ScanInput::from_catalog(snapshot.dataset(&raw_type), range))
             }
             None => Ok(ScanInput {
@@ -421,6 +443,7 @@ fn file_may_contain_session(file: &QueryFile, session_ids: &HashSet<String>) -> 
     else {
         return true;
     };
+
     let Some(maximum) = file
         .max_values
         .get("session_id")
@@ -428,6 +451,7 @@ fn file_may_contain_session(file: &QueryFile, session_ids: &HashSet<String>) -> 
     else {
         return true;
     };
+
     session_ids
         .iter()
         .any(|session_id| session_id.as_str() >= minimum && session_id.as_str() <= maximum)
@@ -437,8 +461,10 @@ fn file_may_contain_value(file: &QueryFile, field: &str, value: &str) -> bool {
     let Some(minimum) = file.min_values.get(field).and_then(|value| value.as_str()) else {
         return true;
     };
+
     let Some(maximum) = file.max_values.get(field).and_then(|value| value.as_str()) else {
         return true;
     };
+
     value >= minimum && value <= maximum
 }

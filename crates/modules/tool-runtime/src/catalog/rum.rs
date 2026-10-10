@@ -12,10 +12,12 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         "environment": {"type": "string"},
         "limit": {"type": "integer", "minimum": 1, "maximum": 500, "default": 100}
     });
+
     let (description, input, tags) = match kind {
         BuiltinToolKind::ListRumSessions => {
             let mut fields = common.clone();
             fields["end_user_id"] = json!({"type": "string"});
+
             (
                 "List bounded real-user monitoring sessions.",
                 object_schema(fields),
@@ -31,6 +33,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             let mut fields = common.clone();
             fields["session_id"] = json!({"type": "string"});
             fields["action_type"] = json!({"type": "string"});
+
             (
                 "List page views, actions, resources, and Web Vitals.",
                 object_schema(fields),
@@ -41,6 +44,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             let mut fields = common;
             fields["session_id"] = json!({"type": "string"});
             fields["fingerprint"] = json!({"type": "string"});
+
             (
                 "List RUM errors by session or fingerprint.",
                 object_schema(fields),
@@ -54,6 +58,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         ),
         _ => unreachable!("RUM catalog received unrelated kind"),
     };
+
     ToolSpec::read(
         kind.name(),
         description,

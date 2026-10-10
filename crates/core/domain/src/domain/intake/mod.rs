@@ -86,6 +86,7 @@ pub trait IntakeSink: Send + Sync {
                 "intake sink does not support physical dataset `{dataset_type}`"
             )));
         }
+
         self.write(batch).await
     }
 }

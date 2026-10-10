@@ -44,8 +44,10 @@ async fn main() -> anyhow::Result<()> {
     // not silently disable an independently configured external OTLP exporter.
     let trace_capture_enabled = settings.telemetry.trace.effective_enabled();
     let self_telemetry_enabled = settings.telemetry.self_collect.enabled;
+
     let self_telemetry_init = (self_telemetry_enabled || trace_capture_enabled).then(|| {
         use molesignal::shared::self_telemetry::{ResourceIdentity, SelfTelemetryInit};
+
         let roles = settings
             .node
             .roles
@@ -53,6 +55,7 @@ async fn main() -> anyhow::Result<()> {
             .map(role_str)
             .collect::<Vec<_>>()
             .join(",");
+
         SelfTelemetryInit {
             queue_capacity: settings.telemetry.self_collect.queue_capacity,
             traces_enabled: trace_capture_enabled,
@@ -65,6 +68,7 @@ async fn main() -> anyhow::Result<()> {
             ),
         }
     });
+
     let logger_guard = molesignal::shared::telemetry::init_full_with_self_telemetry(
         molesignal::shared::telemetry::FullTelemetryInit {
             log_level: &settings.telemetry.log_level,
@@ -115,10 +119,12 @@ async fn main() -> anyhow::Result<()> {
     if let Some(Command::RewrapKek { old_key }) = &cli.command {
         tracing::info!("kek rewrap starting (offline)");
         let report = rewrap_kek(settings, old_key).await?;
+
         for (table, rows) in &report {
             tracing::info!(table = %table, rows = *rows, "kek rewrap");
             println!("rewrapped {rows} rows in {table}");
         }
+
         tracing::info!("kek rewrap done; verify counts before retiring the old KEK");
         return Ok(());
     }
@@ -131,6 +137,7 @@ async fn main() -> anyhow::Result<()> {
     );
 
     let mut app_state = build_state(settings).await?;
+
     if let Some(hub) = logger_guard.self_telemetry() {
         activate_self_telemetry(&mut app_state, settings, hub)?;
     }
@@ -142,6 +149,7 @@ async fn main() -> anyhow::Result<()> {
 
 fn parse_log_format(s: &str) -> molesignal::shared::telemetry::LogFormat {
     use molesignal::shared::telemetry::LogFormat;
+
     match s {
         "json" => LogFormat::Json,
         _ => LogFormat::Text,
@@ -152,6 +160,7 @@ fn build_log_output(
     t: &molesignal::config::TelemetrySettings,
 ) -> molesignal::shared::telemetry::LogOutput {
     use molesignal::shared::telemetry::{FileRotation, LogOutput};
+
     match t.log_output.as_str() {
         "file" => LogOutput::File {
             directory: t.log_directory.clone().unwrap_or_else(|| "logs".into()),
@@ -170,6 +179,7 @@ fn build_log_output(
 
 fn role_str(r: &molesignal::config::Role) -> &'static str {
     use molesignal::config::Role::*;
+
     match r {
         Standalone => "standalone",
         Router => "router",

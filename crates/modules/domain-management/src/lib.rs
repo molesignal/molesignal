@@ -106,15 +106,19 @@ pub fn hostname_valid(h: &str) -> Result<()> {
     if h.is_empty() {
         return Err(Error::invalid("hostname must not be empty"));
     }
+
     if h.len() > 253 {
         return Err(Error::invalid("hostname must be ≤ 253 chars (RFC 1035)"));
     }
+
     let lower = h.to_lowercase();
+
     if !HOSTNAME_RE.is_match(&lower) {
         return Err(Error::invalid(format!(
             "invalid hostname '{h}': must be DNS-compatible (RFC 1123)"
         )));
     }
+
     Ok(())
 }
 

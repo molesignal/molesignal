@@ -35,6 +35,7 @@ fn row_to(row: sqlx::postgres::PgRow) -> DebugArtifactMeta {
         .ok()
         .and_then(|value| DebugArtifactKind::parse(&value))
         .unwrap_or(DebugArtifactKind::JavascriptSourcemap);
+
     DebugArtifactMeta {
         id: Id(row.try_get::<String, _>("id").unwrap_or_default()),
         org_id: Id(row.try_get::<String, _>("org_id").unwrap_or_default()),
@@ -67,6 +68,7 @@ fn row_to(row: sqlx::postgres::PgRow) -> DebugArtifactMeta {
 impl DebugArtifactRepository for PgDebugArtifactRepository {
     async fn create(&self, artifact: DebugArtifactMeta) -> Result<DebugArtifactUpsert> {
         let mut transaction = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         let identity_lock = format!(
             "debug-artifact:{}:{}:{}:{}:{}:{}:{}:{}:{}",
             artifact.org_id.0,
@@ -79,11 +81,13 @@ impl DebugArtifactRepository for PgDebugArtifactRepository {
             artifact.debug_id,
             artifact.filename,
         );
+
         sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))")
             .bind(identity_lock)
             .execute(&mut *transaction)
             .await
             .map_err(sqlx_err)?;
+
         let replaced_object_key = sqlx::query_scalar::<String>(
             "SELECT object_key FROM debug_artifacts
              WHERE org_id = $1 AND application_id = $2 AND service = $3 AND release = $4
@@ -102,6 +106,7 @@ impl DebugArtifactRepository for PgDebugArtifactRepository {
         .fetch_optional(&mut *transaction)
         .await
         .map_err(sqlx_err)?;
+
         let sql = format!(
             "INSERT INTO debug_artifacts
                 (id, org_id, application_id, service, release, artifact_kind, platform,
@@ -118,6 +123,7 @@ impl DebugArtifactRepository for PgDebugArtifactRepository {
                  uploaded_at_micros = EXCLUDED.uploaded_at_micros
              RETURNING {COLS}"
         );
+
         let row = sqlx::query(&sql)
             .bind(&artifact.id.0)
             .bind(&artifact.org_id.0)
@@ -136,7 +142,9 @@ impl DebugArtifactRepository for PgDebugArtifactRepository {
             .fetch_one(&mut *transaction)
             .await
             .map_err(sqlx_err)?;
+
         transaction.commit().await.map_err(sqlx_err)?;
+
         Ok(DebugArtifactUpsert {
             artifact: row_to(row),
             replaced_object_key,
@@ -160,6 +168,7 @@ impl DebugArtifactRepository for PgDebugArtifactRepository {
                AND ($5::TEXT IS NULL OR platform = $5)
              ORDER BY uploaded_at_micros DESC LIMIT 500"
         );
+
         let rows = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(application_id)
@@ -169,6 +178,7 @@ impl DebugArtifactRepository for PgDebugArtifactRepository {
             .fetch_all(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(rows.into_iter().map(row_to).collect())
     }
 
@@ -194,6 +204,7 @@ impl DebugArtifactRepository for PgDebugArtifactRepository {
                uploaded_at_micros DESC
              LIMIT 65"
         );
+
         let rows = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(lookup.application_id)
@@ -207,7 +218,9 @@ impl DebugArtifactRepository for PgDebugArtifactRepository {
             .fetch_all(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         let artifacts: Vec<_> = rows.into_iter().map(row_to).collect();
+
         let preferred: Vec<_> = artifacts
             .iter()
             .filter(|artifact| {
@@ -223,24 +236,29 @@ impl DebugArtifactRepository for PgDebugArtifactRepository {
                         })
             })
             .collect();
+
         if preferred.len() == 1 && (artifacts.len() < 65 || lookup.filename.is_some()) {
             return Ok(preferred.first().map(|artifact| (*artifact).clone()));
         }
+
         if preferred.len() > 1 || artifacts.len() != 1 {
             return Ok(None);
         }
+
         Ok(artifacts.into_iter().next())
     }
 
     async fn delete(&self, org_id: &Id, id: &Id) -> Result<Option<DebugArtifactMeta>> {
         let sql =
             format!("DELETE FROM debug_artifacts WHERE org_id = $1 AND id = $2 RETURNING {COLS}");
+
         let row = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&id.0)
             .fetch_optional(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(row.map(row_to))
     }
 }

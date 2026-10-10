@@ -20,7 +20,9 @@ pub(super) fn validate_field_masking(
             "metrics streams do not support field masking",
         ));
     }
+
     let mut fields = HashSet::new();
+
     for masking in &settings.field_masking {
         if !fields.insert(masking.field.as_str()) {
             return Err(Error::invalid(format!(
@@ -28,6 +30,7 @@ pub(super) fn validate_field_masking(
                 masking.field
             )));
         }
+
         if !schema
             .fields
             .iter()
@@ -38,10 +41,12 @@ pub(super) fn validate_field_masking(
                 masking.field
             )));
         }
+
         if let Some(algorithm) = &masking.algorithm {
             algorithm.validate()?;
         }
     }
+
     Ok(())
 }
 
@@ -52,11 +57,13 @@ pub(super) fn validate_system_settings_update(
     let mut allowed = current.clone();
     allowed.index_rules = proposed.index_rules.clone();
     allowed.field_masking = proposed.field_masking.clone();
+
     if &allowed != proposed {
         return Err(Error::forbidden(
             "system streams only allow field indexing, extraction and masking settings",
         ));
     }
+
     Ok(())
 }
 

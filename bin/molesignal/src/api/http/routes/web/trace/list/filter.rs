@@ -70,16 +70,20 @@ pub(super) fn parse(
     let Some(raw) = raw.map(str::trim).filter(|value| !value.is_empty()) else {
         return Ok(Vec::new());
     };
+
     if raw.len() > 32 * 1024 || raw.contains('\0') {
         return Err(Error::invalid("invalid trace filters"));
     }
+
     let parsed = serde_json::from_str::<Vec<TraceFilterInput>>(raw)
         .map_err(|error| Error::invalid(format!("invalid trace filters: {error}")))?;
+
     if parsed.len() > maximum {
         return Err(Error::invalid(format!(
             "trace filters exceed maximum of {maximum}"
         )));
     }
+
     parsed
         .into_iter()
         .map(|filter| normalize(filter, schema))
@@ -89,15 +93,18 @@ pub(super) fn parse(
 pub(super) fn validate(filters: &[TraceFilter], schema: &Schema) -> Result<()> {
     for filter in filters {
         let expected = resolve_field(&filter.field, schema)?;
+
         if expected.data_type != filter.data_type || expected.scope != filter.scope {
             return Err(Error::invalid(format!(
                 "trace filter field changed since the cursor was issued: {}",
                 filter.field
             )));
         }
+
         validate_operator(&filter.field, &filter.op, filter.data_type)?;
         normalize_value(&filter.field, &filter.value, filter.data_type)?;
     }
+
     Ok(())
 }
 
@@ -105,6 +112,7 @@ fn normalize(input: TraceFilterInput, schema: &Schema) -> Result<TraceFilter> {
     let field = clean(&input.field, 128, "trace filter field must not be empty")?;
     let resolved = resolve_field(&field, schema)?;
     let op = clean(&input.op, 16, "trace filter operator must not be empty")?.to_ascii_lowercase();
+
     let op = match op.as_str() {
         "=" | "eq" => "=",
         "!=" | "ne" => "!=",
@@ -117,9 +125,11 @@ fn normalize(input: TraceFilterInput, schema: &Schema) -> Result<TraceFilter> {
         }
     }
     .to_string();
+
     validate_operator(&resolved.name, &op, resolved.data_type)?;
     let raw_value = clean(&input.value, 512, "trace filter value must not be empty")?;
     let value = normalize_value(&resolved.name, &raw_value, resolved.data_type)?;
+
     Ok(TraceFilter {
         field: resolved.name,
         op,
@@ -142,11 +152,13 @@ fn resolve_field(name: &str, schema: &Schema) -> Result<ResolvedField> {
         "status" => "status_code",
         other => other,
     };
+
     let summary = match canonical {
         "trace_id" => Some(FieldType::Utf8),
         "duration_ns" | "span_count" | "error_count" => Some(FieldType::Int64),
         _ => None,
     };
+
     if let Some(data_type) = summary {
         return Ok(ResolvedField {
             name: canonical.to_string(),
@@ -154,21 +166,25 @@ fn resolve_field(name: &str, schema: &Schema) -> Result<ResolvedField> {
             scope: TraceFilterScope::Summary,
         });
     }
+
     if canonical.starts_with("molesignal.trace.") {
         return Err(Error::invalid(format!(
             "internal trace summary field is not directly queryable: {canonical}"
         )));
     }
+
     let field = schema
         .fields
         .iter()
         .find(|field| field.name == canonical)
         .ok_or_else(|| Error::invalid(format!("unsupported trace filter field: {canonical}")))?;
+
     if field.data_type == FieldType::Json {
         return Err(Error::invalid(format!(
             "trace field `{canonical}` requires a JSON path query in SQL mode"
         )));
     }
+
     Ok(ResolvedField {
         name: canonical.to_string(),
         data_type: field.data_type,
@@ -185,9 +201,11 @@ fn validate_operator(field: &str, op: &str, data_type: FieldType) -> Result<()> 
         FieldType::Bool => matches!(op, "=" | "!="),
         FieldType::Json => false,
     };
+
     if supported {
         return Ok(());
     }
+
     Err(Error::invalid(format!(
         "operator `{op}` is not supported for trace field `{field}`"
     )))
@@ -237,9 +255,11 @@ fn normalize_value(field: &str, value: &str, data_type: FieldType) -> Result<Str
 
 fn clean(value: &str, maximum: usize, message: &str) -> Result<String> {
     let value = value.trim();
+
     if value.is_empty() || value.len() > maximum || value.contains('\0') {
         return Err(Error::invalid(message));
     }
+
     Ok(value.to_string())
 }
 

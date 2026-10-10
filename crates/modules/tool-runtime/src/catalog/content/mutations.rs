@@ -97,6 +97,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         ),
         _ => unreachable!("content mutation catalog received unrelated kind"),
     };
+
     ToolSpec::read(
         kind.name(),
         description,
@@ -119,6 +120,7 @@ fn proposal_id_schema(field: &str) -> Value {
 
 fn proposal_schema(required: &[&str], properties: Value) -> Value {
     let mut properties = properties.as_object().cloned().unwrap_or_default();
+
     properties.extend(
         json!({
             "reason": {"type": "string", "minLength": 1, "maxLength": 2000},
@@ -129,8 +131,10 @@ fn proposal_schema(required: &[&str], properties: Value) -> Value {
         .cloned()
         .expect("static approval properties"),
     );
+
     let mut required = required.to_vec();
     required.extend(["reason", "impact"]);
+
     json!({
         "type": "object",
         "required": required,

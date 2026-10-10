@@ -58,10 +58,12 @@ async fn list(
     Query(query): Query<ResultListQuery>,
 ) -> Result<Json<ResultListResponse>> {
     let (filters, page, per_page) = query.normalize()?;
+
     let SyntheticResultPage { items, total } = state
         .synthetics
         .list_results_page(&context.org_id, &filters)
         .await?;
+
     Ok(Json(ResultListResponse {
         items,
         total,
@@ -76,9 +78,11 @@ impl ResultListQuery {
             .query
             .map(|value| value.trim().to_owned())
             .filter(|value| !value.is_empty());
+
         if check_query.as_ref().is_some_and(|value| value.len() > 200) {
             return Err(Error::invalid("synthetic result query exceeds 200 bytes"));
         }
+
         let outcome = self
             .outcome
             .as_deref()
@@ -87,13 +91,16 @@ impl ResultListQuery {
                     .ok_or_else(|| Error::invalid("invalid synthetic result outcome"))
             })
             .transpose()?;
+
         let page = self.page.max(1);
         let per_page = self.per_page.clamp(1, 100);
+
         let location_id = self
             .location_id
             .map(|value| value.trim().to_owned())
             .filter(|value| !value.is_empty())
             .map(Id);
+
         Ok((
             SyntheticResultListQuery {
                 check_query,

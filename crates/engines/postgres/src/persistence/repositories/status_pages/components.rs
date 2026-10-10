@@ -26,6 +26,7 @@ impl StatusPageComponentRepository for PgStatusPageRepository {
         initial_event: StatusPageComponentStatusEvent,
     ) -> Result<StatusPageComponent> {
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
+
         sqlx::query(
             "INSERT INTO status_page_components
                 (id, org_id, status_page_id, name, description, status, visibility,
@@ -47,9 +48,11 @@ impl StatusPageComponentRepository for PgStatusPageRepository {
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
+
         insert_component_status_event(&mut transaction, &initial_event)
             .await
             .map_err(super::sqlx_err)?;
+
         touch_page(
             &mut transaction,
             &component.org_id,
@@ -57,6 +60,7 @@ impl StatusPageComponentRepository for PgStatusPageRepository {
             component.updated_at,
         )
         .await?;
+
         transaction.commit().await.map_err(super::sqlx_err)?;
         self.get_component(&component.org_id, &component.status_page_id, &component.id)
             .await
@@ -69,6 +73,7 @@ impl StatusPageComponentRepository for PgStatusPageRepository {
         status_event: Option<StatusPageComponentStatusEvent>,
     ) -> Result<StatusPageComponent> {
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
+
         let updated = sqlx::query(
             "UPDATE status_page_components SET
                  name = $4, description = $5, status = $6, visibility = $7,
@@ -92,11 +97,13 @@ impl StatusPageComponentRepository for PgStatusPageRepository {
         .fetch_optional(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
+
         if updated.is_none() {
             return Err(Error::conflict(
                 "component changed while it was being updated",
             ));
         }
+
         if let Some(status_event) = status_event {
             let result = sqlx::query(
                 "UPDATE status_page_component_status_events
@@ -111,15 +118,18 @@ impl StatusPageComponentRepository for PgStatusPageRepository {
             .execute(&mut *transaction)
             .await
             .map_err(super::sqlx_err)?;
+
             if result.rows_affected() != 1 {
                 return Err(Error::conflict(
                     "component status history changed while the component was being updated",
                 ));
             }
+
             insert_component_status_event(&mut transaction, &status_event)
                 .await
                 .map_err(super::sqlx_err)?;
         }
+
         touch_page(
             &mut transaction,
             &component.org_id,
@@ -127,6 +137,7 @@ impl StatusPageComponentRepository for PgStatusPageRepository {
             component.updated_at,
         )
         .await?;
+
         transaction.commit().await.map_err(super::sqlx_err)?;
         self.get_component(&component.org_id, &component.status_page_id, &component.id)
             .await
@@ -140,6 +151,7 @@ impl StatusPageComponentRepository for PgStatusPageRepository {
         updated_at: TimestampMicros,
     ) -> Result<()> {
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
+
         let has_history: bool = sqlx::query_scalar(
             "SELECT EXISTS (
                  SELECT 1 FROM status_page_incident_components
@@ -155,11 +167,13 @@ impl StatusPageComponentRepository for PgStatusPageRepository {
         .fetch_one(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
+
         if has_history {
             return Err(Error::conflict(
                 "component has history and must be archived instead of deleted",
             ));
         }
+
         let result = sqlx::query(
             "DELETE FROM status_page_components
              WHERE org_id = $1 AND status_page_id = $2 AND id = $3",
@@ -170,9 +184,11 @@ impl StatusPageComponentRepository for PgStatusPageRepository {
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
+
         if result.rows_affected() == 0 {
             return Err(Error::not_found("status page component not found"));
         }
+
         touch_page(&mut transaction, org_id, page_id, updated_at).await?;
         transaction.commit().await.map_err(super::sqlx_err)?;
         Ok(())
@@ -188,6 +204,7 @@ impl StatusPageComponentRepository for PgStatusPageRepository {
             "SELECT {COMPONENT_COLS} FROM status_page_components
              WHERE org_id = $1 AND status_page_id = $2 AND id = $3"
         );
+
         let row = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&page_id.0)
@@ -195,6 +212,7 @@ impl StatusPageComponentRepository for PgStatusPageRepository {
             .fetch_one(&self.pool)
             .await
             .map_err(super::sqlx_err)?;
+
         row_to_component(row)
     }
 
@@ -204,6 +222,7 @@ impl StatusPageComponentRepository for PgStatusPageRepository {
              WHERE org_id = $1 AND status_page_id = $2
              ORDER BY (lifecycle = 'active') DESC, position, name, id LIMIT 500"
         );
+
         sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&page_id.0)
@@ -230,6 +249,7 @@ impl StatusPageComponentRepository for PgStatusPageRepository {
                AND (ended_at_micros IS NULL OR ended_at_micros > $3)
              ORDER BY started_at_micros DESC, id DESC LIMIT 50000"
         );
+
         sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&page_id.0)

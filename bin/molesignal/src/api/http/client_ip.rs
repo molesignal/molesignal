@@ -36,6 +36,7 @@ impl ClientIpResolverHandle {
 
     pub(crate) fn new(settings: &ClientIpResolverSettings) -> Result<Self> {
         let normalized = normalize_settings(settings.clone())?;
+
         Ok(Self {
             current: Arc::new(RwLock::new(Arc::new(ClientIpResolver::compile(
                 &normalized,
@@ -71,18 +72,22 @@ pub(crate) fn normalize_settings(
     }
 
     let raw_header = settings.header_name.trim();
+
     if raw_header.is_empty() || raw_header.len() > MAX_HEADER_NAME_LENGTH {
         return Err(Error::invalid(format!(
             "header_name must contain 1 to {MAX_HEADER_NAME_LENGTH} characters"
         )));
     }
+
     let header = HeaderName::from_bytes(raw_header.as_bytes())
         .map_err(|_| Error::invalid("header_name is not a valid HTTP header name"))?;
+
     if is_sensitive_header(header.as_str()) {
         return Err(Error::invalid(
             "header_name cannot reference a sensitive header",
         ));
     }
+
     settings.header_name = header.as_str().to_string();
 
     if settings.trusted_proxy_cidrs.is_empty() {
@@ -90,6 +95,7 @@ pub(crate) fn normalize_settings(
             "trusted_proxy_cidrs is required for header and forwarded_chain modes",
         ));
     }
+
     if settings.trusted_proxy_cidrs.len() > MAX_TRUSTED_PROXY_CIDRS {
         return Err(Error::invalid(format!(
             "trusted_proxy_cidrs supports at most {MAX_TRUSTED_PROXY_CIDRS} entries"
@@ -98,16 +104,20 @@ pub(crate) fn normalize_settings(
 
     let mut seen = HashSet::new();
     let mut normalized_cidrs = Vec::with_capacity(settings.trusted_proxy_cidrs.len());
+
     for raw in &settings.trusted_proxy_cidrs {
         let network = raw
             .trim()
             .parse::<IpNet>()
             .map_err(|_| Error::invalid(format!("invalid trusted proxy CIDR: {raw}")))?;
+
         let canonical = network.trunc().to_string();
+
         if seen.insert(canonical.clone()) {
             normalized_cidrs.push(canonical);
         }
     }
+
     settings.trusted_proxy_cidrs = normalized_cidrs;
     Ok(settings)
 }
@@ -131,6 +141,7 @@ impl ClientIpResolver {
                     .map_err(|_| Error::invalid("header_name is not a valid HTTP header name"))?,
             )
         };
+
         let trusted_proxies = settings
             .trusted_proxy_cidrs
             .iter()
@@ -139,6 +150,7 @@ impl ClientIpResolver {
                     .map_err(|_| Error::invalid(format!("invalid trusted proxy CIDR: {cidr}")))
             })
             .collect::<Result<Vec<_>>>()?;
+
         Ok(Self {
             mode: settings.mode,
             header_name,
@@ -151,24 +163,29 @@ impl ClientIpResolver {
 
     fn resolve(&self, headers: &HeaderMap, peer: Option<SocketAddr>) -> Option<IpAddr> {
         let peer_ip = peer.map(|address| normalize_ip(address.ip()));
+
         if self.mode == ClientIpMode::Peer {
             return peer_ip;
         }
+
         let trusted_peer = peer_ip.is_some_and(|ip| {
             self.trusted_proxies
                 .iter()
                 .any(|network| network.contains(&ip))
         });
+
         if !trusted_peer {
             return self.fallback(peer_ip);
         }
 
         let header_name = self.header_name.as_ref()?;
+
         let candidate = match self.mode {
             ClientIpMode::Peer => None,
             ClientIpMode::Header => single_header_ip(headers, header_name),
             ClientIpMode::ForwardedChain => self.forwarded_chain_ip(headers, header_name),
         };
+
         candidate
             .filter(|ip| self.allow_private_client_ips || is_public_client_ip(*ip))
             .or_else(|| self.fallback(peer_ip))
@@ -176,21 +193,27 @@ impl ClientIpResolver {
 
     fn forwarded_chain_ip(&self, headers: &HeaderMap, header_name: &HeaderName) -> Option<IpAddr> {
         let mut chain = Vec::new();
+
         for value in headers.get_all(header_name).iter() {
             let value = value.to_str().ok()?;
+
             if value.len() > MAX_HEADER_VALUE_LENGTH {
                 return None;
             }
+
             for part in value.split(',') {
                 if chain.len() >= self.max_chain_length {
                     return None;
                 }
+
                 chain.push(parse_bare_ip(part)?);
             }
         }
+
         if chain.is_empty() {
             return None;
         }
+
         chain.into_iter().rev().find(|ip| {
             !self
                 .trusted_proxies
@@ -207,13 +230,17 @@ impl ClientIpResolver {
 fn single_header_ip(headers: &HeaderMap, header_name: &HeaderName) -> Option<IpAddr> {
     let mut values = headers.get_all(header_name).iter();
     let value = values.next()?;
+
     if values.next().is_some() {
         return None;
     }
+
     let value = value.to_str().ok()?;
+
     if value.len() > 64 || value.contains(',') {
         return None;
     }
+
     parse_bare_ip(value)
 }
 
@@ -253,6 +280,7 @@ fn is_public_client_ip(ip: IpAddr) -> bool {
 
 fn is_public_ipv4(ip: Ipv4Addr) -> bool {
     let [a, b, c, _] = ip.octets();
+
     !(ip.is_private()
         || ip.is_loopback()
         || ip.is_link_local()
@@ -270,6 +298,7 @@ fn is_public_ipv4(ip: Ipv4Addr) -> bool {
 
 fn is_public_ipv6(ip: Ipv6Addr) -> bool {
     let segments = ip.segments();
+
     !(ip.is_loopback()
         || ip.is_unspecified()
         || ip.is_multicast()

@@ -56,6 +56,7 @@ impl IntakeServiceTrait for IntakeGrpc {
     async fn push(&self, request: Request<PushRequest>) -> Result<Response<PushResponse>, Status> {
         let internal_self_telemetry =
             authenticate_internal_self_telemetry(&request, self.self_telemetry_token.as_deref())?;
+
         let PushRequest {
             batch_id,
             org_id,
@@ -82,11 +83,13 @@ impl IntakeServiceTrait for IntakeGrpc {
         } else {
             Id::from_string(batch_id)
         };
+
         let received_at = if received_at_micros == 0 {
             TimestampMicros::now()
         } else {
             TimestampMicros(received_at_micros)
         };
+
         let batch = IntakeBatch {
             batch_id,
             org_id: Id::from_string(org_id),
@@ -111,6 +114,7 @@ impl IntakeServiceTrait for IntakeGrpc {
                 reason: e.reason,
             })
             .collect();
+
         Ok(Response::new(PushResponse {
             accepted: result.accepted as u32,
             rejected: result.rejected as u32,
@@ -124,23 +128,29 @@ fn authenticate_internal_self_telemetry(
     expected_token: Option<&str>,
 ) -> Result<bool, Status> {
     const ORIGIN_HEADER: &str = "x-molesignal-internal-origin";
+
     let Some(origin) = request.metadata().get(ORIGIN_HEADER) else {
         return Ok(false);
     };
+
     if origin.to_str().ok() != Some("self-telemetry") {
         return Err(Status::permission_denied("unsupported internal origin"));
     }
+
     let expected = expected_token
         .ok_or_else(|| Status::unauthenticated("internal self telemetry is not configured"))?;
+
     let presented = request
         .metadata()
         .get("authorization")
         .and_then(|value| value.to_str().ok())
         .and_then(|value| value.strip_prefix("Bearer "))
         .ok_or_else(|| Status::unauthenticated("missing internal bearer"))?;
+
     if !crate::app::self_telemetry::cluster_token_matches(expected, presented) {
         return Err(Status::unauthenticated("invalid internal bearer"));
     }
+
     Ok(true)
 }
 

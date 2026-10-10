@@ -76,12 +76,14 @@ impl IntakeWorker {
     ) -> Self {
         let buffer_max_bytes = (settings.buffer_max_mb as usize).saturating_mul(1024 * 1024);
         let adaptive_rotation = AdaptiveRotation::new(&settings.rotation, buffer_max_bytes);
+
         let sink = Arc::new(DurableIntakeSink::new(
             wal.clone(),
             buffer.clone(),
             streams.clone(),
             datasets.clone(),
         ));
+
         Self {
             sink,
             wal,
@@ -122,6 +124,7 @@ impl IntakeWorker {
             )
             .with_field_keys(service.clone()),
         );
+
         self.field_keys = Some(service);
         self
     }
@@ -178,6 +181,7 @@ impl IntakeSink for IntakeWorker {
             .streams
             .get(&batch.org_id, &batch.stream, batch.stream_type)
             .await?;
+
         let key = self
             .datasets
             .resolve(&stream, dataset_type.clone())
@@ -185,10 +189,12 @@ impl IntakeSink for IntakeWorker {
             .dataset
             .id
             .clone();
+
         let result = self
             .sink
             .write_metered_dataset(dataset_type, batch, collected_bytes)
             .await?;
+
         if let Some(buffer) = self.buffer.get(&key)
             && buffer
                 .records()
@@ -203,6 +209,7 @@ impl IntakeSink for IntakeWorker {
         {
             self.flush_notify.notify_one();
         }
+
         Ok(result)
     }
 }

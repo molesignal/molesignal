@@ -129,11 +129,14 @@ impl ClusterEventSync {
                 .map(|s| s.federation_drain_interval_secs)
                 .unwrap_or(10)
                 .max(1) as u64;
+
             loop {
                 tokio::time::sleep(Duration::from_secs(interval)).await;
+
                 if !self.ownership.is_primary().await {
                     continue;
                 }
+
                 let settings = match self.instance_settings.get().await {
                     Ok(s) => s,
                     Err(e) => {
@@ -141,11 +144,15 @@ impl ClusterEventSync {
                         continue;
                     }
                 };
+
                 interval = settings.federation_drain_interval_secs.max(1) as u64;
+
                 if !settings.federation_enabled() {
                     continue; // 未启用 → 零开销。
                 }
+
                 let source = settings.federation_cluster_id.trim().to_string();
+
                 if let Err(e) = self
                     .tick(
                         &source,
@@ -170,22 +177,29 @@ impl ClusterEventSync {
         let clusters = self.remote_clusters.list_enabled().await?;
         let max_seq = self.outbox.max_seq().await?;
         let mut min_acked = i64::MAX;
+
         for c in &clusters {
             let acked = self.outbox.acked_seq(&c.id).await?;
+
             outbox_lag()
                 .with_label_values(&[c.name.as_str()])
                 .set((max_seq - acked).max(0));
+
             let links = self.org_links.list(&c.id).await?;
+
             if links.is_empty() {
                 min_acked = min_acked.min(acked);
                 continue; // 无 org 映射 → 不发；不阻塞 prune。
             }
+
             let orgs: Vec<String> = links.iter().map(|l| l.local_org_id.0.clone()).collect();
             let events = self.outbox.list_undelivered(acked, &orgs, batch).await?;
+
             if events.is_empty() {
                 min_acked = min_acked.min(acked);
                 continue;
             }
+
             match self.push_cluster(source_cluster, c, &links, &events).await {
                 Ok(new_acked) => {
                     self.outbox.ack(&c.id, new_acked).await?;
@@ -198,10 +212,12 @@ impl ClusterEventSync {
                 }
             }
         }
+
         // prune：删到所有 enabled 集群都已确认的最小游标（无集群则不删）。
         if min_acked != i64::MAX && min_acked > 0 {
             let _ = self.outbox.prune(min_acked).await?;
         }
+
         // sweep 接收端去重表过期记录。
         let cutoff = TimestampMicros(TimestampMicros::now().0 - ttl_secs * 1_000_000);
         let _ = self.seen_events.sweep(cutoff).await?;
@@ -221,6 +237,7 @@ impl ClusterEventSync {
     ) -> std::result::Result<i64, String> {
         // 按 org 分组，组内保持 seq 升序（events 已按 seq 排序）。
         let mut by_org: BTreeMap<String, Vec<&OutboxRow>> = BTreeMap::new();
+
         for row in events {
             // outbox 行 org_id 即本地 org（emit 时落的）。subject 也带同一 org。
             let org = row
@@ -229,35 +246,45 @@ impl ClusterEventSync {
                 .split_once('/')
                 .map(|(o, _)| o.to_string())
                 .unwrap_or_default();
+
             by_org.entry(org).or_default().push(row);
         }
+
         // channel 复用：同一集群的各 org 推送共用一条连接。
         let channel = grpc_channel::connect(&c.advertise_addr, c.tls_verify).await?;
         let mut retry_ids: HashSet<String> = HashSet::new();
+
         for (org, rows) in by_org {
             // per-org token 优先；缺省回退集群级 token。
             let link = links.iter().find(|l| l.local_org_id.0 == org);
+
             let token_ref = link
                 .and_then(|l| l.token_secret_ref.clone())
                 .filter(|s| !s.trim().is_empty())
                 .unwrap_or_else(|| c.token_secret_ref.clone());
+
             let token =
                 resolve_secret_ref(&token_ref, &Id(org.clone()), Some(self.secrets.as_ref()))
                     .await
                     .map_err(|_| "token resolution failed".to_string())?;
+
             let mut events_json = Vec::with_capacity(rows.len());
+
             for r in &rows {
                 let bytes =
                     serde_json::to_vec(&r.event).map_err(|e| format!("event serialize: {e}"))?;
                 events_json.push(bytes.into());
             }
+
             let mut req = tonic::Request::new(PushEventsRequest {
                 source_cluster_id: source_cluster.to_string(),
                 events_json,
             });
+
             grpc_channel::with_bearer(&mut req, &token)?;
             let mut client = EventServiceClient::new(channel.clone())
                 .max_encoding_message_size(self.max_message_size);
+
             let resp = crate::shared::grpc_trace::call(
                 req,
                 "cluster.v1.EventService",
@@ -268,13 +295,17 @@ impl ClusterEventSync {
             .await
             .map_err(|s| format!("push_events: {}", s.message()))?
             .into_inner();
+
             pushed_total().inc_by(rows.len() as u64);
+
             for rid in resp.retry_ids {
                 retry_ids.insert(rid);
             }
         }
+
         // 游标：有瞬时重试 → 推进到首个待重投事件之前；否则全批已确认到最大 seq。
         let max_seq = events.iter().map(|r| r.seq).max().unwrap_or(0);
+
         let cursor = if retry_ids.is_empty() {
             max_seq
         } else {
@@ -286,6 +317,7 @@ impl ClusterEventSync {
                 .map(|min_retry| min_retry - 1)
                 .unwrap_or(max_seq)
         };
+
         Ok(cursor)
     }
 }

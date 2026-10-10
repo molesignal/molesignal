@@ -54,6 +54,7 @@ const COLS: &str = "id, org_id, name, source_stream, target_stream, function_ste
 
 fn row_to(r: sqlx::postgres::PgRow) -> ScheduledPipeline {
     let steps: Json<Value> = r.try_get("function_steps").unwrap_or(Json(Value::Null));
+
     ScheduledPipeline {
         id: Id(r.try_get::<String, _>("id").unwrap_or_default()),
         org_id: Id(r.try_get::<String, _>("org_id").unwrap_or_default()),
@@ -77,6 +78,7 @@ fn row_to(r: sqlx::postgres::PgRow) -> ScheduledPipeline {
 impl ScheduledPipelineRepository for PgScheduledPipelineRepository {
     async fn create(&self, p: ScheduledPipeline) -> Result<ScheduledPipeline> {
         let mut transaction = super::configuration::lock_and_validate(&self.pool, &p).await?;
+
         sqlx::query(
             "INSERT INTO scheduled_pipelines
                 (id, org_id, name, source_stream, target_stream, function_steps, cron,
@@ -98,15 +100,18 @@ impl ScheduledPipelineRepository for PgScheduledPipelineRepository {
         .execute(&mut *transaction)
         .await
         .map_err(super::super::super::persistence::sqlx_err)?;
+
         transaction
             .commit()
             .await
             .map_err(crate::infra::persistence::sqlx_err)?;
+
         Ok(p)
     }
 
     async fn update(&self, p: ScheduledPipeline) -> Result<ScheduledPipeline> {
         let mut transaction = super::configuration::lock_and_validate(&self.pool, &p).await?;
+
         sqlx::query(
             "UPDATE scheduled_pipelines SET
                 name = $3,
@@ -132,10 +137,12 @@ impl ScheduledPipelineRepository for PgScheduledPipelineRepository {
         .execute(&mut *transaction)
         .await
         .map_err(super::super::super::persistence::sqlx_err)?;
+
         transaction
             .commit()
             .await
             .map_err(crate::infra::persistence::sqlx_err)?;
+
         Ok(p)
     }
 
@@ -146,37 +153,44 @@ impl ScheduledPipelineRepository for PgScheduledPipelineRepository {
             .execute(&self.pool)
             .await
             .map_err(super::super::super::persistence::sqlx_err)?;
+
         Ok(())
     }
 
     async fn get_by_id(&self, id: &Id) -> Result<ScheduledPipeline> {
         let sql = format!("SELECT {COLS} FROM scheduled_pipelines WHERE id = $1");
+
         let row = sqlx::query(&sql)
             .bind(&id.0)
             .fetch_one(&self.pool)
             .await
             .map_err(super::super::super::persistence::sqlx_err)?;
+
         Ok(row_to(row))
     }
 
     async fn get(&self, org: &Id, id: &Id) -> Result<ScheduledPipeline> {
         let sql = format!("SELECT {COLS} FROM scheduled_pipelines WHERE org_id = $1 AND id = $2");
+
         let row = sqlx::query(&sql)
             .bind(&org.0)
             .bind(&id.0)
             .fetch_one(&self.pool)
             .await
             .map_err(super::super::super::persistence::sqlx_err)?;
+
         Ok(row_to(row))
     }
 
     async fn list(&self, org: &Id) -> Result<Vec<ScheduledPipeline>> {
         let sql = format!("SELECT {COLS} FROM scheduled_pipelines WHERE org_id = $1 ORDER BY name");
+
         let rows = sqlx::query(&sql)
             .bind(&org.0)
             .fetch_all(&self.pool)
             .await
             .map_err(super::super::super::persistence::sqlx_err)?;
+
         Ok(rows.into_iter().map(row_to).collect())
     }
 
@@ -184,10 +198,12 @@ impl ScheduledPipelineRepository for PgScheduledPipelineRepository {
         let sql = format!(
             "SELECT {COLS} FROM scheduled_pipelines WHERE enabled = TRUE ORDER BY org_id, name"
         );
+
         let rows = sqlx::query(&sql)
             .fetch_all(&self.pool)
             .await
             .map_err(super::super::super::persistence::sqlx_err)?;
+
         Ok(rows.into_iter().map(row_to).collect())
     }
 
@@ -198,6 +214,7 @@ impl ScheduledPipelineRepository for PgScheduledPipelineRepository {
             .execute(&self.pool)
             .await
             .map_err(super::super::super::persistence::sqlx_err)?;
+
         Ok(())
     }
 }

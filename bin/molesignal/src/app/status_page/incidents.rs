@@ -39,15 +39,19 @@ impl StatusPageService {
         input: StatusPageIncidentInput,
     ) -> Result<StatusPageIncident> {
         let page = self.repository.get_page(org_id, page_id).await?;
+
         if page.lifecycle == StatusPageLifecycle::Archived {
             return Err(Error::conflict(
                 "events cannot be created on an archived status page",
             ));
         }
+
         let now = TimestampMicros::now();
+
         let incident = self
             .materialize_incident(org_id, page_id, Id::new(), now, now, input)
             .await?;
+
         self.repository.create_status_incident(incident).await
     }
 
@@ -59,21 +63,26 @@ impl StatusPageService {
         mut input: StatusPageIncidentInput,
     ) -> Result<StatusPageIncident> {
         let page = self.repository.get_page(org_id, page_id).await?;
+
         if page.lifecycle == StatusPageLifecycle::Archived {
             return Err(Error::conflict(
                 "drafts cannot be changed on an archived status page",
             ));
         }
+
         let existing = self
             .repository
             .get_status_incident(org_id, page_id, incident_id)
             .await?;
+
         if existing.publication_state != StatusPagePublicationState::Draft {
             return Err(Error::conflict(
                 "only a draft event can be edited as a draft",
             ));
         }
+
         input.publication_state = StatusPagePublicationState::Draft;
+
         let incident = self
             .materialize_incident(
                 org_id,
@@ -84,6 +93,7 @@ impl StatusPageService {
                 input,
             )
             .await?;
+
         self.repository.update_status_incident_draft(incident).await
     }
 
@@ -95,20 +105,25 @@ impl StatusPageService {
         mut input: StatusPageIncidentInput,
     ) -> Result<StatusPageIncident> {
         let page = self.repository.get_page(org_id, page_id).await?;
+
         if page.lifecycle == StatusPageLifecycle::Archived {
             return Err(Error::conflict(
                 "drafts cannot be published on an archived status page",
             ));
         }
+
         let existing = self
             .repository
             .get_status_incident(org_id, page_id, incident_id)
             .await?;
+
         if existing.publication_state != StatusPagePublicationState::Draft {
             return Err(Error::conflict("event is already published"));
         }
+
         input.publication_state = StatusPagePublicationState::Published;
         let now = TimestampMicros::now();
+
         let mut incident = self
             .materialize_incident(
                 org_id,
@@ -119,10 +134,12 @@ impl StatusPageService {
                 input,
             )
             .await?;
+
         let initial_update = incident
             .updates
             .pop()
             .ok_or_else(|| Error::invalid("an initial update is required to publish"))?;
+
         self.repository
             .publish_status_incident(incident, initial_update)
             .await
@@ -136,15 +153,18 @@ impl StatusPageService {
         mut input: StatusPageIncidentInput,
     ) -> Result<StatusPageIncident> {
         let page = self.repository.get_page(org_id, page_id).await?;
+
         if page.lifecycle == StatusPageLifecycle::Archived {
             return Err(Error::conflict(
                 "maintenance cannot be changed on an archived status page",
             ));
         }
+
         let existing = self
             .repository
             .get_status_incident(org_id, page_id, incident_id)
             .await?;
+
         if existing.kind != StatusPageIncidentKind::Maintenance
             || existing.publication_state != StatusPagePublicationState::Published
             || existing.status != crate::domain::status_page::PublicIncidentStatus::Scheduled
@@ -153,12 +173,14 @@ impl StatusPageService {
                 "only scheduled maintenance can be rescheduled",
             ));
         }
+
         input.kind = StatusPageIncidentKind::Maintenance;
         input.impact = crate::domain::status_page::IncidentImpact::Maintenance;
         input.status = crate::domain::status_page::PublicIncidentStatus::Scheduled;
         input.publication_state = StatusPagePublicationState::Published;
         input.source_incident_id = None;
         let now = TimestampMicros::now();
+
         let mut revised = self
             .materialize_incident(
                 org_id,
@@ -169,11 +191,14 @@ impl StatusPageService {
                 input,
             )
             .await?;
+
         revised.published_at = existing.published_at;
+
         let update = revised
             .updates
             .pop()
             .ok_or_else(|| Error::invalid("a maintenance update message is required"))?;
+
         self.repository
             .update_scheduled_maintenance(revised, update)
             .await
@@ -190,9 +215,11 @@ impl StatusPageService {
     ) -> Result<StatusPageIncident> {
         validate_incident_input(&input)?;
         let source_started_at = self.validate_source_incident(org_id, &input).await?;
+
         let component_ids = self
             .validate_event_components(org_id, page_id, input.component_ids)
             .await?;
+
         if input.publication_state == StatusPagePublicationState::Published
             && component_ids.is_empty()
         {
@@ -200,17 +227,21 @@ impl StatusPageService {
                 "at least one non-archived affected component is required",
             ));
         }
+
         let started_at = input.started_at.or(source_started_at).unwrap_or(now);
+
         if input.kind == StatusPageIncidentKind::Incident
             && started_at.0 > now.0.saturating_add(60_000_000)
         {
             return Err(Error::invalid("an incident cannot start in the future"));
         }
+
         let message = input
             .message
             .as_deref()
             .map(str::trim)
             .filter(|message| !message.is_empty());
+
         let updates = if input.publication_state == StatusPagePublicationState::Published {
             vec![StatusPageIncidentUpdate {
                 id: Id::new(),
@@ -224,6 +255,7 @@ impl StatusPageService {
         } else {
             Vec::new()
         };
+
         Ok(StatusPageIncident {
             id: incident_id,
             org_id: org_id.clone(),
@@ -261,7 +293,9 @@ impl StatusPageService {
                 "an event cannot affect more than 500 components",
             ));
         }
+
         let component_ids = deduplicate_ids(component_ids);
+
         let available_component_ids: HashSet<String> = self
             .repository
             .list_components(org_id, page_id)
@@ -270,6 +304,7 @@ impl StatusPageService {
             .filter(|component| component.lifecycle == ComponentLifecycle::Active)
             .map(|component| component.id.0)
             .collect();
+
         if component_ids
             .iter()
             .any(|component_id| !available_component_ids.contains(component_id.as_str()))
@@ -278,6 +313,7 @@ impl StatusPageService {
                 "affected active status-page component not found",
             ));
         }
+
         Ok(component_ids)
     }
 
@@ -289,9 +325,11 @@ impl StatusPageService {
         match (input.kind, input.source_incident_id.as_ref()) {
             (StatusPageIncidentKind::Incident, Some(source_id)) => {
                 let source = self.incidents.get(source_id).await?;
+
                 if &source.org_id != org_id {
                     return Err(Error::not_found("source incident not found"));
                 }
+
                 if matches!(
                     source.status,
                     IncidentStatus::Resolved | IncidentStatus::Closed
@@ -300,6 +338,7 @@ impl StatusPageService {
                         "source incident must still be active when it is published",
                     ));
                 }
+
                 Ok(Some(source.created_at))
             }
             (StatusPageIncidentKind::Incident, None)
@@ -318,21 +357,27 @@ impl StatusPageService {
         input: StatusPageIncidentUpdateInput,
     ) -> Result<StatusPageIncident> {
         let page = self.repository.get_page(org_id, page_id).await?;
+
         if page.lifecycle == StatusPageLifecycle::Archived {
             return Err(Error::conflict(
                 "events cannot be updated on an archived status page",
             ));
         }
+
         validate_message(&input.message)?;
+
         let incident = self
             .repository
             .get_status_incident(org_id, page_id, incident_id)
             .await?;
+
         if incident.publication_state != StatusPagePublicationState::Published {
             return Err(Error::conflict("publish the draft before adding updates"));
         }
+
         validate_transition(incident.kind, incident.status, input.status)?;
         let now = TimestampMicros::now();
+
         self.repository
             .append_status_update(
                 StatusPageIncidentUpdate {
@@ -359,10 +404,12 @@ impl StatusPageService {
         view: StatusPageEventView,
     ) -> Result<StatusPageEventList> {
         self.repository.get_page(org_id, page_id).await?;
+
         let limit = match view {
             StatusPageEventView::Resolved | StatusPageEventView::Completed => 10,
             _ => 200,
         };
+
         self.repository
             .list_status_events(org_id, page_id, kind, view, limit)
             .await

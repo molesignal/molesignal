@@ -53,17 +53,21 @@ async fn signin(
         .service
         .authenticate(&req.email, &req.password)
         .await?;
+
     let (org, roles, system_scope) = signin_target(&state, &user.id).await?;
+
     let display_role = roles
         .iter()
         .map(|role| role.name.as_str())
         .collect::<Vec<_>>()
         .join(", ");
+
     let token = if system_scope {
         state.iam.service.issue_system_token(&user.id, &org.id)?
     } else {
         state.iam.service.issue_token(&user.id, &org.id)?
     };
+
     Ok(Json(SigninResp {
         token,
         user_id: user.id.0,
@@ -88,20 +92,24 @@ async fn signin_target(
         .await?
     {
         let organization = state.iam.service.orgs.get(&membership.org_id).await?;
+
         if organization.system || organization.disabled {
             continue;
         }
+
         let roles = state
             .iam
             .service
             .iam_memberships
             .assigned_roles(user_id, &organization.id)
             .await?;
+
         return Ok((organization, roles, false));
     }
 
     if state.iam.platform_administrators.is_active(user_id).await? {
         let organization = state.iam.service.orgs.get(&state.iam.system_org_id).await?;
+
         let role = state
             .iam
             .access
@@ -114,6 +122,7 @@ async fn signin_target(
             .ok_or_else(|| {
                 Error::internal("platform administrator IAM role is not materialized for `_sys`")
             })?;
+
         return Ok((organization, vec![role], true));
     }
 
@@ -151,19 +160,23 @@ async fn signup(
 ) -> Result<Json<SignupResp>> {
     use crate::domain::iam::UserStatus;
     let policy = state.iam.instance_settings.get().await?;
+
     if !policy.signup_enabled {
         return Err(Error::forbidden("self-service signup is disabled"));
     }
+
     let status = if policy.signup_require_approval {
         UserStatus::Pending
     } else {
         UserStatus::Active
     };
+
     let user = state
         .iam
         .service
         .signup(req.email, req.display_name, &req.password, status)
         .await?;
+
     if matches!(status, UserStatus::Pending) {
         // best-effort 通知该 org 管理员（无 SMTP / 失败仅 warn，绝不阻塞注册）。
         if let Ok((organization, _, _)) = signin_target(&state, &user.id).await {
@@ -174,6 +187,7 @@ async fn signup(
             )
             .await;
         }
+
         return Ok(Json(SignupResp {
             status: "pending".into(),
             token: None,
@@ -186,18 +200,22 @@ async fn signup(
             roles: Vec::new(),
         }));
     }
+
     // active：取 membership 签发 token（与 signin 一致）。
     let (org, roles, system_scope) = signin_target(&state, &user.id).await?;
+
     let display_role = roles
         .iter()
         .map(|role| role.name.as_str())
         .collect::<Vec<_>>()
         .join(", ");
+
     let token = if system_scope {
         state.iam.service.issue_system_token(&user.id, &org.id)?
     } else {
         state.iam.service.issue_token(&user.id, &org.id)?
     };
+
     Ok(Json(SignupResp {
         status: "active".into(),
         token: Some(token),
@@ -239,6 +257,7 @@ async fn forgot_password(
     };
 
     let email = req.email.trim();
+
     if email.is_empty() {
         return accepted();
     }
@@ -251,6 +270,7 @@ async fn forgot_password(
     // 邮件中的目标地址必须来自可信配置，不能采用请求的 Host / Origin，避免
     // password-reset poisoning。生产环境启用 SMTP 时应同时配置 http.external_url。
     let base_url = state.platform.external_url.trim().trim_end_matches('/');
+
     if base_url.is_empty() {
         tracing::warn!(
             "password-reset: request accepted but http.external_url is empty; email not sent"
@@ -271,6 +291,7 @@ async fn forgot_password(
     let token_hash = hash_reset_token(&raw_token);
     let now = TimestampMicros::now();
     let expires_at = TimestampMicros(now.0.saturating_add(PASSWORD_RESET_TTL_MICROS));
+
     let issued = match state
         .iam
         .password_resets
@@ -289,6 +310,7 @@ async fn forgot_password(
             return accepted();
         }
     };
+
     if !issued {
         return accepted();
     }
@@ -297,6 +319,7 @@ async fn forgot_password(
     let reset_url = format!("{base_url}/signin#reset_token={raw_token}");
     let (subject, body) = reset_email(req.locale.as_deref(), &reset_url);
     let sender = sender.clone();
+
     crate::shared::trace_context::spawn_with_current_trace_context(async move {
         if let Err(error) = sender.send_text(&[user.email], subject, &body).await {
             tracing::warn!(error = %error, "password-reset: email send failed");
@@ -324,34 +347,42 @@ async fn reset_password(
     validate_new_password(&req.password)?;
 
     let token = req.token.trim();
+
     if !(32..=128).contains(&token.len()) {
         return Err(Error::invalid("reset link is invalid or has expired"));
     }
+
     let token_hash = hash_reset_token(token);
     let password_hash = hash_password(&req.password)?;
+
     let reset = state
         .iam
         .password_resets
         .consume_and_update_password(&token_hash, &password_hash, TimestampMicros::now())
         .await?;
+
     if !reset {
         return Err(Error::invalid("reset link is invalid or has expired"));
     }
+
     Ok(Json(ResetPasswordResp { reset: true }))
 }
 
 fn validate_new_password(password: &str) -> Result<()> {
     let count = password.chars().count();
+
     if count < MIN_PASSWORD_CHARS {
         return Err(Error::invalid(format!(
             "password must contain at least {MIN_PASSWORD_CHARS} characters"
         )));
     }
+
     if count > MAX_PASSWORD_CHARS {
         return Err(Error::invalid(format!(
             "password must contain at most {MAX_PASSWORD_CHARS} characters"
         )));
     }
+
     Ok(())
 }
 
@@ -359,9 +390,11 @@ fn generate_reset_token() -> String {
     use rand::TryRng as _;
 
     let mut bytes = [0_u8; 32];
+
     rand::rngs::SysRng
         .try_fill_bytes(&mut bytes)
         .expect("operating-system random source");
+
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
 }
 

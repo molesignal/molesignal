@@ -60,11 +60,13 @@ impl MuteWindow {
                 hour_end,
             } => {
                 let tz = timezone.parse::<chrono_tz::Tz>().unwrap_or(chrono_tz::UTC);
+
                 let w = ActiveWindow {
                     weekday_mask: *weekday_mask,
                     hour_start: *hour_start,
                     hour_end: *hour_end,
                 };
+
                 w.contains(now.to_datetime(), tz)
             }
         }

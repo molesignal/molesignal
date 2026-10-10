@@ -45,8 +45,10 @@ impl AdmissionLoadSync {
     pub fn spawn(self) -> JoinHandle<()> {
         tokio::spawn(async move {
             let mut tick = tokio::time::interval(Duration::from_secs(self.interval_secs));
+
             loop {
                 tick.tick().await;
+
                 if let Err(e) = self.sync_once().await {
                     tracing::warn!(error = %e, "admission load sync failed");
                 }
@@ -64,19 +66,24 @@ impl AdmissionLoadSync {
         let now = TimestampMicros::now();
         // 1) 发布本节点各组当前 in_flight。
         let load = self.controller.local_load();
+
         if !load.is_empty() {
             self.repo.publish(&self.node_id, &load, now).await?;
         }
+
         // 2) 读回集群（除自身）各组合计，刷新本地视图。
         let since = TimestampMicros(now.0 - (self.stale_secs as i64) * 1_000_000);
+
         let totals = self
             .repo
             .cluster_totals_excluding(&self.node_id, since)
             .await?;
+
         let view = totals
             .into_iter()
             .map(|(g, n)| (g, n.max(0) as usize))
             .collect();
+
         self.controller.set_cluster_view(view);
         Ok(())
     }

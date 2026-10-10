@@ -43,6 +43,7 @@ impl SyntheticService {
             .repository
             .get_revision(org_id, monitor_id, revision_id)
             .await?;
+
         self.queue_immediate_run(org_id, monitor_id, &revision, true)
             .await
     }
@@ -53,11 +54,13 @@ impl SyntheticService {
             .get_active_revision(org_id, monitor_id)
             .await?
             .ok_or_else(|| Error::conflict("Monitor has no published Revision"))?;
+
         if active.monitor.lifecycle != MonitorLifecycle::Active {
             return Err(Error::conflict(
                 "Only active Monitors can be run immediately",
             ));
         }
+
         self.queue_immediate_run(org_id, monitor_id, &active.revision, false)
             .await
     }
@@ -74,11 +77,14 @@ impl SyntheticService {
                 "Heartbeat runs are submitted through the Heartbeat endpoint",
             ));
         }
+
         let now = TimestampMicros::now();
+
         let deadline_at = TimestampMicros(
             now.0
                 .saturating_add(i64::from(revision.freshness_seconds) * 1_000_000),
         );
+
         self.repository
             .create_tasks(
                 revision
@@ -119,14 +125,18 @@ impl SyntheticService {
     ) -> Result<Vec<ProbeTask>> {
         let due = self.repository.list_due_monitors(now, limit).await?;
         let mut tasks = Vec::new();
+
         for active in due {
             let scheduled_at = active.monitor.next_due_at.unwrap_or(now);
+
             let deadline_at = TimestampMicros(
                 scheduled_at
                     .0
                     .saturating_add(i64::from(active.revision.freshness_seconds) * 1_000_000),
             );
+
             let next = next_due_at(&active.monitor.id, &active.revision.schedule, now)?;
+
             let created = self
                 .repository
                 .create_tasks(
@@ -156,7 +166,9 @@ impl SyntheticService {
                         .collect(),
                 )
                 .await?;
+
             tasks.extend(created);
+
             self.repository
                 .update_monitor_runtime(
                     &active.monitor.organization_id,
@@ -168,14 +180,17 @@ impl SyntheticService {
                 )
                 .await?;
         }
+
         Ok(tasks)
     }
 
     pub async fn process_result(&self, result: SyntheticResult) -> Result<ProcessResultOutcome> {
         let (result, inserted) = self.repository.record_result(result).await?;
+
         if !inserted {
             return Ok(historical(result));
         }
+
         if result.is_test {
             if matches!(
                 result.outcome,
@@ -191,8 +206,10 @@ impl SyntheticService {
                     )
                     .await?;
             }
+
             return Ok(historical(result));
         }
+
         let Some(active) = self
             .repository
             .get_active_revision(&result.organization_id, &result.monitor_id)
@@ -200,13 +217,16 @@ impl SyntheticService {
         else {
             return Ok(historical(result));
         };
+
         let stale_after = result
             .scheduled_at
             .0
             .saturating_add(i64::from(active.revision.freshness_seconds) * 1_000_000);
+
         if active.revision.id != result.monitor_revision_id || result.received_at.0 > stale_after {
             return Ok(historical(result));
         }
+
         let location_update = self
             .repository
             .apply_location_observation(StateObservation {
@@ -221,6 +241,7 @@ impl SyntheticService {
                 recovery_threshold: active.revision.consecutive_recoveries,
             })
             .await?;
+
         let states = self
             .repository
             .list_location_states(
@@ -229,11 +250,13 @@ impl SyntheticService {
                 &result.monitor_revision_id,
             )
             .await?;
+
         let aggregate = aggregate_locations(
             states.into_iter().map(|state| state.current_state),
             active.revision.location_ids.len(),
             &active.revision.location_policy,
         );
+
         let aggregate_transition = if aggregate != active.monitor.state {
             self.repository
                 .update_monitor_runtime(
@@ -245,6 +268,7 @@ impl SyntheticService {
                     result.received_at,
                 )
                 .await?;
+
             let transition = self
                 .repository
                 .record_state_transition(SyntheticStateTransition {
@@ -262,16 +286,19 @@ impl SyntheticService {
                     created_at: result.received_at,
                 })
                 .await?;
+
             self.emit_transition(
                 &transition,
                 active.revision.alert_on_degraded,
                 active.revision.alert_on_flaky,
             )
             .await;
+
             Some(transition)
         } else {
             None
         };
+
         Ok(ProcessResultOutcome {
             result,
             historical_only: false,

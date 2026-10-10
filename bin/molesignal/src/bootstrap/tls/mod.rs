@@ -19,10 +19,12 @@ pub fn install_crypto_provider() -> Result<()> {
     if CryptoProvider::get_default().is_none() {
         let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
     }
+
     if CryptoProvider::get_default().is_none() {
         return Err(Error::internal(
             "failed to install the process-wide rustls AWS-LC CryptoProvider",
         ));
     }
+
     Ok(())
 }

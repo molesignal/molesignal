@@ -24,6 +24,7 @@ pub(super) async fn execute(
     approval: &ApprovalRequest,
 ) -> Result<OperationOutcome> {
     let expected_hash = expected_hash(&approval.parameters)?;
+
     let consumption = state
         .agent
         .dashboard_authoring
@@ -34,6 +35,7 @@ pub(super) async fn execute(
             expected_hash.to_string(),
         )
         .await?;
+
     let dashboard = consumption.dashboard();
     let route = format!("/dashboards/{}", dashboard.id.0);
     let replayed = consumption.replayed();
@@ -48,6 +50,7 @@ pub(super) async fn execute(
             dashboard,
         )
         .await;
+
         activity_audit::record(
             state,
             ctx,
@@ -86,11 +89,13 @@ fn expected_hash(parameters: &Value) -> Result<&str> {
     let values = parameters
         .as_object()
         .ok_or_else(|| Error::invalid("create_dashboard parameters must be an object"))?;
+
     if values.len() != 1 {
         return Err(Error::invalid(
             "create_dashboard parameters may contain only expected_hash",
         ));
     }
+
     values
         .get("expected_hash")
         .and_then(Value::as_str)

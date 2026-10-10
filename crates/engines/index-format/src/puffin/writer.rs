@@ -39,6 +39,7 @@ impl<W: Write> PuffinBytesWriter<W> {
         if self.started {
             return Ok(());
         }
+
         self.buf.write_all(&MAGIC)?;
         self.next_offset += MAGIC.len() as u64;
         self.started = true;
@@ -56,12 +57,14 @@ impl<W: Write> PuffinBytesWriter<W> {
         if self.finished {
             return Err(anyhow!("PuffinBytesWriter already finished"));
         }
+
         self.ensure_started()?;
         let offset = self.next_offset;
         self.buf.write_all(bytes)?;
         self.next_offset += bytes.len() as u64;
         let mut props = HashMap::new();
         props.insert("blob_tag".to_string(), blob_tag.into());
+
         self.blobs.push(BlobMetadata {
             blob_type,
             fields: Vec::new(),
@@ -72,6 +75,7 @@ impl<W: Write> PuffinBytesWriter<W> {
             compression_codec: None,
             properties: props,
         });
+
         Ok(())
     }
 
@@ -80,11 +84,14 @@ impl<W: Write> PuffinBytesWriter<W> {
         if self.finished {
             return Err(anyhow!("PuffinBytesWriter already finished"));
         }
+
         self.ensure_started()?;
+
         let meta = PuffinMeta {
             blobs: std::mem::take(&mut self.blobs),
             properties: std::mem::take(&mut self.properties),
         };
+
         let payload =
             serde_json::to_vec(&meta).map_err(|e| anyhow!("PuffinMeta serialize: {e}"))?;
         // inner MAGIC (mark start of footer payload)

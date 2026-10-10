@@ -61,9 +61,11 @@ impl ExternalOtlpTraceSink {
         if settings.endpoint.trim().is_empty() {
             return Ok(None);
         }
+
         let endpoint = url::Url::parse(&settings.endpoint)
             .map_err(|error| format!("invalid Trace OTLP endpoint: {error}"))?;
         let self_export = endpoint_matches_local(&endpoint, local_endpoints);
+
         if self_export && !settings.allow_self_export {
             return Err(
                 "external Trace OTLP endpoint resolves to this MoleSignal cluster; \
@@ -71,6 +73,7 @@ impl ExternalOtlpTraceSink {
                     .into(),
             );
         }
+
         let headers = resolve_headers(&settings.headers)?;
         let timeout = Duration::from_millis(settings.timeout_ms);
 
@@ -79,15 +82,19 @@ impl ExternalOtlpTraceSink {
                 if endpoint.path() != "/" && !endpoint.path().is_empty() {
                     return Err("gRPC Trace OTLP endpoint must not contain a URL path".into());
                 }
+
                 let mut grpc_endpoint = Endpoint::from_shared(settings.endpoint.clone())
                     .map_err(|error| format!("invalid gRPC Trace endpoint: {error}"))?
                     .timeout(timeout)
                     .connect_timeout(timeout);
+
                 if endpoint.scheme() == "https" {
                     let mut tls = ClientTlsConfig::new();
+
                     if let Some(path) = &settings.custom_ca_file {
                         tls = tls.ca_certificate(Certificate::from_pem(read_secret_file(path)?));
                     }
+
                     if let (Some(cert), Some(key)) =
                         (&settings.client_certificate_file, &settings.client_key_file)
                     {
@@ -96,6 +103,7 @@ impl ExternalOtlpTraceSink {
                             read_secret_file(key)?,
                         ));
                     }
+
                     grpc_endpoint = grpc_endpoint
                         .tls_config(tls)
                         .map_err(|error| format!("invalid Trace exporter TLS config: {error}"))?;
@@ -104,6 +112,7 @@ impl ExternalOtlpTraceSink {
                 {
                     return Err("custom CA/mTLS requires an https Trace endpoint".into());
                 }
+
                 let metadata = headers
                     .iter()
                     .map(|(name, value)| {
@@ -119,6 +128,7 @@ impl ExternalOtlpTraceSink {
                         ))
                     })
                     .collect::<Result<Vec<_>, String>>()?;
+
                 ExternalOtlpTransport::Grpc {
                     channel: grpc_endpoint.connect_lazy(),
                     metadata,
@@ -128,28 +138,36 @@ impl ExternalOtlpTraceSink {
             }
             "http/protobuf" => {
                 let mut builder = Client::builder().timeout(timeout);
+
                 if let Some(path) = &settings.custom_ca_file {
                     let certificate = reqwest::Certificate::from_pem(&read_secret_file(path)?)
                         .map_err(|error| format!("invalid Trace exporter CA: {error}"))?;
                     builder = builder.add_root_certificate(certificate);
                 }
+
                 if let (Some(cert), Some(key)) =
                     (&settings.client_certificate_file, &settings.client_key_file)
                 {
                     let mut pem = read_secret_file(cert)?;
                     pem.extend_from_slice(&read_secret_file(key)?);
+
                     let identity = reqwest::Identity::from_pem(&pem).map_err(|error| {
                         format!("invalid Trace exporter mTLS identity: {error}")
                     })?;
+
                     builder = builder.identity(identity);
                 }
+
                 let client = builder
                     .build()
                     .map_err(|error| format!("build Trace exporter HTTP client: {error}"))?;
+
                 let mut endpoint = endpoint;
+
                 if endpoint.path().is_empty() || endpoint.path() == "/" {
                     endpoint.set_path("/v1/traces");
                 }
+
                 ExternalOtlpTransport::Http {
                     client,
                     endpoint: endpoint.to_string(),
@@ -164,6 +182,7 @@ impl ExternalOtlpTraceSink {
                 ));
             }
         };
+
         Ok(Some(Arc::new(Self { transport })))
     }
 }
@@ -176,6 +195,7 @@ impl TraceSink for ExternalOtlpTraceSink {
 
     async fn export(&self, traces: &[DecidedTrace]) -> Result<(), String> {
         let request = canonical_to_otlp_request(traces);
+
         match &self.transport {
             ExternalOtlpTransport::Grpc {
                 channel,
@@ -184,19 +204,24 @@ impl TraceSink for ExternalOtlpTraceSink {
                 self_export,
             } => {
                 let mut request = tonic::Request::new(request);
+
                 for (name, value) in metadata {
                     request.metadata_mut().insert(name.clone(), value.clone());
                 }
+
                 if *self_export {
                     request.metadata_mut().insert(
                         SELF_EXPORT_MARKER,
                         "1".parse().expect("static metadata is valid"),
                     );
                 }
+
                 let mut client = TraceServiceClient::new(channel.clone());
+
                 if *gzip {
                     client = client.send_compressed(CompressionEncoding::Gzip);
                 }
+
                 with_suppression(crate::shared::grpc_trace::call(
                     request,
                     "opentelemetry.proto.collector.trace.v1.TraceService",
@@ -206,6 +231,7 @@ impl TraceSink for ExternalOtlpTraceSink {
                 ))
                 .await
                 .map_err(|status| format!("OTLP gRPC export failed: {}", status.code()))?;
+
                 Ok(())
             }
             ExternalOtlpTransport::Http {
@@ -216,12 +242,15 @@ impl TraceSink for ExternalOtlpTraceSink {
                 self_export,
             } => {
                 let encoded = request.encode_to_vec();
+
                 let (body, content_encoding) = if *gzip {
                     let mut encoder =
                         flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+
                     encoder
                         .write_all(&encoded)
                         .map_err(|error| format!("gzip Trace batch: {error}"))?;
+
                     (
                         encoder
                             .finish()
@@ -231,17 +260,21 @@ impl TraceSink for ExternalOtlpTraceSink {
                 } else {
                     (encoded, None)
                 };
+
                 let mut request = client
                     .post(endpoint)
                     .headers(headers.clone())
                     .header(http::header::CONTENT_TYPE, "application/x-protobuf")
                     .body(body);
+
                 if let Some(content_encoding) = content_encoding {
                     request = request.header(http::header::CONTENT_ENCODING, content_encoding);
                 }
+
                 if *self_export {
                     request = request.header(SELF_EXPORT_MARKER, "1");
                 }
+
                 let response = with_suppression(crate::shared::http_trace::send(
                     client,
                     request,
@@ -249,6 +282,7 @@ impl TraceSink for ExternalOtlpTraceSink {
                 ))
                 .await
                 .map_err(|error| format!("OTLP HTTP export failed: {error}"))?;
+
                 if response.status().is_success() {
                     Ok(())
                 } else {
@@ -271,23 +305,29 @@ pub fn canonical_to_otlp_request(traces: &[DecidedTrace]) -> ExportTraceServiceR
 
 fn canonical_to_resource_spans(canonical: &CanonicalSpan) -> ResourceSpans {
     let mut span_attributes = canonical.attributes.clone();
+
     span_attributes.insert(
         "molesignal.trace.sampling_reason".into(),
         json!(canonical.sampling_reason),
     );
+
     span_attributes.insert("molesignal.trace.partial".into(), json!(canonical.partial));
+
     if !canonical.partial_reasons.is_empty() {
         span_attributes.insert(
             "molesignal.trace.partial_reasons".into(),
             json!(canonical.partial_reasons),
         );
     }
+
     if canonical.late {
         span_attributes.insert("molesignal.trace.late".into(), json!(true));
     }
+
     if canonical.conflict {
         span_attributes.insert("molesignal.trace.conflict".into(), json!(true));
     }
+
     let proto_span = Span {
         trace_id: hex::decode(&canonical.trace_id).unwrap_or_default(),
         span_id: hex::decode(&canonical.span_id).unwrap_or_default(),
@@ -339,6 +379,7 @@ fn canonical_to_resource_spans(canonical: &CanonicalSpan) -> ResourceSpans {
             },
         }),
     };
+
     ResourceSpans {
         resource: Some(Resource {
             attributes: btree_to_key_values(&canonical.resource.attributes),
@@ -398,14 +439,17 @@ fn json_to_any_value(value: &Value) -> AnyValue {
                 .collect(),
         }),
     };
+
     AnyValue { value: Some(value) }
 }
 
 fn resolve_headers(config: &BTreeMap<String, String>) -> Result<HeaderMap, String> {
     let mut headers = HeaderMap::new();
+
     for (name, configured) in config {
         let name = HeaderName::try_from(name)
             .map_err(|error| format!("invalid Trace exporter header name: {error}"))?;
+
         let resolved = if let Some(variable) = configured.strip_prefix("env:") {
             std::env::var(variable).map_err(|_| {
                 format!("Trace exporter environment reference `{variable}` is unset")
@@ -424,16 +468,19 @@ fn resolve_headers(config: &BTreeMap<String, String>) -> Result<HeaderMap, Strin
                     })
                     .collect::<String>()
             );
+
             std::env::var(&variable).map_err(|_| {
                 format!("Trace exporter secret reference `{reference}` could not be resolved")
             })?
         } else {
             configured.clone()
         };
+
         let value = HeaderValue::from_str(&resolved)
             .map_err(|error| format!("invalid Trace exporter header value: {error}"))?;
         headers.insert(name, value);
     }
+
     Ok(headers)
 }
 

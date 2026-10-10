@@ -18,6 +18,7 @@ const DELIVERY_COLS: &str = "delivery.id, delivery.org_id, delivery.status_page_
     delivery.attempts, delivery.next_attempt_at_micros, delivery.last_error,
     delivery.delivered_at_micros, delivery.created_at_micros, delivery.updated_at_micros,
     subscriber.channel, subscriber.target_ciphertext, subscriber.target_nonce";
+
 const CLAIMED_DELIVERY_COLS: &str = "claimed.id, claimed.org_id, claimed.status_page_id,
     claimed.subscriber_id, claimed.event_key, claimed.payload, claimed.status,
     claimed.attempts, claimed.next_attempt_at_micros, claimed.last_error,
@@ -35,6 +36,7 @@ impl StatusPageDeliveryRepository for PgStatusPageRepository {
     ) -> Result<StatusPageDeliveryPage> {
         let per_page = per_page.clamp(1, 100);
         let offset = u64::from(page.saturating_sub(1)).saturating_mul(u64::from(per_page));
+
         let total: i64 = sqlx::query_scalar(
             "SELECT count(*) FROM status_page_notification_deliveries
              WHERE org_id = $1 AND status_page_id = $2",
@@ -44,6 +46,7 @@ impl StatusPageDeliveryRepository for PgStatusPageRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(super::sqlx_err)?;
+
         let sql = format!(
             "SELECT {DELIVERY_COLS}
              FROM status_page_notification_deliveries delivery
@@ -55,6 +58,7 @@ impl StatusPageDeliveryRepository for PgStatusPageRepository {
              ORDER BY delivery.created_at_micros DESC, delivery.id DESC
              LIMIT $3 OFFSET $4"
         );
+
         let items = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&page_id.0)
@@ -66,6 +70,7 @@ impl StatusPageDeliveryRepository for PgStatusPageRepository {
             .into_iter()
             .map(|row| self.row_to_delivery(row))
             .collect::<Result<Vec<_>>>()?;
+
         Ok(StatusPageDeliveryPage {
             items,
             page,
@@ -80,6 +85,7 @@ impl StatusPageDeliveryRepository for PgStatusPageRepository {
         limit: u32,
     ) -> Result<Vec<StatusPageNotificationDelivery>> {
         let stale_before = now.0.saturating_sub(5 * 60 * 1_000_000);
+
         let sql = format!(
             "WITH candidates AS (
                 SELECT delivery.id
@@ -110,6 +116,7 @@ impl StatusPageDeliveryRepository for PgStatusPageRepository {
               AND subscriber.id = claimed.subscriber_id
              ORDER BY claimed.created_at_micros"
         );
+
         sqlx::query(&sql)
             .bind(now.0)
             .bind(stale_before)
@@ -135,6 +142,7 @@ impl StatusPageDeliveryRepository for PgStatusPageRepository {
                 "a completed delivery cannot remain processing",
             ));
         }
+
         let result = sqlx::query(
             "UPDATE status_page_notification_deliveries SET
                 status = $2, next_attempt_at_micros = $3, claimed_at_micros = NULL,
@@ -151,11 +159,13 @@ impl StatusPageDeliveryRepository for PgStatusPageRepository {
         .execute(&self.pool)
         .await
         .map_err(super::sqlx_err)?;
+
         if result.rows_affected() != 1 {
             return Err(Error::conflict(
                 "status-page notification delivery claim was lost",
             ));
         }
+
         Ok(())
     }
 
@@ -184,6 +194,7 @@ impl StatusPageDeliveryRepository for PgStatusPageRepository {
         .execute(&self.pool)
         .await
         .map_err(super::sqlx_err)?;
+
         Ok(result.rows_affected())
     }
 }
@@ -197,6 +208,7 @@ impl PgStatusPageRepository {
         let status: String = row.try_get("status").map_err(super::sqlx_err)?;
         let ciphertext: Vec<u8> = row.try_get("target_ciphertext").map_err(super::sqlx_err)?;
         let nonce: Vec<u8> = row.try_get("target_nonce").map_err(super::sqlx_err)?;
+
         Ok(StatusPageNotificationDelivery {
             id: Id(row.try_get("id").map_err(super::sqlx_err)?),
             org_id: Id(row.try_get("org_id").map_err(super::sqlx_err)?),

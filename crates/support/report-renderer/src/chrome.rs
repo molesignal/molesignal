@@ -31,6 +31,7 @@ use crate::{RenderError, ReportFormat, ReportRenderer, Viewport};
 /// 硬上限：>= 4 个 Chrome instance 在常见 pod 资源下会 OOM；spec scheduled-reports
 /// "Renderer Resource Bounds" 要求 clamp。
 pub const MAX_POOL_SIZE: usize = 4;
+
 pub const MAX_TIMEOUT_SECS: u64 = 60;
 const DEFAULT_POOL_SIZE: usize = 2;
 const DEFAULT_TIMEOUT_SECS: u64 = 30;
@@ -58,6 +59,7 @@ impl Default for RendererConfig {
 /// 把超出 spec 上限的配置裁紧；超过时 emit 一次性 warn 让 ops 知道。
 fn clamp(config: RendererConfig) -> RendererConfig {
     let mut c = config;
+
     if c.concurrent_renders > MAX_POOL_SIZE {
         tracing::warn!(
             requested = c.concurrent_renders,
@@ -66,9 +68,11 @@ fn clamp(config: RendererConfig) -> RendererConfig {
         );
         c.concurrent_renders = MAX_POOL_SIZE;
     }
+
     if c.concurrent_renders == 0 {
         c.concurrent_renders = 1;
     }
+
     if c.render_timeout_secs > MAX_TIMEOUT_SECS {
         tracing::warn!(
             requested = c.render_timeout_secs,
@@ -77,9 +81,11 @@ fn clamp(config: RendererConfig) -> RendererConfig {
         );
         c.render_timeout_secs = MAX_TIMEOUT_SECS;
     }
+
     if c.render_timeout_secs == 0 {
         c.render_timeout_secs = DEFAULT_TIMEOUT_SECS;
     }
+
     c
 }
 
@@ -93,6 +99,7 @@ pub struct HeadlessChromeRenderer {
 impl HeadlessChromeRenderer {
     pub fn new(config: RendererConfig) -> Self {
         let cfg = clamp(config);
+
         Self {
             pool: Arc::new(Mutex::new(Vec::with_capacity(cfg.concurrent_renders))),
             semaphore: Arc::new(Semaphore::new(cfg.concurrent_renders)),
@@ -111,6 +118,7 @@ fn launch_browser() -> std::result::Result<Browser, RenderError> {
         )])
         .build()
         .map_err(|e| RenderError::ChromeUnavailable(format!("launch options: {e}")))?;
+
     Browser::new(options).map_err(|e| RenderError::ChromeUnavailable(e.to_string()))
 }
 
@@ -132,11 +140,13 @@ impl ReportRenderer for HeadlessChromeRenderer {
 
         let target_url = url.to_string();
         let browser_auth_storage = browser_auth_storage.map(str::to_owned);
+
         let target_viewport = if viewport.width == 0 || viewport.height == 0 {
             self.viewport
         } else {
             viewport
         };
+
         let pool = self.pool.clone();
         let cfg_viewport = self.viewport;
 
@@ -146,8 +156,10 @@ impl ReportRenderer for HeadlessChromeRenderer {
             tokio::task::spawn_blocking({
                 let pool = pool.clone();
                 let target_url = target_url.clone();
+
                 move || -> std::result::Result<Bytes, RenderError> {
                     let browser = checkout_or_launch(&pool)?;
+
                     let result = render_blocking(
                         &browser,
                         &target_url,
@@ -155,12 +167,14 @@ impl ReportRenderer for HeadlessChromeRenderer {
                         target_viewport,
                         browser_auth_storage.as_deref(),
                     );
+
                     if result.is_ok() {
                         let mut guard = pool.lock();
                         guard.push(browser);
                     } else {
                         // 失败 instance 直接 drop（headless_chrome Browser drop 杀进程）。
                     }
+
                     let _ = cfg_viewport; // suppress unused warn outside of test config
                     result
                 }
@@ -190,6 +204,7 @@ fn checkout_or_launch(
     if let Some(b) = pool.lock().pop() {
         return Ok(b);
     }
+
     launch_browser()
 }
 
@@ -203,6 +218,7 @@ fn render_blocking(
     let bootstrap_tab = browser
         .new_tab()
         .map_err(|e| RenderError::PageError(format!("new_tab: {e}")))?;
+
     set_device_viewport(&bootstrap_tab, viewport)?;
     navigate_and_wait(&bootstrap_tab, url)?;
 
@@ -212,6 +228,7 @@ fn render_blocking(
         .map(serde_json::to_string)
         .transpose()
         .map_err(|e| RenderError::Internal(format!("serialize browser auth: {e}")))?;
+
     let auth_expression = match auth_value {
         Some(value) => format!(
             "window.localStorage.removeItem('molesignal-auth');\
@@ -224,9 +241,11 @@ fn render_blocking(
              window.sessionStorage.removeItem('molesignal-auth');"
             .to_string(),
     };
+
     bootstrap_tab
         .evaluate(&auth_expression, false)
         .map_err(|e| RenderError::PageError(format!("install browser auth: {e}")))?;
+
     let _ = bootstrap_tab.close(true);
 
     // 同一 Tab 连续导航时 Chrome 偶尔不发 lifecycle event。新 Tab 会共享
@@ -234,6 +253,7 @@ fn render_blocking(
     let tab = browser
         .new_tab()
         .map_err(|e| RenderError::PageError(format!("new render tab: {e}")))?;
+
     set_device_viewport(&tab, viewport)?;
     navigate_and_wait(&tab, url)?;
 
@@ -247,6 +267,7 @@ fn render_blocking(
         // saved-view 暂无页面级 ready 协议，保留一个异步查询稳定窗口。
         std::thread::sleep(Duration::from_millis(750));
     }
+
     ensure_page_renderable(&tab)?;
 
     let result = match format {
@@ -265,6 +286,7 @@ fn render_blocking(
                     true,
                 )
                 .map_err(|e| RenderError::PageError(format!("screenshot: {e}")))?;
+
             Ok(Bytes::from(img))
         }
         ReportFormat::Pdf => {
@@ -276,12 +298,15 @@ fn render_blocking(
                 paper_height: Some(viewport.height as f64 / 96.0),
                 ..Default::default()
             };
+
             let pdf = tab
                 .print_to_pdf(Some(opts))
                 .map_err(|e| RenderError::PageError(format!("print_to_pdf: {e}")))?;
+
             Ok(Bytes::from(pdf))
         }
     };
+
     if result.is_ok()
         && let Err(error) = tab.evaluate(
             "window.localStorage.removeItem('molesignal-auth');\
@@ -291,10 +316,12 @@ fn render_blocking(
         )
     {
         let _ = tab.close(true);
+
         return Err(RenderError::PageError(format!(
             "clear browser auth: {error}"
         )));
     }
+
     let _ = tab.close(true);
     result
 }
@@ -329,6 +356,7 @@ fn navigate_and_wait(
 ) -> std::result::Result<(), RenderError> {
     tab.navigate_to(url)
         .map_err(|e| RenderError::PageError(format!("navigate: {e}")))?;
+
     tab.wait_for_element("body")
         .map(|_| ())
         .map_err(|e| RenderError::PageError(format!("wait for document body: {e}")))
@@ -374,10 +402,13 @@ new Promise((resolve) => {{
 }})
 "#
     );
+
     let value = tab
         .evaluate(&expression, true)
         .map_err(|error| RenderError::PageError(format!("wait for dashboard ready: {error}")))?;
+
     let message = evaluated_string(value.value);
+
     if message.is_empty() {
         Ok(())
     } else {
@@ -421,7 +452,9 @@ fn ensure_page_renderable(tab: &headless_chrome::Tab) -> std::result::Result<(),
             false,
         )
         .map_err(|error| RenderError::PageError(format!("inspect rendered page: {error}")))?;
+
     let message = evaluated_string(value.value);
+
     if message.is_empty() {
         Ok(())
     } else {

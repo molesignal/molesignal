@@ -44,15 +44,18 @@ pub fn validate_dashboard_model_with(
         DashboardValidationMode::Native => validator.validate(model),
         DashboardValidationMode::GrafanaImport => validate_import_envelope(model),
     };
+
     if issues.is_empty() {
         issues.extend(validate_dashboard_semantics_with(model, manifest));
     }
+
     issues.truncate(50);
     issues
 }
 
 pub fn ensure_dashboard_model(model: &Value, mode: DashboardValidationMode) -> Result<(), Error> {
     let issues = validate_dashboard_model(model, mode);
+
     if issues.is_empty() {
         Ok(())
     } else {
@@ -67,6 +70,7 @@ pub fn ensure_dashboard_model_with(
     manifest: &VisualizationManifest,
 ) -> Result<(), Error> {
     let issues = validate_dashboard_model_with(model, mode, validator, manifest);
+
     if issues.is_empty() {
         Ok(())
     } else {
@@ -83,7 +87,9 @@ fn validate_import_envelope(model: &Value) -> Vec<ContractIssue> {
             true,
         )];
     };
+
     let mut issues = Vec::new();
+
     if object.get("engine").and_then(Value::as_str) != Some("molesignal-dashboard") {
         issues.push(ContractIssue::new(
             "INVALID_DASHBOARD_ENGINE",
@@ -92,6 +98,7 @@ fn validate_import_envelope(model: &Value) -> Vec<ContractIssue> {
             true,
         ));
     }
+
     if object.get("schemaVersion").and_then(Value::as_u64) != Some(2) {
         issues.push(ContractIssue::new(
             "UNSUPPORTED_DASHBOARD_VERSION",
@@ -100,6 +107,7 @@ fn validate_import_envelope(model: &Value) -> Vec<ContractIssue> {
             true,
         ));
     }
+
     for field in ["variables", "annotations", "links", "elements"] {
         if !object.get(field).is_some_and(Value::is_array) {
             issues.push(ContractIssue::new(
@@ -110,5 +118,6 @@ fn validate_import_envelope(model: &Value) -> Vec<ContractIssue> {
             ));
         }
     }
+
     issues
 }

@@ -72,6 +72,7 @@ impl ApmFlushBatch {
 
     pub fn latest_buckets_by_org(&self) -> HashMap<Id, TimestampMicros> {
         let mut latest = HashMap::new();
+
         for snapshot in &self.snapshots {
             latest
                 .entry(snapshot.org_id.clone())
@@ -80,6 +81,7 @@ impl ApmFlushBatch {
                 })
                 .or_insert(snapshot.bucket_at);
         }
+
         latest
     }
 }
@@ -106,6 +108,7 @@ impl ApmAggregator {
         max_error_samples: usize,
     ) -> Result<Self> {
         histogram.validate()?;
+
         Ok(Self {
             owner_id,
             histogram,
@@ -123,6 +126,7 @@ impl ApmAggregator {
 
     pub fn observe(&mut self, fact: ApmSpanFact, trace_available: bool) -> Result<()> {
         self.observe_catalog(&fact);
+
         let exemplar = TraceExemplar {
             trace_id: fact.trace_id.clone(),
             span_id: fact.span_id.clone(),
@@ -130,6 +134,7 @@ impl ApmAggregator {
             duration_micros: fact.duration_micros,
             trace_available,
         };
+
         if fact.contributes_service_red() {
             self.observe_bucket(
                 &fact,
@@ -139,6 +144,7 @@ impl ApmAggregator {
                 },
                 exemplar.clone(),
             )?;
+
             if let Some(transaction) = fact.transaction.clone() {
                 self.observe_bucket(
                     &fact,
@@ -151,6 +157,7 @@ impl ApmAggregator {
                 )?;
             }
         }
+
         if fact.contributes_dependency()
             && let Some(dependency) = fact.dependency.clone()
         {
@@ -164,6 +171,7 @@ impl ApmAggregator {
                 exemplar.clone(),
             )?;
         }
+
         if let Some(error) = fact.error.clone() {
             self.observe_bucket(
                 &fact,
@@ -174,8 +182,10 @@ impl ApmAggregator {
                 },
                 exemplar,
             )?;
+
             self.observe_error(&fact, error, trace_available);
         }
+
         Ok(())
     }
 
@@ -196,6 +206,7 @@ impl ApmAggregator {
                 updated_at: now,
             })
             .collect();
+
         ApmFlushBatch {
             snapshots,
             services: self
@@ -241,12 +252,14 @@ impl ApmAggregator {
                 bucket_at: snapshot.bucket_at,
                 dimension: snapshot.dimension.clone(),
             };
+
             if let Some(state) = self.buckets.get_mut(&key)
                 && state.snapshot_seq == snapshot.snapshot_seq
             {
                 state.dirty = false;
             }
         }
+
         for observation in &batch.services {
             if let Some(state) = self
                 .catalog
@@ -255,6 +268,7 @@ impl ApmAggregator {
                 state.dirty = false;
             }
         }
+
         for observation in &batch.versions {
             if let Some(state) = self.versions.get_mut(&(
                 observation.org_id.clone(),
@@ -264,6 +278,7 @@ impl ApmAggregator {
                 state.dirty = false;
             }
         }
+
         for record in &batch.error_groups {
             if let Some(state) = self
                 .errors
@@ -272,6 +287,7 @@ impl ApmAggregator {
                 state.dirty = false;
             }
         }
+
         for (org_id, _) in &batch.projection_starts {
             self.dirty_projection_starts.remove(org_id);
         }
@@ -303,13 +319,16 @@ impl ApmAggregator {
     ) -> Result<()> {
         let bucket_at =
             TimestampMicros(fact.event_time.0.div_euclid(MINUTE_MICROS) * MINUTE_MICROS);
+
         let key = BucketKey {
             org_id: fact.org_id.clone(),
             bucket_at,
             dimension,
         };
+
         let snapshot_seq = self.next_snapshot_seq;
         self.next_snapshot_seq = self.next_snapshot_seq.saturating_add(1);
+
         let state = self.buckets.entry(key).or_insert_with(|| BucketState {
             measurements: BucketMeasurements {
                 request_count: 0,
@@ -321,24 +340,30 @@ impl ApmAggregator {
             snapshot_seq,
             dirty: true,
         });
+
         state.snapshot_seq = snapshot_seq;
         state.dirty = true;
         state.measurements.request_count = state.measurements.request_count.saturating_add(1);
+
         if fact.outcome == ApmOutcome::Error {
             state.measurements.error_count = state.measurements.error_count.saturating_add(1);
         }
+
         if dimension_is_overflow(fact) {
             state.measurements.overflow_count = state.measurements.overflow_count.saturating_add(1);
         }
+
         state
             .measurements
             .latency
             .observe(&self.histogram, fact.duration_micros)?;
+
         admit_exemplar(
             &mut state.measurements.exemplars,
             exemplar,
             self.max_exemplars,
         );
+
         Ok(())
     }
 
@@ -347,7 +372,9 @@ impl ApmAggregator {
             .entry(fact.org_id.clone())
             .and_modify(|started| *started = (*started).min(fact.event_time))
             .or_insert(fact.event_time);
+
         self.dirty_projection_starts.insert(fact.org_id.clone());
+
         let state = self
             .catalog
             .entry((fact.org_id.clone(), fact.service.clone()))
@@ -365,26 +392,32 @@ impl ApmAggregator {
                 instances: HashSet::new(),
                 dirty: true,
             });
+
         state.observation.first_seen_at = state.observation.first_seen_at.min(fact.event_time);
         state.observation.last_seen_at = state.observation.last_seen_at.max(fact.event_time);
+
         state.observation.runtime_language = fact
             .instrumentation
             .language
             .clone()
             .or(state.observation.runtime_language.take());
+
         state.observation.telemetry_sdk_name = fact
             .instrumentation
             .sdk_name
             .clone()
             .or(state.observation.telemetry_sdk_name.take());
+
         state.observation.telemetry_sdk_version = fact
             .instrumentation
             .sdk_version
             .clone()
             .or(state.observation.telemetry_sdk_version.take());
+
         if let Some(instance) = &fact.service_instance_id {
             state.instances.insert(instance.clone());
         }
+
         state.observation.recent_instance_count =
             u32::try_from(state.instances.len()).unwrap_or(u32::MAX);
         state.dirty = true;
@@ -404,14 +437,17 @@ impl ApmAggregator {
                     },
                     dirty: true,
                 });
+
             version_state.observation.first_seen_at =
                 version_state.observation.first_seen_at.min(fact.event_time);
             version_state.observation.last_seen_at =
                 version_state.observation.last_seen_at.max(fact.event_time);
+
             version_state.observation.observation_count = version_state
                 .observation
                 .observation_count
                 .saturating_add(1);
+
             version_state.dirty = true;
         }
     }
@@ -423,6 +459,7 @@ impl ApmAggregator {
         trace_available: bool,
     ) {
         let exception = fact.exception.as_ref();
+
         let state = self
             .errors
             .entry((fact.org_id.clone(), error.fingerprint.clone()))
@@ -442,9 +479,11 @@ impl ApmAggregator {
                 samples: Vec::new(),
                 dirty: true,
             });
+
         state.record.first_seen_at = state.record.first_seen_at.min(fact.event_time);
         state.record.last_seen_at = state.record.last_seen_at.max(fact.event_time);
         state.record.occurrence_count = state.record.occurrence_count.saturating_add(1);
+
         let sample = ErrorSample {
             org_id: fact.org_id.clone(),
             error,
@@ -458,6 +497,7 @@ impl ApmAggregator {
                 .map(|value| value.stack_frames.clone())
                 .unwrap_or_default(),
         };
+
         admit_error_sample(&mut state.samples, sample, self.max_error_samples);
         state.dirty = true;
     }

@@ -22,9 +22,11 @@ use crate::shared::metrics::register_int_counter_vec;
 fn hits_vec() -> IntCounterVec {
     register_int_counter_vec("cache_hits_total", "cache hit count", &["level"])
 }
+
 fn misses_vec() -> IntCounterVec {
     register_int_counter_vec("cache_misses_total", "cache miss count", &["level"])
 }
+
 fn evictions_vec() -> IntCounterVec {
     register_int_counter_vec("cache_evictions_total", "cache eviction count", &["level"])
 }
@@ -32,11 +34,13 @@ fn evictions_vec() -> IntCounterVec {
 /// 命中率 gauge 在 `gather_text()` 之前由 caller 主动刷新。
 fn hit_ratio_vec() -> prometheus::GaugeVec {
     use prometheus::{GaugeVec, Opts};
+
     let gauge = GaugeVec::new(
         Opts::new("cache_hit_ratio", "cache hit ratio in [0.0, 1.0]"),
         &["level"],
     )
     .expect("create gauge vec");
+
     match crate::shared::metrics::global_registry().register(Box::new(gauge.clone())) {
         Ok(()) | Err(prometheus::Error::AlreadyReg) => gauge,
         Err(e) => panic!("register gauge: {e}"),
@@ -61,6 +65,7 @@ impl CacheMetrics {
         let misses = misses_vec().with_label_values(&[level]);
         let evictions = evictions_vec().with_label_values(&[level]);
         let hit_ratio = hit_ratio_vec().with_label_values(&[level]);
+
         Self {
             level,
             hits,
@@ -90,6 +95,7 @@ impl CacheMetrics {
         if n == 0 {
             return;
         }
+
         self.hits.inc_by(n);
         self.hits_view.fetch_add(n, Ordering::Relaxed);
         self.refresh_ratio();
@@ -100,6 +106,7 @@ impl CacheMetrics {
         if n == 0 {
             return;
         }
+
         self.misses.inc_by(n);
         self.misses_view.fetch_add(n, Ordering::Relaxed);
         self.refresh_ratio();

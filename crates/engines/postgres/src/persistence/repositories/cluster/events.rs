@@ -46,6 +46,7 @@ pub trait ClusterEventOutboxRepository: Send + Sync {
 pub struct PgClusterEventOutboxRepository {
     pool: PgPool,
 }
+
 impl PgClusterEventOutboxRepository {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
@@ -70,6 +71,7 @@ impl ClusterEventOutboxRepository for PgClusterEventOutboxRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -90,6 +92,7 @@ impl ClusterEventOutboxRepository for PgClusterEventOutboxRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(rows
             .into_iter()
             .filter_map(|r| {
@@ -108,6 +111,7 @@ impl ClusterEventOutboxRepository for PgClusterEventOutboxRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(row
             .and_then(|r| r.try_get::<i64, _>("acked_seq").ok())
             .unwrap_or(0))
@@ -127,6 +131,7 @@ impl ClusterEventOutboxRepository for PgClusterEventOutboxRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -136,6 +141,7 @@ impl ClusterEventOutboxRepository for PgClusterEventOutboxRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(res.rows_affected())
     }
 
@@ -144,6 +150,7 @@ impl ClusterEventOutboxRepository for PgClusterEventOutboxRepository {
             .fetch_one(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(row.try_get::<i64, _>("m").unwrap_or(0))
     }
 }
@@ -180,6 +187,7 @@ pub trait ClusterOrgLinkRepository: Send + Sync {
 pub struct PgClusterOrgLinkRepository {
     pool: PgPool,
 }
+
 impl PgClusterOrgLinkRepository {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
@@ -217,6 +225,7 @@ impl ClusterOrgLinkRepository for PgClusterOrgLinkRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -228,12 +237,14 @@ impl ClusterOrgLinkRepository for PgClusterOrgLinkRepository {
         let sql = format!(
             "SELECT {LINK_COLS} FROM cluster_org_link WHERE remote_cluster_id = $1 AND local_org_id = $2"
         );
+
         let row = sqlx::query(&sql)
             .bind(&remote_cluster_id.0)
             .bind(&local_org.0)
             .fetch_optional(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(row.map(link_row))
     }
 
@@ -245,12 +256,14 @@ impl ClusterOrgLinkRepository for PgClusterOrgLinkRepository {
         let sql = format!(
             "SELECT {LINK_COLS} FROM cluster_org_link WHERE remote_cluster_id = $1 AND remote_org_id = $2"
         );
+
         let row = sqlx::query(&sql)
             .bind(&remote_cluster_id.0)
             .bind(&remote_org.0)
             .fetch_optional(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(row.map(link_row))
     }
 
@@ -258,11 +271,13 @@ impl ClusterOrgLinkRepository for PgClusterOrgLinkRepository {
         let sql = format!(
             "SELECT {LINK_COLS} FROM cluster_org_link WHERE remote_cluster_id = $1 ORDER BY local_org_id"
         );
+
         let rows = sqlx::query(&sql)
             .bind(&remote_cluster_id.0)
             .fetch_all(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(rows.into_iter().map(link_row).collect())
     }
 
@@ -275,6 +290,7 @@ impl ClusterOrgLinkRepository for PgClusterOrgLinkRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(())
     }
 }
@@ -312,6 +328,7 @@ pub trait ClusterResourceVersionRepository: Send + Sync {
 pub struct PgClusterResourceVersionRepository {
     pool: PgPool,
 }
+
 impl PgClusterResourceVersionRepository {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
@@ -345,6 +362,7 @@ impl ClusterResourceVersionRepository for PgClusterResourceVersionRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(row.try_get::<i64, _>("version").unwrap_or(1))
     }
 
@@ -364,6 +382,7 @@ impl ClusterResourceVersionRepository for PgClusterResourceVersionRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(row.map(|r| {
             (
                 r.try_get::<i64, _>("version").unwrap_or(0),
@@ -397,6 +416,7 @@ impl ClusterResourceVersionRepository for PgClusterResourceVersionRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(())
     }
 }
@@ -416,6 +436,7 @@ pub trait SeenEventsRepository: Send + Sync {
 pub struct PgSeenEventsRepository {
     pool: PgPool,
 }
+
 impl PgSeenEventsRepository {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
@@ -433,6 +454,7 @@ impl SeenEventsRepository for PgSeenEventsRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(res.rows_affected() == 1)
     }
 
@@ -442,6 +464,7 @@ impl SeenEventsRepository for PgSeenEventsRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -451,6 +474,7 @@ impl SeenEventsRepository for PgSeenEventsRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(res.rows_affected())
     }
 }

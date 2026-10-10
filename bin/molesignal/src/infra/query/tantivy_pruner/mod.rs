@@ -104,6 +104,7 @@ impl TantivyPruner {
         if predicates.is_empty() {
             return Ok(candidates);
         }
+
         // object_store HEAD / footer range-read 是每文件独立的 I/O。串行扫描会把
         // 候选文件数直接叠加到请求延迟，因此做有界并发；最后按原下标恢复
         // 顺序，避免破坏“最新文件优先”的后续扫描约定。
@@ -113,6 +114,7 @@ impl TantivyPruner {
                     Some(index_key) => self.candidate_matches(predicates, index_key).await?,
                     None => true,
                 };
+
                 Ok::<_, anyhow::Error>((index, file, keep))
             })
             .buffer_unordered(PRUNE_CONCURRENCY)
@@ -120,6 +122,7 @@ impl TantivyPruner {
             .await
             .into_iter()
             .collect::<anyhow::Result<Vec<_>>>()?;
+
         decisions.sort_unstable_by_key(|(index, _, _)| *index);
 
         Ok(decisions
@@ -159,10 +162,12 @@ impl TantivyPruner {
                 predicate.field.as_str(),
                 predicate.term.as_str(),
             );
+
             let cached = match self.result_cache.as_ref() {
                 Some(cache) => cache.get(&key).await,
                 None => None,
             };
+
             let count = match cached {
                 Some(count) => count as usize,
                 None => match count_term_off_worker(
@@ -176,16 +181,19 @@ impl TantivyPruner {
                         if let Some(cache) = self.result_cache.as_ref() {
                             cache.insert(key, count as u64).await;
                         }
+
                         count
                     }
                     // 字段不在该 Index Artifact schema 中时不能证明文件不命中。
                     Err(_) => return Ok(true),
                 },
             };
+
             if count == 0 {
                 return Ok(false);
             }
         }
+
         Ok(true)
     }
 
@@ -209,6 +217,7 @@ impl TantivyPruner {
         let footer_cache = self.footer_cache.clone();
         let key = index_object_key.to_string();
         let key_for_load = key.clone();
+
         let result = self
             .cache
             .get_or_load(key, || async move {
@@ -246,6 +255,7 @@ impl TantivyPruner {
                     }
                     Err(e) => return Err(anyhow::anyhow!("object_store head: {e}")),
                 };
+
                 let size = head.size as u64;
 
                 match TantivyArchiveOpener::open_from_object_store(
@@ -264,6 +274,7 @@ impl TantivyPruner {
                                 path.clone(),
                                 size,
                             );
+
                             match source.parse_footer().await {
                                 Ok((meta, payload)) => {
                                     // 同步把 sync atomic_read 预物化目标（meta.json
@@ -281,7 +292,9 @@ impl TantivyPruner {
                                             return Ok(Arc::new(handle));
                                         }
                                     };
+
                                     let schema = handle.schema().clone();
+
                                     let footer = crate::tantivy::TantivyFooter {
                                         puffin_meta: Arc::new(meta),
                                         footer_payload_bytes: payload,
@@ -289,6 +302,7 @@ impl TantivyPruner {
                                         atomic_files: Arc::new(atomic_files),
                                         object_size: size,
                                     };
+
                                     fc.insert(key_for_load.clone(), Arc::new(footer)).await;
                                 }
                                 Err(e) => {
@@ -301,12 +315,14 @@ impl TantivyPruner {
                                 }
                             }
                         }
+
                         Ok(Arc::new(handle))
                     }
                     Err(e) => Err(anyhow::anyhow!("tantivy open: {e}")),
                 }
             })
             .await;
+
         match result {
             Ok(h) => Ok(Some(h)),
             Err(e) if e.to_string().contains("__missing__") => Ok(None),
@@ -366,39 +382,47 @@ pub fn extract_match_predicates(sql: &str) -> (Vec<MatchPredicate>, String) {
         )
         .expect("static regex compiles")
     });
+
     let re = &*RE;
     // 只有顶层 WHERE 的合取项才对每一条结果都成立。OR / NOT 分支里的 MATCH / MATCH_TEXT
     // 仍改写成 ILIKE 交给 Parquet 执行，但绝不能拿来剔除整个文件。
     let conjuncts = conjunct_match_predicates(sql);
     let mut preds = Vec::new();
+
     let rewritten = re
         .replace_all(sql, |caps: &regex::Captures| {
             let func = caps.get(1).unwrap().as_str();
             let field = caps.get(2).unwrap().as_str().to_string();
             let arg = caps.get(3).unwrap().as_str().to_string();
+
             if func.eq_ignore_ascii_case("match") {
                 // MATCH：通用子串匹配（ILIKE，大小写不敏感）。`%`/`_`/`\` 一律按字面量
                 // 转义（`*` 不是 LIKE 通配符，保持普通字符）。ILIKE rewrite 恒生成（真正的
                 // 执行语义）；裁剪谓词仅在 term 与 TEXT 索引内容一致时才生成，否则跳过裁剪
                 // 以免分词差异导致误裁漏数据。
                 let like = escape_like_literal_text(&arg);
+
                 if conjuncts.contains(&(field.clone(), arg.clone())) && can_prune_match_term(&arg) {
                     preds.push(MatchPredicate {
                         field: field.clone(),
                         term: arg.clone(),
                     });
                 }
+
                 format!("{field} ILIKE '%{like}%'")
             } else {
                 // MATCH_TEXT：解析查询语法 → ILIKE 表达式树；裁剪谓词按 D6 的严格条件生成。
                 let query = parse_match_text(&arg);
+
                 if conjuncts.contains(&(field.clone(), arg.clone())) {
                     collect_match_text_prune_predicates(&query, &field, &mut preds);
                 }
+
                 rewrite_match_text(&query, &field)
             }
         })
         .to_string();
+
     (preds, rewritten)
 }
 
@@ -406,7 +430,9 @@ fn conjunct_match_predicates(sql: &str) -> HashSet<(String, String)> {
     let Ok(statements) = Parser::parse_sql(&GenericDialect, sql) else {
         return HashSet::new();
     };
+
     let mut matches = HashSet::new();
+
     for statement in statements {
         if let Statement::Query(query) = statement
             && let SetExpr::Select(select) = query.body.as_ref()
@@ -415,6 +441,7 @@ fn conjunct_match_predicates(sql: &str) -> HashSet<(String, String)> {
             collect_conjunct_matches(selection, &mut matches);
         }
     }
+
     matches
 }
 
@@ -445,20 +472,25 @@ fn match_arguments(arguments: &FunctionArguments) -> Option<(String, String)> {
     let FunctionArguments::List(arguments) = arguments else {
         return None;
     };
+
     let [field, term] = arguments.args.as_slice() else {
         return None;
     };
+
     let field = match unnamed_expression(field)? {
         Expr::Identifier(identifier) => identifier.value.clone(),
         Expr::CompoundIdentifier(identifiers) => identifiers.last()?.value.clone(),
         _ => return None,
     };
+
     let Expr::Value(value) = unnamed_expression(term)? else {
         return None;
     };
+
     let Value::SingleQuotedString(term) = &value.value else {
         return None;
     };
+
     Some((field, term.clone()))
 }
 
@@ -503,14 +535,17 @@ pub enum MatchTextQuery {
 /// 解析 `MATCH_TEXT` 查询。空串或全部为空 token → [`MatchTextQuery::AlwaysFalse`]。
 pub fn parse_match_text(query: &str) -> MatchTextQuery {
     let items = tokenize_match_text(query);
+
     // 顶层按独立 `OR` 关键字分组（短语 / 转义内的 `OR` 不受影响）。
     let groups: Vec<&[MatchTextItem]> = items
         .split(|item| matches!(item, MatchTextItem::Or))
         .collect();
+
     let branches: Vec<MatchTextQuery> = groups
         .iter()
         .map(|group| build_conjunction(group))
         .collect();
+
     combine_or(branches)
 }
 
@@ -534,6 +569,7 @@ fn rewrite_match_text(query: &MatchTextQuery, field: &str) -> String {
                 .map(|term| rewrite_match_text(term, field))
                 .collect::<Vec<_>>()
                 .join(" AND ");
+
             format!("({inner})")
         }
         MatchTextQuery::Or(left, right) => format!(
@@ -554,6 +590,7 @@ fn collect_match_text_prune_predicates(
     out: &mut Vec<MatchPredicate>,
 ) {
     let mut tokens = Vec::new();
+
     if pure_and_prunable_tokens(query, &mut tokens) {
         for token in tokens {
             if can_prune_match_term(&token) {
@@ -591,7 +628,9 @@ pub fn match_text_fields(sql: &str) -> Vec<String> {
     let Ok(statements) = Parser::parse_sql(&GenericDialect, sql) else {
         return Vec::new();
     };
+
     let mut fields = Vec::new();
+
     let _ = visit_expressions(&statements, |expr| {
         if let Expr::Function(function) = expr
             && function.name.to_string().eq_ignore_ascii_case("match_text")
@@ -599,8 +638,10 @@ pub fn match_text_fields(sql: &str) -> Vec<String> {
         {
             fields.push(field);
         }
+
         ControlFlow::<()>::Continue(())
     });
+
     fields
 }
 
@@ -608,9 +649,11 @@ pub fn match_text_fields(sql: &str) -> Vec<String> {
 /// 不是 LIKE 通配符，保持原样）。
 fn escape_like_literal_text(text: &str) -> String {
     let mut out = String::new();
+
     for c in text.chars() {
         out.push_str(&escape_like_literal(c));
     }
+
     out
 }
 
@@ -647,33 +690,42 @@ fn tokenize_match_text(query: &str) -> Vec<MatchTextItem> {
     let chars: Vec<char> = query.chars().collect();
     let mut items = Vec::new();
     let mut i = 0;
+
     while i < chars.len() {
         while i < chars.len() && chars[i].is_whitespace() {
             i += 1;
         }
+
         if i >= chars.len() {
             break;
         }
+
         // `-` 前缀 = 排除（NOT），作用于紧随其后的词 / 短语。
         let negated = if chars[i] == '-' {
             i += 1;
+
             while i < chars.len() && chars[i].is_whitespace() {
                 i += 1;
             }
+
             true
         } else {
             false
         };
+
         if i >= chars.len() {
             break; // 裸 `-`：没有可排除的目标，忽略。
         }
+
         if chars[i] == '"' {
             let (like, wildcard, next) = scan_phrase(&chars, i);
+
             items.push(MatchTextItem::Phrase {
                 like,
                 wildcard,
                 negated,
             });
+
             i = next;
         } else if negated && is_or_keyword(&chars, i) {
             // `- OR ...`：`-` 退化为字面 token，`OR` 留待下一轮。
@@ -688,15 +740,18 @@ fn tokenize_match_text(query: &str) -> Vec<MatchTextItem> {
             i += 2;
         } else {
             let (like, wildcard, prune, next) = scan_token(&chars, i);
+
             items.push(MatchTextItem::Term {
                 like,
                 wildcard,
                 prune,
                 negated,
             });
+
             i = next;
         }
     }
+
     items
 }
 
@@ -705,9 +760,11 @@ fn is_or_keyword(chars: &[char], i: usize) -> bool {
     if i + 2 > chars.len() {
         return false;
     }
+
     if !(chars[i].eq_ignore_ascii_case(&'o') && chars[i + 1].eq_ignore_ascii_case(&'r')) {
         return false;
     }
+
     chars
         .get(i + 2)
         .is_none_or(|c| c.is_whitespace() || *c == '"' || *c == '-')
@@ -720,14 +777,18 @@ fn scan_token(chars: &[char], start: usize) -> (String, bool, Option<String>, us
     let mut like = String::new();
     let mut literal = String::new();
     let mut wildcard = false;
+
     while i < chars.len() {
         let c = chars[i];
+
         if c.is_whitespace() || c == '"' {
             break;
         }
+
         match c {
             '\\' => {
                 i += 1;
+
                 if let Some(next) = chars.get(i) {
                     like.push_str(&escape_like_literal(*next));
                     literal.push(*next);
@@ -755,11 +816,13 @@ fn scan_token(chars: &[char], start: usize) -> (String, bool, Option<String>, us
             }
         }
     }
+
     let prune = if wildcard {
         None
     } else {
         Some(literal.to_lowercase())
     };
+
     (like, wildcard, prune, i)
 }
 
@@ -770,10 +833,12 @@ fn scan_phrase(chars: &[char], start: usize) -> (String, bool, usize) {
     let mut i = start + 1;
     let mut like = String::new();
     let mut wildcard = false;
+
     while i < chars.len() {
         match chars[i] {
             '\\' => {
                 i += 1;
+
                 if let Some(next) = chars.get(i) {
                     like.push_str(&escape_like_literal(*next));
                     i += 1;
@@ -800,6 +865,7 @@ fn scan_phrase(chars: &[char], start: usize) -> (String, bool, usize) {
             }
         }
     }
+
     (like, wildcard, i)
 }
 
@@ -819,6 +885,7 @@ fn build_conjunction(items: &[MatchTextItem]) -> MatchTextQuery {
                     wildcard: *wildcard,
                     prune: prune.clone(),
                 };
+
                 if *negated {
                     MatchTextQuery::Not(Box::new(expr))
                 } else {
@@ -836,6 +903,7 @@ fn build_conjunction(items: &[MatchTextItem]) -> MatchTextQuery {
                     wildcard: *wildcard,
                     prune: None,
                 };
+
                 if *negated {
                     MatchTextQuery::Not(Box::new(expr))
                 } else {
@@ -845,6 +913,7 @@ fn build_conjunction(items: &[MatchTextItem]) -> MatchTextQuery {
             MatchTextItem::Or => unreachable!("Or 已在顶层分组时消费"),
         })
         .collect();
+
     match terms.len() {
         0 => MatchTextQuery::AlwaysFalse,
         1 => terms.into_iter().next().expect("len == 1"),
@@ -858,15 +927,18 @@ fn combine_or(branches: Vec<MatchTextQuery>) -> MatchTextQuery {
         .into_iter()
         .filter(|branch| !matches!(branch, MatchTextQuery::AlwaysFalse))
         .collect();
+
     match rest.len() {
         0 => MatchTextQuery::AlwaysFalse,
         1 => rest.pop().expect("len == 1"),
         _ => {
             let mut iter = rest.into_iter();
             let mut acc = iter.next().expect("len >= 2");
+
             for next in iter {
                 acc = MatchTextQuery::Or(Box::new(acc), Box::new(next));
             }
+
             acc
         }
     }

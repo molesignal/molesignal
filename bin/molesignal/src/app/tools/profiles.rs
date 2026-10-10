@@ -59,11 +59,13 @@ async fn list(runtime: &ToolRuntime, auth: &IamContext, arguments: Value) -> Res
     let range = optional_time_range(args.time_range)?;
     let limit = args.limit.unwrap_or(100).clamp(1, HARD_MAX_PROFILES);
     let filters = sql_filters(&args);
+
     let statement = format!(
         "SELECT id, service, profile_type, total_value, sample_count, duration_nanos, unsymbolized, trace_id, span_id, labels, _timestamp FROM {}{} ORDER BY _timestamp DESC LIMIT {limit}",
         quote_ident(DEFAULT_PROFILE_STREAM),
         where_clause(&filters),
     );
+
     let Some(result) = run_optional_stream_query(
         runtime,
         &auth.org_id,
@@ -80,11 +82,14 @@ async fn list(runtime: &ToolRuntime, auth: &IamContext, arguments: Value) -> Res
             "message": "Continuous Profiles has not received data yet",
         })));
     };
+
     let wanted = parse_label(args.label.as_deref());
+
     let profiles = rows_as_objects(&result)
         .into_iter()
         .filter(|row| row_matches_label(row.get("labels"), wanted.as_ref()))
         .collect::<Vec<_>>();
+
     Ok(ToolResult::json(json!({
         "profiles": profiles, "stream_available": true,
         "scanned_rows": result.scanned_rows, "took_ms": result.took_ms,
@@ -98,13 +103,16 @@ async fn flamegraph(
 ) -> Result<ToolResult> {
     let args: ProfileFilters = parse_args(arguments)?;
     let range = optional_time_range(args.time_range)?;
+
     let max_profiles = args
         .max_profiles
         .unwrap_or(DEFAULT_MAX_PROFILES)
         .clamp(1, HARD_MAX_PROFILES);
+
     let keys = object_keys(runtime, auth, range, &args).await?;
     let (sampled, truncated) = profiles_merge::even_sample(keys, max_profiles);
     let profiles = load_profiles(runtime, &sampled).await;
+
     Ok(ToolResult::json(json!({
         "flamebearer": profiles_merge::build_flamebearer(&profiles),
         "profile_count": profiles.len(), "truncated": truncated,
@@ -128,16 +136,19 @@ struct CompareArgs {
 
 async fn compare(runtime: &ToolRuntime, auth: &IamContext, arguments: Value) -> Result<ToolResult> {
     let args: CompareArgs = parse_args(arguments)?;
+
     let filters = ProfileFilters {
         service: args.service,
         profile_type: args.profile_type,
         label: args.label,
         ..ProfileFilters::default()
     };
+
     let max_profiles = args
         .max_profiles
         .unwrap_or(DEFAULT_MAX_PROFILES)
         .clamp(1, HARD_MAX_PROFILES);
+
     let baseline_keys = object_keys(runtime, auth, time_range(args.baseline)?, &filters).await?;
     let comparison_keys =
         object_keys(runtime, auth, time_range(args.comparison)?, &filters).await?;
@@ -147,6 +158,7 @@ async fn compare(runtime: &ToolRuntime, auth: &IamContext, arguments: Value) -> 
         profiles_merge::even_sample(comparison_keys, max_profiles);
     let baseline = load_profiles(runtime, &baseline_keys).await;
     let comparison = load_profiles(runtime, &comparison_keys).await;
+
     Ok(ToolResult::json(json!({
         "flamebearer": profiles_merge::build_diff(&baseline, &comparison),
         "baseline_count": baseline.len(), "comparison_count": comparison.len(),
@@ -161,11 +173,13 @@ async fn object_keys(
     args: &ProfileFilters,
 ) -> Result<Vec<String>> {
     let filters = sql_filters(args);
+
     let statement = format!(
         "SELECT object_key, labels FROM {}{} ORDER BY _timestamp DESC LIMIT {SCAN_LIMIT}",
         quote_ident(DEFAULT_PROFILE_STREAM),
         where_clause(&filters),
     );
+
     let Some(result) = run_optional_stream_query(
         runtime,
         &auth.org_id,
@@ -179,7 +193,9 @@ async fn object_keys(
     else {
         return Ok(Vec::new());
     };
+
     let wanted = parse_label(args.label.as_deref());
+
     Ok(rows_as_objects(&result)
         .into_iter()
         .filter(|row| row_matches_label(row.get("labels"), wanted.as_ref()))
@@ -211,6 +227,7 @@ fn row_matches_label(labels: Option<&Value>, wanted: Option<&(String, String)>) 
     let Some((key, value)) = wanted else {
         return true;
     };
+
     labels
         .and_then(|labels| {
             labels.as_object().cloned().or_else(|| {
@@ -226,12 +243,15 @@ fn row_matches_label(labels: Option<&Value>, wanted: Option<&(String, String)>) 
 
 async fn load_profiles(runtime: &ToolRuntime, keys: &[String]) -> Vec<NormalizedProfile> {
     let mut loaded = Vec::with_capacity(keys.len());
+
     for key in keys {
         let Some(profile) = load_profile(runtime, key).await else {
             continue;
         };
+
         loaded.push(profile);
     }
+
     loaded
 }
 
@@ -239,6 +259,7 @@ async fn load_profile(runtime: &ToolRuntime, key: &str) -> Option<NormalizedProf
     let raw = profiles::get_archive(&runtime.observability.object_store, key)
         .await
         .ok()?;
+
     let profile = profiles::decode_pprof(&raw).ok()?;
     Some(profiles::normalize_pprof(&profile, "", &BTreeMap::new()))
 }

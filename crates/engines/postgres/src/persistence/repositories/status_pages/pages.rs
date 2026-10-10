@@ -36,6 +36,7 @@ impl StatusPagePageRepository for PgStatusPageRepository {
                      $14, $15, $16, $17, $18, $19)
              RETURNING {PAGE_COLS}"
         );
+
         let row = sqlx::query(&sql)
             .bind(&page.id.0)
             .bind(&page.org_id.0)
@@ -59,11 +60,13 @@ impl StatusPagePageRepository for PgStatusPageRepository {
             .fetch_one(&self.pool)
             .await
             .map_err(super::sqlx_err)?;
+
         row_to_page(row)
     }
 
     async fn update_page(&self, page: StatusPage) -> Result<StatusPage> {
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
+
         let previous_visibility: String = sqlx::query_scalar(
             "SELECT visibility FROM status_pages
              WHERE org_id = $1 AND id = $2 AND lifecycle = 'active' FOR UPDATE",
@@ -73,6 +76,7 @@ impl StatusPagePageRepository for PgStatusPageRepository {
         .fetch_one(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
+
         let sql = format!(
             "UPDATE status_pages SET
                  name = $3, slug = $4, logo_url = $5, brand_color = $6,
@@ -82,6 +86,7 @@ impl StatusPagePageRepository for PgStatusPageRepository {
              WHERE org_id = $1 AND id = $2 AND lifecycle = 'active'
              RETURNING {PAGE_COLS}"
         );
+
         let row = sqlx::query(&sql)
             .bind(&page.org_id.0)
             .bind(&page.id.0)
@@ -101,7 +106,9 @@ impl StatusPagePageRepository for PgStatusPageRepository {
             .fetch_one(&mut *transaction)
             .await
             .map_err(super::sqlx_err)?;
+
         let updated = row_to_page(row)?;
+
         if previous_visibility != updated.visibility.as_str() {
             sqlx::query(
                 "DELETE FROM status_page_magic_links
@@ -112,6 +119,7 @@ impl StatusPagePageRepository for PgStatusPageRepository {
             .execute(&mut *transaction)
             .await
             .map_err(super::sqlx_err)?;
+
             sqlx::query(
                 "UPDATE status_page_access_sessions SET revoked_at_micros = $3
                  WHERE org_id = $1 AND status_page_id = $2
@@ -124,6 +132,7 @@ impl StatusPagePageRepository for PgStatusPageRepository {
             .await
             .map_err(super::sqlx_err)?;
         }
+
         if updated.visibility == StatusPageVisibility::Private {
             sqlx::query(
                 "UPDATE status_page_subscribers
@@ -138,6 +147,7 @@ impl StatusPagePageRepository for PgStatusPageRepository {
             .execute(&mut *transaction)
             .await
             .map_err(super::sqlx_err)?;
+
             sqlx::query(
                 "UPDATE status_page_notification_deliveries delivery
                  SET status = 'failed', claimed_at_micros = NULL,
@@ -158,6 +168,7 @@ impl StatusPagePageRepository for PgStatusPageRepository {
             .await
             .map_err(super::sqlx_err)?;
         }
+
         transaction.commit().await.map_err(super::sqlx_err)?;
         Ok(updated)
     }
@@ -174,6 +185,7 @@ impl StatusPagePageRepository for PgStatusPageRepository {
              WHERE org_id = $1 AND id = $2 AND lifecycle = 'active'
              RETURNING {PAGE_COLS}"
         );
+
         let row = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&page_id.0)
@@ -182,6 +194,7 @@ impl StatusPagePageRepository for PgStatusPageRepository {
             .fetch_one(&self.pool)
             .await
             .map_err(super::sqlx_err)?;
+
         row_to_page(row)
     }
 
@@ -199,12 +212,14 @@ impl StatusPagePageRepository for PgStatusPageRepository {
         purge_after: TimestampMicros,
     ) -> Result<StatusPage> {
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
+
         let sql = format!(
             "UPDATE status_pages SET lifecycle = 'archived', archived_at_micros = $3,
                  purge_after_micros = $4, updated_at_micros = $3
              WHERE org_id = $1 AND id = $2 AND lifecycle = 'active'
              RETURNING {PAGE_COLS}"
         );
+
         let row = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&page_id.0)
@@ -213,6 +228,7 @@ impl StatusPagePageRepository for PgStatusPageRepository {
             .fetch_one(&mut *transaction)
             .await
             .map_err(super::sqlx_err)?;
+
         sqlx::query(
             "UPDATE status_page_notification_deliveries
              SET status = 'failed', claimed_at_micros = NULL,
@@ -226,6 +242,7 @@ impl StatusPagePageRepository for PgStatusPageRepository {
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
+
         let page = row_to_page(row)?;
         transaction.commit().await.map_err(super::sqlx_err)?;
         Ok(page)
@@ -244,6 +261,7 @@ impl StatusPagePageRepository for PgStatusPageRepository {
                AND purge_after_micros > $3
              RETURNING {PAGE_COLS}"
         );
+
         let row = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&page_id.0)
@@ -251,6 +269,7 @@ impl StatusPagePageRepository for PgStatusPageRepository {
             .fetch_one(&self.pool)
             .await
             .map_err(super::sqlx_err)?;
+
         row_to_page(row)
     }
 
@@ -260,12 +279,14 @@ impl StatusPagePageRepository for PgStatusPageRepository {
         limit: u32,
     ) -> Result<Vec<StatusPage>> {
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
+
         let sql = format!(
             "SELECT {PAGE_COLS} FROM status_pages
              WHERE lifecycle = 'archived' AND purge_after_micros <= $1
              ORDER BY purge_after_micros, id
              LIMIT $2 FOR UPDATE SKIP LOCKED"
         );
+
         let pages = sqlx::query(&sql)
             .bind(now.0)
             .bind(i64::from(limit.min(100)))
@@ -275,21 +296,25 @@ impl StatusPagePageRepository for PgStatusPageRepository {
             .into_iter()
             .map(row_to_page)
             .collect::<Result<Vec<_>>>()?;
+
         for page in &pages {
             delete_page_and_domain(&mut transaction, &page.org_id, &page.id, false).await?;
         }
+
         transaction.commit().await.map_err(super::sqlx_err)?;
         Ok(pages)
     }
 
     async fn get_page(&self, org_id: &Id, page_id: &Id) -> Result<StatusPage> {
         let sql = format!("SELECT {PAGE_COLS} FROM status_pages WHERE org_id = $1 AND id = $2");
+
         let row = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&page_id.0)
             .fetch_one(&self.pool)
             .await
             .map_err(super::sqlx_err)?;
+
         row_to_page(row)
     }
 
@@ -298,6 +323,7 @@ impl StatusPagePageRepository for PgStatusPageRepository {
             "SELECT {PAGE_COLS} FROM status_pages
              WHERE slug = $1 AND lifecycle = 'active'"
         );
+
         sqlx::query(&sql)
             .bind(slug)
             .fetch_optional(&self.pool)
@@ -312,6 +338,7 @@ impl StatusPagePageRepository for PgStatusPageRepository {
             "SELECT {PAGE_COLS} FROM status_pages
              WHERE slug = $1 AND visibility = 'public' AND lifecycle = 'active'"
         );
+
         sqlx::query(&sql)
             .bind(slug)
             .fetch_optional(&self.pool)
@@ -332,6 +359,7 @@ impl StatusPagePageRepository for PgStatusPageRepository {
                AND domain.state = 'active' AND config.routing_valid
              LIMIT 1"
         );
+
         sqlx::query(&sql)
             .bind(domain)
             .fetch_optional(&self.pool)
@@ -348,6 +376,7 @@ impl StatusPagePageRepository for PgStatusPageRepository {
              ORDER BY (lifecycle = 'active') DESC, updated_at_micros DESC, name, id
              LIMIT 200"
         );
+
         sqlx::query(&sql)
             .bind(&org_id.0)
             .fetch_all(&self.pool)
@@ -375,6 +404,7 @@ async fn delete_page_and_domain(
     .await
     .map_err(super::sqlx_err)?
     .flatten();
+
     let result = sqlx::query(
         "DELETE FROM status_pages
          WHERE org_id = $1 AND id = $2 AND (NOT $3 OR lifecycle = 'archived')",
@@ -385,9 +415,11 @@ async fn delete_page_and_domain(
     .execute(&mut *transaction)
     .await
     .map_err(super::sqlx_err)?;
+
     if result.rows_affected() == 0 {
         return Err(Error::not_found("archived status page not found"));
     }
+
     if let Some(domain_id) = domain_id {
         sqlx::query("DELETE FROM domains WHERE org_id = $1 AND id = $2")
             .bind(&org_id.0)
@@ -396,5 +428,6 @@ async fn delete_page_and_domain(
             .await
             .map_err(super::sqlx_err)?;
     }
+
     Ok(())
 }

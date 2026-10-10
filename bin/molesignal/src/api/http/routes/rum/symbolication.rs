@@ -33,12 +33,15 @@ pub(super) async fn translate_body(
         Value::Object(_) => std::slice::from_mut(&mut body),
         _ => return body,
     };
+
     let mut artifacts = HashMap::new();
+
     for event in events {
         if let Err(error) = translate_event(state, context, event, &mut artifacts).await {
             tracing::debug!(%error, "RUM debug artifact symbolication skipped");
         }
     }
+
     body
 }
 
@@ -49,21 +52,27 @@ async fn translate_event(
     artifacts: &mut HashMap<String, PreparedArtifact>,
 ) -> Result<()> {
     let metadata = EventMetadata::from_event(event)?;
+
     let Some(stack_path) = stack_path(event) else {
         return Ok(());
     };
+
     let frames = event
         .pointer_mut(stack_path)
         .and_then(Value::as_array_mut)
         .expect("stack path selected from an array");
+
     let truncated = frames.len() > MAX_SYMBOLICATED_FRAMES_PER_EVENT;
     let mut attempted = 0_u64;
     let mut translated = 0_u64;
+
     for frame in frames.iter_mut().take(MAX_SYMBOLICATED_FRAMES_PER_EVENT) {
         let Some(plan) = FramePlan::from_frame(frame, &metadata) else {
             continue;
         };
+
         attempted += 1;
+
         match resolve_frame(state, context, &metadata, &plan, artifacts).await {
             Ok(Some(resolved)) => {
                 apply_original_frame(frame, resolved);
@@ -75,6 +84,7 @@ async fn translate_event(
             }
         }
     }
+
     if attempted > 0
         && let Some(object) = event.as_object_mut()
     {
@@ -85,6 +95,7 @@ async fn translate_event(
         } else {
             "missing"
         };
+
         object.insert(
             "symbolication".into(),
             serde_json::json!({
@@ -95,6 +106,7 @@ async fn translate_event(
             }),
         );
     }
+
     Ok(())
 }
 
@@ -113,6 +125,7 @@ async fn resolve_frame(
     artifacts: &mut HashMap<String, PreparedArtifact>,
 ) -> Result<Option<ResolvedFrame>> {
     let platform = artifact_platform(event, plan.kind);
+
     let mut artifact = find_artifact(
         state,
         context,
@@ -122,6 +135,7 @@ async fn resolve_frame(
         plan.filename.as_deref(),
     )
     .await?;
+
     if artifact.is_none()
         && let Some(filename) = plan.filename.as_deref()
         && !filename.to_ascii_lowercase().ends_with(".gz")
@@ -136,6 +150,7 @@ async fn resolve_frame(
         )
         .await?;
     }
+
     if artifact.is_none()
         && plan.filename.is_some()
         && plan.kind != DebugArtifactKind::JavascriptSourcemap
@@ -146,16 +161,21 @@ async fn resolve_frame(
         // application/build identity selects one artifact unambiguously.
         artifact = find_artifact(state, context, event, plan, platform, None).await?;
     }
+
     let Some(artifact) = artifact else {
         return Ok(None);
     };
+
     let prepared = load_artifact(state, &artifact, artifacts).await?;
+
     let Some((original, original_class)) = prepared.translate(plan)? else {
         return Ok(None);
     };
+
     if original.file.is_none() && original.function.is_none() && original.line.is_none() {
         return Ok(None);
     }
+
     Ok(Some(ResolvedFrame {
         original,
         original_class,
@@ -202,8 +222,10 @@ async fn load_artifact<'a>(
                 "RUM request references more than {MAX_PREPARED_ARTIFACTS_PER_REQUEST} debug artifacts"
             )));
         }
+
         let path = ObjectPath::parse(&artifact.object_key)
             .map_err(|error| Error::internal(format!("debug artifact object path: {error}")))?;
+
         let stored = state
             .storage
             .object_store
@@ -213,16 +235,20 @@ async fn load_artifact<'a>(
             .bytes()
             .await
             .map_err(|error| Error::internal(format!("debug artifact bytes: {error}")))?;
+
         let filename = artifact.filename.clone();
         let kind = artifact.kind;
+
         let prepared = tokio::task::spawn_blocking(move || {
             let decoded = decode_artifact(&filename, &stored)?;
             PreparedArtifact::parse(kind, &decoded)
         })
         .await
         .map_err(|error| Error::internal(format!("debug artifact parse task: {error}")))??;
+
         artifacts.insert(artifact.object_key.clone(), prepared);
     }
+
     artifacts
         .get(&artifact.object_key)
         .ok_or_else(|| Error::internal("prepared debug artifact cache entry is missing"))
@@ -232,15 +258,18 @@ fn apply_original_frame(frame: &mut Value, resolved: ResolvedFrame) {
     let Some(object) = frame.as_object_mut() else {
         return;
     };
+
     insert_optional_string(object, "original_file", resolved.original.file);
     insert_optional_string(object, "original_function", resolved.original.function);
     insert_optional_string(object, "original_class", resolved.original_class);
     insert_optional_number(object, "original_line", resolved.original.line);
     insert_optional_number(object, "original_column", resolved.original.column);
+
     object.insert(
         "debug_artifact_id".into(),
         Value::String(resolved.artifact_id),
     );
+
     object.insert(
         "debug_artifact_kind".into(),
         Value::String(resolved.artifact_kind.as_str().to_string()),

@@ -48,22 +48,27 @@ pub(super) async fn run(
     let range = TimeRange::new(TimestampMicros(context.from), TimestampMicros(context.to));
     let raw_type = primary_dataset_type(definition.stream_type)?;
     let summary_type = DatasetTypeId::builtin(builtin::DATASET_TRACE_SUMMARY);
+
     let snapshot = state
         .storage
         .catalog_query
         .snapshot_stream(definition, &[raw_type.clone(), summary_type.clone()], range)
         .await?;
+
     let (raw_files, raw_buffers) = snapshot
         .dataset(&raw_type)
         .map(|dataset| (dataset.files.clone(), dataset.buffered_batches.clone()))
         .unwrap_or_default();
+
     if raw_files.is_empty() && raw_buffers.is_empty() {
         return Ok(Vec::new());
     }
+
     let (summary_files, summary_buffers) = snapshot
         .dataset(&summary_type)
         .map(|dataset| (dataset.files.clone(), dataset.buffered_batches.clone()))
         .unwrap_or_default();
+
     if summary_files.is_empty() && summary_buffers.is_empty() {
         return Ok(Vec::new());
     }
@@ -82,11 +87,13 @@ pub(super) async fn run(
         Some(raw_type),
     )
     .with_buffered_batches(raw_buffers);
+
     ctx.register_table(TableReference::bare(RAW_TABLE), Arc::new(raw_table))
         .map_err(|error| Error::internal(format!("register trace Span table: {error}")))?;
 
     let summary_definition =
         crate::infra::intake::physical_schema::project(definition, &summary_type);
+
     let summary_table = PrunedParquetTable::new(
         arrow_schema::to_arrow(&summary_definition.schema),
         &summary_files,
@@ -95,10 +102,12 @@ pub(super) async fn run(
         Some(summary_type),
     )
     .with_buffered_batches(summary_buffers);
+
     ctx.register_table(TableReference::bare(SUMMARY_TABLE), Arc::new(summary_table))
         .map_err(|error| Error::internal(format!("register trace summary table: {error}")))?;
 
     let sql = build_sql(context, fetch_limit)?;
+
     let batches = ctx
         .sql(&sql)
         .await
@@ -106,6 +115,7 @@ pub(super) async fn run(
         .collect()
         .await
         .map_err(|error| Error::internal(format!("scan filtered trace summaries: {error}")))?;
+
     let rows = rows_from_batches(&batches);
     tracing::debug!(
         raw_files = raw_files.len(),
@@ -121,20 +131,24 @@ fn build_sql(context: &TraceListContext, fetch_limit: usize) -> Result<String> {
         .from
         .checked_mul(1_000)
         .ok_or_else(|| Error::invalid("trace time_from is out of range"))?;
+
     let to_ns = context
         .to
         .checked_mul(1_000)
         .ok_or_else(|| Error::invalid("trace time_to is out of range"))?;
+
     let raw_filters = context
         .filters
         .iter()
         .filter(|filter| filter.is_span_filter())
         .collect::<Vec<_>>();
+
     if raw_filters.is_empty() {
         return Err(Error::internal(
             "trace Span-filter query requires at least one Span filter",
         ));
     }
+
     let having = raw_filters
         .into_iter()
         .map(|filter| {
@@ -151,6 +165,7 @@ fn build_sql(context: &TraceListContext, fetch_limit: usize) -> Result<String> {
     let error_count = qualified("s", TRACE_SUMMARY_ERROR_COUNT_FIELD);
     let trace_id = qualified("s", "trace_id");
     let mut predicates = vec![format!("{} = 1", qualified("s", SUMMARY_RANK_FIELD))];
+
     for filter in context
         .filters
         .iter()
@@ -159,11 +174,14 @@ fn build_sql(context: &TraceListContext, fetch_limit: usize) -> Result<String> {
         let column = filter
             .summary_column()
             .ok_or_else(|| Error::internal("invalid trace summary filter"))?;
+
         predicates.push(filter_predicate("s", filter, column)?);
     }
+
     if let Some(query) = context.q.as_deref() {
         let value = sql_literal(&format!("%{}%", query.to_ascii_lowercase()));
         let fields = ["trace_id", "span_id", "service.name", "name", "status_code"];
+
         predicates.push(format!(
             "({})",
             fields
@@ -176,9 +194,11 @@ fn build_sql(context: &TraceListContext, fetch_limit: usize) -> Result<String> {
                 .join(" OR ")
         ));
     }
+
     if let Some(boundary) = context.boundary.as_ref() {
         predicates.push(cursor_predicate(context, boundary.direction));
     }
+
     let order = order_by(context);
 
     Ok(format!(
@@ -226,16 +246,19 @@ fn build_sql(context: &TraceListContext, fetch_limit: usize) -> Result<String> {
 
 fn filter_predicate(alias: &str, filter: &TraceFilter, field: &str) -> Result<String> {
     let column = qualified(alias, field);
+
     let expression = match filter.data_type {
         FieldType::Timestamp => format!("CAST({column} AS BIGINT)"),
         _ => column,
     };
+
     if filter.op == "contains" {
         return Ok(format!(
             "CAST({expression} AS VARCHAR) LIKE {}",
             sql_literal(&format!("%{}%", filter.value))
         ));
     }
+
     let value = match filter.data_type {
         FieldType::Utf8 => sql_literal(&filter.value),
         FieldType::Int64 | FieldType::Float64 | FieldType::Timestamp => filter.value.clone(),
@@ -246,6 +269,7 @@ fn filter_predicate(alias: &str, filter: &TraceFilter, field: &str) -> Result<St
             )));
         }
     };
+
     Ok(format!("{expression} {} {value}", filter.op))
 }
 
@@ -255,6 +279,7 @@ fn cursor_predicate(context: &TraceListContext, direction: CursorDirection) -> S
         .as_ref()
         .expect("boundary checked")
         .position;
+
     let fields = match context.sort {
         TraceListSort::Latest => vec![
             (
@@ -289,11 +314,13 @@ fn cursor_predicate(context: &TraceListContext, direction: CursorDirection) -> S
                 TraceListSort::ErrorsDesc => TRACE_SUMMARY_ERROR_COUNT_FIELD,
                 TraceListSort::Latest | TraceListSort::Earliest => unreachable!(),
             };
+
             let primary_direction = if sort == TraceListSort::DurationAsc {
                 CursorSortDirection::Asc
             } else {
                 CursorSortDirection::Desc
             };
+
             vec![
                 (
                     qualified("s", primary),
@@ -313,10 +340,12 @@ fn cursor_predicate(context: &TraceListContext, direction: CursorDirection) -> S
             ]
         }
     };
+
     let borrowed = fields
         .iter()
         .map(|(name, value, order)| (name.as_str(), value.clone(), *order))
         .collect::<Vec<_>>();
+
     lexicographic_seek(&borrowed, direction, sql_literal)
 }
 
@@ -351,10 +380,12 @@ fn order_by(context: &TraceListContext) -> String {
             ("trace_id", CursorSortDirection::Desc),
         ],
     };
+
     let reverse = context
         .boundary
         .as_ref()
         .is_some_and(|boundary| boundary.direction == CursorDirection::Before);
+
     fields
         .into_iter()
         .map(|(field, direction)| {
@@ -362,6 +393,7 @@ fn order_by(context: &TraceListContext) -> String {
                 (CursorSortDirection::Asc, false) | (CursorSortDirection::Desc, true) => "ASC",
                 (CursorSortDirection::Desc, false) | (CursorSortDirection::Asc, true) => "DESC",
             };
+
             format!("{} {direction}", qualified("s", field))
         })
         .collect::<Vec<_>>()
@@ -370,14 +402,17 @@ fn order_by(context: &TraceListContext) -> String {
 
 fn rows_from_batches(batches: &[RecordBatch]) -> Vec<TraceListRow> {
     let mut rows = Vec::new();
+
     for batch in batches {
         for row in 0..batch.num_rows() {
             let Some(trace_id) = string_at(batch, "trace_id", row) else {
                 continue;
             };
+
             let duration_ns = integer_at(batch, "duration_ns", row)
                 .unwrap_or_default()
                 .max(0);
+
             rows.push(TraceListRow {
                 item: super::TraceListItem {
                     trace_id: trace_id.to_string(),
@@ -396,6 +431,7 @@ fn rows_from_batches(batches: &[RecordBatch]) -> Vec<TraceListRow> {
             });
         }
     }
+
     rows
 }
 
@@ -415,9 +451,11 @@ fn string_at<'a>(batch: &'a RecordBatch, name: &str, row: usize) -> Option<&'a s
 
 fn integer_at(batch: &RecordBatch, name: &str, row: usize) -> Option<i64> {
     let column = batch.column_by_name(name)?;
+
     if column.is_null(row) {
         return None;
     }
+
     match column.data_type() {
         DataType::Int64 => Some(column.as_any().downcast_ref::<Int64Array>()?.value(row)),
         DataType::UInt64 => {

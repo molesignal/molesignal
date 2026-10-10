@@ -18,20 +18,25 @@ pub(super) const PAGE_COLS: &str = "id, org_id, name, slug, logo_url, brand_colo
     delivery_retention_days, private_session_days, lifecycle, archived_at_micros,
     purge_after_micros,
     created_at_micros, updated_at_micros";
+
 pub(super) const COMPONENT_COLS: &str = "id, org_id, status_page_id, name, description,
     status, visibility, lifecycle, position, archived_at_micros,
     created_at_micros, updated_at_micros";
+
 pub(super) const COMPONENT_STATUS_EVENT_COLS: &str = "id, org_id, status_page_id,
     component_id, status, started_at_micros, ended_at_micros, created_at_micros";
+
 pub(super) const INCIDENT_COLS: &str = "id, org_id, status_page_id, source_incident_id,
     kind, title, impact, status, publication_state, draft_message,
     started_at_micros, ended_at_micros,
     published_at_micros, created_at_micros, updated_at_micros";
+
 pub(super) fn row_to_page(row: sqlx::postgres::PgRow) -> Result<StatusPage> {
     let visibility: String = row.try_get("visibility").map_err(super::sqlx_err)?;
     let lifecycle: String = row.try_get("lifecycle").map_err(super::sqlx_err)?;
     let language: String = row.try_get("language").map_err(super::sqlx_err)?;
     let languages = row.try_get("languages").map_err(super::sqlx_err)?;
+
     Ok(StatusPage {
         id: Id(row.try_get("id").map_err(super::sqlx_err)?),
         org_id: Id(row.try_get("org_id").map_err(super::sqlx_err)?),
@@ -73,6 +78,7 @@ pub(super) fn row_to_component(row: sqlx::postgres::PgRow) -> Result<StatusPageC
     let status: String = row.try_get("status").map_err(super::sqlx_err)?;
     let visibility: String = row.try_get("visibility").map_err(super::sqlx_err)?;
     let lifecycle: String = row.try_get("lifecycle").map_err(super::sqlx_err)?;
+
     Ok(StatusPageComponent {
         id: Id(row.try_get("id").map_err(super::sqlx_err)?),
         org_id: Id(row.try_get("org_id").map_err(super::sqlx_err)?),
@@ -101,6 +107,7 @@ pub(super) fn row_to_component_status_event(
 ) -> Result<StatusPageComponentStatusEvent> {
     let status: String = row.try_get("status").map_err(super::sqlx_err)?;
     let ended_at: Option<i64> = row.try_get("ended_at_micros").map_err(super::sqlx_err)?;
+
     Ok(StatusPageComponentStatusEvent {
         id: Id(row.try_get("id").map_err(super::sqlx_err)?),
         org_id: Id(row.try_get("org_id").map_err(super::sqlx_err)?),
@@ -120,6 +127,7 @@ pub(super) fn row_to_incident(row: sqlx::postgres::PgRow) -> Result<StatusPageIn
     let status: String = row.try_get("status").map_err(super::sqlx_err)?;
     let publication_state: String = row.try_get("publication_state").map_err(super::sqlx_err)?;
     let ended_at: Option<i64> = row.try_get("ended_at_micros").map_err(super::sqlx_err)?;
+
     Ok(StatusPageIncident {
         id: Id(row.try_get("id").map_err(super::sqlx_err)?),
         org_id: Id(row.try_get("org_id").map_err(super::sqlx_err)?),
@@ -154,6 +162,7 @@ pub(super) fn row_to_incident(row: sqlx::postgres::PgRow) -> Result<StatusPageIn
 
 pub(super) fn row_to_update(row: sqlx::postgres::PgRow) -> Result<StatusPageIncidentUpdate> {
     let status: String = row.try_get("status").map_err(super::sqlx_err)?;
+
     Ok(StatusPageIncidentUpdate {
         id: Id(row.try_get("id").map_err(super::sqlx_err)?),
         org_id: Id(row.try_get("org_id").map_err(super::sqlx_err)?),

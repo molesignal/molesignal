@@ -80,6 +80,7 @@ pub struct FlushInflightGuard {
 impl FlushInflightGuard {
     pub fn enter(stream_type: &str) -> Self {
         flush_inflight_vec().with_label_values(&[stream_type]).inc();
+
         Self {
             stream_type: stream_type.to_owned(),
         }
@@ -232,6 +233,7 @@ pub struct WalInflightGuard {
 impl WalInflightGuard {
     pub fn enter(dataset_type: &str) -> Self {
         wal_inflight_vec().with_label_values(&[dataset_type]).inc();
+
         Self {
             dataset_type: dataset_type.to_owned(),
         }
@@ -248,6 +250,7 @@ impl Drop for WalInflightGuard {
 
 fn wal_recovery_quarantined() -> &'static prometheus::IntCounter {
     static C: OnceLock<prometheus::IntCounter> = OnceLock::new();
+
     C.get_or_init(|| {
         crate::shared::metrics::register_int_counter(
             "wal_recovery_quarantined_total",
@@ -258,6 +261,7 @@ fn wal_recovery_quarantined() -> &'static prometheus::IntCounter {
 
 fn wal_recovery_tail_truncated() -> &'static prometheus::IntCounter {
     static C: OnceLock<prometheus::IntCounter> = OnceLock::new();
+
     C.get_or_init(|| {
         crate::shared::metrics::register_int_counter(
             "wal_recovery_tail_truncated_total",

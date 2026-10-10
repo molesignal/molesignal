@@ -73,6 +73,7 @@ async fn correlation(
     let decoded = URL_SAFE_NO_PAD
         .decode(q.ctx.as_bytes())
         .map_err(|e| Error::invalid(format!("invalid ctx base64: {e}")))?;
+
     let payload: Value = serde_json::from_slice(&decoded)
         .map_err(|e| Error::invalid(format!("invalid ctx json: {e}")))?;
 
@@ -102,18 +103,21 @@ async fn correlation(
 
 fn derive_time_window(payload: &Value) -> (String, String) {
     let now = chrono::Utc::now();
+
     let from = payload
         .get("time_range")
         .and_then(|t| t.get("from"))
         .and_then(Value::as_str)
         .map(String::from)
         .unwrap_or_else(|| (now - ChronoDuration::seconds(60)).to_rfc3339());
+
     let to = payload
         .get("time_range")
         .and_then(|t| t.get("to"))
         .and_then(Value::as_str)
         .map(String::from)
         .unwrap_or_else(|| now.to_rfc3339());
+
     (from, to)
 }
 
@@ -137,6 +141,7 @@ fn filters_for_services(svcs: &[String]) -> Vec<Filter> {
     if svcs.is_empty() {
         return Vec::new();
     }
+
     if svcs.len() == 1 {
         vec![Filter {
             field: "service".into(),
@@ -157,6 +162,7 @@ fn filters_for_services(svcs: &[String]) -> Vec<Filter> {
 fn derive_trace_to_log(payload: &Value) -> (Vec<Filter>, Prefill) {
     let svcs = extract_services(payload);
     let mut filters = filters_for_services(&svcs);
+
     if let Some(trace_id) = extract_str(payload, "trace_id") {
         filters.push(Filter {
             field: "trace_id".into(),
@@ -164,20 +170,24 @@ fn derive_trace_to_log(payload: &Value) -> (Vec<Filter>, Prefill) {
             value: Value::String(trace_id),
         });
     }
+
     (filters, Prefill::default())
 }
 
 fn derive_trace_to_metric(payload: &Value) -> (Vec<Filter>, Prefill) {
     let svcs = extract_services(payload);
     let filters = filters_for_services(&svcs);
+
     let promql = svcs
         .first()
         .map(|s| format!("rate(http_requests_total{{service=\"{s}\"}}[1m])"));
+
     (filters, Prefill { sql: None, promql })
 }
 
 fn derive_trace_to_host(payload: &Value) -> (Vec<Filter>, Prefill) {
     let mut filters = Vec::new();
+
     if let Some(host) = extract_str(payload, "host") {
         filters.push(Filter {
             field: "host".into(),
@@ -185,6 +195,7 @@ fn derive_trace_to_host(payload: &Value) -> (Vec<Filter>, Prefill) {
             value: Value::String(host),
         });
     }
+
     (filters, Prefill::default())
 }
 
@@ -204,9 +215,11 @@ async fn derive_metric_to_trace(
         let from_us = chrono::DateTime::parse_from_rfc3339(from)
             .map(|d| d.timestamp_micros())
             .unwrap_or(0);
+
         let to_us = chrono::DateTime::parse_from_rfc3339(to)
             .map(|d| d.timestamp_micros())
             .unwrap_or(i64::MAX);
+
         if let Ok(edges) = state
             .telemetry
             .service_graph
@@ -229,6 +242,7 @@ async fn derive_metric_to_trace(
             });
         }
     }
+
     (filters, Prefill::default())
 }
 
@@ -239,6 +253,7 @@ fn derive_metric_to_log(payload: &Value) -> (Vec<Filter>, Prefill) {
 
 fn derive_log_to_trace(payload: &Value) -> (Vec<Filter>, Prefill) {
     let mut filters = Vec::new();
+
     if let Some(trace_id) = extract_str(payload, "trace_id") {
         filters.push(Filter {
             field: "trace_id".into(),
@@ -246,6 +261,7 @@ fn derive_log_to_trace(payload: &Value) -> (Vec<Filter>, Prefill) {
             value: Value::String(trace_id),
         });
     }
+
     if let Some(svc) = extract_str(payload, "service") {
         filters.push(Filter {
             field: "service".into(),
@@ -253,19 +269,24 @@ fn derive_log_to_trace(payload: &Value) -> (Vec<Filter>, Prefill) {
             value: Value::String(svc),
         });
     }
+
     (filters, Prefill::default())
 }
 
 fn derive_log_to_metric(payload: &Value) -> (Vec<Filter>, Prefill) {
     let svcs = extract_services(payload);
+
     let svc_one = svcs
         .first()
         .cloned()
         .or_else(|| extract_str(payload, "service"));
+
     let promql = svc_one
         .as_ref()
         .map(|s| format!("rate(log_records_total{{service=\"{s}\"}}[1m])"));
+
     let mut filters = filters_for_services(&svcs);
+
     if let (Some(s), true) = (svc_one, svcs.is_empty()) {
         filters.push(Filter {
             field: "service".into(),
@@ -273,11 +294,13 @@ fn derive_log_to_metric(payload: &Value) -> (Vec<Filter>, Prefill) {
             value: Value::String(s),
         });
     }
+
     (filters, Prefill { sql: None, promql })
 }
 
 fn derive_host_to_trace(payload: &Value) -> (Vec<Filter>, Prefill) {
     let mut filters = Vec::new();
+
     if let Some(host) = extract_str(payload, "host") {
         filters.push(Filter {
             field: "host.name".into(),
@@ -285,6 +308,7 @@ fn derive_host_to_trace(payload: &Value) -> (Vec<Filter>, Prefill) {
             value: Value::String(host),
         });
     }
+
     (filters, Prefill::default())
 }
 

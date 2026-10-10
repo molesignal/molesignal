@@ -15,6 +15,7 @@ use crate::{
 
 /// 重新加载规则的间隔：让其它节点上的规则变更在这个时间内生效。
 const RELOAD_EVERY: Duration = Duration::from_secs(10);
+
 /// 检查已触发规则是否恢复的间隔。
 const SWEEP_EVERY: Duration = Duration::from_secs(2);
 
@@ -52,8 +53,10 @@ impl RealtimeAlertWorker {
             tracing::warn!("real-time alert worker is already running");
             return;
         };
+
         let mut reload = tokio::time::interval(RELOAD_EVERY);
         let mut sweep = tokio::time::interval(SWEEP_EVERY);
+
         loop {
             tokio::select! {
                 command = inbox.recv() => match command {
@@ -92,6 +95,7 @@ impl RealtimeAlertWorker {
                 .await
                 .map_err(|error| (rule.id.clone(), error)),
         };
+
         if let Err((rule_id, error)) = outcome {
             tracing::warn!(%rule_id, %error, "real-time alert action failed");
         }

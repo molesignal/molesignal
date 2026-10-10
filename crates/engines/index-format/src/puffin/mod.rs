@@ -26,13 +26,17 @@ pub mod writer;
 
 /// PFA1 magic 字节序列。
 pub const MAGIC: [u8; 4] = [0x50, 0x46, 0x41, 0x31];
+
 pub const MAGIC_SIZE: u64 = MAGIC.len() as u64;
 pub const FLAGS_SIZE: u64 = 4;
 pub const FOOTER_PAYLOAD_SIZE_SIZE: u64 = 4;
+
 /// footer 末尾固定大小：4(magic) + 4(flags) + 4(payload_size) = 12。
 pub const FOOTER_SIZE: u64 = MAGIC_SIZE + FLAGS_SIZE + FOOTER_PAYLOAD_SIZE_SIZE;
+
 /// 一个最小合法 puffin 文件至少这么大（起始 magic + 4(payload_size) + 4(flags) + 末尾 magic）。
 pub const MIN_DATA_SIZE: u64 = MAGIC_SIZE + FLAGS_SIZE + FOOTER_PAYLOAD_SIZE_SIZE + MAGIC_SIZE;
+
 pub const MIN_FILE_SIZE: u64 = MAGIC_SIZE + MIN_DATA_SIZE;
 
 bitflags! {

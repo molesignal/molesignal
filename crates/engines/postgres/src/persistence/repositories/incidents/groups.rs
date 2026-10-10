@@ -67,6 +67,7 @@ impl IncidentGroupRepository for PgIncidentGroupRepository {
         window_secs: i64,
     ) -> Result<IncidentGroup> {
         let cutoff = at.0 - window_secs * 1_000_000;
+
         // 找最近一个同 rule+fp 的 group，且 last_at 在窗口内、state 非 resolved
         let existing_sql = format!(
             "SELECT {COLS} FROM incident_groups
@@ -74,6 +75,7 @@ impl IncidentGroupRepository for PgIncidentGroupRepository {
                    AND last_at_micros >= $4 AND state != 'resolved'
              ORDER BY last_at_micros DESC LIMIT 1"
         );
+
         let existing = sqlx::query(&existing_sql)
             .bind(&org_id.0)
             .bind(&alert_rule_id.0)
@@ -82,8 +84,10 @@ impl IncidentGroupRepository for PgIncidentGroupRepository {
             .fetch_optional(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         if let Some(row) = existing {
             let group = row_to(row);
+
             sqlx::query(
                 "UPDATE incident_groups
                  SET last_at_micros = $2, incident_count = incident_count + 1
@@ -94,12 +98,14 @@ impl IncidentGroupRepository for PgIncidentGroupRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
             return Ok(IncidentGroup {
                 last_at: at,
                 incident_count: group.incident_count + 1,
                 ..group
             });
         }
+
         // 新建
         let g = IncidentGroup {
             id: Id::new(),
@@ -114,6 +120,7 @@ impl IncidentGroupRepository for PgIncidentGroupRepository {
             acked_at: None,
             resolved_at: None,
         };
+
         sqlx::query(
             "INSERT INTO incident_groups
                 (id, org_id, alert_rule_id, fingerprint, state, incident_count,
@@ -128,17 +135,20 @@ impl IncidentGroupRepository for PgIncidentGroupRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(g)
     }
 
     async fn get(&self, org_id: &Id, id: &Id) -> Result<IncidentGroup> {
         let sql = format!("SELECT {COLS} FROM incident_groups WHERE org_id = $1 AND id = $2");
+
         let row = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&id.0)
             .fetch_one(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(row_to(row))
     }
 
@@ -153,6 +163,7 @@ impl IncidentGroupRepository for PgIncidentGroupRepository {
              WHERE org_id = $1 AND ($2::TEXT IS NULL OR state = $2)
              ORDER BY last_at_micros DESC LIMIT $3"
         );
+
         let rows = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(state_filter.map(|s| s.as_str()))
@@ -160,6 +171,7 @@ impl IncidentGroupRepository for PgIncidentGroupRepository {
             .fetch_all(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(rows.into_iter().map(row_to).collect())
     }
 
@@ -176,6 +188,7 @@ impl IncidentGroupRepository for PgIncidentGroupRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -191,6 +204,7 @@ impl IncidentGroupRepository for PgIncidentGroupRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(())
     }
 }

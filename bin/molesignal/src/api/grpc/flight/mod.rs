@@ -136,30 +136,37 @@ impl FlightGrpc {
             Option<SchemaRef>,
         ) = if shard.query_files.is_empty() {
             let st = parse_stream_type(&shard.stream_type)?;
+
             let time_range = TimeRange::new(
                 TimestampMicros(shard.time_start_micros),
                 TimestampMicros(shard.time_end_micros),
             );
+
             let org_id = Id(shard.org_id.clone());
             let dataset_types = crate::domain::storage::logical_query_dataset_types(st)
                 .map_err(|error| format!("query dataset selection: {error}"))?;
+
             if let Some(source) = &self.catalog_source {
                 let snapshot = source
                     .snapshot_by_name(&org_id, &shard.stream, st, &dataset_types, time_range)
                     .await
                     .map_err(|error| format!("catalog snapshot: {error}"))?;
+
                 let schema = snapshot
                     .datasets
                     .first()
                     .map(|dataset| dataset.schema.clone());
+
                 (snapshot.files(), snapshot.buffered_batches(), schema)
             } else {
                 let files = self.files.as_ref().ok_or_else(|| {
                     "parquet file source not configured for federated self-resolve".to_string()
                 })?;
+
                 let lookups = dataset_types.into_iter().map(|dataset_type| {
                     files.find_dataset(&org_id, &shard.stream, st, dataset_type, time_range)
                 });
+
                 (
                     futures::future::try_join_all(lookups)
                         .await
@@ -185,12 +192,14 @@ impl FlightGrpc {
                 ),
                 None => None,
             };
+
             let explicit_files = shard
                 .query_files
                 .iter()
                 .map(|file| {
                     let dataset_type = DatasetTypeId::new(file.dataset_type.clone())
                         .map_err(|error| format!("invalid query file dataset type: {error}"))?;
+
                     Ok::<_, String>(QueryFile {
                         id: Id(file.id.clone()),
                         org_id: Id(file.org_id.clone()),
@@ -212,6 +221,7 @@ impl FlightGrpc {
                     })
                 })
                 .collect::<Result<Vec<_>, _>>()?;
+
             if let Some(source) = &self.catalog_source {
                 for file in &explicit_files {
                     source
@@ -219,8 +229,10 @@ impl FlightGrpc {
                         .map_err(|error| format!("register query object: {error}"))?;
                 }
             }
+
             (explicit_files, Vec::new(), catalog_schema)
         };
+
         // Prefer the newest footer for schema-evolution fallback and keep the same candidate
         // ordering as the common latest-first query path.
         targets.sort_by(|left, right| {
@@ -230,9 +242,11 @@ impl FlightGrpc {
                 .cmp(&left.time_range.end)
                 .then_with(|| right.id.0.cmp(&left.id.0))
         });
+
         if targets.is_empty() && buffered_batches.is_empty() {
             return Ok(Vec::new());
         }
+
         let schema = match (catalog_schema, targets.first()) {
             (Some(schema), _) => schema,
             (None, Some(first)) => reader
@@ -241,11 +255,13 @@ impl FlightGrpc {
                 .map_err(|error| format!("parquet schema: {error}"))?,
             (None, None) => buffered_batches[0].schema(),
         };
+
         let ctx = SessionContext::new();
         let object_store_url = ObjectStoreUrl::parse("molesignal://flight")
             .map_err(|e| format!("object store URL: {e}"))?;
         ctx.runtime_env()
             .register_object_store(object_store_url.as_ref(), store);
+
         let table = PrunedParquetTable::new(
             schema,
             &targets,
@@ -257,12 +273,15 @@ impl FlightGrpc {
             None,
         )
         .with_buffered_batches(buffered_batches);
+
         ctx.register_table(TableReference::bare(shard.stream.clone()), Arc::new(table))
             .map_err(|e| format!("register: {e}"))?;
+
         let df = ctx
             .sql(&shard.sql)
             .await
             .map_err(|e| format!("sql parse: {e}"))?;
+
         df.collect().await.map_err(|e| format!("collect: {e}"))
     }
 
@@ -273,28 +292,35 @@ impl FlightGrpc {
         shard: QueryShard,
     ) -> Result<Vec<arrow::array::RecordBatch>, Status> {
         let fed_id = shard.federation_query_id.clone();
+
         let reg = match (fed_id.is_empty(), self.cancel_registry.clone()) {
             (false, Some(reg)) => reg,
             // 无 fed_id 或未配置取消表 → 直接执行（行为不变）。
             _ => return self.execute_shard(shard).await.map_err(Status::internal),
         };
+
         let flag = reg.register(&fed_id);
+
         // RAII 注销：执行结束（含被取消、出错、正常）都从表里摘掉。
         struct Dereg {
             reg: Arc<FederationCancelRegistry>,
             id: String,
         }
+
         impl Drop for Dereg {
             fn drop(&mut self) {
                 self.reg.deregister(&self.id);
             }
         }
+
         let _g = Dereg {
             reg: reg.clone(),
             id: fed_id,
         };
+
         let fut = self.execute_shard(shard);
         tokio::pin!(fut);
+
         loop {
             tokio::select! {
                 biased;
@@ -337,6 +363,7 @@ impl FlightService for FlightGrpc {
             .get("authorization")
             .and_then(|v| v.to_str().ok())
             .and_then(|h| h.strip_prefix("Bearer ").map(str::to_string));
+
         let ticket = request.into_inner();
         let shard = QueryShard::decode(ticket.ticket.as_ref())
             .map_err(|e| Status::invalid_argument(format!("decode shard: {e}")))?;
@@ -347,15 +374,19 @@ impl FlightService for FlightGrpc {
             let token = bearer.ok_or_else(|| {
                 Status::unauthenticated("missing bearer token for federated query")
             })?;
+
             let repo = self.api_tokens.clone().ok_or_else(|| {
                 Status::unavailable("federation auth not configured on this node")
             })?;
+
             let iam = self.iam.as_deref().ok_or_else(|| {
                 Status::unavailable("federation auth not configured on this node")
             })?;
+
             let ctx = authenticate_api_token(&token, iam, repo)
                 .await
                 .map_err(|e| Status::unauthenticated(e.to_string()))?;
+
             if ctx.org_id.0 != shard.org_id {
                 return Err(Status::permission_denied(
                     "token org does not match query org",
@@ -370,9 +401,11 @@ impl FlightService for FlightGrpc {
             'static,
             Result<arrow::array::RecordBatch, arrow_flight::error::FlightError>,
         > = Box::pin(futures::stream::iter(batches.into_iter().map(Ok)));
+
         let encoded = FlightDataEncoderBuilder::new()
             .build(stream)
             .map(|r| r.map_err(|e| Status::internal(format!("flight encode: {e}"))));
+
         Ok(Response::new(segmented_result_stream(
             encoded,
             "flight.do_get.stream",
@@ -386,24 +419,28 @@ impl FlightService for FlightGrpc {
     ) -> Result<Response<Self::HandshakeStream>, Status> {
         Err(Status::unimplemented("handshake"))
     }
+
     async fn list_flights(
         &self,
         _r: Request<Criteria>,
     ) -> Result<Response<Self::ListFlightsStream>, Status> {
         Err(Status::unimplemented("list_flights"))
     }
+
     async fn get_flight_info(
         &self,
         _r: Request<FlightDescriptor>,
     ) -> Result<Response<FlightInfo>, Status> {
         Err(Status::unimplemented("get_flight_info"))
     }
+
     async fn poll_flight_info(
         &self,
         _r: Request<FlightDescriptor>,
     ) -> Result<Response<PollInfo>, Status> {
         Err(Status::unimplemented("poll_flight_info"))
     }
+
     async fn get_schema(
         &self,
         _r: Request<FlightDescriptor>,
@@ -411,24 +448,28 @@ impl FlightService for FlightGrpc {
         let _ = ArrowSchema::empty();
         Err(Status::unimplemented("get_schema"))
     }
+
     async fn do_put(
         &self,
         _r: Request<Streaming<FlightData>>,
     ) -> Result<Response<Self::DoPutStream>, Status> {
         Err(Status::unimplemented("do_put"))
     }
+
     async fn do_action(
         &self,
         _r: Request<Action>,
     ) -> Result<Response<Self::DoActionStream>, Status> {
         Err(Status::unimplemented("do_action"))
     }
+
     async fn list_actions(
         &self,
         _r: Request<Empty>,
     ) -> Result<Response<Self::ListActionsStream>, Status> {
         Err(Status::unimplemented("list_actions"))
     }
+
     async fn do_exchange(
         &self,
         _r: Request<Streaming<FlightData>>,

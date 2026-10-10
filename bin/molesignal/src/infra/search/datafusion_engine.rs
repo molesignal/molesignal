@@ -186,10 +186,13 @@ impl QueryEngine for DataFusionEngine {
         let StreamHint { name, stream_type } = req.stream.clone().ok_or_else(|| {
             Error::invalid("query.stream hint is required; caller must name the target table")
         })?;
+
         if let Some(streams) = &self.streams {
             ensure_stream_in_org(streams.as_ref(), &req.org_id, &name, stream_type).await?;
         }
+
         let (_sample, statement) = parse_sample_hint(&req.statement);
+
         execute::validate_match_text_fields(
             self.streams.as_deref(),
             &req,
@@ -198,14 +201,17 @@ impl QueryEngine for DataFusionEngine {
             &statement,
         )
         .await?;
+
         let (_preds, rewritten_sql) = extract_match_predicates(&statement);
 
         let ctx = crate::infra::query::analyzer::session_context(self.max_result_rows);
         ctx.register_udaf(crate::infra::query::udafs::approx_topk_udf());
+
         if let Some(svc) = &self.field_keys {
             let keys = svc.decrypt_map(&req.org_id).await?;
             ctx.register_udf(crate::infra::query::udfs::build_decrypt_udf(keys));
         }
+
         if rewritten_sql.contains("mask(")
             && let Some(repo) = &self.regex_patterns
         {
@@ -213,14 +219,17 @@ impl QueryEngine for DataFusionEngine {
             let masker = Masker::compile(pats.into_iter().map(|p| (p.pattern, p.replacement)));
             ctx.register_udf(build_mask_udf(Arc::new(masker)));
         }
+
         if rewritten_sql.contains("extract_pattern(")
             && let Some(repo) = &self.log_patterns
         {
             let pats = repo.list(&req.org_id).await.unwrap_or_default();
+
             let rows: Vec<(String, String, i32)> = pats
                 .into_iter()
                 .map(|p| (p.regex, p.category, p.priority))
                 .collect();
+
             ctx.register_udf(build_extract_pattern_udf(compile_patterns(rows)));
         }
 
@@ -228,21 +237,26 @@ impl QueryEngine for DataFusionEngine {
         let Some(streams) = &self.streams else {
             return Err(Error::invalid("explain requires a stream catalog"));
         };
+
         let mut tables: Vec<(String, StreamTypeEnum)> = vec![(name.clone(), stream_type)];
+
         for tref in extract_referenced_tables(&rewritten_sql).unwrap_or_default() {
             if tref.name == name {
                 continue;
             }
+
             if let Some(st) = resolve_stream_type(streams.as_ref(), &req.org_id, &tref.name).await {
                 // 与 execute 一致：引用到不可查询的 stream 时明确拒绝（plan 阶段也不放行）。
                 ensure_stream_in_org(streams.as_ref(), &req.org_id, &tref.name, st).await?;
                 tables.push((tref.name, st));
             }
         }
+
         for (tname, st) in &tables {
             let Some(def) = streams.get(&req.org_id, tname, *st).await.ok() else {
                 continue;
             };
+
             let schema = crate::infra::storage::arrow_schema::to_arrow(&def.schema);
             let mem = MemTable::try_new(schema, vec![vec![]])
                 .map_err(|e| Error::internal(format!("explain memtable: {e}")))?;
@@ -259,6 +273,7 @@ impl QueryEngine for DataFusionEngine {
             })?
             .into_optimized_plan()
             .map_err(|e| Error::internal(format!("optimize plan: {e}")))?;
+
         Ok(format!("{plan}"))
     }
 }
@@ -280,5 +295,6 @@ async fn resolve_stream_type(
             return Some(st);
         }
     }
+
     None
 }

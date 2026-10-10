@@ -30,9 +30,11 @@ impl NotifyEngine {
                 "notify preview event organization does not match tenant context",
             ));
         }
+
         super::execution::validate_event(&event)?;
         let input = self.validate_policy_input(organization_id, input).await?;
         let now = now();
+
         self.preview_policy_record(
             policy_from_input(
                 Id::from_string("notify-policy-preview"),
@@ -53,6 +55,7 @@ impl NotifyEngine {
     ) -> Result<NotifyPolicy> {
         let input = self.validate_policy_input(organization_id, input).await?;
         let now = now();
+
         self.policies
             .create(policy_from_input(
                 Id::new(),
@@ -72,6 +75,7 @@ impl NotifyEngine {
     ) -> Result<NotifyPolicy> {
         let input = self.validate_policy_input(organization_id, input).await?;
         let existing = self.policies.get(organization_id, id).await?;
+
         self.policies
             .update(policy_from_input(
                 existing.id,
@@ -102,6 +106,7 @@ impl NotifyEngine {
         category: NotifyCategory,
     ) -> Result<Option<TeamNotifyDefault>> {
         self.ensure_team(organization_id, team_id).await?;
+
         self.team_defaults
             .get(organization_id, team_id, category)
             .await
@@ -124,17 +129,22 @@ impl NotifyEngine {
         input: NotifyDefaultInput,
     ) -> Result<TeamNotifyDefault> {
         self.ensure_team(organization_id, team_id).await?;
+
         let routes = self
             .validate_default_routes(organization_id, input.routes)
             .await?;
+
         let existing = self
             .team_defaults
             .get(organization_id, team_id, category)
             .await?;
+
         let now = now();
+
         let (id, created_at) = existing
             .map(|value| (value.id, value.created_at))
             .unwrap_or_else(|| (Id::new(), now));
+
         self.team_defaults
             .upsert(TeamNotifyDefault {
                 id,
@@ -156,6 +166,7 @@ impl NotifyEngine {
         category: NotifyCategory,
     ) -> Result<()> {
         self.ensure_team(organization_id, team_id).await?;
+
         self.team_defaults
             .delete(organization_id, team_id, category)
             .await
@@ -187,14 +198,18 @@ impl NotifyEngine {
         let routes = self
             .validate_default_routes(organization_id, input.routes)
             .await?;
+
         let existing = self
             .organization_defaults
             .get(organization_id, category)
             .await?;
+
         let now = now();
+
         let (id, created_at) = existing
             .map(|value| (value.id, value.created_at))
             .unwrap_or_else(|| (Id::new(), now));
+
         self.organization_defaults
             .upsert(OrganizationNotifyDefault {
                 id,
@@ -226,6 +241,7 @@ impl NotifyEngine {
         validate_name(&input.name)?;
         input.name = input.name.trim().to_string();
         input.event_type = input.event_type.trim().to_string();
+
         if input.event_type.is_empty()
             || input.event_type.len() > 128
             || !input.event_type.chars().all(|value| {
@@ -238,28 +254,36 @@ impl NotifyEngine {
                 "notify policy event_type must use lowercase letters, digits, dot, underscore, or dash",
             ));
         }
+
         validate_matchers(&input.matchers)?;
+
         if !input.resolver_config.is_object() {
             return Err(Error::invalid(
                 "notify policy resolver_config must be a JSON object",
             ));
         }
+
         input.recipient_resolver = input.recipient_resolver.trim().to_string();
+
         self.resolver_registry
             .get(&input.recipient_resolver)?
             .validate_config(&input.resolver_config)?;
+
         self.validate_delivery_selection(
             organization_id,
             input.delivery_mode,
             &input.delivery_config,
         )
         .await?;
+
         if let Some(template_id) = &input.template_id {
             let template = self.templates.get(organization_id, template_id).await?;
             super::template::validate_template_for_notify(&template)?;
         }
+
         self.validate_escalation_input(organization_id, &input)
             .await?;
+
         if input
             .ack_timeout_seconds
             .is_some_and(|seconds| seconds <= 0)
@@ -268,11 +292,13 @@ impl NotifyEngine {
                 "notify policy ack_timeout_seconds must be positive",
             ));
         }
+
         if !(0..=10_000).contains(&input.priority) {
             return Err(Error::invalid(
                 "notify policy priority must be between 0 and 10000",
             ));
         }
+
         if input
             .escalation_config
             .as_ref()
@@ -282,6 +308,7 @@ impl NotifyEngine {
                 "notify policy escalation_config must be a JSON object",
             ));
         }
+
         Ok(input)
     }
 
@@ -292,16 +319,19 @@ impl NotifyEngine {
         delivery_config: &crate::domain::notify::policy::NotifyDeliveryConfig,
     ) -> Result<()> {
         let connector_ids = &delivery_config.connector_ids;
+
         if connector_ids.len() > 10 {
             return Err(Error::invalid(
                 "notify policy delivery_config supports at most 10 connectors",
             ));
         }
+
         if connector_ids.iter().collect::<HashSet<_>>().len() != connector_ids.len() {
             return Err(Error::invalid(
                 "notify policy delivery_config connector_ids must be unique",
             ));
         }
+
         match delivery_mode {
             NotifyDeliveryMode::PreferUser if !connector_ids.is_empty() => {
                 return Err(Error::invalid(
@@ -320,11 +350,14 @@ impl NotifyEngine {
             }
             _ => {}
         }
+
         for connector_id in connector_ids {
             let connector = self.connectors.get(organization_id, connector_id).await?;
+
             let capabilities = self
                 .connector_registry
                 .capabilities(&connector.connector_type)?;
+
             if !capabilities.direct_user {
                 return Err(Error::invalid(format!(
                     "notify connector {} cannot deliver to user endpoints",
@@ -332,6 +365,7 @@ impl NotifyEngine {
                 )));
             }
         }
+
         Ok(())
     }
 
@@ -357,18 +391,23 @@ impl NotifyEngine {
         if routes.is_empty() {
             return Err(Error::invalid("notify default requires at least one route"));
         }
+
         if routes.len() > 50 {
             return Err(Error::invalid("notify default supports at most 50 routes"));
         }
+
         routes.sort_by_key(|route| route.order);
         let mut connectors_and_targets = HashSet::new();
+
         for (index, route) in routes.iter_mut().enumerate() {
             let expected_order = i32::try_from(index + 1).unwrap_or(i32::MAX);
+
             if route.order != expected_order {
                 return Err(Error::invalid(
                     "notify default route order must be contiguous and start at 1",
                 ));
             }
+
             if matches!(
                 route.target_type,
                 NotifyTargetType::DirectUser | NotifyTargetType::Webhook
@@ -377,19 +416,24 @@ impl NotifyEngine {
                     "notify default routes require fixed_address or fixed_group targets",
                 ));
             }
+
             route.target = route.target.trim().to_string();
+
             let key = (
                 route.connector_id.0.clone(),
                 route.target_type,
                 route.target.clone(),
             );
+
             if !connectors_and_targets.insert(key) {
                 return Err(Error::invalid("notify default routes must be unique"));
             }
+
             let connector = self
                 .connectors
                 .get(organization_id, &route.connector_id)
                 .await?;
+
             self.connector_registry
                 .get(&connector.connector_type)?
                 .validate_target(&NotifyTarget {
@@ -398,6 +442,7 @@ impl NotifyEngine {
                     metadata: Default::default(),
                 })?;
         }
+
         Ok(routes)
     }
 }

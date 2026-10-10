@@ -43,12 +43,14 @@ fn timestamp_arrow_cast_type(dt: &DataType) -> Option<String> {
     let DataType::Timestamp(unit, tz) = dt else {
         return None;
     };
+
     let unit_s = match unit {
         TimeUnit::Second => "Second",
         TimeUnit::Millisecond => "Millisecond",
         TimeUnit::Microsecond => "Microsecond",
         TimeUnit::Nanosecond => "Nanosecond",
     };
+
     Some(match tz {
         Some(z) => format!("Timestamp({unit_s}, Some(\"{z}\"))"),
         None => format!("Timestamp({unit_s}, None)"),
@@ -67,6 +69,7 @@ pub async fn downsample_batch(batch: RecordBatch, bucket_secs: u32) -> Result<Re
     if bucket_secs == 0 || batch.num_rows() == 0 {
         return Ok(batch);
     }
+
     // Exemplar 是与普通 sample 共文件的独立事件，不能参与时间桶
     // avg/grouping。保留原行，只降采样非 exemplar 部分，否则历史
     // trace_id exemplar 会被合并或改写。
@@ -81,24 +84,29 @@ pub async fn downsample_batch(batch: RecordBatch, bucket_secs: u32) -> Result<Re
                 .map(|row| !markers.is_null(row) && markers.value(row))
                 .collect::<Vec<_>>(),
         );
+
         if exemplar_mask.true_count() > 0 {
             let sample_mask = BooleanArray::from(
                 (0..batch.num_rows())
                     .map(|row| markers.is_null(row) || !markers.value(row))
                     .collect::<Vec<_>>(),
             );
+
             let exemplars = filter_record_batch(&batch, &exemplar_mask)
                 .map_err(|error| Error::internal(format!("filter metric exemplars: {error}")))?;
             let samples = filter_record_batch(&batch, &sample_mask)
                 .map_err(|error| Error::internal(format!("filter metric samples: {error}")))?;
+
             if samples.num_rows() == 0 {
                 return Ok(exemplars);
             }
+
             let reduced = downsample_samples(samples, bucket_secs).await?;
             return concat_batches(&batch.schema(), &[reduced, exemplars])
                 .map_err(|error| Error::internal(format!("append metric exemplars: {error}")));
         }
     }
+
     downsample_samples(batch, bucket_secs).await
 }
 
@@ -109,6 +117,7 @@ async fn downsample_samples(batch: RecordBatch, bucket_secs: u32) -> Result<Reco
     let Ok(ts_idx) = input_schema.index_of(TS_COL) else {
         return Ok(batch);
     };
+
     let Some(ts_cast) = timestamp_arrow_cast_type(input_schema.field(ts_idx).data_type()) else {
         return Ok(batch);
     };
@@ -118,14 +127,17 @@ async fn downsample_samples(batch: RecordBatch, bucket_secs: u32) -> Result<Reco
         "arrow_cast(date_bin(INTERVAL '{bucket_secs} seconds', {ts}), '{ts_cast}')",
         ts = quote_ident(TS_COL)
     );
+
     let has_temporality = input_schema.index_of(METRIC_TEMPORALITY_FIELD).is_ok();
     let temporality = quote_ident(METRIC_TEMPORALITY_FIELD);
 
     // 按输入 schema 顺序构造 SELECT 列；GROUP BY = 桶 + 全部非度量非 ts 列。
     let mut select_items: Vec<String> = Vec::with_capacity(input_schema.fields().len());
     let mut group_items: Vec<String> = vec![bucket.clone()];
+
     for f in input_schema.fields() {
         let q = quote_ident(f.name());
+
         if f.name() == TS_COL {
             if has_temporality {
                 select_items.push(format!(
@@ -142,6 +154,7 @@ async fn downsample_samples(batch: RecordBatch, bucket_secs: u32) -> Result<Reco
             } else {
                 format!("avg({q})")
             };
+
             select_items.push(format!("CAST({aggregate} AS {cast_ty}) AS {q}"));
         } else {
             // 维度：原样分组。
@@ -159,10 +172,12 @@ async fn downsample_samples(batch: RecordBatch, bucket_secs: u32) -> Result<Reco
     let ctx = SessionContext::new();
     ctx.register_batch("t", batch)
         .map_err(|e| Error::internal(format!("downsample register_batch: {e}")))?;
+
     let df = ctx
         .sql(&sql)
         .await
         .map_err(|e| Error::internal(format!("downsample plan ({sql}): {e}")))?;
+
     let out = df
         .collect()
         .await
@@ -173,6 +188,7 @@ async fn downsample_samples(batch: RecordBatch, bucket_secs: u32) -> Result<Reco
         return RecordBatch::try_new(input_schema.clone(), vec![])
             .map_err(|e| Error::internal(format!("downsample empty batch: {e}")));
     }
+
     let out_schema = out[0].schema();
     let merged = concat_batches(&out_schema, &out)
         .map_err(|e| Error::internal(format!("downsample concat: {e}")))?;

@@ -68,6 +68,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         ),
         _ => unreachable!("trace catalog received non-trace kind"),
     };
+
     let tool = ToolSpec::read(
         kind.name(),
         description,
@@ -78,7 +79,9 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         &["streams.query", "sys.telemetry.read"],
         &tags,
     );
+
     let tool = tool.any_permission();
+
     if matches!(
         kind,
         BuiltinToolKind::ListTraces | BuiltinToolKind::GetTrace

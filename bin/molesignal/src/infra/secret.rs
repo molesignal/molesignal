@@ -28,21 +28,26 @@ pub async fn resolve_secret_ref(
         if var.is_empty() {
             return Err(Error::invalid("secret_ref `env:` 缺少环境变量名"));
         }
+
         return std::env::var(var)
             .map_err(|_| Error::internal(format!("secret 环境变量 `{var}` 未设置")));
     }
+
     if let Some(ref_id) = secret_ref.strip_prefix("cipher_keys:") {
         if ref_id.is_empty() {
             return Err(Error::invalid("secret_ref `cipher_keys:` 缺少 ref_id"));
         }
+
         let repo = secrets.ok_or_else(|| {
             Error::internal(
                 "secret_ref `cipher_keys:` 需要 cluster-secrets 存储但未注入；\
                  OSS 本地 / 纯 env 部署请改用 `env:VAR_NAME`",
             )
         })?;
+
         return repo.get_plaintext(org_id, ref_id).await;
     }
+
     Err(Error::invalid(format!(
         "不支持的 secret_ref `{secret_ref}`（期望 `env:VAR_NAME` 或 `cipher_keys:<ref_id>`）"
     )))
@@ -71,17 +76,20 @@ pub async fn resolve_cluster_control_token(
             return Some(tok);
         }
     }
+
     // 2. 集群级 token：env: / plain 与 org 无关（空 org 即可）；cipher_keys: 试各 linked org。
     if !cluster_token_ref.trim().is_empty() {
         if let Ok(tok) = resolve_secret_ref(cluster_token_ref, &Id(String::new()), secrets).await {
             return Some(tok);
         }
+
         for (org, _) in per_org_refs {
             if let Ok(tok) = resolve_secret_ref(cluster_token_ref, org, secrets).await {
                 return Some(tok);
             }
         }
     }
+
     None
 }
 

@@ -75,11 +75,13 @@ fn rewrite_comparison(expr: Expr) -> DfResult<Transformed<Expr>> {
             } else {
                 low
             };
+
             let high = if is_integer_literal(&high) {
                 as_micros(high)
             } else {
                 high
             };
+
             Transformed::yes(Expr::Between(Between {
                 expr,
                 negated,

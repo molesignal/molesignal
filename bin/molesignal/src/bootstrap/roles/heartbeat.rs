@@ -45,9 +45,11 @@ impl Heartbeat {
     /// 停止心跳并注销本节点，返回时注销已经执行过。可以重复调用。
     pub async fn leave(&self) {
         self.stop.cancel();
+
         let Some(mut task) = self.task.lock().await.take() else {
             return;
         };
+
         if tokio::time::timeout(LEAVE_TIMEOUT, &mut task)
             .await
             .is_err()
@@ -87,6 +89,7 @@ impl HeartbeatTask {
     pub fn spawn(self) -> Arc<Heartbeat> {
         let stop = CancellationToken::new();
         let task = tokio::spawn(self.run(stop.clone()));
+
         Arc::new(Heartbeat {
             stop,
             task: Mutex::new(Some(task)),
@@ -98,18 +101,22 @@ impl HeartbeatTask {
         self.beat().await;
         let mut ticker = tokio::time::interval(self.interval);
         ticker.tick().await;
+
         loop {
             tokio::select! {
                 biased;
                 _ = stop.cancelled() => break,
                 _ = ticker.tick() => {}
             }
+
             // 管理接口触发的退役：注销后停止心跳，进程继续运行。
             if self.drain.as_ref().is_some_and(|drain| drain.is_draining()) {
                 break;
             }
+
             self.beat().await;
         }
+
         match self.repo.delete(&self.node_id).await {
             Ok(()) => tracing::info!(node = %self.node_id, "node left the cluster registry"),
             Err(e) => tracing::warn!(error = %e, "cluster registry deregistration failed"),
@@ -145,21 +152,26 @@ pub fn peer_roles(roles: &[Role]) -> Vec<PeerRole> {
             Role::Standalone => PeerRole::Standalone,
         })
         .collect();
+
     if peer_roles.is_empty() {
         peer_roles.push(PeerRole::Standalone);
     }
+
     peer_roles
 }
 
 /// sweeper：每 60s 调 `sweep_stale(now - 5min)`，回收脏 cluster_nodes 行。
 pub fn spawn_sweeper(repo: Arc<dyn ClusterNodesRepository>) -> JoinHandle<()> {
     let stale_window_us: i64 = 5 * 60 * 1_000_000;
+
     tokio::spawn(async move {
         let mut ticker = tokio::time::interval(Duration::from_secs(60));
         ticker.tick().await;
+
         loop {
             ticker.tick().await;
             let older_than = TimestampMicros(TimestampMicros::now().0 - stale_window_us);
+
             match repo.sweep_stale(older_than).await {
                 Ok(n) if n > 0 => tracing::info!(swept = n, "cluster sweeper removed stale nodes"),
                 Ok(_) => {}

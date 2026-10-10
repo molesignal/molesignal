@@ -136,14 +136,17 @@ fn validate_req(
             "exactly one of dashboard_id or saved_view_id must be set",
         ));
     }
+
     if !matches!(format, "png" | "pdf" | "csv" | "svg" | "json") {
         return Err(Error::invalid(
             "format must be one of png | pdf | csv | svg | json",
         ));
     }
+
     if recipients.is_empty() {
         return Err(Error::invalid("at least one recipient required"));
     }
+
     Ok(())
 }
 
@@ -193,12 +196,15 @@ async fn preview(
     Path(id): Path<String>,
 ) -> Result<Response> {
     let r = report;
+
     let body = if let Ok(format) = r.format.parse::<ReportFormat>() {
         let renderer = state.platform.report_renderer.as_ref().ok_or_else(|| {
             Error::unavailable("report PDF/PNG renderer is unavailable; verify the Chrome runtime")
         })?;
+
         let url = report_render_url(&state.platform.report_renderer_base_url, &r)?;
         let browser_auth_storage = browser_auth_storage(&state, &ctx)?;
+
         let bytes = renderer
             .render(
                 &url,
@@ -207,13 +213,16 @@ async fn preview(
                 Some(&browser_auth_storage),
             )
             .await?;
+
         validate_report_bytes(format, &bytes)?;
         bytes.to_vec()
     } else {
         crate::infra::reporting::render_payload(&r)?
     };
+
     let content_type = crate::infra::reporting::content_type_for(&r.format);
     let disposition = format!("attachment; filename=\"report-{}.{}\"", r.id.0, r.format);
+
     Response::builder()
         .status(StatusCode::OK)
         .header(CONTENT_TYPE, content_type)
@@ -225,17 +234,21 @@ async fn preview(
 
 pub(crate) fn report_render_url(base_url: &str, report: &ScheduledReport) -> Result<String> {
     let base = base_url.trim().trim_end_matches('/');
+
     if base.is_empty() {
         return Err(Error::unavailable(
             "scheduled_reports.renderer.base_url is not configured",
         ));
     }
+
     if let Some(id) = &report.dashboard_id {
         return Ok(format!("{base}/dashboards/{}?report_render=1", id.0));
     }
+
     if let Some(id) = &report.saved_view_id {
         return Ok(format!("{base}/saved-views?view={}&report_render=1", id.0));
     }
+
     Err(Error::invalid(
         "report must reference a dashboard or saved view",
     ))
@@ -243,6 +256,7 @@ pub(crate) fn report_render_url(base_url: &str, report: &ScheduledReport) -> Res
 
 pub(crate) fn browser_auth_storage(state: &AppState, ctx: &IamContext) -> Result<String> {
     let token = state.iam.service.issue_token(&ctx.user_id, &ctx.org_id)?;
+
     serde_json::to_string(&serde_json::json!({
         "state": {
             "token": token,
@@ -271,7 +285,9 @@ async fn create(
         &req.format,
         &req.recipients,
     )?;
+
     let now = TimestampMicros::now();
+
     let r = ScheduledReport {
         id: Id::new(),
         org_id: ctx.org_id.clone(),
@@ -287,6 +303,7 @@ async fn create(
         created_at: now,
         updated_at: now,
     };
+
     let r = state.platform.scheduled_reports.create(r).await?;
     Ok(Json(to_resp(r)))
 }
@@ -309,7 +326,9 @@ async fn update(
         &req.format,
         &req.recipients,
     )?;
+
     let existing = report;
+
     let r = ScheduledReport {
         id: existing.id,
         org_id: existing.org_id.clone(),
@@ -325,6 +344,7 @@ async fn update(
         created_at: existing.created_at,
         updated_at: TimestampMicros::now(),
     };
+
     let r = state.platform.scheduled_reports.update(r).await?;
     Ok(Json(to_resp(r)))
 }
@@ -345,6 +365,7 @@ async fn delete(
         .scheduled_reports
         .delete(&report.org_id, &report.id)
         .await?;
+
     Ok(Json(serde_json::json!({"deleted": true})))
 }
 
@@ -364,5 +385,6 @@ async fn deliveries(
         .scheduled_reports
         .list_deliveries(&report.org_id, &report.id)
         .await?;
+
     Ok(Json(serde_json::to_value(ds).unwrap_or(Value::Null)))
 }

@@ -86,6 +86,7 @@ async fn resolve(
 ) -> Result<Json<ResolveResponse>> {
     let limit = req.limit.unwrap_or(100).min(500);
     let raw_query = req.variable.query.trim().to_string();
+
     if raw_query.is_empty() {
         return Err(Error::invalid("variable.query empty"));
     }
@@ -97,6 +98,7 @@ async fn resolve(
                 .stream
                 .as_ref()
                 .ok_or_else(|| Error::invalid("kind = sql requires `stream` hint"))?;
+
             (
                 raw_query,
                 StreamHint {
@@ -113,6 +115,7 @@ async fn resolve(
                      `label_values(<metric>, <label>)` or kind = sql"
                 ))
             })?;
+
             let hint = req
                 .variable
                 .stream
@@ -125,6 +128,7 @@ async fn resolve(
                     name: metric.clone(),
                     stream_type: StreamType::METRICS,
                 });
+
             let sql = format!(
                 "SELECT DISTINCT {label} FROM {metric} \
                  WHERE {label} IS NOT NULL AND {label} != '' \
@@ -133,6 +137,7 @@ async fn resolve(
                 label = sql_ident(&label),
                 metric = sql_ident(&metric),
             );
+
             (sql, hint)
         }
         other => {
@@ -159,6 +164,7 @@ async fn resolve(
         .await?;
 
     let mut values: Vec<String> = Vec::with_capacity(result.rows.len());
+
     for row in &result.rows {
         if let Some(v) = row.first()
             && let Some(s) = json_as_string(v)
@@ -167,10 +173,12 @@ async fn resolve(
         {
             values.push(s);
         }
+
         if values.len() >= limit {
             break;
         }
     }
+
     let default = values.first().cloned();
 
     Ok(Json(ResolveResponse {
@@ -188,14 +196,18 @@ fn parse_label_values(input: &str) -> Option<(String, String)> {
     let mut parts = inner.splitn(2, ',');
     let metric = parts.next()?.trim();
     let label = parts.next()?.trim();
+
     if metric.is_empty() || label.is_empty() {
         return None;
     }
+
     let metric = metric.trim_matches('"').trim_matches('\'');
     let label = label.trim_matches('"').trim_matches('\'');
+
     if !valid_ident(metric) || !valid_ident(label) {
         return None;
     }
+
     Some((metric.to_string(), label.to_string()))
 }
 

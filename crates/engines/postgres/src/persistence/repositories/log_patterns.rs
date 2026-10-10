@@ -52,6 +52,7 @@ const COLS: &str = "id, org_id, name, regex, capture_groups, category, priority,
 
 fn row_to(r: sqlx::postgres::PgRow) -> LogPattern {
     let groups: Json<Vec<String>> = r.try_get("capture_groups").unwrap_or(Json(Vec::new()));
+
     LogPattern {
         id: Id(r.try_get::<String, _>("id").unwrap_or_default()),
         org_id: Id(r.try_get::<String, _>("org_id").unwrap_or_default()),
@@ -90,6 +91,7 @@ impl LogPatternRepository for PgLogPatternRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(p)
     }
 
@@ -112,17 +114,20 @@ impl LogPatternRepository for PgLogPatternRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(p)
     }
 
     async fn get(&self, org_id: &Id, id: &Id) -> Result<LogPattern> {
         let sql = format!("SELECT {COLS} FROM log_patterns WHERE org_id = $1 AND id = $2");
+
         let row = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&id.0)
             .fetch_one(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(row_to(row))
     }
 
@@ -130,11 +135,13 @@ impl LogPatternRepository for PgLogPatternRepository {
         let sql = format!(
             "SELECT {COLS} FROM log_patterns WHERE org_id = $1 ORDER BY priority DESC, name"
         );
+
         let rows = sqlx::query(&sql)
             .bind(&org_id.0)
             .fetch_all(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(rows.into_iter().map(row_to).collect())
     }
 
@@ -145,6 +152,7 @@ impl LogPatternRepository for PgLogPatternRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(())
     }
 }
@@ -152,6 +160,7 @@ impl LogPatternRepository for PgLogPatternRepository {
 /// 编译验证（POST 时同步调用）：`regex::Regex::new` 抛错 → handler 400。
 pub fn compile_check(regex: &str) -> Result<()> {
     use crate::shared::Error;
+
     regex::Regex::new(regex)
         .map(|_| ())
         .map_err(|e| Error::invalid(format!("regex parse error: {e}")))
@@ -167,6 +176,7 @@ pub fn first_match<'a>(patterns: &'a [LogPattern], message: &str) -> Option<&'a 
             return Some(&p.category);
         }
     }
+
     None
 }
 

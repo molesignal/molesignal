@@ -39,6 +39,7 @@ impl SearchJobState {
             Self::Cancelled => "cancelled",
         }
     }
+
     pub fn parse(s: &str) -> Self {
         match s {
             "running" => Self::Running,
@@ -135,6 +136,7 @@ impl PgSearchJobRepository {
     pub fn spawn_notification_listener(self: Arc<Self>, dsn: String) -> JoinHandle<()> {
         tokio::spawn(async move {
             let mut failures = 0_u32;
+
             loop {
                 match sqlx::postgres::PgListener::connect(&dsn).await {
                     Ok(mut listener) => {
@@ -149,6 +151,7 @@ impl PgSearchJobRepository {
                                 channel = PENDING_CHANNEL,
                                 "search job notification listener started"
                             );
+
                             loop {
                                 match listener.recv().await {
                                     Ok(_) => {
@@ -172,6 +175,7 @@ impl PgSearchJobRepository {
                         tracing::warn!("search job notification listener connect failed");
                     }
                 }
+
                 tokio::time::sleep(notification_reconnect_delay(failures)).await;
             }
         })
@@ -181,10 +185,12 @@ impl PgSearchJobRepository {
 fn notification_reconnect_delay(failures: u32) -> Duration {
     let shift = failures.saturating_sub(1).min(6);
     let cap_millis = 1_000_u64.saturating_mul(1_u64 << shift).min(60_000);
+
     let jitter_seed = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .subsec_nanos() as u64;
+
     let lower = cap_millis.saturating_mul(4) / 5;
     let width = cap_millis.saturating_mul(2) / 5;
     Duration::from_millis(lower.saturating_add(jitter_seed % width.max(1)))
@@ -196,6 +202,7 @@ const COLS: &str = "id, org_id, user_id, role_key, request_json, state, attempt,
 
 fn row_to(r: sqlx::postgres::PgRow) -> SearchJob {
     let req: Json<Value> = r.try_get("request_json").unwrap_or(Json(Value::Null));
+
     SearchJob {
         id: Id(r.try_get::<String, _>("id").unwrap_or_default()),
         org_id: Id(r.try_get::<String, _>("org_id").unwrap_or_default()),
@@ -258,18 +265,21 @@ impl SearchJobRepository for PgSearchJobRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         self.wakeup.notify_one();
         Ok(j)
     }
 
     async fn get(&self, org_id: &Id, id: &Id) -> Result<SearchJob> {
         let sql = format!("SELECT {COLS} FROM search_jobs WHERE org_id = $1 AND id = $2");
+
         let row = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&id.0)
             .fetch_one(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(row_to(row))
     }
 
@@ -278,12 +288,14 @@ impl SearchJobRepository for PgSearchJobRepository {
             "SELECT {COLS} FROM search_jobs WHERE org_id = $1
              ORDER BY submitted_at_micros DESC LIMIT $2"
         );
+
         let rows = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(limit)
             .fetch_all(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(rows.into_iter().map(row_to).collect())
     }
 
@@ -300,11 +312,13 @@ impl SearchJobRepository for PgSearchJobRepository {
              )
              RETURNING {COLS}"
         );
+
         let row = sqlx::query(&sql)
             .bind(TimestampMicros::now().0)
             .fetch_optional(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(row.map(row_to))
     }
 
@@ -339,6 +353,7 @@ impl SearchJobRepository for PgSearchJobRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(result.rows_affected() == 1)
     }
 
@@ -363,6 +378,7 @@ impl SearchJobRepository for PgSearchJobRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(result.rows_affected() == 1)
     }
 
@@ -378,6 +394,7 @@ impl SearchJobRepository for PgSearchJobRepository {
              WHERE org_id = $1 AND id = $2 AND state IN ('pending', 'running')
              RETURNING {COLS}"
         );
+
         if let Some(row) = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&id.0)
@@ -388,7 +405,9 @@ impl SearchJobRepository for PgSearchJobRepository {
         {
             return Ok(row_to(row));
         }
+
         let current = self.get(org_id, id).await?;
+
         if current.state == SearchJobState::Cancelled {
             Ok(current)
         } else {
@@ -419,6 +438,7 @@ impl SearchJobRepository for PgSearchJobRepository {
                    )
                    SELECT updated.*, pg_notify($5, '') AS pending_notification
                      FROM updated";
+
         let row = sqlx::query(sql)
             .bind(&org_id.0)
             .bind(&id.0)
@@ -428,6 +448,7 @@ impl SearchJobRepository for PgSearchJobRepository {
             .fetch_optional(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         match row {
             Some(row) => {
                 self.wakeup.notify_one();
@@ -435,6 +456,7 @@ impl SearchJobRepository for PgSearchJobRepository {
             }
             None => {
                 let current = self.get(org_id, id).await?;
+
                 Err(crate::shared::Error::invalid(format!(
                     "search job in state `{}` cannot be retried",
                     current.state.as_str()
@@ -445,12 +467,14 @@ impl SearchJobRepository for PgSearchJobRepository {
 
     async fn list_expired(&self, cutoff: TimestampMicros, limit: i64) -> Result<Vec<SearchJob>> {
         let sql = format!("SELECT {COLS} FROM search_jobs WHERE expires_at_micros < $1 LIMIT $2");
+
         let rows = sqlx::query(&sql)
             .bind(cutoff.0)
             .bind(limit)
             .fetch_all(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(rows.into_iter().map(row_to).collect())
     }
 
@@ -461,6 +485,7 @@ impl SearchJobRepository for PgSearchJobRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(())
     }
 }

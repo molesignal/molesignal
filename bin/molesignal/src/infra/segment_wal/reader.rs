@@ -22,6 +22,7 @@ fn decode_payload(flag: u8, payload: &[u8]) -> Result<Vec<u8>> {
     } else {
         payload.to_vec()
     };
+
     Ok(decoded)
 }
 
@@ -31,12 +32,14 @@ fn decode_payload(flag: u8, payload: &[u8]) -> Result<Vec<u8>> {
 /// CRC 校验失败或字节不足时截断到最后一条完好记录。
 pub fn read_segment_file<P: AsRef<Path>>(path: P) -> Result<(Vec<WalRecord>, bool)> {
     let path = path.as_ref();
+
     if !path.exists() {
         return Ok((Vec::new(), false));
     }
 
     let file = File::open(path)?;
     let file_len = file.metadata()?.len() as usize;
+
     if file_len == 0 {
         return Ok((Vec::new(), false));
     }
@@ -79,6 +82,7 @@ pub fn scan_segment_bytes(data: &[u8]) -> SegmentScanResult {
     let mut records = Vec::new();
     let mut offset = 0usize;
     let file_len = data.len();
+
     while offset < file_len {
         match try_parse_record(data, offset) {
             Ok((record, next_offset)) => {
@@ -94,6 +98,7 @@ pub fn scan_segment_bytes(data: &[u8]) -> SegmentScanResult {
             }
         }
     }
+
     SegmentScanResult {
         records,
         tail_error_offset: None,
@@ -104,6 +109,7 @@ pub fn scan_segment_bytes(data: &[u8]) -> SegmentScanResult {
 /// mmap 只读打开单个 segment 并扫描（不存在或空文件返回空结果）。
 pub fn scan_segment_file_readonly<P: AsRef<Path>>(path: P) -> Result<SegmentScanResult> {
     let path = path.as_ref();
+
     if !path.exists() {
         return Ok(SegmentScanResult {
             records: Vec::new(),
@@ -114,6 +120,7 @@ pub fn scan_segment_file_readonly<P: AsRef<Path>>(path: P) -> Result<SegmentScan
 
     let file = File::open(path)?;
     let file_len = file.metadata()?.len() as usize;
+
     if file_len == 0 {
         return Ok(SegmentScanResult {
             records: Vec::new(),
@@ -134,47 +141,60 @@ pub fn scan_segment_file_readonly<P: AsRef<Path>>(path: P) -> Result<SegmentScan
 /// 尾部截断容错一致——半条记录不参与判断。
 pub fn scan_segment_max_index<P: AsRef<Path>>(path: P) -> Result<Option<u64>> {
     let path = path.as_ref();
+
     if !path.exists() {
         return Ok(None);
     }
+
     let file = File::open(path)?;
+
     if file.metadata()?.len() == 0 {
         return Ok(None);
     }
+
     let mmap = unsafe { Mmap::map(&file)? };
     let data = &mmap[..];
 
     let mut max: Option<u64> = None;
     let mut offset = 0usize;
+
     while offset + WAL_HEADER_SIZE <= data.len() {
         let header = &data[offset..offset + WAL_HEADER_SIZE];
+
         if header[0..2] != WAL_MAGIC || header[2] != WAL_VERSION {
             break;
         }
+
         let index = u64::from_le_bytes(header[16..24].try_into()?);
         let payload_len = u32::from_le_bytes(header[24..28].try_into()?) as usize;
         let next = offset + WAL_HEADER_SIZE + payload_len;
+
         if next > data.len() {
             break; // 尾部半条记录：不计入
         }
+
         max = Some(max.map_or(index, |m: u64| m.max(index)));
         offset = next;
     }
+
     Ok(max)
 }
 
 fn try_parse_record(data: &[u8], offset: usize) -> Result<(WalRecord, usize)> {
     let remaining = data.len().saturating_sub(offset);
+
     if remaining < 3 {
         anyhow::bail!("insufficient bytes for magic/version: {remaining}");
     }
 
     let magic = &data[offset..offset + 2];
+
     if magic != WAL_MAGIC {
         anyhow::bail!("bad magic: [{:#04X}, {:#04X}]", magic[0], magic[1]);
     }
 
     let ver = data[offset + 2];
+
     if ver != WAL_VERSION {
         anyhow::bail!("unsupported WAL version: {ver} (expected {})", WAL_VERSION);
     }

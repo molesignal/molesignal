@@ -60,12 +60,14 @@ fn token_from(headers: &HeaderMap, raw_query: Option<&str>) -> Option<String> {
         .and_then(|v| v.to_str().ok())
         .map(str::trim)
         .filter(|s| !s.is_empty());
+
     let query_token = raw_query.and_then(|q| {
         q.split('&')
             .find_map(|kv| kv.strip_prefix("token="))
             .map(str::trim)
             .filter(|s| !s.is_empty())
     });
+
     header_token.or(query_token).map(str::to_string)
 }
 
@@ -78,6 +80,7 @@ async fn resolve_connector(
     let token = token.ok_or_else(|| {
         Error::unauthorized("missing connector token (X-Connector-Token header or ?token=)")
     })?;
+
     state
         .storage
         .connectors
@@ -105,11 +108,14 @@ fn decode_body(headers: &HeaderMap, body: &Bytes) -> Result<Vec<u8>> {
         .and_then(|v| v.to_str().ok())
         .map(|v| v.to_ascii_lowercase().contains("gzip"))
         .unwrap_or(false);
+
     if gzipped {
         let mut out = Vec::new();
+
         GzDecoder::new(body.as_ref())
             .read_to_end(&mut out)
             .map_err(|e| Error::invalid(format!("gzip decode: {e}")))?;
+
         Ok(out)
     } else {
         Ok(body.to_vec())
@@ -135,6 +141,7 @@ async fn intake_events(
         body_len as u64,
         TimestampMicros::now().0,
     );
+
     let accepted = if events.is_empty() {
         0
     } else {
@@ -146,14 +153,17 @@ async fn intake_events(
             events,
             received_at: TimestampMicros::now(),
         };
+
         state.intake.intake(batch).await?.accepted
     };
+
     // last_run 仅观测用，失败不影响接入结果。
     let _ = state
         .storage
         .connectors
         .touch_last_run(&connector.id, TimestampMicros::now())
         .await;
+
     Ok(accepted)
 }
 
@@ -174,10 +184,12 @@ async fn kinesis_firehose(
     let request_id = req.request_id.clone();
     let events = parse_firehose_request(req)?;
     intake_events(&state, &connector, stream, events, body.len()).await?;
+
     let resp = serde_json::json!({
         "requestId": request_id,
         "timestamp": TimestampMicros::now().0 / 1_000, // ms
     });
+
     Ok((StatusCode::OK, Json(resp)).into_response())
 }
 

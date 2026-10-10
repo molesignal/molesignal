@@ -50,6 +50,7 @@ async fn update_configuration(
         .synthetics
         .update_agent_configuration(&context.org_id, &context.user_id, &Id(agent_id), input)
         .await?;
+
     activity_audit::record(
         &state,
         &context,
@@ -62,6 +63,7 @@ async fn update_configuration(
         }),
     )
     .await;
+
     Ok(Json(agent))
 }
 
@@ -75,6 +77,7 @@ async fn revoke(
         .synthetics
         .revoke_agent(&context.org_id, &Id(agent_id))
         .await?;
+
     activity_audit::record(
         &state,
         &context,
@@ -84,5 +87,6 @@ async fn revoke(
         serde_json::json!({"location_id": agent.location_id}),
     )
     .await;
+
     Ok(Json(agent))
 }

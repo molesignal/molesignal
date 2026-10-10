@@ -51,12 +51,14 @@ pub(super) fn request(
     let Some(token) = params.cursor.as_deref() else {
         return Ok(params.request());
     };
+
     let payload = decode_signed_cursor::<ApmCursorPayload>(
         state.iam.service.as_ref(),
         &iam.org_id,
         purpose,
         token,
     )?;
+
     if payload.version != VERSION
         || payload.to < payload.from
         || payload.inner_cursor.is_empty()
@@ -64,7 +66,9 @@ pub(super) fn request(
     {
         return Err(Error::invalid("invalid APM cursor"));
     }
+
     validate_request(params, &payload)?;
+
     Ok(ApmQueryRequest {
         from: payload.from,
         to: payload.to,
@@ -92,11 +96,13 @@ pub(super) fn sign_page<T>(
         .take()
         .map(|inner| encode(state, iam, purpose, context, inner))
         .transpose()?;
+
     response.next_cursor = response
         .next_cursor
         .take()
         .map(|inner| encode(state, iam, purpose, context, inner))
         .transpose()?;
+
     response.has_more = response.next_cursor.is_some();
     Ok(response)
 }
@@ -147,9 +153,11 @@ fn validate_request(params: &QueryParams, cursor: &ApmCursorPayload) -> Result<(
             .direction
             .is_some_and(|value| value != cursor.direction)
         || params.limit.is_some_and(|value| value != cursor.page_size);
+
     if mismatch {
         return Err(Error::invalid("APM cursor does not match active query"));
     }
+
     Ok(())
 }
 

@@ -27,6 +27,7 @@ pub(super) async fn execute(
 ) -> Result<ToolResult> {
     let args: ApmArgs = parse_args(arguments)?;
     let request = args.request()?;
+
     let value = match kind {
         BuiltinToolKind::ApmOverview => {
             let context = runtime.observability.apm.context(
@@ -35,6 +36,7 @@ pub(super) async fn execute(
                 &["request_count", "error_rate", "p95", "total_time"],
                 "total_time",
             )?;
+
             serde_json::to_value(runtime.observability.apm.overview(&context).await?)
         }
         BuiltinToolKind::ListApmServices => {
@@ -44,18 +46,21 @@ pub(super) async fn execute(
                 &["request_count", "error_rate", "p95", "name"],
                 "request_count",
             )?;
+
             serde_json::to_value(runtime.observability.apm.services(&context).await?)
         }
         BuiltinToolKind::GetApmService => {
             if args.service.as_deref().is_none_or(str::is_empty) {
                 return Err(Error::invalid("service is required"));
             }
+
             let context = runtime.observability.apm.context(
                 auth.org_id.clone(),
                 request,
                 &["request_count"],
                 "request_count",
             )?;
+
             serde_json::to_value(runtime.observability.apm.service_detail(&context).await?)
         }
         BuiltinToolKind::ListApmErrors => {
@@ -65,6 +70,7 @@ pub(super) async fn execute(
                 &["occurrence_count", "error_rate", "last_seen"],
                 "occurrence_count",
             )?;
+
             serde_json::to_value(runtime.observability.apm.errors(&context).await?)
         }
         BuiltinToolKind::ListApmTransactions => {
@@ -74,16 +80,19 @@ pub(super) async fn execute(
                 &["request_count", "error_rate", "p95", "name"],
                 "request_count",
             )?;
+
             serde_json::to_value(runtime.observability.apm.transactions(&context).await?)
         }
         BuiltinToolKind::GetApmTransaction => {
             let transaction = required(&args.transaction, "transaction")?;
+
             let context = runtime.observability.apm.context(
                 auth.org_id.clone(),
                 request,
                 &["request_count"],
                 "request_count",
             )?;
+
             serde_json::to_value(
                 runtime
                     .observability
@@ -99,16 +108,19 @@ pub(super) async fn execute(
                 &["request_count", "error_rate", "p95", "name"],
                 "request_count",
             )?;
+
             serde_json::to_value(runtime.observability.apm.dependencies(&context).await?)
         }
         BuiltinToolKind::GetApmError => {
             let fingerprint = required(&args.fingerprint, "fingerprint")?;
+
             let context = runtime.observability.apm.context(
                 auth.org_id.clone(),
                 request,
                 &["occurrence_count"],
                 "occurrence_count",
             )?;
+
             serde_json::to_value(
                 runtime
                     .observability
@@ -120,15 +132,18 @@ pub(super) async fn execute(
         BuiltinToolKind::CompareApmVersions => {
             let baseline = required(&args.baseline_version, "baseline_version")?;
             let candidate = required(&args.candidate_version, "candidate_version")?;
+
             if args.service.as_deref().is_none_or(str::is_empty) {
                 return Err(Error::invalid("service is required"));
             }
+
             let context = runtime.observability.apm.context(
                 auth.org_id.clone(),
                 request,
                 &["request_count"],
                 "request_count",
             )?;
+
             serde_json::to_value(
                 runtime
                     .observability
@@ -144,6 +159,7 @@ pub(super) async fn execute(
                 &["request_count"],
                 "request_count",
             )?;
+
             serde_json::to_value(
                 runtime
                     .observability
@@ -155,6 +171,7 @@ pub(super) async fn execute(
         _ => unreachable!("APM handler received unrelated tool"),
     }
     .map_err(|error| Error::internal(error.to_string()))?;
+
     Ok(ToolResult::json(value))
 }
 
@@ -203,10 +220,12 @@ impl ApmArgs {
                 let end = TimestampMicros::now();
                 TimeRange::new(TimestampMicros(end.0.saturating_sub(DAY_MICROS)), end)
             });
+
         let sort = self.sort.as_deref().map(|sort| match sort {
             "p95_micros" => "p95".to_string(),
             value => value.to_string(),
         });
+
         Ok(ApmQueryRequest {
             from: range.start.0,
             to: range.end.0,

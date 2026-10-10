@@ -20,6 +20,7 @@ use crate::{
 
 /// 默认回溯窗口（首次运行、无 last_run 时）：5 分钟。
 const DEFAULT_LOOKBACK_MS: i64 = 5 * 60 * 1000;
+
 /// 单次 run_once 的翻页上限（防异常时无限翻页）。
 const MAX_PAGES: usize = 50;
 
@@ -39,7 +40,9 @@ impl PullConnector for CloudWatchLogsConnector {
             // 未配置完整 → 静默 no-op（CRUD 可先建、后补凭据）。
             return Ok(Vec::new());
         }
+
         let now_ms = TimestampMicros::now().0 / 1_000;
+
         let start_ms = ctx
             .last_run_at_micros
             .map(|m| m / 1_000)
@@ -51,9 +54,11 @@ impl PullConnector for CloudWatchLogsConnector {
 
         let mut events = Vec::new();
         let mut next_token: Option<String> = None;
+
         for _ in 0..MAX_PAGES {
             let body = build_body(&self.log_group, start_ms, now_ms, next_token.as_deref());
             let amz_date = utc_amz_date();
+
             let signed = sigv4::sign_post_json(
                 &self.access_key,
                 &self.secret_key,
@@ -72,9 +77,11 @@ impl PullConnector for CloudWatchLogsConnector {
                 .header("x-amz-target", "Logs_20140328.FilterLogEvents")
                 .header("x-amz-date", &signed.amz_date)
                 .header("authorization", &signed.authorization);
+
             if let Some(tok) = self.session_token.as_deref().filter(|t| !t.is_empty()) {
                 req = req.header("x-amz-security-token", tok);
             }
+
             let resp = crate::shared::http_trace::send(
                 &client,
                 req.body(body),
@@ -82,32 +89,40 @@ impl PullConnector for CloudWatchLogsConnector {
             )
             .await
             .map_err(|e| Error::internal(format!("cloudwatch request: {e}")))?;
+
             let status = resp.status();
+
             let text = resp
                 .text()
                 .await
                 .map_err(|e| Error::internal(format!("cloudwatch body: {e}")))?;
+
             if !status.is_success() {
                 return Err(Error::internal(format!(
                     "cloudwatch FilterLogEvents {status}: {text}"
                 )));
             }
+
             let parsed: Value = serde_json::from_str(&text)
                 .map_err(|e| Error::internal(format!("cloudwatch json: {e}")))?;
+
             if let Some(arr) = parsed.get("events").and_then(|v| v.as_array()) {
                 for e in arr {
                     events.push(event_to_raw(e, &self.log_group));
                 }
             }
+
             next_token = parsed
                 .get("nextToken")
                 .and_then(|v| v.as_str())
                 .filter(|s| !s.is_empty())
                 .map(String::from);
+
             if next_token.is_none() {
                 break;
             }
         }
+
         Ok(events)
     }
 }
@@ -119,9 +134,11 @@ fn build_body(log_group: &str, start_ms: i64, end_ms: i64, next_token: Option<&s
         "endTime": end_ms,
         "limit": 10_000,
     });
+
     if let Some(t) = next_token {
         o["nextToken"] = Value::String(t.to_string());
     }
+
     o.to_string()
 }
 
@@ -138,21 +155,27 @@ fn event_to_raw(e: &Value, log_group: &str) -> RawEvent {
         .and_then(|v| v.as_i64())
         .map(|ms| TimestampMicros(ms * 1_000))
         .unwrap_or_else(TimestampMicros::now);
+
     let mut m = Map::new();
+
     if let Some(msg) = e.get("message").and_then(|v| v.as_str()) {
         m.insert("message".to_string(), Value::String(msg.to_string()));
     }
+
     if let Some(ls) = e.get("logStreamName").and_then(|v| v.as_str()) {
         m.insert("log_stream".to_string(), Value::String(ls.to_string()));
     }
+
     m.insert(
         "log_group".to_string(),
         Value::String(log_group.to_string()),
     );
+
     m.insert(
         "source".to_string(),
         Value::String("cloudwatch".to_string()),
     );
+
     RawEvent {
         timestamp: ts,
         fields: m,

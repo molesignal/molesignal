@@ -56,5 +56,6 @@ pub(super) fn validate_decision_note(note: Option<&str>) -> Result<()> {
             "automation Candidate decision note cannot exceed 500 characters",
         ));
     }
+
     Ok(())
 }

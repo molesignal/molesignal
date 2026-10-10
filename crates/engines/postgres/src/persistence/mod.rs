@@ -20,6 +20,7 @@ pub fn sqlx_err(e: sqlx::Error) -> crate::shared::Error {
     use sqlx::Error as SE;
 
     use crate::shared::Error;
+
     match &e {
         SE::RowNotFound => Error::not_found("row not found"),
         SE::Database(db_err) => {

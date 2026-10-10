@@ -60,6 +60,7 @@ async fn lock_current(
             command.artifact_id, command.segment_id, command.dataset_id
         ))
     })?;
+
     Ok(CurrentArtifact {
         state: row
             .try_get::<String, _>("state")
@@ -82,6 +83,7 @@ fn ensure_transition(current: ArtifactState, next: ArtifactState) -> Result<()> 
             next.as_str()
         )));
     }
+
     Ok(())
 }
 
@@ -97,6 +99,7 @@ pub(super) async fn update_artifact(
     match &command.update {
         ArtifactUpdate::MarkReady { object } => {
             ensure_transition(current.state, ArtifactState::Ready)?;
+
             sqlx::query(
                 "UPDATE catalog_artifacts SET state = 'ready', object_key = $3, size_bytes = $4, \
                  checksum = $5, etag = $6, failure_reason = NULL, updated_at_micros = $7 \
@@ -115,6 +118,7 @@ pub(super) async fn update_artifact(
         }
         ArtifactUpdate::MarkFailed { reason } => {
             ensure_transition(current.state, ArtifactState::Failed)?;
+
             sqlx::query(
                 "UPDATE catalog_artifacts SET state = 'failed', failure_reason = $3, \
                  updated_at_micros = $4 WHERE org_id = $1 AND id = $2",
@@ -129,6 +133,7 @@ pub(super) async fn update_artifact(
         }
         ArtifactUpdate::Retry => {
             ensure_transition(current.state, ArtifactState::Pending)?;
+
             sqlx::query(
                 "UPDATE catalog_artifacts SET state = 'pending', failure_reason = NULL, \
                  updated_at_micros = $3 WHERE org_id = $1 AND id = $2",
@@ -145,6 +150,7 @@ pub(super) async fn update_artifact(
             gc_not_before_micros,
         } => {
             ensure_transition(current.state, ArtifactState::Tombstoned)?;
+
             if replacement.role.as_str() != current.role
                 || replacement.artifact_type.as_str() != current.artifact_type
                 || replacement
@@ -166,11 +172,13 @@ pub(super) async fn update_artifact(
                     replacement.artifact_type
                 )));
             }
+
             if replacement.state != ArtifactState::Ready {
                 return Err(Error::invalid(
                     "replacement artifact must be uploaded and ready",
                 ));
             }
+
             sqlx::query(
                 "UPDATE catalog_artifacts SET state = 'tombstoned', updated_at_micros = $3 \
                  WHERE org_id = $1 AND id = $2",
@@ -181,6 +189,7 @@ pub(super) async fn update_artifact(
             .execute(&mut *tx)
             .await
             .map_err(sqlx_err)?;
+
             enqueue_object_gc(
                 &mut tx,
                 scope,
@@ -190,6 +199,7 @@ pub(super) async fn update_artifact(
                 *gc_not_before_micros,
             )
             .await?;
+
             insert_artifact(&mut tx, scope, &command.segment_id, replacement).await?;
         }
     }

@@ -176,6 +176,7 @@ async fn create(
         .notify_engine
         .create_policy(&ctx.org_id, request.into())
         .await?;
+
     Ok((StatusCode::CREATED, Json(policy)))
 }
 
@@ -206,6 +207,7 @@ async fn delete(
         .notify_engine
         .delete_policy(&ctx.org_id, &Id::from_string(id))
         .await?;
+
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -217,11 +219,13 @@ async fn test(
     Json(request): Json<PolicyTestRequest>,
 ) -> Result<Json<NotifyPolicyPreview>> {
     let id = Id::from_string(id);
+
     let policy = state
         .alerting
         .notify_engine
         .get_policy(&ctx.org_id, &id)
         .await?;
+
     let event = NotifyEvent {
         id: request
             .event_id
@@ -234,6 +238,7 @@ async fn test(
             .unwrap_or_else(TimestampMicros::now),
         attributes: request.attributes,
     };
+
     Ok(Json(
         state
             .alerting
@@ -254,6 +259,7 @@ async fn preview_draft(
         .event_type
         .clone()
         .unwrap_or_else(|| request.policy.event_type.clone());
+
     let event = NotifyEvent {
         id: request
             .event
@@ -268,6 +274,7 @@ async fn preview_draft(
             .unwrap_or_else(TimestampMicros::now),
         attributes: request.event.attributes,
     };
+
     Ok(Json(
         state
             .alerting

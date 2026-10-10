@@ -89,9 +89,11 @@ async fn silence_incident(
         .service
         .get_incident(&Id::from_string(id))
         .await?;
+
     if incident.org_id != ctx.org_id {
         return Err(Error::forbidden("incident belongs to another org"));
     }
+
     if !matches!(
         incident.status,
         IncidentStatus::Open | IncidentStatus::Acknowledged
@@ -101,6 +103,7 @@ async fn silence_incident(
 
     let now = TimestampMicros::now();
     let duration_micros = (req.duration_secs as i64).saturating_mul(1_000_000);
+
     let rule = MuteRule {
         id: Id::new(),
         org_id: ctx.org_id.clone(),
@@ -124,7 +127,9 @@ async fn silence_incident(
         created_at: now,
         updated_at: now,
     };
+
     let saved = state.alerting.mute_rules.create(rule).await?;
+
     emit_cud(
         &state,
         &ctx.org_id,
@@ -134,6 +139,7 @@ async fn silence_incident(
         &saved,
     )
     .await;
+
     Ok(Json(serde_json::to_value(saved).unwrap()))
 }
 
@@ -156,7 +162,9 @@ async fn create(
     if req.name.trim().is_empty() {
         return Err(Error::invalid("name cannot be empty"));
     }
+
     let now = TimestampMicros::now();
+
     let rule = MuteRule {
         id: Id::new(),
         org_id: ctx.org_id.clone(),
@@ -169,7 +177,9 @@ async fn create(
         created_at: now,
         updated_at: now,
     };
+
     let saved = state.alerting.mute_rules.create(rule).await?;
+
     emit_cud(
         &state,
         &ctx.org_id,
@@ -179,6 +189,7 @@ async fn create(
         &saved,
     )
     .await;
+
     Ok(Json(serde_json::to_value(saved).unwrap()))
 }
 
@@ -189,9 +200,11 @@ async fn get_one(
     Path(id): Path<String>,
 ) -> Result<Json<Value>> {
     let rule = state.alerting.mute_rules.get(&Id::from_string(id)).await?;
+
     if rule.org_id != ctx.org_id {
         return Err(Error::forbidden("mute rule belongs to another org"));
     }
+
     Ok(Json(serde_json::to_value(rule).unwrap()))
 }
 
@@ -205,10 +218,13 @@ async fn update(
     if req.name.trim().is_empty() {
         return Err(Error::invalid("name cannot be empty"));
     }
+
     let existing = state.alerting.mute_rules.get(&Id::from_string(id)).await?;
+
     if existing.org_id != ctx.org_id {
         return Err(Error::forbidden("mute rule belongs to another org"));
     }
+
     let rule = MuteRule {
         id: existing.id,
         org_id: ctx.org_id.clone(),
@@ -221,7 +237,9 @@ async fn update(
         created_at: existing.created_at,
         updated_at: TimestampMicros::now(),
     };
+
     let saved = state.alerting.mute_rules.update(rule).await?;
+
     emit_cud(
         &state,
         &ctx.org_id,
@@ -231,6 +249,7 @@ async fn update(
         &saved,
     )
     .await;
+
     Ok(Json(serde_json::to_value(saved).unwrap()))
 }
 
@@ -242,10 +261,13 @@ async fn remove(
 ) -> Result<Json<Value>> {
     let rid = Id::from_string(id);
     let existing = state.alerting.mute_rules.get(&rid).await?;
+
     if existing.org_id != ctx.org_id {
         return Err(Error::forbidden("mute rule belongs to another org"));
     }
+
     state.alerting.mute_rules.delete(&rid).await?;
+
     emit_cud(
         &state,
         &ctx.org_id,
@@ -255,5 +277,6 @@ async fn remove(
         &delete_payload(&rid.0),
     )
     .await;
+
     Ok(Json(serde_json::json!({"deleted": true})))
 }

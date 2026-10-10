@@ -14,6 +14,7 @@ const VALID_MODEL: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../../contracts/dashboard/fixtures/valid/dashboard-v2-nested.json"
 ));
+
 const DUPLICATE_IDS: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../../contracts/dashboard/fixtures/invalid/dashboard-v2-duplicate-id.json"
@@ -30,6 +31,7 @@ impl DashboardRepository for MemoryDashboards {
         self.values
             .lock()
             .insert(dashboard.id.clone(), dashboard.clone());
+
         Ok(dashboard)
     }
 
@@ -37,6 +39,7 @@ impl DashboardRepository for MemoryDashboards {
         self.values
             .lock()
             .insert(dashboard.id.clone(), dashboard.clone());
+
         Ok(dashboard)
     }
 
@@ -46,12 +49,15 @@ impl DashboardRepository for MemoryDashboards {
         expected_version: u32,
     ) -> Result<Dashboard> {
         let mut values = self.values.lock();
+
         let current = values
             .get(&dashboard.id)
             .ok_or_else(|| Error::not_found("dashboard"))?;
+
         if current.version != expected_version {
             return Err(Error::conflict("dashboard version changed"));
         }
+
         values.insert(dashboard.id.clone(), dashboard.clone());
         Ok(dashboard)
     }
@@ -127,6 +133,7 @@ impl FolderRepository for MemoryFolders {
 
 fn service() -> (DashboardService, Arc<MemoryDashboards>) {
     let dashboards = Arc::new(MemoryDashboards::default());
+
     (
         DashboardService::new(dashboards.clone(), Arc::new(MemoryFolders)),
         dashboards,

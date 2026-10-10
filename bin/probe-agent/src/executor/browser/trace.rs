@@ -27,11 +27,13 @@ pub(super) struct TraceCapture {
 impl TraceCapture {
     pub(super) fn start(tab: &Tab) -> Result<Self> {
         let (sender, completion) = mpsc::sync_channel(1);
+
         tab.add_event_listener(Arc::new(move |event: &Event| {
             if let Event::TracingComplete(event) = event {
                 let _ = sender.try_send(event.params.clone());
             }
         }))?;
+
         tab.call_method(Tracing::Start {
             categories: None,
             options: None,
@@ -58,6 +60,7 @@ impl TraceCapture {
             perfetto_config: None,
             tracing_backend: Some(Tracing::TracingBackend::Chrome),
         })?;
+
         Ok(Self {
             completion,
             active: true,
@@ -74,19 +77,24 @@ impl TraceCapture {
         if !self.active {
             return Ok(None);
         }
+
         self.active = false;
         tab.call_method(Tracing::End(None))?;
+
         let completed = self
             .completion
             .recv_timeout(timeout)
             .context("wait for Chrome trace completion")?;
+
         let handle = completed
             .stream
             .ok_or_else(|| anyhow!("Chrome trace did not return a stream"))?;
+
         if !capture {
             let _ = tab.call_method(IO::Close {
                 handle: handle.clone(),
             });
+
             return Ok(None);
         }
 
@@ -97,21 +105,25 @@ impl TraceCapture {
             serde_json::from_slice(&bytes).context("decode Chrome trace JSON")?;
         redact_json(&mut value, context);
         let bytes = serde_json::to_vec(&value).context("encode redacted Chrome trace")?;
+
         if bytes.len() > MAX_TRACE_BYTES {
             bail!("Browser trace exceeds the 5 MiB limit");
         }
+
         Ok(Some(bytes))
     }
 }
 
 fn read_trace(tab: &Tab, handle: &str) -> Result<Vec<u8>> {
     let mut bytes = Vec::new();
+
     loop {
         let chunk = tab.call_method(IO::Read {
             handle: handle.to_string(),
             offset: None,
             size: Some(64 * 1024),
         })?;
+
         let data = if chunk.base_64_encoded.unwrap_or(false) {
             base64::engine::general_purpose::STANDARD
                 .decode(chunk.data)
@@ -119,10 +131,13 @@ fn read_trace(tab: &Tab, handle: &str) -> Result<Vec<u8>> {
         } else {
             chunk.data.into_bytes()
         };
+
         if bytes.len().saturating_add(data.len()) > MAX_TRACE_BYTES {
             bail!("Browser trace exceeds the 5 MiB limit");
         }
+
         bytes.extend_from_slice(&data);
+
         if chunk.eof {
             return Ok(bytes);
         }
@@ -139,6 +154,7 @@ pub(super) fn redact_json(value: &mut JsonValue, context: &ExecutionContext) {
         }
         JsonValue::Object(values) => {
             let original = std::mem::take(values);
+
             for (key, mut value) in original {
                 redact_json(&mut value, context);
                 values.insert(context.redact(&key), value);

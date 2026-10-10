@@ -27,6 +27,7 @@ pub fn artifact_targets(task: &ProbeTask, lease_token: &str) -> Vec<SyntheticArt
     let MonitorSpec::Browser(spec) = &task.spec else {
         return Vec::new();
     };
+
     let mut definitions = spec
         .steps
         .iter()
@@ -44,15 +45,19 @@ pub fn artifact_targets(task: &ProbeTask, lease_token: &str) -> Vec<SyntheticArt
             _ => None,
         })
         .collect::<Vec<_>>();
+
     if spec.capture_screenshot_on_failure {
         definitions.push(("screenshot", "failure", "image/png", MAX_SCREENSHOT_BYTES));
     }
+
     if spec.capture_har_on_failure {
         definitions.push(("har", "failure", "application/json", MAX_HAR_BYTES));
     }
+
     if spec.capture_trace_on_failure {
         definitions.push(("trace", "failure", "application/json", MAX_TRACE_BYTES));
     }
+
     (0..task.max_attempts.clamp(1, 3))
         .flat_map(|_| definitions.iter().copied())
         .enumerate()

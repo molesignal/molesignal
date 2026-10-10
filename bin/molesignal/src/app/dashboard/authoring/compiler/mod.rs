@@ -57,6 +57,7 @@ impl DashboardAuthoringCompiler {
                 )],
             ));
         }
+
         let spec_value = serde_json::to_value(spec)
             .map_err(|error| crate::shared::Error::internal(error.to_string()))?;
         let spec_hash = model_validator.canonical_hash(&spec_value);
@@ -65,6 +66,7 @@ impl DashboardAuthoringCompiler {
         let variables = compile_variables(&spec.variables, &mut context)?;
         let time = spec.time_range.as_ref();
         let refresh = compile_refresh(spec.refresh.as_ref());
+
         let mut model = json!({
             "engine": "molesignal-dashboard",
             "schemaVersion": manifest.dashboard_model_version,
@@ -92,6 +94,7 @@ impl DashboardAuthoringCompiler {
             "elements": elements,
             "version": 1
         });
+
         if let Some(description) = spec
             .description
             .as_deref()
@@ -100,16 +103,20 @@ impl DashboardAuthoringCompiler {
         {
             model["description"] = Value::String(description.to_string());
         }
+
         if let Some(folder_id) = spec.folder_id.as_deref() {
             model["folderId"] = Value::String(folder_id.to_string());
         }
+
         ensure_dashboard_model_with(
             &model,
             DashboardValidationMode::Native,
             model_validator,
             manifest,
         )?;
+
         let model_hash = model_validator.canonical_hash(&model);
+
         Ok(CompiledDashboard {
             model,
             model_hash,
@@ -139,15 +146,18 @@ impl CompileContext {
 
 fn compile_refresh(refresh: Option<&AuthoringRefresh>) -> Value {
     let default_refresh;
+
     let refresh = match refresh {
         Some(refresh) => refresh,
         None => {
             default_refresh = AuthoringRefresh::Interval {
                 interval: "30s".into(),
             };
+
             &default_refresh
         }
     };
+
     match refresh {
         AuthoringRefresh::Off => json!({
             "enabled": false,
@@ -159,9 +169,11 @@ fn compile_refresh(refresh: Option<&AuthoringRefresh>) -> Value {
                 .into_iter()
                 .map(str::to_string)
                 .collect::<Vec<_>>();
+
             if !allowed.contains(interval) {
                 allowed.push(interval.clone());
             }
+
             json!({
                 "enabled": true,
                 "mode": "interval",

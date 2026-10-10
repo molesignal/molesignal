@@ -29,6 +29,7 @@ const COLS: &str = "id, org_id, name, description, team_id, timezone, enabled,
 fn row_to_schedule(row: sqlx::postgres::PgRow) -> Result<Schedule> {
     let rotations: Json<Vec<Rotation>> = row.try_get("rotations").map_err(sqlx_err)?;
     let overrides: Json<Vec<ScheduleOverride>> = row.try_get("overrides").map_err(sqlx_err)?;
+
     Ok(Schedule {
         id: Id::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?),
         org_id: Id::from_string(row.try_get::<String, _>("org_id").map_err(sqlx_err)?),
@@ -81,6 +82,7 @@ impl ScheduleRepository for PgScheduleRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(s)
     }
 
@@ -105,6 +107,7 @@ impl ScheduleRepository for PgScheduleRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(s)
     }
 
@@ -114,6 +117,7 @@ impl ScheduleRepository for PgScheduleRepository {
             .fetch_one(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         row_to_schedule(row)
     }
 
@@ -123,6 +127,7 @@ impl ScheduleRepository for PgScheduleRepository {
             .fetch_all(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to_schedule).collect()
     }
 
@@ -132,6 +137,7 @@ impl ScheduleRepository for PgScheduleRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(())
     }
 }

@@ -43,6 +43,7 @@ pub(super) struct TraceCursorBoundary {
 
 pub(super) fn decode(iam: &IamService, org_id: &Id, token: &str) -> Result<TraceCursorPayload> {
     let payload = decode_signed_cursor::<TraceCursorPayload>(iam, org_id, CURSOR_PURPOSE, token)?;
+
     if payload.version != CURSOR_VERSION
         || payload.to <= payload.from
         || !(1..=super::MAX_TRACE_PAGE_SIZE).contains(&payload.page_size)
@@ -51,6 +52,7 @@ pub(super) fn decode(iam: &IamService, org_id: &Id, token: &str) -> Result<Trace
     {
         return Err(Error::invalid("invalid trace cursor payload"));
     }
+
     Ok(payload)
 }
 
@@ -72,6 +74,7 @@ pub(super) fn encode(
         direction,
         position: position_for(row, context.sort),
     };
+
     encode_signed_cursor(iam, org_id, CURSOR_PURPOSE, payload)
 }
 
@@ -82,6 +85,7 @@ fn position_for(row: &TraceListRow, sort: TraceListSort) -> TraceCursorPosition 
         TraceListSort::SpanCountDesc => row.item.span_count,
         TraceListSort::ErrorsDesc => row.item.error_count,
     };
+
     TraceCursorPosition {
         primary,
         start_ns: row.item.start_ns,

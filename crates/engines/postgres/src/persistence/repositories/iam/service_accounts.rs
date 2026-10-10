@@ -56,7 +56,9 @@ impl ServiceAccountRepository for PgServiceAccountRepository {
                 "initial API token must be bound to the new service account, organization, and role",
             ));
         }
+
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         let sql = format!(
             "INSERT INTO service_accounts
                 (id, org_id, name, description, role_id, disabled, created_by,
@@ -64,6 +66,7 @@ impl ServiceAccountRepository for PgServiceAccountRepository {
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
              RETURNING {COLS}"
         );
+
         let row = sqlx::query(&sql)
             .bind(&account.id.0)
             .bind(&account.org_id.0)
@@ -77,6 +80,7 @@ impl ServiceAccountRepository for PgServiceAccountRepository {
             .fetch_one(&mut *tx)
             .await
             .map_err(sqlx_err)?;
+
         sqlx::query(
             "INSERT INTO api_tokens
                 (id, prefix, secret_hash, org_id, user_id, role_id, name,
@@ -101,6 +105,7 @@ impl ServiceAccountRepository for PgServiceAccountRepository {
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
+
         let saved_account = row_to(row)?;
         tx.commit().await.map_err(sqlx_err)?;
         Ok((saved_account, initial_token))
@@ -111,6 +116,7 @@ impl ServiceAccountRepository for PgServiceAccountRepository {
             "SELECT {COLS} FROM service_accounts
              WHERE org_id = $1 AND id = $2 AND deleted_at_micros IS NULL"
         );
+
         row_to(
             sqlx::query(&sql)
                 .bind(&org_id.0)
@@ -127,6 +133,7 @@ impl ServiceAccountRepository for PgServiceAccountRepository {
              WHERE org_id = $1 AND deleted_at_micros IS NULL
              ORDER BY name, created_at_micros DESC LIMIT 1000"
         );
+
         sqlx::query(&sql)
             .bind(&org_id.0)
             .fetch_all(&self.pool)
@@ -139,12 +146,14 @@ impl ServiceAccountRepository for PgServiceAccountRepository {
 
     async fn update(&self, account: ServiceAccount) -> Result<ServiceAccount> {
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         let sql = format!(
             "UPDATE service_accounts
              SET name = $3, description = $4, role_id = $5, updated_at_micros = $6
              WHERE org_id = $1 AND id = $2 AND deleted_at_micros IS NULL
              RETURNING {COLS}"
         );
+
         let row = sqlx::query(&sql)
             .bind(&account.org_id.0)
             .bind(&account.id.0)
@@ -156,6 +165,7 @@ impl ServiceAccountRepository for PgServiceAccountRepository {
             .await
             .map_err(sqlx_err)?
             .ok_or_else(|| Error::not_found("service account not found"))?;
+
         sqlx::query(
             "UPDATE api_tokens SET role_id = $3
              WHERE org_id = $1 AND service_account_id = $2
@@ -167,6 +177,7 @@ impl ServiceAccountRepository for PgServiceAccountRepository {
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
+
         tx.commit().await.map_err(sqlx_err)?;
         row_to(row)
     }
@@ -179,11 +190,13 @@ impl ServiceAccountRepository for PgServiceAccountRepository {
         updated_at: TimestampMicros,
     ) -> Result<ServiceAccount> {
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         let sql = format!(
             "UPDATE service_accounts SET disabled = $3, updated_at_micros = $4
              WHERE org_id = $1 AND id = $2 AND deleted_at_micros IS NULL
              RETURNING {COLS}"
         );
+
         let row = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&id.0)
@@ -193,6 +206,7 @@ impl ServiceAccountRepository for PgServiceAccountRepository {
             .await
             .map_err(sqlx_err)?
             .ok_or_else(|| Error::not_found("service account not found"))?;
+
         if disabled {
             sqlx::query(
                 "UPDATE api_tokens SET revoked = TRUE
@@ -205,12 +219,14 @@ impl ServiceAccountRepository for PgServiceAccountRepository {
             .await
             .map_err(sqlx_err)?;
         }
+
         tx.commit().await.map_err(sqlx_err)?;
         row_to(row)
     }
 
     async fn delete(&self, org_id: &Id, id: &Id, deleted_at: TimestampMicros) -> Result<()> {
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         let result = sqlx::query(
             "UPDATE service_accounts
              SET disabled = TRUE, deleted_at_micros = $3, updated_at_micros = $3
@@ -222,9 +238,11 @@ impl ServiceAccountRepository for PgServiceAccountRepository {
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
+
         if result.rows_affected() == 0 {
             return Err(Error::not_found("service account not found"));
         }
+
         sqlx::query(
             "UPDATE api_tokens SET revoked = TRUE
              WHERE org_id = $1 AND service_account_id = $2
@@ -235,6 +253,7 @@ impl ServiceAccountRepository for PgServiceAccountRepository {
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
+
         tx.commit().await.map_err(sqlx_err)?;
         Ok(())
     }

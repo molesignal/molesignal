@@ -21,11 +21,13 @@ pub const TS_COL: &str = "_timestamp";
 /// 把 domain Schema 转成 Arrow Schema，并在头部加 `_timestamp` 列。
 pub fn to_arrow(schema: &DomainSchema) -> Arc<ArrowSchema> {
     let mut fields: Vec<Field> = Vec::with_capacity(schema.fields.len() + 1);
+
     fields.push(Field::new(
         TS_COL,
         DataType::Timestamp(TimeUnit::Microsecond, Some("UTC".into())),
         false,
     ));
+
     for f in &schema.fields {
         // 加密字段以密文（Utf8）落盘，列类型固定 Utf8，与 intake 写时一致；
         // 查询端 decrypt(col) 还原明文。
@@ -34,8 +36,10 @@ pub fn to_arrow(schema: &DomainSchema) -> Arc<ArrowSchema> {
         } else {
             map_type(f.data_type)
         };
+
         fields.push(Field::new(&f.name, dt, f.nullable));
     }
+
     Arc::new(ArrowSchema::new(fields))
 }
 
@@ -67,10 +71,12 @@ pub fn align_batch_to_schema(
     let rows = batch.num_rows();
     let src = batch.schema();
     let mut cols: Vec<ArrayRef> = Vec::with_capacity(target.fields().len());
+
     for tf in target.fields() {
         match src.fields().iter().position(|f| f.name() == tf.name()) {
             Some(idx) => {
                 let sf = src.field(idx);
+
                 if sf.data_type() != tf.data_type() {
                     return Err(ArrowError::SchemaError(format!(
                         "column `{}` data_type mismatch: source={:?} target={:?}",
@@ -79,6 +85,7 @@ pub fn align_batch_to_schema(
                         tf.data_type()
                     )));
                 }
+
                 cols.push(batch.column(idx).clone());
             }
             None => {
@@ -86,6 +93,7 @@ pub fn align_batch_to_schema(
             }
         }
     }
+
     RecordBatch::try_new(target.clone(), cols)
 }
 

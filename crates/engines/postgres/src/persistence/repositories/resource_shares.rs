@@ -186,11 +186,13 @@ fn row_to_share(row: sqlx::postgres::PgRow, cipher: &CipherRootKey) -> Result<Re
     let constraints: Json<Value> = row.try_get("constraints_json").map_err(sqlx_err)?;
     let token_ciphertext: Option<Vec<u8>> = row.try_get("token_ciphertext").map_err(sqlx_err)?;
     let token_nonce: Option<Vec<u8>> = row.try_get("token_nonce").map_err(sqlx_err)?;
+
     let raw_token = match (token_ciphertext, token_nonce) {
         (Some(ciphertext), Some(nonce)) => {
             let plaintext = cipher
                 .open(&nonce, &ciphertext)
                 .map_err(|_| Error::internal("resource share token decrypt failed"))?;
+
             Some(
                 String::from_utf8(plaintext)
                     .map_err(|_| Error::internal("resource share token is not UTF-8"))?,
@@ -203,6 +205,7 @@ fn row_to_share(row: sqlx::postgres::PgRow, cipher: &CipherRootKey) -> Result<Re
             ));
         }
     };
+
     Ok(ResourceShare {
         id: Id::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?),
         organization_id: Id::from_string(
@@ -288,10 +291,12 @@ impl ResourceShareRepository for PgResourceShareRepository {
             .raw_token
             .as_deref()
             .ok_or_else(|| Error::internal("resource share token is required"))?;
+
         let (token_nonce, token_ciphertext) = self
             .cipher
             .seal(raw_token.as_bytes())
             .map_err(|e| Error::internal(format!("resource share token seal failed: {e}")))?;
+
         sqlx::query(
             "INSERT INTO resource_shares (
                 id, organization_id, resource_type, resource_id, resource_version_id,
@@ -333,6 +338,7 @@ impl ResourceShareRepository for PgResourceShareRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(share)
     }
 
@@ -341,6 +347,7 @@ impl ResourceShareRepository for PgResourceShareRepository {
             "SELECT {SHARE_COLS} FROM resource_shares
              WHERE organization_id = $1 AND id = $2"
         );
+
         sqlx::query(&sql)
             .bind(&organization_id.0)
             .bind(&id.0)
@@ -354,6 +361,7 @@ impl ResourceShareRepository for PgResourceShareRepository {
 
     async fn get_by_id(&self, id: &Id) -> Result<ResourceShare> {
         let sql = format!("SELECT {SHARE_COLS} FROM resource_shares WHERE id = $1");
+
         sqlx::query(&sql)
             .bind(&id.0)
             .fetch_optional(&self.pool)
@@ -366,6 +374,7 @@ impl ResourceShareRepository for PgResourceShareRepository {
 
     async fn find_by_token_hash(&self, token_hash: &str) -> Result<Option<ResourceShare>> {
         let sql = format!("SELECT {SHARE_COLS} FROM resource_shares WHERE token_hash = $1");
+
         sqlx::query(&sql)
             .bind(token_hash)
             .fetch_optional(&self.pool)
@@ -389,6 +398,7 @@ impl ResourceShareRepository for PgResourceShareRepository {
              ORDER BY created_at_micros DESC
              LIMIT 500"
         );
+
         sqlx::query(&sql)
             .bind(&organization_id.0)
             .bind(resource_type)
@@ -412,7 +422,9 @@ impl ResourceShareRepository for PgResourceShareRepository {
             .cipher
             .seal(raw_token.as_bytes())
             .map_err(|e| Error::internal(format!("resource share token seal failed: {e}")))?;
+
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         let sql = format!(
             "UPDATE resource_shares
              SET token_hash = $3, token_ciphertext = $4, token_nonce = $5,
@@ -420,6 +432,7 @@ impl ResourceShareRepository for PgResourceShareRepository {
              WHERE organization_id = $1 AND id = $2
              RETURNING {SHARE_COLS}"
         );
+
         let share = sqlx::query(&sql)
             .bind(&organization_id.0)
             .bind(&id.0)
@@ -432,11 +445,13 @@ impl ResourceShareRepository for PgResourceShareRepository {
             .map(|row| row_to_share(row, &self.cipher))
             .transpose()?
             .ok_or_else(|| Error::not_found("resource share not found"))?;
+
         sqlx::query("DELETE FROM resource_share_sessions WHERE share_id = $1")
             .bind(&id.0)
             .execute(&mut *tx)
             .await
             .map_err(sqlx_err)?;
+
         tx.commit().await.map_err(sqlx_err)?;
         Ok(share)
     }
@@ -448,12 +463,14 @@ impl ResourceShareRepository for PgResourceShareRepository {
         now: TimestampMicros,
     ) -> Result<ResourceShare> {
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         let sql = format!(
             "UPDATE resource_shares
              SET enabled = FALSE, revoked_at_micros = $3
              WHERE organization_id = $1 AND id = $2
              RETURNING {SHARE_COLS}"
         );
+
         let share = sqlx::query(&sql)
             .bind(&organization_id.0)
             .bind(&id.0)
@@ -464,11 +481,13 @@ impl ResourceShareRepository for PgResourceShareRepository {
             .map(|row| row_to_share(row, &self.cipher))
             .transpose()?
             .ok_or_else(|| Error::not_found("resource share not found"))?;
+
         sqlx::query("DELETE FROM resource_share_sessions WHERE share_id = $1")
             .bind(&id.0)
             .execute(&mut *tx)
             .await
             .map_err(sqlx_err)?;
+
         tx.commit().await.map_err(sqlx_err)?;
         Ok(share)
     }
@@ -479,6 +498,7 @@ impl ResourceShareRepository for PgResourceShareRepository {
         now: TimestampMicros,
     ) -> Result<ResourceShare> {
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         let sql = format!(
             "UPDATE resource_shares
              SET view_count = view_count + 1, last_accessed_at_micros = $2
@@ -489,6 +509,7 @@ impl ResourceShareRepository for PgResourceShareRepository {
                AND (max_views IS NULL OR view_count < max_views)
              RETURNING {SHARE_COLS}"
         );
+
         let share = sqlx::query(&sql)
             .bind(&session.share_id.0)
             .bind(now.0)
@@ -498,6 +519,7 @@ impl ResourceShareRepository for PgResourceShareRepository {
             .map(|row| row_to_share(row, &self.cipher))
             .transpose()?
             .ok_or_else(|| Error::not_found("resource share unavailable"))?;
+
         sqlx::query(
             "INSERT INTO resource_share_sessions (
                 id, share_id, session_token_hash, password_verified,
@@ -516,6 +538,7 @@ impl ResourceShareRepository for PgResourceShareRepository {
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
+
         tx.commit().await.map_err(sqlx_err)?;
         Ok(share)
     }
@@ -546,6 +569,7 @@ impl ResourceShareRepository for PgResourceShareRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -556,6 +580,7 @@ impl ResourceShareRepository for PgResourceShareRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -572,6 +597,7 @@ impl ResourceShareRepository for PgResourceShareRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         match row {
             Some(row) => row_to_policy(row),
             None => Ok(ResourceSharePolicy::secure_default(organization_id.clone())),
@@ -612,6 +638,7 @@ impl ResourceShareRepository for PgResourceShareRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         row_to_policy(row)
     }
 }

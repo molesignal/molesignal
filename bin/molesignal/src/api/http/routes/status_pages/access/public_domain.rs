@@ -63,10 +63,12 @@ async fn request_access(
     let page = resolve_page(&state, &headers).await?;
     let origin = request_hostname(&headers)
         .ok_or_else(|| Error::unauthorized("custom-domain host is required"))?;
+
     let outcome = state
         .status_pages
         .request_private_access(&page.slug, &request.email, &origin)
         .await?;
+
     Ok((StatusCode::ACCEPTED, Json(outcome)))
 }
 
@@ -78,10 +80,12 @@ async fn consume_access(
     let page = resolve_page(&state, &headers).await?;
     let origin = request_hostname(&headers)
         .ok_or_else(|| Error::unauthorized("custom-domain host is required"))?;
+
     let outcome = state
         .status_pages
         .consume_private_access(&page.slug, &request.token, &origin)
         .await?;
+
     session_response(&state, &headers, outcome)
 }
 
@@ -91,6 +95,7 @@ async fn resolve_page(
 ) -> Result<crate::domain::status_page::StatusPage> {
     let hostname = request_hostname(headers)
         .ok_or_else(|| Error::not_found("custom-domain status page was not found"))?;
+
     state
         .status_pages
         .resolve_customer_page_by_domain(&hostname)
@@ -104,17 +109,20 @@ fn session_response(
     outcome: StatusPageAccessSessionOutcome,
 ) -> Result<Response> {
     let cookie_name = crate::app::status_page::access_cookie_name(&outcome.page.id);
+
     let max_age = outcome
         .session
         .expires_at
         .0
         .saturating_sub(TimestampMicros::now().0)
         / 1_000_000;
+
     let mut cookie = format!(
         "{cookie_name}={}; Path=/; Max-Age={}; HttpOnly; SameSite=Lax",
         outcome.raw_session_token,
         max_age.max(0),
     );
+
     if state.platform.external_url.trim().starts_with("https://")
         || headers
             .get("x-forwarded-proto")
@@ -123,16 +131,19 @@ fn session_response(
     {
         cookie.push_str("; Secure");
     }
+
     let mut response = Json(serde_json::json!({
         "authenticated": true,
         "expires_at": outcome.session.expires_at,
     }))
     .into_response();
+
     response.headers_mut().insert(
         SET_COOKIE,
         cookie
             .parse()
             .map_err(|_| Error::internal("status-page session cookie is invalid"))?,
     );
+
     Ok(response)
 }

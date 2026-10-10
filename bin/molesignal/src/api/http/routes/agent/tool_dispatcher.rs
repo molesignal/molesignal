@@ -75,6 +75,7 @@ impl RealToolDispatcher {
                 "tool calls are disabled while query-generation-only mode is active",
             ));
         }
+
         if is_meta_tool(&call.name) {
             if !self.resolution.builtin_enabled(&call.name) {
                 return Ok(ToolResult::error(format!(
@@ -82,29 +83,36 @@ impl RealToolDispatcher {
                     call.name
                 )));
             }
+
             return match BuiltinToolKind::from_name(&call.name) {
                 Some(BuiltinToolKind::ToolSearch) => self.tool_search(call.arguments),
                 Some(BuiltinToolKind::ToolsCall) => self.tools_call(ctx, call.arguments).await,
                 _ => unreachable!(),
             };
         }
+
         let org_id = Id(ctx.org_id().to_string());
+
         let Some(kind) = BuiltinToolKind::from_name(&call.name) else {
             return self.execute_mcp(ctx, &org_id, call).await;
         };
+
         if !kind.spec().exposure.mole_agent {
             return Ok(ToolResult::error(format!(
                 "tool `{}` is not exposed to Mole Agent",
                 call.name
             )));
         }
+
         if !self.resolution.builtin_enabled(&call.name) {
             return Ok(ToolResult::error(format!(
                 "tool `{}` is not enabled for this organization",
                 call.name
             )));
         }
+
         let execution_mode = self.resolution.execution_mode_for_builtin(&call.name);
+
         let invocation = ToolInvocationContext::from_iam(ctx.iam_context())
             .with_source(ToolCallSource::MoleAgent)
             .with_chat(ctx.chat_id().map(str::to_string))
@@ -112,21 +120,26 @@ impl RealToolDispatcher {
             .with_execution_policy(ctx.execution_policy())
             .with_execution_mode(execution_mode)
             .query_generation_only(ctx.is_query_generation_only());
+
         let execution =
             super::builtin_execution::execute(&self.state, &invocation, kind, call.arguments);
+
         let result = if kind.spec().annotations.read_only {
             let timeout_ms = self
                 .resolution
                 .tool_policy(kind.name())
                 .map(|policy| policy.timeout_ms)
                 .unwrap_or(30_000);
+
             let timeout_ms = u64::try_from(timeout_ms.max(1)).unwrap_or(u64::MAX);
+
             tokio::time::timeout(Duration::from_millis(timeout_ms), execution)
                 .await
                 .map_err(|_| Error::unavailable(format!("tool `{}` timed out", kind.name())))??
         } else {
             execution.await?
         };
+
         Ok(self.enforce_response_limit(kind.name(), result))
     }
 
@@ -139,19 +152,23 @@ impl RealToolDispatcher {
         let Some(tool) = self.resolution.mcp_tools.get(&call.name) else {
             return Ok(ToolResult::error(format!("unknown tool: {}", call.name)));
         };
+
         if self.resolution.mcp_tool(&call.name).is_none() {
             return Ok(ToolResult::error(format!(
                 "MCP tool `{}` is disabled, unavailable, or blocked by the active Agent Profile",
                 call.name
             )));
         }
+
         if !ctx.execution_policy().allows_approval_request() && tool.risk != RiskLevel::L0 {
             return Ok(ToolResult::error(format!(
                 "MCP tool `{}` is blocked by the current execution policy",
                 call.name
             )));
         }
+
         let execution_mode = self.resolution.execution_mode_for_mcp(tool);
+
         if execution_mode != ToolExecutionMode::Automatic {
             return Ok(ToolResult::error(format!(
                 "MCP tool `{}` requires `{}` and cannot execute directly",
@@ -159,16 +176,19 @@ impl RealToolDispatcher {
                 execution_mode_label(execution_mode)
             )));
         }
+
         let mut server = self
             .resolution
             .mcp_servers
             .get(&tool.server_id.0)
             .cloned()
             .ok_or_else(|| Error::internal("MCP tool references a missing server"))?;
+
         if let Some(policy) = self.resolution.tool_policy(&call.name) {
             server.timeout_ms = server.timeout_ms.min(policy.timeout_ms);
             server.max_response_bytes = server.max_response_bytes.min(policy.max_response_bytes);
         }
+
         super::mcp::execute_tool(&self.state, org_id, &server, tool, call.arguments).await
     }
 
@@ -177,6 +197,7 @@ impl RealToolDispatcher {
             .map_err(|error| Error::invalid(format!("invalid tool arguments: {error}")))?;
         let query = args.query.unwrap_or_default().trim().to_ascii_lowercase();
         let domain = args.domain.as_deref().map(str::to_ascii_lowercase);
+
         let mut entries = builtin_tools()
             .into_iter()
             .filter(|tool| {
@@ -194,6 +215,7 @@ impl RealToolDispatcher {
                     &tool.domain,
                     &tool.tags,
                 )?;
+
                 Some((score, json!({
                     "name": tool.name, "display_name": tool.display_name,
                     "description": tool.description,
@@ -206,6 +228,7 @@ impl RealToolDispatcher {
                 })))
             })
             .collect::<Vec<_>>();
+
         entries.extend(
             self.resolution
                 .mcp_tools
@@ -221,6 +244,7 @@ impl RealToolDispatcher {
                         "mcp",
                         &tool.tags,
                     )?;
+
                     Some((score, json!({
                         "name": tool.name, "display_name": tool.display_name,
                         "description": tool.description, "tags": tool.tags,
@@ -231,14 +255,17 @@ impl RealToolDispatcher {
                     })))
                 }),
         );
+
         entries.sort_by_key(|(score, value)| {
             (
                 Reverse(*score),
                 value["name"].as_str().unwrap_or_default().to_string(),
             )
         });
+
         let limit = args.limit.unwrap_or(10).clamp(1, 50);
         entries.truncate(limit);
+
         Ok(ToolResult::json(json!({
             "query": query, "tools": entries.into_iter().map(|(_, value)| value).collect::<Vec<_>>(),
         })))
@@ -247,9 +274,11 @@ impl RealToolDispatcher {
     async fn tools_call(&self, ctx: &ToolAuthContext, arguments: Value) -> Result<ToolResult> {
         let args: ToolsCallArgs = serde_json::from_value(arguments)
             .map_err(|error| Error::invalid(format!("invalid tool arguments: {error}")))?;
+
         if is_meta_tool(&args.name) {
             return Ok(ToolResult::error("meta tools cannot call themselves"));
         }
+
         Box::pin(self.dispatch(
             ctx,
             ToolCall {
@@ -266,6 +295,7 @@ impl RealToolDispatcher {
             .tool_policy(name)
             .map(|policy| policy.max_response_bytes)
             .unwrap_or(DEFAULT_MAX_RESPONSE_BYTES);
+
         if i64::try_from(result.serialized_len()).unwrap_or(i64::MAX) > max_response_bytes {
             ToolResult::error(format!(
                 "tool `{name}` response exceeded the configured {} byte limit",
@@ -285,12 +315,15 @@ impl RealToolDispatcher {
         outcome: &Result<ToolResult>,
     ) -> Result<()> {
         let duration_ms = i64::try_from(started.elapsed().as_millis()).unwrap_or(i64::MAX);
+
         let (status, error) = match outcome {
             Ok(result) if result.is_error => ("error", result.first_text()),
             Ok(_) => ("success", None),
             Err(error) => ("error", Some(error.to_string())),
         };
+
         let output_summary = outcome.as_ref().ok().and_then(redacted_result_summary);
+
         let risk = risk_for_tool(tool_name)
             .or_else(|| {
                 self.resolution
@@ -299,6 +332,7 @@ impl RealToolDispatcher {
                     .map(|tool| tool.risk)
             })
             .unwrap_or(RiskLevel::L4);
+
         let execution_mode = if is_builtin_tool(tool_name) {
             self.resolution.execution_mode_for_builtin(tool_name)
         } else {
@@ -308,6 +342,7 @@ impl RealToolDispatcher {
                 .map(|tool| self.resolution.execution_mode_for_mcp(tool))
                 .unwrap_or(ToolExecutionMode::Disabled)
         };
+
         self.state
             .agent
             .repository
@@ -354,6 +389,7 @@ fn redacted_result_summary(result: &ToolResult) -> Option<String> {
             ToolContent::Text { text } => Value::String(text.clone()),
             ToolContent::Json { json } => json.clone(),
         };
+
         serde_json::to_string(&redact_sensitive_value(&value))
             .ok()
             .map(|text| text.chars().take(1_000).collect())
@@ -391,13 +427,17 @@ fn search_score(
     if query.is_empty() {
         return Some(1);
     }
+
     let name = name.to_ascii_lowercase();
+
     if name == query {
         return Some(1_000);
     }
+
     let display_name = display_name.to_ascii_lowercase();
     let description = description.to_ascii_lowercase();
     let domain = domain.to_ascii_lowercase();
+
     query.split_whitespace().try_fold(0u16, |score, token| {
         let token_score = u16::from(name.contains(token)) * 300
             + u16::from(display_name.contains(token)) * 160
@@ -407,6 +447,7 @@ fn search_score(
                     .any(|tag| tag.to_ascii_lowercase().contains(token)),
             ) * 100
             + u16::from(description.contains(token)) * 40;
+
         (token_score > 0).then_some(score.saturating_add(token_score))
     })
 }
@@ -431,6 +472,7 @@ pub(crate) fn redact_sensitive_value(value: &Value) -> Value {
         "api_key",
         "credential",
     ];
+
     match value {
         Value::Object(map) => Value::Object(
             map.iter()
@@ -443,6 +485,7 @@ pub(crate) fn redact_sensitive_value(value: &Value) -> Value {
                     } else {
                         redact_sensitive_value(value)
                     };
+
                     (key.clone(), value)
                 })
                 .collect(),

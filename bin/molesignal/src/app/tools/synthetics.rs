@@ -30,9 +30,11 @@ pub(super) async fn execute(
     arguments: serde_json::Value,
 ) -> Result<ToolResult> {
     let args: SyntheticArgs = parse_args(arguments)?;
+
     match kind {
         BuiltinToolKind::ListSyntheticMonitors => {
             let monitors = runtime.synthetics.list_monitors(&auth.org_id).await?;
+
             let filtered = monitors
                 .into_iter()
                 .filter(|monitor| {
@@ -40,18 +42,22 @@ pub(super) async fn execute(
                         .is_none_or(|value| monitor.lifecycle == value)
                 })
                 .collect();
+
             json_result(&bounded(filtered, args.limit, 500))
         }
         BuiltinToolKind::GetSyntheticMonitor => {
             let monitor_id = required_id(args.monitor_id, "monitor_id")?;
+
             let monitor = runtime
                 .synthetics
                 .get_monitor(&auth.org_id, &monitor_id)
                 .await?;
+
             let revisions = runtime
                 .synthetics
                 .list_revisions(&auth.org_id, &monitor_id)
                 .await?;
+
             Ok(ToolResult::json(serde_json::json!({
                 "monitor": monitor,
                 "revisions": revisions,
@@ -59,15 +65,18 @@ pub(super) async fn execute(
         }
         BuiltinToolKind::ListSyntheticRevisions => {
             let monitor_id = required_id(args.monitor_id, "monitor_id")?;
+
             let revisions = runtime
                 .synthetics
                 .list_revisions(&auth.org_id, &monitor_id)
                 .await?;
+
             json_result(&bounded(revisions, args.limit, 200))
         }
         BuiltinToolKind::ListSyntheticResults => {
             let limit = args.limit.unwrap_or(100).clamp(1, 500);
             let range = args.time_range.map(time_range).transpose()?;
+
             let (results, total) = if let Some(monitor_id) = args.monitor_id {
                 let results = runtime
                     .synthetics
@@ -78,6 +87,7 @@ pub(super) async fn execute(
                         u32::try_from(limit).unwrap_or(500),
                     )
                     .await?;
+
                 let total = u64::try_from(results.len()).unwrap_or(u64::MAX);
                 (results, total)
             } else {
@@ -92,8 +102,10 @@ pub(super) async fn execute(
                         },
                     )
                     .await?;
+
                 (page.items, page.total)
             };
+
             let items = results
                 .into_iter()
                 .filter(|result| {
@@ -105,6 +117,7 @@ pub(super) async fn execute(
                         })
                 })
                 .collect::<Vec<_>>();
+
             Ok(ToolResult::json(serde_json::json!({
                 "items": items,
                 "total_before_local_filters": total,
@@ -123,6 +136,7 @@ pub(super) async fn execute(
             } else {
                 runtime.synthetics.list_all_agents(&auth.org_id).await?
             };
+
             json_result(&bounded(agents, args.limit, 500))
         }
         BuiltinToolKind::ListSyntheticSecrets => {

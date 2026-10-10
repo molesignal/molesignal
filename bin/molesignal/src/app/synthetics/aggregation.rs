@@ -12,11 +12,13 @@ pub fn aggregate_locations(
     if expected_locations == 0 {
         return MonitorState::Unknown;
     }
+
     let mut healthy = 0usize;
     let mut flaky = 0usize;
     let mut degraded = 0usize;
     let mut failing = 0usize;
     let mut unknown = 0usize;
+
     for state in states.into_iter().take(expected_locations) {
         match state {
             MonitorState::Healthy => healthy += 1,
@@ -26,7 +28,9 @@ pub fn aggregate_locations(
             MonitorState::Unknown => unknown += 1,
         }
     }
+
     unknown += expected_locations.saturating_sub(healthy + flaky + degraded + failing + unknown);
+
     let threshold = match policy {
         MultiLocationPolicy::Any => 1,
         MultiLocationPolicy::Quorum { required } => {
@@ -35,15 +39,19 @@ pub fn aggregate_locations(
         MultiLocationPolicy::Majority => expected_locations / 2 + 1,
         MultiLocationPolicy::All => expected_locations,
     };
+
     if failing >= threshold {
         return MonitorState::Failing;
     }
+
     if failing + degraded >= threshold {
         return MonitorState::Degraded;
     }
+
     if failing + degraded + flaky >= threshold {
         return MonitorState::Flaky;
     }
+
     // If the missing evidence could still change the threshold verdict, the state is unknown.
     if failing + unknown >= threshold
         || failing + degraded + unknown >= threshold
@@ -51,6 +59,7 @@ pub fn aggregate_locations(
     {
         return MonitorState::Unknown;
     }
+
     if healthy > 0 {
         MonitorState::Healthy
     } else {

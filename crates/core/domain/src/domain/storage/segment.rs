@@ -128,12 +128,14 @@ impl DataSegment {
                 self.primary.role.as_str()
             )));
         }
+
         if self.primary.source_artifact_id.is_some() || self.primary.source_checksum.is_some() {
             return Err(crate::shared::Error::invalid(format!(
                 "segment {} primary artifact must not declare a source",
                 self.id
             )));
         }
+
         if let Some(aux) = self
             .auxiliaries
             .iter()
@@ -144,6 +146,7 @@ impl DataSegment {
                 self.id, aux.id
             )));
         }
+
         if let Some(index) = self.auxiliaries.iter().find(|artifact| {
             artifact.role == ArtifactRole::Index
                 && (artifact.source_artifact_id.as_ref() != Some(&self.primary.id)
@@ -154,12 +157,14 @@ impl DataSegment {
                 self.id, index.id
             )));
         }
+
         if self.time_range.start.0 > self.time_range.end.0 {
             return Err(crate::shared::Error::invalid(format!(
                 "segment {} has inverted time range",
                 self.id
             )));
         }
+
         Ok(())
     }
 }

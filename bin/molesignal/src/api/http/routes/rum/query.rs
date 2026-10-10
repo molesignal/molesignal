@@ -41,7 +41,9 @@ use crate::{
 
 /// Session detail can be opened from the 30-day list, so correlation uses the same maximum window.
 const DEFAULT_LOOKBACK_US: i64 = 30 * 24 * 3600 * 1_000_000;
+
 const ACTION_GRACE_US: i64 = 5 * 60 * 1_000_000;
+
 const TRACE_ACTION_COLUMNS: &[&str] = &[
     "_timestamp",
     "ts_micros",
@@ -82,7 +84,9 @@ async fn related_traces(
     if session_id.is_empty() {
         return Err(Error::invalid("empty session id"));
     }
+
     let now_us = TimestampMicros::now().0;
+
     let lookback_range = TimeRange::new(
         TimestampMicros(now_us - DEFAULT_LOOKBACK_US),
         TimestampMicros(now_us + 60 * 1_000_000),
@@ -93,8 +97,10 @@ async fn related_traces(
         state.storage.read_store.clone(),
     )
     .with_catalog_source(state.storage.catalog_query.clone());
+
     let session_ids = HashSet::from([session_id.clone()]);
     let mut session = None;
+
     rum.visit_raw_sessions_for_ids(&ctx.org_id, lookback_range, &session_ids, |candidate| {
         if session.as_ref().is_none_or(
             |current: &crate::infra::rum::read_model::RumSessionRecord| {
@@ -105,6 +111,7 @@ async fn related_traces(
         }
     })
     .await?;
+
     let Some(session_record) = session else {
         return Ok(Json(RelatedTracesResponse {
             session_id,
@@ -112,12 +119,15 @@ async fn related_traces(
             traces: Vec::new(),
         }));
     };
+
     let window_start = session_record.timestamp_micros;
+
     let duration_us = session_record
         .duration_ms
         .map(|duration| (duration.max(0.0) * 1_000.0) as i64)
         .unwrap_or(60 * 1_000_000)
         .max(60 * 1_000_000);
+
     let trace_window = TimeRange::new(
         TimestampMicros(window_start),
         TimestampMicros(
@@ -129,6 +139,7 @@ async fn related_traces(
 
     // 1. rum_action_summary：拿 (trace_id, service)，先按 direct 路径查。
     let mut direct: Vec<(String, Option<String>)> = Vec::new();
+
     rum.visit_actions_for_sessions(
         &ctx.org_id,
         trace_window,
@@ -138,12 +149,14 @@ async fn related_traces(
             let Some(trace_id) = action.trace_id.filter(|trace_id| !trace_id.is_empty()) else {
                 return;
             };
+
             if !direct.iter().any(|(existing, _)| existing == &trace_id) {
                 direct.push((trace_id, action.service));
             }
         },
     )
     .await?;
+
     let primary_service = direct
         .iter()
         .find_map(|(_, s)| s.clone())
@@ -152,6 +165,7 @@ async fn related_traces(
     if !direct.is_empty() {
         let trace_ids: Vec<String> = direct.iter().map(|(t, _)| t.clone()).collect();
         let traces = aggregate_traces(&state, &ctx, &trace_ids, trace_window, "direct").await?;
+
         return Ok(Json(RelatedTracesResponse {
             session_id,
             primary_service,
@@ -161,6 +175,7 @@ async fn related_traces(
 
     // 2. 退化：按 session 的真实时间窗做 time correlation。
     let traces = aggregate_traces_by_window(&state, &ctx, trace_window).await?;
+
     Ok(Json(RelatedTracesResponse {
         session_id,
         primary_service: None,
@@ -178,12 +193,15 @@ async fn aggregate_traces(
     let Some(stream) = resolve_traces_stream(state, &ctx.org_id).await else {
         return Ok(Vec::new());
     };
+
     let trace_ids = trace_ids.iter().cloned().collect::<HashSet<_>>();
+
     let reader = TraceSummaryReader::new(
         state.storage.catalog_files.clone(),
         state.storage.read_store.clone(),
     )
     .with_catalog_source(state.storage.catalog_query.clone());
+
     let rows = reader
         .scan(
             &ctx.org_id,
@@ -197,6 +215,7 @@ async fn aggregate_traces(
             },
         )
         .await?;
+
     Ok(summary_rows_to_entries(rows, relation))
 }
 
@@ -208,11 +227,13 @@ async fn aggregate_traces_by_window(
     let Some(stream) = resolve_traces_stream(state, &ctx.org_id).await else {
         return Ok(Vec::new());
     };
+
     let reader = TraceSummaryReader::new(
         state.storage.catalog_files.clone(),
         state.storage.read_store.clone(),
     )
     .with_catalog_source(state.storage.catalog_query.clone());
+
     let rows = reader
         .scan(
             &ctx.org_id,
@@ -226,6 +247,7 @@ async fn aggregate_traces_by_window(
             },
         )
         .await?;
+
     Ok(summary_rows_to_entries(rows, "time-correlated"))
 }
 
@@ -253,6 +275,7 @@ fn enrich_with_action_service(
         if e.service.is_some() {
             continue;
         }
+
         if let Some((_, svc)) = action_pairs.iter().find(|(t, _)| t == &e.trace_id)
             && let Some(s) = svc.as_ref()
             && !s.is_empty()
@@ -260,5 +283,6 @@ fn enrich_with_action_service(
             e.service = Some(s.clone());
         }
     }
+
     entries
 }

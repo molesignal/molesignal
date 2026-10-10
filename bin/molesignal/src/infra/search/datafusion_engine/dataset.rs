@@ -35,6 +35,7 @@ pub(super) struct DatasetLoadSelection<'a> {
 impl LoadedDataset {
     pub(super) fn from_catalog_snapshot(snapshot: StreamStorageSnapshot) -> Self {
         let mut files = snapshot.files();
+
         files.sort_by(|left, right| {
             right
                 .time_range
@@ -42,7 +43,9 @@ impl LoadedDataset {
                 .cmp(&left.time_range.end)
                 .then_with(|| right.id.0.cmp(&left.id.0))
         });
+
         files.dedup_by(|left, right| left.id == right.id);
+
         Self {
             files,
             tantivy_indexes: snapshot.tantivy_indexes(),
@@ -65,16 +68,20 @@ pub(super) async fn load(
         dataset_type,
         time_range,
     } = selection;
+
     if let (Some(source), Some(definition)) = (catalog_source, definition) {
         let dataset_types = match dataset_type.clone() {
             Some(dataset_type) => vec![dataset_type],
             None => crate::domain::storage::logical_query_dataset_types(stream_type)?,
         };
+
         let snapshot = source
             .snapshot_stream(definition, &dataset_types, time_range)
             .await?;
+
         return Ok(LoadedDataset::from_catalog_snapshot(snapshot));
     }
+
     let (mut files, buffered_batches) = if let Some(dataset_type) = dataset_type {
         (
             repository
@@ -100,11 +107,13 @@ pub(super) async fn load(
                     time_range,
                 )
             });
+
         (
             try_join_all(lookups).await?.into_iter().flatten().collect(),
             Vec::new(),
         )
     };
+
     files.sort_by(|left, right| {
         right
             .time_range
@@ -112,7 +121,9 @@ pub(super) async fn load(
             .cmp(&left.time_range.end)
             .then_with(|| right.id.0.cmp(&left.id.0))
     });
+
     files.dedup_by(|left, right| left.id == right.id);
+
     Ok(LoadedDataset {
         files,
         tantivy_indexes: explicit_tantivy_indexes.clone(),

@@ -18,9 +18,11 @@ pub(super) fn operation_span(
     location: Option<&ObjPath>,
 ) -> tracing::Span {
     let category = location.map(object_category).unwrap_or("collection");
+
     let fingerprint = location.and_then(|path| {
         crate::shared::trace_normalization::optional_hmac_fingerprint(path.as_ref())
     });
+
     tracing::info_span!(
         "object_store.operation",
         otel.kind = "client",
@@ -37,6 +39,7 @@ pub(super) fn operation_span(
 
 pub(super) fn object_category(path: &ObjPath) -> &'static str {
     let value = path.as_ref().to_ascii_lowercase();
+
     if StorageLayout::is_manifest_key(&value) || value.contains("/manifests/") {
         "metadata"
     } else if value.ends_with(".parquet") {

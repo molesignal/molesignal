@@ -14,14 +14,19 @@ use crate::domain::query::{QueryLanguage, SlowQuery};
 
 /// 慢查询毫秒阈值。
 const SLOW_MS: u64 = 3_000;
+
 /// "大扫描"行数阈值。
 const LARGE_SCAN: u64 = 100_000;
+
 /// "宽时间窗口"秒阈值（7 天）。
 const WIDE_RANGE_SECS: i64 = 7 * 86_400;
+
 /// 低选择度（扫描/返回）比阈值。
 const LOW_SELECTIVITY_RATIO: u64 = 1_000;
+
 /// 无 LIMIT 时判定"返回过多"的行数阈值。
 const LARGE_RETURN: u64 = 10_000;
+
 /// PromQL range selector "宽窗口"秒阈值（1 天）。
 const WIDE_PROMQL_RANGE_SECS: i64 = 86_400;
 
@@ -96,6 +101,7 @@ pub fn analyze(p: &QueryProfile) -> Vec<QueryRecommendation> {
         .time_range_secs
         .map(|s| s > WIDE_RANGE_SECS)
         .unwrap_or(true);
+
     if p.scanned_rows >= LARGE_SCAN && wide_window {
         out.push(rec(
             "wide_time_range",
@@ -168,6 +174,7 @@ pub fn analyze(p: &QueryProfile) -> Vec<QueryRecommendation> {
                 ),
             ));
         }
+
         if has_subquery(&p.statement) {
             out.push(rec(
                 "promql_subquery",
@@ -178,6 +185,7 @@ pub fn analyze(p: &QueryProfile) -> Vec<QueryRecommendation> {
                     .into(),
             ));
         }
+
         if p.statement.contains("=~") || p.statement.contains("!~") {
             out.push(rec(
                 "promql_regex_matcher",
@@ -200,10 +208,12 @@ pub fn query_fingerprint(language: QueryLanguage, statement: &str) -> String {
         .collect::<Vec<_>>()
         .join(" ")
         .to_lowercase();
+
     let lang = match language {
         QueryLanguage::Sql => "sql",
         QueryLanguage::Promql => "promql",
     };
+
     blake3::hash(format!("{lang}:{normalized}").as_bytes())
         .to_hex()
         .to_string()
@@ -214,6 +224,7 @@ fn bracket_segments(stmt: &str) -> Vec<&str> {
     let mut out = Vec::new();
     let bytes = stmt.as_bytes();
     let mut i = 0;
+
     while i < bytes.len() {
         if bytes[i] == b'['
             && let Some(rel) = stmt[i + 1..].find(']')
@@ -222,8 +233,10 @@ fn bracket_segments(stmt: &str) -> Vec<&str> {
             i = i + 1 + rel + 1;
             continue;
         }
+
         i += 1;
     }
+
     out
 }
 
@@ -235,12 +248,15 @@ fn has_subquery(stmt: &str) -> bool {
 /// 各 `[..]` 段里（subquery 取 `:` 之前的区间部分）的最大时长（秒）。
 fn max_range_selector_secs(stmt: &str) -> Option<i64> {
     let mut max: Option<i64> = None;
+
     for seg in bracket_segments(stmt) {
         let dur = seg.split(':').next().unwrap_or(seg).trim();
+
         if let Some(secs) = parse_promql_duration(dur) {
             max = Some(max.map_or(secs, |m| m.max(secs)));
         }
     }
+
     max
 }
 
@@ -249,15 +265,18 @@ fn parse_promql_duration(s: &str) -> Option<i64> {
     if s.is_empty() {
         return None;
     }
+
     let mut total = 0i64;
     let mut num = String::new();
     let mut any = false;
+
     for ch in s.chars() {
         if ch.is_ascii_digit() {
             num.push(ch);
         } else {
             let n: i64 = num.parse().ok()?;
             num.clear();
+
             let unit_secs = match ch {
                 's' => 1,
                 'm' => 60,
@@ -267,14 +286,17 @@ fn parse_promql_duration(s: &str) -> Option<i64> {
                 'y' => 31_536_000,
                 _ => return None,
             };
+
             total += n * unit_secs;
             any = true;
         }
     }
+
     // 末尾残留数字（无单位）或整体无单位 → 非法。
     if !num.is_empty() || !any {
         return None;
     }
+
     Some(total)
 }
 

@@ -27,10 +27,12 @@ impl PgOrganizationRepository {
     )]
     pub async fn ensure_system_organization(&self) -> Result<Organization> {
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         sqlx::query("SELECT pg_advisory_xact_lock(hashtext('molesignal.system.organization'))")
             .execute(&mut *tx)
             .await
             .map_err(sqlx_err)?;
+
         let existing = sqlx::query(
             "SELECT id, name, slug, system, disabled, created_at_micros
              FROM organizations
@@ -46,6 +48,7 @@ impl PgOrganizationRepository {
 
         let organization = if let Some(row) = existing {
             let organization = row_to_org(row)?;
+
             if !organization.system
                 || organization.name != SYSTEM_ORG_NAME
                 || organization.slug != SYSTEM_ORG_SLUG
@@ -55,6 +58,7 @@ impl PgOrganizationRepository {
                     "tampered or conflicting `_sys` organization identity",
                 ));
             }
+
             organization
         } else {
             let organization = Organization {
@@ -65,6 +69,7 @@ impl PgOrganizationRepository {
                 disabled: false,
                 created_at: TimestampMicros::now(),
             };
+
             sqlx::query(
                 "INSERT INTO organizations (id, name, slug, system, created_at_micros)
                  VALUES ($1, $2, $3, TRUE, $4)",
@@ -76,8 +81,10 @@ impl PgOrganizationRepository {
             .execute(&mut *tx)
             .await
             .map_err(sqlx_err)?;
+
             organization
         };
+
         sync_system_iam_roles(&mut tx, &organization).await?;
         tx.commit().await.map_err(sqlx_err)?;
         Ok(organization)
@@ -86,6 +93,7 @@ impl PgOrganizationRepository {
 
 async fn sync_system_iam_roles(tx: &mut PgConnection, organization: &Organization) -> Result<()> {
     let now = TimestampMicros::now();
+
     let roles_changed = sqlx::query(
         "INSERT INTO iam_roles (
              id, org_id, role_key, name, description, builtin,
@@ -169,6 +177,7 @@ async fn sync_system_iam_roles(tx: &mut PgConnection, organization: &Organizatio
             .await
             .map_err(sqlx_err)?;
     }
+
     Ok(())
 }
 
@@ -187,6 +196,7 @@ fn row_to_org(row: sqlx::postgres::PgRow) -> Result<Organization> {
 impl OrganizationRepository for PgOrganizationRepository {
     async fn create(&self, org: Organization) -> Result<Organization> {
         org.validate_system_invariants()?;
+
         sqlx::query(
             "INSERT INTO organizations (id, name, slug, system, disabled, created_at_micros)
              VALUES ($1, $2, $3, $4, $5, $6)",
@@ -200,6 +210,7 @@ impl OrganizationRepository for PgOrganizationRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(org)
     }
 
@@ -211,6 +222,7 @@ impl OrganizationRepository for PgOrganizationRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         row_to_org(row)
     }
 
@@ -222,6 +234,7 @@ impl OrganizationRepository for PgOrganizationRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         row_to_org(row)
     }
 
@@ -230,17 +243,20 @@ impl OrganizationRepository for PgOrganizationRepository {
             .fetch_all(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to_org).collect()
     }
 
     async fn update_name(&self, id: &Id, name: String) -> Result<Organization> {
         self.get(id).await?.ensure_mutable()?;
+
         sqlx::query("UPDATE organizations SET name = $2 WHERE id = $1")
             .bind(&id.0)
             .bind(&name)
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         self.get(id).await
     }
 
@@ -251,10 +267,12 @@ impl OrganizationRepository for PgOrganizationRepository {
     )]
     async fn set_disabled(&self, id: &Id, disabled: bool) -> Result<Organization> {
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         sqlx::query("SELECT pg_advisory_xact_lock(hashtext('molesignal.organization.status'))")
             .execute(&mut *tx)
             .await
             .map_err(sqlx_err)?;
+
         let row = sqlx::query(
             "SELECT id, name, slug, system, disabled, created_at_micros
              FROM organizations
@@ -265,6 +283,7 @@ impl OrganizationRepository for PgOrganizationRepository {
         .fetch_one(&mut *tx)
         .await
         .map_err(sqlx_err)?;
+
         let current = row_to_org(row)?;
         current.ensure_mutable()?;
 
@@ -275,6 +294,7 @@ impl OrganizationRepository for PgOrganizationRepository {
             .fetch_one(&mut *tx)
             .await
             .map_err(sqlx_err)?;
+
             if enabled_tenants <= 1 {
                 return Err(Error::invalid(
                     "cannot disable the last enabled tenant organization",
@@ -288,6 +308,7 @@ impl OrganizationRepository for PgOrganizationRepository {
             .execute(&mut *tx)
             .await
             .map_err(sqlx_err)?;
+
         tx.commit().await.map_err(sqlx_err)?;
         self.get(id).await
     }
@@ -300,16 +321,19 @@ impl OrganizationRepository for PgOrganizationRepository {
     async fn delete(&self, id: &Id) -> Result<()> {
         self.get(id).await?.ensure_mutable()?;
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         sqlx::query("DELETE FROM iam_memberships WHERE org_id = $1")
             .bind(&id.0)
             .execute(&mut *tx)
             .await
             .map_err(sqlx_err)?;
+
         sqlx::query("DELETE FROM organizations WHERE id = $1")
             .bind(&id.0)
             .execute(&mut *tx)
             .await
             .map_err(sqlx_err)?;
+
         tx.commit().await.map_err(sqlx_err)?;
         Ok(())
     }

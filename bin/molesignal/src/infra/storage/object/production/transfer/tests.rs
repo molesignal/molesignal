@@ -54,6 +54,7 @@ impl ObjectStore for Recording {
             .unwrap()
             .puts
             .push(payload.content_length());
+
         self.inner.put_opts(location, payload, options).await
     }
 
@@ -63,11 +64,13 @@ impl ObjectStore for Recording {
         options: PutMultipartOptions,
     ) -> ObjectStoreResult<Box<dyn MultipartUpload>> {
         let inner = self.inner.put_multipart_opts(location, options).await?;
+
         let index = {
             let mut calls = self.calls.lock().unwrap();
             calls.uploads.push(Vec::new());
             calls.uploads.len() - 1
         };
+
         Ok(Box::new(RecordingUpload {
             inner,
             calls: self.calls.clone(),
@@ -86,6 +89,7 @@ impl ObjectStore for Recording {
             .unwrap()
             .gets
             .push((options.range.clone(), options.if_match.is_some()));
+
         self.inner.get_opts(location, options).await
     }
 
@@ -131,6 +135,7 @@ impl MultipartUpload for RecordingUpload {
             parts.push(data.content_length());
             parts.len()
         };
+
         if self.fail_part == Some(number) {
             return Box::pin(async {
                 Err(OsError::Generic {
@@ -139,6 +144,7 @@ impl MultipartUpload for RecordingUpload {
                 })
             });
         }
+
         self.inner.put_part(data)
     }
 
@@ -167,6 +173,7 @@ fn wrapped(
     fail_part: Option<usize>,
 ) -> (Arc<ProductionObjectStore>, Arc<Mutex<Calls>>) {
     let calls = Arc::new(Mutex::new(Calls::default()));
+
     let store = ProductionObjectStore::wrap(
         Arc::new(Recording {
             inner: InMemory::new(),
@@ -175,6 +182,7 @@ fn wrapped(
         }),
         settings,
     );
+
     (store, calls)
 }
 

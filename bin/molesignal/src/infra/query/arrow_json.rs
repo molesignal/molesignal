@@ -44,6 +44,7 @@ const EXACT_DECIMAL_DIGITS: u8 = 15;
 pub fn batches_to_json(batches: &[RecordBatch]) -> (Vec<String>, Vec<Vec<Value>>) {
     let mut columns = Vec::new();
     let mut rows = Vec::new();
+
     for batch in batches {
         if columns.is_empty() {
             columns = batch
@@ -53,6 +54,7 @@ pub fn batches_to_json(batches: &[RecordBatch]) -> (Vec<String>, Vec<Vec<Value>>
                 .map(|field| field.name().clone())
                 .collect();
         }
+
         for row_index in 0..batch.num_rows() {
             rows.push(
                 batch
@@ -63,6 +65,7 @@ pub fn batches_to_json(batches: &[RecordBatch]) -> (Vec<String>, Vec<Vec<Value>>
             );
         }
     }
+
     (columns, rows)
 }
 
@@ -71,6 +74,7 @@ pub fn cell_to_json(array: &dyn Array, index: usize) -> Value {
     if array.is_null(index) {
         return Value::Null;
     }
+
     match array.data_type() {
         DataType::Null => Value::Null,
         DataType::Boolean => Value::Bool(array.as_boolean().value(index)),
@@ -149,11 +153,13 @@ fn decimal(array: &dyn Array, index: usize, precision: u8) -> Value {
     let Some(text) = text(array, index) else {
         return Value::Null;
     };
+
     if precision <= EXACT_DECIMAL_DIGITS
         && let Ok(value) = text.parse::<f64>()
     {
         return Value::from(value);
     }
+
     Value::String(text)
 }
 
@@ -204,6 +210,7 @@ fn object(array: &StructArray, index: usize) -> Value {
 /// Map 的一行是 `(key, value)` 条目；键不是字符串时取它的 JSON 文本。
 fn entries(rows: &StructArray) -> Value {
     let (keys, values) = (rows.column(0), rows.column(1));
+
     Value::Object(
         (0..rows.len())
             .map(|row| {
@@ -211,6 +218,7 @@ fn entries(rows: &StructArray) -> Value {
                     Value::String(key) => key,
                     other => other.to_string(),
                 };
+
                 (key, cell_to_json(values.as_ref(), row))
             })
             .collect(),

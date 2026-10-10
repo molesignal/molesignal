@@ -71,11 +71,13 @@ async fn list_traces(
     let args: ListTracesArgs = parse_args(arguments)?;
     let range = optional_time_range(args.time_range)?;
     let limit = args.limit.unwrap_or(50).clamp(1, 200);
+
     let Some(stream) = resolve_traces_stream(runtime, &auth.org_id).await? else {
         return Ok(ToolResult::json(
             json!({"traces": [], "stream_available": false}),
         ));
     };
+
     let trace_filter = match args.trace_id.as_deref() {
         Some(trace_id) => {
             validate_trace_id(trace_id)?;
@@ -83,11 +85,13 @@ async fn list_traces(
         }
         None => None,
     };
+
     let error_ids = if args.error_only {
         Some(error_trace_ids(runtime, auth, &stream.name, range, limit.saturating_mul(10)).await?)
     } else {
         None
     };
+
     let effective_ids = match (trace_filter, error_ids) {
         (Some(mut requested), Some(errors)) => {
             requested.retain(|id| errors.contains(id));
@@ -97,17 +101,21 @@ async fn list_traces(
         (None, Some(errors)) => Some(errors),
         (None, None) => None,
     };
+
     if effective_ids.as_ref().is_some_and(HashSet::is_empty) {
         return Ok(ToolResult::json(
             json!({"traces": [], "stream_available": true}),
         ));
     }
+
     let scan_limit = limit.saturating_mul(10).clamp(limit, 2_000);
+
     let reader = TraceSummaryReader::new(
         runtime.observability.catalog_files.clone(),
         runtime.observability.object_store.clone(),
     )
     .with_catalog_source(runtime.observability.catalog_query.clone());
+
     let rows = reader
         .scan(
             &auth.org_id,
@@ -121,10 +129,13 @@ async fn list_traces(
             },
         )
         .await?;
+
     let service = args.service.as_deref().map(str::to_ascii_lowercase);
+
     let min_duration_ns = args
         .min_duration_ms
         .map(|value| (value.max(0.0) * 1_000_000.0) as i64);
+
     let traces = rows
         .into_iter()
         .filter(|row| {
@@ -146,6 +157,7 @@ async fn list_traces(
             })
         })
         .collect::<Vec<_>>();
+
     Ok(ToolResult::json(json!({
         "traces": traces, "stream": stream.name, "stream_available": true,
     })))
@@ -162,6 +174,7 @@ async fn error_trace_ids(
         "SELECT DISTINCT trace_id FROM {} WHERE status_code = 'ERROR' LIMIT {limit}",
         quote_ident(stream),
     );
+
     let result = run_query(
         runtime,
         &auth.org_id,
@@ -172,10 +185,12 @@ async fn error_trace_ids(
         limit,
     )
     .await?;
+
     let index = result
         .columns
         .iter()
         .position(|column| column == "trace_id");
+
     Ok(result
         .rows
         .into_iter()
@@ -204,30 +219,36 @@ async fn trace_query(
     args: &GetTraceArgs,
 ) -> Result<Option<(crate::domain::query::QueryResult, usize)>> {
     validate_trace_id(&args.trace_id)?;
+
     let Some(stream) = resolve_traces_stream(runtime, &auth.org_id).await? else {
         return Ok(None);
     };
+
     let max_spans = args
         .max_spans
         .unwrap_or(DEFAULT_MAX_SPANS)
         .clamp(1, HARD_MAX_SPANS);
+
     let range = args
         .time_range
         .map(time_range)
         .transpose()?
         .unwrap_or_else(|| {
             let end = TimestampMicros::now();
+
             TimeRange::new(
                 TimestampMicros(end.0.saturating_sub(TRACE_LOOKBACK_MICROS)),
                 end,
             )
         });
+
     let statement = format!(
         "SELECT * FROM {} WHERE trace_id = '{}' ORDER BY _timestamp ASC LIMIT {}",
         quote_ident(&stream.name),
         sql_literal(&args.trace_id),
         max_spans + 1,
     );
+
     let result = run_query(
         runtime,
         &auth.org_id,
@@ -238,6 +259,7 @@ async fn trace_query(
         max_spans + 1,
     )
     .await?;
+
     Ok(Some((result, max_spans)))
 }
 
@@ -247,22 +269,27 @@ async fn get_trace(
     arguments: Value,
 ) -> Result<ToolResult> {
     let args: GetTraceArgs = parse_args(arguments)?;
+
     let Some((mut result, max_spans)) = trace_query(runtime, auth, &args).await? else {
         return Ok(ToolResult::error(format!(
             "trace {} not found",
             args.trace_id
         )));
     };
+
     let was_truncated = result.rows.len() > max_spans;
     result.rows.truncate(max_spans);
     let (spans, parser_truncated) = rows_to_spans(&result);
+
     if spans.is_empty() {
         return Ok(ToolResult::error(format!(
             "trace {} not found",
             args.trace_id
         )));
     }
+
     let response = TraceResponse::new(args.trace_id, spans, was_truncated || parser_truncated);
+
     Ok(ToolResult::json(
         serde_json::to_value(response).unwrap_or(Value::Null),
     ))
@@ -275,27 +302,33 @@ async fn get_trace_dag(
 ) -> Result<ToolResult> {
     let mut args: GetTraceArgs = parse_args(arguments)?;
     args.max_spans = Some(HARD_MAX_SPANS);
+
     let Some((mut result, max_spans)) = trace_query(runtime, auth, &args).await? else {
         return Ok(ToolResult::error(format!(
             "trace {} not found",
             args.trace_id
         )));
     };
+
     let truncated = result.rows.len() > max_spans;
     result.rows.truncate(max_spans);
     let (spans, parser_truncated) = rows_to_spans(&result);
+
     if spans.is_empty() {
         return Ok(ToolResult::error(format!(
             "trace {} not found",
             args.trace_id
         )));
     }
+
     let mut services = BTreeSet::new();
     let mut span_service = BTreeMap::new();
+
     for span in &spans {
         services.insert(span.service.clone());
         span_service.insert(span.span_id.clone(), span.service.clone());
     }
+
     let span_edges = spans
         .iter()
         .filter_map(|span| {
@@ -307,6 +340,7 @@ async fn get_trace_dag(
             })
         })
         .collect::<Vec<_>>();
+
     let service_edges = spans
         .iter()
         .filter_map(|span| {
@@ -319,6 +353,7 @@ async fn get_trace_dag(
         .into_iter()
         .map(|(from, to)| json!({"from": from, "to": to}))
         .collect::<Vec<_>>();
+
     Ok(ToolResult::json(json!({
         "trace_id": args.trace_id,
         "root_span_ids": spans.iter().filter(|span| span.parent_span_id.as_deref().is_none_or(str::is_empty)).map(|span| span.span_id.as_str()).collect::<Vec<_>>(),

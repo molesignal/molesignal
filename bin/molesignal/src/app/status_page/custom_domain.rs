@@ -38,6 +38,7 @@ impl StatusPageService {
         page_id: &Id,
     ) -> Result<StatusPageDomainCapability> {
         self.repository.get_page(org_id, page_id).await?;
+
         Ok(StatusPageDomainCapability {
             available: self.domain_verifier.is_some() && self.managed_domain_tls_configured,
         })
@@ -54,20 +55,26 @@ impl StatusPageService {
                 "status-page domain verification is not configured",
             ));
         }
+
         let page = self.repository.get_page(org_id, page_id).await?;
+
         if page.lifecycle != StatusPageLifecycle::Active {
             return Err(Error::conflict(
                 "an archived status page cannot configure a custom domain",
             ));
         }
+
         let hostname = normalize_custom_domain(Some(input.hostname))?
             .ok_or_else(|| Error::invalid("custom domain is required"))?;
+
         if let Some(existing) = self.repository.get_domain_config(org_id, page_id).await?
             && existing.hostname == hostname
         {
             return self.domain_instructions(existing);
         }
+
         let now = TimestampMicros::now();
+
         let config = self
             .repository
             .create_domain_config(StatusPageDomainConfig {
@@ -87,6 +94,7 @@ impl StatusPageService {
                 updated_at: now,
             })
             .await?;
+
         self.domain_instructions(config)
     }
 
@@ -96,6 +104,7 @@ impl StatusPageService {
         page_id: &Id,
     ) -> Result<Option<StatusPageDomainInstructions>> {
         self.repository.get_page(org_id, page_id).await?;
+
         self.repository
             .get_domain_config(org_id, page_id)
             .await?
@@ -109,16 +118,19 @@ impl StatusPageService {
         page_id: &Id,
     ) -> Result<StatusPageDomainInstructions> {
         let page = self.repository.get_page(org_id, page_id).await?;
+
         if page.lifecycle != StatusPageLifecycle::Active {
             return Err(Error::conflict(
                 "an archived status page cannot verify a custom domain",
             ));
         }
+
         let config = self
             .repository
             .get_domain_config(org_id, page_id)
             .await?
             .ok_or_else(|| Error::not_found("custom domain is not configured"))?;
+
         if config.last_checked_at.is_some_and(|checked| {
             TimestampMicros::now().0.saturating_sub(checked.0) < VERIFY_COOLDOWN_MICROS
         }) {
@@ -126,12 +138,14 @@ impl StatusPageService {
                 "custom domain verification is cooling down; try again shortly",
             ));
         }
+
         let config = self.check_domain(config).await?;
         self.domain_instructions(config)
     }
 
     pub async fn verify_domains_due(&self, limit: u32) -> Result<u64> {
         let now = TimestampMicros::now();
+
         let due = self
             .repository
             .list_domain_configs_due(
@@ -139,7 +153,9 @@ impl StatusPageService {
                 limit.min(100),
             )
             .await?;
+
         let count = u64::try_from(due.len()).unwrap_or(u64::MAX);
+
         for config in due {
             if let Err(error) = self.check_domain(config.clone()).await {
                 tracing::warn!(
@@ -149,6 +165,7 @@ impl StatusPageService {
                 );
             }
         }
+
         Ok(count)
     }
 
@@ -156,7 +173,9 @@ impl StatusPageService {
         let verifier = self.domain_verifier.as_ref().ok_or_else(|| {
             Error::unavailable("status-page domain verification is not configured")
         })?;
+
         let now = TimestampMicros::now();
+
         self.repository
             .record_domain_check(StatusPageDomainCheckUpdate {
                 org_id: config.org_id.clone(),
@@ -168,6 +187,7 @@ impl StatusPageService {
                 provision_tls: false,
             })
             .await?;
+
         let check = match verifier
             .verify(&config.hostname, &config.verification_token)
             .await
@@ -182,6 +202,7 @@ impl StatusPageService {
                 } else {
                     StatusPageDomainState::Failed
                 };
+
                 let updated = self
                     .repository
                     .record_domain_check(StatusPageDomainCheckUpdate {
@@ -194,10 +215,12 @@ impl StatusPageService {
                         provision_tls: false,
                     })
                     .await?;
+
                 self.notify_domain_health_transition(&updated).await;
                 return Ok(updated);
             }
         };
+
         let (state, provision_tls) = if check.ownership_verified && check.routing_valid {
             (StatusPageDomainState::Verified, config.domain_id.is_none())
         } else if matches!(
@@ -208,6 +231,7 @@ impl StatusPageService {
         } else {
             (StatusPageDomainState::PendingDns, false)
         };
+
         let updated = self
             .repository
             .record_domain_check(StatusPageDomainCheckUpdate {
@@ -220,6 +244,7 @@ impl StatusPageService {
                 provision_tls,
             })
             .await?;
+
         self.notify_domain_health_transition(&updated).await;
         Ok(updated)
     }
@@ -229,6 +254,7 @@ impl StatusPageService {
             config.state,
             StatusPageDomainState::Failed | StatusPageDomainState::Degraded
         );
+
         if !unhealthy {
             if config.last_alerted_state.is_some() {
                 let _ = self
@@ -241,11 +267,14 @@ impl StatusPageService {
                     )
                     .await;
             }
+
             return;
         }
+
         if config.last_alerted_state == Some(config.state) {
             return;
         }
+
         let Some(notifier) = self.domain_health_notifier.as_ref() else {
             tracing::warn!(
                 status_page_id = %config.status_page_id,
@@ -255,6 +284,7 @@ impl StatusPageService {
             );
             return;
         };
+
         let page = match self
             .repository
             .get_page(&config.org_id, &config.status_page_id)
@@ -266,6 +296,7 @@ impl StatusPageService {
                 return;
             }
         };
+
         let alert = StatusPageDomainHealthAlert {
             org_id: config.org_id.clone(),
             status_page_id: config.status_page_id.clone(),
@@ -274,6 +305,7 @@ impl StatusPageService {
             state: config.state,
             error: config.last_error.clone(),
         };
+
         match notifier.notify(&alert).await {
             Ok(()) => {
                 let _ = self
@@ -300,25 +332,30 @@ impl StatusPageService {
         page_id: &Id,
     ) -> Result<StatusPageDomainInstructions> {
         let page = self.repository.get_page(org_id, page_id).await?;
+
         if page.lifecycle != StatusPageLifecycle::Active {
             return Err(Error::conflict(
                 "an archived status page cannot retry custom-domain TLS",
             ));
         }
+
         let config = self
             .repository
             .retry_domain_tls(org_id, page_id, TimestampMicros::now())
             .await?;
+
         self.domain_instructions(config)
     }
 
     pub async fn remove_custom_domain(&self, org_id: &Id, page_id: &Id) -> Result<()> {
         let page = self.repository.get_page(org_id, page_id).await?;
+
         if page.lifecycle != StatusPageLifecycle::Active {
             return Err(Error::conflict(
                 "an archived status page cannot remove a custom domain",
             ));
         }
+
         self.repository.delete_domain_config(org_id, page_id).await
     }
 
@@ -329,6 +366,7 @@ impl StatusPageService {
         let verifier = self.domain_verifier.as_ref().ok_or_else(|| {
             Error::unavailable("status-page domain verification is not configured")
         })?;
+
         Ok(StatusPageDomainInstructions {
             txt_name: format!("_molesignal-verification.{}", config.hostname),
             txt_value: config.verification_token.clone(),

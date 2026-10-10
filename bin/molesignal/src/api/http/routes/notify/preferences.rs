@@ -49,6 +49,7 @@ async fn list_preferences(
 ) -> Result<Json<Vec<UserNotifyPreference>>> {
     let user_id = Id::from_string(user_id);
     ensure_user_scope(&state, &context, &user_id, false).await?;
+
     Ok(Json(
         state
             .alerting
@@ -66,6 +67,7 @@ async fn upsert_preference(
 ) -> Result<Json<UserNotifyPreference>> {
     let user_id = Id::from_string(user_id);
     ensure_user_scope(&state, &context, &user_id, true).await?;
+
     Ok(Json(
         state
             .alerting

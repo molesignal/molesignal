@@ -30,6 +30,7 @@ pub(super) async fn execute(
     if ctx.is_system_scope() {
         return Err(Error::not_found("service accounts"));
     }
+
     match approval.action.as_str() {
         "create_service_account" => create(state, ctx, approval).await,
         "update_service_account" => update(state, ctx, approval).await,
@@ -74,6 +75,7 @@ async fn create(
     let token_name = format!("{name} initial API token");
     let (prefix, secret) = generate_token_parts();
     let plaintext = assemble_token(&prefix, &secret);
+
     let initial_token = ApiToken {
         id: Id::new(),
         prefix,
@@ -93,6 +95,7 @@ async fn create(
         application_id: None,
         service_account_id: Some(account_id.clone()),
     };
+
     let (account, token) = state
         .iam
         .service_accounts
@@ -111,6 +114,7 @@ async fn create(
             initial_token,
         )
         .await?;
+
     Ok(OperationOutcome::with_one_time_result(
         "service account and initial API token created",
         json!({
@@ -153,28 +157,34 @@ async fn update(
     approval: &ApprovalRequest,
 ) -> Result<OperationOutcome> {
     let parameters: UpdateServiceAccount = parse(&approval.parameters)?;
+
     if parameters.name.is_none() && parameters.description.is_none() && parameters.role_id.is_none()
     {
         return Err(Error::invalid(
             "update_service_account requires at least one field",
         ));
     }
+
     let mut account = state
         .iam
         .service_accounts
         .get(&ctx.org_id, &Id(approval.target.clone()))
         .await?;
+
     if let Some(name) = parameters.name {
         account.name = validate_name(&name)?;
     }
+
     if let Some(description) = parameters.description {
         account.description = validate_description(&description)?;
     }
+
     if let Some(role_id) = parameters.role_id {
         let role_id = Id(role_id);
         validate_role(state, ctx, &role_id).await?;
         account.role_id = role_id;
     }
+
     account.updated_at = TimestampMicros::now();
     let account = state.iam.service_accounts.update(account).await?;
     outcome("service account updated", account)
@@ -187,6 +197,7 @@ async fn set_disabled(
     disabled: bool,
 ) -> Result<OperationOutcome> {
     let _: EmptyParameters = parse(&approval.parameters)?;
+
     let account = state
         .iam
         .service_accounts
@@ -197,6 +208,7 @@ async fn set_disabled(
             TimestampMicros::now(),
         )
         .await?;
+
     outcome(
         if disabled {
             "service account disabled and bound active API tokens revoked"
@@ -214,11 +226,13 @@ async fn delete(
 ) -> Result<OperationOutcome> {
     let _: EmptyParameters = parse(&approval.parameters)?;
     let id = Id(approval.target.clone());
+
     state
         .iam
         .service_accounts
         .delete(&ctx.org_id, &id, TimestampMicros::now())
         .await?;
+
     Ok(OperationOutcome {
         summary: "service account deleted and bound active API tokens revoked".into(),
         verification: json!({"verified": true, "service_account_id": id, "deleted": true}),
@@ -231,16 +245,19 @@ struct EmptyParameters {}
 
 async fn validate_role(state: &AppState, ctx: &IamContext, role_id: &Id) -> Result<IamRole> {
     let role = state.iam.roles.get(&ctx.org_id, role_id).await?;
+
     if role.role_type != "organization" || role.scope != "organization" {
         return Err(Error::invalid(
             "service account role must have organization type and scope",
         ));
     }
+
     if role.key == "rum_client" {
         return Err(Error::invalid(
             "rum_client API tokens are application-scoped and cannot authenticate a service account",
         ));
     }
+
     if role
         .permissions
         .iter()
@@ -250,24 +267,29 @@ async fn validate_role(state: &AppState, ctx: &IamContext, role_id: &Id) -> Resu
             "service account role permissions cannot exceed executor IAM capabilities",
         ));
     }
+
     Ok(role)
 }
 
 fn validate_name(value: &str) -> Result<String> {
     let value = value.trim();
+
     if value.is_empty() || value.chars().count() > 128 {
         return Err(Error::invalid(
             "name must contain between 1 and 128 characters",
         ));
     }
+
     Ok(value.to_string())
 }
 
 fn validate_description(value: &str) -> Result<String> {
     let value = value.trim();
+
     if value.chars().count() > 2_000 {
         return Err(Error::invalid("description cannot exceed 2000 characters"));
     }
+
     Ok(value.to_string())
 }
 

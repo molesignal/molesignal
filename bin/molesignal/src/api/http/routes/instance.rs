@@ -53,6 +53,7 @@ async fn get_instance(State(state): State<AppState>) -> Result<Json<InstanceResp
         .await
         .map(|s| s.signup_enabled)
         .unwrap_or(false);
+
     Ok(Json(InstanceResp {
         external_url: state.platform.external_url.clone(),
         signup_enabled,
@@ -74,6 +75,7 @@ async fn get_signup_policy(
     axum::Extension(ctx): axum::Extension<IamContext>,
 ) -> Result<Json<SignupPolicy>> {
     let s = state.iam.instance_settings.get().await?;
+
     Ok(Json(SignupPolicy {
         signup_enabled: s.signup_enabled,
         signup_require_approval: s.signup_require_approval,
@@ -92,6 +94,7 @@ async fn put_signup_policy(
     s.signup_require_approval = req.signup_require_approval;
     s.updated_at = TimestampMicros::now();
     let updated = state.iam.instance_settings.update(s).await?;
+
     Ok(Json(SignupPolicy {
         signup_enabled: updated.signup_enabled,
         signup_require_approval: updated.signup_require_approval,
@@ -111,6 +114,7 @@ async fn get_service_graph(
     axum::Extension(ctx): axum::Extension<IamContext>,
 ) -> Result<Json<ServiceGraphSettings>> {
     let s = state.iam.instance_settings.get().await?;
+
     Ok(Json(ServiceGraphSettings {
         source: s.service_graph_source,
     }))
@@ -125,11 +129,13 @@ async fn put_service_graph(
     if req.source != "intake" && req.source != "storage" {
         return Err(Error::invalid("source must be 'intake' or 'storage'"));
     }
+
     // read-modify-write：保留 signup 等其它实例设置。
     let mut s = state.iam.instance_settings.get().await?;
     s.service_graph_source = req.source;
     s.updated_at = TimestampMicros::now();
     let updated = state.iam.instance_settings.update(s).await?;
+
     Ok(Json(ServiceGraphSettings {
         source: updated.service_graph_source,
     }))
@@ -156,6 +162,7 @@ async fn get_federation(
     axum::Extension(ctx): axum::Extension<IamContext>,
 ) -> Result<Json<FederationSettings>> {
     let s = state.iam.instance_settings.get().await?;
+
     Ok(Json(FederationSettings {
         cluster_id: s.federation_cluster_id,
         drain_interval_secs: s.federation_drain_interval_secs,
@@ -172,9 +179,11 @@ async fn put_federation(
     Json(req): Json<FederationSettings>,
 ) -> Result<Json<FederationSettings>> {
     let cluster_id = req.cluster_id.trim().to_string();
+
     if cluster_id.len() > 128 {
         return Err(Error::invalid("cluster_id too long (max 128)"));
     }
+
     // 周期 / 批量 / 窗口须为正。
     if req.drain_interval_secs < 1
         || req.push_batch_size < 1
@@ -185,6 +194,7 @@ async fn put_federation(
             "drain_interval_secs / push_batch_size / seen_events_ttl_secs / gossip_interval_secs must be >= 1",
         ));
     }
+
     // read-modify-write：保留 signup / service_graph 等其它实例设置。
     let mut s = state.iam.instance_settings.get().await?;
     s.federation_cluster_id = cluster_id;
@@ -194,6 +204,7 @@ async fn put_federation(
     s.federation_gossip_interval_secs = req.gossip_interval_secs;
     s.updated_at = TimestampMicros::now();
     let updated = state.iam.instance_settings.update(s).await?;
+
     Ok(Json(FederationSettings {
         cluster_id: updated.federation_cluster_id,
         drain_interval_secs: updated.federation_drain_interval_secs,

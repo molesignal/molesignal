@@ -55,6 +55,7 @@ impl OncallEventProducer {
                 }
             }
         }
+
         Ok(())
     }
 }
@@ -64,42 +65,53 @@ pub fn override_created_dispatch(
     schedule_override: &ScheduleOverride,
 ) -> NotifyDispatch {
     let mut without_override = schedule.clone();
+
     without_override
         .overrides
         .retain(|value| value.id != schedule_override.id);
+
     let original_user = without_override.who_is_on_call(schedule_override.start_at);
+
     let user_ids = original_user
         .iter()
         .chain(std::iter::once(&schedule_override.user_id))
         .cloned()
         .collect::<Vec<_>>();
+
     let mut attributes = schedule_attributes(schedule, user_ids);
+
     attributes.insert(
         "override_id".into(),
         Value::String(schedule_override.id.to_string()),
     );
+
     attributes.insert(
         "override_user_id".into(),
         Value::String(schedule_override.user_id.to_string()),
     );
+
     attributes.insert(
         "start_at_micros".into(),
         Value::Number(schedule_override.start_at.0.into()),
     );
+
     attributes.insert(
         "end_at_micros".into(),
         Value::Number(schedule_override.end_at.0.into()),
     );
+
     attributes.insert(
         "reason".into(),
         Value::String(schedule_override.reason.clone()),
     );
+
     if let Some(user_id) = &original_user {
         attributes.insert(
             "original_user_id".into(),
             Value::String(user_id.to_string()),
         );
     }
+
     attributes.insert(
         "override".into(),
         serde_json::json!({
@@ -111,6 +123,7 @@ pub fn override_created_dispatch(
             "reason": schedule_override.reason
         }),
     );
+
     dispatch(
         schedule,
         ONCALL_OVERRIDE_CREATED_EVENT,
@@ -128,9 +141,11 @@ pub fn override_created_dispatch(
 fn schedule_dispatches(schedule: &Schedule, now: TimestampMicros) -> Vec<NotifyDispatch> {
     let now = floor_minute(now);
     let mut dispatches = Vec::new();
+
     for minute in 0..STARTED_LOOKBACK_MINUTES {
         let at = TimestampMicros(now.0.saturating_sub(minute * MINUTE_MICROS));
         let before = TimestampMicros(at.0.saturating_sub(MINUTE_MICROS));
+
         if let (Some(previous), Some(current)) =
             (schedule.who_is_on_call(before), schedule.who_is_on_call(at))
             && previous != current
@@ -158,6 +173,7 @@ fn schedule_dispatches(schedule: &Schedule, now: TimestampMicros) -> Vec<NotifyD
     if schedule.who_is_on_call(now).is_none() {
         let hour_bucket = now.0 / (60 * MINUTE_MICROS);
         let attributes = schedule_attributes(schedule, manager_user_ids(schedule));
+
         dispatches.push(dispatch(
             schedule,
             ONCALL_COVERAGE_MISSING_EVENT,
@@ -171,19 +187,23 @@ fn schedule_dispatches(schedule: &Schedule, now: TimestampMicros) -> Vec<NotifyD
             format!("{} currently has no on-call coverage.", schedule.name),
         ));
     }
+
     dispatches
 }
 
 fn next_transition(schedule: &Schedule, now: TimestampMicros) -> Option<(TimestampMicros, Id, Id)> {
     let current = schedule.who_is_on_call(now)?;
+
     for minute in 1..=STARTING_WINDOW_MINUTES + 1 {
         let at = TimestampMicros(now.0.saturating_add(minute * MINUTE_MICROS));
+
         if let Some(next) = schedule.who_is_on_call(at)
             && next != current
         {
             return Some((at, current, next));
         }
     }
+
     None
 }
 
@@ -195,15 +215,19 @@ fn shift_dispatch(
     current: Id,
 ) -> NotifyDispatch {
     let mut attributes = schedule_attributes(schedule, vec![previous.clone(), current.clone()]);
+
     attributes.insert(
         "current_user_id".into(),
         Value::String(previous.to_string()),
     );
+
     attributes.insert("next_user_id".into(), Value::String(current.to_string()));
+
     attributes.insert(
         "transition_at_micros".into(),
         Value::Number(transition_at.0.into()),
     );
+
     attributes.insert(
         "oncall".into(),
         serde_json::json!({
@@ -212,11 +236,13 @@ fn shift_dispatch(
             "transition_at": transition_at.0
         }),
     );
+
     let title = if event_type == ONCALL_SHIFT_STARTED_EVENT {
         "On-call shift started"
     } else {
         "On-call shift starting soon"
     };
+
     dispatch(
         schedule,
         event_type,
@@ -241,6 +267,7 @@ fn schedule_attributes(schedule: &Schedule, user_ids: Vec<Id>) -> Map<String, Va
     attributes.insert("schedule_id".into(), Value::String(schedule.id.to_string()));
     attributes.insert("schedule_name".into(), Value::String(schedule.name.clone()));
     attributes.insert("timezone".into(), Value::String(schedule.timezone.clone()));
+
     attributes.insert(
         "user_ids".into(),
         Value::Array(
@@ -250,6 +277,7 @@ fn schedule_attributes(schedule: &Schedule, user_ids: Vec<Id>) -> Map<String, Va
                 .collect(),
         ),
     );
+
     attributes.insert(
         "manager_user_ids".into(),
         Value::Array(
@@ -259,9 +287,11 @@ fn schedule_attributes(schedule: &Schedule, user_ids: Vec<Id>) -> Map<String, Va
                 .collect(),
         ),
     );
+
     if let Some(team_id) = &schedule.team_id {
         attributes.insert("team_id".into(), Value::String(team_id.to_string()));
     }
+
     attributes.insert(
         "schedule".into(),
         serde_json::json!({
@@ -271,6 +301,7 @@ fn schedule_attributes(schedule: &Schedule, user_ids: Vec<Id>) -> Map<String, Va
             "timezone": schedule.timezone
         }),
     );
+
     attributes
 }
 
@@ -298,6 +329,7 @@ fn dispatch(
     let mut metadata = BTreeMap::new();
     metadata.insert("schedule_id".into(), schedule.id.to_string());
     metadata.insert("event_type".into(), event_type.into());
+
     NotifyDispatch {
         event: NotifyEvent {
             id,

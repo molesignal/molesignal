@@ -153,17 +153,21 @@ pub fn load(path: Option<&Path>) -> anyhow::Result<&'static Settings> {
     let defaults = Settings::default();
     let env = env::provider(&defaults)?;
     let mut fig = Figment::from(Serialized::defaults(defaults));
+
     if let Some(p) = path {
         fig = fig.merge(Toml::file(p));
     }
+
     fig = fig.merge(env);
 
     let mut settings: Settings = fig.extract()?;
     settings.node.id = settings.node.resolved_id();
     settings.validate()?;
+
     SETTINGS
         .set(settings)
         .map_err(|_| anyhow::anyhow!("settings already initialized"))?;
+
     Ok(SETTINGS.get().unwrap())
 }
 

@@ -48,11 +48,14 @@ impl ClusterSecretRepository for PgClusterSecretRepository {
         if ref_id.is_empty() {
             return Err(Error::invalid("cluster secret ref_id 不能为空"));
         }
+
         let (nonce, enc) = self
             .mk
             .seal(plaintext.as_bytes())
             .map_err(|e| Error::internal(format!("cluster secret seal: {e}")))?;
+
         let now = TimestampMicros::now();
+
         sqlx::query(
             "INSERT INTO cluster_secrets
                 (org_id, ref_id, ciphertext, nonce, created_at_micros, updated_at_micros)
@@ -70,6 +73,7 @@ impl ClusterSecretRepository for PgClusterSecretRepository {
         .execute(&self.pool)
         .await
         .map_err(crate::infra::persistence::sqlx_err)?;
+
         Ok(())
     }
 
@@ -87,14 +91,17 @@ impl ClusterSecretRepository for PgClusterSecretRepository {
         let enc: Vec<u8> = row
             .try_get("ciphertext")
             .map_err(|e| Error::internal(e.to_string()))?;
+
         let nonce: Vec<u8> = row
             .try_get("nonce")
             .map_err(|e| Error::internal(e.to_string()))?;
+
         let plain = self
             .mk
             .open(&nonce, &enc)
             // 错误信息只提 ref_id，绝不带明文 / 密文片段。
             .map_err(|_| Error::internal(format!("cluster secret `{ref_id}` 解密失败")))?;
+
         String::from_utf8(plain)
             .map_err(|_| Error::internal(format!("cluster secret `{ref_id}` 非 UTF-8 token")))
     }
@@ -106,6 +113,7 @@ impl ClusterSecretRepository for PgClusterSecretRepository {
             .execute(&self.pool)
             .await
             .map_err(crate::infra::persistence::sqlx_err)?;
+
         Ok(())
     }
 }

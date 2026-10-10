@@ -17,6 +17,7 @@ use crate::{
 pub(super) const LOCATION_COLS: &str = "id, organization_id, name, code, description, scope,
     execution, lifecycle, health, system_managed, egress_policy,
     created_at_micros, updated_at_micros";
+
 pub(super) const AGENT_COLS: &str = "agent.id AS id,
     location.organization_id AS organization_id, agent.location_id AS location_id,
     agent.name AS name, agent.hostname AS hostname, agent.status AS status,
@@ -29,6 +30,7 @@ pub(super) const AGENT_COLS: &str = "agent.id AS id,
     agent.revoked_at_micros AS revoked_at_micros,
     agent.created_at_micros AS created_at_micros,
     agent.updated_at_micros AS updated_at_micros";
+
 pub(super) const CONFIGURED_AGENT_COLS: &str = "agent.id AS id,
     location.organization_id AS organization_id, agent.location_id AS location_id,
     COALESCE(configuration.name, agent.name) AS name,
@@ -46,20 +48,25 @@ pub(super) const CONFIGURED_AGENT_COLS: &str = "agent.id AS id,
         agent.updated_at_micros,
         COALESCE(configuration.updated_at_micros, agent.updated_at_micros)
     ) AS updated_at_micros";
+
 pub(super) const SECRET_COLS: &str = "id, organization_id, name, description, current_version,
     created_by, created_at_micros, updated_at_micros, archived_at_micros";
+
 pub(super) const MONITOR_COLS: &str = "id, organization_id, name, description, kind, lifecycle,
     state, team_id, tags, active_revision_id, draft_revision_id, next_due_at_micros,
     created_by, created_at_micros, updated_at_micros, archived_at_micros";
+
 pub(super) const REVISION_COLS: &str = "id, organization_id, monitor_id, revision_number,
     spec, schedule, timeout_millis, max_retries, consecutive_failures, consecutive_recoveries,
     freshness_seconds, location_policy, escalation_policy_id, alert_on_degraded, alert_on_flaky,
     last_test_result_id, last_test_passed_at_micros,
     created_by, created_at_micros, content_hash";
+
 pub(super) const TASK_COLS: &str = "id, organization_id, monitor_id, monitor_revision_id,
     location_id, spec, is_test, state, scheduled_at_micros, deadline_at_micros, timeout_millis,
     max_attempts, lease_agent_id, lease_token_hash, leased_until_micros,
     created_at_micros, updated_at_micros";
+
 pub(super) const RESULT_COLS: &str = "id, organization_id, monitor_id, monitor_revision_id,
     location_id, agent_id, task_id, is_test, result_sequence, scheduled_at_micros, started_at_micros,
     finished_at_micros, received_at_micros, outcome, attempts, assertions, secret_versions,
@@ -75,6 +82,7 @@ pub(super) fn row_to_location(row: sqlx::postgres::PgRow) -> Result<ProbeLocatio
     let lifecycle: String = row.try_get("lifecycle").map_err(super::sqlx_err)?;
     let health: String = row.try_get("health").map_err(super::sqlx_err)?;
     let egress: serde_json::Value = row.try_get("egress_policy").map_err(super::sqlx_err)?;
+
     Ok(ProbeLocation {
         id: Id(row.try_get("id").map_err(super::sqlx_err)?),
         organization_id: row
@@ -101,6 +109,7 @@ pub(super) fn row_to_agent(row: sqlx::postgres::PgRow) -> Result<ProbeAgent> {
     let capabilities: Vec<String> = row.try_get("capabilities").map_err(super::sqlx_err)?;
     let capacity: serde_json::Value = row.try_get("capacity").map_err(super::sqlx_err)?;
     let labels: serde_json::Value = row.try_get("labels").map_err(super::sqlx_err)?;
+
     Ok(ProbeAgent {
         id: Id(row.try_get("id").map_err(super::sqlx_err)?),
         organization_id: row
@@ -172,6 +181,7 @@ pub(super) fn row_to_monitor(row: sqlx::postgres::PgRow) -> Result<SyntheticMoni
     let kind: String = row.try_get("kind").map_err(super::sqlx_err)?;
     let lifecycle: String = row.try_get("lifecycle").map_err(super::sqlx_err)?;
     let state: String = row.try_get("state").map_err(super::sqlx_err)?;
+
     Ok(SyntheticMonitor {
         id: Id(row.try_get("id").map_err(super::sqlx_err)?),
         organization_id: Id(row.try_get("organization_id").map_err(super::sqlx_err)?),
@@ -218,6 +228,7 @@ pub(super) fn row_to_revision(
     let spec: serde_json::Value = row.try_get("spec").map_err(super::sqlx_err)?;
     let schedule: serde_json::Value = row.try_get("schedule").map_err(super::sqlx_err)?;
     let policy: serde_json::Value = row.try_get("location_policy").map_err(super::sqlx_err)?;
+
     Ok(MonitorRevision {
         id: Id(row.try_get("id").map_err(super::sqlx_err)?),
         organization_id: Id(row.try_get("organization_id").map_err(super::sqlx_err)?),
@@ -270,6 +281,7 @@ pub(super) fn row_to_revision(
 pub(super) fn row_to_task(row: sqlx::postgres::PgRow) -> Result<ProbeTask> {
     let spec: serde_json::Value = row.try_get("spec").map_err(super::sqlx_err)?;
     let state: String = row.try_get("state").map_err(super::sqlx_err)?;
+
     Ok(ProbeTask {
         id: Id(row.try_get("id").map_err(super::sqlx_err)?),
         organization_id: Id(row.try_get("organization_id").map_err(super::sqlx_err)?),
@@ -314,6 +326,7 @@ pub(super) fn row_to_result(row: sqlx::postgres::PgRow) -> Result<SyntheticResul
     let secret_versions: serde_json::Value =
         row.try_get("secret_versions").map_err(super::sqlx_err)?;
     let metadata: serde_json::Value = row.try_get("metadata").map_err(super::sqlx_err)?;
+
     Ok(SyntheticResult {
         id: Id(row.try_get("id").map_err(super::sqlx_err)?),
         organization_id: Id(row.try_get("organization_id").map_err(super::sqlx_err)?),

@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::shared::{Error, Result};
 
 pub const APM_HISTOGRAM_SCHEMA_VERSION: u16 = 1;
+
 pub const APM_HISTOGRAM_UPPER_BOUNDS_MICROS: [u64; 18] = [
     1_000,
     2_000,
@@ -47,11 +48,13 @@ impl HistogramSchema {
                 "APM histogram version and bucket count must be non-zero",
             ));
         }
+
         if self.upper_bounds_micros.last() != Some(&u64::MAX) {
             return Err(Error::invalid(
                 "APM histogram must end with the +Inf bucket",
             ));
         }
+
         if self
             .upper_bounds_micros
             .windows(2)
@@ -61,6 +64,7 @@ impl HistogramSchema {
                 "APM histogram upper bounds must be strictly increasing",
             ));
         }
+
         Ok(())
     }
 }
@@ -93,21 +97,26 @@ impl LatencyHistogram {
 
     pub fn observe(&mut self, schema: &HistogramSchema, duration_micros: u64) -> Result<()> {
         self.ensure_schema(schema)?;
+
         let bucket = schema
             .upper_bounds_micros
             .iter()
             .position(|upper| duration_micros <= *upper)
             .ok_or_else(|| Error::internal("APM histogram is missing +Inf"))?;
+
         self.counts[bucket] = self.counts[bucket].saturating_add(1);
         self.sum_micros = self.sum_micros.saturating_add(duration_micros);
+
         self.min_micros = Some(
             self.min_micros
                 .map_or(duration_micros, |current| current.min(duration_micros)),
         );
+
         self.max_micros = Some(
             self.max_micros
                 .map_or(duration_micros, |current| current.max(duration_micros)),
         );
+
         Ok(())
     }
 
@@ -117,36 +126,48 @@ impl LatencyHistogram {
                 "cannot merge incompatible APM histogram schemas",
             ));
         }
+
         for (target, value) in self.counts.iter_mut().zip(&other.counts) {
             *target = target.saturating_add(*value);
         }
+
         self.sum_micros = self.sum_micros.saturating_add(other.sum_micros);
+
         self.min_micros = match (self.min_micros, other.min_micros) {
             (Some(left), Some(right)) => Some(left.min(right)),
             (left, right) => left.or(right),
         };
+
         self.max_micros = match (self.max_micros, other.max_micros) {
             (Some(left), Some(right)) => Some(left.max(right)),
             (left, right) => left.or(right),
         };
+
         Ok(())
     }
 
     pub fn quantile(&self, schema: &HistogramSchema, quantile: f64) -> Result<Option<u64>> {
         self.ensure_schema(schema)?;
+
         if !quantile.is_finite() || !(0.0..=1.0).contains(&quantile) {
             return Err(Error::invalid("APM histogram quantile must be in [0, 1]"));
         }
+
         let count = self.count();
+
         if count == 0 {
             return Ok(None);
         }
+
         let rank = ((count as f64) * quantile).ceil().max(1.0) as u64;
         let mut cumulative = 0_u64;
+
         for (index, value) in self.counts.iter().enumerate() {
             cumulative = cumulative.saturating_add(*value);
+
             if cumulative >= rank {
                 let upper = schema.upper_bounds_micros[index];
+
                 return Ok(Some(if upper == u64::MAX {
                     self.max_micros.unwrap_or_default()
                 } else {
@@ -154,6 +175,7 @@ impl LatencyHistogram {
                 }));
             }
         }
+
         Ok(self.max_micros)
     }
 
@@ -165,6 +187,7 @@ impl LatencyHistogram {
                 "APM histogram does not match the requested schema",
             ));
         }
+
         Ok(())
     }
 }

@@ -18,6 +18,7 @@ fn row_to_settings(row: sqlx::postgres::PgRow) -> Result<InboundMcpSettings> {
     let origins: Json<Value> = row.try_get("allowed_origins").map_err(sqlx_err)?;
     let allowed_origins = serde_json::from_value(origins.0)
         .map_err(|error| Error::internal(format!("invalid inbound MCP origins: {error}")))?;
+
     Ok(InboundMcpSettings {
         org_id: Id(row.try_get("org_id").map_err(sqlx_err)?),
         enabled: row.try_get("enabled").map_err(sqlx_err)?,
@@ -76,5 +77,6 @@ pub(super) async fn upsert(
     .fetch_one(pool)
     .await
     .map_err(sqlx_err)?;
+
     row_to_settings(row)
 }

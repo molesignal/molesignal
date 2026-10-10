@@ -29,10 +29,13 @@ pub(super) async fn rpc_request(
             runtime.server.transport
         )));
     }
+
     if !runtime.server.enabled {
         return Err(Error::forbidden("MCP Server is disabled"));
     }
+
     let (resolved_host, resolved_addresses) = validate_network_target(&runtime.server).await?;
+
     let client = Client::builder()
         .redirect(Policy::none())
         .danger_accept_invalid_certs(!runtime.server.tls_verify)
@@ -42,6 +45,7 @@ pub(super) async fn rpc_request(
         ))
         .build()
         .map_err(|error| Error::internal(format!("MCP HTTP client: {error}")))?;
+
     let initialize = json!({
         "jsonrpc": "2.0",
         "id": Id::new().0,
@@ -55,26 +59,33 @@ pub(super) async fn rpc_request(
             }
         }
     });
+
     let (_, session_id) = send_rpc(&client, runtime, initialize, None, true).await?;
+
     let initialized = json!({
         "jsonrpc": "2.0",
         "method": "notifications/initialized",
         "params": {}
     });
+
     let _ = send_rpc(&client, runtime, initialized, session_id.as_deref(), false).await?;
+
     let request = json!({
         "jsonrpc": "2.0",
         "id": Id::new().0,
         "method": method,
         "params": params
     });
+
     let (response, _) = send_rpc(&client, runtime, request, session_id.as_deref(), true).await?;
+
     if let Some(error) = response.get("error") {
         return Err(Error::invalid(format!(
             "MCP `{method}` failed: {}",
             error["message"].as_str().unwrap_or("remote error")
         )));
     }
+
     response
         .get("result")
         .cloned()
@@ -93,15 +104,18 @@ async fn send_rpc(
         .endpoint_url
         .as_deref()
         .ok_or_else(|| Error::invalid("MCP Endpoint URL is missing"))?;
+
     let mut request = client
         .post(endpoint)
         .header("accept", "application/json, text/event-stream")
         .header("content-type", "application/json")
         .header("mcp-protocol-version", MCP_PROTOCOL_VERSION)
         .json(&body);
+
     if let Some(session_id) = session_id {
         request = request.header("mcp-session-id", session_id);
     }
+
     request = match runtime.server.auth_type.as_str() {
         "none" => request,
         "bearer_token" | "oauth" => {
@@ -109,6 +123,7 @@ async fn send_rpc(
                 .credential
                 .as_deref()
                 .ok_or_else(|| Error::forbidden("MCP credential is not configured"))?;
+
             request.bearer_auth(credential)
         }
         "api_key" | "internal_service_identity" => {
@@ -116,6 +131,7 @@ async fn send_rpc(
                 .credential
                 .as_deref()
                 .ok_or_else(|| Error::forbidden("MCP credential is not configured"))?;
+
             let header = runtime.server.auth_header.as_deref().unwrap_or(
                 if runtime.server.auth_type == "api_key" {
                     "x-api-key"
@@ -123,6 +139,7 @@ async fn send_rpc(
                     "x-internal-service-identity"
                 },
             );
+
             let value = HeaderValue::from_str(credential)
                 .map_err(|_| Error::invalid("MCP credential contains invalid header bytes"))?;
             request.header(header, value)
@@ -138,6 +155,7 @@ async fn send_rpc(
             )));
         }
     };
+
     let response = crate::shared::http_trace::send(
         client,
         request,
@@ -145,37 +163,46 @@ async fn send_rpc(
     )
     .await
     .map_err(|error| Error::unavailable(format!("MCP request failed: {error}")))?;
+
     let status = response.status();
+
     let session_id = response
         .headers()
         .get("mcp-session-id")
         .and_then(|value| value.to_str().ok())
         .map(str::to_owned);
+
     let content_type = response
         .headers()
         .get(reqwest::header::CONTENT_TYPE)
         .and_then(|value| value.to_str().ok())
         .unwrap_or_default()
         .to_ascii_lowercase();
+
     let bytes = bounded_response_bytes(response, runtime.server.max_response_bytes).await?;
+
     if !status.is_success() {
         return Err(Error::unavailable(format!(
             "MCP Server returned HTTP {}",
             status.as_u16()
         )));
     }
+
     if bytes.is_empty() {
         if expect_body {
             return Err(Error::invalid("MCP Server returned an empty response"));
         }
+
         return Ok((Value::Null, session_id));
     }
+
     let value = if content_type.contains("text/event-stream") {
         parse_sse_json(&bytes)?
     } else {
         serde_json::from_slice(&bytes)
             .map_err(|error| Error::invalid(format!("invalid MCP JSON response: {error}")))?
     };
+
     Ok((value, session_id))
 }
 
@@ -183,28 +210,34 @@ async fn bounded_response_bytes(response: reqwest::Response, maximum: i64) -> Re
     let maximum = usize::try_from(maximum).unwrap_or(DEFAULT_MAX_RESPONSE_BYTES as usize);
     let mut bytes = Vec::new();
     let mut stream = response.bytes_stream();
+
     while let Some(chunk) = stream.next().await {
         let chunk =
             chunk.map_err(|error| Error::unavailable(format!("MCP response read: {error}")))?;
+
         if bytes.len().saturating_add(chunk.len()) > maximum {
             return Err(Error::payload_too_large(format!(
                 "MCP response exceeds {maximum} bytes"
             )));
         }
+
         bytes.extend_from_slice(&chunk);
     }
+
     Ok(bytes)
 }
 
 fn parse_sse_json(bytes: &[u8]) -> Result<Value> {
     let text =
         std::str::from_utf8(bytes).map_err(|_| Error::invalid("MCP SSE response is not UTF-8"))?;
+
     let data = text
         .lines()
         .filter_map(|line| line.strip_prefix("data:"))
         .map(str::trim)
         .find(|value| !value.is_empty() && *value != "[DONE]")
         .ok_or_else(|| Error::invalid("MCP SSE response contains no data event"))?;
+
     serde_json::from_str(data)
         .map_err(|error| Error::invalid(format!("invalid MCP SSE JSON: {error}")))
 }
@@ -212,17 +245,21 @@ fn parse_sse_json(bytes: &[u8]) -> Result<Value> {
 pub(super) fn validate_endpoint_shape(endpoint: &str) -> Result<Url> {
     let url = Url::parse(endpoint)
         .map_err(|error| Error::invalid(format!("invalid MCP Endpoint URL: {error}")))?;
+
     if !matches!(url.scheme(), "http" | "https") {
         return Err(Error::invalid("MCP Endpoint URL must use http or https"));
     }
+
     if !url.username().is_empty() || url.password().is_some() {
         return Err(Error::invalid(
             "MCP Endpoint URL must not contain inline credentials",
         ));
     }
+
     if url.host_str().is_none() {
         return Err(Error::invalid("MCP Endpoint URL must include a host"));
     }
+
     Ok(url)
 }
 
@@ -233,10 +270,12 @@ async fn validate_network_target(server: &McpServer) -> Result<(String, Vec<Sock
             .as_deref()
             .ok_or_else(|| Error::invalid("MCP Endpoint URL is missing"))?,
     )?;
+
     let host = url
         .host_str()
         .ok_or_else(|| Error::invalid("MCP Endpoint URL has no host"))?
         .to_ascii_lowercase();
+
     if !server.allowed_domains.is_empty()
         && !server
             .allowed_domains
@@ -247,18 +286,22 @@ async fn validate_network_target(server: &McpServer) -> Result<(String, Vec<Sock
             "MCP host `{host}` is not in the allowed domain list"
         )));
     }
+
     let port = url
         .port_or_known_default()
         .ok_or_else(|| Error::invalid("MCP Endpoint URL has no port"))?;
+
     let addresses: Vec<SocketAddr> = tokio::net::lookup_host((host.as_str(), port))
         .await
         .map_err(|error| Error::unavailable(format!("MCP DNS resolution failed: {error}")))?
         .collect();
+
     if addresses.is_empty() {
         return Err(Error::unavailable(
             "MCP DNS resolution returned no addresses",
         ));
     }
+
     let allowed_networks = server
         .allowed_cidrs
         .iter()
@@ -268,13 +311,16 @@ async fn validate_network_target(server: &McpServer) -> Result<(String, Vec<Sock
                 .map_err(|_| Error::invalid(format!("invalid stored MCP CIDR `{value}`")))
         })
         .collect::<Result<Vec<_>>>()?;
+
     for address in &addresses {
         let ip = address.ip();
+
         if server.private_only && !is_private_ip(ip) {
             return Err(Error::forbidden(format!(
                 "MCP target `{ip}` is outside the private network"
             )));
         }
+
         if !allowed_networks.is_empty()
             && !allowed_networks.iter().any(|network| network.contains(&ip))
         {
@@ -283,6 +329,7 @@ async fn validate_network_target(server: &McpServer) -> Result<(String, Vec<Sock
             )));
         }
     }
+
     Ok((host, addresses))
 }
 

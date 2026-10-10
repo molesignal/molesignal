@@ -12,11 +12,13 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         "profile_type": {"type": "string"}, "trace_id": {"type": "string"},
         "label": {"type": "string", "description": "label selector as key:value"}
     });
+
     let (description, input, tags) = match kind {
         BuiltinToolKind::ListContinuousProfiles => {
             let mut fields = filters.clone();
             fields["limit"] =
                 json!({"type": "integer", "minimum": 1, "maximum": 1000, "default": 100});
+
             (
                 "List continuous-profile metadata with service, type, trace, and label filters.",
                 object_schema(fields),
@@ -28,6 +30,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             fields["span_id"] = json!({"type": "string"});
             fields["max_profiles"] =
                 json!({"type": "integer", "minimum": 1, "maximum": 1000, "default": 200});
+
             (
                 "Merge a bounded profile selection into a flamebearer flamegraph.",
                 object_schema(fields),
@@ -49,6 +52,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         ),
         _ => unreachable!("profiles catalog received unrelated kind"),
     };
+
     ToolSpec::read(
         kind.name(),
         description,

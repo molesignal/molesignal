@@ -62,6 +62,7 @@ pub struct ServerPlan {
 /// 由生效角色集推导要起哪些前台 server。`Standalone` == 全角色。
 pub fn plan_servers(roles: &[Role]) -> ServerPlan {
     let has = |role: Role| roles.contains(&role) || roles.contains(&Role::Standalone);
+
     ServerPlan {
         http: if has(Role::Router) {
             HttpKind::Full
@@ -80,6 +81,7 @@ pub async fn run(state: AppState, settings: &Settings) -> anyhow::Result<()> {
     let plan = plan_servers(&settings.node.roles);
     let alive_window = settings.cluster.peer_timeout_secs as i64;
     let _sweeper = heartbeat::spawn_sweeper(state.cluster.repository.clone());
+
     // 开始服务时登记到集群成员表，退出前注销。
     let heartbeat = heartbeat::HeartbeatTask::new(
         state.cluster.repository.clone(),
@@ -90,20 +92,24 @@ pub async fn run(state: AppState, settings: &Settings) -> anyhow::Result<()> {
     )
     .with_drain(state.cluster.drain.clone())
     .spawn();
+
     let mut set = tokio::task::JoinSet::new();
 
     {
         let (state, settings) = (state.clone(), settings.clone());
+
         match plan.http {
             HttpKind::Full => set.spawn(async move { http_server::serve(state, settings).await }),
             HttpKind::Ops => set.spawn(async move { ops_server::serve(state, settings).await }),
         };
     }
+
     if plan.grpc {
         let s = state.clone();
         let grpc_cfg = settings.grpc.clone();
         set.spawn(async move { crate::api::grpc::serve_grpc(s, &grpc_cfg, alive_window).await });
     }
+
     // 对外 OTLP gRPC（traces/logs/metrics/profiles）：与 HTTP 写入一样走 `IntakeService`，
     // 没有 intake 角色的节点（router）把批次转发给 intake 节点。
     if plan.otlp_grpc {
@@ -111,23 +117,27 @@ pub async fn run(state: AppState, settings: &Settings) -> anyhow::Result<()> {
         let cfg = settings.otlp_grpc.clone();
         set.spawn(async move { crate::api::grpc::serve_otlp_grpc(s, &cfg).await });
     }
+
     // 对外 Flight SQL（spec flight-sql）：按配置起独立 listener。
     if plan.flight_sql && settings.flight_sql.enabled {
         let s = state.clone();
         let cfg = settings.flight_sql.clone();
         set.spawn(async move { crate::api::grpc::serve_flight_sql(s, &cfg).await });
     }
+
     // Probe 控制面与告警/自动发布职责同节点部署。
     if plan.probe_grpc {
         let s = state.clone();
         let cfg = settings.probe.clone();
         set.spawn(async move { crate::api::grpc::serve_probe_grpc(s, &cfg).await });
     }
+
     if settings.profiling.enabled {
         let state = state.clone();
         let profiling = settings.profiling.clone();
         set.spawn(async move { profiling::serve(state, profiling).await });
     }
+
     // 优雅退役：SIGTERM/SIGINT → 注销集群成员 → begin_drain → 等本节点缓冲的数据 flush 干净
     // （drained）后退出。作为 JoinSet 成员：信号触发即完成 → join_next 返回 → run() 收尾 → 进程退出。
     {
@@ -138,6 +148,7 @@ pub async fn run(state: AppState, settings: &Settings) -> anyhow::Result<()> {
         let trace_candidates = state.telemetry.trace_candidates.clone();
         let trace_pipeline = state.telemetry.trace_pipeline.clone();
         let apm_runtime = state.telemetry.apm_runtime.clone();
+
         set.spawn(run_shutdown(
             heartbeat,
             drain,
@@ -155,6 +166,7 @@ pub async fn run(state: AppState, settings: &Settings) -> anyhow::Result<()> {
         Some(Err(join_error)) => Err(join_error.into()),
         None => Ok(()),
     };
+
     // 关停流程一开始就已注销；server 出错退出时在这里注销。
     heartbeat.leave().await;
     outcome
@@ -177,29 +189,37 @@ async fn run_shutdown(
         .map_err(|e| anyhow::anyhow!("install SIGTERM handler: {e}"))?;
     let mut int = signal(SignalKind::interrupt())
         .map_err(|e| anyhow::anyhow!("install SIGINT handler: {e}"))?;
+
     tokio::select! {
         _ = term.recv() => tracing::info!("SIGTERM received; draining before exit"),
         _ = int.recv() => tracing::info!("SIGINT received; draining before exit"),
     }
+
     // 先离开集群：其余节点约 2 秒后不再向本节点转发写入与查询，并接手它名下的后台工作；
     // 本节点随后把手上的数据处理完再退出。
     heartbeat.leave().await;
+
     if let Some(runtime) = self_telemetry {
         runtime.stop_and_flush().await;
     }
+
     trace_candidates.shutdown().await;
     trace_pipeline.shutdown().await;
+
     if let Some(runtime) = apm_runtime {
         runtime.shutdown().await;
     }
+
     drain.begin_drain();
     let deadline = tokio::time::sleep(timeout);
     tokio::pin!(deadline);
+
     loop {
         if drain.phase() == DrainPhase::Drained {
             tracing::info!("node drained: pending data flushed; exiting");
             return Ok(());
         }
+
         tokio::select! {
             _ = tokio::time::sleep(Duration::from_millis(200)) => {}
             _ = &mut deadline => {
@@ -226,21 +246,27 @@ async fn run_shutdown(
     tokio::signal::ctrl_c().await.ok();
     tracing::info!("ctrl-c received; draining before exit");
     heartbeat.leave().await;
+
     if let Some(runtime) = self_telemetry {
         runtime.stop_and_flush().await;
     }
+
     trace_candidates.shutdown().await;
     trace_pipeline.shutdown().await;
+
     if let Some(runtime) = apm_runtime {
         runtime.shutdown().await;
     }
+
     drain.begin_drain();
     let deadline = tokio::time::sleep(timeout);
     tokio::pin!(deadline);
+
     loop {
         if drain.phase() == DrainPhase::Drained {
             return Ok(());
         }
+
         tokio::select! {
             _ = tokio::time::sleep(Duration::from_millis(200)) => {}
             _ = &mut deadline => return Ok(()),

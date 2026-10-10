@@ -37,12 +37,15 @@ fn logs_stream() -> StreamDefinition {
 async fn seed_archive(store: &Arc<dyn ObjectStore>, index_object_key: &str, msgs: &[&str]) {
     let stream = logs_stream();
     let mut b = TantivyArchiveBuilder::try_new(&stream).unwrap().unwrap();
+
     for m in msgs {
         let mut v = std::collections::HashMap::new();
         v.insert("message", *m);
         b.add_doc(&v).unwrap();
     }
+
     let bytes = b.commit_and_archive().unwrap();
+
     store
         .put(
             &Path::from(index_object_key),
@@ -333,9 +336,11 @@ fn scrape_counter(text: &str, name: &str) -> f64 {
         .filter_map(|l| {
             let rest = l.strip_prefix(name)?;
             let after = rest.chars().next()?;
+
             if after != ' ' && after != '{' {
                 return None;
             }
+
             rest.split_whitespace().next_back()?.parse::<f64>().ok()
         })
         .next_back()

@@ -18,6 +18,7 @@ pub(super) async fn execute(
         BuiltinToolKind::ListReportTemplates => {
             let _: EmptyArgs = parse_args(arguments)?;
             let custom = runtime.content.report_templates.list(&auth.org_id).await?;
+
             Ok(ToolResult::json(json!({
                 "builtin_templates": builtin_templates(),
                 "custom_templates": custom,
@@ -25,6 +26,7 @@ pub(super) async fn execute(
         }
         BuiltinToolKind::ListScheduledReports => {
             let args: ScheduledArgs = parse_args(arguments)?;
+
             let reports = runtime
                 .content
                 .scheduled_reports
@@ -33,10 +35,12 @@ pub(super) async fn execute(
                 .into_iter()
                 .filter(|report| !args.enabled_only || report.enabled)
                 .collect::<Vec<_>>();
+
             Ok(ToolResult::json(json!({"scheduled_reports": reports})))
         }
         BuiltinToolKind::GetReportTemplate => {
             let args: IdArgs = parse_args(arguments)?;
+
             let template =
                 runtime
                     .content
@@ -48,10 +52,12 @@ pub(super) async fn execute(
                         })?),
                     )
                     .await?;
+
             super::common::json_result(&template)
         }
         BuiltinToolKind::GetScheduledReport => {
             let args: IdArgs = parse_args(arguments)?;
+
             let report =
                 runtime
                     .content
@@ -63,24 +69,29 @@ pub(super) async fn execute(
                         })?),
                     )
                     .await?;
+
             super::common::json_result(&report)
         }
         BuiltinToolKind::ListReportDeliveries => {
             let args: IdArgs = parse_args(arguments)?;
+
             let report_id = crate::shared::ids::Id(
                 args.report_id
                     .ok_or_else(|| crate::shared::Error::invalid("report_id is required"))?,
             );
+
             runtime
                 .content
                 .scheduled_reports
                 .get(&auth.org_id, &report_id)
                 .await?;
+
             let deliveries = runtime
                 .content
                 .scheduled_reports
                 .list_deliveries(&auth.org_id, &report_id)
                 .await?;
+
             super::common::json_result(&super::common::bounded(deliveries, args.limit, 200))
         }
         _ => unreachable!("reports handler received unrelated tool"),

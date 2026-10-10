@@ -30,9 +30,11 @@ pub(super) async fn observe(
             "active source observation is required when creating an automation Candidate",
         ));
     }
+
     let mut tx = sqlx::begin(&repository.pool)
         .await
         .map_err(super::super::sqlx_err)?;
+
     let sql = format!(
         "INSERT INTO status_page_automation_candidates
             (id,organization_id,status_page_id,rule_revision_id,correlation_key,state,
@@ -49,6 +51,7 @@ pub(super) async fn observe(
                                       EXCLUDED.updated_at_micros)
          RETURNING {CANDIDATE_COLS}"
     );
+
     let row = sqlx::query(&sql)
         .bind(&candidate.id.0)
         .bind(&candidate.organization_id.0)
@@ -74,7 +77,9 @@ pub(super) async fn observe(
         .fetch_one(&mut *tx)
         .await
         .map_err(super::super::sqlx_err)?;
+
     let persisted = row_to_candidate(row)?;
+
     sqlx::query(
         "INSERT INTO status_page_automation_candidate_sources
             (organization_id,candidate_id,source_kind,source_id,source_instance_id,severity,
@@ -97,6 +102,7 @@ pub(super) async fn observe(
     .execute(&mut *tx)
     .await
     .map_err(super::super::sqlx_err)?;
+
     if persisted.id == candidate.id {
         sqlx::query(
             "INSERT INTO status_page_automation_actions
@@ -111,6 +117,7 @@ pub(super) async fn observe(
         .await
         .map_err(super::super::sqlx_err)?;
     }
+
     if observation.muted {
         cancel_if_inactive(
             &mut tx,
@@ -120,6 +127,7 @@ pub(super) async fn observe(
         )
         .await?;
     }
+
     tx.commit().await.map_err(super::super::sqlx_err)?;
     fetch(repository, &observation.organization_id, &persisted.id).await
 }
@@ -131,6 +139,7 @@ pub(super) async fn recover(
     let mut tx = sqlx::begin(&repository.pool)
         .await
         .map_err(super::super::sqlx_err)?;
+
     let candidate_ids: Vec<String> = sqlx::query_scalar(
         "UPDATE status_page_automation_candidate_sources source
          SET active=FALSE,muted=$4,observed_at_micros=$5,updated_at_micros=$5
@@ -150,6 +159,7 @@ pub(super) async fn recover(
     .fetch_all(&mut *tx)
     .await
     .map_err(super::super::sqlx_err)?;
+
     for candidate_id in &candidate_ids {
         cancel_if_inactive(
             &mut tx,
@@ -159,8 +169,10 @@ pub(super) async fn recover(
         )
         .await?;
     }
+
     tx.commit().await.map_err(super::super::sqlx_err)?;
     let mut candidates = Vec::new();
+
     for candidate_id in candidate_ids {
         let has_active_source: bool = sqlx::query_scalar(
             "SELECT EXISTS (
@@ -174,11 +186,13 @@ pub(super) async fn recover(
         .fetch_one(&repository.pool)
         .await
         .map_err(super::super::sqlx_err)?;
+
         if !has_active_source {
             candidates
                 .push(fetch(repository, &observation.organization_id, &Id(candidate_id)).await?);
         }
     }
+
     Ok(candidates)
 }
 
@@ -207,6 +221,7 @@ pub(super) async fn list_due(
          ORDER BY candidate.due_at_micros,candidate.created_at_micros,candidate.id
          LIMIT $2"
     );
+
     sqlx::query(&sql)
         .bind(now.0)
         .bind(i64::from(limit.clamp(1, 500)))
@@ -234,9 +249,11 @@ pub(super) async fn mark(
         .iter()
         .map(|state| state.as_str())
         .collect::<Vec<_>>();
+
     let mut tx = sqlx::begin(&repository.pool)
         .await
         .map_err(super::super::sqlx_err)?;
+
     let sql = format!(
         "UPDATE status_page_automation_candidates
          SET state=$3,status_incident_id=COALESCE($4,status_incident_id),
@@ -244,6 +261,7 @@ pub(super) async fn mark(
          WHERE organization_id=$1 AND id=$2 AND state=ANY($7)
          RETURNING {CANDIDATE_COLS}"
     );
+
     let row = sqlx::query(&sql)
         .bind(&org_id.0)
         .bind(&candidate_id.0)
@@ -256,7 +274,9 @@ pub(super) async fn mark(
         .await
         .map_err(super::super::sqlx_err)?
         .ok_or_else(|| Error::conflict("automation Candidate state changed concurrently"))?;
+
     let candidate = row_to_candidate(row)?;
+
     sqlx::query(
         "INSERT INTO status_page_automation_actions
             (id,organization_id,candidate_id,action,actor_id,note,created_at_micros)
@@ -272,6 +292,7 @@ pub(super) async fn mark(
     .execute(&mut *tx)
     .await
     .map_err(super::super::sqlx_err)?;
+
     tx.commit().await.map_err(super::super::sqlx_err)?;
     Ok(candidate)
 }
@@ -300,6 +321,7 @@ async fn cancel_if_inactive(
     .execute(tx)
     .await
     .map_err(super::super::sqlx_err)?;
+
     Ok(())
 }
 
@@ -312,12 +334,14 @@ async fn fetch(
         "SELECT {CANDIDATE_COLS} FROM status_page_automation_candidates
          WHERE organization_id=$1 AND id=$2"
     );
+
     let row = sqlx::query(&sql)
         .bind(&org_id.0)
         .bind(&candidate_id.0)
         .fetch_one(&repository.pool)
         .await
         .map_err(super::super::sqlx_err)?;
+
     row_to_candidate(row)
 }
 
@@ -335,6 +359,7 @@ pub(super) async fn detail(
     candidate_id: &Id,
 ) -> Result<AutomationCandidateDetail> {
     let candidate = fetch(repository, org_id, candidate_id).await?;
+
     let source_rows = sqlx::query(
         "SELECT source_kind,source_id,source_instance_id,severity,labels,active,muted,
                 observed_at_micros,updated_at_micros
@@ -347,10 +372,13 @@ pub(super) async fn detail(
     .fetch_all(&repository.pool)
     .await
     .map_err(super::super::sqlx_err)?;
+
     let mut sources = Vec::with_capacity(source_rows.len());
+
     for row in source_rows {
         let source_kind: String = row.try_get("source_kind").map_err(super::super::sqlx_err)?;
         let severity: String = row.try_get("severity").map_err(super::super::sqlx_err)?;
+
         sources.push(AutomationCandidateSource {
             source_kind: AutomationSourceKind::parse(&source_kind).ok_or_else(|| {
                 Error::internal(format!("unknown automation source kind: {source_kind}"))
@@ -378,6 +406,7 @@ pub(super) async fn detail(
             ),
         });
     }
+
     let action_rows = sqlx::query(
         "SELECT id,action,actor_id,note,created_at_micros
          FROM status_page_automation_actions
@@ -389,6 +418,7 @@ pub(super) async fn detail(
     .fetch_all(&repository.pool)
     .await
     .map_err(super::super::sqlx_err)?;
+
     let actions = action_rows
         .into_iter()
         .map(|row| {
@@ -407,6 +437,7 @@ pub(super) async fn detail(
             })
         })
         .collect::<Result<Vec<_>>>()?;
+
     let work_rows = sqlx::query(
         "SELECT id,kind,status,attempts,available_at_micros,last_error,completed_at_micros,
                 created_at_micros,updated_at_micros
@@ -419,6 +450,7 @@ pub(super) async fn detail(
     .fetch_all(&repository.pool)
     .await
     .map_err(super::super::sqlx_err)?;
+
     let work_items = work_rows
         .into_iter()
         .map(|row| {
@@ -449,6 +481,7 @@ pub(super) async fn detail(
             })
         })
         .collect::<Result<Vec<_>>>()?;
+
     Ok(AutomationCandidateDetail {
         candidate,
         sources,
@@ -470,6 +503,7 @@ pub(super) async fn list(
            AND ($3::TEXT IS NULL OR candidate.state=$3)
          ORDER BY candidate.updated_at_micros DESC,candidate.id DESC LIMIT $4"
     );
+
     sqlx::query(&sql)
         .bind(&org_id.0)
         .bind(&page_id.0)

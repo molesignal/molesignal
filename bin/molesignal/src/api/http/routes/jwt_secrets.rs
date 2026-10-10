@@ -41,6 +41,7 @@ async fn list(
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Vec<SecretMeta>>> {
     let rows = state.iam.signing_secrets.list_metadata("jwt").await?;
+
     Ok(Json(
         rows.into_iter()
             .map(|s| SecretMeta {
@@ -61,6 +62,7 @@ async fn rotate(
     let (active, new_kid, retired_kid) =
         rotate_jwt_secret(state.iam.signing_secrets.as_ref()).await?;
     state.iam.service.replace_jwt_secrets(active.clone());
+
     Ok(Json(RotateResp {
         new_kid,
         retired_kid,

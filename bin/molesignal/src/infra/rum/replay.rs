@@ -100,20 +100,24 @@ impl RumReplayWriter {
         events: &[Value],
     ) -> Result<RumReplayRecord> {
         validate_segment(session_id, seq, events)?;
+
         let first_event_at_micros = events
             .iter()
             .filter_map(event_timestamp_millis)
             .min()
             .and_then(|timestamp| i64::try_from(timestamp.saturating_mul(1_000)).ok())
             .ok_or_else(|| Error::invalid("RUM replay event timestamp is invalid"))?;
+
         let ndjson = encode_events(events)?;
         let bytes_uncompressed = ndjson.len() as u64;
+
         if bytes_uncompressed > MAX_REPLAY_SEGMENT_BYTES {
             return Err(Error::payload_too_large(format!(
                 "RUM replay segment exceeds {} bytes",
                 MAX_REPLAY_SEGMENT_BYTES
             )));
         }
+
         let content_hash = hex::encode(Sha256::digest(&ndjson));
 
         if let Some(existing) = self
@@ -123,15 +127,18 @@ impl RumReplayWriter {
         {
             return same_segment(existing, &content_hash);
         }
+
         let (used, segment_count) = self
             .meta
             .session_usage(org_id, application_id, session_id)
             .await?;
+
         if segment_count >= MAX_REPLAY_SEGMENTS_PER_SESSION {
             return Err(Error::resource_exhausted(format!(
                 "RUM replay session exceeds {MAX_REPLAY_SEGMENTS_PER_SESSION} segments"
             )));
         }
+
         if used.saturating_add(bytes_uncompressed) > MAX_REPLAY_SESSION_BYTES {
             return Err(Error::resource_exhausted(format!(
                 "RUM replay session exceeds {} bytes",
@@ -141,6 +148,7 @@ impl RumReplayWriter {
 
         let hash_prefix = &content_hash[..16];
         let application_hash = hex::encode(Sha256::digest(application_id.as_bytes()));
+
         let object_key = replay_object_key(
             org_id,
             &application_hash[..16],
@@ -148,13 +156,16 @@ impl RumReplayWriter {
             seq,
             hash_prefix,
         );
+
         let path = ObjPath::parse(&object_key)
             .map_err(|error| Error::internal(format!("RUM replay object path: {error}")))?;
+
         let compressed =
             tokio::task::spawn_blocking(move || zstd::stream::encode_all(ndjson.as_slice(), 3))
                 .await
                 .map_err(|error| Error::internal(format!("RUM replay compression task: {error}")))?
                 .map_err(|error| Error::internal(format!("RUM replay compression: {error}")))?;
+
         self.object_store
             .put(&path, Bytes::from(compressed).into())
             .await
@@ -177,6 +188,7 @@ impl RumReplayWriter {
             first_event_at_micros,
             created_at: TimestampMicros::now(),
         };
+
         if self.meta.insert_if_absent(&record).await? {
             return Ok(record);
         }
@@ -186,9 +198,11 @@ impl RumReplayWriter {
             .find_segment(org_id, application_id, session_id, seq)
             .await?
             .ok_or_else(|| Error::conflict("RUM replay segment insert raced with deletion"))?;
+
         if existing.content_hash != record.content_hash {
             let _ = self.object_store.delete(&path).await;
         }
+
         same_segment(existing, &record.content_hash)
     }
 
@@ -199,14 +213,17 @@ impl RumReplayWriter {
     ) -> Result<(usize, Vec<Value>)> {
         validate_session_id(session_id)?;
         let records = self.meta.list_for_session(org_id, session_id).await?;
+
         if records.len() > MAX_REPLAY_SEGMENTS_PER_SESSION {
             return Err(Error::resource_exhausted(
                 "RUM replay has too many segments",
             ));
         }
+
         let total_bytes = records.iter().fold(0_u64, |total, row| {
             total.saturating_add(row.bytes_uncompressed)
         });
+
         if total_bytes > MAX_REPLAY_SESSION_BYTES {
             return Err(Error::resource_exhausted(
                 "RUM replay exceeds the read quota",
@@ -216,10 +233,12 @@ impl RumReplayWriter {
         let segment_count = records.len();
         let event_capacity = records.iter().map(|row| row.event_count).sum();
         let mut events = Vec::with_capacity(event_capacity);
+
         for record in records {
             ensure_supported_format(&record)?;
             let path = ObjPath::parse(&record.object_key)
                 .map_err(|error| Error::internal(format!("RUM replay object path: {error}")))?;
+
             let compressed = self
                 .object_store
                 .get(&path)
@@ -228,12 +247,15 @@ impl RumReplayWriter {
                 .bytes()
                 .await
                 .map_err(|error| Error::internal(format!("RUM replay object bytes: {error}")))?;
+
             let decoded =
                 tokio::task::spawn_blocking(move || zstd::stream::decode_all(compressed.as_ref()))
                     .await
                     .map_err(|error| Error::internal(format!("RUM replay decode task: {error}")))?
                     .map_err(|error| Error::internal(format!("RUM replay decode: {error}")))?;
+
             verify_segment(&record, &decoded)?;
+
             for line in decoded
                 .split(|byte| *byte == b'\n')
                 .filter(|line| !line.is_empty())
@@ -243,6 +265,7 @@ impl RumReplayWriter {
                 events.push(event);
             }
         }
+
         Ok((segment_count, events))
     }
 
@@ -269,11 +292,13 @@ impl RumReplayWriter {
                 MAX_REPLAY_FILTER_SESSION_IDS + 1,
             )
             .await?;
+
         if ids.len() > MAX_REPLAY_FILTER_SESSION_IDS {
             return Err(Error::resource_exhausted(
                 "RUM replay availability filter exceeds its session limit",
             ));
         }
+
         Ok(ids)
     }
 
@@ -281,6 +306,7 @@ impl RumReplayWriter {
     pub async fn sweep_expired(&self, cutoff_micros: i64, limit: usize) -> Result<usize> {
         let records = self.meta.list_expired(cutoff_micros, limit.max(1)).await?;
         let mut deleted_ids = Vec::with_capacity(records.len());
+
         for record in records {
             let path = match ObjPath::parse(&record.object_key) {
                 Ok(path) => path,
@@ -294,6 +320,7 @@ impl RumReplayWriter {
                     continue;
                 }
             };
+
             match self.object_store.delete(&path).await {
                 Ok(()) | Err(object_store::Error::NotFound { .. }) => {
                     deleted_ids.push(record.id.0);
@@ -308,6 +335,7 @@ impl RumReplayWriter {
                 }
             }
         }
+
         self.meta.delete_ids(&deleted_ids).await?;
         Ok(deleted_ids.len())
     }
@@ -315,18 +343,22 @@ impl RumReplayWriter {
 
 fn validate_segment(session_id: &str, seq: i32, events: &[Value]) -> Result<()> {
     validate_session_id(session_id)?;
+
     if seq <= 0 {
         return Err(Error::invalid("RUM replay seq must be positive"));
     }
+
     if events.is_empty() || events.len() > MAX_REPLAY_EVENTS_PER_SEGMENT {
         return Err(Error::invalid(format!(
             "RUM replay events must contain 1..={MAX_REPLAY_EVENTS_PER_SEGMENT} items"
         )));
     }
+
     for event in events {
         let object = event
             .as_object()
             .ok_or_else(|| Error::invalid("RUM replay event must be an object"))?;
+
         match object.get("type") {
             Some(Value::Number(kind)) if kind.as_u64().is_some_and(|kind| kind <= 7) => {
                 if !event_timestamp_millis(event).is_some_and(valid_timestamp_millis) {
@@ -341,6 +373,7 @@ fn validate_segment(session_id: &str, seq: i32, events: &[Value]) -> Result<()> 
             _ => return Err(Error::invalid("RUM replay event type is invalid")),
         }
     }
+
     Ok(())
 }
 
@@ -364,16 +397,19 @@ fn validate_session_id(session_id: &str) -> Result<()> {
     {
         return Err(Error::invalid("RUM replay session_id is invalid"));
     }
+
     Ok(())
 }
 
 fn encode_events(events: &[Value]) -> Result<Vec<u8>> {
     let mut ndjson = Vec::new();
+
     for event in events {
         serde_json::to_writer(&mut ndjson, event)
             .map_err(|error| Error::internal(format!("RUM replay serialize: {error}")))?;
         ndjson.push(b'\n');
     }
+
     Ok(ndjson)
 }
 
@@ -392,6 +428,7 @@ fn replay_object_key(
 
 fn same_segment(existing: RumReplayRecord, content_hash: &str) -> Result<RumReplayRecord> {
     ensure_supported_format(&existing)?;
+
     if existing.content_hash == content_hash {
         Ok(existing)
     } else {
@@ -404,9 +441,11 @@ fn same_segment(existing: RumReplayRecord, content_hash: &str) -> Result<RumRepl
 fn verify_segment(record: &RumReplayRecord, decoded: &[u8]) -> Result<()> {
     ensure_supported_format(record)?;
     let hash = hex::encode(Sha256::digest(decoded));
+
     if decoded.len() as u64 != record.bytes_uncompressed || hash != record.content_hash {
         return Err(Error::internal("RUM replay segment integrity check failed"));
     }
+
     Ok(())
 }
 
@@ -417,6 +456,7 @@ fn ensure_supported_format(record: &RumReplayRecord) -> Result<()> {
             record.format_version
         )));
     }
+
     Ok(())
 }
 

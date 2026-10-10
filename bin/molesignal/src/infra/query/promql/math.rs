@@ -18,12 +18,15 @@ pub(super) fn apply_sample_math(
     params: SampleMathParams,
 ) -> Result<InstantVector> {
     let mut items = Vec::with_capacity(input.items.len());
+
     for (labels, value) in input.items {
         let Some(value) = sample_math_value(func, value, params)? else {
             continue;
         };
+
         items.push((labels, value));
     }
+
     Ok(InstantVector { items })
 }
 
@@ -33,13 +36,16 @@ pub(super) fn apply_sample_math_range(
     params: SampleMathParams,
 ) -> Result<RangeVector> {
     let mut points = Vec::with_capacity(input.points.len());
+
     for mut point in input.points {
         let Some(value) = sample_math_value(func, point.value, params)? else {
             continue;
         };
+
         point.value = value;
         points.push(point);
     }
+
     Ok(RangeVector { points })
 }
 
@@ -56,6 +62,7 @@ pub(super) fn sample_math_value(
             let SampleMathParams::Round { nearest } = params else {
                 return Err(Error::invalid("round requires to_nearest parameter"));
             };
+
             round_to_nearest(value, nearest)
         }
         "exp" => value.exp(),
@@ -68,21 +75,25 @@ pub(super) fn sample_math_value(
             let SampleMathParams::Clamp { min, max } = params else {
                 return Err(Error::invalid("clamp requires min and max parameters"));
             };
+
             let Some(value) = clamp_sample(value, min, max) else {
                 return Ok(None);
             };
+
             value
         }
         "clamp_min" => {
             let SampleMathParams::ClampMin { min } = params else {
                 return Err(Error::invalid("clamp_min requires min parameter"));
             };
+
             clamp_min_sample(value, min)
         }
         "clamp_max" => {
             let SampleMathParams::ClampMax { max } = params else {
                 return Err(Error::invalid("clamp_max requires max parameter"));
             };
+
             clamp_max_sample(value, max)
         }
         "sin" => value.sin(),
@@ -105,6 +116,7 @@ pub(super) fn sample_math_value(
             )));
         }
     };
+
     Ok(Some(value))
 }
 
@@ -128,9 +140,11 @@ pub(super) fn clamp_sample(value: f64, min: f64, max: f64) -> Option<f64> {
     if min > max {
         return None;
     }
+
     if min.is_nan() || max.is_nan() || value.is_nan() {
         return Some(f64::NAN);
     }
+
     Some(value.max(min).min(max))
 }
 

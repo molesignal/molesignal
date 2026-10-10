@@ -55,6 +55,7 @@ pub fn resolve(cfg: &ObjectStoreSettings) -> Result<ResolvedCredentials> {
     // 1. env
     let env_key = std::env::var("MS_OBJECT_STORE_ACCESS_KEY").ok();
     let env_sec = std::env::var("MS_OBJECT_STORE_SECRET_KEY").ok();
+
     if let (Some(k), Some(s)) = (env_key, env_sec)
         && !k.is_empty()
         && !s.is_empty()
@@ -65,12 +66,14 @@ pub fn resolve(cfg: &ObjectStoreSettings) -> Result<ResolvedCredentials> {
             source: CredentialsSource::Env,
         });
     }
+
     // 2. credentials_file（首行 access_key=... 第二行 secret_key=...）
     if let Some(path) = &cfg.credentials_file {
         let text = std::fs::read_to_string(path)
             .map_err(|e| Error::internal(format!("read credentials_file {path:?}: {e}")))?;
         let mut access_key = String::new();
         let mut secret_key = String::new();
+
         for line in text.lines() {
             if let Some(v) = line.strip_prefix("access_key=") {
                 access_key = v.trim().to_string();
@@ -78,6 +81,7 @@ pub fn resolve(cfg: &ObjectStoreSettings) -> Result<ResolvedCredentials> {
                 secret_key = v.trim().to_string();
             }
         }
+
         if !access_key.is_empty() && !secret_key.is_empty() {
             return Ok(ResolvedCredentials {
                 access_key,
@@ -86,6 +90,7 @@ pub fn resolve(cfg: &ObjectStoreSettings) -> Result<ResolvedCredentials> {
             });
         }
     }
+
     // 3. inline TOML
     if !cfg.access_key.is_empty() && !cfg.secret_key.is_empty() {
         return Ok(ResolvedCredentials {
@@ -94,6 +99,7 @@ pub fn resolve(cfg: &ObjectStoreSettings) -> Result<ResolvedCredentials> {
             source: CredentialsSource::Inline,
         });
     }
+
     Ok(ResolvedCredentials::empty())
 }
 

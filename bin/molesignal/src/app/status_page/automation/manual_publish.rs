@@ -23,9 +23,11 @@ impl StatusPageService {
             Err(Error::NotFound(_)) => return Ok(false),
             Err(error) => return Err(error),
         };
+
         if &candidate.status_page_id != page_id {
             return Ok(false);
         }
+
         if !matches!(
             candidate.state,
             AutomationCandidateState::PendingApproval | AutomationCandidateState::Approved
@@ -34,6 +36,7 @@ impl StatusPageService {
                 "automation draft is no longer eligible for publication",
             ));
         }
+
         Ok(true)
     }
 
@@ -62,13 +65,16 @@ impl StatusPageService {
                 TimestampMicros::now(),
             )
             .await?;
+
         if &candidate.status_page_id != page_id {
             return Err(Error::not_found("Status Page automation Candidate"));
         }
+
         let detail = self
             .repository
             .get_automation_candidate_detail(org_id, &candidate.id)
             .await?;
+
         if !detail
             .sources
             .iter()
@@ -77,6 +83,7 @@ impl StatusPageService {
             self.enqueue_candidate_work(&candidate, "resolve", TimestampMicros::now())
                 .await?;
         }
+
         Ok(())
     }
 }

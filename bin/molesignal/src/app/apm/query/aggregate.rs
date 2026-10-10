@@ -21,12 +21,14 @@ pub(super) fn trend_from_buckets(
     schema: &HistogramSchema,
 ) -> Result<Vec<RedTrendPoint>> {
     let mut grouped = BTreeMap::<TimestampMicros, Vec<&BucketMeasurements>>::new();
+
     for bucket in buckets {
         grouped
             .entry(bucket.bucket_at)
             .or_default()
             .push(&bucket.measurements);
     }
+
     grouped
         .into_iter()
         .map(|(bucket_at, measurements)| {
@@ -48,10 +50,12 @@ fn red_from_measurements<'a>(
     let mut histogram = LatencyHistogram::empty(schema);
     let mut latency_partial = false;
     let mut exemplars = Vec::new();
+
     for measurement in measurements {
         request_count = request_count.saturating_add(measurement.request_count);
         error_count = error_count.saturating_add(measurement.error_count);
         duration_sum_micros = duration_sum_micros.saturating_add(measurement.latency.sum_micros);
+
         if measurement.latency.schema_version == schema.version
             && measurement.latency.counts.len() == schema.upper_bounds_micros.len()
         {
@@ -59,6 +63,7 @@ fn red_from_measurements<'a>(
         } else {
             latency_partial = true;
         }
+
         for exemplar in &measurement.exemplars {
             if !exemplars
                 .iter()
@@ -70,13 +75,16 @@ fn red_from_measurements<'a>(
             }
         }
     }
+
     exemplars.sort_by(|left, right| {
         right
             .duration_micros
             .cmp(&left.duration_micros)
             .then_with(|| left.trace_id.cmp(&right.trace_id))
     });
+
     exemplars.truncate(8);
+
     Ok(RedSummary {
         request_count,
         error_count,

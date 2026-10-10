@@ -59,6 +59,7 @@ const COLS: &str = "id, org_id, title, description, tags, time_start_micros,
 
 fn row_to(r: sqlx::postgres::PgRow) -> Annotation {
     let tags: Json<Vec<String>> = r.try_get("tags").unwrap_or(Json(Vec::new()));
+
     Annotation {
         id: Id(r.try_get::<String, _>("id").unwrap_or_default()),
         org_id: Id(r.try_get::<String, _>("org_id").unwrap_or_default()),
@@ -104,17 +105,20 @@ impl AnnotationRepository for PgAnnotationRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(a)
     }
 
     async fn get(&self, org_id: &Id, id: &Id) -> Result<Annotation> {
         let sql = format!("SELECT {COLS} FROM annotations WHERE org_id = $1 AND id = $2");
+
         let row = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&id.0)
             .fetch_one(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(row_to(row))
     }
 
@@ -130,6 +134,7 @@ impl AnnotationRepository for PgAnnotationRepository {
              ORDER BY time_start_micros DESC
              LIMIT 1000"
         );
+
         let rows = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(f.dashboard_id)
@@ -139,11 +144,14 @@ impl AnnotationRepository for PgAnnotationRepository {
             .fetch_all(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         let mut out: Vec<Annotation> = rows.into_iter().map(row_to).collect();
+
         // tag 过滤在内存做（JSONB array 含元素 query 复杂，1000 行内可接受）
         if let Some(tag) = f.tag {
             out.retain(|a| a.tags.iter().any(|t| t == tag));
         }
+
         Ok(out)
     }
 
@@ -154,6 +162,7 @@ impl AnnotationRepository for PgAnnotationRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -166,6 +175,7 @@ impl AnnotationRepository for PgAnnotationRepository {
              WHERE org_id = $1 AND id = $2
              RETURNING {COLS}"
         );
+
         let row = sqlx::query(&sql)
             .bind(&a.org_id.0)
             .bind(&a.id.0)
@@ -179,6 +189,7 @@ impl AnnotationRepository for PgAnnotationRepository {
             .fetch_one(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(row_to(row))
     }
 }

@@ -46,6 +46,7 @@ pub struct DownloadReq {
     #[serde(default = "default_ttl")]
     pub expires_in_secs: i64,
 }
+
 fn default_ttl() -> i64 {
     3600
 }
@@ -66,13 +67,16 @@ async fn create_download(
     if req.object_keys.is_empty() {
         return Err(Error::invalid("object_keys cannot be empty"));
     }
+
     if req.object_keys.len() > 100 {
         return Err(Error::invalid("max 100 object_keys per request"));
     }
+
     let ttl = req.expires_in_secs.clamp(60, 7 * 24 * 3600);
     let now = TimestampMicros::now();
     let expires = TimestampMicros(now.0 + ttl * 1_000_000);
     let token = generate_token();
+
     let row = FileDownloadToken {
         token: token.clone(),
         org_id: ctx.org_id.clone(),
@@ -81,7 +85,9 @@ async fn create_download(
         expires_at: expires,
         created_at: now,
     };
+
     state.storage.file_download_tokens.create(row).await?;
+
     Ok(Json(DownloadResp {
         download_url: format!("/api/v1/files/stream/{token}"),
         token,
@@ -99,30 +105,37 @@ async fn stream_file(
         .get(&token)
         .await?
         .ok_or_else(|| Error::not_found("token not found"))?;
+
     state
         .iam
         .service
         .ensure_organization_access(&row.org_id)
         .await?;
+
     if row.expires_at.0 <= TimestampMicros::now().0 {
         return Err(Error::Unauthorized("token expired".into()));
     }
+
     // 当前：返回第一个 object 的内容（多文件归档留 follow-up）
     let key = row
         .object_keys
         .first()
         .ok_or_else(|| Error::internal("token has no object_keys"))?;
+
     let path = ObjPath::parse(key).map_err(|e| Error::internal(format!("path parse: {e}")))?;
+
     let result = state
         .storage
         .object_store
         .get(&path)
         .await
         .map_err(|e| Error::internal(format!("object get: {e}")))?;
+
     let bytes = result
         .bytes()
         .await
         .map_err(|e| Error::internal(format!("object read: {e}")))?;
+
     Response::builder()
         .status(200)
         .header(CONTENT_TYPE, "application/octet-stream")

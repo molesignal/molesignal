@@ -32,37 +32,47 @@ pub(super) fn summary_event(trace: &DecidedTrace) -> Option<RawEvent> {
     if trace.spans.is_empty() || trace.spans.iter().any(|span| span.late) {
         return None;
     }
+
     let carrier = summary_carrier(trace)?.clone();
+
     let start_ns = trace
         .spans
         .iter()
         .map(|span| span.start_time_unix_nano)
         .min()?;
+
     let end_ns = trace
         .spans
         .iter()
         .map(|span| span.end_time_unix_nano)
         .max()
         .unwrap_or(start_ns);
+
     let mut event = carrier.into_raw_event();
     event.timestamp = TimestampMicros(i64::try_from(start_ns / 1_000).unwrap_or(i64::MAX));
+
     event
         .fields
         .insert(TRACE_SUMMARY_MARKER_FIELD.into(), Value::String("1".into()));
+
     let start_ns_i64 = i64::try_from(start_ns).unwrap_or(i64::MAX);
     let duration_ns_i64 = i64::try_from(end_ns.saturating_sub(start_ns)).unwrap_or(i64::MAX);
+
     event.fields.insert(
         TRACE_SUMMARY_START_NS_FIELD.into(),
         Value::from(start_ns_i64),
     );
+
     event.fields.insert(
         TRACE_SUMMARY_DURATION_NS_FIELD.into(),
         Value::from(duration_ns_i64),
     );
+
     event.fields.insert(
         TRACE_SUMMARY_SPAN_COUNT_FIELD.into(),
         Value::from(i64::try_from(trace.spans.len()).unwrap_or(i64::MAX)),
     );
+
     event.fields.insert(
         TRACE_SUMMARY_ERROR_COUNT_FIELD.into(),
         Value::from(
@@ -76,6 +86,7 @@ pub(super) fn summary_event(trace: &DecidedTrace) -> Option<RawEvent> {
             .unwrap_or(i64::MAX),
         ),
     );
+
     Some(event)
 }
 

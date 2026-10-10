@@ -47,6 +47,7 @@ impl PgInvestigationBlobRepository {
 impl InvestigationBlobRepository for PgInvestigationBlobRepository {
     async fn create(&self, id: &Id, org_id: &Id, object_key: &str) -> Result<()> {
         let now = TimestampMicros::now();
+
         sqlx::query(
             "INSERT INTO investigation_blobs (id, org_id, object_key, created_at_micros)
              VALUES ($1, $2, $3, $4)",
@@ -58,6 +59,7 @@ impl InvestigationBlobRepository for PgInvestigationBlobRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -70,12 +72,15 @@ impl InvestigationBlobRepository for PgInvestigationBlobRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         let object_key: Option<String> = row.try_get("object_key").ok();
+
         let legacy_payload: Option<Value> = row
             .try_get::<Option<Json<Value>>, _>("payload")
             .ok()
             .flatten()
             .map(|j| j.0);
+
         Ok(StoredBlob {
             object_key,
             legacy_payload,
@@ -91,6 +96,7 @@ impl InvestigationBlobRepository for PgInvestigationBlobRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(rows
             .into_iter()
             .filter_map(|r| r.try_get::<Option<String>, _>("object_key").ok().flatten())

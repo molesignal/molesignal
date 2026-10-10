@@ -21,9 +21,11 @@ pub(super) async fn resolve_if_inactive(
             "automation resolution update must belong to its Organization",
         ));
     }
+
     let mut tx = sqlx::begin(&repository.pool)
         .await
         .map_err(super::super::sqlx_err)?;
+
     let locked: Option<(String, String, Option<String>)> = sqlx::query_as(
         "SELECT state,status_page_id,status_incident_id
          FROM status_page_automation_candidates
@@ -34,15 +36,19 @@ pub(super) async fn resolve_if_inactive(
     .fetch_optional(&mut *tx)
     .await
     .map_err(super::super::sqlx_err)?;
+
     let Some((state, page_id, incident_id)) = locked else {
         return Err(Error::not_found("Status Page automation Candidate"));
     };
+
     if !matches!(state.as_str(), "published" | "failed") {
         tx.rollback().await.map_err(super::super::sqlx_err)?;
         return Ok(None);
     }
+
     let incident_id = incident_id
         .ok_or_else(|| Error::internal("published automation Candidate has no Incident"))?;
+
     if update.status_page_id.as_str() != page_id.as_str()
         || update.incident_id.as_str() != incident_id.as_str()
     {
@@ -50,6 +56,7 @@ pub(super) async fn resolve_if_inactive(
             "automation resolution update must belong to its public Incident",
         ));
     }
+
     let source_active: bool = sqlx::query_scalar(
         "SELECT EXISTS (
              SELECT 1 FROM status_page_automation_candidate_sources
@@ -61,6 +68,7 @@ pub(super) async fn resolve_if_inactive(
     .fetch_one(&mut *tx)
     .await
     .map_err(super::super::sqlx_err)?;
+
     if source_active {
         tx.rollback().await.map_err(super::super::sqlx_err)?;
         return Ok(None);
@@ -80,21 +88,26 @@ pub(super) async fn resolve_if_inactive(
     .await
     .map_err(super::super::sqlx_err)?
     .rows_affected();
+
     if incident_rows != 1 {
         return Err(Error::conflict(
             "public Incident is no longer eligible for automation resolution",
         ));
     }
+
     insert_update(&mut tx, &update)
         .await
         .map_err(super::super::sqlx_err)?;
+
     touch_page(&mut tx, org_id, &update.status_page_id, update.created_at).await?;
+
     let sql = format!(
         "UPDATE status_page_automation_candidates
          SET state='resolved',last_error=NULL,updated_at_micros=$3
          WHERE organization_id=$1 AND id=$2
          RETURNING {CANDIDATE_COLS}"
     );
+
     let candidate_row = sqlx::query(&sql)
         .bind(&org_id.0)
         .bind(&candidate_id.0)
@@ -102,6 +115,7 @@ pub(super) async fn resolve_if_inactive(
         .fetch_one(&mut *tx)
         .await
         .map_err(super::super::sqlx_err)?;
+
     sqlx::query(
         "INSERT INTO status_page_automation_actions
             (id,organization_id,candidate_id,action,actor_id,note,created_at_micros)
@@ -114,6 +128,7 @@ pub(super) async fn resolve_if_inactive(
     .execute(&mut *tx)
     .await
     .map_err(super::super::sqlx_err)?;
+
     tx.commit().await.map_err(super::super::sqlx_err)?;
     row_to_candidate(candidate_row).map(Some)
 }

@@ -72,12 +72,15 @@ async fn get_customer_page(
         .status_pages
         .access_cookie_name_for_slug(&slug)
         .await?;
+
     let session = cookie_value(&headers, &cookie_name);
     let origin = request_hostname(&headers).unwrap_or_default();
+
     let snapshot = state
         .status_pages
         .get_customer_snapshot(&slug, session, &origin)
         .await?;
+
     Ok(customer_snapshot_response(snapshot))
 }
 
@@ -88,6 +91,7 @@ async fn get_customer_page_by_domain(
     let Some(hostname) = request_hostname(&headers) else {
         return Ok(unmatched_domain_response());
     };
+
     let Some(page) = state
         .status_pages
         .resolve_customer_page_by_domain(&hostname)
@@ -95,8 +99,10 @@ async fn get_customer_page_by_domain(
     else {
         return Ok(unmatched_domain_response());
     };
+
     let cookie_name = crate::app::status_page::access_cookie_name(&page.id);
     let session = cookie_value(&headers, &cookie_name);
+
     match state
         .status_pages
         .get_customer_snapshot_by_domain(&hostname, session)
@@ -110,6 +116,7 @@ async fn get_customer_page_by_domain(
 fn customer_snapshot_response(snapshot: StatusPageSnapshot) -> Response {
     let private = snapshot.page.visibility == StatusPageVisibility::Private;
     let mut response = axum::Json(PublicStatusPageSnapshot::from(snapshot)).into_response();
+
     response.headers_mut().insert(
         CACHE_CONTROL,
         if private {
@@ -118,22 +125,27 @@ fn customer_snapshot_response(snapshot: StatusPageSnapshot) -> Response {
             HeaderValue::from_static("public, max-age=30, stale-while-revalidate=60")
         },
     );
+
     response
 }
 
 fn unmatched_domain_response() -> Response {
     let mut response = StatusCode::NO_CONTENT.into_response();
+
     response
         .headers_mut()
         .insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));
+
     response
 }
 
 pub(super) fn request_hostname(headers: &HeaderMap) -> Option<String> {
     let value = headers.get(HOST)?.to_str().ok()?.trim();
+
     if value.contains('@') {
         return None;
     }
+
     let authority = value.parse::<Authority>().ok()?;
     Some(authority.host().trim_end_matches('.').to_ascii_lowercase())
 }

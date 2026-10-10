@@ -28,20 +28,24 @@ pub(super) async fn list(
 ) -> Result<ListPromptsResult, ErrorData> {
     let data = request_data(handler, context)?;
     let templates = visible_templates(handler, &data.iam).await?;
+
     let prompts = templates
         .into_iter()
         .map(protocol_prompt)
         .collect::<Vec<_>>();
+
     let response_too_large = match serde_json::to_vec(&prompts) {
         Ok(encoded) => encoded.len() > data.settings.max_response_bytes.max(1) as usize,
         Err(_) => true,
     };
+
     if response_too_large {
         return Err(ErrorData::invalid_request(
             "prompt list exceeds the configured response limit",
             None,
         ));
     }
+
     Ok(ListPromptsResult {
         prompts,
         ..Default::default()
@@ -61,21 +65,26 @@ pub(super) async fn get(
             None,
         ));
     }
+
     let data = request_data(handler, context)?;
+
     let template = visible_templates(handler, &data.iam)
         .await?
         .into_iter()
         .find(|template| prompt_name(template) == request.name)
         .ok_or_else(|| ErrorData::resource_not_found("prompt was not found", None))?;
+
     let arguments = request.arguments.unwrap_or_default();
     validate_arguments(&template.variables_schema, &arguments)?;
     let rendered = render_prompt(&template.body, &arguments);
+
     if rendered.len() > data.settings.max_response_bytes.max(1) as usize {
         return Err(ErrorData::invalid_request(
             "rendered prompt exceeds the configured response limit",
             None,
         ));
     }
+
     Ok(
         GetPromptResult::new(vec![PromptMessage::new_text(Role::User, rendered)])
             .with_description(format!(
@@ -97,6 +106,7 @@ async fn visible_templates(
         .list(&iam.org_id, &iam.user_id)
         .await
         .map_err(protocol_error)?;
+
     Ok(templates
         .into_iter()
         .filter(|template| template.enabled)
@@ -137,6 +147,7 @@ fn prompt_arguments(schema: &Value) -> Vec<PromptArgument> {
         .flatten()
         .filter_map(Value::as_str)
         .collect::<HashSet<_>>();
+
     schema
         .get("properties")
         .and_then(Value::as_object)
@@ -145,12 +156,15 @@ fn prompt_arguments(schema: &Value) -> Vec<PromptArgument> {
         .map(|(name, property)| {
             let mut argument =
                 PromptArgument::new(name).with_required(required.contains(name.as_str()));
+
             if let Some(title) = property.get("title").and_then(Value::as_str) {
                 argument = argument.with_title(title);
             }
+
             if let Some(description) = property.get("description").and_then(Value::as_str) {
                 argument = argument.with_description(description);
             }
+
             argument
         })
         .collect()
@@ -160,18 +174,21 @@ fn validate_arguments(schema: &Value, arguments: &Map<String, Value>) -> Result<
     let allowed = allowed_variables(schema)
         .into_iter()
         .collect::<HashSet<_>>();
+
     if let Some(unknown) = arguments.keys().find(|name| !allowed.contains(*name)) {
         return Err(ErrorData::invalid_params(
             format!("unknown prompt argument `{unknown}`"),
             None,
         ));
     }
+
     let required = schema
         .get("required")
         .and_then(Value::as_array)
         .into_iter()
         .flatten()
         .filter_map(Value::as_str);
+
     for name in required {
         if !arguments.contains_key(name) {
             return Err(ErrorData::invalid_params(
@@ -180,6 +197,7 @@ fn validate_arguments(schema: &Value, arguments: &Map<String, Value>) -> Result<
             ));
         }
     }
+
     Ok(())
 }
 

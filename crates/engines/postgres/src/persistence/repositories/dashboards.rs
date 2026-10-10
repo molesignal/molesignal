@@ -28,6 +28,7 @@ pub(crate) fn row_to_dashboard(row: sqlx::postgres::PgRow) -> Result<Dashboard> 
     let tags: Json<Vec<String>> = row.try_get("tags").map_err(sqlx_err)?;
     let model: Json<serde_json::Value> = row.try_get("model").map_err(sqlx_err)?;
     let version: i32 = row.try_get("version").map_err(sqlx_err)?;
+
     Ok(Dashboard {
         id: Id::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?),
         org_id: Id::from_string(row.try_get::<String, _>("org_id").map_err(sqlx_err)?),
@@ -68,6 +69,7 @@ impl DashboardRepository for PgDashboardRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(d)
     }
 
@@ -90,6 +92,7 @@ impl DashboardRepository for PgDashboardRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(d)
     }
 
@@ -116,6 +119,7 @@ impl DashboardRepository for PgDashboardRepository {
         .await
         .map_err(sqlx_err)?
         .ok_or_else(|| Error::conflict("dashboard version changed; reload and retry"))?;
+
         row_to_dashboard(row)
     }
 
@@ -125,6 +129,7 @@ impl DashboardRepository for PgDashboardRepository {
             .fetch_one(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         row_to_dashboard(row)
     }
 
@@ -137,6 +142,7 @@ impl DashboardRepository for PgDashboardRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         row_to_dashboard(row)
     }
 
@@ -157,6 +163,7 @@ impl DashboardRepository for PgDashboardRepository {
                 .await
                 .map_err(sqlx_err)?
         };
+
         rows.into_iter().map(row_to_dashboard).collect()
     }
 
@@ -166,6 +173,7 @@ impl DashboardRepository for PgDashboardRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(())
     }
 }

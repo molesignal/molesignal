@@ -38,14 +38,17 @@ pub(super) async fn run(
     stream: &StreamHint,
 ) -> Result<Vec<RecordBatch>> {
     let dataset_types = crate::domain::storage::logical_query_dataset_types(stream.stream_type)?;
+
     let (mut metas, buffered_batches) =
         if let (Some(source), Some(streams)) = (catalog_source, streams) {
             let definition = streams
                 .get(&request.org_id, &stream.name, stream.stream_type)
                 .await?;
+
             let snapshot = source
                 .snapshot_stream(&definition, &dataset_types, request.time_range)
                 .await?;
+
             (snapshot.files(), snapshot.buffered_batches())
         } else {
             let lookups = dataset_types.into_iter().map(|dataset_type| {
@@ -57,6 +60,7 @@ pub(super) async fn run(
                     request.time_range,
                 )
             });
+
             (
                 futures::future::try_join_all(lookups)
                     .await?
@@ -66,6 +70,7 @@ pub(super) async fn run(
                 Vec::new(),
             )
         };
+
     metas.sort_by(|left, right| {
         right
             .time_range
@@ -73,11 +78,13 @@ pub(super) async fn run(
             .cmp(&left.time_range.end)
             .then_with(|| right.id.0.cmp(&left.id.0))
     });
+
     if metas.is_empty() && buffered_batches.is_empty() {
         return Ok(Vec::new());
     }
 
     let reader = ParquetReader::new(object_store.clone());
+
     let schema = match streams {
         Some(streams) => match streams
             .get(&request.org_id, &stream.name, stream.stream_type)
@@ -106,12 +113,15 @@ pub(super) async fn run(
         }
         None => buffered_batches[0].schema(),
     };
+
     let context = SessionContext::new();
     let store_url = ObjectStoreUrl::parse("molesignal://federation-local")
         .map_err(|error| Error::internal(format!("object store URL: {error}")))?;
+
     context
         .runtime_env()
         .register_object_store(store_url.as_ref(), object_store.clone());
+
     context
         .register_table(
             TableReference::bare(stream.name.clone()),
@@ -121,6 +131,7 @@ pub(super) async fn run(
             ),
         )
         .map_err(|error| Error::internal(format!("federation local register: {error}")))?;
+
     context
         .sql(&format!(
             "SELECT * FROM \"{}\"",

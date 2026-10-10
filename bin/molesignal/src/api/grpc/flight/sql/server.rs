@@ -177,13 +177,16 @@ impl FlightSqlGrpc {
                     .or_else(|| h.strip_prefix("bearer "))
             })
             .ok_or_else(|| Status::unauthenticated("missing bearer token"))?;
+
         let mut ctx = authenticate_bearer(bearer, self.iam.as_ref(), self.api_tokens.clone())
             .await
             .map_err(|e| Status::unauthenticated(e.to_string()))?;
+
         self.iam_access
             .enrich_iam_context(&mut ctx)
             .await
             .map_err(|error| Status::permission_denied(error.to_string()))?;
+
         Permission::require_any_key(&ctx, &["streams.query", "sys.telemetry.read"])
             .map_err(|e| Status::permission_denied(e.to_string()))?;
         Ok(ctx)
@@ -202,6 +205,7 @@ impl FlightSqlGrpc {
             .list_for_user(user_id)
             .await
             .map_err(error_to_status)?;
+
         match org_selector {
             None => memberships
                 .into_iter()
@@ -212,12 +216,14 @@ impl FlightSqlGrpc {
                     if m.org_id.0 == sel {
                         return Ok(m);
                     }
+
                     if let Ok(org) = self.iam.orgs.get(&m.org_id).await
                         && (org.name == sel || org.slug == sel)
                     {
                         return Ok(m);
                     }
                 }
+
                 Err(Status::permission_denied(format!(
                     "no membership in org '{sel}'"
                 )))
@@ -239,11 +245,13 @@ impl FlightSqlGrpc {
     fn decode_handle(handle: &[u8], ctx: &IamContext) -> Result<FlightSqlTicket, Status> {
         let ticket = FlightSqlTicket::decode(handle)
             .map_err(|e| Status::invalid_argument(format!("decode statement handle: {e}")))?;
+
         if ticket.org_id != ctx.org_id.0 {
             return Err(Status::permission_denied(
                 "ticket org does not match token org",
             ));
         }
+
         Ok(ticket)
     }
 
@@ -252,6 +260,7 @@ impl FlightSqlGrpc {
         let prepared = prepare_flight_sql_select(sql).map_err(error_to_status)?;
         let now = TimestampMicros::now();
         let lookback_micros = i64::from(self.settings.default_lookback_hours) * 3600 * 1_000_000;
+
         Ok(QueryRequest {
             org_id: ctx.org_id.clone(),
             language: QueryLanguage::Sql,
@@ -272,17 +281,21 @@ impl FlightSqlGrpc {
         sql: &str,
     ) -> Result<Response<DoGetStream>, Status> {
         let req = self.build_query_request(ctx, sql)?;
+
         let out = self
             .query
             .run_tracked(req, ctx.user_id.clone(), ctx.organization_role_key())
             .await
             .map_err(error_to_status)?;
+
         let batch = super::encode::query_result_to_batch(&out)
             .map_err(|e| Status::internal(format!("arrow encode: {e}")))?;
+
         let stream = FlightDataEncoderBuilder::new()
             .with_schema(batch.schema())
             .build(futures::stream::once(async move { Ok(batch) }))
             .map_err(Status::from);
+
         Ok(Response::new(segmented_result_stream(
             stream,
             "flight_sql.do_get.stream",
@@ -297,11 +310,13 @@ impl FlightSqlGrpc {
         descriptor: FlightDescriptor,
     ) -> Result<Response<FlightInfo>, Status> {
         let endpoint = FlightEndpoint::new().with_ticket(Ticket::new(ticket_bytes));
+
         let info = FlightInfo::new()
             .try_with_schema(schema)
             .map_err(|e| Status::internal(format!("encode schema: {e}")))?
             .with_endpoint(endpoint)
             .with_descriptor(descriptor);
+
         Ok(Response::new(info))
     }
 
@@ -312,9 +327,11 @@ impl FlightSqlGrpc {
     /// ADBC（Go 驱动）会把它当预期 schema 与数据流严格比对，报 inconsistent schema。
     fn statement_info(ticket_bytes: Vec<u8>, descriptor: FlightDescriptor) -> Response<FlightInfo> {
         let endpoint = FlightEndpoint::new().with_ticket(Ticket::new(ticket_bytes));
+
         let info = FlightInfo::new()
             .with_endpoint(endpoint)
             .with_descriptor(descriptor);
+
         Response::new(info)
     }
 }
@@ -326,6 +343,7 @@ fn batch_stream(
     let stream = FlightDataEncoderBuilder::new()
         .build(futures::stream::once(async move { batch }))
         .map_err(Status::from);
+
     Response::new(segmented_result_stream(
         stream,
         "flight_sql.metadata.stream",
@@ -339,6 +357,7 @@ fn empty_stream(schema: Arc<ArrowSchema>) -> Response<DoGetStream> {
         .with_schema(schema)
         .build(futures::stream::empty())
         .map_err(Status::from);
+
     Response::new(segmented_result_stream(
         stream,
         "flight_sql.metadata.stream",
@@ -382,9 +401,11 @@ fn placeholder_dataset_schema_bytes() -> Result<bytes::Bytes, Status> {
         DataType::Utf8,
         true,
     )]);
+
     let message: IpcMessage = SchemaAsIpc::new(&schema, &IpcWriteOptions::default())
         .try_into()
         .map_err(|e| Status::internal(format!("serialize schema: {e}")))?;
+
     Ok(message.0)
 }
 
@@ -407,6 +428,7 @@ fn split_login_username(username: &str) -> (&str, Option<&str>) {
     {
         return (email, Some(org));
     }
+
     (username, None)
 }
 
@@ -444,28 +466,35 @@ impl FlightSqlService for FlightSqlGrpc {
                 .ok_or_else(|| Status::unauthenticated("basic auth not decodable"))?;
             let text = std::str::from_utf8(&decoded)
                 .map_err(|_| Status::unauthenticated("basic auth not utf-8"))?;
+
             let (user, pass) = text
                 .split_once(':')
                 .ok_or_else(|| Status::unauthenticated("malformed basic auth"))?;
+
             if pass.starts_with("ms_") {
                 let ctx = authenticate_api_token(pass, self.iam.as_ref(), self.api_tokens.clone())
                     .await
                     .map_err(|e| Status::unauthenticated(e.to_string()))?;
+
                 (pass.to_string(), ctx)
             } else {
                 // 账号密码：SSO-only 用户无本地密码，authenticate 必然失败 →
                 // UNAUTHENTICATED（文档引导其使用 API token）。
                 let (email, org_selector) = split_login_username(user);
+
                 let logged_in = self
                     .iam
                     .authenticate(email, pass)
                     .await
                     .map_err(|e| Status::unauthenticated(e.to_string()))?;
+
                 let m = self.resolve_membership(&logged_in.id, org_selector).await?;
+
                 let jwt = self
                     .iam
                     .issue_token(&logged_in.id, &m.org_id)
                     .map_err(error_to_status)?;
+
                 let ctx = IamContext {
                     user_id: logged_in.id,
                     org_id: m.org_id,
@@ -478,12 +507,14 @@ impl FlightSqlService for FlightSqlGrpc {
                     permissions: std::collections::BTreeSet::new(),
                     policy_version: 0,
                 };
+
                 (jwt, ctx)
             }
         } else if let Some(t) = header.strip_prefix("Bearer ") {
             let ctx = authenticate_bearer(t, self.iam.as_ref(), self.api_tokens.clone())
                 .await
                 .map_err(|e| Status::unauthenticated(e.to_string()))?;
+
             (t.to_string(), ctx)
         } else {
             return Err(Status::unauthenticated(
@@ -492,10 +523,12 @@ impl FlightSqlService for FlightSqlGrpc {
         };
 
         let mut ctx = ctx;
+
         self.iam_access
             .enrich_iam_context(&mut ctx)
             .await
             .map_err(|error| Status::permission_denied(error.to_string()))?;
+
         Permission::require_any_key(&ctx, &["streams.query", "sys.telemetry.read"])
             .map_err(|e| Status::permission_denied(e.to_string()))?;
 
@@ -503,13 +536,17 @@ impl FlightSqlService for FlightSqlGrpc {
             protocol_version: 0,
             payload: token.clone().into_bytes().into(),
         };
+
         let stream = futures::stream::iter([Ok(response)]);
+
         let mut resp: Response<Pin<Box<dyn Stream<Item = _> + Send>>> = Response::new(
             segmented_result_stream(stream, "flight_sql.handshake.stream", "grpc"),
         );
+
         let header = format!("Bearer {token}")
             .parse()
             .map_err(|_| Status::internal("auth header encode"))?;
+
         resp.metadata_mut().insert("authorization", header);
         Ok(resp)
     }
@@ -524,9 +561,11 @@ impl FlightSqlService for FlightSqlGrpc {
         let ctx = self.authenticate(&request).await?;
         // plan 阶段就把非 SELECT / 非法 SQL 拒掉，不签发 ticket。
         prepare_flight_sql_select(&query.query).map_err(error_to_status)?;
+
         let ticket = TicketStatementQuery {
             statement_handle: self.statement_handle(&ctx, &query.query).into(),
         };
+
         Ok(Self::statement_info(
             ticket.as_any().encode_to_vec(),
             request.into_inner(),
@@ -552,6 +591,7 @@ impl FlightSqlService for FlightSqlGrpc {
     ) -> Result<ActionCreatePreparedStatementResult, Status> {
         let ctx = self.authenticate(&request).await?;
         prepare_flight_sql_select(&query.query).map_err(error_to_status)?;
+
         // dataset_schema 必须**非空**：JDBC 驱动用"字段列表是否为空"判断
         // SELECT vs UPDATE（空 → 走 DoPut update，SELECT 结果全丢）。真实结果
         // schema 要执行后才知道，这里给单字段占位 schema —— 仅作"这是 SELECT"
@@ -582,6 +622,7 @@ impl FlightSqlService for FlightSqlGrpc {
     ) -> Result<Response<FlightInfo>, Status> {
         let ctx = self.authenticate(&request).await?;
         let _ = Self::decode_handle(cmd.prepared_statement_handle.as_ref(), &ctx)?;
+
         Ok(Self::statement_info(
             cmd.as_any().encode_to_vec(),
             request.into_inner(),
@@ -638,6 +679,7 @@ impl FlightSqlService for FlightSqlGrpc {
     ) -> Result<Response<DoGetStream>, Status> {
         self.authenticate(&request).await?;
         let mut builder = query.into_builder();
+
         for st in [
             StreamType::LOGS,
             StreamType::METRICS,
@@ -646,6 +688,7 @@ impl FlightSqlService for FlightSqlGrpc {
         ] {
             builder.append(CATALOG, stream_type_schema(&st));
         }
+
         Ok(batch_stream(builder.build()))
     }
 
@@ -667,16 +710,20 @@ impl FlightSqlService for FlightSqlGrpc {
         request: Request<Ticket>,
     ) -> Result<Response<DoGetStream>, Status> {
         let ctx = self.authenticate(&request).await?;
+
         let mut defs = self
             .streams
             .list(&ctx.org_id)
             .await
             .map_err(error_to_status)?;
+
         defs.sort_by(|a, b| {
             (stream_type_schema(&a.stream_type), a.name.as_str())
                 .cmp(&(stream_type_schema(&b.stream_type), b.name.as_str()))
         });
+
         let mut builder = query.into_builder();
+
         for def in &defs {
             // 表 schema 用 stream 定义里的推断 schema（`to_arrow` 自动前置
             // `_timestamp`）。必须给真实列：DBeaver 数据浏览页靠 `getColumns()`
@@ -691,6 +738,7 @@ impl FlightSqlService for FlightSqlGrpc {
                 )
                 .map_err(Status::from)?;
         }
+
         Ok(batch_stream(builder.build()))
     }
 
@@ -722,6 +770,7 @@ impl FlightSqlService for FlightSqlGrpc {
     ) -> Result<Response<FlightInfo>, Status> {
         self.authenticate(&request).await?;
         let ticket = query.as_any().encode_to_vec();
+
         Self::metadata_info(
             query.into_builder(&SQL_INFO_DATA).schema().as_ref(),
             ticket,
@@ -824,6 +873,7 @@ impl FlightSqlService for FlightSqlGrpc {
     ) -> Result<Response<FlightInfo>, Status> {
         self.authenticate(&request).await?;
         let ticket = query.as_any().encode_to_vec();
+
         Self::metadata_info(
             query.into_builder(&XDBC_TYPE_INFO_DATA).schema().as_ref(),
             ticket,
@@ -837,6 +887,7 @@ impl FlightSqlService for FlightSqlGrpc {
         request: Request<Ticket>,
     ) -> Result<Response<DoGetStream>, Status> {
         self.authenticate(&request).await?;
+
         Ok(batch_stream(
             query.into_builder(&XDBC_TYPE_INFO_DATA).build(),
         ))

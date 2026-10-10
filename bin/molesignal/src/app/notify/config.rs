@@ -11,14 +11,17 @@ use crate::{
 
 pub(super) fn validate_name(name: &str) -> Result<()> {
     let name = name.trim();
+
     if name.is_empty() {
         return Err(Error::invalid("notify connector name cannot be empty"));
     }
+
     if name.chars().count() > 255 {
         return Err(Error::invalid(
             "notify connector name must be at most 255 characters",
         ));
     }
+
     Ok(())
 }
 
@@ -57,14 +60,18 @@ pub(super) fn truncate_error(error: &str) -> String {
 
 pub(super) fn mask_target(value: &str) -> String {
     let value = value.trim();
+
     if let Some((local, domain)) = value.split_once('@') {
         let first = local.chars().next().unwrap_or('*');
         return format!("{first}***@{domain}");
     }
+
     let chars = value.chars().collect::<Vec<_>>();
+
     if chars.len() <= 4 {
         return "***".into();
     }
+
     format!(
         "{}{}***{}{}",
         chars[0],
@@ -90,6 +97,7 @@ const SENSITIVE_CONFIG_KEYS: &[&str] = &[
 
 fn sensitive_key(key: &str) -> bool {
     let normalized = key.to_ascii_lowercase();
+
     SENSITIVE_CONFIG_KEYS.iter().any(|candidate| {
         normalized == *candidate || (*candidate != "url" && normalized.ends_with(candidate))
     })
@@ -106,6 +114,7 @@ pub fn mask_connector_config(config: &Value) -> Value {
                     } else {
                         mask_connector_config(value)
                     };
+
                     (key.clone(), value)
                 })
                 .collect(),
@@ -130,6 +139,7 @@ pub(super) fn merge_masked_config(existing: &Value, desired: &Value) -> Value {
                             .get(key)
                             .map_or_else(|| value.clone(), |old| merge_masked_config(old, value))
                     };
+
                     (key.clone(), merged)
                 })
                 .collect(),

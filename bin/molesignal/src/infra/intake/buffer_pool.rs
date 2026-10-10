@@ -108,6 +108,7 @@ impl ColumnBuilder {
             self.append_null();
             return Ok(1);
         }
+
         let written = match self {
             Self::Bool(b) => {
                 b.append_value(v.as_bool().ok_or_else(|| anyhow!("expect bool"))?);
@@ -137,10 +138,12 @@ impl ColumnBuilder {
                 let micros = v
                     .as_i64()
                     .ok_or_else(|| anyhow!("expect timestamp i64 micros"))?;
+
                 b.append_value(micros);
                 8
             }
         };
+
         Ok(written)
     }
 
@@ -230,6 +233,7 @@ impl RecordBuilder {
             DataType::Timestamp(TimeUnit::Microsecond, Some("UTC".into())),
             false,
         ));
+
         columns.insert(TS_COL.to_string(), ColumnBuilder::new_timestamp());
         column_order.push(TS_COL.to_string());
 
@@ -241,6 +245,7 @@ impl RecordBuilder {
             } else {
                 ColumnBuilder::new(f.data_type)
             };
+
             let dt = builder.data_type();
             fields.push(Field::new(&f.name, dt, f.nullable));
             columns.insert(f.name.clone(), builder);
@@ -349,6 +354,7 @@ impl RecordBuilder {
                 writer.writer_epoch
             ));
         }
+
         if let Some(previous) = self.active_sequences.last()
             && sequence < *previous
         {
@@ -362,21 +368,25 @@ impl RecordBuilder {
             .columns
             .get_mut(TS_COL)
             .ok_or_else(|| anyhow!("internal: _timestamp column missing"))?;
+
         ts_col.append_timestamp_micros(event.timestamp.0)?;
 
         // 其余列：按 column_order 取，event 缺则 null。
         let mut bytes_estimate = 8usize; // timestamp
+
         for name in self.column_order.iter().skip(1) {
             let col = self
                 .columns
                 .get_mut(name)
                 .ok_or_else(|| anyhow!("column {name} missing from builder map"))?;
+
             match event.fields.get(name) {
                 Some(v) if !v.is_null() => {
                     if self.encrypted_cols.contains(name) {
                         let key = self.field_key.as_ref().ok_or_else(|| {
                             anyhow!("field `{name}` is encrypted but no field DEK injected")
                         })?;
+
                         let ct = encrypt_field(key, &value_to_plaintext(v))
                             .map_err(|e| anyhow!("encrypt field `{name}`: {e}"))?;
                         bytes_estimate += ct.len();
@@ -410,12 +420,15 @@ impl RecordBuilder {
         if !self.pending.is_empty() {
             return Some(RotationReason::Retry);
         }
+
         if self.row_count == 0 {
             return None;
         }
+
         if self.approx_size_bytes >= max_bytes {
             return Some(RotationReason::Size);
         }
+
         self.active_started_at
             .filter(|started| now.saturating_duration_since(*started) >= max_age)
             .map(|_| RotationReason::Age)
@@ -426,15 +439,18 @@ impl RecordBuilder {
         if self.columns.contains_key(&field.name) {
             return;
         }
+
         let mut col = if field.encrypted {
             self.encrypted_cols.insert(field.name.clone());
             ColumnBuilder::Utf8(StringBuilder::new())
         } else {
             ColumnBuilder::new(field.data_type)
         };
+
         for _ in 0..self.row_count {
             col.append_null();
         }
+
         let dt = col.data_type();
         self.fields
             .push(Field::new(&field.name, dt, field.nullable));

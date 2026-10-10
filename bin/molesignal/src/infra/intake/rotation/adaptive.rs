@@ -43,6 +43,7 @@ impl AdaptiveRotation {
         if !self.enabled {
             return self.max_bytes;
         }
+
         self.feedback
             .get(key)
             .map(|feedback| feedback.threshold_bytes)
@@ -60,6 +61,7 @@ impl AdaptiveRotation {
         if estimated_raw_bytes == 0 {
             return;
         }
+
         let observed_ratio =
             ((encoded_bytes as f64) / (estimated_raw_bytes as f64)).clamp(1.0e-6, 1.0e6);
         observe_parquet_ratio(dataset_type, observed_ratio);
@@ -68,17 +70,21 @@ impl AdaptiveRotation {
             observe_adaptive_target(dataset_type, self.max_bytes as f64);
             return;
         }
+
         let mut feedback = self.feedback.entry(key.clone()).or_insert(StreamFeedback {
             encoded_raw_ewma: observed_ratio,
             threshold_bytes: self.max_bytes,
         });
+
         if feedback.encoded_raw_ewma != observed_ratio {
             feedback.encoded_raw_ewma =
                 self.alpha * observed_ratio + (1.0 - self.alpha) * feedback.encoded_raw_ewma;
         }
+
         let desired = (self.target_bytes as f64 / feedback.encoded_raw_ewma)
             .round()
             .clamp(self.min_bytes as f64, self.max_bytes as f64);
+
         feedback.threshold_bytes = desired as usize;
         observe_adaptive_target(dataset_type, desired);
     }

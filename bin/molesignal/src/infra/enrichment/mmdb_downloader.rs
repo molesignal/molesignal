@@ -47,6 +47,7 @@ impl MmdbDownloader {
             tracing::info!(path = %self.cfg.db_path.display(), "mmdb file present");
             return Ok(true);
         }
+
         if self.cfg.license_key.is_none() {
             tracing::warn!(
                 path = %self.cfg.db_path.display(),
@@ -54,6 +55,7 @@ impl MmdbDownloader {
             );
             return Ok(false);
         }
+
         match self.download_once().await {
             Ok(()) => {
                 tracing::info!(path = %self.cfg.db_path.display(), "mmdb downloaded");
@@ -73,14 +75,17 @@ impl MmdbDownloader {
             .license_key
             .as_ref()
             .ok_or_else(|| Error::invalid("mmdb license_key not set"))?;
+
         let url = format!(
             "https://download.maxmind.com/app/geoip_download\
              ?edition_id=GeoLite2-City&suffix=tar.gz&license_key={key}"
         );
+
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(60))
             .build()
             .map_err(|e| Error::internal(format!("reqwest build: {e}")))?;
+
         let resp = crate::shared::http_trace::send(
             &client,
             client.get(&url),
@@ -88,37 +93,45 @@ impl MmdbDownloader {
         )
         .await
         .map_err(|e| Error::internal(format!("mmdb HTTP get: {e}")))?;
+
         if !resp.status().is_success() {
             return Err(Error::internal(format!(
                 "mmdb HTTP {} from MaxMind",
                 resp.status()
             )));
         }
+
         let bytes = resp
             .bytes()
             .await
             .map_err(|e| Error::internal(format!("mmdb read body: {e}")))?;
+
         let bytes = bytes.to_vec();
 
         // tar.gz 提取在 spawn_blocking 里跑（同步 IO + 解压）
         let target = self.cfg.db_path.clone();
+
         tokio::task::spawn_blocking(move || -> Result<()> {
             if let Some(parent) = target.parent() {
                 std::fs::create_dir_all(parent)
                     .map_err(|e| Error::internal(format!("mkdir mmdb parent: {e}")))?;
             }
+
             let cursor = std::io::Cursor::new(bytes);
             let gz = flate2::read::GzDecoder::new(cursor);
             let mut ar = tar::Archive::new(gz);
+
             for entry in ar
                 .entries()
                 .map_err(|e| Error::internal(format!("tar entries: {e}")))?
             {
                 let mut entry = entry.map_err(|e| Error::internal(format!("tar entry: {e}")))?;
+
                 let path = entry
                     .path()
                     .map_err(|e| Error::internal(format!("tar path: {e}")))?
                     .into_owned();
+
                 if path
                     .file_name()
                     .map(|n| n == "GeoLite2-City.mmdb")
@@ -134,12 +147,14 @@ impl MmdbDownloader {
                     return Ok(());
                 }
             }
+
             Err(Error::internal(
                 "GeoLite2-City.mmdb entry not found in tarball",
             ))
         })
         .await
         .map_err(|e| Error::internal(format!("spawn_blocking: {e}")))??;
+
         Ok(())
     }
 
@@ -147,6 +162,7 @@ impl MmdbDownloader {
     pub fn spawn_refresh(self: Arc<Self>) -> tokio::task::JoinHandle<()> {
         if self.cfg.license_key.is_none() {
             let path = self.cfg.db_path.clone();
+
             return tokio::spawn(async move {
                 tracing::info!(
                     path = %path.display(),
@@ -158,11 +174,14 @@ impl MmdbDownloader {
 
         let secs = self.cfg.refresh_interval_secs.max(3600);
         let me = self.clone();
+
         tokio::spawn(async move {
             let mut ticker = tokio::time::interval(Duration::from_secs(secs));
             ticker.tick().await; // 首 tick 跳过（startup ensure_ready 已经拉过）
+
             loop {
                 ticker.tick().await;
+
                 if let Err(e) = me.download_once().await {
                     tracing::warn!(error = %e, "mmdb refresh failed");
                 }

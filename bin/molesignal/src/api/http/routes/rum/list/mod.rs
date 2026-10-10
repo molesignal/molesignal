@@ -40,13 +40,17 @@ pub(super) struct ListQuery {
 
 pub(super) fn initial_page_context(request: &ListQuery) -> Result<(i64, i64, usize)> {
     let now = TimestampMicros::now().0;
+
     let from = request
         .from
         .unwrap_or_else(|| now.saturating_sub(DEFAULT_WINDOW_MICROS));
+
     let to = request.to.unwrap_or(now);
+
     if to <= from {
         return Err(Error::invalid("RUM range end must be greater than start"));
     }
+
     Ok((
         from,
         to,

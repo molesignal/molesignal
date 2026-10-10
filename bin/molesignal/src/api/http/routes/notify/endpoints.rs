@@ -119,6 +119,7 @@ async fn list(
 ) -> Result<Json<Vec<UserNotifyEndpoint>>> {
     let user_id = Id::from_string(user_id);
     ensure_user_scope(&state, &context, &user_id, false).await?;
+
     Ok(Json(
         state
             .alerting
@@ -135,6 +136,7 @@ async fn get_one(
 ) -> Result<Json<UserNotifyEndpoint>> {
     let user_id = Id::from_string(user_id);
     ensure_user_scope(&state, &context, &user_id, false).await?;
+
     Ok(Json(
         state
             .alerting
@@ -152,11 +154,13 @@ async fn create(
 ) -> Result<(StatusCode, Json<UserNotifyEndpoint>)> {
     let user_id = Id::from_string(user_id);
     ensure_user_scope(&state, &context, &user_id, true).await?;
+
     if request.verified && !may_attest_verification(&context) {
         return Err(Error::forbidden(
             "org.members.manage is required to attest endpoint verification",
         ));
     }
+
     let endpoint = state
         .alerting
         .notify
@@ -173,6 +177,7 @@ async fn create(
             },
         )
         .await?;
+
     Ok((StatusCode::CREATED, Json(endpoint)))
 }
 
@@ -184,18 +189,22 @@ async fn update(
 ) -> Result<Json<UserNotifyEndpoint>> {
     let user_id = Id::from_string(user_id);
     ensure_user_scope(&state, &context, &user_id, true).await?;
+
     let existing = state
         .alerting
         .notify
         .get_endpoint(&context.org_id, &user_id, &Id::from_string(&id))
         .await?;
+
     let identity_changed = request.connector_id != existing.connector_id
         || request.external_identity.trim() != existing.external_identity;
+
     let verified = if identity_changed {
         request.verified.unwrap_or(false)
     } else {
         request.verified.unwrap_or(existing.verified)
     };
+
     if verified
         && (identity_changed || verified != existing.verified)
         && !may_attest_verification(&context)
@@ -204,6 +213,7 @@ async fn update(
             "org.members.manage is required to change endpoint verification",
         ));
     }
+
     Ok(Json(
         state
             .alerting
@@ -232,11 +242,13 @@ async fn delete(
 ) -> Result<StatusCode> {
     let user_id = Id::from_string(user_id);
     ensure_user_scope(&state, &context, &user_id, true).await?;
+
     state
         .alerting
         .notify
         .delete_endpoint(&context.org_id, &user_id, &Id::from_string(id))
         .await?;
+
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -248,6 +260,7 @@ async fn test(
 ) -> Result<Json<EndpointTestResponse>> {
     let user_id = Id::from_string(user_id);
     ensure_user_scope(&state, &context, &user_id, true).await?;
+
     let outcome = state
         .alerting
         .notify
@@ -258,6 +271,7 @@ async fn test(
             test_message(request),
         )
         .await?;
+
     Ok(Json(EndpointTestResponse {
         sent: outcome.sent,
         tested_at_micros: outcome.tested_at.0,
@@ -276,13 +290,16 @@ async fn verify(
             "org.members.manage is required to attest endpoint verification",
         ));
     }
+
     let user_id = Id::from_string(user_id);
     ensure_user_scope(&state, &context, &user_id, true).await?;
+
     let endpoint = state
         .alerting
         .notify
         .get_endpoint(&context.org_id, &user_id, &Id::from_string(id))
         .await?;
+
     Ok(Json(
         state
             .alerting

@@ -20,6 +20,7 @@ pub(super) fn order_files(
     context: &TraceListContext,
 ) -> VecDeque<QueryFile> {
     let descending = effective_primary_desc(context);
+
     files.sort_by(|left, right| {
         match (
             file_bound(left, context, descending),
@@ -32,6 +33,7 @@ pub(super) fn order_files(
             (Some(left), Some(right)) => left.cmp(&right),
         }
     });
+
     files.into()
 }
 
@@ -43,6 +45,7 @@ fn effective_primary_desc(context: &TraceListContext) -> bool {
             | TraceListSort::SpanCountDesc
             | TraceListSort::ErrorsDesc
     );
+
     canonical
         ^ (context.boundary.as_ref().map(|value| value.direction) == Some(CursorDirection::Before))
 }
@@ -55,6 +58,7 @@ fn file_bound(file: &QueryFile, context: &TraceListContext, maximum: bool) -> Op
             } else {
                 &file.min_values
             };
+
             return map
                 .get(TRACE_SUMMARY_START_NS_FIELD)
                 .and_then(serde_json::Value::as_i64)
@@ -64,6 +68,7 @@ fn file_bound(file: &QueryFile, context: &TraceListContext, maximum: bool) -> Op
                     } else {
                         file.time_range.start.0
                     };
+
                     // `_timestamp` is truncated from nanoseconds. A maximum fallback must include
                     // the entire final microsecond or early-stop could discard a row up to 999 ns
                     // newer than the recorded QueryFile timestamp.
@@ -78,11 +83,13 @@ fn file_bound(file: &QueryFile, context: &TraceListContext, maximum: bool) -> Op
         TraceListSort::SpanCountDesc => TRACE_SUMMARY_SPAN_COUNT_FIELD,
         TraceListSort::ErrorsDesc => TRACE_SUMMARY_ERROR_COUNT_FIELD,
     };
+
     let map = if maximum {
         &file.max_values
     } else {
         &file.min_values
     };
+
     map.get(value).and_then(serde_json::Value::as_i64)
 }
 
@@ -92,21 +99,25 @@ pub(super) fn remaining_cannot_beat(
     top: &[TraceListRow],
 ) -> bool {
     let descending = effective_primary_desc(context);
+
     let Some(bound) = file_bound(next, context, descending) else {
         return false;
     };
+
     let Some(worst) = top
         .iter()
         .max_by(|left, right| effective_cmp(left, right, context))
     else {
         return false;
     };
+
     let worst = match context.sort {
         TraceListSort::Latest | TraceListSort::Earliest => worst.item.start_ns,
         TraceListSort::DurationDesc | TraceListSort::DurationAsc => worst.duration_ns,
         TraceListSort::SpanCountDesc => worst.item.span_count,
         TraceListSort::ErrorsDesc => worst.item.error_count,
     };
+
     if descending {
         bound < worst
     } else {
@@ -118,13 +129,16 @@ pub(super) fn file_may_match_cursor(file: &QueryFile, context: &TraceListContext
     let Some(boundary) = context.boundary.as_ref() else {
         return true;
     };
+
     if !matches!(
         context.sort,
         TraceListSort::Latest | TraceListSort::Earliest
     ) {
         return true;
     }
+
     let min_ns = file.time_range.start.0.saturating_mul(1_000);
+
     let max_ns = file
         .max_values
         .get(TRACE_SUMMARY_START_NS_FIELD)
@@ -136,6 +150,7 @@ pub(super) fn file_may_match_cursor(file: &QueryFile, context: &TraceListContext
                 .saturating_mul(1_000)
                 .saturating_add(999)
         });
+
     match (context.sort, boundary.direction) {
         (TraceListSort::Latest, CursorDirection::After)
         | (TraceListSort::Earliest, CursorDirection::Before) => {
@@ -154,11 +169,13 @@ pub(super) fn file_may_match_filters(file: &QueryFile, context: &TraceListContex
         let Some(field) = filter.summary_column() else {
             return true;
         };
+
         match filter.data_type {
             FieldType::Utf8 => {
                 if filter.op != "=" {
                     return true;
                 }
+
                 let Some(minimum) = file
                     .min_values
                     .get(field)
@@ -166,6 +183,7 @@ pub(super) fn file_may_match_filters(file: &QueryFile, context: &TraceListContex
                 else {
                     return true;
                 };
+
                 let Some(maximum) = file
                     .max_values
                     .get(field)
@@ -173,18 +191,22 @@ pub(super) fn file_may_match_filters(file: &QueryFile, context: &TraceListContex
                 else {
                     return true;
                 };
+
                 filter.value.as_str() >= minimum && filter.value.as_str() <= maximum
             }
             FieldType::Int64 | FieldType::Timestamp => {
                 let Some(value) = filter.integer_value() else {
                     return true;
                 };
+
                 let Some(minimum) = file.min_values.get(field).and_then(json_i64) else {
                     return true;
                 };
+
                 let Some(maximum) = file.max_values.get(field).and_then(json_i64) else {
                     return true;
                 };
+
                 numeric_range_may_match(minimum, maximum, filter.op.as_str(), value)
             }
             _ => true,

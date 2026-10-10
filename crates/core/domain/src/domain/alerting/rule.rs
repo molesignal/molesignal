@@ -33,6 +33,7 @@ impl AlertRuleKind {
             Self::Anomaly => "anomaly",
         }
     }
+
     /// 从持久化字符串解析；未知值回退 [`Scheduled`](AlertRuleKind::Scheduled)。
     pub fn parse(s: &str) -> Self {
         match s {

@@ -15,6 +15,7 @@ use crate::{
 };
 
 const BUCKET_COUNT: usize = 12;
+
 const METRIC_COLUMNS: &[&str] = &[
     "_timestamp",
     "ts_micros",
@@ -29,6 +30,7 @@ const METRIC_COLUMNS: &[&str] = &[
     "inp_ms",
     "cls",
 ];
+
 const INSIGHT_COLUMNS: &[&str] = &[
     "_timestamp",
     "ts_micros",
@@ -104,6 +106,7 @@ async fn load(
         state.storage.read_store.clone(),
     )
     .with_catalog_source(state.storage.catalog_query.clone());
+
     let scope = RumScope {
         application: context.application.as_deref(),
         environment: context.environment.as_deref(),
@@ -111,20 +114,24 @@ async fn load(
         country: context.country.as_deref(),
         device: context.device.as_deref(),
     };
+
     let mut lcp = Vec::new();
     let mut inp = Vec::new();
     let mut cls = Vec::new();
     let mut sessions = HashMap::<String, SessionExperience>::new();
     let mut pages = HashMap::<(String, String), PageSession>::new();
+
     let columns = match projection {
         ActionProjection::Metrics => METRIC_COLUMNS,
         ActionProjection::Insights => INSIGHT_COLUMNS,
     };
+
     let stats = reader
         .visit_actions(&iam.org_id, context.time_range(), columns, |record| {
             if !record.matches_scope(scope) {
                 return;
             }
+
             match projection {
                 ActionProjection::Metrics => collect_metric(&record, &mut lcp, &mut inp, &mut cls),
                 ActionProjection::Insights => {
@@ -133,6 +140,7 @@ async fn load(
             }
         })
         .await?;
+
     let aggregate = match projection {
         ActionProjection::Metrics => ActionAggregate {
             lcp_p75: percentile(&mut lcp, 0.75),
@@ -142,6 +150,7 @@ async fn load(
         },
         ActionProjection::Insights => build_insights(context, sessions, pages),
     };
+
     tracing::debug!(
         scanned_files = stats.files,
         scanned_rows = stats.rows,
@@ -159,6 +168,7 @@ fn collect_metric(
     if record.event_type != "view" {
         return;
     }
+
     push_finite(lcp, record.lcp_ms);
     push_finite(inp, record.inp_ms);
     push_finite(cls, record.cls);
@@ -172,14 +182,17 @@ fn collect_experience(
     if record.session_id.is_empty() {
         return;
     }
+
     let failed = record.status.unwrap_or_default() >= 400
         || matches!(record.event_type.as_str(), "error" | "network_error");
+
     let session = sessions
         .entry(record.session_id.clone())
         .or_insert_with(|| SessionExperience {
             started_at: record.timestamp_micros,
             ..SessionExperience::default()
         });
+
     session.started_at = session.started_at.min(record.timestamp_micros);
     session.failed |= failed;
     session.rage |= matches!(record.event_type.as_str(), "rage_click" | "rageclick");
@@ -200,6 +213,7 @@ fn collect_experience(
         let page = pages
             .entry((page.to_string(), record.session_id.clone()))
             .or_default();
+
         maximize(&mut page.lcp, Some(lcp));
         page.failed |= failed;
     }
@@ -212,13 +226,17 @@ fn build_insights(
 ) -> ActionAggregate {
     let mut aggregate = empty(context);
     let range = (context.to - context.from).max(1);
+
     for session in sessions.into_values() {
         let experience = experience(&session);
         aggregate.satisfaction.total += 1;
+
         let bucket = ((session.started_at - context.from).max(0) as i128 * BUCKET_COUNT as i128
             / range as i128)
             .clamp(0, BUCKET_COUNT.saturating_sub(1) as i128) as usize;
+
         let point = &mut aggregate.trend[bucket];
+
         match experience {
             "poor" => {
                 aggregate.satisfaction.poor += 1;
@@ -236,19 +254,23 @@ fn build_insights(
     }
 
     let mut by_page = HashMap::<String, (Vec<f64>, i64)>::new();
+
     for ((page, _), session) in pages {
         let Some(lcp) = session.lcp else {
             continue;
         };
+
         let item = by_page.entry(page).or_default();
         item.0.push(lcp);
         item.1 += i64::from(session.failed);
     }
+
     aggregate.slow_pages = by_page
         .into_iter()
         .map(|(page, (mut values, failed))| {
             let sessions = i64::try_from(values.len()).unwrap_or(i64::MAX);
             let p75 = percentile(&mut values, 0.75);
+
             SlowPage {
                 page,
                 p75,
@@ -262,9 +284,11 @@ fn build_insights(
             }
         })
         .collect();
+
     aggregate
         .slow_pages
         .sort_by(|left, right| right.p75.total_cmp(&left.p75));
+
     aggregate.slow_pages.truncate(5);
     aggregate
 }
@@ -310,15 +334,19 @@ fn percentile(values: &mut [f64], quantile: f64) -> f64 {
     if values.is_empty() {
         return 0.0;
     }
+
     values.sort_by(f64::total_cmp);
+
     let index = ((values.len() as f64 * quantile).ceil() as usize)
         .saturating_sub(1)
         .min(values.len() - 1);
+
     values[index]
 }
 
 fn empty(context: &ReadModelContext) -> ActionAggregate {
     let width = ((context.to - context.from) / BUCKET_COUNT as i64).max(1);
+
     ActionAggregate {
         trend: (0..BUCKET_COUNT)
             .map(|index| ExperienceBucket {

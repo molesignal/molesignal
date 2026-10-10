@@ -44,26 +44,32 @@ impl NodeSettings {
     /// 显式配置优先；留空时使用 OS hostname，仅在 hostname 不可用时生成 KSUID。
     pub fn resolved_id(&self) -> String {
         let configured = self.id.trim();
+
         if !configured.is_empty() {
             return configured.to_owned();
         }
+
         let hostname = hostname::get()
             .ok()
             .map(|value| value.to_string_lossy().into_owned());
+
         resolve_node_id("", hostname.as_deref())
     }
 
     pub fn validate(&self) -> anyhow::Result<()> {
         let id = self.id.trim();
+
         if id.chars().count() > MAX_NODE_ID_CHARS {
             anyhow::bail!("node.id must be at most {MAX_NODE_ID_CHARS} characters");
         }
+
         Ok(())
     }
 }
 
 fn resolve_node_id(configured: &str, hostname: Option<&str>) -> String {
     let configured = configured.trim();
+
     if !configured.is_empty() {
         return configured.to_owned();
     }
@@ -75,9 +81,11 @@ fn resolve_node_id(configured: &str, hostname: Option<&str>) -> String {
 
 fn normalize_hostname(hostname: &str) -> Option<String> {
     let hostname = hostname.trim().trim_end_matches('.');
+
     if hostname.is_empty() {
         return None;
     }
+
     if hostname.chars().count() <= MAX_NODE_ID_CHARS {
         return Some(hostname.to_owned());
     }
@@ -85,6 +93,7 @@ fn normalize_hostname(hostname: &str) -> Option<String> {
     let prefix_chars = MAX_NODE_ID_CHARS - HOSTNAME_HASH_CHARS - 1;
     let prefix: String = hostname.chars().take(prefix_chars).collect();
     let digest = blake3::hash(hostname.as_bytes()).to_hex();
+
     Some(format!(
         "{prefix}-{}",
         &digest.as_str()[..HOSTNAME_HASH_CHARS]

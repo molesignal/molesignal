@@ -13,6 +13,7 @@ use crate::{
 pub(super) const HOUR_MICROS: i64 = 3_600 * 1_000_000;
 pub(super) const HOT_RESOLUTION_MICROS: i64 = 24 * HOUR_MICROS;
 const MERGED_EXEMPLAR_CAP: usize = 8;
+
 type RollupMergeMap =
     BTreeMap<(Vec<u8>, u16), (BucketDimension, BucketMeasurements, BTreeSet<i64>)>;
 
@@ -81,25 +82,32 @@ pub(super) fn row_to_bucket(row: PgRow) -> Result<PersistedBucketRow> {
     let schema_version: i16 = row
         .try_get("histogram_schema_version")
         .map_err(crate::infra::persistence::sqlx_err)?;
+
     let schema_version = u16::try_from(schema_version)
         .map_err(|_| Error::internal("negative APM histogram schema version"))?;
+
     let dimension: Json<BucketDimension> = row
         .try_get("dimension")
         .map_err(crate::infra::persistence::sqlx_err)?;
+
     let measurements: Json<BucketMeasurements> = row
         .try_get("measurements")
         .map_err(crate::infra::persistence::sqlx_err)?;
+
     if measurements.0.latency.schema_version != schema_version {
         return Err(Error::internal(
             "APM measurement histogram schema does not match row metadata",
         ));
     }
+
     let dimension_key: Vec<u8> = row
         .try_get("dimension_key")
         .map_err(crate::infra::persistence::sqlx_err)?;
+
     if dimension_key.len() != blake3::OUT_LEN {
         return Err(Error::internal("invalid APM dimension key length"));
     }
+
     Ok(PersistedBucketRow {
         bucket_at: row
             .try_get("bucket_at_micros")
@@ -114,12 +122,14 @@ pub(super) fn row_to_bucket(row: PgRow) -> Result<PersistedBucketRow> {
 pub(super) fn merge_rows(rows: Vec<PersistedBucketRow>) -> Result<Vec<MergedBucket>> {
     let mut merged: BTreeMap<(i64, Vec<u8>, u16), (BucketDimension, BucketMeasurements)> =
         BTreeMap::new();
+
     for row in rows {
         let key = (
             row.bucket_at,
             row.dimension_key,
             row.histogram_schema_version,
         );
+
         match merged.entry(key) {
             std::collections::btree_map::Entry::Vacant(entry) => {
                 entry.insert((row.dimension, row.measurements));
@@ -128,10 +138,12 @@ pub(super) fn merge_rows(rows: Vec<PersistedBucketRow>) -> Result<Vec<MergedBuck
                 if entry.get().0 != row.dimension {
                     return Err(Error::internal("APM dimension key collision"));
                 }
+
                 merge_measurements(&mut entry.get_mut().1, row.measurements)?;
             }
         }
     }
+
     Ok(merged
         .into_iter()
         .map(
@@ -146,8 +158,10 @@ pub(super) fn merge_rows(rows: Vec<PersistedBucketRow>) -> Result<Vec<MergedBuck
 
 pub(super) fn rollup_rows(rows: Vec<PersistedBucketRow>) -> Result<Vec<RollupBucket>> {
     let mut merged = RollupMergeMap::new();
+
     for row in rows {
         let key = (row.dimension_key.clone(), row.histogram_schema_version);
+
         match merged.entry(key) {
             std::collections::btree_map::Entry::Vacant(entry) => {
                 entry.insert((
@@ -160,11 +174,13 @@ pub(super) fn rollup_rows(rows: Vec<PersistedBucketRow>) -> Result<Vec<RollupBuc
                 if entry.get().0 != row.dimension {
                     return Err(Error::internal("APM dimension key collision"));
                 }
+
                 merge_measurements(&mut entry.get_mut().1, row.measurements)?;
                 entry.get_mut().2.insert(row.bucket_at);
             }
         }
     }
+
     merged
         .into_iter()
         .map(
@@ -193,14 +209,17 @@ fn merge_measurements(target: &mut BucketMeasurements, source: BucketMeasurement
         .iter()
         .map(|item| (item.trace_id.clone(), item.span_id.clone()))
         .collect();
+
     for exemplar in source.exemplars {
         if target.exemplars.len() >= MERGED_EXEMPLAR_CAP {
             break;
         }
+
         if seen.insert((exemplar.trace_id.clone(), exemplar.span_id.clone())) {
             target.exemplars.push(exemplar);
         }
     }
+
     Ok(())
 }
 
@@ -215,9 +234,11 @@ pub(super) fn as_i16(value: u16, field: &str) -> Result<i16> {
 
 pub(super) fn gap_id(parts: &[&[u8]]) -> String {
     let mut hasher = blake3::Hasher::new();
+
     for part in parts {
         hasher.update(&(part.len() as u64).to_le_bytes());
         hasher.update(part);
     }
+
     hasher.finalize().to_hex().to_string()
 }

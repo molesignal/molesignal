@@ -95,14 +95,18 @@ async fn query_exemplars(
             "Prometheus exemplar query must not be empty",
         ));
     }
+
     let start = parse_prometheus_time(&params.start, "start")?;
     let end = parse_prometheus_time(&params.end, "end")?;
+
     if end < start {
         return Err(Error::invalid(
             "Prometheus exemplar query end must be >= start",
         ));
     }
+
     let role_key = ctx.organization_role_key().to_string();
+
     let result = state
         .query
         .run_exemplars(
@@ -118,11 +122,13 @@ async fn query_exemplars(
             &role_key,
         )
         .await?;
+
     let warnings = result
         .truncated
         .then(|| format!("exemplar result truncated at {MAX_EXEMPLARS_PER_QUERY} unique exemplars"))
         .into_iter()
         .collect();
+
     Ok(Json(PrometheusResponse {
         status: "success",
         data: result
@@ -137,13 +143,16 @@ async fn query_exemplars(
 fn parse_prometheus_time(value: &str, field: &str) -> Result<TimestampMicros> {
     if let Ok(seconds) = value.parse::<f64>() {
         let micros = seconds * 1_000_000.0;
+
         if !micros.is_finite() || micros < i64::MIN as f64 || micros > i64::MAX as f64 {
             return Err(Error::invalid(format!(
                 "Prometheus exemplar {field} is outside the supported timestamp range"
             )));
         }
+
         return Ok(TimestampMicros(micros.round() as i64));
     }
+
     chrono::DateTime::parse_from_rfc3339(value)
         .map(|timestamp| TimestampMicros(timestamp.timestamp_micros()))
         .map_err(|_| {

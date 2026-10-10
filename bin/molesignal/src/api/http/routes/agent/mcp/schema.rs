@@ -26,6 +26,7 @@ pub(super) fn synchronize(mut schema: Value) -> Result<SynchronizedSchema> {
     if !schema.is_object() {
         return Err(Error::invalid("MCP input schema must be a JSON object"));
     }
+
     enforce_size_and_depth(&schema)?;
     let dialect = normalize_dialect(&mut schema)?;
     normalize_object_root(&mut schema);
@@ -33,6 +34,7 @@ pub(super) fn synchronize(mut schema: Value) -> Result<SynchronizedSchema> {
     ContractValidator::compile(schema.clone())
         .map_err(|error| Error::invalid(format!("MCP input schema is invalid: {error}")))?;
     let hash = sha256_hex(canonical_json_bytes(&schema));
+
     Ok(SynchronizedSchema {
         schema,
         hash,
@@ -51,11 +53,13 @@ pub(super) fn validate_schema_revision(
     input: &Value,
 ) -> Result<()> {
     let synchronized = synchronize(schema.clone())?;
+
     if synchronized.hash != expected_hash {
         return Err(Error::conflict(
             "MCP tool schema revision changed; synchronize the server before execution",
         ));
     }
+
     validate_compiled(&synchronized.schema, input)
 }
 
@@ -63,9 +67,11 @@ fn validate_compiled(schema: &Value, input: &Value) -> Result<()> {
     if !input.is_object() {
         return Err(Error::invalid("tool arguments must be a JSON object"));
     }
+
     let validator = ContractValidator::compile(schema.clone())
         .map_err(|error| Error::invalid(format!("MCP input schema is invalid: {error}")))?;
     let issues = validator.validate(input);
+
     if issues.is_empty() {
         Ok(())
     } else {
@@ -78,6 +84,7 @@ fn validate_compiled(schema: &Value, input: &Value) -> Result<()> {
 
 fn normalize_dialect(schema: &mut Value) -> Result<String> {
     let dialect = schema.get("$schema").and_then(Value::as_str);
+
     match dialect {
         None
         | Some("https://json-schema.org/draft/2020-12/schema")
@@ -101,6 +108,7 @@ fn normalize_object_root(schema: &mut Value) {
     {
         schema["type"] = Value::String("object".into());
     }
+
     if schema.get("type").and_then(Value::as_str) == Some("object")
         && schema.get("properties").is_none()
     {
@@ -111,17 +119,20 @@ fn normalize_object_root(schema: &mut Value) {
 fn enforce_size_and_depth(schema: &Value) -> Result<()> {
     let bytes = serde_json::to_vec(schema)
         .map_err(|error| Error::invalid(format!("MCP schema serialization failed: {error}")))?;
+
     if bytes.len() > MAX_SCHEMA_BYTES {
         return Err(Error::invalid(format!(
             "MCP input schema exceeds {MAX_SCHEMA_BYTES} bytes"
         )));
     }
+
     fn visit(value: &Value, depth: usize) -> Result<()> {
         if depth > MAX_SCHEMA_DEPTH {
             return Err(Error::invalid(format!(
                 "MCP input schema exceeds nesting depth {MAX_SCHEMA_DEPTH}"
             )));
         }
+
         match value {
             Value::Array(values) => {
                 for value in values {
@@ -135,28 +146,34 @@ fn enforce_size_and_depth(schema: &Value) -> Result<()> {
             }
             _ => {}
         }
+
         Ok(())
     }
+
     visit(schema, 0)
 }
 
 fn validate_references(schema: &Value) -> Result<()> {
     let mut refs = Vec::new();
     collect_refs(schema, &mut refs);
+
     if refs.len() > MAX_REFERENCES {
         return Err(Error::invalid(format!(
             "MCP input schema exceeds {MAX_REFERENCES} references"
         )));
     }
+
     for reference in refs {
         if !reference.starts_with("#/") {
             return Err(Error::invalid(format!(
                 "MCP schema reference `{reference}` is not a local JSON Pointer"
             )));
         }
+
         let mut visiting = HashSet::new();
         follow_reference(schema, reference, 1, &mut visiting)?;
     }
+
     Ok(())
 }
 
@@ -166,6 +183,7 @@ fn collect_refs<'a>(value: &'a Value, refs: &mut Vec<&'a str>) {
             if let Some(reference) = values.get("$ref").and_then(Value::as_str) {
                 refs.push(reference);
             }
+
             for value in values.values() {
                 collect_refs(value, refs);
             }
@@ -190,24 +208,30 @@ fn follow_reference(
             "MCP schema reference depth exceeds {MAX_REFERENCE_DEPTH}"
         )));
     }
+
     if !visiting.insert(reference.to_string()) {
         return Err(Error::invalid(
             "recursive MCP schema references are not supported",
         ));
     }
+
     let pointer = reference
         .strip_prefix('#')
         .ok_or_else(|| Error::invalid("MCP schema reference must be local"))?;
+
     let target = root.pointer(pointer).ok_or_else(|| {
         Error::invalid(format!(
             "MCP schema reference `{reference}` does not resolve"
         ))
     })?;
+
     let mut nested = Vec::new();
     collect_refs(target, &mut nested);
+
     for reference in nested {
         follow_reference(root, reference, depth + 1, visiting)?;
     }
+
     visiting.remove(reference);
     Ok(())
 }

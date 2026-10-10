@@ -58,12 +58,15 @@ impl MaskingProvider for MaskingService {
         if let Some(m) = self.cache.get(&org_id.0).await {
             return Ok(m);
         }
+
         let rows = self.patterns.list(org_id).await?;
+
         let masker = Arc::new(Masker::compile(
             rows.into_iter()
                 .filter(|p| p.apply_on_intake)
                 .map(|p| (p.pattern, p.replacement)),
         ));
+
         self.cache.insert(org_id.0.clone(), masker.clone()).await;
         Ok(masker)
     }

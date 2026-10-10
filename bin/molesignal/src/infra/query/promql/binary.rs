@@ -18,18 +18,22 @@ pub(super) fn match_signature(labels: &LabelSet, matching: Option<&LabelModifier
         None => labels.clone(),
         Some(LabelModifier::Include(on)) => {
             let mut out = LabelSet::new();
+
             for key in on.labels.iter() {
                 if let Some(value) = labels.get(key) {
                     out.insert(key.clone(), value.clone());
                 }
             }
+
             out
         }
         Some(LabelModifier::Exclude(ignoring)) => {
             let mut out = labels.clone();
+
             for key in ignoring.labels.iter() {
                 out.remove(key);
             }
+
             out
         }
     }
@@ -42,15 +46,19 @@ pub(super) fn match_vectors(
     rhs: Vec<(LabelSet, f64)>,
 ) -> Result<Vec<(LabelSet, f64)>> {
     let matching = binary.modifier.as_ref().and_then(|m| m.matching.as_ref());
+
     if binary.op.is_set_operator() {
         return Ok(apply_set_operator(binary.op, matching, lhs, rhs));
     }
+
     let return_bool = binary_return_bool(binary);
+
     let card = binary
         .modifier
         .as_ref()
         .map(|m| &m.card)
         .unwrap_or(&VectorMatchCardinality::OneToOne);
+
     match card {
         VectorMatchCardinality::OneToOne => {
             one_to_one(binary.op, matching, return_bool, &lhs, &rhs)
@@ -89,6 +97,7 @@ fn apply_set_operator(
         .iter()
         .map(|(labels, _)| match_signature(labels, matching))
         .collect();
+
     match op.id() {
         // and：保留 lhs 中签名出现在 rhs 的项。
         T_LAND => lhs
@@ -106,12 +115,15 @@ fn apply_set_operator(
                 .iter()
                 .map(|(labels, _)| match_signature(labels, matching))
                 .collect();
+
             let mut out = lhs;
+
             for (labels, value) in rhs {
                 if !lhs_sigs.contains(&match_signature(&labels, matching)) {
                     out.push((labels, value));
                 }
             }
+
             out
         }
         _ => Vec::new(),
@@ -126,23 +138,30 @@ fn one_to_one(
     rhs: &[(LabelSet, f64)],
 ) -> Result<Vec<(LabelSet, f64)>> {
     let mut rhs_by: HashMap<LabelSet, f64> = HashMap::new();
+
     for (labels, value) in rhs {
         rhs_by
             .entry(match_signature(labels, matching))
             .or_insert(*value);
     }
+
     let mut out = Vec::new();
+
     for (labels, lhs_value) in lhs {
         let sig = match_signature(labels, matching);
+
         let Some(rhs_value) = rhs_by.get(&sig).copied() else {
             continue;
         };
+
         let output = apply_binary_output(op, *lhs_value, rhs_value)?;
+
         if let Some(value) = sample_binary_value(output, return_bool, *lhs_value) {
             // 1:1 结果 label 集 = 匹配签名。
             out.push((sig, value));
         }
     }
+
     Ok(out)
 }
 
@@ -159,28 +178,37 @@ fn group_match(
 ) -> Result<Vec<(LabelSet, f64)>> {
     let (many, one) = if group_left { (lhs, rhs) } else { (rhs, lhs) };
     let mut one_by: HashMap<LabelSet, (LabelSet, f64)> = HashMap::new();
+
     for (labels, value) in one {
         one_by
             .entry(match_signature(labels, matching))
             .or_insert_with(|| (labels.clone(), *value));
     }
+
     let mut out = Vec::new();
+
     for (many_labels, many_value) in many {
         let sig = match_signature(many_labels, matching);
+
         let Some((one_labels, one_value)) = one_by.get(&sig) else {
             continue;
         };
+
         // 运算符始终 lhs OP rhs，与分组方向无关。
         let (lhs_value, rhs_value) = if group_left {
             (*many_value, *one_value)
         } else {
             (*one_value, *many_value)
         };
+
         let output = apply_binary_output(op, lhs_value, rhs_value)?;
+
         let Some(value) = sample_binary_value(output, return_bool, lhs_value) else {
             continue;
         };
+
         let mut labels = many_labels.clone();
+
         for key in extra {
             match one_labels.get(key) {
                 Some(v) => {
@@ -191,8 +219,10 @@ fn group_match(
                 }
             }
         }
+
         out.push((labels, value));
     }
+
     Ok(out)
 }
 
@@ -216,6 +246,7 @@ pub(super) fn apply_binary_output(op: TokenType, lhs: f64, rhs: f64) -> Result<B
             )));
         }
     };
+
     Ok(output)
 }
 
@@ -253,10 +284,12 @@ pub(super) fn apply_binary_instant(
     rhs_is_scalar: bool,
 ) -> Result<InstantVector> {
     let return_bool = binary_return_bool(binary);
+
     let items = match (lhs_is_scalar, rhs_is_scalar) {
         (true, true) => {
             let lhs = scalar_value(lhs, "binary lhs")?;
             let rhs = scalar_value(rhs, "binary rhs")?;
+
             vec![(
                 LabelSet::new(),
                 scalar_binary_value(apply_binary_output(binary.op, lhs, rhs)?),
@@ -265,27 +298,34 @@ pub(super) fn apply_binary_instant(
         (true, false) => {
             let lhs = scalar_value(lhs, "binary lhs")?;
             let mut items = Vec::with_capacity(rhs.items.len());
+
             for (labels, rhs) in rhs.items {
                 let output = apply_binary_output(binary.op, lhs, rhs)?;
+
                 if let Some(value) = sample_binary_value(output, return_bool, rhs) {
                     items.push((labels, value));
                 }
             }
+
             items
         }
         (false, true) => {
             let rhs = scalar_value(rhs, "binary rhs")?;
             let mut items = Vec::with_capacity(lhs.items.len());
+
             for (labels, lhs) in lhs.items {
                 let output = apply_binary_output(binary.op, lhs, rhs)?;
+
                 if let Some(value) = sample_binary_value(output, return_bool, lhs) {
                     items.push((labels, value));
                 }
             }
+
             items
         }
         (false, false) => match_vectors(binary, lhs.items, rhs.items)?,
     };
+
     Ok(InstantVector { items })
 }
 
@@ -297,17 +337,21 @@ pub(super) fn apply_binary_range_scalar(
 ) -> Result<RangeVector> {
     let return_bool = binary_return_bool(binary);
     let mut points = Vec::with_capacity(range.points.len());
+
     for point in range.points {
         let (lhs, rhs) = if scalar_on_lhs {
             (scalar, point.value)
         } else {
             (point.value, scalar)
         };
+
         let output = apply_binary_output(binary.op, lhs, rhs)?;
+
         if let Some(value) = sample_binary_value(output, return_bool, point.value) {
             points.push(RangePoint { value, ..point });
         }
     }
+
     Ok(RangeVector { points })
 }
 
@@ -319,32 +363,40 @@ pub(super) fn apply_binary_range(
     // 逐时间戳套用与 instant 相同的匹配/集合语义：把两侧点按 ts 分桶，每个 ts
     // 跑一次 match_vectors，再把结果重新挂回该 ts。
     let mut lhs_by_ts: BTreeMap<i64, Vec<(LabelSet, f64)>> = BTreeMap::new();
+
     for point in lhs.points {
         lhs_by_ts
             .entry(point.ts_us)
             .or_default()
             .push((point.labels, point.value));
     }
+
     let mut rhs_by_ts: HashMap<i64, Vec<(LabelSet, f64)>> = HashMap::new();
+
     for point in rhs.points {
         rhs_by_ts
             .entry(point.ts_us)
             .or_default()
             .push((point.labels, point.value));
     }
+
     // `or` 可能引入只存在于 rhs 的时间戳，故取并集。
     let mut timestamps: Vec<i64> = lhs_by_ts.keys().copied().collect();
+
     for ts in rhs_by_ts.keys() {
         if !lhs_by_ts.contains_key(ts) {
             timestamps.push(*ts);
         }
     }
+
     timestamps.sort_unstable();
 
     let mut points = Vec::new();
+
     for ts in timestamps {
         let lhs_items = lhs_by_ts.remove(&ts).unwrap_or_default();
         let rhs_items = rhs_by_ts.remove(&ts).unwrap_or_default();
+
         for (labels, value) in match_vectors(binary, lhs_items, rhs_items)? {
             points.push(RangePoint {
                 ts_us: ts,
@@ -353,5 +405,6 @@ pub(super) fn apply_binary_range(
             });
         }
     }
+
     Ok(RangeVector { points })
 }

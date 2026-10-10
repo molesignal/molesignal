@@ -68,11 +68,13 @@ fn authorize_scope(ctx: &IamContext, scope: &str, owner_user_id: Option<&str>) -
         "org" => Permission::require_key(ctx, "agent.manage"),
         "user" => {
             Permission::require_key(ctx, "agent.manage")?;
+
             if let Some(uid) = owner_user_id
                 && uid != ctx.user_id.0
             {
                 return Err(Error::forbidden("cannot modify another user's prompt"));
             }
+
             Ok(())
         }
         "builtin" => Err(Error::invalid("builtin prompts are immutable")),
@@ -160,24 +162,31 @@ async fn create(
     Json(req): Json<CreateReq>,
 ) -> Result<Json<PromptResp>> {
     validate_purpose(&req.purpose)?;
+
     if req.name.trim().is_empty() || req.body.trim().is_empty() {
         return Err(Error::invalid("name and body are required"));
     }
+
     // user scope 归属本人；org scope owner=None。
     authorize_scope(&ctx, &req.scope, Some(&ctx.user_id.0))?;
+
     let variables_schema = req
         .variables_schema
         .unwrap_or_else(|| json!({ "type": "object", "properties": {} }));
+
     // task 2.4：body 只能引用 variables_schema 允许的变量。
     validate_template_variables(&req.body, &variables_schema)?;
 
     let now = TimestampMicros::now();
+
     let user_id = if req.scope == "user" {
         Some(ctx.user_id.0.clone())
     } else {
         None
     };
+
     let id = Id::new();
+
     let t = AgentPromptTemplate {
         id: id.clone(),
         org_id: Some(ctx.org_id.0.clone()),
@@ -197,7 +206,9 @@ async fn create(
         created_at: now,
         updated_at: now,
     };
+
     let saved = state.agent.prompts.create(t).await?;
+
     activity_audit::record(
         &state,
         &ctx,
@@ -213,6 +224,7 @@ async fn create(
         }),
     )
     .await;
+
     Ok(Json(to_resp(saved)))
 }
 
@@ -225,15 +237,19 @@ async fn update(
     if req.name.trim().is_empty() || req.body.trim().is_empty() {
         return Err(Error::invalid("name and body are required"));
     }
+
     let existing = state.agent.prompts.get(&Id(id.clone())).await?;
     authorize_scope(&ctx, &existing.scope, existing.user_id.as_deref())?;
+
     // org override 也要校验本 org。
     if existing.org_id.as_deref() != Some(ctx.org_id.0.as_str()) {
         return Err(Error::forbidden("prompt belongs to another org"));
     }
+
     let variables_schema = req
         .variables_schema
         .unwrap_or(existing.variables_schema.clone());
+
     validate_template_variables(&req.body, &variables_schema)?;
 
     let mut next = existing.clone();
@@ -243,6 +259,7 @@ async fn update(
     next.enabled = req.enabled.unwrap_or(existing.enabled);
     next.updated_by = Some(ctx.user_id.0.clone());
     let saved = state.agent.prompts.update(next).await?;
+
     activity_audit::record(
         &state,
         &ctx,
@@ -257,6 +274,7 @@ async fn update(
         }),
     )
     .await;
+
     Ok(Json(to_resp(saved)))
 }
 
@@ -267,10 +285,13 @@ async fn set_default(
 ) -> Result<Json<PromptResp>> {
     let existing = state.agent.prompts.get(&Id(id.clone())).await?;
     authorize_scope(&ctx, &existing.scope, existing.user_id.as_deref())?;
+
     if existing.org_id.as_deref() != Some(ctx.org_id.0.as_str()) {
         return Err(Error::forbidden("prompt belongs to another org"));
     }
+
     state.agent.prompts.set_default(&Id(id.clone())).await?;
+
     activity_audit::record(
         &state,
         &ctx,
@@ -280,6 +301,7 @@ async fn set_default(
         json!({ "scope": existing.scope, "purpose": existing.purpose }),
     )
     .await;
+
     let saved = state.agent.prompts.get(&Id(id)).await?;
     Ok(Json(to_resp(saved)))
 }
@@ -291,13 +313,16 @@ async fn restore(
 ) -> Result<Json<PromptResp>> {
     let existing = state.agent.prompts.get(&Id(id.clone())).await?;
     authorize_scope(&ctx, &existing.scope, existing.user_id.as_deref())?;
+
     if existing.org_id.as_deref() != Some(ctx.org_id.0.as_str()) {
         return Err(Error::forbidden("prompt belongs to another org"));
     }
+
     let builtin_key = existing
         .builtin_key
         .clone()
         .ok_or_else(|| Error::invalid("override has no builtin parent to restore from"))?;
+
     let builtin = state.agent.prompts.get_builtin(&builtin_key).await?;
     // 用 builtin body/schema 覆盖 override，递增 version。
     let mut next = existing.clone();
@@ -305,6 +330,7 @@ async fn restore(
     next.variables_schema = builtin.variables_schema;
     next.updated_by = Some(ctx.user_id.0.clone());
     let saved = state.agent.prompts.update(next).await?;
+
     activity_audit::record(
         &state,
         &ctx,
@@ -320,6 +346,7 @@ async fn restore(
         }),
     )
     .await;
+
     Ok(Json(to_resp(saved)))
 }
 
@@ -330,10 +357,13 @@ async fn delete(
 ) -> Result<Json<serde_json::Value>> {
     let existing = state.agent.prompts.get(&Id(id.clone())).await?;
     authorize_scope(&ctx, &existing.scope, existing.user_id.as_deref())?;
+
     if existing.org_id.as_deref() != Some(ctx.org_id.0.as_str()) {
         return Err(Error::forbidden("prompt belongs to another org"));
     }
+
     state.agent.prompts.delete(&Id(id.clone())).await?;
+
     activity_audit::record(
         &state,
         &ctx,
@@ -343,5 +373,6 @@ async fn delete(
         json!({ "scope": existing.scope, "purpose": existing.purpose }),
     )
     .await;
+
     Ok(Json(json!({ "deleted": true })))
 }

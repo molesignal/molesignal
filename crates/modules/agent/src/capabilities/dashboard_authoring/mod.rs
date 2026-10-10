@@ -71,23 +71,27 @@ pub fn resolve(
                 "unknown Mole Agent capability `{capability}`"
             )));
         }
+
         return Ok(Some(Activation {
             source: ActivationSource::ExplicitCapability,
             input_complete: input_complete(content, has_time_range),
         }));
     }
+
     if request_analysis_mode == Some("dashboard") || chat_analysis_mode == Some("dashboard") {
         return Ok(Some(Activation {
             source: ActivationSource::AnalysisMode,
             input_complete: input_complete(content, has_time_range),
         }));
     }
+
     if high_confidence_intent(content) {
         return Ok(Some(Activation {
             source: ActivationSource::FreeText,
             input_complete: input_complete(content, has_time_range),
         }));
     }
+
     Ok(None)
 }
 
@@ -97,18 +101,21 @@ pub fn validate_compatibility(
 ) -> Result<Compatibility> {
     let enabled = enabled_tools.into_iter().collect::<HashSet<_>>();
     let manifest = manifest();
+
     let missing = manifest
         .required_tools
         .iter()
         .filter(|tool| !enabled.contains(tool.as_str()))
         .cloned()
         .collect::<Vec<_>>();
+
     if !missing.is_empty() {
         return Err(Error::forbidden(format!(
             "Dashboard authoring is unavailable because required tools are disabled: {}",
             missing.join(", ")
         )));
     }
+
     if !manifest
         .authoring_contract_versions
         .iter()
@@ -118,27 +125,32 @@ pub fn validate_compatibility(
             "Dashboard skill and compiler authoring contract versions do not overlap",
         ));
     }
+
     let preview_only = manifest
         .optional_tools
         .iter()
         .any(|tool| !enabled.contains(tool.as_str()));
+
     Ok(Compatibility { preview_only })
 }
 
 fn high_confidence_intent(content: &str) -> bool {
     let lower = content.to_ascii_lowercase();
     let has_dashboard = lower.contains("dashboard") || content.contains("仪表盘");
+
     let has_creation = ["create", "build", "generate", "make"]
         .iter()
         .any(|word| lower.contains(word))
         || ["创建", "生成", "搭建", "制作"]
             .iter()
             .any(|word| content.contains(word));
+
     has_dashboard && has_creation
 }
 
 fn input_complete(content: &str, has_time_range: bool) -> bool {
     let lower = content.to_ascii_lowercase();
+
     let has_data_topic = [
         "log", "metric", "trace", "profile", "latency", "error", "traffic", "cpu", "memory",
         "service", "request",
@@ -150,6 +162,7 @@ fn input_complete(content: &str, has_time_range: bool) -> bool {
         ]
         .iter()
         .any(|word| content.contains(word));
+
     let has_time = has_time_range
         || ["last ", "today", "yesterday", "hour", "day", "week"]
             .iter()
@@ -157,6 +170,7 @@ fn input_complete(content: &str, has_time_range: bool) -> bool {
         || ["最近", "过去", "今天", "昨天", "小时", "天", "周"]
             .iter()
             .any(|word| content.contains(word));
+
     has_data_topic && has_time
 }
 

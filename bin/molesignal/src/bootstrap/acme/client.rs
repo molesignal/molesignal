@@ -93,11 +93,14 @@ impl AcmeClient {
             .account
             .get_or_try_init(|| async {
                 let creds_path = self.inner.key_storage_dir.join("account.json");
+
                 if let Ok(bytes) = tokio::fs::read(&creds_path).await {
                     let creds: AccountCredentials = serde_json::from_slice(&bytes)?;
                     return Ok::<_, AcmeError>(Account::builder()?.from_credentials(creds).await?);
                 }
+
                 let contact = format!("mailto:{}", self.inner.contact_email);
+
                 let (account, creds) = Account::builder()?
                     .create(
                         &NewAccount {
@@ -109,7 +112,9 @@ impl AcmeClient {
                         None,
                     )
                     .await?;
+
                 tokio::fs::write(&creds_path, serde_json::to_vec_pretty(&creds)?).await?;
+
                 #[cfg(unix)]
                 {
                     use std::os::unix::fs::PermissionsExt;
@@ -117,6 +122,7 @@ impl AcmeClient {
                     perms.set_mode(0o600);
                     let _ = tokio::fs::set_permissions(&creds_path, perms).await;
                 }
+
                 Ok(account)
             })
             .await
@@ -137,16 +143,21 @@ impl AcmeClient {
         // can answer LE, then notify the server the challenge is ready.
         {
             let mut authorizations = order.authorizations();
+
             while let Some(authz_res) = authorizations.next().await {
                 let mut authz = authz_res?;
+
                 if authz.status == AuthorizationStatus::Valid {
                     continue;
                 }
+
                 let mut challenge = authz
                     .challenge(ChallengeType::Http01)
                     .ok_or_else(|| AcmeError::NoHttp01Challenge(hostname.into()))?;
+
                 let key_auth = challenge.key_authorization().as_str().to_string();
                 let token = challenge.token.clone();
+
                 self.inner
                     .domains
                     .put_challenge(AcmeChallenge {
@@ -158,6 +169,7 @@ impl AcmeClient {
                         ),
                     })
                     .await?;
+
                 challenge.set_ready().await?;
             }
         } // release the mut borrow on `order` held by `authorizations`
@@ -165,6 +177,7 @@ impl AcmeClient {
         // LE 偶尔需要 >30s 完成验证，把 retry 上限拉到 120s。
         let retry = RetryPolicy::new().timeout(Duration::from_secs(120));
         let status = order.poll_ready(&retry).await?;
+
         if !matches!(status, instant_acme::OrderStatus::Ready) {
             let detail = order
                 .state()
@@ -172,6 +185,7 @@ impl AcmeClient {
                 .as_ref()
                 .map(|p| format!("{p:?}"))
                 .unwrap_or_else(|| format!("status={status:?}"));
+
             return Err(AcmeError::OrderFailed(hostname.into(), detail));
         }
 
@@ -189,11 +203,14 @@ impl AcmeClient {
 
         // key_pem 落 key_storage_dir/<hostname>.key.pem
         let key_pem = key_pair.serialize_pem();
+
         let key_path = self
             .inner
             .key_storage_dir
             .join(format!("{hostname}.key.pem"));
+
         tokio::fs::write(&key_path, &key_pem).await?;
+
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -225,12 +242,14 @@ fn parse_not_after_micros(cert_chain_pem: &str) -> Option<i64> {
     let blocks = pem::parse_many(cert_chain_pem).ok()?;
     let der = blocks.iter().find(|b| b.tag() == "CERTIFICATE")?.contents();
     let leaf = x509_cert::Certificate::from_der(der).ok()?;
+
     let micros = leaf
         .tbs_certificate
         .validity
         .not_after
         .to_unix_duration()
         .as_micros();
+
     i64::try_from(micros).ok()
 }
 

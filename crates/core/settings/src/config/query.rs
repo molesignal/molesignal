@@ -25,9 +25,11 @@ pub struct QuerierSettings {
 fn default_max_scan() -> u64 {
     100_000_000
 }
+
 fn default_auto_async_rows() -> u64 {
     50_000_000
 }
+
 fn default_throughput() -> u64 {
     1_000
 }
@@ -85,12 +87,15 @@ pub struct StreamAggCacheSettings {
 fn default_streaming_agg_capacity() -> u64 {
     0
 }
+
 fn default_streaming_agg_ttl_secs() -> u64 {
     300
 }
+
 fn default_streaming_agg_safe_lookback_secs() -> u64 {
     300
 }
+
 fn default_streaming_agg_max_series() -> usize {
     10_000
 }
@@ -143,15 +148,19 @@ pub struct SearchJobsSettings {
     #[serde(default = "default_search_cleanup")]
     pub cleanup_interval_secs: u64,
 }
+
 fn default_search_workers() -> u32 {
     2
 }
+
 fn default_search_idle() -> u64 {
     2
 }
+
 fn default_search_cleanup() -> u64 {
     3600
 }
+
 impl Default for SearchJobsSettings {
     fn default() -> Self {
         Self {

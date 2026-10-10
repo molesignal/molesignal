@@ -53,6 +53,7 @@ fn validate_attribute(attribute: &str) -> Result<()> {
             "notify event user attribute must contain between 1 and 128 bytes",
         ));
     }
+
     Ok(())
 }
 
@@ -60,6 +61,7 @@ fn values_at(event: &NotifyEvent, attribute: &str) -> Vec<Id> {
     let Some(value) = event.attributes.get(attribute) else {
         return Vec::new();
     };
+
     match value {
         Value::String(value) if !value.trim().is_empty() => vec![Id::from_string(value)],
         Value::Array(values) => values
@@ -83,28 +85,34 @@ async fn validate_members(
             "notify event user resolver supports at most 500 users",
         ));
     }
+
     let organization_users = memberships
         .list_for_org(&event.organization_id)
         .await?
         .into_iter()
         .map(|membership| membership.user_id)
         .collect::<HashSet<_>>();
+
     let mut seen = HashSet::new();
     let mut recipients = Vec::new();
+
     for user_id in user_ids {
         if !seen.insert(user_id.clone()) {
             continue;
         }
+
         if !organization_users.contains(&user_id) {
             return Err(Error::invalid(
                 "notify event references a user outside the event organization",
             ));
         }
+
         recipients.push(NotifyRecipient {
             user_id,
             team_id: team_id.clone(),
         });
     }
+
     Ok(recipients)
 }
 
@@ -167,9 +175,11 @@ impl RecipientResolver for AlertOwnerResolver {
             .map_err(|error| Error::invalid(format!("invalid alert_owner config: {error}")))?;
         validate_attribute(&config.attribute)?;
         let mut user_ids = values_at(event, &config.attribute);
+
         if user_ids.is_empty() && config.attribute == "owner_user_id" {
             user_ids.extend(values_at(event, "assignee_user_ids"));
         }
+
         validate_members(self.memberships.as_ref(), event, user_ids, config.team_id).await
     }
 }

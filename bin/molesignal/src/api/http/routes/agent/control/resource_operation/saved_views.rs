@@ -51,6 +51,7 @@ async fn create(
     let parameters: SavedViewWrite = parse(&approval.parameters)?;
     validate(&parameters)?;
     let now = TimestampMicros::now();
+
     let view = state
         .platform
         .saved_view
@@ -69,6 +70,7 @@ async fn create(
             updated_at: now,
         })
         .await?;
+
     outcome("saved view created", view)
 }
 
@@ -80,6 +82,7 @@ async fn update(
     let parameters: SavedViewWrite = parse(&approval.parameters)?;
     validate(&parameters)?;
     let existing = load_authorized(state, ctx, &approval.target, "saved_views.edit").await?;
+
     let view = state
         .platform
         .saved_view
@@ -98,6 +101,7 @@ async fn update(
             updated_at: TimestampMicros::now(),
         })
         .await?;
+
     outcome("saved view updated", view)
 }
 
@@ -108,11 +112,13 @@ async fn delete(
 ) -> Result<OperationOutcome> {
     let _: Empty = parse(&approval.parameters)?;
     let view = load_authorized(state, ctx, &approval.target, "saved_views.delete").await?;
+
     state
         .platform
         .saved_view
         .delete(&view.org_id, &view.id)
         .await?;
+
     Ok(OperationOutcome {
         summary: "saved view deleted".into(),
         verification: json!({"verified": true, "view_id": view.id, "deleted": true}),
@@ -130,6 +136,7 @@ async fn load_authorized(
         .saved_view
         .get(&ctx.org_id, &Id(id.to_string()))
         .await?;
+
     Permission::require_resource(
         state,
         ctx,
@@ -139,6 +146,7 @@ async fn load_authorized(
         &view.id.0,
     )
     .await?;
+
     Ok(view)
 }
 
@@ -148,9 +156,11 @@ fn validate(value: &SavedViewWrite) -> Result<()> {
             "name must contain between 1 and 255 characters",
         ));
     }
+
     if value.statement.trim().is_empty() {
         return Err(Error::invalid("statement cannot be empty"));
     }
+
     if value
         .stream
         .as_ref()
@@ -158,11 +168,13 @@ fn validate(value: &SavedViewWrite) -> Result<()> {
     {
         return Err(Error::invalid("stream must be at most 255 characters"));
     }
+
     if value.time_range_secs == 0 || value.time_range_secs > MAX_RANGE_SECS {
         return Err(Error::invalid(
             "time_range_secs must be between 1 and 31622400",
         ));
     }
+
     Ok(())
 }
 

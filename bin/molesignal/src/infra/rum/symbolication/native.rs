@@ -24,6 +24,7 @@ impl NativeSymbolicator {
             .map_err(|error| Error::internal(format!("debug artifact temp flush: {error}")))?;
         let loader = Loader::new(file.path())
             .map_err(|error| Error::invalid(format!("native debug artifact: {error}")))?;
+
         Ok(Self {
             _file: file,
             loader,
@@ -34,6 +35,7 @@ impl NativeSymbolicator {
         if let Some(frame) = self.translate_at(address)? {
             return Ok(frame);
         }
+
         // Mobile SDKs normally submit an image-relative address. DWARF may use
         // the linked text virtual address, especially for Mach-O dSYM files.
         for section in [b"__text".as_slice(), b".text".as_slice()] {
@@ -44,6 +46,7 @@ impl NativeSymbolicator {
                 return Ok(frame);
             }
         }
+
         Ok(OriginalFrame::default())
     }
 
@@ -52,6 +55,7 @@ impl NativeSymbolicator {
             .loader
             .find_frames(address)
             .map_err(|error| Error::invalid(format!("native frame lookup: {error}")))?;
+
         if let Some(frame) = frames
             .next()
             .map_err(|error| Error::invalid(format!("native frame decode: {error}")))?
@@ -60,7 +64,9 @@ impl NativeSymbolicator {
                 .function
                 .and_then(|name| name.demangle().ok().map(|value| value.into_owned()))
                 .or_else(|| self.loader.find_symbol(address).map(String::from));
+
             let location = frame.location;
+
             return Ok(Some(OriginalFrame {
                 file: location
                     .as_ref()
@@ -70,6 +76,7 @@ impl NativeSymbolicator {
                 column: location.and_then(|value| value.column),
             }));
         }
+
         Ok(self
             .loader
             .find_symbol(address)

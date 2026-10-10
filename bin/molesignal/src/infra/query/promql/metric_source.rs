@@ -50,15 +50,19 @@ impl ResolvedMetricSource {
 
 fn sample_columns(stream: &StreamDefinition, container: bool) -> Vec<String> {
     let mut columns = vec!["_timestamp".to_string(), "value".to_string()];
+
     columns.extend(stream.schema.fields.iter().filter_map(|field| {
         let query_semantics = is_metric_query_semantics_storage_field(&field.name);
         let logical_discriminator = container && field.name == METRIC_NAME_FIELD;
+
         let hidden_metadata = is_metric_identity_storage_field(&field.name)
             && !query_semantics
             && !logical_discriminator;
+
         let supported = matches!(field.data_type, FieldType::Utf8 | FieldType::Json)
             || logical_discriminator
             || query_semantics;
+
         if field.name == "value"
             || hidden_metadata
             || crate::domain::metrics::is_prometheus_exemplar_storage_field(&field.name)
@@ -66,8 +70,10 @@ fn sample_columns(stream: &StreamDefinition, container: bool) -> Vec<String> {
         {
             return None;
         }
+
         Some(field.name.clone())
     }));
+
     columns.sort();
     columns.dedup();
     columns
@@ -85,6 +91,7 @@ impl PromQLEngine {
     ) -> Result<MetricStorageSnapshot> {
         let dataset_types =
             crate::domain::storage::logical_query_dataset_types(StreamType::METRICS)?;
+
         let (mut files, buffered_batches) =
             if let (Some(source), Some(streams)) = (&self.catalog_source, &self.streams) {
                 match streams.get(org_id, stream, StreamType::METRICS).await {
@@ -92,6 +99,7 @@ impl PromQLEngine {
                         let snapshot = source
                             .snapshot_stream(&definition, &dataset_types, time_range)
                             .await?;
+
                         (snapshot.files(), snapshot.buffered_batches())
                     }
                     Err(Error::NotFound(_)) => (Vec::new(), Vec::new()),
@@ -107,6 +115,7 @@ impl PromQLEngine {
                         time_range,
                     )
                 });
+
                 (
                     try_join_all(lookups)
                         .await?
@@ -116,22 +125,27 @@ impl PromQLEngine {
                     Vec::new(),
                 )
             };
+
         files.sort_by(|left, right| {
             left.time_range
                 .start
                 .cmp(&right.time_range.start)
                 .then_with(|| left.id.0.cmp(&right.id.0))
         });
+
         files.dedup_by(|left, right| left.id == right.id);
+
         let candidate_rows = files.iter().map(|file| file.rows).sum::<u64>()
             + buffered_batches
                 .iter()
                 .map(|batch| batch.num_rows() as u64)
                 .sum::<u64>();
+
         crate::infra::query::scan_limit::ensure_within_scan_limit(
             candidate_rows,
             self.max_scan_rows,
         )?;
+
         Ok(MetricStorageSnapshot {
             files,
             buffered_batches,

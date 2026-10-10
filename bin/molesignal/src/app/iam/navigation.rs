@@ -27,6 +27,7 @@ pub fn resolve_route_access(
                 IamRouteScope::System => scope == IamScope::System,
                 IamRouteScope::None => false,
             };
+
             let permissions_allowed = if route.permissions.is_empty() {
                 true
             } else {
@@ -41,6 +42,7 @@ pub fn resolve_route_access(
                         .any(|permission| permissions.contains(permission)),
                 }
             };
+
             IamRouteAccess {
                 id: route.id.clone(),
                 path_pattern: route.path_pattern.clone(),

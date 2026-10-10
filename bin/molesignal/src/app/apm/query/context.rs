@@ -59,10 +59,13 @@ impl ApmQueryContext {
         if request.to < request.from {
             return Err(Error::invalid("APM range end precedes start"));
         }
+
         let range = TimeRange::new(TimestampMicros(request.from), TimestampMicros(request.to));
+
         if range.duration_micros() > max_range_micros {
             return Err(Error::invalid("APM query range exceeds configured maximum"));
         }
+
         let resolution = match request.resolution {
             QueryResolution::Auto if range.duration_micros() <= hot_resolution_micros => {
                 QueryResolution::Minute
@@ -70,21 +73,28 @@ impl ApmQueryContext {
             QueryResolution::Auto => QueryResolution::Hour,
             explicit => explicit,
         };
+
         let sort = request.sort.unwrap_or_else(|| default_sort.to_owned());
+
         if !allowed_sorts.contains(&sort.as_str()) {
             return Err(Error::invalid("unsupported APM sort field"));
         }
+
         let direction = request.direction.unwrap_or(SortDirection::Desc);
         let limit = request.limit.unwrap_or(50);
+
         if !(1..=200).contains(&limit) {
             return Err(Error::invalid("APM page limit must be between 1 and 200"));
         }
+
         let cursor = request.cursor.as_deref().map(decode_cursor).transpose()?;
+
         if cursor.as_ref().is_some_and(|cursor| {
             cursor.version != 1 || cursor.sort_field != sort || cursor.direction != direction
         }) {
             return Err(Error::invalid("APM cursor does not match active sort"));
         }
+
         Ok(Self {
             org_id,
             range,
@@ -115,6 +125,7 @@ impl ApmQueryContext {
             tie_breaker,
         })
         .map_err(|_| Error::internal("encode APM cursor"))?;
+
         Ok(URL_SAFE_NO_PAD.encode(bytes))
     }
 }
@@ -123,6 +134,7 @@ fn decode_cursor(value: &str) -> Result<QueryCursor> {
     let bytes = URL_SAFE_NO_PAD
         .decode(value)
         .map_err(|_| Error::invalid("invalid APM cursor encoding"))?;
+
     serde_json::from_slice(&bytes).map_err(|_| Error::invalid("invalid APM cursor payload"))
 }
 
@@ -130,10 +142,13 @@ fn validate_filter(name: &str, value: Option<String>) -> Result<Option<String>> 
     let Some(value) = value else {
         return Ok(None);
     };
+
     let value = value.trim();
+
     if value.is_empty() || value.len() > MAX_FILTER_BYTES || value.contains('\0') {
         return Err(Error::invalid(format!("invalid APM {name} filter")));
     }
+
     Ok(Some(value.to_owned()))
 }
 

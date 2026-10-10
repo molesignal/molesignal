@@ -108,12 +108,14 @@ async fn list_share_targets(
             name: organization.name,
         })
         .collect::<Vec<_>>();
+
     targets.sort_by(|left, right| {
         left.name
             .to_lowercase()
             .cmp(&right.name.to_lowercase())
             .then_with(|| left.id.cmp(&right.id))
     });
+
     Ok(Json(targets))
 }
 
@@ -169,15 +171,18 @@ async fn create_role_binding(
 ) -> Result<Json<MutationResponse<IamRoleBinding>>> {
     validate_window(request.starts_at_micros, request.expires_at_micros)?;
     validate_iam_conditions(&request.conditions)?;
+
     validate_resource_selector(
         request.resource_type.as_deref(),
         request.resource_id.as_deref(),
     )?;
+
     state
         .iam
         .roles
         .get(&context.org_id, &Id::from_string(&request.role_id))
         .await?;
+
     validate_principal(
         &state,
         &context.org_id,
@@ -185,6 +190,7 @@ async fn create_role_binding(
         &request.principal_id,
     )
     .await?;
+
     let binding = IamRoleBinding {
         id: Id::new(),
         organization_id: context.org_id.clone(),
@@ -199,12 +205,14 @@ async fn create_role_binding(
         created_by: context.user_id.clone(),
         created_at: TimestampMicros::now(),
     };
+
     let (binding, version) = state
         .iam
         .access
         .repository()
         .create_role_binding(binding)
         .await?;
+
     record_mutation(
         &state,
         &context,
@@ -214,6 +222,7 @@ async fn create_role_binding(
         serde_json::json!({"role_id": binding.role_id.0}),
     )
     .await?;
+
     Ok(Json(MutationResponse {
         value: binding,
         version,
@@ -227,12 +236,14 @@ async fn delete_role_binding(
     Path(id): Path<String>,
 ) -> Result<Json<DeleteResponse>> {
     let id = Id::from_string(id);
+
     let version = state
         .iam
         .access
         .repository()
         .delete_role_binding(&context.org_id, &id)
         .await?;
+
     record_mutation(
         &state,
         &context,
@@ -242,6 +253,7 @@ async fn delete_role_binding(
         Value::Null,
     )
     .await?;
+
     Ok(Json(DeleteResponse {
         deleted: true,
         version,
@@ -284,13 +296,16 @@ async fn create_relationship(
 ) -> Result<Json<MutationResponse<IamResourceRelationship>>> {
     validate_resource_type(&request.resource_type)?;
     validate_nonempty_id("resource_id", &request.resource_id)?;
+
     validate_resource_selector(
         request.container_type.as_deref(),
         request.container_id.as_deref(),
     )?;
+
     validate_nonempty_id("role_id", &request.role_id)?;
     let role_id = Id::from_string(request.role_id);
     state.iam.roles.get(&context.org_id, &role_id).await?;
+
     validate_principal(
         &state,
         &context.org_id,
@@ -298,6 +313,7 @@ async fn create_relationship(
         &request.subject_id,
     )
     .await?;
+
     let relationship = IamResourceRelationship {
         id: Id::new(),
         organization_id: context.org_id.clone(),
@@ -311,12 +327,14 @@ async fn create_relationship(
         created_by: context.user_id.clone(),
         created_at: TimestampMicros::now(),
     };
+
     let (relationship, version) = state
         .iam
         .access
         .repository()
         .create_relationship(relationship)
         .await?;
+
     record_mutation(
         &state,
         &context,
@@ -326,6 +344,7 @@ async fn create_relationship(
         serde_json::json!({"role_id": relationship.role_id}),
     )
     .await?;
+
     Ok(Json(MutationResponse {
         value: relationship,
         version,
@@ -339,12 +358,14 @@ async fn delete_relationship(
     Path(id): Path<String>,
 ) -> Result<Json<DeleteResponse>> {
     let id = Id::from_string(id);
+
     let version = state
         .iam
         .access
         .repository()
         .delete_relationship(&context.org_id, &id)
         .await?;
+
     record_mutation(
         &state,
         &context,
@@ -354,6 +375,7 @@ async fn delete_relationship(
         Value::Null,
     )
     .await?;
+
     Ok(Json(DeleteResponse {
         deleted: true,
         version,
@@ -398,27 +420,32 @@ async fn create_cross_org_grant(
     Json(request): Json<CreateCrossOrgGrantRequest>,
 ) -> Result<Json<MutationResponse<IamCrossOrgGrant>>> {
     let target_org = Id::from_string(request.target_organization_id);
+
     if target_org == context.org_id {
         return Err(Error::invalid(
             "cross-organization grant target must be another organization",
         ));
     }
+
     state.iam.service.orgs.get(&target_org).await?;
     validate_resource_type(&request.resource_type)?;
     validate_window(request.starts_at_micros, request.expires_at_micros)?;
     validate_iam_conditions(&request.conditions)?;
     let resource_ids = validate_cross_org_selector(&request.resource_selector)?;
+
     let permissions = state
         .iam
         .access
         .repository()
         .validate_permission_keys(&request.permissions, IamPermissionScope::Organization)
         .await?;
+
     if permissions.is_empty() {
         return Err(Error::invalid(
             "cross-organization grants require at least one registered permission",
         ));
     }
+
     validate_principal(
         &state,
         &target_org,
@@ -450,6 +477,7 @@ async fn create_cross_org_grant(
                         },
                     )
                     .await?;
+
                 if !decision.allowed {
                     return Err(Error::forbidden(format!(
                         "cannot delegate {permission} for resource {resource_id}"
@@ -460,6 +488,7 @@ async fn create_cross_org_grant(
     }
 
     let now = TimestampMicros::now();
+
     let grant = IamCrossOrgGrant {
         id: Id::new(),
         source_organization_id: context.org_id.clone(),
@@ -480,12 +509,14 @@ async fn create_cross_org_grant(
         created_by: context.user_id.clone(),
         created_at: now,
     };
+
     let (grant, version) = state
         .iam
         .access
         .repository()
         .create_cross_org_grant(grant)
         .await?;
+
     record_mutation(
         &state,
         &context,
@@ -495,6 +526,7 @@ async fn create_cross_org_grant(
         serde_json::json!({"permissions": grant.permissions}),
     )
     .await?;
+
     Ok(Json(MutationResponse {
         value: grant,
         version,
@@ -549,6 +581,7 @@ async fn change_grant_status(
             TimestampMicros::now(),
         )
         .await?;
+
     record_mutation(
         state,
         context,
@@ -562,6 +595,7 @@ async fn change_grant_status(
         serde_json::json!({"status": status}),
     )
     .await?;
+
     Ok(Json(MutationResponse {
         value: grant,
         version,
@@ -599,6 +633,7 @@ async fn validate_principal(
     principal_id: &str,
 ) -> Result<()> {
     validate_nonempty_id("principal_id", principal_id)?;
+
     match principal_type {
         IamPrincipalType::User => {
             let found = state
@@ -609,6 +644,7 @@ async fn validate_principal(
                 .await?
                 .into_iter()
                 .any(|membership| membership.user_id.0 == principal_id);
+
             if !found {
                 return Err(Error::invalid(
                     "principal user must be a member of the selected organization",
@@ -617,6 +653,7 @@ async fn validate_principal(
         }
         IamPrincipalType::Team => {
             let team = state.iam.teams.get(&Id::from_string(principal_id)).await?;
+
             if team.org_id != *organization_id {
                 return Err(Error::invalid(
                     "principal team must belong to the selected organization",
@@ -635,6 +672,7 @@ async fn validate_principal(
                 .service_accounts
                 .get(organization_id, &Id::from_string(principal_id))
                 .await?;
+
             if account.disabled {
                 return Err(Error::invalid("principal service account is disabled"));
             }
@@ -643,6 +681,7 @@ async fn validate_principal(
             return Err(Error::invalid("group principals are not available yet"));
         }
     }
+
     Ok(())
 }
 
@@ -654,9 +693,11 @@ fn validate_resource_selector(
         (None, None) => Ok(()),
         (Some(resource_type), resource_id) => {
             validate_resource_type(resource_type)?;
+
             if let Some(resource_id) = resource_id {
                 validate_nonempty_id("resource_id", resource_id)?;
             }
+
             Ok(())
         }
         (None, Some(_)) => Err(Error::invalid(
@@ -700,29 +741,35 @@ fn validate_cross_org_selector(selector: &Value) -> Result<Vec<String>> {
     let Some(object) = selector.as_object() else {
         return Err(Error::invalid("resource_selector must be an object"));
     };
+
     if object.len() != 1 {
         return Err(Error::invalid(
             "resource_selector must contain exactly one of ids or all",
         ));
     }
+
     if object.get("all").and_then(Value::as_bool) == Some(true) {
         return Ok(Vec::new());
     }
+
     let Some(ids) = object.get("ids").and_then(Value::as_array) else {
         return Err(Error::invalid(
             "resource_selector must contain ids or all=true",
         ));
     };
+
     if ids.is_empty() || ids.len() > 100 {
         return Err(Error::invalid(
             "resource_selector ids must contain 1..100 values",
         ));
     }
+
     ids.iter()
         .map(|value| {
             let value = value
                 .as_str()
                 .ok_or_else(|| Error::invalid("resource_selector ids must be strings"))?;
+
             validate_nonempty_id("resource_selector id", value)?;
             Ok(value.to_string())
         })

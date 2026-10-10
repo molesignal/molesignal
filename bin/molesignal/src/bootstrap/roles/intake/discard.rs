@@ -27,10 +27,13 @@ impl IntakeWorker {
             let high_watermark_seq = records.high_watermark_seq();
             (records.discard_all(), high_watermark_seq)
         };
+
         self.buffer.release_memory(discarded.accounted_bytes);
+
         if discarded.rows == 0 {
             return;
         }
+
         inc_flush_error(reason);
         tracing::error!(
             dataset_id = %key,
@@ -38,6 +41,7 @@ impl IntakeWorker {
             rows = discarded.rows,
             "dataset no longer exists; buffered rows discarded"
         );
+
         match self.cleanup_wal(key, high_watermark_seq).await {
             Ok(()) => {
                 self.pending_wal_cleanup.remove(key);

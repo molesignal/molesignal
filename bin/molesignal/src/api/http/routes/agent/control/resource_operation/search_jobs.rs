@@ -27,9 +27,11 @@ pub(super) async fn execute(
     approval: &ApprovalRequest,
 ) -> Result<OperationOutcome> {
     let job_id = Id(approval.target.clone());
+
     let (summary, job) = match approval.action.as_str() {
         "submit_search_job" => {
             let request: SubmitSearchJob = parse_parameters(&approval.parameters)?;
+
             let job = state
                 .search_jobs
                 .submit_with_id(
@@ -41,10 +43,12 @@ pub(super) async fn execute(
                     request.ttl_secs,
                 )
                 .await?;
+
             ("search job submitted", job)
         }
         "cancel_search_job" => {
             require_no_parameters(approval)?;
+
             (
                 "search job cancelled",
                 state.search_jobs.cancel(&ctx.org_id, &job_id).await?,
@@ -52,6 +56,7 @@ pub(super) async fn execute(
         }
         "retry_search_job" => {
             require_no_parameters(approval)?;
+
             (
                 "search job queued for retry",
                 state.search_jobs.retry(&ctx.org_id, &job_id).await?,
@@ -60,6 +65,7 @@ pub(super) async fn execute(
         "delete_search_job" => {
             require_no_parameters(approval)?;
             state.search_jobs.delete(&ctx.org_id, &job_id).await?;
+
             return Ok(OperationOutcome {
                 summary: "search job deleted".into(),
                 verification: json!({"verified": true, "job_id": job_id, "deleted": true}),
@@ -67,6 +73,7 @@ pub(super) async fn execute(
         }
         _ => unreachable!("search-job operation received unrelated action"),
     };
+
     Ok(OperationOutcome {
         summary: summary.into(),
         verification: json!({"verified": true, "job": safe_job(job)}),
@@ -106,14 +113,17 @@ struct StreamInput {
 impl SubmitSearchJob {
     fn query_request(&self, org_id: Id) -> Result<QueryRequest> {
         let statement = self.statement.trim();
+
         if statement.is_empty() {
             return Err(Error::invalid("search job statement must not be empty"));
         }
+
         if self.time_range.end_micros < self.time_range.start_micros {
             return Err(Error::invalid(
                 "time_range.end_micros must not precede start_micros",
             ));
         }
+
         Ok(QueryRequest {
             org_id,
             language: self.language,

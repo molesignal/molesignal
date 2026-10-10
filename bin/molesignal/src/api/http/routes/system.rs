@@ -126,13 +126,16 @@ async fn get_trace_telemetry(
     let metrics = state.telemetry.tail_sampler.metrics();
     let candidate_routing = state.telemetry.trace_candidates.health();
     let pipeline = state.telemetry.trace_pipeline.health();
+
     let alerts = trace_default_alerts(
         &metrics,
         &candidate_routing,
         &pipeline,
         state.telemetry.system_load_health,
     );
+
     let degraded = alerts.iter().any(|alert| alert.active);
+
     let detail = if degraded {
         alerts
             .iter()
@@ -145,6 +148,7 @@ async fn get_trace_telemetry(
     } else {
         "Trace generation/storage is disabled by effective policy".into()
     };
+
     Ok(Json(TraceTelemetryView {
         deployment_force_disabled: state.telemetry.tail_sampler.deployment_force_disabled(),
         runtime_enabled: policy.enabled,
@@ -183,6 +187,7 @@ fn trace_default_alerts(
         .iter()
         .chain(pipeline.external.iter())
         .any(|sink| sink.degraded && sink.failed_batches > 0);
+
     let queue_high = occupancy(routing.queue_depth, routing.queue_capacity) > 0.8
         || occupancy(
             pipeline.candidate_queue_depth,
@@ -195,10 +200,12 @@ fn trace_default_alerts(
             .any(|sink| occupancy(sink.queue_depth, sink.queue_capacity) > 0.8)
         || occupancy(metrics.pending_traces, metrics.capacity_traces) > 0.8
         || occupancy(metrics.pending_bytes, metrics.capacity_bytes) > 0.8;
+
     let delivered = routing
         .delivered_local
         .saturating_add(routing.delivered_remote)
         .saturating_add(metrics.accepted);
+
     let drops = routing
         .queue_full
         .saturating_add(routing.no_owner)
@@ -214,6 +221,7 @@ fn trace_default_alerts(
                 .map(|sink| sink.dropped_spans)
                 .sum::<u64>(),
         );
+
     let drop_rate_high = drops > 0 && drops as f64 / delivered.saturating_add(drops) as f64 > 0.01;
     let system_load_failure = !(system.system_org && system.trace_policy);
 
@@ -262,17 +270,20 @@ async fn update_trace_telemetry(
     // 版本只由持久层事务分配，拒绝客户端借版本号影响正在处理的 Trace。
     policy.version = 0;
     policy.validate().map_err(Error::invalid)?;
+
     let persisted = state
         .telemetry
         .trace_policies
         .publish(&state.iam.system_org_id, policy, &context.user_id)
         .await?;
+
     // `publish` 已验证；内存发布不会再失败，因此 DB active 与运行快照原子同向推进。
     state
         .telemetry
         .tail_sampler
         .publish_policy(persisted.policy.clone())
         .map_err(Error::invalid)?;
+
     record_system_audit(
         &state,
         &context,
@@ -287,6 +298,7 @@ async fn update_trace_telemetry(
         }),
     )
     .await;
+
     get_trace_telemetry(State(state), Extension(context)).await
 }
 
@@ -305,6 +317,7 @@ async fn list_trace_policies(
     Extension(context): Extension<IamContext>,
 ) -> Result<Json<Vec<TracePolicyHistoryView>>> {
     let active_version = state.telemetry.tail_sampler.active_policy().version;
+
     Ok(Json(
         state
             .telemetry
@@ -401,11 +414,13 @@ async fn issue_trace_debug_token(
             "Trace debug token ttl_seconds must be between 1 and 3600",
         ));
     }
+
     if !(1..=10_000).contains(&request.max_uses) {
         return Err(Error::invalid(
             "Trace debug token max_uses must be between 1 and 10000",
         ));
     }
+
     if request
         .route_pattern
         .as_ref()
@@ -415,12 +430,15 @@ async fn issue_trace_debug_token(
             "route_pattern must be a non-empty exact/underscore LIKE pattern without `%`",
         ));
     }
+
     let plaintext = format!(
         "mstd_{}{}",
         uuid::Uuid::now_v7().simple(),
         uuid::Uuid::now_v7().simple()
     );
+
     let now = TimestampMicros::now();
+
     let token = TraceDebugToken {
         id: Id::new(),
         token_hash: blake3::hash(plaintext.as_bytes()).to_hex().to_string(),
@@ -436,7 +454,9 @@ async fn issue_trace_debug_token(
         created_by: context.user_id.clone(),
         created_at: now,
     };
+
     let created = state.telemetry.trace_debug_tokens.create(token).await?;
+
     record_system_audit(
         &state,
         &context,
@@ -451,6 +471,7 @@ async fn issue_trace_debug_token(
         }),
     )
     .await;
+
     Ok((
         StatusCode::CREATED,
         Json(IssuedTraceDebugTokenView {
@@ -467,11 +488,13 @@ async fn revoke_trace_debug_token(
     Path(id): Path<String>,
 ) -> Result<StatusCode> {
     let id = Id(id);
+
     state
         .telemetry
         .trace_debug_tokens
         .revoke(&id, TimestampMicros::now())
         .await?;
+
     record_system_audit(
         &state,
         &context,
@@ -481,6 +504,7 @@ async fn revoke_trace_debug_token(
         json!({}),
     )
     .await;
+
     Ok(StatusCode::NO_CONTENT)
 }
 

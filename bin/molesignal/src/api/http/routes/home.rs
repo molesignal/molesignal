@@ -146,11 +146,14 @@ async fn overview(
         .window_secs
         .unwrap_or(DEFAULT_WINDOW_SECS)
         .clamp(MIN_WINDOW_SECS, MAX_WINDOW_SECS);
+
     let bucket_count = params
         .bucket_count
         .unwrap_or(DEFAULT_BUCKET_COUNT)
         .clamp(MIN_BUCKET_COUNT, MAX_BUCKET_COUNT);
+
     let generated_at = TimestampMicros::now();
+
     let range = TimeRange::new(
         TimestampMicros(
             generated_at
@@ -167,11 +170,14 @@ async fn overview(
             .usage
             .hourly_intake_bytes(&ctx.org_id, range.start.0, range.end.0),
     );
+
     let stream_defs = stream_defs?
         .into_iter()
         .filter(|definition| definition.stream_type != StreamType::EXTEND)
         .collect::<Vec<_>>();
+
     let raw_usage_available = usage_result.is_ok();
+
     let usage = match usage_result {
         Ok(buckets) => buckets,
         Err(error) => {
@@ -193,6 +199,7 @@ async fn overview(
             ))
         })
         .collect::<Result<Vec<_>>>()?;
+
     let scans: Vec<StreamScan> = match state
         .storage
         .catalog_query
@@ -218,6 +225,7 @@ async fn overview(
                 %error,
                 "home overview catalog snapshot failed"
             );
+
             stream_defs
                 .into_iter()
                 .map(|definition| unavailable_stream(definition, bucket_count))
@@ -226,13 +234,16 @@ async fn overview(
     };
 
     let mut bucket_totals = vec![BucketTotals::default(); bucket_count];
+
     for scan in &scans {
         for (target, source) in bucket_totals.iter_mut().zip(&scan.buckets) {
             target.rows = target.rows.saturating_add(source.rows);
             target.stored_bytes = target.stored_bytes.saturating_add(source.stored_bytes);
         }
     }
+
     let raw_buckets = bucket_raw_usage(&usage, range, bucket_count);
+
     let buckets = build_buckets(
         range,
         &bucket_totals,
@@ -243,6 +254,7 @@ async fn overview(
         .iter()
         .map(|scan| scan.overview.clone())
         .collect::<Vec<_>>();
+
     streams.sort_by(|a, b| {
         status_rank(a.status)
             .cmp(&status_rank(b.status))
@@ -253,29 +265,37 @@ async fn overview(
     let rows = streams
         .iter()
         .fold(0_u64, |sum, item| sum.saturating_add(item.rows));
+
     let stored_bytes = streams
         .iter()
         .fold(0_u64, |sum, item| sum.saturating_add(item.stored_bytes));
+
     let intake_bytes = raw_usage_available.then(|| {
         usage.iter().fold(0_u64, |sum, item| {
             sum.saturating_add(item.intake_bytes.max(0) as u64)
         })
     });
+
     let compression_savings_ratio = intake_bytes
         .filter(|raw| *raw > 0)
         .map(|raw| 1.0 - stored_bytes as f64 / raw as f64);
+
     let active_streams = streams.iter().filter(|item| item.rows > 0).count();
+
     let attention_streams = streams
         .iter()
         .filter(|item| needs_attention(item.status))
         .count();
+
     let last_received_at_micros = streams
         .iter()
         .filter_map(|item| item.last_received_at_micros)
         .max();
+
     let stats_succeeded = scans.iter().filter(|scan| scan.stats_ok).count();
     let signals = signal_overviews(&streams);
     let (probe_healthy, probe_reason) = state.telemetry.probe.snapshot();
+
     let intake_status = if !probe_healthy {
         HealthStatus::Degraded
     } else if active_streams == 0 {

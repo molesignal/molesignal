@@ -82,6 +82,7 @@ impl OtlpGrpc {
                     .or_else(|| h.strip_prefix("bearer "))
             })
             .ok_or_else(|| Status::unauthenticated("missing bearer token"))?;
+
         let mut ctx = authenticate_bearer(
             bearer,
             self.state.iam.service.as_ref(),
@@ -89,17 +90,21 @@ impl OtlpGrpc {
         )
         .await
         .map_err(|e| Status::unauthenticated(e.to_string()))?;
+
         self.state
             .iam
             .access
             .enrich_context(&mut ctx)
             .await
             .map_err(|e| Status::permission_denied(e.to_string()))?;
+
         Permission::require_key(&ctx, "streams.write")
             .map_err(|e| Status::permission_denied(e.to_string()))?;
+
         update_current_trace_context(|trace_context| {
             trace_context.set_authenticated_org(ctx.org_id.as_str());
         });
+
         Ok(ctx)
     }
 
@@ -121,6 +126,7 @@ impl OtlpGrpc {
         )
         .await
         .map_err(error_to_status)?;
+
         Ok(())
     }
 }
@@ -168,12 +174,15 @@ impl TraceService for OtlpGrpc {
     ) -> Result<Response<ExportTraceServiceResponse>, Status> {
         let ctx = self.authenticate(&request).await?;
         let stream = stream_name(&request);
+
         let mut trace_context = request
             .extensions()
             .get::<TraceContext>()
             .cloned()
             .unwrap_or_else(|| TraceContext::new_root(crate::shared::ids::Id::new().0));
+
         trace_context.set_authenticated_org(ctx.org_id.as_str());
+
         if let Some(debug_token) = request
             .metadata()
             .get(TRACE_DEBUG_TOKEN)
@@ -181,6 +190,7 @@ impl TraceService for OtlpGrpc {
             .filter(|value| value.starts_with("mstd_") && value.len() <= 160)
         {
             let token_hash = blake3::hash(debug_token.as_bytes()).to_hex().to_string();
+
             if let Some(grant) = self
                 .state
                 .telemetry
@@ -196,11 +206,13 @@ impl TraceService for OtlpGrpc {
             {
                 trace_context.trust = TraceTrust::DebugToken;
                 trace_context.apply_trusted_force(true);
+
                 update_current_trace_context(|active| {
                     active.trust = TraceTrust::DebugToken;
                     active.set_authenticated_org(ctx.org_id.as_str());
                     active.apply_trusted_force(true);
                 });
+
                 let _ = self
                     .state
                     .iam
@@ -225,12 +237,15 @@ impl TraceService for OtlpGrpc {
                     .await;
             }
         }
+
         let suppress_external = request
             .metadata()
             .contains_key(crate::app::trace::export::SELF_EXPORT_MARKER);
+
         let req = request.into_inner();
         let bytes = req.encoded_len();
         let spans = traces_to_canonical(req);
+
         submit_traces(
             &self.state,
             ctx.org_id,
@@ -242,6 +257,7 @@ impl TraceService for OtlpGrpc {
         )
         .await
         .map_err(error_to_status)?;
+
         Ok(Response::new(ExportTraceServiceResponse::default()))
     }
 }
@@ -291,12 +307,15 @@ impl ProfilesService for OtlpGrpc {
         let bytes = req.encoded_len();
         // 一次请求含共享 dictionary + N 个 profile → N 个 NormalizedProfile，逐个落盘。
         let normalized = normalize_otlp_profiles(&req);
+
         for profile in &normalized {
             let raw = crate::infra::profiles::encode_pprof_raw(profile).map_err(error_to_status)?;
+
             store_profile(&self.state, &ctx.org_id, profile, &raw, bytes)
                 .await
                 .map_err(error_to_status)?;
         }
+
         Ok(Response::new(ExportProfilesServiceResponse::default()))
     }
 }

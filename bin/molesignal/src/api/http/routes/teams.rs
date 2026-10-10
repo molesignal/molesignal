@@ -46,9 +46,11 @@ fn validate_team(req: &TeamWriteReq) -> Result<()> {
     if req.name.trim().is_empty() {
         return Err(Error::invalid("name cannot be empty"));
     }
+
     if req.name.chars().count() > 255 {
         return Err(Error::invalid("name must be at most 255 characters"));
     }
+
     Ok(())
 }
 
@@ -64,6 +66,7 @@ async fn resolve_team_members(
     if raw_member_ids.is_empty() {
         return Ok(Vec::new());
     }
+
     let org_members: HashSet<String> = state
         .iam
         .service
@@ -73,15 +76,19 @@ async fn resolve_team_members(
         .into_iter()
         .map(|m| m.user_id.0)
         .collect();
+
     let mut ids = Vec::with_capacity(raw_member_ids.len());
+
     for raw in raw_member_ids {
         if !org_members.contains(&raw) {
             return Err(Error::invalid(
                 "member_ids must reference users in this organization",
             ));
         }
+
         ids.push(Id::from_string(raw));
     }
+
     Ok(ids)
 }
 
@@ -98,9 +105,11 @@ async fn get_team(
     Path(id): Path<String>,
 ) -> Result<Json<Team>> {
     let team = state.iam.teams.get(&Id::from_string(id)).await?;
+
     if team.org_id != ctx.org_id {
         return Err(Error::forbidden("team belongs to another org"));
     }
+
     Ok(Json(team))
 }
 
@@ -112,12 +121,14 @@ async fn create_team(
 ) -> Result<Json<Team>> {
     validate_team(&req)?;
     let member_ids = resolve_team_members(&state, &ctx.org_id, req.member_ids).await?;
+
     let team = Team {
         id: Id::new(),
         org_id: ctx.org_id.clone(),
         name: req.name,
         member_ids,
     };
+
     Ok(Json(state.iam.teams.create(team).await?))
 }
 
@@ -130,16 +141,20 @@ async fn update_team(
 ) -> Result<Json<Team>> {
     validate_team(&req)?;
     let existing = state.iam.teams.get(&Id::from_string(id)).await?;
+
     if existing.org_id != ctx.org_id {
         return Err(Error::forbidden("team belongs to another org"));
     }
+
     let member_ids = resolve_team_members(&state, &ctx.org_id, req.member_ids).await?;
+
     let team = Team {
         id: existing.id,
         org_id: ctx.org_id.clone(),
         name: req.name,
         member_ids,
     };
+
     Ok(Json(state.iam.teams.update(team).await?))
 }
 
@@ -150,9 +165,11 @@ async fn delete_team(
     Path(id): Path<String>,
 ) -> Result<StatusCode> {
     let existing = state.iam.teams.get(&Id::from_string(id)).await?;
+
     if existing.org_id != ctx.org_id {
         return Err(Error::forbidden("team belongs to another org"));
     }
+
     state.iam.teams.delete(&existing.id).await?;
     Ok(StatusCode::NO_CONTENT)
 }

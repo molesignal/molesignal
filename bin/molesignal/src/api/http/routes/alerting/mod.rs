@@ -112,31 +112,37 @@ fn normalize_anomaly(
     if kind != AlertRuleKind::Anomaly {
         return Ok(None);
     }
+
     let Some(params) = params else {
         return Err(Error::invalid(
             "anomaly_params is required when kind = anomaly",
         ));
     };
+
     if !SUPPORTED_DETECTORS.contains(&params.algorithm.as_str()) {
         return Err(Error::invalid(format!(
             "anomaly detector not yet supported: {}",
             params.algorithm
         )));
     }
+
     if params.lookback_days < 1 || params.lookback_days > MAX_ANOMALY_LOOKBACK_DAYS {
         return Err(Error::invalid(format!(
             "anomaly lookback_days must be between 1 and {MAX_ANOMALY_LOOKBACK_DAYS}"
         )));
     }
+
     if !params.k.is_finite() || params.k <= 0.0 {
         return Err(Error::invalid("anomaly k must be a positive number"));
     }
+
     // α 只对 EWMA 有意义；其它算法忽略其值，不强加约束。
     if params.algorithm == "ewma"
         && (!params.alpha.is_finite() || params.alpha <= 0.0 || params.alpha > 1.0)
     {
         return Err(Error::invalid("anomaly alpha must be in (0, 1] for ewma"));
     }
+
     // 周季节性每 7 天才取一个同星期几点；lookback < 7 一个样本都取不到 → 永远
     // inconclusive。入口直接拒绝，避免落库一条"永不触发"的死规则。
     if params.weekly_seasonality && params.lookback_days < 7 {
@@ -144,6 +150,7 @@ fn normalize_anomaly(
             "weekly_seasonality requires lookback_days >= 7",
         ));
     }
+
     Ok(Some(params))
 }
 
@@ -172,6 +179,7 @@ async fn list_rules(
         serde_json::to_value(state.alerting.service.list_rules(&ctx.org_id).await?).unwrap(),
     ))
 }
+
 #[permission("alerts.manage")]
 async fn create_rule(
     State(state): State<AppState>,
@@ -181,19 +189,24 @@ async fn create_rule(
     if req.name.trim().is_empty() {
         return Err(Error::invalid("name cannot be empty"));
     }
+
     if req.query.statement.trim().is_empty() {
         return Err(Error::invalid("query.statement cannot be empty"));
     }
+
     let Some(stream_hint) = req.query.stream.as_ref() else {
         return Err(Error::invalid(
             "query.stream is required; must specify { name, stream_type }",
         ));
     };
+
     if stream_hint.name.trim().is_empty() {
         return Err(Error::invalid("query.stream.name cannot be empty"));
     }
+
     let anomaly_params = normalize_anomaly(req.kind, req.anomaly_params)?;
     let now = TimestampMicros::now();
+
     let rule = AlertRule {
         id: Id::new(),
         org_id: ctx.org_id.clone(),
@@ -216,7 +229,9 @@ async fn create_rule(
         created_at: now,
         updated_at: now,
     };
+
     let saved = state.alerting.service.create_rule(rule).await?;
+
     emit_cud(
         &state,
         &ctx.org_id,
@@ -226,8 +241,10 @@ async fn create_rule(
         &saved,
     )
     .await;
+
     Ok(Json(serde_json::to_value(saved).unwrap()))
 }
+
 #[resource_permission(
     action = "alerts.read",
     resource = AlertRule,
@@ -257,18 +274,23 @@ async fn update_rule(
     if req.name.trim().is_empty() {
         return Err(Error::invalid("name cannot be empty"));
     }
+
     if req.query.statement.trim().is_empty() {
         return Err(Error::invalid("query.statement cannot be empty"));
     }
+
     let Some(stream_hint) = req.query.stream.as_ref() else {
         return Err(Error::invalid(
             "query.stream is required; must specify { name, stream_type }",
         ));
     };
+
     if stream_hint.name.trim().is_empty() {
         return Err(Error::invalid("query.stream.name cannot be empty"));
     }
+
     let anomaly_params = normalize_anomaly(req.kind, req.anomaly_params)?;
+
     let rule = AlertRule {
         id: existing.id,
         org_id: existing.org_id,
@@ -291,7 +313,9 @@ async fn update_rule(
         created_at: existing.created_at,
         updated_at: TimestampMicros::now(),
     };
+
     let saved = state.alerting.service.update_rule(rule).await?;
+
     emit_cud(
         &state,
         &saved.org_id,
@@ -301,8 +325,10 @@ async fn update_rule(
         &saved,
     )
     .await;
+
     Ok(Json(serde_json::to_value(saved).unwrap()))
 }
+
 #[resource_permission(
     action = "alerts.manage",
     resource = AlertRule,
@@ -316,6 +342,7 @@ async fn delete_rule(
 ) -> Result<&'static str> {
     let rid = rule.id.clone();
     state.alerting.service.delete_rule(&rid).await?;
+
     emit_cud(
         &state,
         &rule.org_id,
@@ -325,6 +352,7 @@ async fn delete_rule(
         &delete_payload(&rid.0),
     )
     .await;
+
     Ok("deleted")
 }
 
@@ -364,26 +392,32 @@ async fn list_incidents(
             .window_secs
             .unwrap_or(7 * 24 * 60 * 60)
             .clamp(60 * 60, 365 * 24 * 60 * 60);
+
         let since = TimestampMicros(
             TimestampMicros::now().0 - i64::try_from(window_secs).unwrap_or(i64::MAX) * 1_000_000,
         );
+
         let mut recent = state
             .alerting
             .service
             .incidents
             .list_since(&ctx.org_id, since)
             .await?;
+
         let active = state
             .alerting
             .service
             .list_incidents_active(&ctx.org_id)
             .await?;
+
         let mut seen: HashSet<String> = recent.iter().map(|item| item.id.0.clone()).collect();
+
         recent.extend(
             active
                 .into_iter()
                 .filter(|item| seen.insert(item.id.0.clone())),
         );
+
         recent
     } else {
         state
@@ -392,10 +426,12 @@ async fn list_incidents(
             .list_incidents_active(&ctx.org_id)
             .await?
     };
+
     incidents.sort_by_key(|item| std::cmp::Reverse(item.created_at.0));
     let items: Vec<Incident> = incidents.into_iter().map(shrink_for_list).collect();
     Ok(Json(serde_json::to_value(items).unwrap()))
 }
+
 #[resource_permission(
     action = "alerts.read",
     resource = Incident,
@@ -409,6 +445,7 @@ async fn get_incident(
 ) -> Result<Json<Value>> {
     Ok(Json(serde_json::to_value(incident).unwrap()))
 }
+
 /// AI 根因分析（RCA）：后台 sweeper 异步产出，尚未生成时返 404。
 #[resource_permission(
     action = "alerts.read",
@@ -427,6 +464,7 @@ async fn get_incident_rca(
         .get(&incident.id)
         .await?
         .ok_or_else(|| Error::not_found("no root-cause analysis for this incident yet"))?;
+
     Ok(Json(serde_json::to_value(rca).unwrap()))
 }
 
@@ -453,7 +491,9 @@ async fn generate_incident_rca(
         Some(locale) => locale,
         None => state.iam.user_preferences.get(&ctx.user_id).await?.language,
     };
+
     let locale = crate::api::rca::RcaOutputLocale::from_language_tag(&language);
+
     let rca = crate::api::rca::RcaGenerator::from_state(&state)
         .generate_for_locale(
             &incident.org_id,
@@ -462,8 +502,10 @@ async fn generate_incident_rca(
             locale,
         )
         .await?;
+
     Ok(Json(serde_json::to_value(rca).unwrap()))
 }
+
 #[resource_permission(
     action = "alerts.acknowledge",
     resource = Incident,
@@ -480,8 +522,10 @@ async fn ack_incident(
         .service
         .acknowledge(&incident.id, ctx.user_id.clone(), TimestampMicros::now())
         .await?;
+
     Ok(Json(serde_json::to_value(incident).unwrap()))
 }
+
 #[resource_permission(
     action = "alerts.acknowledge",
     resource = Incident,
@@ -498,6 +542,7 @@ async fn resolve_incident(
         .service
         .resolve(&incident.id, ctx.user_id.clone(), TimestampMicros::now())
         .await?;
+
     Ok(Json(serde_json::to_value(incident).unwrap()))
 }
 
@@ -536,6 +581,7 @@ struct InsightsResponse {
 
 /// Incidents resolved faster than this are treated as noise (flapping).
 const NOISE_THRESHOLD_MICROS: i64 = 60_000_000;
+
 const TOP_N: usize = 8;
 
 fn severity_key(s: &Severity) -> &'static str {
@@ -552,6 +598,7 @@ fn top_counts(counts: HashMap<String, u32>, n: usize) -> Vec<CountItem> {
         .into_iter()
         .map(|(key, count)| CountItem { key, count })
         .collect();
+
     // Highest count first; ties broken by key for a stable order.
     v.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.key.cmp(&b.key)));
     v.truncate(n);
@@ -568,8 +615,10 @@ async fn get_insights(
         .window_secs
         .unwrap_or(7 * 24 * 3600)
         .clamp(3600, 365 * 24 * 3600);
+
     let now = TimestampMicros::now();
     let since = TimestampMicros(now.0 - (window_secs as i64) * 1_000_000);
+
     let incidents = state
         .alerting
         .service
@@ -590,20 +639,26 @@ async fn get_insights(
         if let Some(dt) = Utc.timestamp_micros(i.created_at.0).single() {
             by_hour[dt.hour() as usize] += 1;
         }
+
         *by_severity
             .entry(severity_key(&i.severity).to_string())
             .or_insert(0) += 1;
+
         *rule_counts.entry(i.rule_id.0.clone()).or_insert(0) += 1;
+
         for svc in &i.affected_services {
             *svc_counts.entry(svc.clone()).or_insert(0) += 1;
         }
+
         match i.status {
             IncidentStatus::Open | IncidentStatus::Acknowledged => active += 1,
             IncidentStatus::Resolved | IncidentStatus::Closed => closed += 1,
         }
+
         if let Some(resolved_at) = i.resolved_at {
             let dur = resolved_at.0 - i.created_at.0;
             resolved_durations.push(dur);
+
             if dur < NOISE_THRESHOLD_MICROS {
                 noisy += 1;
             }
@@ -611,12 +666,14 @@ async fn get_insights(
     }
 
     let resolved_n = resolved_durations.len();
+
     let mttr_secs = if resolved_n == 0 {
         0.0
     } else {
         let sum: i64 = resolved_durations.iter().sum();
         (sum as f64 / resolved_n as f64) / 1_000_000.0
     };
+
     let noise_rate = if resolved_n == 0 {
         0.0
     } else {
@@ -647,6 +704,7 @@ async fn list_escalations(
         serde_json::to_value(state.alerting.service.list_policies(&ctx.org_id).await?).unwrap(),
     ))
 }
+
 #[permission("alerts.manage")]
 async fn create_escalation(
     State(state): State<AppState>,
@@ -656,6 +714,7 @@ async fn create_escalation(
     if req.name.trim().is_empty() {
         return Err(Error::invalid("name cannot be empty"));
     }
+
     let policy = EscalationPolicy {
         id: Id::new(),
         org_id: ctx.org_id.clone(),
@@ -664,7 +723,9 @@ async fn create_escalation(
         repeat: req.repeat,
         max_loops: req.max_loops.max(1),
     };
+
     let saved = state.alerting.service.create_policy(policy).await?;
+
     emit_cud(
         &state,
         &ctx.org_id,
@@ -674,8 +735,10 @@ async fn create_escalation(
         &saved,
     )
     .await;
+
     Ok(Json(serde_json::to_value(saved).unwrap()))
 }
+
 #[resource_permission(
     action = "alerts.read",
     resource = EscalationPolicy,
@@ -689,6 +752,7 @@ async fn get_escalation(
 ) -> Result<Json<Value>> {
     Ok(Json(serde_json::to_value(policy).unwrap()))
 }
+
 #[resource_permission(
     action = "alerts.manage",
     resource = EscalationPolicy,
@@ -704,6 +768,7 @@ async fn update_escalation(
     if req.name.trim().is_empty() {
         return Err(Error::invalid("name cannot be empty"));
     }
+
     let policy = EscalationPolicy {
         id: existing.id,
         org_id: existing.org_id,
@@ -712,7 +777,9 @@ async fn update_escalation(
         repeat: req.repeat,
         max_loops: req.max_loops.max(1),
     };
+
     let saved = state.alerting.service.update_policy(policy).await?;
+
     emit_cud(
         &state,
         &saved.org_id,
@@ -722,8 +789,10 @@ async fn update_escalation(
         &saved,
     )
     .await;
+
     Ok(Json(serde_json::to_value(saved).unwrap()))
 }
+
 #[resource_permission(
     action = "alerts.manage",
     resource = EscalationPolicy,
@@ -737,6 +806,7 @@ async fn delete_escalation(
 ) -> Result<&'static str> {
     let rid = policy.id.clone();
     state.alerting.service.delete_policy(&rid).await?;
+
     emit_cud(
         &state,
         &policy.org_id,
@@ -746,5 +816,6 @@ async fn delete_escalation(
         &delete_payload(&rid.0),
     )
     .await;
+
     Ok("deleted")
 }

@@ -83,6 +83,7 @@ async fn submit(
             req.ttl_secs,
         )
         .await?;
+
     Ok(Json(to_resp(job)))
 }
 
@@ -91,6 +92,7 @@ pub struct ListQuery {
     #[serde(default = "default_limit")]
     pub limit: i64,
 }
+
 fn default_limit() -> i64 {
     100
 }
@@ -122,9 +124,11 @@ pub struct ResultParams {
     #[serde(default = "default_page_size")]
     pub page_size: i64,
 }
+
 fn default_page() -> i64 {
     1
 }
+
 fn default_page_size() -> i64 {
     1000
 }
@@ -151,6 +155,7 @@ async fn results(
         .search_jobs
         .results(&ctx.org_id, &Id(id), p.page, p.page_size)
         .await?;
+
     Ok(Json(ResultResp {
         state: result.state.as_str().to_string(),
         result_rows: result.result_rows,

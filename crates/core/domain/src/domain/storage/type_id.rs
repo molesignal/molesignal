@@ -24,25 +24,30 @@ fn validate_type_id(value: &str) -> Result<()> {
             "type id `{value}` length must be within 3..=96"
         )));
     }
+
     for segment in value.split('.') {
         if segment.is_empty() {
             return Err(Error::invalid(format!(
                 "type id `{value}` has an empty dot-separated segment"
             )));
         }
+
         let mut chars = segment.chars();
         let head = chars.next().expect("segment is non-empty");
+
         if !head.is_ascii_lowercase() {
             return Err(Error::invalid(format!(
                 "type id `{value}` segment `{segment}` must start with a-z"
             )));
         }
+
         if !chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_') {
             return Err(Error::invalid(format!(
                 "type id `{value}` segment `{segment}` may only contain a-z 0-9 - _"
             )));
         }
     }
+
     Ok(())
 }
 
@@ -124,10 +129,12 @@ impl StreamTypeId {
         let source = value.as_bytes();
         let mut bytes = [0; 96];
         let mut index = 0;
+
         while index < source.len() {
             bytes[index] = source[index];
             index += 1;
         }
+
         Self {
             len: source.len() as u8,
             bytes,
@@ -137,6 +144,7 @@ impl StreamTypeId {
     fn copy_from_str(value: &str) -> Self {
         let mut bytes = [0; 96];
         bytes[..value.len()].copy_from_slice(value.as_bytes());
+
         Self {
             len: value.len() as u8,
             bytes,
@@ -162,6 +170,7 @@ impl StreamTypeId {
 
     pub fn from_external_name(value: impl Into<String>) -> Result<Self> {
         let value = value.into();
+
         Ok(match value.as_str() {
             "logs" => Self::LOGS,
             "metrics" => Self::METRICS,
@@ -246,6 +255,7 @@ pub mod builtin {
     pub const STREAM_METRICS: &str = "builtin.metrics";
     pub const STREAM_TRACES: &str = "builtin.traces";
     pub const STREAM_PROFILES: &str = "builtin.profiles";
+
     /// extend table（静态 KV）：不落盘、无物理数据集。
     pub const STREAM_EXTEND: &str = "builtin.extend";
 

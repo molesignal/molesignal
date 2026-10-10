@@ -25,6 +25,7 @@ pub(super) fn decode_block(raw: &[u8], expected: usize) -> io::Result<Bytes> {
             "bad block header",
         ));
     }
+
     let length = usize::try_from(u64::from_le_bytes(
         raw[8..16].try_into().expect("eight-byte length"),
     ))
@@ -34,19 +35,23 @@ pub(super) fn decode_block(raw: &[u8], expected: usize) -> io::Result<Bytes> {
             "block length exceeds address space",
         )
     })?;
+
     if length != expected || raw.len() != HEADER_LEN + length {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
             "block length mismatch",
         ));
     }
+
     let payload = &raw[HEADER_LEN..];
+
     if blake3::hash(payload).as_bytes() != &raw[16..48] {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
             "block checksum mismatch",
         ));
     }
+
     Ok(Bytes::copy_from_slice(payload))
 }
 
@@ -54,11 +59,13 @@ pub(super) fn verify_object_checksum(checksum: &str, bytes: &[u8]) -> object_sto
     let Some(expected) = checksum.strip_prefix("b3:") else {
         return Ok(());
     };
+
     if blake3::hash(bytes).to_hex().as_str() != expected {
         return Err(object_store::Error::Generic {
             store: "CachedObjectStore",
             source: Box::new(io::Error::other("origin object checksum mismatch")),
         });
     }
+
     Ok(())
 }

@@ -70,6 +70,7 @@ impl UserRepository for PgUserRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(user)
     }
 
@@ -79,6 +80,7 @@ impl UserRepository for PgUserRepository {
             .fetch_one(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         row_to_user(row)
     }
 
@@ -89,9 +91,11 @@ impl UserRepository for PgUserRepository {
             .collect::<BTreeSet<_>>()
             .into_iter()
             .collect::<Vec<_>>();
+
         if ids.is_empty() {
             return Ok(Vec::new());
         }
+
         let rows = sqlx::query(&format!(
             "SELECT {COLS} FROM users WHERE id=ANY($1::TEXT[]) ORDER BY id"
         ))
@@ -99,6 +103,7 @@ impl UserRepository for PgUserRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to_user).collect()
     }
 
@@ -108,6 +113,7 @@ impl UserRepository for PgUserRepository {
             .fetch_one(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         row_to_user(row)
     }
 
@@ -126,6 +132,7 @@ impl UserRepository for PgUserRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(user)
     }
 
@@ -135,6 +142,7 @@ impl UserRepository for PgUserRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(())
     }
 
@@ -143,6 +151,7 @@ impl UserRepository for PgUserRepository {
             .fetch_one(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         let n: i64 = row.try_get("n").map_err(sqlx_err)?;
         Ok(n.max(0) as u64)
     }
@@ -154,6 +163,7 @@ impl UserRepository for PgUserRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to_user).collect()
     }
 
@@ -163,12 +173,14 @@ impl UserRepository for PgUserRepository {
             UserStatus::Pending => "pending",
             UserStatus::Rejected => "rejected",
         };
+
         sqlx::query("UPDATE users SET status = $2 WHERE id = $1")
             .bind(&id.0)
             .bind(s)
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(())
     }
 }

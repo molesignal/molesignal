@@ -21,6 +21,7 @@ struct ObjectReadMetrics {
 
 fn metrics() -> &'static ObjectReadMetrics {
     static METRICS: OnceLock<ObjectReadMetrics> = OnceLock::new();
+
     METRICS.get_or_init(|| ObjectReadMetrics {
         requests: register_int_counter(
             "object_read_requests_total",

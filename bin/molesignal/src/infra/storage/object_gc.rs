@@ -43,12 +43,15 @@ impl ObjectGcWorker {
         if !self.settings.enabled {
             return Ok(0);
         }
+
         let now = TimestampMicros::now().0;
         let lease_expired = now.saturating_sub(i64::from(self.settings.lease_secs) * 1_000_000);
+
         let entries = self
             .catalog
             .claim_gc_entries(&scope, now, lease_expired, self.settings.batch_size)
             .await?;
+
         let deleted = stream::iter(entries)
             .map(|entry| self.delete_one(&scope, entry))
             .buffer_unordered(self.settings.max_concurrency.max(1))
@@ -63,27 +66,34 @@ impl ObjectGcWorker {
                 }
             })
             .await;
+
         Ok(deleted)
     }
 
     async fn delete_one(&self, scope: &OrganizationScope, entry: GcQueueEntry) -> Result<bool> {
         let started = Instant::now();
+
         if !self.catalog.gc_entry_is_safe(scope, &entry).await? {
             unsafe_total().inc();
+
             self.retry(
                 scope,
                 &entry,
                 "object regained or retained a Catalog reference",
             )
             .await?;
+
             return Ok(false);
         }
+
         let path = Path::from(entry.object_key.as_str());
+
         match self.object_store.delete(&path).await {
             Ok(()) | Err(object_store::Error::NotFound { .. }) => {
                 self.catalog
                     .complete_gc_entry(scope, &entry.object_key)
                     .await?;
+
                 deleted_total().inc();
                 delete_duration().observe(started.elapsed().as_secs_f64());
                 Ok(true)
@@ -91,6 +101,7 @@ impl ObjectGcWorker {
             Err(error) => {
                 failed_total().inc();
                 self.retry(scope, &entry, &error.to_string()).await?;
+
                 Err(crate::shared::Error::internal(format!(
                     "delete GC object: {error}"
                 )))
@@ -106,10 +117,13 @@ impl ObjectGcWorker {
     ) -> Result<()> {
         let exponent = entry.attempt_count.min(10);
         let delay_secs = 5_u64.saturating_mul(1_u64 << exponent).min(3600);
+
         let not_before = TimestampMicros::now()
             .0
             .saturating_add((delay_secs as i64) * 1_000_000);
+
         let error: String = error.chars().take(1024).collect();
+
         self.catalog
             .retry_gc_entry(scope, &entry.object_key, &error, not_before)
             .await
@@ -118,6 +132,7 @@ impl ObjectGcWorker {
 
 fn deleted_total() -> &'static IntCounter {
     static METRIC: OnceLock<IntCounter> = OnceLock::new();
+
     METRIC.get_or_init(|| {
         crate::shared::metrics::register_int_counter(
             "object_gc_deleted_total",
@@ -128,6 +143,7 @@ fn deleted_total() -> &'static IntCounter {
 
 fn failed_total() -> &'static IntCounter {
     static METRIC: OnceLock<IntCounter> = OnceLock::new();
+
     METRIC.get_or_init(|| {
         crate::shared::metrics::register_int_counter(
             "object_gc_failed_total",
@@ -138,6 +154,7 @@ fn failed_total() -> &'static IntCounter {
 
 fn unsafe_total() -> &'static IntCounter {
     static METRIC: OnceLock<IntCounter> = OnceLock::new();
+
     METRIC.get_or_init(|| {
         crate::shared::metrics::register_int_counter(
             "object_gc_safety_rejections_total",
@@ -148,6 +165,7 @@ fn unsafe_total() -> &'static IntCounter {
 
 fn delete_duration() -> &'static Histogram {
     static METRIC: OnceLock<Histogram> = OnceLock::new();
+
     METRIC.get_or_init(|| {
         crate::shared::metrics::register_histogram(
             "object_gc_delete_duration_seconds",

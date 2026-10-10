@@ -98,12 +98,14 @@ async fn list_tables(
     let tables = state.storage.extend_kv.list_tables(&ctx.org_id).await?;
     let pipelines = state.storage.scheduled_pipelines.list(&ctx.org_id).await?;
     let saved_views = state.platform.saved_view.list(&ctx.org_id, false).await?;
+
     Ok(Json(
         tables
             .into_iter()
             .map(|summary| {
                 let mut usage_locations = pipeline_usages(&pipelines, &summary.table_name);
                 usage_locations.extend(saved_view_usages(&saved_views, &summary.table_name));
+
                 TableResp {
                     summary,
                     usage_locations,
@@ -123,18 +125,23 @@ async fn create_table(
     let key_field = req.key_field.trim().to_string();
     validate_schema_name(&table_name, "table_name")?;
     validate_schema_name(&key_field, "key_field")?;
+
     if req.description.len() > 2_000 {
         return Err(Error::invalid("description cannot exceed 2000 characters"));
     }
+
     if req.value_fields.len() > 100 {
         return Err(Error::invalid("value_fields cannot exceed 100 fields"));
     }
+
     let mut seen = HashSet::new();
+
     let value_fields = req
         .value_fields
         .into_iter()
         .map(|field| normalize_field(field, &mut seen))
         .collect::<Result<Vec<_>>>()?;
+
     if state
         .storage
         .extend_kv
@@ -147,7 +154,9 @@ async fn create_table(
             "extend table {table_name} already exists"
         )));
     }
+
     let now = TimestampMicros::now();
+
     let table = state
         .storage
         .extend_kv
@@ -161,6 +170,7 @@ async fn create_table(
             updated_at: now,
         })
         .await?;
+
     Ok(Json(TableResp {
         summary: ExtendTableSummary {
             table_name: table.table_name,
@@ -182,6 +192,7 @@ async fn update_table_fields(
     Json(req): Json<schema::UpdateTableFieldsReq>,
 ) -> Result<Json<TableResp>> {
     validate_key(&table, "table")?;
+
     let existing = state
         .storage
         .extend_kv
@@ -190,8 +201,10 @@ async fn update_table_fields(
         .into_iter()
         .find(|summary| summary.table_name == table)
         .ok_or_else(|| Error::not_found(format!("extend table {table} not found")))?;
+
     let update = schema::validate_field_update(&existing, req.value_fields)?;
     let now = TimestampMicros::now();
+
     let updated = state
         .storage
         .extend_kv
@@ -203,12 +216,14 @@ async fn update_table_fields(
             update.require_empty,
         )
         .await?;
+
     if !updated {
         if update.require_empty {
             return Err(Error::conflict(
                 "table received records while its field schema was being changed; reload and retry",
             ));
         }
+
         return Err(Error::not_found(format!("extend table {table} not found")));
     }
 
@@ -219,6 +234,7 @@ async fn update_table_fields(
     let saved_views = state.platform.saved_view.list(&ctx.org_id, false).await?;
     let mut usage_locations = pipeline_usages(&pipelines, &summary.table_name);
     usage_locations.extend(saved_view_usages(&saved_views, &summary.table_name));
+
     Ok(Json(TableResp {
         summary,
         usage_locations,
@@ -234,6 +250,7 @@ async fn list_rows(
     if table.trim().is_empty() {
         return Err(Error::invalid("table cannot be empty"));
     }
+
     Ok(Json(
         state
             .storage
@@ -253,11 +270,13 @@ async fn delete_table(
     Path(table): Path<String>,
 ) -> Result<Json<Value>> {
     validate_key(&table, "table")?;
+
     state
         .storage
         .extend_kv
         .delete_table(&ctx.org_id, &table)
         .await?;
+
     state.storage.extend_table.drop_table(&ctx.org_id, &table);
     Ok(Json(serde_json::json!({ "deleted": true })))
 }
@@ -272,6 +291,7 @@ async fn upsert_row(
     validate_key(&table, "table")?;
     validate_key(&key, "key")?;
     let now = TimestampMicros::now();
+
     let row = ExtendRow {
         id: Id::new(),
         org_id: ctx.org_id.clone(),
@@ -280,6 +300,7 @@ async fn upsert_row(
         value_json: req.value_json,
         updated_at: now,
     };
+
     state.storage.extend_kv.upsert(row).await?;
     refresh_table(&state, &ctx.org_id, &table).await?;
     Ok(Json(serde_json::json!({ "updated": true })))
@@ -293,11 +314,13 @@ async fn delete_row(
 ) -> Result<Json<Value>> {
     validate_key(&table, "table")?;
     validate_key(&key, "key")?;
+
     state
         .storage
         .extend_kv
         .delete(&ctx.org_id, &table, &key)
         .await?;
+
     refresh_table(&state, &ctx.org_id, &table).await?;
     Ok(Json(serde_json::json!({ "deleted": true })))
 }
@@ -306,16 +329,19 @@ fn validate_key(value: &str, label: &str) -> Result<()> {
     if value.trim().is_empty() {
         return Err(Error::invalid(format!("{label} cannot be empty")));
     }
+
     Ok(())
 }
 
 fn validate_schema_name(value: &str, label: &str) -> Result<()> {
     validate_key(value, label)?;
+
     if value.len() > 255 {
         return Err(Error::invalid(format!(
             "{label} cannot exceed 255 characters"
         )));
     }
+
     if !value
         .chars()
         .all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '-' || ch == '.')
@@ -324,6 +350,7 @@ fn validate_schema_name(value: &str, label: &str) -> Result<()> {
             "{label} can only contain letters, numbers, '.', '-' and '_'"
         )));
     }
+
     Ok(())
 }
 
@@ -335,12 +362,14 @@ fn normalize_field(
     field.field_type = field.field_type.trim().to_ascii_lowercase();
     field.description = field.description.trim().to_string();
     validate_schema_name(&field.name, "field name")?;
+
     if !seen.insert(field.name.clone()) {
         return Err(Error::invalid(format!(
             "duplicate field name: {}",
             field.name
         )));
     }
+
     if !matches!(
         field.field_type.as_str(),
         "string" | "number" | "boolean" | "object"
@@ -350,12 +379,14 @@ fn normalize_field(
             field.field_type
         )));
     }
+
     if field.description.len() > 500 {
         return Err(Error::invalid(format!(
             "description for field {} cannot exceed 500 characters",
             field.name
         )));
     }
+
     Ok(field)
 }
 
@@ -415,14 +446,17 @@ fn is_identifier_character(character: char) -> bool {
 
 async fn refresh_table(state: &AppState, org_id: &Id, table: &str) -> Result<()> {
     let rows = state.storage.extend_kv.list_table(org_id, table).await?;
+
     if rows.is_empty() {
         state.storage.extend_table.drop_table(org_id, table);
         return Ok(());
     }
+
     let map: HashMap<String, Value> = rows
         .into_iter()
         .map(|row| (row.key, row.value_json))
         .collect();
+
     state.storage.extend_table.replace_table(org_id, table, map);
     Ok(())
 }

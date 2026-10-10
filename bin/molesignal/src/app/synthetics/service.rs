@@ -64,6 +64,7 @@ impl SyntheticService {
         validate_name(&input.name, 255, "Location name")?;
         validate_code(&input.code)?;
         let now = TimestampMicros::now();
+
         self.repository
             .create_location(ProbeLocation {
                 id: Id::new(),
@@ -94,11 +95,13 @@ impl SyntheticService {
         lifecycle: LocationLifecycle,
     ) -> Result<ProbeLocation> {
         let mut location = self.repository.get_location(org_id, location_id).await?;
+
         if location.organization_id.as_ref() != Some(org_id) || location.system_managed {
             return Err(Error::forbidden(
                 "platform Locations cannot be changed by an organization",
             ));
         }
+
         location.lifecycle = lifecycle;
         location.updated_at = TimestampMicros::now();
         self.repository.update_location(location).await
@@ -123,6 +126,7 @@ impl SyntheticService {
         validate_name(&input.name, 255, "Agent name")?;
         let current = self.repository.get_agent(org_id, agent_id).await?;
         let labels = normalize_agent_labels(input.labels, &current.labels)?;
+
         self.repository
             .update_agent_configuration(
                 org_id,
@@ -137,11 +141,13 @@ impl SyntheticService {
 
     pub async fn revoke_agent(&self, org_id: &Id, agent_id: &Id) -> Result<ProbeAgent> {
         let mut agent = self.repository.get_agent(org_id, agent_id).await?;
+
         if agent.organization_id.as_ref() != Some(org_id) {
             return Err(Error::forbidden(
                 "platform Probe Agents cannot be revoked by an organization",
             ));
         }
+
         let now = TimestampMicros::now();
         agent.status = AgentStatus::Revoked;
         agent.revoked_at = Some(now);
@@ -166,7 +172,9 @@ impl SyntheticService {
         {
             return Err(Error::unavailable("Probe registration is not configured"));
         }
+
         let location = self.repository.get_location(org_id, location_id).await?;
+
         if location.organization_id.as_ref() != Some(org_id)
             || location.execution != LocationExecution::AgentPool
             || location.lifecycle != LocationLifecycle::Active
@@ -175,18 +183,24 @@ impl SyntheticService {
                 "registration requires an active organization AgentPool Location",
             ));
         }
+
         let ttl_minutes = ttl_minutes.clamp(5, 60);
         let now = TimestampMicros::now();
+
         let expires_at = TimestampMicros(
             now.0
                 .saturating_add(i64::from(ttl_minutes) * 60 * 1_000_000),
         );
+
         let mut raw = [0u8; 32];
+
         rand::rngs::SysRng
             .try_fill_bytes(&mut raw)
             .map_err(|error| Error::internal(format!("generate register token: {error}")))?;
+
         let plaintext = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(raw);
         let hash = Sha256::digest(plaintext.as_bytes()).to_vec();
+
         let token = self
             .repository
             .create_register_token(
@@ -201,15 +215,18 @@ impl SyntheticService {
                 hash,
             )
             .await?;
+
         let ca_base64 = base64::engine::general_purpose::STANDARD
             .encode(self.probe_ca_certificate_pem.as_bytes());
         let ca_sha256 = hex::encode(Sha256::digest(self.probe_ca_certificate_pem.as_bytes()));
+
         let command = format!(
             "docker run --rm -v molesignal-probe:/var/lib/molesignal-probe \
              ghcr.io/molesignal/probe-agent:latest register \
              --endpoint {} --token {} --ca-certificate-base64 {}",
             self.register_endpoint, plaintext, ca_base64
         );
+
         Ok(crate::domain::synthetics::ProbeRegisterInstructions {
             token,
             register_token: plaintext,
@@ -229,6 +246,7 @@ impl SyntheticService {
     ) -> Result<SyntheticSecret> {
         validate_name(&input.name, 255, "Secret name")?;
         let now = TimestampMicros::now();
+
         self.repository
             .create_secret(
                 SyntheticSecret {
@@ -255,6 +273,7 @@ impl SyntheticService {
         value: String,
     ) -> Result<SyntheticSecret> {
         let secret = self.repository.get_secret(org_id, secret_id).await?;
+
         self.repository
             .rotate_secret(
                 SyntheticSecretVersion {
@@ -284,6 +303,7 @@ impl SyntheticService {
         let now = TimestampMicros::now();
         let monitor_id = Id::new();
         let revision = build_revision(org_id, actor_id, &monitor_id, 1, input.clone(), now)?;
+
         self.repository
             .create_monitor(
                 SyntheticMonitor {
@@ -317,17 +337,20 @@ impl SyntheticService {
         input: CreateMonitorInput,
     ) -> Result<MonitorRevision> {
         let monitor = self.repository.get_monitor(org_id, monitor_id).await?;
+
         if monitor.kind != input.spec.kind() {
             return Err(Error::invalid(
                 "Monitor type cannot change between Revisions",
             ));
         }
+
         let number = self
             .repository
             .list_revisions(org_id, monitor_id)
             .await?
             .len() as u32
             + 1;
+
         let revision = build_revision(
             org_id,
             actor_id,
@@ -336,6 +359,7 @@ impl SyntheticService {
             input,
             TimestampMicros::now(),
         )?;
+
         self.repository.create_draft_revision(revision).await
     }
 
@@ -346,12 +370,15 @@ impl SyntheticService {
         revision_id: &Id,
     ) -> Result<ActiveMonitorRevision> {
         let now = TimestampMicros::now();
+
         let revision = self
             .repository
             .get_revision(org_id, monitor_id, revision_id)
             .await?;
+
         validate_revision(&revision)?;
         let next = next_due_at(monitor_id, &revision.schedule, now)?;
+
         self.repository
             .activate_revision(org_id, monitor_id, revision_id, next, now)
             .await
@@ -364,12 +391,14 @@ impl SyntheticService {
         lifecycle: MonitorLifecycle,
     ) -> Result<SyntheticMonitor> {
         let monitor = self.repository.get_monitor(org_id, monitor_id).await?;
+
         let next = if lifecycle == MonitorLifecycle::Active {
             let active = self
                 .repository
                 .get_active_revision(org_id, monitor_id)
                 .await?
                 .ok_or_else(|| Error::conflict("Monitor has no published Revision"))?;
+
             next_due_at(
                 monitor_id,
                 &active.revision.schedule,
@@ -378,6 +407,7 @@ impl SyntheticService {
         } else {
             None
         };
+
         self.repository
             .update_monitor_runtime(
                 org_id,

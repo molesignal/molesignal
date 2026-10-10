@@ -65,11 +65,13 @@ async fn list_saved_views(
     value: Value,
 ) -> Result<ToolResult> {
     let args: ListArgs = parse_args(value)?;
+
     let views = runtime
         .data
         .saved_views
         .list(&auth.org_id, args.pinned_only)
         .await?;
+
     json_result(&bounded(views, args.limit, 500))
 }
 
@@ -79,11 +81,13 @@ async fn get_saved_view(
     value: Value,
 ) -> Result<ToolResult> {
     let args: IdArgs = parse_args(value)?;
+
     let view = runtime
         .data
         .saved_views
         .get_by_id(&Id(args.required("view_id")?))
         .await?;
+
     ensure_org(&view.org_id, auth)?;
     json_result(&view)
 }
@@ -95,9 +99,11 @@ async fn list_pipelines(
 ) -> Result<ToolResult> {
     let args: ListArgs = parse_args(value)?;
     let mut pipelines = runtime.data.scheduled_pipelines.list(&auth.org_id).await?;
+
     if args.enabled_only {
         pipelines.retain(|pipeline| pipeline.enabled);
     }
+
     json_result(&bounded(pipelines, args.limit, 500))
 }
 
@@ -107,6 +113,7 @@ async fn get_pipeline(
     value: Value,
 ) -> Result<ToolResult> {
     let args: IdArgs = parse_args(value)?;
+
     json_result(
         &runtime
             .data
@@ -123,11 +130,13 @@ async fn list_pipeline_runs(
 ) -> Result<ToolResult> {
     let args: PipelineRunArgs = parse_args(value)?;
     let pipeline_id = Id(args.pipeline_id);
+
     runtime
         .data
         .scheduled_pipelines
         .get(&auth.org_id, &pipeline_id)
         .await?;
+
     json_result(
         &runtime
             .data
@@ -148,6 +157,7 @@ async fn list_functions(
     value: Value,
 ) -> Result<ToolResult> {
     let args: ListArgs = parse_args(value)?;
+
     json_result(&bounded(
         runtime.data.functions.list(&auth.org_id).await?,
         args.limit,
@@ -161,14 +171,17 @@ async fn get_function(
     value: Value,
 ) -> Result<ToolResult> {
     let args: IdArgs = parse_args(value)?;
+
     let function = runtime
         .data
         .functions
         .get_by_id(&Id(args.required("function_id")?))
         .await?;
+
     if function.org_id.as_str() != "__builtin__" {
         ensure_org(&function.org_id, auth)?;
     }
+
     json_result(&function)
 }
 
@@ -178,17 +191,21 @@ async fn test_function(
     value: Value,
 ) -> Result<ToolResult> {
     let args: TestFunctionArgs = parse_args(value)?;
+
     if args.language == FunctionLanguage::Llm {
         return Err(Error::invalid(
             "LLM functions cannot be executed by test_function",
         ));
     }
+
     precheck_compile(
         args.language,
         &args.source,
         runtime.data.functions_js_runtime_enabled,
     )?;
+
     let now = TimestampMicros::now();
+
     let function = Function {
         id: Id::from_string("tool-test"),
         org_id: auth.org_id.clone(),
@@ -199,12 +216,15 @@ async fn test_function(
         created_at: now,
         updated_at: now,
     };
+
     let mut output = args.input;
+
     runtime
         .data
         .function_executor
         .run(&function, &mut output)
         .await?;
+
     Ok(ToolResult::json(json!({"output": output})))
 }
 
@@ -214,6 +234,7 @@ async fn list_enrichment_tables(
     value: Value,
 ) -> Result<ToolResult> {
     let args: ListArgs = parse_args(value)?;
+
     json_result(&bounded(
         runtime.data.enrichment.list_tables(&auth.org_id).await?,
         args.limit,
@@ -227,11 +248,13 @@ async fn list_enrichment_rows(
     value: Value,
 ) -> Result<ToolResult> {
     let args: EnrichmentArgs = parse_args(value)?;
+
     let rows = runtime
         .data
         .enrichment
         .list_table(&auth.org_id, &args.table)
         .await?;
+
     json_result(&bounded(rows, args.limit, 1000))
 }
 
@@ -241,10 +264,12 @@ async fn get_enrichment_value(
     value: Value,
 ) -> Result<ToolResult> {
     let args: EnrichmentArgs = parse_args(value)?;
+
     let key = args
         .key
         .filter(|key| !key.trim().is_empty())
         .ok_or_else(|| Error::invalid("key is required"))?;
+
     let row = runtime
         .data
         .enrichment
@@ -253,6 +278,7 @@ async fn get_enrichment_value(
         .into_iter()
         .find(|row| row.key == key)
         .ok_or_else(|| Error::not_found("enrichment value not found"))?;
+
     json_result(&row)
 }
 
@@ -262,6 +288,7 @@ async fn list_log_patterns(
     value: Value,
 ) -> Result<ToolResult> {
     let args: ListArgs = parse_args(value)?;
+
     json_result(&bounded(
         runtime.data.log_patterns.list(&auth.org_id).await?,
         args.limit,
@@ -275,6 +302,7 @@ async fn get_log_pattern(
     value: Value,
 ) -> Result<ToolResult> {
     let args: IdArgs = parse_args(value)?;
+
     json_result(
         &runtime
             .data
@@ -290,6 +318,7 @@ async fn list_regex_patterns(
     value: Value,
 ) -> Result<ToolResult> {
     let args: ListArgs = parse_args(value)?;
+
     json_result(&bounded(
         runtime.data.regex_patterns.list(&auth.org_id).await?,
         args.limit,
@@ -304,6 +333,7 @@ async fn get_regex_pattern(
 ) -> Result<ToolResult> {
     let args: IdArgs = parse_args(value)?;
     let id = args.required("pattern_id")?;
+
     let pattern = runtime
         .data
         .regex_patterns
@@ -312,6 +342,7 @@ async fn get_regex_pattern(
         .into_iter()
         .find(|pattern| pattern.id.as_str() == id)
         .ok_or_else(|| Error::not_found("regex pattern not found"))?;
+
     json_result(&pattern)
 }
 
@@ -331,6 +362,7 @@ async fn effective_field_masking(
     value: Value,
 ) -> Result<ToolResult> {
     let args: IdArgs = parse_args(value)?;
+
     json_result(
         &runtime
             .data
@@ -347,9 +379,11 @@ async fn list_connectors(
 ) -> Result<ToolResult> {
     let args: ListArgs = parse_args(value)?;
     let mut connectors = runtime.data.connectors.list(&auth.org_id).await?;
+
     if args.enabled_only {
         connectors.retain(|connector| connector.enabled);
     }
+
     connector_result(bounded(connectors, args.limit, 500))
 }
 
@@ -359,6 +393,7 @@ async fn get_connector(
     value: Value,
 ) -> Result<ToolResult> {
     let args: IdArgs = parse_args(value)?;
+
     connector_result(vec![
         runtime
             .data
@@ -411,6 +446,7 @@ impl IdArgs {
             "connector_id" => &self.connector_id,
             _ => unreachable!(),
         };
+
         value
             .as_ref()
             .filter(|value| !value.trim().is_empty())

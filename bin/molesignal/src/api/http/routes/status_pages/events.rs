@@ -80,6 +80,7 @@ impl EventWriteRequest {
             StatusPageIncidentKind::Incident => PublicIncidentStatus::Investigating,
             StatusPageIncidentKind::Maintenance => PublicIncidentStatus::Scheduled,
         });
+
         StatusPageIncidentInput {
             source_incident_id: self.source_incident_id,
             kind: self.kind,
@@ -126,6 +127,7 @@ async fn list_events(
         StatusPageIncidentKind::Incident => StatusPageEventView::Current,
         StatusPageIncidentKind::Maintenance => StatusPageEventView::Upcoming,
     });
+
     Ok(Json(
         state
             .status_pages
@@ -156,10 +158,12 @@ async fn create_event(
     Json(request): Json<EventWriteRequest>,
 ) -> Result<(StatusCode, Json<StatusPageIncident>)> {
     let page_id = Id(page_id);
+
     let event = state
         .status_pages
         .create_incident(&context.org_id, &page_id, request.into_input())
         .await?;
+
     record_event_audit(&state, &context, &event, "create").await;
     Ok((StatusCode::CREATED, Json(event)))
 }
@@ -173,10 +177,12 @@ async fn update_event(
 ) -> Result<Json<StatusPageIncident>> {
     let page_id = Id(page_id);
     let event_id = Id(event_id);
+
     let existing = state
         .status_pages
         .get_event(&context.org_id, &page_id, &event_id)
         .await?;
+
     let (event, verb) = if existing.publication_state == StatusPagePublicationState::Draft {
         (
             state
@@ -199,6 +205,7 @@ async fn update_event(
             "reschedule",
         )
     };
+
     record_event_audit(&state, &context, &event, verb).await;
     Ok(Json(event))
 }
@@ -212,14 +219,17 @@ async fn publish_draft(
 ) -> Result<Json<StatusPageIncident>> {
     let page_id = Id(page_id);
     let event_id = Id(event_id);
+
     let automation_draft = state
         .status_pages
         .prepare_automation_draft_publish(&context.org_id, &page_id, &event_id)
         .await?;
+
     let event = state
         .status_pages
         .publish_incident_draft(&context.org_id, &page_id, &event_id, request.into_input())
         .await?;
+
     if automation_draft {
         state
             .status_pages
@@ -231,6 +241,7 @@ async fn publish_draft(
             )
             .await?;
     }
+
     record_event_audit(&state, &context, &event, "publish").await;
     Ok(Json(event))
 }
@@ -254,6 +265,7 @@ async fn append_update(
             },
         )
         .await?;
+
     record_event_audit(&state, &context, &event, "update").await;
     Ok(Json(event))
 }

@@ -45,6 +45,7 @@ impl RumReadModelReader {
         if query.limit == 0 {
             return Ok(Vec::new());
         }
+
         let mut input = self
             .source_files(
                 org_id,
@@ -53,9 +54,11 @@ impl RumReadModelReader {
                 range,
             )
             .await?;
+
         let before = query
             .boundary
             .is_some_and(|boundary| boundary.direction == CursorDirection::Before);
+
         input.files.sort_by(|left, right| {
             let ordering = right
                 .meta
@@ -63,15 +66,18 @@ impl RumReadModelReader {
                 .end
                 .cmp(&left.meta.time_range.end)
                 .then_with(|| right.meta.object_key.cmp(&left.meta.object_key));
+
             if before { ordering.reverse() } else { ordering }
         });
 
         let mut top = Vec::with_capacity(query.limit);
+
         for buffered in input.batches {
             for row in 0..buffered.batch.num_rows() {
                 let Some(record) = RumSessionRecord::from_batch(&buffered.batch, row) else {
                     continue;
                 };
+
                 if in_range(record.timestamp_micros, buffered.range)
                     && matches_session(&record, query)
                     && matches_boundary(&record, query.boundary)
@@ -80,12 +86,15 @@ impl RumReadModelReader {
                 }
             }
         }
+
         let reader = ParquetReader::new(self.object_store.clone());
+
         for (index, file) in input.files.iter().enumerate() {
             let options = ReadOptions::new()
                 .with_time_range(file.range.start.0, file.range.end.0)
                 .with_columns(SESSION_COLUMNS)
                 .with_known_size(file.meta.size_bytes);
+
             let mut batches = match reader
                 .stream_from_store(self.object_store.clone(), &file.meta.object_key, options)
                 .await
@@ -100,21 +109,26 @@ impl RumReadModelReader {
                 }
                 Err(error) => return Err(error),
             };
+
             while let Some(batch) = batches.next().await {
                 let batch = batch?;
+
                 for row in 0..batch.num_rows() {
                     let Some(record) = RumSessionRecord::from_batch(&batch, row) else {
                         continue;
                     };
+
                     if !in_range(record.timestamp_micros, file.range)
                         || !matches_session(&record, query)
                         || !matches_boundary(&record, query.boundary)
                     {
                         continue;
                     }
+
                     push_top_k(&mut top, record, query.limit, before);
                 }
             }
+
             if !before
                 && top.len() >= query.limit
                 && input.files.get(index + 1).is_some_and(|next| {
@@ -126,6 +140,7 @@ impl RumReadModelReader {
                 break;
             }
         }
+
         top.sort_by(|left, right| effective_cmp(left, right, before));
         Ok(top)
     }
@@ -148,10 +163,13 @@ fn matches_session(record: &RumSessionRecord, query: SessionPageQuery<'_>) -> bo
     {
         return false;
     }
+
     let Some(text) = query.text else {
         return true;
     };
+
     let text = text.to_ascii_lowercase();
+
     [
         Some(record.session_id.as_str()),
         record.user_id.as_deref(),
@@ -185,16 +203,19 @@ fn matches_boundary(record: &RumSessionRecord, boundary: Option<SessionPageBound
     let Some(boundary) = boundary else {
         return true;
     };
+
     let position = (
         boundary.started_at_micros,
         boundary.session_id,
         boundary.event_id,
     );
+
     let row = (
         record.timestamp_micros,
         record.session_id.as_str(),
         record.event_id.as_str(),
     );
+
     match boundary.direction {
         CursorDirection::After => row < position,
         CursorDirection::Before => row > position,
@@ -214,18 +235,22 @@ fn push_top_k(
         if effective_cmp(&candidate, &top[existing], before) == Ordering::Less {
             top[existing] = candidate;
         }
+
         return;
     }
+
     if top.len() < limit {
         top.push(candidate);
         return;
     }
+
     let worst = top
         .iter()
         .enumerate()
         .max_by(|(_, left), (_, right)| effective_cmp(left, right, before))
         .map(|(index, _)| index)
         .unwrap_or_default();
+
     if effective_cmp(&candidate, &top[worst], before) == Ordering::Less {
         top[worst] = candidate;
     }

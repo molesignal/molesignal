@@ -20,8 +20,10 @@ pub fn check_event_types(schema: &Schema, event: &RawEvent) -> std::result::Resu
             if field.nullable {
                 continue;
             }
+
             return Err(format!("missing non-null field `{}`", field.name));
         };
+
         if !value_fits_type(value, field.data_type) {
             return Err(format!(
                 "type mismatch on field `{}`: expected {:?}, got {}",
@@ -31,6 +33,7 @@ pub fn check_event_types(schema: &Schema, event: &RawEvent) -> std::result::Resu
             ));
         }
     }
+
     Ok(())
 }
 
@@ -40,6 +43,7 @@ fn auto_index_type(stream_type: StreamType, field_name: &str) -> StreamIndexType
         StreamType::TRACES => {
             let exact = matches!(field_name, "trace_id" | "span_id" | "service.name")
                 || field_name == TRACE_SUMMARY_MARKER_FIELD;
+
             if exact {
                 StreamIndexType::Exact
             } else {
@@ -59,6 +63,7 @@ fn auto_index_type(stream_type: StreamType, field_name: &str) -> StreamIndexType
                     | "application"
                     | "environment"
             );
+
             // `message` uses a tokenized TEXT index. Exact dimensions use a STRING index and
             // Bloom filter; the two modes intentionally remain mutually exclusive.
             if exact {
@@ -71,6 +76,7 @@ fn auto_index_type(stream_type: StreamType, field_name: &str) -> StreamIndexType
         }
         StreamType::METRICS => {
             let exact = field_name == crate::domain::metrics::METRIC_NAME_FIELD;
+
             if exact {
                 StreamIndexType::Exact
             } else {
@@ -95,6 +101,7 @@ pub fn infer_schema_extension(
         .iter()
         .map(|field| field.name.as_str())
         .collect();
+
     let mut new_fields: BTreeMap<String, FieldType> = BTreeMap::new();
 
     for event in events {
@@ -102,16 +109,20 @@ pub fn infer_schema_extension(
             if known.contains(name.as_str()) || new_fields.contains_key(name) {
                 continue;
             }
+
             new_fields.insert(name.clone(), guess_field_type(value));
         }
     }
+
     if new_fields.is_empty() {
         return None;
     }
 
     let mut next = schema.clone();
+
     for (name, data_type) in new_fields {
         let index_type = auto_index_type(stream_type, &name);
+
         next.fields.push(FieldDef {
             name,
             data_type,
@@ -122,6 +133,7 @@ pub fn infer_schema_extension(
             exact: index_type == StreamIndexType::Exact,
         });
     }
+
     Some(next)
 }
 

@@ -65,6 +65,7 @@ pub fn trim_cursor_page<T>(
 ) -> TrimmedCursorPage<T> {
     let has_extra = items.len() > page_size;
     items.truncate(page_size);
+
     if direction == Some(CursorDirection::Before) {
         items.reverse();
     }
@@ -74,10 +75,12 @@ pub fn trim_cursor_page<T>(
         Some(CursorDirection::After) => !items.is_empty(),
         Some(CursorDirection::Before) => has_extra,
     };
+
     let has_next = match direction {
         None | Some(CursorDirection::After) => has_extra,
         Some(CursorDirection::Before) => !items.is_empty(),
     };
+
     TrimmedCursorPage {
         items,
         has_previous,
@@ -94,19 +97,25 @@ pub fn lexicographic_seek(
     quote_text: impl Fn(&str) -> String,
 ) -> String {
     let mut alternatives = Vec::with_capacity(fields.len());
+
     for index in 0..fields.len() {
         let mut terms = Vec::with_capacity(index + 1);
+
         for (name, value, _) in &fields[..index] {
             terms.push(format!("{name} = {}", value.sql(&quote_text)));
         }
+
         let (name, value, sort_direction) = &fields[index];
+
         terms.push(format!(
             "{name} {} {}",
             comparator(*sort_direction, page_direction),
             value.sql(&quote_text),
         ));
+
         alternatives.push(format!("({})", terms.join(" AND ")));
     }
+
     format!("({})", alternatives.join(" OR "))
 }
 

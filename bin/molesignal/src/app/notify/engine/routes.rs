@@ -31,6 +31,7 @@ impl NotifyEngine {
                     .await?
             }
         };
+
         if policy.fallback_config.use_team_defaults
             && let Some(team_id) = recipient
                 .team_id
@@ -51,6 +52,7 @@ impl NotifyEngine {
                 .await?,
             );
         }
+
         if policy.fallback_config.use_organization_defaults
             && let Some(defaults) = self
                 .organization_defaults
@@ -67,6 +69,7 @@ impl NotifyEngine {
                 .await?,
             );
         }
+
         Ok(routes)
     }
 
@@ -83,16 +86,21 @@ impl NotifyEngine {
         else {
             return Ok(Vec::new());
         };
+
         if !preference.enabled || preference_is_quiet(&preference, event) {
             return Ok(Vec::new());
         }
+
         preference.steps.sort_by_key(|step| step.step_order);
+
         let max_steps = if policy.fallback_config.use_user_fallbacks {
             usize::MAX
         } else {
             1
         };
+
         let mut routes = Vec::new();
+
         for (index, step) in preference.steps.into_iter().take(max_steps).enumerate() {
             let endpoint = self
                 .endpoints
@@ -102,24 +110,30 @@ impl NotifyEngine {
                     &step.endpoint_id,
                 )
                 .await?;
+
             if !endpoint.enabled || !endpoint.verified {
                 continue;
             }
+
             let connector = self
                 .connectors
                 .get(&event.organization_id, &endpoint.connector_id)
                 .await?;
+
             if !connector.enabled || connector.status == ConnectorStatus::Error {
                 continue;
             }
+
             let target = NotifyTarget {
                 target_type: NotifyTargetType::DirectUser,
                 value: endpoint.external_identity,
                 metadata: Default::default(),
             };
+
             self.connector_registry
                 .get(&connector.connector_type)?
                 .validate_target(&target)?;
+
             routes.push(ResolvedRoute {
                 stage: if index == 0 {
                     DeliveryStage::UserPrimary
@@ -131,6 +145,7 @@ impl NotifyEngine {
                 target,
             });
         }
+
         Ok(routes)
     }
 
@@ -148,12 +163,15 @@ impl NotifyEngine {
         {
             return Ok(Vec::new());
         }
+
         let endpoints = self
             .endpoints
             .list(&event.organization_id, &recipient.user_id)
             .await?;
+
         let mut routes = Vec::new();
         let mut selected_endpoint_ids = std::collections::HashSet::new();
+
         for connector_id in &policy.delivery_config.connector_ids {
             let Some(endpoint) = endpoints.iter().find(|endpoint| {
                 endpoint.connector_id == *connector_id
@@ -163,21 +181,26 @@ impl NotifyEngine {
             }) else {
                 continue;
             };
+
             let connector = self
                 .connectors
                 .get(&event.organization_id, connector_id)
                 .await?;
+
             if !connector.enabled || connector.status == ConnectorStatus::Error {
                 continue;
             }
+
             let target = NotifyTarget {
                 target_type: NotifyTargetType::DirectUser,
                 value: endpoint.external_identity.clone(),
                 metadata: Default::default(),
             };
+
             self.connector_registry
                 .get(&connector.connector_type)?
                 .validate_target(&target)?;
+
             routes.push(ResolvedRoute {
                 stage: DeliveryStage::UserPrimary,
                 connector,
@@ -185,6 +208,7 @@ impl NotifyEngine {
                 target,
             });
         }
+
         if policy.fallback_config.use_user_fallbacks {
             for mut route in self.user_routes(policy, event, recipient).await? {
                 if route
@@ -194,10 +218,12 @@ impl NotifyEngine {
                 {
                     continue;
                 }
+
                 route.stage = DeliveryStage::UserFallback;
                 routes.push(route);
             }
         }
+
         Ok(routes)
     }
 
@@ -209,22 +235,27 @@ impl NotifyEngine {
     ) -> Result<Vec<ResolvedRoute>> {
         configured.sort_by_key(|route| route.order);
         let mut routes = Vec::new();
+
         for route in configured {
             let connector = self
                 .connectors
                 .get(organization_id, &route.connector_id)
                 .await?;
+
             if !connector.enabled || connector.status == ConnectorStatus::Error {
                 continue;
             }
+
             let target = NotifyTarget {
                 target_type: route.target_type,
                 value: route.target,
                 metadata: Default::default(),
             };
+
             self.connector_registry
                 .get(&connector.connector_type)?
                 .validate_target(&target)?;
+
             routes.push(ResolvedRoute {
                 stage,
                 connector,
@@ -232,6 +263,7 @@ impl NotifyEngine {
                 target,
             });
         }
+
         Ok(routes)
     }
 }
@@ -246,6 +278,7 @@ fn preference_is_quiet(
             .get("severity")
             .and_then(serde_json::Value::as_str)
             .is_some_and(|severity| severity.eq_ignore_ascii_case("critical"));
+
     !critical_bypass
         && preference
             .quiet_hours

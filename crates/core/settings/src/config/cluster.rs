@@ -19,9 +19,11 @@ pub struct ClusterSettings {
 fn default_advertise_addr() -> String {
     "127.0.0.1:5082".into()
 }
+
 fn default_heartbeat_interval() -> u32 {
     5
 }
+
 fn default_peer_timeout() -> u32 {
     15
 }
@@ -58,9 +60,11 @@ pub struct RouterRateLimit {
 fn default_intake_qps() -> u32 {
     1000
 }
+
 fn default_query_qps() -> u32 {
     100
 }
+
 fn default_rate_burst() -> u32 {
     2
 }

@@ -61,6 +61,7 @@ impl WalRecoverySource {
 
 fn quarantine_path(dataset_dir: &Path, epoch: Option<u64>, name: &str) -> PathBuf {
     let quarantine = dataset_dir.join(QUARANTINE_DIR);
+
     match epoch {
         Some(epoch) => quarantine.join(format!("{epoch}-{name}")),
         None => quarantine.join(name),
@@ -77,6 +78,7 @@ fn quarantine(dataset_dir: &Path, source: &Path, epoch: Option<u64>, reason: &st
             .map(|name| name.to_string_lossy().into_owned())
             .unwrap_or_else(|| "unnamed".to_owned()),
     );
+
     std::fs::create_dir_all(target.parent().expect("quarantine path has parent"))?;
     std::fs::rename(source, &target)
         .with_context(|| format!("quarantine {} -> {}", source.display(), target.display()))?;
@@ -95,12 +97,14 @@ fn load_epoch_identity(dir: &Path) -> Result<EpochIdentity> {
         .with_context(|| format!("read IDENTITY in {}", dir.display()))?;
     let identity: EpochIdentity = serde_json::from_slice(&raw)
         .with_context(|| format!("parse IDENTITY in {}", dir.display()))?;
+
     if identity.format_version != EPOCH_IDENTITY_FORMAT_VERSION {
         return Err(anyhow!(
             "unsupported IDENTITY format_version {}",
             identity.format_version
         ));
     }
+
     Ok(identity)
 }
 
@@ -111,20 +115,26 @@ impl WalPool {
     pub fn recovery_sources(&self) -> Result<Vec<WalRecoverySource>> {
         let node_dir = self.root().join(self.node_id());
         let mut sources = Vec::new();
+
         if !node_dir.exists() {
             return Ok(sources);
         }
+
         for dataset_entry in std::fs::read_dir(&node_dir)? {
             let dataset_entry = dataset_entry?;
+
             if !dataset_entry.file_type()?.is_dir() {
                 continue;
             }
+
             let dataset_dir = dataset_entry.path();
             let dataset_name = dataset_entry.file_name().to_string_lossy().into_owned();
+
             if let Some(source) = self.collect_dataset(&dataset_dir, &dataset_name)? {
                 sources.push(source);
             }
         }
+
         sources.sort_by(|a, b| a.dataset_id.as_str().cmp(b.dataset_id.as_str()));
         Ok(sources)
     }
@@ -136,23 +146,30 @@ impl WalPool {
     ) -> Result<Option<WalRecoverySource>> {
         let mut epoch_dirs = Vec::new();
         let mut identity: Option<(Id, DatasetTypeId)> = None;
+
         for entry in std::fs::read_dir(dataset_dir)? {
             let entry = entry?;
             let name = entry.file_name().to_string_lossy().into_owned();
+
             if !entry.file_type()?.is_dir() {
                 if name != CURRENT_FILE && !name.ends_with(".tmp") {
                     tracing::warn!(path = %entry.path().display(), "unexpected file in wal dataset dir");
                 }
+
                 continue;
             }
+
             if name == QUARANTINE_DIR {
                 continue;
             }
+
             let Ok(epoch) = name.parse::<u64>() else {
                 tracing::warn!(path = %entry.path().display(), "non-epoch dir in wal dataset dir");
                 continue;
             };
+
             let dir = entry.path();
+
             let manifest = match load_epoch_identity(&dir) {
                 Ok(manifest) => manifest,
                 Err(error) => {
@@ -160,6 +177,7 @@ impl WalPool {
                     continue;
                 }
             };
+
             if manifest.epoch != epoch
                 || manifest.dataset_id != dataset_name
                 || manifest.node_id != self.node_id()
@@ -167,7 +185,9 @@ impl WalPool {
                 quarantine(dataset_dir, &dir, None, "IDENTITY does not match path")?;
                 continue;
             }
+
             let segments = SegmentWal::segment_paths_sorted(&dir)?;
+
             identity = Some((
                 Id::from_string(manifest.organization_id),
                 manifest
@@ -175,16 +195,20 @@ impl WalPool {
                     .parse::<DatasetTypeId>()
                     .map_err(|error| anyhow!("IDENTITY dataset_type: {error}"))?,
             ));
+
             epoch_dirs.push(WalEpochDir {
                 epoch,
                 dir,
                 segments,
             });
         }
+
         let Some((organization_id, dataset_type)) = identity else {
             return Ok(None);
         };
+
         epoch_dirs.sort_by_key(|epoch| epoch.epoch);
+
         Ok(Some(WalRecoverySource {
             dataset_id: PhysicalDatasetId::from_string(dataset_name),
             organization_id,
@@ -204,11 +228,13 @@ impl WalPool {
         is_active_tail: bool,
     ) -> Result<Vec<WalRecord>> {
         let scan = scan_segment_file_readonly(dataset_dir_segment)?;
+
         if let Some(offset) = scan.tail_error_offset {
             if is_active_tail {
                 let file = std::fs::OpenOptions::new()
                     .write(true)
                     .open(dataset_dir_segment)?;
+
                 file.set_len(offset as u64)?;
                 file.sync_all()?;
                 inc_wal_recovery_tail_truncated();
@@ -223,6 +249,7 @@ impl WalPool {
                     .parent()
                     .and_then(Path::parent)
                     .ok_or_else(|| anyhow!("segment path has no dataset dir"))?;
+
                 quarantine(
                     dataset_dir,
                     dataset_dir_segment,
@@ -236,12 +263,15 @@ impl WalPool {
                 )?;
             }
         }
+
         let mut records = scan.records;
+
         for record in &mut records {
             if record.payload.starts_with(WAL_ENC_MAGIC) {
                 record.payload = wal_decrypt_body(self.cipher(), &record.payload)?;
             }
         }
+
         Ok(records)
     }
 
@@ -254,6 +284,7 @@ impl WalPool {
                     .with_context(|| format!("purge wal epoch dir {}", epoch.dir.display()))?;
             }
         }
+
         Ok(())
     }
 }

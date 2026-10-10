@@ -70,6 +70,7 @@ async fn create(
         .synthetics
         .create_location(&context.org_id, input)
         .await?;
+
     activity_audit::record(
         &state,
         &context,
@@ -79,6 +80,7 @@ async fn create(
         serde_json::json!({"execution": location.execution, "scope": location.scope}),
     )
     .await;
+
     Ok((StatusCode::CREATED, Json(location)))
 }
 
@@ -98,6 +100,7 @@ async fn create_register_token(
             request.ttl_minutes,
         )
         .await?;
+
     activity_audit::record(
         &state,
         &context,
@@ -110,6 +113,7 @@ async fn create_register_token(
         }),
     )
     .await;
+
     Ok((StatusCode::CREATED, Json(instructions)))
 }
 

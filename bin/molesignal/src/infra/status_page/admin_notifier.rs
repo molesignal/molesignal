@@ -32,6 +32,7 @@ impl StatusPageAdminEmailNotifier {
 impl StatusPageDomainHealthNotifier for StatusPageAdminEmailNotifier {
     async fn notify(&self, alert: &StatusPageDomainHealthAlert) -> Result<()> {
         let now = TimestampMicros::now().0;
+
         let recipients: Vec<String> = sqlx::query_scalar(
             "SELECT DISTINCT user_row.email
              FROM iam_role_bindings binding
@@ -57,31 +58,38 @@ impl StatusPageDomainHealthNotifier for StatusPageAdminEmailNotifier {
         .fetch_all(&self.pool)
         .await
         .map_err(|error| Error::internal(format!("status-page admin lookup: {error}")))?;
+
         if recipients.is_empty() {
             return Err(Error::unavailable(
                 "no active status-page administrator can receive the domain alert",
             ));
         }
+
         let settings_url = format!(
             "{}/status-pages/{}/settings/domain-access",
             self.external_url.trim().trim_end_matches('/'),
             alert.status_page_id
         );
+
         let detail = alert
             .error
             .as_deref()
             .map(|value| value.chars().take(500).collect::<String>())
             .unwrap_or_else(|| "The latest domain health check did not provide details.".into());
+
         let subject = format!("{} custom domain needs attention", alert.page_name);
+
         let body = format!(
             "The custom domain {hostname} for {page} is {state}.\n\n{detail}\n\nReview Domain & Access: {settings_url}",
             hostname = alert.hostname,
             page = alert.page_name,
             state = alert.state.as_str(),
         );
+
         for recipient in recipients {
             self.email.send_text(&[recipient], &subject, &body).await?;
         }
+
         Ok(())
     }
 }

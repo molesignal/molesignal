@@ -68,6 +68,7 @@ fn selector_fingerprint(
         .iter()
         .map(|m| format!("{}{}{}", m.name, match_op_tag(&m.op), m.value))
         .collect();
+
     matcher_parts.sort();
 
     let mut or_groups: Vec<String> = vs
@@ -79,10 +80,12 @@ fn selector_fingerprint(
                 .iter()
                 .map(|m| format!("{}{}{}", m.name, match_op_tag(&m.op), m.value))
                 .collect();
+
             items.sort();
             format!("[{}]", items.join(","))
         })
         .collect();
+
     or_groups.sort();
 
     let mut s = String::new();
@@ -96,14 +99,17 @@ fn selector_fingerprint(
     s.push_str(&range_us.to_string());
     s.push('\u{1}');
     s.push_str(&step_us.to_string());
+
     for p in matcher_parts {
         s.push('\u{2}');
         s.push_str(&p);
     }
+
     for g in or_groups {
         s.push('\u{3}');
         s.push_str(&g);
     }
+
     blake3::hash(s.as_bytes()).to_hex().to_string()
 }
 
@@ -136,15 +142,19 @@ fn plan_compute_range(
             serve: None,
         };
     }
+
     let trusted = stable_through.min(watermark);
+
     let serve = if q_lo <= trusted {
         Some((q_lo, trusted))
     } else {
         None
     };
+
     let compute_lo = q_lo
         .max(trusted.saturating_add(step_us))
         .min(q_hi.saturating_add(step_us));
+
     ComputePlan { compute_lo, serve }
 }
 
@@ -162,6 +172,7 @@ impl PromQLEngine {
         arg: &'a Expr,
     ) -> Option<&'a promql_parser::parser::MatrixSelector> {
         self.streaming.as_ref()?;
+
         match arg {
             Expr::MatrixSelector(ms)
                 if ms.vs.at.is_none() && ms.vs.offset.is_none() && ms.vs.name.is_some() =>
@@ -180,11 +191,15 @@ impl PromQLEngine {
         let Some(metric) = vs.name.as_deref() else {
             return Ok(i64::MIN);
         };
+
         let source = self.resolve_metric_source(&req.org_id, metric).await?;
+
         let storage = self
             .metric_files(&req.org_id, &source.stream, req.time_range)
             .await?;
+
         let file_watermark = storage.files.iter().map(|m| m.time_range.end.0).max();
+
         let buffer_watermark = storage
             .buffered_batches
             .iter()
@@ -198,6 +213,7 @@ impl PromQLEngine {
                     .max()
             })
             .max();
+
         Ok(file_watermark
             .into_iter()
             .chain(buffer_watermark)
@@ -223,6 +239,7 @@ impl PromQLEngine {
             .streaming
             .as_ref()
             .expect("eval_windowed_cached requires streaming cache");
+
         let cache = &agg.cache;
         let step_us = range_step_us(req);
         let range_us = (range.as_micros() as i64).max(1);
@@ -231,6 +248,7 @@ impl PromQLEngine {
 
         // 水位 = min(now - safe_lookback, intake 水位)。
         let intake_wm = self.intake_watermark(vs, req).await?;
+
         let watermark = now_micros()
             .saturating_sub(agg.safe_lookback_us)
             .min(intake_wm);
@@ -242,6 +260,7 @@ impl PromQLEngine {
         let plan = match &entry {
             Some(e) => {
                 let g = e.read().unwrap();
+
                 if g.is_empty() {
                     ComputePlan {
                         compute_lo: q_lo,
@@ -275,6 +294,7 @@ impl PromQLEngine {
         if plan.compute_lo <= q_hi {
             let scan_lo = plan.compute_lo.saturating_sub(range_us);
             let total_us = req.time_range.end.0.saturating_sub(scan_lo).max(1);
+
             let series = self
                 .load_matrix(
                     vs,
@@ -283,6 +303,7 @@ impl PromQLEngine {
                     req,
                 )
                 .await?;
+
             for s in &series {
                 each_step_window_indices(
                     &s.samples,
@@ -293,14 +314,17 @@ impl PromQLEngine {
                     |t, lo, hi| {
                         let samples = &s.samples[lo..hi];
                         let metadata = s.metadata_slice(lo, hi);
+
                         let Some(v) = compute(t, samples, metadata) else {
                             return;
                         };
+
                         points.push(RangePoint {
                             ts_us: t,
                             labels: s.labels.clone(),
                             value: v,
                         });
+
                         if t <= watermark {
                             sealed.entry(s.labels.clone()).or_default().push((t, v));
                             sealed_lo = sealed_lo.min(t);
@@ -314,8 +338,10 @@ impl PromQLEngine {
 
         // 服务已封存稳定桶（不触碰对象存储）。
         let mut hit_points = 0u64;
+
         if let (Some((serve_lo, serve_hi)), Some(e)) = (plan.serve, &entry) {
             let g = e.read().unwrap();
+
             hit_points = g.serve(serve_lo, serve_hi, |labels, ts, v| {
                 points.push(RangePoint {
                     ts_us: ts,
@@ -333,6 +359,7 @@ impl PromQLEngine {
             let new_buckets: Vec<(LabelSet, Vec<(i64, f64)>)> = sealed.into_iter().collect();
             let max_buckets = cache.max_buckets_per_series();
             let max_series = cache.max_series_per_query();
+
             match &entry {
                 Some(e) => {
                     e.write().unwrap().seal(
@@ -346,6 +373,7 @@ impl PromQLEngine {
                 }
                 None => {
                     let mut fresh = SealedSeries::default();
+
                     fresh.seal(
                         new_buckets,
                         sealed_lo,
@@ -354,6 +382,7 @@ impl PromQLEngine {
                         max_buckets,
                         max_series,
                     );
+
                     cache.insert(fp, Arc::new(RwLock::new(fresh))).await;
                 }
             }

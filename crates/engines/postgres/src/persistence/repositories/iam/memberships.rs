@@ -61,6 +61,7 @@ async fn ensure_builtin_roles(
     .execute(&mut *tx)
     .await
     .map_err(sqlx_err)?;
+
     sqlx::query(
         "INSERT INTO iam_role_permissions (role_id, permission_key)
          SELECT role.id, catalog.permission_key
@@ -75,6 +76,7 @@ async fn ensure_builtin_roles(
     .execute(&mut *tx)
     .await
     .map_err(sqlx_err)?;
+
     Ok(())
 }
 
@@ -87,6 +89,7 @@ impl IamMembershipRepository for PgIamMembershipRepository {
         actor_id: &Id,
     ) -> Result<()> {
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         let system: bool = sqlx::query("SELECT system FROM organizations WHERE id = $1")
             .bind(&membership.org_id.0)
             .fetch_optional(&mut *tx)
@@ -95,6 +98,7 @@ impl IamMembershipRepository for PgIamMembershipRepository {
             .ok_or_else(|| Error::not_found("organization"))?
             .try_get("system")
             .map_err(sqlx_err)?;
+
         if system {
             return Err(Error::forbidden(
                 "system organization does not accept membership",
@@ -102,12 +106,15 @@ impl IamMembershipRepository for PgIamMembershipRepository {
         }
 
         ensure_builtin_roles(&mut tx, &membership.org_id, membership.joined_at).await?;
+
         let unique_role_ids = role_ids
             .iter()
             .map(|role_id| role_id.0.clone())
             .collect::<BTreeSet<_>>();
+
         if !unique_role_ids.is_empty() {
             let role_ids = unique_role_ids.iter().cloned().collect::<Vec<_>>();
+
             let found: i64 = sqlx::query_scalar(
                 "SELECT COUNT(*)
                    FROM iam_roles
@@ -119,6 +126,7 @@ impl IamMembershipRepository for PgIamMembershipRepository {
             .fetch_one(&mut *tx)
             .await
             .map_err(sqlx_err)?;
+
             if found != i64::try_from(role_ids.len()).unwrap_or(i64::MAX) {
                 return Err(Error::invalid(
                     "every role_id must reference an IAM role in the target organization",
@@ -175,11 +183,13 @@ impl IamMembershipRepository for PgIamMembershipRepository {
             .await
             .map_err(sqlx_err)?;
         }
+
         sqlx::query_scalar::<i64>("SELECT bump_iam_policy_version($1)")
             .bind(&membership.org_id.0)
             .fetch_one(&mut *tx)
             .await
             .map_err(sqlx_err)?;
+
         tx.commit().await.map_err(sqlx_err)?;
         Ok(())
     }
@@ -195,6 +205,7 @@ impl IamMembershipRepository for PgIamMembershipRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to_membership).collect()
     }
 
@@ -209,11 +220,13 @@ impl IamMembershipRepository for PgIamMembershipRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to_membership).collect()
     }
 
     async fn assigned_roles(&self, user_id: &Id, org_id: &Id) -> Result<Vec<IamAssignedRole>> {
         let now = TimestampMicros::now();
+
         let rows = sqlx::query(
             "SELECT DISTINCT role.id, role.role_key, role.name, role.builtin,
                     COALESCE(catalog.display_priority, 1000) AS display_priority
@@ -238,6 +251,7 @@ impl IamMembershipRepository for PgIamMembershipRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter()
             .map(|row| {
                 Ok(IamAssignedRole {
@@ -261,10 +275,13 @@ impl IamMembershipRepository for PgIamMembershipRepository {
             .collect::<BTreeSet<_>>()
             .into_iter()
             .collect::<Vec<_>>();
+
         if user_ids.is_empty() {
             return Ok(Vec::new());
         }
+
         let now = TimestampMicros::now();
+
         let rows = sqlx::query(
             "SELECT DISTINCT binding.principal_id,role.id,role.role_key,role.name,role.builtin,
                     COALESCE(catalog.display_priority,1000) AS display_priority
@@ -287,9 +304,12 @@ impl IamMembershipRepository for PgIamMembershipRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         let mut by_user: HashMap<String, Vec<IamAssignedRole>> = HashMap::new();
+
         for row in rows {
             let user_id: String = row.try_get("principal_id").map_err(sqlx_err)?;
+
             by_user.entry(user_id).or_default().push(IamAssignedRole {
                 id: Id::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?),
                 key: row.try_get("role_key").map_err(sqlx_err)?,
@@ -297,6 +317,7 @@ impl IamMembershipRepository for PgIamMembershipRepository {
                 builtin: row.try_get("builtin").map_err(sqlx_err)?,
             });
         }
+
         Ok(user_ids
             .into_iter()
             .map(|user_id| {
@@ -309,6 +330,7 @@ impl IamMembershipRepository for PgIamMembershipRepository {
     async fn role_id_for_purpose(&self, org_id: &Id, purpose: &str) -> Result<Id> {
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
         ensure_builtin_roles(&mut tx, org_id, TimestampMicros::now()).await?;
+
         let role_id = sqlx::query_scalar::<String>(
             "SELECT role.id
                FROM iam_builtin_role_purposes purpose
@@ -323,12 +345,14 @@ impl IamMembershipRepository for PgIamMembershipRepository {
         .await
         .map_err(sqlx_err)?
         .ok_or_else(|| Error::not_found(format!("IAM role purpose {purpose}")))?;
+
         tx.commit().await.map_err(sqlx_err)?;
         Ok(Id::from_string(role_id))
     }
 
     async fn remove(&self, user_id: &Id, org_id: &Id) -> Result<()> {
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         let system: bool = sqlx::query("SELECT system FROM organizations WHERE id = $1")
             .bind(&org_id.0)
             .fetch_optional(&mut *tx)
@@ -337,17 +361,20 @@ impl IamMembershipRepository for PgIamMembershipRepository {
             .ok_or_else(|| Error::not_found("organization"))?
             .try_get("system")
             .map_err(sqlx_err)?;
+
         if system {
             return Err(Error::forbidden(
                 "system organization membership is immutable",
             ));
         }
+
         sqlx::query("DELETE FROM iam_memberships WHERE user_id = $1 AND org_id = $2")
             .bind(&user_id.0)
             .bind(&org_id.0)
             .execute(&mut *tx)
             .await
             .map_err(sqlx_err)?;
+
         sqlx::query(
             "DELETE FROM iam_role_bindings
               WHERE organization_id = $1
@@ -359,11 +386,13 @@ impl IamMembershipRepository for PgIamMembershipRepository {
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
+
         sqlx::query_scalar::<i64>("SELECT bump_iam_policy_version($1)")
             .bind(&org_id.0)
             .fetch_one(&mut *tx)
             .await
             .map_err(sqlx_err)?;
+
         tx.commit().await.map_err(sqlx_err)?;
         Ok(())
     }

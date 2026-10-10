@@ -40,9 +40,11 @@ impl PgApmRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter()
             .map(|row| {
                 let count: i32 = row.try_get("recent_instance_count").map_err(sqlx_err)?;
+
                 Ok(ServiceObservation {
                     org_id: query.org_id.clone(),
                     service: ServiceIdentity {
@@ -93,9 +95,11 @@ impl PgApmRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter()
             .map(|row| {
                 let count: i64 = row.try_get("observation_count").map_err(sqlx_err)?;
+
                 Ok(VersionObservation {
                     org_id: query.org_id.clone(),
                     service: ServiceIdentity {
@@ -146,6 +150,7 @@ impl PgApmRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter()
             .map(|row| {
                 let Json(error): Json<ErrorIdentity> =
@@ -153,6 +158,7 @@ impl PgApmRepository {
                 let Json(stack): Json<Vec<String>> =
                     row.try_get("representative_stack").map_err(sqlx_err)?;
                 let count: i64 = row.try_get("occurrence_count").map_err(sqlx_err)?;
+
                 Ok(ErrorGroupRecord {
                     org_id: query.org_id.clone(),
                     error,
@@ -198,12 +204,14 @@ impl PgApmRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter()
             .map(|row| {
                 let Json(error): Json<ErrorIdentity> =
                     row.try_get("error_identity").map_err(sqlx_err)?;
                 let Json(stack): Json<Vec<String>> =
                     row.try_get("representative_stack").map_err(sqlx_err)?;
+
                 Ok(ErrorSample {
                     org_id: org_id.clone(),
                     error,

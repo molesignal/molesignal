@@ -26,9 +26,11 @@ pub(super) async fn execute(
 ) -> Result<OperationOutcome> {
     let dashboard_id = Id(approval.target.clone());
     let dashboard = state.dashboard.get(&dashboard_id).await?;
+
     if dashboard.org_id != ctx.org_id {
         return Err(Error::not_found("dashboard not found"));
     }
+
     Permission::require_resource(
         state,
         ctx,
@@ -38,9 +40,11 @@ pub(super) async fn execute(
         &dashboard.id.0,
     )
     .await?;
+
     let saved = match approval.action.as_str() {
         "add_dashboard_panel" => {
             let parameters: AddPanel = parse(&approval.parameters)?;
+
             state
                 .dashboard
                 .add_panel(
@@ -55,6 +59,7 @@ pub(super) async fn execute(
         }
         "update_dashboard_panel" => {
             let parameters: UpdatePanel = parse(&approval.parameters)?;
+
             state
                 .dashboard
                 .update_panel(
@@ -68,6 +73,7 @@ pub(super) async fn execute(
         }
         "move_dashboard_panel" => {
             let parameters: MovePanel = parse(&approval.parameters)?;
+
             state
                 .dashboard
                 .move_panel(
@@ -82,6 +88,7 @@ pub(super) async fn execute(
         }
         "delete_dashboard_panel" => {
             let parameters: DeletePanel = parse(&approval.parameters)?;
+
             state
                 .dashboard
                 .delete_panel(
@@ -94,6 +101,7 @@ pub(super) async fn execute(
         }
         _ => unreachable!("Dashboard panel operation received unrelated action"),
     };
+
     emit_cud(
         state,
         &saved.org_id,
@@ -103,6 +111,7 @@ pub(super) async fn execute(
         &saved,
     )
     .await;
+
     Ok(outcome(approval, saved))
 }
 

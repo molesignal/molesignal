@@ -32,6 +32,7 @@ pub(super) async fn snapshot(
     if selection.dataset_ids.is_empty() {
         return Ok(CatalogSnapshot::default());
     }
+
     let dataset_ids: Vec<String> = selection
         .dataset_ids
         .iter()
@@ -39,6 +40,7 @@ pub(super) async fn snapshot(
         .collect();
 
     let mut tx = sqlx::begin(pool).await.map_err(sqlx_err)?;
+
     sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
         .execute(&mut *tx)
         .await
@@ -52,15 +54,20 @@ pub(super) async fn snapshot(
     .fetch_all(&mut *tx)
     .await
     .map_err(sqlx_err)?;
+
     let mut versions: HashMap<String, u64> = HashMap::with_capacity(version_rows.len());
+
     for row in &version_rows {
         let id: String = row.try_get("id").map_err(sqlx_err)?;
+
         let version = to_u64(
             row.try_get::<i64, _>("catalog_version").map_err(sqlx_err)?,
             "catalog_version",
         )?;
+
         versions.insert(id, version);
     }
+
     if let Some(missing) = dataset_ids.iter().find(|id| !versions.contains_key(*id)) {
         return Err(Error::not_found(format!("physical dataset {missing}")));
     }
@@ -74,9 +81,12 @@ pub(super) async fn snapshot(
     .fetch_all(&mut *tx)
     .await
     .map_err(sqlx_err)?;
+
     let mut checkpoints: HashMap<String, Vec<WalCheckpointView>> = HashMap::new();
+
     for row in &checkpoint_rows {
         let dataset_id: String = row.try_get("dataset_id").map_err(sqlx_err)?;
+
         checkpoints
             .entry(dataset_id)
             .or_default()
@@ -102,18 +112,23 @@ pub(super) async fn snapshot(
          WHERE org_id = $1 AND dataset_id = ANY($2) AND state = 'active' \
            AND min_event_micros <= $3 AND max_event_micros >= $4"
     );
+
     if selection.partition_shard.is_some() {
         segment_sql.push_str(" AND partition_shard = $5");
     }
+
     segment_sql.push_str(" ORDER BY partition_start_micros, id");
+
     let mut segment_query = sqlx::query(&segment_sql)
         .bind(scope.organization_id.as_str())
         .bind(&dataset_ids)
         .bind(selection.time_range.end.0)
         .bind(selection.time_range.start.0);
+
     if let Some(shard) = selection.partition_shard {
         segment_query = segment_query.bind(shard as i16);
     }
+
     let segment_rows = segment_query.fetch_all(&mut *tx).await.map_err(sqlx_err)?;
 
     let mut manifest_sql = "SELECT org_id, dataset_id, partition_start_micros, \
@@ -122,25 +137,32 @@ pub(super) async fn snapshot(
          WHERE org_id = $1 AND dataset_id = ANY($2) AND state = 'active' \
            AND partition_start_micros <= $3 AND partition_end_micros >= $4"
         .to_owned();
+
     if selection.partition_shard.is_some() {
         manifest_sql.push_str(" AND partition_shard = $5");
     }
+
     manifest_sql.push_str(" ORDER BY partition_start_micros, generation");
+
     let mut manifest_query = sqlx::query(&manifest_sql)
         .bind(scope.organization_id.as_str())
         .bind(&dataset_ids)
         .bind(selection.time_range.end.0)
         .bind(selection.time_range.start.0);
+
     if let Some(shard) = selection.partition_shard {
         manifest_query = manifest_query.bind(shard as i16);
     }
+
     let manifest_rows = manifest_query.fetch_all(&mut *tx).await.map_err(sqlx_err)?;
 
     let segment_ids: Vec<String> = segment_rows
         .iter()
         .map(|row| row.try_get::<String, _>("id").map_err(sqlx_err))
         .collect::<std::result::Result<_, _>>()?;
+
     let mut artifacts_by_segment: HashMap<String, Vec<Artifact>> = HashMap::new();
+
     if !segment_ids.is_empty() {
         let artifact_rows = sqlx::query(&format!(
             "SELECT {ARTIFACT_COLS} FROM catalog_artifacts \
@@ -151,29 +173,37 @@ pub(super) async fn snapshot(
         .fetch_all(&mut *tx)
         .await
         .map_err(sqlx_err)?;
+
         for row in &artifact_rows {
             let (segment_id, artifact) = artifact_from_row(row)?;
+
             artifacts_by_segment
                 .entry(segment_id.as_str().to_owned())
                 .or_default()
                 .push(artifact);
         }
     }
+
     tx.commit().await.map_err(sqlx_err)?;
 
     let mut segments_by_dataset: HashMap<String, Vec<_>> = HashMap::new();
+
     for row in &segment_rows {
         let dataset_id: String = row.try_get("dataset_id").map_err(sqlx_err)?;
         let id: String = row.try_get("id").map_err(sqlx_err)?;
         let artifacts = artifacts_by_segment.remove(&id).unwrap_or_default();
+
         segments_by_dataset
             .entry(dataset_id)
             .or_default()
             .push(segment_from_row(row, artifacts)?);
     }
+
     let mut manifests_by_dataset: HashMap<String, Vec<PartitionManifestPointer>> = HashMap::new();
+
     for row in &manifest_rows {
         let dataset_id: String = row.try_get("dataset_id").map_err(sqlx_err)?;
+
         manifests_by_dataset
             .entry(dataset_id.clone())
             .or_default()
@@ -235,6 +265,7 @@ pub(super) async fn wal_checkpoints(
     .fetch_all(pool)
     .await
     .map_err(sqlx_err)?;
+
     rows.iter()
         .map(|row| {
             Ok(WalCheckpointView {

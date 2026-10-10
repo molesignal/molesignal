@@ -36,6 +36,7 @@ fn validate_pipeline_target(stream: &str) -> Result<()> {
             "`_molesignal` cannot be a pipeline target",
         ));
     }
+
     Ok(())
 }
 
@@ -55,10 +56,13 @@ fn row_to(r: sqlx::postgres::PgRow) -> Result<Pipeline> {
     let mut parts = target.splitn(3, ':');
     let _org = parts.next().unwrap_or_default();
     let stream_name = parts.next().unwrap_or_default().to_string();
+
     let st_str = parts
         .next()
         .ok_or_else(|| Error::internal("pipeline target is missing stream type"))?;
+
     let st = stream_type_from_str(st_str)?;
+
     Ok(Pipeline {
         id: Id(r.try_get::<String, _>("id").unwrap_or_default()),
         org_id: Id(r.try_get::<String, _>("org_id").unwrap_or_default()),
@@ -77,6 +81,7 @@ impl PipelineRepository for PgPipelineRepository {
     async fn create(&self, p: Pipeline) -> Result<Pipeline> {
         validate_pipeline_target(&p.stream_name)?;
         let hash = target_hash(&p.org_id, &p.stream_name, p.stream_type);
+
         sqlx::query(
             "INSERT INTO pipelines
                 (id, org_id, name, stream_target_hash, steps, enabled,
@@ -94,12 +99,14 @@ impl PipelineRepository for PgPipelineRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(p)
     }
 
     async fn update(&self, p: Pipeline) -> Result<Pipeline> {
         validate_pipeline_target(&p.stream_name)?;
         let hash = target_hash(&p.org_id, &p.stream_name, p.stream_type);
+
         sqlx::query(
             "UPDATE pipelines SET
                 name = $3, stream_target_hash = $4, steps = $5, enabled = $6,
@@ -116,27 +123,32 @@ impl PipelineRepository for PgPipelineRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(p)
     }
 
     async fn get(&self, org_id: &Id, id: &Id) -> Result<Pipeline> {
         let sql = format!("SELECT {COLS} FROM pipelines WHERE org_id = $1 AND id = $2");
+
         let row = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&id.0)
             .fetch_one(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         row_to(row)
     }
 
     async fn list(&self, org_id: &Id) -> Result<Vec<Pipeline>> {
         let sql = format!("SELECT {COLS} FROM pipelines WHERE org_id = $1 ORDER BY name");
+
         let rows = sqlx::query(&sql)
             .bind(&org_id.0)
             .fetch_all(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to).collect()
     }
 
@@ -147,17 +159,20 @@ impl PipelineRepository for PgPipelineRepository {
         stream_type: StreamType,
     ) -> Result<Vec<Pipeline>> {
         let hash = target_hash(org_id, stream, stream_type);
+
         let sql = format!(
             "SELECT {COLS} FROM pipelines
              WHERE org_id = $1 AND stream_target_hash = $2 AND enabled = TRUE
              ORDER BY name"
         );
+
         let rows = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&hash)
             .fetch_all(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to).collect()
     }
 
@@ -168,6 +183,7 @@ impl PipelineRepository for PgPipelineRepository {
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         Ok(())
     }
 }

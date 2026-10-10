@@ -120,10 +120,12 @@ async fn remote_write(
         .map_err(|e| Error::invalid(format!("protobuf decode failed: {e}")))?;
 
     let settings = &crate::config::get().intake.prometheus;
+
     let identities = preflight(&req, settings).map_err(|violation| {
         inc_structural_rejection(violation.reason());
         violation.into_error(settings)
     })?;
+
     state
         .telemetry
         .prometheus_series_admission
@@ -132,11 +134,13 @@ async fn remote_write(
 
     let received_at = TimestampMicros::now();
     let mut chunker = MetricChunker::new(settings.max_samples_per_batch);
+
     for (stream, event) in MetricEventIter::new(req, received_at) {
         if let Some(chunk) = chunker.push(stream, event) {
             intake_chunk(&state, &ctx.org_id, chunk, received_at).await?;
         }
     }
+
     for chunk in chunker.finish() {
         intake_chunk(&state, &ctx.org_id, chunk, received_at).await?;
     }
@@ -153,6 +157,7 @@ async fn intake_chunk(
     if chunk.events.is_empty() {
         return Ok(());
     }
+
     state
         .intake
         .intake(IntakeBatch {
@@ -164,6 +169,7 @@ async fn intake_chunk(
             received_at,
         })
         .await?;
+
     Ok(())
 }
 
@@ -217,6 +223,7 @@ impl StructuralViolation {
             ),
             Self::InvalidExemplarValue => "Exemplar value must be a finite number".to_string(),
         };
+
         Error::invalid(message)
     }
 }
@@ -226,63 +233,82 @@ fn preflight(
     settings: &PrometheusIntakeSettings,
 ) -> std::result::Result<Vec<SeriesIdentity>, StructuralViolation> {
     let mut identities = Vec::with_capacity(req.timeseries.len());
+
     for series in &req.timeseries {
         let mut seen: HashSet<&str> = HashSet::with_capacity(series.labels.len());
         let mut metric_name = None;
         let mut label_count = 0usize;
+
         for label in &series.labels {
             if label.name.is_empty() {
                 return Err(StructuralViolation::EmptyLabelName);
             }
+
             if label.name.len() > settings.max_label_name_bytes {
                 return Err(StructuralViolation::LabelNameTooLong);
             }
+
             if label.value.len() > settings.max_label_value_bytes {
                 return Err(StructuralViolation::LabelValueTooLong);
             }
+
             if !seen.insert(&label.name) {
                 return Err(StructuralViolation::DuplicateLabel);
             }
+
             if label.name == "__name__" {
                 if !label.value.is_empty() {
                     metric_name = Some(label.value.as_str());
                 }
+
                 continue;
             }
+
             if matches!(label.name.as_str(), "value" | "_timestamp")
                 || is_prometheus_exemplar_storage_field(&label.name)
             {
                 return Err(StructuralViolation::ReservedLabelName);
             }
+
             label_count += 1;
+
             if label_count > settings.max_labels_per_series {
                 return Err(StructuralViolation::TooManyLabels);
             }
         }
+
         let metric_name = metric_name.ok_or(StructuralViolation::MissingMetricName)?;
+
         for exemplar in &series.exemplars {
             if !exemplar.value.is_finite() {
                 return Err(StructuralViolation::InvalidExemplarValue);
             }
+
             let mut seen: HashSet<&str> = HashSet::with_capacity(exemplar.labels.len());
+
             if exemplar.labels.len() > settings.max_labels_per_series {
                 return Err(StructuralViolation::TooManyLabels);
             }
+
             for label in &exemplar.labels {
                 if label.name.is_empty() {
                     return Err(StructuralViolation::EmptyLabelName);
                 }
+
                 if label.name.len() > settings.max_label_name_bytes {
                     return Err(StructuralViolation::LabelNameTooLong);
                 }
+
                 if label.value.len() > settings.max_label_value_bytes {
                     return Err(StructuralViolation::LabelValueTooLong);
                 }
+
                 if !seen.insert(&label.name) {
                     return Err(StructuralViolation::DuplicateLabel);
                 }
             }
         }
+
         if !series.samples.is_empty() || !series.exemplars.is_empty() {
             identities.push(SeriesIdentity::from_labels(
                 metric_name,
@@ -294,6 +320,7 @@ fn preflight(
             ));
         }
     }
+
     Ok(identities)
 }
 
@@ -349,31 +376,38 @@ impl Iterator for MetricEventIter {
                 fields.insert("value".into(), float_to_json(sample.value));
                 return Some((current.stream.clone(), RawEvent { timestamp, fields }));
             }
+
             if let Some(current) = &mut self.current
                 && let Some(exemplar) = current.exemplars.next()
             {
                 let timestamp = prometheus_timestamp(exemplar.timestamp, self.received_at);
                 let mut fields = current.labels.clone();
+
                 let exemplar_labels = exemplar
                     .labels
                     .into_iter()
                     .map(|label| (label.name, Value::String(label.value)))
                     .collect();
+
                 fields.insert(PROMETHEUS_EXEMPLAR_MARKER_FIELD.into(), Value::Bool(true));
+
                 fields.insert(
                     PROMETHEUS_EXEMPLAR_VALUE_FIELD.into(),
                     float_to_json(exemplar.value),
                 );
+
                 fields.insert(
                     PROMETHEUS_EXEMPLAR_LABELS_FIELD.into(),
                     Value::Object(exemplar_labels),
                 );
+
                 return Some((current.stream.clone(), RawEvent { timestamp, fields }));
             }
 
             let series = self.series.next()?;
             let mut stream = None;
             let mut labels = Map::new();
+
             for label in series.labels {
                 if label.name == "__name__" {
                     stream = Some(label.value);
@@ -381,6 +415,7 @@ impl Iterator for MetricEventIter {
                     labels.insert(label.name, Value::String(label.value));
                 }
             }
+
             self.current = Some(CurrentSeries {
                 stream: stream.expect("remote-write request was preflighted"),
                 labels,
@@ -413,6 +448,7 @@ struct MetricChunker {
 impl MetricChunker {
     fn new(max_samples: usize) -> Self {
         debug_assert!(max_samples > 0);
+
         Self {
             max_samples,
             pending: HashMap::new(),
@@ -424,7 +460,9 @@ impl MetricChunker {
             .pending
             .entry(stream.clone())
             .or_insert_with(|| Vec::with_capacity(self.max_samples));
+
         bucket.push(event);
+
         (bucket.len() >= self.max_samples).then(|| MetricChunk {
             stream,
             events: std::mem::replace(bucket, Vec::with_capacity(self.max_samples)),

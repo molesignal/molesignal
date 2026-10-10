@@ -53,6 +53,7 @@ pub(super) async fn commit_flush(
     .map_err(sqlx_err)?
     .try_get("max_epoch")
     .map_err(sqlx_err)?;
+
     if let Some(max_epoch) = fenced_epoch
         && to_u64(max_epoch, "writer_epoch")? > provenance.writer_epoch.0
     {
@@ -92,6 +93,7 @@ pub(super) async fn commit_flush(
     if inserted == 0 {
         // 幂等重试：flush 已提交过，什么都不写。
         tx.commit().await.map_err(sqlx_err)?;
+
         return Ok(FlushCommitResult {
             catalog_version: current,
             already_committed: true,
@@ -101,6 +103,7 @@ pub(super) async fn commit_flush(
     let new_version = current
         .checked_add(1)
         .ok_or_else(|| Error::internal("catalog version overflow"))?;
+
     for segment in &command.segments {
         insert_segment(&mut tx, scope, segment, new_version).await?;
     }
@@ -135,51 +138,62 @@ pub(super) async fn commit_flush(
 
 fn validate(scope: &OrganizationScope, command: &CommitFlush) -> Result<()> {
     let provenance = &command.provenance;
+
     if provenance.sequence.start.0 > provenance.sequence.end.0 {
         return Err(Error::invalid("flush sequence range is inverted"));
     }
+
     if command.segments.is_empty() {
         return Err(Error::invalid("flush must publish at least one segment"));
     }
+
     let mut ordinals = HashSet::with_capacity(command.segments.len());
+
     for segment in &command.segments {
         segment.validate()?;
+
         if segment.organization_id != scope.organization_id {
             return Err(Error::invalid(format!(
                 "segment {} does not belong to organization scope",
                 segment.id
             )));
         }
+
         if segment.dataset_id != command.dataset_id {
             return Err(Error::invalid(format!(
                 "segment {} targets dataset {} but flush targets {}",
                 segment.id, segment.dataset_id, command.dataset_id
             )));
         }
+
         if segment.flush_id.as_ref() != Some(&provenance.flush_id) {
             return Err(Error::invalid(format!(
                 "segment {} flush_id does not match provenance {}",
                 segment.id, provenance.flush_id
             )));
         }
+
         if segment.sequence_range != Some(provenance.sequence) {
             return Err(Error::invalid(format!(
                 "segment {} sequence range does not match flush provenance",
                 segment.id
             )));
         }
+
         if !ordinals.insert(segment.output_ordinal) {
             return Err(Error::invalid(format!(
                 "flush {} contains duplicate output ordinal {}",
                 provenance.flush_id, segment.output_ordinal
             )));
         }
+
         if segment.state != SegmentState::Active {
             return Err(Error::invalid(format!(
                 "segment {} must be published as active",
                 segment.id
             )));
         }
+
         if segment.primary.state != ArtifactState::Ready {
             return Err(Error::invalid(format!(
                 "segment {} primary artifact must be ready (uploaded) before publish",
@@ -187,5 +201,6 @@ fn validate(scope: &OrganizationScope, command: &CommitFlush) -> Result<()> {
             )));
         }
     }
+
     Ok(())
 }

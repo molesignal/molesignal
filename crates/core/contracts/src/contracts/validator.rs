@@ -14,10 +14,12 @@ pub const DASHBOARD_MODEL_V2_SCHEMA: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../../../contracts/dashboard/model/v2.schema.json"
 ));
+
 pub const DASHBOARD_AUTHORING_V1_SCHEMA: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../../../contracts/dashboard/authoring/v1.schema.json"
 ));
+
 pub const DASHBOARD_VISUALIZATIONS_V1: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../../../contracts/dashboard/visualizations/v1.json"
@@ -76,7 +78,9 @@ impl ContractValidator {
             .with_draft(Draft::Draft202012)
             .build(&schema)
             .map_err(|error| ContractSchemaError::InvalidSchema(error.to_string()))?;
+
         let schema_hash = sha256_hex(canonical_json_bytes(&schema));
+
         Ok(Self {
             validator,
             schema,

@@ -41,6 +41,7 @@ pub async fn record(
         payload,
         ts: TimestampMicros::now(),
     };
+
     if let Err(err) = state.iam.audit_events.record(e).await {
         tracing::warn!(action, target_id, error = %err, "failed to record agent audit event");
     }

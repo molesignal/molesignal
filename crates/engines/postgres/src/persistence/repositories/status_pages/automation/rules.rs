@@ -26,6 +26,7 @@ impl StatusPageAutomationRepository for PgStatusPageRepository {
         let mut tx = sqlx::begin(&self.pool)
             .await
             .map_err(super::super::sqlx_err)?;
+
         sqlx::query(
             "INSERT INTO status_page_automation_rules
                 (id, organization_id, status_page_id, name, position, lifecycle,
@@ -46,6 +47,7 @@ impl StatusPageAutomationRepository for PgStatusPageRepository {
         .execute(&mut *tx)
         .await
         .map_err(super::super::sqlx_err)?;
+
         insert_revision(&mut tx, &revision).await?;
         tx.commit().await.map_err(super::super::sqlx_err)?;
         self.get_rule_revision(&rule.organization_id, &rule.status_page_id, &rule.id, false)
@@ -61,7 +63,9 @@ impl StatusPageAutomationRepository for PgStatusPageRepository {
         let mut tx = sqlx::begin(&self.pool)
             .await
             .map_err(super::super::sqlx_err)?;
+
         insert_revision(&mut tx, &revision).await?;
+
         let rows = sqlx::query(
             "UPDATE status_page_automation_rules
              SET draft_revision_id=$4, name=$5, position=COALESCE($6, position),
@@ -80,9 +84,11 @@ impl StatusPageAutomationRepository for PgStatusPageRepository {
         .await
         .map_err(super::super::sqlx_err)?
         .rows_affected();
+
         if rows == 0 {
             return Err(Error::not_found("Status Page automation Rule"));
         }
+
         tx.commit().await.map_err(super::super::sqlx_err)?;
         Ok(revision)
     }
@@ -115,9 +121,11 @@ impl StatusPageAutomationRepository for PgStatusPageRepository {
         .await
         .map_err(super::super::sqlx_err)?
         .rows_affected();
+
         if rows == 0 {
             return Err(Error::not_found("Status Page automation Revision"));
         }
+
         self.get_rule_revision(org_id, page_id, rule_id, true).await
     }
 
@@ -142,6 +150,7 @@ impl StatusPageAutomationRepository for PgStatusPageRepository {
         .execute(&self.pool)
         .await
         .map_err(super::super::sqlx_err)?;
+
         Ok(self
             .get_rule_revision(
                 org_id,
@@ -167,6 +176,7 @@ impl StatusPageAutomationRepository for PgStatusPageRepository {
                AND rule.lifecycle <> 'archived'
              ORDER BY rule.position, rule.id"
         );
+
         sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&page_id.0)
@@ -205,6 +215,7 @@ impl StatusPageAutomationRepository for PgStatusPageRepository {
                AND revision.matchers->>'source_kind'=$2
              ORDER BY rule.status_page_id, rule.position, rule.id"
         );
+
         sqlx::query(&sql)
             .bind(&observation.organization_id.0)
             .bind(observation.source_kind.as_str())
@@ -366,6 +377,7 @@ impl StatusPageAutomationRepository for PgStatusPageRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(super::super::sqlx_err)?;
+
         row.map(row_to_settings).transpose()
     }
 
@@ -394,6 +406,7 @@ impl StatusPageAutomationRepository for PgStatusPageRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(super::super::sqlx_err)?;
+
         row_to_settings(row)
     }
 }
@@ -440,6 +453,7 @@ async fn insert_revision(
     .execute(tx)
     .await
     .map_err(super::super::sqlx_err)?;
+
     Ok(())
 }
 
@@ -456,12 +470,14 @@ impl PgStatusPageRepository {
         } else {
             "COALESCE(rule.draft_revision_id, rule.active_revision_id)"
         };
+
         let sql = format!(
             "SELECT {ACTIVE_RULE_COLS} FROM status_page_automation_rules rule
              JOIN status_page_automation_revisions revision
                ON revision.organization_id=rule.organization_id AND revision.id={revision}
              WHERE rule.organization_id=$1 AND rule.status_page_id=$2 AND rule.id=$3"
         );
+
         let row = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&page_id.0)
@@ -469,6 +485,7 @@ impl PgStatusPageRepository {
             .fetch_one(&self.pool)
             .await
             .map_err(super::super::sqlx_err)?;
+
         row_to_active(row)
     }
 }

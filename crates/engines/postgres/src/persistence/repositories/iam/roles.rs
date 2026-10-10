@@ -97,6 +97,7 @@ impl IamRoleRepository for PgIamRoleRepository {
     async fn ensure_builtin_roles(&self, org_id: &Id) -> Result<()> {
         let now = TimestampMicros::now();
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         let inserted = sqlx::query(
             "INSERT INTO iam_roles (
                  id, org_id, role_key, name, description, builtin,
@@ -124,6 +125,7 @@ impl IamRoleRepository for PgIamRoleRepository {
         .await
         .map_err(sqlx_err)?
         .rows_affected();
+
         let removed = sqlx::query(
             "DELETE FROM iam_role_permissions role_permission
               USING iam_roles role
@@ -142,6 +144,7 @@ impl IamRoleRepository for PgIamRoleRepository {
         .await
         .map_err(sqlx_err)?
         .rows_affected();
+
         let permissions_inserted = sqlx::query(
             "INSERT INTO iam_role_permissions (role_id, permission_key)
              SELECT role.id, catalog.permission_key
@@ -157,10 +160,13 @@ impl IamRoleRepository for PgIamRoleRepository {
         .await
         .map_err(sqlx_err)?
         .rows_affected();
+
         let changed = inserted > 0 || removed > 0 || permissions_inserted > 0;
+
         if changed {
             bump_version(&mut tx, org_id).await?;
         }
+
         tx.commit().await.map_err(sqlx_err)?;
         Ok(())
     }
@@ -171,6 +177,7 @@ impl IamRoleRepository for PgIamRoleRepository {
             .fetch_all(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         rows.into_iter()
             .map(|row| {
                 let permissions = row.try_get("permissions").map_err(sqlx_err)?;
@@ -185,9 +192,11 @@ impl IamRoleRepository for PgIamRoleRepository {
             .fetch_all(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         rows.into_iter()
             .map(|row| {
                 let permissions = row.try_get("permissions").map_err(sqlx_err)?;
+
                 let usage = RoleUsage {
                     memberships: row.try_get("memberships").map_err(sqlx_err)?,
                     api_tokens: row.try_get("api_tokens").map_err(sqlx_err)?,
@@ -195,6 +204,7 @@ impl IamRoleRepository for PgIamRoleRepository {
                     invitations: row.try_get("invitations").map_err(sqlx_err)?,
                     bindings: row.try_get("bindings").map_err(sqlx_err)?,
                 };
+
                 Ok(IamRoleWithUsage {
                     role: row_to(row, permissions)?,
                     usage,
@@ -210,6 +220,7 @@ impl IamRoleRepository for PgIamRoleRepository {
             .fetch_one(&self.pool)
             .await
             .map_err(sqlx_err)?;
+
         let permissions = row.try_get("permissions").map_err(sqlx_err)?;
         row_to(row, permissions)
     }
@@ -217,6 +228,7 @@ impl IamRoleRepository for PgIamRoleRepository {
     async fn create(&self, mut role: IamRole) -> Result<IamRole> {
         role.permissions = self.validate_permission_keys(&role.permissions).await?;
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         sqlx::query(
             "INSERT INTO iam_roles
                 (id, org_id, role_key, name, description, builtin, role_type, scope,
@@ -236,6 +248,7 @@ impl IamRoleRepository for PgIamRoleRepository {
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
+
         replace_permissions(&mut tx, &role.id.0, &role.permissions).await?;
         bump_version(&mut tx, &role.org_id).await?;
         tx.commit().await.map_err(sqlx_err)?;
@@ -245,6 +258,7 @@ impl IamRoleRepository for PgIamRoleRepository {
     async fn update(&self, mut role: IamRole) -> Result<IamRole> {
         role.permissions = self.validate_permission_keys(&role.permissions).await?;
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         let result = sqlx::query(
             "UPDATE iam_roles
                 SET name = $3,
@@ -260,9 +274,11 @@ impl IamRoleRepository for PgIamRoleRepository {
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
+
         if result.rows_affected() == 0 {
             return Err(Error::not_found("role not found"));
         }
+
         replace_permissions(&mut tx, &role.id.0, &role.permissions).await?;
         bump_version(&mut tx, &role.org_id).await?;
         tx.commit().await.map_err(sqlx_err)?;
@@ -271,20 +287,24 @@ impl IamRoleRepository for PgIamRoleRepository {
 
     async fn delete(&self, org_id: &Id, id: &Id) -> Result<()> {
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         sqlx::query("DELETE FROM iam_role_permissions WHERE role_id = $1")
             .bind(&id.0)
             .execute(&mut *tx)
             .await
             .map_err(sqlx_err)?;
+
         let result = sqlx::query("DELETE FROM iam_roles WHERE org_id = $1 AND id = $2")
             .bind(&org_id.0)
             .bind(&id.0)
             .execute(&mut *tx)
             .await
             .map_err(sqlx_err)?;
+
         if result.rows_affected() == 0 {
             return Err(Error::not_found("role not found"));
         }
+
         bump_version(&mut tx, org_id).await?;
         tx.commit().await.map_err(sqlx_err)?;
         Ok(())
@@ -347,11 +367,14 @@ impl PgIamRoleRepository {
             .iter()
             .map(|permission| permission.trim().to_ascii_lowercase())
             .collect::<Vec<_>>();
+
         normalized.sort();
         normalized.dedup();
+
         if normalized.is_empty() {
             return Ok(normalized);
         }
+
         let rows = sqlx::query(
             "SELECT permission_key, scope
                FROM iam_permissions
@@ -362,25 +385,32 @@ impl PgIamRoleRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         let mut validated = Vec::with_capacity(rows.len());
+
         for row in rows {
             let permission_key: String = row.try_get("permission_key").map_err(sqlx_err)?;
             let scope: String = row.try_get("scope").map_err(sqlx_err)?;
+
             if scope != "organization" {
                 return Err(Error::invalid(format!(
                     "permission {permission_key} has {scope} scope, expected organization"
                 )));
             }
+
             validated.push(permission_key);
         }
+
         if validated.len() != normalized.len() {
             let unknown = normalized
                 .iter()
                 .find(|permission| !validated.contains(permission))
                 .cloned()
                 .unwrap_or_default();
+
             return Err(Error::invalid(format!("unknown permission: {unknown}")));
         }
+
         Ok(validated)
     }
 }
@@ -395,6 +425,7 @@ async fn replace_permissions(
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
+
     for permission in permissions {
         sqlx::query(
             "INSERT INTO iam_role_permissions (role_id, permission_key)
@@ -406,6 +437,7 @@ async fn replace_permissions(
         .await
         .map_err(sqlx_err)?;
     }
+
     Ok(())
 }
 
@@ -415,5 +447,6 @@ async fn bump_version(tx: &mut sqlx::PgConnection, org_id: &Id) -> Result<u64> {
         .fetch_one(&mut *tx)
         .await
         .map_err(sqlx_err)?;
+
     u64::try_from(version).map_err(|_| Error::internal("negative IAM policy version"))
 }

@@ -23,6 +23,7 @@ use crate::{
 const DEFAULT_WINDOW_MICROS: i64 = 24 * 60 * 60 * 1_000_000;
 const DEFAULT_POINT_LIMIT: usize = 200;
 const MAX_POINT_LIMIT: usize = 5_000;
+
 const VITAL_COLUMNS: &[&str] = &[
     "_timestamp",
     "ts_micros",
@@ -42,6 +43,7 @@ const VITAL_COLUMNS: &[&str] = &[
     "cls",
     "ttfb_ms",
 ];
+
 const API_COLUMNS: &[&str] = &[
     "_timestamp",
     "ts_micros",
@@ -50,6 +52,7 @@ const API_COLUMNS: &[&str] = &[
     "duration_ms",
     "status",
 ];
+
 const ERROR_COLUMNS: &[&str] = &["_timestamp", "fingerprint"];
 
 #[derive(Debug, Default, Deserialize)]
@@ -108,12 +111,15 @@ pub(super) async fn vitals(
     let (range, limit) = resolve(query)?;
     let reader = reader(&state);
     let mut points = Vec::new();
+
     let stats = reader
         .visit_actions(&iam.org_id, range, VITAL_COLUMNS, |record| {
             if record.event_type != "view" {
                 return;
             }
+
             let page = record.page_key().map(str::to_string);
+
             points.push(WebVitalPoint {
                 ts_micros: record.timestamp_micros,
                 session_id: non_empty(record.session_id),
@@ -132,6 +138,7 @@ pub(super) async fn vitals(
             });
         })
         .await?;
+
     points.sort_by_key(|point| point.ts_micros);
     points.truncate(limit);
     trace_stats("vitals", stats.files, stats.rows, points.len());
@@ -147,22 +154,27 @@ pub(super) async fn apis(
     let (range, limit) = resolve(query)?;
     let reader = reader(&state);
     let mut groups = HashMap::<String, ApiAccumulator>::new();
+
     let stats = reader
         .visit_actions(&iam.org_id, range, API_COLUMNS, |record| {
             if record.event_type != "resource" {
                 return;
             }
+
             let Some(url) = record.url.filter(|url| !url.is_empty()) else {
                 return;
             };
+
             let group = groups.entry(url).or_default();
             group.count += 1;
             group.errors += i64::from(record.status.unwrap_or_default() >= 400);
+
             if let Some(duration) = finite(record.duration_ms) {
                 group.durations.push(duration);
             }
         })
         .await?;
+
     let mut rows = groups
         .into_iter()
         .map(|(url, mut group)| ApiPerformanceRow {
@@ -177,12 +189,14 @@ pub(super) async fn apis(
             },
         })
         .collect::<Vec<_>>();
+
     rows.sort_by(|left, right| {
         right
             .count
             .cmp(&left.count)
             .then_with(|| left.url.cmp(&right.url))
     });
+
     rows.truncate(limit);
     trace_stats("apis", stats.files, stats.rows, rows.len());
     Ok(Json(rows))
@@ -197,15 +211,18 @@ pub(super) async fn errors(
     let (range, limit) = resolve(query)?;
     let reader = reader(&state);
     let mut groups = HashMap::<i64, i64>::new();
+
     let stats = reader
         .visit_errors(&iam.org_id, range, ERROR_COLUMNS, |record| {
             *groups.entry(record.timestamp_micros).or_default() += 1;
         })
         .await?;
+
     let mut points = groups
         .into_iter()
         .map(|(ts_micros, count)| ErrorRatePoint { ts_micros, count })
         .collect::<Vec<_>>();
+
     points.sort_by_key(|point| point.ts_micros);
     points.truncate(limit);
     trace_stats("errors", stats.files, stats.rows, points.len());
@@ -214,13 +231,17 @@ pub(super) async fn errors(
 
 fn resolve(query: PerformanceQuery) -> Result<(TimeRange, usize)> {
     let now = TimestampMicros::now().0;
+
     let from = query
         .from
         .unwrap_or_else(|| now.saturating_sub(DEFAULT_WINDOW_MICROS));
+
     let to = query.to.unwrap_or(now);
+
     if to <= from {
         return Err(Error::invalid("RUM range end must be greater than start"));
     }
+
     Ok((
         TimeRange::new(TimestampMicros(from), TimestampMicros(to)),
         query
@@ -242,10 +263,13 @@ fn percentile(values: &mut [f64], quantile: f64) -> f64 {
     if values.is_empty() {
         return 0.0;
     }
+
     values.sort_by(f64::total_cmp);
+
     let index = ((values.len() as f64 * quantile).ceil() as usize)
         .saturating_sub(1)
         .min(values.len() - 1);
+
     values[index]
 }
 

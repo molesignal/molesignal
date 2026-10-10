@@ -7,6 +7,7 @@ pub(super) fn validate_binary_modifier(binary: &BinaryExpr) -> Result<()> {
     let Some(modifier) = &binary.modifier else {
         return Ok(());
     };
+
     // `default` fill-in（未匹配填充）尚未实现，其余 on/ignoring/group_left/right
     // 与集合运算（and/or/unless）均已支持。
     if modifier.fill_values.lhs.is_some() || modifier.fill_values.rhs.is_some() {
@@ -14,6 +15,7 @@ pub(super) fn validate_binary_modifier(binary: &BinaryExpr) -> Result<()> {
             "promql binary `default` fill values not yet supported",
         ));
     }
+
     Ok(())
 }
 
@@ -39,11 +41,13 @@ fn resolve_modifier_time(
         Some(AtModifier::At(t)) => system_time_to_micros(*t),
         None => at_us,
     };
+
     match offset {
         Some(Offset::Pos(d)) => base -= d.as_micros() as i64,
         Some(Offset::Neg(d)) => base += d.as_micros() as i64,
         None => {}
     }
+
     base
 }
 
@@ -69,6 +73,7 @@ pub(super) fn expr_is_scalar(expr: &Expr) -> bool {
 
 pub(super) fn call_is_scalar(call: &Call) -> bool {
     let name = call.func.name;
+
     matches!(name, "pi" | "time" | "scalar")
         || (is_sample_math_function(name)
             && call
@@ -80,16 +85,19 @@ pub(super) fn call_is_scalar(call: &Call) -> bool {
 
 pub(super) fn scalar_value(input: InstantVector, context: &str) -> Result<f64> {
     let mut items = input.items.into_iter();
+
     let Some((labels, value)) = items.next() else {
         return Err(Error::invalid(format!(
             "{context} must evaluate to a scalar"
         )));
     };
+
     if !labels.is_empty() || items.next().is_some() {
         return Err(Error::invalid(format!(
             "{context} must evaluate to a scalar"
         )));
     }
+
     Ok(value)
 }
 
@@ -97,6 +105,7 @@ pub(super) fn negate_instant_vector(mut input: InstantVector) -> InstantVector {
     for (_, value) in &mut input.items {
         *value = -*value;
     }
+
     input
 }
 
@@ -104,6 +113,7 @@ pub(super) fn negate_range_vector(mut input: RangeVector) -> RangeVector {
     for point in &mut input.points {
         point.value = -point.value;
     }
+
     input
 }
 
@@ -149,18 +159,24 @@ pub(super) fn each_step_window_indices<F>(
     let range_us = range_us.max(1);
     let (mut lo, mut hi) = (0usize, 0usize);
     let mut t = start_us;
+
     while t <= end_us {
         let window_start = t.saturating_sub(range_us);
+
         while lo < samples.len() && samples[lo].0 <= window_start {
             lo += 1;
         }
+
         if hi < lo {
             hi = lo;
         }
+
         while hi < samples.len() && samples[hi].0 <= t {
             hi += 1;
         }
+
         visit(t, lo, hi);
+
         match t.checked_add(step_us) {
             Some(next) => t = next,
             None => break,

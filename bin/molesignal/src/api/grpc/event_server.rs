@@ -90,8 +90,10 @@ impl EventService for EventServiceGrpc {
             .get("authorization")
             .and_then(|v| v.to_str().ok())
             .and_then(|h| h.strip_prefix("Bearer ").map(str::to_string));
+
         let req = request.into_inner();
         let source = Id(req.source_cluster_id);
+
         let token_org: Option<Id> = match &bearer {
             Some(t) => authenticate_api_token(
                 t,
@@ -107,6 +109,7 @@ impl EventService for EventServiceGrpc {
         let mut accepted = Vec::new();
         let mut rejected = Vec::new();
         let mut retry = Vec::new();
+
         for bytes in &req.events_json {
             let ev: CloudEvent = match serde_json::from_slice(bytes) {
                 Ok(e) => e,
@@ -115,6 +118,7 @@ impl EventService for EventServiceGrpc {
                     continue; // 无法解析 → 拿不到 id，无从去重 / 回报，丢弃。
                 }
             };
+
             // 去重：首见才处理；已见过 → 幂等接受（不重复 apply）。
             match self
                 .state
@@ -137,6 +141,7 @@ impl EventService for EventServiceGrpc {
                     continue;
                 }
             }
+
             match apply_event(&self.state, &source, token_org.as_ref(), &ev).await {
                 Ok(true) => {
                     applied_vec().with_label_values(&["applied"]).inc();
@@ -161,6 +166,7 @@ impl EventService for EventServiceGrpc {
                 }
             }
         }
+
         Ok(Response::new(PushEventsResponse {
             accepted_ids: accepted,
             rejected_ids: rejected,
@@ -181,6 +187,7 @@ impl EventService for EventServiceGrpc {
             .and_then(|v| v.to_str().ok())
             .and_then(|h| h.strip_prefix("Bearer ").map(str::to_string))
             .ok_or_else(|| Status::unauthenticated("missing bearer token"))?;
+
         authenticate_api_token(
             &bearer,
             self.state.iam.service.as_ref(),
@@ -188,6 +195,7 @@ impl EventService for EventServiceGrpc {
         )
         .await
         .map_err(|e| Status::unauthenticated(e.to_string()))?;
+
         let fed_id = request.into_inner().federation_query_id;
         let cancelled = self.state.cluster.federation_cancel.cancel(&fed_id);
         Ok(Response::new(CancelQueryResponse { cancelled }))
@@ -205,6 +213,7 @@ impl EventService for EventServiceGrpc {
             .and_then(|v| v.to_str().ok())
             .and_then(|h| h.strip_prefix("Bearer ").map(str::to_string))
             .ok_or_else(|| Status::unauthenticated("missing bearer token"))?;
+
         authenticate_api_token(
             &bearer,
             self.state.iam.service.as_ref(),
@@ -212,6 +221,7 @@ impl EventService for EventServiceGrpc {
         )
         .await
         .map_err(|e| Status::unauthenticated(e.to_string()))?;
+
         let incoming = request.into_inner().known;
         let known = merge_gossip(&self.state, &incoming).await;
         Ok(Response::new(EventServiceGossipClustersResponse { known }))
@@ -228,23 +238,28 @@ pub async fn merge_gossip(state: &AppState, incoming: &[ClusterRef]) -> Vec<Clus
         .await
         .map(|s| s.federation_cluster_id)
         .unwrap_or_default();
+
     let mine = state
         .cluster
         .remote_clusters
         .list()
         .await
         .unwrap_or_default();
+
     let known: std::collections::HashSet<String> = mine.iter().map(|c| c.id.0.clone()).collect();
+
     for r in incoming {
         if r.id.is_empty() || r.id == self_id || known.contains(&r.id) {
             continue; // 已知 / 自身 / 空 id → 跳过。
         }
+
         let _ = state
             .cluster
             .remote_clusters
             .insert_discovered(&r.id, &r.name, &r.advertise_addr)
             .await;
     }
+
     mine.into_iter()
         .map(|c| ClusterRef {
             id: c.id.0,
@@ -265,6 +280,7 @@ pub async fn apply_event(
 ) -> Result<bool> {
     let (remote_org, resource_id) = parse_subject(&ev.subject)
         .ok_or_else(|| Error::invalid("federation: malformed subject"))?;
+
     // 1. org 映射：远端 org → 本地 org；未映射 → 拒收。
     let link = state
         .cluster
@@ -272,33 +288,41 @@ pub async fn apply_event(
         .get_for_remote(source_cluster, &Id(remote_org.to_string()))
         .await?
         .ok_or_else(|| Error::forbidden("federation: remote org not mapped"))?;
+
     let local_org = link.local_org_id;
     // 2. per-org token 鉴权：token.org 必须 == 映射出的本地 org。
     let token_org =
         token_org.ok_or_else(|| Error::unauthorized("federation: missing/invalid bearer"))?;
+
     if token_org.0 != local_org.0 {
         return Err(Error::forbidden(
             "federation: token org does not match mapped org",
         ));
     }
+
     // 3. 解析资源类型 + 动作。
     let (kind, action) = parse_event_type(&ev.event_type)
         .ok_or_else(|| Error::invalid("federation: unknown event type"))?;
+
     // 4. Lamport 冲突解决：旧 / 输的写不覆盖（时钟无关）。
     let local = state
         .cluster
         .resource_version
         .get(kind.as_str(), &local_org, resource_id)
         .await?;
+
     let local_pair = local
         .as_ref()
         .map(|(v, w)| (*v as u64, w.as_str()))
         .unwrap_or((0, ""));
+
     if !wins((ev.xmsversion, &ev.xmswriter), local_pair) {
         return Ok(false); // 已是最新 / 更旧 → 幂等跳过（仍算成功接受）。
     }
+
     // 5. 落地到本地 repo（org 改写为本地 org），再采纳远端版本。
     apply_resource(state, kind, action, &local_org, resource_id, &ev.data).await?;
+
     state
         .cluster
         .resource_version
@@ -310,6 +334,7 @@ pub async fn apply_event(
             &ev.xmswriter,
         )
         .await?;
+
     Ok(true)
 }
 
@@ -420,6 +445,7 @@ async fn apply_log_pattern(
     data: &serde_json::Value,
 ) -> Result<()> {
     let repo = &state.storage.log_patterns;
+
     match action {
         CudAction::Deleted => {
             repo.delete(local_org, &Id(resource_id.to_string())).await?;
@@ -429,6 +455,7 @@ async fn apply_log_pattern(
                 .map_err(|e| Error::invalid(format!("federation payload: {e}")))?;
             p.org_id = local_org.clone();
             p.id = Id(resource_id.to_string());
+
             match repo.get(local_org, &p.id).await {
                 Ok(_) => {
                     repo.update(p).await?;
@@ -440,6 +467,7 @@ async fn apply_log_pattern(
             }
         }
     }
+
     Ok(())
 }
 
@@ -452,6 +480,7 @@ async fn apply_notify_template(
     data: &serde_json::Value,
 ) -> Result<()> {
     let repo = &state.alerting.templates;
+
     match action {
         CudAction::Deleted => {
             repo.delete(local_org, &Id(resource_id.to_string())).await?;
@@ -461,8 +490,10 @@ async fn apply_notify_template(
                 crate::infra::persistence::repositories::notify::NotifyTemplateRecord =
                 serde_json::from_value(data.clone())
                     .map_err(|e| Error::invalid(format!("federation payload: {e}")))?;
+
             template.organization_id = local_org.clone();
             template.id = Id(resource_id.to_string());
+
             match repo.get(local_org, &template.id).await {
                 Ok(_) => {
                     repo.update(template).await?;
@@ -474,6 +505,7 @@ async fn apply_notify_template(
             }
         }
     }
+
     Ok(())
 }
 
@@ -497,6 +529,7 @@ async fn apply_dashboard(
             state.dashboard.upsert(d).await?;
         }
     }
+
     Ok(())
 }
 
@@ -524,6 +557,7 @@ async fn apply_regex_pattern(
             upsert_regex_pattern(state, p).await?;
         }
     }
+
     state.storage.masking.invalidate(local_org).await;
     Ok(())
 }

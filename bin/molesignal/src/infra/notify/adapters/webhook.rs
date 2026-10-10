@@ -73,18 +73,22 @@ impl WebhookConfig {
         if self.url.trim().is_empty() {
             return Err(Error::invalid("webhook config.url cannot be empty"));
         }
+
         validate_http_url(&self.url)?;
+
         if !(1..=60).contains(&self.timeout_secs) {
             return Err(Error::invalid(
                 "webhook timeout_secs must be between 1 and 60",
             ));
         }
+
         for (name, value) in &self.headers {
             HeaderName::from_bytes(name.as_bytes())
                 .map_err(|_| Error::invalid("webhook contains an invalid header name"))?;
             HeaderValue::from_str(value)
                 .map_err(|_| Error::invalid("webhook contains an invalid header value"))?;
         }
+
         Ok(())
     }
 }
@@ -143,21 +147,28 @@ impl ConnectorAdapter for WebhookConnectorAdapter {
         let config = WebhookConfig::parse(config)?;
         config.validate()?;
         self.validate_target(target)?;
+
         let url = if target.target_type == NotifyTargetType::Webhook {
             target.value.trim()
         } else {
             config.url.trim()
         };
+
         validate_http_url(url)?;
+
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(config.timeout_secs))
             .build()
             .map_err(|_| Error::internal("webhook HTTP client could not be initialized"))?;
+
         let mut request = client.request(config.method.reqwest(), url);
+
         for (name, value) in &config.headers {
             request = request.header(name, value);
         }
+
         let started = Instant::now();
+
         let response = http_trace::send(
             &client,
             request.json(&json!({
@@ -172,13 +183,16 @@ impl ConnectorAdapter for WebhookConnectorAdapter {
         )
         .await
         .map_err(|_| Error::unavailable("webhook request failed"))?;
+
         let status = response.status();
+
         if !status.is_success() {
             return Err(Error::unavailable(format!(
                 "webhook returned HTTP {}",
                 status.as_u16()
             )));
         }
+
         Ok(ConnectorDeliveryResult {
             provider_message_id: response
                 .headers()
@@ -195,9 +209,11 @@ impl ConnectorAdapter for WebhookConnectorAdapter {
 fn validate_http_url(value: &str) -> Result<()> {
     let parsed = Url::parse(value.trim())
         .map_err(|_| Error::invalid("webhook URL must be a valid absolute URL"))?;
+
     if !matches!(parsed.scheme(), "http" | "https") || parsed.host_str().is_none() {
         return Err(Error::invalid("webhook URL must use http or https"));
     }
+
     Ok(())
 }
 

@@ -69,11 +69,14 @@ impl SlowQueryAnalyzer {
             let mut tick =
                 tokio::time::interval(Duration::from_secs(self.cfg.interval_secs.max(1)));
             tick.tick().await; // skip 首次（与其它周期任务一致）
+
             loop {
                 tick.tick().await;
+
                 if !self.ownership.is_primary().await {
                     continue;
                 }
+
                 if let Err(e) = self.sweep_once().await {
                     tracing::warn!(error = %e, "slow query analysis sweep failed");
                 }
@@ -89,14 +92,17 @@ impl SlowQueryAnalyzer {
     )]
     async fn sweep_once(&self) -> Result<()> {
         let orgs = self.orgs.list().await?;
+
         for org in orgs {
             let slow = self
                 .slow_queries
                 .list_recent(&org.id, self.cfg.per_org_limit)
                 .await?;
+
             for sq in &slow {
                 let profile = QueryProfile::from(sq);
                 let recs = analyze(&profile);
+
                 let high: Vec<&str> = recs
                     .iter()
                     .filter(|r| {
@@ -107,6 +113,7 @@ impl SlowQueryAnalyzer {
                     })
                     .map(|r| r.code.as_str())
                     .collect();
+
                 if !high.is_empty() {
                     tracing::info!(
                         org = %org.id.0,
@@ -120,6 +127,7 @@ impl SlowQueryAnalyzer {
                 }
             }
         }
+
         Ok(())
     }
 }

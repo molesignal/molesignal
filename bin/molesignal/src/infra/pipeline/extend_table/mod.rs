@@ -49,6 +49,7 @@ impl ExtendTable {
 
     pub fn table_size(&self, org: &Id, table: &str) -> usize {
         let g = self.inner.read();
+
         g.get(&(org.clone(), table.to_string()))
             .map(|m| m.len())
             .unwrap_or(0)

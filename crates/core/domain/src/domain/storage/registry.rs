@@ -81,12 +81,14 @@ impl StreamTypeRegistry {
     pub fn new(descriptors: Vec<StreamTypeDescriptor>) -> Result<Self> {
         let mut types = BTreeMap::new();
         let mut dataset_owners = BTreeMap::new();
+
         for descriptor in descriptors {
             let primary_count = descriptor
                 .datasets
                 .iter()
                 .filter(|dataset| dataset.primary)
                 .count();
+
             if (!descriptor.datasets.is_empty() && primary_count != 1)
                 || (descriptor.datasets.is_empty() && primary_count != 0)
                 || descriptor
@@ -99,6 +101,7 @@ impl StreamTypeRegistry {
                     descriptor.id
                 )));
             }
+
             for dataset in &descriptor.datasets {
                 if let Some(owner) =
                     dataset_owners.insert(dataset.id.as_str().to_owned(), descriptor.id)
@@ -109,6 +112,7 @@ impl StreamTypeRegistry {
                     )));
                 }
             }
+
             if types
                 .insert(descriptor.id.as_str().to_owned(), descriptor)
                 .is_some()
@@ -116,6 +120,7 @@ impl StreamTypeRegistry {
                 return Err(Error::invalid("duplicate stream type descriptor"));
             }
         }
+
         Ok(Self { types })
     }
 
@@ -176,11 +181,13 @@ impl StreamTypeRegistry {
             .filter(|dataset| dataset.query_by_default)
             .map(|dataset| dataset.id.clone())
             .collect::<Vec<_>>();
+
         if datasets.is_empty() {
             return Err(Error::invalid(format!(
                 "{stream_type} has no queryable physical dataset"
             )));
         }
+
         Ok(datasets)
     }
 
@@ -295,6 +302,7 @@ pub fn builtin_registry() -> StreamTypeRegistry {
             datasets: vec![],
         },
     ];
+
     StreamTypeRegistry::new(descriptors).expect("builtin descriptors must be consistent")
 }
 

@@ -12,6 +12,7 @@ pub(super) fn apply_label_replace(input: InstantVector, args: &LabelReplaceArgs)
             (labels, value)
         })
         .collect();
+
     InstantVector { items }
 }
 
@@ -22,6 +23,7 @@ pub(super) fn apply_label_replace_range(
     for point in &mut input.points {
         apply_label_replace_to_labels(&mut point.labels, args);
     }
+
     input
 }
 
@@ -34,6 +36,7 @@ pub(super) fn apply_label_join(input: InstantVector, args: &LabelJoinArgs) -> In
             (labels, value)
         })
         .collect();
+
     InstantVector { items }
 }
 
@@ -41,6 +44,7 @@ pub(super) fn apply_label_join_range(mut input: RangeVector, args: &LabelJoinArg
     for point in &mut input.points {
         apply_label_join_to_labels(&mut point.labels, args);
     }
+
     input
 }
 
@@ -49,6 +53,7 @@ pub(super) fn apply_label_replace_to_labels(labels: &mut LabelSet, args: &LabelR
         .get(&args.src_label)
         .map(String::as_str)
         .unwrap_or("");
+
     if let Some(captures) = args.regex.captures(source) {
         let replacement = expand_label_replacement(&args.replacement, &captures);
         labels.insert(args.dst_label.clone(), replacement);
@@ -62,6 +67,7 @@ pub(super) fn apply_label_join_to_labels(labels: &mut LabelSet, args: &LabelJoin
         .map(|name| labels.get(name).map(String::as_str).unwrap_or(""))
         .collect::<Vec<_>>()
         .join(&args.separator);
+
     labels.insert(args.dst_label.clone(), value);
 }
 

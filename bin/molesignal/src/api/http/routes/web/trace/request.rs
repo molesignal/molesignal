@@ -10,12 +10,14 @@ pub fn validate_trace_id(trace_id: &str) -> Result<(), &'static str> {
     if trace_id.is_empty() || trace_id.len() > 128 {
         return Err("trace_id length must be 1..=128");
     }
+
     if !trace_id
         .chars()
         .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
     {
         return Err("trace_id contains invalid characters");
     }
+
     Ok(())
 }
 

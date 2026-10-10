@@ -23,38 +23,48 @@ const SUPPORTED_LANGUAGES: [&str; 2] = ["en-us", "zh-cn"];
 
 pub(super) fn normalize_page_input(mut input: StatusPageInput) -> Result<StatusPageInput> {
     input.name = input.name.trim().to_string();
+
     if input.name.is_empty()
         || input.name.chars().count() > MAX_NAME_LEN
         || input.name.chars().any(char::is_control)
     {
         return Err(Error::invalid("name must contain 1 to 120 characters"));
     }
+
     input.slug = input.slug.trim().to_ascii_lowercase();
     validate_slug(&input.slug)?;
     input.logo_url = normalize_logo_url(input.logo_url)?;
     input.brand_color = normalize_brand_color(&input.brand_color)?;
     input.custom_domain = normalize_custom_domain(input.custom_domain)?;
     input.timezone = input.timezone.trim().to_string();
+
     input
         .timezone
         .parse::<chrono_tz::Tz>()
         .map_err(|_| Error::invalid("timezone must be a valid IANA timezone"))?;
+
     input.language = input.language.trim().to_ascii_lowercase();
+
     if !SUPPORTED_LANGUAGES.contains(&input.language.as_str()) {
         return Err(Error::invalid("language must be en-us or zh-cn"));
     }
+
     input.languages = normalize_languages(input.languages, &input.language)?;
+
     if !(1..=MAX_STATUS_PAGE_HISTORY_DAYS).contains(&input.history_days) {
         return Err(Error::invalid("history_days must be between 1 and 365"));
     }
+
     if !matches!(input.delivery_retention_days, 30 | 60 | 90 | 180 | 365) {
         return Err(Error::invalid(
             "delivery_retention_days must be 30, 60, 90, 180, or 365",
         ));
     }
+
     if !matches!(input.private_session_days, 1 | 7 | 30) {
         return Err(Error::invalid("private_session_days must be 1, 7, or 30"));
     }
+
     Ok(input)
 }
 
@@ -65,15 +75,19 @@ fn normalize_languages(languages: Vec<String>, default_language: &str) -> Result
 
     let mut normalized = Vec::with_capacity(languages.len().min(SUPPORTED_LANGUAGES.len()));
     let mut seen = HashSet::new();
+
     for language in languages {
         let language = language.trim().to_ascii_lowercase();
+
         if !SUPPORTED_LANGUAGES.contains(&language.as_str()) {
             return Err(Error::invalid("languages may only contain en-us or zh-cn"));
         }
+
         if seen.insert(language.clone()) {
             normalized.push(language);
         }
     }
+
     let Some(default_position) = normalized
         .iter()
         .position(|language| language == default_language)
@@ -82,10 +96,12 @@ fn normalize_languages(languages: Vec<String>, default_language: &str) -> Result
             "default language must be included in languages",
         ));
     };
+
     if default_position > 0 {
         let default_language = normalized.remove(default_position);
         normalized.insert(0, default_language);
     }
+
     Ok(normalized)
 }
 
@@ -102,6 +118,7 @@ fn validate_slug(slug: &str) -> Result<()> {
             "slug must be 3 to 64 lowercase letters, numbers, or single hyphens",
         ));
     }
+
     Ok(())
 }
 
@@ -109,17 +126,21 @@ pub(super) fn normalize_logo_url(value: Option<String>) -> Result<Option<String>
     let Some(value) = non_empty(value) else {
         return Ok(None);
     };
+
     if value.len() > 2_048 {
         return Err(Error::invalid("logo_url is too long"));
     }
+
     if value.starts_with('/')
         && !value.starts_with("//")
         && !value.split('/').any(|part| part == "..")
     {
         return Ok(Some(value));
     }
+
     let parsed =
         Url::parse(&value).map_err(|_| Error::invalid("logo_url must be an HTTP(S) URL"))?;
+
     if !matches!(parsed.scheme(), "http" | "https")
         || !parsed.username().is_empty()
         || parsed.password().is_some()
@@ -128,17 +149,20 @@ pub(super) fn normalize_logo_url(value: Option<String>) -> Result<Option<String>
             "logo_url must be an HTTP(S) URL without credentials",
         ));
     }
+
     Ok(Some(value))
 }
 
 fn normalize_brand_color(value: &str) -> Result<String> {
     let value = value.trim().to_ascii_uppercase();
+
     if value.len() != 7
         || !value.starts_with('#')
         || !value[1..].bytes().all(|byte| byte.is_ascii_hexdigit())
     {
         return Err(Error::invalid("brand_color must be a six-digit hex color"));
     }
+
     Ok(value)
 }
 
@@ -146,6 +170,7 @@ pub(super) fn normalize_custom_domain(value: Option<String>) -> Result<Option<St
     let Some(value) = non_empty(value) else {
         return Ok(None);
     };
+
     normalize_domain_lookup(&value).map(Some).ok_or_else(|| {
         Error::invalid("custom_domain must be a valid hostname without scheme or path")
     })
@@ -153,6 +178,7 @@ pub(super) fn normalize_custom_domain(value: Option<String>) -> Result<Option<St
 
 pub(super) fn normalize_domain_lookup(value: &str) -> Option<String> {
     let value = value.trim().trim_end_matches('.').to_ascii_lowercase();
+
     crate::domain_management::hostname_valid(&value)
         .ok()
         .map(|()| value)
@@ -166,45 +192,54 @@ fn non_empty(value: Option<String>) -> Option<String> {
 
 pub(super) fn validate_component_input(input: &StatusPageComponentInput) -> Result<()> {
     let name = input.name.trim();
+
     if name.is_empty() || name.chars().count() > MAX_NAME_LEN || name.chars().any(char::is_control)
     {
         return Err(Error::invalid(
             "component name must contain 1 to 120 characters",
         ));
     }
+
     if input.description.chars().count() > 500 {
         return Err(Error::invalid(
             "component description cannot exceed 500 characters",
         ));
     }
+
     Ok(())
 }
 
 pub(super) fn validate_incident_input(input: &StatusPageIncidentInput) -> Result<()> {
     let title = input.title.trim();
+
     if title.chars().count() > MAX_TITLE_LEN || title.chars().any(char::is_control) {
         return Err(Error::invalid(
             "incident title cannot exceed 200 characters or contain controls",
         ));
     }
+
     if let Some(message) = input.message.as_deref()
         && !message.trim().is_empty()
     {
         validate_message(message)?;
     }
+
     if input.status.is_terminal_for(input.kind) {
         return Err(Error::invalid(
             "a new or draft event cannot already be terminal",
         ));
     }
+
     if input.publication_state == StatusPagePublicationState::Published {
         if title.is_empty() {
             return Err(Error::invalid(
                 "incident title must contain 1 to 200 characters",
             ));
         }
+
         validate_message(input.message.as_deref().unwrap_or_default())?;
     }
+
     match (input.kind, input.impact) {
         (StatusPageIncidentKind::Incident, IncidentImpact::Maintenance)
         | (
@@ -233,6 +268,7 @@ fn validate_kind_status(kind: StatusPageIncidentKind, status: PublicIncidentStat
                 | PublicIncidentStatus::Cancelled
         ),
     };
+
     if valid {
         Ok(())
     } else {
@@ -242,11 +278,13 @@ fn validate_kind_status(kind: StatusPageIncidentKind, status: PublicIncidentStat
 
 pub(super) fn validate_message(message: &str) -> Result<()> {
     let message = message.trim();
+
     if message.is_empty() || message.chars().count() > MAX_MESSAGE_LEN {
         return Err(Error::invalid(
             "update message must contain 1 to 4000 characters",
         ));
     }
+
     Ok(())
 }
 
@@ -256,6 +294,7 @@ pub(super) fn validate_transition(
     to: PublicIncidentStatus,
 ) -> Result<()> {
     validate_kind_status(kind, to)?;
+
     let allowed = !from.is_terminal_for(kind)
         && (from == to
             || match kind {
@@ -313,6 +352,7 @@ pub(super) fn validate_transition(
                     )
                 ),
             });
+
     if allowed {
         Ok(())
     } else {

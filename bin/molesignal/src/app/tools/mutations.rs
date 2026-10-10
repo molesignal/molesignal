@@ -24,10 +24,12 @@ pub(super) async fn execute(
         .as_object()
         .cloned()
         .ok_or_else(|| Error::invalid("tool arguments must be an object"))?;
+
     let reason = take_required_string(&mut parameters, "reason")?;
     let impact = take_required_string(&mut parameters, "impact")?;
     let expires_at_micros = parameters.remove("expires_at_micros");
     let (action, target) = operation_target(kind, &mut parameters)?;
+
     dashboard::execute(
         runtime,
         auth,
@@ -125,11 +127,13 @@ fn operation_target(
         }
         _ => unreachable!("mutation handler received unrelated tool"),
     };
+
     let target = mapping
         .1
         .map(|field| take_required_string(parameters, field))
         .transpose()?
         .unwrap_or_else(|| Id::new().0);
+
     Ok((mapping.0, target))
 }
 

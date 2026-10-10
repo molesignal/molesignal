@@ -90,11 +90,13 @@ impl AlertingRuntime {
         let eval_state: Arc<
             dyn crate::domain::alerting::repositories::AlertRuleEvalStateRepository,
         > = Arc::new(PgAlertRuleEvalStateRepository::new(core.pool.clone()));
+
         let template_repository = Arc::new(PgNotifyTemplateRepository::new(core.pool.clone()));
         let notify_templates: Arc<dyn NotifyTemplateManagementRepository> =
             template_repository.clone();
         let mute_rules: Arc<dyn MuteRuleRepository> =
             Arc::new(PgMuteRuleRepository::new(core.pool.clone()));
+
         let connector_adapters: Vec<Arc<dyn ConnectorAdapter>> = vec![
             Arc::new(EmailSmtpConnectorAdapter::new()),
             Arc::new(SlackAppConnectorAdapter::new()),
@@ -103,10 +105,13 @@ impl AlertingRuntime {
             Arc::new(LarkWebhookConnectorAdapter::new()),
             Arc::new(WebhookConnectorAdapter::new()),
         ];
+
         let connector_registry = Arc::new(ConnectorRegistry::new(connector_adapters)?);
+
         let connectors: Arc<dyn NotifyConnectorRepository> = Arc::new(
             PgNotifyConnectorRepository::new(core.pool.clone(), core.cipher_root_key.clone()),
         );
+
         let endpoints: Arc<dyn UserNotifyEndpointRepository> =
             Arc::new(PgUserNotifyEndpointRepository::new(core.pool.clone()));
         let preferences: Arc<dyn UserNotifyPreferenceRepository> =
@@ -119,9 +124,11 @@ impl AlertingRuntime {
             Arc::new(PgNotifyPolicyRepository::new(core.pool.clone()));
         let team_defaults: Arc<dyn TeamNotifyDefaultRepository> =
             Arc::new(PgTeamNotifyDefaultRepository::new(core.pool.clone()));
+
         let organization_defaults: Arc<dyn OrganizationNotifyDefaultRepository> = Arc::new(
             PgOrganizationNotifyDefaultRepository::new(core.pool.clone()),
         );
+
         let route_references: Arc<dyn NotifyRouteReferenceRepository> =
             Arc::new(PgNotifyRouteReferenceRepository::new(core.pool.clone()));
         let memberships: Arc<dyn IamMembershipRepository> = core.iam_memberships.clone();
@@ -129,6 +136,7 @@ impl AlertingRuntime {
             core.schedules.clone();
         let teams: Arc<dyn TeamRepository> = core.teams.clone();
         let engine_templates: Arc<dyn NotifyTemplateRepository> = template_repository;
+
         let recipient_resolvers: Vec<Arc<dyn RecipientResolver>> = vec![
             Arc::new(FixedUsersResolver::new(memberships.clone())),
             Arc::new(CurrentOncallResolver::new(schedules.clone())),
@@ -139,7 +147,9 @@ impl AlertingRuntime {
             Arc::new(EventUsersResolver::new(memberships.clone())),
             Arc::new(AlertOwnerResolver::new(memberships)),
         ];
+
         let resolver_registry = Arc::new(RecipientResolverRegistry::new(recipient_resolvers)?);
+
         let notify = Arc::new(NotifyService::new(
             connectors.clone(),
             endpoints.clone(),
@@ -148,6 +158,7 @@ impl AlertingRuntime {
             route_references,
             connector_registry.clone(),
         ));
+
         let notify_engine = Arc::new(NotifyEngine::new(NotifyEngineDependencies {
             connectors,
             endpoints,
@@ -162,11 +173,14 @@ impl AlertingRuntime {
             connector_registry,
             resolver_registry,
         }));
+
         let status_pages = build_status_pages(settings, core);
+
         let lifecycle_sink = Arc::new(StatusPageAlertIncidentSink::new(
             status_pages.clone(),
             mute_rules.clone(),
         ));
+
         let alerting = Arc::new(
             AlertingService::new(
                 core.alert_rules.clone(),
@@ -179,6 +193,7 @@ impl AlertingRuntime {
             .with_realtime_alerts(core.realtime_alerts.clone())
             .with_default_ack_timeout_secs(settings.alert.default_ack_timeout_secs),
         );
+
         let dispatcher = Arc::new(
             EscalationDispatcher::new(
                 core.incidents.clone(),
@@ -189,10 +204,12 @@ impl AlertingRuntime {
             .with_schedules(core.schedules.clone())
             .with_ownership(core.alert_ownership.clone()),
         );
+
         let incident_groups: Arc<dyn IncidentGroupRepository> =
             Arc::new(PgIncidentGroupRepository::new(core.pool.clone()));
         let semantic_groups: Arc<dyn SemanticGroupRepository> =
             Arc::new(PgSemanticGroupRepository::new(core.pool.clone()));
+
         let evaluator = Arc::new(
             RuleEvaluator::new(
                 core.alert_rules.clone(),
@@ -210,7 +227,9 @@ impl AlertingRuntime {
                 u64::from(settings.alert.eval_interval_secs.max(1)) * 500,
             )),
         );
+
         let oncall_events = Arc::new(OncallEventProducer::new(notify_engine.clone(), schedules));
+
         // 实时规则在接收写入的节点上求值：intake 与 standalone 角色运行匹配器的后台任务。
         let _realtime_alert_worker = core.roles.run_intake.then(|| {
             RealtimeAlertWorker::new(
@@ -220,6 +239,7 @@ impl AlertingRuntime {
             )
             .spawn()
         });
+
         let _alert_handles = core.roles.run_alert.then(|| {
             crate::bootstrap::roles::alert::spawn_alert_loops(
                 evaluator.clone(),
@@ -231,17 +251,20 @@ impl AlertingRuntime {
                 settings.alert.clone(),
             )
         });
+
         let dashboard = Arc::new(
             DashboardService::new(core.dashboards.clone(), core.folders.clone())
                 .with_draft_repository(core.dashboard_drafts.clone())
                 .with_contract_resolver(dashboard_contracts),
         );
+
         let _status_page_notification_worker = core.roles.run_alert.then(|| {
             crate::bootstrap::workers::status_page_notifications::StatusPageNotificationWorker::new(
                 status_pages.clone(),
             )
             .spawn()
         });
+
         let _status_page_maintenance_worker = core.roles.run_alert.then(|| {
             crate::bootstrap::workers::status_page_maintenance::StatusPageMaintenanceWorker::new(
                 status_pages.clone(),
@@ -288,6 +311,7 @@ fn build_status_pages(settings: &Settings, core: &Core) -> Arc<StatusPageService
                 .to_ascii_lowercase()
                 .starts_with("https://"),
     );
+
     match DnsStatusPageDomainVerifier::new(&settings.http.external_url) {
         Ok(verifier) => service = service.with_domain_verifier(Arc::new(verifier)),
         Err(error) => tracing::warn!(
@@ -295,6 +319,7 @@ fn build_status_pages(settings: &Settings, core: &Core) -> Arc<StatusPageService
             "status-page custom domains are disabled until http.external_url is configured"
         ),
     }
+
     if let Some(email_sender) = core.email_sender.clone() {
         service = service.with_domain_health_notifier(Arc::new(StatusPageAdminEmailNotifier::new(
             core.pool.clone(),
@@ -302,5 +327,6 @@ fn build_status_pages(settings: &Settings, core: &Core) -> Arc<StatusPageService
             settings.http.external_url.clone(),
         )));
     }
+
     Arc::new(service)
 }

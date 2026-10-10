@@ -68,6 +68,7 @@ fn verify_raw_bytes(xml_bytes: &[u8], idp_cert_pem: &str) -> Result<()> {
     .ok_or_else(|| {
         Error::unauthorized("xmldsig: Assertion has no <Signature> child".to_string())
     })?;
+
     let signature_bytes = &assertion_bytes[signature.start_byte..signature.end_byte];
 
     // 2. SignedInfo + SignatureValue + X509Certificate（在 signature_bytes 里查）
@@ -88,6 +89,7 @@ fn verify_raw_bytes(xml_bytes: &[u8], idp_cert_pem: &str) -> Result<()> {
     canonical_assertion.extend_from_slice(&assertion_bytes[..signature.start_byte]);
     canonical_assertion.extend_from_slice(&assertion_bytes[signature.end_byte..]);
     let computed_digest = sha2::Sha256::digest(&canonical_assertion);
+
     if computed_digest.as_slice() != digest_value.as_slice() {
         return Err(Error::unauthorized(
             "xmldsig: reference digest mismatch (Assertion may have been tampered)".to_string(),
@@ -97,6 +99,7 @@ fn verify_raw_bytes(xml_bytes: &[u8], idp_cert_pem: &str) -> Result<()> {
     // 4. RSA-SHA256 verify(SignatureValue, SignedInfo bytes)
     let pubkey_der = parse_rsa_public_key_der_from_pem(idp_cert_pem)?;
     let public_key = UnparsedPublicKey::new(&RSA_PKCS1_2048_8192_SHA256, &pubkey_der);
+
     public_key
         .verify(signed_info_bytes, &signature_value)
         .map_err(|e| Error::unauthorized(format!("xmldsig RSA verify: {e:?}")))?;
@@ -107,8 +110,10 @@ fn verify_raw_bytes(xml_bytes: &[u8], idp_cert_pem: &str) -> Result<()> {
             "-----BEGIN CERTIFICATE-----\n{}\n-----END CERTIFICATE-----",
             embedded_b64.trim()
         );
+
         let embedded_key_der = parse_rsa_public_key_der_from_pem(&embedded_pem)?;
         let cfg_key_der = parse_rsa_public_key_der_from_pem(idp_cert_pem)?;
+
         if embedded_key_der != cfg_key_der {
             return Err(Error::unauthorized(
                 "xmldsig: embedded X509Certificate does not match configured IdP cert".to_string(),
@@ -134,8 +139,10 @@ fn find_element_range(xml: &str, local_name: &str) -> Result<Option<ByteRange>> 
     let mut buf = Vec::new();
     let mut depth: i32 = 0;
     let mut start_byte: Option<usize> = None;
+
     loop {
         let pos_before = reader.buffer_position();
+
         match reader
             .read_event_into(&mut buf)
             .map_err(|e| Error::unauthorized(format!("xml parse: {e}")))?
@@ -143,6 +150,7 @@ fn find_element_range(xml: &str, local_name: &str) -> Result<Option<ByteRange>> 
             Event::Start(ref e) => {
                 let name = e.name();
                 let local = local_name_of(name.as_ref());
+
                 if start_byte.is_none() && local == local_name {
                     start_byte = Some(pos_before as usize);
                     depth = 1;
@@ -153,11 +161,14 @@ fn find_element_range(xml: &str, local_name: &str) -> Result<Option<ByteRange>> 
             Event::End(ref e) => {
                 if let Some(sb) = start_byte {
                     depth -= 1;
+
                     if depth == 0 {
                         let end_name = e.name();
                         let local = local_name_of(end_name.as_ref());
+
                         if local == local_name {
                             let end_byte = reader.buffer_position() as usize;
+
                             return Ok(Some(ByteRange {
                                 start_byte: sb,
                                 end_byte,
@@ -170,8 +181,10 @@ fn find_element_range(xml: &str, local_name: &str) -> Result<Option<ByteRange>> 
                 if start_byte.is_none() {
                     let name = e.name();
                     let local = local_name_of(name.as_ref());
+
                     if local == local_name {
                         let end_byte = reader.buffer_position() as usize;
+
                         return Ok(Some(ByteRange {
                             start_byte: pos_before as usize,
                             end_byte,
@@ -182,6 +195,7 @@ fn find_element_range(xml: &str, local_name: &str) -> Result<Option<ByteRange>> 
             Event::Eof => return Ok(None),
             _ => {}
         }
+
         buf.clear();
     }
 }
@@ -198,6 +212,7 @@ fn extract_text_element(xml: &str, local_name: &str) -> Result<String> {
     let mut buf = Vec::new();
     let mut inside = false;
     let mut content = String::new();
+
     loop {
         match reader
             .read_event_into(&mut buf)
@@ -223,6 +238,7 @@ fn extract_text_element(xml: &str, local_name: &str) -> Result<String> {
             }
             _ => {}
         }
+
         buf.clear();
     }
 }
@@ -230,6 +246,7 @@ fn extract_text_element(xml: &str, local_name: &str) -> Result<String> {
 fn decode_b64_compact(s: &str) -> Result<Vec<u8>> {
     use base64::Engine as _;
     let compact: String = s.chars().filter(|c| !c.is_whitespace()).collect();
+
     base64::engine::general_purpose::STANDARD
         .decode(compact.as_bytes())
         .map_err(|e| Error::unauthorized(format!("xmldsig b64: {e}")))
@@ -247,9 +264,11 @@ fn parse_rsa_public_key_der_from_pem(pem_str: &str) -> Result<Vec<u8>> {
     let parsed = pem::parse(trimmed.as_bytes())
         .map_err(|e| Error::invalid(format!("xmldsig pem parse: {e}")))?;
     let der = parsed.contents();
+
     if parsed.tag() == "CERTIFICATE" {
         let cert = Certificate::from_der(der)
             .map_err(|e| Error::invalid(format!("xmldsig x509 parse: {e}")))?;
+
         let spki_bytes = cert
             .tbs_certificate
             .subject_public_key_info
@@ -258,13 +277,16 @@ fn parse_rsa_public_key_der_from_pem(pem_str: &str) -> Result<Vec<u8>> {
             .ok_or_else(|| {
                 Error::invalid("xmldsig: public key bits not byte-aligned".to_string())
             })?;
+
         Ok(spki_bytes.to_vec())
     } else if parsed.tag() == "PUBLIC KEY" {
         let spki = SubjectPublicKeyInfoRef::try_from(der)
             .map_err(|e| Error::invalid(format!("xmldsig spki parse: {e}")))?;
+
         let spki_bytes = spki.subject_public_key.as_bytes().ok_or_else(|| {
             Error::invalid("xmldsig: public key bits not byte-aligned".to_string())
         })?;
+
         Ok(spki_bytes.to_vec())
     } else if parsed.tag() == "RSA PUBLIC KEY" {
         Ok(der.to_vec())
@@ -289,12 +311,14 @@ fn verify_canonicalized(xml_bytes: &[u8], idp_cert_pem: &str) -> Result<()> {
         .descendants()
         .find(|n| n.is_element() && n.tag_name().name() == "Assertion")
         .ok_or_else(|| Error::unauthorized("xmldsig: no <Assertion>".to_string()))?;
+
     let signature = assertion
         .children()
         .find(|n| n.is_element() && n.tag_name().name() == "Signature")
         .ok_or_else(|| {
             Error::unauthorized("xmldsig: Assertion has no <Signature> child".to_string())
         })?;
+
     let signed_info = signature
         .children()
         .find(|n| n.is_element() && n.tag_name().name() == "SignedInfo")
@@ -309,6 +333,7 @@ fn verify_canonicalized(xml_bytes: &[u8], idp_cert_pem: &str) -> Result<()> {
 
     // InclusiveNamespaces PrefixList（若 IdP 声明了）。
     let si_incl = inclusive_prefixes(signed_info);
+
     let ref_incl = signature
         .descendants()
         .find(|n| n.is_element() && n.tag_name().name() == "Reference")
@@ -318,6 +343,7 @@ fn verify_canonicalized(xml_bytes: &[u8], idp_cert_pem: &str) -> Result<()> {
     // 1. reference digest：c14n(Assertion 剔除 Signature 子树) → SHA256，比对 DigestValue。
     let assertion_c14n = canonicalize_exclusive(assertion, Some(signature.id()), &ref_incl);
     let computed = sha2::Sha256::digest(assertion_c14n.as_bytes());
+
     if computed.as_slice() != digest_value.as_slice() {
         return Err(Error::unauthorized(
             "xmldsig(c14n): reference digest mismatch".to_string(),
@@ -327,6 +353,7 @@ fn verify_canonicalized(xml_bytes: &[u8], idp_cert_pem: &str) -> Result<()> {
     // 2. RSA-SHA256 verify(SignatureValue, c14n(SignedInfo))。
     let pubkey_der = parse_rsa_public_key_der_from_pem(idp_cert_pem)?;
     let signed_info_c14n = canonicalize_exclusive(signed_info, None, &si_incl);
+
     UnparsedPublicKey::new(&RSA_PKCS1_2048_8192_SHA256, &pubkey_der)
         .verify(signed_info_c14n.as_bytes(), &signature_value)
         .map_err(|e| Error::unauthorized(format!("xmldsig(c14n) RSA verify: {e:?}")))?;
@@ -335,6 +362,7 @@ fn verify_canonicalized(xml_bytes: &[u8], idp_cert_pem: &str) -> Result<()> {
     if let Some(embedded_b64) = first_text(signature, "X509Certificate") {
         let embedded_pem =
             format!("-----BEGIN CERTIFICATE-----\n{embedded_b64}\n-----END CERTIFICATE-----");
+
         if parse_rsa_public_key_der_from_pem(&embedded_pem)? != pubkey_der {
             return Err(Error::unauthorized(
                 "xmldsig(c14n): embedded X509Certificate does not match configured IdP cert"
@@ -342,6 +370,7 @@ fn verify_canonicalized(xml_bytes: &[u8], idp_cert_pem: &str) -> Result<()> {
             ));
         }
     }
+
     Ok(())
 }
 
@@ -407,6 +436,7 @@ fn c14n_element(
     let local = node.tag_name().name();
     let uri = node.tag_name().namespace();
     let prefix = uri.and_then(|u| node.lookup_prefix(u)).unwrap_or("");
+
     let qname = if prefix.is_empty() {
         local.to_string()
     } else {
@@ -415,21 +445,25 @@ fn c14n_element(
 
     // visibly-utilized 命名空间集（元素自身 + 带命名空间的属性 + apex 的 inclusive 前缀）。
     let mut needed: Vec<(String, String)> = Vec::new();
+
     if let Some(u) = uri {
         add_ns(&mut needed, prefix, u);
     }
+
     for a in node.attributes() {
         if let Some(au) = a.namespace() {
             let ap = node.lookup_prefix(au).unwrap_or("");
             add_ns(&mut needed, ap, au);
         }
     }
+
     for inc in inclusive {
         let lookup = if inc.is_empty() {
             None
         } else {
             Some(inc.as_str())
         };
+
         if let Some(u) = node.lookup_namespace_uri(lookup) {
             add_ns(&mut needed, inc, u);
         }
@@ -440,9 +474,11 @@ fn c14n_element(
         .into_iter()
         .filter(|(p, u)| !rendered.iter().any(|(rp, ru)| rp == p && ru == u))
         .collect();
+
     to_emit.sort_by(|a, b| a.0.cmp(&b.0));
 
     let mut child_rendered = rendered.to_vec();
+
     for (p, u) in &to_emit {
         child_rendered.retain(|(rp, _)| rp != p);
         child_rendered.push((p.clone(), u.clone()));
@@ -450,6 +486,7 @@ fn c14n_element(
 
     out.push('<');
     out.push_str(&qname);
+
     for (p, u) in &to_emit {
         if p.is_empty() {
             out.push_str(" xmlns=\"");
@@ -458,18 +495,22 @@ fn c14n_element(
             out.push_str(p);
             out.push_str("=\"");
         }
+
         out.push_str(&escape_attr(u));
         out.push('"');
     }
 
     // 属性排序：(namespace-uri 或 "", local-name)；xmlns 声明不在 attributes() 里。
     let mut attrs: Vec<(String, String, String, String)> = Vec::new();
+
     for a in node.attributes() {
         let au = a.namespace().unwrap_or("");
+
         let ap = a
             .namespace()
             .and_then(|u| node.lookup_prefix(u))
             .unwrap_or("");
+
         attrs.push((
             au.to_string(),
             a.name().to_string(),
@@ -477,24 +518,30 @@ fn c14n_element(
             a.value().to_string(),
         ));
     }
+
     attrs.sort_by(|x, y| (x.0.as_str(), x.1.as_str()).cmp(&(y.0.as_str(), y.1.as_str())));
+
     for (_, alocal, ap, value) in &attrs {
         out.push(' ');
+
         if !ap.is_empty() {
             out.push_str(ap);
             out.push(':');
         }
+
         out.push_str(alocal);
         out.push_str("=\"");
         out.push_str(&escape_attr(value));
         out.push('"');
     }
+
     out.push('>');
 
     for child in node.children() {
         if Some(child.id()) == omit {
             continue;
         }
+
         if child.is_element() {
             // inclusive 仅 apex 生效，子层传空。
             c14n_element(out, child, omit, &[], &child_rendered);
@@ -513,6 +560,7 @@ fn c14n_element(
 /// c14n 文本节点转义：`&`/`<`/`>`/`\r`。
 fn escape_text(s: &str) -> String {
     let mut o = String::with_capacity(s.len());
+
     for c in s.chars() {
         match c {
             '&' => o.push_str("&amp;"),
@@ -522,12 +570,14 @@ fn escape_text(s: &str) -> String {
             _ => o.push(c),
         }
     }
+
     o
 }
 
 /// c14n 属性值转义：`&`/`<`/`"`/`\t`/`\n`/`\r`。
 fn escape_attr(s: &str) -> String {
     let mut o = String::with_capacity(s.len());
+
     for c in s.chars() {
         match c {
             '&' => o.push_str("&amp;"),
@@ -539,6 +589,7 @@ fn escape_attr(s: &str) -> String {
             _ => o.push(c),
         }
     }
+
     o
 }
 

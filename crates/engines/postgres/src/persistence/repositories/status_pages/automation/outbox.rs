@@ -20,6 +20,7 @@ pub(super) async fn enqueue(
             "automation Outbox item must belong to its Candidate",
         ));
     }
+
     let sql = format!(
         "INSERT INTO status_page_automation_outbox
             (id,organization_id,candidate_id,kind,idempotency_key,payload,status,attempts,
@@ -30,6 +31,7 @@ pub(super) async fn enqueue(
              SET id=status_page_automation_outbox.id
          RETURNING {OUTBOX_COLS}"
     );
+
     let row = sqlx::query(&sql)
         .bind(&item.id.0)
         .bind(&item.organization_id.0)
@@ -42,6 +44,7 @@ pub(super) async fn enqueue(
         .fetch_one(&repository.pool)
         .await
         .map_err(super::super::sqlx_err)?;
+
     row_to_outbox(row)
 }
 
@@ -51,6 +54,7 @@ pub(super) async fn claim(
     limit: u32,
 ) -> Result<Vec<AutomationOutboxItem>> {
     let stale = now.0.saturating_sub(5 * 60 * 1_000_000);
+
     let sql = format!(
         "WITH candidates AS (
              SELECT item.id AS outbox_id
@@ -79,6 +83,7 @@ pub(super) async fn claim(
          FROM candidates WHERE item.id=candidates.outbox_id
          RETURNING {OUTBOX_COLS}"
     );
+
     sqlx::query(&sql)
         .bind(now.0)
         .bind(stale)
@@ -108,9 +113,11 @@ pub(super) async fn complete(
     .await
     .map_err(super::super::sqlx_err)?
     .rows_affected();
+
     if rows == 0 {
         return Err(Error::conflict("automation Outbox claim was lost"));
     }
+
     Ok(())
 }
 
@@ -123,6 +130,7 @@ pub(super) async fn fail(
     let mut tx = sqlx::begin(&repository.pool)
         .await
         .map_err(super::super::sqlx_err)?;
+
     let item: Option<(String, String, String)> = sqlx::query_as(
         "UPDATE status_page_automation_outbox
          SET status=CASE WHEN attempts >= 10 THEN 'dead_letter' ELSE 'pending' END,
@@ -137,9 +145,11 @@ pub(super) async fn fail(
     .fetch_optional(&mut *tx)
     .await
     .map_err(super::super::sqlx_err)?;
+
     let Some((status, org_id, candidate_id)) = item else {
         return Err(Error::conflict("automation Outbox claim was lost"));
     };
+
     if status == "dead_letter" {
         let rows = sqlx::query(
             "UPDATE status_page_automation_candidates
@@ -155,6 +165,7 @@ pub(super) async fn fail(
         .await
         .map_err(super::super::sqlx_err)?
         .rows_affected();
+
         if rows > 0 {
             sqlx::query(
                 "INSERT INTO status_page_automation_actions
@@ -171,6 +182,7 @@ pub(super) async fn fail(
             .map_err(super::super::sqlx_err)?;
         }
     }
+
     tx.commit().await.map_err(super::super::sqlx_err)?;
     Ok(status == "dead_letter")
 }
@@ -185,6 +197,7 @@ pub(super) async fn retry_candidate(
     let mut tx = sqlx::begin(&repository.pool)
         .await
         .map_err(super::super::sqlx_err)?;
+
     let state: Option<String> = sqlx::query_scalar(
         "SELECT state FROM status_page_automation_candidates
          WHERE organization_id=$1 AND id=$2 FOR UPDATE",
@@ -194,6 +207,7 @@ pub(super) async fn retry_candidate(
     .fetch_optional(&mut *tx)
     .await
     .map_err(super::super::sqlx_err)?;
+
     match state.as_deref() {
         None => return Err(Error::not_found("Status Page automation Candidate")),
         Some("failed") => {}
@@ -203,6 +217,7 @@ pub(super) async fn retry_candidate(
             ));
         }
     }
+
     let kinds: Vec<String> = sqlx::query_scalar(
         "UPDATE status_page_automation_outbox
          SET status='pending',attempts=0,available_at_micros=$3,locked_at_micros=NULL,
@@ -216,11 +231,13 @@ pub(super) async fn retry_candidate(
     .fetch_all(&mut *tx)
     .await
     .map_err(super::super::sqlx_err)?;
+
     if kinds.is_empty() {
         return Err(Error::conflict(
             "automation Candidate has no dead-letter work to retry",
         ));
     }
+
     let resumed_state = if kinds.iter().any(|kind| kind == "resolve") {
         "published"
     } else if kinds.iter().any(|kind| kind == "publish") {
@@ -228,6 +245,7 @@ pub(super) async fn retry_candidate(
     } else {
         "pending_approval"
     };
+
     sqlx::query(
         "UPDATE status_page_automation_candidates
          SET state=$3,last_error=NULL,updated_at_micros=$4
@@ -240,6 +258,7 @@ pub(super) async fn retry_candidate(
     .execute(&mut *tx)
     .await
     .map_err(super::super::sqlx_err)?;
+
     sqlx::query(
         "INSERT INTO status_page_automation_actions
             (id,organization_id,candidate_id,action,actor_id,note,created_at_micros)
@@ -253,6 +272,7 @@ pub(super) async fn retry_candidate(
     .execute(&mut *tx)
     .await
     .map_err(super::super::sqlx_err)?;
+
     tx.commit().await.map_err(super::super::sqlx_err)?;
     super::candidates::get(repository, org_id, candidate_id).await
 }

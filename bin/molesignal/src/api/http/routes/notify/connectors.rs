@@ -137,6 +137,7 @@ fn test_message(request: Option<TestMessageRequest>) -> NotifyMessage {
         markdown: None,
         html: None,
     });
+
     NotifyMessage {
         title: if request.title.trim().is_empty() {
             "MoleSignal notify connector test".into()
@@ -224,6 +225,7 @@ async fn create(
             },
         )
         .await?;
+
     Ok((StatusCode::CREATED, Json(to_response(connector))))
 }
 
@@ -247,6 +249,7 @@ async fn update(
             },
         )
         .await?;
+
     Ok(Json(to_response(connector)))
 }
 
@@ -261,6 +264,7 @@ async fn delete(
         .notify
         .delete_connector(&ctx.org_id, &Id::from_string(id))
         .await?;
+
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -285,6 +289,7 @@ async fn test(
             test_message(request.message),
         )
         .await?;
+
     Ok(Json(ConnectorTestResponse {
         sent: outcome.sent,
         tested_at_micros: outcome.tested_at.0,

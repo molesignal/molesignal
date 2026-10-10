@@ -63,6 +63,7 @@ pub(super) async fn list(
     Query(request): Query<ListQuery>,
 ) -> Result<Json<CursorPage<Map<String, Value>>>> {
     let context = resolve_context(&state, &iam, request)?;
+
     let replay_filter = if context.replay_only {
         state
             .telemetry
@@ -74,6 +75,7 @@ pub(super) async fn list(
     } else {
         HashSet::new()
     };
+
     if context.replay_only && replay_filter.is_empty() {
         return Ok(Json(CursorPage::empty()));
     }
@@ -83,6 +85,7 @@ pub(super) async fn list(
         state.storage.read_store.clone(),
     )
     .with_catalog_source(state.storage.catalog_query.clone());
+
     let boundary = context
         .boundary
         .as_ref()
@@ -92,6 +95,7 @@ pub(super) async fn list(
             session_id: &boundary.session_id,
             event_id: &boundary.event_id,
         });
+
     let records = reader
         .session_page(
             &iam.org_id,
@@ -106,12 +110,15 @@ pub(super) async fn list(
             },
         )
         .await?;
+
     let direction = context.boundary.as_ref().map(|boundary| boundary.direction);
+
     let mut page = trim_cursor_page(
         records.into_iter().map(record_to_row).collect(),
         context.page_size,
         direction,
     );
+
     enrichment::enrich_rows(&state, &iam, &reader, &mut page.items).await?;
 
     let previous_cursor = if page.has_previous {
@@ -130,6 +137,7 @@ pub(super) async fn list(
     } else {
         None
     };
+
     let next_cursor = if page.has_next {
         page.items
             .last()
@@ -146,6 +154,7 @@ pub(super) async fn list(
     } else {
         None
     };
+
     Ok(Json(CursorPage {
         items: page.items.into_iter().map(|row| row.item).collect(),
         has_more: next_cursor.is_some(),
@@ -156,10 +165,12 @@ pub(super) async fn list(
 
 fn record_to_row(record: RumSessionRecord) -> SessionRow {
     let mut item = Map::new();
+
     item.insert(
         "session_id".into(),
         Value::String(record.session_id.clone()),
     );
+
     insert_optional(&mut item, "user_id", record.user_id);
     insert_optional(&mut item, "ip_address", record.ip_address);
     insert_number(&mut item, "duration_ms", record.duration_ms);
@@ -178,6 +189,7 @@ fn record_to_row(record: RumSessionRecord) -> SessionRow {
     item.insert("error_count".into(), json!(record.error_count));
     insert_optional(&mut item, "trace_id", record.trace_id);
     item.insert("started_at_micros".into(), json!(record.timestamp_micros));
+
     SessionRow {
         item,
         started_at_micros: record.timestamp_micros,
@@ -192,6 +204,7 @@ fn action_range(rows: &[SessionRow]) -> TimeRange {
         .map(|row| row.started_at_micros)
         .min()
         .unwrap_or_default();
+
     let end = rows
         .iter()
         .map(|row| {
@@ -202,12 +215,14 @@ fn action_range(rows: &[SessionRow]) -> TimeRange {
                 .map(|value| (value.max(0.0) * 1_000.0) as i64)
                 .unwrap_or(DEFAULT_ACTION_LOOKAHEAD_MICROS)
                 .min(MAX_ACTION_LOOKAHEAD_MICROS);
+
             row.started_at_micros
                 .saturating_add(duration)
                 .saturating_add(ACTION_GRACE_MICROS)
         })
         .max()
         .unwrap_or(start);
+
     TimeRange::new(TimestampMicros(start), TimestampMicros(end.max(start + 1)))
 }
 
@@ -219,6 +234,7 @@ fn resolve_context(
     if let Some(token) = request.cursor.as_deref() {
         let payload = cursor::decode_session(state.iam.service.as_ref(), &iam.org_id, token)?;
         validate_cursor_request(&request, &payload)?;
+
         return Ok(SessionContext {
             from: payload.from,
             to: payload.to,
@@ -235,7 +251,9 @@ fn resolve_context(
             }),
         });
     }
+
     let (from, to, page_size) = initial_page_context(&request)?;
+
     Ok(SessionContext {
         from,
         to,
@@ -265,11 +283,13 @@ fn validate_cursor_request(request: &ListQuery, payload: &SessionCursorPayload) 
         || request
             .replay_available
             .is_some_and(|value| value != payload.replay_only);
+
     if mismatch {
         return Err(Error::invalid(
             "RUM session cursor does not match active query",
         ));
     }
+
     Ok(())
 }
 

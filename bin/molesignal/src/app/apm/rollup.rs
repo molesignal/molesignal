@@ -61,14 +61,17 @@ impl ApmRollupService {
     pub async fn run_once(&self, now: TimestampMicros) -> Result<ApmRollupRun> {
         let grace_cutoff = now.0.saturating_sub(self.config.late_grace_micros);
         let closed_before = grace_cutoff.div_euclid(HOUR_MICROS) * HOUR_MICROS;
+
         let candidates = self
             .repository
             .rollup_candidates(TimestampMicros(closed_before), self.config.candidate_limit)
             .await?;
+
         let mut run = ApmRollupRun {
             candidates: candidates.len() as u64,
             ..ApmRollupRun::default()
         };
+
         for candidate in candidates {
             let stats = self
                 .repository
@@ -83,8 +86,10 @@ impl ApmRollupService {
                     ),
                 })
                 .await?;
+
             add_stats(&mut run, stats);
         }
+
         Ok(run)
     }
 }
@@ -93,6 +98,7 @@ fn add_stats(run: &mut ApmRollupRun, stats: RollupStats) {
     run.source_rows = run.source_rows.saturating_add(stats.source_rows);
     run.rollup_rows = run.rollup_rows.saturating_add(stats.rollup_rows);
     run.deleted_hot_rows = run.deleted_hot_rows.saturating_add(stats.deleted_hot_rows);
+
     run.deleted_rollup_rows = run
         .deleted_rollup_rows
         .saturating_add(stats.deleted_rollup_rows);

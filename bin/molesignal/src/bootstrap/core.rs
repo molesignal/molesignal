@@ -125,6 +125,7 @@ impl Core {
         let store: Arc<dyn ObjectStore> =
             ProductionObjectStore::wrap(raw_store, settings.object_store.clone());
         crate::bootstrap::roles::health_probe::startup_ping(store.as_ref()).await?;
+
         let object_reader = ObjectReader::build(
             store.clone(),
             &settings.object_store.backend,
@@ -132,6 +133,7 @@ impl Core {
         )?;
 
         let orgs = Arc::new(PgOrganizationRepository::new(pool.clone()));
+
         let system_org = match orgs.ensure_system_organization().await {
             Ok(system_org) => {
                 crate::shared::trace_metrics::set_system_load("system_org", true);
@@ -142,6 +144,7 @@ impl Core {
                 return Err(error);
             }
         };
+
         let users = Arc::new(PgUserRepository::new(pool.clone()));
         let password_resets: Arc<dyn PasswordResetRepository> =
             Arc::new(PgPasswordResetRepository::new(pool.clone()));
@@ -154,6 +157,7 @@ impl Core {
             Arc::new(PgTraceDebugTokenRepository::new(pool.clone()));
         let teams = Arc::new(PgTeamRepository::new(pool.clone()));
         let org_schema_cache = Arc::new(OrgSchemaCache::new());
+
         let streams = Arc::new(
             PgStreamRepository::new(pool.clone()).with_mutation_observer(org_schema_cache.clone()),
         );
@@ -167,6 +171,7 @@ impl Core {
         let incidents = Arc::new(PgIncidentRepository::new(pool.clone()));
         let schedules = Arc::new(PgScheduleRepository::new(pool.clone()));
         let escalations = Arc::new(PgEscalationPolicyRepository::new(pool.clone()));
+
         let email_sender = if settings.notify.smtp.host.trim().is_empty() {
             None
         } else {
@@ -194,11 +199,14 @@ impl Core {
                 const ZERO_B64: &str = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
                 CipherRootKey::from_base64(ZERO_B64).expect("zero key constructs")
             });
+
         let cipher_keys: Arc<dyn CipherKeyRepository> = Arc::new(PgCipherKeyRepository::new(
             pool.clone(),
             cipher_root_key.clone(),
         ));
+
         let field_key_service = Arc::new(FieldKeyService::new(cipher_keys.clone()));
+
         let regex_patterns: Arc<
             dyn crate::infra::persistence::repositories::regex_patterns::RegexPatternRepository,
         > = Arc::new(
@@ -206,13 +214,16 @@ impl Core {
                 pool.clone(),
             ),
         );
+
         let masking_service = Arc::new(MaskingService::new(regex_patterns.clone()));
+
         let field_masking_rules: Arc<dyn crate::domain::masking::FieldMaskingRuleRepository> =
             Arc::new(
                 crate::infra::persistence::repositories::field_masking_rules::PgFieldMaskingRuleRepository::new(
                     pool.clone(),
                 ),
             );
+
         let field_masking_service = Arc::new(crate::infra::masking::FieldMaskingService::new(
             field_masking_rules.clone(),
             streams.clone(),
@@ -221,20 +232,24 @@ impl Core {
 
         let cluster_repo: Arc<dyn ClusterNodesRepository> =
             Arc::new(PgClusterNodesRepository::new(pool.clone()));
+
         let registry: Arc<dyn ClusterRegistry> = Arc::new(PgClusterRegistry::new(
             cluster_repo.clone(),
             settings.cluster.advertise_addr.clone(),
             settings.cluster.peer_timeout_secs as i64,
         ));
+
         let drain_controller = Arc::new(DrainController::new());
         let node_id = settings.node.resolved_id();
         let is_standalone = settings.node.roles.contains(&Role::Standalone);
+
         let roles = RolePlan {
             run_intake: is_standalone || settings.node.roles.contains(&Role::Intake),
             run_compactor: is_standalone || settings.node.roles.contains(&Role::Compactor),
             run_alert: is_standalone || settings.node.roles.contains(&Role::Alert),
             run_querier: is_standalone || settings.node.roles.contains(&Role::Querier),
         };
+
         // 多个 alert 节点分担后台工作；新节点预热一个存活窗口后才接管。
         let alert_ownership = if roles.run_alert {
             let ownership = WorkOwnership::new(
@@ -243,13 +258,16 @@ impl Core {
                 PeerRole::Alert,
                 Duration::from_secs(u64::from(settings.cluster.peer_timeout_secs.max(1))),
             );
+
             let _watch = ownership.spawn_watch(Duration::from_secs(u64::from(
                 settings.cluster.heartbeat_interval_secs.max(1),
             )));
+
             ownership
         } else {
             WorkOwnership::solo(PeerRole::Alert)
         };
+
         let alert_run_gate: Arc<dyn RunGate> = Arc::new(ShardedRunGate::new(
             alert_ownership.clone(),
             Arc::new(PgRunClaimRepository::new(pool.clone())),

@@ -38,21 +38,25 @@ fn temporality_name(raw: i32) -> String {
 fn put_metric_metadata(fields: &mut Map<String, Value>, metric: &Metric, meta: MetricMetadata) {
     fields.insert(METRIC_NAME_FIELD.into(), Value::String(metric.name.clone()));
     fields.insert(METRIC_KIND_FIELD.into(), Value::String(meta.kind.into()));
+
     if !metric.description.is_empty() {
         fields.insert(
             METRIC_DESCRIPTION_FIELD.into(),
             Value::String(metric.description.clone()),
         );
     }
+
     if !metric.unit.is_empty() {
         fields.insert(METRIC_UNIT_FIELD.into(), Value::String(metric.unit.clone()));
     }
+
     if let Some(temporality) = meta.temporality {
         fields.insert(
             METRIC_TEMPORALITY_FIELD.into(),
             Value::String(temporality_name(temporality)),
         );
     }
+
     if let Some(monotonic) = meta.monotonic {
         fields.insert(METRIC_MONOTONIC_FIELD.into(), Value::Bool(monotonic));
     }
@@ -70,9 +74,11 @@ fn metric_event(
     put_attrs(&mut fields, attributes);
     // Internal metadata wins over identically named OTLP attributes.
     put_metric_metadata(&mut fields, metric, meta);
+
     if let Some(start) = start_time_unix_nano.filter(|start| *start != 0) {
         fields.insert(METRIC_START_TIME_UNIX_NANO_FIELD.into(), Value::from(start));
     }
+
     RawEvent {
         timestamp: nanos_to_micros(time_unix_nano),
         fields,
@@ -93,12 +99,14 @@ fn put_number(fields: &mut Map<String, Value>, value: &Option<number_data_point:
 
 pub(crate) fn metrics_to_events(req: ExportMetricsServiceRequest) -> Vec<RawEvent> {
     let mut out = Vec::new();
+
     for resource_metrics in &req.resource_metrics {
         for scope_metrics in &resource_metrics.scope_metrics {
             let base = base_fields(
                 resource_metrics.resource.as_ref(),
                 scope_metrics.scope.as_ref(),
             );
+
             for metric in &scope_metrics.metrics {
                 match &metric.data {
                     Some(metric::Data::Gauge(gauge)) => {
@@ -107,6 +115,7 @@ pub(crate) fn metrics_to_events(req: ExportMetricsServiceRequest) -> Vec<RawEven
                             temporality: None,
                             monotonic: None,
                         };
+
                         for point in &gauge.data_points {
                             // OTLP explicitly ignores StartTimeUnixNano for Gauge.
                             let mut event = metric_event(
@@ -117,6 +126,7 @@ pub(crate) fn metrics_to_events(req: ExportMetricsServiceRequest) -> Vec<RawEven
                                 point.time_unix_nano,
                                 meta,
                             );
+
                             put_number(&mut event.fields, &point.value);
                             out.push(event);
                         }
@@ -131,6 +141,7 @@ pub(crate) fn metrics_to_events(req: ExportMetricsServiceRequest) -> Vec<RawEven
                             temporality: Some(sum.aggregation_temporality),
                             monotonic: Some(sum.is_monotonic),
                         };
+
                         for point in &sum.data_points {
                             let mut event = metric_event(
                                 &base,
@@ -140,6 +151,7 @@ pub(crate) fn metrics_to_events(req: ExportMetricsServiceRequest) -> Vec<RawEven
                                 point.time_unix_nano,
                                 meta,
                             );
+
                             put_number(&mut event.fields, &point.value);
                             out.push(event);
                         }
@@ -150,6 +162,7 @@ pub(crate) fn metrics_to_events(req: ExportMetricsServiceRequest) -> Vec<RawEven
                             temporality: Some(histogram.aggregation_temporality),
                             monotonic: None,
                         };
+
                         for point in &histogram.data_points {
                             let mut event = metric_event(
                                 &base,
@@ -159,18 +172,23 @@ pub(crate) fn metrics_to_events(req: ExportMetricsServiceRequest) -> Vec<RawEven
                                 point.time_unix_nano,
                                 meta,
                             );
+
                             event
                                 .fields
                                 .insert("count".into(), Value::from(point.count));
+
                             if let Some(sum) = point.sum {
                                 event.fields.insert("sum".into(), Value::from(sum));
                             }
+
                             if let Some(min) = point.min {
                                 event.fields.insert("min".into(), Value::from(min));
                             }
+
                             if let Some(max) = point.max {
                                 event.fields.insert("max".into(), Value::from(max));
                             }
+
                             out.push(event);
                         }
                     }
@@ -180,6 +198,7 @@ pub(crate) fn metrics_to_events(req: ExportMetricsServiceRequest) -> Vec<RawEven
                             temporality: Some(histogram.aggregation_temporality),
                             monotonic: None,
                         };
+
                         for point in &histogram.data_points {
                             let mut event = metric_event(
                                 &base,
@@ -189,12 +208,15 @@ pub(crate) fn metrics_to_events(req: ExportMetricsServiceRequest) -> Vec<RawEven
                                 point.time_unix_nano,
                                 meta,
                             );
+
                             event
                                 .fields
                                 .insert("count".into(), Value::from(point.count));
+
                             if let Some(sum) = point.sum {
                                 event.fields.insert("sum".into(), Value::from(sum));
                             }
+
                             out.push(event);
                         }
                     }
@@ -205,6 +227,7 @@ pub(crate) fn metrics_to_events(req: ExportMetricsServiceRequest) -> Vec<RawEven
                             temporality: Some(AggregationTemporality::Cumulative as i32),
                             monotonic: None,
                         };
+
                         for point in &summary.data_points {
                             let mut event = metric_event(
                                 &base,
@@ -214,9 +237,11 @@ pub(crate) fn metrics_to_events(req: ExportMetricsServiceRequest) -> Vec<RawEven
                                 point.time_unix_nano,
                                 meta,
                             );
+
                             event
                                 .fields
                                 .insert("count".into(), Value::from(point.count));
+
                             event.fields.insert("sum".into(), Value::from(point.sum));
                             out.push(event);
                         }
@@ -226,6 +251,7 @@ pub(crate) fn metrics_to_events(req: ExportMetricsServiceRequest) -> Vec<RawEven
             }
         }
     }
+
     out
 }
 

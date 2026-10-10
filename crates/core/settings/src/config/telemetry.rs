@@ -35,9 +35,11 @@ pub struct TelemetrySettings {
 fn default_log_level() -> String {
     "info".into()
 }
+
 fn default_log_format() -> String {
     "text".into()
 }
+
 fn default_log_output() -> String {
     "console".into()
 }
@@ -175,8 +177,10 @@ impl TraceSettings {
         if self.filter.trim().is_empty() {
             anyhow::bail!("telemetry.trace.filter must not be empty");
         }
+
         tracing_subscriber::EnvFilter::try_new(&self.filter)
             .map_err(|error| anyhow::anyhow!("invalid telemetry.trace.filter: {error}"))?;
+
         for (field, value) in [
             ("normal_sample_ratio", self.normal_sample_ratio),
             ("development_sample_ratio", self.development_sample_ratio),
@@ -185,9 +189,11 @@ impl TraceSettings {
                 anyhow::bail!("telemetry.trace.{field} must be between 0 and 1");
             }
         }
+
         if !(5..=120).contains(&self.decision_window_secs) {
             anyhow::bail!("telemetry.trace.decision_window_secs must be between 5 and 120");
         }
+
         if self.root_grace_millis == 0
             || self.decision_cache_secs < self.decision_window_secs
             || self.tail_max_traces == 0
@@ -201,6 +207,7 @@ impl TraceSettings {
         {
             anyhow::bail!("telemetry.trace limits and timeouts must be greater than zero");
         }
+
         self.slow_thresholds.validate()?;
         self.external.validate()
     }
@@ -253,6 +260,7 @@ impl TraceSlowThresholds {
         {
             anyhow::bail!("telemetry.trace.slow_thresholds values must be greater than zero");
         }
+
         Ok(())
     }
 }
@@ -306,32 +314,41 @@ impl ExternalTraceExporterSettings {
         if !matches!(self.protocol.as_str(), "grpc" | "http/protobuf") {
             anyhow::bail!("telemetry.trace.external.protocol must be `grpc` or `http/protobuf`");
         }
+
         if self.endpoint.is_empty() {
             return Ok(());
         }
+
         let url = url::Url::parse(&self.endpoint)
             .map_err(|error| anyhow::anyhow!("invalid Trace OTLP endpoint: {error}"))?;
+
         if !matches!(url.scheme(), "http" | "https") {
             anyhow::bail!("Trace OTLP endpoint must use http or https");
         }
+
         if self.timeout_ms == 0 || self.queue_capacity == 0 || self.batch_size == 0 {
             anyhow::bail!("Trace exporter timeout, queue, and batch values must be non-zero");
         }
+
         if self.client_certificate_file.is_some() != self.client_key_file.is_some() {
             anyhow::bail!("Trace exporter mTLS certificate and key must be configured together");
         }
+
         for (name, value) in &self.headers {
             if name.trim().is_empty() || value.trim().is_empty() {
                 anyhow::bail!("Trace exporter headers must not contain empty names/values");
             }
+
             let sensitive = matches!(
                 name.to_ascii_lowercase().as_str(),
                 "authorization" | "proxy-authorization" | "x-api-key"
             );
+
             if sensitive && !(value.starts_with("env:") || value.starts_with("secret:")) {
                 anyhow::bail!("sensitive Trace exporter header `{name}` must use env: or secret:");
             }
         }
+
         Ok(())
     }
 }
@@ -364,17 +381,21 @@ impl ProfilingSettings {
         if self.enabled && self.bind.trim().is_empty() {
             anyhow::bail!("profiling.bind must not be empty when profiling is enabled");
         }
+
         if self.enabled && self.port == 0 {
             anyhow::bail!("profiling.port must be greater than zero when profiling is enabled");
         }
+
         if self.enabled {
             let bind = self.bind.parse::<std::net::IpAddr>().map_err(|error| {
                 anyhow::anyhow!("profiling.bind must be an IP address: {error}")
             })?;
+
             if !self.allow_remote && !bind.is_loopback() {
                 anyhow::bail!("profiling.bind must be loopback unless profiling.allow_remote=true");
             }
         }
+
         Ok(())
     }
 }
@@ -382,87 +403,115 @@ impl ProfilingSettings {
 fn default_true() -> bool {
     true
 }
+
 fn default_trace_filter() -> String {
     "info".into()
 }
+
 fn default_deployment_environment() -> String {
     "production".into()
 }
+
 fn default_normal_sample_ratio() -> f64 {
     0.1
 }
+
 fn default_development_sample_ratio() -> f64 {
     1.0
 }
+
 fn default_decision_window_secs() -> u64 {
     30
 }
+
 fn default_root_grace_millis() -> u64 {
     1_000
 }
+
 fn default_decision_cache_secs() -> u64 {
     300
 }
+
 fn default_tail_max_traces() -> usize {
     10_000
 }
+
 fn default_tail_memory_bytes() -> usize {
     256 * 1024 * 1024
 }
+
 fn default_trace_max_spans() -> usize {
     1_000
 }
+
 fn default_trace_max_attributes() -> usize {
     128
 }
+
 fn default_trace_max_events() -> usize {
     128
 }
+
 fn default_trace_max_links() -> usize {
     128
 }
+
 fn default_trace_max_string_bytes() -> usize {
     4 * 1024
 }
+
 fn default_trace_shutdown_timeout_secs() -> u64 {
     10
 }
+
 fn default_http_slow_ms() -> u64 {
     1_000
 }
+
 fn default_query_slow_ms() -> u64 {
     5_000
 }
+
 fn default_intake_slow_ms() -> u64 {
     2_000
 }
+
 fn default_database_slow_ms() -> u64 {
     200
 }
+
 fn default_object_store_slow_ms() -> u64 {
     500
 }
+
 fn default_external_slow_ms() -> u64 {
     1_000
 }
+
 fn default_background_slow_ms() -> u64 {
     30_000
 }
+
 fn default_otlp_protocol() -> String {
     "grpc".into()
 }
+
 fn default_export_timeout_ms() -> u64 {
     5_000
 }
+
 fn default_export_queue_capacity() -> usize {
     8_192
 }
+
 fn default_export_batch_size() -> usize {
     256
 }
+
 fn default_profiling_bind() -> String {
     "127.0.0.1".into()
 }
+
 fn default_profiling_port() -> u16 {
     5084
 }

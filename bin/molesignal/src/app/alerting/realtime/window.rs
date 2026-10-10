@@ -19,19 +19,23 @@ impl SlidingCounter {
             Some((last, bucket)) if *last >= second => *bucket += count,
             _ => self.buckets.push_back((second, count)),
         }
+
         self.total += count;
     }
 
     /// 丢弃 `(second - window_secs, second]` 之外的桶，返回窗口内的命中总数。
     pub(super) fn count(&mut self, second: i64, window_secs: u32) -> u64 {
         let oldest_excluded = second - i64::from(window_secs);
+
         while let Some(&(bucket_second, bucket)) = self.buckets.front() {
             if bucket_second > oldest_excluded {
                 break;
             }
+
             self.total -= bucket;
             self.buckets.pop_front();
         }
+
         self.total
     }
 }

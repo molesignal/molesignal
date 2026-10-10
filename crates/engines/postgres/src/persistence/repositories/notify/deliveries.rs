@@ -31,6 +31,7 @@ const COLS: &str = "id, organization_id, event_id, policy_id, recipient_user_id,
     status, error_code, error_message, latency_ms, sent_at_micros,
     delivered_at_micros, acknowledged_at_micros, escalated_at_micros, idempotency_key,
     created_at_micros";
+
 const QUALIFIED_COLS: &str = "delivery.id, delivery.organization_id, delivery.event_id,
     delivery.policy_id, delivery.recipient_user_id, delivery.connector_id,
     delivery.endpoint_id, delivery.target_type, delivery.target_value_masked,
@@ -59,6 +60,7 @@ fn optional_timestamp(
 fn row_to_delivery(row: sqlx::postgres::PgRow) -> Result<NotifyDelivery> {
     let stage: String = row.try_get("stage").map_err(sqlx_err)?;
     let status: String = row.try_get("status").map_err(sqlx_err)?;
+
     Ok(NotifyDelivery {
         id: Id::from_string(row.try_get::<String, _>("id").map_err(sqlx_err)?),
         organization_id: Id::from_string(
@@ -131,6 +133,7 @@ impl NotifyDeliveryRepository for PgNotifyDeliveryRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         self.find_by_idempotency_key(&delivery.organization_id, &delivery.idempotency_key)
             .await?
             .ok_or_else(|| Error::internal("notify delivery idempotency conflict across orgs"))
@@ -183,16 +186,19 @@ impl NotifyDeliveryRepository for PgNotifyDeliveryRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         if let Some(row) = row {
             return Ok(DeliveryClaim {
                 delivery: row_to_delivery(row)?,
                 acquired: true,
             });
         }
+
         let existing = self
             .find_by_idempotency_key(&delivery.organization_id, &delivery.idempotency_key)
             .await?
             .ok_or_else(|| Error::internal("notify delivery idempotency conflict across orgs"))?;
+
         Ok(DeliveryClaim {
             delivery: existing,
             acquired: false,
@@ -213,6 +219,7 @@ impl NotifyDeliveryRepository for PgNotifyDeliveryRepository {
                 "notify delivery completion must be success, failed, or skipped",
             ));
         }
+
         let updated = sqlx::query(
             "UPDATE notify_deliveries
                 SET status = $3,
@@ -234,9 +241,11 @@ impl NotifyDeliveryRepository for PgNotifyDeliveryRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         if updated.rows_affected() == 0 {
             return Err(Error::conflict("notify delivery is no longer sending"));
         }
+
         self.get(organization_id, id).await
     }
 
@@ -251,6 +260,7 @@ impl NotifyDeliveryRepository for PgNotifyDeliveryRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         row_to_delivery(row)
     }
 
@@ -269,6 +279,7 @@ impl NotifyDeliveryRepository for PgNotifyDeliveryRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         row.map(row_to_delivery).transpose()
     }
 
@@ -278,18 +289,22 @@ impl NotifyDeliveryRepository for PgNotifyDeliveryRepository {
         filter: &DeliveryFilter,
     ) -> Result<Vec<NotifyDelivery>> {
         let policy_id = filter.policy_id.as_ref().map(|value| value.0.clone());
+
         let recipient_user_id = filter
             .recipient_user_id
             .as_ref()
             .map(|value| value.0.clone());
+
         let connector_id = filter.connector_id.as_ref().map(|value| value.0.clone());
         let status = filter.status.map(DeliveryStatus::as_str);
         let stage = filter.stage.map(DeliveryStage::as_str);
+
         let limit = i64::from(if filter.limit == 0 {
             100
         } else {
             filter.limit.min(500)
         });
+
         let rows = sqlx::query(&format!(
             "SELECT {COLS}
                FROM notify_deliveries
@@ -318,6 +333,7 @@ impl NotifyDeliveryRepository for PgNotifyDeliveryRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to_delivery).collect()
     }
 
@@ -341,6 +357,7 @@ impl NotifyDeliveryRepository for PgNotifyDeliveryRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(updated.rows_affected())
     }
 
@@ -374,6 +391,7 @@ impl NotifyDeliveryRepository for PgNotifyDeliveryRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         rows.into_iter().map(row_to_delivery).collect()
     }
 
@@ -396,11 +414,13 @@ impl NotifyDeliveryRepository for PgNotifyDeliveryRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         if updated.rows_affected() == 0 {
             return Err(Error::conflict(
                 "notify delivery was already escalated or does not exist",
             ));
         }
+
         self.get(organization_id, id).await
     }
 }

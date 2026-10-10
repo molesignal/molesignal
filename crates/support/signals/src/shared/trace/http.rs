@@ -48,6 +48,7 @@ pub async fn send(
     let (request, context) = prepare(builder, target)?;
     let method = request.method().as_str().to_owned();
     let (scheme, host, port) = sanitized_destination(&request);
+
     let timeout_ms = request
         .timeout()
         .map(|timeout| timeout.as_millis().min(u64::MAX as u128) as u64);
@@ -68,21 +69,26 @@ pub async fn send(
         molesignal.http.timeout_ms = field::Empty,
         error.type = field::Empty,
     );
+
     if let Some(port) = port {
         span.record("server.port", port);
     }
+
     if let Some(timeout_ms) = timeout_ms {
         span.record("molesignal.http.timeout_ms", timeout_ms);
     }
 
     let instrument_span = span.clone();
+
     let response = with_current_trace_context(context, client.execute(request))
         .instrument(instrument_span)
         .await;
+
     match &response {
         Ok(response) => {
             let status = response.status();
             span.record("http.response.status_code", status.as_u16());
+
             if status.is_client_error() || status.is_server_error() {
                 span.record("error.type", format!("http_{}", status.as_u16()));
             }
@@ -91,6 +97,7 @@ pub async fn send(
             span.record("error.type", reqwest_error_type(error));
         }
     }
+
     response
 }
 
@@ -107,9 +114,11 @@ fn prepare(
     target: HttpTarget,
 ) -> Result<(Request, TraceContext), reqwest::Error> {
     let mut request = builder.build()?;
+
     let context = current_trace_context()
         .map(|context| context.child())
         .unwrap_or_else(|| TraceContext::new_root(Id::new().0));
+
     context.inject_http(request.headers_mut(), target.is_internal());
     Ok((request, context))
 }

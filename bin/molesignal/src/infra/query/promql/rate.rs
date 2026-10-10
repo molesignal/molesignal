@@ -5,6 +5,7 @@ use super::*;
 
 pub fn apply_rate_like(func: &str, series: Vec<Series>, range: Duration) -> InstantVector {
     let range_secs = range.as_secs_f64().max(1.0);
+
     let items = series
         .into_iter()
         .filter_map(|s| {
@@ -14,6 +15,7 @@ pub fn apply_rate_like(func: &str, series: Vec<Series>, range: Duration) -> Inst
             Some((s.labels, value))
         })
         .collect();
+
     InstantVector { items }
 }
 
@@ -39,11 +41,13 @@ pub(super) fn apply_rate_like_range(
             |t, lo, hi| {
                 let samples = &s.samples[lo..hi];
                 let metadata = s.metadata_slice(lo, hi);
+
                 let Some(value) =
                     rate_window_value_with_metadata(func, samples, metadata, range_secs)
                 else {
                     return;
                 };
+
                 points.push(RangePoint {
                     ts_us: t,
                     labels: s.labels.clone(),
@@ -92,6 +96,7 @@ pub(super) fn rate_window_value_with_metadata(
     range_secs: f64,
 ) -> Option<f64> {
     let (samples, metadata, semantics) = semantic_suffix(samples, metadata);
+
     if semantics.is_delta() {
         return delta_rate_value(
             func,
@@ -101,6 +106,7 @@ pub(super) fn rate_window_value_with_metadata(
             range_secs,
         );
     }
+
     cumulative_rate_value(func, samples, semantics.is_monotonic(), range_secs)
 }
 
@@ -111,11 +117,14 @@ fn semantic_suffix<'a>(
     if samples.is_empty() || metadata.len() != samples.len() {
         return (samples, &[], RateSemantics::CumulativeCounter);
     }
+
     let semantics = RateSemantics::from_metadata(metadata[metadata.len() - 1]);
     let mut start = metadata.len() - 1;
+
     while start > 0 && RateSemantics::from_metadata(metadata[start - 1]) == semantics {
         start -= 1;
     }
+
     (&samples[start..], &metadata[start..], semantics)
 }
 
@@ -128,21 +137,26 @@ fn cumulative_rate_value(
     if samples.len() < 2 {
         return None;
     }
+
     let samples = match func {
         "irate" => &samples[samples.len() - 2..],
         "rate" | "increase" => samples,
         _ => return None,
     };
+
     let (first_ts, _) = *samples.first()?;
     let (last_ts, _) = *samples.last()?;
+
     if last_ts <= first_ts {
         return None;
     }
+
     let delta = if monotonic {
         counter_delta(samples)?
     } else {
         signed_delta(samples)?
     };
+
     match func {
         "rate" => Some(delta / range_secs),
         "irate" => {
@@ -164,6 +178,7 @@ fn delta_rate_value(
     match func {
         "rate" | "increase" => {
             let mut seen = false;
+
             let delta = samples
                 .iter()
                 .zip(metadata)
@@ -176,9 +191,11 @@ fn delta_rate_value(
                     }
                 })
                 .sum::<f64>();
+
             if !seen {
                 return None;
             }
+
             (func == "rate")
                 .then_some(delta / range_secs)
                 .or(Some(delta))
@@ -195,9 +212,11 @@ fn delta_irate(
 ) -> Option<f64> {
     for index in (0..samples.len()).rev() {
         let (timestamp, value) = samples[index];
+
         if !value.is_finite() || (monotonic && value < 0.0) {
             continue;
         }
+
         let start = metadata[index]
             .start_time_us()
             .filter(|start| *start < timestamp)
@@ -208,9 +227,11 @@ fn delta_irate(
                     .map(|(previous, _)| *previous)
                     .find(|previous| *previous < timestamp)
             })?;
+
         let elapsed_secs = (timestamp - start) as f64 / 1_000_000.0;
         return Some(value / elapsed_secs.max(1e-9));
     }
+
     None
 }
 
@@ -219,17 +240,21 @@ fn signed_delta(samples: &[(i64, f64)]) -> Option<f64> {
         .iter()
         .copied()
         .filter(|(_, value)| value.is_finite());
+
     let (mut previous_ts, first_value) = iter.next()?;
     let mut last_value = first_value;
     let mut transitions = 0usize;
+
     for (timestamp, value) in iter {
         if timestamp <= previous_ts {
             continue;
         }
+
         previous_ts = timestamp;
         last_value = value;
         transitions += 1;
     }
+
     (transitions > 0).then_some(last_value - first_value)
 }
 
@@ -239,6 +264,7 @@ fn counter_delta(samples: &[(i64, f64)]) -> Option<f64> {
         .iter()
         .copied()
         .filter(|(_, value)| value.is_finite());
+
     let (mut previous_ts, mut previous_value) = iter.next()?;
     let mut delta = 0.0;
     let mut transitions = 0usize;
@@ -247,11 +273,13 @@ fn counter_delta(samples: &[(i64, f64)]) -> Option<f64> {
         if timestamp <= previous_ts {
             continue;
         }
+
         delta += if value >= previous_value {
             value - previous_value
         } else {
             value.max(0.0)
         };
+
         previous_ts = timestamp;
         previous_value = value;
         transitions += 1;

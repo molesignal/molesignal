@@ -20,6 +20,7 @@ use crate::{
 const SNAPSHOT_BIND_COUNT: usize = 14;
 const POSTGRES_BIND_LIMIT: usize = 65_535;
 const SNAPSHOT_BATCH_SIZE: usize = POSTGRES_BIND_LIMIT / SNAPSHOT_BIND_COUNT;
+
 const BUCKET_KINDS: [BucketKind; 4] = [
     BucketKind::Service,
     BucketKind::Transaction,
@@ -50,7 +51,9 @@ impl ApmWriteRepository for PgApmRepository {
         if services.is_empty() && versions.is_empty() {
             return Ok(());
         }
+
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         for service in services {
             sqlx::query(
                 "INSERT INTO apm_services (
@@ -93,6 +96,7 @@ impl ApmWriteRepository for PgApmRepository {
             .await
             .map_err(sqlx_err)?;
         }
+
         for version in versions {
             sqlx::query(
                 "INSERT INTO apm_service_versions (
@@ -130,6 +134,7 @@ impl ApmWriteRepository for PgApmRepository {
             .await
             .map_err(sqlx_err)?;
         }
+
         tx.commit().await.map_err(sqlx_err)?;
         Ok(())
     }
@@ -146,11 +151,14 @@ impl ApmWriteRepository for PgApmRepository {
         if snapshots.is_empty() {
             return Ok(SnapshotWriteStats::default());
         }
+
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         let mut stats = SnapshotWriteStats {
             attempted: snapshots.len() as u64,
             ..SnapshotWriteStats::default()
         };
+
         let prepared = snapshots
             .iter()
             .map(|snapshot| {
@@ -169,12 +177,15 @@ impl ApmWriteRepository for PgApmRepository {
                 })
             })
             .collect::<Result<Vec<_>>>()?;
+
         for kind in BUCKET_KINDS {
             let table = minute_table(kind);
+
             let rows = prepared
                 .iter()
                 .filter(|row| row.snapshot.dimension.kind() == kind)
                 .collect::<Vec<_>>();
+
             for chunk in rows.chunks(SNAPSHOT_BATCH_SIZE) {
                 let mut query = QueryBuilder::<Postgres>::new(format!(
                     "INSERT INTO {table} (
@@ -184,9 +195,11 @@ impl ApmWriteRepository for PgApmRepository {
                     dimension_key, dimension, measurements, updated_at_micros
                  ) "
                 ));
+
                 query.push_values(chunk, |mut row, prepared| {
                     let snapshot = prepared.snapshot;
                     let service = snapshot.dimension.service();
+
                     row.push_bind(snapshot.org_id.as_str())
                         .push_bind(&service.namespace)
                         .push_bind(&service.name)
@@ -202,6 +215,7 @@ impl ApmWriteRepository for PgApmRepository {
                         .push_bind(Json(&snapshot.measurements))
                         .push_bind(snapshot.updated_at.0);
                 });
+
                 query.push(format!(
                     " ON CONFLICT (
                     org_id, bucket_at_micros, dimension_key, owner_id,
@@ -218,10 +232,12 @@ impl ApmWriteRepository for PgApmRepository {
                     updated_at_micros = EXCLUDED.updated_at_micros
                  WHERE {table}.snapshot_seq < EXCLUDED.snapshot_seq"
                 ));
+
                 let result = query.build().execute(&mut *tx).await.map_err(sqlx_err)?;
                 stats.applied = stats.applied.saturating_add(result.rows_affected());
             }
         }
+
         stats.stale = stats.attempted.saturating_sub(stats.applied);
         tx.commit().await.map_err(sqlx_err)?;
         Ok(stats)
@@ -243,7 +259,9 @@ impl ApmWriteRepository for PgApmRepository {
                 "APM error sample capacity must be greater than zero",
             ));
         }
+
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         for group in groups {
             sqlx::query(
                 "INSERT INTO apm_error_groups (
@@ -288,8 +306,10 @@ impl ApmWriteRepository for PgApmRepository {
             .await
             .map_err(sqlx_err)?;
         }
+
         for sample in samples {
             let slot = sample_slot(sample, max_samples_per_group)?;
+
             sqlx::query(
                 "INSERT INTO apm_error_samples (
                     org_id, fingerprint, sample_slot, event_time_micros, trace_id,
@@ -317,6 +337,7 @@ impl ApmWriteRepository for PgApmRepository {
             .await
             .map_err(sqlx_err)?;
         }
+
         tx.commit().await.map_err(sqlx_err)?;
         Ok(())
     }
@@ -325,16 +346,20 @@ impl ApmWriteRepository for PgApmRepository {
         if gaps.is_empty() {
             return Ok(());
         }
+
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
         for gap in gaps {
             let start = gap.range.start.0.to_le_bytes();
             let end = gap.range.end.0.to_le_bytes();
+
             let id = gap_id(&[
                 gap.org_id.as_str().as_bytes(),
                 &start,
                 &end,
                 gap.reason.as_str().as_bytes(),
             ]);
+
             sqlx::query(
                 "INSERT INTO apm_projection_gaps (
                     id, org_id, range_start_micros, range_end_micros, reason,
@@ -360,6 +385,7 @@ impl ApmWriteRepository for PgApmRepository {
             .await
             .map_err(sqlx_err)?;
         }
+
         tx.commit().await.map_err(sqlx_err)?;
         Ok(())
     }
@@ -387,6 +413,7 @@ impl ApmWriteRepository for PgApmRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(ProjectionState {
             org_id: org_id.clone(),
             projection_started_at: TimestampMicros(
@@ -421,6 +448,7 @@ impl ApmWriteRepository for PgApmRepository {
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
         Ok(())
     }
 }
@@ -431,9 +459,11 @@ fn sample_slot(sample: &ErrorSample, capacity: usize) -> Result<i16> {
     hasher.update(&[0]);
     hasher.update(sample.span_id.as_bytes());
     let bytes = hasher.finalize();
+
     let prefix: [u8; 8] = bytes.as_bytes()[..8]
         .try_into()
         .map_err(|_| Error::internal("APM sample hash prefix"))?;
+
     let slot = u64::from_le_bytes(prefix) % capacity as u64;
     i16::try_from(slot).map_err(|_| Error::invalid("APM error sample capacity exceeds SMALLINT"))
 }

@@ -83,6 +83,7 @@ async fn create(
     let request: RuleWrite = parse(&approval.parameters)?;
     validate(&request)?;
     let now = TimestampMicros::now();
+
     let rule = state
         .alerting
         .service
@@ -109,6 +110,7 @@ async fn create(
             updated_at: now,
         })
         .await?;
+
     emit_rule_cud(state, &rule, CudAction::Created).await;
     outcome("alert rule created", rule)
 }
@@ -121,6 +123,7 @@ async fn update(
     let request: RuleWrite = parse(&approval.parameters)?;
     validate(&request)?;
     let existing = load_authorized(state, ctx, &approval.target).await?;
+
     let rule = state
         .alerting
         .service
@@ -147,6 +150,7 @@ async fn update(
             updated_at: TimestampMicros::now(),
         })
         .await?;
+
     emit_rule_cud(state, &rule, CudAction::Updated).await;
     outcome("alert rule updated", rule)
 }
@@ -159,6 +163,7 @@ async fn delete(
     require_no_parameters(approval)?;
     let rule = load_authorized(state, ctx, &approval.target).await?;
     state.alerting.service.delete_rule(&rule.id).await?;
+
     emit_cud(
         state,
         &rule.org_id,
@@ -168,6 +173,7 @@ async fn delete(
         &delete_payload(&rule.id.0),
     )
     .await;
+
     Ok(OperationOutcome {
         summary: "alert rule deleted".into(),
         verification: json!({"verified": true, "rule_id": rule.id, "deleted": true}),
@@ -181,11 +187,13 @@ async fn trigger(
 ) -> Result<OperationOutcome> {
     require_no_parameters(approval)?;
     let rule = load_authorized(state, ctx, &approval.target).await?;
+
     let incident = state
         .alerting
         .evaluator
         .trigger_rule(&rule, &approval.requested_by, TimestampMicros::now())
         .await?;
+
     Ok(OperationOutcome {
         summary: format!("manually triggered alert rule {}", rule.id.0),
         verification: json!({
@@ -198,9 +206,11 @@ async fn trigger(
 
 async fn load_authorized(state: &AppState, ctx: &IamContext, id: &str) -> Result<AlertRule> {
     let rule = state.alerting.service.get_rule(&Id(id.to_string())).await?;
+
     if rule.org_id != ctx.org_id {
         return Err(Error::not_found("alert rule not found"));
     }
+
     Permission::require_resource(
         state,
         ctx,
@@ -210,6 +220,7 @@ async fn load_authorized(state: &AppState, ctx: &IamContext, id: &str) -> Result
         &rule.id.0,
     )
     .await?;
+
     Ok(rule)
 }
 
@@ -217,17 +228,21 @@ fn validate(request: &RuleWrite) -> Result<()> {
     if request.name.trim().is_empty() {
         return Err(Error::invalid("name cannot be empty"));
     }
+
     if request.query.statement.trim().is_empty() {
         return Err(Error::invalid("query.statement cannot be empty"));
     }
+
     let stream = request
         .query
         .stream
         .as_ref()
         .ok_or_else(|| Error::invalid("query.stream is required"))?;
+
     if stream.name.trim().is_empty() {
         return Err(Error::invalid("query.stream.name cannot be empty"));
     }
+
     normalize_anomaly(request.kind, request.anomaly_params.clone()).map(|_| ())
 }
 
@@ -238,32 +253,39 @@ fn normalize_anomaly(
     if kind != AlertRuleKind::Anomaly {
         return Ok(None);
     }
+
     let parameters = parameters
         .ok_or_else(|| Error::invalid("anomaly_params is required when kind = anomaly"))?;
+
     if !SUPPORTED_DETECTORS.contains(&parameters.algorithm.as_str()) {
         return Err(Error::invalid(format!(
             "anomaly detector not yet supported: {}",
             parameters.algorithm
         )));
     }
+
     if parameters.lookback_days < 1 || parameters.lookback_days > MAX_ANOMALY_LOOKBACK_DAYS {
         return Err(Error::invalid(format!(
             "anomaly lookback_days must be between 1 and {MAX_ANOMALY_LOOKBACK_DAYS}"
         )));
     }
+
     if !parameters.k.is_finite() || parameters.k <= 0.0 {
         return Err(Error::invalid("anomaly k must be a positive number"));
     }
+
     if parameters.algorithm == "ewma"
         && (!parameters.alpha.is_finite() || parameters.alpha <= 0.0 || parameters.alpha > 1.0)
     {
         return Err(Error::invalid("anomaly alpha must be in (0, 1] for ewma"));
     }
+
     if parameters.weekly_seasonality && parameters.lookback_days < 7 {
         return Err(Error::invalid(
             "weekly_seasonality requires lookback_days >= 7",
         ));
     }
+
     Ok(Some(parameters))
 }
 

@@ -45,48 +45,60 @@ impl PromQLEngine {
 
         let mut selectors = SelectorMatchers::new();
         collect_selector_matchers(&expr, &mut selectors)?;
+
         let limit = req
             .limit
             .unwrap_or(MAX_QUERY_EXEMPLARS)
             .clamp(1, MAX_QUERY_EXEMPLARS);
+
         let mut grouped: BTreeMap<MetricLabelSet, Vec<PrometheusExemplar>> = BTreeMap::new();
         let mut seen = BTreeSet::new();
         let mut truncated = false;
 
         'metrics: for (metric, matcher_groups) in selectors {
             let source = self.resolve_metric_source(&req.org_id, &metric).await?;
+
             let storage = self
                 .metric_files(&req.org_id, &source.stream, req.time_range)
                 .await?;
+
             if storage.files.is_empty() && storage.buffered_batches.is_empty() {
                 continue;
             }
 
             let reader = ParquetReader::new(Arc::clone(&self.object_store));
+
             let projection = source.sample_columns.as_ref().map(|columns| {
                 let mut columns = columns.clone();
+
                 columns.extend([
                     PROMETHEUS_EXEMPLAR_MARKER_FIELD.to_string(),
                     PROMETHEUS_EXEMPLAR_VALUE_FIELD.to_string(),
                     PROMETHEUS_EXEMPLAR_LABELS_FIELD.to_string(),
                 ]);
+
                 columns.sort();
                 columns.dedup();
                 columns
             });
+
             let projection_refs = projection
                 .as_ref()
                 .map(|columns| columns.iter().map(String::as_str).collect::<Vec<_>>());
+
             for query_file in storage.files {
                 let mut options = ReadOptions::new()
                     .with_time_range(req.time_range.start.0, req.time_range.end.0)
                     .with_known_size(query_file.size_bytes);
+
                 if let Some(columns) = projection_refs.as_deref() {
                     options = options.with_columns(columns);
                 }
+
                 let batches = reader
                     .read_from_store(self.object_store.clone(), &query_file.object_key, options)
                     .await?;
+
                 for batch in batches {
                     if append_batch_exemplars(
                         &batch,
@@ -103,6 +115,7 @@ impl PromQLEngine {
                     }
                 }
             }
+
             for batch in storage.buffered_batches {
                 if append_batch_exemplars(
                     &batch,
@@ -129,12 +142,14 @@ impl PromQLEngine {
                         .then_with(|| left.labels.cmp(&right.labels))
                         .then_with(|| left.value.total_cmp(&right.value))
                 });
+
                 PrometheusExemplarSeries {
                     series_labels,
                     exemplars,
                 }
             })
             .collect();
+
         Ok(PrometheusExemplarQueryResult { series, truncated })
     }
 }
@@ -151,6 +166,7 @@ fn collect_selector_matchers<'a>(expr: &'a Expr, out: &mut SelectorMatchers<'a>)
         }
         Expr::Aggregate(aggregate) => {
             collect_selector_matchers(&aggregate.expr, out)?;
+
             if let Some(parameter) = &aggregate.param {
                 collect_selector_matchers(parameter, out)?;
             }
@@ -163,6 +179,7 @@ fn collect_selector_matchers<'a>(expr: &'a Expr, out: &mut SelectorMatchers<'a>)
         }
         _ => {}
     }
+
     Ok(())
 }
 
@@ -174,9 +191,11 @@ fn collect_vector_selector<'a>(
         .name
         .as_ref()
         .ok_or_else(|| Error::invalid("exemplar queries require an explicit metric name"))?;
+
     out.entry(metric.clone())
         .or_default()
         .push(&selector.matchers);
+
     Ok(())
 }
 
@@ -192,6 +211,7 @@ fn append_batch_exemplars(
     seen: &mut BTreeSet<ExemplarKey>,
 ) -> bool {
     let schema = batch.schema();
+
     let (Ok(timestamp_index), Ok(marker_index), Ok(value_index), Ok(labels_index)) = (
         schema.index_of("_timestamp"),
         schema.index_of(PROMETHEUS_EXEMPLAR_MARKER_FIELD),
@@ -200,6 +220,7 @@ fn append_batch_exemplars(
     ) else {
         return false;
     };
+
     let Some(timestamps) = batch
         .column(timestamp_index)
         .as_any()
@@ -207,6 +228,7 @@ fn append_batch_exemplars(
     else {
         return false;
     };
+
     let Some(markers) = batch
         .column(marker_index)
         .as_any()
@@ -214,12 +236,15 @@ fn append_batch_exemplars(
     else {
         return false;
     };
+
     let Ok(values) = arrow::compute::cast(batch.column(value_index), &DataType::Float64) else {
         return false;
     };
+
     let Some(values) = values.as_any().downcast_ref::<Float64Array>() else {
         return false;
     };
+
     let Some(exemplar_labels) = batch
         .column(labels_index)
         .as_any()
@@ -227,12 +252,14 @@ fn append_batch_exemplars(
     else {
         return false;
     };
+
     let series_label_columns = schema
         .fields()
         .iter()
         .enumerate()
         .filter_map(|(index, field)| {
             let name = field.name().as_str();
+
             if name == "_timestamp"
                 || name == "value"
                 || (logical_metric.is_some() && is_metric_identity_storage_field(name))
@@ -241,6 +268,7 @@ fn append_batch_exemplars(
             {
                 return None;
             }
+
             batch
                 .column(index)
                 .as_any()
@@ -248,6 +276,7 @@ fn append_batch_exemplars(
                 .map(|column| (name, column))
         })
         .collect::<Vec<_>>();
+
     let metric_names = logical_metric.and_then(|_| {
         schema
             .index_of(METRIC_NAME_FIELD)
@@ -264,35 +293,45 @@ fn append_batch_exemplars(
         {
             continue;
         }
+
         if let Some(expected) = logical_metric
             && metric_names.is_none_or(|names| names.is_null(row) || names.value(row) != expected)
         {
             continue;
         }
+
         let timestamp = TimestampMicros(timestamps.value(row));
+
         if !time_range.contains(timestamp) {
             continue;
         }
+
         let mut series_labels = MetricLabelSet::new();
         series_labels.insert("__name__".into(), metric.into());
+
         for (name, column) in &series_label_columns {
             if !column.is_null(row) {
                 series_labels.insert((*name).into(), column.value(row).into());
             }
         }
+
         if !matcher_groups
             .iter()
             .any(|matchers| matchers_match_labels(matchers, &series_labels))
         {
             continue;
         }
+
         let Ok(labels) = serde_json::from_str::<MetricLabelSet>(exemplar_labels.value(row)) else {
             continue;
         };
+
         let value = values.value(row);
+
         if !value.is_finite() {
             continue;
         }
+
         let key = ExemplarKey {
             series_labels: series_labels
                 .iter()
@@ -305,13 +344,17 @@ fn append_batch_exemplars(
                 .map(|(name, value)| (name.clone(), value.clone()))
                 .collect(),
         };
+
         if seen.contains(&key) {
             continue;
         }
+
         if seen.len() >= limit {
             return true;
         }
+
         seen.insert(key);
+
         grouped
             .entry(series_labels)
             .or_default()
@@ -321,6 +364,7 @@ fn append_batch_exemplars(
                 timestamp,
             });
     }
+
     false
 }
 
@@ -329,14 +373,17 @@ fn matchers_match_labels(matchers: &Matchers, labels: &MetricLabelSet) -> bool {
         let actual = labels.get(&matcher.name).map(String::as_str).unwrap_or("");
         matcher_matches_value(matcher, actual)
     };
+
     if !matchers.matchers.iter().all(matches) {
         return false;
     }
+
     for group in &matchers.or_matchers {
         if group.iter().all(matches) {
             return true;
         }
     }
+
     matchers.or_matchers.is_empty() || !matchers.matchers.is_empty()
 }
 

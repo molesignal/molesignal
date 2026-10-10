@@ -30,18 +30,23 @@ where
         let ordering = left
             .compare(right, &context.sort)
             .then_with(|| left.tie_breaker().cmp(&right.tie_breaker()));
+
         match context.direction {
             SortDirection::Asc => ordering,
             SortDirection::Desc => ordering.reverse(),
         }
     });
+
     let page_direction = context.cursor.as_ref().map(|cursor| cursor.page_direction);
     let fetch_limit = context.limit.saturating_add(1);
+
     let candidates = match context.cursor.as_ref() {
         None => items.into_iter().take(fetch_limit).collect(),
         Some(cursor) => seek_candidates(items, context, cursor, fetch_limit)?,
     };
+
     let page = trim_cursor_page(candidates, context.limit, page_direction);
+
     let previous_cursor = if page.has_previous {
         page.items
             .first()
@@ -56,6 +61,7 @@ where
     } else {
         None
     };
+
     let next_cursor = if page.has_next {
         page.items
             .last()
@@ -70,6 +76,7 @@ where
     } else {
         None
     };
+
     Ok((page.items, previous_cursor, next_cursor))
 }
 
@@ -83,25 +90,31 @@ where
     T: ApmSortable,
 {
     let mut matching = Vec::new();
+
     for item in items {
         let raw_ordering = item
             .compare_cursor_value(&cursor.sort_value, &context.sort)?
             .then_with(|| item.tie_breaker().cmp(&cursor.tie_breaker));
+
         let canonical_ordering = match context.direction {
             SortDirection::Asc => raw_ordering,
             SortDirection::Desc => raw_ordering.reverse(),
         };
+
         let include = match cursor.page_direction {
             CursorDirection::After => canonical_ordering == Ordering::Greater,
             CursorDirection::Before => canonical_ordering == Ordering::Less,
         };
+
         if include {
             matching.push(item);
         }
     }
+
     if cursor.page_direction == CursorDirection::Before {
         matching.reverse();
     }
+
     matching.truncate(fetch_limit);
     Ok(matching)
 }

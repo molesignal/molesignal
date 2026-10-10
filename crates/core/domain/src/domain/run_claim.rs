@@ -127,9 +127,11 @@ impl RunClaimRepository for MemoryRunClaims {
     ) -> Result<bool> {
         let mut leases = self.leases.lock().unwrap_or_else(|e| e.into_inner());
         let slot = (kind.to_owned(), key.to_owned());
+
         let free = leases
             .get(&slot)
             .is_none_or(|lease| lease.until.0 <= now.0 || lease.holder == holder);
+
         if free {
             leases.insert(
                 slot,
@@ -139,18 +141,21 @@ impl RunClaimRepository for MemoryRunClaims {
                 },
             );
         }
+
         Ok(free)
     }
 
     async fn release(&self, kind: &str, key: &str, holder: &str) -> Result<()> {
         let mut leases = self.leases.lock().unwrap_or_else(|e| e.into_inner());
         let slot = (kind.to_owned(), key.to_owned());
+
         if leases
             .get(&slot)
             .is_some_and(|lease| lease.holder == holder)
         {
             leases.remove(&slot);
         }
+
         Ok(())
     }
 }

@@ -157,14 +157,17 @@ async fn run_synthetic(
     target: &str,
 ) -> Result<OperationOutcome> {
     let monitor_id = Id(target.to_string());
+
     state
         .synthetics
         .get_monitor(&ctx.org_id, &monitor_id)
         .await?;
+
     let tasks = state
         .synthetics
         .run_monitor(&ctx.org_id, &monitor_id)
         .await?;
+
     Ok(OperationOutcome {
         summary: format!("queued {} synthetic probe tasks", tasks.len()),
         verification: json!({
@@ -183,10 +186,12 @@ async fn synthetic_lifecycle(
     lifecycle: MonitorLifecycle,
 ) -> Result<OperationOutcome> {
     let monitor_id = Id(target.to_string());
+
     let current = state
         .synthetics
         .get_monitor(&ctx.org_id, &monitor_id)
         .await?;
+
     let monitor = if current.lifecycle == lifecycle {
         current
     } else {
@@ -195,6 +200,7 @@ async fn synthetic_lifecycle(
             .set_lifecycle(&ctx.org_id, &monitor_id, lifecycle)
             .await?
     };
+
     Ok(OperationOutcome {
         summary: format!("synthetic monitor lifecycle is {}", lifecycle.as_str()),
         verification: json!({"verified": true, "monitor": monitor}),
@@ -209,11 +215,13 @@ async fn status_page_lifecycle(
 ) -> Result<OperationOutcome> {
     let page_id = Id(target.to_string());
     let current = state.status_pages.get_page(&ctx.org_id, &page_id).await?;
+
     let desired = if archive {
         StatusPageLifecycle::Archived
     } else {
         StatusPageLifecycle::Active
     };
+
     let page = if current.lifecycle == desired {
         current
     } else if archive {
@@ -227,6 +235,7 @@ async fn status_page_lifecycle(
             .restore_page(&ctx.org_id, &page_id)
             .await?
     };
+
     Ok(OperationOutcome {
         summary: if archive {
             "status page is archived".into()
@@ -244,10 +253,12 @@ async fn status_page_automation(
     paused: bool,
 ) -> Result<OperationOutcome> {
     let page_id = Id(target.to_string());
+
     let settings = state
         .status_pages
         .set_automation_paused(&ctx.org_id, &page_id, &ctx.user_id, paused)
         .await?;
+
     Ok(OperationOutcome {
         summary: if paused {
             "status page automation is paused".into()
@@ -268,6 +279,7 @@ async fn retry_notification(
         .notify_engine
         .retry_delivery(&ctx.org_id, &Id(target.to_string()))
         .await?;
+
     Ok(OperationOutcome {
         summary: "notification delivery retry completed".into(),
         verification: json!({"verified": true, "outcome": outcome}),
@@ -284,6 +296,7 @@ async fn acknowledge_notification(
         .notify_engine
         .acknowledge_delivery(&ctx.org_id, &Id(target.to_string()), TimestampMicros::now())
         .await?;
+
     Ok(OperationOutcome {
         summary: "notification delivery acknowledged".into(),
         verification: json!({"verified": true, "delivery": delivery}),
@@ -297,16 +310,19 @@ async fn scheduled_pipeline_lifecycle(
     enabled: bool,
 ) -> Result<OperationOutcome> {
     let pipeline_id = Id(target.to_string());
+
     let mut pipeline = state
         .storage
         .scheduled_pipelines
         .get(&ctx.org_id, &pipeline_id)
         .await?;
+
     if pipeline.enabled != enabled {
         pipeline.enabled = enabled;
         pipeline.updated_at = TimestampMicros::now();
         pipeline = state.storage.scheduled_pipelines.update(pipeline).await?;
     }
+
     Ok(OperationOutcome {
         summary: if enabled {
             "scheduled pipeline is enabled".into()
@@ -323,16 +339,19 @@ async fn delete_scheduled_pipeline(
     target: &str,
 ) -> Result<OperationOutcome> {
     let pipeline_id = Id(target.to_string());
+
     state
         .storage
         .scheduled_pipelines
         .get(&ctx.org_id, &pipeline_id)
         .await?;
+
     state
         .storage
         .scheduled_pipelines
         .delete(&ctx.org_id, &pipeline_id)
         .await?;
+
     Ok(OperationOutcome {
         summary: "scheduled pipeline deleted".into(),
         verification: json!({

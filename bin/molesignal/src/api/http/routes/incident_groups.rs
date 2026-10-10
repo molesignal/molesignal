@@ -37,6 +37,7 @@ pub struct ListQuery {
     #[serde(default = "default_limit")]
     pub limit: i64,
 }
+
 fn default_limit() -> i64 {
     200
 }
@@ -77,11 +78,13 @@ async fn list(
     Query(p): Query<ListQuery>,
 ) -> Result<Json<Vec<GroupResp>>> {
     let filter = p.state.as_deref().map(IncidentGroupState::parse);
+
     let groups = state
         .alerting
         .incident_groups
         .list(&ctx.org_id, filter, p.limit.clamp(1, 1000))
         .await?;
+
     Ok(Json(groups.into_iter().map(to_resp).collect()))
 }
 
@@ -96,6 +99,7 @@ async fn get_one(
         .incident_groups
         .get(&ctx.org_id, &Id(id))
         .await?;
+
     Ok(Json(to_resp(g)))
 }
 
@@ -107,19 +111,23 @@ async fn ack(
 ) -> Result<Json<serde_json::Value>> {
     let group_id = Id(id);
     let now = TimestampMicros::now();
+
     state
         .alerting
         .incident_groups
         .ack(&ctx.org_id, &group_id, &ctx.user_id, now)
         .await?;
+
     // 把 group 上的 ack 级联到成员 incident（best-effort）。
     let group = state
         .alerting
         .incident_groups
         .get(&ctx.org_id, &group_id)
         .await?;
+
     let members = member_incidents(&state, &ctx.org_id, &group).await?;
     let mut acked = 0usize;
+
     for inc in &members {
         if state
             .alerting
@@ -131,6 +139,7 @@ async fn ack(
             acked += 1;
         }
     }
+
     Ok(Json(serde_json::json!({
         "acked": true,
         "incident_acked": acked > 0,
@@ -160,11 +169,13 @@ async fn member_incidents(
         && sg.org_id == *org
     {
         let actives = state.alerting.service.incidents.list_active(org).await?;
+
         return Ok(actives
             .into_iter()
             .filter(|i| sg.matches(&i.labels) && sg.group_key(&i.labels) == group.fingerprint)
             .collect());
     }
+
     Ok(state
         .alerting
         .service
@@ -183,11 +194,13 @@ async fn resolve(
 ) -> Result<Json<serde_json::Value>> {
     let group_id = Id(id);
     let now = TimestampMicros::now();
+
     state
         .alerting
         .incident_groups
         .resolve(&ctx.org_id, &group_id, now)
         .await?;
+
     // group resolve → 成员 incident resolve（best-effort）。
     // 逐规则去重簇是 1:1（按 incident fingerprint）；语义分组是 1:many（跨规则聚合，
     // 见 member_incidents）。
@@ -196,8 +209,10 @@ async fn resolve(
         .incident_groups
         .get(&ctx.org_id, &group_id)
         .await?;
+
     let members = member_incidents(&state, &ctx.org_id, &group).await?;
     let mut resolved = 0usize;
+
     for inc in &members {
         if state
             .alerting
@@ -209,6 +224,7 @@ async fn resolve(
             resolved += 1;
         }
     }
+
     Ok(Json(serde_json::json!({
         "resolved": true,
         "incident_resolved": resolved > 0,

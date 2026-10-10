@@ -39,6 +39,7 @@ impl DashboardDraftRepository for MemoryDrafts {
             .lock()
             .drafts
             .insert(draft.id.clone(), draft.clone());
+
         Ok(draft)
     }
 
@@ -49,46 +50,58 @@ impl DashboardDraftRepository for MemoryDrafts {
         now: TimestampMicros,
     ) -> Result<DashboardDraft> {
         let mut state = self.state.lock();
+
         let draft = state
             .drafts
             .get_mut(draft_id)
             .filter(|draft| &draft.org_id == org_id)
             .ok_or_else(|| Error::not_found("dashboard draft not found"))?;
+
         if draft.status == DashboardDraftStatus::Ready && draft.expires_at <= now {
             draft.status = DashboardDraftStatus::Expired;
         }
+
         Ok(draft.clone())
     }
 
     async fn consume_and_create(&self, request: ConsumeDashboardDraft) -> Result<DraftConsumption> {
         let mut state = self.state.lock();
+
         let draft = state
             .drafts
             .get(&request.draft_id)
             .filter(|draft| draft.org_id == request.org_id && draft.created_by == request.actor)
             .cloned()
             .ok_or_else(|| Error::not_found("dashboard draft not found"))?;
+
         if draft.status == DashboardDraftStatus::Consumed {
             let dashboard = state
                 .dashboards
                 .get(draft.dashboard_id.as_ref().unwrap())
                 .cloned()
                 .unwrap();
+
             return Ok(DraftConsumption::Replay(dashboard));
         }
+
         if draft.status == DashboardDraftStatus::Expired || draft.expires_at <= request.now {
             return Err(draft_error("DRAFT_EXPIRED", "draft expired"));
         }
+
         if draft.model_hash != request.expected_hash {
             return Err(draft_error("DRAFT_HASH_MISMATCH", "hash mismatch"));
         }
+
         if draft.compiler_version != request.compiler_version {
             return Err(draft_error("DRAFT_STALE", "compiler mismatch"));
         }
+
         let dashboard = request.dashboard;
+
         state
             .dashboards
             .insert(dashboard.id.clone(), dashboard.clone());
+
         let saved = state.drafts.get_mut(&request.draft_id).unwrap();
         saved.status = DashboardDraftStatus::Consumed;
         saved.dashboard_id = Some(dashboard.id.clone());
@@ -105,9 +118,11 @@ impl DashboardRepository for MemoryDashboards {
     async fn create(&self, dashboard: Dashboard) -> Result<Dashboard> {
         Ok(dashboard)
     }
+
     async fn update(&self, dashboard: Dashboard) -> Result<Dashboard> {
         Ok(dashboard)
     }
+
     async fn update_if_version(
         &self,
         dashboard: Dashboard,
@@ -115,15 +130,19 @@ impl DashboardRepository for MemoryDashboards {
     ) -> Result<Dashboard> {
         Ok(dashboard)
     }
+
     async fn get(&self, _id: &Id) -> Result<Dashboard> {
         Err(Error::not_found("dashboard"))
     }
+
     async fn get_by_uid(&self, _org_id: &Id, _uid: &str) -> Result<Dashboard> {
         Err(Error::not_found("dashboard"))
     }
+
     async fn list(&self, _org_id: &Id, _folder_id: Option<&Id>) -> Result<Vec<Dashboard>> {
         Ok(Vec::new())
     }
+
     async fn delete(&self, _id: &Id) -> Result<()> {
         Ok(())
     }
@@ -137,18 +156,23 @@ impl FolderRepository for MemoryFolders {
     async fn create(&self, folder: Folder) -> Result<Folder> {
         Ok(folder)
     }
+
     async fn get_by_id(&self, _id: &Id) -> Result<Folder> {
         Err(Error::not_found("folder"))
     }
+
     async fn get(&self, _org_id: &Id, _id: &Id) -> Result<Folder> {
         Err(Error::not_found("folder"))
     }
+
     async fn list(&self, _org_id: &Id) -> Result<Vec<Folder>> {
         Ok(Vec::new())
     }
+
     async fn update(&self, folder: Folder) -> Result<Folder> {
         Ok(folder)
     }
+
     async fn delete(&self, _id: &Id) -> Result<()> {
         Ok(())
     }
@@ -185,10 +209,12 @@ impl DashboardContractResolver for MutableContracts {
 
 fn service(report: PreflightReport) -> (Arc<DashboardAuthoringService>, Arc<MemoryDrafts>) {
     let drafts = Arc::new(MemoryDrafts::default());
+
     let dashboard = Arc::new(
         DashboardService::new(Arc::new(MemoryDashboards), Arc::new(MemoryFolders))
             .with_draft_repository(drafts.clone()),
     );
+
     (
         Arc::new(DashboardAuthoringService::new(
             drafts.clone(),
@@ -204,11 +230,13 @@ fn service_with_contracts(
     contracts: Arc<dyn DashboardContractResolver>,
 ) -> (Arc<DashboardAuthoringService>, Arc<MemoryDrafts>) {
     let drafts = Arc::new(MemoryDrafts::default());
+
     let dashboard = Arc::new(
         DashboardService::new(Arc::new(MemoryDashboards), Arc::new(MemoryFolders))
             .with_draft_repository(drafts.clone())
             .with_contract_resolver(contracts.clone()),
     );
+
     (
         Arc::new(
             DashboardAuthoringService::new(

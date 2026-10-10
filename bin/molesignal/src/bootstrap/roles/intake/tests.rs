@@ -128,16 +128,19 @@ fn fixture(settings: IntakeSettings) -> WorkerFixture {
 fn fixture_with_budget(settings: IntakeSettings, memory_budget_bytes: usize) -> WorkerFixture {
     let wal_dir = tempdir().unwrap();
     let stream = stream_definition();
+
     let wal = Arc::new(WalPool::new(
         wal_dir.path(),
         "node-test",
         64 * 1024,
         FsyncPolicy::none_default(),
     ));
+
     let buffer = Arc::new(BufferPool::with_memory_limit_bytes(memory_budget_bytes));
     let (catalog, resolver) = test_catalog_and_resolver();
     let store = Arc::new(InMemory::new());
     let stream_gone = Arc::new(AtomicBool::new(false));
+
     let worker = Arc::new(IntakeWorker::new(
         wal,
         buffer.clone(),
@@ -151,6 +154,7 @@ fn fixture_with_budget(settings: IntakeSettings, memory_budget_bytes: usize) -> 
         Arc::new(Probe::new()),
         settings,
     ));
+
     WorkerFixture {
         worker,
         catalog,

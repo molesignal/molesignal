@@ -88,6 +88,7 @@ async fn list(
     Query(params): Query<ListParams>,
 ) -> Result<Json<Vec<ArtifactResponse>>> {
     let kind = params.kind.as_deref().map(parse_kind).transpose()?;
+
     let artifacts = state
         .storage
         .debug_artifacts
@@ -99,6 +100,7 @@ async fn list(
             normalized_filter(params.platform.as_deref()),
         )
         .await?;
+
     Ok(Json(artifacts.into_iter().map(to_response).collect()))
 }
 
@@ -109,14 +111,17 @@ async fn upload(
     mut multipart: Multipart,
 ) -> Result<Json<ArtifactResponse>> {
     let mut fields = UploadFields::default();
+
     while let Some(field) = multipart
         .next_field()
         .await
         .map_err(|error| Error::invalid(format!("multipart: {error}")))?
     {
         let name = field.name().unwrap_or_default().to_string();
+
         if name == "file" {
             fields.filename = field.file_name().map(safe_filename);
+
             fields.bytes = Some(
                 field
                     .bytes()
@@ -128,6 +133,7 @@ async fn upload(
                 .text()
                 .await
                 .map_err(|error| Error::invalid(format!("field {name}: {error}")))?;
+
             fields.set_text(&name, value);
         }
     }
@@ -137,6 +143,7 @@ async fn upload(
     let validation_bytes = bytes.clone();
     let validation_filename = artifact.meta.filename.clone();
     let validation_kind = artifact.meta.kind;
+
     tokio::task::spawn_blocking(move || {
         crate::infra::rum::symbolication::validate_artifact(
             validation_kind,
@@ -146,15 +153,19 @@ async fn upload(
     })
     .await
     .map_err(|error| Error::internal(format!("debug artifact validation task: {error}")))??;
+
     let path = ObjectPath::parse(&artifact.meta.object_key)
         .map_err(|error| Error::internal(format!("debug artifact object path: {error}")))?;
+
     state
         .storage
         .object_store
         .put(&path, bytes.into())
         .await
         .map_err(|error| Error::internal(format!("debug artifact upload: {error}")))?;
+
     let object_key = artifact.meta.object_key.clone();
+
     let upsert = match state.storage.debug_artifacts.create(artifact.meta).await {
         Ok(saved) => saved,
         Err(error) => {
@@ -162,7 +173,9 @@ async fn upload(
             return Err(error);
         }
     };
+
     let saved = upsert.artifact;
+
     if let Some(previous_key) = upsert
         .replaced_object_key
         .filter(|previous_key| previous_key != &saved.object_key)
@@ -172,6 +185,7 @@ async fn upload(
     {
         tracing::warn!(artifact_id = %saved.id.0, %error, "replaced debug artifact cleanup failed");
     }
+
     debug_assert_eq!(saved.object_key, object_key);
     Ok(Json(to_response(saved)))
 }
@@ -188,12 +202,14 @@ async fn delete(
         .delete(&context.org_id, &Id(id))
         .await?
         .ok_or_else(|| Error::not_found("debug artifact"))?;
+
     if let Ok(path) = ObjectPath::parse(&artifact.object_key)
         && let Err(error) = state.storage.object_store.delete(&path).await
         && !matches!(error, object_store::Error::NotFound { .. })
     {
         tracing::warn!(artifact_id = %artifact.id.0, %error, "debug artifact object cleanup failed");
     }
+
     Ok(Json(serde_json::json!({"deleted": true})))
 }
 
@@ -234,22 +250,29 @@ impl UploadFields {
         let architecture =
             normalize_architecture(&optional(self.architecture, "architecture", 32)?);
         let debug_id = normalize_debug_id(&optional(self.debug_id, "debug_id", 128)?);
+
         let filename = self
             .filename
             .filter(|value| !value.is_empty())
             .ok_or_else(|| Error::invalid("file field with filename is required"))?;
+
         validate_kind_platform(kind, &platform)?;
+
         let bytes = self
             .bytes
             .ok_or_else(|| Error::invalid("file field is required"))?;
+
         if bytes.is_empty() {
             return Err(Error::invalid("debug artifact must not be empty"));
         }
+
         if bytes.len() > MAX_ARTIFACT_BYTES {
             return Err(Error::invalid("debug artifact exceeds 50 MiB"));
         }
+
         let checksum_sha256 = hex::encode(Sha256::digest(&bytes));
         let id = Id::new();
+
         let object_key = build_object_key(
             org_id,
             &id,
@@ -262,6 +285,7 @@ impl UploadFields {
             &debug_id,
             &filename,
         );
+
         Ok(UploadArtifact {
             meta: DebugArtifactMeta {
                 id,
@@ -303,6 +327,7 @@ fn validate_kind_platform(kind: DebugArtifactKind, platform: &str) -> Result<()>
         }
         DebugArtifactKind::AppleDsym => platform == "ios",
     };
+
     if valid {
         Ok(())
     } else {
@@ -315,9 +340,11 @@ fn validate_kind_platform(kind: DebugArtifactKind, platform: &str) -> Result<()>
 
 fn required(value: Option<String>, field: &str, max: usize) -> Result<String> {
     let value = value.unwrap_or_default().trim().to_string();
+
     if value.is_empty() {
         return Err(Error::invalid(format!("field {field} is required")));
     }
+
     validate_length(&value, field, max)?;
     Ok(value)
 }
@@ -382,7 +409,9 @@ fn build_object_key(
         filename,
     ]
     .join("\0");
+
     let identity_hash = hex::encode(Sha256::digest(identity.as_bytes()));
+
     format!(
         "debug-artifacts/{}/{identity_hash}/{}/{filename}",
         safe_segment(org_id.as_str(), 64),

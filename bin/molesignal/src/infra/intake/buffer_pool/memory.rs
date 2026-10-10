@@ -33,10 +33,12 @@ impl MemoryBudget {
     ) -> Result<MemoryReservation> {
         if !self.reserve_with_limit(bytes) {
             inc_memory_rejection(stream_type.as_str());
+
             return Err(Error::resource_exhausted(
                 "intake buffer memory limit exceeded; retry later",
             ));
         }
+
         Ok(MemoryReservation::new(self.clone(), bytes))
     }
 
@@ -47,6 +49,7 @@ impl MemoryBudget {
                 current.checked_add(bytes)
             })
             .map_err(|_| Error::internal("intake buffer memory accounting overflow"))?;
+
         add_reserved_buffer_bytes(bytes_as_i64(bytes));
         Ok(MemoryReservation::new(self.clone(), bytes))
     }
@@ -55,12 +58,15 @@ impl MemoryBudget {
         if bytes == 0 {
             return;
         }
+
         let result =
             self.reserved_bytes
                 .fetch_update(Ordering::AcqRel, Ordering::Acquire, |current| {
                     current.checked_sub(bytes)
                 });
+
         debug_assert!(result.is_ok(), "buffer memory accounting underflow");
+
         if result.is_ok() {
             add_reserved_buffer_bytes(-bytes_as_i64(bytes));
         }
@@ -79,9 +85,11 @@ impl MemoryBudget {
                     .filter(|next| *next <= self.max_bytes)
             })
             .is_ok();
+
         if reserved {
             add_reserved_buffer_bytes(bytes_as_i64(bytes));
         }
+
         reserved
     }
 }
@@ -89,6 +97,7 @@ impl MemoryBudget {
 impl Drop for MemoryBudget {
     fn drop(&mut self) {
         let remaining = self.reserved_bytes.load(Ordering::Acquire);
+
         if remaining > 0 {
             add_reserved_buffer_bytes(-bytes_as_i64(remaining));
         }

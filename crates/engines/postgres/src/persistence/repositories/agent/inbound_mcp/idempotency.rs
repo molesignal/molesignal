@@ -45,6 +45,7 @@ pub(super) async fn reserve(
     input: InboundMcpIdempotencyInput,
 ) -> Result<InboundMcpIdempotencyReservation> {
     let now = TimestampMicros::now();
+
     let inserted = sqlx::query(
         "INSERT INTO inbound_mcp_idempotency
             (org_id,principal_type,principal_id,idempotency_key,tool_name,request_hash,status,
@@ -63,6 +64,7 @@ pub(super) async fn reserve(
     .execute(pool)
     .await
     .map_err(sqlx_err)?;
+
     if inserted.rows_affected() == 1 {
         return Ok(InboundMcpIdempotencyReservation::Acquired);
     }
@@ -79,6 +81,7 @@ pub(super) async fn reserve(
     .await
     .map_err(sqlx_err)
     .and_then(record_row)?;
+
     if existing.request_hash != input.request_hash || existing.tool_name != input.tool_name {
         return Err(Error::conflict(
             "idempotency_key was already used for a different managed tool request",
@@ -104,7 +107,9 @@ pub(super) async fn complete(
     if !matches!(status, "completed" | "failed") {
         return Err(Error::internal("invalid inbound MCP idempotency status"));
     }
+
     let now = TimestampMicros::now();
+
     let updated = sqlx::query(
         "UPDATE inbound_mcp_idempotency
          SET status=$7,approval_id=$8,result=$9,updated_at_micros=$10
@@ -124,10 +129,12 @@ pub(super) async fn complete(
     .execute(pool)
     .await
     .map_err(sqlx_err)?;
+
     if updated.rows_affected() != 1 {
         return Err(Error::conflict(
             "idempotency reservation was lost before completion",
         ));
     }
+
     Ok(())
 }

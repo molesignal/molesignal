@@ -62,21 +62,27 @@ pub struct WalSettings {
 fn default_wal_dir() -> String {
     "./data/wal".into()
 }
+
 fn default_wal_seg() -> u32 {
     256
 }
+
 fn default_flush_strategy() -> WalFlushStrategy {
     WalFlushStrategy::Batch
 }
+
 fn default_sync_level() -> WalSyncLevel {
     WalSyncLevel::Data
 }
+
 fn default_batch_max_pending() -> u32 {
     64
 }
+
 fn default_batch_max_delay_ms() -> u32 {
     50
 }
+
 fn default_max_replay_mb() -> u32 {
     512
 }

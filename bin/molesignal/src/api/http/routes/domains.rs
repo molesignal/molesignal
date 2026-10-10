@@ -95,6 +95,7 @@ async fn create(
     let hostname = req.hostname.trim().to_lowercase();
     hostname_valid(&hostname).map_err(|e| Error::invalid(format!("invalid hostname: {e}")))?;
     let now = TimestampMicros::now();
+
     let d = DomainRow {
         id: Id::new(),
         org_id: ctx.org_id.clone(),
@@ -106,6 +107,7 @@ async fn create(
         created_at: now,
         updated_at: now,
     };
+
     Ok(Json(to_resp(state.platform.domains.create(d).await?)))
 }
 
@@ -131,6 +133,7 @@ async fn renew(
         .domains
         .update_state(&Id(id), "provisioning", None, None, None)
         .await?;
+
     Ok(Json(serde_json::json!({"renew_queued": true})))
 }
 
@@ -150,5 +153,6 @@ async fn serve_challenge(
         .get_challenge(&token)
         .await?
         .ok_or_else(|| Error::not_found("acme challenge not found"))?;
+
     Ok(ch.key_authorization)
 }

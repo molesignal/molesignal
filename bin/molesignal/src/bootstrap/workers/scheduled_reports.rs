@@ -37,10 +37,13 @@ use crate::{
 };
 
 const TICK_SECS: u64 = 60;
+
 /// 运行租约里这类工作的名字。
 const RUN_KIND: &str = "scheduled_report";
+
 /// cron 解析失败时 fallback 间隔（24h）。
 const FALLBACK_INTERVAL_SECS: i64 = 24 * 3600;
+
 fn report_recipient_kind(kind: &str) -> &'static str {
     match kind {
         "webhook" => "webhook",
@@ -73,6 +76,7 @@ impl ScheduledReportRunner {
             .timeout(Duration::from_secs(30))
             .build()
             .unwrap_or_else(|_| reqwest::Client::new());
+
         Self {
             repo,
             http,
@@ -91,11 +95,14 @@ impl ScheduledReportRunner {
 
     pub fn spawn(self: Arc<Self>) -> JoinHandle<()> {
         let me = self.clone();
+
         tokio::spawn(async move {
             let mut ticker = tokio::time::interval(Duration::from_secs(TICK_SECS));
             ticker.tick().await;
+
             loop {
                 ticker.tick().await;
+
                 if let Err(e) = me.tick_once().await {
                     tracing::warn!(error = %e, "scheduled_reports tick failed");
                 }
@@ -113,10 +120,12 @@ impl ScheduledReportRunner {
         let reports = self.repo.list_enabled_all().await?;
         let now = TimestampMicros::now();
         let mut fired = 0usize;
+
         for r in reports {
             if !is_due(&r, now) {
                 continue;
             }
+
             // 先认领再执行：归属决定谁来跑，运行租约兜住成员变化时的双跑。
             let permit = match self.gate.admit(RUN_KIND, r.id.as_str()).await {
                 Ok(Some(permit)) => permit,
@@ -126,12 +135,14 @@ impl ScheduledReportRunner {
                     continue;
                 }
             };
+
             // 认领后重读：另一个节点可能刚跑完并推进了 last_run_at，不能拿列表时的旧快照再发一遍。
             match self.repo.get_by_id(&r.id).await {
                 Ok(fresh) if fresh.enabled && is_due(&fresh, now) => {
                     if let Err(e) = self.run_once(&fresh, now).await {
                         tracing::warn!(report_id = %r.id.0, error = %e, "report run failed");
                     }
+
                     fired += 1;
                 }
                 Ok(_) => {}
@@ -139,10 +150,12 @@ impl ScheduledReportRunner {
                     tracing::warn!(report_id = %r.id.0, error = %e, "report reload failed");
                 }
             }
+
             if let Err(e) = permit.release().await {
                 tracing::warn!(report_id = %r.id.0, error = %e, "report run claim release failed");
             }
         }
+
         Ok(fired)
     }
 
@@ -162,6 +175,7 @@ impl ScheduledReportRunner {
                     "scheduled report render failed"
                 );
                 let error = error.to_string();
+
                 for recipient in &r.recipients {
                     self.repo
                         .record_delivery(ReportDelivery {
@@ -177,17 +191,21 @@ impl ScheduledReportRunner {
                         })
                         .await?;
                 }
+
                 self.repo.touch_last_run(&r.id, now).await?;
                 return Ok(());
             }
         };
+
         for recipient in &r.recipients {
             let result = self.deliver(r, recipient, &body).await;
+
             let status = if result.is_ok() {
                 DeliveryStatus::Sent
             } else {
                 DeliveryStatus::Failed
             };
+
             self.repo
                 .record_delivery(ReportDelivery {
                     id: Id::new(),
@@ -202,6 +220,7 @@ impl ScheduledReportRunner {
                 })
                 .await?;
         }
+
         self.repo.touch_last_run(&r.id, now).await?;
         Ok(())
     }
@@ -224,6 +243,7 @@ impl ScheduledReportRunner {
                     .post(&recipient.target)
                     .header("Content-Type", content_type_for(&r.format))
                     .body(body.to_vec());
+
                 let resp = crate::shared::http_trace::send(
                     &self.http,
                     request,
@@ -231,6 +251,7 @@ impl ScheduledReportRunner {
                 )
                 .await
                 .map_err(|e| crate::shared::Error::internal(format!("webhook: {e}")))?;
+
                 if !resp.status().is_success() {
                     return Err(crate::shared::Error::internal(format!(
                         "webhook {} returned {}",
@@ -238,17 +259,20 @@ impl ScheduledReportRunner {
                         resp.status()
                     )));
                 }
+
                 Ok(())
             }
             "s3" => {
                 // `target` 是 object key prefix；写到 `<prefix>/<report-id>-<ts>.<ext>`
                 let ext = ext_for(&r.format);
                 let ts = chrono::Utc::now().format("%Y%m%dT%H%M%SZ");
+
                 let key = format!(
                     "{prefix}/{id}-{ts}.{ext}",
                     prefix = recipient.target.trim_end_matches('/'),
                     id = r.id.0
                 );
+
                 self.object_store
                     .put(
                         &Path::from(key.clone()),
@@ -256,6 +280,7 @@ impl ScheduledReportRunner {
                     )
                     .await
                     .map_err(|e| crate::shared::Error::internal(format!("s3 put: {e}")))?;
+
                 Ok(())
             }
             "email" => {
@@ -289,14 +314,18 @@ impl ScheduledReportRunner {
                     "scheduled report PDF/PNG renderer is unavailable; verify the Chrome runtime",
                 )
             })?;
+
             let url = build_embed_url(&self.render_base_url, r);
+
             // 定时任务当前没有交互用户会话；目标渲染页必须由受信任的内部入口提供。
             let bytes = renderer
                 .render(&url, fmt, Viewport::default(), None)
                 .await?;
+
             validate_report_bytes(fmt, &bytes)?;
             return Ok(bytes.to_vec());
         }
+
         render(r)
     }
 }
@@ -304,12 +333,15 @@ impl ScheduledReportRunner {
 /// 构造内部报告渲染 URL。使用前端真实存在的路由，避免 `/embed` 落入 404 页面。
 fn build_embed_url(base_url: &str, r: &ScheduledReport) -> String {
     let base_url = base_url.trim_end_matches('/');
+
     if let Some(id) = &r.dashboard_id {
         return format!("{base_url}/dashboards/{}?report_render=1", id.0);
     }
+
     if let Some(id) = &r.saved_view_id {
         return format!("{base_url}/saved-views?view={}&report_render=1", id.0);
     }
+
     format!("{base_url}/")
 }
 
@@ -326,6 +358,7 @@ fn ext_for(format: &str) -> &'static str {
 
 fn is_due(r: &ScheduledReport, now: TimestampMicros) -> bool {
     let interval_secs = parse_every_secs(&r.cron).unwrap_or(FALLBACK_INTERVAL_SECS);
+
     match r.last_run_at {
         Some(last) => now.0 - last.0 >= interval_secs * 1_000_000,
         None => true,
@@ -337,6 +370,7 @@ fn parse_every_secs(cron: &str) -> Option<i64> {
     let split = rest.find(|c: char| !c.is_ascii_digit())?;
     let (num, unit) = rest.split_at(split);
     let n: i64 = num.parse().ok()?;
+
     Some(match unit {
         "s" => n,
         "m" => n * 60,

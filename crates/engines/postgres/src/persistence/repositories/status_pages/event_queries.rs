@@ -45,6 +45,7 @@ impl StatusPageIncidentQueryRepository for PgStatusPageRepository {
              ORDER BY (ended_at_micros IS NULL) DESC, started_at_micros DESC, id DESC
              LIMIT 200"
         );
+
         let incidents = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&page_id.0)
@@ -55,6 +56,7 @@ impl StatusPageIncidentQueryRepository for PgStatusPageRepository {
             .into_iter()
             .map(row_to_incident)
             .collect::<Result<Vec<_>>>()?;
+
         hydrate_incidents(&self.pool, org_id, page_id, incidents).await
     }
 
@@ -68,10 +70,12 @@ impl StatusPageIncidentQueryRepository for PgStatusPageRepository {
     ) -> Result<StatusPageEventList> {
         validate_view_kind(kind, view)?;
         let predicate = view_predicate(view);
+
         let count_sql = format!(
             "SELECT count(*) FROM status_page_incidents
              WHERE org_id = $1 AND status_page_id = $2 AND kind = $3 AND {predicate}"
         );
+
         let total: i64 = sqlx::query_scalar(&count_sql)
             .bind(&org_id.0)
             .bind(&page_id.0)
@@ -79,6 +83,7 @@ impl StatusPageIncidentQueryRepository for PgStatusPageRepository {
             .fetch_one(&self.pool)
             .await
             .map_err(super::sqlx_err)?;
+
         let order = if matches!(view, StatusPageEventView::Upcoming) {
             "started_at_micros, id"
         } else if matches!(
@@ -89,11 +94,13 @@ impl StatusPageIncidentQueryRepository for PgStatusPageRepository {
         } else {
             "updated_at_micros DESC, id DESC"
         };
+
         let sql = format!(
             "SELECT {INCIDENT_COLS} FROM status_page_incidents
              WHERE org_id = $1 AND status_page_id = $2 AND kind = $3 AND {predicate}
              ORDER BY {order} LIMIT $4"
         );
+
         let incidents = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&page_id.0)
@@ -105,6 +112,7 @@ impl StatusPageIncidentQueryRepository for PgStatusPageRepository {
             .into_iter()
             .map(row_to_incident)
             .collect::<Result<Vec<_>>>()?;
+
         Ok(StatusPageEventList {
             kind,
             view,
@@ -122,6 +130,7 @@ impl StatusPageIncidentQueryRepository for PgStatusPageRepository {
         let search = query.search.as_deref().map(escape_like);
         let status = query.status.map(|value| value.as_str());
         let kind = query.kind.map(|value| value.as_str());
+
         let filter = "event.org_id = $1 AND event.status_page_id = $2
             AND event.publication_state = 'published' AND event.ended_at_micros IS NOT NULL
             AND ($3::VARCHAR IS NULL OR event.kind = $3)
@@ -142,7 +151,9 @@ impl StatusPageIncidentQueryRepository for PgStatusPageRepository {
                       AND update_row.incident_id = event.id
                       AND update_row.message ILIKE ('%' || $8 || '%') ESCAPE '\\'
                  ))";
+
         let count_sql = format!("SELECT count(*) FROM status_page_incidents event WHERE {filter}");
+
         let total: i64 = sqlx::query_scalar(&count_sql)
             .bind(&org_id.0)
             .bind(&page_id.0)
@@ -155,14 +166,17 @@ impl StatusPageIncidentQueryRepository for PgStatusPageRepository {
             .fetch_one(&self.pool)
             .await
             .map_err(super::sqlx_err)?;
+
         let offset =
             u64::from(query.page.saturating_sub(1)).saturating_mul(u64::from(query.per_page));
+
         let sql = format!(
             "SELECT {INCIDENT_COLS} FROM status_page_incidents event
              WHERE {filter}
              ORDER BY event.ended_at_micros DESC, event.id DESC
              LIMIT $9 OFFSET $10"
         );
+
         let rows = sqlx::query(&sql)
             .bind(&org_id.0)
             .bind(&page_id.0)
@@ -177,10 +191,12 @@ impl StatusPageIncidentQueryRepository for PgStatusPageRepository {
             .fetch_all(&self.pool)
             .await
             .map_err(super::sqlx_err)?;
+
         let incidents = rows
             .into_iter()
             .map(row_to_incident)
             .collect::<Result<Vec<_>>>()?;
+
         Ok(StatusPageHistoryPage {
             items: hydrate_incidents(&self.pool, org_id, page_id, incidents).await?,
             page: query.page,
@@ -200,6 +216,7 @@ pub(super) async fn fetch_incident(
         "SELECT {INCIDENT_COLS} FROM status_page_incidents
          WHERE org_id = $1 AND status_page_id = $2 AND id = $3"
     );
+
     let incident = sqlx::query(&sql)
         .bind(&org_id.0)
         .bind(&page_id.0)
@@ -210,6 +227,7 @@ pub(super) async fn fetch_incident(
         .map(row_to_incident)
         .transpose()?
         .ok_or_else(|| Error::not_found("status-page event not found"))?;
+
     hydrate_incidents(pool, org_id, page_id, vec![incident])
         .await?
         .pop()
@@ -225,7 +243,9 @@ async fn hydrate_incidents(
     if incidents.is_empty() {
         return Ok(incidents);
     }
+
     let selected_ids: Vec<String> = incidents.iter().map(|event| event.id.0.clone()).collect();
+
     let component_rows = sqlx::query(
         "SELECT incident_id, component_id FROM status_page_incident_components
          WHERE org_id = $1 AND status_page_id = $2 AND incident_id = ANY($3::TEXT[])
@@ -237,12 +257,15 @@ async fn hydrate_incidents(
     .fetch_all(pool)
     .await
     .map_err(super::sqlx_err)?;
+
     let mut component_ids: HashMap<String, Vec<Id>> = HashMap::new();
+
     for row in component_rows {
         let owner: String = row.try_get("incident_id").map_err(super::sqlx_err)?;
         let component: String = row.try_get("component_id").map_err(super::sqlx_err)?;
         component_ids.entry(owner).or_default().push(Id(component));
     }
+
     let update_rows = sqlx::query(
         "SELECT id, org_id, status_page_id, incident_id, status, message, created_at_micros
          FROM (
@@ -264,20 +287,26 @@ async fn hydrate_incidents(
     .fetch_all(pool)
     .await
     .map_err(super::sqlx_err)?;
+
     let mut updates: HashMap<String, Vec<StatusPageIncidentUpdate>> = HashMap::new();
+
     for row in update_rows {
         let update = row_to_update(row)?;
+
         updates
             .entry(update.incident_id.0.clone())
             .or_default()
             .push(update);
     }
+
     for incident in &mut incidents {
         incident.component_ids = component_ids
             .remove(incident.id.as_str())
             .unwrap_or_default();
+
         incident.updates = updates.remove(incident.id.as_str()).unwrap_or_default();
     }
+
     Ok(incidents)
 }
 
@@ -297,6 +326,7 @@ fn validate_view_kind(kind: StatusPageIncidentKind, view: StatusPageEventView) -
                 | StatusPageEventView::Draft
         ),
     };
+
     valid
         .then_some(())
         .ok_or_else(|| Error::invalid("event view is invalid for this event kind"))

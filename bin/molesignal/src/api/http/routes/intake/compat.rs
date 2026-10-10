@@ -45,11 +45,14 @@ fn decode_body(headers: &HeaderMap, body: &Bytes) -> Result<Vec<u8>> {
         .and_then(|v| v.to_str().ok())
         .map(|v| v.to_ascii_lowercase().contains("gzip"))
         .unwrap_or(false);
+
     if gzipped {
         let mut out = Vec::new();
+
         flate2::read::GzDecoder::new(body.as_ref())
             .read_to_end(&mut out)
             .map_err(|e| Error::invalid(format!("gzip decode: {e}")))?;
+
         Ok(out)
     } else {
         Ok(body.to_vec())
@@ -77,12 +80,14 @@ async fn intake_into(
     if events.is_empty() {
         return Ok(0);
     }
+
     crate::api::http::intake_usage::record_intake_usage(
         state,
         org_id,
         body_len as u64,
         TimestampMicros::now().0,
     );
+
     let batch = IntakeBatch {
         batch_id: Id::new(),
         org_id: org_id.clone(),
@@ -91,6 +96,7 @@ async fn intake_into(
         events,
         received_at: TimestampMicros::now(),
     };
+
     Ok(state.intake.intake(batch).await?.accepted)
 }
 
@@ -103,42 +109,52 @@ async fn intake_into(
 fn parse_es_bulk(text: &str, default_stream: &str) -> Result<BTreeMap<String, Vec<RawEvent>>> {
     let mut by_stream: BTreeMap<String, Vec<RawEvent>> = BTreeMap::new();
     let mut lines = text.lines();
+
     while let Some(action_line) = lines.next() {
         let action_line = action_line.trim();
+
         if action_line.is_empty() {
             continue;
         }
+
         let Ok(Value::Object(action)) = serde_json::from_str::<Value>(action_line) else {
             return Err(Error::invalid("es bulk: action line is not a JSON object"));
         };
+
         // action 形如 {"index":{"_index":"x"}} / {"create":{...}} / {"delete":{...}} / {"update":{...}}
         let (op, meta) = action.into_iter().next().unwrap_or_default();
+
         let target = meta
             .get("_index")
             .and_then(|v| v.as_str())
             .map(str::to_string)
             .unwrap_or_else(|| default_stream.to_string());
+
         match op.as_str() {
             "delete" => continue, // 无 doc 行、无操作
             "index" | "create" | "update" => {
                 let Some(doc_line) = lines.next() else { break };
+
                 let Ok(Value::Object(mut doc)) = serde_json::from_str::<Value>(doc_line.trim())
                 else {
                     return Err(Error::invalid(
                         "es bulk: document line is not a JSON object",
                     ));
                 };
+
                 // update 的载荷在 `doc` 字段里。
                 if op == "update"
                     && let Some(Value::Object(inner)) = doc.remove("doc")
                 {
                     doc = inner;
                 }
+
                 let timestamp = doc
                     .remove("_timestamp")
                     .and_then(|v| v.as_i64())
                     .map(TimestampMicros)
                     .unwrap_or_else(TimestampMicros::now);
+
                 by_stream.entry(target).or_default().push(RawEvent {
                     timestamp,
                     fields: doc,
@@ -147,6 +163,7 @@ fn parse_es_bulk(text: &str, default_stream: &str) -> Result<BTreeMap<String, Ve
             other => return Err(Error::invalid(format!("es bulk: unknown action `{other}`"))),
         }
     }
+
     Ok(by_stream)
 }
 
@@ -163,6 +180,7 @@ async fn es_bulk(
     let by_stream = parse_es_bulk(&text, &default_stream)?;
 
     let accepted: usize = by_stream.values().map(Vec::len).sum();
+
     for (stream, events) in by_stream {
         intake_into(&state, &ctx.org_id, stream, events, body.len()).await?;
     }
@@ -171,6 +189,7 @@ async fn es_bulk(
     let items: Vec<Value> = (0..accepted)
         .map(|_| serde_json::json!({"index": {"status": 201}}))
         .collect();
+
     Ok(Json(serde_json::json!({"took": 0, "errors": false, "items": items})).into_response())
 }
 
@@ -183,37 +202,46 @@ fn parse_loki(payload: &Value) -> Result<Vec<RawEvent>> {
         .get("streams")
         .and_then(|v| v.as_array())
         .ok_or_else(|| Error::invalid("loki: missing `streams` array"))?;
+
     let mut events: Vec<RawEvent> = Vec::new();
+
     for s in streams {
         // labels：作为公共字段附加到该 stream 的每条事件。
         let mut base = Map::new();
+
         if let Some(Value::Object(labels)) = s.get("stream") {
             for (k, v) in labels {
                 base.insert(k.clone(), v.clone());
             }
         }
+
         let Some(values) = s.get("values").and_then(|v| v.as_array()) else {
             continue;
         };
+
         for entry in values {
             let Some(pair) = entry.as_array() else {
                 continue;
             };
+
             let ts = pair
                 .first()
                 .and_then(|v| v.as_str())
                 .and_then(|s| s.parse::<i64>().ok())
                 .map(|ns| TimestampMicros(ns / 1_000))
                 .unwrap_or_else(TimestampMicros::now);
+
             let line = pair.get(1).and_then(|v| v.as_str()).unwrap_or_default();
             let mut fields = base.clone();
             fields.insert("message".to_string(), Value::String(line.to_string()));
+
             events.push(RawEvent {
                 timestamp: ts,
                 fields,
             });
         }
     }
+
     Ok(events)
 }
 

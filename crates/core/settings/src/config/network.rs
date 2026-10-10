@@ -30,6 +30,7 @@ pub struct HttpSettings {
 fn default_http_bind() -> String {
     "0.0.0.0".into()
 }
+
 fn default_http_port() -> u16 {
     5080
 }
@@ -80,18 +81,23 @@ pub struct TlsSettings {
 fn default_tls_plain_port() -> u16 {
     80
 }
+
 fn default_tls_port() -> u16 {
     443
 }
+
 fn default_acme_directory() -> String {
     "production".into()
 }
+
 fn default_key_storage_dir() -> String {
     "/var/lib/molesignal/acme".into()
 }
+
 fn default_issue_poll_secs() -> u64 {
     60
 }
+
 fn default_renewal_retry_secs() -> u64 {
     6 * 3600
 }
@@ -138,6 +144,7 @@ pub struct GrpcSettings {
 fn default_grpc_port() -> u16 {
     5082
 }
+
 fn default_grpc_msg() -> u32 {
     32
 }
@@ -211,9 +218,11 @@ impl ProbeGrpcSettings {
         if self.register_port == self.control_port {
             anyhow::bail!("probe register_port and control_port must differ");
         }
+
         if self.certificate_days == 0 || self.certificate_days > 365 {
             anyhow::bail!("probe certificate_days must be between 1 and 365");
         }
+
         for endpoint in [
             self.resolved_register_endpoint(),
             self.resolved_control_endpoint(),
@@ -222,9 +231,11 @@ impl ProbeGrpcSettings {
                 anyhow::bail!("Probe endpoints must use https://");
             }
         }
+
         if self.server_names.is_empty() {
             anyhow::bail!("probe server_names must contain at least one DNS name or IP");
         }
+
         Ok(())
     }
 }
@@ -266,6 +277,7 @@ pub struct FlightSqlSettings {
 fn default_flight_sql_port() -> u16 {
     5083
 }
+
 fn default_flight_sql_lookback_hours() -> u32 {
     24
 }

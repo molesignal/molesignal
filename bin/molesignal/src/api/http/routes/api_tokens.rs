@@ -117,10 +117,12 @@ async fn list(
     require_organization_scope(&ctx)?;
     Permission::require_key(&ctx, "api_tokens.read")?;
     let tokens = state.iam.api_tokens.list_by_org(&ctx.org_id).await?;
+
     let role_ids = tokens
         .iter()
         .map(|token| token.role_id.clone())
         .collect::<Vec<_>>();
+
     let roles = state
         .iam
         .access
@@ -130,6 +132,7 @@ async fn list(
         .into_iter()
         .map(|role| (role.id.0.clone(), role))
         .collect::<HashMap<_, _>>();
+
     let responses = tokens
         .into_iter()
         .map(|token| {
@@ -137,9 +140,11 @@ async fn list(
                 .get(&token.role_id.0)
                 .cloned()
                 .ok_or_else(|| Error::internal("API token references a missing IAM role"))?;
+
             Ok(to_resp(token, role))
         })
         .collect::<Result<Vec<_>>>()?;
+
     Ok(Json(responses))
 }
 
@@ -151,9 +156,11 @@ async fn create(
     require_organization_scope(&ctx)?;
     Permission::require_key(&ctx, "api_tokens.manage")?;
     let name = req.name.trim();
+
     if name.is_empty() {
         return Err(Error::invalid("name must not be empty"));
     }
+
     let (role_id, token_kind, service_account_id) = match req.service_account_id {
         Some(service_account_id) => {
             if req.role_id.is_some() {
@@ -161,20 +168,25 @@ async fn create(
                     "role_id must be omitted for a service-account API token",
                 ));
             }
+
             let service_account_id = service_account_id.trim();
+
             if service_account_id.is_empty() {
                 return Err(Error::invalid("service_account_id must not be empty"));
             }
+
             let service_account = state
                 .iam
                 .service_accounts
                 .get(&ctx.org_id, &Id::from_string(service_account_id))
                 .await?;
+
             if service_account.disabled {
                 return Err(Error::invalid(
                     "an API token cannot be issued for a disabled service account",
                 ));
             }
+
             (
                 service_account.role_id,
                 ApiTokenKind::ServiceAccount,
@@ -183,6 +195,7 @@ async fn create(
         }
         None => {
             require_user_principal(&ctx)?;
+
             let role_id = match req.role_id {
                 Some(role_id) => Id::from_string(role_id),
                 None => {
@@ -194,20 +207,25 @@ async fn create(
                         .await?
                 }
             };
+
             (role_id, ApiTokenKind::Personal, None)
         }
     };
+
     let role = state.iam.roles.get(&ctx.org_id, &role_id).await?;
+
     if role.role_type != "organization" || role.scope != "organization" {
         return Err(Error::invalid(
             "API token role must have organization type and scope",
         ));
     }
+
     if role.key == "rum_client" {
         return Err(Error::invalid(
             "use GET /auth/tokens/rum to issue an application-bound RUM client token",
         ));
     }
+
     if role
         .permissions
         .iter()
@@ -217,14 +235,17 @@ async fn create(
             "token role permissions cannot exceed caller IAM capabilities",
         ));
     }
+
     let (prefix, secret) = generate_token_parts();
     let plaintext = assemble_token(&prefix, &secret);
     let secret_hash = hash_secret(&secret)?;
     let now = TimestampMicros::now();
+
     let expires_at = req.expires_in_days.map(|d| {
         let micros = d.clamp(1, 365 * 5).saturating_mul(86_400 * 1_000_000);
         TimestampMicros(now.0.saturating_add(micros))
     });
+
     let row = ApiToken {
         id: Id::new(),
         prefix: prefix.clone(),
@@ -242,7 +263,9 @@ async fn create(
         application_id: None,
         service_account_id,
     };
+
     let saved = state.iam.api_tokens.create(row).await?;
+
     Ok(secret_response(CreateResp {
         id: saved.id.0,
         prefix: saved.prefix,
@@ -267,12 +290,14 @@ async fn get_default(
     require_organization_scope(&ctx)?;
     require_user_principal(&ctx)?;
     Permission::require_key(&ctx, "api_tokens.manage")?;
+
     let role_id = state
         .iam
         .service
         .iam_memberships
         .role_id_for_purpose(&ctx.org_id, "default_api_token")
         .await?;
+
     let role = state
         .iam
         .access
@@ -280,12 +305,14 @@ async fn get_default(
         .role_summary(&ctx.org_id, &role_id)
         .await?
         .ok_or_else(|| Error::internal("default API token IAM role is missing"))?;
+
     let default_permissions = state
         .iam
         .access
         .repository()
         .role_permissions(&ctx.org_id, &role.id)
         .await?;
+
     if default_permissions
         .iter()
         .any(|permission| !ctx.has_permission(permission))
@@ -294,11 +321,13 @@ async fn get_default(
             "default token permissions cannot exceed caller IAM capabilities",
         ));
     }
+
     let dt = state
         .iam
         .api_tokens
         .ensure_default(&ctx.org_id, &ctx.user_id, &role.id)
         .await?;
+
     Ok(secret_response(CreateResp {
         id: dt.id.0,
         prefix: dt.prefix,
@@ -328,12 +357,14 @@ async fn get_rum_client(
     require_organization_scope(&ctx)?;
     Permission::require_key(&ctx, "api_tokens.manage")?;
     let application_id = validate_application_id(&params.application_id)?;
+
     let role_id = state
         .iam
         .service
         .iam_memberships
         .role_id_for_purpose(&ctx.org_id, "rum_client_token")
         .await?;
+
     let role = state
         .iam
         .access
@@ -341,12 +372,14 @@ async fn get_rum_client(
         .role_summary(&ctx.org_id, &role_id)
         .await?
         .ok_or_else(|| Error::internal("RUM client IAM role is missing"))?;
+
     let role_permissions = state
         .iam
         .access
         .repository()
         .role_permissions(&ctx.org_id, &role.id)
         .await?;
+
     if role_permissions
         .iter()
         .any(|permission| !ctx.has_permission(permission))
@@ -355,11 +388,13 @@ async fn get_rum_client(
             "RUM client token permissions cannot exceed caller IAM capabilities",
         ));
     }
+
     let token = state
         .iam
         .api_tokens
         .ensure_rum_client(&ctx.org_id, &ctx.user_id, &role.id, application_id)
         .await?;
+
     Ok(secret_response(CreateResp {
         id: token.id.0,
         prefix: token.prefix,

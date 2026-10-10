@@ -99,10 +99,12 @@ pub(super) async fn advertised(
     iam: &crate::app::iam::IamContext,
 ) -> Result<Vec<Tool>> {
     let resolution = toolsets::resolve_inbound_tool_policies(&handler.state, &iam.org_id).await?;
+
     let mut tools = ADAPTER_NAMES
         .into_iter()
         .filter_map(protocol_tool)
         .collect::<Vec<_>>();
+
     for spec in tools_for_surface(ToolSurface::InboundMcp)
         .into_iter()
         .filter(|spec| spec.exposure.pinned || DIRECT_CONTROL_NAMES.contains(&spec.name.as_str()))
@@ -110,18 +112,23 @@ pub(super) async fn advertised(
         if !resolution.builtin_enabled(&spec.name) {
             continue;
         }
+
         let Some(kind) = BuiltinToolKind::from_name(&spec.name) else {
             continue;
         };
+
         let mode = effective_execution_mode(&resolution, &spec);
+
         let invocation = ToolInvocationContext::from_iam(iam)
             .with_source(ToolCallSource::InboundMcp)
             .with_execution_policy(ExecutionPolicy::Policy)
             .with_execution_mode(mode);
+
         if handler.state.tools.authorize(&invocation, kind).is_ok() {
             tools.push(spec_tool(spec));
         }
     }
+
     tools.sort_by(|left, right| left.name.cmp(&right.name));
     Ok(tools)
 }
@@ -134,24 +141,31 @@ pub(in crate::api::http::routes::agent::inbound_mcp) async fn resolve(
     let kind = BuiltinToolKind::from_name(name)
         .ok_or_else(|| Error::not_found(format!("tool `{name}` is not registered")))?;
     let spec = kind.spec();
+
     if !spec.exposure.available_on(ToolSurface::InboundMcp) {
         return Err(Error::forbidden(format!(
             "tool `{name}` is not exposed on Inbound MCP"
         )));
     }
+
     let resolution = toolsets::resolve_inbound_tool_policies(&handler.state, &iam.org_id).await?;
+
     if !resolution.builtin_enabled(name) {
         return Err(Error::forbidden(format!(
             "tool `{name}` is disabled by the organization Tool Policy"
         )));
     }
+
     let mode = effective_execution_mode(&resolution, &spec);
+
     let invocation = ToolInvocationContext::from_iam(iam)
         .with_source(ToolCallSource::InboundMcp)
         .with_execution_policy(ExecutionPolicy::Policy)
         .with_execution_mode(mode);
+
     handler.state.tools.authorize(&invocation, kind)?;
     let policy = resolution.tool_policy(name);
+
     Ok(ResolvedTool {
         kind,
         spec,
@@ -183,42 +197,53 @@ pub(super) async fn search(
         .map_err(|error| Error::invalid(format!("invalid tool_search arguments: {error}")))?;
     let query = args.query.unwrap_or_default();
     let domain = args.domain;
+
     if query.len() > 256 || domain.as_ref().is_some_and(|value| value.len() > 128) {
         return Err(Error::invalid(
             "tool_search query must not exceed 256 bytes and domain must not exceed 128 bytes",
         ));
     }
+
     let query = query.trim().to_ascii_lowercase();
     let domain = domain.map(|value| value.trim().to_ascii_lowercase());
     let resolution = toolsets::resolve_inbound_tool_policies(&handler.state, &iam.org_id).await?;
     let mut matches = Vec::new();
+
     for spec in tools_for_surface(ToolSurface::InboundMcp) {
         if ADAPTER_NAMES.contains(&spec.name.as_str()) {
             continue;
         }
+
         if domain
             .as_ref()
             .is_some_and(|domain| !spec.domain.eq_ignore_ascii_case(domain))
         {
             continue;
         }
+
         if !resolution.builtin_enabled(&spec.name) {
             continue;
         }
+
         let Some(kind) = BuiltinToolKind::from_name(&spec.name) else {
             continue;
         };
+
         let mode = effective_execution_mode(&resolution, &spec);
+
         let invocation = ToolInvocationContext::from_iam(iam)
             .with_source(ToolCallSource::InboundMcp)
             .with_execution_policy(ExecutionPolicy::Policy)
             .with_execution_mode(mode);
+
         if handler.state.tools.authorize(&invocation, kind).is_err() {
             continue;
         }
+
         let Some(score) = search_score(&query, &spec) else {
             continue;
         };
+
         matches.push((
             score,
             json!({
@@ -237,13 +262,16 @@ pub(super) async fn search(
             }),
         ));
     }
+
     matches.sort_by_key(|(score, value)| {
         (
             Reverse(*score),
             value["name"].as_str().unwrap_or_default().to_string(),
         )
     });
+
     matches.truncate(args.limit.unwrap_or(10).clamp(1, 50));
+
     Ok(json!({
         "query": query,
         "tools": matches.into_iter().map(|(_, value)| value).collect::<Vec<_>>()
@@ -256,18 +284,23 @@ pub(in crate::api::http::routes::agent::inbound_mcp) async fn resource_catalog(
 ) -> Result<Value> {
     let resolution = toolsets::resolve_inbound_tool_policies(&handler.state, &iam.org_id).await?;
     let mut entries = Vec::new();
+
     for spec in tools_for_surface(ToolSurface::InboundMcp) {
         if !resolution.builtin_enabled(&spec.name) {
             continue;
         }
+
         let Some(kind) = BuiltinToolKind::from_name(&spec.name) else {
             continue;
         };
+
         let mode = effective_execution_mode(&resolution, &spec);
+
         let invocation = ToolInvocationContext::from_iam(iam)
             .with_source(ToolCallSource::InboundMcp)
             .with_execution_policy(ExecutionPolicy::Policy)
             .with_execution_mode(mode);
+
         if handler.state.tools.authorize(&invocation, kind).is_ok() {
             entries.push(json!({
                 "name": spec.name,
@@ -285,7 +318,9 @@ pub(in crate::api::http::routes::agent::inbound_mcp) async fn resource_catalog(
             }));
         }
     }
+
     entries.sort_by_key(|value| value["name"].as_str().unwrap_or_default().to_string());
+
     Ok(json!({
         "tools": entries,
         "direct_tools": advertised(handler, iam).await?.into_iter().map(|tool| tool.name).collect::<Vec<_>>(),
@@ -312,13 +347,17 @@ fn search_score(query: &str, spec: &ToolSpec) -> Option<u16> {
     if query.is_empty() {
         return Some(1);
     }
+
     let name = spec.name.to_ascii_lowercase();
+
     if name == query {
         return Some(1_000);
     }
+
     let title = spec.display_name.to_ascii_lowercase();
     let description = spec.description.to_ascii_lowercase();
     let domain = spec.domain.to_ascii_lowercase();
+
     query.split_whitespace().try_fold(0u16, |score, token| {
         let token_score = u16::from(name.contains(token)) * 300
             + u16::from(title.contains(token)) * 160
@@ -329,6 +368,7 @@ fn search_score(query: &str, spec: &ToolSpec) -> Option<u16> {
                     .any(|tag| tag.to_ascii_lowercase().contains(token)),
             ) * 100
             + u16::from(description.contains(token)) * 40;
+
         (token_score > 0).then_some(score.saturating_add(token_score))
     })
 }
@@ -336,6 +376,7 @@ fn search_score(query: &str, spec: &ToolSpec) -> Option<u16> {
 pub(super) fn spec_tool(spec: ToolSpec) -> Tool {
     let input = object(spec.input_schema);
     let output = object(spec.output_schema);
+
     Tool::new(spec.name, spec.description, Arc::new(input))
         .with_title(spec.display_name.clone())
         .with_raw_output_schema(Arc::new(output))
