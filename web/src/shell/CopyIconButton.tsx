@@ -65,7 +65,7 @@ export const CopyIconButton = React.forwardRef<
             {copied ? (
               <Check
                 aria-hidden="true"
-                className={cn('h-3.5 w-3.5 text-green-soft', iconClassName)}
+                className={cn('h-3.5 w-3.5 animate-check-pop text-[var(--green-ink)]', iconClassName)}
               />
             ) : (
               <Copy

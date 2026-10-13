@@ -15,6 +15,34 @@ function renderState(props: Partial<React.ComponentProps<typeof EmptyState>> = {
   );
 }
 
+describe('EmptyState mark', () => {
+  it('draws the product pulse for strategies that mean "nothing here yet"', () => {
+    for (const strategy of ['none', 'create-first', 'activation'] as const) {
+      const { container, unmount } = renderState({ strategy });
+      expect(container.querySelector('svg path.ms-pulse-draw')).not.toBeNull();
+      unmount();
+    }
+  });
+
+  it('keeps a glyph where the glyph carries the meaning', () => {
+    for (const strategy of ['query-first', 'permission-denied', 'backend-pending'] as const) {
+      const { container, unmount } = renderState({ strategy });
+      expect(container.querySelector('.ms-pulse-draw')).toBeNull();
+      expect(container.querySelector('svg')).not.toBeNull();
+      unmount();
+    }
+  });
+
+  it('lets a caller-supplied icon or illustration win over the pulse', () => {
+    const { container } = renderState({
+      strategy: 'none',
+      illustration: <span data-testid="custom-art" />,
+    });
+    expect(screen.getByTestId('custom-art')).not.toBeNull();
+    expect(container.querySelector('.ms-pulse-draw')).toBeNull();
+  });
+});
+
 describe('EmptyState', () => {
   it('keeps owning its whole region by default', () => {
     renderState({ description: 'Why' });

@@ -130,33 +130,48 @@ test('timestamp header omits the redundant timezone suffix', async ({ page }) =>
   await expect(page.getByRole('combobox', { name: 'Page timezone' })).toHaveCount(0);
 });
 
-test('result columns adapt to content, cap width, and ellipsize overflow', async ({ page }) => {
+test('result columns adapt to content and cap their width; the message takes the room that is left', async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 900 });
   await page.goto('/logs');
   await expect(page.getByText(LOG_MESSAGE)).toBeVisible();
 
   const header = page.locator('[data-log-result-columns="logs"]');
-  const timeWidth = await header.locator('[data-log-field="_timestamp"]').evaluate((element) => element.getBoundingClientRect().width);
-  const levelWidth = await header.locator('[data-log-field="level"]').evaluate((element) => element.getBoundingClientRect().width);
-  const serviceWidth = await header.locator('[data-log-field="service.name"]').evaluate((element) => element.getBoundingClientRect().width);
-  const messageWidth = await header.locator('[data-log-field="message"]').evaluate((element) => element.getBoundingClientRect().width);
+  const box = (field: string) =>
+    header.locator(`[data-log-field="${field}"]`).evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return { left: rect.left, right: rect.right, width: rect.width };
+    });
+  const [time, level, service, message, trace, table] = await Promise.all([
+    box('_timestamp'),
+    box('level'),
+    box('service.name'),
+    box('message'),
+    box('trace_id'),
+    header.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return { left: rect.left, right: rect.right, width: rect.width };
+    }),
+  ]);
 
-  expect(timeWidth).toBeLessThanOrEqual(161);
-  expect(levelWidth).toBeLessThanOrEqual(73);
-  expect(serviceWidth).toBeLessThanOrEqual(133);
-  expect(messageWidth).toBeLessThanOrEqual(301);
-  expect(timeWidth + levelWidth + serviceWidth).toBeLessThan(365);
+  expect(time.width).toBeLessThanOrEqual(161);
+  expect(level.width).toBeLessThanOrEqual(73);
+  expect(service.width).toBeLessThanOrEqual(133);
+  expect(trace.width).toBeLessThanOrEqual(161);
+  expect(time.width + level.width + service.width).toBeLessThan(365);
+  // No room stands empty beside the message: the last column ends where the table does.
+  expect(message.width).toBeGreaterThan(301);
+  expect(table.right - trace.right).toBeLessThanOrEqual(17);
 
+  // Where the table is narrow the message is cut, with an ellipsis, and not below its least width.
+  await page.setViewportSize({ width: 860, height: 900 });
   const value = page.locator('[data-log-result-row="logs"]')
     .first()
     .locator('[data-log-field="message"] > span');
-  const overflow = await value.evaluate((element) => ({
-    clientWidth: element.clientWidth,
-    scrollWidth: element.scrollWidth,
-    textOverflow: getComputedStyle(element).textOverflow,
-  }));
-  expect(overflow.scrollWidth).toBeGreaterThan(overflow.clientWidth);
-  expect(overflow.textOverflow).toBe('ellipsis');
+  await expect
+    .poll(() => value.evaluate((element) => element.scrollWidth > element.clientWidth))
+    .toBe(true);
+  expect(await value.evaluate((element) => getComputedStyle(element).textOverflow)).toBe('ellipsis');
+  expect((await box('message')).width).toBeGreaterThanOrEqual(200);
 });
 
 test('result actions share the event summary row and download CSV or LOG text', async ({ page }) => {
@@ -168,11 +183,14 @@ test('result actions share the event summary row and download CSV or LOG text', 
   await expect(page.getByRole('button', { name: 'Table', exact: true })).toHaveCount(0);
   const actions = summary.locator('[data-log-result-actions]');
   const actionButtons = actions.getByRole('button');
-  await expect(actionButtons).toHaveText(['Columns', 'Compact', 'Fields', '']);
-  await expect(actionButtons.nth(2)).toHaveAccessibleName('Collapse fields');
-  await expect(actionButtons.nth(3)).toHaveAccessibleName('Download logs');
+  // Rows are one height and the field list folds from its own head: neither has a control here.
+  // All three are signs without a word; each is named by what it does.
+  await expect(actionButtons).toHaveText(['', '', '']);
+  await expect(actionButtons.nth(0)).toHaveAccessibleName('Columns');
+  await expect(actionButtons.nth(1)).toHaveAccessibleName('Hide histogram');
+  await expect(actionButtons.nth(2)).toHaveAccessibleName('Download logs');
 
-  await actionButtons.nth(3).click();
+  await actionButtons.nth(2).click();
   const csvDownloadPromise = page.waitForEvent('download');
   await page.getByRole('menuitem', { name: 'CSV', exact: true }).click();
   const csvDownload = await csvDownloadPromise;
@@ -183,7 +201,7 @@ test('result actions share the event summary row and download CSV or LOG text', 
     '"_timestamp","level","service.name","message","trace_id"',
   );
 
-  await actionButtons.nth(3).click();
+  await actionButtons.nth(2).click();
   const logDownloadPromise = page.waitForEvent('download');
   await page.getByRole('menuitem', { name: 'LOG (text)', exact: true }).click();
   const logDownload = await logDownloadPromise;

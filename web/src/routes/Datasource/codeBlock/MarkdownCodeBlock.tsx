@@ -122,15 +122,11 @@ export function MarkdownCodeBlock({
   };
 
   return (
-    <figure
-      className={cn(
-        'min-w-0 overflow-hidden rounded-md border border-bd-0 bg-bg-1',
-        className,
-      )}
-    >
-      <figcaption className="flex h-9 min-w-0 items-center border-b border-bd-0 bg-bg-1 px-3">
-        <span className="mr-2 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo" />
-        <span className="type-micro truncate font-mono font-semibold tracking-[-0.01em] text-tx-2">
+    // One well, a step darker than the card it sits on: no frame, and the
+    // language is a quiet label rather than a header bar of its own.
+    <figure className={cn('m-0 min-w-0 overflow-hidden rounded-md bg-bg-0', className)}>
+      <figcaption className="flex h-9 min-w-0 items-center pl-4 pr-1">
+        <span className="type-micro truncate font-mono font-semibold tracking-[-0.01em] text-tx-3">
           {languageLabel}
         </span>
         <div className="ml-auto flex shrink-0 items-center gap-0.5">
@@ -162,7 +158,7 @@ export function MarkdownCodeBlock({
       <pre
         id={codeId}
         hidden={!expanded}
-        className="m-0 overflow-x-auto bg-bg-0 p-4 font-mono text-xs font-medium leading-[1.7] text-tx-1 [font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace] [tab-size:2]"
+        className="m-0 overflow-x-auto px-4 pb-4 pt-1 font-mono text-xs font-medium leading-[1.7] text-tx-1 [font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace] [tab-size:2]"
       >
         <code
           aria-label={`${languageLabel} code`}

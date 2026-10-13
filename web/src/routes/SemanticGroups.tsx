@@ -8,7 +8,6 @@ import * as api from '@/api/semanticGroups';
 import { toApiError } from '@/lib/http';
 import { useActionAccess } from '@/product/actionAccess';
 import { type ProductStateProps } from '@/product/states';
-import { ListPage } from '@/product/templates';
 import { ChromeButton, IconButton, Pill } from '@/shell/chrome';
 import { CodeEditor } from '@/shell/codeEditor';
 import {
@@ -22,7 +21,7 @@ import {
 import { queryStateFor } from '@/shell/query/State';
 import { toast } from '@/shell/ui/sonner';
 
-import { AlertsSubNav } from './alerts/Layout';
+import { AlertsPage } from './alerts/Frame';
 
 const OP_OPTIONS: Array<{ value: api.MatchOp; label: string }> = [
   { value: 'eq', label: '= (eq)' },
@@ -93,11 +92,8 @@ export function SemanticGroups() {
 
   return (
     <>
-      <ListPage
-        title={t('title')}
-        subtitle={t('subtitle') as string}
-        subnav={<AlertsSubNav />}
-        toolbar={
+      <AlertsPage
+        action={
           <>
             <ChromeButton
               disabled={manageAccess.disabled}
@@ -136,7 +132,7 @@ export function SemanticGroups() {
               key: 'group_by',
               header: t('list.columns.group_by'),
               cell: (g) => (
-                <span className="text-blue-soft">
+                <span className="text-[var(--blue-ink)]">
                   {g.group_by.length > 0 ? g.group_by.join(', ') : '—'}
                 </span>
               ),
@@ -178,7 +174,7 @@ export function SemanticGroups() {
             },
           ]}
         />
-      </ListPage>
+      </AlertsPage>
 
       <GroupDrawer
         open={editing !== null}

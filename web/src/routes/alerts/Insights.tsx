@@ -6,12 +6,12 @@ import { Link } from 'react-router-dom';
 import * as alertsApi from '@/api/alerts';
 import * as incidentsApi from '@/api/incidents';
 import type { AlertInsights } from '@/api/incidents';
-import { EmptyState } from '@/shell/EmptyState';
-import { ErrorState } from '@/shell/ErrorState';
+import type { ProductStateProps } from '@/product/states';
+import { ChromeButton } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
-import { LoadingState } from '@/shell/LoadingState';
-import { PageBody, PageHeader } from '@/shell/PageHeader';
 import { queryStateFor } from '@/shell/query/State';
+import { Readout } from '@/shell/readout/Readout';
+import { STATEMENT_CELL, Statement } from '@/shell/readout/Statement';
 import {
   Select,
   SelectContent,
@@ -21,8 +21,8 @@ import {
 } from '@/shell/ui/select';
 import type { AlertRule, Incident, Severity } from '@/types/alerting';
 
+import { AlertsPage } from './Frame';
 import { IncidentTimeline } from './insights/IncidentTimeline';
-import { AlertsSubNav } from './Layout';
 
 const WINDOW_OPTIONS = [
   { value: 86_400, labelKey: 'last_24h' },
@@ -35,10 +35,10 @@ type TFn = ReturnType<typeof useTranslation<'alerts'>>['t'];
 
 const SEVERITY_ORDER: Severity[] = ['critical', 'error', 'warning', 'info'];
 const SEVERITY_STYLE: Record<Severity, { bar: string; dot: string; text: string }> = {
-  critical: { bar: 'bg-red', dot: 'bg-red', text: 'text-red-soft' },
-  error: { bar: 'bg-orange', dot: 'bg-orange', text: 'text-orange-soft' },
-  warning: { bar: 'bg-yellow', dot: 'bg-yellow', text: 'text-yellow-soft' },
-  info: { bar: 'bg-blue', dot: 'bg-blue', text: 'text-blue-soft' },
+  critical: { bar: 'bg-red', dot: 'bg-red', text: 'text-red' },
+  error: { bar: 'bg-orange', dot: 'bg-orange', text: 'text-orange' },
+  warning: { bar: 'bg-yellow', dot: 'bg-yellow', text: 'text-yellow' },
+  info: { bar: 'bg-blue', dot: 'bg-blue', text: 'text-blue' },
 };
 
 export function AlertsInsights() {
@@ -71,64 +71,65 @@ export function AlertsInsights() {
     [rulesQuery.data],
   );
 
+  const pageState: ProductStateProps | null =
+    state === 'loading'
+      ? { variant: 'loading' }
+      : state === 'error'
+        ? {
+            variant: 'error',
+            title: t('insights.error_title'),
+            error: insightsQuery.error ?? incidentsQuery.error,
+            action: (
+              <ChromeButton
+                onClick={() => {
+                  void insightsQuery.refetch();
+                  void incidentsQuery.refetch();
+                }}
+              >
+                {t('center.retry')}
+              </ChromeButton>
+            ),
+          }
+        : state === 'empty'
+          ? { variant: 'empty', title: t('insights.empty_title'), description: t('insights.empty_description') }
+          : null;
+
   return (
-    <>
-      <PageHeader
-        title={t('insights.title')}
-        subtitle={t('insights.subtitle')}
-        toolbar={
-          <Select
-            value={String(windowSecs)}
-            onValueChange={(value) => setWindowSecs(Number(value) as WindowSecs)}
-          >
-            <SelectTrigger className="w-[156px]" aria-label={t('insights.window.label')}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent align="end">
-              {WINDOW_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={String(option.value)}>
-                  {t(`insights.window.${option.labelKey}`)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        }
-      />
-      <AlertsSubNav />
-      <PageBody>
-        {state === 'loading' && <LoadingState variant="list" rows={5} />}
-        {state === 'error' && (
-          <ErrorState
-            error={insightsQuery.error ?? incidentsQuery.error}
-            title={t('insights.error_title')}
-            onRetry={() => {
-              void insightsQuery.refetch();
-              void incidentsQuery.refetch();
-            }}
-          />
-        )}
-        {state === 'empty' && (
-          <EmptyState
-            strategy="query-first"
-            title={t('insights.empty_title')}
-            description={t('insights.empty_description')}
-          />
-        )}
-        {state === null && data && incidentsQuery.data && (
-          <InsightsDashboard
-            data={data}
-            incidents={incidentsQuery.data}
-            locale={i18n.resolvedLanguage ?? i18n.language}
-            rulesById={rulesById}
-            t={t}
-            windowSecs={windowSecs}
-            windowLabel={t(
-              `insights.window.${WINDOW_OPTIONS.find((option) => option.value === windowSecs)?.labelKey ?? 'last_7d'}`,
-            )}
-          />
-        )}
-      </PageBody>
-    </>
+    <AlertsPage
+      // What the tab is looking at is said where the tabs are, not in the page's header.
+      tabsEnd={
+        <Select
+          value={String(windowSecs)}
+          onValueChange={(value) => setWindowSecs(Number(value) as WindowSecs)}
+        >
+          <SelectTrigger className="h-8 w-[150px]" aria-label={t('insights.window.label')}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent align="end">
+            {WINDOW_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={String(option.value)}>
+                {t(`insights.window.${option.labelKey}`)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      }
+      {...(pageState ? { state: pageState } : { contentSurface: false })}
+    >
+      {!pageState && data && incidentsQuery.data && (
+        <InsightsDashboard
+          data={data}
+          incidents={incidentsQuery.data}
+          locale={i18n.resolvedLanguage ?? i18n.language}
+          rulesById={rulesById}
+          t={t}
+          windowSecs={windowSecs}
+          windowLabel={t(
+            `insights.window.${WINDOW_OPTIONS.find((option) => option.value === windowSecs)?.labelKey ?? 'last_7d'}`,
+          )}
+        />
+      )}
+    </AlertsPage>
   );
 }
 
@@ -170,52 +171,43 @@ function InsightsDashboard({
 
   return (
     <div className="mx-auto w-full max-w-[2200px] space-y-[12px]">
-      <section aria-labelledby="insights-summary" className="rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)]">
-        <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="font-sans text-xs font-strong tracking-normalr text-tx-3">{windowLabel}</p>
-            <h2 id="insights-summary" className="mt-1 font-sans text-2xl font-display-strong text-tx-0">
-              {headline}
-            </h2>
-            <p className="mt-1 max-w-2xl font-sans text-sm text-tx-2">
-              {t(
-                data.active
-                  ? 'insights.summary.active_description'
-                  : 'insights.summary.recovered_description',
-              )}
-            </p>
-          </div>
-        </div>
-
-        <dl className="mt-6 grid gap-[12px] sm:grid-cols-2 xl:grid-cols-4">
-          <SummaryMetric
-            label={t('insights.summary.total')}
-            value={String(data.total)}
-            description={t('insights.summary.total_description')}
-          />
-          <SummaryMetric
-            label={t('insights.summary.mttr')}
-            value={data.mttr_secs > 0 ? formatDuration(data.mttr_secs, t) : '—'}
-            description={t('insights.summary.mttr_description')}
-          />
-          <SummaryMetric
-            label={t('insights.summary.status')}
-            value={t('insights.summary.status_value', { active: data.active, closed: data.closed })}
-            description={t('insights.summary.status_description', {
-              percent: formatPercent(recoveredRate),
-            })}
-            tone={data.active > 0 ? 'warn' : 'good'}
-          />
-          <SummaryMetric
-            label={t('insights.summary.noise')}
-            value={t('insights.summary.noise_value', { count: rapidRecoveryCount })}
-            description={t('insights.summary.noise_description', {
-              rate: formatPercent(data.noise_rate),
-            })}
-            tone={data.noise_rate > 0.3 ? 'warn' : 'neutral'}
-          />
-        </dl>
-      </section>
+      <Statement
+        label={t('insights.summary.label')}
+        tone={data.active ? 'var(--yellow)' : 'var(--green)'}
+        eyebrow={windowLabel}
+        title={headline}
+        titleClassName={data.active ? undefined : 'text-green'}
+        detail={t(
+          data.active ? 'insights.summary.active_description' : 'insights.summary.recovered_description',
+        )}
+        readouts={
+          <>
+            <Readout
+              className={STATEMENT_CELL}
+              riseIndex={1}
+              label={t('insights.summary.recovered')}
+              value={formatPercent(recoveredRate)}
+              tone={data.active > 0 ? undefined : 'good'}
+              detail={t('insights.summary.recovered_of', { closed: data.closed, total: data.total })}
+            />
+            <Readout
+              className={STATEMENT_CELL}
+              riseIndex={2}
+              label={t('insights.summary.mttr')}
+              value={data.mttr_secs > 0 ? formatDuration(data.mttr_secs, t) : '—'}
+              detail={t('insights.summary.mttr_description')}
+            />
+            <Readout
+              className={STATEMENT_CELL}
+              riseIndex={3}
+              label={t('insights.summary.noise')}
+              value={String(rapidRecoveryCount)}
+              tone={data.noise_rate > 0.3 ? 'warn' : undefined}
+              detail={t('insights.summary.noise_description', { rate: formatPercent(data.noise_rate) })}
+            />
+          </>
+        }
+      />
 
       <section className="grid gap-10 rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)] xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
         <IncidentTimeline
@@ -249,34 +241,6 @@ function InsightsDashboard({
           t={t}
         />
       </section>
-    </div>
-  );
-}
-
-function SummaryMetric({
-  label,
-  value,
-  description,
-  tone = 'neutral',
-}: {
-  label: string;
-  value: string;
-  description: string;
-  tone?: 'neutral' | 'good' | 'warn';
-}) {
-  return (
-    <div className="rounded-md bg-[var(--control-surface)] p-3">
-      <dt className="font-sans text-xs font-strong tracking-normalr text-tx-3">{label}</dt>
-      <dd
-        className={cn(
-          'mt-1 font-sans text-xl font-display-strong tabular-nums text-tx-0',
-          tone === 'good' && 'text-green-soft',
-          tone === 'warn' && 'text-orange-soft',
-        )}
-      >
-        {value}
-      </dd>
-      <p className="mt-1 font-sans text-xs text-tx-2">{description}</p>
     </div>
   );
 }
@@ -357,12 +321,12 @@ function RankedList({
     <section aria-labelledby={sectionId}>
       <SectionHeading id={sectionId} title={title} description={description} />
       {items.length === 0 ? (
-        <div className="mt-5 rounded-md bg-[var(--control-surface)] p-3">
+        <div className="mt-4 rounded-md bg-[var(--control-surface)] p-3">
           <p className="font-sans text-sm font-strong text-tx-1">{emptyTitle}</p>
           <p className="mt-1 max-w-xl font-sans text-xs leading-relaxed text-tx-3">{emptyDescription}</p>
         </div>
       ) : (
-        <ol className="mt-3 space-y-1">
+        <ol className="mt-1.5 space-y-1">
           {items.map((item) => {
             const percent = item.count / Math.max(1, total);
             const label = item.to ? (
@@ -379,7 +343,7 @@ function RankedList({
               <li key={item.key} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-2 py-2">
                 <div className="min-w-0 font-sans text-sm">
                   <div className="truncate">{label}</div>
-                  {item.secondary && <p className="mt-0.5 truncate text-xs text-tx-3">{item.secondary}</p>}
+                  {item.secondary && <p className="mt-0.5 truncate text-xs text-tx-2">{item.secondary}</p>}
                 </div>
                 <span className="font-sans text-xs tabular-nums text-tx-2">
                   {t('insights.rankings.count_and_share', {
@@ -416,7 +380,7 @@ function SectionHeading({
         <h3 id={id} className="font-sans text-base font-display-strong text-tx-0">
           {title}
         </h3>
-        <p className="mt-0.5 font-sans text-xs text-tx-3">{description}</p>
+        <p className="mt-0.5 font-sans text-xs text-tx-2">{description}</p>
       </div>
       {aside && <p className="shrink-0 font-sans text-xs tabular-nums text-tx-2">{aside}</p>}
     </div>

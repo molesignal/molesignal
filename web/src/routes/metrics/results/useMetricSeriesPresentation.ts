@@ -1,5 +1,6 @@
 import * as React from 'react';
 
+import { resolveQueryLegendMode } from '@/dashboard-engine/query/legend';
 import {
   analyzeMetricSeries,
   rowsToSeries,
@@ -42,6 +43,9 @@ export function useMetricSeriesPresentation({
     () => metricsLegendNames(metricSeries, metricName ?? undefined, legend),
     [legend, metricName, metricSeries],
   );
+  // A legend the user wrote is the name of the series. Auto and Verbose only
+  // spell out the label set, which the series table keeps one click away.
+  const customLegend = resolveQueryLegendMode(legend) === 'custom';
   const chartSeries = React.useMemo(
     () =>
       metricSeries.map((series, index) => ({
@@ -50,6 +54,7 @@ export function useMetricSeriesPresentation({
           labels: series.labels,
         }),
         metricName: metricName?.trim() || series.valueColumn,
+        ...(customLegend ? { legendName: displayNames[index]! } : {}),
         name: displayNames[index]!,
         color: colors[index]!,
         data: series.values.map((value) =>
@@ -63,7 +68,7 @@ export function useMetricSeriesPresentation({
         labels: series.labels,
         ...(unit ? { unit } : {}),
       })),
-    [colors, displayNames, metricName, metricSeries, unit, xDomain],
+    [colors, customLegend, displayNames, metricName, metricSeries, unit, xDomain],
   );
   const quality = React.useMemo(
     () => analyzeMetricSeries(metricSeries),

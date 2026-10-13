@@ -28,7 +28,12 @@ export function DisabledControl({
 
   const trigger = (
     <span
-      className={cn('inline-flex shrink-0 cursor-not-allowed', className)}
+      // The wrapper takes the control's place in the layout, so a control that fills its row
+      // must still fill it while disabled: its width cannot depend on whether it can be used.
+      className={cn(
+        'inline-flex shrink-0 cursor-not-allowed has-[>.w-full]:flex has-[>.w-full]:w-full',
+        className,
+      )}
       data-disabled-control=""
       aria-disabled="true"
       onClickCapture={(event) => {

@@ -41,6 +41,30 @@ interface PageHeaderProps {
 }
 
 /**
+ * The icon of the Observe module the current route belongs to, the same one the
+ * sidebar shows for it. Shared by the page header and by workbench pages that
+ * carry their title in the workbench bar instead.
+ */
+export function useRouteModuleIcon(): LucideIcon | undefined {
+  const location = useLocation();
+  return React.useMemo(() => {
+    const route = findProductRoute(location.pathname);
+    const ownerRoute = PRODUCT_NAV_ITEMS.find(
+      (candidate) =>
+        candidate.group === 'observe' && candidate.owner === route?.owner,
+    );
+    if (ownerRoute) return ownerRoute.icon;
+    const parentRoute = PRODUCT_NAV_ITEMS.find(
+      (candidate) =>
+        candidate.group === 'observe' &&
+        (location.pathname === candidate.path ||
+          location.pathname.startsWith(`${candidate.path}/`)),
+    );
+    return (parentRoute ?? (route?.group === 'observe' ? route : undefined))?.icon;
+  }, [location.pathname]);
+}
+
+/**
  * Page header — sits inside <main>, below the global Topbar.
  *
  * Two-band structure:
@@ -66,21 +90,8 @@ export function PageHeader({
   const { t } = useTranslation('nav');
   const location = useLocation();
   const route = React.useMemo(() => findProductRoute(location.pathname), [location.pathname]);
-  const iconRoute = React.useMemo(() => {
-    const ownerRoute = PRODUCT_NAV_ITEMS.find(
-      (candidate) =>
-        candidate.group === 'observe' && candidate.owner === route?.owner,
-    );
-    if (ownerRoute) return ownerRoute;
-    const parentRoute = PRODUCT_NAV_ITEMS.find(
-      (candidate) =>
-        candidate.group === 'observe' &&
-        (location.pathname === candidate.path ||
-          location.pathname.startsWith(`${candidate.path}/`)),
-    );
-    return parentRoute ?? (route?.group === 'observe' ? route : undefined);
-  }, [location.pathname, route]);
-  const HeaderIcon = moduleIcon === null ? undefined : moduleIcon ?? iconRoute?.icon;
+  const routeIcon = useRouteModuleIcon();
+  const HeaderIcon = moduleIcon === null ? undefined : moduleIcon ?? routeIcon;
   const compactRequested = compact || Boolean(HeaderIcon);
 
   // Resolve breadcrumbs: explicit prop > route metadata > none. The sidebar
@@ -126,6 +137,8 @@ export function PageHeader({
       data-testid="page-header"
       data-page-header-layout="inline"
       data-page-header-compact={compactRequested ? 'true' : 'false'}
+      // A row over the title, a breadcrumb or a way back: the spacing of the header depends on it.
+      data-page-header-nav={hasNav ? 'true' : 'false'}
       className={cn(
         'flex flex-col gap-1.5 border-b border-bd-0 bg-bg-1 px-6 py-1.5',
         className,

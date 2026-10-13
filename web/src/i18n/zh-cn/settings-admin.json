@@ -15,7 +15,7 @@
     "group_security": "数据安全",
     "group_ml_ops": "AI 与 ML",
     "group_platform": "平台",
-    "search_placeholder": "搜索设置、权限或功能…",
+    "search_placeholder": "搜索设置…",
     "search_aria": "搜索设置",
     "no_results": "没有匹配的设置项。",
     "open_navigation": "打开设置导航",
@@ -30,7 +30,6 @@
     "notify_templates": "通知模板",
     "notify_defaults": "兜底路由",
     "notify_deliveries": "投递记录",
-    "pipeline_destinations": "流水线目标端",
     "client_ip": "客户端 IP 识别",
     "nodes": "节点 / 远程集群",
     "sso_providers": "SSO 服务",
@@ -83,7 +82,7 @@
     "interface": {
       "title": "界面与默认值",
       "subtitle": "这些偏好仅应用于你的账户，并在登录设备间同步。",
-      "timezone_hint": "控制日志、链路和报表中的默认时间显示。",
+      "timezone_hint": "控制日志、链路和报告中的默认时间显示。",
       "language_hint": "切换 MoleSignal 的界面语言。",
       "default_home_hint": "登录后或点击品牌标识时默认打开的页面路径。"
     },
@@ -127,8 +126,10 @@
       "title": "组织生命周期",
       "subtitle": "管理影响组织及其数据生命周期的不可逆操作。",
       "delete_title": "删除组织",
-      "delete_description": "后端禁止删除当前会话所在组织。请先切换到其他组织，再从组织管理中完成删除。",
-      "manage_delete": "前往组织管理"
+      "delete_description": "组织不能在自身会话内被删除，需要在平台组织的「组织管理」中完成。",
+      "manage_delete": "前往组织管理",
+      "enters_platform": "将切换到平台组织，在那里管理各个组织。",
+      "platform_only": "只有 Owner 或平台管理员可以删除组织。"
     }
   },
   "preferences": {
@@ -137,6 +138,7 @@
     "sections": {
       "appearance": "外观",
       "locale": "语言与区域",
+      "region": "时间与区域",
       "navigation": "导航",
       "interaction": "交互",
       "startup_interaction": "启动与交互"
@@ -326,64 +328,6 @@
       "toast_enabled": "服务已启用",
       "toast_disabled": "服务已停用"
     }
-  },
-  "pipeline_destinations": {
-    "title": "流水线目标端",
-    "subtitle": "流水线可投递到的外部 sink。",
-    "new_connector": "新建 connector",
-    "back_to_pipelines": "← 流水线",
-    "empty_title": "尚未配置 connector",
-    "empty_description": "添加 S3 / Kafka / Webhook connector 作为流水线 sink。",
-    "columns": {
-      "name": "名称",
-      "kind": "类型",
-      "enabled": "启用",
-      "last_run": "最近运行"
-    },
-    "delete_confirm_title": "确认删除该 connector?",
-    "delete_confirm_description": "依赖此 connector 的流水线将失败，直到重新连线。",
-    "drawer_title": "新建 connector",
-    "submit_label": "创建 connector",
-    "section_identity": "标识",
-    "section_config": "配置",
-    "field_name": "名称",
-    "field_kind": "类型",
-    "field_kind_hint": "选择 connector 类型 - 下方配置字段会随之变化。",
-    "kinds": {
-      "aws_cloudwatch_logs": "AWS CloudWatch Logs",
-      "aws_kinesis_firehose": "AWS Kinesis Firehose",
-      "cloudflare_logpush": "Cloudflare Logpush",
-      "heroku_drain": "Heroku Log Drain",
-      "s3": "Amazon S3",
-      "kafka": "Apache Kafka"
-    },
-    "fields": {
-      "region": "区域",
-      "log_group": "日志组",
-      "target_stream": "目标流",
-      "access_key": "Access Key",
-      "secret_key": "Secret Key",
-      "bucket": "存储桶",
-      "prefix": "路径前缀",
-      "endpoint": "Endpoint",
-      "brokers": "Broker 列表",
-      "topic": "Topic",
-      "sasl_username": "SASL 用户名",
-      "sasl_password": "SASL 密码"
-    },
-    "hints": {
-      "region": "日志组所在的 AWS region。",
-      "log_group": "要拉取事件的 CloudWatch 日志组。",
-      "target_stream": "摄取记录写入的目标 stream。",
-      "credentials": "可选 - 保存后加密存储并脱敏显示。",
-      "bucket": "对象写入的目标存储桶。",
-      "prefix": "可选 - 写入对象的 key 前缀。",
-      "endpoint": "可选 - S3 兼容存储的自定义 endpoint。",
-      "brokers": "逗号分隔的 host:port broker 列表。",
-      "topic": "记录写入的 topic。",
-      "sasl": "可选 - 免认证 broker 留空。"
-    },
-    "toast_created": "Connector 已创建"
   },
   "cipher_keys": {
     "title": "加密密钥",

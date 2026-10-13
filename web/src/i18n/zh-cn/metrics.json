@@ -12,7 +12,7 @@
       "empty_query_summary": "选择指标或输入 PromQL"
     },
     "editor": {
-      "label": "PromQL",
+      "label": "查询",
       "aria": "PromQL 编辑器",
       "placeholder": "rate(metric_name{...}[5m])",
       "run": "查询",
@@ -34,9 +34,6 @@
     "query": {
       "datasource": "数据源",
       "metrics_browser": "指标浏览器",
-      "code": "代码",
-      "builder": "构造器",
-      "mode_aria": "查询编辑模式",
       "options": "选项",
       "legend": "图例",
       "auto": "自动",
@@ -109,9 +106,15 @@
       "zoom_aria": "指标时序图。横向拖拽选择时间范围；拖动 X 轴可实时平移；双击图表可将当前时间范围扩大一倍。",
       "reset_zoom": "恢复时间范围",
       "reset_zoom_hint": "恢复图表交互前的时间范围",
-      "awaiting_query": "等待输入 PromQL 查询",
       "select_prompt": "请在上方输入 PromQL，或搜索一个指标，然后执行查询。",
       "empty": "该查询 / 时间范围内没有数据点。"
+    },
+    "start": {
+      "heading": "从一个指标开始",
+      "browse": "浏览全部指标",
+      "metric_aria": "绘制 {{metric}}",
+      "no_metrics": "还没有指标数据进来。",
+      "connect": "接入指标数据源"
     },
     "recovery": {
       "query_failed": "PromQL 查询失败",
@@ -163,7 +166,8 @@
       "query_time": "{{ms}} ms",
       "no_table": "执行查询后可查看原始行数据。",
       "table_limit": "当前显示 {{total}} 行中的 {{shown}} 行。",
-      "query": "查询"
+      "query": "查询",
+      "views_aria": "结果视图"
     },
     "quality": {
       "title": "数据质量",

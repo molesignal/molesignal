@@ -11,10 +11,11 @@ import { ChromeButton, Pill, TimeRangeChip } from '@/shell/chrome';
 import { CursorPagination } from '@/shell/CursorPagination';
 import { queryStateFor } from '@/shell/query/State';
 import { useAuthStore } from '@/stores/auth';
-import { formatWindowSummary, useTimeStore } from '@/stores/useTimeStore';
+import { useTimeStore } from '@/stores/useTimeStore';
 
 import { formatMicros, windowToMicros } from './_helpers';
 import {
+  RumFacts,
   RumFilterSelect,
   RumListPage,
   RumSurface,
@@ -95,11 +96,9 @@ export function Errors() {
 
   return (
     <RumListPage
-      title={t('errors.title')}
-      subtitle={t('errors.subtitle') as string}
       toolbar={
         <>
-          <TimeRangeChip value={formatWindowSummary(window)} className="border-0" />
+          <TimeRangeChip className="border-0" />
           <ChromeButton
             onClick={() => {
               if (pagination.cursor) {
@@ -116,38 +115,38 @@ export function Errors() {
           </ChromeButton>
         </>
       }
-      kpis={
-        allRows.length > 0
-          ? [
-              { label: t('errors.kpi.total_errors'), value: String(totalErrors) },
-              { label: t('errors.kpi.unique_users'), value: String(uniqueUsers) },
-              { label: t('errors.kpi.affected_sessions'), value: String(affectedSessions) },
+      lead={
+        allRows.length > 0 ? (
+          <RumFacts
+            label={t('errors.title')}
+            facts={[
+              { key: 'errors', label: t('errors.kpi.total_errors'), value: totalErrors.toLocaleString() },
+              { key: 'users', label: t('errors.kpi.unique_users'), value: uniqueUsers.toLocaleString() },
+              { key: 'sessions', label: t('errors.kpi.affected_sessions'), value: affectedSessions.toLocaleString() },
               {
+                key: 'new',
                 label: t('errors.kpi.new_issues'),
-                value: String(newIssues),
+                value: newIssues.toLocaleString(),
                 tone: newIssues > 0 ? 'danger' : 'good',
               },
-            ]
-          : undefined
+            ]}
+          />
+        ) : undefined
       }
       filterBar={
         <>
-          <label className="grid min-w-[280px] flex-1 gap-1">
-            <span className="type-caption font-sans font-strong text-tx-3">
-              {t('errors.filters.search')}
-            </span>
-            <span className="relative">
-              <Search className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-tx-3" />
-              <input
-                type="search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder={t('errors.search_placeholder') ?? ''}
-                className="h-8 w-full rounded-md border-0 bg-[var(--control-surface)] pl-8 pr-2.5 font-sans text-xs text-tx-0 outline-none placeholder:text-tx-3 hover:bg-bg-2 focus-visible:bg-bg-2"
-                data-ui="search-control"
-              />
-            </span>
-          </label>
+          <span className="relative min-w-[280px] flex-1">
+            <Search className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-tx-3" />
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder={t('errors.search_placeholder') ?? ''}
+              aria-label={t('errors.filters.search')}
+              className="h-8 w-full rounded-md border-0 bg-[var(--control-surface)] pl-8 pr-2.5 font-sans text-xs text-tx-0 outline-none placeholder:text-tx-3 hover:bg-bg-2 focus-visible:bg-bg-2"
+              data-ui="search-control"
+            />
+          </span>
           <RumFilterSelect
             label={t('errors.filters.status')}
             value={status}
@@ -184,7 +183,7 @@ export function Errors() {
                   onClick={() =>
                     navigate(`${basePath}/errors/view/${encodeURIComponent(row.fingerprint)}`)
                   }
-                  className="block max-w-full truncate rounded text-left text-sm font-display text-tx-0 outline-none hover:bg-bg-2 hover:text-blue-soft focus-visible:bg-bg-2 focus-visible:text-blue-soft"
+                  className="block max-w-full truncate rounded text-left text-sm font-display text-tx-0 outline-none hover:bg-bg-2 hover:text-[var(--blue-ink)] focus-visible:bg-bg-2 focus-visible:text-[var(--blue-ink)]"
                 >
                   {row.message || row.fingerprint}
                 </button>
@@ -206,7 +205,7 @@ export function Errors() {
                 {row.recent_sessions[0] && (
                   <Link
                     to={`${basePath}/sessions/view/${encodeURIComponent(row.recent_sessions[0])}`}
-                    className="mt-2 inline-flex items-center gap-1 text-xs font-strong text-blue-soft hover:text-tx-0"
+                    className="mt-2 inline-flex items-center gap-1 text-xs font-strong text-[var(--blue-ink)] hover:text-tx-0"
                   >
                     {t('errors.view_related_replays', { count: row.sessions })}
                     <ArrowRight className="h-3 w-3" />
@@ -291,7 +290,7 @@ function Trend({ value }: { value: number }) {
   return (
     <span
       className={`inline-flex items-center gap-1 text-xs font-strong ${
-        rising ? 'text-red-soft' : 'text-green-soft'
+        rising ? 'text-red-soft' : 'text-[var(--green-ink)]'
       }`}
     >
       {rising ? (

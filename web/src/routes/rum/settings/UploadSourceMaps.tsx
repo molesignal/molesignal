@@ -88,7 +88,7 @@ export function UploadSourceMaps() {
             <button
               type="button"
               onClick={() => navigate(`${basePath}/settings/source-maps`)}
-              className="rounded text-blue-soft outline-none hover:bg-bg-2 focus-visible:bg-bg-2"
+              className="rounded text-[var(--blue-ink)] outline-none hover:bg-bg-2 focus-visible:bg-bg-2"
             >
               {t('source_maps.title')}
             </button>

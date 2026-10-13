@@ -1,14 +1,21 @@
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
-import type { ActionAccess } from '@/product/actionAccess';
 import { ChromeButton } from '@/shell/chrome';
 
+import { usePlatformAction } from './platformAction';
 import { SettingsRow, SettingsSection } from '../_atoms';
 
-export function DangerZone({ access }: { access: ActionAccess }) {
-  const { t } = useTranslation('settings-admin');
+/**
+ * Deleting an organization is done from the platform's organization
+ * management, never from inside the organization itself. Whoever can enter
+ * the platform organization (its administrator, or an owner) is taken there;
+ * anyone else is told who can do it, not that they are a permission short.
+ */
+export function DangerZone() {
+  const { t } = useTranslation(['settings-admin', 'common']);
   const navigate = useNavigate();
+  const management = usePlatformAction('sys.organizations.manage');
 
   return (
     <SettingsSection
@@ -19,17 +26,29 @@ export function DangerZone({ access }: { access: ActionAccess }) {
       <SettingsRow
         label={t('general.danger.delete_title')}
         description={t('general.danger.delete_description')}
-        controlClassName="justify-start min-[1100px]:justify-end"
       >
-        <ChromeButton
-          variant="danger"
-          disabled={access.disabled}
-          disabledReason={access.reason}
-          onClick={() => navigate('/settings/organization_management')}
-          className="h-11 text-base lg:h-9 lg:text-sm"
-        >
-          {t('general.danger.manage_delete')}
-        </ChromeButton>
+        {management.reach === 'none' ? (
+          <p className="m-0 max-w-[320px] font-sans text-sm leading-relaxed text-tx-2">
+            {t('general.danger.platform_only')}
+          </p>
+        ) : (
+          <div className="flex max-w-[360px] flex-col items-start gap-1.5">
+            <ChromeButton
+              variant="danger"
+              disabled={management.reach === 'loading' || management.entering}
+              disabledReason={management.reach === 'loading' ? t('common:access.loading') : undefined}
+              onClick={() => void management.run(() => navigate('/settings/organization_management'))}
+              className="h-11 text-base lg:h-9 lg:text-sm"
+            >
+              {t('general.danger.manage_delete')}
+            </ChromeButton>
+            {management.reach === 'platform' && (
+              <span className="font-sans text-xs leading-relaxed text-tx-3">
+                {t('general.danger.enters_platform')}
+              </span>
+            )}
+          </div>
+        )}
       </SettingsRow>
     </SettingsSection>
   );

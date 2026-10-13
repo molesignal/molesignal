@@ -8,6 +8,7 @@ import { cn } from '@/shell/lib/cn';
 import { useFiltersStore } from '@/stores/useFiltersStore';
 import { useMoleAgentStore } from '@/stores/useMoleAgentStore';
 import { useTimeStore } from '@/stores/useTimeStore';
+import { formatTimeWindowLabel } from '@/time/TimePicker';
 
 // Lazy so the Mole Agent chat module stays out of the shell bundle until
 // the operator first opens Mole Agent.
@@ -25,6 +26,7 @@ const LazyAgentChat = React.lazy(() =>
  */
 export function MoleAgentPanel() {
   const { t } = useTranslation('shell');
+  const { t: tCommon } = useTranslation('common');
   const nav = useNavigate();
   const location = useLocation();
   const isOpen = useMoleAgentStore((s) => s.isOpen);
@@ -32,7 +34,9 @@ export function MoleAgentPanel() {
   const timeWindow = useTimeStore((s) => s.window);
   const filters = useFiltersStore((s) => s.filters);
   const panelRef = React.useRef<HTMLElement>(null);
-  const contextSummary = investigationContextSummary(timeWindow, filters);
+  const contextSummary = investigationContextSummary(timeWindow, filters, (window) =>
+    formatTimeWindowLabel(window, tCommon),
+  );
 
   React.useEffect(() => {
     const panel = panelRef.current;

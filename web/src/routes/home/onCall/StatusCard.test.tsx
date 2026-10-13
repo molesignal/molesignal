@@ -152,7 +152,7 @@ describe('OnCallStatusCard', () => {
     const acknowledgement = screen.getByTestId(
       'on-call-acknowledgement-status',
     );
-    expect(acknowledgement.className).toContain('bg-orange-dim');
+    expect(acknowledgement.className).toContain('bg-[var(--orange-tint)]');
   });
 
   it('only shows the incident action when events need acknowledgement', () => {

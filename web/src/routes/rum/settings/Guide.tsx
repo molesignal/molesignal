@@ -25,11 +25,11 @@ const STEP_TONES = [
   },
   {
     surface: 'bg-blue-dim',
-    badge: 'bg-[var(--functional-surface)] text-blue-soft',
+    badge: 'bg-[var(--functional-surface)] text-[var(--blue-ink)]',
   },
   {
     surface: 'bg-green-dim',
-    badge: 'bg-[var(--functional-surface)] text-green-soft',
+    badge: 'bg-[var(--functional-surface)] text-[var(--green-ink)]',
   },
 ] as const;
 
@@ -51,17 +51,13 @@ export function RumSettingsGuide() {
   );
 
   return (
-    <RumListPage
-      title={t(`settings.sections.${key}.title`)}
-      subtitle={t(`settings.sections.${key}.subtitle`)}
-      settings
-    >
+    <RumListPage settings>
       <section className="mx-auto w-full max-w-4xl">
         <RumSectionHeader
           title={t(`settings.sections.${key}.heading`)}
           description={t(`settings.sections.${key}.description`)}
         />
-        <div className="grid gap-6 py-8 md:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="grid gap-6 pb-8 pt-3 md:grid-cols-[minmax(0,1fr)_280px]">
           <div>
             <span className="grid h-12 w-12 place-items-center rounded-md bg-indigo-dim text-indigo-soft">
               <Icon aria-hidden className="h-6 w-6" />
@@ -88,7 +84,7 @@ export function RumSettingsGuide() {
             </ol>
           </div>
           <aside className="rounded-md border-0 bg-blue-dim p-5">
-            <BookOpen aria-hidden className="h-5 w-5 text-blue-soft" />
+            <BookOpen aria-hidden className="h-5 w-5 text-[var(--blue-ink)]" />
             <h2 className="mt-4 text-sm font-display-strong text-tx-0">
               {t('settings.docs_title')}
             </h2>

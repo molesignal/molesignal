@@ -16,8 +16,8 @@ import {
   DateTimeFormatPopover,
   type PreferenceOption,
   SegmentedControl,
-  TimezoneCombobox,
 } from '@/shell/PreferencesFields/controls';
+import { TimezoneCombobox } from '@/shell/TimezoneField';
 import { Switch } from '@/shell/ui/switch';
 import type { Dashboard } from '@/types/dashboard';
 
@@ -72,6 +72,7 @@ export function PreferencesFields({
   onChange,
   onThemePreview,
   surface = 'drawer',
+  withLanguage = true,
   disabled = false,
   readOnly = false,
   disabledReason,
@@ -81,6 +82,12 @@ export function PreferencesFields({
   onChange: (patch: Partial<meApi.UserPreferences>) => void;
   onThemePreview: (theme: meApi.PreferenceTheme) => void;
   surface?: 'drawer' | 'page';
+  /**
+   * Whether the language is among the fields. A reader chooses their own in
+   * the user menu, where it takes effect at once; a workspace sets the one its
+   * members start with here.
+   */
+  withLanguage?: boolean;
   disabled?: boolean;
   readOnly?: boolean;
   disabledReason?: string | undefined;
@@ -224,34 +231,35 @@ export function PreferencesFields({
       </PreferenceSection>
 
       <PreferenceSection
-        title={t('preferences.sections.locale')}
+        title={t(withLanguage ? 'preferences.sections.locale' : 'preferences.sections.region')}
         surface={surface}
       >
-        <PreferenceRow
-          label={t('preferences.fields.language')}
-          surface={surface}
-        >
-          <FormSelect
-            disabled={controlsDisabled}
-            disabledReason={controlsDisabledReason}
-            value={value.language}
-            className="bg-indigo-dim font-strong text-indigo-soft enabled:hover:bg-indigo/20 focus-visible:bg-indigo/25 data-[state=open]:bg-indigo/25 data-[state=open]:text-indigo-soft data-[state=open]:[&>svg]:text-indigo-soft [&>svg]:opacity-100 disabled:[&>svg]:text-tx-3"
-            onChange={(language) =>
-              onChange({ language: language as meApi.PreferenceLanguage })
-            }
-            ariaLabel={t('preferences.fields.language')}
-            options={[
-              {
-                value: 'zh-cn',
-                label: t('preferences.values.language_zh_cn'),
-              },
-              {
-                value: 'en-us',
-                label: t('preferences.values.language_en_us'),
-              },
-            ]}
-          />
-        </PreferenceRow>
+        {withLanguage ? (
+          <PreferenceRow
+            label={t('preferences.fields.language')}
+            surface={surface}
+          >
+            <FormSelect
+              disabled={controlsDisabled}
+              disabledReason={controlsDisabledReason}
+              value={value.language}
+              onChange={(language) =>
+                onChange({ language: language as meApi.PreferenceLanguage })
+              }
+              ariaLabel={t('preferences.fields.language')}
+              options={[
+                {
+                  value: 'zh-cn',
+                  label: t('preferences.values.language_zh_cn'),
+                },
+                {
+                  value: 'en-us',
+                  label: t('preferences.values.language_en_us'),
+                },
+              ]}
+            />
+          </PreferenceRow>
+        ) : null}
         <PreferenceRow
           label={t('preferences.fields.default_timezone')}
           description={t('preferences.default_timezone_hint')}
@@ -356,7 +364,6 @@ export function PreferencesFields({
             </span>
           }
           surface={surface}
-          controlClassName={cn(surface === 'page' && 'flex justify-end')}
         >
           <DisabledControl
             disabled={controlsDisabled}
@@ -402,7 +409,13 @@ function PreferenceSection({
         surface === 'drawer' && !last && 'border-b border-bd-0',
       )}
     >
-      <h3 className="mb-4 font-sans text-sm font-strong text-tx-0">
+      <h3
+        className={cn(
+          'mb-4 font-sans text-tx-0',
+          // On a page the section is a topic of the form: set like a Settings subsection.
+          surface === 'page' ? 'text-md font-display-strong' : 'text-sm font-strong',
+        )}
+      >
         {title}
       </h3>
       <div className="space-y-5">{children}</div>
@@ -427,18 +440,30 @@ function PreferenceRow({
     <div
       data-preference-row
       className={cn(
-        'min-h-[52px]',
+        surface === 'page' ? 'min-h-9' : 'min-h-[52px]',
         surface === 'page'
-          ? 'grid grid-cols-1 items-start gap-3 min-[1100px]:grid-cols-[minmax(220px,280px)_minmax(420px,1fr)] min-[1100px]:gap-8'
+          ? 'grid grid-cols-1 items-start gap-3 min-[1100px]:grid-cols-[minmax(220px,280px)_minmax(420px,1fr)] min-[1100px]:gap-[32px]'
           : 'grid grid-cols-1 gap-2 sm:grid-cols-[minmax(150px,1fr)_minmax(240px,320px)] sm:items-center sm:gap-6',
       )}
     >
       <div className="min-w-0">
-        <div className="font-sans text-xs font-strong text-tx-1">
+        <div
+          className={cn(
+            'font-sans font-strong',
+            surface === 'page' ? 'text-sm text-tx-0' : 'text-xs text-tx-1',
+          )}
+        >
           {label}
         </div>
         {description && (
-          <div className="mt-1 text-xs leading-5 text-tx-3">
+          <div
+            className={cn(
+              'mt-1',
+              surface === 'page'
+                ? 'max-w-[280px] font-sans text-sm leading-relaxed text-tx-2'
+                : 'text-xs leading-5 text-tx-3',
+            )}
+          >
             {description}
           </div>
         )}
@@ -446,7 +471,7 @@ function PreferenceRow({
       <div
         className={cn(
           'min-w-0',
-          surface === 'page' && 'w-full',
+          surface === 'page' && 'w-full max-w-[560px]',
           controlClassName,
         )}
       >

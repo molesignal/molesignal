@@ -3,12 +3,12 @@
  * (web-a11y-baseline).
  *
  * For every viz demo route × every (theme, density) combo, navigates the
- * page, forces focus on a representative canvas container, then snapshots
+ * page, forces focus on a representative element of the viz, then snapshots
  * the focused element. 16 PNG baselines (4 viz × 4 combos) are committed
  * under `a11y-focus-ring.spec.ts-snapshots/`.
  *
  * Demo routes are used (not the in-frame viz) because they render the
- * canvas without auth + investigation-stack setup, so the focus target is
+ * viz without auth + investigation-stack setup, so the focus target is
  * a stable DOM node across runs.
  */
 import { expect, mountMockRoutes, test } from '../fixtures/mockBackend';
@@ -29,7 +29,13 @@ type Density = 'comfortable' | 'compact';
 
 const VIZ: Array<{ slug: string; path: string; focusTarget: string }> = [
   { slug: 'timeseries', path: '/_demo/timeseries?n=10000', focusTarget: 'canvas' },
-  { slug: 'trace', path: '/_demo/trace?spans=1000', focusTarget: 'canvas' },
+  // The trace view is a DOM waterfall: the keyboard lands on the button that selects a span,
+  // which is the size of the span's row.
+  {
+    slug: 'trace',
+    path: '/_demo/trace?spans=1000',
+    focusTarget: '[data-testid="trace-waterfall-viewport"] [data-testid="trace-span-select"]',
+  },
   { slug: 'topology', path: '/_demo/topology?nodes=24', focusTarget: '.react-flow__node' },
   { slug: 'log', path: '/_demo/log?rows=200', focusTarget: '[aria-label="Log stream"]' },
 ];

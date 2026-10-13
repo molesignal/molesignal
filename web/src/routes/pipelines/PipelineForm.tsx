@@ -1,31 +1,53 @@
-import { Check, GitBranch, Settings2, TestTube2, type LucideIcon } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { PipelineInput, ScheduledPipeline } from '@/api/pipelines';
-import { DisabledControl } from '@/shell/DisabledControl';
-import {
-  FormField,
-  FormInput,
-  FormSelect,
-} from '@/shell/FormDrawer';
+import { toApiError } from '@/lib/http';
 import { cn } from '@/shell/lib/cn';
-import { Checkbox } from '@/shell/ui/checkbox';
+import { surfacePanelClass } from '@/shell/SurfaceWorkbench';
 
+import { PipelineFlow } from './editor/Flow';
+import { FlowIssues, FlowStatus } from './editor/Issues';
+import { NodeEditor, parseNodeId } from './editor/NodeEditor';
+import { usePipelineResources } from './editor/resources';
 import {
-  PipelineGraphEditor,
+  formatInterval,
+  intervalFromSeconds,
+  intervalSeconds,
+  parseInterval,
+} from './editor/schedule';
+import {
+  PipelineSettings,
+  type PipelineMode,
+  type PipelineSettingsValue,
+} from './editor/Settings';
+import { newStep } from './editor/steps';
+import { TestPanel } from './editor/test/TestPanel';
+import {
+  blocksSave,
+  CONNECTOR_PREFIX,
+  connectorOf,
   pipelineGraphFromPipeline,
   pipelineInputFromGraph,
+  validateGraph,
   type PipelineGraphModel,
   type PipelineSignalType,
+  type StepType,
 } from './PipelineGraph';
-import { DEFAULT_VRL_SCRIPT } from './PipelineGraph/model';
 
+/**
+ * What to tell someone whose save was turned down. The backend compiles every
+ * step and names none of them when one fails; the test run does.
+ */
+export function saveFailureMessage(error: unknown, t: (key: string) => string): string {
+  const { message } = toApiError(error);
+
+  return message.includes('invalid pipeline VRL script') ? t('editor.save_vrl_invalid') : message;
+}
 
 interface PipelineFormProps {
   formId: string;
   initial?: ScheduledPipeline | null;
-  validationRequest?: number;
   disabled?: boolean;
   disabledReason?: string | undefined;
   enabledDisabled?: boolean;
@@ -33,15 +55,25 @@ interface PipelineFormProps {
   onSubmit: (payload: PipelineInput) => void;
 }
 
+const SOURCE = 'source-0';
+
+/** Where an editor opens: on the first step of a pipeline that has one, else on its source. */
+function firstNode(graph: PipelineGraphModel): string {
+  return graph.transforms.length > 0 ? 'transform-0' : SOURCE;
+}
+
 /**
- * Shared workbench body reused by /pipelines/new and /pipelines/:id/edit.
+ * The pipeline editor shared by /pipelines/new and /pipelines/:id/edit: what
+ * the pipeline is and when it runs, the flow from the source through the
+ * steps to the destinations, the node picked in it, and a test run beside that.
+ *
  * Persists exactly the fields exposed by `bin/molesignal/src/api/http/routes/
- * scheduled_pipelines.rs::CreateReq`.
+ * scheduled_pipelines.rs::CreateReq`. A flow with errors is not submitted:
+ * the backend would reject it, or the save would have to make something up.
  */
 export function PipelineForm({
   formId,
   initial,
-  validationRequest = 0,
   disabled = false,
   disabledReason,
   enabledDisabled = false,
@@ -49,192 +81,168 @@ export function PipelineForm({
   onSubmit,
 }: PipelineFormProps) {
   const { t } = useTranslation('pipelines');
+  const resources = usePipelineResources();
   const [name, setName] = React.useState(initial?.name ?? '');
-  const [cron, setCron] = React.useState(initial?.cron ?? 'every:5m');
-  const [lookback, setLookback] = React.useState(String(initial?.lookback_secs ?? 300));
+  const [every, setEvery] = React.useState(() => parseInterval(initial?.cron));
+  const [lookback, setLookback] = React.useState(() => intervalFromSeconds(initial?.lookback_secs));
   const [enabled, setEnabled] = React.useState(initial?.enabled ?? true);
   const [graph, setGraph] = React.useState<PipelineGraphModel>(() =>
     pipelineGraphFromPipeline(initial, 'logs'),
   );
+  const [selectedId, setSelectedId] = React.useState(() => firstNode(graph));
+  const [heldBack, setHeldBack] = React.useState(false);
+  const issuesRef = React.useRef<HTMLDivElement>(null);
 
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const issues = React.useMemo(
+    () => validateGraph(graph, resources.connectorIds),
+    [graph, resources.connectorIds],
+  );
+  const blocked = blocksSave(issues);
+
+  // Once the errors are gone there is nothing left to insist on.
+  React.useEffect(() => {
+    if (!blocked) setHeldBack(false);
+  }, [blocked]);
+
+  // A node that was removed, or a mode that dropped it, leaves the source picked.
+  React.useEffect(() => {
+    const node = parseNodeId(selectedId);
+    const count =
+      node?.kind === 'source'
+        ? graph.sources.length
+        : node?.kind === 'sink'
+          ? graph.sinks.length
+          : graph.transforms.length;
+    if (!node || node.index >= count) setSelectedId(SOURCE);
+  }, [graph.sinks.length, graph.sources.length, graph.transforms.length, selectedId]);
+
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault();
     if (disabled) return;
-    onSubmit(pipelineInputFromGraph({
-      name,
-      cron,
-      lookbackSecs: Number(lookback) || 300,
-      enabled,
-      graph,
-    }));
+
+    if (blocked) {
+      setHeldBack(true);
+      issuesRef.current?.scrollIntoView?.({ block: 'nearest' });
+      return;
+    }
+
+    onSubmit(
+      pipelineInputFromGraph({
+        name,
+        cron: formatInterval(every),
+        lookbackSecs: intervalSeconds(lookback),
+        enabled,
+        graph,
+      }),
+    );
   };
 
-  const changeMode = (mode: 'scheduled' | 'realtime') => {
+  const changeMode = (mode: PipelineMode) => {
     setGraph((current) => ({
       ...current,
       mode,
+      // Realtime works on logs as they arrive: one stream in, one stream out, no connectors.
       ...(mode === 'realtime' && {
         signalType: 'logs',
-        sources: [current.sources[0] ?? 'default'],
-        sinks: [current.sinks.find((sink) => !sink.startsWith('connector:')) ?? 'default'],
+        sources: [current.sources[0] ?? ''],
+        sinks: [current.sinks.find((sink) => connectorOf(sink) === null) ?? ''],
         retainSource: current.retainSource ?? false,
-        transforms: current.transforms.length
-          ? current.transforms.map((step) => step.script === DEFAULT_VRL_SCRIPT
-            ? { ...step, script: '. = .' }
-            : step)
-          : [{ name: 'route-logs', script: '. = .' }],
       }),
     }));
   };
 
+  // Streams belong to a signal: another signal means another source and destination to choose.
   const changeSignalType = (signalType: PipelineSignalType) => {
-    const defaults = pipelineGraphFromPipeline(null, signalType);
     setGraph((current) => ({
-      ...defaults,
-      mode: current.mode ?? 'scheduled',
-      retainSource: current.retainSource ?? false,
-      transforms: current.transforms,
-      retryPolicy: current.retryPolicy,
+      ...current,
+      signalType,
+      sources: [''],
+      sinks: ['', ...current.sinks.filter((sink) => connectorOf(sink) !== null)],
     }));
+  };
+
+  const changeSettings = (patch: Partial<PipelineSettingsValue>) => {
+    if (patch.name !== undefined) setName(patch.name);
+    if (patch.every !== undefined) setEvery(patch.every);
+    if (patch.lookback !== undefined) setLookback(patch.lookback);
+    if (patch.enabled !== undefined) setEnabled(patch.enabled);
+  };
+
+  // A new connector starts unchosen: which one it is has to be said, not guessed.
+  const addConnector = () => {
+    setSelectedId(`sink-${graph.sinks.length}`);
+    setGraph({ ...graph, sinks: [...graph.sinks, CONNECTOR_PREFIX] });
+  };
+  const addStep = (type: StepType) => {
+    const step = newStep(type, graph.transforms.map((item) => item.name));
+    setSelectedId(`transform-${graph.transforms.length}`);
+    setGraph({ ...graph, transforms: [...graph.transforms, step] });
   };
 
   return (
     <form
       id={formId}
       onSubmit={submit}
-      className="flex min-h-[calc(100vh-var(--topbar-h)-104px)] flex-col overflow-hidden rounded-md border border-bd-0 bg-bg-1"
       aria-disabled={disabled || undefined}
+      className="flex min-w-0 flex-col gap-[12px]"
     >
-      <div className="flex min-h-11 flex-wrap items-center justify-between gap-3 border-b border-bd-0 bg-bg-1 px-4 py-2">
-        <div className="flex items-center gap-1 font-sans text-xs">
-          <WorkspaceStage icon={Settings2} label={t('workspace.stage_identity')} complete />
-          <span className="h-px w-5 bg-bd-1" aria-hidden />
-          <WorkspaceStage icon={GitBranch} label={t('workspace.stage_graph')} active />
-          <span className="h-px w-5 bg-bd-1" aria-hidden />
-          <WorkspaceStage icon={TestTube2} label={t('workspace.stage_validate')} />
-        </div>
-        <div className="font-sans text-xs text-tx-3">{t('workspace.autosave_hint')}</div>
-      </div>
-
-      <div className="grid gap-3 border-b border-bd-0 bg-bg-2 px-4 py-3 md:grid-cols-2 xl:grid-cols-6">
-        <FormField label={t('flows.form.name_label')} required>
-          <FormInput
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="prod-app-logs"
-            className="bg-[var(--control-surface)]"
-            disabled={disabled}
-            disabledReason={disabledReason}
-            required
-          />
-        </FormField>
-        <fieldset className="min-w-0"><legend className="mb-1.5 text-xs text-tx-3">{t('realtime.mode')}</legend>
-          <div className="flex h-9 rounded-md bg-bg-1 p-1" role="group" aria-label={t('realtime.mode')}>
-            {(['realtime', 'scheduled'] as const).map((mode) => (
-              <button key={mode} type="button" disabled={disabled} aria-pressed={(graph.mode ?? 'scheduled') === mode}
-                className={cn('flex-1 rounded px-3 text-xs font-medium disabled:opacity-50 focus-visible:bg-bg-3', (graph.mode ?? 'scheduled') === mode ? 'bg-indigo-dim text-indigo-soft' : 'text-tx-2 hover:bg-bg-2')}
-                onClick={() => changeMode(mode)}>
-                {t(mode === 'realtime' ? 'realtime.title' : 'realtime.scheduled')}
-              </button>
-            ))}
-          </div>
-        </fieldset>
-        <FormField label={t('drawer.fields.signal_type')} required>
-          <FormSelect
-            value={graph.signalType}
-            onChange={(value) => changeSignalType(value as PipelineSignalType)}
-            options={[
-              { value: 'logs', label: t('filters.logs') },
-              { value: 'metrics', label: t('filters.metrics') },
-              { value: 'traces', label: t('filters.traces') },
-            ]}
-            className="bg-[var(--control-surface)]"
-            disabled={disabled || graph.mode === 'realtime'}
-            disabledReason={disabledReason}
-          />
-        </FormField>
-        {graph.mode !== 'realtime' && <>
-        <FormField label={t('flows.form.cron_label')} hint={t('flows.form.cron_hint')}>
-          <FormInput
-            value={cron}
-            onChange={(e) => setCron(e.target.value)}
-            className="bg-[var(--control-surface)] font-mono text-xs"
-            disabled={disabled}
-            disabledReason={disabledReason}
-            required
-          />
-        </FormField>
-        <FormField label={t('flows.form.lookback_label')}>
-          <FormInput
-            value={lookback}
-            onChange={(e) => setLookback(e.target.value)}
-            type="number"
-            className="bg-[var(--control-surface)]"
-            disabled={disabled}
-            disabledReason={disabledReason}
-          />
-        </FormField>
-        </>}
-        <FormField label={t('flows.form.enabled_label')}>
-          <DisabledControl
-            disabled={disabled || enabledDisabled}
-            reason={disabled ? disabledReason : enabledDisabledReason}
-            className="w-full"
-          >
-            <span
-              className={cn(
-                'flex h-9 items-center gap-2 rounded-md border px-3 font-sans text-xs',
-                disabled || enabledDisabled
-                  ? 'cursor-not-allowed border-bd-0 bg-bg-3 text-tx-3'
-                  : 'border-bd-1 bg-bg-1 text-tx-1',
-              )}
-            >
-              <Checkbox
-                checked={enabled}
-                disabled={disabled || enabledDisabled}
-                aria-disabled={disabled || enabledDisabled || undefined}
-                onCheckedChange={(checked) => setEnabled(checked === true)}
-              />
-              <span>{t(graph.mode === 'realtime' ? 'realtime.enabled' : 'flows.form.run_on_schedule')}</span>
-            </span>
-          </DisabledControl>
-        </FormField>
-      </div>
-
-      <PipelineGraphEditor
-        value={graph}
-        onChange={setGraph}
-        validationRequest={validationRequest}
-        readOnly={disabled}
-        readOnlyReason={disabledReason}
-        defaultInspectorOpen
-        className="min-h-[600px] flex-1 rounded-none border-0"
+      <PipelineSettings
+        value={{
+          name,
+          mode: graph.mode ?? 'scheduled',
+          signalType: graph.signalType,
+          every,
+          lookback,
+          enabled,
+        }}
+        onChange={changeSettings}
+        onModeChange={changeMode}
+        onSignalChange={changeSignalType}
+        disabled={disabled}
+        disabledReason={disabledReason}
+        enabledDisabled={enabledDisabled}
+        enabledDisabledReason={enabledDisabledReason}
       />
-    </form>
-  );
-}
 
-function WorkspaceStage({
-  icon: Icon,
-  label,
-  active,
-  complete,
-}: {
-  icon: LucideIcon;
-  label: React.ReactNode;
-  active?: boolean;
-  complete?: boolean;
-}) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1.5 rounded px-2 py-1 font-strong',
-        active ? 'bg-indigo-dim text-indigo-soft' : 'text-tx-3',
-        complete && 'text-green-soft',
-      )}
-    >
-      {complete ? <Check className="h-3.5 w-3.5" /> : <Icon className="h-3.5 w-3.5" />}
-      {label}
-    </span>
+      <section
+        data-pipeline-flow-card
+        aria-label={t('workspace.stage_graph')}
+        className={cn('min-w-0 px-[16px] pb-[14px] pt-[12px]', surfacePanelClass)}
+      >
+        <header className="mb-[8px] flex min-h-[28px] items-center gap-[12px]">
+          <h2 className="m-0 font-sans text-md font-strong text-tx-0">{t('workspace.stage_graph')}</h2>
+          <FlowStatus issues={issues} urgent={heldBack} />
+        </header>
+        <PipelineFlow
+          model={graph}
+          connectorNames={resources.connectorNames}
+          editing={{
+            selectedId,
+            onSelect: setSelectedId,
+            onAddStep: addStep,
+            onAddConnector: addConnector,
+            issues,
+            urgent: heldBack,
+            disabled,
+            disabledReason,
+          }}
+        />
+        <div ref={issuesRef}>
+          <FlowIssues issues={issues} urgent={heldBack} onSelect={setSelectedId} />
+        </div>
+      </section>
+
+      <div className="grid min-w-0 gap-[12px] xl:grid-cols-[minmax(0,1.55fr)_minmax(360px,1fr)]">
+        <NodeEditor
+          model={graph}
+          selectedId={selectedId}
+          resources={resources}
+          readOnly={disabled}
+          onChange={setGraph}
+          onSelect={setSelectedId}
+        />
+        <TestPanel model={graph} connectorNames={resources.connectorNames} />
+      </div>
+    </form>
   );
 }

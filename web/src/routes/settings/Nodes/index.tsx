@@ -105,11 +105,12 @@ export function Nodes() {
           }
         }}
       />
-      <SectionBody className="space-y-8 pb-10">
+      <SectionBody opensOnSection className="space-y-8 pb-10">
         <DataPlaneRuntimeSettings />
         <SettingsSection
           title={t('nodes.remote_clusters_title')}
           description={t('nodes.remote_clusters_description')}
+          measure="full"
         >
           <div className="py-4">
             {pageState ? (

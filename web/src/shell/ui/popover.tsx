@@ -19,7 +19,7 @@ const PopoverContent = React.forwardRef<
       sideOffset={sideOffset}
       className={cn(
         floatingSurfaceClass,
-        'z-50 w-72 rounded-md p-3 outline-none data-[state=open]:animate-fade-in',
+        'z-50 w-72 origin-[var(--radix-popover-content-transform-origin)] rounded-md p-3 outline-none data-[state=open]:animate-pop-in data-[state=closed]:animate-pop-out',
         className,
       )}
       {...props}

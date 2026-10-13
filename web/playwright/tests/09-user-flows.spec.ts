@@ -12,28 +12,36 @@ test.describe('Author a dashboard', () => {
     await mountMockRoutes(page, mockServer.port);
   });
 
-  test('dashboards list → New dashboard → editor → Apply → back to list', async ({ page }) => {
+  test('dashboards list → New dashboard → editor → Save → back in the list', async ({ page }) => {
     await page.goto('/dashboards');
 
-    // The list surfaces the "New dashboard" entry affordance, which routes to
-    // the editor. Navigate to its target directly — the dashboards grid runs a
-    // continuous layout animation that makes the toolbar button fail
-    // Playwright's "stable" actionability gate (the editor click below is fine).
-    await expect(page.getByRole('button', { name: 'New dashboard' }).first()).toBeVisible({
-      timeout: 10_000,
-    });
-    await page.goto('/dashboards/new/edit');
+    await page.getByRole('button', { name: 'New dashboard' }).click();
     await expect(page).toHaveURL(/\/dashboards\/new\/edit/);
 
     const title = page.getByLabel('Dashboard title');
     await expect(title).toBeVisible({ timeout: 10_000 });
     await title.fill('SLO overview');
 
-    await page.getByRole('button', { name: 'Apply' }).click();
+    // A new dashboard starts empty: give it one panel, then leave the panel's
+    // editor for the dashboard it sits on.
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Panel' }).click();
+    await expect(page.getByRole('region', { name: 'New panel' })).toBeVisible();
+    await page
+      .getByRole('button', { name: 'Back to dashboard' })
+      .filter({ hasText: 'Back to dashboard' })
+      .click();
+    await expect(page).toHaveURL(/\/dashboards\/new\/edit$/);
 
-    // New-dashboard save toasts "Dashboard created: …" and routes back to the list.
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+
+    // Saving opens the dashboard that was just created.
+    await expect(page.getByText('Dashboard saved', { exact: true })).toBeVisible({ timeout: 5_000 });
+    await expect(page).toHaveURL(/\/dashboards\/dash-\d+$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'SLO overview' })).toBeVisible();
+
+    await page.getByRole('link', { name: 'Back', exact: true }).click();
     await expect(page).toHaveURL(/\/dashboards$/);
-    await expect(page.getByText(/Dashboard created/i)).toBeVisible({ timeout: 5_000 });
     const dashboardRow = page.getByRole('row', { name: /SLO overview/ });
     await expect(dashboardRow).toBeVisible({
       timeout: 5_000,
@@ -62,36 +70,52 @@ test.describe('Author a dashboard', () => {
     await page.goto('/dashboards');
 
     await page.getByRole('button', { name: 'Manage folders' }).click();
-    const dialog = page.getByRole('dialog');
+    const dialog = page.getByRole('dialog', { name: 'Dashboard folders' });
     await expect(dialog).toBeVisible({ timeout: 10_000 });
+    const tree = dialog.getByRole('navigation', { name: 'Dashboard folders' });
 
+    await dialog.getByRole('button', { name: 'New folder' }).first().click();
+    await expect(dialog.getByRole('heading', { name: 'Create folder' })).toBeVisible();
     await dialog.getByPlaceholder('e.g. Production').fill('Production');
-    await dialog.getByRole('button', { name: 'Create' }).click();
-    await expect(dialog.getByRole('button', { name: /Production 0 dashboards/ })).toBeVisible();
+    await dialog.getByRole('button', { name: 'Create', exact: true }).click();
+    await expect(page.getByText('Folder created: Production')).toBeVisible();
+    // The new folder is in the tree, empty, and open for editing.
+    await expect(tree.getByRole('button', { name: 'Production 0' })).toBeVisible();
+    await expect(dialog.getByRole('heading', { level: 3, name: 'Production' })).toBeVisible();
 
-    await dialog.getByRole('button', { name: 'Edit' }).click();
-    await dialog.locator('input').nth(1).fill('Platform');
-    await dialog.getByRole('button', { name: 'Save' }).click();
-    await expect(dialog.getByRole('button', { name: /Platform 0 dashboards/ })).toBeVisible();
+    await dialog.getByRole('textbox', { name: 'Name' }).fill('Platform');
+    await dialog.getByRole('button', { name: 'Save changes' }).click();
+    await expect(page.getByText('Folder updated: Platform')).toBeVisible();
+    await expect(tree.getByRole('button', { name: 'Platform 0' })).toBeVisible();
+    await expect(tree.getByRole('button', { name: 'Production 0' })).toHaveCount(0);
 
-    await dialog.getByRole('button', { name: 'Delete' }).click();
+    await dialog.getByRole('button', { name: 'Delete', exact: true }).click();
     await page.getByRole('button', { name: 'Delete folder' }).click();
-    await expect(dialog.getByRole('button', { name: /Platform 0 dashboards/ })).toHaveCount(0);
+    await expect(page.getByText('Folder deleted: Platform')).toBeVisible();
+    await expect(tree.getByRole('button', { name: 'Platform 0' })).toHaveCount(0);
   });
 
-  test('dashboard editor Save as opens a dialog and creates a copy', async ({ page }) => {
-    await page.goto('/dashboards/new/edit');
+  test('a dashboard is copied from its row in the list', async ({ page }) => {
+    await page.goto('/dashboards');
 
-    await page.getByLabel('Dashboard title').fill('Source dashboard');
-    await page.getByRole('button', { name: 'Save as…' }).click();
+    await page.getByRole('button', { name: 'More actions for API latency' }).click();
+    await page.getByRole('menuitem', { name: 'Create copy' }).click();
 
-    await expect(page.getByRole('dialog')).toBeVisible({ timeout: 10_000 });
-    await page.getByLabel('Dashboard name').fill('Copied dashboard');
-    await page.getByRole('button', { name: 'Save copy' }).click();
+    await expect(
+      page.getByText('Dashboard copy created: API latency copy'),
+    ).toBeVisible({ timeout: 5_000 });
+    // The copy is a dashboard of its own, beside the one it was made from.
+    await expect(page.getByRole('row', { name: /^API latency copy/ })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'More actions for API latency', exact: true }),
+    ).toBeVisible();
 
+    await page.getByRole('button', { name: 'More actions for API latency copy' }).click();
+    await page.getByRole('menuitem', { name: 'Open' }).click();
     await expect(page).toHaveURL(/\/dashboards\/dash-\d+$/);
-    await expect(page.getByText(/Dashboard copy saved/i)).toBeVisible({ timeout: 5_000 });
-    await expect(page.locator('main').getByText('Copied dashboard', { exact: true })).toBeVisible({ timeout: 10_000 });
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'API latency copy' }),
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test('dashboard editor chart hover shows shared tooltip values', async ({ page }) => {
@@ -119,23 +143,40 @@ test.describe('Author a dashboard', () => {
     });
 
     await page.goto('/dashboards/new/edit');
-    await page.getByLabel('PromQL query editor').click({ force: true });
+    const add = page.getByRole('button', { name: 'Add', exact: true });
+    await add.click();
+    await page.getByRole('menuitem', { name: 'Panel' }).click();
+    // A menu hands the focus back to its button a moment after it closes, and under the fixture's
+    // clock that moment can come after the editor is on the page. Text sent before it would be
+    // left on the button, so the typing waits for it.
+    await expect(add).toBeFocused({ timeout: 10_000 });
+
+    // The panel's live preview runs the query as it is written.
+    await page.getByRole('textbox', { name: 'Expression' }).focus();
     await page.keyboard.insertText('sum by (service) (rate(http_requests_total[5m]))');
-    await page.getByRole('button', { name: 'Run' }).click();
 
-    const chart = page.locator('svg.cursor-crosshair');
+    const preview = page.getByRole('region', { name: 'New panel' });
+    const chart = preview.getByRole('img', { name: 'Dashboard time series' });
     await expect(chart).toBeVisible({ timeout: 10_000 });
-    await expect(chart.getByTestId('chart-x-axis-labels')).toBeVisible();
-    await expect(chart.getByTestId('chart-x-axis-labels')).toContainText('09:58');
-    const box = await chart.boundingBox();
-    if (!box) throw new Error('chart bounding box missing');
-    await page.mouse.move(box.x + box.width * 0.55, box.y + box.height * 0.42);
+    const legend = preview.getByRole('table', { name: 'Series legend' });
+    await expect(legend.getByRole('button', { name: '{service="api"}' })).toBeVisible();
+    await expect(legend.getByRole('button', { name: '{service="checkout"}' })).toBeVisible();
 
-    const tooltip = page.getByTestId('chart-hover-tooltip');
+    const plot = chart.locator('.u-over');
+    const box = await plot.boundingBox();
+    if (!box) throw new Error('chart bounding box missing');
+    // The dashboard shows 09:00–10:00, so the 09:59 samples sit 59/60 of the
+    // way across the plot.
+    await page.mouse.move(box.x + (box.width * 59) / 60, box.y + box.height * 0.42);
+
+    // One tooltip for the moment under the cursor, with every series' value at it.
+    const tooltip = page.getByRole('tooltip');
     await expect(tooltip).toBeVisible({ timeout: 5_000 });
-    await expect(tooltip).toContainText('api');
-    await expect(tooltip).toContainText('checkout');
-    await expect(tooltip).toContainText('8');
+    await expect(tooltip).toContainText('09:59:00');
+    await expect(tooltip).toContainText('{service="api"}');
+    await expect(tooltip).toContainText('8.4');
+    await expect(tooltip).toContainText('{service="checkout"}');
+    await expect(tooltip).toContainText('8.1');
   });
 });
 
@@ -144,34 +185,55 @@ test.describe('Author an alert rule', () => {
     await mountMockRoutes(page, mockServer.port);
   });
 
-  test('alerts → New rule → fill drawer → Create → POST fires', async ({ page }) => {
-    let created = false;
+  test('rules → New rule → fill the workbench → test → Create → POST fires', async ({ page }) => {
+    let created: Record<string, unknown> | null = null;
     // Registered after the fixture's catch-all proxy, so it runs first; defer
     // non-POST (the initial GET /alerts/rules) back to the proxy via fallback.
     await page.route('**/api/v1/alerts/rules', async (route) => {
       if (route.request().method() === 'POST') {
-        created = true;
-        await route.fulfill({ json: { id: 'rule-new' } });
+        created = route.request().postDataJSON() as Record<string, unknown>;
+        await route.fulfill({ json: { id: 'rule-new', ...created } });
         return;
       }
       await route.fallback();
     });
 
-    await page.goto('/alerts');
+    await page.goto('/alerts/rules');
     await page.getByRole('button', { name: 'New rule' }).click();
-    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.getByRole('menuitem', { name: /Threshold rule/ }).click();
+    await expect(page).toHaveURL(/\/alerts\/rules\/new$/);
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'New alert rule' }),
+    ).toBeVisible();
 
-    // Exact match — `high_error_rate` is also a substring of the runbook
-    // placeholder URL, so a loose match is ambiguous.
-    await page.getByPlaceholder('high_error_rate', { exact: true }).fill('checkout latency');
+    await page.getByPlaceholder('e.g. api_high_error_rate', { exact: true }).fill('checkout latency');
     await page.getByPlaceholder('e.g. api-gateway', { exact: true }).fill('checkout');
-    // The stream field only exists after the drawer-stream fix (PR #24); fill
-    // it when present so this flow passes both before and after that merge.
-    const stream = page.getByPlaceholder('app_metrics', { exact: true });
-    if (await stream.count()) await stream.first().fill('app_metrics');
+    await page.getByPlaceholder('e.g. app_metrics', { exact: true }).fill('app_metrics');
 
-    await page.getByRole('button', { name: 'Create rule' }).click();
-    await expect.poll(() => created, { timeout: 5_000 }).toBe(true);
+    // A rule is enabled only once its query has run and returned data.
+    const create = page.getByRole('button', { name: 'Create rule', exact: true });
+    await expect(create).toBeDisabled();
+    await page.getByRole('button', { name: 'Test rule', exact: true }).click();
+    await expect(
+      page.locator('[data-alert-query-preview]').getByRole('img', { name: 'Time series chart' }),
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(create).toBeEnabled();
+
+    await create.click();
+    await expect.poll(() => created, { timeout: 5_000 }).toMatchObject({
+      name: 'checkout latency',
+      enabled: true,
+      labels: { service: 'checkout' },
+      query: {
+        language: 'promql',
+        stream: { name: 'app_metrics', stream_type: 'metrics' },
+      },
+    });
+    // Saving returns to the rules, and says what was saved.
+    await expect(page).toHaveURL(/\/alerts\/rules$/);
+    await expect(
+      page.getByText('Rule “checkout latency” saved and enabled'),
+    ).toBeVisible();
   });
 });
 
@@ -244,6 +306,8 @@ test.describe('IAM capability route guard', () => {
   test('Owner capabilities can open /iam/teams', async ({ page, mockServer }) => {
     await mountMockRoutes(page, mockServer.port, { role: 'Owner' });
     await page.goto('/iam/teams');
+    await expect(page).toHaveURL(/\/iam\/teams(?:[?#]|$)/);
+    await expect(page.getByRole('heading', { level: 2, name: 'Teams' })).toBeVisible();
     await expect(page.getByText('Permission required')).toHaveCount(0);
   });
 });

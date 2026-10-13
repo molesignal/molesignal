@@ -77,7 +77,7 @@ export function InboundMcpOAuthAuthorize() {
       <div className="space-y-5 p-6">
         <div className="rounded-md border border-bd-0 bg-bg-2 p-4">
           <div className="flex items-center gap-2 text-sm font-strong text-tx-1">
-            <ShieldCheck className="h-4 w-4 text-green-soft" />
+            <ShieldCheck className="h-4 w-4 text-[var(--green-ink)]" />
             {t('oauth.access_title')}
           </div>
           <ul className="mt-3 space-y-2 text-sm leading-6 text-tx-2">

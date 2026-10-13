@@ -18,7 +18,7 @@ const HoverCardContent = React.forwardRef<
     sideOffset={sideOffset}
     className={cn(
       floatingSurfaceClass,
-      'z-50 w-64 origin-[--radix-hover-card-content-transform-origin] rounded-md p-4 outline-none data-[state=open]:animate-fade-in',
+      'z-50 w-64 origin-[var(--radix-hover-card-content-transform-origin)] rounded-md p-4 outline-none data-[state=open]:animate-pop-in data-[state=closed]:animate-pop-out',
       className,
     )}
     {...props}

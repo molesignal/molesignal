@@ -146,7 +146,7 @@ export function MetricCatalogPanel({
                           })}
                         </div>
                       </div>
-                      <span className="font-sans text-xs font-semibold text-blue-soft">
+                      <span className="font-sans text-xs font-semibold text-[var(--blue-ink)]">
                         {selected
                           ? t('explore.catalog.selected')
                           : t('explore.catalog.select')}

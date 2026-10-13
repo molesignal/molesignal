@@ -32,9 +32,20 @@ interface TimeRangeControlProps {
   className?: string;
   align?: 'start' | 'center' | 'end';
   onClick?: () => void;
+  /**
+   * Takes the width of its place, its arrow at the end: for a control that
+   * stands in a column with others and is to be as wide as they are.
+   */
+  fill?: boolean;
 }
 
-export function TimeRangeControl({ value, className, align = 'end', onClick }: TimeRangeControlProps) {
+export function TimeRangeControl({
+  value,
+  className,
+  align = 'end',
+  onClick,
+  fill = false,
+}: TimeRangeControlProps) {
   const { t } = useTranslation('common');
   const window = useTimeStore((s) => s.window);
   const [open, setOpen] = React.useState(false);
@@ -49,12 +60,15 @@ export function TimeRangeControl({ value, className, align = 'end', onClick }: T
           data-time-range-trigger="true"
           aria-label={t('time_picker.button_aria', { value: displayValue })}
           className={cn(
-            'group inline-flex h-8 max-w-[220px] shrink-0 items-center gap-2 rounded-md border-0 bg-[var(--control-surface)] px-[10px] font-sans text-[13px] font-strong text-tx-1 transition-colors duration-fast hover:bg-[var(--floating-item-hover)] hover:text-tx-0 focus-visible:bg-[var(--floating-item-hover)] focus-visible:text-tx-0 data-[state=open]:bg-[var(--floating-item-hover)] data-[state=open]:text-tx-0',
+            'group inline-flex h-8 max-w-[220px] shrink-0 items-center gap-2 rounded-md border-0 bg-[var(--control-surface)] px-[10px] font-sans text-[13px] font-strong text-tx-1 transition-colors duration-fast hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-bg-3 focus-visible:text-tx-0 data-[state=open]:bg-bg-3 data-[state=open]:text-tx-0',
+            fill && 'flex w-full max-w-none',
             className,
           )}
         >
           <Clock3 className="h-3.5 w-3.5 shrink-0 text-tx-3" />
-          <span className="min-w-0 max-w-[150px] truncate">{displayValue}</span>
+          <span className={cn('min-w-0 truncate', fill ? 'flex-1 text-left' : 'max-w-[150px]')}>
+            {displayValue}
+          </span>
           <ChevronDown className="h-3.5 w-3.5 shrink-0 text-tx-3 transition-transform duration-fast group-data-[state=open]:rotate-180" />
         </button>
       </PopoverTrigger>
@@ -109,7 +123,12 @@ function TimePickerHeader({ title }: { title?: React.ReactNode }) {
   );
 }
 
-function TimeRangePanel({ onDone }: { onDone: () => void }) {
+/**
+ * The two ways a time range is set: one of the quick ranges, or a start and an
+ * end. It reads and sets the time in scope (`TimeScopeContext`), so a control
+ * for another range than the page's gives it a store of its own.
+ */
+export function TimeRangePanel({ onDone }: { onDone: () => void }) {
   const { t } = useTranslation('common');
   const current = useTimeStore((s) => s.window);
   const setWindow = useTimeStore((s) => s.setWindow);
@@ -180,7 +199,7 @@ function TimeRangePanel({ onDone }: { onDone: () => void }) {
             onChange={setFrom}
             includeSeconds
             aria-invalid={!!error}
-            className="h-8 border-0 bg-[var(--control-surface)] text-xs font-body text-tx-0 shadow-none enabled:hover:border-0 enabled:hover:bg-[var(--floating-item-hover)]"
+            className="h-8 border-0 bg-[var(--control-surface)] text-xs font-body text-tx-0 shadow-none enabled:hover:border-0 enabled:hover:bg-bg-3"
           />
         </label>
         <label className="mt-2.5 flex flex-col gap-1 font-sans text-xs font-strong text-tx-2">
@@ -190,7 +209,7 @@ function TimeRangePanel({ onDone }: { onDone: () => void }) {
             onChange={setTo}
             includeSeconds
             aria-invalid={!!error}
-            className="h-8 border-0 bg-[var(--control-surface)] text-xs font-body text-tx-0 shadow-none enabled:hover:border-0 enabled:hover:bg-[var(--floating-item-hover)]"
+            className="h-8 border-0 bg-[var(--control-surface)] text-xs font-body text-tx-0 shadow-none enabled:hover:border-0 enabled:hover:bg-bg-3"
           />
         </label>
         {error && <div role="alert" className="mt-2 font-sans text-xs font-strong text-red-soft">{error}</div>}

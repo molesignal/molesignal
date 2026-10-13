@@ -250,6 +250,15 @@ function PermissionSummary({
   if (permissions.length === 0) {
     return <span className="text-tx-3">-</span>;
   }
+  // A role that holds the whole catalog says so, instead of naming three of its
+  // permissions and counting the rest: it is the one fact about it worth reading.
+  if (catalog && holdsWholeCatalog(catalog, permissions)) {
+    return (
+      <span data-role-permissions="all">
+        <Pill tone="indigo">{t('roles.all_permissions', { count: permissions.length })}</Pill>
+      </span>
+    );
+  }
   const visible = permissions.slice(0, 3);
   return (
     <div className="flex min-w-0 items-center gap-1 overflow-hidden">
@@ -266,6 +275,16 @@ function PermissionSummary({
       )}
     </div>
   );
+}
+
+/** Whether the role's permissions are every one the catalog has, platform scope included. */
+function holdsWholeCatalog(
+  catalog: PermissionCatalog,
+  permissions: readonly rolesApi.PermissionKey[],
+): boolean {
+  const held = new Set<string>(permissions);
+
+  return catalog.permissions.length > 0 && catalog.permissions.every((permission) => held.has(permission.key));
 }
 
 function RoleDrawer({

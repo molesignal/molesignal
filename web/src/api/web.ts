@@ -169,6 +169,48 @@ export async function traces(params: {
   return data;
 }
 
+/**
+ * How many results a list query matches, in the bars a chart asked for. Only
+ * the bars that hold something are listed. `unavailable` says why there are no
+ * counts, when there are none.
+ */
+export interface HistogramCountsResponse {
+  bucket_micros: number;
+  origin_micros: number;
+  buckets: Array<{ start_micros: number; total: number; errors: number }>;
+  /** Whether errors are counted apart from the rest. */
+  split: boolean;
+  unavailable?: 'time_budget' | 'busy' | 'scan_limit' | 'timestamp_masked';
+}
+
+/** The bars to count into: each `bucket_micros` long, the first beginning at `origin_micros`. */
+export interface HistogramBars {
+  bucket_micros: number;
+  origin_micros: number;
+}
+
+/** Counts every trace the list query matches in `[from, to)` by when it began, traces with errors apart. */
+export async function tracesHistogram(
+  params: {
+    from: number;
+    to: number;
+    q?: string;
+    filters?: TraceFilter[];
+  } & HistogramBars,
+  signal?: AbortSignal,
+): Promise<HistogramCountsResponse> {
+  const { filters, ...rest } = params;
+  const requestParams = {
+    ...rest,
+    ...(filters && filters.length > 0 ? { filters: JSON.stringify(filters) } : {}),
+  };
+  const { data } = await http.get<HistogramCountsResponse>('/web/traces/histogram', {
+    params: requestParams,
+    ...(signal && { signal }),
+  });
+  return data;
+}
+
 export interface LogListFilter {
   field: string;
   op: '=' | '!=' | '>' | '>=' | '<' | '<=' | 'contains' | 'match' | 'match_text';
@@ -188,6 +230,95 @@ export async function logs(params: {
   cursor?: string;
 }): Promise<LogListResponse> {
   const { data } = await http.post<LogListResponse>('/web/logs', params);
+  return data;
+}
+
+/** Counts every log row the list query matches in `[from, to)`, rows at level ERROR apart. */
+export async function logsHistogram(
+  params: {
+    stream: string;
+    from: number;
+    to: number;
+    filters?: LogListFilter[];
+    free_text?: string[];
+  } & HistogramBars,
+  signal?: AbortSignal,
+): Promise<HistogramCountsResponse> {
+  const { data } = await http.post<HistogramCountsResponse>('/web/logs/histogram', params, {
+    ...(signal && { signal }),
+  });
+  return data;
+}
+
+/**
+ * What one field holds across the rows a query matches: how many have a value,
+ * how many different values, the commonest of them, and for a number its range,
+ * its spread and its values counted into bars. `unavailable` says why there is
+ * no analysis, when there is none.
+ */
+export interface FieldStatsResponse {
+  kind: 'number' | 'time' | 'text' | 'bool';
+  total: number;
+  present: number;
+  distinct: number;
+  /** Whether `distinct` was counted. Otherwise it is an estimate. */
+  distinct_exact: boolean;
+  /** As text: a count of nanoseconds is past what a JSON number holds exactly. */
+  range?: { min: string; max: string };
+  spread?: {
+    avg: number | null;
+    q1: number | null;
+    median: number | null;
+    q3: number | null;
+    stddev_samp: number | null;
+    stddev_pop: number | null;
+    skewness: number | null;
+    kurtosis: number | null;
+  };
+  bars?: { origin: number; width: number; counts: number[] };
+  top: Array<{ value: string; count: number }>;
+  top_skipped: boolean;
+  /** The five commonest values counted over stretches of time; absent where none is commoner than the rest. */
+  trend?: {
+    origin_micros: number;
+    bucket_micros: number;
+    series: Array<{ value: string; counts: number[] }>;
+  };
+  unavailable?: 'time_budget' | 'busy' | 'field_protected';
+}
+
+/** Reads `field` in every log row the list query matches in `[from, to)`. */
+export async function logsFieldStats(
+  params: {
+    stream: string;
+    from: number;
+    to: number;
+    filters?: LogListFilter[];
+    free_text?: string[];
+    field: string;
+  },
+  signal?: AbortSignal,
+): Promise<FieldStatsResponse> {
+  const { data } = await http.post<FieldStatsResponse>('/web/logs/field-stats', params, {
+    ...(signal && { signal }),
+  });
+  return data;
+}
+
+/** Reads a field of a Span in every Span of the listed Traces. */
+export async function tracesFieldStats(
+  params: {
+    stream?: string;
+    from: number;
+    to: number;
+    trace_ids: string[];
+    field: string;
+  },
+  signal?: AbortSignal,
+): Promise<FieldStatsResponse> {
+  const { data } = await http.post<FieldStatsResponse>('/web/traces/field-stats', params, {
+    ...(signal && { signal }),
+  });
   return data;
 }
 

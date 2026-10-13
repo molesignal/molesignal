@@ -257,7 +257,7 @@ export function InboundMcpPanel() {
 
       <section className="border-t border-bd-0 py-5">
         <div className="flex items-start gap-3">
-          <ShieldCheck className="mt-0.5 h-4 w-4 text-green-soft" />
+          <ShieldCheck className="mt-0.5 h-4 w-4 text-[var(--green-ink)]" />
           <div>
             <h3 className="font-strong text-tx-0">
               {t('settings.inbound_mcp.security.title')}

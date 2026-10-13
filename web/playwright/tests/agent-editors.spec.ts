@@ -1,4 +1,11 @@
+import type { Page } from '@playwright/test';
+
 import { expect, mountMockRoutes, test } from '../fixtures/mockBackend';
+
+const TOOL_SEARCH = "Search tools";
+
+/** The sections of the settings: a row of the module's navigation, under its tabs. */
+const settingsNav = (page: Page) => page.locator('[data-agent-subnavigation="settings"]');
 
 test.describe('Mole Agent editors', () => {
   test.beforeEach(async ({ page, mockServer }) => {
@@ -8,7 +15,7 @@ test.describe('Mole Agent editors', () => {
   test('edits a model provider Base URL and an agent profile', async ({ page }) => {
     await page.goto('/agent/settings');
 
-    await page.getByRole('tab', { name: 'Models & reasoning' }).click();
+    await settingsNav(page).getByRole('link', { name: 'Models & reasoning' }).click();
     await page.getByRole('button', { name: 'Edit model provider' }).last().click();
     const baseUrl = page.getByLabel('Base URL');
     await expect(baseUrl).toHaveValue('https://llm.internal.example/v1');
@@ -16,17 +23,27 @@ test.describe('Mole Agent editors', () => {
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByText('https://gateway.internal.example/v1')).toBeVisible();
 
-    await page.getByRole('tab', { name: 'Agent profiles' }).click();
+    await settingsNav(page).getByRole('link', { name: 'Agent profiles' }).click();
     await page.getByRole('button', { name: 'Edit profile' }).click();
+    // The profile editor shows one section at a time and opens on the first.
+    const editor = page.getByRole('dialog', { name: 'Edit profile' });
+    const sections = editor.getByRole('navigation', {
+      name: 'Profile configuration sections',
+    });
     await expect(
-      page.getByRole('checkbox', { name: /query_logs/ }),
-    ).toHaveCount(0);
-    await expect(page.getByLabel('Allowed environments')).toHaveCount(0);
+      sections.getByRole('button', { name: 'Identity and model' }),
+    ).toHaveAttribute('aria-current', 'step');
     await expect(
-      page.getByRole('combobox', { name: /L0 ·/ }),
+      editor.getByRole('checkbox', { name: /query_logs/ }),
     ).toHaveCount(0);
-    await page.getByLabel('Max tool calls').fill('48');
-    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(editor.getByLabel('Allowed environments')).toHaveCount(0);
+    await expect(
+      editor.getByRole('combobox', { name: /L0 ·/ }),
+    ).toHaveCount(0);
+
+    await sections.getByRole('button', { name: 'Runtime limits' }).click();
+    await editor.getByLabel('Max tool calls').fill('48');
+    await editor.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByText('48')).toBeVisible();
   });
 
@@ -35,11 +52,17 @@ test.describe('Mole Agent editors', () => {
   }) => {
     await page.goto('/agent/settings/tools');
 
-    await expect(
-      page.getByRole('heading', { name: 'Tools & capabilities', level: 2 }),
-    ).toBeVisible();
-    await expect(page.getByText('Enabled tools')).toBeVisible();
-    await expect(page.getByText('MCP Servers', { exact: true })).toBeVisible();
+    // The row of sections names the open one; the section itself opens with what it holds.
+    await expect(settingsNav(page).getByRole('link', { name: 'Tools & capabilities' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    // How many tools a filter lists is said on the filter, and the servers on the button that
+    // opens them: there is no row of number cards saying both a second time.
+    await expect(page.locator('[data-agent-tool-filter="all"]')).toHaveText(/^All\s*\d+$/);
+    await expect(page.locator('[data-agent-tool-filter="approval"]')).toHaveText(/^Approval\s*\d+$/);
+    await expect(page.locator('[data-agent-mcp-servers]')).toHaveText(/^MCP Servers\s*\d+$/);
+    await expect(page.getByText('Enabled tools')).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Configure tool policy' }).click();
     await expect(
@@ -49,6 +72,9 @@ test.describe('Mole Agent editors', () => {
     await expect(page.getByLabel('Max tool calls')).toHaveCount(0);
     await page.getByRole('button', { name: 'Cancel' }).click();
 
+    // The groups of tools are folded until they are opened; a search shows its matches at once.
+    await expect(page.getByText('query_logs', { exact: true })).toHaveCount(0);
+    await page.getByLabel(TOOL_SEARCH).fill('query_logs');
     await page.getByText('query_logs', { exact: true }).click();
     await expect(page.getByRole('dialog', { name: 'query_logs' })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Input & output' })).toBeVisible();
@@ -56,7 +82,7 @@ test.describe('Mole Agent editors', () => {
     await expect(page.getByRole('tab', { name: 'Dependencies' })).toBeVisible();
     await page.getByRole('button', { name: 'Close' }).click();
 
-    await page.getByRole('tab', { name: 'Data access' }).click();
+    await settingsNav(page).getByRole('link', { name: 'Data access' }).click();
     await page.getByRole('button', { name: 'Edit data access' }).click();
     await expect(
       page.getByRole('dialog', { name: 'Edit data access' }),
@@ -68,7 +94,7 @@ test.describe('Mole Agent editors', () => {
     await expect(page.getByLabel('Max tool calls')).toHaveCount(0);
     await page.getByRole('button', { name: 'Cancel' }).click();
 
-    await page.getByRole('tab', { name: 'Network policy' }).click();
+    await settingsNav(page).getByRole('link', { name: 'Network policy' }).click();
     await page.getByRole('button', { name: 'Edit network policy' }).click();
     await expect(
       page.getByRole('dialog', { name: 'Edit network policy' }),
@@ -88,7 +114,7 @@ test.describe('Mole Agent editors', () => {
     ).toBeChecked();
     await page.getByRole('button', { name: 'Cancel' }).click();
 
-    await page.getByRole('tab', { name: 'Approval policy' }).click();
+    await settingsNav(page).getByRole('link', { name: 'Approval policy' }).click();
     await page.getByRole('button', { name: 'Edit approval policy' }).click();
     await expect(
       page.getByRole('dialog', { name: 'Edit approval policy' }),

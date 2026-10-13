@@ -89,7 +89,7 @@ export function ExemplarRail({
           {t('explore.exemplars.count', { count: points.length })}
         </span>
         {(warning || error) && (
-          <span className={cn('ml-auto truncate', error ? 'text-orange-soft' : 'text-tx-3')}>
+          <span className={cn('ml-auto truncate', error ? 'text-[var(--orange-ink)]' : 'text-tx-3')}>
             {error ?? warning}
           </span>
         )}

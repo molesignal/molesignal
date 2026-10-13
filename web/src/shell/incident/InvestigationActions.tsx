@@ -53,9 +53,9 @@ export function IncidentInvestigationActions({
           <Link
             key={link.id}
             to={link.to}
-            className="group rounded-md border border-bd-0 bg-bg-2 px-3 py-2.5 transition-colors hover:border-bd-1 hover:bg-bg-3 focus-visible:bg-indigo-dim focus-visible:text-indigo"
+            className="group rounded-md bg-bg-2 px-3 py-2.5 outline-none transition-colors hover:bg-bg-3 focus-visible:bg-bg-3"
           >
-            <span className="flex items-center gap-2 text-xs font-strong text-tx-0 group-focus-visible:text-indigo">
+            <span className="flex items-center gap-2 text-xs font-strong text-tx-0">
               <Icon className="h-3.5 w-3.5 text-indigo-soft" aria-hidden />
               {item.label}
             </span>
@@ -108,7 +108,9 @@ function triggeringQueryLink(
   if (!query?.statement.trim()) return null;
 
   const params = timeParams(time);
-  const stream = rule?.query.stream;
+  // A rule can come back without its query (an older record, a partial answer); the link is
+  // then built from the incident's own statement alone.
+  const stream = (rule as Partial<AlertRule> | undefined)?.query?.stream;
   if (stream?.name) params.set('stream', stream.name);
   if (stream?.stream_type) params.set('stream_type', stream.stream_type);
 

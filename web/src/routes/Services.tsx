@@ -120,7 +120,7 @@ export function Services() {
           {
             key: 'p95',
             header: t('list.columns.p95', { defaultValue: 'p95' }),
-            cell: (n) => <span className="tabular-nums text-blue-soft">{fmtMs(n.p95_ms)}</span>,
+            cell: (n) => <span className="tabular-nums text-[var(--blue-ink)]">{fmtMs(n.p95_ms)}</span>,
             width: 110,
           },
           {
@@ -247,7 +247,7 @@ function DepSection({
                 {t('detail.edge_rps', { defaultValue: '{{rps}} rps', rps: fmtRps(e.rps) })}
               </span>
               <Pill tone={errorTone(e.err_rate)}>{fmtPct(e.err_rate)}</Pill>
-              <span className="tabular-nums text-xs text-blue-soft">{fmtMs(e.p95_ms)}</span>
+              <span className="tabular-nums text-xs text-[var(--blue-ink)]">{fmtMs(e.p95_ms)}</span>
             </li>
           ))}
         </ul>

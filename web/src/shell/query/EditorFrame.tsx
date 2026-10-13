@@ -1,4 +1,5 @@
 import { ChevronDown, ChevronUp, Eraser } from 'lucide-react';
+import type * as React from 'react';
 
 import { CodeEditor, type CodeEditorProps } from '@/shell/codeEditor';
 import { codeLanguageLabel } from '@/shell/codeEditor/Chrome';
@@ -21,6 +22,16 @@ interface QueryEditorFrameProps extends CodeEditorProps {
   onClear?: (() => void) | undefined;
   clearLabel?: string | undefined;
   summary?: string | undefined;
+  /**
+   * What the frame holds in place of the editor: the same query in another
+   * form (a visual builder). The header, clearing and collapsing stay the same.
+   */
+  body?: React.ReactNode;
+  /**
+   * The language tag beside the label. A frame whose label already names the
+   * language (the explorers, where it follows what is typed) turns it off.
+   */
+  languageBadge?: boolean;
 }
 
 export function QueryEditorFrame({
@@ -34,6 +45,8 @@ export function QueryEditorFrame({
   onClear,
   clearLabel = 'Clear query',
   summary,
+  body,
+  languageBadge = true,
   fontSize = CODE_EDITOR_FONT_SIZE,
   fontWeight = CODE_EDITOR_FONT_WEIGHT,
   lineHeight = CODE_EDITOR_LINE_HEIGHT,
@@ -49,7 +62,8 @@ export function QueryEditorFrame({
 }: QueryEditorFrameProps) {
   const displayLabel = label ?? codeLanguageLabel(language);
   const languageLabel = codeLanguageLabel(language);
-  const showLanguage = displayLabel.toLocaleLowerCase() !== languageLabel.toLocaleLowerCase();
+  const showLanguage =
+    languageBadge && displayLabel.toLocaleLowerCase() !== languageLabel.toLocaleLowerCase();
   const compactSummary = summary?.trim() || editorProps.placeholder || displayLabel;
   const showClear = !readOnly && Boolean(onClear);
   const clearDisabled = editorProps.value.trim().length === 0;
@@ -68,7 +82,7 @@ export function QueryEditorFrame({
           aria-expanded={false}
           aria-label={expandLabel}
           onClick={() => onCollapsedChange(false)}
-          className="flex h-11 w-full min-w-0 items-center gap-2 px-3 text-left transition-colors hover:bg-bg-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo"
+          className="flex h-11 w-full min-w-0 items-center gap-2 px-3 text-left transition-colors hover:bg-bg-2 focus-visible:outline-none"
         >
           <span className="type-micro grid h-5 min-w-5 shrink-0 place-items-center rounded border border-bd-1 bg-bg-2 px-1 font-mono font-bold text-tx-1">
             {queryRef}
@@ -133,7 +147,7 @@ export function QueryEditorFrame({
                   aria-label={collapseLabel}
                   title={collapseLabel}
                   onClick={() => onCollapsedChange(true)}
-                  className="inline-flex h-7 shrink-0 items-center gap-1 rounded px-2 font-sans text-xs font-semibold text-tx-2 hover:bg-bg-2 hover:text-tx-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo"
+                  className="inline-flex h-7 shrink-0 items-center gap-1 rounded px-2 font-sans text-xs font-semibold text-tx-2 hover:bg-bg-2 hover:text-tx-0 focus-visible:outline-none"
                 >
                   <span className="hidden xl:inline">{collapseLabel}</span>
                   <ChevronUp className="h-3.5 w-3.5" />
@@ -145,25 +159,27 @@ export function QueryEditorFrame({
       ) : (
         <span className="sr-only">Query {queryRef}</span>
       )}
-      <CodeEditor
-        {...editorProps}
-        language={language}
-        readOnly={readOnly}
-        fontSize={fontSize}
-        fontWeight={fontWeight}
-        lineHeight={lineHeight}
-        maxHeight={maxHeight}
-        minHeight={minHeight}
-        showHeader={false}
-        showStatus={showStatus}
-        highlightCurrentLine={editorProps.highlightCurrentLine ?? true}
-        className={cn(
-          'code-editor-embedded rounded-none border-0 bg-transparent shadow-none',
-          editorClassName,
-        )}
-        {...(label !== undefined ? { label } : {})}
-        {...(onModEnter !== undefined ? { onModEnter } : {})}
-      />
+      {body ?? (
+        <CodeEditor
+          {...editorProps}
+          language={language}
+          readOnly={readOnly}
+          fontSize={fontSize}
+          fontWeight={fontWeight}
+          lineHeight={lineHeight}
+          maxHeight={maxHeight}
+          minHeight={minHeight}
+          showHeader={false}
+          showStatus={showStatus}
+          highlightCurrentLine={editorProps.highlightCurrentLine ?? true}
+          className={cn(
+            'code-editor-embedded rounded-none border-0 bg-transparent shadow-none',
+            editorClassName,
+          )}
+          {...(label !== undefined ? { label } : {})}
+          {...(onModEnter !== undefined ? { onModEnter } : {})}
+        />
+      )}
     </div>
   );
 }

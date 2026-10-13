@@ -475,7 +475,8 @@
     "audit_read": "查看审计事件",
     "agent_use": "使用智能能力",
     "agent_manage": "管理智能能力",
-    "agent_approve": "审批智能操作"
+    "agent_approve": "审批智能操作",
+    "inspections_manage": "管理定时巡检"
   },
   "permissions_hint": {
     "sys_organizations_manage": "创建、更新和管理平台内的组织。",
@@ -550,7 +551,8 @@
     "audit_read": "查看安全与管理审计事件。",
     "agent_use": "使用辅助调查与分析功能。",
     "agent_manage": "配置智能服务商、工具与策略。",
-    "agent_approve": "审批智能工作流提出的受保护操作。"
+    "agent_approve": "审批智能工作流提出的受保护操作。",
+    "inspections_manage": "创建、修改、启停、删除定时日志巡检，并手动执行。"
   },
   "roles": {
     "title": "角色",
@@ -580,6 +582,8 @@
     },
     "type_builtin": "内置",
     "type_custom": "自定义",
+    "all_permissions_one": "全部 {{count}} 项权限",
+    "all_permissions_other": "全部 {{count}} 项权限",
     "locked": "锁定",
     "builtin_read_only": "内置 Role 永久只读。",
     "usage_breakdown": "成员 {{memberships}}，Token {{api_tokens}}，邀请 {{invitations}}，绑定 {{bindings}}",

@@ -2,6 +2,7 @@ import {
   createLucideIcon,
   FileBarChart,
   FunctionSquare,
+  ListChecks,
   Plug,
   TableProperties,
   Waves,
@@ -53,6 +54,12 @@ export const DATA_COLLABORATION_PRODUCT_ROUTES = [
     icon: Waves, owner: 'streams', emptyStateStrategy: 'create-first', nav: true,
   }),
   route({
+    id: 'stream.jobs', path: '/streams/jobs', labelKey: 'breadcrumbs.stream_jobs',
+    group: 'data', icon: ListChecks, owner: 'streams', emptyStateStrategy: 'query-first',
+    breadcrumbs: [crumb('streams', '/streams'), crumb('breadcrumbs.stream_jobs')],
+    backTo: '/streams',
+  }),
+  route({
     id: 'stream.explore', path: '/streams/:id', labelKey: 'breadcrumbs.stream_explore',
     group: 'data', icon: Waves, owner: 'streams', emptyStateStrategy: 'query-first',
     breadcrumbs: [crumb('streams', '/streams'), crumb('breadcrumbs.stream_explore')],
@@ -61,6 +68,13 @@ export const DATA_COLLABORATION_PRODUCT_ROUTES = [
   route({
     id: 'pipelines', path: '/pipelines', labelKey: 'pipelines', group: 'data',
     icon: Workflow, owner: 'pipelines', emptyStateStrategy: 'create-first', nav: true,
+  }),
+  route({
+    id: 'pipeline.connectors', path: '/pipelines/connectors',
+    labelKey: 'breadcrumbs.pipeline_connectors', group: 'data', icon: Workflow,
+    owner: 'pipelines', emptyStateStrategy: 'create-first',
+    breadcrumbs: [crumb('pipelines', '/pipelines'), crumb('breadcrumbs.pipeline_connectors')],
+    backTo: '/pipelines',
   }),
   route({
     id: 'pipeline.detail', path: '/pipelines/:id', labelKey: 'breadcrumbs.pipeline_detail',

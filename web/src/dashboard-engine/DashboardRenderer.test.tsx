@@ -15,7 +15,7 @@ import { MemoryRouter } from 'react-router-dom';
 
 import { DEFAULT_WINDOW, useTimeStore } from '@/stores/useTimeStore';
 
-import { createDashboardPanel } from './factories';
+import { createDashboardPanel, createDashboardRow } from './factories';
 import { createEmptyDashboardDefinition } from './model';
 import type {
   DashboardElement,
@@ -151,6 +151,76 @@ describe('DashboardRenderer chart integration', () => {
 
     await user.click(descriptionButton);
     expect((await screen.findByRole('tooltip')).textContent).toBe(description);
+  });
+
+  it('prints the panels and their titles with none of the screen controls', async () => {
+    const dashboard = createEmptyDashboardDefinition('Printed');
+    dashboard.refreshSettings = {
+      enabled: false,
+      mode: 'off',
+      allowedIntervals: ['off'],
+    };
+    dashboard.variables = [
+      {
+        id: 'variable-env',
+        name: 'env',
+        label: 'Environment',
+        type: 'custom',
+        options: [{ label: 'production', value: 'production', selected: true }],
+        multi: false,
+        includeAll: false,
+        hide: 'none',
+        refresh: 'never',
+      },
+    ];
+    dashboard.links = [
+      {
+        id: 'link-runbook',
+        title: 'Runbook',
+        type: 'external',
+        url: 'https://example.com/runbook',
+        includeTimeRange: false,
+        includeVariables: false,
+        openInNewTab: true,
+      },
+    ];
+    const [panel] = chartPanels(['stat']);
+    if (!panel || panel.kind !== 'panel') throw new Error('Expected a stat panel');
+    panel.description = 'Five-minute request rate.';
+    const row = createDashboardRow([panel]);
+    row.title = 'Checkout';
+    dashboard.elements = [panel, row];
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
+
+    const { container } = render(
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <DashboardRenderer
+            dashboard={dashboard}
+            orgId="org-1"
+            presentation="print"
+            panelQueryExecutor={async () => [chartFrame()]}
+          />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    // What is on the page: the panel under its title, and the row under its name.
+    expect(await screen.findByRole('heading', { name: 'stat' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Checkout' })).toBeTruthy();
+    await waitFor(() =>
+      expect(container.querySelector('[data-printed-panel]')?.textContent).toContain('30'),
+    );
+
+    // What is not: anything that only does something on a screen.
+    expect(screen.queryAllByRole('button')).toEqual([]);
+    expect(screen.queryAllByRole('combobox')).toEqual([]);
+    expect(screen.queryAllByRole('link')).toEqual([]);
+    expect(screen.queryByText('Environment')).toBeNull();
+    expect(screen.queryByText('Runbook')).toBeNull();
+    expect(container.querySelector('[tabindex]')).toBeNull();
   });
 
   it('renders every chart plugin from production panel query frames', async () => {

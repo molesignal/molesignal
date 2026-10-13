@@ -49,6 +49,54 @@
       "sort": "Sort"
     }
   },
+  "query_tabs": {
+    "list": "Open queries",
+    "new": "New tab",
+    "untitled": "Query {{number}}",
+    "close": "Close {{name}}",
+    "close_tab": "Close",
+    "close_others": "Close other tabs",
+    "rename": "Rename",
+    "duplicate": "Duplicate",
+    "name": "Tab name",
+    "running": "Running",
+    "limit": "Up to {{count}} tabs can be open at once",
+    "split": "Split in two",
+    "unsplit": "Back to one page",
+    "move_right": "Move to the right half",
+    "move_left": "Move to the left half"
+  },
+  "query_mode": {
+    "aria": "Query editor mode",
+    "code": "Code",
+    "builder": "Builder"
+  },
+  "query_language": {
+    "label": "Query"
+  },
+  "query_builder": {
+    "filters": "Filters",
+    "add": "Filter",
+    "add_aria": "Add a filter",
+    "edit": "Edit filter {{filter}}",
+    "remove": "Remove filter {{filter}}",
+    "unsupported": "Not a filter",
+    "remove_unsupported": "Remove {{part}}",
+    "search_fields": "Search fields…",
+    "no_fields": "No matching fields",
+    "use_field": "Use “{{field}}”",
+    "change_field": "Change field",
+    "operator": "Comparison",
+    "value": "Value",
+    "value_placeholder": "Value…",
+    "suggestions": "Seen in results",
+    "submit_add": "Add filter",
+    "submit_update": "Update",
+    "cancel": "Cancel",
+    "text": "Search text",
+    "text_placeholder": "Search text…",
+    "sql_active": "The statement in Code is SQL, which filters cannot show. Adding a filter here starts a field query."
+  },
   "query_recommendations": {
     "title": "Optimization tips",
     "dismiss": "Dismiss tips",
@@ -113,7 +161,8 @@
     "renew": "Renew",
     "rotate": "Rotate",
     "add": "Add",
-    "choose_file": "Choose file"
+    "choose_file": "Choose file",
+    "copied": "Copied"
   },
   "error_state": {
     "unknown": "Unknown error",
@@ -298,6 +347,112 @@
     "selected": "Selected",
     "week_number": "Week {{value}}",
     "week_number_header": "Week number"
+  },
+  "share_query": {
+    "button": "Share",
+    "title": "Share this query",
+    "description": "The link opens this query for anyone who is signed in to this organization and may read the data.",
+    "time_label": "Time range of the link",
+    "time_fixed": "Current time selection",
+    "time_moving": "{{range}}, from when it is opened",
+    "link_aria": "Link to this query",
+    "copy": "Copy link",
+    "copied": "Link copied",
+    "copy_failed": "Could not copy the link"
+  },
+  "field_list": {
+    "group_aria_one": "{{name}}: {{count}} field",
+    "group_aria_other": "{{name}}: {{count}} fields"
+  },
+  "field_analysis": {
+    "open": "Analyze",
+    "open_aria": "Analyze field {{name}}",
+    "close": "Close field analysis",
+    "title_aria": "Analysis of {{name}}",
+    "loading": "Analyzing {{name}}",
+    "basics": "Basics",
+    "distinct": "Distinct values",
+    "estimated": "Estimated",
+    "subjects": {
+      "logs": {
+        "total": "Logs",
+        "present": "With a value",
+        "missing": "Missing",
+        "none": "None of these logs has a value for this field."
+      },
+      "spans": {
+        "total": "Spans",
+        "present": "With a value",
+        "missing": "Missing",
+        "none": "None of these spans has a value for this field."
+      },
+      "traces": {
+        "total": "Traces",
+        "present": "With a value",
+        "missing": "Missing",
+        "none": "None of these traces has a value for this field."
+      }
+    },
+    "statistics": "Statistics",
+    "max": "Max",
+    "min": "Min",
+    "avg": "Mean",
+    "median": "Median",
+    "q1": "Quartile Q1",
+    "q3": "Quartile Q3",
+    "stddev_samp": "Sample std dev",
+    "stddev_pop": "Population std dev",
+    "kurtosis": "Kurtosis",
+    "kurtosis_hint": "Excess kurtosis: 0 for a normal distribution, higher for heavier tails",
+    "skewness": "Skewness",
+    "skewness_hint": "Above 0 the tail is to the right, below 0 to the left",
+    "quartiles_estimated": "The median and quartiles are estimates.",
+    "earliest": "Earliest",
+    "latest": "Latest",
+    "distribution": "Value distribution",
+    "distribution_aria": "Value distribution of {{name}}: {{count}} values from {{from}} to {{to}}, {{width}} per bar, at most {{max}} in a bar. Use the left and right arrow keys to move between bars.",
+    "bar_width": "{{width}} per bar",
+    "bar_range": "{{from}} – {{to}}",
+    "bar_count_one": "{{formatted}} value",
+    "bar_count_other": "{{formatted}} values",
+    "bar_readout": "{{from}} to {{to}}: {{formatted}} values",
+    "trend_one": "Top value over time",
+    "trend_other": "Top {{count}} values over time",
+    "trend_aria_one": "The most common value of {{name}} over time",
+    "trend_aria_other": "The {{count}} most common values of {{name}} over time",
+    "top": "Most common values",
+    "all_different": "Nearly every value occurs once: none is more common than the rest.",
+    "protected": "This field is masked or encrypted and cannot be analyzed.",
+    "unavailable": "This field cannot be analyzed right now.",
+    "fallback": {
+      "time_budget": "Counting every match timed out",
+      "busy": "Too many queries are running to count every match",
+      "failed": "Every match could not be counted"
+    }
+  },
+  "histogram": {
+    "bar_width": "{{width}} per bar",
+    "unit_ms": "{{value}} ms",
+    "unit_s": "{{value}} s",
+    "unit_min": "{{value}} min",
+    "unit_h": "{{value}} h",
+    "unit_d": "{{value}} d",
+    "summary": "{{name}}. {{scope}}, between {{from}} and {{to}}, {{width}} per bar, at most {{max}} in one bar. Left and right arrows move from bar to bar; Enter narrows the time range to the bar.",
+    "bar_readout": "{{from}} to {{to}}: {{total}} in all, {{errors}} of them errors",
+    "bar_readout_whole": "{{from}} to {{to}}: {{total}} in all",
+    "scope_all_one": "The one result that matches",
+    "scope_all_other": "All {{total}} results that match",
+    "scope_loaded_one": "The one result that is loaded",
+    "scope_loaded_other": "The {{total}} results that are loaded",
+    "scope_because": "{{scope}}: {{reason}}",
+    "counting": "Counting all results that match…",
+    "unavailable": {
+      "time_budget": "counting all that match took too long",
+      "busy": "too many queries are running to count all that match",
+      "scan_limit": "the range holds too many rows to count all that match",
+      "timestamp_masked": "time is a masked field of this stream",
+      "failed": "all that match could not be counted"
+    }
   },
   "time_picker": {
     "title": "Select time range",

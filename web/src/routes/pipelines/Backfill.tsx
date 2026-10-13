@@ -99,7 +99,7 @@ export function PipelineBackfill() {
             {lastJob && (
               <a
                 href={lastJob.monitor}
-                className="font-sans text-xs text-blue-soft hover:underline"
+                className="font-sans text-xs text-[var(--blue-ink)] hover:underline"
               >
                 {t('flows.backfill.monitor_link', { jobIdShort: lastJob.job_id.slice(0, 10) })}
               </a>

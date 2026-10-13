@@ -53,7 +53,9 @@ function Calendar({
       formatters={{
         formatCaption: (date) =>
           formatDate(date, { month: "long", year: "numeric" }),
-        formatDay: (date) => formatDate(date, { day: "numeric" }),
+        // A day of the grid is its number in every language: the numeral a locale adds to it
+        // ("13日") says nothing under a month's name, and seven of them crowd a row.
+        formatDay: (date) => String(date.getDate()),
         formatMonthDropdown: (date) =>
           formatDate(date, { month: "short" }),
         formatWeekdayName: (date) =>
@@ -162,7 +164,9 @@ function Calendar({
           defaultClassNames.week_number
         ),
         day: cn(
-          "group/day relative h-[--cell-size] w-[--cell-size] select-none p-0 text-center align-middle [font-family:var(--font-sans)] text-xs font-body tabular-nums [&:first-child[data-selected=true]_button]:rounded-l-md [&:last-child[data-selected=true]_button]:rounded-r-md",
+          // The day picked is a whole circle wherever it stands. Squaring its outer side in the
+          // first and last column, as a band of days needs, left a single day looking cut off.
+          "group/day relative h-[--cell-size] w-[--cell-size] select-none p-0 text-center align-middle [font-family:var(--font-sans)] text-xs font-body tabular-nums",
           defaultClassNames.day
         ),
         range_start: cn(

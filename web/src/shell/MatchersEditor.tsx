@@ -1,13 +1,15 @@
 import { useTranslation } from 'react-i18next';
 
 import { FieldArray, FormInput, FormSelect } from '@/shell/FormDrawer';
+import { MATCH_OP_SYMBOL } from '@/shell/MatcherChips';
 import type { LabelMatcher, MatchOp } from '@/types/alerting';
 
+// The operators are written as they are read in a list of matchers: the notation of PromQL.
 const OP_OPTIONS: Array<{ value: MatchOp; label: string }> = [
-  { value: 'eq', label: '= (eq)' },
-  { value: 'neq', label: '≠ (neq)' },
-  { value: 're', label: '=~ (regex)' },
-  { value: 'nre', label: '≠~ (neg regex)' },
+  { value: 'eq', label: `${MATCH_OP_SYMBOL.eq} (eq)` },
+  { value: 'neq', label: `${MATCH_OP_SYMBOL.neq} (neq)` },
+  { value: 're', label: `${MATCH_OP_SYMBOL.re} (regex)` },
+  { value: 'nre', label: `${MATCH_OP_SYMBOL.nre} (neg regex)` },
 ];
 
 /**
@@ -57,7 +59,7 @@ export function MatchersEditor({
         )}
       />
       <span className="font-sans text-xs text-tx-3">
-        {t('matchers.hint', { defaultValue: 'All matchers must hit (AND). =~ / ≠~ are regular expressions.' })}
+        {t('matchers.hint')}
       </span>
     </div>
   );

@@ -18,9 +18,10 @@ import { useCursorPagination } from '@/pagination/useCursorPagination';
 import { productStateFor } from '@/product/states';
 import { ChromeButton, Pill, TimeRangeChip, type PillTone } from '@/shell/chrome';
 import { CursorPagination } from '@/shell/CursorPagination';
+import { cn } from '@/shell/lib/cn';
 import { queryStateFor } from '@/shell/query/State';
 import { useAuthStore } from '@/stores/auth';
-import { formatWindowSummary, useTimeStore } from '@/stores/useTimeStore';
+import { useTimeStore } from '@/stores/useTimeStore';
 
 import { formatDurationMs, windowToMicros } from './_helpers';
 import {
@@ -129,15 +130,9 @@ export function Sessions({
 
   return (
     <RumListPage
-      title={t(mode === 'replay' ? 'session_replay.title' : 'sessions.title')}
-      subtitle={
-        t(
-          mode === 'replay' ? 'session_replay.subtitle' : 'sessions.subtitle',
-        ) as string
-      }
       toolbar={
         <>
-          <TimeRangeChip value={formatWindowSummary(window)} className="border-0" />
+          <TimeRangeChip className="border-0" />
           <ChromeButton
             onClick={() => {
               if (pagination.cursor) {
@@ -156,22 +151,18 @@ export function Sessions({
       }
       filterBar={
         <>
-          <label className="grid min-w-[240px] flex-1 gap-1">
-            <span className="type-caption font-sans font-strong text-tx-3">
-              {t('sessions.filters.search')}
-            </span>
-            <span className="relative">
-              <Search className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-tx-3" />
-              <input
-                type="search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder={t('sessions.search_placeholder') ?? ''}
-                className="h-8 w-full rounded-md border-0 bg-[var(--control-surface)] pl-8 pr-2.5 font-sans text-xs text-tx-0 outline-none placeholder:text-tx-3 hover:bg-bg-2 focus-visible:bg-bg-2"
-                data-ui="search-control"
-              />
-            </span>
-          </label>
+          <span className="relative min-w-[240px] flex-1">
+            <Search className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-tx-3" />
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder={t('sessions.search_placeholder') ?? ''}
+              aria-label={t('sessions.filters.search')}
+              className="h-8 w-full rounded-md border-0 bg-[var(--control-surface)] pl-8 pr-2.5 font-sans text-xs text-tx-0 outline-none placeholder:text-tx-3 hover:bg-bg-2 focus-visible:bg-bg-2"
+              data-ui="search-control"
+            />
+          </span>
           <RumFilterSelect
             label={t('sessions.filters.experience')}
             value={experience}
@@ -231,7 +222,7 @@ export function Sessions({
               setCountry(ALL);
               setBrowser(ALL);
             }}
-            className="ml-auto text-xs font-strong text-blue-soft hover:text-tx-0"
+            className="ml-auto text-xs font-strong text-[var(--blue-ink)] hover:text-tx-0"
           >
             {t('sessions.filters.clear')}
           </button>
@@ -239,7 +230,7 @@ export function Sessions({
       </div>
 
         <div className="overflow-hidden">
-          <div className="hidden min-h-8 grid-cols-[minmax(300px,1.25fr)_minmax(150px,.75fr)_minmax(250px,1fr)_170px_130px_20px] items-center gap-4 border-b border-bd-0 text-xs font-strong text-tx-3 xl:grid">
+          <div className={cn('hidden min-h-8 items-center gap-4 border-b border-bd-0 text-xs font-strong text-tx-3 xl:grid', SESSION_COLUMNS)}>
           <span>{t('sessions.columns.experience')}</span>
           <span>{t('sessions.columns.user_device')}</span>
           <span>{t('sessions.columns.journey')}</span>
@@ -288,6 +279,15 @@ export function SessionReplay() {
   return <Sessions mode="replay" />;
 }
 
+/** The columns of the list, shared by its head and its rows. */
+const SESSION_COLUMNS =
+  'xl:grid-cols-[minmax(260px,1.25fr)_minmax(180px,.9fr)_minmax(220px,1fr)_170px_130px_20px]';
+
+/**
+ * One session, in two lines: how it went and what it was, who it was, where
+ * they went, what went wrong, and when. A row is short enough that a screen
+ * holds a dozen of them.
+ */
 function SessionRowItem({
   session,
   onOpen,
@@ -295,31 +295,45 @@ function SessionRowItem({
   session: SessionRow;
   onOpen: () => void;
 }) {
-  const { t } = useTranslation('rum');
+  const { t, i18n } = useTranslation('rum');
   const grade = experiencePresentation(session.experience);
   const title =
     primaryBehavior(session, t) ??
     session.last_page ??
     session.journey[0] ??
     t('sessions.unknown_page');
+  const journey = (session.journey.length > 0 ? session.journey : [session.last_page ?? '—']).slice(0, 3);
+  // Where the visit ended is said under its path only where the path shown does not end there.
+  const endsElsewhere = Boolean(session.last_page) && journey.at(-1) !== session.last_page;
+
   return (
     <button
       type="button"
+      data-rum-session={session.session_id}
       onClick={onOpen}
-      className="group grid w-full gap-4 py-4 text-left outline-none transition-colors duration-fast hover:bg-bg-2 focus-visible:bg-bg-2 xl:grid-cols-[minmax(300px,1.25fr)_minmax(150px,.75fr)_minmax(250px,1fr)_170px_130px_20px] xl:items-center"
+      className={cn(
+        'group grid w-full gap-x-4 gap-y-1 py-[10px] text-left outline-none transition-colors duration-fast hover:bg-bg-2 focus-visible:bg-bg-2 xl:items-center',
+        SESSION_COLUMNS,
+      )}
       aria-label={t('sessions.open_replay', { session: session.session_id })}
     >
-      <span className="flex min-w-0 items-center gap-3">
-        <ReplayThumbnail session={session} />
-        <span className="min-w-0">
-          <span className="flex items-center gap-2">
-            <Pill tone={grade.tone}>{t(`experience.${session.experience}`)}</Pill>
-            <span className="text-xs text-tx-3">{formatDurationMs(session.duration_ms)}</span>
-          </span>
-          <span className="mt-1.5 block truncate text-sm font-strong text-tx-0">{title}</span>
-          <span className="mt-1 block truncate font-mono text-xs text-tx-3">
-            {shortSessionId(session.session_id)}
-          </span>
+      <span className="min-w-0">
+        <span className="flex min-w-0 items-center gap-2">
+          <Pill tone={grade.tone}>{t(`experience.${session.experience}`)}</Pill>
+          <span className="min-w-0 truncate text-sm font-strong text-tx-0">{title}</span>
+        </span>
+        <span className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-tx-3">
+          {session.replay_available && (
+            // A replay was recorded: said by a sign, not by a picture that every row would share.
+            <PlayCircle
+              data-rum-session-replay
+              aria-label={t('sessions.has_replay')}
+              className="h-3.5 w-3.5 shrink-0 text-indigo-soft"
+            />
+          )}
+          <span className="min-w-0 truncate">{shortSessionId(session.session_id)}</span>
+          <span aria-hidden="true">·</span>
+          <span className="shrink-0 tabular-nums">{formatDurationMs(session.duration_ms)}</span>
         </span>
       </span>
 
@@ -328,31 +342,26 @@ function SessionRowItem({
           {session.user_id ?? t('sessions.anonymous_user')}
         </span>
         <span className="mt-1 block truncate text-xs text-tx-2">
-          {[session.browser, session.os ?? session.device, session.country]
+          {[session.browser, session.os ?? session.device, session.country, session.version, session.environment]
             .filter(Boolean)
             .join(' · ') || '—'}
         </span>
-        {(session.version || session.environment) && (
-          <span className="mt-1 block truncate text-xs text-tx-3">
-            {[session.version, session.environment].filter(Boolean).join(' · ')}
-          </span>
-        )}
       </span>
 
       <span className="min-w-0">
         <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
-          {(session.journey.length > 0 ? session.journey : [session.last_page ?? '—'])
-            .slice(0, 3)
-            .map((page, index) => (
-              <React.Fragment key={`${page}-${index}`}>
-                {index > 0 && <ChevronRight className="h-3 w-3 shrink-0 text-tx-3" />}
-                <span className="min-w-0 truncate text-xs font-strong text-tx-1">{page}</span>
-              </React.Fragment>
-            ))}
+          {journey.map((page, index) => (
+            <React.Fragment key={`${page}-${index}`}>
+              {index > 0 && <ChevronRight className="h-3 w-3 shrink-0 text-tx-3" />}
+              <span className="min-w-0 truncate text-xs font-strong text-tx-1">{page}</span>
+            </React.Fragment>
+          ))}
         </span>
-        <span className="mt-1.5 block truncate text-xs text-tx-3">
-          {t('sessions.last_page')}: {session.last_page ?? '—'}
-        </span>
+        {endsElsewhere && (
+          <span className="mt-1 block truncate text-xs text-tx-3">
+            {t('sessions.last_page')}: {session.last_page}
+          </span>
+        )}
       </span>
 
       <span className="flex min-w-0 flex-wrap gap-1.5">
@@ -361,28 +370,14 @@ function SessionRowItem({
 
       <span className="text-xs text-tx-2">
         <span className="block font-strong text-tx-1">
-          {relativeTime(session.started_at_micros)}
+          {relativeTime(session.started_at_micros, i18n.resolvedLanguage ?? i18n.language)}
         </span>
-        <span className="mt-1 block text-tx-3">
+        <span className="mt-1 block truncate text-tx-3">
           {session.application ?? t('scope.unknown_app')}
         </span>
       </span>
       <ChevronRight className="hidden h-4 w-4 text-tx-3 transition-transform group-hover:translate-x-0.5 group-hover:text-tx-1 xl:block" />
     </button>
-  );
-}
-
-function ReplayThumbnail({ session }: { session: SessionRow }) {
-  return (
-    <span className="relative grid h-16 w-28 shrink-0 place-items-center overflow-hidden rounded-md border border-bd-1 bg-indigo-dim text-indigo-soft">
-      <PlayCircle className="h-7 w-7 transition-transform duration-fast group-hover:scale-105" />
-      {(session.rage_click_count > 0 || session.dead_click_count > 0) && (
-        <span className="absolute bottom-1.5 right-2">
-          <span className="absolute -inset-1 animate-ping rounded-full bg-red/30 motion-reduce:animate-none" />
-          <MousePointerClick className="relative h-3.5 w-3.5 text-red-soft" />
-        </span>
-      )}
-    </span>
   );
 }
 
@@ -488,10 +483,18 @@ function shortSessionId(value: string) {
   return value.length > 22 ? `${value.slice(0, 20)}…` : value;
 }
 
-function relativeTime(micros: number | undefined): string {
+/**
+ * How long ago a session started, in the language of the product: the browser's
+ * own may be another, and "47 minutes ago" then stood in a page written in Chinese.
+ */
+export function relativeTime(
+  micros: number | undefined,
+  language: string | undefined,
+  now: number = Date.now(),
+): string {
   if (!micros) return '—';
-  const deltaMinutes = Math.round((micros / 1_000 - Date.now()) / 60_000);
-  const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+  const deltaMinutes = Math.round((micros / 1_000 - now) / 60_000);
+  const formatter = new Intl.RelativeTimeFormat(language, { numeric: 'auto' });
   if (Math.abs(deltaMinutes) < 60) return formatter.format(deltaMinutes, 'minute');
   const deltaHours = Math.round(deltaMinutes / 60);
   if (Math.abs(deltaHours) < 24) return formatter.format(deltaHours, 'hour');

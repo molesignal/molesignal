@@ -78,7 +78,7 @@ export function IncidentSilenceDialog({
       <DialogContent className="w-[min(420px,calc(100vw-24px))]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <BellOff className="h-4 w-4 text-yellow-soft" />
+            <BellOff className="h-4 w-4 text-[var(--yellow-ink)]" />
             {t('silence_incident.title')}
           </DialogTitle>
           <DialogDescription>

@@ -1,4 +1,5 @@
 import {
+  ArrowDown,
   ChevronDown,
   ChevronRight,
   Flame,
@@ -29,20 +30,28 @@ import {
   type FlameNode,
   type FlameWindow,
   formatValue,
+  frameLabel,
   heatColor,
+  isRootFrame,
   nodeInWindow,
   nodeKey,
   rootTotal,
   topFunctions,
   type TopFunction,
 } from './flamebearer';
+import { type FlamePointer, FlameTooltip } from './FlameTooltip';
 
 const ROW_HEIGHT = 24;
 const MIN_BAR_PCT = 0.2;
 const LABEL_MIN_PCT = 2.5;
-const DEFAULT_ANALYSIS_HEIGHT = 360;
-const MIN_ANALYSIS_HEIGHT = 320;
-const MAX_ANALYSIS_HEIGHT = 640;
+/** The most a view takes of its own accord; a deeper stack or a longer table scrolls inside it. */
+const AUTO_HEIGHT_MAX = 480;
+/** A graph of two or three levels still gets a canvas that reads as one. */
+const AUTO_HEIGHT_MIN = 120;
+/** The room around the bars of the flame view (its padding, top and bottom). */
+const FLAME_PADDING = 8;
+const MIN_ANALYSIS_HEIGHT = 120;
+const MAX_ANALYSIS_HEIGHT = 720;
 
 export type ProfileView = 'flame' | 'tree' | 'top';
 
@@ -56,13 +65,6 @@ interface FlamegraphProps {
   onSelectedFunctionChange?: ((name: string) => void) | undefined;
   service?: string | undefined;
   onCompare?: (() => void) | undefined;
-}
-
-interface PointerPosition {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
 }
 
 export function Flamegraph({
@@ -82,16 +84,13 @@ export function Flamegraph({
   const [focus, setFocus] = React.useState<FlameWindow | null>(null);
   const [hoverNode, setHoverNode] = React.useState<FlameNode | null>(null);
   const [selectedKey, setSelectedKey] = React.useState<string | null>(null);
-  const [pointer, setPointer] = React.useState<PointerPosition>({
-    x: 0,
-    y: 0,
-    width: 0,
-    height: 0,
-  });
-  const [analysisHeight, setAnalysisHeight] = React.useState(DEFAULT_ANALYSIS_HEIGHT);
+  const [pointer, setPointer] = React.useState<FlamePointer>({ x: 0, y: 0 });
+  // The height the reader dragged the views to. Until they do, a view is as tall as what it
+  // holds: a stack of five frames does not get the room of thirty.
+  const [manualHeight, setManualHeight] = React.useState<number | null>(null);
   const [fullscreen, setFullscreen] = React.useState(false);
   const rootRef = React.useRef<HTMLDivElement>(null);
-  const containerRef = React.useRef<HTMLDivElement>(null);
+  const viewportRef = React.useRef<HTMLDivElement>(null);
   const resizeCleanupRef = React.useRef<(() => void) | null>(null);
 
   const nodes = React.useMemo(
@@ -180,8 +179,10 @@ export function Flamegraph({
 
   const focusWin: FlameWindow = focus ?? { depth: 0, start: 0, total };
   const nameOf = (node: FlameNode) => names[node.nameIndex] ?? '';
+  // What a frame is shown as, which is what a search looks through.
+  const labelOf = (node: FlameNode) => frameLabel(nameOf(node), node.depth);
   const matches = (node: FlameNode) =>
-    needle.length > 0 && nameOf(node).toLowerCase().includes(needle);
+    needle.length > 0 && labelOf(node).toLowerCase().includes(needle);
 
   const barStyle = (node: FlameNode): React.CSSProperties => {
     let background: string;
@@ -189,13 +190,16 @@ export function Flamegraph({
     if (diff) {
       const tone = diffTone(node.delta);
       const intensity = diffIntensity(node.delta, maxAbsDelta);
-      background =
+      const colour =
         tone === 'increase'
           ? palette['--red']
           : tone === 'decrease'
             ? palette['--green']
             : palette['--surface-muted'];
-      opacity = tone === 'neutral' ? 0.45 : 0.35 + 0.6 * intensity;
+      // How much changed is said by how much of the colour the fill has. The name on the bar
+      // keeps its ink: faded with the fill, it could not be read on the bars that changed least.
+      const share = tone === 'neutral' ? 45 : Math.round(22 + 48 * intensity);
+      background = `color-mix(in srgb, ${colour} ${share}%, transparent)`;
     } else {
       // Width encodes cumulative cost; color encodes self cost.
       background = heatColor(node.self / maxSelf);
@@ -228,14 +232,7 @@ export function Flamegraph({
   };
 
   const handleMove = (event: React.MouseEvent) => {
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    setPointer({
-      x: event.clientX - rect.left,
-      y: event.clientY - rect.top,
-      width: rect.width,
-      height: rect.height,
-    });
+    setPointer({ x: event.clientX, y: event.clientY });
   };
 
   const handleResizeStart = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -243,13 +240,13 @@ export function Flamegraph({
     event.preventDefault();
     resizeCleanupRef.current?.();
     const startY = event.clientY;
-    const startHeight = analysisHeight;
+    const startHeight = manualHeight ?? viewportRef.current?.clientHeight ?? AUTO_HEIGHT_MAX;
     const handleMoveEvent = (moveEvent: MouseEvent) => {
       const next = Math.min(
         MAX_ANALYSIS_HEIGHT,
         Math.max(MIN_ANALYSIS_HEIGHT, startHeight + moveEvent.clientY - startY),
       );
-      setAnalysisHeight(next);
+      setManualHeight(next);
     };
     const handleUp = () => {
       window.removeEventListener('mousemove', handleMoveEvent);
@@ -283,8 +280,12 @@ export function Flamegraph({
       <button
         key={key}
         type="button"
-        title={name}
-        aria-label={t('flamegraph.frame_aria', { name })}
+        // The frame is named by the tip under the pointer; a native title would say it over the tip.
+        aria-label={
+          isRootFrame(name, node.depth)
+            ? t('flamegraph.root_aria')
+            : t('flamegraph.frame_aria', { name })
+        }
         onClick={() => selectNode(node, true)}
         onMouseEnter={() => setHoverNode(node)}
         onMouseLeave={() => setHoverNode((current) => (current === node ? null : current))}
@@ -304,7 +305,7 @@ export function Flamegraph({
           ...barStyle(node),
         }}
       >
-        {width >= LABEL_MIN_PCT && <span className="truncate">{name}</span>}
+        {width >= LABEL_MIN_PCT && <span className="truncate">{labelOf(node)}</span>}
       </button>
     );
   };
@@ -336,7 +337,13 @@ export function Flamegraph({
 
   const zoomed = focus !== null && focus.depth > 0;
   const flameHeight = depthCount * ROW_HEIGHT;
-  const viewportHeight = fullscreen ? 'calc(100vh - 300px)' : analysisHeight;
+  const viewportStyle: React.CSSProperties = fullscreen
+    ? { height: 'calc(100vh - 300px)' }
+    : manualHeight !== null
+      ? { height: manualHeight }
+      : view === 'flame'
+        ? { height: Math.min(AUTO_HEIGHT_MAX, Math.max(AUTO_HEIGHT_MIN, flameHeight + FLAME_PADDING)) }
+        : { maxHeight: AUTO_HEIGHT_MAX };
 
   return (
     <div
@@ -394,13 +401,21 @@ export function Flamegraph({
         </div>
       </div>
 
-      <div className="flex min-h-9 flex-wrap items-center border-b border-bd-0 bg-bg-2 px-3 py-1.5">
-        {diff ? <DiffLegend /> : <HeatLegend />}
-      </div>
+      {/* The legend is of the flame graph: width and colour mean nothing in a table or a tree. */}
+      {(diff || view === 'flame') && (
+        <div
+          data-flame-legend
+          className="flex min-h-9 flex-wrap items-center border-b border-bd-0 bg-bg-2 px-3 py-1.5"
+        >
+          {diff ? <DiffLegend /> : <HeatLegend />}
+        </div>
+      )}
 
       <div
+        ref={viewportRef}
+        data-profile-view={view}
         className="min-h-0 overflow-auto bg-bg-0"
-        style={{ height: viewportHeight }}
+        style={viewportStyle}
       >
         {view === 'top' && (
           <TopFunctionsTable
@@ -427,26 +442,29 @@ export function Flamegraph({
 
         {view === 'flame' && (
           <div
-            ref={containerRef}
             onMouseMove={handleMove}
             onMouseLeave={() => setHoverNode(null)}
             className="relative min-h-full p-1"
           >
-            <div
-              className="relative min-h-full"
-              style={{ height: Math.max(flameHeight, analysisHeight) }}
-            >
+            <div className="relative min-h-full" style={{ height: flameHeight }}>
               {bars}
             </div>
             {hoverNode && (
               <FlameTooltip
                 node={hoverNode}
-                name={nameOf(hoverNode)}
+                name={labelOf(hoverNode)}
+                note={
+                  isRootFrame(nameOf(hoverNode), hoverNode.depth)
+                    ? t('flamegraph.root_note')
+                    : undefined
+                }
                 total={total}
                 units={units}
                 diff={diff}
                 pointer={pointer}
                 service={service}
+                // A graph shown full screen is all that is drawn: its tip has to be inside it.
+                container={fullscreen ? rootRef.current : null}
               />
             )}
           </div>
@@ -461,7 +479,8 @@ export function Flamegraph({
           title={t('flamegraph.resize')}
           className="group flex h-2 shrink-0 cursor-row-resize items-center justify-center border-y border-bd-0 bg-bg-1 hover:bg-bg-2"
           onMouseDown={handleResizeStart}
-          onDoubleClick={() => setAnalysisHeight(DEFAULT_ANALYSIS_HEIGHT)}
+          // Back to as tall as what the view holds.
+          onDoubleClick={() => setManualHeight(null)}
         >
           <span className="h-px w-9 rounded-full bg-bd-2 group-hover:bg-indigo" />
         </div>
@@ -567,36 +586,22 @@ function TopFunctionsTable({
 
   return (
     <div>
-      <div className="sticky top-0 z-20 flex min-h-10 items-center gap-2 border-b border-bd-0 bg-bg-1 px-3">
-        <span className="font-sans text-xs text-tx-3">{t('flamegraph.top.sort_label')}</span>
-        <div className="inline-flex rounded-md border border-bd-1 bg-bg-2 p-0.5">
-          {(['self', 'total'] as const).map((item) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => setSort(item)}
-              className={cn(
-                'h-7 rounded px-2 font-sans text-xs',
-                sort === item ? 'bg-bg-0 font-semibold text-tx-0' : 'text-tx-2 hover:text-tx-0',
-              )}
-              aria-pressed={sort === item}
-            >
-              {item === 'self' ? t('flamegraph.top.self') : t('flamegraph.top.cum')}
-            </button>
-          ))}
-        </div>
-      </div>
       <table className="w-full border-collapse font-sans text-xs">
-        <thead className="sticky top-10 z-10 bg-bg-1">
+        <thead className="sticky top-0 z-10 bg-bg-1">
           <tr className="border-b border-bd-0 text-left font-strong text-tx-3 [&_th]:px-3 [&_th]:py-2 [&_th]:text-xs">
             <th className="w-8">#</th>
             <th>{t('flamegraph.top.function')}</th>
-            <th className="w-48" aria-sort={sort === 'self' ? 'descending' : undefined}>
-              {t('flamegraph.top.self')}{sort === 'self' ? ' ↓' : ''}
+            {/* The two measures are sorted by from their own heads: one control, where the order is read. */}
+            <th className="w-48" aria-sort={sort === 'self' ? 'descending' : 'none'}>
+              <SortHead active={sort === 'self'} onSort={() => setSort('self')}>
+                {t('flamegraph.top.self')}
+              </SortHead>
             </th>
             <th className="w-20 text-right">{t('flamegraph.top.self_pct')}</th>
-            <th className="w-24 text-right" aria-sort={sort === 'total' ? 'descending' : undefined}>
-              {t('flamegraph.top.cum')}{sort === 'total' ? ' ↓' : ''}
+            <th className="w-24 text-right" aria-sort={sort === 'total' ? 'descending' : 'none'}>
+              <SortHead active={sort === 'total'} onSort={() => setSort('total')} end>
+                {t('flamegraph.top.cum')}
+              </SortHead>
             </th>
             <th className="w-20 text-right">{t('flamegraph.top.cum_pct')}</th>
           </tr>
@@ -658,6 +663,35 @@ function TopFunctionsTable({
   );
 }
 
+/** The head of a column a table is sorted by, largest first: pressing it sorts by that column. */
+function SortHead({
+  active,
+  end = false,
+  onSort,
+  children,
+}: {
+  active: boolean;
+  end?: boolean;
+  onSort: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      data-sort-head={active ? 'active' : 'idle'}
+      onClick={onSort}
+      className={cn(
+        'inline-flex items-center gap-1 rounded font-strong hover:text-tx-0 focus-visible:text-tx-0',
+        end && 'flex-row-reverse',
+        active ? 'text-tx-1' : 'text-tx-3',
+      )}
+    >
+      {children}
+      <ArrowDown aria-hidden="true" className={cn('h-3 w-3', !active && 'invisible')} />
+    </button>
+  );
+}
+
 function CallTreeView({
   nodes,
   names,
@@ -692,7 +726,7 @@ function CallTreeView({
   const walk = (node: FlameNode, depth: number) => {
     const key = nodeKey(node);
     const childNodes = children.get(key) ?? [];
-    const name = names[node.nameIndex] ?? '';
+    const name = frameLabel(names[node.nameIndex] ?? '', node.depth);
     const pct = total > 0 ? (node.total / total) * 100 : 0;
     const matched = needle.length > 0 && name.toLowerCase().includes(needle);
     const isCollapsed = collapsed.has(key);
@@ -855,7 +889,7 @@ function FunctionInsightPanel({
           </div>
           <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1">
             {path.map((node, index) => {
-              const name = names[node.nameIndex] ?? '';
+              const name = frameLabel(names[node.nameIndex] ?? '', node.depth);
               return (
                 <React.Fragment key={nodeKey(node)}>
                   {index > 0 && <ChevronRight className="h-3 w-3 shrink-0 text-tx-4" />}
@@ -921,70 +955,6 @@ function InsightMetric({
         {value}
       </dd>
       {sub && <div className="mt-0.5 font-sans text-xs text-tx-2">{sub}</div>}
-    </div>
-  );
-}
-
-function FlameTooltip({
-  node,
-  name,
-  total,
-  units,
-  diff,
-  pointer,
-  service,
-}: {
-  node: FlameNode;
-  name: string;
-  total: number;
-  units: string;
-  diff: boolean;
-  pointer: PointerPosition;
-  service?: string | undefined;
-}) {
-  const { t } = useTranslation('profiles');
-  const totalShare = total > 0 ? (node.total / total) * 100 : 0;
-  const selfShare = total > 0 ? (node.self / total) * 100 : 0;
-  const left = Math.max(8, Math.min(pointer.x + 12, pointer.width - 332));
-  const top = pointer.y + 190 > pointer.height
-    ? Math.max(8, pointer.y - 166)
-    : pointer.y + 12;
-  return (
-    <div
-      className="pointer-events-none absolute z-20 w-[320px] max-w-[calc(100%-16px)] rounded-md border-0 bg-[var(--floating-surface)] px-3 py-2.5 shadow-popup"
-      style={{ left, top }}
-    >
-      <div className="mb-2 break-all font-mono text-xs font-semibold text-tx-0">{name}</div>
-      <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 font-sans text-xs tabular-nums text-tx-2">
-        <span>{t('flamegraph.frame_self')}</span>
-        <span className="text-right text-tx-1">
-          {formatValue(node.self, units)} · {selfShare.toFixed(1)}%
-        </span>
-        <span>{t('flamegraph.frame_total')}</span>
-        <span className="text-right text-tx-1">
-          {formatValue(node.total, units)} · {totalShare.toFixed(1)}%
-        </span>
-        <span>{t('flamegraph.details.depth')}</span>
-        <span className="text-right text-tx-1">{node.depth}</span>
-        {service && (
-          <>
-            <span>{t('flamegraph.details.service')}</span>
-            <span className="max-w-[180px] truncate text-right text-tx-1">{service}</span>
-          </>
-        )}
-        {diff && node.delta !== undefined && (
-          <>
-            <span>Δ</span>
-            <span className={cn('text-right', node.delta > 0 ? 'text-red' : node.delta < 0 ? 'text-green' : 'text-tx-1')}>
-              {node.delta > 0 ? '+' : ''}
-              {formatValue(node.delta, units)}
-            </span>
-          </>
-        )}
-      </div>
-      <div className="mt-2 border-t border-bd-0 pt-2 font-sans text-xs text-tx-3">
-        {t('flamegraph.tooltip.focus_hint')}
-      </div>
     </div>
   );
 }

@@ -31,6 +31,7 @@ import {
   CODE_EDITOR_LINE_HEIGHT,
   CODE_EDITOR_PLACEHOLDER_FONT_WEIGHT,
 } from './typography';
+import { createValueEchoes, type ValueEchoes } from './valueEchoes';
 
 type MonacoGlobal = typeof globalThis & {
   MonacoEnvironment?: {
@@ -148,6 +149,9 @@ function MonacoCodeEditor({
   const onCursorChangeRef = React.useRef(onCursorChange);
   const completionItemsRef = React.useRef(completionItems);
   const valueRef = React.useRef(value);
+  // What the editor has told its owner and not yet heard back: see `createValueEchoes`.
+  const echoesRef = React.useRef<ValueEchoes | null>(null);
+  echoesRef.current ??= createValueEchoes();
   const manualHeightRef = React.useRef<number | null>(null);
   const resizeCleanupRef = React.useRef<(() => void) | null>(null);
   const initialOptionsRef = React.useRef({
@@ -277,8 +281,11 @@ function MonacoCodeEditor({
       matchBrackets: 'always',
       codeLens: false,
       contextmenu: true,
-      cursorBlinking: 'smooth',
-      cursorSmoothCaretAnimation: 'on',
+      // The caret is a mark of where the next character goes: it is there or it is not, and it
+      // is where the text is at once. Faded in and out it reads as out of focus, and glided from
+      // place to place it trails behind the typing and sweeps across the line on a click.
+      cursorBlinking: 'blink',
+      cursorSmoothCaretAnimation: 'off',
       cursorStyle: 'line',
       cursorWidth: 2,
       detectIndentation: false,
@@ -362,6 +369,8 @@ function MonacoCodeEditor({
       valueRef.current = next;
       setIsEmpty(next.length === 0);
       setContentLineCount(model.getLineCount());
+      // A flush is the owner's own text being written in: it is not told back to it.
+      if (!event.isFlush) echoesRef.current?.told(next);
       onChangeRef.current?.(next);
       if (
         !event.isFlush
@@ -410,7 +419,10 @@ function MonacoCodeEditor({
 
   React.useEffect(() => {
     const model = modelRef.current;
-    if (!model || model.getValue() === value) return;
+    // The owner hands back what the editor told it, a render or two behind the typing. Only a
+    // text the editor never held is written in: writing a stale one would undo the keystrokes
+    // since and send the caret to the start of the text.
+    if (!model || echoesRef.current?.isEcho(value, model.getValue())) return;
     model.setValue(value);
     setContentLineCount(model.getLineCount());
     updateHeight();
@@ -1046,11 +1058,14 @@ function defineMoleSignalTheme() {
   const tx1 = cssColor('--tx-1', light ? '#404763' : '#b9bdcb');
   const tx2 = cssColor('--tx-2', light ? '#636a7d' : '#7a8295');
   const tx3 = cssColor('--tx-3', light ? '#9097a6' : '#545b6c');
-  const keyword = cssColor('--purple', light ? '#7c3aed' : '#c792ea');
-  const callable = cssColor('--blue', light ? '#2563eb' : '#82aaff');
-  const string = cssColor('--green', light ? '#047857' : '#a8d88d');
-  const number = cssColor('--orange', light ? '#c2410c' : '#f0a06b');
-  const type = cssColor('--yellow', light ? '#9c6600' : '#e0b45a');
+  // On light the status tones are tuned to the page alone: on the fill of the current line a
+  // number read at 4.1:1 and a string at 4.4:1. Ink holds AA there; dark keeps its tones.
+  const tone = (name: string) => (light ? `--${name}-ink` : `--${name}`);
+  const keyword = cssColor(tone('purple'), light ? '#7c3aed' : '#c792ea');
+  const callable = cssColor(tone('blue'), light ? '#2563eb' : '#82aaff');
+  const string = cssColor(tone('green'), light ? '#047857' : '#a8d88d');
+  const number = cssColor(tone('orange'), light ? '#c2410c' : '#f0a06b');
+  const type = cssColor(tone('yellow'), light ? '#9c6600' : '#e0b45a');
   const operator = cssColor('--indigo-soft', light ? '#4f46b8' : '#93a4ff');
   const invalid = cssColor('--red', light ? '#d1252a' : '#f78784');
   const editorBg = light ? bg1 : bg0;

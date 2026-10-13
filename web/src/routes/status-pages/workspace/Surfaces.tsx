@@ -1,19 +1,14 @@
 /** Status Pages workspace surface primitives. */
 import type * as React from 'react';
 
-import type { KpiStripItem } from '@/admin';
-import { uiLabelClass } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
-
-const KPI_GRID_CLASS = {
-  3: 'sm:grid-cols-3',
-  4: 'sm:grid-cols-2 xl:grid-cols-4',
-  5: 'sm:grid-cols-2 xl:grid-cols-5',
-} as const;
 
 export const statusPageFlatTableClassName = 'rounded-none border-0 bg-transparent';
 export const statusPageFlatStateClassName =
   'rounded-none border-0 bg-transparent shadow-none';
+
+const SURFACE =
+  'min-w-0 overflow-hidden rounded-md bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]';
 
 export function StatusPageCanvas({
   children,
@@ -32,92 +27,38 @@ export function StatusPageCanvas({
   );
 }
 
-export function StatusPageKpiBand({
-  items,
-  columns = 4,
+/**
+ * A list of a status page, with what it is showing at its head: the view, a
+ * search, the filters, and the one thing that can be added to it.
+ *
+ * They are the head of the list they act on, not cards of their own above it:
+ * a view switch in one card, a filter row in a second and the rows in a third
+ * read as three things, and they are one.
+ */
+export function StatusPageList({
+  head,
+  action,
+  children,
   className,
 }: {
-  items: readonly KpiStripItem[];
-  columns?: keyof typeof KPI_GRID_CLASS;
+  /** The view and the filters, in the order they narrow the list. */
+  head?: React.ReactNode;
+  /** The list's own action, at the far end of the head. */
+  action?: React.ReactNode;
+  children: React.ReactNode;
   className?: string;
 }) {
-  if (items.length === 0) return null;
-
   return (
-    <section
-      data-status-page-kpis
-      className={cn(
-        'grid grid-cols-1 gap-[12px]',
-        KPI_GRID_CLASS[columns],
-        className,
-      )}
-    >
-      {items.map((item, index) => (
-        <div key={index} className="min-h-[92px] min-w-0 rounded-md bg-[var(--functional-surface)] px-4 py-3 [box-shadow:var(--shadow-functional-surface)]">
-          <div className={uiLabelClass}>{item.label}</div>
-          <div
-            className={cn(
-              'mt-2 truncate font-sans text-2xl font-display-strong leading-none tracking-[-0.025em] tabular-nums',
-              (!item.tone || item.tone === 'neutral') && 'text-tx-0',
-              item.tone === 'good' && 'text-green',
-              item.tone === 'warn' && 'text-yellow',
-              item.tone === 'danger' && 'text-red',
-            )}
-          >
-            {item.value}
-          </div>
-          {item.sub && <div className="mt-1.5 truncate text-xs text-tx-2">{item.sub}</div>}
+    <section data-status-page-list className={cn(SURFACE, className)}>
+      {(head || action) && (
+        <div
+          data-status-page-list-head
+          className="flex min-h-[48px] min-w-0 flex-wrap items-center gap-x-[12px] gap-y-[8px] border-b border-bd-0 px-[12px] py-[8px]"
+        >
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-[12px] gap-y-[8px]">{head}</div>
+          {action}
         </div>
-      ))}
-    </section>
-  );
-}
-
-export function StatusPageBand({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div
-      data-status-page-band
-      className={cn('min-h-12 rounded-md bg-[var(--functional-surface)] px-4 py-2 [box-shadow:var(--shadow-functional-surface)]', className)}
-    >
-      {children}
-    </div>
-  );
-}
-
-export function StatusPageFilterBand({
-  children,
-  className,
-  ...props
-}: React.ComponentProps<'form'>) {
-  return (
-    <form
-      data-status-page-filter-band
-      className={cn('min-h-12 rounded-md bg-[var(--functional-surface)] px-4 py-2 [box-shadow:var(--shadow-functional-surface)]', className)}
-      {...props}
-    >
-      {children}
-    </form>
-  );
-}
-
-export function StatusPageListSurface({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <section
-      data-status-page-list-surface
-      className={cn('min-w-0 overflow-hidden rounded-md bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]', className)}
-    >
+      )}
       {children}
     </section>
   );
@@ -137,10 +78,7 @@ export function StatusPageSection({
   className?: string;
 }) {
   return (
-    <section
-      data-status-page-section
-      className={cn('min-w-0 overflow-hidden rounded-md bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]', className)}
-    >
+    <section data-status-page-section className={cn(SURFACE, className)}>
       <div className="flex min-h-12 items-center justify-between gap-4 px-4 py-2.5">
         <div className="min-w-0">
           <h2 className="text-sm font-display-strong text-tx-0">{title}</h2>

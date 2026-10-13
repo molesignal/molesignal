@@ -366,9 +366,8 @@ test.describe('Mole Agent operations workspace', () => {
       route.fulfill({ json: [] }),
     );
     await page.goto('/alerts/incidents');
-    const alertTitle = page
-      .locator('.type-page-title')
-      .filter({ hasText: 'Alert incidents' });
+    // The module has one title; which tab is open is said by the tabs below it.
+    const alertTitle = page.locator('.type-page-title').filter({ hasText: 'Alerts' });
     await expect(alertTitle).toBeVisible();
     const subnav = page.getByTestId('alerts-subnav');
     const activeTab = subnav.locator('a[href="/alerts/incidents"]');

@@ -10,18 +10,9 @@
     "service": "Service",
     "service_all": "All services",
     "type": "Profile type",
-    "type_all": "All types",
-    "range": "Time range",
     "label": "Label filter",
     "label_placeholder": "key:value",
-    "apply": "Apply",
-    "ranges": {
-      "m15": "Last 15 min",
-      "h1": "Last 1 hour",
-      "h6": "Last 6 hours",
-      "h24": "Last 24 hours",
-      "d7": "Last 7 days"
-    }
+    "apply": "Apply"
   },
   "profile_types": {
     "cpu": "CPU",
@@ -37,31 +28,43 @@
   "analysis": {
     "filter_bar_aria": "Profile analysis filters",
     "clear_trace": "Clear Trace filter",
-    "total_value": "Analysis total",
-    "mixed_types": "All profile types",
-    "samples": "{{count}} samples",
-    "merged_profiles": "Merged profiles",
-    "exact_selection": "Exact merge from current selection",
-    "services": "Services",
-    "active_selection": "Current analysis scope",
-    "duration": "Analysis duration",
-    "capture_duration": "Combined selected capture duration",
-    "hotspot": "Hot function",
-    "hot_self": "Self",
-    "hot_total": "Cumulative",
+    "summary_aria": "What this analysis found",
+    "hottest": "Hottest",
+    "hot_share": "{{percent}}% self",
     "no_hotspot": "No hot function",
+    "samples": "{{count}} samples",
+    "service_count_one": "{{count}} service",
+    "service_count_other": "{{count}} services",
+    "captured": "{{duration}} captured",
+    "profiles_button": "{{selected}} / {{total}} profiles",
+    "profiles_button_aria": "Choose the profiles in this analysis: {{selected}} of {{total}} selected",
     "workspace_aria": "Profile analysis workbench",
     "loading_flamegraph": "Merging the selected profiles…",
     "no_selection_title": "No profiles selected for analysis",
-    "no_selection_description": "Expand the list below and select at least one profile.",
-    "selection_summary": "{{selected}} / {{total}} profiles in analysis"
+    "no_selection_description": "The flame graph is merged from the profiles you select. Select at least one.",
+    "no_selection_action": "Choose profiles"
+  },
+  "first_run": {
+    "eyebrow": "Continuous profiling",
+    "steps": {
+      "send": {
+        "title": "Send profiles",
+        "description": "Push pprof over OTLP or Pyroscope, or upload a file to try it."
+      },
+      "narrow": {
+        "title": "Narrow the analysis",
+        "description": "Pick a service, a profile type and the profiles to merge."
+      },
+      "read": {
+        "title": "Read the flame graph",
+        "description": "The widest frames cost the most; the hottest function leads the page."
+      }
+    }
   },
   "selection": {
     "title": "Profiles in this analysis",
     "selected_summary": "{{selected}} / {{total}} selected",
-    "expand": "Expand list",
-    "collapse": "Collapse list",
-    "description": "The selection directly controls the merged flame graph above. Click a row to open that profile.",
+    "description": "Ticked profiles are merged into the flame graph. Click a row to open that profile on its own.",
     "select_all": "Select all profiles",
     "select_none": "Deselect all profiles",
     "row_aria": "Toggle profile {{id}} in analysis"
@@ -111,6 +114,8 @@
     "no_data_description": "No profiles matched the selected service, type and time range.",
     "truncated_notice": "Showing a representative sample of the matching profiles — the window exceeded the merge limit.",
     "frame_aria": "Analyze function {{name}}",
+    "root_aria": "Analyze all samples",
+    "root_note": "All samples",
     "frame_self": "self",
     "frame_total": "total",
     "frame_share": "of total",
@@ -128,7 +133,6 @@
       "self_pct": "Self %",
       "cum": "Total",
       "cum_pct": "Total %",
-      "sort_label": "Sort",
       "select_hint": "Select this function and inspect its details",
       "jump_hint": "Click to highlight this function in the flame graph"
     },
@@ -163,17 +167,53 @@
   },
   "compare": {
     "title": "Compare profiles",
-    "subtitle": "Diff a baseline window against a comparison window to see what got hotter.",
-    "baseline": "Baseline window",
-    "comparison": "Comparison window",
-    "run": "Run diff",
+    "subtitle": "What got hotter or cooler in one period against another. Set both freely.",
+    "filters_aria": "What is compared",
+    "baseline_aria": "Baseline: {{value}}",
+    "baseline_title": "Choose the baseline",
+    "baseline_relative": "Following the period",
+    "baseline_overlaps": "This baseline would overlap the period it is compared with.",
+    "baselines": {
+      "previous": "The period before",
+      "day": "Same time a day earlier",
+      "week": "Same time a week earlier",
+      "custom": "A period of its own"
+    },
+    "statement_aria": "The two periods compared",
+    "comparison": "Comparison",
+    "baseline": "Baseline",
+    "period_profiles_one": "{{count}} profile",
+    "period_profiles_other": "{{count}} profiles",
+    "overall": "Overall change",
+    "unequal_counts": "The periods hold different numbers of profiles ({{comparison}} against {{baseline}}), so part of the change comes from how much was captured.",
+    "overlap": "The two periods share time: what was captured in the shared part counts on both sides.",
+    "loading": "Comparing the two periods…",
     "legend_increase": "Increase",
     "legend_decrease": "Decrease",
-    "legend_neutral": "Unchanged",
-    "empty_title": "Pick two windows to diff",
-    "empty_description": "Select a baseline and a comparison range, then run the diff to highlight regressions.",
-    "baseline_count": "{{count}} baseline profiles",
-    "comparison_count": "{{count}} comparison profiles"
+    "changed": {
+      "title": "Most changed functions",
+      "count_one": "{{count}} function changed",
+      "count_other": "{{count}} functions changed",
+      "function": "Function",
+      "baseline": "Baseline",
+      "comparison": "Comparison",
+      "change": "Change in self cost",
+      "new": "new",
+      "gone": "gone",
+      "show_all": "Show all {{count}}",
+      "show_top": "Show the top {{count}}",
+      "none": "No function's own cost changed between the two periods.",
+      "select_hint": "Mark this function in the flame graph"
+    },
+    "empty": {
+      "none_title": "No profiles in either period",
+      "none_description": "Nothing of this service and type was captured in the two periods. Set them to a time when profiles were captured, or pick another type.",
+      "baseline_title": "Nothing to compare against",
+      "baseline_description": "The baseline period has no profiles, so every function would read as new. Set the baseline to a time when profiles were captured.",
+      "comparison_title": "Nothing captured in the comparison period",
+      "comparison_description": "The period you are looking at has no profiles to set against the baseline. Set it to a time when profiles were captured.",
+      "open_analysis": "Open this period in the analysis"
+    }
   },
   "detail": {
     "title": "Profile",

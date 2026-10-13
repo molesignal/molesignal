@@ -10,6 +10,7 @@ import { ProductRouteAccessGuard } from '@/routes/RouteGuard';
 import { InvestigationContextBar } from '@/shell/InvestigationContextBar';
 import { cn } from '@/shell/lib/cn';
 import { MoleAgentPanel } from '@/shell/MoleAgentPanel';
+import { useSpotlight } from '@/shell/polish/useSpotlight';
 import { Sidebar } from '@/shell/Sidebar';
 import { Topbar } from '@/shell/Topbar';
 import { Sheet, SheetContent, SheetTitle } from '@/shell/ui/sheet';
@@ -86,6 +87,7 @@ export function AppShell(_props: AppShellProps) {
   const toggleMoleAgent = useMoleAgentStore((s) => s.toggle);
   const access = useProductAccess();
   const canUseMoleAgent = canAccessProductPath('/agent', access);
+  useSpotlight();
 
   React.useEffect(() => {
     setMobileNavOpen(false);
@@ -139,7 +141,10 @@ export function AppShell(_props: AppShellProps) {
     <div
       data-shell-layout={isSurfaceWorkbench ? 'surface-workbench' : undefined}
       className={cn(
-        'h-screen min-w-0 overflow-hidden bg-bg-0 text-tx-0',
+        // `h-dvh` follows the visible viewport on mobile browsers whose address
+        // bar collapses; `h-screen` (100vh) would hide the page's last rows
+        // behind it.
+        'h-dvh min-w-0 overflow-hidden bg-bg-0 text-tx-0',
         isSurfaceWorkbench && 'bg-[var(--page-canvas)] [--topbar-h:48px]',
       )}
     >
@@ -188,7 +193,7 @@ export function AppShell(_props: AppShellProps) {
       <main
         id="main"
         className={cn(
-          'h-screen min-w-0 overflow-x-hidden overflow-y-auto pt-topbar transition-[padding-left] duration-150 ease-out-default',
+          'h-dvh min-w-0 overflow-x-hidden overflow-y-auto pt-topbar transition-[padding-left] duration-150 ease-out-default',
           primarySidebarCollapsed ? 'md:pl-sidebar-collapsed' : 'md:pl-sidebar',
         )}
       >

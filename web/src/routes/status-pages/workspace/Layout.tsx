@@ -164,7 +164,7 @@ export function StatusPageWorkspaceLayout() {
         }))}
       />
       {page.lifecycle === 'archived' && (
-        <div className="mx-[20px] mb-[12px] rounded-md bg-yellow-dim px-4 py-2 text-xs text-yellow-soft">
+        <div className="mx-[20px] mb-[12px] rounded-md bg-[var(--yellow-tint)] px-4 py-2 text-xs text-[var(--yellow-ink)]">
           {t('states.archived_read_only')}
         </div>
       )}

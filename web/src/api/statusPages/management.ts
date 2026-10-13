@@ -390,7 +390,9 @@ export async function listPendingAutomationCandidates(): Promise<AutomationCandi
   const { data } = await http.get<AutomationCandidate[]>(
     '/status-pages/automation/candidates/pending',
   );
-  return data;
+  // Read on every page, for the bell in the top bar: an answer that is not a list
+  // (a proxy's error page, an older backend) must not take the whole shell down.
+  return Array.isArray(data) ? data : [];
 }
 
 export async function getAutomationCandidateDetail(

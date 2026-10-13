@@ -36,6 +36,7 @@ import {
 import { FormField, FormInput, FormSelect, FormTextarea } from '@/shell/FormDrawer';
 import { cn } from '@/shell/lib/cn';
 import { QueryState } from '@/shell/query/State';
+import { TimezoneField } from '@/shell/TimezoneField';
 import {
   Dialog,
   DialogContent,
@@ -88,11 +89,14 @@ import {
   type SourceKind,
   type TemplateDraft,
   templateDraftFromPreset,
+  templateFormatOptions,
   type TemplatePreset,
   validateDraft,
   type WorkbenchSeed,
   type WorkbenchStep,
 } from './reportTypes';
+import { WorkbenchFooter } from './workbench/Footer';
+import { workbenchMode } from './workbench/mode';
 
 export function Reports() {
   const { t } = useTranslation('reports');
@@ -484,7 +488,7 @@ export function Reports() {
                 sharingId={null}
                 toggling={toggleMutation.isPending}
                 onExport={(report) => void downloadReport(report)}
-                onEdit={(report) => setWorkbenchSeed({ report, template: null })}
+                onOpen={(report) => setWorkbenchSeed({ report, template: null })}
                 onShare={setSharingReport}
                 onToggle={(report, enabled) => toggleMutation.mutate({ report, enabled })}
               />
@@ -507,7 +511,7 @@ export function Reports() {
               {anyHistoryError && (
                 <div
                   role="status"
-                  className="flex items-center gap-2 border-b border-yellow/25 bg-yellow-dim px-4 py-3 text-sm text-yellow-soft"
+                  className="flex items-center gap-2 border-b border-yellow/25 bg-[var(--yellow-tint)] px-4 py-3 text-sm text-[var(--yellow-ink)]"
                 >
                   <CircleAlert className="h-4 w-4" />
                   {t('history.partial_error')}
@@ -664,11 +668,7 @@ function TemplateEditorDialog({
   const [draft, setDraft] = React.useState<TemplateDraft>(() =>
     templateDraftFromPreset(template),
   );
-  const availableFormats = FORMAT_OPTIONS.filter(
-    (option) =>
-      option.value !== 'png' &&
-      (draft.sourceKind === 'saved_view' || option.value === 'pdf'),
-  );
+  const availableFormats = templateFormatOptions(draft.sourceKind);
 
   React.useEffect(() => {
     if (open) setDraft(templateDraftFromPreset(template));
@@ -1003,7 +1003,6 @@ function ReportWorkbench({
   onDownload: (report: DisplayReport) => Promise<void>;
 }) {
   const { t } = useTranslation('reports');
-  const { t: tc } = useTranslation('common');
   const scheduleAccess = useActionAccess({ permission: 'reports.schedule' });
   const deleteAccess = useActionAccess({ permission: 'reports.delete' });
   const queryClient = useQueryClient();
@@ -1013,6 +1012,7 @@ function ReportWorkbench({
   const [recipientError, setRecipientError] = React.useState<string | null>(null);
   const report = seed?.report ?? null;
   const isEdit = report !== null;
+  const mode = workbenchMode(report, scheduleAccess.allowed);
   const customCron = !SCHEDULE_OPTIONS.some((option) => option.value === draft.cron);
 
   React.useEffect(() => {
@@ -1124,10 +1124,10 @@ function ReportWorkbench({
         <div className="flex items-start gap-4 border-b border-bd-0 px-6 py-5">
           <DialogHeader className="min-w-0 flex-1">
             <DialogTitle className="font-sans text-xl font-display-strong tracking-tight text-tx-0">
-              {isEdit ? t('workbench.edit_title') : t('workbench.new_title')}
+              {t(`workbench.${mode}_title`)}
             </DialogTitle>
             <DialogDescription className="mt-1 text-sm text-tx-2">
-              {t('workbench.subtitle')}
+              {t(mode === 'view' ? 'workbench.view_subtitle' : 'workbench.subtitle')}
             </DialogDescription>
           </DialogHeader>
           <div className="flex items-center gap-2">
@@ -1195,7 +1195,9 @@ function ReportWorkbench({
                   role="status"
                   className="mb-5 rounded-md border border-bd-0 bg-bg-2 px-3 py-2 text-xs text-tx-2"
                 >
-                  {scheduleAccess.reason}
+                  {mode === 'view'
+                    ? t('workbench.view_notice', { permission: 'reports.schedule' })
+                    : scheduleAccess.reason}
                 </div>
               )}
               <div className="mb-6">
@@ -1325,16 +1327,12 @@ function ReportWorkbench({
                     </FormField>
                   )}
                   <FormField label={t('workbench.fields.timezone')}>
-                    <FormSelect
+                    {/* The zone field every form has: any zone the browser knows, searched for by
+                        name. Five zones written into this form left most of the world out. */}
+                    <TimezoneField
+                      label={t('workbench.fields.timezone')}
                       value={draft.timezone}
                       onChange={(value) => updateDraft('timezone', value)}
-                      options={[
-                        'Asia/Shanghai',
-                        'UTC',
-                        'Asia/Tokyo',
-                        'Europe/London',
-                        'America/New_York',
-                      ]}
                     />
                   </FormField>
                   <div className="rounded-lg border border-indigo/20 bg-indigo-dim px-4 py-3">
@@ -1491,49 +1489,17 @@ function ReportWorkbench({
           />
         </div>
 
-        <DialogFooter className="flex items-center justify-between space-x-0 border-t border-bd-0 bg-[var(--functional-surface)] px-6 py-4">
-          <div>
-            {report && (
-              <ChromeButton
-                onClick={removeReport}
-                disabled={deleteMutation.isPending || deleteAccess.disabled}
-                disabledReason={
-                  !deleteMutation.isPending ? deleteAccess.reason : undefined
-                }
-                className="text-red-soft hover:text-red-soft"
-              >
-                {deleteMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Trash2 className="h-4 w-4" />
-                )}
-                {t('actions.delete')}
-              </ChromeButton>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <ChromeButton onClick={onClose}>{t('actions.cancel')}</ChromeButton>
-            <ChromeButton
-              variant="primary"
-              type="submit"
-              form="report-workbench-form"
-              disabled={
-                saveMutation.isPending ||
-                scheduleAccess.disabled ||
-                invalid
-              }
-              disabledReason={
-                !saveMutation.isPending
-                  ? scheduleAccess.reason ??
-                    (invalid ? tc('access.form_invalid') : undefined)
-                  : undefined
-              }
-            >
-              {saveMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-              {isEdit ? t('actions.save_changes') : t('actions.save_and_enable')}
-            </ChromeButton>
-          </div>
-        </DialogFooter>
+        <WorkbenchFooter
+          mode={mode}
+          report={report}
+          format={draft.format}
+          formId="report-workbench-form"
+          invalid={invalid}
+          saving={saveMutation.isPending}
+          deleting={deleteMutation.isPending}
+          onDelete={removeReport}
+          onClose={onClose}
+        />
       </DialogContent>
     </Dialog>
   );

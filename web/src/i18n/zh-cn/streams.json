@@ -331,5 +331,107 @@
       "updated": "数据流配置已更新",
       "deleted": "数据流已删除"
     }
+  },
+  "jobs": {
+    "title": "搜索任务",
+    "subtitle": "在后台异步执行的查询（Search Job）：排队、运行，结果保留到过期",
+    "entry": "搜索任务",
+    "views_label": "任务状态",
+    "states": {
+      "all": "全部",
+      "pending": "排队",
+      "running": "运行中",
+      "done": "完成",
+      "failed": "失败",
+      "cancelled": "已取消"
+    },
+    "kinds": {
+      "query": "查询",
+      "backfill": "回填"
+    },
+    "scope_own": "只显示你提交的任务",
+    "live": "有任务在执行，每 {{seconds}} 秒刷新",
+    "columns": {
+      "kind": "类型",
+      "job": "任务",
+      "status": "状态",
+      "time_range": "查询时间范围",
+      "submitted": "提交",
+      "duration": "耗时 / 结束",
+      "rows": "结果行数",
+      "attempt": "尝试",
+      "expires": "过期",
+      "actions": "操作"
+    },
+    "cells": {
+      "request_unreadable": "任务的查询内容无法读取",
+      "pipeline": "查看管道",
+      "finished_at": "结束 {{time}}",
+      "not_finished": "尚未结束",
+      "attempt_title": "第 {{number}} 次尝试",
+      "expired": "已过期",
+      "expired_title": "已过期，等待清理",
+      "error": "失败原因：{{error}}"
+    },
+    "actions": {
+      "cancel": "取消任务",
+      "cancel_named": "取消任务 {{id}}",
+      "retry": "重试",
+      "retry_named": "重试任务 {{id}}",
+      "download": "下载结果",
+      "download_named": "下载任务 {{id}} 的结果",
+      "download_empty": "这个任务没有结果行",
+      "delete": "删除",
+      "delete_named": "删除任务 {{id}}"
+    },
+    "cancel_confirm": {
+      "title": "取消这个任务？",
+      "description": "任务会停止执行。之后可以重试，但会从头开始。",
+      "confirm": "取消任务",
+      "keep": "继续执行",
+      "busy": "取消中…"
+    },
+    "delete_confirm": {
+      "title": "删除这个任务？",
+      "description": "任务记录和保存的结果会被删除，无法恢复。",
+      "description_active": "任务还没有结束：它会先被取消，记录随后删除，无法恢复。",
+      "confirm": "删除",
+      "busy": "删除中…"
+    },
+    "toast": {
+      "cancelled": "任务已取消",
+      "retried": "任务已重新排队",
+      "deleted": "任务已删除",
+      "downloaded": "已下载 {{count}} 行结果"
+    },
+    "empty": {
+      "title": "还没有搜索任务",
+      "title_own": "你还没有提交过搜索任务",
+      "description": "搜索任务（Search Job）是在后台异步执行的查询，结果保留到过期。任务有三个来源：",
+      "source_async": "查询请求带 Prefer: respond-async，或预计结果过大时自动转为任务",
+      "source_backfill": "数据管道的回填",
+      "source_agent": "Mole Agent 提交的查询",
+      "filtered_hint": "换一个状态，或查看全部任务。",
+      "filtered": {
+        "pending": "没有排队的任务",
+        "running": "没有运行中的任务",
+        "done": "没有已完成的任务",
+        "failed": "没有失败的任务",
+        "cancelled": "没有已取消的任务"
+      }
+    },
+    "denied": {
+      "title": "没有查看搜索任务的权限",
+      "description": "需要 streams.query 或 sys.telemetry.read 权限。"
+    },
+    "pagination": {
+      "aria": "任务列表分页",
+      "page_summary": "{{page}} / {{pages}}",
+      "page_size_aria": "每页任务数",
+      "first_aria": "第一页",
+      "previous_aria": "上一页",
+      "next_aria": "下一页",
+      "last_aria": "最后一页"
+    }
   }
 }

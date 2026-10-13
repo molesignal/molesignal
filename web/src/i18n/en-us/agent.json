@@ -79,6 +79,12 @@
       "no_data": "No data",
       "checking": "Checking",
       "unavailable": "Limited"
+    },
+    "no_model": {
+      "title": "No AI model is enabled",
+      "description": "Mole Agent answers through an AI model, and this organization has none enabled yet.",
+      "ask_admin": "Mole Agent answers through an AI model. Ask an administrator to enable one in its settings.",
+      "configure": "Set up an AI model"
     }
   },
   "common": {
@@ -468,6 +474,10 @@
       "create": "Create prompt",
       "view": "View",
       "override": "Create override",
+      "derived_name": {
+        "override": "{{name}} · override",
+        "copy": "{{name}} · copy"
+      },
       "set_default": "Set as default",
       "restore": "Restore built-in",
       "delete": "Delete",
@@ -571,12 +581,6 @@
       "empty_filter_description": "Change the search or clear filters and try again.",
       "profile_restricted": "This tool is enabled but is not granted to the default Agent Profile, so Mole Agent cannot discover it.",
       "summary": {
-        "enabled": "Enabled tools",
-        "enabled_hint": "Available to Mole Agent",
-        "automatic": "Automatic",
-        "automatic_hint": "No human approval required",
-        "approval": "Requires approval",
-        "approval_hint": "Human review before execution",
         "mcp": "MCP Servers",
         "mcp_healthy": "{{count}} connected",
         "mcp_unhealthy": "{{healthy}} healthy · {{unhealthy}} unhealthy"
@@ -714,6 +718,7 @@
         },
         "basic": "Basic information",
         "description": "Description",
+        "model_definition": "What the model is given",
         "statistics": "Recent calls",
         "input_schema": "Input parameters",
         "output_schema": "Output",

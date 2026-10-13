@@ -432,7 +432,8 @@
     "team_fallback": "团队兜底",
     "organization_fallback": "组织兜底",
     "escalation": "升级",
-    "test": "测试"
+    "test": "测试",
+    "direct": "直接发送"
   },
   "statuses": {
     "pending": "等待中",

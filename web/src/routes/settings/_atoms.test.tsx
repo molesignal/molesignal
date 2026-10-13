@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { cleanup, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   KvRow,
@@ -18,7 +18,10 @@ const COPY = {
   systemIdentity: 'System identity',
   immutable: 'Immutable',
   workspaceValue: 'workspace-123',
+  tableSection: 'Remote clusters',
 } as const;
+
+afterEach(cleanup);
 
 describe('Settings form layout', () => {
   it('uses canvas-aligned sections and a responsive field grid', () => {
@@ -61,6 +64,46 @@ describe('Settings form layout', () => {
     expect(control?.className).toContain('min-h-11');
   });
 
+  it('keeps a form to one readable column and lets a table section run wide', () => {
+    const { container } = render(
+      <>
+        <SettingsSection title={COPY.tableSection} measure="full">
+          <span>table</span>
+        </SettingsSection>
+        <SettingsSection title={COPY.workspaceInformation}>
+          <SettingsRow label={COPY.workspaceName}>
+            <input aria-label={COPY.workspaceName} />
+          </SettingsRow>
+        </SettingsSection>
+      </>,
+    );
+
+    const [full, form] = Array.from(
+      container.querySelectorAll('[data-settings-section]'),
+    ) as HTMLElement[];
+    // The hairline between sections spans the page; what is inside is capped.
+    expect(form!.firstElementChild?.className).toContain('max-w-[872px]');
+    expect(full!.firstElementChild?.className).not.toContain('max-w-[872px]');
+
+    // A field is as wide as its content needs: label 280 + gap 32 + field 560 = the column.
+    const control = screen.getByRole('textbox', { name: COPY.workspaceName }).parentElement;
+    expect(control?.className).toContain('max-w-[560px]');
+  });
+
+  it('steps the type down page → section → topic', () => {
+    render(
+      <SettingsSection title={COPY.workspaceInformation}>
+        <SettingsSubsection title={COPY.basicInformation}>
+          <span>{COPY.workspaceName}</span>
+        </SettingsSubsection>
+      </SettingsSection>,
+    );
+
+    // 18px page title (type-heading) > 15px section > 13.5px topic > 12.5px row label.
+    expect(screen.getByText(COPY.workspaceInformation).className).toContain('text-lg');
+    expect(screen.getByText(COPY.basicInformation).className).toContain('text-md');
+  });
+
   it('uses the same vertical rhythm for read-only metadata', () => {
     render(
       <KvRow label={COPY.workspaceId} hint={COPY.immutable}>
@@ -76,6 +119,7 @@ describe('Settings form layout', () => {
       'min-[1100px]:grid-cols-[minmax(220px,280px)_minmax(420px,1fr)]',
     );
     expect(screen.getByText(COPY.workspaceValue)).toBeTruthy();
+    expect(screen.getByText(COPY.workspaceValue).className).toContain('max-w-[560px]');
   });
 
   it('groups related topics with whitespace', () => {

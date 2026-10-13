@@ -388,7 +388,7 @@ export function Noc() {
                     <div className="text-tx-0">{s.name}</div>
                     <div className="text-right text-tx-1">{Math.round(s.rps).toLocaleString()}</div>
                     <div className="text-right text-tx-1">{Math.round(s.p95_ms)}ms</div>
-                    <div className={`text-right ${s.error_rate > 0.01 ? 'text-red-soft' : s.error_rate > 0.001 ? 'text-yellow-soft' : 'text-tx-1'}`}>
+                    <div className={`text-right ${s.error_rate > 0.01 ? 'text-red-soft' : s.error_rate > 0.001 ? 'text-[var(--yellow-ink)]' : 'text-tx-1'}`}>
                       {(s.error_rate * 100).toFixed(2)}
                     </div>
                   </div>
@@ -427,7 +427,7 @@ export function Noc() {
             <span>
               <span className="text-red-soft">{t('pages.noc.status_bar.crit', { count: criticalCount })}</span>
               <span className="text-tx-3"> · </span>
-              <span className="text-yellow-soft">{t('pages.noc.status_bar.warn', { count: warningCount })}</span>
+              <span className="text-[var(--yellow-ink)]">{t('pages.noc.status_bar.warn', { count: warningCount })}</span>
             </span>
           </>
         )}

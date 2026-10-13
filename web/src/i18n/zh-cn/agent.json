@@ -79,6 +79,12 @@
       "no_data": "暂无数据",
       "checking": "检查中",
       "unavailable": "能力受限"
+    },
+    "no_model": {
+      "title": "还没有启用 AI 模型",
+      "description": "Mole Agent 通过 AI 模型作答，当前组织还没有启用的模型。",
+      "ask_admin": "Mole Agent 通过 AI 模型作答，请联系管理员在设置中启用。",
+      "configure": "配置 AI 模型"
     }
   },
   "common": {
@@ -468,6 +474,10 @@
       "create": "新建 Prompt",
       "view": "查看",
       "override": "创建覆盖版本",
+      "derived_name": {
+        "override": "{{name}} · 覆盖",
+        "copy": "{{name}} · 副本"
+      },
       "set_default": "设为默认",
       "restore": "恢复内置内容",
       "delete": "删除",
@@ -571,12 +581,6 @@
       "empty_filter_description": "调整搜索词或清除筛选条件后重试。",
       "profile_restricted": "该工具已启用，但当前默认 Agent Profile 未授权，因此不会暴露给 Mole Agent。",
       "summary": {
-        "enabled": "已启用工具",
-        "enabled_hint": "可供 Mole Agent 调用",
-        "automatic": "自动执行",
-        "automatic_hint": "无需人工审批",
-        "approval": "需要审批",
-        "approval_hint": "执行前需要人工确认",
         "mcp": "MCP Servers",
         "mcp_healthy": "{{count}} 个连接正常",
         "mcp_unhealthy": "{{healthy}} 正常 · {{unhealthy}} 异常"
@@ -714,6 +718,7 @@
         },
         "basic": "基本信息",
         "description": "功能说明",
+        "model_definition": "模型读到的定义（英文原文）",
         "statistics": "最近调用",
         "input_schema": "输入参数",
         "output_schema": "输出结果",

@@ -9,8 +9,8 @@ import { Button } from '@/shell/ui/button';
 
 import { formatTraceDurationNs } from '../duration';
 import { TraceOperationName } from '../TraceOperationName';
-import { formatJson, pct, signalLabelsForSpan } from '../waterfallModel';
 import { Attributes } from './Attributes';
+import { formatJson, pct, signalLabelsForSpan } from '../waterfall/model';
 
 export function SpanInspector({
   traceId,
@@ -36,21 +36,24 @@ export function SpanInspector({
     <aside className="flex min-h-0 min-w-0 w-[380px] max-w-full shrink-0 flex-col border-l border-bd-0 bg-bg-0">
       <div className="flex items-start gap-3 border-b border-bd-0 px-4 py-3">
         <div className="min-w-0 flex-1">
-          <SignalReference
-            type="span_id"
-            value={span.span_id}
-            labelName="span_id"
-            labels={labels}
-            time={time}
-            source={source}
-            showIcon={false}
-            className="max-w-full justify-start text-left text-tx-0 decoration-current/30"
-          >
-            <TraceOperationName
-              operation={span.operation}
-              className="font-sans text-sm font-strong text-tx-0"
-            />
-          </SignalReference>
+          {/* The span is the panel's title: its tags and its events are sections under it. */}
+          <h2>
+            <SignalReference
+              type="span_id"
+              value={span.span_id}
+              labelName="span_id"
+              labels={labels}
+              time={time}
+              source={source}
+              showIcon={false}
+              className="max-w-full justify-start text-left text-tx-0 decoration-current/30"
+            >
+              <TraceOperationName
+                operation={span.operation}
+                className="font-sans text-sm font-strong text-tx-0"
+              />
+            </SignalReference>
+          </h2>
           <div className="mt-0.5 flex flex-wrap gap-3 font-sans text-xs text-tx-2">
             <SignalReference
               type="service"
@@ -65,18 +68,18 @@ export function SpanInspector({
               {span.service}
             </SignalReference>
             <span>{formatTraceDurationNs(durationNs)}</span>
-            <span>start {formatTraceDurationNs(startOffsetNs)}</span>
-            <span>{pct(startOffsetNs, totalNs).toFixed(1)}% into trace</span>
+            <span>{t('detail.span_start_offset', { offset: formatTraceDurationNs(startOffsetNs) })}</span>
+            <span>{t('detail.span_into_trace', { percent: pct(startOffsetNs, totalNs).toFixed(1) })}</span>
           </div>
         </div>
-        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={onClose} aria-label="Close span details">
+        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={onClose} aria-label={t('detail.close_span')}>
           <X className="h-3.5 w-3.5" />
         </Button>
       </div>
       <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
         <div className="border-b border-bd-0 px-4 py-3">
           <div className="mb-2 font-sans text-xs font-strong tracking-normal text-tx-2">
-            Span ID
+            {t('detail.span_id')}
           </div>
           <div className="flex items-center gap-2">
             <code className="min-w-0 flex-1 truncate rounded border border-bd-0 bg-bg-1 px-2 py-1 font-mono text-xs text-tx-1">
@@ -91,18 +94,18 @@ export function SpanInspector({
           </div>
         </div>
         <div className="grid grid-cols-3 border-b border-bd-0">
-          <DetailMetric label="Duration" value={formatTraceDurationNs(durationNs)} />
-          <DetailMetric label="Start" value={formatTraceDurationNs(startOffsetNs)} />
-          <DetailMetric label="Offset" value={`${pct(startOffsetNs, totalNs).toFixed(1)}%`} />
+          <DetailMetric label={t('detail.span_duration')} value={formatTraceDurationNs(durationNs)} />
+          <DetailMetric label={t('detail.span_start')} value={formatTraceDurationNs(startOffsetNs)} />
+          <DetailMetric label={t('detail.span_offset')} value={`${pct(startOffsetNs, totalNs).toFixed(1)}%`} />
         </div>
         <Attributes key={span.span_id} attributes={span.attributes} />
         <div className="min-w-0 p-4">
-          <div className="mb-2 font-sans text-xs font-strong tracking-normal text-tx-2">
-            Events
-          </div>
+          <h3 className="mb-2 font-sans text-xs font-strong tracking-normal text-tx-2">
+            {t('detail.span_events')}
+          </h3>
           {span.events.length === 0 ? (
             <div className="rounded-md border border-dashed border-bd-1 bg-bg-1 p-3 font-sans text-xs text-tx-3">
-              No span events.
+              {t('detail.span_events_empty')}
             </div>
           ) : (
             <div className="space-y-2">

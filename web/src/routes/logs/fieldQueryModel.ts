@@ -16,6 +16,8 @@ export interface LogFieldDef {
   dataType: FieldType;
   count: string;
   expandable: boolean;
+  /** The stream keeps an index on the field: a filter on it does not read every row. */
+  indexed?: boolean;
 }
 
 export interface ParsedLogFieldClause {
@@ -65,6 +67,16 @@ export function appendLogFieldValueClause(
   return `${trimmed} AND ${clause}`;
 }
 
+/** Adds a clause that asks for the records whose field has `text` somewhere in it. */
+export function appendLogFieldContainsClause(current: string, field: string, text: string): string {
+  const clause = `${field} contains ${formatLogFieldQueryValue(text)}`;
+  const trimmed = current.trim();
+  if (!trimmed) return clause;
+  if (trimmed.includes(clause)) return trimmed;
+  if (/\bAND\s*$/i.test(trimmed)) return `${trimmed} ${clause}`;
+  return `${trimmed} AND ${clause}`;
+}
+
 export function appendLogFieldClause(current: string, field: LogFieldDef): string {
   const trimmed = current.trim();
   if (hasLogFieldClause(trimmed, field.name)) return current;
@@ -85,6 +97,10 @@ export function deriveLogFields(
   if (schemaFields.length === 0 && !result) return [];
   const schema = new Map(schemaFields.map((field) => [field.name, field.data_type]));
   schema.set('_timestamp', 'timestamp');
+  const indexed = new Set(schemaFields.filter((field) => field.indexed).map((field) => field.name));
+  // Time is not a field a stream declares an index for: every stream is partitioned by it, and a
+  // query reads only the files of its time range. It is the first index a log has.
+  indexed.add('_timestamp');
   const names = new Set<string>(schema.keys());
   result?.columns.forEach((name) => names.add(name));
   const resultIndex = new Map(result?.columns.map((name, index) => [name, index]) ?? []);
@@ -103,6 +119,7 @@ export function deriveLogFields(
       dataType,
       count: result?.rows.length ? String(present) : '0',
       expandable: type === 'array' || type === 'object',
+      ...(indexed.has(name) ? { indexed: true } : {}),
     };
   });
 }
@@ -193,6 +210,18 @@ export function unquoteLogFieldValue(rawValue: string): { value: string; quoted:
   return { value: trimmed, quoted: false };
 }
 
+/**
+ * Whether a clause asks about the field having a value at all. A value written
+ * as `''` is no value: `field = ''` is the records without one, `field != ''`
+ * the records with one. It is what a field's "+" writes before a value is
+ * typed, so it has to run.
+ */
+export function isLogFieldPresenceClause(
+  clause: Pick<ParsedLogFieldClause, 'op' | 'value' | 'quoted'>,
+): boolean {
+  return clause.quoted && clause.value === '' && (clause.op === '=' || clause.op === '!=');
+}
+
 export function parseLogFieldStatement(input: string): ParsedLogFieldStatement {
   const trimmed = input.trim();
   if (!trimmed) return { filters: [], freeText: [], rejected: [] };
@@ -236,10 +265,6 @@ export function parseLogFieldStatement(input: string): ParsedLogFieldStatement {
     }
     const rawOp = match[2]!.toLowerCase();
     const { value, quoted } = unquoteLogFieldValue(match[3]!);
-    if (!value) {
-      rejected.push(part);
-      continue;
-    }
     const op: ParsedLogFieldClause['op'] = rawOp === 'eq'
       ? '='
       : rawOp === 'ne'
@@ -247,6 +272,10 @@ export function parseLogFieldStatement(input: string): ParsedLogFieldStatement {
         : rawOp === 'like'
           ? 'contains'
           : rawOp as ParsedLogFieldClause['op'];
+    if (!value && !isLogFieldPresenceClause({ op, value, quoted })) {
+      rejected.push(part);
+      continue;
+    }
     filters.push({ field: match[1]!, op, value, quoted });
   }
 
@@ -277,6 +306,13 @@ export function logFieldClauseToSql(clause: ParsedLogFieldClause): string {
       : field;
     return `${functionName}(${functionField}, '${escapeSqlString(clause.value)}')`;
   }
+  // Cast to text so the comparison holds for a field of any type: a number is never ''.
+  if (isLogFieldPresenceClause(clause)) {
+    return clause.op === '='
+      ? `(${field} IS NULL OR CAST(${field} AS VARCHAR) = '')`
+      : `CAST(${field} AS VARCHAR) != ''`;
+  }
+
   const normalizeRenderedWhitespace = clause.quoted && /\s/.test(clause.value);
 
   if (clause.op === 'contains') {
@@ -363,16 +399,23 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-export function buildLogFieldQuerySql(
-  stream: string,
-  statement: string,
-  limit: number,
-): string {
+/** The conditions a field statement selects by, each as SQL. */
+export function logFieldQueryConditions(statement: string): string[] {
   const parsed = parseLogFieldStatement(statement);
   const conditions = parsed.filters.map(logFieldClauseToSql);
   parsed.freeText.forEach((part) => {
     conditions.push(`"message" LIKE '%${escapeSqlString(part)}%'`);
   });
+
+  return conditions;
+}
+
+export function buildLogFieldQuerySql(
+  stream: string,
+  statement: string,
+  limit: number,
+): string {
+  const conditions = logFieldQueryConditions(statement);
   const where = conditions.length > 0 ? `\nWHERE ${conditions.join('\n  AND ')}` : '';
   return `SELECT * FROM "${escapeSqlIdentifier(stream)}"${where}\nORDER BY _timestamp DESC\nLIMIT ${limit}`;
 }

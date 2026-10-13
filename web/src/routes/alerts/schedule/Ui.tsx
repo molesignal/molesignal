@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import * as React from 'react';
 
+import { formatMicrosActiveIn } from '@/lib/time';
 import { cn } from '@/shell/lib/cn';
 import {
   Avatar,
@@ -13,9 +14,9 @@ type AccentTone = 'indigo' | 'green' | 'blue' | 'orange' | 'red';
 
 const ACCENT: Record<AccentTone, string> = {
   indigo: 'bg-indigo-dim text-indigo-soft',
-  green: 'bg-green-dim text-green-soft',
-  blue: 'bg-blue-dim text-blue-soft',
-  orange: 'bg-orange-dim text-orange-soft',
+  green: 'bg-[var(--green-tint)] text-[var(--green-ink)]',
+  blue: 'bg-[var(--blue-tint)] text-[var(--blue-ink)]',
+  orange: 'bg-[var(--orange-tint)] text-[var(--orange-ink)]',
   red: 'bg-red-dim text-red-soft',
 };
 
@@ -163,20 +164,18 @@ export function UserAvatar({
   );
 }
 
+/**
+ * A moment of a schedule, written the way the rest of the app writes moments
+ * (the reader's date and time format), in the schedule's own zone when one is
+ * given. The locale no longer decides the notation: a date read as 05/23 here
+ * and 2026-05-23 one tab over is two formats for one reader.
+ */
 export function formatScheduleDateTime(
   micros: number,
-  locale: string,
+  _locale: string,
   timeZone?: string,
 ): string {
-  return new Intl.DateTimeFormat(locale, {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-    ...(timeZone ? { timeZone } : {}),
-  }).format(new Date(micros / 1000));
+  return formatMicrosActiveIn(micros, timeZone, false);
 }
 
 export function formatScheduleDay(

@@ -1,9 +1,12 @@
+import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { ServiceIdentity, SignalFilterHandle } from '@/api/apm';
 import { ModuleTabs } from '@/shell/tabs/ModuleTabs';
 
+import { ApmScopeRow } from '../Layout';
 import { signalHref } from '../model';
+import { ApmNavigationSlots } from '../navigationSlots';
 
 type ServiceSection =
   | 'overview'
@@ -26,6 +29,7 @@ export function ServiceNavigation({
   version?: string;
 }) {
   const { t } = useTranslation('apm');
+  const { end, scope } = React.useContext(ApmNavigationSlots);
   const query = new URLSearchParams({
     namespace: service.namespace,
     service: service.name,
@@ -48,12 +52,15 @@ export function ServiceNavigation({
     <ModuleTabs
       label={t('services.navigation')}
       dataAttributes={{ 'data-apm-navigation': 'surface' }}
+      end={end}
       items={items.map((item) => ({
         key: item.key,
         to: item.to,
         active: item.key === active,
         label: t(`services.nav.${item.key}`),
       }))}
-    />
+    >
+      <ApmScopeRow>{scope}</ApmScopeRow>
+    </ModuleTabs>
   );
 }

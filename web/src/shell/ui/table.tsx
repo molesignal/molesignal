@@ -78,7 +78,10 @@ const TableRow = React.forwardRef<HTMLTableRowElement, React.HTMLAttributes<HTML
         // the sidebar active-state language. Pair with role="row" and
         // data-state="selected" from the caller's list-keyboard logic.
         'data-[state=selected]:bg-bg-4',
-        'data-[state=selected]:relative data-[state=selected]:before:absolute data-[state=selected]:before:left-0 data-[state=selected]:before:top-0 data-[state=selected]:before:h-full data-[state=selected]:before:w-0.5 data-[state=selected]:before:bg-indigo',
+        // The rail is the inner edge of the row's first cell. A box laid over the row is a
+        // child of the row that is no cell: the table wraps it in a cell of its own, and
+        // every cell of the selected row then stands one column to the right.
+        'data-[state=selected]:[&>*:first-child]:shadow-[inset_2px_0_0_var(--indigo)]',
         className,
       )}
       {...props}

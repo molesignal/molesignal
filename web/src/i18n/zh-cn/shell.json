@@ -33,6 +33,11 @@
     "view_all": "查看全部审批"
   },
   "user_menu": {
+    "language": "语言",
+    "languages": {
+      "zh-cn": "简体中文",
+      "en-us": "English"
+    },
     "current_workspace": "当前工作区",
     "switch_workspace": "切换"
   },
@@ -183,8 +188,6 @@
     "tagline_b": "一次查询，",
     "tagline_c": "一条时间线。",
     "promise": "观察一切，洞悉关键所在。",
-    "blurb_a": "日志、指标、追踪、分析、APM 和 RUM",
-    "blurb_b": "统一于单一查询平台之下。",
     "forgot_password": "忘记密码？",
     "forgot_title": "重置密码",
     "forgot_subtitle": "输入你的注册邮箱，我们会发送一封密码重置邮件。",
@@ -209,10 +212,12 @@
     "back_to_signin": "返回登录",
     "signing_in": "登录中…",
     "email_or_username": "邮箱或目录用户名",
+    "email_placeholder": "name@company.com",
+    "password_placeholder": "输入密码",
     "ldap_credentials_required": "请先输入用户名和密码",
     "or": "或",
     "no_account": "还没有账号？",
-    "version_line": "v{{version}} · {{channel}}",
+    "version": "v{{version}}",
     "sso_button_aria": "通过 {{name}} 登录",
     "sso_loading": "正在加载 SSO 服务…",
     "sso_none": "未配置任何 SSO 服务商",

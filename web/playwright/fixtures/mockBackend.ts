@@ -24,7 +24,12 @@ import { fileURLToPath } from 'node:url';
 import { test as base, type Page } from '@playwright/test';
 import express, { type Express, type Request, type Response } from 'express';
 
+import type { UserPreferences } from '../../src/api/me';
 import { PRODUCT_ROUTES } from '../../src/product/ia';
+import { registerAlertRoutes } from './mockAlerts';
+import { registerLogInspectionRoutes } from './mockLogInspections';
+import { registerReliabilityRoutes } from './mockReliability';
+import { registerSearchJobRoutes } from './mockSearchJobs';
 
 export const FROZEN_NOW_ISO = '2026-05-23T10:00:00.000Z';
 
@@ -93,6 +98,18 @@ const MOCK_IAM_ORGANIZATION_PERMISSIONS = [
   'agent.use',
   'agent.manage',
   'agent.approve',
+  'inspections.manage',
+  'status_pages.read',
+  'status_pages.manage',
+  'status_pages.publish',
+  'synthetics.read',
+  'synthetics.manage',
+  'synthetics.locations.manage',
+  'synthetics.secrets.manage',
+  'service_levels.read',
+  'service_levels.manage',
+  'postmortems.read',
+  'postmortems.manage',
 ] as const;
 
 function mockCapabilityRoutes(
@@ -139,6 +156,8 @@ function mockCapabilityRoutes(
       navigation_position: navigable ? index : undefined,
     };
   });
+  // The permission each route asks for, as the backend's route catalog has it
+  // (`20260101000003_iam_route_catalog.sql`).
   const explicit = [
     ['root', '/', true],
     ['account.settings', '/account/settings/*', true],
@@ -151,19 +170,39 @@ function mockCapabilityRoutes(
         permissionSet.has('service_accounts.read') ||
         permissionSet.has('org.settings.read')],
     ['iam.users', '/iam/users', scope !== 'system' && permissionSet.has('org.members.read')],
+    ['iam.invitations', '/iam/invitations', scope !== 'system' && permissionSet.has('org.members.read')],
+    ['iam.approvals', '/iam/approvals', scope !== 'system' && permissionSet.has('org.members.read')],
+    ['iam.teams', '/iam/teams', scope !== 'system' && permissionSet.has('org.members.read')],
     ['iam.roles', '/iam/roles', scope !== 'system' && permissionSet.has('iam.roles.read')],
+    ['iam.groups', '/iam/groups', scope !== 'system' && permissionSet.has('iam.policies.read')],
     ['iam.api.tokens', '/iam/api-tokens', scope !== 'system' && permissionSet.has('api_tokens.read')],
     ['iam.service.accounts', '/iam/service-accounts', scope !== 'system' && permissionSet.has('service_accounts.read')],
+    ['iam.sso', '/iam/sso', scope !== 'system' && permissionSet.has('org.settings.read')],
+    ['iam.email.domains', '/iam/email-domains', scope !== 'system' && permissionSet.has('org.settings.read')],
     ['settings.notify', '/settings/notify/*', scope !== 'system' && permissionSet.has('alerts.read')],
+    ['logs.inspections', '/logs/inspections', scope !== 'system' && permissionSet.has('agent.use') && permissionSet.has('streams.query')],
+    ['logs.inspection.detail', '/logs/inspections/:id', scope !== 'system' && permissionSet.has('agent.use') && permissionSet.has('streams.query')],
     ['settings.tenant.tools', '/settings/:section', scope !== 'system' && permissionSet.has('org.settings.read')],
   ] as const;
+  // A route listed here is decided here. The app takes the first decision it
+  // finds for a route, so the row derived from the product catalog above must
+  // not answer for it as well.
+  const explicitAllowed = new Map<string, boolean>(
+    explicit.map(([id, , allowed]) => [id, allowed]),
+  );
+  const catalogIds = new Set<string>(decisions.map((decision) => decision.id));
   return [
-    ...decisions,
-    ...explicit.map(([id, path_pattern, allowed]) => ({
-      id,
-      path_pattern,
-      allowed,
+    ...decisions.map((decision) => ({
+      ...decision,
+      allowed: explicitAllowed.get(decision.id) ?? decision.allowed,
     })),
+    ...explicit
+      .filter(([id]) => !catalogIds.has(id))
+      .map(([id, path_pattern, allowed]) => ({
+        id,
+        path_pattern,
+        allowed,
+      })),
   ];
 }
 
@@ -191,7 +230,8 @@ const MOCK_IAM_EDITOR_DENY_PREFIXES = [
 
 const MOCK_IAM_ROLE_PERMISSIONS: Record<string, readonly string[]> = {
   platform_owner: MOCK_IAM_PLATFORM_PERMISSIONS,
-  owner: MOCK_IAM_ORGANIZATION_PERMISSIONS,
+  // An owner holds the whole catalog, platform scope included, as the backend keeps it.
+  owner: [...MOCK_IAM_PLATFORM_PERMISSIONS, ...MOCK_IAM_ORGANIZATION_PERMISSIONS],
   admin: MOCK_IAM_ORGANIZATION_PERMISSIONS,
   editor: MOCK_IAM_ORGANIZATION_PERMISSIONS.filter(
     (permission) =>
@@ -218,7 +258,15 @@ const mockIamDomain = (permission: string): string => {
   if (resource === 'alerts' || resource === 'schedules') return 'alerts';
   if (resource === 'pipelines' || resource === 'functions') return 'pipelines';
   if (resource === 'reports') return 'reports';
-  if (resource === 'agent') return 'agent';
+  if (resource === 'agent' || resource === 'inspections') return 'agent';
+  if (
+    resource === 'status_pages' ||
+    resource === 'synthetics' ||
+    resource === 'service_levels' ||
+    resource === 'postmortems'
+  ) {
+    return resource;
+  }
   return 'observability';
 };
 
@@ -266,17 +314,26 @@ const TOPOLOGY = readJson('topology.json');
 const TRACE = readJson<{ trace_id: string; root_span_id: string; spans: unknown[]; truncated: boolean }>('trace.json');
 const STREAMS = readJson('streams.json');
 const DASHBOARDS = readJson('dashboards.json');
-const ALERTS = readJson<{
-  rules: unknown[];
-  incidents: unknown[];
-  escalations: unknown[];
-}>('alerts.json');
 const LOG_NDJSON = readText('log-stream.ndjson');
 
 const THEME_KEY = 'molesignal-theme';
 const DENSITY_KEY = 'molesignal-density';
 const EXPLICIT_THEME_KEY = 'molesignal-theme-explicit';
 const AUTH_KEY = 'molesignal-auth';
+/**
+ * The personal preferences the mock user starts with. `mountMockRoutes` seeds
+ * the browser with the same look, so the two cannot drift apart.
+ */
+const MOCK_USER_PREFERENCES: UserPreferences = {
+  theme: 'system',
+  density: 'normal',
+  language: 'en-us',
+  default_home_route: '/home',
+  time_format: 'iso_24h',
+  date_format: 'yyyy_mm_dd_dash',
+  timezone: '',
+  keyboard_shortcuts_enabled: true,
+};
 const MOCK_AUTH = {
   state: {
     token: 'mock-e2e-token',
@@ -306,6 +363,10 @@ interface Fixtures {
 }
 
 export function registerRoutes(app: Express): void {
+  registerAlertRoutes(app, FROZEN_NOW_ISO);
+  registerReliabilityRoutes(app, FROZEN_NOW_ISO);
+  registerSearchJobRoutes(app, FROZEN_NOW_ISO);
+  registerLogInspectionRoutes(app, FROZEN_NOW_ISO);
   const dashboards = (DASHBOARDS as { items: Array<Record<string, unknown>> }).items.map((item) => ({ ...item }));
   const folders: Array<{ id: string; org_id: string; name: string; parent_id?: string }> = [];
   const resourceShares: Array<Record<string, unknown> & { token: string }> = [];
@@ -338,6 +399,10 @@ export function registerRoutes(app: Express): void {
         description: 'Core service availability and latency review.',
       },
       enabled: true,
+      // Last saved by Dana Reyes (`/api/v1/users`), not by the signed-in mock user. As the
+      // backend does, the report names her itself: reading it does not take the member list.
+      run_as_user_id: 'u1',
+      run_as_user: { id: 'u1', display_name: 'Dana Reyes', email: 'sre@example.com' },
       last_run_at_micros: Date.parse(FROZEN_NOW_ISO) * 1_000 - 86_400_000_000,
       created_at_micros: Date.parse(FROZEN_NOW_ISO) * 1_000 - 604_800_000_000,
       updated_at_micros: Date.parse(FROZEN_NOW_ISO) * 1_000,
@@ -345,18 +410,9 @@ export function registerRoutes(app: Express): void {
   ];
   const chatMessages = new Map<string, Array<Record<string, unknown>>>();
   const agentChats: Array<Record<string, unknown>> = [];
-  let userPreferences = {
-    theme: 'system',
-    density: 'normal',
-    language: 'en-us',
-    default_home_route: '/home',
-    time_format: 'iso_24h',
-    date_format: 'yyyy_mm_dd_dash',
-    timezone: '',
-    keyboard_shortcuts_enabled: true,
-  };
+  let userPreferences = { ...MOCK_USER_PREFERENCES };
   let hasPersonalPreferences = false;
-  let workspacePreferenceDefaults = { ...userPreferences };
+  let workspacePreferenceDefaults = { ...MOCK_USER_PREFERENCES };
   let meProfile = {
     user_id: 'dev',
     email: 'dev@molesignal.local',
@@ -409,6 +465,22 @@ export function registerRoutes(app: Express): void {
     hasPersonalPreferences = true;
     res.json(userPreferences);
   });
+  // How the mock user prefers a page to look, by purpose and key. Kept for as long as the
+  // server lives, so a reload finds what the page before it saved.
+  const uiPreference = new Map<string, { value: unknown; updated_at_micros: number }>();
+  const uiPreferenceId = (req: { params: Record<string, string> }) => `${req.params.scope}/${req.params.key}`;
+  app.get('/api/v1/me/ui-preference/:scope/:key', (req, res) =>
+    res.json(uiPreference.get(uiPreferenceId(req)) ?? { value: null, updated_at_micros: null }),
+  );
+  app.put('/api/v1/me/ui-preference/:scope/:key', (req, res) => {
+    const entry = { value: req.body?.value ?? null, updated_at_micros: Date.now() * 1_000 };
+    uiPreference.set(uiPreferenceId(req), entry);
+    res.json(entry);
+  });
+  app.delete('/api/v1/me/ui-preference/:scope/:key', (req, res) => {
+    uiPreference.delete(uiPreferenceId(req));
+    res.status(204).end();
+  });
   app.get('/api/v1/workspace/preferences', (_req, res) =>
     res.json(workspacePreferenceDefaults),
   );
@@ -424,7 +496,6 @@ export function registerRoutes(app: Express): void {
       external_url: '',
       signup_enabled: false,
       version: '26.0.0.0',
-      release_channel: 'stable',
     }),
   );
   let clientIpSettings = {
@@ -479,6 +550,10 @@ export function registerRoutes(app: Express): void {
 
   // ── streams / dashboards / saved_views ──
   app.get('/api/v1/streams', (_req, res) => res.json(STREAMS));
+  // No masking rule exists, so no field of any stream is masked.
+  app.get('/api/v1/field_masking/effective/:streamId', (req, res) =>
+    res.json({ stream_id: req.params.streamId, fields: [] }),
+  );
   // `dashboardsApi.list()` expects a bare `Dashboard[]` (matches the real
   // backend), not the `{ items }` envelope the fixture file uses for the
   // `/dashboards/:id` lookup below. Returning the envelope made the
@@ -606,22 +681,95 @@ export function registerRoutes(app: Express): void {
     folders.splice(index, 1);
     return res.json({ deleted: req.params.id });
   });
-  app.get('/api/v1/saved-views', (_req, res) =>
-    res.json({ items: [{ id: 'sv1', name: 'Yesterday errors', filters: [] }] }),
-  );
-  app.get('/api/v1/saved_views', (_req, res) =>
-    res.json([{ id: 'sv1', name: 'Yesterday errors', filters: [] }]),
-  );
+  // The shape the backend returns (`SavedView`): a view without its language or
+  // statement takes the Saved views page down, which is not what a mock is for.
+  const savedViews = [
+    {
+      id: 'sv1',
+      org_id: 'acme-prod',
+      owner_user_id: 'test-user',
+      name: 'Yesterday errors',
+      language: 'sql',
+      statement: "SELECT * FROM \"app_logs\" WHERE level = 'ERROR'",
+      time_range_secs: 86_400,
+      stream: 'app_logs',
+      tags: ['errors'],
+      pinned: true,
+      created_at: Date.parse(FROZEN_NOW_ISO) * 1000 - 7 * 86_400_000_000,
+      updated_at: Date.parse(FROZEN_NOW_ISO) * 1000 - 86_400_000_000,
+    },
+  ];
+  app.get('/api/v1/saved-views', (_req, res) => res.json({ items: savedViews }));
+  app.get('/api/v1/saved_views', (_req, res) => res.json(savedViews));
+  app.get('/api/v1/saved_views/:id', (req, res) => {
+    const view = savedViews.find((candidate) => candidate.id === req.params.id);
+    return view ? res.json(view) : res.status(404).json({ error: `saved view ${req.params.id} not found` });
+  });
 
   // ── alerts (rules / incidents / escalations) ──
-  app.get('/api/v1/alerts/rules', (_req, res) => res.json(ALERTS.rules));
-  app.get('/api/v1/alerts/incidents', (_req, res) => res.json(ALERTS.incidents));
-  app.get('/api/v1/alerts/escalations', (_req, res) => res.json(ALERTS.escalations));
+
+  // ── pipelines: one saved pipeline, its runs, and what its editor reads ──
+  // Without these the catch-all answers `{}` where the pages expect lists and
+  // they fall to the router's error screen, which is then what gets scanned.
+  app.get('/api/v1/scheduled_pipelines/:id/runs', (req, res) => {
+    const finished = Date.parse(FROZEN_NOW_ISO) * 1000 - 120_000_000;
+    res.json([
+      {
+        id: 'run-2',
+        pipeline_id: req.params.id,
+        state: 'succeeded',
+        started_at_micros: finished - 4_000_000,
+        finished_at_micros: finished,
+        scanned_rows: 18_420,
+        error: null,
+      },
+      {
+        id: 'run-1',
+        pipeline_id: req.params.id,
+        state: 'failed',
+        started_at_micros: finished - 304_000_000,
+        finished_at_micros: finished - 300_000_000,
+        scanned_rows: 0,
+        error: 'stream not found: access_logs',
+      },
+    ]);
+  });
+  app.get('/api/v1/scheduled_pipelines/:id', (req, res) =>
+    res.json({
+      id: req.params.id,
+      name: 'checkout-logs',
+      source_stream: 'logs',
+      target_stream: 'access_logs',
+      cron: 'every:5m',
+      lookback_secs: 300,
+      enabled: true,
+      function_steps: {
+        mode: 'scheduled',
+        signal_type: 'logs',
+        sources: ['logs'],
+        sinks: ['access_logs'],
+        sink_connectors: [],
+        retry_policy: 'exponential',
+        steps: [
+          {
+            transform_name: 'normalize-level',
+            kind: 'vrl',
+            script: 'if is_string(.level) {\n  .level = downcase(string!(.level))\n}',
+          },
+        ],
+      },
+    }),
+  );
+  app.get('/api/v1/functions', (_req, res) => res.json([]));
+  app.get('/api/v1/connectors', (_req, res) => res.json([]));
 
   // ── Notify settings ──
   app.get('/api/v1/notify/connector-types', (_req, res) => res.json([]));
   app.get('/api/v1/notify/connectors', (_req, res) => res.json([]));
   app.get('/api/v1/notify/users', (_req, res) => res.json([]));
+  // What one person is reached by: nothing bound yet, no preference saved.
+  app.get('/api/v1/users/:userId/notify-endpoints', (_req, res) => res.json([]));
+  app.get('/api/v1/users/:userId/notify-preferences', (_req, res) => res.json([]));
   app.get('/api/v1/notify/recipient-resolver-types', (_req, res) =>
     res.json(['fixed_users', 'team_members', 'oncall_schedule']),
   );
@@ -1806,6 +1954,34 @@ export function registerRoutes(app: Express): void {
     next_cursor: null,
     previous_cursor: null,
   };
+  // ── APM: a workspace that has not received a trace yet. A spec that needs
+  // services, transactions or errors routes its own `/api/v1/apm/**`. ──
+  app.get('/api/v1/apm/overview', (_req, res) => {
+    const to = Date.parse(FROZEN_NOW_ISO) * 1_000;
+    res.json({
+      meta: {
+        range: { from: to - 3_600_000_000, to },
+        resolution: 'minute',
+        data_quality: { partial: false, gaps: [], overflow_dimensions: [] },
+        activation_boundary: false,
+      },
+      red: {
+        request_count: 0,
+        error_count: 0,
+        error_rate: 0,
+        duration_sum_micros: 0,
+        latency_partial: false,
+        exemplars: [],
+      },
+      trend: [],
+      service_health: { healthy: 0, warning: 0, critical: 0, no_traffic: 0 },
+      services: [],
+      top_transactions: [],
+      top_dependencies: [],
+      top_errors: [],
+      recent_versions: [],
+    });
+  });
   app.get('/api/v1/rum/applications/summary', (_req, res) =>
     res.json({
       items: [
@@ -1992,6 +2168,17 @@ export function registerRoutes(app: Express): void {
         display_role: 'Admin',
         roles: [{ id: 'role-admin', key: 'admin', name: 'Admin', builtin: true }],
       },
+      // Listed for an owner, who holds the platform permissions and uses them there.
+      {
+        id: 'system-org',
+        name: '_sys',
+        slug: '_sys',
+        display_role: 'Owner',
+        roles: [{ id: 'role-platform-owner', key: 'platform_owner', name: 'Owner', builtin: true }],
+        system: true,
+        disabled: false,
+        accessible: true,
+      },
     ]),
   );
   app.post('/api/v1/orgs/:id/select', (req, res) =>
@@ -2011,13 +2198,41 @@ export function registerRoutes(app: Express): void {
         {
           id: 'u1',
           email: 'sre@example.com',
+          display_name: 'Dana Reyes',
           display_role: 'Admin',
           roles: [{ id: 'role-admin', key: 'admin', name: 'Admin', builtin: true }],
         },
-      ],
+        {
+          id: 'u2',
+          email: 'kenji@example.com',
+          display_name: 'Kenji Watanabe',
+          display_role: 'Editor',
+          roles: [{ id: 'role-editor', key: 'editor', name: 'Editor', builtin: true }],
+        },
+        {
+          id: 'u3',
+          email: 'amara@example.com',
+          display_name: 'Amara Okafor',
+          display_role: 'Editor',
+          roles: [{ id: 'role-editor', key: 'editor', name: 'Editor', builtin: true }],
+        },
+      ].map((user) => ({
+        is_root: false,
+        disabled: false,
+        status: 'active',
+        team_names: [],
+        login_method: 'password',
+        created_at_micros: Date.parse(FROZEN_NOW_ISO) * 1_000 - 90 * 86_400_000_000,
+        ...user,
+      })),
     }),
   );
-  app.get('/api/v1/teams', (_req, res) => res.json([]));
+  app.get('/api/v1/teams', (_req, res) =>
+    res.json([
+      { id: 'team-platform', org_id: 'acme-prod', name: 'Platform', member_ids: ['u1', 'u2'] },
+      { id: 'team-payments', org_id: 'acme-prod', name: 'Payments', member_ids: ['u3'] },
+    ]),
+  );
   app.get('/api/v1/auth/tokens', (_req, res) => res.json([]));
   app.get('/api/v1/service-accounts', (_req, res) => res.json([]));
   app.get('/api/v1/roles', (_req, res) =>
@@ -2083,6 +2298,44 @@ export function registerRoutes(app: Express): void {
   app.get('/api/v1/scheduled_reports', (_req, res) =>
     res.json(scheduledReports),
   );
+  // As the backend does: every save, a new report or an existing one, makes the signed-in
+  // user the one the report runs as, and the response names that user.
+  const savedByMockUser = () => ({
+    run_as_user_id: meProfile.user_id,
+    run_as_user: {
+      id: meProfile.user_id,
+      display_name: meProfile.display_name,
+      email: meProfile.email,
+    },
+  });
+  app.post('/api/v1/scheduled_reports', (req, res) => {
+    const now = Date.parse(FROZEN_NOW_ISO) * 1_000;
+    const report = {
+      ...req.body,
+      id: `r${scheduledReports.length + 1}`,
+      org_id: MOCK_AUTH.state.ctx.org_id,
+      ...savedByMockUser(),
+      last_run_at_micros: null,
+      created_at_micros: now,
+      updated_at_micros: now,
+    };
+    scheduledReports.push(report);
+    res.json(report);
+  });
+  app.put('/api/v1/scheduled_reports/:id', (req, res) => {
+    const index = scheduledReports.findIndex((report) => report.id === req.params.id);
+    if (index === -1) {
+      res.status(404).json({ error: `scheduled report ${req.params.id} not found` });
+      return;
+    }
+    scheduledReports[index] = {
+      ...scheduledReports[index],
+      ...req.body,
+      ...savedByMockUser(),
+      updated_at_micros: Date.parse(FROZEN_NOW_ISO) * 1_000,
+    };
+    res.json(scheduledReports[index]);
+  });
   app.get('/api/v1/scheduled_reports/:id/deliveries', (_req, res) =>
     res.json([]),
   );
@@ -2096,7 +2349,6 @@ export function registerRoutes(app: Express): void {
         }),
       ),
   );
-  app.get('/api/v1/schedules', (_req, res) => res.json([]));
   app.get('/api/v1/resource_shares/policy', (_req, res) =>
     res.json(resourceSharePolicy),
   );
@@ -2393,7 +2645,8 @@ export function registerRoutes(app: Express): void {
 /**
  * Wire `page.route('**\/api/v1/**')` to proxy every API call to the Express
  * server bound on `port`, install the frozen clock, and seed an explicit mock
- * login plus theme/density preferences so the app boots deterministically.
+ * login plus the look the mock user has saved, so the app boots
+ * deterministically and stays the way it booted.
  *
  * Call from `test.beforeEach` in every behavior / perf spec.
  */
@@ -2401,8 +2654,22 @@ export async function mountMockRoutes(
   page: Page,
   port: number,
   opts: {
+    /**
+     * The theme and the density of the page. Each is saved as the mock user's
+     * preference and remembered by the browser, the way a look the user chose
+     * is. Left out, it is the mock user's default: the system theme, normal
+     * density.
+     */
     theme?: 'dark' | 'light';
-    density?: 'comfortable' | 'compact';
+    density?: 'comfortable' | 'normal' | 'compact';
+    /**
+     * Other personal preferences the mock user has already saved, such as the
+     * language. A theme or density given here counts the same as `theme` and
+     * `density`.
+     */
+    preferences?: Partial<UserPreferences>;
+    /** Boot without a session, for a page that is shown before sign-in. */
+    signedOut?: boolean;
     role?: string;
     token?: string;
     orgId?: string;
@@ -2412,8 +2679,14 @@ export async function mountMockRoutes(
     capabilityPermissions?: string[];
   } = {},
 ): Promise<void> {
-  const theme = opts.theme ?? 'light';
-  const density = opts.density ?? 'comfortable';
+  // The shell applies the saved preferences over what the browser remembered
+  // as soon as it has read them. A page seeded with one look and saved with
+  // another would change a moment after it loads, so both come from here.
+  const saved: Partial<UserPreferences> = { ...opts.preferences };
+  if (opts.theme) saved.theme = opts.theme;
+  if (opts.density) saved.density = opts.density;
+  const theme = saved.theme ?? MOCK_USER_PREFERENCES.theme;
+  const density = saved.density ?? MOCK_USER_PREFERENCES.density;
   const auth = {
     ...MOCK_AUTH,
     state: {
@@ -2456,19 +2729,36 @@ export async function mountMockRoutes(
   // requestAnimationFrame (palette debounce, NDJSON RAF batching). `install`
   // would freeze the timer queue and break both.
   await page.clock.setFixedTime(new Date(FROZEN_NOW_ISO));
+  if (Object.keys(saved).length > 0) {
+    const response = await fetch(`http://127.0.0.1:${port}/api/v1/me/preferences`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(saved),
+    });
+    if (!response.ok) {
+      throw new Error(`mock preferences were not saved: ${response.status}`);
+    }
+  }
   await page.addInitScript(
     ({ theme, density, auth, themeKey, densityKey, explicitKey, authKey }) => {
-      localStorage.setItem(themeKey, theme);
-      localStorage.setItem(densityKey, density);
-      localStorage.setItem(explicitKey, '1');
+      // The look the browser remembers from the mock user's last visit. Only
+      // what is missing is written, so a later document finds what the app
+      // has stored since, as it would in a real browser.
+      if (localStorage.getItem(themeKey) === null) {
+        localStorage.setItem(themeKey, theme);
+        if (theme !== 'system') localStorage.setItem(explicitKey, '1');
+      }
+      if (localStorage.getItem(densityKey) === null) {
+        localStorage.setItem(densityKey, density);
+      }
       // Seed the zustand-persisted auth slice with a normal mock Bearer token
       // so RequireAuth exercises the authenticated application path.
-      localStorage.setItem(authKey, JSON.stringify(auth));
+      if (auth) localStorage.setItem(authKey, JSON.stringify(auth));
     },
     {
       theme,
       density,
-      auth,
+      auth: opts.signedOut ? null : auth,
       themeKey: THEME_KEY,
       densityKey: DENSITY_KEY,
       explicitKey: EXPLICIT_THEME_KEY,

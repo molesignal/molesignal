@@ -4,6 +4,58 @@
   "workspace": {
     "subtitle": "公开地址 {{url}}"
   },
+  "list": {
+    "under_way_one": "{{count}} 项进行中",
+    "under_way_other": "{{count}} 项进行中",
+    "scheduled_one": "{{count}} 项已计划",
+    "scheduled_other": "{{count}} 项已计划",
+    "nothing_under_way": "当前没有进行中的事件",
+    "components_one": "{{count}} 个组件",
+    "components_other": "{{count}} 个组件",
+    "no_components": "还没有组件",
+    "state_unavailable": "无法读取该页面的状态。",
+    "archived_on": "归档于 {{date}}",
+    "removed_after": "{{date}} 之后彻底删除"
+  },
+  "first_run": {
+    "title": "在客户询问之前，告诉他们服务的状态",
+    "description": "状态页是一个回答\"服务是否正常\"的地址：服务各个部分的状态、正在发生的事情，以及计划中的维护。订阅者会通过邮件或 Webhook 收到每一次变更。",
+    "archived": "已归档的页面",
+    "steps": {
+      "components": {
+        "title": "列出客户使用的部分",
+        "description": "客户叫得出名字的每个部分各建一个组件：API、控制台、某个区域。"
+      },
+      "publish": {
+        "title": "发布事件与维护",
+        "description": "出现故障或计划维护时写一条更新。告警与拨测可以替你起草。"
+      },
+      "subscribers": {
+        "title": "让大家订阅",
+        "description": "把地址分享出去。邮件与 Webhook 订阅者确认一次，之后收到每条更新。"
+      }
+    }
+  },
+  "overview": {
+    "seen_now": "客户此刻看到的状态",
+    "events_under_way_one": "{{count}} 项进行中",
+    "events_under_way_other": "{{count}} 项进行中",
+    "maintenance_scheduled_one": "{{count}} 项维护已计划",
+    "maintenance_scheduled_other": "{{count}} 项维护已计划",
+    "nothing_going_on": "没有进行中的事件，也没有计划中的维护",
+    "last_change": "最近变更于{{time}}",
+    "components_on_page_one": "页面上有 {{count}} 个组件",
+    "components_on_page_other": "页面上有 {{count}} 个组件",
+    "under_way": "进行中",
+    "not_operational": "未正常运行",
+    "hidden_components_one": "{{count}} 个隐藏组件不在公开页面上。",
+    "hidden_components_other": "{{count}} 个隐藏组件不在公开页面上。",
+    "started": "开始于{{when}}",
+    "planned_for": "计划于 {{date}}，{{when}}",
+    "lately": "最近结束",
+    "ended": "结束于{{when}}",
+    "lasted": "持续 {{duration}}"
+  },
   "tabs": {
     "label": "状态页工作区",
     "overview": "概览",
@@ -173,6 +225,9 @@
     "completed": "已完成",
     "cancelled": "已取消"
   },
+  "maintenance_status": {
+    "in_progress": "进行中"
+  },
   "impact": {
     "minor": "轻微影响",
     "major": "重大影响",
@@ -193,7 +248,6 @@
       "name_placeholder": "Northstar Cloud 状态页",
       "slug_hint": "仅使用小写字母、数字和单个连字符；Slug 全局唯一。",
       "languages_hint": "选择一种或多种界面语言；超过一种时公开页会显示切换器，组件与事件内容保持原文。",
-      "timezone_hint": "使用 IANA 时区，例如 UTC、Asia/Shanghai 或 Europe/Berlin。",
       "history_days_hint": "公开页展示最近 1–{{max}} 天内已解决事件，最多 200 条；默认 90 天。",
       "logo_preview_label": "状态页 Logo 预览",
       "logo_upload_hint": "支持 PNG、JPEG 或 WebP，最大 2 MiB；保存设置时上传文件。",
@@ -303,6 +357,7 @@
     "in_progress": "进行中",
     "completed": "已结束"
   },
+  "event_views_label": "事件视图",
   "publication_state": { "draft": "草稿", "published": "已发布" },
   "subscriber_views": { "list": "订阅者", "deliveries": "投递记录" },
   "subscriber_views_label": "订阅者视图",
@@ -579,21 +634,28 @@
     "status_page_label": "服务状态",
     "language_switcher": "状态页语言",
     "system_status": "系统状态",
-    "recent_incidents": "近期事件",
-    "recent_incidents_period": "最近 {{count}} 天",
     "not_found_title": "状态页不可用",
     "not_found_description": "该状态页可能是私有页面、已被删除，或地址不正确。",
     "load_error": "暂时无法加载状态页，请稍后重试。",
-    "last_checked": "更新于 {{time}}",
     "last_updated_label": "最近更新",
     "started_at": "开始于",
-    "completed_at": "已完成",
     "scheduled_for": "计划时间",
     "view_details": "查看详情",
+    "notice": {
+      "maintenance_under_way": "维护进行中",
+      "latest_update": "最新进展",
+      "all_updates_one": "查看这条更新",
+      "all_updates_other": "查看全部 {{count}} 条更新"
+    },
+    "past": {
+      "title": "过往事件",
+      "period_one": "过去 {{count}} 天",
+      "period_other": "过去 {{count}} 天",
+      "empty_one": "过去 {{count}} 天内没有事件。",
+      "empty_other": "过去 {{count}} 天内没有事件。",
+      "history_link": "完整事件历史"
+    },
     "no_components": "尚未发布服务组件。",
-    "no_active_incidents": "当前没有进行中的事件。",
-    "no_history": "配置的历史范围内没有事件。",
-    "no_recent_incidents": "配置的历史范围内没有近期事件。",
     "powered_by": "由 MoleSignal 提供支持",
     "subscription": {
       "trigger": "订阅",
@@ -619,24 +681,25 @@
     },
     "archive": {
       "navigation_label": "状态页导航",
-      "view_navigation_label": "历史视图",
       "current_status": "当前状态",
       "incident_history": "事件历史",
-      "incidents": "事件",
       "uptime": "可用性",
       "previous_month": "上一个月",
       "next_month": "下一个月",
       "month_range": "{{start}} 至 {{end}}",
       "history_title": "事件历史",
-      "history_description": "展示配置的最近 {{count}} 天已解决事件，每个自然月优先展示最严重的 3 条。",
-      "incident_count": "共 {{count}} 条",
-      "resolved": "该事件已解决。",
-      "show_all_incidents": "+ 展开全部 {{count}} 条事件",
-      "show_top_incidents": "收起，仅展示最严重的 {{count}} 条",
-      "no_history": "该历史范围内没有已解决事件。",
+      "history_description_one": "过去 {{count}} 天内已结束的事件与维护，最新的排在最前。",
+      "history_description_other": "过去 {{count}} 天内已结束的事件与维护，最新的排在最前。",
+      "incident_count_one": "{{count}} 条",
+      "incident_count_other": "{{count}} 条",
+      "show_all_incidents_one": "展开 {{count}} 条",
+      "show_all_incidents_other": "展开全部 {{count}} 条",
+      "show_fewer_incidents": "收起",
       "no_incidents_in_month": "本月没有事件。",
       "uptime_title": "可用性历史",
-      "uptime_description": "按自然月展示最近 {{count}} 天内记录的组件状态变更与公开事件；计划维护不计入可用性。",
+      "uptime_description": "一次查看一个组件，一格代表一天；计划维护不计入可用性。",
+      "window_uptime_one": "过去 {{count}} 天可用性 {{value}}%",
+      "window_uptime_other": "过去 {{count}} 天可用性 {{value}}%",
       "component_label": "组件",
       "no_uptime_components": "尚未发布服务组件。",
       "month_uptime": "{{value}}% 可用性",
@@ -646,6 +709,7 @@
       "period": "过去 90 天 · 计划维护不计",
       "days_ago": "90 天前",
       "today": "今天",
+      "legend": "颜色说明",
       "value": "{{value}}% 可用性",
       "value_unavailable": "暂无可用性数据",
       "chart_label": "{{name}} 过去 90 天可用性：{{value}}%",
@@ -676,14 +740,10 @@
     },
     "incident_detail": {
       "back": "返回状态页",
-      "incident": "服务事件",
-      "status": "状态",
       "started_at": "开始时间",
-      "resolved_at": "解决时间",
+      "duration": "持续时间",
       "affected_components": "影响组件",
-      "impact_scope": "影响范围",
-      "timeline": "时间线",
-      "no_affected_components": "未列出面向客户的影响组件",
+      "updates": "进展更新",
       "no_updates": "暂时没有公开进展。",
       "not_found_title": "事件不可用",
       "not_found_description": "该事件不存在，或已不在当前状态页中展示。"

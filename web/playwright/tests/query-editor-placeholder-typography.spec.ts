@@ -30,9 +30,17 @@ test.beforeEach(async ({ page, mockServer }) => {
 test('keeps Metrics and Traces query hints on the shared editor typography', async ({
   page,
 }) => {
+  // The editor first paints a plain stand-in and swaps in the real one once
+  // its chunk has loaded. Only the real one hides its hint from assistive
+  // technology, so that is the hint to wait for: the stand-in can be removed
+  // between finding it and reading its style.
+  const editorHint = '[data-code-editor-placeholder="true"][aria-hidden="true"]';
+
   await page.goto('/metrics');
+  // Every explorer starts with its editor folded into the bar.
+  await page.getByRole('button', { name: 'Expand query' }).click();
   const metricsPlaceholder = page
-    .locator('[data-code-editor-placeholder="true"]')
+    .locator(editorHint)
     .filter({ hasText: 'rate(metric_name{...}[5m])' });
   await expect(metricsPlaceholder).toBeVisible();
   const metricsTypography = await readTypography(metricsPlaceholder);
@@ -41,7 +49,7 @@ test('keeps Metrics and Traces query hints on the shared editor typography', asy
   const expandQuery = page.getByRole('button', { name: 'Expand query' });
   if (await expandQuery.isVisible()) await expandQuery.click();
   const tracesPlaceholder = page
-    .locator('[data-code-editor-placeholder="true"]')
+    .locator(editorHint)
     .filter({ hasText: 'trace_id = "..." / service_name contains "checkout"' });
   await expect(tracesPlaceholder).toBeVisible();
   const tracesTypography = await readTypography(tracesPlaceholder);

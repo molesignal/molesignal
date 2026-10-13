@@ -23,7 +23,9 @@ export type NotifyDeliveryStage =
   | 'team_fallback'
   | 'organization_fallback'
   | 'escalation'
-  | 'test';
+  | 'test'
+  /** Sent straight to a channel a feature chose itself, outside any policy. */
+  | 'direct';
 export type NotifyDeliveryStatus =
   | 'pending'
   | 'sending'

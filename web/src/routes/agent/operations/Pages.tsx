@@ -59,6 +59,8 @@ export function InvestigationsPage() {
     <ModulePage
       title={t('investigations.title')}
       description={t('investigations.description')}
+      empty={investigations.isSuccess && investigations.data.length === 0}
+      flush={Boolean(investigations.data?.length)}
       action={
         <Button size="sm" onClick={() => setEditor('new')}>
           <Plus /> {t('investigations.create')}
@@ -70,7 +72,11 @@ export function InvestigationsPage() {
       ) : investigations.isError ? (
         <ProductState variant="error" error={investigations.error} />
       ) : investigations.data?.length ? (
-        <div className="overflow-hidden rounded-lg border border-bd-0 bg-bg-1">
+        // The first and the last column keep the gutter the line over the table has.
+        <div
+          data-agent-list
+          className="overflow-hidden [&_td:first-child]:pl-5 [&_td:last-child]:pr-5 [&_th:first-child]:pl-5 [&_th:last-child]:pr-5"
+        >
           <Table>
             <TableHeader>
               <TableRow>
@@ -121,10 +127,10 @@ export function InvestigationsPage() {
           </Table>
         </div>
       ) : (
-        <ProductState
-          variant="empty"
+        <EmptyTab
           title={t('investigations.empty_title')}
-          description={t('investigations.empty_description')}
+          purpose={t('investigations.description')}
+          hint={t('investigations.empty_description')}
           action={<Button onClick={() => setEditor('new')}>{t('investigations.create')}</Button>}
         />
       )}
@@ -274,7 +280,7 @@ function StepList({ steps, verbose = false }: { steps: agentApi.InvestigationSte
 }
 
 function StepIcon({ status }: { status: agentApi.StepStatus }) {
-  if (status === 'succeeded') return <Check className="mt-0.5 h-4 w-4 shrink-0 text-green-soft" />;
+  if (status === 'succeeded') return <Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--green-ink)]" />;
   if (status === 'failed') return <X className="mt-0.5 h-4 w-4 shrink-0 text-red-soft" />;
   if (status === 'running') return <CircleDot className="mt-0.5 h-4 w-4 shrink-0 text-indigo" />;
   return <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-tx-3" />;
@@ -341,6 +347,7 @@ export function AutomationsPage() {
     <ModulePage
       title={t('automations.title')}
       description={t('automations.description')}
+      empty={automations.isSuccess && automations.data.length === 0}
       action={
         <Button
           size="sm"
@@ -396,10 +403,10 @@ export function AutomationsPage() {
           ))}
         </div>
       ) : (
-        <ProductState
-          variant="empty"
+        <EmptyTab
           title={t('automations.empty_title')}
-          description={t('automations.empty_description')}
+          purpose={t('automations.description')}
+          hint={t('automations.empty_description')}
           action={
             <Button
               disabled={manageAccess.disabled}
@@ -475,7 +482,11 @@ export function ApprovalsPage() {
     onError: (error) => toast.error(String(error)),
   });
   return (
-    <ModulePage title={t('approvals.title')} description={t('approvals.description')}>
+    <ModulePage
+      title={t('approvals.title')}
+      description={t('approvals.description')}
+      empty={approvals.isSuccess && approvals.data.length === 0}
+    >
       {approvals.isLoading ? (
         <ProductState variant="loading" />
       ) : approvals.isError ? (
@@ -550,10 +561,10 @@ export function ApprovalsPage() {
           ))}
         </div>
       ) : (
-        <ProductState
-          variant="empty"
+        <EmptyTab
           title={t('approvals.empty_title')}
-          description={t('approvals.empty_description')}
+          purpose={t('approvals.description')}
+          hint={t('approvals.empty_description')}
         />
       )}
       <OneTimeApiTokenDialog
@@ -572,13 +583,22 @@ export function ExecutionsPage() {
     retry: false,
   });
   return (
-    <ModulePage title={t('executions.title')} description={t('executions.description')}>
+    <ModulePage
+      title={t('executions.title')}
+      description={t('executions.description')}
+      empty={executions.isSuccess && executions.data.length === 0}
+      flush={Boolean(executions.data?.length)}
+    >
       {executions.isLoading ? (
         <ProductState variant="loading" />
       ) : executions.isError ? (
         <ProductState variant="error" error={executions.error} />
       ) : executions.data?.length ? (
-        <div className="overflow-hidden rounded-lg border border-bd-0 bg-bg-1">
+        // The first and the last column keep the gutter the line over the table has.
+        <div
+          data-agent-list
+          className="overflow-hidden [&_td:first-child]:pl-5 [&_td:last-child]:pr-5 [&_th:first-child]:pl-5 [&_th:last-child]:pr-5"
+        >
           <Table>
             <TableHeader>
               <TableRow>
@@ -610,48 +630,117 @@ export function ExecutionsPage() {
           </Table>
         </div>
       ) : (
-        <ProductState
-          variant="empty"
+        <EmptyTab
           title={t('executions.empty_title')}
-          description={t('executions.empty_description')}
+          purpose={t('executions.description')}
+          hint={t('executions.empty_description')}
         />
       )}
     </ModulePage>
   );
 }
 
+/**
+ * What stands in the module's content surface under its tabs.
+ *
+ * A tab is named by the tabs, so its content does not open with its name again:
+ * it opens with a line on what the tab is for and the one thing that can be
+ * added to it. A tab with nothing in it yet says both in its empty state, which
+ * then stands alone (`empty`). The settings have a row of sections in the
+ * navigation and a line of their own in each (`bare`). Only a page reached from
+ * a list (`backTo`) has a title of its own: the name of the thing it shows.
+ */
 export function ModulePage({
   title,
   description,
   action,
   backTo,
+  empty = false,
+  bare = false,
+  flush = false,
   children,
 }: {
   title: string;
   description?: string;
   action?: React.ReactNode;
   backTo?: string;
+  /** Nothing to list yet: the empty state says what the tab is for and offers its one action. */
+  empty?: boolean;
+  /** No line over the content: what stands in it brings its own. */
+  bare?: boolean;
+  /** The content is a table: it reaches the edges of the surface, with no room around it. */
+  flush?: boolean;
   children: React.ReactNode;
 }) {
   const { t } = useTranslation('agent');
-  return (
-    <div className="h-full overflow-auto">
-      <div className="border-b border-bd-0 bg-bg-1 px-5 py-4">
-        {backTo && (
+
+  if (backTo) {
+    return (
+      <div className="h-full overflow-auto">
+        <div className="border-b border-bd-0 bg-bg-1 px-5 py-[10px]">
           <Link to={backTo} className="mb-2 inline-flex items-center gap-1 text-xs text-tx-3 hover:text-tx-0">
             <ArrowRight className="h-3.5 w-3.5 rotate-180" /> {t('common.back')}
           </Link>
-        )}
-        <PageTitleRow
-          title={title}
-          description={description}
-          actions={action}
-          level={2}
-          size="section"
-        />
+          <PageTitleRow
+            title={title}
+            description={description}
+            actions={action}
+            level={2}
+            size="section"
+          />
+        </div>
+        <div className="p-5">{children}</div>
       </div>
-      <div className="p-5">{children}</div>
+    );
+  }
+
+  return (
+    <div data-agent-page className="h-full overflow-auto">
+      <h2 className="sr-only">{title}</h2>
+      {!bare && !empty && (description || action) ? (
+        <div
+          data-agent-page-head
+          className="flex min-h-[44px] flex-wrap items-center gap-x-4 gap-y-2 border-b border-bd-0 px-5 py-[6px]"
+        >
+          {description && <p className="min-w-0 flex-1 font-sans text-xs text-tx-2">{description}</p>}
+          {action && <div className="ml-auto shrink-0">{action}</div>}
+        </div>
+      ) : null}
+      <div className={flush ? undefined : bare ? 'px-5 pb-5 pt-[12px]' : 'p-5'}>{children}</div>
     </div>
+  );
+}
+
+/**
+ * A tab with nothing in it yet: what it is for, how its first entry comes about,
+ * and the one action that makes it. It lies on the content surface, not in a
+ * card of its own inside it.
+ */
+export function EmptyTab({
+  title,
+  purpose,
+  hint,
+  action,
+}: {
+  title: string;
+  purpose?: string | undefined;
+  hint: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <ProductState
+      variant="empty"
+      title={title}
+      description={
+        <>
+          {purpose && <span className="block">{purpose}</span>}
+          <span className="block">{hint}</span>
+        </>
+      }
+      action={action}
+      // The state's own surface is a shadow set as a property: it is taken off the same way.
+      className="rounded-none border-0 bg-transparent py-[56px] [box-shadow:none]"
+    />
   );
 }
 
@@ -699,8 +788,8 @@ function RiskBadge({ risk }: { risk: agentApi.RiskLevel }) {
       className={cn(
         'font-mono uppercase',
         risk === 'l3' && 'border-red/40 text-red-soft',
-        risk === 'l2' && 'border-yellow/40 text-yellow-soft',
-        risk === 'l1' && 'border-blue/40 text-blue-soft',
+        risk === 'l2' && 'border-yellow/40 text-[var(--yellow-ink)]',
+        risk === 'l1' && 'border-blue/40 text-[var(--blue-ink)]',
       )}
     >
       {risk}
@@ -718,9 +807,9 @@ function StateBadge({ value }: { value: string }) {
       variant="outline"
       className={cn(
         'whitespace-nowrap',
-        success.includes(value) && 'border-green/35 bg-green/5 text-green-soft',
+        success.includes(value) && 'border-green/35 bg-[var(--green-wash)] text-[var(--green-ink)]',
         danger.includes(value) && 'border-red/35 bg-red/5 text-red-soft',
-        warning.includes(value) && 'border-yellow/35 bg-yellow/5 text-yellow-soft',
+        warning.includes(value) && 'border-yellow/35 bg-[var(--yellow-wash)] text-[var(--yellow-ink)]',
       )}
     >
       {t(`status.${value}`, { defaultValue: value })}

@@ -1,7 +1,7 @@
-import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 
 import type * as webApi from '@/api/web';
+import { zonedMoment } from '@/lib/time';
 import {
   Select,
   SelectContent,
@@ -48,6 +48,6 @@ export function TraceListSortSelect({
 
 export function formatTraceStart(startNs: number, tz: string): string {
   if (!Number.isFinite(startNs) || startNs <= 0) return '-';
-  const date = dayjs(Math.floor(startNs / 1_000_000)).tz(tz);
+  const date = zonedMoment(Math.floor(startNs / 1_000_000), tz);
   return date.isValid() ? date.format('HH:mm:ss.SSS') : '-';
 }

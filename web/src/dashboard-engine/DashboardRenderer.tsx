@@ -1,4 +1,3 @@
-import { keepPreviousData, useQueries } from '@tanstack/react-query';
 import {
   Bot,
   ChevronDown,
@@ -19,14 +18,12 @@ import {
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import * as dashboardsApi from '@/api/dashboards';
 import { buildPanelExploreLink } from '@/investigation/exploreLink';
 import { writeClipboardText } from '@/lib/clipboard';
 import {
   canAccessProductPath,
   useProductAccess,
 } from '@/product/access';
-import { ChromeButton } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
 import {
   Dialog,
@@ -36,10 +33,8 @@ import {
 } from '@/shell/ui/dialog';
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
@@ -77,11 +72,11 @@ import {
 } from './query/usePanelData';
 import {
   refreshCadenceFromSettings,
-  resolveRefreshIntervalMilliseconds,
   type DashboardRefreshCadence,
-  type DashboardTimeRangeResolver,
 } from './refresh/policy';
 import { useDashboardRefresh } from './refresh/useDashboardRefresh';
+import { DashboardVariableBar } from './renderer/VariableBar';
+import { PrintedPanel, PrintedSectionHeading } from './report/PrintedCards';
 import { DEFAULT_DASHBOARD_CURSOR_SYNC_MODE } from './schema';
 import type {
   DashboardDefinition,
@@ -91,14 +86,12 @@ import type {
   DashboardTab,
   DashboardTextElement,
   DashboardTimeRange,
-  DashboardVariable,
   PanelData,
 } from './schema';
 import {
   expandRepeatedElements,
   initialVariableValues,
   interpolateVariables,
-  variableOptions,
   type DashboardVariableValues,
   type RuntimeDashboardElement,
 } from './variables';
@@ -124,7 +117,14 @@ export interface DashboardRendererProps {
   variableControlsEnabled?: boolean;
   resolveVariableQueries?: boolean;
   maxTimeRangeMicros?: number;
+  /**
+   * `print` draws the dashboard for a report: the panels and their titles, with
+   * none of the controls that only work on a screen.
+   */
+  presentation?: DashboardPresentation;
 }
+
+export type DashboardPresentation = 'screen' | 'print';
 
 export type { DashboardPanelQueryExecutor } from './query/usePanelData';
 
@@ -137,6 +137,7 @@ interface DashboardRenderContext extends PanelQueryRuntimeContext {
   onRemovePanel?: (panelId: string) => void;
   panelQueryExecutor?: DashboardPanelQueryExecutor;
   restricted: boolean;
+  presentation: DashboardPresentation;
   maxTimeRangeMicros?: number;
 }
 
@@ -157,6 +158,7 @@ export function DashboardRenderer({
   variableControlsEnabled = true,
   resolveVariableQueries = true,
   maxTimeRangeMicros,
+  presentation = 'screen',
 }: DashboardRendererProps) {
   const tr = useDashboardText();
   const productAccess = useProductAccess();
@@ -207,6 +209,7 @@ export function DashboardRenderer({
       dashboardColumns: dashboard.layout.columns,
       queryLookup,
       restricted,
+      presentation,
       ...(onEditPanel ? { onEditPanel } : {}),
       ...(onDuplicatePanel ? { onDuplicatePanel } : {}),
       ...(onRemovePanel ? { onRemovePanel } : {}),
@@ -222,6 +225,7 @@ export function DashboardRenderer({
       onRemovePanel,
       orgId,
       panelQueryExecutor,
+      presentation,
       queryLookup,
       refreshCadence,
       refreshRuntime.containerWidth,
@@ -247,20 +251,22 @@ export function DashboardRenderer({
         ref={refreshRuntime.containerRef}
         className={cn('space-y-3', className)}
       >
-        <DashboardVariableBar
-          dashboardUid={dashboard.uid}
-          variables={dashboard.variables}
-          values={variables}
-          timeRange={refreshRuntime.timeRange}
-          timeRangeKey={refreshRuntime.timeRangeKey}
-          resolveTimeRange={refreshRuntime.resolveTimeRange}
-          refreshCadence={refreshCadence}
-          containerWidth={refreshRuntime.containerWidth}
-          onChange={setVariables}
-          disabled={!variableControlsEnabled}
-          resolveQueries={resolveVariableQueries}
-        />
-        {!restricted && (
+        {presentation === 'screen' && (
+          <DashboardVariableBar
+            dashboardUid={dashboard.uid}
+            variables={dashboard.variables}
+            values={variables}
+            timeRange={refreshRuntime.timeRange}
+            timeRangeKey={refreshRuntime.timeRangeKey}
+            resolveTimeRange={refreshRuntime.resolveTimeRange}
+            refreshCadence={refreshCadence}
+            containerWidth={refreshRuntime.containerWidth}
+            onChange={setVariables}
+            disabled={!variableControlsEnabled}
+            resolveQueries={resolveVariableQueries}
+          />
+        )}
+        {!restricted && presentation === 'screen' && (
           <DashboardLinksBar
             dashboard={dashboard}
             variables={variables}
@@ -504,6 +510,20 @@ function DashboardPanelCard({
     ? interpolateVariables(panel.description, variables)
     : '';
   const activeQuery = panel.queries.find((query) => query.enabled);
+
+  if (context.presentation === 'print') {
+    return (
+      <PrintedPanel title={title} transparent={panel.transparent}>
+        <VisualizationRenderer
+          panel={renderPanel}
+          data={data}
+          height={Math.max(96, height - 52)}
+          cursorScopeId={null}
+        />
+      </PrintedPanel>
+    );
+  }
+
   const menuButton = (
     <button
       type="button"
@@ -811,8 +831,12 @@ function DashboardContainerCard({
       ),
     [context.dashboard.layout.columns, element.elements, variables],
   );
-  return (
-    <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-bd-0 bg-bg-1">
+  const heading =
+    context.presentation === 'print' ? (
+      <PrintedSectionHeading>
+        {interpolateVariables(element.title, variables)}
+      </PrintedSectionHeading>
+    ) : (
       <button
         type="button"
         onClick={() => setCollapsed((value) => !value)}
@@ -828,6 +852,11 @@ function DashboardContainerCard({
           {tr(element.kind)}
         </span>
       </button>
+    );
+
+  return (
+    <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-bd-0 bg-bg-1">
+      {heading}
       {!collapsed && (
         <div className="min-h-0 flex-1 overflow-auto p-2">
           <DashboardGrid
@@ -896,229 +925,6 @@ function DashboardTabCard({
         ))}
       </Tabs>
     </section>
-  );
-}
-
-function DashboardVariableBar({
-  dashboardUid,
-  variables,
-  values,
-  timeRange,
-  timeRangeKey,
-  resolveTimeRange,
-  refreshCadence,
-  containerWidth,
-  onChange,
-  disabled,
-  resolveQueries,
-}: {
-  dashboardUid: string;
-  variables: readonly DashboardVariable[];
-  values: DashboardVariableValues;
-  timeRange: DashboardTimeRange;
-  timeRangeKey: string;
-  resolveTimeRange: DashboardTimeRangeResolver;
-  refreshCadence: DashboardRefreshCadence;
-  containerWidth: number;
-  onChange: (values: DashboardVariableValues) => void;
-  disabled: boolean;
-  resolveQueries: boolean;
-}) {
-  const queryVariables = variables.filter(
-    (variable) => variable.type === 'query',
-  );
-  const refreshInterval = resolveRefreshIntervalMilliseconds(
-    refreshCadence,
-    timeRange,
-    containerWidth,
-  );
-  const queries = useQueries({
-    queries: queryVariables.map((variable) => {
-      const query = variable.query ?? {};
-      const expression = interpolateVariables(
-        stringValue(query.expression ?? query.query),
-        values,
-      );
-      const kind = query.kind === 'sql' ? 'sql' : 'query';
-      const streamName = stringValue(query.streamName ?? query.stream);
-      const streamType = stringValue(query.streamType ?? query.stream_type);
-      return {
-        queryKey: [
-          'dashboard-engine-variable',
-          dashboardUid,
-          variable.id,
-          expression,
-          timeRangeKey,
-        ],
-        queryFn: () => {
-          const queryTimeRange = resolveTimeRange();
-          return dashboardsApi.resolveVariable({
-            variable: {
-              name: variable.name,
-              query: expression,
-              kind,
-              ...(streamName
-                ? {
-                    stream: {
-                      name: streamName,
-                      ...(streamType ? { stream_type: streamType } : {}),
-                    },
-                  }
-                : {}),
-            },
-            time_range: {
-              start: queryTimeRange.from,
-              end: queryTimeRange.to,
-            },
-            limit: 500,
-          });
-        },
-        enabled: resolveQueries && Boolean(expression),
-        staleTime: 30_000,
-        placeholderData: keepPreviousData,
-        refetchInterval: refreshInterval,
-      };
-    }),
-  });
-  const resolved = new Map(
-    queryVariables.map((variable, index) => [
-      variable.id,
-      queries[index]?.data?.values ?? [],
-    ]),
-  );
-  const visible = variables.filter(
-    (variable) =>
-      variable.hide !== 'variable' &&
-      variable.type !== 'constant',
-  );
-  if (visible.length === 0) return null;
-
-  return (
-    <div className="flex flex-wrap items-end gap-2 border-b border-bd-0 pb-3">
-      {visible.map((variable) => {
-        const resolvedValues = resolved.get(variable.id);
-        const options =
-          resolvedValues && resolvedValues.length > 0
-            ? resolvedValues.map((value) => ({ label: value, value }))
-            : variableOptions(variable);
-        return (
-          <VariableControl
-            key={variable.id}
-            variable={variable}
-            options={options}
-            value={values[variable.name]}
-            disabled={disabled}
-            onChange={(value) =>
-              onChange({ ...values, [variable.name]: value })
-            }
-          />
-        );
-      })}
-    </div>
-  );
-}
-
-function VariableControl({
-  variable,
-  options,
-  value,
-  onChange,
-  disabled,
-}: {
-  variable: DashboardVariable;
-  options: Array<{ label: string; value: unknown }>;
-  value: unknown;
-  onChange: (value: unknown) => void;
-  disabled: boolean;
-}) {
-  const tr = useDashboardText();
-  if (variable.type === 'text') {
-    return (
-      <label className="grid gap-1 font-sans text-type-micro text-tx-3">
-        {variable.hide === 'label' ? null : variable.label}
-        <input
-          disabled={disabled}
-          value={String(value ?? '')}
-          onChange={(event) => onChange(event.target.value)}
-          className="h-8 min-w-36 rounded-md border border-bd-1 bg-[var(--control-surface)] px-2 font-mono text-xs text-tx-1 outline-none focus-visible:bg-bg-3 disabled:cursor-not-allowed disabled:opacity-60"
-        />
-      </label>
-    );
-  }
-  if (variable.multi) {
-    const selected = Array.isArray(value) ? value : value === undefined ? [] : [value];
-    return (
-      <div className="grid gap-1 font-sans text-type-micro text-tx-3">
-        {variable.hide === 'label' ? null : variable.label}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <ChromeButton
-              disabled={disabled}
-              className="min-w-36 justify-between"
-            >
-              <span className="max-w-48 truncate">
-                {selected.length === 0
-                  ? tr('Select')
-                  : selected.map(String).join(', ')}
-              </span>
-              <ChevronDown className="h-3 w-3" />
-            </ChromeButton>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="max-h-72 min-w-56 overflow-auto">
-            <DropdownMenuLabel>{variable.label}</DropdownMenuLabel>
-            {options.map((option) => {
-              const checked = selected.some((entry) =>
-                Object.is(entry, option.value),
-              );
-              return (
-                <DropdownMenuCheckboxItem
-                  key={`${option.label}-${String(option.value)}`}
-                  checked={checked}
-                  disabled={disabled}
-                  onSelect={(event) => event.preventDefault()}
-                  onCheckedChange={(next) =>
-                    onChange(
-                      next
-                        ? [...selected, option.value]
-                        : selected.filter(
-                            (entry) => !Object.is(entry, option.value),
-                          ),
-                    )
-                  }
-                >
-                  {option.label}
-                </DropdownMenuCheckboxItem>
-              );
-            })}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    );
-  }
-  return (
-    <label className="grid gap-1 font-sans text-type-micro text-tx-3">
-      {variable.hide === 'label' ? null : variable.label}
-      <select
-        disabled={disabled}
-        value={String(value ?? '')}
-        onChange={(event) => {
-          const option = options.find(
-            (candidate) => String(candidate.value) === event.target.value,
-          );
-          onChange(option?.value ?? event.target.value);
-        }}
-        className="h-8 min-w-36 rounded-md border border-bd-1 bg-[var(--control-surface)] px-2 font-sans text-xs text-tx-1 outline-none focus-visible:bg-bg-3 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {options.map((option) => (
-          <option
-            key={`${option.label}-${String(option.value)}`}
-            value={String(option.value)}
-          >
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
   );
 }
 
@@ -1251,8 +1057,4 @@ function dashboardLinkUrl(
   return url.origin === origin
     ? `${url.pathname}${url.search}${url.hash}`
     : url.toString();
-}
-
-function stringValue(value: unknown): string {
-  return typeof value === 'string' ? value : '';
 }

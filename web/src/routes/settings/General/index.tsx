@@ -59,9 +59,6 @@ export function General() {
   const manageAccess = useActionAccess({
     permission: 'org.settings.manage',
   });
-  const organizationManagementAccess = useActionAccess({
-    permission: 'sys.organizations.manage',
-  });
   const canManageSettings = manageAccess.allowed;
   const [workspaceName, setWorkspaceName] = React.useState('');
   const [signupPolicyDraft, setSignupPolicyDraft] =
@@ -360,7 +357,7 @@ export function General() {
         subtitle={t('general.subtitle')}
         className="min-h-0 border-b-0 bg-transparent px-0 py-0"
       />
-      <SectionBody className="px-0 pb-10 pt-6 lg:px-0 lg:pb-10 lg:pt-6">
+      <SectionBody opensOnSection className="pb-10">
         <SettingsGroupStack>
           <WorkspaceSection
             profile={profile}
@@ -449,7 +446,7 @@ export function General() {
             onSave={retryPreferenceDefaults}
           />
 
-          <DangerZone access={organizationManagementAccess} />
+          <DangerZone />
         </SettingsGroupStack>
       </SectionBody>
     </>

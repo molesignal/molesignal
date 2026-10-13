@@ -202,7 +202,7 @@ export function StatusPageEventDrawer({
               onChange={(value) => setUpdateStatus(value as PublicIncidentStatus)}
               options={nextStatuses(event).map((status) => ({
                 value: status,
-                label: incidentStatusLabel(t, status),
+                label: incidentStatusLabel(t, status, event.kind),
               }))}
             />
           </FormField>
@@ -312,7 +312,7 @@ function EventForm({
               value={draft.status}
               disabled={disabled || event?.status === 'scheduled'}
               onChange={(value) => set('status', value as PublicIncidentStatus)}
-              options={statuses.map((status) => ({ value: status, label: incidentStatusLabel(t, status) }))}
+              options={statuses.map((status) => ({ value: status, label: incidentStatusLabel(t, status, kind) }))}
             />
           </FormField>
         </FormRow>
@@ -354,7 +354,7 @@ function EventDetail({ event }: { event: StatusPageIncident }) {
     <div className="space-y-7">
       <dl className="grid grid-cols-2 gap-4 rounded-lg border border-bd-0 bg-bg-2 p-4 text-sm">
         <Detail label={t('fields.incident_status')}>
-          <Pill tone={INCIDENT_TONE[event.status]}>{incidentStatusLabel(t, event.status)}</Pill>
+          <Pill tone={INCIDENT_TONE[event.status]}>{incidentStatusLabel(t, event.status, event.kind)}</Pill>
         </Detail>
         <Detail label={t('fields.impact')}>{impactLabel(t, event.impact)}</Detail>
         <Detail label={t('fields.starts_at')}>
@@ -372,7 +372,7 @@ function EventDetail({ event }: { event: StatusPageIncident }) {
               <span className="absolute -left-[19px] top-1.5 h-2 w-2 rounded-full bg-indigo" />
               <div className="flex items-center gap-2">
                 <span className="text-xs font-strong text-tx-1">
-                  {incidentStatusLabel(t, update.status)}
+                  {incidentStatusLabel(t, update.status, event.kind)}
                 </span>
                 <time className="text-xs tabular-nums text-tx-3">
                   {formatMicros(update.created_at, snapshot.page.timezone, i18n.language)}

@@ -10,18 +10,9 @@
     "service": "服务",
     "service_all": "全部服务",
     "type": "Profile 类型",
-    "type_all": "全部类型",
-    "range": "时间范围",
     "label": "标签筛选",
     "label_placeholder": "key:value",
-    "apply": "应用",
-    "ranges": {
-      "m15": "最近 15 分钟",
-      "h1": "最近 1 小时",
-      "h6": "最近 6 小时",
-      "h24": "最近 24 小时",
-      "d7": "最近 7 天"
-    }
+    "apply": "应用"
   },
   "profile_types": {
     "cpu": "CPU",
@@ -37,31 +28,43 @@
   "analysis": {
     "filter_bar_aria": "性能分析筛选",
     "clear_trace": "清除 Trace 筛选",
-    "total_value": "分析总量",
-    "mixed_types": "全部 Profile 类型",
-    "samples": "{{count}} 个样本",
-    "merged_profiles": "合并 Profiles",
-    "exact_selection": "按当前勾选精确合并",
-    "services": "服务",
-    "active_selection": "当前分析范围",
-    "duration": "分析时长",
-    "capture_duration": "所选采集窗口累计",
-    "hotspot": "热点函数",
-    "hot_self": "自身",
-    "hot_total": "累计",
+    "summary_aria": "本次分析的结论",
+    "hottest": "最热函数",
+    "hot_share": "自身 {{percent}}%",
     "no_hotspot": "暂无热点函数",
+    "samples": "{{count}} 个样本",
+    "service_count_one": "{{count}} 个服务",
+    "service_count_other": "{{count}} 个服务",
+    "captured": "采集 {{duration}}",
+    "profiles_button": "{{selected}} / {{total}} 个 Profile",
+    "profiles_button_aria": "选择参与分析的 Profile：已选 {{selected}} / {{total}}",
     "workspace_aria": "Profile 分析工作区",
     "loading_flamegraph": "正在合并选中的 Profiles…",
     "no_selection_title": "尚未选择参与分析的 Profile",
-    "no_selection_description": "展开下方列表并勾选至少一个 Profile。",
-    "selection_summary": "{{selected}} / {{total}} 个 Profile 参与分析"
+    "no_selection_description": "火焰图由勾选的 Profile 合并而成，请至少勾选一个。",
+    "no_selection_action": "选择 Profile"
+  },
+  "first_run": {
+    "eyebrow": "持续性能分析",
+    "steps": {
+      "send": {
+        "title": "上报 Profile",
+        "description": "通过 OTLP 或 Pyroscope 推送 pprof，也可以先上传一个文件试试。"
+      },
+      "narrow": {
+        "title": "圈定分析范围",
+        "description": "选择服务、Profile 类型，以及参与合并的 Profile。"
+      },
+      "read": {
+        "title": "阅读火焰图",
+        "description": "越宽的帧开销越大；最热的函数会显示在页面最前面。"
+      }
+    }
   },
   "selection": {
     "title": "参与分析的 Profiles",
     "selected_summary": "已选择 {{selected}} / {{total}}",
-    "expand": "展开列表",
-    "collapse": "收起列表",
-    "description": "勾选项会直接控制上方合并火焰图；点击行可打开单个 Profile 详情。",
+    "description": "勾选的 Profile 会合并进火焰图；点击行可单独打开该 Profile。",
     "select_all": "选择全部 Profiles",
     "select_none": "取消选择全部 Profiles",
     "row_aria": "切换 Profile {{id}} 是否参与分析"
@@ -111,6 +114,8 @@
     "no_data_description": "所选服务、类型与时间范围内没有匹配的 profile。",
     "truncated_notice": "窗口内 profile 数超过合并上限，已展示均匀采样后的代表性结果。",
     "frame_aria": "分析函数 {{name}}",
+    "root_aria": "分析全部样本",
+    "root_note": "全部样本",
     "frame_self": "自身",
     "frame_total": "累计",
     "frame_share": "占总量",
@@ -128,7 +133,6 @@
       "self_pct": "自身占比",
       "cum": "累计",
       "cum_pct": "累计占比",
-      "sort_label": "排序",
       "select_hint": "选择函数并查看详情",
       "jump_hint": "点击在火焰图中高亮该函数"
     },
@@ -163,17 +167,53 @@
   },
   "compare": {
     "title": "对比 profile",
-    "subtitle": "用基线窗口对比目标窗口，看清哪里变热了。",
-    "baseline": "基线窗口",
-    "comparison": "对比窗口",
-    "run": "运行差分",
+    "subtitle": "一个时段相对另一个时段，哪些函数变热、哪些变冷；两个时段都可以自由设定。",
+    "filters_aria": "对比范围",
+    "baseline_aria": "基线：{{value}}",
+    "baseline_title": "选择基线",
+    "baseline_relative": "跟随对比时段",
+    "baseline_overlaps": "该基线会与对比时段重叠。",
+    "baselines": {
+      "previous": "上一个时段",
+      "day": "一天前的同一时段",
+      "week": "一周前的同一时段",
+      "custom": "自定义时段"
+    },
+    "statement_aria": "参与对比的两个时段",
+    "comparison": "对比时段",
+    "baseline": "基线时段",
+    "period_profiles_one": "{{count}} 个 Profile",
+    "period_profiles_other": "{{count}} 个 Profile",
+    "overall": "总量变化",
+    "unequal_counts": "两个时段的 Profile 数量不同（{{comparison}} 对 {{baseline}}），总量变化里包含了采集数量的差异。",
+    "overlap": "两个时段有重叠，重叠部分采集到的 Profile 会同时计入两边。",
+    "loading": "正在对比两个时段…",
     "legend_increase": "增加",
     "legend_decrease": "减少",
-    "legend_neutral": "无变化",
-    "empty_title": "选择两个窗口进行差分",
-    "empty_description": "选好基线与对比时间范围后运行差分，即可高亮回归。",
-    "baseline_count": "基线 {{count}} 个 profile",
-    "comparison_count": "对比 {{count}} 个 profile"
+    "changed": {
+      "title": "变化最大的函数",
+      "count_one": "{{count}} 个函数有变化",
+      "count_other": "{{count}} 个函数有变化",
+      "function": "函数",
+      "baseline": "基线",
+      "comparison": "对比",
+      "change": "自身开销变化",
+      "new": "新增",
+      "gone": "消失",
+      "show_all": "显示全部 {{count}} 个",
+      "show_top": "只看前 {{count}} 个",
+      "none": "两个时段之间，没有函数的自身开销发生变化。",
+      "select_hint": "在火焰图中标出该函数"
+    },
+    "empty": {
+      "none_title": "两个时段都没有 Profile",
+      "none_description": "这两个时段内没有采集到该服务、该类型的 Profile。把时段设到有 Profile 的时间上，或换一种类型。",
+      "baseline_title": "没有可对比的基线",
+      "baseline_description": "基线时段内没有 Profile，所有函数都会被算作新增。把基线设到有 Profile 的时间上。",
+      "comparison_title": "对比时段内没有 Profile",
+      "comparison_description": "当前查看的时段没有采集到 Profile，无法与基线对比。把它设到有 Profile 的时间上。",
+      "open_analysis": "在性能分析中查看这个时段"
+    }
   },
   "detail": {
     "title": "Profile",

@@ -1,5 +1,5 @@
 import { Braces, List, MoreHorizontal, Search } from 'lucide-react';
-import { useContext, useEffect, useState } from 'react';
+import { Fragment, useContext, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -33,6 +33,14 @@ export function Attributes({ attributes }: { attributes: unknown }) {
   const grouped = entries.length > 16;
   const ordered = grouped ? [...matches].sort(([a], [b]) => attributeGroup(a).localeCompare(attributeGroup(b)) || a.localeCompare(b)) : matches;
   const visible = expanded || search.trim() ? ordered : ordered.slice(0, 8);
+  // A list holds terms and their values and nothing else, so each group is a list under its own title.
+  const lists: { group: string; entries: [string, unknown][] }[] = [];
+  for (const entry of visible) {
+    const group = grouped ? attributeGroup(entry[0]) : '';
+    const last = lists[lists.length - 1];
+    if (last && last.group === group) last.entries.push(entry);
+    else lists.push({ group, entries: [entry] });
+  }
   const copy = async (text: string, key: string) => {
     try { await writeClipboardText(text); setCopied(key); }
     catch { toast.error(t('attributes.copy_failed')); }
@@ -62,38 +70,38 @@ export function Attributes({ attributes }: { attributes: unknown }) {
       {!matches.length ? <p className="py-4 text-xs text-tx-3" role="status">{t(entries.length ? 'attributes.no_matches' : 'attributes.empty')}</p> : raw ? (
         <pre className="whitespace-pre-wrap break-words rounded-md bg-bg-1 p-3 font-mono text-xs leading-5 text-tx-1 [overflow-wrap:anywhere]">{JSON.stringify(Object.fromEntries(matches), null, 2)}</pre>
       ) : (
-        <dl className="min-w-0">
-          {visible.map(([key, value], index) => {
-            const text = attributeValue(value);
-            const scalar = ['string', 'number', 'boolean'].includes(typeof value);
-            const canFilter = scalar && text.length > 0 && /^[a-zA-Z_][\w.]*$/.test(key) && filter !== null;
-            const group = attributeGroup(key);
-            const startGroup = grouped && (index === 0 || attributeGroup(visible[index - 1]![0]) !== group);
-            return (
-              <div key={key}>
-                {startGroup && <div className="mt-2 flex justify-between text-xs font-semibold tracking-normal text-tx-3">{t(`attributes.groups.${group}`)}<span>{matches.filter(([k]) => attributeGroup(k) === group).length}</span></div>}
-                <div className="group min-w-0 border-b border-bd-0 py-1.5 last:border-b-0">
-                  <dt className="truncate font-mono text-xs leading-4 text-tx-3" title={key}>{key}</dt>
-                  <dd className="mt-0.5 flex min-w-0 items-center gap-1">
-                    <Tooltip><TooltipTrigger asChild><span tabIndex={0} className="min-w-0 flex-1 truncate rounded-sm text-sm leading-5 text-tx-0 focus-visible:bg-bg-2">{text || '""'}</span></TooltipTrigger><TooltipContent className="max-w-[min(32rem,80vw)] whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{text || '""'}</TooltipContent></Tooltip>
-                    <div className="flex shrink-0 items-center sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 [&:has([data-state=open])]:opacity-100">
-                      <CopyIconButton className="h-6 w-6" label={t('attributes.copy_value_for', { key })} copiedLabel={t('attributes.copied')} copied={copied === key} onClick={() => { void copy(text, key); }} />
-                      <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-6 w-6" aria-label={t('attributes.actions', { key })}><MoreHorizontal className="h-3.5 w-3.5" /></Button></DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onSelect={() => { void copy(key, key); }}>{t('attributes.copy_key')}</DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => { void copy(text, key); }}>{t('attributes.copy_value')}</DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => { void copy(`${key}=${text}`, key); }}>{t('attributes.copy_pair')}</DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          {(['=', '!='] as const).map((operator) => <DropdownMenuItem key={operator} disabled={!canFilter} disabledReason={!canFilter ? t(filter === null ? 'attributes.fields_only' : 'attributes.scalar_only') : undefined} onSelect={() => addFilter(key, value as string | number | boolean, operator)}>{t(operator === '=' ? 'attributes.include' : 'attributes.exclude')}</DropdownMenuItem>)}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </dd>
-                </div>
-              </div>
-            );
-          })}
-        </dl>
+        lists.map(({ group, entries: listed }) => (
+          <Fragment key={group}>
+            {grouped && <div className="mt-2 flex justify-between text-xs font-semibold tracking-normal text-tx-3">{t(`attributes.groups.${group}`)}<span>{matches.filter(([k]) => attributeGroup(k) === group).length}</span></div>}
+            <dl className="min-w-0">
+              {listed.map(([key, value]) => {
+                const text = attributeValue(value);
+                const scalar = ['string', 'number', 'boolean'].includes(typeof value);
+                const canFilter = scalar && text.length > 0 && /^[a-zA-Z_][\w.]*$/.test(key) && filter !== null;
+                return (
+                  <div key={key} className="group min-w-0 py-1.5">
+                    <dt className="truncate font-mono text-xs leading-4 text-tx-3" title={key}>{key}</dt>
+                    <dd className="mt-0.5 flex min-w-0 items-center gap-1">
+                      <Tooltip><TooltipTrigger asChild><span tabIndex={0} className="min-w-0 flex-1 truncate rounded-sm text-sm leading-5 text-tx-0 focus-visible:bg-bg-2">{text || '""'}</span></TooltipTrigger><TooltipContent className="max-w-[min(32rem,80vw)] whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{text || '""'}</TooltipContent></Tooltip>
+                      <div className="flex shrink-0 items-center sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 [&:has([data-state=open])]:opacity-100">
+                        <CopyIconButton className="h-6 w-6" label={t('attributes.copy_value_for', { key })} copiedLabel={t('attributes.copied')} copied={copied === key} onClick={() => { void copy(text, key); }} />
+                        <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-6 w-6" aria-label={t('attributes.actions', { key })}><MoreHorizontal className="h-3.5 w-3.5" /></Button></DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onSelect={() => { void copy(key, key); }}>{t('attributes.copy_key')}</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => { void copy(text, key); }}>{t('attributes.copy_value')}</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => { void copy(`${key}=${text}`, key); }}>{t('attributes.copy_pair')}</DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            {(['=', '!='] as const).map((operator) => <DropdownMenuItem key={operator} disabled={!canFilter} disabledReason={!canFilter ? t(filter === null ? 'attributes.fields_only' : 'attributes.scalar_only') : undefined} onSelect={() => addFilter(key, value as string | number | boolean, operator)}>{t(operator === '=' ? 'attributes.include' : 'attributes.exclude')}</DropdownMenuItem>)}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </dd>
+                  </div>
+                );
+              })}
+            </dl>
+          </Fragment>
+        ))
       )}
       {!raw && !search.trim() && entries.length > 8 && <Button variant="ghost" className="mt-2 h-8 w-full text-xs text-indigo-soft" onClick={() => setExpanded(!expanded)}>{t(expanded ? 'attributes.show_less' : 'attributes.show_all', { count: entries.length })}</Button>}
     </section>

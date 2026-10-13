@@ -7,7 +7,7 @@ import { TooltipProvider } from '@/shell/ui/tooltip';
 import { createDashboardPanel } from '../../factories';
 import type { DataField, DataFrame, PanelData } from '../../schema';
 import { BarChartVisualization } from './BarChartVisualization';
-import { buildBarChartGeometry } from './geometry';
+import { buildBarChartGeometry, valueScale } from './geometry';
 import { prepareBarChart } from './model';
 
 afterEach(cleanup);
@@ -94,6 +94,50 @@ describe('BarChartVisualization', () => {
     expect(horizontal.rects.every((rect) => rect.width >= 1)).toBe(true);
     expect(vertical.showValues).toBe(true);
     expect(horizontal.zeroLine.x1).toBe(horizontal.zeroLine.x2);
+  });
+
+  it('reads the values against round marks that no bar runs past', () => {
+    expect(valueScale({ range: { min: 0, max: 350 } })).toEqual({ min: 0, max: 400, ticks: [0, 100, 200, 300, 400] });
+    expect(valueScale({ range: { min: -4, max: 12 } })).toEqual({ min: -5, max: 15, ticks: [-5, 0, 5, 10, 15] });
+    expect(valueScale({ range: { min: 0, max: 1 } }).ticks).toEqual([0, 0.25, 0.5, 0.75, 1]);
+    // A step of a tenth is counted in steps, and comes out round.
+    expect(valueScale({ range: { min: 0, max: 0.3 } }).ticks).toEqual([0, 0.1, 0.2, 0.3]);
+  });
+
+  it('keeps a few bars in a wide panel from becoming slabs, and marks the axis across the plot', () => {
+    const model = prepareBarChart([
+      frame([
+        field('level', 'string', ['info', 'warn', 'error']),
+        field('count', 'number', [350, 100, 50]),
+      ]),
+    ])!;
+    const wide = buildBarChartGeometry(model, 1_600, 640, 'vertical', 0.7, 'auto');
+
+    expect(wide.rects.every((rect) => rect.width <= 56)).toBe(true);
+    // The tallest bar stops short of the top line, which is the last mark of the scale.
+    expect(Math.min(...wide.rects.map((rect) => rect.y))).toBeGreaterThan(Math.min(...wide.gridLines.map((line) => line.y1)));
+    expect(wide.valueTicks.map((tick) => tick.text)).toEqual(['0', '100', '200', '300', '400']);
+    expect(wide.gridLines).toHaveLength(4);
+    expect(wide.showValues).toBe(true);
+
+    const lying = buildBarChartGeometry(model, 1_600, 640, 'horizontal', 0.7, 'auto');
+    expect(lying.rects.every((rect) => rect.height <= 56)).toBe(true);
+    expect(lying.gridLines.every((line) => line.x1 === line.x2)).toBe(true);
+  });
+
+  it('cuts a category label to the room its bar has', () => {
+    const model = prepareBarChart([
+      frame([
+        field('service', 'string', ['payment-gateway-production', 'checkout']),
+        field('count', 'number', [3, 2]),
+      ]),
+    ])!;
+
+    expect(buildBarChartGeometry(model, 1_200, 240, 'vertical', 0.7, 'auto').categoryLabels[0]?.text).toBe(
+      'payment-gateway-production',
+    );
+    // Seventy pixels of a category hold ten characters: nine of the name and the mark that it goes on.
+    expect(buildBarChartGeometry(model, 200, 240, 'vertical', 0.7, 'auto').categoryLabels[0]?.text).toBe('payment-g…');
   });
 
   it('renders accessible bars with hover details in both orientations', async () => {

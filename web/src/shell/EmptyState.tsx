@@ -13,12 +13,14 @@ import { Link } from 'react-router-dom';
 import type { ProductEmptyStateStrategy } from '@/product/ia';
 import { DisabledControl } from '@/shell/DisabledControl';
 import { cn } from '@/shell/lib/cn';
+import { PulseLine } from '@/shell/PulseLine';
 
 /**
  * EmptyState renders the shared layout for product surfaces with no data: a
- * single 48px stroke icon, one short title, an optional one-sentence
- * description, an optional primary CTA, and an optional secondary link.
- * Content remains centered in the available space.
+ * single mark, one short title, an optional one-sentence description, an
+ * optional primary CTA, and an optional secondary link. Content remains
+ * centered in the available space. The mark is a 48px stroke icon, except for
+ * the "nothing here yet" strategies, which draw the product's own pulse.
  *
  * Strategy is sourced from `ia.ts.emptyStateStrategy` — passing it gives
  * a sensible default icon when the caller doesn't supply one. The 7
@@ -55,6 +57,13 @@ interface EmptyStateProps {
   'data-testid'?: string | undefined;
 }
 
+/** Strategies whose honest picture is a quiet line with a beat on it, not a glyph. */
+const PULSE_STRATEGIES: ReadonlySet<ProductEmptyStateStrategy> = new Set([
+  'activation',
+  'create-first',
+  'none',
+]);
+
 const STRATEGY_ICON: Record<ProductEmptyStateStrategy, LucideIcon> = {
   activation: Sparkles,
   'query-first': Search,
@@ -77,6 +86,7 @@ export function EmptyState({
   'data-testid': testId,
 }: EmptyStateProps) {
   const Icon = icon ?? STRATEGY_ICON[strategy];
+  const usePulse = !icon && !illustration && PULSE_STRATEGIES.has(strategy);
   const compact = size === 'compact';
   const Heading = compact ? 'h3' : 'h2';
   return (
@@ -91,15 +101,18 @@ export function EmptyState({
         className,
       )}
     >
-      {illustration ?? (
-        <Icon
-          aria-hidden
-          className={cn(
-            'shrink-0 stroke-[1.5] text-tx-3',
-            compact ? 'h-8 w-8' : 'h-12 w-12',
-          )}
-        />
-      )}
+      {illustration ??
+        (usePulse ? (
+          <PulseLine className={cn('text-tx-3', compact ? 'h-6 w-20' : 'h-10 w-32')} />
+        ) : (
+          <Icon
+            aria-hidden
+            className={cn(
+              'shrink-0 stroke-[1.5] text-tx-3',
+              compact ? 'h-8 w-8' : 'h-12 w-12',
+            )}
+          />
+        ))}
       <Heading
         className={cn(
           'max-w-md text-balance font-sans text-tx-0',
@@ -135,10 +148,10 @@ function ActionButton({
   variant: 'primary' | 'secondary';
 }) {
   const cls = cn(
-    'inline-flex h-8 items-center justify-center rounded-md px-3 font-sans text-xs font-strong',
-    'transition-colors duration-fast ease-default focus-visible:outline-none',
+    'ms-press inline-flex h-8 items-center justify-center rounded-md px-3 font-sans text-xs font-strong',
+    'focus-visible:outline-none',
     variant === 'primary'
-      ? 'bg-indigo text-white hover:brightness-90 focus-visible:brightness-90 focus-visible:text-white'
+      ? 'bg-indigo text-white shadow-primary hover:brightness-90 focus-visible:brightness-90 focus-visible:text-white'
       : 'bg-bg-2 text-tx-1 hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-indigo-dim focus-visible:text-indigo',
     action.disabled &&
       'pointer-events-none cursor-not-allowed bg-bg-2 text-tx-3 hover:bg-bg-2 hover:text-tx-3',

@@ -99,6 +99,7 @@
     "incident_detail": "事件",
     "service_detail": "服务",
     "stream_explore": "数据流探索",
+    "stream_jobs": "搜索任务",
     "trace_detail": "链路详情",
     "trace_session": "链路会话",
     "profile_detail": "Profile 详情",
@@ -110,7 +111,10 @@
     "synthetics_check_edit": "编辑检查",
     "synthetics_check_detail": "检查",
     "alert_schedules": "值班计划",
-    "alert_schedule_detail": "值班计划"
+    "alert_schedule_detail": "值班计划",
+    "pipeline_connectors": "连接器",
+    "logs_inspections": "定时巡检",
+    "logs_inspection_detail": "巡检详情"
   },
   "service_graph": "服务图"
 }

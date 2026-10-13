@@ -121,7 +121,7 @@ export function ProfileDetail() {
       {profile && (
         <div className="space-y-3">
           {profile.unsymbolized && (
-            <div className="rounded-md border border-yellow/30 bg-yellow-dim px-3 py-2 font-sans text-xs text-yellow-soft">
+            <div className="rounded-md border border-yellow/30 bg-[var(--yellow-tint)] px-3 py-2 font-sans text-xs text-[var(--yellow-ink)]">
               {t('detail.unsymbolized')}
             </div>
           )}
@@ -132,6 +132,7 @@ export function ProfileDetail() {
           ) : flameQuery.data ? (
             <Flamegraph
               flamebearer={flameQuery.data.flamebearer}
+              service={profile.service}
               className="border-0 [box-shadow:var(--shadow-functional-surface)]"
             />
           ) : (

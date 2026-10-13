@@ -1,8 +1,9 @@
-import { AlertCircle, Check, LoaderCircle } from 'lucide-react';
+import { AlertCircle, Check } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { cn } from '@/shell/lib/cn';
+import { PulseLine } from '@/shell/PulseLine';
 
 type SaveState = 'saved' | 'dirty' | 'saving' | 'error';
 
@@ -76,6 +77,12 @@ export function SettingsSaveStatusIndicator() {
   const saving = state === 'saving';
   const error = state === 'error';
   const dirty = state === 'dirty';
+  // The check only pops in when a save lands, not every time the page is opened.
+  const previous = React.useRef<SaveState>(state);
+  const arrived = state === 'saved' && previous.current !== 'saved';
+  React.useEffect(() => {
+    previous.current = state;
+  }, [state]);
 
   return (
     <div
@@ -86,18 +93,18 @@ export function SettingsSaveStatusIndicator() {
         error
           ? 'bg-red-dim text-red-soft'
           : dirty
-            ? 'bg-yellow-dim text-yellow-soft'
+            ? 'bg-[var(--yellow-tint)] text-[var(--yellow-ink)]'
             : 'text-tx-2',
       )}
     >
       {saving ? (
-        <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+        <PulseLine variant="travel" className="h-[12px] w-[24px] text-tx-3" />
       ) : error ? (
         <AlertCircle className="h-3.5 w-3.5" />
       ) : dirty ? (
         <span className="h-1.5 w-1.5 rounded-full bg-yellow" />
       ) : (
-        <Check className="h-3.5 w-3.5 text-green-soft" />
+        <Check className={cn('h-3.5 w-3.5 text-[var(--green-ink)]', arrived && 'ms-check-in')} />
       )}
       <span>{t(`save_status.${state}`)}</span>
     </div>

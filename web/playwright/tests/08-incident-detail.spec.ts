@@ -6,9 +6,10 @@
  * resolve actions to the backend:
  *
  *   navigate directly to /alerts/incidents/:id
- *     → header shows summary + severity / status
+ *     → the title is the summary; the statement says how the incident stands
  *     → body surfaces timeline / cross-signal handles / triggering query
- *     → Acknowledge + Resolve mutate and refetch
+ *     → Acknowledge + Resolve mutate and refetch; an acknowledged incident no longer
+ *       offers Acknowledge
  *     → a deleted / cross-org id reads as a clean "not found" empty
  *
  * This spec owns its `page.route` mocks because the full-page detail endpoints
@@ -72,19 +73,20 @@ test.describe('Incident detail — deep link', () => {
 
     // Header title = summary.
     await expect(page.getByText(INCIDENT.summary)).toBeVisible({ timeout: 10_000 });
-    // Metadata strip surfaces severity + status (scoped to the strip via
-    // testid so we assert the actual Pills, not stray chrome / label text).
-    await expect(page.getByTestId('incident-status')).toHaveText(INCIDENT.status);
-    await expect(page.getByTestId('incident-severity')).toHaveText(INCIDENT.severity);
+    // The page opens with how the incident stands: how bad and what it is about, how long it
+    // has been firing, and whether anyone has it (scoped by testid so we assert the statement,
+    // not stray chrome or label text).
+    await expect(page.getByTestId('incident-severity')).toHaveText('Critical · web');
+    await expect(page.locator('[data-statement]').getByRole('heading')).toContainText('Firing for');
+    await expect(page.getByTestId('incident-status')).toHaveText('Waiting');
     // Body surfaces a cross-signal trace handle (SignalReference button).
     await expect(page.locator('[data-signal-type="trace_id"]').first()).toBeVisible();
     // Triggering query section renders the statement.
     await expect(page.getByText(/percentile_cont/i)).toBeVisible();
-    // Back link points at the incidents list.
-    await expect(page.getByRole('link', { name: /back/i })).toHaveAttribute(
-      'href',
-      '/alerts/incidents',
-    );
+    // The way back to the incidents list is the first crumb above the title.
+    await expect(
+      page.getByTestId('page-header').getByRole('link', { name: 'Alerts', exact: true }),
+    ).toHaveAttribute('href', '/alerts/incidents');
   });
 
   test('Acknowledge then Resolve mutate, refetch, and re-gate the toolbar', async ({ page }) => {
@@ -119,7 +121,7 @@ test.describe('Incident detail — deep link', () => {
     await ackBtn.click();
     await expect(ackBtn).toHaveCount(0);
     await expect(resolveBtn).toBeVisible();
-    await expect(page.getByTestId('incident-status')).toHaveText('acknowledged');
+    await expect(page.getByTestId('incident-status')).toHaveText('In progress');
 
     // Resolve fires its POST.
     await resolveBtn.click();

@@ -99,6 +99,7 @@
     "incident_detail": "Incident",
     "service_detail": "Service",
     "stream_explore": "Stream explore",
+    "stream_jobs": "Search jobs",
     "trace_detail": "Trace detail",
     "trace_session": "Trace session",
     "profile_detail": "Profile detail",
@@ -110,7 +111,10 @@
     "synthetics_check_edit": "Edit check",
     "synthetics_check_detail": "Check",
     "alert_schedules": "On-call schedules",
-    "alert_schedule_detail": "Schedule"
+    "alert_schedule_detail": "Schedule",
+    "pipeline_connectors": "Connectors",
+    "logs_inspections": "Scheduled inspections",
+    "logs_inspection_detail": "Inspection"
   },
   "service_graph": "Service graph"
 }

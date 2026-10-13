@@ -7,6 +7,7 @@ import type { StatusPageLanguage } from '@/api/statusPages';
 import { toApiError } from '@/lib/http';
 import { ChromeButton } from '@/shell/chrome';
 import { FormChecklist, FormField, FormInput, FormRow, FormSelect } from '@/shell/FormDrawer';
+import { TimezoneField } from '@/shell/TimezoneField';
 import { toast } from '@/shell/ui/sonner';
 
 import {
@@ -69,7 +70,12 @@ export function StatusPageLocalizationSettings() {
           />
         </FormField>
         <FormField label={t('fields.timezone')}>
-          <FormInput disabled={!editable} value={timezone} onChange={(event) => setTimezone(event.currentTarget.value)} />
+          <TimezoneField
+            label={t('fields.timezone')}
+            value={timezone}
+            onChange={setTimezone}
+            disabled={!editable}
+          />
         </FormField>
       </FormRow>
       <FormField label={t('fields.history_days')} hint={t('forms.page.history_days_hint', { max: MAX_STATUS_PAGE_HISTORY_DAYS })}>

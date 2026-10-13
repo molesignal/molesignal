@@ -1,18 +1,20 @@
 import { useQuery } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { DataTable } from '@/admin';
 import * as statusPagesApi from '@/api/statusPages';
 import type {
   StatusPageEventView,
+  StatusPageIncident,
   StatusPageIncidentKind,
 } from '@/api/statusPages';
 import { formatMicrosActive } from '@/lib/time';
 import { ProductState } from '@/product/states';
 import { ChromeButton, Pill } from '@/shell/chrome';
 import { PageBody } from '@/shell/PageHeader';
+import { ViewTabs } from '@/shell/tabs/ViewTabs';
 
 import {
   IMPACT_TONE,
@@ -23,10 +25,27 @@ import {
 } from '../model';
 import { StatusPageEventDrawer } from './EventDrawer';
 import { useStatusPageWorkspace } from './Layout';
+import {
+  StatusPageCanvas,
+  StatusPageList,
+  statusPageFlatStateClassName,
+  statusPageFlatTableClassName,
+} from './Surfaces';
 
+/**
+ * The views of what is still open. What is over is not listed here a second
+ * time: the History tab has every ended incident and maintenance, with a
+ * search and filters these views never had.
+ */
 const VIEWS: Record<StatusPageIncidentKind, StatusPageEventView[]> = {
-  incident: ['current', 'draft', 'resolved'],
-  maintenance: ['upcoming', 'in_progress', 'draft', 'completed'],
+  incident: ['current', 'draft'],
+  maintenance: ['upcoming', 'in_progress', 'draft'],
+};
+
+/** Links made before the ended views moved still lead to the same events. */
+const ENDED_VIEW: Partial<Record<StatusPageEventView, StatusPageIncidentKind>> = {
+  resolved: 'incident',
+  completed: 'maintenance',
 };
 
 export function StatusPageEvents({ kind }: { kind: StatusPageIncidentKind }) {
@@ -41,53 +60,59 @@ export function StatusPageEvents({ kind }: { kind: StatusPageIncidentKind }) {
   const view = requestedView && VIEWS[kind].includes(requestedView)
     ? requestedView
     : defaultView;
+  // An old link to the ended events of this kind: they are read on the History tab now.
+  const movedToHistory = requestedView !== null && ENDED_VIEW[requestedView] === kind;
   const query = useQuery({
     queryKey: ['status-pages', pageId, 'events', kind, view],
     queryFn: () => statusPagesApi.listEvents(pageId, kind, view),
+    enabled: !movedToHistory,
   });
   const canMutate = manageAccess.allowed && snapshot.page.lifecycle === 'active';
   const basePath = `/status-pages/${pageId}/${kind === 'incident' ? 'incidents' : 'maintenance'}`;
   const closeDrawer = () => navigate({ pathname: basePath, search: location.search }, { replace: true });
 
-  return (
-    <PageBody className="space-y-4">
-      <div className="flex min-w-0 flex-wrap items-center gap-2">
-        <div className="flex min-w-0 items-center gap-1 overflow-x-auto">
-          {VIEWS[kind].map((item) => (
-            <ChromeButton
-              key={item}
-              size="sm"
-              variant={view === item ? 'primary' : 'ghost'}
-              onClick={() =>
-                setSearchParams(item === defaultView ? {} : { view: item }, { replace: true })
-              }
-            >
-              {t(`event_views.${item}`)}
-              {query.data?.view === item && (
-                <span className="type-micro font-mono opacity-70">{query.data.total}</span>
-              )}
-            </ChromeButton>
-          ))}
-        </div>
-        <ChromeButton
-          variant="primary"
-          className="ml-auto"
-          disabled={!canMutate}
-          disabledReason={manageAccess.reason}
-          onClick={() => navigate({ pathname: `${basePath}/new`, search: location.search })}
-        >
-          <Plus className="h-3.5 w-3.5" />
-          {t(kind === 'incident' ? 'actions.new_incident' : 'actions.schedule_maintenance')}
-        </ChromeButton>
-      </div>
+  if (movedToHistory) {
+    return <Navigate to={`/status-pages/${pageId}/history?type=${kind}`} replace />;
+  }
 
+  return (
+    <PageBody className="space-y-0 pb-4 pt-2 lg:pb-6 lg:pt-2">
+      <StatusPageCanvas>
+        <StatusPageList
+          head={
+            <ViewTabs
+              label={t('event_views_label')}
+              value={view}
+              onValueChange={(next) =>
+                setSearchParams(next === defaultView ? {} : { view: next }, { replace: true })
+              }
+              items={VIEWS[kind].map((item) => ({
+                key: item,
+                label: t(`event_views.${item}`),
+                // Only the view being read has been counted.
+                ...(query.data?.view === item ? { count: query.data.total } : {}),
+              }))}
+            />
+          }
+          action={
+            <ChromeButton
+              variant="primary"
+              disabled={!canMutate}
+              disabledReason={manageAccess.reason}
+              onClick={() => navigate({ pathname: `${basePath}/new`, search: location.search })}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {t(kind === 'incident' ? 'actions.new_incident' : 'actions.schedule_maintenance')}
+            </ChromeButton>
+          }
+        >
       {query.isLoading ? (
-        <ProductState variant="loading" />
+        <ProductState variant="loading" className={statusPageFlatStateClassName} />
       ) : query.isError ? (
-        <ProductState variant="error" error={query.error} />
+        <ProductState variant="error" error={query.error} className={statusPageFlatStateClassName} />
       ) : (
-        <div className="overflow-hidden rounded-lg border border-bd-0 bg-bg-1">
           <DataTable
+            className={statusPageFlatTableClassName}
             rows={query.data?.items ?? []}
             rowKey={(event) => event.id}
             emptyLabel={t('states.no_events_in_view')}
@@ -103,7 +128,7 @@ export function StatusPageEvents({ kind }: { kind: StatusPageIncidentKind }) {
                     <div className="truncate text-tx-0">
                       {event.title || t('values.untitled_draft')}
                     </div>
-                    <div className="mt-0.5 truncate text-xs font-normal text-tx-3">
+                    <div className="mt-0.5 truncate text-xs font-normal text-tx-2">
                       {affectedComponentNames(event, snapshot.components).join(', ') || t('values.no_components')}
                     </div>
                   </div>
@@ -117,18 +142,23 @@ export function StatusPageEvents({ kind }: { kind: StatusPageIncidentKind }) {
                   <Pill tone={INCIDENT_TONE[event.status]}>
                     {event.publication_state === 'draft'
                       ? t('publication_state.draft')
-                      : incidentStatusLabel(t, event.status)}
+                      : incidentStatusLabel(t, event.status, event.kind)}
                   </Pill>
                 ),
               },
-              {
-                key: 'impact',
-                header: t('columns.impact'),
-                width: 140,
-                cell: (event) => (
-                  <Pill tone={IMPACT_TONE[event.impact]}>{impactLabel(t, event.impact)}</Pill>
-                ),
-              },
+              // Maintenance has one impact, "maintenance": a column that says so on every row says nothing.
+              ...(kind === 'incident'
+                ? [
+                    {
+                      key: 'impact',
+                      header: t('columns.impact'),
+                      width: 140,
+                      cell: (event: StatusPageIncident) => (
+                        <Pill tone={IMPACT_TONE[event.impact]}>{impactLabel(t, event.impact)}</Pill>
+                      ),
+                    },
+                  ]
+                : []),
               {
                 key: 'started',
                 header: t(kind === 'incident' ? 'columns.started' : 'columns.scheduled_for'),
@@ -147,8 +177,9 @@ export function StatusPageEvents({ kind }: { kind: StatusPageIncidentKind }) {
               },
             ]}
           />
-        </div>
       )}
+        </StatusPageList>
+      </StatusPageCanvas>
 
       <StatusPageEventDrawer kind={kind} eventId={eventId} onClose={closeDrawer} />
     </PageBody>

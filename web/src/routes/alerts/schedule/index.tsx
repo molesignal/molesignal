@@ -7,6 +7,7 @@ import {
   PauseCircle,
   Pencil,
   PlayCircle,
+  Plus,
   RefreshCw,
   Search,
   Settings2,
@@ -25,9 +26,8 @@ import * as teamsApi from '@/api/teams';
 import type { Team } from '@/api/teams';
 import { toApiError } from '@/lib/http';
 import { type ActionAccess, useActionAccess } from '@/product/actionAccess';
-import { ProductState, productStateFor } from '@/product/states';
+import { productStateFor } from '@/product/states';
 import { ChromeButton, Pill } from '@/shell/chrome';
-import { PageBody, PageHeader } from '@/shell/PageHeader';
 import { queryStateFor } from '@/shell/query/State';
 import { ResultPagination } from '@/shell/ResultPagination';
 import {
@@ -72,7 +72,7 @@ import {
   formatScheduleTime,
   relativeDuration,
 } from './Ui';
-import { AlertsSubNav } from '../Layout';
+import { AlertsPage } from '../Frame';
 
 interface ScheduleListRow {
   schedule: Schedule;
@@ -347,27 +347,23 @@ export function AlertsSchedules() {
 
   return (
     <>
-      <PageHeader
-        title={t('schedules.title')}
-        subtitle={t('schedules.subtitle')}
-        toolbar={
+      <AlertsPage
+        action={
           <ChromeButton
             variant="primary"
             disabled={manageAccess.disabled}
             disabledReason={manageAccess.reason}
             onClick={() => setCreating(true)}
           >
+            <Plus className="h-4 w-4" />
             {t('schedules.new_schedule')}
           </ChromeButton>
         }
-      />
-      <AlertsSubNav />
-
-      <PageBody className="overflow-auto">
-        {pageState ? (
-          <ProductState {...pageState} />
-        ) : (
-          <div className="flex min-w-0 flex-col gap-0">
+        state={pageState}
+      >
+        {!pageState && (
+          // One surface: what the schedules add up to, the filters, and the schedules themselves.
+          <div className="flex min-w-0 flex-col gap-0 px-[12px] pt-[4px]">
             <div className="grid grid-cols-2 gap-0 xl:grid-cols-4">
               <ScheduleSummaryCard
                 icon={CalendarDays}
@@ -770,7 +766,7 @@ export function AlertsSchedules() {
             </div>
           </div>
         )}
-      </PageBody>
+      </AlertsPage>
 
       <ScheduleEditorDrawer
         open={creating || editing !== null}
@@ -864,7 +860,7 @@ function CurrentOnCallCell({
         <div
           className={
             row.currentUser
-              ? 'mt-0.5 text-type-micro text-green-soft'
+              ? 'mt-0.5 text-type-micro text-[var(--green-ink)]'
               : 'mt-0.5 text-type-micro text-tx-3'
           }
         >

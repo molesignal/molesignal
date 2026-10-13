@@ -1,3 +1,4 @@
+import { whenStreamExists } from '@/api/missingStream';
 import type { ExperienceGrade } from '@/api/rum';
 import { http } from '@/lib/http';
 
@@ -79,32 +80,48 @@ export interface OverviewInsightsData {
   frequentErrors: OverviewFrequentError[];
 }
 
-/** Fetches only the first-paint aggregates; it never returns raw RUM rows. */
+/** The overview of a workspace no session has reached yet. */
+function emptyOverview(): OverviewSummaryData {
+  return {
+    metrics: {
+      users: 0,
+      sessions: 0,
+      errorFreeRate: 0,
+      lcpP75: 0,
+      inpP75: 0,
+      clsP75: 0,
+    },
+    browserDevices: [],
+    regions: [],
+    facets: {
+      applications: [],
+      environments: [],
+      versions: [],
+      countries: [],
+      devices: [],
+    },
+  };
+}
+
+function emptyInsights(): OverviewInsightsData {
+  return {
+    trend: [],
+    satisfaction: { good: 0, needsImprovement: 0, poor: 0, total: 0 },
+    slowPages: [],
+    frequentErrors: [],
+  };
+}
+
+/**
+ * Fetches only the first-paint aggregates; it never returns raw RUM rows.
+ * Before the first session arrives there is no stream to read, which is an
+ * empty overview rather than a failure.
+ */
 export async function getOverview(
   params: OverviewParams,
 ): Promise<OverviewSummaryData> {
-  const { data } = await http.get<OverviewSummaryData>('/rum/overview', {
-    params: {
-      from: params.from_micros,
-      to: params.to_micros,
-      ...(params.application ? { application: params.application } : {}),
-      ...(params.environment ? { environment: params.environment } : {}),
-      ...(params.version ? { version: params.version } : {}),
-      ...(params.country ? { country: params.country } : {}),
-      ...(params.device ? { device: params.device } : {}),
-      ...(params.summary_only ? { summary_only: true } : {}),
-    },
-  });
-  return data;
-}
-
-/** Fetches the below-the-fold analysis after the overview summary is visible. */
-export async function getOverviewInsights(
-  params: OverviewParams,
-): Promise<OverviewInsightsData> {
-  const { data } = await http.get<OverviewInsightsData>(
-    '/rum/overview/insights',
-    {
+  return whenStreamExists(async () => {
+    const { data } = await http.get<OverviewSummaryData>('/rum/overview', {
       params: {
         from: params.from_micros,
         to: params.to_micros,
@@ -113,8 +130,32 @@ export async function getOverviewInsights(
         ...(params.version ? { version: params.version } : {}),
         ...(params.country ? { country: params.country } : {}),
         ...(params.device ? { device: params.device } : {}),
+        ...(params.summary_only ? { summary_only: true } : {}),
       },
-    },
-  );
-  return data;
+    });
+    return data;
+  }, emptyOverview);
+}
+
+/** Fetches the below-the-fold analysis after the overview summary is visible. */
+export async function getOverviewInsights(
+  params: OverviewParams,
+): Promise<OverviewInsightsData> {
+  return whenStreamExists(async () => {
+    const { data } = await http.get<OverviewInsightsData>(
+      '/rum/overview/insights',
+      {
+        params: {
+          from: params.from_micros,
+          to: params.to_micros,
+          ...(params.application ? { application: params.application } : {}),
+          ...(params.environment ? { environment: params.environment } : {}),
+          ...(params.version ? { version: params.version } : {}),
+          ...(params.country ? { country: params.country } : {}),
+          ...(params.device ? { device: params.device } : {}),
+        },
+      },
+    );
+    return data;
+  }, emptyInsights);
 }

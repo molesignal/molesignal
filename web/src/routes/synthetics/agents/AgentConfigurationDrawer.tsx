@@ -117,7 +117,7 @@ export function AgentConfigurationDrawer({
       }
     >
       <form id="synthetic-agent-configuration-form" onSubmit={submit}>
-        <div className="mb-6 flex gap-3 rounded-md border border-bd-0 bg-bg-2 p-3 text-xs leading-relaxed text-tx-2">
+        <div className="mb-6 flex gap-3 rounded-md bg-bg-2 p-3 text-xs leading-relaxed text-tx-2">
           <SlidersHorizontal aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-indigo-soft" />
           {t('agents.configuration_scope_hint')}
         </div>
@@ -147,7 +147,7 @@ export function AgentConfigurationDrawer({
               {labels.map((label) => (
                 <div
                   key={label.id}
-                  className="grid grid-cols-1 gap-2 rounded-md border border-bd-0 bg-bg-2 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_32px] sm:items-end"
+                  className="grid grid-cols-1 gap-2 rounded-md bg-bg-2 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_32px] sm:items-end"
                 >
                   <FormField label={t('agents.label_key')}>
                     <FormInput
@@ -176,7 +176,7 @@ export function AgentConfigurationDrawer({
                         onClick={() =>
                           setLabels((current) => current.filter((item) => item.id !== label.id))
                         }
-                        className="h-11 w-11 justify-self-end text-tx-3 hover:text-red-soft sm:h-8 sm:w-8"
+                        className="h-11 w-11 justify-self-end text-tx-3 hover:text-red sm:h-8 sm:w-8"
                       >
                         <Trash2 aria-hidden className="h-3.5 w-3.5" />
                       </IconButton>
@@ -199,7 +199,7 @@ export function AgentConfigurationDrawer({
             </ChromeButton>
           </div>
           {validationMessage && (
-            <p role="alert" className="text-xs text-red-soft">
+            <p role="alert" className="text-xs text-red">
               {validationMessage}
             </p>
           )}
@@ -210,7 +210,7 @@ export function AgentConfigurationDrawer({
             title={t('agents.managed_labels')}
             description={t('agents.managed_labels_hint')}
           >
-            <div className="divide-y divide-bd-0 overflow-hidden rounded-md border border-bd-0 bg-bg-2">
+            <div className="divide-y divide-bd-0 overflow-hidden rounded-md bg-bg-2">
               {managedLabels.map(([key, value]) => (
                 <div
                   key={key}

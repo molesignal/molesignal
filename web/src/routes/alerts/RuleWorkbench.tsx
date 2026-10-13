@@ -7,7 +7,6 @@ import {
   Gauge,
   Plus,
   Save,
-  TestTube2,
   Trash2,
 } from 'lucide-react';
 import * as React from 'react';
@@ -56,7 +55,6 @@ import {
   QueryPreview,
   ValidationSummary,
   WorkbenchSection,
-  WorkbenchSteps,
 } from './rule-workbench/Surfaces';
 
 type RuleSignal = StreamType;
@@ -445,16 +443,6 @@ export function AlertRuleWorkbench() {
               </ChromeButton>
             )}
             <ChromeButton
-              onClick={() => preview.mutate()}
-              disabled={preview.isPending || manageAccess.disabled}
-              disabledReason={!preview.isPending ? manageAccess.reason : undefined}
-            >
-              <TestTube2 className="h-4 w-4" />
-              {preview.isPending
-                ? t('workbench.actions.testing')
-                : t('workbench.actions.test')}
-            </ChromeButton>
-            <ChromeButton
               variant="primary"
               onClick={() => save.mutate('active')}
               disabled={
@@ -478,7 +466,6 @@ export function AlertRuleWorkbench() {
           </>
         }
       />
-      <WorkbenchSteps />
       <PageBody className="p-4 sm:p-5 xl:p-6">
         <fieldset
           disabled={manageAccess.disabled}

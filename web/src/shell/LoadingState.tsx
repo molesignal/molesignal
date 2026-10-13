@@ -63,7 +63,7 @@ export function LoadingState({
               'inline-flex h-8 items-center gap-1.5 rounded-md bg-bg-2 px-2.5 font-strong text-tx-1',
               'transition-colors duration-fast ease-default',
               'hover:bg-bg-3 hover:text-tx-0',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo',
+              'focus-visible:bg-bg-3 focus-visible:text-tx-0 focus-visible:outline-none',
             )}
             data-testid="loading-cancel"
           >

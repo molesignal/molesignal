@@ -5,3 +5,4 @@ export { PipelineEdit } from './Edit';
 export { PipelineImport } from './Import';
 export { PipelineHistory } from './History';
 export { PipelineBackfill } from './Backfill';
+export { Connectors as PipelineConnectors } from './connectors/Connectors';

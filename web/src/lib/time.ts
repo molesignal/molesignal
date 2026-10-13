@@ -11,7 +11,8 @@ dayjs.extend(timezonePlugin);
 export type TimeFormat = meApi.PreferenceTimeFormat; // 'iso_24h' | 'local_12h'
 export type DateFormat = meApi.PreferenceDateFormat;
 
-const DATE_PATTERNS: Record<DateFormat, string> = {
+/** How each date format writes a day, as a dayjs pattern. */
+export const DATE_PATTERNS: Record<DateFormat, string> = {
   yyyy_mm_dd_dash: 'YYYY-MM-DD',
   yyyy_mm_dd_slash: 'YYYY/MM/DD',
   dd_mm_yyyy_slash: 'DD/MM/YYYY',
@@ -36,6 +37,39 @@ export function resolveTimezone(tz: string | undefined | null): string {
   return trimmed || dayjs.tz.guess();
 }
 
+/** A zone's offset from UTC only changes on a quarter hour: it is asked once per quarter hour of the zone. */
+const OFFSET_SLOT_MS = 15 * 60_000;
+const OFFSET_CACHE_LIMIT = 4_096;
+const zoneOffsets = new Map<string, number>();
+
+function zoneOffsetMinutes(ms: number, tz: string): number {
+  const key = `${tz}\u0000${Math.floor(ms / OFFSET_SLOT_MS)}`;
+  const known = zoneOffsets.get(key);
+  if (known !== undefined) return known;
+
+  const offset = dayjs(ms).tz(tz).utcOffset();
+  if (zoneOffsets.size >= OFFSET_CACHE_LIMIT) zoneOffsets.clear();
+  zoneOffsets.set(key, offset);
+
+  return offset;
+}
+
+/**
+ * A moment as the wall clock of a zone shows it, to be formatted: the fields
+ * `dayjs(ms).tz(tz)` gives, without asking the zone database for every moment.
+ * Asking is slow enough that a list of a few thousand rows spends seconds on
+ * it, so the zone is asked for its offset once per quarter hour and the moment
+ * is shifted by that.
+ *
+ * Only for patterns that write wall-clock fields (a day, a time of day): one
+ * that writes the offset itself (`Z`) would say UTC.
+ */
+export function zonedMoment(ms: number, tz: string): dayjs.Dayjs {
+  if (!Number.isFinite(ms)) return dayjs(Number.NaN);
+
+  return dayjs.utc(ms + zoneOffsetMinutes(ms, tz) * 60_000);
+}
+
 /** 把 epoch 微秒按给定时区 + 格式渲染。空/0 → `—`。 */
 export function formatMicros(
   micros: number | null | undefined,
@@ -45,7 +79,7 @@ export function formatMicros(
   dateFormat: DateFormat = 'yyyy_mm_dd_dash',
 ): string {
   if (micros == null || micros === 0) return '—';
-  const instant = dayjs(micros / 1000).tz(tz);
+  const instant = zonedMoment(micros / 1000, tz);
   if (!instant.isValid()) return '—';
   const datePattern = DATE_PATTERNS[dateFormat];
   if (format === 'local_12h') {
@@ -88,6 +122,24 @@ export function formatMicrosActive(micros: number | null | undefined, withSecond
   return formatMicros(
     micros,
     resolveTimezone(activeTimezone),
+    activeFormat,
+    withSeconds,
+    activeDateFormat,
+  );
+}
+
+/**
+ * 用当前生效的日期 / 时间格式渲染，但落在调用方指定的时区：排班、状态页这类自带时区的对象，
+ * 时刻要按它们自己的时区读，写法仍然跟随用户偏好。未指定时区时等同 `formatMicrosActive`。
+ */
+export function formatMicrosActiveIn(
+  micros: number | null | undefined,
+  timezone: string | null | undefined,
+  withSeconds = true,
+): string {
+  return formatMicros(
+    micros,
+    timezone?.trim() ? timezone : resolveTimezone(activeTimezone),
     activeFormat,
     withSeconds,
     activeDateFormat,

@@ -134,7 +134,7 @@ export function PromqlBuilderPanel({
   return (
     <div data-testid="promql-builder-panel" className="bg-bg-1">
       {unsupportedExpression ? (
-        <div className="flex items-start gap-2 border-b border-yellow-dim bg-yellow-dim/15 px-3 py-2 font-sans text-xs text-yellow-soft">
+        <div className="flex items-start gap-2 border-b border-yellow-dim bg-yellow-dim/15 px-3 py-2 font-sans text-xs text-[var(--yellow-ink)]">
           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           <span>{t('builder.unsupported_expression')}</span>
         </div>
@@ -282,7 +282,7 @@ export function PromqlBuilderPanel({
               })
             }
             disabled={!query.metric || availableLabels.length === 0}
-            className="inline-flex h-11 items-center gap-1.5 rounded-md px-2.5 font-sans text-xs font-semibold text-blue-soft hover:bg-bg-2 hover:text-blue focus-visible:bg-bg-2 focus-visible:text-blue disabled:cursor-not-allowed disabled:text-tx-4 sm:h-8"
+            className="inline-flex h-11 items-center gap-1.5 rounded-md px-2.5 font-sans text-xs font-semibold text-[var(--blue-ink)] hover:bg-bg-2 hover:text-blue focus-visible:bg-bg-2 focus-visible:text-blue disabled:cursor-not-allowed disabled:text-tx-4 sm:h-8"
           >
             <Plus className="h-3.5 w-3.5" aria-hidden="true" />
             {t('builder.add_matcher')}

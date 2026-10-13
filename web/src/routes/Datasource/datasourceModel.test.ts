@@ -3,11 +3,13 @@ import { describe, expect, it } from 'vitest';
 import type { HomeOverview } from '@/api/home';
 
 import {
-  filterSources,
-  integrationMethodForSource,
+  categoryForSource,
   maskToken,
   primaryCategoryFromRoute,
+  searchSources,
+  sendsSignal,
   sourceInPrimaryCategory,
+  sourcesInCategory,
   summarizeSourceSignals,
 } from './datasourceModel';
 import type { Source } from './sources';
@@ -15,15 +17,14 @@ import type { Source } from './sources';
 function source(overrides: Partial<Source>): Source {
   return {
     id: 'linux',
-    name: 'Linux',
     category: 'recommended',
-    glyph: 'LX',
-    description: 'Linux host integration',
     signals: ['logs'],
     steps: [],
     ...overrides,
   };
 }
+
+const ids = (sources: Source[]) => sources.map((item) => item.id);
 
 describe('datasourceModel', () => {
   it('maps old route categories into the simplified catalogue', () => {
@@ -34,38 +35,62 @@ describe('datasourceModel', () => {
   });
 
   it('groups recommended cloud sources under the cloud catalogue too', () => {
-    const aws = source({ id: 'aws', name: 'AWS' });
+    const aws = source({ id: 'aws' });
     const nginx = source({ id: 'nginx', category: 'servers' });
     expect(sourceInPrimaryCategory(aws, 'cloud')).toBe(true);
     expect(sourceInPrimaryCategory(aws, 'recommended')).toBe(true);
     expect(sourceInPrimaryCategory(nginx, 'infrastructure')).toBe(true);
   });
 
-  it('filters by category, method, signal and global search', () => {
+  it('lists a category narrowed to the sources that send a signal', () => {
     const sources = [
-      source({ id: 'linux', name: 'Linux' }),
-      source({ id: 'opentelemetry', name: 'OpenTelemetry', category: 'otel', signals: ['traces'] }),
-      source({ id: 'webhook', name: 'HTTP Webhook', category: 'custom' }),
+      source({ id: 'linux', signals: ['logs', 'metrics'] }),
+      source({ id: 'kubernetes' }),
+      source({ id: 'opentelemetry', category: 'otel', signals: ['logs', 'metrics', 'traces'] }),
     ];
-    expect(
-      filterSources({
-        sources,
-        category: 'applications',
-        method: 'otel',
-        signal: 'traces',
-        query: '',
-      }).map((item) => item.id),
-    ).toEqual(['opentelemetry']);
-    expect(
-      filterSources({
-        sources,
-        category: 'recommended',
-        method: 'all',
-        signal: 'all',
-        query: 'webhook',
-      }).map((item) => item.id),
-    ).toEqual(['webhook']);
-    expect(integrationMethodForSource(sources[2]!)).toBe('api');
+
+    expect(ids(sourcesInCategory(sources, 'recommended', 'all'))).toEqual(['linux', 'kubernetes']);
+    expect(ids(sourcesInCategory(sources, 'recommended', 'metrics'))).toEqual(['linux']);
+    expect(ids(sourcesInCategory(sources, 'applications', 'traces'))).toEqual(['opentelemetry']);
+    expect(sourcesInCategory(sources, 'recommended', 'profiles')).toEqual([]);
+    expect(sendsSignal(sources[0]!, 'all')).toBe(true);
+    expect(sendsSignal(sources[1]!, 'metrics')).toBe(false);
+  });
+
+  it('keeps a source under the category in view, or sends it to a home of its own', () => {
+    const aws = source({ id: 'aws' });
+    const postgres = source({ id: 'postgres', category: 'databases' });
+
+    // In Recommended and in Cloud: whichever the reader is in.
+    expect(categoryForSource(aws, 'recommended')).toBe('recommended');
+    expect(categoryForSource(aws, 'cloud')).toBe('cloud');
+    // Reached from a category that does not hold it: its own, never Recommended by default.
+    expect(categoryForSource(aws, 'databases')).toBe('cloud');
+    expect(categoryForSource(postgres, 'recommended')).toBe('databases');
+  });
+
+  it('searches every category by what a source is called in the reader\'s language', () => {
+    const sources = [
+      source({ id: 'linux' }),
+      source({ id: 'postgres', category: 'databases' }),
+      source({ id: 'webhook', category: 'custom' }),
+    ];
+    const words: Record<string, string[]> = {
+      linux: ['Linux 主机', '采集 journald'],
+      postgres: ['PostgreSQL', '采集慢查询日志'],
+      webhook: ['通用 HTTP 接入', '任意服务通过 HTTP POST JSON，可写入 PostgreSQL 之外的数据'],
+    };
+    const search = (query: string) =>
+      ids(searchSources(sources, query, (item) => words[item.id] ?? []));
+
+    expect(search('  ')).toEqual([]);
+    expect(search('主机')).toEqual(['linux']);
+    expect(search('JOURNALD')).toEqual(['linux']);
+    // Matched by name before matched by description, whatever the catalogue order.
+    expect(search('postgresql')).toEqual(['postgres', 'webhook']);
+    // The identifier is searchable in any language.
+    expect(search('webhook')).toEqual(['webhook']);
+    expect(search('kafka')).toEqual([]);
   });
 
   it('masks the middle of tokens while keeping them recognizable', () => {

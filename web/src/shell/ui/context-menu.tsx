@@ -59,7 +59,7 @@ const ContextMenuContent = React.forwardRef<
       ref={ref}
       className={cn(
         floatingMenuContentClass,
-        'min-w-[10rem] data-[state=open]:animate-fade-in',
+        'min-w-[10rem] origin-[var(--radix-context-menu-content-transform-origin)] data-[state=open]:animate-pop-in data-[state=closed]:animate-pop-out',
         className,
       )}
       {...props}

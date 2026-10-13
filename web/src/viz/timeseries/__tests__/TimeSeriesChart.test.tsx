@@ -164,12 +164,14 @@ describe('TimeSeriesChart', () => {
     const legend = screen.getByTestId('time-series-legend');
     expect(chart.style.height).toBe('auto');
     expect(chart.className).toContain('overflow-visible');
+    // The plot fills the height its container has left, down to a floor; the
+    // legend under it keeps its own height.
     expect(screen.getByTestId('time-series-content').className).toContain(
-      'flex-none',
+      'flex-[1_0_auto]',
     );
-    expect(screen.getByTestId('time-series-plot').className).toContain(
-      'h-[clamp(320px,42vh,460px)]',
-    );
+    const plotClass = screen.getByTestId('time-series-plot').className;
+    expect(plotClass).toContain('flex-[1_1_0px]');
+    expect(plotClass).toContain('min-h-[clamp(260px,32vh,440px)]');
     expect(legend.getAttribute('data-adaptive-height')).toBe('true');
     expect(legend.className).toContain('overflow-visible');
     expect(legend.className).not.toContain('max-h-[42%]');

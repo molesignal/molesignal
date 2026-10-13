@@ -7,6 +7,7 @@ import enAlerts from './en-us/alerts.json';
 import enApm from './en-us/apm.json';
 import enCommon from './en-us/common.json';
 import enDashboards from './en-us/dashboards.json';
+import enDatasources from './en-us/datasources.json';
 import enDesignSystem from './en-us/design-system.json';
 import enErrors from './en-us/errors.json';
 import enFunctions from './en-us/functions.json';
@@ -38,6 +39,7 @@ import zhAlerts from './zh-cn/alerts.json';
 import zhApm from './zh-cn/apm.json';
 import zhCommon from './zh-cn/common.json';
 import zhDashboards from './zh-cn/dashboards.json';
+import zhDatasources from './zh-cn/datasources.json';
 import zhDesignSystem from './zh-cn/design-system.json';
 import zhErrors from './zh-cn/errors.json';
 import zhFunctions from './zh-cn/functions.json';
@@ -93,6 +95,7 @@ const NAMESPACES = [
   'product',
   'design-system',
   'onboarding',
+  'datasources',
   'rum',
   'profiles',
   'functions',
@@ -128,6 +131,7 @@ const resources = {
     product: enProduct,
     'design-system': enDesignSystem,
     onboarding: enOnboarding,
+    datasources: enDatasources,
     rum: enRum,
     profiles: enProfiles,
     functions: enFunctions,
@@ -161,6 +165,7 @@ const resources = {
     product: zhProduct,
     'design-system': zhDesignSystem,
     onboarding: zhOnboarding,
+    datasources: zhDatasources,
     rum: zhRum,
     profiles: zhProfiles,
     functions: zhFunctions,

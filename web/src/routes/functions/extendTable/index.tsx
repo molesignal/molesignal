@@ -268,7 +268,7 @@ export function ExtendTables() {
                   value={
                     table.usage_locations.length > 0 ? (
                       <span className="inline-flex items-center gap-1.5">
-                        <Workflow className="h-3.5 w-3.5 text-purple-soft" />
+                        <Workflow className="h-3.5 w-3.5 text-[var(--purple-ink)]" />
                         {t('extend_tables.usage_count', {
                           count: table.usage_locations.length,
                         })}
@@ -410,7 +410,7 @@ function TableStatus({ populated }: { populated: boolean }) {
     <span
       className={
         populated
-          ? 'inline-flex items-center gap-1.5 rounded-full bg-green-dim px-2 py-1 text-type-micro font-strong text-green'
+          ? 'inline-flex items-center gap-1.5 rounded-full bg-[var(--green-tint)] px-2 py-1 text-type-micro font-strong text-green'
           : 'inline-flex items-center gap-1.5 rounded-full bg-bg-3 px-2 py-1 text-type-micro font-strong text-tx-2'
       }
     >

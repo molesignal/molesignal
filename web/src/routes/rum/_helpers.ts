@@ -23,6 +23,28 @@ export function formatMicros(micros: number | undefined): string {
   return formatMicrosActive(micros);
 }
 
+/**
+ * A share as a percentage with the decimals it has, up to two: `75%` and
+ * `99.97%`, not `75.00%`.
+ */
+export function formatShare(fraction: number): string {
+  return `${Number((fraction * 100).toFixed(2))}%`;
+}
+
+/**
+ * The name of a region in the language of the product, for a two-letter code:
+ * `BR` reads "Brazil" or "巴西". Anything else is shown as it came.
+ */
+export function regionName(code: string, language: string | undefined): string {
+  if (!/^[A-Za-z]{2}$/.test(code)) return code;
+
+  try {
+    return new Intl.DisplayNames([language ?? 'en'], { type: 'region' }).of(code.toUpperCase()) ?? code;
+  } catch {
+    return code;
+  }
+}
+
 export function formatDurationMs(ms: number | undefined): string {
   if (ms == null) return '—';
   if (ms < 1000) return `${Math.round(ms)} ms`;

@@ -39,7 +39,13 @@ interface StripProps {
   variant?: 'surface' | 'inline' | undefined;
   /** A hairline under an `inline` strip, for one that sits on the bare canvas. */
   divider?: boolean | undefined;
-  /** A second row in the same card, for the tabs one level down. */
+  /**
+   * Controls at the far end of the strip's row that are not tabs: what the
+   * whole module is looking at (its time range). They keep their width; the
+   * tabs scroll when the two do not fit.
+   */
+  end?: React.ReactNode;
+  /** A second row in the same card: the tabs one level down, or what the module is scoped to. */
   children?: React.ReactNode;
   className?: string | undefined;
   /** `data-*` hooks on the outermost element. */
@@ -59,7 +65,9 @@ export interface ModuleTabsProps extends StripProps {
 const INDICATOR_INSET = 6;
 
 const TAB_CLASS = cn(
-  'group/tab relative inline-flex h-[40px] shrink-0 items-center px-[10px] font-sans text-md outline-none [@media(pointer:coarse)]:h-[44px]',
+  // The label size of the chrome around it (buttons, selects, the sidebar): a tab is found by its
+  // place and its indicator, not by being set larger than what it sits beside.
+  'group/tab relative inline-flex h-[40px] shrink-0 items-center px-[10px] font-sans text-sm outline-none [@media(pointer:coarse)]:h-[44px]',
   // The hover and focus fill is inset from the strip, so it never touches the
   // indicator or the edge of the card.
   "before:pointer-events-none before:absolute before:inset-x-0 before:inset-y-[6px] before:rounded-md before:bg-transparent before:transition-colors before:duration-fast before:content-['']",
@@ -118,6 +126,7 @@ function Strip({
   trailing,
   variant = 'surface',
   divider = false,
+  end,
   children,
   className,
   dataAttributes,
@@ -212,13 +221,21 @@ function Strip({
   const body = (
     <>
       {variant === 'inline' && divider ? <div className="border-b border-bd-0">{named}</div> : named}
-      {children}
+      {end ? (
+        <div data-module-tabs-end className="flex shrink-0 items-center gap-2 pr-[10px]">
+          {end}
+        </div>
+      ) : null}
+      {/* With controls at the end of the first row, the second row spans both columns. */}
+      {end && children ? <div className="col-span-2 min-w-0">{children}</div> : children}
     </>
   );
+  // The strip takes the room the end controls leave, and scrolls inside it.
+  const rowLayout = end ? 'grid grid-cols-[minmax(0,1fr)_auto] items-center' : undefined;
 
   if (variant === 'inline') {
     return (
-      <div className={className} {...dataAttributes}>
+      <div className={cn(rowLayout, className)} {...dataAttributes}>
         {body}
       </div>
     );
@@ -228,6 +245,7 @@ function Strip({
       data-module-tabs="surface"
       className={cn(
         'mx-[20px] mb-[12px] overflow-hidden rounded-md bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]',
+        rowLayout,
         className,
       )}
       {...dataAttributes}
@@ -265,7 +283,7 @@ function Tab({
           aria-hidden="true"
           strokeWidth={1.75}
           className={cn(
-            'h-[15px] w-[15px] shrink-0 transition-colors duration-fast',
+            'h-[14px] w-[14px] shrink-0 transition-colors duration-fast',
             active ? 'text-indigo' : 'text-tx-3 group-hover/tab:text-tx-2',
           )}
         />

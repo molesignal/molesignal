@@ -3,8 +3,15 @@ import path from 'node:path';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
+import { unservedSourceUpdate } from './scripts/hot-update/unserved-source';
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    // A save of a source file no page has loaded updates the stylesheet
+    // instead of reloading every open page.
+    unservedSourceUpdate(path.resolve(__dirname, './src')),
+  ],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

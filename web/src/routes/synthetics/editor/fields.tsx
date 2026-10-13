@@ -42,7 +42,7 @@ export function TargetFields({ draft, patch }: { draft: CheckDraft; patch: Draft
   if (draft.kind === 'grpc') return <GrpcFields draft={draft} patch={patch} />;
   if (draft.kind === 'heartbeat') {
     return (
-      <div className="rounded-md border border-bd-0 bg-bg-2 px-4 py-3 text-sm text-tx-2">
+      <div className="rounded-md bg-bg-2 px-4 py-3 text-sm text-tx-2">
         {t('editor.heartbeat_hint')}
       </div>
     );
@@ -221,7 +221,11 @@ function GrpcFields({ draft, patch }: { draft: CheckDraft; patch: DraftPatch }) 
   const { t } = useTranslation('synthetics');
   return (
     <>
-      <FormField label={t('editor.url')} required>
+      <FormField
+        label={t('editor.grpc_endpoint')}
+        hint={t('editor.grpc_endpoint_hint')}
+        required
+      >
         <FormInput
           value={draft.host}
           onChange={(event) => patch('host', event.target.value)}
@@ -279,7 +283,7 @@ export function AssertionEditor({
       })}
       addLabel={t('actions.add_assertion')}
       renderItem={(assertion, _index, setAssertion) => (
-        <div className="grid gap-2 rounded-md border border-bd-0 bg-bg-2 p-3 sm:grid-cols-2">
+        <div className="grid gap-2 rounded-md bg-bg-2 p-3 sm:grid-cols-2">
           <FormInput
             aria-label={t('editor.assertion_source')}
             value={assertion.source}
@@ -334,7 +338,7 @@ export function CheckToggle({
   label: string;
 }) {
   return (
-    <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-bd-0 bg-bg-2 px-3 text-sm text-tx-1 hover:bg-bg-3 focus-within:bg-bg-3">
+    <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md bg-[var(--control-surface)] px-3 text-sm text-tx-1 hover:bg-bg-3 focus-within:bg-bg-3">
       <input
         type="checkbox"
         checked={checked}

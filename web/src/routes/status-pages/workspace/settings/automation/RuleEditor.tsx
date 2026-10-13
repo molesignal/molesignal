@@ -84,7 +84,7 @@ export function RuleEditor({
     >
       <FormSection title={t('automation.editor.match_title')} description={t('automation.editor.match_hint')}>
         {overlaps.length > 0 && (
-          <div className="flex gap-3 rounded-md border border-yellow/30 bg-yellow-dim px-3 py-2.5 text-xs text-yellow-soft">
+          <div className="flex gap-3 rounded-md border border-yellow/30 bg-[var(--yellow-tint)] px-3 py-2.5 text-xs text-[var(--yellow-ink)]">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <div>
               <div className="font-strong">{t('automation.overlap.title')}</div>

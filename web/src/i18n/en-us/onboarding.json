@@ -225,7 +225,6 @@
     "token_loading": "Loading…",
     "token_description": "Default intake token — paste it into the Authorization: Bearer header above. Manage or create more under API tokens.",
     "validation": "Validation",
-    "endpoint_description": "POST your telemetry to this endpoint with the token below to start sending data.",
     "test_event": "Send test event",
     "test_event_sending": "Sending…",
     "test_event_sent": "Sent · {{accepted}} accepted · {{rejected}} rejected"
@@ -233,16 +232,17 @@
   "datasource_page": {
     "title": "Datasource onboarding",
     "subtitle": "Choose a source, deploy its collector, and verify real data receipt",
-    "search_placeholder": "Search sources, platforms, or integration methods…",
-    "api_tokens": "API tokens",
-    "custom_source": "Custom integration",
+    "search_placeholder": "Search all sources…",
+    "clear_search": "Clear search",
     "matching": "{{count}} matching",
-    "sources_summary": "{{count}} datasources · {{category}}",
     "no_match": "No datasources match \"{{search}}\"",
-    "no_match_filter": "No datasources match this filter.",
-    "method_filter": "Integration method",
-    "status_auto_refresh": "Receipt status refreshes every 30 seconds",
+    "no_sources": "No sources",
+    "no_signal_match": "No {{signal}} sources in {{category}}.",
+    "show_all_signals": "Show all signals",
     "category_navigation": "Datasource categories",
+    "source_navigation": "Sources",
+    "signal_filter": "Signal",
+    "guide_region": "Setup guide",
     "categories": {
       "recommended": "Recommended",
       "infrastructure": "Infrastructure",
@@ -253,13 +253,6 @@
       "security": "Security",
       "custom": "Custom"
     },
-    "methods": {
-      "all": "All methods",
-      "native": "Native integration",
-      "otel": "OpenTelemetry",
-      "collector": "OTel Collector",
-      "api": "HTTP / API"
-    },
     "signals": {
       "all": "All",
       "logs": "Logs",
@@ -267,47 +260,24 @@
       "traces": "Traces",
       "profiles": "Profiles"
     },
-    "source_status": {
-      "verified": "Verified",
-      "signal_active": "Signal active",
-      "delayed": "Delayed",
-      "attention": "Needs attention",
-      "unverified": "Unverified"
-    },
     "group_protocol": "Protocol",
     "group_source": "Integration source",
     "category": "category: {{category}}",
-    "docs": "docs ↗",
-    "connect_title": "Connect {{source}}",
-    "view_receive_status": "View receipt status",
+    "docs": "Docs",
+    "endpoint_for": "{{signal}} endpoint",
     "verify_connection": "Verify connection",
-    "setup_progress": "Setup progress",
-    "progress_count": "{{completed}}/{{total}} complete · Step {{current}}",
     "steps": {
       "prepare": {
-        "title": "Prepare connection details",
-        "description": "Confirm the write endpoint, application identifier, and credential for this integration."
+        "title": "Endpoint and token",
+        "description": "Where to send data and what to authenticate with. The commands below already carry both."
       },
       "deploy": {
-        "title": "Deploy collector",
-        "description": "Install and configure the collector. Commands already contain the real endpoint and token for this environment."
+        "title": "Set up the source"
       },
       "verify": {
-        "title": "Verify data receipt",
-        "description": "Check the MoleSignal receiver and inspect real data from the last hour."
-      },
-      "complete": {
-        "title": "Complete setup",
-        "description": "After verification, finish setup and continue to query or process the data."
+        "title": "Verify data is arriving"
       }
     },
-    "step_status": {
-      "complete": "Complete",
-      "active": "In progress",
-      "pending": "Not started"
-    },
-    "ready": "Ready",
-    "required": "Required",
     "create_dedicated_token": "Create dedicated token",
     "manage_tokens": "Manage tokens",
     "show_token": "Show token",
@@ -324,20 +294,18 @@
     "rum_application_confirm": "Use this application",
     "rum_application_confirmed": "Application confirmed",
     "rum_application_confirm_hint": "Confirm before issuing or reusing this application's RUM client token.",
-    "deployment_confirm": "I have completed the deployment and configuration",
-    "deployment_confirm_hint": "This records UI progress only. The next step still verifies actual receipt.",
     "validation_overview_unavailable": "Receipt overview is temporarily unavailable.",
     "validation_endpoint_failed": "Receiver health check failed.",
     "validating": "Checking…",
     "recheck": "Check again",
     "validation_state": {
       "idle": {
-        "title": "Ready to verify",
-        "description": "Verification checks the receiver and real signal data from the last hour."
+        "title": "Not verified yet",
+        "description": "Checks the receiver, then looks for data received in the last hour."
       },
       "success": {
         "title": "Data detected",
-        "description": "{{active}} of {{total}} supported signals recently received data. You can finish setup."
+        "description": "{{active}} of {{total}} supported signals received data in the last hour."
       },
       "warning": {
         "title": "Receiver is healthy, but data needs attention",
@@ -355,24 +323,13 @@
       "volume": "Last hour"
     },
     "receiver_healthy": "Healthy · {{ms}} ms",
-    "receiver_failed": "Failed",
-    "not_checked": "Not checked",
     "validation_volume": "{{rate}} · {{rows}} rows · {{bytes}}",
     "possible_causes": "Possible causes",
     "cause_collector": "The collector is not running, or the current setup has not produced telemetry.",
     "cause_token": "The token is invalid, expired, or its role does not match the write configuration.",
     "cause_network": "The collector cannot reach the endpoint, or a proxy / firewall blocks it.",
-    "troubleshooting_command": "Local troubleshooting command",
-    "receiver_scope_note": "Verification uses the MoleSignal receiver and real streams. Check collector Pod / Agent process status in the deployment environment with the commands above.",
-    "ready_to_complete": "Real data has arrived and this integration is ready to complete.",
-    "complete_requires_validation": "Verify data receipt before completing setup.",
-    "complete_hint": "After completion, inspect the data or create a pipeline for cleanup, transformation, and routing.",
-    "complete_setup": "Complete setup",
-    "connection_complete": "{{source}} is connected",
-    "connection_complete_hint": "Receipt verification passed. Next, inspect field quality or build a processing pipeline.",
     "view_received_data": "View received data",
     "create_pipeline": "Create pipeline",
-    "catalogue_meta": "Integration catalogue: {{category}}",
     "validation_prefix": "Events normally appear within 30-60 seconds. Open",
     "validation_or": "or",
     "validation_suffix": "to confirm the corresponding Stream has data. If data never appears, see",
@@ -386,7 +343,6 @@
     "copied": "Copied",
     "copy": "Copy",
     "expand_code": "Expand code",
-    "collapse_code": "Collapse code",
-    "empty_select_source": "Select a datasource from the left to view its setup guide."
+    "collapse_code": "Collapse code"
   }
 }

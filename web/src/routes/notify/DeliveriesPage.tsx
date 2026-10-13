@@ -180,8 +180,8 @@ export function NotifyDeliveriesPage() {
                 width: '14%',
                 cell: (row) => (
                   <span className="text-xs text-tx-2">
-                    {row.stage === 'test'
-                      ? t('stages.test')
+                    {row.stage === 'test' || row.stage === 'direct'
+                      ? t(`stages.${row.stage}`)
                       : (() => {
                           const resolver = (
                             policies.data ?? []

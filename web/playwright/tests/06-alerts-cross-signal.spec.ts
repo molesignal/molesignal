@@ -3,8 +3,8 @@
  *
  * Verifies continuity across signals:
  *
- *   /alerts (firing rule list)
- *     → click state Pill on a firing row → IncidentDetailDrawer opens
+ *   /alerts (what is firing)
+ *     → click the incident's row → IncidentDetailDrawer opens
  *     → drawer surfaces trace_ids / services / hosts
  *     → hover trace_id → SignalReference HoverCard appears
  *     → click "Open in Traces" → /traces/:traceId with preserved
@@ -129,13 +129,13 @@ test.describe('SRE pager to trace', () => {
     );
   });
 
-  test('rule list → state pill → drawer → trace_id HoverCard → Traces', async ({ page }) => {
+  test('incident row → drawer → trace_id HoverCard → Traces', async ({ page }) => {
     await page.goto('/alerts');
 
-    // The rule list should expose our seeded rule with a clickable state pill.
-    const openIncidentBtn = page.getByRole('button', { name: 'Details' }).first();
-    await expect(openIncidentBtn).toBeVisible({ timeout: 10_000 });
-    await openIncidentBtn.click();
+    // The tab lists what is firing; the row itself opens the incident.
+    const incidentRow = page.getByRole('row', { name: new RegExp(INCIDENT.summary) });
+    await expect(incidentRow).toBeVisible({ timeout: 10_000 });
+    await incidentRow.click();
 
     // Drawer opens — header shows summary, severity + status pills.
     const dialog = page.getByRole('dialog');
@@ -158,13 +158,10 @@ test.describe('SRE pager to trace', () => {
     await expect(page.getByRole('link', { name: /view trace logs/i })).toBeVisible();
     await expect(page.getByRole('link', { name: /view service metrics/i })).toBeVisible();
 
-    // Jump to Traces. The Link should carry the trace_id + time window.
+    // Jump to the trace. The link names it in the path and carries the time window.
     await openInTraces.click();
-    await expect(page).toHaveURL(/\/traces\?/);
+    await expect(page).toHaveURL(new RegExp(`/traces/${INCIDENT.trace_ids[0]}\\?`));
     const url = new URL(page.url());
-    // The trace id is carried inside the `q` field expression
-    // (q=trace_id = 'trace-…'), not a standalone trace_id param.
-    expect(url.searchParams.get('q')).toContain('trace-');
     // The propagated time window bounds the trace view to the incident window.
     expect(url.searchParams.get('from')).toBeTruthy();
     expect(url.searchParams.get('to')).toBeTruthy();
@@ -178,7 +175,7 @@ test.describe('SRE pager to trace', () => {
     });
 
     await page.goto('/alerts');
-    await page.getByRole('button', { name: 'Details' }).first().click();
+    await page.getByRole('row', { name: new RegExp(INCIDENT.summary) }).click();
     await page.getByRole('dialog').waitFor();
 
     const ackBtn = page.getByTestId('incident-ack');

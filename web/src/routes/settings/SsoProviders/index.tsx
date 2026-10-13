@@ -2,12 +2,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { ConfirmDialog, DataTable, PageHeader } from '@/admin';
+import { ConfirmDialog, DataTable } from '@/admin';
 import * as instanceApi from '@/api/instance';
 import * as ssoApi from '@/api/sso';
 import { toApiError } from '@/lib/http';
 import { useActionAccess } from '@/product/actionAccess';
-import { ProductState, productStateFor } from '@/product/states';
+import { productStateFor } from '@/product/states';
+import { IamListPage } from '@/routes/iam/IamLayout';
 import { ChromeButton, Pill } from '@/shell/chrome';
 import { FormDrawer, FormSubmitFooter } from '@/shell/FormDrawer';
 import { queryStateFor } from '@/shell/query/State';
@@ -24,7 +25,6 @@ import {
 } from './model';
 import { ProviderForm } from './ProviderForm';
 import { formatMicros } from '../../rum/_helpers';
-import { SectionBody } from '../_atoms';
 
 export function SsoProviders() {
   const { t } = useTranslation('settings-admin');
@@ -150,21 +150,6 @@ export function SsoProviders() {
 
   return (
     <>
-      <PageHeader
-        title={t('sso_providers.title')}
-        subtitle={t('sso_providers.subtitle') as string}
-        className="bg-transparent"
-        actions={
-          <ChromeButton
-            variant="primary"
-            onClick={openCreate}
-            disabled={manageAccess.disabled}
-            disabledReason={manageAccess.reason}
-          >
-            {t('sso_providers.new_provider')}
-          </ChromeButton>
-        }
-      />
       <ConfirmDialog
         open={removing !== null}
         onOpenChange={(v) => !v && setRemoving(null)}
@@ -232,105 +217,115 @@ export function SsoProviders() {
         </form>
       </FormDrawer>
 
-      <SectionBody>
-        {pageState ? (
-          <ProductState {...pageState} />
-        ) : (
-          <DataTable
-            rows={rows}
-            rowKey={(r) => r.id}
-            columns={[
-              {
-                key: 'name',
-                header: t('sso_providers.columns.name'),
-                cell: (r) => <span className="font-semibold text-tx-0">{r.name}</span>,
-              },
-              {
-                key: 'kind',
-                header: t('sso_providers.columns.kind'),
-                cell: (r) => (
-                  <Pill
-                    tone={
-                      r.kind === 'saml'
-                        ? 'purple'
-                        : r.kind === 'ldap'
-                          ? 'green'
-                          : 'blue'
+      <IamListPage
+        title={t('sso_providers.title')}
+        subtitle={t('sso_providers.subtitle')}
+        toolbar={
+          <ChromeButton
+            variant="primary"
+            onClick={openCreate}
+            disabled={manageAccess.disabled}
+            disabledReason={manageAccess.reason}
+          >
+            {t('sso_providers.new_provider')}
+          </ChromeButton>
+        }
+        state={pageState}
+      >
+        <DataTable
+          rows={rows}
+          rowKey={(r) => r.id}
+          columns={[
+            {
+              key: 'name',
+              header: t('sso_providers.columns.name'),
+              cell: (r) => <span className="font-semibold text-tx-0">{r.name}</span>,
+            },
+            {
+              key: 'kind',
+              header: t('sso_providers.columns.kind'),
+              cell: (r) => (
+                <Pill
+                  tone={
+                    r.kind === 'saml'
+                      ? 'purple'
+                      : r.kind === 'ldap'
+                        ? 'green'
+                        : 'blue'
+                  }
+                >
+                  {t(`sso_providers.kinds.${r.kind}`)}
+                </Pill>
+              ),
+              width: 110,
+            },
+            {
+              key: 'enabled',
+              header: t('sso_providers.columns.enabled'),
+              cell: (r) =>
+                r.enabled ? (
+                  <Pill tone="green">{tc('status.on')}</Pill>
+                ) : (
+                  <Pill tone="dim">{tc('status.off')}</Pill>
+                ),
+              width: 90,
+            },
+            {
+              key: 'updated',
+              header: t('sso_providers.columns.updated'),
+              cell: (r) => (r.updated_at_micros ? formatMicros(r.updated_at_micros) : '—'),
+              width: 200,
+            },
+            {
+              key: 'actions',
+              header: '',
+              width: 220,
+              cell: (r) => (
+                <div
+                  className="flex gap-2"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <ChromeButton
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => toggleMutation.mutate({ id: r.id, enable: !r.enabled })}
+                    disabled={manageAccess.disabled || toggleMutation.isPending}
+                    disabledReason={
+                      manageAccess.reason ??
+                      (toggleMutation.isPending
+                        ? tc('access.operation_pending')
+                        : undefined)
                     }
                   >
-                    {t(`sso_providers.kinds.${r.kind}`)}
-                  </Pill>
-                ),
-                width: 110,
-              },
-              {
-                key: 'enabled',
-                header: t('sso_providers.columns.enabled'),
-                cell: (r) =>
-                  r.enabled ? (
-                    <Pill tone="green">{tc('status.on')}</Pill>
-                  ) : (
-                    <Pill tone="dim">{tc('status.off')}</Pill>
-                  ),
-                width: 90,
-              },
-              {
-                key: 'updated',
-                header: t('sso_providers.columns.updated'),
-                cell: (r) => (r.updated_at_micros ? formatMicros(r.updated_at_micros) : '—'),
-                width: 200,
-              },
-              {
-                key: 'actions',
-                header: '',
-                width: 220,
-                cell: (r) => (
-                  <div
-                    className="flex gap-2"
-                    onClick={(e) => e.stopPropagation()}
+                    {r.enabled
+                      ? t('sso_providers.actions.disable')
+                      : t('sso_providers.actions.enable')}
+                  </ChromeButton>
+                  <ChromeButton
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => openEdit(r)}
+                    disabled={manageAccess.disabled}
+                    disabledReason={manageAccess.reason}
                   >
-                    <ChromeButton
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => toggleMutation.mutate({ id: r.id, enable: !r.enabled })}
-                      disabled={manageAccess.disabled || toggleMutation.isPending}
-                      disabledReason={
-                        manageAccess.reason ??
-                        (toggleMutation.isPending
-                          ? tc('access.operation_pending')
-                          : undefined)
-                      }
-                    >
-                      {r.enabled
-                        ? t('sso_providers.actions.disable')
-                        : t('sso_providers.actions.enable')}
-                    </ChromeButton>
-                    <ChromeButton
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => openEdit(r)}
-                      disabled={manageAccess.disabled}
-                      disabledReason={manageAccess.reason}
-                    >
-                      {t('sso_providers.actions.edit')}
-                    </ChromeButton>
-                    <ChromeButton
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setRemoving(r)}
-                      disabled={manageAccess.disabled}
-                      disabledReason={manageAccess.reason}
-                      className="enabled:hover:text-red-soft"
-                    >
-                      {t('sso_providers.actions.delete')}
-                    </ChromeButton>
-                  </div>
-                ),
-              },
-            ]}
-          />
-        )}
-      </SectionBody>
+                    {t('sso_providers.actions.edit')}
+                  </ChromeButton>
+                  <ChromeButton
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setRemoving(r)}
+                    disabled={manageAccess.disabled}
+                    disabledReason={manageAccess.reason}
+                    className="enabled:hover:text-red-soft"
+                  >
+                    {t('sso_providers.actions.delete')}
+                  </ChromeButton>
+                </div>
+              ),
+            },
+          ]}
+        />
+      </IamListPage>
     </>
   );
 }

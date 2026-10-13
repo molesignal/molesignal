@@ -1,13 +1,14 @@
-import { Columns3, GripVertical } from 'lucide-react';
+import { Columns3, GripVertical, RotateCcw } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { ChromeButton } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
+import { QueryIconAction } from '@/shell/query/IconAction';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -40,6 +41,10 @@ interface LogColumnMenuProps {
     target: string,
     position: LogColumnDropPosition,
   ) => void;
+  /** The columns are the reader's own arrangement for this stream, which is kept. */
+  arranged?: boolean | undefined;
+  /** Puts back what the stream opens with and forgets the arrangement. */
+  onReset?: (() => void) | undefined;
 }
 
 interface DropTarget {
@@ -52,6 +57,8 @@ export function LogColumnMenu({
   visibleFields,
   onToggleField,
   onReorderField,
+  arranged = false,
+  onReset,
 }: LogColumnMenuProps) {
   const { t } = useTranslation('logs');
   const [draggingField, setDraggingField] = React.useState<string | null>(null);
@@ -88,12 +95,13 @@ export function LogColumnMenu({
       if (!open) clearDragState();
     }}>
       <DropdownMenuTrigger asChild>
-        <ChromeButton>
-          <Columns3 className="h-3.5 w-3.5" />
-          {t('explore.results.columns')}
-        </ChromeButton>
+        <QueryIconAction icon={Columns3} label={t('explore.results.columns')} data-log-columns />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="max-h-[420px] w-72 overflow-auto">
+      <DropdownMenuContent
+        align="end"
+        // No taller than the room under its button: a short window scrolls it instead of cutting it.
+        className="max-h-[min(420px,var(--radix-dropdown-menu-content-available-height))] w-72 overflow-auto"
+      >
         <DropdownMenuLabel className="flex items-center justify-between gap-3">
           <span>{t('explore.results.visible_columns')}</span>
           <span className="font-normal text-tx-3">{t('explore.results.reorder_columns_hint')}</span>
@@ -158,6 +166,13 @@ export function LogColumnMenu({
             </DropdownMenuCheckboxItem>
           );
         })}
+        {/* Offered only while there is an arrangement to undo: the default has nothing to go back to. */}
+        {arranged && onReset ? (
+          <DropdownMenuItem data-log-columns-reset onSelect={onReset} className="font-sans text-xs text-tx-2">
+            <RotateCcw aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+            {t('explore.results.reset_columns')}
+          </DropdownMenuItem>
+        ) : null}
         {hiddenFields.length > 0 ? (
           <>
             <DropdownMenuSeparator />

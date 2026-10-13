@@ -187,6 +187,11 @@
       "edit_short": "Edit panel"
     }
   },
+  "report": {
+    "time_range": "Time range",
+    "timezone": "Timezone",
+    "generated": "Generated"
+  },
   "import": {
     "title": "Import dashboard",
     "subtitle": "Paste MoleSignal Dashboard JSON or upload a .json file.",

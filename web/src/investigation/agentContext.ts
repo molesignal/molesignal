@@ -79,16 +79,22 @@ export function timeWindowForPreset(preset: string): TimeWindow | null {
   return { from: `now-${preset}`, to: 'now', mode: 'relative' };
 }
 
+/**
+ * What an investigation is looking at, in one line. Where the line is shown to
+ * a person, `nameWindow` names the time range in the language of the product;
+ * without it the range is named in English, as it is for a model.
+ */
 export function investigationContextSummary(
   window: TimeWindow,
   filters: GlobalFilter[],
+  nameWindow: (window: TimeWindow) => string = formatWindowSummary,
 ): string {
   const context = chatContextFromFilters(filters);
   return [
     context.service && `service:${context.service}`,
     context.environment && `environment:${context.environment}`,
     context.alert && `alert:${context.alert}`,
-    formatWindowSummary(window),
+    nameWindow(window),
   ]
     .filter(Boolean)
     .join(' · ');

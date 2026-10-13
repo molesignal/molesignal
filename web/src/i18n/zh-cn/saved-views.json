@@ -60,5 +60,17 @@
       "stream": "打开视图时用于分区裁剪。",
       "tags": "用逗号分隔。"
     }
+  },
+  "report": {
+    "time_range": "时间范围",
+    "timezone": "时区",
+    "stream": "数据流",
+    "rows": "行数",
+    "rows_capped": "仅前 {{shown}} 行",
+    "generated": "生成时间",
+    "results": "查询结果",
+    "empty": "该时间范围内没有数据。",
+    "no_view": "报告没有指明要渲染的保存视图。",
+    "no_stream": "保存视图没有指定数据流，组织内也没有可用于执行它的日志数据流。"
   }
 }

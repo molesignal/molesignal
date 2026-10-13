@@ -20,6 +20,7 @@ import {
   FormSubmitFooter,
   FormTextarea,
 } from '@/shell/FormDrawer';
+import { TimezoneField } from '@/shell/TimezoneField';
 
 import {
   COMPONENT_STATUSES,
@@ -244,11 +245,11 @@ export function PageFormDrawer({
               />
             </FormField>
           </FormRow>
-          <FormField label={t('fields.timezone')} hint={t('forms.page.timezone_hint')} required>
-            <FormInput
+          <FormField label={t('fields.timezone')} required>
+            <TimezoneField
+              label={t('fields.timezone')}
               value={draft.timezone}
-              onChange={(event) => set('timezone', event.currentTarget.value)}
-              placeholder="UTC"
+              onChange={(timezone) => set('timezone', timezone)}
             />
           </FormField>
           <FormRow className="grid-cols-1 sm:grid-cols-2">

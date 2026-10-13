@@ -211,3 +211,109 @@ test.describe('topbar account menu', () => {
     await expect(page.getByRole('link', { name: 'License' })).toHaveCount(0);
   });
 });
+
+test('draws the avatar as a 28px disc inside the 32px topbar target', async ({
+  page,
+  mockServer,
+}) => {
+  await mountMockRoutes(page, mockServer.port);
+  await page.goto('/home');
+
+  const target = (await page.getByTestId('user-menu-trigger').boundingBox())!;
+  const disc = (await page.getByTestId('user-avatar').boundingBox())!;
+
+  // Quieter than the 32px disc it replaced, and no harder to hit.
+  expect(disc.width).toBe(28);
+  expect(disc.height).toBe(28);
+  expect(target.width).toBeGreaterThanOrEqual(32);
+  expect(target.height).toBeGreaterThanOrEqual(32);
+  // Centred in its target.
+  expect(Math.abs(disc.x + disc.width / 2 - (target.x + target.width / 2))).toBeLessThanOrEqual(0.5);
+  expect(Math.abs(disc.y + disc.height / 2 - (target.y + target.height / 2))).toBeLessThanOrEqual(0.5);
+});
+
+test.describe('language in the user menu', () => {
+  test('is chosen from the menu, takes effect at once and is kept', async ({ page, mockServer }) => {
+    await mountMockRoutes(page, mockServer.port);
+    await page.goto('/account/settings/profile');
+    await page.getByRole('button', { name: 'User menu' }).click();
+
+    const menu = page.locator("[data-ui='user-menu']");
+    const language = menu.locator("[data-ui='language-trigger']");
+    // A row of the menu, after the pages of the account and before signing out, saying what is in use.
+    await expect(language).toContainText('Language');
+    await expect(language.locator("[data-ui='language-current']")).toHaveText('English');
+    await expect(menu.getByRole('menuitem')).toHaveText([
+      /Switch$/,
+      /^Account settings$/,
+      /^Preferences$/,
+      /^Notify$/,
+      /^Language\s*English$/,
+      /^Sign out$/,
+    ]);
+
+    await language.click();
+    const options = page.locator("[data-ui='language-menu']").getByRole('menuitemradio');
+    // Each language is named in itself, whatever language is on screen.
+    await expect(options).toHaveText(['简体中文', 'English']);
+    await expect(options.nth(1)).toHaveAttribute('aria-checked', 'true');
+
+    const saved = page.waitForRequest(
+      (request) => request.method() === 'PUT' && request.url().includes('/api/v1/me/preferences'),
+    );
+    await options.first().click();
+    expect((await saved).postDataJSON()).toMatchObject({ language: 'zh-cn' });
+    await expect(page.locator('html')).toHaveAttribute('lang', 'zh-cn');
+
+    // Still Chinese after a reload, and the menu says so.
+    await page.reload();
+    await page.getByRole('button', { name: '用户菜单' }).click();
+    await expect(page.locator("[data-ui='language-trigger']")).toContainText('语言');
+    await expect(page.locator("[data-ui='language-current']")).toHaveText('简体中文');
+  });
+
+  test('what the backend names in the reader\'s language is read again once the language is kept', async ({
+    page,
+    mockServer,
+  }) => {
+    await mountMockRoutes(page, mockServer.port);
+    // Built-in functions are described by the backend, in the language it has for the reader.
+    const order: string[] = [];
+    await page.route('**/api/v1/functions', (route) => {
+      order.push('functions read');
+      return route.fulfill({ json: [] });
+    });
+    page.on('response', (response) => {
+      if (response.request().method() === 'PUT' && response.url().includes('/api/v1/me/preferences')) {
+        order.push('language kept');
+      }
+    });
+
+    await page.goto('/functions');
+    await expect.poll(() => order).toEqual(['functions read']);
+
+    await page.getByRole('button', { name: 'User menu' }).click();
+    await page.locator("[data-ui='language-trigger']").click();
+    await page.getByRole('menuitemradio', { name: '简体中文' }).click();
+
+    // After the save, not before it: the backend goes by the language it has kept.
+    await expect.poll(() => order).toEqual(['functions read', 'language kept', 'functions read']);
+  });
+
+  test('a language that cannot be kept is put back', async ({ page, mockServer }) => {
+    await mountMockRoutes(page, mockServer.port);
+    await page.route('**/api/v1/me/preferences', (route) =>
+      route.request().method() === 'PUT'
+        ? route.fulfill({ status: 500, json: { error: 'preferences unavailable' } })
+        : route.fallback(),
+    );
+    await page.goto('/account/settings/profile');
+    await page.getByRole('button', { name: 'User menu' }).click();
+    await page.locator("[data-ui='language-trigger']").click();
+    await page.getByRole('menuitemradio', { name: '简体中文' }).click();
+
+    await expect(page.getByText('preferences unavailable')).toBeVisible();
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en-us');
+  });
+});
+

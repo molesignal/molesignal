@@ -1,0 +1,569 @@
+{
+  "kubernetes": {
+    "name": "Kubernetes",
+    "description": "通过 Fluent Bit DaemonSet 采集集群中所有 Pod 的 stdout/stderr 日志。",
+    "steps": {
+      "1": {
+        "title": "创建命名空间与 ConfigMap"
+      },
+      "2": {
+        "title": "部署 Fluent Bit DaemonSet",
+        "description": "将下面 YAML 保存为 fluent-bit-daemonset.yaml，并 apply。"
+      },
+      "3": {
+        "title": "验证日志已进入",
+        "description": "一分钟后回到 Logs 页面，stream 选 app-logs 应该能看到 kubernetes.* 字段。"
+      }
+    }
+  },
+  "linux": {
+    "name": "Linux 主机",
+    "description": "使用 Vector 在 Linux 主机上采集 journald。",
+    "steps": {
+      "1": {
+        "title": "安装 Vector"
+      },
+      "2": {
+        "title": "配置 /etc/vector/vector.yaml"
+      }
+    }
+  },
+  "windows": {
+    "name": "Windows 主机",
+    "description": "使用 Windows Event Forwarding + winlogbeat 推送 Event Log。",
+    "steps": {
+      "1": {
+        "title": "安装 winlogbeat"
+      },
+      "2": {
+        "title": "编辑 winlogbeat.yml"
+      }
+    }
+  },
+  "aws": {
+    "name": "AWS (CloudWatch + S3)",
+    "description": "通过 CloudWatch Logs subscription + Kinesis Firehose 把日志推送到 MoleSignal。",
+    "steps": {
+      "1": {
+        "title": "创建 Firehose delivery stream（HTTP endpoint 目标）",
+        "description": "Firehose 带不了 Bearer，走 push connector：endpoint URL 填下方地址，access key 填在「数据源 → 连接器」里创建的 connector push token。"
+      },
+      "2": {
+        "title": "订阅 CloudWatch Logs"
+      }
+    }
+  },
+  "gcp": {
+    "name": "GCP (Cloud Logging)",
+    "description": "通过 Pub/Sub sink 把 Cloud Logging 推送到 MoleSignal HTTP endpoint。",
+    "steps": {
+      "1": {
+        "title": "创建 Cloud Logging sink → Pub/Sub topic"
+      },
+      "2": {
+        "title": "订阅 + 转发到 MoleSignal",
+        "description": "用 Cloud Run 函数读取 Pub/Sub，POST 到 {{ENDPOINT}}/api/v1/intake/logs/default，带 Authorization: Bearer <Token>。"
+      }
+    }
+  },
+  "azure": {
+    "name": "Azure (Event Hubs)",
+    "description": "通过 Diagnostic Settings → Event Hub → Function 转发到 MoleSignal。",
+    "steps": {
+      "1": {
+        "title": "在 Azure Portal 配置 Diagnostic Settings",
+        "description": "Target Event Hub，再部署 Azure Function 消费 Event Hub 并 POST 到 {{ENDPOINT}}/api/v1/intake/logs/default（带 Authorization: Bearer <Token>）。"
+      }
+    }
+  },
+  "rum": {
+    "name": "Web RUM",
+    "description": "浏览器真实用户监控：页面性能、前端错误、资源与用户会话。",
+    "steps": {
+      "1": {
+        "title": "安装浏览器 SDK"
+      },
+      "2": {
+        "title": "初始化应用"
+      },
+      "3": {
+        "title": "上传生产 Source Map",
+        "description": "在「RUM 设置 → Source Maps 与 Symbols」上传 .map，应用 ID、service 和 release 必须与事件完全一致。",
+        "note": "不要把 RUM Client Token 用于上传；调试产物上传需要已登录且具备数据流配置权限。"
+      },
+      "4": {
+        "title": "验证错误事件",
+        "description": "触发一条测试错误，然后在 RUM 错误列表确认应用、版本和源码位置。"
+      }
+    }
+  },
+  "rum-flutter": {
+    "name": "Flutter RUM",
+    "description": "使用 MoleSignal Flutter SDK 采集页面、交互、错误、资源、慢帧与会话回放。",
+    "steps": {
+      "1": {
+        "title": "安装 Flutter SDK"
+      },
+      "2": {
+        "title": "初始化并安装导航观察器"
+      },
+      "3": {
+        "title": "生成 Flutter AOT symbols",
+        "description": "每个发布版本和架构都要保留对应 .symbols 文件。"
+      },
+      "4": {
+        "title": "上传并验证 symbols",
+        "description": "在「RUM 设置 → Source Maps 与 Symbols」选择 Flutter Symbols，填写相同应用 ID、service、release、平台和架构，逐个上传 .symbols。",
+        "note": "当前 SDK 的生产堆栈仍需按下方 Flutter SDK 修复清单补齐相对地址和构建标识，才能稳定命中 AOT symbols。"
+      },
+      "5": {
+        "title": "验证会话与错误",
+        "description": "运行 release 包触发测试异常，确认 RUM 会话、错误和回放均归属当前应用。"
+      }
+    }
+  },
+  "rum-android": {
+    "name": "Android 原生 RUM",
+    "description": "Android 原生应用通过 RUM HTTP 协议上报会话与错误，并支持 R8/NDK 堆栈还原。",
+    "steps": {
+      "1": {
+        "title": "接入 RUM HTTP 协议",
+        "description": "Android 原生 SDK 发布前，可先用现有网络层接入。以下演示 errors；sessions、actions、replay 分别发送到 /api/v1/rum/sessions、/api/v1/rum/actions、/api/v1/rum/replay，且必须使用同一 application ID。"
+      },
+      "2": {
+        "title": "保留 R8 mapping.txt",
+        "description": "Release 构建后保存 app/build/outputs/mapping/release/mapping.txt；每次发布都会变化。"
+      },
+      "3": {
+        "title": "保留 NDK 未剥离符号",
+        "description": "包含 C/C++ 时，保留各 ABI 的未剥离 .so。上传前可 gzip，但不要只上传已 strip 的 APK 内 .so。"
+      },
+      "4": {
+        "title": "上报 NDK 帧地址",
+        "description": "Native 崩溃帧必须包含模块、指令地址、镜像加载地址和 Build ID；服务端会换算为模块相对地址。"
+      },
+      "5": {
+        "title": "上传 Android 调试产物",
+        "description": "在「RUM 设置 → Source Maps 与 Symbols」分别上传 Android mapping.txt 与 Android Native Symbols；填写应用 ID、版本、ABI 和 Build ID。"
+      },
+      "6": {
+        "title": "验证混淆堆栈",
+        "description": "使用 release 包触发测试异常，确认类名、方法名和源码行号已还原。"
+      }
+    }
+  },
+  "rum-ios": {
+    "name": "iOS 原生 RUM",
+    "description": "iOS 原生应用通过 RUM HTTP 协议上报错误地址，并使用 dSYM 恢复函数与源码位置。",
+    "steps": {
+      "1": {
+        "title": "接入 RUM HTTP 协议",
+        "description": "iOS 原生 SDK 发布前，可先通过 URLSession 接入。以下演示 errors；sessions、actions、replay 分别发送到 /api/v1/rum/sessions、/api/v1/rum/actions、/api/v1/rum/replay，且必须使用同一 application ID。"
+      },
+      "2": {
+        "title": "归档并保留 dSYM",
+        "description": "Xcode Archive 后保留 .xcarchive；应用二进制和 dSYM UUID 必须一致。"
+      },
+      "3": {
+        "title": "上传 dSYM DWARF 文件",
+        "description": "在「RUM 设置 → Source Maps 与 Symbols」选择 Apple dSYM，上传 dSYM 包内 Contents/Resources/DWARF/<AppName> 文件或其 .gz，并填写 UUID。"
+      },
+      "4": {
+        "title": "验证 release 堆栈",
+        "description": "使用 TestFlight 或 release 设备包触发测试错误，确认函数、文件和行号已恢复。"
+      }
+    }
+  },
+  "continuous-profiling": {
+    "name": "持续性能分析",
+    "description": "持续性能分析（火焰图）：OTLP Profiles / Pyroscope / pprof 直传三种接入，定位 CPU / 内存 / 锁竞争。",
+    "steps": {
+      "1": {
+        "title": "OTLP Profiles (OpenTelemetry)",
+        "description": "把 OTel eBPF profiler 或 SDK 指向固定提供的 OTLP profiles 端点（Alpha）。"
+      },
+      "2": {
+        "title": "Pyroscope SDK",
+        "description": "现有 Pyroscope agent 可直接对接兼容 intake 端点（format=pprof|folded|lines）。"
+      },
+      "3": {
+        "title": "原始 pprof 上传",
+        "description": "直接上传 gzip 压缩的 pprof（例如来自 runtime/pprof），或用 Profiles 页右上角的上传按钮。"
+      }
+    }
+  },
+  "curl": {
+    "name": "curl（原始 JSON）",
+    "description": "最简单：HTTP POST 一个 JSON 数组到 intake endpoint。",
+    "steps": {
+      "1": {
+        "title": "发送事件"
+      },
+      "2": {
+        "title": "响应"
+      }
+    }
+  },
+  "bulk-ndjson": {
+    "name": "批量 NDJSON",
+    "description": "批量推送：Elasticsearch 兼容 _bulk，或原生 intake 直接收 JSON 数组。",
+    "steps": {
+      "1": {
+        "title": "Elasticsearch 兼容 _bulk",
+        "description": "action + doc 行交替（NDJSON）；_index 决定目标 stream，缺省用 stream-name 头或 default。"
+      },
+      "2": {
+        "title": "原生批量（JSON 数组）",
+        "description": "不需要 ES 格式时，直接 POST 一个 JSON 数组到 intake endpoint，单次最多 5 MB。"
+      }
+    }
+  },
+  "opentelemetry": {
+    "name": "OpenTelemetry",
+    "description": "OpenTelemetry SDK / 应用直连 OTLP/HTTP，logs/metrics/traces 三信号统一接入。",
+    "steps": {
+      "1": {
+        "title": "OTLP/HTTP 端点",
+        "description": "endpoint 填到 /api，SDK 自动追加 /v1/{signal}（→ /api/v1/traces 等）；可选 stream-name 头选目标 stream。"
+      },
+      "2": {
+        "title": "环境变量（SDK / auto-instrumentation）"
+      },
+      "3": {
+        "title": "OTLP gRPC（:4317）",
+        "description": "OTLP gRPC 固定监听 :4317，可通过 [otlp_grpc] 调整监听地址、端口和消息大小。",
+        "note": "对外端口：生产环境建议为 :4317 配置 TLS 与防火墙策略。"
+      }
+    }
+  },
+  "otel-collector": {
+    "name": "OTel Collector",
+    "description": "通过 OpenTelemetry Collector 的 otlphttp exporter 中转 logs/metrics/traces 到 MoleSignal。",
+    "steps": {
+      "1": {
+        "title": "collector 配置（otlphttp exporter）",
+        "description": "Collector 走 OTLP/HTTP 转发：endpoint 填到 /api，SDK 自动追加 /v1/{signal}。"
+      },
+      "2": {
+        "title": "collector 配置（otlp gRPC exporter，:4317）",
+        "description": "改走固定提供的 OTLP gRPC（:4317）。明文连接加 tls.insecure: true，生产经 TLS 时去掉。"
+      }
+    }
+  },
+  "nginx": {
+    "name": "NGINX",
+    "description": "access.log + error.log 通过 Fluent Bit tail。",
+    "steps": {
+      "1": {
+        "title": "Fluent Bit 输入配置"
+      }
+    }
+  },
+  "apache": {
+    "name": "Apache httpd",
+    "description": "mod_log_config 标准格式 + Vector tail。",
+    "steps": {
+      "1": {
+        "title": "参考 NGINX 示例（换用 apache parser）",
+        "description": "使用 Fluent Bit 或 Vector tail /var/log/apache2/access.log。"
+      }
+    }
+  },
+  "haproxy": {
+    "name": "HAProxy",
+    "description": "通过 stats socket + log-format JSON。",
+    "steps": {
+      "1": {
+        "title": "haproxy.cfg"
+      }
+    }
+  },
+  "postgres": {
+    "name": "PostgreSQL",
+    "description": "采集 slow query log + pg_stat_statements 指标。",
+    "steps": {
+      "1": {
+        "title": "开启慢查询日志"
+      },
+      "2": {
+        "title": "Fluent Bit 采集",
+        "description": "Tail /var/log/postgresql/postgresql-*.log, parser=postgres。"
+      }
+    }
+  },
+  "mysql": {
+    "name": "MySQL",
+    "description": "general_log + slow_query_log。",
+    "steps": {
+      "1": {
+        "title": "my.cnf"
+      }
+    }
+  },
+  "mongodb": {
+    "name": "MongoDB",
+    "description": "mongod 的 systemLog + Atlas DB metrics。",
+    "steps": {
+      "1": {
+        "title": "mongod.conf"
+      }
+    }
+  },
+  "clickhouse": {
+    "name": "ClickHouse",
+    "description": "system.query_log 推送到 MoleSignal。",
+    "steps": {
+      "1": {
+        "title": "导出 query_log（JSONEachRow）"
+      }
+    }
+  },
+  "redis": {
+    "name": "Redis",
+    "description": "redis-exporter (Prometheus) + slow log。",
+    "steps": {
+      "1": {
+        "title": "部署 redis-exporter"
+      },
+      "2": {
+        "title": "Prometheus remote_write",
+        "description": "把 :9121/metrics 抓取后 remote_write 到 {{ENDPOINT}}/api/v1/prometheus/api/v1/write（带 Authorization: Bearer <Token>）。"
+      }
+    }
+  },
+  "falco": {
+    "name": "Falco",
+    "description": "Kubernetes 运行时安全事件。",
+    "steps": {
+      "1": {
+        "title": "falcosidekick 转发",
+        "description": "Falco 原生 http_output 不能加自定义请求头，用 falcosidekick 注入 Bearer。"
+      }
+    }
+  },
+  "osquery": {
+    "name": "osquery",
+    "description": "主机审计 + 配置漂移。",
+    "steps": {
+      "1": {
+        "title": "osquery.conf"
+      }
+    }
+  },
+  "crowdstrike": {
+    "name": "CrowdStrike Falcon",
+    "description": "通过 Falcon Streaming API。",
+    "steps": {
+      "1": {
+        "title": "使用 Falcon SIEM Connector，sink=MoleSignal HTTP",
+        "description": "需 Falcon API client+secret。"
+      }
+    }
+  },
+  "github-actions": {
+    "name": "GitHub Actions",
+    "description": "workflow_run / deployment_status events。",
+    "steps": {
+      "1": {
+        "title": "工作流 webhook"
+      }
+    }
+  },
+  "argocd": {
+    "name": "ArgoCD",
+    "description": "sync events + application health。",
+    "steps": {
+      "1": {
+        "title": "argocd-notifications-cm",
+        "description": "配置 webhook trigger 到 MoleSignal HTTP endpoint。"
+      }
+    }
+  },
+  "jenkins": {
+    "name": "Jenkins",
+    "description": "build_started / build_finished events。",
+    "steps": {
+      "1": {
+        "title": "使用 Logstash plugin 或 HTTP Request plugin",
+        "description": "POST build events 到 MoleSignal HTTP endpoint。"
+      }
+    }
+  },
+  "envoy": {
+    "name": "Envoy",
+    "description": "access logs JSON + statsd metrics + OTel traces。",
+    "steps": {
+      "1": {
+        "title": "访问日志配置"
+      }
+    }
+  },
+  "traefik": {
+    "name": "Traefik",
+    "description": "JSON access logs + Prometheus metrics。",
+    "steps": {
+      "1": {
+        "title": "traefik.yaml"
+      }
+    }
+  },
+  "cloudflare": {
+    "name": "Cloudflare Logpush",
+    "description": "HTTP requests logpush 到 MoleSignal endpoint。",
+    "steps": {
+      "1": {
+        "title": "配置 Logpush job",
+        "description": "destination_conf 指向 {{ENDPOINT}}/api/v1/_cloudflare，并带 header X-Connector-Token=<connector-push-token>（push connector 自鉴权，不用 Bearer）。"
+      }
+    }
+  },
+  "kafka": {
+    "name": "Apache Kafka",
+    "description": "通过 Kafka Connect Sink Connector 或 kafka-exporter 推送。",
+    "steps": {
+      "1": {
+        "title": "Kafka Connect → HTTP Sink"
+      }
+    }
+  },
+  "rabbitmq": {
+    "name": "RabbitMQ",
+    "description": "rabbitmq_prometheus + shovel plugin。",
+    "steps": {
+      "1": {
+        "title": "Enable rabbitmq_prometheus"
+      }
+    }
+  },
+  "nats": {
+    "name": "NATS",
+    "description": "NATS server monitoring endpoint /varz, /connz。",
+    "steps": {
+      "1": {
+        "title": "Scrape /metrics on :7777",
+        "description": "用 Prometheus remote_write 接入。"
+      }
+    }
+  },
+  "python": {
+    "name": "Python",
+    "description": "OpenTelemetry Python SDK。",
+    "steps": {
+      "1": {
+        "title": "安装"
+      },
+      "2": {
+        "title": "运行"
+      }
+    }
+  },
+  "go": {
+    "name": "Go",
+    "description": "go.opentelemetry.io/otel SDK + otlptracehttp。",
+    "steps": {
+      "1": {
+        "title": "main.go"
+      }
+    }
+  },
+  "java": {
+    "name": "Java",
+    "description": "OpenTelemetry Java Agent（零侵入）。",
+    "steps": {
+      "1": {
+        "title": "启动 JVM 时加 agent"
+      }
+    }
+  },
+  "node": {
+    "name": "Node.js",
+    "description": "@opentelemetry/auto-instrumentations-node。",
+    "steps": {
+      "1": {
+        "title": "安装"
+      },
+      "2": {
+        "title": "启动"
+      }
+    }
+  },
+  "rust": {
+    "name": "Rust",
+    "description": "tracing-opentelemetry + opentelemetry-otlp。",
+    "steps": {
+      "1": {
+        "title": "Cargo.toml"
+      },
+      "2": {
+        "title": "初始化"
+      }
+    }
+  },
+  "dotnet": {
+    "name": ".NET",
+    "description": "OpenTelemetry.AutoInstrumentation for .NET。",
+    "steps": {
+      "1": {
+        "title": "设置环境变量启动",
+        "description": "与 Java 类似，使用 OTel auto-instrumentation，OTLP_PROTOCOL=http/protobuf、ENDPOINT 指向 /api。"
+      }
+    }
+  },
+  "openai": {
+    "name": "OpenAI",
+    "description": "采集每次 OpenAI API 调用的 prompt / completion / token 数 / 延迟。",
+    "steps": {
+      "1": {
+        "title": "使用 OpenLLMetry SDK"
+      }
+    }
+  },
+  "anthropic": {
+    "name": "Anthropic",
+    "description": "Claude API 调用 instrument，记录 model / prompt / output / token usage。",
+    "steps": {
+      "1": {
+        "title": "Python"
+      }
+    }
+  },
+  "langchain": {
+    "name": "LangChain",
+    "description": "Chain / Agent step-by-step trace。",
+    "steps": {
+      "1": {
+        "title": "callback handler"
+      }
+    }
+  },
+  "llamaindex": {
+    "name": "LlamaIndex",
+    "description": "RAG pipeline 追踪（query → retrieve → synthesize）。",
+    "steps": {
+      "1": {
+        "title": "set_global_handler(\"molesignal\")",
+        "description": "类似 langchain，使用 OpenInference instrumentation。"
+      }
+    }
+  },
+  "webhook": {
+    "name": "通用 HTTP 接入",
+    "description": "任意服务通过 HTTP POST JSON，把事件落到指定 stream。",
+    "steps": {
+      "1": {
+        "title": "端点",
+        "description": "把 <stream-name> 换成目标 stream 名；不存在时由 intake 按需建流。"
+      }
+    }
+  },
+  "graphql-subscription": {
+    "name": "GraphQL Subscriptions",
+    "description": "订阅 GraphQL subscription 事件作为流。",
+    "steps": {
+      "1": {
+        "title": "使用 WebSocket relay",
+        "description": "部署 relay 节点，把 subscription 数据 forward 到 MoleSignal。"
+      }
+    }
+  }
+}

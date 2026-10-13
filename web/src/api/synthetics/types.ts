@@ -261,6 +261,14 @@ export interface CreateMonitorInput {
   alert_on_flaky: boolean;
 }
 
+/**
+ * Where one attempt spent its time, in microseconds.
+ *
+ * Each phase is a duration of its own, not an offset from the start of the
+ * attempt, summed over the connections the attempt opened, so the phases come to
+ * at most `total_micros`. A phase the probe did not time is absent.
+ * `TimingBreakdown` in `proto/probe/v1/probe.proto` is the full definition.
+ */
 export interface TimingBreakdown {
   dns_micros?: number;
   connect_micros?: number;

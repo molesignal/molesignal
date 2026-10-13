@@ -1,3 +1,4 @@
+import { whenStreamExists } from '@/api/missingStream';
 import { http } from '@/lib/http';
 
 export interface ApplicationSummaryParams {
@@ -22,20 +23,25 @@ interface ApplicationSummaryResponse {
   items: ApplicationSummary[];
 }
 
-/** Fetches the compact application read model; no session or action rows leave the backend. */
+/**
+ * Fetches the compact application read model; no session or action rows leave the backend.
+ * No application is listed before the first session creates the stream.
+ */
 export async function listApplicationSummaries(
   params: ApplicationSummaryParams,
 ): Promise<ApplicationSummary[]> {
-  const { data } = await http.get<ApplicationSummaryResponse>(
-    '/rum/applications/summary',
-    {
-      params: {
-        from: params.from_micros,
-        to: params.to_micros,
-        ...(params.environment ? { environment: params.environment } : {}),
-        ...(params.version ? { version: params.version } : {}),
+  return whenStreamExists(async () => {
+    const { data } = await http.get<ApplicationSummaryResponse>(
+      '/rum/applications/summary',
+      {
+        params: {
+          from: params.from_micros,
+          to: params.to_micros,
+          ...(params.environment ? { environment: params.environment } : {}),
+          ...(params.version ? { version: params.version } : {}),
+        },
       },
-    },
-  );
-  return data.items;
+    );
+    return data.items;
+  }, () => []);
 }

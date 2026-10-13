@@ -168,6 +168,38 @@
     "critical": "严重",
     "no_traffic": "无流量"
   },
+  "pulse": {
+    "eyebrow": "服务健康",
+    "verdict": {
+      "critical_one": "{{count}} 个服务处于严重状态",
+      "critical_other": "{{count}} 个服务处于严重状态",
+      "warning_one": "{{count}} 个服务需要关注",
+      "warning_other": "{{count}} 个服务需要关注",
+      "healthy": "所有服务运行正常",
+      "idle": "当前时间范围内没有流量"
+    },
+    "detail": "{{total}} 个服务中 {{healthy}} 个健康",
+    "distribution": "服务健康分布"
+  },
+  "first_run": {
+    "eyebrow": "应用性能",
+    "connect": "接入服务",
+    "explore_traces": "打开链路",
+    "steps": {
+      "instrument": {
+        "title": "为服务接入埋点",
+        "description": "在后端服务中加入 OpenTelemetry SDK 或 Agent。"
+      },
+      "send": {
+        "title": "上报 Trace",
+        "description": "把导出器指向本工作区的 OTLP 端点。"
+      },
+      "watch": {
+        "title": "等待数据出现",
+        "description": "吞吐量、错误和延迟会在一分钟内显示在这里。"
+      }
+    }
+  },
   "quality": {
     "activation_title": "APM 数据从当前窗口内开始",
     "activation_description": "投影于 {{time}} 启动，更早的数据不可用。",

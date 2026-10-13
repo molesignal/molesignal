@@ -2,30 +2,19 @@ import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import {
-  StatusPageBand,
   StatusPageCanvas,
-  StatusPageFilterBand,
-  StatusPageKpiBand,
-  StatusPageListSurface,
+  StatusPageList,
   StatusPageSection,
 } from './Surfaces';
 import { SettingsCard, SettingsFooter } from './settings/SettingsSection';
 
 describe('Status Pages surface hierarchy', () => {
-  it('uses one canvas with gutter-separated KPI, filter and list surfaces', () => {
+  it('sets a list and what it is showing on one surface', () => {
     const { container } = render(
       <StatusPageCanvas>
-        <StatusPageKpiBand
-          items={[
-            { label: 'Overall', value: 'Operational', tone: 'good' },
-            { label: 'Components', value: 3 },
-            { label: 'Incidents', value: 0 },
-            { label: 'Maintenance', value: 1 },
-          ]}
-        />
-        <StatusPageBand>Actions</StatusPageBand>
-        <StatusPageFilterBand>Filters</StatusPageFilterBand>
-        <StatusPageListSurface>Rows</StatusPageListSurface>
+        <StatusPageList head={<span>Views and filters</span>} action={<button type="button">Add</button>}>
+          <div data-rows>Rows</div>
+        </StatusPageList>
         <StatusPageSection title="Activity">Events</StatusPageSection>
       </StatusPageCanvas>,
     );
@@ -33,33 +22,33 @@ describe('Status Pages surface hierarchy', () => {
     const canvas = container.querySelector('[data-status-page-canvas]');
     expect(canvas?.className).not.toMatch(/rounded|shadow|border/);
 
-    const kpis = container.querySelector('[data-status-page-kpis]');
-    expect(kpis?.className).toContain('gap-[12px]');
-    expect(kpis?.className).not.toMatch(/border/);
-    expect(kpis?.firstElementChild?.className).toContain('rounded-md');
-    expect(kpis?.firstElementChild?.className).toContain('shadow-functional-surface');
-    expect(kpis?.firstElementChild?.className).not.toMatch(/\bborder/);
-
-    const band = container.querySelector('[data-status-page-band]');
-    expect(band?.className).toContain('rounded-md');
-    expect(band?.className).toContain('shadow-functional-surface');
-    expect(band?.className).not.toMatch(/\bborder/);
-
-    for (const selector of [
-      '[data-status-page-filter-band]',
-      '[data-status-page-list-surface]',
-    ]) {
-      const region = container.querySelector(selector);
-      expect(region?.className).toContain('rounded-md');
-      expect(region?.className).toContain('shadow-functional-surface');
-      expect(region?.className).not.toMatch(/\bborder/);
-    }
+    // One card: the head and the rows it filters are not two surfaces with a gutter between.
+    const list = container.querySelector('[data-status-page-list]');
+    expect(list?.className).toContain('rounded-md');
+    expect(list?.className).toContain('shadow-functional-surface');
+    expect(list?.className).not.toMatch(/\bborder/);
+    const head = list?.querySelector('[data-status-page-list-head]');
+    expect(head?.textContent).toBe('Views and filtersAdd');
+    expect(head?.nextElementSibling?.hasAttribute('data-rows')).toBe(true);
+    // The head is told from the rows by a hairline, not by a surface of its own.
+    expect(head?.className).toContain('border-b');
+    expect(head?.className).not.toMatch(/shadow|bg-/);
 
     const section = container.querySelector('[data-status-page-section]');
     expect(section?.className).toContain('rounded-md');
     expect(section?.className).toContain('shadow-functional-surface');
     expect(section?.className).not.toMatch(/\bborder/);
     expect(section?.firstElementChild?.className).not.toContain('border-b');
+  });
+
+  it('draws no head for a list that has neither a view nor an action', () => {
+    const { container } = render(
+      <StatusPageList>
+        <div>Rows</div>
+      </StatusPageList>,
+    );
+
+    expect(container.querySelector('[data-status-page-list-head]')).toBeNull();
   });
 
   it('uses functional-surface depth for settings', () => {

@@ -1,9 +1,4 @@
-import {
-  ChevronDown,
-  ChevronRight,
-  Circle,
-  Search,
-} from 'lucide-react';
+import { Search } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -14,10 +9,7 @@ import { toApiError } from '@/lib/http';
 import { ProductState } from '@/product/states';
 import { CopyIconButton } from '@/shell/CopyIconButton';
 import { cn } from '@/shell/lib/cn';
-import {
-  buildSignalJumps,
-  SignalReference,
-} from '@/shell/SignalReference';
+import { buildSignalJumps } from '@/shell/SignalReference';
 import { Badge } from '@/shell/ui/badge';
 import { Button } from '@/shell/ui/button';
 import { Input } from '@/shell/ui/input';
@@ -25,13 +17,14 @@ import { useFiltersStore } from '@/stores/useFiltersStore';
 import { colorKeyForService } from '@/viz/serviceColors';
 import { useThemePalette } from '@/viz/timeseries/themeAdapter';
 import { formatTraceDurationNs } from '@/viz/trace/duration';
-import { TraceOperationName } from '@/viz/trace/TraceOperationName';
 
 import { layoutTrace } from './layout';
 import { useTrace } from './loader';
 import { SpanInspector } from './span-detail/SpanInspector';
 import type { LaidOutTrace } from './types';
-import { flattenTrace, pct, signalLabelsForSpan, signalLabelsForTrace, traceContextWindow } from './waterfallModel';
+import { flattenTrace, signalLabelsForTrace, traceContextWindow } from './waterfall/model';
+import { WATERFALL_GRID, WaterfallRow } from './waterfall/Row';
+import { ShareKey } from './waterfall/ShareKey';
 
 interface TraceFlameProps {
   traceId: string;
@@ -44,8 +37,10 @@ const TIMELINE_TICKS = [0, 25, 50, 75, 100] as const;
 const COMPACT_TIMELINE_TICKS = [0, 50, 100] as const;
 const MINIMAL_TIMELINE_TICKS = [0, 100] as const;
 const END_ONLY_TIMELINE_TICKS = [100] as const;
-const TRACE_WATERFALL_GRID =
-  'grid-cols-[minmax(260px,40%)_minmax(0,1fr)] xl:grid-cols-[minmax(360px,420px)_minmax(0,1fr)]';
+
+/** A jump out of the trace, in its head: blue as text, underlined under the pointer and the keyboard. */
+const HEAD_LINK =
+  'whitespace-nowrap rounded font-semibold text-[var(--blue-ink)] underline-offset-2 hover:underline focus-visible:underline';
 
 function timelineTicksForWidth(width: number): readonly number[] {
   if (width < 120) return END_ONLY_TIMELINE_TICKS;
@@ -190,6 +185,12 @@ function JaegerTraceView({
     });
   };
 
+  const selectSpan = (span: Span) => {
+    setSelectedSpanId(span.span_id);
+    setDetailOpen(true);
+    onSpanClick?.(span);
+  };
+
   const collapseAll = () => {
     setCollapsed(new Set(layout.nodes.filter((node) => node.childIds.length > 0).map((node) => node.span.span_id)));
   };
@@ -199,7 +200,7 @@ function JaegerTraceView({
       <div className="flex flex-wrap items-center gap-3 border-b border-bd-0 px-4 py-3">
         <div className="min-w-[280px] flex-[1_1_360px]">
           <div className="flex min-w-0 items-center gap-1.5">
-            <span className="shrink-0 font-sans text-xs font-strong text-tx-2">Trace</span>
+            <span className="shrink-0 font-sans text-xs font-strong text-tx-2">{t('detail.trace_label')}</span>
             <code
               className="min-w-0 truncate font-mono text-xs font-semibold text-tx-0"
               data-testid="trace-id"
@@ -214,7 +215,7 @@ function JaegerTraceView({
                 void writeClipboardText(layout.trace.trace_id);
               }}
             />
-            {layout.trace.truncated && <Badge variant="destructive">truncated</Badge>}
+            {layout.trace.truncated && <Badge variant="destructive">{t('detail.truncated')}</Badge>}
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 font-sans text-xs text-tx-2">
             <span
@@ -237,10 +238,7 @@ function JaegerTraceView({
             {relatedLogsJump && (
               <>
                 <span aria-hidden="true" className="text-tx-3">·</span>
-                <Link
-                  to={relatedLogsJump.to}
-                  className="whitespace-nowrap font-semibold text-blue-soft underline-offset-2 hover:text-blue hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue/40"
-                >
+                <Link to={relatedLogsJump.to} className={HEAD_LINK}>
                   {t('detail.related_logs')}
                 </Link>
               </>
@@ -248,10 +246,7 @@ function JaegerTraceView({
             {serviceMetricsJump && (
               <>
                 <span aria-hidden="true" className="text-tx-3">·</span>
-                <Link
-                  to={serviceMetricsJump.to}
-                  className="whitespace-nowrap font-semibold text-blue-soft underline-offset-2 hover:text-blue hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue/40"
-                >
+                <Link to={serviceMetricsJump.to} className={HEAD_LINK}>
                   {t('detail.service_metrics')}
                 </Link>
               </>
@@ -264,15 +259,16 @@ function JaegerTraceView({
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search service, operation, span id..."
+              aria-label={t('detail.search_spans')}
+              placeholder={t('detail.search_spans')}
               className="h-8 pl-8 font-sans text-xs"
             />
           </div>
           <Button variant="outline" size="sm" onClick={() => setCollapsed(new Set())}>
-            Expand
+            {t('detail.expand_all')}
           </Button>
           <Button variant="outline" size="sm" onClick={collapseAll}>
-            Collapse
+            {t('detail.collapse_all')}
           </Button>
         </div>
       </div>
@@ -286,11 +282,13 @@ function JaegerTraceView({
             <div
               className={cn(
                 'sticky top-0 z-10 grid border-b border-bd-0 bg-bg-1',
-                TRACE_WATERFALL_GRID,
+                WATERFALL_GRID,
               )}
             >
-              <div className="border-r border-bd-0 px-4 py-2 font-sans text-xs font-strong tracking-normal text-tx-2">
-                Service / operation
+              <div className="flex min-w-0 items-center justify-between gap-3 border-r border-bd-0 px-4 py-2 font-sans text-xs font-strong tracking-normal text-tx-2">
+                <span className="truncate">{t('detail.column_span')}</span>
+                {/* Beside the timeline it explains; where the column is narrow the names keep the room. */}
+                <ShareKey className="hidden xl:flex" />
               </div>
               <div className="relative min-w-0 px-4 py-2">
                 <div ref={timelineHeaderRef} className="relative mr-[72px] h-5">
@@ -316,160 +314,26 @@ function JaegerTraceView({
             </div>
 
             {rows.map(({ node, children }) => {
-              const selected = selectedSpanId === node.span.span_id;
-              const match = matches.has(node.span.span_id);
-              const left = pct(node.startOffsetNs, totalNs);
-              const width = Math.max(0.35, pct(node.durationNs, totalNs));
-              const end = Math.min(100, left + width);
-              const durationLabel = formatTraceDurationNs(node.durationNs);
               const serviceColorKey = colorKeyForService(node.span.service);
-              const color = palette[serviceColorKey === '--red' ? '--purple' : serviceColorKey];
-              const signalLabels = signalLabelsForSpan(layout.trace.trace_id, node.span);
-              const source = { type: 'trace' as const, id: layout.trace.trace_id };
+
               return (
-                <div
+                <WaterfallRow
                   key={node.span.span_id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => {
-                    setSelectedSpanId(node.span.span_id);
-                    setDetailOpen(true);
-                    onSpanClick?.(node.span);
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      setSelectedSpanId(node.span.span_id);
-                      setDetailOpen(true);
-                      onSpanClick?.(node.span);
-                    }
-                  }}
-                  className={cn(
-                    'grid min-h-[42px] w-full cursor-pointer border-b border-bd-0 text-left transition-colors hover:bg-bg-2',
-                    TRACE_WATERFALL_GRID,
-                    selected && 'bg-bg-2',
-                  )}
-                >
-                  <div className="flex min-w-0 items-center border-r border-bd-0 px-3 py-1.5">
-                    <span style={{ width: node.depth * 16 }} className="shrink-0" />
-                    <span
-                      role="button"
-                      tabIndex={0}
-                      onClick={(event) => {
-                        if (children.length > 0) {
-                          event.stopPropagation();
-                          toggle(node.span.span_id);
-                          return;
-                        }
-                        setSelectedSpanId(node.span.span_id);
-                        setDetailOpen(true);
-                        onSpanClick?.(node.span);
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key !== 'Enter' && event.key !== ' ') return;
-                        event.preventDefault();
-                        if (children.length > 0) {
-                          event.stopPropagation();
-                          toggle(node.span.span_id);
-                          return;
-                        }
-                        setSelectedSpanId(node.span.span_id);
-                        setDetailOpen(true);
-                        onSpanClick?.(node.span);
-                      }}
-                      className="mr-1 grid h-5 w-5 shrink-0 place-items-center rounded text-tx-3 hover:bg-bg-3 hover:text-tx-0"
-                      aria-label={children.length > 0 ? 'Toggle span children' : 'Leaf span'}
-                    >
-                      {children.length > 0 ? (
-                        collapsed.has(node.span.span_id) ? (
-                          <ChevronRight className="h-3.5 w-3.5" />
-                        ) : (
-                          <ChevronDown className="h-3.5 w-3.5" />
-                        )
-                      ) : (
-                        <Circle className="h-2 w-2 fill-current" />
-                      )}
-                    </span>
-                    <span
-                      className="mr-2 h-2.5 w-2.5 shrink-0 rounded-sm"
-                      style={{ backgroundColor: color }}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex min-w-0 items-center">
-                        <SignalReference
-                          type="span_id"
-                          value={node.span.span_id}
-                          labelName="span_id"
-                          labels={signalLabels}
-                          time={traceTime}
-                          source={source}
-                          showIcon={false}
-                          className="min-w-0 flex-1 justify-start text-left text-tx-0 decoration-current/30 hover:text-tx-0 [&>span]:min-w-0 [&>span]:flex-1"
-                        >
-                          <TraceOperationName
-                            operation={node.span.operation}
-                            className="min-w-0 w-full font-sans text-xs font-strong text-tx-0"
-                          />
-                        </SignalReference>
-                      </div>
-                      <div className="mt-0.5 flex min-w-0 items-center gap-2 font-sans text-xs text-tx-3">
-                        <SignalReference
-                          type="service"
-                          value={node.span.service}
-                          labelName="service.name"
-                          labels={signalLabels}
-                          time={traceTime}
-                          source={source}
-                          showIcon={false}
-                          className="min-w-0 max-w-full truncate text-tx-3 decoration-current/30 hover:text-indigo-soft [&>span]:truncate"
-                        >
-                          {node.span.service}
-                        </SignalReference>
-                        {node.span.status === 'ERROR' && <span className="text-red">error</span>}
-                        {match && <span className="text-blue-soft">match</span>}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="relative min-w-0 px-4 py-2">
-                    <div className="relative h-full min-h-6 w-full">
-                      <div
-                        className="absolute inset-y-0 left-0 right-[72px]"
-                        data-testid="trace-timeline-track"
-                      >
-                        {timelineTicks.map((tick) => (
-                          <span
-                            key={tick}
-                            className="absolute top-0 h-full w-px bg-bd-0"
-                            style={{ left: `${tick}%` }}
-                          />
-                        ))}
-                        <div
-                          role="img"
-                          aria-label={`${node.span.operation}, ${node.span.service}, ${t('explore.table.duration')} ${durationLabel}`}
-                          className="absolute top-1/2 h-5 -translate-y-1/2 cursor-pointer rounded-sm transition-[filter] hover:brightness-110"
-                          data-testid="trace-span-bar"
-                          style={{ left: `${left}%`, width: `${width}%`, backgroundColor: color }}
-                        />
-                        <span
-                          aria-label={`${t('explore.table.duration')}: ${durationLabel}`}
-                          className="pointer-events-none absolute top-1/2 z-[1] ml-1.5 -translate-y-1/2 whitespace-nowrap font-mono text-xs font-medium tabular-nums text-tx-1"
-                          data-testid="trace-span-duration"
-                          style={{ left: `${end}%` }}
-                        >
-                          {durationLabel}
-                        </span>
-                        {node.span.events.map((event, index) => (
-                          <span
-                            key={`${node.span.span_id}-${event.name}-${index}`}
-                            className="absolute top-1/2 h-6 w-px -translate-y-1/2 bg-tx-0"
-                            title={event.name}
-                            style={{ left: `${pct(event.ts_ns - traceStartNs, totalNs)}%` }}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                  traceId={layout.trace.trace_id}
+                  node={node}
+                  hasChildren={children.length > 0}
+                  collapsed={collapsed.has(node.span.span_id)}
+                  selected={selectedSpanId === node.span.span_id}
+                  matched={matches.has(node.span.span_id)}
+                  // Red is a failed span's; a service that would be drawn in it takes purple.
+                  serviceColor={palette[serviceColorKey === '--red' ? '--purple' : serviceColorKey]}
+                  totalNs={totalNs}
+                  traceStartNs={traceStartNs}
+                  time={traceTime}
+                  ticks={timelineTicks}
+                  onSelect={selectSpan}
+                  onToggle={toggle}
+                />
               );
             })}
           </div>

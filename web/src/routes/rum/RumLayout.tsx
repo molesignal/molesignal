@@ -3,9 +3,9 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useLocation } from 'react-router-dom';
 
-import { KpiStrip, type KpiStripItem } from '@/admin';
 import { ProductState, type ProductStateProps } from '@/product/states';
 import { cn } from '@/shell/lib/cn';
+import { type Fact, Facts } from '@/shell/readout/Facts';
 import {
   surfacePanelClass,
   surfacePageRootClass,
@@ -14,13 +14,7 @@ import {
 } from '@/shell/SurfaceWorkbench';
 import { ModuleTabs } from '@/shell/tabs/ModuleTabs';
 import { ViewTabs } from '@/shell/tabs/ViewTabs';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/shell/ui/select';
+import { FittedSelect } from '@/shell/ui/fitted-select';
 
 // What is monitored, then what real users did there.
 const TABS: Array<{ suffix: string; key: string; group: string }> = [
@@ -95,56 +89,63 @@ export function RumSettingsTabs() {
   );
 }
 
+/**
+ * The frame every tab of RUM stands in.
+ *
+ * The module has one name, so the title does not change from tab to tab: the
+ * tabs say which one is open, and the sub-tabs of Performance and of the
+ * settings say which of theirs.
+ */
 export function RumListPage({
-  title,
-  subtitle,
   toolbar,
-  kpis,
-  kpiClassName,
+  lead,
   performance,
   settings,
   state,
   filterBar,
+  scope,
   bodyClassName,
   children,
 }: {
-  title: React.ReactNode;
-  subtitle?: string | undefined;
   toolbar?: React.ReactNode | undefined;
-  kpis?: readonly KpiStripItem[] | undefined;
-  kpiClassName?: string | undefined;
+  /** What the open tab found, in a line over its content. */
+  lead?: React.ReactNode | undefined;
   performance?: boolean | undefined;
   settings?: boolean | undefined;
   state?: ProductStateProps | null | undefined;
   filterBar?: React.ReactNode | undefined;
+  /**
+   * What the whole page is scoped to (application, environment, …), drawn as a
+   * row of the navigation card: where the reader is and what they are looking
+   * at are answered in one place.
+   */
+  scope?: React.ReactNode | undefined;
   bodyClassName?: string | undefined;
   children?: React.ReactNode | undefined;
 }) {
+  const { t } = useTranslation('rum');
+
   return (
     <div
       data-surface-workbench-page="rum"
       className={surfacePageRootClass}
     >
       <SurfacePageHeader
-        title={title}
-        subtitle={subtitle}
+        title={t('title')}
+        subtitle={t('subtitle')}
         toolbar={toolbar}
         breadcrumbs={null}
         backTo={null}
       />
-      <RumNavigation performance={performance} settings={settings} />
+      <RumNavigation performance={performance} settings={settings} scope={scope} />
       <SurfacePageBody className={cn('space-y-[12px]', bodyClassName)}>
-        {kpis && (
-          <KpiStrip
-            items={kpis}
-            className={cn(
-              'gap-[12px] xl:grid-cols-4 [&>div]:border-0 [&>div]:bg-[var(--functional-surface)] [&>div]:[box-shadow:var(--shadow-functional-surface)]',
-              kpiClassName,
-            )}
-          />
-        )}
+        {!state && lead}
         {filterBar && (
-          <div className="flex flex-wrap items-end gap-3 rounded-md bg-[var(--functional-surface)] p-[12px] [box-shadow:var(--shadow-functional-surface)]">
+          // One row: every control names itself, so none has a caption over it.
+          <div
+            data-rum-filters
+            className="flex flex-wrap items-center gap-2 rounded-md bg-[var(--functional-surface)] px-[12px] py-[8px] [box-shadow:var(--shadow-functional-surface)]"
+          >
             {filterBar}
           </div>
         )}
@@ -203,6 +204,14 @@ export function RumDetailPage({
   );
 }
 
+/** The widest a filter of a RUM page gets; under it, a filter is as wide as its longest choice. */
+const FILTER_MAX_WIDTH = 220;
+
+/**
+ * A filter of a RUM page. It has no caption: its first choice is the "all" of
+ * its dimension and names it ("All regions"), and a picked value is said with
+ * what it is a value of ("Region DE").
+ */
 export function RumFilterSelect({
   label,
   value,
@@ -214,26 +223,27 @@ export function RumFilterSelect({
   options: ReadonlyArray<{ value: string; label: string }>;
   onChange: (value: string) => void;
 }) {
+  const narrowed = value !== options[0]?.value;
+
   return (
-    <div className="grid gap-1">
-      <span className="type-caption font-sans font-strong text-tx-3">{label}</span>
-      <Select value={value} onValueChange={onChange}>
-        <SelectTrigger
-          aria-label={label}
-          className="h-8 w-auto min-w-[132px] px-2.5 py-0 text-xs font-strong text-tx-1"
-        >
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent align="start">
-          {options.map((option) => (
-            <SelectItem key={option.value} value={option.value} className="text-xs">
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+    <FittedSelect
+      data-rum-filter
+      aria-label={label}
+      value={value}
+      onValueChange={onChange}
+      options={options}
+      maxWidth={FILTER_MAX_WIDTH}
+      prefix={narrowed ? label : undefined}
+      className="font-strong text-tx-1"
+    />
   );
+}
+
+export type RumFact = Fact;
+
+/** What a RUM tab counted, in one line over its list. */
+export function RumFacts({ label, facts }: { label: string; facts: readonly RumFact[] }) {
+  return <Facts surface data-rum-facts="" label={label} facts={facts} />;
 }
 
 export function RumSectionHeader({
@@ -246,7 +256,9 @@ export function RumSectionHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex min-w-0 flex-wrap items-end justify-between gap-3">
+    // The action stands beside the title, at its middle: set on the bottom of a two-line title
+    // it sat against the list under it and far from the card's edge.
+    <div data-rum-section-head className="flex min-w-0 flex-wrap items-center justify-between gap-3">
       <div className="min-w-0">
         <h2 className="m-0 type-section-title font-sans font-display text-tx-0">{title}</h2>
         {description && <p className="mb-0 mt-1 text-xs text-tx-3">{description}</p>}
@@ -271,9 +283,11 @@ export function RumSurface({
 function RumNavigation({
   performance,
   settings,
+  scope,
 }: {
   performance?: boolean | undefined;
   settings?: boolean | undefined;
+  scope?: React.ReactNode | undefined;
 }) {
   const { t } = useTranslation('rum');
   const basePath = useRumBasePath();
@@ -305,6 +319,15 @@ function RumNavigation({
       {(performance || settings) && (
         <div className="border-t border-bd-0">
           {settings ? <RumSettingsTabs /> : <PerformanceTabs />}
+        </div>
+      )}
+      {scope && (
+        // Starts where the first tab's label does, so the two rows share a left edge.
+        <div
+          data-rum-scope
+          className="flex flex-wrap items-center gap-2 border-t border-bd-0 px-[20px] py-[8px]"
+        >
+          {scope}
         </div>
       )}
     </ModuleTabs>

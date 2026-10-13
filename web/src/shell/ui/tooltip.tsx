@@ -21,6 +21,7 @@ const TooltipContent = React.forwardRef<
       className={cn(
         floatingSurfaceClass,
         'z-50 max-w-[calc(100vw-1rem)] whitespace-normal break-words rounded-sm px-2 py-1 text-xs leading-relaxed',
+        'origin-[var(--radix-tooltip-content-transform-origin)] data-[state=delayed-open]:animate-pop-in data-[state=instant-open]:animate-pop-in data-[state=closed]:animate-pop-out',
         className,
       )}
       {...props}

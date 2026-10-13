@@ -127,4 +127,26 @@ describe('PageHeader navigation hierarchy', () => {
     expect(screen.getByRole('link', { name: 'Back' })).toBeTruthy();
     expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).toBeNull();
   });
+
+  it('says whether a row stands over its title, which the spacing of the header goes by', () => {
+    render(
+      <MemoryRouter initialEntries={['/profiles/compare']}>
+        <PageHeader title="Compare profiles" />
+      </MemoryRouter>,
+    );
+
+    const header = screen.getByTestId('page-header');
+    expect(header).toHaveAttribute('data-page-header-nav', 'true');
+    expect(within(header).getByRole('navigation', { name: 'Breadcrumb' })).not.toBeNull();
+
+    cleanup();
+    render(
+      <MemoryRouter initialEntries={['/profiles']}>
+        <PageHeader title="Continuous Profiling" />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId('page-header')).toHaveAttribute('data-page-header-nav', 'false');
+    expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).toBeNull();
+  });
 });

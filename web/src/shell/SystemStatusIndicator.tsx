@@ -88,7 +88,12 @@ export function SystemStatusIndicator({
         >
           <span
             aria-hidden
-            className={cn('h-2 w-2 rounded-full', STATUS_TONE[status])}
+            // Only a healthy system breathes; a degraded or lost one stays still.
+            className={cn(
+              'h-2 w-2 rounded-full',
+              STATUS_TONE[status],
+              status === 'healthy' && 'ms-live',
+            )}
           />
         </span>
       </TooltipTrigger>

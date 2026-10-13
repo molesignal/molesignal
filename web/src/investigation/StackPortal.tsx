@@ -8,14 +8,17 @@ import { DrawerFrame } from './DrawerFrame';
 const STAGGER_MS = 50;
 const ANIM_MS = 200;
 
-interface ExitingEntry {
+/** The drawer of a frame that left the stack, for as long as it slides out. */
+interface LeavingDrawer {
   frame: Frame;
-  /** Index in the original stack at the time of removal. */
+  /** Index in the stack the frame left. */
   index: number;
-  /** Total stack size at the time of removal. */
+  /** Size of the stack the frame left. */
   total: number;
-  /** Timestamp (perf.now()) when this exit animation should start. */
-  startAt: number;
+  /** How long the drawer waits before it starts to move. */
+  delayMs: number;
+  /** Timestamp (perf.now()) at which the slide-out is over and the drawer unmounts. */
+  goneAt: number;
 }
 
 /**
@@ -30,78 +33,97 @@ interface ExitingEntry {
  * Cascade-pop animation
  * ---------------------
  * The store's `popTo` removes frames synchronously. To get the spec'd
- * 50ms-staggered slide-out cascade, we mirror the previous stack in a ref
- * and, on any removal, push the gone frames onto an `exiting` list with
- * staggered `startAt` timestamps. Each exiting drawer renders with the
- * `animate-slide-out-right` keyframe; after `STAGGER_MS * i + ANIM_MS` it
- * is dropped from `exiting`.
+ * 50ms-staggered slide-out cascade, the drawers of the frames that left stay
+ * in the rendered list as `leaving`, the top one moving first, and slide out
+ * to the right (`DrawerFrame`); after `delayMs + ANIM_MS` an entry is dropped
+ * and its drawer unmounts.
+ *
+ * A leaving drawer is the drawer the frame already had: same list, same key.
+ * Mounting a second one for the animation would run the frame's content, and
+ * its queries, once more on the way out.
  */
 export function StackPortal() {
   const frames = useInvestigationStack((s) => s.frames);
-  const prevRef = React.useRef<Frame[]>([]);
-  const [exiting, setExiting] = React.useState<ExitingEntry[]>([]);
+  const leaving = useLeavingDrawers(frames);
 
-  React.useEffect(() => {
-    const prev = prevRef.current;
-    const prevTotal = prev.length;
-    const nowIds = new Set(frames.map((f) => f.id));
-    const gone = prev.filter((f) => !nowIds.has(f.id));
-    if (gone.length > 0) {
-      const t0 = performance.now();
-      const fresh = gone.map<ExitingEntry>((frame, i) => {
-        // Higher original index slides out first (top drawer leaves before
-        // the layers beneath it).
-        const originalIdx = prev.findIndex((p) => p.id === frame.id);
-        return { frame, index: originalIdx, total: prevTotal, startAt: t0 + i * STAGGER_MS };
-      });
-      setExiting((e) => [...e, ...fresh]);
-      // Schedule per-entry removal after stagger + animation.
-      fresh.forEach((entry, i) => {
-        const totalDelay = i * STAGGER_MS + ANIM_MS;
-        window.setTimeout(() => {
-          setExiting((cur) => cur.filter((x) => x.frame.id !== entry.frame.id));
-        }, totalDelay);
-      });
-    }
-    prevRef.current = frames;
-  }, [frames]);
-
-  if (frames.length === 0 && exiting.length === 0) return null;
+  if (frames.length === 0 && leaving.length === 0) return null;
 
   return createPortal(
     <>
       {/* Dim only when there's at least one live drawer. */}
       {frames.length > 0 && <div className="fixed inset-0 z-40 bg-overlay-soft" aria-hidden />}
-      {frames.map((frame, i) => (
-        <DrawerFrame
-          key={frame.id}
-          frame={frame}
-          index={i}
-          total={frames.length}
-          isTop={i === frames.length - 1}
-        />
-      ))}
-      {exiting.map((e) => (
-        <ExitingDrawer key={e.frame.id} entry={e} />
-      ))}
+      {[
+        ...frames.map((frame, i) => (
+          <DrawerFrame
+            key={frame.id}
+            frame={frame}
+            index={i}
+            total={frames.length}
+            isTop={i === frames.length - 1}
+          />
+        )),
+        ...leaving.map((entry) => (
+          <DrawerFrame
+            key={entry.frame.id}
+            frame={entry.frame}
+            index={entry.index}
+            total={entry.total}
+            isTop={false}
+            leaveDelayMs={entry.delayMs}
+          />
+        )),
+      ]}
     </>,
     document.body,
   );
 }
 
-/**
- * Wraps a soon-to-unmount DrawerFrame with the slide-out keyframe + a
- * stagger delay computed from the exit entry's `startAt`. After
- * `ANIM_MS` it is removed from the parent's `exiting` state and unmounts.
- */
-function ExitingDrawer({ entry }: { entry: ExitingEntry }) {
-  const delay = Math.max(0, entry.startAt - performance.now());
-  return (
-    <div
-      style={{ animationDelay: `${delay}ms` }}
-      className="animate-slide-out-right pointer-events-none"
-    >
-      <DrawerFrame frame={entry.frame} index={entry.index} total={entry.total} isTop={false} />
-    </div>
-  );
+/** The drawers that are still sliding out after their frames left `frames`. */
+function useLeavingDrawers(frames: Frame[]): LeavingDrawer[] {
+  const [seen, setSeen] = React.useState(frames);
+  const [leaving, setLeaving] = React.useState<LeavingDrawer[]>([]);
+
+  // Worked out while rendering, not in an effect after it: the drawer of a
+  // frame that has just left has to be in this very render. One render without
+  // it and React unmounts the drawer, and there is nothing left to slide out.
+  if (seen !== frames) {
+    setSeen(frames);
+    setLeaving(afterStackChange(leaving, seen, frames));
+  }
+
+  React.useEffect(() => {
+    const timers = leaving.map((entry) =>
+      window.setTimeout(
+        () => setLeaving((entries) => entries.filter((other) => other !== entry)),
+        entry.goneAt - performance.now(),
+      ),
+    );
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [leaving]);
+
+  return leaving;
+}
+
+function afterStackChange(leaving: LeavingDrawer[], before: Frame[], now: Frame[]): LeavingDrawer[] {
+  const open = new Set(now.map((frame) => frame.id));
+  // A frame that is back before its drawer was gone is simply open again.
+  const stillLeaving = leaving.filter((entry) => !open.has(entry.frame.id));
+  const gone = before.filter((frame) => !open.has(frame.id));
+  if (gone.length === 0 && stillLeaving.length === leaving.length) return leaving;
+
+  const t0 = performance.now();
+  return [
+    ...stillLeaving,
+    ...gone.map((frame, i) => {
+      // The top drawer leaves first, the layers beneath it follow.
+      const delayMs = (gone.length - 1 - i) * STAGGER_MS;
+      return {
+        frame,
+        index: before.indexOf(frame),
+        total: before.length,
+        delayMs,
+        goneAt: t0 + delayMs + ANIM_MS,
+      };
+    }),
+  ];
 }

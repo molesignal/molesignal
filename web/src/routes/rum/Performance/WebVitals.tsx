@@ -10,10 +10,11 @@ import { Pill, TimeRangeChip, type PillTone } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
 import { queryStateFor } from '@/shell/query/State';
 import { useAuthStore } from '@/stores/auth';
-import { formatWindowSummary, useTimeStore } from '@/stores/useTimeStore';
+import { useTimeStore } from '@/stores/useTimeStore';
+import { formatTimeWindowLabel } from '@/time/TimePicker';
 import { TimeSeriesSparkline } from '@/viz/timeseries/TimeSeriesChart';
 
-import { windowToMicros } from '../_helpers';
+import { formatDurationMs, windowToMicros } from '../_helpers';
 import { RumListPage, RumSectionHeader, RumSurface } from '../RumLayout';
 
 type VitalKey = 'lcp_ms' | 'fid_ms' | 'cls' | 'ttfb_ms';
@@ -36,6 +37,7 @@ const VITALS: VitalSpec[] = [
 
 export function WebVitals() {
   const { t } = useTranslation('rum');
+  const { t: tCommon } = useTranslation('common');
   const orgId = useAuthStore((state) => state.ctx?.org_id ?? '');
   const window = useTimeStore((state) => state.window);
   const range = React.useMemo(() => windowToMicros(window), [window]);
@@ -71,9 +73,7 @@ export function WebVitals() {
 
   return (
     <RumListPage
-      title={t('performance.web_vitals')}
-      subtitle={t('performance.web_vitals_subtitle') as string}
-      toolbar={<TimeRangeChip value={formatWindowSummary(window)} className="border-0" />}
+      toolbar={<TimeRangeChip className="border-0" />}
       performance
       state={pageState}
     >
@@ -144,7 +144,7 @@ export function WebVitals() {
               <span className="text-xs font-strong text-tx-2">
                 {t('performance.trend_title', { metric: activeSpec.label })}
               </span>
-              <span className="text-xs text-tx-3">{formatWindowSummary(window)}</span>
+              <span className="text-xs text-tx-3">{formatTimeWindowLabel(window, tCommon)}</span>
             </div>
             <VitalSparkline values={activeValues} spec={activeSpec} />
           </div>
@@ -369,7 +369,7 @@ function GradeDelta({ grade }: { grade: Grade }) {
   const { t } = useTranslation('rum');
   if (grade === 'good') {
     return (
-      <span className="mt-1 inline-flex items-center gap-0.5 text-xs text-green-soft">
+      <span className="mt-1 inline-flex items-center gap-0.5 text-xs text-[var(--green-ink)]">
         <ArrowDownRight className="h-3 w-3" />
         {t('experience.good')}
       </span>
@@ -379,7 +379,7 @@ function GradeDelta({ grade }: { grade: Grade }) {
     <span
       className={cn(
         'mt-1 inline-flex items-center gap-0.5 text-xs',
-        grade === 'poor' ? 'text-red-soft' : 'text-yellow-soft',
+        grade === 'poor' ? 'text-red-soft' : 'text-[var(--yellow-ink)]',
       )}
     >
       <ArrowUpRight className="h-3 w-3" />
@@ -426,7 +426,8 @@ function toneFor(grade: Grade): PillTone {
 
 function formatVital(value: number, spec: VitalSpec): string {
   if (spec.key === 'cls') return value.toFixed(3);
-  return `${Math.round(value)}${spec.unit}`;
+  // As every RUM tab writes a time: `2.7 s` and `96 ms`, not `2720ms`.
+  return formatDurationMs(value);
 }
 
 function rankByDimension(

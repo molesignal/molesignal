@@ -148,7 +148,6 @@ export async function installMockShellSession(
         external_url: '',
         signup_enabled: false,
         version: '26.0.0.0',
-        release_channel: 'alpha',
       },
     }),
   );

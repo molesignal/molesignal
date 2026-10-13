@@ -1,6 +1,6 @@
 import { Navigate, type RouteObject } from 'react-router-dom';
 
-import { StatusPages } from '.';
+import { StatusPages } from './list';
 import { StatusPageComponents } from './workspace/Components';
 import { StatusPageEvents } from './workspace/EventsPage';
 import { StatusPageHistory } from './workspace/History';

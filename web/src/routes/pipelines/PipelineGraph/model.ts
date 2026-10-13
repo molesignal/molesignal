@@ -1,5 +1,12 @@
 import type { PipelineInput, ScheduledPipeline } from '@/api/pipelines';
 
+import {
+  compileProcessor,
+  parseProcessor,
+  type ProcessorConfig,
+  type ProcessorOp,
+} from '../processors/catalog';
+
 export type PipelineSignalType = 'logs' | 'metrics' | 'traces';
 
 export interface Routing {
@@ -22,52 +29,62 @@ export interface TransformStep {
   operation?: 'route';
   routing?: Routing;
   target?: string;
+  /**
+   * The no-code processor this step's `script` was generated from. The backend
+   * runs the script and keeps this beside it, so the step opens as a form again.
+   */
+  processor?: ProcessorConfig;
 }
 
+/** What a step is, as the editor offers it: routing, a processor, or VRL written by hand. */
+export type StepType = 'route' | 'vrl' | ProcessorOp;
+
+export function stepType(step: TransformStep): StepType {
+  if (step.kind === 'builtin') return 'route';
+  return step.processor?.op ?? 'vrl';
+}
+
+/** The processor of a step, while its script is still the one the processor generates. */
+function processorOf(step: TransformStep): ProcessorConfig | undefined {
+  return step.processor && compileProcessor(step.processor) === step.script
+    ? step.processor
+    : undefined;
+}
+
+/**
+ * A pipeline as the editor holds it. What runs is narrower than the lists
+ * suggest, and the editor shows it that way:
+ *  - `sources[0]` is the stream that is read. A pipeline reads one stream; any
+ *    name after it was saved by an earlier editor and is never read.
+ *  - The first entry of `sinks` that is not a connector is the stream that is
+ *    written (unless a routing step picks the stream per event). Later stream
+ *    names are likewise never written. `connector:<id>` entries are all
+ *    delivered to; the id is empty until a connector is chosen.
+ *  - `transforms` run in order and may be none: the events are then written
+ *    as they were read.
+ */
 export interface PipelineGraphModel {
   mode?: 'scheduled' | 'realtime';
-  routing?: Routing;
   retainSource?: boolean;
   signalType: PipelineSignalType;
   sources: string[];
   sinks: string[];
   transforms: TransformStep[];
+  /** Kept as it was saved. Nothing reads it, so the editor does not offer it. */
   retryPolicy: string;
 }
 
+export const CONNECTOR_PREFIX = 'connector:';
 
-export const DEFAULT_VRL_SCRIPT = `. = parse_json!(.message)
+/** The connector a destination delivers to; `null` for a stream. */
+export function connectorOf(sink: string): string | null {
+  return sink.startsWith(CONNECTOR_PREFIX) ? sink.slice(CONNECTOR_PREFIX.length) : null;
+}
 
-.environment = "production"
-.cluster = "us-east-1"
-.level = downcase(.level || "info")
-
-if exists(.trace_id) {
-    .trace.id = .trace_id
-    del(.trace_id)
-}`;
-
-
-export const DEFAULT_GRAPH: Record<
-  PipelineSignalType,
-  { sources: string[]; sinks: string[]; transformName: string }
-> = {
-  logs: {
-    sources: ['app_logs'],
-    sinks: ['app_logs_enriched'],
-    transformName: 'normalize-logs',
-  },
-  metrics: {
-    sources: ['app_metrics'],
-    sinks: ['metrics_rollup'],
-    transformName: 'rollup-metrics',
-  },
-  traces: {
-    sources: ['app_traces'],
-    sinks: ['traces_normalized'],
-    transformName: 'normalize-traces',
-  },
-};
+/** Where in `sinks` the stream that is written sits; -1 when every destination is a connector. */
+export function writtenSinkIndex(sinks: readonly string[]): number {
+  return sinks.findIndex((sink) => connectorOf(sink) === null);
+}
 
 
 export function signalTypeFromPipeline(
@@ -97,36 +114,35 @@ export function pipelineGraphFromPipeline(
   fallbackType: PipelineSignalType = 'logs',
 ): PipelineGraphModel {
   const signalType = signalTypeFromPipeline(pipeline, fallbackType);
-  const defaults = DEFAULT_GRAPH[signalType];
   const steps = stepObject(pipeline?.function_steps);
-  const stepSources = stringsFrom(steps.sources);
-  const stepSinks = stringsFrom(steps.sinks);
-  const connectorSinks = stringsFrom(steps.sink_connectors).map((id) => `connector:${id}`);
+  // What is read and written is the pipeline's own source and target. The lists
+  // beside the steps repeat them, so those two lead whatever order the lists were saved in.
+  const sources = unique([...stringsFrom(pipeline?.source_stream), ...stringsFrom(steps.sources)]);
+  const streamSinks = unique([...stringsFrom(pipeline?.target_stream), ...stringsFrom(steps.sinks)]);
+  const connectorSinks = unique(stringsFrom(steps.sink_connectors)).map((id) => `${CONNECTOR_PREFIX}${id}`);
+
   return {
     mode: executionMode(pipeline),
     retainSource: typeof steps.retain_source === 'boolean' ? steps.retain_source : stepObject(steps.routing).retain_source === true,
     signalType,
-    sources: unique(stepSources.length > 0 ? stepSources : stringsFrom(pipeline?.source_stream, defaults.sources)),
-    sinks: unique([
-      ...(stepSinks.length > 0 ? stepSinks : stringsFrom(pipeline?.target_stream, defaults.sinks)),
-      ...connectorSinks,
-    ]),
-    transforms: processingStepsFromPipeline(pipeline, defaults.transformName),
+    // A pipeline that names no stream yet has the place for one, to be chosen.
+    sources: sources.length > 0 ? sources : [''],
+    sinks: [...(streamSinks.length > 0 ? streamSinks : ['']), ...connectorSinks],
+    transforms: processingStepsFromPipeline(pipeline),
     retryPolicy: typeof steps.retry_policy === 'string' ? steps.retry_policy : 'exponential',
   };
 }
 
+/** A pipeline nobody has filled in yet: a source and a destination to choose, and no steps. */
 export function defaultPipelineGraph(signalType: PipelineSignalType = 'logs'): PipelineGraphModel {
-  const defaults = DEFAULT_GRAPH[signalType];
-  return {
-    signalType,
-    sources: [...defaults.sources],
-    sinks: [...defaults.sinks],
-    transforms: [{ name: defaults.transformName, script: DEFAULT_VRL_SCRIPT }],
-    retryPolicy: 'exponential',
-  };
+  return pipelineGraphFromPipeline(null, signalType);
 }
 
+/**
+ * The pipeline as the backend takes it. Nothing is made up here: a flow that
+ * lacks a source, a destination or a script is held back by `validateGraph`
+ * before it gets this far.
+ */
 export function pipelineInputFromGraph({
   name,
   graph,
@@ -140,40 +156,37 @@ export function pipelineInputFromGraph({
   lookbackSecs?: number;
   enabled?: boolean;
 }): PipelineInput {
-  const defaults = DEFAULT_GRAPH[graph.signalType];
-  const sources = normalizedList(graph.sources, defaults.sources);
-  const allSinks = normalizedList(graph.sinks, defaults.sinks);
+  const sources = named(graph.sources);
+  const sinks = named(graph.sinks);
   const route = graph.transforms.filter((step) => step.kind === 'builtin').at(-1);
   const routeTarget = route ? (route.routing?.kind === 'field' ? route.routing.fallback : route.target) : undefined;
-  const streamSinks = routeTarget ? [routeTarget] : allSinks.filter((sink) => !sink.startsWith('connector:'));
-  const connectorSinks = allSinks
-    .filter((sink) => sink.startsWith('connector:'))
-    .map((sink) => sink.slice('connector:'.length));
-  const sourceStream = sources[0] ?? defaults.sources[0] ?? `${graph.signalType}_source`;
-  const targetStream = streamSinks[0] ?? defaults.sinks[0] ?? `${graph.signalType}_target`;
-  const transforms = graph.transforms.length > 0
-    ? graph.transforms
-    : [{ name: defaults.transformName, script: DEFAULT_VRL_SCRIPT }];
+  const streamSinks = routeTarget ? [routeTarget] : sinks.filter((sink) => connectorOf(sink) === null);
+  const connectorSinks = sinks.map(connectorOf).filter((id): id is string => Boolean(id));
+  const targetStream = streamSinks[0] ?? '';
+
   return {
     name,
-    source_stream: sourceStream,
+    source_stream: sources[0] ?? '',
     target_stream: targetStream,
     function_steps: {
       mode: graph.mode ?? 'scheduled',
-      ...(graph.mode === 'realtime' && { retain_source: graph.retainSource ?? graph.routing?.retain_source ?? false }),
+      ...(graph.mode === 'realtime' && { retain_source: graph.retainSource ?? false }),
       signal_type: graph.signalType,
       sources,
       sinks: streamSinks,
       sink_connectors: connectorSinks,
       retry_policy: graph.retryPolicy || 'exponential',
-      steps: withLegacyRouting(transforms, graph.routing, targetStream).map((step) => ({
-        transform_name: step.name.trim() ? step.name.trim() : defaults.transformName,
+      steps: graph.transforms.map((step, index) => ({
+        transform_name: step.name.trim() || `step-${index + 1}`,
         kind: step.kind ?? 'vrl',
         ...(step.kind === 'builtin' ? {
           operation: 'route',
           target: step.target ?? 'default',
           routing: routeConfig(step.routing ?? defaultRouting),
-        } : { script: step.script.trim() ? step.script : DEFAULT_VRL_SCRIPT }),
+        } : {
+          script: step.script,
+          ...(processorOf(step) && { processor: processorOf(step) }),
+        }),
       })),
     },
     cron: graph.mode === 'realtime' ? '' : cron,
@@ -196,9 +209,9 @@ function stringsFrom(value: unknown, fallback?: string | string[]): string[] {
   return fallback ? [fallback] : [];
 }
 
-export function normalizedList(value: string[], fallback: string[]): string[] {
-  const normalized = unique(value.map((item) => item.trim()).filter(Boolean));
-  return normalized.length > 0 ? normalized : fallback;
+/** The names in a list that are names: trimmed, without blanks or repeats. */
+function named(value: string[]): string[] {
+  return unique(value.map((item) => item.trim()).filter(Boolean));
 }
 
 function unique(value: string[]): string[] {
@@ -216,9 +229,9 @@ function firstString(obj: Record<string, unknown>, keys: string[]): string {
 /**
  * 把 function_steps 解析成处理步骤列表。兼容三种历史/当前形态：
  * 新结构 `{ steps: [{transform_name, script}] }`、裸数组 `[{...}]`、以及旧单对象
- * `{ transform_name, script }`。任何形态都至少产出一个步骤。
+ * `{ transform_name, script }`。Nothing saved means no steps: the editor shows what runs.
  */
-function transformsFromSteps(value: unknown, fallbackName: string): TransformStep[] {
+function transformsFromSteps(value: unknown): TransformStep[] {
   const obj = stepObject(value);
   const rawSteps: unknown[] | null = Array.isArray(value)
     ? value
@@ -236,36 +249,41 @@ function transformsFromSteps(value: unknown, fallbackName: string): TransformSte
       }
       const script = typeof so.script === 'string' ? so.script : '';
       if (!name && !script) continue;
-      parsed.push({ name: name || fallbackName, script: script || DEFAULT_VRL_SCRIPT });
+      // The script is what runs. A stored form is kept only while it still generates it.
+      const processor = parseProcessor(so.processor);
+      parsed.push({
+        name,
+        script,
+        ...(processor && compileProcessor(processor) === script ? { processor } : {}),
+      });
     }
-    if (parsed.length > 0) return parsed;
+    return parsed;
   }
   if ('script' in obj || 'transform_name' in obj || 'function_name' in obj) {
     return [
       {
-        name: firstString(obj, ['transform_name', 'function_name', 'name']) || fallbackName,
-        script: typeof obj.script === 'string' ? obj.script : DEFAULT_VRL_SCRIPT,
+        name: firstString(obj, ['transform_name', 'function_name', 'name']),
+        script: typeof obj.script === 'string' ? obj.script : '',
       },
     ];
   }
   if (typeof value === 'string' && value.trim()) {
-    return [{ name: fallbackName, script: value }];
+    return [{ name: '', script: value }];
   }
-  return [{ name: fallbackName, script: DEFAULT_VRL_SCRIPT }];
+  return [];
 }
 
 function routeConfig(routing: Routing) {
   return { kind: routing.kind, field: routing.field, prefix: routing.prefix, fallback: routing.fallback };
 }
 
+/** Routing an earlier editor saved beside the steps, as the routing step it is now. */
 function withLegacyRouting(steps: TransformStep[], routing: Routing | undefined, target: string): TransformStep[] {
   return routing ? [...steps, { name: 'route', kind: 'builtin', operation: 'route', script: '', target, routing }] : steps;
 }
 
-function processingStepsFromPipeline(pipeline: ScheduledPipeline | null | undefined, fallbackName: string): TransformStep[] {
+function processingStepsFromPipeline(pipeline: ScheduledPipeline | null | undefined): TransformStep[] {
   const config = stepObject(pipeline?.function_steps);
-  const steps = executionMode(pipeline) === 'realtime' && Array.isArray(config.steps) && config.steps.length === 0
-    ? [{ name: 'process', script: '. = .' }]
-    : transformsFromSteps(pipeline?.function_steps, fallbackName);
+  const steps = transformsFromSteps(pipeline?.function_steps);
   return withLegacyRouting(steps, config.routing ? { ...defaultRouting, ...stepObject(config.routing) } as Routing : undefined, pipeline?.target_stream ?? 'default');
 }

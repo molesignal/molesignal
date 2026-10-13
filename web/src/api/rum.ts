@@ -1,3 +1,4 @@
+import { whenStreamExists } from '@/api/missingStream';
 import { http } from '@/lib/http';
 import type { CursorPage } from '@/pagination/cursor';
 
@@ -271,26 +272,39 @@ function parseSessionRow(raw: Record<string, unknown>): SessionRow {
   return row;
 }
 
+/**
+ * The RUM streams are created by the first session. The lists and series below
+ * answer empty until then, so their pages show how to start sending instead of
+ * an error; the single-record reads keep their "not found".
+ */
+function emptyPage<T>(): CursorPage<T> {
+  return { items: [], next_cursor: null, previous_cursor: null, has_more: false };
+}
+
 /* ─────────── Sessions ─────────── */
 
 export async function listSessions(
   params: SessionListParams,
 ): Promise<CursorPage<SessionRow>> {
   const limit = params.limit ?? 20;
-  const { data: sessionsPage } = await http.get<
-    CursorPage<Record<string, unknown>>
-  >('/rum/sessions', {
-    params: {
-      from: params.from_micros,
-      to: params.to_micros,
-      limit,
-      ...(params.q ? { q: params.q } : {}),
-      ...(params.country ? { country: params.country } : {}),
-      ...(params.browser ? { browser: params.browser } : {}),
-      ...(params.replay_available ? { replay_available: true } : {}),
-      ...(params.cursor ? { cursor: params.cursor } : {}),
-    },
-  });
+  const sessionsPage = await whenStreamExists(async () => {
+    const { data } = await http.get<CursorPage<Record<string, unknown>>>(
+      '/rum/sessions',
+      {
+        params: {
+          from: params.from_micros,
+          to: params.to_micros,
+          limit,
+          ...(params.q ? { q: params.q } : {}),
+          ...(params.country ? { country: params.country } : {}),
+          ...(params.browser ? { browser: params.browser } : {}),
+          ...(params.replay_available ? { replay_available: true } : {}),
+          ...(params.cursor ? { cursor: params.cursor } : {}),
+        },
+      },
+    );
+    return data;
+  }, emptyPage<Record<string, unknown>>);
   return {
     ...sessionsPage,
     items: sessionsPage.items
@@ -350,17 +364,19 @@ export async function getReplay(sessionId: string): Promise<SessionReplay> {
 export async function listErrors(
   params: ErrorListParams,
 ): Promise<CursorPage<ErrorRow>> {
-  const { data } = await http.get<CursorPage<ErrorRow>>('/rum/errors', {
-    params: {
-      from: params.from_micros,
-      to: params.to_micros,
-      limit: params.limit ?? 20,
-      ...(params.q ? { q: params.q } : {}),
-      ...(params.status ? { status: params.status } : {}),
-      ...(params.cursor ? { cursor: params.cursor } : {}),
-    },
-  });
-  return data;
+  return whenStreamExists(async () => {
+    const { data } = await http.get<CursorPage<ErrorRow>>('/rum/errors', {
+      params: {
+        from: params.from_micros,
+        to: params.to_micros,
+        limit: params.limit ?? 20,
+        ...(params.q ? { q: params.q } : {}),
+        ...(params.status ? { status: params.status } : {}),
+        ...(params.cursor ? { cursor: params.cursor } : {}),
+      },
+    });
+    return data;
+  }, emptyPage<ErrorRow>);
 }
 
 export async function getError(params: {
@@ -383,41 +399,36 @@ export async function getError(params: {
 
 /* ─────────── Performance ─────────── */
 
-export async function webVitalsSeries(params: TimeRangeQueryParams): Promise<WebVitalsPoint[]> {
-  const limit = params.limit ?? 200;
-  const { data } = await http.get<WebVitalsPoint[]>('/rum/performance/vitals', {
-    params: {
-      from: params.from_micros,
-      to: params.to_micros,
-      limit,
-    },
-  });
-  return data;
-}
-
-export async function apiPerformance(params: TimeRangeQueryParams): Promise<ApiPerfRow[]> {
-  const limit = params.limit ?? 50;
-  const { data } = await http.get<ApiPerfRow[]>('/rum/performance/apis', {
-    params: {
-      from: params.from_micros,
-      to: params.to_micros,
-      limit,
-    },
-  });
-  return data;
-}
-
-export async function errorRateSeries(params: TimeRangeQueryParams): Promise<Array<{ ts_micros: number; count: number }>> {
-  const limit = params.limit ?? 200;
-  const { data } = await http.get<Array<{ ts_micros: number; count: number }>>(
-    '/rum/performance/errors',
-    {
+/** One of the performance series: rows inside the range, none before the stream exists. */
+function performanceSeries<T>(
+  path: string,
+  params: TimeRangeQueryParams,
+  defaultLimit: number,
+): Promise<T[]> {
+  return whenStreamExists(async () => {
+    const { data } = await http.get<T[]>(path, {
       params: {
         from: params.from_micros,
         to: params.to_micros,
-        limit,
+        limit: params.limit ?? defaultLimit,
       },
-    },
+    });
+    return data;
+  }, () => []);
+}
+
+export async function webVitalsSeries(params: TimeRangeQueryParams): Promise<WebVitalsPoint[]> {
+  return performanceSeries<WebVitalsPoint>('/rum/performance/vitals', params, 200);
+}
+
+export async function apiPerformance(params: TimeRangeQueryParams): Promise<ApiPerfRow[]> {
+  return performanceSeries<ApiPerfRow>('/rum/performance/apis', params, 50);
+}
+
+export async function errorRateSeries(params: TimeRangeQueryParams): Promise<Array<{ ts_micros: number; count: number }>> {
+  return performanceSeries<{ ts_micros: number; count: number }>(
+    '/rum/performance/errors',
+    params,
+    200,
   );
-  return data;
 }

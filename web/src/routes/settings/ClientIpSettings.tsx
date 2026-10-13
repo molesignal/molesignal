@@ -135,7 +135,7 @@ export function ClientIpSettings() {
         title={t('nodes.client_ip.title')}
         subtitle={t('nodes.client_ip.subtitle') as string}
       />
-      <SectionBody className="pb-10">
+      <SectionBody opensOnSection className="pb-10">
         <SettingsGroupStack>
           <ClientIpSettingsSection access={access} />
         </SettingsGroupStack>
@@ -247,7 +247,7 @@ function ClientIpSettingsSection({ access }: { access: ActionAccess }) {
             disabledReason={controlsDisabledReason}
             ariaLabel={t('nodes.client_ip.mode')}
           />
-          <Pill tone={usesProxy ? 'yellow' : 'green'}>
+          <Pill tone={usesProxy ? 'yellow' : 'green'} className="self-start">
             {usesProxy
               ? t('nodes.client_ip.trust_required')
               : t('nodes.client_ip.no_headers')}

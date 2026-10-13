@@ -48,7 +48,7 @@ export function QuickStartDrawer({
             className={cn(
               'mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full',
               complete
-                ? 'bg-green-dim text-green-soft'
+                ? 'bg-[var(--green-tint)] text-[var(--green-ink)]'
                 : 'bg-indigo-dim text-indigo-soft',
             )}
           >
@@ -109,12 +109,12 @@ export function QuickStartDrawer({
                   {step.backendPending && !step.completed ? (
                     <ServerCrash
                       aria-hidden="true"
-                      className="h-5 w-5 text-yellow-soft"
+                      className="h-5 w-5 text-[var(--yellow-ink)]"
                     />
                   ) : step.completed ? (
                     <CheckCircle2
                       aria-hidden="true"
-                      className="h-5 w-5 text-green-soft"
+                      className="h-5 w-5 text-[var(--green-ink)]"
                     />
                   ) : (
                     <>
@@ -138,8 +138,8 @@ export function QuickStartDrawer({
                       className={cn(
                         'shrink-0 font-sans text-xs font-strong',
                         step.completed
-                          ? 'text-green-soft'
-                          : 'text-blue-soft',
+                          ? 'text-[var(--green-ink)]'
+                          : 'text-[var(--blue-ink)]',
                       )}
                     >
                       {loadable

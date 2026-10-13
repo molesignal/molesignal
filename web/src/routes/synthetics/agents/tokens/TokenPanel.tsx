@@ -15,7 +15,7 @@ import {
   AgentTokenFormDrawer,
   AgentTokenInstructionsDrawer,
 } from './TokenDrawers';
-import { Section } from '../../components';
+import { SyntheticsSection } from '../../Frame';
 import { formatRelativeTimestamp } from '../../model';
 
 export function AgentTokenPanel({
@@ -59,7 +59,7 @@ export function AgentTokenPanel({
   const rows = query.data ?? [];
   return (
     <>
-      <Section
+      <SyntheticsSection
         title={t('agent_tokens.title')}
         description={t('agent_tokens.subtitle')}
         action={
@@ -77,7 +77,7 @@ export function AgentTokenPanel({
         }
       >
         {query.isError ? (
-          <div className="border-t border-bd-0 px-4 py-5 text-sm text-red-soft">
+          <div className="border-t border-bd-0 px-4 py-5 text-sm text-red">
             {toApiError(query.error).message}
           </div>
         ) : (
@@ -96,7 +96,7 @@ export function AgentTokenPanel({
             />
           </div>
         )}
-      </Section>
+      </SyntheticsSection>
       <AgentTokenFormDrawer
         open={createOpen}
         onOpenChange={setCreateOpen}
@@ -166,9 +166,9 @@ function columns(
         return (
           <span
             className={expired
-              ? 'text-red-soft'
+              ? 'text-red'
               : token.status === 'active'
-                ? 'text-green-soft'
+                ? 'text-green'
                 : 'text-tx-3'}
           >
             {expired ? t('agent_tokens.expired') : t(`states.${token.status}`)}

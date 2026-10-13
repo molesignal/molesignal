@@ -7,7 +7,7 @@ import { ProductState, productStateFor } from '@/product/states';
 import { Card, CardBody, CardHeader, TimeRangeChip } from '@/shell/chrome';
 import { queryStateFor } from '@/shell/query/State';
 import { useAuthStore } from '@/stores/auth';
-import { useTimeStore, formatWindowSummary } from '@/stores/useTimeStore';
+import { useTimeStore } from '@/stores/useTimeStore';
 import { TimeSeriesChart } from '@/viz/timeseries/TimeSeriesChart';
 
 import { windowToMicros } from '../_helpers';
@@ -34,8 +34,7 @@ export function PerformanceErrors() {
 
   return (
     <RumListPage
-      title={t('performance.errors')}
-      toolbar={<TimeRangeChip value={formatWindowSummary(window)} className="border-0" />}
+      toolbar={<TimeRangeChip className="border-0" />}
       performance
     >
       <Card className="border-0 bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]">

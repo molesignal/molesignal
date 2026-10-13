@@ -57,6 +57,7 @@ import { Switch } from '@/shell/ui/switch';
 import { formatRelativeMicros } from '@/time/relative';
 import { SeverityRail } from '@/viz/SeverityRail';
 
+import { SearchJobsEntry } from './jobs/Entry';
 import {
   type DisplayStream,
   type DisplayStreamVariant,
@@ -308,6 +309,7 @@ export function Streams() {
         subtitle={t('subtitle') as string}
         toolbar={
           <>
+            <SearchJobsEntry />
             <ChromeButton onClick={refresh} disabled={listQuery.isFetching || runtimeQuery.isFetching}>
               <RefreshCw className="h-3 w-3" /> {t('list.refresh')}
             </ChromeButton>
@@ -360,9 +362,14 @@ export function Streams() {
                 ))}
               </SelectContent>
             </Select>
-            <div className="ml-auto text-right font-sans text-xs text-tx-2">
-              <div>{t('list.result_count', { count: filtered.length })}</div>
-              <div className="mt-0.5 text-type-micro text-tx-3">
+            {/* On the line of the filters: a second line under the count made the card a row taller than what it holds. */}
+            <div
+              data-stream-list-status
+              className="ml-auto flex items-baseline gap-x-2 whitespace-nowrap font-sans text-xs text-tx-2"
+            >
+              <span>{t('list.result_count', { count: filtered.length })}</span>
+              <span aria-hidden="true" className="text-tx-3">·</span>
+              <span className="text-tx-3">
                 {runtimeQuery.isError
                   ? t('list.stats_unavailable')
                   : t('list.updated_at', {
@@ -370,7 +377,7 @@ export function Streams() {
                         ? formatRelativeMicros(generatedAt, locale)
                         : '—',
                     })}
-              </div>
+              </span>
             </div>
           </div>
         }

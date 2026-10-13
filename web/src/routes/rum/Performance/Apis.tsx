@@ -8,9 +8,9 @@ import { productStateFor } from '@/product/states';
 import { Pill, TimeRangeChip } from '@/shell/chrome';
 import { queryStateFor } from '@/shell/query/State';
 import { useAuthStore } from '@/stores/auth';
-import { useTimeStore, formatWindowSummary } from '@/stores/useTimeStore';
+import { useTimeStore } from '@/stores/useTimeStore';
 
-import { windowToMicros } from '../_helpers';
+import { formatDurationMs, windowToMicros } from '../_helpers';
 import { RumListPage, RumSurface } from '../RumLayout';
 
 export function Apis() {
@@ -34,8 +34,7 @@ export function Apis() {
 
   return (
     <RumListPage
-      title={t('performance.apis')}
-      toolbar={<TimeRangeChip value={formatWindowSummary(window)} className="border-0" />}
+      toolbar={<TimeRangeChip className="border-0" />}
       performance
       state={pageState}
     >
@@ -46,8 +45,9 @@ export function Apis() {
           columns={[
           { key: 'url', header: t('performance.columns.url'), cell: (r) => r.url },
           { key: 'count', header: t('performance.columns.count'), cell: (r) => r.count, width: 90 },
-          { key: 'p50', header: t('performance.columns.p50'), cell: (r) => Math.round(r.p50_ms), width: 90 },
-          { key: 'p95', header: t('performance.columns.p95'), cell: (r) => Math.round(r.p95_ms), width: 90 },
+          // Each time in the unit it is read in: 390 ms and 2.2 s, not 390 and 2170 under "(ms)".
+          { key: 'p50', header: t('performance.columns.p50'), cell: (r) => formatDurationMs(r.p50_ms), width: 90 },
+          { key: 'p95', header: t('performance.columns.p95'), cell: (r) => formatDurationMs(r.p95_ms), width: 90 },
           {
             key: 'err',
             header: t('performance.columns.errors'),

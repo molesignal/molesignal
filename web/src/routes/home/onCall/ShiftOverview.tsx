@@ -18,7 +18,7 @@ function ShiftMetric({ label, value, warning = false }: ShiftMetricProps) {
       <div
         className={cn(
           'mt-0.5 font-sans text-base font-display-strong tabular-nums text-tx-0',
-          warning && 'text-orange-soft',
+          warning && 'text-[var(--orange-ink)]',
         )}
       >
         {value}

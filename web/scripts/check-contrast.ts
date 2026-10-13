@@ -11,7 +11,8 @@
  *
  * Tokens with `rgba(...)` are skipped (alpha makes ratio environment-
  * dependent — the comparable pair is reported separately via the
- * underlying solid color).
+ * underlying solid color), unless the pair names the fills the veil lies
+ * over: then it is flattened onto each of them and measured there.
  */
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -32,6 +33,8 @@ type Theme = 'dark' | 'light';
 interface Pair {
   fg: string;
   bg: string;
+  /** The opaque fills `bg` lies over where it is a veil (an rgba tone): it is flattened onto each. */
+  over?: string[];
   /** Target ratio: 7 for critical alert text, 4.5 for body, 3 for UI/large. */
   target: 7 | 4.5 | 3;
   /** Human description: "AAA alert" / "AA body" / "AA UI". */
@@ -53,14 +56,21 @@ const BODY_PAIRS: Array<[string, string]> = [
   ['--tx-3', '--bg-3'],
   ['--fg', '--surface'],
 ];
-// Status-text pairs (color word on the chrome surface, AA 4.5).
-const STATUS_TEXT_PAIRS: Array<[string, string]> = [
-  ['--green', '--bg-0'],
-  ['--yellow', '--bg-0'],
-  ['--blue', '--bg-0'],
-  ['--purple', '--bg-0'],
-  ['--orange', '--bg-0'],
-];
+// Status-text pairs: a word in a status color (`text-green`, the state of a check in its row)
+// holds AA on every fill a row takes, as ink does.
+const STATUS_TONES = ['--green', '--yellow', '--blue', '--purple', '--orange'];
+// Ink pairs: a status tone as small text on a row holds AA on every fill a row takes. bg-3 is
+// the hardest of them; a selected row (indigo-dim over its surface) stays nearer the surface.
+const INK_TONES = ['--blue-ink', '--green-ink', '--orange-ink', '--red-ink', '--purple-ink', '--yellow-ink'];
+const ROW_FILLS = ['--bg-0', '--bg-1', '--bg-2', '--bg-3'];
+// Tint pairs: a word in ink on the tint of its tone (a chip, a notice), and every ink on the
+// indigo tint, the fill of a reference that holds the keyboard (what it names may be set in ink,
+// an HTTP method). A tint is opaque on light; on dark it is a veil over the fill of its row.
+const TINT_TONES = ['blue', 'green', 'orange', 'purple', 'yellow'];
+const FOCUS_TINT = '--indigo-tint';
+// The tones in which a chip is set in the status color itself on its tint: a table that has
+// rows, a notice that an import went through, a filter that was left out of a query.
+const STATUS_ON_TINT = ['green', 'yellow'];
 // Critical/firing red is held to AAA on both page and surface backgrounds.
 const ALERT_TEXT_PAIRS: Array<[string, string]> = [
   ['--red', '--bg-0'],
@@ -82,7 +92,15 @@ const BADGE_PAIRS: Array<[string, string]> = [
 function buildPairList(): Pair[] {
   const out: Pair[] = [];
   for (const [fg, bg] of BODY_PAIRS) out.push({ fg, bg, target: 4.5, label: 'AA body' });
-  for (const [fg, bg] of STATUS_TEXT_PAIRS) out.push({ fg, bg, target: 4.5, label: 'AA body' });
+  for (const fg of STATUS_TONES) for (const bg of ROW_FILLS) out.push({ fg, bg, target: 4.5, label: 'AA body' });
+  for (const fg of INK_TONES) for (const bg of ROW_FILLS) out.push({ fg, bg, target: 4.5, label: 'AA body' });
+  for (const tone of TINT_TONES) {
+    out.push({ fg: `--${tone}-ink`, bg: `--${tone}-tint`, over: ROW_FILLS, target: 4.5, label: 'AA body' });
+  }
+  for (const tone of STATUS_ON_TINT) {
+    out.push({ fg: `--${tone}`, bg: `--${tone}-tint`, over: ROW_FILLS, target: 4.5, label: 'AA body' });
+  }
+  for (const fg of INK_TONES) out.push({ fg, bg: FOCUS_TINT, over: ROW_FILLS, target: 4.5, label: 'AA body' });
   for (const [fg, bg] of ALERT_TEXT_PAIRS) out.push({ fg, bg, target: 7, label: 'AAA alert' });
   for (const [fg, bg] of BADGE_PAIRS) out.push({ fg, bg, target: 3, label: 'AA UI' });
   return out;
@@ -199,8 +217,8 @@ function parseTokensAcrossFiles(files: string[]): Record<Palette, Record<Theme, 
       const table = result[p][theme];
       const resolved = new Map<string, string>();
       for (const name of table.keys()) {
-        const hex = resolveHex(name, table);
-        if (hex) resolved.set(name, hex);
+        const paint = resolvePaint(name, table);
+        if (paint) resolved.set(name, paint);
       }
       result[p][theme] = resolved;
     }
@@ -208,22 +226,48 @@ function parseTokensAcrossFiles(files: string[]): Record<Palette, Record<Theme, 
   return result;
 }
 
-function resolveHex(name: string, table: Map<string, string>, seen = new Set<string>()): string | null {
+/** A token's value with its `var()` chain followed: a hex colour, or an `rgba()` veil as written. */
+function resolvePaint(name: string, table: Map<string, string>, seen = new Set<string>()): string | null {
   if (seen.has(name)) return null;
   seen.add(name);
   const raw = table.get(name);
   if (!raw) return null;
   const varMatch = raw.match(/^var\((--[a-z0-9-]+)\)$/i);
-  if (varMatch) return resolveHex(varMatch[1]!, table, seen);
+  if (varMatch) return resolvePaint(varMatch[1]!, table, seen);
   const hexMatch = raw.match(/^#([0-9a-f]{3,8})$/i);
   if (hexMatch) return `#${hexMatch[1]}`;
+  if (VEIL.test(raw)) return raw;
   return null;
+}
+
+const VEIL = /^rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)$/i;
+
+function isHex(paint: string): boolean {
+  return paint.startsWith('#');
+}
+
+/** The colour a veil shows over an opaque fill. */
+function flatten(veil: string, underHex: string): string | null {
+  const parts = veil.match(VEIL);
+  const under = underHex.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+  if (!parts || !under) return null;
+  const alpha = Number(parts[4]);
+  const channels = [1, 2, 3].map((index) => {
+    const over = Number(parts[index]);
+    const below = Number.parseInt(under[index]!, 16);
+    return Math.round(over * alpha + below * (1 - alpha))
+      .toString(16)
+      .padStart(2, '0');
+  });
+  return `#${channels.join('')}`;
 }
 
 interface Result {
   palette: Palette;
   theme: Theme;
   pair: Pair;
+  /** The fill a veiled background was flattened onto. */
+  over?: string;
   ratio: number;
   fgHex: string;
   bgHex: string;
@@ -239,10 +283,19 @@ function evaluate(
       const table = tokens[palette][theme];
       for (const pair of pairs) {
         const fgHex = table.get(pair.fg);
-        const bgHex = table.get(pair.bg);
-        if (!fgHex || !bgHex) continue;
-        const ratio = contrastHex(fgHex, bgHex);
-        results.push({ palette, theme, pair, ratio, fgHex, bgHex });
+        const bg = table.get(pair.bg);
+        if (!fgHex || !bg || !isHex(fgHex)) continue;
+        if (isHex(bg)) {
+          results.push({ palette, theme, pair, ratio: contrastHex(fgHex, bg), fgHex, bgHex: bg });
+          continue;
+        }
+
+        for (const over of pair.over ?? []) {
+          const under = table.get(over);
+          const bgHex = under && isHex(under) ? flatten(bg, under) : null;
+          if (!bgHex) continue;
+          results.push({ palette, theme, pair, over, ratio: contrastHex(fgHex, bgHex), fgHex, bgHex });
+        }
       }
     }
   }
@@ -293,11 +346,12 @@ function main(): void {
       console.log(`## ${palette} / ${theme}`);
       for (const r of results.filter((x) => x.palette === palette && x.theme === theme)) {
         const ok = r.ratio >= r.pair.target;
-        const key = `${palette}|${theme}|${r.pair.fg}|${r.pair.bg}`;
+        const key = `${palette}|${theme}|${r.pair.fg}|${r.pair.bg}${r.over ? `|${r.over}` : ''}`;
+        const on = `${theme}.${r.pair.bg}${r.over ? ` over ${theme}.${r.over}` : ''}`;
         const inBaseline = baseline.has(key);
         const status = ok ? 'OK  ' : inBaseline ? 'WARN' : 'FAIL';
         console.log(
-          `  ${status} ${theme}.${r.pair.fg} ON ${theme}.${r.pair.bg}: ${formatRatio(r.ratio)}:1 ` +
+          `  ${status} ${theme}.${r.pair.fg} ON ${on}: ${formatRatio(r.ratio)}:1 ` +
             `(target ${r.pair.target.toFixed(1)}:1, ${r.pair.label}) — ${r.fgHex} on ${r.bgHex}`,
         );
         if (!ok) {
@@ -307,7 +361,7 @@ function main(): void {
           } else {
             newFails += 1;
             process.stderr.write(
-              `FAIL ${palette}.${theme}.${r.pair.fg} ON ${r.pair.bg}: ${formatRatio(r.ratio)}:1 < ${r.pair.target.toFixed(1)}:1 (WCAG ${r.pair.label})\n`,
+              `FAIL ${palette}.${theme}.${r.pair.fg} ON ${r.pair.bg}${r.over ? ` over ${r.over}` : ''}: ${formatRatio(r.ratio)}:1 < ${r.pair.target.toFixed(1)}:1 (WCAG ${r.pair.label})\n`,
             );
           }
         }

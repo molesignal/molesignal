@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { TFunction } from 'i18next';
-import { Cpu, Plus, RefreshCw, Server } from 'lucide-react';
+import { Cpu, Plus, Search, Server } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -9,20 +9,14 @@ import { ConfirmDialog, DataTable, type DataTableColumn } from '@/admin';
 import * as syntheticsApi from '@/api/synthetics';
 import type { ProbeAgent } from '@/api/synthetics';
 import { toApiError } from '@/lib/http';
-import { hasPermission, useProductAccess } from '@/product/access';
+import { useActionAccess } from '@/product/actionAccess';
 import { ProductState } from '@/product/states';
 import { ChromeButton } from '@/shell/chrome';
 import { FormInput, FormSelect } from '@/shell/FormDrawer';
 import { toast } from '@/shell/ui/sonner';
 
-import {
-  SyntheticsCanvas,
-  SyntheticsFilterBar,
-  SyntheticsKpiBand,
-  SyntheticsListSurface,
-  SyntheticsPage,
-  WorkspaceBoundary,
-} from '../components';
+import { SYNTHETICS_REFRESH_MILLIS } from '../data';
+import { SyntheticsList, SyntheticsPage, useLoadState } from '../Frame';
 import { formatRelativeTimestamp } from '../model';
 import { AgentConfigurationDrawer } from './AgentConfigurationDrawer';
 import { AgentDetailDrawer } from './AgentDetailDrawer';
@@ -32,7 +26,6 @@ import {
   agentDisplayName,
   filterAgentRows,
   joinAgentLocations,
-  summarizeAgents,
   type AgentRow,
   type AgentStatus,
 } from './model';
@@ -40,16 +33,25 @@ import {
   AgentRegisterDrawer,
   RegisterInstructionsDrawer,
 } from './RegisterDrawers';
+import { AgentsStanding } from './Standing';
 import { AgentTokenPanel } from './tokens/TokenPanel';
 
+/**
+ * The machines that run checks: whether they are up, what they can run, and how
+ * much room they have.
+ *
+ * The tab opens with one statement about the fleet and lists the agents under
+ * it. The tokens new agents register with come after: they are how the list
+ * grows, not what a reader opens the tab to see.
+ */
 export function Agents() {
   const { t, i18n } = useTranslation('synthetics');
   const navigate = useNavigate();
   const { agentId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
-  const access = useProductAccess();
-  const canManage = hasPermission('synthetics.locations.manage', access);
+  const manageAccess = useActionAccess({ permission: 'synthetics.locations.manage' });
+  const canManage = manageAccess.allowed;
   const [registerOpen, setRegisterOpen] = React.useState(false);
   const [instructions, setInstructions] = React.useState<
     Awaited<ReturnType<typeof syntheticsApi.createRegisterToken>>
@@ -63,6 +65,7 @@ export function Agents() {
   const agentsQuery = useQuery({
     queryKey: ['synthetics', 'agents'],
     queryFn: syntheticsApi.listAllAgents,
+    refetchInterval: SYNTHETICS_REFRESH_MILLIS,
   });
   const locations = React.useMemo(() => locationsQuery.data ?? [], [locationsQuery.data]);
   const agents = React.useMemo(() => agentsQuery.data ?? [], [agentsQuery.data]);
@@ -80,7 +83,6 @@ export function Agents() {
       ),
     [locations],
   );
-  const summary = React.useMemo(() => summarizeAgents(agents), [agents]);
   const query = searchParams.get('query') ?? '';
   const statusParam = searchParams.get('status');
   const statusFilter: AgentStatus | 'all' = AGENT_STATUSES.includes(statusParam as AgentStatus)
@@ -127,109 +129,63 @@ export function Agents() {
     setSearchParams(next, { replace: true });
   };
 
-  return (
-    <SyntheticsPage
-      title={t('agents.title')}
-      subtitle={t('agents.subtitle')}
-      toolbar={
-        <div className="flex items-center gap-2">
-          <ChromeButton onClick={() => void refresh()} disabled={agentsQuery.isFetching}>
-            <RefreshCw
-              aria-hidden
-              className={agentsQuery.isFetching ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'}
-            />
-            {t('actions.refresh')}
-          </ChromeButton>
-          {canManage && (
-            <ChromeButton
-              variant="primary"
-              disabled={eligibleLocations.length === 0}
-              disabledReason={t('agents.no_eligible_locations')}
-              onClick={() => setRegisterOpen(true)}
-            >
-              <Plus aria-hidden className="h-3.5 w-3.5" />
-              {t('actions.register_agent')}
-            </ChromeButton>
-          )}
-        </div>
-      }
-      bodyClassName="space-y-[12px]"
+  const state = useLoadState({
+    pending: locationsQuery.isPending || agentsQuery.isPending,
+    error: locationsQuery.error ?? agentsQuery.error,
+    onRetry: () => void refresh(),
+  });
+  const registerAccess = {
+    disabled: manageAccess.disabled || eligibleLocations.length === 0,
+    reason: manageAccess.reason ?? t('agents.no_eligible_locations'),
+  };
+  const registerAction = (
+    <ChromeButton
+      variant="primary"
+      disabled={registerAccess.disabled}
+      disabledReason={registerAccess.reason}
+      onClick={() => setRegisterOpen(true)}
     >
-      <WorkspaceBoundary
-        pending={locationsQuery.isPending || agentsQuery.isPending}
-        error={locationsQuery.error ?? agentsQuery.error}
-        onRetry={() => void refresh()}
-        flat
+      <Plus aria-hidden className="h-3.5 w-3.5" />
+      {t('actions.register_agent')}
+    </ChromeButton>
+  );
+  const none = !state && agents.length === 0;
+
+  return (
+    <>
+      <SyntheticsPage
+        state={state}
+        // With no agent yet, the empty state below carries the way to the first one.
+        action={none ? undefined : registerAction}
+        lead={!state && !none ? <AgentsStanding agents={agents} /> : undefined}
+        contentSurface={false}
       >
-        <SyntheticsCanvas>
-          <SyntheticsKpiBand
-            columns={5}
-            items={[
-              {
-                label: t('agents.active_agents'),
-                value: summary.active,
-                sub: t('agents.registered_hint', {
-                  count: summary.registered,
-                  revoked: summary.revoked,
-                }),
-              },
-              {
-                label: t('states.online'),
-                value: summary.online,
-                sub: t('agents.online_hint', { count: summary.active }),
-                tone: summary.online === summary.active ? 'good' : 'neutral',
-              },
-              {
-                label: t('agents.attention'),
-                value: summary.attention,
-                sub: t('agents.attention_hint'),
-                tone: summary.attention > 0 ? 'warn' : 'good',
-              },
-              {
-                label: t('agents.concurrent_capacity'),
-                value: `${summary.capacity.available}/${summary.capacity.maximum}`,
-                sub: t('agents.available_slots'),
-                tone: summary.capacity.maximum > 0 && summary.capacity.available === 0 ? 'danger' : 'neutral',
-              },
-              {
-                label: t('agents.browser_capacity'),
-                value: `${summary.browserCapacity.available}/${summary.browserCapacity.maximum}`,
-                sub: t('agents.available_slots'),
-              },
-            ]}
+        {none ? (
+          <ProductState
+            variant="empty"
+            title={t('agents.no_agents')}
+            description={t('agents.no_agents_hint')}
+            action={registerAction}
           />
-
-          <AgentTokenPanel locations={eligibleLocations} canManage={canManage} />
-
-          {agents.length === 0 ? (
-            <ProductState
-              variant="empty"
-              title={t('agents.no_agents')}
-              description={t('agents.no_agents_hint')}
-              action={
-                canManage && eligibleLocations.length > 0 ? (
-                  <ChromeButton variant="primary" onClick={() => setRegisterOpen(true)}>
-                    <Plus aria-hidden className="h-3.5 w-3.5" />
-                    {t('actions.register_agent')}
-                  </ChromeButton>
-                ) : undefined
-              }
-            />
-          ) : (
-            <SyntheticsListSurface>
-              <SyntheticsFilterBar className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(220px,1fr)_180px_200px]">
-                <FormInput
-                  aria-label={t('agents.search_placeholder')}
-                  value={query}
-                  onChange={(event) => setFilter('query', event.target.value)}
-                  placeholder={t('agents.search_placeholder')}
-                  className="h-11 text-base sm:h-9 sm:text-sm"
-                />
+        ) : (
+          <SyntheticsList
+            head={
+              <>
+                <label className="relative w-full min-w-0 sm:w-[300px]">
+                  <span className="sr-only">{t('agents.search_placeholder')}</span>
+                  <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-tx-3" />
+                  <FormInput
+                    value={query}
+                    onChange={(event) => setFilter('query', event.target.value)}
+                    placeholder={t('agents.search_placeholder')}
+                    className="pl-9"
+                  />
+                </label>
                 <FormSelect
-                  ariaLabel={t('agents.all_statuses')}
+                  ariaLabel={t('agents.status')}
+                  className="w-full sm:w-[170px]"
                   value={statusFilter}
                   onChange={(value) => setFilter('status', value)}
-                  className="h-11 text-base sm:h-9 sm:text-sm"
                   options={[
                     { value: 'all', label: t('agents.all_statuses') },
                     ...AGENT_STATUSES.map((status) => ({
@@ -239,10 +195,10 @@ export function Agents() {
                   ]}
                 />
                 <FormSelect
-                  ariaLabel={t('agents.all_locations')}
+                  ariaLabel={t('agents.location')}
+                  className="w-full sm:w-[200px]"
                   value={locationFilter}
                   onChange={(value) => setFilter('location', value)}
-                  className="h-11 text-base sm:h-9 sm:text-sm"
                   options={[
                     { value: 'all', label: t('agents.all_locations') },
                     ...locations.map((location) => ({
@@ -251,21 +207,23 @@ export function Agents() {
                     })),
                   ]}
                 />
-              </SyntheticsFilterBar>
-              <div className="overflow-x-auto">
-                <DataTable
-                  rows={filteredRows}
-                  columns={agentColumns(t, i18n.language)}
-                  rowKey={({ agent }) => agent.id}
-                  onRowClick={({ agent }) => navigate(`/synthetics/agents/${agent.id}`)}
-                  emptyLabel={t('agents.filtered_empty')}
-                  className="min-w-[1080px] rounded-none border-0 bg-transparent"
-                />
-              </div>
-            </SyntheticsListSurface>
-          )}
-        </SyntheticsCanvas>
-      </WorkspaceBoundary>
+              </>
+            }
+          >
+            <div className="overflow-x-auto">
+              <DataTable
+                rows={filteredRows}
+                columns={agentColumns(t, i18n.language)}
+                rowKey={({ agent }) => agent.id}
+                onRowClick={({ agent }) => navigate(`/synthetics/agents/${agent.id}`)}
+                emptyLabel={t('agents.filtered_empty')}
+                className="min-w-[1080px] rounded-none border-0 bg-transparent"
+              />
+            </div>
+          </SyntheticsList>
+        )}
+        <AgentTokenPanel locations={eligibleLocations} canManage={canManage} />
+      </SyntheticsPage>
 
       <AgentDetailDrawer
         row={selectedRow}
@@ -303,7 +261,7 @@ export function Agents() {
         busy={revoke.isPending}
         onConfirm={() => revokeTarget && revoke.mutate(revokeTarget.id)}
       />
-    </SyntheticsPage>
+    </>
   );
 }
 

@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { encodeFilters, encodeStack } from '@/shell/UrlHydration';
 import { useFiltersStore } from '@/stores/useFiltersStore';
 import { useInvestigationStack } from '@/stores/useInvestigationStack';
-import { useTimeStore } from '@/stores/useTimeStore';
+import { useTimeStore, writeTimeParams } from '@/stores/useTimeStore';
 
 /**
  * Subscribes to investigation-stack + time stores and mirrors their state into
@@ -26,15 +26,7 @@ export function useSyncStateToUrl() {
   React.useEffect(() => {
     const handle = globalThis.setTimeout(() => {
       const next = new URLSearchParams(location.search);
-      // time
-      if (window.from === 'now-1h' && window.to === 'now' && window.mode === 'relative') {
-        next.delete('time');
-      } else {
-        next.set('time', `${window.from}..${window.to}`);
-      }
-      // anchor
-      if (anchor) next.set('anchor', anchor.at);
-      else next.delete('anchor');
+      writeTimeParams(next, window, anchor);
       // stack
       if (frames.length === 0) {
         next.delete('stack');

@@ -6,7 +6,7 @@ describe('i18n', () => {
   it('resolves bundled resources for lowercase regional locale ids', async () => {
     await i18n.changeLanguage('en-us');
     expect(i18n.t('common:actions.sign_in')).toBe('Sign in');
-    expect(i18n.t('shell:signin.version_line')).not.toBe('signin.version_line');
+    expect(i18n.t('shell:signin.version', { version: '26.0.0.0' })).toBe('v26.0.0.0');
     expect(i18n.t('shell:about.editions.oss')).toBe('OpenSource Edition');
     expect(i18n.t('shell:about.editions.enterprise')).toBe('Enterprise Edition');
     expect(i18n.t('onboarding:activation.title')).toBe('Quick start');

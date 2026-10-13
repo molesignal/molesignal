@@ -44,6 +44,9 @@
     "compare_previous": "与上一周期对比",
     "current_period": "当前周期",
     "load_error": "无法加载用户体验概览",
+    "scope_empty_title": "没有符合筛选条件的会话",
+    "scope_empty_description": "所选时间范围内有会话，但没有同时满足当前应用、环境、版本、地区和设备条件的会话。",
+    "scope_clear": "清除筛选",
     "no_rated_sessions": "暂无可评分会话",
     "no_previous_data": "上一周期无数据",
     "unchanged": "与上一周期持平",
@@ -69,8 +72,13 @@
       "inp": "INP",
       "cls": "CLS"
     },
+    "pulse_aria": "用户规模与 Core Web Vitals",
+    "vital_scale_aria": "{{vital}} 的 P75：{{grade}}",
+    "vital_thresholds": "≤ {{good}} 良好 · > {{poor}} 较差",
+    "sessions_per_user": "人均 {{value}} 次会话",
+    "sessions_with_errors": "{{count}} 次会话出错",
     "satisfaction": "用户满意度",
-    "satisfaction_description": "良好、一般和较差会话的占比。",
+    "satisfaction_description": "良好、待改善和较差会话的占比。",
     "each_bar_time_bucket": "每根柱代表一个时间分桶",
     "needs_attention": "需要关注",
     "needs_attention_description": "当前时间范围内最值得优先调查的问题。",
@@ -148,6 +156,7 @@
     "last_page": "最终页面",
     "issues": "个问题",
     "no_issues": "无异常",
+    "has_replay": "已录制回放",
     "filters": {
       "search": "搜索",
       "experience": "体验等级",
@@ -354,8 +363,8 @@
     "columns": {
       "url": "URL",
       "count": "次数",
-      "p50": "P50 (ms)",
-      "p95": "P95 (ms)",
+      "p50": "P50",
+      "p95": "P95",
       "errors": "错误"
     }
   },

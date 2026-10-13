@@ -849,7 +849,7 @@ function ScheduleTimeline({
                   )}
                 </div>
                 {segment.source === 'override' && (
-                  <div className="mt-1 text-type-micro font-strong text-orange-soft">
+                  <div className="mt-1 text-type-micro font-strong text-[var(--orange-ink)]">
                     {t('schedules.override_badge')}
                   </div>
                 )}
@@ -1268,7 +1268,7 @@ function ValidationNotice({
       className={
         tone === 'red'
           ? 'rounded-md border border-red/30 bg-red-dim px-3 py-2 text-xs text-red-soft'
-          : 'rounded-md border border-orange/30 bg-orange-dim px-3 py-2 text-xs text-orange-soft'
+          : 'rounded-md border border-orange/30 bg-[var(--orange-tint)] px-3 py-2 text-xs text-[var(--orange-ink)]'
       }
     >
       {children}

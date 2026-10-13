@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   relatedSignalsFromRecord,
-  signalTimeFromTimestamp,
+  signalTimeAround,
   stringLabelsFromRecord,
 } from './relatedSignals';
 
@@ -23,9 +23,14 @@ describe('log related signals', () => {
   });
 
   it('scopes a log pivot to ten minutes around the event', () => {
-    expect(signalTimeFromTimestamp('2026-08-14T06:00:00.000Z')).toEqual({
+    expect(signalTimeAround(Date.parse('2026-08-14T06:00:00.000Z') * 1_000)).toEqual({
       from: '2026-08-14T05:55:00.000Z',
       to: '2026-08-14T06:05:00.000Z',
     });
+  });
+
+  it('has no window for a log that carries no time', () => {
+    expect(signalTimeAround(null)).toBeUndefined();
+    expect(signalTimeAround(Number.NaN)).toBeUndefined();
   });
 });

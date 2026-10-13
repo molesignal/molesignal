@@ -33,6 +33,11 @@
     "view_all": "View all approvals"
   },
   "user_menu": {
+    "language": "Language",
+    "languages": {
+      "zh-cn": "简体中文",
+      "en-us": "English"
+    },
     "current_workspace": "Current workspace",
     "switch_workspace": "Switch"
   },
@@ -183,8 +188,6 @@
     "tagline_b": "one query,",
     "tagline_c": "one timeline.",
     "promise": "Observe everything. Understand what matters.",
-    "blurb_a": "Logs, metrics, traces, profiles, APM, and RUM—",
-    "blurb_b": "unified in one query plane.",
     "forgot_password": "Forgot password?",
     "forgot_title": "Reset password",
     "forgot_subtitle": "Enter your account email and we’ll send you a password reset link.",
@@ -209,10 +212,12 @@
     "back_to_signin": "Back to sign in",
     "signing_in": "Signing in…",
     "email_or_username": "Email or directory username",
+    "email_placeholder": "name@company.com",
+    "password_placeholder": "Enter your password",
     "ldap_credentials_required": "Enter your username and password first",
     "or": "OR",
     "no_account": "No account yet?",
-    "version_line": "v{{version}} · {{channel}}",
+    "version": "v{{version}}",
     "sso_button_aria": "Sign in with {{name}}",
     "sso_loading": "Loading SSO providers…",
     "sso_none": "No SSO providers configured",

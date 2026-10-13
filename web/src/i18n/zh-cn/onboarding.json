@@ -225,7 +225,6 @@
     "token_loading": "加载中…",
     "token_description": "默认接入 token - 粘贴到上面的 Authorization: Bearer 头里即可。可在 API Token 页管理或新建。",
     "validation": "验证",
-    "endpoint_description": "用下方 token 把遥测数据 POST 到此端点即可接入。",
     "test_event": "发送测试事件",
     "test_event_sending": "发送中…",
     "test_event_sent": "已发送 · {{accepted}} 接收 · {{rejected}} 拒绝"
@@ -233,16 +232,17 @@
   "datasource_page": {
     "title": "数据源接入中心",
     "subtitle": "选择数据源、部署采集器并验证真实数据接收",
-    "search_placeholder": "搜索数据源、平台或接入方式…",
-    "api_tokens": "API Token",
-    "custom_source": "自定义接入",
+    "search_placeholder": "搜索全部数据源…",
+    "clear_search": "清除搜索",
     "matching": "{{count}} 个匹配项",
-    "sources_summary": "{{count}} 个数据源 · {{category}}",
     "no_match": "没有数据源匹配 \"{{search}}\"",
-    "no_match_filter": "当前筛选下没有数据源。",
-    "method_filter": "接入方式",
-    "status_auto_refresh": "接收状态每 30 秒刷新",
+    "no_sources": "没有数据源",
+    "no_signal_match": "“{{category}}”中没有可接入{{signal}}的数据源。",
+    "show_all_signals": "显示全部信号",
     "category_navigation": "数据源分类",
+    "source_navigation": "数据源列表",
+    "signal_filter": "信号类型",
+    "guide_region": "接入指南",
     "categories": {
       "recommended": "推荐",
       "infrastructure": "基础设施",
@@ -253,13 +253,6 @@
       "security": "安全",
       "custom": "自定义"
     },
-    "methods": {
-      "all": "全部方式",
-      "native": "原生集成",
-      "otel": "OpenTelemetry",
-      "collector": "OTel Collector",
-      "api": "HTTP / API"
-    },
     "signals": {
       "all": "全部",
       "logs": "日志",
@@ -267,47 +260,24 @@
       "traces": "链路",
       "profiles": "Profiles"
     },
-    "source_status": {
-      "verified": "已验证",
-      "signal_active": "信号活跃",
-      "delayed": "接收延迟",
-      "attention": "需关注",
-      "unverified": "未验证"
-    },
     "group_protocol": "协议接入",
     "group_source": "集成来源",
     "category": "分类: {{category}}",
-    "docs": "文档 ↗",
-    "connect_title": "接入 {{source}}",
-    "view_receive_status": "查看接收状态",
+    "docs": "文档",
+    "endpoint_for": "{{signal}}端点",
     "verify_connection": "验证接入",
-    "setup_progress": "接入进度",
-    "progress_count": "已完成 {{completed}}/{{total}} · 当前第 {{current}} 步",
     "steps": {
       "prepare": {
-        "title": "准备接入信息",
-        "description": "确认写入端点、应用标识与当前接入场景对应的 Token。"
+        "title": "端点与 Token",
+        "description": "数据发往哪里、用什么鉴权。下方命令已自动填入这两项。"
       },
       "deploy": {
-        "title": "部署采集器",
-        "description": "按步骤安装并配置采集器；命令中的端点和 Token 已替换为当前环境的真实值。"
+        "title": "配置数据源"
       },
       "verify": {
-        "title": "验证数据接收",
-        "description": "检查 MoleSignal 接收端，并读取最近 1 小时真实数据确认数据是否到达。"
-      },
-      "complete": {
-        "title": "完成接入",
-        "description": "验证成功后完成配置，并进入查询或流水线继续处理数据。"
+        "title": "验证数据到达"
       }
     },
-    "step_status": {
-      "complete": "已完成",
-      "active": "进行中",
-      "pending": "未开始"
-    },
-    "ready": "已就绪",
-    "required": "必填",
     "create_dedicated_token": "生成独立 Token",
     "manage_tokens": "管理 Token",
     "show_token": "显示 Token",
@@ -324,20 +294,18 @@
     "rum_application_confirm": "使用此应用",
     "rum_application_confirmed": "应用已确认",
     "rum_application_confirm_hint": "确认后才会签发或复用该应用专属的 RUM Client Token。",
-    "deployment_confirm": "我已完成以上部署和配置",
-    "deployment_confirm_hint": "勾选只记录当前操作进度；真实接入状态仍以第三步检测结果为准。",
     "validation_overview_unavailable": "暂时无法读取接收概览。",
     "validation_endpoint_failed": "接收端健康检查失败。",
     "validating": "检测中…",
     "recheck": "重新检测",
     "validation_state": {
       "idle": {
-        "title": "等待验证接入",
-        "description": "点击验证后，将检查接收端并读取最近 1 小时的真实信号数据。"
+        "title": "尚未验证",
+        "description": "先检查接收端，再查看最近 1 小时内是否收到数据。"
       },
       "success": {
         "title": "已检测到数据",
-        "description": "{{active}} / {{total}} 个支持的信号最近有数据，可继续完成接入。"
+        "description": "最近 1 小时内，{{active}} / {{total}} 个支持的信号收到了数据。"
       },
       "warning": {
         "title": "接收端正常，但数据状态需要确认",
@@ -355,24 +323,13 @@
       "volume": "最近 1 小时"
     },
     "receiver_healthy": "正常 · {{ms}} ms",
-    "receiver_failed": "异常",
-    "not_checked": "未检测",
     "validation_volume": "{{rate}} · {{rows}} 行 · {{bytes}}",
     "possible_causes": "可能原因",
     "cause_collector": "采集器尚未启动，或当前配置没有产生遥测数据。",
     "cause_token": "Token 无效、已过期，或写入角色与当前配置不匹配。",
     "cause_network": "采集器无法访问接入端点，或代理 / 防火墙阻断请求。",
-    "troubleshooting_command": "本地排查命令",
-    "receiver_scope_note": "当前验证基于 MoleSignal 接收端和真实数据流；采集器 Pod / Agent 的进程状态需在部署环境中通过上方命令确认。",
-    "ready_to_complete": "真实数据已经到达，可以完成本次接入。",
-    "complete_requires_validation": "完成配置前需要先通过数据接收验证。",
-    "complete_hint": "完成后可直接查看数据，或创建流水线进行清洗、转换和路由。",
-    "complete_setup": "完成配置",
-    "connection_complete": "{{source}} 接入已完成",
-    "connection_complete_hint": "接收验证已通过。下一步可以检查字段质量，或建立处理流水线。",
     "view_received_data": "查看已接收数据",
     "create_pipeline": "创建流水线",
-    "catalogue_meta": "接入目录：{{category}}",
     "validation_prefix": "数据通常会在 30-60 秒内出现。打开",
     "validation_or": "或",
     "validation_suffix": "页面，确认对应的 Stream 已经开始有数据。如果一直没有数据，参考",
@@ -386,7 +343,6 @@
     "copied": "已复制",
     "copy": "复制",
     "expand_code": "展开代码",
-    "collapse_code": "收起代码",
-    "empty_select_source": "从左侧选择数据源以查看接入指南。"
+    "collapse_code": "收起代码"
   }
 }

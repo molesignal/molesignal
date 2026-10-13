@@ -10,10 +10,17 @@
  * The dev server is the same one Playwright spins up for visual + behavior
  * specs; mountMockRoutes seeds mock auth + frozen clock + deterministic
  * `/api/v1/*` mocks so the scan runs against a stable shell.
+ *
+ * The shared mock gives the Logs and Traces explorers nothing to list, so the
+ * scan of those two routes is of their empty state. Each is scanned a second
+ * time with results from `mockExplorers`: the list, the histogram and the
+ * fields of the field list are on the page only then.
  */
 import AxeBuilder from '@axe-core/playwright';
+import type { Page } from '@playwright/test';
 
 import { expect, mountMockRoutes, test } from '../fixtures/mockBackend';
+import { expectExplorerResults, serveExplorerResults, type Explorer } from '../fixtures/mockExplorers';
 
 const ROUTES: Array<{ path: string; label: string }> = [
   { path: '/login', label: 'login' },
@@ -79,7 +86,7 @@ const ROUTES: Array<{ path: string; label: string }> = [
   // Settings sub-routes.
   { path: '/settings/general', label: 'settings-general' },
   { path: '/settings/storage_settings', label: 'settings-storage' },
-  { path: '/settings/pipeline_destinations', label: 'settings-pipeline-destinations' },
+  { path: '/pipelines/connectors', label: 'pipelines-connectors' },
   { path: '/settings/nodes', label: 'settings-nodes' },
   { path: '/settings/cipher_keys', label: 'settings-cipher-keys' },
   { path: '/settings/regex_patterns', label: 'settings-regex-patterns' },
@@ -98,9 +105,12 @@ const ROUTES: Array<{ path: string; label: string }> = [
 
   // Secondary application routes.
   { path: '/logs/inspector', label: 'logs-inspector' },
+  { path: '/logs/inspections', label: 'logs-inspections' },
+  { path: '/logs/inspections/2zA1paymentErrorsHourly0001', label: 'logs-inspection-detail' },
   { path: '/traces/sample-trace-id', label: 'traces-detail' },
   { path: '/traces/session/sample-session', label: 'traces-session-detail' },
   { path: '/streams/sample-stream', label: 'streams-explore' },
+  { path: '/streams/jobs', label: 'streams-jobs' },
   { path: '/service-graph', label: 'service-graph' },
   { path: '/dashboards/import', label: 'dashboards-import' },
   // `/dashboards/:id/panels/new` mounts the existing DashboardEditor, which
@@ -123,6 +133,38 @@ const STRICT_ROUTES = new Set([
   'iam-users',
 ]);
 
+/** The explorers that are scanned again with results on the page, each under the label of its route. */
+const EXPLORERS: Explorer[] = ['logs', 'traces'];
+
+/** Scans the page that is open; `label` names it in the counts, and `strict` gates serious violations too. */
+async function scan(page: Page, label: string, strict: boolean) {
+  const results = await new AxeBuilder({ page })
+    .exclude('[role="status"]')
+    .exclude('[aria-live]')
+    .analyze();
+  const critical = results.violations.filter((v) => v.impact === 'critical');
+  const serious = results.violations.filter((v) => v.impact === 'serious');
+  const moderate = results.violations.filter((v) => v.impact === 'moderate');
+  const minor = results.violations.filter((v) => v.impact === 'minor');
+  // Non-fatal counts surfaced as JSON for CI log scraping.
+  console.log(
+    JSON.stringify({
+      route: label,
+      counts: {
+        critical: critical.length,
+        serious: serious.length,
+        moderate: moderate.length,
+        minor: minor.length,
+      },
+      seriousIds: serious.map((v) => v.id),
+      moderateIds: moderate.map((v) => v.id),
+      minorIds: minor.map((v) => v.id),
+    }),
+  );
+  const blocking = strict ? [...critical, ...serious] : critical;
+  expect(blocking, JSON.stringify(blocking, null, 2)).toEqual([]);
+}
+
 test.describe('a11y: routes', () => {
   test.beforeEach(async ({ page, mockServer }) => {
     await mountMockRoutes(page, mockServer.port);
@@ -133,31 +175,20 @@ test.describe('a11y: routes', () => {
     test(`route ${label} has no ${strict ? 'serious/critical' : 'critical'} axe violations`, async ({ page }) => {
       await page.goto(path);
       await page.waitForLoadState('networkidle').catch(() => undefined);
-      const results = await new AxeBuilder({ page })
-        .exclude('[role="status"]')
-        .exclude('[aria-live]')
-        .analyze();
-      const critical = results.violations.filter((v) => v.impact === 'critical');
-      const serious = results.violations.filter((v) => v.impact === 'serious');
-      const moderate = results.violations.filter((v) => v.impact === 'moderate');
-      const minor = results.violations.filter((v) => v.impact === 'minor');
-      // Non-fatal counts surfaced as JSON for CI log scraping.
-      console.log(
-        JSON.stringify({
-          route: label,
-          counts: {
-            critical: critical.length,
-            serious: serious.length,
-            moderate: moderate.length,
-            minor: minor.length,
-          },
-          seriousIds: serious.map((v) => v.id),
-          moderateIds: moderate.map((v) => v.id),
-          minorIds: minor.map((v) => v.id),
-        }),
-      );
-      const blocking = strict ? [...critical, ...serious] : critical;
-      expect(blocking, JSON.stringify(blocking, null, 2)).toEqual([]);
+      await scan(page, label, strict);
+    });
+  }
+
+  for (const explorer of EXPLORERS) {
+    const strict = STRICT_ROUTES.has(explorer);
+    test(`route ${explorer} with results has no ${strict ? 'serious/critical' : 'critical'} axe violations`, async ({
+      page,
+    }) => {
+      await serveExplorerResults(page);
+      await page.goto(`/${explorer}`);
+      await page.waitForLoadState('networkidle').catch(() => undefined);
+      await expectExplorerResults(page, explorer);
+      await scan(page, `${explorer}-results`, strict);
     });
   }
 });

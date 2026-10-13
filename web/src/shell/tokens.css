@@ -53,9 +53,12 @@
   --floating-item-emphasis:   var(--bg-3);
   --workspace-selection-fill: #282d3f;
   --floating-item-selected:   rgba(120, 133, 239, 0.12);
+  /* A hairline edge plus a soft, long shadow: a card reads as a surface lifted
+     off the canvas, not a block that merely has a different fill. */
   --shadow-functional-surface:
-    0 1px 2px rgba(0, 0, 0, 0.24),
-    0 1px 3px rgba(0, 0, 0, 0.18);
+    0 0 0 1px rgba(255, 255, 255, 0.045),
+    0 1px 2px rgba(0, 0, 0, 0.32),
+    0 8px 22px -12px rgba(0, 0, 0, 0.55);
 
   /* primary = brand indigo */
   --primary:         var(--indigo);
@@ -137,8 +140,9 @@
   --workspace-selection-fill: #dde0ea;
   --floating-item-selected:   rgba(55, 66, 199, 0.06);
   --shadow-functional-surface:
-    0 1px 2px rgba(15, 23, 42, 0.04),
-    0 1px 3px rgba(15, 23, 42, 0.03);
+    0 0 0 1px rgba(19, 24, 37, 0.05),
+    0 1px 2px rgba(19, 24, 37, 0.05),
+    0 6px 18px -10px rgba(19, 24, 37, 0.1);
 
   --overlay:         rgba(19, 24, 37, 0.50);
   --overlay-soft:    rgba(19, 24, 37, 0.20);
@@ -221,6 +225,7 @@
 
   /* semantic type scale — stable across density modes */
   --font-page-title:    22px;
+  --font-heading:       18px;   /* the title of a sub-page inside a card (Settings, Access, Account) */
   --font-section-title: 16px;
   --font-data:          13px;
   --font-label:         12.5px;
@@ -266,7 +271,7 @@
   --row-pad-x:  12px;
   --font-body:  13.5px;
   --topbar-h:   52px;
-  --sidebar-item-h: 32px;
+  --sidebar-item-h: 30px;
 }
 
 [data-density='compact'] {
@@ -275,7 +280,7 @@
   --row-pad-x:  10px;
   --font-body:  13.5px;
   --topbar-h:   52px;
-  --sidebar-item-h: 32px;
+  --sidebar-item-h: 30px;
 }
 
 [data-density='comfortable'] {
@@ -284,7 +289,7 @@
   --row-pad-x:  14px;
   --font-body:  13.5px;
   --topbar-h:   52px;
-  --sidebar-item-h: 32px;
+  --sidebar-item-h: 30px;
 }
 
 /* base */
@@ -306,11 +311,40 @@ body,
   text-rendering: optimizeLegibility;
 }
 
+/* A page printed for a report (src/report-render) is paper, not a window: the
+ * document is as long as its content, which is what the renderer measures to
+ * size the PDF or the image, and nothing on it scrolls. */
+html[data-report-document],
+html[data-report-document] body,
+html[data-report-document] #root {
+  height: auto;
+  overflow: visible;
+  background: var(--functional-surface);
+}
+
+html[data-report-document] * {
+  scrollbar-width: none;
+}
+
+html[data-report-document] ::-webkit-scrollbar {
+  display: none;
+}
+
+/* A notice that floats over the window is not part of what is printed. */
+html[data-report-document] [data-sonner-toaster] {
+  display: none;
+}
+
 /* Semantic typography roles use non-Tailwind class names so tailwind-merge
  * never mistakes a custom font-size utility for a text color utility. */
 .type-page-title {
   font-size: var(--font-page-title);
   line-height: 1.2;
+}
+
+.type-heading {
+  font-size: var(--font-heading);
+  line-height: 1.3;
 }
 
 .type-section-title {
@@ -565,11 +599,25 @@ textarea::placeholder,
   padding: 0 20px 20px;
 }
 
+/* The title row stands close under the top bar and close over what it names, as an explorer's
+ * query tabs do, with no air of its own around the title: 5px above and 5px below. The two are
+ * equal because the row's actions are boxes as tall as the row nearly is: at 4px and 6px a
+ * filled button sat visibly nearer the top bar than the card under it, while the title, a line
+ * of text with its own leading, hid the difference. */
 [data-shell-layout='surface-workbench'] [data-testid='page-header'] {
-  margin-block: 12px;
+  margin-block: 5px;
   border-width: 0 !important;
   background: var(--page-canvas);
+  padding-block: 0;
   padding-inline: 20px;
+}
+
+/* A breadcrumb over the title belongs to the title. It stands as far off the top bar as off the
+ * title under it; at 4px and 6px it sat against the bar and looked dropped there. The header is
+ * as tall as before: what the row gains above it gives up below. */
+[data-shell-layout='surface-workbench'] [data-testid='page-header'][data-page-header-nav='true'] {
+  margin-top: 8px;
+  gap: 2px;
 }
 
 [data-shell-layout='surface-workbench'] [data-management-content],

@@ -7,6 +7,7 @@
     "share": "Share",
     "export": "Export",
     "edit": "Edit",
+    "view": "View",
     "enable": "Enable",
     "pause": "Pause",
     "delete": "Delete schedule",
@@ -188,7 +189,10 @@
   "workbench": {
     "new_title": "New report",
     "edit_title": "Edit report",
+    "view_title": "Report details",
     "subtitle": "Configure content, generation, and delivery while the report structure updates on the right.",
+    "view_subtitle": "What the report contains, when it is generated, and where it is delivered.",
+    "view_notice": "Changing this report requires the {{permission}} permission.",
     "steps": {
       "content": "Content and scope",
       "schedule": "Generation schedule",
@@ -244,7 +248,8 @@
       "pdf_description": "Best for reading and archiving",
       "png_description": "Best for collaboration tools",
       "csv_description": "Best for detailed analysis",
-      "json_description": "Best for system integrations"
+      "json_description": "Best for system integrations",
+      "svg_description": "Best for embedding a summary card"
     },
     "preview": {
       "title": "Live preview",
@@ -280,6 +285,15 @@
   },
   "confirm": {
     "delete": "Delete “{{name}}”? Existing generation history cannot be restored from this storage."
+  },
+  "run_as": {
+    "label": "Runs as",
+    "you": "{{name}} (you)",
+    "takeover": "After you save, it runs with your access.",
+    "missing": "This report has no user to run as, so its {{format}} deliveries fail.",
+    "missing_fix": "Save the report to run it with your access.",
+    "missing_needs_saver": "A signed-in user who can schedule reports has to save it.",
+    "toggle_hint": "Turning this on or off saves the report, which then runs with your access."
   },
   "errors": {
     "name_required": "Enter a report name.",

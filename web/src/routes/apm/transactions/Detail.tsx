@@ -18,7 +18,6 @@ import {
 import {
   ApmPageFrame,
   QueryBoundary,
-  RedKpis,
   Section,
   SectionLink,
   TraceIdLink,
@@ -31,6 +30,7 @@ import {
   formatTimestamp,
 } from '../format';
 import { signalHref } from '../model';
+import { RedKpis } from '../RedReadouts';
 import { ServiceNavigation } from '../service/Navigation';
 import { useApmFilters } from '../useApmFilters';
 

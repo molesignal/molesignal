@@ -53,7 +53,15 @@ export function AccountPreferences() {
   }, [preferencesQuery.data]);
 
   const save = useMutation({
-    mutationFn: () => meApi.updatePreferences(draft),
+    // The language is chosen in the user menu and may have changed since this page was
+    // opened: what is saved here keeps the one that is in use.
+    mutationFn: () =>
+      meApi.updatePreferences({
+        ...draft,
+        language:
+          queryClient.getQueryData<meApi.UserPreferences>(USER_PREFERENCES_QUERY_KEY)?.language
+          ?? draft.language,
+      }),
     onSuccess: (saved) => {
       const normalized = normalizeUserPreferences(saved);
       editedRef.current = false;
@@ -107,6 +115,7 @@ export function AccountPreferences() {
             }}
             onThemePreview={setTheme}
             surface="page"
+            withLanguage={false}
             disabled={save.isPending}
             disabledReason={
               save.isPending

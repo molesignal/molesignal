@@ -212,7 +212,7 @@ export function SchemaEditorDrawer({
         {validationError && (
           <p
             role="alert"
-            className="mt-4 border-l-2 border-yellow px-3 py-2 text-xs leading-relaxed text-yellow-soft"
+            className="mt-4 border-l-2 border-yellow px-3 py-2 text-xs leading-relaxed text-[var(--yellow-ink)]"
           >
             {validationError}
           </p>

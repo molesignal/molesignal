@@ -87,6 +87,12 @@ export interface ProductRouteMeta {
   emptyStateStrategy: ProductEmptyStateStrategy;
   nav?: boolean;
   exact?: boolean;
+  /**
+   * The area this navigation entry stands for, when it is wider than `path`.
+   * The Settings entry opens General but also owns every other Settings page,
+   * so it stays lit while one of those is open.
+   */
+  activePrefix?: `/${string}`;
   breadcrumbs?: readonly ProductBreadcrumbItem[];
   backTo?: string;
 }
@@ -155,6 +161,32 @@ export const PRODUCT_ROUTES = [
     emptyStateStrategy: 'query-first',
     breadcrumbs: [crumb('logs', '/logs'), crumb('breadcrumbs.logs_inspector')],
     backTo: '/logs',
+  }),
+  route({
+    id: 'logs.inspections',
+    path: '/logs/inspections',
+    labelKey: 'breadcrumbs.logs_inspections',
+    group: 'observe',
+    icon: ScrollText,
+    owner: 'logs',
+    emptyStateStrategy: 'create-first',
+    breadcrumbs: [crumb('logs', '/logs'), crumb('breadcrumbs.logs_inspections')],
+    backTo: '/logs',
+  }),
+  route({
+    id: 'logs.inspection.detail',
+    path: '/logs/inspections/:id',
+    labelKey: 'breadcrumbs.logs_inspection_detail',
+    group: 'observe',
+    icon: ScrollText,
+    owner: 'logs',
+    emptyStateStrategy: 'query-first',
+    breadcrumbs: [
+      crumb('logs', '/logs'),
+      crumb('breadcrumbs.logs_inspections', '/logs/inspections'),
+      crumb('breadcrumbs.logs_inspection_detail'),
+    ],
+    backTo: '/logs/inspections',
   }),
   route({
     id: 'traces',
@@ -317,6 +349,7 @@ export const PRODUCT_ROUTES = [
     owner: 'iam',
     emptyStateStrategy: 'create-first',
     nav: true,
+    activePrefix: '/iam',
   }),
   route({
     id: 'iam.organizations',
@@ -327,6 +360,7 @@ export const PRODUCT_ROUTES = [
     owner: 'iam',
     emptyStateStrategy: 'create-first',
     nav: true,
+    activePrefix: '/iam',
   }),
   route({
     id: 'settings.general',
@@ -337,6 +371,7 @@ export const PRODUCT_ROUTES = [
     owner: 'settings',
     emptyStateStrategy: 'none',
     nav: true,
+    activePrefix: '/settings',
   }),
   route({
     id: 'settings.organization.management',
@@ -347,6 +382,7 @@ export const PRODUCT_ROUTES = [
     owner: 'settings',
     emptyStateStrategy: 'none',
     nav: true,
+    activePrefix: '/settings',
   }),
   route({
     id: 'settings.client_ip',
@@ -395,6 +431,18 @@ export function findProductRoute(pathname: string): ProductRouteMeta | undefined
     PRODUCT_ROUTES.find((routeMeta) => routeMeta.path === normalizedPathname) ??
     PRODUCT_ROUTES.find((routeMeta) => routeMatchesPath(routeMeta.path, normalizedPathname))
   );
+}
+
+/**
+ * Whether `pathname` is inside the area a navigation entry stands for: the
+ * entry's own page, or any page below its `activePrefix`/`path`.
+ */
+export function isProductRouteActive(routeMeta: ProductRouteMeta, pathname: string): boolean {
+  const base = routeMeta.activePrefix ?? routeMeta.path;
+  const current = normalizePathname(pathname);
+  if (current === base) return true;
+  if (routeMeta.exact === true) return false;
+  return current.startsWith(`${base}/`);
 }
 
 function route<const T extends ProductRouteInput>(routeMeta: T): T {

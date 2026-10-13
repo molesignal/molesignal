@@ -55,12 +55,27 @@ describe('CollapsibleSidePanel', () => {
     render(<UtilityPanelHarness />);
 
     const panel = screen.getByText('Fields').closest('aside');
-    const sectionItems = screen.getByText('level').parentElement;
     expect(panel?.getAttribute('data-variant')).toBe('utility');
     expect(panel?.className).toContain('w-[240px]');
     expect(screen.getByText('Common fields')).not.toBeNull();
     expect(screen.getByText('2')).not.toBeNull();
-    expect(sectionItems?.className).toContain('[&>*:last-child]:border-b-0');
+  });
+
+  it('folds a section away under its heading, and brings it back', () => {
+    render(<UtilityPanelHarness />);
+    // The heading says what the section is and how many rows it holds, and is what folds it.
+    const heading = screen.getByRole('button', { name: 'Common fields 2' });
+
+    expect(heading.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByText('level')).not.toBeNull();
+
+    fireEvent.click(heading);
+    expect(heading.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByText('level')).toBeNull();
+    expect(screen.queryByText('service')).toBeNull();
+
+    fireEvent.click(heading);
+    expect(screen.getByText('level')).not.toBeNull();
   });
 
   it('collapses to a narrow rail and can be expanded again', () => {

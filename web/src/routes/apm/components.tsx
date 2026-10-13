@@ -3,8 +3,7 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
-import { KpiStrip } from '@/admin';
-import type { ApmMeta, RedSummary, TimeRange, TrendPoint } from '@/api/apm';
+import type { ApmMeta, TimeRange, TrendPoint } from '@/api/apm';
 import { ProductState } from '@/product/states';
 import { cn } from '@/shell/lib/cn';
 import {
@@ -16,56 +15,8 @@ import { TimeSeriesChart } from '@/viz/timeseries/TimeSeriesChart';
 import type { TimeSeriesSeries } from '@/viz/timeseries/types';
 
 import { DataQualityNotice } from './DataQualityNotice';
-import {
-  formatCount,
-  formatDuration,
-  formatRate,
-  formatThroughput,
-} from './format';
 import { ApmNavigation } from './Layout';
-
-export function RedKpis({
-  red,
-  trend,
-  resolution,
-}: {
-  red: RedSummary;
-  trend: TrendPoint[];
-  resolution: ApmMeta['resolution'];
-}) {
-  const { t } = useTranslation('apm');
-  const throughput = averageThroughput(red.request_count, trend, resolution);
-  return (
-    <KpiStrip
-      className="gap-[12px] [&>div]:border-0 [&>div]:bg-[var(--functional-surface)] [&>div]:[box-shadow:var(--shadow-functional-surface)]"
-      items={[
-        {
-          label: t('metrics.throughput'),
-          value: formatThroughput(throughput),
-          sub: t('metrics.total_requests', {
-            count: formatCount(red.request_count),
-          }),
-        },
-        {
-          label: t('metrics.error_rate'),
-          value: formatRate(red.error_rate),
-          sub: `${formatCount(red.error_count)} ${t('metrics.errors').toLowerCase()}`,
-          tone: red.error_rate >= 0.1 ? 'danger' : red.error_rate >= 0.02 ? 'warn' : 'good',
-        },
-        {
-          label: t('metrics.p95'),
-          value: formatDuration(red.p95_micros),
-          sub: t('metrics.merged_histogram'),
-        },
-        {
-          label: t('metrics.p99'),
-          value: formatDuration(red.p99_micros),
-          sub: t('metrics.merged_histogram'),
-        },
-      ]}
-    />
-  );
-}
+import { ApmFilterPartContext, ApmNavigationSlots } from './navigationSlots';
 
 type TrendMetric = 'throughput' | 'latency' | 'error_rate';
 
@@ -164,7 +115,7 @@ export function TrendStrip({
         <div
           role="group"
           aria-label={t('trend.metric_selector')}
-          className="inline-flex w-full rounded-md border border-bd-0 bg-bg-2 p-0.5 sm:w-auto"
+          className="inline-flex w-full rounded-md bg-[var(--control-surface)] p-0.5 sm:w-auto"
         >
           {(['throughput', 'latency', 'error_rate'] as const).map((item) => (
             <button
@@ -175,7 +126,7 @@ export function TrendStrip({
               className={cn(
                 'min-h-11 flex-1 rounded px-3 text-sm outline-none transition-colors sm:min-h-8 sm:flex-none sm:text-xs',
                 metric === item
-                  ? 'bg-bg-4 font-strong text-tx-0'
+                  ? 'bg-[var(--functional-surface)] font-strong text-tx-0'
                   : 'text-tx-2 hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-bg-3 focus-visible:text-tx-0',
               )}
             >
@@ -192,7 +143,7 @@ export function TrendStrip({
         <TimeSeriesChart
           series={series}
           xDomain={[range.from, range.to]}
-          height={190}
+          height={220}
           ariaLabel={ariaLabel}
           showLegend={metric === 'latency'}
           legendDensity="compact"
@@ -303,6 +254,7 @@ export function QueryBoundary({
   error,
   empty,
   filtered,
+  emptyState,
   refetching,
   onRetry,
   children,
@@ -311,6 +263,11 @@ export function QueryBoundary({
   error: unknown;
   empty: boolean;
   filtered?: boolean;
+  /**
+   * Shown instead of the plain empty state when nothing is filtered out: the
+   * page has no data at all yet, and can say how to get some.
+   */
+  emptyState?: React.ReactNode;
   refetching?: boolean;
   onRetry: () => void;
   children: React.ReactNode;
@@ -347,6 +304,7 @@ export function QueryBoundary({
       />
     );
   }
+  if (empty && !filtered && emptyState) return <>{emptyState}</>;
   if (empty) {
     return (
       <ProductState
@@ -389,18 +347,32 @@ export function ApmPageFrame({
   meta?: ApmMeta | undefined;
   children: React.ReactNode;
 }) {
+  const nav = navigation === undefined ? <ApmNavigation /> : navigation;
+  const slots = React.useMemo(
+    () =>
+      toolbar
+        ? {
+            end: <ApmFilterPartContext.Provider value="time">{toolbar}</ApmFilterPartContext.Provider>,
+            scope: (
+              <ApmFilterPartContext.Provider value="scope">{toolbar}</ApmFilterPartContext.Provider>
+            ),
+          }
+        : {},
+    [toolbar],
+  );
   return (
     <div
       data-surface-workbench-page="apm"
       className={surfacePageRootClass}
     >
-      <SurfacePageHeader
-        title={title}
-        subtitle={subtitle}
-        toolbar={toolbar}
-      />
-      {navigation === undefined ? <ApmNavigation /> : navigation}
+      <SurfacePageHeader title={title} subtitle={subtitle} />
+      {/* The navigation card carries what the page is looking at: the time
+          range at the end of its tabs, the entities in a row under them. Beside
+          the title they squeezed the description to a fragment. */}
+      <ApmNavigationSlots.Provider value={slots}>{nav}</ApmNavigationSlots.Provider>
       <SurfacePageBody className="space-y-[12px]">
+        {/* No navigation to carry them (a detail page still loading): they keep a row of their own. */}
+        {toolbar && !nav && <div data-apm-scope>{toolbar}</div>}
         {meta && <DataQualityNotice meta={meta} />}
         {children}
       </SurfacePageBody>

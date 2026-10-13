@@ -29,8 +29,7 @@ import { useStatusPageWorkspace } from './Layout';
 import { shouldShowStatusPagePagination } from './pagination';
 import {
   StatusPageCanvas,
-  StatusPageFilterBand,
-  StatusPageListSurface,
+  StatusPageList,
   statusPageFlatStateClassName,
   statusPageFlatTableClassName,
 } from './Surfaces';
@@ -89,67 +88,81 @@ export function StatusPageHistory() {
   return (
     <PageBody className="space-y-0 pb-4 pt-2 lg:pb-6 lg:pt-2">
       <StatusPageCanvas>
-        <StatusPageFilterBand
-          className="grid gap-2 md:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_150px_160px_190px_190px_190px]"
-          onSubmit={(event) => {
-            event.preventDefault();
-            updateFilter('q', search.trim());
-          }}
+        <StatusPageList
+          head={
+            <>
+              <form
+                className="w-full min-w-0 sm:w-[240px]"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  updateFilter('q', search.trim());
+                }}
+              >
+                <label className="relative block">
+                  <span className="sr-only">{t('filters.search')}</span>
+                  <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-tx-3" />
+                  <FormInput
+                    value={search}
+                    onChange={(event) => setSearch(event.currentTarget.value)}
+                    placeholder={t('filters.search_placeholder')}
+                    className="pl-9"
+                  />
+                </label>
+              </form>
+              <FormSelect
+                ariaLabel={t('filters.type')}
+                className="w-full sm:w-[150px]"
+                value={kind ?? ''}
+                onChange={(value) => updateFilter('type', value)}
+                options={[
+                  { value: '', label: t('filters.all_types') },
+                  { value: 'incident', label: t('kind.incident') },
+                  { value: 'maintenance', label: t('kind.maintenance') },
+                ]}
+              />
+              <FormSelect
+                ariaLabel={t('filters.status')}
+                className="w-full sm:w-[190px]"
+                value={status ?? ''}
+                onChange={(value) => updateFilter('status', value)}
+                options={[
+                  { value: '', label: t('filters.all_statuses') },
+                  { value: 'resolved', label: t('incident_status.resolved') },
+                  { value: 'completed', label: t('incident_status.completed') },
+                  { value: 'cancelled', label: t('incident_status.cancelled') },
+                ]}
+              />
+              <FormSelect
+                ariaLabel={t('filters.component')}
+                className="w-full sm:w-[190px]"
+                value={component ?? ''}
+                onChange={(value) => updateFilter('component', value)}
+                options={[
+                  { value: '', label: t('filters.all_components') },
+                  ...snapshot.components.map((item) => ({ value: item.id, label: item.name })),
+                ]}
+              />
+              <div className="flex w-full min-w-0 items-center gap-[8px] sm:w-auto">
+                <div className="min-w-0 flex-1 sm:w-[170px] sm:flex-none">
+                  <DateTimePicker
+                    aria-label={t('filters.from')}
+                    value={microsToLocalDateTime(from)}
+                    onChange={(value) => updateFilter('from', localDateTimeToMicros(value))}
+                    placeholder={t('filters.from')}
+                  />
+                </div>
+                <div className="min-w-0 flex-1 sm:w-[170px] sm:flex-none">
+                  <DateTimePicker
+                    aria-label={t('filters.to')}
+                    value={microsToLocalDateTime(to)}
+                    onChange={(value) => updateFilter('to', localDateTimeToMicros(value))}
+                    placeholder={t('filters.to')}
+                  />
+                </div>
+              </div>
+            </>
+          }
         >
-          <label className="relative min-w-0">
-            <span className="sr-only">{t('filters.search')}</span>
-            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-tx-3" />
-            <FormInput
-              value={search}
-              onChange={(event) => setSearch(event.currentTarget.value)}
-              placeholder={t('filters.search_placeholder')}
-              className="pl-9"
-            />
-          </label>
-          <FormSelect
-            ariaLabel={t('filters.type')}
-            value={kind ?? ''}
-            onChange={(value) => updateFilter('type', value)}
-            options={[
-              { value: '', label: t('filters.all_types') },
-              { value: 'incident', label: t('kind.incident') },
-              { value: 'maintenance', label: t('kind.maintenance') },
-            ]}
-          />
-          <DateTimePicker
-            aria-label={t('filters.from')}
-            value={microsToLocalDateTime(from)}
-            onChange={(value) => updateFilter('from', localDateTimeToMicros(value))}
-            placeholder={t('filters.from')}
-          />
-          <DateTimePicker
-            aria-label={t('filters.to')}
-            value={microsToLocalDateTime(to)}
-            onChange={(value) => updateFilter('to', localDateTimeToMicros(value))}
-            placeholder={t('filters.to')}
-          />
-          <FormSelect
-            ariaLabel={t('filters.status')}
-            value={status ?? ''}
-            onChange={(value) => updateFilter('status', value)}
-            options={[
-              { value: '', label: t('filters.all_statuses') },
-              { value: 'resolved', label: t('incident_status.resolved') },
-              { value: 'completed', label: t('incident_status.completed') },
-              { value: 'cancelled', label: t('incident_status.cancelled') },
-            ]}
-          />
-          <FormSelect
-            ariaLabel={t('filters.component')}
-            value={component ?? ''}
-            onChange={(value) => updateFilter('component', value)}
-            options={[
-              { value: '', label: t('filters.all_components') },
-              ...snapshot.components.map((item) => ({ value: item.id, label: item.name })),
-            ]}
-          />
-        </StatusPageFilterBand>
-
         {query.isLoading ? (
           <ProductState variant="loading" className={statusPageFlatStateClassName} />
         ) : query.isError ? (
@@ -159,7 +172,7 @@ export function StatusPageHistory() {
             className={statusPageFlatStateClassName}
           />
         ) : (
-          <StatusPageListSurface>
+          <>
           <DataTable
             className={statusPageFlatTableClassName}
             rows={query.data?.items ?? []}
@@ -192,7 +205,7 @@ export function StatusPageHistory() {
                 header: t('columns.status'),
                 width: 140,
                 cell: (event) => (
-                  <Pill tone={INCIDENT_TONE[event.status]}>{incidentStatusLabel(t, event.status)}</Pill>
+                  <Pill tone={INCIDENT_TONE[event.status]}>{incidentStatusLabel(t, event.status, event.kind)}</Pill>
                 ),
               },
               {
@@ -241,8 +254,9 @@ export function StatusPageHistory() {
               onPageSizeChange={() => undefined}
             />
           )}
-          </StatusPageListSurface>
+          </>
         )}
+        </StatusPageList>
       </StatusPageCanvas>
 
       <StatusPageEventDrawer

@@ -9,7 +9,7 @@ import { productStateFor } from '@/product/states';
 import { ChromeButton, Pill, TimeRangeChip, type PillTone } from '@/shell/chrome';
 import { queryStateFor } from '@/shell/query/State';
 import { useAuthStore } from '@/stores/auth';
-import { formatWindowSummary, useTimeStore } from '@/stores/useTimeStore';
+import { useTimeStore } from '@/stores/useTimeStore';
 
 import { formatDurationMs, windowToMicros } from './_helpers';
 import {
@@ -25,9 +25,10 @@ interface PageSummary {
   page: string;
   sessions: number;
   samples: number;
-  lcpP75: number;
-  inpP75: number;
-  clsP75: number;
+  /** The 75th percentile of each vital; `null` where no sample of the page carries it. */
+  lcpP75: number | null;
+  inpP75: number | null;
+  clsP75: number | null;
   grade: ExperienceGrade;
 }
 
@@ -68,11 +69,9 @@ export function Pages() {
 
   return (
     <RumListPage
-      title={t('pages.title')}
-      subtitle={t('pages.subtitle')}
       toolbar={
         <>
-          <TimeRangeChip value={formatWindowSummary(window)} className="border-0" />
+          <TimeRangeChip className="border-0" />
           <ChromeButton onClick={() => query.refetch()}>{t('refresh')}</ChromeButton>
         </>
       }
@@ -104,7 +103,7 @@ export function Pages() {
       }
       state={state}
     >
-      <RumSurface className="space-y-2 p-4">
+      <RumSurface className="space-y-4 p-4">
         <RumSectionHeader
           title={t('pages.list_title')}
           description={t('pages.result_count', { count: rows.length })}
@@ -145,7 +144,7 @@ function summarizePages(points: WebVitalsPoint[]): PageSummary[] {
         grade: webVitalGrade(lcpP75, inpP75, clsP75),
       };
     })
-    .sort((left, right) => right.lcpP75 - left.lcpP75);
+    .sort((left, right) => (right.lcpP75 ?? -1) - (left.lcpP75 ?? -1));
 }
 
 function columns(
@@ -174,17 +173,18 @@ function columns(
     {
       key: 'lcp',
       header: t('pages.columns.lcp'),
-      cell: (row) => formatDurationMs(row.lcpP75),
+      cell: (row) => formatDurationMs(row.lcpP75 ?? undefined),
     },
     {
       key: 'inp',
       header: t('pages.columns.inp'),
-      cell: (row) => formatDurationMs(row.inpP75),
+      // A vital no sample carries was not measured: it is not a vital of zero.
+      cell: (row) => formatDurationMs(row.inpP75 ?? undefined),
     },
     {
       key: 'cls',
       header: t('pages.columns.cls'),
-      cell: (row) => (row.clsP75 > 0 ? row.clsP75.toFixed(3) : '—'),
+      cell: (row) => (row.clsP75 === null ? '—' : row.clsP75.toFixed(3)),
     },
     {
       key: 'samples',
@@ -212,26 +212,27 @@ function valueOptions(
   ];
 }
 
-function metricPercentile(
+export function metricPercentile(
   points: WebVitalsPoint[],
   key: 'lcp_ms' | 'inp_ms' | 'cls',
-): number {
+): number | null {
   const values = points
     .map((point) => point[key])
-    .filter((value): value is number => value !== undefined)
+    .filter((value): value is number => value !== undefined && value !== null)
     .sort((left, right) => left - right);
-  if (values.length === 0) return 0;
-  return values[Math.min(values.length - 1, Math.ceil(values.length * 0.75) - 1)] ?? 0;
+  if (values.length === 0) return null;
+  return values[Math.min(values.length - 1, Math.ceil(values.length * 0.75) - 1)] ?? null;
 }
 
-function webVitalGrade(
-  lcp: number,
-  inp: number,
-  cls: number,
+/** How a page fares by the vitals that were measured on it; one that was not measured does not count. */
+export function webVitalGrade(
+  lcp: number | null,
+  inp: number | null,
+  cls: number | null,
 ): ExperienceGrade {
-  if (lcp > 4_000 || inp > 500 || cls > 0.25) return 'poor';
-  if (lcp > 2_500 || inp > 200 || cls > 0.1) return 'needs_improvement';
-  if (lcp > 0 || inp > 0 || cls > 0) return 'good';
+  if ((lcp ?? 0) > 4_000 || (inp ?? 0) > 500 || (cls ?? 0) > 0.25) return 'poor';
+  if ((lcp ?? 0) > 2_500 || (inp ?? 0) > 200 || (cls ?? 0) > 0.1) return 'needs_improvement';
+  if (lcp !== null || inp !== null || cls !== null) return 'good';
   return 'unknown';
 }
 

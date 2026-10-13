@@ -1,24 +1,18 @@
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import {
-  Bot,
   BrainCircuit,
   Check,
-  Database,
-  FileText,
   Globe2,
   GlobeLock,
   KeyRound,
   Pencil,
   Plus,
-  RadioTower,
-  ShieldCheck,
   SlidersHorizontal,
-  Wrench,
   X,
 } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 
 import * as agentApi from '@/api/agent';
 import * as providersApi from '@/api/agent/modelProviders';
@@ -27,7 +21,7 @@ import { ProductState } from '@/product/states';
 import { cn } from '@/shell/lib/cn';
 import { Badge } from '@/shell/ui/badge';
 import { Button } from '@/shell/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shell/ui/tabs';
+import { Tabs, TabsContent } from '@/shell/ui/tabs';
 
 import { InboundMcpPanel } from './InboundMcp';
 import { ProfilesPanel } from './Profile';
@@ -35,6 +29,7 @@ import {
   ProfileEditorDrawer,
   type ProfileEditorTarget,
 } from './Profile/Editor';
+import { agentSettingsSection } from './sections';
 import {
   ModelProviderEditorDrawer,
   type ProviderEditorTarget,
@@ -45,23 +40,11 @@ import { PromptManagementPanel } from '../prompt/Management';
 import { ToolCapabilitiesPanel } from '../ToolCapabilities';
 import { localizeToolMetadataList } from '../toolMetadata';
 
-const SETTINGS_TABS = [
-  { value: 'profiles', key: 'settings.tabs.profiles', icon: Bot },
-  { value: 'models', key: 'settings.tabs.models', icon: BrainCircuit },
-  { value: 'prompts', key: 'settings.tabs.prompts', icon: FileText },
-  { value: 'tools', key: 'settings.tabs.tools', icon: Wrench },
-  { value: 'inbound-mcp', key: 'settings.tabs.inbound_mcp', icon: RadioTower },
-  { value: 'data', key: 'settings.tabs.data', icon: Database },
-  { value: 'network', key: 'settings.tabs.network', icon: GlobeLock },
-  { value: 'approvals', key: 'settings.tabs.approvals', icon: ShieldCheck },
-] as const;
-
 const EMPTY_TOOLS: agentApi.RegisteredTool[] = [];
 const EMPTY_PROVIDERS: providersApi.ModelProvider[] = [];
 
 export function AgentSettingsPage() {
   const { t } = useTranslation('agent');
-  const navigate = useNavigate();
   const { section } = useParams();
   const manageAccess = useActionAccess({
     permission: 'agent.manage',
@@ -90,36 +73,15 @@ export function AgentSettingsPage() {
   const providerRows = providers.data ?? EMPTY_PROVIDERS;
   const activeProfile =
     profileRows.find((profile) => profile.is_default) ?? profileRows[0];
-  const activeTab: string =
-    section && SETTINGS_TABS.some((tab) => tab.value === section)
-      ? section
-      : 'profiles';
+  // Which section is open is chosen in the module's navigation, a row under its tabs.
+  const activeTab = agentSettingsSection(section);
   return (
-    <ModulePage title={t('settings.title')} description={t('settings.description')}>
-      <Tabs
-        value={activeTab}
-        onValueChange={(value) =>
-          navigate(
-            value === 'profiles'
-              ? '/agent/settings'
-              : `/agent/settings/${value}`,
-          )
-        }
-      >
-        <TabsList className="max-w-full justify-start overflow-x-auto">
-          {SETTINGS_TABS.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <TabsTrigger key={tab.value} value={tab.value} className="gap-2">
-                <Icon className="h-3.5 w-3.5" /> {t(tab.key)}
-              </TabsTrigger>
-            );
-          })}
-        </TabsList>
+    <ModulePage title={t('settings.title')} bare>
+      <Tabs value={activeTab}>
         {manageAccess.disabled && manageAccess.reason && (
           <div
             role="status"
-            className="mt-4 rounded-md border border-bd-1 bg-bg-2 px-3 py-2 font-sans text-xs text-tx-2"
+            className="mb-3 rounded-md border border-bd-1 bg-bg-2 px-3 py-2 font-sans text-xs text-tx-2"
           >
             {manageAccess.reason}
           </div>
@@ -129,7 +91,7 @@ export function AgentSettingsPage() {
           aria-disabled={manageAccess.disabled || undefined}
           className="contents"
         >
-        <TabsContent value="profiles" className="mt-4">
+        <TabsContent value="profiles" className="mt-0">
           <ProfilesPanel
             profiles={profiles}
             providers={providerRows}
@@ -141,19 +103,19 @@ export function AgentSettingsPage() {
             }
           />
         </TabsContent>
-        <TabsContent value="models" className="mt-4">
+        <TabsContent value="models" className="mt-0">
           <ModelsPanel providers={providers} />
         </TabsContent>
-        <TabsContent value="prompts" className="mt-4">
+        <TabsContent value="prompts" className="mt-0">
           <PromptManagementPanel />
         </TabsContent>
-        <TabsContent value="tools" className="mt-4">
+        <TabsContent value="tools" className="mt-0">
           <ToolCapabilitiesPanel registry={tools} />
         </TabsContent>
-        <TabsContent value="inbound-mcp" className="mt-4">
+        <TabsContent value="inbound-mcp" className="mt-0">
           <InboundMcpPanel />
         </TabsContent>
-        <TabsContent value="data" className="mt-4">
+        <TabsContent value="data" className="mt-0">
           <DataAccessPanel
             profile={activeProfile}
             onEdit={
@@ -167,7 +129,7 @@ export function AgentSettingsPage() {
             }
           />
         </TabsContent>
-        <TabsContent value="network" className="mt-4">
+        <TabsContent value="network" className="mt-0">
           <NetworkPanel
             profile={activeProfile}
             registry={tools.data}
@@ -182,7 +144,7 @@ export function AgentSettingsPage() {
             }
           />
         </TabsContent>
-        <TabsContent value="approvals" className="mt-4">
+        <TabsContent value="approvals" className="mt-0">
           <ApprovalPolicyPanel
             profile={activeProfile}
             onEdit={
@@ -256,7 +218,13 @@ function ModelsPanel({
           ))}
         </div>
       ) : (
-        <ProductState variant="empty" compact title={t('settings.models.empty_title')} />
+        <ProductState
+          variant="empty"
+          compact
+          title={t('settings.models.empty_title')}
+          // On the content surface itself, not in a card set into it.
+          className="bg-transparent [box-shadow:none]"
+        />
       )}
       <ModelProviderEditorDrawer
         target={editor}
@@ -343,9 +311,9 @@ function NetworkPanel({
             )}
           >
             {networkAllowed ? (
-              <Globe2 className="h-4 w-4 text-yellow-soft" />
+              <Globe2 className="h-4 w-4 text-[var(--yellow-ink)]" />
             ) : (
-              <GlobeLock className="h-4 w-4 text-green-soft" />
+              <GlobeLock className="h-4 w-4 text-[var(--green-ink)]" />
             )}
           </div>
           <div>
@@ -353,7 +321,7 @@ function NetworkPanel({
             <div
               className={cn(
                 'text-xs',
-                networkAllowed ? 'text-yellow-soft' : 'text-green-soft',
+                networkAllowed ? 'text-[var(--yellow-ink)]' : 'text-[var(--green-ink)]',
               )}
             >
               {t(networkAllowed ? 'settings.allowed' : 'settings.blocked')}
@@ -379,7 +347,7 @@ function NetworkPanel({
       <div className="mt-3 grid gap-2 lg:grid-cols-2">
         {controls.map((control) => (
           <div key={control.key} className="flex items-center gap-3 rounded-md border border-bd-0 bg-bg-2 px-3 py-2.5">
-            {control.blocked ? <Check className="h-4 w-4 text-green-soft" /> : <X className="h-4 w-4 text-red-soft" />}
+            {control.blocked ? <Check className="h-4 w-4 text-[var(--green-ink)]" /> : <X className="h-4 w-4 text-red-soft" />}
             <span className="text-sm text-tx-1">{t(control.key)}</span>
             <Badge variant="outline" className="ml-auto">{control.blocked ? t('settings.blocked') : t('settings.allowed')}</Badge>
           </div>
@@ -470,7 +438,7 @@ function ProfileContextLine({
 function PolicyRow({ label, value, secure = false }: { label: string; value: string; secure?: boolean }) {
   return (
     <div className="flex items-center gap-3 rounded-md border border-bd-0 bg-bg-2 p-3">
-      <SlidersHorizontal className={cn('h-4 w-4 text-tx-3', secure && 'text-green-soft')} />
+      <SlidersHorizontal className={cn('h-4 w-4 text-tx-3', secure && 'text-[var(--green-ink)]')} />
       <div>
         <div className="text-xs text-tx-3">{label}</div>
         <div className="mt-0.5 text-sm font-strong text-tx-1">{value}</div>

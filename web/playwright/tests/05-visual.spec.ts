@@ -4,7 +4,7 @@
  * Coverage: 10 screenshots × (dark+light) × (compact+comfortable) = 40 PNG baselines.
  *
  * Screenshots:
- *   1. Login page
+ *   1. Sign-in page
  *   2. Investigate home
  *   3. Command palette open
  *   4. Help overlay (`⌘/`)
@@ -18,13 +18,15 @@
  * Generate baselines locally with:
  *   pnpm -C web playwright test --update-snapshots playwright/tests/05-visual.spec.ts
  *
- * Backend stays mocked: a normal mock session is seeded and routes that call
- * /api/v1/* are intercepted so screenshots stay deterministic.
+ * Backend stays mocked: the shared mock backend answers every /api/v1/* call
+ * and pins the clock, so screenshots stay deterministic. It has nothing for
+ * the Logs and Traces explorers to list, so those two get their results from
+ * `mockExplorers`.
  */
 import type { Page } from '@playwright/test';
-import { expect, test } from '@playwright/test';
 
-import { installMockSession } from '../fixtures/mockSession';
+import { expect, mountMockRoutes, test } from '../fixtures/mockBackend';
+import { serveExplorerResults } from '../fixtures/mockExplorers';
 
 // QUARANTINE: the committed screenshot baselines are
 // `*-chromium-darwin.png` only, so this suite cannot pass on the linux CI
@@ -36,10 +38,6 @@ test.beforeEach(() => {
     'Visual baselines are darwin-only; linux baselines have not been generated.',
   );
 });
-
-const THEME_KEY = 'molesignal-theme';
-const DENSITY_KEY = 'molesignal-density';
-const EXPLICIT_THEME_KEY = 'molesignal-theme-explicit';
 
 type Theme = 'dark' | 'light';
 type Density = 'comfortable' | 'compact';
@@ -53,70 +51,49 @@ const COMBINATIONS: Array<{ theme: Theme; density: Density }> = [
 
 for (const combo of COMBINATIONS) {
   test.describe(`visual @ theme=${combo.theme} density=${combo.density}`, () => {
-    test.beforeEach(async ({ page }) => {
-      // Freeze the clock to 2026-05-23T10:00:00Z so any time-of-day chrome
-      // (status strip "now", relative window summary) is byte-stable across runs.
-      await page.clock.install({ time: new Date('2026-05-23T10:00:00.000Z') });
-      await installMockSession(page);
-      // Seed theme / density before any app code runs so we
-      // never see a "wrong theme for one frame" flash.
-      await page.addInitScript(
-        ({ theme, density, themeKey, densityKey, explicitKey }) => {
-          localStorage.setItem(themeKey, theme);
-          localStorage.setItem(densityKey, density);
-          localStorage.setItem(explicitKey, '1');
-        },
-        {
-          theme: combo.theme,
-          density: combo.density,
-          themeKey: THEME_KEY,
-          densityKey: DENSITY_KEY,
-          explicitKey: EXPLICIT_THEME_KEY,
-        },
-      );
-      // Intercept any backend calls so screenshots are deterministic even
-      // without a real server. Mock minimal JSON for the endpoints visited
-      // by the routes we snapshot.
-      await page.route('**/api/v1/web/search**', (route) =>
-        route.fulfill({ json: { items: [] } }),
-      );
-      await page.route('**/api/v1/web/topology**', (route) =>
-        route.fulfill({ json: { nodes: [], edges: [] } }),
-      );
-      await page.route('**/api/v1/web/trace/**', (route) =>
-        route.fulfill({ status: 404, body: 'not found' }),
-      );
-      await page.route('**/api/v1/streams**', (route) =>
-        route.fulfill({ json: { items: [] } }),
-      );
-      await page.route('**/api/v1/dashboards**', (route) =>
-        route.fulfill({ json: { items: [] } }),
-      );
-      await page.route('**/api/v1/alerts/**', (route) =>
-        route.fulfill({ json: { items: [] } }),
-      );
-      // Catch-all so any other /api/v1/* call resolves to {} instead of hanging.
-      await page.route('**/api/v1/**', (route) =>
-        route.fulfill({ json: {} }),
-      );
-    });
+    // The theme and density under test are the ones the mock user has saved:
+    // the shell applies the saved preferences over what the browser
+    // remembered, so seeding localStorage alone would leave all four
+    // combinations looking the same once the page has loaded.
+    const signedIn = (page: Page, port: number) =>
+      mountMockRoutes(page, port, {
+        theme: combo.theme,
+        density: combo.density,
+        preferences: { theme: combo.theme, density: combo.density },
+      });
+    // Wait until the saved look is on the page, and the shell has its
+    // navigation, before sampling pixels.
+    const settled = async (page: Page) => {
+      await expect(page.locator('html')).toHaveAttribute('data-theme', combo.theme);
+      await expect(page.locator('html')).toHaveAttribute('data-density', combo.density);
+      await expect(
+        page.getByTestId('primary-sidebar').getByRole('link').first(),
+      ).toBeVisible();
+    };
 
-    test('login page', async ({ page }) => {
-      await page.goto('/login');
+    test('sign-in page', async ({ page, mockServer }) => {
+      await mountMockRoutes(page, mockServer.port, {
+        theme: combo.theme,
+        density: combo.density,
+        signedOut: true,
+      });
+      await page.goto('/signin');
+      await expect(page.getByTestId('signin-card')).toBeVisible();
+      await expect(page.locator('html')).toHaveAttribute('data-theme', combo.theme);
       await expect(page).toHaveScreenshot(`login-${combo.theme}-${combo.density}.png`, {
         fullPage: true,
         animations: 'disabled',
       });
     });
 
-    test('investigate home', async ({ page }) => {
-      await page.goto('/investigate');
+    test('investigate home', async ({ page, mockServer }) => {
+      await signedIn(page, mockServer.port);
       await page.goto('/investigate');
       // Anchor the screenshot to the "Press ⌘K" placeholder so the page is
       // fully settled (sidebar nav + status strip + investigate placeholder
-      // all painted) before we sample pixels — without this the auth
-      // setSession → nav redirect can race the screenshot.
+      // all painted) before we sample pixels.
       await page.getByText(/press/i).first().waitFor({ state: 'visible', timeout: 5_000 });
+      await settled(page);
       await expect(page).toHaveScreenshot(`investigate-${combo.theme}-${combo.density}.png`, {
         fullPage: true,
         animations: 'disabled',
@@ -124,8 +101,10 @@ for (const combo of COMBINATIONS) {
       });
     });
 
-    test('command palette open', async ({ page }) => {
+    test('command palette open', async ({ page, mockServer }) => {
+      await signedIn(page, mockServer.port);
       await page.goto('/investigate');
+      await settled(page);
       await page.keyboard.press('Meta+K');
       await expect(page.getByPlaceholder(/search commands/i)).toBeVisible();
       await expect(page).toHaveScreenshot(`palette-${combo.theme}-${combo.density}.png`, {
@@ -134,8 +113,10 @@ for (const combo of COMBINATIONS) {
       });
     });
 
-    test('help overlay', async ({ page }) => {
+    test('help overlay', async ({ page, mockServer }) => {
+      await signedIn(page, mockServer.port);
       await page.goto('/investigate');
+      await settled(page);
       await page.keyboard.press('Meta+/');
       await expect(page.getByText(/keyboard shortcuts/i)).toBeVisible();
       await expect(page).toHaveScreenshot(`help-${combo.theme}-${combo.density}.png`, {
@@ -144,8 +125,10 @@ for (const combo of COMBINATIONS) {
       });
     });
 
-    test('time picker', async ({ page }) => {
+    test('time picker', async ({ page, mockServer }) => {
+      await signedIn(page, mockServer.port);
       await page.goto('/investigate');
+      await settled(page);
       await page.keyboard.press('Meta+Alt+E');
       await expect(page.getByText(/time range/i)).toBeVisible();
       await expect(page).toHaveScreenshot(`time-picker-${combo.theme}-${combo.density}.png`, {
@@ -159,11 +142,19 @@ for (const combo of COMBINATIONS) {
     // anti-aliasing jitter (still a regression-tight 0.5% maxDiffPixelRatio).
     const snap = async (
       page: Page,
+      port: number,
       route: string,
       name: string,
+      // For an explorer: holds once its results are on the page.
+      results?: () => Promise<void>,
     ) => {
+      await signedIn(page, port);
+      // The shared mock alone gives an explorer nothing to list.
+      if (results) await serveExplorerResults(page);
       await page.goto(route);
       await page.waitForLoadState('networkidle');
+      await settled(page);
+      await results?.();
       await expect(page).toHaveScreenshot(`${name}-${combo.theme}-${combo.density}.png`, {
         fullPage: true,
         animations: 'disabled',
@@ -171,20 +162,36 @@ for (const combo of COMBINATIONS) {
       });
     };
 
-    test('home dashboard', async ({ page }) => {
-      await snap(page, '/home', 'home');
+    test('home dashboard', async ({ page, mockServer }) => {
+      await snap(page, mockServer.port, '/home', 'home');
     });
-    test('logs route', async ({ page }) => {
-      await snap(page, '/logs', 'logs');
+    test('logs route', async ({ page, mockServer }) => {
+      await snap(page, mockServer.port, '/logs', 'logs', async () => {
+        // A page of rows, the fields they carry, and the histogram of every match.
+        await expect(page.locator('[data-log-result-row="logs"]').first()).toBeVisible();
+        await expect(page.locator('[data-log-field-row="level"]')).toBeVisible();
+        await expect(page.locator('[data-explorer-module="histogram"]')).toHaveAttribute(
+          'data-histogram-counting',
+          'all',
+        );
+      });
     });
-    test('metrics route', async ({ page }) => {
-      await snap(page, '/metrics', 'metrics');
+    test('metrics route', async ({ page, mockServer }) => {
+      await snap(page, mockServer.port, '/metrics', 'metrics');
     });
-    test('traces route', async ({ page }) => {
-      await snap(page, '/traces', 'traces');
+    test('traces route', async ({ page, mockServer }) => {
+      await snap(page, mockServer.port, '/traces', 'traces', async () => {
+        const head = page.locator('[data-trace-results-head]');
+        await expect(head.getByText(/^[1-9]\d* traces loaded$/)).toBeVisible();
+        await expect(page.locator('[data-trace-field="trace_id"]')).toBeVisible();
+        await expect(head.locator('[data-explorer-module="histogram"]')).toHaveAttribute(
+          'data-histogram-counting',
+          'all',
+        );
+      });
     });
-    test('dashboards route', async ({ page }) => {
-      await snap(page, '/dashboards', 'dashboards');
+    test('dashboards route', async ({ page, mockServer }) => {
+      await snap(page, mockServer.port, '/dashboards', 'dashboards');
     });
   });
 }

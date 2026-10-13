@@ -36,7 +36,7 @@ import {
   useApplyUserPreferences,
 } from '@/shell/PreferenceRuntime';
 import { SystemStatusIndicator } from '@/shell/SystemStatusIndicator';
-import { useTheme } from '@/shell/ThemeBootstrap';
+import { animateThemeChange, useTheme } from '@/shell/ThemeBootstrap';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,6 +52,7 @@ import {
 } from '@/shell/ui/dropdown-menu';
 import { Kbd } from '@/shell/ui/kbd';
 import { toast } from '@/shell/ui/sonner';
+import { UserMenuLanguage } from '@/shell/UserMenuLanguage';
 import { normalizeRole, useAuthStore } from '@/stores/auth';
 import { useMoleAgentStore } from '@/stores/useMoleAgentStore';
 import { useCurrentOrgSelection, useOrgStore } from '@/stores/useOrgStore';
@@ -183,7 +184,7 @@ export function Topbar({
       <button
         type="button"
         onClick={() => nav(preferredHome())}
-        className="flex shrink-0 items-center gap-2 rounded-md focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none"
+        className="group ms-press flex shrink-0 items-center gap-2 rounded-md focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none"
         aria-label={t('nav:home')}
         title={t('nav:home')}
       >
@@ -254,14 +255,22 @@ export function Topbar({
         />
         {/* Theme toggle — single sun/moon, flips dark ↔ light. */}
         <IconBtn
-          onClick={() =>
-            quickTheme.mutate(theme === 'dark' ? 'light' : 'dark')
-          }
+          onClick={(event) => {
+            const nextTheme = theme === 'dark' ? 'light' : 'dark';
+            // The visible change runs inside the view transition; saving the
+            // preference follows it.
+            animateThemeChange(event.currentTarget, () => setTheme(nextTheme));
+            quickTheme.mutate(nextTheme);
+          }}
           title={t('shell:chrome.toggle_theme')}
           testid="theme-toggle"
           className="hidden md:flex"
         >
-          {theme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+          {theme === 'dark' ? (
+            <Sun key="sun" className="h-3.5 w-3.5 animate-pop-in" />
+          ) : (
+            <Moon key="moon" className="h-3.5 w-3.5 animate-pop-in" />
+          )}
         </IconBtn>
         <SystemStatusIndicator compact className="ml-1 mr-3" />
         <DropdownMenu
@@ -273,17 +282,25 @@ export function Topbar({
             <button
               type="button"
               className={cn(
-                'flex items-center justify-center overflow-hidden rounded-full bg-indigo font-sans text-xs font-bold text-white focus:outline-none focus-visible:brightness-90 focus-visible:text-white focus-visible:outline-none',
+                'group ms-press flex items-center justify-center rounded-full focus:outline-none focus-visible:bg-indigo-dim focus-visible:outline-none',
                 chromeIconButtonSizeClass,
               )}
               aria-label={t('shell:chrome.user_menu')}
               data-testid="user-menu-trigger"
             >
-              {avatarUrl ? (
-                <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
-              ) : (
-                initial
-              )}
+              {/* The disc is 28px; the button around it stays the shell's 32px
+                  target (44px on touch), so the avatar reads smaller without
+                  becoming harder to hit. */}
+              <span
+                data-testid="user-avatar"
+                className="flex h-[28px] w-[28px] items-center justify-center overflow-hidden rounded-full bg-indigo font-sans text-xs font-bold text-white transition-[filter] duration-fast group-hover:brightness-95 group-focus-visible:brightness-90"
+              >
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  initial
+                )}
+              </span>
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent
@@ -438,6 +455,7 @@ export function Topbar({
               <Bell className="h-4 w-4 text-tx-2" />
               {t('account:nav.items.notify')}
             </DropdownMenuItem>
+            <UserMenuLanguage />
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="min-h-10 rounded-md px-3 text-tx-1 focus:bg-red-dim focus:text-red-soft"
@@ -484,7 +502,7 @@ function HelpMenu({
           title={title}
           aria-label={title}
           className={cn(
-            'relative hidden items-center justify-center rounded-md text-tx-2 md:flex',
+            'ms-press relative hidden items-center justify-center rounded-md text-tx-2 md:flex',
             chromeIconButtonSizeClass,
             'hover:bg-bg-3 hover:text-tx-0',
             'focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none',
@@ -525,7 +543,7 @@ function IconBtn({
   children: React.ReactNode;
   title: string;
   badge?: boolean;
-  onClick?: () => void;
+  onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   testid?: string;
   className?: string | undefined;
 }) {
@@ -537,7 +555,7 @@ function IconBtn({
       aria-label={title}
       data-testid={testid}
       className={cn(
-        'relative flex items-center justify-center rounded-md text-tx-2',
+        'ms-press relative flex items-center justify-center rounded-md text-tx-2',
         chromeIconButtonSizeClass,
         'hover:bg-bg-3 hover:text-tx-0',
         'focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none',

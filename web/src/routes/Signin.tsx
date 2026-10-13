@@ -9,7 +9,7 @@ import * as meApi from '@/api/me';
 import * as ssoApi from '@/api/sso';
 import { resolveDefaultHomeRoute } from '@/lib/homeRoute';
 import { toApiError } from '@/lib/http';
-import { SigninShell, type SigninView } from '@/shell/SigninShell';
+import { SigninShell, type SigninView } from '@/shell/signin/SigninShell';
 import { toast } from '@/shell/ui/sonner';
 import { type AuthContextInput, useAuthStore } from '@/stores/auth';
 
@@ -199,7 +199,6 @@ export function Signin() {
       ssoProviders={ssoProviders}
       onBeginSso={beginSso}
       buildVersion={instanceQuery.data?.version}
-      releaseChannel={instanceQuery.data?.release_channel}
       signupEnabled={instanceQuery.data?.signup_enabled ?? false}
       onSignup={() => nav('/signup')}
     />

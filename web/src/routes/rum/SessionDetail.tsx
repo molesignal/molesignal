@@ -165,7 +165,7 @@ function SessionFacts({ session }: { session: SessionRow }) {
         <RumSectionHeader title={t('session_detail.current_page')} />
         <div className="mt-3 rounded-md bg-bg-2 p-3">
           <div className="flex items-center gap-2">
-            <Globe2 className="h-4 w-4 text-blue-soft" />
+            <Globe2 className="h-4 w-4 text-[var(--blue-ink)]" />
             <span className="min-w-0 truncate font-mono text-xs font-strong text-tx-0">
               {session.last_page ?? session.journey[session.journey.length - 1] ?? '—'}
             </span>
@@ -187,7 +187,7 @@ function SessionFacts({ session }: { session: SessionRow }) {
         <RumSectionHeader title={t('session_detail.detected_issues')} />
         <div className="mt-3 space-y-2">
           {issueTotal === 0 ? (
-            <div className="rounded-md bg-green-dim px-3 py-2.5 text-xs font-strong text-green-soft">
+            <div className="rounded-md bg-[var(--green-tint)] px-3 py-2.5 text-xs font-strong text-[var(--green-ink)]">
               {t('session_detail.no_detected_issues')}
             </div>
           ) : (
@@ -249,7 +249,7 @@ function IssueFact({
     <div
       className={cn(
         'flex items-center gap-2 rounded-md px-3 py-2.5 text-xs font-strong',
-        tone === 'red' ? 'bg-red-dim text-red-soft' : 'bg-yellow-dim text-yellow-soft',
+        tone === 'red' ? 'bg-red-dim text-red-soft' : 'bg-[var(--yellow-tint)] text-[var(--yellow-ink)]',
       )}
     >
       {icon}

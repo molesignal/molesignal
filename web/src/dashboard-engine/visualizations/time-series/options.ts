@@ -49,6 +49,9 @@ export function buildTimeSeriesOptions(
       ['last', 'min', 'max', 'mean', 'sum'],
       ['last', 'min', 'max', 'mean'],
     ),
+    // The bounds a panel's field config gives its values are the bounds of the axis they are
+    // drawn against: a count that is said to start at zero is drawn from zero.
+    leftAxis: axisBounds(panel),
     thresholds: (panel.fieldConfig.thresholds?.steps ?? [])
       .filter(
         (step): step is typeof step & { value: number } =>
@@ -63,6 +66,17 @@ export function buildTimeSeriesOptions(
     annotations: Array.isArray(options.annotations)
       ? options.annotations.filter(isTimeSeriesAnnotation)
       : [],
+  };
+}
+
+function axisBounds(panel: DashboardPanel): NonNullable<TimeSeriesChartOptionsInput['leftAxis']> {
+  const { min, max, softMin, softMax } = panel.fieldConfig;
+
+  return {
+    ...(typeof min === 'number' ? { min } : {}),
+    ...(typeof max === 'number' ? { max } : {}),
+    ...(typeof softMin === 'number' ? { softMin } : {}),
+    ...(typeof softMax === 'number' ? { softMax } : {}),
   };
 }
 

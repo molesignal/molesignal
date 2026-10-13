@@ -212,9 +212,9 @@ export function OnCallStatusCard({
                 className={cn(
                   'h-4 w-4',
                   tone === 'orange'
-                    ? 'text-orange-soft'
+                    ? 'text-[var(--orange-ink)]'
                     : tone === 'green'
-                      ? 'text-green-soft'
+                      ? 'text-[var(--green-ink)]'
                       : 'text-tx-3',
                 )}
               />
@@ -323,7 +323,7 @@ export function OnCallStatusCard({
                 {currentTeamName}
               </div>
               {isOverride && (
-                <div className="mt-1 truncate font-sans text-xs font-strong text-orange-soft">
+                <div className="mt-1 truncate font-sans text-xs font-strong text-[var(--orange-ink)]">
                   {t('home.on_call.override_description', {
                     current: currentName,
                     original: replacedName,
@@ -400,7 +400,7 @@ export function OnCallStatusCard({
             <div
               role="status"
               data-testid="on-call-acknowledgement-status"
-              className="mt-2 flex min-h-10 items-center gap-2 rounded-md bg-orange-dim px-3 py-2 font-sans text-xs font-strong text-orange-soft"
+              className="mt-2 flex min-h-10 items-center gap-2 rounded-md bg-[var(--orange-tint)] px-3 py-2 font-sans text-xs font-strong text-[var(--orange-ink)]"
             >
               <AlertTriangle
                 aria-hidden="true"

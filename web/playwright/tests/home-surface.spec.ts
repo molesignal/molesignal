@@ -256,17 +256,21 @@ test.describe('Home surface hierarchy', () => {
     expect(heroCta).not.toBe(newButton);
   });
 
-  test('ends both workspace columns on the same line', async ({ page }) => {
-    // No entrance animation, so nothing is mid-transform when the boxes are measured.
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-    for (const viewport of [
-      { width: 1920, height: 1080 },
-      { width: 1280, height: 800 },
-    ]) {
-      await page.setViewportSize(viewport);
-      // Few, some and more events than the card has room for: the columns line
-      // up whatever the activity list (and the on-call card above it) holds.
-      for (const audit of [0, 3, 8]) {
+  // One test for each layout: a page load apiece, so no case waits on the
+  // time the others took.
+  for (const viewport of [
+    { width: 1920, height: 1080 },
+    { width: 1280, height: 800 },
+  ]) {
+    // Few, some and more events than the card has room for: the columns line
+    // up whatever the activity list (and the on-call card above it) holds.
+    for (const audit of [0, 3, 8]) {
+      const label = `${viewport.width}px with ${audit} events`;
+
+      test(`ends both workspace columns on the same line at ${label}`, async ({ page }) => {
+        // No entrance animation, so nothing is mid-transform when the boxes are measured.
+        await page.emulateMedia({ reducedMotion: 'reduce' });
+        await page.setViewportSize(viewport);
         await mockHome(page, staleFleet(), { audit });
         await page.goto('/home');
         await expect(page.locator('[data-home-surface="hero"]')).toBeVisible();
@@ -282,10 +286,9 @@ test.describe('Home surface hierarchy', () => {
             }),
           );
         expect(columns).toHaveLength(2);
-        const label = `${viewport.width}px with ${audit} events`;
-        expect(Math.abs(columns[0]!.bottom - columns[1]!.bottom), label).toBeLessThan(1);
+        expect(Math.abs(columns[0]!.bottom - columns[1]!.bottom)).toBeLessThan(1);
         // The cards themselves reach the shared edge, not just their wrappers.
-        expect(Math.abs(columns[0]!.lastBottom - columns[1]!.lastBottom), label).toBeLessThan(1);
+        expect(Math.abs(columns[0]!.lastBottom - columns[1]!.lastBottom)).toBeLessThan(1);
 
         // Only whole rows are shown: none is cut by the edge of its card.
         const cut = await page.evaluate(() => {
@@ -297,10 +300,10 @@ test.describe('Home surface hierarchy', () => {
               return row.getBoundingClientRect().bottom > edge + 0.5;
             }).length;
         });
-        expect(cut, label).toBe(0);
-      }
+        expect(cut).toBe(0);
+      });
     }
-  });
+  }
 
   test('opens a stream from a real link and draws a single scrollbar', async ({
     page,

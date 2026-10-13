@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import * as React from 'react';
 
 import { cn } from '@/shell/lib/cn';
@@ -28,6 +28,12 @@ interface CollapsibleSidePanelProps {
   minWidth?: number;
   maxWidth?: number;
   resizeLabel?: string;
+  /**
+   * A panel opened from this one. It floats beside it, over what follows and
+   * no taller than what it holds, for as long as this panel is open: closing a
+   * list closes what it was asked for.
+   */
+  flyout?: React.ReactNode;
 }
 
 export function CollapsibleSidePanel({
@@ -47,6 +53,7 @@ export function CollapsibleSidePanel({
   minWidth,
   maxWidth = SIDE_PANEL_DEFAULT_MAX_WIDTH,
   resizeLabel = 'Resize panel',
+  flyout,
 }: CollapsibleSidePanelProps) {
   const utility = variant === 'utility';
   const requestedMinWidth = minWidth ?? defaultWidth;
@@ -190,6 +197,7 @@ export function CollapsibleSidePanel({
         utility ? 'bg-bg-2' : 'bg-bg-1',
         widthClassName,
         resizable && 'relative lg:w-[var(--side-panel-width)]',
+        flyout && 'relative',
         className,
       )}
     >
@@ -241,6 +249,16 @@ export function CollapsibleSidePanel({
           />
         </div>
       ) : null}
+      {flyout ? (
+        <div
+          data-side-panel-flyout
+          // Over what follows the panel and above the handle that resizes it. As tall as what it
+          // holds and no taller than the panel: a column so that what it holds can be made to fit.
+          className="absolute left-full top-0 z-30 ml-[8px] flex max-h-full w-[min(400px,calc(100vw-96px))] flex-col"
+        >
+          {flyout}
+        </div>
+      ) : null}
     </aside>
   );
 }
@@ -252,14 +270,40 @@ interface SidePanelSectionProps {
   className?: string | undefined;
 }
 
+/**
+ * A section of a side panel: a heading over the rows it holds. The heading is
+ * a level above the rows, in the stronger weight and with how many they are
+ * beside it, and it folds them away: a list of three kinds of thing can be cut
+ * to the one that is being looked through.
+ */
 export function SidePanelSection({ title, count, children, className }: SidePanelSectionProps) {
+  const [open, setOpen] = React.useState(true);
+  const id = React.useId();
+
   return (
-    <section className={cn('py-1.5', className)}>
-      <div className="flex h-7 items-center gap-2 px-2 font-sans text-xs font-strong text-tx-3">
-        <span className="min-w-0 flex-1 truncate">{title}</span>
-        {count !== undefined ? <span className="font-mono text-xs font-normal">{count}</span> : null}
-      </div>
-      <div className="[&>*:last-child]:border-b-0">{children}</div>
+    // The parts of a list follow closely: the heading and its count set a part off, not the air above it.
+    <section data-side-panel-section className={cn('pb-0.5', className)}>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={open ? id : undefined}
+        onClick={() => setOpen((current) => !current)}
+        className="flex h-7 w-full items-center gap-1.5 rounded-md px-1 text-left font-sans text-xs font-strong text-tx-1 hover:text-tx-0 focus-visible:bg-bg-3"
+      >
+        <ChevronDown
+          aria-hidden="true"
+          className={cn('h-3.5 w-3.5 shrink-0 text-tx-2 transition-transform', !open && '-rotate-90')}
+        />
+        <span className="min-w-0 truncate">{title}</span>
+        {count !== undefined ? (
+          <span className="type-micro shrink-0 font-mono font-body tabular-nums text-tx-3">{count}</span>
+        ) : null}
+      </button>
+      {open && (
+        <div id={id} className="pt-0.5">
+          {children}
+        </div>
+      )}
     </section>
   );
 }

@@ -1,3 +1,3 @@
-export { Profiles } from './Profiles';
-export { ProfilesCompare } from './ProfilesCompare';
+export { Profiles } from './analysis/Profiles';
+export { ProfilesCompare } from './compare/Compare';
 export { ProfileDetail } from './ProfileDetail';

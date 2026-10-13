@@ -7,6 +7,7 @@ import {
   FileText,
   Image,
   Search,
+  Shapes,
   ShieldCheck,
 } from 'lucide-react';
 
@@ -20,7 +21,8 @@ import {
 
 export type ReportTab = 'schedules' | 'history' | 'templates';
 export type SourceKind = 'dashboard' | 'saved_view';
-export type ReportFormat = 'pdf' | 'png' | 'csv' | 'json';
+/** Every format the backend generates. */
+export type ReportFormat = 'pdf' | 'png' | 'csv' | 'json' | 'svg';
 export type WorkbenchStep = 'content' | 'schedule' | 'delivery';
 
 export interface DisplayReport {
@@ -137,18 +139,31 @@ export const FORMAT_OPTIONS: Array<{
     descriptionKey: 'workbench.formats.json_description',
     icon: Database,
   },
+  {
+    value: 'svg',
+    descriptionKey: 'workbench.formats.svg_description',
+    icon: Shapes,
+  },
 ];
+
+/**
+ * The formats a template can default to. The template API takes PDF, CSV and JSON, and a
+ * dashboard template is always PDF.
+ */
+export function templateFormatOptions(sourceKind: SourceKind) {
+  return FORMAT_OPTIONS.filter(
+    (option) =>
+      option.value === 'pdf' ||
+      (sourceKind === 'saved_view' &&
+        (option.value === 'csv' || option.value === 'json')),
+  );
+}
 
 export function adaptReport(
   report: reportsApi.ScheduledReport,
 ): DisplayReport {
   const metadata = readReportMetadata(report.time_range_json);
   const source = reportSource(report);
-  const rawFormat = report.format?.toLowerCase();
-  const format: ReportFormat =
-    rawFormat === 'png' || rawFormat === 'csv' || rawFormat === 'json'
-      ? rawFormat
-      : 'pdf';
 
   return {
     id: report.id,
@@ -160,7 +175,7 @@ export function adaptReport(
     rangePreset: metadata.preset,
     timezone: metadata.timezone,
     recipients: report.recipients ?? [],
-    format,
+    format: normalizeFormat(report.format ?? ''),
     enabled: report.enabled !== false,
     raw: report,
   };
@@ -266,7 +281,9 @@ export function templateDraftFromPreset(
       description: template.description,
       sourceKind: template.sourceKind,
       format:
-        template.sourceKind === 'dashboard' || template.format === 'png'
+        template.sourceKind === 'dashboard' ||
+        template.format === 'png' ||
+        template.format === 'svg'
           ? 'pdf'
           : template.format,
       rangePreset: template.rangePreset,
@@ -315,12 +332,14 @@ export function rangeLabel(
   return option ? t(option.labelKey) : preset;
 }
 
+/** Reads a stored format. A value that is not a format reads as PDF, the default one. */
 export function normalizeFormat(value: string): ReportFormat {
   const normalized = value.toLowerCase();
   if (
     normalized === 'png' ||
     normalized === 'csv' ||
-    normalized === 'json'
+    normalized === 'json' ||
+    normalized === 'svg'
   ) {
     return normalized;
   }

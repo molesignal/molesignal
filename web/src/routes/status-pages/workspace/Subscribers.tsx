@@ -18,9 +18,8 @@ import { toast } from '@/shell/ui/sonner';
 import { useStatusPageWorkspace } from './Layout';
 import { shouldShowStatusPagePagination } from './pagination';
 import {
-  StatusPageBand,
   StatusPageCanvas,
-  StatusPageListSurface,
+  StatusPageList,
   statusPageFlatTableClassName,
 } from './Surfaces';
 
@@ -68,21 +67,26 @@ export function StatusPageSubscribers({ view }: { view: 'list' | 'deliveries' })
   return (
     <PageBody className="space-y-0 pb-4 pt-2 lg:pb-6 lg:pt-2">
       <StatusPageCanvas>
-        <StatusPageBand className="flex flex-wrap items-center gap-2 py-[10px]">
-          <ViewTabs
-            label={t('subscriber_views_label')}
-            items={(['list', 'deliveries'] as const).map((item) => ({
-              key: item,
-              to: `/status-pages/${pageId}/subscribers/${item}`,
-              label: t(`subscriber_views.${item}`),
-            }))}
-          />
-          <p className="ml-auto text-xs text-tx-3">
-            {t('subscribers.retention_hint', { count: snapshot.page.delivery_retention_days })}
-          </p>
-        </StatusPageBand>
-
-        <StatusPageListSurface>
+        <StatusPageList
+          head={
+            <>
+              <ViewTabs
+                label={t('subscriber_views_label')}
+                items={(['list', 'deliveries'] as const).map((item) => ({
+                  key: item,
+                  to: `/status-pages/${pageId}/subscribers/${item}`,
+                  label: t(`subscriber_views.${item}`),
+                }))}
+              />
+              {/* How long the records below are kept is a fact about the deliveries, not the subscribers. */}
+              {view === 'deliveries' && (
+                <p className="ml-auto text-xs text-tx-2">
+                  {t('subscribers.retention_hint', { count: snapshot.page.delivery_retention_days })}
+                </p>
+              )}
+            </>
+          }
+        >
           {view === 'list' ? (
             <DataTable
             className={statusPageFlatTableClassName}
@@ -219,7 +223,7 @@ export function StatusPageSubscribers({ view }: { view: 'list' | 'deliveries' })
               onPageSizeChange={() => undefined}
             />
           )}
-        </StatusPageListSurface>
+        </StatusPageList>
       </StatusPageCanvas>
 
       <ConfirmDialog

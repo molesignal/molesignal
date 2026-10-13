@@ -8,10 +8,10 @@ import { ProductState, productStateFor } from '@/product/states';
 import { Card, CardBody, CardHeader, TimeRangeChip } from '@/shell/chrome';
 import { queryStateFor } from '@/shell/query/State';
 import { useAuthStore } from '@/stores/auth';
-import { useTimeStore, formatWindowSummary } from '@/stores/useTimeStore';
+import { useTimeStore } from '@/stores/useTimeStore';
 import { TimeSeriesChart } from '@/viz/timeseries/TimeSeriesChart';
 
-import { windowToMicros } from '../_helpers';
+import { formatDurationMs, windowToMicros } from '../_helpers';
 import { RumListPage } from '../RumLayout';
 
 export function Overview() {
@@ -43,25 +43,10 @@ export function Overview() {
     emptyTitle: t('performance.no_data'),
   });
 
-  const avg = (key: 'lcp_ms' | 'fid_ms' | 'cls' | 'ttfb_ms'): string => {
-    const vs = data.map((p) => p[key]).filter((v): v is number => typeof v === 'number');
-    if (vs.length === 0) return '—';
-    const sum = vs.reduce((a, b) => a + b, 0);
-    return key === 'cls' ? (sum / vs.length).toFixed(3) : `${Math.round(sum / vs.length)}ms`;
-  };
-
+  // Each vital is said once, as its 75th percentile over its trend: the measure the thresholds
+  // are set for. A row of averages above them gave every vital a second, different figure.
   return (
-    <RumListPage
-      title={t('performance.overview')}
-      toolbar={<TimeRangeChip value={formatWindowSummary(window)} className="border-0" />}
-      performance
-      kpis={[
-        { label: t('performance.lcp'), value: avg('lcp_ms') },
-        { label: t('performance.fid'), value: avg('fid_ms') },
-        { label: t('performance.cls'), value: avg('cls') },
-        { label: t('performance.ttfb'), value: avg('ttfb_ms') },
-      ]}
-    >
+    <RumListPage toolbar={<TimeRangeChip className="border-0" />} performance>
       <Card className="border-0 bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]">
         <CardHeader title={t('performance.chart_title')} className="border-b-0" />
         <CardBody>
@@ -211,7 +196,8 @@ function percentile(values: number[], p: number): number {
   return sorted[index] ?? 0;
 }
 
+/** A vital as the other RUM tabs write it: `2.7 s`, `96 ms`, a shift as a bare figure. */
 function formatVital(value: number, spec: VitalTrendSpec): string {
   if (spec.key === 'cls') return value.toFixed(3);
-  return `${Math.round(value)}${spec.unit}`;
+  return formatDurationMs(value);
 }

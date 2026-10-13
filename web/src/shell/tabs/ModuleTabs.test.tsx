@@ -118,6 +118,34 @@ describe('ModuleTabs as navigation', () => {
     const card = screen.getByRole('navigation', { name: 'Module views' }).parentElement;
     expect(card).toContainElement(screen.getByText('second row'));
   });
+
+  it('carries controls that are not tabs at the end of its row', () => {
+    const { container } = renderAt('/m/overview', {
+      end: <button type="button">Last 1 hour</button>,
+      children: <p>second row</p>,
+    });
+
+    const card = container.firstElementChild!;
+    const navigation = screen.getByRole('navigation', { name: 'Module views' });
+    const end = card.querySelector('[data-module-tabs-end]')!;
+    // The strip, then the controls, share the first row; the strip is still a
+    // direct child of the card and takes the room the controls leave.
+    expect(Array.from(card.children).slice(0, 2)).toEqual([navigation, end]);
+    expect(card.className).toContain('grid-cols-[minmax(0,1fr)_auto]');
+    expect(within(end as HTMLElement).getByRole('button', { name: 'Last 1 hour' })).not.toBeNull();
+    // They are not tabs: the strip does not count them.
+    expect(within(navigation).queryByRole('button')).toBeNull();
+    // The second row runs under both.
+    expect(screen.getByText('second row').parentElement?.className).toContain('col-span-2');
+  });
+
+  it('keeps its plain layout when there are no end controls', () => {
+    const { container } = renderAt('/m/overview', { children: <p>second row</p> });
+
+    expect(container.firstElementChild?.className).not.toContain('grid');
+    expect(container.querySelector('[data-module-tabs-end]')).toBeNull();
+    expect(screen.getByText('second row').parentElement).toBe(container.firstElementChild);
+  });
 });
 
 describe('ModuleTabs that switch content in the page', () => {

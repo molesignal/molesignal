@@ -35,13 +35,13 @@ test.describe('account settings center', () => {
 
     const sections = [
       ['Preferences', 'Preferences'],
-      ['Notifications', 'Notification settings'],
+      ['Notify', 'My notify settings'],
       ['Security & sign-in', 'Security & sign-in'],
       ['Active sessions', 'Active sessions'],
       ['Workspace & identity', 'Workspace & identity'],
     ] as const;
     for (const [link, heading] of sections) {
-      await page.getByRole('link', { name: link }).click();
+      await page.getByRole('link', { name: link, exact: true }).click();
       await expect(
         page.getByRole('heading', { name: heading, level: 2 }),
       ).toBeVisible();
@@ -55,8 +55,11 @@ test.describe('account settings center', () => {
     const displayNameInput = page.getByRole('textbox', {
       name: 'Display name',
     });
-    await expect(emailInput).toBeDisabled();
-    await expect(emailInput).toHaveCSS('cursor', 'not-allowed');
+    // The sign-in email is shown to be read and copied, not edited: a
+    // read-only field, set apart from the ones that take input.
+    await expect(emailInput).toHaveAttribute('readonly', '');
+    await expect(emailInput).not.toBeEditable();
+    await expect(emailInput).toHaveCSS('cursor', 'default');
     const [emailBackground, displayNameBackground] = await Promise.all([
       emailInput.evaluate((element) => getComputedStyle(element).backgroundColor),
       displayNameInput.evaluate(
@@ -112,10 +115,12 @@ test.describe('account settings center', () => {
       await expect(section).toHaveCSS('border-top-width', '0px');
     }
 
-    await page.getByRole('link', { name: 'Notifications' }).click();
-    const deliverySection = page
-      .getByRole('heading', { name: 'Notification delivery', level: 3 })
-      .locator('xpath=ancestor::section[1]');
-    await expect(deliverySection).toHaveCSS('border-top-width', '0px');
+    await page.getByRole('link', { name: 'Notify', exact: true }).click();
+    for (const name of ['Notify identities', 'Delivery preferences']) {
+      const section = page
+        .getByRole('heading', { name, level: 3 })
+        .locator('xpath=ancestor::section[1]');
+      await expect(section).toHaveCSS('border-top-width', '0px');
+    }
   });
 });

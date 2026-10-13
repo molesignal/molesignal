@@ -1,6 +1,5 @@
 export { SettingsLayout } from './SettingsLayout';
 export { General } from './General';
-export { PipelineDestinations } from './PipelineDestinations';
 export { ClientIpSettings } from './ClientIpSettings';
 export { Nodes } from './Nodes';
 export { SsoProviders } from './SsoProviders/index';

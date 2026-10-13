@@ -147,7 +147,7 @@ export function UsagePanel({ table }: { table: ExtendTableSummary }) {
               }
               className="flex min-h-16 items-center gap-3 rounded-md bg-[var(--control-surface)] px-3 py-3 hover:bg-bg-3 focus-visible:bg-bg-3"
             >
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-purple-dim text-purple-soft">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-[var(--purple-tint)] text-[var(--purple-ink)]">
                 <UsageIcon className="h-4 w-4" />
               </span>
               <span className="min-w-0 flex-1">

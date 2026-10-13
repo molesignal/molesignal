@@ -114,7 +114,7 @@ test.describe('stream detail signal variants', () => {
     await expect(page.getByRole('link', { name: 'Switch to the Metrics stream' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Switch to the Traces stream' })).toBeVisible();
 
-    await page.getByRole('button', { name: 'Fields & indexes' }).click();
+    await page.getByRole('tab', { name: 'Fields & indexes' }).click();
     await expect(page.getByTitle('Storage type: utf8')).toContainText('String');
     await expect(page.getByTitle('Storage type: int64')).toContainText('Integer');
 

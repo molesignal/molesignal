@@ -432,7 +432,8 @@
     "team_fallback": "Team fallback",
     "organization_fallback": "Organization fallback",
     "escalation": "Escalation",
-    "test": "Test"
+    "test": "Test",
+    "direct": "Direct"
   },
   "statuses": {
     "pending": "Pending",

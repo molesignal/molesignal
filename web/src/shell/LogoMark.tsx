@@ -6,7 +6,16 @@ import * as React from 'react';
  * series (chart-1 indigo / chart-7 sky blue / chart-4 green) so the logo
  * reads as "the same product that shows you the three signals."
  */
-export function LogoMark({ size = 22, className }: { size?: number; className?: string }) {
+export function LogoMark({
+  size = 22,
+  className,
+  intro = false,
+}: {
+  size?: number;
+  className?: string;
+  /** Draw the pulse once on mount, as the mark arrives (sign-in). */
+  intro?: boolean;
+}) {
   const id = React.useId();
   return (
     <svg
@@ -26,6 +35,9 @@ export function LogoMark({ size = 22, className }: { size?: number; className?: 
       </defs>
       <path
         d="M0 16 H8 L10 17.5 L13 4 L18 28 L21.5 13 L23 16 H32"
+        pathLength={1}
+        // Inside a `group` (the topbar brand button) hovering re-draws the pulse.
+        className={intro ? 'ms-logo-path ms-logo-intro' : 'ms-logo-path'}
         stroke={`url(#ecg-${id})`}
         strokeWidth="2.6"
         strokeLinecap="round"

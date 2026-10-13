@@ -1,0 +1,199 @@
+/*
+ * Motion language.
+ *
+ * An operations tool is used in bursts, so motion here is quick and has one
+ * job: show where something came from or where it went. Entrances share one
+ * long-tailed ease-out with no overshoot; only toggles and check marks get the
+ * small spring. Everything stays under 300ms. The global reduced-motion rule in
+ * tokens.css collapses all of it to the final state.
+ */
+:root {
+  --easing-expo-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --easing-spring:   cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration-enter:  260ms;
+}
+
+/*
+ * A route arrives with a short fade instead of snapping in. It is opacity only
+ * on purpose: a transform would move every box on the page for the first few
+ * hundred milliseconds, and layout measurements (tests, tooltips anchored on
+ * mount) would read the wrong place. Pages may still stage their own entrance
+ * inside (Home does); the two layer without fighting.
+ */
+@keyframes ms-page-enter {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+#main > * {
+  animation: ms-page-enter 200ms var(--easing-out) backwards;
+}
+
+/* A loading mark made of the product's own pulse: a bright beat running a line. */
+@keyframes ms-pulse-travel {
+  0% {
+    stroke-dashoffset: 0.3;
+    opacity: 0;
+  }
+
+  12% {
+    opacity: 1;
+  }
+
+  82% {
+    opacity: 1;
+  }
+
+  100% {
+    stroke-dashoffset: -1;
+    opacity: 0;
+  }
+}
+
+/* The same pulse drawn once, then held: for illustrations that arrive. */
+@keyframes ms-pulse-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* A check mark that lands: the one place besides toggles that gets the small spring. */
+@keyframes ms-check-in {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.ms-check-in {
+  animation: ms-check-in 320ms var(--easing-spring) backwards;
+}
+
+/*
+ * A drawing that arrives the way a signal is read: left to right. Used for the
+ * small trend lines beside a figure, whose point is the shape, so the shape is
+ * what moves. `backwards` leaves no clip behind once it has played.
+ */
+@keyframes ms-wipe-in {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes ms-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.ms-wipe-in {
+  animation: ms-wipe-in 720ms var(--easing-expo-out) backwards;
+  animation-delay: calc(var(--rise-index, 0) * 60ms + 120ms);
+}
+
+/* The dot on the newest sample lands when the line reaches it. */
+.ms-wipe-dot {
+  animation: ms-fade-in 200ms var(--easing-out) backwards;
+  animation-delay: calc(var(--rise-index, 0) * 60ms + 640ms);
+}
+
+/*
+ * The blocks of a page arriving in reading order, staggered by --rise-index.
+ * `backwards` (not `both`) leaves the element free of transform once it has
+ * played, so menus and tooltips anchored inside are never offset.
+ */
+@keyframes ms-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.ms-rise {
+  animation: ms-rise 360ms var(--easing-out) backwards;
+  animation-delay: calc(var(--rise-index, 0) * 60ms);
+}
+
+/* A slow ring that says "live" without asking for attention. */
+@keyframes ms-live-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+
+  70%,
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+@keyframes ms-shimmer {
+  from {
+    background-position: 160% 0;
+  }
+
+  to {
+    background-position: -60% 0;
+  }
+}
+
+/*
+ * Theme change as a reveal: the new theme grows out of the toggle instead of
+ * flashing. The clip-path itself is animated from script (ThemeBootstrap);
+ * this only turns off the default cross-fade so the two layers do not blend.
+ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: 0;
+}
+
+::view-transition-new(root) {
+  z-index: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #main > * {
+    animation: none;
+  }
+
+  /* The global rule only shortens durations; the stagger delays would still
+     hold these invisible for a moment before they appear. */
+  .ms-wipe-in,
+  .ms-wipe-dot,
+  .ms-rise {
+    animation: none;
+  }
+}

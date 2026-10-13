@@ -20,8 +20,10 @@ test('Mole Agent sends the investigation context shown in the shell', async ({
   await expect(panel.getByTestId('composer-context')).toContainText(
     'Service: checkout',
   );
+  // Under the name the time picker gives the range, as every other place that shows it does; the
+  // exact moments go out with the message, asserted below.
   await expect(panel.getByRole('combobox', { name: 'Time' })).toContainText(
-    '05:00:00 - 06:00:00 UTC',
+    '05:00 - 06:00 UTC',
   );
 
   const outbound = page.waitForRequest(

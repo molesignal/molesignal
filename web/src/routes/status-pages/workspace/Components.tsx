@@ -20,16 +20,15 @@ import { toApiError } from '@/lib/http';
 import { ChromeButton, IconButton, Pill } from '@/shell/chrome';
 import { FormInput, FormSelect } from '@/shell/FormDrawer';
 import { PageBody } from '@/shell/PageHeader';
+import { ViewTabs } from '@/shell/tabs/ViewTabs';
 import { toast } from '@/shell/ui/sonner';
 
 import { ComponentFormDrawer } from '../ConfigurationDrawers';
 import { COMPONENT_STATUSES, COMPONENT_TONE, componentStatusLabel } from '../model';
 import { useStatusPageWorkspace } from './Layout';
 import {
-  StatusPageBand,
   StatusPageCanvas,
-  StatusPageFilterBand,
-  StatusPageListSurface,
+  StatusPageList,
   statusPageFlatTableClassName,
 } from './Surfaces';
 
@@ -63,6 +62,9 @@ export function StatusPageComponents() {
     })
     .sort(componentOrder);
   const canMutate = manageAccess.allowed && snapshot.page.lifecycle === 'active';
+  const hasHidden = snapshot.components.some(
+    (item) => item.lifecycle === lifecycle && item.visibility === 'hidden',
+  );
   const closeDrawer = () => navigate(`/status-pages/${pageId}/components`, { replace: true });
   const updateFilter = (key: string, value: string) => {
     const next = new URLSearchParams(searchParams);
@@ -135,73 +137,70 @@ export function StatusPageComponents() {
   return (
     <PageBody className="space-y-0 pb-4 pt-2 lg:pb-6 lg:pt-2">
       <StatusPageCanvas>
-        <StatusPageBand className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1">
-            {(['active', 'archived'] as const).map((item) => (
-              <ChromeButton
-                key={item}
-                size="sm"
-                variant={lifecycle === item ? 'primary' : 'ghost'}
-                onClick={() => updateFilter('lifecycle', item === 'archived' ? 'archived' : '')}
-              >
-                {t(`lifecycle.${item}`)}
-                <span className="type-micro font-mono opacity-70">
-                  {snapshot.components.filter((component) => component.lifecycle === item).length}
-                </span>
-              </ChromeButton>
-            ))}
-          </div>
-          <ChromeButton
-            variant="primary"
-            className="ml-auto"
-            disabled={!canMutate}
-            disabledReason={manageAccess.reason}
-            onClick={() => navigate(`/status-pages/${pageId}/components/new`)}
-          >
-            <Plus className="h-3.5 w-3.5" />
-            {t('actions.add_component')}
-          </ChromeButton>
-        </StatusPageBand>
-
-        <StatusPageFilterBand
-          className="grid gap-2 md:grid-cols-[minmax(220px,1fr)_200px_180px]"
-          onSubmit={(event) => event.preventDefault()}
+        <StatusPageList
+          head={
+            <>
+              <ViewTabs
+                label={t('fields.component_lifecycle')}
+                value={lifecycle}
+                onValueChange={(next) => updateFilter('lifecycle', next === 'archived' ? 'archived' : '')}
+                items={(['active', 'archived'] as const).map((item) => ({
+                  key: item,
+                  label: t(`lifecycle.${item}`),
+                  count: snapshot.components.filter((component) => component.lifecycle === item).length,
+                }))}
+              />
+              <label className="relative w-full min-w-0 sm:w-[260px]">
+                <span className="sr-only">{t('filters.search_components')}</span>
+                <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-tx-3" />
+                <FormInput
+                  value={search}
+                  onChange={(event) => updateFilter('q', event.currentTarget.value)}
+                  placeholder={t('filters.component_search_placeholder')}
+                  className="pl-9"
+                />
+              </label>
+              <FormSelect
+                ariaLabel={t('filters.status')}
+                className="w-full sm:w-[210px]"
+                value={status ?? ''}
+                onChange={(value) => updateFilter('status', value)}
+                options={[
+                  { value: '', label: t('filters.all_component_statuses') },
+                  ...COMPONENT_STATUSES.map((item) => ({
+                    value: item,
+                    label: componentStatusLabel(t, item),
+                  })),
+                ]}
+              />
+              {/* A filter for something no component is would only ever empty the list. */}
+              {(hasHidden || visibility) && (
+                <FormSelect
+                  ariaLabel={t('filters.visibility')}
+                  className="w-full sm:w-[170px]"
+                  value={visibility ?? ''}
+                  onChange={(value) => updateFilter('visibility', value)}
+                  options={[
+                    { value: '', label: t('filters.all_visibilities') },
+                    { value: 'enabled', label: t('component_visibility.enabled') },
+                    { value: 'hidden', label: t('component_visibility.hidden') },
+                  ]}
+                />
+              )}
+            </>
+          }
+          action={
+            <ChromeButton
+              variant="primary"
+              disabled={!canMutate}
+              disabledReason={manageAccess.reason}
+              onClick={() => navigate(`/status-pages/${pageId}/components/new`)}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {t('actions.add_component')}
+            </ChromeButton>
+          }
         >
-          <label className="relative min-w-0">
-            <span className="sr-only">{t('filters.search_components')}</span>
-            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-tx-3" />
-            <FormInput
-              value={search}
-              onChange={(event) => updateFilter('q', event.currentTarget.value)}
-              placeholder={t('filters.component_search_placeholder')}
-              className="pl-9"
-            />
-          </label>
-          <FormSelect
-            ariaLabel={t('filters.status')}
-            value={status ?? ''}
-            onChange={(value) => updateFilter('status', value)}
-            options={[
-              { value: '', label: t('filters.all_component_statuses') },
-              ...COMPONENT_STATUSES.map((item) => ({
-                value: item,
-                label: componentStatusLabel(t, item),
-              })),
-            ]}
-          />
-          <FormSelect
-            ariaLabel={t('filters.visibility')}
-            value={visibility ?? ''}
-            onChange={(value) => updateFilter('visibility', value)}
-            options={[
-              { value: '', label: t('filters.all_visibilities') },
-              { value: 'enabled', label: t('component_visibility.enabled') },
-              { value: 'hidden', label: t('component_visibility.hidden') },
-            ]}
-          />
-        </StatusPageFilterBand>
-
-        <StatusPageListSurface>
           <DataTable
           className={statusPageFlatTableClassName}
           rows={rows}
@@ -216,10 +215,16 @@ export function StatusPageComponents() {
               header: t('columns.component'),
               cell: (component) => (
                 <div className="min-w-0">
-                  <div className="truncate text-tx-0">{component.name}</div>
-                  <div className="mt-0.5 truncate text-xs font-normal text-tx-3">
-                    {component.description || t('values.no_description')}
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="truncate text-tx-0">{component.name}</span>
+                    {/* Being on the public page is the rule; only the exception is marked. */}
+                    {component.visibility === 'hidden' && (
+                      <Pill tone="dim">{t('component_visibility.hidden')}</Pill>
+                    )}
                   </div>
+                  {component.description && (
+                    <div className="mt-0.5 truncate text-xs font-normal text-tx-2">{component.description}</div>
+                  )}
                 </div>
               ),
             },
@@ -230,16 +235,6 @@ export function StatusPageComponents() {
               cell: (component) => (
                 <Pill tone={COMPONENT_TONE[component.status]}>
                   {componentStatusLabel(t, component.status)}
-                </Pill>
-              ),
-            },
-            {
-              key: 'visibility',
-              header: t('columns.visibility'),
-              width: 120,
-              cell: (component) => (
-                <Pill tone={component.visibility === 'enabled' ? 'neutral' : 'dim'}>
-                  {t(`component_visibility.${component.visibility}`)}
                 </Pill>
               ),
             },
@@ -316,7 +311,7 @@ export function StatusPageComponents() {
             },
           ]}
           />
-        </StatusPageListSurface>
+        </StatusPageList>
       </StatusPageCanvas>
 
       <ComponentFormDrawer

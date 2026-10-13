@@ -33,19 +33,14 @@
       "open_trace": "打开 trace",
       "open_span": "打开 span"
     },
-    "query_modes": {
-      "fields": "字段",
-      "sql": "SQL"
-    },
     "histogram": {
-      "bucket_aria": "{{start}} 至 {{end}}：共 {{total}} 条，错误 {{errors}} 条",
-      "total": "总计",
       "normal": "非错误",
-      "errors": "错误"
+      "errors": "错误",
+      "hide": "隐藏直方图",
+      "show": "显示直方图"
     },
     "toolbar": {
-      "histogram": "柱状图",
-      "query_mode_aria": "日志查询模式",
+      "histogram": "直方图",
       "more_actions_aria": "更多操作",
       "actions_label": "查询操作",
       "copy_query": "复制查询",
@@ -57,12 +52,120 @@
       "run": "查询",
       "running": "查询中…",
       "clear_query": "清空查询",
-      "empty_query_summary": "全部日志事件",
+      "empty_query_summary": "日志事件",
       "collapse_editor": "收起查询",
       "expand_editor": "展开查询",
-      "editor": "编辑器",
-      "mode_search_aria": "搜索模式",
-      "mode_patterns_aria": "模式聚合"
+      "editor": "编辑器"
+    },
+    "views": {
+      "aria": "结果视图",
+      "raw": "原始日志",
+      "stats": "统计图表",
+      "inspection": "智能巡检",
+      "patterns": "日志聚类"
+    },
+    "stats": {
+      "measure": "统计",
+      "measure_aria": "统计方式",
+      "measures": {
+        "count": "日志数",
+        "distinct": "去重计数",
+        "avg": "平均值",
+        "sum": "求和",
+        "min": "最小值",
+        "max": "最大值",
+        "p50": "P50",
+        "p95": "P95",
+        "p99": "P99"
+      },
+      "field_aria": "统计字段",
+      "group": "分组",
+      "group_aria": "分组方式",
+      "group_time": "按时间",
+      "group_none": "不分组",
+      "limit": "保留前",
+      "limit_aria": "保留的分组数",
+      "chart_aria": "图表类型",
+      "charts": {
+        "stat": "单值",
+        "bar": "柱状图",
+        "line": "折线图",
+        "table": "表格"
+      },
+      "written": "按当前 SQL 语句的结果绘制。",
+      "copy_statement": "复制统计语句",
+      "edit_statement": "在编辑器中修改",
+      "samples": {
+        "title": "当前语句没有统计结果",
+        "description": "统计图表绘制聚合查询的结果。可以从下面的语句开始；查询只写筛选条件时，也可以直接在这里选择统计方式。",
+        "use": "使用这条语句"
+      },
+      "dashboard": {
+        "action": "创建仪表盘",
+        "title": "创建为仪表盘",
+        "description": "新建一个仪表盘，把当前的统计图表保存为其中的面板。",
+        "name": "仪表盘名称",
+        "panel": "面板标题",
+        "creating": "创建中…",
+        "created": "仪表盘「{{name}}」已创建",
+        "open": "打开仪表盘",
+        "default_name": "{{stream}} 日志统计",
+        "written_panel": "SQL 统计"
+      }
+    },
+    "inspection": {
+      "title": "智能巡检",
+      "intro": "让 AI 巡检当前查询匹配的日志：概览日志量与级别变化，找出异常、突增和新出现的模式，并给出排查建议。",
+      "target": "巡检对象",
+      "target_all": "全部日志",
+      "model": "AI 模型",
+      "requirements": "巡检要求",
+      "requirements_hint": "选填。不填则按日志特征做一次全面巡检。",
+      "requirements_placeholder": "例如：只关注 production 的 payment-service；将 USER_CANCEL 视为预期的业务结果；发现新的异常堆栈后按发布版本下钻。",
+      "disclosure": "巡检会把这些日志的查询结果发送给 AI 模型 {{model}}。",
+      "start": "开始巡检",
+      "running": "巡检中…",
+      "waiting": "AI 正在阅读日志…",
+      "writing": "AI 正在撰写巡检报告…",
+      "stop": "停止",
+      "again": "重新巡检",
+      "report": "巡检报告",
+      "copy_report": "复制巡检报告",
+      "continue_in_agent": "在 Mole Agent 中继续",
+      "chat_title": "日志巡检 · {{stream}}",
+      "tool_running": "正在调用 {{name}}",
+      "tool_done": "已调用 {{name}}",
+      "tool_error": "{{name}} 调用失败",
+      "failed": "巡检没有完成",
+      "unavailable": {
+        "loading": "正在检查 AI 模型…",
+        "permission_title": "没有使用 Mole Agent 的权限",
+        "permission_description": "智能巡检由 Mole Agent 完成，需要 agent.use 权限。",
+        "model_title": "需要先配置并启用 AI 模型",
+        "model_description": "智能巡检由 AI 模型阅读日志并给出结论，当前组织还没有启用的模型。",
+        "ask_admin": "请联系管理员在 Mole Agent 设置中启用。",
+        "configure": "配置 AI 模型",
+        "failed_title": "无法读取 AI 模型配置"
+      },
+      "prompt": {
+        "task": "请对日志数据流「{{stream}}」做一次巡检，并用中文写出巡检报告。",
+        "range": "时间范围：{{label}}（{{start}} 至 {{end}}，Unix 微秒）。",
+        "query": "只看符合这个查询的日志：{{statement}}",
+        "query_all": "巡检该数据流在这段时间内的全部日志。",
+        "steps": "请用可用的日志查询工具自行读取这段时间的数据。结论里概括日志量、各级别的占比和整体是否正常；依据里逐条列出：日志量与各级别随时间的变化、错误与告警的主要类型及其最早出现的时间和涉及的服务、明显的突增、值得关注的新模式或罕见日志；再给出可能原因，以及按严重程度排序的下一步排查建议。",
+        "rules": "只做只读分析，不要执行任何变更。每个结论都要有查询结果作依据；查不到数据就直接说明，不要猜测。",
+        "digest_one": "页面上已加载的 {{count}} 条日志的概况（仅供起步，不代表全部）：",
+        "digest_other": "页面上已加载的 {{count}} 条日志的概况（仅供起步，不代表全部）：",
+        "digest_levels": "级别",
+        "digest_services": "服务",
+        "requirements": "巡检要求："
+      },
+      "no_logs": "当前查询没有匹配的日志，无法立即巡检。"
+    },
+    "field_analysis": {
+      "scope_all": "范围：查询匹配的全部日志",
+      "scope_loaded_one": "范围：已加载的 {{count}} 条日志",
+      "scope_loaded_other": "范围：已加载的 {{count}} 条日志"
     },
     "left_panel": {
       "title": "字段",
@@ -75,9 +178,10 @@
       "no_streams": "暂无可用数据流",
       "field_search_placeholder": "搜索字段",
       "filter_fields_aria": "过滤字段",
-      "visible_fields": "已显示字段",
-      "fixed_fields": "固定字段",
-      "all_fields": "全部字段",
+      "visible_fields": "显示字段",
+      "indexed_fields": "索引字段",
+      "no_indexed_fields": "该数据流没有建索引的字段。",
+      "other_fields": "其他字段",
       "no_top_values": "当前结果中没有可统计的值。",
       "include_value": "添加正向筛选",
       "exclude_value": "添加排除筛选",
@@ -127,54 +231,268 @@
       "visible_columns": "显示字段",
       "reorder_columns_hint": "拖动排序",
       "available_columns": "可用字段",
+      "reset_columns": "恢复默认",
       "drag_column_aria": "调整 {{name}} 的顺序。可拖动，或按 Alt+上/下方向键。",
-      "density": "密度",
-      "density_values": {
-        "compact": "紧凑",
-        "normal": "标准",
-        "comfortable": "舒适"
-      },
       "download": "下载日志",
       "download_csv": "CSV",
       "download_log": "LOG（文本）"
     },
+    "patterns": {
+      "events": "事件数",
+      "share": "占比",
+      "pattern_one": "{{count}} 种模式",
+      "pattern_other": "{{count}} 种模式",
+      "level": "级别",
+      "source": "来源",
+      "open_aria_one": "{{pattern}}：{{count}} 条事件，查看日志",
+      "open_aria_other": "{{pattern}}：{{count}} 条事件，查看日志",
+      "filter": "只看这类日志",
+      "filter_aria": "只看类似 {{pattern}} 的日志",
+      "show_more_one": "再显示 {{count}} 条",
+      "show_more_other": "再显示 {{count}} 条",
+      "basis_latest": "最近匹配的事件",
+      "basis_all": "全部匹配的事件",
+      "basis_returned": "查询返回的事件",
+      "basis_back_to": "最早到 {{moment}}",
+      "read_more": "再读更早的 {{logs}} 条",
+      "reading": "读取中…",
+      "read_failed": "未能继续往前读取。",
+      "unread_one": "{{count}} 条事件没有消息内容，未归入任何模式。",
+      "unread_other": "{{count}} 条事件没有消息内容，未归入任何模式。",
+      "kind": {
+        "number": "数字",
+        "id": "标识符",
+        "ip": "地址",
+        "url": "URL",
+        "time": "时间",
+        "data": "结构化数据",
+        "any": "值"
+      }
+    },
     "detail": {
       "drawer_aria": "日志详情面板",
-      "title": "详情",
+      "filter_placeholder": "筛选字段",
+      "no_field_match": "没有匹配的字段。",
+      "views_aria": "日志的查看方式",
       "close": "关闭日志详情",
       "copy_json": "复制日志 JSON",
       "copied_json": "已复制日志 JSON",
       "download_json": "下载日志 JSON",
-      "inline_label": "内联详情",
       "tabs": {
-        "overview": "概览",
         "fields": "字段",
         "json": "原始 JSON",
         "context": "上下文"
       },
-      "overview_metadata": "日志信息",
-      "related_signals": "相关信号",
-      "primary_fields": "主要字段",
-      "stream": "数据流",
-      "time": "时间",
-      "level": "级别",
-      "source": "来源",
       "context_description": "查看当前结果中前后各 5 条日志，点击可切换详情。",
       "position": "第 {{current}} / {{total}} 条",
-      "record_count_aria": "记录数",
-      "record_count_label": "记录数:",
-      "surrounding": "搜索上下文",
       "prev": "上一条",
       "next": "下一条",
-      "field_column": "字段",
-      "value_column": "值",
-      "actions_column": "操作",
       "include_filter": "添加正向筛选",
       "exclude_filter": "添加排除筛选",
       "copy_value": "复制值",
       "copied_value": "已复制字段值",
       "show_column": "显示为列",
       "hide_column": "隐藏列"
+    }
+  },
+  "inspections": {
+    "title": "定时巡检",
+    "subtitle": "按周期让 AI 巡检日志数据流，保存每次的报告，报告判定有异常时通知。",
+    "entry": "定时巡检",
+    "save_as": "保存为定时巡检",
+    "new": "新建巡检",
+    "enabled": "已启用",
+    "never_run": "尚未执行",
+    "live": "有巡检正在执行，每 {{seconds}} 秒刷新",
+    "levels": {
+      "normal": "正常",
+      "attention": "需关注",
+      "abnormal": "异常",
+      "unknown": "未判定"
+    },
+    "run_status": {
+      "queued": "排队中",
+      "running": "巡检中",
+      "succeeded": "已完成",
+      "failed": "失败",
+      "timed_out": "超时"
+    },
+    "failures": {
+      "timed_out": "巡检超过了时间上限。",
+      "interrupted": "执行巡检的节点中途退出。",
+      "not_started": "没有节点来执行这次巡检。",
+      "identity": "巡检的执行身份已不可用。重新保存这条巡检，即可改用你的身份执行。",
+      "model": "巡检所选的 AI 模型不存在、已停用或没有密钥。",
+      "agent": "AI 模型调用失败。",
+      "internal": "巡检因内部原因失败。"
+    },
+    "triggers": {
+      "manual": "手动"
+    },
+    "schedule": {
+      "every": "每 {{duration}}",
+      "daily_at": "每天 {{time}}",
+      "weekly_at": "每{{weekday}} {{time}}"
+    },
+    "schedule_kinds": {
+      "interval": "按间隔",
+      "daily": "每天",
+      "weekly": "每周"
+    },
+    "weekdays": {
+      "1": "周一",
+      "2": "周二",
+      "3": "周三",
+      "4": "周四",
+      "5": "周五",
+      "6": "周六",
+      "7": "周日"
+    },
+    "units": {
+      "minutes_one": "{{count}} 分钟",
+      "minutes_other": "{{count}} 分钟",
+      "hours_one": "{{count}} 小时",
+      "hours_other": "{{count}} 小时",
+      "days_one": "{{count}} 天",
+      "days_other": "{{count}} 天"
+    },
+    "notify_when": {
+      "abnormal": "仅异常时通知",
+      "attention": "需关注及以上时通知",
+      "always": "每次都通知"
+    },
+    "columns": {
+      "name": "巡检",
+      "schedule": "周期",
+      "last_run": "最近一次",
+      "next_run": "下次执行",
+      "notify": "通知",
+      "enabled": "启用",
+      "actions": "操作"
+    },
+    "cells": {
+      "window": "覆盖最近 {{duration}}",
+      "due": "即将执行",
+      "paused": "已停用",
+      "no_channel": "不通知",
+      "channels_one": "{{count}} 个渠道",
+      "channels_other": "{{count}} 个渠道"
+    },
+    "actions": {
+      "run": "立即执行",
+      "run_named": "立即执行 {{name}}",
+      "run_active": "这条巡检正在执行",
+      "edit": "编辑",
+      "edit_named": "编辑 {{name}}",
+      "delete": "删除",
+      "delete_named": "删除 {{name}}",
+      "toggle_named": "启用或停用 {{name}}"
+    },
+    "toast": {
+      "created": "定时巡检已保存",
+      "saved": "定时巡检已更新",
+      "enabled": "已启用，将按周期执行",
+      "paused": "已停用，不再按周期执行",
+      "queued": "已排队，几秒后开始执行",
+      "deleted": "定时巡检已删除"
+    },
+    "denied": {
+      "title": "没有查看定时巡检的权限",
+      "description": "定时巡检由 Mole Agent 完成，报告里会引用日志，需要 agent.use 和 streams.query 两项权限。",
+      "manage": "需要 inspections.manage 权限"
+    },
+    "no_model": {
+      "short": "需要先启用 AI 模型",
+      "notice": "当前组织没有启用的 AI 模型，已保存的巡检无法执行。"
+    },
+    "capacity": {
+      "full": "已达到每个组织 {{max}} 条的上限",
+      "count": "已保存 {{saved}} 条，上限 {{max}} 条"
+    },
+    "empty": {
+      "title": "还没有定时巡检",
+      "description": "保存一条巡检后，AI 会按周期巡检所选的数据流，每次的报告留在这里，报告判定有异常时通知你选的渠道。"
+    },
+    "delete_confirm": {
+      "title": "删除「{{name}}」？",
+      "description": "这条巡检和它的全部历史报告都会被删除，无法恢复。",
+      "confirm": "删除",
+      "busy": "删除中…"
+    },
+    "editor": {
+      "new_title": "新建定时巡检",
+      "edit_title": "编辑定时巡检",
+      "subtitle": "AI 按周期以只读方式巡检，并保存每次的报告。",
+      "what": "巡检什么",
+      "when": "何时巡检",
+      "whom": "通知谁",
+      "name": "名称",
+      "name_placeholder": "例如：支付服务错误日志",
+      "stream": "数据流",
+      "stream_placeholder": "选择日志数据流",
+      "statement": "查询条件",
+      "statement_hint": "选填。只巡检符合这个查询的日志；留空则巡检该数据流的全部日志。",
+      "statement_placeholder": "例如：level = 'ERROR'",
+      "schedule": "周期",
+      "interval": "间隔",
+      "weekday": "星期",
+      "time": "时刻",
+      "hour": "时",
+      "minute": "分",
+      "time_hint": "按 {{timezone}} 时区",
+      "window": "覆盖时间",
+      "window_hint": "每次查看执行前这么长时间的日志。",
+      "no_model": "当前没有可用的 AI 模型。",
+      "model_off": "{{name}}（已停用）",
+      "model_off_hint": "该模型已停用。重新启用它或改选其他模型之前，巡检无法保存，也无法执行。",
+      "model_placeholder": "选择 AI 模型",
+      "enabled": "保存后按周期自动执行",
+      "notify_when": "何时通知",
+      "channels": "通知渠道",
+      "channels_denied": "选择通知渠道需要 alerts.read 权限。",
+      "channels_none": "还没有启用的通知连接器，可在「设置 → 通知」里添加。",
+      "channels_failed": "通知连接器加载失败。",
+      "channels_kept_one": "已选的 {{count}} 个渠道保持不变。",
+      "channels_kept_other": "已选的 {{count}} 个渠道保持不变。",
+      "connector_off": "{{name}}（已停用）",
+      "connector_gone": "{{name}}（不存在）",
+      "channels_hint": "选填。不选渠道时不发通知，报告仍然保存在页面上。执行失败时，只在由正常转为失败的那一次通知。",
+      "add_channel": "添加渠道",
+      "remove_channel": "移除渠道",
+      "no_channel": "未选择渠道，不会发送通知。",
+      "channel_connector": "渠道 {{number}} 的连接器",
+      "channel_kind": "渠道 {{number}} 的目标类型",
+      "channel_target": "渠道 {{number}} 的目标",
+      "target_placeholder": {
+        "group": "群组 ID",
+        "address": "地址"
+      },
+      "run_as_you": "保存后，这条巡检每次都以你当时的权限读取日志。",
+      "run_as_change": "现在以 {{name}} 的权限执行；保存后改为以你的权限执行。",
+      "save": "保存",
+      "create": "保存巡检"
+    },
+    "detail": {
+      "runs": "历史报告",
+      "older": "更早的报告",
+      "no_runs": "还没有执行过。到了下次执行时间会自动巡检，也可以点「立即执行」。",
+      "no_runs_paused": "还没有执行过。这条巡检已停用，可以点「立即执行」试一次。",
+      "run_missing": "这份报告已不存在",
+      "loading_report": "正在读取报告…",
+      "run_as": "以 {{name}} 的权限执行",
+      "next_run": "下次 {{time}}"
+    },
+    "report": {
+      "open_logs": "查看这段时间的日志",
+      "manual_by": "由 {{name}} 手动执行",
+      "scheduled": "定时执行",
+      "took": "用时 {{duration}}",
+      "tokens": "{{formatted}} tokens",
+      "queued": "已排队，等待后台执行…",
+      "tools": "读取过程",
+      "notified": "通知",
+      "delivered": "已送达",
+      "undelivered": "未送达"
     }
   }
 }

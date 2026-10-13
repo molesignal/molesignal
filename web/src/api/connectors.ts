@@ -4,7 +4,14 @@ export interface Connector {
   id: string;
   name: string;
   kind: string;
+  /** Secrets read as `***` here; sent back unchanged, a backend that lists `secret_keys` keeps them. */
   config_json: Record<string, unknown>;
+  /**
+   * The secrets in `config_json` that hold a value. A backend that sends this
+   * keeps a stored secret when the mask comes back on update; one that does
+   * not would save the mask itself.
+   */
+  secret_keys?: string[];
   enabled: boolean;
   last_run_at_micros?: number;
   created_at_micros: number;

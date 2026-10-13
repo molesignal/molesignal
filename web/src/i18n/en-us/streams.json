@@ -331,5 +331,107 @@
       "updated": "Stream configuration updated",
       "deleted": "Stream deleted"
     }
+  },
+  "jobs": {
+    "title": "Search jobs",
+    "subtitle": "Queries that run in the background: queued, running, and kept with their results until they expire",
+    "entry": "Search jobs",
+    "views_label": "Job state",
+    "states": {
+      "all": "All",
+      "pending": "Queued",
+      "running": "Running",
+      "done": "Done",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    },
+    "kinds": {
+      "query": "Query",
+      "backfill": "Backfill"
+    },
+    "scope_own": "Only the jobs you submitted",
+    "live": "Jobs are under way, refreshing every {{seconds}} s",
+    "columns": {
+      "kind": "Type",
+      "job": "Job",
+      "status": "State",
+      "time_range": "Queried range",
+      "submitted": "Submitted",
+      "duration": "Duration / finished",
+      "rows": "Result rows",
+      "attempt": "Attempt",
+      "expires": "Expires",
+      "actions": "Actions"
+    },
+    "cells": {
+      "request_unreadable": "The query of this job cannot be read",
+      "pipeline": "Open pipeline",
+      "finished_at": "Finished {{time}}",
+      "not_finished": "Not finished",
+      "attempt_title": "Attempt {{number}}",
+      "expired": "Expired",
+      "expired_title": "Expired, waiting for cleanup",
+      "error": "Failed: {{error}}"
+    },
+    "actions": {
+      "cancel": "Cancel job",
+      "cancel_named": "Cancel job {{id}}",
+      "retry": "Retry",
+      "retry_named": "Retry job {{id}}",
+      "download": "Download results",
+      "download_named": "Download the results of job {{id}}",
+      "download_empty": "This job has no result rows",
+      "delete": "Delete",
+      "delete_named": "Delete job {{id}}"
+    },
+    "cancel_confirm": {
+      "title": "Cancel this job?",
+      "description": "The job stops running. It can be retried later, but it starts over.",
+      "confirm": "Cancel job",
+      "keep": "Keep running",
+      "busy": "Cancelling…"
+    },
+    "delete_confirm": {
+      "title": "Delete this job?",
+      "description": "The job and its stored results are deleted and cannot be restored.",
+      "description_active": "The job has not finished: it is cancelled first, then deleted, and cannot be restored.",
+      "confirm": "Delete",
+      "busy": "Deleting…"
+    },
+    "toast": {
+      "cancelled": "Job cancelled",
+      "retried": "Job queued again",
+      "deleted": "Job deleted",
+      "downloaded": "Downloaded {{count}} result rows"
+    },
+    "empty": {
+      "title": "No search jobs yet",
+      "title_own": "You have not submitted a search job yet",
+      "description": "A search job is a query that runs in the background and keeps its results until it expires. Jobs come from three places:",
+      "source_async": "A query sent with Prefer: respond-async, or one whose result is expected to be too large",
+      "source_backfill": "The backfill of a data pipeline",
+      "source_agent": "A query submitted by Mole Agent",
+      "filtered_hint": "Choose another state, or view all jobs.",
+      "filtered": {
+        "pending": "No jobs are queued",
+        "running": "No jobs are running",
+        "done": "No jobs have finished",
+        "failed": "No jobs have failed",
+        "cancelled": "No jobs were cancelled"
+      }
+    },
+    "denied": {
+      "title": "You cannot view search jobs",
+      "description": "It takes the streams.query or sys.telemetry.read permission."
+    },
+    "pagination": {
+      "aria": "Search job pagination",
+      "page_summary": "{{page}} / {{pages}}",
+      "page_size_aria": "Jobs per page",
+      "first_aria": "First page",
+      "previous_aria": "Previous page",
+      "next_aria": "Next page",
+      "last_aria": "Last page"
+    }
   }
 }

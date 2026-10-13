@@ -122,11 +122,35 @@ export const STATUS_DOT: Record<ComponentStatus, string> = {
   maintenance: 'bg-blue',
 };
 
+/**
+ * A status as coloured words. These are the full tokens, which read at 4.5:1
+ * or better on the surfaces they are set on; the softer tokens are for dots,
+ * bars and tints.
+ */
+export const STATUS_TEXT: Record<ComponentStatus, string> = {
+  operational: 'text-green',
+  degraded_performance: 'text-yellow',
+  partial_outage: 'text-orange',
+  major_outage: 'text-red',
+  maintenance: 'text-blue',
+};
+
 export function componentStatusLabel(t: TFunction, status: ComponentStatus): string {
   return t(`component_status.${status}`);
 }
 
-export function incidentStatusLabel(t: TFunction, status: PublicIncidentStatus): string {
+/**
+ * Where an incident or a piece of maintenance stands, in words. The two share
+ * their statuses, but not all their wording: an incident being worked on has a
+ * "fix in progress", while planned work is simply in progress.
+ */
+export function incidentStatusLabel(
+  t: TFunction,
+  status: PublicIncidentStatus,
+  kind: StatusPageIncident['kind'] = 'incident',
+): string {
+  if (kind === 'maintenance' && status === 'in_progress') return t('maintenance_status.in_progress');
+
   return t(`incident_status.${status}`);
 }
 

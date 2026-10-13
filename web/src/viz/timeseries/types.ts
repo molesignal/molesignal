@@ -14,6 +14,11 @@ export interface TimeSeriesSeries {
   id?: string;
   /** Metric identifier shown separately from its label set in Explore views. */
   metricName?: string;
+  /**
+   * The name its author gave the series (a custom legend). Explore views lead
+   * with it in place of the metric identifier.
+   */
+  legendName?: string;
   name: string;
   data: ReadonlyArray<number | null>;
   /**

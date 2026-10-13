@@ -1,10 +1,75 @@
-export type LogResultDensity = 'compact' | 'normal' | 'comfortable';
+import { DATE_PATTERNS, zonedMoment, type DateFormat, type TimeFormat } from '@/lib/time';
+
 export type LogLevel = 'INFO' | 'WARN' | 'ERROR' | 'DEBUG' | 'TRACE';
 
 export interface LogEntry {
+  /** The moment as the reader writes dates and times, to the second. */
   ts: string;
+  /** The moment itself, in microseconds; `null` when the row carries no usable time. */
+  micros: number | null;
   level: LogLevel;
   raw: Record<string, unknown>;
+}
+
+/** How loudly a level speaks: a failure, a warning, the ordinary run of things, or detail for a developer. */
+export type LogLevelTone = 'error' | 'warn' | 'info' | 'quiet';
+
+/** Levels are written many ways (ERR, error, Fatal, warning, dbg): the tone is read from how they begin. */
+export function logLevelTone(level: string): LogLevelTone {
+  const name = level.trim().toUpperCase();
+  if (/^(ERR|FATAL|CRIT|EMERG|ALERT|PANIC|SEVERE)/.test(name)) return 'error';
+  if (/^WARN/.test(name)) return 'warn';
+  if (/^(DEBUG|DBG|TRACE|VERBOSE|FINE)/.test(name)) return 'quiet';
+
+  return 'info';
+}
+
+/** How the reader has asked to see time. */
+export interface LogClock {
+  /** IANA name of the zone. */
+  tz: string;
+  format: TimeFormat;
+  dateFormat: DateFormat;
+}
+
+/**
+ * A log's moment to the millisecond, which is what orders two events of one
+ * second: the time of day alone, with the day of the year before it, or in
+ * full.
+ */
+export function formatLogMoment(
+  micros: number,
+  clock: LogClock,
+  scope: 'time' | 'day' | 'full',
+): string {
+  const moment = zonedMoment(micros / 1_000, clock.tz);
+  const time = moment.format(clock.format === 'local_12h' ? 'hh:mm:ss.SSS A' : 'HH:mm:ss.SSS');
+  if (scope === 'time') return time;
+
+  const day = DATE_PATTERNS[clock.dateFormat];
+
+  // Within a page of results the year does not change the reading.
+  return `${moment.format(scope === 'full' ? day : day.replace(/[-/]?YYYY[-/]?/, ''))} ${time}`;
+}
+
+/** Whether every moment falls on one day of the reader's clock, so the day need not be said on each. */
+export function momentsShareDay(moments: readonly (number | null)[], tz: string): boolean {
+  let earliest = Number.POSITIVE_INFINITY;
+  let latest = Number.NEGATIVE_INFINITY;
+
+  for (const micros of moments) {
+    if (micros == null) continue;
+
+    earliest = Math.min(earliest, micros);
+    latest = Math.max(latest, micros);
+  }
+  // None of them has a moment: there is no day to tell apart.
+  if (earliest > latest) return true;
+
+  // The first and the last on one day leave no other day for those between them.
+  const dayOf = (micros: number) => zonedMoment(micros / 1_000, tz).format('YYYY-MM-DD');
+
+  return dayOf(earliest) === dayOf(latest);
 }
 
 export interface LogTopValue {
@@ -40,20 +105,34 @@ const LEVEL_FIELD_PRIORITY = [
   'log.level',
 ] as const;
 
-const TABLE_FIELD_PRIORITY = [
-  'level',
-  'service.name',
-  'service_name',
-  'service',
-  'source',
-  'message',
-  'body',
-  'model',
-  'provider',
-  'error',
-  'trace_id',
-  'span_id',
-] as const;
+/**
+ * What a reader of logs looks for first, in the order the columns stand in:
+ * how grave, from where, what was said, and then where the log belongs and
+ * where it was written. Each is a meaning, with the names streams give it,
+ * compared as plain names. The columns themselves are the stream's own fields:
+ * none is assumed to be there.
+ */
+const COLUMN_MEANINGS: readonly (readonly string[])[] = [
+  ['level', 'severity', 'severitytext', 'loglevel', 'lvl'],
+  ['service', 'servicename', 'app', 'appname', 'application', 'component', 'source'],
+  ['message', 'msg', 'body', 'log', 'content', 'summary'],
+  ['traceid'],
+  ['class', 'classname', 'logger', 'loggername', 'category'],
+  ['caller', 'function', 'func', 'file', 'filename'],
+  ['requestid', 'reqid'],
+  ['host', 'hostname', 'node', 'instance'],
+  ['pod', 'podname', 'container', 'containername'],
+  ['thread', 'threadname'],
+];
+
+/** The columns a stream opens with beside the time: with it, five fields. */
+export const DEFAULT_LOG_TABLE_FIELDS = 4;
+
+/**
+ * What does not make a column of its own accord: a flag says yes or no on
+ * every row, a structure does not fit a cell, and the time has its column.
+ */
+const NOT_A_DEFAULT_COLUMN = new Set(['boolean', 'object', 'array', 'timestamp']);
 
 export interface LogFieldPosition {
   index: number;
@@ -153,8 +232,30 @@ export function primaryLogMessage(record: Record<string, unknown>): {
   return { field: '', value: '' };
 }
 
+/** The fields a record says its message in, in the order they are looked for. */
+const STATEMENT_FIELDS = ['message', 'body', 'summary', 'log', 'event', 'error'] as const;
+
+/**
+ * What the record says: the text of its message, and the field it is in. A
+ * record with no message of its own has none; the first field that happens to
+ * hold something is not passed off as one.
+ */
+export function logStatement(record: Record<string, unknown>): { field: string; value: string } | null {
+  for (const field of STATEMENT_FIELDS) {
+    const value = readRecordValue(record, field);
+    if (typeof value === 'string' && value.trim()) return { field, value };
+  }
+
+  return null;
+}
+
+/** The field that says where the log came from, and what it says. */
+export function logSource(record: Record<string, unknown>): { field: string; value: unknown } | null {
+  return firstPresentValue(record, SOURCE_FIELD_PRIORITY);
+}
+
 export function logSourceLabel(record: Record<string, unknown>): string {
-  const source = firstPresentValue(record, SOURCE_FIELD_PRIORITY);
+  const source = logSource(record);
   return source ? displayLogValue(source.value) : '—';
 }
 
@@ -163,12 +264,70 @@ export function logLevelLabel(record: Record<string, unknown>, fallback = 'INFO'
   return (level ? displayLogValue(level.value) : fallback).toUpperCase();
 }
 
-export function defaultLogTableFields(fieldNames: string[], limit = 8): string[] {
-  const available = fieldNames.filter((field) => !TIMESTAMP_FIELDS.has(field));
-  const preferred = TABLE_FIELD_PRIORITY.filter((field) => available.includes(field));
-  const preferredSet = new Set<string>(preferred);
-  const fallback = available.filter((field) => !preferredSet.has(field));
-  return [...preferred, ...fallback].slice(0, limit);
+/** A field of a stream, as far as choosing its columns needs to know it. */
+export interface LogColumnCandidate {
+  name: string;
+  /** The kind of value it holds, where that is known. */
+  type?: string | undefined;
+}
+
+/** Letters and digits alone: `service.name`, `service_name` and `serviceName` are one name. */
+function plainFieldName(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+/** The names the end of a dotted field can be known by: `log.level` is a `level`, `k8s.pod.name` a `pod.name`. */
+function endingsOf(name: string): string[] {
+  const parts = name.split('.');
+
+  return parts.slice(1).map((_, index) => plainFieldName(parts.slice(index + 1).join('.')));
+}
+
+/** The stream's field for a meaning: one named for it outright, or else one whose name ends in it. */
+function fieldMeaning(meaning: readonly string[], fields: readonly LogColumnCandidate[]): string | null {
+  for (const known of meaning) {
+    const outright = fields.find((field) => plainFieldName(field.name) === known);
+    if (outright) return outright.name;
+  }
+
+  for (const known of meaning) {
+    const ending = fields.find((field) => endingsOf(field.name).includes(known));
+    if (ending) return ending.name;
+  }
+
+  return null;
+}
+
+/**
+ * The columns a stream opens with, beside the time: the fields it has for what
+ * a reader looks for first, in that order, as many as `limit`. Where a stream
+ * has no field for one of them the next is tried, and a stream that has few of
+ * them is filled up with the fields it does have, in the order it has them.
+ * Nothing is listed that the stream does not write.
+ */
+export function defaultLogTableFields(
+  fields: readonly LogColumnCandidate[],
+  limit = DEFAULT_LOG_TABLE_FIELDS,
+): string[] {
+  const available = fields.filter((field) => !TIMESTAMP_FIELDS.has(field.name));
+  const chosen: string[] = [];
+
+  for (const meaning of COLUMN_MEANINGS) {
+    if (chosen.length >= limit) break;
+
+    const name = fieldMeaning(meaning, available.filter((field) => !chosen.includes(field.name)));
+    if (name) chosen.push(name);
+  }
+
+  for (const field of available) {
+    if (chosen.length >= limit) break;
+    if (chosen.includes(field.name) || field.name.startsWith('_')) continue;
+    if (NOT_A_DEFAULT_COLUMN.has(field.type ?? '')) continue;
+
+    chosen.push(field.name);
+  }
+
+  return chosen;
 }
 
 export function topLogFieldValues(
@@ -193,11 +352,8 @@ export function topLogFieldValues(
     .slice(0, limit);
 }
 
-export function logResultRowHeight(density: LogResultDensity): number {
-  if (density === 'compact') return 32;
-  if (density === 'comfortable') return 48;
-  return 40;
-}
+/** How high a row of the log list is: logs are read many at a time, a line each. */
+export const LOG_RESULT_ROW_HEIGHT = 32;
 
 export function recordsToCsv(records: Record<string, unknown>[], columns: string[]): string {
   const escapeCell = (value: unknown): string => {

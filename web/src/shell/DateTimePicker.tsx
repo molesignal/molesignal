@@ -122,7 +122,7 @@ export function DateTimePicker({
       className={cn(
         // A field like the others: no border, the fill is its edge.
         'flex h-9 w-full min-w-0 items-center gap-2 rounded-md border-0 bg-[var(--control-surface)] px-3 text-left font-sans text-sm font-body text-tx-0 transition-colors',
-        'enabled:hover:bg-[var(--floating-item-hover)] data-[state=open]:bg-[var(--floating-item-hover)]',
+        'enabled:hover:bg-bg-3 data-[state=open]:bg-bg-3',
         'disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-bg-3 disabled:text-tx-3 disabled:opacity-100',
         ariaInvalid && 'bg-red-dim text-red-soft',
         className,
@@ -277,7 +277,7 @@ function TimePartSelect({
         onChange={onChange}
         options={options}
         ariaLabel={label}
-        className="h-8 min-w-0 border-0 bg-[var(--control-surface)] font-sans text-xs font-body shadow-none hover:bg-[var(--floating-item-hover)]"
+        className="h-8 min-w-0 border-0 bg-[var(--control-surface)] font-sans text-xs font-body shadow-none hover:bg-bg-3"
       />
     </div>
   );

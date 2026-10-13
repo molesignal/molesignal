@@ -49,6 +49,54 @@
       "sort": "排序"
     }
   },
+  "query_tabs": {
+    "list": "已打开的查询",
+    "new": "新建标签页",
+    "untitled": "查询 {{number}}",
+    "close": "关闭 {{name}}",
+    "close_tab": "关闭",
+    "close_others": "关闭其他标签页",
+    "rename": "重命名",
+    "duplicate": "复制标签页",
+    "name": "标签页名称",
+    "running": "查询中",
+    "limit": "最多同时打开 {{count}} 个标签页",
+    "split": "分成两栏",
+    "unsplit": "合并为一栏",
+    "move_right": "移到右侧",
+    "move_left": "移到左侧"
+  },
+  "query_mode": {
+    "aria": "查询编辑模式",
+    "code": "代码",
+    "builder": "构造器"
+  },
+  "query_language": {
+    "label": "查询"
+  },
+  "query_builder": {
+    "filters": "筛选条件",
+    "add": "条件",
+    "add_aria": "添加筛选条件",
+    "edit": "编辑条件 {{filter}}",
+    "remove": "移除条件 {{filter}}",
+    "unsupported": "不是筛选条件",
+    "remove_unsupported": "移除 {{part}}",
+    "search_fields": "搜索字段…",
+    "no_fields": "没有匹配的字段",
+    "use_field": "使用“{{field}}”",
+    "change_field": "更换字段",
+    "operator": "比较方式",
+    "value": "值",
+    "value_placeholder": "值…",
+    "suggestions": "结果中出现过",
+    "submit_add": "添加条件",
+    "submit_update": "更新",
+    "cancel": "取消",
+    "text": "搜索文本",
+    "text_placeholder": "搜索文本…",
+    "sql_active": "代码模式里当前是 SQL 语句，筛选条件无法表示它。在这里添加条件会开始一条字段查询。"
+  },
   "query_recommendations": {
     "title": "查询优化建议",
     "dismiss": "关闭建议",
@@ -113,7 +161,8 @@
     "renew": "续期",
     "rotate": "轮换",
     "add": "添加",
-    "choose_file": "选择文件"
+    "choose_file": "选择文件",
+    "copied": "已复制"
   },
   "error_state": {
     "unknown": "未知错误",
@@ -298,6 +347,112 @@
     "selected": "已选择",
     "week_number": "第 {{value}} 周",
     "week_number_header": "周数"
+  },
+  "share_query": {
+    "button": "分享",
+    "title": "分享这条查询",
+    "description": "已登录本组织、且有权读取这些数据的成员，打开链接即可看到这条查询。",
+    "time_label": "链接的时间范围",
+    "time_fixed": "当前选择时间",
+    "time_moving": "{{range}}（从打开时算起）",
+    "link_aria": "这条查询的链接",
+    "copy": "复制链接",
+    "copied": "链接已复制",
+    "copy_failed": "未能复制链接"
+  },
+  "field_list": {
+    "group_aria_one": "{{name}}：{{count}} 个字段",
+    "group_aria_other": "{{name}}：{{count}} 个字段"
+  },
+  "field_analysis": {
+    "open": "分析",
+    "open_aria": "分析字段 {{name}}",
+    "close": "关闭字段分析",
+    "title_aria": "{{name}} 字段分析",
+    "loading": "正在分析 {{name}}",
+    "basics": "基本分布",
+    "distinct": "不同值总数",
+    "estimated": "估算值",
+    "subjects": {
+      "logs": {
+        "total": "日志总行数",
+        "present": "有值行数",
+        "missing": "缺失值行数",
+        "none": "这些日志里，该字段没有值。"
+      },
+      "spans": {
+        "total": "Span 总数",
+        "present": "有值 Span 数",
+        "missing": "缺失值 Span 数",
+        "none": "这些 Span 里，该字段没有值。"
+      },
+      "traces": {
+        "total": "Trace 总数",
+        "present": "有值 Trace 数",
+        "missing": "缺失值 Trace 数",
+        "none": "这些 Trace 里，该字段没有值。"
+      }
+    },
+    "statistics": "统计指标",
+    "max": "最大值",
+    "min": "最小值",
+    "avg": "平均值",
+    "median": "中位数",
+    "q1": "四分位数 Q1",
+    "q3": "四分位数 Q3",
+    "stddev_samp": "样本标准差",
+    "stddev_pop": "总体标准差",
+    "kurtosis": "峰度",
+    "kurtosis_hint": "超额峰度：正态分布为 0，越大尾部越重",
+    "skewness": "偏度",
+    "skewness_hint": "大于 0 向右拖尾，小于 0 向左拖尾",
+    "quartiles_estimated": "中位数与四分位数为估算值。",
+    "earliest": "最早",
+    "latest": "最晚",
+    "distribution": "数值分布",
+    "distribution_aria": "{{name}} 的数值分布：共 {{count}} 个值，从 {{from}} 到 {{to}}，每柱宽 {{width}}，单柱最多 {{max}} 个。左右方向键在柱之间移动。",
+    "bar_width": "每柱宽 {{width}}",
+    "bar_range": "{{from}} – {{to}}",
+    "bar_count_one": "{{formatted}} 个值",
+    "bar_count_other": "{{formatted}} 个值",
+    "bar_readout": "{{from}} 至 {{to}}：{{formatted}} 个值",
+    "trend_one": "Top 1 取值时序图",
+    "trend_other": "Top {{count}} 取值时序图",
+    "trend_aria_one": "{{name}} 最常见的取值随时间的变化",
+    "trend_aria_other": "{{name}} 最常见的 {{count}} 个取值随时间的变化",
+    "top": "最常见的值",
+    "all_different": "各个值几乎都只出现一次，没有更常见的值。",
+    "protected": "该字段已脱敏或加密，不提供分析。",
+    "unavailable": "暂时无法分析该字段。",
+    "fallback": {
+      "time_budget": "统计全部匹配结果超时",
+      "busy": "当前查询较多，未能统计全部匹配结果",
+      "failed": "未能统计全部匹配结果"
+    }
+  },
+  "histogram": {
+    "bar_width": "每柱 {{width}}",
+    "unit_ms": "{{value}} 毫秒",
+    "unit_s": "{{value}} 秒",
+    "unit_min": "{{value}} 分钟",
+    "unit_h": "{{value}} 小时",
+    "unit_d": "{{value}} 天",
+    "summary": "{{name}}。{{scope}}，{{from}} 至 {{to}}，每柱 {{width}}，单柱最多 {{max}} 条。左右方向键在柱之间移动，回车将时间范围缩小到该柱。",
+    "bar_readout": "{{from}} 至 {{to}}：共 {{total}} 条，其中错误 {{errors}} 条",
+    "bar_readout_whole": "{{from}} 至 {{to}}：共 {{total}} 条",
+    "scope_all_one": "全部匹配结果共 1 条",
+    "scope_all_other": "全部匹配结果共 {{total}} 条",
+    "scope_loaded_one": "仅已加载的 1 条结果",
+    "scope_loaded_other": "仅已加载的 {{total}} 条结果",
+    "scope_because": "{{scope}}（{{reason}}）",
+    "counting": "正在统计全部匹配结果…",
+    "unavailable": {
+      "time_budget": "统计全部匹配结果超时",
+      "busy": "当前查询过多，未统计全部匹配结果",
+      "scan_limit": "范围内数据量超过单次查询上限，未统计全部匹配结果",
+      "timestamp_masked": "该流的时间字段已脱敏",
+      "failed": "未能统计全部匹配结果"
+    }
   },
   "time_picker": {
     "title": "选择时间范围",

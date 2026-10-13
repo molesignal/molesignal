@@ -81,7 +81,8 @@ test('Logs overview pivots to the exact trace with investigation time', async ({
   const drawer = page.getByRole('complementary', {
     name: 'Log detail drawer',
   });
-  await expect(drawer.getByText('Related signals')).toBeVisible();
+  // The trace the log belongs to is a reference in the record's own field list.
+  await expect(drawer.locator('[data-log-detail-field="trace_id"]')).toBeVisible();
 
   await drawer.locator(`[data-signal-type="trace_id"]`).first().click();
   const exactTrace = page.getByRole('link', { name: /Open current trace/ });

@@ -10,7 +10,7 @@
     "group_organization": "Organization",
     "group_permissions": "Permissions & limits",
     "group_authentication": "Authentication & access",
-    "search_placeholder": "Search identity & access…",
+    "search_placeholder": "Search access…",
     "search_aria": "Search identity and access settings",
     "no_results": "No matching features",
     "open_navigation": "Open identity and access navigation",
@@ -475,7 +475,8 @@
     "audit_read": "View audit events",
     "agent_use": "Use agent",
     "agent_manage": "Manage agent",
-    "agent_approve": "Approve agent actions"
+    "agent_approve": "Approve agent actions",
+    "inspections_manage": "Manage scheduled inspections"
   },
   "permissions_hint": {
     "sys_organizations_manage": "Create, update, and administer organizations across the platform.",
@@ -550,7 +551,8 @@
     "audit_read": "View security and administrative audit events.",
     "agent_use": "Use assisted investigation and analysis features.",
     "agent_manage": "Configure agent providers, tools, and policies.",
-    "agent_approve": "Approve protected actions proposed by agent workflows."
+    "agent_approve": "Approve protected actions proposed by agent workflows.",
+    "inspections_manage": "Create, change, pause, delete and run scheduled log inspections."
   },
   "roles": {
     "title": "Roles",
@@ -580,6 +582,8 @@
     },
     "type_builtin": "Built-in",
     "type_custom": "Custom",
+    "all_permissions_one": "All permissions ({{count}})",
+    "all_permissions_other": "All {{count}} permissions",
     "locked": "Locked",
     "builtin_read_only": "Built-in roles are permanently read-only.",
     "usage_breakdown": "Members {{memberships}}, tokens {{api_tokens}}, invitations {{invitations}}, bindings {{bindings}}",

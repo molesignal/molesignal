@@ -1,0 +1,43 @@
+/*
+ * Typesetting.
+ *
+ * The typeface is fixed (Alibaba PuHuiTi, see fonts.css); what this layer fixes
+ * is how lines break. Headings balance their lines instead of leaving a lone
+ * character on the last row, and running text avoids orphans. (Figures are
+ * already tabular: see the base rule in tokens.css.)
+ */
+h1,
+h2,
+h3,
+h4 {
+  text-wrap: balance;
+}
+
+p,
+li,
+dd,
+figcaption {
+  text-wrap: pretty;
+}
+
+/*
+ * Eyebrow: the small label above a heading or a group. Latin text is set in
+ * tracked capitals; CJK has no case, so it is set plain, one size up and with
+ * only a little tracking (heavy tracking pulls the glyphs apart).
+ */
+.type-eyebrow {
+  font-size: var(--font-micro);
+  font-weight: var(--fw-strong);
+  line-height: 1.4;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+:lang(zh) .type-eyebrow,
+.type-eyebrow:lang(zh) {
+  /* Han glyphs fill their em box, so at 11px a block's name reads smaller than
+     the 12px rows under it; one step up keeps it a heading. */
+  font-size: var(--font-caption);
+  letter-spacing: 0.04em;
+  text-transform: none;
+}

@@ -97,6 +97,8 @@ describe('notify model', () => {
       'organization_fallback',
       'escalation',
       'test',
+      // Sent straight to a channel a feature chose itself, such as a scheduled log inspection.
+      'direct',
     ]);
     expect(targetTypeOptions()).toEqual([
       'direct_user',

@@ -1,4 +1,5 @@
 import { Pin, PinOff, X } from 'lucide-react';
+import * as React from 'react';
 
 import { useScope } from '@/keyboard/controller';
 import { cn } from '@/shell/lib/cn';
@@ -16,16 +17,33 @@ interface DrawerFrameProps {
   /** Total number of drawers currently in the stack. */
   total: number;
   isTop: boolean;
+  /**
+   * Set once the frame has left the stack and its drawer is sliding out: how
+   * long the drawer waits before it moves. `index` and `total` are then the
+   * ones the frame had when it left, so the drawer leaves from where it stood.
+   */
+  leaveDelayMs?: number;
 }
 
 const DRAWER_W = 720;
 const STACK_OFFSET = 32;
 
-export function DrawerFrame({ frame, index, total, isTop }: DrawerFrameProps) {
+/** A click on a drawer that is leaving reaches nothing: not its controls, not what it still covers. */
+function dropClick(event: React.MouseEvent) {
+  event.preventDefault();
+  event.stopPropagation();
+}
+
+export function DrawerFrame({ frame, index, total, isTop, leaveDelayMs }: DrawerFrameProps) {
   useScope('drawer', isTop);
   const pop = useInvestigationStack((s) => s.pop);
   const pin = useInvestigationStack((s) => s.pinFrame);
   const popTo = useInvestigationStack((s) => s.popTo);
+  const leaving = leaveDelayMs !== undefined;
+  // The slide-in belongs to arriving, not to being on top. A drawer that
+  // becomes the top one because the one above it closed was here all along,
+  // and sliding in again would cross the drawer that is sliding out over it.
+  const [arrivedOnTop] = React.useState(isTop);
 
   // Higher index → closer to user. Lower index → peek 32px from the right edge
   // of the next drawer.
@@ -39,11 +57,24 @@ export function DrawerFrame({ frame, index, total, isTop }: DrawerFrameProps) {
       data-frame-id={frame.id}
       data-frame-kind={frame.kind}
       data-frame-index={index}
-      style={{ width: DRAWER_W, right: offsetFromRight, zIndex: 60 + index }}
+      data-leaving={leaving || undefined}
+      style={{
+        width: DRAWER_W,
+        right: offsetFromRight,
+        zIndex: 60 + index,
+        // Out to the right by its own width plus the distance it stood back
+        // from the edge, so a drawer from lower in the stack leaves the screen too.
+        ...(leaving && {
+          translate: `calc(100% + ${offsetFromRight}px)`,
+          transitionDelay: `${leaveDelayMs}ms`,
+        }),
+      }}
       className={cn(
         'fixed top-strip bottom-0 flex flex-col border-l border-border bg-surface shadow-drawer',
-        isTop && 'animate-slide-in-right',
+        arrivedOnTop && 'animate-slide-in-right',
+        leaving && 'transition-[translate] duration-normal ease-out',
       )}
+      onClickCapture={leaving ? dropClick : undefined}
       onClick={(e) => {
         if (!isTop) {
           e.stopPropagation();

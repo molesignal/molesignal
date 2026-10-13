@@ -14,8 +14,8 @@ export interface SeriesIdentityConfig {
   countLabel: string;
   nameLabel: string;
   labelCountLabel: (count: number) => string;
-  expandLabel: (metricName: string) => string;
-  collapseLabel: (metricName: string) => string;
+  expandLabel: (seriesName: string) => string;
+  collapseLabel: (seriesName: string) => string;
   statLabels?: Partial<Record<TimeSeriesLegendStat, string>>;
 }
 
@@ -30,8 +30,9 @@ interface SeriesIdentifierProps {
 }
 
 /**
- * Compact series identity for exploratory views. The metric name stays visible;
- * the raw Prometheus/OpenTelemetry label set is disclosed only on demand.
+ * Compact series identity for exploratory views. A row leads with the metric
+ * name, or with the legend its author wrote for the series; the raw
+ * Prometheus/OpenTelemetry label set is disclosed only on demand.
  */
 export function SeriesIdentifier({
   series,
@@ -43,6 +44,7 @@ export function SeriesIdentifier({
   onFocusChange,
 }: SeriesIdentifierProps) {
   const metricName = resolveSeriesMetricName(series);
+  const seriesName = series.legendName?.trim() || metricName;
   const labels = seriesLabelEntries(series.labels);
 
   return (
@@ -51,7 +53,7 @@ export function SeriesIdentifier({
         <button
           type="button"
           aria-pressed={!hidden}
-          aria-label={metricName}
+          aria-label={seriesName}
           title={series.name}
           onClick={onSelect}
           onFocus={() => onFocusChange(true)}
@@ -62,15 +64,15 @@ export function SeriesIdentifier({
             hidden ? 'text-tx-4' : 'text-tx-0',
           )}
         >
-          {metricName}
+          {seriesName}
         </button>
         {labels.length > 0 ? (
           <button
             type="button"
             aria-expanded={expanded}
             aria-label={expanded
-              ? text.collapseLabel(metricName)
-              : text.expandLabel(metricName)}
+              ? text.collapseLabel(seriesName)
+              : text.expandLabel(seriesName)}
             onClick={() => onExpandedChange(!expanded)}
             className="inline-flex items-center gap-1 rounded px-1 py-0.5 font-sans text-xs text-tx-3 hover:bg-bg-2 hover:text-tx-1 focus-visible:bg-bg-2 focus-visible:text-tx-0"
           >
@@ -92,7 +94,7 @@ export function SeriesIdentifier({
 
       {expanded && labels.length > 0 ? (
         <dl
-          aria-label={text.expandLabel(metricName)}
+          aria-label={text.expandLabel(seriesName)}
           className="mt-2 grid min-w-0 grid-cols-[minmax(7.5rem,auto)_minmax(0,1fr)] gap-x-3 gap-y-1 border-l border-bd-0 pl-3"
           data-testid="series-identifier-labels"
         >

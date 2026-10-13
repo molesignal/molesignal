@@ -44,6 +44,9 @@
     "compare_previous": "Compared with previous period",
     "current_period": "Current period",
     "load_error": "Unable to load the User Experience overview",
+    "scope_empty_title": "No sessions match these filters",
+    "scope_empty_description": "Sessions were recorded in this time range, but none for this combination of application, environment, version, region and device.",
+    "scope_clear": "Clear filters",
     "no_rated_sessions": "No rated sessions",
     "no_previous_data": "No previous-period data",
     "unchanged": "Unchanged from previous period",
@@ -69,6 +72,11 @@
       "inp": "INP",
       "cls": "CLS"
     },
+    "pulse_aria": "Audience and Core Web Vitals",
+    "vital_scale_aria": "{{vital}} at the 75th percentile: {{grade}}",
+    "vital_thresholds": "≤ {{good}} good · > {{poor}} poor",
+    "sessions_per_user": "{{value}} sessions per user",
+    "sessions_with_errors": "{{count}} sessions with errors",
     "satisfaction": "User satisfaction",
     "satisfaction_description": "Share of good, needs-improvement, and poor sessions.",
     "each_bar_time_bucket": "Each bar represents one time bucket",
@@ -148,6 +156,7 @@
     "last_page": "Last page",
     "issues": "issues",
     "no_issues": "No issues",
+    "has_replay": "Replay recorded",
     "filters": {
       "search": "Search",
       "experience": "Experience",
@@ -354,8 +363,8 @@
     "columns": {
       "url": "URL",
       "count": "Count",
-      "p50": "P50 (ms)",
-      "p95": "P95 (ms)",
+      "p50": "P50",
+      "p95": "P95",
       "errors": "Errors"
     }
   },

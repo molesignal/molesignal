@@ -21,7 +21,6 @@ import {
   Th,
   Tr,
 } from '@/shell/chrome';
-import { DisabledControl } from '@/shell/DisabledControl';
 import { Switch } from '@/shell/ui/switch';
 
 import { nextRunAtMicros, normalizeMicros } from './reportModel';
@@ -31,6 +30,7 @@ import {
   getSourceName,
   scheduleLabel,
 } from './reportTypes';
+import { RunAsToggleHint } from './runAs/RunAsToggleHint';
 
 export function ScheduleTable({
   reports,
@@ -41,7 +41,7 @@ export function ScheduleTable({
   sharingId,
   toggling,
   onExport,
-  onEdit,
+  onOpen,
   onShare,
   onToggle,
 }: {
@@ -53,7 +53,8 @@ export function ScheduleTable({
   sharingId: string | null;
   toggling: boolean;
   onExport: (report: DisplayReport) => void;
-  onEdit: (report: DisplayReport) => void;
+  /** Opens the report: to edit for a reader who can schedule reports, to look at otherwise. */
+  onOpen: (report: DisplayReport) => void;
   onShare: (report: DisplayReport) => void;
   onToggle: (report: DisplayReport, enabled: boolean) => void;
 }) {
@@ -87,26 +88,18 @@ export function ScheduleTable({
             return (
               <Tr key={report.id}>
                 <Td>
-                  <DisabledControl
-                    disabled={scheduleAccess.disabled}
-                    reason={scheduleAccess.reason}
-                    className="max-w-full"
+                  <button
+                    type="button"
+                    onClick={() => onOpen(report)}
+                    className="-ml-1 block max-w-full cursor-pointer rounded-sm px-1 text-left focus-visible:bg-bg-3 focus-visible:text-tx-0 focus-visible:outline-none"
                   >
-                    <button
-                      type="button"
-                      disabled={scheduleAccess.disabled}
-                      aria-disabled={scheduleAccess.disabled || undefined}
-                      onClick={() => onEdit(report)}
-                      className="-ml-1 block max-w-full rounded-sm px-1 text-left enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 focus-visible:bg-bg-3 focus-visible:text-tx-0 focus-visible:outline-none"
-                    >
-                      <span className="block truncate font-sans text-sm font-bold text-tx-0">
-                        {report.title}
-                      </span>
-                      <span className="mt-0.5 block truncate text-xs text-tx-3">
-                        {t(`source.${report.sourceKind}`)} · {sourceName}
-                      </span>
-                    </button>
-                  </DisabledControl>
+                    <span className="block truncate font-sans text-sm font-bold text-tx-0">
+                      {report.title}
+                    </span>
+                    <span className="mt-0.5 block truncate text-xs text-tx-3">
+                      {t(`source.${report.sourceKind}`)} · {sourceName}
+                    </span>
+                  </button>
                 </Td>
                 <Td>
                   <div className="flex items-center gap-2 text-sm text-tx-1">
@@ -138,21 +131,29 @@ export function ScheduleTable({
                 </Td>
                 <Td>
                   <div className="flex items-center gap-2">
-                    <Switch
-                      checked={report.enabled}
+                    <RunAsToggleHint
+                      report={report}
                       disabled={toggling || scheduleAccess.disabled}
-                      disabledReason={
-                        !toggling ? scheduleAccess.reason : undefined
-                      }
-                      onCheckedChange={(enabled) =>
-                        onToggle(report, enabled)
-                      }
-                      aria-label={
-                        report.enabled
-                          ? `${t('actions.pause')} ${report.title}`
-                          : `${t('actions.enable')} ${report.title}`
-                      }
-                    />
+                    >
+                      {(describedBy) => (
+                        <Switch
+                          checked={report.enabled}
+                          disabled={toggling || scheduleAccess.disabled}
+                          disabledReason={
+                            !toggling ? scheduleAccess.reason : undefined
+                          }
+                          onCheckedChange={(enabled) =>
+                            onToggle(report, enabled)
+                          }
+                          aria-label={
+                            report.enabled
+                              ? `${t('actions.pause')} ${report.title}`
+                              : `${t('actions.enable')} ${report.title}`
+                          }
+                          aria-describedby={describedBy}
+                        />
+                      )}
+                    </RunAsToggleHint>
                     <span className="text-xs text-tx-2">
                       {report.enabled
                         ? t('status.enabled')
@@ -193,13 +194,10 @@ export function ScheduleTable({
                       )}
                       {t('actions.export')}
                     </ChromeButton>
-                    <ChromeButton
-                      size="sm"
-                      disabled={scheduleAccess.disabled}
-                      disabledReason={scheduleAccess.reason}
-                      onClick={() => onEdit(report)}
-                    >
-                      {t('actions.edit')}
+                    <ChromeButton size="sm" onClick={() => onOpen(report)}>
+                      {scheduleAccess.allowed
+                        ? t('actions.edit')
+                        : t('actions.view')}
                     </ChromeButton>
                   </div>
                 </Td>

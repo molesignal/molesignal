@@ -136,7 +136,8 @@ function VersionSelectors({
   const { t } = useTranslation('apm');
   const options = Array.from(new Set([baseline, candidate, ...versions].filter(Boolean)));
   return (
-    <div className="flex flex-wrap items-end gap-4 p-4">
+    // The section head brings the room over the fields: padding of their own on top doubled it.
+    <div className="flex flex-wrap items-end gap-4 px-4 pb-4">
       <VersionSelect
         label={t('versions.baseline')}
         placeholder={t('versions.choose_version')}
@@ -273,7 +274,7 @@ function Status({ detail }: { detail: VersionCompareResponse }) {
         tone === 'danger'
           ? 'border-red/25 bg-red-dim text-red-soft'
           : tone === 'good'
-            ? 'border-green/25 bg-green-dim text-green-soft'
+            ? 'border-green/25 bg-[var(--green-tint)] text-[var(--green-ink)]'
             : 'border-bd-0 bg-bg-1 text-tx-2'
       }`}
     >

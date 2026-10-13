@@ -20,7 +20,9 @@ describe('TraceOperationName', () => {
     const method = screen.getByText('POST', { selector: '[aria-hidden="true"]' });
     expect(method.className).toContain('type-micro');
     expect(method.className).toContain('font-mono');
-    expect(method.className).toContain('text-blue-soft');
+    // An ink tone, not a soft one: soft is a fill on light and falls short of AA as text.
+    expect(method.className).toContain('text-[var(--blue-ink)]');
+    expect(method.className).not.toContain('-soft');
     expect(screen.getByText('/api/checkout')).toBeTruthy();
   });
 

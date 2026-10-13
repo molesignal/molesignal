@@ -155,7 +155,7 @@ function QualityRow({
       <span className="text-tx-2">{label}</span>
       <span
         className={`tabular-nums ${
-          warning ? 'font-semibold text-orange-soft' : 'text-tx-1'
+          warning ? 'font-semibold text-[var(--orange-ink)]' : 'text-tx-1'
         }`}
       >
         {value}

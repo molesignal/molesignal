@@ -6,9 +6,11 @@ import {
   groupTraceFields,
   insertTraceClause,
   isTraceFieldQueryable,
+  isTraceLevelField,
   parseTraceStatement,
   selectTraceStream,
   traceSqlTemplate,
+  type TraceFieldDef,
 } from './fieldQueryModel';
 
 describe('trace field query model', () => {
@@ -109,6 +111,46 @@ describe('trace field query model', () => {
     );
     expect(appendTraceSqlFieldFilter(template, spanCount, 'default')).toContain(
       'HAVING COUNT(*) >= 0',
+    );
+  });
+
+  it('reads back a quoted value as it was written', () => {
+    // The writer escapes a quote and a backslash; a value with either used to never match itself.
+    expect(parseTraceStatement("name = 'it\\'s' AND path contains 'C:\\\\tmp'", [
+      ...fields,
+      { name: 'name', dataType: 'utf8', physical: true, scope: 'span' },
+      { name: 'path', dataType: 'utf8', physical: true, scope: 'span' },
+    ]).filters).toEqual([
+      { field: 'name', op: '=', value: "it's" },
+      { field: 'path', op: 'contains', value: 'C:\\tmp' },
+    ]);
+  });
+
+  it('sets a comparison with no value aside instead of searching for it as text', () => {
+    const parsed = parseTraceStatement('service.name = AND checkout', fields);
+
+    expect(parsed.rejected).toEqual(['service.name =']);
+    expect(parsed.q).toBe('checkout');
+  });
+
+  it('only offers a field query the fields it can name', () => {
+    const header: TraceFieldDef = { name: 'http.request.header.x-request-id', dataType: 'utf8', physical: true, scope: 'span' };
+
+    expect(isTraceFieldQueryable(header, 'fields')).toBe(false);
+    expect(isTraceFieldQueryable(header, 'sql')).toBe(true);
+  });
+
+  it('knows the four fields a trace has one value for', () => {
+    expect(['trace_id', 'duration_ns', 'span_count', 'error_count'].every(isTraceLevelField)).toBe(true);
+    expect(['span_id', 'service.name', 'status_code'].some(isTraceLevelField)).toBe(false);
+  });
+
+  it('asks a count of the stream when the statement lists spans', () => {
+    const spanCount = fields.find((field) => field.name === 'span_count')!;
+
+    // A statement with a row per span has no trace to count; HAVING there is not valid SQL.
+    expect(appendTraceSqlFieldFilter('SELECT * FROM "default" LIMIT 10', spanCount, 'default')).toBe(
+      'SELECT * FROM "default"\nWHERE trace_id IN (SELECT trace_id FROM "default" GROUP BY trace_id HAVING COUNT(*) >= 0) LIMIT 10',
     );
   });
 

@@ -1,8 +1,8 @@
 import axios from 'axios';
 
 import type { IntakeResult } from '@/api/intake';
+import { isMissingStreamError } from '@/api/missingStream';
 import * as queryApi from '@/api/query';
-import { toApiError } from '@/lib/http';
 
 export type RumPlatform = 'browser' | 'flutter' | 'android' | 'ios';
 
@@ -74,8 +74,7 @@ export async function recentErrorSummary(params: {
       lastReceivedAtMicros: numeric(row[1]),
     };
   } catch (error) {
-    const apiError = toApiError(error);
-    if (/stream not found|unknown stream/i.test(apiError.message)) {
+    if (isMissingStreamError(error)) {
       return { rows: 0, lastReceivedAtMicros: null };
     }
     throw error;

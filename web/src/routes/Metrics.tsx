@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 import {
   fetchMetricCatalog,
@@ -11,13 +11,14 @@ import * as queryApi from '@/api/query';
 import { resolveMetricType } from '@/lib/metricTypes';
 import { useCursorPagination } from '@/pagination/useCursorPagination';
 import { useActionAccess } from '@/product/actionAccess';
-import { SurfacePageHeader } from '@/shell/SurfaceWorkbench';
+import { useQueryTabSearchParams, useQueryTabStatus } from '@/shell/queryTabs';
 import { useAuthStore } from '@/stores/auth';
 import { useFiltersStore } from '@/stores/useFiltersStore';
 import {
   resolveWindow,
   type TimeWindow,
   useTimeStore,
+  useTimeStoreApi,
 } from '@/stores/useTimeStore';
 
 import { PromqlBuilderPanel } from './metrics/builder/PromqlBuilderPanel';
@@ -43,7 +44,7 @@ import {
 } from './metrics/queryOptions/model';
 import { MetricsExploreResults } from './metrics/results';
 import { useMetricSeriesPresentation } from './metrics/results/useMetricSeriesPresentation';
-import { metricsStateFromParams } from './metrics/urlState';
+import { metricsStateFromParams, writeExecutedMetricsState } from './metrics/urlState';
 import { useMetricsExploreContinuity } from './metrics/useExploreContinuity';
 
 /**
@@ -56,7 +57,10 @@ export function Metrics() {
     permission: 'dashboards.create',
   });
   const nav = useNavigate();
-  const [searchParams] = useSearchParams();
+  // The page can be one of several query tabs: its params and its time range
+  // are the tab's own, so another tab's query never reaches this one.
+  const [searchParams] = useQueryTabSearchParams();
+  const timeStore = useTimeStoreApi();
   const requestedPromql = requestedPromqlFromParams(searchParams);
   const initialUrlState = React.useRef(
     metricsStateFromParams(searchParams),
@@ -72,7 +76,9 @@ export function Metrics() {
   const [filter, setFilter] = React.useState('');
   const [metricBrowserOpen, setMetricBrowserOpen] = React.useState(false);
   const [queryMode, setQueryMode] = React.useState<'code' | 'builder'>('code');
-  const [queryEditorCollapsed, setQueryEditorCollapsed] = React.useState(false);
+  // The editor starts folded into the bar, as on Logs and Traces: it opens on a query that
+  // arrived in the link, or on request.
+  const [queryEditorCollapsed, setQueryEditorCollapsed] = React.useState(!requestedPromql);
   const [timezone, setTimezone] = React.useState('');
   const [queryOptions, setQueryOptions] = React.useState<MetricsQueryOptions>(
     initialUrlState.queryOptions,
@@ -105,7 +111,7 @@ export function Metrics() {
 
   const run = useMutation({
     mutationFn: (statementOverride?: string) => {
-      const resolvedWindow = resolveWindow(useTimeStore.getState().window);
+      const resolvedWindow = resolveWindow(timeStore.getState().window);
       const draft = (statementOverride ?? promql).trim();
       const statement = injectPromqlMatchers(
         draft,
@@ -192,6 +198,17 @@ export function Metrics() {
       ),
     [capabilities.data, catalog.data?.items],
   );
+
+  // The first unfiltered page is what the empty graph offers to start from;
+  // searching in the metric browser must not swap those starters out.
+  const [starterMetrics, setStarterMetrics] = React.useState<
+    readonly MetricCatalogEntry[]
+  >([]);
+  React.useEffect(() => {
+    const items = catalog.data?.items;
+    if (!items || filter.trim() || metricCatalogPagination.cursor) return;
+    setStarterMetrics(items);
+  }, [catalog.data?.items, filter, metricCatalogPagination.cursor]);
 
   const selectedMetricName = React.useMemo(
     () => findMetricName(promql, catalog.data?.items ?? []),
@@ -290,12 +307,12 @@ export function Metrics() {
         mode: 'absolute',
       };
       setChartZoomOrigin(
-        (origin) => origin ?? useTimeStore.getState().window,
+        (origin) => origin ?? timeStore.getState().window,
       );
       chartZoomWindowKey.current = timeWindowKey(nextWindow);
       setTimeWindow(nextWindow);
     },
-    [setTimeWindow],
+    [setTimeWindow, timeStore],
   );
   const resetChartTimeRange = React.useCallback(() => {
     if (!chartZoomOrigin) return;
@@ -330,6 +347,10 @@ export function Metrics() {
   const promqlDocsHref = `https://docs.molesignal.com/${promqlDocsLocale}/query/promql-subset`;
   const timeRangeSeconds =
     (chartWindow.to.getTime() - chartWindow.from.getTime()) / 1000;
+  useQueryTabStatus({
+    running: run.isPending,
+    summary: lastExecutedDraft ?? promql.trim(),
+  });
 
   const addToDashboard = React.useCallback(() => {
     const statement = promql.trim();
@@ -351,16 +372,25 @@ export function Metrics() {
     setMetricBrowserOpen(true);
     if (selectedMetricName) setFilter(selectedMetricName);
   }, [selectedMetricName]);
+  // What a link to this query carries of the page's own: the query the chart is of (or the one
+  // being written, before any has run) and how it is drawn.
+  const shareSearch = React.useMemo(() => {
+    const statement = (lastExecutedPromql ?? promql).trim();
+    if (!statement) return new URLSearchParams();
+
+    return writeExecutedMetricsState(new URLSearchParams(), {
+      promql: statement,
+      queryOptions,
+      drawStyle: chartDrawStyle,
+      stackMode: chartStackMode,
+    });
+  }, [chartDrawStyle, chartStackMode, lastExecutedPromql, promql, queryOptions]);
 
   return (
     <div
-      className="flex h-[calc(100vh-var(--topbar-h)-var(--contextbar-h,0px))] min-h-0 flex-col overflow-hidden bg-[var(--page-canvas)]"
+      className="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--page-canvas)]"
       data-testid="metrics-page"
     >
-      <SurfacePageHeader
-        title={t('explore.title')}
-        subtitle={t('explore.subtitle')}
-      />
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <ExploreQuerySection
           promql={promql}
@@ -380,7 +410,6 @@ export function Metrics() {
           canRun={canRun}
           running={run.isPending}
           dirty={promqlDirty}
-          timezone={timezone}
           options={queryOptions}
           addToDashboardDisabled={
             !promql.trim() || dashboardCreateAccess.disabled
@@ -391,6 +420,7 @@ export function Metrics() {
               : undefined
           }
           promqlDocsHref={promqlDocsHref}
+          shareSearch={shareSearch}
           onPromqlChange={setPromql}
           onCollapsedChange={setQueryEditorCollapsed}
           onModeChange={(mode) => {
@@ -398,7 +428,6 @@ export function Metrics() {
             setQueryEditorCollapsed(false);
           }}
           onOpenMetricBrowser={() => setMetricBrowserOpen(true)}
-          onTimezoneChange={setTimezone}
           onOptionsChange={setQueryOptions}
           onRun={() => run.mutate(undefined)}
           onRefresh={() => run.mutate(undefined)}
@@ -445,6 +474,7 @@ export function Metrics() {
             drawStyle: chartDrawStyle,
             stackMode: chartStackMode,
             zoomed: chartZoomOrigin !== null,
+            onTimezoneChange: setTimezone,
             onDrawStyleChange: setChartDrawStyle,
             onStackModeChange: setChartStackMode,
             onRangeSelect: selectChartTimeRange,
@@ -465,6 +495,12 @@ export function Metrics() {
             onRetry: () => run.mutate(undefined),
             onWidenRange: widenResultWindow,
             onClearFilters: clearGlobalFilters,
+          }}
+          starter={{
+            metrics: starterMetrics,
+            pending: catalog.isPending && starterMetrics.length === 0,
+            onPick: pickMetric,
+            onBrowse: () => setMetricBrowserOpen(true),
           }}
           timeRangeSeconds={timeRangeSeconds}
           language={language}

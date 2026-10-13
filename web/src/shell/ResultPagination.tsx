@@ -6,13 +6,7 @@ import {
 } from 'lucide-react';
 
 import { cn } from '@/shell/lib/cn';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/shell/ui/select';
+import { PageSizeSelect } from '@/shell/PageSizeSelect';
 
 interface ResultPaginationProps {
   page: number;
@@ -62,24 +56,12 @@ export function ResultPagination({
         className,
       )}
     >
-      <Select
-        value={String(pageSize)}
-        onValueChange={(value) => onPageSizeChange(Number(value))}
-      >
-        <SelectTrigger
-          aria-label={pageSizeAriaLabel}
-          className="h-11 w-auto min-w-[3.25rem] border-0 bg-transparent px-1.5 font-sans text-xs font-strong text-tx-1 shadow-none hover:border-0 hover:bg-transparent focus-visible:bg-transparent focus-visible:text-tx-0 data-[state=open]:border-0 data-[state=open]:bg-transparent lg:h-8"
-        >
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {pageSizeOptions.map((option) => (
-            <SelectItem key={option} value={String(option)} className="font-sans text-xs">
-              {option}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <PageSizeSelect
+        value={pageSize}
+        options={pageSizeOptions}
+        ariaLabel={pageSizeAriaLabel}
+        onChange={onPageSizeChange}
+      />
 
       <div className="ml-auto flex items-center gap-0">
         <button

@@ -1,4 +1,6 @@
-import { create } from 'zustand';
+import * as React from 'react';
+import { useStore } from 'zustand';
+import { createStore, type StoreApi } from 'zustand/vanilla';
 
 export type TimeMode = 'relative' | 'absolute';
 
@@ -20,7 +22,7 @@ export interface Anchor {
   label?: string;
 }
 
-interface TimeState {
+export interface TimeState {
   window: TimeWindow;
   anchor: Anchor | null;
   setWindow: (w: TimeWindow) => void;
@@ -35,21 +37,80 @@ export const DEFAULT_WINDOW: TimeWindow = {
   mode: 'relative',
 };
 
-export const useTimeStore = create<TimeState>((set, get) => ({
-  window: DEFAULT_WINDOW,
-  anchor: null,
-  setWindow: (window) => set({ window }),
-  setAnchor: (anchor) => set({ anchor }),
-  clearAnchor: () => set({ anchor: null }),
-  togglePin: (at) => {
-    const cur = get().anchor;
-    if (cur && cur.at === at) {
-      set({ anchor: null });
-    } else {
-      set({ anchor: { at } });
-    }
-  },
-}));
+export type TimeStoreApi = StoreApi<TimeState>;
+
+/** A time store of its own: the app has one, and each query tab has one. */
+export function createTimeStore(
+  initial: { window?: TimeWindow; anchor?: Anchor | null } = {},
+): TimeStoreApi {
+  return createStore<TimeState>((set, get) => ({
+    window: initial.window ?? DEFAULT_WINDOW,
+    anchor: initial.anchor ?? null,
+    setWindow: (window) => set({ window }),
+    setAnchor: (anchor) => set({ anchor }),
+    clearAnchor: () => set({ anchor: null }),
+    togglePin: (at) => {
+      const cur = get().anchor;
+      if (cur && cur.at === at) {
+        set({ anchor: null });
+      } else {
+        set({ anchor: { at } });
+      }
+    },
+  }));
+}
+
+const appTimeStore = createTimeStore();
+
+/**
+ * The time store a subtree reads instead of the app's. A query tab provides its
+ * own, so everything rendered in the tab (the range picker, charts, links that
+ * carry the window) follows that tab's time and leaves the other tabs alone.
+ */
+export const TimeScopeContext = React.createContext<TimeStoreApi | null>(null);
+
+/** The store in scope, for reads and writes outside of render. */
+export function useTimeStoreApi(): TimeStoreApi {
+  return React.useContext(TimeScopeContext) ?? appTimeStore;
+}
+
+function useScopedTimeStore<T>(selector: (state: TimeState) => T): T {
+  return useStore(useTimeStoreApi(), selector);
+}
+
+/**
+ * The time window and anchor in scope. As a hook it follows `TimeScopeContext`;
+ * `getState` / `setState` / `subscribe` always address the app's own store.
+ */
+export const useTimeStore = Object.assign(useScopedTimeStore, {
+  getState: appTimeStore.getState,
+  setState: appTimeStore.setState,
+  subscribe: appTimeStore.subscribe,
+  getInitialState: appTimeStore.getInitialState,
+});
+
+export function sameTimeWindow(a: TimeWindow, b: TimeWindow): boolean {
+  return a.from === b.from && a.to === b.to && a.mode === b.mode;
+}
+
+export function isDefaultTimeWindow(window: TimeWindow): boolean {
+  return sameTimeWindow(window, DEFAULT_WINDOW);
+}
+
+/**
+ * Writes a time window and anchor into search params the way a URL carries
+ * them: `time=from..to` unless it is the default window, and `anchor` if set.
+ */
+export function writeTimeParams(
+  params: URLSearchParams,
+  window: TimeWindow,
+  anchor: Anchor | null,
+): void {
+  if (isDefaultTimeWindow(window)) params.delete('time');
+  else params.set('time', `${window.from}..${window.to}`);
+  if (anchor) params.set('anchor', anchor.at);
+  else params.delete('anchor');
+}
 
 /**
  * Resolve a TimeWindow against the current wall clock. Relative expressions

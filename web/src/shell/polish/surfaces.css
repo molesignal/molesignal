@@ -1,0 +1,79 @@
+/*
+ * Surfaces that answer the pointer.
+ *
+ * A card that can be clicked says so when it is approached: its edge picks up a
+ * trace of the brand colour and a soft light follows the cursor across it. The
+ * light is positioned by a single shell-level pointer listener (useSpotlight),
+ * which writes --mx / --my onto the card under the pointer; the card itself has
+ * no script.
+ */
+:root,
+[data-theme='dark'] {
+  --shadow-functional-surface-hover:
+    0 0 0 1px rgba(120, 133, 239, 0.32),
+    0 2px 4px rgba(0, 0, 0, 0.3),
+    0 12px 28px -12px rgba(79, 96, 224, 0.4);
+  --spotlight: color-mix(in srgb, var(--indigo) 14%, transparent);
+}
+
+[data-theme='light'] {
+  --shadow-functional-surface-hover:
+    0 0 0 1px rgba(55, 66, 199, 0.2),
+    0 2px 4px rgba(19, 24, 37, 0.06),
+    0 10px 24px -10px rgba(55, 66, 199, 0.22);
+  --spotlight: color-mix(in srgb, var(--indigo) 8%, transparent);
+}
+
+[data-spotlight] {
+  position: relative;
+  isolation: isolate;
+  transition: box-shadow var(--duration-normal) var(--easing-default);
+}
+
+[data-spotlight]::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(
+    280px circle at var(--mx, 50%) var(--my, 0%),
+    var(--spotlight),
+    transparent 70%
+  );
+  opacity: 0;
+  transition: opacity var(--duration-normal) var(--easing-default);
+}
+
+@media (hover: hover) {
+  [data-spotlight]:hover {
+    box-shadow: var(--shadow-functional-surface-hover);
+  }
+
+  [data-spotlight]:hover::before {
+    opacity: 1;
+  }
+}
+
+/*
+ * Inside a management card.
+ *
+ * Settings, Access and Account pages draw one card and everything in it sits on
+ * that card. An empty, loading or error state would otherwise bring its own
+ * edge and shadow and become a card within a card; here it is set into the
+ * surface as a tonal well instead.
+ */
+:root,
+[data-theme='dark'],
+[data-theme='light'] {
+  --well-surface: color-mix(in srgb, var(--tx-0) 3.5%, var(--functional-surface));
+}
+
+[data-management-appearance='surface'] [data-product-state],
+[data-management-appearance='surface'] [data-data-table-empty] {
+  border-color: transparent;
+  border-radius: var(--radius-lg);
+  background: var(--well-surface);
+  box-shadow: none;
+}

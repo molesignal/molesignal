@@ -244,8 +244,8 @@ export function ProfileEditorFields({
           className={cn(
             'border-l-2 pl-3 text-sm leading-6',
             allowed
-              ? 'border-yellow/60 text-yellow-soft'
-              : 'border-green/60 text-green-soft',
+              ? 'border-yellow/60 text-[var(--yellow-ink)]'
+              : 'border-green/60 text-[var(--green-ink)]',
           )}
         >
           {t(

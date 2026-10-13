@@ -264,8 +264,8 @@ function DraftBadge({
     <Badge
       variant="outline"
       className={cn(
-        value === 'ready' && 'border-blue/35 bg-blue-dim text-blue-soft',
-        value === 'consumed' && 'border-green/35 bg-green-dim text-green-soft',
+        value === 'ready' && 'border-blue/35 bg-[var(--blue-tint)] text-[var(--blue-ink)]',
+        value === 'consumed' && 'border-green/35 bg-[var(--green-tint)] text-[var(--green-ink)]',
         value === 'expired' && 'border-red/35 bg-red-dim text-red-soft',
       )}
     >

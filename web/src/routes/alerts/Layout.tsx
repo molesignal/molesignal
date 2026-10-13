@@ -1,3 +1,4 @@
+import type * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { ModuleTabs } from '@/shell/tabs/ModuleTabs';
@@ -19,13 +20,14 @@ const ALERT_TABS = [
  * The row scrolls horizontally on narrow viewports instead of hiding
  * operational destinations behind a second navigation model.
  */
-export function AlertsSubNav() {
+export function AlertsSubNav({ end }: { end?: React.ReactNode } = {}) {
   const { t } = useTranslation('alerts');
 
   return (
     <ModuleTabs
       label={t('subnav.label', { defaultValue: 'Alerts views' })}
       className="relative z-10"
+      end={end}
       dataAttributes={{ 'data-testid': 'alerts-subnav' }}
       items={ALERT_TABS.map((tab) => ({
         key: tab.to,

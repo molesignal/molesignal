@@ -27,6 +27,9 @@ export interface CheckRow {
   successRate: number | undefined;
 }
 
+/** How often a tab asks again: checks run on their own, so the page follows without being told to. */
+export const SYNTHETICS_REFRESH_MILLIS = 30_000;
+
 export function useSyntheticsWorkspace(options: {
   kinds?: MonitorKind[] | undefined;
   resultLimit?: number | undefined;
@@ -36,10 +39,12 @@ export function useSyntheticsWorkspace(options: {
   const monitorQuery = useQuery({
     queryKey: ['synthetics', 'monitors'],
     queryFn: syntheticsApi.listMonitors,
+    refetchInterval: SYNTHETICS_REFRESH_MILLIS,
   });
   const locationQuery = useQuery({
     queryKey: ['synthetics', 'locations'],
     queryFn: syntheticsApi.listLocations,
+    refetchInterval: SYNTHETICS_REFRESH_MILLIS,
   });
   const monitors = (monitorQuery.data ?? []).filter(
     (monitor) =>
@@ -62,6 +67,7 @@ export function useSyntheticsWorkspace(options: {
             queryFn: () =>
               syntheticsApi.listResults(monitor.id, { limit: options.resultLimit ?? 20 }),
             staleTime: 10_000,
+            refetchInterval: SYNTHETICS_REFRESH_MILLIS,
           })),
   });
   const rows: CheckRow[] = monitors.map((monitor, index) => {

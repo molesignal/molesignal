@@ -5,7 +5,8 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
 import { useFiltersStore } from '@/stores/useFiltersStore';
 import { useInvestigationStack, type Frame } from '@/stores/useInvestigationStack';
-import { formatWindowSummary, useTimeStore } from '@/stores/useTimeStore';
+import { useTimeStore } from '@/stores/useTimeStore';
+import { formatTimeWindowLabel } from '@/time/TimePicker';
 
 /** Param keys, in priority order, that carry a human-recognizable signal. */
 const SIGNAL_KEYS = [
@@ -49,6 +50,7 @@ function frameSignal(frame: Frame): string {
  */
 export function InvestigationContextBar() {
   const { t } = useTranslation('shell');
+  const { t: tCommon } = useTranslation('common');
   const nav = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const frames = useInvestigationStack((s) => s.frames);
@@ -88,7 +90,8 @@ export function InvestigationContextBar() {
   if (!active) return null;
 
   const latest = frames[frames.length - 1];
-  const windowLabel = formatWindowSummary(latest?.time_range_override ?? timeWindow);
+  // Under the name the time picker gives the range, in the product's language.
+  const windowLabel = formatTimeWindowLabel(latest?.time_range_override ?? timeWindow, tCommon);
 
   return (
     <div

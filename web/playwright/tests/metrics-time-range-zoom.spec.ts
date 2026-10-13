@@ -7,6 +7,16 @@ interface QueryRange {
   end: number;
 }
 
+/**
+ * Opens Metrics with its query editor open. The page itself starts with the
+ * editor folded into the bar, and the metric search and the options are in it.
+ */
+async function openMetrics(page: Page) {
+  await page.goto('/metrics');
+  await page.locator('[data-query-editor-state="collapsed"]').click();
+  await expect(page.locator('[data-query-editor-state="expanded"]')).toBeVisible();
+}
+
 async function selectMetric(page: Page, name = 'http_requests_total') {
   await page.getByTestId('metric-search-trigger').click();
   const browser = page.getByTestId('metrics-browser-dialog');
@@ -20,26 +30,33 @@ test.describe('Metrics time-range zoom', () => {
     await mountMockRoutes(page, mockServer.port);
   });
 
-  test('query editor is expanded by default and can be collapsed', async ({ page }) => {
+  test('query editor starts folded into the bar, as on Logs and Traces, and opens on request', async ({ page }) => {
     await page.goto('/metrics');
 
-    await expect(page.locator('[data-query-editor-state="expanded"]')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Collapse query' })).toBeVisible();
-
-    await page.getByRole('button', { name: 'Collapse query' }).click();
     const collapsedEditor = page.locator('[data-query-editor-state="collapsed"]');
     await expect(collapsedEditor).toBeVisible();
     await expect(collapsedEditor).toContainText('Choose a metric or enter PromQL');
+    await expect(page.locator('[data-query-editor-state="expanded"]')).toHaveCount(0);
 
     await collapsedEditor.click();
     await expect(page.locator('[data-query-editor-state="expanded"]')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Collapse query' }).click();
+    await expect(collapsedEditor).toBeVisible();
+  });
+
+  test('a query that arrives in the link opens the editor on it', async ({ page }) => {
+    await page.goto(`/metrics?promql=${encodeURIComponent('sum(rate(http_requests_total[5m]))')}`);
+
+    await expect(page.locator('[data-query-editor-state="expanded"]')).toBeVisible();
+    await expect(page.locator('[data-query-editor-state="collapsed"]')).toHaveCount(0);
   });
 
   test('expands the graph to use space released by the collapsed query editor', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1_280, height: 1_000 });
-    await page.goto('/metrics');
+    await openMetrics(page);
     await selectMetric(page);
 
     const chart = page.getByTestId('time-series-chart');
@@ -56,38 +73,40 @@ test.describe('Metrics time-range zoom', () => {
   });
 
   test('opens the metric browser from one search trigger and keeps results full width', async ({ page }) => {
-    await page.goto('/metrics');
+    await openMetrics(page);
 
     const workspace = page.getByTestId('metrics-workspace');
     const queryCard = page.getByTestId('metrics-query-card');
     const searchTrigger = page.getByTestId('metric-search-trigger');
-    const emptyQueryState = page.getByRole('status').filter({ hasText: 'PromQL' });
+    // Before the first query the graph area holds the prompt and the metrics to start from.
+    const start = page.getByTestId('metrics-start');
 
     await expect(workspace).toBeVisible();
     await expect(queryCard).toBeVisible();
     await expect(searchTrigger).toBeVisible();
     await expect(page.getByTestId('metrics-browser-dialog')).toHaveCount(0);
-    await expect(emptyQueryState).toBeVisible();
+    await expect(start.getByRole('status')).toContainText('PromQL');
 
-    const [workspaceBox, queryCardBox, searchTriggerBox, emptyQueryBox] = await Promise.all([
+    const [workspaceBox, queryCardBox, searchTriggerBox, startBox] = await Promise.all([
         workspace.boundingBox(),
         queryCard.boundingBox(),
         searchTrigger.boundingBox(),
-        emptyQueryState.boundingBox(),
+        start.boundingBox(),
     ]);
     expect(workspaceBox).not.toBeNull();
     expect(queryCardBox).not.toBeNull();
     expect(searchTriggerBox).not.toBeNull();
-    expect(emptyQueryBox).not.toBeNull();
-    if (!workspaceBox || !queryCardBox || !searchTriggerBox || !emptyQueryBox) return;
+    expect(startBox).not.toBeNull();
+    if (!workspaceBox || !queryCardBox || !searchTriggerBox || !startBox) return;
+    // The trigger is the first row of the query card, beside the query's letter.
     expect(searchTriggerBox.y).toBeGreaterThan(queryCardBox.y);
     expect(searchTriggerBox.x).toBeGreaterThanOrEqual(queryCardBox.x);
     expect(searchTriggerBox.width).toBeGreaterThan(queryCardBox.width * 0.9);
     expect(workspaceBox.y).toBeGreaterThanOrEqual(
       queryCardBox.y + queryCardBox.height,
     );
-    expect(emptyQueryBox.height).toBeGreaterThanOrEqual(300);
-    expect(emptyQueryBox.width).toBeGreaterThan(workspaceBox.width * 0.8);
+    expect(startBox.height).toBeGreaterThanOrEqual(300);
+    expect(startBox.width).toBeGreaterThan(workspaceBox.width * 0.8);
 
     await selectMetric(page);
     await expect(page.getByRole('img', { name: /Metrics time series/i })).toBeVisible({
@@ -98,11 +117,13 @@ test.describe('Metrics time-range zoom', () => {
   test('switches Code and Builder inline and composes PromQL from dropdowns', async ({
     page,
   }) => {
-    await page.goto('/metrics');
+    await openMetrics(page);
 
     const queryCard = page.getByTestId('metrics-query-card');
-    const codeButton = queryCard.getByRole('button', { name: 'Code' });
-    const builderButton = queryCard.getByRole('button', { name: 'Builder' });
+    // The mode switch is in the workbench bar, the same one Logs and Traces have.
+    const modes = page.getByRole('group', { name: 'Query editor mode' });
+    const codeButton = modes.getByRole('button', { name: 'Code', exact: true });
+    const builderButton = modes.getByRole('button', { name: 'Builder', exact: true });
     await expect(
       queryCard.getByText('Prometheus', { exact: true }),
     ).toHaveCount(0);
@@ -170,7 +191,7 @@ test.describe('Metrics time-range zoom', () => {
       }
     });
 
-    await page.goto('/metrics');
+    await openMetrics(page);
     await selectMetric(page);
     await expect(page.getByRole('img', { name: /Metrics time series/i })).toBeVisible({
       timeout: 10_000,
@@ -201,7 +222,7 @@ test.describe('Metrics time-range zoom', () => {
     await page.getByTestId('metrics-option-exemplars').click();
     await page.getByRole('option', { name: 'Off', exact: true }).click();
 
-    const toolbar = page.getByTestId('metrics-explore-toolbar');
+    const toolbar = page.locator('[data-query-toolbar]');
     const runButton = toolbar.getByRole('button', { name: 'Run', exact: true });
     const beforeInstant = requests.length;
     await runButton.click();
@@ -224,7 +245,7 @@ test.describe('Metrics time-range zoom', () => {
   test('switches one query result between graph, table, and inspector views', async ({
     page,
   }) => {
-    await page.goto('/metrics');
+    await openMetrics(page);
     await selectMetric(page);
 
     await expect(page.getByRole('img', { name: /Metrics time series/i })).toBeVisible({
@@ -235,17 +256,29 @@ test.describe('Metrics time-range zoom', () => {
     await expect(legend).toHaveAttribute('data-legend-mode', 'table');
     await expect(legend).toHaveAttribute('data-legend-placement', 'bottom');
     const legendTable = page.getByTestId('time-series-legend-table');
-    for (const header of ['Name', 'Last', 'Min', 'Max', 'Mean']) {
+    // The explorer's legend names each series by its metric and keeps one
+    // figure beside it, the latest.
+    for (const header of ['Name', 'Last']) {
       await expect(
         legendTable.getByRole('columnheader', { name: header }),
       ).toBeVisible();
     }
+    await expect(legendTable.getByRole('columnheader')).toHaveCount(3);
     await expect(
       legendTable.getByRole('button', {
-        name: 'http_requests_total{status="500"}',
+        name: 'http_requests_total',
         exact: true,
       }),
-    ).toBeVisible();
+    ).toHaveCount(3);
+    // What tells the series apart is one click away, not spelled out in every row.
+    const firstSeries = legendTable.locator('tbody tr').first();
+    await expect(firstSeries.getByTestId('series-identifier-labels')).toHaveCount(0);
+    await firstSeries
+      .getByRole('button', { name: 'Show labels for http_requests_total' })
+      .click();
+    const firstSeriesLabels = firstSeries.getByTestId('series-identifier-labels');
+    await expect(firstSeriesLabels.locator('dt')).toHaveText('status');
+    await expect(firstSeriesLabels.locator('dd')).toHaveText('500');
     await expect(page.getByTestId('metrics-legend-name')).toHaveCount(0);
 
     const stackMode = page.getByRole('combobox', { name: 'Stack' });
@@ -272,10 +305,11 @@ test.describe('Metrics time-range zoom', () => {
     await expect(page.getByText('Rows scanned', { exact: true })).toBeVisible();
   });
 
-  test('wraps long legend names and keeps the series marker vertically centered', async ({
+  test('keeps a long label out of the legend row and the series marker on the metric line', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1_280, height: 900 });
+    const instanceId = `instance-${'0123456789abcdef'.repeat(12)}`;
     await page.route('**/api/v1/query', async (route) => {
       const body = route.request().postDataJSON() as {
         language?: string;
@@ -287,7 +321,6 @@ test.describe('Metrics time-range zoom', () => {
       }
       const start = body.time_range?.start ?? 1;
       const end = body.time_range?.end ?? 2;
-      const instanceId = `instance-${'0123456789abcdef'.repeat(12)}`;
       await route.fulfill({
         json: {
           columns: ['_timestamp', 'value', 'service.instance.id'],
@@ -301,33 +334,68 @@ test.describe('Metrics time-range zoom', () => {
       });
     });
 
-    await page.goto('/metrics');
+    await openMetrics(page);
     await selectMetric(page);
 
-    const legendLabel = page
-      .getByTestId('time-series-legend-table')
-      .getByRole('button', { name: /^http_requests_total\{/ });
-    await expect(legendLabel).toBeVisible({ timeout: 10_000 });
-    await expect(legendLabel).toHaveCSS('white-space', 'normal');
+    const legendTable = page.getByTestId('time-series-legend-table');
+    const seriesName = legendTable.getByRole('button', {
+      name: 'http_requests_total',
+      exact: true,
+    });
+    await expect(seriesName).toBeVisible({ timeout: 10_000 });
     await expect(page.getByRole('combobox', { name: 'Stack' })).toBeDisabled();
     await expect(page.getByTestId('metrics-stack-mode')).toContainText('Off');
 
-    const row = legendLabel.locator('xpath=ancestor::tr');
+    const row = seriesName.locator('xpath=ancestor::tr');
     const marker = row.locator('td').first().locator('span[aria-hidden="true"]');
-    const [labelBox, rowBox, markerBox] = await Promise.all([
-      legendLabel.boundingBox(),
-      row.boundingBox(),
-      marker.boundingBox(),
-    ]);
-    expect(labelBox).not.toBeNull();
-    expect(rowBox).not.toBeNull();
-    expect(markerBox).not.toBeNull();
-    if (!labelBox || !rowBox || !markerBox) return;
+    // The marker belongs to the line that names the metric: inside that line's
+    // box, however tall the row grows under it.
+    const markerOffset = async () => {
+      const [nameBox, markerBox] = await Promise.all([
+        seriesName.boundingBox(),
+        marker.boundingBox(),
+      ]);
+      expect(nameBox).not.toBeNull();
+      expect(markerBox).not.toBeNull();
+      expect(markerBox!.y).toBeGreaterThanOrEqual(nameBox!.y - 0.5);
+      expect(markerBox!.y + markerBox!.height).toBeLessThanOrEqual(
+        nameBox!.y + nameBox!.height + 0.5,
+      );
+      return markerBox!.y + markerBox!.height / 2 - (nameBox!.y + nameBox!.height / 2);
+    };
 
-    expect(labelBox.height).toBeGreaterThan(30);
-    const rowCenter = rowBox.y + rowBox.height / 2;
-    const markerCenter = markerBox.y + markerBox.height / 2;
-    expect(Math.abs(rowCenter - markerCenter)).toBeLessThanOrEqual(1);
+    // Collapsed, the row is the metric's one line: the label set is not in it.
+    await expect(row.getByTestId('series-identifier-labels')).toHaveCount(0);
+    const collapsedRow = await row.boundingBox();
+    expect(collapsedRow).not.toBeNull();
+    expect(collapsedRow!.height).toBeLessThan(40);
+    const collapsedOffset = await markerOffset();
+
+    await row
+      .getByRole('button', { name: 'Show labels for http_requests_total' })
+      .click();
+    const labels = row.getByTestId('series-identifier-labels');
+    await expect(labels.locator('dt')).toHaveText('service.instance.id');
+    // A value too long for the legend is cut with an ellipsis and kept whole
+    // in its title; it does not widen the legend or the page.
+    const labelValue = labels.locator('dd');
+    await expect(labelValue).toHaveAttribute('title', instanceId);
+    await expect(labelValue).toHaveCSS('text-overflow', 'ellipsis');
+    expect(
+      await labelValue.evaluate((element) => element.scrollWidth > element.clientWidth),
+    ).toBe(true);
+    expect(
+      await legendTable.evaluate((element) => element.scrollWidth <= element.clientWidth),
+    ).toBe(true);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth - window.innerWidth,
+      ),
+    ).toBeLessThanOrEqual(0);
+
+    // The marker stays where it was against the name with the labels open.
+    const expandedOffset = await markerOffset();
+    expect(Math.abs(expandedOffset - collapsedOffset)).toBeLessThanOrEqual(0.5);
   });
 
   test('plots an all-zero rate on the bottom zero baseline', async ({ page }) => {
@@ -357,7 +425,7 @@ test.describe('Metrics time-range zoom', () => {
       });
     });
 
-    await page.goto('/metrics');
+    await openMetrics(page);
     await selectMetric(page);
 
     const chart = page.getByRole('img', { name: /Metrics time series/i });
@@ -403,7 +471,7 @@ test.describe('Metrics time-range zoom', () => {
       }
     });
 
-    await page.goto('/metrics');
+    await openMetrics(page);
     await selectMetric(page);
 
     const chart = page.getByRole('img', { name: /Metrics time series/i });
@@ -458,7 +526,7 @@ test.describe('Metrics time-range zoom', () => {
       }
     });
 
-    await page.goto('/metrics');
+    await openMetrics(page);
     await selectMetric(page);
 
     const chart = page.getByRole('img', { name: /Metrics time series/i });
@@ -484,6 +552,16 @@ test.describe('Metrics time-range zoom', () => {
     expect(zoomedRange.end - zoomedRange.start).toBeLessThan(
       (initialRange.end - initialRange.start) * 0.5,
     );
+
+    // A double-click doubles what the plot is showing, so wait until the plot
+    // shows the zoomed range and not the one it had when the request went out.
+    await expect
+      .poll(
+        async () =>
+          Number(await plotOverlay.getAttribute('data-visible-to')) -
+          Number(await plotOverlay.getAttribute('data-visible-from')),
+      )
+      .toBeCloseTo((zoomedRange.end - zoomedRange.start) / 1_000_000, 0);
 
     const requestsBeforeDoubleClick = requestedRanges.length;
     await plotOverlay.dblclick({
@@ -528,7 +606,7 @@ test.describe('Metrics time-range zoom', () => {
       }
     });
 
-    await page.goto('/metrics');
+    await openMetrics(page);
     await selectMetric(page);
 
     const chart = page.getByRole('img', { name: /Metrics time series/i });

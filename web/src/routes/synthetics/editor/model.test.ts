@@ -71,6 +71,30 @@ describe('synthetics editor model', () => {
     expect(input.location_ids).toEqual([]);
   });
 
+  it('sends a gRPC endpoint as the host and port typed, with TLS from the switch', () => {
+    const input = inputFromDraft({
+      ...emptyDraft([]),
+      name: 'Orders gRPC health',
+      kind: 'grpc',
+      host: ' orders.example.com:443 ',
+      useTls: true,
+      grpcService: 'orders.v1.Orders',
+      assertions: [],
+      locationIds: ['location-a'],
+    });
+
+    expect(input.spec).toEqual({
+      kind: 'grpc',
+      configuration: {
+        endpoint: 'orders.example.com:443',
+        use_tls: true,
+        metadata: [],
+        call: { kind: 'health', service: 'orders.v1.Orders' },
+        assertions: [],
+      },
+    });
+  });
+
   it('builds an SSH identification check with the standard port', () => {
     const input = inputFromDraft({
       ...emptyDraft([]),

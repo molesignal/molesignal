@@ -361,38 +361,47 @@ async function boot(
   await installApmRoutes(page);
 }
 
-test('APM routes render aggregates, drill-downs, and safe topology', async ({
-  page,
-  mockServer,
-}) => {
-  await boot(page, mockServer.port);
-  const routes: Array<[string, string]> = [
-    ['/apm/overview', 'Application performance'],
-    ['/apm/services', 'Services'],
-    ['/apm/services/checkout?namespace=shop&environment=prod', 'checkout'],
-    ['/apm/services/checkout/runtime?namespace=shop&environment=prod', 'checkout'],
-    ['/apm/transactions', 'Transactions'],
-    [
-      '/apm/transactions/POST%20%2Forders?namespace=shop&service=checkout&environment=prod&kind=http',
-      'POST /orders',
-    ],
-    ['/apm/errors', 'Backend errors'],
-    ['/apm/errors/fp-checkout', 'PaymentDeclined'],
-    [
-      '/apm/deployments?service=checkout&baseline=1.0.0&candidate=2.0.0',
-      'Deployments',
-    ],
-  ];
-  for (const [path, heading] of routes) {
+const APM_ROUTES: Array<[string, string]> = [
+  ['/apm/overview', 'Application performance'],
+  ['/apm/services', 'Services'],
+  ['/apm/services/checkout?namespace=shop&environment=prod', 'checkout'],
+  ['/apm/services/checkout/runtime?namespace=shop&environment=prod', 'checkout'],
+  ['/apm/transactions', 'Transactions'],
+  [
+    '/apm/transactions/POST%20%2Forders?namespace=shop&service=checkout&environment=prod&kind=http',
+    'POST /orders',
+  ],
+  ['/apm/errors', 'Backend errors'],
+  ['/apm/errors/fp-checkout', 'PaymentDeclined'],
+  [
+    '/apm/deployments?service=checkout&baseline=1.0.0&candidate=2.0.0',
+    'Deployments',
+  ],
+];
+
+// One test for each route: a page load apiece, so a route's time does not
+// depend on how many routes are listed, and a failure names its route.
+for (const [path, heading] of APM_ROUTES) {
+  test(`APM renders ${path.split('?')[0]} under its heading`, async ({
+    page,
+    mockServer,
+  }) => {
+    await boot(page, mockServer.port);
     await page.goto(path);
     await expect(page.getByRole('heading', { name: heading, exact: true }).first()).toBeVisible();
-  }
+  });
+}
 
+test('APM dependencies draw a safe topology', async ({ page, mockServer }) => {
+  await boot(page, mockServer.port);
   await page.goto('/apm/dependencies');
   await expect(page.getByRole('heading', { name: 'Dependencies', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Topology' }).click();
   await expect(page.getByText('postgres/orders')).toBeVisible();
+});
 
+test('the APM user-experience address opens RUM', async ({ page, mockServer }) => {
+  await boot(page, mockServer.port);
   await page.goto('/apm/user-experience/overview');
   await expect(page).toHaveURL(/\/rum\/overview$/);
   await expect(page.getByRole('link', { name: 'Applications' })).toBeVisible();

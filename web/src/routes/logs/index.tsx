@@ -1,187 +1,97 @@
 import { useQuery } from '@tanstack/react-query';
-import {
-  ArrowLeft,
-  ArrowRight,
-  Braces,
-  ChevronRight,
-  Clipboard,
-  Columns3,
-  Download,
-  Eye,
-  EyeOff,
-  FileText,
-  Filter,
-  List,
-  Minus,
-  Play,
-  Plus,
-  RefreshCw,
-  Rows3,
-  Search,
-  SlidersHorizontal,
-  Table2,
-  X,
-  type LucideIcon,
-} from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import * as fieldMaskingApi from '@/api/fieldMasking';
 import * as queryApi from '@/api/query';
 import * as streamsApi from '@/api/streams';
 import type { LogListResponse } from '@/api/web';
 import { widenTimeWindow } from '@/investigation/timeRangeRecovery';
-import { writeClipboardText } from '@/lib/clipboard';
 import {
   type DateFormat,
   formatMicros,
   type TimeFormat,
   useTimeFormatter,
 } from '@/lib/time';
+import {
+  DEFAULT_EXPLORER_PAGE_SIZE,
+  EXPLORER_PAGE_SIZE_OPTIONS,
+  explorerPageSizeIn,
+  explorerPageSizesFor,
+} from '@/pagination/explorerPageSize';
 import { useCursorPagination } from '@/pagination/useCursorPagination';
-import { ChromeButton, Pill, TimeRangeChip, uiTableHeaderClass } from '@/shell/chrome';
+import { TimeRangeChip } from '@/shell/chrome';
 import type { CodeCompletionItem } from '@/shell/codeEditor/types';
-import { CollapsibleSidePanel, SidePanelSection } from '@/shell/CollapsibleSidePanel';
-import { CopyIconButton } from '@/shell/CopyIconButton';
 import { CursorPagination } from '@/shell/CursorPagination';
+import { FilterBuilder } from '@/shell/query/builder/FilterBuilder';
 import { QueryEditorFrame } from '@/shell/query/EditorFrame';
-import { QueryRecommendations } from '@/shell/query/Recommendations';
+import { ResultHistogram } from '@/shell/query/histogram/Chart';
+import type { HistogramRange } from '@/shell/query/histogram/model';
+import { QueryIconAction, QueryRunAction } from '@/shell/query/IconAction';
+import { QueryModeSwitch } from '@/shell/query/ModeSwitch';
 import { QueryRecoveryState } from '@/shell/query/RecoveryState';
+import { QueryShareButton } from '@/shell/query/share/Button';
 import { QueryState } from '@/shell/query/State';
 import { QuerySyntaxHelp } from '@/shell/query/SyntaxHelp';
 import { useSqlFunctionCompletions } from '@/shell/query/useSqlFunctionCompletions';
-import { QueryToolbarButton, QueryToolbarGroup, QueryWorkbench } from '@/shell/query/Workbench';
+import { QueryWorkbench } from '@/shell/query/Workbench';
+import { useFoldedWhileNarrow, useQueryTabStatus } from '@/shell/queryTabs';
 import { ResultPagination } from '@/shell/ResultPagination';
-import {
-  detectSignalTypeForLabel,
-  SignalReference,
-} from '@/shell/SignalReference';
-import { SurfacePageHeader } from '@/shell/SurfaceWorkbench';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/shell/ui/dropdown-menu';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/shell/ui/select';
-import { toast } from '@/shell/ui/sonner';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/shell/ui/tooltip';
+import { WorkbenchTitle } from '@/shell/SurfaceWorkbench';
+import { isNarrowViewport } from '@/shell/useViewportWidth';
 import { useAuthStore } from '@/stores/auth';
+import { useExplorerLayoutStore } from '@/stores/useExplorerLayoutStore';
 import { useFiltersStore, type GlobalFilter } from '@/stores/useFiltersStore';
 import { resolveWindow, useTimeStore } from '@/stores/useTimeStore';
 import { formatTimeWindowLabel } from '@/time/TimePicker';
 import type { QueryResult } from '@/types/query';
-import { TimeSeriesChart } from '@/viz/timeseries/TimeSeriesChart';
 
-import {
-  LogColumnMenu,
-  reorderVisibleLogFields,
-  type LogColumnDropPosition,
-} from './ColumnMenu';
+import { logBuilderDialect, logBuilderFields } from './builderDialect';
+import { useLogColumns } from './columns/useLogColumns';
 import { runLogCursorQuery } from './cursorQuery';
+import { LogDetail } from './detail/Drawer';
 import {
   appendLogFieldClause,
+  appendLogFieldContainsClause,
   appendLogFieldValueClause,
   buildLogFieldQuerySql,
   deriveLogFields,
   escapeSqlIdentifier,
   escapeSqlString,
-  isLogFieldFilterable,
   type LogFieldDef,
 } from './fieldQueryModel';
-import { HistogramToggle } from './HistogramToggle';
+import { LogFieldPanel } from './fields/Panel';
+import { type CountedLogQuery, useLogHistogramCounts } from './histogramCounts';
+import type { InspectionTarget } from './inspection/model';
+import { useLogInspection } from './inspection/useInspection';
+import { LogInspectionView } from './inspection/View';
+import { PATTERN_SAMPLE_STEP, useLogPatternSample, type PatternSampleQuery } from './patterns/sample';
+import { LogPatternsView } from './patterns/View';
 import {
-  relatedSignalsFromRecord,
-  signalTimeFromTimestamp,
-  stringLabelsFromRecord,
-} from './relatedSignals';
-import { levelToneClass, LogListResults } from './ResultViews';
+  DEFAULT_LOG_LIMIT,
+  defaultLogQuery,
+  logQueryPlaceholder,
+  logQuerySummary,
+  useLogQueryState,
+} from './queryState';
+import { LogResultSummary } from './ResultSummary';
+import { LogListResults } from './ResultViews';
+import { LogStatsView } from './stats/View';
+import { LogStreamSelect } from './StreamSelect';
 import {
-  captureLogFieldPosition,
-  defaultLogTableFields,
+  logLevelTone,
   displayLogValue,
-  logLevelLabel,
-  logSourceLabel,
-  primaryLogMessage,
   recordsToCsv,
   recordsToLogText,
-  restoreLogFieldPosition,
   topLogFieldValues,
-  type LogFieldPosition,
-  type LogResultDensity,
   type LogEntry,
   type LogLevel,
-  type LogTopValue,
 } from './viewModel';
-
-interface LogHistogramRange {
-  start: number;
-  end: number;
-}
-
-interface LogHistogramBucket {
-  ok: number;
-  err: number;
-  startMicros: number;
-  endMicros: number;
-}
-
-const DEFAULT_LOG_LIMIT = 200;
-const LOG_PAGE_SIZE_OPTIONS = [25, 50, 100, 200];
-const LOG_CURSOR_PAGE_SIZE_OPTIONS = [20, 50, 100];
-
-type LogQueryMode = 'fields' | 'sql';
-
-const TYPE_GLYPH: Record<LogFieldDef['type'], string> = {
-  string: 'T',
-  number: '#',
-  timestamp: 'T',
-  date: 'D',
-  array: '[]',
-  boolean: 'B',
-  object: '{}',
-};
-const TYPE_COLOR: Record<LogFieldDef['type'], string> = {
-  // Stays in sync with the JSON-tree value palette below (see `valColor`
-  // around line 1224): the same data type reads as the same color whether
-  // it appears as a field-type swatch on the left or as a rendered value
-  // in the row: key tx-2, string green, number orange, level keyword indigo.
-  string: 'text-green-soft',
-  number: 'text-orange-soft',
-  timestamp: 'text-green-soft',
-  date: 'text-green-soft',
-  array: 'text-purple-soft',
-  boolean: 'text-blue-soft',
-  object: 'text-purple-soft',
-};
+import { LogResultViewTabs, type LogResultView } from './views';
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function logQueryPlaceholder(mode: LogQueryMode, stream: string): string {
-  if (mode === 'sql') return stream ? defaultLogQuery(stream) : 'Select a stream to start querying logs.';
-  return 'trace_id = "..." / service_name contains "checkout"';
-}
-
-function defaultLogQuery(stream: string): string {
-  return `SELECT * FROM "${escapeSqlIdentifier(stream)}"\nORDER BY _timestamp DESC\nLIMIT ${DEFAULT_LOG_LIMIT}`;
 }
 
 function quotedCompletion(value: string): string {
@@ -311,6 +221,20 @@ function appendSqlFieldValueFilter(
   return `${before}${joiner}${after}`;
 }
 
+/** The SQL form of asking for the records whose field has `text` somewhere in it. */
+function appendSqlFieldContainsFilter(statement: string, stream: string, field: string, text: string): string {
+  const base = statement.trim() || defaultLogQuery(stream);
+  const clause = `"${escapeSqlIdentifier(field)}" LIKE '%${escapeSqlString(text)}%'`;
+  if (base.includes(clause)) return base;
+
+  const boundary = base.search(/\s+(ORDER\s+BY|LIMIT)\b/i);
+  const before = boundary >= 0 ? base.slice(0, boundary).trimEnd() : base;
+  const after = boundary >= 0 ? base.slice(boundary) : '';
+  const joiner = /\bWHERE\b/i.test(before) ? `\n  AND ${clause}` : `\nWHERE ${clause}`;
+
+  return `${before}${joiner}${after}`;
+}
+
 /**
  * Append pinned global filters (`useFiltersStore`) to the SQL about to run, as
  * `"key" = 'value'` clauses inserted before any ORDER BY / LIMIT. Filters whose
@@ -379,145 +303,6 @@ function timestampToMicros(value: unknown): number | null {
   return Number.isNaN(parsed) ? null : parsed * 1_000;
 }
 
-function compactRecord(record: Record<string, unknown>): string {
-  try {
-    return JSON.stringify(record) ?? '';
-  } catch {
-    return String(record);
-  }
-}
-
-const FIXED_LOG_FIELD_ORDER = [
-  '_timestamp',
-  'timestamp',
-  'service',
-  'service_name',
-  'level',
-  'message',
-  'body',
-  'trace_id',
-] as const;
-const FIXED_LOG_FIELDS = new Set<string>(FIXED_LOG_FIELD_ORDER);
-
-function formatLogFieldValue(value: unknown): string {
-  if (!isPresent(value)) return '';
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-  try {
-    return JSON.stringify(value) ?? String(value);
-  } catch {
-    return String(value);
-  }
-}
-
-interface FieldJumpContext {
-  record: Record<string, unknown>;
-  field: string;
-  value: unknown;
-}
-
-interface FieldJumpTarget {
-  to: string;
-  /** i18n key — the consumer calls `t(titleKey)` so the locale is right. */
-  titleKey: string;
-}
-
-interface FieldJumpConfig {
-  match: (field: string) => boolean;
-  resolve: (context: FieldJumpContext) => FieldJumpTarget | null;
-}
-
-const TRACE_ID_FIELD_ALIASES = ['trace_id', 'traceid', 'trace.id'];
-const SPAN_ID_FIELD_ALIASES = ['span_id', 'spanid', 'span.id'];
-
-function leafFieldName(field: string): string {
-  const parts = field.toLowerCase().replace(/\[(\d+)\]/g, '.$1').split('.').filter(Boolean);
-  return parts.length > 0 ? parts[parts.length - 1]! : field.toLowerCase();
-}
-
-function matchesFieldAlias(field: string, aliases: string[]): boolean {
-  const lower = field.toLowerCase();
-  const leaf = leafFieldName(field);
-  return aliases.some((alias) => {
-    const normalized = alias.toLowerCase();
-    return lower === normalized || leaf === normalized || lower.endsWith(`.${normalized}`);
-  });
-}
-
-function readRecordPath(record: Record<string, unknown>, path: string): unknown {
-  if (Object.prototype.hasOwnProperty.call(record, path)) return record[path];
-  let current: unknown = record;
-  for (const part of path.split('.')) {
-    if (!current || typeof current !== 'object' || !Object.prototype.hasOwnProperty.call(current, part)) {
-      return undefined;
-    }
-    current = (current as Record<string, unknown>)[part];
-  }
-  return current;
-}
-
-function findRecordValue(record: Record<string, unknown>, aliases: string[]): unknown {
-  for (const alias of aliases) {
-    const value = readRecordPath(record, alias);
-    if (isPresent(value)) return value;
-  }
-  for (const [key, value] of Object.entries(record)) {
-    if (matchesFieldAlias(key, aliases) && isPresent(value)) return value;
-  }
-  return undefined;
-}
-
-// Jump configs carry an i18n key, not a translated title — the consumer
-// component owns the `t()` call so the tooltip follows the user's locale.
-const LOG_FIELD_JUMP_CONFIG: FieldJumpConfig[] = [
-  {
-    match: (field) => matchesFieldAlias(field, TRACE_ID_FIELD_ALIASES),
-    resolve: ({ value }) => {
-      if (!isPresent(value)) return null;
-      return {
-        to: `/traces/${encodeURIComponent(String(value))}`,
-        titleKey: 'explore.jump.open_trace',
-      };
-    },
-  },
-  {
-    match: (field) => matchesFieldAlias(field, SPAN_ID_FIELD_ALIASES),
-    resolve: ({ record, value }) => {
-      const traceId = findRecordValue(record, TRACE_ID_FIELD_ALIASES);
-      if (!isPresent(traceId) || !isPresent(value)) return null;
-      return {
-        to: `/traces/${encodeURIComponent(String(traceId))}?spanId=${encodeURIComponent(String(value))}`,
-        titleKey: 'explore.jump.open_span',
-      };
-    },
-  },
-];
-
-function resolveLogFieldJump(record: Record<string, unknown>, field: string, value: unknown): FieldJumpTarget | null {
-  for (const config of LOG_FIELD_JUMP_CONFIG) {
-    if (!config.match(field)) continue;
-    const target = config.resolve({ record, field, value });
-    if (target) return target;
-  }
-  return null;
-}
-
-function logRecordJson(record: Record<string, unknown>): string {
-  return JSON.stringify(record, null, 2);
-}
-
-function downloadJsonFile(filename: string, value: unknown): void {
-  const blob = new Blob([JSON.stringify(value, null, 2)], { type: 'application/json;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-}
-
 function downloadTextFile(filename: string, value: string, type: string): void {
   const blob = new Blob([value], { type });
   const url = URL.createObjectURL(blob);
@@ -545,122 +330,79 @@ function rowToLog(
 ): LogEntry {
   const get = (k: string): unknown => (idx[k] !== undefined ? row[idx[k]!] : undefined);
   const level = String(get('level') ?? get('body_level') ?? 'INFO').toUpperCase() as LogLevel;
+  const moment = get('_timestamp') ?? get('timestamp') ?? get('time');
   return {
-    ts: formatTimestamp(
-      get('_timestamp') ?? get('timestamp') ?? get('time'),
-      tz,
-      format,
-      dateFormat,
-    ),
+    ts: formatTimestamp(moment, tz, format, dateFormat),
+    micros: isPresent(moment) ? timestampToMicros(moment) : null,
     level,
     raw: rowToRecord(row, columns),
   };
 }
 
-function buildHisto(rows: LogEntry[], range: LogHistogramRange | null): LogHistogramBucket[] {
-  const buckets = 80;
-  const timestamps = rows
-    .map((row) => timestampToMicros(row.raw._timestamp ?? row.raw.timestamp ?? row.raw.time))
-    .filter((value): value is number => value != null);
-  const fallbackStart = timestamps.length > 0 ? Math.min(...timestamps) : Date.now() * 1_000;
-  const fallbackEnd = timestamps.length > 0 ? Math.max(...timestamps) + 1 : fallbackStart + 1;
-  const start = range && range.end > range.start ? range.start : fallbackStart;
-  const end = range && range.end > range.start ? range.end : fallbackEnd;
-  const width = (end - start) / buckets;
-  const arr = Array.from({ length: buckets }, (_, index) => ({
-    ok: 0,
-    err: 0,
-    startMicros: Math.floor(start + width * index),
-    endMicros: index === buckets - 1 ? end : Math.floor(start + width * (index + 1)),
-  }));
-  rows.forEach((l, i) => {
-    const timestamp = timestampToMicros(l.raw._timestamp ?? l.raw.timestamp ?? l.raw.time);
-    const fallbackBucket = Math.floor((i / Math.max(rows.length, 1)) * buckets);
-    const b = timestamp == null
-      ? fallbackBucket
-      : Math.max(0, Math.min(buckets - 1, Math.floor(((timestamp - start) / (end - start)) * buckets)));
-    if (l.level === 'ERROR') arr[b]!.err++;
-    else arr[b]!.ok++;
+/** The rows of an answer as the page shows them. */
+function resultToLogs(result: QueryResult, tz: string, format: TimeFormat, dateFormat: DateFormat): LogEntry[] {
+  const idx: Record<string, number> = {};
+  result.columns.forEach((column, index) => {
+    idx[column] = index;
   });
-  return arr;
+
+  return result.rows.map((row) => rowToLog(row, result.columns, idx, tz, format, dateFormat));
 }
 
-const MODE_OPTIONS = [
-  { id: 'search', ariaKey: 'explore.toolbar.mode_search_aria' },
-  { id: 'patterns', ariaKey: 'explore.toolbar.mode_patterns_aria' },
-] as const;
-
-const LOG_QUERY_MODES: Array<{ id: LogQueryMode; labelKey: string }> = [
-  { id: 'fields', labelKey: 'explore.query_modes.fields' },
-  { id: 'sql', labelKey: 'explore.query_modes.sql' },
-];
-
-function requestedLogFieldQueryFromParams(params: URLSearchParams): string {
-  const direct = params.get('q') ?? params.get('query') ?? '';
-  if (direct.trim()) return direct.trim();
-  const clauses: string[] = [];
-  const traceId = params.get('trace_id') ?? params.get('traceId');
-  const spanId = params.get('span_id') ?? params.get('spanId');
-  const service = params.get('service') ?? params.get('service_name');
-  const host = params.get('host') ?? params.get('hostname');
-  const path = params.get('path') ?? params.get('route');
-  const method = params.get('method');
-  const status = params.get('status_code') ?? params.get('status');
-  if (traceId) clauses.push(logParamClause('trace_id', traceId));
-  if (spanId) clauses.push(logParamClause('span_id', spanId));
-  if (service) clauses.push(logParamClause('service', service));
-  if (host) clauses.push(logParamClause('host', host));
-  if (path) clauses.push(logParamClause('path', path));
-  if (method) clauses.push(logParamClause('method', method));
-  if (status) clauses.push(logParamClause('status_code', status));
-  return clauses.join(' AND ');
-}
-
-function logParamClause(field: string, value: string): string {
-  return `${field}='${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
-}
+/** What opens a log in the drawer: a row of the list, or a log under a pattern. */
+const LOG_OPENERS = '[data-log-result-row="logs"], [data-log-pattern-example]';
 
 export function Logs() {
   const { t, i18n } = useTranslation('logs');
   const { t: tCommon } = useTranslation('common');
   const fmt = useTimeFormatter();
-  const [searchParams] = useSearchParams();
-  const requestedStream = searchParams.get('stream') ?? '';
-  const requestedFieldQuery = requestedLogFieldQueryFromParams(searchParams);
-  // `?sql=<statement>` seeds the raw-SQL editor (used by Saved Views "Open" for
-  // SQL-language views, which can't round-trip through the `?q=` field DSL).
-  const requestedSql = searchParams.get('sql')?.trim() ?? '';
-  const [mode, setMode] = React.useState<'search' | 'patterns'>('search');
-  const [queryMode, setQueryMode] = React.useState<LogQueryMode>(requestedSql ? 'sql' : 'fields');
-  const [stream, setStream] = React.useState(requestedStream);
-  const [query, setQuery] = React.useState(() =>
-    requestedSql || (requestedStream ? defaultLogQuery(requestedStream) : ''),
+  const {
+    editorMode,
+    setEditorMode,
+    setCodeStatement,
+    setBuilderStatement,
+    requestedStream,
+    requestedFieldQuery,
+    requestedSql,
+    queryMode,
+    setQueryMode,
+    stream,
+    setStream,
+    query,
+    setQuery,
+    fieldQuery,
+    setFieldQuery,
+  } = useLogQueryState();
+  // A field picked in the field list while the builder is open starts a filter there.
+  const [builderField, setBuilderField] = React.useState<string | null>(null);
+  // Which view of the results is shown: the logs, their statistics, an inspection, or their patterns.
+  const [view, setView] = React.useState<LogResultView>('raw');
+  // The histogram can be closed to give the rows more room; that choice is
+  // remembered, so the page opens the way it was left.
+  const showHistogram = useExplorerLayoutStore((state) => state.logsHistogramVisible);
+  const setShowHistogram = useExplorerLayoutStore((state) => state.setLogsHistogramVisible);
+  // Folded in a narrow window, and for as long as the page has a narrow share of a split one.
+  const [fieldPanelCollapsed, setFieldPanelCollapsed] = useFoldedWhileNarrow(isNarrowViewport);
+  // The editor starts folded into the bar, as on Traces: it opens when there is a
+  // query to look at (one arrived in the link, a filter was added) or on request.
+  const [queryEditorCollapsed, setQueryEditorCollapsed] = React.useState(
+    !requestedFieldQuery && !requestedSql,
   );
-  const [fieldQuery, setFieldQuery] = React.useState(requestedFieldQuery);
-  const [showHistogram, setShowHistogram] = React.useState(true);
-  const [fieldPanelCollapsed, setFieldPanelCollapsed] = React.useState(false);
-  const [queryEditorCollapsed, setQueryEditorCollapsed] = React.useState(false);
-  const [fieldFilter, setFieldFilter] = React.useState('');
-  const [logColumnState, setLogColumnState] = React.useState<{
-    visibleFields: string[];
-    hiddenPositions: Record<string, LogFieldPosition>;
-  }>({
-    visibleFields: [],
-    hiddenPositions: {},
-  });
-  const visibleLogFields = logColumnState.visibleFields;
-  const [resultDensity, setResultDensity] = React.useState<LogResultDensity>('compact');
   const [expandedField, setExpandedField] = React.useState<string | null>(null);
   const [resultPage, setResultPage] = React.useState(1);
-  const [resultPageSize, setResultPageSize] = React.useState(50);
+  const [chosenResultPageSize, setResultPageSize] = React.useState(DEFAULT_EXPLORER_PAGE_SIZE);
   const [selectedRow, setSelectedRow] = React.useState<number | null>(null);
   const [queryResult, setQueryResult] = React.useState<QueryResult | undefined>();
   const [logCursorPage, setLogCursorPage] = React.useState<LogListResponse | null>(null);
-  // The actual statement + time-range that produced `queryResult`, captured at
-  // run time so the optimization tips reflect what was executed (not the live editor).
-  const [executedStatement, setExecutedStatement] = React.useState('');
-  const [executedRangeSecs, setExecutedRangeSecs] = React.useState<number | null>(null);
-  const [executedTimeRange, setExecutedTimeRange] = React.useState<LogHistogramRange | null>(null);
+  // The time range that produced `queryResult`, captured at run time: another page of
+  // the list, the histogram and the patterns are all of that range, not of the live picker.
+  const [executedTimeRange, setExecutedTimeRange] = React.useState<HistogramRange | null>(null);
+  // The field query the rows came from, for the histogram to count everything it matches.
+  // A statement the reader wrote has none: its histogram is of the rows it returned.
+  const [countedQuery, setCountedQuery] = React.useState<CountedLogQuery | null>(null);
+  // The statement the rows came from, when the reader wrote one: its result is what statistics draw.
+  const [writtenStatement, setWrittenStatement] = React.useState<string | null>(null);
+  const inspection = useLogInspection();
   const [queryError, setQueryError] = React.useState<unknown>(null);
   const [queryPending, setQueryPending] = React.useState(false);
   const initialRunStreamRef = React.useRef<string | null>(null);
@@ -692,7 +434,7 @@ export function Logs() {
     setPageSize: setLogPageSize,
   } = useCursorPagination({
     contextKey: logCursorContextKey,
-    defaultPageSize: 20,
+    defaultPageSize: DEFAULT_EXPLORER_PAGE_SIZE,
   });
 
   const streamsQuery = useQuery({
@@ -719,9 +461,10 @@ export function Logs() {
     setQueryResult(undefined);
     setLogCursorPage(null);
     setQueryError(null);
-    setQueryEditorCollapsed(false);
+    // The editor keeps whatever state the user left it in: picking a stream
+    // (the first one is picked on load) is not a reason to reopen it.
     setExpandedField(null);
-  }, []);
+  }, [setFieldQuery, setQuery, setStream]);
 
   const executeQuery = React.useCallback(async (
     options: { cursor?: string; pageSize?: number } = {},
@@ -771,15 +514,26 @@ export function Logs() {
         });
       }
       setQueryResult(result);
-      setExecutedStatement(statement);
       setExecutedTimeRange(queryTimeRange);
-      setExecutedRangeSecs(
-        Math.max(0, Math.round((queryTimeRange.end - queryTimeRange.start) / 1_000_000)),
-      );
+      // Another page is of the same query: what it matches has been counted.
+      if (!options.cursor) {
+        setCountedQuery(
+          queryMode === 'fields'
+            ? { orgId, stream: selectedStream, statement: fieldQuery, globalFilters, ranAt: Date.now() }
+            : null,
+        );
+        setWrittenStatement(queryMode === 'sql' ? statement : null);
+      }
       setSelectedRow(null);
       setResultPage(1);
     } catch (err) {
       setQueryError(err);
+      // What the last run returned is not the answer to this one: its count, its
+      // histogram and its field counts would stand beside the error as if they were.
+      setQueryResult(undefined);
+      setLogCursorPage(null);
+      setCountedQuery(null);
+      setWrittenStatement(null);
     } finally {
       setQueryPending(false);
     }
@@ -821,7 +575,7 @@ export function Logs() {
     setQueryError(null);
     setQueryEditorCollapsed(false);
     initialRunStreamRef.current = null;
-  }, [requestedFieldQuery]);
+  }, [requestedFieldQuery, setFieldQuery, setQueryMode]);
 
   // Apply the raw-SQL seed (`?sql=`) with the same state reset as a field query,
   // then enter SQL mode with the statement verbatim and let auto-run fire.
@@ -837,7 +591,7 @@ export function Logs() {
     setQueryError(null);
     setQueryEditorCollapsed(false);
     initialRunStreamRef.current = null;
-  }, [requestedSql]);
+  }, [requestedSql, setQuery, setQueryMode]);
 
   React.useEffect(() => {
     const runKey = `${orgId}:${stream}`;
@@ -848,26 +602,44 @@ export function Logs() {
     // query / refresh controls.
   }, [executeQuery, orgId, query, queryMode, stream]);
 
-  const rows = React.useMemo<LogEntry[]>(() => {
-    if (!queryResult) return [];
-    const idx: Record<string, number> = {};
-    queryResult.columns.forEach((c, i) => {
-      idx[c] = i;
-    });
-    return queryResult.rows.map((row) =>
-      rowToLog(
-        row,
-        queryResult.columns,
-        idx,
-        fmt.tz,
-        fmt.format,
-        fmt.dateFormat,
-      ),
-    );
-  }, [queryResult, fmt.tz, fmt.format, fmt.dateFormat]);
-  const rawRecords = React.useMemo(() => rows.map((row) => row.raw), [rows]);
+  const rows = React.useMemo<LogEntry[]>(
+    () => (queryResult ? resultToLogs(queryResult, fmt.tz, fmt.format, fmt.dateFormat) : []),
+    [queryResult, fmt.tz, fmt.format, fmt.dateFormat],
+  );
+  // A page of the list is too few logs to say what kinds of message there are: the patterns
+  // read the same query further back. A statement the reader wrote has only the rows it returned.
+  const patternQuery = React.useMemo<PatternSampleQuery | null>(
+    () =>
+      view === 'patterns' && countedQuery && executedTimeRange
+        ? {
+            ...countedQuery,
+            timeRange: executedTimeRange,
+            // A reader who pages the list by more than a step reads the patterns by as much.
+            step: Math.max(PATTERN_SAMPLE_STEP, logPageSize),
+          }
+        : null,
+    [countedQuery, executedTimeRange, logPageSize, view],
+  );
+  const patternSample = useLogPatternSample(rows.length > 0 ? patternQuery : null);
+  // The logs in view: the page of the list, or what the patterns were read from once the first of it is here.
+  // The fields beside them, the histogram and the drawer are of these.
+  const sampled = patternSample.result !== undefined;
+  const viewResult = patternSample.result ?? queryResult;
+  const viewRows = React.useMemo(
+    () =>
+      patternSample.result ? resultToLogs(patternSample.result, fmt.tz, fmt.format, fmt.dateFormat) : rows,
+    [fmt.dateFormat, fmt.format, fmt.tz, patternSample.result, rows],
+  );
+  const rawRecords = React.useMemo(() => viewRows.map((row) => row.raw), [viewRows]);
+  const rowMoments = React.useMemo(() => viewRows.map((row) => row.micros), [viewRows]);
+
+  // A log is open by its place among the logs in view: among other logs that place is another log.
+  React.useEffect(() => setSelectedRow(null), [sampled]);
 
   const cursorResults = queryMode === 'fields';
+  // What a statement returned is all in hand and paged here: no size is offered beyond the one that shows it all.
+  const resultPageSizes = React.useMemo(() => explorerPageSizesFor(rows.length), [rows.length]);
+  const resultPageSize = explorerPageSizeIn(resultPageSizes, chosenResultPageSize);
   const resultPageCount = cursorResults
     ? 1
     : Math.max(1, Math.ceil(rows.length / resultPageSize));
@@ -910,7 +682,11 @@ export function Logs() {
     void executeQuery({ pageSize: nextPageSize });
   }, [executeQuery, setLogPageSize]);
 
-  const histo = React.useMemo(() => buildHisto(rows, executedTimeRange), [executedTimeRange, rows]);
+  const histogramCounts = useLogHistogramCounts(countedQuery);
+  const histogramPoints = React.useMemo(
+    () => viewRows.map((row) => ({ micros: row.micros, error: logLevelTone(row.level) === 'error' })),
+    [viewRows],
+  );
   const selectHistogramRange = React.useCallback(
     ({ from, to }: { from: number; to: number }) =>
       setTimeWindow({
@@ -920,6 +696,14 @@ export function Logs() {
       }),
     [setTimeWindow],
   );
+
+  const closeLogDetail = React.useCallback(() => {
+    const row = document.querySelector<HTMLElement>(`:is(${LOG_OPENERS})[aria-pressed="true"]`);
+
+    setSelectedRow(null);
+    // The keyboard goes back to the row the drawer was opened from.
+    row?.focus();
+  }, []);
 
   const selectedStream = React.useMemo(
     () => streams.find((candidate) => candidate.name === stream && candidate.stream_type === 'logs'),
@@ -945,31 +729,13 @@ export function Logs() {
     [fieldMaskingQuery.data],
   );
   const fields = React.useMemo(
-    () => deriveLogFields(selectedStreamFields, queryResult),
-    [queryResult, selectedStreamFields],
+    () => deriveLogFields(selectedStreamFields, viewResult),
+    [selectedStreamFields, viewResult],
   );
-  const filteredFields = React.useMemo(() => {
-    const needle = fieldFilter.trim().toLowerCase();
-    return fields.filter((field) => field.name.toLowerCase().includes(needle));
-  }, [fieldFilter, fields]);
-  const displayedFields = React.useMemo(
-    () => visibleLogFields
-      .map((name) => filteredFields.find((field) => field.name === name))
-      .filter((field): field is LogFieldDef => field !== undefined),
-    [filteredFields, visibleLogFields],
-  );
-  const fixedFields = React.useMemo(
-    () => FIXED_LOG_FIELD_ORDER
-      .map((name) => filteredFields.find((field) => field.name === name))
-      .filter((field): field is LogFieldDef => field !== undefined)
-      .filter((field) => !visibleLogFields.includes(field.name)),
-    [filteredFields, visibleLogFields],
-  );
-  const allFields = React.useMemo(
-    () => filteredFields.filter((field) => (
-      !FIXED_LOG_FIELDS.has(field.name) && !visibleLogFields.includes(field.name)
-    )),
-    [filteredFields, visibleLogFields],
+  const builderFields = React.useMemo(() => logBuilderFields(fields), [fields]);
+  const suggestBuilderValues = React.useCallback(
+    (field: string) => topLogFieldValues(rawRecords, field, 8).map((item) => item.label),
+    [rawRecords],
   );
   // SQL 检索函数（MATCH / MATCH_TEXT）由后端能力接口驱动；Fields 与 SQL 模式都注入。
   const sqlFunctions = useSqlFunctionCompletions();
@@ -978,87 +744,28 @@ export function Logs() {
     [sqlFunctions, fields, maskedFields, rows],
   );
 
-  React.useEffect(() => {
-    const names = fields.map((field) => field.name);
-    setLogColumnState((current) => {
-      if (names.length === 0) {
-        return current.visibleFields.length === 0
-          && Object.keys(current.hiddenPositions).length === 0
-          ? current
-          : { visibleFields: [], hiddenPositions: {} };
-      }
-
-      const next = current.visibleFields.filter((name) => names.includes(name));
-      const populatedNames = fields
-        .filter((field) => Number(field.count) > 0)
-        .map((field) => field.name);
-      const visibleFields = next.length > 0
-        ? next
-        : defaultLogTableFields(populatedNames.length > 0 ? populatedNames : names);
-      const hiddenPositions = Object.fromEntries(
-        Object.entries(current.hiddenPositions).filter(([name]) => names.includes(name)),
-      ) as Record<string, LogFieldPosition>;
-      const visibleFieldsUnchanged = visibleFields.length === current.visibleFields.length
-        && visibleFields.every((name, index) => name === current.visibleFields[index]);
-      const hiddenPositionEntries = Object.entries(hiddenPositions);
-      const hiddenPositionsUnchanged = hiddenPositionEntries.length
-        === Object.keys(current.hiddenPositions).length
-        && hiddenPositionEntries.every(([name, position]) => (
-          current.hiddenPositions[name]?.index === position.index
-          && current.hiddenPositions[name]?.previous === position.previous
-          && current.hiddenPositions[name]?.next === position.next
-        ));
-
-      return visibleFieldsUnchanged && hiddenPositionsUnchanged
-        ? current
-        : { visibleFields, hiddenPositions };
-    });
-  }, [fields]);
-
-  const toggleLogFieldVisibility = React.useCallback((field: string) => {
-    setLogColumnState((current) => {
-      if (current.visibleFields.includes(field)) {
-        const position = captureLogFieldPosition(current.visibleFields, field);
-        return {
-          visibleFields: current.visibleFields.filter((name) => name !== field),
-          hiddenPositions: position
-            ? { ...current.hiddenPositions, [field]: position }
-            : current.hiddenPositions,
-        };
-      }
-
-      const hiddenPositions = { ...current.hiddenPositions };
-      const position = hiddenPositions[field];
-      delete hiddenPositions[field];
-      return {
-        visibleFields: restoreLogFieldPosition(current.visibleFields, field, position),
-        hiddenPositions,
-      };
-    });
-  }, []);
-
-  const reorderLogField = React.useCallback((
-    source: string,
-    target: string,
-    position: LogColumnDropPosition,
-  ) => {
-    setLogColumnState((current) => ({
-      ...current,
-      visibleFields: reorderVisibleLogFields(current.visibleFields, source, target, position),
-    }));
-  }, []);
+  // Which fields stand beside the time, in what order: the reader's own arrangement for this
+  // stream where one is kept, what the stream opens with otherwise.
+  const logColumns = useLogColumns(stream, fields);
+  const visibleLogFields = logColumns.visibleFields;
+  const toggleLogFieldVisibility = logColumns.toggle;
+  const reorderLogField = logColumns.reorder;
 
   const insertLogFieldFilter = React.useCallback((field: string) => {
     if (!stream) return;
     const definition = fields.find((candidate) => candidate.name === field);
     if (!definition) return;
     setQueryEditorCollapsed(false);
+    if (editorMode === 'builder') {
+      setBuilderField(field);
+      return;
+    }
     if (queryMode === 'sql') {
       setQuery((current) => appendSqlFieldFilter(current, stream, definition));
       return;
     }
     setFieldQuery((current) => appendLogFieldClause(current, definition));
-  }, [fields, queryMode, stream]);
+  }, [editorMode, fields, queryMode, setFieldQuery, setQuery, stream]);
 
   const insertLogFieldValueFilter = React.useCallback((
     field: string,
@@ -1067,14 +774,46 @@ export function Logs() {
   ) => {
     if (!stream) return;
     const definition = fields.find((candidate) => candidate.name === field);
-    if (queryMode === 'fields' && definition?.dataType === 'json') return;
+    // The builder only writes the field query, whatever Code last held.
+    const sqlActive = queryMode === 'sql' && editorMode === 'code';
+    if (!sqlActive && definition?.dataType === 'json') return;
     setQueryEditorCollapsed(false);
-    if (queryMode === 'sql') {
+    if (sqlActive) {
       setQuery((current) => appendSqlFieldValueFilter(current, stream, field, value, filterMode));
       return;
     }
+    setQueryMode('fields');
     setFieldQuery((current) => appendLogFieldValueClause(current, field, value, filterMode));
-  }, [fields, queryMode, stream]);
+  }, [editorMode, fields, queryMode, setFieldQuery, setQuery, setQueryMode, stream]);
+
+  // A pattern is asked for by the longest run of words all of its logs have.
+  const insertLogPatternFilter = React.useCallback((field: string, fragment: string) => {
+    if (!stream) return;
+
+    setQueryEditorCollapsed(false);
+    // The builder only writes the field query, whatever Code last held.
+    if (queryMode === 'sql' && editorMode === 'code') {
+      setQuery((current) => appendSqlFieldContainsFilter(current, stream, field, fragment));
+      return;
+    }
+    setQueryMode('fields');
+    setFieldQuery((current) => appendLogFieldContainsClause(current, field, fragment));
+  }, [editorMode, queryMode, setFieldQuery, setQuery, setQueryMode, stream]);
+
+  // A statement the statistics view wrote goes into the editor as the reader's own, and is run:
+  // the run-once guard is lifted, so the effect below runs it with the state as it then is.
+  const openStatement = React.useCallback((statement: string) => {
+    setQueryMode('sql');
+    setQuery(statement);
+    setQueryEditorCollapsed(false);
+    initialRunStreamRef.current = null;
+  }, [setQuery, setQueryMode]);
+  const inspectionTarget = React.useMemo<InspectionTarget | null>(() => {
+    if (!executedTimeRange) return null;
+    if (countedQuery) return { stream: countedQuery.stream, statement: countedQuery.statement, range: executedTimeRange };
+
+    return writtenStatement && stream ? { stream, statement: writtenStatement, range: executedTimeRange } : null;
+  }, [countedQuery, executedTimeRange, stream, writtenStatement]);
 
   const activeQueryText = queryMode === 'sql' ? query.trim() : fieldQuery.trim();
 
@@ -1084,7 +823,7 @@ export function Logs() {
     } else {
       setFieldQuery('');
     }
-  }, [queryMode]);
+  }, [queryMode, setFieldQuery, setQuery]);
 
   const downloadVisibleCsv = React.useCallback(() => {
     if (rows.length === 0) return;
@@ -1124,7 +863,7 @@ export function Logs() {
     // A fresh window object intentionally triggers the existing query effect
     // after React has committed the cleared local and global filters.
     setTimeWindow({ ...timeWindow });
-  }, [clearGlobalFilters, queryMode, setTimeWindow, stream, timeWindow]);
+  }, [clearGlobalFilters, queryMode, setFieldQuery, setQuery, setTimeWindow, stream, timeWindow]);
   const widenRecoveryRange = React.useCallback(() => {
     setTimeWindow(widenTimeWindow(timeWindow));
   }, [setTimeWindow, timeWindow]);
@@ -1139,132 +878,94 @@ export function Logs() {
     void executeQuery();
   }, [executeQuery, hasRunnableQuery, orgId, queryPending, stream, timeWindow]);
 
-  const fieldState: 'loading' | 'empty' | 'error' | null =
-    queryError ? 'error' : queryPending && !queryResult ? 'loading' : fields.length === 0 ? 'empty' : null;
-  const fieldEmptyLabel = stream
-    ? t('explore.left_panel.no_fields_from_query')
-    : t('explore.left_panel.pick_stream_prompt');
-  const selectedLog = selectedRow === null ? null : rows[selectedRow] ?? null;
+  const selectedLog = selectedRow === null ? null : viewRows[selectedRow] ?? null;
+  // What a link to this query carries of the page's own: the stream and the statement, in the language it is in.
+  const shareSearch = React.useMemo(() => {
+    const params = new URLSearchParams();
+    const statement = (queryMode === 'sql' ? query : fieldQuery).trim();
+
+    if (stream) params.set('stream', stream);
+    if (statement) params.set(queryMode === 'sql' ? 'sql' : 'q', statement);
+
+    return params;
+  }, [fieldQuery, query, queryMode, stream]);
+  useQueryTabStatus({
+    running: queryPending,
+    summary: logQuerySummary({ stream, queryMode, query, fieldQuery }),
+  });
 
   return (
     <div
       data-workspace="logs"
-      className="flex h-[calc(100vh-var(--topbar-h)-var(--contextbar-h,0px))] min-h-0 flex-col overflow-hidden bg-[var(--page-canvas)]"
+      className="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--page-canvas)]"
     >
-      <SurfacePageHeader
-        title={t('explore.title')}
-        subtitle={t('explore.subtitle')}
-      />
-
+      {/* No title row: the explorer gives that row to the data and carries its
+          name at the start of the workbench bar instead. */}
       <QueryWorkbench
         appearance="surface"
-        className="shrink-0"
+        className="mt-[6px] shrink-0"
+        inlineBody={queryEditorCollapsed}
+        title={<WorkbenchTitle title={t('explore.title')} />}
         toolbar={
           <>
-            <QueryToolbarGroup className="border-0 bg-[var(--control-surface)]">
-              <QueryToolbarButton
-                active={mode === MODE_OPTIONS[0].id}
-                tone="indigo"
-                flat
-                onClick={() => setMode(MODE_OPTIONS[0].id)}
-                className="w-9 px-0"
-                aria-label={t(MODE_OPTIONS[0].ariaKey)}
-              >
-                <Search aria-hidden="true" className="h-4 w-4" />
-              </QueryToolbarButton>
-              <HistogramToggle
-                visible={showHistogram}
-                label={t('explore.toolbar.histogram')}
-                onVisibleChange={setShowHistogram}
-              />
-              <QueryToolbarButton
-                active={mode === MODE_OPTIONS[1].id}
-                tone="indigo"
-                flat
-                onClick={() => setMode(MODE_OPTIONS[1].id)}
-                className="w-9 px-0"
-                aria-label={t(MODE_OPTIONS[1].ariaKey)}
-              >
-                <SlidersHorizontal aria-hidden="true" className="h-4 w-4" />
-              </QueryToolbarButton>
-            </QueryToolbarGroup>
-            <QueryToolbarGroup
-              aria-label={t('explore.toolbar.query_mode_aria')}
-              className="border-0 bg-[var(--control-surface)]"
-            >
-              {LOG_QUERY_MODES.map((item) => (
-                <QueryToolbarButton
-                  key={item.id}
-                  active={queryMode === item.id}
-                  tone="indigo"
-                  flat
-                  onClick={() => {
-                    setQueryMode(item.id);
-                    setQueryEditorCollapsed(false);
-                  }}
-                >
-                  {t(item.labelKey)}
-                </QueryToolbarButton>
-              ))}
-            </QueryToolbarGroup>
+            <QueryModeSwitch
+              mode={editorMode}
+              onChange={(next) => {
+                setEditorMode(next);
+                setQueryEditorCollapsed(false);
+              }}
+            />
             <QuerySyntaxHelp
               mode={queryMode}
               scope="logs"
               compact
               className="border-0"
             />
-            {streams.length > 0 ? (
-              <Select value={stream} onValueChange={setAutoStream}>
-                <SelectTrigger
-                  aria-label={t('explore.left_panel.select_stream_aria')}
-                  className="h-9 w-[220px] rounded-md border-0 bg-[var(--control-surface)] px-2.5 font-sans text-xs font-strong text-tx-0 shadow-none"
-                >
-                  <SelectValue placeholder={t('explore.left_panel.select_stream_placeholder')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {streams.map((item) => (
-                    <SelectItem key={item.id} value={item.name} className="font-sans text-xs">
-                      <span className="truncate text-tx-0">{item.label || item.name}</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              <div className="flex h-9 w-[220px] items-center rounded-md bg-[var(--control-surface)] px-2.5 font-sans text-xs font-strong text-tx-2">
-                {streamsQuery.isLoading
-                  ? t('explore.left_panel.loading_streams')
-                  : t('explore.left_panel.no_streams')}
-              </div>
-            )}
-            <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-              <TimeRangeChip className="border-0" />
-              <ChromeButton
-                variant="primary"
-                onClick={() => void executeQuery()}
-                disabled={!canRun}
-              >
-                <Play className="h-3 w-3" /> {queryPending ? t('explore.toolbar.running') : t('explore.toolbar.run')}
-              </ChromeButton>
-              <ChromeButton aria-label={t('explore.toolbar.refresh_aria')} onClick={() => void executeQuery()} disabled={!canRun}>
-                <RefreshCw className="h-3 w-3" />
-              </ChromeButton>
-            </div>
+            <LogStreamSelect
+              streams={streams}
+              value={stream}
+              loading={streamsQuery.isLoading}
+              onChange={setAutoStream}
+            />
+          </>
+        }
+        actions={
+          <>
+            <TimeRangeChip className="border-0" />
+            <QueryRunAction
+              label={t('explore.toolbar.run')}
+              runningLabel={t('explore.toolbar.running')}
+              running={queryPending}
+              onClick={() => void executeQuery()}
+              disabled={!canRun}
+            />
+            <QueryIconAction
+              icon={RefreshCw}
+              label={t('explore.toolbar.refresh_aria')}
+              onClick={() => void executeQuery()}
+              disabled={!canRun}
+            />
+            <QueryShareButton search={shareSearch} />
           </>
         }
       >
         <QueryEditorFrame
           queryRef="A"
           value={queryMode === 'sql' ? query : fieldQuery}
-          onChange={queryMode === 'sql' ? setQuery : setFieldQuery}
+          // One editor for both languages: what is typed says which it is.
+          onChange={setCodeStatement}
           onClear={clearActiveQuery}
           clearLabel={t('explore.toolbar.clear_query')}
-          onModEnter={() => {
-            if (canRun) void executeQuery();
-          }}
+          // The shortcut belongs to the editor; the builder runs on Enter in its text box.
+          {...(editorMode === 'code'
+            ? { onModEnter: () => { if (canRun) void executeQuery(); } }
+            : {})}
           language={queryMode === 'sql' ? 'sql' : 'field-query'}
-          label={queryMode === 'sql' ? 'SQL' : 'Fields'}
+          // One name whatever is typed: the mode is on the switch beside it, the language under the editor.
+          label={tCommon('query_language.label')}
+          languageBadge={false}
           ariaLabel={queryMode === 'sql' ? 'SQL query editor' : 'Log field query editor'}
-          placeholder={logQueryPlaceholder(queryMode, stream)}
+          placeholder={logQueryPlaceholder(stream)}
           collapsed={queryEditorCollapsed}
           onCollapsedChange={setQueryEditorCollapsed}
           collapseLabel={t('explore.toolbar.collapse_editor')}
@@ -1272,284 +973,95 @@ export function Logs() {
           summary={activeQueryText || t('explore.toolbar.empty_query_summary')}
           completionItems={queryMode === 'fields' ? completionItems : sqlFunctions}
           frameClassName="border-0 bg-[var(--control-surface)] shadow-none"
-          minHeight={queryMode === 'sql' ? 220 : 112}
-          maxHeight={queryMode === 'sql' ? 420 : 260}
+          minHeight={112}
+          maxHeight={420}
           lineNumbers
           resizable
+          body={editorMode === 'builder' ? (
+            <FilterBuilder
+              statement={fieldQuery}
+              onStatementChange={setBuilderStatement}
+              dialect={logBuilderDialect}
+              fields={builderFields}
+              suggestValues={suggestBuilderValues}
+              pendingField={builderField}
+              onPendingFieldHandled={() => setBuilderField(null)}
+              onRun={() => {
+                if (canRun) void executeQuery();
+              }}
+              notice={queryMode === 'sql' ? tCommon('query_builder.sql_active') : undefined}
+            />
+          ) : undefined}
         />
       </QueryWorkbench>
 
       {/* Body: independent field and result scrollers fill the remaining viewport. */}
       <div
         data-log-workspace-layout="surface-grid"
-        className="flex min-h-0 flex-1 gap-[8px] overflow-hidden bg-[var(--page-canvas)] px-[20px]"
+        className="flex min-h-0 flex-1 gap-[8px] overflow-hidden bg-[var(--page-canvas)] pl-[var(--pane-gutter-start,20px)] pr-[var(--pane-gutter-end,20px)]"
       >
-        <CollapsibleSidePanel
-          title={t('explore.left_panel.title')}
+        <LogFieldPanel
           collapsed={fieldPanelCollapsed}
           onCollapsedChange={setFieldPanelCollapsed}
-          variant="utility"
-          widthClassName="w-[240px]"
-          resizable
-          defaultWidth={240}
-          resizeLabel={t('explore.left_panel.resize')}
-          bodyClassName="flex flex-col"
-          className="rounded-md border-r-0 bg-[var(--functional-surface)]"
-          collapseLabel={t('explore.left_panel.collapse')}
-          expandLabel={t('explore.left_panel.expand')}
-          footer={
-            <div className="flex h-11 items-center justify-between px-2 font-sans text-xs font-strong text-tx-2">
-              <span className="min-w-0 truncate">
-                {t('explore.left_panel.fields_summary', {
-                  shown: filteredFields.length.toLocaleString(),
-                  total: fields.length.toLocaleString(),
-                  visible: visibleLogFields.length.toLocaleString(),
-                })}
-              </span>
-              <button
-                aria-label={t('explore.left_panel.refresh_fields_aria')}
-                className="grid h-8 w-8 place-items-center rounded-md hover:bg-bg-3 disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={!canRun}
-                onClick={() => void executeQuery()}
-              >
-                <RefreshCw className="h-2.5 w-2.5" />
-              </button>
-            </div>
-          }
-        >
-          <div className="px-2 pb-2">
-            <div className="flex h-8 items-center gap-2 rounded-md border-0 bg-[var(--control-surface)] px-2.5 font-sans text-xs">
-              <Search className="h-3.5 w-3.5 text-tx-3" />
-              <input
-                value={fieldFilter}
-                onChange={(e) => setFieldFilter(e.target.value)}
-                placeholder={t('explore.left_panel.field_search_placeholder')}
-                aria-label={t('explore.left_panel.filter_fields_aria')}
-                className="flex-1 bg-transparent text-tx-0 placeholder:text-tx-3 focus:outline-none"
-              />
-            </div>
-          </div>
-          <div className="flex-1 overflow-auto px-1">
-            {fieldState ? (
-              <QueryState
-                state={fieldState}
-                error={queryError}
-                loadingLabel={t('explore.left_panel.loading_fields')}
-                emptyLabel={fieldEmptyLabel}
-                className="h-full min-h-32 px-4 text-center"
-              />
-            ) : filteredFields.length === 0 ? (
-              <QueryState
-                state="empty"
-                emptyLabel={t('explore.left_panel.no_matching_fields')}
-                className="h-full min-h-32 px-4 text-center"
-              />
-            ) : (
-              <TooltipProvider delayDuration={250}>
-                {displayedFields.length > 0 && (
-                  <SidePanelSection
-                    title={t('explore.left_panel.visible_fields')}
-                    count={displayedFields.length}
-                  >
-                    {displayedFields.map((field) => (
-                      <LogFieldRow
-                        key={field.name}
-                        field={field}
-                        filterable={isLogFieldFilterable(field, queryMode)}
-                        visible
-                        expanded={expandedField === field.name}
-                        topValues={topLogFieldValues(rawRecords, field.name)}
-                        onExpandedChange={(open) => setExpandedField(open ? field.name : null)}
-                        onToggleVisibility={toggleLogFieldVisibility}
-                        onInsertFilter={insertLogFieldFilter}
-                        onInsertValueFilter={insertLogFieldValueFilter}
-                      />
-                    ))}
-                  </SidePanelSection>
-                )}
-                {fixedFields.length > 0 && (
-                  <SidePanelSection
-                    title={t('explore.left_panel.fixed_fields')}
-                    count={fixedFields.length}
-                  >
-                    {fixedFields.map((field) => (
-                      <LogFieldRow
-                        key={field.name}
-                        field={field}
-                        filterable={isLogFieldFilterable(field, queryMode)}
-                        visible={false}
-                        expanded={expandedField === field.name}
-                        topValues={topLogFieldValues(rawRecords, field.name)}
-                        onExpandedChange={(open) => setExpandedField(open ? field.name : null)}
-                        onToggleVisibility={toggleLogFieldVisibility}
-                        onInsertFilter={insertLogFieldFilter}
-                        onInsertValueFilter={insertLogFieldValueFilter}
-                      />
-                    ))}
-                  </SidePanelSection>
-                )}
-                {allFields.length > 0 && (
-                  <SidePanelSection
-                    title={t('explore.left_panel.all_fields')}
-                    count={allFields.length}
-                  >
-                    {allFields.map((field) => (
-                      <LogFieldRow
-                        key={field.name}
-                        field={field}
-                        filterable={isLogFieldFilterable(field, queryMode)}
-                        visible={false}
-                        expanded={expandedField === field.name}
-                        topValues={topLogFieldValues(rawRecords, field.name)}
-                        onExpandedChange={(open) => setExpandedField(open ? field.name : null)}
-                        onToggleVisibility={toggleLogFieldVisibility}
-                        onInsertFilter={insertLogFieldFilter}
-                        onInsertValueFilter={insertLogFieldValueFilter}
-                      />
-                    ))}
-                  </SidePanelSection>
-                )}
-              </TooltipProvider>
-            )}
-          </div>
-        </CollapsibleSidePanel>
+          fields={fields}
+          visibleFields={visibleLogFields}
+          queryMode={queryMode}
+          records={rawRecords}
+          moments={rowMoments}
+          loading={queryPending && !queryResult}
+          hasStream={Boolean(stream)}
+          canRefresh={canRun}
+          onRefresh={() => void executeQuery()}
+          expandedField={expandedField}
+          onExpandedFieldChange={setExpandedField}
+          onToggleVisibility={toggleLogFieldVisibility}
+          onInsertFilter={insertLogFieldFilter}
+          onInsertValueFilter={insertLogFieldValueFilter}
+          counted={countedQuery}
+          range={executedTimeRange}
+          maskedFields={maskedFields}
+        />
 
         <div className="flex min-w-0 flex-1 overflow-hidden">
           <div
             data-workspace-pane="log-results"
             className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-md bg-[var(--functional-surface)]"
           >
-            <div
-              data-log-result-summary
-              className="flex min-h-11 flex-wrap items-center gap-2 px-4 py-1.5 font-sans text-xs"
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-orange" />
-              <span className="font-semibold text-tx-0">
-                {t('explore.table.events_summary', {
-                  events: rows.length.toLocaleString(),
-                  ms: queryResult?.took_ms ?? 0,
-                })}
-              </span>
-              <span className="text-tx-3">·</span>
-              <span className="whitespace-nowrap text-tx-2">
-                {formatTimeWindowLabel(timeWindow, tCommon)}
-              </span>
-              <RefreshCw className={`h-3 w-3 text-tx-3 ${queryPending ? 'animate-spin' : ''}`} />
-              <div data-log-result-actions className="ml-auto flex items-center gap-1">
-                <LogColumnMenu
-                  fields={fields.map((field) => field.name)}
-                  visibleFields={visibleLogFields}
-                  onToggleField={toggleLogFieldVisibility}
-                  onReorderField={reorderLogField}
-                />
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <ChromeButton aria-label={t('explore.results.density')}>
-                      <Rows3 className="h-3.5 w-3.5" />
-                      {t(`explore.results.density_values.${resultDensity}`)}
-                    </ChromeButton>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-40">
-                    <DropdownMenuLabel>{t('explore.results.density')}</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuRadioGroup
-                      value={resultDensity}
-                      onValueChange={(value) => setResultDensity(value as LogResultDensity)}
-                    >
-                      {(['compact', 'normal', 'comfortable'] as const).map((density) => (
-                        <DropdownMenuRadioItem key={density} value={density}>
-                          {t(`explore.results.density_values.${density}`)}
-                        </DropdownMenuRadioItem>
-                      ))}
-                    </DropdownMenuRadioGroup>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <ChromeButton
-                  onClick={() => setFieldPanelCollapsed((collapsed) => !collapsed)}
-                  aria-label={fieldPanelCollapsed
-                    ? t('explore.left_panel.expand')
-                    : t('explore.left_panel.collapse')}
-                >
-                  <SlidersHorizontal className="h-3.5 w-3.5" />
-                  {t('explore.left_panel.title')}
-                </ChromeButton>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <ChromeButton disabled={rows.length === 0} aria-label={t('explore.results.download')}>
-                      <Download className="h-3.5 w-3.5" />
-                    </ChromeButton>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-52">
-                    <DropdownMenuLabel>{t('explore.results.download')}</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onSelect={downloadVisibleCsv}>
-                      <Table2 className="h-3.5 w-3.5" />
-                      {t('explore.results.download_csv')}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={downloadVisibleLog}>
-                      <FileText className="h-3.5 w-3.5" />
-                      {t('explore.results.download_log')}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </div>
-            {showHistogram && (
-              <div className="bg-[var(--control-surface)]">
-                <TimeSeriesChart
-                  className="px-4 py-1"
-                  series={[
-                    {
-                      id: 'log-normal',
-                      name: t('explore.histogram.normal'),
-                      color: 'var(--blue-soft)',
-                      data: histo.map((bucket) => bucket.ok),
-                      timestamps: histo.map((bucket) =>
-                        Math.round((bucket.startMicros + bucket.endMicros) / 2),
-                      ),
-                    },
-                    {
-                      id: 'log-errors',
-                      name: t('explore.histogram.errors'),
-                      color: 'var(--orange-soft)',
-                      data: histo.map((bucket) => bucket.err),
-                      timestamps: histo.map((bucket) =>
-                        Math.round((bucket.startMicros + bucket.endMicros) / 2),
-                      ),
-                    },
-                  ]}
-                  {...(executedTimeRange
-                    ? {
-                        xDomain: [
-                          executedTimeRange.start,
-                          executedTimeRange.end,
-                        ] as [number, number],
-                      }
-                    : {})}
-                  height={rows.length < 5 ? 72 : 96}
-                  ariaLabel={t('explore.toolbar.histogram')}
-                  options={{
-                    drawStyle: 'bar',
-                    stackMode: 'normal',
-                    showPoints: 'never',
-                    legendMode: 'hidden',
-                    showXAxis: false,
-                    showYAxis: false,
-                    leftAxis: { min: 0, showGrid: false },
-                  }}
-                  showLegend={false}
-                  onRangeSelect={selectHistogramRange}
-                />
-              </div>
-            )}
-
-            <QueryRecommendations
-              result={queryResult}
-              statement={executedStatement}
-              language="sql"
-              timeRangeSecs={executedRangeSecs}
-              variant="inline"
+            <LogResultSummary
+              eventCount={viewRows.length}
+              tookMs={queryResult?.took_ms ?? 0}
+              timeWindowLabel={formatTimeWindowLabel(timeWindow, tCommon)}
+              pending={queryPending}
+              fields={fields.map((field) => field.name)}
+              visibleFields={visibleLogFields}
+              onToggleField={toggleLogFieldVisibility}
+              onReorderField={reorderLogField}
+              columnsArranged={logColumns.arranged}
+              onResetColumns={logColumns.reset}
+              histogramOpen={showHistogram}
+              onHistogramOpenChange={setShowHistogram}
+              onDownloadCsv={downloadVisibleCsv}
+              onDownloadLog={downloadVisibleLog}
+              views={<LogResultViewTabs value={view} onChange={setView} />}
+              listControls={view === 'raw'}
+              resultControls={view === 'raw' || view === 'patterns'}
             />
+            {/* Without rows there is nothing to draw: the band would only be an empty
+                strip pushing the empty state down. */}
+            {showHistogram && rows.length > 0 && (view === 'raw' || view === 'patterns') && (
+              <ResultHistogram
+                points={histogramPoints}
+                range={executedTimeRange}
+                counts={histogramCounts}
+                short={viewRows.length < 5}
+                labels={{
+                  chart: t('explore.toolbar.histogram'),
+                  ok: t('explore.histogram.normal'),
+                  errors: t('explore.histogram.errors'),
+                }}
+                onRangeSelect={selectHistogramRange}
+              />
+            )}
 
             <div className="min-h-0 flex-1 overflow-hidden">
               {queryError ? (
@@ -1580,6 +1092,17 @@ export function Logs() {
                   loadingLabel={t('explore.table.running_query')}
                   className="h-full min-h-0"
                 />
+              ) : view === 'inspection' ? (
+                // Shown without results too: a query that matches nothing now can still be
+                // saved to be inspected on a schedule, and the saved inspections are reached
+                // from here.
+                <LogInspectionView
+                  target={inspectionTarget}
+                  rangeLabel={formatTimeWindowLabel(timeWindow, tCommon)}
+                  rows={viewRows}
+                  empty={rows.length === 0}
+                  inspection={inspection}
+                />
               ) : rows.length === 0 ? (
                 <QueryRecoveryState
                   state="empty"
@@ -1601,22 +1124,52 @@ export function Logs() {
                   className="h-full min-h-0"
                   testId="logs-no-data"
                 />
+              ) : view === 'stats' ? (
+                <LogStatsView
+                  stream={stream}
+                  fields={fields}
+                  counted={countedQuery}
+                  range={executedTimeRange}
+                  written={writtenStatement && queryResult ? { statement: writtenStatement, result: queryResult } : null}
+                  timeWindow={timeWindow}
+                  onOpenStatement={openStatement}
+                />
+              ) : view === 'patterns' ? (
+                // What the loaded logs say, kind by kind, in place of the logs one by one.
+                <LogPatternsView
+                  rows={viewRows}
+                  selectedIndex={selectedRow}
+                  sample={
+                    patternQuery
+                      ? {
+                          held: sampled,
+                          reading: patternSample.reading,
+                          more: patternSample.more,
+                          failed: patternSample.failed,
+                          step: patternQuery.step,
+                          onReadMore: patternSample.readMore,
+                          onRetry: patternSample.retry,
+                        }
+                      : undefined
+                  }
+                  onOpenLog={setSelectedRow}
+                  onFilter={insertLogPatternFilter}
+                />
               ) : (
                 <LogListResults
                   rows={pagedRows}
                   fields={visibleLogFields}
                   startIndex={resultPageStart}
                   selectedIndex={selectedRow}
-                  density={resultDensity}
                   onSelect={setSelectedRow}
                 />
               )}
             </div>
-            {cursorResults ? (
+            {view !== 'raw' ? null : cursorResults ? (
               <CursorPagination
                 className="border-t-0 bg-transparent"
                 pageSize={logPageSize}
-                pageSizeOptions={LOG_CURSOR_PAGE_SIZE_OPTIONS}
+                pageSizeOptions={EXPLORER_PAGE_SIZE_OPTIONS}
                 hasPrevious={Boolean(logCursorPage?.previous_cursor)}
                 hasNext={Boolean(logCursorPage?.next_cursor)}
                 pending={queryPending}
@@ -1634,7 +1187,7 @@ export function Logs() {
                 page={activeResultPage}
                 pageCount={resultPageCount}
                 pageSize={resultPageSize}
-                pageSizeOptions={LOG_PAGE_SIZE_OPTIONS}
+                pageSizeOptions={resultPageSizes}
                 pageLabel={t('explore.table.page_summary', {
                   page: activeResultPage,
                   pages: resultPageCount,
@@ -1653,34 +1206,46 @@ export function Logs() {
 
           {selectedLog && selectedRow !== null && (
             <>
+              {/* The page under the drawer is one click away: on another log that click opens it,
+                  anywhere else it closes the drawer. */}
               <button
                 type="button"
                 aria-label={t('explore.detail.close')}
                 tabIndex={-1}
-                onClick={() => setSelectedRow(null)}
+                onClick={(event) => {
+                  const row = document
+                    .elementsFromPoint(event.clientX, event.clientY)
+                    .find((element) => element.matches(LOG_OPENERS));
+
+                  if (row instanceof HTMLElement) row.click();
+                  else closeLogDetail();
+                }}
                 className="fixed bottom-0 left-0 right-0 top-topbar z-[55] cursor-default border-0 bg-transparent p-0 focus:outline-none"
               />
               <aside
                 aria-label={t('explore.detail.drawer_aria')}
-                className="fixed bottom-0 right-0 top-topbar z-[60] min-h-0 w-full max-w-[660px] border-l border-bd-1 bg-bg-0 shadow-drawer data-[state=open]:animate-slide-in-right sm:w-[34vw] sm:min-w-[420px]"
+                className="fixed bottom-0 right-0 top-topbar z-[60] min-h-0 w-full max-w-[660px] border-l border-bd-1 bg-[var(--functional-surface)] shadow-drawer data-[state=open]:animate-slide-in-right sm:w-[34vw] sm:min-w-[440px]"
                 data-state="open"
               >
                 <LogDetail
                   log={selectedLog}
                   index={selectedRow}
-                  total={rows.length}
+                  total={viewRows.length}
                   stream={stream}
-                  contextRows={rows.slice(Math.max(0, selectedRow - 5), Math.min(rows.length, selectedRow + 6))}
+                  contextRows={viewRows.slice(
+                    Math.max(0, selectedRow - 5),
+                    Math.min(viewRows.length, selectedRow + 6),
+                  )}
                   visibleFields={visibleLogFields}
                   onInsertValueFilter={insertLogFieldValueFilter}
                   onToggleVisibility={toggleLogFieldVisibility}
                   onSelectContext={(log) => {
-                    const nextIndex = rows.indexOf(log);
+                    const nextIndex = viewRows.indexOf(log);
                     if (nextIndex >= 0) setSelectedRow(nextIndex);
                   }}
-                  onClose={() => setSelectedRow(null)}
+                  onClose={closeLogDetail}
                   onPrev={() => setSelectedRow(Math.max(0, selectedRow - 1))}
-                  onNext={() => setSelectedRow(Math.min(rows.length - 1, selectedRow + 1))}
+                  onNext={() => setSelectedRow(Math.min(viewRows.length - 1, selectedRow + 1))}
                 />
               </aside>
             </>
@@ -1688,663 +1253,5 @@ export function Logs() {
         </div>
       </div>
     </div>
-  );
-}
-
-function LogFieldRow({
-  field,
-  filterable,
-  visible,
-  expanded,
-  topValues,
-  onExpandedChange,
-  onToggleVisibility,
-  onInsertFilter,
-  onInsertValueFilter,
-}: {
-  field: LogFieldDef;
-  filterable: boolean;
-  visible: boolean;
-  expanded: boolean;
-  topValues: LogTopValue[];
-  onExpandedChange: (open: boolean) => void;
-  onToggleVisibility: (field: string) => void;
-  onInsertFilter: (field: string) => void;
-  onInsertValueFilter: (field: string, value: unknown, mode: 'include' | 'exclude') => void;
-}) {
-  const { t } = useTranslation('logs');
-  const toggleLabel = visible
-    ? t('explore.left_panel.hide_field_aria', { name: field.name })
-    : t('explore.left_panel.show_field_aria', { name: field.name });
-  const addLabel = filterable
-    ? t('explore.left_panel.add_field_aria', { name: field.name })
-    : t('explore.left_panel.json_query_required', { name: field.name });
-
-  return (
-    <div data-log-field-row={field.name}>
-      <div className="group flex min-h-9 items-center gap-1 px-1.5 font-sans text-xs font-strong hover:bg-bg-3">
-        <button
-          type="button"
-          onClick={() => onExpandedChange(!expanded)}
-          className="flex min-w-0 flex-1 items-center gap-2 rounded px-1 py-1.5 text-left focus:bg-bg-3"
-        >
-          <ChevronRight className={`h-3 w-3 shrink-0 text-tx-3 transition-transform ${expanded ? 'rotate-90' : ''}`} />
-          <span className={`w-4 shrink-0 text-center text-xs font-bold ${TYPE_COLOR[field.type]}`}>
-            {TYPE_GLYPH[field.type]}
-          </span>
-          <span className="min-w-0 flex-1 truncate text-tx-0">{field.name}</span>
-          <span className="type-micro shrink-0 font-mono font-normal text-tx-2">{field.count}</span>
-        </button>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              onClick={() => onToggleVisibility(field.name)}
-              className="grid h-7 w-7 shrink-0 place-items-center rounded text-tx-3 opacity-0 hover:bg-bg-4 hover:text-tx-0 focus:opacity-100 group-hover:opacity-100"
-              aria-label={toggleLabel}
-            >
-              {visible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>{toggleLabel}</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              onClick={() => onInsertFilter(field.name)}
-              disabled={!filterable}
-              className="grid h-7 w-7 shrink-0 place-items-center rounded text-tx-3 opacity-0 hover:bg-bg-4 hover:text-blue-soft focus:opacity-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-tx-3 group-hover:opacity-100"
-              aria-label={addLabel}
-            >
-              <Plus className="h-3 w-3" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>{addLabel}</TooltipContent>
-        </Tooltip>
-      </div>
-      {expanded && (
-        <div data-log-field-values={field.name} className="bg-bg-1 px-2 py-1.5">
-          {topValues.length === 0 ? (
-            <div className="px-1 py-2 font-sans text-xs text-tx-2">
-              {t('explore.left_panel.no_top_values')}
-            </div>
-          ) : (
-            <div className="space-y-0.5">
-              {topValues.map((topValue) => (
-                <div
-                  key={`${typeof topValue.value}:${topValue.label}`}
-                  className="group/value flex min-h-8 items-center gap-1 rounded px-1 hover:bg-bg-3"
-                >
-                  <span className="type-micro min-w-0 flex-1 truncate font-mono text-tx-1" title={topValue.label}>
-                    {topValue.label}
-                  </span>
-                  <span className="type-micro w-7 shrink-0 text-right font-mono text-tx-2">{topValue.count}</span>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        onClick={() => onInsertValueFilter(field.name, topValue.value, 'include')}
-                        disabled={!filterable}
-                        className="grid h-6 w-6 place-items-center rounded text-tx-3 opacity-0 hover:bg-bg-4 hover:text-blue-soft focus:opacity-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-tx-3 group-hover/value:opacity-100"
-                        aria-label={t('explore.left_panel.include_value_aria', { value: topValue.label })}
-                      >
-                        <Filter className="h-3 w-3" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent>{t('explore.left_panel.include_value')}</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        onClick={() => onInsertValueFilter(field.name, topValue.value, 'exclude')}
-                        disabled={!filterable}
-                        className="grid h-6 w-6 place-items-center rounded text-tx-3 opacity-0 hover:bg-bg-4 hover:text-orange-soft focus:opacity-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-tx-3 group-hover/value:opacity-100"
-                        aria-label={t('explore.left_panel.exclude_value_aria', { value: topValue.label })}
-                      >
-                        <Minus className="h-3 w-3" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent>{t('explore.left_panel.exclude_value')}</TooltipContent>
-                  </Tooltip>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function LogDetail({
-  log,
-  index,
-  total,
-  stream,
-  contextRows,
-  visibleFields,
-  onInsertValueFilter,
-  onToggleVisibility,
-  onSelectContext,
-  onClose,
-  onPrev,
-  onNext,
-}: {
-  log: LogEntry;
-  index: number;
-  total: number;
-  stream: string;
-  contextRows: LogEntry[];
-  visibleFields: string[];
-  onInsertValueFilter: (field: string, value: unknown, mode: 'include' | 'exclude') => void;
-  onToggleVisibility: (field: string) => void;
-  onSelectContext: (log: LogEntry) => void;
-  onClose: () => void;
-  onPrev: () => void;
-  onNext: () => void;
-}) {
-  const { t } = useTranslation('logs');
-  const navigate = useNavigate();
-  const [tab, setTab] = React.useState<'overview' | 'fields' | 'json' | 'context'>('overview');
-  const [copied, setCopied] = React.useState(false);
-  const copyTimerRef = React.useRef<number | null>(null);
-  const fullJson = log.raw;
-
-  React.useEffect(() => () => {
-    if (copyTimerRef.current !== null) window.clearTimeout(copyTimerRef.current);
-  }, []);
-
-  const handleCopy = React.useCallback(async () => {
-    await writeClipboardText(logRecordJson(fullJson));
-    setCopied(true);
-    if (copyTimerRef.current !== null) window.clearTimeout(copyTimerRef.current);
-    copyTimerRef.current = window.setTimeout(() => setCopied(false), 1400);
-  }, [fullJson]);
-
-  const handleDownload = React.useCallback(() => {
-    const safeTimestamp = log.ts.replace(/[^0-9A-Za-z_-]+/g, '-').replace(/^-+|-+$/g, '') || String(index + 1);
-    downloadJsonFile(`molesignal-log-${safeTimestamp}.json`, fullJson);
-  }, [fullJson, index, log.ts]);
-
-  const handleJump = React.useCallback((to: string) => navigate(to), [navigate]);
-  const message = primaryLogMessage(log.raw);
-  const source = logSourceLabel(log.raw);
-  const level = logLevelLabel(log.raw, log.level);
-  const relatedSignals = relatedSignalsFromRecord(fullJson);
-  const relatedSignalLabels = stringLabelsFromRecord(fullJson);
-  const relatedSignalTime = signalTimeFromTimestamp(log.ts);
-  const primaryFields = visibleFields
-    .filter((field) => isPresent(log.raw[field]))
-    .slice(0, 8);
-  const detailTabs = [
-    { key: 'overview', label: t('explore.detail.tabs.overview'), icon: List },
-    { key: 'fields', label: t('explore.detail.tabs.fields'), icon: Columns3 },
-    { key: 'json', label: t('explore.detail.tabs.json'), icon: Braces },
-    { key: 'context', label: t('explore.detail.tabs.context'), icon: Rows3 },
-  ] as const;
-
-  return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-bg-0">
-      <div className="flex items-center gap-2.5 border-b border-bd-0 bg-bg-1 px-4 py-2.5">
-        <span className="type-data font-sans font-bold text-tx-0">{t('explore.detail.title')}</span>
-        <Pill>
-          #{index + 1} / {total}
-        </Pill>
-        <ChromeButton className="ml-auto" onClick={onClose} aria-label={t('explore.detail.close')} title={t('explore.detail.close')}>
-          <X className="h-3 w-3" />
-        </ChromeButton>
-      </div>
-
-      <div className="flex items-center border-b border-bd-0 bg-bg-1 px-4">
-        <div className="flex gap-0.5 py-2">
-          {detailTabs.map(({ key: tabKey, label, icon: Icon }) => (
-            <button
-              key={tabKey}
-              onClick={() => setTab(tabKey)}
-              className={`flex items-center gap-1.5 rounded px-2.5 py-1.5 font-sans text-xs font-strong ${
-                tab === tabKey ? 'bg-bg-3 text-tx-0' : 'text-tx-2 hover:text-tx-0'
-              }`}
-            >
-              <Icon className="h-3 w-3" />
-              {label}
-            </button>
-          ))}
-        </div>
-        <div className="ml-auto flex gap-1.5">
-          <CopyIconButton
-            label={t('explore.detail.copy_json')}
-            copied={copied}
-            copiedLabel={t('explore.detail.copied_json')}
-            onClick={() => void handleCopy()}
-          />
-          <ChromeButton aria-label={t('explore.detail.download_json')} title={t('explore.detail.download_json')} onClick={handleDownload}>
-            <Download className="h-3 w-3" />
-          </ChromeButton>
-        </div>
-      </div>
-
-      <div data-log-detail-scroll className="min-h-0 min-w-0 flex-1 overflow-auto p-4">
-        {tab === 'overview' && (
-          <div className="min-w-0 space-y-4 font-sans text-xs">
-            <section className="min-w-0 overflow-hidden rounded-md border border-bd-0 bg-bg-1 p-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className={`type-micro rounded px-1.5 py-0.5 font-mono font-semibold ${levelToneClass(level)}`}>
-                  {level}
-                </span>
-                <span className="type-micro font-mono text-tx-2">{log.ts}</span>
-              </div>
-              <div
-                data-log-detail-message
-                className="mt-3 min-w-0 whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-tx-0 [overflow-wrap:anywhere]"
-              >
-                {message.value || compactRecord(log.raw)}
-              </div>
-              <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2 text-tx-2">
-                <span className="min-w-0 break-all">{source}</span>
-                {message.field && <span>· {message.field}</span>}
-              </div>
-            </section>
-            <section>
-              <div className="mb-2 font-semibold tracking-normal text-tx-2">
-                {t('explore.detail.overview_metadata')}
-              </div>
-              <dl className="overflow-hidden rounded-md border border-bd-0">
-                <DetailMetaRow label={t('explore.detail.stream')} value={stream} />
-                <DetailMetaRow label={t('explore.detail.time')} value={log.ts} />
-                <DetailMetaRow label={t('explore.detail.level')} value={level} />
-                <DetailMetaRow label={t('explore.detail.source')} value={source} />
-              </dl>
-            </section>
-            {relatedSignals.length > 0 && (
-              <section>
-                <div className="mb-2 font-semibold tracking-normal text-tx-2">
-                  {t('explore.detail.related_signals')}
-                </div>
-                <dl className="overflow-hidden rounded-md border border-bd-0">
-                  {relatedSignals.map((signal) => (
-                    <DetailMetaRow
-                      key={`${signal.type}:${signal.value}`}
-                      label={signal.field}
-                      value={(
-                        <SignalReference
-                          type={signal.type}
-                          value={signal.value}
-                          labelName={signal.field}
-                          labels={relatedSignalLabels}
-                          time={relatedSignalTime}
-                        />
-                      )}
-                    />
-                  ))}
-                </dl>
-              </section>
-            )}
-            {primaryFields.length > 0 && (
-              <section>
-                <div className="mb-2 font-semibold tracking-normal text-tx-2">
-                  {t('explore.detail.primary_fields')}
-                </div>
-                <div className="overflow-hidden rounded-md border border-bd-0">
-                  {primaryFields.map((field) => (
-                    <DetailMetaRow
-                      key={field}
-                      label={field}
-                      value={(
-                        <LogFieldValue
-                          field={field}
-                          value={log.raw[field]}
-                          record={fullJson}
-                          onJump={handleJump}
-                          className="text-tx-0"
-                        />
-                      )}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
-          </div>
-        )}
-        {tab === 'fields' && (
-          <KvTable
-            obj={fullJson}
-            onJump={handleJump}
-            visibleFields={visibleFields}
-            onInclude={(field, value) => onInsertValueFilter(field, value, 'include')}
-            onExclude={(field, value) => onInsertValueFilter(field, value, 'exclude')}
-            onToggleVisibility={onToggleVisibility}
-          />
-        )}
-        {tab === 'json' && (
-          <JsonTree obj={fullJson} record={fullJson} onJump={handleJump} />
-        )}
-        {tab === 'context' && (
-          <div className="space-y-2">
-            <div className="font-sans text-xs leading-5 text-tx-2">
-              {t('explore.detail.context_description')}
-            </div>
-            <div className="overflow-hidden rounded-md border border-bd-0">
-              {contextRows.map((contextLog, contextIndex) => {
-                const contextMessage = primaryLogMessage(contextLog.raw);
-                const active = contextLog === log;
-                return (
-                  <button
-                    key={`${contextLog.ts}-${contextIndex}`}
-                    type="button"
-                    onClick={() => onSelectContext(contextLog)}
-                    className={`grid w-full grid-cols-[130px_minmax(0,1fr)] gap-3 border-b border-bd-0 px-3 py-2 text-left font-sans text-xs last:border-b-0 hover:bg-bg-2 ${
-                      active ? 'bg-indigo-dim text-indigo-soft' : ''
-                    }`}
-                  >
-                    <span className="type-micro font-mono text-tx-2">{contextLog.ts}</span>
-                    <span className="min-w-0">
-                      <span className="block truncate text-tx-0">{contextMessage.value || compactRecord(contextLog.raw)}</span>
-                      <span className="type-micro mt-0.5 block truncate text-tx-2">{logSourceLabel(contextLog.raw)}</span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="flex items-center justify-between border-t border-bd-0 bg-bg-1 px-4 py-2">
-        <ChromeButton onClick={onPrev} disabled={index === 0}>
-          <ArrowLeft className="h-3 w-3" /> {t('explore.detail.prev')}
-        </ChromeButton>
-        <span className="font-sans text-xs text-tx-2">
-          {t('explore.detail.position', { current: index + 1, total })}
-        </span>
-        <ChromeButton onClick={onNext} disabled={index === total - 1}>
-          {t('explore.detail.next')} <ArrowRight className="h-3 w-3" />
-        </ChromeButton>
-      </div>
-    </div>
-  );
-}
-
-function DetailMetaRow({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="grid grid-cols-[140px_minmax(0,1fr)] border-b border-bd-0 last:border-b-0">
-      <dt className="bg-bg-2 px-3 py-2 text-tx-2">{label}</dt>
-      <dd className="min-w-0 whitespace-pre-wrap break-words px-3 py-2 text-tx-0">
-        {typeof value === 'string' && !value ? '—' : value}
-      </dd>
-    </div>
-  );
-}
-
-type LogFieldJumpHandler = (to: string) => void;
-
-function JsonTree({
-  obj,
-  record = obj,
-  depth = 0,
-  path = '',
-  onJump,
-}: {
-  obj: Record<string, unknown>;
-  record?: Record<string, unknown>;
-  depth?: number;
-  path?: string;
-  onJump?: LogFieldJumpHandler | undefined;
-}) {
-  return (
-    <div className="font-sans text-xs font-strong leading-[1.7]">
-      <div>{'{'}</div>
-      {Object.entries(obj).map(([k, v], i, arr) => {
-        const childPath = path ? `${path}.${k}` : k;
-        return (
-          <JsonRow
-            key={childPath}
-            k={k}
-            path={childPath}
-            v={v}
-            last={i === arr.length - 1}
-            depth={depth + 1}
-            record={record}
-            onJump={onJump}
-          />
-        );
-      })}
-      <div>{'}'}</div>
-    </div>
-  );
-}
-
-function JsonRow({
-  k,
-  path,
-  v,
-  last,
-  depth,
-  record,
-  onJump,
-}: {
-  k: string;
-  path: string;
-  v: unknown;
-  last: boolean;
-  depth: number;
-  record: Record<string, unknown>;
-  onJump?: LogFieldJumpHandler | undefined;
-}) {
-  const [open, setOpen] = React.useState(depth <= 1);
-  const isObj = v !== null && typeof v === 'object' && !Array.isArray(v);
-  const isArr = Array.isArray(v);
-  const indent = depth * 16;
-  const valColor =
-    typeof v === 'string' ? 'text-green-soft' : typeof v === 'number' ? 'text-orange-soft' : typeof v === 'boolean' ? 'text-blue-soft' : 'text-tx-1';
-
-  if (isObj || isArr) {
-    return (
-      <div style={{ paddingLeft: indent }}>
-        <button type="button" onClick={() => setOpen(!open)} className="flex cursor-pointer gap-1 text-left">
-          <ChevronRight className={`h-3 w-3 shrink-0 text-tx-3 transition-transform ${open ? 'rotate-90' : ''}`} />
-          <span className="text-tx-2">{k}:</span>
-          <span className="text-tx-3">
-            {isArr ? `[ ${(v as unknown[]).length} items ]` : `{ ${Object.keys(v as object).length} keys }`}
-          </span>
-        </button>
-        {open && (isObj ? <JsonTree obj={v as Record<string, unknown>} record={record} depth={depth} path={path} onJump={onJump} /> : null)}
-      </div>
-    );
-  }
-  return (
-    <div className="flex items-start gap-1.5" style={{ paddingLeft: indent }}>
-      <span className="text-tx-2">{k}:</span>
-      <LogFieldValue field={path} value={v} record={record} onJump={onJump} className={valColor} />
-      {!last && <span className="text-tx-3">,</span>}
-    </div>
-  );
-}
-
-function KvTable({
-  obj,
-  onJump,
-  visibleFields = [],
-  onInclude,
-  onExclude,
-  onToggleVisibility,
-}: {
-  obj: Record<string, unknown>;
-  onJump?: LogFieldJumpHandler;
-  visibleFields?: string[];
-  onInclude?: (field: string, value: unknown) => void;
-  onExclude?: (field: string, value: unknown) => void;
-  onToggleVisibility?: (field: string) => void;
-}) {
-  const { t } = useTranslation('logs');
-  function flatten(o: Record<string, unknown>, prefix = ''): Array<[string, unknown]> {
-    const out: Array<[string, unknown]> = [];
-    for (const [k, v] of Object.entries(o)) {
-      const key = prefix ? `${prefix}.${k}` : k;
-      if (v && typeof v === 'object' && !Array.isArray(v)) {
-        out.push(...flatten(v as Record<string, unknown>, key));
-      } else {
-        out.push([key, Array.isArray(v) ? JSON.stringify(v) : v]);
-      }
-    }
-    return out;
-  }
-  const rows = flatten(obj);
-  return (
-    <TooltipProvider delayDuration={250}>
-      <table className="w-full border-collapse font-sans text-xs font-strong">
-        <thead>
-          <tr>
-            <th className={`w-[190px] border-b border-bd-0 px-2.5 py-1.5 text-left ${uiTableHeaderClass}`}>
-              {t('explore.detail.field_column')}
-            </th>
-            <th className={`border-b border-bd-0 px-2.5 py-1.5 text-left ${uiTableHeaderClass}`}>
-              {t('explore.detail.value_column')}
-            </th>
-            <th className={`w-[116px] border-b border-bd-0 px-2.5 py-1.5 text-right ${uiTableHeaderClass}`}>
-              {t('explore.detail.actions_column')}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(([k, v]) => (
-            <tr key={k} className="group border-b border-bd-0 hover:bg-bg-1">
-              <td className="px-2.5 py-1.5 align-top text-tx-2">{k}</td>
-              <td className="min-w-0 px-2.5 py-1.5 align-top">
-                <LogFieldValue
-                  field={k}
-                  value={v}
-                  record={obj}
-                  onJump={onJump}
-                  className={typeof v === 'number' ? 'text-orange-soft' : typeof v === 'boolean' ? 'text-blue-soft' : 'text-green-soft'}
-                />
-              </td>
-              <td className="px-1.5 py-1 align-top">
-                <div className="flex justify-end opacity-0 focus-within:opacity-100 group-hover:opacity-100">
-                  <FieldActionButton
-                    label={t('explore.detail.include_filter')}
-                    icon={Filter}
-                    disabled={!onInclude || !isPresent(v)}
-                    onClick={() => onInclude?.(k, v)}
-                  />
-                  <FieldActionButton
-                    label={t('explore.detail.exclude_filter')}
-                    icon={Minus}
-                    disabled={!onExclude || !isPresent(v)}
-                    onClick={() => onExclude?.(k, v)}
-                  />
-                  <FieldActionButton
-                    label={t('explore.detail.copy_value')}
-                    icon={Clipboard}
-                    onClick={() => {
-                      void writeClipboardText(formatLogFieldValue(v)).then(() => {
-                        toast.success(t('explore.detail.copied_value'));
-                      });
-                    }}
-                  />
-                  <FieldActionButton
-                    label={visibleFields.includes(k)
-                      ? t('explore.detail.hide_column')
-                      : t('explore.detail.show_column')}
-                    icon={visibleFields.includes(k) ? EyeOff : Eye}
-                    disabled={!onToggleVisibility}
-                    onClick={() => onToggleVisibility?.(k)}
-                  />
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </TooltipProvider>
-  );
-}
-
-function FieldActionButton({
-  label,
-  icon: Icon,
-  onClick,
-  disabled = false,
-}: {
-  label: string;
-  icon: LucideIcon;
-  onClick: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          onClick={onClick}
-          disabled={disabled}
-          aria-label={label}
-          className="grid h-7 w-7 place-items-center rounded text-tx-3 hover:bg-bg-3 hover:text-tx-0 disabled:cursor-not-allowed disabled:opacity-30"
-        >
-          <Icon className="h-3 w-3" />
-        </button>
-      </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
-    </Tooltip>
-  );
-}
-
-function LogFieldValue({
-  field,
-  value,
-  record,
-  onJump,
-  className,
-}: {
-  field: string;
-  value: unknown;
-  record: Record<string, unknown>;
-  onJump?: LogFieldJumpHandler | undefined;
-  className: string;
-}) {
-  const { t } = useTranslation('logs');
-  const display = value === null ? 'null' : value === undefined ? 'undefined' : formatLogFieldValue(value);
-
-  // Cross-signal fields use the shared SignalReference HoverCard and label
-  // detection so metrics, logs, and trace attributes expose the same actions
-  // and aliases.
-  const signalType = isPresent(value)
-    ? detectSignalTypeForLabel(field) ??
-      detectSignalTypeForLabel(leafFieldName(field))
-    : null;
-  if (signalType) {
-    return (
-      <SignalReference
-        type={signalType}
-        value={String(value)}
-        labelName={field}
-        labels={stringLabelsFromRecord(record)}
-        className={className}
-      >
-        {display}
-      </SignalReference>
-    );
-  }
-
-  // Other fields: keep the legacy single-jump button if the field jump
-  // config matches; otherwise plain text.
-  const handleJump = onJump;
-  const jump = handleJump ? resolveLogFieldJump(record, field, value) : null;
-  if (!jump || !handleJump) {
-    return <span className={`${className} whitespace-pre-wrap break-all`}>{display}</span>;
-  }
-  return (
-    <button
-      type="button"
-      onClick={(event) => {
-        event.stopPropagation();
-        handleJump(jump.to);
-      }}
-      className={`${className} inline whitespace-pre-wrap break-all text-left underline decoration-current/40 underline-offset-2 hover:brightness-110 focus:bg-indigo-dim focus:text-indigo-soft`}
-      title={t(jump.titleKey)}
-    >
-      {display}
-    </button>
   );
 }

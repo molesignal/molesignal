@@ -1,10 +1,10 @@
 import { useTranslation } from 'react-i18next';
 
+import { DEFAULT_EXPLORER_PAGE_SIZE, EXPLORER_PAGE_SIZE_OPTIONS } from '@/pagination/explorerPageSize';
 import { CursorPagination } from '@/shell/CursorPagination';
 import { ResultPagination } from '@/shell/ResultPagination';
 
-export const DEFAULT_TRACE_PAGE_SIZE = 20;
-const TRACE_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+export const DEFAULT_TRACE_PAGE_SIZE = DEFAULT_EXPLORER_PAGE_SIZE;
 
 export type TracePaginationModel =
   | {
@@ -22,6 +22,8 @@ export type TracePaginationModel =
       page: number;
       pageCount: number;
       pageSize: number;
+      /** The sizes worth offering for the traces in hand. */
+      pageSizes: number[];
       onPageChange: (page: number) => void;
       onPageSizeChange: (pageSize: number) => void;
     };
@@ -32,7 +34,7 @@ export function TracePagination({ model }: { model: TracePaginationModel }) {
     return (
       <CursorPagination
         pageSize={model.pageSize}
-        pageSizeOptions={TRACE_PAGE_SIZE_OPTIONS}
+        pageSizeOptions={EXPLORER_PAGE_SIZE_OPTIONS}
         hasPrevious={model.hasPrevious}
         hasNext={model.hasNext}
         pending={model.pending}
@@ -53,7 +55,7 @@ export function TracePagination({ model }: { model: TracePaginationModel }) {
       page={model.page}
       pageCount={model.pageCount}
       pageSize={model.pageSize}
-      pageSizeOptions={TRACE_PAGE_SIZE_OPTIONS}
+      pageSizeOptions={model.pageSizes}
       pageLabel={t('explore.pagination.page_summary', {
         page: model.page,
         pages: model.pageCount,

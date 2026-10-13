@@ -53,7 +53,7 @@ export function CustomDomainSettings() {
   return (
     <SettingsCard title={t('settings.domain.title')} description={t('settings.domain.description')}>
       {domainCapability?.available === false && (
-        <div className="flex gap-3 rounded-lg bg-yellow-dim px-4 py-3 text-yellow-soft">
+        <div className="flex gap-3 rounded-lg bg-[var(--yellow-tint)] px-4 py-3 text-[var(--yellow-ink)]">
           <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0" />
           <div className="min-w-0">
             <p className="text-sm font-strong">{t('settings.domain.unavailable_title')}</p>
@@ -102,7 +102,7 @@ account_email = "ops@example.com"`}</span>
                 <ShieldCheck
                   className={cn(
                     'h-4 w-4',
-                    config.cert_not_after ? 'text-green-soft' : 'text-tx-3',
+                    config.cert_not_after ? 'text-[var(--green-ink)]' : 'text-tx-3',
                   )}
                 />
                 {config.cert_not_after

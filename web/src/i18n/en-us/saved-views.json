@@ -60,5 +60,17 @@
       "stream": "Limits partition pruning when the view is opened.",
       "tags": "Comma-separated."
     }
+  },
+  "report": {
+    "time_range": "Time range",
+    "timezone": "Timezone",
+    "stream": "Stream",
+    "rows": "Rows",
+    "rows_capped": "First {{shown}} only",
+    "generated": "Generated",
+    "results": "Results",
+    "empty": "No rows in this time range.",
+    "no_view": "The report does not name a saved view.",
+    "no_stream": "The saved view names no stream, and the organization has no logs stream to run it on."
   }
 }

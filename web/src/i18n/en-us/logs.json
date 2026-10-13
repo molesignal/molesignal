@@ -33,19 +33,14 @@
       "open_trace": "Open trace",
       "open_span": "Open span"
     },
-    "query_modes": {
-      "fields": "Fields",
-      "sql": "SQL"
-    },
     "histogram": {
-      "bucket_aria": "{{start}} to {{end}}: {{total}} total, {{errors}} errors",
-      "total": "Total",
       "normal": "Non-error",
-      "errors": "Errors"
+      "errors": "Errors",
+      "hide": "Hide histogram",
+      "show": "Show histogram"
     },
     "toolbar": {
       "histogram": "Histogram",
-      "query_mode_aria": "Log query mode",
       "more_actions_aria": "More actions",
       "actions_label": "Query actions",
       "copy_query": "Copy query",
@@ -57,12 +52,120 @@
       "run": "Run",
       "running": "Running…",
       "clear_query": "Clear query",
-      "empty_query_summary": "All log events",
+      "empty_query_summary": "Log events",
       "collapse_editor": "Collapse query",
       "expand_editor": "Expand query",
-      "editor": "Editor",
-      "mode_search_aria": "Search mode",
-      "mode_patterns_aria": "Patterns mode"
+      "editor": "Editor"
+    },
+    "views": {
+      "aria": "Result view",
+      "raw": "Logs",
+      "stats": "Statistics",
+      "inspection": "AI inspection",
+      "patterns": "Patterns"
+    },
+    "stats": {
+      "measure": "Measure",
+      "measure_aria": "Measure",
+      "measures": {
+        "count": "Count",
+        "distinct": "Distinct count",
+        "avg": "Average",
+        "sum": "Sum",
+        "min": "Min",
+        "max": "Max",
+        "p50": "P50",
+        "p95": "P95",
+        "p99": "P99"
+      },
+      "field_aria": "Measured field",
+      "group": "by",
+      "group_aria": "Group by",
+      "group_time": "Time",
+      "group_none": "No grouping",
+      "limit": "top",
+      "limit_aria": "Groups kept",
+      "chart_aria": "Chart type",
+      "charts": {
+        "stat": "Single value",
+        "bar": "Bar chart",
+        "line": "Line chart",
+        "table": "Table"
+      },
+      "written": "Drawn from the result of the SQL statement.",
+      "copy_statement": "Copy the statistics statement",
+      "edit_statement": "Edit in the editor",
+      "samples": {
+        "title": "This statement has no statistics",
+        "description": "Statistics draws the result of an aggregate query. Start from one of the statements below, or write the query as filters and pick a measure here.",
+        "use": "Use this statement"
+      },
+      "dashboard": {
+        "action": "Create dashboard",
+        "title": "Create a dashboard",
+        "description": "A new dashboard is created with these statistics as its panel.",
+        "name": "Dashboard name",
+        "panel": "Panel title",
+        "creating": "Creating…",
+        "created": "Dashboard “{{name}}” created",
+        "open": "Open dashboard",
+        "default_name": "{{stream}} log statistics",
+        "written_panel": "SQL statistics"
+      }
+    },
+    "inspection": {
+      "title": "AI inspection",
+      "intro": "Have the model inspect the logs this query matches: an overview of volume and levels over time, what is abnormal, what spiked, what is new, and where to look next.",
+      "target": "Inspected",
+      "target_all": "All logs",
+      "model": "AI model",
+      "requirements": "What to attend to",
+      "requirements_hint": "Optional. Without it the logs are inspected as a whole.",
+      "requirements_placeholder": "For example: only payment-service in production; treat USER_CANCEL as an expected outcome; when a new stack trace appears, break it down by release.",
+      "disclosure": "The inspection sends query results of these logs to the AI model {{model}}.",
+      "start": "Start inspection",
+      "running": "Inspecting…",
+      "waiting": "The model is reading the logs…",
+      "writing": "The model is writing the report…",
+      "stop": "Stop",
+      "again": "Inspect again",
+      "report": "Inspection report",
+      "copy_report": "Copy the inspection report",
+      "continue_in_agent": "Continue in Mole Agent",
+      "chat_title": "Log inspection · {{stream}}",
+      "tool_running": "Calling {{name}}",
+      "tool_done": "Called {{name}}",
+      "tool_error": "{{name}} failed",
+      "failed": "The inspection did not finish",
+      "unavailable": {
+        "loading": "Checking the AI model…",
+        "permission_title": "You cannot use Mole Agent",
+        "permission_description": "AI inspection is done by Mole Agent and needs the agent.use permission.",
+        "model_title": "Set up and enable an AI model first",
+        "model_description": "An AI model reads the logs and writes the findings. This organization has no model enabled yet.",
+        "ask_admin": "Ask an administrator to enable one in the Mole Agent settings.",
+        "configure": "Set up an AI model",
+        "failed_title": "The AI model settings could not be read"
+      },
+      "prompt": {
+        "task": "Inspect the log stream “{{stream}}” and write an inspection report in English.",
+        "range": "Time range: {{label}} ({{start}} to {{end}}, Unix microseconds).",
+        "query": "Look only at the logs that match this query: {{statement}}",
+        "query_all": "Inspect every log of the stream in this time range.",
+        "steps": "Read the data of this time range yourself with the log query tools you have. In the conclusion, sum up the volume of logs, the share of each level and whether the whole looks healthy. As evidence, list one by one: how the volume and the levels change over time, the main kinds of errors and warnings with when each first appeared and the services involved, any clear spike, and new or rare patterns worth attention. Then give the likely causes, and the next steps ordered by severity.",
+        "rules": "Analyse read-only: change nothing. Every finding must rest on a query result; where no data can be read, say so instead of guessing.",
+        "digest_one": "What the {{count}} log loaded on the page says (a place to begin, not the whole):",
+        "digest_other": "What the {{count}} logs loaded on the page say (a place to begin, not the whole):",
+        "digest_levels": "Levels",
+        "digest_services": "Services",
+        "requirements": "What to attend to:"
+      },
+      "no_logs": "The query matches no logs, so there is nothing to inspect right now."
+    },
+    "field_analysis": {
+      "scope_all": "Of every log the query matches",
+      "scope_loaded_one": "Of the {{count}} loaded log",
+      "scope_loaded_other": "Of the {{count}} loaded logs"
     },
     "left_panel": {
       "title": "Fields",
@@ -76,8 +179,9 @@
       "field_search_placeholder": "Search fields",
       "filter_fields_aria": "Filter fields",
       "visible_fields": "Displayed fields",
-      "fixed_fields": "Fixed fields",
-      "all_fields": "All fields",
+      "indexed_fields": "Indexed fields",
+      "no_indexed_fields": "This stream keeps no field in an index.",
+      "other_fields": "Other fields",
       "no_top_values": "No values to summarize in the current result.",
       "include_value": "Add include filter",
       "exclude_value": "Add exclude filter",
@@ -127,54 +231,268 @@
       "visible_columns": "Visible fields",
       "reorder_columns_hint": "Drag to reorder",
       "available_columns": "Available fields",
+      "reset_columns": "Reset to default",
       "drag_column_aria": "Reorder {{name}}. Drag it, or press Alt+Up or Alt+Down.",
-      "density": "Density",
-      "density_values": {
-        "compact": "Compact",
-        "normal": "Standard",
-        "comfortable": "Comfortable"
-      },
       "download": "Download logs",
       "download_csv": "CSV",
       "download_log": "LOG (text)"
     },
+    "patterns": {
+      "events": "Events",
+      "share": "Share",
+      "pattern_one": "{{count}} pattern",
+      "pattern_other": "{{count}} patterns",
+      "level": "Level",
+      "source": "Source",
+      "open_aria_one": "{{pattern}}: {{count}} event. Show its logs",
+      "open_aria_other": "{{pattern}}: {{count}} events. Show their logs",
+      "filter": "Show only logs like this",
+      "filter_aria": "Show only logs like {{pattern}}",
+      "show_more_one": "Show {{count}} more",
+      "show_more_other": "Show {{count}} more",
+      "basis_latest": "The latest events that match",
+      "basis_all": "Every event that matches",
+      "basis_returned": "The events the query returned",
+      "basis_back_to": "back to {{moment}}",
+      "read_more": "Read {{logs}} older",
+      "reading": "Reading…",
+      "read_failed": "Could not read further back.",
+      "unread_one": "{{count}} event carries no message and is in no pattern.",
+      "unread_other": "{{count}} events carry no message and are in no pattern.",
+      "kind": {
+        "number": "A number",
+        "id": "An identifier",
+        "ip": "An address",
+        "url": "A URL",
+        "time": "A moment",
+        "data": "Structured data",
+        "any": "A value"
+      }
+    },
     "detail": {
       "drawer_aria": "Log detail drawer",
-      "title": "Details",
+      "filter_placeholder": "Filter fields",
+      "no_field_match": "No field matches.",
+      "views_aria": "Views of the log",
       "close": "Close log details",
       "copy_json": "Copy log JSON",
       "copied_json": "Copied log JSON",
       "download_json": "Download log JSON",
-      "inline_label": "inline details",
       "tabs": {
-        "overview": "Overview",
         "fields": "Fields",
         "json": "Raw JSON",
         "context": "Context"
       },
-      "overview_metadata": "Log metadata",
-      "related_signals": "Related signals",
-      "primary_fields": "Primary fields",
-      "stream": "Stream",
-      "time": "Time",
-      "level": "Level",
-      "source": "Source",
       "context_description": "Inspect five surrounding rows on each side of the current result. Select a row to open it.",
       "position": "{{current}} of {{total}}",
-      "record_count_aria": "Record count",
-      "record_count_label": "Records:",
-      "surrounding": "Surrounding context",
       "prev": "Previous",
       "next": "Next",
-      "field_column": "Field",
-      "value_column": "Value",
-      "actions_column": "Actions",
       "include_filter": "Add include filter",
       "exclude_filter": "Add exclude filter",
       "copy_value": "Copy value",
       "copied_value": "Field value copied",
       "show_column": "Show as column",
       "hide_column": "Hide column"
+    }
+  },
+  "inspections": {
+    "title": "Scheduled inspections",
+    "subtitle": "AI inspects a log stream on a schedule, keeps every report, and notifies when a report says something is wrong.",
+    "entry": "Scheduled inspections",
+    "save_as": "Save as scheduled inspection",
+    "new": "New inspection",
+    "enabled": "On",
+    "never_run": "Not run yet",
+    "live": "An inspection is running; refreshing every {{seconds}} s",
+    "levels": {
+      "normal": "Normal",
+      "attention": "Needs attention",
+      "abnormal": "Abnormal",
+      "unknown": "No verdict"
+    },
+    "run_status": {
+      "queued": "Queued",
+      "running": "Inspecting",
+      "succeeded": "Done",
+      "failed": "Failed",
+      "timed_out": "Timed out"
+    },
+    "failures": {
+      "timed_out": "The inspection exceeded its time limit.",
+      "interrupted": "The node running the inspection stopped before it finished.",
+      "not_started": "No node picked up the inspection.",
+      "identity": "The user the inspection runs as can no longer be used. Save the inspection again to run it as yourself.",
+      "model": "The AI model chosen for the inspection is missing, switched off, or has no key.",
+      "agent": "The AI model call failed.",
+      "internal": "The inspection failed for an internal reason."
+    },
+    "triggers": {
+      "manual": "Manual"
+    },
+    "schedule": {
+      "every": "Every {{duration}}",
+      "daily_at": "Daily at {{time}}",
+      "weekly_at": "{{weekday}} at {{time}}"
+    },
+    "schedule_kinds": {
+      "interval": "At an interval",
+      "daily": "Daily",
+      "weekly": "Weekly"
+    },
+    "weekdays": {
+      "1": "Mondays",
+      "2": "Tuesdays",
+      "3": "Wednesdays",
+      "4": "Thursdays",
+      "5": "Fridays",
+      "6": "Saturdays",
+      "7": "Sundays"
+    },
+    "units": {
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes",
+      "hours_one": "{{count}} hour",
+      "hours_other": "{{count}} hours",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days"
+    },
+    "notify_when": {
+      "abnormal": "Notify when abnormal",
+      "attention": "Notify on attention or worse",
+      "always": "Notify every time"
+    },
+    "columns": {
+      "name": "Inspection",
+      "schedule": "Schedule",
+      "last_run": "Last run",
+      "next_run": "Next run",
+      "notify": "Notifications",
+      "enabled": "On",
+      "actions": "Actions"
+    },
+    "cells": {
+      "window": "Covers the last {{duration}}",
+      "due": "Due now",
+      "paused": "Switched off",
+      "no_channel": "No notifications",
+      "channels_one": "{{count}} channel",
+      "channels_other": "{{count}} channels"
+    },
+    "actions": {
+      "run": "Run now",
+      "run_named": "Run {{name}} now",
+      "run_active": "This inspection is running",
+      "edit": "Edit",
+      "edit_named": "Edit {{name}}",
+      "delete": "Delete",
+      "delete_named": "Delete {{name}}",
+      "toggle_named": "Switch {{name}} on or off"
+    },
+    "toast": {
+      "created": "Scheduled inspection saved",
+      "saved": "Scheduled inspection updated",
+      "enabled": "Switched on; it runs on its schedule",
+      "paused": "Switched off; it no longer runs on its schedule",
+      "queued": "Queued; it starts within seconds",
+      "deleted": "Scheduled inspection deleted"
+    },
+    "denied": {
+      "title": "You cannot see scheduled inspections",
+      "description": "Mole Agent does the inspecting and the reports quote logs, so it takes both agent.use and streams.query.",
+      "manage": "Requires the inspections.manage permission"
+    },
+    "no_model": {
+      "short": "Switch on an AI model first",
+      "notice": "No AI model is switched on in this organization, so the saved inspections cannot run."
+    },
+    "capacity": {
+      "full": "The limit of {{max}} inspections per organization is reached",
+      "count": "{{saved}} saved; the limit is {{max}}"
+    },
+    "empty": {
+      "title": "No scheduled inspections yet",
+      "description": "Save an inspection and AI inspects the chosen stream on a schedule. Every report is kept here, and the channels you choose are told when a report says something is wrong."
+    },
+    "delete_confirm": {
+      "title": "Delete “{{name}}”?",
+      "description": "The inspection and all its past reports are deleted. This cannot be undone.",
+      "confirm": "Delete",
+      "busy": "Deleting…"
+    },
+    "editor": {
+      "new_title": "New scheduled inspection",
+      "edit_title": "Edit scheduled inspection",
+      "subtitle": "AI inspects on a schedule, reading only, and keeps every report.",
+      "what": "What to inspect",
+      "when": "When to inspect",
+      "whom": "Whom to notify",
+      "name": "Name",
+      "name_placeholder": "For example: payment service error logs",
+      "stream": "Stream",
+      "stream_placeholder": "Choose a log stream",
+      "statement": "Query",
+      "statement_hint": "Optional. Only logs that match the query are inspected; leave it empty to inspect every log of the stream.",
+      "statement_placeholder": "For example: level = 'ERROR'",
+      "schedule": "Schedule",
+      "interval": "Interval",
+      "weekday": "Weekday",
+      "time": "Time",
+      "hour": "Hour",
+      "minute": "Minute",
+      "time_hint": "In the {{timezone}} time zone",
+      "window": "Period covered",
+      "window_hint": "Each run looks over this much time before it.",
+      "no_model": "No AI model can be used right now.",
+      "model_off": "{{name}} (disabled)",
+      "model_off_hint": "This model is disabled. The inspection cannot be saved or run until the model is enabled again or another one is chosen.",
+      "model_placeholder": "Choose an AI model",
+      "enabled": "Run on the schedule once saved",
+      "notify_when": "When to notify",
+      "channels": "Notification channels",
+      "channels_denied": "Choosing a notification channel requires the alerts.read permission.",
+      "channels_none": "No notification connector is enabled yet. Add one under Settings → Notifications.",
+      "channels_failed": "The notification connectors could not be loaded.",
+      "channels_kept_one": "The {{count}} channel already chosen is kept as it is.",
+      "channels_kept_other": "The {{count}} channels already chosen are kept as they are.",
+      "connector_off": "{{name}} (disabled)",
+      "connector_gone": "{{name}} (not found)",
+      "channels_hint": "Optional. Without a channel nothing is sent, and the reports are still kept on the page. A run that fails is told once, when the inspection goes from working to failing.",
+      "add_channel": "Add channel",
+      "remove_channel": "Remove channel",
+      "no_channel": "No channel chosen: no notification is sent.",
+      "channel_connector": "Connector of channel {{number}}",
+      "channel_kind": "Target type of channel {{number}}",
+      "channel_target": "Target of channel {{number}}",
+      "target_placeholder": {
+        "group": "Group ID",
+        "address": "Address"
+      },
+      "run_as_you": "Once saved, every run reads the logs with the access you have at that time.",
+      "run_as_change": "It runs with the access of {{name}} now; once saved it runs with yours.",
+      "save": "Save",
+      "create": "Save inspection"
+    },
+    "detail": {
+      "runs": "Past reports",
+      "older": "Older reports",
+      "no_runs": "It has not run yet. It inspects by itself at its next run time, or you can run it now.",
+      "no_runs_paused": "It has not run yet. The inspection is switched off; you can still run it once now.",
+      "run_missing": "This report no longer exists",
+      "loading_report": "Reading the report…",
+      "run_as": "Runs with the access of {{name}}",
+      "next_run": "Next at {{time}}"
+    },
+    "report": {
+      "open_logs": "Open the logs of this period",
+      "manual_by": "Run by {{name}}",
+      "scheduled": "Scheduled run",
+      "took": "Took {{duration}}",
+      "tokens": "{{formatted}} tokens",
+      "queued": "Queued; waiting for the backend to run it…",
+      "tools": "What it read with",
+      "notified": "Notifications",
+      "delivered": "Delivered",
+      "undelivered": "Not delivered"
     }
   }
 }

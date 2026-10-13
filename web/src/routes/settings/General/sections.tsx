@@ -72,7 +72,6 @@ export function SignupPolicySection({
           <SettingsRow
             label={t('general.signup.enabled')}
             description={t('general.signup.enabled_hint')}
-            controlClassName="justify-start min-[1100px]:justify-end"
           >
             <Switch
               className="relative before:absolute before:-inset-x-2 before:-inset-y-3 before:content-['']"
@@ -89,7 +88,6 @@ export function SignupPolicySection({
             <SettingsRow
               label={t('general.signup.require_approval')}
               description={t('general.signup.require_approval_hint')}
-              controlClassName="justify-start min-[1100px]:justify-end"
             >
               <Switch
                 className="relative before:absolute before:-inset-x-2 before:-inset-y-3 before:content-['']"
@@ -188,7 +186,6 @@ export function SharingPolicySection({
           <SettingsRow
             label={t('general.sharing.allow_public_links')}
             description={t('general.sharing.allow_public_links_hint')}
-            controlClassName="justify-start min-[1100px]:justify-end"
           >
             <Switch
               className="relative before:absolute before:-inset-x-2 before:-inset-y-3 before:content-['']"
@@ -204,7 +201,6 @@ export function SharingPolicySection({
           <SettingsRow
             label={t('general.sharing.allow_public_dashboards')}
             description={t('general.sharing.allow_public_dashboards_hint')}
-            controlClassName="justify-start min-[1100px]:justify-end"
           >
             <Switch
               className="relative before:absolute before:-inset-x-2 before:-inset-y-3 before:content-['']"
@@ -250,7 +246,6 @@ export function SharingPolicySection({
           <SettingsRow
             label={t('general.sharing.report_password')}
             description={t('general.sharing.report_password_hint')}
-            controlClassName="justify-start min-[1100px]:justify-end"
           >
             <Switch
               className="relative before:absolute before:-inset-x-2 before:-inset-y-3 before:content-['']"
@@ -266,7 +261,6 @@ export function SharingPolicySection({
           <SettingsRow
             label={t('general.sharing.deny_production')}
             description={t('general.sharing.deny_production_hint')}
-            controlClassName="justify-start min-[1100px]:justify-end"
           >
             <Switch
               className="relative before:absolute before:-inset-x-2 before:-inset-y-3 before:content-['']"
@@ -282,7 +276,6 @@ export function SharingPolicySection({
           <SettingsRow
             label={t('general.sharing.allow_csv_download')}
             description={t('general.sharing.allow_csv_download_hint')}
-            controlClassName="justify-start min-[1100px]:justify-end"
           >
             <Switch
               className="relative before:absolute before:-inset-x-2 before:-inset-y-3 before:content-['']"

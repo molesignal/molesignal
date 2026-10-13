@@ -5,7 +5,6 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
-  ClipboardCheck,
   Copy,
   Ellipsis,
   FlaskConical,
@@ -17,13 +16,10 @@ import {
   RefreshCw,
   Search,
   Server,
-  ShieldCheck,
   SlidersHorizontal,
   Unplug,
   Wrench,
   XCircle,
-  Zap,
-  type LucideIcon,
 } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -100,7 +96,12 @@ const EXECUTION_MODES: agentApi.ToolExecutionMode[] = [
 ];
 
 const EMPTY_TOOLS: agentApi.RegisteredTool[] = [];
-const COLLAPSED_STORAGE_KEY = 'molesignal.agent.tools.collapsed.v1';
+/**
+ * The groups a person has opened. A group is folded until it is opened: two
+ * hundred tools in a dozen groups are found by their group's name and count,
+ * not by scrolling past every one of them.
+ */
+const EXPANDED_STORAGE_KEY = 'molesignal.agent.tools.expanded.v1';
 
 export function ToolCapabilitiesPanel({
   registry,
@@ -129,7 +130,14 @@ export function ToolCapabilitiesPanel({
   } | null>(null);
   const [policyDefaultsOpen, setPolicyDefaultsOpen] = React.useState(false);
   const [mcpOpen, setMcpOpen] = React.useState(false);
-  const [collapsed, setCollapsed] = React.useState<Set<string>>(() => readCollapsedGroups());
+  const [expanded, setExpanded] = React.useState<Set<string>>(() => readExpandedGroups());
+  // While a search is typed its matches are shown, whichever groups they are in; a group folded
+  // away during the search is folded for that search only.
+  const [foldedInSearch, setFoldedInSearch] = React.useState<Set<string>>(() => new Set());
+  const searching = search.trim().length > 0;
+  React.useEffect(() => {
+    if (!searching) setFoldedInSearch(new Set());
+  }, [searching]);
 
   const tools = React.useMemo(
     () =>
@@ -178,15 +186,17 @@ export function ToolCapabilitiesPanel({
     [filteredTools, groupMode],
   );
   const groups = useLocalizedGroups(rawGroups);
-  const enabledCount = tools.filter((tool) => tool.enabled).length;
-  const automaticCount = tools.filter(
-    (tool) => tool.enabled && tool.execution_mode === 'automatic',
-  ).length;
-  const approvalCount = tools.filter(
-    (tool) =>
-      tool.enabled &&
+  // How many tools each filter lists, said on the filter itself: a row of cards over the
+  // filters gave the same numbers a second place and the same filters a second set of buttons.
+  const filterCounts: Record<ToolFilter, number> = {
+    all: tools.length,
+    read_only: tools.filter((tool) => tool.capabilities.read_only).length,
+    automatic: tools.filter((tool) => tool.execution_mode === 'automatic').length,
+    approval: tools.filter((tool) =>
       ['confirmation', 'single_approval', 'dual_approval'].includes(tool.execution_mode),
-  ).length;
+    ).length,
+    disabled: tools.filter((tool) => !tool.enabled).length,
+  };
   const mcpSummary = registry.data?.mcp_servers ?? { total: 0, healthy: 0, unhealthy: 0 };
 
   const refresh = React.useCallback(async () => {
@@ -243,14 +253,25 @@ export function ToolCapabilitiesPanel({
   );
 
   const toggleGroup = (key: string) => {
-    setCollapsed((current) => {
+    const toggled = (current: Set<string>) => {
       const next = new Set(current);
       if (next.has(key)) next.delete(key);
       else next.add(key);
-      writeCollapsedGroups(next);
+      return next;
+    };
+
+    if (searching) {
+      setFoldedInSearch(toggled);
+      return;
+    }
+
+    setExpanded((current) => {
+      const next = toggled(current);
+      writeExpandedGroups(next);
       return next;
     });
   };
+  const isCollapsed = (key: string) => (searching ? foldedInSearch.has(key) : !expanded.has(key));
 
   if (registry.isLoading) return <ToolsLoading />;
   if (registry.isError) {
@@ -266,75 +287,49 @@ export function ToolCapabilitiesPanel({
   return (
     <TooltipProvider delayDuration={200}>
       <section aria-labelledby="tool-capabilities-title" className="min-w-0">
-        <div className="mb-4 flex flex-wrap items-start gap-4">
-          <div className="min-w-0 flex-1">
-            <h2 id="tool-capabilities-title" className="text-base font-display-strong text-tx-0">
-              {t('settings.tools.title')}
-            </h2>
-            <p className="mt-1 max-w-3xl text-xs leading-5 text-tx-3">
-              {t('settings.tools.description')}
-            </p>
-          </div>
+        <div className="flex min-h-[32px] flex-wrap items-center gap-x-4 gap-y-2 pb-[10px]">
+          {/* The row of sections in the navigation names this one: it opens with what it holds. */}
+          <h2 id="tool-capabilities-title" className="sr-only">
+            {t('settings.tools.title')}
+          </h2>
+          <p className="min-w-0 flex-1 font-sans text-xs leading-5 text-tx-2">
+            {t('settings.tools.description')}
+          </p>
           <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" onClick={() => setPolicyDefaultsOpen(true)}>
               <SlidersHorizontal className="h-3.5 w-3.5" />
               {t('settings.tools.actions.configure_policy')}
             </Button>
-            <Button size="sm" variant="outline" onClick={() => setMcpOpen(true)}>
-              <Plus className="h-3.5 w-3.5" />
-              {t('settings.tools.actions.add_mcp')}
+            {/* The servers and how many of them answer, on the button that opens them. */}
+            <Button
+              size="sm"
+              variant="outline"
+              data-agent-mcp-servers
+              title={
+                mcpSummary.unhealthy > 0
+                  ? t('settings.tools.summary.mcp_unhealthy', {
+                      healthy: mcpSummary.healthy,
+                      unhealthy: mcpSummary.unhealthy,
+                    })
+                  : t('settings.tools.summary.mcp_healthy', { count: mcpSummary.healthy })
+              }
+              onClick={() => setMcpOpen(true)}
+            >
+              <Server className="h-3.5 w-3.5" />
+              {t('settings.tools.summary.mcp')}
+              <span
+                className={cn(
+                  'tabular-nums',
+                  mcpSummary.unhealthy > 0 ? 'text-[var(--yellow-ink)]' : 'text-tx-3',
+                )}
+              >
+                {mcpSummary.total}
+              </span>
             </Button>
           </div>
         </div>
 
-        <div className="grid gap-2 border-b border-bd-0 pb-3 sm:grid-cols-2 xl:grid-cols-4">
-          <SummaryCard
-            icon={ShieldCheck}
-            label={t('settings.tools.summary.enabled')}
-            value={enabledCount}
-            hint={t('settings.tools.summary.enabled_hint')}
-            active={filter === 'all' && sourceFilter.length === 0}
-            onClick={() => {
-              setFilter('all');
-              setSourceFilter([]);
-            }}
-          />
-          <SummaryCard
-            icon={Zap}
-            label={t('settings.tools.summary.automatic')}
-            value={automaticCount}
-            hint={t('settings.tools.summary.automatic_hint')}
-            active={filter === 'automatic'}
-            onClick={() => setFilter('automatic')}
-          />
-          <SummaryCard
-            icon={ClipboardCheck}
-            label={t('settings.tools.summary.approval')}
-            value={approvalCount}
-            hint={t('settings.tools.summary.approval_hint')}
-            active={filter === 'approval'}
-            onClick={() => setFilter('approval')}
-          />
-          <SummaryCard
-            icon={Server}
-            label={t('settings.tools.summary.mcp')}
-            value={mcpSummary.total}
-            hint={
-              mcpSummary.unhealthy > 0
-                ? t('settings.tools.summary.mcp_unhealthy', {
-                    healthy: mcpSummary.healthy,
-                    unhealthy: mcpSummary.unhealthy,
-                  })
-                : t('settings.tools.summary.mcp_healthy', {
-                    count: mcpSummary.healthy,
-                  })
-            }
-            warning={mcpSummary.unhealthy > 0}
-            onClick={() => setMcpOpen(true)}
-          />
-        </div>
-
-        <div className="mt-3 flex flex-col gap-3 xl:flex-row xl:items-center">
+        <div className="flex flex-col gap-3 border-t border-bd-0 pt-[10px] xl:flex-row xl:items-center">
           <div className="relative min-w-0 flex-1 xl:max-w-md">
             <Search
               aria-hidden
@@ -355,10 +350,15 @@ export function ToolCapabilitiesPanel({
                   key={value}
                   size="sm"
                   variant={filter === value ? 'default' : 'ghost'}
-                  className="h-8 px-3 text-xs"
+                  className="h-8 gap-1.5 px-3 text-xs"
+                  data-agent-tool-filter={value}
+                  aria-pressed={filter === value}
                   onClick={() => setFilter(value)}
                 >
                   {t(`settings.tools.filters.${value}`)}
+                  <span className={cn('tabular-nums', filter === value ? 'opacity-80' : 'text-tx-3')}>
+                    {filterCounts[value]}
+                  </span>
                 </Button>
               ),
             )}
@@ -406,7 +406,7 @@ export function ToolCapabilitiesPanel({
               <ToolGroup
                 key={group.key}
                 group={group}
-                collapsed={collapsed.has(group.key)}
+                collapsed={isCollapsed(group.key)}
                 onToggle={() => toggleGroup(group.key)}
                 onDetail={setSelectedTool}
                 onTest={setTestTool}
@@ -467,56 +467,6 @@ export function ToolCapabilitiesPanel({
         onChanged={refresh}
       />
     </TooltipProvider>
-  );
-}
-
-function SummaryCard({
-  icon: Icon,
-  label,
-  value,
-  hint,
-  active = false,
-  warning = false,
-  onClick,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: number;
-  hint: string;
-  active?: boolean;
-  warning?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'group flex min-h-[88px] items-center gap-3 px-3 py-2 text-left transition-colors',
-        active ? 'bg-indigo/5' : 'hover:bg-bg-2',
-      )}
-    >
-      <span
-        className={cn(
-          'grid h-9 w-9 shrink-0 place-items-center rounded-md bg-indigo/10 text-indigo',
-          warning && 'bg-yellow/10 text-yellow-soft',
-        )}
-      >
-        <Icon className="h-[18px] w-[18px]" />
-      </span>
-      <span className="min-w-0">
-        <span className="block text-xs font-strong text-tx-2">{label}</span>
-        <span
-          className={cn(
-            'mt-0.5 block font-mono text-xl font-display-strong tabular-nums text-tx-0',
-            warning && 'text-yellow-soft',
-          )}
-        >
-          {value}
-        </span>
-        <span className="mt-0.5 block truncate text-xs text-tx-3">{hint}</span>
-      </span>
-    </button>
   );
 }
 
@@ -635,6 +585,7 @@ function ToolGroup({
     <section className="overflow-hidden border-t border-bd-0 first:border-t-0">
       <button
         type="button"
+        data-agent-tool-group={group.key}
         className="flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left hover:bg-bg-2"
         onClick={onToggle}
         aria-expanded={!collapsed}
@@ -722,7 +673,7 @@ function ToolRow({
           {hasWarning && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-yellow-soft" />
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-[var(--yellow-ink)]" />
               </TooltipTrigger>
               <TooltipContent>
                 {tool.statistics.last_error ?? t('settings.tools.status.unavailable')}
@@ -910,7 +861,7 @@ function RiskBadge({ risk }: { risk: agentApi.RiskLevel }) {
           variant="outline"
           className={cn(
             'font-mono text-type-micro uppercase',
-            risk === 'l2' && 'border-yellow/30 text-yellow-soft',
+            risk === 'l2' && 'border-yellow/30 text-[var(--yellow-ink)]',
             (risk === 'l3' || risk === 'l4') && 'border-red/30 text-red-soft',
           )}
         >
@@ -932,8 +883,8 @@ function ExecutionBadge({ mode }: { mode: agentApi.ToolExecutionMode }) {
       variant="outline"
       className={cn(
         'text-type-micro',
-        mode === 'confirmation' && 'border-yellow/30 text-yellow-soft',
-        mode === 'single_approval' && 'border-yellow/40 text-yellow-soft',
+        mode === 'confirmation' && 'border-yellow/30 text-[var(--yellow-ink)]',
+        mode === 'single_approval' && 'border-yellow/40 text-[var(--yellow-ink)]',
         mode === 'dual_approval' && 'border-red/30 text-red-soft',
         mode === 'disabled' && 'text-tx-3',
       )}
@@ -1020,9 +971,14 @@ function ToolDetailDrawer({
           <FormSection title={t('settings.tools.detail.description')}>
             <p className="text-sm leading-6 text-tx-1">{tool.description}</p>
             {tool.technical_description !== tool.description && (
-              <p className="rounded-md border border-bd-0 bg-bg-2 p-3 font-mono text-xs leading-5 text-tx-3">
-                {tool.technical_description}
-              </p>
+              // The definition the model is given is English whatever language the page is read
+              // in: it is said to be that, so it does not read as a line left untranslated.
+              <div data-agent-tool-definition="">
+                <p className="mb-1 text-xs text-tx-3">{t('settings.tools.detail.model_definition')}</p>
+                <p className="rounded-md bg-[var(--control-surface)] p-3 font-mono text-xs leading-5 text-tx-2">
+                  {tool.technical_description}
+                </p>
+              </div>
             )}
           </FormSection>
           <FormSection title={t('settings.tools.detail.statistics')}>
@@ -1569,7 +1525,7 @@ function TestResult({ result }: { result: agentApi.ToolTestResult }) {
       >
         <div className="flex items-center gap-2">
           {result.success ? (
-            <CheckCircle2 className="h-4 w-4 text-green-soft" />
+            <CheckCircle2 className="h-4 w-4 text-[var(--green-ink)]" />
           ) : (
             <XCircle className="h-4 w-4 text-red-soft" />
           )}
@@ -1651,7 +1607,7 @@ function DependencyContent({
   if (!dependencies || dependencies.total === 0) {
     return (
       <div className="rounded-md border border-dashed border-bd-1 px-5 py-10 text-center">
-        <CheckCircle2 className="mx-auto h-5 w-5 text-green-soft" />
+        <CheckCircle2 className="mx-auto h-5 w-5 text-[var(--green-ink)]" />
         <div className="mt-2 text-sm font-strong text-tx-1">
           {t('settings.tools.dependencies.none')}
         </div>
@@ -1665,7 +1621,7 @@ function DependencyContent({
   ] as const;
   return (
     <div className="space-y-5">
-      <div className="rounded-md border border-yellow/25 bg-yellow/5 p-3 text-xs leading-5 text-yellow-soft">
+      <div className="rounded-md border border-yellow/25 bg-yellow/5 p-3 text-xs leading-5 text-[var(--yellow-ink)]">
         {t('settings.tools.dependencies.warning', { count: dependencies.total })}
       </div>
       {sections.map(([key, items]) => (
@@ -1740,7 +1696,7 @@ function DisableConfirmationDrawer({
     >
       <div className="rounded-md border border-yellow/25 bg-yellow/5 p-4">
         <div className="flex items-start gap-3">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-yellow-soft" />
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--yellow-ink)]" />
           <p className="text-sm leading-6 text-tx-1">
             {t('settings.tools.disable.dependency_warning', {
               count: target.dependencies.total,
@@ -2266,8 +2222,8 @@ function McpRemovalDrawer({
         className={cn(
           'rounded-md border p-3 text-xs leading-5',
           canRemove
-            ? 'border-green/20 bg-green/5 text-green-soft'
-            : 'border-yellow/25 bg-yellow/5 text-yellow-soft',
+            ? 'border-green/20 bg-green/5 text-[var(--green-ink)]'
+            : 'border-yellow/25 bg-yellow/5 text-[var(--yellow-ink)]',
         )}
       >
         {canRemove
@@ -2295,7 +2251,7 @@ function McpRemovalDrawer({
                     {tool.name}
                   </span>
                   {tool.enabled && (
-                    <Badge variant="outline" className="border-yellow/30 text-yellow-soft">
+                    <Badge variant="outline" className="border-yellow/30 text-[var(--yellow-ink)]">
                       {t('settings.tools.status.enabled')}
                     </Badge>
                   )}
@@ -2449,7 +2405,7 @@ function McpServerEditorDrawer({
             />
           </FormField>
         ) : (
-          <div className="rounded-md border border-yellow/25 bg-yellow/5 p-3 text-xs leading-5 text-yellow-soft">
+          <div className="rounded-md border border-yellow/25 bg-yellow/5 p-3 text-xs leading-5 text-[var(--yellow-ink)]">
             {t('settings.tools.mcp.editor.transport_restricted')}
           </div>
         )}
@@ -2543,7 +2499,7 @@ function McpServerEditorDrawer({
           checked={tlsVerify}
           onChange={setTlsVerify}
         />
-        <div className="rounded-md border border-green/20 bg-green/5 p-3 text-xs text-green-soft">
+        <div className="rounded-md border border-green/20 bg-green/5 p-3 text-xs text-[var(--green-ink)]">
           {t('settings.tools.mcp.fields.redirects_blocked')}
         </div>
       </FormSection>
@@ -2585,9 +2541,9 @@ function McpStatusBadge({ status }: { status: agentApi.McpServer['status'] }) {
       variant="outline"
       className={cn(
         'text-type-micro',
-        status === 'healthy' && 'border-green/30 text-green-soft',
+        status === 'healthy' && 'border-green/30 text-[var(--green-ink)]',
         status === 'error' && 'border-red/30 text-red-soft',
-        status === 'connecting' && 'border-yellow/30 text-yellow-soft',
+        status === 'connecting' && 'border-yellow/30 text-[var(--yellow-ink)]',
       )}
     >
       {t(`settings.tools.mcp.status.${status}`, { defaultValue: status })}
@@ -2639,7 +2595,7 @@ function CallRecords({
         <details key={call.id} className="overflow-hidden rounded-md border border-bd-0 bg-bg-1">
           <summary className="flex cursor-pointer list-none items-center gap-3 px-3 py-2.5">
             {call.status === 'success' ? (
-              <CheckCircle2 className="h-3.5 w-3.5 text-green-soft" />
+              <CheckCircle2 className="h-3.5 w-3.5 text-[var(--green-ink)]" />
             ) : (
               <XCircle className="h-3.5 w-3.5 text-red-soft" />
             )}
@@ -2709,7 +2665,7 @@ function MiniStat({
       <div
         className={cn(
           'mt-1 font-mono text-sm font-strong tabular-nums text-tx-0',
-          warning && 'text-yellow-soft',
+          warning && 'text-[var(--yellow-ink)]',
         )}
       >
         {value}
@@ -3000,17 +2956,21 @@ function errorMessage(error: unknown): string {
   return String(error);
 }
 
-function readCollapsedGroups(): Set<string> {
+function readExpandedGroups(): Set<string> {
   if (typeof window === 'undefined') return new Set();
   try {
-    const value = JSON.parse(window.localStorage.getItem(COLLAPSED_STORAGE_KEY) ?? '[]');
+    const value = JSON.parse(window.localStorage.getItem(EXPANDED_STORAGE_KEY) ?? '[]');
     return new Set(Array.isArray(value) ? value.map(String) : []);
   } catch {
     return new Set();
   }
 }
 
-function writeCollapsedGroups(groups: Set<string>) {
+function writeExpandedGroups(groups: Set<string>) {
   if (typeof window === 'undefined') return;
-  window.localStorage.setItem(COLLAPSED_STORAGE_KEY, JSON.stringify([...groups]));
+  try {
+    window.localStorage.setItem(EXPANDED_STORAGE_KEY, JSON.stringify([...groups]));
+  } catch {
+    // Storage that cannot be written leaves the groups as they are for this visit.
+  }
 }

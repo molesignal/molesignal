@@ -14,16 +14,17 @@ const HTTP_METHODS = [
 
 type HttpMethod = (typeof HTTP_METHODS)[number];
 
+/** The ink tones: a method reads at AA on a row at rest, under the pointer and selected. */
 const HTTP_METHOD_TONE: Record<HttpMethod, string> = {
-  GET: 'text-green-soft',
-  POST: 'text-blue-soft',
-  PUT: 'text-orange-soft',
-  PATCH: 'text-orange-soft',
-  DELETE: 'text-red-soft',
-  HEAD: 'text-purple-soft',
-  OPTIONS: 'text-purple-soft',
-  CONNECT: 'text-yellow-soft',
-  TRACE: 'text-yellow-soft',
+  GET: 'text-[var(--green-ink)]',
+  POST: 'text-[var(--blue-ink)]',
+  PUT: 'text-[var(--orange-ink)]',
+  PATCH: 'text-[var(--orange-ink)]',
+  DELETE: 'text-[var(--red-ink)]',
+  HEAD: 'text-[var(--purple-ink)]',
+  OPTIONS: 'text-[var(--purple-ink)]',
+  CONNECT: 'text-[var(--yellow-ink)]',
+  TRACE: 'text-[var(--yellow-ink)]',
 };
 
 const HTTP_METHOD_SET = new Set<string>(HTTP_METHODS);
@@ -46,8 +47,8 @@ export function parseTraceOperation(operation: string): ParsedTraceOperation | n
 
 /**
  * Trace operation names use the same compact, color-coded prefix treatment as
- * metric kinds. Only standard HTTP methods are highlighted; RPC/database span
- * names remain plain text.
+ * metric kinds (`MetricTypePrefix`), in the same ink tones. Only standard HTTP
+ * methods are highlighted; RPC/database span names remain plain text.
  */
 export function TraceOperationName({
   operation,

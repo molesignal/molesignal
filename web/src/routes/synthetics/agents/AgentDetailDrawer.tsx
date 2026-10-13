@@ -32,7 +32,7 @@ export function AgentDetailDrawer({
   const footer = canManage && agent ? (
     <>
       {canRevoke && (
-        <ChromeButton className="text-red-soft" onClick={() => onRequestRevoke(agent)}>
+        <ChromeButton className="text-red" onClick={() => onRequestRevoke(agent)}>
           <ShieldX aria-hidden className="h-3.5 w-3.5" />
           {t('actions.revoke')}
         </ChromeButton>
@@ -84,7 +84,7 @@ export function AgentDetailDrawer({
           </div>
 
           <FormSection title={t('agents.capacity')}>
-            <div className="space-y-5 rounded-md border border-bd-0 bg-bg-2 p-4">
+            <div className="space-y-5 rounded-md bg-bg-2 p-4">
               <CapacityMeter
                 label={t('agents.concurrent_capacity')}
                 available={agent.capacity.available}
@@ -103,7 +103,7 @@ export function AgentDetailDrawer({
               {agent.capabilities.map((capability) => (
                 <span
                   key={capability}
-                  className="rounded-full border border-bd-0 bg-bg-2 px-2.5 py-1 text-type-micro text-tx-1"
+                  className="rounded-full bg-bg-2 px-2.5 py-1 text-type-micro text-tx-1"
                 >
                   {capability}
                 </span>
@@ -112,7 +112,7 @@ export function AgentDetailDrawer({
           </FormSection>
 
           <FormSection title={t('agents.identity')}>
-            <div className="divide-y divide-bd-0 overflow-hidden rounded-md border border-bd-0 bg-bg-2">
+            <div className="divide-y divide-bd-0 overflow-hidden rounded-md bg-bg-2">
               <DetailRow label={t('agents.agent_id')} value={agent.id} code />
               <DetailRow label={t('agents.protocol')} value={String(agent.protocol_version)} />
               <DetailRow
@@ -141,7 +141,7 @@ export function AgentDetailDrawer({
 
           <FormSection title={t('agents.labels')}>
             {Object.keys(agent.labels).length > 0 ? (
-              <div className="divide-y divide-bd-0 overflow-hidden rounded-md border border-bd-0 bg-bg-2">
+              <div className="divide-y divide-bd-0 overflow-hidden rounded-md bg-bg-2">
                 {Object.entries(agent.labels).map(([key, value]) => (
                   <DetailRow key={key} label={key} value={value} code />
                 ))}
@@ -154,7 +154,7 @@ export function AgentDetailDrawer({
           </FormSection>
 
           {!agent.organization_id && (
-            <div className="flex gap-3 rounded-md border border-bd-0 bg-bg-2 p-3 text-xs leading-relaxed text-tx-2">
+            <div className="flex gap-3 rounded-md bg-bg-2 p-3 text-xs leading-relaxed text-tx-2">
               <ShieldCheck aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-indigo-soft" />
               {t('agents.platform_agent_hint')}
             </div>
@@ -167,7 +167,7 @@ export function AgentDetailDrawer({
 
 function AgentFact({ label, value }: { label: React.ReactNode; value: React.ReactNode }) {
   return (
-    <div className="rounded-md border border-bd-0 bg-bg-2 p-3">
+    <div className="rounded-md bg-bg-2 p-3">
       <div className="text-type-micro tracking-normal text-tx-3">{label}</div>
       <div className="mt-2 min-w-0 truncate text-sm font-strong text-tx-0">{value}</div>
     </div>

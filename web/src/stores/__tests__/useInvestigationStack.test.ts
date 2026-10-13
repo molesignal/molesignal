@@ -1,9 +1,21 @@
 import fc from 'fast-check';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { MAX_FRAMES, useInvestigationStack, type FrameKind } from '@/stores/useInvestigationStack';
+import {
+  MAX_FRAMES,
+  useInvestigationStack,
+  type Frame,
+  type FrameContent,
+  type FrameKind,
+} from '@/stores/useInvestigationStack';
 
 const KINDS: FrameKind[] = ['trace', 'log', 'metric', 'host', 'service'];
+
+/** A frame the way an address names it, after the trip through JSON. */
+function named(frame: Frame, change: Partial<FrameContent> = {}): FrameContent {
+  const { id: _id, created_at: _createdAt, ...content } = frame;
+  return { ...(JSON.parse(JSON.stringify(content)) as FrameContent), ...change };
+}
 
 describe('useInvestigationStack', () => {
   beforeEach(() => useInvestigationStack.getState().reset());
@@ -64,5 +76,98 @@ describe('useInvestigationStack', () => {
       ),
       { numRuns: 100 },
     );
+  });
+
+  describe('hydrate', () => {
+    const service = (name: string): FrameContent => ({
+      kind: 'service',
+      params: { service: name },
+      pinned: false,
+    });
+
+    it('opens the frames an address names, each under an id of its own', () => {
+      useInvestigationStack.getState().hydrate([service('web'), service('web')]);
+
+      const frames = useInvestigationStack.getState().frames;
+      expect(frames.map((frame) => frame.params)).toEqual([{ service: 'web' }, { service: 'web' }]);
+      expect(frames[0]!.id).not.toBe('');
+      expect(frames[0]!.id).not.toBe(frames[1]!.id);
+    });
+
+    it('changes nothing when the address names the frames that are already open', () => {
+      const { push, back, hydrate } = useInvestigationStack.getState();
+      const web = push({ kind: 'service', params: { service: 'web' } })!;
+      const api = push({ kind: 'service', params: { service: 'api' }, parent_frame_id: web.id })!;
+      push({ kind: 'log', params: { stream: 'logs', row: undefined } });
+      back();
+      const before = useInvestigationStack.getState();
+      let notified = 0;
+      const unsubscribe = useInvestigationStack.subscribe(() => {
+        notified += 1;
+      });
+
+      hydrate([named(web), named(api)]);
+      unsubscribe();
+
+      // The same array and the same objects: nothing that reads them runs again.
+      expect(useInvestigationStack.getState().frames).toBe(before.frames);
+      expect(notified).toBe(0);
+      // A frame stepped back from can still be stepped forward to.
+      expect(useInvestigationStack.getState().forward).toBe(before.forward);
+    });
+
+    it('keeps the frames an address still names and lets the others go', () => {
+      const { push, hydrate } = useInvestigationStack.getState();
+      const web = push({ kind: 'service', params: { service: 'web' } })!;
+      const api = push({ kind: 'service', params: { service: 'api' } })!;
+      const db = push({ kind: 'service', params: { service: 'db' } })!;
+
+      hydrate([named(web), named(api)]);
+      expect(useInvestigationStack.getState().frames).toEqual([web, api]);
+      expect(useInvestigationStack.getState().frames[1]).toBe(api);
+
+      useInvestigationStack.setState({ frames: [web, api, db] });
+      hydrate([named(api), named(db)]);
+      expect(useInvestigationStack.getState().frames[0]).toBe(api);
+      expect(useInvestigationStack.getState().frames[1]).toBe(db);
+    });
+
+    it('opens what the address adds and keeps what was open', () => {
+      const { push, back, hydrate } = useInvestigationStack.getState();
+      const web = push({ kind: 'service', params: { service: 'web' } })!;
+      push({ kind: 'service', params: { service: 'api' } });
+      back();
+
+      hydrate([named(web), service('db')]);
+
+      const { frames, forward } = useInvestigationStack.getState();
+      expect(frames[0]).toBe(web);
+      expect(frames[1]!.params).toEqual({ service: 'db' });
+      expect(frames[1]!.id).not.toBe(web.id);
+      // The address moved the stack somewhere else, so there is no step forward left.
+      expect(forward).toEqual([]);
+    });
+
+    it('takes the pin from the address and leaves the frame its id', () => {
+      const { push, hydrate } = useInvestigationStack.getState();
+      const web = push({ kind: 'service', params: { service: 'web' } })!;
+
+      hydrate([named(web, { pinned: true })]);
+
+      expect(useInvestigationStack.getState().frames).toEqual([{ ...web, pinned: true }]);
+    });
+
+    it('tells two open frames with the same content apart by their place', () => {
+      const { push, hydrate } = useInvestigationStack.getState();
+      const first = push({ kind: 'service', params: { service: 'web' } })!;
+      const second = push({ kind: 'service', params: { service: 'web' } })!;
+
+      hydrate([named(first), named(second)]);
+      expect(useInvestigationStack.getState().frames[0]).toBe(first);
+      expect(useInvestigationStack.getState().frames[1]).toBe(second);
+
+      hydrate([named(second)]);
+      expect(useInvestigationStack.getState().frames).toEqual([first]);
+    });
   });
 });

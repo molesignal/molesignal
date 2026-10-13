@@ -50,9 +50,10 @@ export function MetricCard({
       type="button"
       onClick={onClick}
       data-home-surface="kpi"
+      data-spotlight
       aria-busy={loading || undefined}
       style={{ '--rise-index': riseIndex } as React.CSSProperties}
-      className="home-canvas-metric home-rise group relative flex min-w-0 flex-col justify-between rounded-md bg-[var(--functional-surface)] px-[20px] py-[14px] text-left transition-colors duration-fast [box-shadow:var(--shadow-functional-surface)] hover:bg-bg-2 focus-visible:bg-bg-2 focus-visible:text-tx-0 focus-visible:outline-none"
+      className="home-canvas-metric home-rise group relative flex min-w-0 flex-col justify-between rounded-md bg-[var(--functional-surface)] px-[20px] py-[14px] text-left transition-colors duration-fast [box-shadow:var(--shadow-functional-surface)] focus-visible:bg-bg-2 focus-visible:text-tx-0 focus-visible:outline-none"
     >
       <div className="flex min-w-0 items-baseline justify-between gap-2">
         <span className="type-label min-w-0 truncate font-medium text-tx-2">{label}</span>

@@ -7,8 +7,6 @@ export interface InstanceInfo {
   signup_enabled: boolean;
   /** Backend product version, injected by the Rust build. */
   version: string;
-  /** Runtime deployment maturity; it does not affect the Rust binary. */
-  release_channel: string;
 }
 
 export async function get(): Promise<InstanceInfo> {

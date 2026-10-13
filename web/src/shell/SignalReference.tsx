@@ -170,7 +170,9 @@ export function SignalReference({
             'inline-flex items-center gap-1 rounded font-sans tabular-nums',
             'text-indigo-soft underline decoration-dotted decoration-1 underline-offset-2',
             'transition-all duration-fast ease-default hover:text-indigo hover:decoration-solid active:scale-[0.97]',
-            'focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none',
+            // An opaque tint, not the dim veil: what a reference shows may be set in ink (an HTTP
+            // method), and ink on a veil over a hovered or selected row falls under AA.
+            'focus-visible:bg-[var(--indigo-tint)] focus-visible:text-indigo focus-visible:outline-none',
             className,
           )}
         >
@@ -263,7 +265,7 @@ export function SignalReference({
                   className={cn(
                     'shrink-0 rounded px-1.5 py-0.5 text-type-micro leading-none',
                     jump.relation === 'exact'
-                      ? 'bg-green-dim text-green-soft'
+                      ? 'bg-[var(--green-tint)] text-[var(--green-ink)]'
                       : 'bg-bg-3 text-tx-2',
                   )}
                 >

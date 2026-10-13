@@ -61,13 +61,24 @@ export function BarChart({
             {model.series.map((series, index) => (
               <g key={series.id} transform={`translate(${12 + index * 92}, 12)`}>
                 <rect width="8" height="8" rx="1" fill={series.color} />
-                <text x="12" y="8" fontSize="9" fill="var(--tx-3)">
+                <text x="12" y="8" fontSize="11" fill="var(--tx-2)">
                   {series.name.length > 11 ? `${series.name.slice(0, 10)}…` : series.name}
                 </text>
               </g>
             ))}
           </g>
         )}
+        {/* The marks of the value axis, carried across the plot: a bar is read against them. */}
+        {geometry.gridLines.map(({ key, ...line }) => (
+          <line
+            key={key}
+            {...line}
+            data-testid="bar-chart-grid-line"
+            stroke="var(--bd-0)"
+            strokeWidth="1"
+            vectorEffect="non-scaling-stroke"
+          />
+        ))}
         <line
           {...geometry.zeroLine}
           stroke="var(--bd-1)"
@@ -80,8 +91,8 @@ export function BarChart({
             x={label.x}
             y={label.y}
             textAnchor={label.anchor}
-            fontSize="9"
-            fill="var(--tx-3)"
+            fontSize="11"
+            fill="var(--tx-2)"
           >
             {label.text}
           </text>
@@ -92,8 +103,9 @@ export function BarChart({
             x={label.x}
             y={label.y}
             textAnchor={label.anchor}
-            fontSize="9"
+            fontSize="11"
             fill="var(--tx-3)"
+            style={{ fontVariantNumeric: 'tabular-nums' }}
           >
             {label.text}
           </text>
@@ -111,7 +123,7 @@ export function BarChart({
                   y={rect.y}
                   width={rect.width}
                   height={rect.height}
-                  rx="1"
+                  rx="2"
                   fill={rect.color}
                 />
               </TooltipTrigger>
@@ -127,8 +139,9 @@ export function BarChart({
                 x={rect.valueX}
                 y={rect.valueY}
                 textAnchor={rect.valueAnchor}
-                fontSize="8"
-                fill="var(--tx-2)"
+                fontSize="11"
+                fill="var(--tx-1)"
+                style={{ fontVariantNumeric: 'tabular-nums' }}
               >
                 {rect.text}
               </text>

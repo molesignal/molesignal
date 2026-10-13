@@ -1,19 +1,20 @@
 {
   "title": "Alerts",
-  "subtitle": "Rules, active incidents, and Notify lifecycle.",
+  "subtitle": "What is firing, what defines it, and who is told.",
   "incident_detail": {
     "loading": "Incident",
     "not_found_title": "Incident not found",
     "not_found_description": "This incident may have been purged or belongs to another organization.",
     "meta": {
       "status": "Status",
-      "severity": "Severity",
-      "created": "Created",
-      "fingerprint": "Fingerprint"
-    }
+      "fired": "Fired",
+      "rule": "Rule"
+    },
+    "firing_for": "Firing for {{duration}}",
+    "recovered_after": "Recovered after {{duration}}",
+    "no_owner": "Nobody has it yet"
   },
   "actions": {
-    "silences": "Silence policies",
     "new_rule": "New rule",
     "edit_rule": "Edit {{name}}",
     "new_anomaly": "Anomaly detection rule",
@@ -69,8 +70,6 @@
     "silences": "Silence policies"
   },
   "history": {
-    "title": "Alert history",
-    "subtitle": "Review current incident states and timelines.",
     "error_title": "Cannot load alert history",
     "empty_title": "No alert incidents",
     "empty_description": "After an alert fires, its current state, timing, duration, and incident details appear here.",
@@ -92,7 +91,6 @@
     },
     "columns": {
       "summary": "Incident",
-      "severity": "Severity",
       "current_status": "Current status",
       "created": "Fired",
       "resolved": "Recovered",
@@ -115,26 +113,19 @@
     }
   },
   "center": {
+    "retry": "Try again",
     "incidents": {
-      "title": "Alert incidents",
-      "subtitle": "Find current failures, understand impact, and drive incidents to recovery.",
       "load_error": "Cannot load alert incidents",
-      "unassigned": "Unacknowledged",
       "kpis": {
-        "active": "Firing incidents",
         "services": "Affected services",
-        "services_sub": "Unique across active incidents",
         "waiting": "Waiting for acknowledgement",
         "waiting_sub": "No owner yet",
         "recovered": "Recovered (24h)",
-        "last_recovery": "Last recovery {{time}} ago",
-        "no_recovery": "No recovery in the last 24 hours",
-        "no_active": "No active incidents"
+        "no_recovery": "No recovery in the last 24 hours"
       },
       "tabs": {
         "active": "Firing",
-        "unacknowledged": "Waiting",
-        "resolved": "Recovered"
+        "unacknowledged": "Waiting"
       },
       "columns": {
         "severity": "Severity",
@@ -142,7 +133,7 @@
         "status": "Status",
         "duration": "Duration",
         "owner": "Owner",
-        "actions": "Next step"
+        "actions": "Actions"
       },
       "status": {
         "open": "Waiting",
@@ -153,51 +144,61 @@
       "actions": {
         "ack": "Acknowledge",
         "silence": "Silence",
-        "runbook": "Runbook",
-        "details": "Details"
+        "runbook": "Runbook"
       },
       "healthy": {
-        "title": "No alerts are firing",
-        "with_recovery": "{{count}} incidents recovered in the last 24 hours; the latest was {{time}} ago.",
-        "no_recovery": "All configured rules currently have no active incidents.",
-        "view_recovered": "View recovered incidents",
-        "view_rules": "View all rules"
+        "title": "No alerts are firing"
       },
       "no_rules": {
         "title": "No alert rules yet",
         "description": "Create a rule to continuously evaluate metrics, logs, or traces and open incidents here.",
-        "action": "Create first rule"
+        "action": "Create first rule",
+        "steps": {
+          "condition": {
+            "title": "Say what must not happen",
+            "description": "A query over metrics, logs or traces, and the threshold it has to stay within."
+          },
+          "route": {
+            "title": "Say who is told",
+            "description": "An escalation policy sends the incident to the person on call, then onwards if nobody answers."
+          },
+          "respond": {
+            "title": "Respond from here",
+            "description": "Acknowledge, silence, open the runbook, and follow the incident to the trace behind it."
+          }
+        }
       },
       "empty": {
-        "active": {
-          "title": "No active incidents",
-          "description": "Every enabled rule is currently healthy."
-        },
         "unacknowledged": {
           "title": "Nothing is waiting for acknowledgement",
           "description": "Every active incident already has an owner."
-        },
-        "resolved": {
-          "title": "No recently recovered incidents",
-          "description": "Recovered incidents will remain visible here."
         }
       },
-      "tabs_label": "Incident status"
+      "tabs_label": "Incident status",
+      "standing": {
+        "label": "Incidents now",
+        "eyebrow": "Firing now",
+        "firing_one": "{{count}} incident",
+        "firing_other": "{{count}} incidents",
+        "oldest": "The oldest has been firing for {{duration}}.",
+        "watching_one": "{{count}} rule is being evaluated.",
+        "watching_other": "{{count}} rules are being evaluated.",
+        "all_owned": "Every incident has an owner",
+        "last_recovery": "Last recovery {{when}}"
+      },
+      "recent": {
+        "title": "Recently recovered",
+        "recovered": "recovered {{when}}",
+        "lasted": "lasted {{duration}}"
+      }
     },
     "rules": {
-      "title": "Alert rules",
-      "subtitle": "Define the queries and thresholds the system evaluates continuously.",
       "load_error": "Cannot load alert rules",
       "search": "Search rules, services, or sources",
       "tabs": {
         "all": "All",
         "enabled": "Enabled",
         "disabled": "Disabled"
-      },
-      "summary": {
-        "total": "{{count}} rules",
-        "enabled": "{{count}} enabled",
-        "disabled": "{{count}} disabled"
       },
       "columns": {
         "rule": "Rule",
@@ -220,15 +221,12 @@
         "anomaly": "Anomaly detection"
       },
       "never_evaluated": "Never evaluated",
-      "empty": {
-        "title": "No alert rules yet",
-        "description": "Create a rule to continuously evaluate a query and open incidents when its threshold is met."
-      },
       "no_match": {
         "title": "No matching rules",
         "description": "Try another keyword or status filter."
       },
-      "tabs_label": "Rule status"
+      "tabs_label": "Rule status",
+      "evaluated_ago": "{{age}} ago"
     }
   },
   "workbench": {
@@ -236,11 +234,6 @@
     "edit_title": "Edit alert rule",
     "edit_named": "Edit rule · {{name}}",
     "subtitle": "Write the query, validate thresholds, then connect Notify routing and response guidance.",
-    "steps": {
-      "identity": "Basic information",
-      "condition": "Query and condition",
-      "delivery": "Notify and response"
-    },
     "actions": {
       "cancel": "Cancel",
       "save_draft": "Save draft",
@@ -403,7 +396,8 @@
       "silence_unavailable": "Only active incidents can be silenced.",
       "resolve": "Resolve",
       "resolve_unavailable": "This incident is no longer active.",
-      "resolve_success": "Incident resolved"
+      "resolve_success": "Incident resolved",
+      "pending": "Another incident update is in progress."
     },
     "incident_sections": {
       "timeline": "Timeline",
@@ -441,9 +435,12 @@
       "title": "Annotations"
     },
     "timeline": {
-      "created": "Created",
+      "created": "Fired",
       "acknowledged": "Acknowledged",
-      "resolved": "Resolved"
+      "resolved": "Resolved",
+      "acknowledged_by": "Acknowledged by {{name}}",
+      "resolved_by": "Resolved by {{name}}",
+      "after": "after {{duration}}"
     },
     "triggering_query": {
       "sample_count": "{{count}} sample rows",
@@ -453,8 +450,6 @@
     "assignees_none": "No one assigned yet."
   },
   "insights": {
-    "title": "Alert insights",
-    "subtitle": "Understand recent alerts through recovery, timing, and impact",
     "error_title": "Cannot compute insights",
     "empty_title": "No incidents yet",
     "empty_description": "Once incidents fire and recover, this view shows recovery, timing, severity, and their main sources.",
@@ -469,16 +464,13 @@
       "recovered_headline": "All {{total}} incidents recovered",
       "active_description": "Prioritize incidents that remain open or acknowledged.",
       "recovered_description": "No incidents are active; recovery is complete for the selected period.",
-      "total": "Total incidents",
-      "total_description": "Created in the selected period",
       "mttr": "Average recovery time",
       "mttr_description": "Across recovered incidents",
-      "status": "Incident status",
-      "status_value": "{{active}} active / {{closed}} recovered",
-      "status_description": "{{percent}} recovered",
       "noise": "Rapid recoveries",
-      "noise_value": "{{count}} incidents",
-      "noise_description": "{{rate}} recovered within 60 seconds"
+      "noise_description": "{{rate}} recovered within 60 seconds",
+      "label": "Incidents in the period",
+      "recovered": "Recovered",
+      "recovered_of": "{{closed}} of {{total}}"
     },
     "hourly": {
       "title": "Incident timeline",
@@ -505,7 +497,8 @@
       "unknown_rule": "Deleted or unavailable rule"
     },
     "rankings": {
-      "count_and_share": "{{count}} incidents · {{percent}}"
+      "count_and_share_one": "{{count}} incident · {{percent}}",
+      "count_and_share_other": "{{count}} incidents · {{percent}}"
     },
     "duration": {
       "seconds": "{{count}}s",
@@ -589,21 +582,17 @@
     "label_aria": "Matcher label",
     "value_placeholder": "value",
     "value_aria": "Matcher value",
-    "hint": "All matchers must hit (AND). =~ / ≠~ are regular expressions."
+    "hint": "All matchers must hit (AND). =~ and !~ are regular expressions."
   },
   "escalations": {
-    "title": "Escalation policies",
-    "subtitle": "Multi-step routing for unacknowledged incidents",
     "new_policy": "New policy",
     "empty_title": "No escalation policies",
     "empty_description": "Route unacknowledged incidents to on-call users, schedules and teams.",
     "columns": {
       "name": "Name",
-      "steps": "Steps",
-      "repeat": "Repeat",
+      "steps": "Who is told, and when",
       "actions": "Actions"
     },
-    "repeat_n": "×{{n}}",
     "delete_title": "Delete escalation policy",
     "edit_title": "Edit escalation policy",
     "drawer_title": "New escalation policy",
@@ -644,7 +633,11 @@
       "user": "User",
       "schedule": "Schedule",
       "team": "Team"
-    }
+    },
+    "no_target": "Nobody yet",
+    "from_severity": "from {{severity}}",
+    "repeats_one": "repeats {{count}} time",
+    "repeats_other": "repeats {{count}} times"
   },
   "schedules": {
     "title": "On-call schedules",
@@ -892,15 +885,15 @@
     }
   },
   "silences": {
-    "title": "Silence policies",
-    "subtitle": "Pause notifications in bulk by labels and time window",
     "new_silence": "New silence policy",
     "empty_title": "No silence policies",
     "empty_description": "Suppress notifications for matching incidents during maintenance or known noise.",
     "columns": {
       "name": "Name",
       "status": "Status",
-      "window": "Window"
+      "window": "Window",
+      "matchers": "Matches",
+      "actions": "Actions"
     },
     "delete_title": "Delete silence",
     "edit_title": "Edit silence",
@@ -927,15 +920,25 @@
       "window_type": "Window type",
       "start": "Start",
       "end": "End",
-      "timezone": "Timezone (IANA)",
+      "timezone": "Timezone",
       "hour_start": "Hour start (0–24)",
       "hour_end": "Hour end (0–24)",
-      "comment": "Reason"
+      "comment": "Reason",
+      "weekdays": "Days of the week"
     },
     "window_kinds": {
       "fixed": "Fixed range",
       "recurring": "Recurring"
     },
-    "comment_placeholder": "Why is this muted?"
+    "comment_placeholder": "Why is this muted?",
+    "standing": {
+      "active": "Silencing now",
+      "upcoming": "Not begun",
+      "waiting": "Between hours",
+      "ended": "Ended",
+      "off": "Off"
+    },
+    "matches_everything": "Every incident",
+    "delete_named": "Delete {{name}}"
   }
 }

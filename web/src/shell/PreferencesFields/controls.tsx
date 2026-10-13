@@ -1,4 +1,4 @@
-import { Check, ChevronsUpDown } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -7,14 +7,6 @@ import { formatMicros, resolveTimezone } from '@/lib/time';
 import { DisabledControl } from '@/shell/DisabledControl';
 import { FormSelect } from '@/shell/FormDrawer';
 import { cn } from '@/shell/lib/cn';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/shell/ui/command';
 import {
   Popover,
   PopoverContent,
@@ -77,12 +69,12 @@ export function DateTimeFormatPopover({
             aria-disabled={disabled || undefined}
             aria-label={t('preferences.fields.date_time_format')}
             aria-expanded={open}
-            className="flex h-9 w-full items-center justify-between gap-2 rounded-md border-0 bg-[var(--control-surface)] px-3 font-sans text-sm text-tx-0 transition-colors enabled:hover:bg-[var(--floating-item-hover)] data-[state=open]:bg-[var(--floating-item-hover)] focus-visible:outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-bg-3 disabled:text-tx-3"
+            className="flex h-9 w-full items-center justify-between gap-2 rounded-md border-0 bg-[var(--control-surface)] px-3 font-sans text-sm text-tx-0 transition-colors enabled:hover:bg-bg-3 data-[state=open]:bg-bg-3 focus-visible:outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-bg-3 disabled:text-tx-3"
           >
             <span className="truncate">
               {DATE_SAMPLES[value.date_format]} · {timeLabel}
             </span>
-            <ChevronsUpDown className="h-4 w-4 shrink-0 text-tx-3" />
+            <ChevronDown aria-hidden="true" className="h-[14px] w-[14px] shrink-0 opacity-50" />
           </button>
         </PopoverTrigger>
       </DisabledControl>
@@ -202,96 +194,5 @@ export function SegmentedControl<T extends string>({
         })}
       </div>
     </DisabledControl>
-  );
-}
-
-export function TimezoneCombobox({
-  value,
-  onChange,
-  options,
-  label,
-  searchPlaceholder,
-  emptyLabel,
-  disabled = false,
-  disabledReason,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  options: Array<PreferenceOption<string>>;
-  label: string;
-  searchPlaceholder: string;
-  emptyLabel: string;
-  disabled?: boolean;
-  disabledReason?: string | undefined;
-}) {
-  const [open, setOpen] = React.useState(false);
-  const selected = options.find((option) => option.value === value);
-
-  return (
-    <Popover
-      open={!disabled && open}
-      onOpenChange={(next) => !disabled && setOpen(next)}
-    >
-      <DisabledControl
-        disabled={disabled}
-        reason={disabledReason}
-        className="w-full"
-      >
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            role="combobox"
-            disabled={disabled}
-            aria-disabled={disabled || undefined}
-            aria-label={label}
-            aria-expanded={open}
-            className="flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-md border-0 bg-[var(--control-surface)] px-3 font-sans text-sm text-tx-0 transition-colors enabled:hover:bg-[var(--floating-item-hover)] data-[state=open]:bg-[var(--floating-item-hover)] focus-visible:outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-bg-3 disabled:text-tx-3"
-          >
-            <span className="truncate text-left">
-              {selected?.label ?? value}
-            </span>
-            <ChevronsUpDown className="h-4 w-4 shrink-0 text-tx-3" />
-          </button>
-        </PopoverTrigger>
-      </DisabledControl>
-      <PopoverContent
-        align="end"
-        className="w-[var(--radix-popover-trigger-width)] p-0"
-      >
-        <Command>
-          <CommandInput placeholder={searchPlaceholder} />
-          <CommandList className="max-h-72">
-            <CommandEmpty>{emptyLabel}</CommandEmpty>
-            <CommandGroup>
-              {options.map((option) => (
-                <CommandItem
-                  key={option.value}
-                  value={`${option.label} ${option.value}`}
-                  disabled={Boolean(option.disabled)}
-                  aria-disabled={option.disabled || undefined}
-                  {...(option.disabledReason
-                    ? { title: option.disabledReason }
-                    : {})}
-                  onSelect={() => {
-                    if (option.disabled) return;
-                    onChange(option.value);
-                    setOpen(false);
-                  }}
-                  className="min-h-9 data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-50"
-                >
-                  <Check
-                    className={cn(
-                      'h-4 w-4 shrink-0 text-indigo',
-                      option.value === value ? 'opacity-100' : 'opacity-0',
-                    )}
-                  />
-                  <span className="truncate">{option.label}</span>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
   );
 }

@@ -42,11 +42,12 @@ test('renders the Trace sorter as a lightweight toolbar menu', async ({
 test('uses the same lightweight surface for action dropdowns', async ({
   page,
 }) => {
-  await page.goto('/logs');
-  await page.getByRole('button', { name: 'Density' }).click();
+  // The window menu of Home: a menu of radio items, one of them checked.
+  await page.goto('/home');
+  await page.getByTestId('page-header').getByRole('button', { name: 'Last 24 hours' }).click();
 
   const menu = page.getByRole('menu');
-  const selected = page.getByRole('menuitemradio', { name: 'Compact' });
+  const selected = page.getByRole('menuitemradio', { name: 'Last 24 hours' });
   await expect(menu).toBeVisible();
   await expect(menu).toHaveCSS('border-top-width', '0px');
   await expect(menu).toHaveCSS('border-radius', '8px');
@@ -59,7 +60,7 @@ test('uses the same lightweight surface for action dropdowns', async ({
     await selected.evaluate((element) => getComputedStyle(element).color),
   ).not.toBe(
     await page
-      .getByRole('menuitemradio', { name: 'Standard' })
+      .getByRole('menuitemradio', { name: 'Last 7 days' })
       .evaluate((element) => getComputedStyle(element).color),
   );
 });

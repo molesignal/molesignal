@@ -174,7 +174,7 @@ export function FieldEditDrawer({
 
             {editing.encrypted ? (
               <div className="flex items-start gap-3 rounded-lg border border-green/25 bg-green-dim px-4 py-3">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 text-green-soft" />
+                <CheckCircle2 className="mt-0.5 h-4 w-4 text-[var(--green-ink)]" />
                 <div>
                   <div className="font-sans text-sm font-semibold text-tx-0">{t('explore.schema.encrypted')}</div>
                   <div className="mt-1 font-sans text-xs text-tx-2">{t('explore.schema.encrypted_hint')}</div>

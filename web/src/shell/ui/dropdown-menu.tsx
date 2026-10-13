@@ -23,6 +23,21 @@ const DropdownMenuPortal = DropdownMenuPrimitive.Portal;
 const DropdownMenuSub = DropdownMenuPrimitive.Sub;
 const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup;
 
+/** The distance a menu keeps from the edges of the window, the same a tooltip keeps. */
+const WINDOW_EDGE_GAP = 8;
+
+/**
+ * A menu taller than the room it opens in scrolls inside that room, so its last items stay in
+ * reach on a short screen. The room is what Radix measured on the side the menu opened, short of
+ * the window's edge by `WINDOW_EDGE_GAP`. The scroll padding is the menu's own, so an item the
+ * keyboard brings into view keeps its distance from the edge.
+ *
+ * A `max-h` given by a caller replaces this one. A caller with a limit of its own keeps the room
+ * in it: `max-h-[min(420px,var(--radix-dropdown-menu-content-available-height))]`.
+ */
+const dropdownMenuScrollClass =
+  'max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto scroll-py-[4px]';
+
 const DropdownMenuSubTrigger = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.SubTrigger>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubTrigger> & {
@@ -62,12 +77,14 @@ DropdownMenuSubTrigger.displayName = DropdownMenuPrimitive.SubTrigger.displayNam
 const DropdownMenuSubContent = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.SubContent>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubContent>
->(({ className, ...props }, ref) => (
+>(({ className, collisionPadding = WINDOW_EDGE_GAP, ...props }, ref) => (
   <DropdownMenuPrimitive.SubContent
     ref={ref}
+    collisionPadding={collisionPadding}
     className={cn(
       floatingMenuContentClass,
-      'data-[state=open]:animate-fade-in',
+      dropdownMenuScrollClass,
+      'origin-[var(--radix-dropdown-menu-content-transform-origin)] data-[state=open]:animate-pop-in data-[state=closed]:animate-pop-out',
       className,
     )}
     {...props}
@@ -78,14 +95,16 @@ DropdownMenuSubContent.displayName = DropdownMenuPrimitive.SubContent.displayNam
 const DropdownMenuContent = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content>
->(({ className, sideOffset = 4, ...props }, ref) => (
+>(({ className, sideOffset = 4, collisionPadding = WINDOW_EDGE_GAP, ...props }, ref) => (
   <DropdownMenuPrimitive.Portal>
     <DropdownMenuPrimitive.Content
       ref={ref}
       sideOffset={sideOffset}
+      collisionPadding={collisionPadding}
       className={cn(
         floatingMenuContentClass,
-        'data-[state=open]:animate-fade-in',
+        dropdownMenuScrollClass,
+        'origin-[var(--radix-dropdown-menu-content-transform-origin)] data-[state=open]:animate-pop-in data-[state=closed]:animate-pop-out',
         className,
       )}
       {...props}

@@ -33,12 +33,17 @@ import { toast } from '@/shell/ui/sonner';
 import { Tabs, TabsContent } from '@/shell/ui/tabs';
 
 import { NotFound } from '../NotFound';
+import { PipelineFlow } from './editor/Flow';
+import { useConnectorNames } from './editor/resources';
 import {
-  PipelineGraphView,
+  connectorOf,
+  executionMode,
   pipelineGraphFromPipeline,
+  pipelineGraphStats,
   signalTypeFromPipeline,
+  stepType,
+  writtenSinkIndex,
 } from './PipelineGraph';
-import { executionMode } from './PipelineGraph/model';
 import {
   getPipelineRunsTableLabels,
   PipelineRunsTable,
@@ -84,6 +89,7 @@ export function PipelineDetail() {
   const [params, setParams] = useSearchParams();
   const [confirmDelete, setConfirmDelete] = React.useState(false);
   const [configView, setConfigView] = React.useState<'structured' | 'json'>('structured');
+  const connectorNames = useConnectorNames();
   const isRemovedLegacyPath = id === 'add';
 
   const pipelineQuery = useQuery({
@@ -124,7 +130,7 @@ export function PipelineDetail() {
   const remove = useMutation({
     mutationFn: () => pipelinesApi.remove(id),
     onSuccess: () => {
-      toast.success(t('workspace.toast_deleted'));
+      toast.success(t('flows.edit.toast_deleted'));
       void qc.invalidateQueries({ queryKey: ['pipelines', 'list'] });
       navigate('/pipelines');
     },
@@ -147,6 +153,15 @@ export function PipelineDetail() {
     ...(runs[0]?.state ? { last_run_state: runs[0].state } : {}),
   });
   const graph = pipelineGraphFromPipeline(pipeline, type);
+  const routed = graph.transforms.some((step) => step.kind === 'builtin');
+  const written = writtenSinkIndex(graph.sinks);
+  // What the events reach: the one stream that is written, then every connector.
+  const destinations = graph.sinks.flatMap((sink, index) => {
+    const connector = connectorOf(sink);
+    if (connector !== null) return [connectorNames[connector] ?? connector];
+    if (index !== written) return [];
+    return [routed ? t('flow.routed_detail') : sink];
+  });
   const {
     lastRun,
     runs24h,
@@ -229,7 +244,7 @@ export function PipelineDetail() {
                   }
                 >
                   <Trash2 className="h-3.5 w-3.5" />
-                  {t('workspace.delete')}
+                  {t('flows.edit.delete')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -336,7 +351,7 @@ export function PipelineDetail() {
                   </ChromeButton>
                 }
               >
-                <PipelineGraphView model={graph} className="h-[340px]" />
+                <PipelineFlow model={graph} connectorNames={connectorNames} />
               </PipelineSection>
 
               <PipelineSection
@@ -372,17 +387,11 @@ export function PipelineDetail() {
                 showHeaderDivider={false}
                 actions={
                   <span className="font-sans text-xs text-tx-3">
-                    {t('workspace.graph_stats', {
-                      nodes: graph.sources.length + graph.transforms.length + graph.sinks.length,
-                      edges:
-                        graph.sources.length +
-                        Math.max(0, graph.transforms.length - 1) +
-                        graph.sinks.length,
-                    })}
+                    {t('workspace.graph_stats', pipelineGraphStats(graph))}
                   </span>
                 }
               >
-                <PipelineGraphView model={graph} className="h-[560px]" />
+                <PipelineFlow model={graph} connectorNames={connectorNames} />
               </PipelineSection>
             </div>
           </TabsContent>
@@ -436,29 +445,23 @@ export function PipelineDetail() {
               >
                 {configView === 'structured' ? (
                   <div className="grid gap-x-10 gap-y-4 md:grid-cols-2">
-                    <PipelineConfigSection title={t('graph.sources')}>
-                      {graph.sources.map((source) => (
-                        <PipelineConfigValue key={source}>{source}</PipelineConfigValue>
+                    <PipelineConfigSection title={t('flow.source')}>
+                      <PipelineConfigValue>{graph.sources[0]}</PipelineConfigValue>
+                    </PipelineConfigSection>
+                    <PipelineConfigSection title={t('flow.destinations')}>
+                      {destinations.map((destination) => (
+                        <PipelineConfigValue key={destination}>{destination}</PipelineConfigValue>
                       ))}
                     </PipelineConfigSection>
-                    <PipelineConfigSection title={t('graph.sinks')}>
-                      {graph.sinks.map((sink) => (
-                        <PipelineConfigValue key={sink}>{sink}</PipelineConfigValue>
-                      ))}
-                    </PipelineConfigSection>
-                    <PipelineConfigSection title={t('graph.transform')}>
+                    <PipelineConfigSection title={t('flow.processing')}>
+                      {graph.transforms.length === 0 && (
+                        <PipelineConfigValue>{t('flow.no_steps')}</PipelineConfigValue>
+                      )}
                       {graph.transforms.map((transform, index) => (
                         <PipelineConfigValue key={`${transform.name}-${index}`}>
-                          {transform.name} · VRL
+                          {transform.name} · {t(`steps.types.${stepType(transform)}`)}
                         </PipelineConfigValue>
                       ))}
-                    </PipelineConfigSection>
-                    <PipelineConfigSection title={t('graph.retry_policy')}>
-                      <PipelineConfigValue>
-                        {t(`drawer.retry_options.${graph.retryPolicy}`, {
-                          defaultValue: graph.retryPolicy,
-                        })}
-                      </PipelineConfigValue>
                     </PipelineConfigSection>
                   </div>
                 ) : (
@@ -481,9 +484,9 @@ export function PipelineDetail() {
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
         destructive
-        title={t('workspace.delete_confirm_title')}
-        description={t('workspace.delete_confirm_description')}
-        confirmLabel={t('workspace.delete_confirm_label')}
+        title={t('flows.edit.delete_confirm_title')}
+        description={t('flows.edit.delete_confirm_description')}
+        confirmLabel={t('flows.edit.delete_confirm_label')}
         busy={remove.isPending}
         disabled={deleteAccess.disabled}
         disabledReason={deleteAccess.reason}

@@ -49,6 +49,7 @@ interface ServiceTopologyProps {
 
 const NODE_TYPES = { service: ServiceNode };
 const EDGE_TYPES = { service: ServiceEdge };
+const FIT_VIEW_OPTIONS = { padding: 0.18, maxZoom: 1.1 };
 
 export function ServiceTopology({
   from,
@@ -65,9 +66,11 @@ export function ServiceTopology({
   onNodeClick,
   onEdgeClick,
 }: ServiceTopologyProps) {
-  const containerRef = React.useRef<HTMLDivElement | null>(null);
-  const instanceRef = React.useRef<ReactFlowInstance | null>(null);
-  const [viewportSize, setViewportSize] = React.useState({ width: 800, height: 600 });
+  const [container, setContainer] = React.useState<HTMLDivElement | null>(null);
+  const [instance, setInstance] = React.useState<ReactFlowInstance | null>(null);
+  // Null until the canvas has been measured: the graph is only laid out for
+  // the size it is shown at.
+  const [viewportSize, setViewportSize] = React.useState<{ width: number; height: number } | null>(null);
   const topologyQuery = useTopology(from, to);
   const data = topology ?? topologyQuery.data;
   const isLoading = topology === undefined && topologyQuery.isLoading;
@@ -76,16 +79,15 @@ export function ServiceTopology({
   const setCachedLayout = useTopologyLayoutCache((state) => state.set);
   const applyHysteresis = useTopologyFlags((s) => s.applyHysteresis);
 
-  React.useEffect(() => {
-    const element = containerRef.current;
-    if (!element) return;
+  React.useLayoutEffect(() => {
+    if (!container) return;
 
     const updateSize = () => {
-      const width = element.clientWidth;
-      const height = element.clientHeight;
+      const width = container.clientWidth;
+      const height = container.clientHeight;
       if (width > 0 && height > 0) {
         setViewportSize((current) =>
-          current.width === width && current.height === height
+          current && current.width === width && current.height === height
             ? current
             : { width, height },
         );
@@ -95,16 +97,16 @@ export function ServiceTopology({
     updateSize();
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(updateSize);
-    observer.observe(element);
+    observer.observe(container);
     return () => observer.disconnect();
-  }, []);
+  }, [container]);
 
   React.useEffect(() => {
     if (data) applyHysteresis(data.nodes);
   }, [data, applyHysteresis]);
 
   const layoutKey = React.useMemo(() => {
-    if (!data) return '';
+    if (!data || !viewportSize) return '';
     return `${layout}:${direction}:${hashGraph(
       data.nodes,
       data.edges,
@@ -114,7 +116,7 @@ export function ServiceTopology({
   }, [data, direction, layout, viewportSize]);
 
   const positions = React.useMemo(() => {
-    if (!data) return {} as Record<string, { x: number; y: number }>;
+    if (!data || !viewportSize) return {} as Record<string, { x: number; y: number }>;
     const cached = getCachedLayout(layoutKey);
     if (cached) return cached;
     return layout === 'tree'
@@ -139,7 +141,7 @@ export function ServiceTopology({
   }, [getCachedLayout, layoutKey, positions, setCachedLayout]);
 
   const built = React.useMemo<{ nodes: Node<ServiceNodeData>[]; edges: Edge<ServiceEdgeData>[] }>(() => {
-    if (!data) return { nodes: [], edges: [] };
+    if (!data || !layoutKey) return { nodes: [], edges: [] };
     const normalizedSearch = searchQuery.trim().toLocaleLowerCase();
     const matchedIds = new Set(
       data.nodes
@@ -186,11 +188,15 @@ export function ServiceTopology({
         };
       }),
     };
-  }, [data, direction, palette, positions, searchQuery, showEdgeMetrics, showNodeMetrics, showServiceTypes]);
+  }, [data, direction, layoutKey, palette, positions, searchQuery, showEdgeMetrics, showNodeMetrics, showServiceTypes]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(built.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(built.edges);
+  // The layout `nodes` holds. It trails `layoutKey` by a render, because the
+  // nodes are copied from `built` in an effect.
+  const [nodesLayoutKey, setNodesLayoutKey] = React.useState(layoutKey);
   const lastLayoutKeyRef = React.useRef('');
+  const fittedLayoutKeyRef = React.useRef('');
   const nodesRef = React.useRef(nodes);
   nodesRef.current = nodes;
 
@@ -206,16 +212,22 @@ export function ServiceTopology({
       }));
     });
     setEdges(built.edges);
+    setNodesLayoutKey(layoutKey);
     lastLayoutKeyRef.current = layoutKey;
   }, [built, layoutKey, setEdges, setNodes]);
 
+  const nodesMeasured = nodes.length > 0 && nodes.every((node) => node.width && node.height);
+
+  // A new layout replaces every node, and React Flow can fit nothing until it
+  // has measured them again. So each layout is fitted when its own nodes carry
+  // their sizes, whichever comes last: the nodes, their sizes or the instance.
   React.useEffect(() => {
-    if (!layoutKey || !instanceRef.current) return;
-    const frame = globalThis.requestAnimationFrame(() => {
-      instanceRef.current?.fitView({ padding: 0.18, maxZoom: 1.1, duration: 180 });
-    });
-    return () => globalThis.cancelAnimationFrame(frame);
-  }, [layoutKey]);
+    if (!instance || !nodesLayoutKey || !nodesMeasured) return;
+    if (fittedLayoutKeyRef.current === nodesLayoutKey) return;
+    if (instance.fitView({ ...FIT_VIEW_OPTIONS, duration: 180 })) {
+      fittedLayoutKeyRef.current = nodesLayoutKey;
+    }
+  }, [instance, nodesLayoutKey, nodesMeasured]);
 
   const handleNodeDragStop = React.useCallback<NodeMouseHandler>((_, draggedNode) => {
     if (!layoutKey) return;
@@ -238,7 +250,7 @@ export function ServiceTopology({
   }
 
   return (
-    <div ref={containerRef} className="h-full w-full">
+    <div ref={setContainer} className="h-full w-full">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -247,11 +259,9 @@ export function ServiceTopology({
         onNodeDragStop={handleNodeDragStop}
         nodeTypes={NODE_TYPES}
         edgeTypes={EDGE_TYPES}
-        onInit={(instance) => {
-          instanceRef.current = instance;
-        }}
+        onInit={setInstance}
         fitView
-        fitViewOptions={{ padding: 0.18, maxZoom: 1.1 }}
+        fitViewOptions={FIT_VIEW_OPTIONS}
         minZoom={0.15}
         maxZoom={1.75}
         nodesDraggable
@@ -270,7 +280,14 @@ export function ServiceTopology({
           showInteractive={false}
         />
         {showMiniMap && (
-          <MiniMap nodeColor={() => palette['--accent']} maskColor="rgba(0,0,0,0.4)" />
+          // The same panel as the controls. Its border is drawn on the map
+          // inside it, so the panel keeps the size React Flow gives it.
+          <MiniMap
+            position="bottom-left"
+            className="!bg-bg-1 !shadow-sm [&>svg]:border [&>svg]:border-bd-1"
+            nodeColor={() => palette['--accent']}
+            maskColor="color-mix(in srgb, var(--bg-4) 60%, transparent)"
+          />
         )}
       </ReactFlow>
     </div>

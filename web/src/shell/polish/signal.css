@@ -1,0 +1,99 @@
+/*
+ * The signal motif.
+ *
+ * The product mark is a pulse drawn in one gradient: indigo, blue, green, the
+ * same three stops as the data-viz series. Everything that wants to say "live"
+ * or "this is where you are" borrows that gradient instead of inventing a new
+ * accent, so the mark, the active navigation row, loading, empty states and the
+ * sign-in field all read as one family.
+ */
+:root {
+  --signal-gradient: linear-gradient(90deg, var(--indigo), var(--blue) 55%, var(--green));
+  --signal-gradient-v: linear-gradient(180deg, var(--indigo), var(--blue));
+}
+
+/*
+ * A status dot that breathes while the thing it describes is live. The ring
+ * copies the dot's own colour, so it works for any tone.
+ */
+.ms-live {
+  position: relative;
+}
+
+.ms-live::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: inherit;
+  pointer-events: none;
+  animation: ms-live-ring 2.6s var(--easing-out) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ms-live::after {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+/*
+ * PulseLine strokes. The path is normalised (pathLength=1) so one dash
+ * definition fits any size of the mark.
+ */
+.ms-pulse-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: ms-pulse-draw 1.1s var(--easing-expo-out) 0.1s forwards;
+}
+
+.ms-pulse-travel {
+  stroke-dasharray: 0.3 1;
+  stroke-dashoffset: 0.3;
+  animation: ms-pulse-travel 1.7s var(--easing-default) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ms-pulse-draw {
+    stroke-dashoffset: 0;
+    animation: none;
+  }
+
+  .ms-pulse-travel {
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+    animation: none;
+  }
+}
+
+/*
+ * The mark traces itself. Inside a `group` (the brand button in the topbar)
+ * hover or focus re-draws the pulse; `ms-logo-intro` draws it once on mount.
+ * pathLength is normalised to 1, so the dash is the same at any size.
+ */
+@keyframes ms-logo-trace {
+  from {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+
+  to {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+  }
+}
+
+.group:is(:hover, :focus-visible) .ms-logo-path {
+  animation: ms-logo-trace 0.9s var(--easing-expo-out);
+}
+
+.ms-logo-intro {
+  animation: ms-logo-trace 1.2s var(--easing-expo-out) 0.15s backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .group:is(:hover, :focus-visible) .ms-logo-path,
+  .ms-logo-intro {
+    animation: none;
+  }
+}

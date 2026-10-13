@@ -2,41 +2,55 @@ import pako from 'pako';
 
 import type { GlobalFilter } from '@/stores/useFiltersStore';
 import { useFiltersStore } from '@/stores/useFiltersStore';
-import type { Frame } from '@/stores/useInvestigationStack';
+import type { FrameContent } from '@/stores/useInvestigationStack';
 import { useInvestigationStack } from '@/stores/useInvestigationStack';
-import type { TimeWindow } from '@/stores/useTimeStore';
-import { useTimeStore } from '@/stores/useTimeStore';
+import type { Anchor, TimeWindow } from '@/stores/useTimeStore';
+import { sameTimeWindow, useTimeStore } from '@/stores/useTimeStore';
+
+/**
+ * The time window and anchor a URL names, if it names any. `window` is absent
+ * when the URL says nothing about time; `anchor` is `null` when the URL clears
+ * it and absent when it does not mention it.
+ */
+export function timeFromSearchParams(search: URLSearchParams): {
+  window?: TimeWindow;
+  anchor?: Anchor | null;
+} {
+  const result: { window?: TimeWindow; anchor?: Anchor | null } = {};
+  // The canonical form is `time=from..to`. Cross-signal links use explicit
+  // `from` / `to` params so the URL remains readable and interoperable with
+  // external tools; useSyncStateToUrl additionally persists the canonical form.
+  const time = search.get('time');
+  const [from, to] = time ? time.split('..') : [search.get('from'), search.get('to')];
+  if (from && to) {
+    const mode: TimeWindow['mode'] = from.startsWith('now') || to.startsWith('now') ? 'relative' : 'absolute';
+    result.window = { from, to, mode };
+  }
+
+  const anchor = search.get('anchor');
+  if (anchor) result.anchor = { at: anchor };
+  else if (search.has('anchor')) result.anchor = null;
+  return result;
+}
 
 /**
  * Read URL search params and write them into the global stores. Call this in
  * the route loader for any route that participates in shared state, before
  * the route element renders, to avoid a flash of pre-hydration content.
+ *
+ * A value the store already holds is left alone: writing an equal copy would
+ * hand every reader a new object and re-run the queries that depend on it.
  */
 export function hydrateFromSearchParams(search: URLSearchParams): void {
-  const t = search.get('time');
-  if (t) {
-    const [from, to] = t.split('..');
-    if (from && to) {
-      const mode: TimeWindow['mode'] = from.startsWith('now') || to.startsWith('now') ? 'relative' : 'absolute';
-      useTimeStore.getState().setWindow({ from, to, mode });
-    }
-  } else {
-    // Cross-signal links use explicit `from` / `to` params so the URL remains
-    // readable and interoperable with external tools. Hydrate that shape too;
-    // useSyncStateToUrl will additionally persist the canonical `time` form.
-    const from = search.get('from');
-    const to = search.get('to');
-    if (from && to) {
-      const mode: TimeWindow['mode'] = from.startsWith('now') || to.startsWith('now') ? 'relative' : 'absolute';
-      useTimeStore.getState().setWindow({ from, to, mode });
-    }
+  const time = timeFromSearchParams(search);
+  const current = useTimeStore.getState();
+  if (time.window && !sameTimeWindow(current.window, time.window)) {
+    current.setWindow(time.window);
   }
-
-  const a = search.get('anchor');
-  if (a) {
-    useTimeStore.getState().setAnchor({ at: a });
-  } else if (search.has('anchor')) {
-    useTimeStore.getState().clearAnchor();
+  if (time.anchor && current.anchor?.at !== time.anchor.at) {
+    current.setAnchor(time.anchor);
+  } else if (time.anchor === null && current.anchor) {
+    current.clearAnchor();
   }
 
   const s = search.get('stack');
@@ -52,11 +66,14 @@ export function hydrateFromSearchParams(search: URLSearchParams): void {
   const f = search.get('filters');
   if (f) {
     try {
-      useFiltersStore.getState().setAll(decodeFilters(f));
+      const filters = decodeFilters(f);
+      if (encodeFilters(filters) !== encodeFilters(useFiltersStore.getState().filters)) {
+        useFiltersStore.getState().setAll(filters);
+      }
     } catch {
       // ignore malformed filters — keep current state
     }
-  } else if (search.has('filters')) {
+  } else if (search.has('filters') && useFiltersStore.getState().filters.length > 0) {
     useFiltersStore.getState().clearFilters();
   }
 }
@@ -87,7 +104,7 @@ export function decodeFilters(payload: string): GlobalFilter[] {
   return filters;
 }
 
-export function encodeStack(frames: Frame[]): string {
+export function encodeStack(frames: FrameContent[]): string {
   const minimal = frames.map((f) => ({
     k: f.kind,
     p: f.params,
@@ -101,27 +118,28 @@ export function encodeStack(frames: Frame[]): string {
   return base64UrlEncode(deflated);
 }
 
-export function decodeStack(payload: string): Frame[] {
+/**
+ * The frames an address names. They carry no ids: the stack gives a frame its
+ * identity when it opens one, and a frame it already has open keeps its own.
+ */
+export function decodeStack(payload: string): FrameContent[] {
   const bytes = base64UrlDecode(payload);
   const json = new TextDecoder().decode(pako.inflate(bytes));
   const arr = JSON.parse(json) as Array<{
-    k: Frame['kind'];
+    k: FrameContent['kind'];
     p: Record<string, unknown>;
     t?: TimeWindow;
     a?: string;
     pp?: string;
     pin?: boolean;
   }>;
-  // Regenerate ids on decode; consumers don't depend on stable ids across links.
-  return arr.map((x, i) => ({
-    id: `f${i}`,
+  return arr.map((x) => ({
     kind: x.k,
     params: x.p,
     ...(x.t !== undefined && { time_range_override: x.t }),
     ...(x.a !== undefined && { anchor_override: x.a }),
     ...(x.pp !== undefined && { parent_frame_id: x.pp }),
     pinned: x.pin ?? false,
-    created_at: 0,
   }));
 }
 

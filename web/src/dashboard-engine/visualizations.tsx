@@ -1,6 +1,7 @@
 import * as React from 'react';
 
 import { cn } from '@/shell/lib/cn';
+import { formatTimeSeriesTimestamp } from '@/viz/timeseries/formatters';
 
 import { dataFrameToObjects } from './dataframe';
 import { formatFieldValue } from './fieldConfig';
@@ -18,6 +19,7 @@ import { GaugeVisualization } from './visualizations/gauge';
 import { HeatmapVisualization } from './visualizations/heatmap';
 import { resolveVisualizationOptions } from './visualizations/options';
 import { EmptyVisualization } from './visualizations/shared/EmptyVisualization';
+import { normalizeTimestamp } from './visualizations/shared/time';
 import type {
   VisualizationEditorProps,
   VisualizationProps,
@@ -248,10 +250,7 @@ function TableVisualization({
               )}
             >
               {frame.fields.map((field) => {
-                const display = formatFieldValue(
-                  row[field.name],
-                  field.config,
-                );
+                const display = formatTableValue(row[field.name], field);
                 return (
                   <td
                     key={field.id}
@@ -268,6 +267,16 @@ function TableVisualization({
       </table>
     </div>
   );
+}
+
+/** A cell as a reader takes it: a moment as a date and a time, anything else as its field says. */
+function formatTableValue(value: unknown, field: DataField): { text: string; color?: string | undefined } {
+  if (field.type === 'time') {
+    const seconds = normalizeTimestamp(value);
+    if (seconds !== null) return { text: formatTimeSeriesTimestamp(seconds) };
+  }
+
+  return formatFieldValue(value, field.config);
 }
 
 function LogsVisualization({

@@ -87,5 +87,6 @@ export function deliveryStages(): NotifyDeliveryStage[] {
     'organization_fallback',
     'escalation',
     'test',
+    'direct',
   ];
 }

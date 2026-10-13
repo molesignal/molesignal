@@ -180,7 +180,10 @@ export function IamListPage({
 }) {
   return (
     <section className="min-w-0 rounded-md bg-[var(--functional-surface)]" data-iam-list-page>
-      <header className="min-h-12 px-4 py-1.5">
+      {/* The head has the same room over it as under it: the padding above is the padding below
+          plus the body's own, so a button in the row stands midway between the card's edge and
+          the list. */}
+      <header className="min-h-12 px-4 pb-1.5 pt-2.5">
         <PageTitleRow
           title={title}
           description={subtitle}
@@ -189,7 +192,7 @@ export function IamListPage({
           size="section"
         />
       </header>
-      <div className="min-w-0 px-4 pb-4 pt-1">
+      <div data-iam-list-body className="min-w-0 px-4 pb-4 pt-1">
         {state ? <ProductState {...state} /> : children}
       </div>
     </section>

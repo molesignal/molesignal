@@ -1,35 +1,36 @@
 import { useTranslation } from 'react-i18next';
 
 import type { ProbeAgent } from '@/api/synthetics';
-import { Dot, Pill, type PillTone } from '@/shell/chrome';
+import { cn } from '@/shell/lib/cn';
 
 import type { AgentStatus } from './model';
 
-const STATUS_TONE: Record<AgentStatus, PillTone> = {
-  registered: 'indigo',
-  online: 'green',
-  degraded: 'yellow',
-  offline: 'red',
-  draining: 'blue',
-  revoked: 'dim',
+const STATUS_TONE: Record<AgentStatus, { color: string; text: string }> = {
+  registered: { color: 'var(--indigo)', text: 'text-indigo' },
+  online: { color: 'var(--green)', text: 'text-green' },
+  degraded: { color: 'var(--yellow)', text: 'text-yellow' },
+  offline: { color: 'var(--red)', text: 'text-red' },
+  draining: { color: 'var(--blue)', text: 'text-blue' },
+  revoked: { color: 'var(--tx-3)', text: 'text-tx-2' },
 };
 
-const STATUS_DOT: Record<AgentStatus, 'indigo' | 'green' | 'yellow' | 'red' | 'blue' | 'dim'> = {
-  registered: 'indigo',
-  online: 'green',
-  degraded: 'yellow',
-  offline: 'red',
-  draining: 'blue',
-  revoked: 'dim',
-};
-
+/** Where an agent stands, in a word and its colour, as checks and locations say theirs. */
 export function AgentStatusPill({ status }: { status: AgentStatus }) {
   const { t } = useTranslation('synthetics');
+  const tone = STATUS_TONE[status];
+
   return (
-    <Pill tone={STATUS_TONE[status]}>
-      <Dot tone={STATUS_DOT[status]} />
-      {t(`states.${status}`)}
-    </Pill>
+    <span
+      data-agent-status={status}
+      className={cn('inline-flex min-w-0 items-center gap-[6px] font-sans text-xs font-strong', tone.text)}
+    >
+      <span
+        aria-hidden="true"
+        className="h-[7px] w-[7px] shrink-0 rounded-full"
+        style={{ background: tone.color }}
+      />
+      <span className="truncate">{t(`states.${status}`)}</span>
+    </span>
   );
 }
 

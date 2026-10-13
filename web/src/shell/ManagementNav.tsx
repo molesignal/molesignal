@@ -1,9 +1,10 @@
 import { ChevronDown, PanelLeftClose, PanelLeftOpen, Search } from 'lucide-react';
 import * as React from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 
 import { uiLabelClass } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
+import { NavIndicator, useNavIndicator } from '@/shell/NavIndicator';
 import {
   Sheet,
   SheetContent,
@@ -246,6 +247,13 @@ function ManagementNavContents({
   onCollapse?: () => void;
   collapseNavigationLabel?: string;
 }) {
+  const { pathname } = useLocation();
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+  const listRef = React.useRef<HTMLDivElement>(null);
+  // The glide re-measures when the route changes and whenever the list reflows
+  // (a search narrows it, permissions arrive).
+  const indicator = useNavIndicator(scrollRef, listRef, pathname);
+
   return (
     <>
       <div className="mb-3 flex items-center gap-1">
@@ -259,7 +267,7 @@ function ManagementNavContents({
             onChange={(event) => onQueryChange(event.target.value)}
             placeholder={searchPlaceholder}
             aria-label={searchAriaLabel}
-            className="min-w-0 flex-1 bg-transparent font-sans text-base text-tx-0 placeholder:text-tx-3 focus:outline-none lg:text-xs"
+            className="min-w-0 flex-1 bg-transparent font-sans text-base text-tx-0 placeholder:text-tx-3 focus:outline-none lg:text-sm"
           />
         </label>
         {onCollapse && collapseNavigationLabel && (
@@ -280,71 +288,90 @@ function ManagementNavContents({
           </Tooltip>
         )}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {groups.map((group) => {
-          const expanded =
-            !collapsibleGroups ||
-            needle.length > 0 ||
-            expandedGroups.has(group.key);
-          return (
-            <div key={group.key} className="mb-1 last:mb-0">
-              {collapsibleGroups ? (
-                <button
-                  type="button"
-                  onClick={() => onToggleGroup(group.key)}
-                  aria-expanded={expanded}
-                  aria-label={
-                    expanded
-                      ? collapseGroupLabel(group.label)
-                      : expandGroupLabel(group.label)
-                  }
-                  className={cn(
-                    'flex min-h-11 w-full items-center gap-2 rounded-md px-2.5 text-left hover:bg-bg-2 focus-visible:bg-bg-2 lg:min-h-8',
-                    uiLabelClass,
-                  )}
-                >
-                  <span className="min-w-0 flex-1 truncate">{group.label}</span>
-                  <ChevronDown
+      <div ref={scrollRef} className="relative min-h-0 flex-1 overflow-y-auto">
+        <NavIndicator
+          box={indicator.box}
+          animated={indicator.animated}
+          testId="management-nav-indicator"
+        />
+        <div ref={listRef}>
+          {groups.map((group, index) => {
+            const expanded =
+              !collapsibleGroups ||
+              needle.length > 0 ||
+              expandedGroups.has(group.key);
+            // The block that holds the current page names itself a tier darker.
+            const holdsCurrent = group.sections.some(
+              (section) =>
+                pathname === section.to || pathname.startsWith(`${section.to}/`),
+            );
+            return (
+              <div key={group.key}>
+                {index > 0 && (
+                  <div aria-hidden className="mb-3 ml-1.5 mt-3 h-px bg-bd-0" />
+                )}
+                {collapsibleGroups ? (
+                  <button
+                    type="button"
+                    onClick={() => onToggleGroup(group.key)}
+                    aria-expanded={expanded}
+                    aria-label={
+                      expanded
+                        ? collapseGroupLabel(group.label)
+                        : expandGroupLabel(group.label)
+                    }
                     className={cn(
-                      'h-3.5 w-3.5 shrink-0 text-tx-3 transition-transform duration-fast',
-                      !expanded && '-rotate-90',
+                      'flex min-h-11 w-full items-center gap-2 rounded-md px-2.5 text-left hover:bg-bg-2 focus-visible:bg-bg-2 lg:min-h-8',
+                      uiLabelClass,
                     )}
-                  />
-                </button>
-              ) : (
-                <div className={cn('flex h-8 items-center px-2.5', uiLabelClass)}>
-                  {group.label}
-                </div>
-              )}
-              {expanded && (
-                <div className="flex flex-col gap-0.5 py-0.5 pl-1.5">
-                  {group.sections.map((section) => (
-                    <NavLink
-                      key={section.to}
-                      to={section.to}
-                      onClick={onNavigate}
-                      className={({ isActive }) =>
-                        cn(
-                          'relative flex min-h-11 items-center rounded-md px-2.5 font-sans text-sm font-strong text-tx-1 hover:bg-bg-3 hover:text-tx-0 lg:min-h-8 lg:text-xs',
-                          'focus-visible:bg-bg-3 focus-visible:text-tx-0',
-                          isActive &&
-                            'bg-indigo-dim text-indigo-soft before:absolute before:-left-1.5 before:top-1/2 before:h-5 before:w-0.5 before:-translate-y-1/2 before:rounded-r before:bg-indigo',
-                        )
-                      }
-                    >
-                      {section.label}
-                    </NavLink>
-                  ))}
-                </div>
-              )}
+                  >
+                    <span className="min-w-0 flex-1 truncate">{group.label}</span>
+                    <ChevronDown
+                      className={cn(
+                        'h-3.5 w-3.5 shrink-0 text-tx-3 transition-transform duration-fast',
+                        !expanded && '-rotate-90',
+                      )}
+                    />
+                  </button>
+                ) : (
+                  <div
+                    className={cn(
+                      'type-eyebrow px-4 pb-1.5 font-sans transition-colors duration-fast',
+                      holdsCurrent ? 'text-tx-0' : 'text-tx-2',
+                    )}
+                  >
+                    {group.label}
+                  </div>
+                )}
+                {expanded && (
+                  <div className="flex flex-col gap-0.5 py-0.5 pl-1.5">
+                    {group.sections.map((section) => (
+                      <NavLink
+                        key={section.to}
+                        to={section.to}
+                        onClick={onNavigate}
+                        className={({ isActive }) =>
+                          cn(
+                            'relative flex min-h-11 items-center rounded-md px-2.5 font-sans text-sm text-tx-1 transition-colors duration-fast hover:bg-bg-3 hover:text-tx-0 lg:min-h-[30px]',
+                            'focus-visible:bg-bg-3 focus-visible:text-tx-0',
+                            isActive && 'bg-indigo-dim font-strong text-indigo-soft',
+                          )
+                        }
+                      >
+                        {section.label}
+                      </NavLink>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {groups.length === 0 && (
+            <div className="px-2.5 py-6 text-center font-sans text-xs leading-relaxed text-tx-3">
+              {noResultsLabel}
             </div>
-          );
-        })}
-        {groups.length === 0 && (
-          <div className="px-2.5 py-6 text-center font-sans text-xs leading-relaxed text-tx-3">
-            {noResultsLabel}
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </>
   );

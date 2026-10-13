@@ -14,6 +14,13 @@ export interface ScheduledReport {
   recipients?: ReportRecipient[];
   format?: string;
   time_range_json?: unknown;
+  /**
+   * The signed-in user who last saved the report: PDF and PNG deliveries read data with this
+   * user's access. `null` when the last save was not made by a signed-in user (an API token).
+   */
+  run_as_user_id?: string | null;
+  /** That user's name and email. `null` when there is no user, or the user no longer exists. */
+  run_as_user?: ReportRunAsUser | null;
   last_run_at_micros?: number | null;
   created_at_micros?: number;
   updated_at_micros?: number;
@@ -25,6 +32,13 @@ export interface ScheduledReport {
 export interface ReportRecipient {
   kind: string;
   target: string;
+}
+
+export interface ReportRunAsUser {
+  id: string;
+  /** Empty for a user who has not set one. */
+  display_name: string;
+  email: string;
 }
 
 export interface ReportInput {

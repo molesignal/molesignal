@@ -168,6 +168,38 @@
     "critical": "Critical",
     "no_traffic": "No traffic"
   },
+  "pulse": {
+    "eyebrow": "Service health",
+    "verdict": {
+      "critical_one": "{{count}} service is critical",
+      "critical_other": "{{count}} services are critical",
+      "warning_one": "{{count}} service needs attention",
+      "warning_other": "{{count}} services need attention",
+      "healthy": "All services are healthy",
+      "idle": "No traffic in this window"
+    },
+    "detail": "{{healthy}} of {{total}} services healthy",
+    "distribution": "Service health"
+  },
+  "first_run": {
+    "eyebrow": "Application performance",
+    "connect": "Connect a service",
+    "explore_traces": "Open Traces",
+    "steps": {
+      "instrument": {
+        "title": "Instrument a service",
+        "description": "Add the OpenTelemetry SDK or agent to a backend service."
+      },
+      "send": {
+        "title": "Send its traces",
+        "description": "Point the exporter at this workspace's OTLP endpoint."
+      },
+      "watch": {
+        "title": "Watch it fill in",
+        "description": "Throughput, errors and latency appear here within a minute."
+      }
+    }
+  },
   "quality": {
     "activation_title": "APM data starts inside this window",
     "activation_description": "Projection started at {{time}}; earlier data is not available.",

@@ -13,6 +13,13 @@ export interface Org {
   roles: AssignedRole[];
   system?: boolean;
   disabled: boolean;
+  /**
+   * Whether the caller can enter the organization. From the platform
+   * organization an owner administers organizations they do not belong to:
+   * those are listed and cannot be entered. Absent on an older backend, where
+   * everything listed could be.
+   */
+  accessible?: boolean;
 }
 
 interface SelectOrgResponse {

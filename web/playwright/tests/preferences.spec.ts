@@ -18,9 +18,11 @@ test.describe('personal preferences page', () => {
     await expect(
       preferences.getByText('Appearance', { exact: true }),
     ).toBeVisible();
+    // The language is chosen in the user menu: here are the time and the region alone.
     await expect(
-      preferences.getByText('Language & region', { exact: true }),
+      preferences.getByText('Time & region', { exact: true }),
     ).toBeVisible();
+    await expect(preferences.getByRole('combobox', { name: 'Language' })).toHaveCount(0);
     await expect(
       preferences.getByText('Startup & interaction', { exact: true }),
     ).toBeVisible();
@@ -147,14 +149,19 @@ test.describe('personal preferences page', () => {
     await expect(saveButton).toBeDisabled();
   });
 
-  test('uses localized Chinese product copy after saving the language', async ({
+  test('uses localized Chinese product copy as soon as the language is chosen in the user menu', async ({
     page,
   }) => {
     const preferences = page.locator('main');
-    await preferences.getByRole('combobox', { name: 'Language' }).click();
-    await page.getByRole('option', { name: 'Simplified Chinese' }).click();
-    await preferences.getByRole('button', { name: 'Save settings' }).click();
+    const saved = page.waitForRequest(
+      (request) => request.method() === 'PUT' && request.url().includes('/api/v1/me/preferences'),
+    );
+    await page.getByRole('button', { name: 'User menu' }).click();
+    await page.locator("[data-ui='language-trigger']").click();
+    await page.getByRole('menuitemradio', { name: '简体中文' }).click();
 
+    // Kept with the reader's other preferences, without a save button.
+    expect((await saved).postDataJSON()).toMatchObject({ language: 'zh-cn' });
     await expect(
       page.getByRole('heading', { name: '偏好设置', level: 2 }),
     ).toBeVisible();
@@ -178,7 +185,12 @@ test.describe('preference entry-point synchronization', () => {
     page,
   }) => {
     await page.goto('/account/settings/profile');
-    const initialTheme = await page.locator('html').getAttribute('data-theme');
+    // The saved preference is "system", so the shortcut starts from the system theme.
+    const initialTheme = await page.evaluate(() =>
+      window.matchMedia('(prefers-color-scheme: dark)').matches
+        ? 'dark'
+        : 'light',
+    );
     await page.getByTestId('theme-toggle').click();
     const expectedTheme = initialTheme === 'dark' ? 'light' : 'dark';
     await expect(page.locator('html')).toHaveAttribute(

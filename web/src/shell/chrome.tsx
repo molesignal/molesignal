@@ -41,12 +41,12 @@ const PILL_TONE: Record<PillTone, string> = {
   neutral: 'bg-bg-3 text-tx-1',
   // Brand-affiliated tags use the same indigo treatment as primary actions.
   indigo: 'bg-indigo-dim text-indigo-soft',
-  orange: 'bg-orange-dim text-orange-soft',
-  blue: 'bg-blue-dim text-blue-soft',
-  green: 'bg-green-dim text-green-soft',
+  orange: 'bg-[var(--orange-tint)] text-[var(--orange-ink)]',
+  blue: 'bg-[var(--blue-tint)] text-[var(--blue-ink)]',
+  green: 'bg-[var(--green-tint)] text-[var(--green-ink)]',
   red: 'bg-red-dim text-red-soft',
-  yellow: 'bg-yellow-dim text-yellow-soft',
-  purple: 'bg-purple-dim text-purple-soft',
+  yellow: 'bg-[var(--yellow-tint)] text-[var(--yellow-ink)]',
+  purple: 'bg-[var(--purple-tint)] text-[var(--purple-ink)]',
   dim: 'bg-bg-2 text-tx-3',
 };
 
@@ -138,7 +138,8 @@ export function CriticalAlertBanner({
           >
             <Dot tone="red" />
             <span className="min-w-0 flex-1 truncate font-sans text-xs font-strong text-tx-0">{item.label}</span>
-            {item.meta && <span className="shrink-0 font-mono text-xs text-tx-2">{item.meta}</span>}
+            {/* On the red tint the muted ink falls under AA in the dark theme; this one does not. */}
+            {item.meta && <span className="shrink-0 font-mono text-xs text-tx-1">{item.meta}</span>}
           </div>
         ))}
       </div>
@@ -177,13 +178,13 @@ export const ChromeButton = React.forwardRef<
       disabled={disabled}
       aria-disabled={disabled || undefined}
       className={cn(
-        'inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md font-sans font-strong transition-colors duration-fast ease-default disabled:pointer-events-none disabled:cursor-not-allowed disabled:border-transparent disabled:bg-bg-2 disabled:text-tx-3 disabled:opacity-100 disabled:shadow-none',
+        'ms-press inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md font-sans font-strong disabled:pointer-events-none disabled:cursor-not-allowed disabled:border-transparent disabled:bg-bg-2 disabled:text-tx-3 disabled:opacity-100 disabled:shadow-none',
         size === 'md' ? 'h-9 px-3 text-sm' : 'h-8 px-2.5 text-xs',
         variant === 'default' &&
           'border border-transparent bg-bg-2 text-tx-1 enabled:hover:bg-bg-3 enabled:hover:text-tx-0',
         variant === 'primary' &&
           // Primary actions use a saturated indigo fill with white text.
-          'bg-indigo font-bold text-white enabled:hover:brightness-90 enabled:focus-visible:brightness-90',
+          'bg-indigo font-bold text-white shadow-primary enabled:hover:brightness-90 enabled:focus-visible:brightness-90',
         variant === 'ghost' &&
           'border border-transparent bg-transparent text-tx-1 enabled:hover:bg-bg-3',
         // A destructive action that is not the final confirmation: tinted, not outlined.
@@ -220,7 +221,7 @@ export const IconButton = React.forwardRef<
       disabled={disabled}
       aria-disabled={disabled || undefined}
       className={cn(
-        'flex h-8 w-8 items-center justify-center rounded-md text-tx-2 transition-colors duration-fast enabled:hover:bg-bg-3 enabled:hover:text-tx-0 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-transparent disabled:text-tx-3 disabled:opacity-100',
+        'ms-press flex h-8 w-8 items-center justify-center rounded-md text-tx-2 enabled:hover:bg-bg-3 enabled:hover:text-tx-0 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-transparent disabled:text-tx-3 disabled:opacity-100',
         active && 'bg-bg-3 text-tx-0',
         className,
       )}
@@ -326,7 +327,7 @@ export function StatCard({
               not the brand-secondary orange. The caller can override
               direction semantics (e.g. "lower is better") at the
               callsite. */}
-          <span className={deltaDir === 'up' ? 'text-green-soft' : 'text-red-soft'}>
+          <span className={deltaDir === 'up' ? 'text-[var(--green-ink)]' : 'text-red-soft'}>
             {deltaDir === 'up' ? '↑' : '↓'} {delta}
           </span>
           <span className="ml-1 text-tx-3">vs 1h ago</span>

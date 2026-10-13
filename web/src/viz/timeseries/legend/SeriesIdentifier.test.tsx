@@ -19,14 +19,21 @@ const text: SeriesIdentityConfig = {
   collapseLabel: (metricName) => `Hide labels for ${metricName}`,
 };
 
-function Harness({ onSelect }: { onSelect: () => void }) {
+function Harness({
+  onSelect,
+  legendName,
+}: {
+  onSelect: () => void;
+  legendName?: string;
+}) {
   const [expanded, setExpanded] = React.useState(false);
   return (
     <MemoryRouter>
       <SeriesIdentifier
         series={{
           metricName: 'cache_misses_total',
-          name: 'cache_misses_total{service.name="molesignal"}',
+          ...(legendName !== undefined ? { legendName } : {}),
+          name: legendName ?? 'cache_misses_total{service.name="molesignal"}',
           data: [0],
           labels: {
             __name__: 'cache_misses_total',
@@ -75,5 +82,37 @@ describe('SeriesIdentifier', () => {
 
     fireEvent.click(metric);
     expect(onSelect).toHaveBeenCalledOnce();
+  });
+
+  it('leads with the legend its author wrote, and still opens the labels', () => {
+    const onSelect = vi.fn();
+    render(<Harness onSelect={onSelect} legendName="production cache" />);
+
+    // The written legend is the name of the row; the metric is not repeated.
+    const named = screen.getByRole('button', { name: 'production cache' });
+    expect(named.textContent).toBe('production cache');
+    expect(
+      screen.queryByRole('button', { name: 'cache_misses_total' }),
+    ).toBeNull();
+    expect(screen.getByText('2 labels')).not.toBeNull();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Show labels for production cache',
+      }),
+    );
+    expect(screen.getByTestId('series-identifier-labels')).not.toBeNull();
+    expect(screen.getByText('deployment.environment.name')).not.toBeNull();
+
+    fireEvent.click(named);
+    expect(onSelect).toHaveBeenCalledOnce();
+  });
+
+  it('falls back to the metric when the written legend renders to nothing', () => {
+    render(<Harness onSelect={() => undefined} legendName="  " />);
+
+    expect(
+      screen.getByRole('button', { name: 'cache_misses_total' }).textContent,
+    ).toBe('cache_misses_total');
   });
 });

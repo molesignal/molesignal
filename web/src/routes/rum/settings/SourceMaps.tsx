@@ -58,8 +58,6 @@ export function SourceMaps() {
   return (
     <>
       <RumListPage
-        title={t('source_maps.title')}
-        subtitle={t('source_maps.subtitle') as string}
         toolbar={uploadAction}
         settings
       >
@@ -121,7 +119,7 @@ export function SourceMaps() {
                       )}
                     </span>
                     <span className="flex min-w-0 items-start gap-2">
-                      <FileCode2 className="h-4 w-4 shrink-0 text-blue-soft" />
+                      <FileCode2 className="h-4 w-4 shrink-0 text-[var(--blue-ink)]" />
                       <span className="min-w-0">
                         <span className="block truncate font-mono text-xs text-tx-1">
                           {row.filename}
@@ -231,8 +229,8 @@ function SourceMapOnboarding({
             <span className="h-px flex-1 bg-bd-0" />
           </div>
           <div>
-            <span className="text-xs font-strong text-green-soft">{t('source_maps.after')}</span>
-            <code className="mt-2 block rounded-md bg-green-dim p-3 font-mono text-xs text-green-soft">
+            <span className="text-xs font-strong text-[var(--green-ink)]">{t('source_maps.after')}</span>
+            <code className="mt-2 block rounded-md bg-[var(--green-tint)] p-3 font-mono text-xs text-[var(--green-ink)]">
               src/checkout/payment.ts:86
             </code>
           </div>

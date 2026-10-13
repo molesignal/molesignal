@@ -1,0 +1,81 @@
+/*
+ * Control feedback.
+ *
+ * Hover and focus already speak through fills (see tokens.css); this layer adds
+ * the missing half of the conversation: the control answers a press, a primary
+ * action has a little material, and loading placeholders move like light
+ * instead of blinking. No outline, ring or frame is introduced here.
+ */
+:root,
+[data-theme='dark'] {
+  --shadow-primary:
+    inset 0 1px 0 rgb(255 255 255 / 0.16),
+    0 1px 2px color-mix(in srgb, var(--indigo) 45%, transparent);
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238b90a4' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  --skeleton-base: var(--bg-3);
+  --skeleton-glint: rgb(255 255 255 / 0.05);
+}
+
+[data-theme='light'] {
+  --shadow-primary:
+    inset 0 1px 0 rgb(255 255 255 / 0.2),
+    0 1px 2px color-mix(in srgb, var(--indigo) 38%, transparent);
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%235a617e' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  --skeleton-glint: rgb(255 255 255 / 0.55);
+}
+
+/*
+ * Press feedback. Opt in with `.ms-press` on the shared button primitives; a
+ * scale of 0.97 reads as "pushed" on a 32-40px control and is imperceptible
+ * noise on a card, which is why it is not applied by a blanket selector.
+ */
+.ms-press {
+  transition-property: color, background-color, border-color, filter, transform, opacity, box-shadow;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--easing-default);
+}
+
+.ms-press:active:not(:disabled):not([aria-disabled='true']) {
+  transform: scale(0.97);
+  transition-duration: 60ms;
+  transition-timing-function: var(--easing-out);
+}
+
+/*
+ * Native <select> keeps the platform arrow, which is heavier and a different
+ * shape from every other chevron in the product. Draw the shared one instead.
+ */
+select:not([multiple]):not([size]) {
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: var(--select-chevron);
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 14px 14px;
+  padding-right: 30px;
+  text-overflow: ellipsis;
+}
+
+/*
+ * Skeletons shimmer: a soft glint travelling across the placeholder. Selected
+ * with the placeholder's own pulse class so every existing skeleton upgrades
+ * without touching call sites.
+ */
+.animate-pulse.bg-bg-3 {
+  background-image: linear-gradient(
+    100deg,
+    transparent 30%,
+    var(--skeleton-glint) 50%,
+    transparent 70%
+  );
+  background-size: 220% 100%;
+  background-repeat: no-repeat;
+  animation: ms-shimmer 1.6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse.bg-bg-3 {
+    background-image: none;
+    animation: none;
+  }
+}

@@ -6,7 +6,7 @@ const WEB = process.cwd();
 
 const TARGETS = [
   'src/routes/home/index.tsx',
-  'src/routes/Datasource/Datasource.tsx',
+  'src/routes/Datasource',
   'src/routes/alerts/index.tsx',
   'src/routes/streams/index.tsx',
   'src/routes/reports/index.tsx',
@@ -33,6 +33,9 @@ const TARGETS = [
   'src/routes/pipelines/History.tsx',
   'src/routes/pipelines/Import.tsx',
   'src/routes/pipelines/PipelineForm.tsx',
+  'src/routes/pipelines/connectors',
+  'src/routes/pipelines/editor',
+  'src/routes/pipelines/processors',
   'src/routes/settings',
   'src/routes/iam',
   'src/routes/rum',

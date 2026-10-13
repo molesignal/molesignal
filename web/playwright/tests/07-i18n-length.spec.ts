@@ -15,21 +15,23 @@
  * walk down the column looking for: overflowed text in the sidebar group
  * headings, wrapped pills in the alerts toolbar, truncated KPI labels,
  * and toolbar buttons that now wrap onto two lines.
+ *
+ * The shared mock gives the Logs and Traces explorers nothing to list, so
+ * `logs` and `traces` are captures of their empty state. `logs-results` and
+ * `traces-results` are the same two pages with results from `mockExplorers`:
+ * the copy of the result head, the histogram, the list and its paging is on
+ * the page only there.
  */
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { test } from '@playwright/test';
-
 import type { Locale } from '../../src/i18n';
-import { installMockSession } from '../fixtures/mockSession';
+import { expect, mountMockRoutes, test } from '../fixtures/mockBackend';
+import { expectExplorerResults, serveExplorerResults, type Explorer } from '../fixtures/mockExplorers';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const PREFS_KEY = 'molesignal-ui-prefs';
-const THEME_KEY = 'molesignal-theme';
-const DENSITY_KEY = 'molesignal-density';
-const EXPLICIT_THEME_KEY = 'molesignal-theme-explicit';
 
 const OUT_DIR = resolve(__dirname, '../../test-results/i18n-length');
 
@@ -37,111 +39,91 @@ const LOCALES: Locale[] = ['en-us', 'zh-cn'];
 
 // Pages most likely to surface the 1.6× length differential: dense
 // toolbars, multi-column tables, KPI strips, sidebar group headings.
-const PAGES: Array<{ slug: string; route: string; requiresAuth: boolean }> = [
-  { slug: 'login', route: '/login', requiresAuth: false },
-  { slug: 'home', route: '/home', requiresAuth: true },
-  { slug: 'sidebar', route: '/home', requiresAuth: true }, // same route, captured for sidebar comparison
-  { slug: 'logs', route: '/logs', requiresAuth: true },
-  { slug: 'metrics', route: '/metrics', requiresAuth: true },
-  { slug: 'traces', route: '/traces', requiresAuth: true },
-  { slug: 'alerts', route: '/alerts', requiresAuth: true },
-  { slug: 'streams', route: '/streams', requiresAuth: true },
-  { slug: 'dashboards', route: '/dashboards', requiresAuth: true },
-  { slug: 'iam-users', route: '/iam/users', requiresAuth: true },
-  { slug: 'settings-general', route: '/settings/general', requiresAuth: true },
-  { slug: 'datasource', route: '/datasource', requiresAuth: true },
-  { slug: 'pipelines', route: '/pipelines', requiresAuth: true },
-  { slug: 'apm-overview', route: '/apm/overview', requiresAuth: true },
-  { slug: 'rum-overview', route: '/rum/overview', requiresAuth: true },
-  { slug: 'rum-sessions', route: '/rum/sessions', requiresAuth: true },
+const PAGES: Array<{
+  slug: string;
+  route: string;
+  signedIn: boolean;
+  /** The explorer the page is, where it is captured with results on it. */
+  results?: Explorer;
+}> = [
+  { slug: 'signin', route: '/signin', signedIn: false },
+  { slug: 'home', route: '/home', signedIn: true },
+  { slug: 'sidebar', route: '/home', signedIn: true }, // same route, captured for sidebar comparison
+  { slug: 'logs', route: '/logs', signedIn: true },
+  { slug: 'logs-results', route: '/logs', signedIn: true, results: 'logs' },
+  { slug: 'metrics', route: '/metrics', signedIn: true },
+  { slug: 'traces', route: '/traces', signedIn: true },
+  { slug: 'traces-results', route: '/traces', signedIn: true, results: 'traces' },
+  { slug: 'alerts', route: '/alerts', signedIn: true },
+  { slug: 'streams', route: '/streams', signedIn: true },
+  { slug: 'dashboards', route: '/dashboards', signedIn: true },
+  { slug: 'iam-users', route: '/iam/users', signedIn: true },
+  { slug: 'settings-general', route: '/settings/general', signedIn: true },
+  { slug: 'datasource', route: '/datasource', signedIn: true },
+  { slug: 'pipelines', route: '/pipelines', signedIn: true },
+  { slug: 'apm-overview', route: '/apm/overview', signedIn: true },
+  { slug: 'rum-overview', route: '/rum/overview', signedIn: true },
+  { slug: 'rum-sessions', route: '/rum/sessions', signedIn: true },
 ];
 
 for (const locale of LOCALES) {
   const localeTag = locale === 'zh-cn' ? 'zh' : 'en';
   test.describe(`i18n length @ ${locale}`, () => {
-    test.beforeEach(async ({ page }) => {
-      // Pin the clock so any "now"-relative chrome is identical between
-      // en and zh runs — otherwise zh-side runs a few seconds later read
-      // a fresher window summary, which looks like a layout diff.
-      await page.clock.install({ time: new Date('2026-05-23T10:00:00.000Z') });
-      await installMockSession(page);
-
-      await page.addInitScript(
-        ({
-          prefsKey,
-          prefs,
-          themeKey,
-          densityKey,
-          explicitKey,
-        }) => {
-          // useThemeStore is persisted by zustand `persist` under
-          // `molesignal-ui-prefs` as `{state, version}` — seeding this
-          // before mount lets `ThemeBootstrap` pick up the language on
-          // the very first paint and `i18n.changeLanguage()` fires before
-          // any route renders user-visible copy in the wrong locale.
-          localStorage.setItem(prefsKey, JSON.stringify(prefs));
-          localStorage.setItem(themeKey, 'dark');
-          localStorage.setItem(densityKey, 'normal');
-          localStorage.setItem(explicitKey, '1');
-        },
-        {
-          prefsKey: PREFS_KEY,
-          prefs: { state: { palette: 'default', language: locale }, version: 0 },
-          themeKey: THEME_KEY,
-          densityKey: DENSITY_KEY,
-          explicitKey: EXPLICIT_THEME_KEY,
-        },
-      );
-
-      // Stub /api/v1/* calls so the screenshot captures the rendered shell
-      // without depending on a live backend. Most list-style endpoints (alerts,
-      // dashboards, rum, iam, ...) return a top-level array — defaulting to
-      // `[]` keeps `data.map(...)` from throwing and turning the page into a
-      // generic ErrorBoundary (which would look identical between en and zh
-      // and defeat the purpose of the audit). The few endpoints that return
-      // an object (`/streams`, `/topology`, ...) get a specific shape.
-      // Playwright route handlers are last-registered-wins, so register the
-      // catch-all FIRST and let specific endpoints override afterwards.
-      await page.route('**/api/v1/**', (route) => route.fulfill({ json: [] }));
-      await page.route('**/api/v1/streams**', (route) => route.fulfill({ json: { items: [] } }));
-      await page.route('**/api/v1/web/topology**', (route) =>
-        route.fulfill({ json: { nodes: [], edges: [] } }),
-      );
-      await page.route('**/api/v1/web/search**', (route) =>
-        route.fulfill({ json: { items: [] } }),
-      );
-      await page.route('**/api/v1/web/traces**', (route) =>
-        route.fulfill({ json: { items: [] } }),
-      );
-      await page.route('**/api/v1/web/trace/**', (route) =>
-        route.fulfill({ status: 404, body: 'not found' }),
-      );
-      // `/query` is the universal PromQL / SQL endpoint — returns QueryResult.
-      await page.route('**/api/v1/query**', (route) =>
-        route.fulfill({ json: { columns: [], rows: [], scanned_rows: 0, took_ms: 0 } }),
-      );
-      // `/metrics/catalog` returns `{ metrics: MetricInfo[] }`.
-      await page.route('**/api/v1/metrics/catalog**', (route) =>
-        route.fulfill({ json: { metrics: [] } }),
-      );
-    });
-
     for (const pageDef of PAGES) {
-      test(`${pageDef.slug}`, async ({ page }) => {
+      test(`${pageDef.slug}`, async ({ page, mockServer }) => {
+        // The shared mock backend serves every page its data and pins the
+        // clock, so the en and zh captures differ in copy and nothing else.
+        // A signed-in page takes its language from the saved preferences: the
+        // shell applies what the backend returns over whatever the browser
+        // remembered, so the language is saved there, not only seeded.
+        await mountMockRoutes(page, mockServer.port, {
+          theme: 'dark',
+          density: 'normal',
+          ...(pageDef.signedIn
+            ? { preferences: { theme: 'dark', density: 'normal', language: locale } }
+            : { signedOut: true }),
+        });
+        if (pageDef.results) await serveExplorerResults(page);
+        // useThemeStore is persisted by zustand `persist` under
+        // `molesignal-ui-prefs` as `{state, version}`. Seeding it puts the
+        // first paint in the right language, and it is all the sign-in page
+        // has to go by.
+        await page.addInitScript(
+          ({ prefsKey, prefs }) => {
+            localStorage.setItem(prefsKey, JSON.stringify(prefs));
+          },
+          {
+            prefsKey: PREFS_KEY,
+            prefs: { state: { palette: 'default', language: locale }, version: 0 },
+          },
+        );
+
         await page.goto(pageDef.route);
         // Let lazy-loaded chunks settle (Monaco, reactflow, uPlot are
         // all import()'d). Without this the screenshot can capture a
         // skeleton frame and the en / zh comparison becomes noise.
         await page.waitForLoadState('networkidle');
         // Wait for `ThemeBootstrap` to flush its language effect — without
-        // this the screenshot can land between the first render (browser-
-        // detected `en-us`) and the persisted-store hydration that flips
-        // i18next to `zh-cn`, producing en-content under a zh filename.
+        // this the screenshot can land between the first render and the
+        // moment the saved language reaches i18next, producing en-content
+        // under a zh filename.
         await page.waitForFunction(
           (expected) => document.documentElement.getAttribute('lang') === expected,
           locale,
           { timeout: 5_000 },
         );
+        // The capture is only worth comparing when the page itself rendered:
+        // a shell that could not load its access, or a crashed route, looks
+        // the same in both languages.
+        await expect(page.getByText('Unexpected Application Error!')).toHaveCount(0);
+        if (pageDef.signedIn) {
+          await expect(
+            page.getByTestId('primary-sidebar').getByRole('link').first(),
+          ).toBeVisible();
+        } else {
+          await expect(page.getByTestId('signin-card')).toBeVisible();
+        }
+        if (pageDef.results) await expectExplorerResults(page, pageDef.results);
 
         await page.screenshot({
           path: `${OUT_DIR}/${pageDef.slug}-${localeTag}.png`,

@@ -6,11 +6,17 @@ import {
   ancestorAtDepth,
   callTreeChildren,
   decodeNodes,
+  diffFunctions,
   diffIntensity,
   diffTone,
+  diffTotals,
   formatBytes,
+  formatChange,
+  formatChangePct,
   formatDuration,
+  frameLabel,
   heatColor,
+  isRootFrame,
   nodeInWindow,
   nodeKey,
   rootTotal,
@@ -97,6 +103,17 @@ describe('formatting', () => {
     expect(formatBytes(2048)).toBe('2.0 KiB');
   });
 
+  it('writes a duration in the unit it is read in, without decimals it does not have', () => {
+    expect(formatDuration(31_850_000_000)).toBe('31.85 s');
+    expect(formatDuration(1_500_000_000)).toBe('1.5 s');
+    expect(formatDuration(2_000_000)).toBe('2 ms');
+    // A minute of capture, and forty-eight of them.
+    expect(formatDuration(60_000_000_000)).toBe('1 min');
+    expect(formatDuration(2_880_000_000_000)).toBe('48 min');
+    expect(formatDuration(90_000_000_000)).toBe('1.5 min');
+    expect(formatDuration(7_200_000_000_000)).toBe('2 h');
+  });
+
   it('falls back to levels[0] total when numTicks is absent', () => {
     expect(rootTotal({ ...SINGLE, numTicks: 0 })).toBe(22);
   });
@@ -110,6 +127,125 @@ describe('topFunctions', () => {
     expect(top.map((f) => f.name)).not.toContain('total');
     expect(top[0]!.selfPct).toBeCloseTo((15 / 22) * 100, 1);
     expect(top[0]!.totalPct).toBeCloseTo((15 / 22) * 100, 1);
+  });
+});
+
+describe('diffFunctions', () => {
+  // main calls a and b. Both periods summed: a 30, b 10. The second period has 10 more of a
+  // and 4 less of b than the first, so main as a whole has 6 more.
+  const DIFF: DiffFlamebearer = {
+    names: ['total', 'main', 'a', 'b', 'c'],
+    levels: [
+      [0, 44, 0, 0, 6],
+      [0, 44, 4, 1, 6],
+      [0, 30, 30, 2, 10, 0, 10, 10, 3, -4],
+    ],
+    numTicks: 44,
+    maxSelf: 30,
+    maxAbsDelta: 10,
+    units: 'nanoseconds',
+  };
+
+  it('lists the functions by how much their own cost changed, largest change first', () => {
+    const changed = diffFunctions(DIFF);
+
+    expect(changed.map((entry) => entry.name)).toEqual(['a', 'b']);
+    // a: 30 in both, 10 more in the second: 10 before, 20 after, twice as much.
+    expect(changed[0]).toEqual({ name: 'a', baseline: 10, comparison: 20, delta: 10, deltaPct: 100 });
+    // b: 10 in both, 4 less in the second: 7 before, 3 after.
+    expect(changed[1]!.baseline).toBe(7);
+    expect(changed[1]!.comparison).toBe(3);
+    expect(changed[1]!.delta).toBe(-4);
+    expect(changed[1]!.deltaPct).toBeCloseTo(-57.14, 1);
+  });
+
+  it('leaves out what did not change of its own, and the root', () => {
+    // main is 6 more only because of what it calls: its own 4 is the same in both periods.
+    expect(diffFunctions(DIFF).map((entry) => entry.name)).not.toContain('main');
+    expect(diffFunctions(DIFF).map((entry) => entry.name)).not.toContain('total');
+  });
+
+  it('has no share to give for a function that did not run in the baseline', () => {
+    const fresh: DiffFlamebearer = {
+      ...DIFF,
+      levels: [
+        [0, 8, 0, 0, 8],
+        [0, 8, 8, 4, 8],
+      ],
+    };
+
+    expect(diffFunctions(fresh)).toEqual([
+      { name: 'c', baseline: 0, comparison: 8, delta: 8, deltaPct: null },
+    ]);
+  });
+});
+
+describe('diffTotals', () => {
+  it('tells the two periods apart from their sum and their difference', () => {
+    // Both periods add up to 44, and the second has 6 more than the first: 19 and 25.
+    const totals = diffTotals({
+      names: ['total', 'main'],
+      levels: [
+        [0, 44, 0, 0, 6],
+        [0, 44, 44, 1, 6],
+      ],
+      numTicks: 44,
+      maxSelf: 44,
+      maxAbsDelta: 6,
+      units: 'nanoseconds',
+    });
+
+    expect(totals.baseline).toBe(19);
+    expect(totals.comparison).toBe(25);
+    expect(totals.delta).toBe(6);
+    expect(totals.deltaPct).toBeCloseTo(31.58, 1);
+  });
+
+  it('has no share to give when the baseline is empty', () => {
+    const totals = diffTotals({
+      names: ['total', 'main'],
+      levels: [
+        [0, 8, 0, 0, 8],
+        [0, 8, 8, 1, 8],
+      ],
+      numTicks: 8,
+      maxSelf: 8,
+      maxAbsDelta: 8,
+      units: 'nanoseconds',
+    });
+
+    expect(totals).toEqual({ baseline: 0, comparison: 8, delta: 8, deltaPct: null });
+  });
+});
+
+describe('a change, as it is written', () => {
+  it('carries its direction', () => {
+    expect(formatChange(1_200_000_000, 'nanoseconds')).toBe('+1.2 s');
+    expect(formatChange(-340_000_000, 'nanoseconds')).toBe('-340 ms');
+    expect(formatChange(0, 'nanoseconds')).toBe('0 ns');
+    expect(formatChange(2048, 'bytes')).toBe('+2.0 KiB');
+  });
+
+  it('is a share with a decimal while it is small and without one once it is large', () => {
+    expect(formatChangePct(11.24)).toBe('+11.2%');
+    expect(formatChangePct(-3.4)).toBe('-3.4%');
+    expect(formatChangePct(25)).toBe('+25%');
+    expect(formatChangePct(283.4)).toBe('+283%');
+    expect(formatChangePct(0)).toBe('0%');
+  });
+});
+
+describe('the root frame', () => {
+  it('is shown as the start of a path, not under the name of a measure', () => {
+    expect(isRootFrame('total', 0)).toBe(true);
+    expect(frameLabel('total', 0)).toBe('/');
+  });
+
+  it('leaves a function its name, one called total included', () => {
+    expect(frameLabel('runtime.main', 1)).toBe('runtime.main');
+    expect(isRootFrame('total', 3)).toBe(false);
+    expect(frameLabel('total', 3)).toBe('total');
+    expect(frameLabel('main', 0)).toBe('main');
   });
 });
 

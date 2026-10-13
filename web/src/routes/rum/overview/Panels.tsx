@@ -7,7 +7,6 @@ import type {
   ExperienceBucket,
   OverviewDimensionShare,
   OverviewFrequentError,
-  OverviewMetrics,
   OverviewSlowPage,
   SatisfactionCounts,
 } from '@/api/rum/overview';
@@ -15,7 +14,7 @@ import { cn } from '@/shell/lib/cn';
 import { useTimeStore } from '@/stores/useTimeStore';
 import { TimeSeriesChart } from '@/viz/timeseries/TimeSeriesChart';
 
-import { formatDurationMs } from '../_helpers';
+import { formatDurationMs, formatShare } from '../_helpers';
 import { RumSectionHeader } from '../RumLayout';
 
 export function ExperienceTrend({
@@ -82,70 +81,6 @@ export function ExperienceTrend({
   );
 }
 
-export function CoreWebVitalsPanel({
-  metrics,
-}: {
-  metrics: OverviewMetrics;
-}) {
-  const { t } = useTranslation('rum');
-  const items = [
-    {
-      key: 'lcp',
-      value: metrics.lcpP75,
-      formatted: formatDurationMs(metrics.lcpP75),
-      grade: durationGrade(metrics.lcpP75, 2_500, 4_000),
-    },
-    {
-      key: 'inp',
-      value: metrics.inpP75,
-      formatted: formatDurationMs(metrics.inpP75),
-      grade: durationGrade(metrics.inpP75, 200, 500),
-    },
-    {
-      key: 'cls',
-      value: metrics.clsP75,
-      formatted: metrics.clsP75 > 0 ? metrics.clsP75.toFixed(3) : '—',
-      grade: durationGrade(metrics.clsP75, 0.1, 0.25),
-    },
-  ];
-  return (
-    <section className="h-full rounded-md bg-[var(--functional-surface)] p-4 [box-shadow:var(--shadow-functional-surface)]">
-      <RumSectionHeader
-        title={t('overview.core_web_vitals')}
-        description={t('overview.core_web_vitals_description')}
-      />
-      <div className="mt-4 grid gap-[8px] sm:grid-cols-3">
-        {items.map((item) => (
-          <div key={item.key} className="rounded-md bg-[var(--control-surface)] px-4 py-5">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xs font-strong text-tx-3">
-                {t(`overview.vitals.${item.key}`)} P75
-              </span>
-              <span
-                className={cn(
-                  'h-2 w-2 rounded-full',
-                  item.grade === 'good' && 'bg-green',
-                  item.grade === 'needs_improvement' && 'bg-yellow',
-                  item.grade === 'poor' && 'bg-red',
-                  item.grade === 'unknown' && 'bg-tx-3',
-                )}
-              />
-            </div>
-            <div className="mt-2 font-mono text-xl font-strong text-tx-0">
-              {item.formatted}
-            </div>
-            <div className="mt-1 text-xs text-tx-3">
-              {item.value > 0
-                ? t(`experience.${item.grade}`)
-                : t('experience.unknown')}
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 export function SatisfactionPanel({
   counts,
 }: {
@@ -176,7 +111,7 @@ export function SatisfactionPanel({
         title={t('overview.satisfaction')}
         description={t('overview.satisfaction_description')}
       />
-      <div className="grid gap-4 py-5">
+      <div className="grid gap-4 pb-1 pt-4">
         {items.map((item) => {
           const share = item.count / total;
           return (
@@ -203,6 +138,9 @@ export function SatisfactionPanel({
   );
 }
 
+/** The height of a row of either ranked list of the overview: they are read across as well as down. */
+const RANKED_ROW_HEIGHT = 'h-[46px]';
+
 export function SlowPagesPanel({ pages }: { pages: OverviewSlowPage[] }) {
   const { t } = useTranslation('rum');
   const max = Math.max(...pages.map((page) => page.p75), 1);
@@ -214,7 +152,7 @@ export function SlowPagesPanel({ pages }: { pages: OverviewSlowPage[] }) {
         action={
           <Link
             to="/rum/pages"
-            className="text-xs font-strong text-blue-soft hover:text-tx-0"
+            className="text-xs font-strong text-[var(--blue-ink)] hover:text-tx-0"
           >
             {t('overview.view_pages')} →
           </Link>
@@ -223,11 +161,18 @@ export function SlowPagesPanel({ pages }: { pages: OverviewSlowPage[] }) {
       {pages.length === 0 ? (
         <EmptyRow label={t('performance.no_page_data')} />
       ) : (
-        <div className="space-y-1">
+        // The two lists stand side by side, so a row is the same height in both: 46px, which
+        // holds the taller of the two (a message over its line of detail) with 4px to spare.
+        // A floor of 62px under a row of 32px left a third of each row empty.
+        <div data-rum-ranked-list className="mt-2 space-y-0.5">
           {pages.slice(0, 5).map((page) => (
             <div
               key={page.page}
-              className="grid min-h-[62px] grid-cols-[minmax(0,1fr)_90px_90px] items-center gap-4 rounded-md px-2 py-2.5 hover:bg-[var(--control-surface)]"
+              data-rum-ranked-row
+              className={cn(
+                'grid grid-cols-[minmax(0,1fr)_90px_90px] items-center gap-4 rounded-md px-2 hover:bg-[var(--control-surface)]',
+                RANKED_ROW_HEIGHT,
+              )}
             >
               <div className="min-w-0">
                 <div className="truncate text-sm font-strong text-tx-0">
@@ -250,8 +195,9 @@ export function SlowPagesPanel({ pages }: { pages: OverviewSlowPage[] }) {
               <span className="text-right font-mono text-xs font-strong text-tx-0">
                 {formatDurationMs(page.p75)}
               </span>
-              <span className="text-right text-xs text-tx-3">
-                {(page.errorRate * 100).toFixed(1)}% {t('overview.error_rate')}
+              {/* An error rate is said where there is one: "0.0% error rate" on every row said nothing. */}
+              <span data-rum-page-errors className="text-right text-xs text-tx-3">
+                {page.errorRate > 0 ? `${formatShare(page.errorRate)} ${t('overview.error_rate')}` : ''}
               </span>
             </div>
           ))}
@@ -275,7 +221,7 @@ export function FrequentErrorsPanel({
         action={
           <Link
             to="/rum/errors"
-            className="text-xs font-strong text-blue-soft hover:text-tx-0"
+            className="text-xs font-strong text-[var(--blue-ink)] hover:text-tx-0"
           >
             {t('overview.view_errors')} →
           </Link>
@@ -284,19 +230,23 @@ export function FrequentErrorsPanel({
       {errors.length === 0 ? (
         <EmptyRow label={t('errors.empty_title')} />
       ) : (
-        <div className="space-y-1">
+        <div data-rum-ranked-list className="mt-2 space-y-0.5">
           {errors.map((error) => (
             <Link
               key={error.fingerprint}
               to={`/rum/errors/view/${encodeURIComponent(error.fingerprint)}`}
-              className="group flex min-h-[62px] items-center gap-3 rounded-md px-2 py-2.5 hover:bg-[var(--control-surface)] focus-visible:bg-[var(--control-surface)]"
+              data-rum-ranked-row
+              className={cn(
+                'group flex items-center gap-3 rounded-md px-2 hover:bg-[var(--control-surface)] focus-visible:bg-[var(--control-surface)]',
+                RANKED_ROW_HEIGHT,
+              )}
             >
               <AlertTriangle aria-hidden className="h-4 w-4 shrink-0 text-red-soft" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-strong text-tx-0">
                   {error.message}
                 </span>
-                <span className="mt-1 block text-xs text-tx-3">
+                <span className="mt-0.5 block text-xs text-tx-3">
                   {error.users} {t('overview.users_unit')} · {error.version ?? '—'}
                 </span>
               </span>
@@ -355,15 +305,4 @@ function EmptyRow({ label }: { label: string }) {
       {label}
     </div>
   );
-}
-
-function durationGrade(
-  value: number,
-  needsThreshold: number,
-  poorThreshold: number,
-): ExperienceGrade {
-  if (value <= 0) return 'unknown';
-  if (value > poorThreshold) return 'poor';
-  if (value > needsThreshold) return 'needs_improvement';
-  return 'good';
 }

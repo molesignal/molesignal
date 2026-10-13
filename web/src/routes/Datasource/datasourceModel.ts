@@ -12,8 +12,9 @@ export type PrimaryCategory =
   | 'security'
   | 'custom';
 
-export type IntegrationMethod = 'all' | 'native' | 'otel' | 'collector' | 'api';
 export type SignalFilter = 'all' | Signal;
+
+export const SIGNALS: readonly Signal[] = ['logs', 'metrics', 'traces', 'profiles'];
 
 export const PRIMARY_CATEGORIES: readonly PrimaryCategory[] = [
   'recommended',
@@ -81,40 +82,61 @@ export function sourceInPrimaryCategory(source: Source, category: PrimaryCategor
   );
 }
 
-export function integrationMethodForSource(source: Source): Exclude<IntegrationMethod, 'all'> {
-  if (source.category === 'otel') return 'otel';
-  if (source.category === 'otel-collector') return 'collector';
-  if (source.category === 'custom') return 'api';
-  return 'native';
+/**
+ * The category a source is shown under: the one in view when it holds the
+ * source, otherwise the first that does. A source in Recommended also has a
+ * home of its own, and that one is preferred over Recommended.
+ */
+export function categoryForSource(source: Source, preferred: PrimaryCategory): PrimaryCategory {
+  if (sourceInPrimaryCategory(source, preferred)) return preferred;
+
+  return (
+    PRIMARY_CATEGORIES.find(
+      (category) => category !== 'recommended' && sourceInPrimaryCategory(source, category),
+    ) ?? 'recommended'
+  );
 }
 
-export function filterSources({
-  sources,
-  category,
-  method,
-  signal,
-  query,
-}: {
-  sources: readonly Source[];
-  category: PrimaryCategory;
-  method: IntegrationMethod;
-  signal: SignalFilter;
-  query: string;
-}): Source[] {
-  const normalizedQuery = query.trim().toLocaleLowerCase();
-  return sources.filter((source) => {
-    if (normalizedQuery === '' && !sourceInPrimaryCategory(source, category)) return false;
-    if (method !== 'all' && integrationMethodForSource(source) !== method) return false;
-    if (signal !== 'all' && !source.signals.includes(signal)) return false;
-    if (
-      normalizedQuery !== '' &&
-      !source.name.toLocaleLowerCase().includes(normalizedQuery) &&
-      !source.description.toLocaleLowerCase().includes(normalizedQuery)
-    ) {
-      return false;
-    }
-    return true;
-  });
+export function sendsSignal(source: Pick<Source, 'signals'>, signal: SignalFilter): boolean {
+  return signal === 'all' || source.signals.includes(signal);
+}
+
+/** One category of the catalogue, narrowed to the sources that send `signal`. */
+export function sourcesInCategory(
+  sources: readonly Source[],
+  category: PrimaryCategory,
+  signal: SignalFilter,
+): Source[] {
+  return sources.filter(
+    (source) => sourceInPrimaryCategory(source, category) && sendsSignal(source, signal),
+  );
+}
+
+/**
+ * Sources that match what was typed, in every category: a search is a way to
+ * reach a source by name, so it does not stop at the category or signal in
+ * view. `words` gives the text a source is known by in the reader's language,
+ * its name first; sources matched by name come before the rest.
+ */
+export function searchSources(
+  sources: readonly Source[],
+  query: string,
+  words: (source: Source) => readonly string[],
+): Source[] {
+  const needle = query.trim().toLocaleLowerCase();
+  if (needle === '') return [];
+
+  const byName: Source[] = [];
+  const byOtherWords: Source[] = [];
+
+  for (const source of sources) {
+    const [name = '', ...rest] = words(source).map((word) => word.toLocaleLowerCase());
+
+    if (name.includes(needle) || source.id.includes(needle)) byName.push(source);
+    else if (rest.some((word) => word.includes(needle))) byOtherWords.push(source);
+  }
+
+  return [...byName, ...byOtherWords];
 }
 
 export function maskToken(token: string): string {

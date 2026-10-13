@@ -45,6 +45,29 @@ function firstPageRequest(
   timeRange: { start: number; end: number },
   pageSize: number,
 ): Parameters<typeof webApi.logs>[0] {
+  return { ...logMatchRequest(stream, statement, globalFilters, timeRange), limit: pageSize };
+}
+
+/** What a structured log query matches, as the web endpoints take it. */
+export interface LogMatchRequest {
+  stream: string;
+  from: number;
+  to: number;
+  filters: webApi.LogListFilter[];
+  free_text: string[];
+}
+
+/**
+ * The rows a field statement matches in a stream and a time range, with the
+ * pinned global filters applied. The list asks for a page of them and the
+ * histogram for their count, both with exactly this.
+ */
+export function logMatchRequest(
+  stream: string,
+  statement: string,
+  globalFilters: GlobalFilter[],
+  timeRange: { start: number; end: number },
+): LogMatchRequest {
   const parsed = parseLogFieldStatement(statement);
   if (parsed.rejected.length > 0) {
     throw new Error(`Invalid Fields query: ${parsed.rejected.join(', ')}`);
@@ -76,11 +99,11 @@ function firstPageRequest(
     to: timeRange.end,
     filters,
     free_text: parsed.freeText,
-    limit: pageSize,
   };
 }
 
-function recordsToQueryResult(records: Record<string, unknown>[]): QueryResult {
+/** Records as the result of a query: the columns are every field any of them carries. */
+export function recordsToQueryResult(records: Record<string, unknown>[]): QueryResult {
   const columns = Array.from(
     records.reduce((names, record) => {
       Object.keys(record).forEach((name) => names.add(name));

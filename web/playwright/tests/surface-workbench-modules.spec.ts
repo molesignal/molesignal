@@ -55,11 +55,14 @@ const MODULES = [
     path: '/logs',
     canvas: '[data-workspace="logs"]',
     surface: '[data-query-workbench-appearance="surface"]',
+    // An explorer gives its title row to the data: the name sits in the workbench bar.
+    titleInBar: true,
   },
   {
     path: '/metrics',
     canvas: '[data-testid="metrics-page"]',
-    surface: '[data-metrics-query-surface="true"]',
+    surface: '[data-query-workbench-appearance="surface"]',
+    titleInBar: true,
   },
   {
     path: '/apm/overview',
@@ -84,7 +87,7 @@ const REMAINING_MODULES = [
   { path: '/synthetics', surface: '[data-page-body] > section' },
   { path: '/status-pages', surface: '[data-page-body] > :last-child' },
   { path: '/agent', surface: '[data-agent-content-surface]' },
-  { path: '/datasource', surface: '[data-datasource-filter-surface]' },
+  { path: '/datasource', surface: '[data-datasource-navigation="surface"]' },
   { path: '/streams', surface: '[data-page-body] > :last-child' },
   { path: '/pipelines', surface: '[data-page-body] > :last-child' },
   { path: '/functions', surface: '[data-page-body] > :last-child' },
@@ -113,10 +116,10 @@ test.beforeEach(async ({ page, mockServer }) => {
   );
 });
 
-test('uses the Trace canvas and Surface hierarchy across analysis modules', async ({
-  page,
-}) => {
-  for (const module of MODULES) {
+// One test for each module: a page load apiece, so the time a module has does
+// not depend on how many modules are listed, and a failure names its module.
+for (const module of MODULES) {
+  test(`uses the Trace canvas and Surface hierarchy on ${module.path}`, async ({ page }) => {
     await page.goto(module.path);
 
     const shell = page.locator('[data-shell-layout="surface-workbench"]');
@@ -126,16 +129,32 @@ test('uses the Trace canvas and Surface hierarchy across analysis modules', asyn
 
     await expect(shell).toBeVisible();
     await expect(canvas).toBeVisible();
-    await expect(header).toBeVisible();
     await expect(surface).toBeVisible();
     await expect(page.getByRole('banner')).toHaveCSS('border-bottom-width', '0px');
     await expect(page.getByTestId('primary-sidebar')).toHaveCSS(
       'border-right-width',
       '0px',
     );
-    await expect(header).toHaveCSS('border-bottom-width', '0px');
-    await expect(header).toHaveCSS('margin-top', '12px');
-    await expect(header).toHaveCSS('margin-bottom', '12px');
+    if ('titleInBar' in module) {
+      await expect(header).toHaveCount(0);
+      await expect(
+        surface.locator('[data-workbench-title]').getByRole('heading', { level: 1 }),
+      ).toBeVisible();
+      // The bar sits close under the query tabs that name it: 6px, not the 12px of a title row.
+      const [canvasBox, surfaceBox] = await Promise.all([
+        canvas.boundingBox(),
+        surface.boundingBox(),
+      ]);
+      expect(surfaceBox!.y - canvasBox!.y).toBe(6);
+    } else {
+      await expect(header).toBeVisible();
+      await expect(header).toHaveCSS('border-bottom-width', '0px');
+      // The title row stands close under the top bar and close over the page it names.
+      await expect(header).toHaveCSS('margin-top', '5px');
+      await expect(header).toHaveCSS('margin-bottom', '5px');
+      await expect(header).toHaveCSS('padding-top', '0px');
+      await expect(header).toHaveCSS('padding-bottom', '0px');
+    }
     await expect(surface).toHaveCSS('border-top-width', '0px');
     await expect(surface).toHaveCSS('border-right-width', '0px');
     await expect(surface).toHaveCSS('border-bottom-width', '0px');
@@ -146,13 +165,11 @@ test('uses the Trace canvas and Surface hierarchy across analysis modules', asyn
       surface.evaluate((element) => getComputedStyle(element).backgroundColor),
     ]);
     expect(surfaceBackground).not.toBe(canvasBackground);
-  }
-});
+  });
+}
 
-test('extends the Trace Surface hierarchy to the remaining product modules', async ({
-  page,
-}) => {
-  for (const module of REMAINING_MODULES) {
+for (const module of REMAINING_MODULES) {
+  test(`extends the Trace Surface hierarchy to ${module.path}`, async ({ page }) => {
     await page.goto(module.path);
 
     const shell = page.locator('[data-shell-layout="surface-workbench"]');
@@ -170,8 +187,8 @@ test('extends the Trace Surface hierarchy to the remaining product modules', asy
       '0px',
     );
     await expect(header).toHaveCSS('border-bottom-width', '0px');
-    await expect(header).toHaveCSS('margin-top', '12px');
-    await expect(header).toHaveCSS('margin-bottom', '12px');
+    await expect(header).toHaveCSS('margin-top', '5px');
+    await expect(header).toHaveCSS('margin-bottom', '5px');
 
     for (const side of ['top', 'right', 'bottom', 'left'] as const) {
       await expect(surface).toHaveCSS(`border-${side}-width`, '0px');
@@ -186,8 +203,8 @@ test('extends the Trace Surface hierarchy to the remaining product modules', asy
       ]);
     expect(surfaceBackground).not.toBe(canvasBackground);
     expect(surfaceShadow).not.toBe('none');
-  }
-});
+  });
+}
 
 test('keeps module tabs underlined and Explorer columns separated by canvas gutters', async ({
   page,
@@ -279,7 +296,8 @@ test('keeps module and nested secondary menus at the shared height', async ({
 });
 
 test('uses Control Surface styling for shared and native selectors', async ({ page }) => {
-  await page.goto('/rum/overview');
+  // The session filters are shared selects whatever the workspace has received.
+  await page.goto('/rum/sessions');
 
   const sharedSelectors = page.locator('[data-ui="select-trigger"]');
   await expect(sharedSelectors.first()).toBeVisible();
@@ -335,6 +353,8 @@ test('uses Control Surface styling for text inputs', async ({ page }) => {
   const inputs = page.locator(
     '[data-surface-workbench-page="apm"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="image"]):not([type="hidden"])',
   );
+  // The page renders after its data arrives; counting before that reads zero.
+  await expect(inputs.first()).toBeVisible();
   expect(await inputs.count()).toBeGreaterThan(0);
 
   for (const input of await inputs.all()) {
@@ -355,9 +375,7 @@ test('uses Control Surface styling for compound and read-only inputs', async ({
 }) => {
   await page.goto('/datasource/recommended/kubernetes');
 
-  const searchInput = page.getByPlaceholder(
-    'Search sources, platforms, or integration methods…',
-  );
+  const searchInput = page.getByPlaceholder('Search all sources…');
   await expect(searchInput).toBeVisible();
 
   const surfaces = page.locator(
@@ -448,3 +466,30 @@ test('aligns calendar weekdays and dates without a redundant Time heading', asyn
       .getByText('Time', { exact: true }),
   ).toHaveCount(0);
 });
+
+test('an action in the title row stands as far from the top bar as from the page under it', async ({
+  page,
+}) => {
+  await page.goto('/dashboards');
+  const header = page.getByTestId('page-header');
+  await expect(header.getByRole('button').first()).toBeVisible();
+
+  const gaps = await page.evaluate(() => {
+    const bar = document.querySelector('header')!.getBoundingClientRect().bottom;
+    const head = document.querySelector('[data-testid="page-header"]')!;
+    const row = head.querySelector('[data-page-title-row]')!;
+    // The tallest box of the row: a button, taller than the line of the title beside it.
+    const action = [...row.querySelectorAll('button, a')]
+      .map((element) => element.getBoundingClientRect())
+      .sort((a, b) => b.height - a.height)[0]!;
+    const body = document.querySelector('[data-page-body]')!;
+    const under = (head.nextElementSibling === body ? body.firstElementChild! : head.nextElementSibling!).getBoundingClientRect();
+
+    return { above: action.top - bar, below: under.top - action.bottom };
+  });
+
+  // At 4px over the row and 6px under it a filled button sat visibly nearer the top bar.
+  expect(Math.abs(gaps.above - gaps.below)).toBeLessThanOrEqual(0.5);
+  expect(gaps.above).toBeGreaterThanOrEqual(5);
+});
+

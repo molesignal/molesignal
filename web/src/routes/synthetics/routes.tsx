@@ -2,17 +2,12 @@ import type { RouteObject } from 'react-router-dom';
 import { Navigate, useParams } from 'react-router-dom';
 
 import { Agents } from './agents/Agents';
-import { CheckDetail } from './CheckDetail';
-import { Checks } from './Checks';
-import {
-  AssertionsLibrary,
-  Schedules,
-  SyntheticsSettings,
-} from './LibraryPages';
-import { Locations } from './Locations';
-import { SyntheticsOverview } from './Overview';
-import { Results } from './Results';
-import { Variables } from './Variables';
+import { CheckDetail } from './checks/detail/index';
+import { Checks } from './checks/index';
+import { Locations } from './locations/index';
+import { SyntheticsOverview } from './overview/index';
+import { Results } from './results/index';
+import { Variables } from './variables/index';
 
 export const SYNTHETICS_ROUTES: RouteObject[] = [
   { path: 'synthetics', element: <Navigate to="/synthetics/overview" replace /> },
@@ -25,46 +20,26 @@ export const SYNTHETICS_ROUTES: RouteObject[] = [
   { path: 'synthetics/checks/:monitorId/results/:resultId', element: <CheckDetail /> },
   { path: 'synthetics/checks/:monitorId/configuration', element: <CheckDetail /> },
   { path: 'synthetics/checks/:monitorId/revisions', element: <CheckDetail /> },
-  {
-    path: 'synthetics/browser-tests',
-    element: (
-      <Checks
-        kinds={['browser']}
-        titleKey="checks.browser_title"
-        subtitleKey="checks.browser_subtitle"
-      />
-    ),
-  },
-  {
-    path: 'synthetics/api-tests',
-    element: (
-      <Checks
-        kinds={['http']}
-        titleKey="checks.api_title"
-        subtitleKey="checks.api_subtitle"
-      />
-    ),
-  },
-  {
-    path: 'synthetics/network',
-    element: (
-      <Checks
-        kinds={['tcp', 'ssh', 'dns', 'icmp', 'tls', 'grpc']}
-        titleKey="checks.network_title"
-        subtitleKey="checks.network_subtitle"
-      />
-    ),
-  },
-  { path: 'synthetics/schedules', element: <Schedules /> },
   { path: 'synthetics/locations', element: <Locations /> },
   { path: 'synthetics/locations/:locationId', element: <Locations /> },
   { path: 'synthetics/agents', element: <Agents /> },
   { path: 'synthetics/agents/:agentId', element: <Agents /> },
   { path: 'synthetics/results', element: <Results /> },
   { path: 'synthetics/results/:resultId', element: <Results /> },
-  { path: 'synthetics/assertions', element: <AssertionsLibrary /> },
   { path: 'synthetics/variables', element: <Variables /> },
-  { path: 'synthetics/settings', element: <SyntheticsSettings /> },
+
+  // Addresses that were tabs of their own. The kinds of check are views of the
+  // one list of checks, a schedule is a column of it, and assertion templates
+  // are where a new check starts.
+  { path: 'synthetics/api-tests', element: <Navigate to="/synthetics/checks?kind=api" replace /> },
+  {
+    path: 'synthetics/browser-tests',
+    element: <Navigate to="/synthetics/checks?kind=browser" replace />,
+  },
+  { path: 'synthetics/network', element: <Navigate to="/synthetics/checks?kind=network" replace /> },
+  { path: 'synthetics/schedules', element: <Navigate to="/synthetics/checks" replace /> },
+  { path: 'synthetics/assertions', element: <Navigate to="/synthetics/checks/new" replace /> },
+  { path: 'synthetics/settings', element: <Navigate to="/synthetics/overview" replace /> },
   { path: 'synthetics/monitors', element: <Navigate to="/synthetics/checks" replace /> },
   {
     path: 'synthetics/monitors/:monitorId',

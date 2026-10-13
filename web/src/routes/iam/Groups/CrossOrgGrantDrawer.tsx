@@ -235,7 +235,7 @@ export function CrossOrgGrantDrawer({
               onChange={setExpiresAt}
             />
           </FormField>
-          <p className="rounded-md border border-orange/30 bg-orange-dim px-3 py-2 text-xs text-orange-soft">
+          <p className="rounded-md border border-orange/30 bg-[var(--orange-tint)] px-3 py-2 text-xs text-[var(--orange-ink)]">
             {t('groups.cross_org_non_transitive')}
           </p>
         </FormSection>

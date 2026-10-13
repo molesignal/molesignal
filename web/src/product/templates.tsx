@@ -57,9 +57,27 @@ interface ListPageProps extends ProductPageFrameProps {
   kpiClassName?: string | undefined;
   filters?: React.ReactNode | undefined;
   filterClassName?: string | undefined;
+  /**
+   * The page's opening statement, a surface of its own above the list: what the
+   * list amounts to, said once. It takes the place of a strip of number cards.
+   */
+  lead?: React.ReactNode | undefined;
+  /**
+   * What the list is showing: its view, a search, its filters, set at the head
+   * of the list itself instead of in a card of their own above it. The head
+   * stays when the list is empty, so a filter that matches nothing can be
+   * taken back where it was set. Surface pages only.
+   */
+  listHead?: React.ReactNode | undefined;
   actionBar?: React.ReactNode | undefined;
   state?: ProductStateProps | null | undefined;
   stateClassName?: string | undefined;
+  /**
+   * Wrap the content in one surface (the default, for a table). A page whose
+   * content is already several surfaces turns it off, so they sit on the canvas
+   * instead of inside one more card.
+   */
+  contentSurface?: boolean | undefined;
 }
 
 interface DetailPageProps extends ProductPageFrameProps {
@@ -78,6 +96,12 @@ interface BuilderPageProps extends ProductPageFrameProps {
 
 interface ManagementPageProps extends ProductPageFrameProps {
   sections?: React.ReactNode | undefined;
+  /**
+   * The menu draws its own collapse control beside its search field (as the
+   * Settings and Access menus do), so the page does not float a second one over
+   * the field. The page still owns the collapsed strip and its expand control.
+   */
+  menuOwnsCollapse?: boolean | undefined;
   state?: ProductStateProps | null | undefined;
   sectionNavigation?:
     | {
@@ -110,15 +134,19 @@ export function ListPage({
   kpiClassName,
   filters,
   filterClassName,
+  lead,
+  listHead,
   actionBar,
   state,
   stateClassName,
+  contentSurface = true,
   children,
   bodyClassName,
   appearance = 'default',
   ...frame
 }: ListPageProps) {
   const surface = appearance === 'surface';
+  const headed = surface && contentSurface && Boolean(listHead);
   return (
     <ProductPageFrame
       {...frame}
@@ -137,10 +165,11 @@ export function ListPage({
           kpiClassName,
         )}
       />
+      {lead}
       <FilterArea
         className={cn(
           surface
-            ? 'rounded-md border-0 bg-[var(--functional-surface)] p-[12px] [box-shadow:var(--shadow-functional-surface)]'
+            ? 'rounded-md border-0 bg-[var(--functional-surface)] px-[12px] py-[8px] [box-shadow:var(--shadow-functional-surface)]'
             : undefined,
           filterClassName,
         )}
@@ -155,7 +184,31 @@ export function ListPage({
       >
         {actionBar}
       </ActionBar>
-      {state ? (
+      {headed ? (
+        <div
+          data-list-surface
+          className="min-w-0 overflow-hidden rounded-md bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]"
+        >
+          <div
+            data-list-head
+            className="flex min-h-[48px] min-w-0 flex-wrap items-center gap-x-[12px] gap-y-[8px] border-b border-bd-0 px-[12px] py-[8px]"
+          >
+            {listHead}
+          </div>
+          {state ? (
+            <ProductState
+              {...state}
+              className={cn(
+                'rounded-none border-0 bg-transparent shadow-none',
+                stateClassName,
+                state.className,
+              )}
+            />
+          ) : (
+            children
+          )}
+        </div>
+      ) : state ? (
         <ProductState
           {...state}
           className={cn(
@@ -165,7 +218,7 @@ export function ListPage({
             state.className,
           )}
         />
-      ) : surface ? (
+      ) : surface && contentSurface ? (
         <div
           data-list-surface
           className="min-w-0 overflow-hidden rounded-md bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]"
@@ -248,6 +301,7 @@ export function BuilderPage({
 
 export function ManagementPage({
   sections,
+  menuOwnsCollapse = false,
   state,
   children,
   bodyClassName,
@@ -307,7 +361,7 @@ export function ManagementPage({
               collapsed && fullyHidden && 'lg:hidden',
             )}
           >
-            {!fullyHidden && (
+            {!fullyHidden && !menuOwnsCollapse && (
               <button
                 type="button"
                 onClick={toggle}
@@ -334,6 +388,7 @@ export function ManagementPage({
         ))}
       <div
         data-management-content
+        data-management-appearance={appearance}
         data-sections-collapsed={collapsed && fullyHidden ? 'true' : 'false'}
         className={cn(
           'relative min-w-0',

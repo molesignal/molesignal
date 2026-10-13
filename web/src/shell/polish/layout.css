@@ -1,0 +1,27 @@
+/*
+ * Page title row (the masthead).
+ *
+ * The title block is its own container, so the row reacts to the room the title
+ * actually has, not to the viewport: a toolbar that eats the row leaves a
+ * narrow block, and a narrow block shows the title alone rather than a title
+ * and a one-word fragment of its description. With room to spare a long title
+ * is capped, so the description always keeps a share of the line.
+ *
+ * A section title row stacks its description under the title, where it wraps
+ * instead of truncating, so none of this applies to it.
+ */
+[data-page-title-size='page'] > [data-page-title-block] {
+  container: page-title / inline-size;
+}
+
+@container page-title (max-width: 24rem) {
+  [data-page-title-meta] {
+    display: none;
+  }
+}
+
+@container page-title (min-width: 24.01rem) {
+  [data-page-title-heading] {
+    max-width: 72%;
+  }
+}

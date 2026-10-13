@@ -26,6 +26,7 @@ import {
   FormTextarea,
 } from '@/shell/FormDrawer';
 import { cn } from '@/shell/lib/cn';
+import { Facts } from '@/shell/readout/Facts';
 import { Badge } from '@/shell/ui/badge';
 import { Button } from '@/shell/ui/button';
 import { Input } from '@/shell/ui/input';
@@ -126,50 +127,54 @@ export function PromptManagementPanel() {
 
   return (
     <>
-      <section className="overflow-hidden rounded-lg border border-bd-0 bg-bg-1">
-        <div className="flex flex-wrap items-start gap-4 border-b border-bd-0 px-4 py-3">
-          <div className="min-w-0 flex-1">
-            <h2 className="font-strong text-tx-0">
-              {t('settings.prompts.title')}
-            </h2>
-            <p className="mt-1 max-w-3xl text-xs leading-5 text-tx-3">
-              {t('settings.prompts.description')}
-            </p>
-          </div>
+      {/* The row of sections in the navigation names this one: it opens with what it holds. */}
+      <section data-agent-settings-section className="min-w-0">
+        <div className="flex min-h-[32px] flex-wrap items-center gap-x-4 gap-y-2 pb-[10px]">
+          <h2 className="sr-only">{t('settings.prompts.title')}</h2>
+          <p className="min-w-0 flex-1 font-sans text-xs leading-5 text-tx-2">
+            {t('settings.prompts.description')}
+          </p>
           <Button size="sm" onClick={() => setEditor({ kind: 'create' })}>
             <Plus /> {t('settings.prompts.create')}
           </Button>
         </div>
 
-        <div className="grid gap-px border-b border-bd-0 bg-bd-0 sm:grid-cols-3">
-          <PromptStat
-            label={t('settings.prompts.stats.total')}
-            value={rows.length}
-            hint={t('settings.prompts.stats.total_hint')}
+        {/* How many there are and the search through them, in one row: three cards for three
+            figures stood between the section and its prompts. */}
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-y border-bd-0 py-[8px]">
+          <Facts
+            label={t('settings.prompts.title')}
+            facts={[
+              {
+                key: 'total',
+                label: t('settings.prompts.stats.total'),
+                value: rows.length.toLocaleString(),
+                hint: t('settings.prompts.stats.total_hint'),
+              },
+              {
+                key: 'effective',
+                label: t('settings.prompts.stats.effective'),
+                value: effectiveIds.size.toLocaleString(),
+                hint: t('settings.prompts.stats.effective_hint'),
+              },
+              {
+                key: 'customized',
+                label: t('settings.prompts.stats.customized'),
+                value: customized.toLocaleString(),
+                hint: t('settings.prompts.stats.customized_hint'),
+              },
+            ]}
           />
-          <PromptStat
-            label={t('settings.prompts.stats.effective')}
-            value={effectiveIds.size}
-            hint={t('settings.prompts.stats.effective_hint')}
-          />
-          <PromptStat
-            label={t('settings.prompts.stats.customized')}
-            value={customized}
-            hint={t('settings.prompts.stats.customized_hint')}
-          />
-        </div>
-
-        <div className="border-b border-bd-0 p-3">
-          <label className="relative block max-w-xl">
+          <label className="relative ml-auto block w-full max-w-[360px]">
             <span className="sr-only">
               {t('settings.prompts.search_label')}
             </span>
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-tx-3" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-tx-3" />
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder={t('settings.prompts.search_placeholder')}
-              className="bg-[var(--control-surface)] pl-9 shadow-none"
+              className="h-8 bg-[var(--control-surface)] pl-9 text-xs shadow-none"
             />
           </label>
         </div>
@@ -236,26 +241,6 @@ export function PromptManagementPanel() {
   );
 }
 
-function PromptStat({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: number;
-  hint: string;
-}) {
-  return (
-    <div className="bg-bg-1 px-4 py-3">
-      <div className="font-mono text-xl font-display-strong text-tx-0">
-        {value}
-      </div>
-      <div className="mt-0.5 text-xs font-strong text-tx-1">{label}</div>
-      <div className="mt-0.5 text-xs text-tx-3">{hint}</div>
-    </div>
-  );
-}
-
 function PromptRow({
   prompt,
   effective,
@@ -311,7 +296,8 @@ function PromptRow({
         </p>
         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-tx-3">
           <span>{t('settings.prompts.version', { version: prompt.version })}</span>
-          <span>{formatMicrosActive(prompt.updated_at_micros)}</span>
+          {/* A built-in prompt was not saved by anyone: it has no time, and a time of zero is not 1970. */}
+          {prompt.updated_at_micros > 0 && <span>{formatMicrosActive(prompt.updated_at_micros)}</span>}
           {prompt.builtin_key && (
             <span className="font-mono">{prompt.builtin_key}</span>
           )}
@@ -376,7 +362,14 @@ interface PromptDraft {
   makeDefault: boolean;
 }
 
-function draftFor(target: Exclude<PromptEditorTarget, null>): PromptDraft {
+/**
+ * What the editor opens with. A version made from another prompt starts under that prompt's name
+ * with what it is to it, an override or a copy, in the language the page is read in.
+ */
+function draftFor(
+  target: Exclude<PromptEditorTarget, null>,
+  derivedName: (kind: 'override' | 'copy', name: string) => string,
+): PromptDraft {
   if (target.kind === 'create') {
     return {
       scope: 'org',
@@ -398,7 +391,7 @@ function draftFor(target: Exclude<PromptEditorTarget, null>): PromptDraft {
     purpose: source.purpose,
     name:
       target.kind === 'override'
-        ? `${source.name} · ${source.scope === 'builtin' ? 'override' : 'copy'}`
+        ? derivedName(source.scope === 'builtin' ? 'override' : 'copy', source.name)
         : source.name,
     body: source.body,
     schemaSource: JSON.stringify(source.variables_schema, null, 2),
@@ -420,8 +413,14 @@ function PromptEditorDrawer({
   const [formError, setFormError] = React.useState('');
 
   React.useEffect(() => {
-    setDraft(target ? draftFor(target) : null);
+    setDraft(
+      target
+        ? draftFor(target, (kind, name) => t(`settings.prompts.derived_name.${kind}`, { name }))
+        : null,
+    );
     setFormError('');
+    // The draft is made when the editor opens, not again when the language changes under it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target]);
 
   const save = useMutation({

@@ -32,7 +32,7 @@ export function EmptyState({
     >
       {awaitingBackend && (
         // Backend-pending == warning, not brand.
-        <span className="rounded border border-yellow/30 bg-yellow-dim px-2 py-1 font-sans text-xs font-semibold tracking-normal text-yellow-soft">
+        <span className="rounded border border-yellow/30 bg-[var(--yellow-tint)] px-2 py-1 font-sans text-xs font-semibold tracking-normal text-[var(--yellow-ink)]">
           Awaiting backend
         </span>
       )}

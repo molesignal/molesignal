@@ -1,4 +1,5 @@
-import { http, toApiError } from '@/lib/http';
+import { isMissingStreamError } from '@/api/missingStream';
+import { http } from '@/lib/http';
 
 /**
  * Continuous Profiling client. Talks to the backend profiles routes
@@ -124,13 +125,9 @@ function queryParams(params: Record<string, string | number | undefined>): Recor
   return out;
 }
 
-/** The profiles stream is created on first intake (schema-on-write); before
- *  that the query planner returns "stream not found". Empty instances should
- *  render the onboarding empty state, not an error — so callers treat that one
- *  message as "no data yet". */
-export function isStreamNotFound(err: unknown): boolean {
-  return toApiError(err).message.includes('stream not found');
-}
+// The profiles stream is created on first intake (schema-on-write). Until then
+// the list and the flame graph answer empty, so the page shows its onboarding
+// state instead of an error.
 
 const EMPTY_FLAMEBEARER: Flamebearer = {
   names: ['total'],
@@ -147,7 +144,7 @@ export async function list(params: ListParams = {}): Promise<ProfileEntry[]> {
     });
     return data.profiles ?? [];
   } catch (err) {
-    if (isStreamNotFound(err)) return [];
+    if (isMissingStreamError(err)) return [];
     throw err;
   }
 }
@@ -159,7 +156,7 @@ export async function flamegraph(params: FlamegraphParams = {}): Promise<Flamegr
     });
     return data;
   } catch (err) {
-    if (isStreamNotFound(err)) {
+    if (isMissingStreamError(err)) {
       return { flamebearer: EMPTY_FLAMEBEARER, truncated: false, profile_count: 0 };
     }
     throw err;

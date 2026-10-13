@@ -1,10 +1,12 @@
 import { Search, X } from 'lucide-react';
+import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { cn } from '@/shell/lib/cn';
 import { TimeRangeControl } from '@/time/TimePicker';
 
 import type { ApmUrlFilters } from './model';
+import { ApmFilterPartContext } from './navigationSlots';
 import { ApmToolbarSelect } from './ToolbarSelect';
 
 export function ApmFilters({
@@ -23,6 +25,9 @@ export function ApmFilters({
   showService?: boolean;
 }) {
   const { t } = useTranslation('apm');
+  // In the navigation card the two halves are placed apart: the time range at
+  // the end of the tabs' row, the entities in a row under them.
+  const part = React.useContext(ApmFilterPartContext);
   const control =
     'h-8 rounded-md border-0 bg-[var(--control-surface)] px-2.5 text-xs text-tx-1 outline-none transition-colors duration-fast placeholder:text-tx-2 hover:bg-bg-3 focus-visible:bg-bg-3 focus-visible:text-tx-0';
   const hasFilters = Boolean(
@@ -33,6 +38,26 @@ export function ApmFilters({
       filters.search ||
       filters.category,
   );
+  const time = (
+    <>
+      <ApmToolbarSelect
+        ariaLabel={t('filters.resolution')}
+        value={filters.resolution}
+        onValueChange={(value) => setFilter('resolution', value)}
+        options={[
+          { value: 'auto', label: t('filters.resolution_auto') },
+          { value: 'minute', label: t('filters.resolution_minute') },
+          { value: 'hour', label: t('filters.resolution_hour') },
+        ]}
+      />
+      <TimeRangeControl
+        align="end"
+        className="h-8 max-w-[180px] border-0 bg-[var(--control-surface)] px-2.5 text-xs hover:bg-bg-3 focus-visible:bg-bg-3 data-[state=open]:bg-bg-3"
+      />
+    </>
+  );
+  if (part === 'time') return time;
+
   return (
     <div className="flex flex-wrap items-center gap-2">
       {showSearch && (
@@ -102,20 +127,6 @@ export function ApmFilters({
           ]}
         />
       )}
-      <ApmToolbarSelect
-        ariaLabel={t('filters.resolution')}
-        value={filters.resolution}
-        onValueChange={(value) => setFilter('resolution', value)}
-        options={[
-          { value: 'auto', label: t('filters.resolution_auto') },
-          { value: 'minute', label: t('filters.resolution_minute') },
-          { value: 'hour', label: t('filters.resolution_hour') },
-        ]}
-      />
-      <TimeRangeControl
-        align="end"
-        className="h-8 max-w-[180px] border-0 bg-[var(--control-surface)] px-2.5 text-xs hover:bg-bg-3 focus-visible:bg-bg-3 data-[state=open]:bg-bg-3"
-      />
       {hasFilters && (
         <button
           type="button"
@@ -126,6 +137,8 @@ export function ApmFilters({
           {t('filters.clear')}
         </button>
       )}
+      {/* On their own the filters are one row: entities on the left, time on the right. */}
+      {part === 'all' && <div className="ml-auto flex flex-wrap items-center gap-2">{time}</div>}
     </div>
   );
 }

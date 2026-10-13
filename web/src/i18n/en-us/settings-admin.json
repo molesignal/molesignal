@@ -15,7 +15,7 @@
     "group_security": "Data security",
     "group_ml_ops": "AI & ML",
     "group_platform": "Platform",
-    "search_placeholder": "Search settings, permissions, or features…",
+    "search_placeholder": "Search settings…",
     "search_aria": "Search settings",
     "no_results": "No matching settings.",
     "open_navigation": "Open settings navigation",
@@ -30,7 +30,6 @@
     "notify_templates": "Templates",
     "notify_defaults": "Fallback routes",
     "notify_deliveries": "Delivery log",
-    "pipeline_destinations": "Pipeline destinations",
     "client_ip": "Client IP recognition",
     "nodes": "Nodes",
     "sso_providers": "SSO providers",
@@ -127,8 +126,10 @@
       "title": "Organization lifecycle",
       "subtitle": "Manage irreversible actions that affect the organization and its data lifecycle.",
       "delete_title": "Delete organization",
-      "delete_description": "The backend prevents deleting the organization used by the current session. Switch organizations first, then complete deletion from Organization management.",
-      "manage_delete": "Open organization management"
+      "delete_description": "An organization is not deleted from inside itself. It is done from organization management, in the platform organization.",
+      "manage_delete": "Open organization management",
+      "enters_platform": "Takes you to the platform organization, where organizations are managed.",
+      "platform_only": "Only an owner or a platform administrator can delete an organization."
     }
   },
   "preferences": {
@@ -137,6 +138,7 @@
     "sections": {
       "appearance": "Appearance",
       "locale": "Language & region",
+      "region": "Time & region",
       "navigation": "Navigation",
       "interaction": "Interaction",
       "startup_interaction": "Startup & interaction"
@@ -326,64 +328,6 @@
       "toast_enabled": "Provider enabled",
       "toast_disabled": "Provider disabled"
     }
-  },
-  "pipeline_destinations": {
-    "title": "Pipeline destinations",
-    "subtitle": "External sinks pipelines can deliver to.",
-    "new_connector": "New connector",
-    "back_to_pipelines": "← Pipelines",
-    "empty_title": "No connectors configured",
-    "empty_description": "Add an S3 / Kafka / webhook connector to use as a pipeline sink.",
-    "columns": {
-      "name": "Name",
-      "kind": "Kind",
-      "enabled": "Enabled",
-      "last_run": "Last run"
-    },
-    "delete_confirm_title": "Delete this connector?",
-    "delete_confirm_description": "Pipelines using this connector will start failing until rewired.",
-    "drawer_title": "New connector",
-    "submit_label": "Create connector",
-    "section_identity": "Identity",
-    "section_config": "Configuration",
-    "field_name": "Name",
-    "field_kind": "Kind",
-    "field_kind_hint": "Pick the connector type — the configuration fields below adapt to it.",
-    "kinds": {
-      "aws_cloudwatch_logs": "AWS CloudWatch Logs",
-      "aws_kinesis_firehose": "AWS Kinesis Firehose",
-      "cloudflare_logpush": "Cloudflare Logpush",
-      "heroku_drain": "Heroku Log Drain",
-      "s3": "Amazon S3",
-      "kafka": "Apache Kafka"
-    },
-    "fields": {
-      "region": "Region",
-      "log_group": "Log group",
-      "target_stream": "Target stream",
-      "access_key": "Access key",
-      "secret_key": "Secret key",
-      "bucket": "Bucket",
-      "prefix": "Prefix",
-      "endpoint": "Endpoint",
-      "brokers": "Brokers",
-      "topic": "Topic",
-      "sasl_username": "SASL username",
-      "sasl_password": "SASL password"
-    },
-    "hints": {
-      "region": "AWS region the log group lives in.",
-      "log_group": "CloudWatch log group to pull events from.",
-      "target_stream": "Stream that received records are written to.",
-      "credentials": "Optional — stored encrypted and masked after saving.",
-      "bucket": "Destination bucket objects are written to.",
-      "prefix": "Optional key prefix for written objects.",
-      "endpoint": "Optional — override for S3-compatible storage.",
-      "brokers": "Comma-separated host:port broker list.",
-      "topic": "Topic records are produced to.",
-      "sasl": "Optional — leave blank for unauthenticated brokers."
-    },
-    "toast_created": "Connector created"
   },
   "cipher_keys": {
     "title": "Cipher keys",

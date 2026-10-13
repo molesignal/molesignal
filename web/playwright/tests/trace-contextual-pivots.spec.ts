@@ -73,6 +73,54 @@ test.describe('Trace contextual pivots', () => {
       .toBe(`${contextBox!.height}px`);
   });
 
+  test('draws rows of one height, each bar in the colour of its share of the trace', async ({
+    page,
+  }) => {
+    const bars = page.getByTestId('trace-span-bar');
+    // Of the trace's 50 ms: all of it, 28 ms and 8 ms.
+    await expect(bars.nth(0)).toHaveAttribute('data-tone', 'dominant');
+    await expect(bars.nth(1)).toHaveAttribute('data-tone', 'major');
+    await expect(bars.nth(2)).toHaveAttribute('data-tone', 'minor');
+    await expect(bars.nth(1)).toHaveAttribute('aria-label', /56% of the trace$/);
+
+    const fills = await bars.evaluateAll((nodes) =>
+      nodes.map((node) => getComputedStyle(node).backgroundColor),
+    );
+    expect(new Set(fills).size).toBe(3);
+    const errorRed = await page.evaluate(() => {
+      const probe = document.createElement('span');
+      probe.style.color = 'var(--red)';
+      document.body.append(probe);
+      const color = getComputedStyle(probe).color;
+      probe.remove();
+      return color;
+    });
+    // Red is a failed span's; no step of the scale borrows it.
+    expect(fills).not.toContain(errorRed);
+
+    // A name set as an HTTP method and a plain one take the same room.
+    const rows = page.getByTestId('trace-span-row');
+    await expect(rows).toHaveCount(3);
+    const heights = await rows.evaluateAll((nodes) =>
+      nodes.map((node) => node.getBoundingClientRect().height),
+    );
+    expect(heights).toEqual([38, 38, 38]);
+    const barHeights = await bars.evaluateAll((nodes) =>
+      nodes.map((node) => node.getBoundingClientRect().height),
+    );
+    expect(barHeights).toEqual([12, 12, 12]);
+
+    // The key beside the timeline shows the scale in the bars' own colours, least to most.
+    const key = page.getByTestId('trace-share-key');
+    await expect(key).toBeVisible();
+    await expect(key).toHaveText('Share of total0100%');
+    const keyFills = await key
+      .locator('[class*="--share-"]')
+      .evaluateAll((nodes) => nodes.map((node) => getComputedStyle(node).backgroundColor));
+    expect(keyFills).toHaveLength(4);
+    expect([keyFills[3], keyFills[2], keyFills[0]]).toEqual(fills);
+  });
+
   test('renders each duration after its waterfall bar without a hover tooltip', async ({
     page,
   }) => {

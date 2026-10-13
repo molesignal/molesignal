@@ -40,7 +40,8 @@ export function ActivationStrip({
       )}
     >
       <Sparkles aria-hidden="true" className="h-4 w-4 shrink-0 text-indigo-soft" />
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+      {/* Stacked on a phone (the step under the count), one line from `sm` up. */}
+      <div className="flex min-w-0 flex-1 flex-col gap-y-0.5 py-1.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-1 sm:py-0">
         <span className="font-sans text-sm font-strong text-tx-0">
           {remainingCount === 1
             ? t('activation.remaining_single')
@@ -48,12 +49,14 @@ export function ActivationStrip({
         </span>
         {nextStep && (
           <>
-            <span aria-hidden="true" className="text-tx-3">
+            <span aria-hidden="true" className="hidden text-tx-3 sm:inline">
               ·
             </span>
-            <span className="font-sans text-sm text-tx-2">{t('activation.next')}</span>
-            <span className="truncate font-sans text-sm font-strong text-tx-1">
-              {t(`activation.${nextStep.labelKey}`)}
+            <span className="flex min-w-0 items-center gap-1.5 font-sans text-sm">
+              <span className="text-tx-2">{t('activation.next')}</span>
+              <span className="truncate font-strong text-tx-1">
+                {t(`activation.${nextStep.labelKey}`)}
+              </span>
             </span>
           </>
         )}

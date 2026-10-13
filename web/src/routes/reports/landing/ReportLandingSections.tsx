@@ -151,7 +151,7 @@ export function TemplateLibrary({
       {apiError && (
         <div
           role="status"
-          className="m-4 flex flex-wrap items-center gap-3 rounded-md bg-yellow-dim px-4 py-3 text-sm text-yellow-soft"
+          className="m-4 flex flex-wrap items-center gap-3 rounded-md bg-[var(--yellow-tint)] px-4 py-3 text-sm text-[var(--yellow-ink)]"
         >
           <CircleAlert className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span className="min-w-0 flex-1">{t('templates.api_warning')}</span>

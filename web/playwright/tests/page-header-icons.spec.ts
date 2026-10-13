@@ -8,7 +8,8 @@ test.describe('Product page title bars', () => {
   test('uses one inline title height with and without module icons', async ({
     page,
   }) => {
-    await page.goto('/metrics');
+    // A module page that keeps its title row (the explorers carry theirs in the workbench bar).
+    await page.goto('/profiles');
 
     const pageHeader = page.getByTestId('page-header');
     const pageIcon = page.getByTestId('page-header-module-icon');
@@ -20,10 +21,10 @@ test.describe('Product page title bars', () => {
     expect(pageIconBox).not.toBeNull();
     expect(pageIconBox!.width).toBe(pageIconBox!.height);
 
-    const metricsTitleRow = pageHeader.locator('[data-page-title-row]');
-    await expect(metricsTitleRow).toBeVisible();
+    const moduleTitleRow = pageHeader.locator('[data-page-title-row]');
+    await expect(moduleTitleRow).toBeVisible();
     await expect(pageHeader.getByText('·')).toBeVisible();
-    const metricsTitleRowBox = await metricsTitleRow.boundingBox();
+    const moduleTitleRowBox = await moduleTitleRow.boundingBox();
 
     await page.goto('/datasource/recommended/kubernetes');
 
@@ -37,9 +38,9 @@ test.describe('Product page title bars', () => {
     await expect(page.getByTestId('page-header-module-icon')).toHaveCount(0);
     const datasourceTitleRowBox = await datasourceTitleRow.boundingBox();
 
-    expect(metricsTitleRowBox).not.toBeNull();
+    expect(moduleTitleRowBox).not.toBeNull();
     expect(datasourceTitleRowBox).not.toBeNull();
-    expect(datasourceTitleRowBox!.height).toBe(metricsTitleRowBox!.height);
+    expect(datasourceTitleRowBox!.height).toBe(moduleTitleRowBox!.height);
 
     await page.goto('/agent/chat');
 

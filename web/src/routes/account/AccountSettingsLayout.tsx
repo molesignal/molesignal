@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 
 import { ManagementPage } from '@/product/templates';
 import { ManagementNav } from '@/shell/ManagementNav';
+import { useSubnavStore } from '@/stores/useSubnavStore';
 
 const GROUPS = [
   {
@@ -42,13 +43,15 @@ const GROUPS = [
 
 export function AccountSettingsLayout() {
   const { t } = useTranslation('account');
+  const collapseMenu = useSubnavStore((state) => state.toggle);
   return (
     <ManagementPage
       title={t('title')}
       subtitle={t('subtitle')}
       breadcrumbs={null}
       backTo={null}
-      sections={<AccountNav />}
+      menuOwnsCollapse
+      sections={<AccountNav onCollapse={collapseMenu} />}
       bodyClassName="mx-auto w-full max-w-[2200px] gap-6 [&_[data-product-state]]:rounded-none [&_[data-product-state]]:border-0 [&_[data-product-state]]:bg-transparent"
     >
       <Outlet />
@@ -56,8 +59,9 @@ export function AccountSettingsLayout() {
   );
 }
 
-function AccountNav() {
+function AccountNav({ onCollapse }: { onCollapse: () => void }) {
   const { t } = useTranslation('account');
+  const { t: tShell } = useTranslation('shell');
   const { pathname } = useLocation();
   const groups = GROUPS.map((group) => ({
     key: group.key,
@@ -79,6 +83,8 @@ function AccountNav() {
       collapseGroupLabel={(group) => t('nav.collapse_group', { group })}
       expandGroupLabel={(group) => t('nav.expand_group', { group })}
       collapsibleGroups={false}
+      onCollapse={onCollapse}
+      collapseNavigationLabel={tShell('subnav.collapse')}
       mobilePresentation="drawer"
       mobileTriggerLabel={t('nav.open_navigation')}
     />

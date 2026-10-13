@@ -6,12 +6,12 @@ import { DisabledControl } from '@/shell/DisabledControl';
 import { cn } from '@/shell/lib/cn';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:cursor-not-allowed aria-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
+  'ms-press inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:cursor-not-allowed aria-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
   {
     variants: {
       variant: {
         default:
-          'bg-primary text-primary-foreground [&:not([aria-disabled=true])]:hover:bg-primary/90',
+          'bg-primary text-primary-foreground shadow-primary [&:not([aria-disabled=true])]:hover:bg-primary/90',
         destructive:
           'bg-destructive text-destructive-foreground [&:not([aria-disabled=true])]:hover:bg-destructive/90',
         // A quiet button is a filled one, not a bordered one: the product's

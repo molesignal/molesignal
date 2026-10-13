@@ -42,6 +42,7 @@ import {
 } from '@/investigation/agentContext';
 import { toApiError } from '@/lib/http';
 import { formatMicrosActive } from '@/lib/time';
+import { useActionAccess } from '@/product/actionAccess';
 import { ProductState } from '@/product/states';
 import { ChromeButton } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
@@ -67,7 +68,8 @@ import { toast } from '@/shell/ui/sonner';
 import { useAuthStore } from '@/stores/auth';
 import { useFiltersStore } from '@/stores/useFiltersStore';
 import { useMoleAgentStore } from '@/stores/useMoleAgentStore';
-import { formatWindowSummary, useTimeStore } from '@/stores/useTimeStore';
+import { useTimeStore } from '@/stores/useTimeStore';
+import { formatTimeWindowLabel } from '@/time/TimePicker';
 
 import { type EvidenceRef, evidenceHref, parseStructuredAnswer } from '../answer';
 import { MarkdownMessage } from '../markdown';
@@ -203,6 +205,7 @@ function applyScrollFade(el: HTMLDivElement): void {
 export function AgentChat({ embedded = false }: { embedded?: boolean } = {}) {
   const { t } = useTranslation('agent');
   const { t: tc } = useTranslation('common');
+  const manageAccess = useActionAccess({ permission: 'agent.manage' });
   const authCtx = useAuthStore((s) => s.ctx);
   const globalTimeWindow = useTimeStore((state) => state.window);
   const setGlobalTimeWindow = useTimeStore((state) => state.setWindow);
@@ -212,7 +215,9 @@ export function AgentChat({ embedded = false }: { embedded?: boolean } = {}) {
     [globalFilters],
   );
   const rangePreset = timePresetFromWindow(globalTimeWindow);
-  const rangeLabel = formatWindowSummary(globalTimeWindow);
+  // Under the name the time picker gives it, in the product's language: "Last 24h" stood here
+  // in English on a page written in Chinese.
+  const rangeLabel = formatTimeWindowLabel(globalTimeWindow, tc);
   const setRangePreset = React.useCallback(
     (preset: string) => {
       const next = timeWindowForPreset(preset);
@@ -805,6 +810,30 @@ export function AgentChat({ embedded = false }: { embedded?: boolean } = {}) {
 
         <div className="shrink-0 px-3 pb-3 pt-2 md:px-5 md:pb-4">
           <div className="mx-auto w-full max-w-[960px]">
+            {providersQ.isSuccess && providers.length === 0 && (
+              // Nothing can answer yet. Said where the question is typed, before it is sent,
+              // with the way to a model for whoever may set one up.
+              <div
+                data-agent-no-model
+                role="status"
+                className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-[var(--yellow-tint)] px-3 py-2 font-sans text-xs text-[var(--yellow-ink)]"
+              >
+                <span className="font-strong">{t('workspace.no_model.title')}</span>
+                <span className="min-w-0 flex-1">
+                  {manageAccess.allowed
+                    ? t('workspace.no_model.description')
+                    : t('workspace.no_model.ask_admin')}
+                </span>
+                {manageAccess.allowed && (
+                  <Link
+                    to="/agent/settings/models"
+                    className="shrink-0 rounded-md bg-bg-1 px-2.5 py-1 font-strong text-tx-0 hover:bg-bg-2 focus-visible:bg-bg-2"
+                  >
+                    {t('workspace.no_model.configure')}
+                  </Link>
+                )}
+              </div>
+            )}
             <ChatComposer
               t={t}
               input={input}
@@ -1530,7 +1559,7 @@ function InvestigationProcessRow({
             item.status === 'success'
               ? 'text-green'
               : item.status === 'error'
-                ? 'text-yellow-soft'
+                ? 'text-[var(--yellow-ink)]'
                 : 'text-indigo',
           )}
         />
@@ -2018,7 +2047,7 @@ function StructuredView({
           <ul className="space-y-1">
             {answer.limitations.map((limitation, index) => (
               <li key={index} className="flex items-start gap-2 text-tx-2">
-                <CircleAlert className="mt-1 h-3.5 w-3.5 shrink-0 text-yellow-soft" />
+                <CircleAlert className="mt-1 h-3.5 w-3.5 shrink-0 text-[var(--yellow-ink)]" />
                 <span>{limitation}</span>
               </li>
             ))}

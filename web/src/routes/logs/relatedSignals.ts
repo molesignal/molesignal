@@ -43,11 +43,17 @@ export function relatedSignalsFromRecord(
   return signals.slice(0, 6);
 }
 
-export function signalTimeFromTimestamp(
-  timestamp: string,
-): SignalReferenceTime | undefined {
-  const eventTime = Date.parse(timestamp);
-  if (!Number.isFinite(eventTime)) return undefined;
+/**
+ * The stretch of time a signal named by a log is opened in: five minutes on
+ * either side of the log. It is taken from the instant itself, in
+ * microseconds: the moment as it is written for the reader is in their zone
+ * and their format, and cannot be read back.
+ */
+export function signalTimeAround(micros: number | null): SignalReferenceTime | undefined {
+  if (micros == null || !Number.isFinite(micros)) return undefined;
+
+  const eventTime = micros / 1_000;
+
   return {
     from: new Date(eventTime - 5 * 60_000).toISOString(),
     to: new Date(eventTime + 5 * 60_000).toISOString(),

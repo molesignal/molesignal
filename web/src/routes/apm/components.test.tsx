@@ -8,7 +8,6 @@ import i18n from '@/i18n';
 import {
   ApmPageFrame,
   averageThroughput,
-  RedKpis,
   TraceIdLink,
   TrendStrip,
 } from './components';
@@ -104,22 +103,11 @@ describe('TrendStrip', () => {
   });
 });
 
-describe('RedKpis', () => {
-  it('uses observed buckets for average throughput and keeps request count as context', () => {
-    const red = {
-      ...POINTS[0]!.red,
-      request_count: 84,
-      p95_micros: 250_000,
-      p99_micros: 500_000,
-    };
-
-    render(<RedKpis red={red} trend={POINTS} resolution="minute" />);
-
-    expect(screen.getByText('Request throughput')).toBeTruthy();
-    expect(screen.getByText('0.47 req/s')).toBeTruthy();
-    expect(screen.getByText('84 total requests')).toBeTruthy();
-    expect(screen.getByText('P99 latency')).toBeTruthy();
+describe('averageThroughput', () => {
+  it('averages over the buckets that were observed, not the whole window', () => {
     expect(averageThroughput(84, POINTS, 'minute')).toBeCloseTo(84 / 180);
+    expect(averageThroughput(0, POINTS, 'minute')).toBe(0);
+    expect(averageThroughput(84, [], 'minute')).toBeUndefined();
   });
 });
 

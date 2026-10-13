@@ -11,7 +11,6 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
-import * as dashboardsApi from '@/api/dashboards';
 import * as foldersApi from '@/api/folders';
 import {
   restrictActionAccess,
@@ -19,6 +18,7 @@ import {
 } from '@/product/actionAccess';
 import { type ProductStateProps } from '@/product/states';
 import { DetailPage } from '@/product/templates';
+import { isReportRender } from '@/report-render/mode';
 import { ResourceShareDialog } from '@/sharing/ResourceShareDialog';
 import { ChromeButton, TimeRangeChip } from '@/shell/chrome';
 import { FormDrawer } from '@/shell/FormDrawer';
@@ -37,23 +37,29 @@ import { useAuthStore } from '@/stores/auth';
 
 import { DashboardRenderer } from './DashboardRenderer';
 import { isDashboardEngineEnabled } from './featureFlag';
-import {
-  dashboardDefinitionFromApi,
-  flattenElements,
-  serializeDashboardDefinition,
-} from './model';
+import { flattenElements, serializeDashboardDefinition } from './model';
 import {
   parseIntervalMilliseconds,
   type DashboardRefreshCadence,
 } from './refresh/policy';
+import { DashboardReport } from './report/DashboardReport';
 import type { DashboardDefinition } from './schema';
+import { useDashboardDefinition } from './useDashboardDefinition';
 
+/**
+ * A dashboard at its own address: the page a person works in, or, when the
+ * report renderer asks for it, the dashboard alone on a document to print.
+ */
 export function DashboardView() {
+  const [searchParams] = useSearchParams();
+
+  return isReportRender(searchParams) ? <DashboardReport /> : <DashboardScreen />;
+}
+
+function DashboardScreen() {
   const { t, i18n } = useTranslation('dashboards');
   const { id } = useParams<{ id: string }>();
   const nav = useNavigate();
-  const [searchParams] = useSearchParams();
-  const reportRenderMode = searchParams.get('report_render') === '1';
   const orgId = useAuthStore((state) => state.ctx?.org_id ?? '');
   const shareAccess = useActionAccess({ permission: 'dashboards.share' });
   const editPermission = useActionAccess({ permission: 'dashboards.edit' });
@@ -62,44 +68,20 @@ export function DashboardView() {
   const [refreshNonce, setRefreshNonce] = React.useState(0);
   const [refreshing, setRefreshing] = React.useState(false);
   const [refreshSelection, setRefreshSelection] = React.useState('off');
-  const [rendererState, setRendererState] = React.useState<
-    'loading' | 'ready'
-  >('loading');
-  const dashboardQuery = useQuery({
-    queryKey: ['dashboards', 'get', id],
-    queryFn: () => dashboardsApi.get(id!),
-    enabled: Boolean(id),
-  });
+  const {
+    query: dashboardQuery,
+    definition,
+    modelError,
+  } = useDashboardDefinition(id);
   const foldersQuery = useQuery({
     queryKey: ['folders', 'list'],
     queryFn: foldersApi.list,
   });
-  const definitionResult = React.useMemo(
-    () => {
-      if (!dashboardQuery.data) {
-        return { definition: null, error: null };
-      }
-      try {
-        return {
-          definition: dashboardDefinitionFromApi(dashboardQuery.data),
-          error: null,
-        };
-      } catch (error) {
-        return { definition: null, error };
-      }
-    },
-    [dashboardQuery.data],
-  );
-  const definition = definitionResult.definition;
-  const modelError = definitionResult.error;
   const editAccess = restrictActionAccess(
     editPermission,
     Boolean(definition?.editable),
     t('detail.read_only', { defaultValue: 'This dashboard is read-only.' }),
   );
-  React.useEffect(() => {
-    setRendererState('loading');
-  }, [definition?.uid]);
   React.useEffect(() => {
     if (!definition) return;
     setRefreshSelection(refreshSettingValue(definition.refreshSettings));
@@ -126,35 +108,6 @@ export function DashboardView() {
       : !definition
         ? { variant: 'empty', title: t('detail.not_found') }
         : null;
-  React.useEffect(() => {
-    if (!reportRenderMode) return;
-    const root = document.documentElement;
-    const nextState =
-      dashboardQuery.isError || modelError
-        ? 'error'
-        : definition && rendererState === 'ready'
-          ? 'ready'
-          : 'loading';
-    root.dataset.reportRenderState = nextState;
-    if (nextState === 'error') {
-      const error = dashboardQuery.error ?? modelError;
-      root.dataset.reportRenderError =
-        error instanceof Error ? error.message : String(error);
-    } else {
-      delete root.dataset.reportRenderError;
-    }
-    return () => {
-      delete root.dataset.reportRenderState;
-      delete root.dataset.reportRenderError;
-    };
-  }, [
-    dashboardQuery.error,
-    dashboardQuery.isError,
-    definition,
-    modelError,
-    rendererState,
-    reportRenderMode,
-  ]);
 
   const exportDashboard = () => {
     if (!definition) return;
@@ -340,9 +293,6 @@ export function DashboardView() {
             refreshNonce={refreshNonce}
             refreshIntervalOverride={refreshInterval}
             onRefreshStateChange={setRefreshing}
-            {...(reportRenderMode
-              ? { onRenderStateChange: setRendererState }
-              : {})}
             {...(editAccess.allowed
               ? {
                   onEditPanel: (panelId: string) =>

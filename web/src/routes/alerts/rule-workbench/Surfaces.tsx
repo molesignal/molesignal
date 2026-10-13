@@ -1,5 +1,5 @@
 import { Check, Database, TestTube2 } from 'lucide-react';
-import * as React from 'react';
+import type * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { ChromeButton, Dot, Pill } from '@/shell/chrome';
@@ -10,29 +10,6 @@ import type { SeverityThreshold } from '@/types/alerting';
 import { TimeSeriesChart } from '@/viz/timeseries/TimeSeriesChart';
 
 import { COMPARISON_LABEL } from '../alertRuleModel';
-
-export function WorkbenchSteps() {
-  const { t } = useTranslation('alerts');
-  return (
-    <div className="flex min-h-12 items-center gap-2 overflow-x-auto border-b border-bd-0 bg-bg-0 px-4 sm:px-6">
-      {[
-        t('workbench.steps.identity'),
-        t('workbench.steps.condition'),
-        t('workbench.steps.delivery'),
-      ].map((label, index) => (
-        <React.Fragment key={label}>
-          {index > 0 && <span className="h-px w-8 shrink-0 bg-bd-1" />}
-          <span className="flex shrink-0 items-center gap-2 font-sans text-xs font-strong text-tx-2">
-            <span className="grid h-5 w-5 place-items-center rounded-full bg-bg-2 font-mono text-type-micro text-tx-1">
-              {index + 1}
-            </span>
-            {label}
-          </span>
-        </React.Fragment>
-      ))}
-    </div>
-  );
-}
 
 export function WorkbenchSection({
   id,
@@ -133,7 +110,7 @@ export function QueryPreview({
           />
         ) : stale ? (
           <PreviewMessage
-            iconClassName="text-blue-soft"
+            iconClassName="text-[var(--blue-ink)]"
             title={t('workbench.preview.stale')}
             description={t('workbench.preview.stale_description')}
           />
@@ -260,7 +237,7 @@ export function ValidationSummary({
   return (
     <section data-alert-validation className="min-w-0 bg-transparent">
       <header className="flex min-h-12 items-center gap-2 border-b border-bd-0 py-3">
-        <Check className="h-4 w-4 text-green-soft" />
+        <Check className="h-4 w-4 text-[var(--green-ink)]" />
         <h2 className="font-sans text-sm font-display-strong text-tx-0">
           {t('workbench.validation.title')}
         </h2>

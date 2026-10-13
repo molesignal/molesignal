@@ -15,7 +15,8 @@ export type LayoutResult = { ok: true; data: LaidOutTrace } | { ok: false; error
  * malformed export and downstream rendering would silently truncate.
  */
 export function layoutTrace(trace: TraceResponse, mode: RenderMode): LayoutResult {
-  if (trace.spans.length === 0) return { ok: false, error: { kind: 'empty' } };
+  // A response that carries no list of spans is a trace with none, not a page that cannot be drawn.
+  if (!Array.isArray(trace.spans) || trace.spans.length === 0) return { ok: false, error: { kind: 'empty' } };
 
   const byId = new Map<string, number>();
   for (let i = 0; i < trace.spans.length; i++) byId.set(trace.spans[i]!.span_id, i);

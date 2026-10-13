@@ -341,7 +341,7 @@ export function Groups() {
                           variant="ghost"
                           disabled={acceptAccess.disabled}
                           disabledReason={acceptAccess.reason}
-                          className="text-green-soft enabled:hover:bg-green-dim"
+                          className="text-[var(--green-ink)] enabled:hover:bg-[var(--green-tint)]"
                           onClick={() => {
                             if (acceptAccess.allowed) {
                               changeGrantStatus.mutate({

@@ -116,7 +116,8 @@ export function SystemContext({
 
   const content = (
     <>
-      <header className="px-4 py-3.5">
+      {/* The cards under the head bring 8px of their own: the head gives that much less below. */}
+      <header className="px-4 pb-1.5 pt-3.5">
         <h2 className="type-section-title font-display-strong text-tx-0">
           {t('workspace.context_title')}
         </h2>
@@ -262,7 +263,7 @@ function ContextLink({
       <span
         className={cn(
           'max-w-[112px] truncate font-mono type-label font-display-strong text-tx-0',
-          attention && 'text-orange-soft',
+          attention && 'text-[var(--orange-ink)]',
         )}
       >
         {value}

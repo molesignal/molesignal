@@ -187,6 +187,11 @@
       "edit_short": "编辑面板"
     }
   },
+  "report": {
+    "time_range": "时间范围",
+    "timezone": "时区",
+    "generated": "生成时间"
+  },
   "import": {
     "title": "导入仪表盘",
     "subtitle": "粘贴 MoleSignal 仪表盘 JSON 或上传 .json 文件",

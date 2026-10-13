@@ -7,17 +7,29 @@ import { cn } from '@/shell/lib/cn';
 /**
  * Page body used below the local settings header. The management page owns
  * the outer gutter, and section content aligns directly with its title.
+ *
+ * Its top padding is the card's own top padding (`SettingsLayout`), so the head
+ * between the two has the same room over it as under it. A body that opens on a
+ * section title says so: the title brings room of its own, and the body gives
+ * that much less.
  */
 export function SectionBody({
   children,
   className,
+  opensOnSection = false,
 }: {
   children: React.ReactNode;
   className?: string;
+  opensOnSection?: boolean;
 }) {
   return (
     <div
-      className={cn('px-0 pb-8 pt-5 lg:px-0 lg:pb-10 lg:pt-6', className)}
+      data-settings-body={opensOnSection ? 'sections' : 'content'}
+      className={cn(
+        'px-0 pb-8 lg:px-0 lg:pb-10',
+        opensOnSection ? 'pt-2 sm:pt-3 lg:pt-4' : 'pt-4 sm:pt-5 lg:pt-6',
+        className,
+      )}
     >
       {children}
     </div>
@@ -56,6 +68,7 @@ export function SettingsSection({
   description,
   children,
   tone = 'default',
+  measure = 'form',
   className,
   contentClassName,
 }: {
@@ -63,6 +76,12 @@ export function SettingsSection({
   description?: React.ReactNode;
   children: React.ReactNode;
   tone?: 'default' | 'danger';
+  /**
+   * `form` keeps the title, rows and footer within one readable column (the
+   * label, the field, and the Save button end on the same edge); `full` is for
+   * a section that holds a table.
+   */
+  measure?: 'form' | 'full';
   className?: string;
   contentClassName?: string;
 }) {
@@ -74,24 +93,26 @@ export function SettingsSection({
         className,
       )}
     >
-      <header>
-        <div
-          data-settings-section-title
-          className={cn(
-            'type-section-title font-sans font-display-strong',
-            tone === 'danger' ? 'text-red-soft' : 'text-tx-0',
-          )}
-        >
-          {title}
-        </div>
-        {description && (
-          <div className="mt-1 max-w-3xl font-sans text-base leading-relaxed text-tx-2 lg:text-sm">
-            {description}
+      <div className={cn('min-w-0', measure === 'form' && 'max-w-[872px]')}>
+        <header>
+          <div
+            data-settings-section-title
+            className={cn(
+              'font-sans text-lg font-display-strong',
+              tone === 'danger' ? 'text-red-soft' : 'text-tx-0',
+            )}
+          >
+            {title}
           </div>
-        )}
-      </header>
-      <div className={cn('mt-5 flex min-w-0 flex-col gap-5', contentClassName)}>
-        {children}
+          {description && (
+            <div className="mt-1 max-w-3xl font-sans text-base leading-relaxed text-tx-2 lg:text-sm">
+              {description}
+            </div>
+          )}
+        </header>
+        <div className={cn('mt-5 flex min-w-0 flex-col gap-5', contentClassName)}>
+          {children}
+        </div>
       </div>
     </section>
   );
@@ -123,7 +144,7 @@ export function SettingsSubsection({
       {(title || description) && (
         <header>
           {title && (
-            <div className="font-sans text-base font-strong text-tx-0 lg:text-sm">
+            <div className="font-sans text-md font-display-strong text-tx-0">
               {title}
             </div>
           )}
@@ -163,7 +184,7 @@ export function SettingsRow({
     <div
       data-settings-row
       className={cn(
-        'grid w-full min-w-0 grid-cols-1 items-start gap-3 min-[1100px]:grid-cols-[minmax(220px,280px)_minmax(420px,1fr)] min-[1100px]:gap-8',
+        'grid w-full min-w-0 grid-cols-1 items-start gap-3 min-[1100px]:grid-cols-[minmax(220px,280px)_minmax(420px,1fr)] min-[1100px]:gap-[32px]',
         className,
       )}
     >
@@ -177,7 +198,7 @@ export function SettingsRow({
       </div>
       <div
         className={cn(
-          'flex min-h-11 w-full min-w-0 items-center lg:min-h-9',
+          'flex min-h-11 w-full min-w-0 max-w-[560px] items-center lg:min-h-9',
           controlClassName,
         )}
       >
@@ -219,7 +240,7 @@ export function CopyableValue({
   }, [value]);
 
   return (
-    <div className="flex min-h-11 w-full min-w-0 items-center rounded-md border border-bd-0 bg-bg-2 pl-3 lg:min-h-9">
+    <div className="flex min-h-11 w-full min-w-0 items-center rounded-md bg-[var(--control-surface)] pl-3 lg:min-h-9">
       <code className="min-w-0 flex-1 truncate font-mono text-base text-tx-1 lg:text-xs">{value}</code>
       <CopyIconButton
         onClick={() => void copy()}
@@ -299,13 +320,13 @@ export function KvRow({
   return (
     <div
       data-settings-row
-      className="grid min-h-11 grid-cols-1 items-start gap-2 min-[1100px]:grid-cols-[minmax(220px,280px)_minmax(420px,1fr)] min-[1100px]:gap-8"
+      className="grid min-h-11 grid-cols-1 items-start gap-2 min-[1100px]:grid-cols-[minmax(220px,280px)_minmax(420px,1fr)] min-[1100px]:gap-[32px]"
     >
       <div>
         <div className="font-sans text-base font-strong text-tx-1 lg:text-sm">{label}</div>
         {hint && <div className="mt-1 text-base text-tx-3 lg:text-sm">{hint}</div>}
       </div>
-      <div className="font-sans text-base text-tx-0 lg:text-sm">{children}</div>
+      <div className="min-w-0 max-w-[560px] font-sans text-base text-tx-0 lg:text-sm">{children}</div>
     </div>
   );
 }

@@ -48,7 +48,6 @@ export function ProfilesPanel({
     <AgentSettingsSection
       title={t('settings.profiles.title')}
       description={t('settings.profiles.description')}
-      headerDivider={false}
       action={
         <Button size="sm" onClick={onCreate}>
           <Plus />
@@ -209,6 +208,8 @@ export function ProfilesPanel({
           compact
           title={t('settings.profiles.empty_title')}
           description={t('settings.profiles.empty_description')}
+          // On the content surface itself, not in a card set into it.
+          className="bg-transparent [box-shadow:none]"
         />
       )}
     </AgentSettingsSection>

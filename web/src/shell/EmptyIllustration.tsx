@@ -53,7 +53,12 @@ export function EmptyIllustration({
       {kind === 'streams' && (
         <>
           {/* three feeds; the top one carries the pulse */}
-          <path d="M6 12h14l4-7 5 14 4-7h33" stroke="var(--indigo)" />
+          <path
+            d="M6 12h14l4-7 5 14 4-7h33"
+            pathLength={1}
+            className="ms-pulse-draw"
+            stroke="var(--indigo)"
+          />
           <path d="M6 26h60" />
           <path d="M6 40h40" />
           <path d="M66 40h.01" />

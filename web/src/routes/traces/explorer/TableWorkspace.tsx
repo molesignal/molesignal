@@ -1,9 +1,11 @@
+import type { TFunction } from 'i18next';
 import { X } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type * as webApi from '@/api/web';
 import { useTimeFormatter } from '@/lib/time';
+import { LONG_LIST_ROW_CLASS, longListRowStyle } from '@/shell/list/longList';
 import {
   QueryRecoveryState,
   type QueryRecoveryActions,
@@ -11,33 +13,28 @@ import {
 } from '@/shell/query/RecoveryState';
 import type { queryStateFor } from '@/shell/query/State';
 import { SignalReference, type SignalReferenceType } from '@/shell/SignalReference';
-import { TimezoneSelect } from '@/shell/TimezoneSelect';
 import { Button } from '@/shell/ui/button';
 import { formatTraceDurationMs } from '@/viz/trace/duration';
 import { TraceOperationName } from '@/viz/trace/TraceOperationName';
 
 import { traceFieldValue } from '../fieldPanel/model';
-import { TraceFieldPanel } from '../fieldPanel/Panel';
-import {
-  type TraceFieldDef,
-  type TraceFieldName,
-  type TraceQueryMode,
-} from '../fieldQueryModel';
+import type { TraceFieldName } from '../fieldQueryModel';
 import {
   TracePagination,
   type TracePaginationModel,
 } from '../Pagination';
-import { formatTraceStart, TraceListSortSelect } from './shared';
+import type { TraceHistogramModel } from './Histogram';
+import { TraceResultsHead } from './ResultsHead';
+import { formatTraceStart } from './shared';
 import type { DisplayTrace } from './types';
 
 interface TraceTableExplorerProps {
+  /** The field list, beside the results. */
+  fieldPanel: React.ReactNode;
   traceList: DisplayTrace[];
-  fieldTraces: DisplayTrace[];
   loadedTraceCount: number;
   sort: webApi.TraceListSort;
   sortEnabled: boolean;
-  queryMode: TraceQueryMode;
-  fields: TraceFieldDef[];
   listState: ReturnType<typeof queryStateFor>;
   listError: unknown;
   recovery: QueryRecoveryActions;
@@ -45,26 +42,19 @@ interface TraceTableExplorerProps {
   selectedTrace: DisplayTrace | null;
   selectedId: string | null;
   visibleFields: TraceFieldName[];
-  fieldFilter: string;
-  fieldPanelCollapsed: boolean;
-  onFieldFilterChange: (value: string) => void;
-  onFieldPanelCollapsedChange: (collapsed: boolean) => void;
-  onToggleField: (field: TraceFieldName) => void;
-  onInsertField: (field: TraceFieldDef) => void;
   onSelectTrace: (id: string) => void;
   onViewSpans: (id: string) => void;
   pagination: TracePaginationModel;
+  histogram: TraceHistogramModel;
   onSortChange: (sort: webApi.TraceListSort) => void;
 }
 
 export function TraceTableExplorer({
+  fieldPanel,
   traceList,
-  fieldTraces,
   loadedTraceCount,
   sort,
   sortEnabled,
-  queryMode,
-  fields,
   listState,
   listError,
   recovery,
@@ -72,15 +62,10 @@ export function TraceTableExplorer({
   selectedTrace,
   selectedId,
   visibleFields,
-  fieldFilter,
-  fieldPanelCollapsed,
-  onFieldFilterChange,
-  onFieldPanelCollapsedChange,
-  onToggleField,
-  onInsertField,
   onSelectTrace,
   onViewSpans,
   pagination,
+  histogram,
   onSortChange,
 }: TraceTableExplorerProps) {
   const { t } = useTranslation('traces');
@@ -98,34 +83,20 @@ export function TraceTableExplorer({
       data-trace-workspace-layout="surface-grid"
       className="flex h-full min-h-0 w-full items-stretch gap-[8px]"
     >
-      <TraceFieldPanel
-        traces={fieldTraces}
-        fields={fields}
-        queryMode={queryMode}
-        visibleFields={visibleFields}
-        fieldFilter={fieldFilter}
-        collapsed={fieldPanelCollapsed}
-        onFieldFilterChange={onFieldFilterChange}
-        onCollapsedChange={onFieldPanelCollapsedChange}
-        onToggleField={onToggleField}
-        onInsertField={onInsertField}
-        className="rounded-md border-r-0 bg-[var(--functional-surface)]"
-      />
+      {fieldPanel}
       <div
         data-workspace-pane="trace-results"
         className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-md bg-[var(--functional-surface)] [contain:size]"
       >
-        <div className="flex min-h-11 shrink-0 items-center justify-between gap-3 px-3 py-1.5">
-          <span className="font-sans text-xs font-semibold text-tx-0">
-            {t('explore.results.loaded_count', { count: loadedTraceCount })}
-          </span>
-          <div className="flex shrink-0 items-center gap-1.5">
-            {sortEnabled ? (
-              <TraceListSortSelect value={sort} onChange={onSortChange} />
-            ) : null}
-            <TimezoneSelect value={tzOverride} onChange={setTzOverride} className="h-8" />
-          </div>
-        </div>
+        <TraceResultsHead
+          loadedTraceCount={loadedTraceCount}
+          sort={sort}
+          sortEnabled={sortEnabled}
+          onSortChange={onSortChange}
+          histogram={histogram}
+          timezone={{ value: tzOverride, onChange: setTzOverride }}
+          bandClassName="mb-[4px]"
+        />
         <div className="grid shrink-0 grid-cols-[minmax(180px,1.4fr)_160px_minmax(180px,1fr)_72px_72px_96px_150px] gap-3 bg-[var(--control-surface)] px-3 py-2 font-sans text-xs font-strong tracking-normal text-tx-2">
           <span>{t('explore.table.trace')}</span>
           <span>{t('explore.table.service')}</span>
@@ -146,31 +117,16 @@ export function TraceTableExplorer({
               testId="traces-table-no-data"
             />
           ) : (
-            traceList.map((trace) => {
-              const selected = selectedId === trace.id;
-              return (
-                <button
-                  key={trace.id}
-                  type="button"
-                  aria-pressed={selected}
-                  onClick={() => selectTrace(trace.id)}
-                  className={`grid w-full grid-cols-[minmax(180px,1.4fr)_160px_minmax(180px,1fr)_72px_72px_96px_150px] gap-3 border-b border-bd-0 px-3 py-2 text-left font-sans text-xs hover:bg-bg-2 ${
-                    selected ? 'bg-indigo-dim' : 'bg-transparent'
-                  }`}
-                >
-                  <span className="min-w-0">
-                    <span className="block truncate font-semibold text-tx-0">{trace.id}</span>
-                    <span className="mt-1 block truncate text-xs text-tx-3">{t('explore.results.inspect_hint')}</span>
-                  </span>
-                  <span className="truncate text-tx-1">{trace.service}</span>
-                  <TraceOperationName operation={trace.op} className="text-tx-1" />
-                  <span className="text-tx-1">{trace.spans}</span>
-                  <span className={trace.errors > 0 ? 'text-red' : 'text-tx-2'}>{trace.errors}</span>
-                  <span className="font-semibold text-tx-0">{formatTraceDurationMs(trace.durationMs)}</span>
-                  <span className="truncate text-tx-2">{formatTraceStart(trace.startNs, fmt.tz)}</span>
-                </button>
-              );
-            })
+            traceList.map((trace) => (
+              <TraceTableRow
+                key={trace.id}
+                trace={trace}
+                selected={selectedId === trace.id}
+                tz={fmt.tz}
+                t={t}
+                onSelect={selectTrace}
+              />
+            ))
           )}
         </div>
         <TracePagination model={pagination} />
@@ -201,6 +157,47 @@ export function TraceTableExplorer({
     </div>
   );
 }
+
+/** The trace id over the hint under it; the row adds its own padding and the line under it. */
+const TRACE_TABLE_ROW_STYLE = longListRowStyle(38);
+
+/** One trace of the table, drawn again only when it changes itself: a page can hold thousands. */
+const TraceTableRow = React.memo(function TraceTableRow({
+  trace,
+  selected,
+  tz,
+  t,
+  onSelect,
+}: {
+  trace: DisplayTrace;
+  selected: boolean;
+  tz: string;
+  t: TFunction<'traces'>;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      onClick={() => onSelect(trace.id)}
+      style={TRACE_TABLE_ROW_STYLE}
+      className={`grid w-full grid-cols-[minmax(180px,1.4fr)_160px_minmax(180px,1fr)_72px_72px_96px_150px] gap-3 border-b border-bd-0 px-3 py-2 text-left font-sans text-xs hover:bg-bg-2 ${LONG_LIST_ROW_CLASS} ${
+        selected ? 'bg-indigo-dim' : 'bg-transparent'
+      }`}
+    >
+      <span className="min-w-0">
+        <span className="block truncate font-semibold text-tx-0">{trace.id}</span>
+        <span className="mt-1 block truncate text-xs text-tx-3">{t('explore.results.inspect_hint')}</span>
+      </span>
+      <span className="truncate text-tx-1">{trace.service}</span>
+      <TraceOperationName operation={trace.op} className="text-tx-1" />
+      <span className="text-tx-1">{trace.spans}</span>
+      <span className={trace.errors > 0 ? 'text-red' : 'text-tx-2'}>{trace.errors}</span>
+      <span className="font-semibold text-tx-0">{formatTraceDurationMs(trace.durationMs)}</span>
+      <span className="truncate text-tx-2">{formatTraceStart(trace.startNs, tz)}</span>
+    </button>
+  );
+});
 
 function TraceSummaryPanel({
   trace,

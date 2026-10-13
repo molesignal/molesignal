@@ -11,7 +11,7 @@ import { productStateFor } from '@/product/states';
 import { ChromeButton, Pill, TimeRangeChip } from '@/shell/chrome';
 import { queryStateFor } from '@/shell/query/State';
 import { useAuthStore } from '@/stores/auth';
-import { formatWindowSummary, useTimeStore } from '@/stores/useTimeStore';
+import { useTimeStore } from '@/stores/useTimeStore';
 
 import { formatDurationMs, windowToMicros } from './_helpers';
 import {
@@ -107,11 +107,9 @@ export function Applications() {
 
   return (
     <RumListPage
-      title={t('applications.title')}
-      subtitle={t('applications.subtitle')}
       toolbar={
         <>
-          <TimeRangeChip value={formatWindowSummary(window)} className="border-0" />
+          <TimeRangeChip className="border-0" />
           <ChromeButton
             onClick={() => {
               void baseQuery.refetch();
@@ -124,12 +122,12 @@ export function Applications() {
       }
       state={state}
     >
-      <RumSurface className="space-y-2 p-4">
+      <RumSurface className="space-y-4 p-4">
         <RumSectionHeader
           title={t('applications.list_title')}
           description={t('applications.result_count', { count: rows.length })}
           action={
-            <div className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-wrap items-center gap-2">
               <RumFilterSelect
                 label={t('scope.environment')}
                 value={environment}

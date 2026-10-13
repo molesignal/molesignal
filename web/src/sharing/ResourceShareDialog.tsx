@@ -390,7 +390,7 @@ export function ResourceShareDialog({
                 {policy && !publicAllowed && (
                   <div
                     role="alert"
-                    className="mt-3 flex items-start gap-3 rounded-lg border border-yellow/30 bg-yellow-dim px-4 py-3 text-yellow-soft"
+                    className="mt-3 flex items-start gap-3 rounded-lg border border-yellow/30 bg-[var(--yellow-tint)] px-4 py-3 text-[var(--yellow-ink)]"
                   >
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                     <div className="min-w-0">
@@ -466,7 +466,7 @@ export function ResourceShareDialog({
 
               {mode === 'public_link' && (
                 <div className="space-y-5">
-                  <div className="flex gap-3 rounded-lg border border-yellow/30 bg-yellow-dim px-4 py-3 text-yellow-soft">
+                  <div className="flex gap-3 rounded-lg border border-yellow/30 bg-[var(--yellow-tint)] px-4 py-3 text-[var(--yellow-ink)]">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                     <div>
                       <div className="text-sm font-semibold">
@@ -480,7 +480,7 @@ export function ResourceShareDialog({
 
                   {resourceType === 'report' && (
                     <div className="flex items-center gap-3 rounded-lg border border-bd-0 bg-bg-2 px-4 py-3">
-                      <ShieldCheck className="h-4 w-4 shrink-0 text-green-soft" />
+                      <ShieldCheck className="h-4 w-4 shrink-0 text-[var(--green-ink)]" />
                       <p className="text-xs leading-relaxed text-tx-2">
                         {t('sharing.report_snapshot_hint')}
                       </p>
@@ -716,7 +716,8 @@ function ModeCard({
       <span className="mt-3 block text-sm font-semibold text-tx-0">
         {title}
       </span>
-      <span className="mt-1 block text-xs leading-relaxed text-tx-3">
+      {/* tx-2, not tx-3: on the fill of the chosen option (indigo-dim over the card) tx-3 is 4.4:1. */}
+      <span className="mt-1 block text-xs leading-relaxed text-tx-2">
         {description}
       </span>
     </button>
@@ -886,8 +887,8 @@ function GeneratedLink({
 }) {
   const { t } = useTranslation('common');
   return (
-    <section className="rounded-xl border border-green/30 bg-green-dim p-4">
-      <div className="flex items-center gap-2 text-green-soft">
+    <section className="rounded-xl border border-green/30 bg-[var(--green-tint)] p-4">
+      <div className="flex items-center gap-2 text-[var(--green-ink)]">
         <Check className="h-4 w-4" />
         <h3 className="text-sm font-semibold">{t('sharing.link_ready')}</h3>
       </div>
@@ -904,14 +905,16 @@ function GeneratedLink({
           copied={copied}
           copiedLabel={t('sharing.copied')}
           className="h-11 w-11 bg-indigo text-white enabled:hover:brightness-90 sm:h-8 sm:w-8"
-          iconClassName="h-4 w-4"
+          // On the filled button the check that follows a copy is white like the icon it replaces:
+          // a green one does not reach 3:1 on indigo.
+          iconClassName="h-4 w-4 text-current"
           wrapperClassName="self-end sm:self-auto"
         />
       </div>
       <button
         type="button"
         onClick={onReset}
-        className="mt-3 text-xs font-semibold text-green-soft hover:text-tx-0"
+        className="mt-3 text-xs font-semibold text-[var(--green-ink)] hover:text-tx-0"
       >
         {t('sharing.create_another')}
       </button>
@@ -1024,7 +1027,7 @@ function ExistingShares({
                           {shareUrl}
                         </div>
                       ) : (
-                        <p className="min-w-0 flex-1 text-xs text-yellow-soft">
+                        <p className="min-w-0 flex-1 text-xs text-[var(--yellow-ink)]">
                           {t('sharing.rotate_to_show_link')}
                         </p>
                       )}

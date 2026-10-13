@@ -141,8 +141,10 @@ export function useCurrentOrgSelection(): CurrentOrgSelection {
           disabled: false,
         }
       : null;
+  // The switcher lists where one can go. An organization that is only administered from the
+  // platform organization is in its management list, not here.
   const orgOptions = normalizeOrgs([
-    ...orgs,
+    ...orgs.filter((org) => org.accessible !== false || org.id === currentOrgId),
     ...(currentOrgFallback ? [currentOrgFallback] : []),
   ]);
 

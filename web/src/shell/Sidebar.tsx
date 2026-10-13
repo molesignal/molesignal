@@ -1,7 +1,7 @@
 import { GripVertical, Pin } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { NavLink } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 import {
   accessibleProductNavigation,
@@ -10,12 +10,14 @@ import {
 } from '@/product/access';
 import {
   getProductRouteById,
+  isProductRouteActive,
   PRODUCT_NAV_GROUP_META,
   PRODUCT_NAV_GROUPS,
   type ProductNavGroup,
   type ProductRouteMeta,
 } from '@/product/ia';
 import { cn } from '@/shell/lib/cn';
+import { NavIndicator, useNavIndicator } from '@/shell/NavIndicator';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/shell/ui/tooltip';
 import { useSidebarStore } from '@/stores/useSidebarStore';
 
@@ -33,8 +35,11 @@ export function Sidebar({
   onHoverChange,
 }: SidebarProps) {
   const { t } = useTranslation('nav');
+  const { pathname } = useLocation();
   const visuallyCollapsed = collapsed && !mobileOpen;
   const access = useProductAccess();
+  const navRef = useRef<HTMLElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const pinned = useSidebarStore((s) => s.pinned);
   const togglePin = useSidebarStore((s) => s.togglePin);
@@ -42,6 +47,12 @@ export function Sidebar({
   const reorderPinned = useSidebarStore((s) => s.reorderPinned);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
+
+  const indicator = useNavIndicator(
+    navRef,
+    contentRef,
+    `${pathname}|${visuallyCollapsed}|${pinned.join(',')}`,
+  );
 
   const pinnedSet = new Set(pinned);
   const pinnedRoutes = pinned
@@ -60,13 +71,21 @@ export function Sidebar({
     if (groupItems.length === 0) return null;
     const groupMeta = PRODUCT_NAV_GROUP_META[group];
     return (
-      <div key={group} className="mb-1.5">
+      <div key={group} className="mb-1">
         {!visuallyCollapsed && group !== 'home' && (
-          // Group labels use the shell's micro role so they remain secondary.
-          // Home is a stand-alone top item, so we skip a "HOME" label.
-          <div className="font-sidebar-face type-micro px-[22px] pb-1 pt-2.5 font-semibold tracking-normal text-tx-2">
-            {t(groupMeta.labelKey)}
-          </div>
+          // Home is a stand-alone top item, so it has no "HOME" label. Every other
+          // group is a block: a hairline closes the one above, the label names this one.
+          <>
+            <div aria-hidden className="mx-[22px] mb-0.5 mt-2 h-px bg-bd-0" />
+            <GroupLabel current={groupItems.some((item) => isProductRouteActive(item, pathname))}>
+              {t(groupMeta.labelKey)}
+            </GroupLabel>
+          </>
+        )}
+        {visuallyCollapsed && group !== 'home' && (
+          // Without labels the rail is a column of icons; a hairline chunks it
+          // into the same groups the expanded sidebar names.
+          <div aria-hidden className="mx-auto mb-1.5 mt-1 h-px w-5 bg-bd-1" />
         )}
         <div className="flex flex-col gap-0.5 px-[12px]">
           {groupItems.map((item) => (
@@ -97,53 +116,87 @@ export function Sidebar({
         visuallyCollapsed ? 'md:w-sidebar-collapsed' : 'md:w-sidebar',
       )}
     >
-      <nav className="flex-1 overflow-y-auto py-2">
-        {renderGroup('home')}
+      <nav ref={navRef} className="relative flex-1 overflow-y-auto py-2">
+        <NavIndicator
+          box={indicator.box}
+          animated={indicator.animated}
+          testId="sidebar-active-indicator"
+        />
+        <div ref={contentRef}>
+          {renderGroup('home')}
 
-        {/* Pinned items render here ONLY — renderGroup drops them from their
-            home group so nothing shows twice; unpinning returns an item to its
-            original group slot. The section disappears when it is empty. */}
-        {!visuallyCollapsed && pinnedRoutes.length > 0 && (
-          <MiniSection labelKey="pinned">
-            {pinnedRoutes.map((route) => (
-              <MiniNavRow
-                key={route.id}
-                route={route}
-                onNavigate={onNavigate}
-                action={{ kind: 'unpin', onToggle: () => unpin(route.id) }}
-                drag={{
-                  dragging: dragId === route.id,
-                  over: overId === route.id && dragId !== null && dragId !== route.id,
-                  onDragStart: () => setDragId(route.id),
-                  onDragEnter: () => setOverId(route.id),
-                  onDrop: () => {
-                    if (dragId && dragId !== route.id) reorderPinned(dragId, route.id);
-                    setDragId(null);
-                    setOverId(null);
-                  },
-                  onDragEnd: () => {
-                    setDragId(null);
-                    setOverId(null);
-                  },
-                }}
-              />
-            ))}
-          </MiniSection>
-        )}
-        {PRODUCT_NAV_GROUPS.filter((group) => group !== 'home').map((group) => renderGroup(group))}
+          {/* Pinned items render here ONLY — renderGroup drops them from their
+              home group so nothing shows twice; unpinning returns an item to its
+              original group slot. The section disappears when it is empty. */}
+          {!visuallyCollapsed && pinnedRoutes.length > 0 && (
+            <MiniSection
+              labelKey="pinned"
+              current={pinnedRoutes.some((route) => isProductRouteActive(route, pathname))}
+            >
+              {pinnedRoutes.map((route) => (
+                <MiniNavRow
+                  key={route.id}
+                  route={route}
+                  onNavigate={onNavigate}
+                  action={{ kind: 'unpin', onToggle: () => unpin(route.id) }}
+                  drag={{
+                    dragging: dragId === route.id,
+                    over: overId === route.id && dragId !== null && dragId !== route.id,
+                    onDragStart: () => setDragId(route.id),
+                    onDragEnter: () => setOverId(route.id),
+                    onDrop: () => {
+                      if (dragId && dragId !== route.id) reorderPinned(dragId, route.id);
+                      setDragId(null);
+                      setOverId(null);
+                    },
+                    onDragEnd: () => {
+                      setDragId(null);
+                      setOverId(null);
+                    },
+                  }}
+                />
+              ))}
+            </MiniSection>
+          )}
+          {PRODUCT_NAV_GROUPS.filter((group) => group !== 'home').map((group) => renderGroup(group))}
+        </div>
       </nav>
     </aside>
   );
 }
 
-function MiniSection({ labelKey, children }: { labelKey: string; children: ReactNode }) {
+function MiniSection({
+  labelKey,
+  current,
+  children,
+}: {
+  labelKey: string;
+  current: boolean;
+  children: ReactNode;
+}) {
   const { t } = useTranslation('nav');
   return (
-    <div className="mb-1.5">
-      <div className="font-sidebar-face type-micro px-[22px] pb-1 pt-2.5 font-semibold tracking-normal text-tx-3">
-        {t(labelKey)}
-      </div>
+    <div className="mb-1">
+      <div aria-hidden className="mx-[22px] mb-0.5 mt-2 h-px bg-bd-0" />
+      <GroupLabel current={current}>{t(labelKey)}</GroupLabel>
       <div className="flex flex-col gap-0.5 px-[12px]">{children}</div>
+    </div>
+  );
+}
+
+/**
+ * The name of a block of destinations: quiet small capitals, one tier above the
+ * rows it heads. The block that holds the current page names itself a tier darker.
+ */
+function GroupLabel({ children, current = false }: { children: ReactNode; current?: boolean }) {
+  return (
+    <div
+      className={cn(
+        'font-sidebar-face type-eyebrow px-[22px] pb-1 pt-1.5 transition-colors duration-fast',
+        current ? 'text-tx-0' : 'text-tx-2',
+      )}
+    >
+      {children}
     </div>
   );
 }
@@ -172,6 +225,8 @@ function MiniNavRow({
   drag?: MiniRowDrag | undefined;
 }) {
   const { t } = useTranslation('nav');
+  const { pathname } = useLocation();
+  const active = isProductRouteActive(route, pathname);
   const label = t(route.labelKey);
   const actionLabel = action.kind === 'unpin' ? t('unpin') : t('pin');
   // Drag is allowed only when it begins on the grip handle: the handle's
@@ -228,27 +283,29 @@ function MiniNavRow({
           : undefined
       }
     >
-      <NavLink
+      <Link
         to={route.path}
         onClick={onNavigate}
         draggable={false}
-        className={({ isActive }) =>
-          `${cn(
-            // Match NavRow metrics (h-sidebar-item / text-xs / text-tx-1) so the
-            // Pinned rows share the fixed groups' density.
-            'relative flex h-sidebar-item items-center gap-2 rounded-md pl-[10px] text-xs font-strong text-tx-1',
-            // extra right padding for the grip + pin controls (grip only on pinned rows)
-            drag ? 'pr-16' : 'pr-9',
-            'transition-colors duration-fast ease-default hover:bg-bg-3 hover:text-tx-0',
-            'focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none',
-            isActive &&
-              'bg-indigo-dim text-indigo-soft hover:bg-indigo-dim hover:text-indigo-soft',
-          )} font-sidebar-face`
-        }
+        aria-current={active ? 'page' : undefined}
+        className={`${cn(
+          // Match NavRow metrics (h-sidebar-item / text-xs / text-tx-1) so the
+          // Pinned rows share the fixed groups' density.
+          'group relative flex h-sidebar-item items-center gap-2 rounded-md pl-[10px] text-xs text-tx-1',
+          // extra right padding for the grip + pin controls (grip only on pinned rows)
+          drag ? 'pr-16' : 'pr-9',
+          'transition-colors duration-fast ease-default hover:bg-bg-3 hover:text-tx-0',
+          'focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none',
+          active &&
+            'bg-indigo-dim font-strong text-indigo-soft hover:bg-indigo-dim hover:text-indigo-soft',
+        )} font-sidebar-face`}
       >
-        <route.icon className="h-4 w-4 shrink-0 text-indigo-soft" />
+        <route.icon
+          strokeWidth={1.75}
+          className="h-4 w-4 shrink-0 text-tx-2 transition-colors duration-fast group-hover:text-tx-0 group-aria-[current=page]:text-indigo-soft"
+        />
         <span className="flex-1 truncate">{label}</span>
-      </NavLink>
+      </Link>
       <div className="absolute right-0.5 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
         {drag && (
           <button
@@ -299,6 +356,8 @@ function NavRow({
   pinControl?: { pinned: boolean; onToggle: () => void } | null;
 }) {
   const { t } = useTranslation('nav');
+  const { pathname } = useLocation();
+  const active = isProductRouteActive(item, pathname);
   const label = t(item.labelKey);
   const [tooltipOpen, setTooltipOpen] = useState(false);
 
@@ -307,28 +366,29 @@ function NavRow({
   }, [collapsed]);
 
   const link = (
-    <NavLink
+    <Link
       to={item.path}
-      end={item.exact === true}
       onClick={onNavigate}
       aria-label={collapsed ? label : undefined}
-      className={({ isActive }) =>
-        `${cn(
-          // Shell navigation stays stable across density modes; lighter,
-          // caption-sized labels and 16px icons keep the compact rail balanced.
-          'group relative flex h-sidebar-item items-center gap-2 rounded-md pl-[10px] pr-2 text-xs font-strong text-tx-1',
-          'transition-colors duration-fast ease-default',
-          'hover:bg-bg-3 hover:text-tx-0',
-          'focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none',
-          isActive && 'bg-indigo-dim text-indigo-soft hover:bg-indigo-dim hover:text-indigo-soft',
-          collapsed && 'justify-center pl-0 pr-0',
-          !collapsed && pinControl && 'pr-10',
-        )} font-sidebar-face`
-      }
+      aria-current={active ? 'page' : undefined}
+      className={`${cn(
+        // Shell navigation stays stable across density modes. Rows are regular
+        // weight so the one that is current is the one that stands out.
+        'group relative flex h-sidebar-item items-center gap-2 rounded-md pl-[10px] pr-2 text-xs text-tx-1',
+        'transition-colors duration-fast ease-default',
+        'hover:bg-bg-3 hover:text-tx-0',
+        'focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none',
+        active && 'bg-indigo-dim font-strong text-indigo-soft hover:bg-indigo-dim hover:text-indigo-soft',
+        collapsed && 'justify-center pl-0 pr-0',
+        !collapsed && pinControl && 'pr-10',
+      )} font-sidebar-face`}
     >
-      <item.icon className="h-4 w-4 shrink-0 text-indigo-soft" />
+      <item.icon
+        strokeWidth={1.75}
+        className="h-4 w-4 shrink-0 text-tx-2 transition-colors duration-fast group-hover:text-tx-0 group-aria-[current=page]:text-indigo-soft"
+      />
       {!collapsed && <span className="flex-1 truncate">{label}</span>}
-    </NavLink>
+    </Link>
   );
 
   const actionLabel = pinControl

@@ -12,20 +12,20 @@ import { ChromeButton, TimeRangeChip } from '@/shell/chrome';
 import { ErrorState } from '@/shell/ErrorState';
 import { LoadingState } from '@/shell/LoadingState';
 import { useAuthStore } from '@/stores/auth';
-import { formatWindowSummary, useTimeStore } from '@/stores/useTimeStore';
+import { useTimeStore } from '@/stores/useTimeStore';
 
-import { formatDurationMs, windowToMicros } from '../_helpers';
+import { regionName, windowToMicros } from '../_helpers';
 import { RumFilterSelect, RumListPage } from '../RumLayout';
 import { ALL, initialScope, scopeOptions, type RumScope } from './model';
 import { RumOnboarding } from './Onboarding';
 import {
-  CoreWebVitalsPanel,
   DimensionPanel,
   ExperienceTrend,
   FrequentErrorsPanel,
   SatisfactionPanel,
   SlowPagesPanel,
 } from './Panels';
+import { RumPulse } from './Pulse';
 
 const EMPTY_METRICS: OverviewMetrics = {
   users: 0,
@@ -37,7 +37,7 @@ const EMPTY_METRICS: OverviewMetrics = {
 };
 
 export function Overview() {
-  const { t } = useTranslation('rum');
+  const { t, i18n } = useTranslation('rum');
   const orgId = useAuthStore((state) => state.ctx?.org_id ?? '');
   const window = useTimeStore((state) => state.window);
   const range = React.useMemo(() => windowToMicros(window), [window]);
@@ -137,6 +137,21 @@ export function Overview() {
   const facets = baseQuery.data?.facets;
   const error = currentQuery.error;
 
+  // Whether sessions reach this workspace at all, judged before any narrowing and held while
+  // the next window loads, so the scope row neither shows up for a page that has nothing to
+  // narrow nor blinks out on every range change.
+  const workspaceSessions = baseQuery.data?.metrics.sessions;
+  const collecting = useLastDefined(
+    workspaceSessions === undefined ? undefined : workspaceSessions > 0,
+  );
+
+  const settled = !currentQuery.isLoading && !error;
+  // Sessions exist but none in this slice: say so and keep the way back, instead of reading as
+  // "the SDK is not sending yet".
+  const scopedToNothing =
+    settled && hasScope && metrics.sessions === 0 && collecting === true;
+  const onboarding = settled && metrics.sessions === 0 && !scopedToNothing;
+
   const refetchAll = () => {
     void (async () => {
       const summaryRequests = [baseQuery.refetch()];
@@ -155,8 +170,6 @@ export function Overview() {
 
   return (
     <RumListPage
-      title={t('title')}
-      subtitle={t('subtitle')}
       toolbar={
         <>
           <ChromeButton
@@ -166,148 +179,43 @@ export function Overview() {
           >
             {t('overview.compare_previous')}
           </ChromeButton>
-          <TimeRangeChip value={formatWindowSummary(window)} className="border-0" />
+          <TimeRangeChip className="border-0" />
           <ChromeButton onClick={refetchAll}>{t('refresh')}</ChromeButton>
         </>
       }
-      filterBar={
-        <>
-          <RumFilterSelect
-            label={t('scope.application')}
-            value={scope.application}
-            options={scopeOptions(
-              facets?.applications ?? [],
-              t('scope.all_apps'),
-            )}
-            onChange={(application) =>
-              setScope((current) => ({ ...current, application }))
-            }
-          />
-          <RumFilterSelect
-            label={t('scope.environment')}
-            value={scope.environment}
-            options={scopeOptions(
-              facets?.environments ?? [],
-              t('scope.all_environments'),
-            )}
-            onChange={(environment) =>
-              setScope((current) => ({ ...current, environment }))
-            }
-          />
-          <RumFilterSelect
-            label={t('scope.version')}
-            value={scope.version}
-            options={scopeOptions(
-              facets?.versions ?? [],
-              t('scope.all_versions'),
-            )}
-            onChange={(version) =>
-              setScope((current) => ({ ...current, version }))
-            }
-          />
-          <RumFilterSelect
-            label={t('scope.region')}
-            value={scope.country}
-            options={scopeOptions(
-              facets?.countries ?? [],
-              t('scope.all_regions'),
-            )}
-            onChange={(country) =>
-              setScope((current) => ({ ...current, country }))
-            }
-          />
-          <RumFilterSelect
-            label={t('scope.device')}
-            value={scope.device}
-            options={scopeOptions(
-              facets?.devices ?? [],
-              t('scope.all_devices'),
-            )}
-            onChange={(device) =>
-              setScope((current) => ({ ...current, device }))
-            }
-          />
-        </>
+      // Nothing to scope before the first session arrives; a scope in force stays reachable.
+      scope={
+        hasScope || collecting ? (
+          <>
+            {SCOPE_SELECTS.map(({ key, facet, label, all }) => (
+              <RumFilterSelect
+                key={key}
+                label={t(label)}
+                value={scope[key]}
+                options={scopeOptions(
+                  withSelected(facets?.[facet] ?? [], scope[key]),
+                  t(all),
+                )}
+                onChange={(value) => setScope((current) => ({ ...current, [key]: value }))}
+              />
+            ))}
+          </>
+        ) : undefined
       }
-      kpis={
-        !currentQuery.isLoading && !error && metrics.sessions > 0
-          ? [
-              {
-                label: t('overview.kpi.active_users'),
-                value: metrics.users.toLocaleString(),
-                sub: comparisonLabel(
-                  metrics.users,
-                  previousMetrics.users,
-                  comparePrevious,
-                  false,
-                  t,
-                ),
-              },
-              {
-                label: t('overview.kpi.sessions'),
-                value: metrics.sessions.toLocaleString(),
-                sub: comparisonLabel(
-                  metrics.sessions,
-                  previousMetrics.sessions,
-                  comparePrevious,
-                  false,
-                  t,
-                ),
-              },
-              {
-                label: t('overview.kpi.error_free_sessions'),
-                value: formatPercent(metrics.errorFreeRate),
-                sub: comparisonLabel(
-                  metrics.errorFreeRate,
-                  previousMetrics.errorFreeRate,
-                  comparePrevious,
-                  false,
-                  t,
-                ),
-                tone:
-                  metrics.errorFreeRate >= 0.99
-                    ? 'good'
-                    : metrics.errorFreeRate >= 0.95
-                      ? 'warn'
-                      : 'danger',
-              },
-              {
-                label: t('overview.kpi.lcp'),
-                value: formatVital(metrics.lcpP75),
-                sub: comparisonLabel(
-                  metrics.lcpP75,
-                  previousMetrics.lcpP75,
-                  comparePrevious,
-                  true,
-                  t,
-                ),
-              },
-              {
-                label: t('overview.kpi.inp'),
-                value: formatVital(metrics.inpP75),
-                sub: comparisonLabel(
-                  metrics.inpP75,
-                  previousMetrics.inpP75,
-                  comparePrevious,
-                  true,
-                  t,
-                ),
-              },
-              {
-                label: t('overview.kpi.cls'),
-                value: metrics.clsP75 > 0 ? metrics.clsP75.toFixed(3) : '—',
-                sub: comparisonLabel(
-                  metrics.clsP75,
-                  previousMetrics.clsP75,
-                  comparePrevious,
-                  true,
-                  t,
-                ),
-              },
-            ]
-          : undefined
+      state={
+        scopedToNothing
+          ? {
+              variant: 'empty',
+              title: t('overview.scope_empty_title'),
+              description: t('overview.scope_empty_description'),
+              action: (
+                <ChromeButton onClick={() => setScope(initialScope())}>
+                  {t('overview.scope_clear')}
+                </ChromeButton>
+              ),
+            }
+          : null
       }
-      kpiClassName="xl:grid-cols-3 2xl:grid-cols-6"
     >
       {currentQuery.isLoading ? (
         <LoadingState variant="chart" />
@@ -317,57 +225,102 @@ export function Overview() {
           error={error}
           onRetry={refetchAll}
         />
-      ) : metrics.sessions === 0 || !data ? (
+      ) : onboarding || !data ? (
         <RumOnboarding />
       ) : (
-        <div className="grid gap-[12px] xl:grid-cols-12">
-          <div className="xl:col-span-12">
+        <div className="space-y-[12px]">
+          <RumPulse
+            metrics={metrics}
+            trend={insights?.trend}
+            comparison={
+              comparePrevious
+                ? {
+                    users: comparisonLabel(metrics.users, previousMetrics.users, false, t),
+                    sessions: comparisonLabel(metrics.sessions, previousMetrics.sessions, false, t),
+                    errorFreeRate: comparisonLabel(
+                      metrics.errorFreeRate,
+                      previousMetrics.errorFreeRate,
+                      false,
+                      t,
+                    ),
+                    lcpP75: comparisonLabel(metrics.lcpP75, previousMetrics.lcpP75, true, t),
+                    inpP75: comparisonLabel(metrics.inpP75, previousMetrics.inpP75, true, t),
+                    clsP75: comparisonLabel(metrics.clsP75, previousMetrics.clsP75, true, t),
+                  }
+                : undefined
+            }
+          />
+          <div className="grid gap-[12px] xl:grid-cols-12">
+            <div className={insights ? 'xl:col-span-8' : 'xl:col-span-12'}>
+              {insights ? (
+                <ExperienceTrend buckets={insights.trend} range={range} />
+              ) : insightsQuery.error ? (
+                <ErrorState
+                  title={t('overview.load_error')}
+                  error={insightsQuery.error}
+                  onRetry={() => void insightsQuery.refetch()}
+                />
+              ) : (
+                <LoadingState variant="chart" />
+              )}
+            </div>
             {insights ? (
-              <ExperienceTrend buckets={insights.trend} range={range} />
-            ) : insightsQuery.error ? (
-              <ErrorState
-                title={t('overview.load_error')}
-                error={insightsQuery.error}
-                onRetry={() => void insightsQuery.refetch()}
+              <>
+                <div className="xl:col-span-4">
+                  <SatisfactionPanel counts={insights.satisfaction} />
+                </div>
+                <div className="xl:col-span-7">
+                  <SlowPagesPanel pages={insights.slowPages} />
+                </div>
+                <div className="xl:col-span-5">
+                  <FrequentErrorsPanel errors={insights.frequentErrors} />
+                </div>
+              </>
+            ) : null}
+            <div className="xl:col-span-7">
+              <DimensionPanel
+                title={t('overview.browser_device')}
+                description={t('overview.browser_device_description')}
+                rows={data.browserDevices}
               />
-            ) : (
-              <LoadingState variant="chart" />
-            )}
-          </div>
-          <div className="xl:col-span-8">
-            <CoreWebVitalsPanel metrics={metrics} />
-          </div>
-          {insights ? (
-            <>
-              <div className="xl:col-span-4">
-                <SatisfactionPanel counts={insights.satisfaction} />
-              </div>
-              <div className="xl:col-span-7">
-                <SlowPagesPanel pages={insights.slowPages} />
-              </div>
-              <div className="xl:col-span-5">
-                <FrequentErrorsPanel errors={insights.frequentErrors} />
-              </div>
-            </>
-          ) : null}
-          <div className="xl:col-span-7">
-            <DimensionPanel
-              title={t('overview.browser_device')}
-              description={t('overview.browser_device_description')}
-              rows={data.browserDevices}
-            />
-          </div>
-          <div className="xl:col-span-5">
-            <DimensionPanel
-              title={t('overview.regions')}
-              description={t('overview.regions_description')}
-              rows={data.regions}
-            />
+            </div>
+            <div className="xl:col-span-5">
+              <DimensionPanel
+                title={t('overview.regions')}
+                description={t('overview.regions_description')}
+                // A region is read by its name; its code is what it is filtered by.
+                rows={data.regions.map((row) => ({
+                  ...row,
+                  label: regionName(row.label, i18n.resolvedLanguage ?? i18n.language),
+                }))}
+              />
+            </div>
           </div>
         </div>
       )}
     </RumListPage>
   );
+}
+
+// The dimensions the overview can be narrowed to, in the order they are offered.
+const SCOPE_SELECTS = [
+  { key: 'application', facet: 'applications', label: 'scope.application', all: 'scope.all_apps' },
+  { key: 'environment', facet: 'environments', label: 'scope.environment', all: 'scope.all_environments' },
+  { key: 'version', facet: 'versions', label: 'scope.version', all: 'scope.all_versions' },
+  { key: 'country', facet: 'countries', label: 'scope.region', all: 'scope.all_regions' },
+  { key: 'device', facet: 'devices', label: 'scope.device', all: 'scope.all_devices' },
+] as const;
+
+/** The facet values with the value in force among them, so the select can always show it. */
+function withSelected(values: string[], selected: string): string[] {
+  return selected === ALL || values.includes(selected) ? values : [selected, ...values];
+}
+
+/** The last answer that was not `undefined`: a value rides out the gap while its query reloads. */
+function useLastDefined<T>(value: T | undefined): T | undefined {
+  const [last, setLast] = React.useState(value);
+  if (value !== undefined && value !== last) setLast(value);
+  return value ?? last;
 }
 
 function overviewScope(scope: RumScope): Partial<OverviewParams> {
@@ -380,22 +333,13 @@ function overviewScope(scope: RumScope): Partial<OverviewParams> {
   };
 }
 
-function formatVital(value: number): string {
-  return value > 0 ? formatDurationMs(value) : '—';
-}
-
-function formatPercent(value: number): string {
-  return `${(value * 100).toFixed(2)}%`;
-}
-
+/** How a figure compares with the period before, in words. */
 function comparisonLabel(
   current: number,
   previous: number,
-  enabled: boolean,
   lowerIsBetter: boolean,
   t: ReturnType<typeof useTranslation>['t'],
 ): string {
-  if (!enabled) return t('overview.current_period');
   if (!Number.isFinite(previous) || previous === 0) {
     return t('overview.no_previous_data');
   }

@@ -26,9 +26,9 @@ const alertVariants = cva(
     variants: {
       variant: {
         default: 'border-bd-1 bg-bg-1 text-tx-1 [&>svg]:text-tx-2',
-        info: 'border-blue/30 bg-blue-dim text-blue-soft [&>svg]:text-blue',
-        success: 'border-green/30 bg-green-dim text-green-soft [&>svg]:text-green',
-        warning: 'border-yellow/30 bg-yellow-dim text-yellow-soft [&>svg]:text-yellow',
+        info: 'border-blue/30 bg-[var(--blue-tint)] text-[var(--blue-ink)] [&>svg]:text-blue',
+        success: 'border-green/30 bg-[var(--green-tint)] text-[var(--green-ink)] [&>svg]:text-green',
+        warning: 'border-yellow/30 bg-[var(--yellow-tint)] text-[var(--yellow-ink)] [&>svg]:text-yellow',
         // Danger surfaces use the AAA-calibrated red error/firing token.
         destructive: 'border-red/30 bg-red-dim text-red-soft [&>svg]:text-red',
       },

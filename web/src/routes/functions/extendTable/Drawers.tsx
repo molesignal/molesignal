@@ -826,7 +826,7 @@ function StepItem({
         className={cn(
           'grid h-6 w-6 shrink-0 place-items-center rounded-full border font-mono text-type-micro',
           active && 'border-indigo bg-indigo text-white',
-          complete && 'border-green bg-green-dim text-green',
+          complete && 'border-green bg-[var(--green-tint)] text-green',
           !active && !complete && 'border-bd-1 bg-bg-2',
         )}
       >
@@ -924,8 +924,8 @@ function InlineNotice({
       className={cn(
         'flex items-start gap-2 rounded-md border px-3 py-2.5 text-xs leading-relaxed',
         tone === 'success'
-          ? 'border-green/25 bg-green-dim text-green'
-          : 'border-yellow/25 bg-yellow-dim text-yellow',
+          ? 'border-green/25 bg-[var(--green-tint)] text-green'
+          : 'border-yellow/25 bg-[var(--yellow-tint)] text-yellow',
       )}
     >
       <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0" />

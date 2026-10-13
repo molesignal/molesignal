@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { flushSync } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 
 import { useThemeStore } from '@/stores/useThemeStore';
@@ -146,4 +147,50 @@ export function useTheme(): ThemeApi {
   const ctx = React.useContext(ThemeContext);
   if (!ctx) throw new Error('useTheme must be used within ThemeBootstrap');
   return ctx;
+}
+
+interface ViewTransitionDocument {
+  startViewTransition?: (update: () => void) => { ready: Promise<void> };
+}
+
+/**
+ * Runs `apply` (which must change the theme synchronously) as a view
+ * transition whose new frame grows out of `origin`, so a theme change reads as
+ * light spreading from the toggle instead of a flash. Browsers without the
+ * View Transitions API, and people who asked for reduced motion, just get the
+ * change.
+ */
+export function animateThemeChange(origin: Element, apply: () => void): void {
+  const doc = document as unknown as ViewTransitionDocument;
+  if (
+    typeof doc.startViewTransition !== 'function' ||
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  ) {
+    apply();
+    return;
+  }
+  const box = origin.getBoundingClientRect();
+  const x = box.left + box.width / 2;
+  const y = box.top + box.height / 2;
+  const radius = Math.hypot(
+    Math.max(x, window.innerWidth - x),
+    Math.max(y, window.innerHeight - y),
+  );
+  const transition = doc.startViewTransition(() => flushSync(apply));
+  void transition.ready.then(() => {
+    document.documentElement.animate(
+      {
+        clipPath: [
+          `circle(0px at ${x}px ${y}px)`,
+          `circle(${radius}px at ${x}px ${y}px)`,
+        ],
+      },
+      {
+        duration: 640,
+        // Gentler than the entrance curve: the reveal should be watched, not missed.
+        easing: 'cubic-bezier(0.45, 0, 0.15, 1)',
+        pseudoElement: '::view-transition-new(root)',
+      },
+    );
+  });
 }

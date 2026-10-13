@@ -1,5 +1,6 @@
 import type * as React from 'react';
 
+import type { MetricCatalogEntry } from '@/api/metricsCatalog';
 import type {
   MetricSeries,
   MetricSeriesQuality,
@@ -32,6 +33,7 @@ export interface MetricsExploreResultsProps {
     drawStyle: MetricsDrawStyle;
     stackMode: MetricsStackMode;
     zoomed: boolean;
+    onTimezoneChange: (timezone: string) => void;
     onDrawStyleChange: (style: MetricsDrawStyle) => void;
     onStackModeChange: (mode: MetricsStackMode) => void;
     onRangeSelect: (range: { from: number; to: number }) => void;
@@ -49,6 +51,13 @@ export interface MetricsExploreResultsProps {
     onWidenRange: () => void;
     onClearFilters: () => void;
   };
+  /** What the graph area offers before the first query: metrics to start from. */
+  starter: {
+    metrics: readonly MetricCatalogEntry[];
+    pending: boolean;
+    onPick: (metric: MetricCatalogEntry) => void;
+    onBrowse: () => void;
+  };
   timeRangeSeconds: number;
   language: string;
   preferredView: 'graph' | 'table';
@@ -63,6 +72,7 @@ export interface GraphViewProps {
   chart: MetricsExploreResultsProps['chart'];
   exemplars: MetricsExploreResultsProps['exemplars'];
   recovery: MetricsExploreResultsProps['recovery'];
+  starter: MetricsExploreResultsProps['starter'];
   onViewRawCounter: () => void;
   onInspectMetricType: () => void;
 }

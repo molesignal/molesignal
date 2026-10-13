@@ -9,7 +9,7 @@ import {
   Workflow,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Link, Outlet } from 'react-router-dom';
+import { Link, Outlet, useLocation } from 'react-router-dom';
 
 import * as agentApi from '@/api/agent';
 import { cn } from '@/shell/lib/cn';
@@ -18,6 +18,13 @@ import {
   SurfacePageHeader,
 } from '@/shell/SurfaceWorkbench';
 import { ModuleTabs } from '@/shell/tabs/ModuleTabs';
+import { ViewTabs } from '@/shell/tabs/ViewTabs';
+
+import {
+  AGENT_SETTINGS_SECTIONS,
+  agentSettingsPath,
+  agentSettingsSectionOf,
+} from './settings/sections';
 
 const MODULE_NAV = [
   { to: '/agent/chat', key: 'nav.chat', icon: MessageSquareText },
@@ -30,6 +37,8 @@ const MODULE_NAV = [
 
 export function AgentLayout() {
   const { t } = useTranslation('agent');
+  const { pathname } = useLocation();
+  const settingsSection = agentSettingsSectionOf(pathname);
   const overview = useQuery({
     queryKey: ['agent', 'overview'],
     queryFn: agentApi.overview,
@@ -84,7 +93,28 @@ export function AgentLayout() {
             icon: item.icon,
             label: t(item.key),
           }))}
-        />
+        >
+          {settingsSection && (
+            // Which part of the settings is open is a level of the navigation, said where the
+            // tabs are: inside the page it stood under two titles and over a third.
+            <div className="border-t border-bd-0">
+              <div
+                data-agent-subnavigation="settings"
+                className="flex h-[40px] items-center px-[10px] [@media(pointer:coarse)]:h-[44px]"
+              >
+                <ViewTabs
+                  label={t('settings.title')}
+                  items={AGENT_SETTINGS_SECTIONS.map((section) => ({
+                    key: section.value,
+                    to: agentSettingsPath(section.value),
+                    label: t(section.key),
+                    active: section.value === settingsSection,
+                  }))}
+                />
+              </div>
+            </div>
+          )}
+        </ModuleTabs>
       </header>
 
       <div className="min-h-0 flex-1 overflow-hidden px-[20px] pb-[20px]">
@@ -119,9 +149,9 @@ function StatusTag({
     >
       <span
         className={cn(
-          'font-mono font-display-strong text-tx-0',
+          'font-display-strong tabular-nums text-tx-0',
           active && 'text-indigo',
-          attention && 'text-orange-soft',
+          attention && 'text-[var(--orange-ink)]',
         )}
       >
         {value}

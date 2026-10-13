@@ -151,6 +151,39 @@ describe('useOrgStore', () => {
     );
   });
 
+  it('leaves an organization that is only administered out of where one can go', () => {
+    // An owner in the platform organization sees every organization, to manage it. The one
+    // they do not belong to cannot be entered, so the switcher does not offer it.
+    useAuthStore.setState({
+      token: 'system-token',
+      ctx: {
+        user_id: 'u1',
+        org_id: 'system-org-id',
+        org_name: '_sys',
+        display_role: 'Owner',
+        roles: [platformOwnerRole],
+        scope: 'system',
+      },
+    });
+    useOrgStore.setState({
+      orgs: [
+        { id: 'system-org-id', name: '_sys', roles: [platformOwnerRole], system: true, disabled: false, accessible: true },
+        { id: 'mine', name: 'mine', roles: [ownerRole], disabled: false, accessible: true },
+        { id: 'theirs', name: 'theirs', roles: [], disabled: false, accessible: false },
+        // An older backend says nothing: what it listed could be entered.
+        { id: 'legacy', name: 'legacy', roles: [ownerRole], disabled: false },
+      ],
+      currentOrgId: 'system-org-id',
+      loaded: true,
+    });
+
+    const { result } = renderHook(() => useCurrentOrgSelection());
+
+    expect(result.current.orgOptions.map((org) => org.id)).toEqual(['system-org-id', 'legacy', 'mine']);
+    // The management list still has all of them.
+    expect(result.current.orgs.map((org) => org.id)).toContain('theirs');
+  });
+
   it('switchOrg propagates errors without touching auth', async () => {
     vi.mocked(listOrgs).mockResolvedValue([
       { id: 'org-a', name: 'A', roles: [ownerRole], disabled: false },

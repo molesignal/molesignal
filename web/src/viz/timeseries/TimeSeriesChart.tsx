@@ -397,7 +397,10 @@ export const TimeSeriesChart = React.memo(function TimeSeriesChart({
           },
           focus: { prox: 12 },
           points: {
-            show: options.drawStyle !== 'bar',
+            // uPlot draws the hover point itself for as long as `show` is left
+            // to it. Any boolean replaces its point factory, `true` included,
+            // and then no point is drawn at all: only bars turn it off.
+            ...(options.drawStyle === 'bar' ? { show: false } : {}),
             size: 7,
             width: 2,
           },
@@ -611,7 +614,10 @@ export const TimeSeriesChart = React.memo(function TimeSeriesChart({
       <div
         className={cn(
           'flex min-h-0 min-w-0',
-          adaptiveSeriesLayout ? 'flex-none' : 'flex-1',
+          // With an identity legend under it the plot takes the height its
+          // container has left and the legend keeps its own; the block grows
+          // past the container rather than squeezing the plot away.
+          adaptiveSeriesLayout ? 'flex-[1_0_auto]' : 'flex-1',
           showResolvedLegend && options.legendPlacement === 'right'
             ? 'flex-row'
             : 'flex-col',
@@ -635,7 +641,7 @@ export const TimeSeriesChart = React.memo(function TimeSeriesChart({
             className={cn(
               'min-w-0 overflow-hidden rounded-sm outline-none',
               adaptiveSeriesLayout
-                ? 'h-[clamp(320px,42vh,460px)] flex-none'
+                ? 'min-h-[clamp(260px,32vh,440px)] flex-[1_1_0px]'
                 : 'min-h-0 flex-1',
               '[&_.u-wrap]:font-sans [&_.u-over]:cursor-crosshair [&_.u-over.zoom-drag]:!cursor-zoom-in',
             )}

@@ -22,10 +22,7 @@ export function NotifySettingsPage({
 }) {
   return (
     <div data-notify-settings-page className="min-w-0">
-      <header
-        data-notify-settings-header
-        className="min-w-0 pb-1"
-      >
+      <header data-notify-settings-header className="min-w-0">
         <PageTitleRow
           title={title}
           description={subtitle}
@@ -34,7 +31,7 @@ export function NotifySettingsPage({
           size="section"
         />
       </header>
-      <SectionBody className="space-y-5 pb-10 pt-5">
+      <SectionBody className="space-y-5 pb-10">
         {filters}
         {state ? <ProductState {...state} /> : children}
       </SectionBody>

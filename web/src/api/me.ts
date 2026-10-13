@@ -70,6 +70,30 @@ export async function uploadAvatar(file: File): Promise<MeProfile> {
   return data;
 }
 
+/** How the user prefers a page to look, as the server keeps it. `null` where it keeps nothing. */
+export interface UiPreferenceEntry {
+  value: unknown;
+  /** Microseconds since epoch. */
+  updated_at_micros: number | null;
+}
+
+const uiPreferencePath = (scope: string, key: string) =>
+  `/me/ui-preference/${encodeURIComponent(scope)}/${encodeURIComponent(key)}`;
+
+export async function getUiPreference(scope: string, key: string): Promise<UiPreferenceEntry> {
+  const { data } = await http.get<Partial<UiPreferenceEntry>>(uiPreferencePath(scope, key));
+  return { value: data.value ?? null, updated_at_micros: data.updated_at_micros ?? null };
+}
+
+export async function putUiPreference(scope: string, key: string, value: unknown): Promise<UiPreferenceEntry> {
+  const { data } = await http.put<Partial<UiPreferenceEntry>>(uiPreferencePath(scope, key), { value });
+  return { value: data.value ?? null, updated_at_micros: data.updated_at_micros ?? null };
+}
+
+export async function deleteUiPreference(scope: string, key: string): Promise<void> {
+  await http.delete(uiPreferencePath(scope, key));
+}
+
 export async function preferences(): Promise<UserPreferences> {
   const { data } = await http.get<Partial<UserPreferences>>('/me/preferences');
   return { ...DEFAULT_USER_PREFERENCES, ...data };

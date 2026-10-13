@@ -118,6 +118,9 @@ export function HealthHero({
         {
           '--tone': TONE_COLOR[tone],
           '--rise-index': riseIndex,
+          // The verdict's own colour pools in the corner it is read from.
+          backgroundImage:
+            'radial-gradient(110% 170% at 0% 0%, color-mix(in srgb, var(--tone) 9%, transparent), transparent 62%)',
         } as React.CSSProperties
       }
       className="home-canvas-hero home-rise relative isolate flex min-w-0 flex-col justify-center overflow-hidden rounded-md bg-[var(--functional-surface)] px-[20px] pb-[26px] pt-[14px] [box-shadow:inset_3px_0_0_var(--tone),var(--shadow-functional-surface)]"
@@ -125,11 +128,12 @@ export function HealthHero({
       {decoration}
       <div className="relative z-10 flex flex-wrap items-center justify-between gap-x-4 gap-y-2.5">
         <div className="min-w-0 flex-1 basis-[240px]">
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-start gap-2.5">
             <span
               aria-hidden="true"
               className={cn(
-                'home-status-dot',
+                // Pinned to the first line: a verdict that wraps keeps its dot at the top.
+                'home-status-dot mt-[13px]',
                 PULSING_TONES.has(tone) && !loading && 'home-breathe',
               )}
             />

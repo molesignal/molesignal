@@ -94,7 +94,7 @@ export function Approvals() {
                     disabled={actionAccess.disabled}
                     disabledReason={actionAccess.reason}
                     onClick={() => actionAccess.allowed && approve.mutate(r.id)}
-                    className="text-green-soft enabled:hover:bg-green-dim"
+                    className="text-[var(--green-ink)] enabled:hover:bg-[var(--green-tint)]"
                   >
                     {t('approvals.approve')}
                   </ChromeButton>

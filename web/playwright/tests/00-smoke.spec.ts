@@ -41,7 +41,6 @@ test('sign-in page has no development bypass and uses authenticated sign-in', as
         external_url: '',
         signup_enabled: false,
         version: '26.0.0.0',
-        release_channel: 'alpha',
       },
     }),
   );

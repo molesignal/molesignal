@@ -12,7 +12,7 @@
       "empty_query_summary": "Choose a metric or enter PromQL"
     },
     "editor": {
-      "label": "PromQL",
+      "label": "Query",
       "aria": "PromQL editor",
       "placeholder": "rate(metric_name{...}[5m])",
       "run": "Run",
@@ -34,9 +34,6 @@
     "query": {
       "datasource": "Data source",
       "metrics_browser": "Metrics browser",
-      "code": "Code",
-      "builder": "Builder",
-      "mode_aria": "Query editor mode",
       "options": "Options",
       "legend": "Legend",
       "auto": "Auto",
@@ -109,9 +106,15 @@
       "zoom_aria": "Metrics time series. Drag horizontally to select a range; drag the X-axis to pan in real time; double-click the plot to double the current time range.",
       "reset_zoom": "Reset time range",
       "reset_zoom_hint": "Restore the time range used before chart interactions",
-      "awaiting_query": "Awaiting a PromQL query",
       "select_prompt": "Enter PromQL above or search for a metric, then run the query.",
       "empty": "No data points for this query / range."
+    },
+    "start": {
+      "heading": "Start from a metric",
+      "browse": "Browse all metrics",
+      "metric_aria": "Chart {{metric}}",
+      "no_metrics": "No metrics have arrived yet.",
+      "connect": "Connect a metrics source"
     },
     "recovery": {
       "query_failed": "PromQL query failed",
@@ -163,7 +166,8 @@
       "query_time": "{{ms}} ms",
       "no_table": "Run a query to inspect its rows.",
       "table_limit": "Showing {{shown}} of {{total}} rows.",
-      "query": "Query"
+      "query": "Query",
+      "views_aria": "Result views"
     },
     "quality": {
       "title": "Data quality",

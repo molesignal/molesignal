@@ -74,6 +74,29 @@
   --purple-soft: #c2a3e6;
   --purple-dim:  rgba(168, 126, 219, 0.14);
 
+  /* ink — a status tone as small text (an HTTP method or a metric kind on a row, a link in a
+   * panel's head): AA (4.5:1) on every fill a row takes, bg-0 to bg-3 and indigo-dim where it
+   * is selected. On dark the soft tones already are. */
+  --blue-ink:    var(--blue-soft);
+  --green-ink:   var(--green-soft);
+  --orange-ink:  var(--orange-soft);
+  --red-ink:     var(--red-soft);
+  --purple-ink:  var(--purple-soft);
+  --yellow-ink:  var(--yellow-soft);
+
+  /* tint — the fill a word in ink stands on: a chip, a notice, a reference that holds the
+   * keyboard. On dark it is the dim tone, a veil over the surface under it. */
+  --blue-tint:   var(--blue-dim);
+  --green-tint:  var(--green-dim);
+  --orange-tint: var(--orange-dim);
+  --purple-tint: var(--purple-dim);
+  --yellow-tint: var(--yellow-dim);
+  --indigo-tint: var(--indigo-dim);
+
+  /* wash — the faint fill inside an outlined badge: a twentieth of its tone. */
+  --green-wash:  color-mix(in srgb, var(--green) 5%, transparent);
+  --yellow-wash: color-mix(in srgb, var(--yellow) 5%, transparent);
+
   /* data viz series (8-color cycle, OKLCH-equalized for CVD safety) */
   --chart-1: #5d6dd9;  /* indigo (brand) — primary series */
   --chart-2: #1faab0;  /* teal — secondary */
@@ -83,6 +106,13 @@
   --chart-6: #a445c1;  /* purple — high-dim */
   --chart-7: #4f9ad6;  /* sky blue */
   --chart-8: #db7635;  /* orange */
+
+  /* share scale — how much of a whole a part took, cool to warm (the bars of a trace).
+   * Red is not a step of it: a part drawn in red has failed. */
+  --share-1: var(--blue);     /* under a quarter */
+  --share-2: var(--chart-2);  /* a quarter to a half */
+  --share-3: var(--yellow);   /* a half to three quarters */
+  --share-4: var(--orange);   /* three quarters and more */
 }
 
 [data-theme='light'],
@@ -112,34 +142,60 @@
   --indigo-soft: #3742c7;  /* readable brand foreground on indigo-dim */
   --indigo-dim:  rgba(55, 66, 199, 0.12);
 
-  /* status colors — AA+ on light backgrounds */
+  /* status colors — on light a status color is text-grade: as small text blue, green, orange
+   * and yellow hold AA (4.5:1) on every fill a row takes, bg-0 to bg-3 (5.7:1 on white,
+   * 4.55:1 on a hovered row). Dots, bars and borders are drawn in the same values. The dim
+   * tones are veils of their own, a shade lighter; the tints below are what they paint. */
   --red:         #a10f1c;  /* WCAG AAA on the two primary light surfaces */
   --red-soft:    #97101b;
   --red-dim:     rgba(161, 15, 28, 0.10);
 
-  --green:       #157f3f;  /* oklch(0.50 0.15 145) — 5.8:1 on bg-0 (AAA) */
+  --green:       #017737;  /* oklch(0.50 0.13 151) */
   --green-soft:  #2aa05a;
   --green-dim:   rgba(21, 127, 63, 0.10);
 
-  /* Light-theme yellow uses oklch(0.50…) rather than oklch(0.58…)
-   * to clear WCAG AA body (4.5:1). The previous value scored 3.84:1.
-   * Soft + dim follow the lightness shift so chip surfaces stay
-   * differentiable. */
-  --yellow:      #9c6600;  /* oklch(0.50 0.16 70) — 5.4:1 on bg-0 */
+  --yellow:      #8e5c00;  /* oklch(0.52 0.11 73) */
   --yellow-soft: #c08515;
   --yellow-dim:  rgba(156, 102, 0, 0.10);
 
-  --blue:        #1f6cbe;  /* oklch(0.50 0.16 240) — 5.6:1 on bg-0 */
+  --blue:        #1967b9;  /* oklch(0.51 0.15 254) */
   --blue-soft:   #4189d2;
   --blue-dim:    rgba(31, 108, 190, 0.10);
 
-  --orange:      #c25018;  /* oklch(0.55 0.18 45) — 5.3:1 */
+  --orange:      #b24301;  /* oklch(0.53 0.16 43) */
   --orange-soft: #e0723c;
   --orange-dim:  rgba(194, 80, 24, 0.10);
 
   --purple:      #8839b6;  /* oklch(0.50 0.18 305) — 5.4:1 */
   --purple-soft: #a35dca;
   --purple-dim:  rgba(136, 57, 182, 0.10);
+
+  /* ink — on light the soft tones are fills (near 3:1 as text), so ink is the status color
+   * itself: 4.55:1 or more on bg-3 and 4.7:1 on a selected row (indigo-dim on white). Red
+   * is its soft tone, as on dark. */
+  --blue-ink:    var(--blue);
+  --green-ink:   var(--green);
+  --orange-ink:  var(--orange);
+  --red-ink:     var(--red-soft);
+  --purple-ink:  var(--purple);
+  --yellow-ink:  var(--yellow);
+
+  /* tint — on light a veil darkens with what is under it (a hovered row, a field, a gray
+   * panel) and ink on it falls to 4.0:1, so a tint is opaque: what the dim tone paints over
+   * white. A chip on a card keeps its pixels, and ink holds 4.9:1 on it wherever it sits.
+   * Indigo, under a reference that holds the keyboard, is a step bluer than its dim tone so
+   * it still shows on a hovered row; ink holds 4.6:1 on it. */
+  --blue-tint:   #e8f0f8;
+  --green-tint:  #e7f2eb;
+  --orange-tint: #f9ede7;
+  --purple-tint: #f3ebf8;
+  --yellow-tint: #f5efe5;
+  --indigo-tint: #e3e6fd;
+
+  /* wash — none on light, where it barely shows on a card and, over a hovered row of a table
+   * (bg-3), takes the ink of the badge to 4.3:1. The outline carries the badge. */
+  --green-wash:  transparent;
+  --yellow-wash: transparent;
 
   /* chart series — darker on light theme for series legibility */
   --chart-1: #3742c7;
@@ -150,4 +206,11 @@
   --chart-6: #8033a4;
   --chart-7: #2f7bc4;
   --chart-8: #b85820;
+
+  /* share scale — fills, not text: one lightness (oklch 0.62–0.65), brighter than the status
+   * colors, and 3:1 or more on bg-1 and on a hovered row (bg-2). */
+  --share-1: var(--blue-soft);
+  --share-2: #1b98a0;  /* oklch(0.62 0.10 202) — teal */
+  --share-3: #b97f10;  /* oklch(0.64 0.13 76) — gold */
+  --share-4: #dc6a30;  /* oklch(0.65 0.16 45) — orange */
 }

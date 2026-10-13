@@ -21,6 +21,7 @@ import {
   FormSelect,
   FormTextarea,
 } from '@/shell/FormDrawer';
+import { TimezoneField } from '@/shell/TimezoneField';
 import { Checkbox } from '@/shell/ui/checkbox';
 import { toast } from '@/shell/ui/sonner';
 import type { UserLite } from '@/shell/useUsers';
@@ -51,16 +52,6 @@ const DEFAULT_WINDOW: ActiveWindow = {
   hour_start: 9,
   hour_end: 18,
 };
-
-const TIMEZONES = [
-  'UTC',
-  'Asia/Shanghai',
-  'Asia/Hong_Kong',
-  'Asia/Tokyo',
-  'Europe/London',
-  'America/New_York',
-  'America/Los_Angeles',
-];
 
 export function microsToLocalInput(micros: number): string {
   const date = new Date(micros / 1000);
@@ -284,10 +275,10 @@ export function ScheduleEditorDrawer({
             </FormField>
             <FormRow>
               <FormField label={t('schedules.fields.timezone')}>
-                <FormSelect
+                <TimezoneField
+                  label={t('schedules.fields.timezone')}
                   value={timezone}
                   onChange={setTimezone}
-                  options={TIMEZONES}
                 />
               </FormField>
               <FormField label={t('schedules.fields.team')}>
@@ -696,7 +687,7 @@ function ScheduleDraftPreview({
 
       <div className="mt-4 grid grid-cols-2 gap-2">
         <div className="bg-bg-1 p-3">
-          <UsersRound className="h-4 w-4 text-blue-soft" />
+          <UsersRound className="h-4 w-4 text-[var(--blue-ink)]" />
           <div className="mt-2 text-xs text-tx-3">
             {t('schedules.preview.member_count')}
           </div>
@@ -711,7 +702,7 @@ function ScheduleDraftPreview({
           </div>
         </div>
         <div className="bg-bg-1 p-3">
-          <Clock3 className="h-4 w-4 text-green-soft" />
+          <Clock3 className="h-4 w-4 text-[var(--green-ink)]" />
           <div className="mt-2 text-xs text-tx-3">
             {t('schedules.preview.timezone')}
           </div>

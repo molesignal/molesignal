@@ -112,7 +112,8 @@ export function EventTimeline({
           </span>
           <span className="min-w-0">
             <span className="block truncate text-sm font-strong text-tx-0">{event.label}</span>
-            {event.detail && (
+            {/* A recorded event is often named by its own detail: said once, as the name. */}
+            {event.detail && event.detail !== event.label && (
               <span className="mt-1 block truncate font-mono text-xs text-tx-3">
                 {event.detail}
               </span>
@@ -139,14 +140,14 @@ function EventIcon({ type }: { type: string }) {
   }
   if (normalized.includes('click')) {
     return (
-      <span className="grid h-6 w-6 place-items-center rounded-full bg-yellow-dim text-yellow-soft">
+      <span className="grid h-6 w-6 place-items-center rounded-full bg-[var(--yellow-tint)] text-[var(--yellow-ink)]">
         <MousePointerClick className={iconClass} />
       </span>
     );
   }
   if (normalized === 'resource' || normalized.includes('network')) {
     return (
-      <span className="grid h-6 w-6 place-items-center rounded-full bg-blue-dim text-blue-soft">
+      <span className="grid h-6 w-6 place-items-center rounded-full bg-[var(--blue-tint)] text-[var(--blue-ink)]">
         <Network className={iconClass} />
       </span>
     );

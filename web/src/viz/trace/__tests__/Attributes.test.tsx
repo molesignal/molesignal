@@ -32,6 +32,27 @@ describe('span attributes', () => {
     expect(screen.getByText('tag.11')).toBeVisible();
   });
 
+  it('keeps a list to terms and their values, with a group\'s title outside it', () => {
+    // More than sixteen attributes are grouped; the first eight are shown: one of a database, seven others.
+    setup({
+      ...Object.fromEntries(Array.from({ length: 16 }, (_, i) => [`tag.${String(i).padStart(2, '0')}`, `value-${i}`])),
+      'db.system': 'postgres',
+      'service.name': 'api',
+    });
+
+    const lists = [...document.querySelectorAll('dl')];
+    expect(lists.map((list) => list.children.length)).toEqual([1, 7]);
+    for (const list of lists) {
+      for (const item of list.children) {
+        expect(item.tagName).toBe('DIV');
+        expect([...item.children].map((child) => child.tagName)).toEqual(['DT', 'DD']);
+      }
+    }
+    for (const group of ['database', 'other']) {
+      expect(screen.getByText(label(`groups.${group}`)).closest('dl')).toBeNull();
+    }
+  });
+
   it('preserves nested values in raw JSON mode', async () => {
     const user = userEvent.setup();
     const attributes = { 'db.statement': { query: 'SELECT "a"', count: 2 } };

@@ -1,0 +1,207 @@
+/*
+ * Authentication pages.
+ *
+ * One quiet stage: the brand colours wash slowly behind a dot grid, and the page
+ * arrives in order, top to bottom. The mark draws itself, the statement rises,
+ * the form rises, the version fades in last. Nothing moves in response to the
+ * pointer and nothing loops except the wash, which drifts over half a minute.
+ * Reduced motion shows the finished page at once.
+ */
+.ms-auth-stage {
+  position: relative;
+  isolation: isolate;
+}
+
+/* The dot grid fades out toward the edges so it frames the column, not the page. */
+.ms-auth-stage::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    color-mix(in srgb, var(--tx-0) 9%, transparent) 1px,
+    transparent 0
+  );
+  background-size: 28px 28px;
+  mask-image: radial-gradient(ellipse 75% 65% at 50% 42%, #000 15%, transparent 80%);
+  -webkit-mask-image: radial-gradient(ellipse 75% 65% at 50% 42%, #000 15%, transparent 80%);
+}
+
+/* Indigo from one corner, green from the opposite one: the mark's two ends. */
+.ms-auth-wash {
+  --wash-a: 11%;
+  --wash-b: 8%;
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+[data-theme='dark'] .ms-auth-wash {
+  --wash-a: 20%;
+  --wash-b: 12%;
+}
+
+.ms-auth-wash::before,
+.ms-auth-wash::after {
+  content: '';
+  position: absolute;
+  width: 72vmax;
+  height: 72vmax;
+  border-radius: 9999px;
+  will-change: transform;
+}
+
+.ms-auth-wash::before {
+  left: -24vmax;
+  top: -34vmax;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--indigo) var(--wash-a), transparent),
+    transparent
+  );
+  animation: ms-wash-a 30s ease-in-out infinite alternate;
+}
+
+.ms-auth-wash::after {
+  right: -28vmax;
+  bottom: -38vmax;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--green) var(--wash-b), transparent),
+    transparent
+  );
+  animation: ms-wash-b 38s ease-in-out infinite alternate;
+}
+
+@keyframes ms-wash-a {
+  to {
+    transform: translate3d(9vmax, 7vmax, 0) scale(1.08);
+  }
+}
+
+@keyframes ms-wash-b {
+  to {
+    transform: translate3d(-8vmax, -6vmax, 0) scale(1.1);
+  }
+}
+
+/* The card rises into place; a hairline of the mark's gradient crowns its top edge. */
+.ms-auth-card {
+  position: relative;
+  animation: ms-auth-card 720ms var(--easing-expo-out) 0.3s backwards;
+}
+
+@keyframes ms-auth-card {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+}
+
+.ms-auth-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 28px;
+  right: 28px;
+  height: 1px;
+  pointer-events: none;
+  background: var(--signal-gradient);
+  opacity: 0.5;
+  mask-image: linear-gradient(90deg, transparent, #000 25%, #000 75%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 25%, #000 75%, transparent);
+}
+
+.ms-auth-rise {
+  animation: ms-auth-rise 640ms var(--easing-expo-out) backwards;
+  animation-delay: calc(var(--i, 0) * 90ms + 200ms);
+}
+
+@keyframes ms-auth-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+.ms-auth-fade {
+  animation: ms-auth-fade 900ms var(--easing-out) 1s backwards;
+}
+
+@keyframes ms-auth-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/*
+ * The gap between the statement's first two phrases: a word space in Latin
+ * text, nothing in Chinese, where the full-width comma already carries it.
+ */
+.ms-auth-gap {
+  margin-inline-start: 0.28em;
+}
+
+:lang(zh) .ms-auth-gap {
+  margin-inline-start: 0;
+}
+
+/* The statement's last phrase takes the mark's gradient, stretched over its own width. */
+.ms-auth-gradient {
+  background-image: var(--signal-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* The label of the field being typed in lights up. */
+.ms-auth-field > span {
+  transition: color var(--duration-fast) var(--easing-default);
+}
+
+.ms-auth-field:focus-within > span {
+  color: var(--tx-0);
+}
+
+/* A sheen crosses the primary button on hover; a disabled button does not shine. */
+.auth-primary-button {
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-primary);
+}
+
+.auth-primary-button:disabled {
+  box-shadow: none;
+}
+
+.auth-primary-button::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent 30%, rgb(255 255 255 / 0.22) 50%, transparent 70%);
+  transform: translateX(-120%);
+}
+
+.auth-primary-button:not(:disabled):hover::after {
+  transform: translateX(120%);
+  transition: transform 700ms var(--easing-expo-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ms-auth-wash::before,
+  .ms-auth-wash::after,
+  .ms-auth-card,
+  .ms-auth-rise,
+  .ms-auth-fade {
+    animation: none;
+  }
+
+  .auth-primary-button::after {
+    display: none;
+  }
+}

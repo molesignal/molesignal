@@ -1,14 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ListChecks, MoreHorizontal } from 'lucide-react';
+import { MoreHorizontal } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import { ConfirmDialog, PageHeader } from '@/admin';
+import { ConfirmDialog } from '@/admin';
 import * as pipelinesApi from '@/api/pipelines';
-import { toApiError } from '@/lib/http';
 import { useActionAccess } from '@/product/actionAccess';
 import { ChromeButton } from '@/shell/chrome';
+import { PageBody, PageHeader } from '@/shell/PageHeader';
 import { QueryState, queryStateFor } from '@/shell/query/State';
 import {
   DropdownMenu,
@@ -19,7 +19,7 @@ import {
 } from '@/shell/ui/dropdown-menu';
 import { toast } from '@/shell/ui/sonner';
 
-import { PipelineForm } from './PipelineForm';
+import { PipelineForm, saveFailureMessage } from './PipelineForm';
 
 export function PipelineEdit() {
   const { t } = useTranslation('pipelines');
@@ -31,7 +31,6 @@ export function PipelineEdit() {
   const pauseAccess = useActionAccess({ permission: 'pipelines.pause' });
   const deleteAccess = useActionAccess({ permission: 'pipelines.delete' });
   const [confirmDelete, setConfirmDelete] = React.useState(false);
-  const [validationRequest, setValidationRequest] = React.useState(0);
 
   const q = useQuery({
     queryKey: ['pipelines', 'get', id],
@@ -46,7 +45,7 @@ export function PipelineEdit() {
       toast.success(t('flows.edit.toast_updated'));
       void qc.invalidateQueries({ queryKey: ['pipelines'] });
     },
-    onError: (err) => toast.error(toApiError(err).message),
+    onError: (err) => toast.error(saveFailureMessage(err, t)),
   });
 
   const remove = useMutation({
@@ -63,7 +62,7 @@ export function PipelineEdit() {
       <PageHeader
         title={q.data ? t('drawer.edit_title', { name: q.data.name }) : t('drawer.edit_title', { name: '' })}
         subtitle={t('workspace.subtitle')}
-        actions={
+        toolbar={
           <>
             <ChromeButton onClick={() => navigate('/pipelines')}>{t('flows.edit.back')}</ChromeButton>
             <DropdownMenu>
@@ -102,18 +101,6 @@ export function PipelineEdit() {
               </DropdownMenuContent>
             </DropdownMenu>
             <ChromeButton
-              disabled={editAccess.disabled}
-              disabledReason={editAccess.reason}
-              onClick={() => {
-                if (editAccess.allowed) {
-                  setValidationRequest((request) => request + 1);
-                }
-              }}
-            >
-              <ListChecks className="h-3.5 w-3.5" />
-              {t('workspace.validate')}
-            </ChromeButton>
-            <ChromeButton
               type="submit"
               form="pipeline-form"
               variant="primary"
@@ -139,14 +126,13 @@ export function PipelineEdit() {
           if (deleteAccess.allowed) remove.mutate();
         }}
       />
-      <div className="bg-bg-0 p-3">
+      <PageBody padded={false}>
         {state ? (
           <QueryState state={state} error={q.error} emptyLabel={t('flows.edit.not_found')} />
         ) : (
           <PipelineForm
             formId="pipeline-form"
             initial={q.data ?? null}
-            validationRequest={validationRequest}
             disabled={editAccess.disabled}
             disabledReason={editAccess.reason}
             enabledDisabled={pauseAccess.disabled}
@@ -156,7 +142,7 @@ export function PipelineEdit() {
             }}
           />
         )}
-      </div>
+      </PageBody>
     </>
   );
 }

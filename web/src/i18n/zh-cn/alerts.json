@@ -1,19 +1,20 @@
 {
   "title": "告警",
-  "subtitle": "告警规则、活跃事件与 Notify 生命周期。",
+  "subtitle": "正在触发的告警、定义它们的规则，以及通知到谁。",
   "incident_detail": {
     "loading": "事件",
     "not_found_title": "未找到事件",
     "not_found_description": "该事件可能已被清除，或属于其他组织。",
     "meta": {
       "status": "状态",
-      "severity": "严重程度",
-      "created": "创建时间",
-      "fingerprint": "指纹"
-    }
+      "fired": "触发时间",
+      "rule": "规则"
+    },
+    "firing_for": "已持续触发 {{duration}}",
+    "recovered_after": "{{duration}} 后恢复",
+    "no_owner": "尚无人接手"
   },
   "actions": {
-    "silences": "静默策略",
     "new_rule": "新建规则",
     "edit_rule": "编辑 {{name}}",
     "new_anomaly": "异常检测规则",
@@ -69,8 +70,6 @@
     "silences": "静默策略"
   },
   "history": {
-    "title": "告警历史",
-    "subtitle": "查看告警事件的当前状态与时间线。",
     "error_title": "无法加载告警历史",
     "empty_title": "暂无告警事件",
     "empty_description": "告警触发后，会在这里保留当前状态、时间、持续时长和事件详情。",
@@ -92,7 +91,6 @@
     },
     "columns": {
       "summary": "事件",
-      "severity": "级别",
       "current_status": "当前状态",
       "created": "触发时间",
       "resolved": "恢复时间",
@@ -115,26 +113,19 @@
     }
   },
   "center": {
+    "retry": "重试",
     "incidents": {
-      "title": "告警事件",
-      "subtitle": "发现当前异常、确认影响并推动事件恢复。",
       "load_error": "无法加载告警事件",
-      "unassigned": "未确认",
       "kpis": {
-        "active": "触发中的事件",
         "services": "受影响服务",
-        "services_sub": "按当前活跃事件去重",
         "waiting": "等待确认",
         "waiting_sub": "尚未有人接手",
         "recovered": "24h 已恢复",
-        "last_recovery": "最近一次 {{time}} 前",
-        "no_recovery": "最近 24 小时无恢复记录",
-        "no_active": "当前无活跃事件"
+        "no_recovery": "最近 24 小时无恢复记录"
       },
       "tabs": {
         "active": "触发中",
-        "unacknowledged": "等待确认",
-        "resolved": "已恢复"
+        "unacknowledged": "等待确认"
       },
       "columns": {
         "severity": "级别",
@@ -142,7 +133,7 @@
         "status": "状态",
         "duration": "持续时间",
         "owner": "负责人",
-        "actions": "下一步"
+        "actions": "操作"
       },
       "status": {
         "open": "等待确认",
@@ -153,51 +144,61 @@
       "actions": {
         "ack": "确认",
         "silence": "静默",
-        "runbook": "Runbook",
-        "details": "详情"
+        "runbook": "Runbook"
       },
       "healthy": {
-        "title": "当前没有触发中的告警",
-        "with_recovery": "过去 24 小时有 {{count}} 个事件恢复，最近一次发生在 {{time}} 前。",
-        "no_recovery": "所有已配置规则当前均未产生活跃事件。",
-        "view_recovered": "查看已恢复事件",
-        "view_rules": "查看全部规则"
+        "title": "当前没有触发中的告警"
       },
       "no_rules": {
         "title": "尚未创建告警规则",
         "description": "创建规则后，系统会持续评估指标、日志和链路数据，并在这里生成告警事件。",
-        "action": "创建第一条规则"
+        "action": "创建第一条规则",
+        "steps": {
+          "condition": {
+            "title": "说明什么不该发生",
+            "description": "一条针对指标、日志或链路的查询，以及它必须保持在内的阈值。"
+          },
+          "route": {
+            "title": "说明通知谁",
+            "description": "升级策略把事件发给当前值班的人，无人响应时继续向后通知。"
+          },
+          "respond": {
+            "title": "在这里响应",
+            "description": "确认、静默、打开 Runbook，并顺着事件找到背后的链路。"
+          }
+        }
       },
       "empty": {
-        "active": {
-          "title": "当前没有活跃事件",
-          "description": "所有启用规则均处于正常状态。"
-        },
         "unacknowledged": {
           "title": "没有等待确认的事件",
           "description": "当前活跃事件都已经有人接手。"
-        },
-        "resolved": {
-          "title": "近期没有已恢复事件",
-          "description": "事件恢复后会在这里保留最近记录。"
         }
       },
-      "tabs_label": "告警事件状态"
+      "tabs_label": "告警事件状态",
+      "standing": {
+        "label": "当前事件",
+        "eyebrow": "正在触发",
+        "firing_one": "{{count}} 个事件",
+        "firing_other": "{{count}} 个事件",
+        "oldest": "最早的一个已持续 {{duration}}。",
+        "watching_one": "正在评估 {{count}} 条规则。",
+        "watching_other": "正在评估 {{count}} 条规则。",
+        "all_owned": "每个事件都已有人接手",
+        "last_recovery": "最近一次恢复在{{when}}"
+      },
+      "recent": {
+        "title": "最近恢复",
+        "recovered": "{{when}}恢复",
+        "lasted": "持续 {{duration}}"
+      }
     },
     "rules": {
-      "title": "告警规则",
-      "subtitle": "定义系统应持续评估的查询与阈值。",
       "load_error": "无法加载告警规则",
       "search": "搜索规则、服务或数据源",
       "tabs": {
         "all": "全部",
         "enabled": "已启用",
         "disabled": "已停用"
-      },
-      "summary": {
-        "total": "{{count}} 条规则",
-        "enabled": "{{count}} 条启用",
-        "disabled": "{{count}} 条停用"
       },
       "columns": {
         "rule": "规则",
@@ -220,15 +221,12 @@
         "anomaly": "异常检测"
       },
       "never_evaluated": "尚未评估",
-      "empty": {
-        "title": "尚未创建告警规则",
-        "description": "创建规则后，系统会持续验证查询并在阈值满足时生成事件。"
-      },
       "no_match": {
         "title": "没有匹配的规则",
         "description": "尝试调整关键词或状态筛选。"
       },
-      "tabs_label": "规则状态"
+      "tabs_label": "规则状态",
+      "evaluated_ago": "{{age}}前"
     }
   },
   "workbench": {
@@ -236,11 +234,6 @@
     "edit_title": "编辑告警规则",
     "edit_named": "编辑规则 · {{name}}",
     "subtitle": "编写查询、验证阈值，再连接 Notify 路由与处理指南。",
-    "steps": {
-      "identity": "基本信息",
-      "condition": "查询与条件",
-      "delivery": "Notify 与处理"
-    },
     "actions": {
       "cancel": "取消",
       "save_draft": "保存草稿",
@@ -403,7 +396,8 @@
       "silence_unavailable": "只能静默仍处于活动状态的事件。",
       "resolve": "解决",
       "resolve_unavailable": "该事件已不再处于活动状态。",
-      "resolve_success": "事件已解决"
+      "resolve_success": "事件已解决",
+      "pending": "另一项事件更新正在进行。"
     },
     "incident_sections": {
       "timeline": "时间线",
@@ -441,9 +435,12 @@
       "title": "注释"
     },
     "timeline": {
-      "created": "创建",
+      "created": "触发",
       "acknowledged": "已确认",
-      "resolved": "已解决"
+      "resolved": "已解决",
+      "acknowledged_by": "{{name}} 已确认",
+      "resolved_by": "{{name}} 已解决",
+      "after": "{{duration}} 后"
     },
     "triggering_query": {
       "sample_count": "{{count}} 条样本",
@@ -453,8 +450,6 @@
     "assignees_none": "暂无负责人。"
   },
   "insights": {
-    "title": "告警洞察",
-    "subtitle": "从恢复效率、触发时段和影响对象理解近期告警",
     "error_title": "无法计算洞察",
     "empty_title": "还没有事件",
     "empty_description": "事件产生并恢复后，这里会显示恢复效率、时段、级别和主要触发来源。",
@@ -469,16 +464,13 @@
       "recovered_headline": "{{total}} 起事件均已恢复",
       "active_description": "优先处理仍处于打开或已确认状态的事件。",
       "recovered_description": "当前没有活跃事件，所选时段内的恢复闭环完整。",
-      "total": "事件总数",
-      "total_description": "所选时段内创建",
       "mttr": "平均恢复时间",
       "mttr_description": "按已恢复事件计算",
-      "status": "事件状态",
-      "status_value": "{{active}} 活跃 / {{closed}} 已恢复",
-      "status_description": "{{percent}} 已完成恢复",
       "noise": "快速恢复事件",
-      "noise_value": "{{count}} 起",
-      "noise_description": "{{rate}} 在 60 秒内恢复"
+      "noise_description": "{{rate}} 在 60 秒内恢复",
+      "label": "所选时段内的事件",
+      "recovered": "已恢复",
+      "recovered_of": "{{total}} 个中的 {{closed}} 个"
     },
     "hourly": {
       "title": "事件时间趋势",
@@ -505,7 +497,8 @@
       "unknown_rule": "已删除或不可用的规则"
     },
     "rankings": {
-      "count_and_share": "{{count}} 起 · {{percent}}"
+      "count_and_share_one": "{{count}} 个事件 · {{percent}}",
+      "count_and_share_other": "{{count}} 个事件 · {{percent}}"
     },
     "duration": {
       "seconds": "{{count}} 秒",
@@ -589,21 +582,17 @@
     "label_aria": "匹配器标签",
     "value_placeholder": "值",
     "value_aria": "匹配器值",
-    "hint": "所有匹配器需全部命中（AND）。=~ / ≠~ 为正则表达式。"
+    "hint": "所有匹配器必须同时命中（AND）。=~ 与 !~ 为正则表达式。"
   },
   "escalations": {
-    "title": "升级策略",
-    "subtitle": "未确认事件的多级路由",
     "new_policy": "新建策略",
     "empty_title": "暂无升级策略",
     "empty_description": "将未确认的事件路由给值班人员、排班与团队。",
     "columns": {
       "name": "名称",
-      "steps": "级数",
-      "repeat": "重复",
+      "steps": "通知谁，何时通知",
       "actions": "操作"
     },
-    "repeat_n": "×{{n}}",
     "delete_title": "删除升级策略",
     "edit_title": "编辑升级策略",
     "drawer_title": "新建升级策略",
@@ -644,7 +633,11 @@
       "user": "用户",
       "schedule": "排班",
       "team": "团队"
-    }
+    },
+    "no_target": "尚未指定",
+    "from_severity": "{{severity}}及以上",
+    "repeats_one": "重复 {{count}} 次",
+    "repeats_other": "重复 {{count}} 次"
   },
   "schedules": {
     "title": "值班排班",
@@ -892,15 +885,15 @@
     }
   },
   "silences": {
-    "title": "静默策略",
-    "subtitle": "按标签与时间窗批量暂停通知",
     "new_silence": "新建静默策略",
     "empty_title": "暂无静默策略",
     "empty_description": "在维护期或已知噪声期间抑制匹配事件的通知。",
     "columns": {
       "name": "名称",
       "status": "状态",
-      "window": "时间窗"
+      "window": "时间窗",
+      "matchers": "匹配条件",
+      "actions": "操作"
     },
     "delete_title": "删除静默",
     "edit_title": "编辑静默",
@@ -927,15 +920,25 @@
       "window_type": "窗口类型",
       "start": "开始",
       "end": "结束",
-      "timezone": "时区（IANA）",
+      "timezone": "时区",
       "hour_start": "起始小时（0–24）",
       "hour_end": "结束小时（0–24）",
-      "comment": "原因"
+      "comment": "原因",
+      "weekdays": "星期"
     },
     "window_kinds": {
       "fixed": "固定区间",
       "recurring": "周期重复"
     },
-    "comment_placeholder": "为什么静默？"
+    "comment_placeholder": "为什么静默？",
+    "standing": {
+      "active": "正在静默",
+      "upcoming": "尚未开始",
+      "waiting": "未到时段",
+      "ended": "已结束",
+      "off": "已关闭"
+    },
+    "matches_everything": "所有事件",
+    "delete_named": "删除 {{name}}"
   }
 }

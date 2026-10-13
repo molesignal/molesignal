@@ -5,7 +5,12 @@ import {
   type RouteObject,
   useLocation,
   useParams,
+  useSearchParams,
 } from 'react-router-dom';
+
+import { ReportRenderFrame } from '@/report-render/Frame';
+import { isReportRender } from '@/report-render/mode';
+import { QueryTabs } from '@/shell/queryTabs';
 
 import { AccountSettingsLayout } from './account/AccountSettingsLayout';
 import { AccountNotify } from './account/Notify';
@@ -27,13 +32,13 @@ import {
 } from './agent';
 import { Alerts } from './alerts';
 import { AlertsAnomaly } from './alerts/Anomaly';
-import { AlertsEscalations } from './alerts/Escalations';
+import { AlertsEscalations } from './alerts/escalation';
 import { AlertsHistory } from './alerts/History';
 import { AlertsInsights } from './alerts/Insights';
 import { AlertRuleWorkbench } from './alerts/RuleWorkbench';
 import { AlertsSchedules } from './alerts/schedule';
 import { AlertsScheduleDetail } from './alerts/schedule/Detail';
-import { AlertsSilences } from './alerts/Silences';
+import { AlertsSilences } from './alerts/silence';
 import {
   ApmDependencies,
   ApmDeployments,
@@ -82,6 +87,8 @@ import {
 import { IncidentDetail } from './IncidentDetail';
 import { Investigate } from './Investigate';
 import { Logs } from './logs';
+import { LogInspections } from './logs/inspections';
+import { LogInspectionDetail } from './logs/inspections/Detail';
 import { LogsInspector } from './logs/Inspector';
 import { Metrics } from './Metrics';
 import { Noc } from './Noc';
@@ -96,6 +103,7 @@ import { InboundMcpOAuthAuthorize } from './oauth/Authorize';
 import {
   PipelineAdd,
   PipelineBackfill,
+  PipelineConnectors,
   PipelineDetail,
   PipelineEdit,
   PipelineHistory,
@@ -111,7 +119,7 @@ import {
   LegacyApmUserExperienceRedirect,
   RUM_ROUTE_CHILDREN,
 } from './rum/routes';
-import { SavedViews } from './SavedViews';
+import { SavedViewsRoute } from './saved-views';
 import { SemanticGroups } from './SemanticGroups';
 import {
   Audit,
@@ -122,7 +130,6 @@ import {
   General,
   Nodes,
   OrganizationManagement,
-  PipelineDestinations,
   QueryManagement,
   RegexPatterns,
   SettingsLayout,
@@ -133,13 +140,14 @@ import { Signin } from './Signin';
 import { Signup } from './Signup';
 import {
   PublicStatusHistoryPage,
+  PublicStatusIncidentPage,
+  PublicStatusPage,
   PublicStatusUptimePage,
-} from './status-pages/PublicStatusArchivePage';
-import { PublicStatusIncidentPage } from './status-pages/PublicStatusIncidentPage';
-import { PublicStatusPage } from './status-pages/PublicStatusPage';
+} from './status-pages/public';
 import { STATUS_PAGE_MANAGEMENT_ROUTES } from './status-pages/routes';
 import { Streams } from './streams';
 import { StreamExplore } from './streams/Explore';
+import { SearchJobs } from './streams/jobs';
 import { SYNTHETICS_ROUTES } from './synthetics/routes';
 import { Traces } from './traces';
 import { TraceDetail } from './traces/Detail';
@@ -216,9 +224,12 @@ function LegacyServicesRedirect() {
 }
 
 function AuthenticatedShell() {
+  const [search] = useSearchParams();
+
+  // A page the report renderer is about to print is that page's content alone.
   return (
     <RequireAuth>
-      <ShellRoot />
+      {isReportRender(search) ? <ReportRenderFrame /> : <ShellRoot />}
     </RequireAuth>
   );
 }
@@ -334,10 +345,13 @@ export const router = createBrowserRouter([
         ],
       },
       { path: 'ai/dashboard-drafts/:id', element: <DashboardDraftPage /> },
-      { path: 'logs', element: <Logs /> },
+      // The explorers hold several queries at once, each in a tab of its own.
+      { path: 'logs', element: <QueryTabs kind="logs"><Logs /></QueryTabs> },
       { path: 'logs/inspector', element: <LogsInspector /> },
-      { path: 'metrics', element: <Metrics /> },
-      { path: 'traces', element: <Traces /> },
+      { path: 'logs/inspections', element: <LogInspections /> },
+      { path: 'logs/inspections/:id', element: <LogInspectionDetail /> },
+      { path: 'metrics', element: <QueryTabs kind="metrics"><Metrics /></QueryTabs> },
+      { path: 'traces', element: <QueryTabs kind="traces"><Traces /></QueryTabs> },
       { path: 'traces/session/:id', element: <TraceSessionDetail /> },
       { path: 'traces/:id', element: <TraceDetail /> },
       { path: 'service-graph', element: <Navigate to="/traces?tab=service-graph" replace /> },
@@ -402,11 +416,13 @@ export const router = createBrowserRouter([
 
       /* DATA */
       { path: 'streams', element: <Streams /> },
+      // A fixed path outranks the stream detail route's `:id`, so "jobs" is never read as a stream.
+      { path: 'streams/jobs', element: <SearchJobs /> },
       { path: 'streams/:id', element: <StreamExplore /> },
       { path: 'pipelines', element: <Pipelines /> },
       { path: 'pipelines/new', element: <PipelineAdd /> },
       { path: 'pipelines/import', element: <PipelineImport /> },
-      { path: 'pipelines/connectors', element: <PipelineDestinations /> },
+      { path: 'pipelines/connectors', element: <PipelineConnectors /> },
       { path: 'pipelines/:id', element: <PipelineDetail /> },
       { path: 'pipelines/:id/edit', element: <PipelineEdit /> },
       { path: 'pipelines/:id/history', element: <PipelineHistory /> },
@@ -500,7 +516,7 @@ export const router = createBrowserRouter([
       /* Legacy and keyboard navigation routes. */
       { path: 'investigate', element: <Investigate /> },
       { path: 'alerts/incidents/:id', element: <IncidentDetail /> },
-      { path: 'saved-views', element: <SavedViews /> },
+      { path: 'saved-views', element: <SavedViewsRoute /> },
 
       /* 认证区内未知子路由（含错拼的 settings/iam 子路径）：保留外壳渲染友好 404，
          而非 React Router 默认的整页 ErrorBoundary。 */

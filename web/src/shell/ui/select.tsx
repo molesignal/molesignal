@@ -24,7 +24,7 @@ const SelectTrigger = React.forwardRef<
     data-ui="select-trigger"
     className={cn(
       'flex h-[44px] w-full items-center justify-between rounded-md border-0 bg-[var(--control-surface)] px-3 py-1.5 font-sans text-sm text-tx-0 shadow-none transition-colors sm:h-9',
-      'placeholder:text-tx-3 hover:bg-[var(--floating-item-hover)] focus:outline-none focus-visible:bg-[var(--floating-item-hover)] data-[state=open]:bg-[var(--floating-item-hover)] data-[state=open]:text-tx-0 data-[state=open]:[&>svg]:text-indigo data-[state=open]:[&>svg]:opacity-100',
+      'placeholder:text-tx-3 hover:bg-bg-3 focus:outline-none focus-visible:bg-bg-3 data-[state=open]:bg-bg-3 data-[state=open]:text-tx-0 data-[state=open]:[&>svg]:text-indigo data-[state=open]:[&>svg]:opacity-100',
       'disabled:cursor-not-allowed disabled:opacity-50',
       className,
     )}
@@ -82,7 +82,7 @@ const SelectContent = React.forwardRef<
       sideOffset={sideOffset}
       className={cn(
         floatingMenuContentClass,
-        'relative max-h-96 p-0 data-[state=open]:animate-fade-in',
+        'relative max-h-96 origin-[var(--radix-select-content-transform-origin)] p-0 data-[state=open]:animate-pop-in data-[state=closed]:animate-pop-out',
         className,
       )}
       position={position}

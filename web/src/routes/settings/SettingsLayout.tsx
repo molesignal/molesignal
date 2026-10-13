@@ -125,7 +125,8 @@ const GROUPS: SectionGroup[] = [
 
 const CONTENT_WIDTH_CLASS: Record<Section['contentWidth'], string> = {
   page: 'max-w-[1680px]',
-  form: 'max-w-[1280px]',
+  // A form is read down a column: label, field and Save end on one edge (label 280 + gap 32 + field 560).
+  form: 'max-w-[872px]',
   list: 'max-w-[1600px]',
   table: 'max-w-[1920px]',
 };
@@ -168,13 +169,15 @@ function SettingsLayoutFrame() {
       headerClassName="shrink-0"
       headerCompact
       headerIcon={SettingsIcon}
-      bodyClassName="mx-auto w-full max-w-[2200px] gap-[12px] [&_[data-product-state]]:border-0"
+      bodyClassName="mx-auto w-full max-w-[2200px] gap-[12px]"
     >
-      <div className="min-w-0 p-4 sm:p-6 lg:p-8">
+      <div className="min-w-0 p-4 sm:p-6 sm:pt-5 lg:p-8 lg:pt-6">
         <div
           data-settings-content-width={contentWidth}
           className={cn(
-            'mx-auto w-full min-w-0',
+            // Every page starts at the same left edge, so moving between pages in the
+            // navigation never shifts the title sideways.
+            'w-full min-w-0',
             '[&>[data-admin-page-header]]:min-h-0 [&>[data-admin-page-header]]:border-b-0 [&>[data-admin-page-header]]:bg-transparent [&>[data-admin-page-header]]:px-0 [&>[data-admin-page-header]]:py-0',
             CONTENT_WIDTH_CLASS[contentWidth],
           )}

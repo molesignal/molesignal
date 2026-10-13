@@ -23,7 +23,17 @@ const tokenColor = (token: string) =>
 
 const config: Config = {
   darkMode: ['class', '[data-theme="dark"]'],
-  content: ['./index.html', './src/**/*.{ts,tsx}'],
+  // Unit tests are not content. The patterns leave them out themselves,
+  // `!(*.test)` by file name and `!(__tests__)` by the directory a file sits in
+  // (hence one pattern for `src/` itself and one for everything below it). A
+  // `!` exclusion would not do: Tailwind honours it, but Vite expands the
+  // positive patterns on its own, keeps every test file as a dependency of the
+  // stylesheet, and reloads all open pages whenever one is saved.
+  content: [
+    './index.html',
+    './src/!(*.test).{ts,tsx}',
+    './src/**/!(__tests__)/!(*.test).{ts,tsx}',
+  ],
   theme: {
     extend: {
       colors: {
@@ -198,6 +208,7 @@ const config: Config = {
         drawer: 'var(--shadow-drawer)',
         popup: 'var(--shadow-popup)',
         login: 'var(--shadow-login)',
+        primary: 'var(--shadow-primary)',
       },
       transitionDuration: {
         instant: 'var(--duration-instant)',
@@ -210,6 +221,8 @@ const config: Config = {
         'ease-default': 'var(--easing-default)',
         'ease-in-default': 'var(--easing-in)',
         'ease-out-default': 'var(--easing-out)',
+        'expo-out': 'var(--easing-expo-out)',
+        spring: 'var(--easing-spring)',
       },
       keyframes: {
         'fade-in': { from: { opacity: '0' }, to: { opacity: '1' } },
@@ -221,12 +234,44 @@ const config: Config = {
           from: { transform: 'translateX(0)' },
           to: { transform: 'translateX(100%)' },
         },
+        // Floating surfaces grow out of their trigger (transform-origin comes
+        // from Radix) and leave a little faster than they arrive.
+        'pop-in': {
+          from: { opacity: '0', transform: 'scale(0.96)' },
+          to: { opacity: '1', transform: 'scale(1)' },
+        },
+        'pop-out': {
+          from: { opacity: '1', transform: 'scale(1)' },
+          to: { opacity: '0', transform: 'scale(0.97)' },
+        },
+        // Centered dialogs carry their -50% offsets, otherwise the animation's
+        // transform would replace the centering utilities for its duration.
+        'dialog-in': {
+          from: { opacity: '0', transform: 'translate(-50%, -48%) scale(0.97)' },
+          to: { opacity: '1', transform: 'translate(-50%, -50%) scale(1)' },
+        },
+        'dialog-out': {
+          from: { opacity: '1', transform: 'translate(-50%, -50%) scale(1)' },
+          to: { opacity: '0', transform: 'translate(-50%, -49%) scale(0.98)' },
+        },
+        'fade-out': { from: { opacity: '1' }, to: { opacity: '0' } },
+        // The check mark lands with a small overshoot, the only spring in the product.
+        'check-pop': {
+          from: { opacity: '0', transform: 'scale(0.4)' },
+          to: { opacity: '1', transform: 'scale(1)' },
+        },
       },
       animation: {
         'fade-in': 'fade-in var(--duration-fast) var(--easing-out)',
         // Drawer animations use the normal duration and ease-out motion tokens.
         'slide-in-right': 'slide-in-right var(--duration-normal) var(--easing-out)',
         'slide-out-right': 'slide-out-right var(--duration-normal) var(--easing-out) forwards',
+        'pop-in': 'pop-in 160ms var(--easing-expo-out)',
+        'pop-out': 'pop-out 100ms var(--easing-in) forwards',
+        'dialog-in': 'dialog-in var(--duration-enter) var(--easing-expo-out)',
+        'dialog-out': 'dialog-out 120ms var(--easing-in) forwards',
+        'fade-out': 'fade-out var(--duration-fast) var(--easing-in) forwards',
+        'check-pop': 'check-pop 200ms var(--easing-spring)',
       },
     },
   },

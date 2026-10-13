@@ -1,7 +1,7 @@
 import * as React from 'react';
-import { useSearchParams } from 'react-router-dom';
 
 import { widenTimeWindow } from '@/investigation/timeRangeRecovery';
+import { useQueryTabSearchParams } from '@/shell/queryTabs';
 import { useTimeStore } from '@/stores/useTimeStore';
 
 import type { MetricsDrawStyle, MetricsStackMode } from './model';
@@ -24,7 +24,7 @@ export function useMetricsExploreContinuity({
   stackMode,
   window,
 }: MetricsExploreContinuityOptions) {
-  const [, setSearchParams] = useSearchParams();
+  const [, setSearchParams] = useQueryTabSearchParams();
   const setTimeWindow = useTimeStore((state) => state.setWindow);
 
   React.useEffect(() => {

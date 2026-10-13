@@ -98,6 +98,24 @@ describe('log field query model', () => {
     expect(fields.every((field) => field.count === '0')).toBe(true);
   });
 
+  it('reads an empty quoted value as the field having no value', () => {
+    // What two presses of a field's "+" leave in the editor has to run.
+    const parsed = parseLogFieldStatement("env = '' AND method != ''");
+
+    expect(parsed.rejected).toEqual([]);
+    expect(parsed.filters).toEqual([
+      { field: 'env', op: '=', value: '', quoted: true },
+      { field: 'method', op: '!=', value: '', quoted: true },
+    ]);
+    expect(logFieldClauseToSql(parsed.filters[0]!)).toBe(`("env" IS NULL OR CAST("env" AS VARCHAR) = '')`);
+    expect(logFieldClauseToSql(parsed.filters[1]!)).toBe(`CAST("method" AS VARCHAR) != ''`);
+  });
+
+  it('still refuses an empty value where it says nothing', () => {
+    expect(parseLogFieldStatement("status >= ''").rejected).toEqual(["status >= ''"]);
+    expect(parseLogFieldStatement("message contains ''").rejected).toEqual(["message contains ''"]);
+  });
+
   it('uses typed placeholders and parses numeric comparisons', () => {
     const [status] = deriveLogFields([
       { name: 'status_code', data_type: 'int64', nullable: true, indexed: false },

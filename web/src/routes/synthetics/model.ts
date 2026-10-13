@@ -1,12 +1,25 @@
+import { monitorTarget } from '@/api/synthetics';
 import type {
   CreateMonitorInput,
   MonitorDetail,
   MonitorRevision,
   MonitorSchedule,
+  MonitorSpec,
   SyntheticResult,
 } from '@/api/synthetics';
 
 export { monitorTarget, valueSourceText } from '@/api/synthetics';
+
+/**
+ * What a check calls, when that is one thing a reader can be shown. A heartbeat
+ * calls nothing and a journey without a first page has no single target.
+ */
+export function checkTarget(spec: MonitorSpec | undefined): string | undefined {
+  if (!spec || spec.kind === 'heartbeat') return undefined;
+  const target = monitorTarget(spec);
+
+  return target && target !== '—' ? target : undefined;
+}
 
 export function activeRevision(detail: MonitorDetail | undefined): MonitorRevision | undefined {
   if (!detail) return undefined;

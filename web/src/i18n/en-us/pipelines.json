@@ -214,10 +214,6 @@
       "source_label": "Source stream",
       "target_label": "Target stream",
       "schedule_title": "Schedule",
-      "cron_label": "Cron",
-      "cron_hint": "every:Ns / Nm / Nh",
-      "lookback_label": "Lookback (seconds)",
-      "enabled_label": "Enabled",
       "run_on_schedule": "Run on schedule",
       "steps_title": "Function steps (JSON)",
       "steps_description": "Array of VRL transforms applied in order.",
@@ -225,81 +221,69 @@
     }
   },
   "workspace": {
-    "subtitle": "Define data sources, orchestrate processing nodes, then validate and save.",
-    "validate": "Validate flow",
+    "subtitle": "Read events from a stream, process them step by step, and write them where they are needed.",
     "more_actions": "More",
-    "stage_identity": "Basic info",
-    "stage_graph": "Flow orchestration",
-    "stage_validate": "Test & enable",
-    "autosave_hint": "Changes take effect after saving",
+    "stage_graph": "Flow",
     "graph_stats": "{{nodes}} nodes · {{edges}} connections",
-    "add_node": "Add node",
-    "auto_layout": "Auto layout",
     "node_configuration": "Node configuration",
-    "validation_results": "Validation",
-    "code_editor": "VRL editor",
-    "open_editor": "Open editor",
-    "close_panel": "Close bottom panel",
-    "validation_clean": "Flow is valid",
-    "validation_clean_hint": "Sources, transforms, and sinks are connected. The pipeline is ready to save."
+    "code_editor": "VRL editor"
   },
   "graph": {
     "title": "Graph orchestration",
     "description": "Arrange sources, transform, and sinks visually. The first source and sink are saved as the pipeline stream fields.",
-    "add_source": "Add source",
-    "add_transform": "Add transform",
-    "add_sink": "Add sink",
-    "sources": "Sources",
     "transform": "Transform",
-    "sinks": "Sinks",
     "select_node": "Select a node to edit it.",
     "source_name": "Source stream",
-    "sink_name": "Sink stream",
-    "sink_target": "Sink target",
-    "sink_target_hint": "Deliver to a data stream or an external connector.",
-    "sink_stream_option": "Data stream",
-    "new_connector": "New connector",
+    "sink_name": "Destination stream",
     "stream_select_placeholder": "Select a data stream…",
     "stream_loading": "Loading data streams…",
     "stream_empty": "No data streams are available for this signal type.",
     "stream_load_error": "Failed to load the data stream catalog. The current value is preserved.",
-    "stream_current_value": "{{name}} (current value)",
-    "transform_name": "Transform name",
     "vrl_script": "VRL script",
-    "vrl_function_hint": "Pick a built-in preset or a saved VRL function as this transform.",
     "vrl_function_placeholder": "Select a VRL function…",
     "new_vrl_function": "New VRL function",
-    "retry_policy": "Retry policy",
-    "delete_node": "Delete node",
-    "show_inspector": "Show panel",
-    "hide_inspector": "Hide panel",
     "node_count": "{{sources}} sources · {{sinks}} sinks",
     "node_kinds": {
       "source": "Source",
       "transform": "Transform",
-      "sink": "Sink"
+      "sink": "Destination"
     },
     "node_subtitles": {
       "stream_input": "Stream input",
-      "vrl_transform": "VRL transform",
       "connector_sink": "Connector delivery",
       "stream_output": "Stream output"
     },
     "validation": {
       "ok": "Valid",
-      "summary": "{{count}} issue(s)",
-      "no_source": "At least one source is required.",
-      "no_sink": "At least one sink is required.",
-      "no_transform": "At least one transform step is required.",
-      "duplicate_source": "Duplicate source: {{name}}",
-      "duplicate_sink": "Duplicate sink: {{name}}",
-      "source_is_sink": "A source and sink share a name, forming a loop: {{name}}",
-      "transform_name_missing": "Transform #{{index}} is missing a name.",
-      "transform_script_missing": "Transform \"{{name}}\" is missing a VRL script.",
-      "connector_missing": "Referenced connector not found: {{id}}",
+      "summary_one": "{{count}} issue",
+      "summary_other": "{{count}} issues",
+      "no_source": "A pipeline needs a stream to read.",
+      "no_sink": "A pipeline needs a stream to write to.",
+      "source_is_sink": "The pipeline would write to {{name}}, the stream it reads. Choose another destination.",
+      "transform_name_missing": "Step {{index}} has no name.",
+      "transform_script_missing": "Step \"{{name}}\" has no VRL script.",
+      "connector_missing": "This connector is gone, or is not one a pipeline can deliver to: {{id}}",
       "realtime_logs": "Realtime mode currently supports logs.",
-      "realtime_nodes": "Realtime mode requires one source and one stream output.",
-      "realtime_routing": "Routing field and fallback stream are required."
+      "realtime_nodes": "Realtime mode takes one source stream and one destination stream, and no connectors.",
+      "source_missing": "Choose the stream to read.",
+      "sink_missing": "Choose the stream to write to.",
+      "processor_field_missing": "Step \"{{name}}\" still has an empty field.",
+      "processor_pattern_missing": "Step \"{{name}}\" needs a pattern.",
+      "processor_number_invalid": "Step \"{{name}}\": the value is not a number.",
+      "pending_one": "{{count}} left to fill in",
+      "pending_other": "{{count}} left to fill in",
+      "warnings_one": "{{count}} note",
+      "warnings_other": "{{count}} notes",
+      "stream_name_invalid": "\"{{name}}\" is not a stream name: use letters, numbers, _ - and . only.",
+      "source_unread": "{{name}} is never read: a pipeline reads one stream, {{read}}.",
+      "sink_unwritten": "Nothing is written to {{name}}: events go to {{written}}.",
+      "connector_unset": "Choose a connector for this destination.",
+      "connector_duplicate": "This connector is already a destination: events would be delivered to it twice.",
+      "route_target_missing": "Step \"{{name}}\" needs a stream to route to.",
+      "route_field_missing": "Step \"{{name}}\" needs a field and a fallback stream.",
+      "route_stream_invalid": "Step \"{{name}}\": \"{{stream}}\" is not a stream name.",
+      "route_prefix_invalid": "Step \"{{name}}\": a stream prefix holds letters, numbers, _ - and . only.",
+      "route_to_source": "Step \"{{name}}\" would route events back into {{stream}}, the stream this pipeline reads. Every run would fail."
     }
   },
   "drawer": {
@@ -332,11 +316,6 @@
     "sink_hints": {
       "s3_logs": "parquet + zstd · 90d",
       "object_store": "cold storage 1y"
-    },
-    "retry_options": {
-      "exponential": "Exponential backoff",
-      "fixed": "Fixed 5s × 3",
-      "none": "No retry (drop)"
     }
   },
   "realtime": {
@@ -351,8 +330,8 @@
     "field_hint": "Matches literal keys first, then nested paths such as app.name.",
     "prefix": "Stream prefix (optional)",
     "fallback": "Fallback stream",
-    "fallback_hint": "Used for missing, non-string or invalid stream values. Storage failures still return errors.",
-    "auto_create": "Destination streams are created automatically.",
+    "fallback_hint": "Where an event goes when the field is missing, is not text, or does not make a stream name.",
+    "auto_create": "A stream that does not exist yet is created by the first event written to it.",
     "retain": "Also retain in source stream",
     "retain_hint": "Keep the original log in {{source}} after routing (masking still applies). Write once when source and destination match.",
     "no_backfill": "Realtime pipelines run on intake and do not support backfill.",
@@ -361,10 +340,324 @@
   },
   "processing": {
     "type": "Processing type",
-    "builtin": "Built-in logic",
-    "vrl": "VRL function",
-    "route": "Stream routing",
     "output": "Stream output",
-    "output_hint": "Write to the destination selected by processing. Create the stream when it does not exist."
+    "output_hint": "The routing step chooses the stream for each event. A stream that does not exist yet is created by the first event written to it."
+  },
+  "settings": {
+    "aria": "Pipeline settings",
+    "name_placeholder": "Name this pipeline",
+    "every": "Run every",
+    "lookback": "Read the last",
+    "interval_count": "{{label}}: number",
+    "interval_unit": "{{label}}: unit",
+    "units": {
+      "s": "seconds",
+      "m": "minutes",
+      "h": "hours"
+    },
+    "realtime_note": "Runs on every log event as it is ingested: one source stream, one destination, no schedule."
+  },
+  "flow": {
+    "processing": "Processing",
+    "destinations": "Destinations",
+    "add_step": "Add step",
+    "choose_stream": "Choose a stream",
+    "unnamed_step": "Unnamed step",
+    "routed_detail": "Chosen by the routing step",
+    "node_with_issues_one": "{{name}}, {{count}} issue",
+    "node_with_issues_other": "{{name}}, {{count}} issues",
+    "source": "Source",
+    "not_read": "Saved, never read",
+    "not_written": "Saved, never written",
+    "choose_connector": "Choose a connector",
+    "add_connector": "Add connector",
+    "no_steps": "No steps: events are written as they are read."
+  },
+  "steps": {
+    "name": "Step name",
+    "start_from": "Start from a saved function",
+    "show_vrl": "Show generated VRL",
+    "hide_vrl": "Hide generated VRL",
+    "edit_as_vrl": "Edit as VRL",
+    "generated_vrl": "Generated VRL",
+    "groups": {
+      "parse": "Parse",
+      "fields": "Fields"
+    },
+    "types": {
+      "parse_json": "Parse JSON",
+      "parse_key_value": "Parse key=value",
+      "parse_regex": "Extract with regex",
+      "rename": "Rename field",
+      "remove": "Remove fields",
+      "set": "Set field",
+      "mask": "Mask field",
+      "case": "Change case",
+      "convert": "Convert type",
+      "route": "Route to stream",
+      "vrl": "Custom VRL"
+    }
+  },
+  "editor": {
+    "step_title": "Step {{number}}",
+    "move_earlier": "Move earlier",
+    "move_later": "Move later",
+    "remove": "Remove",
+    "fix_before_saving": "Fix these before saving",
+    "source_hint": "Each run reads the events this stream received in the window set above.",
+    "source_realtime_hint": "Every event written to this stream goes through the steps as it arrives. The stream may not exist yet.",
+    "source_unread": "A pipeline reads one stream, and this one reads {{read}}. {{name}} is saved with it but is never read. Remove it, or give it a pipeline of its own.",
+    "sink_unwritten": "Events are written to {{written}} only. {{name}} is saved with this pipeline but nothing is written to it. Remove it, or add a routing step to choose the stream for each event.",
+    "connector": "Connector",
+    "connector_placeholder": "Choose a connector…",
+    "connector_hint": "Every event the pipeline writes is also delivered to this connector.",
+    "connector_none": "This workspace has no connectors yet.",
+    "manage_connectors": "Manage connectors",
+    "save_vrl_invalid": "A step is not valid VRL. Run a test to see which one, and why."
+  },
+  "processors": {
+    "path_hint": "Dots reach into nested objects: user.email is email inside user.",
+    "source_field": "Source field",
+    "target_field": "Put the result in",
+    "target_placeholder": "the event itself",
+    "target_hint": "Leave empty to merge the parsed keys into the event.",
+    "remove_source": "Remove the source field",
+    "pattern": "Pattern",
+    "pattern_hint": "Named groups become fields, for example (?P<status>\\d+).",
+    "from_field": "Field",
+    "to_field": "New name",
+    "fields": "Fields",
+    "fields_hint": "Separate names with commas.",
+    "field": "Field",
+    "value_type": "Value is",
+    "value_types": {
+      "string": "Text",
+      "number": "Number",
+      "boolean": "True / false",
+      "field": "Another field"
+    },
+    "value": "Value",
+    "copy_from": "Copy from",
+    "booleans": {
+      "true": "True",
+      "false": "False"
+    },
+    "mask_mode": "Replace with",
+    "mask_modes": {
+      "full": "***",
+      "last4": "Last 4 characters",
+      "hash": "SHA-256 hash"
+    },
+    "case": "Change to",
+    "cases": {
+      "lower": "lowercase",
+      "upper": "UPPERCASE"
+    },
+    "convert_to": "Convert to",
+    "convert_hint": "A value that cannot be converted is left as it is.",
+    "convert_targets": {
+      "integer": "Integer",
+      "float": "Decimal",
+      "boolean": "Boolean",
+      "string": "Text"
+    }
+  },
+  "test": {
+    "title": "Test",
+    "subtitle": "One event through every step. Nothing is stored.",
+    "run": "Run test",
+    "running": "Running…",
+    "sample": "Sample event",
+    "reset_sample": "Reset",
+    "sample_invalid": "The sample is not valid JSON.",
+    "hint": "Edit the sample to look like your data, then run it to see what the steps make of it.",
+    "stale": "The steps changed since this run.",
+    "output": "Result",
+    "written_to": "Written to",
+    "skipped": "not run",
+    "failure_runtime": "Failed on this event.",
+    "failure_compile": "Not valid VRL: {{message}}",
+    "failed_note": "When the pipeline runs, an event that fails a step is skipped and counted as an error.",
+    "use_recent": "Use a recent event from {{stream}}",
+    "no_recent": "No events in {{stream}} in the last 24 hours.",
+    "after_step": "After step {{number}}",
+    "no_steps": "This pipeline has no steps: the event is written as it is."
+  },
+  "streams": {
+    "choose_or_name": "Choose a stream, or name a new one…",
+    "search": "Search streams…",
+    "search_or_name": "Search, or type a new name…",
+    "name_invalid": "A stream name holds letters, numbers, _ - and . only.",
+    "none_yet_creatable": "No streams yet. Type a name to use a new one.",
+    "no_match": "No stream matches.",
+    "use_new": "Use new stream \"{{name}}\""
+  },
+  "connectors": {
+    "title": "Connectors",
+    "subtitle": "How logs come in from other services, and where pipelines deliver what they write.",
+    "new": "New connector",
+    "sources": {
+      "title": "Sources",
+      "description": "Logs brought in from another service and written to a stream.",
+      "empty": "No sources yet.",
+      "add": "Add a source"
+    },
+    "destinations": {
+      "title": "Destinations",
+      "description": "Where a pipeline can deliver its output, beside the stream it writes.",
+      "empty": "No destinations yet.",
+      "add": "Add a destination"
+    },
+    "columns": {
+      "name": "Name",
+      "kind": "Kind",
+      "stream": "Into stream",
+      "place": "Where",
+      "auth": "Authentication",
+      "last_received": "Last received",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "kinds": {
+      "aws_cloudwatch_logs": "AWS CloudWatch Logs",
+      "aws_kinesis_firehose": "Amazon Data Firehose",
+      "cloudflare_logpush": "Cloudflare Logpush",
+      "heroku_drain": "Heroku log drain",
+      "s3": "Amazon S3",
+      "kafka": "Apache Kafka"
+    },
+    "kind_hints": {
+      "aws_cloudwatch_logs": "MoleSignal fetches a log group on a timer.",
+      "aws_kinesis_firehose": "A Firehose stream pushes its records here.",
+      "cloudflare_logpush": "A Logpush job pushes request logs here.",
+      "heroku_drain": "An app's log drain pushes its lines here.",
+      "s3": "Each batch a pipeline writes becomes a JSON Lines object in a bucket. Also for MinIO, R2, OSS and other S3-compatible stores.",
+      "kafka": "Each event a pipeline writes becomes a message on a topic."
+    },
+    "transport": {
+      "pull": "Pulled",
+      "push": "Pushed",
+      "sink": "Delivered"
+    },
+    "auth": {
+      "label": "Authentication",
+      "modes": {
+        "access_key": "Access key",
+        "temporary_key": "Temporary key",
+        "node_role": "Node role",
+        "sasl_plain": "User name and password",
+        "none": "None",
+        "push_token": "Token"
+      },
+      "hints": {
+        "access_key": "A long-lived key of an IAM user. Give that user only what this connector needs.",
+        "temporary_key": "A short-lived key from AWS STS, valid only together with its session token. It stops working when it expires and has to be replaced here.",
+        "node_role": "No key is stored. MoleSignal uses the role of the machine it runs on (an EC2 instance profile), which needs s3:PutObject on the bucket.",
+        "sasl_plain": "SASL/PLAIN. The connection is not encrypted, so use it on a private network only: TLS and SCRAM are not supported yet.",
+        "none": "For a broker that asks for no credentials. The connection is not encrypted.",
+        "push_token": "The other service presents this token with every push. Whoever holds it can write to the stream."
+      }
+    },
+    "fields": {
+      "name": "Name",
+      "name_placeholder": "Name this connector",
+      "region": "Region",
+      "log_group": "Log group",
+      "target_stream": "Write to stream",
+      "bucket": "Bucket",
+      "prefix": "Key prefix",
+      "endpoint": "Endpoint",
+      "brokers": "Brokers",
+      "topic": "Topic",
+      "access_key": "Access key ID",
+      "secret_key": "Secret access key",
+      "session_token": "Session token",
+      "sasl_username": "User name",
+      "sasl_password": "Password",
+      "push_token": "Token",
+      "enabled": "Enabled"
+    },
+    "hints": {
+      "target_stream": "A stream that does not exist yet is created by the first event.",
+      "region_s3": "The bucket's region. An S3-compatible store may not need one.",
+      "prefix": "Objects are named <prefix><id>.jsonl.",
+      "brokers": "Host and port. Separate several with commas.",
+      "endpoint": "The store's S3 API address, starting with http:// or https://."
+    },
+    "compatible": {
+      "toggle": "S3-compatible storage",
+      "hint": "For MinIO, Cloudflare R2, Alibaba Cloud OSS and others that speak the S3 API.",
+      "virtual_hosted": "Address the bucket as a host name",
+      "virtual_hosted_hint": "Some stores, Alibaba Cloud OSS among them, do not take the bucket in the path."
+    },
+    "secret": {
+      "saved": "Saved. Leave empty to keep it.",
+      "retype": "This server does not keep a saved secret when a connector is changed. Enter it again to save."
+    },
+    "drawer": {
+      "new_title": "New connector",
+      "edit_title": "Edit {{name}}",
+      "choose": "What should it connect to?",
+      "change_kind": "Choose another",
+      "create": "Create connector",
+      "save": "Save changes",
+      "where": "Where",
+      "delivers_to": "Deliver to",
+      "reads": "What to read"
+    },
+    "problems": {
+      "name_missing": "Name the connector.",
+      "field_missing": "{{field}} is required.",
+      "endpoint_invalid": "The endpoint has to start with http:// or https://.",
+      "secret_missing": "{{field}} is required.",
+      "push_token_short": "The token needs at least 16 characters."
+    },
+    "push": {
+      "title": "Point {{kind}} here",
+      "once": "The token is shown this once. Copy it now: it cannot be read back later, only replaced.",
+      "endpoint": "Endpoint",
+      "token": "Token",
+      "command": "Command",
+      "destination": "Destination",
+      "copy_endpoint": "Copy endpoint",
+      "copy_token": "Copy token",
+      "copy_command": "Copy command",
+      "copy_destination": "Copy destination",
+      "saved_token": "A token is saved. It cannot be shown again.",
+      "no_token": "No token yet, so nothing it is sent is accepted.",
+      "regenerate": "Generate a new token",
+      "regenerated": "A new token is ready. It replaces the current one when you save, and is shown once after that.",
+      "keep": "Keep the current token",
+      "steps": {
+        "aws_kinesis_firehose": "In the Firehose stream, choose the HTTP endpoint destination. Enter the endpoint as its URL and the token as its access key.",
+        "cloudflare_logpush": "Create a Logpush job with this HTTP destination. The token travels in a header Cloudflare adds to every push.",
+        "heroku_drain": "Add the drain to your app. Heroku cannot send a header, so the token travels in the address."
+      },
+      "done": "Done",
+      "will_generate": "A token is generated when the connector is created, and shown once."
+    },
+    "remove": {
+      "action": "Delete",
+      "title": "Delete {{name}}?",
+      "source": "Logs stop arriving from it. What it already wrote stays in the stream.",
+      "destination": "A pipeline that still delivers to it records an error on every run until the connector is taken out of it.",
+      "confirm": "Delete connector"
+    },
+    "toast": {
+      "created": "Connector created",
+      "updated": "Connector saved",
+      "deleted": "Connector deleted",
+      "enabled": "{{name}} is on",
+      "disabled": "{{name}} is off"
+    },
+    "state": {
+      "on": "On",
+      "off": "Off"
+    },
+    "toggle": "Turn {{name}} on or off",
+    "toggle_retype": "This server cannot switch a connector without its secrets being entered again. Open it to change it.",
+    "edit": "Edit",
+    "never": "Never",
+    "unknown_kind": "A kind this version does not know: {{kind}}"
   }
 }
