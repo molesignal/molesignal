@@ -104,9 +104,12 @@ explicit empty state when no data is available.
 | MoleSignal path | Status | Backend |
 | --- | --- | --- |
 | `/logs/inspector` | ✓ | 🔌 search jobs |
+| `/logs/inspections` | ✓ | 🔌 `routes/log_inspections` (scheduled log inspections: list, limits, save, enable, run now, delete) |
+| `/logs/inspections/:id` | ✓ | 🔌 `routes/log_inspections` (one inspection: its runs and the report of each) |
 | `/traces/:id` | ✓ | 🔌 trace detail |
 | `/traces/session/:id` | ✓ | 🔌 trace stream query |
 | `/streams/:id` | ✓ | 🔌 Web search routes |
+| `/streams/jobs` | ✓ | 🔌 `routes/search_jobs.rs` (search jobs: list, counts, cancel, retry, delete, results) |
 | `/service-graph` | ✓ | 🔌 topology routes |
 | `/dashboards/import` | ✓ | 🔌 dashboard creation |
 | `/dashboards/:id/panels/new` | ✓ | 🔌 dashboard editor |

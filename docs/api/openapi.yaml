@@ -51,6 +51,219 @@ components:
             properties:
               index: { type: integer }
               reason: { type: string }
+    SearchJob:
+      type: object
+      required: [job_id, state, kind, attempt, user_id, submitted_at_micros, expires_at_micros]
+      properties:
+        job_id: { type: string }
+        state: { type: string, enum: [pending, running, done, failed, cancelled] }
+        kind:
+          type: string
+          enum: [query, backfill]
+          description: '`backfill` is a job a data pipeline submitted to backfill a time range; `pipeline_id` names that pipeline'
+        pipeline_id: { type: string, nullable: true }
+        attempt: { type: integer, description: Execution generation, one higher after every retry }
+        user_id: { type: string, description: The user who submitted the job }
+        submitted_by:
+          type: object
+          nullable: true
+          description: Display name and email of that user; null once the user record is gone
+          properties:
+            display_name: { type: string }
+            email: { type: string }
+        request:
+          type: object
+          nullable: true
+          description: The query the job runs, as it was submitted; null when the stored request cannot be decoded
+          properties:
+            language: { type: string, enum: [sql, promql] }
+            statement: { type: string }
+            time_range:
+              type: object
+              properties:
+                start: { type: integer, format: int64, description: epoch micros }
+                end: { type: integer, format: int64, description: epoch micros }
+            stream:
+              type: object
+              nullable: true
+              properties:
+                name: { type: string }
+                stream_type: { type: string }
+            limit: { type: integer, nullable: true }
+        submitted_at_micros: { type: integer, format: int64 }
+        started_at_micros: { type: integer, format: int64, nullable: true }
+        finished_at_micros: { type: integer, format: int64, nullable: true }
+        result_object_key:
+          type: string
+          nullable: true
+          description: 'Object key of the NDJSON result of a `done` job: `search_jobs/v1/{org}/{job_id}-{attempt}.ndjson`'
+        result_rows: { type: integer, format: int64, nullable: true }
+        error: { type: string, nullable: true, description: Why a `failed` job failed }
+        expires_at_micros:
+          type: integer
+          format: int64
+          description: After this time the job and its result object are removed
+    LogInspectionInput:
+      type: object
+      required: [name, stream, window_secs, schedule, timezone, provider_id, language]
+      properties:
+        name: { type: string, maxLength: 120, description: Unique within the organization }
+        stream: { type: string, description: A logs stream of the organization; a run reads no other stream }
+        statement:
+          type: string
+          maxLength: 8000
+          description: The condition the inspected logs match, as the Logs page writes a query; empty inspects the whole stream
+        window_secs:
+          type: integer
+          format: int64
+          minimum: 300
+          maximum: 604800
+          description: How much time before the moment of a run the run looks over
+        requirements: { type: string, maxLength: 2000, description: What the model is asked to attend to }
+        schedule: { $ref: '#/components/schemas/LogInspectionSchedule' }
+        timezone: { type: string, description: 'IANA time zone the time of day of a `daily` or `weekly` schedule is read in, e.g. `Asia/Shanghai`' }
+        provider_id: { type: string, description: 'An AI model provider of the organization that is enabled and has a key' }
+        model: { type: string, nullable: true, description: A model of that provider to use in place of its default }
+        notify_when:
+          type: string
+          enum: [abnormal, attention, always]
+          default: abnormal
+          description: '`abnormal` tells of reports at level `abnormal` or `unknown`, `attention` also of `attention`, `always` of every report'
+        notify_routes:
+          type: array
+          maxItems: 10
+          description: Where a notification is sent; none repeats. Without any, nothing is sent and the reports are still kept
+          items: { $ref: '#/components/schemas/LogInspectionNotifyRoute' }
+        language: { type: string, enum: [en-us, zh-cn], description: The language of the reports and of the notifications }
+        enabled: { type: boolean, default: true, description: Whether it runs on its schedule; a disabled inspection can still be run by hand }
+    LogInspectionSchedule:
+      description: How often an inspection runs. No schedule may run more often than the instance allows (`min_interval_secs` of the limits).
+      oneOf:
+        - type: object
+          required: [type, every_minutes]
+          properties:
+            type: { type: string, enum: [interval] }
+            every_minutes: { type: integer, minimum: 1 }
+        - type: object
+          required: [type, hour, minute]
+          properties:
+            type: { type: string, enum: [daily] }
+            hour: { type: integer, minimum: 0, maximum: 23 }
+            minute: { type: integer, minimum: 0, maximum: 59 }
+        - type: object
+          required: [type, weekday, hour, minute]
+          properties:
+            type: { type: string, enum: [weekly] }
+            weekday: { type: integer, minimum: 1, maximum: 7, description: 1 is Monday and 7 is Sunday }
+            hour: { type: integer, minimum: 0, maximum: 23 }
+            minute: { type: integer, minimum: 0, maximum: 59 }
+    LogInspectionNotifyRoute:
+      type: object
+      required: [connector_id, target_type, target]
+      properties:
+        connector_id: { type: string, description: A Notify connector of the organization }
+        target_type: { type: string, enum: [fixed_group, fixed_address] }
+        target: { type: string, maxLength: 512, description: The group or address on that connector, as the connector takes it }
+    LogInspection:
+      description: A saved inspection. It carries every field of `LogInspectionInput` as saved, and what the server keeps beside them.
+      allOf:
+        - $ref: '#/components/schemas/LogInspectionInput'
+        - type: object
+          required: [id, run_as_user_id, created_by, created_at_micros, updated_at_micros]
+          properties:
+            id: { type: string }
+            run_as_user_id: { type: string, description: The user every run reads the logs as; whoever saved the inspection last }
+            run_as_user:
+              type: object
+              nullable: true
+              description: Name and email of that user; null once the user record is gone
+              properties:
+                id: { type: string }
+                display_name: { type: string }
+                email: { type: string }
+            next_run_at_micros: { type: integer, format: int64, nullable: true, description: Null while the inspection is disabled }
+            last_run:
+              type: object
+              nullable: true
+              description: How the run that ended last went; null before the first has ended
+              properties:
+                at_micros: { type: integer, format: int64 }
+                status: { type: string, enum: [succeeded, failed, timed_out] }
+                level: { type: string, enum: [normal, attention, abnormal, unknown], nullable: true }
+            active_run:
+              type: object
+              nullable: true
+              description: The run that waits or is under way; an inspection has at most one
+              properties:
+                id: { type: string }
+                status: { type: string, enum: [queued, running] }
+                trigger: { type: string, enum: [schedule, manual] }
+                created_at_micros: { type: integer, format: int64 }
+                started_at_micros: { type: integer, format: int64, nullable: true }
+            created_by: { type: string }
+            created_at_micros: { type: integer, format: int64 }
+            updated_at_micros: { type: integer, format: int64 }
+    LogInspectionRun:
+      type: object
+      required: [id, inspection_id, trigger, status, window_start_micros, window_end_micros, created_at_micros]
+      properties:
+        id: { type: string }
+        inspection_id: { type: string }
+        trigger: { type: string, enum: [schedule, manual] }
+        status: { type: string, enum: [queued, running, succeeded, failed, timed_out] }
+        level:
+          type: string
+          enum: [normal, attention, abnormal, unknown]
+          nullable: true
+          description: 'The verdict of the report of a `succeeded` run; `unknown` when the model stated none'
+        window_start_micros: { type: integer, format: int64 }
+        window_end_micros: { type: integer, format: int64 }
+        summary: { type: string, nullable: true, description: The summary of the report, as notifications quote it }
+        report: { type: string, nullable: true, description: What the model wrote; always null in a list of runs }
+        failure:
+          type: string
+          nullable: true
+          enum: [timed_out, interrupted, not_started, identity, model, agent, internal]
+          description: >-
+            Why a run left no report: it exceeded its time limit, the node running it stopped, no node
+            picked it up, the user it runs as can no longer be used, the model is missing, disabled or
+            without a key, the call to the model failed, or an internal cause
+        error: { type: string, nullable: true, description: Technical detail of the failure }
+        provider_id: { type: string, nullable: true }
+        model: { type: string, nullable: true, description: The model that was called }
+        run_as_user_id: { type: string, nullable: true }
+        requested_by: { type: string, nullable: true, description: 'The user who asked for a `manual` run' }
+        requested_by_user:
+          type: object
+          nullable: true
+          properties:
+            id: { type: string }
+            display_name: { type: string }
+            email: { type: string }
+        tool_calls:
+          type: array
+          description: The tools the model called, in order
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              ok: { type: boolean }
+        prompt_tokens: { type: integer, format: int64 }
+        completion_tokens: { type: integer, format: int64 }
+        notifications:
+          type: array
+          description: Whom the run told, one entry per channel
+          items:
+            type: object
+            properties:
+              connector_id: { type: string }
+              target_type: { type: string, enum: [fixed_group, fixed_address] }
+              target_masked: { type: string }
+              delivered: { type: boolean }
+              error: { type: string, nullable: true }
+        created_at_micros: { type: integer, format: int64 }
+        started_at_micros: { type: integer, format: int64, nullable: true }
+        finished_at_micros: { type: integer, format: int64, nullable: true }
     ApmResponseMeta:
       type: object
       required: [range, resolution, data_quality, activation_boundary]
@@ -537,6 +750,116 @@ paths:
       responses:
         '200': { description: before + after blocks }
 
+  /api/v1/query/jobs:
+    post:
+      summary: Submit an asynchronous search job (streams.query or sys.telemetry.read)
+      description: >-
+        Takes the body of `/api/v1/query` and, optionally, `ttl_secs`: how long the job and its
+        result are kept, 60 seconds to 30 days, 7 days when left out. The job is queued; a querier
+        node runs it and writes the rows as NDJSON to object storage. `POST /api/v1/query` with
+        `Prefer: respond-async` and a pipeline backfill queue the same kind of job.
+      responses:
+        '200':
+          description: The queued job
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SearchJob' }
+    get:
+      summary: List search jobs, most recently submitted first
+      description: >-
+        A job belongs to the user who submitted it. The caller is listed their own jobs; a caller
+        holding `org.settings.manage` (`sys.telemetry.manage` in system scope) is listed the jobs
+        of everybody in the organization. The same rule decides every other operation on a job:
+        to anyone else, another user's job answers 404, as a job that does not exist.
+      parameters:
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 1000, default: 100 } }
+        - in: query
+          name: offset
+          description: How many of the most recent jobs to skip; with `limit` it pages through the list
+          schema: { type: integer, minimum: 0, default: 0 }
+        - in: query
+          name: state
+          description: >-
+            Only jobs in these states, separated by commas (`pending,running`). All states when
+            left out or empty.
+          schema: { type: string }
+      responses:
+        '200':
+          description: One page of jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/SearchJob' }
+        '400': { description: '`state` names a state that does not exist' }
+
+  /api/v1/query/jobs/summary:
+    get:
+      summary: How many search jobs there are in each state
+      description: >-
+        Counts the jobs the caller is listed (their own, or the organization's for an
+        administrator), whatever state the list is filtered to and whatever page it shows.
+      responses:
+        '200':
+          description: Job counts
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [pending, running, done, failed, cancelled, total]
+                properties:
+                  pending: { type: integer, format: int64 }
+                  running: { type: integer, format: int64 }
+                  done: { type: integer, format: int64 }
+                  failed: { type: integer, format: int64 }
+                  cancelled: { type: integer, format: int64 }
+                  total: { type: integer, format: int64 }
+
+  /api/v1/query/jobs/{id}:
+    get:
+      summary: Read one search job (its submitter, or an administrator)
+      responses:
+        '200':
+          description: The job
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SearchJob' }
+        '404': { description: No such job, or a job submitted by another user }
+    delete:
+      summary: Delete a search job and its result object; a job that is still running is cancelled first
+      responses: { '200': { description: '`{ "deleted": true }`' } }
+  /api/v1/query/jobs/{id}/results:
+    get:
+      summary: Read one page of the rows of a `done` search job
+      parameters:
+        - { in: query, name: page, schema: { type: integer, minimum: 1, default: 1 } }
+        - { in: query, name: page_size, schema: { type: integer, minimum: 1, maximum: 10000, default: 1000 } }
+      responses:
+        '200':
+          description: >-
+            state, result_rows, page, page_size, rows (one object per row; empty until the job is
+            `done`), has_more and error
+  /api/v1/query/jobs/{id}/cancel:
+    post:
+      summary: Cancel a `pending` or `running` search job
+      responses:
+        '200':
+          description: The cancelled job
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SearchJob' }
+        '400': { description: The job has already finished }
+  /api/v1/query/jobs/{id}/retry:
+    post:
+      summary: Queue a `failed` or `cancelled` search job again as a new attempt
+      responses:
+        '200':
+          description: The job, `pending` again with `attempt` one higher
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SearchJob' }
+        '400': { description: The job is not `failed` or `cancelled` }
+
   /api/v1/streams:
     get: { summary: List streams }
     post:
@@ -623,6 +946,28 @@ paths:
     post: { summary: Send and log a test to a user notify identity }
   /api/v1/users/{user_id}/notify-endpoints/{id}/verify:
     post: { summary: Administratively attest a notify identity (org.members.manage) }
+  /api/v1/me/ui-preference/{scope}/{key}:
+    get:
+      summary: How the signed-in user prefers a page to look, by purpose and key
+      description: >-
+        A preference about the interface that belongs to one user in the organization they are signed in to,
+        such as the columns a log stream is listed in. `scope` names the purpose and `key` what it
+        is kept for. The known scope is `logs.columns`, keyed by the stream's name; its value is an
+        object with `fields`, the names of the fields beside the time in their order (at most 64,
+        none twice). Any other scope is refused. No permission is asked, since the preference is the
+        caller's own and nobody else can read it.
+      responses: { '200': { description: "value (null where nothing is kept) and updated_at_micros (null with it)" } }
+    put:
+      summary: Keep an interface preference for the signed-in user
+      description: >-
+        Takes an object with `value` in the shape of the scope and keeps it in place of what was
+        kept before. A value of another shape, or larger than 16 KiB written out, is refused. A
+        user keeps at most 200 keys per scope in an organization; past that the least recently
+        written are dropped.
+      responses: { '200': { description: "value as kept and updated_at_micros" } }
+    delete:
+      summary: Forget an interface preference, so the page shows its default again
+      responses: { '204': { description: "Nothing is kept under the key any more" } }
   /api/v1/users/{user_id}/notify-preferences:
     get: { summary: List category-specific user notify preferences }
   /api/v1/users/{user_id}/notify-preferences/{category}:
@@ -908,11 +1253,153 @@ paths:
         - { in: query, name: cursor, schema: { type: string } }
       responses: { '200': { description: "items, previous_cursor, next_cursor, and has_more" } }
 
+  /api/v1/web/traces/histogram:
+    get:
+      summary: Count of the Traces a list query matches, per time bucket
+      description: Takes the `from`, `to`, `q`, and `filters` of the Trace list and matches the same Traces, counted by start time into the buckets the caller names. Traces with an error span are counted apart. Reads the summary projection, and the spans when a filter is on a span field. Answers `unavailable` (`time_budget`, `busy`, or `scan_limit`) with no buckets when the count cannot be had.
+      parameters:
+        - { in: query, name: from, required: true, schema: { type: integer, format: int64 } }
+        - { in: query, name: to, required: true, schema: { type: integer, format: int64 } }
+        - { in: query, name: q, schema: { type: string } }
+        - { in: query, name: filters, schema: { type: string } }
+        - { in: query, name: bucket_micros, required: true, schema: { type: integer, format: int64, minimum: 1000 } }
+        - { in: query, name: origin_micros, required: true, schema: { type: integer, format: int64 } }
+      responses: { '200': { description: "bucket_micros, origin_micros, buckets (start_micros, total, errors), split, and unavailable when there are no counts" } }
+
   /api/v1/web/logs:
     post:
       summary: Cursor-paginated structured log search
       description: The first request supplies a stream, absolute time range, and filters; continuations use the signed cursor.
       responses: { '200': { description: "items, previous_cursor, next_cursor, and has_more" } }
+
+  /api/v1/web/logs/histogram:
+    post:
+      summary: Count of the log rows a structured search matches, per time bucket
+      description: Takes the stream, absolute time range, filters, and free text of the first list request, plus `bucket_micros` and `origin_micros`, and counts the rows the list pages through. Rows at level `ERROR` are counted apart unless the level field is masked. Runs as a tracked query. Answers `unavailable` (`time_budget`, `busy`, or `timestamp_masked`) with no buckets when the count cannot be had.
+      responses: { '200': { description: "bucket_micros, origin_micros, buckets (start_micros, total, errors), split, and unavailable when there are no counts" } }
+
+  /api/v1/web/logs/field-stats:
+    post:
+      summary: What one field holds across the log rows a structured search matches
+      description: Takes the stream, absolute time range, filters, and free text of the first list request, plus `field`, and reads that field in every row the list pages through. Answers how many rows match, how many have a value, how many different values there are (`distinct_exact` says whether that was counted or estimated), the ten commonest values, and how the five commonest are spread over time (`trend`, absent when no value repeats or time is masked); for a number also its range, average, quartiles (estimated), standard deviations, skewness, excess kurtosis, and the values counted into bars of a round width; for a timestamp its earliest and latest. An empty string counts as no value. Runs as up to four tracked queries. Answers `unavailable` (`time_budget`, `busy`, or `field_protected` for a masked or encrypted field) when the field cannot be read. A JSON field is refused.
+      responses: { '200': { description: "kind (number, time, text, bool), total, present, distinct, distinct_exact, range (min, max as text), spread (avg, q1, median, q3, stddev_samp, stddev_pop, skewness, kurtosis), bars (origin, width, counts), top (value, count), top_skipped, trend (origin_micros, bucket_micros, series of value and counts), and unavailable when there is no analysis" } }
+
+  /api/v1/web/traces/field-stats:
+    post:
+      summary: What one Span field holds across the Spans of listed Traces
+      description: Takes `trace_ids` (at most one page of the Trace list), the time range they lie in, `field`, and optionally the `stream` they were listed from, and reads the field in every Span of those Traces. The answer has the shape of `/api/v1/web/logs/field-stats`, with `total` counting Spans.
+      responses: { '200': { description: "kind, total, present, distinct, distinct_exact, range, spread, bars, top, top_skipped, trend, and unavailable when there is no analysis" } }
+
+  /api/v1/logs/inspections:
+    get:
+      summary: List the organization's scheduled log inspections
+      description: >-
+        An inspection has Mole Agent read one logs stream on a schedule, with read-only tools, and
+        keeps the report of every run. Reading them takes `agent.use` and `streams.query`.
+      responses:
+        '200':
+          description: The inspections, by name
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/LogInspection' } }
+    post:
+      summary: Save a scheduled log inspection
+      description: >-
+        Takes `inspections.manage`. The caller becomes the user every run reads the logs as, so a
+        caller that is an API token is refused (403). The stream must be a logs stream, the model
+        provider usable and every notify route on a connector of the organization that takes its
+        target; otherwise 400. A name already in use, or an organization that already holds as
+        many inspections as the instance allows, is 409.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LogInspectionInput' }
+      responses:
+        '200':
+          description: The inspection as saved
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LogInspection' }
+  /api/v1/logs/inspections/limits:
+    get:
+      summary: What the instance allows of scheduled log inspections
+      responses: { '200': { description: "min_interval_secs, max_per_org, run_timeout_secs, and report_retention_days" } }
+  /api/v1/logs/inspections/{id}:
+    get:
+      summary: Read a scheduled log inspection
+      responses:
+        '200':
+          description: The inspection
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LogInspection' }
+    put:
+      summary: Replace a scheduled log inspection
+      description: >-
+        Takes the whole `LogInspectionInput` under the rules of saving a new one. The caller becomes
+        the user it runs as from then on. Its next run stays where it was unless the schedule, the
+        time zone or `enabled` changed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LogInspectionInput' }
+      responses:
+        '200':
+          description: The inspection as saved
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LogInspection' }
+    delete:
+      summary: Delete a scheduled log inspection together with the reports of its runs
+      responses: { '200': { description: "deleted: true" } }
+  /api/v1/logs/inspections/{id}/enabled:
+    post:
+      summary: Switch a scheduled log inspection on or off
+      description: >-
+        Takes an object with `enabled`. Switching it on sets its next run from the schedule;
+        switching it off clears it. Who it runs as does not change.
+      responses:
+        '200':
+          description: The inspection
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LogInspection' }
+  /api/v1/logs/inspections/{id}/run:
+    post:
+      summary: Run a scheduled log inspection once, now
+      description: >-
+        Queues a `manual` run that a node running inspections picks up within seconds; it reads the
+        logs as the user the inspection runs as, and `requested_by` keeps who asked. 409 while a
+        run of the inspection waits or is under way.
+      responses:
+        '200':
+          description: The queued run
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LogInspectionRun' }
+  /api/v1/logs/inspections/{id}/runs:
+    get:
+      summary: The runs of a scheduled log inspection, newest first
+      parameters:
+        - { in: query, name: limit, schema: { type: integer, default: 50, minimum: 1, maximum: 200 } }
+        - { in: query, name: before, schema: { type: integer, format: int64 }, description: Only runs created before this time in epoch micros }
+      responses:
+        '200':
+          description: The runs, each without its report
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/LogInspectionRun' } }
+  /api/v1/logs/inspections/{id}/runs/{run_id}:
+    get:
+      summary: One run of a scheduled log inspection, with its report
+      responses:
+        '200':
+          description: The run
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LogInspectionRun' }
 
   /api/v1/agent/stats:
     get: { summary: Agent LLM overall stats }

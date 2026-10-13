@@ -149,6 +149,9 @@ shell 和浏览器执行。
   `update_saved_view`、`delete_saved_view`、
   `list_search_jobs`、`get_search_job`、`get_search_job_results`、
   `submit_search_job`、`cancel_search_job`、`retry_search_job`、`delete_search_job`
+  （Search Job 属于提交它的人：这些工具只看得到、动得了调用者自己提交的任务，调用者是组织管理员
+  即持有 `org.settings.manage` 时才是整个组织的；经审批执行的取消/重试/删除按申请人算，
+  执行人是管理员时不限）
 - Pipelines / Functions / Enrichment：`list_scheduled_pipelines`、
   `get_scheduled_pipeline`、`list_pipeline_runs`、`enable_scheduled_pipeline`、
   `disable_scheduled_pipeline`、`delete_scheduled_pipeline`、`list_functions`、
@@ -199,8 +202,12 @@ Catalog 的 exposure 既用于生成列表，也由 `ToolRuntime::authorize` 在
   `execute_agent_approval`。
 - Inbound MCP：可使用查询、预检、原子写 Tool 和审批/执行闭环 Tool；不暴露
   `tool_search`、`tools_call`、Dashboard 创作入口及 `propose_*` 兼容入口。
-- Automation：默认不暴露内置 Tool，直到具体 Tool 显式声明 automation surface；未来
-  adapter 不能沿用 Mole Agent 的列表。
+- Automation：默认不暴露内置 Tool，直到具体 Tool 显式声明 automation surface；adapter
+  不能沿用 Mole Agent 的列表。目前声明了 automation surface 的只有三个只读日志工具：
+  `query_logs`、`get_stream_schema`、`search_field_values`，由定时日志巡检使用
+  （`bootstrap/workers/log_inspection/dispatcher.rs`，见 [log-inspection.md](log-inspection.md)）。
+  这个 adapter 没有人在场审批：组织 Tool Policy 下不是 Automatic 的工具不进入清单、按名字
+  调用也会被拒绝，`stream` 参数必须是巡检所选的数据流，执行策略固定为只读。
 
 `get_platform_capabilities` 只返回当前调用 surface 可用的 catalog，不泄漏另一入口的私有
 工作流 Tool。

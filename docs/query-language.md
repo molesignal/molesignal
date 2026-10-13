@@ -25,6 +25,20 @@
 索引只影响候选裁剪，最终结果仍由 DataFusion 的行级表达式决定。修改字段配置只影响随后
 写出的 Parquet 文件，不会自动重建历史数据索引。
 
+### 默认索引
+
+字段第一次写入数据流时按下表取得索引类型，之后可在数据流的字段配置里修改。已有数据流里
+已经登记的字段保持原有配置，不随默认值变化。
+
+| 数据流类型 | 默认 `exact` | 默认 `full_text` |
+| --- | --- | --- |
+| 日志 | `_event_id`、`session_id`、`fingerprint`、`country`、`browser`、`application`、`environment` | `message` |
+| Trace | `trace_id`、`span_id`、`parent_span_id`、`service.name` | — |
+| 指标 | 指标名字段 | — |
+
+`_timestamp` 不是数据流 schema 里的字段，没有 `index_type`：每个数据流都按它分区并按查询的
+时间范围裁剪文件。日志与 Trace 的字段列表因此把它和上表的默认字段一起列在「索引字段」下。
+
 ## MATCH(field, term)：通用子串匹配
 
 `MATCH` 是**无门槛**的通用子串函数：字段值包含 `term` 作为连续子串即命中，

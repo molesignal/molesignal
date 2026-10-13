@@ -30,7 +30,7 @@ molesignal takes the third path: **one storage layer (Parquet on object store), 
 | Setup time | 5 min (agents) | 6 hours+ (5 components + Grafana) | **1 cmd `docker compose up`** |
 | OpenTelemetry-native | yes | partial | **yes (9 intake protocols)** |
 | Real-time alerts (<1s) | yes | no (eval interval ≥ scrape interval) | **yes** (`real_time` rules match records on the intake path) |
-| Multi-tenant out-of-box | yes (per-account) | no | **yes (planner-level org rewrite)** |
+| Multi-tenant out-of-box | yes (per-account) | no | **yes (org-scoped queries)** |
 
 > **Status:** early. Released **NOT YET** — currently pre-1.0, looking for first contributors and design partners. See [Status](#status).
 
@@ -149,7 +149,7 @@ OTLP metric type and aggregation metadata are normalized according to the
 
 - **SSO** — OIDC / SAML / LDAP with field mapping and group-role binding
 - **RBAC** — API tokens (`ms_<prefix>_<secret>`) and JWT; per-token role, expiry, last-used tracking
-- **Multi-tenant** — planner-level `org_id` rewrite; cross-org data leak impossible by construction
+- **Multi-tenant** — every query is bound to its organization: file lookup, table registration and stream-ownership checks are all scoped by `org_id`, so a query only ever sees its own organization's data
 - **Audit log** — every mutating operation recorded
 - **Field-level encryption** — AES-256-GCM + cipher root key envelope; VRL `encrypt()` / `decrypt()` builtins
 
@@ -158,6 +158,7 @@ OTLP metric type and aggregation metadata are normalized according to the
 - Natural-language chat interface over your telemetry data (SSE streaming)
 - MCP server for integrating with AI assistants
 - Configurable model providers, toolsets, and prompts per org
+- Scheduled log inspections — save a Logs query and Mole Agent inspects it on a schedule with read-only tools, keeps every report, and notifies the channels you choose when a report says something is wrong ([docs/log-inspection.md](docs/log-inspection.md))
 - Dashboard draft generation from conversation
 
 ### ⌨️ Keyboard-friendly web UI
@@ -250,7 +251,7 @@ Pre-1.0, **early**. Released YYYY-MM-DD.
 | Role-split cluster (router → intake / querier) | ✅ working |
 | Federated query (Arrow Flight) | ✅ working |
 | 3-level cache + disk cache | ✅ working |
-| Multi-tenant planner rewrite | ✅ working |
+| Multi-tenant query isolation (per-org scoping) | ✅ working |
 | Scheduled (SQL / PromQL) + anomaly alerts | ✅ working |
 | Real-time (in-intake) alert matching | ✅ working |
 | Cipher keys + audit | ✅ working |

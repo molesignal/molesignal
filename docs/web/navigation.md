@@ -30,7 +30,9 @@ route breadcrumb/back metadata.
 ## Deep Route Coverage
 
 The initial breadcrumb set covers dashboard create/import/edit/panel pages,
-trace detail and session detail, stream explore, logs inspector,
+trace detail and session detail, stream explore, logs inspector, scheduled log
+inspections (`/logs/inspections` and `/logs/inspections/:id`, reached from the
+AI inspection tab of Logs and kept out of the sidebar),
 intake source drilldowns, pipeline create/import/edit/history/backfill,
 APM overview/service/Transaction/dependency/backend-error/deployment pages,
 independent RUM application/session/page/error/performance/replay/settings flows, Notify management under system settings
@@ -74,3 +76,15 @@ self telemetry: Home, Logs, Metrics, Traces, APM, Profiles, and the Streams
 catalog. Platform administrators use `sys.telemetry.read` for these routes.
 Organization-only collection, stream mutation, dashboards, alerting, pipelines,
 IAM, and RUM remain unavailable in system scope.
+
+Search jobs (`/streams/jobs`) are part of the Streams area: the stream list
+links to the page and the Streams entry stays lit on it. It lists background
+queries and pipeline backfills and asks for `streams.query`, or
+`sys.telemetry.read` in system scope, which is what the jobs API itself asks
+for. A job belongs to whoever submitted it: a reader is shown and may cancel,
+retry, delete or download only their own, and an administrator
+(`org.settings.manage`, or `sys.telemetry.manage` in system scope) those of
+everybody in the organization. The backend enforces this; the page only says
+which of the two lists it is showing. The route catalog has no row for the
+page: the `/streams/:id` row admits it, and the page and its entry check the
+query permission themselves.

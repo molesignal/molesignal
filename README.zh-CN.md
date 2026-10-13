@@ -31,7 +31,7 @@ MoleSignal 走第三条路：**一个存储层（对象存储上的 Parquet）+ 
 | 起步时间 | 5 分钟（配 agent） | 6 小时+（5 个组件 + Grafana） | **`docker compose up` 一行** |
 | OpenTelemetry 原生 | 是 | 部分 | **是（9 个采集协议）** |
 | 实时告警（<1s） | 是 | 否（评估周期 ≥ 抓取周期） | **是**（`real_time` 规则在接入路径上逐条匹配） |
-| 原生多租户 | 是（按账户） | 否 | **是（planner 层 org rewrite）** |
+| 原生多租户 | 是（按账户） | 否 | **是（按组织限定的查询）** |
 
 > **状态：** 早期项目，**尚未正式发布**。目前 pre-1.0，欢迎首批贡献者与设计伙伴。详见 [现状](#现状)。
 
@@ -140,7 +140,7 @@ Vector / Fluent Bit / OTel Collector / Prometheus remote_write 等完整对接�
 
 - **SSO** — OIDC / SAML / LDAP，支持身份字段映射与用户组角色绑定
 - **RBAC** — API token（`ms_<prefix>_<secret>`）与 JWT 并存；per-token 角色、过期、last-used
-- **多租户** — planner 层 `org_id` 强制 rewrite，跨 org 数据零泄漏可能
+- **多租户** — 每次查询都绑定到所属组织：文件查找、表注册与 stream 归属校验都按 `org_id` 限定，查询只会看到自己组织的数据
 - **审计日志** — 覆盖所有写操作
 - **字段级加密** — AES-256-GCM + cipher root key envelope；VRL `encrypt()` / `decrypt()` 内置
 
@@ -149,6 +149,7 @@ Vector / Fluent Bit / OTel Collector / Prometheus remote_write 等完整对接�
 - 基于遥测数据的自然语言对话（SSE 流式）
 - MCP server 对接 AI 助手
 - 按 org 配置 model provider / toolset / prompt
+- 日志定时巡检 —— 保存一条日志查询，Mole Agent 按周期以只读方式巡检并保存每次的报告，报告判定有异常时通知所选渠道（[docs/log-inspection.md](docs/log-inspection.md)）
 - 从对话生成仪表盘草稿
 
 ### ⌨️ 键盘友好的 Web UI
@@ -221,7 +222,7 @@ Pre-1.0，**早期项目**。发布日期 YYYY-MM-DD。
 | 分角色集群（router → intake / querier） | ✅ 已通 |
 | Arrow Flight 联邦查询 | ✅ 已通 |
 | 3 级缓存 + 磁盘缓存 | ✅ 已通 |
-| 多租户 planner rewrite | ✅ 已通 |
+| 多租户查询隔离（按组织限定） | ✅ 已通 |
 | scheduled（SQL / PromQL）+ anomaly 告警 | ✅ 已通 |
 | realtime（入口匹配）告警 | ✅ 已通 |
 | Cipher keys + audit | ✅ 已通 |

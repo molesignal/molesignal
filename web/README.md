@@ -39,6 +39,17 @@ web/src/
 │   ├── UrlHydration.ts      URL → store 同步反序列化
 │   ├── tokens.css           9-color semantic palette（唯一色彩来源）
 │   ├── fonts.css            Alibaba PuHuiTi 3.0 self-host
+│   ├── polish/              收尾层：动效曲线 / 控件按压与主按钮质感 / 排版 / 信号母题 / 卡片聚光（main.tsx 在 tokens.css 之后导入）
+│   ├── PulseLine.tsx        产品 logo 的脉冲线：空状态、加载态与画布母题共用
+│   ├── NavIndicator.tsx     导航“当前项”的滑动指示条：主侧栏与 Settings / Access / Account 子导航共用
+│   ├── ManagementNav.tsx    管理中心子导航：分组成块（分隔线 + 组名，当前组名加深）、当前项滑动指示
+│   ├── PageTitleRow.tsx     标题行：page 为模块标题（标题与说明同一行），section 为子页标题（说明在标题下方、不截断）
+│   ├── signin/              登录页与注册页的共用舞台：居中单栏（logo + 一句主张 + 表单卡片 + 版本号）
+│   ├── tabs/                ModuleTabs（二级：模块内导航，行尾 `end` 放时间范围 / 筛选，`children` 作第二行）与 ViewTabs（三级：页内视图 / 就地筛选）
+│   ├── queryTabs/           Logs / Traces / Metrics 的查询多 Tab：每个 Tab 独立的 URL 参数、时间范围与结果，互不干扰（localStorage 持久化）
+│   ├── query/               探索页共用：QueryWorkbench、Code / Builder 切换（ModeSwitch）、字段筛选构造器（builder/）
+│   ├── readout/             模块首屏的读数：Readout（数字 + 趋势）、Sparkline、SpectrumBar
+│   ├── firstRun/            模块尚无数据时的接入引导面：FirstRun + 各模块插画（art.tsx）
 │   ├── lib/cn.ts            twMerge(clsx(...))
 │   └── ui/                  shadcn 组件源码（18 个，全部 owned source）
 ├── palette/                 ⌘K：cmdk + 静态 action + 远端 search + fuzzy
