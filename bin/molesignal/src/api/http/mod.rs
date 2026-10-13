@@ -13,6 +13,7 @@ use crate::api::AppState;
 pub(crate) mod client_ip;
 pub mod federation;
 pub(crate) mod intake_usage;
+pub(crate) mod interface_language;
 pub mod middleware;
 pub mod pagination;
 pub mod routes;

@@ -24,6 +24,8 @@ const JWT_ISSUER: &str = "molesignal";
 pub mod access;
 mod navigation;
 mod scoped_token;
+#[cfg(test)]
+pub(crate) mod test_support;
 pub use access::{
     IamAccessRequest, IamAccessService, IamAttributes, IamCapabilitySnapshot, IamContextEnricher,
     IamDecision, IamDecisionReason, IamSubject, IamTarget, validate_iam_conditions,
@@ -102,6 +104,21 @@ impl IamService {
 
     /// 签发 JWT；用当前 primary secret。
     pub fn issue_token(&self, user_id: &Id, org_id: &Id) -> Result<String> {
+        self.issue_token_for(user_id, org_id, self.auth.token_ttl_secs)
+    }
+
+    /// 签发只在 `ttl_secs` 内有效的 JWT，给不需要长会话的用途（例如交给无头浏览器渲染一份
+    /// 报表）。有效期不会超过配置的 `token_ttl_secs`。
+    pub fn issue_short_lived_token(
+        &self,
+        user_id: &Id,
+        org_id: &Id,
+        ttl_secs: u64,
+    ) -> Result<String> {
+        self.issue_token_for(user_id, org_id, ttl_secs.min(self.auth.token_ttl_secs))
+    }
+
+    fn issue_token_for(&self, user_id: &Id, org_id: &Id, ttl_secs: u64) -> Result<String> {
         let now = chrono::Utc::now().timestamp() as usize;
 
         let claims = Claims {
@@ -109,7 +126,7 @@ impl IamService {
             org_id: org_id.0.clone(),
             scope: IamScope::Organization,
             iat: now,
-            exp: now + self.auth.token_ttl_secs as usize,
+            exp: now + ttl_secs as usize,
             iss: JWT_ISSUER.to_owned(),
         };
 
@@ -124,8 +141,9 @@ impl IamService {
         .map_err(|e| Error::internal(format!("jwt encode: {e}")))
     }
 
-    /// 平台管理员切换 `_sys` 后签发的短期 token。调用方必须先查询持久化
-    /// platform-administrator assignment；本函数不接受 API token。
+    /// 进入 `_sys` 后签发的短期 token。调用方必须先确认用户可以进入平台组织：
+    /// 持久化的 platform-administrator assignment，或以组织 Owner 身份持有平台权限
+    /// （`IamAccessService::holds_platform_permissions`）；本函数不接受 API token。
     pub fn issue_system_token(&self, user_id: &Id, system_org_id: &Id) -> Result<String> {
         let now = chrono::Utc::now().timestamp() as usize;
 

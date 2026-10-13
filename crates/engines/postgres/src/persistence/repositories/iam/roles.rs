@@ -10,6 +10,7 @@ use sqlx::{PgPool, Row};
 use super::super::sqlx_err;
 use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
+mod owner_catalog;
 mod queries;
 
 use queries::{get_sql, list_sql, list_with_usage_sql};
@@ -57,6 +58,9 @@ impl RoleUsage {
 #[async_trait]
 pub trait IamRoleRepository: Send + Sync {
     async fn ensure_builtin_roles(&self, org_id: &Id) -> Result<()>;
+    /// Keep the owner role holding every permission in the catalog, platform scope included.
+    /// Returns how many assignments were missing. Run at startup, after migrations.
+    async fn grant_catalog_to_organization_owners(&self) -> Result<u64>;
     async fn list(&self, org_id: &Id) -> Result<Vec<IamRole>>;
     async fn list_with_usage(&self, org_id: &Id) -> Result<Vec<IamRoleWithUsage>>;
     async fn get(&self, org_id: &Id, id: &Id) -> Result<IamRole>;
@@ -169,6 +173,10 @@ impl IamRoleRepository for PgIamRoleRepository {
 
         tx.commit().await.map_err(sqlx_err)?;
         Ok(())
+    }
+
+    async fn grant_catalog_to_organization_owners(&self) -> Result<u64> {
+        owner_catalog::grant_catalog_to_organization_owners(&self.pool).await
     }
 
     async fn list(&self, org_id: &Id) -> Result<Vec<IamRole>> {

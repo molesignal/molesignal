@@ -31,12 +31,16 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     api::AppState,
-    app::iam::{IamContext, IamSubject},
+    app::iam::IamContext,
     domain::iam::{IamAssignedRole, IamMembership, IamScope, User, UserStatus},
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
+mod approval_emails;
 mod organizations;
+
+pub(crate) use approval_emails::notify_admins_pending_user;
+use approval_emails::notify_user_decision;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
@@ -250,7 +254,7 @@ async fn approve_user(
         .await?;
 
     let user = state.iam.service.users.get(&target).await?;
-    notify_user_decision(&state, &user.email, true).await;
+    notify_user_decision(&state, &ctx.org_id, &user.email, true).await;
 
     Ok(Json(UserView::from_user(
         user,
@@ -275,108 +279,12 @@ async fn reject_user(
         .await?;
 
     let user = state.iam.service.users.get(&target).await?;
-    notify_user_decision(&state, &user.email, false).await;
+    notify_user_decision(&state, &ctx.org_id, &user.email, false).await;
 
     Ok(Json(UserView::from_user(
         user,
         &state.iam.service.auth_settings().root_email,
     )))
-}
-
-/// 收集拥有成员管理能力的邮箱（审批通知收件人）。
-async fn collect_org_admin_emails(state: &AppState, org_id: &Id) -> Vec<String> {
-    let members = match state.iam.service.iam_memberships.list_for_org(org_id).await {
-        Ok(m) => m,
-        Err(e) => {
-            tracing::warn!(error = %e, "approval-notify: list org members failed");
-            return Vec::new();
-        }
-    };
-
-    let mut emails = Vec::new();
-
-    for m in members {
-        let can_manage_members = state
-            .iam
-            .access
-            .capabilities(&IamSubject {
-                user_id: m.user_id.clone(),
-                organization_id: org_id.clone(),
-                credential_role_id: None,
-                credential_application_id: None,
-                credential_service_account_id: None,
-                scope: IamScope::Organization,
-            })
-            .await
-            .is_ok_and(|capabilities| capabilities.has("org.members.manage"));
-
-        if can_manage_members && let Ok(u) = state.iam.service.users.get(&m.user_id).await {
-            emails.push(u.email);
-        }
-    }
-
-    emails
-}
-
-/// best-effort 通知 org 管理员有新用户待审批（无 SMTP / 失败仅 warn，绝不阻塞注册）。
-pub(crate) async fn notify_admins_pending_user(state: &AppState, org_id: &Id, pending_email: &str) {
-    let Some(sender) = state.iam.email_sender.as_ref() else {
-        return;
-    };
-
-    let admins = collect_org_admin_emails(state, org_id).await;
-
-    if admins.is_empty() {
-        return;
-    }
-
-    let subject = "MoleSignal: a new user is awaiting approval";
-    let base = state.platform.external_url.trim_end_matches('/');
-
-    let body = if base.is_empty() {
-        format!(
-            "A new user has signed up and is awaiting your approval:\n\n  {pending_email}\n\nReview pending registrations in IAM \u{2192} Approvals.\n"
-        )
-    } else {
-        format!(
-            "A new user has signed up and is awaiting your approval:\n\n  {pending_email}\n\nReview: {base}/iam/approvals\n"
-        )
-    };
-
-    if let Err(e) = sender.send_text(&admins, subject, &body).await {
-        tracing::warn!(error = %e, "approval-notify: send to admins failed");
-    }
-}
-
-/// best-effort 通知用户审批结果（无 SMTP / 失败仅 warn）。
-async fn notify_user_decision(state: &AppState, email: &str, approved: bool) {
-    let Some(sender) = state.iam.email_sender.as_ref() else {
-        return;
-    };
-
-    let base = state.platform.external_url.trim_end_matches('/');
-
-    let (subject, body) = if approved {
-        let body = if base.is_empty() {
-            "Good news \u{2014} your registration has been approved. You can now sign in.\n"
-                .to_string()
-        } else {
-            format!(
-                "Good news \u{2014} your registration has been approved. Sign in: {base}/signin\n"
-            )
-        };
-
-        ("MoleSignal: your account has been approved", body)
-    } else {
-        (
-            "MoleSignal: your registration was declined",
-            "Your registration request has been declined by an administrator.\n".to_string(),
-        )
-    };
-
-    if let Err(e) = sender.send_text(&[email.to_string()], subject, &body).await {
-        tracing::warn!(error = %e, approved, "approval-notify: send to user failed");
-    }
 }
 
 async fn get_user(

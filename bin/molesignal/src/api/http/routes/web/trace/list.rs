@@ -27,13 +27,16 @@ use crate::{
 
 mod cursor;
 mod filter;
+pub(super) mod histogram;
 mod projection;
 mod scan;
 mod span_filter;
 
 const DEFAULT_WINDOW_SECS: i64 = 24 * 60 * 60;
 const DEFAULT_TRACE_PAGE_SIZE: usize = 20;
-pub(super) const MAX_TRACE_PAGE_SIZE: usize = 100;
+/// The most traces one answer holds. The Traces explorer offers pages up to this size
+/// (`EXPLORER_PAGE_SIZE_OPTIONS` in the web app), so the two change together.
+pub(super) const MAX_TRACE_PAGE_SIZE: usize = 5_000;
 const MAX_TRACE_FILTERS: usize = 32;
 
 #[derive(Debug, Deserialize)]

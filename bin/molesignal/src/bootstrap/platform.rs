@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use super::{core::Core, query::QueryRuntime, storage::StorageRuntime};
+use super::{core::Core, iam::IamRuntime, query::QueryRuntime, storage::StorageRuntime};
 use crate::{
     config::Settings,
     domain::{function::FunctionRepository, rum::DebugArtifactRepository},
@@ -60,6 +60,7 @@ impl PlatformRuntime {
         core: &Core,
         query: &QueryRuntime,
         storage: &StorageRuntime,
+        iam: &IamRuntime,
     ) -> Result<Self> {
         let connectors: Arc<dyn ConnectorRepository> =
             Arc::new(PgConnectorRepository::new(core.pool.clone()));
@@ -164,7 +165,7 @@ impl PlatformRuntime {
         };
 
         // 定时报告的渲染需要无头 Chrome，由 alert 角色（含 standalone）的节点承担；多个 alert 节点
-        // 按报告分担，开跑前先过运行准入。
+        // 按报告分担，开跑前先过运行准入。报表页以最后保存报表的用户的身份取数。
         let _scheduled_reports_handle = core.roles.run_alert.then(|| {
             Arc::new(
                 crate::bootstrap::workers::scheduled_reports::ScheduledReportRunner::new(
@@ -172,6 +173,10 @@ impl PlatformRuntime {
                     core.store.clone(),
                     report_renderer.clone(),
                     report_renderer_base_url.clone(),
+                    Arc::new(crate::app::reporting::ScheduledReportIdentity::new(
+                        iam.iam.clone(),
+                        iam.access.clone(),
+                    )),
                 )
                 .with_gate(core.alert_run_gate.clone()),
             )

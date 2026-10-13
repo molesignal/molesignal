@@ -16,6 +16,7 @@ use crate::{
         dashboard::{DashboardService, authoring::DashboardAuthoringService},
         iam::{IamAccessService, IamService},
         intake::{FunctionExecutor, IntakeService},
+        log_inspection::LogInspectionService,
         notify::{NotifyEngine, NotifyService},
         profile_storage::ProfileStorageService,
         profiling::ProfilingService,
@@ -32,6 +33,7 @@ use crate::{
             repositories::IncidentRcaRepository, semantic_group::SemanticGroupRepository,
         },
         function::FunctionRepository,
+        i18n_language::I18nLanguageRepository,
         iam::{
             IamPlatformAdministratorRepository, InstanceSettingsRepository, SsoProviderRepository,
             TeamRepository, api_token::ApiTokenRepository,
@@ -85,6 +87,7 @@ use crate::{
             signing_secrets::SigningSecretRepository,
             usage::UsageRepository,
             user_preferences::UserPreferencesRepository,
+            user_ui_preference::UserUiPreferenceRepository,
             web_search::WebSearchRepository,
             workspace_preference_defaults::WorkspacePreferenceDefaultsRepository,
         },
@@ -160,6 +163,7 @@ pub struct IamState {
     pub api_tokens: Arc<dyn ApiTokenRepository>,
     pub service_accounts: Arc<dyn ServiceAccountRepository>,
     pub user_preferences: Arc<dyn UserPreferencesRepository>,
+    pub user_ui_preference: Arc<dyn UserUiPreferenceRepository>,
     pub workspace_preference_defaults: Arc<dyn WorkspacePreferenceDefaultsRepository>,
     pub audit_events: Arc<dyn AuditEventRepository>,
 }
@@ -250,7 +254,11 @@ pub struct ClusterState {
 pub struct PlatformState {
     pub saved_view: Arc<dyn SavedViewRepository>,
     pub external_url: String,
+    /// Text the backend writes itself, such as email subjects and bodies.
+    pub i18n_language: Arc<dyn I18nLanguageRepository>,
     pub scheduled_reports: Arc<dyn ScheduledReportRepository>,
+    /// 定时日志巡检：保存、启停、手动执行与读取报告。
+    pub log_inspections: Arc<LogInspectionService>,
     pub report_templates: Arc<dyn ReportTemplateRepository>,
     pub report_renderer: Option<Arc<dyn ReportRenderer>>,
     pub report_renderer_base_url: String,

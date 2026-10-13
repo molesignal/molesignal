@@ -7,6 +7,7 @@
 //! - [`parquet::writer`]：把 Arrow RecordBatch 序列化为 parquet 并上传
 //! - [`parquet::reader`]：从对象存储下载 parquet 并解析为 Arrow
 //! - [`compactor`]：周期合并小文件 + retention 扫描
+//! - [`org_scoped_store`]：把共享读存储限定到单个组织前缀的只读视图（存储层隔离）
 
 pub mod arrow_schema;
 pub mod compactor;
@@ -17,5 +18,6 @@ pub mod manifest;
 pub mod object;
 pub mod object_gc;
 pub mod object_reader;
+pub mod org_scoped_store;
 pub mod parquet;
 pub mod reconciler;

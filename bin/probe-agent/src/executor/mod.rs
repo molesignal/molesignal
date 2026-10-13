@@ -7,17 +7,18 @@ mod http;
 mod network;
 mod security;
 mod ssh;
+mod timing;
 
 use std::{
     collections::HashMap,
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Instant, SystemTime, UNIX_EPOCH},
 };
 
 use anyhow::{Result, anyhow};
 
+use self::timing::PhaseClock;
 use crate::protocol::v1::{
-    self as wire, AssertionResult, ProbeAttempt, ProbeOutcome, ProbeResult, TimingBreakdown,
-    probe_task,
+    self as wire, AssertionResult, ProbeAttempt, ProbeOutcome, ProbeResult, probe_task,
 };
 
 const MAX_EXCERPT_BYTES: usize = 64 * 1024;
@@ -126,9 +127,14 @@ pub async fn execute(task: wire::ProbeTask, result_sequence: u64) -> Result<Prob
 
     for number in 1..=max_attempts {
         let attempt_started = now_micros();
+        let clock_started = Instant::now();
+        let phases = PhaseClock::default();
         let mut context = ExecutionContext::new(&task);
-        let executed = run_once(&task, &mut context).await;
+        let executed = run_once(&task, &mut context, &phases).await;
         let attempt_finished = now_micros();
+
+        // The total comes off the clock the phases are timed on, so they never add up to more.
+        let timing = phases.breakdown(clock_started.elapsed());
 
         let mut outcome = match executed {
             Ok(outcome) => outcome,
@@ -154,10 +160,7 @@ pub async fn execute(task: wire::ProbeTask, result_sequence: u64) -> Result<Prob
             started_at_micros: attempt_started,
             finished_at_micros: attempt_finished,
             outcome: outcome.outcome as i32,
-            timing: Some(TimingBreakdown {
-                total_micros: Some((attempt_finished - attempt_started).max(0) as u64),
-                ..Default::default()
-            }),
+            timing: Some(timing),
             error_category: outcome.error_category,
             error_message: outcome.error_message,
             bounded_response_excerpt: outcome.response_excerpt.into(),
@@ -230,6 +233,7 @@ pub async fn execute(task: wire::ProbeTask, result_sequence: u64) -> Result<Prob
 async fn run_once(
     task: &wire::ProbeTask,
     context: &mut ExecutionContext,
+    phases: &PhaseClock,
 ) -> Result<AttemptOutcome> {
     let spec = task
         .spec
@@ -237,13 +241,13 @@ async fn run_once(
         .ok_or_else(|| anyhow!("Probe task has no Spec"))?;
 
     match spec {
-        probe_task::Spec::Http(spec) => http::execute(task, spec, context).await,
-        probe_task::Spec::Tcp(spec) => network::execute_tcp(task, spec, context).await,
-        probe_task::Spec::Ssh(spec) => ssh::execute(task, spec, context).await,
-        probe_task::Spec::Dns(spec) => network::execute_dns(task, spec).await,
-        probe_task::Spec::Tls(spec) => network::execute_tls(task, spec).await,
+        probe_task::Spec::Http(spec) => http::execute(task, spec, context, phases).await,
+        probe_task::Spec::Tcp(spec) => network::execute_tcp(task, spec, context, phases).await,
+        probe_task::Spec::Ssh(spec) => ssh::execute(task, spec, context, phases).await,
+        probe_task::Spec::Dns(spec) => network::execute_dns(task, spec, phases).await,
+        probe_task::Spec::Tls(spec) => network::execute_tls(task, spec, phases).await,
         probe_task::Spec::Icmp(spec) => network::execute_icmp(task, spec).await,
-        probe_task::Spec::Grpc(spec) => network::execute_grpc(task, spec).await,
+        probe_task::Spec::Grpc(spec) => network::execute_grpc(task, spec, phases).await,
         probe_task::Spec::Browser(spec) => browser::execute(task, spec, context).await,
     }
 }

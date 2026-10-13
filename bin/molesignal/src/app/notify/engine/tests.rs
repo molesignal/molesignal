@@ -47,8 +47,9 @@ use crate::{
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
+/// 内存里的通知仓储。`service` 里不经策略直接发送的测试也用它。
 #[derive(Default)]
-struct MemoryStore {
+pub(crate) struct MemoryStore {
     connectors: Mutex<HashMap<String, NotifyConnector>>,
     endpoints: Mutex<HashMap<String, UserNotifyEndpoint>>,
     preferences: Mutex<HashMap<String, UserNotifyPreference>>,
@@ -921,7 +922,7 @@ impl ConnectorAdapter for FakeAdapter {
     }
 }
 
-fn connector(org: &Id) -> NotifyConnector {
+pub(crate) fn connector(org: &Id) -> NotifyConnector {
     NotifyConnector {
         id: Id::from_string("connector-a"),
         organization_id: org.clone(),

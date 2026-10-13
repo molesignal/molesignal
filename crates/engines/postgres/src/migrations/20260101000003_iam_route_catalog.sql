@@ -261,6 +261,10 @@ INSERT INTO iam_route_seed VALUES
     ('agent', '/agent', 'organization', 'all', 'ai_ops', 10, TRUE, ARRAY['agent.use']::TEXT[]),
     ('agent.section', '/agent/:section', 'organization', 'all', NULL, NULL, TRUE, ARRAY['agent.use']::TEXT[]),
     ('agent.detail', '/agent/:section/:id', 'organization', 'all', NULL, NULL, TRUE, ARRAY['agent.use']::TEXT[]),
+    -- Scheduled log inspections are run by Mole Agent and their reports quote logs:
+    -- reading them takes both permissions. They are reached from the Logs page.
+    ('logs.inspections', '/logs/inspections', 'organization', 'all', NULL, NULL, TRUE, ARRAY['agent.use', 'streams.query']::TEXT[]),
+    ('logs.inspection.detail', '/logs/inspections/:id', 'organization', 'all', NULL, NULL, TRUE, ARRAY['agent.use', 'streams.query']::TEXT[]),
 
     -- Organization IAM and settings.
     ('iam', '/iam', 'any', 'any', NULL, NULL, TRUE, ARRAY['org.members.read', 'iam.roles.read', 'iam.policies.read', 'api_tokens.read', 'service_accounts.read', 'org.settings.read', 'sys.organizations.manage']::TEXT[]),

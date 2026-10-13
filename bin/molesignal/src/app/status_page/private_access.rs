@@ -7,19 +7,19 @@ use serde::Serialize;
 use url::Url;
 
 use super::{
-    MICROS_PER_DAY, StatusPageAccessRuleInput, StatusPageService,
+    MICROS_PER_DAY, StatusPageAccessRuleInput, StatusPageService, notification_copy,
     validation::normalize_domain_lookup,
 };
 use crate::{
     domain::status_page::{
         StatusPage, StatusPageAccessRule, StatusPageAccessSession, StatusPageDomainState,
-        StatusPageMagicLinkExchange, StatusPageNotificationMessage, StatusPageSubscriberChannel,
-        StatusPageVisibility,
+        StatusPageMagicLinkExchange, StatusPageSubscriberChannel, StatusPageVisibility,
     },
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
-const MAGIC_LINK_TTL_MICROS: i64 = 15 * 60 * 1_000_000;
+const MICROS_PER_MINUTE: i64 = 60 * 1_000_000;
+const MAGIC_LINK_TTL_MICROS: i64 = 15 * MICROS_PER_MINUTE;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct StatusPageAccessRequestOutcome {
@@ -184,24 +184,27 @@ impl StatusPageService {
             }
         };
 
+        let copy = self.language_pack(&page.language).await.and_then(|pack| {
+            let valid_minutes = MAGIC_LINK_TTL_MICROS / MICROS_PER_MINUTE;
+            notification_copy::access_link(&pack, &page.name, &access_url, valid_minutes)
+        });
+
+        let copy = match copy {
+            Ok(copy) => copy,
+            Err(error) => {
+                tracing::error!(status_page_id = %page.id, error = %error, "private status-page access email could not be written");
+                return Ok(StatusPageAccessRequestOutcome { accepted: true });
+            }
+        };
+
+        let message = copy.with_payload(serde_json::json!({
+            "type": "status_page_magic_link",
+            "page_slug": page.slug,
+            "access_url": access_url,
+        }));
+
         if let Err(error) = sender
-            .send(
-                StatusPageSubscriberChannel::Email,
-                &email,
-                &StatusPageNotificationMessage {
-                    title: format!("Access {}", page.name),
-                    text: format!(
-                        "Use this one-time link within 15 minutes to access {name}:\n{url}",
-                        name = page.name,
-                        url = access_url
-                    ),
-                    payload: serde_json::json!({
-                        "type": "status_page_magic_link",
-                        "page_slug": page.slug,
-                        "access_url": access_url,
-                    }),
-                },
-            )
+            .send(StatusPageSubscriberChannel::Email, &email, &message)
             .await
         {
             tracing::error!(status_page_id = %page.id, error = %error, "private status-page access email delivery failed");

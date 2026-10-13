@@ -19,7 +19,7 @@ use crate::{
     },
     infra::{
         query::{catalog_source::CatalogQuerySource, parquet_table::PrunedParquetTable},
-        storage::parquet::reader::ParquetReader,
+        storage::{org_scoped_store::scoped_to_org, parquet::reader::ParquetReader},
     },
     shared::{Error, Result},
 };
@@ -83,6 +83,8 @@ pub(super) async fn run(
         return Ok(Vec::new());
     }
 
+    // 本地扫描只读请求组织自己的对象前缀。
+    let object_store = &scoped_to_org(object_store.clone(), &request.org_id);
     let reader = ParquetReader::new(object_store.clone());
 
     let schema = match streams {

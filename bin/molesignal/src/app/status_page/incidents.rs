@@ -20,6 +20,25 @@ use crate::{
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
+/// New maintenance starts by itself at its planned start and reminds
+/// subscribers an hour before it, unless the request says otherwise.
+const DEFAULT_MAINTENANCE_AUTO_START: bool = true;
+const DEFAULT_MAINTENANCE_REMINDER_MINUTES: i32 = 60;
+
+/// Whether an event starts by itself, and how many minutes ahead it reminds
+/// subscribers. An incident does neither.
+fn planned_options(input: &StatusPageIncidentInput) -> (bool, i32) {
+    match input.kind {
+        StatusPageIncidentKind::Maintenance => (
+            input.auto_start.unwrap_or(DEFAULT_MAINTENANCE_AUTO_START),
+            input
+                .reminder_minutes
+                .unwrap_or(DEFAULT_MAINTENANCE_REMINDER_MINUTES),
+        ),
+        StatusPageIncidentKind::Incident => (false, 0),
+    }
+}
+
 impl StatusPageService {
     pub async fn get_event(
         &self,
@@ -82,6 +101,7 @@ impl StatusPageService {
         }
 
         input.publication_state = StatusPagePublicationState::Draft;
+        input.keep_planned_options_of(&existing);
 
         let incident = self
             .materialize_incident(
@@ -122,6 +142,7 @@ impl StatusPageService {
         }
 
         input.publication_state = StatusPagePublicationState::Published;
+        input.keep_planned_options_of(&existing);
         let now = TimestampMicros::now();
 
         let mut incident = self
@@ -179,6 +200,7 @@ impl StatusPageService {
         input.status = crate::domain::status_page::PublicIncidentStatus::Scheduled;
         input.publication_state = StatusPagePublicationState::Published;
         input.source_incident_id = None;
+        input.keep_planned_options_of(&existing);
         let now = TimestampMicros::now();
 
         let mut revised = self
@@ -214,6 +236,7 @@ impl StatusPageService {
         input: StatusPageIncidentInput,
     ) -> Result<StatusPageIncident> {
         validate_incident_input(&input)?;
+        let (auto_start, reminder_minutes) = planned_options(&input);
         let source_started_at = self.validate_source_incident(org_id, &input).await?;
 
         let component_ids = self
@@ -275,6 +298,8 @@ impl StatusPageService {
             updates,
             started_at,
             ended_at: None,
+            auto_start,
+            reminder_minutes,
             published_at: (input.publication_state == StatusPagePublicationState::Published)
                 .then_some(now),
             created_at,
@@ -413,5 +438,83 @@ impl StatusPageService {
         self.repository
             .list_status_events(org_id, page_id, kind, view, limit)
             .await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::status_page::{IncidentImpact, PublicIncidentStatus};
+
+    fn input(kind: StatusPageIncidentKind) -> StatusPageIncidentInput {
+        StatusPageIncidentInput {
+            source_incident_id: None,
+            kind,
+            title: "Database upgrade".into(),
+            impact: IncidentImpact::Maintenance,
+            status: PublicIncidentStatus::Scheduled,
+            publication_state: StatusPagePublicationState::Published,
+            message: Some("Writes can take a few seconds longer.".into()),
+            component_ids: Vec::new(),
+            started_at: None,
+            auto_start: None,
+            reminder_minutes: None,
+        }
+    }
+
+    fn maintenance(auto_start: bool, reminder_minutes: i32) -> StatusPageIncident {
+        StatusPageIncident {
+            id: Id("maintenance".into()),
+            org_id: Id("org".into()),
+            status_page_id: Id("page".into()),
+            source_incident_id: None,
+            kind: StatusPageIncidentKind::Maintenance,
+            title: "Database upgrade".into(),
+            impact: IncidentImpact::Maintenance,
+            status: PublicIncidentStatus::Scheduled,
+            publication_state: StatusPagePublicationState::Published,
+            draft_message: None,
+            component_ids: Vec::new(),
+            updates: Vec::new(),
+            started_at: TimestampMicros(10),
+            ended_at: None,
+            auto_start,
+            reminder_minutes,
+            published_at: Some(TimestampMicros(1)),
+            created_at: TimestampMicros(1),
+            updated_at: TimestampMicros(1),
+        }
+    }
+
+    #[test]
+    fn new_maintenance_starts_by_itself_and_reminds_an_hour_ahead() {
+        let named_nothing = input(StatusPageIncidentKind::Maintenance);
+        assert_eq!(planned_options(&named_nothing), (true, 60));
+
+        let mut opted_out = input(StatusPageIncidentKind::Maintenance);
+        opted_out.auto_start = Some(false);
+        opted_out.reminder_minutes = Some(0);
+        assert_eq!(planned_options(&opted_out), (false, 0));
+    }
+
+    #[test]
+    fn an_incident_neither_starts_by_itself_nor_reminds() {
+        let mut incident = input(StatusPageIncidentKind::Incident);
+        incident.auto_start = Some(true);
+        incident.reminder_minutes = Some(120);
+
+        assert_eq!(planned_options(&incident), (false, 0));
+    }
+
+    #[test]
+    fn an_edit_that_names_no_option_keeps_what_the_maintenance_has() {
+        let mut unnamed = input(StatusPageIncidentKind::Maintenance);
+        unnamed.keep_planned_options_of(&maintenance(false, 0));
+        assert_eq!(planned_options(&unnamed), (false, 0));
+
+        let mut named = input(StatusPageIncidentKind::Maintenance);
+        named.reminder_minutes = Some(1_440);
+        named.keep_planned_options_of(&maintenance(false, 0));
+        assert_eq!(planned_options(&named), (false, 1_440));
     }
 }

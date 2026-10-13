@@ -10,7 +10,11 @@
 //! - `GET /scheduled_reports/{id}/preview` handler（即时预览，api）。
 //!
 //! png / pdf 的 headless 渲染是付费版能力（headless Chrome），单独在 worker 侧叠加，
-//! 不在本模块。
+//! 不在本模块；renderer 要加载的页面地址由 [`render_page_url`] 给出。
+
+mod page_url;
+
+pub use page_url::render_page_url;
 
 use crate::{
     infra::persistence::repositories::scheduled_reports::ScheduledReport,
@@ -97,6 +101,7 @@ mod tests {
             format: format.into(),
             time_range_json: json!({ "from": "now-7d", "to": "now" }),
             enabled: true,
+            run_as_user_id: None,
             last_run_at: None,
             created_at: TimestampMicros(0),
             updated_at: TimestampMicros(0),

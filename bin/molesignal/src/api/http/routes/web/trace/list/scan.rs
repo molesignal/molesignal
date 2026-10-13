@@ -11,9 +11,12 @@ use arrow::{
 };
 use futures::StreamExt;
 
+pub(super) mod count;
 mod files;
+mod top;
 
 use files::{file_may_match_cursor, file_may_match_filters, order_files, remaining_cannot_beat};
+use top::TopTraces;
 
 use super::{TraceListContext, TraceListRow, TraceListSort};
 #[cfg(test)]
@@ -24,7 +27,10 @@ use crate::{
         storage::{DatasetTypeId, type_id::builtin},
         stream::FieldType,
     },
-    infra::storage::parquet::reader::{ParquetReader, ReadOptions},
+    infra::storage::{
+        org_scoped_store::scoped_to_org,
+        parquet::reader::{ParquetReader, ReadOptions},
+    },
     shared::{
         Error, Result,
         ids::Id,
@@ -49,6 +55,9 @@ const COLUMNS: &[&str] = &[
     TRACE_SUMMARY_SPAN_COUNT_FIELD,
     TRACE_SUMMARY_ERROR_COUNT_FIELD,
 ];
+
+/// The columns free text is looked for in.
+const TEXT_COLUMNS: [&str; 5] = ["trace_id", "span_id", "service.name", "name", "status_code"];
 
 pub(super) async fn run(
     state: &AppState,
@@ -85,8 +94,9 @@ pub(super) async fn run(
         .map(|dataset| dataset.buffered_batches.clone())
         .unwrap_or_default();
 
-    let reader = ParquetReader::new(state.storage.read_store.clone());
-    let mut top = Vec::with_capacity(fetch_limit);
+    let store = scoped_to_org(state.storage.read_store.clone(), org_id);
+    let reader = ParquetReader::new(store.clone());
+    let mut top = TopTraces::new(context, fetch_limit);
 
     let from_ns = context
         .from
@@ -105,7 +115,7 @@ pub(super) async fn run(
     // They therefore participate in Top-K without the file-order early-stop optimization.
     for batch in &buffered_batches {
         scanned_rows += batch.num_rows();
-        collect_batch(batch, context, from_ns, to_ns, fetch_limit, &mut top, false)?;
+        collect_batch(batch, context, from_ns, to_ns, &mut top, false)?;
     }
 
     while let Some(file) = files.pop_front() {
@@ -119,7 +129,7 @@ pub(super) async fn run(
             .with_known_size(file.size_bytes);
 
         let mut batches = match reader
-            .stream_from_store(state.storage.read_store.clone(), &file.object_key, options)
+            .stream_from_store(store.clone(), &file.object_key, options)
             .await
         {
             Ok(stream) => stream,
@@ -136,21 +146,24 @@ pub(super) async fn run(
             let batch = batch?;
             scanned_rows += batch.num_rows();
 
-            if collect_batch(&batch, context, from_ns, to_ns, fetch_limit, &mut top, true)? {
+            if collect_batch(&batch, context, from_ns, to_ns, &mut top, true)? {
                 break;
             }
         }
 
-        if top.len() >= fetch_limit
+        // The next file is judged against the worst of the best, so the kept rows are cut to them first.
+        top.settle();
+
+        if top.is_full()
             && files
                 .front()
-                .is_some_and(|next| remaining_cannot_beat(next, context, &top))
+                .is_some_and(|next| remaining_cannot_beat(next, context, top.rows()))
         {
             break;
         }
     }
 
-    top.sort_by(|left, right| effective_cmp(left, right, context));
+    let top = top.into_sorted();
     tracing::debug!(
         scanned_files,
         scanned_rows,
@@ -166,8 +179,7 @@ fn collect_batch(
     context: &TraceListContext,
     from_ns: i64,
     to_ns: i64,
-    limit: usize,
-    top: &mut Vec<TraceListRow>,
+    top: &mut TopTraces<'_>,
     allow_physical_short_circuit: bool,
 ) -> Result<bool> {
     let physically_ordered =
@@ -214,16 +226,10 @@ fn collect_batch(
         if matches_text_and_filters(batch, row_index, context)
             && matches_cursor(&candidate, context)
         {
-            push_top_k(top, candidate.clone(), limit, context);
+            top.offer(candidate.clone());
         }
 
-        if physically_ordered
-            && top.len() >= limit
-            && top
-                .iter()
-                .max_by(|left, right| effective_cmp(left, right, context))
-                .is_some_and(|worst| effective_cmp(&candidate, worst, context) != Ordering::Less)
-        {
+        if physically_ordered && top.cannot_enter(&candidate) {
             // Trace-summary files are physically sorted by the exact
             // `(start_ns, trace_id)` tuple. Once the current row is no better
             // than the retained worst row, no later row in this file can enter
@@ -244,40 +250,6 @@ fn physical_order_matches_effective(context: &TraceListContext) -> bool {
         (TraceListSort::Latest, None | Some(CursorDirection::After))
             | (TraceListSort::Earliest, Some(CursorDirection::Before))
     )
-}
-
-fn push_top_k(
-    top: &mut Vec<TraceListRow>,
-    candidate: TraceListRow,
-    limit: usize,
-    context: &TraceListContext,
-) {
-    if let Some(existing) = top
-        .iter()
-        .position(|row| row.item.trace_id == candidate.item.trace_id)
-    {
-        if effective_cmp(&candidate, &top[existing], context) == Ordering::Less {
-            top[existing] = candidate;
-        }
-
-        return;
-    }
-
-    if top.len() < limit {
-        top.push(candidate);
-        return;
-    }
-
-    let worst = top
-        .iter()
-        .enumerate()
-        .max_by(|(_, left), (_, right)| effective_cmp(left, right, context))
-        .map(|(index, _)| index)
-        .unwrap_or_default();
-
-    if effective_cmp(&candidate, &top[worst], context) == Ordering::Less {
-        top[worst] = candidate;
-    }
 }
 
 fn canonical_cmp(left: &TraceListRow, right: &TraceListRow, sort: TraceListSort) -> Ordering {
@@ -364,7 +336,7 @@ fn matches_cursor(row: &TraceListRow, context: &TraceListContext) -> bool {
 
 fn matches_text_and_filters(batch: &RecordBatch, row: usize, context: &TraceListContext) -> bool {
     let values = || {
-        ["trace_id", "span_id", "service.name", "name", "status_code"]
+        TEXT_COLUMNS
             .into_iter()
             .filter_map(|field| string_at(batch, field, row))
     };
@@ -552,16 +524,15 @@ mod tests {
     #[test]
     fn latest_top_k_uses_trace_id_as_stable_tie_breaker() {
         let context = context(TraceListSort::Latest);
-        let mut top = Vec::new();
+        let mut top = TopTraces::new(&context, 2);
         for candidate in [
             row("a", 10, 1, 1, 0),
             row("b", 20, 1, 1, 0),
             row("c", 20, 1, 1, 0),
         ] {
-            push_top_k(&mut top, candidate, 2, &context);
+            top.offer(candidate);
         }
-        top.sort_by(|left, right| effective_cmp(left, right, &context));
-        assert_eq!(ids(&top), vec!["c", "b"]);
+        assert_eq!(ids(&top.into_sorted()), vec!["c", "b"]);
     }
 
     #[test]
@@ -580,9 +551,10 @@ mod tests {
     #[test]
     fn top_k_collapses_retried_trace_summary_rows() {
         let context = context(TraceListSort::Latest);
-        let mut top = Vec::new();
-        push_top_k(&mut top, row("same", 10, 1, 1, 0), 2, &context);
-        push_top_k(&mut top, row("same", 20, 2, 2, 1), 2, &context);
+        let mut top = TopTraces::new(&context, 2);
+        top.offer(row("same", 10, 1, 1, 0));
+        top.offer(row("same", 20, 2, 2, 1));
+        let top = top.into_sorted();
         assert_eq!(top.len(), 1);
         assert_eq!(top[0].item.start_ns, 20);
     }

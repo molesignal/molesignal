@@ -2,6 +2,8 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 pub mod build_info;
+#[cfg(test)]
+pub mod i18n_language_seed;
 
 pub use signals::{
     grpc_trace, http_trace, metrics, rendezvous, self_telemetry, tail_sampling, telemetry, trace,

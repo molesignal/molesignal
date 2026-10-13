@@ -8,6 +8,7 @@
 
 pub mod admission_load_sync;
 pub mod cluster;
+pub mod log_inspection;
 pub mod pipeline_exec;
 pub mod polling;
 pub mod rca_sweeper;
@@ -18,6 +19,7 @@ pub mod service_graph;
 pub mod slow_query_analyzer;
 pub mod status_page_maintenance;
 pub mod status_page_notifications;
+pub mod status_page_planned_maintenance;
 pub mod storage_maintenance;
 pub mod synthetics;
 

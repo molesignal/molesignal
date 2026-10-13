@@ -3,8 +3,10 @@
 
 //! Instance info HTTP：暴露部署级（非用户级）配置给前端。
 //!
-//! - `GET /api/v1/instance` → `{ external_url, signup_enabled, version, release_channel }`
-//!   数据源/RUM 接入页用它拼真实 intake URL（留空时前端按访问来源推导）。
+//! - `GET /api/v1/instance` → `{ external_url, signup_enabled, version }`
+//!   数据源/RUM 接入页用它拼真实 intake URL（留空时前端按访问来源推导）；登录页读
+//!   `signup_enabled` 与 `version`。该接口无需认证，所以只给这三项：发布通道、commit、
+//!   branch 等部署细节只出现在已认证的 `GET /api/v1/version`（前端「关于」弹窗）里。
 
 use axum::{Extension, Json, Router, extract::State, routing::get};
 use serde::{Deserialize, Serialize};
@@ -13,7 +15,7 @@ use crate::{
     api::{AppState, http::client_ip},
     app::iam::IamContext,
     domain::iam::{ClientIpResolverSettings, permission},
-    shared::{Error, Result, build_info, time::TimestampMicros},
+    shared::{Error, Result, time::TimestampMicros},
 };
 
 pub fn routes() -> Router<AppState> {
@@ -40,9 +42,8 @@ pub struct InstanceResp {
     pub external_url: String,
     /// 是否开放自助注册：signin 页据此显示「注册」入口（公开读，无需认证）。
     pub signup_enabled: bool,
-    /// 产品版本与部署发布通道：signin 页公开展示，不包含 commit/branch。
+    /// 产品版本：signin 页公开展示；不含发布通道、commit、branch（见模块文档）。
     pub version: &'static str,
-    pub release_channel: &'static str,
 }
 
 async fn get_instance(State(state): State<AppState>) -> Result<Json<InstanceResp>> {
@@ -58,7 +59,6 @@ async fn get_instance(State(state): State<AppState>) -> Result<Json<InstanceResp
         external_url: state.platform.external_url.clone(),
         signup_enabled,
         version: env!("MOLESIGNAL_PRODUCT_VERSION"),
-        release_channel: build_info::release_channel(),
     }))
 }
 
@@ -241,4 +241,30 @@ async fn put_client_ip(
     // 本节点立即生效；其它节点由后台数据库快照刷新接收变更。
     resolver.replace(&updated.rum_client_ip_resolver)?;
     Ok(Json(updated.rum_client_ip_resolver))
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::InstanceResp;
+
+    #[test]
+    fn public_instance_info_exposes_only_url_signup_and_version() {
+        let resp = InstanceResp {
+            external_url: "https://signal.example.com".to_string(),
+            signup_enabled: true,
+            version: "26.0.0.0",
+        };
+
+        // 公开接口不带发布通道：登录页只展示版本号，部署成熟度留给已认证的 /version。
+        assert_eq!(
+            serde_json::to_value(&resp).expect("instance response serializes"),
+            json!({
+                "external_url": "https://signal.example.com",
+                "signup_enabled": true,
+                "version": "26.0.0.0",
+            }),
+        );
+    }
 }

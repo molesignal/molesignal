@@ -201,7 +201,10 @@ fn migration(version: i64, description: &'static str, sql: &'static str) -> Migr
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::BTreeSet, path::Path};
+    use std::{
+        collections::{BTreeMap, BTreeSet},
+        path::Path,
+    };
 
     use super::*;
 
@@ -294,6 +297,98 @@ mod tests {
         assert!(INITIAL_SQL.contains("delivery_retention_days"));
         assert!(IAM_ROUTE_CATALOG_SQL.contains("'status.pages', '/status-pages'"));
         assert!(IAM_ROUTE_CATALOG_SQL.contains("'reliability', 30"));
+    }
+
+    #[test]
+    fn status_page_notifications_skip_hidden_components_and_carry_event_times() {
+        let component = effective_function("enqueue_status_page_component_notification");
+        assert!(component.contains("AND component.lifecycle = 'active'"));
+        assert!(component.contains("AND component.visibility = 'enabled'"));
+
+        let incident = effective_function("enqueue_status_page_incident_notification");
+        assert!(incident.contains("'started_at', incident.started_at_micros"));
+        assert!(incident.contains("'ended_at', incident.ended_at_micros"));
+
+        // Every path that names components to subscribers goes through one function.
+        let named_through = "'component_names', status_page_event_component_names(";
+        assert!(incident.contains(named_through));
+        assert!(!incident.contains("status_page_components"));
+
+        let reminder = include_str!("repositories/status_pages/planned_maintenance.rs");
+        assert!(reminder.contains(named_through));
+        assert!(!reminder.contains("status_page_components"));
+
+        let (_, names) = INITIAL_SQL
+            .split_once("CREATE FUNCTION status_page_event_component_names(")
+            .expect("component name function");
+
+        let names = &names[..names
+            .find("$$ LANGUAGE sql STABLE;")
+            .expect("end of the function")];
+        assert!(names.contains("AND component.visibility = 'enabled'"));
+        assert!(names.contains("AND component.lifecycle = 'active'"));
+    }
+
+    #[test]
+    fn planned_maintenance_options_default_to_off_in_the_schema() {
+        assert!(INITIAL_SQL.contains("ADD COLUMN auto_start BOOLEAN NOT NULL DEFAULT FALSE"));
+        assert!(INITIAL_SQL.contains("ADD COLUMN reminder_minutes INTEGER NOT NULL DEFAULT 0"));
+        assert!(INITIAL_SQL.contains("ADD COLUMN reminded_start_micros BIGINT"));
+        assert!(INITIAL_SQL.contains("chk_status_page_incident_planned_kind"));
+        assert!(INITIAL_SQL.contains("idx_status_page_incidents_planned"));
+    }
+
+    #[test]
+    fn backend_language_entries_are_seeded_once_in_every_language() {
+        assert!(INITIAL_SQL.contains("CREATE TABLE i18n_language"));
+        assert!(INITIAL_SQL.contains("PRIMARY KEY (language_key, language_code)"));
+
+        let (_, seed) = INITIAL_SQL
+            .split_once("INSERT INTO i18n_language")
+            .expect("i18n_language seed");
+
+        let seed = &seed[..seed.find(") AS seed(").expect("end of the seed")];
+
+        let entry = regex::Regex::new(r"(?m)^\s*\('([a-z0-9_.]+)', '([a-z0-9-]+)', E?'")
+            .expect("valid language entry regex");
+
+        let mut codes_by_key: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
+
+        for seeded in entry.captures_iter(seed) {
+            let key = seeded.get(1).expect("language key").as_str();
+            let code = seeded.get(2).expect("language code").as_str();
+            codes_by_key.entry(key).or_default().push(code);
+        }
+
+        assert!(
+            !codes_by_key.is_empty(),
+            "no seeded language entry was read"
+        );
+
+        for (key, codes) in codes_by_key {
+            assert_eq!(
+                codes,
+                ["en-us", "zh-cn"],
+                "{key} must be seeded once in English and once in Chinese"
+            );
+        }
+    }
+
+    /// The last definition of a trigger function in the baseline is the one that runs.
+    fn effective_function(name: &str) -> &'static str {
+        let header = format!("CREATE OR REPLACE FUNCTION {name}()");
+
+        let start = INITIAL_SQL
+            .rfind(&header)
+            .expect("the baseline redefines the function");
+
+        let definition = &INITIAL_SQL[start..];
+
+        let end = definition
+            .find("$$ LANGUAGE plpgsql;")
+            .expect("function terminator");
+
+        &definition[..end]
     }
 
     #[test]

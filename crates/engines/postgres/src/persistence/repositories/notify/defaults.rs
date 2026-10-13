@@ -316,6 +316,17 @@ impl NotifyRouteReferenceRepository for PgNotifyRouteReferenceRepository {
                                  WHERE configured.connector_id = $2
                             )
                         )
+                 )
+                 +
+                 (
+                     SELECT COUNT(*)
+                       FROM log_inspections AS inspection
+                      WHERE inspection.org_id = $1
+                        AND EXISTS (
+                            SELECT 1
+                              FROM jsonb_array_elements(inspection.notify_routes) AS route
+                             WHERE route ->> 'connector_id' = $2
+                        )
                  )",
         )
         .bind(&organization_id.0)

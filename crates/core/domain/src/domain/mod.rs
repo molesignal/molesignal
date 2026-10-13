@@ -23,8 +23,10 @@ pub mod cluster;
 pub mod dashboard;
 pub mod federation;
 pub mod function;
+pub mod i18n_language;
 pub mod iam;
 pub mod intake;
+pub mod log_inspection;
 
 pub mod masking;
 pub mod metrics;

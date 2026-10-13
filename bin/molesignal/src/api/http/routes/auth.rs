@@ -9,11 +9,16 @@ use sha2::{Digest, Sha256};
 use crate::{
     api::AppState,
     app::iam::hash_password,
-    domain::iam::{IamAssignedRole, Organization, PLATFORM_ADMINISTRATOR_ROLE_PURPOSE, UserStatus},
+    domain::{
+        i18n_language::LanguagePack,
+        iam::{IamAssignedRole, Organization, PLATFORM_ADMINISTRATOR_ROLE_PURPOSE, UserStatus},
+    },
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 const PASSWORD_RESET_TTL_MICROS: i64 = 30 * 60 * 1_000_000;
+/// 重置邮件的主题与正文在 `i18n_language` 表里的键前缀。
+const RESET_EMAIL_KEY: &str = "auth.email.password_reset";
 const PASSWORD_RESET_COOLDOWN_MICROS: i64 = 60 * 1_000_000;
 const MIN_PASSWORD_CHARS: usize = 8;
 const MAX_PASSWORD_CHARS: usize = 256;
@@ -287,6 +292,20 @@ async fn forgot_password(
         }
     };
 
+    // 先取文案：取不到就没有邮件可发，不必签发一个只会占用冷却时间的令牌。
+    let copy = match state
+        .platform
+        .i18n_language
+        .load_pack(RESET_EMAIL_KEY, reset_language(req.locale.as_deref()))
+        .await
+    {
+        Ok(copy) => copy,
+        Err(error) => {
+            tracing::warn!(error = %error, "password-reset: email copy could not be read");
+            return accepted();
+        }
+    };
+
     let raw_token = generate_reset_token();
     let token_hash = hash_reset_token(&raw_token);
     let now = TimestampMicros::now();
@@ -317,11 +336,19 @@ async fn forgot_password(
 
     // 放在 URL fragment 中，浏览器不会把原始令牌发送到 Web 服务器访问日志或 Referrer。
     let reset_url = format!("{base_url}/signin#reset_token={raw_token}");
-    let (subject, body) = reset_email(req.locale.as_deref(), &reset_url);
+
+    let (subject, body) = match reset_email(&copy, &reset_url) {
+        Ok(email) => email,
+        Err(error) => {
+            tracing::warn!(error = %error, "password-reset: email could not be written");
+            return accepted();
+        }
+    };
+
     let sender = sender.clone();
 
     crate::shared::trace_context::spawn_with_current_trace_context(async move {
-        if let Err(error) = sender.send_text(&[user.email], subject, &body).await {
+        if let Err(error) = sender.send_text(&[user.email], &subject, &body).await {
             tracing::warn!(error = %error, "password-reset: email send failed");
         }
     });
@@ -402,22 +429,24 @@ fn hash_reset_token(token: &str) -> String {
     hex::encode(Sha256::digest(token.as_bytes()))
 }
 
-fn reset_email(locale: Option<&str>, reset_url: &str) -> (&'static str, String) {
+/// 请求里的 locale 归一为语言表里的语言代码：`zh` 开头用中文，其余用英文。
+fn reset_language(locale: Option<&str>) -> &'static str {
     if locale.is_some_and(|locale| locale.to_ascii_lowercase().starts_with("zh")) {
-        (
-            "MoleSignal：重置你的密码",
-            format!(
-                "我们收到了你的密码重置请求。\n\n请在 30 分钟内打开以下链接设置新密码：\n{reset_url}\n\n如果这不是你的操作，请忽略本邮件；你的密码不会发生变化。\n"
-            ),
-        )
+        "zh-cn"
     } else {
-        (
-            "MoleSignal: reset your password",
-            format!(
-                "We received a request to reset your password.\n\nOpen the link below within 30 minutes to choose a new password:\n{reset_url}\n\nIf you did not request this, you can ignore this email. Your password will not change.\n"
-            ),
-        )
+        "en-us"
     }
+}
+
+/// 重置邮件的主题与正文。文案来自 `i18n_language` 表，这里只填入链接和有效期。
+fn reset_email(copy: &LanguagePack, reset_url: &str) -> Result<(String, String)> {
+    let minutes = (PASSWORD_RESET_TTL_MICROS / 60_000_000).to_string();
+    let fills = [("reset_url", reset_url), ("minutes", minutes.as_str())];
+
+    Ok((
+        copy.render(&format!("{RESET_EMAIL_KEY}.subject"), &fills)?,
+        copy.render(&format!("{RESET_EMAIL_KEY}.body"), &fills)?,
+    ))
 }
 
 #[cfg(test)]
@@ -448,10 +477,22 @@ mod password_reset_tests {
     }
 
     #[test]
-    fn reset_email_is_localized() {
-        let (_, zh) = reset_email(Some("zh-CN"), "https://example.test/reset");
-        let (_, en) = reset_email(Some("en-US"), "https://example.test/reset");
-        assert!(zh.contains("30 分钟"));
-        assert!(en.contains("30 minutes"));
+    fn reset_email_is_written_in_the_requested_language() {
+        use crate::shared::i18n_language_seed::seeded_pack;
+
+        assert_eq!(reset_language(Some("zh-CN")), "zh-cn");
+        assert_eq!(reset_language(Some("en-US")), "en-us");
+        assert_eq!(reset_language(None), "en-us");
+
+        let url = "https://example.test/signin#reset_token=abc";
+        let (zh_subject, zh) = reset_email(&seeded_pack(RESET_EMAIL_KEY, "zh-cn"), url).unwrap();
+        let (en_subject, en) = reset_email(&seeded_pack(RESET_EMAIL_KEY, "en-us"), url).unwrap();
+
+        assert_eq!(zh_subject, "MoleSignal：重置你的密码");
+        assert_eq!(en_subject, "MoleSignal: reset your password");
+        assert!(zh.contains(
+            "请在 30 分钟内打开以下链接设置新密码：\nhttps://example.test/signin#reset_token=abc\n"
+        ));
+        assert!(en.contains("within 30 minutes to choose a new password:\nhttps://example.test/signin#reset_token=abc\n"));
     }
 }

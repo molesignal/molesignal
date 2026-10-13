@@ -240,6 +240,13 @@ impl ToolSpec {
         self
     }
 
+    /// Also offer this tool to unattended automation, which has nobody to
+    /// approve a call: only read-only tools may declare it.
+    pub fn automation(mut self) -> Self {
+        self.exposure.automation = true;
+        self
+    }
+
     pub fn any_permission(mut self) -> Self {
         self.permission_mode = PermissionMode::Any;
         self

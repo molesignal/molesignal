@@ -9,7 +9,11 @@
 //! ```text
 //! artifacts/v1/{org}/{type}/{dataset}/p-{partition_start_secs}-{shard:02}/{segment}/{artifact}{suffix}
 //! manifests/v1/{org}/{type}/{dataset}/p-{partition_start_secs}-{shard:02}/{generation}.parquet
+//! search_jobs/v1/{org}/{job}-{attempt}.ndjson
 //! ```
+//!
+//! Search Job 的结果对象不进 Catalog：任务行上记着自己的 key，读取、重试和清理都按那个 key
+//! 进行，孤儿扫描与按组织限定的只读视图都不覆盖 `search_jobs/`。
 
 use crate::{
     domain::storage::{
@@ -28,6 +32,9 @@ impl StorageLayout {
 
     /// 封存分区 Manifest 对象的 key 前缀。
     pub const MANIFEST_PREFIX: &'static str = "manifests/v1/";
+
+    /// Search Job 结果对象的 key 前缀。
+    pub const SEARCH_JOB_PREFIX: &'static str = "search_jobs/v1/";
 
     /// `key` 是否是 Manifest 对象。Manifest 靠单次条件写实现版本协议。
     pub fn is_manifest_key(key: &str) -> bool {
@@ -74,8 +81,19 @@ impl StorageLayout {
         ))
     }
 
+    /// Search Job 结果对象 key。`attempt` 随重试递增，上一次执行迟到的结果落在另一个 key 上，
+    /// 不会盖掉这一次的。
+    pub fn search_job_result_key(organization_id: &Id, job_id: &Id, attempt: i32) -> ObjectKey {
+        ObjectKey::from_string(format!(
+            "{}{}/{}-{attempt}.ndjson",
+            Self::SEARCH_JOB_PREFIX,
+            organization_id.as_str(),
+            job_id.as_str(),
+        ))
+    }
+
     /// Reconciler 做 orphan 扫描的合法前缀。object store 里还有 Catalog 之外的
-    /// 合法对象（原始归档、会话回放等），孤儿判定只允许在这两个前缀内进行。
+    /// 合法对象（原始归档、会话回放、Search Job 结果等），孤儿判定只允许在这两个前缀内进行。
     pub fn catalog_scan_prefixes() -> [&'static str; 2] {
         [Self::ARTIFACT_PREFIX, Self::MANIFEST_PREFIX]
     }
@@ -207,6 +225,53 @@ mod tests {
         );
         assert!(key.as_str().contains("/p--3600-03/"));
     }
+
+    #[test]
+    fn search_job_result_key_follows_the_category_version_organization_order() {
+        let key = StorageLayout::search_job_result_key(
+            &Id::from_string("system_4ddfcd4b594f8156d9ab8a2cdf799c2b"),
+            &Id::from_string("job1"),
+            2,
+        );
+        assert_eq!(
+            key.as_str(),
+            "search_jobs/v1/system_4ddfcd4b594f8156d9ab8a2cdf799c2b/job1-2.ndjson"
+        );
+    }
+
+    #[test]
+    fn search_job_results_of_one_job_differ_by_attempt_and_organization() {
+        let org = Id::from_string("org1");
+        let job = Id::from_string("job1");
+        let first = StorageLayout::search_job_result_key(&org, &job, 0);
+        let retried = StorageLayout::search_job_result_key(&org, &job, 1);
+        let other = StorageLayout::search_job_result_key(&Id::from_string("org2"), &job, 0);
+
+        assert_ne!(first, retried);
+        assert_ne!(first, other);
+        assert!(first.as_str().starts_with("search_jobs/v1/org1/"));
+        assert!(other.as_str().starts_with("search_jobs/v1/org2/"));
+    }
+
+    #[test]
+    fn search_job_results_are_outside_the_catalog_scan() {
+        let org = Id::from_string("org1");
+        let key = StorageLayout::search_job_result_key(&org, &Id::from_string("job1"), 0);
+
+        // 孤儿扫描把前缀内 Catalog 不认识的对象当垃圾回收；任务结果只记在任务行上。
+        for prefix in StorageLayout::catalog_scan_prefixes() {
+            assert!(!key.as_str().starts_with(prefix), "{prefix}");
+        }
+
+        for prefix in StorageLayout::catalog_scan_prefixes_for(&org) {
+            assert!(!key.as_str().starts_with(&prefix), "{prefix}");
+        }
+
+        // 桶的顶层只有布局自己的目录，没有以组织 ID 命名的目录。
+        assert!(key.as_str().starts_with(StorageLayout::SEARCH_JOB_PREFIX));
+        assert!(!key.as_str().starts_with("org1/"));
+    }
+
     #[test]
     fn catalog_scan_excludes_specialized_blobs() {
         let prefixes = StorageLayout::catalog_scan_prefixes();

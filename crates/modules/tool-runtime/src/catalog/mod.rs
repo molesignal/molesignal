@@ -448,6 +448,26 @@ mod tests {
     }
 
     #[test]
+    fn automation_is_offered_only_the_read_only_log_tools() {
+        let offered = tools_for_surface(ToolSurface::Automation);
+
+        let names = offered
+            .iter()
+            .map(|tool| tool.name.as_str())
+            .collect::<HashSet<_>>();
+        assert_eq!(
+            names,
+            HashSet::from(["query_logs", "get_stream_schema", "search_field_values"])
+        );
+
+        // Nobody is there to approve a call made on a schedule.
+        for tool in offered {
+            assert_eq!(tool.access, ToolAccess::ReadOnly, "{}", tool.name);
+            assert!(tool.annotations.read_only, "{}", tool.name);
+        }
+    }
+
+    #[test]
     fn every_safe_atomic_mutation_is_exposed_to_inbound_mcp() {
         for tool in builtin_tools().into_iter().filter(|tool| {
             matches!(

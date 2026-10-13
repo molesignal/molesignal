@@ -3,6 +3,7 @@
 
 use std::{
     collections::HashMap,
+    net::SocketAddr,
     sync::Arc,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
@@ -16,13 +17,21 @@ use tokio::{
 };
 use tokio_rustls::TlsConnector;
 use tonic::transport::{ClientTlsConfig, Endpoint};
-use url::Url;
 use x509_parser::{extensions::GeneralName, parse_x509_certificate};
 
-use super::{AttemptOutcome, ExecutionContext, security::EgressGuard, unknown};
+use super::{
+    AttemptOutcome, ExecutionContext,
+    security::EgressGuard,
+    timing::{Phase, PhaseClock},
+    unknown,
+};
 use crate::protocol::v1::{
     self as wire, DnsSpec, GrpcSpec, IcmpSpec, ProbeOutcome, TcpSpec, TlsSpec, grpc_spec,
 };
+
+mod endpoint;
+
+use endpoint::GrpcEndpoint;
 
 trait ProbeIo: AsyncRead + AsyncWrite + Unpin + Send {}
 impl<T> ProbeIo for T where T: AsyncRead + AsyncWrite + Unpin + Send {}
@@ -31,6 +40,7 @@ pub(super) async fn execute_tcp(
     task: &wire::ProbeTask,
     spec: &TcpSpec,
     context: &ExecutionContext,
+    phases: &PhaseClock,
 ) -> Result<AttemptOutcome> {
     let host = context.resolve(
         spec.host
@@ -40,10 +50,10 @@ pub(super) async fn execute_tcp(
 
     let port = u16::try_from(spec.port).context("TCP port is out of range")?;
     let guard = EgressGuard::new(task.egress_policy.clone())?;
-    let address = guard.resolve(&host, port).await?.remove(0);
+    let address = guard.resolve(&host, port, phases).await?.remove(0);
     let timeout = Duration::from_millis(u64::from(task.timeout_millis.max(1)));
     let started = Instant::now();
-    let tcp = tokio::time::timeout(timeout, TcpStream::connect(address)).await??;
+    let tcp = connect_tcp(address, timeout, phases).await?;
 
     let mut stream: Box<dyn ProbeIo> = if spec.use_tls {
         let server_name = if spec.server_name.is_empty() {
@@ -52,10 +62,15 @@ pub(super) async fn execute_tcp(
             &spec.server_name
         };
 
-        Box::new(connect_tls(tcp, server_name).await?)
+        Box::new(connect_tls(tcp, server_name, timeout, phases).await?)
     } else {
         Box::new(tcp)
     };
+
+    let reads_reply = spec.expect_regex.is_some() || !spec.assertions.is_empty();
+
+    // The wait for a reply starts with the connection ready, before the payload goes out.
+    let waiting = reads_reply.then(|| phases.enter(Phase::FirstByte));
 
     if let Some(send) = &spec.send {
         stream.write_all(context.resolve(send)?.as_bytes()).await?;
@@ -64,12 +79,13 @@ pub(super) async fn execute_tcp(
 
     let mut response = vec![0u8; 64 * 1024];
 
-    let length = if spec.expect_regex.is_some() || !spec.assertions.is_empty() {
+    let length = if reads_reply {
         tokio::time::timeout(timeout, stream.read(&mut response)).await??
     } else {
         0
     };
 
+    drop(waiting);
     response.truncate(length);
     let text = String::from_utf8_lossy(&response);
 
@@ -116,7 +132,11 @@ pub(super) async fn execute_tcp(
     })
 }
 
-pub(super) async fn execute_dns(task: &wire::ProbeTask, spec: &DnsSpec) -> Result<AttemptOutcome> {
+pub(super) async fn execute_dns(
+    task: &wire::ProbeTask,
+    spec: &DnsSpec,
+    phases: &PhaseClock,
+) -> Result<AttemptOutcome> {
     if spec.require_dnssec
         || !matches!(spec.record_type.to_ascii_uppercase().as_str(), "A" | "AAAA")
     {
@@ -134,7 +154,7 @@ pub(super) async fn execute_dns(task: &wire::ProbeTask, spec: &DnsSpec) -> Resul
     }
 
     let guard = EgressGuard::new(task.egress_policy.clone())?;
-    let addresses = guard.resolve(&spec.name, 53).await?;
+    let addresses = guard.resolve(&spec.name, 53, phases).await?;
 
     let values = addresses
         .iter()
@@ -175,14 +195,18 @@ pub(super) async fn execute_dns(task: &wire::ProbeTask, spec: &DnsSpec) -> Resul
     })
 }
 
-pub(super) async fn execute_tls(task: &wire::ProbeTask, spec: &TlsSpec) -> Result<AttemptOutcome> {
+pub(super) async fn execute_tls(
+    task: &wire::ProbeTask,
+    spec: &TlsSpec,
+    phases: &PhaseClock,
+) -> Result<AttemptOutcome> {
     let port = u16::try_from(spec.port).context("TLS port is out of range")?;
     let guard = EgressGuard::new(task.egress_policy.clone())?;
-    let address = guard.resolve(&spec.host, port).await?.remove(0);
+    let address = guard.resolve(&spec.host, port, phases).await?.remove(0);
     let timeout = Duration::from_millis(u64::from(task.timeout_millis.max(1)));
-    let tcp = tokio::time::timeout(timeout, TcpStream::connect(address)).await??;
+    let tcp = connect_tcp(address, timeout, phases).await?;
     let server_name = spec.server_name.as_deref().unwrap_or(&spec.host);
-    let tls = connect_tls(tcp, server_name).await?;
+    let tls = connect_tls(tcp, server_name, timeout, phases).await?;
     let (_, connection) = tls.get_ref();
 
     let certificate = connection
@@ -274,6 +298,7 @@ pub(super) async fn execute_icmp(
 pub(super) async fn execute_grpc(
     task: &wire::ProbeTask,
     spec: &GrpcSpec,
+    phases: &PhaseClock,
 ) -> Result<AttemptOutcome> {
     let Some(grpc_spec::Call::Health(health)) = &spec.call else {
         return Ok(unknown(
@@ -282,38 +307,45 @@ pub(super) async fn execute_grpc(
         ));
     };
 
-    let url = Url::parse(&spec.endpoint)?;
-
-    let host = url
-        .host_str()
-        .ok_or_else(|| anyhow!("gRPC endpoint has no host"))?;
-
-    let port = url
-        .port_or_known_default()
-        .ok_or_else(|| anyhow!("gRPC endpoint has no port"))?;
-
+    let target = GrpcEndpoint::parse(&spec.endpoint, spec.use_tls)?;
+    let host = target.host();
     let guard = EgressGuard::new(task.egress_policy.clone())?;
-    let address = guard.resolve(host, port).await?.remove(0);
-    let endpoint_url = format!("{}://{}", url.scheme(), address);
-    let mut endpoint = Endpoint::from_shared(endpoint_url)?
-        .timeout(Duration::from_millis(u64::from(task.timeout_millis.max(1))));
+    let address = guard.resolve(&host, target.port(), phases).await?.remove(0);
+
+    // The connection goes to the address the egress policy let by. Every call on it still names
+    // the endpoint's own host, which is what a server that routes by host name goes by.
+    let mut endpoint =
+        Endpoint::from_shared(target.dialled(address))?.origin(target.named().parse()?);
+    let timeout = Duration::from_millis(u64::from(task.timeout_millis.max(1)));
 
     if spec.use_tls {
-        endpoint = endpoint.tls_config(
-            ClientTlsConfig::new()
-                .domain_name(spec.server_name.clone().unwrap_or_else(|| host.to_string())),
-        )?;
+        let server_name = spec.server_name.clone().unwrap_or(host);
+
+        // tonic trusts no certificate authority it is not told of. The check goes by the public
+        // roots, as the TCP and TLS checks do.
+        let tls = ClientTlsConfig::new()
+            .with_webpki_roots()
+            .domain_name(server_name);
+
+        endpoint = endpoint.tls_config(tls)?;
     }
 
-    let channel = endpoint.connect().await?;
-    let mut client = tonic_health::pb::health_client::HealthClient::new(channel);
+    let request = tonic_health::pb::HealthCheckRequest {
+        service: health.service.clone(),
+    };
 
-    let response = client
-        .check(tonic_health::pb::HealthCheckRequest {
-            service: health.service.clone(),
-        })
-        .await?
-        .into_inner();
+    // tonic can time the TCP connection, the TLS handshake and the wait for the head of the
+    // reply, each on its own, and nothing after that. One timeout over the whole exchange leaves
+    // no part of it out.
+    let exchange = async {
+        let channel = endpoint.connect().await?;
+        let mut client = tonic_health::pb::health_client::HealthClient::new(channel);
+        anyhow::Ok(client.check(request).await?.into_inner())
+    };
+
+    let response = tokio::time::timeout(timeout, exchange)
+        .await
+        .context("gRPC check timed out")??;
 
     let serving =
         response.status == tonic_health::pb::health_check_response::ServingStatus::Serving as i32;
@@ -342,9 +374,20 @@ pub(super) async fn execute_grpc(
     })
 }
 
+async fn connect_tcp(
+    address: SocketAddr,
+    timeout: Duration,
+    phases: &PhaseClock,
+) -> Result<TcpStream> {
+    let connecting = tokio::time::timeout(timeout, TcpStream::connect(address));
+    Ok(phases.during(Phase::Connect, connecting).await??)
+}
+
 async fn connect_tls(
     tcp: TcpStream,
     server_name: &str,
+    timeout: Duration,
+    phases: &PhaseClock,
 ) -> Result<tokio_rustls::client::TlsStream<TcpStream>> {
     let roots = RootCertStore::from_iter(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
 
@@ -353,10 +396,16 @@ async fn connect_tls(
         .with_no_client_auth();
 
     let name = ServerName::try_from(server_name.to_string()).context("invalid TLS server name")?;
+    let connector = TlsConnector::from(Arc::new(config));
 
-    TlsConnector::from(Arc::new(config))
-        .connect(name, tcp)
+    // The connector starts the handshake as soon as it is called, so the call is timed with it.
+    // The timeout starts inside the phase too, so a handshake it cuts short is never timed at less.
+    let handshake = async { tokio::time::timeout(timeout, connector.connect(name, tcp)).await };
+
+    phases
+        .during(Phase::Tls, handshake)
         .await
+        .context("TLS handshake timed out")?
         .context("TLS handshake failed")
 }
 
@@ -367,3 +416,6 @@ fn now_seconds() -> i64 {
         .as_secs()
         .min(i64::MAX as u64) as i64
 }
+
+#[cfg(test)]
+mod tests;

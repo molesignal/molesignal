@@ -29,7 +29,9 @@ impl NotifyEngine {
         let delivery = self.deliveries.get(organization_id, delivery_id).await?;
 
         if delivery.policy_id.is_none() {
-            return Err(Error::invalid("notify test deliveries cannot be retried"));
+            return Err(Error::invalid(
+                "notify deliveries sent outside a policy cannot be retried",
+            ));
         }
 
         if delivery.status != DeliveryStatus::Failed {
@@ -287,6 +289,7 @@ const fn delivery_stage_rank(stage: DeliveryStage) -> u8 {
         DeliveryStage::OrganizationFallback => 3,
         DeliveryStage::Escalation => 4,
         DeliveryStage::Test => 5,
+        DeliveryStage::Direct => 6,
     }
 }
 

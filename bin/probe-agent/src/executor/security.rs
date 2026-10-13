@@ -9,6 +9,7 @@ use std::{
 use anyhow::{Result, bail};
 use ipnet::IpNet;
 
+use super::timing::{Phase, PhaseClock};
 use crate::protocol::v1::EgressPolicy;
 
 #[derive(Clone)]
@@ -31,10 +32,25 @@ impl EgressGuard {
         })
     }
 
-    pub async fn resolve(&self, host: &str, port: u16) -> Result<Vec<SocketAddr>> {
+    /// Resolves `host` to the addresses the policy lets a check reach, timing the lookup as the
+    /// DNS phase of the attempt.
+    pub async fn resolve(
+        &self,
+        host: &str,
+        port: u16,
+        phases: &PhaseClock,
+    ) -> Result<Vec<SocketAddr>> {
         self.validate_domain(host)?;
         self.validate_port(port)?;
-        let resolved = tokio::net::lookup_host((host, port)).await?;
+        let lookup = tokio::net::lookup_host((host, port));
+
+        // An address literal is parsed, not looked up, so it has no DNS phase to time.
+        let resolved = if host.parse::<IpAddr>().is_ok() {
+            lookup.await?
+        } else {
+            phases.during(Phase::Dns, lookup).await?
+        };
+
         let mut approved = Vec::new();
 
         for address in resolved {

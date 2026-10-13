@@ -1342,9 +1342,10 @@ async fn render_report_snapshot(
             Error::unavailable("report PDF/PNG renderer is unavailable; verify the Chrome runtime")
         })?;
 
-        let url = super::reports::scheduled::report_render_url(
+        let url = crate::infra::reporting::render_page_url(
             &state.platform.report_renderer_base_url,
             report,
+            chrono::Utc::now(),
         )?;
 
         let browser_auth_storage = super::reports::scheduled::browser_auth_storage(state, context)?;
@@ -1353,7 +1354,7 @@ async fn render_report_snapshot(
             .render(
                 &url,
                 format,
-                Viewport::default(),
+                Viewport::CONFIGURED,
                 Some(&browser_auth_storage),
             )
             .await?;

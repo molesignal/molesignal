@@ -22,9 +22,10 @@ pub use model::{
 };
 pub use query::*;
 pub use repository::{
-    StatusPageComponentRepository, StatusPageConfigRepository, StatusPageDomainRepository,
-    StatusPageIncidentQueryRepository, StatusPageIncidentRepository,
-    StatusPageIncidentWriteRepository, StatusPagePageRepository, StatusPageRepository,
+    MaintenanceDueToStart, StatusPageComponentRepository, StatusPageConfigRepository,
+    StatusPageDomainRepository, StatusPageIncidentQueryRepository, StatusPageIncidentRepository,
+    StatusPageIncidentWriteRepository, StatusPagePageRepository,
+    StatusPagePlannedMaintenanceRepository, StatusPageRepository,
 };
 pub use subscription::{
     PendingStatusPageSubscription, StatusPageDeliveryPage, StatusPageDeliveryRepository,

@@ -44,6 +44,12 @@ impl ProbeOutcome {
     }
 }
 
+/// Where one attempt spent its time, in microseconds.
+///
+/// Each phase is a duration of its own, not an offset from the start of the
+/// attempt, summed over the connections the attempt opened, so the phases come
+/// to at most `total_micros`. A phase the probe did not time is `None`.
+/// `TimingBreakdown` in `proto/probe/v1/probe.proto` is the full definition.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct TimingBreakdown {
     pub dns_micros: Option<u64>,

@@ -8,7 +8,7 @@ use super::super::OperationOutcome;
 use crate::{
     agent::model::ApprovalRequest,
     api::AppState,
-    app::iam::IamContext,
+    app::{iam::IamContext, query::jobs::SearchJobViewer},
     domain::{
         query::{QueryLanguage, QueryRequest, StreamHint},
         stream::StreamType,
@@ -27,6 +27,7 @@ pub(super) async fn execute(
     approval: &ApprovalRequest,
 ) -> Result<OperationOutcome> {
     let job_id = Id(approval.target.clone());
+    let viewer = viewer(ctx, approval);
 
     let (summary, job) = match approval.action.as_str() {
         "submit_search_job" => {
@@ -51,7 +52,10 @@ pub(super) async fn execute(
 
             (
                 "search job cancelled",
-                state.search_jobs.cancel(&ctx.org_id, &job_id).await?,
+                state
+                    .search_jobs
+                    .cancel(&ctx.org_id, &job_id, &viewer)
+                    .await?,
             )
         }
         "retry_search_job" => {
@@ -59,12 +63,18 @@ pub(super) async fn execute(
 
             (
                 "search job queued for retry",
-                state.search_jobs.retry(&ctx.org_id, &job_id).await?,
+                state
+                    .search_jobs
+                    .retry(&ctx.org_id, &job_id, &viewer)
+                    .await?,
             )
         }
         "delete_search_job" => {
             require_no_parameters(approval)?;
-            state.search_jobs.delete(&ctx.org_id, &job_id).await?;
+            state
+                .search_jobs
+                .delete(&ctx.org_id, &job_id, &viewer)
+                .await?;
 
             return Ok(OperationOutcome {
                 summary: "search job deleted".into(),
@@ -78,6 +88,15 @@ pub(super) async fn execute(
         summary: summary.into(),
         verification: json!({"verified": true, "job": safe_job(job)}),
     })
+}
+
+/// 审批里的操作是替申请人做的：申请人自己的任务可以动。动别人的任务，要执行这次审批的人是
+/// 组织管理员。
+fn viewer(ctx: &IamContext, approval: &ApprovalRequest) -> SearchJobViewer {
+    match SearchJobViewer::of(ctx) {
+        SearchJobViewer::Administrator => SearchJobViewer::Administrator,
+        SearchJobViewer::Submitter(_) => SearchJobViewer::Submitter(approval.requested_by.clone()),
+    }
 }
 
 #[derive(Debug, Deserialize)]

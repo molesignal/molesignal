@@ -56,6 +56,10 @@ pub const WORKER_COVERAGE: &[WorkerCoverage] = &[
         policy: WorkerTracePolicy::TransportBoundary,
     },
     WorkerCoverage {
+        source: "src/bootstrap/workers/log_inspection/mod.rs",
+        policy: WorkerTracePolicy::RootPerRun,
+    },
+    WorkerCoverage {
         source: "src/bootstrap/workers/pipeline_exec.rs",
         policy: WorkerTracePolicy::RootPerRun,
     },
@@ -93,6 +97,10 @@ pub const WORKER_COVERAGE: &[WorkerCoverage] = &[
     },
     WorkerCoverage {
         source: "src/bootstrap/workers/status_page_notifications.rs",
+        policy: WorkerTracePolicy::RootPerRun,
+    },
+    WorkerCoverage {
+        source: "src/bootstrap/workers/status_page_planned_maintenance.rs",
         policy: WorkerTracePolicy::RootPerRun,
     },
     WorkerCoverage {

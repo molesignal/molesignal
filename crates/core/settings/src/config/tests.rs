@@ -25,6 +25,9 @@ fn example_config_file_parses_all_sections() {
         s.scheduled_reports.renderer.base_url,
         "http://127.0.0.1:5173"
     );
+    assert_eq!(s.log_inspection.min_interval_secs, 3600);
+    assert_eq!(s.log_inspection.max_per_org, 20);
+    assert_eq!(s.log_inspection.run_timeout_secs, 300);
     assert_eq!(
         s.mmdb.db_path,
         "/usr/share/molesignal/mmdb/GeoLite2-City.mmdb"

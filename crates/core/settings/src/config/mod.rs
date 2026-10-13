@@ -126,6 +126,9 @@ pub struct Settings {
     /// Chrome PDF/PNG 渲染资源。
     #[serde(default)]
     pub scheduled_reports: ScheduledReportsSettings,
+    /// `[log_inspection]`：定时日志巡检的周期下限、数量上限、并发、超时与报告保留期。
+    #[serde(default)]
+    pub log_inspection: LogInspectionSettings,
     /// `[storage]` Catalog lifecycle, index maintenance, delayed GC, and reconciliation.
     #[serde(default)]
     pub storage: StorageSettings,

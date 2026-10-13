@@ -23,9 +23,22 @@ impl IamAccessService {
                 .is_active(&subject.user_id)
                 .await?;
 
-        if subject.scope == IamScope::System && !root {
-            return Err(Error::forbidden("root system scope required"));
-        }
+        // A platform session is open to the configured root, and to whoever holds platform
+        // permissions as the owner of an organization. The grant is read again on every request.
+        let platform_grant = if subject.scope == IamScope::System && !root {
+            let permissions = self
+                .repository
+                .platform_permissions(&subject.user_id, TimestampMicros::now())
+                .await?;
+
+            if permissions.is_empty() {
+                return Err(Error::forbidden("platform access required"));
+            }
+
+            Some(permissions)
+        } else {
+            None
+        };
 
         let version = self
             .repository
@@ -57,6 +70,9 @@ impl IamAccessService {
             permission_catalog_version,
             route_catalog_version,
             root,
+            platform_grant: platform_grant
+                .as_ref()
+                .map(|permissions| permissions.join(",")),
         };
 
         if let Some(snapshot) = self.snapshots.get(&cache_key) {
@@ -100,18 +116,18 @@ impl IamAccessService {
         }
 
         let (permissions, roles, display_role) = if root {
-            let permission_scope = if subject.scope == IamScope::System {
-                IamPermissionScope::Platform
-            } else {
-                IamPermissionScope::Organization
-            };
-
+            // Root stands in for the owner of whichever organization it is in, and an owner
+            // holds the whole catalog. In the platform organization, which has no tenant
+            // resources, only the platform's own permissions mean anything.
             let permissions = root_permission_catalog
                 .as_ref()
                 .expect("root permission catalog resolved")
                 .permissions
                 .iter()
-                .filter(|permission| permission.scope == permission_scope)
+                .filter(|permission| {
+                    subject.scope != IamScope::System
+                        || permission.scope == IamPermissionScope::Platform
+                })
                 .map(|permission| permission.key.clone())
                 .collect::<BTreeSet<_>>();
 
@@ -132,7 +148,15 @@ impl IamAccessService {
         } else {
             match subject.scope {
                 IamScope::System => {
-                    return Err(Error::forbidden("root system scope required"));
+                    let role = system_role.expect("platform role resolved for a platform session");
+                    let display_role = role.name.clone();
+
+                    let permissions = platform_grant
+                        .expect("platform grant resolved for a platform session")
+                        .into_iter()
+                        .collect();
+
+                    (permissions, vec![role], display_role)
                 }
                 IamScope::ApiToken => {
                     if subject.credential_application_id.is_none()

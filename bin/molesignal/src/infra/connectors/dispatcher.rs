@@ -5,7 +5,10 @@
 //!
 //! 与 ingress（pull/push 源）相对：`s3` / `kafka` 是 sink——流水线产出经此出向投递。
 //! - S3：批量事件序列化为 JSON Lines，PUT 到 `s3://<bucket>/<prefix><id>.jsonl`（复用 object_store）。
-//! - Kafka：逐事件作为 JSON 负载 produce 到 topic（rdkafka）。
+//!   凭据三种：长期 access key；临时 access key（另带 `session_token`）；都不填时用本节点的
+//!   实例角色。`endpoint` 指向 S3 兼容存储，`virtual_hosted_style` 切换为虚拟主机式寻址。
+//! - Kafka：逐事件作为 JSON 负载 produce 到 topic（rdkafka）。认证只有 SASL/PLAIN，且连接不加密
+//!   （librdkafka 未带 OpenSSL 构建，见根 `Cargo.toml`）。
 //!
 //! 真实网络投递；本机无 S3/Kafka 时无法端到端验证，纯逻辑（payload 组装、prefix 规整、
 //! kind 路由）由单元测试覆盖。
@@ -51,6 +54,15 @@ fn cfg_str<'a>(connector: &'a Connector, key: &str) -> &'a str {
         .unwrap_or("")
 }
 
+/// A switch in the configuration: `true`, or the string `"true"` a form may have sent.
+fn cfg_bool(connector: &Connector, key: &str) -> bool {
+    match connector.config_json.get(key) {
+        Some(Value::Bool(on)) => *on,
+        Some(Value::String(text)) => text.trim().eq_ignore_ascii_case("true"),
+        _ => false,
+    }
+}
+
 /// 批量事件 → JSON Lines（每行一个 JSON 对象）。
 fn to_json_lines(events: &[Value]) -> String {
     let mut body = String::new();
@@ -78,16 +90,15 @@ fn normalize_prefix(prefix: &str) -> String {
     }
 }
 
-async fn dispatch_s3(connector: &Connector, events: &[Value]) -> Result<()> {
-    use object_store::{ObjectStoreExt, PutPayload, aws::AmazonS3Builder, path::Path};
-
+/// The S3 client a connector's configuration describes, short of being built.
+fn s3_builder(connector: &Connector) -> Result<object_store::aws::AmazonS3Builder> {
     let bucket = cfg_str(connector, "bucket");
 
     if bucket.is_empty() {
         return Err(Error::invalid("s3 connector requires `bucket`"));
     }
 
-    let mut builder = AmazonS3Builder::new().with_bucket_name(bucket);
+    let mut builder = object_store::aws::AmazonS3Builder::new().with_bucket_name(bucket);
     let region = cfg_str(connector, "region");
 
     if !region.is_empty() {
@@ -100,6 +111,12 @@ async fn dispatch_s3(connector: &Connector, events: &[Value]) -> Result<()> {
         builder = builder.with_endpoint(endpoint).with_allow_http(true);
     }
 
+    // Some S3-compatible stores address a bucket as a host name and refuse it in the path.
+    if cfg_bool(connector, "virtual_hosted_style") {
+        builder = builder.with_virtual_hosted_style_request(true);
+    }
+
+    // With no access key the client falls back to the role of the node it runs on.
     let access_key = cfg_str(connector, "access_key");
 
     if !access_key.is_empty() {
@@ -112,7 +129,20 @@ async fn dispatch_s3(connector: &Connector, events: &[Value]) -> Result<()> {
         builder = builder.with_secret_access_key(secret_key);
     }
 
-    let store = builder
+    // A temporary access key is only valid together with the token it was issued with.
+    let session_token = cfg_str(connector, "session_token");
+
+    if !session_token.is_empty() {
+        builder = builder.with_token(session_token);
+    }
+
+    Ok(builder)
+}
+
+async fn dispatch_s3(connector: &Connector, events: &[Value]) -> Result<()> {
+    use object_store::{ObjectStoreExt, PutPayload, path::Path};
+
+    let store = s3_builder(connector)?
         .build()
         .map_err(|e| Error::internal(format!("s3 egress build: {e}")))?;
 
@@ -185,6 +215,98 @@ mod tests {
         assert_eq!(normalize_prefix("logs"), "logs/");
         assert_eq!(normalize_prefix("/logs/"), "logs/");
         assert_eq!(normalize_prefix("a/b"), "a/b/");
+    }
+
+    fn s3_connector(config: Value) -> Connector {
+        use crate::shared::time::TimestampMicros;
+
+        Connector {
+            id: Id::new(),
+            org_id: Id::new(),
+            name: "archive".into(),
+            kind: "s3".into(),
+            config_json: config,
+            enabled: true,
+            last_run_at: None,
+            created_at: TimestampMicros::now(),
+            updated_at: TimestampMicros::now(),
+        }
+    }
+
+    #[test]
+    fn s3_client_takes_a_temporary_key_with_its_token() {
+        use object_store::aws::AmazonS3ConfigKey;
+
+        let builder = s3_builder(&s3_connector(serde_json::json!({
+            "bucket": "logs",
+            "region": "eu-west-1",
+            "access_key": "ASIAEXAMPLE",
+            "secret_key": "secret",
+            "session_token": "issued-with-the-key",
+        })))
+        .unwrap();
+
+        let value = |key| builder.get_config_value(&key);
+        assert_eq!(value(AmazonS3ConfigKey::Bucket).as_deref(), Some("logs"));
+        assert_eq!(
+            value(AmazonS3ConfigKey::Region).as_deref(),
+            Some("eu-west-1")
+        );
+        assert_eq!(
+            value(AmazonS3ConfigKey::AccessKeyId).as_deref(),
+            Some("ASIAEXAMPLE")
+        );
+        assert_eq!(
+            value(AmazonS3ConfigKey::Token).as_deref(),
+            Some("issued-with-the-key")
+        );
+    }
+
+    #[test]
+    fn s3_client_without_a_key_is_left_to_the_node_role() {
+        use object_store::aws::AmazonS3ConfigKey;
+
+        let builder = s3_builder(&s3_connector(serde_json::json!({ "bucket": "logs" }))).unwrap();
+
+        assert_eq!(
+            builder.get_config_value(&AmazonS3ConfigKey::AccessKeyId),
+            None
+        );
+        assert_eq!(builder.get_config_value(&AmazonS3ConfigKey::Token), None);
+        assert!(s3_builder(&s3_connector(serde_json::json!({ "region": "eu-west-1" }))).is_err());
+    }
+
+    #[test]
+    fn s3_compatible_store_is_addressed_as_it_asks() {
+        use object_store::aws::AmazonS3ConfigKey;
+
+        let builder = s3_builder(&s3_connector(serde_json::json!({
+            "bucket": "logs",
+            "endpoint": "https://oss-cn-hangzhou.aliyuncs.com",
+            "virtual_hosted_style": true,
+        })))
+        .unwrap();
+
+        assert_eq!(
+            builder
+                .get_config_value(&AmazonS3ConfigKey::Endpoint)
+                .as_deref(),
+            Some("https://oss-cn-hangzhou.aliyuncs.com")
+        );
+        assert_eq!(
+            builder
+                .get_config_value(&AmazonS3ConfigKey::VirtualHostedStyleRequest)
+                .as_deref(),
+            Some("true")
+        );
+
+        // A form may send the switch as text; anything else leaves path-style addressing.
+        let text =
+            s3_connector(serde_json::json!({ "bucket": "b", "virtual_hosted_style": "true" }));
+        let off = s3_connector(serde_json::json!({ "bucket": "b", "virtual_hosted_style": "no" }));
+        assert!(cfg_bool(&text, "virtual_hosted_style"));
+        assert!(!cfg_bool(&off, "virtual_hosted_style"));
+        assert!(!cfg_bool(&off, "absent"));
     }
 
     #[test]

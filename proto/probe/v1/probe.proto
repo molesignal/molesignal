@@ -458,11 +458,40 @@ message StepEvidence {
   map<string, string> metadata = 9;
 }
 
+// Where one attempt spent its time.
+//
+// A phase field holds the time the attempt spent inside that phase alone: a
+// duration, never an offset from the start of the attempt. An attempt that
+// opens several connections reports the sum over all of them, as an HTTP check
+// does for its steps and redirects, and an authenticated SSH check for its two
+// connections. A phase that failed or was cut short by the timeout counts the
+// time spent in it up to that point. Phases never overlap, so together they
+// come to at most total_micros; the rest went elsewhere, to reading the
+// response body and to local work.
+//
+// A field is set only when the probe timed all of that phase. It stays unset
+// when the attempt had no such phase, and when the client in use could not time
+// it on its own. A probe does not estimate.
+//
+// An HTTP check that the probe's environment sends through a proxy times each
+// step as the phase it is a kind of. Looking up the proxy is DNS, on top of the
+// lookup of the target that the egress policy still calls for. Connecting is
+// opening the connection to the proxy and, for an https target, having the
+// proxy open a tunnel through to it. TLS is the handshake with the target
+// inside that tunnel, and with the proxy too when the proxy is itself reached
+// under TLS. The wait for the reply starts when all of that is done.
 message TimingBreakdown {
+  // Looking up the target host name.
   optional uint64 dns_micros = 1;
+  // Opening the TCP connection.
   optional uint64 connect_micros = 2;
+  // The TLS handshake on that connection.
   optional uint64 tls_micros = 3;
+  // Waiting for the reply: from the connection being ready to carry the request
+  // until the first bytes of the response arrive. For HTTP those are the status
+  // line and headers.
   optional uint64 first_byte_micros = 4;
+  // The whole attempt.
   optional uint64 total_micros = 5;
 }
 

@@ -21,7 +21,10 @@ use super::require_system_organization_management;
 use crate::{
     api::AppState,
     app::iam::IamContext,
-    domain::iam::{IamAssignedRole, IamScope, Organization, PLATFORM_ADMINISTRATOR_ROLE_PURPOSE},
+    domain::iam::{
+        IamAssignedRole, IamMembership, IamScope, ORGANIZATION_BOOTSTRAP_ROLE_PURPOSE,
+        Organization, PLATFORM_ADMINISTRATOR_ROLE_PURPOSE,
+    },
     infra::persistence::repositories::audit_events::AuditEvent,
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
@@ -43,10 +46,13 @@ struct OrgView {
     roles: Vec<IamAssignedRole>,
     system: bool,
     disabled: bool,
+    /// Whether the caller can enter the organization. From the platform organization an owner
+    /// administers organizations they do not belong to: those are listed, and cannot be entered.
+    accessible: bool,
 }
 
 impl OrgView {
-    fn from_org(organization: Organization, roles: Vec<IamAssignedRole>) -> Self {
+    fn from_org(organization: Organization, roles: Vec<IamAssignedRole>, accessible: bool) -> Self {
         let display_role = roles
             .iter()
             .map(|role| role.name.as_str())
@@ -61,6 +67,7 @@ impl OrgView {
             roles,
             system: organization.system,
             disabled: organization.disabled,
+            accessible,
         }
     }
 }
@@ -85,7 +92,7 @@ async fn organization_root_role(state: &AppState, organization_id: &Id) -> Resul
         .iam
         .service
         .iam_memberships
-        .role_id_for_purpose(organization_id, "organization_bootstrap")
+        .role_id_for_purpose(organization_id, ORGANIZATION_BOOTSTRAP_ROLE_PURPOSE)
         .await?;
 
     state
@@ -97,67 +104,117 @@ async fn organization_root_role(state: &AppState, organization_id: &Id) -> Resul
         .ok_or_else(|| Error::internal("organization root role was not materialized"))
 }
 
-async fn list_orgs(
-    State(state): State<AppState>,
-    axum::Extension(context): axum::Extension<IamContext>,
-) -> Result<Json<Vec<OrgView>>> {
-    let root = context.scope != IamScope::ApiToken
+/// Whether the caller is the configured root, who reaches every organization as its owner.
+async fn is_root(state: &AppState, context: &IamContext) -> Result<bool> {
+    Ok(context.scope != IamScope::ApiToken
         && state
             .iam
             .platform_administrators
             .is_active(&context.user_id)
-            .await?;
+            .await?)
+}
+
+/// Whether the caller may enter the platform organization: root, or an organization's owner,
+/// who holds the platform permissions with the role. An API token never does.
+async fn has_platform_access(state: &AppState, context: &IamContext, root: bool) -> Result<bool> {
+    if root {
+        return Ok(true);
+    }
+
+    if context.scope == IamScope::ApiToken {
+        return Ok(false);
+    }
+
+    state
+        .iam
+        .access
+        .holds_platform_permissions(&context.user_id)
+        .await
+}
+
+/// The roles the caller has in an organization, as the organization list shows them: the owner
+/// role for root, the platform role in the platform organization, and otherwise what was
+/// assigned. No roles means the caller administers the organization without belonging to it.
+async fn caller_roles(
+    state: &AppState,
+    context: &IamContext,
+    root: bool,
+    organization: &Organization,
+) -> Result<Vec<IamAssignedRole>> {
+    if organization.system {
+        return Ok(vec![system_assigned_role(state).await?]);
+    }
 
     if root {
-        if context.scope == IamScope::System {
-            require_system_organization_management(&state.iam.system_org_id, &context)?;
-        }
+        return Ok(vec![organization_root_role(state, &organization.id).await?]);
+    }
 
+    state
+        .iam
+        .service
+        .iam_memberships
+        .assigned_roles(&context.user_id, &organization.id)
+        .await
+}
+
+async fn list_orgs(
+    State(state): State<AppState>,
+    axum::Extension(context): axum::Extension<IamContext>,
+) -> Result<Json<Vec<OrgView>>> {
+    let root = is_root(&state, &context).await?;
+
+    // From the platform organization the list is the one that is administered: every
+    // organization there is, whoever belongs to it.
+    if context.scope == IamScope::System {
+        require_system_organization_management(&state.iam.system_org_id, &context)?;
+    }
+
+    // The organizations the caller belongs to, once each, in the order they were joined.
+    let mut memberships = Vec::new();
+
+    if !root {
+        let mut seen = HashSet::new();
+
+        for membership in state
+            .iam
+            .service
+            .iam_memberships
+            .list_for_user(&context.user_id)
+            .await?
+        {
+            if seen.insert(membership.org_id.clone()) {
+                memberships.push(membership.org_id);
+            }
+        }
+    }
+
+    if root || context.scope == IamScope::System {
         let mut views = Vec::new();
 
         for organization in state.iam.service.orgs.list().await? {
-            let role = if organization.system {
-                system_assigned_role(&state).await?
-            } else {
-                organization_root_role(&state, &organization.id).await?
-            };
-
-            views.push(OrgView::from_org(organization, vec![role]));
+            let accessible = root || organization.system || memberships.contains(&organization.id);
+            let roles = caller_roles(&state, &context, root, &organization).await?;
+            views.push(OrgView::from_org(organization, roles, accessible));
         }
 
         return Ok(Json(views));
     }
 
-    if context.scope == IamScope::System {
-        require_system_organization_management(&state.iam.system_org_id, &context)?;
-        return Err(Error::forbidden("root system scope required"));
+    let mut organizations = Vec::new();
+
+    for organization_id in &memberships {
+        if let Ok(organization) = state.iam.service.orgs.get(organization_id).await {
+            let roles = caller_roles(&state, &context, root, &organization).await?;
+            organizations.push(OrgView::from_org(organization, roles, true));
+        }
     }
 
-    let memberships = state
-        .iam
-        .service
-        .iam_memberships
-        .list_for_user(&context.user_id)
-        .await?;
-
-    let mut organizations = Vec::new();
-    let mut seen = HashSet::new();
-
-    for membership in memberships {
-        if !seen.insert(membership.org_id.clone()) {
-            continue;
-        }
-
-        if let Ok(organization) = state.iam.service.orgs.get(&membership.org_id).await {
-            let roles = state
-                .iam
-                .service
-                .iam_memberships
-                .assigned_roles(&context.user_id, &membership.org_id)
-                .await?;
-
-            organizations.push(OrgView::from_org(organization, roles));
-        }
+    // An owner holds the platform permissions, and uses them in the platform organization:
+    // it is listed so that it can be entered.
+    if has_platform_access(&state, &context, root).await? {
+        let system = state.iam.service.orgs.get(&state.iam.system_org_id).await?;
+        let roles = caller_roles(&state, &context, root, &system).await?;
+        organizations.push(OrgView::from_org(system, roles, true));
     }
 
     Ok(Json(organizations))
@@ -202,11 +259,39 @@ async fn create_org(
         })
         .await?;
 
-    let roles = vec![organization_root_role(&state, &organization.id).await?];
+    let root = is_root(&state, &context).await?;
+
+    // Root reaches every organization without belonging to it. Anyone else who creates one
+    // becomes its first member and owner: otherwise nobody could get in to set it up.
+    if !root {
+        let owner_role_id = state
+            .iam
+            .service
+            .iam_memberships
+            .role_id_for_purpose(&organization.id, ORGANIZATION_BOOTSTRAP_ROLE_PURPOSE)
+            .await?;
+
+        state
+            .iam
+            .service
+            .iam_memberships
+            .upsert(
+                IamMembership {
+                    user_id: context.user_id.clone(),
+                    org_id: organization.id.clone(),
+                    joined_at: now,
+                },
+                &[owner_role_id],
+                &context.user_id,
+            )
+            .await?;
+    }
+
+    let roles = caller_roles(&state, &context, root, &organization).await?;
 
     Ok((
         StatusCode::CREATED,
-        Json(OrgView::from_org(organization, roles)),
+        Json(OrgView::from_org(organization, roles, true)),
     ))
 }
 
@@ -252,8 +337,11 @@ async fn update_org(
         current
     };
 
-    let roles = vec![organization_root_role(&state, &organization.id).await?];
-    Ok(Json(OrgView::from_org(organization, roles)))
+    let root = is_root(&state, &context).await?;
+    let roles = caller_roles(&state, &context, root, &organization).await?;
+    // No roles here means the caller administers the organization without belonging to it.
+    let accessible = root || !roles.is_empty();
+    Ok(Json(OrgView::from_org(organization, roles, accessible)))
 }
 
 #[derive(Deserialize)]
@@ -291,7 +379,7 @@ async fn set_org_status(
             id: Id::new(),
             org_id: state.iam.system_org_id.clone(),
             actor_kind: "user".into(),
-            actor_id: context.user_id.0,
+            actor_id: context.user_id.0.clone(),
             action: action.into(),
             target_kind: Some("organization".into()),
             target_id: Some(target_org_id.0),
@@ -302,8 +390,11 @@ async fn set_org_status(
         })
         .await;
 
-    let roles = vec![organization_root_role(&state, &organization.id).await?];
-    Ok(Json(OrgView::from_org(organization, roles)))
+    let root = is_root(&state, &context).await?;
+    let roles = caller_roles(&state, &context, root, &organization).await?;
+    // No roles here means the caller administers the organization without belonging to it.
+    let accessible = root || !roles.is_empty();
+    Ok(Json(OrgView::from_org(organization, roles, accessible)))
 }
 
 async fn delete_org(
@@ -372,15 +463,11 @@ async fn select_org(
     let organization = state.iam.service.orgs.get(&target_org_id).await?;
     organization.ensure_enabled()?;
 
-    let root = context.scope != IamScope::ApiToken
-        && state
-            .iam
-            .platform_administrators
-            .is_active(&context.user_id)
-            .await?;
+    let root = is_root(&state, &context).await?;
 
     if organization.system {
-        if !root {
+        // Hidden from everyone who cannot enter it, as any organization one is not part of.
+        if !has_platform_access(&state, &context, root).await? {
             return Err(Error::not_found("organization"));
         }
 

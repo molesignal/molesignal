@@ -11,7 +11,7 @@
 | `intake`        | StatefulSet | 2 | HTTP 5080、gRPC 5082、OTLP gRPC 4317 | `GET /api/v1/readyz` | 需本地盘存 WAL（每副本 20Gi）；监听在 WAL replay 完成后才开始 |
 | `querier`       | Deployment  | 2 | HTTP 5080、gRPC 5082 | `GET /api/v1/readyz` | 无状态、HPA；经 gRPC 接收其它节点转来的查询，并执行搜索 job |
 | `compactor`     | Deployment  | 1 | HTTP 5080 | `GET /api/v1/readyz` | 纯后台角色；可加副本，多个 compactor 按数据流与组织分担工作，节点故障后由其余节点接管 |
-| `alert` | Deployment  | 1 | HTTP 5080、Probe 注册 5084、Probe 控制 5085 | `GET /api/v1/readyz` | 可加副本：多个 alert 节点按规则、报告、pipeline 分担，单点任务只在主节点运行，节点故障后由其余节点接管；同时承担 scheduled reports 的渲染 |
+| `alert` | Deployment  | 1 | HTTP 5080、Probe 注册 5084、Probe 控制 5085 | `GET /api/v1/readyz` | 可加副本：多个 alert 节点按规则、报告、pipeline、日志定时巡检分担，单点任务只在主节点运行，节点故障后由其余节点接管；同时承担 scheduled reports 的渲染 |
 | `web`           | Deployment  | 2 | HTTP 8080 | `GET /healthz` | 可选的 nginx 静态资源层，附带 `web` Ingress |
 
 5080 端口在 `router` 上是完整的 HTTP 服务，在其它角色上是内部运维监听：

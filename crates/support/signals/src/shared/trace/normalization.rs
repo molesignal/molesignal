@@ -566,7 +566,7 @@ pub fn canonical_trace_schema() -> Schema {
         fields: vec![
             field("trace_id", FieldType::Utf8, true, true),
             field("span_id", FieldType::Utf8, true, true),
-            field("parent_span_id", FieldType::Utf8, false, false),
+            field("parent_span_id", FieldType::Utf8, true, true),
             field("trace_flags", FieldType::Int64, false, false),
             field("trace_state", FieldType::Utf8, false, false),
             field("name", FieldType::Utf8, false, false),

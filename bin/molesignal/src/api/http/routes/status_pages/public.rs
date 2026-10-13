@@ -268,6 +268,8 @@ mod tests {
                 }],
                 started_at: TimestampMicros(1),
                 ended_at: None,
+                auto_start: false,
+                reminder_minutes: 0,
                 published_at: Some(TimestampMicros(1)),
                 created_at: TimestampMicros(1),
                 updated_at: TimestampMicros(2),

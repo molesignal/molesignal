@@ -9,7 +9,7 @@ mod model;
 mod routes;
 mod template;
 #[cfg(test)]
-mod tests;
+pub(super) mod tests;
 
 use std::sync::Arc;
 

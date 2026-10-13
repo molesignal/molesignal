@@ -49,7 +49,7 @@ impl NotifyEngine {
 
         if delivery.policy_id.is_none() {
             return Err(Error::invalid(
-                "notify test deliveries cannot be acknowledged",
+                "notify deliveries sent outside a policy cannot be acknowledged",
             ));
         }
 

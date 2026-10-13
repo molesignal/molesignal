@@ -27,6 +27,12 @@ pub const SYSTEM_ORG_SLUG: &str = "_sys";
 /// `iam_builtin_role_purposes`. This is deliberately not a role key or name.
 pub const PLATFORM_ADMINISTRATOR_ROLE_PURPOSE: &str = "platform_administrator";
 
+/// Stable business purpose of the role an organization's first member receives: its owner.
+///
+/// An owner holds the whole permission catalog, platform scope included. That is kept true by
+/// `IamRoleRepository::grant_catalog_to_organization_owners`, not by listing keys per permission.
+pub const ORGANIZATION_BOOTSTRAP_ROLE_PURPOSE: &str = "organization_bootstrap";
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Organization {
     pub id: Id,

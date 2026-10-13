@@ -37,6 +37,8 @@ tower-http = { version = "0.6", features = [
     "cors", "compression-gzip", "trace", "timeout", "request-id", "util",
 ] }
 hyper = { version = "1.10", features = ["full"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+http-body-util = "0.1"
 rmcp = { version = "3.0.0", default-features = false, features = [
     "server",
     "transport-streamable-http-server",
@@ -45,6 +47,7 @@ rmcp = { version = "3.0.0", default-features = false, features = [
 ] }
 # TLS + ACME（change `domain-acme-tls`）：纯 rustls stack，与 reqwest/sqlx 复用根。
 rustls = "0.23"
+rustls-platform-verifier = "0.7"
 rustls-pemfile = "2"
 russh = "0.62.5"
 tokio-rustls = "0.26"

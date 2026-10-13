@@ -12,6 +12,7 @@ mod core;
 mod iam;
 
 pub mod llm_executor;
+mod log_inspection;
 mod platform;
 mod query;
 pub mod roles;

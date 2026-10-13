@@ -10,7 +10,7 @@ use super::super::{
     common::{json_result, parse_args, redact_credentials},
 };
 use crate::{
-    app::iam::IamContext,
+    app::{iam::IamContext, query::jobs::SearchJobViewer},
     infra::persistence::repositories::search::jobs::SearchJob,
     shared::{Error, Result, ids::Id},
 };
@@ -25,7 +25,11 @@ pub(super) async fn list(
     let jobs = runtime
         .data
         .search_jobs
-        .list(&auth.org_id, args.limit.unwrap_or(50).clamp(1, 200) as i64)
+        .list(
+            &auth.org_id,
+            &SearchJobViewer::of(auth),
+            args.limit.unwrap_or(50).clamp(1, 200) as i64,
+        )
         .await?;
 
     jobs_result(jobs)
@@ -42,7 +46,11 @@ pub(super) async fn get(
         runtime
             .data
             .search_jobs
-            .get(&auth.org_id, &Id(required_job_id(&args.job_id)?))
+            .get(
+                &auth.org_id,
+                &Id(required_job_id(&args.job_id)?),
+                &SearchJobViewer::of(auth),
+            )
             .await?,
     ])
 }
@@ -61,6 +69,7 @@ pub(super) async fn results(
             .results(
                 &auth.org_id,
                 &Id(required_job_id(&args.job_id)?),
+                &SearchJobViewer::of(auth),
                 args.page.unwrap_or(1),
                 args.page_size.unwrap_or(100).clamp(1, 1_000),
             )

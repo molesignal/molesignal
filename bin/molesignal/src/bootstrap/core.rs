@@ -11,6 +11,7 @@ use crate::{
     app::cluster::{ClusterRegistry, PeerRole, ShardedRunGate, WorkOwnership},
     config::{Role, Settings},
     domain::{
+        i18n_language::I18nLanguageRepository,
         iam::{IamPlatformAdministratorRepository, Organization},
         run_claim::RunGate,
         trace_policy::{TraceDebugTokenRepository, TracePolicyRepository},
@@ -31,6 +32,7 @@ use crate::{
                 dashboards::PgDashboardRepository,
                 escalation_policies::PgEscalationPolicyRepository,
                 folders::PgFolderRepository,
+                i18n_language::PgI18nLanguageRepository,
                 iam::{
                     memberships::PgIamMembershipRepository,
                     platform_administrators::PgIamPlatformAdministratorRepository,
@@ -90,6 +92,8 @@ pub(super) struct Core {
     /// 实时告警匹配器：写入路径与告警服务共享，由 `RealtimeAlertWorker` 执行其命令。
     pub(super) realtime_alerts: Arc<crate::app::alerting::realtime::RealtimeAlerts>,
     pub(super) email_sender: Option<Arc<crate::infra::notify::EmailSender>>,
+    /// 后端自己渲染的文案（邮件主题与正文等），按键和语言存放在 `i18n_language` 表。
+    pub(super) i18n_language: Arc<dyn I18nLanguageRepository>,
     pub(super) cipher_root_key: CipherRootKey,
     pub(super) cipher_keys: Arc<dyn CipherKeyRepository>,
     pub(super) field_key_service: Arc<FieldKeyService>,
@@ -274,6 +278,9 @@ impl Core {
             node_id.clone(),
         ));
 
+        let i18n_language: Arc<dyn I18nLanguageRepository> =
+            Arc::new(PgI18nLanguageRepository::new(pool.clone()));
+
         Ok(Self {
             pool,
             store,
@@ -301,6 +308,7 @@ impl Core {
             escalations,
             realtime_alerts: crate::app::alerting::realtime::RealtimeAlerts::new(),
             email_sender,
+            i18n_language,
             cipher_root_key,
             cipher_keys,
             field_key_service,

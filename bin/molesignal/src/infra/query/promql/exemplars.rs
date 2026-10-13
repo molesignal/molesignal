@@ -51,6 +51,9 @@ impl PromQLEngine {
             .unwrap_or(MAX_QUERY_EXEMPLARS)
             .clamp(1, MAX_QUERY_EXEMPLARS);
 
+        // 样本文件只能从请求组织自己的对象前缀读取。
+        let store = scoped_to_org(Arc::clone(&self.object_store), &req.org_id);
+
         let mut grouped: BTreeMap<MetricLabelSet, Vec<PrometheusExemplar>> = BTreeMap::new();
         let mut seen = BTreeSet::new();
         let mut truncated = false;
@@ -66,7 +69,7 @@ impl PromQLEngine {
                 continue;
             }
 
-            let reader = ParquetReader::new(Arc::clone(&self.object_store));
+            let reader = ParquetReader::new(Arc::clone(&store));
 
             let projection = source.sample_columns.as_ref().map(|columns| {
                 let mut columns = columns.clone();
@@ -96,7 +99,7 @@ impl PromQLEngine {
                 }
 
                 let batches = reader
-                    .read_from_store(self.object_store.clone(), &query_file.object_key, options)
+                    .read_from_store(store.clone(), &query_file.object_key, options)
                     .await?;
 
                 for batch in batches {

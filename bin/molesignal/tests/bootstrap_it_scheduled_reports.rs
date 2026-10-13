@@ -10,7 +10,12 @@
 
 mod common;
 
-use molesignal::bootstrap::workers::scheduled_reports::ScheduledReportRunner;
+use std::sync::Arc;
+
+use molesignal::{
+    app::reporting::ScheduledReportIdentity,
+    bootstrap::workers::scheduled_reports::ScheduledReportRunner,
+};
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
     matchers::{method, path as wm_path},
@@ -56,6 +61,10 @@ async fn run_reports_tick(s: &common::TestServer) {
         s.state.storage.object_store.clone(),
         s.state.platform.report_renderer.clone(),
         s.state.platform.report_renderer_base_url.clone(),
+        Arc::new(ScheduledReportIdentity::new(
+            s.state.iam.service.clone(),
+            s.state.iam.access.clone(),
+        )),
     );
     runner
         .tick_once()
@@ -254,4 +263,105 @@ async fn pdf_preview_never_returns_json_as_application_pdf() {
     assert!(content_type.contains("application/json"));
     let error: serde_json::Value = response.json().await.unwrap();
     assert_eq!(error["error"], "unavailable");
+}
+
+#[tokio::test]
+async fn a_report_records_the_signed_in_user_who_saved_it() {
+    // 定时投递的 png / pdf 以最后保存报表的登录用户的身份渲染；这位用户随每次保存写入。
+    if common::skip_unless_enabled() {
+        return;
+    }
+    let s = common::TestServer::start().await;
+    let (hk, hv) = s.auth_header();
+
+    let profile: serde_json::Value = s
+        .client
+        .get(format!("{}/api/v1/me/profile", s.base_url))
+        .header(hk, &hv)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let me = profile["user_id"].as_str().expect("signed-in user id");
+
+    let id = create_webhook_report(&s, hk, &hv, "run-as-it", "https://example.com/webhook").await;
+    let report_url = format!("{}/api/v1/scheduled_reports/{id}", s.base_url);
+
+    let stored: serde_json::Value = s
+        .client
+        .get(&report_url)
+        .header(hk, &hv)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(stored["run_as_user_id"], me);
+
+    // 这位用户的显示名和邮箱随报表返回，界面不必再去读成员目录。
+    let named = serde_json::json!({
+        "id": me,
+        "display_name": profile["display_name"],
+        "email": profile["email"],
+    });
+    assert_eq!(stored["run_as_user"], named);
+
+    let listed: serde_json::Value = s
+        .client
+        .get(format!("{}/api/v1/scheduled_reports", s.base_url))
+        .header(hk, &hv)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let listed = listed
+        .as_array()
+        .expect("a list of reports")
+        .iter()
+        .find(|report| report["id"] == id.as_str())
+        .expect("the new report is listed");
+    assert_eq!(listed["run_as_user"], named);
+
+    // 再保存一次（暂停）：身份是这次保存的人，其余字段照请求写入。
+    let update = s
+        .client
+        .put(&report_url)
+        .header(hk, &hv)
+        .json(&serde_json::json!({
+            "name": "run-as-it",
+            "dashboard_id": "dash-it",
+            "cron": "every:1d",
+            "format": "json",
+            "recipients": [{ "kind": "webhook", "target": "https://example.com/webhook" }],
+            "time_range_json": { "from": "now-7d", "to": "now" },
+            "enabled": false,
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert!(
+        update.status().is_success(),
+        "update report must succeed (got {})",
+        update.status()
+    );
+    let updated: serde_json::Value = update.json().await.unwrap();
+    assert_eq!(updated["run_as_user"], named);
+
+    let stored: serde_json::Value = s
+        .client
+        .get(&report_url)
+        .header(hk, &hv)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(stored["run_as_user_id"], me);
+    assert_eq!(stored["enabled"], false);
 }

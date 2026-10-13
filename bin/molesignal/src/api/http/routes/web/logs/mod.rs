@@ -28,16 +28,27 @@ use crate::{
 };
 
 mod cursor;
+mod field_stats;
 mod filter;
+mod histogram;
 
 const DEFAULT_WINDOW_MICROS: i64 = 24 * 60 * 60 * 1_000_000;
 const DEFAULT_PAGE_SIZE: usize = 20;
-pub(super) const MAX_PAGE_SIZE: usize = 100;
+/// The most rows one answer holds. The Logs explorer offers pages up to this size
+/// (`EXPLORER_PAGE_SIZE_OPTIONS` in the web app), so the two change together.
+pub(super) const MAX_PAGE_SIZE: usize = 5_000;
 const MAX_FILTERS: usize = 32;
 const MAX_FREE_TEXT: usize = 8;
+/// `_timestamp` is stored as Arrow Timestamp(Microsecond, UTC). Cursor payloads
+/// and HTTP bounds use integer microseconds, so comparisons must use the same
+/// integer projection; DataFusion does not coerce Timestamp >= Int64.
+const TIMESTAMP_MICROS: &str = "CAST(_timestamp AS BIGINT)";
 
 pub fn routes() -> Router<AppState> {
-    Router::new().route("/logs", post(list))
+    Router::new()
+        .route("/logs", post(list))
+        .route("/logs/histogram", post(histogram::histogram))
+        .route("/logs/field-stats", post(field_stats::field_stats))
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -111,7 +122,7 @@ async fn list(
         ));
     }
 
-    validate_filter_fields(&context, &stream.schema.fields)?;
+    validate_filter_fields(&context.filters, &context.free_text, &stream.schema.fields)?;
 
     let fetch_limit = context.page_size.saturating_add(1);
     let sql = list_sql(&context, fetch_limit, &stream.schema.fields)?;
@@ -283,16 +294,50 @@ fn clean_required(value: Option<String>, error: &str, max: usize) -> Result<Stri
 }
 
 fn validate_filter_fields(
-    context: &LogListContext,
+    filters: &[LogFilter],
+    free_text: &[String],
     fields: &[crate::domain::stream::FieldDef],
 ) -> Result<()> {
-    filter::validate(&context.filters, fields)?;
+    filter::validate(filters, fields)?;
 
-    if !context.free_text.is_empty() && !fields.iter().any(|field| field.name == "message") {
+    if !free_text.is_empty() && !fields.iter().any(|field| field.name == "message") {
         return Err(Error::invalid("log stream has no message field"));
     }
 
     Ok(())
+}
+
+/// The conditions of a structured log query: inside the window `[from, to)`,
+/// passing every filter, holding every free-text term. The list and the
+/// histogram select with exactly these, so the histogram counts the rows the
+/// list pages through.
+fn match_clauses(
+    (from, to): (i64, i64),
+    filters: &[LogFilter],
+    free_text: &[String],
+    fields: &[crate::domain::stream::FieldDef],
+) -> Result<Vec<String>> {
+    let mut clauses = vec![
+        format!("{TIMESTAMP_MICROS} >= {from}"),
+        format!("{TIMESTAMP_MICROS} < {to}"),
+    ];
+
+    for filter in filters {
+        clauses.push(filter::to_sql(filter, fields)?);
+    }
+
+    for value in free_text {
+        if crate::infra::query::tantivy_pruner::can_prune_match_term(value) {
+            clauses.push(format!("MATCH(message, {})", sql_literal(value)));
+        } else {
+            clauses.push(format!(
+                "\"message\" LIKE {}",
+                sql_literal(&format!("%{value}%")),
+            ));
+        }
+    }
+
+    Ok(clauses)
 }
 
 fn list_sql(
@@ -301,10 +346,7 @@ fn list_sql(
     fields: &[crate::domain::stream::FieldDef],
 ) -> Result<String> {
     let stream = escape_sql_ident(&context.stream);
-    // `_timestamp` is stored as Arrow Timestamp(Microsecond, UTC). Cursor payloads
-    // and HTTP bounds use integer microseconds, so comparisons must use the same
-    // integer projection; DataFusion does not coerce Timestamp >= Int64.
-    let timestamp_expr = "CAST(_timestamp AS BIGINT)";
+    let timestamp_expr = TIMESTAMP_MICROS;
     // 比较/游标仍用微秒整数，但 ORDER BY 直接使用物理列。
     // Parquet 文件已按 `(_timestamp, _event_id) DESC NULLS LAST` 写入，
     // 避免 CAST/COALESCE 包裹后 DataFusion 无法利用声明的文件内顺序。
@@ -312,25 +354,12 @@ fn list_sql(
     let event_id_expr = format!("COALESCE(\"{EVENT_ID_FIELD}\", '')");
     let event_id_order = format!("\"{EVENT_ID_FIELD}\"");
 
-    let mut where_clauses = vec![
-        format!("{timestamp_expr} >= {}", context.from),
-        format!("{timestamp_expr} < {}", context.to),
-    ];
-
-    for filter in &context.filters {
-        where_clauses.push(filter::to_sql(filter, fields)?);
-    }
-
-    for value in &context.free_text {
-        if crate::infra::query::tantivy_pruner::can_prune_match_term(value) {
-            where_clauses.push(format!("MATCH(message, {})", sql_literal(value)));
-        } else {
-            where_clauses.push(format!(
-                "\"message\" LIKE {}",
-                sql_literal(&format!("%{value}%")),
-            ));
-        }
-    }
+    let mut where_clauses = match_clauses(
+        (context.from, context.to),
+        &context.filters,
+        &context.free_text,
+        fields,
+    )?;
 
     if let Some(boundary) = &context.boundary {
         where_clauses.push(cursor::seek_predicate(boundary, &event_id_expr));

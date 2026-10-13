@@ -31,6 +31,7 @@ use crate::{
 };
 
 pub mod memberships;
+mod platform_access;
 pub mod platform_administrators;
 pub mod roles;
 pub mod service_accounts;
@@ -508,7 +509,7 @@ impl IamRepository for PgIamRepository {
                  ON rp.role_id = r.id
           LEFT JOIN iam_permissions permission
                  ON permission.permission_key = rp.permission_key
-                AND permission.scope = 'organization'
+                AND (permission.scope = 'organization' OR r.builtin)
               WHERE b.organization_id = $1
                 AND (b.starts_at_micros IS NULL OR b.starts_at_micros <= $4)
                 AND (b.expires_at_micros IS NULL OR b.expires_at_micros > $4)
@@ -567,6 +568,14 @@ impl IamRepository for PgIamRepository {
         }
 
         Ok(resolved.into_values().collect())
+    }
+
+    async fn platform_permissions(
+        &self,
+        user_id: &Id,
+        now: TimestampMicros,
+    ) -> Result<Vec<String>> {
+        platform_access::platform_permissions(&self.pool, user_id, now).await
     }
 
     async fn list_role_bindings(&self, organization_id: &Id) -> Result<Vec<IamRoleBinding>> {

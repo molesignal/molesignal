@@ -19,6 +19,8 @@ use crate::{
 const MAX_NAME_LEN: usize = 120;
 const MAX_TITLE_LEN: usize = 200;
 const MAX_MESSAGE_LEN: usize = 4_000;
+/// A reminder goes out at most a week before the planned start.
+const MAX_REMINDER_MINUTES: i32 = 7 * 24 * 60;
 const SUPPORTED_LANGUAGES: [&str; 2] = ["en-us", "zh-cn"];
 
 pub(super) fn normalize_page_input(mut input: StatusPageInput) -> Result<StatusPageInput> {
@@ -227,6 +229,15 @@ pub(super) fn validate_incident_input(input: &StatusPageIncidentInput) -> Result
     if input.status.is_terminal_for(input.kind) {
         return Err(Error::invalid(
             "a new or draft event cannot already be terminal",
+        ));
+    }
+
+    if input
+        .reminder_minutes
+        .is_some_and(|minutes| !(0..=MAX_REMINDER_MINUTES).contains(&minutes))
+    {
+        return Err(Error::invalid(
+            "reminder_minutes must be between 0 and 10080",
         ));
     }
 
@@ -477,6 +488,29 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn a_reminder_goes_out_at_most_a_week_ahead() {
+        let maintenance = |reminder_minutes| StatusPageIncidentInput {
+            source_incident_id: None,
+            kind: StatusPageIncidentKind::Maintenance,
+            title: "Database upgrade".into(),
+            impact: IncidentImpact::Maintenance,
+            status: PublicIncidentStatus::Scheduled,
+            publication_state: StatusPagePublicationState::Published,
+            message: Some("Writes can take a few seconds longer.".into()),
+            component_ids: Vec::new(),
+            started_at: None,
+            auto_start: None,
+            reminder_minutes,
+        };
+
+        assert!(validate_incident_input(&maintenance(None)).is_ok());
+        assert!(validate_incident_input(&maintenance(Some(0))).is_ok());
+        assert!(validate_incident_input(&maintenance(Some(10_080))).is_ok());
+        assert!(validate_incident_input(&maintenance(Some(10_081))).is_err());
+        assert!(validate_incident_input(&maintenance(Some(-1))).is_err());
     }
 
     #[test]

@@ -40,9 +40,13 @@ pub fn check_event_types(schema: &Schema, event: &RawEvent) -> std::result::Resu
 /// Return the automatic index policy for newly discovered fields.
 fn auto_index_type(stream_type: StreamType, field_name: &str) -> StreamIndexType {
     match stream_type {
+        // The identities a trace is walked by, and the service it is asked for: a span is found
+        // by its own id, its children by the id of their parent.
         StreamType::TRACES => {
-            let exact = matches!(field_name, "trace_id" | "span_id" | "service.name")
-                || field_name == TRACE_SUMMARY_MARKER_FIELD;
+            let exact = matches!(
+                field_name,
+                "trace_id" | "span_id" | "parent_span_id" | "service.name"
+            ) || field_name == TRACE_SUMMARY_MARKER_FIELD;
 
             if exact {
                 StreamIndexType::Exact
@@ -185,6 +189,22 @@ mod tests {
         assert_eq!(
             auto_index_type(StreamType::LOGS, EVENT_ID_FIELD),
             StreamIndexType::Exact
+        );
+    }
+
+    #[test]
+    fn a_trace_is_indexed_by_its_identities_and_its_service() {
+        for field in ["trace_id", "span_id", "parent_span_id", "service.name"] {
+            assert_eq!(
+                auto_index_type(StreamType::TRACES, field),
+                StreamIndexType::Exact,
+                "{field}"
+            );
+        }
+
+        assert_eq!(
+            auto_index_type(StreamType::TRACES, "name"),
+            StreamIndexType::None
         );
     }
 }

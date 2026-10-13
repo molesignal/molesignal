@@ -2,7 +2,7 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 //! 可选功能与集成：`[functions]`（VRL/JS/LLM 运行时）、`[mmdb]`（GeoIP）、
-//! `[scheduled_reports]`（headless 渲染）。
+//! `[scheduled_reports]`（headless 渲染）、`[log_inspection]`（定时日志巡检的额度）。
 
 use serde::{Deserialize, Serialize};
 
@@ -117,5 +117,59 @@ impl RendererSettings {
         }
 
         Ok(())
+    }
+}
+
+/// `[log_inspection]`：定时日志巡检。每次巡检都要调用 AI 模型，这一段限定它能用掉多少。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LogInspectionSettings {
+    /// 同一条巡检两次执行之间的最短间隔（秒）；小于 60 时按 60 处理。
+    #[serde(default = "default_inspection_min_interval_secs")]
+    pub min_interval_secs: u64,
+    /// 每个组织最多保存多少条定时巡检；0 表示不允许创建。
+    #[serde(default = "default_inspection_max_per_org")]
+    pub max_per_org: u32,
+    /// 单节点同时执行的巡检数；0 按 1 处理。
+    #[serde(default = "default_inspection_concurrent_runs")]
+    pub concurrent_runs: u32,
+    /// 单次巡检的总超时（秒），含全部模型调用与查询；小于 30 按 30 处理，大于 480 时收敛为
+    /// 480，保证超时的执行在运行租约到期前结束。
+    #[serde(default = "default_inspection_run_timeout_secs")]
+    pub run_timeout_secs: u64,
+    /// 巡检报告保留天数；0 按 1 处理。
+    #[serde(default = "default_inspection_report_retention_days")]
+    pub report_retention_days: u32,
+}
+
+fn default_inspection_min_interval_secs() -> u64 {
+    3600
+}
+
+fn default_inspection_max_per_org() -> u32 {
+    20
+}
+
+fn default_inspection_concurrent_runs() -> u32 {
+    2
+}
+
+fn default_inspection_run_timeout_secs() -> u64 {
+    300
+}
+
+fn default_inspection_report_retention_days() -> u32 {
+    30
+}
+
+impl Default for LogInspectionSettings {
+    fn default() -> Self {
+        Self {
+            min_interval_secs: default_inspection_min_interval_secs(),
+            max_per_org: default_inspection_max_per_org(),
+            concurrent_runs: default_inspection_concurrent_runs(),
+            run_timeout_secs: default_inspection_run_timeout_secs(),
+            report_retention_days: default_inspection_report_retention_days(),
+        }
     }
 }

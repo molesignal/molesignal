@@ -22,7 +22,7 @@ use crate::{
     },
     infra::{
         query::{escape_sql_ident, parquet_table::PrunedParquetTable},
-        storage::arrow_schema,
+        storage::{arrow_schema, org_scoped_store::scoped_to_org},
     },
     shared::{
         Error, Result,
@@ -35,9 +35,21 @@ use crate::{
     },
 };
 
+pub(super) mod count;
+
 const RAW_TABLE: &str = "__molesignal_trace_spans";
 const SUMMARY_TABLE: &str = "__molesignal_trace_summaries";
 const SUMMARY_RANK_FIELD: &str = "__molesignal_summary_rank";
+
+/// The spans and the summaries of a stream in a time range, registered as the
+/// two tables a Span-filter statement reads.
+struct SpanFilterTables {
+    session: SessionContext,
+    raw_files: usize,
+    summary_files: usize,
+    /// Rows the two datasets hold in the range, before any filter.
+    candidate_rows: u64,
+}
 
 pub(super) async fn run(
     state: &AppState,
@@ -46,6 +58,38 @@ pub(super) async fn run(
     fetch_limit: usize,
 ) -> Result<Vec<TraceListRow>> {
     let range = TimeRange::new(TimestampMicros(context.from), TimestampMicros(context.to));
+
+    let Some(tables) = register_tables(state, definition, range).await? else {
+        return Ok(Vec::new());
+    };
+
+    let sql = build_sql(context, fetch_limit)?;
+
+    let batches = tables
+        .session
+        .sql(&sql)
+        .await
+        .map_err(|error| Error::internal(format!("plan filtered trace summaries: {error}")))?
+        .collect()
+        .await
+        .map_err(|error| Error::internal(format!("scan filtered trace summaries: {error}")))?;
+
+    let rows = rows_from_batches(&batches);
+    tracing::debug!(
+        raw_files = tables.raw_files,
+        summary_files = tables.summary_files,
+        returned = rows.len(),
+        "trace Span filters joined to summary projection"
+    );
+    Ok(rows)
+}
+
+/// `None` when either dataset holds nothing in the range: no trace can match.
+async fn register_tables(
+    state: &AppState,
+    definition: &StreamDefinition,
+    range: TimeRange,
+) -> Result<Option<SpanFilterTables>> {
     let raw_type = primary_dataset_type(definition.stream_type)?;
     let summary_type = DatasetTypeId::builtin(builtin::DATASET_TRACE_SUMMARY);
 
@@ -61,7 +105,7 @@ pub(super) async fn run(
         .unwrap_or_default();
 
     if raw_files.is_empty() && raw_buffers.is_empty() {
-        return Ok(Vec::new());
+        return Ok(None);
     }
 
     let (summary_files, summary_buffers) = snapshot
@@ -70,14 +114,28 @@ pub(super) async fn run(
         .unwrap_or_default();
 
     if summary_files.is_empty() && summary_buffers.is_empty() {
-        return Ok(Vec::new());
+        return Ok(None);
     }
+
+    let candidate_rows = raw_files
+        .iter()
+        .chain(&summary_files)
+        .map(|file| file.rows)
+        .chain(
+            raw_buffers
+                .iter()
+                .chain(&summary_buffers)
+                .map(|batch| batch.num_rows() as u64),
+        )
+        .fold(0_u64, u64::saturating_add);
 
     let ctx = SessionContext::new();
     let object_store_url = ObjectStoreUrl::parse("molesignal://trace-list")
         .map_err(|error| Error::internal(format!("trace-list object store URL: {error}")))?;
-    ctx.runtime_env()
-        .register_object_store(object_store_url.as_ref(), state.storage.read_store.clone());
+    ctx.runtime_env().register_object_store(
+        object_store_url.as_ref(),
+        scoped_to_org(state.storage.read_store.clone(), &definition.org_id),
+    );
 
     let raw_table = PrunedParquetTable::new(
         arrow_schema::to_arrow(&definition.schema),
@@ -106,24 +164,12 @@ pub(super) async fn run(
     ctx.register_table(TableReference::bare(SUMMARY_TABLE), Arc::new(summary_table))
         .map_err(|error| Error::internal(format!("register trace summary table: {error}")))?;
 
-    let sql = build_sql(context, fetch_limit)?;
-
-    let batches = ctx
-        .sql(&sql)
-        .await
-        .map_err(|error| Error::internal(format!("plan filtered trace summaries: {error}")))?
-        .collect()
-        .await
-        .map_err(|error| Error::internal(format!("scan filtered trace summaries: {error}")))?;
-
-    let rows = rows_from_batches(&batches);
-    tracing::debug!(
-        raw_files = raw_files.len(),
-        summary_files = summary_files.len(),
-        returned = rows.len(),
-        "trace Span filters joined to summary projection"
-    );
-    Ok(rows)
+    Ok(Some(SpanFilterTables {
+        session: ctx,
+        raw_files: raw_files.len(),
+        summary_files: summary_files.len(),
+        candidate_rows,
+    }))
 }
 
 fn build_sql(context: &TraceListContext, fetch_limit: usize) -> Result<String> {
@@ -137,6 +183,61 @@ fn build_sql(context: &TraceListContext, fetch_limit: usize) -> Result<String> {
         .checked_mul(1_000)
         .ok_or_else(|| Error::invalid("trace time_to is out of range"))?;
 
+    let matching_trace_ids = matching_trace_ids_sql(context)?;
+    let start = qualified("s", TRACE_SUMMARY_START_NS_FIELD);
+    let duration = qualified("s", TRACE_SUMMARY_DURATION_NS_FIELD);
+    let span_count = qualified("s", TRACE_SUMMARY_SPAN_COUNT_FIELD);
+    let error_count = qualified("s", TRACE_SUMMARY_ERROR_COUNT_FIELD);
+    let trace_id = qualified("s", "trace_id");
+    let mut predicates = vec![format!("{} = 1", qualified("s", SUMMARY_RANK_FIELD))];
+    predicates.extend(summary_predicates(context)?);
+
+    if let Some(boundary) = context.boundary.as_ref() {
+        predicates.push(cursor_predicate(context, boundary.direction));
+    }
+
+    let order = order_by(context);
+
+    Ok(format!(
+        "WITH ranked_summaries AS (\n\
+           SELECT summary.*,\n\
+                  ROW_NUMBER() OVER (\n\
+                    PARTITION BY \"trace_id\"\n\
+                    ORDER BY \"{start_field}\" DESC, \"trace_id\" DESC\n\
+                  ) AS \"{rank_field}\"\n\
+           FROM \"{summary_table}\" AS summary\n\
+           WHERE \"{start_field}\" >= {from_ns}\n\
+             AND \"{start_field}\" < {to_ns}\n\
+         ),\n\
+         matching_trace_ids AS (\n\
+           {matching_trace_ids}\n\
+         )\n\
+         SELECT {trace_id} AS trace_id,\n\
+                {} AS service,\n\
+                {} AS operation,\n\
+                {start} AS start_ns,\n\
+                {duration} AS duration_ns,\n\
+                {span_count} AS span_count,\n\
+                {error_count} AS error_count\n\
+         FROM ranked_summaries AS s\n\
+         INNER JOIN matching_trace_ids AS m\n\
+           ON {trace_id} = {}\n\
+         WHERE {}\n\
+         ORDER BY {order}\n\
+         LIMIT {fetch_limit}",
+        qualified("s", "service.name"),
+        qualified("s", "name"),
+        qualified("m", "trace_id"),
+        predicates.join(" AND "),
+        start_field = TRACE_SUMMARY_START_NS_FIELD,
+        rank_field = SUMMARY_RANK_FIELD,
+        summary_table = SUMMARY_TABLE,
+    ))
+}
+
+/// The traces that have, for each Span filter, a Span that passes it: the body
+/// of the `matching_trace_ids` table a statement joins the summaries to.
+fn matching_trace_ids_sql(context: &TraceListContext) -> Result<String> {
     let raw_filters = context
         .filters
         .iter()
@@ -159,12 +260,20 @@ fn build_sql(context: &TraceListContext, fetch_limit: usize) -> Result<String> {
         })
         .collect::<Result<Vec<_>>>()?;
 
-    let start = qualified("s", TRACE_SUMMARY_START_NS_FIELD);
-    let duration = qualified("s", TRACE_SUMMARY_DURATION_NS_FIELD);
-    let span_count = qualified("s", TRACE_SUMMARY_SPAN_COUNT_FIELD);
-    let error_count = qualified("s", TRACE_SUMMARY_ERROR_COUNT_FIELD);
-    let trace_id = qualified("s", "trace_id");
-    let mut predicates = vec![format!("{} = 1", qualified("s", SUMMARY_RANK_FIELD))];
+    Ok(format!(
+        "SELECT \"trace_id\"\n\
+         FROM \"{RAW_TABLE}\" AS r\n\
+         WHERE \"trace_id\" IS NOT NULL\n\
+         GROUP BY \"trace_id\"\n\
+         HAVING {}",
+        having.join(" AND "),
+    ))
+}
+
+/// What the summary `s` of a trace has to pass: each summary filter, and the
+/// free text.
+fn summary_predicates(context: &TraceListContext) -> Result<Vec<String>> {
+    let mut predicates = Vec::new();
 
     for filter in context
         .filters
@@ -195,53 +304,7 @@ fn build_sql(context: &TraceListContext, fetch_limit: usize) -> Result<String> {
         ));
     }
 
-    if let Some(boundary) = context.boundary.as_ref() {
-        predicates.push(cursor_predicate(context, boundary.direction));
-    }
-
-    let order = order_by(context);
-
-    Ok(format!(
-        "WITH ranked_summaries AS (\n\
-           SELECT summary.*,\n\
-                  ROW_NUMBER() OVER (\n\
-                    PARTITION BY \"trace_id\"\n\
-                    ORDER BY \"{start_field}\" DESC, \"trace_id\" DESC\n\
-                  ) AS \"{rank_field}\"\n\
-           FROM \"{summary_table}\" AS summary\n\
-           WHERE \"{start_field}\" >= {from_ns}\n\
-             AND \"{start_field}\" < {to_ns}\n\
-         ),\n\
-         matching_trace_ids AS (\n\
-           SELECT \"trace_id\"\n\
-           FROM \"{raw_table}\" AS r\n\
-           WHERE \"trace_id\" IS NOT NULL\n\
-           GROUP BY \"trace_id\"\n\
-           HAVING {having}\n\
-         )\n\
-         SELECT {trace_id} AS trace_id,\n\
-                {} AS service,\n\
-                {} AS operation,\n\
-                {start} AS start_ns,\n\
-                {duration} AS duration_ns,\n\
-                {span_count} AS span_count,\n\
-                {error_count} AS error_count\n\
-         FROM ranked_summaries AS s\n\
-         INNER JOIN matching_trace_ids AS m\n\
-           ON {trace_id} = {}\n\
-         WHERE {}\n\
-         ORDER BY {order}\n\
-         LIMIT {fetch_limit}",
-        qualified("s", "service.name"),
-        qualified("s", "name"),
-        qualified("m", "trace_id"),
-        predicates.join(" AND "),
-        start_field = TRACE_SUMMARY_START_NS_FIELD,
-        rank_field = SUMMARY_RANK_FIELD,
-        summary_table = SUMMARY_TABLE,
-        raw_table = RAW_TABLE,
-        having = having.join(" AND "),
-    ))
+    Ok(predicates)
 }
 
 fn filter_predicate(alias: &str, filter: &TraceFilter, field: &str) -> Result<String> {

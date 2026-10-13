@@ -10,9 +10,9 @@
 //! - 到期判定：cron 字段优先解析 `every:Ns/m/h`（与 scheduled-pipelines 一致），
 //!   解析失败则 fallback 到 24h（多数 ops 把 cron 写 `every:24h` 或 `0 0 * * *`，
 //!   完整 5 字段 cron 解析依赖 `cron` crate；上线后再开启）。
-//! - render：当前产 `application/json` payload（dashboard ID / saved_view ID +
-//!   time_range + 截图 URL 占位）。真正的 SVG / PDF 渲染需要 headless Chrome，
-//!   属付费版能力。
+//! - render：json / csv / svg 是静态 payload（dashboard ID / saved_view ID + time_range）；
+//!   png / pdf 由 headless Chrome 加载前端的报表页打印。报表页要登录后才能取数，每次渲染
+//!   向 [`ReportRenderSession`] 要一份登录态，要不到就让这次运行失败并把原因写进投递记录。
 //! - deliver：复用 `reqwest::Client`（webhook / s3 PUT pre-signed）+
 //!   报告生成与投递状态由 scheduled report worker 独立管理。
 
@@ -24,8 +24,9 @@ use tokio::task::JoinHandle;
 
 // 报表 payload 渲染下沉到 infra::reporting（与 /scheduled_reports/{id}/preview 共用）。
 // 别名为 `render`，保持本文件既有 call sites / 测试不变。
-use crate::infra::reporting::{content_type_for, render_payload as render};
+use crate::infra::reporting::{content_type_for, render_page_url, render_payload as render};
 use crate::{
+    app::reporting::ReportRenderSession,
     domain::run_claim::{OpenGate, RunGate},
     infra::persistence::repositories::scheduled_reports::{
         DeliveryStatus, ReportDelivery, ReportRecipient, ScheduledReport, ScheduledReportRepository,
@@ -61,6 +62,8 @@ pub struct ScheduledReportRunner {
     /// `None` 时拒绝 png/pdf 渲染，禁止用 SVG 冒充目标格式。
     renderer: Option<Arc<dyn ReportRenderer>>,
     render_base_url: String,
+    /// png/pdf 渲染时浏览器用的登录态：定时任务没有发起请求的人，由它决定以谁的身份取数。
+    sessions: Arc<dyn ReportRenderSession>,
     /// 多个 alert 节点分担报告时的准入；默认每份到期的报告都跑。
     gate: Arc<dyn RunGate>,
 }
@@ -71,6 +74,7 @@ impl ScheduledReportRunner {
         object_store: Arc<dyn ObjectStore>,
         renderer: Option<Arc<dyn ReportRenderer>>,
         render_base_url: String,
+        sessions: Arc<dyn ReportRenderSession>,
     ) -> Self {
         let http = reqwest::Client::builder()
             .timeout(Duration::from_secs(30))
@@ -83,6 +87,7 @@ impl ScheduledReportRunner {
             object_store,
             renderer,
             render_base_url,
+            sessions,
             gate: Arc::new(OpenGate),
         }
     }
@@ -315,11 +320,13 @@ impl ScheduledReportRunner {
                 )
             })?;
 
-            let url = build_embed_url(&self.render_base_url, r);
+            let url = render_page_url(&self.render_base_url, r, chrono::Utc::now())?;
 
-            // 定时任务当前没有交互用户会话；目标渲染页必须由受信任的内部入口提供。
+            // 报表页要登录后才能取数。没有登录态时前端会跳去登录页，渲染只能等到超时。
+            let session = self.sessions.issue(r).await?;
+
             let bytes = renderer
-                .render(&url, fmt, Viewport::default(), None)
+                .render(&url, fmt, Viewport::CONFIGURED, Some(&session))
                 .await?;
 
             validate_report_bytes(fmt, &bytes)?;
@@ -328,21 +335,6 @@ impl ScheduledReportRunner {
 
         render(r)
     }
-}
-
-/// 构造内部报告渲染 URL。使用前端真实存在的路由，避免 `/embed` 落入 404 页面。
-fn build_embed_url(base_url: &str, r: &ScheduledReport) -> String {
-    let base_url = base_url.trim_end_matches('/');
-
-    if let Some(id) = &r.dashboard_id {
-        return format!("{base_url}/dashboards/{}?report_render=1", id.0);
-    }
-
-    if let Some(id) = &r.saved_view_id {
-        return format!("{base_url}/saved-views?view={}&report_render=1", id.0);
-    }
-
-    format!("{base_url}/")
 }
 
 fn ext_for(format: &str) -> &'static str {
@@ -398,6 +390,7 @@ mod tests {
             format: format.into(),
             time_range_json: json!({ "from": "now-7d", "to": "now" }),
             enabled: true,
+            run_as_user_id: Some(Id("u-ada".into())),
             last_run_at: last_run,
             created_at: TimestampMicros(0),
             updated_at: TimestampMicros(0),
@@ -469,6 +462,7 @@ mod tests {
             store,
             Some(Arc::new(PanicRenderer) as Arc<dyn ReportRenderer>),
             "http://127.0.0.1:5080".into(),
+            Arc::new(NoIdentity),
         );
         let r = mk_report("svg", None, "every:1d");
         let bytes = runner.render_report(&r).await.unwrap();
@@ -481,10 +475,212 @@ mod tests {
     async fn png_without_renderer_is_unavailable() {
         let repo: Arc<dyn ScheduledReportRepository> = Arc::new(FakeRepo);
         let store: Arc<dyn ObjectStore> = Arc::new(object_store::memory::InMemory::new());
-        let runner = ScheduledReportRunner::new(repo, store, None, "http://127.0.0.1:5080".into());
+        let runner = ScheduledReportRunner::new(
+            repo,
+            store,
+            None,
+            "http://127.0.0.1:5080".into(),
+            Arc::new(NoIdentity),
+        );
         let r = mk_report("png", None, "every:1d");
         let error = runner.render_report(&r).await.unwrap_err();
         assert!(matches!(error, Error::Unavailable(_)));
+    }
+
+    // ───────────── png / pdf：浏览器以谁的身份取数 ─────────────
+
+    /// 记下每次渲染拿到的地址和登录态，返回一个 magic bytes 正确的文件。
+    #[derive(Default)]
+    struct RecordingRenderer {
+        renders: std::sync::Mutex<Vec<(String, Option<String>)>>,
+    }
+
+    impl RecordingRenderer {
+        fn renders(&self) -> Vec<(String, Option<String>)> {
+            self.renders.lock().unwrap().clone()
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl ReportRenderer for RecordingRenderer {
+        async fn render(
+            &self,
+            url: &str,
+            format: ReportFormat,
+            _viewport: Viewport,
+            browser_auth_storage: Option<&str>,
+        ) -> Result<Bytes> {
+            self.renders
+                .lock()
+                .unwrap()
+                .push((url.to_owned(), browser_auth_storage.map(str::to_owned)));
+
+            Ok(match format {
+                ReportFormat::Pdf => Bytes::from_static(b"%PDF-1.7 rendered"),
+                ReportFormat::Png => Bytes::from_static(b"\x89PNG\r\n\x1a\n rendered"),
+            })
+        }
+    }
+
+    /// 每份报表各有一份登录态，里面带着报表自己的 ID。
+    struct SessionPerReport;
+
+    #[async_trait::async_trait]
+    impl ReportRenderSession for SessionPerReport {
+        async fn issue(&self, report: &ScheduledReport) -> Result<String> {
+            Ok(format!("session-for-{}", report.id.0))
+        }
+    }
+
+    /// 没有可用身份：报表的所有者已经不在组织里。
+    struct NoIdentity;
+
+    const NO_IDENTITY: &str =
+        "the report runs as ada@example.com, who is no longer a member of this organization";
+
+    #[async_trait::async_trait]
+    impl ReportRenderSession for NoIdentity {
+        async fn issue(&self, _: &ScheduledReport) -> Result<String> {
+            Err(Error::forbidden(NO_IDENTITY))
+        }
+    }
+
+    fn rendering_runner(
+        repo: Arc<Reports>,
+        renderer: Arc<RecordingRenderer>,
+        sessions: Arc<dyn ReportRenderSession>,
+    ) -> (ScheduledReportRunner, Arc<object_store::memory::InMemory>) {
+        let store = Arc::new(object_store::memory::InMemory::new());
+
+        let runner = ScheduledReportRunner::new(
+            repo,
+            store.clone(),
+            Some(renderer as Arc<dyn ReportRenderer>),
+            "http://web:5173".into(),
+            sessions,
+        );
+
+        (runner, store)
+    }
+
+    fn stored(report: &mut ScheduledReport, prefix: &str) {
+        report.recipients = vec![ReportRecipient {
+            kind: "s3".into(),
+            target: prefix.into(),
+        }];
+    }
+
+    #[tokio::test]
+    async fn a_pdf_report_is_rendered_with_the_session_issued_for_it() {
+        let mut report = mk_report("pdf", None, "every:1d");
+        stored(&mut report, "reports/weekly");
+        let repo = Reports::new(vec![report.clone()]);
+        let renderer = Arc::new(RecordingRenderer::default());
+        let (runner, store) =
+            rendering_runner(repo.clone(), renderer.clone(), Arc::new(SessionPerReport));
+
+        assert_eq!(runner.tick_once().await.unwrap(), 1);
+
+        // 浏览器加载的是这份报表的报表页，登录态是为这份报表签发的那一份。
+        let renders = renderer.renders();
+        assert_eq!(renders.len(), 1);
+        assert!(
+            renders[0]
+                .0
+                .starts_with("http://web:5173/dashboards/d1?report_render=1"),
+            "{}",
+            renders[0].0
+        );
+        assert_eq!(
+            renders[0].1.as_deref(),
+            Some(format!("session-for-{}", report.id.0).as_str())
+        );
+
+        // 渲染出的文件投递到了收件位置，并记为已发送。
+        let objects: Vec<_> = futures::TryStreamExt::try_collect(store.list(None))
+            .await
+            .unwrap();
+        assert_eq!(objects.len(), 1);
+        assert!(
+            objects[0]
+                .location
+                .as_ref()
+                .starts_with(&format!("reports/weekly/{}-", report.id.0)),
+            "{}",
+            objects[0].location
+        );
+        let body = store
+            .get(&objects[0].location)
+            .await
+            .unwrap()
+            .bytes()
+            .await
+            .unwrap();
+        assert!(body.starts_with(b"%PDF-"));
+
+        let deliveries = repo.deliveries();
+        assert_eq!(deliveries.len(), 1);
+        assert_eq!(deliveries[0].status, DeliveryStatus::Sent);
+        assert_eq!(deliveries[0].error, None);
+    }
+
+    #[tokio::test]
+    async fn a_png_report_gets_a_session_too() {
+        let report = mk_report("png", None, "every:1d");
+        let repo = Reports::new(vec![report.clone()]);
+        let renderer = Arc::new(RecordingRenderer::default());
+        let (runner, _store) = rendering_runner(repo, renderer.clone(), Arc::new(SessionPerReport));
+
+        let bytes = runner.render_report(&report).await.unwrap();
+
+        assert!(bytes.starts_with(b"\x89PNG"));
+        assert_eq!(
+            renderer.renders()[0].1.as_deref(),
+            Some(format!("session-for-{}", report.id.0).as_str())
+        );
+    }
+
+    #[tokio::test]
+    async fn a_report_with_no_usable_identity_fails_every_recipient_with_the_reason() {
+        let mut report = mk_report("pdf", None, "every:1d");
+        report.recipients = vec![
+            ReportRecipient {
+                kind: "s3".into(),
+                target: "reports/weekly".into(),
+            },
+            ReportRecipient {
+                kind: "webhook".into(),
+                target: "http://127.0.0.1:9/hook".into(),
+            },
+        ];
+        let repo = Reports::new(vec![report.clone()]);
+        let renderer = Arc::new(RecordingRenderer::default());
+        let (runner, store) =
+            rendering_runner(repo.clone(), renderer.clone(), Arc::new(NoIdentity));
+
+        assert_eq!(runner.tick_once().await.unwrap(), 1);
+
+        // 没有登录态就不去加载页面：否则只会等到超时，原因也说不清。
+        assert!(renderer.renders().is_empty());
+        let objects: Vec<_> = futures::TryStreamExt::try_collect(store.list(None))
+            .await
+            .unwrap();
+        assert!(objects.is_empty());
+
+        let deliveries = repo.deliveries();
+        assert_eq!(deliveries.len(), 2);
+
+        for delivery in &deliveries {
+            assert_eq!(delivery.status, DeliveryStatus::Failed);
+            assert_eq!(
+                delivery.error.as_deref(),
+                Some(format!("forbidden: {NO_IDENTITY}").as_str())
+            );
+        }
+
+        // 这次运行算数：下一个周期再试，而不是每分钟失败一次。
+        assert_eq!(repo.touches(), 1);
+        assert_eq!(runner.tick_once().await.unwrap(), 0);
     }
 
     // ───────────── 多个 alert 节点分担报告：运行准入 ─────────────
@@ -495,6 +691,7 @@ mod tests {
         snapshot: Vec<ScheduledReport>,
         fresh: std::sync::Mutex<Vec<ScheduledReport>>,
         touches: std::sync::atomic::AtomicUsize,
+        deliveries: std::sync::Mutex<Vec<ReportDelivery>>,
     }
 
     impl Reports {
@@ -503,11 +700,16 @@ mod tests {
                 snapshot: reports.clone(),
                 fresh: std::sync::Mutex::new(reports),
                 touches: std::sync::atomic::AtomicUsize::new(0),
+                deliveries: std::sync::Mutex::new(Vec::new()),
             })
         }
 
         fn touches(&self) -> usize {
             self.touches.load(std::sync::atomic::Ordering::SeqCst)
+        }
+
+        fn deliveries(&self) -> Vec<ReportDelivery> {
+            self.deliveries.lock().unwrap().clone()
         }
     }
 
@@ -548,18 +750,26 @@ mod tests {
                 .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             Ok(())
         }
-        async fn record_delivery(&self, _: ReportDelivery) -> Result<()> {
+        async fn record_delivery(&self, delivery: ReportDelivery) -> Result<()> {
+            self.deliveries.lock().unwrap().push(delivery);
             Ok(())
         }
         async fn list_deliveries(&self, _: &Id, _: &Id) -> Result<Vec<ReportDelivery>> {
-            Ok(vec![])
+            Ok(self.deliveries())
         }
     }
 
     fn runner_with_gate(repo: Arc<Reports>, gate: Arc<dyn RunGate>) -> ScheduledReportRunner {
         let store: Arc<dyn ObjectStore> = Arc::new(object_store::memory::InMemory::new());
-        ScheduledReportRunner::new(repo, store, None, "http://127.0.0.1:5080".into())
-            .with_gate(gate)
+
+        ScheduledReportRunner::new(
+            repo,
+            store,
+            None,
+            "http://127.0.0.1:5080".into(),
+            Arc::new(NoIdentity),
+        )
+        .with_gate(gate)
     }
 
     fn sharded_gate(

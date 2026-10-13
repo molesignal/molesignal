@@ -12,7 +12,9 @@ mod custom_domain;
 mod history;
 mod incidents;
 mod input;
+mod notification_copy;
 mod pages;
+mod planned_maintenance;
 mod private_access;
 mod subscription;
 mod validation;
@@ -27,6 +29,7 @@ pub use input::{
     StatusPageAccessRuleInput, StatusPageComponentInput, StatusPageDomainInput,
     StatusPageIncidentInput, StatusPageIncidentUpdateInput, StatusPageInput,
 };
+pub use planned_maintenance::PlannedMaintenanceSweep;
 pub use private_access::{
     StatusPageAccessMetadata, StatusPageAccessRequestOutcome, StatusPageAccessSessionOutcome,
     access_cookie_name, token_hash,
@@ -36,6 +39,7 @@ pub use subscription::{StatusPageSubscriptionInput, StatusPageSubscriptionOutcom
 use crate::{
     domain::{
         alerting::repositories::IncidentRepository,
+        i18n_language::I18nLanguageRepository,
         status_page::{
             StatusPageDomainHealthNotifier, StatusPageDomainVerifier, StatusPageNotificationSender,
             StatusPageRepository,
@@ -56,6 +60,7 @@ pub struct StatusPageService {
     pub(super) repository: Arc<dyn StatusPageRepository>,
     pub(super) incidents: Arc<dyn IncidentRepository>,
     pub(super) notification_sender: Option<Arc<dyn StatusPageNotificationSender>>,
+    pub(super) i18n_language: Option<Arc<dyn I18nLanguageRepository>>,
     pub(super) domain_verifier: Option<Arc<dyn StatusPageDomainVerifier>>,
     pub(super) managed_domain_tls_configured: bool,
     pub(super) domain_health_notifier: Option<Arc<dyn StatusPageDomainHealthNotifier>>,
@@ -71,6 +76,7 @@ impl StatusPageService {
             repository,
             incidents,
             notification_sender: None,
+            i18n_language: None,
             domain_verifier: None,
             managed_domain_tls_configured: false,
             domain_health_notifier: None,
@@ -78,12 +84,15 @@ impl StatusPageService {
         }
     }
 
+    /// `i18n_language` holds the copy of the emails that `sender` delivers.
     pub fn with_notifications(
         mut self,
         sender: Arc<dyn StatusPageNotificationSender>,
+        i18n_language: Arc<dyn I18nLanguageRepository>,
         external_url: impl Into<String>,
     ) -> Self {
         self.notification_sender = Some(sender);
+        self.i18n_language = Some(i18n_language);
         self.external_url = external_url.into();
         self
     }

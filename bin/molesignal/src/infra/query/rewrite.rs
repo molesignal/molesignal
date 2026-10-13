@@ -16,6 +16,10 @@
 //! 没有、也不需要 `_org_id` 谓词。本函数是为「schema 加上 `_org_id` 列后改走 SQL 注入」
 //! 预留的接口，在那之前它不承担任何隔离职责。
 //!
+//! 存储层还有一道独立于 SQL 的兜底：读取数据文件的对象存储句柄经
+//! [`crate::infra::storage::org_scoped_store::scoped_to_org`] 限定在本 org 的对象前缀内，
+//! 越界的 key 在读取时直接被拒绝。它不依赖本函数，也不改写任何 SQL。
+//!
 //! 未来契约：当 stream schema 加上 `_org_id` 列后，本函数会把：
 //!
 //! ```sql

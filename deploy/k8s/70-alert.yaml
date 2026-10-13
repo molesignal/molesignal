@@ -8,7 +8,7 @@ metadata:
   name: alert
   namespace: molesignal
 spec:
-  replicas: 1  # 可加副本：多个 alert 节点按规则、报告、pipeline 分担后台工作，节点故障后由其余节点接管
+  replicas: 1  # 可加副本：多个 alert 节点按规则、报告、pipeline、日志定时巡检分担后台工作，节点故障后由其余节点接管
   strategy: { type: RollingUpdate }  # 新节点预热一个存活窗口后才接管工作，更新期间新旧节点重叠不会重复评估 / 派发
   selector:
     matchLabels: { app: molesignal, role: alert }

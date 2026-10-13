@@ -30,7 +30,7 @@ use crate::{
             tantivy_pruner::{MatchPredicate, extract_match_predicates, match_text_fields},
             udfs::{build_extract_pattern_udf, build_mask_udf, compile_patterns},
         },
-        storage::parquet::reader::ParquetReader,
+        storage::{org_scoped_store::scoped_to_org, parquet::reader::ParquetReader},
     },
     shared::{Error, Result},
 };
@@ -73,7 +73,8 @@ pub(super) async fn run(
     )
     .await;
 
-    let store = engine.object_store.clone();
+    // 数据文件只能从请求组织自己的对象前缀读取，即使 Catalog 返回了越界的 key。
+    let store = scoped_to_org(engine.object_store.clone(), &req.org_id);
     let reader = ParquetReader::new(store.clone());
     let ctx = crate::infra::query::analyzer::session_context(engine.max_result_rows);
     let object_store_url = ObjectStoreUrl::parse("molesignal://query")

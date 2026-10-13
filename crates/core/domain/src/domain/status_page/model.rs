@@ -372,6 +372,13 @@ pub struct StatusPageIncident {
     pub updates: Vec<StatusPageIncidentUpdate>,
     pub started_at: TimestampMicros,
     pub ended_at: Option<TimestampMicros>,
+    /// Planned maintenance moves to in progress by itself at its planned start.
+    #[serde(default)]
+    pub auto_start: bool,
+    /// How long before the planned start subscribers are reminded of
+    /// maintenance. Zero sends no reminder.
+    #[serde(default)]
+    pub reminder_minutes: i32,
     pub published_at: Option<TimestampMicros>,
     pub created_at: TimestampMicros,
     pub updated_at: TimestampMicros,
@@ -534,6 +541,8 @@ mod tests {
             ended_at: status
                 .is_terminal_for(kind)
                 .then_some(TimestampMicros(at + 1)),
+            auto_start: false,
+            reminder_minutes: 0,
             published_at: Some(TimestampMicros(at)),
             created_at: TimestampMicros(at),
             updated_at: TimestampMicros(at),

@@ -33,6 +33,7 @@ use crate::{
             },
             sso_providers::PgSsoProviderRepository,
             user_preferences::{PgUserPreferencesRepository, UserPreferencesRepository},
+            user_ui_preference::{PgUserUiPreferenceRepository, UserUiPreferenceRepository},
             workspace_preference_defaults::{
                 PgWorkspacePreferenceDefaultsRepository, WorkspacePreferenceDefaultsRepository,
             },
@@ -50,6 +51,7 @@ pub(super) struct IamRuntime {
     pub(super) api_tokens: Arc<dyn ApiTokenRepository>,
     pub(super) service_accounts: Arc<dyn ServiceAccountRepository>,
     pub(super) user_preferences: Arc<dyn UserPreferencesRepository>,
+    pub(super) user_ui_preference: Arc<dyn UserUiPreferenceRepository>,
     pub(super) workspace_preference_defaults: Arc<dyn WorkspacePreferenceDefaultsRepository>,
     pub(super) invitations: Arc<dyn InvitationRepository>,
     pub(super) roles: Arc<dyn IamRoleRepository>,
@@ -93,6 +95,8 @@ impl IamRuntime {
             Arc::new(PgServiceAccountRepository::new(core.pool.clone()));
         let user_preferences: Arc<dyn UserPreferencesRepository> =
             Arc::new(PgUserPreferencesRepository::new(core.pool.clone()));
+        let user_ui_preference: Arc<dyn UserUiPreferenceRepository> =
+            Arc::new(PgUserUiPreferenceRepository::new(core.pool.clone()));
 
         let workspace_preference_defaults: Arc<dyn WorkspacePreferenceDefaultsRepository> =
             Arc::new(PgWorkspacePreferenceDefaultsRepository::new(
@@ -114,6 +118,18 @@ impl IamRuntime {
             Arc::new(PgInvitationRepository::new(core.pool.clone()));
         let roles: Arc<dyn IamRoleRepository> =
             Arc::new(PgIamRoleRepository::new(core.pool.clone()));
+
+        // An organization's owner holds every permission in the catalog. Reconciled here, after
+        // migrations, so a permission a migration adds reaches the owners without naming them.
+        let owner_grants = roles.grant_catalog_to_organization_owners().await?;
+
+        if owner_grants > 0 {
+            tracing::info!(
+                added = owner_grants,
+                "organization owner role reconciled with the permission catalog"
+            );
+        }
+
         let iam_repository: Arc<dyn crate::domain::iam::access::IamRepository> =
             Arc::new(PgIamRepository::new(core.pool.clone()));
 
@@ -147,6 +163,7 @@ impl IamRuntime {
             api_tokens,
             service_accounts,
             user_preferences,
+            user_ui_preference,
             workspace_preference_defaults,
             invitations,
             roles,

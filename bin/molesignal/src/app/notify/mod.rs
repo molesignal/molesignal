@@ -34,6 +34,6 @@ pub use resolvers::{
     TeamMembersResolver,
 };
 pub use service::{
-    ConnectorTestOutcome, CreateNotifyConnector, CreateUserNotifyEndpoint, NotifyService,
-    UpdateNotifyConnector, UpdateUserNotifyEndpoint,
+    ConnectorTestOutcome, CreateNotifyConnector, CreateUserNotifyEndpoint, DirectSend,
+    DirectSendOutcome, NotifyService, UpdateNotifyConnector, UpdateUserNotifyEndpoint,
 };

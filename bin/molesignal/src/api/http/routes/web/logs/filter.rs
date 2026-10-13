@@ -46,6 +46,9 @@ pub(super) fn normalize(filters: Vec<LogFilter>, maximum: usize) -> Result<Vec<L
                 }
 
                 value
+            } else if matches!(op.as_str(), "=" | "!=") && filter.value.trim().is_empty() {
+                // Compared with nothing, a field is asked whether it has a value at all.
+                String::new()
             } else {
                 clean_required(Some(filter.value), "empty log filter value", 512)?
             };
@@ -67,7 +70,7 @@ pub(super) fn validate(filters: &[LogFilter], fields: &[FieldDef]) -> Result<()>
         validate_operator(filter, field_type)?;
         validate_search_function(filter, fields)?;
 
-        if !matches!(filter.op.as_str(), "match" | "match_text") {
+        if !matches!(filter.op.as_str(), "match" | "match_text") && !asks_presence(filter) {
             typed_value(filter, field_type)?;
         }
     }
@@ -81,6 +84,10 @@ pub(super) fn to_sql(filter: &LogFilter, fields: &[FieldDef]) -> Result<String> 
     validate_operator(filter, field_type)?;
     validate_search_function(filter, fields)?;
     let field = format!("\"{}\"", escape_sql_ident(&filter.field));
+
+    if asks_presence(filter) {
+        return Ok(presence_sql(&field, field_type, filter.op == "="));
+    }
 
     if filter.op == "match" {
         if filter.value.is_empty() {
@@ -125,6 +132,24 @@ pub(super) fn to_sql(filter: &LogFilter, fields: &[FieldDef]) -> Result<String> 
         filter.op,
         typed_value(filter, field_type)?,
     ))
+}
+
+/// Whether a filter asks about the field having a value at all, which is what
+/// comparing it with nothing says: `field = ''` is the rows without a value,
+/// `field != ''` the rows with one. The explorer writes `field = ''` when a
+/// field is picked, before a value is typed, so the comparison has to run.
+fn asks_presence(filter: &LogFilter) -> bool {
+    filter.value.is_empty() && matches!(filter.op.as_str(), "=" | "!=")
+}
+
+fn presence_sql(field: &str, field_type: FieldType, absent: bool) -> String {
+    match (field_type, absent) {
+        // A string can be empty, which reads as no value just as a missing one does.
+        (FieldType::Utf8, true) => format!("({field} IS NULL OR {field} = '')"),
+        (FieldType::Utf8, false) => format!("{field} != ''"),
+        (_, true) => format!("{field} IS NULL"),
+        (_, false) => format!("{field} IS NOT NULL"),
+    }
 }
 
 fn field_type(name: &str, fields: &[FieldDef]) -> Option<FieldType> {
@@ -321,6 +346,47 @@ mod tests {
             to_sql(&filter("_timestamp", ">=", "1970-01-01T00:00:01Z"), &fields,).unwrap(),
             "CAST(\"_timestamp\" AS BIGINT) >= 1000000"
         );
+    }
+
+    #[test]
+    fn an_empty_value_asks_whether_the_field_has_one() {
+        let fields = [
+            field("env", FieldType::Utf8),
+            field("status", FieldType::Int64),
+        ];
+
+        let filters = normalize(
+            vec![
+                filter("env", "=", ""),
+                filter("env", "!=", "  "),
+                filter("status", "=", ""),
+                filter("status", "!=", ""),
+            ],
+            8,
+        )
+        .expect("an empty value is a question of its own");
+        validate(&filters, &fields).expect("no value needs no type");
+
+        let sql = filters
+            .iter()
+            .map(|filter| to_sql(filter, &fields).unwrap())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            sql,
+            [
+                "(\"env\" IS NULL OR \"env\" = '')",
+                "\"env\" != ''",
+                "\"status\" IS NULL",
+                "\"status\" IS NOT NULL",
+            ]
+        );
+    }
+
+    #[test]
+    fn an_empty_value_is_refused_where_it_says_nothing() {
+        assert!(normalize(vec![filter("status", ">=", "")], 1).is_err());
+        assert!(normalize(vec![filter("message", "contains", " ")], 1).is_err());
     }
 
     #[test]

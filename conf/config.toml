@@ -537,6 +537,8 @@ db_path = "/usr/share/molesignal/mmdb/GeoLite2-City.mmdb"
 refresh_interval_secs = 604800
 
 # === 异步搜索作业 ===
+# 结果以 NDJSON 写入对象存储的 search_jobs/v1/{组织ID}/{任务ID}-{attempt}.ndjson；
+# 任务过期后由清扫任务连同结果对象一起删除。
 [search_jobs]
 # 单节点同时执行的异步搜索任务数；领取队列始终只有一个 poller，0 按 1 个处理。
 workers = 2
@@ -581,6 +583,21 @@ render_timeout_secs = 30
 viewport_width = 1280
 # 报告页面渲染 viewport 的高度，单位像素。
 viewport_height = 800
+
+# === 定时日志巡检 ===
+# 按周期让 Mole Agent 以只读方式巡检一个日志数据流并保存报告，由 alert 角色的节点执行。
+# 一次巡检最多调用 9 次 AI 模型，这一段限定它能用掉多少。
+[log_inspection]
+# 同一条巡检两次执行之间的最短间隔，单位秒；小于 60 时按 60 处理。
+min_interval_secs = 3600
+# 每个组织最多保存多少条定时巡检；0 表示不允许创建。
+max_per_org = 20
+# 单节点同时执行的巡检数；0 按 1 处理。
+concurrent_runs = 2
+# 单次巡检的总超时，单位秒，含全部模型调用与查询；小于 30 按 30 处理，大于 480 时收敛为 480。
+run_timeout_secs = 300
+# 巡检报告的保留天数，过期的报告每小时清理一次；0 按 1 处理。
+report_retention_days = 30
 
 # === FileCatalog 生命周期与后台维护 ===
 [storage.catalog]

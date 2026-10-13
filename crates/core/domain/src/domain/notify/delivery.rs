@@ -14,6 +14,8 @@ pub enum DeliveryStage {
     OrganizationFallback,
     Escalation,
     Test,
+    /// 不经通知策略、直接发给一个连接器上的固定目标：定时巡检等功能自己选定了渠道。
+    Direct,
 }
 
 impl DeliveryStage {
@@ -25,6 +27,7 @@ impl DeliveryStage {
             Self::OrganizationFallback => "organization_fallback",
             Self::Escalation => "escalation",
             Self::Test => "test",
+            Self::Direct => "direct",
         }
     }
 
@@ -36,6 +39,7 @@ impl DeliveryStage {
             "organization_fallback" => Ok(Self::OrganizationFallback),
             "escalation" => Ok(Self::Escalation),
             "test" => Ok(Self::Test),
+            "direct" => Ok(Self::Direct),
             other => Err(Error::internal(format!(
                 "unknown notify delivery stage: {other}"
             ))),

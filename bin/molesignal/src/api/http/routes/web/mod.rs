@@ -15,6 +15,8 @@ use axum::Router;
 use crate::api::AppState;
 
 pub mod correlation;
+mod field_stats;
+mod histogram;
 pub mod investigation_blob;
 pub mod logs;
 pub mod search;

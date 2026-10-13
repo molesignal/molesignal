@@ -3,8 +3,10 @@
 
 //! Connectors CRUD。
 //!
-//! `pipelines.read` 可读，`pipelines.edit` 可写。`config_json` 中敏感字段在 list/get 响应做浅 mask
-//! （`access_key`/`secret_key`/`push_token`/`webhook_url` 等）。
+//! `pipelines.read` 可读，`pipelines.edit` 可写。`config_json` 中敏感字段在响应里做浅 mask
+//! （`access_key`/`secret_key`/`push_token` 等，见 [`crate::infra::connectors::config`]），响应另带
+//! `secret_keys` 列出已存有值的敏感字段。更新时把 mask 原样传回表示「保留已存的值」。
+//! 保存前按 kind 校验配置，缺地址字段或凭据不成对时返回 400。
 
 use axum::{
     Extension, Json, Router,
@@ -18,7 +20,7 @@ use crate::{
     api::AppState,
     app::iam::IamContext,
     domain::iam::permission,
-    infra::connectors::{Connector, ConnectorKind},
+    infra::connectors::{Connector, ConnectorKind, config},
     shared::{Result, ids::Id, time::TimestampMicros},
 };
 
@@ -55,32 +57,13 @@ pub struct ConnectorResp {
     pub name: String,
     pub kind: String,
     pub config_json: Value,
+    /// Secrets in `config_json` that hold a value. Each reads as the mask there; an update that
+    /// sends the mask back keeps the stored value.
+    pub secret_keys: Vec<String>,
     pub enabled: bool,
     pub last_run_at_micros: Option<i64>,
     pub created_at_micros: i64,
     pub updated_at_micros: i64,
-}
-
-const SENSITIVE_KEYS: &[&str] = &[
-    "access_key",
-    "secret_key",
-    "push_token",
-    "webhook_url",
-    "client_secret",
-    "password",
-    "sasl_password",
-];
-
-fn mask_config(mut v: Value) -> Value {
-    if let Value::Object(ref mut m) = v {
-        for k in SENSITIVE_KEYS {
-            if m.contains_key(*k) {
-                m.insert((*k).to_string(), Value::String("***".to_string()));
-            }
-        }
-    }
-
-    v
 }
 
 fn to_resp(c: Connector) -> ConnectorResp {
@@ -88,7 +71,8 @@ fn to_resp(c: Connector) -> ConnectorResp {
         id: c.id.0,
         name: c.name,
         kind: c.kind,
-        config_json: mask_config(c.config_json),
+        secret_keys: config::stored_secret_keys(&c.config_json),
+        config_json: config::mask_secrets(c.config_json),
         enabled: c.enabled,
         last_run_at_micros: c.last_run_at.map(|t| t.0),
         created_at_micros: c.created_at.0,
@@ -129,7 +113,10 @@ async fn create(
     Extension(ctx): Extension<IamContext>,
     Json(req): Json<CreateReq>,
 ) -> Result<Json<ConnectorResp>> {
-    let _kind = req.kind.parse::<ConnectorKind>()?;
+    let kind = req.kind.parse::<ConnectorKind>()?;
+    // Nothing is stored yet, so a mask in a new connector stands for no secret at all.
+    let config_json = config::keep_stored_secrets(req.config_json, None);
+    config::validate(kind, &config_json)?;
     let now = TimestampMicros::now();
 
     let c = Connector {
@@ -137,7 +124,7 @@ async fn create(
         org_id: ctx.org_id.clone(),
         name: req.name,
         kind: req.kind,
-        config_json: req.config_json,
+        config_json,
         enabled: req.enabled,
         last_run_at: None,
         created_at: now,
@@ -155,15 +142,19 @@ async fn update(
     Path(id): Path<String>,
     Json(req): Json<UpdateReq>,
 ) -> Result<Json<ConnectorResp>> {
-    let _kind = req.kind.parse::<ConnectorKind>()?;
+    let kind = req.kind.parse::<ConnectorKind>()?;
     let existing = state.storage.connectors.get(&ctx.org_id, &Id(id)).await?;
+    // A secret sent back masked is the one already stored. Another kind's secrets are not carried over.
+    let stored = (existing.kind == req.kind).then_some(&existing.config_json);
+    let config_json = config::keep_stored_secrets(req.config_json, stored);
+    config::validate(kind, &config_json)?;
 
     let c = Connector {
         id: existing.id,
         org_id: ctx.org_id.clone(),
         name: req.name,
         kind: req.kind,
-        config_json: req.config_json,
+        config_json,
         enabled: req.enabled,
         last_run_at: existing.last_run_at,
         created_at: existing.created_at,

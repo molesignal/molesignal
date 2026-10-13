@@ -52,6 +52,15 @@ pub struct Viewport {
     pub height: u32,
 }
 
+impl Viewport {
+    /// 交给 renderer 用它自己配置的视口（`[scheduled_reports.renderer].viewport_*`）。
+    /// 调用方没有理由偏离部署配置时都传它；传具体尺寸会盖过配置。
+    pub const CONFIGURED: Self = Self {
+        width: 0,
+        height: 0,
+    };
+}
+
 impl Default for Viewport {
     fn default() -> Self {
         Self {
@@ -93,6 +102,9 @@ impl From<RenderError> for kernel::Error {
 #[async_trait]
 pub trait ReportRenderer: Send + Sync {
     /// 把 `url` 加载到 headless Chrome 中，按 `format` 截图或打印为 PDF。
+    ///
+    /// `viewport` 是页面加载时的视口；[`Viewport::CONFIGURED`] 表示用 renderer 配置的尺寸。
+    /// 输出的宽度等于视口宽度，高度跟随页面内容。
     ///
     /// `browser_auth_storage` 是临时写入浏览器 `molesignal-auth` 同源存储的
     /// Zustand persist JSON；仅交给 Chrome 进程，不拼入 URL，打印后立即清除。

@@ -24,12 +24,14 @@ pub mod file_catalog;
 pub mod file_download_tokens;
 pub mod folders;
 pub mod functions;
+pub mod i18n_language;
 pub mod iam;
 pub mod incidents;
 pub mod instance_settings;
 pub mod investigation_blobs;
 pub mod invitations;
 
+pub mod log_inspection;
 pub mod log_patterns;
 
 pub mod mute_rules;
@@ -57,6 +59,7 @@ pub mod trace_policies;
 
 pub mod usage;
 pub mod user_preferences;
+pub mod user_ui_preference;
 pub mod users;
 pub mod web_search;
 pub mod workspace_preference_defaults;

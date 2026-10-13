@@ -47,6 +47,21 @@ impl IamAccessService {
                 ));
             }
 
+            // A platform session reaches what belongs to the platform organization. A tenant's
+            // resource is reached from inside the tenant, whoever holds the platform permission.
+            let foreign = request
+                .target
+                .as_ref()
+                .and_then(|target| target.organization_id.as_deref())
+                .is_some_and(|organization_id| organization_id != context.org_id.0);
+
+            if foreign {
+                return Ok(IamDecision::deny(
+                    IamDecisionReason::TenantIsolation,
+                    context.policy_version,
+                ));
+            }
+
             return Ok(if context.has_permission(&request.permission) {
                 IamDecision::allow(
                     IamDecisionReason::PlatformAssignment,

@@ -33,6 +33,7 @@ pub mod intake;
 pub mod invitations;
 pub mod jwt_secrets;
 
+pub mod log_inspections;
 pub mod log_patterns;
 pub mod me;
 pub mod metrics;
@@ -103,6 +104,7 @@ pub fn api_v1(state: AppState) -> Router<AppState> {
         .merge(search_jobs::routes())
         .merge(functions::routes())
         .merge(debug_artifacts::routes())
+        .merge(log_inspections::routes())
         .merge(log_patterns::routes())
         .merge(saved_views::routes())
         .merge(reports::routes())

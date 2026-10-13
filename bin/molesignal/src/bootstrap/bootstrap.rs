@@ -157,8 +157,14 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
     )
     .await?;
 
-    let platform_runtime =
-        PlatformRuntime::build(settings, &core, &query_runtime, &storage_runtime).await?;
+    let platform_runtime = PlatformRuntime::build(
+        settings,
+        &core,
+        &query_runtime,
+        &storage_runtime,
+        &iam_runtime,
+    )
+    .await?;
     let agent_runtime = AgentRuntime::build(&core, &iam_runtime, agent_model_providers.clone());
 
     let dashboard_authoring = Arc::new(
@@ -253,6 +259,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         api_tokens,
         service_accounts,
         user_preferences,
+        user_ui_preference,
         workspace_preference_defaults,
         invitations,
         roles: iam_roles,
@@ -383,6 +390,23 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         },
     }));
 
+    let log_inspections = super::log_inspection::build(
+        settings,
+        super::log_inspection::LogInspectionDependencies {
+            pool: core.pool.clone(),
+            streams: stream_repository.clone(),
+            model_providers: agent_model_providers.clone(),
+            tool_control: agent_tool_control.clone(),
+            tools: tools.clone(),
+            intake: intake.clone(),
+            notify: notify.clone(),
+            iam: iam.clone(),
+            iam_access: iam_access.clone(),
+            i18n_language: core.i18n_language.clone(),
+            run_gate: core.roles.run_alert.then(|| core.alert_run_gate.clone()),
+        },
+    );
+
     Ok(AppState {
         intake,
         query,
@@ -421,6 +445,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
             api_tokens,
             service_accounts,
             user_preferences,
+            user_ui_preference,
             workspace_preference_defaults,
             audit_events,
         },
@@ -497,8 +522,10 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         platform: PlatformState {
             saved_view: saved_views,
             external_url: settings.http.external_url.clone(),
+            i18n_language: core.i18n_language.clone(),
 
             scheduled_reports,
+            log_inspections,
             report_templates,
             report_renderer,
             report_renderer_base_url,

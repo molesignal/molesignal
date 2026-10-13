@@ -454,6 +454,8 @@ fn candidate_input(
         message: Some(candidate.message.clone()),
         component_ids: candidate.component_ids.clone(),
         started_at: Some(candidate.created_at),
+        auto_start: None,
+        reminder_minutes: None,
     }
 }
 
@@ -468,6 +470,8 @@ fn draft_input(incident: &StatusPageIncident) -> StatusPageIncidentInput {
         message: incident.draft_message.clone(),
         component_ids: incident.component_ids.clone(),
         started_at: Some(incident.started_at),
+        auto_start: Some(incident.auto_start),
+        reminder_minutes: Some(incident.reminder_minutes),
     }
 }
 

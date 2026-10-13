@@ -69,7 +69,10 @@ use crate::{
     },
     infra::{
         query::catalog_source::CatalogQuerySource,
-        storage::parquet::reader::{ParquetReader, ReadOptions},
+        storage::{
+            org_scoped_store::scoped_to_org,
+            parquet::reader::{ParquetReader, ReadOptions},
+        },
     },
     shared::{Error, Result, time::TimeRange},
 };
@@ -1141,7 +1144,9 @@ impl PromQLEngine {
             return Ok(Vec::new());
         }
 
-        let reader = ParquetReader::new(self.object_store.clone());
+        // 样本文件只能从请求组织自己的对象前缀读取。
+        let store = scoped_to_org(self.object_store.clone(), &req.org_id);
+        let reader = ParquetReader::new(store.clone());
         let mut batches: Vec<RecordBatch> = Vec::new();
 
         let projection = source
@@ -1162,7 +1167,7 @@ impl PromQLEngine {
             }
 
             let bs = reader
-                .read_from_store(self.object_store.clone(), &fm.object_key, options)
+                .read_from_store(store.clone(), &fm.object_key, options)
                 .await?;
 
             batches.extend(bs);

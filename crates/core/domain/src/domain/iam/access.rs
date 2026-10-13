@@ -193,6 +193,13 @@ pub trait IamRepository: Send + Sync {
         principal_id: &Id,
         now: TimestampMicros,
     ) -> Result<Vec<ResolvedIamRoleBinding>>;
+    /// Platform-scope permissions the user holds through a built-in role that is bound to them
+    /// across a whole enabled tenant organization they belong to. Empty for everyone else.
+    ///
+    /// This is what lets an organization's owner into the platform organization: the grant is
+    /// read from the database on every use, so taking the role away takes the access away.
+    async fn platform_permissions(&self, user_id: &Id, now: TimestampMicros)
+    -> Result<Vec<String>>;
     async fn list_role_bindings(&self, organization_id: &Id) -> Result<Vec<IamRoleBinding>>;
     async fn create_role_binding(&self, binding: IamRoleBinding) -> Result<(IamRoleBinding, u64)>;
     async fn delete_role_binding(&self, organization_id: &Id, binding_id: &Id) -> Result<u64>;

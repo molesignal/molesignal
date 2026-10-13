@@ -196,13 +196,43 @@ pub trait StatusPageIncidentQueryRepository: Send + Sync {
     ) -> Result<StatusPageHistoryPage>;
 }
 
+/// Published maintenance that is still scheduled although its planned start has passed.
+#[derive(Debug, Clone)]
+pub struct MaintenanceDueToStart {
+    pub org_id: Id,
+    pub status_page_id: Id,
+    pub incident_id: Id,
+}
+
+/// What planned maintenance does on its own schedule.
+#[async_trait]
+pub trait StatusPagePlannedMaintenanceRepository: Send + Sync {
+    /// Maintenance with automatic start whose planned start is at or before
+    /// `now`, on pages that are not archived, earliest first.
+    async fn list_maintenance_due_to_start(
+        &self,
+        now: TimestampMicros,
+        limit: u32,
+    ) -> Result<Vec<MaintenanceDueToStart>>;
+
+    /// Queues the reminder of every scheduled maintenance whose reminder time
+    /// has come, once for each planned start. Maintenance that was announced
+    /// or rescheduled after its reminder time is not reminded of: subscribers
+    /// have just been told. Returns how many deliveries were queued.
+    async fn enqueue_maintenance_reminders(&self, now: TimestampMicros) -> Result<u64>;
+}
+
 pub trait StatusPageIncidentRepository:
-    StatusPageIncidentWriteRepository + StatusPageIncidentQueryRepository
+    StatusPageIncidentWriteRepository
+    + StatusPageIncidentQueryRepository
+    + StatusPagePlannedMaintenanceRepository
 {
 }
 
 impl<T> StatusPageIncidentRepository for T where
-    T: StatusPageIncidentWriteRepository + StatusPageIncidentQueryRepository
+    T: StatusPageIncidentWriteRepository
+        + StatusPageIncidentQueryRepository
+        + StatusPagePlannedMaintenanceRepository
 {
 }
 

@@ -146,7 +146,7 @@ impl NotifyService {
     }
 }
 
-fn completion_from_result(
+pub(super) fn completion_from_result(
     result: Result<crate::domain::notify::connector::ConnectorDeliveryResult>,
     started: Instant,
     finished_at: TimestampMicros,

@@ -179,7 +179,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
 
     let tool = tool.any_permission();
 
-    if matches!(
+    let tool = if matches!(
         kind,
         BuiltinToolKind::QueryLogs
             | BuiltinToolKind::QueryMetrics
@@ -187,6 +187,19 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             | BuiltinToolKind::GetStreamSchema
     ) {
         tool.pinned()
+    } else {
+        tool
+    };
+
+    // What a scheduled log inspection reads with: the schema of its stream, the logs, and the
+    // values a field takes. Nothing else is offered to unattended automation.
+    if matches!(
+        kind,
+        BuiltinToolKind::QueryLogs
+            | BuiltinToolKind::GetStreamSchema
+            | BuiltinToolKind::SearchFieldValues
+    ) {
+        tool.automation()
     } else {
         tool
     }

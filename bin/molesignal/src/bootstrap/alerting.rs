@@ -274,6 +274,14 @@ impl AlertingRuntime {
             .spawn()
         });
 
+        let _status_page_planned_maintenance_worker = core.roles.run_alert.then(|| {
+            crate::bootstrap::workers::status_page_planned_maintenance::StatusPagePlannedMaintenanceWorker::new(
+                status_pages.clone(),
+            )
+            .with_ownership(core.alert_ownership.clone())
+            .spawn()
+        });
+
         Ok(Self {
             alerting,
             notify,
@@ -299,6 +307,7 @@ fn build_status_pages(settings: &Settings, core: &Core) -> Arc<StatusPageService
     )
     .with_notifications(
         Arc::new(StatusPageNotifyAdapter::new(core.email_sender.clone())),
+        core.i18n_language.clone(),
         settings.http.external_url.clone(),
     )
     .with_managed_domain_tls(
@@ -324,6 +333,7 @@ fn build_status_pages(settings: &Settings, core: &Core) -> Arc<StatusPageService
         service = service.with_domain_health_notifier(Arc::new(StatusPageAdminEmailNotifier::new(
             core.pool.clone(),
             email_sender,
+            core.i18n_language.clone(),
             settings.http.external_url.clone(),
         )));
     }

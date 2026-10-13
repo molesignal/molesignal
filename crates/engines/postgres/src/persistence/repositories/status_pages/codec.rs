@@ -28,7 +28,7 @@ pub(super) const COMPONENT_STATUS_EVENT_COLS: &str = "id, org_id, status_page_id
 
 pub(super) const INCIDENT_COLS: &str = "id, org_id, status_page_id, source_incident_id,
     kind, title, impact, status, publication_state, draft_message,
-    started_at_micros, ended_at_micros,
+    started_at_micros, ended_at_micros, auto_start, reminder_minutes,
     published_at_micros, created_at_micros, updated_at_micros";
 
 pub(super) fn row_to_page(row: sqlx::postgres::PgRow) -> Result<StatusPage> {
@@ -151,6 +151,8 @@ pub(super) fn row_to_incident(row: sqlx::postgres::PgRow) -> Result<StatusPageIn
         updates: Vec::new(),
         started_at: TimestampMicros(row.try_get("started_at_micros").map_err(super::sqlx_err)?),
         ended_at: ended_at.map(TimestampMicros),
+        auto_start: row.try_get("auto_start").map_err(super::sqlx_err)?,
+        reminder_minutes: row.try_get("reminder_minutes").map_err(super::sqlx_err)?,
         published_at: row
             .try_get::<Option<i64>, _>("published_at_micros")
             .map_err(super::sqlx_err)?

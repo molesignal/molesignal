@@ -81,6 +81,8 @@ VALUES
     ('molesignal-intake-storage', 40, 'work_ownership_active', 'status', 'role', 'short'),
     ('molesignal-intake-storage', 41, 'work_ownership_owned_units', 'gauge', 'role,work', 'short'),
     ('molesignal-intake-storage', 42, 'work_overlap_skipped_total', 'counter', 'work', 'ops/s'),
+    ('molesignal-intake-storage', 43, 'log_inspection_runs_total', 'counter', 'outcome', 'ops/s'),
+    ('molesignal-intake-storage', 44, 'log_inspection_run_duration_seconds', 'histogram', '', 'seconds'),
     ('molesignal-tracing-apm', 1, 'molesignal_trace_decisions_total', 'counter', 'decision,reason', 'ops/s'),
     ('molesignal-tracing-apm', 2, 'molesignal_trace_export_batches_total', 'counter', 'sink,result', 'ops/s'),
     ('molesignal-tracing-apm', 3, 'molesignal_trace_latency_seconds', 'histogram', 'stage,sink', 'seconds'),

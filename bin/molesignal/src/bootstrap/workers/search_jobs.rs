@@ -8,7 +8,8 @@
 //! 2. PostgreSQL NOTIFY / 进程内 Notify 唤醒空闲 poller，退避 poll 只做丢通知兜底；
 //! 3. poller 抢到任务后放入有界 JoinSet 并发执行，不产生重复轮询；
 //! 4. 命中 → 反序列化 `request_json` → `QueryService::run`；
-//! 5. 成功 → 结果以 NDJSON 形态落 object_store，路径 `<org>/search_jobs/<job_id>.ndjson`，
+//! 5. 成功 → 结果以 NDJSON 形态落 object_store，key 由 `StorageLayout::search_job_result_key`
+//!    生成（`search_jobs/v1/<org>/<job_id>-<attempt>.ndjson`），
 //!    `mark_done(attempt, object_key, rows, finished_at)`；
 //! 6. 失败 → `mark_failed(attempt, error, finished_at)`；
 //! 7. cleanup task 周期扫描 `expires_at < now` 的 job → 删 object → 删 row。
@@ -42,6 +43,7 @@ use crate::{
             exec::{parse_signal_type, validate_pipeline_streams},
         },
         runtime::VrlRuntime,
+        storage::layout::StorageLayout,
     },
     shared::{Result, ids::Id, time::TimestampMicros},
 };
@@ -208,11 +210,7 @@ impl SearchJobScheduler {
 
         // backfill 任务（submit_backfill 提交）在 request_json 里带 `pipeline_id`：读源后
         // 还要跑「VRL 变换 → 写目标 stream → connector egress」，而非仅把结果落 NDJSON。
-        let pipeline_id = job
-            .request_json
-            .get("pipeline_id")
-            .and_then(Value::as_str)
-            .map(str::to_string);
+        let pipeline_id = job.pipeline_id().map(str::to_string);
 
         let query_result = self
             .query
@@ -251,19 +249,18 @@ impl SearchJobScheduler {
 
     /// 普通 search-job：结果以 NDJSON 落 object_store + mark_done。
     async fn store_result(&self, job: &SearchJob, result: &QueryResult) -> Result<()> {
-        let key = format!(
-            "{}/search_jobs/{}-{}.ndjson",
-            job.org_id.0, job.id.0, job.attempt
-        );
+        self.commit_result(job, encode_ndjson(result), result.rows.len() as i64)
+            .await
+    }
 
-        let bytes = encode_ndjson(result);
-        let rows = result.rows.len() as i64;
+    /// 把这次执行的 NDJSON 写成结果对象，再把 key 和行数记到任务行上。取消或重试先赢时任务行
+    /// 不会记下这个 key，过期清理也就找不到它，所以当场删掉刚写的对象。
+    async fn commit_result(&self, job: &SearchJob, ndjson: Vec<u8>, rows: i64) -> Result<()> {
+        let key = StorageLayout::search_job_result_key(&job.org_id, &job.id, job.attempt);
+        let location = Path::from(key.as_str());
 
         self.object_store
-            .put(
-                &Path::from(key.clone()),
-                PutPayload::from(Bytes::from(bytes)),
-            )
+            .put(&location, PutPayload::from(Bytes::from(ndjson)))
             .await
             .map_err(|e| crate::shared::Error::internal(format!("upload result: {e}")))?;
 
@@ -273,14 +270,14 @@ impl SearchJobScheduler {
                 &job.org_id,
                 &job.id,
                 job.attempt,
-                &key,
+                key.as_str(),
                 rows,
                 TimestampMicros::now(),
             )
             .await?;
 
         if !committed {
-            let _ = self.object_store.delete(&Path::from(key)).await;
+            let _ = self.object_store.delete(&location).await;
         }
 
         Ok(())
@@ -378,38 +375,12 @@ impl SearchJobScheduler {
             );
         }
 
-        let key = format!(
-            "{}/search_jobs/{}-{}.ndjson",
-            job.org_id.0, job.id.0, job.attempt
-        );
-
-        let bytes = encode_objects_ndjson(&outcome.transformed);
-
-        self.object_store
-            .put(
-                &Path::from(key.clone()),
-                PutPayload::from(Bytes::from(bytes)),
-            )
-            .await
-            .map_err(|e| crate::shared::Error::internal(format!("upload result: {e}")))?;
-
-        let committed = self
-            .repo
-            .mark_done(
-                &job.org_id,
-                &job.id,
-                job.attempt,
-                &key,
-                outcome.written as i64,
-                TimestampMicros::now(),
-            )
-            .await?;
-
-        if !committed {
-            let _ = self.object_store.delete(&Path::from(key)).await;
-        }
-
-        Ok(())
+        self.commit_result(
+            job,
+            encode_objects_ndjson(&outcome.transformed),
+            outcome.written as i64,
+        )
+        .await
     }
 
     async fn run_cleanup(self: Arc<Self>) {

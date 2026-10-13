@@ -25,6 +25,8 @@ use crate::{
     shared::{Error, Result, ids::Id},
 };
 
+mod ui_preference;
+
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/me/profile", get(profile).put(update_profile))
@@ -37,6 +39,7 @@ pub fn routes() -> Router<AppState> {
             "/workspace/preferences",
             get(get_workspace_preferences).put(update_workspace_preferences),
         )
+        .merge(ui_preference::routes())
 }
 
 /// 公开端点（auth 白名单，顶层 merge）：`<img src>` 渲染头像时不会带 Bearer，

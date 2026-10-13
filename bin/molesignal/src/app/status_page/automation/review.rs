@@ -70,6 +70,8 @@ impl StatusPageService {
                 message: Some(message),
                 component_ids,
                 started_at: Some(incident.started_at),
+                auto_start: None,
+                reminder_minutes: None,
             },
         )
         .await?;

@@ -62,6 +62,7 @@ fn parse_stage(value: Option<&str>) -> Result<Option<DeliveryStage>> {
             "organization_fallback" => Ok(DeliveryStage::OrganizationFallback),
             "escalation" => Ok(DeliveryStage::Escalation),
             "test" => Ok(DeliveryStage::Test),
+            "direct" => Ok(DeliveryStage::Direct),
             _ => Err(Error::invalid("unknown notify delivery stage")),
         })
         .transpose()

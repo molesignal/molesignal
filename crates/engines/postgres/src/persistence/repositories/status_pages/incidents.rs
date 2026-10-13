@@ -126,7 +126,7 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
             "UPDATE status_page_incidents SET
                  source_incident_id = $4, kind = $5, title = $6, impact = $7,
                  status = $8, draft_message = $9, started_at_micros = $10,
-                 updated_at_micros = $11
+                 updated_at_micros = $11, auto_start = $12, reminder_minutes = $13
              WHERE org_id = $1 AND status_page_id = $2 AND id = $3
                AND publication_state = 'draft'",
         )
@@ -141,6 +141,8 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
         .bind(&incident.draft_message)
         .bind(incident.started_at.0)
         .bind(incident.updated_at.0)
+        .bind(incident.auto_start)
+        .bind(incident.reminder_minutes)
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
@@ -225,7 +227,8 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
             "UPDATE status_page_incidents SET
                  source_incident_id = $4, kind = $5, title = $6, impact = $7,
                  status = $8, publication_state = 'published', started_at_micros = $9,
-                 published_at_micros = $10, draft_message = NULL, updated_at_micros = $10
+                 published_at_micros = $10, draft_message = NULL, updated_at_micros = $10,
+                 auto_start = $11, reminder_minutes = $12
              WHERE org_id = $1 AND status_page_id = $2 AND id = $3
                AND publication_state = 'draft'",
         )
@@ -239,6 +242,8 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
         .bind(incident.status.as_str())
         .bind(incident.started_at.0)
         .bind(published_at.0)
+        .bind(incident.auto_start)
+        .bind(incident.reminder_minutes)
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
@@ -281,7 +286,8 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
 
         let result = sqlx::query(
             "UPDATE status_page_incidents SET
-                 title = $4, started_at_micros = $5, updated_at_micros = $6
+                 title = $4, started_at_micros = $5, updated_at_micros = $6,
+                 auto_start = $7, reminder_minutes = $8
              WHERE org_id = $1 AND status_page_id = $2 AND id = $3
                AND kind = 'maintenance' AND publication_state = 'published'
                AND status = 'scheduled'",
@@ -292,6 +298,8 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
         .bind(&incident.title)
         .bind(incident.started_at.0)
         .bind(incident.updated_at.0)
+        .bind(incident.auto_start)
+        .bind(incident.reminder_minutes)
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
@@ -336,8 +344,9 @@ async fn insert_incident(
         "INSERT INTO status_page_incidents
             (id, org_id, status_page_id, source_incident_id, kind, title, impact,
              status, publication_state, draft_message, started_at_micros, ended_at_micros,
-             published_at_micros, created_at_micros, updated_at_micros)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)",
+             published_at_micros, created_at_micros, updated_at_micros,
+             auto_start, reminder_minutes)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)",
     )
     .bind(&incident.id.0)
     .bind(&incident.org_id.0)
@@ -354,6 +363,8 @@ async fn insert_incident(
     .bind(incident.published_at.map(|at| at.0))
     .bind(incident.created_at.0)
     .bind(incident.updated_at.0)
+    .bind(incident.auto_start)
+    .bind(incident.reminder_minutes)
     .execute(transaction)
     .await
     .map_err(super::sqlx_err)?;

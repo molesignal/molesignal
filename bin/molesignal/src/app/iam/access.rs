@@ -15,11 +15,13 @@ use crate::{
         IamAssignedRole, IamPlatformAdministratorRepository, IamScope, access::IamRepository,
         navigation::IamRouteAccess,
     },
-    shared::{Result, ids::Id},
+    shared::{Result, ids::Id, time::TimestampMicros},
 };
 
 mod capabilities;
 mod evaluation;
+#[cfg(test)]
+mod platform_scope_tests;
 
 pub use evaluation::validate_iam_conditions;
 
@@ -159,6 +161,10 @@ struct SnapshotCacheKey {
     permission_catalog_version: u64,
     route_catalog_version: u64,
     root: bool,
+    /// The platform permissions a platform session was opened with by someone who is not root.
+    /// They are read from the database on every request, so a snapshot is only served again
+    /// while the grant it was resolved from still stands.
+    platform_grant: Option<String>,
 }
 
 pub struct IamAccessService {
@@ -195,6 +201,16 @@ impl IamAccessService {
 
     pub fn repository(&self) -> &Arc<dyn IamRepository> {
         &self.repository
+    }
+
+    /// Whether the user holds platform permissions without being the configured root: as the
+    /// owner of an enabled organization. Such a user may enter the platform organization.
+    pub async fn holds_platform_permissions(&self, user_id: &Id) -> Result<bool> {
+        Ok(!self
+            .repository
+            .platform_permissions(user_id, TimestampMicros::now())
+            .await?
+            .is_empty())
     }
 
     /// Resolve and attach the current server-side snapshot to a request context.

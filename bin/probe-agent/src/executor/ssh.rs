@@ -11,7 +11,11 @@ use tokio::{
     net::TcpStream,
 };
 
-use super::{AttemptOutcome, ExecutionContext, now_micros, security::EgressGuard};
+use super::{
+    AttemptOutcome, ExecutionContext, now_micros,
+    security::EgressGuard,
+    timing::{AwaitingReply, Phase, PhaseClock},
+};
 use crate::protocol::v1::{self as wire, ProbeOutcome, SshSpec, ssh_spec::Authentication};
 
 mod session;
@@ -48,6 +52,7 @@ pub(super) async fn execute(
     task: &wire::ProbeTask,
     spec: &SshSpec,
     context: &ExecutionContext,
+    phases: &PhaseClock,
 ) -> Result<AttemptOutcome> {
     let host = context.resolve(
         spec.host
@@ -58,13 +63,13 @@ pub(super) async fn execute(
     let port = u16::try_from(spec.port).context("SSH port is out of range")?;
 
     let address = EgressGuard::new(task.egress_policy.clone())?
-        .resolve(&host, port)
+        .resolve(&host, port, phases)
         .await?
         .remove(0);
 
     let timeout = Duration::from_millis(u64::from(task.timeout_millis.max(1)));
 
-    tokio::time::timeout(timeout, execute_inner(address, spec, context))
+    tokio::time::timeout(timeout, execute_inner(address, spec, context, phases))
         .await
         .context("SSH check timed out")?
 }
@@ -73,9 +78,10 @@ async fn execute_inner(
     address: std::net::SocketAddr,
     spec: &SshSpec,
     context: &ExecutionContext,
+    phases: &PhaseClock,
 ) -> Result<AttemptOutcome> {
     let started_at = now_micros();
-    let identification = exchange_identification(address).await?;
+    let identification = exchange_identification(address, phases).await?;
     let identification_finished = now_micros();
 
     let Some(identification) = identification else {
@@ -149,6 +155,7 @@ async fn execute_inner(
         spec,
         authentication,
         context,
+        phases,
         base_metadata,
         identification_evidence,
     )
@@ -160,6 +167,7 @@ async fn authenticated_check(
     spec: &SshSpec,
     authentication: &Authentication,
     context: &ExecutionContext,
+    phases: &PhaseClock,
     mut metadata: HashMap<String, String>,
     identification_evidence: wire::StepEvidence,
 ) -> Result<AttemptOutcome> {
@@ -175,7 +183,8 @@ async fn authenticated_check(
         observed: observed.clone(),
     };
 
-    let stream = TcpStream::connect(address).await?;
+    // Authenticating takes a connection of its own, timed like the one the identification came on.
+    let stream = connect(address, phases).await?;
 
     let config = Arc::new(client::Config {
         inactivity_timeout: None,
@@ -336,11 +345,26 @@ async fn authenticated_check(
     }
 }
 
-async fn exchange_identification(address: std::net::SocketAddr) -> Result<Option<String>> {
-    let mut stream = TcpStream::connect(address).await?;
+async fn exchange_identification(
+    address: std::net::SocketAddr,
+    phases: &PhaseClock,
+) -> Result<Option<String>> {
+    let mut stream = connect(address, phases).await?;
     stream.write_all(CLIENT_IDENTIFICATION.as_bytes()).await?;
     stream.flush().await?;
     read_identification(&mut stream).await
+}
+
+/// Opens a connection to the server. The wait for its first byte starts once it is open.
+async fn connect(
+    address: std::net::SocketAddr,
+    phases: &PhaseClock,
+) -> Result<AwaitingReply<TcpStream>> {
+    let stream = phases
+        .during(Phase::Connect, TcpStream::connect(address))
+        .await?;
+
+    Ok(AwaitingReply::new(stream, phases))
 }
 
 async fn read_identification(stream: &mut (impl AsyncRead + Unpin)) -> Result<Option<String>> {

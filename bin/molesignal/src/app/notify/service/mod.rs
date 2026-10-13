@@ -5,7 +5,10 @@ use std::{collections::HashSet, sync::Arc};
 
 use serde_json::Value;
 
+mod direct;
 mod testing;
+
+pub use direct::{DirectSend, DirectSendOutcome};
 
 use super::{
     ConnectorRegistry,
@@ -184,7 +187,8 @@ impl NotifyService {
 
         if endpoint_references > 0 || route_references > 0 {
             return Err(Error::conflict(
-                "notify connector is referenced by user endpoints, policies, or default routes",
+                "notify connector is referenced by user endpoints, policies, default routes, or \
+                 scheduled log inspections",
             ));
         }
 

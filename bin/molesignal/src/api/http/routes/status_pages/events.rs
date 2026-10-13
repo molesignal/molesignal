@@ -72,6 +72,14 @@ struct EventWriteRequest {
     component_ids: Vec<Id>,
     #[serde(default)]
     started_at: Option<TimestampMicros>,
+    /// Planned maintenance only: move to in progress at the planned start.
+    /// Omitted, new maintenance takes the default and an edit changes nothing.
+    #[serde(default)]
+    auto_start: Option<bool>,
+    /// Planned maintenance only: minutes before the planned start at which
+    /// subscribers are reminded, zero for no reminder. Omitted like `auto_start`.
+    #[serde(default)]
+    reminder_minutes: Option<i32>,
 }
 
 impl EventWriteRequest {
@@ -91,6 +99,8 @@ impl EventWriteRequest {
             message: self.message,
             component_ids: self.component_ids,
             started_at: self.started_at,
+            auto_start: self.auto_start,
+            reminder_minutes: self.reminder_minutes,
         }
     }
 }

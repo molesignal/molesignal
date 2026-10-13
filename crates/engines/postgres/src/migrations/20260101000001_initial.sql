@@ -86,6 +86,19 @@ CREATE TABLE IF NOT EXISTS user_preferences (
         CHECK (default_home_route LIKE '/%' AND default_home_route NOT LIKE '//%')
 );
 
+-- 用户的界面偏好：按组织、用途（scope）与键保存，例如日志列表按数据流保存的列与顺序
+-- （scope = 'logs.columns'，preference_key = 数据流名）。只有本人可读写；每个用途保留的
+-- 键数由应用层限制，最久未写入的先被清除。
+CREATE TABLE IF NOT EXISTS user_ui_preference (
+    user_id             VARCHAR(64)  NOT NULL,
+    org_id              VARCHAR(64)  NOT NULL,
+    scope               VARCHAR(64)  NOT NULL,
+    preference_key      VARCHAR(255) NOT NULL,
+    preference_value    JSONB        NOT NULL,
+    updated_at_micros   BIGINT       NOT NULL,
+    PRIMARY KEY (user_id, org_id, scope, preference_key)
+);
+
 CREATE TABLE IF NOT EXISTS memberships (
     user_id             VARCHAR(64) NOT NULL,
     org_id              VARCHAR(64) NOT NULL,
@@ -951,6 +964,9 @@ CREATE TABLE IF NOT EXISTS scheduled_reports (
     format              VARCHAR(16)  NOT NULL,    -- png | pdf | csv | svg | json
     time_range_json     JSONB        NOT NULL DEFAULT '{}',
     enabled             BOOLEAN      NOT NULL DEFAULT TRUE,
+    -- 最后一次保存这份报表的登录用户（users.id）：定时投递的 png / pdf 以其身份渲染。
+    -- NULL = 没有可用身份（由 API Token 保存），这两种格式的投递会失败并记录原因。
+    run_as_user_id      VARCHAR(64),
     last_run_at_micros  BIGINT,
     created_at_micros   BIGINT       NOT NULL,
     updated_at_micros   BIGINT       NOT NULL
@@ -971,6 +987,96 @@ CREATE TABLE IF NOT EXISTS report_deliveries (
 );
 CREATE INDEX IF NOT EXISTS idx_delivery_report
     ON report_deliveries(report_id, attempted_at_micros DESC);
+
+-- 定时日志巡检：按周期让 Mole Agent 以只读方式巡检一个日志数据流，保存报告，判定有异常时通知。
+CREATE TABLE IF NOT EXISTS log_inspections (
+    id                  VARCHAR(64)  PRIMARY KEY,
+    org_id              VARCHAR(64)  NOT NULL,
+    name                VARCHAR(255) NOT NULL,
+    stream              VARCHAR(255) NOT NULL,
+    -- 保存时页面上的查询语句；空表示巡检该数据流的全部日志。
+    statement           TEXT         NOT NULL DEFAULT '',
+    -- 每次巡检覆盖执行时刻之前多长时间。
+    window_secs         BIGINT       NOT NULL,
+    requirements        TEXT         NOT NULL DEFAULT '',
+    -- {"type":"interval","every_minutes":60}
+    -- | {"type":"daily","hour":9,"minute":0}
+    -- | {"type":"weekly","weekday":1,"hour":9,"minute":0}
+    schedule            JSONB        NOT NULL,
+    -- IANA 时区名：每天、每周的时刻按它解释，通知里的时间也按它写。
+    timezone            VARCHAR(64)  NOT NULL DEFAULT 'UTC',
+    provider_id         VARCHAR(64)  NOT NULL,
+    -- NULL = 每次执行时用该模型配置的默认模型。
+    model               VARCHAR(255),
+    notify_when         VARCHAR(16)  NOT NULL DEFAULT 'abnormal',
+    -- [{"connector_id":"…","target_type":"fixed_group","target":"…"}]
+    notify_routes       JSONB        NOT NULL DEFAULT '[]'::JSONB,
+    -- 报告与通知用的语言，i18n_language 的语言代码。
+    language            VARCHAR(16)  NOT NULL DEFAULT 'en-us',
+    enabled             BOOLEAN      NOT NULL DEFAULT TRUE,
+    -- 最后一次保存这条巡检的登录用户（users.id）：每次执行都以其当时的权限读取日志。
+    run_as_user_id      VARCHAR(64)  NOT NULL,
+    -- 下一次定时执行的时刻；停用时为 NULL。
+    next_run_at_micros  BIGINT,
+    -- 最近一次结束的执行；三列一起写。
+    last_run_at_micros  BIGINT,
+    last_run_status     VARCHAR(16),
+    last_run_level      VARCHAR(16),
+    created_by          VARCHAR(64)  NOT NULL,
+    created_at_micros   BIGINT       NOT NULL,
+    updated_at_micros   BIGINT       NOT NULL,
+    CONSTRAINT chk_log_inspection_window CHECK (window_secs > 0),
+    CONSTRAINT chk_log_inspection_notify_when
+        CHECK (notify_when IN ('abnormal', 'attention', 'always'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_log_inspections_org_name
+    ON log_inspections(org_id, name);
+CREATE INDEX IF NOT EXISTS idx_log_inspections_due
+    ON log_inspections(next_run_at_micros) WHERE enabled;
+
+CREATE TABLE IF NOT EXISTS log_inspection_runs (
+    id                   VARCHAR(64)  PRIMARY KEY,
+    inspection_id        VARCHAR(64)  NOT NULL
+        REFERENCES log_inspections(id) ON DELETE CASCADE,
+    org_id               VARCHAR(64)  NOT NULL,
+    trigger_kind         VARCHAR(16)  NOT NULL,   -- schedule | manual
+    status               VARCHAR(16)  NOT NULL,   -- queued | running | succeeded | failed | timed_out
+    -- 报告的结论等级，只有成功的执行才有。
+    level                VARCHAR(16),
+    window_start_micros  BIGINT       NOT NULL,
+    window_end_micros    BIGINT       NOT NULL,
+    summary              TEXT,
+    report               TEXT,
+    -- 没有产出报告的原因；页面和通知按它写说明，error 里是技术细节。
+    failure              VARCHAR(32),
+    error                TEXT,
+    provider_id          VARCHAR(64),
+    model                VARCHAR(255),
+    run_as_user_id       VARCHAR(64),
+    -- 手动触发的人。
+    requested_by         VARCHAR(64),
+    -- [{"name":"query_logs","ok":true}]：只记名字和成败，不记查询结果。
+    tool_calls           JSONB        NOT NULL DEFAULT '[]'::JSONB,
+    prompt_tokens        BIGINT       NOT NULL DEFAULT 0,
+    completion_tokens    BIGINT       NOT NULL DEFAULT 0,
+    notifications        JSONB        NOT NULL DEFAULT '[]'::JSONB,
+    created_at_micros    BIGINT       NOT NULL,
+    started_at_micros    BIGINT,
+    finished_at_micros   BIGINT,
+    CONSTRAINT chk_log_inspection_run_trigger
+        CHECK (trigger_kind IN ('schedule', 'manual')),
+    CONSTRAINT chk_log_inspection_run_status
+        CHECK (status IN ('queued', 'running', 'succeeded', 'failed', 'timed_out')),
+    CONSTRAINT chk_log_inspection_run_level
+        CHECK (level IS NULL OR level IN ('normal', 'attention', 'abnormal', 'unknown'))
+);
+CREATE INDEX IF NOT EXISTS idx_log_inspection_runs_inspection
+    ON log_inspection_runs(inspection_id, created_at_micros DESC);
+CREATE INDEX IF NOT EXISTS idx_log_inspection_runs_created
+    ON log_inspection_runs(created_at_micros);
+-- 同一条巡检同一时刻至多一条没结束的执行：定时触发与手动触发不会叠在一起。
+CREATE UNIQUE INDEX IF NOT EXISTS uq_log_inspection_runs_active
+    ON log_inspection_runs(inspection_id) WHERE status IN ('queued', 'running');
 
 CREATE TABLE IF NOT EXISTS log_patterns (
     id                VARCHAR(64)  PRIMARY KEY,
@@ -1549,6 +1655,7 @@ Do not use this capability to edit an existing Dashboard, explain an existing Da
 ON CONFLICT (id) DO NOTHING;
 
 -- Built-in VRL transform presets，统一进 functions 表（sentinel org `__builtin__`，只读，created_at=0 标记）。
+-- params_schema.description 是英文原文；界面上按读者语言显示的说明在 i18n_language 表（function.preset.<name>.description）。
 INSERT INTO functions (id, org_id, name, language, source, params_schema, created_at_micros, updated_at_micros) VALUES
 ('2f0c86ee-6db4-496a-94aa-6f8c24b55920', '__builtin__', 'normalize-logs', 'vrl', $vrl$. = parse_json!(.message)
 
@@ -1559,17 +1666,17 @@ INSERT INTO functions (id, org_id, name, language, source, params_schema, create
 if exists(.trace_id) {
     .trace.id = .trace_id
     del(.trace_id)
-}$vrl$, '{"description":"解析 JSON message，补充环境/集群字段，统一 level 小写。"}'::jsonb, 0, 0),
+}$vrl$, '{"description":"Parses the JSON message, adds environment and cluster fields, and normalizes level to lowercase."}'::jsonb, 0, 0),
 ('909f9e66-5c73-4ab1-98e6-9f0a68b06ad8', '__builtin__', 'route-by-service', 'vrl', $vrl$.service = downcase(to_string(.service) ?? "unknown")
-.target_stream = "logs_" + .service$vrl$, '{"description":"归一化 service 名并派生每服务目标流名（logs_<service>）作为路由提示。"}'::jsonb, 0, 0),
+.target_stream = "logs_" + .service$vrl$, '{"description":"Normalizes the service name and derives a per-service target stream (logs_<service>) as a routing hint."}'::jsonb, 0, 0),
 ('99f3af3c-4253-4798-824c-f7bb07a56ee9', '__builtin__', 'parse-key-value', 'vrl', $vrl$parsed = parse_key_value(to_string(.message) ?? "") ?? {}
-. = merge(., parsed)$vrl$, '{"description":"把 logfmt / key=value 形式的 message 解析为字段后合并回事件。"}'::jsonb, 0, 0),
+. = merge(., parsed)$vrl$, '{"description":"Parses a logfmt / key=value message into fields and merges them back into the event."}'::jsonb, 0, 0),
 ('30cb3f24-90b5-4def-a2f6-ce4676bc3ff5', '__builtin__', 'redact-email', 'vrl', $vrl$.message = replace(
     to_string(.message) ?? "",
     r'[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}',
     "[redacted-email]"
-)$vrl$, '{"description":"把 message 中的邮箱地址替换为占位符（脱敏）。"}'::jsonb, 0, 0),
-('a9b0a9f6-274b-48b6-9d6d-f122003e69c4', '__builtin__', 'add-intake-time', 'vrl', $vrl$.intake_at = to_unix_timestamp(now())$vrl$, '{"description":"附加摄取时间戳字段，便于排查端到端延迟。"}'::jsonb, 0, 0)
+)$vrl$, '{"description":"Replaces email addresses in message with a placeholder for redaction."}'::jsonb, 0, 0),
+('a9b0a9f6-274b-48b6-9d6d-f122003e69c4', '__builtin__', 'add-intake-time', 'vrl', $vrl$.intake_at = to_unix_timestamp(now())$vrl$, '{"description":"Adds an intake timestamp to help diagnose end-to-end latency."}'::jsonb, 0, 0)
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================
@@ -1701,39 +1808,6 @@ CREATE INDEX IF NOT EXISTS idx_schedules_org_team
 
 CREATE INDEX IF NOT EXISTS idx_schedules_org_enabled
     ON schedules(org_id, enabled);
-
--- ============================================================
--- Built-in function descriptions
--- ============================================================
-
--- Keep the built-in VRL function descriptions language-neutral for every
--- workspace. Preserve any future params_schema keys while replacing only the
--- human-readable description seeded above.
-UPDATE functions
-SET params_schema = COALESCE(params_schema, '{}'::JSONB) ||
-    jsonb_build_object(
-        'description',
-        CASE name
-            WHEN 'normalize-logs'
-                THEN 'Parses the JSON message, adds environment and cluster fields, and normalizes level to lowercase.'
-            WHEN 'route-by-service'
-                THEN 'Normalizes the service name and derives a per-service target stream (logs_<service>) as a routing hint.'
-            WHEN 'parse-key-value'
-                THEN 'Parses a logfmt / key=value message into fields and merges them back into the event.'
-            WHEN 'redact-email'
-                THEN 'Replaces email addresses in message with a placeholder for redaction.'
-            WHEN 'add-intake-time'
-                THEN 'Adds an intake timestamp to help diagnose end-to-end latency.'
-        END
-    )
-WHERE org_id = '__builtin__'
-  AND name IN (
-      'normalize-logs',
-      'route-by-service',
-      'parse-key-value',
-      'redact-email',
-      'add-intake-time'
-  );
 
 -- ============================================================
 -- Mole Agent schema
@@ -3410,6 +3484,7 @@ VALUES
     ('audit.read', 'organization', 'iam', 'permissions.audit_read', 'permissions_hint.audit_read', ARRAY['owner', 'admin']::TEXT[]),
     ('agent.use', 'organization', 'agent', 'permissions.agent_use', 'permissions_hint.agent_use', ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
     ('agent.manage', 'organization', 'agent', 'permissions.agent_manage', 'permissions_hint.agent_manage', ARRAY['owner', 'admin']::TEXT[]),
+    ('inspections.manage', 'organization', 'agent', 'permissions.inspections_manage', 'permissions_hint.inspections_manage', ARRAY['owner', 'admin', 'editor']::TEXT[]),
     ('agent.approve', 'organization', 'agent', 'permissions.agent_approve', 'permissions_hint.agent_approve', ARRAY['owner', 'admin']::TEXT[]);
 
 INSERT INTO iam_permissions (
@@ -4206,7 +4281,8 @@ ALTER TABLE notify_deliveries
             'team_fallback',
             'organization_fallback',
             'escalation',
-            'test'
+            'test',
+            'direct'
         ));
 
 ALTER TABLE notify_policies
@@ -5051,6 +5127,23 @@ CREATE INDEX idx_status_page_incidents_history
 CREATE INDEX idx_status_page_incident_updates_search
     ON status_page_incident_updates(org_id, status_page_id, incident_id, lower(message));
 
+-- Planned maintenance can start by itself at its planned start and remind
+-- subscribers some time before it. reminder_minutes is that lead time, 0 for
+-- no reminder. reminded_start_micros is the planned start a reminder was
+-- already sent for, so rescheduled maintenance is reminded of again.
+ALTER TABLE status_page_incidents
+    ADD COLUMN auto_start BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN reminder_minutes INTEGER NOT NULL DEFAULT 0,
+    ADD COLUMN reminded_start_micros BIGINT;
+ALTER TABLE status_page_incidents
+    ADD CONSTRAINT chk_status_page_incident_reminder_minutes
+        CHECK (reminder_minutes BETWEEN 0 AND 10080),
+    ADD CONSTRAINT chk_status_page_incident_planned_kind
+        CHECK (kind = 'maintenance' OR (NOT auto_start AND reminder_minutes = 0));
+CREATE INDEX idx_status_page_incidents_planned
+    ON status_page_incidents(started_at_micros)
+    WHERE kind = 'maintenance' AND publication_state = 'published' AND status = 'scheduled';
+
 -- Bind a Status Page to one globally reserved ACME domain. The Status Page
 -- workflow uses organization IAM permissions.
 ALTER TABLE domains
@@ -5178,8 +5271,9 @@ CREATE INDEX idx_status_page_deliveries_retention
     ON status_page_notification_deliveries(status, updated_at_micros)
     WHERE status IN ('delivered', 'failed');
 
--- Rebuild outbox triggers so drafts, initial component baselines and archived
--- pages stay silent. Private pages may notify their verified email subscribers.
+-- Rebuild outbox triggers so drafts, initial component baselines, hidden
+-- components and archived pages stay silent. Private pages may notify their
+-- verified email subscribers.
 CREATE OR REPLACE FUNCTION enqueue_status_page_component_notification()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -5218,6 +5312,7 @@ BEGIN
       AND page.lifecycle = 'active'
       AND (page.visibility = 'public' OR subscriber.channel = 'email')
       AND component.lifecycle = 'active'
+      AND component.visibility = 'enabled'
       AND EXISTS (
           SELECT 1
           FROM status_page_component_status_events previous
@@ -5231,6 +5326,32 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- The components of an event that the customer-facing page shows: enabled and
+-- not archived. Everything sent to subscribers names components through this
+-- function, so a hidden component cannot be named by one path and not another.
+CREATE FUNCTION status_page_event_component_names(
+    event_org_id VARCHAR,
+    event_status_page_id VARCHAR,
+    event_id VARCHAR
+) RETURNS JSONB AS $$
+    SELECT COALESCE(
+        jsonb_agg(component.name ORDER BY component.position, component.name),
+        '[]'::JSONB
+    )
+    FROM status_page_incident_components link
+    JOIN status_page_components component
+      ON component.org_id = link.org_id
+     AND component.status_page_id = link.status_page_id
+     AND component.id = link.component_id
+    WHERE link.org_id = event_org_id
+      AND link.status_page_id = event_status_page_id
+      AND link.incident_id = event_id
+      AND component.visibility = 'enabled'
+      AND component.lifecycle = 'active'
+$$ LANGUAGE sql STABLE;
+
+-- started_at is the planned start of maintenance and the actual start of an
+-- incident; ended_at stays null until the event is over.
 CREATE OR REPLACE FUNCTION enqueue_status_page_incident_notification()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -5255,17 +5376,11 @@ BEGIN
             'status', NEW.status,
             'message', NEW.message,
             'occurred_at', NEW.created_at_micros,
-            'component_names', COALESCE((
-                SELECT jsonb_agg(component.name ORDER BY component.position, component.name)
-                FROM status_page_incident_components link
-                JOIN status_page_components component
-                  ON component.org_id = link.org_id
-                 AND component.status_page_id = link.status_page_id
-                 AND component.id = link.component_id
-                WHERE link.org_id = NEW.org_id
-                  AND link.status_page_id = NEW.status_page_id
-                  AND link.incident_id = NEW.incident_id
-            ), '[]'::JSONB)
+            'started_at', incident.started_at_micros,
+            'ended_at', incident.ended_at_micros,
+            'component_names', status_page_event_component_names(
+                NEW.org_id, NEW.status_page_id, NEW.incident_id
+            )
         ),
         NEW.created_at_micros,
         NEW.created_at_micros,
@@ -6103,3 +6218,203 @@ CREATE TABLE synthetic_probe_agent_configurations (
 -- Global result pages are ordered within one organization, independently of monitor.
 CREATE INDEX ix_synthetic_results_org_time
     ON synthetic_results (organization_id, finished_at_micros DESC, id DESC);
+
+-- ============================================================
+-- Backend-written text
+-- ============================================================
+
+-- SPDX-License-Identifier: Apache-2.0
+-- Copyright (c) 2026 MoleSignal Authors
+
+-- Text the backend writes itself, such as email subjects and bodies, is data
+-- in this table and not in the source. The web interface keeps its own
+-- translation files. An entry is addressed by a dotted key and a lower-case
+-- language code; {name} in its value marks what the caller fills in. A key
+-- that a language lacks is read from en-us.
+CREATE TABLE i18n_language (
+    language_key        VARCHAR(160) NOT NULL,
+    language_code       VARCHAR(16)  NOT NULL,
+    language_value      TEXT         NOT NULL,
+    updated_at_micros   BIGINT       NOT NULL,
+    PRIMARY KEY (language_key, language_code),
+    CONSTRAINT chk_i18n_language_key
+        CHECK (language_key ~ '^[a-z0-9_]+([.][a-z0-9_]+)+$'),
+    CONSTRAINT chk_i18n_language_code
+        CHECK (language_code ~ '^[a-z]{2,3}(-[a-z0-9]{2,8})*$'),
+    CONSTRAINT chk_i18n_language_value
+        CHECK (length(language_value) BETWEEN 1 AND 8000)
+);
+
+-- Entries are grouped by the part of the product that writes them. Every key
+-- has one row per language, en-us first.
+INSERT INTO i18n_language (language_key, language_code, language_value, updated_at_micros)
+SELECT seed.language_key, seed.language_code, seed.language_value,
+       (EXTRACT(EPOCH FROM clock_timestamp()) * 1000000)::BIGINT
+FROM (VALUES
+    -- Emails a status page sends to its customers, in the default language of
+    -- the page.
+    ('status_page.email.subscription_confirmation.subject', 'en-us', 'Confirm updates from {page_name}'),
+    ('status_page.email.subscription_confirmation.subject', 'zh-cn', '确认订阅 {page_name} 的状态更新'),
+    ('status_page.email.subscription_confirmation.body', 'en-us', E'Confirm your subscription to {page_name}:\n{confirm_url}\n\nIf you did not request this, no action is required. You can unsubscribe with:\n{unsubscribe_url}'),
+    ('status_page.email.subscription_confirmation.body', 'zh-cn', E'打开以下链接，确认订阅 {page_name} 的状态更新：\n{confirm_url}\n\n如果没有申请过订阅，无需任何操作。退订链接：\n{unsubscribe_url}'),
+    ('status_page.email.access_link.subject', 'en-us', 'Access {page_name}'),
+    ('status_page.email.access_link.subject', 'zh-cn', '访问 {page_name}'),
+    ('status_page.email.access_link.body', 'en-us', E'Use this one-time link within {minutes} minutes to access {page_name}:\n{access_url}'),
+    ('status_page.email.access_link.body', 'zh-cn', E'请在 {minutes} 分钟内使用以下一次性链接访问 {page_name}：\n{access_url}'),
+    ('status_page.email.component_status.subject', 'en-us', '{page_name}: {component_name} · {status}'),
+    ('status_page.email.component_status.subject', 'zh-cn', '{page_name}：{component_name} · {status}'),
+    ('status_page.email.component_status.body', 'en-us', E'{component_name} changed to {status}.\n\n{page_url}'),
+    ('status_page.email.component_status.body', 'zh-cn', E'{component_name} 的状态已变为“{status}”。\n\n{page_url}'),
+    ('status_page.email.incident_update.subject', 'en-us', '{page_name}: {title} · {status}'),
+    ('status_page.email.incident_update.subject', 'zh-cn', '{page_name}：{title} · {status}'),
+    ('status_page.email.incident_update.body', 'en-us', E'{title}\n{status}\n\n{message}\n\n{page_url}'),
+    ('status_page.email.incident_update.body', 'zh-cn', E'{title}\n{status}\n\n{message}\n\n{page_url}'),
+    ('status_page.email.maintenance_update.subject', 'en-us', '{page_name}: {title} · {status}'),
+    ('status_page.email.maintenance_update.subject', 'zh-cn', '{page_name}：{title} · {status}'),
+    ('status_page.email.maintenance_update.body', 'en-us', E'{title}\n{status}\nScheduled for: {scheduled_for}\n\n{message}\n\n{page_url}'),
+    ('status_page.email.maintenance_update.body', 'zh-cn', E'{title}\n{status}\n计划时间：{scheduled_for}\n\n{message}\n\n{page_url}'),
+    ('status_page.email.maintenance_reminder.subject', 'en-us', '{page_name}: {title} · Reminder'),
+    ('status_page.email.maintenance_reminder.subject', 'zh-cn', '{page_name}：{title} · 提醒'),
+    ('status_page.email.maintenance_reminder.body', 'en-us', E'Reminder of planned maintenance:\n\n{title}\nScheduled for: {scheduled_for}\n\n{page_url}'),
+    ('status_page.email.maintenance_reminder.body', 'zh-cn', E'计划维护提醒：\n\n{title}\n计划时间：{scheduled_for}\n\n{page_url}'),
+    -- The update a status page publishes by itself when maintenance starts at
+    -- its planned time, in the default language of the page.
+    ('status_page.maintenance.started_update', 'en-us', 'The maintenance has started as planned.'),
+    ('status_page.maintenance.started_update', 'zh-cn', '维护已按计划开始。'),
+    -- Status names in those emails. They match the labels of the
+    -- customer-facing page.
+    ('status_page.component_status.operational', 'en-us', 'Operational'),
+    ('status_page.component_status.operational', 'zh-cn', '正常'),
+    ('status_page.component_status.degraded_performance', 'en-us', 'Degraded performance'),
+    ('status_page.component_status.degraded_performance', 'zh-cn', '性能下降'),
+    ('status_page.component_status.partial_outage', 'en-us', 'Partial outage'),
+    ('status_page.component_status.partial_outage', 'zh-cn', '部分中断'),
+    ('status_page.component_status.major_outage', 'en-us', 'Major outage'),
+    ('status_page.component_status.major_outage', 'zh-cn', '严重中断'),
+    ('status_page.component_status.maintenance', 'en-us', 'Maintenance'),
+    ('status_page.component_status.maintenance', 'zh-cn', '维护中'),
+    ('status_page.incident_status.investigating', 'en-us', 'Investigating'),
+    ('status_page.incident_status.investigating', 'zh-cn', '调查中'),
+    ('status_page.incident_status.identified', 'en-us', 'Identified'),
+    ('status_page.incident_status.identified', 'zh-cn', '已确认'),
+    ('status_page.incident_status.in_progress', 'en-us', 'Fix in progress'),
+    ('status_page.incident_status.in_progress', 'zh-cn', '处理中'),
+    ('status_page.incident_status.monitoring', 'en-us', 'Monitoring'),
+    ('status_page.incident_status.monitoring', 'zh-cn', '监控中'),
+    ('status_page.incident_status.resolved', 'en-us', 'Resolved'),
+    ('status_page.incident_status.resolved', 'zh-cn', '已解决'),
+    ('status_page.maintenance_status.scheduled', 'en-us', 'Scheduled'),
+    ('status_page.maintenance_status.scheduled', 'zh-cn', '已计划'),
+    ('status_page.maintenance_status.in_progress', 'en-us', 'In progress'),
+    ('status_page.maintenance_status.in_progress', 'zh-cn', '进行中'),
+    ('status_page.maintenance_status.completed', 'en-us', 'Completed'),
+    ('status_page.maintenance_status.completed', 'zh-cn', '已完成'),
+    ('status_page.maintenance_status.cancelled', 'en-us', 'Cancelled'),
+    ('status_page.maintenance_status.cancelled', 'zh-cn', '已取消'),
+    -- A status page's custom domain needs attention: sent to the administrators
+    -- of the page, in the default language of their workspace.
+    ('status_page.email.domain_alert.subject', 'en-us', '{page_name} custom domain needs attention'),
+    ('status_page.email.domain_alert.subject', 'zh-cn', '{page_name} 的自定义域名需要处理'),
+    ('status_page.email.domain_alert.body', 'en-us', E'The custom domain {hostname} for {page_name} needs attention.\nState: {state}\n\n{detail}\n\nReview Domain & Access: {settings_url}'),
+    ('status_page.email.domain_alert.body', 'zh-cn', E'{page_name} 的自定义域名 {hostname} 需要处理。\n当前状态：{state}\n\n{detail}\n\n前往“域名与访问”处理：{settings_url}'),
+    ('status_page.email.domain_alert.no_detail', 'en-us', 'The latest domain health check did not provide details.'),
+    ('status_page.email.domain_alert.no_detail', 'zh-cn', '最近一次域名健康检查没有给出详细信息。'),
+    ('status_page.domain_state.failed', 'en-us', 'Failed'),
+    ('status_page.domain_state.failed', 'zh-cn', '失败'),
+    ('status_page.domain_state.degraded', 'en-us', 'Degraded'),
+    ('status_page.domain_state.degraded', 'zh-cn', '异常'),
+    -- Password reset, in the language the request asks for.
+    ('auth.email.password_reset.subject', 'en-us', 'MoleSignal: reset your password'),
+    ('auth.email.password_reset.subject', 'zh-cn', 'MoleSignal：重置你的密码'),
+    ('auth.email.password_reset.body', 'en-us', E'We received a request to reset your password.\n\nOpen the link below within {minutes} minutes to choose a new password:\n{reset_url}\n\nIf you did not request this, you can ignore this email. Your password will not change.\n'),
+    ('auth.email.password_reset.body', 'zh-cn', E'我们收到了你的密码重置请求。\n\n请在 {minutes} 分钟内打开以下链接设置新密码：\n{reset_url}\n\n如果这不是你的操作，请忽略本邮件；你的密码不会发生变化。\n'),
+    -- Registrations that wait for approval, in the default language of the
+    -- workspace. The entries without a link are used while http.external_url
+    -- is empty.
+    ('iam.email.registration_pending.subject', 'en-us', 'MoleSignal: a new user is awaiting approval'),
+    ('iam.email.registration_pending.subject', 'zh-cn', 'MoleSignal：有新用户等待审批'),
+    ('iam.email.registration_pending.body', 'en-us', E'A new user has signed up and is awaiting your approval:\n\n  {pending_email}\n\nReview: {review_url}\n'),
+    ('iam.email.registration_pending.body', 'zh-cn', E'有新用户完成注册，正在等待审批：\n\n  {pending_email}\n\n前往审批：{review_url}\n'),
+    ('iam.email.registration_pending.body_without_link', 'en-us', E'A new user has signed up and is awaiting your approval:\n\n  {pending_email}\n\nReview pending registrations in IAM → Approvals.\n'),
+    ('iam.email.registration_pending.body_without_link', 'zh-cn', E'有新用户完成注册，正在等待审批：\n\n  {pending_email}\n\n请在 IAM → 审批 中处理待审批的注册。\n'),
+    ('iam.email.registration_approved.subject', 'en-us', 'MoleSignal: your account has been approved'),
+    ('iam.email.registration_approved.subject', 'zh-cn', 'MoleSignal：你的账号已通过审批'),
+    ('iam.email.registration_approved.body', 'en-us', E'Good news — your registration has been approved. Sign in: {signin_url}\n'),
+    ('iam.email.registration_approved.body', 'zh-cn', E'你的注册申请已通过审批。登录地址：{signin_url}\n'),
+    ('iam.email.registration_approved.body_without_link', 'en-us', E'Good news — your registration has been approved. You can now sign in.\n'),
+    ('iam.email.registration_approved.body_without_link', 'zh-cn', E'你的注册申请已通过审批，现在可以登录。\n'),
+    ('iam.email.registration_declined.subject', 'en-us', 'MoleSignal: your registration was declined'),
+    ('iam.email.registration_declined.subject', 'zh-cn', 'MoleSignal：你的注册申请未通过'),
+    ('iam.email.registration_declined.body', 'en-us', E'Your registration request has been declined by an administrator.\n'),
+    ('iam.email.registration_declined.body', 'zh-cn', E'管理员没有通过你的注册申请。\n'),
+    -- Names of the built-in Mole Agent prompts, in the interface language of
+    -- whoever lists them. The key carries the prompt's builtin_key.
+    ('agent.prompt.system.default.name', 'en-us', 'System Default'),
+    ('agent.prompt.system.default.name', 'zh-cn', '系统默认指令'),
+    ('agent.prompt.analysis.anomaly.name', 'en-us', 'Anomaly Analysis'),
+    ('agent.prompt.analysis.anomaly.name', 'zh-cn', '异常分析'),
+    ('agent.prompt.analysis.root_cause.name', 'en-us', 'Root Cause Analysis'),
+    ('agent.prompt.analysis.root_cause.name', 'zh-cn', '根因分析'),
+    ('agent.prompt.alert.explain.name', 'en-us', 'Alert Explanation'),
+    ('agent.prompt.alert.explain.name', 'zh-cn', '告警解释'),
+    ('agent.prompt.query.generate.name', 'en-us', 'Query Generation'),
+    ('agent.prompt.query.generate.name', 'zh-cn', '查询生成'),
+    ('agent.prompt.dashboard.authoring.v1.name', 'en-us', 'Dashboard Authoring v1'),
+    ('agent.prompt.dashboard.authoring.v1.name', 'zh-cn', '仪表盘创作 v1'),
+    -- What each built-in function does, in the interface language of whoever
+    -- lists them. The key carries the function's name, with _ for -.
+    ('function.preset.normalize_logs.description', 'en-us', 'Parses the JSON message, adds environment and cluster fields, and normalizes level to lowercase.'),
+    ('function.preset.normalize_logs.description', 'zh-cn', '解析 JSON message，补充环境/集群字段，统一 level 小写。'),
+    ('function.preset.route_by_service.description', 'en-us', 'Normalizes the service name and derives a per-service target stream (logs_<service>) as a routing hint.'),
+    ('function.preset.route_by_service.description', 'zh-cn', '归一化 service 名并派生每服务目标流名（logs_<service>）作为路由提示。'),
+    ('function.preset.parse_key_value.description', 'en-us', 'Parses a logfmt / key=value message into fields and merges them back into the event.'),
+    ('function.preset.parse_key_value.description', 'zh-cn', '把 logfmt / key=value 形式的 message 解析为字段后合并回事件。'),
+    ('function.preset.redact_email.description', 'en-us', 'Replaces email addresses in message with a placeholder for redaction.'),
+    ('function.preset.redact_email.description', 'zh-cn', '把 message 中的邮箱地址替换为占位符（脱敏）。'),
+    ('function.preset.add_intake_time.description', 'en-us', 'Adds an intake timestamp to help diagnose end-to-end latency.'),
+    ('function.preset.add_intake_time.description', 'zh-cn', '附加摄取时间戳字段，便于排查端到端延迟。'),
+    -- What a scheduled log inspection tells the channels it notifies, in the
+    -- language the inspection was saved in.
+    ('log_inspection.notify.title.abnormal', 'en-us', 'Log inspection found a problem: {name}'),
+    ('log_inspection.notify.title.abnormal', 'zh-cn', '日志巡检发现异常：{name}'),
+    ('log_inspection.notify.title.attention', 'en-us', 'Log inspection needs attention: {name}'),
+    ('log_inspection.notify.title.attention', 'zh-cn', '日志巡检需关注：{name}'),
+    ('log_inspection.notify.title.normal', 'en-us', 'Log inspection found nothing unusual: {name}'),
+    ('log_inspection.notify.title.normal', 'zh-cn', '日志巡检正常：{name}'),
+    ('log_inspection.notify.title.unknown', 'en-us', 'Log inspection gave no verdict: {name}'),
+    ('log_inspection.notify.title.unknown', 'zh-cn', '日志巡检没有给出结论等级：{name}'),
+    ('log_inspection.notify.title.failed', 'en-us', 'Log inspection did not complete: {name}'),
+    ('log_inspection.notify.title.failed', 'zh-cn', '日志巡检没有完成：{name}'),
+    ('log_inspection.notify.body.report', 'en-us', E'Stream: {stream}\nPeriod: {window}\nVerdict: {level}\n\n{summary}\n\nReport: {report_url}'),
+    ('log_inspection.notify.body.report', 'zh-cn', E'数据流：{stream}\n时间范围：{window}\n结论等级：{level}\n\n{summary}\n\n查看报告：{report_url}'),
+    ('log_inspection.notify.body.report_without_link', 'en-us', E'Stream: {stream}\nPeriod: {window}\nVerdict: {level}\n\n{summary}'),
+    ('log_inspection.notify.body.report_without_link', 'zh-cn', E'数据流：{stream}\n时间范围：{window}\n结论等级：{level}\n\n{summary}'),
+    ('log_inspection.notify.body.failed', 'en-us', E'Stream: {stream}\nPeriod: {window}\n\n{reason}\n\nDetails: {report_url}'),
+    ('log_inspection.notify.body.failed', 'zh-cn', E'数据流：{stream}\n时间范围：{window}\n\n{reason}\n\n查看详情：{report_url}'),
+    ('log_inspection.notify.body.failed_without_link', 'en-us', E'Stream: {stream}\nPeriod: {window}\n\n{reason}'),
+    ('log_inspection.notify.body.failed_without_link', 'zh-cn', E'数据流：{stream}\n时间范围：{window}\n\n{reason}'),
+    ('log_inspection.notify.summary.unknown', 'en-us', 'The report does not state a verdict. Open it to read what the model wrote.'),
+    ('log_inspection.notify.summary.unknown', 'zh-cn', '报告里没有给出结论等级，请打开报告查看模型写的内容。'),
+    ('log_inspection.level.normal', 'en-us', 'Normal'),
+    ('log_inspection.level.normal', 'zh-cn', '正常'),
+    ('log_inspection.level.attention', 'en-us', 'Needs attention'),
+    ('log_inspection.level.attention', 'zh-cn', '需关注'),
+    ('log_inspection.level.abnormal', 'en-us', 'Abnormal'),
+    ('log_inspection.level.abnormal', 'zh-cn', '异常'),
+    ('log_inspection.level.unknown', 'en-us', 'No verdict'),
+    ('log_inspection.level.unknown', 'zh-cn', '未判定'),
+    ('log_inspection.failure.timed_out', 'en-us', 'The inspection exceeded its time limit.'),
+    ('log_inspection.failure.timed_out', 'zh-cn', '巡检超过了时间上限。'),
+    ('log_inspection.failure.interrupted', 'en-us', 'The node running the inspection stopped before it finished.'),
+    ('log_inspection.failure.interrupted', 'zh-cn', '执行巡检的节点中途退出。'),
+    ('log_inspection.failure.not_started', 'en-us', 'No node picked up the inspection.'),
+    ('log_inspection.failure.not_started', 'zh-cn', '没有节点来执行这次巡检。'),
+    ('log_inspection.failure.identity', 'en-us', 'The user the inspection runs as can no longer be used. Save the inspection again to run it as yourself.'),
+    ('log_inspection.failure.identity', 'zh-cn', '巡检的执行身份已不可用。重新保存这条巡检，即可改用你的身份执行。'),
+    ('log_inspection.failure.model', 'en-us', 'The AI model chosen for the inspection is missing, switched off, or has no key.'),
+    ('log_inspection.failure.model', 'zh-cn', '巡检所选的 AI 模型不存在、已停用或没有密钥。'),
+    ('log_inspection.failure.agent', 'en-us', 'The AI model call failed.'),
+    ('log_inspection.failure.agent', 'zh-cn', 'AI 模型调用失败。'),
+    ('log_inspection.failure.internal', 'en-us', 'The inspection failed for an internal reason.'),
+    ('log_inspection.failure.internal', 'zh-cn', '巡检因内部原因失败。')
+) AS seed(language_key, language_code, language_value);

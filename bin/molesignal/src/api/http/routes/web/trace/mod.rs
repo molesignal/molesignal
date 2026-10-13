@@ -11,7 +11,7 @@ use axum::{
     Extension, Router,
     extract::{Path, State},
     response::Json,
-    routing::get,
+    routing::{get, post},
 };
 
 use self::{
@@ -34,6 +34,7 @@ use crate::{
     },
 };
 
+mod field_stats;
 mod list;
 mod request;
 mod response;
@@ -42,6 +43,8 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/trace/{trace_id}", get(trace))
         .route("/traces", get(list::list_traces))
+        .route("/traces/histogram", get(list::histogram::histogram))
+        .route("/traces/field-stats", post(field_stats::field_stats))
 }
 
 /// 默认查询窗口：过去 24h（trace_id 是稀疏键，窗口仅做分区裁剪）。

@@ -18,10 +18,13 @@ use serde_json::{Value, json};
 use crate::{
     api::{
         AppState,
-        http::{middleware::Permission, routes::activity_audit},
+        http::{
+            interface_language::interface_language_pack, middleware::Permission,
+            routes::activity_audit,
+        },
     },
     app::iam::IamContext,
-    domain::iam::permission,
+    domain::{i18n_language::LanguagePack, iam::permission},
     infra::persistence::repositories::agent::prompts::{
         AgentPromptTemplate, prompt_hash, validate_template_variables,
     },
@@ -44,6 +47,10 @@ pub fn routes() -> Router<AppState> {
             axum::routing::post(restore),
         )
 }
+
+/// The built-in prompts' names in the `i18n_language` table are under this
+/// prefix: `agent.prompt.<builtin_key>.name`.
+const BUILTIN_PROMPT_KEY: &str = "agent.prompt";
 
 const PURPOSES: &[&str] = &[
     "system",
@@ -153,7 +160,34 @@ async fn list(
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Vec<PromptResp>>> {
     let rows = state.agent.prompts.list(&ctx.org_id, &ctx.user_id).await?;
-    Ok(Json(rows.into_iter().map(to_resp).collect()))
+    let names = interface_language_pack(&state, &ctx, BUILTIN_PROMPT_KEY).await;
+
+    Ok(Json(
+        rows.into_iter()
+            .map(|row| in_reader_language(to_resp(row), &names))
+            .collect(),
+    ))
+}
+
+/// A built-in prompt under the name its key has in the reader's language.
+///
+/// A prompt that someone wrote keeps the name they gave it, an override of a
+/// built-in one included. So does a built-in prompt the table has no entry for.
+fn in_reader_language(mut prompt: PromptResp, names: &LanguagePack) -> PromptResp {
+    if prompt.scope != "builtin" {
+        return prompt;
+    }
+
+    let name = prompt
+        .builtin_key
+        .as_deref()
+        .and_then(|key| names.get(&format!("{BUILTIN_PROMPT_KEY}.{key}.name")));
+
+    if let Some(name) = name {
+        prompt.name = name.to_string();
+    }
+
+    prompt
 }
 
 async fn create(
@@ -375,4 +409,117 @@ async fn delete(
     .await;
 
     Ok(Json(json!({ "deleted": true })))
+}
+
+#[cfg(test)]
+mod reader_language_tests {
+    use super::*;
+    use crate::shared::i18n_language_seed::seeded_pack;
+
+    fn prompt(scope: &str, builtin_key: Option<&str>, name: &str) -> PromptResp {
+        PromptResp {
+            id: "prompt-1".into(),
+            org_id: None,
+            user_id: None,
+            scope: scope.into(),
+            builtin_key: builtin_key.map(str::to_string),
+            purpose: "anomaly_analysis".into(),
+            name: name.into(),
+            body: "body".into(),
+            variables_schema: json!({}),
+            is_default: true,
+            enabled: true,
+            version: 1,
+            parent_id: None,
+            created_at_micros: 0,
+            updated_at_micros: 0,
+        }
+    }
+
+    /// The `builtin_key` of every built-in prompt the baseline seeds.
+    fn seeded_builtin_keys() -> Vec<String> {
+        let baseline = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../crates/engines/postgres/src/migrations/20260101000001_initial.sql"
+        ))
+        .expect("read the baseline migration");
+
+        let (_, seed) = baseline
+            .split_once("INSERT INTO ai_prompt_templates")
+            .expect("built-in prompt seed");
+
+        let seed = &seed[..seed.find("ON CONFLICT").expect("end of the seed")];
+
+        regex::Regex::new(r"NULL, NULL, 'builtin', '([a-z0-9_.]+)'")
+            .expect("valid seed row pattern")
+            .captures_iter(seed)
+            .map(|row| row[1].to_string())
+            .collect()
+    }
+
+    #[test]
+    fn a_builtin_prompt_is_named_in_the_readers_language() {
+        let stored = prompt("builtin", Some("analysis.anomaly"), "Anomaly Analysis");
+
+        let chinese = in_reader_language(
+            prompt("builtin", Some("analysis.anomaly"), "Anomaly Analysis"),
+            &seeded_pack(BUILTIN_PROMPT_KEY, "zh-cn"),
+        );
+
+        let english = in_reader_language(stored, &seeded_pack(BUILTIN_PROMPT_KEY, "en-us"));
+
+        assert_eq!(chinese.name, "异常分析");
+        assert_eq!(english.name, "Anomaly Analysis");
+    }
+
+    #[test]
+    fn a_prompt_someone_wrote_keeps_its_name() {
+        let names = seeded_pack(BUILTIN_PROMPT_KEY, "zh-cn");
+
+        let overridden = in_reader_language(
+            prompt("org", Some("analysis.anomaly"), "Our anomaly playbook"),
+            &names,
+        );
+
+        let personal = in_reader_language(prompt("user", None, "Mine"), &names);
+
+        assert_eq!(overridden.name, "Our anomaly playbook");
+        assert_eq!(personal.name, "Mine");
+    }
+
+    #[test]
+    fn a_builtin_prompt_without_an_entry_keeps_its_stored_name() {
+        let unnamed = in_reader_language(
+            prompt("builtin", Some("not.seeded"), "Stored name"),
+            &seeded_pack(BUILTIN_PROMPT_KEY, "zh-cn"),
+        );
+
+        let unread = in_reader_language(
+            prompt("builtin", Some("analysis.anomaly"), "Anomaly Analysis"),
+            &LanguagePack::default(),
+        );
+
+        assert_eq!(unnamed.name, "Stored name");
+        assert_eq!(unread.name, "Anomaly Analysis");
+    }
+
+    #[test]
+    fn every_seeded_builtin_prompt_has_a_name_entry() {
+        let keys = seeded_builtin_keys();
+        let names = seeded_pack(BUILTIN_PROMPT_KEY, "zh-cn");
+
+        assert!(
+            keys.len() >= 6,
+            "the built-in prompts were not read: {keys:?}"
+        );
+
+        for key in keys {
+            assert!(
+                names
+                    .get(&format!("{BUILTIN_PROMPT_KEY}.{key}.name"))
+                    .is_some(),
+                "built-in prompt {key} has no name in the i18n_language seed"
+            );
+        }
+    }
 }

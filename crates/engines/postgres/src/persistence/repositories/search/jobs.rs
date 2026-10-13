@@ -17,6 +17,10 @@ use tokio::{sync::Notify, task::JoinHandle};
 use super::super::sqlx_err;
 use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
+mod listing;
+
+pub use listing::{SearchJobCounts, SearchJobListQuery};
+
 const PENDING_CHANNEL: &str = "molesignal_search_jobs_pending";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -41,14 +45,28 @@ impl SearchJobState {
     }
 
     pub fn parse(s: &str) -> Self {
+        Self::try_parse(s).unwrap_or(Self::Pending)
+    }
+
+    /// 只认五个状态名；调用方给的筛选值用它，写错的名字不会被当成 `pending`。
+    pub fn try_parse(s: &str) -> Option<Self> {
         match s {
-            "running" => Self::Running,
-            "done" => Self::Done,
-            "failed" => Self::Failed,
-            "cancelled" => Self::Cancelled,
-            _ => Self::Pending,
+            "pending" => Some(Self::Pending),
+            "running" => Some(Self::Running),
+            "done" => Some(Self::Done),
+            "failed" => Some(Self::Failed),
+            "cancelled" => Some(Self::Cancelled),
+            _ => None,
         }
     }
+}
+
+/// 任务的来历：直接提交的查询，还是数据管道的回填。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SearchJobKind {
+    Query,
+    Backfill,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -75,11 +93,30 @@ pub struct SearchJob {
     pub expires_at: TimestampMicros,
 }
 
+impl SearchJob {
+    /// 回填任务所属的数据管道：提交回填时写进 `request_json` 的 `pipeline_id`。
+    pub fn pipeline_id(&self) -> Option<&str> {
+        self.request_json.get("pipeline_id").and_then(Value::as_str)
+    }
+
+    pub fn kind(&self) -> SearchJobKind {
+        if self.pipeline_id().is_some() {
+            SearchJobKind::Backfill
+        } else {
+            SearchJobKind::Query
+        }
+    }
+}
+
 #[async_trait]
 pub trait SearchJobRepository: Send + Sync {
     async fn create(&self, j: SearchJob) -> Result<SearchJob>;
     async fn get(&self, org_id: &Id, id: &Id) -> Result<SearchJob>;
-    async fn list(&self, org_id: &Id, limit: i64) -> Result<Vec<SearchJob>>;
+    /// 最近提交的在前。
+    async fn list(&self, org_id: &Id, query: &SearchJobListQuery) -> Result<Vec<SearchJob>>;
+    /// 各状态的任务数，不受列表的状态筛选与翻页影响。`submitter` 为 `None` 时数整个组织的，
+    /// 否则只数这位用户提交的。
+    async fn count_by_state(&self, org_id: &Id, submitter: Option<&Id>) -> Result<SearchJobCounts>;
     /// 抢占下一条 pending job：UPDATE ... RETURNING（atomic claim）。
     async fn claim_next_pending(&self) -> Result<Option<SearchJob>>;
     /// Wait for a local/cross-node enqueue notification, retaining timeout polling as a safety net.
@@ -283,20 +320,12 @@ impl SearchJobRepository for PgSearchJobRepository {
         Ok(row_to(row))
     }
 
-    async fn list(&self, org_id: &Id, limit: i64) -> Result<Vec<SearchJob>> {
-        let sql = format!(
-            "SELECT {COLS} FROM search_jobs WHERE org_id = $1
-             ORDER BY submitted_at_micros DESC LIMIT $2"
-        );
+    async fn list(&self, org_id: &Id, query: &SearchJobListQuery) -> Result<Vec<SearchJob>> {
+        listing::list(&self.pool, org_id, query).await
+    }
 
-        let rows = sqlx::query(&sql)
-            .bind(&org_id.0)
-            .bind(limit)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(sqlx_err)?;
-
-        Ok(rows.into_iter().map(row_to).collect())
+    async fn count_by_state(&self, org_id: &Id, submitter: Option<&Id>) -> Result<SearchJobCounts> {
+        listing::count_by_state(&self.pool, org_id, submitter).await
     }
 
     async fn claim_next_pending(&self) -> Result<Option<SearchJob>> {
@@ -507,5 +536,56 @@ mod tests {
         }
         // 未知 fallback 到 Pending
         assert_eq!(SearchJobState::parse("garbage"), SearchJobState::Pending);
+    }
+
+    #[test]
+    fn strict_parse_accepts_only_the_five_state_names() {
+        assert_eq!(
+            SearchJobState::try_parse("pending"),
+            Some(SearchJobState::Pending)
+        );
+        assert_eq!(
+            SearchJobState::try_parse("done"),
+            Some(SearchJobState::Done)
+        );
+
+        for unknown in ["", "garbage", "Running", " running", "queued"] {
+            assert_eq!(SearchJobState::try_parse(unknown), None, "{unknown:?}");
+        }
+    }
+
+    fn job(request_json: Value) -> SearchJob {
+        SearchJob {
+            id: Id::from_string("job"),
+            org_id: Id::from_string("org"),
+            user_id: Id::from_string("user"),
+            role_key: String::new(),
+            request_json,
+            trace_link: None,
+            state: SearchJobState::Pending,
+            attempt: 0,
+            result_object_key: None,
+            result_rows: None,
+            error: None,
+            submitted_at: TimestampMicros(0),
+            started_at: None,
+            finished_at: None,
+            expires_at: TimestampMicros(0),
+        }
+    }
+
+    #[test]
+    fn a_job_with_a_pipeline_id_is_a_backfill() {
+        let query = job(serde_json::json!({"statement": "SELECT 1"}));
+        assert_eq!(query.kind(), SearchJobKind::Query);
+        assert_eq!(query.pipeline_id(), None);
+
+        let backfill = job(serde_json::json!({"statement": "SELECT 1", "pipeline_id": "p1"}));
+        assert_eq!(backfill.kind(), SearchJobKind::Backfill);
+        assert_eq!(backfill.pipeline_id(), Some("p1"));
+
+        // 调度器只把字符串当作管道 ID；别的形状仍按普通查询执行。
+        let malformed = job(serde_json::json!({"pipeline_id": 7}));
+        assert_eq!(malformed.kind(), SearchJobKind::Query);
     }
 }

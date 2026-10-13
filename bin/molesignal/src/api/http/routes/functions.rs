@@ -12,15 +12,26 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
-    api::{AppState, http::middleware::ProtectedResource},
+    api::{
+        AppState,
+        http::{interface_language::interface_language_pack, middleware::ProtectedResource},
+    },
     app::iam::IamContext,
     domain::{
         function::{Function, FunctionLanguage},
+        i18n_language::LanguagePack,
         iam::{permission, resource_permission},
     },
     infra::persistence::repositories::functions::precheck_compile,
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
+
+/// What each built-in function does is in the `i18n_language` table under
+/// this prefix: `function.preset.<name>.description`, the name with `_` for
+/// `-`. The key says preset, the baseline's own word for these functions: a
+/// seed row that opens on a text holding "builtin" is read as a resource id
+/// that encodes what it is, and refused by the baseline's tests.
+const BUILTIN_FUNCTION_KEY: &str = "function.preset";
 
 pub fn routes() -> Router<AppState> {
     Router::new()
@@ -116,19 +127,30 @@ pub struct Resp {
     pub params_schema: Value,
     /// 内置预设（org `__builtin__`）：前端据此打「内置」标 + 只读，禁止编辑/删除。
     pub is_builtin: bool,
-    /// 人类可读说明（内置预设从 params_schema.description 取；自建函数通常为空）。
+    /// 人类可读说明。内置预设按读者的界面语言取自 `i18n_language` 表，取不到时用
+    /// params_schema.description；自建函数只有后者，通常为空。
     pub description: String,
     pub created_at_micros: i64,
     pub updated_at_micros: i64,
 }
 
 fn to_resp(f: Function) -> Resp {
+    described(f, &LanguagePack::default())
+}
+
+/// The function as the API returns it. A built-in one is described in the
+/// reader's language when `descriptions` has its entry.
+fn described(f: Function, descriptions: &LanguagePack) -> Resp {
     let is_builtin = f.org_id.0 == "__builtin__";
 
-    let description = f
-        .params_schema
-        .get("description")
-        .and_then(Value::as_str)
+    let in_reader_language = if is_builtin {
+        descriptions.get(&builtin_description_key(&f.name))
+    } else {
+        None
+    };
+
+    let description = in_reader_language
+        .or_else(|| f.params_schema.get("description").and_then(Value::as_str))
         .unwrap_or_default()
         .to_string();
 
@@ -150,16 +172,23 @@ async fn list(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
 ) -> Result<Json<Vec<Resp>>> {
+    let functions = state.storage.functions.list(&ctx.org_id).await?;
+    let descriptions = interface_language_pack(&state, &ctx, BUILTIN_FUNCTION_KEY).await;
+
     Ok(Json(
-        state
-            .storage
-            .functions
-            .list(&ctx.org_id)
-            .await?
+        functions
             .into_iter()
-            .map(to_resp)
+            .map(|function| described(function, &descriptions))
             .collect(),
     ))
+}
+
+/// A language key holds no `-`, and a built-in function's name does.
+fn builtin_description_key(name: &str) -> String {
+    format!(
+        "{BUILTIN_FUNCTION_KEY}.{}.description",
+        name.replace('-', "_")
+    )
 }
 
 #[resource_permission(
@@ -173,7 +202,12 @@ async fn get_one(
     Extension(ctx): Extension<IamContext>,
     Path(id): Path<String>,
 ) -> Result<Json<Resp>> {
-    Ok(Json(to_resp(function.value)))
+    if function.value.org_id.as_str() != "__builtin__" {
+        return Ok(Json(to_resp(function.value)));
+    }
+
+    let descriptions = interface_language_pack(&state, &ctx, BUILTIN_FUNCTION_KEY).await;
+    Ok(Json(described(function.value, &descriptions)))
 }
 
 #[permission("functions.create")]
@@ -302,4 +336,115 @@ async fn run(
         .await?;
 
     Ok(Json(RunResp { output }))
+}
+
+#[cfg(test)]
+mod reader_language_tests {
+    use serde_json::json;
+
+    use super::*;
+    use crate::shared::i18n_language_seed::seeded_pack;
+
+    fn function(org_id: &str, name: &str, params_schema: Value) -> Function {
+        Function {
+            id: Id::from_string("function-1"),
+            org_id: Id::from_string(org_id),
+            name: name.into(),
+            language: FunctionLanguage::Vrl,
+            source: ". = parse_json!(.message)".into(),
+            params_schema,
+            created_at: TimestampMicros(0),
+            updated_at: TimestampMicros(0),
+        }
+    }
+
+    /// The name of every built-in function the baseline seeds.
+    fn seeded_builtin_names() -> Vec<String> {
+        let baseline = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../crates/engines/postgres/src/migrations/20260101000001_initial.sql"
+        ))
+        .expect("read the baseline migration");
+
+        regex::Regex::new(r"(?m)^\('[0-9a-f-]{36}', '__builtin__', '([a-z0-9-]+)', '")
+            .expect("valid seed row pattern")
+            .captures_iter(&baseline)
+            .map(|row| row[1].to_string())
+            .collect()
+    }
+
+    #[test]
+    fn a_builtin_function_is_described_in_the_readers_language() {
+        let stored = json!({ "description": "Stored description." });
+
+        let chinese = described(
+            function("__builtin__", "redact-email", stored.clone()),
+            &seeded_pack(BUILTIN_FUNCTION_KEY, "zh-cn"),
+        );
+
+        let english = described(
+            function("__builtin__", "redact-email", stored),
+            &seeded_pack(BUILTIN_FUNCTION_KEY, "en-us"),
+        );
+
+        assert!(chinese.is_builtin);
+        assert_eq!(
+            chinese.description,
+            "把 message 中的邮箱地址替换为占位符（脱敏）。"
+        );
+
+        assert_eq!(
+            english.description,
+            "Replaces email addresses in message with a placeholder for redaction."
+        );
+    }
+
+    #[test]
+    fn a_function_someone_wrote_keeps_its_own_description() {
+        let own = described(
+            function("org-1", "redact-email", json!({ "description": "Ours." })),
+            &seeded_pack(BUILTIN_FUNCTION_KEY, "zh-cn"),
+        );
+
+        let undescribed = described(
+            function("org-1", "plain", json!({})),
+            &seeded_pack(BUILTIN_FUNCTION_KEY, "zh-cn"),
+        );
+
+        assert!(!own.is_builtin);
+        assert_eq!(own.description, "Ours.");
+        assert_eq!(undescribed.description, "");
+    }
+
+    #[test]
+    fn a_builtin_function_without_an_entry_keeps_its_stored_description() {
+        let unread = described(
+            function(
+                "__builtin__",
+                "redact-email",
+                json!({ "description": "Stored description." }),
+            ),
+            &LanguagePack::default(),
+        );
+
+        assert_eq!(unread.description, "Stored description.");
+    }
+
+    #[test]
+    fn every_seeded_builtin_function_has_a_description_entry() {
+        let names = seeded_builtin_names();
+        let descriptions = seeded_pack(BUILTIN_FUNCTION_KEY, "zh-cn");
+
+        assert!(
+            names.len() >= 5,
+            "the built-in functions were not read: {names:?}"
+        );
+
+        for name in names {
+            assert!(
+                descriptions.get(&builtin_description_key(&name)).is_some(),
+                "built-in function {name} has no description in the i18n_language seed"
+            );
+        }
+    }
 }

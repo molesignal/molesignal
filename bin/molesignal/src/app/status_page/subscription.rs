@@ -10,14 +10,19 @@ use sha2::{Digest, Sha256};
 
 mod links;
 
-use links::{confirmation_message, custom_page_url, delivery_message, platform_page_url};
+use links::{
+    NotificationPage, confirmation_message, custom_page_url, delivery_message, platform_page_url,
+};
 
 use super::StatusPageService;
 use crate::{
-    domain::status_page::{
-        StatusPage, StatusPageDeliveryPage, StatusPageDeliveryStatus, StatusPageLifecycle,
-        StatusPageSubscriber, StatusPageSubscriberChannel, StatusPageSubscriberPage,
-        StatusPageSubscriberStatus,
+    domain::{
+        i18n_language::LanguagePack,
+        status_page::{
+            StatusPage, StatusPageDeliveryPage, StatusPageDeliveryStatus, StatusPageLifecycle,
+            StatusPageNotificationDelivery, StatusPageNotificationMessage, StatusPageSubscriber,
+            StatusPageSubscriberChannel, StatusPageSubscriberPage, StatusPageSubscriberStatus,
+        },
     },
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
@@ -105,9 +110,8 @@ impl StatusPageService {
 
         if pending.should_send_confirmation {
             let message = match self
-                .notification_page_url(&page)
+                .write_confirmation(&page, pending.subscriber.channel, &token)
                 .await
-                .and_then(|page_url| confirmation_message(&page, &page_url, &token))
             {
                 Ok(message) => message,
                 Err(error) => {
@@ -247,9 +251,8 @@ impl StatusPageService {
             .await?;
 
         let message = match self
-            .notification_page_url(&page)
+            .write_confirmation(&page, subscriber.channel, &token)
             .await
-            .and_then(|page_url| confirmation_message(&page, &page_url, &token))
         {
             Ok(message) => message,
             Err(error) => {
@@ -299,25 +302,13 @@ impl StatusPageService {
             .await?;
 
         let count = u32::try_from(deliveries.len()).unwrap_or(u32::MAX);
-        let mut page_urls: HashMap<Id, String> = HashMap::new();
+        let mut pages: HashMap<Id, NotificationPage> = HashMap::new();
+        let mut email_packs: HashMap<String, LanguagePack> = HashMap::new();
 
         for delivery in deliveries {
-            let page_url = if let Some(page_url) = page_urls.get(&delivery.status_page_id) {
-                Ok(page_url.clone())
-            } else {
-                match self
-                    .repository
-                    .get_page(&delivery.org_id, &delivery.status_page_id)
-                    .await
-                {
-                    Ok(page) => self.notification_page_url(&page).await.inspect(|page_url| {
-                        page_urls.insert(delivery.status_page_id.clone(), page_url.clone());
-                    }),
-                    Err(error) => Err(error),
-                }
-            };
-
-            let message = page_url.and_then(|page_url| delivery_message(&delivery, &page_url));
+            let message = self
+                .write_delivery(&delivery, &mut pages, &mut email_packs)
+                .await;
 
             let result = match message {
                 Ok(message) => {
@@ -381,6 +372,68 @@ impl StatusPageService {
     ) -> Result<&std::sync::Arc<dyn crate::domain::status_page::StatusPageNotificationSender>> {
         self.notification_sender.as_ref().ok_or_else(|| {
             Error::unavailable("status-page subscriber notifications are not configured")
+        })
+    }
+
+    /// Only an email is written out: a webhook receives the payload alone.
+    async fn write_confirmation(
+        &self,
+        page: &StatusPage,
+        channel: StatusPageSubscriberChannel,
+        token: &str,
+    ) -> Result<StatusPageNotificationMessage> {
+        let page_url = self.notification_page_url(page).await?;
+
+        let email_pack = match channel {
+            StatusPageSubscriberChannel::Email => Some(self.language_pack(&page.language).await?),
+            StatusPageSubscriberChannel::Webhook => None,
+        };
+
+        confirmation_message(page, &page_url, token, email_pack.as_ref())
+    }
+
+    /// Writes the message of one delivery. A sweep reads each page, and the
+    /// email copy of each language, once.
+    async fn write_delivery(
+        &self,
+        delivery: &StatusPageNotificationDelivery,
+        pages: &mut HashMap<Id, NotificationPage>,
+        email_packs: &mut HashMap<String, LanguagePack>,
+    ) -> Result<StatusPageNotificationMessage> {
+        let page = match pages.get(&delivery.status_page_id) {
+            Some(page) => page.clone(),
+            None => {
+                let page = self
+                    .repository
+                    .get_page(&delivery.org_id, &delivery.status_page_id)
+                    .await?;
+
+                let page = self.notification_page(page).await?;
+                pages.insert(delivery.status_page_id.clone(), page.clone());
+                page
+            }
+        };
+
+        // Only an email is written out: a webhook receives the payload alone.
+        if delivery.channel == StatusPageSubscriberChannel::Webhook {
+            return delivery_message(delivery, &page, None);
+        }
+
+        if !email_packs.contains_key(&page.language) {
+            let pack = self.language_pack(&page.language).await?;
+            email_packs.insert(page.language.clone(), pack);
+        }
+
+        delivery_message(delivery, &page, email_packs.get(&page.language))
+    }
+
+    async fn notification_page(&self, page: StatusPage) -> Result<NotificationPage> {
+        let url = self.notification_page_url(&page).await?;
+
+        Ok(NotificationPage {
+            url,
+            timezone: page.timezone,
+            language: page.language,
         })
     }
 

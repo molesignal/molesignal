@@ -6,7 +6,7 @@
 use crate::{
     domain::status_page::{
         ComponentLifecycle, ComponentStatus, ComponentVisibility, IncidentImpact,
-        PublicIncidentStatus, StatusPageAccessRuleKind, StatusPageIncidentKind,
+        PublicIncidentStatus, StatusPageAccessRuleKind, StatusPageIncident, StatusPageIncidentKind,
         StatusPagePublicationState, StatusPageVisibility,
     },
     shared::{ids::Id, time::TimestampMicros},
@@ -49,6 +49,25 @@ pub struct StatusPageIncidentInput {
     pub message: Option<String>,
     pub component_ids: Vec<Id>,
     pub started_at: Option<TimestampMicros>,
+    /// Planned maintenance moves to in progress by itself at its planned
+    /// start. `None` takes the default for new maintenance.
+    pub auto_start: Option<bool>,
+    /// How long before the planned start subscribers are reminded, zero for no
+    /// reminder. `None` takes the default for new maintenance.
+    pub reminder_minutes: Option<i32>,
+}
+
+impl StatusPageIncidentInput {
+    /// An edit that does not name these two options leaves them as the
+    /// maintenance has them.
+    pub(super) fn keep_planned_options_of(&mut self, existing: &StatusPageIncident) {
+        if existing.kind != StatusPageIncidentKind::Maintenance {
+            return;
+        }
+
+        self.auto_start = self.auto_start.or(Some(existing.auto_start));
+        self.reminder_minutes = self.reminder_minutes.or(Some(existing.reminder_minutes));
+    }
 }
 
 #[derive(Debug, Clone)]

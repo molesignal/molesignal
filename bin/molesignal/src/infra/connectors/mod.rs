@@ -23,6 +23,7 @@ use crate::{
 
 pub mod cloudflare_logpush;
 pub mod cloudwatch_logs;
+pub mod config;
 pub mod dispatcher;
 pub mod heroku_drain;
 pub mod kinesis_firehose;

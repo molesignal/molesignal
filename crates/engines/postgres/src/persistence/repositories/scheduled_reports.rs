@@ -3,8 +3,7 @@
 
 //! `scheduled_reports` + `report_deliveries` 表 Pg 实装（spec scheduled-reports）。
 //!
-//! 当前实装：CRUD + delivery 记录。真实渲染引擎（dashboard → SVG / PDF / PNG）
-//! 与 cron 触发留 follow-up；本批次先把 schema + HTTP 落地，让 ops 能配置。
+//! CRUD 与投递记录。渲染和定时触发在 `ScheduledReportRunner`（主服务的 worker）里。
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -35,6 +34,9 @@ pub struct ScheduledReport {
     pub format: String,
     pub time_range_json: Value,
     pub enabled: bool,
+    /// 最后一次保存这份报表的登录用户：定时投递的 `png` / `pdf` 以其身份渲染。
+    /// `None` 表示没有可用身份（由 API Token 保存），这两种格式的投递会失败。
+    pub run_as_user_id: Option<Id>,
     pub last_run_at: Option<TimestampMicros>,
     pub created_at: TimestampMicros,
     pub updated_at: TimestampMicros,
@@ -105,7 +107,7 @@ impl PgScheduledReportRepository {
 }
 
 const COLS: &str = "id, org_id, name, dashboard_id, saved_view_id, cron, recipients_json,
-                    format, time_range_json, enabled, last_run_at_micros,
+                    format, time_range_json, enabled, run_as_user_id, last_run_at_micros,
                     created_at_micros, updated_at_micros";
 
 fn row_to(r: sqlx::postgres::PgRow) -> ScheduledReport {
@@ -130,6 +132,10 @@ fn row_to(r: sqlx::postgres::PgRow) -> ScheduledReport {
         format: r.try_get::<String, _>("format").unwrap_or_default(),
         time_range_json: time_range.0,
         enabled: r.try_get::<bool, _>("enabled").unwrap_or(true),
+        run_as_user_id: r
+            .try_get::<Option<String>, _>("run_as_user_id")
+            .unwrap_or_default()
+            .map(Id),
         last_run_at: r
             .try_get::<Option<i64>, _>("last_run_at_micros")
             .unwrap_or_default()
@@ -164,9 +170,9 @@ impl ScheduledReportRepository for PgScheduledReportRepository {
         sqlx::query(
             "INSERT INTO scheduled_reports
                 (id, org_id, name, dashboard_id, saved_view_id, cron, recipients_json,
-                 format, time_range_json, enabled, last_run_at_micros,
+                 format, time_range_json, enabled, run_as_user_id, last_run_at_micros,
                  created_at_micros, updated_at_micros)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NULL, $11, $12)",
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NULL, $12, $13)",
         )
         .bind(&r.id.0)
         .bind(&r.org_id.0)
@@ -178,6 +184,7 @@ impl ScheduledReportRepository for PgScheduledReportRepository {
         .bind(&r.format)
         .bind(Json(&r.time_range_json))
         .bind(r.enabled)
+        .bind(r.run_as_user_id.as_ref().map(|i| &i.0))
         .bind(r.created_at.0)
         .bind(r.updated_at.0)
         .execute(&self.pool)
@@ -192,7 +199,7 @@ impl ScheduledReportRepository for PgScheduledReportRepository {
             "UPDATE scheduled_reports SET
                 name = $3, dashboard_id = $4, saved_view_id = $5, cron = $6,
                 recipients_json = $7, format = $8, time_range_json = $9, enabled = $10,
-                updated_at_micros = $11
+                run_as_user_id = $11, updated_at_micros = $12
              WHERE id = $1 AND org_id = $2",
         )
         .bind(&r.id.0)
@@ -205,6 +212,7 @@ impl ScheduledReportRepository for PgScheduledReportRepository {
         .bind(&r.format)
         .bind(Json(&r.time_range_json))
         .bind(r.enabled)
+        .bind(r.run_as_user_id.as_ref().map(|i| &i.0))
         .bind(r.updated_at.0)
         .execute(&self.pool)
         .await

@@ -512,6 +512,245 @@ async fn system_capabilities_resolve_role_name_and_permissions_from_database() {
 }
 
 #[tokio::test]
+async fn organization_owner_holds_the_whole_catalog_and_reaches_the_platform_organization() {
+    if skip_unless_enabled() {
+        return;
+    }
+
+    let server = TestServer::start().await;
+    let memberships = &server.state.iam.service.iam_memberships;
+
+    // Two ordinary users in the root tenant: one made an owner, one left a viewer.
+    let mut tokens = Vec::new();
+
+    for (email, purpose) in [
+        ("second-owner@test.example", "organization_bootstrap"),
+        ("plain-viewer@test.example", "self_service_signup"),
+    ] {
+        let user = server
+            .state
+            .iam
+            .service
+            .create_user(email.into(), email.into(), "userpass")
+            .await
+            .expect("create user");
+        let role_id = memberships
+            .role_id_for_purpose(&server.root_org_id, purpose)
+            .await
+            .expect("resolve role");
+        memberships
+            .upsert(
+                IamMembership {
+                    user_id: user.id.clone(),
+                    org_id: server.root_org_id.clone(),
+                    joined_at: TimestampMicros::now(),
+                },
+                &[role_id],
+                &server.root_user_id,
+            )
+            .await
+            .expect("create membership");
+        let token = server
+            .state
+            .iam
+            .service
+            .issue_token(&user.id, &server.root_org_id)
+            .expect("issue JWT");
+        tokens.push((user.id, token));
+    }
+
+    let (owner_id, owner_token) = tokens[0].clone();
+    let (_, viewer_token) = tokens[1].clone();
+
+    let get = |path: &'static str, token: String| {
+        let request = server
+            .client
+            .get(format!("{}/api/v1{path}", server.base_url))
+            .bearer_auth(token);
+        async move {
+            request
+                .send()
+                .await
+                .expect("request")
+                .error_for_status()
+                .expect("request succeeds")
+                .json::<Value>()
+                .await
+                .expect("JSON")
+        }
+    };
+    let keys = |value: &Value| {
+        let mut keys = value
+            .as_array()
+            .expect("array")
+            .iter()
+            .map(|item| {
+                item.as_str()
+                    .map(str::to_owned)
+                    .unwrap_or_else(|| item["key"].as_str().expect("key").to_owned())
+            })
+            .collect::<Vec<_>>();
+        keys.sort();
+        keys
+    };
+
+    // Not one permission of the catalog is missing from the owner, platform scope included.
+    let catalog = get("/iam/permissions", owner_token.clone()).await;
+    let every_key = keys(&catalog["permissions"]);
+    assert!(
+        every_key
+            .iter()
+            .any(|key| key == "sys.organizations.manage")
+    );
+    let owner_capabilities = get("/iam/capabilities", owner_token.clone()).await;
+    assert_eq!(keys(&owner_capabilities["permissions"]), every_key);
+    let root_capabilities = get("/iam/capabilities", server.root_token.clone()).await;
+    assert_eq!(keys(&root_capabilities["permissions"]), every_key);
+
+    let roles = get("/roles", owner_token.clone()).await;
+    let owner_role = roles
+        .as_array()
+        .expect("roles array")
+        .iter()
+        .find(|role| role["key"] == "owner")
+        .expect("owner role");
+    assert_eq!(keys(&owner_role["permissions"]), every_key);
+
+    // The viewer holds none of it, and cannot see or enter the platform organization.
+    let viewer_capabilities = get("/iam/capabilities", viewer_token.clone()).await;
+    assert!(
+        keys(&viewer_capabilities["permissions"])
+            .iter()
+            .all(|key| !key.starts_with("sys."))
+    );
+    let viewer_organizations = get("/orgs", viewer_token.clone()).await;
+    assert!(
+        viewer_organizations
+            .as_array()
+            .expect("organizations array")
+            .iter()
+            .all(|organization| organization["system"] == false)
+    );
+    let system_org_id = server.state.iam.system_org_id.as_str().to_owned();
+    let viewer_select = server
+        .client
+        .post(format!(
+            "{}/api/v1/orgs/{system_org_id}/select",
+            server.base_url
+        ))
+        .bearer_auth(&viewer_token)
+        .send()
+        .await
+        .expect("viewer selects the platform organization");
+    assert_eq!(viewer_select.status(), StatusCode::NOT_FOUND);
+
+    // The owner sees the platform organization and enters it with the platform permissions.
+    let owner_organizations = get("/orgs", owner_token.clone()).await;
+    assert!(
+        owner_organizations
+            .as_array()
+            .expect("organizations array")
+            .iter()
+            .any(|organization| organization["system"] == true)
+    );
+    let selected: Value = server
+        .client
+        .post(format!(
+            "{}/api/v1/orgs/{system_org_id}/select",
+            server.base_url
+        ))
+        .bearer_auth(&owner_token)
+        .send()
+        .await
+        .expect("owner selects the platform organization")
+        .error_for_status()
+        .expect("owner enters the platform organization")
+        .json()
+        .await
+        .expect("selection JSON");
+    assert_eq!(selected["system"], true);
+    let platform_token = selected["token"]
+        .as_str()
+        .expect("platform token")
+        .to_owned();
+
+    let platform_capabilities = get("/iam/capabilities", platform_token.clone()).await;
+    let platform_keys = keys(&platform_capabilities["permissions"]);
+    assert!(!platform_keys.is_empty());
+    assert!(platform_keys.iter().all(|key| key.starts_with("sys.")));
+    assert!(
+        platform_keys
+            .iter()
+            .any(|key| key == "sys.organizations.manage")
+    );
+
+    // From there every organization is listed, and one the owner creates is theirs to enter.
+    let administered = get("/orgs", platform_token.clone()).await;
+    assert!(
+        administered
+            .as_array()
+            .expect("organizations array")
+            .iter()
+            .any(|organization| organization["id"] == server.root_org_id.as_str())
+    );
+    let created: Value = server
+        .client
+        .post(format!("{}/api/v1/orgs", server.base_url))
+        .bearer_auth(&platform_token)
+        .json(&json!({"name": "Owner made", "slug": "owner-made"}))
+        .send()
+        .await
+        .expect("create organization")
+        .error_for_status()
+        .expect("owner creates an organization")
+        .json()
+        .await
+        .expect("created organization JSON");
+    assert_eq!(created["roles"][0]["key"], "owner");
+    let created_id = created["id"].as_str().expect("created organization id");
+    server
+        .client
+        .post(format!(
+            "{}/api/v1/orgs/{created_id}/select",
+            server.base_url
+        ))
+        .bearer_auth(&platform_token)
+        .send()
+        .await
+        .expect("select the created organization")
+        .error_for_status()
+        .expect("its creator can enter it");
+
+    // Taking the owner role away ends the platform session that is already open.
+    let viewer_role_id = memberships
+        .role_id_for_purpose(&server.root_org_id, "self_service_signup")
+        .await
+        .expect("resolve viewer role");
+    for organization_id in [server.root_org_id.clone(), Id::from_string(created_id)] {
+        memberships
+            .upsert(
+                IamMembership {
+                    user_id: owner_id.clone(),
+                    org_id: organization_id,
+                    joined_at: TimestampMicros::now(),
+                },
+                std::slice::from_ref(&viewer_role_id),
+                &server.root_user_id,
+            )
+            .await
+            .expect("demote the owner");
+    }
+    let after_demotion = server
+        .client
+        .get(format!("{}/api/v1/iam/capabilities", server.base_url))
+        .bearer_auth(&platform_token)
+        .send()
+        .await
+        .expect("request capabilities after demotion");
+    assert_eq!(after_demotion.status(), StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
 async fn organization_identity_and_system_organization_are_immutable() {
     if skip_unless_enabled() {
         return;

@@ -2,6 +2,9 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 //! Organization-scoped IAM role read models.
+//!
+//! A custom role is read as organization scope only, whatever rows it has. A built-in role is
+//! read as the catalog defines it, so the owner shows the platform permissions it holds.
 
 const ROLE_FIELDS: &str = "role.id, role.org_id, role.role_key, role.name, role.description,
                            role.builtin, role.role_type, role.scope,
@@ -33,7 +36,7 @@ pub(super) fn list_sql() -> String {
              ON role_permission.role_id = role.id
       LEFT JOIN iam_permissions permission
              ON permission.permission_key = role_permission.permission_key
-            AND permission.scope = 'organization'
+            AND (permission.scope = 'organization' OR role.builtin)
           WHERE role.org_id = $1
        GROUP BY {ROLE_GROUP_BY}
        ORDER BY {ROLE_ORDER_BY}"
@@ -88,7 +91,7 @@ pub(super) fn list_with_usage_sql() -> String {
              ON role_permission.role_id = role.id
       LEFT JOIN iam_permissions permission
              ON permission.permission_key = role_permission.permission_key
-            AND permission.scope = 'organization'
+            AND (permission.scope = 'organization' OR role.builtin)
       LEFT JOIN membership_usage
              ON membership_usage.org_id = role.org_id
             AND membership_usage.role_id = role.id
@@ -123,7 +126,7 @@ pub(super) fn get_sql() -> String {
              ON role_permission.role_id = role.id
       LEFT JOIN iam_permissions permission
              ON permission.permission_key = role_permission.permission_key
-            AND permission.scope = 'organization'
+            AND (permission.scope = 'organization' OR role.builtin)
           WHERE role.org_id = $1 AND role.id = $2
        GROUP BY {ROLE_GROUP_BY}"
     )

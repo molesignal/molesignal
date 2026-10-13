@@ -7,18 +7,24 @@ use std::{
 };
 
 use anyhow::{Context as _, Result, anyhow, bail};
-use futures::StreamExt as _;
-use regex::Regex;
-use reqwest::{
-    Method, StatusCode, Url,
-    header::{HeaderMap, HeaderName, HeaderValue},
+use hyper::{
+    Method, StatusCode,
+    header::{HeaderMap, HeaderName, HeaderValue, LOCATION},
 };
-use url::Host;
+use regex::Regex;
+use url::{Host, Url};
 
-use super::{AttemptOutcome, ExecutionContext, now_micros, security::EgressGuard};
+use super::{
+    AttemptOutcome, ExecutionContext, now_micros, security::EgressGuard, timing::PhaseClock,
+};
 use crate::protocol::v1::{
     self as wire, AssertionResult, AssertionSeverity, HttpJourneySpec, ProbeOutcome, StepEvidence,
 };
+
+mod connection;
+mod exchange;
+mod proxy;
+mod tls;
 
 const MAX_BODY_BYTES: usize = 64 * 1024;
 
@@ -33,8 +39,10 @@ pub(super) async fn execute(
     task: &wire::ProbeTask,
     spec: &HttpJourneySpec,
     context: &mut ExecutionContext,
+    phases: &PhaseClock,
 ) -> Result<AttemptOutcome> {
     let guard = EgressGuard::new(task.egress_policy.clone())?;
+    let proxies = proxy::Rules::from_environment();
     let mut assertions = Vec::new();
     let mut last_body = Vec::new();
     let mut metadata = HashMap::new();
@@ -42,8 +50,9 @@ pub(super) async fn execute(
 
     for step in &spec.steps {
         let step_started = now_micros();
+        let executed = execute_step(task, spec, step, context, &guard, &proxies, phases).await;
 
-        let observation = match execute_step(task, spec, step, context, &guard).await {
+        let observation = match executed {
             Ok(observation) => observation,
             Err(error) => {
                 return Ok(step_failure(
@@ -213,6 +222,8 @@ async fn execute_step(
     step: &wire::HttpStep,
     context: &ExecutionContext,
     guard: &EgressGuard,
+    proxies: &proxy::Rules,
+    phases: &PhaseClock,
 ) -> Result<HttpObservation> {
     let mut url = Url::parse(
         &context.resolve(
@@ -239,6 +250,7 @@ async fn execute_step(
 
     let mut method = Method::from_bytes(step.method.as_bytes()).context("invalid HTTP method")?;
     let mut redirects = 0;
+    let timeout = Duration::from_millis(u64::from(task.timeout_millis.max(1)));
     let started = Instant::now();
 
     loop {
@@ -253,17 +265,8 @@ async fn execute_step(
             .port_or_known_default()
             .ok_or_else(|| anyhow!("HTTP URL has no port"))?;
 
-        let address = guard.resolve(&host, port).await?.remove(0);
-
-        let client = reqwest::Client::builder()
-            .redirect(reqwest::redirect::Policy::none())
-            .danger_accept_invalid_certs(!spec.verify_tls)
-            .resolve(&host, address)
-            .build()?;
-
-        let mut request = client
-            .request(method.clone(), url.clone())
-            .timeout(Duration::from_millis(u64::from(task.timeout_millis.max(1))));
+        let address = guard.resolve(&host, port, phases).await?.remove(0);
+        let mut request = exchange::request(method.clone(), &url)?;
 
         if redirects == 0 {
             for header in &step.headers {
@@ -278,32 +281,36 @@ async fn execute_step(
                     )?,
                 )?;
 
-                request = request.header(name, value);
+                request.headers_mut().append(name, value);
             }
 
             if let Some(body) = &step.body {
-                request = request.body(context.resolve(body)?);
+                *request.body_mut() = context.resolve(body)?.into();
             }
         }
 
-        let response = request.send().await?;
+        // Every request has the whole of the timeout to itself. It goes to the address the
+        // egress policy approved, unless the probe's environment puts a proxy in between.
+        let verify_tls = spec.verify_tls;
+        let sent = exchange::send(request, address, proxies, verify_tls, timeout, phases);
+        let mut reply = sent.await?;
 
-        if response.status().is_redirection() && spec.follow_redirects {
+        if reply.status.is_redirection() && spec.follow_redirects {
             if redirects >= spec.max_redirects {
                 bail!("HTTP redirect limit exceeded");
             }
 
-            let location = response
-                .headers()
-                .get(reqwest::header::LOCATION)
+            let location = reply
+                .headers
+                .get(LOCATION)
                 .ok_or_else(|| anyhow!("HTTP redirect has no Location header"))?
                 .to_str()?;
 
             url = url.join(location)?;
 
-            if response.status() == StatusCode::SEE_OTHER
-                || ((response.status() == StatusCode::MOVED_PERMANENTLY
-                    || response.status() == StatusCode::FOUND)
+            if reply.status == StatusCode::SEE_OTHER
+                || ((reply.status == StatusCode::MOVED_PERMANENTLY
+                    || reply.status == StatusCode::FOUND)
                     && method == Method::POST)
             {
                 method = Method::GET;
@@ -313,24 +320,11 @@ async fn execute_step(
             continue;
         }
 
-        let status = response.status();
-        let headers = response.headers().clone();
-        let mut stream = response.bytes_stream();
-        let mut body = Vec::new();
-
-        while let Some(chunk) = stream.next().await {
-            let chunk = chunk?;
-            let remaining = MAX_BODY_BYTES.saturating_sub(body.len());
-            body.extend_from_slice(&chunk[..chunk.len().min(remaining)]);
-
-            if body.len() >= MAX_BODY_BYTES {
-                break;
-            }
-        }
+        let body = reply.read_body(MAX_BODY_BYTES).await?;
 
         return Ok(HttpObservation {
-            status,
-            headers,
+            status: reply.status,
+            headers: reply.headers,
             body,
             elapsed: started.elapsed(),
         });

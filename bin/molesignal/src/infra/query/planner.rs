@@ -8,6 +8,8 @@
 //!   `QueryFileSource::find(org_id, ...)` 只拉当前 org 的候选文件
 //! - 注册到 `SessionContext` 的 Parquet `TableProvider` 只含当前 org 的候选文件
 //! - SQL 中即使写 `FROM streamX`，DataFusion 也只能看到当前 org 注册的那张表
+//! - 数据文件经 [`crate::infra::storage::org_scoped_store::scoped_to_org`] 读取，只能访问本 org
+//!   的对象前缀；即使候选里混入别的 org 的 key，读取也会被存储层拒绝
 //!
 //! 因此 [`RewriteTableNamesPass`] 当前是**透传**（不修改 LogicalPlan），但保留 API
 //! 形态便于将来切到 DataFusion 多 catalog / 共享 ctx 时插入真正的 `Filter(org_id = ...)`

@@ -28,6 +28,8 @@ use tokio::sync::Semaphore;
 
 use crate::{RenderError, ReportFormat, ReportRenderer, Viewport};
 
+mod readiness;
+
 /// 硬上限：>= 4 个 Chrome instance 在常见 pod 资源下会 OOM；spec scheduled-reports
 /// "Renderer Resource Bounds" 要求 clamp。
 pub const MAX_POOL_SIZE: usize = 4;
@@ -35,7 +37,16 @@ pub const MAX_POOL_SIZE: usize = 4;
 pub const MAX_TIMEOUT_SECS: u64 = 60;
 const DEFAULT_POOL_SIZE: usize = 2;
 const DEFAULT_TIMEOUT_SECS: u64 = 30;
-const DASHBOARD_READY_TIMEOUT_MILLIS: u64 = 15_000;
+
+/// 单页输出的高度上限（CSS px）。Chrome 截图单边上限 16384px，PDF 单页上限 200in
+/// （19200px），取对两者都安全的值；更长的内容 PNG 截到这里为止，PDF 续到下一页。
+const MAX_CAPTURE_HEIGHT_PX: u32 = 16_000;
+
+/// PDF 纸张比内容多留的高度。打印布局与屏幕布局会有不到 1px 的出入，而纸张只要比内容矮
+/// 一点，不可分割的块就会被整体推到第二页，留下一张几乎空白的首页。
+const PDF_PAGE_SLACK_PX: u32 = 1;
+
+const CSS_PX_PER_INCH: f64 = 96.0;
 
 /// 创建 `HeadlessChromeRenderer` 的配置；运行期 bootstrap 阶段从
 /// `[scheduled_reports.renderer]` 段读出后传入。
@@ -148,7 +159,6 @@ impl ReportRenderer for HeadlessChromeRenderer {
         };
 
         let pool = self.pool.clone();
-        let cfg_viewport = self.viewport;
 
         // 用 Option 让 spawn_blocking 内决定 instance 是否回池（成功才回）。
         let bytes_result = tokio::time::timeout(
@@ -175,7 +185,6 @@ impl ReportRenderer for HeadlessChromeRenderer {
                         // 失败 instance 直接 drop（headless_chrome Browser drop 杀进程）。
                     }
 
-                    let _ = cfg_viewport; // suppress unused warn outside of test config
                     result
                 }
             }),
@@ -257,21 +266,19 @@ fn render_blocking(
     set_device_viewport(&tab, viewport)?;
     navigate_and_wait(&tab, url)?;
 
-    // Dashboard 页面通过 data-report-render-state 暴露模型加载和 panel query 的
-    // 完成状态。不能只等 window.load，否则会把 React Router 错误页或骨架屏打印成
-    // 一个 magic bytes 正确、内容却不可用的 PDF。
-    if is_dashboard_report_url(url) {
-        wait_for_dashboard_report_ready(&tab)?;
-        std::thread::sleep(Duration::from_millis(200));
-    } else {
-        // saved-view 暂无页面级 ready 协议，保留一个异步查询稳定窗口。
-        std::thread::sleep(Duration::from_millis(750));
-    }
+    // 不能只等 window.load：报表页此时可能还在取数，或者已经出错。
+    readiness::wait_until_printable(&tab, url)?;
 
-    ensure_page_renderable(&tab)?;
+    let page = page_size(&tab, viewport)?;
 
     let result = match format {
         ReportFormat::Png => {
+            // 视口之外的内容不会被绘制：先把视口拉到内容高度，再按整页裁剪。
+            if page.height != viewport.height {
+                set_device_viewport(&tab, page)?;
+                std::thread::sleep(Duration::from_millis(150));
+            }
+
             let img = tab
                 .capture_screenshot(
                     CaptureScreenshotFormatOption::Png,
@@ -279,8 +286,8 @@ fn render_blocking(
                     Some(headless_chrome::protocol::cdp::Page::Viewport {
                         x: 0.0,
                         y: 0.0,
-                        width: viewport.width as f64,
-                        height: viewport.height as f64,
+                        width: page.width as f64,
+                        height: page.height as f64,
                         scale: 1.0,
                     }),
                     true,
@@ -290,12 +297,18 @@ fn render_blocking(
             Ok(Bytes::from(img))
         }
         ReportFormat::Pdf => {
+            // 一页装下整份内容。页边距为零时打印布局的宽度就是视口宽度，和量高度时的布局
+            // 一致；留白由页面自己给。
             let opts = PrintToPdfOptions {
                 landscape: Some(false),
                 display_header_footer: Some(false),
                 print_background: Some(true),
-                paper_width: Some(viewport.width as f64 / 96.0),
-                paper_height: Some(viewport.height as f64 / 96.0),
+                paper_width: Some(page.width as f64 / CSS_PX_PER_INCH),
+                paper_height: Some((page.height + PDF_PAGE_SLACK_PX) as f64 / CSS_PX_PER_INCH),
+                margin_top: Some(0.0),
+                margin_bottom: Some(0.0),
+                margin_left: Some(0.0),
+                margin_right: Some(0.0),
                 ..Default::default()
             };
 
@@ -324,6 +337,63 @@ fn render_blocking(
 
     let _ = tab.close(true);
     result
+}
+
+/// 出图的尺寸：宽度是视口，高度是页面内容。
+///
+/// 报表页（前端 `report-render`）让文档随内容增高，根元素的高度就是整份报表，可以比
+/// 视口高，也可以比它矮。仍在固定视口里滚动的页面量出来等于视口高度，出图与视口一致。
+fn page_size(
+    tab: &headless_chrome::Tab,
+    viewport: Viewport,
+) -> std::result::Result<Viewport, RenderError> {
+    let value = tab
+        .evaluate(PAGE_HEIGHT_SCRIPT, false)
+        .map_err(|error| RenderError::PageError(format!("measure page content: {error}")))?;
+
+    let content_height = value
+        .value
+        .and_then(|entry| entry.as_f64())
+        .unwrap_or_default();
+
+    Ok(Viewport {
+        width: viewport.width,
+        height: page_height(content_height, viewport.height),
+    })
+}
+
+/// 根元素自己的盒子带小数，也包含 `body` 的外边距；文档被限制在视口高度、内容在其外滚动时，
+/// 盒子只有一屏高，这时取滚动高度。
+const PAGE_HEIGHT_SCRIPT: &str = r#"
+(() => {
+  const root = document.documentElement;
+  if (!root) return 0;
+  const box = root.getBoundingClientRect().height;
+  const scrolled = root.scrollHeight > root.clientHeight ? root.scrollHeight : 0;
+  return Math.max(box, scrolled);
+})()
+"#;
+
+/// 内容高度带小数（1232.02px）时向上取整，否则最后一行像素会被裁掉。量不出来就退回
+/// 视口高度。
+fn page_height(content_height: f64, viewport_height: u32) -> u32 {
+    if !content_height.is_finite() || content_height < 1.0 {
+        return viewport_height;
+    }
+
+    let height = content_height.ceil();
+
+    if height > f64::from(MAX_CAPTURE_HEIGHT_PX) {
+        tracing::warn!(
+            content_height = height,
+            cap = MAX_CAPTURE_HEIGHT_PX,
+            "report content is taller than one page can hold"
+        );
+
+        return MAX_CAPTURE_HEIGHT_PX;
+    }
+
+    height as u32
 }
 
 fn set_device_viewport(
@@ -362,114 +432,6 @@ fn navigate_and_wait(
         .map_err(|e| RenderError::PageError(format!("wait for document body: {e}")))
 }
 
-fn is_dashboard_report_url(url: &str) -> bool {
-    url.contains("/dashboards/") && url.contains("report_render=1")
-}
-
-fn wait_for_dashboard_report_ready(
-    tab: &headless_chrome::Tab,
-) -> std::result::Result<(), RenderError> {
-    let expression = format!(
-        r#"
-new Promise((resolve) => {{
-  const deadline = Date.now() + {DASHBOARD_READY_TIMEOUT_MILLIS};
-  const inspect = () => {{
-    const root = document.documentElement;
-    const state = root?.dataset?.reportRenderState ?? '';
-    const body = (document.body?.innerText ?? '').trim();
-    if (state === 'ready') {{
-      resolve('');
-      return;
-    }}
-    if (state === 'error') {{
-      resolve(root?.dataset?.reportRenderError || body.slice(0, 1200) || 'dashboard render failed');
-      return;
-    }}
-    if (
-      body.startsWith('Unexpected Application Error!') ||
-      body.includes('You can provide a way better UX than this when your app throws errors')
-    ) {{
-      resolve(body.slice(0, 1200));
-      return;
-    }}
-    if (Date.now() >= deadline) {{
-      resolve('dashboard did not become ready within {DASHBOARD_READY_TIMEOUT_MILLIS}ms');
-      return;
-    }}
-    setTimeout(inspect, 100);
-  }};
-  inspect();
-}})
-"#
-    );
-
-    let value = tab
-        .evaluate(&expression, true)
-        .map_err(|error| RenderError::PageError(format!("wait for dashboard ready: {error}")))?;
-
-    let message = evaluated_string(value.value);
-
-    if message.is_empty() {
-        Ok(())
-    } else {
-        Err(RenderError::PageError(format!(
-            "dashboard render failed: {message}"
-        )))
-    }
-}
-
-fn ensure_page_renderable(tab: &headless_chrome::Tab) -> std::result::Result<(), RenderError> {
-    let value = tab
-        .evaluate(
-            r#"
-(() => {
-  const root = document.documentElement;
-  const body = (document.body?.innerText ?? '').trim();
-  if (root?.dataset?.reportRenderState === 'error') {
-    return root.dataset.reportRenderError || body.slice(0, 1200) || 'page render failed';
-  }
-  if (
-    body.startsWith('Unexpected Application Error!') ||
-    body.includes('You can provide a way better UX than this when your app throws errors')
-  ) {
-    return body.slice(0, 1200);
-  }
-  if (
-    body.includes('Molesignal 专为宽屏工作流设计') ||
-    body.includes('MoleSignal is designed for desktop workflows')
-  ) {
-    return 'report viewport was rejected by the desktop-width guard';
-  }
-  if (
-    body.startsWith('{"error"') &&
-    (body.includes('"unauthorized"') || body.includes('missing Authorization Bearer token'))
-  ) {
-    return body.slice(0, 1200);
-  }
-  return '';
-})()
-"#,
-            false,
-        )
-        .map_err(|error| RenderError::PageError(format!("inspect rendered page: {error}")))?;
-
-    let message = evaluated_string(value.value);
-
-    if message.is_empty() {
-        Ok(())
-    } else {
-        Err(RenderError::PageError(format!(
-            "page cannot be exported: {message}"
-        )))
-    }
-}
-
-fn evaluated_string(value: Option<serde_json::Value>) -> String {
-    value
-        .and_then(|entry| entry.as_str().map(str::to_owned))
-        .unwrap_or_default()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -497,16 +459,26 @@ mod tests {
     }
 
     #[test]
-    fn dashboard_ready_protocol_only_applies_to_dashboard_report_urls() {
-        assert!(is_dashboard_report_url(
-            "http://127.0.0.1:5173/dashboards/d1?report_render=1"
-        ));
-        assert!(!is_dashboard_report_url(
-            "http://127.0.0.1:5173/dashboards/d1"
-        ));
-        assert!(!is_dashboard_report_url(
-            "http://127.0.0.1:5173/saved-views?view=v1&report_render=1"
-        ));
+    fn page_height_follows_the_content() {
+        // 比视口高、比视口矮都跟内容走；小数向上取整。
+        assert_eq!(page_height(2400.0, 800), 2400);
+        assert_eq!(page_height(1232.02, 800), 1233);
+        assert_eq!(page_height(312.4, 800), 313);
+    }
+
+    #[test]
+    fn page_height_falls_back_to_the_viewport_when_unmeasurable() {
+        assert_eq!(page_height(0.0, 800), 800);
+        assert_eq!(page_height(-12.0, 800), 800);
+        assert_eq!(page_height(f64::NAN, 800), 800);
+        assert_eq!(page_height(f64::INFINITY, 800), 800);
+    }
+
+    #[test]
+    fn page_height_is_capped_at_what_one_page_can_hold() {
+        assert_eq!(page_height(16_000.0, 800), MAX_CAPTURE_HEIGHT_PX);
+        assert_eq!(page_height(16_000.2, 800), MAX_CAPTURE_HEIGHT_PX);
+        assert_eq!(page_height(250_000.0, 800), MAX_CAPTURE_HEIGHT_PX);
     }
 
     /// chrome 不存在 → `RenderError::ChromeUnavailable`，不 panic。

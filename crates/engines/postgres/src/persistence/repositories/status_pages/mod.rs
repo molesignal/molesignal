@@ -13,6 +13,7 @@ mod domains;
 mod event_queries;
 mod incidents;
 mod pages;
+mod planned_maintenance;
 mod subscriptions;
 
 use sqlx::PgPool;

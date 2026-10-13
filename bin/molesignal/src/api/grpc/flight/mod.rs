@@ -44,7 +44,7 @@ use crate::{
             catalog_source::CatalogQuerySource, federation_cancel::FederationCancelRegistry,
             parquet_table::PrunedParquetTable,
         },
-        storage::parquet::reader::ParquetReader,
+        storage::{org_scoped_store::scoped_to_org, parquet::reader::ParquetReader},
     },
     protocol::query::v1::QueryShard,
     shared::{
@@ -123,7 +123,8 @@ impl FlightGrpc {
         &self,
         shard: QueryShard,
     ) -> Result<Vec<arrow::array::RecordBatch>, String> {
-        let store = self.object_store.clone();
+        // 分片只能读它所属组织的对象前缀；`query_files` 来自远端，不能凭它越过组织边界。
+        let store = scoped_to_org(self.object_store.clone(), &Id(shard.org_id.clone()));
         let reader = ParquetReader::new(store.clone());
 
         // query_files 为空 = 联邦自解析 —— 远端用
@@ -197,6 +198,13 @@ impl FlightGrpc {
                 .query_files
                 .iter()
                 .map(|file| {
+                    if file.org_id != shard.org_id {
+                        return Err(format!(
+                            "query file {} does not belong to the shard's organization",
+                            file.id
+                        ));
+                    }
+
                     let dataset_type = DatasetTypeId::new(file.dataset_type.clone())
                         .map_err(|error| format!("invalid query file dataset type: {error}"))?;
 
