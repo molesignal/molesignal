@@ -28,7 +28,7 @@ env:
 jobs:
   it:
     name: it
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 25
     services:
       docker:
@@ -36,7 +36,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      # ubuntu-latest 只有 ~14GB 空闲磁盘；本 workspace（datafusion/arrow/tantivy +
+      # ubuntu-26.04 只有 ~14GB 空闲磁盘；本 workspace（datafusion/arrow/tantivy +
       # 几十个 it_* 测试二进制）的 target 目录会撑爆 → rust-lld mmap 写输出失败报
       # SIGBUS。先清掉用不到的预装 SDK 腾出 ~20GB+。
       - name: free disk space
