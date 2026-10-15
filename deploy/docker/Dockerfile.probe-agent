@@ -6,7 +6,13 @@
 # Keep the build on bullseye so the resulting binary retains the repository's
 # GLIBC 2.31 floor while still running on the newer runtime below.
 FROM rust:1.96-bullseye AS rust-builder
-RUN apt-get update \
+RUN printf '%s\n' \
+        'deb [check-valid-until=no] http://archive.debian.org/debian bullseye main' \
+        'deb [check-valid-until=no] http://archive.debian.org/debian bullseye-updates main' \
+        'deb [check-valid-until=no] http://archive.debian.org/debian-security bullseye-security main' \
+        > /etc/apt/sources.list \
+ && rm -f /etc/apt/sources.list.d/debian.sources \
+ && apt-get -o APT::Update::Error-Mode=any update \
  && apt-get install -y --no-install-recommends \
         ca-certificates cmake protobuf-compiler \
  && rm -rf /var/lib/apt/lists/*

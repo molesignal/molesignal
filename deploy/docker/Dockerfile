@@ -17,7 +17,13 @@ ARG BUILD_ID=unknown
 ARG GIT_SHA=unknown
 # protobuf binding 由各 crate build.rs 生成到 Cargo OUT_DIR；protobuf-compiler 提供 protoc。
 # cmake：rdkafka-sys 用 cmake-build 编 librdkafka 必需（rust 官方镜像不含 cmake）。
-RUN apt-get update \
+RUN printf '%s\n' \
+        'deb [check-valid-until=no] http://archive.debian.org/debian bullseye main' \
+        'deb [check-valid-until=no] http://archive.debian.org/debian bullseye-updates main' \
+        'deb [check-valid-until=no] http://archive.debian.org/debian-security bullseye-security main' \
+        > /etc/apt/sources.list \
+ && rm -f /etc/apt/sources.list.d/debian.sources \
+ && apt-get -o APT::Update::Error-Mode=any update \
  && apt-get install -y --no-install-recommends ca-certificates curl protobuf-compiler cmake \
  && rm -rf /var/lib/apt/lists/*
 
@@ -42,7 +48,13 @@ FROM debian:bullseye-slim
 #  build 用 headless-Chrome 渲染 scheduled-reports 的 PDF/PNG
 # （change `scheduled-reports-headless`）。OSS build 不会调 renderer，但额外几个
 # 包 + chromium 多了 ~150MB；如要纯 OSS 最小镜像，删除 `chromium` 即可。
-RUN apt-get update \
+RUN printf '%s\n' \
+        'deb [check-valid-until=no] http://archive.debian.org/debian bullseye main' \
+        'deb [check-valid-until=no] http://archive.debian.org/debian bullseye-updates main' \
+        'deb [check-valid-until=no] http://archive.debian.org/debian-security bullseye-security main' \
+        > /etc/apt/sources.list \
+ && rm -f /etc/apt/sources.list.d/debian.sources \
+ && apt-get -o APT::Update::Error-Mode=any update \
  && apt-get install -y --no-install-recommends \
         ca-certificates curl \
         chromium fonts-liberation libnss3 libfreetype6 libharfbuzz0b \
