@@ -168,11 +168,22 @@ jobs:
         # cmake 供 rdkafka cmake-build 编 librdkafka；protobuf-compiler 供各 crate 的
         # build.rs 在 Cargo OUT_DIR 生成协议 binding。容器默认 root。
         run: |
-          # 镜像同步或 HTTP 缓存可能使索引指向已被替换的软件包；失败后重新获取索引。
+          archive_sources="$(mktemp)"
+          trap 'rm -f "$archive_sources"' EXIT
+          cat > "$archive_sources" <<'EOF'
+          deb [check-valid-until=no] https://archive.debian.org/debian bullseye main
+          deb [check-valid-until=no] https://archive.debian.org/debian bullseye-updates main
+          deb [check-valid-until=no] https://archive.debian.org/debian-security bullseye-security main
+          EOF
+          archive_apt() {
+            apt-get -o Dir::Etc::sourcelist="$archive_sources" \
+              -o Dir::Etc::sourceparts=- -o APT::Update::Error-Mode=any "$@"
+          }
+
           for attempt in 1 2 3; do
             rm -rf /var/lib/apt/lists/*
-            if apt-get -o Acquire::http::No-Cache=true -o APT::Update::Error-Mode=any update && \
-              apt-get -o Acquire::http::No-Cache=true install -y --no-install-recommends \
+            if archive_apt update && \
+              archive_apt install -y --no-install-recommends \
                 cmake protobuf-compiler; then
               break
             fi
