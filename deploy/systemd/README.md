@@ -11,13 +11,15 @@ sudo install -o root -g molesignal -m 0640 \
   conf/config.toml /etc/molesignal/config.toml
 sudo install -Dm644 deploy/systemd/molesignal.service \
   /etc/systemd/system/molesignal.service
-sudo install -Dm644 mmdb/GeoLite2-City.mmdb \
-  /usr/share/molesignal/mmdb/GeoLite2-City.mmdb
+sudo install -Dm644 mmdb/dbip-city-lite.mmdb \
+  /usr/share/molesignal/mmdb/dbip-city-lite.mmdb
 ```
 
-`mmdb/GeoLite2-City.mmdb` 是 GeoIP 库，`[mmdb] db_path` 默认指向上面的安装路径；RUM 写入用它按
-客户端 IP 查国家，服务不会在运行期下载或更新它。升级时随新版本的二进制一起替换。本产品包含由 MaxMind
-创建的 GeoLite 数据，可从 https://www.maxmind.com 获取；署名与许可见二进制包里的 `mmdb/NOTICE.txt`。
+`mmdb/dbip-city-lite.mmdb` 是 DB-IP City Lite 库（CC BY 4.0），打包时下载的当月版本，`[mmdb] db_path`
+默认指向上面的安装路径。RUM 写入用它按客户端 IP 查国家，服务不会在运行期下载或更新它，升级时随新版本的
+二进制一起替换。IP 地理位置数据由 DB-IP（https://db-ip.com）提供，署名与许可见二进制包里的
+`mmdb/NOTICE.txt`。旧版本安装的 `/usr/share/molesignal/mmdb/GeoLite2-City.mmdb` 可以删除；如果
+`/etc/molesignal/config.toml` 里的 `db_path` 仍指向它，改成上面的路径。
 
 交付通道是运行时元数据。在 `/etc/molesignal/molesignal.env` 中配置当前通道：
 

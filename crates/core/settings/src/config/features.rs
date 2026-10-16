@@ -17,14 +17,14 @@ pub struct FunctionsSettings {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MmdbSettings {
-    /// 本地 GeoLite2 City mmdb 文件路径。库随版本库（`assets/mmdb`）进入容器镜像和二进制包，
-    /// 运行期不下载。
+    /// DB-IP City Lite（CC BY 4.0）mmdb 文件路径。库不入库：容器镜像和二进制包在构建时下载当月
+    /// 版本，运行期不下载。
     #[serde(default = "default_mmdb_path")]
     pub db_path: String,
 }
 
 fn default_mmdb_path() -> String {
-    "/usr/share/molesignal/mmdb/GeoLite2-City.mmdb".into()
+    "/usr/share/molesignal/mmdb/dbip-city-lite.mmdb".into()
 }
 
 impl Default for MmdbSettings {

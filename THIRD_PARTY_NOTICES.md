@@ -30,23 +30,31 @@ The Bar Chart, Heatmap, and State Timeline implementations are original local
 work. No source from Grafana's AGPL-licensed `public/app/plugins/panel/`
 directory is included.
 
-## MaxMind GeoLite City database
+## DB-IP IP to City Lite database
 
-MoleSignal fills the `country` of RUM events from the client IP with MaxMind's
-GeoLite City database. The database is distributed unmodified in this
-repository, in the container images at `/usr/share/molesignal/mmdb/`, and in
-the release archives under `mmdb/`, each time with `NOTICE.txt` beside it.
+MoleSignal fills the `country` of RUM events from the client IP with DB-IP's
+IP to City Lite database. The database is not stored in this repository:
+`scripts/fetch-dbip-city-lite.sh` downloads the current monthly edition when the
+container images and the release archives are built, and it ships unmodified
+at `/usr/share/molesignal/mmdb/` in the images and under `mmdb/` in the
+archives, each time with `assets/mmdb/NOTICE.txt` beside it.
 
-This product includes GeoLite Data created by MaxMind, available from
-https://www.maxmind.com.
+IP Geolocation by DB-IP: https://db-ip.com
 
-- Upstream: [MaxMind GeoLite](https://dev.maxmind.com/geoip/geolite-free-geolocation-data)
-- File: `assets/mmdb/GeoLite2-City.mmdb` (database type `GeoLite2-City`, built
-  2026-05-29)
-- License: [GeoLite End User License Agreement](https://www.maxmind.com/en/geolite/eula);
-  its copyrightable elements are licensed under the
-  [Creative Commons Attribution-ShareAlike 4.0 International License](https://creativecommons.org/licenses/by-sa/4.0/)
-- Database and Contents Copyright (c) 2026 MaxMind, Inc.
-- The database incorporates [GeoNames](https://www.geonames.org) geographical
-  data, made available under the
-  [Creative Commons Attribution 4.0 International License](https://creativecommons.org/licenses/by/4.0/)
+- Upstream: [DB-IP IP to City Lite](https://db-ip.com/db/download/ip-to-city-lite)
+- License: [Creative Commons Attribution 4.0 International License](https://creativecommons.org/licenses/by/4.0/)
+- The RUM pages, which show results from the database, link to DB-IP.com as
+  DB-IP's terms for web applications ask.
+
+### Earlier revisions
+
+Revisions of this repository before the switch to DB-IP contain MaxMind's
+GeoLite City database at `assets/mmdb/GeoLite2-City.mmdb`. This product
+includes GeoLite Data created by MaxMind, available from
+https://www.maxmind.com. That database is governed by the
+[GeoLite End User License Agreement](https://www.maxmind.com/en/geolite/eula);
+its copyrightable elements are licensed under the
+[Creative Commons Attribution-ShareAlike 4.0 International License](https://creativecommons.org/licenses/by-sa/4.0/),
+and it incorporates [GeoNames](https://www.geonames.org) geographical data made
+available under the
+[Creative Commons Attribution 4.0 International License](https://creativecommons.org/licenses/by/4.0/).

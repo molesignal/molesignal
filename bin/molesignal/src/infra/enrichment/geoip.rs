@@ -3,7 +3,8 @@
 
 //! GeoIP lookup。
 //!
-//! `GeoIp::open(path)` 加载 MaxMind GeoLite2-City.mmdb；`lookup(ip) -> Option<GeoLocation>`。
+//! `GeoIp::open(path)` 加载 MMDB 格式的城市库（DB-IP City Lite，构建时由
+//! `scripts/fetch-dbip-city-lite.sh` 下载）；`lookup(ip) -> Option<GeoLocation>`。
 //! 缺文件 / 解析失败 → `GeoIp::noop()` 永远返 None（不阻塞 intake）。
 //!
 //! 写入路径经 [`GeoLookup`] 查找，测试可换成假查找器。
@@ -102,9 +103,15 @@ mod tests {
 
     use super::*;
 
-    /// 纳入版本库、随容器镜像分发的 GeoLite2 库；测试只读它，不下载任何文件。
-    fn bundled_mmdb() -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../assets/mmdb/GeoLite2-City.mmdb")
+    /// DB-IP City Lite 不入库：`make geoip-db` 把它下载到 `assets/mmdb/`，`MS_TEST_MMDB` 可指向
+    /// 别处的文件。
+    fn downloaded_mmdb() -> PathBuf {
+        std::env::var_os("MS_TEST_MMDB")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| {
+                PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("../../assets/mmdb/dbip-city-lite.mmdb")
+            })
     }
 
     fn scratch_file(name: &str) -> PathBuf {
@@ -133,8 +140,9 @@ mod tests {
     }
 
     #[test]
-    fn bundled_database_resolves_public_addresses_only() {
-        let geoip = GeoIp::open_or_noop(&bundled_mmdb());
+    #[ignore = "needs the DB-IP City Lite file: make geoip-db"]
+    fn city_lite_resolves_public_addresses_only() {
+        let geoip = GeoIp::open(&downloaded_mmdb()).unwrap_or_else(|error| panic!("{error}"));
 
         assert_eq!(country(&geoip, "8.8.8.8").as_deref(), Some("US"));
         assert_eq!(country(&geoip, "10.0.0.1"), None);

@@ -30,7 +30,7 @@ fn example_config_file_parses_all_sections() {
     assert_eq!(s.log_inspection.run_timeout_secs, 300);
     assert_eq!(
         s.mmdb.db_path,
-        "/usr/share/molesignal/mmdb/GeoLite2-City.mmdb"
+        "/usr/share/molesignal/mmdb/dbip-city-lite.mmdb"
     );
     assert!(!s.flight_sql.enabled);
     assert_eq!(s.flight_sql.port, 5083);

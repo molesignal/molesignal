@@ -59,13 +59,15 @@ RUN printf '%s\n' \
         ca-certificates curl \
         chromium fonts-liberation libnss3 libfreetype6 libharfbuzz0b \
  && rm -rf /var/lib/apt/lists/*
+# DB-IP City Lite（CC BY 4.0）不入库，构建时下载当月版本；放在二进制之前，改代码不会重新下载。
+COPY scripts/fetch-dbip-city-lite.sh /tmp/fetch-dbip-city-lite.sh
+RUN bash /tmp/fetch-dbip-city-lite.sh /usr/share/molesignal/mmdb/dbip-city-lite.mmdb \
+ && rm /tmp/fetch-dbip-city-lite.sh
+COPY assets/mmdb/NOTICE.txt /usr/share/molesignal/mmdb/NOTICE.txt
 # headless_chrome 默认会扫这些路径找 Chromium 可执行文件。
 ENV CHROME_PATH=/usr/bin/chromium
 WORKDIR /app
 COPY --from=rust-builder /src/target/release/molesignal /usr/local/bin/molesignal
-RUN mkdir -p /usr/share/molesignal/mmdb
-COPY assets/mmdb/GeoLite2-City.mmdb /usr/share/molesignal/mmdb/GeoLite2-City.mmdb
-COPY assets/mmdb/NOTICE.txt /usr/share/molesignal/mmdb/NOTICE.txt
 COPY conf/config.toml /app/conf/config.toml
 # Web UI 已编译进 molesignal；5080 同时提供页面和 HTTP API。
 EXPOSE 5080 5082

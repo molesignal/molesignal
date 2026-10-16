@@ -113,7 +113,7 @@ pub struct Settings {
     pub router: RouterSettings,
     #[serde(default)]
     pub cache: CacheSettings,
-    /// GeoLite2 City mmdb：RUM 写入按客户端 IP 查国家的数据源。
+    /// DB-IP City Lite mmdb：RUM 写入按客户端 IP 查国家的数据源。
     #[serde(default)]
     pub mmdb: MmdbSettings,
     /// SearchJob worker pool。

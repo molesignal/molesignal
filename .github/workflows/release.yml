@@ -75,6 +75,22 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  # 1b. DB-IP City Lite（CC BY 4.0）不入库：每次发布下载一次当月版本，二进制包和镜像共用这一份。
+  geoip-db:
+    name: DB-IP City Lite
+    needs: detect-channel
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: download the current edition
+        run: scripts/fetch-dbip-city-lite.sh .release-assets/dbip-city-lite.mmdb
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dbip-city-lite-${{ github.run_id }}
+          path: .release-assets/dbip-city-lite.mmdb
+          if-no-files-found: error
+          retention-days: 1
+
   # 2. 质量门禁：和 ci.yml 同一套 fmt + clippy + 单测，release 路径上再跑一遍兜底。
   quality-gate:
     name: quality gate
@@ -127,7 +143,7 @@ jobs:
   # 3. 多平台原生编译：每个 target 在对应架构 runner 上原生 build，避免 cross-compile。
   build:
     name: build (${{ matrix.target }})
-    needs: [detect-channel, web-assets, quality-gate]
+    needs: [detect-channel, web-assets, quality-gate, geoip-db]
     runs-on: ${{ matrix.os }}
     # 构建在 rust:1.96-bullseye 容器（Debian 11, glibc 2.31）内进行，产物 glibc
     # 地板 2.31，低于目标机地板 2.34（Alma 9 / Ubuntu 22.04）。Server runtime
@@ -162,6 +178,11 @@ jobs:
         with:
           name: embedded-web-${{ github.run_id }}
           path: web/dist
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: dbip-city-lite-${{ github.run_id }}
+          path: .release-assets
 
       - name: install system dependencies
         # rust:1.96-bullseye 已含 build-essential/git/ca-certificates/curl/pkg-config；
@@ -259,9 +280,9 @@ jobs:
           cp "target/${{ matrix.target }}/release/molesignal" "dist/${ARCHIVE}/bin/"
           cp -R conf/. "dist/${ARCHIVE}/conf/"
           cp -R deploy/systemd/. "dist/${ARCHIVE}/deploy/systemd/"
-          # GeoIP database for RUM country lookups, with its attribution notice;
-          # the server never downloads it.
-          cp assets/mmdb/GeoLite2-City.mmdb assets/mmdb/NOTICE.txt "dist/${ARCHIVE}/mmdb/"
+          # GeoIP database for RUM country lookups (DB-IP City Lite, fetched by the
+          # geoip-db job), with its attribution notice; the server never downloads it.
+          cp .release-assets/dbip-city-lite.mmdb assets/mmdb/NOTICE.txt "dist/${ARCHIVE}/mmdb/"
           printf '{"build_id":"%s","git_sha":"%s"}\n' "$BUILD_ID" "$GITHUB_SHA" \
             > "dist/${ARCHIVE}/build-info.json"
           cd dist && tar czf "${ARCHIVE}.tar.gz" "${ARCHIVE}"
@@ -310,6 +331,12 @@ jobs:
         with:
           pattern: probe-docker-binary-*-${{ github.run_id }}
           path: .probe-release-artifacts
+
+      - name: download DB-IP City Lite
+        uses: actions/download-artifact@v8
+        with:
+          name: dbip-city-lite-${{ github.run_id }}
+          path: .release-assets
 
       - name: stage release binaries for buildx
         env:

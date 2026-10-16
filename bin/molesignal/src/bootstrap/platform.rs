@@ -225,7 +225,7 @@ impl PlatformRuntime {
         });
 
         // RUM 写入按客户端 IP 查国家。只有提供完整 HTTP API 的节点（standalone / router）接收
-        // RUM 写入，其它节点不加载这份约 60 MB 的库。
+        // RUM 写入，其它节点不加载这份约 120 MB 的库。
         let receives_rum = plan_servers(&settings.node.roles).http == HttpKind::Full;
 
         let geoip: Arc<dyn GeoLookup> = if receives_rum {

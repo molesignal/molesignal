@@ -10,7 +10,8 @@ CONFIG_DIR   := conf
 DATA_DIR     := data
 ASSET_DIR    := assets
 MMDB_DIR     := $(ASSET_DIR)/mmdb
-MMDB_FILE    := $(MMDB_DIR)/GeoLite2-City.mmdb
+# DB-IP City Lite（CC BY 4.0）不入库，由 scripts/fetch-dbip-city-lite.sh 下载。
+MMDB_FILE    := $(MMDB_DIR)/dbip-city-lite.mmdb
 DIST_DIR     := dist
 PACKAGE_NAME = $(BIN_NAME)-$(VERSION)
 PACKAGE_DIR  = $(DIST_DIR)/$(PACKAGE_NAME)
@@ -112,8 +113,16 @@ build-debug: web-build
 build-release: web-build
 	BUILD_ID="$(BUILD_ID)" cargo build $(CARGO_FLAGS_BASE) --release $(WORKSPACE_PKGS) $(CARGO_FEATURE_FLAGS)
 
+# DB-IP City Lite 第一次需要时下载；`make geoip-db` 换成当月版本。
+$(MMDB_FILE):
+	scripts/fetch-dbip-city-lite.sh $@
+
+.PHONY: geoip-db
+geoip-db:
+	scripts/fetch-dbip-city-lite.sh $(MMDB_FILE)
+
 # 生成二进制发布包：内置 conf/、systemd 部署文件和 GeoIP 库（mmdb/）
-package:
+package: $(MMDB_FILE)
 	@if [ -n "$(TARGET)" ]; then \
 		$(MAKE) build-release-target TARGET=$(TARGET); \
 	else \

@@ -33,7 +33,8 @@ WORKDIR /app
 COPY --from=binary /molesignal /usr/local/bin/molesignal
 RUN chmod 0755 /usr/local/bin/molesignal \
  && mkdir -p /usr/share/molesignal/mmdb
-COPY assets/mmdb/GeoLite2-City.mmdb /usr/share/molesignal/mmdb/GeoLite2-City.mmdb
+# DB-IP City Lite（CC BY 4.0）不入库：发布流程每次下载一次当月版本，放在 .release-assets/。
+COPY .release-assets/dbip-city-lite.mmdb /usr/share/molesignal/mmdb/dbip-city-lite.mmdb
 COPY assets/mmdb/NOTICE.txt /usr/share/molesignal/mmdb/NOTICE.txt
 COPY conf/config.toml /app/conf/config.toml
 # Web UI 已编译进 molesignal；5080 同时提供页面和 HTTP API。
