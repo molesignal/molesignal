@@ -51,6 +51,7 @@ use crate::{
         cipher::{CipherKeyRepository, FieldKeyService},
         cluster::{ClusterSecretRepository, RemoteClustersRepository},
         connectors::ConnectorRepository,
+        enrichment::GeoLookup,
         intake::PrometheusSeriesAdmission,
         masking::{FieldMaskingService, MaskingService},
         notify::EmailSender,
@@ -185,6 +186,8 @@ pub struct TelemetryState {
     pub system_load_health: TraceSystemLoadHealth,
     pub service_graph: Arc<dyn ServiceGraphRepository>,
     pub rum_replay: Arc<RumReplayWriter>,
+    /// RUM 写入按服务端解析的客户端 IP 查国家；不接收 RUM 写入的节点是不查询的空库。
+    pub geoip: Arc<dyn GeoLookup>,
     pub apm_query: Arc<crate::app::apm::ApmQueryService>,
     pub apm_runtime: Option<Arc<crate::app::apm::ApmRuntime>>,
     pub trace_policies: Arc<dyn TracePolicyRepository>,

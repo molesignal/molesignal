@@ -29,7 +29,7 @@ use crate::{
         rum::validate_application_id,
         stream::StreamType,
     },
-    infra::rum::normalize,
+    infra::{enrichment::GeoLookup, rum::normalize},
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
@@ -85,7 +85,8 @@ async fn receive_sessions(
     Json(mut body): Json<Value>,
 ) -> Result<Json<IntakeResult>> {
     bind_application(&mut body, &ctx)?;
-    overwrite_client_ip_fields(&mut body, resolve_client_ip(&resolver, &headers, peer));
+    let client_ip = resolve_client_ip(&resolver, &headers, peer);
+    stamp_client_origin(&mut body, client_ip, state.telemetry.geoip.as_ref());
 
     Ok(Json(
         intake_stream(&state, &ctx, "rum_sessions", body).await?,
@@ -102,7 +103,8 @@ async fn receive_actions(
     Json(mut body): Json<Value>,
 ) -> Result<Json<IntakeResult>> {
     bind_application(&mut body, &ctx)?;
-    overwrite_client_ip_fields(&mut body, resolve_client_ip(&resolver, &headers, peer));
+    let client_ip = resolve_client_ip(&resolver, &headers, peer);
+    stamp_client_origin(&mut body, client_ip, state.telemetry.geoip.as_ref());
 
     Ok(Json(
         intake_stream(&state, &ctx, "rum_actions", body).await?,
@@ -119,7 +121,8 @@ async fn receive_errors(
     Json(mut body): Json<Value>,
 ) -> Result<Json<IntakeResult>> {
     bind_application(&mut body, &ctx)?;
-    overwrite_client_ip_fields(&mut body, resolve_client_ip(&resolver, &headers, peer));
+    let client_ip = resolve_client_ip(&resolver, &headers, peer);
+    stamp_client_origin(&mut body, client_ip, state.telemetry.geoip.as_ref());
     let translated = symbolication::translate_body(&state, &ctx, body).await;
 
     Ok(Json(
@@ -136,8 +139,16 @@ fn resolve_client_ip(
     resolver.resolve(headers, peer)
 }
 
-/// 客户端上报值永不可信：先删除全部兼容别名，再只写入服务端解析的规范字段。
-fn overwrite_client_ip_fields(body: &mut Value, resolved: Option<IpAddr>) {
+/// 客户端上报值永不可信：先删除全部 IP 兼容别名，再只写入服务端解析的规范字段。
+///
+/// 国家同样以服务端为准：按服务端解析的 IP 查到国家时覆盖客户端上报值；查不到（没有 GeoIP 库、
+/// 没有 IP、库里没有这个 IP）时保留客户端自带的 `country`，与未接 GeoIP 时一致。同一请求的
+/// 事件来自同一个客户端，只查一次。
+fn stamp_client_origin(body: &mut Value, resolved: Option<IpAddr>, geo: &dyn GeoLookup) {
+    let country = resolved
+        .and_then(|ip| geo.lookup(ip))
+        .and_then(|location| location.country);
+
     let events = match body {
         Value::Array(events) => events.as_mut_slice(),
         Value::Object(_) => std::slice::from_mut(body),
@@ -155,6 +166,10 @@ fn overwrite_client_ip_fields(body: &mut Value, resolved: Option<IpAddr>) {
 
         if let Some(ip) = resolved {
             object.insert("ip_address".into(), Value::String(ip.to_string()));
+        }
+
+        if let Some(country) = &country {
+            object.insert("country".into(), Value::String(country.clone()));
         }
     }
 }
@@ -270,9 +285,36 @@ async fn read_replay(
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
     use serde_json::json;
 
     use super::*;
+    use crate::infra::enrichment::{GeoIp, GeoLocation};
+
+    const KNOWN_IP: &str = "203.0.113.7";
+    const UNKNOWN_IP: &str = "10.1.2.3";
+
+    /// 假 GeoIP：只认识 `KNOWN_IP`（德国），并记下被查了几次。
+    #[derive(Default)]
+    struct FakeGeo {
+        lookups: AtomicUsize,
+    }
+
+    impl GeoLookup for FakeGeo {
+        fn lookup(&self, ip: IpAddr) -> Option<GeoLocation> {
+            self.lookups.fetch_add(1, Ordering::Relaxed);
+
+            (ip == KNOWN_IP.parse::<IpAddr>().unwrap()).then(|| GeoLocation {
+                country: Some("DE".into()),
+                ..GeoLocation::default()
+            })
+        }
+    }
+
+    fn ip(value: &str) -> Option<IpAddr> {
+        Some(value.parse().unwrap())
+    }
 
     #[test]
     fn canonical_read_and_write_routes_merge_without_conflict() {
@@ -285,7 +327,9 @@ mod tests {
             {"session_id": "a", "ip_address": "1.1.1.1", "client_ip": "2.2.2.2"},
             {"session_id": "b", "ip": "3.3.3.3"}
         ]);
-        overwrite_client_ip_fields(&mut body, Some("8.8.8.8".parse().unwrap()));
+
+        stamp_client_origin(&mut body, ip("8.8.8.8"), &*GeoIp::noop());
+
         for event in body.as_array().unwrap() {
             assert_eq!(event["ip_address"], "8.8.8.8");
             assert!(event.get("client_ip").is_none());
@@ -301,10 +345,82 @@ mod tests {
             "client_ip": "2.2.2.2",
             "ip": "3.3.3.3"
         });
-        overwrite_client_ip_fields(&mut body, None);
+
+        stamp_client_origin(&mut body, None, &*GeoIp::noop());
         assert!(body.get("ip_address").is_none());
         assert!(body.get("client_ip").is_none());
         assert!(body.get("ip").is_none());
+    }
+
+    #[test]
+    fn country_found_for_the_server_ip_goes_on_every_event_with_one_lookup() {
+        let geo = FakeGeo::default();
+        let mut body = json!([{"session_id": "a"}, {"session_id": "b"}]);
+
+        stamp_client_origin(&mut body, ip(KNOWN_IP), &geo);
+
+        for event in body.as_array().unwrap() {
+            assert_eq!(event["country"], "DE");
+            assert_eq!(event["ip_address"], KNOWN_IP);
+        }
+
+        assert_eq!(geo.lookups.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn ip_without_a_country_adds_none() {
+        let geo = FakeGeo::default();
+        let mut body = json!({"session_id": "a"});
+
+        stamp_client_origin(&mut body, ip(UNKNOWN_IP), &geo);
+
+        assert!(body.get("country").is_none());
+        assert_eq!(geo.lookups.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn missing_server_ip_skips_the_lookup() {
+        let geo = FakeGeo::default();
+        let mut body = json!({"session_id": "a"});
+
+        stamp_client_origin(&mut body, None, &geo);
+
+        assert!(body.get("country").is_none());
+        assert_eq!(geo.lookups.load(Ordering::Relaxed), 0);
+    }
+
+    #[test]
+    fn server_country_overrides_the_client_value() {
+        let mut body = json!([
+            {"session_id": "a", "country": "US"},
+            {"session_id": "b", "country": null}
+        ]);
+
+        stamp_client_origin(&mut body, ip(KNOWN_IP), &FakeGeo::default());
+
+        for event in body.as_array().unwrap() {
+            assert_eq!(event["country"], "DE");
+        }
+    }
+
+    #[test]
+    fn client_country_stays_when_the_server_finds_none() {
+        let fake = FakeGeo::default();
+        let missing_mmdb = GeoIp::noop();
+
+        let cases: [(Option<IpAddr>, &dyn GeoLookup); 3] = [
+            (ip(UNKNOWN_IP), &fake),
+            (None, &fake),
+            (ip(KNOWN_IP), &*missing_mmdb),
+        ];
+
+        for (resolved, geo) in cases {
+            let mut body = json!({"session_id": "a", "country": "US"});
+
+            stamp_client_origin(&mut body, resolved, geo);
+
+            assert_eq!(body["country"], "US");
+        }
     }
 
     #[test]

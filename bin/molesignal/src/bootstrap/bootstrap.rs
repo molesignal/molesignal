@@ -305,6 +305,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         domains,
 
         pipeline_runs,
+        geoip,
     } = platform_runtime;
 
     let AgentRuntime {
@@ -467,6 +468,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
             },
             service_graph: service_graph_repo,
             rum_replay,
+            geoip,
             apm_query,
             apm_runtime,
             trace_policies,

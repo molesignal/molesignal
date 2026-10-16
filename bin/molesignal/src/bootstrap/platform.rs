@@ -5,12 +5,19 @@
 
 use std::sync::Arc;
 
-use super::{core::Core, iam::IamRuntime, query::QueryRuntime, storage::StorageRuntime};
+use super::{
+    core::Core,
+    iam::IamRuntime,
+    query::QueryRuntime,
+    roles::{HttpKind, plan_servers},
+    storage::StorageRuntime,
+};
 use crate::{
     config::Settings,
     domain::{function::FunctionRepository, rum::DebugArtifactRepository},
     infra::{
         connectors::{ConnectorRepository, PgConnectorRepository},
+        enrichment::{GeoIp, GeoLookup},
         persistence::repositories::{
             annotations::{AnnotationRepository, PgAnnotationRepository},
             debug_artifacts::PgDebugArtifactRepository,
@@ -52,6 +59,7 @@ pub(super) struct PlatformRuntime {
     pub(super) web_search: Arc<dyn WebSearchRepository>,
     pub(super) domains: Arc<dyn DomainRepository>,
     pub(super) pipeline_runs: Arc<dyn PipelineRunRepository>,
+    pub(super) geoip: Arc<dyn GeoLookup>,
 }
 
 impl PlatformRuntime {
@@ -216,6 +224,16 @@ impl PlatformRuntime {
             crate::bootstrap::workers::pipeline_exec::spawn_runner(runner, 15)
         });
 
+        // RUM 写入按客户端 IP 查国家。只有提供完整 HTTP API 的节点（standalone / router）接收
+        // RUM 写入，其它节点不加载这份约 60 MB 的库。
+        let receives_rum = plan_servers(&settings.node.roles).http == HttpKind::Full;
+
+        let geoip: Arc<dyn GeoLookup> = if receives_rum {
+            GeoIp::open_or_noop(std::path::Path::new(&settings.mmdb.db_path))
+        } else {
+            GeoIp::noop()
+        };
+
         Ok(Self {
             connectors,
             scheduled_pipelines,
@@ -237,6 +255,7 @@ impl PlatformRuntime {
             domains,
 
             pipeline_runs,
+            geoip,
         })
     }
 }
