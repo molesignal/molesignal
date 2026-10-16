@@ -15,6 +15,8 @@ use crate::{
 pub enum AutomationSourceKind {
     AlertIncident,
     SyntheticMonitor,
+    /// The health of a business service, worked out from its dependencies.
+    BusinessService,
 }
 
 impl AutomationSourceKind {
@@ -22,6 +24,7 @@ impl AutomationSourceKind {
         match self {
             Self::AlertIncident => "alert_incident",
             Self::SyntheticMonitor => "synthetic_monitor",
+            Self::BusinessService => "business_service",
         }
     }
 
@@ -29,6 +32,7 @@ impl AutomationSourceKind {
         match value {
             "alert_incident" => Some(Self::AlertIncident),
             "synthetic_monitor" => Some(Self::SyntheticMonitor),
+            "business_service" => Some(Self::BusinessService),
             _ => None,
         }
     }
@@ -96,6 +100,8 @@ pub struct AutomationTemplates {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AutomationAction {
+    /// The components an incident is published on. A business-service rule
+    /// that names none publishes on the components that stand for the service.
     pub component_ids: Vec<Id>,
     pub publication_mode: AutomationPublicationMode,
     pub sustained_delay_seconds: u32,

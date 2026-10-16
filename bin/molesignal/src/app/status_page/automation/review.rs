@@ -72,6 +72,8 @@ impl StatusPageService {
                 started_at: Some(incident.started_at),
                 auto_start: None,
                 reminder_minutes: None,
+                next_update_at: None,
+                notify_subscribers: true,
             },
         )
         .await?;

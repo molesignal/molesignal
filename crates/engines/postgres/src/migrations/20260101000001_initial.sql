@@ -1428,14 +1428,13 @@ CREATE INDEX IF NOT EXISTS idx_alert_subscriptions_org_enabled
 -- Org config: email domains
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS org_email_domains (
-    org_id              VARCHAR(64)  NOT NULL,
-    domain              VARCHAR(255) NOT NULL,
-    created_at_micros   BIGINT       NOT NULL,
-    PRIMARY KEY (org_id, domain)
-);
-CREATE INDEX IF NOT EXISTS idx_org_email_domains_org
-    ON org_email_domains(org_id);
+-- The email domains an organization admits, in order; an empty list admits
+-- every domain.
+ALTER TABLE organizations
+    ADD COLUMN email_domains TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
+ALTER TABLE organizations
+    ADD CONSTRAINT chk_organizations_email_domains
+    CHECK (array_position(email_domains, NULL) IS NULL);
 
 
 -- ============================================================
@@ -4064,20 +4063,22 @@ CREATE INDEX IF NOT EXISTS idx_notify_deliveries_status
 CREATE UNIQUE INDEX IF NOT EXISTS uq_teams_org_id
     ON teams(org_id, id);
 
-CREATE TABLE IF NOT EXISTS team_notify_defaults (
+-- The default routes of a category: a team's when team_id is set, the
+-- organization's when it is not.
+CREATE TABLE IF NOT EXISTS notify_defaults (
     id                  VARCHAR(64) PRIMARY KEY,
-    organization_id     VARCHAR(64) NOT NULL,
-    team_id             VARCHAR(64) NOT NULL,
+    organization_id     VARCHAR(64) NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    team_id             VARCHAR(64),
     category            VARCHAR(32) NOT NULL,
     routes              JSONB       NOT NULL DEFAULT '[]'::JSONB,
     enabled             BOOLEAN     NOT NULL DEFAULT TRUE,
     created_at_micros   BIGINT      NOT NULL,
     updated_at_micros   BIGINT      NOT NULL,
-    CONSTRAINT fk_team_notify_default_team
+    CONSTRAINT fk_notify_defaults_team
         FOREIGN KEY (organization_id, team_id)
         REFERENCES teams(org_id, id)
         ON DELETE CASCADE,
-    CONSTRAINT chk_team_notify_default_category
+    CONSTRAINT chk_notify_defaults_category
         CHECK (category IN (
             'alert',
             'oncall',
@@ -4086,42 +4087,15 @@ CREATE TABLE IF NOT EXISTS team_notify_defaults (
             'security',
             'system'
         )),
-    CONSTRAINT chk_team_notify_default_routes
-        CHECK (jsonb_typeof(routes) = 'array'),
-    CONSTRAINT uq_team_notify_default_org_id
-        UNIQUE (organization_id, id)
+    CONSTRAINT chk_notify_defaults_routes
+        CHECK (jsonb_typeof(routes) = 'array')
 );
-CREATE UNIQUE INDEX IF NOT EXISTS uq_team_notify_default_category
-    ON team_notify_defaults(organization_id, team_id, category);
-CREATE INDEX IF NOT EXISTS idx_team_notify_defaults_team
-    ON team_notify_defaults(organization_id, team_id, enabled);
-
-CREATE TABLE IF NOT EXISTS organization_notify_defaults (
-    id                  VARCHAR(64) PRIMARY KEY,
-    organization_id     VARCHAR(64) NOT NULL,
-    category            VARCHAR(32) NOT NULL,
-    routes              JSONB       NOT NULL DEFAULT '[]'::JSONB,
-    enabled             BOOLEAN     NOT NULL DEFAULT TRUE,
-    created_at_micros   BIGINT      NOT NULL,
-    updated_at_micros   BIGINT      NOT NULL,
-    CONSTRAINT chk_organization_notify_default_category
-        CHECK (category IN (
-            'alert',
-            'oncall',
-            'escalation',
-            'report',
-            'security',
-            'system'
-        )),
-    CONSTRAINT chk_organization_notify_default_routes
-        CHECK (jsonb_typeof(routes) = 'array'),
-    CONSTRAINT uq_organization_notify_default_org_id
-        UNIQUE (organization_id, id)
-);
-CREATE UNIQUE INDEX IF NOT EXISTS uq_organization_notify_default_category
-    ON organization_notify_defaults(organization_id, category);
-CREATE INDEX IF NOT EXISTS idx_organization_notify_defaults_org
-    ON organization_notify_defaults(organization_id, enabled);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_notify_defaults_organization_category
+    ON notify_defaults(organization_id, category)
+    WHERE team_id IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_notify_defaults_team_category
+    ON notify_defaults(organization_id, team_id, category)
+    WHERE team_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS notify_policies (
     id                      VARCHAR(64)  PRIMARY KEY,
@@ -4627,11 +4601,15 @@ CREATE TABLE status_page_incidents (
     title                   VARCHAR(200) NOT NULL,
     impact                  VARCHAR(16)  NOT NULL,
     status                  VARCHAR(32)  NOT NULL,
+    -- The components the event names, by id; each one is a component of the page.
+    component_ids           TEXT[]       NOT NULL DEFAULT ARRAY[]::TEXT[],
     started_at_micros       BIGINT       NOT NULL,
     resolved_at_micros      BIGINT,
     created_at_micros       BIGINT       NOT NULL,
     updated_at_micros       BIGINT       NOT NULL,
     CONSTRAINT uq_status_page_incidents_scope UNIQUE (org_id, status_page_id, id),
+    CONSTRAINT chk_status_page_incident_component_ids
+        CHECK (array_position(component_ids, NULL) IS NULL),
     CONSTRAINT fk_status_page_incidents_page
         FOREIGN KEY (org_id, status_page_id)
         REFERENCES status_pages(org_id, id) ON DELETE CASCADE,
@@ -4664,21 +4642,63 @@ CREATE INDEX idx_status_page_incidents_resolved
     ON status_page_incidents(org_id, status_page_id, resolved_at_micros DESC)
     WHERE status = 'resolved';
 
-CREATE TABLE status_page_incident_components (
-    org_id              VARCHAR(64) NOT NULL,
-    status_page_id      VARCHAR(64) NOT NULL,
-    incident_id         VARCHAR(64) NOT NULL,
-    component_id        VARCHAR(64) NOT NULL,
-    PRIMARY KEY (org_id, status_page_id, incident_id, component_id),
-    CONSTRAINT fk_status_page_incident_components_incident
-        FOREIGN KEY (org_id, status_page_id, incident_id)
-        REFERENCES status_page_incidents(org_id, status_page_id, id) ON DELETE CASCADE,
-    CONSTRAINT fk_status_page_incident_components_component
-        FOREIGN KEY (org_id, status_page_id, component_id)
-        REFERENCES status_page_components(org_id, status_page_id, id) ON DELETE RESTRICT
-);
-CREATE INDEX idx_status_page_incident_components_component
-    ON status_page_incident_components(org_id, status_page_id, component_id);
+-- The components an event names are components of its page, each named once.
+CREATE FUNCTION check_status_page_incident_components() RETURNS trigger AS $$
+BEGIN
+    IF cardinality(NEW.component_ids) <> (
+        SELECT count(DISTINCT named.component_id)
+          FROM unnest(NEW.component_ids) AS named(component_id)
+    ) THEN
+        RAISE EXCEPTION 'a status page event names a component more than once'
+            USING ERRCODE = 'unique_violation';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+          FROM unnest(NEW.component_ids) AS named(component_id)
+         WHERE NOT EXISTS (
+             SELECT 1 FROM status_page_components component
+              WHERE component.org_id = NEW.org_id
+                AND component.status_page_id = NEW.status_page_id
+                AND component.id = named.component_id
+         )
+    ) THEN
+        RAISE EXCEPTION 'a status page event names a component its page does not have'
+            USING ERRCODE = 'foreign_key_violation';
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_status_page_incidents_components
+BEFORE INSERT OR UPDATE OF component_ids ON status_page_incidents
+FOR EACH ROW EXECUTE FUNCTION check_status_page_incident_components();
+
+-- A component an event names stays: it is archived instead. Deleting the page
+-- takes its components and its events with it.
+CREATE FUNCTION restrict_named_status_page_component() RETURNS trigger AS $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM status_pages page
+         WHERE page.org_id = OLD.org_id AND page.id = OLD.status_page_id
+    ) AND EXISTS (
+        SELECT 1 FROM status_page_incidents incident
+         WHERE incident.org_id = OLD.org_id
+           AND incident.status_page_id = OLD.status_page_id
+           AND OLD.id = ANY(incident.component_ids)
+    ) THEN
+        RAISE EXCEPTION 'status page component % is named by an event', OLD.id
+            USING ERRCODE = 'foreign_key_violation';
+    END IF;
+
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_status_page_components_named
+BEFORE DELETE ON status_page_components
+FOR EACH ROW EXECUTE FUNCTION restrict_named_status_page_component();
 
 CREATE TABLE status_page_incident_updates (
     id                  VARCHAR(64)   PRIMARY KEY,
@@ -4920,14 +4940,10 @@ BEGIN
             'occurred_at', NEW.created_at_micros,
             'component_names', COALESCE((
                 SELECT jsonb_agg(component.name ORDER BY component.position, component.name)
-                FROM status_page_incident_components link
-                JOIN status_page_components component
-                  ON component.org_id = link.org_id
-                 AND component.status_page_id = link.status_page_id
-                 AND component.id = link.component_id
-                WHERE link.org_id = NEW.org_id
-                  AND link.status_page_id = NEW.status_page_id
-                  AND link.incident_id = NEW.incident_id
+                FROM status_page_components component
+                WHERE component.org_id = incident.org_id
+                  AND component.status_page_id = incident.status_page_id
+                  AND component.id = ANY(incident.component_ids)
             ), '[]'::JSONB)
         ),
         NEW.created_at_micros,
@@ -5338,14 +5354,14 @@ CREATE FUNCTION status_page_event_component_names(
         jsonb_agg(component.name ORDER BY component.position, component.name),
         '[]'::JSONB
     )
-    FROM status_page_incident_components link
+    FROM status_page_incidents event
     JOIN status_page_components component
-      ON component.org_id = link.org_id
-     AND component.status_page_id = link.status_page_id
-     AND component.id = link.component_id
-    WHERE link.org_id = event_org_id
-      AND link.status_page_id = event_status_page_id
-      AND link.incident_id = event_id
+      ON component.org_id = event.org_id
+     AND component.status_page_id = event.status_page_id
+     AND component.id = ANY(event.component_ids)
+    WHERE event.org_id = event_org_id
+      AND event.status_page_id = event_status_page_id
+      AND event.id = event_id
       AND component.visibility = 'enabled'
       AND component.lifecycle = 'active'
 $$ LANGUAGE sql STABLE;
@@ -5761,6 +5777,8 @@ CREATE TABLE synthetic_monitor_revisions (
     consecutive_recoveries      INTEGER NOT NULL DEFAULT 2,
     freshness_seconds           INTEGER NOT NULL,
     location_policy             JSONB NOT NULL,
+    -- The probe locations the revision runs from, in the order chosen.
+    location_ids                TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
     escalation_policy_id        VARCHAR(64) REFERENCES escalation_policies(id) ON DELETE SET NULL,
     alert_on_degraded            BOOLEAN NOT NULL DEFAULT FALSE,
     alert_on_flaky               BOOLEAN NOT NULL DEFAULT FALSE,
@@ -5783,7 +5801,9 @@ CREATE TABLE synthetic_monitor_revisions (
         CHECK (consecutive_failures BETWEEN 1 AND 100),
     CONSTRAINT chk_synthetic_monitor_revisions_recovery_threshold
         CHECK (consecutive_recoveries BETWEEN 1 AND 100),
-    CONSTRAINT chk_synthetic_monitor_revisions_freshness CHECK (freshness_seconds > 0)
+    CONSTRAINT chk_synthetic_monitor_revisions_freshness CHECK (freshness_seconds > 0),
+    CONSTRAINT chk_synthetic_monitor_revisions_location_ids
+        CHECK (array_position(location_ids, NULL) IS NULL)
 );
 
 ALTER TABLE synthetic_monitors
@@ -5796,19 +5816,47 @@ ALTER TABLE synthetic_monitors
         REFERENCES synthetic_monitor_revisions(organization_id, id)
         DEFERRABLE INITIALLY DEFERRED;
 
-CREATE TABLE synthetic_monitor_revision_locations (
-    organization_id         VARCHAR(64) NOT NULL,
-    revision_id             VARCHAR(64) NOT NULL,
-    location_id             VARCHAR(64) NOT NULL REFERENCES synthetic_probe_locations(id),
-    position                INTEGER NOT NULL,
-    PRIMARY KEY (revision_id, location_id),
-    CONSTRAINT fk_synthetic_monitor_revision_locations_revision
-        FOREIGN KEY (organization_id, revision_id)
-        REFERENCES synthetic_monitor_revisions(organization_id, id) ON DELETE CASCADE,
-    CONSTRAINT chk_synthetic_monitor_revision_locations_position CHECK (position >= 0)
-);
-CREATE INDEX ix_synthetic_monitor_revision_locations_location
-    ON synthetic_monitor_revision_locations (location_id, revision_id);
+-- The locations a revision lists exist, each listed once.
+CREATE FUNCTION check_synthetic_revision_locations() RETURNS trigger AS $$
+BEGIN
+    IF cardinality(NEW.location_ids) <> (
+        SELECT count(*)
+          FROM synthetic_probe_locations location
+         WHERE location.id = ANY(NEW.location_ids)
+    ) THEN
+        RAISE EXCEPTION 'a monitor revision lists a location that does not exist, or one twice'
+            USING ERRCODE = 'foreign_key_violation';
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_synthetic_monitor_revisions_locations
+BEFORE INSERT OR UPDATE OF location_ids ON synthetic_monitor_revisions
+FOR EACH ROW EXECUTE FUNCTION check_synthetic_revision_locations();
+
+-- A location a revision lists stays. Deleting an organization takes its
+-- locations and its monitors with it.
+CREATE FUNCTION restrict_listed_synthetic_location() RETURNS trigger AS $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+          FROM synthetic_monitor_revisions revision
+          JOIN organizations organization ON organization.id = revision.organization_id
+         WHERE OLD.id = ANY(revision.location_ids)
+    ) THEN
+        RAISE EXCEPTION 'probe location % is listed by a monitor revision', OLD.id
+            USING ERRCODE = 'foreign_key_violation';
+    END IF;
+
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_synthetic_probe_locations_listed
+BEFORE DELETE ON synthetic_probe_locations
+FOR EACH ROW EXECUTE FUNCTION restrict_listed_synthetic_location();
 
 CREATE TABLE synthetic_probe_tasks (
     id                      VARCHAR(64) PRIMARY KEY,
@@ -5996,16 +6044,6 @@ CREATE TABLE synthetic_result_artifacts (
 CREATE INDEX ix_synthetic_result_artifacts_retention
     ON synthetic_result_artifacts (organization_id, expires_at_micros);
 
-CREATE TABLE synthetic_retention_settings (
-    organization_id         VARCHAR(64) PRIMARY KEY REFERENCES organizations(id) ON DELETE CASCADE,
-    raw_result_days         INTEGER NOT NULL DEFAULT 30,
-    artifact_days           INTEGER NOT NULL DEFAULT 7,
-    updated_by              VARCHAR(64) NOT NULL REFERENCES users(id),
-    updated_at_micros       BIGINT NOT NULL,
-    CONSTRAINT chk_synthetic_retention_raw CHECK (raw_result_days BETWEEN 1 AND 365),
-    CONSTRAINT chk_synthetic_retention_artifacts CHECK (artifact_days BETWEEN 1 AND 30)
-);
-
 -- Ordered, immutable Status Page automation rules and durable publication work.
 CREATE TABLE status_page_automation_rules (
     id                      VARCHAR(64) PRIMARY KEY,
@@ -6172,17 +6210,462 @@ CREATE INDEX ix_status_page_automation_outbox_claim
     ON status_page_automation_outbox (available_at_micros, created_at_micros)
     WHERE status IN ('pending', 'processing');
 
-CREATE TABLE status_page_automation_settings (
-    organization_id         VARCHAR(64) NOT NULL,
-    status_page_id          VARCHAR(64) NOT NULL,
-    paused                  BOOLEAN NOT NULL DEFAULT FALSE,
-    updated_by              VARCHAR(64) NOT NULL REFERENCES users(id),
-    updated_at_micros       BIGINT NOT NULL,
-    PRIMARY KEY (organization_id, status_page_id),
-    CONSTRAINT fk_status_page_automation_settings_page
-        FOREIGN KEY (organization_id, status_page_id)
-        REFERENCES status_pages(org_id, id) ON DELETE CASCADE
+-- Whether automation of a page is paused is a setting of the page itself; who
+-- set it last and when stay empty until someone does.
+ALTER TABLE status_pages
+    ADD COLUMN automation_paused BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN automation_updated_by VARCHAR(64) REFERENCES users(id),
+    ADD COLUMN automation_updated_at_micros BIGINT;
+-- The Slack App message connector visitors add the page to Slack with. Its
+-- client ID and secret are kept encrypted with the connector; a connector a
+-- page uses cannot be deleted.
+ALTER TABLE status_pages
+    ADD COLUMN slack_connector_id VARCHAR(64),
+    ADD CONSTRAINT fk_status_pages_slack_connector
+        FOREIGN KEY (org_id, slack_connector_id)
+        REFERENCES notify_connectors(organization_id, id);
+
+ALTER TABLE status_pages
+    ADD CONSTRAINT chk_status_pages_automation_setting
+    CHECK (
+        (automation_updated_by IS NULL) = (automation_updated_at_micros IS NULL)
+        AND (automation_updated_by IS NOT NULL OR NOT automation_paused)
+    );
+
+-- ============================================================
+-- Business services
+-- ============================================================
+
+-- SPDX-License-Identifier: Apache-2.0
+-- Copyright (c) 2026 MoleSignal Authors
+
+-- A business service is what customers rely on, such as checkout or payments.
+-- It depends on technical services (the service names that traces and alerts
+-- carry), on synthetic monitors, on alert rules and on other business
+-- services. Its health is the worst health its dependencies pass on; a
+-- dependency marked degraded passes on at most degraded performance.
+INSERT INTO iam_permissions (
+    permission_key, scope, domain, label_key, description_key, catalog_version
+)
+VALUES
+    ('business_services.read', 'organization', 'business_services',
+     'permissions.business_services_read', 'permissions_hint.business_services_read', 10),
+    ('business_services.manage', 'organization', 'business_services',
+     'permissions.business_services_manage', 'permissions_hint.business_services_manage', 10)
+ON CONFLICT (permission_key) DO UPDATE
+SET scope = EXCLUDED.scope,
+    domain = EXCLUDED.domain,
+    label_key = EXCLUDED.label_key,
+    description_key = EXCLUDED.description_key,
+    catalog_version = EXCLUDED.catalog_version;
+
+UPDATE iam_permission_catalog_versions
+SET version = GREATEST(version, 10),
+    updated_at_micros = (EXTRACT(EPOCH FROM clock_timestamp()) * 1000000)::BIGINT
+WHERE catalog_key = 'permissions';
+
+INSERT INTO iam_builtin_role_permissions (role_key, permission_key)
+VALUES
+    ('owner', 'business_services.read'),
+    ('owner', 'business_services.manage'),
+    ('admin', 'business_services.read'),
+    ('admin', 'business_services.manage')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO iam_role_permissions (role_id, permission_key)
+SELECT role.id, permission.permission_key
+FROM iam_roles role
+CROSS JOIN (VALUES
+    ('owner', 'business_services.read'),
+    ('owner', 'business_services.manage'),
+    ('admin', 'business_services.read'),
+    ('admin', 'business_services.manage')
+) AS permission(role_key, permission_key)
+WHERE role.builtin AND role.role_key = permission.role_key
+ON CONFLICT DO NOTHING;
+
+WITH requested(bundle_key, permission_key, offset_position) AS (
+    VALUES
+        ('readonly_observer', 'business_services.read', 1),
+        ('alert_administrator', 'business_services.read', 1),
+        ('alert_administrator', 'business_services.manage', 2),
+        ('organization_administrator', 'business_services.read', 1),
+        ('organization_administrator', 'business_services.manage', 2)
+), base AS (
+    SELECT bundle_key, COALESCE(MAX(position), -1) AS max_position
+    FROM iam_permission_bundle_items
+    GROUP BY bundle_key
+)
+INSERT INTO iam_permission_bundle_items (bundle_key, permission_key, position)
+SELECT requested.bundle_key,
+       requested.permission_key,
+       base.max_position + requested.offset_position
+FROM requested
+JOIN base USING (bundle_key)
+ON CONFLICT (bundle_key, permission_key) DO NOTHING;
+
+-- dependencies lists what the service depends on, in order: each entry has a
+-- kind (technical_service, synthetic_monitor, alert_rule, business_service),
+-- a target (the service name of a technical service, or the id of the monitor,
+-- alert rule or business service) and an impact (outage, or degraded for a
+-- dependency that passes on at most degraded performance). The health_ columns
+-- hold the health last worked out, with the dependencies that caused it; a
+-- status changes only through a compare-and-set on health_status and
+-- health_changed_at_micros, so two nodes that evaluate at once record one
+-- change. health_history keeps the periods of the last seven days for the
+-- internal timeline.
+CREATE TABLE business_services (
+    id                          VARCHAR(64)  PRIMARY KEY,
+    org_id                      VARCHAR(64)  NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    name                        VARCHAR(120) NOT NULL,
+    description                 VARCHAR(500) NOT NULL DEFAULT '',
+    dependencies                JSONB        NOT NULL DEFAULT '[]'::JSONB,
+    health_status               VARCHAR(32)  NOT NULL DEFAULT 'operational',
+    health_causes               JSONB        NOT NULL DEFAULT '[]'::JSONB,
+    health_changed_at_micros    BIGINT,
+    health_evaluated_at_micros  BIGINT,
+    health_history              JSONB        NOT NULL DEFAULT '[]'::JSONB,
+    created_by                  VARCHAR(64)  REFERENCES users(id) ON DELETE SET NULL,
+    created_at_micros           BIGINT       NOT NULL,
+    updated_at_micros           BIGINT       NOT NULL,
+    CONSTRAINT uq_business_services_org_id UNIQUE (org_id, id),
+    CONSTRAINT chk_business_services_name
+        CHECK (length(btrim(name)) BETWEEN 1 AND 120),
+    CONSTRAINT chk_business_services_dependencies
+        CHECK (jsonb_typeof(dependencies) = 'array' AND jsonb_array_length(dependencies) <= 100),
+    CONSTRAINT chk_business_services_health_status
+        CHECK (health_status IN (
+            'operational', 'degraded_performance', 'partial_outage', 'major_outage'
+        )),
+    CONSTRAINT chk_business_services_health_json
+        CHECK (jsonb_typeof(health_causes) = 'array' AND jsonb_typeof(health_history) = 'array')
 );
+CREATE UNIQUE INDEX uq_business_services_name
+    ON business_services(org_id, lower(name));
+
+-- ============================================================
+-- Status page subscriptions by component, update commitments and postmortems
+-- ============================================================
+
+-- SPDX-License-Identifier: Apache-2.0
+-- Copyright (c) 2026 MoleSignal Authors
+
+-- A subscriber hears about every component of the page, or only about the
+-- components it chose; a chosen component that is later hidden or archived
+-- stops reaching it, as it stops showing on the page. The raw token is kept
+-- sealed beside its hash, so that every message can carry the links that
+-- manage or end the subscription. origin says how the subscriber came: the
+-- page's own form, an import, or the Slack app. target_label names the Slack
+-- channel the Slack app was added to. While "Add to Slack" waits for the
+-- visitor to come back from Slack, its subscriber is pending with a
+-- placeholder target and the OAuth state as its token; a request that never
+-- comes back is removed after an hour.
+ALTER TABLE status_page_subscribers
+    ADD COLUMN component_scope VARCHAR(16) NOT NULL DEFAULT 'all',
+    ADD COLUMN component_ids TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+    ADD COLUMN token_ciphertext BYTEA NOT NULL,
+    ADD COLUMN token_nonce BYTEA NOT NULL,
+    ADD COLUMN target_label VARCHAR(255),
+    ADD COLUMN origin VARCHAR(16) NOT NULL DEFAULT 'page';
+ALTER TABLE status_page_subscribers
+    DROP CONSTRAINT chk_status_page_subscriber_channel,
+    ADD CONSTRAINT chk_status_page_subscriber_channel
+        CHECK (channel IN ('email', 'webhook', 'slack')),
+    ADD CONSTRAINT chk_status_page_subscriber_components
+        CHECK (
+            (component_scope = 'all' AND cardinality(component_ids) = 0)
+            OR (component_scope = 'selected'
+                AND cardinality(component_ids) BETWEEN 1 AND 500
+                AND array_position(component_ids, NULL) IS NULL)
+        ),
+    ADD CONSTRAINT chk_status_page_subscriber_token_cipher
+        CHECK (
+            octet_length(token_nonce) = 12
+            AND octet_length(token_ciphertext) BETWEEN 17 AND 512
+        ),
+    ADD CONSTRAINT chk_status_page_subscriber_origin
+        CHECK (origin IN ('page', 'import', 'slack_app'));
+
+-- An update can say by when the next one will come, and can be published
+-- without telling subscribers, for example to correct the wording of the last
+-- one. A component status set by hand can be changed without telling them too.
+ALTER TABLE status_page_incident_updates
+    ADD COLUMN next_update_at_micros BIGINT,
+    ADD COLUMN notify_subscribers BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE status_page_incident_updates
+    ADD CONSTRAINT chk_status_page_incident_update_next_update
+        CHECK (
+            next_update_at_micros IS NULL
+            OR (next_update_at_micros > created_at_micros
+                AND status NOT IN ('resolved', 'completed', 'cancelled', 'scheduled'))
+        );
+ALTER TABLE status_page_component_status_events
+    ADD COLUMN notify_subscribers BOOLEAN NOT NULL DEFAULT TRUE;
+
+-- A resolved incident can carry one public postmortem, written in Markdown.
+-- It is drafted, then published; a published postmortem can be revised in
+-- place or taken back to a draft. Subscribers are told when it is published,
+-- and of a revision only when the publisher asks for it.
+ALTER TABLE status_page_incidents
+    ADD COLUMN postmortem_body TEXT,
+    ADD COLUMN postmortem_state VARCHAR(16),
+    ADD COLUMN postmortem_published_at_micros BIGINT,
+    ADD COLUMN postmortem_revised_at_micros BIGINT,
+    ADD COLUMN postmortem_updated_at_micros BIGINT,
+    ADD COLUMN postmortem_updated_by VARCHAR(64) REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE status_page_incidents
+    ADD CONSTRAINT chk_status_page_incident_postmortem
+        CHECK (
+            (postmortem_state IS NULL AND postmortem_body IS NULL
+             AND postmortem_published_at_micros IS NULL AND postmortem_revised_at_micros IS NULL
+             AND postmortem_updated_at_micros IS NULL)
+            OR (kind = 'incident'
+                AND length(btrim(postmortem_body)) BETWEEN 1 AND 20000
+                AND postmortem_updated_at_micros IS NOT NULL
+                AND (
+                    (postmortem_state = 'draft'
+                     AND postmortem_published_at_micros IS NULL
+                     AND postmortem_revised_at_micros IS NULL)
+                    OR (postmortem_state = 'published'
+                        AND postmortem_published_at_micros IS NOT NULL
+                        AND (postmortem_revised_at_micros IS NULL
+                             OR postmortem_revised_at_micros >= postmortem_published_at_micros))
+                ))
+        );
+
+-- A status page component can stand for one business service. In follow mode
+-- the component's status follows the service's health. In automation mode the
+-- health reaches the page through its automation rules: a business-service
+-- rule that names no components publishes on the components that stand for
+-- the service. Deleting a business service unlinks its components first.
+ALTER TABLE status_page_components
+    ADD COLUMN business_service_id VARCHAR(64),
+    ADD COLUMN business_service_mode VARCHAR(16),
+    ADD COLUMN business_service_notify BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE status_page_components
+    ADD CONSTRAINT fk_status_page_components_business_service
+        FOREIGN KEY (org_id, business_service_id)
+        REFERENCES business_services(org_id, id),
+    ADD CONSTRAINT chk_status_page_component_business_service
+        CHECK (
+            (business_service_id IS NULL AND business_service_mode IS NULL)
+            OR (business_service_id IS NOT NULL
+                AND business_service_mode IN ('follow', 'automation'))
+        );
+CREATE INDEX idx_status_page_components_business_service
+    ON status_page_components(org_id, business_service_id)
+    WHERE business_service_id IS NOT NULL;
+
+-- Components can be grouped the way folders hold files. A group is a row of
+-- its own kind with no status of its own: the page shows it with the worst
+-- status among its components. A group holds components, not other groups,
+-- and only a group of the same page can hold a component.
+ALTER TABLE status_page_components
+    ADD COLUMN kind VARCHAR(16) NOT NULL DEFAULT 'component',
+    ADD COLUMN group_id VARCHAR(64);
+ALTER TABLE status_page_components
+    ADD CONSTRAINT chk_status_page_components_kind
+        CHECK (kind IN ('component', 'group')),
+    ADD CONSTRAINT chk_status_page_components_group
+        CHECK (group_id IS NULL OR (kind = 'component' AND group_id <> id)),
+    ADD CONSTRAINT fk_status_page_components_group
+        FOREIGN KEY (org_id, status_page_id, group_id)
+        REFERENCES status_page_components(org_id, status_page_id, id);
+CREATE INDEX idx_status_page_components_group
+    ON status_page_components(org_id, status_page_id, group_id)
+    WHERE group_id IS NOT NULL;
+
+CREATE FUNCTION check_status_page_component_group() RETURNS trigger AS $$
+BEGIN
+    IF NEW.group_id IS NOT NULL AND NOT EXISTS (
+        SELECT 1 FROM status_page_components parent
+         WHERE parent.org_id = NEW.org_id
+           AND parent.status_page_id = NEW.status_page_id
+           AND parent.id = NEW.group_id
+           AND parent.kind = 'group'
+    ) THEN
+        RAISE EXCEPTION 'a status page component can only be put in a group'
+            USING ERRCODE = 'foreign_key_violation';
+    END IF;
+
+    IF TG_OP = 'UPDATE' AND NEW.kind <> OLD.kind THEN
+        RAISE EXCEPTION 'a status page component keeps the kind it was made with'
+            USING ERRCODE = 'check_violation';
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_status_page_components_group
+BEFORE INSERT OR UPDATE OF kind, group_id ON status_page_components
+FOR EACH ROW EXECUTE FUNCTION check_status_page_component_group();
+
+ALTER TABLE status_page_automation_candidate_sources
+    DROP CONSTRAINT chk_status_page_automation_candidate_sources_kind,
+    ADD CONSTRAINT chk_status_page_automation_candidate_sources_kind
+        CHECK (source_kind IN ('alert_incident', 'synthetic_monitor', 'business_service'));
+
+-- The components of an event that a subscriber can hear about: the ones the
+-- page shows. Every path that picks subscribers for an event goes through it,
+-- so a hidden component cannot reach a subscriber by one path and not another.
+CREATE FUNCTION status_page_event_component_ids(
+    event_org_id VARCHAR,
+    event_status_page_id VARCHAR,
+    event_id VARCHAR
+) RETURNS TEXT[] AS $$
+    SELECT COALESCE(
+        array_agg(component.id::TEXT ORDER BY component.id),
+        ARRAY[]::TEXT[]
+    )
+    FROM status_page_incidents event
+    JOIN status_page_components component
+      ON component.org_id = event.org_id
+     AND component.status_page_id = event.status_page_id
+     AND component.id = ANY(event.component_ids)
+    WHERE event.org_id = event_org_id
+      AND event.status_page_id = event_status_page_id
+      AND event.id = event_id
+      AND component.visibility = 'enabled'
+      AND component.lifecycle = 'active'
+$$ LANGUAGE sql STABLE;
+
+-- A subscriber of the whole page hears about everything; one that chose
+-- components hears about what names one of them.
+CREATE FUNCTION status_page_subscriber_hears(
+    subscriber_scope VARCHAR,
+    subscriber_component_ids TEXT[],
+    named_component_ids TEXT[]
+) RETURNS BOOLEAN AS $$
+    SELECT subscriber_scope = 'all'
+        OR subscriber_component_ids && named_component_ids
+$$ LANGUAGE sql IMMUTABLE;
+
+-- Rebuild the outbox triggers: a change made without notifying stays silent,
+-- and a subscriber hears only about the components it chose.
+CREATE OR REPLACE FUNCTION enqueue_status_page_component_notification()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NOT NEW.notify_subscribers THEN
+        RETURN NEW;
+    END IF;
+
+    INSERT INTO status_page_notification_deliveries (
+        id, org_id, status_page_id, subscriber_id, event_key, payload,
+        next_attempt_at_micros, created_at_micros, updated_at_micros
+    )
+    SELECT
+        md5(subscriber.id || ':component_status:' || NEW.id),
+        NEW.org_id,
+        NEW.status_page_id,
+        subscriber.id,
+        'component_status:' || NEW.id,
+        jsonb_build_object(
+            'type', 'component_status_changed',
+            'page_name', page.name,
+            'page_slug', page.slug,
+            'component_id', component.id,
+            'component_name', component.name,
+            'status', NEW.status,
+            'occurred_at', NEW.started_at_micros
+        ),
+        NEW.started_at_micros,
+        NEW.created_at_micros,
+        NEW.created_at_micros
+    FROM status_page_subscribers subscriber
+    JOIN status_pages page
+      ON page.org_id = NEW.org_id AND page.id = NEW.status_page_id
+    JOIN status_page_components component
+      ON component.org_id = NEW.org_id
+     AND component.status_page_id = NEW.status_page_id
+     AND component.id = NEW.component_id
+    WHERE subscriber.org_id = NEW.org_id
+      AND subscriber.status_page_id = NEW.status_page_id
+      AND subscriber.status = 'active'
+      AND status_page_subscriber_hears(
+          subscriber.component_scope, subscriber.component_ids, ARRAY[NEW.component_id]::TEXT[]
+      )
+      AND page.lifecycle = 'active'
+      AND (page.visibility = 'public' OR subscriber.channel = 'email')
+      AND component.lifecycle = 'active'
+      AND component.visibility = 'enabled'
+      AND EXISTS (
+          SELECT 1
+          FROM status_page_component_status_events previous
+          WHERE previous.org_id = NEW.org_id
+            AND previous.status_page_id = NEW.status_page_id
+            AND previous.component_id = NEW.component_id
+            AND previous.id <> NEW.id
+      )
+    ON CONFLICT (subscriber_id, event_key) DO NOTHING;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION enqueue_status_page_incident_notification()
+RETURNS TRIGGER AS $$
+DECLARE
+    named_component_ids TEXT[];
+BEGIN
+    IF NOT NEW.notify_subscribers THEN
+        RETURN NEW;
+    END IF;
+
+    named_component_ids := status_page_event_component_ids(
+        NEW.org_id, NEW.status_page_id, NEW.incident_id
+    );
+
+    INSERT INTO status_page_notification_deliveries (
+        id, org_id, status_page_id, subscriber_id, event_key, payload,
+        next_attempt_at_micros, created_at_micros, updated_at_micros
+    )
+    SELECT
+        md5(subscriber.id || ':incident_update:' || NEW.id),
+        NEW.org_id,
+        NEW.status_page_id,
+        subscriber.id,
+        'incident_update:' || NEW.id,
+        jsonb_build_object(
+            'type', 'incident_update',
+            'page_name', page.name,
+            'page_slug', page.slug,
+            'incident_id', incident.id,
+            'incident_kind', incident.kind,
+            'title', incident.title,
+            'impact', incident.impact,
+            'status', NEW.status,
+            'message', NEW.message,
+            'occurred_at', NEW.created_at_micros,
+            'next_update_at', NEW.next_update_at_micros,
+            'started_at', incident.started_at_micros,
+            'ended_at', incident.ended_at_micros,
+            'component_names', status_page_event_component_names(
+                NEW.org_id, NEW.status_page_id, NEW.incident_id
+            )
+        ),
+        NEW.created_at_micros,
+        NEW.created_at_micros,
+        NEW.created_at_micros
+    FROM status_page_subscribers subscriber
+    JOIN status_pages page
+      ON page.org_id = NEW.org_id AND page.id = NEW.status_page_id
+    JOIN status_page_incidents incident
+      ON incident.org_id = NEW.org_id
+     AND incident.status_page_id = NEW.status_page_id
+     AND incident.id = NEW.incident_id
+    WHERE subscriber.org_id = NEW.org_id
+      AND subscriber.status_page_id = NEW.status_page_id
+      AND subscriber.status = 'active'
+      AND status_page_subscriber_hears(
+          subscriber.component_scope, subscriber.component_ids, named_component_ids
+      )
+      AND page.lifecycle = 'active'
+      AND (page.visibility = 'public' OR subscriber.channel = 'email')
+      AND incident.publication_state = 'published'
+    ON CONFLICT (subscriber_id, event_key) DO NOTHING;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
 -- ============================================================
 -- Synthetic Probe Agent organization configuration
@@ -6255,8 +6738,8 @@ FROM (VALUES
     -- the page.
     ('status_page.email.subscription_confirmation.subject', 'en-us', 'Confirm updates from {page_name}'),
     ('status_page.email.subscription_confirmation.subject', 'zh-cn', '确认订阅 {page_name} 的状态更新'),
-    ('status_page.email.subscription_confirmation.body', 'en-us', E'Confirm your subscription to {page_name}:\n{confirm_url}\n\nIf you did not request this, no action is required. You can unsubscribe with:\n{unsubscribe_url}'),
-    ('status_page.email.subscription_confirmation.body', 'zh-cn', E'打开以下链接，确认订阅 {page_name} 的状态更新：\n{confirm_url}\n\n如果没有申请过订阅，无需任何操作。退订链接：\n{unsubscribe_url}'),
+    ('status_page.email.subscription_confirmation.body', 'en-us', E'Confirm your subscription to {page_name}:\n{confirm_url}\n\n{scope}\n\nIf you did not request this, no action is required. You can unsubscribe with:\n{unsubscribe_url}'),
+    ('status_page.email.subscription_confirmation.body', 'zh-cn', E'打开以下链接，确认订阅 {page_name} 的状态更新：\n{confirm_url}\n\n{scope}\n\n如果没有申请过订阅，无需任何操作。退订链接：\n{unsubscribe_url}'),
     ('status_page.email.access_link.subject', 'en-us', 'Access {page_name}'),
     ('status_page.email.access_link.subject', 'zh-cn', '访问 {page_name}'),
     ('status_page.email.access_link.body', 'en-us', E'Use this one-time link within {minutes} minutes to access {page_name}:\n{access_url}'),
@@ -6323,6 +6806,36 @@ FROM (VALUES
     ('status_page.domain_state.failed', 'zh-cn', '失败'),
     ('status_page.domain_state.degraded', 'en-us', 'Degraded'),
     ('status_page.domain_state.degraded', 'zh-cn', '异常'),
+    -- What a subscription is for, the links at the foot of every email, the
+    -- line that says when the next update comes, and the postmortem email.
+    ('status_page.email.scope.all', 'en-us', 'You will hear about every component of the page.'),
+    ('status_page.email.scope.all', 'zh-cn', '你将收到页面上所有组件的更新。'),
+    ('status_page.email.scope.selected', 'en-us', 'You will hear about: {components}.'),
+    ('status_page.email.scope.selected', 'zh-cn', '你将收到以下组件的更新：{components}。'),
+    ('status_page.email.footer', 'en-us', E'Manage your subscription: {manage_url}\nUnsubscribe: {unsubscribe_url}'),
+    ('status_page.email.footer', 'zh-cn', E'管理订阅：{manage_url}\n退订：{unsubscribe_url}'),
+    ('status_page.email.next_update', 'en-us', 'Next update by {next_update_at}.'),
+    ('status_page.email.next_update', 'zh-cn', '下次更新不晚于 {next_update_at}。'),
+    ('status_page.email.subscription_manage.subject', 'en-us', 'Manage your updates from {page_name}'),
+    ('status_page.email.subscription_manage.subject', 'zh-cn', '管理 {page_name} 的状态更新订阅'),
+    ('status_page.email.subscription_manage.body', 'en-us', E'You are already subscribed to {page_name}. To change which components you hear about, or to unsubscribe, open:\n{manage_url}\n\nIf you did not ask for this, no action is required.'),
+    ('status_page.email.subscription_manage.body', 'zh-cn', E'你已订阅 {page_name} 的状态更新。如需更改订阅的组件或退订，请打开：\n{manage_url}\n\n如果没有提出过这个请求，无需任何操作。'),
+    ('status_page.email.postmortem.subject', 'en-us', '{page_name}: Postmortem · {title}'),
+    ('status_page.email.postmortem.subject', 'zh-cn', '{page_name}：事故复盘 · {title}'),
+    ('status_page.email.postmortem.body', 'en-us', E'The postmortem of {title} is published.\n\n{postmortem}\n\n{incident_url}'),
+    ('status_page.email.postmortem.body', 'zh-cn', E'{title} 的事故复盘已发布。\n\n{postmortem}\n\n{incident_url}'),
+    -- The buttons of a message a status page posts to a Slack channel. The
+    -- rest of the message is the text of the matching email.
+    ('status_page.slack.view_page', 'en-us', 'View status page'),
+    ('status_page.slack.view_page', 'zh-cn', '查看状态页'),
+    ('status_page.slack.view_incident', 'en-us', 'View details'),
+    ('status_page.slack.view_incident', 'zh-cn', '查看详情'),
+    ('status_page.slack.manage', 'en-us', 'Manage subscription'),
+    ('status_page.slack.manage', 'zh-cn', '管理订阅'),
+    ('status_page.slack.confirm', 'en-us', 'Confirm subscription'),
+    ('status_page.slack.confirm', 'zh-cn', '确认订阅'),
+    ('status_page.slack.connected', 'en-us', 'This channel now receives status updates from {page_name}.'),
+    ('status_page.slack.connected', 'zh-cn', '这个频道会收到 {page_name} 的状态更新。'),
     -- Password reset, in the language the request asks for.
     ('auth.email.password_reset.subject', 'en-us', 'MoleSignal: reset your password'),
     ('auth.email.password_reset.subject', 'zh-cn', 'MoleSignal：重置你的密码'),
@@ -6418,3 +6931,174 @@ FROM (VALUES
     ('log_inspection.failure.internal', 'en-us', 'The inspection failed for an internal reason.'),
     ('log_inspection.failure.internal', 'zh-cn', '巡检因内部原因失败。')
 ) AS seed(language_key, language_code, language_value);
+
+-- ============================================================
+-- IAM catalog consolidation
+-- ============================================================
+
+-- SPDX-License-Identifier: Apache-2.0
+-- Copyright (c) 2026 MoleSignal Authors
+
+-- A list that is only ever read or written whole with its owner is an array
+-- on the owner, and a counter lives with what it counts:
+-- - the permissions of a role, of a built-in role and of a permission bundle
+--   are arrays on iam_roles, iam_builtin_roles and iam_permission_bundles,
+--   bundles in their display order, roles sorted;
+-- - the purpose a built-in role serves is a column of the built-in role;
+-- - the permission and route catalog versions are rows of iam_catalog_versions;
+-- - an organization's IAM policy version is a column of organizations.
+-- Every listed permission must be in the catalog; a permission a role or a
+-- route still lists cannot leave it, and leaving it takes it out of built-in
+-- roles and bundles.
+CREATE TABLE iam_catalog_versions (
+    catalog_key         VARCHAR(32) PRIMARY KEY,
+    version             BIGINT      NOT NULL CHECK (version > 0),
+    updated_at_micros   BIGINT      NOT NULL,
+    CONSTRAINT chk_iam_catalog_versions_key
+        CHECK (catalog_key IN ('permissions', 'routes'))
+);
+
+INSERT INTO iam_catalog_versions (catalog_key, version, updated_at_micros)
+SELECT catalog_key, version, updated_at_micros
+FROM iam_permission_catalog_versions;
+
+ALTER TABLE iam_roles
+    ADD COLUMN permissions TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+    ADD CONSTRAINT chk_iam_roles_permissions
+        CHECK (array_position(permissions, NULL) IS NULL);
+
+UPDATE iam_roles role
+SET permissions = listed.permissions
+FROM (
+    SELECT role_id, array_agg(permission_key ORDER BY permission_key) AS permissions
+    FROM iam_role_permissions
+    GROUP BY role_id
+) listed
+WHERE listed.role_id = role.id;
+
+ALTER TABLE iam_builtin_roles
+    ADD COLUMN purpose VARCHAR(64),
+    ADD COLUMN permissions TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+    ADD CONSTRAINT chk_iam_builtin_roles_permissions
+        CHECK (array_position(permissions, NULL) IS NULL);
+
+UPDATE iam_builtin_roles role
+SET purpose = purpose.purpose
+FROM iam_builtin_role_purposes purpose
+WHERE purpose.role_key = role.role_key;
+
+UPDATE iam_builtin_roles role
+SET permissions = listed.permissions
+FROM (
+    SELECT role_key, array_agg(permission_key ORDER BY permission_key) AS permissions
+    FROM iam_builtin_role_permissions
+    GROUP BY role_key
+) listed
+WHERE listed.role_key = role.role_key;
+
+CREATE UNIQUE INDEX uq_iam_builtin_roles_purpose
+    ON iam_builtin_roles(purpose)
+    WHERE purpose IS NOT NULL;
+
+ALTER TABLE iam_permission_bundles
+    ADD COLUMN permissions TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+    ADD CONSTRAINT chk_iam_permission_bundles_permissions
+        CHECK (array_position(permissions, NULL) IS NULL);
+
+UPDATE iam_permission_bundles bundle
+SET permissions = listed.permissions
+FROM (
+    SELECT bundle_key, array_agg(permission_key ORDER BY position) AS permissions
+    FROM iam_permission_bundle_items
+    GROUP BY bundle_key
+) listed
+WHERE listed.bundle_key = bundle.bundle_key;
+
+ALTER TABLE organizations
+    ADD COLUMN iam_policy_version BIGINT NOT NULL DEFAULT 1,
+    ADD CONSTRAINT chk_organizations_iam_policy_version
+        CHECK (iam_policy_version > 0);
+
+UPDATE organizations organization
+SET iam_policy_version = policy.version
+FROM iam_policy_versions policy
+WHERE policy.organization_id = organization.id;
+
+CREATE OR REPLACE FUNCTION bump_iam_policy_version(p_organization_id VARCHAR)
+RETURNS BIGINT LANGUAGE plpgsql AS $$
+DECLARE
+    next_version BIGINT;
+BEGIN
+    UPDATE organizations
+       SET iam_policy_version = iam_policy_version + 1
+     WHERE id = p_organization_id
+    RETURNING iam_policy_version INTO next_version;
+    RETURN COALESCE(next_version, 1);
+END
+$$;
+
+CREATE FUNCTION check_iam_permission_keys()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+    unknown TEXT;
+BEGIN
+    SELECT listed.permission_key INTO unknown
+      FROM unnest(NEW.permissions) AS listed(permission_key)
+     WHERE NOT EXISTS (
+         SELECT 1
+           FROM iam_permissions permission
+          WHERE permission.permission_key = listed.permission_key
+     )
+     LIMIT 1;
+    IF unknown IS NOT NULL THEN
+        RAISE EXCEPTION 'unknown IAM permission % in %', unknown, TG_TABLE_NAME
+            USING ERRCODE = '23503';
+    END IF;
+    RETURN NEW;
+END
+$$;
+
+CREATE TRIGGER trg_iam_roles_permissions_known
+BEFORE INSERT OR UPDATE OF permissions ON iam_roles
+FOR EACH ROW EXECUTE FUNCTION check_iam_permission_keys();
+
+CREATE TRIGGER trg_iam_builtin_roles_permissions_known
+BEFORE INSERT OR UPDATE OF permissions ON iam_builtin_roles
+FOR EACH ROW EXECUTE FUNCTION check_iam_permission_keys();
+
+CREATE TRIGGER trg_iam_permission_bundles_permissions_known
+BEFORE INSERT OR UPDATE OF permissions ON iam_permission_bundles
+FOR EACH ROW EXECUTE FUNCTION check_iam_permission_keys();
+
+-- iam_routes is created by the route catalog baseline; the function resolves
+-- it when a permission is deleted.
+CREATE FUNCTION release_iam_permission()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM iam_roles WHERE OLD.permission_key = ANY(permissions))
+        OR EXISTS (SELECT 1 FROM iam_routes WHERE OLD.permission_key = ANY(permissions)) THEN
+        RAISE EXCEPTION 'IAM permission % is still granted by a role or required by a route',
+            OLD.permission_key
+            USING ERRCODE = '23503';
+    END IF;
+
+    UPDATE iam_builtin_roles
+       SET permissions = array_remove(permissions, OLD.permission_key)
+     WHERE OLD.permission_key = ANY(permissions);
+    UPDATE iam_permission_bundles
+       SET permissions = array_remove(permissions, OLD.permission_key)
+     WHERE OLD.permission_key = ANY(permissions);
+    RETURN OLD;
+END
+$$;
+
+CREATE TRIGGER trg_iam_permissions_release
+BEFORE DELETE ON iam_permissions
+FOR EACH ROW EXECUTE FUNCTION release_iam_permission();
+
+DROP TABLE iam_role_permissions;
+DROP TABLE iam_builtin_role_permissions;
+DROP TABLE iam_builtin_role_purposes;
+DROP TABLE iam_permission_bundle_items;
+DROP TABLE iam_policy_versions;
+DROP TABLE iam_permission_catalog_versions;

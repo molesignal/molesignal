@@ -67,9 +67,9 @@ async fn insert_revision(
              freshness_seconds, location_policy, escalation_policy_id, alert_on_degraded,
              alert_on_flaky,
              last_test_result_id, last_test_passed_at_micros,
-             created_by, created_at_micros, content_hash)
+             created_by, created_at_micros, content_hash, location_ids)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
-                 $15, $16, $17, $18, $19, $20)",
+                 $15, $16, $17, $18, $19, $20, $21)",
     )
     .bind(&revision.id.0)
     .bind(&revision.organization_id.0)
@@ -91,24 +91,16 @@ async fn insert_revision(
     .bind(&revision.created_by.0)
     .bind(revision.created_at.0)
     .bind(&revision.content_hash)
+    .bind(
+        revision
+            .location_ids
+            .iter()
+            .map(Id::as_str)
+            .collect::<Vec<_>>(),
+    )
     .execute(&mut *connection)
     .await
     .map_err(super::sqlx_err)?;
-
-    for (position, location_id) in revision.location_ids.iter().enumerate() {
-        sqlx::query(
-            "INSERT INTO synthetic_monitor_revision_locations
-                (organization_id, revision_id, location_id, position)
-             VALUES ($1, $2, $3, $4)",
-        )
-        .bind(&revision.organization_id.0)
-        .bind(&revision.id.0)
-        .bind(&location_id.0)
-        .bind(position as i32)
-        .execute(&mut *connection)
-        .await
-        .map_err(super::sqlx_err)?;
-    }
 
     Ok(())
 }
@@ -176,21 +168,7 @@ async fn load_revision(
         .await
         .map_err(super::sqlx_err)?;
 
-    let location_ids = sqlx::query_scalar::<String>(
-        "SELECT location_id FROM synthetic_monitor_revision_locations
-         WHERE organization_id = $1 AND revision_id = $2
-         ORDER BY position, location_id",
-    )
-    .bind(&org_id.0)
-    .bind(&revision_id.0)
-    .fetch_all(pool)
-    .await
-    .map_err(super::sqlx_err)?
-    .into_iter()
-    .map(Id)
-    .collect();
-
-    row_to_revision(row, location_ids)
+    row_to_revision(row)
 }
 
 #[async_trait]

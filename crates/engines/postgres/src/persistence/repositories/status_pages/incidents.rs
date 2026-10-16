@@ -34,7 +34,6 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
 
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
         insert_incident(&mut transaction, &incident).await?;
-        replace_component_links(&mut transaction, &incident).await?;
 
         if let Some(initial_update) = incident.updates.first() {
             insert_update(&mut transaction, initial_update)
@@ -126,7 +125,8 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
             "UPDATE status_page_incidents SET
                  source_incident_id = $4, kind = $5, title = $6, impact = $7,
                  status = $8, draft_message = $9, started_at_micros = $10,
-                 updated_at_micros = $11, auto_start = $12, reminder_minutes = $13
+                 updated_at_micros = $11, auto_start = $12, reminder_minutes = $13,
+                 component_ids = $14
              WHERE org_id = $1 AND status_page_id = $2 AND id = $3
                AND publication_state = 'draft'",
         )
@@ -143,6 +143,7 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
         .bind(incident.updated_at.0)
         .bind(incident.auto_start)
         .bind(incident.reminder_minutes)
+        .bind(component_ids(&incident))
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
@@ -151,7 +152,6 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
             return Err(Error::conflict("draft event is no longer editable"));
         }
 
-        replace_component_links(&mut transaction, &incident).await?;
         transaction.commit().await.map_err(super::sqlx_err)?;
 
         fetch_incident(
@@ -171,7 +171,7 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
 
         let result = sqlx::query(
             "UPDATE status_page_incidents SET
-                 title=$4,impact=$5,updated_at_micros=$6
+                 title=$4,impact=$5,updated_at_micros=$6,component_ids=$7
              WHERE org_id=$1 AND status_page_id=$2 AND id=$3
                AND publication_state='published' AND status <> 'resolved'",
         )
@@ -181,6 +181,7 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
         .bind(&incident.title)
         .bind(incident.impact.as_str())
         .bind(incident.updated_at.0)
+        .bind(component_ids(&incident))
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
@@ -190,8 +191,6 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
                 "published status-page Incident is no longer active",
             ));
         }
-
-        replace_component_links(&mut transaction, &incident).await?;
 
         touch_page(
             &mut transaction,
@@ -228,7 +227,7 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
                  source_incident_id = $4, kind = $5, title = $6, impact = $7,
                  status = $8, publication_state = 'published', started_at_micros = $9,
                  published_at_micros = $10, draft_message = NULL, updated_at_micros = $10,
-                 auto_start = $11, reminder_minutes = $12
+                 auto_start = $11, reminder_minutes = $12, component_ids = $13
              WHERE org_id = $1 AND status_page_id = $2 AND id = $3
                AND publication_state = 'draft'",
         )
@@ -244,6 +243,7 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
         .bind(published_at.0)
         .bind(incident.auto_start)
         .bind(incident.reminder_minutes)
+        .bind(component_ids(&incident))
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
@@ -251,8 +251,6 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
         if result.rows_affected() == 0 {
             return Err(Error::conflict("draft event is no longer publishable"));
         }
-
-        replace_component_links(&mut transaction, &incident).await?;
 
         insert_update(&mut transaction, &initial_update)
             .await
@@ -287,7 +285,7 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
         let result = sqlx::query(
             "UPDATE status_page_incidents SET
                  title = $4, started_at_micros = $5, updated_at_micros = $6,
-                 auto_start = $7, reminder_minutes = $8
+                 auto_start = $7, reminder_minutes = $8, component_ids = $9
              WHERE org_id = $1 AND status_page_id = $2 AND id = $3
                AND kind = 'maintenance' AND publication_state = 'published'
                AND status = 'scheduled'",
@@ -300,6 +298,7 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
         .bind(incident.updated_at.0)
         .bind(incident.auto_start)
         .bind(incident.reminder_minutes)
+        .bind(component_ids(&incident))
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
@@ -309,8 +308,6 @@ impl StatusPageIncidentWriteRepository for PgStatusPageRepository {
                 "scheduled maintenance is no longer editable",
             ));
         }
-
-        replace_component_links(&mut transaction, &incident).await?;
 
         insert_update(&mut transaction, &update)
             .await
@@ -345,8 +342,9 @@ async fn insert_incident(
             (id, org_id, status_page_id, source_incident_id, kind, title, impact,
              status, publication_state, draft_message, started_at_micros, ended_at_micros,
              published_at_micros, created_at_micros, updated_at_micros,
-             auto_start, reminder_minutes)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)",
+             auto_start, reminder_minutes, component_ids)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
+                 $18)",
     )
     .bind(&incident.id.0)
     .bind(&incident.org_id.0)
@@ -365,6 +363,7 @@ async fn insert_incident(
     .bind(incident.updated_at.0)
     .bind(incident.auto_start)
     .bind(incident.reminder_minutes)
+    .bind(component_ids(incident))
     .execute(transaction)
     .await
     .map_err(super::sqlx_err)?;
@@ -372,37 +371,17 @@ async fn insert_incident(
     Ok(())
 }
 
-async fn replace_component_links(
-    transaction: &mut sqlx::PgConnection,
-    incident: &StatusPageIncident,
-) -> Result<()> {
-    sqlx::query(
-        "DELETE FROM status_page_incident_components
-         WHERE org_id = $1 AND status_page_id = $2 AND incident_id = $3",
-    )
-    .bind(&incident.org_id.0)
-    .bind(&incident.status_page_id.0)
-    .bind(&incident.id.0)
-    .execute(&mut *transaction)
-    .await
-    .map_err(super::sqlx_err)?;
+/// The components an event names, as its row keeps them: each once, in id order.
+fn component_ids(incident: &StatusPageIncident) -> Vec<String> {
+    let mut ids: Vec<String> = incident
+        .component_ids
+        .iter()
+        .map(|id| id.0.clone())
+        .collect();
 
-    for component_id in &incident.component_ids {
-        sqlx::query(
-            "INSERT INTO status_page_incident_components
-                (org_id, status_page_id, incident_id, component_id)
-             VALUES ($1, $2, $3, $4)",
-        )
-        .bind(&incident.org_id.0)
-        .bind(&incident.status_page_id.0)
-        .bind(&incident.id.0)
-        .bind(&component_id.0)
-        .execute(&mut *transaction)
-        .await
-        .map_err(super::sqlx_err)?;
-    }
-
-    Ok(())
+    ids.sort();
+    ids.dedup();
+    ids
 }
 
 pub(super) async fn insert_update(
@@ -411,8 +390,9 @@ pub(super) async fn insert_update(
 ) -> std::result::Result<sqlx::postgres::PgQueryResult, sqlx::Error> {
     sqlx::query(
         "INSERT INTO status_page_incident_updates
-            (id, org_id, status_page_id, incident_id, status, message, created_at_micros)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)",
+            (id, org_id, status_page_id, incident_id, status, message, created_at_micros,
+             next_update_at_micros, notify_subscribers)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
     )
     .bind(&update.id.0)
     .bind(&update.org_id.0)
@@ -421,6 +401,8 @@ pub(super) async fn insert_update(
     .bind(update.status.as_str())
     .bind(&update.message)
     .bind(update.created_at.0)
+    .bind(update.next_update_at.map(|at| at.0))
+    .bind(update.notify_subscribers)
     .execute(transaction)
     .await
 }

@@ -58,8 +58,8 @@ pub(super) const MONITOR_COLS: &str = "id, organization_id, name, description, k
 
 pub(super) const REVISION_COLS: &str = "id, organization_id, monitor_id, revision_number,
     spec, schedule, timeout_millis, max_retries, consecutive_failures, consecutive_recoveries,
-    freshness_seconds, location_policy, escalation_policy_id, alert_on_degraded, alert_on_flaky,
-    last_test_result_id, last_test_passed_at_micros,
+    freshness_seconds, location_policy, location_ids, escalation_policy_id, alert_on_degraded,
+    alert_on_flaky, last_test_result_id, last_test_passed_at_micros,
     created_by, created_at_micros, content_hash";
 
 pub(super) const TASK_COLS: &str = "id, organization_id, monitor_id, monitor_revision_id,
@@ -221,11 +221,9 @@ pub(super) fn row_to_monitor(row: sqlx::postgres::PgRow) -> Result<SyntheticMoni
     })
 }
 
-pub(super) fn row_to_revision(
-    row: sqlx::postgres::PgRow,
-    location_ids: Vec<Id>,
-) -> Result<MonitorRevision> {
+pub(super) fn row_to_revision(row: sqlx::postgres::PgRow) -> Result<MonitorRevision> {
     let spec: serde_json::Value = row.try_get("spec").map_err(super::sqlx_err)?;
+    let location_ids: Vec<String> = row.try_get("location_ids").map_err(super::sqlx_err)?;
     let schedule: serde_json::Value = row.try_get("schedule").map_err(super::sqlx_err)?;
     let policy: serde_json::Value = row.try_get("location_policy").map_err(super::sqlx_err)?;
 
@@ -257,7 +255,7 @@ pub(super) fn row_to_revision(
             .map_err(super::sqlx_err)? as u32,
         location_policy: serde_json::from_value::<MultiLocationPolicy>(policy)
             .map_err(|error| Error::internal(format!("decode Location policy: {error}")))?,
-        location_ids,
+        location_ids: location_ids.into_iter().map(Id).collect(),
         escalation_policy_id: row
             .try_get::<Option<String>, _>("escalation_policy_id")
             .map_err(super::sqlx_err)?

@@ -1,18 +1,27 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Public page links and the messages sent to subscribers.
+//! Public page links and the messages sent to subscribers. An email is the
+//! copy with the links that manage or end the subscription at its foot; a
+//! Slack message is the same copy with buttons; a webhook receives the
+//! payload, which carries the same links.
 
 use serde_json::{Value, json};
 use url::Url;
 
-use super::super::notification_copy::{self, EmailCopy, EventUpdate};
+use super::{
+    super::notification_copy::{self, EmailCopy, EventUpdate},
+    slack_message::{SlackButton, slack_body},
+};
 use crate::{
     domain::{
         i18n_language::LanguagePack,
-        status_page::{StatusPage, StatusPageNotificationDelivery, StatusPageNotificationMessage},
+        status_page::{
+            StatusPage, StatusPageNotificationDelivery, StatusPageNotificationMessage,
+            StatusPageSubscriber, StatusPageSubscriberChannel, SubscriberComponents,
+        },
     },
-    shared::{Error, Result, time::TimestampMicros},
+    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 /// What a message to a subscriber takes from the page it is sent for.
@@ -21,6 +30,44 @@ pub(super) struct NotificationPage {
     pub(super) url: String,
     pub(super) timezone: String,
     pub(super) language: String,
+    /// The components the page shows, to name the ones a subscriber chose.
+    pub(super) components: Vec<(Id, String)>,
+}
+
+impl NotificationPage {
+    fn component_names(&self, chosen: &SubscriberComponents) -> Vec<String> {
+        self.components
+            .iter()
+            .filter(|(id, _)| chosen.component_ids.contains(id))
+            .map(|(_, name)| name.clone())
+            .collect()
+    }
+}
+
+/// The links a subscriber's messages carry, each bound to its token.
+pub(super) struct SubscriberLinks {
+    pub(super) confirm: String,
+    pub(super) manage: String,
+    pub(super) unsubscribe: String,
+}
+
+impl SubscriberLinks {
+    pub(super) fn new(page_url: &str, token: &str) -> Result<Self> {
+        Ok(Self {
+            confirm: subscription_action_url(page_url, "confirm", token)?,
+            manage: subscription_action_url(page_url, "manage", token)?,
+            unsubscribe: subscription_action_url(page_url, "unsubscribe", token)?,
+        })
+    }
+}
+
+/// A message about the subscription itself.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum SubscriptionMessage {
+    /// Activates a pending subscription.
+    Confirm,
+    /// Leads an active subscriber to where it changes what it hears about.
+    Manage,
 }
 
 pub(super) fn platform_page_url(external_url: &str, slug: &str) -> Result<String> {
@@ -42,63 +89,180 @@ pub(super) fn custom_page_url(hostname: &str) -> Result<String> {
     .map(|url| url.to_string())
 }
 
-/// `email_pack` holds the copy an email is written from. A webhook receives the
-/// payload alone and takes `None`.
-pub(super) fn confirmation_message(
-    page: &StatusPage,
-    page_url: &str,
-    token: &str,
-    email_pack: Option<&LanguagePack>,
-) -> Result<StatusPageNotificationMessage> {
-    let confirm_url = subscription_action_url(page_url, "confirm", token)?;
-    let unsubscribe_url = subscription_action_url(page_url, "unsubscribe", token)?;
-
-    let copy = match email_pack {
-        Some(pack) => notification_copy::subscription_confirmation(
-            pack,
-            &page.name,
-            &confirm_url,
-            &unsubscribe_url,
-        )?,
-        None => EmailCopy::default(),
-    };
-
-    Ok(copy.with_payload(json!({
-        "type": "status_page_subscription_confirmation",
-        "page_name": page.name,
-        "page_slug": page.slug,
-        "confirm_url": confirm_url,
-        "unsubscribe_url": unsubscribe_url,
-        "token": token,
-    })))
+/// Where the public page shows one incident.
+pub(super) fn incident_url(page_url: &str, incident_id: &str) -> String {
+    format!("{}/incidents/{incident_id}", page_url.trim_end_matches('/'))
 }
 
-/// `email_pack` holds the copy an email is written from. A webhook receives the
-/// payload alone and takes `None`; its payload is still checked.
+/// `pack` holds the copy of an email or a Slack message. A webhook receives
+/// the payload alone and takes `None`.
+pub(super) fn subscription_message(
+    kind: SubscriptionMessage,
+    page: &StatusPage,
+    page_url: &str,
+    subscriber: &StatusPageSubscriber,
+    component_names: &[String],
+    pack: Option<&LanguagePack>,
+) -> Result<StatusPageNotificationMessage> {
+    write_subscription_message(
+        kind,
+        (&page.name, &page.slug, page_url),
+        subscriber.channel,
+        &subscriber.token,
+        component_names,
+        pack,
+    )
+}
+
+/// Posted to a channel the Slack app was just added to: what it will hear
+/// about, and the links to the page and to the subscription.
+pub(super) fn slack_welcome_message(
+    page: &StatusPage,
+    page_url: &str,
+    subscriber: &StatusPageSubscriber,
+    component_names: &[String],
+    pack: &LanguagePack,
+) -> Result<StatusPageNotificationMessage> {
+    let links = SubscriberLinks::new(page_url, &subscriber.token)?;
+    let connected =
+        notification_copy::slack_text(pack, "connected", &[("page_name", page.name.as_str())])?;
+    let scope = notification_copy::subscription_scope(pack, component_names)?;
+
+    let copy = EmailCopy {
+        title: page.name.clone(),
+        text: format!("{connected}\n\n{scope}"),
+    };
+
+    let buttons = button_list(
+        Some(pack),
+        &[("view_page", page_url), ("manage", links.manage.as_str())],
+    )?;
+
+    Ok(for_channel(
+        StatusPageSubscriberChannel::Slack,
+        Some(copy),
+        Value::Null,
+        None,
+        &buttons,
+    ))
+}
+
+/// The page address with a subscription action for the page to show, such as
+/// `slack_connected`.
+pub(super) fn page_action_url(page_url: &str, action: &str) -> Result<String> {
+    let mut url = http_url(page_url, "status-page URL is invalid")?;
+
+    let fragment = url::form_urlencoded::Serializer::new(String::new())
+        .append_pair("subscription_action", action)
+        .finish();
+
+    url.set_fragment(Some(&fragment));
+    Ok(url.to_string())
+}
+
+/// `page` is the name, slug and address of the page.
+fn write_subscription_message(
+    kind: SubscriptionMessage,
+    page: (&str, &str, &str),
+    channel: StatusPageSubscriberChannel,
+    token: &str,
+    component_names: &[String],
+    pack: Option<&LanguagePack>,
+) -> Result<StatusPageNotificationMessage> {
+    let (page_name, page_slug, page_url) = page;
+    let links = SubscriberLinks::new(page_url, token)?;
+
+    let (payload_type, copy, buttons) = match kind {
+        SubscriptionMessage::Confirm => {
+            let copy = pack
+                .map(|pack| {
+                    notification_copy::subscription_confirmation(
+                        pack,
+                        page_name,
+                        &links.confirm,
+                        &links.unsubscribe,
+                        component_names,
+                    )
+                })
+                .transpose()?;
+
+            let buttons = button_list(pack, &[("confirm", links.confirm.as_str())])?;
+            ("status_page_subscription_confirmation", copy, buttons)
+        }
+        SubscriptionMessage::Manage => {
+            let copy = pack
+                .map(|pack| notification_copy::subscription_manage(pack, page_name, &links.manage))
+                .transpose()?;
+
+            let buttons = button_list(pack, &[("manage", links.manage.as_str())])?;
+            ("status_page_subscription_manage", copy, buttons)
+        }
+    };
+
+    let mut payload = json!({
+        "type": payload_type,
+        "page_name": page_name,
+        "page_slug": page_slug,
+        "manage_url": links.manage,
+        "unsubscribe_url": links.unsubscribe,
+        "components": component_names,
+        "token": token,
+    });
+
+    if kind == SubscriptionMessage::Confirm {
+        payload["confirm_url"] = json!(links.confirm);
+    }
+
+    // The message is about the subscription: its own links are in the copy.
+    Ok(for_channel(channel, copy, payload, None, &buttons))
+}
+
+/// `email_pack` holds the copy of an email or a Slack message. A webhook
+/// receives the payload alone and takes `None`; its payload is still checked.
+/// `postmortem` is the text of a postmortem the delivery announces.
 pub(super) fn delivery_message(
     delivery: &StatusPageNotificationDelivery,
     page: &NotificationPage,
     email_pack: Option<&LanguagePack>,
+    postmortem: Option<&str>,
 ) -> Result<StatusPageNotificationMessage> {
     let payload = &delivery.payload;
     let page_name = payload_text(payload, "page_name", "Status page")?;
+    let links = SubscriberLinks::new(&page.url, &delivery.subscriber_token)?;
+    let mut enriched = payload.clone();
 
-    let copy = match payload.get("type").and_then(Value::as_str) {
+    let (copy, buttons) = match payload.get("type").and_then(Value::as_str) {
         Some("component_status_changed") => {
             let component = payload_text(payload, "component_name", "component")?;
             let status = payload_text(payload, "status", "component status")?;
 
-            email_pack
+            let copy = email_pack
                 .map(|pack| {
                     notification_copy::component_status_changed(
                         pack, page_name, &page.url, component, status,
                     )
                 })
-                .transpose()?
+                .transpose()?;
+
+            (
+                copy,
+                button_list(
+                    email_pack,
+                    &[
+                        ("view_page", page.url.as_str()),
+                        ("manage", links.manage.as_str()),
+                    ],
+                )?,
+            )
         }
         Some("incident_update") => {
             let maintenance =
                 payload.get("incident_kind").and_then(Value::as_str) == Some("maintenance");
+
+            let incident = incident_url(
+                &page.url,
+                payload_text(payload, "incident_id", "incident id")?,
+            );
 
             let update = EventUpdate {
                 page_name,
@@ -109,11 +273,27 @@ pub(super) fn delivery_message(
                 message: payload_text(payload, "message", "incident message")?,
                 scheduled_for: planned_start(payload, maintenance)
                     .map(|at| notification_copy::zoned_time(at, &page.timezone)),
+                next_update_at: payload
+                    .get("next_update_at")
+                    .and_then(Value::as_i64)
+                    .map(|at| notification_copy::zoned_time(TimestampMicros(at), &page.timezone)),
             };
 
-            email_pack
+            let copy = email_pack
                 .map(|pack| notification_copy::event_update(pack, &update))
-                .transpose()?
+                .transpose()?;
+
+            enriched["incident_url"] = json!(incident);
+            (
+                copy,
+                button_list(
+                    email_pack,
+                    &[
+                        ("view_incident", incident.as_str()),
+                        ("manage", links.manage.as_str()),
+                    ],
+                )?,
+            )
         }
         Some("maintenance_reminder") => {
             let title = payload_text(payload, "title", "maintenance title")?;
@@ -123,7 +303,7 @@ pub(super) fn delivery_message(
 
             let scheduled_for = notification_copy::zoned_time(start, &page.timezone);
 
-            email_pack
+            let copy = email_pack
                 .map(|pack| {
                     notification_copy::maintenance_reminder(
                         pack,
@@ -133,14 +313,126 @@ pub(super) fn delivery_message(
                         &scheduled_for,
                     )
                 })
-                .transpose()?
+                .transpose()?;
+
+            (
+                copy,
+                button_list(
+                    email_pack,
+                    &[
+                        ("view_page", page.url.as_str()),
+                        ("manage", links.manage.as_str()),
+                    ],
+                )?,
+            )
+        }
+        Some("postmortem_published") => {
+            let title = payload_text(payload, "title", "incident title")?;
+
+            let incident = incident_url(
+                &page.url,
+                payload_text(payload, "incident_id", "incident id")?,
+            );
+
+            let postmortem = postmortem
+                .filter(|text| !text.trim().is_empty())
+                .ok_or_else(|| Error::internal("status-page notification missing postmortem"))?;
+
+            let copy = email_pack
+                .map(|pack| {
+                    notification_copy::postmortem_published(
+                        pack, page_name, title, postmortem, &incident,
+                    )
+                })
+                .transpose()?;
+
+            enriched["postmortem"] = json!(postmortem);
+            enriched["incident_url"] = json!(incident);
+            (
+                copy,
+                button_list(
+                    email_pack,
+                    &[
+                        ("view_incident", incident.as_str()),
+                        ("manage", links.manage.as_str()),
+                    ],
+                )?,
+            )
+        }
+        Some("status_page_subscription_confirmation") => {
+            let page_slug = payload_text(payload, "page_slug", "page slug")?;
+
+            return write_subscription_message(
+                SubscriptionMessage::Confirm,
+                (page_name, page_slug, &page.url),
+                delivery.channel,
+                &delivery.subscriber_token,
+                &page.component_names(&delivery.subscriber_components),
+                email_pack,
+            );
         }
         _ => return Err(Error::internal("unknown status-page notification payload")),
     };
 
-    Ok(copy
-        .unwrap_or_default()
-        .with_payload(delivery.payload.clone()))
+    enriched["manage_url"] = json!(links.manage);
+    enriched["unsubscribe_url"] = json!(links.unsubscribe);
+
+    let footer =
+        match (delivery.channel, email_pack) {
+            (StatusPageSubscriberChannel::Email, Some(pack)) => Some(
+                notification_copy::email_footer(pack, &links.manage, &links.unsubscribe)?,
+            ),
+            _ => None,
+        };
+
+    Ok(for_channel(
+        delivery.channel,
+        copy,
+        enriched,
+        footer,
+        &buttons,
+    ))
+}
+
+/// An email gets its copy and footer, a Slack channel the copy as a Slack
+/// message with its buttons, and a webhook the payload.
+fn for_channel(
+    channel: StatusPageSubscriberChannel,
+    copy: Option<EmailCopy>,
+    payload: Value,
+    footer: Option<String>,
+    buttons: &[SlackButton],
+) -> StatusPageNotificationMessage {
+    let copy = copy.unwrap_or_default();
+
+    match channel {
+        StatusPageSubscriberChannel::Email => copy
+            .with_footer(footer.as_deref().unwrap_or_default())
+            .with_payload(payload),
+        StatusPageSubscriberChannel::Slack => {
+            let body = slack_body(&copy, buttons);
+            copy.with_payload(body)
+        }
+        StatusPageSubscriberChannel::Webhook => EmailCopy::default().with_payload(payload),
+    }
+}
+
+/// The buttons of a Slack message, by the key of their label. A message
+/// written without copy has none.
+fn button_list(pack: Option<&LanguagePack>, buttons: &[(&str, &str)]) -> Result<Vec<SlackButton>> {
+    let Some(pack) = pack else {
+        return Ok(Vec::new());
+    };
+
+    buttons
+        .iter()
+        .map(|(key, url)| {
+            Ok(SlackButton {
+                text: notification_copy::slack_text(pack, key, &[])?,
+                url: (*url).to_string(),
+            })
+        })
+        .collect()
 }
 
 /// When maintenance is planned to start. `None` for an incident, and for a
@@ -184,269 +476,4 @@ fn payload_text<'a>(payload: &'a Value, key: &str, label: &str) -> Result<&'a st
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{
-        app::status_page::notification_copy::tests::seeded_pack,
-        domain::status_page::{StatusPageDeliveryStatus, StatusPageSubscriberChannel},
-        shared::ids::Id,
-    };
-
-    /// 2026-05-25 10:00 UTC.
-    const PLANNED_START: i64 = 1_779_703_200_000_000;
-
-    fn delivery(payload: Value) -> StatusPageNotificationDelivery {
-        StatusPageNotificationDelivery {
-            id: Id("delivery".into()),
-            org_id: Id("org".into()),
-            status_page_id: Id("page".into()),
-            subscriber_id: Id("subscriber".into()),
-            channel: StatusPageSubscriberChannel::Email,
-            target: "ops@example.com".into(),
-            event_key: "incident_update:update".into(),
-            payload,
-            status: StatusPageDeliveryStatus::Processing,
-            attempts: 1,
-            next_attempt_at: TimestampMicros(0),
-            last_error: None,
-            delivered_at: None,
-            created_at: TimestampMicros(0),
-            updated_at: TimestampMicros(0),
-        }
-    }
-
-    fn page(timezone: &str) -> NotificationPage {
-        NotificationPage {
-            url: "https://status.acme.example/".into(),
-            timezone: timezone.into(),
-            language: "en-us".into(),
-        }
-    }
-
-    fn maintenance_payload(status: &str) -> Value {
-        json!({
-            "type": "incident_update",
-            "page_name": "Acme Cloud",
-            "page_slug": "acme-cloud",
-            "incident_id": "maintenance-1",
-            "incident_kind": "maintenance",
-            "title": "Database upgrade",
-            "impact": "maintenance",
-            "status": status,
-            "message": "Writes can take a few seconds longer.",
-            "occurred_at": 1_779_443_280_000_000_i64,
-            "started_at": PLANNED_START,
-            "ended_at": null,
-            "component_names": ["EU region"],
-        })
-    }
-
-    #[test]
-    fn maintenance_email_states_the_planned_time_in_the_page_time_zone() {
-        let message = delivery_message(
-            &delivery(maintenance_payload("scheduled")),
-            &page("Europe/Berlin"),
-            Some(&seeded_pack("en-us")),
-        )
-        .unwrap();
-
-        assert_eq!(message.title, "Acme Cloud: Database upgrade · Scheduled");
-        assert_eq!(
-            message.text,
-            "Database upgrade\nScheduled\nScheduled for: 2026-05-25 12:00 UTC+02:00 (Europe/Berlin)\n\nWrites can take a few seconds longer.\n\nhttps://status.acme.example/"
-        );
-    }
-
-    #[test]
-    fn later_maintenance_emails_keep_the_planned_time() {
-        let mut payload = maintenance_payload("completed");
-        payload["ended_at"] = json!(PLANNED_START + 1_800_000_000);
-
-        let message = delivery_message(
-            &delivery(payload),
-            &page("UTC"),
-            Some(&seeded_pack("zh-cn")),
-        )
-        .unwrap();
-        assert_eq!(message.title, "Acme Cloud：Database upgrade · 已完成");
-        assert_eq!(
-            message.text,
-            "Database upgrade\n已完成\n计划时间：2026-05-25 10:00 UTC\n\nWrites can take a few seconds longer.\n\nhttps://status.acme.example/"
-        );
-    }
-
-    #[test]
-    fn incident_email_has_no_planned_time_and_the_payload_is_forwarded_unchanged() {
-        let payload = json!({
-            "type": "incident_update",
-            "page_name": "Acme Cloud",
-            "page_slug": "acme-cloud",
-            "incident_id": "incident-1",
-            "incident_kind": "incident",
-            "title": "Elevated error rates",
-            "impact": "major",
-            "status": "resolved",
-            "message": "The rollback is complete.",
-            "occurred_at": 1_779_529_680_000_000_i64,
-            "started_at": 1_779_529_260_000_000_i64,
-            "ended_at": 1_779_529_680_000_000_i64,
-            "component_names": ["Public API"],
-        });
-
-        let message = delivery_message(
-            &delivery(payload.clone()),
-            &page("Europe/Berlin"),
-            Some(&seeded_pack("en-us")),
-        )
-        .unwrap();
-        assert_eq!(
-            message.text,
-            "Elevated error rates\nResolved\n\nThe rollback is complete.\n\nhttps://status.acme.example/"
-        );
-        assert_eq!(message.payload, payload);
-    }
-
-    #[test]
-    fn maintenance_delivery_queued_without_a_start_time_still_reads() {
-        let mut payload = maintenance_payload("scheduled");
-        let fields = payload.as_object_mut().unwrap();
-        fields.remove("started_at");
-        fields.remove("ended_at");
-
-        let message = delivery_message(
-            &delivery(payload),
-            &page("Europe/Berlin"),
-            Some(&seeded_pack("en-us")),
-        )
-        .unwrap();
-        assert_eq!(
-            message.text,
-            "Database upgrade\nScheduled\n\nWrites can take a few seconds longer.\n\nhttps://status.acme.example/"
-        );
-    }
-
-    #[test]
-    fn component_email_names_the_component_and_its_status() {
-        let payload = json!({
-            "type": "component_status_changed",
-            "page_name": "Acme Cloud",
-            "page_slug": "acme-cloud",
-            "component_id": "component-1",
-            "component_name": "API",
-            "status": "partial_outage",
-            "occurred_at": 1_779_529_440_000_000_i64,
-        });
-
-        let message = delivery_message(
-            &delivery(payload),
-            &page("UTC"),
-            Some(&seeded_pack("zh-cn")),
-        )
-        .unwrap();
-        assert_eq!(message.title, "Acme Cloud：API · 部分中断");
-        assert_eq!(
-            message.text,
-            "API 的状态已变为“部分中断”。\n\nhttps://status.acme.example/"
-        );
-    }
-
-    #[test]
-    fn reminder_email_states_the_planned_time_and_needs_it_in_the_payload() {
-        let payload = json!({
-            "type": "maintenance_reminder",
-            "page_name": "Acme Cloud",
-            "page_slug": "acme-cloud",
-            "incident_id": "maintenance-1",
-            "title": "Database upgrade",
-            "occurred_at": PLANNED_START - 3_600_000_000,
-            "started_at": PLANNED_START,
-            "component_names": ["EU region"],
-        });
-
-        let message = delivery_message(
-            &delivery(payload.clone()),
-            &page("Europe/Berlin"),
-            Some(&seeded_pack("en-us")),
-        )
-        .unwrap();
-        assert_eq!(message.title, "Acme Cloud: Database upgrade · Reminder");
-        assert_eq!(
-            message.text,
-            "Reminder of planned maintenance:\n\nDatabase upgrade\nScheduled for: 2026-05-25 12:00 UTC+02:00 (Europe/Berlin)\n\nhttps://status.acme.example/"
-        );
-        assert_eq!(message.payload, payload);
-
-        let mut without_start = payload;
-        without_start.as_object_mut().unwrap().remove("started_at");
-        assert!(delivery_message(&delivery(without_start), &page("UTC"), None).is_err());
-    }
-
-    #[test]
-    fn webhook_delivery_carries_the_payload_alone_and_still_checks_it() {
-        let payload = maintenance_payload("scheduled");
-
-        let message = delivery_message(&delivery(payload.clone()), &page("UTC"), None).unwrap();
-        assert_eq!(message.title, "");
-        assert_eq!(message.text, "");
-        assert_eq!(message.payload, payload);
-
-        let unknown = json!({"type": "page_renamed", "page_name": "Acme Cloud"});
-        assert!(delivery_message(&delivery(unknown), &page("UTC"), None).is_err());
-    }
-
-    #[test]
-    fn confirmation_is_written_for_email_and_left_to_the_payload_for_a_webhook() {
-        let page = StatusPage {
-            id: Id("page".into()),
-            org_id: Id("org".into()),
-            name: "Acme Cloud".into(),
-            slug: "acme-cloud".into(),
-            logo_url: None,
-            brand_color: "#4F46E5".into(),
-            custom_domain: None,
-            timezone: "UTC".into(),
-            language: "zh-cn".into(),
-            languages: vec!["zh-cn".into()],
-            history_days: 90,
-            delivery_retention_days: 90,
-            private_session_days: 7,
-            visibility: crate::domain::status_page::StatusPageVisibility::Public,
-            lifecycle: crate::domain::status_page::StatusPageLifecycle::Active,
-            archived_at: None,
-            purge_after: None,
-            created_at: TimestampMicros(0),
-            updated_at: TimestampMicros(0),
-        };
-        let page_url = "https://status.acme.example/";
-        let token = "abc.DEF-12345678901234567890";
-
-        let email =
-            confirmation_message(&page, page_url, token, Some(&seeded_pack("zh-cn"))).unwrap();
-        assert_eq!(email.title, "确认订阅 Acme Cloud 的状态更新");
-        assert!(email.text.contains("subscription_action=confirm"));
-        assert!(email.text.contains("subscription_action=unsubscribe"));
-
-        let webhook = confirmation_message(&page, page_url, token, None).unwrap();
-        assert_eq!(webhook.title, "");
-        assert_eq!(webhook.payload, email.payload);
-        assert_eq!(webhook.payload["token"], token);
-    }
-
-    #[test]
-    fn subscription_links_are_action_bound_and_url_encoded() {
-        let page_url = platform_page_url("https://molesignal.example/base", "acme-cloud").unwrap();
-        let url =
-            subscription_action_url(&page_url, "confirm", "abc.DEF-12345678901234567890").unwrap();
-        assert!(url.starts_with("https://molesignal.example/status/acme-cloud#"));
-        assert!(url.contains("subscription_action=confirm"));
-        assert!(url.contains("subscription_token=abc.DEF-"));
-    }
-
-    #[test]
-    fn active_custom_domain_uses_the_site_root() {
-        assert_eq!(
-            custom_page_url("status.acme.example").unwrap(),
-            "https://status.acme.example/"
-        );
-    }
-}
+mod tests;

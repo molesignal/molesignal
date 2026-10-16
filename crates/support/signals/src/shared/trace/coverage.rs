@@ -48,6 +48,10 @@ pub const WORKER_COVERAGE: &[WorkerCoverage] = &[
         policy: WorkerTracePolicy::RootPerRun,
     },
     WorkerCoverage {
+        source: "src/bootstrap/workers/business_service_health.rs",
+        policy: WorkerTracePolicy::RootPerRun,
+    },
+    WorkerCoverage {
         source: "src/bootstrap/workers/cluster/event_sync.rs",
         policy: WorkerTracePolicy::RootPerRun,
     },
@@ -125,7 +129,9 @@ pub const HTTP_CLIENT_COVERAGE: &[&str] = &[
     "src/infra/notify/adapters/lark.rs",
     "src/infra/notify/adapters/slack.rs",
     "src/infra/notify/adapters/webhook.rs",
+    "src/infra/notify/status_page.rs",
     "src/infra/sso/jwks.rs",
+    "src/infra/status_page/slack_app.rs",
     "src/infra/sso/oidc.rs",
     "crates/modules/agent/src/chat/providers/anthropic.rs",
     "crates/modules/agent/src/chat/providers/openai.rs",

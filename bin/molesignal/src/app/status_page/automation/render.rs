@@ -15,6 +15,7 @@ use crate::{
 pub(super) fn materialize_candidate(
     rule: &ActiveAutomationRule,
     observation: &AutomationSourceObservation,
+    component_ids: Vec<Id>,
 ) -> Result<AutomationCandidate> {
     let action = &rule.revision.action;
     let now = observation.observed_at;
@@ -29,7 +30,11 @@ pub(super) fn materialize_candidate(
     let is_follow_up = observation
         .labels
         .get("previous_synthetic_state")
-        .is_some_and(|state| matches!(state.as_str(), "degraded" | "failing"));
+        .is_some_and(|state| matches!(state.as_str(), "degraded" | "failing"))
+        || observation
+            .labels
+            .get("previous_business_service_status")
+            .is_some_and(|status| status != "operational");
 
     let message = render_template(
         if is_follow_up {
@@ -77,7 +82,7 @@ pub(super) fn materialize_candidate(
         message,
         resolved_message,
         impact,
-        component_ids: action.component_ids.clone(),
+        component_ids,
         automatic: action.publication_mode == AutomationPublicationMode::Automatic,
         status_incident_id: None,
         due_at: TimestampMicros(

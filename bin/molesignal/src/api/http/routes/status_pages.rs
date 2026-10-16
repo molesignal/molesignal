@@ -9,7 +9,9 @@ mod events;
 mod feed;
 mod logo;
 mod management;
+mod postmortems;
 mod public;
+mod service_links;
 mod subscriptions;
 
 use axum::{
@@ -35,6 +37,8 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .merge(management::routes())
         .merge(events::routes())
+        .merge(postmortems::routes())
+        .merge(service_links::routes())
         .merge(subscriptions::management_routes())
         .merge(access::management_routes())
         .merge(automation::routes())
@@ -81,7 +85,8 @@ async fn get_customer_page(
         .get_customer_snapshot(&slug, session, &origin)
         .await?;
 
-    Ok(customer_snapshot_response(snapshot))
+    let slack_app = state.status_pages.slack_app_available(&snapshot.page).await;
+    Ok(customer_snapshot_response(snapshot, slack_app))
 }
 
 async fn get_customer_page_by_domain(
@@ -108,14 +113,18 @@ async fn get_customer_page_by_domain(
         .get_customer_snapshot_by_domain(&hostname, session)
         .await?
     {
-        Some(snapshot) => Ok(customer_snapshot_response(snapshot)),
+        Some(snapshot) => {
+            let slack_app = state.status_pages.slack_app_available(&snapshot.page).await;
+            Ok(customer_snapshot_response(snapshot, slack_app))
+        }
         None => Ok(unmatched_domain_response()),
     }
 }
 
-fn customer_snapshot_response(snapshot: StatusPageSnapshot) -> Response {
+fn customer_snapshot_response(snapshot: StatusPageSnapshot, slack_app: bool) -> Response {
     let private = snapshot.page.visibility == StatusPageVisibility::Private;
-    let mut response = axum::Json(PublicStatusPageSnapshot::from(snapshot)).into_response();
+    let projection = PublicStatusPageSnapshot::from(snapshot).with_slack_app(slack_app && !private);
+    let mut response = axum::Json(projection).into_response();
 
     response.headers_mut().insert(
         CACHE_CONTROL,

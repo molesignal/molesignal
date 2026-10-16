@@ -318,6 +318,32 @@ impl StatusPagePageRepository for PgStatusPageRepository {
         row_to_page(row)
     }
 
+    async fn set_page_slack_connector(
+        &self,
+        org_id: &Id,
+        page_id: &Id,
+        connector_id: Option<&Id>,
+        updated_at: TimestampMicros,
+    ) -> Result<StatusPage> {
+        let sql = format!(
+            "UPDATE status_pages SET slack_connector_id = $3, updated_at_micros = $4
+             WHERE org_id = $1 AND id = $2
+             RETURNING {PAGE_COLS}"
+        );
+
+        let row = sqlx::query(&sql)
+            .bind(&org_id.0)
+            .bind(&page_id.0)
+            .bind(connector_id.map(Id::as_str))
+            .bind(updated_at.0)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(super::sqlx_err)?
+            .ok_or_else(|| Error::not_found("status page not found"))?;
+
+        row_to_page(row)
+    }
+
     async fn get_page_by_slug(&self, slug: &str) -> Result<Option<StatusPage>> {
         let sql = format!(
             "SELECT {PAGE_COLS} FROM status_pages

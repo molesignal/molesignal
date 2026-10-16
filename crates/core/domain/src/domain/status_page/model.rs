@@ -3,6 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use super::{ComponentKind, ComponentServiceLink, StatusPagePostmortem};
 use crate::shared::{ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -315,6 +316,9 @@ pub struct StatusPage {
     pub purge_after: Option<TimestampMicros>,
     pub created_at: TimestampMicros,
     pub updated_at: TimestampMicros,
+    /// The Slack App message connector visitors add the page to Slack with.
+    #[serde(default)]
+    pub slack_connector_id: Option<Id>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -331,6 +335,15 @@ pub struct StatusPageComponent {
     pub archived_at: Option<TimestampMicros>,
     pub created_at: TimestampMicros,
     pub updated_at: TimestampMicros,
+    /// The business service the component stands for.
+    #[serde(default)]
+    pub business_service: Option<ComponentServiceLink>,
+    /// A component, or a group of components with no status of its own.
+    #[serde(default)]
+    pub kind: ComponentKind,
+    /// The group the component is in.
+    #[serde(default)]
+    pub group_id: Option<Id>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -343,6 +356,9 @@ pub struct StatusPageComponentStatusEvent {
     pub started_at: TimestampMicros,
     pub ended_at: Option<TimestampMicros>,
     pub created_at: TimestampMicros,
+    /// A change made without telling subscribers queues no delivery.
+    #[serde(default = "notify_by_default")]
+    pub notify_subscribers: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -354,6 +370,13 @@ pub struct StatusPageIncidentUpdate {
     pub status: PublicIncidentStatus,
     pub message: String,
     pub created_at: TimestampMicros,
+    /// By when the publisher promises the next update. Only an event that is
+    /// not over, and not merely announced, can promise one.
+    #[serde(default)]
+    pub next_update_at: Option<TimestampMicros>,
+    /// An update published without telling subscribers queues no delivery.
+    #[serde(default = "notify_by_default")]
+    pub notify_subscribers: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -382,6 +405,32 @@ pub struct StatusPageIncident {
     pub published_at: Option<TimestampMicros>,
     pub created_at: TimestampMicros,
     pub updated_at: TimestampMicros,
+    /// The postmortem of a resolved incident, draft or published.
+    #[serde(default)]
+    pub postmortem: Option<StatusPagePostmortem>,
+}
+
+impl StatusPageIncident {
+    /// By when the latest update promises the next one, while the event is
+    /// still going on.
+    pub fn next_update_at(&self) -> Option<TimestampMicros> {
+        if self.status.is_terminal_for(self.kind) {
+            return None;
+        }
+
+        self.updates
+            .iter()
+            .max_by(|left, right| {
+                left.created_at
+                    .cmp(&right.created_at)
+                    .then_with(|| left.id.as_str().cmp(right.id.as_str()))
+            })
+            .and_then(|update| update.next_update_at)
+    }
+}
+
+fn notify_by_default() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -512,6 +561,7 @@ mod tests {
             purge_after: None,
             created_at: TimestampMicros(1),
             updated_at: TimestampMicros(1),
+            slack_connector_id: None,
         }
     }
 
@@ -546,6 +596,7 @@ mod tests {
             published_at: Some(TimestampMicros(at)),
             created_at: TimestampMicros(at),
             updated_at: TimestampMicros(at),
+            postmortem: None,
         }
     }
 
@@ -566,6 +617,9 @@ mod tests {
                 archived_at: None,
                 created_at: TimestampMicros(1),
                 updated_at: TimestampMicros(1),
+                business_service: None,
+                kind: ComponentKind::Component,
+                group_id: None,
             }],
             Vec::new(),
             vec![

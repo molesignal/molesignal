@@ -100,7 +100,11 @@ pub(super) async fn execute(
                         "id": subscriber.id,
                         "channel": subscriber.channel,
                         "masked_target": mask_target(subscriber.channel, &subscriber.target),
+                        "target_label": subscriber.target_label,
                         "status": subscriber.status,
+                        "component_scope": subscriber.components.scope,
+                        "component_ids": subscriber.components.component_ids,
+                        "origin": subscriber.origin,
                         "confirmation_sent_at": subscriber.confirmation_sent_at,
                         "confirmed_at": subscriber.confirmed_at,
                         "unsubscribed_at": subscriber.unsubscribed_at,
@@ -209,18 +213,20 @@ fn mask_target(channel: StatusPageSubscriberChannel, target: &str) -> String {
 
             format!("{}***@{domain}", local.chars().next().unwrap_or('*'))
         }
-        StatusPageSubscriberChannel::Webhook => Url::parse(target)
-            .ok()
-            .and_then(|url| {
-                let host = url.host_str()?;
+        StatusPageSubscriberChannel::Webhook | StatusPageSubscriberChannel::Slack => {
+            Url::parse(target)
+                .ok()
+                .and_then(|url| {
+                    let host = url.host_str()?;
 
-                let port = url
-                    .port()
-                    .map(|port| format!(":{port}"))
-                    .unwrap_or_default();
+                    let port = url
+                        .port()
+                        .map(|port| format!(":{port}"))
+                        .unwrap_or_default();
 
-                Some(format!("{}://{host}{port}/***", url.scheme()))
-            })
-            .unwrap_or_else(|| "***".into()),
+                    Some(format!("{}://{host}{port}/***", url.scheme()))
+                })
+                .unwrap_or_else(|| "***".into())
+        }
     }
 }

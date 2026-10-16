@@ -30,8 +30,9 @@ impl StatusPageComponentRepository for PgStatusPageRepository {
         sqlx::query(
             "INSERT INTO status_page_components
                 (id, org_id, status_page_id, name, description, status, visibility,
-                 lifecycle, position, archived_at_micros, created_at_micros, updated_at_micros)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
+                 lifecycle, position, archived_at_micros, created_at_micros, updated_at_micros,
+                 kind, group_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)",
         )
         .bind(&component.id.0)
         .bind(&component.org_id.0)
@@ -45,6 +46,8 @@ impl StatusPageComponentRepository for PgStatusPageRepository {
         .bind(component.archived_at.map(|at| at.0))
         .bind(component.created_at.0)
         .bind(component.updated_at.0)
+        .bind(component.kind.as_str())
+        .bind(component.group_id.as_ref().map(Id::as_str))
         .execute(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
@@ -78,7 +81,7 @@ impl StatusPageComponentRepository for PgStatusPageRepository {
             "UPDATE status_page_components SET
                  name = $4, description = $5, status = $6, visibility = $7,
                  lifecycle = $8, position = $9, archived_at_micros = $10,
-                 updated_at_micros = $11
+                 updated_at_micros = $11, group_id = $13
              WHERE org_id = $1 AND status_page_id = $2 AND id = $3 AND status = $12
              RETURNING id",
         )
@@ -94,6 +97,7 @@ impl StatusPageComponentRepository for PgStatusPageRepository {
         .bind(component.archived_at.map(|at| at.0))
         .bind(component.updated_at.0)
         .bind(expected_status.as_str())
+        .bind(component.group_id.as_ref().map(Id::as_str))
         .fetch_optional(&mut *transaction)
         .await
         .map_err(super::sqlx_err)?;
@@ -154,8 +158,8 @@ impl StatusPageComponentRepository for PgStatusPageRepository {
 
         let has_history: bool = sqlx::query_scalar(
             "SELECT EXISTS (
-                 SELECT 1 FROM status_page_incident_components
-                 WHERE org_id = $1 AND status_page_id = $2 AND component_id = $3
+                 SELECT 1 FROM status_page_incidents
+                 WHERE org_id = $1 AND status_page_id = $2 AND $3 = ANY(component_ids)
              ) OR (
                  SELECT count(*) > 1 FROM status_page_component_status_events
                  WHERE org_id = $1 AND status_page_id = $2 AND component_id = $3
@@ -173,6 +177,18 @@ impl StatusPageComponentRepository for PgStatusPageRepository {
                 "component has history and must be archived instead of deleted",
             ));
         }
+
+        // The archived components of a group that goes stay, on their own.
+        sqlx::query(
+            "UPDATE status_page_components SET group_id = NULL
+             WHERE org_id = $1 AND status_page_id = $2 AND group_id = $3",
+        )
+        .bind(&org_id.0)
+        .bind(&page_id.0)
+        .bind(&component_id.0)
+        .execute(&mut *transaction)
+        .await
+        .map_err(super::sqlx_err)?;
 
         let result = sqlx::query(
             "DELETE FROM status_page_components
@@ -271,8 +287,8 @@ async fn insert_component_status_event(
     sqlx::query(
         "INSERT INTO status_page_component_status_events
             (id, org_id, status_page_id, component_id, status, started_at_micros,
-             ended_at_micros, created_at_micros)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+             ended_at_micros, created_at_micros, notify_subscribers)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
     )
     .bind(&event.id.0)
     .bind(&event.org_id.0)
@@ -282,6 +298,7 @@ async fn insert_component_status_event(
     .bind(event.started_at.0)
     .bind(event.ended_at.map(|at| at.0))
     .bind(event.created_at.0)
+    .bind(event.notify_subscribers)
     .execute(transaction)
     .await
 }

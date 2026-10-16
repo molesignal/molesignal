@@ -91,12 +91,8 @@ CREATE TRIGGER trg_protect_configured_root_user
 BEFORE UPDATE OR DELETE ON users
 FOR EACH ROW EXECUTE FUNCTION protect_configured_root_user();
 
-CREATE TABLE IF NOT EXISTS iam_route_catalog_versions (
-    catalog_key         VARCHAR(64) PRIMARY KEY,
-    version             BIGINT      NOT NULL CHECK (version > 0),
-    updated_at_micros   BIGINT      NOT NULL
-);
-
+-- A route lists the permissions it needs in order; its catalog version is the
+-- 'routes' row of iam_catalog_versions.
 CREATE TABLE IF NOT EXISTS iam_routes (
     route_key            VARCHAR(128) PRIMARY KEY,
     path_pattern         VARCHAR(255) NOT NULL UNIQUE,
@@ -106,6 +102,9 @@ CREATE TABLE IF NOT EXISTS iam_routes (
     navigation_position INTEGER,
     enabled              BOOLEAN      NOT NULL DEFAULT TRUE,
     catalog_version      BIGINT       NOT NULL,
+    permissions          TEXT[]       NOT NULL DEFAULT ARRAY[]::TEXT[],
+    CONSTRAINT chk_iam_routes_permissions
+        CHECK (array_position(permissions, NULL) IS NULL),
     CONSTRAINT chk_iam_routes_key_format
         CHECK (route_key ~ '^[a-z0-9_]+(\.[a-z0-9_]+)*$'),
     CONSTRAINT chk_iam_routes_scope
@@ -125,18 +124,13 @@ CREATE TABLE IF NOT EXISTS iam_routes (
         )
 );
 
-CREATE TABLE IF NOT EXISTS iam_route_permissions (
-    route_key       VARCHAR(128) NOT NULL
-        REFERENCES iam_routes(route_key) ON DELETE CASCADE,
-    permission_key  VARCHAR(128) NOT NULL
-        REFERENCES iam_permissions(permission_key) ON DELETE RESTRICT,
-    position        INTEGER      NOT NULL CHECK (position >= 0),
-    PRIMARY KEY (route_key, permission_key)
-);
-CREATE UNIQUE INDEX IF NOT EXISTS uq_iam_route_permission_position
-    ON iam_route_permissions (route_key, position);
+-- Every permission a route names must be in the catalog.
+DROP TRIGGER IF EXISTS trg_iam_routes_permissions_known ON iam_routes;
+CREATE TRIGGER trg_iam_routes_permissions_known
+BEFORE INSERT OR UPDATE OF permissions ON iam_routes
+FOR EACH ROW EXECUTE FUNCTION check_iam_permission_keys();
 
-INSERT INTO iam_route_catalog_versions (catalog_key, version, updated_at_micros)
+INSERT INTO iam_catalog_versions (catalog_key, version, updated_at_micros)
 VALUES ('routes', 2, (EXTRACT(EPOCH FROM clock_timestamp()) * 1000000)::BIGINT)
 ON CONFLICT (catalog_key) DO UPDATE
 SET version = EXCLUDED.version,
@@ -227,6 +221,8 @@ INSERT INTO iam_route_seed VALUES
     ('alerts', '/alerts', 'organization', 'all', 'reliability', 10, TRUE, ARRAY['alerts.read']::TEXT[]),
     ('synthetics', '/synthetics/*', 'organization', 'all', 'reliability', 20, TRUE, ARRAY['synthetics.read']::TEXT[]),
     ('status.pages', '/status-pages', 'organization', 'all', 'reliability', 30, TRUE, ARRAY['status_pages.read']::TEXT[]),
+    ('business.services', '/business-services', 'organization', 'all', 'reliability', 25, TRUE, ARRAY['business_services.read']::TEXT[]),
+    ('business.service.detail', '/business-services/:id', 'organization', 'all', NULL, NULL, TRUE, ARRAY['business_services.read']::TEXT[]),
     ('alert.incidents', '/alerts/incidents', 'organization', 'all', NULL, NULL, TRUE, ARRAY['alerts.read']::TEXT[]),
     ('alert.rules', '/alerts/rules', 'organization', 'all', NULL, NULL, TRUE, ARRAY['alerts.read']::TEXT[]),
     ('alert.rule.new', '/alerts/rules/new', 'organization', 'all', NULL, NULL, TRUE, ARRAY['alerts.manage']::TEXT[]),
@@ -291,7 +287,6 @@ INSERT INTO iam_route_seed VALUES
     ('settings.organization.management', '/settings/organization_management', 'system', 'all', 'admin', 20, TRUE, ARRAY['sys.organizations.manage']::TEXT[]),
     ('settings.client_ip', '/settings/client_ip', 'system', 'all', NULL, NULL, TRUE, ARRAY['sys.settings.manage']::TEXT[]);
 
-DELETE FROM iam_route_permissions;
 DELETE FROM iam_routes route
 WHERE NOT EXISTS (
     SELECT 1 FROM iam_route_seed seed WHERE seed.route_key = route.route_key
@@ -305,7 +300,8 @@ INSERT INTO iam_routes (
     navigation_group,
     navigation_position,
     enabled,
-    catalog_version
+    catalog_version,
+    permissions
 )
 SELECT
     route_key,
@@ -315,7 +311,8 @@ SELECT
     navigation_group,
     navigation_position,
     enabled,
-    2
+    2,
+    permissions
 FROM iam_route_seed
 ON CONFLICT (route_key) DO UPDATE
 SET path_pattern = EXCLUDED.path_pattern,
@@ -324,21 +321,13 @@ SET path_pattern = EXCLUDED.path_pattern,
     navigation_group = EXCLUDED.navigation_group,
     navigation_position = EXCLUDED.navigation_position,
     enabled = EXCLUDED.enabled,
-    catalog_version = EXCLUDED.catalog_version;
-
-INSERT INTO iam_route_permissions (route_key, permission_key, position)
-SELECT
-    seed.route_key,
-    item.permission_key,
-    item.position - 1
-FROM iam_route_seed seed
-CROSS JOIN LATERAL unnest(seed.permissions)
-    WITH ORDINALITY AS item(permission_key, position);
+    catalog_version = EXCLUDED.catalog_version,
+    permissions = EXCLUDED.permissions;
 
 CREATE OR REPLACE FUNCTION bump_iam_route_catalog_version()
 RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
-    UPDATE iam_route_catalog_versions
+    UPDATE iam_catalog_versions
        SET version = version + 1,
            updated_at_micros = (EXTRACT(EPOCH FROM clock_timestamp()) * 1000000)::BIGINT
      WHERE catalog_key = 'routes';
@@ -349,9 +338,4 @@ $$;
 DROP TRIGGER IF EXISTS trg_iam_routes_catalog_version ON iam_routes;
 CREATE TRIGGER trg_iam_routes_catalog_version
 AFTER INSERT OR UPDATE OR DELETE ON iam_routes
-FOR EACH STATEMENT EXECUTE FUNCTION bump_iam_route_catalog_version();
-
-DROP TRIGGER IF EXISTS trg_iam_route_permissions_catalog_version ON iam_route_permissions;
-CREATE TRIGGER trg_iam_route_permissions_catalog_version
-AFTER INSERT OR UPDATE OR DELETE ON iam_route_permissions
 FOR EACH STATEMENT EXECUTE FUNCTION bump_iam_route_catalog_version();

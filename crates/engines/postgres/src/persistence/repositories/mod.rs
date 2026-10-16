@@ -11,6 +11,7 @@ pub mod alert_rules;
 pub mod annotations;
 pub mod api_tokens;
 pub mod audit_events;
+pub mod business_services;
 pub mod cluster;
 pub mod dashboard_authoring;
 pub mod dashboard_contract_registry;

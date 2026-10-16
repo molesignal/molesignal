@@ -15,8 +15,11 @@ mod input;
 mod notification_copy;
 mod pages;
 mod planned_maintenance;
+mod postmortems;
 mod private_access;
+mod service_links;
 mod subscription;
+mod updates;
 mod validation;
 
 pub use automation::{
@@ -28,24 +31,29 @@ pub use custom_domain::{StatusPageDomainCapability, StatusPageDomainInstructions
 pub use input::{
     StatusPageAccessRuleInput, StatusPageComponentInput, StatusPageDomainInput,
     StatusPageIncidentInput, StatusPageIncidentUpdateInput, StatusPageInput,
+    StatusPageServiceLinkInput,
 };
 pub use planned_maintenance::PlannedMaintenanceSweep;
 pub use private_access::{
     StatusPageAccessMetadata, StatusPageAccessRequestOutcome, StatusPageAccessSessionOutcome,
     access_cookie_name, token_hash,
 };
-pub use subscription::{StatusPageSubscriptionInput, StatusPageSubscriptionOutcome};
+pub use subscription::{
+    StatusPageImportProblem, StatusPageSlackAppSetting, StatusPageSubscriberImportReport,
+    StatusPageSubscriptionInput, StatusPageSubscriptionOutcome,
+};
 
 use crate::{
     domain::{
         alerting::repositories::IncidentRepository,
+        business_service::BusinessServiceRepository,
         i18n_language::I18nLanguageRepository,
         status_page::{
             StatusPageDomainHealthNotifier, StatusPageDomainVerifier, StatusPageNotificationSender,
-            StatusPageRepository,
+            StatusPageRepository, StatusPageSlackApps,
         },
     },
-    shared::ids::Id,
+    shared::{Error, Result, ids::Id},
 };
 
 const MICROS_PER_DAY: i64 = 24 * 60 * 60 * 1_000_000;
@@ -65,6 +73,8 @@ pub struct StatusPageService {
     pub(super) managed_domain_tls_configured: bool,
     pub(super) domain_health_notifier: Option<Arc<dyn StatusPageDomainHealthNotifier>>,
     pub(super) external_url: String,
+    pub(super) business_services: Option<Arc<dyn BusinessServiceRepository>>,
+    pub(super) slack_apps: Option<Arc<dyn StatusPageSlackApps>>,
 }
 
 impl StatusPageService {
@@ -81,6 +91,8 @@ impl StatusPageService {
             managed_domain_tls_configured: false,
             domain_health_notifier: None,
             external_url: String::new(),
+            business_services: None,
+            slack_apps: None,
         }
     }
 
@@ -113,6 +125,28 @@ impl StatusPageService {
     ) -> Self {
         self.domain_health_notifier = Some(notifier);
         self
+    }
+
+    /// The business services components can stand for.
+    pub fn with_business_services(
+        mut self,
+        repository: Arc<dyn BusinessServiceRepository>,
+    ) -> Self {
+        self.business_services = Some(repository);
+        self
+    }
+
+    /// The Slack apps visitors add a page to their channels with: the one a
+    /// page names in its settings.
+    pub fn with_slack_apps(mut self, slack_apps: Arc<dyn StatusPageSlackApps>) -> Self {
+        self.slack_apps = Some(slack_apps);
+        self
+    }
+
+    fn business_services(&self) -> Result<&Arc<dyn BusinessServiceRepository>> {
+        self.business_services
+            .as_ref()
+            .ok_or_else(|| Error::unavailable("business services are not configured"))
     }
 }
 

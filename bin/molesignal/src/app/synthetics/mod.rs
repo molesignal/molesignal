@@ -27,7 +27,7 @@ pub use probe::{
     PROBE_PROTOCOL_VERSION, ProbeControlService, ProbeRegisterInput, ProbeRegisterOutcome,
     ResolvedProbeSecret,
 };
-pub use runtime::{ProcessResultOutcome, SyntheticTransitionSink};
+pub use runtime::{ProcessResultOutcome, SyntheticTransitionSink, SyntheticTransitionSinks};
 pub use schedule::next_due_at;
 pub use service::SyntheticService;
 pub use validation::validate_revision;

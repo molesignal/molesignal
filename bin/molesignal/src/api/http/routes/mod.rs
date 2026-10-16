@@ -12,7 +12,7 @@ pub mod api_tokens;
 pub mod apm;
 pub mod audit;
 pub mod auth;
-
+pub mod business_services;
 pub mod cipher_keys;
 pub mod clusters;
 pub mod connectors;
@@ -110,6 +110,7 @@ pub fn api_v1(state: AppState) -> Router<AppState> {
         .merge(reports::routes())
         .merge(streams::routes())
         .merge(status_pages::routes())
+        .merge(business_services::routes())
         .merge(synthetics::routes())
         .merge(metrics::api_routes())
         .merge(me::routes())

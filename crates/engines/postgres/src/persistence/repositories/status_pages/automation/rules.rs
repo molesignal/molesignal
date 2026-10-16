@@ -16,6 +16,11 @@ use crate::{
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
+/// The automation setting is kept on the page row.
+const SETTINGS_COLS: &str = "org_id AS organization_id, id AS status_page_id,
+    automation_paused AS paused, automation_updated_by AS updated_by,
+    automation_updated_at_micros AS updated_at_micros";
+
 #[async_trait]
 impl StatusPageAutomationRepository for PgStatusPageRepository {
     async fn create_automation_rule(
@@ -207,11 +212,10 @@ impl StatusPageAutomationRepository for PgStatusPageRepository {
              JOIN status_page_automation_revisions revision
                ON revision.organization_id=rule.organization_id
               AND revision.id=rule.active_revision_id
-             LEFT JOIN status_page_automation_settings settings
-               ON settings.organization_id=rule.organization_id
-              AND settings.status_page_id=rule.status_page_id
+             JOIN status_pages page
+               ON page.org_id=rule.organization_id AND page.id=rule.status_page_id
              WHERE rule.organization_id=$1 AND rule.lifecycle='active'
-               AND COALESCE(settings.paused, FALSE)=FALSE
+               AND NOT page.automation_paused
                AND revision.matchers->>'source_kind'=$2
              ORDER BY rule.status_page_id, rule.position, rule.id"
         );
@@ -367,16 +371,17 @@ impl StatusPageAutomationRepository for PgStatusPageRepository {
         org_id: &Id,
         page_id: &Id,
     ) -> Result<Option<AutomationSettings>> {
-        let row = sqlx::query(
-            "SELECT organization_id,status_page_id,paused,updated_by,updated_at_micros
-             FROM status_page_automation_settings
-             WHERE organization_id=$1 AND status_page_id=$2",
-        )
-        .bind(&org_id.0)
-        .bind(&page_id.0)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(super::super::sqlx_err)?;
+        let sql = format!(
+            "SELECT {SETTINGS_COLS} FROM status_pages
+             WHERE org_id=$1 AND id=$2 AND automation_updated_by IS NOT NULL"
+        );
+
+        let row = sqlx::query(&sql)
+            .bind(&org_id.0)
+            .bind(&page_id.0)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(super::super::sqlx_err)?;
 
         row.map(row_to_settings).transpose()
     }
@@ -389,23 +394,23 @@ impl StatusPageAutomationRepository for PgStatusPageRepository {
         actor_id: &Id,
         updated_at: TimestampMicros,
     ) -> Result<AutomationSettings> {
-        let row = sqlx::query(
-            "INSERT INTO status_page_automation_settings
-                (organization_id,status_page_id,paused,updated_by,updated_at_micros)
-             VALUES ($1,$2,$3,$4,$5)
-             ON CONFLICT (organization_id,status_page_id) DO UPDATE
-             SET paused=EXCLUDED.paused,updated_by=EXCLUDED.updated_by,
-                 updated_at_micros=EXCLUDED.updated_at_micros
-             RETURNING organization_id,status_page_id,paused,updated_by,updated_at_micros",
-        )
-        .bind(&org_id.0)
-        .bind(&page_id.0)
-        .bind(paused)
-        .bind(&actor_id.0)
-        .bind(updated_at.0)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(super::super::sqlx_err)?;
+        let sql = format!(
+            "UPDATE status_pages
+             SET automation_paused=$3,automation_updated_by=$4,automation_updated_at_micros=$5
+             WHERE org_id=$1 AND id=$2
+             RETURNING {SETTINGS_COLS}"
+        );
+
+        let row = sqlx::query(&sql)
+            .bind(&org_id.0)
+            .bind(&page_id.0)
+            .bind(paused)
+            .bind(&actor_id.0)
+            .bind(updated_at.0)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(super::super::sqlx_err)?
+            .ok_or_else(|| Error::not_found("status page not found"))?;
 
         row_to_settings(row)
     }

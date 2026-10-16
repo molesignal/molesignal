@@ -1,39 +1,49 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Double-opt-in subscriptions and durable notification delivery processing.
+//! Double-opt-in subscriptions to a whole page or to the components a visitor
+//! chose. Every message carries the links that manage or end the
+//! subscription; an address that asks again while subscribed is sent the link
+//! that manages it.
 
-use std::collections::HashMap;
+use std::collections::HashSet;
 
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
+mod delivery;
+mod import;
 mod links;
+mod preferences;
+mod slack_app;
+mod slack_message;
 
-use links::{
-    NotificationPage, confirmation_message, custom_page_url, delivery_message, platform_page_url,
-};
+pub use import::{StatusPageImportProblem, StatusPageSubscriberImportReport};
+use links::{SubscriptionMessage, subscription_message};
+pub use slack_app::StatusPageSlackAppSetting;
 
 use super::StatusPageService;
 use crate::{
-    domain::{
-        i18n_language::LanguagePack,
-        status_page::{
-            StatusPage, StatusPageDeliveryPage, StatusPageDeliveryStatus, StatusPageLifecycle,
-            StatusPageNotificationDelivery, StatusPageNotificationMessage, StatusPageSubscriber,
-            StatusPageSubscriberChannel, StatusPageSubscriberPage, StatusPageSubscriberStatus,
-        },
+    domain::status_page::{
+        ComponentLifecycle, ComponentVisibility, StatusPage, StatusPageComponent,
+        StatusPageDeliveryPage, StatusPageLifecycle, StatusPageSubscriber,
+        StatusPageSubscriberChannel, StatusPageSubscriberOrigin, StatusPageSubscriberPage,
+        StatusPageSubscriberStatus, SubscriberComponents, SubscriptionRequestAction,
     },
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 const CONFIRMATION_COOLDOWN_MICROS: i64 = 10 * 60 * 1_000_000;
-const MAX_DELIVERY_ATTEMPTS: i32 = 5;
+
+/// The most components a subscriber can choose one by one.
+const MAX_CHOSEN_COMPONENTS: usize = 500;
 
 #[derive(Debug, Clone)]
 pub struct StatusPageSubscriptionInput {
     pub channel: StatusPageSubscriberChannel,
     pub target: String,
+    /// The components to hear about; none means the whole page.
+    pub component_ids: Vec<Id>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -57,6 +67,7 @@ impl StatusPageService {
         slug: &str,
         raw_session_token: &str,
         origin_host: &str,
+        component_ids: Vec<Id>,
     ) -> Result<StatusPageSubscriptionOutcome> {
         let page = self.get_customer_page(slug).await?;
 
@@ -70,6 +81,7 @@ impl StatusPageService {
             StatusPageSubscriptionInput {
                 channel: StatusPageSubscriberChannel::Email,
                 target: session.email,
+                component_ids,
             },
         )
         .await
@@ -83,8 +95,10 @@ impl StatusPageService {
         let sender = self.notification_sender()?;
         let target = normalize_target(input.channel, &input.target)?;
         sender.validate_target(input.channel, &target).await?;
+        let components = self
+            .subscriber_components(&page, input.component_ids)
+            .await?;
         let token = subscription_token();
-        let token_hash = token_hash(&token);
         let now = TimestampMicros::now();
 
         let pending = self
@@ -96,8 +110,12 @@ impl StatusPageService {
                     status_page_id: page.id.clone(),
                     channel: input.channel,
                     target,
+                    target_label: None,
                     status: StatusPageSubscriberStatus::Pending,
-                    token_hash: token_hash.clone(),
+                    token_hash: token_hash(&token),
+                    token,
+                    components,
+                    origin: StatusPageSubscriberOrigin::Page,
                     confirmation_sent_at: Some(now),
                     confirmed_at: None,
                     unsubscribed_at: None,
@@ -108,35 +126,15 @@ impl StatusPageService {
             )
             .await?;
 
-        if pending.should_send_confirmation {
-            let message = match self
-                .write_confirmation(&page, pending.subscriber.channel, &token)
-                .await
-            {
-                Ok(message) => message,
-                Err(error) => {
-                    self.repository
-                        .reset_pending_confirmation(&pending.subscriber.id, &token_hash)
-                        .await?;
+        let message = match pending.action {
+            SubscriptionRequestAction::Confirm => Some(SubscriptionMessage::Confirm),
+            SubscriptionRequestAction::Manage => Some(SubscriptionMessage::Manage),
+            SubscriptionRequestAction::Nothing => None,
+        };
 
-                    return Err(error);
-                }
-            };
-
-            if let Err(error) = sender
-                .send(
-                    pending.subscriber.channel,
-                    &pending.subscriber.target,
-                    &message,
-                )
-                .await
-            {
-                self.repository
-                    .reset_pending_confirmation(&pending.subscriber.id, &token_hash)
-                    .await?;
-
-                return Err(error);
-            }
+        if let Some(message) = message {
+            self.send_subscription_message(&page, &pending.subscriber, message)
+                .await?;
         }
 
         Ok(StatusPageSubscriptionOutcome {
@@ -236,45 +234,30 @@ impl StatusPageService {
             .get_subscriber(org_id, page_id, subscriber_id)
             .await?;
 
-        if existing.status != StatusPageSubscriberStatus::Pending {
+        if existing.status != StatusPageSubscriberStatus::Pending
+            || existing.origin == StatusPageSubscriberOrigin::SlackApp
+        {
             return Err(Error::conflict(
                 "only a pending subscription can resend confirmation",
             ));
         }
 
         let token = subscription_token();
-        let now = TimestampMicros::now();
 
         let subscriber = self
             .repository
-            .refresh_pending_confirmation(org_id, page_id, subscriber_id, &token_hash(&token), now)
+            .refresh_pending_confirmation(
+                org_id,
+                page_id,
+                subscriber_id,
+                &token,
+                &token_hash(&token),
+                TimestampMicros::now(),
+            )
             .await?;
 
-        let message = match self
-            .write_confirmation(&page, subscriber.channel, &token)
-            .await
-        {
-            Ok(message) => message,
-            Err(error) => {
-                self.repository
-                    .reset_pending_confirmation(&subscriber.id, &subscriber.token_hash)
-                    .await?;
-
-                return Err(error);
-            }
-        };
-
-        if let Err(error) = self
-            .notification_sender()?
-            .send(subscriber.channel, &subscriber.target, &message)
-            .await
-        {
-            self.repository
-                .reset_pending_confirmation(&subscriber.id, &subscriber.token_hash)
-                .await?;
-
-            return Err(error);
-        }
+        self.send_subscription_message(&page, &subscriber, SubscriptionMessage::Confirm)
+            .await?;
 
         Ok(subscriber)
     }
@@ -292,75 +275,6 @@ impl StatusPageService {
             .await
     }
 
-    pub async fn process_pending_notifications(&self, limit: u32) -> Result<u32> {
-        let sender = self.notification_sender()?;
-        let now = TimestampMicros::now();
-
-        let deliveries = self
-            .repository
-            .claim_notification_deliveries(now, limit.min(500))
-            .await?;
-
-        let count = u32::try_from(deliveries.len()).unwrap_or(u32::MAX);
-        let mut pages: HashMap<Id, NotificationPage> = HashMap::new();
-        let mut email_packs: HashMap<String, LanguagePack> = HashMap::new();
-
-        for delivery in deliveries {
-            let message = self
-                .write_delivery(&delivery, &mut pages, &mut email_packs)
-                .await;
-
-            let result = match message {
-                Ok(message) => {
-                    sender
-                        .send(delivery.channel, &delivery.target, &message)
-                        .await
-                }
-                Err(error) => Err(error),
-            };
-
-            let completed_at = TimestampMicros::now();
-
-            let (status, next_attempt_at, last_error) = match result {
-                Ok(()) => (StatusPageDeliveryStatus::Delivered, completed_at, None),
-                Err(error) if delivery.attempts >= MAX_DELIVERY_ATTEMPTS => (
-                    StatusPageDeliveryStatus::Failed,
-                    completed_at,
-                    Some(truncate_error(&error.to_string())),
-                ),
-                Err(error) => (
-                    StatusPageDeliveryStatus::Pending,
-                    TimestampMicros(
-                        completed_at
-                            .0
-                            .saturating_add(retry_delay_micros(delivery.attempts)),
-                    ),
-                    Some(truncate_error(&error.to_string())),
-                ),
-            };
-
-            if let Err(error) = self
-                .repository
-                .complete_notification_delivery(
-                    &delivery.id,
-                    status,
-                    next_attempt_at,
-                    last_error,
-                    completed_at,
-                )
-                .await
-            {
-                tracing::warn!(
-                    delivery_id = %delivery.id,
-                    error = %error,
-                    "status-page notification completion failed"
-                );
-            }
-        }
-
-        Ok(count)
-    }
-
     pub async fn purge_terminal_notification_deliveries(&self, limit: u32) -> Result<u64> {
         self.repository
             .purge_terminal_notification_deliveries(TimestampMicros::now(), limit.min(1000))
@@ -375,82 +289,122 @@ impl StatusPageService {
         })
     }
 
-    /// Only an email is written out: a webhook receives the payload alone.
-    async fn write_confirmation(
+    /// What a subscriber who chose `component_ids` hears about. Only the
+    /// components the page shows can be chosen.
+    pub(super) async fn subscriber_components(
         &self,
         page: &StatusPage,
-        channel: StatusPageSubscriberChannel,
-        token: &str,
-    ) -> Result<StatusPageNotificationMessage> {
-        let page_url = self.notification_page_url(page).await?;
+        component_ids: Vec<Id>,
+    ) -> Result<SubscriberComponents> {
+        if component_ids.is_empty() {
+            return Ok(SubscriberComponents::all());
+        }
 
-        let email_pack = match channel {
-            StatusPageSubscriberChannel::Email => Some(self.language_pack(&page.language).await?),
-            StatusPageSubscriberChannel::Webhook => None,
-        };
+        let mut seen = HashSet::new();
 
-        confirmation_message(page, &page_url, token, email_pack.as_ref())
+        let chosen: Vec<Id> = component_ids
+            .into_iter()
+            .filter(|id| seen.insert(id.as_str().to_string()))
+            .collect();
+
+        if chosen.len() > MAX_CHOSEN_COMPONENTS {
+            return Err(Error::invalid(
+                "a subscription can choose at most 500 components",
+            ));
+        }
+
+        let shown = self.shown_components(page).await?;
+
+        if chosen
+            .iter()
+            .any(|id| !shown.iter().any(|component| &component.id == id))
+        {
+            return Err(Error::invalid(
+                "a subscription can only choose components the page shows",
+            ));
+        }
+
+        Ok(SubscriberComponents::chosen(chosen))
     }
 
-    /// Writes the message of one delivery. A sweep reads each page, and the
-    /// email copy of each language, once.
-    async fn write_delivery(
+    /// The components the page shows, in its order.
+    pub(super) async fn shown_components(
         &self,
-        delivery: &StatusPageNotificationDelivery,
-        pages: &mut HashMap<Id, NotificationPage>,
-        email_packs: &mut HashMap<String, LanguagePack>,
-    ) -> Result<StatusPageNotificationMessage> {
-        let page = match pages.get(&delivery.status_page_id) {
-            Some(page) => page.clone(),
-            None => {
-                let page = self
-                    .repository
-                    .get_page(&delivery.org_id, &delivery.status_page_id)
-                    .await?;
-
-                let page = self.notification_page(page).await?;
-                pages.insert(delivery.status_page_id.clone(), page.clone());
-                page
-            }
-        };
-
-        // Only an email is written out: a webhook receives the payload alone.
-        if delivery.channel == StatusPageSubscriberChannel::Webhook {
-            return delivery_message(delivery, &page, None);
-        }
-
-        if !email_packs.contains_key(&page.language) {
-            let pack = self.language_pack(&page.language).await?;
-            email_packs.insert(page.language.clone(), pack);
-        }
-
-        delivery_message(delivery, &page, email_packs.get(&page.language))
-    }
-
-    async fn notification_page(&self, page: StatusPage) -> Result<NotificationPage> {
-        let url = self.notification_page_url(&page).await?;
-
-        Ok(NotificationPage {
-            url,
-            timezone: page.timezone,
-            language: page.language,
-        })
-    }
-
-    async fn notification_page_url(&self, page: &StatusPage) -> Result<String> {
-        let domain = self
+        page: &StatusPage,
+    ) -> Result<Vec<StatusPageComponent>> {
+        Ok(self
             .repository
-            .get_domain_config(&page.org_id, &page.id)
-            .await?;
+            .list_components(&page.org_id, &page.id)
+            .await?
+            .into_iter()
+            .filter(|component| {
+                // A group has no status of its own: subscribers name its components.
+                !component.is_group()
+                    && component.visibility == ComponentVisibility::Enabled
+                    && component.lifecycle == ComponentLifecycle::Active
+            })
+            .collect())
+    }
 
-        if let Some(domain) = domain.filter(|domain| {
-            domain.state == crate::domain::status_page::StatusPageDomainState::Active
-                && domain.routing_valid
-        }) {
-            return custom_page_url(&domain.hostname);
+    /// Sends a confirmation, or the link that manages an active subscription,
+    /// straight away. A message that cannot be sent lets the visitor ask again
+    /// at once.
+    async fn send_subscription_message(
+        &self,
+        page: &StatusPage,
+        subscriber: &StatusPageSubscriber,
+        kind: SubscriptionMessage,
+    ) -> Result<()> {
+        let sent: Result<()> = async {
+            let page_url = self.notification_page_url(page).await?;
+
+            let pack = match subscriber.channel {
+                StatusPageSubscriberChannel::Webhook => None,
+                StatusPageSubscriberChannel::Email | StatusPageSubscriberChannel::Slack => {
+                    Some(self.language_pack(&page.language).await?)
+                }
+            };
+
+            let names = self.component_names(page, &subscriber.components).await?;
+
+            let message =
+                subscription_message(kind, page, &page_url, subscriber, &names, pack.as_ref())?;
+
+            self.notification_sender()?
+                .send(subscriber.channel, &subscriber.target, &message)
+                .await
+        }
+        .await;
+
+        if let Err(error) = sent {
+            self.repository
+                .reset_pending_confirmation(&subscriber.id, &subscriber.token_hash)
+                .await?;
+
+            return Err(error);
         }
 
-        platform_page_url(&self.external_url, &page.slug)
+        Ok(())
+    }
+
+    /// The names of the components a subscriber chose, in page order; none
+    /// for a subscriber of the whole page.
+    pub(super) async fn component_names(
+        &self,
+        page: &StatusPage,
+        components: &SubscriberComponents,
+    ) -> Result<Vec<String>> {
+        if components.component_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        Ok(self
+            .shown_components(page)
+            .await?
+            .into_iter()
+            .filter(|component| components.component_ids.contains(&component.id))
+            .map(|component| component.name)
+            .collect())
     }
 }
 
@@ -463,7 +417,9 @@ fn normalize_target(channel: StatusPageSubscriberChannel, raw: &str) -> Result<S
 
     Ok(match channel {
         StatusPageSubscriberChannel::Email => target.to_ascii_lowercase(),
-        StatusPageSubscriberChannel::Webhook => target.to_string(),
+        StatusPageSubscriberChannel::Webhook | StatusPageSubscriberChannel::Slack => {
+            target.to_string()
+        }
     })
 }
 
@@ -487,19 +443,6 @@ fn token_hash(token: &str) -> String {
     hex::encode(Sha256::digest(token.as_bytes()))
 }
 
-const fn retry_delay_micros(attempt: i32) -> i64 {
-    match attempt {
-        0 | 1 => 60 * 1_000_000,
-        2 => 5 * 60 * 1_000_000,
-        3 => 30 * 60 * 1_000_000,
-        _ => 2 * 60 * 60 * 1_000_000,
-    }
-}
-
-fn truncate_error(value: &str) -> String {
-    value.chars().take(500).collect()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -511,5 +454,22 @@ mod tests {
         assert_eq!(token_hash(&token).len(), 64);
         assert!(validate_token(&token).is_ok());
         assert!(validate_token("bad&subscription_action=unsubscribe").is_err());
+    }
+
+    #[test]
+    fn email_targets_are_lowercased_and_urls_kept_as_given() {
+        assert_eq!(
+            normalize_target(StatusPageSubscriberChannel::Email, " Ops@Example.COM ").unwrap(),
+            "ops@example.com"
+        );
+        assert_eq!(
+            normalize_target(
+                StatusPageSubscriberChannel::Slack,
+                "https://hooks.slack.com/services/T0/B0/AbC"
+            )
+            .unwrap(),
+            "https://hooks.slack.com/services/T0/B0/AbC"
+        );
+        assert!(normalize_target(StatusPageSubscriberChannel::Webhook, "a\nb").is_err());
     }
 }

@@ -99,6 +99,8 @@ impl StatusPageService {
                     status: PublicIncidentStatus::InProgress,
                     message,
                     created_at: now,
+                    next_update_at: None,
+                    notify_subscribers: true,
                 },
                 PublicIncidentStatus::Scheduled,
                 None,

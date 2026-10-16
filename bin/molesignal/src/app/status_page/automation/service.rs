@@ -9,7 +9,8 @@ use crate::{
     domain::status_page::{
         ActiveAutomationRule, AutomationCandidate, AutomationCandidateDetail,
         AutomationCandidateState, AutomationRuleLifecycle, AutomationSettings,
-        AutomationSourceObservation, StatusAutomationRevision, StatusAutomationRule,
+        AutomationSourceKind, AutomationSourceObservation, StatusAutomationRevision,
+        StatusAutomationRule,
     },
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
@@ -303,7 +304,14 @@ impl StatusPageService {
             ));
         }
 
-        if input.action.component_ids.is_empty() || input.action.component_ids.len() > 500 {
+        // A business-service rule that names no components publishes on the
+        // components that stand for the service.
+        let names_components_later =
+            input.matchers.source_kind == AutomationSourceKind::BusinessService;
+
+        if (input.action.component_ids.is_empty() && !names_components_later)
+            || input.action.component_ids.len() > 500
+        {
             return Err(Error::invalid(
                 "automation Rule must select 1 to 500 Components",
             ));
@@ -364,7 +372,8 @@ impl StatusPageService {
             .await?
             .into_iter()
             .filter(|component| {
-                component.lifecycle == crate::domain::status_page::ComponentLifecycle::Active
+                !component.is_group()
+                    && component.lifecycle == crate::domain::status_page::ComponentLifecycle::Active
             })
             .map(|component| component.id.0)
             .collect::<HashSet<_>>();

@@ -269,7 +269,6 @@ mod tests {
             "status_pages",
             "status_page_components",
             "status_page_incidents",
-            "status_page_incident_components",
             "status_page_incident_updates",
         ] {
             assert!(
@@ -277,6 +276,11 @@ mod tests {
                 "missing status-page table {table}"
             );
         }
+        assert!(!INITIAL_SQL.contains("CREATE TABLE status_page_incident_components"));
+        assert!(INITIAL_SQL.contains("trg_status_page_incidents_components"));
+        assert!(INITIAL_SQL.contains("trg_status_page_components_named"));
+        assert!(!INITIAL_SQL.contains("CREATE TABLE status_page_automation_settings"));
+        assert!(INITIAL_SQL.contains("ADD COLUMN automation_paused BOOLEAN"));
         assert!(INITIAL_SQL.contains("fk_status_page_incidents_source"));
         assert!(!INITIAL_SQL.contains("'alert.status.pages'"));
         assert!(INITIAL_SQL.contains("ADD COLUMN languages TEXT[]"));
@@ -374,6 +378,77 @@ mod tests {
         }
     }
 
+    #[test]
+    fn every_path_to_subscribers_hears_only_chosen_components_and_skips_silent_changes() {
+        let hears = "status_page_subscriber_hears(";
+
+        let component = effective_function("enqueue_status_page_component_notification");
+        assert!(component.contains(hears));
+        assert!(component.contains("IF NOT NEW.notify_subscribers THEN"));
+
+        let incident = effective_function("enqueue_status_page_incident_notification");
+        assert!(incident.contains(hears));
+        assert!(incident.contains("IF NOT NEW.notify_subscribers THEN"));
+        assert!(incident.contains("'next_update_at', NEW.next_update_at_micros"));
+
+        for source in [
+            include_str!("repositories/status_pages/planned_maintenance.rs"),
+            include_str!("repositories/status_pages/postmortems.rs"),
+        ] {
+            assert!(source.contains(hears));
+            assert!(source.contains("status_page_event_component_ids("));
+            assert!(!source.contains("status_page_components"));
+        }
+
+        let (_, ids) = INITIAL_SQL
+            .split_once("CREATE FUNCTION status_page_event_component_ids(")
+            .expect("event component function");
+
+        let ids = &ids[..ids
+            .find("$$ LANGUAGE sql STABLE;")
+            .expect("end of the function")];
+        assert!(ids.contains("AND component.visibility = 'enabled'"));
+        assert!(ids.contains("AND component.lifecycle = 'active'"));
+    }
+
+    #[test]
+    fn initial_schema_and_route_catalog_own_business_services() {
+        assert!(INITIAL_SQL.contains("CREATE TABLE business_services"));
+        assert!(INITIAL_SQL.contains("health_history"));
+        assert!(INITIAL_SQL.contains("'business_services.read'"));
+        assert!(INITIAL_SQL.contains("fk_status_page_components_business_service"));
+        assert!(INITIAL_SQL.contains("'synthetic_monitor', 'business_service'"));
+        assert!(IAM_ROUTE_CATALOG_SQL.contains("'business.services', '/business-services'"));
+        assert!(IAM_ROUTE_CATALOG_SQL.contains("'reliability', 25"));
+    }
+
+    #[test]
+    fn iam_lists_and_counters_live_with_their_owners() {
+        let (_, consolidation) = INITIAL_SQL
+            .rsplit_once("-- IAM catalog consolidation")
+            .expect("IAM consolidation section");
+
+        for merged in [
+            "iam_role_permissions",
+            "iam_builtin_role_permissions",
+            "iam_builtin_role_purposes",
+            "iam_permission_bundle_items",
+            "iam_policy_versions",
+            "iam_permission_catalog_versions",
+        ] {
+            assert!(
+                consolidation.contains(&format!("DROP TABLE {merged};")),
+                "{merged} must be folded into its owner"
+            );
+        }
+
+        assert!(consolidation.contains("CREATE TABLE iam_catalog_versions"));
+        assert!(consolidation.contains("ADD COLUMN iam_policy_version BIGINT"));
+        assert!(consolidation.contains("FUNCTION check_iam_permission_keys()"));
+        assert!(consolidation.contains("FUNCTION release_iam_permission()"));
+        assert!(!IAM_ROUTE_CATALOG_SQL.contains("iam_route_catalog_versions"));
+    }
+
     /// The last definition of a trigger function in the baseline is the one that runs.
     fn effective_function(name: &str) -> &'static str {
         let header = format!("CREATE OR REPLACE FUNCTION {name}()");
@@ -420,6 +495,8 @@ mod tests {
         assert!(INITIAL_SQL.contains("PRIMARY KEY (organization_id, agent_id)"));
         assert!(INITIAL_SQL.contains("organization_id"));
         assert!(INITIAL_SQL.contains("finished_at_micros DESC, id DESC"));
+        assert!(!INITIAL_SQL.contains("CREATE TABLE synthetic_monitor_revision_locations"));
+        assert!(INITIAL_SQL.contains("trg_synthetic_probe_locations_listed"));
     }
 
     #[test]
@@ -470,8 +547,9 @@ mod tests {
             !IAM_ROUTE_CATALOG_SQL
                 .contains("CREATE OR REPLACE FUNCTION protect_platform_administrator_user()")
         );
-        assert!(IAM_ROUTE_CATALOG_SQL.contains("iam_route_permissions"));
-        assert!(IAM_ROUTE_CATALOG_SQL.contains("trg_iam_route_permissions_catalog_version"));
+        assert!(!IAM_ROUTE_CATALOG_SQL.contains("iam_route_permissions"));
+        assert!(IAM_ROUTE_CATALOG_SQL.contains("trg_iam_routes_permissions_known"));
+        assert!(IAM_ROUTE_CATALOG_SQL.contains("trg_iam_routes_catalog_version"));
         assert!(IAM_ROUTE_CATALOG_SQL.contains("navigation_group"));
         assert!(IAM_ROUTE_CATALOG_SQL.contains("navigation_position"));
         assert!(IAM_ROUTE_CATALOG_SQL.contains("chk_iam_routes_key_format"));

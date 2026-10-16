@@ -10,6 +10,6 @@ pub mod rule_evaluator;
 pub mod service;
 
 pub use dispatcher::EscalationDispatcher;
-pub use lifecycle::AlertIncidentLifecycleSink;
+pub use lifecycle::{AlertIncidentLifecycleSink, AlertIncidentLifecycleSinks};
 pub use rule_evaluator::RuleEvaluator;
 pub use service::AlertingService;

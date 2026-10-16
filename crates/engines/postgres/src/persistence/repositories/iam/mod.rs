@@ -3,9 +3,9 @@
 
 //! Persistence boundary for unified IAM access.
 //!
-//! Mutations bump `iam_policy_versions` in the same transaction. Readers use
-//! the version as part of their cache key, so a committed revocation is visible
-//! on the next request without relying on a TTL.
+//! Mutations bump the organization's `iam_policy_version` in the same
+//! transaction. Readers use the version as part of their cache key, so a
+//! committed revocation is visible on the next request without relying on a TTL.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -51,7 +51,7 @@ impl IamRepository for PgIamRepository {
     async fn permission_catalog_version(&self) -> Result<u64> {
         let version: i64 = sqlx::query_scalar(
             "SELECT version
-               FROM iam_permission_catalog_versions
+               FROM iam_catalog_versions
               WHERE catalog_key = 'permissions'",
         )
         .fetch_one(&self.pool)
@@ -65,7 +65,7 @@ impl IamRepository for PgIamRepository {
     async fn permission_catalog(&self) -> Result<IamPermissionCatalog> {
         let version: i64 = sqlx::query_scalar(
             "SELECT version
-               FROM iam_permission_catalog_versions
+               FROM iam_catalog_versions
               WHERE catalog_key = 'permissions'",
         )
         .fetch_one(&self.pool)
@@ -85,8 +85,8 @@ impl IamRepository for PgIamRepository {
                      ARRAY[]::TEXT[]
                  ) AS builtin_roles
                FROM iam_permissions permission
-          LEFT JOIN iam_builtin_role_permissions builtin
-                 ON builtin.permission_key = permission.permission_key
+          LEFT JOIN iam_builtin_roles builtin
+                 ON permission.permission_key = ANY(builtin.permissions)
            GROUP BY permission.permission_key,
                     permission.scope,
                     permission.domain,
@@ -115,20 +115,9 @@ impl IamRepository for PgIamRepository {
             .collect::<Result<Vec<_>>>()?;
 
         let bundle_rows = sqlx::query(
-            "SELECT
-                 bundle.bundle_key,
-                 bundle.label_key,
-                 bundle.description_key,
-                 COALESCE(
-                     array_agg(item.permission_key ORDER BY item.position)
-                         FILTER (WHERE item.permission_key IS NOT NULL),
-                     ARRAY[]::TEXT[]
-                 ) AS permissions
-               FROM iam_permission_bundles bundle
-          LEFT JOIN iam_permission_bundle_items item
-                 ON item.bundle_key = bundle.bundle_key
-           GROUP BY bundle.bundle_key, bundle.label_key, bundle.description_key
-           ORDER BY bundle.bundle_key",
+            "SELECT bundle_key, label_key, description_key, permissions
+               FROM iam_permission_bundles
+           ORDER BY bundle_key",
         )
         .fetch_all(&self.pool)
         .await
@@ -157,7 +146,7 @@ impl IamRepository for PgIamRepository {
     async fn route_catalog_version(&self) -> Result<u64> {
         let version: i64 = sqlx::query_scalar(
             "SELECT version
-               FROM iam_route_catalog_versions
+               FROM iam_catalog_versions
               WHERE catalog_key = 'routes'",
         )
         .fetch_one(&self.pool)
@@ -170,7 +159,7 @@ impl IamRepository for PgIamRepository {
     async fn route_catalog(&self) -> Result<IamRouteCatalog> {
         let version: i64 = sqlx::query_scalar(
             "SELECT version
-               FROM iam_route_catalog_versions
+               FROM iam_catalog_versions
               WHERE catalog_key = 'routes'",
         )
         .fetch_one(&self.pool)
@@ -178,30 +167,10 @@ impl IamRepository for PgIamRepository {
         .map_err(sqlx_err)?;
 
         let rows = sqlx::query(
-            "SELECT
-                 route.route_key,
-                 route.path_pattern,
-                 route.scope,
-                 route.permission_mode,
-                 route.navigation_group,
-                 route.navigation_position,
-                 route.enabled,
-                 COALESCE(
-                     array_agg(item.permission_key ORDER BY item.position)
-                         FILTER (WHERE item.permission_key IS NOT NULL),
-                     ARRAY[]::TEXT[]
-                 ) AS permissions
-               FROM iam_routes route
-          LEFT JOIN iam_route_permissions item
-                 ON item.route_key = route.route_key
-           GROUP BY route.route_key,
-                    route.path_pattern,
-                    route.scope,
-                    route.permission_mode,
-                    route.navigation_group,
-                    route.navigation_position,
-                    route.enabled
-           ORDER BY route.route_key",
+            "SELECT route_key, path_pattern, scope, permission_mode, navigation_group,
+                    navigation_position, enabled, permissions
+               FROM iam_routes
+           ORDER BY route_key",
         )
         .fetch_all(&self.pool)
         .await
@@ -253,8 +222,7 @@ impl IamRepository for PgIamRepository {
         sqlx::query_scalar(
             "SELECT role_permission.permission_key
                FROM iam_roles role
-               JOIN iam_role_permissions role_permission
-                 ON role_permission.role_id = role.id
+         CROSS JOIN LATERAL unnest(role.permissions) AS role_permission(permission_key)
                JOIN iam_permissions permission
                  ON permission.permission_key = role_permission.permission_key
                 AND (
@@ -351,11 +319,11 @@ impl IamRepository for PgIamRepository {
     ) -> Result<Option<IamAssignedRole>> {
         let row = sqlx::query(
             "SELECT role.id, role.role_key, role.name, role.builtin
-               FROM iam_builtin_role_purposes purpose
+               FROM iam_builtin_roles catalog
                JOIN iam_roles role
                  ON role.org_id = $1
-                AND role.role_key = purpose.role_key
-              WHERE purpose.purpose = $2",
+                AND role.role_key = catalog.role_key
+              WHERE catalog.purpose = $2",
         )
         .bind(&organization_id.0)
         .bind(purpose)
@@ -434,26 +402,15 @@ impl IamRepository for PgIamRepository {
     }
 
     async fn policy_version(&self, organization_id: &Id) -> Result<u64> {
-        let now = TimestampMicros::now();
-
-        sqlx::query(
-            "INSERT INTO iam_policy_versions (organization_id, version, updated_at_micros)
-             VALUES ($1, 1, $2)
-             ON CONFLICT (organization_id) DO NOTHING",
-        )
-        .bind(&organization_id.0)
-        .bind(now.0)
-        .execute(&self.pool)
-        .await
-        .map_err(sqlx_err)?;
-
-        let version: i64 = sqlx::query_scalar(
-            "SELECT version FROM iam_policy_versions WHERE organization_id = $1",
-        )
-        .bind(&organization_id.0)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(sqlx_err)?;
+        // An organization that does not exist has nothing to cache; it reads
+        // the first version.
+        let version: i64 =
+            sqlx::query_scalar::<i64>("SELECT iam_policy_version FROM organizations WHERE id = $1")
+                .bind(&organization_id.0)
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(sqlx_err)?
+                .unwrap_or(1);
 
         u64::try_from(version).map_err(|_| Error::internal("negative IAM policy version"))
     }
@@ -505,8 +462,7 @@ impl IamRepository for PgIamRepository {
                 AND r.org_id = b.organization_id
           LEFT JOIN iam_builtin_roles builtin_role
                  ON builtin_role.role_key = r.role_key
-          LEFT JOIN iam_role_permissions rp
-                 ON rp.role_id = r.id
+          LEFT JOIN LATERAL unnest(r.permissions) AS rp(permission_key) ON TRUE
           LEFT JOIN iam_permissions permission
                  ON permission.permission_key = rp.permission_key
                 AND (permission.scope = 'organization' OR r.builtin)
@@ -687,8 +643,7 @@ impl IamRepository for PgIamRepository {
                JOIN iam_roles role
                  ON role.id = rel.role_id
                 AND role.org_id = rel.organization_id
-          LEFT JOIN iam_role_permissions role_permission
-                 ON role_permission.role_id = role.id
+          LEFT JOIN LATERAL unnest(role.permissions) AS role_permission(permission_key) ON TRUE
               WHERE rel.organization_id = $1
                 AND (
                     (rel.resource_type = $4 AND rel.resource_id = $5)

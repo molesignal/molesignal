@@ -25,9 +25,16 @@ use crate::{
 pub const SLACK_APP_CONNECTOR_TYPE: &str = "slack_app";
 pub const SLACK_WEBHOOK_CONNECTOR_TYPE: &str = "slack_webhook";
 
+/// A Slack app. The bot token sends messages; the client ID and secret let
+/// status page visitors add the app's incoming webhook to their channels.
 #[derive(Debug, Clone, Deserialize)]
 struct SlackAppConfig {
+    #[serde(default)]
     bot_token: String,
+    #[serde(default)]
+    client_id: String,
+    #[serde(default)]
+    client_secret: String,
     #[serde(default = "default_api_base_url")]
     api_base_url: String,
     #[serde(default = "default_timeout_secs")]
@@ -49,8 +56,19 @@ impl SlackAppConfig {
     }
 
     fn validate(&self) -> Result<()> {
-        if self.bot_token.trim().is_empty() {
-            return Err(Error::invalid("slack_app bot_token cannot be empty"));
+        let has_client_id = !self.client_id.trim().is_empty();
+        let has_client_secret = !self.client_secret.trim().is_empty();
+
+        if has_client_id != has_client_secret {
+            return Err(Error::invalid(
+                "slack_app client_id and client_secret must be set together",
+            ));
+        }
+
+        if self.bot_token.trim().is_empty() && !has_client_id {
+            return Err(Error::invalid(
+                "slack_app needs a bot_token, or a client_id and client_secret",
+            ));
         }
 
         validate_http_base(&self.api_base_url, "slack_app api_base_url")?;
@@ -160,6 +178,12 @@ impl ConnectorAdapter for SlackAppConnectorAdapter {
         let config = SlackAppConfig::parse(config)?;
         config.validate()?;
         self.validate_target(target)?;
+
+        if config.bot_token.trim().is_empty() {
+            return Err(Error::invalid(
+                "slack_app needs a bot_token to send messages",
+            ));
+        }
 
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(config.timeout_secs))
@@ -349,6 +373,15 @@ mod tests {
         adapter
             .validate_config(&json!({"bot_token": "xoxb-secret"}))
             .unwrap();
+        adapter
+            .validate_config(&json!({"client_id": "1.2", "client_secret": "secret"}))
+            .unwrap();
+        assert!(adapter.validate_config(&json!({})).is_err());
+        assert!(
+            adapter
+                .validate_config(&json!({"bot_token": "xoxb-secret", "client_id": "1.2"}))
+                .is_err()
+        );
         adapter
             .validate_target(&NotifyTarget {
                 target_type: NotifyTargetType::DirectUser,

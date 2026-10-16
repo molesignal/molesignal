@@ -291,6 +291,7 @@ mod tests {
             purge_after: None,
             created_at: TimestampMicros(1),
             updated_at: TimestampMicros(1),
+            slack_connector_id: None,
         }
     }
 

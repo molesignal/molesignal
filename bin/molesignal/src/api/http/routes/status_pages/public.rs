@@ -7,9 +7,10 @@ use serde::Serialize;
 
 use crate::{
     domain::status_page::{
-        ComponentStatus, IncidentImpact, PublicIncidentStatus, StatusPageComponent,
+        ComponentKind, ComponentStatus, IncidentImpact, PublicIncidentStatus, StatusPageComponent,
         StatusPageComponentStatusEvent, StatusPageIncident, StatusPageIncidentKind,
-        StatusPageIncidentUpdate, StatusPageSnapshot, StatusPageVisibility,
+        StatusPageIncidentUpdate, StatusPagePostmortem, StatusPagePublicationState,
+        StatusPageSnapshot, StatusPageVisibility,
     },
     shared::{ids::Id, time::TimestampMicros},
 };
@@ -38,6 +39,9 @@ struct PublicStatusPage {
     languages: Vec<String>,
     history_days: i32,
     visibility: StatusPageVisibility,
+    /// Whether a visitor can add the page to Slack with the Slack app the
+    /// page names, besides pasting an incoming webhook.
+    slack_app: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -46,6 +50,9 @@ struct PublicStatusPageComponent {
     name: String,
     description: String,
     status: ComponentStatus,
+    /// A group shows the worst status of the components in it.
+    kind: ComponentKind,
+    group_id: Option<Id>,
 }
 
 #[derive(Debug, Serialize)]
@@ -67,6 +74,10 @@ struct PublicStatusPageIncident {
     updates: Vec<PublicStatusPageIncidentUpdate>,
     started_at: TimestampMicros,
     ended_at: Option<TimestampMicros>,
+    /// By when the latest update promises the next one, while the event goes on.
+    next_update_at: Option<TimestampMicros>,
+    /// The published postmortem; a draft is never shown.
+    postmortem: Option<PublicPostmortem>,
 }
 
 #[derive(Debug, Serialize)]
@@ -75,6 +86,31 @@ struct PublicStatusPageIncidentUpdate {
     status: PublicIncidentStatus,
     message: String,
     created_at: TimestampMicros,
+    next_update_at: Option<TimestampMicros>,
+}
+
+#[derive(Debug, Serialize)]
+struct PublicPostmortem {
+    body: String,
+    published_at: Option<TimestampMicros>,
+    revised_at: Option<TimestampMicros>,
+}
+
+impl PublicPostmortem {
+    fn published(postmortem: StatusPagePostmortem) -> Option<Self> {
+        (postmortem.publication_state == StatusPagePublicationState::Published).then_some(Self {
+            body: postmortem.body,
+            published_at: postmortem.published_at,
+            revised_at: postmortem.revised_at,
+        })
+    }
+}
+
+impl PublicStatusPageSnapshot {
+    pub(super) fn with_slack_app(mut self, available: bool) -> Self {
+        self.page.slack_app = available;
+        self
+    }
 }
 
 impl From<StatusPageSnapshot> for PublicStatusPageSnapshot {
@@ -89,6 +125,7 @@ impl From<StatusPageSnapshot> for PublicStatusPageSnapshot {
             languages: snapshot.page.languages,
             history_days: snapshot.page.history_days,
             visibility: snapshot.page.visibility,
+            slack_app: false,
         };
 
         let active_incidents = snapshot.active_incidents;
@@ -145,12 +182,16 @@ impl From<StatusPageComponent> for PublicStatusPageComponent {
             name: component.name,
             description: component.description,
             status: component.status,
+            kind: component.kind,
+            group_id: component.group_id,
         }
     }
 }
 
 impl From<StatusPageIncident> for PublicStatusPageIncident {
     fn from(incident: StatusPageIncident) -> Self {
+        let next_update_at = incident.next_update_at();
+
         Self {
             id: incident.id,
             kind: incident.kind,
@@ -165,6 +206,8 @@ impl From<StatusPageIncident> for PublicStatusPageIncident {
                 .collect(),
             started_at: incident.started_at,
             ended_at: incident.ended_at,
+            next_update_at,
+            postmortem: incident.postmortem.and_then(PublicPostmortem::published),
         }
     }
 }
@@ -176,6 +219,7 @@ impl From<StatusPageIncidentUpdate> for PublicStatusPageIncidentUpdate {
             status: update.status,
             message: update.message,
             created_at: update.created_at,
+            next_update_at: update.next_update_at,
         }
     }
 }
@@ -219,6 +263,7 @@ mod tests {
                 purge_after: None,
                 created_at: TimestampMicros(1),
                 updated_at: TimestampMicros(1),
+                slack_connector_id: None,
             },
             overall_status: ComponentStatus::MajorOutage,
             components: vec![StatusPageComponent {
@@ -234,6 +279,9 @@ mod tests {
                 archived_at: None,
                 created_at: TimestampMicros(1),
                 updated_at: TimestampMicros(1),
+                business_service: None,
+                kind: ComponentKind::Component,
+                group_id: None,
             }],
             component_status_events: vec![StatusPageComponentStatusEvent {
                 id: Id("event-secret".into()),
@@ -244,6 +292,7 @@ mod tests {
                 started_at: TimestampMicros(1),
                 ended_at: None,
                 created_at: TimestampMicros(1),
+                notify_subscribers: true,
             }],
             active_incidents: vec![StatusPageIncident {
                 id: Id("publication-public".into()),
@@ -265,6 +314,8 @@ mod tests {
                     status: PublicIncidentStatus::Investigating,
                     message: "We are investigating.".into(),
                     created_at: TimestampMicros(2),
+                    next_update_at: Some(TimestampMicros(3)),
+                    notify_subscribers: false,
                 }],
                 started_at: TimestampMicros(1),
                 ended_at: None,
@@ -273,6 +324,14 @@ mod tests {
                 published_at: Some(TimestampMicros(1)),
                 created_at: TimestampMicros(1),
                 updated_at: TimestampMicros(2),
+                postmortem: Some(StatusPagePostmortem {
+                    body: "Draft notes".into(),
+                    publication_state: StatusPagePublicationState::Draft,
+                    published_at: None,
+                    revised_at: None,
+                    updated_by: Some(Id("user-secret".into())),
+                    updated_at: TimestampMicros(2),
+                }),
             }],
             scheduled_maintenance: Vec::new(),
             history: Vec::new(),
@@ -308,7 +367,19 @@ mod tests {
                 "public incident leaked {sensitive}"
             );
         }
+        assert_eq!(incident["next_update_at"], 3);
+        assert!(
+            incident["updates"][0].get("notify_subscribers").is_none(),
+            "whether subscribers were told is not public"
+        );
+        assert_eq!(
+            incident["postmortem"],
+            serde_json::Value::Null,
+            "a draft postmortem is not public"
+        );
         assert_eq!(value["components"][0]["status"], "major_outage");
+        assert!(value["components"][0].get("business_service").is_none());
+        assert_eq!(page["slack_app"], false);
         assert_eq!(value["updated_at"], 2);
         let event = &value["component_status_events"][0];
         assert_eq!(event["component_id"], "component-public");

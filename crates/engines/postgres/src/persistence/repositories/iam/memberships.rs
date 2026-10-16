@@ -62,15 +62,20 @@ async fn ensure_builtin_roles(
     .await
     .map_err(sqlx_err)?;
 
+    // A built-in role gains the permissions its catalog entry gained since; it
+    // keeps any it already has.
     sqlx::query(
-        "INSERT INTO iam_role_permissions (role_id, permission_key)
-         SELECT role.id, catalog.permission_key
-           FROM iam_roles role
-           JOIN iam_builtin_role_permissions catalog
-             ON catalog.role_key = role.role_key
+        "UPDATE iam_roles role
+            SET permissions = ARRAY(
+                    SELECT DISTINCT permission_key
+                      FROM unnest(role.permissions || catalog.permissions) AS listed(permission_key)
+                  ORDER BY permission_key
+                )
+           FROM iam_builtin_roles catalog
           WHERE role.org_id = $1
             AND role.builtin
-         ON CONFLICT (role_id, permission_key) DO NOTHING",
+            AND catalog.role_key = role.role_key
+            AND NOT role.permissions @> catalog.permissions",
     )
     .bind(&org_id.0)
     .execute(&mut *tx)
@@ -333,11 +338,11 @@ impl IamMembershipRepository for PgIamMembershipRepository {
 
         let role_id = sqlx::query_scalar::<String>(
             "SELECT role.id
-               FROM iam_builtin_role_purposes purpose
+               FROM iam_builtin_roles catalog
                JOIN iam_roles role
                  ON role.org_id = $1
-                AND role.role_key = purpose.role_key
-              WHERE purpose.purpose = $2",
+                AND role.role_key = catalog.role_key
+              WHERE catalog.purpose = $2",
         )
         .bind(&org_id.0)
         .bind(purpose)

@@ -19,7 +19,7 @@ use crate::{
     domain::{
         iam::permission,
         status_page::{
-            ComponentLifecycle, ComponentStatus, ComponentVisibility, StatusPage,
+            ComponentKind, ComponentLifecycle, ComponentStatus, ComponentVisibility, StatusPage,
             StatusPageComponent, StatusPageLifecycle, StatusPageSnapshot, StatusPageVisibility,
         },
     },
@@ -103,6 +103,15 @@ struct ComponentWriteRequest {
     lifecycle: ComponentLifecycle,
     #[serde(default)]
     position: Option<i32>,
+    /// Whether a change of status tells subscribers.
+    #[serde(default = "notify_by_default")]
+    notify: bool,
+    /// A component, or a group of components; fixed once it is made.
+    #[serde(default)]
+    kind: ComponentKind,
+    /// The group the component goes in.
+    #[serde(default)]
+    group_id: Option<Id>,
 }
 
 impl From<ComponentWriteRequest> for StatusPageComponentInput {
@@ -114,8 +123,15 @@ impl From<ComponentWriteRequest> for StatusPageComponentInput {
             visibility: value.visibility,
             lifecycle: value.lifecycle,
             position: value.position,
+            notify_subscribers: value.notify,
+            kind: value.kind,
+            group_id: value.group_id,
         }
     }
+}
+
+fn notify_by_default() -> bool {
+    true
 }
 
 #[permission("status_pages.read")]

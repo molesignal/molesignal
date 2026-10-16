@@ -504,6 +504,8 @@ mod tests {
             started_at: None,
             auto_start: None,
             reminder_minutes,
+            next_update_at: None,
+            notify_subscribers: true,
         };
 
         assert!(validate_incident_input(&maintenance(None)).is_ok());

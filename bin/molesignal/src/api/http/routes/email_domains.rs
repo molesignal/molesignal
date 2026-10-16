@@ -21,7 +21,7 @@ use crate::{
     api::AppState,
     app::iam::IamContext,
     domain::iam::{email_domain_allowed, permission},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+    shared::{Error, Result, ids::Id},
 };
 
 pub fn routes() -> Router<AppState> {
@@ -60,11 +60,7 @@ async fn add(
 ) -> Result<Json<Resp>> {
     let domain = normalize_domain(&req.domain)?;
 
-    state
-        .iam
-        .email_domains
-        .add(&ctx.org_id, &domain, TimestampMicros::now())
-        .await?;
+    state.iam.email_domains.add(&ctx.org_id, &domain).await?;
 
     let domains = state.iam.email_domains.list(&ctx.org_id).await?;
     Ok(Json(Resp { domains }))
@@ -91,7 +87,12 @@ fn normalize_domain(raw: &str) -> Result<String> {
         .trim_start_matches('.')
         .to_ascii_lowercase();
 
-    if d.is_empty() || !d.contains('.') || d.contains(char::is_whitespace) || d.contains('@') {
+    if d.is_empty()
+        || d.len() > 253
+        || !d.contains('.')
+        || d.contains(char::is_whitespace)
+        || d.contains('@')
+    {
         return Err(Error::invalid(
             "domain must be a bare hostname like example.com",
         ));

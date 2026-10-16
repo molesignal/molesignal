@@ -74,6 +74,7 @@ mod tests {
             purge_after: Some(TimestampMicros(2)),
             created_at: TimestampMicros(0),
             updated_at: TimestampMicros(1),
+            slack_connector_id: None,
         }
     }
 

@@ -208,11 +208,10 @@ pub(super) async fn list_due(
           AND revision.id=candidate.rule_revision_id
          JOIN status_page_automation_rules rule
            ON rule.organization_id=revision.organization_id AND rule.id=revision.rule_id
-         LEFT JOIN status_page_automation_settings settings
-           ON settings.organization_id=candidate.organization_id
-          AND settings.status_page_id=candidate.status_page_id
+         JOIN status_pages page
+           ON page.org_id=candidate.organization_id AND page.id=candidate.status_page_id
          WHERE candidate.state='delayed' AND candidate.due_at_micros <= $1
-           AND rule.lifecycle='active' AND COALESCE(settings.paused,FALSE)=FALSE
+           AND rule.lifecycle='active' AND NOT page.automation_paused
            AND EXISTS (
              SELECT 1 FROM status_page_automation_candidate_sources source
              WHERE source.organization_id=candidate.organization_id

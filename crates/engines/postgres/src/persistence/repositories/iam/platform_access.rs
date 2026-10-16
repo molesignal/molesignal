@@ -38,8 +38,7 @@ pub(super) async fn platform_permissions(
              ON role.id = binding.role_id
             AND role.org_id = binding.organization_id
             AND role.builtin
-           JOIN iam_role_permissions role_permission
-             ON role_permission.role_id = role.id
+           CROSS JOIN LATERAL unnest(role.permissions) AS role_permission(permission_key)
            JOIN iam_permissions permission
              ON permission.permission_key = role_permission.permission_key
             AND permission.scope = 'platform'

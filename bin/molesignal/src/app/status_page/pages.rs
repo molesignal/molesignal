@@ -70,6 +70,7 @@ impl StatusPageService {
                 purge_after: None,
                 created_at: now,
                 updated_at: now,
+                slack_connector_id: None,
             })
             .await?;
 
@@ -119,6 +120,7 @@ impl StatusPageService {
                 purge_after: existing.purge_after,
                 created_at: existing.created_at,
                 updated_at: TimestampMicros::now(),
+                slack_connector_id: existing.slack_connector_id.clone(),
             })
             .await?;
 
@@ -318,6 +320,21 @@ impl StatusPageService {
                     }
                 }
             }
+
+            // A group has no status of its own: it shows its components' worst,
+            // and only while one of them is shown.
+            crate::domain::status_page::settle_component_groups(&mut snapshot.components);
+
+            let groups: HashSet<String> = snapshot
+                .components
+                .iter()
+                .filter(|component| component.is_group())
+                .map(|component| component.id.0.clone())
+                .collect();
+
+            snapshot
+                .component_status_events
+                .retain(|event| !groups.contains(event.component_id.as_str()));
 
             snapshot.overall_status = snapshot.components.iter().fold(
                 crate::domain::status_page::ComponentStatus::Operational,

@@ -4,7 +4,10 @@
 use async_trait::async_trait;
 use sqlx::Row;
 
-use super::{PgStatusPageRepository, subscriptions::optional_timestamp};
+use super::{
+    PgStatusPageRepository,
+    subscriptions::{optional_timestamp, row_to_components},
+};
 use crate::{
     domain::status_page::{
         StatusPageDeliveryPage, StatusPageDeliveryRepository, StatusPageDeliveryStatus,
@@ -17,13 +20,17 @@ const DELIVERY_COLS: &str = "delivery.id, delivery.org_id, delivery.status_page_
     delivery.subscriber_id, delivery.event_key, delivery.payload, delivery.status,
     delivery.attempts, delivery.next_attempt_at_micros, delivery.last_error,
     delivery.delivered_at_micros, delivery.created_at_micros, delivery.updated_at_micros,
-    subscriber.channel, subscriber.target_ciphertext, subscriber.target_nonce";
+    subscriber.channel, subscriber.target_ciphertext, subscriber.target_nonce,
+    subscriber.token_ciphertext, subscriber.token_nonce,
+    subscriber.component_scope, subscriber.component_ids";
 
 const CLAIMED_DELIVERY_COLS: &str = "claimed.id, claimed.org_id, claimed.status_page_id,
     claimed.subscriber_id, claimed.event_key, claimed.payload, claimed.status,
     claimed.attempts, claimed.next_attempt_at_micros, claimed.last_error,
     claimed.delivered_at_micros, claimed.created_at_micros, claimed.updated_at_micros,
-    subscriber.channel, subscriber.target_ciphertext, subscriber.target_nonce";
+    subscriber.channel, subscriber.target_ciphertext, subscriber.target_nonce,
+    subscriber.token_ciphertext, subscriber.token_nonce,
+    subscriber.component_scope, subscriber.component_ids";
 
 #[async_trait]
 impl StatusPageDeliveryRepository for PgStatusPageRepository {
@@ -96,7 +103,10 @@ impl StatusPageDeliveryRepository for PgStatusPageRepository {
                  AND subscriber.id = delivery.subscriber_id
                 JOIN status_pages page
                   ON page.org_id = delivery.org_id AND page.id = delivery.status_page_id
-                WHERE subscriber.status = 'active' AND page.lifecycle = 'active'
+                WHERE (subscriber.status = 'active'
+                       OR (subscriber.status = 'pending'
+                           AND delivery.event_key LIKE 'subscription_confirmation:%'))
+                  AND page.lifecycle = 'active'
                   AND ((delivery.status = 'pending' AND delivery.next_attempt_at_micros <= $1)
                        OR (delivery.status = 'processing' AND delivery.claimed_at_micros < $2))
                 ORDER BY delivery.next_attempt_at_micros, delivery.created_at_micros
@@ -209,6 +219,10 @@ impl PgStatusPageRepository {
         let ciphertext: Vec<u8> = row.try_get("target_ciphertext").map_err(super::sqlx_err)?;
         let nonce: Vec<u8> = row.try_get("target_nonce").map_err(super::sqlx_err)?;
 
+        let token_ciphertext: Vec<u8> = row.try_get("token_ciphertext").map_err(super::sqlx_err)?;
+
+        let token_nonce: Vec<u8> = row.try_get("token_nonce").map_err(super::sqlx_err)?;
+
         Ok(StatusPageNotificationDelivery {
             id: Id(row.try_get("id").map_err(super::sqlx_err)?),
             org_id: Id(row.try_get("org_id").map_err(super::sqlx_err)?),
@@ -216,7 +230,9 @@ impl PgStatusPageRepository {
             subscriber_id: Id(row.try_get("subscriber_id").map_err(super::sqlx_err)?),
             channel: StatusPageSubscriberChannel::parse(&channel)
                 .ok_or_else(|| Error::internal(format!("unknown delivery channel: {channel}")))?,
-            target: self.open_target(&nonce, &ciphertext)?,
+            target: self.open_secret(&nonce, &ciphertext)?,
+            subscriber_token: self.open_secret(&token_nonce, &token_ciphertext)?,
+            subscriber_components: row_to_components(&row)?,
             event_key: row.try_get("event_key").map_err(super::sqlx_err)?,
             payload: row.try_get("payload").map_err(super::sqlx_err)?,
             status: StatusPageDeliveryStatus::parse(&status)

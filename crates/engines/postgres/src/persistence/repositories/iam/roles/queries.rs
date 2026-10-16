@@ -32,8 +32,7 @@ pub(super) fn list_sql() -> String {
                     ARRAY[]::TEXT[]
                 ) AS permissions
            FROM iam_roles role
-      LEFT JOIN iam_role_permissions role_permission
-             ON role_permission.role_id = role.id
+      LEFT JOIN LATERAL unnest(role.permissions) AS role_permission(permission_key) ON TRUE
       LEFT JOIN iam_permissions permission
              ON permission.permission_key = role_permission.permission_key
             AND (permission.scope = 'organization' OR role.builtin)
@@ -87,8 +86,7 @@ pub(super) fn list_with_usage_sql() -> String {
                 COALESCE(MAX(invitation_usage.invitations), 0) AS invitations,
                 COALESCE(MAX(binding_usage.bindings), 0) AS bindings
            FROM iam_roles role
-      LEFT JOIN iam_role_permissions role_permission
-             ON role_permission.role_id = role.id
+      LEFT JOIN LATERAL unnest(role.permissions) AS role_permission(permission_key) ON TRUE
       LEFT JOIN iam_permissions permission
              ON permission.permission_key = role_permission.permission_key
             AND (permission.scope = 'organization' OR role.builtin)
@@ -122,8 +120,7 @@ pub(super) fn get_sql() -> String {
                     ARRAY[]::TEXT[]
                 ) AS permissions
            FROM iam_roles role
-      LEFT JOIN iam_role_permissions role_permission
-             ON role_permission.role_id = role.id
+      LEFT JOIN LATERAL unnest(role.permissions) AS role_permission(permission_key) ON TRUE
       LEFT JOIN iam_permissions permission
              ON permission.permission_key = role_permission.permission_key
             AND (permission.scope = 'organization' OR role.builtin)

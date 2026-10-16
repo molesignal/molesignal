@@ -4,11 +4,11 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
-use sqlx::{PgPool, Row};
+use sqlx::PgPool;
 
 use super::{
     PgStatusPageRepository,
-    codec::{INCIDENT_COLS, row_to_incident, row_to_update},
+    codec::{INCIDENT_COLS, UPDATE_COLS, row_to_incident, row_to_update},
 };
 use crate::{
     domain::status_page::{
@@ -135,12 +135,7 @@ impl StatusPageIncidentQueryRepository for PgStatusPageRepository {
             AND event.publication_state = 'published' AND event.ended_at_micros IS NOT NULL
             AND ($3::VARCHAR IS NULL OR event.kind = $3)
             AND ($4::VARCHAR IS NULL OR event.status = $4)
-            AND ($5::VARCHAR IS NULL OR EXISTS (
-                SELECT 1 FROM status_page_incident_components link
-                WHERE link.org_id = event.org_id
-                  AND link.status_page_id = event.status_page_id
-                  AND link.incident_id = event.id AND link.component_id = $5
-            ))
+            AND ($5::VARCHAR IS NULL OR $5 = ANY(event.component_ids))
             AND ($6::BIGINT IS NULL OR event.ended_at_micros >= $6)
             AND ($7::BIGINT IS NULL OR event.ended_at_micros <= $7)
             AND ($8::TEXT IS NULL OR event.title ILIKE ('%' || $8 || '%') ESCAPE '\\'
@@ -246,28 +241,8 @@ async fn hydrate_incidents(
 
     let selected_ids: Vec<String> = incidents.iter().map(|event| event.id.0.clone()).collect();
 
-    let component_rows = sqlx::query(
-        "SELECT incident_id, component_id FROM status_page_incident_components
-         WHERE org_id = $1 AND status_page_id = $2 AND incident_id = ANY($3::TEXT[])
-         ORDER BY incident_id, component_id",
-    )
-    .bind(&org_id.0)
-    .bind(&page_id.0)
-    .bind(&selected_ids)
-    .fetch_all(pool)
-    .await
-    .map_err(super::sqlx_err)?;
-
-    let mut component_ids: HashMap<String, Vec<Id>> = HashMap::new();
-
-    for row in component_rows {
-        let owner: String = row.try_get("incident_id").map_err(super::sqlx_err)?;
-        let component: String = row.try_get("component_id").map_err(super::sqlx_err)?;
-        component_ids.entry(owner).or_default().push(Id(component));
-    }
-
-    let update_rows = sqlx::query(
-        "SELECT id, org_id, status_page_id, incident_id, status, message, created_at_micros
+    let update_sql = format!(
+        "SELECT {UPDATE_COLS}
          FROM (
              SELECT update_row.*,
                     ROW_NUMBER() OVER (
@@ -279,14 +254,16 @@ async fn hydrate_incidents(
                AND update_row.incident_id = ANY($3::TEXT[])
          ) ranked
          WHERE update_rank <= 200
-         ORDER BY created_at_micros DESC, id DESC",
-    )
-    .bind(&org_id.0)
-    .bind(&page_id.0)
-    .bind(&selected_ids)
-    .fetch_all(pool)
-    .await
-    .map_err(super::sqlx_err)?;
+         ORDER BY created_at_micros DESC, id DESC"
+    );
+
+    let update_rows = sqlx::query(&update_sql)
+        .bind(&org_id.0)
+        .bind(&page_id.0)
+        .bind(&selected_ids)
+        .fetch_all(pool)
+        .await
+        .map_err(super::sqlx_err)?;
 
     let mut updates: HashMap<String, Vec<StatusPageIncidentUpdate>> = HashMap::new();
 
@@ -300,10 +277,6 @@ async fn hydrate_incidents(
     }
 
     for incident in &mut incidents {
-        incident.component_ids = component_ids
-            .remove(incident.id.as_str())
-            .unwrap_or_default();
-
         incident.updates = updates.remove(incident.id.as_str()).unwrap_or_default();
     }
 

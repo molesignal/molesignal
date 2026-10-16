@@ -67,9 +67,7 @@ impl StatusPageDomainHealthNotifier for StatusPageAdminEmailNotifier {
              FROM iam_role_bindings binding
              JOIN iam_roles role
                ON role.org_id = binding.organization_id AND role.id = binding.role_id
-             JOIN iam_role_permissions permission
-               ON permission.role_id = role.id
-              AND permission.permission_key = 'status_pages.manage'
+              AND 'status_pages.manage' = ANY(role.permissions)
              JOIN iam_memberships membership
                ON membership.org_id = binding.organization_id
               AND membership.user_id = binding.principal_id

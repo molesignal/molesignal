@@ -97,7 +97,7 @@ async fn sync_system_iam_roles(tx: &mut PgConnection, organization: &Organizatio
     let roles_changed = sqlx::query(
         "INSERT INTO iam_roles (
              id, org_id, role_key, name, description, builtin,
-             role_type, scope, created_at_micros, updated_at_micros
+             role_type, scope, created_at_micros, updated_at_micros, permissions
          )
          SELECT
              gen_random_uuid()::TEXT,
@@ -109,7 +109,8 @@ async fn sync_system_iam_roles(tx: &mut PgConnection, organization: &Organizatio
              catalog.role_type,
              catalog.scope,
              $2,
-             $2
+             $2,
+             catalog.permissions
            FROM iam_builtin_roles catalog
           WHERE catalog.role_type = 'platform'
             AND catalog.scope = 'platform'
@@ -133,36 +134,16 @@ async fn sync_system_iam_roles(tx: &mut PgConnection, organization: &Organizatio
     .map_err(sqlx_err)?
     .rows_affected();
 
-    let permissions_removed = sqlx::query(
-        "DELETE FROM iam_role_permissions role_permission
-          USING iam_roles role
-          WHERE role_permission.role_id = role.id
-            AND role.org_id = $1
-            AND role.builtin
-            AND role.scope = 'platform'
-            AND NOT EXISTS (
-                SELECT 1
-                  FROM iam_builtin_role_permissions catalog
-                 WHERE catalog.role_key = role.role_key
-                   AND catalog.permission_key = role_permission.permission_key
-            )",
-    )
-    .bind(&organization.id.0)
-    .execute(&mut *tx)
-    .await
-    .map_err(sqlx_err)?
-    .rows_affected();
-
-    let permissions_inserted = sqlx::query(
-        "INSERT INTO iam_role_permissions (role_id, permission_key)
-         SELECT role.id, catalog.permission_key
-           FROM iam_roles role
-           JOIN iam_builtin_role_permissions catalog
-             ON catalog.role_key = role.role_key
+    // A built-in platform role has exactly the permissions of its catalog entry.
+    let permissions_synced = sqlx::query(
+        "UPDATE iam_roles role
+            SET permissions = catalog.permissions
+           FROM iam_builtin_roles catalog
           WHERE role.org_id = $1
             AND role.builtin
             AND role.scope = 'platform'
-         ON CONFLICT (role_id, permission_key) DO NOTHING",
+            AND catalog.role_key = role.role_key
+            AND role.permissions IS DISTINCT FROM catalog.permissions",
     )
     .bind(&organization.id.0)
     .execute(&mut *tx)
@@ -170,7 +151,7 @@ async fn sync_system_iam_roles(tx: &mut PgConnection, organization: &Organizatio
     .map_err(sqlx_err)?
     .rows_affected();
 
-    if roles_changed > 0 || permissions_removed > 0 || permissions_inserted > 0 {
+    if roles_changed > 0 || permissions_synced > 0 {
         sqlx::query_scalar::<i64>("SELECT bump_iam_policy_version($1)")
             .bind(&organization.id.0)
             .fetch_one(&mut *tx)

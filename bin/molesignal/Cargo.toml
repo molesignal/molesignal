@@ -38,6 +38,7 @@ contracts = { path = "../../crates/core/contracts" }
 clap.workspace = true
 crc32c.workspace = true
 cron.workspace = true
+csv.workspace = true
 dashmap.workspace = true
 datafusion.workspace = true
 domain-management = { path = "../../crates/modules/domain-management" }

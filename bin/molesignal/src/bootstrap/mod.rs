@@ -6,6 +6,7 @@
 
 mod agent;
 mod alerting;
+mod business_services;
 #[path = "bootstrap.rs"]
 mod composition;
 mod core;

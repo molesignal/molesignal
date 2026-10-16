@@ -4,9 +4,8 @@
 use std::collections::HashSet;
 
 use super::{
-    MAX_COMPONENTS_PER_PAGE, StatusPageIncidentInput, StatusPageIncidentUpdateInput,
-    StatusPageService, deduplicate_ids,
-    validation::{validate_incident_input, validate_message, validate_transition},
+    MAX_COMPONENTS_PER_PAGE, StatusPageIncidentInput, StatusPageService, deduplicate_ids,
+    updates::validate_next_update, validation::validate_incident_input,
 };
 use crate::{
     domain::{
@@ -266,6 +265,8 @@ impl StatusPageService {
             .filter(|message| !message.is_empty());
 
         let updates = if input.publication_state == StatusPagePublicationState::Published {
+            validate_next_update(input.kind, input.status, input.next_update_at, now)?;
+
             vec![StatusPageIncidentUpdate {
                 id: Id::new(),
                 org_id: org_id.clone(),
@@ -274,6 +275,8 @@ impl StatusPageService {
                 status: input.status,
                 message: message.unwrap_or_default().to_string(),
                 created_at: now,
+                next_update_at: input.next_update_at,
+                notify_subscribers: input.notify_subscribers,
             }]
         } else {
             Vec::new()
@@ -304,6 +307,7 @@ impl StatusPageService {
                 .then_some(now),
             created_at,
             updated_at: now,
+            postmortem: None,
         })
     }
 
@@ -326,7 +330,10 @@ impl StatusPageService {
             .list_components(org_id, page_id)
             .await?
             .into_iter()
-            .filter(|component| component.lifecycle == ComponentLifecycle::Active)
+            // An event affects components; a group shows what its components show.
+            .filter(|component| {
+                !component.is_group() && component.lifecycle == ComponentLifecycle::Active
+            })
             .map(|component| component.id.0)
             .collect();
 
@@ -374,53 +381,6 @@ impl StatusPageService {
         }
     }
 
-    pub async fn append_incident_update(
-        &self,
-        org_id: &Id,
-        page_id: &Id,
-        incident_id: &Id,
-        input: StatusPageIncidentUpdateInput,
-    ) -> Result<StatusPageIncident> {
-        let page = self.repository.get_page(org_id, page_id).await?;
-
-        if page.lifecycle == StatusPageLifecycle::Archived {
-            return Err(Error::conflict(
-                "events cannot be updated on an archived status page",
-            ));
-        }
-
-        validate_message(&input.message)?;
-
-        let incident = self
-            .repository
-            .get_status_incident(org_id, page_id, incident_id)
-            .await?;
-
-        if incident.publication_state != StatusPagePublicationState::Published {
-            return Err(Error::conflict("publish the draft before adding updates"));
-        }
-
-        validate_transition(incident.kind, incident.status, input.status)?;
-        let now = TimestampMicros::now();
-
-        self.repository
-            .append_status_update(
-                StatusPageIncidentUpdate {
-                    id: Id::new(),
-                    org_id: org_id.clone(),
-                    status_page_id: page_id.clone(),
-                    incident_id: incident_id.clone(),
-                    status: input.status,
-                    message: input.message.trim().to_string(),
-                    created_at: now,
-                },
-                incident.status,
-                input.status.is_terminal_for(incident.kind).then_some(now),
-                now,
-            )
-            .await
-    }
-
     pub async fn list_events(
         &self,
         org_id: &Id,
@@ -459,6 +419,8 @@ mod tests {
             started_at: None,
             auto_start: None,
             reminder_minutes: None,
+            next_update_at: None,
+            notify_subscribers: true,
         }
     }
 
@@ -483,6 +445,7 @@ mod tests {
             published_at: Some(TimestampMicros(1)),
             created_at: TimestampMicros(1),
             updated_at: TimestampMicros(1),
+            postmortem: None,
         }
     }
 

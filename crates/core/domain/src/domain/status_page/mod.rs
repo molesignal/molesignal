@@ -5,14 +5,19 @@
 
 mod access;
 mod automation;
+mod component_group;
 mod custom_domain;
 mod model;
+mod postmortem;
 mod query;
 mod repository;
+mod service_link;
+mod subscriber_import;
 mod subscription;
 
 pub use access::*;
 pub use automation::*;
+pub use component_group::{ComponentKind, group_members, settle_component_groups};
 pub use custom_domain::*;
 pub use model::{
     ComponentLifecycle, ComponentStatus, ComponentVisibility, IncidentImpact, PublicIncidentStatus,
@@ -20,6 +25,7 @@ pub use model::{
     StatusPageIncidentKind, StatusPageIncidentUpdate, StatusPageLifecycle,
     StatusPagePublicationState, StatusPageSnapshot, StatusPageVisibility,
 };
+pub use postmortem::{PostmortemWrite, StatusPagePostmortem, StatusPagePostmortemRepository};
 pub use query::*;
 pub use repository::{
     MaintenanceDueToStart, StatusPageComponentRepository, StatusPageConfigRepository,
@@ -27,10 +33,18 @@ pub use repository::{
     StatusPageIncidentWriteRepository, StatusPagePageRepository,
     StatusPagePlannedMaintenanceRepository, StatusPageRepository,
 };
+pub use service_link::{ComponentServiceLink, ServiceLinkMode, StatusPageServiceLinkRepository};
+pub use subscriber_import::{
+    ImportedStatusPageSubscriber, StatusPageSubscriberImport, StatusPageSubscriberImportMode,
+    StatusPageSubscriberImportOutcome,
+};
 pub use subscription::{
-    PendingStatusPageSubscription, StatusPageDeliveryPage, StatusPageDeliveryRepository,
+    PendingStatusPageSubscription, SlackAppCompletion, SlackAppConnectorChoice,
+    SlackIncomingWebhook, StatusPageDeliveryPage, StatusPageDeliveryRepository,
     StatusPageDeliveryStatus, StatusPageNotificationDelivery, StatusPageNotificationMessage,
-    StatusPageNotificationSender, StatusPageSubscriber, StatusPageSubscriberChannel,
-    StatusPageSubscriberPage, StatusPageSubscriberRepository, StatusPageSubscriberStatus,
-    StatusPageSubscriptionRepository,
+    StatusPageNotificationSender, StatusPageSlackApp, StatusPageSlackAppRepository,
+    StatusPageSlackApps, StatusPageSubscriber, StatusPageSubscriberChannel,
+    StatusPageSubscriberOrigin, StatusPageSubscriberPage, StatusPageSubscriberRepository,
+    StatusPageSubscriberStatus, StatusPageSubscriptionRepository, SubscriberComponentScope,
+    SubscriberComponents, SubscriptionRequestAction,
 };

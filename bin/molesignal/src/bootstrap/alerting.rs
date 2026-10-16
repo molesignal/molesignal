@@ -9,8 +9,10 @@ use super::{core::Core, query::QueryRuntime};
 use crate::{
     app::{
         alerting::{
-            AlertingService, EscalationDispatcher, RuleEvaluator, realtime::RealtimeAlertWorker,
+            AlertIncidentLifecycleSink, AlertIncidentLifecycleSinks, AlertingService,
+            EscalationDispatcher, RuleEvaluator, realtime::RealtimeAlertWorker,
         },
+        business_service::{BusinessServiceAlertSink, BusinessServiceSignalQueue},
         dashboard::{DashboardService, contract_registry::DashboardContractResolver},
         notify::{
             AlertOwnerResolver, ConnectorRegistry, CurrentOncallResolver, EventUsersResolver,
@@ -48,6 +50,7 @@ use crate::{
         },
         persistence::repositories::{
             alert_rules::evaluation_state::PgAlertRuleEvalStateRepository,
+            business_services::PgBusinessServiceRepository,
             incidents::groups::PgIncidentGroupRepository,
             mute_rules::PgMuteRuleRepository,
             notify::{
@@ -61,7 +64,8 @@ use crate::{
             status_pages::PgStatusPageRepository,
         },
         status_page::{
-            DnsStatusPageDomainVerifier, StatusPageAdminEmailNotifier, StatusPageAssetCleaner,
+            ConnectorSlackApps, DnsStatusPageDomainVerifier, StatusPageAdminEmailNotifier,
+            StatusPageAssetCleaner,
         },
     },
     shared::Result,
@@ -73,6 +77,8 @@ pub(super) struct AlertingRuntime {
     pub(super) notify_engine: Arc<NotifyEngine>,
     pub(super) dashboard: Arc<DashboardService>,
     pub(super) status_pages: Arc<StatusPageService>,
+    /// 告警事件与拨测状态变化后请求重新评估业务服务的队列。
+    pub(super) business_service_signals: Arc<BusinessServiceSignalQueue>,
     pub(super) notify_templates: Arc<dyn NotifyTemplateManagementRepository>,
     pub(super) mute_rules: Arc<dyn MuteRuleRepository>,
     pub(super) incident_groups: Arc<dyn IncidentGroupRepository>,
@@ -160,7 +166,7 @@ impl AlertingRuntime {
         ));
 
         let notify_engine = Arc::new(NotifyEngine::new(NotifyEngineDependencies {
-            connectors,
+            connectors: connectors.clone(),
             endpoints,
             preferences,
             deliveries: notify_deliveries,
@@ -174,12 +180,20 @@ impl AlertingRuntime {
             resolver_registry,
         }));
 
-        let status_pages = build_status_pages(settings, core);
+        let status_pages = build_status_pages(settings, core, connectors);
+        let business_service_signals = Arc::new(BusinessServiceSignalQueue::new());
 
-        let lifecycle_sink = Arc::new(StatusPageAlertIncidentSink::new(
-            status_pages.clone(),
-            mute_rules.clone(),
-        ));
+        // 告警事件的变化先交给状态页自动化，再请求重新评估业务服务。
+        let lifecycle_sink: Arc<dyn AlertIncidentLifecycleSink> =
+            Arc::new(AlertIncidentLifecycleSinks::new(vec![
+                Arc::new(StatusPageAlertIncidentSink::new(
+                    status_pages.clone(),
+                    mute_rules.clone(),
+                )),
+                Arc::new(BusinessServiceAlertSink::new(
+                    business_service_signals.clone(),
+                )),
+            ]));
 
         let alerting = Arc::new(
             AlertingService::new(
@@ -288,6 +302,7 @@ impl AlertingRuntime {
             notify_engine,
             dashboard,
             status_pages,
+            business_service_signals,
             notify_templates,
             mute_rules,
             incident_groups,
@@ -297,7 +312,11 @@ impl AlertingRuntime {
     }
 }
 
-fn build_status_pages(settings: &Settings, core: &Core) -> Arc<StatusPageService> {
+fn build_status_pages(
+    settings: &Settings,
+    core: &Core,
+    connectors: Arc<dyn NotifyConnectorRepository>,
+) -> Arc<StatusPageService> {
     let mut service = StatusPageService::new(
         Arc::new(PgStatusPageRepository::new(
             core.pool.clone(),
@@ -319,7 +338,14 @@ fn build_status_pages(settings: &Settings, core: &Core) -> Arc<StatusPageService
                 .trim()
                 .to_ascii_lowercase()
                 .starts_with("https://"),
-    );
+    )
+    .with_business_services(Arc::new(PgBusinessServiceRepository::new(
+        core.pool.clone(),
+    )))
+    .with_slack_apps(Arc::new(ConnectorSlackApps::new(
+        connectors,
+        settings.http.external_url.clone(),
+    )));
 
     match DnsStatusPageDomainVerifier::new(&settings.http.external_url) {
         Ok(verifier) => service = service.with_domain_verifier(Arc::new(verifier)),

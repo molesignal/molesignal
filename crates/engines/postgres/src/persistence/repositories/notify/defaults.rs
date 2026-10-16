@@ -95,7 +95,7 @@ impl TeamNotifyDefaultRepository for PgTeamNotifyDefaultRepository {
         let row = sqlx::query(
             "SELECT id, organization_id, team_id, category, routes, enabled,
                     created_at_micros, updated_at_micros
-               FROM team_notify_defaults
+               FROM notify_defaults
               WHERE organization_id = $1 AND team_id = $2 AND category = $3",
         )
         .bind(&organization_id.0)
@@ -112,7 +112,7 @@ impl TeamNotifyDefaultRepository for PgTeamNotifyDefaultRepository {
         let rows = sqlx::query(
             "SELECT id, organization_id, team_id, category, routes, enabled,
                     created_at_micros, updated_at_micros
-               FROM team_notify_defaults
+               FROM notify_defaults
               WHERE organization_id = $1 AND team_id = $2
            ORDER BY category, id",
         )
@@ -127,11 +127,12 @@ impl TeamNotifyDefaultRepository for PgTeamNotifyDefaultRepository {
 
     async fn upsert(&self, mut route: TeamNotifyDefault) -> Result<TeamNotifyDefault> {
         let row = sqlx::query(
-            "INSERT INTO team_notify_defaults (
+            "INSERT INTO notify_defaults (
                  id, organization_id, team_id, category, routes, enabled,
                  created_at_micros, updated_at_micros
              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-             ON CONFLICT (organization_id, team_id, category) DO UPDATE SET
+             ON CONFLICT (organization_id, team_id, category) WHERE team_id IS NOT NULL
+             DO UPDATE SET
                  routes = EXCLUDED.routes,
                  enabled = EXCLUDED.enabled,
                  updated_at_micros = EXCLUDED.updated_at_micros
@@ -161,7 +162,7 @@ impl TeamNotifyDefaultRepository for PgTeamNotifyDefaultRepository {
         category: NotifyCategory,
     ) -> Result<()> {
         let deleted = sqlx::query(
-            "DELETE FROM team_notify_defaults
+            "DELETE FROM notify_defaults
               WHERE organization_id = $1 AND team_id = $2 AND category = $3",
         )
         .bind(&organization_id.0)
@@ -189,8 +190,8 @@ impl OrganizationNotifyDefaultRepository for PgOrganizationNotifyDefaultReposito
         let row = sqlx::query(
             "SELECT id, organization_id, category, routes, enabled,
                     created_at_micros, updated_at_micros
-               FROM organization_notify_defaults
-              WHERE organization_id = $1 AND category = $2",
+               FROM notify_defaults
+              WHERE organization_id = $1 AND team_id IS NULL AND category = $2",
         )
         .bind(&organization_id.0)
         .bind(category.as_str())
@@ -205,8 +206,8 @@ impl OrganizationNotifyDefaultRepository for PgOrganizationNotifyDefaultReposito
         let rows = sqlx::query(
             "SELECT id, organization_id, category, routes, enabled,
                     created_at_micros, updated_at_micros
-               FROM organization_notify_defaults
-              WHERE organization_id = $1
+               FROM notify_defaults
+              WHERE organization_id = $1 AND team_id IS NULL
            ORDER BY category, id",
         )
         .bind(&organization_id.0)
@@ -222,11 +223,12 @@ impl OrganizationNotifyDefaultRepository for PgOrganizationNotifyDefaultReposito
         mut route: OrganizationNotifyDefault,
     ) -> Result<OrganizationNotifyDefault> {
         let row = sqlx::query(
-            "INSERT INTO organization_notify_defaults (
+            "INSERT INTO notify_defaults (
                  id, organization_id, category, routes, enabled,
                  created_at_micros, updated_at_micros
              ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-             ON CONFLICT (organization_id, category) DO UPDATE SET
+             ON CONFLICT (organization_id, category) WHERE team_id IS NULL
+             DO UPDATE SET
                  routes = EXCLUDED.routes,
                  enabled = EXCLUDED.enabled,
                  updated_at_micros = EXCLUDED.updated_at_micros
@@ -250,8 +252,8 @@ impl OrganizationNotifyDefaultRepository for PgOrganizationNotifyDefaultReposito
 
     async fn delete(&self, organization_id: &Id, category: NotifyCategory) -> Result<()> {
         let deleted = sqlx::query(
-            "DELETE FROM organization_notify_defaults
-              WHERE organization_id = $1 AND category = $2",
+            "DELETE FROM notify_defaults
+              WHERE organization_id = $1 AND team_id IS NULL AND category = $2",
         )
         .bind(&organization_id.0)
         .bind(category.as_str())
@@ -274,18 +276,7 @@ impl NotifyRouteReferenceRepository for PgNotifyRouteReferenceRepository {
             "SELECT
                  (
                      SELECT COUNT(*)
-                       FROM team_notify_defaults AS defaults
-                      WHERE defaults.organization_id = $1
-                        AND EXISTS (
-                            SELECT 1
-                              FROM jsonb_array_elements(defaults.routes) AS route
-                             WHERE route ->> 'connector_id' = $2
-                        )
-                 )
-                 +
-                 (
-                     SELECT COUNT(*)
-                       FROM organization_notify_defaults AS defaults
+                       FROM notify_defaults AS defaults
                       WHERE defaults.organization_id = $1
                         AND EXISTS (
                             SELECT 1
@@ -316,6 +307,12 @@ impl NotifyRouteReferenceRepository for PgNotifyRouteReferenceRepository {
                                  WHERE configured.connector_id = $2
                             )
                         )
+                 )
+                 +
+                 (
+                     SELECT COUNT(*)
+                       FROM status_pages AS page
+                      WHERE page.org_id = $1 AND page.slack_connector_id = $2
                  )
                  +
                  (

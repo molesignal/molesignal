@@ -54,8 +54,8 @@ impl StatusPagePlannedMaintenanceRepository for PgStatusPageRepository {
     async fn enqueue_maintenance_reminders(&self, now: TimestampMicros) -> Result<u64> {
         // Marking the planned start as reminded of and queueing the deliveries is one
         // statement, so two nodes that sweep at the same moment queue them once. Subscribers
-        // are chosen the way the update triggers choose them, and components are named
-        // through the same function.
+        // are chosen the way the update triggers choose them, through the same functions, and
+        // hear about the maintenance only when it names a component they chose.
         let queued = sqlx::query(
             "WITH due AS (
                  UPDATE status_page_incidents incident
@@ -108,6 +108,11 @@ impl StatusPagePlannedMaintenanceRepository for PgStatusPageRepository {
                ON subscriber.org_id = due.org_id
               AND subscriber.status_page_id = due.status_page_id
              WHERE subscriber.status = 'active'
+               AND status_page_subscriber_hears(
+                   subscriber.component_scope,
+                   subscriber.component_ids,
+                   status_page_event_component_ids(due.org_id, due.status_page_id, due.id)
+               )
                AND (due.page_visibility = 'public' OR subscriber.channel = 'email')
                AND NOT EXISTS (
                    SELECT 1

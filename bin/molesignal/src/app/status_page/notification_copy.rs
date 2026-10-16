@@ -31,6 +31,15 @@ impl EmailCopy {
             payload,
         }
     }
+
+    /// The same email with `footer` below a blank line.
+    pub(super) fn with_footer(mut self, footer: &str) -> Self {
+        if !footer.is_empty() {
+            self.text = format!("{}\n\n{footer}", self.text.trim_end());
+        }
+
+        self
+    }
 }
 
 /// An update on an incident or on maintenance, as its email tells it.
@@ -43,6 +52,8 @@ pub(super) struct EventUpdate<'a> {
     pub(super) message: &'a str,
     /// The planned start of maintenance, written for the time zone of the page.
     pub(super) scheduled_for: Option<String>,
+    /// By when the next update is promised, written for the time zone of the page.
+    pub(super) next_update_at: Option<String>,
 }
 
 impl StatusPageService {
@@ -64,14 +75,83 @@ pub(super) fn subscription_confirmation(
     page_name: &str,
     confirm_url: &str,
     unsubscribe_url: &str,
+    component_names: &[String],
 ) -> Result<EmailCopy> {
+    let scope = subscription_scope(pack, component_names)?;
+
     let fills = [
         ("page_name", page_name),
         ("confirm_url", confirm_url),
         ("unsubscribe_url", unsubscribe_url),
+        ("scope", scope.as_str()),
     ];
 
     email(pack, "status_page.email.subscription_confirmation", &fills)
+}
+
+/// What a subscription is for: the whole page, or the components named.
+pub(super) fn subscription_scope(
+    pack: &LanguagePack,
+    component_names: &[String],
+) -> Result<String> {
+    if component_names.is_empty() {
+        return pack.render("status_page.email.scope.all", &[]);
+    }
+
+    let components = component_names.join(", ");
+    pack.render(
+        "status_page.email.scope.selected",
+        &[("components", components.as_str())],
+    )
+}
+
+/// Sent to an address that asks to subscribe again while it is subscribed:
+/// the link where it changes what it hears about.
+pub(super) fn subscription_manage(
+    pack: &LanguagePack,
+    page_name: &str,
+    manage_url: &str,
+) -> Result<EmailCopy> {
+    let fills = [("page_name", page_name), ("manage_url", manage_url)];
+    email(pack, "status_page.email.subscription_manage", &fills)
+}
+
+/// The links at the foot of every email to a subscriber.
+pub(super) fn email_footer(
+    pack: &LanguagePack,
+    manage_url: &str,
+    unsubscribe_url: &str,
+) -> Result<String> {
+    pack.render(
+        "status_page.email.footer",
+        &[
+            ("manage_url", manage_url),
+            ("unsubscribe_url", unsubscribe_url),
+        ],
+    )
+}
+
+pub(super) fn postmortem_published(
+    pack: &LanguagePack,
+    page_name: &str,
+    title: &str,
+    postmortem: &str,
+    incident_url: &str,
+) -> Result<EmailCopy> {
+    let fills = [
+        ("page_name", page_name),
+        ("title", title),
+        ("postmortem", postmortem),
+        ("incident_url", incident_url),
+    ];
+
+    email(pack, "status_page.email.postmortem", &fills)
+}
+
+/// The label of a button in a message posted to Slack: `view_page`,
+/// `view_incident`, `manage`, `confirm` or `connected`.
+pub(super) fn slack_text(pack: &LanguagePack, key: &str, fills: &[(&str, &str)]) -> Result<String> {
+    pack.render(&format!("status_page.slack.{key}"), fills)
 }
 
 pub(super) fn access_link(
@@ -115,12 +195,25 @@ pub(super) fn event_update(pack: &LanguagePack, update: &EventUpdate<'_>) -> Res
         "incident_status"
     };
 
+    // The promise of the next update closes the message it comes with.
+    let message = match update.next_update_at.as_deref() {
+        Some(next_update_at) => {
+            let promise = pack.render(
+                "status_page.email.next_update",
+                &[("next_update_at", next_update_at)],
+            )?;
+
+            format!("{}\n\n{promise}", update.message.trim_end())
+        }
+        None => update.message.to_string(),
+    };
+
     let mut fills = vec![
         ("page_name", update.page_name),
         ("page_url", update.page_url),
         ("title", update.title),
         ("status", status_name(pack, statuses, update.status)),
-        ("message", update.message),
+        ("message", message.as_str()),
     ];
 
     // Only the maintenance email has a line for the planned time.
@@ -206,6 +299,7 @@ pub(super) mod tests {
             status,
             message: "Writes can take a few seconds longer.",
             scheduled_for,
+            next_update_at: None,
         }
     }
 
@@ -214,22 +308,34 @@ pub(super) mod tests {
         let confirm = "https://status.acme.example/#confirm";
         let unsubscribe = "https://status.acme.example/#unsubscribe";
 
-        let english =
-            subscription_confirmation(&seeded_pack("en-us"), "Acme Cloud", confirm, unsubscribe)
-                .unwrap();
+        let english = subscription_confirmation(
+            &seeded_pack("en-us"),
+            "Acme Cloud",
+            confirm,
+            unsubscribe,
+            &[],
+        )
+        .unwrap();
         assert_eq!(english.title, "Confirm updates from Acme Cloud");
         assert_eq!(
             english.text,
-            "Confirm your subscription to Acme Cloud:\nhttps://status.acme.example/#confirm\n\nIf you did not request this, no action is required. You can unsubscribe with:\nhttps://status.acme.example/#unsubscribe"
+            "Confirm your subscription to Acme Cloud:\nhttps://status.acme.example/#confirm\n\nYou will hear about every component of the page.\n\nIf you did not request this, no action is required. You can unsubscribe with:\nhttps://status.acme.example/#unsubscribe"
         );
 
-        let chinese =
-            subscription_confirmation(&seeded_pack("zh-cn"), "Acme Cloud", confirm, unsubscribe)
-                .unwrap();
+        let chosen = ["API".to_string(), "Dashboard".to_string()];
+
+        let chinese = subscription_confirmation(
+            &seeded_pack("zh-cn"),
+            "Acme Cloud",
+            confirm,
+            unsubscribe,
+            &chosen,
+        )
+        .unwrap();
         assert_eq!(chinese.title, "确认订阅 Acme Cloud 的状态更新");
         assert_eq!(
             chinese.text,
-            "打开以下链接，确认订阅 Acme Cloud 的状态更新：\nhttps://status.acme.example/#confirm\n\n如果没有申请过订阅，无需任何操作。退订链接：\nhttps://status.acme.example/#unsubscribe"
+            "打开以下链接，确认订阅 Acme Cloud 的状态更新：\nhttps://status.acme.example/#confirm\n\n你将收到以下组件的更新：API, Dashboard。\n\n如果没有申请过订阅，无需任何操作。退订链接：\nhttps://status.acme.example/#unsubscribe"
         );
     }
 

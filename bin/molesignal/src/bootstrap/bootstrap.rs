@@ -111,12 +111,14 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
                 settings.probe.resolved_control_endpoint(),
                 probe_authority.ca_certificate_pem().to_string(),
             )
-            .with_transition_sink(Arc::new(
-                crate::app::status_page::StatusPageSyntheticTransitionSink::new(
-                    alerting_runtime.status_pages.clone(),
-                ),
+            .with_transition_sink(super::business_services::synthetic_transition_sink(
+                alerting_runtime.status_pages.clone(),
+                alerting_runtime.business_service_signals.clone(),
             )),
     );
+
+    let business_services =
+        super::business_services::build(&core, &alerting_runtime, synthetic_repository.clone());
 
     let probe_artifact_base_url = super::synthetics::artifact_base_url(settings);
 
@@ -243,6 +245,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         notify_engine,
         dashboard,
         status_pages,
+        business_service_signals: _,
         notify_templates,
         mute_rules,
         incident_groups,
@@ -413,6 +416,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         search_jobs: search_job_service,
         dashboard,
         status_pages,
+        business_services,
         synthetics,
         probe_control,
         alerting: AlertingState {

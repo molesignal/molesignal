@@ -80,6 +80,12 @@ struct EventWriteRequest {
     /// subscribers are reminded, zero for no reminder. Omitted like `auto_start`.
     #[serde(default)]
     reminder_minutes: Option<i32>,
+    /// By when the first published update promises the next one.
+    #[serde(default)]
+    next_update_at: Option<TimestampMicros>,
+    /// Whether the first published update tells subscribers.
+    #[serde(default = "notify_by_default")]
+    notify: bool,
 }
 
 impl EventWriteRequest {
@@ -101,6 +107,8 @@ impl EventWriteRequest {
             started_at: self.started_at,
             auto_start: self.auto_start,
             reminder_minutes: self.reminder_minutes,
+            next_update_at: self.next_update_at,
+            notify_subscribers: self.notify,
         }
     }
 }
@@ -109,6 +117,12 @@ impl EventWriteRequest {
 struct EventUpdateRequest {
     status: PublicIncidentStatus,
     message: String,
+    /// By when the next update is promised.
+    #[serde(default)]
+    next_update_at: Option<TimestampMicros>,
+    /// Whether subscribers are told; a correction of wording usually is not.
+    #[serde(default = "notify_by_default")]
+    notify: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -272,6 +286,8 @@ async fn append_update(
             StatusPageIncidentUpdateInput {
                 status: request.status,
                 message: request.message,
+                next_update_at: request.next_update_at,
+                notify_subscribers: request.notify,
             },
         )
         .await?;
@@ -327,6 +343,11 @@ async fn record_event_audit(
             "publication_state": event.publication_state,
             "affected_component_count": event.component_ids.len(),
             "has_source_incident": event.source_incident_id.is_some(),
+            "notified_subscribers": event
+                .updates
+                .iter()
+                .max_by_key(|update| update.created_at)
+                .map(|update| update.notify_subscribers),
         }),
     )
     .await;
@@ -346,4 +367,8 @@ fn default_publication_state() -> StatusPagePublicationState {
 
 fn default_page() -> u32 {
     1
+}
+
+fn notify_by_default() -> bool {
+    true
 }

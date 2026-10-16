@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+mod import;
+mod preferences;
+mod slack;
+
 use axum::{
     Extension, Json, Router,
     extract::{Path, Query, State},
@@ -18,8 +22,8 @@ use crate::{
         iam::permission,
         status_page::{
             StatusPageDeliveryPage, StatusPageNotificationDelivery, StatusPageSubscriber,
-            StatusPageSubscriberChannel, StatusPageSubscriberPage, StatusPageSubscriberStatus,
-            StatusPageVisibility,
+            StatusPageSubscriberChannel, StatusPageSubscriberOrigin, StatusPageSubscriberPage,
+            StatusPageSubscriberStatus, StatusPageVisibility, SubscriberComponentScope,
         },
     },
     shared::{Error, Result, ids::Id, time::TimestampMicros},
@@ -39,6 +43,8 @@ pub(super) fn public_routes() -> Router<AppState> {
             "/api/v1/public/status-pages/{slug}/subscriptions/unsubscribe",
             post(unsubscribe),
         )
+        .merge(preferences::routes())
+        .merge(slack::routes())
 }
 
 pub(super) fn management_routes() -> Router<AppState> {
@@ -53,6 +59,8 @@ pub(super) fn management_routes() -> Router<AppState> {
             post(resend_confirmation),
         )
         .route("/status-pages/{page_id}/deliveries", get(list_deliveries))
+        .merge(import::routes())
+        .merge(slack::management_routes())
 }
 
 #[derive(Debug, Deserialize)]
@@ -60,6 +68,9 @@ struct SubscribeRequest {
     channel: StatusPageSubscriberChannel,
     #[serde(default)]
     target: String,
+    /// The components to hear about; none means the whole page.
+    #[serde(default)]
+    component_ids: Vec<Id>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -78,7 +89,11 @@ struct SubscriberResponse {
     id: Id,
     channel: StatusPageSubscriberChannel,
     masked_target: String,
+    target_label: Option<String>,
     status: StatusPageSubscriberStatus,
+    component_scope: SubscriberComponentScope,
+    component_ids: Vec<Id>,
+    origin: StatusPageSubscriberOrigin,
     confirmation_sent_at: Option<TimestampMicros>,
     confirmed_at: Option<TimestampMicros>,
     unsubscribed_at: Option<TimestampMicros>,
@@ -92,7 +107,11 @@ impl From<StatusPageSubscriber> for SubscriberResponse {
             id: subscriber.id,
             channel: subscriber.channel,
             masked_target: mask_target(subscriber.channel, &subscriber.target),
+            target_label: subscriber.target_label,
             status: subscriber.status,
+            component_scope: subscriber.components.scope,
+            component_ids: subscriber.components.component_ids,
+            origin: subscriber.origin,
             confirmation_sent_at: subscriber.confirmation_sent_at,
             confirmed_at: subscriber.confirmed_at,
             unsubscribed_at: subscriber.unsubscribed_at,
@@ -208,7 +227,7 @@ async fn subscribe(
 
         state
             .status_pages
-            .subscribe_private_email(&slug, token, &origin)
+            .subscribe_private_email(&slug, token, &origin, request.component_ids)
             .await?
     } else {
         state
@@ -218,6 +237,7 @@ async fn subscribe(
                 StatusPageSubscriptionInput {
                     channel: request.channel,
                     target: request.target,
+                    component_ids: request.component_ids,
                 },
             )
             .await?
@@ -336,22 +356,26 @@ async fn record_subscriber_audit(
     .await;
 }
 
+/// A target as an administrator or the subscriber sees it: an address with
+/// most of its name hidden, or a URL without its secret path.
 fn mask_target(channel: StatusPageSubscriberChannel, target: &str) -> String {
     match channel {
         StatusPageSubscriberChannel::Email => mask_email(target),
-        StatusPageSubscriberChannel::Webhook => Url::parse(target)
-            .ok()
-            .and_then(|url| {
-                let host = url.host_str()?;
+        StatusPageSubscriberChannel::Webhook | StatusPageSubscriberChannel::Slack => {
+            Url::parse(target)
+                .ok()
+                .and_then(|url| {
+                    let host = url.host_str()?;
 
-                let port = url
-                    .port()
-                    .map(|port| format!(":{port}"))
-                    .unwrap_or_default();
+                    let port = url
+                        .port()
+                        .map(|port| format!(":{port}"))
+                        .unwrap_or_default();
 
-                Some(format!("{}://{host}{port}/***", url.scheme()))
-            })
-            .unwrap_or_else(|| "***".into()),
+                    Some(format!("{}://{host}{port}/***", url.scheme()))
+                })
+                .unwrap_or_else(|| "***".into())
+        }
     }
 }
 

@@ -105,7 +105,7 @@ impl IamRoleRepository for PgIamRoleRepository {
         let inserted = sqlx::query(
             "INSERT INTO iam_roles (
                  id, org_id, role_key, name, description, builtin,
-                 role_type, scope, created_at_micros, updated_at_micros
+                 role_type, scope, created_at_micros, updated_at_micros, permissions
              )
              SELECT
                  gen_random_uuid()::TEXT,
@@ -117,7 +117,8 @@ impl IamRoleRepository for PgIamRoleRepository {
                  catalog.role_type,
                  catalog.scope,
                  $2,
-                 $2
+                 $2,
+                 catalog.permissions
                FROM iam_builtin_roles catalog
               WHERE catalog.role_type = 'organization'
                 AND catalog.scope = 'organization'
@@ -130,34 +131,15 @@ impl IamRoleRepository for PgIamRoleRepository {
         .map_err(sqlx_err)?
         .rows_affected();
 
-        let removed = sqlx::query(
-            "DELETE FROM iam_role_permissions role_permission
-              USING iam_roles role
-              WHERE role_permission.role_id = role.id
-                AND role.org_id = $1
-                AND role.builtin
-                AND NOT EXISTS (
-                    SELECT 1
-                      FROM iam_builtin_role_permissions catalog
-                     WHERE catalog.role_key = role.role_key
-                       AND catalog.permission_key = role_permission.permission_key
-                )",
-        )
-        .bind(&org_id.0)
-        .execute(&mut *tx)
-        .await
-        .map_err(sqlx_err)?
-        .rows_affected();
-
-        let permissions_inserted = sqlx::query(
-            "INSERT INTO iam_role_permissions (role_id, permission_key)
-             SELECT role.id, catalog.permission_key
-               FROM iam_roles role
-               JOIN iam_builtin_role_permissions catalog
-                 ON catalog.role_key = role.role_key
+        // A built-in role has exactly the permissions of its catalog entry.
+        let synced = sqlx::query(
+            "UPDATE iam_roles role
+                SET permissions = catalog.permissions
+               FROM iam_builtin_roles catalog
               WHERE role.org_id = $1
                 AND role.builtin
-             ON CONFLICT (role_id, permission_key) DO NOTHING",
+                AND catalog.role_key = role.role_key
+                AND role.permissions IS DISTINCT FROM catalog.permissions",
         )
         .bind(&org_id.0)
         .execute(&mut *tx)
@@ -165,7 +147,7 @@ impl IamRoleRepository for PgIamRoleRepository {
         .map_err(sqlx_err)?
         .rows_affected();
 
-        let changed = inserted > 0 || removed > 0 || permissions_inserted > 0;
+        let changed = inserted > 0 || synced > 0;
 
         if changed {
             bump_version(&mut tx, org_id).await?;
@@ -296,12 +278,6 @@ impl IamRoleRepository for PgIamRoleRepository {
     async fn delete(&self, org_id: &Id, id: &Id) -> Result<()> {
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
 
-        sqlx::query("DELETE FROM iam_role_permissions WHERE role_id = $1")
-            .bind(&id.0)
-            .execute(&mut *tx)
-            .await
-            .map_err(sqlx_err)?;
-
         let result = sqlx::query("DELETE FROM iam_roles WHERE org_id = $1 AND id = $2")
             .bind(&org_id.0)
             .bind(&id.0)
@@ -423,28 +399,25 @@ impl PgIamRoleRepository {
     }
 }
 
+/// A role lists its permissions sorted and once each.
 async fn replace_permissions(
     tx: &mut sqlx::PgConnection,
     role_id: &str,
     permissions: &[String],
 ) -> Result<()> {
-    sqlx::query("DELETE FROM iam_role_permissions WHERE role_id = $1")
-        .bind(role_id)
-        .execute(&mut *tx)
-        .await
-        .map_err(sqlx_err)?;
+    let permissions: Vec<&str> = permissions
+        .iter()
+        .map(String::as_str)
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect();
 
-    for permission in permissions {
-        sqlx::query(
-            "INSERT INTO iam_role_permissions (role_id, permission_key)
-             VALUES ($1, $2)",
-        )
+    sqlx::query("UPDATE iam_roles SET permissions = $2 WHERE id = $1")
         .bind(role_id)
-        .bind(permission)
+        .bind(&permissions)
         .execute(&mut *tx)
         .await
         .map_err(sqlx_err)?;
-    }
 
     Ok(())
 }

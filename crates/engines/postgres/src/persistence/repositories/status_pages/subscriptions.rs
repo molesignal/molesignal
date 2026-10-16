@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+//! Subscribers of a status page. Targets and tokens are sealed; only their
+//! hashes take part in lookups.
+
+mod import;
+mod requests;
+mod slack_app;
+
 use async_trait::async_trait;
 use sqlx::Row;
 
@@ -8,17 +15,24 @@ use super::PgStatusPageRepository;
 use crate::{
     domain::status_page::{
         PendingStatusPageSubscription, StatusPageSubscriber, StatusPageSubscriberChannel,
+        StatusPageSubscriberImport, StatusPageSubscriberImportOutcome, StatusPageSubscriberOrigin,
         StatusPageSubscriberPage, StatusPageSubscriberRepository, StatusPageSubscriberStatus,
+        SubscriberComponentScope, SubscriberComponents,
     },
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 pub(super) const SUBSCRIBER_COLS: &str = "id, org_id, status_page_id, channel,
-    target_ciphertext, target_nonce, status, token_hash,
+    target_ciphertext, target_nonce, target_label, status, token_hash,
+    token_ciphertext, token_nonce, component_scope, component_ids, origin,
     confirmation_sent_at_micros, confirmed_at_micros,
     unsubscribed_at_micros, created_at_micros, updated_at_micros";
 
 const MAX_SUBSCRIBERS_PER_PAGE: i64 = 10_000;
+
+/// A subscriber of "Add to Slack" that waits for the visitor to come back from
+/// Slack is not a subscription anyone can act on yet.
+const NOT_WAITING_FOR_SLACK: &str = "NOT (origin = 'slack_app' AND status = 'pending')";
 
 impl PgStatusPageRepository {
     pub(super) fn target_hash(&self, org_id: &Id, target: &str) -> String {
@@ -26,20 +40,20 @@ impl PgStatusPageRepository {
             .org_hmac_sha256(org_id.as_str(), target.as_bytes())
     }
 
-    fn seal_target(&self, target: &str) -> Result<(Vec<u8>, Vec<u8>)> {
+    fn seal_secret(&self, value: &str) -> Result<(Vec<u8>, Vec<u8>)> {
         self.cipher
-            .seal(target.as_bytes())
-            .map_err(|_| Error::internal("status-page subscriber target encryption failed"))
+            .seal(value.as_bytes())
+            .map_err(|_| Error::internal("status-page subscriber encryption failed"))
     }
 
-    pub(super) fn open_target(&self, nonce: &[u8], ciphertext: &[u8]) -> Result<String> {
+    pub(super) fn open_secret(&self, nonce: &[u8], ciphertext: &[u8]) -> Result<String> {
         let plaintext = self
             .cipher
             .open(nonce, ciphertext)
-            .map_err(|_| Error::internal("status-page subscriber target decryption failed"))?;
+            .map_err(|_| Error::internal("status-page subscriber decryption failed"))?;
 
         String::from_utf8(plaintext)
-            .map_err(|_| Error::internal("status-page subscriber target is not UTF-8"))
+            .map_err(|_| Error::internal("status-page subscriber secret is not UTF-8"))
     }
 }
 
@@ -50,134 +64,7 @@ impl StatusPageSubscriberRepository for PgStatusPageRepository {
         subscriber: StatusPageSubscriber,
         resend_before: TimestampMicros,
     ) -> Result<PendingStatusPageSubscription> {
-        let target_hash = self.target_hash(&subscriber.org_id, &subscriber.target);
-        let (target_nonce, target_ciphertext) = self.seal_target(&subscriber.target)?;
-        let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;
-
-        let lock_key = format!(
-            "status-page-subscribers:{}:{}",
-            subscriber.org_id, subscriber.status_page_id
-        );
-
-        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))")
-            .bind(lock_key)
-            .execute(&mut *transaction)
-            .await
-            .map_err(super::sqlx_err)?;
-
-        let select_sql = format!(
-            "SELECT {SUBSCRIBER_COLS} FROM status_page_subscribers
-             WHERE org_id = $1 AND status_page_id = $2 AND channel = $3
-               AND target_hash = $4 FOR UPDATE"
-        );
-
-        let existing = sqlx::query(&select_sql)
-            .bind(&subscriber.org_id.0)
-            .bind(&subscriber.status_page_id.0)
-            .bind(subscriber.channel.as_str())
-            .bind(&target_hash)
-            .fetch_optional(&mut *transaction)
-            .await
-            .map_err(super::sqlx_err)?
-            .map(|row| self.row_to_subscriber(row))
-            .transpose()?;
-
-        if let Some(existing) = existing {
-            let cooling_down = existing
-                .confirmation_sent_at
-                .is_some_and(|sent_at| sent_at > resend_before);
-
-            if existing.status == StatusPageSubscriberStatus::Active || cooling_down {
-                transaction.commit().await.map_err(super::sqlx_err)?;
-
-                return Ok(PendingStatusPageSubscription {
-                    subscriber: existing,
-                    should_send_confirmation: false,
-                });
-            }
-
-            let update_sql = format!(
-                "UPDATE status_page_subscribers SET
-                    target_ciphertext = $4, target_nonce = $5, target_hash = $6,
-                    status = 'pending', token_hash = $7,
-                    confirmation_sent_at_micros = $8, confirmed_at_micros = NULL,
-                    unsubscribed_at_micros = NULL, updated_at_micros = $8
-                 WHERE org_id = $1 AND status_page_id = $2 AND id = $3
-                 RETURNING {SUBSCRIBER_COLS}"
-            );
-
-            let row = sqlx::query(&update_sql)
-                .bind(&existing.org_id.0)
-                .bind(&existing.status_page_id.0)
-                .bind(&existing.id.0)
-                .bind(&target_ciphertext)
-                .bind(&target_nonce)
-                .bind(&target_hash)
-                .bind(&subscriber.token_hash)
-                .bind(subscriber.updated_at.0)
-                .fetch_one(&mut *transaction)
-                .await
-                .map_err(super::sqlx_err)?;
-
-            let subscriber = self.row_to_subscriber(row)?;
-            transaction.commit().await.map_err(super::sqlx_err)?;
-
-            return Ok(PendingStatusPageSubscription {
-                subscriber,
-                should_send_confirmation: true,
-            });
-        }
-
-        let active_count: i64 = sqlx::query_scalar(
-            "SELECT count(*) FROM status_page_subscribers
-             WHERE org_id = $1 AND status_page_id = $2 AND status <> 'unsubscribed'",
-        )
-        .bind(&subscriber.org_id.0)
-        .bind(&subscriber.status_page_id.0)
-        .fetch_one(&mut *transaction)
-        .await
-        .map_err(super::sqlx_err)?;
-
-        if active_count >= MAX_SUBSCRIBERS_PER_PAGE {
-            return Err(Error::resource_exhausted(
-                "status page subscriber limit reached",
-            ));
-        }
-
-        let insert_sql = format!(
-            "INSERT INTO status_page_subscribers
-                (id, org_id, status_page_id, channel, target_ciphertext, target_nonce,
-                 target_hash, status, token_hash, confirmation_sent_at_micros,
-                 confirmed_at_micros, unsubscribed_at_micros,
-                 created_at_micros, updated_at_micros)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NULL, NULL, $11, $12)
-             RETURNING {SUBSCRIBER_COLS}"
-        );
-
-        let row = sqlx::query(&insert_sql)
-            .bind(&subscriber.id.0)
-            .bind(&subscriber.org_id.0)
-            .bind(&subscriber.status_page_id.0)
-            .bind(subscriber.channel.as_str())
-            .bind(&target_ciphertext)
-            .bind(&target_nonce)
-            .bind(&target_hash)
-            .bind(subscriber.status.as_str())
-            .bind(&subscriber.token_hash)
-            .bind(subscriber.confirmation_sent_at.map(|at| at.0))
-            .bind(subscriber.created_at.0)
-            .bind(subscriber.updated_at.0)
-            .fetch_one(&mut *transaction)
-            .await
-            .map_err(super::sqlx_err)?;
-
-        let subscriber = self.row_to_subscriber(row)?;
-        transaction.commit().await.map_err(super::sqlx_err)?;
-
-        Ok(PendingStatusPageSubscription {
-            subscriber,
-            should_send_confirmation: true,
-        })
+        requests::upsert_pending(self, subscriber, resend_before).await
     }
 
     async fn confirm_subscriber(
@@ -192,7 +79,8 @@ impl StatusPageSubscriberRepository for PgStatusPageRepository {
                  confirmed_at_micros = $4, unsubscribed_at_micros = NULL,
                  updated_at_micros = $4
              WHERE org_id = $1 AND status_page_id = $2 AND token_hash = $3
-               AND status IN ('pending', 'active') RETURNING {SUBSCRIBER_COLS}"
+               AND status IN ('pending', 'active') AND {NOT_WAITING_FOR_SLACK}
+             RETURNING {SUBSCRIBER_COLS}"
         );
 
         let row = sqlx::query(&sql)
@@ -210,7 +98,7 @@ impl StatusPageSubscriberRepository for PgStatusPageRepository {
     async fn reset_pending_confirmation(&self, subscriber_id: &Id, token_hash: &str) -> Result<()> {
         sqlx::query(
             "UPDATE status_page_subscribers SET confirmation_sent_at_micros = NULL
-             WHERE id = $1 AND token_hash = $2 AND status = 'pending'",
+             WHERE id = $1 AND token_hash = $2 AND status IN ('pending', 'active')",
         )
         .bind(&subscriber_id.0)
         .bind(token_hash)
@@ -249,19 +137,21 @@ impl StatusPageSubscriberRepository for PgStatusPageRepository {
         let per_page = per_page.clamp(1, 100);
         let offset = u64::from(page.saturating_sub(1)).saturating_mul(u64::from(per_page));
 
-        let total: i64 = sqlx::query_scalar(
+        let count_sql = format!(
             "SELECT count(*) FROM status_page_subscribers
-             WHERE org_id = $1 AND status_page_id = $2",
-        )
-        .bind(&org_id.0)
-        .bind(&page_id.0)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(super::sqlx_err)?;
+             WHERE org_id = $1 AND status_page_id = $2 AND {NOT_WAITING_FOR_SLACK}"
+        );
+
+        let total: i64 = sqlx::query_scalar(&count_sql)
+            .bind(&org_id.0)
+            .bind(&page_id.0)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(super::sqlx_err)?;
 
         let sql = format!(
             "SELECT {SUBSCRIBER_COLS} FROM status_page_subscribers
-             WHERE org_id = $1 AND status_page_id = $2
+             WHERE org_id = $1 AND status_page_id = $2 AND {NOT_WAITING_FOR_SLACK}
              ORDER BY updated_at_micros DESC, id DESC LIMIT $3 OFFSET $4"
         );
 
@@ -330,13 +220,18 @@ impl StatusPageSubscriberRepository for PgStatusPageRepository {
         org_id: &Id,
         page_id: &Id,
         subscriber_id: &Id,
+        token: &str,
         token_hash: &str,
         sent_at: TimestampMicros,
     ) -> Result<StatusPageSubscriber> {
+        let (token_nonce, token_ciphertext) = self.seal_secret(token)?;
+
         let sql = format!(
             "UPDATE status_page_subscribers SET token_hash = $4,
-                 confirmation_sent_at_micros = $5, updated_at_micros = $5
+                 token_ciphertext = $5, token_nonce = $6,
+                 confirmation_sent_at_micros = $7, updated_at_micros = $7
              WHERE org_id = $1 AND status_page_id = $2 AND id = $3 AND status = 'pending'
+               AND {NOT_WAITING_FOR_SLACK}
              RETURNING {SUBSCRIBER_COLS}"
         );
 
@@ -345,12 +240,76 @@ impl StatusPageSubscriberRepository for PgStatusPageRepository {
             .bind(&page_id.0)
             .bind(&subscriber_id.0)
             .bind(token_hash)
+            .bind(&token_ciphertext)
+            .bind(&token_nonce)
             .bind(sent_at.0)
             .fetch_one(&self.pool)
             .await
             .map_err(super::sqlx_err)?;
 
         self.row_to_subscriber(row)
+    }
+
+    async fn get_subscriber_by_token(
+        &self,
+        org_id: &Id,
+        page_id: &Id,
+        token_hash: &str,
+    ) -> Result<StatusPageSubscriber> {
+        let sql = format!(
+            "SELECT {SUBSCRIBER_COLS} FROM status_page_subscribers
+             WHERE org_id = $1 AND status_page_id = $2 AND token_hash = $3
+               AND status IN ('pending', 'active') AND {NOT_WAITING_FOR_SLACK}"
+        );
+
+        let row = sqlx::query(&sql)
+            .bind(&org_id.0)
+            .bind(&page_id.0)
+            .bind(token_hash)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|error| token_lookup_error(error, "subscription link is invalid"))?;
+
+        self.row_to_subscriber(row)
+    }
+
+    async fn update_subscriber_components(
+        &self,
+        org_id: &Id,
+        page_id: &Id,
+        token_hash: &str,
+        components: &SubscriberComponents,
+        updated_at: TimestampMicros,
+    ) -> Result<StatusPageSubscriber> {
+        let sql = format!(
+            "UPDATE status_page_subscribers SET component_scope = $4,
+                 component_ids = $5, updated_at_micros = $6
+             WHERE org_id = $1 AND status_page_id = $2 AND token_hash = $3
+               AND status IN ('pending', 'active') AND {NOT_WAITING_FOR_SLACK}
+             RETURNING {SUBSCRIBER_COLS}"
+        );
+
+        let row = sqlx::query(&sql)
+            .bind(&org_id.0)
+            .bind(&page_id.0)
+            .bind(token_hash)
+            .bind(components.scope.as_str())
+            .bind(component_id_strings(components))
+            .bind(updated_at.0)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|error| token_lookup_error(error, "subscription link is invalid"))?;
+
+        self.row_to_subscriber(row)
+    }
+
+    async fn import_subscribers(
+        &self,
+        org_id: &Id,
+        page_id: &Id,
+        import: &StatusPageSubscriberImport,
+    ) -> Result<StatusPageSubscriberImportOutcome> {
+        import::import(self, org_id, page_id, import).await
     }
 }
 
@@ -361,8 +320,13 @@ impl PgStatusPageRepository {
     ) -> Result<StatusPageSubscriber> {
         let channel: String = row.try_get("channel").map_err(super::sqlx_err)?;
         let status: String = row.try_get("status").map_err(super::sqlx_err)?;
+        let origin: String = row.try_get("origin").map_err(super::sqlx_err)?;
         let ciphertext: Vec<u8> = row.try_get("target_ciphertext").map_err(super::sqlx_err)?;
         let nonce: Vec<u8> = row.try_get("target_nonce").map_err(super::sqlx_err)?;
+
+        let token_ciphertext: Vec<u8> = row.try_get("token_ciphertext").map_err(super::sqlx_err)?;
+
+        let token_nonce: Vec<u8> = row.try_get("token_nonce").map_err(super::sqlx_err)?;
 
         Ok(StatusPageSubscriber {
             id: Id(row.try_get("id").map_err(super::sqlx_err)?),
@@ -370,16 +334,45 @@ impl PgStatusPageRepository {
             status_page_id: Id(row.try_get("status_page_id").map_err(super::sqlx_err)?),
             channel: StatusPageSubscriberChannel::parse(&channel)
                 .ok_or_else(|| Error::internal(format!("unknown subscriber channel: {channel}")))?,
-            target: self.open_target(&nonce, &ciphertext)?,
+            target: self.open_secret(&nonce, &ciphertext)?,
+            target_label: row.try_get("target_label").map_err(super::sqlx_err)?,
             status: StatusPageSubscriberStatus::parse(&status)
                 .ok_or_else(|| Error::internal(format!("unknown subscriber status: {status}")))?,
             token_hash: row.try_get("token_hash").map_err(super::sqlx_err)?,
+            token: self.open_secret(&token_nonce, &token_ciphertext)?,
+            components: row_to_components(&row)?,
+            origin: StatusPageSubscriberOrigin::parse(&origin)
+                .ok_or_else(|| Error::internal(format!("unknown subscriber origin: {origin}")))?,
             confirmation_sent_at: optional_timestamp(&row, "confirmation_sent_at_micros")?,
             confirmed_at: optional_timestamp(&row, "confirmed_at_micros")?,
             unsubscribed_at: optional_timestamp(&row, "unsubscribed_at_micros")?,
             created_at: TimestampMicros(row.try_get("created_at_micros").map_err(super::sqlx_err)?),
             updated_at: TimestampMicros(row.try_get("updated_at_micros").map_err(super::sqlx_err)?),
         })
+    }
+}
+
+/// What a subscriber hears about, from its `component_scope` and
+/// `component_ids` columns.
+pub(super) fn row_to_components(row: &sqlx::postgres::PgRow) -> Result<SubscriberComponents> {
+    let scope: String = row.try_get("component_scope").map_err(super::sqlx_err)?;
+    let component_ids: Vec<String> = row.try_get("component_ids").map_err(super::sqlx_err)?;
+
+    Ok(SubscriberComponents {
+        scope: SubscriberComponentScope::parse(&scope)
+            .ok_or_else(|| Error::internal(format!("unknown subscriber scope: {scope}")))?,
+        component_ids: component_ids.into_iter().map(Id).collect(),
+    })
+}
+
+pub(super) fn component_id_strings(components: &SubscriberComponents) -> Vec<String> {
+    match components.scope {
+        SubscriberComponentScope::All => Vec::new(),
+        SubscriberComponentScope::Selected => components
+            .component_ids
+            .iter()
+            .map(|id| id.0.clone())
+            .collect(),
     }
 }
 
@@ -399,7 +392,7 @@ async fn update_subscriber_to_unsubscribed(
         "UPDATE status_page_subscribers SET status = 'unsubscribed',
              unsubscribed_at_micros = $4, updated_at_micros = $4
          WHERE org_id = $1 AND status_page_id = $2 AND {key} = $3
-           AND status IN ('pending', 'active', 'unsubscribed')
+           AND status IN ('pending', 'active', 'unsubscribed') AND {NOT_WAITING_FOR_SLACK}
          RETURNING {SUBSCRIBER_COLS}"
     );
 
@@ -431,6 +424,39 @@ async fn update_subscriber_to_unsubscribed(
 
     transaction.commit().await.map_err(super::sqlx_err)?;
     Ok(subscriber)
+}
+
+/// Serializes subscription changes on one page, so the limit on its
+/// subscribers holds under concurrent requests and imports.
+async fn lock_page_subscribers(
+    transaction: &mut sqlx::PgConnection,
+    org_id: &Id,
+    page_id: &Id,
+) -> Result<()> {
+    sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))")
+        .bind(format!("status-page-subscribers:{org_id}:{page_id}"))
+        .execute(transaction)
+        .await
+        .map_err(super::sqlx_err)?;
+
+    Ok(())
+}
+
+/// How many subscribers of the page have not unsubscribed.
+async fn count_subscribed(
+    transaction: &mut sqlx::PgConnection,
+    org_id: &Id,
+    page_id: &Id,
+) -> Result<i64> {
+    sqlx::query_scalar(
+        "SELECT count(*) FROM status_page_subscribers
+         WHERE org_id = $1 AND status_page_id = $2 AND status <> 'unsubscribed'",
+    )
+    .bind(&org_id.0)
+    .bind(&page_id.0)
+    .fetch_one(transaction)
+    .await
+    .map_err(super::sqlx_err)
 }
 
 pub(super) fn optional_timestamp(
@@ -465,8 +491,8 @@ mod tests {
             CipherRootKey::from_base64(&key).unwrap(),
         );
         let target = "https://hooks.example/secret-token";
-        let (nonce, ciphertext) = repository.seal_target(target).unwrap();
-        assert_eq!(repository.open_target(&nonce, &ciphertext).unwrap(), target);
+        let (nonce, ciphertext) = repository.seal_secret(target).unwrap();
+        assert_eq!(repository.open_secret(&nonce, &ciphertext).unwrap(), target);
         assert!(
             !ciphertext
                 .windows(target.len())
@@ -476,5 +502,12 @@ mod tests {
             repository.target_hash(&Id("org-a".into()), target),
             repository.target_hash(&Id("org-b".into()), target),
         );
+    }
+
+    #[test]
+    fn a_whole_page_subscriber_stores_no_component_ids() {
+        let chosen = SubscriberComponents::chosen(vec![Id("api".into())]);
+        assert_eq!(component_id_strings(&chosen), ["api"]);
+        assert!(component_id_strings(&SubscriberComponents::all()).is_empty());
     }
 }

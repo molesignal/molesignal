@@ -32,6 +32,41 @@ pub trait SyntheticTransitionSink: Send + Sync {
     ) -> Result<()>;
 }
 
+/// Hands every transition to several sinks; each sees it whatever the others
+/// did, and the first failure is reported.
+pub struct SyntheticTransitionSinks {
+    sinks: Vec<std::sync::Arc<dyn SyntheticTransitionSink>>,
+}
+
+impl SyntheticTransitionSinks {
+    pub fn new(sinks: Vec<std::sync::Arc<dyn SyntheticTransitionSink>>) -> Self {
+        Self { sinks }
+    }
+}
+
+#[async_trait]
+impl SyntheticTransitionSink for SyntheticTransitionSinks {
+    async fn on_transition(
+        &self,
+        transition: &SyntheticStateTransition,
+        alert_on_degraded: bool,
+        alert_on_flaky: bool,
+    ) -> Result<()> {
+        let mut first_error = None;
+
+        for sink in &self.sinks {
+            if let Err(error) = sink
+                .on_transition(transition, alert_on_degraded, alert_on_flaky)
+                .await
+            {
+                first_error.get_or_insert(error);
+            }
+        }
+
+        first_error.map_or(Ok(()), Err)
+    }
+}
+
 impl SyntheticService {
     pub async fn create_test_run(
         &self,

@@ -42,6 +42,15 @@ pub trait StatusPagePageRepository: Send + Sync {
         limit: u32,
     ) -> Result<Vec<StatusPage>>;
     async fn get_page(&self, org_id: &Id, page_id: &Id) -> Result<StatusPage>;
+    /// Sets the Slack App connector visitors add the page to Slack with, or
+    /// clears it with `None`.
+    async fn set_page_slack_connector(
+        &self,
+        org_id: &Id,
+        page_id: &Id,
+        connector_id: Option<&Id>,
+        updated_at: TimestampMicros,
+    ) -> Result<StatusPage>;
     async fn get_page_by_slug(&self, slug: &str) -> Result<Option<StatusPage>>;
     async fn get_public_page_by_slug(&self, slug: &str) -> Result<Option<StatusPage>>;
     /// Global lookup reserved for anonymous Host routing. `custom_domain` is
@@ -239,6 +248,8 @@ impl<T> StatusPageIncidentRepository for T where
 pub trait StatusPageRepository:
     StatusPageConfigRepository
     + StatusPageIncidentRepository
+    + super::StatusPagePostmortemRepository
+    + super::StatusPageServiceLinkRepository
     + super::StatusPageSubscriptionRepository
     + super::StatusPageAccessRepository
     + super::StatusPageAutomationRepository
@@ -248,6 +259,8 @@ pub trait StatusPageRepository:
 impl<T> StatusPageRepository for T where
     T: StatusPageConfigRepository
         + StatusPageIncidentRepository
+        + super::StatusPagePostmortemRepository
+        + super::StatusPageServiceLinkRepository
         + super::StatusPageSubscriptionRepository
         + super::StatusPageAccessRepository
         + super::StatusPageAutomationRepository

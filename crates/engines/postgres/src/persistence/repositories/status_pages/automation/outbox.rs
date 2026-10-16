@@ -67,13 +67,12 @@ pub(super) async fn claim(
               AND revision.id=candidate.rule_revision_id
              JOIN status_page_automation_rules rule
                ON rule.organization_id=revision.organization_id AND rule.id=revision.rule_id
-             LEFT JOIN status_page_automation_settings settings
-               ON settings.organization_id=candidate.organization_id
-              AND settings.status_page_id=candidate.status_page_id
+             JOIN status_pages page
+               ON page.org_id=candidate.organization_id AND page.id=candidate.status_page_id
              WHERE ((item.status='pending' AND item.available_at_micros <= $1)
                  OR (item.status='processing' AND item.locked_at_micros < $2))
                AND (item.kind='resolve'
-                    OR (rule.lifecycle='active' AND COALESCE(settings.paused,FALSE)=FALSE))
+                    OR (rule.lifecycle='active' AND NOT page.automation_paused))
              ORDER BY item.available_at_micros,item.created_at_micros,item.id
              LIMIT $3 FOR UPDATE OF item SKIP LOCKED
          )

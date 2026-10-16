@@ -5,9 +5,9 @@
 
 use crate::{
     domain::status_page::{
-        ComponentLifecycle, ComponentStatus, ComponentVisibility, IncidentImpact,
-        PublicIncidentStatus, StatusPageAccessRuleKind, StatusPageIncident, StatusPageIncidentKind,
-        StatusPagePublicationState, StatusPageVisibility,
+        ComponentKind, ComponentLifecycle, ComponentStatus, ComponentVisibility, IncidentImpact,
+        PublicIncidentStatus, ServiceLinkMode, StatusPageAccessRuleKind, StatusPageIncident,
+        StatusPageIncidentKind, StatusPagePublicationState, StatusPageVisibility,
     },
     shared::{ids::Id, time::TimestampMicros},
 };
@@ -36,6 +36,12 @@ pub struct StatusPageComponentInput {
     pub visibility: ComponentVisibility,
     pub lifecycle: ComponentLifecycle,
     pub position: Option<i32>,
+    /// Whether a change of status tells subscribers.
+    pub notify_subscribers: bool,
+    /// A component or a group; fixed once the component is made.
+    pub kind: ComponentKind,
+    /// The group the component is in.
+    pub group_id: Option<Id>,
 }
 
 #[derive(Debug, Clone)]
@@ -55,6 +61,10 @@ pub struct StatusPageIncidentInput {
     /// How long before the planned start subscribers are reminded, zero for no
     /// reminder. `None` takes the default for new maintenance.
     pub reminder_minutes: Option<i32>,
+    /// By when the first published update promises the next one.
+    pub next_update_at: Option<TimestampMicros>,
+    /// Whether the first published update tells subscribers.
+    pub notify_subscribers: bool,
 }
 
 impl StatusPageIncidentInput {
@@ -85,4 +95,17 @@ pub struct StatusPageAccessRuleInput {
 pub struct StatusPageIncidentUpdateInput {
     pub status: PublicIncidentStatus,
     pub message: String,
+    /// By when the publisher promises the next update.
+    pub next_update_at: Option<TimestampMicros>,
+    /// Whether the update tells subscribers. A correction of wording usually
+    /// does not.
+    pub notify_subscribers: bool,
+}
+
+/// What a component that stands for a business service follows.
+#[derive(Debug, Clone)]
+pub struct StatusPageServiceLinkInput {
+    pub business_service_id: Id,
+    pub mode: ServiceLinkMode,
+    pub notify_subscribers: bool,
 }

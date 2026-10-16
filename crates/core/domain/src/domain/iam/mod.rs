@@ -23,8 +23,8 @@ pub use sso::*;
 pub const SYSTEM_ORG_NAME: &str = "_sys";
 pub const SYSTEM_ORG_SLUG: &str = "_sys";
 
-/// Stable business purpose whose concrete `_sys` role is selected by
-/// `iam_builtin_role_purposes`. This is deliberately not a role key or name.
+/// Stable business purpose whose concrete `_sys` role is selected by the
+/// `purpose` of `iam_builtin_roles`. This is deliberately not a role key or name.
 pub const PLATFORM_ADMINISTRATOR_ROLE_PURPOSE: &str = "platform_administrator";
 
 /// Stable business purpose of the role an organization's first member receives: its owner.

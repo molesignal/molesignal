@@ -37,6 +37,13 @@ impl StatusPageNotifyAdapter {
 
 #[async_trait]
 impl StatusPageNotificationSender for StatusPageNotifyAdapter {
+    fn delivers(&self, channel: StatusPageSubscriberChannel) -> bool {
+        match channel {
+            StatusPageSubscriberChannel::Email => self.email.is_some(),
+            StatusPageSubscriberChannel::Webhook | StatusPageSubscriberChannel::Slack => true,
+        }
+    }
+
     async fn validate_target(
         &self,
         channel: StatusPageSubscriberChannel,
@@ -52,6 +59,11 @@ impl StatusPageNotificationSender for StatusPageNotifyAdapter {
                 Ok(())
             }
             StatusPageSubscriberChannel::Webhook => {
+                resolve_public_webhook(target).await?;
+                Ok(())
+            }
+            StatusPageSubscriberChannel::Slack => {
+                validate_slack_webhook(target)?;
                 resolve_public_webhook(target).await?;
                 Ok(())
             }
@@ -78,9 +90,33 @@ impl StatusPageNotificationSender for StatusPageNotifyAdapter {
                     )
                     .await
             }
-            StatusPageSubscriberChannel::Webhook => send_webhook(target, message).await,
+            // A Slack message is written into the payload, which is posted
+            // to the incoming webhook like any other.
+            StatusPageSubscriberChannel::Webhook | StatusPageSubscriberChannel::Slack => {
+                send_webhook(target, message).await
+            }
         }
     }
+}
+
+/// A Slack incoming webhook: `https://hooks.slack.com/services/…`, or the
+/// same on Slack's government cloud.
+fn validate_slack_webhook(target: &str) -> Result<()> {
+    let url = Url::parse(target.trim())
+        .map_err(|_| Error::invalid("a Slack incoming webhook URL is required"))?;
+
+    let host = url.host_str().unwrap_or_default().to_ascii_lowercase();
+
+    if url.scheme() != "https"
+        || !matches!(host.as_str(), "hooks.slack.com" | "hooks.slack-gov.com")
+        || !url.path().starts_with("/services/")
+    {
+        return Err(Error::invalid(
+            "a Slack incoming webhook URL starts with https://hooks.slack.com/services/",
+        ));
+    }
+
+    Ok(())
 }
 
 async fn send_webhook(target: &str, message: &StatusPageNotificationMessage) -> Result<()> {
@@ -194,6 +230,17 @@ fn is_public_ipv6(address: Ipv6Addr) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_slack_incoming_webhooks_take_slack_messages() {
+        assert!(validate_slack_webhook("https://hooks.slack.com/services/T0/B0/secret").is_ok());
+        assert!(
+            validate_slack_webhook("https://hooks.slack-gov.com/services/T0/B0/secret").is_ok()
+        );
+        assert!(validate_slack_webhook("http://hooks.slack.com/services/T0/B0/secret").is_err());
+        assert!(validate_slack_webhook("https://hooks.example.com/services/T0").is_err());
+        assert!(validate_slack_webhook("https://hooks.slack.com/workflows/T0").is_err());
+    }
 
     #[test]
     fn public_ip_filter_blocks_internal_and_documentation_ranges() {

@@ -25,39 +25,65 @@ use crate::{
 pub(super) async fn grant_catalog_to_organization_owners(pool: &PgPool) -> Result<u64> {
     let mut tx = sqlx::begin(pool).await.map_err(sqlx_err)?;
 
-    let catalog_added = sqlx::query(
-        "INSERT INTO iam_builtin_role_permissions (role_key, permission_key)
-         SELECT purpose.role_key, permission.permission_key
-           FROM iam_builtin_role_purposes purpose
-          CROSS JOIN iam_permissions permission
-          WHERE purpose.purpose = $1
-         ON CONFLICT (role_key, permission_key) DO NOTHING",
+    // The owner entry of the built-in catalog lists every permission there is.
+    let catalog_added: i64 = sqlx::query_scalar(
+        "WITH catalog AS (
+             SELECT COALESCE(array_agg(permission_key ORDER BY permission_key), ARRAY[]::TEXT[])
+                        AS keys
+               FROM iam_permissions
+         ), lacking AS (
+             SELECT role.role_key,
+                    cardinality(catalog.keys) - cardinality(role.permissions) AS missing
+               FROM iam_builtin_roles role
+              CROSS JOIN catalog
+              WHERE role.purpose = $1
+                AND NOT role.permissions @> catalog.keys
+         ), updated AS (
+             UPDATE iam_builtin_roles role
+                SET permissions = catalog.keys
+               FROM catalog, lacking
+              WHERE role.role_key = lacking.role_key
+          RETURNING lacking.missing
+         )
+         SELECT COALESCE(SUM(missing), 0)::BIGINT FROM updated",
     )
     .bind(ORGANIZATION_BOOTSTRAP_ROLE_PURPOSE)
-    .execute(&mut *tx)
+    .fetch_one(&mut *tx)
     .await
-    .map_err(sqlx_err)?
-    .rows_affected();
+    .map_err(sqlx_err)?;
 
+    // Every organization's owner role gains what it lacks of the catalog entry.
     let changed_organizations: Vec<(String, i64)> = sqlx::query_as(
-        "WITH inserted AS (
-             INSERT INTO iam_role_permissions (role_id, permission_key)
-             SELECT role.id, catalog.permission_key
+        "WITH owner AS (
+             SELECT role_key, permissions
+               FROM iam_builtin_roles
+              WHERE purpose = $1
+         ), lacking AS (
+             SELECT role.id, role.org_id,
+                    (SELECT COUNT(*)
+                       FROM unnest(owner.permissions) AS listed(permission_key)
+                      WHERE NOT listed.permission_key = ANY(role.permissions)) AS missing
                FROM iam_roles role
-               JOIN iam_builtin_role_purposes purpose
-                 ON purpose.role_key = role.role_key
-                AND purpose.purpose = $1
-               JOIN iam_builtin_role_permissions catalog
-                 ON catalog.role_key = role.role_key
+               JOIN owner
+                 ON owner.role_key = role.role_key
               WHERE role.builtin
-             ON CONFLICT (role_id, permission_key) DO NOTHING
-             RETURNING role_id
+                AND NOT role.permissions @> owner.permissions
+         ), updated AS (
+             UPDATE iam_roles role
+                SET permissions = ARRAY(
+                        SELECT DISTINCT listed.permission_key
+                          FROM unnest(role.permissions || owner.permissions)
+                               AS listed(permission_key)
+                      ORDER BY listed.permission_key
+                    )
+               FROM owner, lacking
+              WHERE lacking.id = role.id
+                AND owner.role_key = role.role_key
+          RETURNING lacking.org_id, lacking.missing
          )
-         SELECT role.org_id, COUNT(*)
-           FROM inserted
-           JOIN iam_roles role
-             ON role.id = inserted.role_id
-       GROUP BY role.org_id",
+         SELECT org_id, SUM(missing)::BIGINT
+           FROM updated
+       GROUP BY org_id",
     )
     .bind(ORGANIZATION_BOOTSTRAP_ROLE_PURPOSE)
     .fetch_all(&mut *tx)
@@ -71,7 +97,7 @@ pub(super) async fn grant_catalog_to_organization_owners(pool: &PgPool) -> Resul
     // The catalog tells every reader which built-in roles hold a permission. That changed.
     if catalog_added > 0 {
         sqlx::query(
-            "UPDATE iam_permission_catalog_versions
+            "UPDATE iam_catalog_versions
                 SET version = version + 1,
                     updated_at_micros = (EXTRACT(EPOCH FROM clock_timestamp()) * 1000000)::BIGINT
               WHERE catalog_key = 'permissions'",
@@ -88,5 +114,5 @@ pub(super) async fn grant_catalog_to_organization_owners(pool: &PgPool) -> Resul
         .map(|(_, added)| u64::try_from(*added).unwrap_or_default())
         .sum::<u64>();
 
-    Ok(catalog_added + materialized)
+    Ok(u64::try_from(catalog_added).unwrap_or_default() + materialized)
 }

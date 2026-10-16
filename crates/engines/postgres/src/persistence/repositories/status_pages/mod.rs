@@ -14,6 +14,8 @@ mod event_queries;
 mod incidents;
 mod pages;
 mod planned_maintenance;
+mod postmortems;
+mod service_links;
 mod subscriptions;
 
 use sqlx::PgPool;

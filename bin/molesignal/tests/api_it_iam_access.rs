@@ -266,11 +266,11 @@ async fn system_capabilities_resolve_role_name_and_permissions_from_database() {
         .expect("connect test database");
     let role_id: String = sqlx::query_scalar(
         "SELECT role.id
-           FROM iam_builtin_role_purposes purpose
+           FROM iam_builtin_roles catalog
            JOIN iam_roles role
              ON role.org_id = $1
-            AND role.role_key = purpose.role_key
-          WHERE purpose.purpose = 'platform_administrator'",
+            AND role.role_key = catalog.role_key
+          WHERE catalog.purpose = 'platform_administrator'",
     )
     .bind(server.state.iam.system_org_id.as_str())
     .fetch_one(&pool)

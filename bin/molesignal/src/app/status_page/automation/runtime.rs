@@ -41,11 +41,20 @@ impl StatusPageService {
             .into_iter()
             .filter(|rule| complete_match(rule, &observation))
         {
-            if !matched_pages.insert(rule.rule.status_page_id.clone()) {
+            if matched_pages.contains(&rule.rule.status_page_id) {
                 continue;
             }
 
-            let candidate = materialize_candidate(&rule, &observation)?;
+            // A rule with nothing to publish on leaves the observation to the
+            // next rule of the page.
+            let component_ids = self.rule_components(&rule, &observation).await?;
+
+            if component_ids.is_empty() {
+                continue;
+            }
+
+            matched_pages.insert(rule.rule.status_page_id.clone());
+            let candidate = materialize_candidate(&rule, &observation, component_ids)?;
             let automatic = candidate.automatic;
 
             let persisted = self
@@ -314,6 +323,8 @@ impl StatusPageService {
                         StatusPageIncidentUpdateInput {
                             status: incident.status,
                             message: candidate.message.clone(),
+                            next_update_at: None,
+                            notify_subscribers: true,
                         },
                     )
                     .await?;
@@ -406,6 +417,8 @@ impl StatusPageService {
                     status: PublicIncidentStatus::Resolved,
                     message: candidate.resolved_message.clone(),
                     created_at: now,
+                    next_update_at: None,
+                    notify_subscribers: true,
                 },
             )
             .await?
@@ -456,6 +469,8 @@ fn candidate_input(
         started_at: Some(candidate.created_at),
         auto_start: None,
         reminder_minutes: None,
+        next_update_at: None,
+        notify_subscribers: true,
     }
 }
 
@@ -472,6 +487,8 @@ fn draft_input(incident: &StatusPageIncident) -> StatusPageIncidentInput {
         started_at: Some(incident.started_at),
         auto_start: Some(incident.auto_start),
         reminder_minutes: Some(incident.reminder_minutes),
+        next_update_at: None,
+        notify_subscribers: true,
     }
 }
 

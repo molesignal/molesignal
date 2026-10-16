@@ -12,6 +12,7 @@ use crate::{
     },
     app::{
         alerting::{AlertingService, RuleEvaluator},
+        business_service::BusinessServiceService,
         cluster::ClusterRegistry,
         dashboard::{DashboardService, authoring::DashboardAuthoringService},
         iam::{IamAccessService, IamService},
@@ -118,6 +119,7 @@ pub struct AppState {
     pub search_jobs: Arc<crate::app::query::jobs::SearchJobService>,
     pub dashboard: Arc<DashboardService>,
     pub status_pages: Arc<StatusPageService>,
+    pub business_services: Arc<BusinessServiceService>,
     pub synthetics: Arc<SyntheticService>,
     pub probe_control: Option<Arc<ProbeControlService>>,
     pub alerting: AlertingState,

@@ -6,7 +6,9 @@
 mod admin_notifier;
 mod assets;
 mod dns_verifier;
+mod slack_app;
 
 pub use admin_notifier::StatusPageAdminEmailNotifier;
 pub use assets::StatusPageAssetCleaner;
 pub use dns_verifier::DnsStatusPageDomainVerifier;
+pub use slack_app::{ConnectorSlackApps, SLACK_CALLBACK_PATH, SlackOAuthApp};

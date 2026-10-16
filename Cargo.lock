@@ -5529,6 +5529,7 @@ dependencies = [
  "crc32c",
  "criterion",
  "cron",
+ "csv",
  "dashmap",
  "datafusion",
  "domain 0.1.0",

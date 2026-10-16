@@ -102,5 +102,9 @@ impl StatusPageMaintenanceWorker {
         if let Err(error) = self.service.purge_expired_access_artifacts(1000).await {
             tracing::warn!(error = %error, "status-page private-access sweep failed");
         }
+
+        if let Err(error) = self.service.purge_abandoned_slack_app_subscriptions().await {
+            tracing::warn!(error = %error, "status-page Slack request sweep failed");
+        }
     }
 }
