@@ -65,6 +65,7 @@ WORKDIR /app
 COPY --from=rust-builder /src/target/release/molesignal /usr/local/bin/molesignal
 RUN mkdir -p /usr/share/molesignal/mmdb
 COPY assets/mmdb/GeoLite2-City.mmdb /usr/share/molesignal/mmdb/GeoLite2-City.mmdb
+COPY assets/mmdb/NOTICE.txt /usr/share/molesignal/mmdb/NOTICE.txt
 COPY conf/config.toml /app/conf/config.toml
 # Web UI 已编译进 molesignal；5080 同时提供页面和 HTTP API。
 EXPOSE 5080 5082

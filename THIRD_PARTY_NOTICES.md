@@ -29,3 +29,24 @@ normalized thresholds, responsive layouts, accessibility semantics, and tests.
 The Bar Chart, Heatmap, and State Timeline implementations are original local
 work. No source from Grafana's AGPL-licensed `public/app/plugins/panel/`
 directory is included.
+
+## MaxMind GeoLite City database
+
+MoleSignal fills the `country` of RUM events from the client IP with MaxMind's
+GeoLite City database. The database is distributed unmodified in this
+repository, in the container images at `/usr/share/molesignal/mmdb/`, and in
+the release archives under `mmdb/`, each time with `NOTICE.txt` beside it.
+
+This product includes GeoLite Data created by MaxMind, available from
+https://www.maxmind.com.
+
+- Upstream: [MaxMind GeoLite](https://dev.maxmind.com/geoip/geolite-free-geolocation-data)
+- File: `assets/mmdb/GeoLite2-City.mmdb` (database type `GeoLite2-City`, built
+  2026-05-29)
+- License: [GeoLite End User License Agreement](https://www.maxmind.com/en/geolite/eula);
+  its copyrightable elements are licensed under the
+  [Creative Commons Attribution-ShareAlike 4.0 International License](https://creativecommons.org/licenses/by-sa/4.0/)
+- Database and Contents Copyright (c) 2026 MaxMind, Inc.
+- The database incorporates [GeoNames](https://www.geonames.org) geographical
+  data, made available under the
+  [Creative Commons Attribution 4.0 International License](https://creativecommons.org/licenses/by/4.0/)

@@ -1,0 +1,14 @@
+GeoLite2-City.mmdb is the GeoLite City database of MaxMind, Inc.
+
+This product includes GeoLite Data created by MaxMind, available from
+https://www.maxmind.com.
+
+Database and Contents Copyright (c) 2026 MaxMind, Inc. Use of the database
+is governed by the GeoLite End User License Agreement
+(https://www.maxmind.com/en/geolite/eula). Its copyrightable elements are
+licensed under the Creative Commons Attribution-ShareAlike 4.0 International
+License (https://creativecommons.org/licenses/by-sa/4.0/).
+
+The database incorporates GeoNames (https://www.geonames.org) geographical
+data, which is made available under the Creative Commons Attribution 4.0
+International License (https://creativecommons.org/licenses/by/4.0/).

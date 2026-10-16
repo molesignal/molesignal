@@ -259,8 +259,9 @@ jobs:
           cp "target/${{ matrix.target }}/release/molesignal" "dist/${ARCHIVE}/bin/"
           cp -R conf/. "dist/${ARCHIVE}/conf/"
           cp -R deploy/systemd/. "dist/${ARCHIVE}/deploy/systemd/"
-          # GeoIP database for RUM country lookups; the server never downloads it.
-          cp assets/mmdb/GeoLite2-City.mmdb "dist/${ARCHIVE}/mmdb/"
+          # GeoIP database for RUM country lookups, with its attribution notice;
+          # the server never downloads it.
+          cp assets/mmdb/GeoLite2-City.mmdb assets/mmdb/NOTICE.txt "dist/${ARCHIVE}/mmdb/"
           printf '{"build_id":"%s","git_sha":"%s"}\n' "$BUILD_ID" "$GITHUB_SHA" \
             > "dist/${ARCHIVE}/build-info.json"
           cd dist && tar czf "${ARCHIVE}.tar.gz" "${ARCHIVE}"

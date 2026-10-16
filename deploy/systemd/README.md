@@ -16,7 +16,8 @@ sudo install -Dm644 mmdb/GeoLite2-City.mmdb \
 ```
 
 `mmdb/GeoLite2-City.mmdb` 是 GeoIP 库，`[mmdb] db_path` 默认指向上面的安装路径；RUM 写入用它按
-客户端 IP 查国家，服务不会在运行期下载或更新它。升级时随新版本的二进制一起替换。
+客户端 IP 查国家，服务不会在运行期下载或更新它。升级时随新版本的二进制一起替换。本产品包含由 MaxMind
+创建的 GeoLite 数据，可从 https://www.maxmind.com 获取；署名与许可见二进制包里的 `mmdb/NOTICE.txt`。
 
 交付通道是运行时元数据。在 `/etc/molesignal/molesignal.env` 中配置当前通道：
 
