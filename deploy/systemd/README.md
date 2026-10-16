@@ -11,7 +11,12 @@ sudo install -o root -g molesignal -m 0640 \
   conf/config.toml /etc/molesignal/config.toml
 sudo install -Dm644 deploy/systemd/molesignal.service \
   /etc/systemd/system/molesignal.service
+sudo install -Dm644 mmdb/GeoLite2-City.mmdb \
+  /usr/share/molesignal/mmdb/GeoLite2-City.mmdb
 ```
+
+`mmdb/GeoLite2-City.mmdb` 是 GeoIP 库，`[mmdb] db_path` 默认指向上面的安装路径；RUM 写入用它按
+客户端 IP 查国家，服务不会在运行期下载或更新它。升级时随新版本的二进制一起替换。
 
 交付通道是运行时元数据。在 `/etc/molesignal/molesignal.env` 中配置当前通道：
 

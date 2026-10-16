@@ -17,7 +17,8 @@ pub struct FunctionsSettings {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MmdbSettings {
-    /// 本地 GeoLite2 City mmdb 文件路径。库随版本库（`assets/mmdb`）进入容器镜像，运行期不下载。
+    /// 本地 GeoLite2 City mmdb 文件路径。库随版本库（`assets/mmdb`）进入容器镜像和二进制包，
+    /// 运行期不下载。
     #[serde(default = "default_mmdb_path")]
     pub db_path: String,
 }

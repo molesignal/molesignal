@@ -112,7 +112,7 @@ build-debug: web-build
 build-release: web-build
 	BUILD_ID="$(BUILD_ID)" cargo build $(CARGO_FLAGS_BASE) --release $(WORKSPACE_PKGS) $(CARGO_FEATURE_FLAGS)
 
-# 生成二进制发布包：内置 conf/ 和 systemd 部署文件
+# 生成二进制发布包：内置 conf/、systemd 部署文件和 GeoIP 库（mmdb/）
 package:
 	@if [ -n "$(TARGET)" ]; then \
 		$(MAKE) build-release-target TARGET=$(TARGET); \
@@ -120,10 +120,11 @@ package:
 		$(MAKE) build-release; \
 	fi
 	rm -rf "$(PACKAGE_DIR)"
-	mkdir -p "$(PACKAGE_DIR)/bin" "$(PACKAGE_DIR)/conf" "$(PACKAGE_DIR)/deploy/systemd"
+	mkdir -p "$(PACKAGE_DIR)/bin" "$(PACKAGE_DIR)/conf" "$(PACKAGE_DIR)/deploy/systemd" "$(PACKAGE_DIR)/mmdb"
 	cp "$(PACKAGE_BIN_DIR)/$(BIN_NAME)" "$(PACKAGE_DIR)/bin/$(BIN_NAME)"
 	cp -R "$(CONFIG_DIR)/." "$(PACKAGE_DIR)/conf/"
 	cp -R "$(DEPLOY_DIR)/systemd/." "$(PACKAGE_DIR)/deploy/systemd/"
+	cp "$(MMDB_FILE)" "$(PACKAGE_DIR)/mmdb/"
 	printf '{"build_id":"%s","git_sha":"%s"}\n' "$(BUILD_ID)" "$(GIT_SHA)" > "$(PACKAGE_DIR)/build-info.json"
 	tar -C "$(DIST_DIR)" -czf "$(DIST_DIR)/$(PACKAGE_NAME).tar.gz" "$(PACKAGE_NAME)"
 	@echo "→ wrote $(DIST_DIR)/$(PACKAGE_NAME).tar.gz"

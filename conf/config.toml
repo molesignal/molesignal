@@ -529,7 +529,8 @@ max_concurrent_fetches_per_object = 4
 
 # === MMDB GeoIP 富化 ===
 [mmdb]
-# GeoLite2 City 库路径。默认指向容器镜像内置的文件（来自版本库 assets/mmdb），运行期不下载。
+# GeoLite2 City 库路径。容器镜像在默认路径内置了该文件，二进制包把它放在 mmdb/ 下
+# （安装见 deploy/systemd/README.md）；文件来自版本库 assets/mmdb，运行期不下载。
 db_path = "/usr/share/molesignal/mmdb/GeoLite2-City.mmdb"
 
 # === 异步搜索作业 ===
