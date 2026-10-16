@@ -529,12 +529,8 @@ max_concurrent_fetches_per_object = 4
 
 # === MMDB GeoIP 富化 ===
 [mmdb]
-# MaxMind GeoLite2 license key；为空时不做运行期刷新。发布包会内置 mmdb 文件。
-license_key = ""
-# 默认指向二进制发布包内置资源；需要运行期刷新时可覆盖到可写目录。
+# GeoLite2 City 库路径。默认指向容器镜像内置的文件（来自版本库 assets/mmdb），运行期不下载。
 db_path = "/usr/share/molesignal/mmdb/GeoLite2-City.mmdb"
-# 周期 refresh 间隔（秒）；默认 7 天
-refresh_interval_secs = 604800
 
 # === 异步搜索作业 ===
 # 结果以 NDJSON 写入对象存储的 search_jobs/v1/{组织ID}/{任务ID}-{attempt}.ndjson；

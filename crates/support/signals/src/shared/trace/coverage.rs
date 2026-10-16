@@ -122,7 +122,6 @@ pub const HTTP_CLIENT_COVERAGE: &[&str] = &[
     "src/app/trace/export.rs",
     "src/bootstrap/workers/scheduled_reports.rs",
     "src/infra/connectors/cloudwatch_logs.rs",
-    "src/infra/enrichment/mmdb_downloader.rs",
     "src/infra/notify/adapters/lark.rs",
     "src/infra/notify/adapters/slack.rs",
     "src/infra/notify/adapters/webhook.rs",

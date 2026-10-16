@@ -184,7 +184,6 @@ snap = "1"
 
 # tantivy index archive
 zstd = "0.13"
-tar = "0.4"
 flate2 = "1"
 
 # notify senders

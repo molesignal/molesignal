@@ -106,7 +106,6 @@ sqlparser.workspace = true
 sqlx.workspace = true
 svix-ksuid.workspace = true
 tantivy.workspace = true
-tar.workspace = true
 tempfile = "3"
 thiserror.workspace = true
 tikv-jemalloc-ctl = { version = "0.6", optional = true, features = ["use_std"] }

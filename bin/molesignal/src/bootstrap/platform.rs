@@ -55,7 +55,7 @@ pub(super) struct PlatformRuntime {
 }
 
 impl PlatformRuntime {
-    pub(super) async fn build(
+    pub(super) fn build(
         settings: &Settings,
         core: &Core,
         query: &QueryRuntime,
@@ -215,17 +215,6 @@ impl PlatformRuntime {
 
             crate::bootstrap::workers::pipeline_exec::spawn_runner(runner, 15)
         });
-
-        let mmdb = crate::infra::enrichment::mmdb_downloader::MmdbDownloader::new(
-            crate::infra::enrichment::mmdb_downloader::MmdbConfig {
-                license_key: Some(settings.mmdb.license_key.clone()).filter(|key| !key.is_empty()),
-                db_path: std::path::PathBuf::from(&settings.mmdb.db_path),
-                refresh_interval_secs: settings.mmdb.refresh_interval_secs,
-            },
-        );
-
-        let _ = mmdb.ensure_ready().await;
-        let _mmdb_refresh = mmdb.spawn_refresh();
 
         Ok(Self {
             connectors,

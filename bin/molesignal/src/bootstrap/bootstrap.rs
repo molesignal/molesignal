@@ -163,8 +163,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         &query_runtime,
         &storage_runtime,
         &iam_runtime,
-    )
-    .await?;
+    )?;
     let agent_runtime = AgentRuntime::build(&core, &iam_runtime, agent_model_providers.clone());
 
     let dashboard_authoring = Arc::new(

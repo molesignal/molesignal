@@ -17,31 +17,19 @@ pub struct FunctionsSettings {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MmdbSettings {
-    /// MaxMind GeoLite2 license key；为空时不下载；若 db_path 文件已随包存在仍可用于 GeoIP。
-    #[serde(default)]
-    pub license_key: String,
-    /// 本地 mmdb 文件路径。
+    /// 本地 GeoLite2 City mmdb 文件路径。库随版本库（`assets/mmdb`）进入容器镜像，运行期不下载。
     #[serde(default = "default_mmdb_path")]
     pub db_path: String,
-    /// 周期 refresh 间隔（秒）；默认 7 天。
-    #[serde(default = "default_mmdb_refresh")]
-    pub refresh_interval_secs: u64,
 }
 
 fn default_mmdb_path() -> String {
     "/usr/share/molesignal/mmdb/GeoLite2-City.mmdb".into()
 }
 
-fn default_mmdb_refresh() -> u64 {
-    7 * 24 * 3600
-}
-
 impl Default for MmdbSettings {
     fn default() -> Self {
         Self {
-            license_key: String::new(),
             db_path: default_mmdb_path(),
-            refresh_interval_secs: default_mmdb_refresh(),
         }
     }
 }
