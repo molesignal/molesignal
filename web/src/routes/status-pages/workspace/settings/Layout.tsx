@@ -7,7 +7,7 @@ import { PageBody } from '@/shell/PageHeader';
 import { useStatusPageWorkspace } from '../Layout';
 import { StatusPageCanvas } from '../Surfaces';
 
-const SECTIONS = ['general', 'branding', 'localization', 'domain-access', 'automation'] as const;
+const SECTIONS = ['general', 'branding', 'localization', 'domain-access', 'slack', 'automation'] as const;
 
 export function StatusPageSettingsLayout() {
   const { t } = useTranslation('status-pages');

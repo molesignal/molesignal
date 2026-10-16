@@ -1,30 +1,25 @@
-import { useMutation } from '@tanstack/react-query';
-import {
-  Archive,
-  ArchiveRestore,
-  ArrowDown,
-  ArrowUp,
-  Pencil,
-  Plus,
-  Search,
-  Trash2,
-} from 'lucide-react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { Plus, Search } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { ConfirmDialog, DataTable } from '@/admin';
+import * as businessServicesApi from '@/api/businessServices';
 import * as statusPagesApi from '@/api/statusPages';
 import type { StatusPageComponent, StatusPageComponentInput } from '@/api/statusPages';
 import { toApiError } from '@/lib/http';
-import { ChromeButton, IconButton, Pill } from '@/shell/chrome';
+import { useActionAccess } from '@/product/actionAccess';
+import { ChromeButton } from '@/shell/chrome';
 import { FormInput, FormSelect } from '@/shell/FormDrawer';
 import { PageBody } from '@/shell/PageHeader';
 import { ViewTabs } from '@/shell/tabs/ViewTabs';
 import { toast } from '@/shell/ui/sonner';
 
-import { ComponentFormDrawer } from '../ConfigurationDrawers';
-import { COMPONENT_STATUSES, COMPONENT_TONE, componentStatusLabel } from '../model';
+import { COMPONENT_STATUSES, componentStatusLabel, isComponentGroup, namedComponents } from '../model';
+import { componentColumns } from './component/columns';
+import { ComponentFormDrawer, type ComponentSubmission } from './component/ComponentFormDrawer';
+import { componentOrder, componentRows, componentSiblings } from './component/rows';
 import { useStatusPageWorkspace } from './Layout';
 import {
   StatusPageCanvas,
@@ -32,6 +27,10 @@ import {
   statusPageFlatTableClassName,
 } from './Surfaces';
 
+/**
+ * The components of a page, in the order the public page lists them: groups
+ * with their components under them, the way folders hold files.
+ */
 export function StatusPageComponents() {
   const { t } = useTranslation('status-pages');
   const navigate = useNavigate();
@@ -42,27 +41,27 @@ export function StatusPageComponents() {
   const lifecycle = searchParams.get('lifecycle') === 'archived' ? 'archived' : 'active';
   const search = searchParams.get('q') ?? '';
   const status = COMPONENT_STATUSES.find((item) => item === searchParams.get('status'));
-  const visibility = ['enabled', 'hidden'].find(
+  const visibility = (['enabled', 'hidden'] as const).find(
     (item) => item === searchParams.get('visibility'),
   );
   const creating = componentId === 'new';
   const editing = snapshot.components.find((item) => item.id === componentId) ?? null;
-  const activeOrder = snapshot.components
-    .filter((item) => item.lifecycle === 'active')
-    .sort(componentOrder);
-  const rows = snapshot.components
-    .filter((item) => item.lifecycle === lifecycle)
-    .filter((item) => !status || item.status === status)
-    .filter((item) => !visibility || item.visibility === visibility)
-    .filter((item) => {
-      const normalized = search.trim().toLocaleLowerCase();
-      return !normalized
-        || item.name.toLocaleLowerCase().includes(normalized)
-        || item.description.toLocaleLowerCase().includes(normalized);
-    })
+  const rows = componentRows(snapshot.components, { lifecycle, search, status, visibility });
+  const groups = snapshot.components
+    .filter((item) => isComponentGroup(item) && item.lifecycle === 'active')
     .sort(componentOrder);
   const canMutate = manageAccess.allowed && snapshot.page.lifecycle === 'active';
-  const hasHidden = snapshot.components.some(
+  const businessServiceAccess = useActionAccess({ permission: 'business_services.read' });
+  // The column is there only when a component on the page stands for a business service.
+  const linksShown = businessServiceAccess.allowed
+    && snapshot.components.some((component) => component.business_service);
+  const servicesQuery = useQuery({
+    queryKey: ['business-services'],
+    queryFn: businessServicesApi.list,
+    enabled: linksShown,
+    staleTime: 30_000,
+  });
+  const hasHidden = namedComponents(snapshot.components).some(
     (item) => item.lifecycle === lifecycle && item.visibility === 'hidden',
   );
   const closeDrawer = () => navigate(`/status-pages/${pageId}/components`, { replace: true });
@@ -74,10 +73,16 @@ export function StatusPageComponents() {
   };
 
   const saveMutation = useMutation({
-    mutationFn: (input: StatusPageComponentInput) =>
-      editing
-        ? statusPagesApi.updateComponent(pageId, editing.id, input)
-        : statusPagesApi.createComponent(pageId, input),
+    mutationFn: async ({ input, link }: ComponentSubmission) => {
+      const saved = editing
+        ? await statusPagesApi.updateComponent(pageId, editing.id, input)
+        : await statusPagesApi.createComponent(pageId, input);
+      if (link) return statusPagesApi.linkComponentService(pageId, saved.id, link);
+      if (link === null && saved.business_service) {
+        return statusPagesApi.unlinkComponentService(pageId, saved.id);
+      }
+      return saved;
+    },
     onSuccess: async () => {
       toast.success(t('toast.component_saved'));
       closeDrawer();
@@ -102,8 +107,10 @@ export function StatusPageComponents() {
       component: StatusPageComponent;
       direction: -1 | 1;
     }) => {
-      const index = activeOrder.findIndex((item) => item.id === component.id);
-      const neighbor = activeOrder[index + direction];
+      // A component moves among the others of its group; a group among the top level.
+      const siblings = componentSiblings(snapshot.components, component);
+      const index = siblings.findIndex((item) => item.id === component.id);
+      const neighbor = siblings[index + direction];
       if (!neighbor) return;
       await Promise.all([
         statusPagesApi.updateComponent(
@@ -132,6 +139,24 @@ export function StatusPageComponents() {
       await refresh();
     },
     onError: (error: unknown) => toast.error(toApiError(error).message),
+  });
+
+  const columns = componentColumns({
+    t,
+    serviceNames: linksShown
+      ? new Map((servicesQuery.data ?? []).map((service) => [service.id, service.name]))
+      : null,
+    actions: {
+      canMutate,
+      disabledReason: manageAccess.reason,
+      busy: { ordering: orderMutation.isPending, archiving: lifecycleMutation.isPending },
+      siblingsOf: (component) => componentSiblings(snapshot.components, component),
+      onMove: (component, direction) => orderMutation.mutate({ component, direction }),
+      onEdit: (component) => navigate(`/status-pages/${pageId}/components/${component.id}`),
+      onArchive: (component) => lifecycleMutation.mutate({ component, next: 'archived' }),
+      onRestore: (component) => lifecycleMutation.mutate({ component, next: 'active' }),
+      onDelete: setDeleting,
+    },
   });
 
   return (
@@ -202,114 +227,17 @@ export function StatusPageComponents() {
           }
         >
           <DataTable
-          className={statusPageFlatTableClassName}
-          rows={rows}
-          rowKey={(component) => component.id}
-          emptyLabel={t(lifecycle === 'active' ? 'states.no_components_title' : 'states.no_archived_components')}
-          {...(lifecycle === 'active'
-            ? { onRowClick: (component: StatusPageComponent) => navigate(`/status-pages/${pageId}/components/${component.id}`) }
-            : {})}
-          columns={[
-            {
-              key: 'name',
-              header: t('columns.component'),
-              cell: (component) => (
-                <div className="min-w-0">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span className="truncate text-tx-0">{component.name}</span>
-                    {/* Being on the public page is the rule; only the exception is marked. */}
-                    {component.visibility === 'hidden' && (
-                      <Pill tone="dim">{t('component_visibility.hidden')}</Pill>
-                    )}
-                  </div>
-                  {component.description && (
-                    <div className="mt-0.5 truncate text-xs font-normal text-tx-2">{component.description}</div>
-                  )}
-                </div>
-              ),
-            },
-            {
-              key: 'status',
-              header: t('columns.status'),
-              width: 180,
-              cell: (component) => (
-                <Pill tone={COMPONENT_TONE[component.status]}>
-                  {componentStatusLabel(t, component.status)}
-                </Pill>
-              ),
-            },
-            {
-              key: 'actions',
-              header: t('columns.actions'),
-              width: 220,
-              cell: (component) => (
-                <div className="flex items-center gap-0.5" onClick={(event) => event.stopPropagation()}>
-                  {component.lifecycle === 'active' ? (
-                    <>
-                      <IconButton
-                        aria-label={t('actions.move_up')}
-                        title={t('actions.move_up')}
-                        disabled={!canMutate || activeOrder[0]?.id === component.id || orderMutation.isPending}
-                        disabledReason={manageAccess.reason}
-                        onClick={() => orderMutation.mutate({ component, direction: -1 })}
-                      >
-                        <ArrowUp className="h-3.5 w-3.5" />
-                      </IconButton>
-                      <IconButton
-                        aria-label={t('actions.move_down')}
-                        title={t('actions.move_down')}
-                        disabled={!canMutate || activeOrder.at(-1)?.id === component.id || orderMutation.isPending}
-                        disabledReason={manageAccess.reason}
-                        onClick={() => orderMutation.mutate({ component, direction: 1 })}
-                      >
-                        <ArrowDown className="h-3.5 w-3.5" />
-                      </IconButton>
-                      <IconButton
-                        aria-label={t('actions.edit_component', { name: component.name })}
-                        title={t('actions.edit_component', { name: component.name })}
-                        disabled={!canMutate}
-                        disabledReason={manageAccess.reason}
-                        onClick={() => navigate(`/status-pages/${pageId}/components/${component.id}`)}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </IconButton>
-                      <IconButton
-                        aria-label={t('actions.archive')}
-                        title={t('actions.archive')}
-                        disabled={!canMutate || lifecycleMutation.isPending}
-                        disabledReason={manageAccess.reason}
-                        onClick={() => lifecycleMutation.mutate({ component, next: 'archived' })}
-                      >
-                        <Archive className="h-3.5 w-3.5" />
-                      </IconButton>
-                    </>
-                  ) : (
-                    <>
-                      <IconButton
-                        aria-label={t('actions.restore')}
-                        title={t('actions.restore')}
-                        disabled={!canMutate || lifecycleMutation.isPending}
-                        disabledReason={manageAccess.reason}
-                        onClick={() => lifecycleMutation.mutate({ component, next: 'active' })}
-                      >
-                        <ArchiveRestore className="h-3.5 w-3.5" />
-                      </IconButton>
-                      <IconButton
-                        aria-label={t('actions.delete')}
-                        title={t('actions.delete')}
-                        disabled={!canMutate}
-                        disabledReason={manageAccess.reason}
-                        className="enabled:hover:text-red-soft"
-                        onClick={() => setDeleting(component)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </IconButton>
-                    </>
-                  )}
-                </div>
-              ),
-            },
-          ]}
+            className={statusPageFlatTableClassName}
+            rows={rows}
+            rowKey={(row) => row.component.id}
+            emptyLabel={t(lifecycle === 'active' ? 'states.no_components_title' : 'states.no_archived_components')}
+            {...(lifecycle === 'active'
+              ? {
+                  onRowClick: ({ component }: (typeof rows)[number]) =>
+                    navigate(`/status-pages/${pageId}/components/${component.id}`),
+                }
+              : {})}
+            columns={columns}
           />
         </StatusPageList>
       </StatusPageCanvas>
@@ -317,9 +245,10 @@ export function StatusPageComponents() {
       <ComponentFormDrawer
         open={creating || Boolean(editing)}
         component={editing}
+        groups={groups}
         busy={saveMutation.isPending}
         onOpenChange={(open) => !open && closeDrawer()}
-        onSubmit={(input) => saveMutation.mutate(input)}
+        onSubmit={(submission) => saveMutation.mutate(submission)}
       />
       <ConfirmDialog
         open={Boolean(deleting)}
@@ -347,9 +276,7 @@ function componentInput(
     visibility: component.visibility,
     lifecycle,
     position,
+    kind: component.kind ?? 'component',
+    group_id: component.group_id ?? null,
   };
-}
-
-function componentOrder(left: StatusPageComponent, right: StatusPageComponent): number {
-  return left.position - right.position || left.name.localeCompare(right.name) || left.id.localeCompare(right.id);
 }

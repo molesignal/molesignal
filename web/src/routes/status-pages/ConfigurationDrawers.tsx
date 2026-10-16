@@ -2,10 +2,7 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type {
-  ComponentStatus,
   StatusPage,
-  StatusPageComponent,
-  StatusPageComponentInput,
   StatusPageInput,
   StatusPageLanguage,
 } from '@/api/statusPages';
@@ -18,16 +15,13 @@ import {
   FormSection,
   FormSelect,
   FormSubmitFooter,
-  FormTextarea,
 } from '@/shell/FormDrawer';
 import { TimezoneField } from '@/shell/TimezoneField';
 
 import {
-  COMPONENT_STATUSES,
   DEFAULT_STATUS_PAGE_HISTORY_DAYS,
   MAX_STATUS_PAGE_HISTORY_DAYS,
   STATUS_PAGE_LANGUAGES,
-  componentStatusLabel,
   statusPageLanguages,
 } from './model';
 import { StatusPageLogoField } from './StatusPageLogoField';
@@ -318,118 +312,6 @@ export function PageFormDrawer({
               />
             </div>
           </FormField>
-        </FormSection>
-      </form>
-    </FormDrawer>
-  );
-}
-
-export function ComponentFormDrawer({
-  open,
-  component,
-  busy,
-  onOpenChange,
-  onSubmit,
-}: {
-  open: boolean;
-  component: StatusPageComponent | null;
-  busy: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSubmit: (input: StatusPageComponentInput) => void;
-}) {
-  const { t } = useTranslation('status-pages');
-  const [name, setName] = React.useState('');
-  const [description, setDescription] = React.useState('');
-  const [status, setStatus] = React.useState<ComponentStatus>('operational');
-  const [visibility, setVisibility] = React.useState<'enabled' | 'hidden'>('enabled');
-  const [lifecycle, setLifecycle] = React.useState<'active' | 'archived'>('active');
-  const formId = 'status-page-component-form';
-
-  React.useEffect(() => {
-    if (!open) return;
-    setName(component?.name ?? '');
-    setDescription(component?.description ?? '');
-    setStatus(component?.status ?? 'operational');
-    setVisibility(component?.visibility ?? 'enabled');
-    setLifecycle(component?.lifecycle ?? 'active');
-  }, [component, open]);
-
-  return (
-    <FormDrawer
-      open={open}
-      onOpenChange={onOpenChange}
-      title={component ? t('forms.component.edit_title') : t('forms.component.create_title')}
-      subtitle={t('forms.component.subtitle')}
-      footer={
-        <FormSubmitFooter
-          busy={busy}
-          invalid={!name.trim()}
-          onCancel={() => onOpenChange(false)}
-          submitLabel={component ? t('actions.save') : t('actions.add_component')}
-          formId={formId}
-        />
-      }
-    >
-      <form
-        id={formId}
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (!name.trim()) return;
-          onSubmit({
-            name: name.trim(),
-            description: description.trim(),
-            status,
-            visibility,
-            lifecycle: component ? lifecycle : 'active',
-            ...(component ? { position: component.position } : {}),
-          });
-        }}
-      >
-        <FormSection>
-          <FormField label={t('fields.component_name')} required>
-            <FormInput value={name} maxLength={120} onChange={(event) => setName(event.currentTarget.value)} />
-          </FormField>
-          <FormField label={t('fields.description')}>
-            <FormTextarea
-              value={description}
-              maxLength={500}
-              onChange={(event) => setDescription(event.currentTarget.value)}
-            />
-          </FormField>
-          <FormField label={t('fields.component_status')}>
-            <FormSelect
-              value={status}
-              onChange={(value) => setStatus(value as ComponentStatus)}
-              options={COMPONENT_STATUSES.map((value) => ({
-                value,
-                label: componentStatusLabel(t, value),
-              }))}
-            />
-          </FormField>
-          <FormRow className={component ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}>
-            <FormField label={t('fields.component_visibility')}>
-              <FormSelect
-                value={visibility}
-                onChange={(value) => setVisibility(value as 'enabled' | 'hidden')}
-                options={[
-                  { value: 'enabled', label: t('component_visibility.enabled') },
-                  { value: 'hidden', label: t('component_visibility.hidden') },
-                ]}
-              />
-            </FormField>
-            {component && (
-              <FormField label={t('fields.component_lifecycle')}>
-                <FormSelect
-                  value={lifecycle}
-                  onChange={(value) => setLifecycle(value as 'active' | 'archived')}
-                  options={[
-                    { value: 'active', label: t('lifecycle.active') },
-                    { value: 'archived', label: t('lifecycle.archived') },
-                  ]}
-                />
-              </FormField>
-            )}
-          </FormRow>
         </FormSection>
       </form>
     </FormDrawer>

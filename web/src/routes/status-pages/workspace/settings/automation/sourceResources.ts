@@ -1,3 +1,4 @@
+import type { BusinessService } from '@/api/businessServices';
 import { monitorTarget, type MonitorDetail, type SyntheticMonitor } from '@/api/synthetics';
 import type { AlertRule } from '@/types/alerting';
 
@@ -38,6 +39,16 @@ export function syntheticMonitorResources(
       state: monitor.lifecycle,
     }];
   }));
+}
+
+/** Business services, with their health where the others have a target. */
+export function businessServiceResources(services: BusinessService[]): AutomationSourceResource[] {
+  return sortResources(services.map((service) => ({
+    id: service.id,
+    name: service.name,
+    target: service.health.status,
+    state: 'active',
+  })));
 }
 
 function alertRuleTarget(rule: AlertRule): string {

@@ -49,14 +49,16 @@ export async function consumePrivateAccessByDomain(token: string): Promise<void>
   await http.post('/public/status-pages/by-domain/access/consume', { token });
 }
 
+/** Subscribes to the page, or to the components named; none means the whole page. */
 export async function subscribePublic(
   slug: string,
   channel: StatusPageSubscriberChannel,
   target: string,
+  componentIds: string[] = [],
 ): Promise<StatusPageSubscriptionOutcome> {
   const { data } = await http.post<StatusPageSubscriptionOutcome>(
     `/public/status-pages/${encodeURIComponent(slug)}/subscriptions`,
-    { channel, target },
+    { channel, target, component_ids: componentIds },
   );
   return data;
 }

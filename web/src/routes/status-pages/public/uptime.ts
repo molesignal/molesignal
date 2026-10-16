@@ -67,6 +67,43 @@ export function componentUptime(
   return { days, percentage: availabilityPercentage(segments) };
 }
 
+/**
+ * The uptime of a group: each day as its worst component had it, and the
+ * share of time up as the mean of its components'.
+ */
+export function groupUptime(members: readonly ComponentUptime[]): ComponentUptime {
+  const first = members[0];
+  if (!first) return { days: [], percentage: null };
+
+  const days = first.days.map((day, index) => {
+    const same = members.map((member) => member.days[index] ?? day);
+    const recorded = same.filter((member) => member.hasData);
+    const worst = recorded.reduce<ComponentUptimeDay | undefined>(
+      (current, member) =>
+        !current || STATUS_RANK[member.status] > STATUS_RANK[current.status] ? member : current,
+      undefined,
+    );
+    const incidents = new Map(same.flatMap((member) => member.incidents).map((incident) => [incident.id, incident]));
+
+    return {
+      startAt: day.startAt,
+      endAt: day.endAt,
+      status: worst?.status ?? 'operational',
+      hasData: recorded.length > 0,
+      downtimeMicros: Math.max(...same.map((member) => member.downtimeMicros)),
+      eligibleMicros: Math.max(...same.map((member) => member.eligibleMicros)),
+      unavailableMicros: Math.max(...same.map((member) => member.unavailableMicros)),
+      incidents: [...incidents.values()],
+    };
+  });
+  const known = members.flatMap((member) => (member.percentage === null ? [] : [member.percentage]));
+
+  return {
+    days,
+    percentage: known.length === 0 ? null : known.reduce((total, value) => total + value, 0) / known.length,
+  };
+}
+
 /** Builds calendar-day uptime cells in the status page's configured timezone. */
 export function componentCalendarUptime(
   component: PublicStatusPageComponent,

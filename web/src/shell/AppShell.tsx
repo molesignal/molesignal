@@ -33,6 +33,7 @@ const SURFACE_WORKBENCH_ROUTES = [
   '/profiles',
   '/alerts',
   '/synthetics',
+  '/business-services',
   '/status-pages',
   '/agent',
   '/datasource',

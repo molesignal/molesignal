@@ -1,0 +1,131 @@
+{
+  "title": "业务服务",
+  "subtitle": "客户依赖的服务，健康度由它依赖的技术服务、拨测和告警规则汇总得出，并带动状态页组件。",
+  "statuses": {
+    "operational": "正常",
+    "degraded_performance": "性能下降",
+    "partial_outage": "部分中断",
+    "major_outage": "严重中断",
+    "maintenance": "维护中"
+  },
+  "dependency_kinds": {
+    "technical_service": "技术服务",
+    "synthetic_monitor": "拨测检查",
+    "alert_rule": "告警规则",
+    "business_service": "业务服务"
+  },
+  "dependency_impacts": {
+    "outage": "影响按原样传递",
+    "degraded": "最多算性能下降"
+  },
+  "link_modes": {
+    "follow": "跟随健康度",
+    "automation": "交给自动化规则"
+  },
+  "monitor_states": {
+    "healthy": "拨测正常",
+    "degraded": "拨测变慢",
+    "failing": "拨测失败",
+    "flaky": "拨测不稳定",
+    "unknown": "拨测尚未运行"
+  },
+  "severities": {
+    "info": "提示",
+    "warning": "警告",
+    "error": "错误",
+    "critical": "严重"
+  },
+  "actions": {
+    "create": "新建业务服务",
+    "edit": "编辑",
+    "delete": "删除",
+    "save": "保存",
+    "add_dependency": "添加依赖",
+    "remove_dependency": "移除依赖"
+  },
+  "fields": {
+    "name": "名称",
+    "description": "说明",
+    "dependency_kind": "依赖类型",
+    "dependency_target": "依赖对象",
+    "dependency_impact": "影响方式"
+  },
+  "first_run": {
+    "title": "从客户的角度看服务",
+    "description": "业务服务是客户真正在意的东西，比如下单、支付、登录。把它依赖的技术服务、拨测和告警规则连起来，就能看到它此刻是否健康、为什么不健康，并让状态页组件跟着变化。",
+    "steps": {
+      "define": {
+        "title": "命名业务服务",
+        "description": "用客户能看懂的名字，比如“在线支付”。"
+      },
+      "depend": {
+        "title": "连上依赖",
+        "description": "选择它依赖的技术服务、拨测、告警规则或其他业务服务，并决定每项依赖出问题时影响多大。"
+      },
+      "publish": {
+        "title": "带动状态页",
+        "description": "在状态页组件里关联业务服务，组件状态跟随健康度，或交给自动化规则发布事件。"
+      }
+    }
+  },
+  "list": {
+    "dependency_count_one": "{{count}} 项依赖",
+    "dependency_count_other": "{{count}} 项依赖",
+    "causes_one": "{{count}} 项依赖异常：{{names}}",
+    "causes_other": "{{count}} 项依赖异常：{{names}}",
+    "name_separator": "、",
+    "since": "自{{time}}起",
+    "not_evaluated": "尚未评估",
+    "linked_components_one": "带动 {{count}} 个状态页组件",
+    "linked_components_other": "带动 {{count}} 个状态页组件",
+    "no_linked_components": "未关联状态页组件"
+  },
+  "timeline": {
+    "label": "最近 7 天的健康度",
+    "no_data": "暂无评估记录",
+    "operational_share": "正常 {{share}}%",
+    "seven_days_ago": "7 天前",
+    "now": "现在"
+  },
+  "detail": {
+    "health": "健康度",
+    "health_since": "{{time}}起为{{status}}",
+    "not_evaluated": "尚未评估",
+    "not_evaluated_hint": "依赖的告警或拨测状态变化后会立即评估，此外每分钟会全量评估一次。",
+    "no_causes": "所有依赖都正常。",
+    "more_incidents_one": "还有 {{count}} 个告警事件",
+    "more_incidents_other": "还有 {{count}} 个告警事件",
+    "dependencies": "依赖",
+    "dependencies_hint": "健康度取所有依赖中最差的状态。",
+    "no_dependencies": "还没有依赖，健康度始终为正常。",
+    "linked_components": "状态页组件",
+    "linked_components_hint": "客户在状态页上看到的这项服务。",
+    "no_linked_components": "还没有状态页组件代表这项服务。在状态页的组件设置里关联它。",
+    "quiet": "不通知订阅者"
+  },
+  "editor": {
+    "create_title": "新建业务服务",
+    "edit_title": "编辑业务服务",
+    "subtitle": "健康度由依赖自动得出，这里只定义名称和依赖。",
+    "name_hint": "用客户能看懂的名字。",
+    "dependencies": "依赖",
+    "dependencies_hint": "“影响按原样传递”时，依赖的状态直接成为业务服务的状态；“最多算性能下降”适合有降级方案的依赖。",
+    "no_dependencies": "没有依赖时，业务服务始终为正常。",
+    "technical_service_placeholder": "服务名，与链路和告警中的 service 一致",
+    "select_technical_service": "选择技术服务",
+    "select_synthetic_monitor": "选择拨测检查",
+    "select_alert_rule": "选择告警规则",
+    "select_business_service": "选择业务服务",
+    "unavailable_target": "不可用（{{id}}）"
+  },
+  "toast": {
+    "created": "业务服务已创建",
+    "saved": "业务服务已保存",
+    "deleted": "业务服务已删除"
+  },
+  "confirm": {
+    "delete_title": "删除业务服务",
+    "delete_description_one": "删除“{{name}}”后，依赖它的业务服务会移除这项依赖，{{count}} 个代表它的状态页组件会解除关联，组件状态不再自动变化。",
+    "delete_description_other": "删除“{{name}}”后，依赖它的业务服务会移除这项依赖，{{count}} 个代表它的状态页组件会解除关联，组件状态不再自动变化。"
+  }
+}

@@ -18,6 +18,7 @@ import {
   formatDurationMicros,
   impactLabel,
   incidentStatusLabel,
+  namedComponents,
 } from '../model';
 import {
   STATUS_COLOR,
@@ -62,7 +63,7 @@ export function StatusPageOverview() {
   const underWay = eventsUnderWay(snapshot);
   const ahead = maintenanceAhead(snapshot);
   const unwell = components.filter((seen) => seen.status !== 'operational');
-  const hidden = snapshot.components.filter(
+  const hidden = namedComponents(snapshot.components).filter(
     (component) => component.lifecycle === 'active' && component.visibility === 'hidden',
   ).length;
   const hasEvents = underWay.length > 0 || ahead.length > 0;
@@ -72,7 +73,7 @@ export function StatusPageOverview() {
     .sort((left, right) => (right.ended_at ?? right.updated_at) - (left.ended_at ?? left.updated_at))
     .slice(0, LATELY_COUNT);
   // An event names the components it is about, so the first thing a page needs is a component.
-  const needsComponents = !snapshot.components.some((component) => component.lifecycle === 'active');
+  const needsComponents = !namedComponents(snapshot.components).some((component) => component.lifecycle === 'active');
 
   return (
     <PageBody className="space-y-0 pb-4 pt-2 lg:pb-6 lg:pt-2">

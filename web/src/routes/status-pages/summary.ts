@@ -61,8 +61,10 @@ export interface SeenComponent {
 
 /** The components the public page lists, in its order, each in the status it is shown in. */
 export function seenComponents(snapshot: StatusPageSnapshot): SeenComponent[] {
+  // A group shows what its components show; it is not counted on its own.
   return snapshot.components
-    .filter((component) => component.lifecycle === 'active' && component.visibility === 'enabled')
+    .filter((component) =>
+      component.kind !== 'group' && component.lifecycle === 'active' && component.visibility === 'enabled')
     .sort((left, right) => left.position - right.position || left.name.localeCompare(right.name))
     .map((component) => ({
       component,

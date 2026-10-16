@@ -1,0 +1,131 @@
+{
+  "title": "Business services",
+  "subtitle": "The services customers rely on. Their health comes from the technical services, monitors and alert rules they depend on, and drives status page components.",
+  "statuses": {
+    "operational": "Operational",
+    "degraded_performance": "Degraded performance",
+    "partial_outage": "Partial outage",
+    "major_outage": "Major outage",
+    "maintenance": "Maintenance"
+  },
+  "dependency_kinds": {
+    "technical_service": "Technical service",
+    "synthetic_monitor": "Synthetic check",
+    "alert_rule": "Alert rule",
+    "business_service": "Business service"
+  },
+  "dependency_impacts": {
+    "outage": "Passes its status on",
+    "degraded": "At most degraded"
+  },
+  "link_modes": {
+    "follow": "Follows the health",
+    "automation": "Through automation rules"
+  },
+  "monitor_states": {
+    "healthy": "Check healthy",
+    "degraded": "Check slow",
+    "failing": "Check failing",
+    "flaky": "Check flaky",
+    "unknown": "Check not run yet"
+  },
+  "severities": {
+    "info": "Info",
+    "warning": "Warning",
+    "error": "Error",
+    "critical": "Critical"
+  },
+  "actions": {
+    "create": "New business service",
+    "edit": "Edit",
+    "delete": "Delete",
+    "save": "Save",
+    "add_dependency": "Add dependency",
+    "remove_dependency": "Remove dependency"
+  },
+  "fields": {
+    "name": "Name",
+    "description": "Description",
+    "dependency_kind": "Dependency type",
+    "dependency_target": "Dependency",
+    "dependency_impact": "Impact"
+  },
+  "first_run": {
+    "title": "See your services as customers do",
+    "description": "A business service is what customers care about, such as checkout, payments or sign-in. Connect the technical services, monitors and alert rules it depends on to see whether it is healthy right now and why not, and let status page components follow it.",
+    "steps": {
+      "define": {
+        "title": "Name the service",
+        "description": "Use a name customers understand, such as “Online payments”."
+      },
+      "depend": {
+        "title": "Connect its dependencies",
+        "description": "Choose the technical services, monitors, alert rules or other business services it depends on, and how much each one's trouble passes on."
+      },
+      "publish": {
+        "title": "Drive the status page",
+        "description": "Link the service from a status page component: the component follows its health, or automation rules publish incidents."
+      }
+    }
+  },
+  "list": {
+    "dependency_count_one": "{{count}} dependency",
+    "dependency_count_other": "{{count}} dependencies",
+    "causes_one": "{{count}} dependency in trouble: {{names}}",
+    "causes_other": "{{count}} dependencies in trouble: {{names}}",
+    "name_separator": ", ",
+    "since": "Since {{time}}",
+    "not_evaluated": "Not evaluated yet",
+    "linked_components_one": "Drives {{count}} status page component",
+    "linked_components_other": "Drives {{count}} status page components",
+    "no_linked_components": "No status page component"
+  },
+  "timeline": {
+    "label": "Health over the last 7 days",
+    "no_data": "No evaluations yet",
+    "operational_share": "{{share}}% operational",
+    "seven_days_ago": "7 days ago",
+    "now": "Now"
+  },
+  "detail": {
+    "health": "Health",
+    "health_since": "{{status}} since {{time}}",
+    "not_evaluated": "Not evaluated yet",
+    "not_evaluated_hint": "It is evaluated as soon as a dependency's alerts or monitors change, and every minute in any case.",
+    "no_causes": "Every dependency is operational.",
+    "more_incidents_one": "{{count}} more alert incident",
+    "more_incidents_other": "{{count}} more alert incidents",
+    "dependencies": "Dependencies",
+    "dependencies_hint": "The health is the worst status among the dependencies.",
+    "no_dependencies": "No dependencies yet, so the service is always operational.",
+    "linked_components": "Status page components",
+    "linked_components_hint": "Where customers see this service.",
+    "no_linked_components": "No status page component stands for this service yet. Link it from a status page's component settings.",
+    "quiet": "Subscribers not notified"
+  },
+  "editor": {
+    "create_title": "New business service",
+    "edit_title": "Edit business service",
+    "subtitle": "Its health comes from the dependencies; only the name and the dependencies are set here.",
+    "name_hint": "Use a name customers understand.",
+    "dependencies": "Dependencies",
+    "dependencies_hint": "“Passes its status on” makes the dependency's status the service's; “At most degraded” suits a dependency the service can work around.",
+    "no_dependencies": "Without dependencies, the service is always operational.",
+    "technical_service_placeholder": "Service name, as traces and alerts carry it",
+    "select_technical_service": "Choose a technical service",
+    "select_synthetic_monitor": "Choose a synthetic check",
+    "select_alert_rule": "Choose an alert rule",
+    "select_business_service": "Choose a business service",
+    "unavailable_target": "Unavailable ({{id}})"
+  },
+  "toast": {
+    "created": "Business service created",
+    "saved": "Business service saved",
+    "deleted": "Business service deleted"
+  },
+  "confirm": {
+    "delete_title": "Delete business service",
+    "delete_description_one": "Deleting “{{name}}” removes it from the business services that depend on it and unlinks the {{count}} status page component that stands for it; its status no longer changes by itself.",
+    "delete_description_other": "Deleting “{{name}}” removes it from the business services that depend on it and unlinks the {{count}} status page components that stand for it; their status no longer changes by itself."
+  }
+}

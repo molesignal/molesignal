@@ -15,7 +15,7 @@ import {
   TooltipTrigger,
 } from '@/shell/ui/tooltip';
 
-import { STATUS_DOT, componentStatusLabel, statusPageHistoryDays } from '../model';
+import { STATUS_DOT, componentStatusLabel, namedComponents, statusPageHistoryDays } from '../model';
 import { PUBLIC_CONTROL_HEIGHT } from './control';
 import type { PublicStatusContext } from './Frame';
 import { uptimeHistoryMonths } from './history';
@@ -43,8 +43,11 @@ export function PublicUptimeHistory({
   monthKeys: string[];
 }) {
   const { snapshot, page, language, copy } = context;
-  const [componentId, setComponentId] = React.useState(snapshot.components[0]?.id ?? '');
-  const component = snapshot.components.find((candidate) => candidate.id === componentId) ?? snapshot.components[0];
+  // A group has no record of its own: each of its components has one, named after the group.
+  const choices = namedComponents(snapshot.components);
+  const groupNames = new Map(snapshot.components.map((item) => [item.id, item.name]));
+  const [componentId, setComponentId] = React.useState(choices[0]?.id ?? '');
+  const component = choices.find((candidate) => candidate.id === componentId) ?? choices[0];
 
   if (!component) {
     return (
@@ -78,9 +81,11 @@ export function PublicUptimeHistory({
               <SelectValue />
             </SelectTrigger>
             <SelectContent data-theme="light">
-              {snapshot.components.map((item) => (
+              {choices.map((item) => (
                 <SelectItem key={item.id} value={item.id} className="min-h-10">
-                  {item.name}
+                  {item.group_id && groupNames.has(item.group_id)
+                    ? `${groupNames.get(item.group_id)} / ${item.name}`
+                    : item.name}
                 </SelectItem>
               ))}
             </SelectContent>

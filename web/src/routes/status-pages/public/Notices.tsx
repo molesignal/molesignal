@@ -104,6 +104,13 @@ export function ActiveNotice({
           <p className="mt-1.5 max-w-3xl whitespace-pre-wrap text-pretty text-sm leading-6 text-tx-1">
             {latest.message}
           </p>
+          {incident.next_update_at != null && (
+            <p data-status-next-update className="mt-1.5 text-xs leading-5 text-tx-2">
+              {copy('public.notice.next_update', {
+                time: formatMicros(incident.next_update_at, timezone, language),
+              })}
+            </p>
+          )}
         </div>
       )}
 

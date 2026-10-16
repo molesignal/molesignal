@@ -10,6 +10,7 @@ export type PermissionDomain =
   | 'pipelines'
   | 'reports'
   | 'status_pages'
+  | 'business_services'
   | 'synthetics'
   | 'service_levels'
   | 'postmortems'

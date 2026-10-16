@@ -105,7 +105,15 @@
     "resend_confirmation": "重新发送确认",
     "move_up": "上移",
     "move_down": "下移",
-    "cancel": "取消"
+    "cancel": "取消",
+    "publish_postmortem": "发布复盘",
+    "publish_revision": "发布修订",
+    "unpublish_postmortem": "撤回为草稿",
+    "delete_draft": "删除草稿",
+    "import_subscribers": "导入订阅者",
+    "check_file": "检查文件",
+    "done": "完成",
+    "add_group": "添加分组"
   },
   "kpis": {
     "pages": "状态页",
@@ -136,7 +144,9 @@
     "created": "创建时间",
     "event": "事件",
     "attempts": "尝试次数",
-    "duration": "持续时间"
+    "duration": "持续时间",
+    "business_service": "业务服务",
+    "subscription_scope": "接收范围"
   },
   "fields": {
     "name": "名称",
@@ -170,7 +180,14 @@
     "tls": "TLS 证书",
     "last_checked": "最近检查",
     "rule_type": "允许规则类型",
-    "allowed_value": "允许的邮箱或域名"
+    "allowed_value": "允许的邮箱或域名",
+    "next_update": "下次更新",
+    "notify_subscribers": "通知订阅者",
+    "business_service": "业务服务",
+    "group_name": "分组名称",
+    "component_group": "所属分组",
+    "slack_app": "Slack 应用",
+    "slack_redirect_url": "重定向地址"
   },
   "visibility": {
     "public": "公开",
@@ -191,7 +208,12 @@
     "duration_hours_other": "{{count}} 小时",
     "duration_minutes_one": "{{count}} 分钟",
     "duration_minutes_other": "{{count}} 分钟",
-    "any": "任意"
+    "any": "任意",
+    "next_update_by": "承诺 {{time}} 前更新",
+    "not_notified": "未通知订阅者",
+    "group_components_one": "{{count}} 个组件",
+    "group_components_other": "{{count}} 个组件",
+    "empty_group": "空分组"
   },
   "sections": {
     "components": "组件",
@@ -263,7 +285,23 @@
     "component": {
       "create_title": "添加组件",
       "edit_title": "编辑组件",
-      "subtitle": "组件用于表达客户可感知能力的当前健康状态。"
+      "subtitle": "组件用于表达客户可感知能力的当前健康状态。",
+      "business_service": "业务服务",
+      "business_service_hint": "让这个组件代表一项业务服务，客户看到的状态与内部健康度保持一致。",
+      "no_business_service": "不关联",
+      "unknown_business_service": "已不可用的业务服务",
+      "no_business_services": "还没有业务服务。",
+      "open_business_services": "去创建业务服务",
+      "follow_notify_hint": "跟随产生的状态变化是否通知订阅者。",
+      "follow_status_hint": "跟随业务服务时，状态会在下次健康度变化时被覆盖。",
+      "notify_hint": "订阅者会收到这次状态变化。",
+      "silent_hint": "只改状态页上的状态，不发送通知。",
+      "edit_group_title": "编辑分组",
+      "group_subtitle": "分组没有自己的状态，显示组内组件中最差的那个。",
+      "kind": "类型",
+      "description_hint": "公开页上放在名称旁的 ⓘ 提示里。",
+      "no_group": "不分组",
+      "group_not_empty": "先把组件移出分组或归档，才能归档分组"
     },
     "incident": {
       "create_title": "发布到状态页",
@@ -280,7 +318,15 @@
     "update": {
       "title": "发布事件更新",
       "hint": "每次更新都会追加到公开时间线；事件解决后不可再修改。",
-      "message_placeholder": "发布明确的进展、缓解措施或恢复确认。"
+      "message_placeholder": "发布明确的进展、缓解措施或恢复确认。",
+      "next_update_hint": "在状态页和通知里告诉客户何时会有下一次进展。",
+      "next_update_none": "不承诺",
+      "next_update_minutes_one": "{{count}} 分钟内",
+      "next_update_minutes_other": "{{count}} 分钟内",
+      "next_update_hours_one": "{{count}} 小时内",
+      "next_update_hours_other": "{{count}} 小时内",
+      "notify_hint": "订阅者会收到邮件、Webhook 或 Slack 消息。",
+      "silent_hint": "只更新状态页，不发送任何通知，适合更正措辞。"
     },
     "event": {
       "new_incident": "创建事件",
@@ -291,6 +337,22 @@
       "details": "事件详情",
       "customer_update": "客户更新",
       "timeline": "时间线"
+    },
+    "postmortem": {
+      "title": "事故复盘",
+      "none": "还没有复盘。事件解决后可以发布，读者会在事件页看到它。",
+      "draft_saved_at": "草稿 · 保存于 {{time}}",
+      "published_at": "已发布于 {{time}}",
+      "revised_at": "修订于 {{time}}",
+      "view_label": "复盘视图",
+      "write": "编辑",
+      "preview": "预览",
+      "placeholder": "## 发生了什么\n\n## 原因\n\n## 我们的改进",
+      "empty_preview": "还没有内容。",
+      "too_long": "复盘最多 20,000 个字符。",
+      "notify_hint": "发布时通知订阅者。",
+      "notify_revision_hint": "修订一般不必再通知；内容有实质变化时再打开。",
+      "publish_after_resolution": "事件解决后才能发布复盘"
     }
   },
   "states": {
@@ -337,7 +399,17 @@
     "domain_updated": "域名配置已更新",
     "domain_removed": "自定义域名已移除",
     "access_rule_added": "访问规则已添加",
-    "access_updated": "私有访问已更新"
+    "access_updated": "私有访问已更新",
+    "update_published_quietly": "状态更新已发布，未通知订阅者",
+    "postmortem_save": "复盘草稿已保存",
+    "postmortem_publish": "复盘已发布",
+    "postmortem_revised": "复盘修订已发布",
+    "postmortem_unpublish": "复盘已撤回为草稿",
+    "postmortem_delete": "复盘草稿已删除",
+    "subscribers_imported_one": "已导入 {{count}} 个订阅者",
+    "subscribers_imported_other": "已导入 {{count}} 个订阅者",
+    "slack_app_on": "访客现在可以把页面添加到 Slack",
+    "slack_app_off": "已关闭“添加到 Slack”"
   },
   "confirm": {
     "delete_page_title": "删除状态页？",
@@ -361,7 +433,7 @@
   "publication_state": { "draft": "草稿", "published": "已发布" },
   "subscriber_views": { "list": "订阅者", "deliveries": "投递记录" },
   "subscriber_views_label": "订阅者视图",
-  "channels": { "email": "邮箱", "webhook": "Webhook" },
+  "channels": { "email": "邮箱", "webhook": "Webhook", "slack": "Slack" },
   "subscriber_status": { "pending": "待确认", "active": "有效", "unsubscribed": "已退订" },
   "delivery_status": { "pending": "待投递", "processing": "投递中", "delivered": "已投递", "failed": "失败" },
   "access_rule": { "email": "精确邮箱", "domain": "邮箱域名" },
@@ -401,7 +473,45 @@
     "last": "最后一页"
   },
   "subscribers": {
-    "retention_hint": "投递记录保留 {{count}} 天"
+    "retention_hint": "投递记录保留 {{count}} 天",
+    "scope_all": "整个页面",
+    "import": {
+      "title": "导入订阅者",
+      "subtitle": "把其他状态页的邮箱订阅者迁移过来。",
+      "file": "CSV 文件",
+      "format_hint": "首行可以是表头 email,components；没有表头时第一列是邮箱，第二列是组件名（多个用 ; 分隔，留空为整个页面）。最多 10,000 个地址、2 MB。",
+      "choose_file": "选择文件",
+      "content": "文件内容",
+      "too_large": "文件超过 2 MB。",
+      "mode": "导入方式",
+      "modes": {
+        "active": "直接生效",
+        "active_hint": "这些地址已在原状态页确认过，导入后立即开始接收，不发送任何邮件。",
+        "confirm": "发送确认",
+        "confirm_hint": "给每个地址发一封确认邮件，确认后才开始接收。"
+      },
+      "checked": "检查结果",
+      "done": "导入结果",
+      "report": {
+        "rows": "读取行数",
+        "would_import": "将导入",
+        "imported": "已导入",
+        "already_subscribed": "已是订阅者",
+        "skipped_unsubscribed": "曾退订（跳过）",
+        "confirmations_queued": "待发确认",
+        "problems": "有问题的行"
+      },
+      "problems_first": "{{count}} 行未导入，下面列出前 {{shown}} 行：",
+      "problems_all_one": "{{count}} 行未导入：",
+      "problems_all_other": "{{count}} 行未导入：",
+      "line": "第 {{line}} 行",
+      "reasons": {
+        "missing_email": "没有邮箱",
+        "invalid_email": "不是有效邮箱",
+        "duplicate_email": "文件中已出现过",
+        "unknown_component": "页面上没有这个名字的组件"
+      }
+    }
   },
   "settings": {
     "label": "状态页设置",
@@ -410,6 +520,7 @@
       "branding": "品牌",
       "localization": "本地化与历史",
       "domain-access": "域名与访问",
+      "slack": "Slack",
       "automation": "自动化"
     },
     "general": {
@@ -443,6 +554,18 @@
       "sessions": "有效会话",
       "sessions_description": "会话绑定状态页来源域名，可随时撤销。",
       "expires": "{{date}} 到期"
+    },
+    "slack": {
+      "title": "添加到 Slack",
+      "description": "访客在自己的 Slack 工作区里选一个频道，页面的更新就会发到那里。所用的 Slack App 连接器需要填写 Client ID 和 Client Secret，它们随连接器加密保存。",
+      "private_page": "私有页面不会向访客提供“添加到 Slack”。",
+      "loading": "正在加载 Slack 应用…",
+      "off": "关闭",
+      "connector_off": "该连接器已停用。",
+      "connector_without_client": "该连接器没有填写 Client ID 和 Client Secret。",
+      "no_connectors": "还没有 Slack App 连接器。请在<connectors>连接器</connectors>中新建一个，填入 Slack 应用的 Client ID 和 Client Secret。",
+      "redirect_hint": "在 Slack 应用的 OAuth & Permissions → Redirect URLs 中添加该地址，并为应用开启 incoming-webhook 权限。",
+      "needs_https": "需要把 http.external_url 设为 HTTPS 地址。"
     }
   },
   "automation": {
@@ -495,11 +618,13 @@
       "update_template": "影响变化更新",
       "resolved_template": "已解决更新",
       "correlation_template": "关联键",
-      "template_hint": "允许使用：{{source.id}}、{{source.kind}}、{{severity}} 和 {{labels.key}}。"
+      "template_hint": "允许使用：{{source.id}}、{{source.kind}}、{{severity}} 和 {{labels.key}}。",
+      "business_service_components_hint": "不选时，发布到本页关联了该业务服务、并选择“交给自动化规则”的组件。"
     },
     "source": {
       "alert_incident": "告警事件",
-      "synthetic_monitor": "拨测检查"
+      "synthetic_monitor": "拨测检查",
+      "business_service": "业务服务"
     },
     "source_picker": {
       "alert_rule": "告警规则",
@@ -518,7 +643,13 @@
       "load_error": "无法加载来源列表，请稍后重试。",
       "unavailable": "不可用的来源 · {{id}}",
       "enabled": "已启用",
-      "disabled": "已停用"
+      "disabled": "已停用",
+      "business_service": "业务服务",
+      "business_service_hint": "选择一项业务服务；选择“全部业务服务”会匹配所有业务服务的健康度变化。",
+      "business_service_required_hint": "选择用于模拟的业务服务。",
+      "all_business_service": "全部业务服务",
+      "select_business_service": "请选择业务服务",
+      "empty_business_service": "暂无业务服务"
     },
     "mode": {
       "approval": "生成草稿并审批",
@@ -645,7 +776,8 @@
       "maintenance_under_way": "维护进行中",
       "latest_update": "最新进展",
       "all_updates_one": "查看这条更新",
-      "all_updates_other": "查看全部 {{count}} 条更新"
+      "all_updates_other": "查看全部 {{count}} 条更新",
+      "next_update": "下次更新：{{time}} 前"
     },
     "past": {
       "title": "过往事件",
@@ -656,11 +788,12 @@
       "history_link": "完整事件历史"
     },
     "no_components": "尚未发布服务组件。",
+    "component_description": "关于{{name}}",
     "powered_by": "由 MoleSignal 提供支持",
     "subscription": {
       "trigger": "订阅",
       "title": "接收状态更新",
-      "description": "选择邮箱或 HTTPS Webhook；确认成功后才会开始发送通知。",
+      "description": "选择邮箱、HTTPS Webhook 或 Slack；确认成功后才会开始发送通知。",
       "channel": "接收方式",
       "email": "邮箱",
       "webhook": "Webhook",
@@ -677,7 +810,29 @@
       "action_confirming": "正在确认订阅…",
       "action_confirmed": "状态更新通知已启用。",
       "action_unsubscribed": "状态更新通知已停止。",
-      "action_failed": "该订阅链接无效或已不可用。"
+      "action_failed": "该订阅链接无效或已不可用。",
+      "slack": "Slack",
+      "email_target": "邮箱地址",
+      "webhook_target": "Webhook 地址",
+      "slack_target": "Slack Incoming Webhook 地址",
+      "slack_placeholder": "https://hooks.slack.com/services/…",
+      "slack_hint": "在 Slack 的 Incoming Webhooks 里为频道生成地址；确认消息会发到这个频道。",
+      "add_to_slack": "Add to Slack",
+      "add_to_slack_hint": "在 Slack 里选择频道后会回到本页；也可以在下面粘贴 Incoming Webhook 地址。",
+      "components_label": "接收范围",
+      "components_all": "整个页面",
+      "components_selected": "指定组件",
+      "components_all_hint": "页面上的所有事件和维护都会通知你。",
+      "components_selected_hint": "只通知涉及所选组件的事件和维护。",
+      "action_slack_connected": "Slack 频道已连接，状态更新会发到这个频道。",
+      "action_slack_failed": "没有连上 Slack，请重试或改用 Incoming Webhook 地址。",
+      "manage_title": "管理订阅",
+      "manage_description": "{{channel}} · {{target}}",
+      "manage_loading": "正在读取订阅…",
+      "manage_pending": "这个订阅还没有确认，确认后才会开始接收。",
+      "manage_saved": "已保存。",
+      "manage_unsubscribe": "退订",
+      "manage_save": "保存"
     },
     "archive": {
       "navigation_label": "状态页导航",
@@ -746,7 +901,32 @@
       "updates": "进展更新",
       "no_updates": "暂时没有公开进展。",
       "not_found_title": "事件不可用",
-      "not_found_description": "该事件不存在，或已不在当前状态页中展示。"
-    }
+      "not_found_description": "该事件不存在，或已不在当前状态页中展示。",
+      "next_update": "下次更新",
+      "postmortem": "事故复盘",
+      "postmortem_published": "发布于 {{time}}",
+      "postmortem_revised": "修订于 {{time}}",
+      "postmortem_available": "有复盘"
+    },
+    "group_components_one": "{{count}} 个组件",
+    "group_components_other": "{{count}} 个组件"
+  },
+  "subscriber_origin": {
+    "import": "导入",
+    "slack_app": "Add to Slack"
+  },
+  "service_link_mode": {
+    "follow": "跟随健康度",
+    "follow_short": "跟随",
+    "follow_hint": "组件状态随业务服务的健康度自动变化。",
+    "automation": "交给自动化规则",
+    "automation_short": "自动化",
+    "automation_hint": "业务服务的健康度变化作为本页自动化规则的来源，按规则的延迟、审批和文案发布事件。"
+  },
+  "component_kind": {
+    "component": "组件",
+    "component_hint": "客户依赖的一项能力，有自己的状态。",
+    "group": "分组",
+    "group_hint": "像目录一样收纳组件；显示组内最差的状态，在公开页上可以折叠。"
   }
 }

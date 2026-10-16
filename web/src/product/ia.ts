@@ -18,6 +18,7 @@ import {
 
 import { ALERT_PRODUCT_ROUTES } from './ia/alerts';
 import { APM_PRODUCT_ROUTES } from './ia/apm';
+import { BUSINESS_SERVICE_PRODUCT_ROUTES } from './ia/businessServices';
 import { DATA_COLLABORATION_PRODUCT_ROUTES } from './ia/dataCollaboration';
 import { RUM_PRODUCT_ROUTES } from './ia/rum';
 import { SYNTHETICS_PRODUCT_ROUTES } from './ia/synthetics';
@@ -53,6 +54,7 @@ export type ProductOwnerModule =
   | 'dashboards'
   | 'alerts'
   | 'synthetics'
+  | 'business_services'
   | 'streams'
   | 'pipelines'
   | 'functions'
@@ -320,6 +322,7 @@ export const PRODUCT_ROUTES = [
   }),
   ...ALERT_PRODUCT_ROUTES,
   ...SYNTHETICS_PRODUCT_ROUTES,
+  ...BUSINESS_SERVICE_PRODUCT_ROUTES,
   route({
     id: 'agent',
     path: '/agent',

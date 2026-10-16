@@ -18,6 +18,7 @@ describe('product navigation', () => {
     expect(getProductNavItems('reliability').map((item) => item.id)).toEqual([
       'alerts',
       'synthetics',
+      'business.services',
       'status.pages',
     ]);
     expect(getProductNavItems('ai_ops').map((item) => item.id)).toEqual([

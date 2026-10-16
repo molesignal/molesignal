@@ -1,3 +1,7 @@
+import type { PublicStatusPagePostmortem, StatusPagePostmortem } from './postmortems';
+import type { ComponentServiceLink } from './serviceLinks';
+import type { StatusPageSubscriberOrigin, SubscriberComponentScope } from './subscriptions';
+
 export type StatusPageVisibility = 'public' | 'private';
 export type StatusPageLifecycle = 'active' | 'archived';
 export type StatusPageLanguage = 'en-us' | 'zh-cn';
@@ -8,10 +12,12 @@ export type ComponentStatus =
   | 'major_outage'
   | 'maintenance';
 export type ComponentVisibility = 'enabled' | 'hidden';
+/** A component, or a group that holds components and shows their worst status. */
+export type ComponentKind = 'component' | 'group';
 export type ComponentLifecycle = 'active' | 'archived';
 export type StatusPageIncidentKind = 'incident' | 'maintenance';
 export type StatusPagePublicationState = 'draft' | 'published';
-export type StatusPageSubscriberChannel = 'email' | 'webhook';
+export type StatusPageSubscriberChannel = 'email' | 'webhook' | 'slack';
 export type StatusPageSubscriberStatus = 'pending' | 'active' | 'unsubscribed';
 export type IncidentImpact = 'minor' | 'major' | 'critical' | 'maintenance';
 export type PublicIncidentStatus =
@@ -39,7 +45,7 @@ export type StatusPageDomainState =
   | 'failed'
   | 'degraded';
 export type StatusPageAccessRuleKind = 'email' | 'domain';
-export type AutomationSourceKind = 'alert_incident' | 'synthetic_monitor';
+export type AutomationSourceKind = 'alert_incident' | 'synthetic_monitor' | 'business_service';
 export type AutomationRuleLifecycle = 'draft' | 'active' | 'paused' | 'archived';
 export type AutomationPublicationMode = 'approval' | 'automatic';
 export type AutomationCandidateState =
@@ -73,6 +79,8 @@ export interface StatusPage {
   purge_after: number | null;
   created_at: number;
   updated_at: number;
+  /** The Slack App message connector visitors add the page to Slack with. */
+  slack_connector_id?: string | null;
 }
 
 export interface StatusPageComponent {
@@ -88,6 +96,11 @@ export interface StatusPageComponent {
   archived_at: number | null;
   created_at: number;
   updated_at: number;
+  /** The business service the component stands for. */
+  business_service?: ComponentServiceLink | null;
+  kind?: ComponentKind;
+  /** The group the component is in. */
+  group_id?: string | null;
 }
 
 export interface StatusPageComponentStatusEvent {
@@ -99,6 +112,8 @@ export interface StatusPageComponentStatusEvent {
   started_at: number;
   ended_at: number | null;
   created_at: number;
+  /** A change made without telling subscribers queued no delivery. */
+  notify_subscribers?: boolean;
 }
 
 export interface StatusPageIncidentUpdate {
@@ -109,6 +124,10 @@ export interface StatusPageIncidentUpdate {
   status: PublicIncidentStatus;
   message: string;
   created_at: number;
+  /** By when this update promised the next one. */
+  next_update_at?: number | null;
+  /** Whether subscribers were told of this update. */
+  notify_subscribers?: boolean;
 }
 
 export interface StatusPageIncident {
@@ -129,6 +148,8 @@ export interface StatusPageIncident {
   published_at: number | null;
   created_at: number;
   updated_at: number;
+  /** The postmortem of a resolved incident, draft or published. */
+  postmortem?: StatusPagePostmortem | null;
 }
 
 export interface StatusPageSnapshot {
@@ -164,6 +185,11 @@ export interface StatusPageComponentInput {
   visibility: ComponentVisibility;
   lifecycle: ComponentLifecycle;
   position?: number;
+  /** Whether a change of status tells subscribers. */
+  notify?: boolean;
+  /** Fixed once the component is made. */
+  kind?: ComponentKind;
+  group_id?: string | null;
 }
 
 export interface StatusPageIncidentInput {
@@ -176,11 +202,17 @@ export interface StatusPageIncidentInput {
   message?: string | null;
   component_ids: string[];
   started_at?: number;
+  /** By when the first published update promises the next one. */
+  next_update_at?: number | null;
+  /** Whether the first published update tells subscribers. */
+  notify?: boolean;
 }
 
 export interface StatusPageIncidentUpdateInput {
   status: PublicIncidentStatus;
   message: string;
+  next_update_at?: number | null;
+  notify?: boolean;
 }
 
 export interface StatusPageEventList {
@@ -201,7 +233,12 @@ export interface StatusPageSubscriber {
   id: string;
   channel: StatusPageSubscriberChannel;
   masked_target: string;
+  /** The Slack channel and workspace of a subscriber added with Add to Slack. */
+  target_label?: string | null;
   status: StatusPageSubscriberStatus;
+  component_scope?: SubscriberComponentScope;
+  component_ids?: string[];
+  origin?: StatusPageSubscriberOrigin;
   confirmation_sent_at: number | null;
   confirmed_at: number | null;
   unsubscribed_at: number | null;
@@ -439,11 +476,13 @@ export interface PublicStatusPage {
   languages: StatusPageLanguage[];
   history_days: number;
   visibility: StatusPageVisibility;
+  /** Whether a reader can add the page to Slack with the installation's Slack app. */
+  slack_app?: boolean;
 }
 
 export type PublicStatusPageComponent = Pick<
   StatusPageComponent,
-  'id' | 'name' | 'description' | 'status'
+  'id' | 'name' | 'description' | 'status' | 'kind' | 'group_id'
 >;
 export type PublicStatusPageComponentStatusEvent = Pick<
   StatusPageComponentStatusEvent,
@@ -451,12 +490,18 @@ export type PublicStatusPageComponentStatusEvent = Pick<
 >;
 export type PublicStatusPageIncidentUpdate = Pick<
   StatusPageIncidentUpdate,
-  'id' | 'status' | 'message' | 'created_at'
+  'id' | 'status' | 'message' | 'created_at' | 'next_update_at'
 >;
 export type PublicStatusPageIncident = Pick<
   StatusPageIncident,
   'id' | 'kind' | 'title' | 'impact' | 'status' | 'component_ids' | 'started_at' | 'ended_at'
-> & { updates: PublicStatusPageIncidentUpdate[] };
+> & {
+  updates: PublicStatusPageIncidentUpdate[];
+  /** By when the latest update promises the next one, while the event goes on. */
+  next_update_at?: number | null;
+  /** The published postmortem; a draft is never shown. */
+  postmortem?: PublicStatusPagePostmortem | null;
+};
 
 export interface PublicStatusPageSnapshot {
   page: PublicStatusPage;

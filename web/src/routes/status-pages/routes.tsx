@@ -13,7 +13,8 @@ import { StatusPageDomainAccessSettings } from './workspace/settings/DomainAcces
 import { StatusPageGeneralSettings } from './workspace/settings/General';
 import { StatusPageSettingsLayout } from './workspace/settings/Layout';
 import { StatusPageLocalizationSettings } from './workspace/settings/Localization';
-import { StatusPageSubscribers } from './workspace/Subscribers';
+import { StatusPageSlackSettings } from './workspace/settings/Slack';
+import { StatusPageSubscribers } from './workspace/subscribers/Subscribers';
 
 export const STATUS_PAGE_MANAGEMENT_ROUTES: RouteObject[] = [
   { path: 'status-pages', element: <StatusPages /> },
@@ -44,6 +45,7 @@ export const STATUS_PAGE_MANAGEMENT_ROUTES: RouteObject[] = [
           { path: 'branding', element: <StatusPageBrandingSettings /> },
           { path: 'localization', element: <StatusPageLocalizationSettings /> },
           { path: 'domain-access', element: <StatusPageDomainAccessSettings /> },
+          { path: 'slack', element: <StatusPageSlackSettings /> },
           { path: 'automation', element: <StatusPageAutomationSettings /> },
         ],
       },

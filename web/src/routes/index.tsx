@@ -57,6 +57,7 @@ import {
   legacyServicesTarget,
   legacyVersionCompareTarget,
 } from './apm/compat';
+import { BUSINESS_SERVICE_ROUTES } from './business-services/routes';
 import { Dashboards, DashboardView } from './dashboards';
 import { DashboardEditor } from './dashboards/Editor';
 import { DashboardImport } from './dashboards/Import';
@@ -413,6 +414,7 @@ export const router = createBrowserRouter([
       // Alias for the planned /alerts/import-semantic-groups route.
       { path: 'alerts/import-semantic-groups', element: <SemanticGroups /> },
       ...SYNTHETICS_ROUTES,
+      ...BUSINESS_SERVICE_ROUTES,
 
       /* DATA */
       { path: 'streams', element: <Streams /> },

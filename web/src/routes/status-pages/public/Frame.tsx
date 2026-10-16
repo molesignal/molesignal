@@ -90,6 +90,7 @@ export function PublicStatusFrame({
   return (
     <PublicStatusLayout
       page={page}
+      components={snapshot.components}
       view={view}
       paths={paths}
       language={language}

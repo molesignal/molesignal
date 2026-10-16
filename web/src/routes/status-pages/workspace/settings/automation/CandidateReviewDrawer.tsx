@@ -348,7 +348,7 @@ function ComponentChecklist({
   return (
     <FormField label={t('fields.affected_components')} required>
       <div className="grid gap-2 sm:grid-cols-2">
-        {components.filter((component) => component.lifecycle === 'active').map((component) => (
+        {components.filter((component) => component.kind !== 'group' && component.lifecycle === 'active').map((component) => (
           <label key={component.id} className="flex min-h-11 items-center gap-2 rounded-md border border-bd-0 bg-bg-2 px-3 text-sm text-tx-1 hover:bg-bg-3">
             <input
               type="checkbox"

@@ -5,6 +5,7 @@ import enAccount from './en-us/account.json';
 import enAgent from './en-us/agent.json';
 import enAlerts from './en-us/alerts.json';
 import enApm from './en-us/apm.json';
+import enBusinessServices from './en-us/business-services.json';
 import enCommon from './en-us/common.json';
 import enDashboards from './en-us/dashboards.json';
 import enDatasources from './en-us/datasources.json';
@@ -37,6 +38,7 @@ import zhAccount from './zh-cn/account.json';
 import zhAgent from './zh-cn/agent.json';
 import zhAlerts from './zh-cn/alerts.json';
 import zhApm from './zh-cn/apm.json';
+import zhBusinessServices from './zh-cn/business-services.json';
 import zhCommon from './zh-cn/common.json';
 import zhDashboards from './zh-cn/dashboards.json';
 import zhDatasources from './zh-cn/datasources.json';
@@ -113,6 +115,7 @@ const NAMESPACES = [
   'services',
   'settings-admin',
   'status-pages',
+  'business-services',
   'synthetics',
 ] as const;
 
@@ -149,6 +152,7 @@ const resources = {
     services: enServices,
     'settings-admin': enSettingsAdmin,
     'status-pages': enStatusPages,
+    'business-services': enBusinessServices,
     synthetics: enSynthetics,
   },
   'zh-cn': {
@@ -183,6 +187,7 @@ const resources = {
     services: zhServices,
     'settings-admin': zhSettingsAdmin,
     'status-pages': zhStatusPages,
+    'business-services': zhBusinessServices,
     synthetics: zhSynthetics,
   },
 } as const;

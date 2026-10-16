@@ -24,6 +24,9 @@ vi.mock('@/api/statusPages', () => ({
   subscribePublic: vi.fn(),
   confirmPublicSubscription: vi.fn(),
   unsubscribePublic: vi.fn(),
+  readSubscriptionPreferences: vi.fn(),
+  updateSubscriptionPreferences: vi.fn(),
+  beginSlackSubscription: vi.fn(),
   publicRssUrl: vi.fn(() => '/api/public/status-pages/acme-cloud/feed.rss'),
 }));
 
@@ -31,6 +34,8 @@ const getPublic = vi.mocked(statusPagesApi.getPublic);
 const getPublicByDomain = vi.mocked(statusPagesApi.getPublicByDomain);
 const subscribePublic = vi.mocked(statusPagesApi.subscribePublic);
 const confirmPublicSubscription = vi.mocked(statusPagesApi.confirmPublicSubscription);
+const readSubscriptionPreferences = vi.mocked(statusPagesApi.readSubscriptionPreferences);
+const updateSubscriptionPreferences = vi.mocked(statusPagesApi.updateSubscriptionPreferences);
 
 const snapshot: PublicStatusPageSnapshot = {
   page: {
@@ -392,13 +397,48 @@ describe('PublicStatusPage domain routing', () => {
     await user.click(screen.getByRole('button', { name: 'Send confirmation' }));
 
     await waitFor(() => {
+      // Nothing chosen below the address: the whole page.
       expect(subscribePublic).toHaveBeenCalledWith(
         'acme-cloud',
         'email',
         'ops@example.com',
+        [],
       );
     });
     expect(await screen.findByText('Check your destination')).toBeTruthy();
+  });
+
+  it('lets a subscriber choose the components they hear about from the manage link', async () => {
+    const user = userEvent.setup();
+    const preferences = {
+      channel: 'email' as const,
+      masked_target: 'o***@example.com',
+      target_label: null,
+      status: 'active' as const,
+      component_scope: 'all' as const,
+      component_ids: [],
+    };
+    readSubscriptionPreferences.mockResolvedValue(preferences);
+    updateSubscriptionPreferences.mockResolvedValue({
+      ...preferences,
+      component_scope: 'selected',
+      component_ids: ['gateway'],
+    });
+    getPublicByDomain.mockResolvedValue(snapshot);
+    renderDomainPage(undefined, '/#subscription_action=manage&subscription_token=token.manage');
+
+    const dialog = await screen.findByRole('dialog', { name: 'Manage subscription' });
+    expect(await within(dialog).findByText('Email · o***@example.com')).toBeTruthy();
+    expect(readSubscriptionPreferences).toHaveBeenCalledWith('acme-cloud', 'token.manage');
+
+    await user.click(within(dialog).getByRole('button', { name: 'Some components' }));
+    await user.click(within(dialog).getByText('Gateway'));
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(updateSubscriptionPreferences).toHaveBeenCalledWith('acme-cloud', 'token.manage', ['gateway']),
+    );
+    expect(await within(dialog).findByText('Saved.')).toBeTruthy();
   });
 
   it('confirms a subscription token from the emailed page link and removes it from the URL', async () => {

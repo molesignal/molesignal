@@ -494,6 +494,12 @@ const COMPONENT_SEEDS: Array<[string, string, string, ComponentStatus]> = [
   ['cmp-eu', 'EU region', 'Everything served from Frankfurt.', 'maintenance'],
 ];
 
+/** The components that stand for a business service of the business service mocks. */
+const COMPONENT_SERVICE_LINKS: Record<string, StatusPageComponent['business_service']> = {
+  'cmp-api': { business_service_id: 'bs-public-api', mode: 'follow', notify_subscribers: true },
+  'cmp-payments': { business_service_id: 'bs-checkout', mode: 'automation', notify_subscribers: true },
+};
+
 function components(pageId: string, now: number): StatusPageComponent[] {
   return COMPONENT_SEEDS.map(([id, name, description, status], position) => ({
     id,
@@ -508,6 +514,7 @@ function components(pageId: string, now: number): StatusPageComponent[] {
     archived_at: null,
     created_at: now - 200 * DAY,
     updated_at: now - 38 * MINUTE,
+    business_service: pageId === 'sp-acme-cloud' ? COMPONENT_SERVICE_LINKS[id] ?? null : null,
   }));
 }
 
@@ -931,6 +938,13 @@ export function registerReliabilityRoutes(app: Express, nowIso: string): void {
     ),
   );
   app.get('/api/v1/status-pages/:id/access-sessions', (_req, res) => res.json([]));
+  app.get('/api/v1/status-pages/:id/slack-app', (_req, res) =>
+    res.json({
+      connector_id: null,
+      redirect_url: 'https://status.acme.example/api/v1/public/slack/callback',
+      connectors: [{ id: 'conn-slack-status', name: 'Acme status Slack app', enabled: true, adds_channels: true }],
+    }),
+  );
   app.get('/api/v1/status-pages/:id/automation/rules', (req, res) => res.json(automationRules(req.params.id, now)));
   app.get('/api/v1/status-pages/:id/automation/candidates', (req, res) =>
     res.json(pageOf(req.params.id).id === 'sp-acme-cloud' ? automationCandidates(req.params.id, now) : []),

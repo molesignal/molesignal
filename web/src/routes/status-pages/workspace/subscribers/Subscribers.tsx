@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { RefreshCw, UserMinus } from 'lucide-react';
+import { RefreshCw, Upload, UserMinus } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
@@ -9,19 +9,21 @@ import * as statusPagesApi from '@/api/statusPages';
 import type { StatusPageSubscriber } from '@/api/statusPages';
 import { toApiError } from '@/lib/http';
 import { formatMicrosActive } from '@/lib/time';
-import { IconButton, Pill } from '@/shell/chrome';
+import { ChromeButton, IconButton, Pill } from '@/shell/chrome';
 import { PageBody } from '@/shell/PageHeader';
 import { ResultPagination } from '@/shell/ResultPagination';
 import { ViewTabs } from '@/shell/tabs/ViewTabs';
 import { toast } from '@/shell/ui/sonner';
 
-import { useStatusPageWorkspace } from './Layout';
-import { shouldShowStatusPagePagination } from './pagination';
+import { useStatusPageWorkspace } from '../Layout';
+import { shouldShowStatusPagePagination } from '../pagination';
 import {
   StatusPageCanvas,
   StatusPageList,
   statusPageFlatTableClassName,
-} from './Surfaces';
+} from '../Surfaces';
+import { ImportDrawer } from './ImportDrawer';
+import { subscriberComponentNames } from './scope';
 
 export function StatusPageSubscribers({ view }: { view: 'list' | 'deliveries' }) {
   const { t } = useTranslation('status-pages');
@@ -29,6 +31,7 @@ export function StatusPageSubscribers({ view }: { view: 'list' | 'deliveries' })
   const [searchParams, setSearchParams] = useSearchParams();
   const { pageId, snapshot, manageAccess } = useStatusPageWorkspace();
   const [revoking, setRevoking] = React.useState<StatusPageSubscriber | null>(null);
+  const [importing, setImporting] = React.useState(false);
   const page = Math.max(1, Number(searchParams.get('page')) || 1);
   const subscribersQuery = useQuery({
     queryKey: ['status-pages', pageId, 'subscribers', page],
@@ -63,6 +66,7 @@ export function StatusPageSubscribers({ view }: { view: 'list' | 'deliveries' })
   const result = view === 'list' ? subscribersQuery.data : deliveriesQuery.data;
   const loading = view === 'list' ? subscribersQuery.isLoading : deliveriesQuery.isLoading;
   const pageCount = Math.max(1, Math.ceil((result?.total ?? 0) / (result?.per_page ?? 25)));
+  const canImport = manageAccess.allowed && snapshot.page.lifecycle === 'active';
 
   return (
     <PageBody className="space-y-0 pb-4 pt-2 lg:pb-6 lg:pt-2">
@@ -86,6 +90,20 @@ export function StatusPageSubscribers({ view }: { view: 'list' | 'deliveries' })
               )}
             </>
           }
+          {...(view === 'list'
+            ? {
+                action: (
+                  <ChromeButton
+                    disabled={!canImport}
+                    disabledReason={manageAccess.reason}
+                    onClick={() => setImporting(true)}
+                  >
+                    <Upload className="h-3.5 w-3.5" />
+                    {t('actions.import_subscribers')}
+                  </ChromeButton>
+                ),
+              }
+            : {})}
         >
           {view === 'list' ? (
             <DataTable
@@ -98,7 +116,17 @@ export function StatusPageSubscribers({ view }: { view: 'list' | 'deliveries' })
                 key: 'target',
                 header: t('columns.subscriber'),
                 cell: (subscriber) => (
-                  <span className="font-mono text-xs text-tx-1">{subscriber.masked_target}</span>
+                  <div className="flex min-w-0 items-center gap-2">
+                    {/* A Slack channel added with Add to Slack is known by its name, not its address. */}
+                    {subscriber.target_label ? (
+                      <span className="truncate text-xs text-tx-1">{subscriber.target_label}</span>
+                    ) : (
+                      <span className="truncate font-mono text-xs text-tx-1">{subscriber.masked_target}</span>
+                    )}
+                    {subscriber.origin && subscriber.origin !== 'page' && (
+                      <Pill tone="dim">{t(`subscriber_origin.${subscriber.origin}`)}</Pill>
+                    )}
+                  </div>
                 ),
               },
               {
@@ -106,6 +134,21 @@ export function StatusPageSubscribers({ view }: { view: 'list' | 'deliveries' })
                 header: t('columns.channel'),
                 width: 120,
                 cell: (subscriber) => t(`channels.${subscriber.channel}`),
+              },
+              {
+                key: 'scope',
+                header: t('columns.subscription_scope'),
+                width: 220,
+                cell: (subscriber) => {
+                  const names = subscriberComponentNames(subscriber, snapshot.components);
+                  return names.length === 0 ? (
+                    <span className="text-tx-2">{t('subscribers.scope_all')}</span>
+                  ) : (
+                    <span className="block truncate text-tx-1" title={names.join(', ')}>
+                      {names.join(', ')}
+                    </span>
+                  );
+                },
               },
               {
                 key: 'status',
@@ -235,6 +278,12 @@ export function StatusPageSubscribers({ view }: { view: 'list' | 'deliveries' })
         destructive
         busy={revokeMutation.isPending}
         onConfirm={() => revoking && revokeMutation.mutate(revoking.id)}
+      />
+      <ImportDrawer
+        open={importing}
+        pageId={pageId}
+        onOpenChange={setImporting}
+        onImported={refresh}
       />
     </PageBody>
   );

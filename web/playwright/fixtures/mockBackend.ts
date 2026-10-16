@@ -27,6 +27,7 @@ import express, { type Express, type Request, type Response } from 'express';
 import type { UserPreferences } from '../../src/api/me';
 import { PRODUCT_ROUTES } from '../../src/product/ia';
 import { registerAlertRoutes } from './mockAlerts';
+import { registerBusinessServiceRoutes } from './mockBusinessServices';
 import { registerLogInspectionRoutes } from './mockLogInspections';
 import { registerReliabilityRoutes } from './mockReliability';
 import { registerSearchJobRoutes } from './mockSearchJobs';
@@ -102,6 +103,8 @@ const MOCK_IAM_ORGANIZATION_PERMISSIONS = [
   'status_pages.read',
   'status_pages.manage',
   'status_pages.publish',
+  'business_services.read',
+  'business_services.manage',
   'synthetics.read',
   'synthetics.manage',
   'synthetics.locations.manage',
@@ -365,6 +368,7 @@ interface Fixtures {
 export function registerRoutes(app: Express): void {
   registerAlertRoutes(app, FROZEN_NOW_ISO);
   registerReliabilityRoutes(app, FROZEN_NOW_ISO);
+  registerBusinessServiceRoutes(app, FROZEN_NOW_ISO);
   registerSearchJobRoutes(app, FROZEN_NOW_ISO);
   registerLogInspectionRoutes(app, FROZEN_NOW_ISO);
   const dashboards = (DASHBOARDS as { items: Array<Record<string, unknown>> }).items.map((item) => ({ ...item }));

@@ -16,7 +16,7 @@ vi.mock('@/api/statusPages', () => ({
 vi.mock('./Layout', () => ({
   useStatusPageWorkspace: vi.fn(),
 }));
-vi.mock('./EventDrawer', () => ({
+vi.mock('./event/EventDrawer', () => ({
   StatusPageEventDrawer: () => null,
 }));
 

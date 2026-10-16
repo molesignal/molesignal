@@ -19,6 +19,7 @@ import {
 import { lasted, listNames, microsDateTime, relativeTime } from './format';
 import { type PublicStatusContext, PublicStatusFrame } from './Frame';
 import { IncidentStatusChip } from './Notices';
+import { IncidentPostmortem } from './Postmortem';
 import {
   type PublicStatusSource,
   findPublicIncident,
@@ -142,6 +143,17 @@ function IncidentRecord({
           {components.length > 0 && (
             <Fact label={copy('public.incident_detail.affected_components')}>{listNames(components, language)}</Fact>
           )}
+          {/* The publisher's word on when they will say more, while there is more to say. */}
+          {!over && incident.next_update_at != null && (
+            <Fact label={copy('public.incident_detail.next_update')}>
+              <time dateTime={microsDateTime(incident.next_update_at)} className="tabular-nums">
+                {formatMicros(incident.next_update_at, timezone, language)}
+              </time>
+              <span className="mt-0.5 block text-sm text-tx-2">
+                {relativeTime(incident.next_update_at, snapshot.generated_at, language)}
+              </span>
+            </Fact>
+          )}
         </dl>
       </header>
 
@@ -182,6 +194,15 @@ function IncidentRecord({
           </ol>
         )}
       </section>
+
+      {incident.postmortem && (
+        <IncidentPostmortem
+          postmortem={incident.postmortem}
+          timezone={timezone}
+          language={language}
+          copy={copy}
+        />
+      )}
     </article>
   );
 }

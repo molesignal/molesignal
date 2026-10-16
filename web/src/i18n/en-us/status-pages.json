@@ -105,7 +105,15 @@
     "resend_confirmation": "Resend confirmation",
     "move_up": "Move up",
     "move_down": "Move down",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "publish_postmortem": "Publish postmortem",
+    "publish_revision": "Publish revision",
+    "unpublish_postmortem": "Return to draft",
+    "delete_draft": "Delete draft",
+    "import_subscribers": "Import subscribers",
+    "check_file": "Check file",
+    "done": "Done",
+    "add_group": "Add group"
   },
   "kpis": {
     "pages": "Status pages",
@@ -136,7 +144,9 @@
     "created": "Created",
     "event": "Event",
     "attempts": "Attempts",
-    "duration": "Duration"
+    "duration": "Duration",
+    "business_service": "Business service",
+    "subscription_scope": "Hears about"
   },
   "fields": {
     "name": "Name",
@@ -170,7 +180,14 @@
     "tls": "TLS certificate",
     "last_checked": "Last checked",
     "rule_type": "Allowlist type",
-    "allowed_value": "Allowed email or domain"
+    "allowed_value": "Allowed email or domain",
+    "next_update": "Next update",
+    "notify_subscribers": "Notify subscribers",
+    "business_service": "Business service",
+    "group_name": "Group name",
+    "component_group": "Group",
+    "slack_app": "Slack app",
+    "slack_redirect_url": "Redirect URL"
   },
   "visibility": {
     "public": "Public",
@@ -191,7 +208,12 @@
     "duration_hours_other": "{{count}} hr",
     "duration_minutes_one": "{{count}} min",
     "duration_minutes_other": "{{count}} min",
-    "any": "Any"
+    "any": "Any",
+    "next_update_by": "Next update promised by {{time}}",
+    "not_notified": "Subscribers not notified",
+    "group_components_one": "{{count}} component",
+    "group_components_other": "{{count}} components",
+    "empty_group": "Empty group"
   },
   "sections": {
     "components": "Components",
@@ -263,7 +285,23 @@
     "component": {
       "create_title": "Add component",
       "edit_title": "Edit component",
-      "subtitle": "Components communicate the health of a customer-visible capability."
+      "subtitle": "Components communicate the health of a customer-visible capability.",
+      "business_service": "Business service",
+      "business_service_hint": "Let this component stand for a business service, so what customers see matches its internal health.",
+      "no_business_service": "None",
+      "unknown_business_service": "Business service no longer available",
+      "no_business_services": "There are no business services yet.",
+      "open_business_services": "Create one",
+      "follow_notify_hint": "Whether status changes that follow the health notify subscribers.",
+      "follow_status_hint": "While the component follows a business service, its next change of health overwrites the status.",
+      "notify_hint": "Subscribers are told of this change of status.",
+      "silent_hint": "Only the status on the page changes; nothing is sent.",
+      "edit_group_title": "Edit group",
+      "group_subtitle": "A group has no status of its own; it shows the worst status among its components.",
+      "kind": "Type",
+      "description_hint": "On the public page it sits behind the ⓘ beside the name.",
+      "no_group": "No group",
+      "group_not_empty": "Move the components out of the group, or archive them, before archiving it"
     },
     "incident": {
       "create_title": "Publish to status page",
@@ -280,7 +318,15 @@
     "update": {
       "title": "Publish incident update",
       "hint": "Each update is appended to the public timeline. Resolved incidents are immutable.",
-      "message_placeholder": "Share concrete progress, mitigations, or recovery confirmation."
+      "message_placeholder": "Share concrete progress, mitigations, or recovery confirmation.",
+      "next_update_hint": "Tells customers on the page and in notifications when to expect more.",
+      "next_update_none": "No promise",
+      "next_update_minutes_one": "Within {{count}} minute",
+      "next_update_minutes_other": "Within {{count}} minutes",
+      "next_update_hours_one": "Within {{count}} hour",
+      "next_update_hours_other": "Within {{count}} hours",
+      "notify_hint": "Subscribers get an email, webhook or Slack message.",
+      "silent_hint": "Only the page changes and nothing is sent, as for a correction of wording."
     },
     "event": {
       "new_incident": "Create incident",
@@ -291,6 +337,22 @@
       "details": "Event details",
       "customer_update": "Customer update",
       "timeline": "Timeline"
+    },
+    "postmortem": {
+      "title": "Postmortem",
+      "none": "No postmortem yet. Publish one once the incident is resolved; readers see it on the incident page.",
+      "draft_saved_at": "Draft · saved {{time}}",
+      "published_at": "Published {{time}}",
+      "revised_at": "revised {{time}}",
+      "view_label": "Postmortem view",
+      "write": "Write",
+      "preview": "Preview",
+      "placeholder": "## What happened\n\n## Why\n\n## What we are changing",
+      "empty_preview": "Nothing written yet.",
+      "too_long": "A postmortem can be at most 20,000 characters.",
+      "notify_hint": "Notify subscribers when it is published.",
+      "notify_revision_hint": "A revision usually needs no notice; turn this on when the substance changed.",
+      "publish_after_resolution": "A postmortem is published once the incident is resolved"
     }
   },
   "states": {
@@ -337,7 +399,17 @@
     "domain_updated": "Domain configuration updated",
     "domain_removed": "Custom domain removed",
     "access_rule_added": "Access rule added",
-    "access_updated": "Private access updated"
+    "access_updated": "Private access updated",
+    "update_published_quietly": "Status update published without notifying subscribers",
+    "postmortem_save": "Postmortem draft saved",
+    "postmortem_publish": "Postmortem published",
+    "postmortem_revised": "Postmortem revision published",
+    "postmortem_unpublish": "Postmortem returned to draft",
+    "postmortem_delete": "Postmortem draft deleted",
+    "subscribers_imported_one": "{{count}} subscriber imported",
+    "subscribers_imported_other": "{{count}} subscribers imported",
+    "slack_app_on": "Visitors can add the page to Slack",
+    "slack_app_off": "Add to Slack is off"
   },
   "confirm": {
     "delete_page_title": "Delete status page?",
@@ -361,7 +433,7 @@
   "publication_state": { "draft": "Draft", "published": "Published" },
   "subscriber_views": { "list": "Subscribers", "deliveries": "Deliveries" },
   "subscriber_views_label": "Subscriber views",
-  "channels": { "email": "Email", "webhook": "Webhook" },
+  "channels": { "email": "Email", "webhook": "Webhook", "slack": "Slack" },
   "subscriber_status": { "pending": "Pending", "active": "Active", "unsubscribed": "Unsubscribed" },
   "delivery_status": { "pending": "Pending", "processing": "Processing", "delivered": "Delivered", "failed": "Failed" },
   "access_rule": { "email": "Exact email", "domain": "Email domain" },
@@ -401,7 +473,45 @@
     "last": "Last page"
   },
   "subscribers": {
-    "retention_hint": "Delivery records retained for {{count}} days"
+    "retention_hint": "Delivery records retained for {{count}} days",
+    "scope_all": "Whole page",
+    "import": {
+      "title": "Import subscribers",
+      "subtitle": "Bring email subscribers over from another status page.",
+      "file": "CSV file",
+      "format_hint": "The first row may be a header of email,components. Without one, the first column is the address and the second names components (separated by ;, empty for the whole page). At most 10,000 addresses and 2 MB.",
+      "choose_file": "Choose file",
+      "content": "File contents",
+      "too_large": "The file is larger than 2 MB.",
+      "mode": "How they start",
+      "modes": {
+        "active": "Active at once",
+        "active_hint": "The addresses confirmed on the old page. They start receiving updates now and are sent nothing.",
+        "confirm": "Ask to confirm",
+        "confirm_hint": "Each address is sent a confirmation email and starts receiving updates once it confirms."
+      },
+      "checked": "Check result",
+      "done": "Import result",
+      "report": {
+        "rows": "Rows read",
+        "would_import": "Would import",
+        "imported": "Imported",
+        "already_subscribed": "Already subscribed",
+        "skipped_unsubscribed": "Unsubscribed before (skipped)",
+        "confirmations_queued": "Confirmations to send",
+        "problems": "Rows with problems"
+      },
+      "problems_first": "{{count}} rows were not imported. The first {{shown}}:",
+      "problems_all_one": "{{count}} row was not imported:",
+      "problems_all_other": "{{count}} rows were not imported:",
+      "line": "Line {{line}}",
+      "reasons": {
+        "missing_email": "No email address",
+        "invalid_email": "Not an email address",
+        "duplicate_email": "Named earlier in the file",
+        "unknown_component": "No component of the page has this name"
+      }
+    }
   },
   "settings": {
     "label": "Status page settings",
@@ -410,6 +520,7 @@
       "branding": "Branding",
       "localization": "Localization & history",
       "domain-access": "Domain & access",
+      "slack": "Slack",
       "automation": "Automation"
     },
     "general": {
@@ -443,6 +554,18 @@
       "sessions": "Active sessions",
       "sessions_description": "Sessions are bound to the status-page origin and can be revoked at any time.",
       "expires": "Expires {{date}}"
+    },
+    "slack": {
+      "title": "Add to Slack",
+      "description": "Visitors choose a channel of their own Slack workspace, and the page posts its updates there. It uses a Slack App connector that holds a client ID and secret, kept encrypted with the connector.",
+      "private_page": "A private page does not offer Add to Slack to its visitors.",
+      "loading": "Loading Slack apps…",
+      "off": "Off",
+      "connector_off": "This connector is turned off.",
+      "connector_without_client": "This connector has no client ID and secret.",
+      "no_connectors": "There is no Slack App connector yet. Create one under <connectors>Connectors</connectors> with the client ID and secret of your Slack app.",
+      "redirect_hint": "Add it under OAuth & Permissions → Redirect URLs of the Slack app, and give the app the incoming-webhook scope.",
+      "needs_https": "Needs http.external_url to be an HTTPS address."
     }
   },
   "automation": {
@@ -495,11 +618,13 @@
       "update_template": "Impact-change update",
       "resolved_template": "Resolved update",
       "correlation_template": "Correlation key",
-      "template_hint": "Allowed: {{source.id}}, {{source.kind}}, {{severity}}, and {{labels.key}}."
+      "template_hint": "Allowed: {{source.id}}, {{source.kind}}, {{severity}}, and {{labels.key}}.",
+      "business_service_components_hint": "With none chosen, it publishes on the components of this page that stand for the business service through automation."
     },
     "source": {
       "alert_incident": "Alert incident",
-      "synthetic_monitor": "Synthetic check"
+      "synthetic_monitor": "Synthetic check",
+      "business_service": "Business service"
     },
     "source_picker": {
       "alert_rule": "Alert rule",
@@ -518,7 +643,13 @@
       "load_error": "The source list could not be loaded. Try again shortly.",
       "unavailable": "Unavailable source · {{id}}",
       "enabled": "Enabled",
-      "disabled": "Disabled"
+      "disabled": "Disabled",
+      "business_service": "Business service",
+      "business_service_hint": "Choose one business service, or select All business services to match a change of health of any of them.",
+      "business_service_required_hint": "Choose the business service to use in this simulation.",
+      "all_business_service": "All business services",
+      "select_business_service": "Select a business service",
+      "empty_business_service": "No business services available"
     },
     "mode": {
       "approval": "Draft for approval",
@@ -645,7 +776,8 @@
       "maintenance_under_way": "Maintenance under way",
       "latest_update": "Latest update",
       "all_updates_one": "Read the update",
-      "all_updates_other": "Read all {{count}} updates"
+      "all_updates_other": "Read all {{count}} updates",
+      "next_update": "Next update by {{time}}"
     },
     "past": {
       "title": "Past incidents",
@@ -656,11 +788,12 @@
       "history_link": "Full incident history"
     },
     "no_components": "No service components have been published.",
+    "component_description": "About {{name}}",
     "powered_by": "Powered by MoleSignal",
     "subscription": {
       "trigger": "Subscribe",
       "title": "Get status updates",
-      "description": "Choose email or an HTTPS webhook. We will send a confirmation before activating notifications.",
+      "description": "Choose email, an HTTPS webhook or Slack. We will send a confirmation before activating notifications.",
       "channel": "Delivery channel",
       "email": "Email",
       "webhook": "Webhook",
@@ -677,7 +810,29 @@
       "action_confirming": "Confirming your request…",
       "action_confirmed": "Notifications are now active.",
       "action_unsubscribed": "Notifications have been stopped.",
-      "action_failed": "This subscription link is invalid or no longer available."
+      "action_failed": "This subscription link is invalid or no longer available.",
+      "slack": "Slack",
+      "email_target": "Email address",
+      "webhook_target": "Webhook URL",
+      "slack_target": "Slack incoming webhook URL",
+      "slack_placeholder": "https://hooks.slack.com/services/…",
+      "slack_hint": "Create one for a channel under Incoming Webhooks in Slack; the confirmation is posted to that channel.",
+      "add_to_slack": "Add to Slack",
+      "add_to_slack_hint": "Choose a channel in Slack and you come back here. Or paste an incoming webhook URL below.",
+      "components_label": "What to hear about",
+      "components_all": "Whole page",
+      "components_selected": "Some components",
+      "components_all_hint": "You hear about every incident and maintenance on the page.",
+      "components_selected_hint": "You hear only about incidents and maintenance that name the components chosen.",
+      "action_slack_connected": "The Slack channel is connected; status updates will be posted there.",
+      "action_slack_failed": "Slack could not be connected. Try again, or paste an incoming webhook URL.",
+      "manage_title": "Manage subscription",
+      "manage_description": "{{channel}} · {{target}}",
+      "manage_loading": "Reading the subscription…",
+      "manage_pending": "This subscription is not confirmed yet; updates start once it is.",
+      "manage_saved": "Saved.",
+      "manage_unsubscribe": "Unsubscribe",
+      "manage_save": "Save"
     },
     "archive": {
       "navigation_label": "Status page navigation",
@@ -746,7 +901,32 @@
       "updates": "Updates",
       "no_updates": "No public updates have been posted yet.",
       "not_found_title": "Incident unavailable",
-      "not_found_description": "This incident does not exist or is no longer included on this status page."
-    }
+      "not_found_description": "This incident does not exist or is no longer included on this status page.",
+      "next_update": "Next update",
+      "postmortem": "Postmortem",
+      "postmortem_published": "Published {{time}}",
+      "postmortem_revised": "revised {{time}}",
+      "postmortem_available": "Postmortem"
+    },
+    "group_components_one": "{{count}} component",
+    "group_components_other": "{{count}} components"
+  },
+  "subscriber_origin": {
+    "import": "Imported",
+    "slack_app": "Add to Slack"
+  },
+  "service_link_mode": {
+    "follow": "Follow the health",
+    "follow_short": "Follows",
+    "follow_hint": "The component's status changes with the business service's health.",
+    "automation": "Through automation rules",
+    "automation_short": "Automation",
+    "automation_hint": "Changes of the business service's health are a source of this page's automation rules, which publish incidents with their delay, approval and wording."
+  },
+  "component_kind": {
+    "component": "Component",
+    "component_hint": "Something customers rely on, with a status of its own.",
+    "group": "Group",
+    "group_hint": "Holds components the way a folder holds files; shows the worst status among them and folds on the public page."
   }
 }

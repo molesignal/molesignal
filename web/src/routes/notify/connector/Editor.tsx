@@ -23,21 +23,24 @@ interface FieldSpec {
   type?: 'text' | 'number' | 'password' | 'json' | 'select';
   options?: string[];
   defaultValue?: string;
+  optional?: boolean;
 }
 
 const FIELDS: Record<string, FieldSpec[]> = {
   email_smtp: [
     { key: 'host' },
     { key: 'port', type: 'number', defaultValue: '587' },
-    { key: 'username' },
+    { key: 'username', optional: true },
     { key: 'password', type: 'password' },
     { key: 'from' },
     { key: 'tls', type: 'select', options: ['none', 'starttls', 'tls'], defaultValue: 'starttls' },
     { key: 'timeout_secs', type: 'number', defaultValue: '10' },
   ],
   slack_app: [
-    { key: 'bot_token', type: 'password' },
+    { key: 'bot_token', type: 'password', optional: true },
     { key: 'api_base_url', defaultValue: 'https://slack.com/api' },
+    { key: 'client_id', optional: true },
+    { key: 'client_secret', type: 'password', optional: true },
     { key: 'timeout_secs', type: 'number', defaultValue: '10' },
   ],
   slack_webhook: [
@@ -58,16 +61,26 @@ const FIELDS: Record<string, FieldSpec[]> = {
   ],
   lark_webhook: [
     { key: 'webhook_url', type: 'password' },
-    { key: 'secret', type: 'password' },
+    { key: 'secret', type: 'password', optional: true },
     { key: 'timeout_secs', type: 'number', defaultValue: '10' },
   ],
   webhook: [
     { key: 'url', type: 'password' },
     { key: 'method', type: 'select', options: ['post', 'put', 'patch'], defaultValue: 'post' },
-    { key: 'headers', type: 'json', defaultValue: '{}' },
+    { key: 'headers', type: 'json', defaultValue: '{}', optional: true },
     { key: 'timeout_secs', type: 'number', defaultValue: '10' },
   ],
 };
+
+/** A Slack app sends with its bot token, and adds status pages to channels
+ * with its client ID and secret: it needs one of the two, and the client ID
+ * and secret come together. */
+function credentialsComplete(connectorType: string, values: Record<string, string>): boolean {
+  if (connectorType !== 'slack_app') return true;
+  const filled = (key: string) => (values[key] ?? '').trim() !== '';
+  if (filled('client_id') !== filled('client_secret')) return false;
+  return filled('bot_token') || filled('client_id');
+}
 
 function fieldsFrom(
   connectorType: string,
@@ -169,10 +182,10 @@ export function ConnectorEditor({
   });
 
   const specs = FIELDS[connectorType] ?? [];
-  const valid = name.trim() !== '' && specs.every((field) => {
-    if (field.key === 'username' || field.key === 'secret' || field.key === 'headers') return true;
-    return (fields[field.key] ?? '').trim() !== '';
-  });
+  const valid =
+    name.trim() !== '' &&
+    specs.every((field) => field.optional || (fields[field.key] ?? '').trim() !== '') &&
+    credentialsComplete(connectorType, fields);
 
   return (
     <FormDrawer
@@ -236,7 +249,10 @@ export function ConnectorEditor({
         </label>
       </FormSection>
 
-      <FormSection title={t('connectors.drawer.configuration')}>
+      <FormSection
+        title={t('connectors.drawer.configuration')}
+        {...(connectorType === 'slack_app' ? { description: t('connectors.drawer.slack_app_hint') } : {})}
+      >
         {specs.map((field, index) => {
           const input =
             field.type === 'select' ? (

@@ -106,6 +106,7 @@ export function AutomationSimulator({
               options={[
                 { value: 'alert_incident', label: t('automation.source.alert_incident') },
                 { value: 'synthetic_monitor', label: t('automation.source.synthetic_monitor') },
+                { value: 'business_service', label: t('automation.source.business_service') },
               ]}
             />
           </FormField>

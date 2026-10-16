@@ -1,6 +1,7 @@
 import type { TFunction } from 'i18next';
 
 import type {
+  ComponentKind,
   ComponentStatus,
   IncidentImpact,
   PublicIncidentStatus,
@@ -185,6 +186,61 @@ export function formatDurationMicros(t: TFunction, startedAt: number, endedAt: n
   if (hours > 0) return t('values.duration_hours', { count: hours });
   return t('values.duration_minutes', { count: minutes });
 }
+
+interface GroupedComponent {
+  id: string;
+  kind?: ComponentKind;
+  group_id?: string | null;
+}
+
+export function isComponentGroup(component: Pick<GroupedComponent, 'kind'>): boolean {
+  return component.kind === 'group';
+}
+
+/** The components that have a status of their own: everything but groups. */
+export function namedComponents<T extends GroupedComponent>(components: readonly T[]): T[] {
+  return components.filter((component) => !isComponentGroup(component));
+}
+
+export interface ComponentTreeEntry<T> {
+  item: T;
+  /** The components in a group; empty for a component. */
+  members: T[];
+}
+
+/**
+ * The components of a page as it lists them, in the order given: everything
+ * at the top level, each group with the components in it. A component whose
+ * group is not among them stands on its own.
+ */
+export function componentTree<T extends GroupedComponent>(components: readonly T[]): ComponentTreeEntry<T>[] {
+  const groups = new Set(components.filter(isComponentGroup).map((component) => component.id));
+
+  return components
+    .filter((component) => isComponentGroup(component) || !component.group_id || !groups.has(component.group_id))
+    .map((item) => ({
+      item,
+      members: isComponentGroup(item)
+        ? components.filter((component) => !isComponentGroup(component) && component.group_id === item.id)
+        : [],
+    }));
+}
+
+/** The status a group shows: the worst among its components. */
+export function groupStatus(members: ReadonlyArray<{ status: ComponentStatus }>): ComponentStatus {
+  return members.reduce<ComponentStatus>(
+    (worst, member) => (COMPONENT_STATUS_RANK[member.status] > COMPONENT_STATUS_RANK[worst] ? member.status : worst),
+    'operational',
+  );
+}
+
+const COMPONENT_STATUS_RANK: Record<ComponentStatus, number> = {
+  operational: 0,
+  maintenance: 1,
+  degraded_performance: 2,
+  partial_outage: 3,
+  major_outage: 4,
+};
 
 export function affectedComponentNames(
   incident: Pick<StatusPageIncident, 'component_ids'>,

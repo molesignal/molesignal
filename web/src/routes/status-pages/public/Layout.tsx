@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 
 import type {
   PublicStatusPage as PublicStatusPageInfo,
+  PublicStatusPageComponent,
   StatusPageLanguage,
 } from '@/api/statusPages';
 import { cn } from '@/shell/lib/cn';
@@ -20,7 +21,7 @@ import { statusPageLanguageLabel } from '../model';
 import { PUBLIC_CONTROL_HEIGHT } from './control';
 import { PublicStatusCredit } from './Credit';
 import type { PublicStatusPaths, PublicStatusView } from './routing';
-import { PublicStatusSubscribe } from './Subscribe';
+import { PublicStatusSubscribe } from './subscribe/Subscribe';
 
 /**
  * The frame every view of a public status page stands in: whose page it is,
@@ -32,6 +33,7 @@ import { PublicStatusSubscribe } from './Subscribe';
  */
 export function PublicStatusLayout({
   page,
+  components,
   view,
   paths,
   language,
@@ -41,6 +43,8 @@ export function PublicStatusLayout({
   children,
 }: {
   page: PublicStatusPageInfo;
+  /** The components a reader can choose to hear about. */
+  components: PublicStatusPageComponent[];
   /** The view being shown; an incident belongs to none of the three places. */
   view: PublicStatusView;
   paths: PublicStatusPaths;
@@ -107,6 +111,8 @@ export function PublicStatusLayout({
               slug={page.slug}
               language={language}
               brandColor={page.brand_color}
+              components={components}
+              slackApp={page.slack_app === true}
               privatePage={page.visibility === 'private'}
             />
             {languages.length > 1 && (

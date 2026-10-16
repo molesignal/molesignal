@@ -23,7 +23,7 @@ import {
   impactLabel,
   incidentStatusLabel,
 } from '../model';
-import { StatusPageEventDrawer } from './EventDrawer';
+import { StatusPageEventDrawer } from './event/EventDrawer';
 import { useStatusPageWorkspace } from './Layout';
 import {
   StatusPageCanvas,

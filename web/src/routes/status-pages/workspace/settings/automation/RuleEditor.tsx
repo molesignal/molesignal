@@ -47,11 +47,16 @@ export function RuleEditor({
   const { t } = useTranslation('status-pages');
   const [form, setForm] = React.useState(() => editorState(rule));
   React.useEffect(() => setForm(editorState(rule)), [rule, open]);
-  const activeComponents = components.filter((component) => component.lifecycle === 'active');
+  // A rule publishes on components; a group shows what they show.
+  const activeComponents = components.filter(
+    (component) => component.kind !== 'group' && component.lifecycle === 'active',
+  );
   const delayMinutes = Number(form.delayMinutes);
+  // A business-service rule that names no components publishes on the ones that stand for the service.
+  const componentsOptional = form.sourceKind === 'business_service';
   const invalid =
     !form.name.trim()
-    || form.componentIds.length === 0
+    || (form.componentIds.length === 0 && !componentsOptional)
     || !form.title.trim()
     || !form.investigating.trim()
     || !form.update.trim()
@@ -112,11 +117,14 @@ export function RuleEditor({
                   sourceId: '',
                   mode: sourceKind === 'synthetic_monitor' ? 'automatic' : 'approval',
                   delayMinutes: sourceKind === 'synthetic_monitor' ? '0' : '5',
+                  // A title still at the default follows the source it names.
+                  title: form.title === defaultTitle(form.sourceKind) ? defaultTitle(sourceKind) : form.title,
                 });
               }}
               options={[
                 { value: 'alert_incident', label: t('automation.source.alert_incident') },
                 { value: 'synthetic_monitor', label: t('automation.source.synthetic_monitor') },
+                { value: 'business_service', label: t('automation.source.business_service') },
               ]}
             />
           </FormField>
@@ -165,7 +173,11 @@ export function RuleEditor({
           <ImpactField label={t('automation.fields.degraded_impact')} value={form.degradedImpact} onChange={(degradedImpact) => setForm({ ...form, degradedImpact })} />
           <ImpactField label={t('automation.fields.failing_impact')} value={form.failingImpact} onChange={(failingImpact) => setForm({ ...form, failingImpact })} />
         </FormRow>
-        <FormField label={t('fields.affected_components')} required>
+        <FormField
+          label={t('fields.affected_components')}
+          required={!componentsOptional}
+          {...(componentsOptional ? { hint: t('automation.fields.business_service_components_hint') } : {})}
+        >
           <div className="grid gap-2 sm:grid-cols-2">
             {activeComponents.map((component) => (
               <label key={component.id} className="flex min-h-10 items-center gap-2 rounded-md border border-bd-0 bg-bg-2 px-3 text-xs text-tx-1 hover:bg-bg-3">
@@ -248,12 +260,16 @@ function editorState(rule: ActiveAutomationRule | null): EditorState {
     degradedImpact: revision?.action.impact_map.degraded ?? 'minor',
     failingImpact: revision?.action.impact_map.failing ?? 'major',
     componentIds: revision?.action.component_ids ?? [],
-    title: revision?.action.templates.title ?? '{{labels.incident_summary}}',
+    title: revision?.action.templates.title ?? defaultTitle('alert_incident'),
     investigating: revision?.action.templates.investigating ?? 'We are investigating reports of degraded service.',
     update: revision?.action.templates.update ?? 'We have confirmed an increased impact and are continuing remediation.',
     resolved: revision?.action.templates.resolved ?? 'The service has recovered and is operating normally.',
     correlation: revision?.action.correlation_key_template ?? '{{source.id}}',
   };
+}
+
+function defaultTitle(sourceKind: AutomationSourceKind): string {
+  return sourceKind === 'business_service' ? '{{labels.business_service_name}}' : '{{labels.incident_summary}}';
 }
 
 function toInput(form: EditorState, position?: number): AutomationRuleInput {

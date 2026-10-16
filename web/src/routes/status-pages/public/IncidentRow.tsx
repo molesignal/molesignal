@@ -67,6 +67,7 @@ export function EndedIncidentRow({
               </time>
             </>
             {components.length > 0 && <>{listNames(components, language)}</>}
+            {incident.postmortem && <>{copy('public.incident_detail.postmortem_available')}</>}
           </MetaLine>
         </span>
         {ran && (

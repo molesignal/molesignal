@@ -193,6 +193,42 @@ describe('PublicStatusIncidentPage', () => {
     expect(screen.getByText('No public updates have been posted yet.')).toBeTruthy();
   });
 
+  it('says when the next update is due while it goes on', async () => {
+    const promised = Date.UTC(2026, 7, 10, 8, 20) * 1_000;
+    getPublic.mockResolvedValue({
+      ...snapshot,
+      active_incidents: snapshot.active_incidents.map((incident) => ({ ...incident, next_update_at: promised })),
+    });
+    renderIncident();
+
+    const next = (await screen.findByText('Next update')).nextElementSibling;
+    expect(next?.querySelector('time')?.getAttribute('dateTime')).toBe('2026-08-10T08:20:00.000Z');
+    expect(next?.textContent).toContain('in 30 minutes');
+  });
+
+  it('shows the published postmortem of a resolved incident below its updates', async () => {
+    getPublic.mockResolvedValue({
+      ...snapshot,
+      history: snapshot.history.map((incident) => ({
+        ...incident,
+        postmortem: {
+          body: '## Why\n\nA certificate expired on the delivery workers.',
+          published_at: Date.UTC(2026, 7, 4, 10) * 1_000,
+          revised_at: Date.UTC(2026, 7, 4, 10) * 1_000,
+        },
+      })),
+    });
+    renderIncident('webhook-failures');
+
+    const postmortem = await screen.findByRole('region', { name: 'Postmortem' });
+    expect(within(postmortem).getByRole('heading', { name: 'Why' })).toBeTruthy();
+    expect(within(postmortem).getByText('A certificate expired on the delivery workers.')).toBeTruthy();
+    // Published once and not revised since: it says so once.
+    expect(within(postmortem).queryByText(/revised/)).toBeNull();
+    const updates = screen.getByRole('region', { name: 'Updates' });
+    expect(updates.compareDocumentPosition(postmortem) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('keeps the public page shell when an incident cannot be found', async () => {
     getPublic.mockResolvedValue(snapshot);
     renderIncident('missing-incident');

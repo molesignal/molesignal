@@ -23,8 +23,9 @@ import {
   affectedComponentNames,
   formatDurationMicros,
   incidentStatusLabel,
+  namedComponents,
 } from '../model';
-import { StatusPageEventDrawer } from './EventDrawer';
+import { StatusPageEventDrawer } from './event/EventDrawer';
 import { useStatusPageWorkspace } from './Layout';
 import { shouldShowStatusPagePagination } from './pagination';
 import {
@@ -139,7 +140,7 @@ export function StatusPageHistory() {
                 onChange={(value) => updateFilter('component', value)}
                 options={[
                   { value: '', label: t('filters.all_components') },
-                  ...snapshot.components.map((item) => ({ value: item.id, label: item.name })),
+                  ...namedComponents(snapshot.components).map((item) => ({ value: item.id, label: item.name })),
                 ]}
               />
               <div className="flex w-full min-w-0 items-center gap-[8px] sm:w-auto">
