@@ -2,6 +2,7 @@
   "title": "User Experience",
   "subtitle": "Analyze page performance, errors, and user experience from real user sessions.",
   "refresh": "Refresh",
+  "geo_credit": "IP geolocation by DB-IP",
   "pagination": {
     "aria_label": "RUM list pagination",
     "page_size": "Rows per page",

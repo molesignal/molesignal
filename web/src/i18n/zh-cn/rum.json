@@ -2,6 +2,7 @@
   "title": "用户体验",
   "subtitle": "从真实用户会话中分析页面性能、错误和使用体验。",
   "refresh": "刷新",
+  "geo_credit": "IP 地理位置数据由 DB-IP 提供",
   "pagination": {
     "aria_label": "RUM 列表分页",
     "page_size": "每页条数",

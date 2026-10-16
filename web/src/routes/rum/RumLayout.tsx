@@ -45,6 +45,9 @@ const SETTINGS_TABS = [
   { suffix: '/settings/session-replay', key: 'session_replay' },
 ] as const;
 
+/** Where the country of a RUM event comes from: DB-IP's City Lite database. */
+const DBIP_URL = 'https://db-ip.com';
+
 export function RumLayout() {
   return <Outlet />;
 }
@@ -158,6 +161,7 @@ export function RumListPage({
             )}
           />
         ) : children}
+        {!state && !settings && <RumGeoCredit />}
       </SurfacePageBody>
     </div>
   );
@@ -199,8 +203,32 @@ export function RumDetailPage({
             )}
           />
         ) : children}
+        {!state && <RumGeoCredit />}
       </SurfacePageBody>
     </div>
+  );
+}
+
+/**
+ * The credit DB-IP's licence asks for on every web page that shows results from
+ * its database. The country of a RUM event comes from DB-IP City Lite, so a RUM
+ * page that can show one ends with this line. Like the credit at the foot of a
+ * public status page, it is the quietest thing on the page.
+ */
+function RumGeoCredit() {
+  const { t } = useTranslation('rum');
+
+  return (
+    <p data-rum-geo-credit className="m-0 text-xs text-tx-2">
+      <a
+        href={DBIP_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="rounded-sm underline-offset-4 transition-colors hover:text-tx-0 hover:underline focus-visible:bg-bg-2 focus-visible:text-tx-0"
+      >
+        {t('geo_credit')}
+      </a>
+    </p>
   );
 }
 
