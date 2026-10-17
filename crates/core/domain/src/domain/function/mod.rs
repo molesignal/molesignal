@@ -30,10 +30,36 @@ pub struct Function {
     pub updated_at: TimestampMicros,
 }
 
+/// What a function did with the event it ran on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FunctionOutcome {
+    /// The event goes on, changed or not.
+    Kept,
+    /// The function dropped the event on purpose (VRL `abort`). It goes no further, and that is
+    /// not a failure.
+    Dropped,
+}
+
 /// Executes one function against an event. Runtime adapters implement this port.
 #[async_trait]
 pub trait FunctionExecutor: Send + Sync {
-    async fn run(&self, function: &Function, event: &mut serde_json::Value) -> Result<()>;
+    async fn run(
+        &self,
+        function: &Function,
+        event: &mut serde_json::Value,
+    ) -> Result<FunctionOutcome>;
+
+    /// [`Self::run`] with metadata the function reads beside the event (VRL `%name`) and that never
+    /// becomes part of it. A runtime without metadata ignores it.
+    async fn run_with_metadata(
+        &self,
+        function: &Function,
+        event: &mut serde_json::Value,
+        metadata: &serde_json::Map<String, serde_json::Value>,
+    ) -> Result<FunctionOutcome> {
+        let _ = metadata;
+        self.run(function, event).await
+    }
 }
 
 #[async_trait]

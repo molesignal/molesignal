@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! scheduled_pipelines HTTP CRUD + repo touch_last_run roundtrip。
+//! scheduled_pipelines HTTP CRUD + repo record_run roundtrip。
 
 mod common;
 
@@ -26,7 +26,7 @@ async fn scheduled_pipelines_crud_roundtrip() {
             "name": "daily-rollup",
             "source_stream": "raw_logs",
             "target_stream": "logs_5m",
-            "function_steps": [{"kind": "vrl", "code": ".count = 1"}],
+            "function_steps": [{"kind": "vrl", "script": ".count = 1"}],
             "cron": "every:5m",
             "lookback_secs": 600,
             "enabled": true,
@@ -47,7 +47,9 @@ async fn scheduled_pipelines_crud_roundtrip() {
 
     // 写入一条真实运行记录，列表端点应在同一响应返回最近状态与 24h 汇总。
     use molesignal::{
-        infra::persistence::repositories::pipelines::runs::{PipelineRun, PipelineRunState},
+        infra::persistence::repositories::pipelines::runs::{
+            PipelineRun, PipelineRunFinish, PipelineRunState,
+        },
         shared::{ids::Id, time::TimestampMicros},
     };
     let started = TimestampMicros::now();
@@ -63,7 +65,12 @@ async fn scheduled_pipelines_crud_roundtrip() {
             started_at: started,
             finished_at: None,
             scanned_rows: 0,
+            written_rows: 0,
+            dropped_rows: 0,
+            failed_rows: 0,
+            attempt: 1,
             error: None,
+            warning: None,
         })
         .await
         .expect("record pipeline run");
@@ -72,10 +79,17 @@ async fn scheduled_pipelines_crud_roundtrip() {
         .pipeline_runs
         .record_finish(
             &run_id,
-            PipelineRunState::Succeeded,
-            TimestampMicros(started.0 + 1_800_000),
-            12_345,
-            None,
+            PipelineRunFinish {
+                state: PipelineRunState::Succeeded,
+                finished_at: TimestampMicros(started.0 + 1_800_000),
+                scanned_rows: 12_345,
+                written_rows: 12_000,
+                dropped_rows: 300,
+                failed_rows: 45,
+                attempt: 1,
+                error: None,
+                warning: Some("45 event(s) failed".into()),
+            },
         )
         .await
         .expect("finish pipeline run");
@@ -97,13 +111,17 @@ async fn scheduled_pipelines_crud_roundtrip() {
     assert_eq!(arr[0]["succeeded_runs_24h"], 1);
     assert_eq!(arr[0]["failed_runs_24h"], 0);
 
-    // touch_last_run via repo（验证 run-once 路径会更新这个字段）
+    // record_run via repo（验证运行路径会更新 last_run_at 与读取位点）
     s.state
         .storage
         .scheduled_pipelines
-        .touch_last_run(&Id(id.clone()), TimestampMicros::now())
+        .record_run(
+            &Id(id.clone()),
+            TimestampMicros::now(),
+            &serde_json::json!({ "sources": { "raw_logs": { "read_until": 42 } } }),
+        )
         .await
-        .expect("touch_last_run");
+        .expect("record_run");
     let resp = s
         .client
         .get(format!("{}{}/{}", s.base_url, URL, id))
@@ -114,8 +132,10 @@ async fn scheduled_pipelines_crud_roundtrip() {
     let v: Value = resp.json().await.unwrap();
     assert!(
         v["last_run_at_micros"].is_i64(),
-        "touch_last_run should set value"
+        "record_run should set value"
     );
+    assert_eq!(v["read_until_micros"]["raw_logs"], 42);
+    assert!(v["retry"].is_null());
 
     // delete
     let resp = s

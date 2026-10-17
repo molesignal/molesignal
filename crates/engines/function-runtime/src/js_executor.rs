@@ -31,7 +31,7 @@ use tokio::sync::oneshot;
 
 use crate::{
     app::intake::FunctionExecutor,
-    domain::function::{Function, FunctionLanguage},
+    domain::function::{Function, FunctionLanguage, FunctionOutcome},
     shared::{Error, Result},
 };
 
@@ -94,7 +94,11 @@ impl JsFunctionExecutor {
 
 #[async_trait]
 impl FunctionExecutor for JsFunctionExecutor {
-    async fn run(&self, function: &Function, event: &mut serde_json::Value) -> Result<()> {
+    async fn run(
+        &self,
+        function: &Function,
+        event: &mut serde_json::Value,
+    ) -> Result<FunctionOutcome> {
         if !matches!(function.language, FunctionLanguage::Js) {
             return Err(Error::invalid(
                 "JsFunctionExecutor only accepts language=Js; wrap with ChainedFunctionExecutor",
@@ -135,7 +139,7 @@ impl FunctionExecutor for JsFunctionExecutor {
                 let new_fields: serde_json::Value = serde_json::from_str(&dump)
                     .map_err(|e| Error::internal(format!("decode js result: {e}")))?;
                 *event = new_fields;
-                Ok(())
+                Ok(FunctionOutcome::Kept)
             }
             Err(e) => {
                 let msg = e.to_string();

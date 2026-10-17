@@ -12,7 +12,7 @@ use serde_json::Value;
 use super::{IntakeOrigin, IntakeService};
 use crate::{
     domain::{
-        function::{Function, FunctionExecutor, FunctionLanguage},
+        function::{Function, FunctionExecutor, FunctionLanguage, FunctionOutcome},
         intake::{IntakeBatch, IntakeError, IntakeResult, RawEvent, usage::event_bytes},
         pipeline::{
             processing::ProcessingKind,
@@ -94,6 +94,7 @@ impl IntakeService {
             let original = pipeline.routing.retain_source.then(|| event.clone());
             let mut value = Value::Object(std::mem::take(&mut event.fields));
             let mut failed = false;
+            let mut dropped = false;
             let mut destination = pipeline.target.clone();
             let mut routed = false;
 
@@ -104,18 +105,40 @@ impl IntakeService {
                     continue;
                 }
 
-                if engine.executor.run(function, &mut value).await.is_err() {
-                    errors.push(IntakeError {
-                        index,
-                        reason: format!("realtime transform `{}` failed", function.name),
-                    });
+                match engine.executor.run(function, &mut value).await {
+                    Ok(FunctionOutcome::Kept) => {}
+                    Ok(FunctionOutcome::Dropped) => {
+                        dropped = true;
+                        break;
+                    }
+                    Err(_) => {
+                        errors.push(IntakeError {
+                            index,
+                            reason: format!("realtime transform `{}` failed", function.name),
+                        });
 
-                    failed = true;
-                    break;
+                        failed = true;
+                        break;
+                    }
                 }
             }
 
             if failed {
+                continue;
+            }
+
+            // A step dropped the event on purpose: nothing is routed. A retained copy of the source
+            // still keeps the event as it arrived, since that is what retaining the source means.
+            if dropped {
+                if let Some(original) = original
+                    && destination != stream
+                {
+                    outputs
+                        .entry(stream.clone())
+                        .or_default()
+                        .push(original, size, index);
+                }
+
                 continue;
             }
 

@@ -346,34 +346,17 @@ impl IntakeService {
         };
 
         let mut errors: Vec<IntakeError> = Vec::new();
+        // 被 stream 上的 pipeline 有意丢弃的事件：不写入，也不算拒收，按已接收应答。
+        let mut dropped = 0;
 
         // 1) Pipeline 变换
         if origin == IntakeOrigin::External
             && let Some(engine) = &self.pipeline_engine
         {
-            let pipeline_errors = engine.apply(&mut batch).await?;
-
-            if !pipeline_errors.is_empty() {
-                let bad: std::collections::HashSet<usize> =
-                    pipeline_errors.iter().map(|e| e.index).collect();
-                let mut size_index = 0;
-
-                event_sizes.retain(|_| {
-                    let keep = !bad.contains(&size_index);
-                    size_index += 1;
-                    keep
-                });
-
-                let mut idx = 0;
-
-                batch.events.retain(|_| {
-                    let keep = !bad.contains(&idx);
-                    idx += 1;
-                    keep
-                });
-
-                errors.extend(pipeline_errors);
-            }
+            let applied = engine.apply(&mut batch).await?;
+            applied.remove_from(&mut batch, &mut event_sizes);
+            dropped = applied.dropped.len();
+            errors.extend(applied.errors);
         }
 
         // 1.5) 写入即脱敏（pattern 驱动）：pipeline 产出的字段也会被脱敏。无规则 → no-op。
@@ -512,6 +495,7 @@ impl IntakeService {
             recorder(org_id, received_at, bytes);
         }
 
+        result.accepted += dropped;
         Ok(result)
     }
 

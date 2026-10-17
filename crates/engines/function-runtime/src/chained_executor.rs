@@ -19,7 +19,7 @@ use async_trait::async_trait;
 
 use crate::{
     app::intake::FunctionExecutor,
-    domain::function::{Function, FunctionLanguage},
+    domain::function::{Function, FunctionLanguage, FunctionOutcome},
     infra::runtime::vrl::executor::VrlFunctionExecutor,
     shared::{Error, Result},
 };
@@ -52,9 +52,23 @@ impl ChainedFunctionExecutor {
 
 #[async_trait]
 impl FunctionExecutor for ChainedFunctionExecutor {
-    async fn run(&self, function: &Function, event: &mut serde_json::Value) -> Result<()> {
+    async fn run(
+        &self,
+        function: &Function,
+        event: &mut serde_json::Value,
+    ) -> Result<FunctionOutcome> {
+        self.run_with_metadata(function, event, &serde_json::Map::new())
+            .await
+    }
+
+    async fn run_with_metadata(
+        &self,
+        function: &Function,
+        event: &mut serde_json::Value,
+        metadata: &serde_json::Map<String, serde_json::Value>,
+    ) -> Result<FunctionOutcome> {
         match function.language {
-            FunctionLanguage::Vrl => self.vrl.run(function, event).await,
+            FunctionLanguage::Vrl => self.vrl.run_with_metadata(function, event, metadata).await,
             FunctionLanguage::Js => match &self.js {
                 Some(js) => js.run(function, event).await,
                 None => Err(Error::invalid("javascript runtime disabled")),

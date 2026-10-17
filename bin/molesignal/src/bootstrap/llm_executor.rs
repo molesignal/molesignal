@@ -22,7 +22,7 @@ use crate::{
     agent::chat::{ChatMessage, CompletionRequest, MessageRole, Provider, adapter_from_parts},
     api::rca::pick_provider,
     app::intake::FunctionExecutor,
-    domain::function::Function,
+    domain::function::{Function, FunctionOutcome},
     infra::persistence::repositories::agent::model_providers::ModelProviderRepository,
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
@@ -48,7 +48,7 @@ impl LlmFunctionExecutor {
 
 #[async_trait]
 impl FunctionExecutor for LlmFunctionExecutor {
-    async fn run(&self, function: &Function, event: &mut Value) -> Result<()> {
+    async fn run(&self, function: &Function, event: &mut Value) -> Result<FunctionOutcome> {
         // 选 org 的可用 provider（enabled + key_set）。
         let providers = self.agent_model_providers.list(&function.org_id).await?;
 
@@ -99,7 +99,7 @@ impl FunctionExecutor for LlmFunctionExecutor {
             map.insert(field, Value::String(text));
         }
 
-        Ok(())
+        Ok(FunctionOutcome::Kept)
     }
 }
 

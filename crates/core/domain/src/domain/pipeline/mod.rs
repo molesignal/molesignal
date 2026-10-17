@@ -49,3 +49,4 @@ pub trait PipelineRepository: Send + Sync {
 }
 
 pub mod processing;
+pub mod scheduled;

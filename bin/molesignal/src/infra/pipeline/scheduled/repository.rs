@@ -21,6 +21,10 @@ pub struct ScheduledPipeline {
     pub cron: String,
     pub lookback_secs: i32,
     pub last_run_at: Option<TimestampMicros>,
+    /// Where each source has been read up to and the windows waiting for a retry
+    /// ([`super::state::RunState`]). Only runs write it; saving the pipeline leaves it alone, except
+    /// that switching the pipeline back on starts it over.
+    pub run_state: Value,
     pub enabled: bool,
     pub created_at: TimestampMicros,
     pub updated_at: TimestampMicros,
@@ -35,7 +39,8 @@ pub trait ScheduledPipelineRepository: Send + Sync {
     async fn get(&self, org: &Id, id: &Id) -> Result<ScheduledPipeline>;
     async fn list(&self, org: &Id) -> Result<Vec<ScheduledPipeline>>;
     async fn list_enabled_all(&self) -> Result<Vec<ScheduledPipeline>>;
-    async fn touch_last_run(&self, id: &Id, ts: TimestampMicros) -> Result<()>;
+    /// A run at `ts` finished and left `run_state`.
+    async fn record_run(&self, id: &Id, ts: TimestampMicros, run_state: &Value) -> Result<()>;
 }
 
 pub struct PgScheduledPipelineRepository {
@@ -49,11 +54,14 @@ impl PgScheduledPipelineRepository {
 }
 
 const COLS: &str = "id, org_id, name, source_stream, target_stream, function_steps, cron,
-                    lookback_secs, last_run_at_micros, enabled,
+                    lookback_secs, last_run_at_micros, run_state, enabled,
                     created_at_micros, updated_at_micros";
 
 fn row_to(r: sqlx::postgres::PgRow) -> ScheduledPipeline {
     let steps: Json<Value> = r.try_get("function_steps").unwrap_or(Json(Value::Null));
+    let run_state: Json<Value> = r
+        .try_get("run_state")
+        .unwrap_or(Json(Value::Object(Default::default())));
 
     ScheduledPipeline {
         id: Id(r.try_get::<String, _>("id").unwrap_or_default()),
@@ -68,6 +76,7 @@ fn row_to(r: sqlx::postgres::PgRow) -> ScheduledPipeline {
             .try_get::<Option<i64>, _>("last_run_at_micros")
             .unwrap_or_default()
             .map(TimestampMicros),
+        run_state: run_state.0,
         enabled: r.try_get::<bool, _>("enabled").unwrap_or(true),
         created_at: TimestampMicros(r.try_get::<i64, _>("created_at_micros").unwrap_or_default()),
         updated_at: TimestampMicros(r.try_get::<i64, _>("updated_at_micros").unwrap_or_default()),
@@ -112,6 +121,8 @@ impl ScheduledPipelineRepository for PgScheduledPipelineRepository {
     async fn update(&self, p: ScheduledPipeline) -> Result<ScheduledPipeline> {
         let mut transaction = super::configuration::lock_and_validate(&self.pool, &p).await?;
 
+        // Switched back on: the sources are read from the lookback again, not from where they
+        // stopped, and nothing waits for a retry. What was missed meanwhile is for a backfill.
         sqlx::query(
             "UPDATE scheduled_pipelines SET
                 name = $3,
@@ -120,6 +131,7 @@ impl ScheduledPipelineRepository for PgScheduledPipelineRepository {
                 function_steps = $6,
                 cron = $7,
                 lookback_secs = $8,
+                run_state = CASE WHEN enabled = FALSE AND $9 THEN '{}'::jsonb ELSE run_state END,
                 enabled = $9,
                 updated_at_micros = $10
              WHERE id = $1 AND org_id = $2",
@@ -207,13 +219,16 @@ impl ScheduledPipelineRepository for PgScheduledPipelineRepository {
         Ok(rows.into_iter().map(row_to).collect())
     }
 
-    async fn touch_last_run(&self, id: &Id, ts: TimestampMicros) -> Result<()> {
-        sqlx::query("UPDATE scheduled_pipelines SET last_run_at_micros = $2 WHERE id = $1")
-            .bind(&id.0)
-            .bind(ts.0)
-            .execute(&self.pool)
-            .await
-            .map_err(super::super::super::persistence::sqlx_err)?;
+    async fn record_run(&self, id: &Id, ts: TimestampMicros, run_state: &Value) -> Result<()> {
+        sqlx::query(
+            "UPDATE scheduled_pipelines SET last_run_at_micros = $2, run_state = $3 WHERE id = $1",
+        )
+        .bind(&id.0)
+        .bind(ts.0)
+        .bind(Json(run_state))
+        .execute(&self.pool)
+        .await
+        .map_err(super::super::super::persistence::sqlx_err)?;
 
         Ok(())
     }

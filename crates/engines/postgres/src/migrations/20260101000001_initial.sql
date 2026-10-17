@@ -895,6 +895,8 @@ CREATE TABLE IF NOT EXISTS scheduled_pipelines (
     cron               VARCHAR(64)  NOT NULL,
     lookback_secs      INTEGER      NOT NULL DEFAULT 300,
     last_run_at_micros BIGINT,
+    -- Where each source has been read up to, and the windows waiting for a retry.
+    run_state          JSONB        NOT NULL DEFAULT '{}'::jsonb,
     enabled            BOOLEAN      NOT NULL DEFAULT TRUE,
     created_at_micros  BIGINT       NOT NULL,
     updated_at_micros  BIGINT       NOT NULL
@@ -910,7 +912,12 @@ CREATE TABLE IF NOT EXISTS pipeline_runs (
     started_at_micros   BIGINT       NOT NULL,
     finished_at_micros  BIGINT,
     scanned_rows        BIGINT       NOT NULL DEFAULT 0,
-    error               TEXT
+    written_rows        BIGINT       NOT NULL DEFAULT 0,
+    dropped_rows        BIGINT       NOT NULL DEFAULT 0,
+    failed_rows         BIGINT       NOT NULL DEFAULT 0,
+    attempt             INTEGER      NOT NULL DEFAULT 1,
+    error               TEXT,
+    warning             TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_pipeline_runs_pipeline_started
     ON pipeline_runs(pipeline_id, started_at_micros DESC);

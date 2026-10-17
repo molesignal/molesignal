@@ -4,40 +4,89 @@
 //! ScheduledPipelineRunner（pipeline-runs-and-backfill）。
 //!
 //! 当前 cron 解析：仅支持 `every:Ns` 简化语法（每 N 秒一次），完整 cron 解析留
-//! follow-up。alert role 内调 `tick_once`；按 last_run_at 决定是否要触发。
+//! follow-up。alert role 内调 `tick_once`；按 last_run_at 与读取位点决定是否要触发。
+//!
+//! 每次运行读什么由读取位点决定（[`state`]）：每个源从上次读到的地方读到「现在减去等待迟到
+//! 数据的延迟」，失败的窗口按退避重试，落后太多的源连续追赶。
 //!
 //! 多个 alert 节点按 pipeline id 分担：开跑前先过 [`RunGate`]（归属 + 运行租约），认领成功后
 //! 重读 pipeline 再确认仍然到期，因此成员变化时两个节点不会把同一个周期各跑一遍。
 //!
-//! pipeline-runs-and-backfill：每次 fire 都向 `pipeline_runs` 写一行，
-//! `record_start` 进入 → 真实工作 → `record_finish` 退出。RAII guard 保证 panic
-//! / error 也能更新 row（当前 stub 没有真正 fail 路径，但保留接口）。
+//! pipeline-runs-and-backfill：每次读了东西的运行都向 `pipeline_runs` 写一行，
+//! `record_start` 进入 → 真实工作 → `record_finish` 退出。
 
-use std::sync::Arc;
+use std::{collections::BTreeMap, sync::Arc};
 
 use async_trait::async_trait;
 
-use self::repository::{ScheduledPipeline, ScheduledPipelineRepository};
+use self::{
+    repository::{ScheduledPipeline, ScheduledPipelineRepository},
+    state::{RunState, SourceResult, Timing, Window},
+};
 use crate::{
-    domain::run_claim::{OpenGate, RunGate},
-    infra::persistence::repositories::pipelines::runs::{
-        PipelineRun, PipelineRunRepository, PipelineRunState,
+    domain::{
+        pipeline::{realtime::is_realtime, scheduled::ScheduledConfig},
+        run_claim::{OpenGate, RunGate},
     },
-    shared::{Result, ids::Id, time::TimestampMicros},
+    infra::persistence::repositories::pipelines::runs::{
+        PipelineRun, PipelineRunFinish, PipelineRunRepository, PipelineRunState,
+    },
+    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 /// 运行租约里这类工作的名字。
 const RUN_KIND: &str = "scheduled_pipeline";
+/// A run's error and warning text is cut to this many characters.
+const MAX_MESSAGE_CHARS: usize = 4_000;
 
 mod configuration;
 pub mod repository;
+pub mod state;
+
+/// How many events a run read, and where they ended: each read event is written, dropped on
+/// purpose or failed.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct RunCounts {
+    pub scanned: i64,
+    pub written: i64,
+    pub dropped: i64,
+    pub failed: i64,
+}
+
+/// What a run did.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct RunReport {
+    pub counts: RunCounts,
+    /// What became of each source's window.
+    pub sources: BTreeMap<String, SourceResult>,
+    /// What went wrong without failing the run.
+    pub warnings: Vec<String>,
+    /// Why the run is reported failed although every window is done: a stream rejected every
+    /// event it was given and there was no dead letter stream to keep them.
+    pub failure: Option<String>,
+}
+
+impl RunReport {
+    /// Every window done and nothing read: a run with nothing to do.
+    pub fn done(windows: &[Window]) -> Self {
+        Self {
+            sources: windows
+                .iter()
+                .map(|window| (window.source.clone(), SourceResult::Done))
+                .collect(),
+            ..Self::default()
+        }
+    }
+}
 
 /// 注入式执行器：一次 pipeline run 的「读源窗口 → 函数链 → 写目标 stream → egress」。
-/// infra 不依赖 app（`QueryService`），故「读源」由 bootstrap 实装注入；返回写入目标的行数。
-/// 未注入时 [`ScheduledPipelineRunner::tick_once`] 仅推进 schedule（旧 stub 行为）。
+/// infra 不依赖 app（`QueryService`），故「读源」由 bootstrap 实装注入。
+/// 未注入时 [`ScheduledPipelineRunner::tick_once`] 仅推进位点与 schedule（便于测试）。
 #[async_trait]
 pub trait PipelineExecutor: Send + Sync {
-    async fn execute(&self, pipeline: &ScheduledPipeline) -> Result<u64>;
+    /// Reads `windows` of the pipeline's sources and runs the pipeline on what was read. `Err` is
+    /// the pipeline's configuration failing before anything was read.
+    async fn execute(&self, pipeline: &ScheduledPipeline, windows: &[Window]) -> Result<RunReport>;
 }
 
 pub struct ScheduledPipelineRunner {
@@ -59,7 +108,7 @@ impl ScheduledPipelineRunner {
         }
     }
 
-    /// pipeline-runs-and-backfill：注入 runs repo 后，每次 tick 写一条 row。
+    /// pipeline-runs-and-backfill：注入 runs repo 后，每次运行写一条 row。
     pub fn with_runs(
         repo: Arc<dyn ScheduledPipelineRepository>,
         runs: Arc<dyn PipelineRunRepository>,
@@ -72,7 +121,7 @@ impl ScheduledPipelineRunner {
         }
     }
 
-    /// 注入真实执行器（bootstrap 实装，持 `QueryService`）。未注入时 tick 仅推进 schedule。
+    /// 注入真实执行器（bootstrap 实装，持 `QueryService`）。未注入时 tick 仅推进位点与 schedule。
     pub fn with_executor(mut self, executor: Arc<dyn PipelineExecutor>) -> Self {
         self.executor = Some(executor);
         self
@@ -84,8 +133,7 @@ impl ScheduledPipelineRunner {
         self
     }
 
-    /// 单次 tick：列所有 enabled，对到期且本节点获准运行的调 `run_pipeline`（当前仅打 metric +
-    /// touch_last_run）。命中时同步写一条 `pipeline_runs` 行（state=running → 完成时更新为终态）。
+    /// 单次 tick：列所有 enabled，对到期且本节点获准运行的调 `run_pipeline`。返回读了东西的运行数。
     pub async fn tick_once(&self) -> Result<usize> {
         let pipelines = self.repo.list_enabled_all().await?;
         let now = TimestampMicros::now();
@@ -109,8 +157,9 @@ impl ScheduledPipelineRunner {
             // 认领后重读：另一个节点可能刚跑完并推进了 schedule，不能拿列表时的旧快照再跑一遍。
             match self.repo.get_by_id(&p.id).await {
                 Ok(fresh) if is_due(&fresh, now) => {
-                    self.run_pipeline(&fresh, now).await;
-                    fired += 1;
+                    if self.run_pipeline(&fresh, now).await {
+                        fired += 1;
+                    }
                 }
                 Ok(_) => {}
                 Err(e) => {
@@ -126,87 +175,258 @@ impl ScheduledPipelineRunner {
         Ok(fired)
     }
 
-    /// 执行一次已到期的 pipeline：写 running 行 → 执行 → 推进 schedule → 写终态。
-    async fn run_pipeline(&self, p: &ScheduledPipeline, now: TimestampMicros) {
-        tracing::debug!(
-            pipeline_id = %p.id.0,
-            name = %p.name,
-            "scheduled pipeline fired"
-        );
+    /// 执行一次已到期的 pipeline：按位点定窗口 → 写 running 行 → 执行 → 推进位点 → 写终态。
+    /// 没有可读的窗口时只推进 schedule，不写运行行；返回是否真的运行了。
+    async fn run_pipeline(&self, p: &ScheduledPipeline, now: TimestampMicros) -> bool {
+        tracing::debug!(pipeline_id = %p.id.0, name = %p.name, "scheduled pipeline fired");
 
-        // 写入 running 行（如果有 runs repo 注入）。
-        let run_id = Id::new();
+        let state = RunState::from_value(&p.run_state);
 
-        if let Some(runs) = &self.runs {
-            let row = PipelineRun {
-                id: run_id.clone(),
-                pipeline_id: p.id.clone(),
-                org_id: p.org_id.clone(),
-                state: PipelineRunState::Running,
-                started_at: now,
-                finished_at: None,
-                scanned_rows: 0,
-                error: None,
-            };
-
-            if let Err(e) = runs.record_start(row).await {
-                tracing::warn!(error = %e, "pipeline_runs record_start failed");
+        let (config, timing) = match schedule(p) {
+            Ok(schedule) => schedule,
+            Err(e) => {
+                // 配置读不了：什么都不读，记一次失败的运行，位点原样留着等配置改好。
+                let run_id = self.start_run(p, now, 1).await;
+                self.finish_run(p, run_id, now, &state, 1, Err(e)).await;
+                return true;
             }
-        }
-
-        // 真实执行（注入 executor 时）：读源窗口 → 函数链 → 写目标 stream → egress；
-        // 未注入则仅推进 schedule（旧 stub 行为，便于无 query 依赖的测试）。
-        let exec_result = match &self.executor {
-            Some(exec) => exec.execute(p).await,
-            None => Ok(0u64),
         };
 
-        // 无论成败都 touch_last_run 推进 schedule，避免失败 pipeline 每 tick 热重试。
-        let _ = self.repo.touch_last_run(&p.id, now).await;
-        let finished = TimestampMicros::now();
-        let scanned_rows = *exec_result.as_ref().unwrap_or(&0) as i64;
-        let unit_result: Result<()> = exec_result.map(|_| ());
-        let (state, error_msg) = map_exec_result(&unit_result);
+        let windows = state.windows(&config.sources, &timing, now.0);
 
-        if let Some(runs) = &self.runs
-            && let Err(e) = runs
-                .record_finish(&run_id, state, finished, scanned_rows, error_msg)
-                .await
-        {
-            tracing::warn!(error = %e, "pipeline_runs record_finish failed");
+        if windows.is_empty() {
+            if let Err(e) = self.repo.record_run(&p.id, now, &p.run_state).await {
+                tracing::warn!(pipeline_id = %p.id.0, error = %e, "scheduled pipeline record_run failed");
+            }
+
+            return false;
+        }
+
+        let attempt = windows
+            .iter()
+            .map(|window| window.attempt)
+            .max()
+            .unwrap_or(1);
+        let run_id = self.start_run(p, now, attempt).await;
+
+        let report = match &self.executor {
+            Some(exec) => exec.execute(p, &windows).await,
+            None => Ok(RunReport::done(&windows)),
+        };
+
+        let results = match &report {
+            Ok(report) => report.sources.clone(),
+            Err(e) => windows
+                .iter()
+                .map(|window| {
+                    let failed = SourceResult::Failed {
+                        done: window.done.clone(),
+                        error: e.to_string(),
+                        permanent: true,
+                    };
+
+                    (window.source.clone(), failed)
+                })
+                .collect(),
+        };
+
+        let (next, skipped) = state.after(
+            &config.sources,
+            &windows,
+            &results,
+            &timing,
+            config.retry,
+            now.0,
+        );
+
+        let report = report.map(|mut report| {
+            report.warnings.extend(skipped);
+            report
+        });
+
+        self.finish_run(p, run_id, now, &next, attempt, report)
+            .await;
+        true
+    }
+
+    /// 写入 running 行（如果有 runs repo 注入）。
+    async fn start_run(
+        &self,
+        p: &ScheduledPipeline,
+        now: TimestampMicros,
+        attempt: u32,
+    ) -> Option<Id> {
+        let runs = self.runs.as_ref()?;
+        let run_id = Id::new();
+
+        let row = PipelineRun {
+            id: run_id.clone(),
+            pipeline_id: p.id.clone(),
+            org_id: p.org_id.clone(),
+            state: PipelineRunState::Running,
+            started_at: now,
+            finished_at: None,
+            scanned_rows: 0,
+            written_rows: 0,
+            dropped_rows: 0,
+            failed_rows: 0,
+            attempt: i32::try_from(attempt).unwrap_or(i32::MAX),
+            error: None,
+            warning: None,
+        };
+
+        match runs.record_start(row).await {
+            Ok(()) => Some(run_id),
+            Err(e) => {
+                tracing::warn!(error = %e, "pipeline_runs record_start failed");
+                None
+            }
+        }
+    }
+
+    /// 存下运行后的位点（无论成败都推进 schedule，避免失败 pipeline 每 tick 热重试；重试另按
+    /// 位点里的退避时间到期），再把运行行更新为终态。
+    async fn finish_run(
+        &self,
+        p: &ScheduledPipeline,
+        run_id: Option<Id>,
+        now: TimestampMicros,
+        next: &RunState,
+        attempt: u32,
+        report: Result<RunReport>,
+    ) {
+        if let Err(e) = self.repo.record_run(&p.id, now, &next.to_value()).await {
+            tracing::warn!(pipeline_id = %p.id.0, error = %e, "scheduled pipeline record_run failed");
         }
 
         // 单个 pipeline 执行失败只记录，不中断本轮其余 pipeline。
-        if let Err(e) = &unit_result {
+        if let Err(e) = &report {
             tracing::warn!(pipeline_id = %p.id.0, error = %e, "scheduled pipeline execution failed");
+        }
+
+        if let (Some(runs), Some(run_id)) = (&self.runs, run_id) {
+            let finish = finish_of(&report, next, attempt, TimestampMicros::now());
+
+            if let Err(e) = runs.record_finish(&run_id, finish).await {
+                tracing::warn!(error = %e, "pipeline_runs record_finish failed");
+            }
         }
     }
 }
 
-/// 该 pipeline 在 `now` 是否到期：已启用、不是实时 pipeline，且距上次运行已满一个周期。
+/// What a pipeline reads and when, as saved. An error is a configuration no run can read.
+fn schedule(p: &ScheduledPipeline) -> Result<(ScheduledConfig, Timing)> {
+    let config = ScheduledConfig::parse(&p.function_steps, &p.source_stream, &p.target_stream)?;
+
+    let every = parse_every_secs(&p.cron)
+        .ok_or_else(|| Error::invalid("scheduled pipelines require every:Ns/m/h"))?;
+
+    let timing = Timing::from_secs(every, i64::from(p.lookback_secs), config.delay_secs);
+    Ok((config, timing))
+}
+
+/// 该 pipeline 在 `now` 是否到期：已启用、不是实时 pipeline，且距上次运行已满一个周期，或者有
+/// 窗口的重试到了时候、有源落后到一次读不完。
 fn is_due(p: &ScheduledPipeline, now: TimestampMicros) -> bool {
-    if !p.enabled || crate::domain::pipeline::realtime::is_realtime(&p.function_steps) {
+    if !p.enabled || is_realtime(&p.function_steps) {
         return false;
     }
 
-    match parse_every_secs(&p.cron) {
-        Some(secs) => match p.last_run_at {
-            Some(last) => now.0 - last.0 >= secs * 1_000_000,
-            None => true,
-        },
-        None => false, // 不支持的 cron 语法跳过
-    }
+    let Some(every) = parse_every_secs(&p.cron) else {
+        return false; // 不支持的 cron 语法跳过
+    };
+
+    let regular = match p.last_run_at {
+        Some(last) => now.0 - last.0 >= every * 1_000_000,
+        None => true,
+    };
+
+    regular
+        || schedule(p).is_ok_and(|(config, timing)| {
+            RunState::from_value(&p.run_state).due_early(&config.sources, &timing, now.0)
+        })
 }
 
-/// Map a pipeline tick's outcome to the row's terminal state + optional error message.
-/// `Err::Cancelled(_)` → `cancelled`; any other `Err` → `failed`; `Ok` → `succeeded`.
-pub(crate) fn map_exec_result(r: &Result<()>) -> (PipelineRunState, Option<String>) {
-    match r {
-        Ok(()) => (PipelineRunState::Succeeded, None),
-        Err(e) if matches!(e, crate::shared::Error::Cancelled(_)) => {
-            (PipelineRunState::Cancelled, Some(e.to_string()))
+/// How a run ended, for its row. A run fails when a window failed (a retry may be planned), when a
+/// stream took none of its events, or when the pipeline could not run at all.
+pub(crate) fn finish_of(
+    report: &Result<RunReport>,
+    next: &RunState,
+    attempt: u32,
+    finished_at: TimestampMicros,
+) -> PipelineRunFinish {
+    let mut finish = PipelineRunFinish {
+        state: PipelineRunState::Succeeded,
+        finished_at,
+        scanned_rows: 0,
+        written_rows: 0,
+        dropped_rows: 0,
+        failed_rows: 0,
+        attempt: i32::try_from(attempt).unwrap_or(i32::MAX),
+        error: None,
+        warning: None,
+    };
+
+    let report = match report {
+        Ok(report) => report,
+        Err(e) => {
+            finish.state = if matches!(e, Error::Cancelled(_)) {
+                PipelineRunState::Cancelled
+            } else {
+                PipelineRunState::Failed
+            };
+
+            finish.error = Some(clip(e.to_string()));
+            return finish;
         }
-        Err(e) => (PipelineRunState::Failed, Some(e.to_string())),
+    };
+
+    finish.scanned_rows = report.counts.scanned;
+    finish.written_rows = report.counts.written;
+    finish.dropped_rows = report.counts.dropped;
+    finish.failed_rows = report.counts.failed;
+
+    let mut errors: Vec<String> = report
+        .sources
+        .iter()
+        .filter_map(|(source, result)| match result {
+            SourceResult::Failed { error, .. } => {
+                let retry = next
+                    .sources
+                    .get(source)
+                    .and_then(|state| state.retry.as_ref());
+
+                Some(match retry {
+                    Some(retry) => format!(
+                        "`{source}`: {error} (attempt {} failed, trying again in {} s)",
+                        retry.failures,
+                        (retry.next_at - finished_at.0).max(0) / 1_000_000
+                    ),
+                    None => format!("`{source}`: {error}"),
+                })
+            }
+            SourceResult::Done => None,
+        })
+        .collect();
+
+    errors.extend(report.failure.clone());
+
+    if !errors.is_empty() {
+        finish.state = PipelineRunState::Failed;
+        finish.error = Some(clip(errors.join("; ")));
+    }
+
+    if !report.warnings.is_empty() {
+        finish.warning = Some(clip(report.warnings.join("; ")));
+    }
+
+    finish
+}
+
+fn clip(text: String) -> String {
+    match text.char_indices().nth(MAX_MESSAGE_CHARS) {
+        Some((end, _)) => format!("{}…", &text[..end]),
+        None => text,
     }
 }
 
@@ -246,26 +466,102 @@ mod tests {
     }
 
     #[test]
-    fn map_exec_result_success() {
-        let (state, err) = map_exec_result(&Ok(()));
-        assert_eq!(state, PipelineRunState::Succeeded);
-        assert!(err.is_none());
+    fn a_run_that_could_not_start_is_failed_or_cancelled() {
+        let now = TimestampMicros(0);
+        let failed = finish_of(&Err(Error::internal("boom")), &RunState::default(), 1, now);
+        assert_eq!(failed.state, PipelineRunState::Failed);
+        assert!(failed.error.unwrap().contains("boom"));
+
+        let cancelled = finish_of(
+            &Err(Error::cancelled("aborted")),
+            &RunState::default(),
+            1,
+            now,
+        );
+        assert_eq!(cancelled.state, PipelineRunState::Cancelled);
+        assert!(cancelled.error.unwrap().contains("aborted"));
     }
 
     #[test]
-    fn map_exec_result_failure() {
-        let r: Result<()> = Err(Error::internal("boom"));
-        let (state, err) = map_exec_result(&r);
-        assert_eq!(state, PipelineRunState::Failed);
-        assert!(err.is_some());
-    }
+    fn a_run_reports_its_counts_and_fails_when_a_window_failed() {
+        let now = TimestampMicros(1_000_000_000);
+        let counts = RunCounts {
+            scanned: 10,
+            written: 6,
+            dropped: 3,
+            failed: 1,
+        };
+        let succeeded = RunReport {
+            counts,
+            sources: [("app".to_owned(), SourceResult::Done)].into(),
+            warnings: vec!["connector `c1` took 1 event(s) late".into()],
+            failure: None,
+        };
 
-    #[test]
-    fn map_exec_result_cancelled() {
-        let r: Result<()> = Err(Error::cancelled("aborted"));
-        let (state, err) = map_exec_result(&r);
-        assert_eq!(state, PipelineRunState::Cancelled);
-        assert!(err.unwrap().contains("aborted"));
+        let finish = finish_of(&Ok(succeeded.clone()), &RunState::default(), 2, now);
+
+        assert_eq!(finish.state, PipelineRunState::Succeeded);
+        assert_eq!(
+            (
+                finish.scanned_rows,
+                finish.written_rows,
+                finish.dropped_rows,
+                finish.failed_rows
+            ),
+            (10, 6, 3, 1)
+        );
+        assert_eq!(finish.attempt, 2);
+        assert_eq!(finish.error, None);
+        assert_eq!(
+            finish.warning.as_deref(),
+            Some("connector `c1` took 1 event(s) late")
+        );
+
+        // A window that failed, with its retry planned 30 s on.
+        let mut failed = succeeded.clone();
+        failed.sources.insert(
+            "nginx".into(),
+            SourceResult::Failed {
+                done: Default::default(),
+                error: "read: storage unavailable".into(),
+                permanent: false,
+            },
+        );
+        let mut next = RunState::default();
+        next.sources.insert(
+            "nginx".into(),
+            state::SourceState {
+                read_until: 0,
+                retry: Some(state::Retry {
+                    failures: 1,
+                    next_at: now.0 + 30_000_000,
+                    until: 0,
+                    done: Default::default(),
+                    error: String::new(),
+                }),
+                held: None,
+            },
+        );
+
+        let finish = finish_of(&Ok(failed), &next, 1, now);
+
+        assert_eq!(finish.state, PipelineRunState::Failed);
+        assert_eq!(
+            finish.error.as_deref(),
+            Some("`nginx`: read: storage unavailable (attempt 1 failed, trying again in 30 s)")
+        );
+
+        // A stream that took none of the events fails the run although every window is done.
+        let mut rejected = succeeded;
+        rejected.failure = Some("target stream `out` rejected 2 event(s)".into());
+
+        let finish = finish_of(&Ok(rejected), &RunState::default(), 1, now);
+
+        assert_eq!(finish.state, PipelineRunState::Failed);
+        assert_eq!(
+            finish.error.as_deref(),
+            Some("target stream `out` rejected 2 event(s)")
+        );
     }
 
     // ───────────── 多个 alert 节点分担 pipeline：运行准入 ─────────────
@@ -296,6 +592,7 @@ mod tests {
             cron: "every:60s".into(),
             lookback_secs: 300,
             last_run_at,
+            run_state: json!({}),
             enabled: true,
             created_at: TimestampMicros(0),
             updated_at: TimestampMicros(0),
@@ -346,9 +643,15 @@ mod tests {
         async fn list_enabled_all(&self) -> Result<Vec<ScheduledPipeline>> {
             Ok(self.snapshot.clone())
         }
-        async fn touch_last_run(&self, id: &Id, ts: TimestampMicros) -> Result<()> {
+        async fn record_run(
+            &self,
+            id: &Id,
+            ts: TimestampMicros,
+            run_state: &serde_json::Value,
+        ) -> Result<()> {
             if let Some(p) = self.fresh.lock().unwrap().iter_mut().find(|p| &p.id == id) {
                 p.last_run_at = Some(ts);
+                p.run_state = run_state.clone();
             }
             Ok(())
         }
@@ -359,9 +662,13 @@ mod tests {
 
     #[async_trait]
     impl PipelineExecutor for CountingExecutor {
-        async fn execute(&self, _pipeline: &ScheduledPipeline) -> Result<u64> {
+        async fn execute(
+            &self,
+            _pipeline: &ScheduledPipeline,
+            windows: &[Window],
+        ) -> Result<RunReport> {
             self.0.fetch_add(1, Ordering::SeqCst);
-            Ok(0)
+            Ok(RunReport::done(windows))
         }
     }
 
@@ -441,6 +748,91 @@ mod tests {
             exec_a.0.load(Ordering::SeqCst) + exec_b.0.load(Ordering::SeqCst),
             20
         );
+    }
+
+    /// Fails the first windows it is given, then reads every window.
+    struct FlakyExecutor {
+        failures_left: AtomicUsize,
+        seen: Mutex<Vec<Vec<Window>>>,
+    }
+
+    #[async_trait]
+    impl PipelineExecutor for FlakyExecutor {
+        async fn execute(
+            &self,
+            _pipeline: &ScheduledPipeline,
+            windows: &[Window],
+        ) -> Result<RunReport> {
+            self.seen.lock().unwrap().push(windows.to_vec());
+
+            if self.failures_left.load(Ordering::SeqCst) == 0 {
+                return Ok(RunReport::done(windows));
+            }
+
+            self.failures_left.fetch_sub(1, Ordering::SeqCst);
+
+            Ok(RunReport {
+                sources: windows
+                    .iter()
+                    .map(|window| {
+                        let failed = SourceResult::Failed {
+                            done: Default::default(),
+                            error: "read: storage unavailable".into(),
+                            permanent: false,
+                        };
+
+                        (window.source.clone(), failed)
+                    })
+                    .collect(),
+                ..RunReport::default()
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn a_failed_window_is_read_again_when_its_retry_is_due_and_then_moves_on() {
+        let repo = Pipelines::new(vec![pipeline(None)]);
+        let executor = Arc::new(FlakyExecutor {
+            failures_left: AtomicUsize::new(1),
+            seen: Mutex::new(Vec::new()),
+        });
+        let runner = ScheduledPipelineRunner::new(repo.clone()).with_executor(executor.clone());
+
+        assert_eq!(runner.tick_once().await.unwrap(), 1);
+
+        // The window kept its place and waits for its backoff, which has not passed yet.
+        let state = RunState::from_value(&repo.fresh.lock().unwrap()[0].run_state);
+        let (failures, next_at) = state.pending_retry().expect("a retry is planned");
+        assert_eq!(failures, 1);
+        assert!(next_at > TimestampMicros::now().0);
+        assert_eq!(runner.tick_once().await.unwrap(), 0);
+
+        // Once it is due, the same window is read again, and done this time.
+        {
+            let mut fresh = repo.fresh.lock().unwrap();
+            let mut due = state.clone();
+            due.sources
+                .get_mut("raw")
+                .unwrap()
+                .retry
+                .as_mut()
+                .unwrap()
+                .next_at = 0;
+            fresh[0].run_state = due.to_value();
+        }
+
+        assert_eq!(runner.tick_once().await.unwrap(), 1);
+
+        let seen = executor.seen.lock().unwrap();
+        assert_eq!(seen.len(), 2);
+        assert_eq!(
+            (seen[1][0].start, seen[1][0].end),
+            (seen[0][0].start, seen[0][0].end)
+        );
+        assert_eq!(seen[1][0].attempt, 2);
+        let state = RunState::from_value(&repo.fresh.lock().unwrap()[0].run_state);
+        assert_eq!(state.sources["raw"].read_until, seen[0][0].end);
+        assert_eq!(state.pending_retry(), None);
     }
 
     #[test]

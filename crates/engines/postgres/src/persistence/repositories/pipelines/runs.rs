@@ -3,7 +3,8 @@
 
 //! `pipeline_runs` 表 Pg 实装（pipeline-runs-and-backfill）。
 //!
-//! 调度器每 tick 写一行。状态机：`running` → {`succeeded` | `failed` | `cancelled`}。
+//! 调度器每次运行写一行。状态机：`running` → {`succeeded` | `failed` | `cancelled`}。
+//! 一次运行读入的事件，结束时各落在写出、丢弃、失败三者之一。
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -40,8 +41,34 @@ pub struct PipelineRun {
     pub state: PipelineRunState,
     pub started_at: TimestampMicros,
     pub finished_at: Option<TimestampMicros>,
+    /// Events read from the sources.
     pub scanned_rows: i64,
+    /// Events that went everywhere they were meant to.
+    pub written_rows: i64,
+    /// Events a step or the dedupe dropped on purpose.
+    pub dropped_rows: i64,
+    /// Events that failed a step, were rejected by a stream or were not delivered.
+    pub failed_rows: i64,
+    /// 1 for a first attempt at what the run read; more when it retried a failed window.
+    pub attempt: i32,
+    /// Why the run failed.
     pub error: Option<String>,
+    /// What went wrong without failing the run.
+    pub warning: Option<String>,
+}
+
+/// How a run ended.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PipelineRunFinish {
+    pub state: PipelineRunState,
+    pub finished_at: TimestampMicros,
+    pub scanned_rows: i64,
+    pub written_rows: i64,
+    pub dropped_rows: i64,
+    pub failed_rows: i64,
+    pub attempt: i32,
+    pub error: Option<String>,
+    pub warning: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -61,15 +88,8 @@ pub struct PipelineRunSummary {
 pub trait PipelineRunRepository: Send + Sync {
     /// 调度入口 register；写入 `state = running` 的行。
     async fn record_start(&self, run: PipelineRun) -> Result<()>;
-    /// 调度退出时更新；只设 `state` / `finished_at` / `scanned_rows` / `error`。
-    async fn record_finish(
-        &self,
-        id: &Id,
-        state: PipelineRunState,
-        finished_at: TimestampMicros,
-        scanned_rows: i64,
-        error: Option<String>,
-    ) -> Result<()>;
+    /// 调度退出时更新终态、各项条数与错误。
+    async fn record_finish(&self, id: &Id, finish: PipelineRunFinish) -> Result<()>;
     /// HTTP list_runs。可选 `before_micros` 游标，按 `started_at_micros DESC` 排序。
     async fn list(
         &self,
@@ -92,8 +112,8 @@ impl PgPipelineRunRepository {
     }
 }
 
-const COLS: &str =
-    "id, pipeline_id, org_id, state, started_at_micros, finished_at_micros, scanned_rows, error";
+const COLS: &str = "id, pipeline_id, org_id, state, started_at_micros, finished_at_micros,
+                    scanned_rows, written_rows, dropped_rows, failed_rows, attempt, error, warning";
 
 fn row_to(r: sqlx::postgres::PgRow) -> PipelineRun {
     let state_str: String = r.try_get::<String, _>("state").unwrap_or_default();
@@ -110,7 +130,14 @@ fn row_to(r: sqlx::postgres::PgRow) -> PipelineRun {
             .unwrap_or_default()
             .map(TimestampMicros),
         scanned_rows: r.try_get::<i64, _>("scanned_rows").unwrap_or_default(),
+        written_rows: r.try_get::<i64, _>("written_rows").unwrap_or_default(),
+        dropped_rows: r.try_get::<i64, _>("dropped_rows").unwrap_or_default(),
+        failed_rows: r.try_get::<i64, _>("failed_rows").unwrap_or_default(),
+        attempt: r.try_get::<i32, _>("attempt").unwrap_or(1),
         error: r.try_get::<Option<String>, _>("error").unwrap_or_default(),
+        warning: r
+            .try_get::<Option<String>, _>("warning")
+            .unwrap_or_default(),
     }
 }
 
@@ -128,8 +155,9 @@ impl PipelineRunRepository for PgPipelineRunRepository {
     async fn record_start(&self, run: PipelineRun) -> Result<()> {
         sqlx::query(
             "INSERT INTO pipeline_runs
-                (id, pipeline_id, org_id, state, started_at_micros, finished_at_micros, scanned_rows, error)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+                (id, pipeline_id, org_id, state, started_at_micros, finished_at_micros,
+                 scanned_rows, written_rows, dropped_rows, failed_rows, attempt, error, warning)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)",
         )
         .bind(&run.id.0)
         .bind(&run.pipeline_id.0)
@@ -138,7 +166,12 @@ impl PipelineRunRepository for PgPipelineRunRepository {
         .bind(run.started_at.0)
         .bind(run.finished_at.map(|t| t.0))
         .bind(run.scanned_rows)
+        .bind(run.written_rows)
+        .bind(run.dropped_rows)
+        .bind(run.failed_rows)
+        .bind(run.attempt)
         .bind(run.error)
+        .bind(run.warning)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -146,24 +179,23 @@ impl PipelineRunRepository for PgPipelineRunRepository {
         Ok(())
     }
 
-    async fn record_finish(
-        &self,
-        id: &Id,
-        state: PipelineRunState,
-        finished_at: TimestampMicros,
-        scanned_rows: i64,
-        error: Option<String>,
-    ) -> Result<()> {
+    async fn record_finish(&self, id: &Id, finish: PipelineRunFinish) -> Result<()> {
         sqlx::query(
             "UPDATE pipeline_runs
-                SET state = $2, finished_at_micros = $3, scanned_rows = $4, error = $5
+                SET state = $2, finished_at_micros = $3, scanned_rows = $4, written_rows = $5,
+                    dropped_rows = $6, failed_rows = $7, attempt = $8, error = $9, warning = $10
              WHERE id = $1",
         )
         .bind(&id.0)
-        .bind(state.as_str())
-        .bind(finished_at.0)
-        .bind(scanned_rows)
-        .bind(error)
+        .bind(finish.state.as_str())
+        .bind(finish.finished_at.0)
+        .bind(finish.scanned_rows)
+        .bind(finish.written_rows)
+        .bind(finish.dropped_rows)
+        .bind(finish.failed_rows)
+        .bind(finish.attempt)
+        .bind(finish.error)
+        .bind(finish.warning)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;

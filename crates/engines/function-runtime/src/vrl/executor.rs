@@ -13,7 +13,7 @@ use dashmap::DashMap;
 
 use crate::{
     app::intake::FunctionExecutor,
-    domain::function::{Function, FunctionLanguage},
+    domain::function::{Function, FunctionLanguage, FunctionOutcome},
     infra::runtime::vrl::runtime::{CompiledProgram, VrlRuntime},
     shared::{Error, Result},
 };
@@ -56,11 +56,26 @@ impl Default for VrlFunctionExecutor {
 
 #[async_trait]
 impl FunctionExecutor for VrlFunctionExecutor {
-    async fn run(&self, function: &Function, event: &mut serde_json::Value) -> Result<()> {
+    async fn run(
+        &self,
+        function: &Function,
+        event: &mut serde_json::Value,
+    ) -> Result<FunctionOutcome> {
+        self.run_with_metadata(function, event, &serde_json::Map::new())
+            .await
+    }
+
+    async fn run_with_metadata(
+        &self,
+        function: &Function,
+        event: &mut serde_json::Value,
+        metadata: &serde_json::Map<String, serde_json::Value>,
+    ) -> Result<FunctionOutcome> {
         match function.language {
             FunctionLanguage::Vrl => {
                 let prog = self.compile_cached(function)?;
-                self.runtime.run(&prog, event)
+                self.runtime
+                    .run_with_metadata(&prog, event, metadata.clone())
             }
             FunctionLanguage::Js => Err(Error::invalid(
                 "javascript function routed to VRL executor (should go through the chained executor)",
@@ -116,6 +131,16 @@ mod tests {
         let mut ev = json!({"token": "t"});
         ex.run(&mk_fn(r#"del(.token)"#, 2), &mut ev).await.unwrap();
         assert!(ev.get("token").is_none());
+    }
+
+    #[tokio::test]
+    async fn an_abort_drops_the_event() {
+        let ex = VrlFunctionExecutor::new();
+        let f = mk_fn(r#"if .level == "debug" { abort }"#, 1);
+
+        let outcome = ex.run(&f, &mut json!({ "level": "debug" })).await.unwrap();
+
+        assert_eq!(outcome, FunctionOutcome::Dropped);
     }
 
     #[tokio::test]

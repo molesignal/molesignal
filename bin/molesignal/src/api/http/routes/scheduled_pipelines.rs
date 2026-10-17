@@ -5,7 +5,7 @@
 //!
 //! cron 字段限于 `every:Ns/m/h`；future 跑完整 cron 解析时不破坏字段。
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use axum::{
     Extension, Json, Router,
@@ -23,14 +23,12 @@ use crate::{
     app::iam::IamContext,
     domain::{
         iam::{permission, resource_permission},
+        pipeline::scheduled::ScheduledConfig,
         query::{QueryLanguage, QueryRequest, StreamHint},
     },
     infra::{
         persistence::repositories::pipelines::runs::{PipelineRun, PipelineRunSummary},
-        pipeline::{
-            ScheduledPipeline,
-            exec::{parse_signal_type, validate_pipeline_streams},
-        },
+        pipeline::{ScheduledPipeline, exec::parse_signal_type, scheduled::state::RunState},
     },
     shared::{
         Error, Result,
@@ -141,11 +139,38 @@ pub struct Resp {
     pub lookback_secs: i32,
     pub enabled: bool,
     pub last_run_at_micros: Option<i64>,
+    /// Per source, the time before which its events have been handled.
+    pub read_until_micros: BTreeMap<String, i64>,
+    /// The soonest planned retry of a window that failed.
+    pub retry: Option<RetryResp>,
     pub created_at_micros: i64,
     pub updated_at_micros: i64,
 }
 
+#[derive(Debug, Serialize)]
+pub struct RetryResp {
+    pub source: String,
+    /// The attempt the retry will be.
+    pub attempt: u32,
+    pub next_at_micros: i64,
+    pub error: String,
+}
+
 fn to_resp(p: ScheduledPipeline) -> Resp {
+    let state = RunState::from_value(&p.run_state);
+
+    let retry = state
+        .sources
+        .iter()
+        .filter_map(|(source, state)| Some((source, state.retry.as_ref()?)))
+        .min_by_key(|(_, retry)| retry.next_at)
+        .map(|(source, retry)| RetryResp {
+            source: source.clone(),
+            attempt: retry.failures + 1,
+            next_at_micros: retry.next_at,
+            error: retry.error.clone(),
+        });
+
     Resp {
         id: p.id.0,
         name: p.name,
@@ -156,6 +181,12 @@ fn to_resp(p: ScheduledPipeline) -> Resp {
         lookback_secs: p.lookback_secs,
         enabled: p.enabled,
         last_run_at_micros: p.last_run_at.map(|t| t.0),
+        read_until_micros: state
+            .sources
+            .iter()
+            .map(|(source, state)| (source.clone(), state.read_until))
+            .collect(),
+        retry,
         created_at_micros: p.created_at.0,
         updated_at_micros: p.updated_at.0,
     }
@@ -261,6 +292,7 @@ async fn create(
         cron: req.cron,
         lookback_secs: req.lookback_secs,
         last_run_at: None,
+        run_state: serde_json::json!({}),
         enabled: req.enabled,
         created_at: now,
         updated_at: now,
@@ -303,6 +335,7 @@ async fn update(
         cron: req.cron,
         lookback_secs: req.lookback_secs,
         last_run_at: existing.last_run_at,
+        run_state: existing.run_state,
         enabled: req.enabled,
         created_at: existing.created_at,
         updated_at: TimestampMicros::now(),
@@ -351,7 +384,12 @@ pub struct RunResp {
     pub started_at_micros: i64,
     pub finished_at_micros: Option<i64>,
     pub scanned_rows: i64,
+    pub written_rows: i64,
+    pub dropped_rows: i64,
+    pub failed_rows: i64,
+    pub attempt: i32,
     pub error: Option<String>,
+    pub warning: Option<String>,
 }
 
 fn to_run_resp(r: PipelineRun) -> RunResp {
@@ -362,7 +400,12 @@ fn to_run_resp(r: PipelineRun) -> RunResp {
         started_at_micros: r.started_at.0,
         finished_at_micros: r.finished_at.map(|t| t.0),
         scanned_rows: r.scanned_rows,
+        written_rows: r.written_rows,
+        dropped_rows: r.dropped_rows,
+        failed_rows: r.failed_rows,
+        attempt: r.attempt,
         error: r.error,
+        warning: r.warning,
     }
 }
 
@@ -397,11 +440,19 @@ pub struct BackfillReq {
 
 #[derive(Debug, Serialize)]
 pub struct BackfillResp {
+    /// One job per source the pipeline reads.
+    pub jobs: Vec<BackfillJob>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct BackfillJob {
+    pub source: String,
     pub job_id: String,
     pub monitor: String,
 }
 
-/// `POST /scheduled_pipelines/{id}/backfill` — 提交一次 backfill。复用 search-job 通道。
+/// `POST /scheduled_pipelines/{id}/backfill` — 提交一次 backfill。复用 search-job 通道，
+/// pipeline 读的每个源各一个任务。
 #[resource_permission(
     action = "pipelines.run",
     resource = ScheduledPipeline,
@@ -430,51 +481,57 @@ async fn submit_backfill(
         return Err(Error::invalid("backfill window must be <= 31 days"));
     }
 
-    let pipeline_id = pipeline.id.clone();
     let stream_type = parse_signal_type(&pipeline.function_steps);
 
-    validate_pipeline_streams(
+    let config = ScheduledConfig::parse(
+        &pipeline.function_steps,
         &pipeline.source_stream,
         &pipeline.target_stream,
-        stream_type,
     )?;
 
-    // 合成 QueryRequest 读源：复用 pipeline 的 source stream + 用户窗口，`SELECT *` 取原始行。
-    // request_json 里带上 `pipeline_id`，SearchJob worker 据此对结果跑 function_steps（VRL）
-    // → 写目标 stream → connector egress（见 bootstrap workers::pipeline_exec）。
-    let synth = QueryRequest {
-        org_id: pipeline.org_id.clone(),
-        language: QueryLanguage::Sql,
-        statement: format!("SELECT * FROM {}", pipeline.source_stream),
-        time_range: TimeRange::new(
-            TimestampMicros(req.start_micros),
-            TimestampMicros(req.end_micros),
-        ),
-        stream: Some(StreamHint {
-            name: pipeline.source_stream.clone(),
-            stream_type,
-        }),
-        limit: None,
-        federation_clusters: Vec::new(),
-    };
+    let mut jobs = Vec::with_capacity(config.sources.len());
 
-    let job = state
-        .search_jobs
-        .submit_backfill(
-            pipeline.org_id.clone(),
-            ctx.user_id.clone(),
-            ctx.organization_role_key().to_string(),
-            synth,
-            pipeline_id,
-            window,
-            None,
-        )
-        .await?;
+    // 合成 QueryRequest 读源：每个源 + 用户窗口，`SELECT *` 取原始行。request_json 里带上
+    // `pipeline_id`，SearchJob worker 据此对结果跑处理步骤 → 写目标 stream → connector egress →
+    // 死信（见 bootstrap workers::pipeline_exec）。
+    for source in config.sources {
+        let synth = QueryRequest {
+            org_id: pipeline.org_id.clone(),
+            language: QueryLanguage::Sql,
+            statement: format!("SELECT * FROM {source}"),
+            time_range: TimeRange::new(
+                TimestampMicros(req.start_micros),
+                TimestampMicros(req.end_micros),
+            ),
+            stream: Some(StreamHint {
+                name: source.clone(),
+                stream_type,
+            }),
+            limit: None,
+            federation_clusters: Vec::new(),
+        };
 
-    let body = BackfillResp {
-        job_id: job.id.0.clone(),
-        monitor: format!("/api/v1/query/jobs/{}", job.id.0),
-    };
+        let job = state
+            .search_jobs
+            .submit_backfill(
+                pipeline.org_id.clone(),
+                ctx.user_id.clone(),
+                ctx.organization_role_key().to_string(),
+                synth,
+                pipeline.id.clone(),
+                window,
+                None,
+            )
+            .await?;
+
+        jobs.push(BackfillJob {
+            source,
+            monitor: format!("/api/v1/query/jobs/{}", job.id.0),
+            job_id: job.id.0,
+        });
+    }
+
+    let body = BackfillResp { jobs };
 
     let resp = Response::builder()
         .status(202)

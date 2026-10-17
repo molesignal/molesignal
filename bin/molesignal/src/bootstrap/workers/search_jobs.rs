@@ -29,19 +29,19 @@ use tokio::task::{JoinHandle, JoinSet};
 use tracing::Instrument;
 
 use super::{
-    pipeline_exec::{rows_to_objects, transform_and_sink},
+    pipeline_exec::{PipelineOutput, PipelineSpec, SourceRows, rows_to_objects},
     polling::PollingBackoff,
 };
 use crate::{
     app::{intake::IntakeService, query::QueryService},
-    domain::query::{QueryRequest, QueryResult},
+    domain::{
+        pipeline::scheduled::ScheduledConfig,
+        query::{QueryRequest, QueryResult},
+    },
     infra::{
         connectors::{ConnectorDispatcher, ConnectorRepository},
         persistence::repositories::search::jobs::{SearchJob, SearchJobRepository},
-        pipeline::{
-            ScheduledPipelineRepository,
-            exec::{parse_signal_type, validate_pipeline_streams},
-        },
+        pipeline::{ScheduledPipelineRepository, exec::parse_signal_type},
         runtime::VrlRuntime,
         storage::layout::StorageLayout,
     },
@@ -73,11 +73,9 @@ pub struct SearchJobScheduler {
     query: Arc<QueryService>,
     object_store: Arc<dyn ObjectStore>,
     /// backfill 任务（request_json 带 `pipeline_id`）执行编排需要的依赖：取 pipeline 定义、
-    /// 写目标 stream、egress connector。
+    /// 写目标 stream、egress connector、死信。
     scheduled_pipelines: Arc<dyn ScheduledPipelineRepository>,
-    intake: Arc<IntakeService>,
-    connectors: Arc<dyn ConnectorRepository>,
-    dispatcher: Arc<dyn ConnectorDispatcher>,
+    output: PipelineOutput,
     cfg: SearchJobSchedulerConfig,
 }
 
@@ -98,9 +96,7 @@ impl SearchJobScheduler {
             query,
             object_store,
             scheduled_pipelines,
-            intake,
-            connectors,
-            dispatcher,
+            output: PipelineOutput::new(intake, connectors, dispatcher),
             cfg,
         }
     }
@@ -209,8 +205,10 @@ impl SearchJobScheduler {
         };
 
         // backfill 任务（submit_backfill 提交）在 request_json 里带 `pipeline_id`：读源后
-        // 还要跑「VRL 变换 → 写目标 stream → connector egress」，而非仅把结果落 NDJSON。
+        // 还要跑「处理 → 写目标 stream → connector egress → 死信」，而非仅把结果落 NDJSON。
+        // 一个任务读 pipeline 的一个源，就是请求里的那个 stream。
         let pipeline_id = job.pipeline_id().map(str::to_string);
+        let source = req.stream.as_ref().map(|stream| stream.name.clone());
 
         let query_result = self
             .query
@@ -242,7 +240,7 @@ impl SearchJobScheduler {
         };
 
         match pipeline_id {
-            Some(pid) => self.run_backfill(&job, &pid, result).await,
+            Some(pid) => self.run_backfill(&job, &pid, source, result).await,
             None => self.store_result(&job, &result).await,
         }
     }
@@ -283,12 +281,15 @@ impl SearchJobScheduler {
         Ok(())
     }
 
-    /// backfill 端到端：读源结果 → pipeline 的 VRL 步骤链 → 写目标 stream（标准 intake）→
-    /// egress。变换后的产出同样落 NDJSON 供 monitor 拉取；`mark_done` 记写入目标的行数。
+    /// backfill 端到端：读源结果 → pipeline 的处理步骤 → 写目标 stream（标准 intake）→
+    /// egress → 死信。变换后的产出同样落 NDJSON 供 monitor 拉取；`mark_done` 记写出的行数。
+    /// 回填不碰读取位点：它读的是用户给的窗口。写某个目标流失败、或某个目标流把事件全部拒收
+    /// 而没有死信 stream 留住它们时，任务失败。
     async fn run_backfill(
         &self,
         job: &SearchJob,
         pipeline_id: &str,
+        source: Option<String>,
         result: QueryResult,
     ) -> Result<()> {
         let pipeline = match self
@@ -297,90 +298,82 @@ impl SearchJobScheduler {
             .await
         {
             Ok(p) => p,
-            Err(e) => {
-                self.repo
-                    .mark_failed(
-                        &job.org_id,
-                        &job.id,
-                        job.attempt,
-                        &format!("load pipeline: {e}"),
-                        TimestampMicros::now(),
-                    )
-                    .await?;
-
-                return Ok(());
-            }
+            Err(e) => return self.fail(job, &format!("load pipeline: {e}")).await,
         };
 
-        let stream_type = parse_signal_type(&pipeline.function_steps);
-
-        if let Err(error) = validate_pipeline_streams(
+        let config = match ScheduledConfig::parse(
+            &pipeline.function_steps,
             &pipeline.source_stream,
             &pipeline.target_stream,
-            stream_type,
         ) {
-            self.repo
-                .mark_failed(
-                    &job.org_id,
-                    &job.id,
-                    job.attempt,
-                    &error.to_string(),
-                    TimestampMicros::now(),
-                )
-                .await?;
+            Ok(config) => config,
+            Err(e) => return self.fail(job, &e.to_string()).await,
+        };
 
-            return Ok(());
-        }
+        let spec = PipelineSpec {
+            org_id: &job.org_id,
+            name: &pipeline.name,
+            stream_type: parse_signal_type(&pipeline.function_steps),
+            function_steps: &pipeline.function_steps,
+            config: &config,
+        };
 
-        let source_rows = rows_to_objects(&result);
-        let vrl = VrlRuntime::new();
+        let input = SourceRows {
+            source: source.unwrap_or_else(|| pipeline.source_stream.clone()),
+            rows: rows_to_objects(&result),
+            done: Default::default(),
+        };
 
-        let outcome = match transform_and_sink(
-            &vrl,
-            self.intake.as_ref(),
-            self.connectors.as_ref(),
-            self.dispatcher.as_ref(),
-            &job.org_id,
-            &pipeline.target_stream,
-            stream_type,
-            &pipeline.function_steps,
-            source_rows,
-        )
-        .await
+        let outcome = match self
+            .output
+            .run(&VrlRuntime::new(), &spec, vec![input])
+            .await
         {
-            Ok(o) => o,
-            Err(e) => {
-                self.repo
-                    .mark_failed(
-                        &job.org_id,
-                        &job.id,
-                        job.attempt,
-                        &e.to_string(),
-                        TimestampMicros::now(),
-                    )
-                    .await?;
-
-                return Ok(());
-            }
+            Ok(outcome) => outcome,
+            Err(e) => return self.fail(job, &e.to_string()).await,
         };
 
         if !outcome.errors.is_empty() {
             tracing::warn!(
                 job_id = %job.id.0,
                 pipeline_id,
-                scanned = outcome.scanned,
-                written = outcome.written,
+                scanned = outcome.counts.scanned,
+                written = outcome.counts.written,
                 errors = ?outcome.errors,
                 "backfill completed with non-fatal errors"
             );
         }
 
+        let write_failure = outcome
+            .sources
+            .iter()
+            .find_map(|source| source.failure.as_ref())
+            .map(|failure| failure.message.clone());
+
+        if let Some(error) = write_failure.or(outcome.failure) {
+            return self.fail(job, &error).await;
+        }
+
         self.commit_result(
             job,
             encode_objects_ndjson(&outcome.transformed),
-            outcome.written as i64,
+            outcome.counts.written,
         )
         .await
+    }
+
+    async fn fail(&self, job: &SearchJob, error: &str) -> Result<()> {
+        self.repo
+            .mark_failed(
+                &job.org_id,
+                &job.id,
+                job.attempt,
+                error,
+                TimestampMicros::now(),
+            )
+            .await?;
+
+        Ok(())
     }
 
     async fn run_cleanup(self: Arc<Self>) {

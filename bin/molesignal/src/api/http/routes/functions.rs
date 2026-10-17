@@ -18,7 +18,7 @@ use crate::{
     },
     app::iam::IamContext,
     domain::{
-        function::{Function, FunctionLanguage},
+        function::{Function, FunctionLanguage, FunctionOutcome},
         i18n_language::LanguagePack,
         iam::{permission, resource_permission},
     },
@@ -111,11 +111,17 @@ pub struct RunReq {
     pub language: FunctionLanguage,
     pub source: String,
     pub input: Value,
+    /// What the function reads beside the event (VRL `%name`), such as the stream a pipeline read
+    /// the event from.
+    #[serde(default)]
+    pub metadata: serde_json::Map<String, Value>,
 }
 
 #[derive(Debug, Serialize)]
 pub struct RunResp {
     pub output: Value,
+    /// The function dropped the event on purpose (VRL `abort`): it would go no further.
+    pub dropped: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -329,13 +335,16 @@ async fn run(
 
     let mut output = req.input;
 
-    state
+    let outcome = state
         .storage
         .function_executor
-        .run(&function, &mut output)
+        .run_with_metadata(&function, &mut output, &req.metadata)
         .await?;
 
-    Ok(Json(RunResp { output }))
+    Ok(Json(RunResp {
+        output,
+        dropped: outcome == FunctionOutcome::Dropped,
+    }))
 }
 
 #[cfg(test)]

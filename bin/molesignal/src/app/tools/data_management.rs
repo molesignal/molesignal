@@ -11,7 +11,7 @@ use super::{
 };
 use crate::{
     app::iam::IamContext,
-    domain::function::{Function, FunctionLanguage},
+    domain::function::{Function, FunctionLanguage, FunctionOutcome},
     infra::persistence::repositories::functions::precheck_compile,
     shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
@@ -219,13 +219,16 @@ async fn test_function(
 
     let mut output = args.input;
 
-    runtime
+    let outcome = runtime
         .data
         .function_executor
         .run(&function, &mut output)
         .await?;
 
-    Ok(ToolResult::json(json!({"output": output})))
+    Ok(ToolResult::json(json!({
+        "output": output,
+        "dropped": outcome == FunctionOutcome::Dropped,
+    })))
 }
 
 async fn list_enrichment_tables(

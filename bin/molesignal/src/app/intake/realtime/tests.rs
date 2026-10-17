@@ -283,3 +283,45 @@ async fn builtin_uses_values_at_its_position_and_keeps_original_copy() {
     let original = writes.iter().find(|(b, _)| b.stream == "default").unwrap();
     assert!(!original.0.events[0].fields.contains_key("appname"));
 }
+
+#[tokio::test]
+async fn an_aborted_event_is_accepted_but_not_routed_and_the_source_copy_stays() {
+    let sink = Arc::new(Sink::default());
+    let mut p = pipeline(false);
+    p.steps[0].script = "if .level == \"debug\" { abort }\n.processed = true".into();
+    let svc = service(p, sink.clone());
+
+    let result = svc
+        .intake(batch(vec![
+            json!({"appname":"orders","level":"debug"}),
+            json!({"appname":"orders","level":"info"}),
+        ]))
+        .await
+        .unwrap();
+
+    // Dropping on purpose is not a rejection.
+    assert_eq!((result.accepted, result.rejected), (2, 0));
+    {
+        let writes = sink.writes.lock();
+        assert_eq!(writes.len(), 1);
+        assert_eq!(writes[0].0.stream, "orders");
+        assert_eq!(writes[0].0.events.len(), 1);
+        assert_eq!(writes[0].0.events[0].fields["level"], "info");
+    }
+
+    // Retaining the source keeps the event as it arrived, dropped or not.
+    let sink = Arc::new(Sink::default());
+    let mut p = pipeline(true);
+    p.steps[0].script = "abort".into();
+
+    let result = service(p, sink.clone())
+        .intake(batch(vec![json!({"appname":"orders"})]))
+        .await
+        .unwrap();
+
+    assert_eq!((result.accepted, result.rejected), (1, 0));
+    let writes = sink.writes.lock();
+    assert_eq!(writes.len(), 1);
+    assert_eq!(writes[0].0.stream, "default");
+    assert!(!writes[0].0.events[0].fields.contains_key("processed"));
+}
